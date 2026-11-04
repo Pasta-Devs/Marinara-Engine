@@ -2,7 +2,17 @@
 
 Ein **Kreaturenpaket** enthält Grafiken für die Kreaturen, gegen die in Game Mode gekämpft wird. Ist ein Paket ausgewählt, wird ein Gegner, für den es eine Grafik hat, auf dem Schlachtfeld mit dieser Grafik statt als runde Spielmarke gezeichnet. Die Grafik blickt in die Richtung, in die sich der Gegner zuletzt bewegt hat, und erscheint in der eigenen Größe der Kreatur. Ein Gegner, für den das Paket keine Grafik hat, behält seine Spielmarke. Wie das im Spiel aussieht, zeigt [Taktische Kämpfe und Gelände](../game/combat.md#tactical-battles-and-terrain).
 
-Ein Paket ist eine einzelne JSON-Datei (`.creatures.json`). Am einfachsten erstellst du eines im Tab **Creatures** (Kreaturen) von Pixelforge, der die Datei aus einem Bild pro Kreatur baut. Diese Seite beschreibt die Datei selbst – für alle, die Pakete auf anderem Weg bauen.
+Ein Paket ist eine einzelne JSON-Datei (`.creatures.json`). Am einfachsten erstellst du eines im Tab **Creatures** (Kreaturen) von Pixelforge, einem externen Werkzeug, das die Datei aus einem Bild pro Kreatur baut. Diese Anleitung beschreibt die Datei selbst – für alle, die Pakete auf anderem Weg bauen.
+
+## Ein Paket verwenden
+
+Bevor du anfängst: Erstelle eine `.creatures.json`-Datei oder lade eine herunter. Pixelforge ist eine eigene App zum Erstellen von Inhalten und kein Teil von Marinara.
+
+1. Öffne in Pixelforge den Tab **Creatures**.
+2. Um eine Datei zu laden, wähle **Import a creature pack file** (Kreaturenpaket-Datei importieren). Für ein Paket, das du in Pixelforge erstellt hast, wähle **Save to the library** (in der Bibliothek speichern).
+3. Wähle **Use for fights** (für Kämpfe verwenden).
+
+Ein einziges Paket zeichnet alle Kämpfe. Um zu den Spielmarken zurückzukehren, entferne das gewählte Paket oder wähle **Use tokens instead** (stattdessen Spielmarken verwenden).
 
 ## Die Datei
 
@@ -41,6 +51,7 @@ Ein Paket ist eine einzelne JSON-Datei (`.creatures.json`). Am einfachsten erste
 | `tileSize` | Die Größe einer Zelle in Pixeln, ein Vielfaches von 16 von 16 bis 96. Das Raster von Game Mode hat 48 Pixel pro Zelle. |
 | `sheets` | Bis zu 64 Bilder (Sprite-Sheets), jedes höchstens 8.192 Pixel pro Seite. |
 | `creatures` | Bis zu 2.000 Kreaturen. |
+| Dateigröße | Höchstens 32 MB. |
 
 ## Sprite-Sheets
 
@@ -55,12 +66,21 @@ Das Feld `png` eines Sprite-Sheets muss eine PNG-**Daten-URL** sein: `data:image
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` oder `gargantuan`. Das betrifft nur das Aussehen; jede Einheit belegt weiterhin genau ein Feld. |
 | `w`, `h` | Die Größe eines Einzelbilds in Zellen, jeweils 1 bis 6. |
 | `frames` | `1` für eine stillstehende Kreatur, `3` für eine laufende (Schritt, Stand, Schritt). |
-| `variants` | Ihre **Looks**, 1 bis 8. Jeder gibt an, wo sein Block auf einem Sheet beginnt: `sheet` und die obere linke Zelle `x`, `y`. |
-| `fly` | Optional, braucht `creaturePackVersion` 2: die **Flugblöcke**, angeordnet wie ein Laufblock (drei Einzelbilder nebeneinander, die vier Blickrichtungen untereinander), platziert wie `variants`. Einer für alle Looks oder einer pro Look in derselben Reihenfolge. |
+| `variants` | Ihre Looks, 1 bis 8. Jeder gibt an, wo sein Block auf einem Sheet beginnt: `sheet` und die obere linke Zelle `x`, `y`. |
+| `fly` | Optional, braucht `creaturePackVersion` 2: ihre Flugblöcke, angeordnet wie ein Laufblock (drei Einzelbilder nebeneinander, die vier Blickrichtungen untereinander), platziert wie `variants`. Einer für alle Looks oder einer pro Look in derselben Reihenfolge. |
 
 ### Fliegen
 
-Eine Kreatur mit `fly` wird aus ihrem Flugblock mit der Einzelbildfolge 0, 1, 2, 1 gezeichnet, solange sie im Kampf in der Luft dargestellt wird: Sie hat eine Fluggeschwindigkeit und keine Gehgeschwindigkeit, sie schwebt, sie befindet sich über dem Boden oder sie ist in diesem Zug geflogen (ein Schritt, den nur ihr Flug ermöglicht, etwa über Wasser). Andernfalls wird sie wie bisher aus ihrem Look gezeichnet. Ein Experience-Kartenpaket, dessen Kreaturenpakete Fluggrafiken haben, braucht Capability API 1.352.
+Eine Kreatur mit `fly` wird aus ihrem Flugblock mit der Einzelbildfolge 0, 1, 2, 1 gezeichnet, solange sie im Kampf in der Luft dargestellt wird. Das ist der Fall, wenn eines davon auf sie zutrifft:
+
+- eine Fluggeschwindigkeit und keine Gehgeschwindigkeit
+- Schweben
+- eine Position über dem Boden
+- ein Flug in diesem Zug (ein Schritt, den nur ihr Flug ermöglicht, etwa über Wasser)
+
+Andernfalls wird sie wie bisher aus ihrem Look gezeichnet.
+
+Ein Experience-Kartenpaket, dessen Kreaturenpakete Fluggrafiken haben, braucht Capability API 1.352.
 
 ### Was `match` benennt
 
@@ -90,14 +110,10 @@ Jeder Look ist ein **Block** auf seinem Sheet. Ein Block ist `frames` Einzelbild
 3. nach rechts
 4. nach oben (von hinten gesehen)
 
-Eine stillstehende Kreatur (`frames: 1`) ist eine einzige Spalte mit den vier Blickrichtungen. Eine laufende (`frames: 3`) hat in jeder Zeile Schritt, Stand und Schritt nebeneinander, so wie ein laufender Charakter im RPG Maker. Jeder Block muss vollständig innerhalb seines Sheets liegen; die Engine nennt jeden Block, der über den Rand hinausreicht.
+Eine stillstehende Kreatur (`frames: 1`) ist eine einzige Spalte mit den vier Blickrichtungen. Eine laufende (`frames: 3`) hat in jeder Zeile Schritt, Stand und Schritt nebeneinander, wie in einem typischen Sprite-Sheet für Laufanimationen. Jeder Block muss vollständig innerhalb seines Sheets liegen; die Engine nennt jeden Block, der über den Rand hinausreicht.
 
 ### Looks
 
 Eine Kreatur mit mehreren Looks (andere Kleidung, Farben oder Waffen) gibt jedem ihrer Kämpfer einen davon. Ein Kämpfer behält bei jedem Zeichnen denselben Look, und zwei Goblins im selben Kampf können verschieden aussehen. Alle Looks einer Kreatur haben dieselbe Größe.
 
 Im Tab **Creatures** von Pixelforge fügt **Add looks** (Looks hinzufügen) neben einer Kreatur weitere Bilder in der Größe ihres ersten hinzu, bis zu acht insgesamt.
-
-## Ein Paket verwenden
-
-Wähle im Tab **Creatures** von Pixelforge **Import a creature pack file** (Kreaturenpaket-Datei importieren) – oder **Save to the library** (in der Bibliothek speichern) für ein dort erstelltes Paket – und danach **Use for fights** (für Kämpfe verwenden). Ein einziges Paket zeichnet alle Kämpfe. Wenn du das gewählte Paket entfernst oder **Use tokens instead** (stattdessen Spielmarken verwenden) wählst, werden wieder Spielmarken angezeigt.

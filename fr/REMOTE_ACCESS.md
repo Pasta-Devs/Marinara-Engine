@@ -1,12 +1,30 @@
 # Accès à distance : connexion et liste d'autorisation d'IP
 
-Ce guide explique comment ouvrir Marinara Engine depuis un autre appareil : un téléphone, un ordinateur portable ou un conteneur Docker. Il couvre l'option principale, une connexion. Il couvre aussi la liste d'autorisation d'IP, les proxys de connexion, le HTTPS, la section **Admin Access** (accès administrateur) et le message CSRF « save blocked ». Presque tous les réglages décrits ici se trouvent dans le fichier `.env` du serveur, pas dans l'application.
+Ce guide explique comment ouvrir Marinara Engine depuis un autre appareil : un téléphone, un ordinateur portable ou un conteneur Docker. Il couvre l'option principale, une connexion. Il couvre aussi la liste d'autorisation d'IP, les proxys de connexion, le HTTPS, la section **Admin Access** (accès administrateur) et le message CSRF "save blocked". Presque tous les réglages décrits ici se trouvent dans le fichier `.env` du serveur, pas dans l'application.
 
 Un petit lexique utilisé tout au long de ce guide :
 
 - Le fichier `.env` : un fichier de réglages en texte brut, placé dans le dossier de Marinara Engine, à côté du fichier `package.json`.
 - Loopback : la machine qui exécute réellement le serveur. Son adresse est `127.0.0.1` ou `localhost`.
 - L'accès à distance : ouvrir Marinara depuis n'importe quel appareil AUTRE que la machine qui exécute le serveur.
+
+<a id="connect-from-anywhere-with-tailscale"></a>
+
+## Se connecter de n'importe où avec Tailscale
+
+[Tailscale](https://tailscale.com) est un réseau privé pour tes propres appareils. Utilise-le pour ouvrir Marinara sur ton téléphone ou ton ordinateur portable, chez toi ou en déplacement, sans ouvrir de ports sur ton routeur ni mettre Marinara sur l'Internet public. Marinara fait confiance aux appareils qui se connectent directement via Tailscale : tu n'as donc pas besoin de définir de connexion.
+
+1. Installe Tailscale sur l'ordinateur qui exécute Marinara et sur ton autre appareil. Télécharge-le sur [tailscale.com/download](https://tailscale.com/download).
+2. Connecte-toi à Tailscale avec le même compte sur les deux appareils.
+3. Démarre Marinara avec `start.sh`, `start.bat`, `start-termux.sh` ou l'installateur Windows. Ces méthodes de lancement laissent les autres appareils se connecter. Si tu lances plutôt `pnpm start`, ajoute d'abord `HOST=0.0.0.0` à ton fichier `.env` (voir [Où se trouve le fichier .env](#where-the-env-file-lives)).
+4. Trouve l'adresse Tailscale de l'ordinateur qui exécute Marinara. Ouvre l'application Tailscale sur cet ordinateur, ou lance `tailscale ip -4`. L'adresse commence par `100.`, par exemple `100.101.102.103`.
+5. Sur ton autre appareil, active Tailscale et ouvre `http://100.101.102.103:7860` dans un navigateur. Utilise ta propre adresse, et ton `PORT` si tu l'as changé. Marinara s'ouvre sans page de connexion.
+
+Si la page ne se charge pas, vérifie que Tailscale est activé sur les deux appareils et que le serveur écoute sur `HOST=0.0.0.0`.
+
+> **Remarque :** cela ne fonctionne pas pour les installations Docker. Le trafic Tailscale atteint le conteneur par la passerelle Docker : Marinara ne peut donc pas voir qu'il vient de Tailscale. Définis d'abord une connexion ([option 1](#option-1-login-recommended)), puis publie le port au-delà de `127.0.0.1`.
+
+Les sauvegardes, les imports, les mises à jour et les autres actions risquées exigent toujours le secret d'administration depuis un appareil distant. Voir [Admin Access et actions privilégiées](#admin-access-and-privileged-actions).
 
 ## Ce que Marinara bloque par défaut
 
@@ -20,6 +38,8 @@ Tout le reste est bloqué tant que tu n'as pas défini de connexion : ton télé
 
 Si tu ne fais rien et ne définis jamais de mot de passe, Marinara reste verrouillé sur ces trois sources fiables. C'est le comportement par défaut, et il est sûr.
 
+<a id="where-the-env-file-lives"></a>
+
 ## Où se trouve le fichier .env
 
 Tous les réglages d'accès se trouvent dans le fichier `.env`, à la racine du projet, à côté du fichier `package.json`. Si tu n'en as pas encore, copie l'exemple :
@@ -28,7 +48,7 @@ Tous les réglages d'accès se trouvent dans le fichier `.env`, à la racine du 
 cp .env.example .env
 ```
 
-Ouvre le fichier `.env` avec n'importe quel éditeur de texte. La plupart des réglages d'accès prennent effet en une poignée de secondes, sans redémarrage : Basic Auth, la liste d'autorisation d'IP, le secret administrateur et les origines CSRF. Quelques réglages de bas niveau demandent encore un redémarrage, dont la variable `PORT`, la variable `HOST` et les chemins des certificats HTTPS.
+Ouvre le fichier `.env` avec n'importe quel éditeur de texte. La plupart des réglages d'accès prennent effet en une poignée de secondes, sans redémarrage : Basic Auth, la liste d'autorisation d'IP, le secret d'administration et les origines CSRF. Quelques réglages de bas niveau demandent encore un redémarrage, dont la variable `PORT`, la variable `HOST` et les chemins des certificats HTTPS.
 
 Il arrive que les autres appareils n'atteignent pas du tout le serveur : la connexion expire au lieu de renvoyer une erreur 403. Dans ce cas, le serveur n'écoute sans doute que sur la machine locale. Demande-lui d'écouter sur toutes les interfaces réseau :
 
@@ -64,7 +84,7 @@ Une connexion est le choix le plus souple. Elle fonctionne depuis n'importe quel
 
 Une connexion est un nom d'utilisateur et un mot de passe que chaque appareil distant doit fournir. Tu peux la définir de trois façons :
 
-- **Dans les Paramètres.** Dans un navigateur déjà connecté, ou sur l'ordinateur qui fait tourner Marinara (ouvre `http://localhost:7860`), va dans **Paramètres → Avancé → Accès**. Définis un nom d'utilisateur et un mot de passe sous **Remote login** (connexion distante). Tant qu'aucune connexion n'existe, un appareil que Marinara refuse, comme le navigateur d'un hôte Docker, peut saisir le code de configuration du log du serveur au même endroit.
+- **Dans les réglages.** Dans un navigateur déjà connecté, ou sur l'ordinateur qui fait tourner Marinara (ouvre `http://localhost:7860`), va dans **Settings → Advanced → Access** (Paramètres → Avancé → Accès). Définis un nom d'utilisateur et un mot de passe sous **Remote login** (connexion distante). Tant qu'aucune connexion n'existe, un appareil que Marinara refuse, comme le navigateur d'un hôte Docker, peut saisir le code de configuration du log du serveur au même endroit.
 - **Avec le code de configuration, depuis n'importe quel appareil.** Tant qu'aucune connexion n'est définie et que le serveur écoute au-delà du loopback, il affiche dans son log un code de configuration à usage unique. La ligne du log commence par `[login] One-time setup code:`. Trouve-la dans le terminal qui fait tourner Marinara. Dans Docker, lance `docker logs <container> 2>&1 | grep "setup code"`. L'avertissement de refus dans le log répète le code tant qu'aucune connexion n'existe. Ouvre ensuite Marinara sur n'importe quel appareil. La page qui bloque l'appareil contient un formulaire pour le code de configuration, un nom d'utilisateur et un mot de passe. Le code ressemble à `XXXX-XXXX-XXXX-XXXX`. Les majuscules, les espaces et les tirets n'ont pas d'importance. Chaque code ne fonctionne qu'une fois ; un redémarrage ou une réinitialisation en affiche un nouveau. Dans Docker, la page indique aussi comment définir la connexion dans le fichier `.env` du dossier de données (`/app/data/.env`) ou dans la liste `environment:` de ton fichier compose (puis lance `docker compose up -d`). Utilise cette méthode pour les installations Docker et NAS sans navigateur sur l'hôte. Marinara affiche une bannière sur la connexion manquante aux visiteurs locaux et aux sessions connectées, sous forme de carte en bas de l'écran.
 - **Dans `.env`.** Ajoute deux lignes :
 
@@ -87,11 +107,11 @@ Ensuite, procède ainsi depuis l'appareil distant.
 2. Connecte-toi sur la page de connexion avec ton nom d'utilisateur et ton mot de passe.
 3. L'application doit se charger. Le navigateur reste connecté jusqu'à un an, jusqu'à ce que tu te déconnectes. Les scripts et les clients d'API envoient le nom d'utilisateur et le mot de passe à chaque requête (Basic Auth).
 
-Pour connecter un autre appareil sans retaper le mot de passe, utilise un code d'appairage. Sur un appareil déjà connecté, ouvre **Paramètres → Avancé → Accès** et choisis **Add a device** (ajouter un appareil). Saisis ensuite le code sur la page de connexion du nouvel appareil. Le code ne fonctionne qu'une fois, pendant quelques minutes. Un code expiré reçoit son propre message ; il faut en créer un nouveau. Sous **Signed-in devices** (appareils connectés), tu vois chaque appareil avec sa méthode de connexion et la date de sa première connexion. Tu peux déconnecter n'importe quel appareil, y compris celui que tu utilises. Tu peux aussi modifier ou supprimer le mot de passe. Pour cela, Marinara demande le mot de passe actuel, sauf si tu travailles sur l'ordinateur qui fait tourner Marinara ou si `ADMIN_SECRET` est défini.
+Pour connecter un autre appareil sans retaper le mot de passe, utilise un code d'appairage. Sur un appareil déjà connecté, ouvre **Settings → Advanced → Access** et choisis **Add a device** (ajouter un appareil). Saisis ensuite le code sur la page de connexion du nouvel appareil. Le code ne fonctionne qu'une fois, pendant quelques minutes. Un code expiré reçoit son propre message ; il faut en créer un nouveau. Sous **Signed-in devices** (appareils connectés), tu vois chaque appareil avec sa méthode de connexion et la date de sa première connexion. Tu peux déconnecter n'importe quel appareil, y compris celui que tu utilises. Tu peux aussi modifier ou supprimer le mot de passe. Pour cela, Marinara demande le mot de passe actuel, sauf si tu travailles sur l'ordinateur qui fait tourner Marinara ou si `ADMIN_SECRET` est défini.
 
-Si tu oublies le mot de passe, lance `pnpm reset-login` sur l'ordinateur qui fait tourner Marinara. Dans Docker, lance `docker exec <container> node scripts/reset-login.mjs`. Cette commande supprime la connexion définie dans l'application et déconnecte chaque navigateur. Si le serveur écoute au-delà du loopback, elle affiche ensuite un nouveau code de configuration. Seulement si cette commande ne fonctionne pas, supprime plutôt `.remote-login.json` et `.remote-sessions.json` du dossier de données. Avec le `/app/data` par défaut, lance `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json` ; si tu as changé `DATA_DIR`, utilise ce dossier. Une connexion dans `.env` se modifie dans `.env`.
+Si tu oublies le mot de passe, lance `node scripts/reset-login.mjs` dans le dossier de Marinara, sur l'ordinateur qui fait tourner Marinara. Dans Docker, lance `docker exec <container> node scripts/reset-login.mjs`. Cette commande supprime la connexion définie dans l'application et déconnecte chaque navigateur. Si le serveur écoute au-delà du loopback, elle affiche ensuite un nouveau code de configuration. Seulement si cette commande ne fonctionne pas, supprime plutôt `.remote-login.json` et `.remote-sessions.json` du dossier de données. Avec le `/app/data` par défaut, lance `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json` ; si tu as changé `DATA_DIR`, utilise ce dossier. Une connexion dans `.env` se modifie dans `.env`.
 
-**Serveur sans interface et sans navigateur ?** Une installation native sur un serveur sans interface écoute uniquement sur le loopback et n'affiche aucun code de configuration. Sur ton propre ordinateur, lance `ssh -L 7860:127.0.0.1:7860 user@server`. Ouvre ensuite `http://localhost:7860` et utilise **Paramètres**.
+**Serveur sans interface et sans navigateur ?** Une installation native sur un serveur sans interface écoute uniquement sur le loopback et n'affiche aucun code de configuration. Sur ton propre ordinateur, lance `ssh -L 7860:127.0.0.1:7860 user@server`. Ouvre ensuite `http://localhost:7860` et utilise **Settings**.
 
 Après 10 mots de passe ou codes erronés différents en 15 minutes, Marinara refuse les tentatives de connexion depuis cette adresse avec **429 Too Many Requests**, jusqu'à la fin de ces 15 minutes. Un mot de passe correct saisi avant remet le compteur à zéro. Les visiteurs transmis par un reverse proxy ou un tunnel sur l'hôte partagent un seul compteur, et la connexion de l'un d'eux ne le remet pas à zéro. Redémarrer le serveur le remet aussi à zéro. Un navigateur déjà connecté entre toujours avec le bon mot de passe : les mots de passe erronés d'autres personnes ne peuvent donc pas te bloquer l'accès depuis un appareil que tu utilises déjà. La page de connexion indique combien de minutes attendre. Si tu oublies le mot de passe, la page de connexion affiche un indice **Forgot the password?**.
 
@@ -102,7 +122,7 @@ Certains clients passent outre le mot de passe, même quand Basic Auth est activ
 - Loopback (`127.0.0.1`, `::1`) : tu n'as donc jamais besoin de mot de passe sur la machine hôte elle-même. Les visiteurs transmis par un reverse proxy ou un tunnel sur cette machine en ont toujours besoin.
 - Toute adresse présente dans `IP_ALLOWLIST`. Attention : définir une liste d'autorisation bloque aussi toutes les adresses absentes de cette liste (voir l'option 2).
 - Le trafic Tailscale direct (`100.64.0.0/10`), sauf si tu désactives son contournement.
-- Le trafic Docker de pont ou de passerelle, uniquement tant qu'aucune connexion, liste d'autorisation ni `TRUSTED_AUTH_PROXY` valide n'est définie (voir [Contournement Tailscale et Docker](#tailscale-and-docker-bypass)).
+- Le trafic Docker de pont ou de passerelle, uniquement tant qu'aucune connexion, liste d'autorisation ni `TRUSTED_AUTH_PROXY` n'est définie (voir [Contournement Tailscale et Docker](#tailscale-and-docker-bypass)).
 - L'adresse `/api/health`, pour que les outils de surveillance continuent de fonctionner. Un visiteur qui ne peut pas ouvrir l'application ne reçoit que `{"status": "ok"}` ; les détails de version, de système et de modèles restent réservés à cet ordinateur, aux réseaux de confiance et aux navigateurs connectés.
 
 Important : Basic Auth se contente d'encoder le mot de passe, il ne le chiffre pas. N'importe qui surveillant une connexion non chiffrée peut le lire. Si tu exposes Marinara sur Internet, associe Basic Auth au HTTPS (voir plus bas).
@@ -154,7 +174,7 @@ Docker Desktop, OrbStack et Docker sans root (rootless) font apparaître chaque 
 
 Un reverse proxy ou un tunnel installé sur la machine qui exécute Marinara, comme nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve ou Funnel, ou ngrok, se connecte à Marinara depuis loopback. Marinara le reconnaît grâce aux en-têtes de transmission que le proxy ajoute : `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, les en-têtes d'identité Tailscale ou `Via`. Marinara reconnaît aussi une requête qui arrive en HTTP/1.0, car les navigateurs ne l'utilisent jamais, mais un `proxy_pass` nginx par défaut si. Marinara reconnaît aussi une requête dont l'en-tête Host désigne un autre ordinateur, comme un domaine ou une adresse du réseau local, même lorsque le proxy n'ajoute aucun en-tête. Il traite alors chaque requête comme le visiteur distant qu'elle représente :
 
-- Une connexion s'applique. Sans elle, les visiteurs voient la page de configuration. Définis la connexion dans **Paramètres** sur cet ordinateur ou dans `.env`.
+- La connexion s'applique (voir l'[option 1](#option-1-login-recommended)). Sans elle, les visiteurs voient la page de configuration. Définis la connexion dans **Settings** sur cet ordinateur ou dans `.env`.
 - `IP_ALLOWLIST` bloque les visiteurs transmis, car le proxy masque leurs vraies adresses.
 - Les actions privilégiées demandent le secret d'administration, et les fonctions réservées à loopback restent indisponibles.
 
@@ -182,7 +202,7 @@ Mets l'adresse du proxy dans `.env` :
 TRUSTED_AUTH_PROXY=192.168.1.5
 ```
 
-Marinara laisse alors passer chaque requête dont la connexion provient de cette adresse. Marinara ne demande pas sa propre connexion pour elles, et il n'affiche aucun code de configuration. Marinara vérifie l'adresse de la connexion elle-même. Il ignore pour cela les en-têtes de transmission comme `X-Forwarded-For`. Les requêtes du proxy passent aussi `IP_ALLOWLIST`, car le proxy décide qui entre. Elles ne comptent pas comme locales : les actions privilégiées demandent donc toujours le secret d'administration. **Paramètres → Avancé → Accès** affiche **Trusted login proxy: Set** tant que le réglage est actif.
+Marinara laisse alors passer chaque requête dont la connexion provient de cette adresse. Marinara ne demande pas sa propre connexion pour elles, et il n'affiche aucun code de configuration. Marinara vérifie l'adresse de la connexion elle-même. Il ignore pour cela les en-têtes de transmission comme `X-Forwarded-For`. Les requêtes du proxy passent aussi `IP_ALLOWLIST`, car le proxy décide qui entre. Elles ne comptent pas comme locales : les actions privilégiées demandent donc toujours le secret d'administration. **Settings → Advanced → Access** affiche **Trusted login proxy: Set** tant que le réglage est actif.
 
 Avant de le définir :
 
@@ -191,7 +211,7 @@ Avant de le définir :
 - **Indique uniquement l'adresse du proxy.** Une plage doit rester dans l'espace d'adresses privées ; Marinara ignore les autres plages. Il consigne un avertissement pour chaque plage, car chaque appareil d'une plage passe la connexion.
 - **Ajoute le nom public comme pour tout autre proxy.** Mets le nom d'hôte dans `TRUSTED_HOSTS` et l'origine dans `CSRF_TRUSTED_ORIGINS` (voir [Pourquoi mon enregistrement est-il bloqué (CSRF)](#why-is-my-save-blocked-csrf)).
 
-Quand `TRUSTED_AUTH_PROXY` est défini, Marinara arrête aussi la confiance automatique envers Docker. Les visiteurs directs qui ne sont pas le proxy ont besoin de la connexion de Marinara ou de la liste d'autorisation d'IP. Marinara n'affiche alors plus non plus la bannière « no login yet ».
+Quand `TRUSTED_AUTH_PROXY` est défini, Marinara arrête aussi la confiance automatique envers Docker. Les visiteurs directs qui ne sont pas le proxy ont besoin de la connexion de Marinara ou de la liste d'autorisation d'IP. Marinara n'affiche alors plus non plus la bannière "no login yet".
 
 Si le proxy tourne sur le même ordinateur que Marinara, utilise `TRUSTED_AUTH_PROXY=127.0.0.1` et dirige le proxy vers `127.0.0.1:7860`, pas vers `localhost:7860`. Un proxy qui appelle `localhost` peut se connecter depuis `::1`, qui ne correspond pas à `127.0.0.1`. Tous les autres proxys ou tunnels de cet ordinateur sont alors aussi considérés de confiance : utilise donc ce réglage uniquement si le proxy de connexion est le seul. Cela ne donne pas aux visiteurs passant par le proxy l'accès de la machine locale.
 
@@ -220,9 +240,9 @@ marinara.example.com {
 }
 ```
 
-Les visiteurs obtiennent alors le même accès complet que la machine hôte, y compris les actions privilégiées sans le secret d'administration. Si tu n'atteins Marinara que par un nom ajouté à `/etc/hosts`, n'utilise pas ce réglage. Utilise plutôt un nom `*.localhost`, par exemple `marinara.localhost`.
-
 Pour Traefik et nginx, suis le guide forward-auth de ton proxy. Marinara n'a besoin de rien de plus que l'adresse du proxy.
+
+<a id="serving-over-https"></a>
 
 ## Servir Marinara en HTTPS
 
@@ -241,11 +261,29 @@ SSL_KEY=/path/to/key.pem
 
 Il te faut un certificat et une clé avant de définir les variables `SSL_CERT` et `SSL_KEY`. Un outil comme `mkcert` en crée un pour un usage local, `certbot` pour un domaine public. Si les fichiers manquent ou sont illisibles, le serveur s'arrête au démarrage et indique les chemins exacts qu'il a essayés.
 
+<a id="admin-access-and-privileged-actions"></a>
+
 ## Admin Access et actions privilégiées
 
-Certaines actions sont particulièrement sensibles : effacer les données, créer ou télécharger des sauvegardes, importer et exporter des profils, installer des thèmes et installer le runtime Local Model. Elles exigent un secret partagé à part, appelé le secret administrateur, en plus de l'option d'accès que tu as choisie plus haut.
+Certaines actions sont particulièrement sensibles : effacer les données, créer ou télécharger des sauvegardes, importer et exporter des profils, installer des thèmes et des agents, et installer le runtime Local Model. Elles exigent un secret partagé à part, appelé le secret d'administration, en plus de l'option d'accès que tu as choisie plus haut.
 
-Sur la machine loopback, ces actions fonctionnent en général sans secret administrateur. Depuis un appareil distant, il faut d'abord le configurer. Procède ainsi.
+Sur la machine loopback, ces actions fonctionnent en général sans secret d'administration. Depuis un appareil distant, il faut d'abord le configurer. Tu peux le créer dans l'application ou le définir dans `.env`.
+
+Les agents installés, comme ceux de l'écran d'accueil, n'ont pas besoin du secret d'administration. Un appareil qui s'est connecté avec la connexion peut s'en servir. Installer, mettre à jour et supprimer un agent l'exigent toujours.
+
+### Créer le secret d'administration dans l'application
+
+1. Sur l'ordinateur qui fait tourner Marinara, ouvre **Settings**, puis l'onglet **Advanced**, puis la section **Admin Access**.
+2. Clique sur **Make admin secret** (créer un secret d'administration). Marinara affiche le nouveau secret une seule fois et l'enregistre dans ce navigateur.
+3. Sur chaque appareil distant, ouvre **Settings** → **Advanced** → **Admin Access**, saisis le secret dans le champ, puis clique sur **Save**. Les majuscules, les espaces et les tirets n'ont pas d'importance.
+
+Un appareil qui a déjà le secret peut aussi le créer. Un appareil seulement connecté avec la connexion ne le peut pas. Cela empêche qu'une connexion volée prenne le contrôle des actions risquées.
+
+Avec Docker, ton navigateur atteint Marinara par le réseau Docker : Marinara ne le considère donc pas comme le même ordinateur. Définis plutôt le premier secret dans `.env` (voir plus bas).
+
+Pour changer le secret, clique sur **Replace admin secret** (remplacer le secret d'administration). L'ancien secret cesse de fonctionner sur tous les appareils. Pour le désactiver, clique sur **Remove admin secret** (supprimer le secret d'administration). Marinara ne garde qu'une empreinte du secret, dans le fichier `.admin-secret.json` du dossier de données. Supprimer ce fichier supprime aussi le secret.
+
+### Définir le secret d'administration dans .env
 
 1. Dans le fichier `.env`, définis une valeur aléatoire solide, puis enregistre. Elle prend effet en une poignée de secondes, sans redémarrage.
 
@@ -253,18 +291,20 @@ Sur la machine loopback, ces actions fonctionnent en général sans secret admin
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. Sur l'appareil distant, ouvre Marinara et va dans **Settings** (Paramètres), puis l'onglet **Advanced**, puis la section **Admin Access**.
+2. Sur l'appareil distant, ouvre **Settings** → **Advanced** → **Admin Access**.
 3. Colle la même valeur dans le champ (son texte indicatif affiche **ADMIN_SECRET**), puis clique sur **Save**.
 4. Le message **Admin secret saved for this browser** doit apparaître.
 
-Quelques points à savoir sur le secret administrateur :
+`ADMIN_SECRET` dans `.env` l'emporte sur un secret créé dans l'application. Tant qu'il est défini, **Admin Access** l'indique, et tu ne changes le secret que dans `.env`.
 
-- Il est stocké dans ce navigateur uniquement. Il ne se synchronise pas entre les appareils. Chaque navigateur qui a besoin des actions privilégiées doit le recevoir séparément.
+### Bon à savoir
+
+- Chaque navigateur garde sa propre copie. Elle ne se synchronise pas entre les appareils.
 - Cliquer sur **Save** avec le champ vide efface le secret et affiche **Admin secret cleared**.
-- Si l'opérateur du serveur définit `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, même la machine loopback a besoin du secret.
-- C'est indépendant de Basic Auth, et les deux se combinent. Basic Auth protège toute l'application, le secret administrateur protège les actions dangereuses.
+- Si l'opérateur du serveur définit `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, même la machine loopback a besoin du secret. Il faut alors le secret actuel pour le créer, le remplacer ou le supprimer dans l'application : définis donc le premier dans `.env`.
+- C'est indépendant de Basic Auth, et les deux se combinent. Basic Auth protège toute l'application, le secret d'administration protège les actions dangereuses.
 
-Si une action privilégiée échoue sur un appareil distant, Marinara affiche un message d'erreur avec deux solutions. La première : ouvrir l'application via localhost. La seconde : définir `ADMIN_SECRET` dans le fichier `.env` du serveur, puis coller la même valeur dans **Settings** > **Advanced** > **Admin Access**.
+Si une action privilégiée échoue sur un appareil distant, Marinara affiche un message d'erreur avec deux solutions. La première : ouvrir l'application via localhost. La seconde : configurer le secret d'administration comme décrit plus haut.
 
 <a id="why-is-my-save-blocked-csrf"></a>
 
@@ -319,8 +359,8 @@ Les versions récentes demandent une connexion lorsqu'une visite passe par un re
 
 Pour revenir :
 
-1. Ouvre Marinara sur l'ordinateur qui l'exécute, à l'adresse `http://localhost:7860` (ou ton propre `PORT`). L'usage local ne demande pas de mot de passe. Sur un serveur sans interface, lance d'abord `ssh -L 7860:127.0.0.1:7860 user@server` sur ton propre ordinateur, puis ouvre `http://localhost:7860`. Dans Docker, cela ne fonctionne que tant qu'aucune connexion ni `IP_ALLOWLIST` n'est définie. Sinon, saisis le code de configuration du log du serveur (`docker logs <container> 2>&1 | grep "setup code"`) sur la page qui te bloque ou dans **Paramètres → Avancé → Accès**, ou utilise un navigateur déjà connecté.
-2. Va dans **Paramètres → Avancé → Accès** et définis un nom d'utilisateur et un mot de passe sous **Remote login** (connexion distante). Ou ouvre le fichier `.env` sur cet ordinateur et définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS`. Si `IP_ALLOWLIST` est définie, ajoute-y l'adresse de ton autre appareil ou supprime-la, car un appareil absent de la liste reçoit un **403** même avec une connexion.
+1. Ouvre Marinara sur l'ordinateur qui l'exécute, à l'adresse `http://localhost:7860` (ou ton propre `PORT`). L'usage local ne demande pas de mot de passe. Sur un serveur sans interface, lance d'abord `ssh -L 7860:127.0.0.1:7860 user@server` sur ton propre ordinateur, puis ouvre `http://localhost:7860`. Dans Docker, cela ne fonctionne que tant qu'aucune connexion ni `IP_ALLOWLIST` n'est définie. Sinon, saisis le code de configuration du log du serveur (`docker logs <container> 2>&1 | grep "setup code"`) sur la page qui te bloque ou dans **Settings → Advanced → Access**, ou utilise un navigateur déjà connecté.
+2. Va dans **Settings → Advanced → Access** et définis un nom d'utilisateur et un mot de passe sous **Remote login**. Ou ouvre le fichier `.env` sur cet ordinateur et définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS`. Si `IP_ALLOWLIST` est définie, ajoute-y l'adresse de ton autre appareil ou supprime-la, car un appareil absent de la liste reçoit un **403** même avec une connexion.
 3. Connecte-toi depuis ton autre appareil avec ce nom d'utilisateur et ce mot de passe.
 
 ## Moteurs de recherche

@@ -1,73 +1,71 @@
 # Variables de preset
 
-Ce guide explique les **Preset Variables** (variables de preset), ces petits choix façon formulaire que tu peux intégrer à un preset de prompt (un modèle de prompt enregistré). L'auteur du preset définit les choix une fois pour toutes, et la personne qui utilise le preset sélectionne les options au moment où le preset est assigné à un chat. On parle parfois de blocs de choix.
+Une variable de preset est un choix étiqueté intégré à un preset de prompt (un modèle de prompt enregistré). L'auteur du preset la définit une fois, et la personne qui utilise le preset choisit les options au moment de l'assigner à un chat. Sers-t'en pour qu'un même preset se comporte de plusieurs façons sans modifier le texte du prompt.
 
-## À quoi servent les variables de preset
+Tu donnes un nom à la variable, tu écris une question et tu listes des options. Puis tu saisis le nom entre doubles accolades, comme `{{tone}}`, dans n'importe quelle section de prompt. Quand l'IA génère une réponse, Marinara remplace `{{tone}}` par la valeur de l'option choisie par l'utilisateur.
 
-Un preset de prompt est un plan réutilisable pour le texte envoyé à l'IA. Une variable de preset ajoute un choix étiqueté à ce plan. Tu donnes un nom au choix, tu écris une question, puis tu listes des options.
+Les variables de preset ont besoin d'un preset de prompt : elles fonctionnent donc dans les chats Roleplay. Elles ne s'appliquent pas aux chats Conversation ni aux chats Game Mode, qui utilisent un texte de prompt unique au lieu de sections. Pour les presets eux-mêmes, voir [Éditeur de presets et gestionnaire de prompts](presets.md).
 
-Dans n'importe quelle section de prompt, saisis le nom de la variable entre doubles accolades, par exemple `{{tone}}`. Au moment de la génération, Marinara Engine remplace `{{tone}}` par la valeur de l'option retenue. Un même preset produit ainsi des comportements différents, sans toucher au texte du prompt.
+## Les types de variable de preset
 
-Les variables de preset vivent à l'intérieur d'un preset de prompt : elles fonctionnent donc dans les modes de chat qui utilisent des presets de prompt. Elles ne s'appliquent pas au mode Conversation. Ce mode remplace le preset découpé en sections par un texte de prompt unique, et les variables n'ont alors rien à remplir. Pour tout savoir sur les presets eux-mêmes, voir [Éditeur de preset et Prompt Manager](presets.md).
+Par défaut, une variable qui a plusieurs options est un choix unique. L'utilisateur choisit une option, présentée sous forme de boutons radio. Trois réglages changent cela.
 
-## Les trois types de variable de preset
-
-Le comportement d'une variable dépend de ses options et de deux interrupteurs. Par défaut, une variable qui propose plusieurs options est un choix unique : la personne retient exactement une option, présentée sous forme de boutons radio. À partir de cette base, il existe trois types nommés.
-
-**Boolean Toggle.** Si une variable ne comporte qu'une seule option, elle devient un interrupteur oui/non. Quand il est activé, la valeur de l'option est insérée. Quand il est désactivé, rien n'est inséré. L'éditeur affiche l'étiquette **Boolean Toggle** sur ces variables.
-
-**Multi-Select.** Active l'interrupteur **Multi-Select** (sélection multiple) pour autoriser plusieurs options à la fois. Par défaut, les valeurs retenues sont assemblées avec un séparateur. Le séparateur est un petit champ de texte, et vaut par défaut une virgule suivie d'une espace. Par exemple, les options Romance, Fantasy et Action assemblées avec `, ` donnent le texte "Romance, Fantasy, Action".
-
-**Random Pick** (tirage aléatoire). Pour une variable à choix unique, Marinara présélectionne une option au hasard à chaque nouveau chat. Tu peux la changer avant de confirmer ; le choix enregistré reste ensuite fixe jusqu'à ta prochaine modification. Avec **Multi-Select** activé, l'application tire au sort une des options retenues à chaque génération. Pratique pour varier : tu constitues un vivier d'options, et chaque réponse en pioche une.
+| Type | Comment l'obtenir | Comportement |
+| --- | --- | --- |
+| **Boolean Toggle** | Donne à la variable exactement une option. | Un interrupteur oui/non. Activé, il insère la valeur de l'option. Désactivé, il n'insère rien. |
+| **Multi-Select** (sélection multiple) | Active **Multi-Select**. | L'utilisateur choisit plusieurs options. Les valeurs sont assemblées avec un séparateur, `, ` par défaut. Romance, Fantasy et Action deviennent "Romance, Fantasy, Action". |
+| **Random Pick** (tirage aléatoire) | Active **Random Pick**. | Sur une variable à choix unique, Marinara présélectionne une option au hasard pour chaque nouveau chat, et le choix reste fixe jusqu'à ce que tu le changes. Avec **Multi-Select** activé, l'utilisateur choisit un vivier d'options, et chaque réponse en tire une. |
 
 ## Ajouter une variable de preset
 
-Les variables s'ajoutent pendant l'édition d'un preset. Procède ainsi :
-
 1. Ouvre le panneau **Presets** et clique sur un preset pour ouvrir le **Preset Editor** (éditeur de preset).
-2. Va dans l'onglet **Sections** et descends jusqu'au panneau **Preset Variables**, tout en bas.
-3. Clique sur **Add Variable** (ajouter une variable). Une nouvelle carte de variable apparaît. Clique dessus pour déplier l'éditeur.
-4. Renseigne le champ **Variable Name** (nom de la variable). Seuls les lettres, les chiffres et les tirets bas sont acceptés. C'est ce nom que tu saisis entre accolades, comme `{{variable_name}}`.
-5. Remplis le champ **Question (shown to user)** (question affichée à l'utilisateur). C'est le texte que la personne lit au moment de choisir une valeur.
-6. Modifie la liste **Options**. Chaque option possède un **Label** (ce qui s'affiche) et une **Value** (le texte inséré dans le prompt). Une valeur vide n'insère rien.
-7. Choisis un mode d'affichage sous **Presentation** : **Auto**, le style bouton (**Radios** ou **Checkboxes**), ou le style compact (**Dropdown** ou **Listbox**). Active **Alphabetical option display** pour trier les options par étiquette.
-8. Les modifications sont enregistrées toutes seules. Le pied de l'éditeur indique "Changes auto-save. Press Escape to close." Appuie sur Escape ou clique sur **Done** quand tu as terminé.
+2. Va dans l'onglet **Sections** et descends jusqu'au panneau **Preset Variables** (variables de preset), tout en bas.
+3. Clique sur **Add Variable** (ajouter une variable). Une nouvelle carte de variable apparaît. Clique dessus pour la déplier.
+4. Renseigne le champ **Variable Name** (nom de la variable). Il ne garde que les lettres, les chiffres et les tirets bas. C'est le nom que tu saisis entre accolades.
+5. Remplis **Question (shown to user)**. C'est ce que l'utilisateur lit au moment de choisir.
+6. Modifie la liste **Options**. Chaque option a un champ **Label** (libellé), ce que l'utilisateur voit, et un champ **Value** (valeur), le texte inséré dans le prompt. Une valeur vide n'insère rien.
+7. Sous **Presentation** (présentation), choisis **Auto**, un style bouton (**Radios** ou **Checkboxes**) ou un style compact (**Dropdown** ou **Listbox**). Active **Alphabetical option display** (affichage alphabétique des options) pour trier les options par libellé.
+8. Appuie sur <kbd>Escape</kbd> ou clique sur **Done** (terminé). Les modifications s'enregistrent toutes seules, et le pied de l'éditeur indique "Changes auto-save. Press Escape to close."
 
-Pour utiliser la variable, saisis son nom entre accolades dans le contenu de n'importe quelle section de prompt. Par exemple, place `{{tone}}` dans une section, puis crée une variable nommée `tone` avec une option **Gentle** et une option **Harsh**. Quand Harsh est retenu, la section reçoit la valeur correspondante.
+Saisis ensuite le nom entre accolades dans une section de prompt. Par exemple, place `{{tone}}` dans une section, puis crée une variable nommée `tone` avec une option **Gentle** et une option **Harsh**. Quand l'utilisateur choisit **Harsh**, la section reçoit sa valeur.
 
-Une variable conserve toujours au moins une option. Si tu essaies de supprimer la dernière, Marinara la garde.
+Une variable garde toujours au moins une option. Si tu essaies de supprimer la dernière, Marinara la garde.
 
-## La fenêtre Configure Preset Variables
+## Répondre aux variables
 
-Quand tu assignes à un chat un preset qui contient des variables, la fenêtre **Configure Preset Variables** (configurer les variables de preset) s'ouvre d'elle-même. Son introduction indique : "This preset has configurable variables. Select option(s) for each to customize your experience."
+Quand tu assignes à un chat un preset qui a des variables, la fenêtre **Configure Preset Variables** (configurer les variables de preset) s'ouvre. Elle indique : "This preset has configurable variables. Select option(s) for each to customize your experience."
 
-Chaque variable affiche sa question, le token auquel elle correspond (par exemple `{{tone}}`) et, le cas échéant, un petit badge **Boolean toggle**, **Multi-select** ou **Random pick**. Choisis une valeur pour chaque variable.
+Chaque variable affiche sa question, son espace réservé, par exemple `{{tone}}`, et, le cas échéant, un badge (**Boolean toggle**, **Multi-select** ou **Random pick**).
 
-- **Save as default** (enregistrer par défaut) reporte tes choix sur le preset : ils seront pré-remplis la prochaine fois.
-- **Skip** (passer) ferme la fenêtre sans enregistrer tes choix.
-- **Confirm Choices** (confirmer les choix) enregistre tes choix. Le bouton reste désactivé tant qu'une variable à choix unique n'a pas de valeur. Les variables **Boolean toggle** et **Multi-select** ne le bloquent pas, même si rien n'est retenu.
+1. Choisis une valeur pour chaque variable.
+2. Clique sur **Confirm Choices** (confirmer les choix).
 
-Passer à un autre preset efface les choix de variables faits pour le preset en cours.
+Les autres boutons :
+
+- **Save as default** (enregistrer par défaut) enregistre tes choix sur le preset, pour qu'ils soient pré-remplis la prochaine fois.
+- **Skip** (passer) ferme la fenêtre sans enregistrer.
+
+Le bouton **Confirm Choices** reste désactivé tant qu'une variable à choix unique n'a pas de valeur. Les variables **Boolean toggle** et **Multi-select** ne le bloquent pas, même si rien n'est choisi. Passer à un autre preset efface tes choix pour l'ancien.
 
 ## Modifier tes réponses plus tard
 
-Inutile de rouvrir un preset depuis le début pour changer tes réponses. Dans le panneau latéral des réglages du chat, la section **Prompt Preset** affiche un bouton crayon intitulé **Edit preset variables** (modifier les variables de preset) dès que le preset sélectionné contient des variables. Clique dessus pour rouvrir la fenêtre **Configure Preset Variables** avec tes choix actuels déjà remplis.
+Dans **Chat Settings** (réglages du chat), la section **Prompt Preset** affiche un bouton crayon, **Edit preset variables** (modifier les variables de preset), quand le preset sélectionné a des variables. Clique dessus pour rouvrir la fenêtre avec tes choix actuels.
 
-## Le fourre-tout {{NAME}}
+## Les noms qui ne sont pas des variables
 
-Marinara résout de nombreuses macros intégrées, comme `{{user}}` et `{{char}}`. Ensuite, tout emplacement restant de la forme `{{NAME}}` (lettres, chiffres et tirets bas uniquement) est comparé à tes variables de preset.
-
-S'il existe une variable portant exactement ce nom, l'emplacement prend la valeur retenue. Si aucune ne correspond, Marinara essaie ensuite les variables du chat, affichées dans la section **Chat Variables** (variables du chat) du panneau **Chat Settings**. La variable du preset a la priorité quand les deux portent le même nom. Si aucune ne le porte, le texte `{{NAME}}` reste exactement tel que tu l'as saisi. C'est pourquoi un emplacement inconnu ressort inchangé dans le résultat au lieu de provoquer une erreur. Pour la liste complète des macros, voir [Macros de prompt](macros.md).
+Marinara résout d'abord les macros intégrées, comme `{{user}}` et `{{char}}`. Ensuite, il compare tout autre `{{NAME}}` (lettres, chiffres et tirets bas) à tes variables de preset. Si aucune ne correspond, il essaie les variables propres au chat, dans la section **Chat Variables** (variables du chat) de **Chat Settings**. La variable de preset l'emporte quand les deux portent le même nom. Si aucune ne porte ce nom, le texte reste exactement tel que tu l'as saisi, sans erreur. Voir [Macros de prompt](macros.md).
 
 ## Blocs de décision dans les options
 
-La valeur d'une option peut contenir un bloc `{{#if decision:"..."}}`, comme tout autre texte de prompt. Seules les options sélectionnées dans le chat sont interrogées et comptent dans **Decision statements per turn** (énoncés de décision par tour). Pour une variable **Random Pick**, toutes les options du groupe sélectionné sont interrogées, car chacune peut être tirée. Consulte [Interroger le Decision model](conditional-prompts.md#asking-the-decision-model).
+La valeur d'une option peut contenir un bloc de décision, `{{#if decision:"..."}}`, comme tout autre texte de prompt. Seules les options sélectionnées dans le chat sont interrogées, et elles comptent dans **Decision statements per turn** (énoncés de décision par tour). Pour une variable **Random Pick**, toutes les options du vivier sont interrogées, car chacune peut être tirée. Voir [Interroger le Decision model](conditional-prompts.md#asking-the-decision-model).
 
-La valeur d'une variable arrive à l'emplacement de `{{name}}`. Si une décision la change près du début d'un preset, elle peut faire perdre une grande part de la réutilisation du cache du fournisseur, même si un préfixe antérieur inchangé reste admissible. Place le contenu changeant plus tard si possible. Consulte [Blocs de décision et cache de prompts](presets.md#decision-blocks-and-prompt-caching).
+La valeur d'une variable arrive là où se trouve son `{{name}}`. Si une décision change cette valeur près du début d'un preset, tu peux perdre une grande part de la réutilisation du cache de prompts du service. Place plus loin le contenu qui change souvent. Voir [Blocs de décision et cache de prompts](presets.md#decision-blocks-and-prompt-caching).
+
+## Messages d'accueil
+
+Les variables de preset sont aussi résolues dans les messages d'accueil des personnages, y compris les choix confirmés après la création du message d'accueil. Le message d'accueil original reste modifiable, avec ses macros intactes.
 
 ## Guides associés
 
-- [Éditeur de preset et Prompt Manager](presets.md)
+- [Éditeur de presets et gestionnaire de prompts](presets.md)
 - [Macros de prompt](macros.md)
-
-Les variables de preset sont aussi résolues dans les messages d'accueil des personnages, y compris les choix confirmés après la création du message. Le message d'accueil original reste modifiable avec ses macros intactes.

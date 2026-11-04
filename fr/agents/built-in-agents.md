@@ -1,309 +1,302 @@
 # Référence des agents téléchargeables
 
-Ce guide présente les packages officiels proposés par Marinara dans **Agents → Agent Organizer (organisateur d’agents)** , classés par catégorie. Une installation neuve de Marinara Engine ne contient aucun agent. Les sources des packages, les manifestes, les artefacts et le catalogue lisible par une machine sont publiés dans [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Pour chaque agent, tu trouves ici ce qu'il fait, à quel moment il s'exécute ou comment il s'intègre, les modes de chat qui l'acceptent et ses principaux réglages. Pour l'installation et l'activation, commence par lire la [Agents : des aides IA pour tes chats](agents-overview.md). Les entrées marquées **staging only** (staging uniquement) sont accessibles avec Engine sur staging ; elles apparaissent dans le canal stable après la publication du package dans ce canal.
+Ce guide présente, par groupe, les agents officiels de Marinara proposés dans **Agents → Agent Organizer** (Agents → organisateur d'agents). Une installation neuve ne contient aucun agent. Leurs sources et leur catalogue sont publics dans [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Chaque entrée indique ce que fait l'agent, quand il s'exécute, où il fonctionne et ses principaux réglages. Pour installer et activer des agents, commence par lire la [vue d'ensemble des agents](agents-overview.md). Les entrées marquées **staging only** (staging uniquement) sont accessibles aux utilisateurs d'Engine sur staging ; les utilisateurs du canal stable les voient une fois le package promu.
 
 ## Comment lire cette référence
 
-Un agent est un petit assistant IA qui s'exécute automatiquement en parallèle de la réponse principale du chat. Installe-le d'abord depuis le catalogue, puis active-le et configure-le chat par chat, et non fiche de personnage par fiche de personnage. Le téléchargement, la mise à jour, la désinstallation, la configuration par chat et l'avertissement sur les coûts sont détaillés dans la [Agents : des aides IA pour tes chats](agents-overview.md).
+Installe un agent depuis **Agent Organizer**, puis ajoute-le à chaque chat où tu le veux. Les agents se configurent chat par chat, et non fiche de personnage par fiche de personnage. La [vue d'ensemble des agents](agents-overview.md) couvre l'installation, la mise à jour, la configuration par chat et le coût.
 
-Chaque agent ci-dessous est résumé en trois points.
+Chaque entrée donne les mêmes repères rapides.
 
-- **Phase ou intégration** : le moment où s'exécute un agent de pipeline classique. **Pre-Generation** (avant la génération) s'exécute avant la réponse et peut ajouter du texte au prompt, c'est-à-dire au texte que Marinara envoie à l'IA. **Parallel** (en parallèle) s'exécute en même temps que la réponse et ne voit pas le texte terminé. **Post-Processing** (après la génération) s'exécute une fois la réponse complète et peut la lire, certains agents pouvant même la réécrire. Les packages de fonctionnalité comme Maps, Calls et les jeux de Conversation s'intègrent plutôt directement à leur surface de chat. Les Apps s'ouvrent dans leur propre onglet Home.
-- **Où ça marche** : les modes de chat dans lesquels tu peux ajouter l'agent. La plupart des agents fonctionnent dans les chats **Roleplay**. Quelques-uns fonctionnent dans d'autres modes, et chaque fiche le précise.
-- **Réglages clés** : les réglages que tu risques le plus de modifier. Ils se définissent au moment où tu ajoutes l'agent, ou plus tard dans la fiche de configuration de l'agent, dans **Chat Settings** (réglages du chat).
+- **Phase** ou **Intégration** : le moment où s'exécute un agent de pipeline. **Pre-Generation** (avant la génération) s'exécute avant la réponse et peut ajouter du texte au prompt, c'est-à-dire au texte que Marinara envoie à l'IA. **Parallel** (en parallèle) s'exécute en même temps que la réponse et ne voit pas le texte terminé. **Post-Processing** (après la génération) s'exécute après la réponse et peut la lire. Certains peuvent la réécrire. Les packages de fonctionnalité comme World Maps, Calls et les jeux de Conversation s'intègrent plutôt à leur écran de chat. Les Apps s'ouvrent dans leur propre onglet **Home** (accueil).
+- **Où ça marche** : les modes de chat qui acceptent l'agent. La plupart des agents fonctionnent en Roleplay.
+- **Réglages clés** : les réglages que tu risques le plus de modifier, dans la carte de l'agent, dans **Chat Settings** (réglages du chat).
 
-Marinara répartit ses agents dans le panneau **Agents** entre **Apps**, **Writer Agents**, **Tracker Agents** et **Misc Agents**. Les Apps sont des packages dotés de leur propre onglet Home, comme Noodle et Slurp. Cette référence les présente en premier, dans la section Apps.
+Avec un intervalle d'exécution, un agent s'exécute une fois tous les quelques messages, les tiens et ceux de l'IA, au lieu de s'exécuter après chaque message. Tu peux le régler jusqu'à 100.
 
-Un intervalle d'exécution signifie que l'agent s'exécute périodiquement, après un certain nombre de messages, les tiens et ceux de l'IA, au lieu de s'exécuter après chaque message. Cet intervalle se change dans la configuration de l'agent, jusqu'à 100.
-
-En Roleplay, l'intervalle d'exécution d'Illustrator se règle chat par chat, dans sa fiche de configuration de **Chat Settings**. La valeur définie dans sa configuration sert de valeur par défaut aux chats qui ne définissent pas la leur. Illustrator accepte aussi **0** pour une génération uniquement manuelle : il reste disponible pour les actions de Gallery, mais ne s'exécute jamais automatiquement. Les autres agents conservent leurs intervalles positifs actuels.
+En Roleplay, l'intervalle d'exécution d'Illustrator se règle chat par chat, dans sa carte de **Chat Settings**. La valeur de sa configuration sert de valeur par défaut aux chats qui n'ont pas la leur. Illustrator accepte aussi **0** : il ne s'exécute alors jamais automatiquement et reste disponible pour les actions de Gallery.
 
 ## Apps
 
-Les Apps sont des packages dotés de leur propre onglet dans **Home**. Tu les ouvres et les utilises de façon autonome au lieu de les ajouter à un chat. Chaque App te demande de redémarrer Marinara Engine après son installation.
+Les Apps ont leur propre onglet dans **Home**. Tu les utilises de façon autonome au lieu de les ajouter à un chat. Chacune demande un redémarrage après son installation.
 
 ### Noodle
 
-Ajoute le fil public local facultatif de Noodle. Il s'ouvre dans un onglet Home dédié au lieu de passer par le pipeline habituel des agents de chat.
+Ajoute le fil public local et facultatif de Noodle, dans son propre onglet **Home**. Noodle ne s'exécute pas dans le pipeline des agents de chat.
 
-- **Intégration** : pack de fonctionnalités ; il apporte l'onglet Home, les routes locales, les flux de génération et de médias, ainsi que les planificateurs en arrière-plan.
-- **Modes compatibles** : Home, avec du contexte facultatif provenant des chats Conversation, Roleplay et Game.
-- **Réglages principaux** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, puis redémarre Marinara Engine lorsque cela t'est demandé. Dans Noodle, tu peux configurer les comptes invités, les connexions de texte et d'image, les actualisations du fil, les utilisateurs aléatoires et le transfert de contexte vers les chats.
-- **Cycle de vie des données** : la désinstallation retire l'onglet Home et arrête les routes et planificateurs du paquet après redémarrage, en conservant les données Noodle existantes pour une réinstallation ultérieure.
-- **Guide complet** : [Noodle : le fil social intégré](../noodle/overview.md).
+- **Intégration** : package de fonctionnalité, avec des routes locales, des flux de génération et de médias, et des planificateurs en arrière-plan.
+- **Où ça marche** : Home, avec du contexte facultatif provenant des chats Conversation, Roleplay et Game.
+- **Réglages clés** : installe-le depuis **Agents → Agent Organizer** et redémarre lorsque cela t'est demandé. Dans Noodle, tu définis les comptes invités, les connexions de texte et d'image, les actualisations du fil, les utilisateurs aléatoires et la reprise vers les chats.
+- **Données** : la désinstallation retire l'onglet et arrête les planificateurs après un redémarrage. Tes données Noodle sont conservées pour une réinstallation ultérieure.
+- **Guide complet** : [Noodle : la timeline sociale intégrée](noodle.md).
 
 ### Slurp
 
-Une application sociale privée pour tes personnages. Transforme tes personnages et tes personas en Creators, publie des photos publiques ou verrouillées, et regarde un public simulé les suivre, s'abonner, débloquer du contenu, commenter et leur envoyer des messages. Par défaut, elle est réglée pour du contenu adulte. Tout cela n'est qu'un jeu : les prix sont fictifs et aucun paiement réel n'a lieu.
+Une application sociale privée pour tes personnages. Transforme tes personnages et tes personas en Creators, publie des photos publiques ou verrouillées, et regarde un public simulé suivre, s'abonner, acheter, commenter et envoyer des messages. Par défaut, elle est réglée pour du contenu adulte. Tout cela n'est qu'un jeu : les prix sont fictifs et aucun paiement réel n'a lieu.
 
-- **Intégration** : App ; elle s'ouvre dans son propre onglet **Slurp**, dans **Home**.
+- **Intégration** : App dans son propre onglet **Slurp**, dans **Home**.
 - **Où ça marche** : Home.
-- **Réglages clés** : installe-la depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Slurp**. Pour que les personnages d'un chat se souviennent de leurs posts et messages Slurp récents, active **Include Slurp activity** (inclure l'activité Slurp) dans les **Chat Settings** de ce chat, sous **Connected Chats** (chats connectés). Le transfert de contexte doit aussi être activé pour ce mode de chat dans les réglages de Slurp. **Slurp Settings → Autopurge** (réglages de Slurp → purge automatique) supprime les anciens médias Slurp pour libérer de la place ; il est désactivé par défaut.
-- **Anciens noms** : les anciens catalogues l'affichent sous le nom **Slurp Remastered**, à côté du package retiré **Slurp Legacy**. Slurp Legacy ne reçoit plus de mises à jour.
+- **Réglages clés** : installe-la, redémarre lorsque cela t'est demandé, puis ouvre **Home → Slurp**. Pour que les personnages d'un chat se souviennent des posts et messages Slurp récents, active **Include Slurp activity** (inclure l'activité Slurp) dans les **Chat Settings** de ce chat, sous **Connected Chats** (chats connectés). La reprise vers les chats doit aussi être activée pour ce mode de chat dans les réglages de Slurp. **Slurp Settings → Autopurge** (réglages de Slurp → purge automatique) supprime les anciens médias Slurp pour libérer de la place. Ce réglage est désactivé par défaut.
+- **Anciens noms** : les anciens catalogues l'affichent sous le nom **Slurp Remastered**, à côté du package retiré **Slurp Legacy**, qui ne reçoit plus de mises à jour.
 - **Guide complet** : [guide du package Slurp](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md).
 
 ### Gacha Forge
 
-Un jeu gacha complet. Décris un monde et Gacha Forge construit le reste : des bannières sur lesquelles faire des tirages, une galerie de personnages que le modèle écrit et dessine pour toi, des chapitres d'histoire racontés par un narrateur façon visual novel, ainsi que les combats, l'équipement et les événements qui viennent se greffer autour. Tes lorebooks peuvent alimenter le monde, mais un scénario écrit à la main suffit.
+Un jeu gacha construit à partir d'un monde que tu décris : des bannières sur lesquelles faire des tirages, une distribution de personnages que le modèle écrit et dessine, des chapitres d'histoire racontés par un narrateur façon visual novel, ainsi que des combats, de l'équipement et des événements. Tes lorebooks peuvent alimenter le monde, mais un scénario écrit à la main suffit.
 
-- **Intégration** : App ; il s'ouvre dans son propre onglet **Gacha Forge**, dans **Home**.
+- **Intégration** : App dans son propre onglet **Gacha Forge**, dans **Home**.
 - **Où ça marche** : Home.
-- **Réglages clés** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Gacha Forge**. La désinstallation retire l'onglet après un redémarrage.
+- **Réglages clés** : installe-le, redémarre lorsque cela t'est demandé, puis ouvre **Home → Gacha Forge**. La désinstallation retire l'onglet après un redémarrage.
 - **Guide complet** : [guide du package Gacha Forge](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md).
 
 ### Modern Life Sim
 
-Une simulation de vie. Tu vis dans une petite ville au rythme de l'horloge, avec un emploi à trouver et à garder, des factures à payer, et ton énergie et ta faim à surveiller. Les gens qui t'entourent viennent de tes propres fiches de personnage, et tes relations avec eux évoluent scène après scène. Un narrateur façon visual novel raconte les scènes qui comptent.
+Une simulation de vie. Tu vis dans une petite ville au rythme de l'horloge, avec un emploi à garder, des factures à payer, et ton énergie et ta faim à surveiller. Les gens qui t'entourent viennent de tes fiches de personnage, et un narrateur façon visual novel raconte les scènes qui comptent.
 
-- **Intégration** : App ; elle s'ouvre dans son propre onglet **Life Sim**, dans **Home**.
+- **Intégration** : App dans son propre onglet **Life Sim**, dans **Home**.
 - **Où ça marche** : Home.
-- **Disponibilité** : **Staging only**, avec Engine **2.4.4+** (< 4.0.0). C'est une version alpha. Si une mise à jour modifie un élément dont dépend une ancienne sauvegarde, Life Sim te prévient à l'ouverture de cette sauvegarde, et tu peux commencer une nouvelle vie ou continuer à tes risques et périls.
-- **Réglages clés** : installe-la depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Life Sim**. Elle a besoin d'une connexion de texte. Une connexion d'images est facultative : sans elle, les lieux affichent des cartes illustrées au lieu d'arrière-plans générés. Des options facultatives appelées modules restent désactivées tant que tu ne les actives pas pour une vie ; le module **Adult** (adulte) te demande de confirmer que tu es majeur.
+- **Disponibilité** : **Staging only**, avec Engine **2.4.4+** (avant 4.0.0). C'est une version alpha. Si une mise à jour modifie un élément dont dépend une ancienne sauvegarde, Life Sim te prévient à l'ouverture de cette sauvegarde. Tu peux commencer une nouvelle vie ou continuer à tes risques et périls.
+- **Réglages clés** : installe-la, redémarre lorsque cela t'est demandé, puis ouvre **Home → Life Sim**. Elle a besoin d'une connexion de texte. Une connexion d'images est facultative : sans elle, les lieux affichent des cartes illustrées. Les modules facultatifs restent désactivés tant que tu ne les actives pas pour une vie. Le module **Adult** (adulte) te demande de confirmer que tu es majeur.
 - **Guide complet** : [guide du package Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
 ### Story Writer
 
-Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et les lorebooks dans une barre latérale, laisse tes consignes d'auteur sur une note adhésive et le modèle écrit le chapitre suivant à ta demande. Les pages ressemblent à un livre ouvert ou à une liseuse. Tu peux cliquer n'importe où dans le texte pour le modifier, ou commencer toi-même le premier chapitre.
+Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et les lorebooks dans une barre latérale, laisse tes consignes d'auteur sur une note adhésive, et le modèle écrit le chapitre suivant quand tu le demandes. Tu peux cliquer n'importe où dans le texte pour le modifier, ou écrire toi-même le premier chapitre.
 
-- **Intégration** : App ; s'ouvre dans son propre onglet **Story Writer** de **Home**.
-- **Où il fonctionne** : Home.
-- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciennes versions du moteur ne le proposent pas dans **Agent Organizer (organisateur d’agents)**.
-- **Réglages principaux** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine quand il te le demande, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans la barre latérale. Chaque histoire est enregistrée sur ton serveur Marinara Engine. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
-- **Guide complet** : [Guide du paquet Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+- **Intégration** : App dans son propre onglet **Story Writer**, dans **Home**.
+- **Où ça marche** : Home.
+- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une build staging actuelle).
+- **Réglages clés** : installe-le, redémarre lorsque cela t'est demandé, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans sa barre latérale. Les histoires sont enregistrées sur ton serveur Marinara. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
+- **Guide complet** : [guide du package Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
 ## Writer Agents
 
-Les Writer Agents façonnent l'histoire ou le style. Soit ils ajoutent des consignes avant la réponse, soit ils nettoient la réponse après coup.
+Les Writer Agents façonnent l'histoire ou le style. Ils ajoutent des consignes avant la réponse ou nettoient la réponse après coup.
 
 ### Prose Guardian
 
-Réécrit la dernière réponse pour supprimer les mots bannis et les répétitions, sans en changer le sens. Utile quand un modèle répète les mêmes tournures ou abuse d'un mot.
+Réécrit la dernière réponse pour supprimer les mots bannis et les répétitions sans en changer le sens. Utilise-le pour empêcher un modèle de répéter les mêmes tournures ou d'abuser d'un mot.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : les champs de texte **Banned Words** (mots bannis, `ozone` par défaut), **Prefer In Writing** et **Remove From Writing**. L'interrupteur **Hold Message Until Rewrite**, activé par défaut, masque la réponse jusqu'à la fin du nettoyage. Sans lui, la réponse brute s'affiche d'abord, puis elle est remplacée.
+- **Réglages clés** : les champs de texte **Banned Words** (mots bannis, `ozone` par défaut), **Prefer In Writing** (à privilégier dans l'écriture) et **Remove From Writing** (à retirer de l'écriture). **Hold Message Until Rewrite** (retenir le message jusqu'à la réécriture), activé par défaut, masque la réponse jusqu'à la fin du nettoyage. Sans ce réglage, la réponse brute s'affiche d'abord, puis elle est remplacée.
 
 ### Continuity Checker
 
-Corrige les erreurs de logique concrètes de la dernière réponse : un personnage présent à deux endroits en même temps, une chronologie incohérente, etc. Quand il repère des problèmes, il les présente sous forme de liste à cocher pour que tu choisisses les corrections à appliquer.
+Corrige les erreurs de logique concrètes de la dernière réponse, comme un personnage à deux endroits en même temps ou une chronologie incohérente. Quand il repère des problèmes, il affiche une liste à cocher pour que tu choisisses les corrections à appliquer.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
 - **Réglages clés** : l'interrupteur **Hold Message Until Rewrite**.
 
 ### Card Evolution Auditor
 
-Observe l'évolution d'un personnage au fil du jeu et propose des modifications de sa fiche de personnage. Il ne modifie jamais rien tout seul. Chaque suggestion ouvre la fenêtre **Review Character Card Updates**, où tu approuves ou refuses.
+Observe l'évolution d'un personnage au fil du jeu et propose des modifications de sa fiche de personnage. Il ne modifie jamais rien automatiquement. Chaque suggestion ouvre la fenêtre **Review Character Card Updates** (relire les mises à jour de la fiche), où tu approuves ou refuses.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
 - **Réglages clés** : par défaut, il s'exécute une fois tous les 8 messages, les tiens et ceux de l'IA. Voir [Approbations d'agents et Agent Suite](approvals-and-agent-suite.md).
 
 ### Narrative Director
 
-Crée un coup de pouce ponctuel pour l'histoire, uniquement quand tu le demandes. Quand cet agent est actif dans un chat Roleplay, un bouton **Push Story** apparaît au-dessus de la zone de saisie. Clique dessus pour armer la prochaine réponse, qui fera alors avancer l'intrigue ou introduira une surprise.
+Crée un coup de pouce ponctuel pour l'histoire quand tu le demandes. Quand cet agent est actif dans un chat Roleplay, un bouton **Push Story** (faire avancer l'histoire) apparaît. Clique dessus pour armer la prochaine réponse, qui fait alors avancer l'intrigue ou ajoute une surprise.
 
-- **Phase** : **Pre-Generation**.
+- **Phase** : Pre-Generation.
 - **Où ça marche** : Roleplay uniquement.
-- **Réglages clés** : le réglage **Story Push Mode** (**Natural** pour prolonger les fils en cours, ou **Random Event** pour ajouter une surprise plausible). L'agent peut aussi entretenir un arc narratif caché et facultatif, le **Secret Plot**. Pour la marche à suivre complète, voir [Narrative Director et Secret Plot](../roleplay/narrative-director.md).
+- **Réglages clés** : le réglage **Story Push Mode** (**Natural** fait avancer les fils en cours, **Random Event** ajoute une surprise plausible). L'agent peut aussi entretenir un arc narratif caché à long terme, le **Secret Plot**. Voir [Narrative Director et Secret Plot](../roleplay/narrative-director.md).
 
 ### Knowledge Retrieval
 
-Parcourt les lorebooks que tu sélectionnes, ainsi que les fichiers que tu téléverses, avant la réponse. Il résume les passages utiles et ajoute ce résumé au prompt. Un lorebook est un recueil de faits sur ton univers et tes personnages. Il s'agit d'une recherche légère, qui ne réclame donc aucune base de données séparée.
+Parcourt les lorebooks que tu choisis, ainsi que les fichiers que tu téléverses, avant la réponse. Il résume les passages utiles et ajoute ce résumé au prompt. Un lorebook est un recueil de faits sur ton univers. Il s'agit d'une recherche légère, qui ne demande aucune base de données séparée.
 
-- **Phase** : **Pre-Generation**.
+- **Phase** : Pre-Generation.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : l'interrupteur **Use chat-active lorebooks**, le sélecteur **Fixed Source Lorebooks** et le téléversement de fichiers dans les formats pris en charge. N'utilise pas cet agent en même temps que Knowledge Router : leurs rôles se chevauchent. Pour la configuration, voir [Sources de connaissances](knowledge-sources.md).
+- **Réglages clés** : **Use chat-active lorebooks** (utiliser les lorebooks actifs du chat), un sélecteur **Fixed Source Lorebooks** (lorebooks sources fixes) et le téléversement de fichiers. Ne l'utilise pas en même temps que Knowledge Router : leurs rôles se chevauchent. Voir [Sources de connaissances](knowledge-sources.md).
 
 ### Knowledge Router
 
-Une alternative moins coûteuse à Knowledge Retrieval. Au lieu de résumer, il lit les courtes descriptions des entrées de tes lorebooks. Il ajoute ensuite les entrées correspondantes, mot pour mot. Il donne le meilleur résultat quand les entrées sont bien décrites.
+Une alternative moins coûteuse à Knowledge Retrieval. Il lit les courtes descriptions des entrées de tes lorebooks et ajoute mot pour mot les entrées correspondantes. Il donne le meilleur résultat quand les entrées sont bien décrites.
 
-- **Phase** : **Pre-Generation**.
+- **Phase** : Pre-Generation.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : l'interrupteur **Use chat-active lorebooks** et le sélecteur **Fixed Source Lorebooks**. Un badge de couverture indique le pourcentage d'entrées sources dotées d'une description. Pour la configuration, voir [Sources de connaissances](knowledge-sources.md).
+- **Réglages clés** : **Use chat-active lorebooks** et un sélecteur **Fixed Source Lorebooks**. Un badge de couverture indique le pourcentage d'entrées sources dotées d'une description. Voir [Sources de connaissances](knowledge-sources.md).
 
 ## Tracker Agents
 
-Les Tracker Agents tiennent à jour un relevé de la scène, des personnages et de tes caractéristiques. Tu peux ajouter leur dernier résultat au prompt sous forme de section, pour que le modèle reste cohérent. World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker et Beholder ont **Add as Prompt Section** activé par défaut. Expression Engine et Background font exception.
+Les Tracker Agents tiennent à jour un relevé de la scène, des personnages et de tes caractéristiques. **Add as Prompt Section** (ajouter comme section du prompt) ajoute le dernier résultat d'un agent au prompt, pour que le modèle reste cohérent. Ce réglage est activé par défaut pour tous les trackers, sauf Expression Engine et Background.
 
 ### World State
 
 Suit la date, l'heure, la météo, le lieu et les personnages présents. La scène reste ainsi ancrée et le modèle n'oublie pas où et quand l'histoire se déroule.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : **Add as Prompt Section** (ajouter comme section du prompt), activé par défaut.
+- **Réglages clés** : **Add as Prompt Section** (activé par défaut).
 
 ### Expression Engine
 
-Lit l'émotion de la dernière réponse et choisit le sprite ou l'expression qui lui correspond pour le personnage. Un sprite est une image du personnage affichée dans la scène. Pratique pour un personnage debout dont l'illustration change avec l'humeur.
+Lit l'émotion de la dernière réponse et choisit le sprite ou l'expression qui lui correspond pour le personnage. Un sprite est une image du personnage affichée dans la scène. Utilise-le pour une illustration de personnage en pied qui change avec l'humeur.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : le réglage **Sprite Source** (**Expressions**, **Full-body** ou les deux), l'interrupteur **Expression Avatars**, le sélecteur **Sprite Owners**, et les curseurs de taille et d'opacité. Voir [Sprites de personnage](../characters/sprites.md).
+- **Réglages clés** : le réglage **Sprite Source** (**Expressions**, **Full-body** ou les deux), l'interrupteur **Expression Avatars** (avatars d'expression), le sélecteur **Sprite Owners** (propriétaires des sprites), et les curseurs de taille et d'opacité. Voir [Sprites de personnage](../characters/sprites.md).
 
 ### Quest Tracker
 
-Gère les objectifs de quête, leur achèvement et leurs récompenses. Utile pour un jeu d'aventure où tu veux une liste de tâches visible.
+Gère les objectifs de quête, leur achèvement et leurs récompenses. Utilise-le pour un jeu d'aventure où tu veux une liste de tâches visible.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
 - **Réglages clés** : **Add as Prompt Section** (activé par défaut).
 
 ### Background
 
-Choisit, parmi les arrière-plans que tu as téléversés, l'image d'arrière-plan qui correspond le mieux à la scène en cours. Il ne génère pas d'images : pour une génération automatique d'arrière-plan de scène, utilise Illustrator.
+Choisit, parmi les arrière-plans que tu as téléversés, le meilleur arrière-plan pour la scène en cours. Il ne génère pas d'images. Utilise Illustrator pour des arrière-plans de scène générés.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : la connexion de l'agent et les contrôles de contexte habituels. Le choix de l'arrière-plan se limite aux images déjà présentes dans ta bibliothèque d'arrière-plans.
+- **Réglages clés** : la connexion de l'agent et les contrôles de contexte habituels. Il choisit uniquement parmi les images déjà présentes dans ta bibliothèque d'arrière-plans.
 
 ### Character Tracker
 
-Suit les personnages présents, ainsi que leur humeur, leurs actions, leur apparence, leur tenue, leurs pensées et leurs caractéristiques individuelles comme les PV. Il peut aussi créer des portraits pour les nouveaux personnages qui n'en ont pas.
+Suit les personnages présents, avec leur humeur, leurs actions, leur apparence, leur tenue, leurs pensées et leurs caractéristiques individuelles comme les PV. Il peut aussi créer des portraits pour les nouveaux personnages qui n'en ont pas.
 
-Une seule carte décrivant plusieurs personnes, par exemple une carte de scénario avec une distribution, peut les suivre séparément. Marque chaque personne dans le texte de la carte avec un en-tête `[CHARACTER: Name]` ou un champ `Name:` pour que le suivi puisse associer les membres signalés à leur carte. Chaque membre garde son propre nom, son humeur, sa tenue, ses pensées et son portrait. Une ancienne entrée portant le nom de la carte reste jusqu'à ce que le suivi signale un membre individuel pour la remplacer. Les personnages ajoutés manuellement gardent leur identité manuelle, même si leur nom correspond à un membre déclaré de la distribution.
+Une fiche qui décrit plusieurs personnes, par exemple une fiche de scénario avec une distribution, peut être suivie personne par personne. Marque chaque personne dans le texte de la fiche avec un en-tête `[CHARACTER: Name]` ou un champ `Name:`. Chaque membre garde son propre nom, son humeur, sa tenue, ses pensées et son portrait. Les membres ne partagent pas le portrait de la fiche. Une ancienne entrée portant le nom de la fiche reste jusqu'à ce que le tracker signale un membre individuel pour la remplacer. Les personnages ajoutés manuellement gardent leur identité manuelle.
 
-Quand un personnage récurrent revient après avoir quitté la scène, Character Tracker reprend ses dernières statistiques et ses champs personnalisés enregistrés pour assurer la continuité. Les personnages associés à une carte reçoivent aussi leurs réserves et attributs RPG configurés comme base. Les entrées de cartes à personnage unique conservent l'avatar et le cadrage de la carte. Les membres d'une carte à plusieurs personnages utilisent leurs propres portraits via la même bibliothèque, les avatars enregistrés ou la génération facultative de portraits que les NPC ; ils n'héritent pas du portrait commun de la carte.
+Quand un personnage revient après avoir quitté la scène, le tracker reprend ses dernières caractéristiques et ses champs personnalisés enregistrés. Les personnages associés à une fiche reçoivent aussi leurs réserves et attributs RPG configurés. Dans un groupe Roleplay en mode Merged, les personnages présents peuvent aussi déterminer quelles fiches de personnage sont actives pour la prochaine réponse. Voir [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
 
-Dans un groupe Roleplay en mode Merged, ses personnages présents peuvent aussi déterminer quelles fiches de personnage sont actives pour la prochaine réponse. Consulte [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
-
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : **Add as Prompt Section** (activé par défaut) et le réglage facultatif **Auto-Generate NPC Avatars**, avec son propre sélecteur de connexion image. Juste en dessous, le réglage **Include the outfit in portraits** (inclure la tenue dans les portraits) est activé par défaut : les nouveaux portraits montrent ainsi la tenue notée par le tracker en plus de l'apparence. Désactive-le pour dessiner les portraits à partir de l'apparence seule.
+- **Réglages clés** : **Add as Prompt Section** (activé par défaut) et le réglage facultatif **Auto-Generate NPC Avatars** (générer automatiquement les avatars des PNJ), avec son propre sélecteur de connexion d'images. **Include the outfit in portraits** (inclure la tenue dans les portraits) est activé par défaut. Désactive-le pour dessiner les portraits à partir de l'apparence seule.
 
 ### Beholder
 
-Suit les vêtements actuels de chaque personnage, par zone du corps, ainsi que les objets tenus, les blessures, les parties du corps manquantes, les zones explicitement nues et les espèces non humaines. Son dernier instantané validé apparaît dans le tiroir Chat Settings de Beholder en Roleplay et alimente à la fois le prochain suivi de Beholder et la prochaine réponse Roleplay principale.
+Suit les vêtements de chaque personnage par zone du corps, ainsi que les objets tenus, les blessures, les parties du corps manquantes, les zones explicitement nues et les espèces non humaines. Son dernier instantané validé apparaît dans le tiroir de Beholder, dans les **Chat Settings** de Roleplay. Il est transmis au prochain appel de suivi de Beholder et à la prochaine réponse principale.
 
 - **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay uniquement.
-- **Réglages clés** : ajoute-le ou retire-le sous **Chat Settings → Agents → Tracker Agents** ; ouvre **Configure Beholder** au même endroit pour choisir sa connexion, son modèle, son prompt, son contexte et ses limites de sortie. **Add as Prompt Section** est activé par défaut.
-- **Modèle recommandé** : choisis le modèle de prompt qui correspond au modèle derrière la connexion de Beholder. Les deux modèles de prompt fournis ne sont pas interchangeables : chacun est écrit pour un type de modèle différent.
-  - **SOTA model — one prompt** (modèle SOTA – un prompt, par défaut) : un appel couvrant tous les champs suivis. Utilise un modèle général puissant comme OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+.
-  - **Beholder local model — five passes** (modèle local Beholder – cinq passes) : cinq appels ciblés, un par catégorie suivie, pour l'extracteur [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF), spécialement entraîné et exécuté localement (par exemple `Beholder-Q8_0.gguf` derrière koboldcpp ou llama.cpp). Ce modèle est entraîné pour répondre à une catégorie à la fois ; le modèle de prompt unique sort donc de son cadre d'entraînement et renvoie un état partiel. Engine réunit les cinq résultats en une seule mise à jour. Il fonctionne entièrement hors ligne et sans frais.
-
-  Beholder ne peut pas détecter le modèle derrière une connexion ; le choix reste donc manuel. Une discordance n'est pas fatale, mais dégrade l'extraction : un modèle SOTA accepte les deux modèles de prompt, tandis que le modèle local nécessite celui à cinq passes.
-
-- **Origine** : adapté à l'environnement Agent natif d'Engine à partir de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sous licence AGPL-3.0-only. Le package officiel ne charge ni le DOM, ni le polling, ni l'environnement de stockage local de l'ancienne extension.
+- **Réglages clés** : ajoute-le sous **Chat Settings → Agents → Tracker Agents** (réglages du chat → Agents → agents de suivi), puis ouvre **Configure Beholder** (configurer Beholder) pour choisir sa connexion, son modèle, son prompt, son contexte et ses limites de sortie. **Add as Prompt Section** est activé par défaut.
+- **Modèle de prompt** : choisis le modèle de prompt qui correspond au modèle derrière la connexion de Beholder. Marinara ne peut pas détecter le modèle : ce choix reste donc manuel. Un mauvais choix n'est pas fatal, mais donne de moins bons résultats.
+  - **SOTA model — one prompt** (modèle SOTA – un prompt, par défaut) : un seul appel qui couvre tous les champs suivis. Utilise un modèle général puissant.
+  - **Beholder local model — five passes** (modèle local Beholder – cinq passes) : cinq appels ciblés, un par catégorie suivie, pour l'extracteur [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF), entraîné spécialement pour cette tâche et exécuté sur ton ordinateur (par exemple `Beholder-Q8_0.gguf` derrière koboldcpp ou llama.cpp). Ce modèle répond à une catégorie à la fois : avec le modèle de prompt unique, il renvoie donc un état partiel. Il fonctionne hors ligne et sans frais.
+- **Origine** : adapté de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sous licence AGPL-3.0-only. Le package officiel ne charge ni le DOM, ni le polling, ni l'environnement de stockage local de l'ancienne extension.
 
 ### Persona Stats
 
-Suit les barres d'état de ton propre personnage, comme Satiety, Energy et Hygiene, plus toutes les barres personnalisées que tu ajoutes. Utile pour du survival ou de la simulation de vie.
+Suit les barres d'état de ton propre personnage, comme Satiety, Energy et Hygiene, plus toutes les barres personnalisées que tu ajoutes. Utilise-le pour une partie de survie ou de simulation de vie.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
 - **Réglages clés** : **Add as Prompt Section** (activé par défaut). Voir [Couleurs et caractéristiques des personnages](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 
-Suit les champs que tu définis toi-même : monnaies, compteurs, indicateurs. Utile quand les trackers intégrés ne couvrent pas un besoin de ton histoire.
+Suit des champs que tu définis toi-même, comme des monnaies, des compteurs ou des indicateurs. Utilise-le quand les trackers intégrés ne couvrent pas un besoin de ton histoire.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
 - **Réglages clés** : **Add as Prompt Section** (activé par défaut).
 
 ### Inventory Tracker
 
-Suit l'argent, l'équipement porté et les objets transportés dans trois listes structurées, sans réutiliser l'inventaire de Persona Stats ni condenser les données dans des chaînes de Custom Tracker. Les noms en double sont fusionnés, les quantités de un restent visuellement compactes et les lignes verrouillées survivent sans modification aux passages suivants du tracker.
+Suit l'argent, l'équipement porté et les objets transportés sous forme de trois listes structurées. Les noms en double sont fusionnés, et les lignes verrouillées restent inchangées lors des passages suivants du tracker.
 
-- **Phase** : Post-Processing (post-traitement).
-- **Modes compatibles** : Roleplay.
-- **Réglages principaux** : **Add as Prompt Section** (activé par défaut). Le HUD et le Tracker Panel permettent de modifier et de verrouiller chaque nom et chaque quantité.
+- **Phase** : Post-Processing.
+- **Où ça marche** : Roleplay.
+- **Réglages clés** : **Add as Prompt Section** (activé par défaut). Le HUD et le Tracker Panel permettent de modifier et de verrouiller chaque nom et chaque quantité.
 
 ### Quartermaster
 
-Gère l'inventaire de la persona active, les emplacements d'équipement, les quantités et lieux de stockage des objets, ainsi que les tenues enregistrées. Son agent de suivi lit l'histoire après les réponses et applique les changements d'objets. Un panneau flottant et le Tracker Panel permettent de modifier manuellement le même inventaire ; les images des objets et des tenues sont facultatives.
+Gère l'inventaire du persona actif, ses emplacements d'équipement, les quantités et les lieux de stockage des objets, ainsi que les tenues enregistrées. Il lit l'histoire après les réponses et applique les changements d'objets. Un panneau flottant et le Tracker Panel permettent de modifier le même inventaire à la main. Les illustrations des objets et des tenues sont facultatives.
 
 - **Phase** : Post-Processing, avec le contexte de l'inventaire transmis aux réponses suivantes.
-- **Modes compatibles** : Roleplay ; suit la persona active, pas les membres du groupe ni les PNJ.
+- **Où ça marche** : Roleplay. Il suit le persona actif, pas les membres de l'équipe ni les PNJ.
 - **Disponibilité** : nécessite Engine **2.4.6+**.
-- **Installation et activation** : installe **Quartermaster** depuis **Agents → Agent Organizer (organisateur d’agents)** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents** (réglages du chat → agents), ajoute Quartermaster dans **Tracker Agents** (agents de suivi) et choisis sa connexion au modèle. Ouvre le panneau flottant avec le bouton au-dessus du Tracker Panel.
-- **Principaux contrôles** : équiper et ranger des objets, enregistrer des tenues, restaurer l'inventaire ou annuler les derniers changements du suivi, et exporter/importer la configuration du chat. La génération d'images utilise une connexion d'images configurée séparément. La macro d'apparence et le remplacement de l'avatar de la persona sont facultatifs ; consulte le [guide du package Quartermaster](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md) avant de les activer.
+- **Installation** : installe-le et redémarre lorsque cela t'est demandé. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents**, ajoute Quartermaster sous **Tracker Agents** et choisis sa connexion au modèle. Ouvre le panneau flottant avec le bouton de lancement situé au-dessus du Tracker Panel.
+- **Contrôles clés** : équiper et ranger des objets, enregistrer des tenues, restaurer l'inventaire ou annuler les derniers changements du tracker, et exporter ou importer la configuration d'un chat. La génération d'images utilise sa propre connexion d'images. Consulte le [guide du package Quartermaster](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md) avant d'activer la macro d'apparence ou le remplacement de l'avatar.
 
 ### Relationship Tracker
 
-Maintient un réseau de relations modifiable pour les cartes de personnage d'un chat Roleplay de groupe, ainsi que la perception de la persona active par chaque personnage. Les relations définies utilisent les catégories positive, neutre, négative ou compliquée. Les verrouillages manuels protègent les relations modifiées contre les changements automatiques.
+Tient à jour un réseau de relations modifiable pour les fiches de personnage d'un chat Roleplay de groupe, ainsi que la façon dont chaque personnage voit le persona actif. Les relations sont positives, neutres, négatives ou compliquées. Les verrouillages manuels protègent tes modifications contre les changements automatiques.
 
 - **Phase** : Post-Processing, avec le contexte des relations transmis aux réponses suivantes.
-- **Modes compatibles** : chats Roleplay de groupe.
-- **Disponibilité** : nécessite Engine **2.4.4+** (< 4.0.0).
-- **Installation et activation** : installe **Relationship Tracker** depuis **Agents → Agent Organizer (organisateur d’agents)** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents**, ajoute-le dans **Tracker Agents** et choisis sa connexion au modèle. Le réseau apparaît dans le Tracker Panel. Sélectionne une fois **All relationships** (toutes les relations) ou **Scene-only relationships** (relations de la scène uniquement) pour initialiser le chat avant de modifier ou d'actualiser les relations.
-- **Principaux contrôles** : **All relationships** ou **Scene-only relationships** pour le contexte du prompt, **Update from History** (actualiser depuis l'historique) pour analyser un nombre limité de messages récents, ainsi que la modification manuelle, le verrouillage et **Resume automatic updates** (reprendre les mises à jour automatiques). **Context Size** (taille du contexte ; 5 messages par défaut), **Presence lookback** (historique de présence ; 15 par défaut) et le nombre de messages à analyser dans l'historique sont des réglages distincts. Survole une ligne ou place le focus du clavier dessus pour la lire ; sur écran tactile ou avec un stylet, appuie dessus. Consulte le [guide du package Relationship Tracker](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md).
+- **Où ça marche** : chats Roleplay de groupe.
+- **Disponibilité** : nécessite Engine **2.4.4+** (avant 4.0.0).
+- **Installation** : installe-le et redémarre lorsque cela t'est demandé. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents**, ajoute-le sous **Tracker Agents** et choisis sa connexion au modèle. Le réseau apparaît dans le Tracker Panel. Sélectionne-y une fois **All relationships** (toutes les relations) ou **Scene-only relationships** (relations de la scène uniquement) pour démarrer le chat.
+- **Contrôles clés** : **All relationships** ou **Scene-only relationships** pour le contexte du prompt, **Update from History** (actualiser depuis l'historique) pour analyser les messages récents, la modification et le verrouillage manuels, et **Resume automatic updates** (reprendre les mises à jour automatiques). **Context Size** (taille du contexte, 5 messages par défaut), **Presence lookback** (historique de présence, 15 par défaut) et le nombre de messages analysés dans l'historique sont des réglages distincts. Consulte le [guide du package Relationship Tracker](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md).
 
 ### Memory Nag
 
-Conserve un petit coffre de souvenirs modifiable pour chaque chat Roleplay. Il analyse la conversation par lots avec points de reprise, classe les souvenirs selon les personnages actuels et passés, puis déplace les souvenirs clairement réglés vers une liste Resolved restaurable. Un souvenir peut conserver mot pour mot une courte réplique lorsque sa formulation exacte compte.
+Conserve un petit coffre de souvenirs modifiable pour chaque chat Roleplay. Il analyse le chat par lots, classe les souvenirs selon les participants actuels et passés, et déplace les souvenirs réglés vers une liste Resolved restaurable. Un souvenir peut conserver mot pour mot une courte réplique lorsque la formulation exacte compte.
 
-Après chaque réponse, une correspondance déterministe des mots ne fournit au tracker que les souvenirs actifs les plus pertinents pour les personnages concernés. Le tracker décide alors si la situation justifie vraiment un rappel et ne peut choisir que parmi ces souvenirs ; il ne peut pas en inventer un pendant le rappel.
+Après chaque réponse, une correspondance de mots ne transmet au tracker que les souvenirs actifs les plus pertinents. Le tracker décide si la scène justifie un rappel et ne peut choisir que parmi ces souvenirs. Il ne peut pas créer de nouveau souvenir pendant le rappel.
 
 - **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay uniquement.
-- **Réglages clés** : une **Vault scan connection** distincte (par défaut, la connexion de l’Agent), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) et **Maximum memories injected** (3). Utilise **Scan chat** pour l’analyse initiale et **Open vault** pour rechercher, filtrer, ajouter, modifier, résoudre, restaurer ou supprimer des souvenirs.
-- **Placement dans le prompt** : sans marqueur de preset, les souvenirs choisis entrent dans la réponse suivante au sein de `<context><memory_nags>…</memory_nags></context>`. Ajoute une section Agent Memory Nag pour les placer explicitement.
-- **Cycle de vie des données** : le coffre appartient à un seul chat et reste enregistré si le package est désactivé ou désinstallé ; une réinstallation peut donc reprendre au dernier point de contrôle. La suppression d’un souvenir est définitive et demande toujours confirmation.
+- **Réglages clés** : **Vault scan connection** (connexion d'analyse du coffre, par défaut la connexion de l'agent), **Messages per batch** (messages par lot, 20), **Maximum memories created per character** (nombre maximal de souvenirs créés par personnage, 10), **Maximum memories considered per character** (nombre maximal de souvenirs examinés par personnage, 5) et **Maximum memories injected** (nombre maximal de souvenirs injectés, 3). Utilise **Scan chat** (analyser le chat) pour le premier remplissage et **Open vault** (ouvrir le coffre) pour rechercher, ajouter, modifier, résoudre, restaurer ou supprimer des souvenirs.
+- **Placement dans le prompt** : sans marqueur de preset, les rappels choisis entrent dans la réponse suivante au sein de `<context><memory_nags>…</memory_nags></context>`. Ajoute une section Memory Nag Agent pour les placer toi-même.
+- **Données** : le coffre appartient à un seul chat et reste enregistré si le package est désactivé ou désinstallé. La suppression d'un souvenir est définitive et demande toujours confirmation.
 
 ### World Maps
 
-Ajoute à une histoire des lieux imbriqués persistants et des relations spatiales. Tu peux créer des régions, des zones, des salles et des connexions, te déplacer d'un lieu à l'autre, et laisser la position actuelle enrichir la génération d'un contexte spatial. Game Mode gagne en plus la vue carte du monde fournie par le package.
+Ajoute à une histoire des lieux imbriqués et des liens spatiaux. Tu crées des régions, des zones, des salles et des connexions, tu te déplaces d'un lieu à l'autre, et la position actuelle ajoute du contexte spatial à la génération. Game Mode reçoit aussi une vue carte du monde.
 
-- **Intégration** : package de fonctionnalité ; il apporte une interface de carte et du contexte d'exécution au chat, au lieu de s'exécuter comme un agent classique lié à une phase de génération.
+- **Intégration** : package de fonctionnalité, avec une interface de carte et du contexte de chat, au lieu d'un agent lié à une phase de génération.
 - **Où ça marche** : Roleplay et Game.
-- **Réglages clés** : active-le pour le chat Roleplay depuis **Chat Settings → Agents**, ou sélectionne-le pendant la création de la partie et gère-le ensuite depuis les réglages de cette partie. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : active-le pour un chat Roleplay dans **Chat Settings → Agents**, ou choisis-le à la création d'une partie et gère-le dans les réglages de cette partie. L'installer ou le retirer demande un redémarrage.
 - **Guide complet** : [World Maps : installation, création et déplacements](hierarchical-maps.md).
 
 ## Misc Agents
 
-Les Misc Agents ajoutent des extras : images, musique, réactions du public, mises à jour de fiches.
+Les Misc Agents ajoutent des extras comme des images, de la musique, des réactions du public et des mises à jour de fiches.
 
 ### Echo Chamber
 
-Simule un public en direct qui réagit à ta scène, sous la forme d'un widget **Echo** flottant dans la zone de chat. Il dévoile une nouvelle réaction toutes les 30 secondes.
+Simule un public en direct qui réagit à ta scène, dans un widget **Echo** flottant dans la zone de chat. Il dévoile une nouvelle réaction toutes les 30 secondes.
 
-- **Phase** : **Parallel**.
+- **Phase** : Parallel.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : tu choisis un style parmi les options proposées, par exemple **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad** et **Harbingers**. Le widget propose notamment les commandes **Re-run Echo Chamber** et **Clear messages**.
+- **Réglages clés** : choisis un style comme **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad** ou **Harbingers**. Le widget propose **Re-run Echo Chamber** (relancer Echo Chamber) et **Clear messages** (effacer les messages).
 
 ### Long-Term Memory
 
-Extrait des souvenirs durables depuis les résumés de chat, les fiches de personnages et les lorebooks, vers un coffre appartenant au package, puis rappelle le contexte pertinent avant la réponse principale. Il gère la consultation du coffre par périmètre, l'import de sources, la relecture des brouillons en attente et le placement du contexte rappelé sur un marqueur de preset.
+Extrait des souvenirs durables des résumés de chat, des fiches de personnage et des lorebooks vers un coffre appartenant au package, puis rappelle le contexte pertinent avant la réponse principale. Il permet de parcourir le coffre, d'importer des sources, de relire les brouillons en attente et de placer le contexte sur un marqueur de preset.
 
-- **Intégration** : package de fonctionnalité ; il apporte du contexte avant la génération et une interface de gestion de la mémoire, au lieu de s'exécuter comme un tracker classique après la génération.
+- **Intégration** : package de fonctionnalité, avec du contexte avant la génération et une interface de gestion de la mémoire.
 - **Où ça marche** : Conversation, Roleplay et Game.
-- **Réglages clés** : activation, budget de tokens du rappel (128-16 384), nombre maximum de fragments rappelés (1-100), seuil de score, contexte des messages récents (1-20), style de rappel et pondérations sémantique, lexicale, graphe et mots-clés, inclusion des souvenirs résolus, préambule de rappel, raisonnement et verbosité de l'extraction, limites de génération, limites de sources, modèles de prompt, extraction de mots-clés par l'IA, et extraction en Game Mode.
-- **Cycle de vie des données** : les contrôles de sauvegarde de Memory Settings servent à exporter ou remplacer le coffre, les brouillons et les réglages. La suppression de toutes les données efface définitivement les souvenirs, les brouillons, l'activité et les index dérivés, mais conserve les réglages. Désinstaller le package préserve le coffre Long-Term Memory en vue d'une réinstallation. L'installer, le mettre à jour ou le retirer demande un redémarrage de Marinara.
-- **Compatibilité** : moteur `2.3.5` jusqu'à, mais sans inclure, `4.0.0`. Le package utilise les permissions `agent-runtime`, `chat-read`, `chat-write`, `routes`, `storage` et `ui`.
+- **Réglages clés** : budget de tokens du rappel (128-16 384), nombre maximal de fragments rappelés (1-100), seuil de score, contexte des messages récents (1-20), style de rappel, pondérations de recherche, inclusion des souvenirs résolus, préambule de rappel, réglages d'extraction, limites de sources, modèles de prompt, extraction de mots-clés par l'IA et extraction en Game Mode.
+- **Données** : les contrôles de sauvegarde de Memory Settings servent à exporter ou remplacer le coffre, les brouillons et les réglages. **Delete all data** (supprimer toutes les données) efface définitivement les souvenirs, les brouillons, l'activité et les index, mais conserve les réglages. La désinstallation conserve le coffre pour une réinstallation ultérieure. L'installer, le mettre à jour ou le retirer demande un redémarrage.
+- **Compatibilité** : Engine `2.3.5` jusqu'à `4.0.0` exclu. Permissions : `agent-runtime`, `chat-read`, `chat-write`, `routes`, `storage`, `ui`.
 
 ### Illustrator
 
-Prend en charge la génération d'images et de vidéos. Il rédige des prompts visuels pour les moments importants, puis les envoie au fournisseur média configuré.
+Crée des images et des vidéos. Il rédige des prompts visuels pour les moments importants et les envoie à ton service d'images ou de vidéo.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : par défaut, Illustrator s'exécute une fois tous les 5 messages de l'utilisateur et de l'assistant. Modifie cette fréquence avec **Image Run Interval** (intervalle des images) sur sa fiche dans chaque chat Roleplay. Les clips automatiques utilisent **Video Run Interval** (intervalle des vidéos) lorsque **Illustrator makes** vaut **Pictures and clips** ou **Clips only**. Mets **Video Run Interval** à **0** pour désactiver les clips automatiques. Les réglages comprennent **Prompt Model**, **Image Style**, **Attach Card Appearance** et **Send Avatar References**. Pour la configuration complète, voir [Agent Illustrator](../media/illustrator-agent.md).
+- **Réglages clés** : par défaut, Illustrator s'exécute une fois tous les 5 messages, les tiens et ceux de l'IA. Pour changer cela, règle **Image Run Interval** (intervalle des images) sur sa carte dans chaque chat Roleplay. Les clips automatiques utilisent **Video Run Interval** (intervalle des vidéos) lorsque **Illustrator makes** (ce que crée Illustrator) vaut **Pictures and clips** ou **Clips only**. Mets **Video Run Interval** à **0** pour désactiver les clips automatiques. Les réglages comprennent **Prompt Model** (modèle de rédaction du prompt), **Image Style** (style d'image), **Attach Card Appearance** (joindre l'apparence de la fiche) et **Send Avatar References** (envoyer les avatars en référence). Pour la configuration complète, voir [Agent Illustrator](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 
 Crée et met à jour des entrées de lorebook à partir des faits importants de ton chat : tes notes d'univers s'étoffent au fil du jeu.
 
-- **Phase** : **Post-Processing**.
-- **Où ça marche** : Roleplay. En Game Mode, une variante de fin de session, **Game Session Keeper**, fait le même travail à la fin d'une session.
-- **Réglages clés** : par défaut, il s'exécute une fois tous les 8 messages, les tiens et ceux de l'IA. Le sélecteur **Target Lorebook** détermine la destination des entrées, avec une option de sélection automatique. Les configurations de prompt avancées peuvent renvoyer le nom exact d'un lorebook modifiable ou un alias configuré comme `world`, `npc`, `scene` ou `player` ; si la destination d'un alias n'existe pas, elle est créée et associée automatiquement au chat actuel. Sans destination, le comportement existant avec un seul lorebook est conservé.
+- **Phase** : Post-Processing.
+- **Où ça marche** : Roleplay. En Game Mode, une variante de fin de session, **Game Session Keeper**, fait le même travail.
+- **Réglages clés** : par défaut, il s'exécute une fois tous les 8 messages, les tiens et ceux de l'IA. **Target Lorebook** (lorebook cible) détermine la destination des entrées, avec une option de sélection automatique. Les prompts avancés peuvent renvoyer le nom d'un lorebook accessible en écriture ou un alias comme `world`, `npc`, `scene` ou `player`. Les destinations d'alias manquantes sont créées et associées au chat. Sans destination, le comportement avec un seul lorebook est conservé.
 
 ### Combat
 
-Gère le combat, y compris l'initiative, les PV et l'ordre des tours. Quand il est actif, un bouton **Encounter** apparaît au-dessus de la zone de saisie.
+Gère le combat : l'initiative, les PV et l'ordre des tours. Quand il est actif, un bouton **Encounter** (rencontre) apparaît au-dessus de la zone de saisie.
 
-- **Phase** : **Parallel**.
+- **Phase** : Parallel.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : il est livré avec un outil de jet de dés pour résoudre les tours.
+- **Réglages clés** : il comprend un outil de jet de dés pour résoudre les tours.
 
 ### Immersive HTML
 
 Ajoute à la dernière réponse des éléments visuels issus de l'univers, par exemple une note ou un écran mis en forme, sans toucher à l'histoire.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay uniquement.
 - **Réglages clés** : l'interrupteur **Hold Message Until Rewrite**.
 
@@ -311,117 +304,117 @@ Ajoute à la dernière réponse des éléments visuels issus de l'univers, par e
 
 Lit l'ambiance de la scène et joue une musique assortie. Il peut passer par Spotify, YouTube ou des fichiers audio locaux.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay et Game.
-- **Réglages clés** : le réglage **Music Player** choisit le fournisseur, et chaque fournisseur demande sa propre configuration. Pour la marche à suivre complète avec Spotify, YouTube et la musique locale, voir [Music DJ](../media/music.md).
+- **Réglages clés** : le réglage **Music Player** (lecteur de musique) choisit le fournisseur, et chaque fournisseur demande sa propre configuration. Pour la marche à suivre complète avec Spotify, YouTube et la musique locale, voir [Music DJ](../media/music.md).
 
 ### Haptic Feedback
 
 Lit la narration et pilote en temps réel les jouets intimes connectés, via Intiface Central. Intiface Central doit déjà tourner avec un jouet connecté avant que tu actives cet agent.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Conversation, Roleplay et Game.
-- **Réglages clés** : le choix **Touch Sensitivity** (**Subtle**, **Standard** ou **Intense**) et le champ **Intiface URL**. La sensibilité guide les choix de l'agent sans limiter la plage d'intensité `0.0-1.0` disponible. Pour la configuration complète, voir [Configurer Haptic Feedback](../integrations/haptic-feedback.md).
+- **Réglages clés** : le choix **Touch Sensitivity** (**Subtle**, **Standard** ou **Intense**) et le champ **Intiface URL** (URL Intiface). La sensibilité guide les choix de l'agent sans limiter la plage d'intensité `0.0-1.0` disponible. Pour la configuration complète, voir [Configurer Haptic Feedback](../integrations/haptic-feedback.md).
 
 ### CYOA Choices
 
 Ajoute après chaque réponse des boutons de choix cliquables "What will you do?", pour une ambiance de livre dont tu es le héros (CYOA). Chaque bouton contient une action complète que tu envoies d'un clic.
 
-- **Phase** : **Post-Processing**.
+- **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : **Edit** pour réécrire les choix et **Re-roll** pour en générer de nouveaux. Active **Add CYOA choices to the message box instead of sending them** (ajouter les choix CYOA à la zone de saisie au lieu de les envoyer) dans **Settings** > **General** > **Input & Editing** (Paramètres > Général > Saisie et édition) pour que les choix cliqués aillent dans ta zone de saisie.
+- **Réglages clés** : **Edit** (modifier) pour réécrire les choix et **Re-roll** (relancer) pour en générer de nouveaux. Active **Add CYOA choices to the message box instead of sending them** (ajouter les choix CYOA à la zone de saisie au lieu de les envoyer) dans **Settings → General → Input & Editing** (Paramètres → Général → Saisie et édition) pour que les choix cliqués aillent dans ta zone de saisie.
 
 ### Storyboard
 
-Prépare des storyboards visuels, fixes ou animés, à partir des échanges Roleplay terminés et de la narration en Game Mode. La planification et la mise en forme adaptée au fournisseur sont séparées : la chronologie de la source, l'identité des personnages et le style visuel choisi restent intacts sur les images-clés et les vidéos générées.
+Prépare des storyboards fixes ou animés à partir des échanges Roleplay terminés et de la narration de Game. Une planification séparée et une mise en forme adaptée au fournisseur préservent l'ordre de l'histoire, l'identité des personnages et le style choisi sur les images-clés et les vidéos.
 
-- **Intégration** : package d'agent ; Game et Roleplay utilisent les modèles de prompt et les réglages du package installé, via l'intégration hôte Storyboard du moteur.
+- **Intégration** : package d'agent ; Game et Roleplay utilisent ses modèles de prompt et ses réglages via l'intégration Storyboard d'Engine.
 - **Où ça marche** : Roleplay et Game.
-- **Réglages clés** : choisis les planificateurs image fixe ou animation, les connexions image et vidéo, le nombre d'images-clés, la durée, le mode d'affichage, la gestion des références de personnage, les modèles d'épisode et de style pour Roleplay, et les modèles d'illustration et de vidéo pour Game.
-- **Compatibilité** : moteur `2.3.5` jusqu'à, mais sans inclure, `3.0.0`. Le package utilise les permissions `agent-runtime`, `chat-read`, `prompt-context`, `storage` et `ui`, et ne demande aucun redémarrage.
+- **Réglages clés** : planificateurs image fixe ou animation, connexions d'images et de vidéo, nombre d'images-clés, durée, mode d'affichage, gestion des références de personnage, modèles d'épisode et de style pour Roleplay, et modèles d'illustration et de vidéo pour Game.
+- **Compatibilité** : Engine `2.3.5` jusqu'à `3.0.0` exclu. Permissions : `agent-runtime`, `chat-read`, `prompt-context`, `storage`, `ui`. Aucun redémarrage nécessaire.
 - **Guide complet** : [Agent Storyboard : Roleplay et Game Mode](../game/storyboard.md).
 
 ### 2D Avatars
 
-Affiche tes personnages et tes personas sous forme d'avatars 2D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Un avatar est soit un ensemble de sprites façon PNGTuber (tes sprites d'expression, avec des images de clignement et de parole), soit un fichier d'avatar mesh (`.mavatar`), un modèle 2D souple posé sur un maillage.
+Affiche les personnages et les personas sous forme d'avatars 2D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Un avatar est soit un ensemble de sprites façon PNGTuber (tes sprites d'expression avec des images de clignement et de parole), soit un fichier d'avatar mesh (`.mavatar`).
 
-- **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
+- **Intégration** : package d'agent. Engine dessine les avatars. L'agent n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : dans **Agent Organizer (organisateur d’agents)** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
-- **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**. L'agent fournit aussi les prompts qui servent à créer les images de clignement et de parole, ainsi qu'un avatar mesh, à partir d'un de tes sprites.
-- **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
+- **Disponibilité** : dans **Agent Organizer** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version plus récente.
+- **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**. L'agent fournit aussi les prompts qui créent les images de clignement et de parole, ainsi qu'un avatar mesh, à partir d'un sprite.
+- **Compatibilité** : Engine `2.5.0` jusqu'à `4.0.0` exclu, Capability API 1.73. Permissions : `agent-runtime`, `chat-read`, `storage`, `ui`. Aucun redémarrage nécessaire.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).
 
 ### 3D Avatars
 
-Affiche tes personnages et tes personas sous forme de modèles 3D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Il utilise des modèles VRM (`.vrm`, versions 0.x et 1.0) avec une animation au repos facultative (`.vrma`), des modèles MMD PMX, et des modèles GLB et FBX dotés d'un squelette d'animation, dont les os sont reconnus d'après leur nom.
+Affiche les personnages et les personas sous forme de modèles 3D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Il prend en charge les modèles VRM (`.vrm`, versions 0.x et 1.0) avec une animation au repos facultative (`.vrma`), les modèles MMD PMX, et les modèles GLB et FBX dotés d'un squelette d'animation, dont les os sont reconnus d'après leur nom.
 
-- **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
+- **Intégration** : package d'agent. Engine dessine les avatars. L'agent n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : dans **Agent Organizer (organisateur d’agents)** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
+- **Disponibilité** : dans **Agent Organizer** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version plus récente.
 - **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**.
-- **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
+- **Compatibilité** : la même que 2D Avatars.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).
 
 ### Calls
 
-Ajoute des appels audio et vidéo en direct avec les personnages de Conversation : appels que tu lances, appels entrants, transcriptions propres à l'appel, Text to Speech (synthèse vocale), entrée micro et clips vidéo de personnage.
+Ajoute des appels audio et vidéo en direct avec les personnages de Conversation : appels que tu lances, appels entrants, transcriptions propres à l'appel, synthèse vocale, entrée micro et clips vidéo de personnage.
 
-- **Intégration** : package de fonctionnalité pour Conversation ; il ajoute des contrôles dans la barre d'outils, dans la surface de chat et dans **Chat Settings**, au lieu de s'exécuter comme un agent classique lié à une phase de génération.
+- **Intégration** : package de fonctionnalité pour Conversation, avec des contrôles dans la barre d'outils, dans le chat et dans Chat Settings.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : ouvre **Chat Settings → Agents → Calls** pour activer les appels et régler la voix, le micro, la sonnerie et la vidéo. Voir [Appels audio et vidéo en Conversation](../conversation/calls.md). L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : ouvre **Chat Settings → Agents → Calls** pour activer les appels et régler la voix, le micro, la sonnerie et la vidéo. Voir [Appels audio et vidéo en Conversation](../conversation/calls.md). L'installer ou le retirer demande un redémarrage.
 
 ### UNO
 
-Ajoute une table de UNO avec application des règles, pour toi et les personnages de Conversation, avec des règles maison configurables et de deux à dix joueurs au total.
+Ajoute une table de UNO avec application des règles, pour toi et les personnages de Conversation, avec des règles maison et de deux à dix joueurs.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/uno` ; la configuration fixe les joueurs et les règles maison. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/uno`, puis choisis les joueurs et les règles maison. L'installer ou le retirer demande un redémarrage.
 
 ### Chess
 
-Ajoute un échiquier en tête-à-tête avec application des coups légaux, détection de l'échec et de l'échec et mat, pièces capturées, et tours de l'adversaire joués dans son personnage.
+Ajoute un échiquier en tête-à-tête avec vérification des coups légaux, détection de l'échec et de l'échec et mat, pièces capturées et tours de l'adversaire joués dans son personnage.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/chess`, puis choisis l'adversaire et la couleur que tu joues. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/chess`, puis choisis l'adversaire et ta couleur. L'installer ou le retirer demande un redémarrage.
 
 ### Poker
 
-Ajoute une table de Texas Hold'em de deux à huit joueurs au total, avec blinds, tours d'enchères, pots secondaires, évaluation à l'abattage et adversaires joués dans leur personnage.
+Ajoute une table de Texas Hold'em de deux à huit joueurs, avec blinds, tours d'enchères, pots secondaires, abattages et adversaires joués dans leur personnage.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/poker`, puis choisis les joueurs, les jetons de départ et la valeur des blinds. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/poker`, puis choisis les joueurs, les jetons de départ et les blinds. L'installer ou le retirer demande un redémarrage.
 
 ### 8-Ball Pool
 
-Ajoute une table de billard en tête-à-tête avec billes pleines et rayées, visée et puissance de tir, fautes, bille en main, et tirs de l'adversaire joués dans son personnage.
+Ajoute une table de billard en tête-à-tête avec billes pleines et rayées, visée et puissance de tir, fautes, bille en main et tirs de l'adversaire joués dans son personnage.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/8ball`, puis choisis l'adversaire. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/8ball`, puis choisis l'adversaire. L'installer ou le retirer demande un redémarrage.
 
 ### Tic-Tac-Toe
 
-Ajoute une grille de morpion en tête-à-tête avec symboles au choix ou aléatoires, gestion des tours légaux, et détection de la victoire et du match nul.
+Ajoute une grille de morpion en tête-à-tête avec symboles choisis ou aléatoires, gestion des tours, et détection de la victoire et du match nul.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/tictactoe` (alias `/ttt`), puis choisis l'adversaire et ton symbole. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/tictactoe` (alias `/ttt`), puis choisis l'adversaire et ton symbole. L'installer ou le retirer demande un redémarrage.
 
 ### Rock-Paper-Scissors
 
-Ajoute un pierre-feuille-ciseaux en tête-à-tête où les deux choix restent cachés jusqu'à la révélation.
+Ajoute un match en tête-à-tête où les deux choix restent cachés jusqu'à la révélation.
 
 - **Intégration** : package de jeu pour Conversation.
 - **Où ça marche** : Conversation.
-- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/rps`, puis choisis l'adversaire et un match au meilleur des trois, cinq ou sept manches. L'installer ou le retirer demande un redémarrage de Marinara.
+- **Réglages clés** : lance-le depuis le sélecteur de jeux ou avec `/rps`, puis choisis l'adversaire et un match au meilleur des trois, cinq ou sept manches. L'installer ou le retirer demande un redémarrage.
 
 ## Guides associés
 
-- [Agents : des aides IA pour tes chats](agents-overview.md)
+- [Vue d'ensemble des agents](agents-overview.md)
 - [Agent Illustrator](../media/illustrator-agent.md)
 - [Music DJ](../media/music.md)
 - [Configurer Haptic Feedback](../integrations/haptic-feedback.md)

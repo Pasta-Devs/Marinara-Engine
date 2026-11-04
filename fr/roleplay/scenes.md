@@ -1,101 +1,76 @@
-# Les scènes : créer une branche de roleplay
+# Scènes : créer une branche d'un roleplay
 
-Ce guide explique les scènes dans Marinara Engine. Une scène est un roleplay court et autonome, qui part d'un chat **Conversation** (une conversation enregistrée en mode messagerie). Au programme : comment en lancer une, comment la jouer, puis comment la terminer, l'abandonner, la cloner ou la convertir.
+Une scène est un roleplay court qui part d'un chat Conversation. Utilise-en une pour un flash-back, un rendez-vous ou un combat, sans perdre le fil principal.
 
-## Ce qu'est une scène
+Chaque scène est un chat Roleplay à part entière, avec son propre arrière-plan, ses propres personnages et son propre message d'accueil. Tant qu'elle est ouverte, le chat Conversation d'origine affiche une carte qui indique **A scene is in progress**, avec un bouton **Go to Scene** (aller à la scène).
 
-Une scène est un roleplay parallèle qui naît d'un chat **Conversation**. Le mode **Conversation**, c'est le mode messagerie, en tête-à-tête. Une scène te permet, avec un personnage, de sortir de ce chat le temps d'un moment de roleplay bien précis. Ce moment peut être un flash-back, un rendez-vous ou un combat. Le fil principal, lui, n'est pas perdu.
-
-Chaque scène est un chat de roleplay à part entière. Elle a son propre arrière-plan, ses propres personnages sur le plateau (la zone de scène) et son propre message d'accueil. Au démarrage de la scène, c'est le personnage ou l'histoire qui écrit la mise en place à ta place.
-
-Une scène est temporaire par nature. Tant qu'elle est ouverte, le chat **Conversation** d'origine affiche une petite carte qui annonce **A scene is in progress**. Cette carte contient un bouton **Go to Scene** (aller à la scène) qui t'emmène directement dans la scène active.
-
-Pendant que la scène se déroule, ses personnages ne répondent pas dans le chat Conversation d'origine, et un avis indique qu'ils sont dans une scène active. Pour qu'ils te répondent quand même à cet endroit, active **Allow replies here** (autoriser les réponses ici) sur la carte. Ce réglage est désactivé au départ. Une fois activé, les personnages de la scène répondent quand tu leur écris, mais n'y envoient toujours pas de messages d'eux-mêmes.
-
-À la fin, c'est toi qui décides du sort de la scène. Tu peux enregistrer un résumé dans la conversation, jeter la scène, ou la garder comme roleplay permanent à part entière. Ces choix sont détaillés plus bas.
+Pendant qu'une scène se déroule, ses personnages ne répondent pas dans le chat Conversation, et un avis indique qu'ils sont dans une scène active. Pour qu'ils te répondent quand même à cet endroit, active **Allow replies here** (autoriser les réponses ici) sur la carte. Ce réglage est désactivé au départ. Une fois activé, les personnages de la scène répondent quand tu leur écris, mais n'envoient toujours pas de messages d'eux-mêmes.
 
 ## Lancer une scène
 
-Une scène se lance depuis un chat **Conversation** avec la commande `/scene`. La commande a un alias, `/rp`, qui fait exactement la même chose.
+Avant de commencer : ouvre un chat Conversation qui contient déjà quelques messages. Voir [Mode Conversation : premiers pas](../conversation/getting-started.md).
 
-Voici la marche à suivre :
+1. Dans la zone de saisie, tape `/scene` et une courte description. `/rp` fait la même chose. Par exemple : `/scene we sneak into the old library at midnight`
+2. Appuie sur <kbd>Enter</kbd>. La fenêtre **Scene Prompt Setup** (configuration du prompt de scène) s'ouvre.
+3. Si tu vois **Scene persona** (persona de la scène), choisis le persona qui te représente. **Use the Conversation persona** (utiliser le persona de la Conversation) garde le persona de la Conversation.
+4. Si tu vois **Scene characters** (personnages de la scène), laisse **Let the scene planner choose characters** (laisser le planificateur de scène choisir les personnages) activé pour que Marinara choisisse. Ou désactive-le et choisis au moins un personnage.
+5. Choisis un **Prompt preset** (preset de prompt). Laisse-le sur **None** (aucun) pour utiliser le preset de ton [profil de réglages](../chats/settings-profiles.md#choosing-the-default-profile) Roleplay par défaut. Marinara mémorise ton choix pour la scène suivante.
+6. Sous **POV** (point de vue), choisis **First Person**, **Second Person** ou **Third Person**.
+7. Sous **Tense** (temps), choisis **Past**, **Present** ou **Future**.
+8. Facultatif : tape des notes dans **Extra instructions** (instructions supplémentaires) pour orienter la scène.
+9. Clique sur **Plan Scene** (planifier la scène).
 
-1. Ouvre un chat **Conversation** qui contient déjà quelques messages.
-2. Dans la zone de saisie, tape la commande de scène. Tu peux ajouter derrière une courte description de ce que tu veux.
+La scène s'ouvre comme un nouveau chat Roleplay dans ta liste de chats, avec un message d'accueil qui plante la situation. Clique sur **Cancel** (annuler) dans la fenêtre de configuration pour arrêter sans créer de scène.
 
-```
-/scene we sneak into the old library at midnight
-```
+`/scene` seul fonctionne aussi quand la conversation a assez d'historique. Si la conversation n'a encore aucun message, Marinara te demande d'abord d'ajouter une description ou de discuter un peu.
 
-3. Appuie sur Enter. La fenêtre **Scene Prompt Setup** (configuration du prompt de scène) s'ouvre.
-4. Choisis un **Prompt preset** (préréglage de prompt) pour la nouvelle scène, ou garde **None** (aucun) pour utiliser le préréglage de ton profil de réglages Roleplay marqué d'une étoile. Marinara mémorise ce choix pour la scène suivante. Les instructions propres à la scène continuent de s'appliquer avec le préréglage.
-5. Sous **POV**, choisis le point de vue du texte : **First Person**, **Second Person** ou **Third Person**.
-6. Sous **Tense** (le temps), choisis **Past**, **Present** ou **Future**.
-7. Si tu le souhaites, écris des consignes dans le champ **Extra instructions** (instructions supplémentaires) pour orienter la scène.
-8. Clique sur **Plan Scene** (planifier la scène).
+Un personnage peut aussi demander à lancer une scène. Une invitation **Set up scene** (configurer la scène) apparaît à côté de sa réponse. Clique dessus pour ouvrir **Scene Prompt Setup**, puis continue à partir de l'étape 3. **Cancel** ferme la configuration, et l'invitation reste disponible, même après un rechargement.
 
-Marinara planifie la scène et l'ouvre comme un nouveau chat de roleplay. La nouvelle scène apparaît dans la liste des chats et s'ouvre toute seule, avec un message d'accueil qui plante la situation. Si tu changes d'avis dans la fenêtre de configuration, clique sur **Cancel** (annuler) : aucune scène n'est créée.
+Comment la scène s'ouvre :
 
-La nouvelle scène part de ton profil de réglages Roleplay marqué d'une étoile, comme tout nouveau chat Roleplay. Son ouverture fonctionne ainsi :
+- Elle part de ton profil de réglages Roleplay par défaut, comme tout nouveau chat Roleplay. Un [profil de réglages](../chats/settings-profiles.md) est un ensemble enregistré de réglages de chat.
+- Quand le plan de la scène en prévoit une, une courte note sur la façon de jouer la scène est d'abord publiée comme message du narrateur, puis la description de la scène comme second message du narrateur. Un plan sans note saute cette étape.
+- Avec un seul personnage, l'ouverture est écrite dans la voix de ce personnage, avec les paroles entre guillemets doubles, sauf si tes instructions d'écriture demandent un autre style.
+- Dans une scène de groupe, l'ouverture suit le mode de groupe du profil. **Merged (Narrator)** (fusionné, avec narrateur) est le mode par défaut : une seule réponse fait parler tous les personnages. En mode **Individual** (individuel), le personnage qui ouvre la scène l'écrit. Voir [Chats de groupe](../chats/group-chats.md#choose-who-speaks).
 
-- La description de la scène forme un message distinct du narrateur, publié avant l'ouverture.
-- Avec un seul personnage, le message d'ouverture est écrit dans sa voix. Les paroles prononcées à voix haute sont entre guillemets doubles, sauf si tes instructions d'écriture demandent un autre style.
-- Dans une scène de groupe, l'ouverture suit le mode de groupe du profil. En mode fusionné (le mode par défaut), une seule voix narrative parle pour tout le monde. En mode **Individual** (individuel), le personnage qui commence la scène écrit l'ouverture.
+## Utiliser la barre de scène
 
-Autre option : lancer une scène sans description. Tape seulement la commande, à condition que la conversation ait déjà assez d'historique pour servir de base.
+Dans une scène, une barre au-dessus de la zone de saisie décide de ce qu'il advient de la scène. Les boutons affichés dépendent de la présence ou non d'une conversation d'origine.
 
-```
-/scene
-```
+| Bouton | Ce qu'il fait |
+| --- | --- |
+| **Back to conversation** (retour à la conversation) | Revient au chat Conversation qui a lancé la scène. La scène reste ouverte. Affiché seulement quand il y a une conversation d'origine. |
+| **End Scene** (terminer la scène) | Enregistre un résumé et termine la scène. Clique sur **Yes** (oui) quand **End and save summary?** s'affiche. |
+| **Discard** (abandonner) | Supprime la scène sans rien enregistrer. Clique sur **Yes** quand **Discard scene?** s'affiche. |
+| **Convert** (convertir) | Transforme la scène en Roleplay indépendant. Voir plus bas. |
 
-Si la conversation ne contient encore aucun message, Marinara te demande d'ajouter une description ou de discuter un peu avant de pouvoir planifier une scène.
-
-Un personnage peut aussi proposer une scène. Une invitation **Set up scene** (configurer la scène) apparaît près de sa réponse sans masquer la conversation. Clique dessus lorsque tu veux ouvrir **Scene Prompt Setup**, choisis **Prompt preset**, **POV** et **Tense**, puis **Plan Scene**. **Cancel** ferme la configuration sans créer de scène ; l'invitation reste disponible après annulation ou rechargement.
-
-## La barre de scène : End Scene, Discard, Convert et Back to conversation
-
-Quand tu es dans une scène active, une barre se place juste au-dessus de la zone de saisie. Elle regroupe les commandes qui décident du sort de la scène. Les boutons affichés dépendent de la présence ou non d'une conversation liée.
-
-- **Back to conversation** (retour à la conversation) te ramène au chat **Conversation** qui a lancé la scène. La scène reste ouverte et active : tu peux y revenir plus tard. Ce bouton n'apparaît que si la scène a une conversation d'origine.
-- **End Scene** (terminer la scène) clôt la scène et enregistre un résumé. Au clic, la barre demande **End and save summary?** avec un bouton **Yes** et un bouton **No**. Clique sur **Yes** pour confirmer. Le bouton affiche l'état **Saving...** pendant l'opération. Marinara écrit un court résumé de la scène dans la conversation d'origine, sous forme de souvenir, puis te ramène là où cette conversation s'était arrêtée.
-- **Discard** (abandonner) jette la scène sans rien enregistrer. Au clic, la barre demande **Discard scene?** avec les boutons **Yes** et **No**. Clique sur **Yes** pour supprimer la scène et revenir à la conversation. Rien n'est écrit en retour.
-- **Convert** (convertir) transforme la scène en chat de roleplay indépendant. Ce bouton a sa propre section plus bas, parce qu'il modifie la scène définitivement.
-
-Prends le temps de réfléchir avant de cliquer sur **End Scene** ou sur **Discard** : dans les deux cas, la scène disparaît de ta conversation. **End Scene** garde un souvenir de ce qui s'est passé. **Discard** ne garde rien.
+**End Scene** affiche **Saving...**, écrit un court résumé dans la conversation sous forme de souvenir, puis t'y ramène. **Discard** ne garde rien. Les deux retirent la scène de ta conversation.
 
 ## Cloner une scène à partir d'un message
 
-Dans un chat de scène, chaque message dispose d'un petit bouton d'action dont l'infobulle indique **Clone from here** (cloner à partir d'ici). Tu peux ainsi dériver le contenu de la scène dans un tout nouveau chat de roleplay, copié jusqu'à ce message inclus.
-
-Pour t'en servir :
+Pour copier une scène jusqu'à un message et la poursuivre séparément, pendant que l'original reste ouvert :
 
 1. Survole le message à partir duquel tu veux créer une branche.
-2. Clique sur l'action **Clone from here**.
+2. Clique sur son action **Clone from here** (cloner à partir d'ici).
 
-Marinara crée un roleplay indépendant à partir de la scène, en copiant les messages jusqu'à ce point. La scène d'origine reste ouverte et active : c'est donc une façon sans risque d'explorer une autre voie. Un message de confirmation t'indique que la scène a été clonée en roleplay, et le nouveau chat s'ouvre.
+Marinara crée un nouveau Roleplay indépendant avec les messages jusqu'à celui-ci inclus, affiche une confirmation et l'ouvre.
 
-Le clonage conserve la scène d'origine. La conversion, décrite juste après, ne la conserve pas.
+## Convertir une scène en Roleplay
 
-## Convertir une scène en roleplay indépendant
+Utilise **Convert** quand une scène est devenue une histoire que tu veux garder comme un Roleplay normal.
 
-Le bouton **Convert** de la barre de scène détache la scène et en fait un chat de roleplay permanent. Au clic sur **Convert**, une fenêtre de confirmation s'ouvre, intitulée **Convert this scene into a standalone roleplay?**
+1. Clique sur **Convert** dans la barre de scène.
+2. Lis **Convert this scene into a standalone roleplay?** Cela crée un nouveau chat Roleplay à partir de la scène et détache la scène d'origine de sa conversation. Aucun résumé de scène ni souvenir de personnage n'est écrit en retour.
+3. Clique sur **Convert**, ou sur **Cancel** pour ne rien changer.
 
-La fenêtre explique ce qui va se passer. Marinara crée un nouveau chat de roleplay à partir de la scène en cours et détache la scène d'origine de sa conversation. Ni résumé de scène ni souvenir de personnage ne sont écrits dans la conversation d'origine. Clique sur **Convert** pour valider, ou sur **Cancel** pour tout laisser en l'état.
+Le clonage garde la scène d'origine ouverte. La conversion, non.
 
-Utilise **Convert** quand une scène est devenue une histoire que tu veux garder et poursuivre comme un roleplay normal. Utilise plutôt **Clone from here** quand tu veux une copie tout en laissant la scène d'origine en place.
+## Scènes et chats connectés
 
-Pour bien distinguer les deux façons de dériver : **Clone from here** crée des branches de scène pendant que l'original reste actif. **Convert** transforme les branches de scène en roleplay indépendant et retire l'original de sa conversation.
-
-## Pourquoi les scènes n'héritent pas du contexte des chats connectés
-
-Un chat **Conversation** peut être connecté à un roleplay pour que le contexte circule entre les deux. Les scènes fonctionnent autrement, et c'est volontaire : une scène est autonome.
-
-Une scène ne reprend pas automatiquement le contexte des échanges d'une conversation connectée, même quand le chat parent le fait. Une conversation connectée peut glisser discrètement de courtes consignes d'orientation dans le roleplay lié pour infléchir son histoire, mais une scène ignore ces consignes. La scène reste ainsi concentrée sur son propre moment, sans traîner toute la conversation derrière elle.
-
-C'est pour cette raison qu'une scène se lit comme une petite histoire à part entière. Si tu veux un lien permanent, dans les deux sens, entre une conversation et un roleplay, passe par un chat connecté plutôt que par une scène. Le guide des chats connectés, en lien ci-dessous, décrit cette fonctionnalité.
+Une scène est autonome. Elle ne reprend pas le contexte d'une Conversation connectée, même quand le chat parent le fait, et elle ignore les courtes consignes d'orientation qu'une conversation connectée peut envoyer à un Roleplay lié. Pour un lien permanent, dans les deux sens, entre une conversation et un roleplay, utilise un chat connecté. Voir [Connecter une Conversation à un Roleplay ou à une partie](../chats/connected-chats.md).
 
 ## Guides associés
 
-- [Le mode Roleplay : premiers pas](getting-started.md)
-- [Les branches de chat](../chats/branches.md)
-- [Connecter une Conversation à un Roleplay ou à un Game](../chats/connected-chats.md)
+- [Mode Roleplay : premiers pas](getting-started.md)
+- [Branches de chat](../chats/branches.md)
+- [Connecter une Conversation à un Roleplay ou à une partie](../chats/connected-chats.md)

@@ -1,227 +1,252 @@
 # Aktualizacja aplikacji Marinara Engine
 
-Z tego przewodnika dowiesz się, jak zaktualizować aplikację Marinara Engine do nowszej wersji. Opisuje każdy rodzaj instalacji, narzędzia aktualizacji wbudowane w aplikację oraz to, co zrobić, gdy aktualizacja się nie powiedzie. Czaty i ustawienia zostają na miejscu.
+Zaktualizuj aplikację Marinara Engine do nowszej wersji, sprawdzaj dostępność aktualizacji w samej aplikacji i wróć do starszej wersji, gdy coś się zepsuje. Czaty i ustawienia zostają zachowane przy aktualizacji.
 
-## Dane zostają nietknięte
+## Którą metodę aktualizacji wybrać?
 
-Aktualizacja aplikacji Marinara Engine niczego nie kasuje. Czaty, postacie, persony (postacie, w które się wcielasz), lorebooki (zbiory faktów o twoim świecie), presety (zapisane szablony promptów), połączenia i ustawienia zostają na miejscu.
-
-Marinara trzyma dane w lokalnym folderze z danymi, na tym urządzeniu, które uruchamia serwer. Docker i Podman przechowują je w woluminie `marinara-data`. Aktualizacja podmienia wyłącznie kod aplikacji, a nie ten folder ani wolumin.
-
-Przy aktualizacji z wersji, która miała wbudowanych agentów, mapy, rozmowy i gry trybu Conversation od twórców, pierwsze uruchomienie pobiera odpowiadające im pakiety opcjonalne z oficjalnego katalogu. Wybory dokonane w czatach, ustawienia agentów, zapisane dane oraz historia zostają zachowane. Zadbaj o to, żeby serwer miał wtedy dostęp do sieci. Jeśli katalog jest nieosiągalny, Marinara ponawia migrację przy kolejnym starcie, zamiast kasować lub wyłączać zapisaną konfigurację.
-
-Przy pobranym języku dokumentacji (**Settings** (Ustawienia) → **General** (Ogólne) → **Documentation Language** (język dokumentacji)) pierwsze uruchomienie po aktualizacji sprawdza też, czy dany pakiet językowy się zmienił, i odświeża go automatycznie. Jeśli źródło pobierania jest nieosiągalne, Marinara zostawia zainstalowany pakiet (brakujące w nim przewodniki wyświetlają się po angielsku) i próbuje ponownie przy następnym starcie. Aktualizacja nigdy nie resetuje wyboru języka.
-
-Pakiety językowe interfejsu pobiera się osobno i ręcznie. Przy pierwszej aktualizacji z wersji zawierającej tłumaczenia interfejs wraca do języka angielskiego; wybierz ponownie swój język w **Settings** → **General** → **Language** (język), aby pobrać pakiet. Kolejne aktualizacje zachowują pobrane pakiety w folderze danych. Użyj **Refresh language pack** (odśwież pakiet językowy), aby pobrać nowsze tłumaczenia. Brakujące pakiety i nieprzetłumaczone klucze zastępuje angielski, a uruchomienie aplikacji nigdy nie pobiera pakietu interfejsu.
-
-Gdzie leżą dane i jak zapisać ich kopię, opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
+| Sposób instalacji | Sposób aktualizacji |
+| --- | --- |
+| Instalator dla systemu Windows lub `start.bat` | Zamknij aplikację Marinara i otwórz ją ponownie. Zobacz [Windows](#windows). |
+| macOS lub Linux | Uruchom ponownie `./start.sh`. Zobacz [macOS i Linux](#macos-and-linux). |
+| Docker lub Podman | Pobierz nowy obraz i uruchom kontener ponownie. Zobacz [Docker lub Podman](#docker-or-podman). |
+| Aplikacja na system Android | Zaktualizuj plik APK, a potem dotknij **Install / Start Marinara**. Zobacz [Android (Termux)](#android-termux). |
+| iPhone lub iPad | Zaktualizuj urządzenie, na którym działa serwer. Zobacz [iPhone i iPad](#iphone-and-ipad). |
 
 <a id="back-up-first"></a>
 
 ## Najpierw kopia zapasowa
 
-Aktualizacje są bezpieczne, ale kopia zapasowa to tania polisa. Warto ją zrobić przed każdym większym skokiem między wersjami.
+Zrób kopię zapasową przed każdym większym skokiem między wersjami i zawsze przed ewentualnym powrotem do starszej wersji.
 
-1. Otwórz panel **Settings**.
+1. Otwórz panel **Settings** (Ustawienia).
 2. Przejdź do zakładki **Advanced** (Zaawansowane).
 3. Znajdź sekcję **Backup & Export** (kopia zapasowa i eksport).
 4. Kliknij przycisk **Download Backup** (pobranie kopii zapasowej).
 5. Zapisz plik `.zip` w bezpiecznym miejscu.
 
-Na czas pracy napis na przycisku zmienia się na **Creating backup…**. Po zakończeniu przeglądarka zapisuje archiwum `.zip` z danymi.
-
-Pełne kroki tworzenia i przywracania kopii zapasowej znajdziesz w przewodniku [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
-
-## Aktualizacja z wersji 2.5.0
-
-Kroki dla poszczególnych platform poniżej są takie same jak wcześniej. Kilka zmian może jednak dotyczyć serwera, z którego korzystają inne urządzenia lub inne osoby:
-
-- **Odwrotne proxy albo tunel na tym samym komputerze.** Domyślnie goście, których nginx, Caddy, Cloudflare Tunnel, Tailscale Serve lub ngrok przekazują do aplikacji Marinara Engine, liczą się teraz jako zdalni. Bez logowania widzą stronę konfiguracyjną (ustaw je w **Settings** za pomocą kodu konfiguracji z logu serwera albo w `.env`), a kopie zapasowe i inne chronione działania wymagają sekretu administratora. Zobacz [Odwrotne proxy i tunele na tym samym komputerze](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
-- **Zablokowany dostęp po aktualizacji?** Zobacz [Zablokowany dostęp po aktualizacji](REMOTE_ACCESS.md#locked-out-after-updating).
-- **Pominięcie logowania w Tailscale.** Bezpośrednie połączenia z adresem Tailscale tego komputera nadal domyślnie pomijają logowanie. Pozostałe połączenia z `100.64.0.0/10` nie pomijają go już automatycznie. Odwiedzający przez Tailscale Serve i Funnel muszą się zalogować. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
-- **Docker z hasłem albo listą dozwolonych adresów.** Gdy ustawiono logowanie (logowanie w aplikacji albo Basic Auth), przeglądarka na komputerze-hoście też prosi teraz o logowanie. To samo dzieje się przy `TRUSTED_AUTH_PROXY`, chyba że łączy się właśnie to proxy. Przy samym `IP_ALLOWLIST` przeglądarka na hoście jest odrzucana, chyba że dopiszesz do listy bramę kontenera, więc zamiast tego użyj logowania. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
-- **Czaty i profile przeniesione do innej instalacji.** Zapis czatu, profil ustawień ani pełny profil nie przenoszą już do innej instalacji wartości **Discord Mirror**, **DeepLX URL** (adres DeepLX), **DeepL API Key** (klucz API DeepL) ani **Intiface URL** (adres Intiface). Wpisz je tam ponownie. Twoje własne profile ustawień oraz pełny profil przywrócony w tej samej instalacji je zachowują.
+Na czas pracy przycisk pokazuje **Creating backup…**. Po zakończeniu przeglądarka zapisuje archiwum `.zip` z danymi. Przywracanie opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 
 ## Aktualizacja według platformy
 
-Wybierz sekcję pasującą do sposobu, w jaki aplikacja Marinara została zainstalowana. "Git checkout" poniżej oznacza kopię zainstalowaną narzędziem Git. "Klon" to pobrana kopia utworzona przez Git.
+Wybierz sekcję pasującą do sposobu, w jaki aplikacja Marinara została zainstalowana. Kopia Git to kopia zainstalowana narzędziem Git. Obejmuje to instalację z instalatora dla systemu Windows i każdą kopię utworzoną poleceniem `git clone`.
 
 ### Windows
 
-Przy instalatorze dla systemu Windows albo kopii z git checkout launcher aktualizuje wszystko sam.
+Program uruchamiający aktualizuje aplikację Marinara, gdy ją uruchamiasz.
 
 1. Zamknij aplikację Marinara Engine.
-2. Uruchom ją ponownie skrótem z menu Start albo poleceniem `start.bat`.
+2. Otwórz ją ponownie skrótem na pulpicie lub w menu Start albo uruchom `start.bat`.
 
-Launcher pobiera najnowszy kod, doinstalowuje to, co się zmieniło, przebudowuje aplikację i uruchamia nową wersję. Działa to tak samo dla instalatora i dla ręcznego klonu.
+Program uruchamiający pobiera najnowszy kod, doinstalowuje to, co się zmieniło, przebudowuje aplikację i uruchamia nową wersję. Jeśli w kodzie są twoje własne zmiany, odkłada je na bok i po aktualizacji przywraca na miejsce. Jeśli to się nie uda, zostawia obecną wersję i wypisuje informację. Przed aktualizacją kopiuje dane, a aktualizację, która prowadziłaby do wersji starszej niż twoje dane, pomija (zobacz [Powrót do starszej wersji](#downgrading-to-an-older-version)).
 
-Żeby pominąć aktualizację przy jednym uruchomieniu, wpisz `start.bat --skip-update`. Żeby zostać na zainstalowanej wersji Engine na stałe, ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env` projektu. Wyłącza to wyłącznie automatyczne aktualizacje Engine; polecenia ręczne oraz **Settings → Advanced → Check for Updates** działają dalej.
+Żeby jednorazowo pominąć aktualizację, uruchom `start.bat --skip-update`. Żeby zostać na zainstalowanej wersji przy kolejnych uruchomieniach, ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env` projektu. Wyłącza to tylko automatyczne aktualizacje. Polecenia ręczne i **Settings → Advanced → Check for Updates** (ustawienia, zaawansowane, sprawdzenie aktualizacji) działają dalej.
 
-Jeśli launcher zgłasza, że Node.js jest za stary, zainstaluj Node.js 24 LTS i uruchom aplikację Marinara ponownie. LTS to skrót od Long Term Support, czyli zalecane, stabilne wydanie środowiska Node.js.
+Jeśli program uruchamiający zgłasza, że Node.js jest za stary, zainstaluj Node.js 24 LTS (Long Term Support, czyli zalecane stabilne wydanie) i uruchom aplikację Marinara ponownie. Możesz też pobrać najnowszy instalator ze strony GitHub Releases i go uruchomić.
 
-Inna opcja: pobierz najnowszy instalator ze strony GitHub Releases i uruchom go. Korzysta z tej samej ścieżki opartej na Git, więc kolejne aktualizacje nadal przechodzą przez launcher.
+<a id="macos-and-linux"></a>
 
 ### macOS i Linux
 
-Zamknij aplikację Marinara Engine, a potem uruchom launcher z folderu Marinara.
+1. Zamknij aplikację Marinara Engine.
+2. Uruchom program uruchamiający z folderu aplikacji Marinara.
 
 ```bash
 ./start.sh
 ```
 
-Launcher pobiera najnowszy kod, doinstalowuje zmienione zależności, przebudowuje aplikację i uruchamia nową wersję.
+Program uruchamiający pobiera najnowszy kod, doinstalowuje zmienione zależności, przebudowuje aplikację i uruchamia nową wersję. Użyj `./start.sh --skip-update`, żeby jednorazowo pominąć aktualizację, albo ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env`, żeby wyłączyć automatyczne aktualizacje. Jeśli Node.js jest za stary, zainstaluj Node.js 24 LTS i jeszcze raz uruchom program uruchamiający.
 
-Użyj `./start.sh --skip-update`, żeby pominąć aktualizację przy jednym uruchomieniu, albo ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env`, żeby wyłączyć ją na stałe. Ręczne polecenia aktualizacji i wbudowane w aplikację przyciski aktualizacji działają dalej.
-
-Jeśli pojawia się komunikat, że Node.js jest za stary, zainstaluj Node.js 24 LTS i uruchom launcher jeszcze raz.
+<a id="docker-or-podman"></a>
 
 ### Docker lub Podman
 
-Instalacje w kontenerze aktualizuje się przez pobranie nowego obrazu, a nie przez launcher. Uruchom to polecenie w folderze, w którym leży plik Compose.
+Kontenery aktualizuje się przez pobranie nowego obrazu, a nie przez program uruchamiający. Zrób kopię zapasową, a potem uruchom to polecenie w folderze, w którym leży plik Compose.
 
 ```bash
-docker compose down && docker compose pull && docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
-W przypadku narzędzia Podman użyj tych samych poleceń z `podman`.
-
-```bash
-podman compose down && podman compose pull && podman compose up -d
-```
-
-Obrazy wydań publikowane są jako `ghcr.io/pasta-devs/marinara-engine:X.Y.Z` i `:latest`, razem z odpowiadającymi im tagami `-lite`. Pobieraj `:latest` albo tag najnowszej wersji, chyba że celowo chcesz zostać na starszym wydaniu. Pobranie obrazu nie rusza danych w woluminie `marinara-data`.
+W przypadku narzędzia Podman użyj zamiast tego `podman compose`. Obrazy wydań to `ghcr.io/pasta-devs/marinara-engine:X.Y.Z` i `:latest` oraz odpowiadające im tagi `-lite`. Pobranie obrazu nie rusza danych w woluminie `marinara-data`. Zobacz [Uruchamianie w kontenerze](installation/containers.md).
 
 ### Android (Termux)
 
-Termux to terminal i środowisko Linux na system Android. Jego launcher aktualizuje aplikację Marinara przy każdym uruchomieniu.
+Termux to aplikacja na system Android, w której działa mały system Linux dla aplikacji Marinara. Program uruchamiający w środowisku Termux aktualizuje aplikację Marinara przy każdym uruchomieniu.
 
 1. Otwórz aplikację Termux.
-2. Uruchom launcher.
+2. Uruchom program uruchamiający.
 
 ```bash
 cd Marinara-Engine
 ./start-termux.sh
 ```
 
-Launcher aktualizuje kod, w razie potrzeby podnosi wersję środowiska Node.js, przebudowuje aplikację i uruchamia lokalny serwer.
+Program uruchamiający aktualizuje kod, w razie potrzeby podnosi wersję środowiska Node.js, przebudowuje aplikację i uruchamia serwer. Jeśli aktualizacja coś psuje i chcesz zostać na obecnej kopii, dodaj `--skip-update`. Żeby wyłączyć automatyczne aktualizacje, ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env` projektu.
 
-Jeśli aktualizacja jest wadliwa i trzeba zostać na obecnej kopii, pomiń sprawdzanie aktualizacji.
+Jeśli korzystasz z aplikacji na system Android (plik APK), [pobierz najnowszy plik APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) i otwórz go, żeby Android zaktualizował aplikację. Następnie otwórz aplikację Marinara Engine i dotknij **Install / Start Marinara**, żeby zaktualizować i uruchomić kopię w środowisku Termux. Aktualizacja nigdy nie prosi o poświadczenia podpisu ani o sekret.
 
-```bash
-cd Marinara-Engine
-./start-termux.sh --skip-update
-```
-
-Żeby wyłączyć to na stałe, ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env` projektu. Dotyczy to tylko aktualizacji Engine sterowanych przez launcher; ręczne aktualizacje i wbudowane w aplikację przyciski aktualizacji działają dalej.
-
-Przy korzystaniu z ikony aplikacji na system Android (plik APK) [pobierz najnowszy plik APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) i otwórz pobrany plik, aby Android zaktualizował samą nakładkę. Następnie otwórz Marinara Engine i dotknij **Install / Start Marinara**, żeby zaktualizować i uruchomić kopię w środowisku Termux. Aplikacja automatycznie zachowuje i wymienia swoje prywatne poświadczenie localhost; aktualizacja nigdy nie prosi o poświadczenia podpisu ani ten sekret.
+<a id="iphone-and-ipad"></a>
 
 ### iPhone i iPad
 
-Na urządzeniach iPhone i iPad serwer Marinara nie działa. Otwierają one przez Safari serwer uruchomiony na innym urządzeniu. Kopia na ekranie początkowym to PWA, czyli Progressive Web App. PWA to strona internetowa dodana do ekranu początkowego, dzięki czemu otwiera się jak aplikacja.
+Na tych urządzeniach serwer nie działa. Ikona na ekranie głównym to PWA, czyli strona internetowa zapisana na ekranie głównym, która otwiera się jak aplikacja.
 
-1. Zaktualizuj komputer, host Docker albo urządzenie z systemem Android, na którym faktycznie działa serwer Marinara. Skorzystaj z sekcji tego urządzenia powyżej.
-2. Odśwież PWA na ekranie początkowym albo zakładkę Safari na urządzeniu iPhone lub iPad.
+1. Zaktualizuj komputer, host kontenera albo urządzenie z systemem Android, na którym działa serwer Marinara. Skorzystaj z odpowiedniej sekcji powyżej.
+2. Odśwież aplikację z ekranu głównego albo kartę w przeglądarce Safari.
 
-Jeśli Safari po aktualizacji hosta wciąż pokazuje starszą wersję, wyczyść zapisaną kopię.
+Jeśli Safari wciąż pokazuje starszą wersję, zainstaluj PWA ponownie. Zobacz [Czyszczenie i ponowna instalacja aplikacji PWA](installation/ios-pwa.md#clearing-and-reinstalling-the-pwa).
 
-1. Usuń ikonę z ekranu początkowego.
-2. Wyczyść dane witryny w Safari dla hosta Marinara.
-3. Dodaj ją do ekranu początkowego jeszcze raz.
+<a id="manual-update-git-copy-no-launcher"></a>
 
-## Sprawdzanie i instalowanie aktualizacji w aplikacji
+### Ręczna aktualizacja (kopia Git, bez programu uruchamiającego)
 
-Marinara potrafi sprawdzić w serwisie GitHub, czy jest nowsza wersja, bez wychodzenia z aplikacji. Część instalacji potrafi też zainstalować aktualizację prosto z przeglądarki.
+Użyj tej metody, jeśli uruchamiasz kopię Git poleceniem `pnpm start` zamiast programem uruchamiającym. Wpisuj te polecenia w folderze aplikacji Marinara.
+
+1. Pobierz najnowszy kod stabilny.
+
+```bash
+git fetch origin +refs/heads/main:refs/remotes/origin/main
+```
+
+2. Przejdź na niego.
+
+```bash
+git merge --ff-only origin/main || git checkout --detach origin/main
+```
+
+3. Zainstaluj ponownie zależności, przebuduj aplikację i ją uruchom.
+
+```bash
+pnpm install --force --frozen-lockfile
+pnpm build
+pnpm start
+```
+
+W przypadku wersji testowej (staging) uruchom te dwa polecenia zamiast kroków 1 i 2:
+
+```bash
+git fetch origin +refs/heads/staging:refs/remotes/origin/staging
+git checkout -B staging origin/staging
+```
+
+> **Ostrzeżenie:** Wersje staging to przedpremierowe wersje testowe. Zanim ich użyjesz, zrób kopię zapasową danych.
+
+## Aktualizacja z poziomu aplikacji
+
+Marinara potrafi sprawdzić w serwisie GitHub, czy jest nowsza wersja. Część instalacji potrafi też wgrać aktualizację prosto z przeglądarki.
 
 1. Otwórz panel **Settings**.
 2. Przejdź do zakładki **Advanced**.
 3. Znajdź sekcję **Updates** (aktualizacje).
 
-### Release Channel
+### Wybór kanału wydań
 
-Lista rozwijana **Release Channel** (kanał wydań) decyduje o tym, które wersje są śledzone. Ma dwie opcje.
+Lista rozwijana **Release Channel** (kanał wydań) określa, które wersje śledzisz.
 
-- **Latest Stable**: śledzi wydania oznaczone tagiem `vX.Y.Z`. To normalny wybór dla większości użytkowników.
-- **Staging/UAT**: śledzi testowe wersje przedpremierowe. Mogą być niedokończone. Zrób kopię zapasową danych, zanim ich użyjesz.
+- **Latest Stable**: wydania oznaczone tagiem `vX.Y.Z`. To normalny wybór.
+- **Staging/UAT**: przedpremierowe wersje testowe, które mogą być niedokończone. Wybór tej opcji wyświetla ostrzeżenie "Staging builds are pre-release tester builds. Back up your app data before applying them."
 
-Wybór opcji **Staging/UAT** wyświetla ostrzeżenie: "Staging builds are pre-release tester builds. Back up your app data before applying them."
-
-Zmiana kanału traktowana jest jak decyzja świadoma. Przy wyborze innego kanału z przeglądarki na urządzeniu, które uruchamia serwer, przycisk aktualizacji zmienia się na **Switch to** z nazwą kanału i działa nawet wtedy, gdy zwykłe aktualizacje w aplikacji są wyłączone. Na czas pracy pokazuje **Switching…**. Zwykłe aktualizacje w obrębie jednego kanału nadal wymagają konfiguracji opisanej niżej w sekcji Apply Update, a urządzenia zdalne wymagają jej zawsze.
+Gdy wybierzesz inny kanał w przeglądarce na komputerze, na którym działa serwer, przycisk aktualizacji zmienia napis na **Switch to** (przełącz na) z nazwą kanału. Działa nawet wtedy, gdy zwykłe aktualizacje w aplikacji są wyłączone, a na czas pracy pokazuje **Switching…**. Urządzenia zdalne nie mogą tego zrobić, chyba że spełniają opisane niżej warunki przycisku **Apply Update**.
 
 ### Check for Updates
 
-Kliknij przycisk **Check for Updates** (sprawdzenie aktualizacji). Na czas pracy przycisk pokazuje **Checking…**.
+Kliknij przycisk **Check for Updates**. Na czas pracy przycisk pokazuje **Checking…**. Pod nim widać pola **Release** (wydanie) z twoją wersją, **Build** (kompilacja) z kodem commita oraz, jeśli jest znana, **Branch** (gałąź).
 
-Pod przyciskiem widać wersję **Release** oraz kod commita w polu **Build**. Gdy gałąź jest znana, pojawia się też linia **Branch**.
+- Jeśli masz aktualną wersję, zielony wiersz informuje "You're on the latest" razem z numerem wersji.
+- Jeśli istnieje nowsze wydanie, kafelek pokazuje "vX.Y.Z available" i odnośnik **Release notes** (informacje o wydaniu).
+- Jeśli kopia Git jest w tyle, kafelek pokazuje "N commits behind". Commit to jedna zapisana zmiana w kodzie, więc ta liczba może obejmować pracę jeszcze niewydaną.
 
-- Przy aktualnej wersji zielony wiersz z haczykiem informuje "You're on the latest ... target" razem z numerem wersji.
-- Jeśli istnieje nowsza wersja, kafelek pokazuje "vX.Y.Z available" i odnośnik **Release notes**.
-- Przy instalacji z Git, która jest po prostu w tyle, kafelek pokazuje zamiast tego "N commits behind". Commit to jedna zapisana zmiana w kodzie, więc ta liczba może obejmować pracę jeszcze niewydaną.
+Wynik sprawdzania wydań jest trzymany w pamięci podręcznej przez około 15 minut, a liczba commitów przez około 5 minut, więc ponowne kliknięcie od razu może pokazać te same liczby.
 
-Wyniki sprawdzania aktualizacji zapisywane są w pamięci podręcznej. Sprawdzenie wersji wydania trzymane jest tam około 15 minut, a liczba "commits behind" około 5 minut. Ponowne kliknięcie przycisku **Check for Updates** od razu może więc pokazać te same liczby.
+Jeśli sprawdzanie się nie powiedzie, zobaczysz komunikat "Could not check for updates. Try again later." Zwykle oznacza to problem z siecią albo z serwisem GitHub.
 
 ### Apply Update
 
-Przycisk **Apply Update** (instalacja aktualizacji) pojawia się tylko wtedy, gdy dana instalacja potrafi zaktualizować się sama z poziomu przeglądarki. Wymaga to obu poniższych warunków.
+Przycisk **Apply Update** (wgranie aktualizacji) aktualizuje kopię Git z poziomu przeglądarki. Pojawia się tylko wtedy, gdy spełnione są wszystkie te warunki:
 
-- Instalacja oparta na Git (instalacje Docker i pakietowe nie potrafią tego zrobić).
-- Właściciel serwera ustawił `UPDATES_APPLY_ENABLED=true` w pliku `.env` serwera. Plik `.env` przechowuje ustawienia serwera.
+- Instalacja jest kopią Git. Kontenery i inne instalacje nie mogą wgrywać aktualizacji w ten sposób.
+- Gałąź to `main`, `master` lub `staging` albo kopia repozytorium jest odłączona (detached). Kopia na każdej innej gałęzi liczy się jako deweloperska kopia repozytorium i Marinara odmawia.
+- Właściciel serwera ustawił `UPDATES_APPLY_ENABLED=true` w pliku `.env` serwera.
+- Zmienna `UPDATES_APPLY_DISABLED` nie jest ustawiona. Blokuje ona każde wgranie aktualizacji, łącznie ze zmianą kanału, a ustawiają ją programy uruchamiające dla deweloperów.
 
-Jeśli klikasz przycisk **Apply Update** na urządzeniu, które uruchamia serwer, to wystarczy. Żaden sekret nie jest tam potrzebny. Chodzi o otwarcie aplikacji Marinara Engine pod adresem `http://127.0.0.1:7860` albo `http://localhost:7860`; to samo dotyczy opisanej wyżej zmiany kanału. Domyślnie adres udostępniany przez odwrotne proxy lub tunel liczy się jako inne urządzenie, nawet na tym samym komputerze. Ustawienie `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` traktuje takich przekazanych gości jak lokalnych, łącznie z lokalnym pominięciem sekretu administratora; przy publicznym proxy lub tunelu zostaw tę ochronę włączoną.
+Do wgrania aktualizacji z komputera, na którym działa serwer, sekret administratora nie jest potrzebny. Otwórz aplikację Marinara pod adresem `http://127.0.0.1:7860` albo `http://localhost:7860`.
 
-Instalowanie aktualizacji z innego urządzenia jest domyślnie wyłączone. Wymaga wszystkich trzech poniższych warunków.
+Zmieniają to dwa ustawienia:
 
-- Właściciel serwera ustawił `UPDATES_ALLOW_REMOTE_APPLY=true` w pliku `.env`.
-- Właściciel serwera ustawił `ADMIN_SECRET` (hasło do działań chronionych) w pliku `.env`.
-- Ten sam sekret jest zapisany na twoim urządzeniu w **Settings -> Advanced -> Admin Access**.
+- Adres udostępniany przez odwrotne proxy lub tunel liczy się jako inne urządzenie. `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` sprawia, że tacy goście liczą się jako lokalni, również przy lokalnym pominięciu sekretu administratora. Przy publicznym proxy lub tunelu zostaw to ustawienie włączone.
+- `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true` sprawia, że sekretu wymagają nawet żądania lokalne.
 
-Po kliknięciu przycisku **Apply Update** napis zmienia się na **Updating...**. Serwer pobiera nowy kod, doinstalowuje zależności, przebudowuje aplikację, a potem się wyłącza. Wtedy pojawia się komunikat: "Update applied successfully. Please relaunch the app to use the new version." Uruchom aplikację Marinara ponownie, żeby dokończyć.
+Wgrywanie aktualizacji z innego urządzenia jest domyślnie wyłączone. Wymaga wszystkich trzech warunków:
 
-Jeśli przycisk **Apply Update** jest niedostępny, Marinara wyjaśnia dlaczego i co zrobić zamiast tego.
+- `UPDATES_ALLOW_REMOTE_APPLY=true` w pliku `.env` serwera.
+- `ADMIN_SECRET` ustawiony w pliku `.env` serwera. To drugie hasło do ryzykownych działań.
+- Ten sam sekret zapisany na twoim urządzeniu w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny).
+
+Kliknij **Apply Update**. Gdy serwer pobiera kod, doinstalowuje zależności, przebudowuje aplikację i się wyłącza, przycisk pokazuje **Updating…**. Potem pojawia się komunikat "Update applied successfully. Please relaunch the app to use the new version." Uruchom aplikację Marinara ponownie, żeby dokończyć.
+
+Jeśli to nie zadziałało: gdy przycisku **Apply Update** brakuje, Marinara pokazuje dlaczego.
 
 - Instalacje w kontenerze pokazują tag obrazu oraz polecenie `docker compose pull && docker compose up -d` do uruchomienia na hoście.
-- Instalacje z Git z wyłączoną instalacją aktualizacji pokazują ręczne polecenie aktualizacji, które można skopiować.
-- Pozostałe instalacje pokazują odnośnik **Download** do wydania w serwisie GitHub.
+- Kopie Git z wyłączonym wgrywaniem aktualizacji pokazują ręczne polecenie, które można skopiować.
+- Pozostałe instalacje pokazują odnośnik **Download** (pobranie) do wydania w serwisie GitHub.
 
-Jeśli samo sprawdzenie się nie powiedzie, zobaczysz komunikat: "Could not check for updates. Try again later." Zwykle oznacza to problem z siecią albo z serwisem GitHub, więc spróbuj za chwilę jeszcze raz.
+## Odświeżenie aplikacji w przeglądarce
 
-## Przycisk Refresh App
+Przycisk **Refresh App** (odświeżenie aplikacji) znajduje się w tej samej sekcji **Updates**. Nie aktualizuje serwera. Usuwa service workera (mały skrypt, dzięki któremu przeglądarka szybko wczytuje aplikację) i czyści pamięć podręczną przeglądarki, a potem przeładowuje stronę. Czaty i ustawienia zostają.
 
-Przycisk **Refresh App** (odświeżenie aplikacji) znajduje się w tej samej sekcji **Updates**. Nie aktualizuje serwera. Odświeża tylko aplikację w bieżącej przeglądarce.
+Użyj go, gdy aplikacja wygląda na starą albo pokazuje pustą stronę, choć serwer jest już zaktualizowany. Na czas pracy przycisk pokazuje **Refreshing…**.
 
-Przycisk **Refresh App** wyrejestrowuje service workera i czyści pamięć podręczną przeglądarki, a potem przeładowuje stronę. Service worker to mały skrypt, dzięki któremu przeglądarka wczytuje aplikację szybko i offline. Zapisane czaty, ustawienia i pozostałe dane lokalne pozostają nietknięte.
+## Twoje dane i opcjonalne pobieranie
 
-Użyj przycisku **Refresh App**, kiedy aplikacja wygląda na nieodświeżoną albo pokazuje pustą stronę po aktualizacji, choć serwer działa już na nowej wersji. Naprawia to zablokowaną stronę. Nie zmienia kodu serwera, więc nie zastąpi prawdziwej aktualizacji.
+Aktualizacja podmienia kod aplikacji, a nie folder z danymi ani wolumin `marinara-data`. Czaty, postacie, persony, lorebooki, presety, połączenia i ustawienia zostają na miejscu. Gdzie leżą dane, opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 
-Na czas pracy przycisk pokazuje **Refreshing…**, a potem aplikacja przeładowuje się.
+- **Pakiety opcjonalne.** Przy aktualizacji z wersji, która miała wbudowanych agentów, mapy, rozmowy i gry trybu Conversation od twórców aplikacji, pierwsze uruchomienie pobiera odpowiadające im pakiety opcjonalne. Wybory, ustawienia i historia zostają zachowane. Zadbaj o to, żeby przy tym pierwszym uruchomieniu serwer miał dostęp do sieci. Jeśli źródło pobierania jest nieosiągalne, Marinara próbuje ponownie przy kolejnym starcie i niczego nie usuwa.
+- **Język przewodników.** Jeśli korzystasz z pobranego języka dokumentacji (**Settings → General → Documentation Language** (ustawienia, ogólne, język dokumentacji)), pierwsze uruchomienie po aktualizacji go odświeża. Jeśli źródło jest nieosiągalne, Marinara zostawia zainstalowany pakiet, brakujące przewodniki pokazuje po angielsku i próbuje ponownie przy następnym starcie.
+- **Język interfejsu.** Pakiety językowe interfejsu pobiera się osobno i ręcznie. Przy pierwszej aktualizacji z wersji z wbudowanymi tłumaczeniami interfejs wraca do języka angielskiego. Wybierz ponownie swój język w **Settings → General → Language** (ustawienia, ogólne, język). Kolejne aktualizacje zachowują pobrane pakiety. Użyj **Refresh language pack** (odśwież pakiet językowy), żeby pobrać nowe tłumaczenia. Brakujące tłumaczenia pokazują się po angielsku.
+
+## Aktualizacja z wersji 2.5.0
+
+Powyższe kroki są takie same. Kilka zmian dotyczy serwera, z którego korzystają inne urządzenia lub inne osoby. Jeśli to twój przypadek, rozwiń szczegóły.
+
+<details>
+<summary>Zmiany dla współdzielonych serwerów</summary>
+
+- **Odwrotne proxy albo tunel na tym samym komputerze.** Goście, których nginx, Caddy, Cloudflare Tunnel, Tailscale Serve lub ngrok przekazują do aplikacji Marinara, liczą się teraz jako zdalni. Bez logowania widzą stronę konfiguracji, a kopie zapasowe i inne chronione działania wymagają sekretu administratora. Zobacz [Odwrotne proxy i tunele na tym samym komputerze](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
+- **Pominięcie logowania w Tailscale.** Bezpośrednie połączenia z adresem Tailscale tego komputera nadal pomijają logowanie. Pozostałe połączenia z `100.64.0.0/10` już go nie pomijają, a odwiedzający przez Tailscale Serve i Funnel muszą się zalogować. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+- **Docker z hasłem albo listą dozwolonych adresów.** Gdy ustawiono logowanie (logowanie w aplikacji albo Basic Auth), o logowanie prosi teraz także przeglądarka na komputerze-hoście. To samo dzieje się przy `TRUSTED_AUTH_PROXY`, chyba że łączy się właśnie to proxy. Przy samym `IP_ALLOWLIST` przeglądarka na hoście jest odrzucana, chyba że dopiszesz do listy bramę kontenera, więc użyj logowania. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+- **Czaty i profile przeniesione do innej instalacji.** Zapis czatu, profil ustawień ani pełny profil nie przenoszą już do innej instalacji wartości **Discord Mirror**, **DeepLX URL** (adres DeepLX), **DeepL API Key** (klucz API DeepL) ani **Intiface URL** (adres Intiface). Wpisz je tam ponownie. Twoje własne profile oraz pełny profil przywrócony w tej samej instalacji je zachowują.
+- **Zablokowany dostęp po aktualizacji?** Zobacz [Zablokowany dostęp po aktualizacji](REMOTE_ACCESS.md#locked-out-after-updating).
+
+</details>
 
 <a id="downgrading-to-an-older-version"></a>
 
 ## Powrót do starszej wersji
 
-Aktualizacje są zawsze bezpieczne, ale bezpośredni powrót nie zawsze jest możliwy. Nowsze wersje Marinara Engine zapisują wiadomości czatu w nowszym formacie na dysku, którego wersja starsza niż format danych nie potrafi odczytać. Aby chronić historię czatów, program uruchamiający pomija automatyczne aktualizacje prowadzące do niezgodnej wersji, a aktualizator w aplikacji odmawia ich zastosowania.
+Powrót nie zawsze jest możliwy. Nowsze wersje zapisują dane w nowszym formacie przechowywania, a kompilacja odrzuca dane w formacie nowszym niż te, które zna. Obecne kompilacje używają formatu przechowywania 10. Formaty 8, 9 i 10 dodały awatary MMD, powiązania połączeń z kontami oraz awatary GLB/FBX. Kompilacja, która zna tylko starszy format, nie otworzy zapisanych w nich danych.
 
-Danych zaktualizowanych do formatu przechowywania 8, który dodaje awatary MMD, nie da się otworzyć w kompilacjach obsługujących format 7 lub starszy. Aby wrócić do jednej z nich, zatrzymaj aplikację Marinara i przywróć pełną kopię zapasową wykonaną przed tą aktualizacją. Polecenie konwertujące pliki czatu nie potrafi przekształcić ustawień awatarów MMD. Nie zmieniaj ręcznie numeru formatu.
+Program uruchamiający pomija automatyczną aktualizację, która prowadziłaby do niezgodnej wersji, a aktualizator w aplikacji odmawia jej wgrania. Żeby wrócić do starszej kompilacji, zatrzymaj aplikację Marinara i przywróć pełną kopię zapasową wykonaną przed aktualizacją. Opisane niżej polecenie konwertujące pliki czatu nie potrafi przekształcić ustawień awatarów MMD. Nie zmieniaj ręcznie numeru formatu.
 
-W przypadku starszych danych, które nie osiągnęły formatu 8, jedno polecenie może przywrócić plikom czatu poprzedni układ. Instrukcję znajdziesz w sekcji [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
+Jeśli twoje dane są starsze niż format przechowywania 8, jedno polecenie konwersji może przywrócić plikom czatu poprzedni układ. Zobacz [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
 <a id="going-back-to-250"></a>
 
 ### Powrót do wersji 2.5.0
 
-Wersja 2.5.0 nie otwiera danych zaktualizowanych do formatu 8; użyj kopii zapasowej sprzed aktualizacji. Czaty ze starszymi danymi w formacie 7 nadal otwiera, ale nie zna danych dodanych przez nowsze funkcje: części ustawień połączeń, szczegółów potrzebnych do ponownego generowania obrazów w czacie oraz części punktów kontrolnych gry, zegarów zestawów zasad i wideo ze scen. Gdy wersja 2.5.0 zapisuje czat lub połączenie, na przykład gdy wysyłasz wiadomość, rozgrywasz turę gry, tworzysz obraz albo zmieniasz połączenie, usuwa te nowsze dane z całego czatu lub połączenia. Ponowna aktualizacja ich nie przywraca.
+Wersja 2.5.0 nie otwiera danych zaktualizowanych do formatu przechowywania 8 lub nowszego. Użyj kopii zapasowej sprzed aktualizacji.
 
-Żeby móc wrócić dokładnie do obecnego stanu, zrób kopię zapasową przed aktualizacją. Zobacz [Najpierw kopia zapasowa](#back-up-first) i [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
+W przypadku starszych danych, które wersja 2.5.0 potrafi otworzyć, nie zna ona tego, co dodały nowsze funkcje: części ustawień połączeń, szczegółów potrzebnych do ponownego generowania obrazów w czacie oraz części punktów kontrolnych gry, zegarów zestawów zasad i wideo ze scen. Gdy wersja 2.5.0 zapisuje czat lub połączenie, na przykład gdy wysyłasz wiadomość, rozgrywasz turę gry, tworzysz obraz albo zmieniasz połączenie, usuwa te nowsze dane z całego czatu lub połączenia. Ponowna aktualizacja ich nie przywraca.
+
+Żeby móc wrócić dokładnie do obecnego stanu, zrób kopię zapasową przed aktualizacją. Zobacz [Najpierw kopia zapasowa](#back-up-first).
 
 ## Gdy aktualizacja się nie powiedzie
 
-Większość problemów z aktualizacją bierze się ze starej wersji środowiska Node.js, niepełnego pobierania albo nieodświeżonej pamięci podręcznej przeglądarki.
+Większość niepowodzeń bierze się ze starej wersji środowiska Node.js, niepełnego pobierania albo nieaktualnej pamięci podręcznej przeglądarki.
 
-- Jeśli launcher zgłasza, że Node.js jest za stary, zainstaluj Node.js 24 LTS i uruchom aplikację ponownie.
-- Jeśli aplikacja wygląda na zepsutą po aktualizacji serwera, spróbuj użyć opisanego wyżej przycisku **Refresh App**.
-- Jeśli instalacja z Git nie potrafi zaktualizować się czysto, uruchom ręczne polecenia aktualizacji dla swojej platformy, podane w odpowiednim przewodniku instalacji.
+- Jeśli program uruchamiający zgłasza, że Node.js jest za stary, zainstaluj Node.js 24 LTS i uruchom aplikację ponownie.
+- Jeśli aplikacja wygląda na zepsutą po aktualizacji serwera, kliknij **Refresh App**.
+- Jeśli kopia Git nie potrafi zaktualizować się czysto, użyj poleceń [ręcznej aktualizacji](#manual-update-git-copy-no-launcher).
 
-Komunikaty błędów i rozwiązania krok po kroku znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji Marinara Engine](TROUBLESHOOTING.md).
+Komunikaty błędów i rozwiązania znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji Marinara Engine](TROUBLESHOOTING.md).
 
 ## Powiązane przewodniki
 

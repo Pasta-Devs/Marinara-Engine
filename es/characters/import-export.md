@@ -1,88 +1,80 @@
 # Importar y exportar tarjetas de personaje
 
-Esta guía muestra cómo importar tarjetas de personaje a Marinara Engine y exportar tus propios personajes. Cubre los tipos de archivo que Marinara acepta, las opciones de la ventana de importación y los tres formatos de exportación.
-
-Una tarjeta de personaje es un solo archivo que contiene un personaje: su nombre, descripción, personalidad, saludos iniciales y a menudo una imagen de avatar. Las tarjetas te permiten mover un personaje entre Marinara y otras apps de roleplay.
-
-## Formatos de importación
-
-La ventana **Import Character** (Importar personaje) acepta cuatro tipos de archivo. Puedes soltar varios archivos a la vez, y pueden ser de tipos distintos.
-
-| Tipo de archivo | Qué es |
-| --- | --- |
-| **.json** | Una tarjeta de personaje sencilla en formato de texto (Chara Card V2). |
-| **.png** | Una imagen de tarjeta de personaje con los datos de la tarjeta ocultos dentro de la imagen. |
-| **.charx** | Un paquete Character Card V3 (CharX), el formato basado en zip que usa RisuAI. |
-| **.marinara** | Una exportación nativa de Marinara (también aparece como `.marinara.json`). |
-
-Un archivo **.marinara** conserva el mayor detalle, porque es el formato propio de Marinara. Los otros tres vienen de SillyTavern, Chub, Risu y herramientas similares.
+Una tarjeta de personaje es un archivo que contiene un personaje: nombre, descripción, personalidad, saludos y a menudo una imagen de avatar. Importa tarjetas para añadir personajes de otras apps y sitios. Exporta tus propios personajes para hacer una copia de seguridad o compartirlos.
 
 ## Importar un personaje
 
-Sigue estos pasos para llevar una o más tarjetas a tu biblioteca.
+Antes de empezar: ten un archivo de tarjeta de personaje en tu dispositivo. Si prefieres buscar tarjetas en internet, consulta [Card Browser](bot-browser.md).
 
-1. Abre el panel **Characters** (Personajes).
-2. Haz clic en el botón **Import** (Importar) de la barra de herramientas. Es un botón de icono con una flecha de descarga. Se abre la ventana **Import Character**.
-3. Arrastra tus archivos a la ventana, o haz clic en ella para buscar. Deberías ver "Drop one or more files here or click to browse" (Suelta uno o más archivos aquí o haz clic para buscar).
-4. Configura las dos opciones de importación (descritas abajo). Se aplican a cada archivo de este lote.
-5. Espera la lista de resultados. Cada archivo muestra una marca verde con "Imported" (Importado) y el nombre, o una marca roja con un error.
+1. Haz clic en **Characters** (Personajes) en la barra de navegación superior. Si no lo ves, abre primero **More** (Más).
+2. Haz clic en **Import** (Importar) en la barra de herramientas (el icono con una flecha de descarga). Se abre la ventana **Import Character** (Importar personaje).
+3. Configura las opciones de importación de abajo. Se aplican a cada archivo de este lote.
+4. Suelta tus archivos en la ventana, o tócala o haz clic en ella para abrir el selector de archivos de tu dispositivo. Puedes elegir varios archivos, y pueden ser de tipos distintos.
+5. Espera la lista de resultados. Cada archivo muestra una marca verde, o una marca roja con un error. El texto es `Imported "Name"`, `Imported "Name" with its embedded lorebook` o `Imported "Name" without creating the embedded lorebook`.
+6. Busca el nuevo personaje en **Characters**.
 
-### Elegir qué etiquetas conservar
+Marinara acepta cuatro tipos de archivo:
 
-La opción **Imported card tags** (Etiquetas de la tarjeta importada) decide qué pasa con las etiquetas de la tarjeta entrante. Esto se llama modo de importación de etiquetas. Tienes tres opciones:
+| Tipo de archivo | Qué es |
+| --- | --- |
+| **.json** | Una tarjeta guardada como texto. Las exportaciones de Marinara (`.marinara.json`) también son archivos .json. |
+| **.png** | Una imagen de tarjeta con los datos de la tarjeta ocultos dentro de la imagen. |
+| **.charx** | Un paquete de tarjeta guardado como archivo zip. |
+| **.marinara** | Un archivo de exportación de Marinara. |
 
-- **All tags** (Todas las etiquetas): conserva cada etiqueta de la tarjeta de origen. Esta es la opción predeterminada.
-- **No tags** (Sin etiquetas): omite las etiquetas de origen.
-- **Existing only** (Solo las existentes): conserva solo las etiquetas que ya existen en tu biblioteca.
+Una exportación de Marinara conserva el mayor detalle. Los otros tipos vienen de SillyTavern, Chub, Risu y herramientas similares.
 
-### Elegir a dónde van los scripts de regex
+Si no funcionó: lee el mensaje rojo junto al archivo. Los demás archivos del lote se importan igualmente.
 
-Algunas tarjetas incluyen scripts de regex, pequeñas reglas de reemplazo de texto. La opción **Imported regex scripts** (Scripts de regex importados) controla su alcance:
+<a id="import-options"></a>
 
-- **Character only** (Solo el personaje): los scripts se ejecutan solo para este personaje. Esta es la opción predeterminada.
-- **Global**: los scripts se añaden a **Presets**, en la sección **Regexes**, y se ejecutan en cada chat.
+### Opciones de importación
 
-Elige **Character only** a menos que sepas que quieres las reglas en todas partes.
+| Opción | Valores |
+| --- | --- |
+| **Imported card tags** (Etiquetas de la tarjeta importada) | **All tags** (Todas las etiquetas, predeterminado): conserva todas las etiquetas. |
+| | **No tags** (Sin etiquetas): las omite. |
+| | **Existing only** (Solo las existentes): conserva las etiquetas que ya están en tu biblioteca. |
+| **Imported regex scripts** (Scripts de regex importados) | **Character only** (Solo el personaje, predeterminado): las reglas se ejecutan para este personaje. |
+| | **Global**: las reglas van a **Presets → Regexes** y se ejecutan en cada chat. |
+| **Split description into fields** (Dividir la descripción en campos) | Desactivado de forma predeterminada. Márcalo para sacar de **Description** (Descripción) el texto etiquetado de personalidad, apariencia y similares, y llevarlo a sus propios campos. |
+
+Los scripts de regex son pequeñas reglas de reemplazo de texto. Mantén **Character only** a menos que quieras las reglas en todas partes. La división deja tal cual las tarjetas de narrador, de mundo y de varios personajes.
 
 ### Tarjetas con un lorebook integrado
 
-Un lorebook (libro de trasfondo) es un conjunto de datos de fondo que la IA puede consultar durante un chat. Si una tarjeta que estás importando tiene un lorebook integrado, la importación se detiene y muestra un panel **Embedded lorebook found** (Lorebook integrado encontrado). Enumera cada archivo y cuántas entradas contiene. Elige una opción para todo el lote:
+Un lorebook (libro de trasfondo) es un conjunto de datos de fondo que la IA consulta durante un chat. Si una tarjeta tiene uno integrado, la importación se detiene y muestra **Embedded lorebook found** (Lorebook incrustado encontrado). Enumera cada archivo y cuántas entradas tiene. Elige una opción para todo el lote:
 
-- **Import Lorebook** (Importar lorebook): crea también un lorebook independiente de Marinara vinculado al personaje.
-- **No Import** (No importar): conserva el lorebook solo dentro de la tarjeta.
+- **Import Lorebook** (Importar lorebook) también crea un lorebook independiente de Marinara vinculado al personaje.
+- **No Import** (No importar) conserva el lorebook solo dentro de la tarjeta.
 
-### Importar muchas tarjetas a la vez
+### Importar una carpeta completa de SillyTavern
 
-La misma ventana **Import Character** gestiona las importaciones por lotes. Selecciona varios archivos, y Marinara los importa uno tras otro. La lista de resultados tiene una fila por archivo, para que veas qué tarjetas funcionaron y cuáles fallaron.
+Para mover una instalación entera de SillyTavern, usa el importador masivo de **Settings** (Configuración), en la pestaña **Imports** (Importaciones). Trae juntos los personajes, chats, presets y lorebooks. Consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md).
 
 ## Exportar un personaje
 
-Abre un personaje en el editor, luego haz clic en **Export character** (Exportar personaje) en la barra de herramientas superior. La ventana **Export Character** ofrece tres formatos.
+1. Abre el personaje en el editor.
+2. Haz clic en **Export character** (Exportar personaje) en el encabezado. Se abre la ventana **Export Character**.
+3. Elige un formato. Marinara descarga el archivo.
 
 | Formato | Qué obtienes | Ideal para |
 | --- | --- | --- |
-| **Marinara Native** | Un archivo `.marinara.json` que conserva los metadatos de Marinara, los sprites, las imágenes de la galería y los lorebooks adjuntos. | Mover un personaje entre instalaciones de Marinara con todo el detalle. |
-| **Compatible JSON** | JSON Chara Card V2 sencillo, sin envoltorio de Marinara. | Compartir con otras apps que leen tarjetas JSON. |
-| **Compatible PNG Card** | Una imagen Chara Card V2 con los datos de la tarjeta incrustados en la imagen. | Apps y sitios que esperan una tarjeta PNG, como SillyTavern, Chub y Risu. |
+| **Marinara Native** | Un archivo `.marinara.json` con los metadatos de Marinara, los sprites, las imágenes de la galería y los lorebooks adjuntos. | Mover un personaje entre instalaciones de Marinara con todo el detalle. |
+| **Compatible JSON** | Un archivo de tarjeta sencillo que otras apps pueden leer. Descarta los extras exclusivos de Marinara, como los sprites y las imágenes de la galería. | Otras apps que leen tarjetas JSON. |
+| **Compatible PNG Card** | Una imagen de tarjeta con los datos dentro de la imagen. Incluye tus sprites, pero no las imágenes de la galería. | Apps y sitios que esperan una tarjeta PNG, como SillyTavern, Chub y Risu. |
 
-Elige **Marinara Native** cuando quieras conservar todo. Elige uno de los formatos **Compatible** cuando el archivo vaya a otra herramienta. Los dos formatos compatibles descartan los extras exclusivos de Marinara, como los sprites y las imágenes de la galería. Añaden los campos **Backstory** (historia previa) y **Appearance** (apariencia) que no estén vacíos a la Description estándar para que otros lectores de V2 conserven esa información de identidad. Esos campos se eliminan de las extensiones exportadas para evitar duplicados al reimportar. La tarjeta guardada no cambia; **Marinara Native** conserva los campos por separado.
+Los dos formatos **Compatible** añaden los campos **Backstory** (Trasfondo) y **Appearance** (Apariencia) que no estén vacíos a la **Description** estándar, para que otras apps conserven esa información. Tu tarjeta guardada no cambia.
 
-El [onboarding interactivo](interactive-onboarding.md) de una tarjeta se conserva con **Marinara Native** y **Compatible PNG Card**, así que la tarjeta sigue ofreciendo sus preguntas cuando alguien la importa en Marinara. **Compatible JSON** lo omite.
+El [onboarding interactivo](interactive-onboarding.md) de una tarjeta se conserva con **Marinara Native** y **Compatible PNG Card**, así que la tarjeta sigue haciendo sus preguntas cuando alguien la importa en Marinara. **Compatible JSON** lo omite.
 
 ## Exportar muchos personajes a la vez
 
-Puedes exportar un lote de personajes como un único archivo zip.
+1. Haz clic en **Characters** en la barra de navegación superior (o primero en **More**, si no aparece).
+2. Haz clic en **Select** (Seleccionar) en la barra de herramientas (el icono de marca de verificación) y marca los personajes que quieres.
+3. Haz clic en **Export** (Exportar) en la barra de abajo. Marinara descarga `marinara-characters.zip`.
 
-1. Abre el panel **Characters**.
-2. Haz clic en el botón **Select** (Seleccionar) de la barra de herramientas para entrar en el modo de selección. Es un botón de icono con una marca de verificación.
-3. Marca los personajes que quieres.
-4. Haz clic en **Export** (Exportar) en la barra de acciones de abajo. Marinara descarga un zip llamado `marinara-characters.zip`.
-
-El zip contiene un archivo **Marinara Native** por personaje. No hay opción de PNG ni de JSON compatible para la exportación masiva, así que usa la exportación de un solo personaje cuando necesites esos formatos.
-
-## Importar una carpeta completa de SillyTavern
-
-Los pasos anteriores cubren las tarjetas que eliges a mano. Para mover una instalación entera de SillyTavern de una sola vez, usa el importador masivo de carpetas. Trae juntos los personajes, chats, presets y lorebooks. Está en **Settings** (Configuración), en la pestaña **Imports** (Importaciones). Consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md) para el recorrido completo.
+El zip contiene un archivo **Marinara Native** por personaje. La exportación masiva no tiene opción de PNG ni de JSON. Para esos formatos, usa la exportación de un solo personaje. Para más formas de seleccionar personajes, consulta [Organizar tu biblioteca de personajes](library-organization.md#export-or-delete-many-characters).
 
 ## Guías relacionadas
 

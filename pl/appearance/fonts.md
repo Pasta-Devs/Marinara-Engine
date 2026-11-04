@@ -1,61 +1,58 @@
 # Własne czcionki i Google Fonts
 
-Z tego przewodnika dowiesz się, jak zmienić czcionkę używaną w całej aplikacji Marinara Engine. Do wyboru są trzy drogi: czcionka wbudowana, własne pliki czcionek albo czcionka pobrana z serwisu Google Fonts po nazwie.
+Zmień czcionkę, której Marinara używa w całej aplikacji. Wybierz czcionkę wbudowaną, dodaj własne pliki czcionek albo pobierz czcionkę z serwisu Google Fonts po nazwie.
 
 ## Wybór czcionki aplikacji
 
-Ustawienie czcionki znajduje się w panelu **Settings** (Ustawienia), w zakładce **Appearance** (Wygląd), w sekcji **Text & Scale**.
-
-1. Otwórz panel **Settings** i kliknij zakładkę **Appearance**.
+1. Otwórz panel **Settings** (Ustawienia), kliknij zakładkę **Appearance** (Wygląd), a potem przycisk **App** (aplikacja).
 2. Znajdź sekcję **Text & Scale**.
-3. Rozwiń listę rozwijaną **Font**.
-4. Wybierz czcionkę z listy.
+3. Rozwiń listę rozwijaną **Font** (czcionka) i wybierz czcionkę.
 
-Domyślnie ustawiona jest opcja **Default (Inter)**. Inter to czysty krój wybrany z myślą o czytaniu z ekranu. Dodane własne czcionki pojawiają się na tej samej liście rozwijanej **Font**, pod opcją domyślną.
+Nową czcionkę najprościej zdobyć z serwisu [Google Fonts](#downloading-from-google-fonts). Domyślnie ustawiona jest opcja **Default (Inter)**, czysty krój wybrany z myślą o czytaniu z ekranu. Dodane czcionki pojawiają się na tej samej liście, pod nią.
 
-Pola promptów w edytorze presetów i pole Example Dialogue na karcie postaci używają czcionki o stałej szerokości znaków, dopóki wybrana jest czcionka domyślna. Wybierz dowolną inną czcionkę, a te pola też będą jej używać. Pozostałe pola promptów, na przykład szablon promptu agenta, zostają przy czcionce o stałej szerokości znaków.
+Wybór czcionki synchronizuje się między urządzeniami. Przełącza się na nią każda przeglądarka połączona z tym samym serwerem Marinara. Zobacz [Przegląd ustawień](../settings/settings-overview.md).
 
-Widgety czatu mają osobną opcję **Font** w sekcji **Settings → Appearance → App → Chat widget style** (ustawienia, wygląd, aplikacja, styl widgetów czatu). Włącz w tym samym miejscu przełącznik **Apply preset font** (zastosowanie czcionki presetu), aby ta czcionka była używana także w wiadomościach, polach wpisywania i kontrolkach czatu. Gdy przełącznik jest wyłączony, zachowują one zwykłą czcionkę. Zobacz [Gotowe style okien czatu](custom-css-themes.md#ready-made-chat-window-styles).
-
-Wybór czcionki synchronizuje się między urządzeniami. Po wybraniu czcionki przełącza się na nią każda przeglądarka i każde urządzenie połączone z tym samym serwerem Marinara. Jak działa ta synchronizacja, wyjaśnia przewodnik [Przegląd ustawień](../settings/settings-overview.md).
+Widgety czatu mają osobną opcję **Font** w sekcji **Chat widget style** (styl widgetów czatu). Włącz tam przełącznik **Apply preset font** (zastosowanie czcionki presetu), żeby ta czcionka była używana także w wiadomościach, polach wpisywania i kontrolkach czatu. Zobacz [Gotowe style okien czatu](custom-css-themes.md#ready-made-chat-window-styles).
 
 ## Dodawanie własnych czcionek
 
-Własną czcionkę dodaje się przez wrzucenie pliku czcionki do folderu na serwerze. To ta maszyna, na której działa aplikacja Marinara Engine.
+Zanim zaczniesz: czcionki trafiają do folderu na serwerze. Serwer to komputer, na którym działa aplikacja Marinara Engine. Jeśli uruchamiasz aplikację Marinara Engine na własnym komputerze, to on jest serwerem, a folder danych to miejsce, w którym Marinara przechowuje twoje dane.
 
-1. Na maszynie serwera znajdź folder `data/fonts/` wewnątrz folderu danych aplikacji Marinara Engine.
+1. Kliknij przycisk **Open Fonts Folder** (otwarcie folderu czcionek) obok listy rozwijanej **Font**, żeby otworzyć folder `data/fonts/` na serwerze. Możesz też samodzielnie znaleźć folder `data/fonts/` w folderze danych aplikacji Marinara Engine.
 2. Skopiuj do niego plik czcionki.
-3. Wróć do panelu **Settings**, potem **Appearance**, potem **Text & Scale**.
-4. Rozwiń listę rozwijaną **Font**. Czcionka jest już na liście.
-5. Zaznacz ją.
+3. Przejdź do **Settings → Appearance → App → Text & Scale**.
+4. Rozwiń listę rozwijaną **Font**. Czcionka jest na liście.
+5. Zaznacz ją. Tekst aplikacji od razu się zmienia.
 
-Marinara odczytuje takie typy plików czcionek: `.ttf`, `.otf`, `.woff` oraz `.woff2`. Pliki z każdym innym rozszerzeniem są pomijane.
+Marinara odczytuje pliki `.ttf`, `.otf`, `.woff` i `.woff2`, a pozostałe typy pomija. Nazwę wyświetlaną tworzy z nazwy pliku, więc `OpenSans-Bold.ttf` pokazuje się jako "Open Sans". Nazywaj pliki czytelnie, żeby lista była uporządkowana.
 
-Nazwę wyświetlaną Marinara tworzy z nazwy pliku. Przykładowo plik `OpenSans-Bold.ttf` pokazuje się jako "Open Sans". Nazywaj więc pliki czytelnie, jeśli lista ma wyglądać porządnie.
+Z czcionek w folderze `data/fonts/` może korzystać każde urządzenie połączone z tym samym serwerem.
 
-Pliki czcionek z folderu `data/fonts/` leżą na serwerze. Może z nich korzystać każde urządzenie połączone z tym samym serwerem Marinara. Wybór czcionki synchronizuje się także między tymi urządzeniami, więc wszystkie pokazują tę samą czcionkę.
+Jeśli to nie zadziałało: sprawdź typ pliku i to, czy plik leży w folderze `data/fonts/` na serwerze, a nie na urządzeniu, z którego przeglądasz aplikację.
+
+<a id="downloading-from-google-fonts"></a>
 
 ## Pobieranie z Google Fonts
 
-Marinara potrafi pobrać czcionkę prosto z serwisu Google Fonts. Serwer musi mieć do tego dostęp do internetu.
+Serwer potrzebuje do tego dostępu do internetu.
 
-1. Otwórz panel **Settings**, potem **Appearance**, potem **Text & Scale**.
-2. Znajdź pole **Google Fonts**.
-3. Wpisz dokładną nazwę czcionki, na przykład `Fira Code` albo `Lora`.
-4. Kliknij przycisk **Add**.
-5. Poczekaj na koniec pobierania. Nowa czcionka pojawia się wtedy na liście rozwijanej **Font**.
+1. Przejdź do **Settings → Appearance → App → Text & Scale**.
+2. W polu **Google Fonts** wpisz dokładną nazwę czcionki, na przykład `Fira Code` albo `Lora`.
+3. Kliknij przycisk **Add** (dodaj).
+4. Poczekaj na koniec pobierania. Czcionka pojawi się wtedy na liście rozwijanej **Font**.
 
-Wpisz nazwę dokładnie w takiej pisowni, jakiej używa serwis Google Fonts. Obok pola znajduje się link **Browse fonts at fonts.google.com**. Otwiera on stronę Google Fonts w nowej zakładce, więc nazwy da się tam sprawdzić.
+Link **Browse fonts at fonts.google.com →** obok pola otwiera stronę Google Fonts, na której da się sprawdzić nazwy. Nazwa może zawierać wyłącznie litery, cyfry i spacje. Ponowne pobranie tej samej czcionki zastępuje starą kopię.
 
-Nazwa może zawierać wyłącznie litery, cyfry i spacje. Przy ponownym pobraniu tej samej czcionki Marinara zastępuje starą kopię, zamiast tworzyć duplikat.
+Jeśli to nie zadziałało, przeczytaj komunikat błędu.
 
-Jeśli pobieranie się nie powiedzie, przeczytaj komunikat błędu. Kiedy Marinara nie może połączyć się z serwisem Google Fonts, prosi o sprawdzenie połączenia z internetem. Kiedy komunikat mówi, że czcionki nie znaleziono, przyczyny są dwie. Nazwa może nie pasować do żadnej czcionki w serwisie Google Fonts. Możliwe też, że czcionka nie ma odmiany zwykłej (400), czyli standardowego stylu bez pogrubienia. Sprawdź pisownię, a na stronie Google Fonts sprawdź, czy czcionka oferuje styl Regular.
+- Jeśli Marinara nie może połączyć się z serwisem Google Fonts, sprawdź połączenie z internetem.
+- Jeśli komunikat mówi, że czcionki nie znaleziono, sprawdź pisownię, a na stronie Google Fonts sprawdź, czy czcionka ma styl Regular (400). Marinara pobiera tylko tę odmianę.
 
-## Przycisk Open Fonts Folder działa tylko lokalnie
+## Przycisk Open Fonts Folder
 
-Obok listy rozwijanej **Font** znajduje się przycisk **Open Fonts Folder** (otwarcie folderu czcionek). Otwiera on folder `data/fonts/` w eksploratorze plików na maszynie serwera.
+Przycisk **Open Fonts Folder** obok listy rozwijanej **Font** otwiera folder `data/fonts/` w eksploratorze plików na komputerze serwera, a nie na urządzeniu, którego używasz. Jeśli aplikacja Marinara Engine działa na twoim własnym komputerze, folder po prostu się otworzy. Przy połączeniu z telefonu albo drugiego komputera skopiuj pliki czcionek do folderu `data/fonts/` na serwerze samodzielnie.
 
-Ten przycisk działa na serwerze, a nie na urządzeniu, na którym przeglądasz aplikację Marinara Engine. Jeśli aplikacja Marinara Engine działa na twoim własnym komputerze, folder po prostu się otworzy. Przy połączeniu z telefonu albo drugiego komputera przycisk nic przydatnego nie zrobi. W takim wypadku skopiuj pliki czcionek do folderu `data/fonts/` na serwerze samodzielnie.
+Gdy wybrana jest czcionka domyślna, pola promptów w edytorze presetów i pole Example Dialogue postaci używają czcionki o stałej szerokości znaków. Każda inna czcionka też się do nich stosuje. Pozostałe pola promptów, na przykład szablon promptu agenta, zostają przy czcionce o stałej szerokości znaków.
 
 ## Powiązane przewodniki
 

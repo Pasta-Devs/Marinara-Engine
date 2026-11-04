@@ -1,276 +1,113 @@
 # 个人扩展
 
-个人扩展是 Professor Mari 为你写的私人代码草稿。打开 **Settings**(设置) > **Addons**(附加组件) > **Personal Extensions**(个人扩展)。
+个人扩展是一小段代码，可以给 Marinara 添加按钮、面板或辅助功能。Professor Mari 可以帮你写一个，而它会不会运行，始终由你决定。本指南介绍如何审查、启用、导出和恢复扩展。要自己编写扩展，请参阅[编写个人扩展](writing-personal-extensions.md)。
 
-默认提示是：
+## 各种扩展分别是什么
 
-> Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.
+| 名称 | 含义 |
+| --- | --- |
+| Personal Extension(个人扩展) | Professor Mari 为你写的扩展。它以草稿形式出现在 **Settings → Addons**(设置 → 插件) 下。 |
+| External Extension(外部扩展) | 别人写的扩展，或者你自己写的扩展。它需要完成[允许第三方导入](#allow-third-party-imports)中的额外步骤。 |
+| Browser Extension(浏览器扩展) | 在你的浏览器里的沙箱中运行。默认情况下是安全的。 |
+| Server Extension(服务器扩展) | 在运行 Marinara 的那台电脑上运行，处于操作系统沙箱之中。需要受支持的平台。 |
+| Full page access(整页访问) | 一项会去掉沙箱的权限。只用于你完全信任的代码。 |
 
-这个区块里既没有新建草稿的入口，也没有导入控件。要新建或修改草稿，直接找 Professor Mari。她可以保存代码，但不能批准或启用。
+## 安装别人分享的扩展
 
-要自己编写并导入软件包，请使用[个人扩展编写指南](writing-personal-extensions.md)。自行编写的软件包走单独授权的 External Extensions 流程。
+开始之前，先完成[允许第三方导入](#allow-third-party-imports)中的两个步骤。不完成这两步，导入按钮就不会显示。
 
-## 估算文本的 Token 数
+1. 打开 **Settings → Addons**。在 **External Extensions**(外部扩展) 下，导入 `.zip`、`.json`、`.css` 或 `.js` 文件时选择 **Import Extension File**(导入扩展文件)，导入文件夹时选择 **Import Extension Folder**(导入扩展文件夹)。
+2. 打开新的草稿。它处于禁用状态，并显示自己的代码和一个哈希值。哈希值是这段确切代码的简短指纹（Marinara 使用 SHA-256）。
+3. 阅读代码和 **Requested access**(申请的权限) 列表。
+4. 只有在你认可这个确切版本时，才选择 **Review and Run**(审查并运行)。之后扩展会显示为已启用。
 
-Browser、Full page access 和 Server 个人扩展都可以使用 Marinara 内置的文本 Token 数估算函数：
+如果没有成功：如果导入按钮不见了，说明那两个步骤中有一步还没完成。修改 `.env` 之后，记得重启 Marinara。
 
-```js
-const tokens = marinara.estimateTextTokens(text);
-```
+## 审查 Professor Mari 写的扩展
 
-函数签名是 `estimateTextTokens(text: string): number`，`@marinara-engine/shared` 导出的 `PersonalExtensionTokenApi` 类型也描述了这个接口。调用是同步的，不需要额外权限，返回的是 Marinara 不依赖特定模型的 Token 数估算值，并非分词器计算的精确结果。在旧版 Engine 上，调用前先检查 `typeof marinara.estimateTextTokens === "function"`。
+开始之前，先请 [Professor Mari](../home/professor-mari.md) 创建一个扩展。她可以保存代码，但不能批准或启用它。这个区块没有 New Draft(新建草稿) 按钮，也没有导入控件。
 
-## 审查并启用
+1. 打开 **Settings → Addons → Personal Extensions**(设置 → 插件 → 个人扩展)。没有草稿时，这里显示：“Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.”
+2. 打开草稿并阅读代码。核对哈希值和 **Requested access** 列表。
+3. 只有在你认可这个确切版本时，才选择 **Review and Run**。
 
-每份草稿一开始都是禁用状态。Marinara 会用 SHA-256 给可执行代码算出精确指纹。打开草稿，逐行看代码，核对界面上显示的哈希值，只有认可这个确切版本时才选 **Review and Run**(审查并运行)。可执行部分只要有任何改动，或者恢复了某个历史修订版本，扩展就会自动禁用，需要重新批准。
+每份草稿一开始都是禁用状态。任何代码修改、权限变更或恢复的修订版本，都会让扩展禁用，需要重新批准。
 
-沙箱只是削减权限，并不能让来路不明的代码变得可信。恶意扩展仍然可以耗着 CPU 直到看门狗把它掐掉，可以在配额允许的范围内塞满自己的存储，也可以在日志里写误导性的内容。整页扩展更是主动放弃了这层隔离。启用之前一定要先看代码。
+> **警告：** 沙箱能限制代码的行为，但不能让代码变得可信。有害的扩展仍然可以白白占用处理器时间，直到看门狗（一个会停止失控代码的计时器）结束它；可以把自己的存储塞满到上限；也可以通过日志误导你。整页扩展是刻意放弃沙箱的。启用之前请先阅读代码，第三方代码要逐行检查。
 
-## 运行时隔离
+如果没有成功：Professor Mari 的修改和任何恢复的修订版本，都会让草稿回到禁用状态。重新审查一遍，并确认对话框中的哈希值就是你读过的那个。
 
-浏览器扩展运行在一个不透明源沙箱 iframe 里的专用 Worker 中。它访问不到 Marinara 的页面、DOM、Cookie、浏览器存储、同源 API 和网络。它能用的只有扩展私有存储、日志、受管定时器、清理回调注册、受限窗口、安全的宿主界面贡献位，以及当前聊天和角色 ID 的只读快照。只有在相应权限已声明并获批之后，它才能拿到当前聊天中角色卡或所选用户角色的部分字段。
+## 扩展能做什么
 
-扩展可以用 `marinara.ui.registerContribution(...)` 添加顶栏操作、Extensions 菜单项和常驻的右侧面板。这些界面由 Marinara 用当前主题和一组固定控件渲染：标题、文本、预格式化输出、按钮、文本输入框、下拉菜单、开关、滑块、颜色控件和间隔块。扩展只提供内容和状态，永远不提供 HTML、CSS、URL、React 组件或宿主事件处理函数。
+浏览器扩展运行在你浏览器里的沙箱（一块隔离出来的区域）中。它访问不到 Marinara 的页面、Cookie、浏览器存储或网络。它可以：
 
-不管来源是什么，所有沙箱内的浏览器扩展都适用同一套界面能力和规则。导入的第三方（外部）扩展默认也跑在这个安全运行时里，除非它的扩展包明确申请 **Full page access**(整页访问权限)，或者用了下面讲到的沙箱之前的 `marinara.extension` 格式。
+- 使用私有存储并写入日志
+- 添加按钮、菜单项和面板，由 Marinara 按你的主题绘制
+- 读取当前打开的聊天的 ID
+- 读取当前角色或用户角色的部分字段，但仅在你批准相应权限之后
 
-<a id="add-a-marinara-rendered-panel"></a>
+完整列表见[编写个人扩展](writing-personal-extensions.md#what-a-browser-extension-can-do)。
 
-### 添加由 Marinara 渲染的面板
-
-```js
-const panel = marinara.ui.registerContribution({
-  id: "weather-settings",
-  kind: "panel",
-  label: "Weather controls",
-  description: "Tune a weather scene without leaving Marinara.",
-  icon: "sparkles",
-  elements: [
-    { kind: "heading", text: "Atmosphere" },
-    {
-      kind: "select",
-      id: "weather",
-      label: "Weather",
-      value: "rain",
-      options: [
-        { value: "rain", label: "Rain" },
-        { value: "snow", label: "Snow" },
-        { value: "aurora", label: "Aurora" },
-      ],
-    },
-    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
-    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
-    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
-    { kind: "button", id: "apply", label: "Apply" },
-  ],
-  onActivate: async () => {
-    const settings = await marinara.storage.get();
-    // Update the panel when stored state should be reflected in the controls.
-  },
-  onEvent: async ({ elementId, values }) => {
-    if (elementId !== "apply") return;
-    await marinara.storage.patch(values);
-  },
-});
-
-marinara.onCleanup(() => panel.remove());
-```
-
-紧凑操作使用 `kind: "button"`，Extensions 菜单操作使用 `kind: "menu-item"`。`kind: "command"` 用于 Command Center(命令中心) 里的条目，它会激活同一扩展修订版本中已有的某个贡献项。命令必须带 `targetContributionId`，不能使用 `onActivate` 或 `onEvent`。
-
-```js
-marinara.ui.registerContribution({
-  id: "open-weather",
-  kind: "command",
-  label: "Open weather controls",
-  targetContributionId: "weather-settings",
-});
-```
-
-只有目标与命令的扩展 ID 和内容哈希都相同时，宿主才会解析这条命令。目标缺失、跨扩展或属于过期修订版本时，一律按拒绝方式失败。按钮默认使用 `surface: "top-bar"`，也可以指向 `chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents` 或 `settings`，并将 `position` 设为 `header`、`before-content` 或 `after-content`。`icon` 可接受 Marinara 支持的任意 kebab-case Lucide 图标名称。两种操作都会触发 `onActivate`。`panel` 在打开时触发 `onActivate`；其按钮会带着所有面板控件的当前值触发 `onEvent`。句柄支持按种类更新：`button` 接受 `label`、`description`、`icon`、`surface` 和 `position`；`menu-item` 接受 `label`、`description` 和 `icon`；`panel` 接受 `label`、`description`、`icon` 和 `elements`。所有句柄都支持 `remove()`。ID 可以包含字母、数字以及 `.`、`_` 和 `-`。
-
-例如，下面会在 Presets 面板内容上方放置一个原生操作：
-
-```js
-marinara.ui.registerContribution({
-  id: "preset-helper",
-  kind: "button",
-  label: "Preset helper",
-  description: "Run the preset helper",
-  icon: "list-sparkles",
-  surface: "presets",
-  position: "before-content",
-  onActivate: () => {
-    // Run extension behavior here.
-  },
-});
-```
-
-复杂工具可以在事件发生后更新面板元素，做出多步骤界面。应用状态放在 `marinara.storage` 里，不要编码进标记结构。
-
-<a id="use-active-chat-context"></a>
-
-### 使用当前聊天的上下文
-
-浏览器扩展 API 第 5 版会给出一组不透明标识符，指向 Marinara 当前显示的那个聊天：
-
-```js
-const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
-  if (!chatId) return; // Home, a library, or another surface without an active chat.
-
-  const storage = await marinara.storage.get();
-  const tab = storage.tabsByChat?.[chatId];
-
-  // characterId is available only for a single-Character chat.
-  // Use characterIds for group chats.
-  marinara.log.debug("Loaded Notepad tab", {
-    chatId,
-    characterId,
-    characterIds,
-    personaId,
-    characterNames: characters.map((character) => character.name),
-    personaName: persona?.name ?? null,
-    tab,
-  });
-};
-
-const unsubscribe = marinara.context.subscribe(renderForContext);
-marinara.onCleanup(unsubscribe);
-```
-
-`marinara.context.get()` 返回同样的当前快照，但不建立订阅。没有活动聊天时，`chatId` 为 `null`，`characterIds` 为空。只有聊天中恰好只有一个角色参与时，`characterId` 才有值；群聊会通过 `characterIds` 给出全部参与角色，`characterId` 保持为 `null`。`personaId` 只有在 `read_active_persona` 获批后才有值。
-
-聊天 ID 和角色 ID 始终可用，扩展可以拿它们给自己的私有存储划分命名空间。要拿到记录里的字段，需要在扩展清单里声明一个或两个可选权限：
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["read_active_characters", "read_active_persona"]
-}
-```
-
-- `read_active_characters` 会为参与当前聊天的角色卡填充 `characters`。
-- `read_active_persona` 会为当前聊天所选的用户角色填充 `persona`。
-
-没有相应权限时，对应的值就一直是 `[]` 或 `null`。扩展申请的每一项权限，Marinara 都会在 **Requested access**(申请的权限) 里列出，并在精确哈希审批窗口里再列一次。增删任何一项权限都会改变可执行代码的哈希值，扩展随之禁用，需要重新批准。
-
-角色快照只包含 `id`、`name`、`description`、`personality`、`scenario`、`firstMessage`、`exampleDialogue`、`creator`、`characterVersion`、`tags`、`backstory`、`appearance`、`aboutMe` 和 `conversationDisplayName`。用户角色快照只包含 `id`、`name`、`description`、`personality`、`scenario`、`backstory`、`appearance`、`tags`、`aboutMe` 和 `conversationDisplayName`。文本在跨过沙箱桥之前长度就已经受限。
-
-Marinara 绝不会发送消息、创作者备注、系统提示词、历史后指令、注释、头像路径、完整的角色库或用户角色库、未声明的字段、聊天元数据、数据库句柄、网络访问权限，也不会开放任何写操作。上下文更新同样绑定在已批准的代码哈希上，只在当前聊天、它的角色列表或所选用户角色发生变化时下发。
-
-<a id="add-a-dice-format"></a>
-
-### 添加骰子格式
-
-浏览器扩展 API 第 6 版允许扩展为 `/roll` 添加自己的写法，例如叙事骰池。扩展解析写法，指定要掷哪些骰子；Marinara 用自身安全的掷骰器掷出骰子，再把骰面交回扩展。扩展可以解释掷骰结果的含义，但不能决定掷出了什么。
-
-```js
-const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
-
-const format = marinara.dice.registerFormat({
-  id: "narrative",
-  label: "Narrative dice",
-  // Return null for notation this format does not read.
-  parse(notation) {
-    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
-    if (!terms.length) return null;
-    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
-    return { dice: kinds.map(() => 6), kinds };
-  },
-  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
-  read({ notation, dice, rolls, plan }) {
-    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
-    return { total: net, text: net > 0 ? `${net} success` : "failure" };
-  },
-});
-marinara.onCleanup(() => format.remove());
-```
-
-这样，`/roll 2 boost 1 setback` 就会发布骰面、总值和扩展的文字，并标注格式名称。`2d6` 或 `4d6kh3` 这样的普通写法始终按原来的方式掷骰，不会交给扩展。其他写法会依次交给各个已注册的格式，由第一个通过 `parse` 返回骰子的格式处理。
-
-- `parse(notation)` 返回 `null` 或 `{ dice: [sides, ...] }`，包含 1 到 100 颗骰子，每颗有 2 到 1000 面。对象上的其他内容留在沙箱中，以 `plan` 传回 `read`。
-- `read(...)` 返回 `{ total, text?, kept? }`：一个有限数值、最多 200 个字符的纯文本，以及可选的、按升序排列的计入结果的骰子位置。`/roll` 会给其余骰子加上删除线。
-- 每个扩展可以注册 4 种格式。写法最多 100 个字符。`parse` 和 `read` 可以异步执行，但各自都必须在 2 秒内返回。
-- 文字以纯文本显示：链接、图片、格式和 HTML 都会被转义。
-
-骰子格式适用于浏览器中的 `/roll`。游戏主持人的 `roll_dice` 工具和其他服务端掷骰仍使用内置写法和规则集骰子。在旧版 Engine 上调用前，先检查 `typeof marinara.dice?.registerFormat === "function"`。
-
-### 旧版扩展与整页扩展
-
-天气控制器、提示词编辑器这类比较完整的工作流，都是合适的贡献用例。它们的安全移植版可以用一个菜单入口或顶栏入口，配合逐步更新的面板来实现。已有的扩展包如果会注入 DOM 浮层、查询 Marinara 的 CSS 选择器、遍历 React 内部结构或调用同源 `/api` 路由，就无法原样导入安全运行时。
-
-界面贡献只提供界面，不附带环境权限。上下文 API 始终提供当前聊天 ID 和角色 ID，除此之外最多只能给出上面列出的、已声明的活动记录字段。需要消息、预设、世界书、未声明的角色或用户角色数据、视觉场景特效的功能，仍然要等 Marinara 提供单独的、范围收窄的中介能力。扩展不得通过访问宿主 DOM 或发起不受限的网络请求来自行模拟这类能力。
-
-如果某个外部扩展确实离不开宿主 DOM 访问权限，它可以这样申请：
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["full_page_access"]
-}
-```
-
-**整页访问权限不是一项沙箱能力。** 获批的 JavaScript 和 CSS 直接跑在 Marinara 的页面里。这些代码能读取或修改当前浏览器会话可见的一切，能查看聊天和角色卡，能使用浏览器存储、发起网络请求、调用同源的 Marinara API。它的实际页面权限，和你往浏览器控制台里粘贴一段代码没有区别。Professor Mari 的草稿不能申请这项权限。
-
-拥有完整页面访问权限的扩展应使用 `marinara.fetch(...)` 发送网络请求。它的签名和返回结果与 `window.fetch` 相同，同时让 **Settings > Addons > External Extensions**(设置 > 附加组件 > 外部扩展)能够显示该扩展在当前会话中的请求数、响应所报告的传输字节数、近期请求频率，以及持续高流量警告。完整页面访问代码属于受信任的页面代码，因此仍可直接调用 `window.fetch`，但这些请求无法归属于该扩展。
-
-Marinara 会把不带显式 `capabilities` 字段的旧版 `kind: "marinara.extension"` v1 封装识别成沙箱之前的老扩展包，并在导入时给它分配 **Full page access**。这样 WeatherTweaker 这类旧扩展包就能走进正确的审查流程，而不是在 Worker 里悄无声息地失败。如果一个新扩展包用了这种封装、却想留在安全运行时里，就必须写上 `"capabilities": []`。
-
-外部扩展的那两道开关和精确哈希审批依然有效。代码、CSS 或权限一旦变化，扩展就会自动禁用，需要重新批准。禁用时，Marinara 会移除自己插入的脚本和样式表节点，取消通过兼容 API 创建的定时器，并执行通过 `marinara.onCleanup(...)` 注册的回调。由于页面代码可以创建未登记的监听器、定时器、全局变量和 DOM 改动，清理只能做到尽力而为；禁用扩展后如果还有残留，刷新一下页面。
-
-旧的 `marinara.ui.showWindow(...)` API 仍然可用，它会在不透明源 iframe 里开一个临时窗口，用的是同一组固定控件，返回 `update(...)` 和 `close()` 句柄。如果希望这个工具能从 Marinara 的常规导航里进入，优先用界面贡献。
-
-服务器扩展跑在一个独立的、权限受限的 Node 进程里，外面套着 macOS Seatbelt 或 Linux Bubblewrap。它访问不到 Marinara 的文件、用户文件、继承来的服务器密钥、网络、子进程、Worker 和原生插件。如果 Marinara 建立不起受支持的操作系统沙箱，服务器扩展就一直保持禁用。
+服务器扩展运行在一个独立的 Node 进程（服务器电脑上的一个程序）里，外面套着操作系统沙箱。它访问不到 Marinara 的文件、你的文件、服务器密钥、网络、子进程、Worker 或原生插件。
 
 <a id="platform-support"></a>
 
 ### 平台支持
 
-浏览器扩展由浏览器本身做沙箱隔离，所以在哪都能用。服务器扩展需要受支持的操作系统沙箱；没有沙箱的平台上，它们会一直禁用且无法启用，Marinara 绝不会退而在无沙箱状态下运行它们。
+浏览器扩展由浏览器做沙箱隔离，所以在哪里都能用。服务器扩展需要受支持的操作系统沙箱。没有这种沙箱的平台上，它们会保持禁用，Marinara 绝不会在没有沙箱的情况下运行它们。
 
-| 平台                    | 沙箱内的浏览器扩展           | 整页外部扩展                  | 服务器扩展                            |
-| ----------------------- | ---------------------------- | ----------------------------- | ------------------------------------- |
-| macOS                   | ✅ 已沙箱隔离                | ⚠️ 需要明确信任               | ✅ 已沙箱隔离（Seatbelt）            |
-| Linux(装了 Bubblewrap) | ✅ 已沙箱隔离                | ⚠️ 需要明确信任               | ✅ 已沙箱隔离（Bubblewrap）          |
-| Linux(没有 `bwrap`)   | ✅ 已沙箱隔离                | ⚠️ 需要明确信任               | ⛔ 已禁用，请安装 `bwrap`             |
-| Docker（默认） | ✅ 已沙箱隔离 | ⚠️ 需要明确信任 | ⛔ 已禁用，受容器权限限制 |
-| Windows                 | ✅ 已沙箱隔离                | ⚠️ 需要明确信任               | ⛔ 已禁用，请改用浏览器扩展           |
-| Android                 | ✅ 已沙箱隔离                | ⚠️ 需要明确信任               | ⛔ 已禁用，请改用浏览器扩展           |
+| 平台 | 服务器扩展 |
+| --- | --- |
+| macOS | 通过 macOS 沙箱 Seatbelt 隔离 |
+| 装了 Bubblewrap 的 Linux | 通过 Linux 沙箱工具 Bubblewrap 隔离 |
+| 没有 `bwrap` 的 Linux | 已禁用：请安装 `bwrap` |
+| Docker(默认) | 已禁用：受容器权限限制 |
+| Windows | 已禁用：请改用浏览器扩展 |
+| Android | 已禁用：请改用浏览器扩展 |
 
-官方 Docker 镜像包含 Bubblewrap，但默认容器采用最小权限，无法创建 Bubblewrap 所需的嵌套命名空间和挂载。Marinara 会在运行时测试沙箱；如果容器不允许使用沙箱，服务器扩展就会保持禁用。有关显式调整 Docker 权限的方法及其安全取舍，请参阅[故障排除](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)。
+浏览器扩展在所有平台上都有沙箱隔离。整页外部扩展在任何平台上都没有沙箱，始终需要你明确表示信任。
 
-Windows 和 Android 上没有受支持的操作系统进程沙箱，所以服务器扩展按设计就不可用。请改用浏览器扩展；确实需要服务器扩展的话，把 Marinara 服务器跑在 macOS 或 Linux(装了 `bwrap`) 上。
+官方 Docker 镜像包含 Bubblewrap，但默认容器无法创建 Bubblewrap 所需的嵌套命名空间和挂载。Marinara 会在运行时测试沙箱；如果容器不允许，服务器扩展就保持禁用。关于调整 Docker 权限的方法及其安全取舍，请参阅[故障排除](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)。
 
-## 外部扩展
+Windows 和 Android 上没有受支持的进程沙箱，所以服务器扩展不可用。请改用浏览器扩展，或者把 Marinara 服务器运行在 macOS 或装了 `bwrap` 的 Linux 上。
 
-第三方导入默认是锁死并隐藏的，要开需要两步：
+<a id="allow-third-party-imports"></a>
 
-1. 在 Marinara 所在的主机上，在 `.env` 里设置 `ENABLE_EXTERNAL_EXTENSIONS=true`。
-2. 打开 **Settings** > **Advanced** > **Danger Zone**，往下滚到数据删除控件下方，读完警告，然后启用 **Allow third-party extension imports**(允许导入第三方扩展)。
+## 允许第三方导入
 
-只有这样，**Settings** > **Addons** 里才会出现 **External Extensions**(外部扩展) 以及文件和文件夹导入控件。支持的格式列表始终展开显示：
+第三方导入默认是锁定并隐藏的，因为它们会运行别人写的代码。打开它需要两步：
 
-- `.personal-extension.zip` 和兼容的 `.zip` 扩展包；
-- `.json` 清单文件；
-- `.css`；
-- `.js`、`.mjs` 和 `.cjs`；
-- `.server.js`、`.server.mjs` 和 `.server.cjs`。
+1. 在运行 Marinara 的电脑上，在 `.env` 文件里设置 `ENABLE_EXTERNAL_EXTENSIONS=true`，然后重启 Marinara。参见[服务器配置参考](../CONFIGURATION.md)。
+2. 打开 **Settings → Advanced → Danger Zone**(设置 → 高级 → 危险区域)，滚动到数据删除控件下方，阅读警告，然后开启 **Allow third-party extension imports**(允许导入第三方扩展)。
 
-导入进来的扩展一律不带批准状态，也无法自行启用。旧版记录、随档案导入的记录、手动存进来的记录以及来源不明的记录，同样按外部扩展处理。两道开关全部开启之前，它们会一直隐藏，无法批准，两个运行时都不会加载。
+之后，**Settings → Addons** 里会显示 **External Extensions**，其中有文件和文件夹导入控件。支持的格式：
 
-批准某个精确哈希之前，先看一遍 **Requested access** 列表。大多数浏览器扩展都应该留在安全沙箱里。标着 **Full page access** 的扩展包是刻意不做隔离的，只有在逐行看过并且信任这个确切版本时才启用。
+- `.personal-extension.zip` 和兼容的 `.zip` 扩展包
+- `.json` 清单文件
+- `.css`
+- `.js`、`.mjs` 和 `.cjs`
+- `.server.js`、`.server.mjs` 和 `.server.cjs`
 
-任意一道开关关闭，都会停掉正在运行的外部服务器进程，移除浏览器 Worker 和整页运行时节点，并禁用已存储的外部扩展记录。重新开启开关不会自动把它们跑起来。如果某个整页扩展留下了没登记清理的改动，刷新页面即可。
+导入的扩展一律不带批准状态，也无法自行启用。大多数浏览器扩展都应该留在安全的沙箱里。标着 **Full page access** 的扩展包则不同：
 
-第三方扩展可能包含恶意或危险代码。下载、导入或启用之前，请务必逐行检查。后果完全由你自己承担。
+- 它的代码在 Marinara 的页面里运行，没有沙箱。
+- 它可以读取聊天和角色卡、使用浏览器存储、发起网络请求，并调用 Marinara 自己的 API。
+- 只有在你检查过并信任这个确切版本之后，才启用它。
+- Professor Mari 的草稿不能申请这项权限。
+
+旧版记录、随档案导入的记录、手动存入的记录以及来源不明的记录，也都按外部扩展处理。在这两步都完成之前，它们会保持隐藏，无法批准，也不会运行。
+
+关闭其中任何一步，都会禁用所有导入的扩展。重新开启不会让它们再次运行。如果某个整页扩展留下了改动，请刷新页面。
+
+如果没有成功：如果导入控件没有出现，请确认两步都已完成，并且你是在服务器电脑上操作，或者已经在 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问) 中保存了管理员密钥。
 
 ## 导出、修订版本与恢复
 
-用扩展的导出功能可以下载一个可移植的扩展包。导出和恢复得到的扩展包都是禁用状态。恢复某个修订版本，同样会让它回到禁用的草稿状态。
+用扩展的导出操作可以下载一个可移植的扩展包。导出和恢复的扩展包都保持禁用状态。恢复某个修订版本，也会让它回到禁用的草稿状态。
 
-**Settings → Addons → Extension revision history**(设置 → 插件 → 扩展版本历史)控制每个个人扩展和外部扩展保留多少个旧代码版本。默认是 **10**，可选范围为 **0–10**，设为 **0** 就不保留历史。降低上限时，会在永久删除旧修订版本前要求确认。当前扩展代码、批准状态、启用状态和已保存的扩展数据都会保留。以后的编辑和回滚都遵循同一上限，通过 Professor Mari 进行的编辑也一样。
+**Settings → Addons → Extension revision history**(设置 → 插件 → 扩展版本历史) 决定每个个人扩展和外部扩展保留多少个旧代码版本。默认是 **10**。可选 **0** 到 **10**，其中 **0** 表示关闭历史记录。降低上限时，会在永久删除较早的修订版本之前要求确认。当前代码、批准状态、启用状态和已保存的扩展数据都会保留。通过 Professor Mari 进行的修改也遵循同一上限。
 
-扩展出问题时，选择 **Disable**(禁用)。如果界面打不开，先停掉 Marinara，再把对应 `installed_extensions` 记录的 `enabled` 值改成 `"false"`。绝对不要手动设置 `approvedHash`。
+如果扩展出了问题，选择 **Disable**(禁用)。如果界面无法使用，请停止 Marinara，把对应 `installed_extensions` 记录的 `enabled` 值设为 `"false"`。绝不要手动设置 `approvedHash`。
 
 ## 相关指南
 

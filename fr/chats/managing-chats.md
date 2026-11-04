@@ -1,131 +1,125 @@
 # Gérer la liste des chats
 
-Ce guide explique la liste des chats de Marinara Engine, autrement dit tes conversations enregistrées. Au programme : les trois onglets de mode, puis la façon de créer, importer, renommer, supprimer, organiser, rechercher et gérer en lot les chats. Il présente aussi le widget des chats récents sur l'écran d'accueil.
+Le panneau **Chats**, à gauche, contient tous tes chats. Sers-t'en pour lancer, retrouver, trier, organiser et supprimer des chats.
 
 ## La liste des chats et les onglets de mode
 
-Les chats se trouvent dans le panneau **Chats**, la barre latérale de gauche. En haut de ce panneau, trois onglets de mode :
+En haut du panneau se trouvent trois onglets de mode. Chaque onglet n'affiche que les chats de ce mode.
 
-- **CONVO** pour Conversation, un chat simple, façon messagerie.
-- **RP** pour Roleplay, une scène immersive avec des personnages et un suivi de l'univers.
-- **GM** pour Game, un jeu de rôle solo mené par l'IA.
+| Onglet | Mode |
+| --- | --- |
+| **CONVO** | Conversation : un chat façon messagerie. |
+| **RP** | Roleplay : une scène avec des personnages et un suivi de l'univers. |
+| **GM** | Game : un jeu de rôle solo mené par l'IA. |
 
-Chaque onglet n'affiche que les chats du mode correspondant. Quand tu cliques sur un onglet, la liste change.
-
-Chaque ligne de la liste affiche le nom du chat et l'avatar du ou des personnages. Dans les chats Conversation, un petit point de couleur sur l'avatar indique le statut de chaque personnage. Un badge rouge sur une ligne, lui, correspond au nombre de messages non lus.
-
-Certaines lignes portent une petite icône de branche accompagnée d'un nombre. Cela signifie que le chat compte plusieurs branches, regroupées sur une seule ligne. Pour savoir ce qu'est une branche, consulte [Les branches de chat](branches.md).
+Chaque ligne affiche le nom du chat et les avatars de ses personnages. Dans les chats Conversation, un point de couleur sur un avatar indique le statut de ce personnage. Un badge rouge indique le nombre de messages non lus. Une ligne avec une petite icône de branche et un nombre correspond à un chat qui a plusieurs branches, regroupées sur une seule ligne. Voir [Branches de chat](branches.md).
 
 ## Créer un chat
 
-1. Choisis l'onglet de mode voulu (**CONVO**, **RP** ou **GM**).
-2. Clique sur le bouton **+** en haut du panneau. Son infobulle indique **New Conversation**, **New Roleplay** ou **New Game**, selon l'onglet actif.
-3. L'application crée le chat, l'ouvre, puis affiche le panneau **Chat Settings** (réglages du chat) et un assistant de configuration pour terminer la mise en place.
+Avant de commencer : ajoute au moins un compte dans **Connections** (Connexions). Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
-Le nouveau chat s'appelle **New Conversation**, **New Roleplay** ou **New Game**. Rien n'empêche de le renommer plus tard (voir Renommer un chat, plus bas).
+1. Clique sur l'onglet du mode voulu.
+2. Touche le bouton **+** en haut du panneau. Son libellé est **New Conversation**, **New Roleplay** ou **New Game**, selon l'onglet.
 
-Il faut au moins une connexion pour qu'un chat s'ouvre. Une connexion relie Marinara à un fournisseur d'IA. Sans connexion, la fenêtre **Add account** (ajouter un compte) s'ouvre à la place du chat. Choisis un service et clique sur **Connect** (connecter). La fenêtre passe ensuite au choix du modèle. Choisis un modèle, utilise si tu veux l'option **Make ... my Main** (faire de ... mon Main), puis clique sur **Start chatting** (commencer à discuter). Pour configurer un compte normalement, clique plutôt sur **Done** (terminé). Pour la marche à suivre complète, consulte [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+Marinara crée et ouvre le chat. **Chat Settings** (réglages du chat) et un assistant de configuration s'ouvrent à côté. Le chat porte d'abord le nom **New Conversation**, **New Roleplay** ou **New Game**. Si tu as enregistré un profil de réglages par défaut marqué d'une étoile pour Conversation ou Roleplay, Marinara l'applique au nouveau chat. Voir [Profils de réglages](settings-profiles.md).
 
-Si tu as enregistré un profil de réglages par défaut marqué d'une étoile pour ce mode, Marinara l'applique automatiquement au nouveau chat. Voir [Vue d'ensemble des Chat Settings](chat-settings.md).
+Si ça n'a pas marché : sans compte enregistré, la fenêtre **Add account** (ajouter un compte) s'ouvre à la place d'un chat. Choisis un service, clique sur **Connect** (connecter), puis choisis un modèle. La marche à suivre complète se trouve dans [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
 ## Importer un chat
 
-Tu peux importer un historique de chat enregistré au format `.jsonl`, depuis SillyTavern ou depuis Marinara.
+Tu peux importer un historique de chat `.jsonl` depuis SillyTavern ou Marinara.
 
-1. Choisis l'onglet de mode dans lequel le chat importé doit atterrir.
-2. Clique sur le bouton **Import** (importer) en haut du panneau. Son infobulle indique **Import SillyTavern or Marinara chat JSONL**.
-3. Sélectionne le fichier `.jsonl`.
+1. Clique sur l'onglet du mode dans lequel le chat doit atterrir.
+2. Touche le bouton **Import** (importer) en haut du panneau. Son libellé est **Import SillyTavern or Marinara chat JSONL**.
+3. Choisis ton fichier `.jsonl`.
 
-Marinara crée un chat dans le mode de l'onglet actif et l'ouvre. Un message doit apparaître : **Imported N messages**, où N est le nombre de messages.
+Marinara crée le chat, l'ouvre et affiche **Imported N messages**. Pour les formats d'export et l'export en lot, voir [Exporter et importer des chats](export-import.md).
 
-Pour toutes les façons d'importer et d'exporter des chats, formats et import en lot compris, consulte [Exporter et importer des chats](export-import.md).
+Si ça n'a pas marché : un petit message en bas de l'écran affiche **Import failed** avec la raison. Seuls les fichiers `.jsonl` sont acceptés.
 
 ## Renommer un chat
 
-Le nom du chat n'est visible que par toi. Marinara ne l'envoie pas à l'IA et il ne change rien à la conversation.
+Le nom du chat n'est là que pour toi. Il n'est pas envoyé au modèle.
 
-1. Ouvre le chat.
-2. Ouvre **Chat Settings** avec son bouton dans le chat.
-3. Dans la section **Chat Name**, clique sur le nom actuel pour le transformer en champ de saisie.
-4. Saisis le nouveau nom, puis appuie sur Enter ou clique sur le bouton en forme de coche.
+1. Ouvre le chat, puis ouvre **Chat Settings**.
+2. Dans **Chat Name** (nom du chat), clique sur le nom actuel.
+3. Saisis le nouveau nom, puis appuie sur <kbd>Enter</kbd> ou clique sur la coche.
 
-Pour en savoir plus sur le panneau **Chat Settings**, consulte [Vue d'ensemble des Chat Settings](chat-settings.md).
+Voir [Vue d'ensemble des Chat Settings](chat-settings.md) pour savoir comment ouvrir le panneau.
+
+<a id="delete-a-chat"></a>
 
 ## Supprimer un chat
 
-Pour supprimer un seul chat, survole sa ligne et clique sur le bouton en forme de corbeille. Sur mobile, ce bouton reste toujours visible. Une boîte de dialogue intitulée **Delete Chat** (supprimer le chat) demande "Delete this chat?". Clique sur **Delete** pour confirmer.
+1. Touche le bouton en forme de corbeille sur la ligne du chat. Sur un ordinateur, il apparaît quand tu passes le pointeur sur la ligne.
+2. Dans la boîte de dialogue **Delete Chat** (supprimer le chat), clique sur **Delete** (supprimer).
 
-Un chat supprimé l'est définitivement. Cela interrompt aussi toute réponse encore en cours de génération pour ce chat.
+La suppression est définitive. Elle interrompt aussi toute réponse encore en cours d'écriture pour ce chat.
 
-### La boîte de dialogue de choix de branche
+Si le chat a plusieurs branches, la boîte de dialogue indique combien et propose deux choix :
 
-Si le chat que tu supprimes compte plusieurs branches, une autre fenêtre s'ouvre. Intitulée **Delete Chat**, elle indique que la conversation comporte plusieurs branches. Deux choix s'offrent à toi :
+- **Delete This Branch Only** (supprimer seulement cette branche) retire la branche sur laquelle tu as cliqué.
+- **Delete All N branches** (supprimer les N branches) retire toutes les branches du groupe.
 
-- **Delete This Branch Only** (supprimer seulement cette branche) ne retire que la branche sur laquelle tu as cliqué.
-- **Delete All N Branches** (supprimer les N branches) retire toutes les branches du groupe, où N est le nombre de branches.
+Pour gérer les branches sans supprimer le chat, voir [Branches de chat](branches.md).
 
-Pour gérer les branches sans supprimer le chat entier, consulte [Les branches de chat](branches.md).
-
-### Activer ou désactiver les confirmations de suppression
-
-Un réglage global de l'application, **Confirm before deleting** (confirmer avant de supprimer), détermine si ces confirmations apparaissent. Il est activé par défaut et se trouve dans **Settings** (Paramètres), sous l'onglet **General**. Son texte d'aide conseille de le laisser activé.
+Le réglage global de l'application **Confirm before deleting** (confirmer avant de supprimer) contrôle ces boîtes de dialogue. Il est activé par défaut. Il se trouve dans **Settings → General** (Paramètres → Général).
 
 ## Les dossiers de chat
 
-Tu peux regrouper les chats en dossiers à l'intérieur de chaque onglet de mode.
+Les dossiers regroupent des chats à l'intérieur d'un onglet de mode.
 
-1. Vérifie que l'onglet actif contient au moins un chat. Le bouton **New Folder** (nouveau dossier) n'apparaît au-dessus de la liste que dans ce cas.
-2. Clique sur **New Folder**. Le dossier est créé sous le nom **unnamed** (ou **unnamed 2**, **unnamed 3**, et ainsi de suite si le nom est déjà pris).
+1. Ouvre un onglet qui contient au moins un chat. **New Folder** (nouveau dossier) n'apparaît sous les onglets que dans ce cas.
+2. Clique sur **New Folder**. Le dossier s'appelle **unnamed** (puis **unnamed 2**, **unnamed 3**).
 
-Pour renommer un dossier, double-clique dessus, double-tape dessus, ou sélectionne-le et appuie sur F2. Un nom vide est ignoré.
+| Pour faire ceci | Fais cela |
+| --- | --- |
+| Renommer un dossier | Double-clique dessus ou touche-le deux fois, ou sélectionne-le et appuie sur <kbd>F2</kbd>. Un nom vide est ignoré. |
+| Supprimer un dossier | Clique sur le bouton en forme de corbeille sur la ligne du dossier. Une boîte de dialogue **Delete Folder** apparaît quand le dossier contient des chats. Les chats remontent au niveau supérieur et ne sont pas supprimés. |
+| Réordonner les dossiers | Fais glisser un dossier vers le haut ou vers le bas. Le menu de tri passe sur **Custom** (personnalisé). |
+| Déplacer un chat dans un dossier | Fais glisser la ligne du chat sur le dossier. Sur un écran tactile, appuie d'abord sur le chat pendant une demi-seconde environ. |
+| Sortir un chat d'un dossier | Fais-le glisser sur la zone vide sous les dossiers. |
 
-Pour supprimer un dossier, clique sur le bouton en forme de corbeille sur la ligne du dossier. Une boîte de dialogue intitulée **Delete Folder** demande confirmation. Supprimer un dossier ne supprime jamais les chats qu'il contient. Ces chats remontent au niveau supérieur.
+Quand plusieurs chats sont sélectionnés, en faire glisser un déplace toute la sélection. Les chats hors dossier sont listés sous les dossiers.
 
-Pour réordonner les dossiers, fais glisser une ligne de dossier vers le haut ou vers le bas. Un espace s'ouvre à l'endroit où il va se placer. Le menu de tri passe alors sur **Custom** (personnalisé), qui garde l'ordre de tes dossiers.
+## Rechercher, trier et filtrer
 
-Pour déplacer un chat dans un dossier, fais glisser sa ligne sur le dossier. Pour le sortir de tout dossier, fais-le glisser sur la zone vide sous les dossiers. Sur écran tactile, appuie sur un chat pendant une demi-seconde environ pour lancer le glisser-déposer. Si plusieurs chats sont sélectionnés, en faire glisser un déplace toute la sélection.
+### Retrouver un chat par son nom
 
-Les chats qui ne sont rangés dans aucun dossier apparaissent dans une simple liste sous les dossiers.
+Chaque onglet a un champ de recherche. Son texte indicatif est **Search conversations**, **Search roleplays** ou **Search games**. Saisis un mot. La recherche porte sur les noms des chats, leurs tags et les noms des personnages, pas sur le texte des messages.
 
-## Rechercher, trier et filtrer par tag
+### Retrouver un message dans tous les chats
 
-Chaque onglet de mode a son propre champ de recherche en haut de la liste. Le texte indicatif change selon l'onglet : **Search conversations...**, **Search roleplays...** ou **Search games...**. La recherche porte sur le nom du chat, ses tags et les noms de ses personnages. Elle ne cherche pas dans le texte des messages.
+1. Touche **Search all chats** (rechercher dans tous les chats), le bouton à côté du menu de tri.
+2. Saisis tes mots.
 
-À côté du champ de recherche, un menu de tri porte l'infobulle **Sort chats**. Il propose ces options :
+La recherche parcourt tous les chats et peut filtrer par mode, personnage, expéditeur et date.
 
-- **Custom** garde tes dossiers dans l'ordre où tu les as fait glisser.
-- **Manual order** (ordre manuel) te laisse placer les chats dans ton propre ordre en les faisant glisser. Au clavier, sélectionne un chat et appuie sur Alt+Up ou Alt+Down.
-- **Recent** (récents), l'option par défaut, place les chats les plus récemment actifs en tête.
-- **Newest** place les chats créés le plus récemment en tête.
-- **Oldest** place les chats les plus anciens en tête.
-- **A-Z** trie par nom, de A à Z.
-- **Z-A** trie par nom, de Z à A.
+Le menu de tri (**Sort chats**) propose ces options :
 
-Si un chat de l'onglet porte des tags, une ligne de filtres apparaît. Clique sur la pastille **Tags** pour dérouler la liste des tags. Clique ensuite sur un tag pour n'afficher que les chats qui le portent. Clique sur **Clear** pour retirer le filtre. Quand les tags sont nombreux, une pastille **+N more** révèle les autres.
+| Option | Ordre |
+| --- | --- |
+| **Custom** | L'ordre de tes dossiers. |
+| **Manual order** | Les chats dans l'ordre où tu les fais glisser. Au clavier, sélectionne un chat et appuie sur <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd>. |
+| **Recent** | Les plus récemment actifs en premier. C'est l'option par défaut. |
+| **Newest** | Les plus récemment créés en premier. |
+| **Oldest** | Les plus anciens en premier. |
+| **A-Z** et **Z-A** | Par nom. |
 
-À noter : cet écran filtre uniquement sur les tags qu'un chat possède déjà. Aucun bouton ne permet d'ajouter un tag à un chat depuis cet écran.
+Quand un chat de l'onglet a un tag, une pastille **Tags (N)** apparaît. Clique dessus pour dérouler les tags, puis clique sur un tag pour n'afficher que les chats qui le portent. Clique sur **Clear** (effacer) pour retirer le filtre. Ce panneau ne permet pas d'ajouter des tags à un chat.
 
-La liste affiche jusqu'à 100 chats à la fois. Au-delà, un bouton **Load more** (charger plus) apparaît en bas pour dévoiler le lot suivant.
+La liste affiche 100 chats à la fois. Clique sur **Load more** (charger plus) pour voir le lot suivant.
+
+<a id="selecting-multiple-chats"></a>
 
 ## Sélectionner plusieurs chats
 
-Tu peux agir sur plusieurs chats d'un coup.
+1. Clique sur le bouton en forme de coche, **Select chats** (sélectionner des chats), en haut du panneau.
+2. Clique sur chaque chat voulu. Les lignes affichent une case à cocher au lieu d'ouvrir le chat.
+3. Utilise la barre en bas, qui indique combien de chats sont sélectionnés.
 
-1. Clique sur le bouton **Select chats** (sélectionner des chats) en haut du panneau, celui avec l'icône de coche.
-2. Clique sur chaque chat voulu. Une case à cocher s'active sur chaque ligne sélectionnée, au lieu d'ouvrir le chat.
-3. Une barre en bas indique le nombre de chats sélectionnés et propose deux boutons.
-
-Le bouton **Export** télécharge tous les chats sélectionnés ensemble, dans un seul fichier `.zip`. Le bouton **Delete** les supprime. La suppression demande d'abord une confirmation, dans une fenêtre intitulée **Delete Chats**.
-
-Pour quitter le mode sélection sans rien faire, clique de nouveau sur le bouton de sélection. Changer d'onglet efface aussi la sélection.
+**Export** (exporter) télécharge les chats sélectionnés dans un seul fichier `.zip` de fichiers `.jsonl`. **Delete** te demande de confirmer dans une boîte de dialogue **Delete Chats**, puis les supprime. Clique de nouveau sur le bouton en forme de coche pour quitter le mode sélection. Changer d'onglet efface aussi la sélection.
 
 ## Les chats récents sur l'écran d'accueil
 
-L'écran d'accueil comporte un widget **Recent chats** (chats récents) avec tes chats les plus récemment actifs. Chaque chat affiche son nom, un badge de mode et son dernier message. Clique sur un chat pour l'ouvrir, ou clique sur une partie vide du widget pour ouvrir la liste des chats. Sans aucun chat, le widget affiche **Your chats will show here**. Consulte [Les widgets de l'accueil](../home/welcome.md#home-widgets).
-
-## Guides associés
-
-- [Les branches de chat](branches.md)
-- [Exporter et importer des chats](export-import.md)
-- [Vue d'ensemble des Chat Settings](chat-settings.md)
-- [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md)
+L'écran d'accueil comporte un widget **Recent chats** (chats récents) avec tes derniers chats. Chacun affiche son nom, un badge de mode et son dernier message. Clique sur un chat pour l'ouvrir. Sans aucun chat, le widget affiche **Your chats will show here**. Voir [Les widgets de l'accueil](../home/welcome.md#home-widgets).

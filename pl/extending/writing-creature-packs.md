@@ -2,7 +2,17 @@
 
 **Pakiet stworzeń** to grafika dla stworzeń, z którymi walczy się w trybie Game Mode. Gdy pakiet jest wybrany, wróg, dla którego zawiera on grafikę, jest rysowany na planszy bitwy właśnie tą grafiką, a nie jako okrągły żeton. Grafika jest zwrócona w kierunku ostatniego ruchu wroga i ma rozmiar właściwy dla danego stworzenia. Wróg, dla którego pakiet nie ma grafiki, pozostaje żetonem. Jak to wygląda w grze, opisuje sekcja [Walka taktyczna i teren](../game/combat.md#tactical-battles-and-terrain).
 
-Pakiet to jeden plik JSON (`.creatures.json`). Najłatwiej utworzyć go w zakładce **Creatures** (stworzenia) narzędzia Pixelforge, która buduje plik z jednego obrazka na każde stworzenie. Ta strona opisuje sam plik, z myślą o osobach, które tworzą pakiety w inny sposób.
+Pakiet to jeden plik JSON (`.creatures.json`). Najłatwiej utworzyć go w zakładce **Creatures** (stworzenia) narzędzia Pixelforge, zewnętrznego programu, który buduje plik z jednego obrazka na każde stworzenie. Ten przewodnik opisuje sam plik, z myślą o osobach, które tworzą pakiety w inny sposób.
+
+## Używanie pakietu
+
+Zanim zaczniesz: utwórz albo pobierz plik `.creatures.json`. Pixelforge to osobna aplikacja do tworzenia treści, a nie część aplikacji Marinara Engine.
+
+1. Otwórz zakładkę **Creatures** w narzędziu Pixelforge.
+2. Aby wczytać plik, wybierz **Import a creature pack file** (import pliku pakietu stworzeń). W przypadku pakietu utworzonego w narzędziu Pixelforge wybierz **Save to the library** (zapis w bibliotece).
+3. Wybierz **Use for fights** (użycie w walkach).
+
+Wszystkie walki rysuje jeden pakiet. Aby wrócić do żetonów, usuń wybrany pakiet albo wybierz **Use tokens instead** (użycie żetonów).
 
 ## Plik
 
@@ -41,6 +51,7 @@ Pakiet to jeden plik JSON (`.creatures.json`). Najłatwiej utworzyć go w zakła
 | `tileSize` | Rozmiar jednego pola w pikselach, wielokrotność 16 od 16 do 96. Siatka trybu Game Mode ma 48. |
 | `sheets` | Do 64 obrazów, każdy o boku najwyżej 8192 pikseli. |
 | `creatures` | Do 2000 stworzeń. |
+| Rozmiar pliku | Najwyżej 32 MB. |
 
 ## Arkusze
 
@@ -55,12 +66,21 @@ Wartość `png` arkusza musi być **adresem data URL** obrazu PNG: `data:image/p
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` lub `gargantuan`. Wpływa tylko na wygląd: każda jednostka nadal zajmuje jedno pole. |
 | `w`, `h` | Rozmiar jednej klatki w polach, każdy od 1 do 6. |
 | `frames` | `1` dla nieruchomego stworzenia, `3` dla chodzącego (krok, postawa, krok). |
-| `variants` | Jego **warianty wyglądu**, od 1 do 8, każdy wskazujący, gdzie na arkuszu zaczyna się jego blok: `sheet` oraz lewe górne pole `x`, `y`. |
-| `fly` | Opcjonalne, wymaga `creaturePackVersion` 2: bloki **latania**, ułożone jak blok chodzenia (trzy klatki w poziomie, cztery kierunki w pionie), rozmieszczone jak `variants`. Jeden dla wszystkich wariantów wyglądu albo po jednym na wariant, w tej samej kolejności. |
+| `variants` | Jego warianty wyglądu, od 1 do 8, każdy wskazujący, gdzie na arkuszu zaczyna się jego blok: `sheet` oraz lewe górne pole `x`, `y`. |
+| `fly` | Opcjonalne, wymaga `creaturePackVersion` 2: bloki latania, ułożone jak blok chodzenia (trzy klatki w poziomie, cztery kierunki w pionie), rozmieszczone jak `variants`. Jeden dla wszystkich wariantów wyglądu albo po jednym na wariant, w tej samej kolejności. |
 
 ### Latanie
 
-Stworzenie z `fly` jest rysowane z bloku latania, z klatkami odtwarzanymi w kolejności 0, 1, 2, 1, gdy w walce jest pokazywane w powietrzu: ma prędkość lotu i nie chodzi, zawisa, znajduje się nad ziemią albo leciało w tej turze (wykonało krok możliwy tylko dzięki lotowi, na przykład nad wodą). W pozostałych przypadkach jest rysowane ze swojego wariantu wyglądu jak wcześniej. Pakiet map Experience, którego pakiety stworzeń mają grafikę latania, wymaga Capability API 1.352.
+Stworzenie z `fly` jest rysowane z bloku latania, z klatkami odtwarzanymi w kolejności 0, 1, 2, 1, gdy w walce jest pokazywane w powietrzu. Tak jest wtedy, gdy spełnia którykolwiek z tych warunków:
+
+- ma prędkość lotu i nie ma prędkości chodu
+- zawisa w powietrzu
+- znajduje się nad ziemią
+- leciało w tej turze (wykonało krok możliwy tylko dzięki lotowi, na przykład nad wodą)
+
+W pozostałych przypadkach jest rysowane ze swojego wariantu wyglądu jak wcześniej.
+
+Pakiet map Experience, którego pakiety stworzeń mają grafikę latania, wymaga Capability API 1.352.
 
 ### Co wskazuje `match`
 
@@ -90,14 +110,10 @@ Każdy wariant wyglądu to **blok** na jego arkuszu. Blok ma szerokość `frames
 3. w prawo
 4. w górę (widok od tyłu)
 
-Nieruchome stworzenie (`frames: 1`) to jedna kolumna z czterema kierunkami. Chodzące (`frames: 3`) ma w każdym wierszu krok, postawę i krok, tak jak chodząca postać w programie RPG Maker. Każdy blok musi w całości mieścić się na swoim arkuszu; Engine wymienia każdy, który wychodzi poza krawędź.
+Nieruchome stworzenie (`frames: 1`) to jedna kolumna z czterema kierunkami. Chodzące (`frames: 3`) ma w każdym wierszu krok, postawę i krok, jak w typowym arkuszu sprite'ów z animacją chodu. Każdy blok musi w całości mieścić się na swoim arkuszu; Engine wymienia każdy, który wychodzi poza krawędź.
 
 ### Warianty wyglądu
 
 Gdy stworzenie ma kilka wariantów wyglądu (inne ubrania, kolory albo broń), każdy uczestnik walki tego rodzaju dostaje jeden z nich. Uczestnik walki przy każdym rysowaniu zachowuje ten sam wariant, a dwa gobliny w jednej walce mogą się różnić. Wszystkie warianty wyglądu danego stworzenia mają ten sam rozmiar.
 
 W zakładce **Creatures** narzędzia Pixelforge przycisk **Add looks** (dodanie wariantów wyglądu) obok stworzenia dodaje kolejne obrazy o tym samym rozmiarze co pierwszy, łącznie do ośmiu.
-
-## Używanie pakietu
-
-W zakładce **Creatures** narzędzia Pixelforge kliknij **Import a creature pack file** (import pliku pakietu stworzeń) – a w przypadku pakietu utworzonego na miejscu **Save to the library** (zapis w bibliotece) – a potem **Use for fights** (użycie w walkach). Wszystkie walki rysuje jeden pakiet. Usunięcie wybranego pakietu albo **Use tokens instead** (użycie żetonów) przywraca żetony.

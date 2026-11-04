@@ -1,94 +1,80 @@
 # Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router
 
-Ten przewodnik wyjaśnia, jak działają dwaj agenci wiedzy w aplikacji Marinara Engine: **Knowledge Retrieval** (pobieranie wiedzy) i **Knowledge Router** (dobór wpisów). Obaj przenoszą fakty z lorebooków do czatu dopiero wtedy, gdy scena ich potrzebuje. Dzięki temu nie trzeba upychać każdego szczegółu w treści każdego promptu.
+Agenci **Knowledge Retrieval** (pobieranie wiedzy) i **Knowledge Router** (dobór wpisów) przenoszą fakty z lorebooków do czatu dopiero wtedy, gdy scena ich potrzebuje. Nie trzeba upychać każdego szczegółu w każdym prompcie. Obaj agenci działają wyłącznie w czatach w trybie Roleplay i żaden z nich nie jest domyślnie włączony.
 
-## Co robią ci agenci
+## Po co ich używać
 
-Lorebook to zbiór notatek o świecie lub o postaciach, przygotowany z wyprzedzeniem. Każda taka notatka to wpis. Im dłuższy czat, tym bardziej wysyłanie wszystkich wpisów w każdej turze marnuje tokeny. Token to mały kawałek tekstu, który czyta AI, a więcej tokenów oznacza wyższy koszt. Wysyłanie wszystkiego potrafi też zdezorientować AI.
+Lorebook to zbiór notatek o świecie lub o postaciach. Każda notatka to wpis. Wysyłanie wszystkich wpisów w każdej turze marnuje tokeny (małe kawałki tekstu, które czyta model i za które płacisz) i może zdezorientować AI.
 
-Agenci wiedzy rozwiązują to metodą RAG. Skrót RAG pochodzi od retrieval-augmented generation, czyli generowania wspomaganego wyszukiwaniem. Aplikacja znajduje wpisy pasujące do bieżącej sceny i tylko je dokłada do promptu na tę jedną turę.
+Ci agenci korzystają z metody RAG (retrieval-augmented generation, czyli generowania wspomaganego wyszukiwaniem): Marinara znajduje wpisy pasujące do bieżącej sceny i dokłada do promptu na tę turę tylko je.
 
-Marinara oferuje do tego dwóch opcjonalnych agentów:
-
-- **Knowledge Retrieval** czyta wybrane źródła, streszcza istotne fakty i dokłada streszczenie do promptu.
-- **Knowledge Router** czyta krótką listę wpisów, wybiera te pasujące do sceny i dokłada je słowo w słowo.
-
-Obaj agenci działają wyłącznie na czatach w trybie **Roleplay**. W trybie Conversation Mode ani w trybie Game Mode nie da się ich dodać. Żaden z nich nie jest włączony domyślnie – wybranego agenta trzeba dodać do czatu samodzielnie.
-
-## Knowledge Retrieval a Knowledge Router
-
-Ta tabela pomaga wybrać. Przed decyzją przeczytaj też uwagi pod nią.
+## Wybór: Retrieval czy Router
 
 | Pytanie | Knowledge Retrieval | Knowledge Router |
-|---|---|---|
+| --- | --- | --- |
 | Jak dodaje treść | Najpierw streszcza źródła | Dodaje wybrane wpisy słowo w słowo |
 | Koszt jednej tury | Wyższy | Niższy |
 | Czyta wgrane pliki | Tak | Nie |
-| Najlepszy do | Mniejszych źródeł albo sytuacji, gdy przyda się zwięzłe streszczenie | Dużych lorebooków z dobrymi opisami wpisów |
+| Najlepszy do | Mniejszych źródeł albo zwięzłego streszczenia | Dużych lorebooków z dobrymi opisami wpisów |
 
-**Knowledge Retrieval** czyta każdy włączony wpis z wybranych lorebooków, a do tego treść wgranych plików. Następnie prosi AI o krótkie streszczenie faktów pasujących do ostatnich wiadomości. Koszt jednej tury jest przez to wyższy, bo AI czyta cały materiał źródłowy.
+- **Knowledge Retrieval** czyta każdy włączony wpis z wybranych lorebooków oraz wgrane pliki i prosi AI o streszczenie faktów pasujących do ostatnich wiadomości. Kosztuje to więcej, bo AI czyta cały tekst źródłowy.
+- **Knowledge Router** buduje mały katalog wpisów. Każda linia zawiera identyfikator, nazwę, kilka słów kluczowych i krótkie streszczenie. AI wybiera wpisy z katalogu, a Marinara dokłada je w całości. AI nigdy nie czyta wszystkich wpisów, więc router pozostaje tani nawet przy dużym lorebooku.
 
-**Knowledge Router** to tańsza opcja. Buduje mały katalog wpisów. Każda linia katalogu zawiera identyfikator, nazwę, kilka słów kluczowych i krótkie streszczenie. AI czyta ten katalog, wybiera wpisy pasujące do sceny, a Marinara dokłada je w całości. AI nigdy nie czyta wszystkich wpisów w całości, więc ten agent pozostaje tani nawet przy dużym lorebooku.
-
-Do jednego czatu można dodać obu agentów naraz, ale treść potrafi się wtedy powielać i podnosi koszt w tokenach. Edytor agentów ostrzega, kiedy oba są skonfigurowane. Prompty będą czytelniejsze, jeśli wybierzesz jednego.
+Do jednego czatu można dodać obu agentów, ale ich działanie się pokrywa i podnosi koszt. Edytor agentów ostrzega, kiedy oba są skonfigurowane. Wybierz jednego.
 
 ## Dodawanie agenta wiedzy do czatu
 
-Rób to na czacie w trybie **Roleplay**.
+Zanim zaczniesz: zainstaluj agenta z sekcji **Agent Organizer** (organizowanie agentów). Zobacz [Agenci: pomocnicy AI w czatach](agents-overview.md).
 
-1. Otwórz panel **Chat Settings** (ustawienia czatu).
-2. Znajdź sekcję **Agents**.
-3. Włącz przełącznik **Enable Agents**. Lista agentów się odblokuje.
-4. Kliknij przycisk **Add Agent**.
-5. Rozwiń grupę **Writer Agents**.
-6. Wybierz agenta **Knowledge Retrieval** albo **Knowledge Router**.
+1. W czacie Roleplay otwórz **Chat Settings** (ustawienia czatu).
+2. Znajdź sekcję **Agents** i włącz **Enable Agents** (włączenie agentów).
+3. Kliknij **Add Agent**.
+4. Rozwiń grupę **Writer Agents** i wybierz **Knowledge Retrieval** albo **Knowledge Router**.
+5. W oknie konfiguracji wybierz źródła (opis niżej).
 
-Otwiera się okno konfiguracji, w którym od razu można wskazać źródła. Po dodaniu agenta jego karta ustawień pojawia się w sekcji **Agents**. Od tej pory agent uruchamia się sam w każdej nowej turze.
+Karta ustawień agenta pojawia się wtedy w sekcji **Agents**, a agent uruchamia się w każdej nowej turze. Kiedy pracuje Knowledge Retrieval, wskaźnik postępu może pokazywać **Retrieving knowledge...**.
 
-Kiedy pracuje agent **Knowledge Retrieval**, wskaźnik postępu może pokazywać fazę **Retrieving knowledge...**.
+> **Uwaga:** Ci agenci działają tylko w nowych turach. Nie uruchamiają się ponownie, gdy generujesz odpowiedź jeszcze raz.
 
-Uwaga: ci agenci nie uruchamiają się ponownie przy ponownym generowaniu istniejącej odpowiedzi. Działają tylko w nowych turach.
+## Wybór źródeł
 
-## Wgrywanie plików dla agenta Knowledge Retrieval
+Obaj agenci mają te same kontrolki źródeł.
 
-Tylko **Knowledge Retrieval** czyta wgrane pliki. **Knowledge Router** korzysta wyłącznie z lorebooków.
+- Przełącznik **Use chat-active lorebooks** (używaj lorebooków aktywnych na czacie) jest domyślnie włączony. W edytorze agentów ten sam przełącznik nazywa się **Use this chat's active lorebooks**. Kiedy jest włączony i nie wybierzesz żadnych stałych lorebooków, agent czyta lorebooki aktywne w bieżącym czacie.
+- **Fixed source override** (w oknie konfiguracji **Fixed Source Lorebooks**) przypina agenta do wybranych lorebooków. Stały wybór zawsze ma pierwszeństwo przed lorebookami aktywnymi w czacie, w każdym czacie z tym agentem.
 
-W ustawieniach agenta **Knowledge Retrieval** widać listę plików i przycisk **Upload file**. Wgrane pliki pozostają dostępne dla każdego czatu, który używa agenta **Knowledge Retrieval**, nie tylko dla bieżącego.
+Stałe źródła sprawdzają się, gdy jeden agent ma zawsze czytać ten sam lorebook referencyjny. Zostaw przełącznik włączony, bez stałego wyboru, jeśli agent ma podążać za tym, czego używa czat.
 
-Obsługiwane typy plików to .txt, .md, .csv, .json, .xml, .html, .htm, .log, .yaml, .yml, .tsv oraz .pdf. Okno wyboru plików blokuje pozostałe typy. Przy każdym pliku na liście widać jego nazwę i rozmiar, a obok przycisk usuwania.
+## Wgrywanie plików (tylko Knowledge Retrieval)
 
-Pamiętaj o ograniczeniach:
+W ustawieniach agenta **Knowledge Retrieval** kliknij **Upload file**. Wgrane pliki są dostępne w każdym czacie, który używa agenta Knowledge Retrieval.
 
-- Każdy plik poza PDF jest czytany jako zwykły tekst. Plik, który tekstem tak naprawdę nie jest – na przykład obrazek z rozszerzeniem zmienionym na .txt – wgra się, ale doda nieczytelne krzaki.
-- Zeskanowany PDF albo PDF złożony z samych obrazów nie ma warstwy tekstowej, więc agent go nie przeczyta. Kiedy odczyt się nie uda, agent wstawia tekst zastępczy zamiast prawdziwej treści. Używaj plików PDF z zaznaczalnym tekstem.
+Obsługiwane typy to `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.htm`, `.log`, `.yaml`, `.yml`, `.tsv` i `.pdf`. Okno wyboru plików blokuje pozostałe typy. Przy każdym pliku widać jego nazwę i rozmiar oraz przycisk usuwania.
 
-## Wybór źródeł: stała lista czy lorebooki czatu
+- Każdy plik poza PDF jest czytany jako zwykły tekst. Plik, który nie jest tekstem, na przykład obrazek z rozszerzeniem zmienionym na `.txt`, wgra się, ale doda nieczytelną treść.
+- Zeskanowany PDF albo PDF złożony z samych obrazów nie ma warstwy tekstowej. Agent wstawia wtedy tekst zastępczy zamiast treści. Używaj plików PDF z zaznaczalnym tekstem.
 
-Obaj agenci mają w karcie ustawień te same kontrolki wyboru źródeł.
+## Pisanie dobrych opisów wpisów
 
-Przełącznik **Use chat-active lorebooks** jest domyślnie włączony. W edytorze agentów ten sam przełącznik nosi nazwę **Use this chat's active lorebooks**. Kiedy jest włączony i nie wskazano żadnych stałych lorebooków, agent korzysta z tych lorebooków, które są aktywne na bieżącym czacie.
+Ma to największe znaczenie dla agenta Knowledge Router, który wybiera wpisy na podstawie pola **Description**.
 
-Pod przełącznikiem znajduje się opcja **Fixed source override**, w oknie konfiguracji opisana jako **Fixed Source Lorebooks**. Wybierz tutaj jeden lorebook lub więcej, żeby przypiąć agenta dokładnie do tego zestawu. Stały wybór zawsze ma pierwszeństwo przed lorebookami aktywnymi na czacie, i to na każdym czacie z tym agentem.
+1. Otwórz wpis w edytorze lorebooka.
+2. Wypełnij pole **Description** krótkim, konkretnym streszczeniem tego, czego dotyczy wpis.
 
-Stałe źródła sprawdzają się wtedy, gdy jeden agent ma zawsze czytać ten sam lorebook referencyjny. Zostaw sam włączony przełącznik, bez stałego wyboru, jeśli agent ma podążać za tym, czego używa dany czat.
+Router używa opisu wyłącznie do wyboru wpisów. Opis nie trafia do głównego modelu AI jako treść opowieści. Jeśli wpis nie ma opisu, router posiłkuje się początkiem treści wpisu, co jest mniej precyzyjne.
 
-## Jak pisać dobre opisy wpisów
+Kiedy wybierasz źródłowe lorebooki dla routera, obok opcji **Fixed source override** pojawia się plakietka pokrycia, na przykład **75% described (9/12)**. Kropka jest zielona od 75% w górę, bursztynowa od 25% do 74% i czerwona poniżej 25%. Przy pustych lorebookach plakietka pokazuje **No entries yet**. Celuj w zielony.
 
-Ta sekcja ma największe znaczenie dla agenta **Knowledge Router**. Decyduje on o tym, co dodać, na podstawie pola **Description** każdego wpisu. To właśnie dobry opis pozwala mu trafić we właściwy wpis.
+## Opcjonalnie: wstępny wybór po znaczeniu
 
-Opis wpisuje się w edytorze wpisu lorebooka, w polu **Description**. Niech to będzie krótkie, konkretne streszczenie tego, czego wpis dotyczy. Ten tekst służy agentowi wyłącznie do wyboru wpisów. Nie trafia do głównego modelu AI jako treść opowieści.
+Knowledge Router potrafi też znajdować kandydatów na wpisy po znaczeniu, a nie tylko po słowach kluczowych. Służy do tego model embeddingów, czyli mały model, który zamienia tekst na liczby, żeby Marinara mogła porównywać znaczenie. Router działa także bez niego.
 
-Jeśli wpis nie ma opisu, agent posiłkuje się początkiem treści wpisu. Taki zamiennik jest mniej precyzyjny. Uzupełnij więc opis w każdym wpisie, który ma być odnajdywany.
+1. Otwórz edytor lorebooka i znajdź **Semantic search (embeddings)**.
+2. Wybierz konto, które ma model embeddingów. Jeśli w **Connections → Defaults** (połączenia, ustawienia domyślne) ustawisz domyślne źródło dla **Embeddings** (embeddingi), zostanie ono wybrane automatycznie, chyba że wcześniej wybrano inne źródło.
+3. Używaj tego samego źródła embeddingów co konto czatu. Wektory o innym rozmiarze są pomijane.
+4. Kliknij przycisk wektoryzacji. Pokazuje on, ile wpisów nadal potrzebuje wektorów. **Re-vectorize all** przelicza od nowa każdy wpis.
 
-Po wybraniu źródłowych lorebooków obok opcji **Fixed source override** pojawia się mały kafelek pokrycia. Pokazuje, ile wpisów ma opis – w procentach i sztukach, na przykład **75% described (9/12)**. Kropka jest zielona od 75 procent w górę, bursztynowa między 25 a 74 procent i czerwona poniżej 25 procent. Kiedy wybrane lorebooki są puste, kafelek pokazuje **No entries yet**. Celuj w zielony.
-
-## Opcjonalny wybór wstępny po znaczeniu
-
-**Knowledge Router** potrafi też szukać wpisów po znaczeniu, a nie tylko po słowach kluczowych. Nazywa się to dopasowaniem semantycznym. Korzysta z modelu embeddingów, czyli małego modelu, który zamienia tekst na liczby, żeby aplikacja mogła porównywać znaczenie. Ten krok jest opcjonalny. Bez niego agent działa dalej.
-
-Żeby to włączyć, poddaj lorebook wektoryzacji. Wektoryzacja polega na tym, że aplikacja raz przepuszcza każdy wpis przez model embeddingów i zapisuje wyniki. Otwórz edytor lorebooka i znajdź sekcję **Semantic Search (Embeddings)**. Wybierz połączenie, które ma model embeddingów, albo **Embedding Connection** (połączenie embeddingów). Jeśli w panelu **Connections** w sekcji **Defaults** (ustawienia domyślne) wybrano domyślne **Embeddings** (embeddingi), zostanie ono wybrane automatycznie, chyba że wcześniej wybrano inne źródło. Przed wektoryzacją sprawdź wybrane źródło i używaj tego samego źródła embeddingów co połączenie czatu; wektory o innym rozmiarze są pomijane przy dopasowaniu semantycznym. Następnie kliknij przycisk **Vectorize N missing**, gdzie N to liczba wpisów bez wektorów. Przycisk **Re-vectorize** przelicza wszystkie wpisy od nowa. Szczegóły opisuje przewodnik po wyszukiwaniu semantycznym, do którego link znajdziesz niżej.
-
-Jeśli lorebook nie ma wektorów albo model embeddingów jest niedostępny, agent buduje listę kandydatów na podstawie samych słów kluczowych. Nic się nie psuje. Po prostu liczą się wtedy wyłącznie słowa kluczowe.
+Jeśli lorebook nie ma wektorów albo model embeddingów jest niedostępny, router buduje listę kandydatów wyłącznie na podstawie słów kluczowych. Nic się nie psuje. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
 
 ## Powiązane przewodniki
 

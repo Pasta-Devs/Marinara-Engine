@@ -1,196 +1,131 @@
 # Gruppenchats und Gruppen-Conversations
 
-In dieser Anleitung erfährst du alles über Gruppenchats in Marinara Engine – also Chats mit zwei oder mehr Charakteren gleichzeitig. Sie zeigt, wie du einen Gruppenchat anlegst und Mitglieder hinzufügst oder entfernst. Außerdem erfährst du, wie du im Conversation Mode und im Roleplay Mode steuerst, wer spricht.
+Ein Gruppenchat ist jeder Conversation- oder Roleplay-Chat mit zwei oder mehr Charakteren. In dieser Anleitung erfährst du, wie du einen anlegst, seine Mitglieder verwaltest und festlegst, wer spricht. Der Game Mode hat ein eigenes Party-System und wird hier nicht behandelt.
 
-## Was ein Gruppenchat ist
-
-Ein Gruppenchat ist jeder Chat mit zwei oder mehr Charakteren. Eine eigene Schaltfläche dafür gibt es nicht. Sobald du einem normalen Chat einen zweiten Charakter hinzufügst, wird er automatisch zum Gruppenchat.
-
-Gruppenchats laufen in zwei Modi: **Conversation** und **Roleplay**. Der Game Mode bringt sein eigenes Party-System mit und bleibt hier außen vor.
-
-Das Wort „Gruppe“ steht in Marinara für mehrere Dinge. Ein Gruppenchat versammelt viele Charaktere in einem Chat. Etwas anderes sind **Folders** (Ordner) – gespeicherte Charakterlisten zur Wiederverwendung. Und wieder etwas anderes sind **Chat Branches** (Chat-Verzweigungen), also alternative Fassungen desselben Chats. Hier geht es ausschließlich um Gruppenchats.
+Eine eigene Schaltfläche „Gruppenchat“ gibt es nicht. Ein Chat wird zum Gruppenchat, sobald du einen zweiten Charakter hinzufügst. Ein Gruppenchat ist weder ein **Folder** (Ordner, eine gespeicherte Charakterliste, die du wiederverwenden kannst) noch eine **Chat Branch** (Chat-Verzweigung, eine alternative Fassung eines Chats).
 
 ## Einen Gruppenchat anlegen
 
-Einen Gruppenchat legst du mit demselben Einrichtungsassistenten an wie jeden anderen Chat. Du wählst einfach mehr als einen Charakter aus.
+1. Klick im Panel **Chats** auf die Schaltfläche **+** für den gewünschten Modus: **New Conversation** (neue Conversation) oder **New Roleplay** (neues Roleplay).
+2. Ein Einrichtungsassistent öffnet sich. Tipp im Schritt **Persona & Characters** (Persona und Charaktere) in **Search characters...** (Charaktere suchen) und klick auf einen Charakter, um ihn hinzuzufügen.
+3. Füg einen zweiten Charakter auf dieselbe Weise hinzu.
+4. Schließ den Assistenten ab, um den Chat zu öffnen.
 
-1. Klick in der Seitenleiste auf die Schaltfläche für einen neuen Chat im gewünschten Modus. Sie heißt **New Conversation** (Neue Conversation) oder **New Roleplay** (Neues Roleplay).
-2. Wechsle zum Schritt **Persona & Characters** (Persona und Charaktere).
-3. Such über das Feld **Search characters...** (Charaktere suchen) einen Charakter und klick auf den Avatar oder den Namen, um ihn aufzunehmen.
-4. Nimm einen zweiten Charakter genauso auf. Die Anzahl ist beliebig.
-5. Schließ den Assistenten ab, um den Chat zu öffnen.
+Die Beschriftung über der Auswahl ändert sich. In Conversation steht dort **Group Chat** mit der Mitgliederzahl. In Roleplay steht dort **Characters** mit der Anzahl. Benennst du den Chat nicht um, benennt Marinara ihn nach den Charakteren, zum Beispiel „Alice, Bob, Carol“.
 
-Sobald ein zweiter Charakter dabei ist, ändert sich die Beschriftung über der Auswahl. Im Conversation Mode steht dort **Group Chat** samt Mitgliederzahl, im Roleplay Mode **Characters** samt Anzahl.
+Eine feste Obergrenze für Charaktere gibt es nicht. Mehr Charaktere bedeuten einen längeren Prompt und höhere Kosten pro Antwort. Nimm deshalb nur die Charaktere auf, die die Szene braucht.
 
-Eine feste Obergrenze für die Anzahl der Charaktere gibt es nicht. In der Praxis gilt: Je mehr Charaktere, desto länger der Prompt – also der Text, den Marinara an die KI schickt – und desto teurer jede Antwort. Nimm nur die Charaktere auf, die die Szene wirklich braucht.
+Um einen ganzen Ordner auf einmal hinzuzufügen, öffne im selben Schritt **Add from Folder** (aus Ordner hinzufügen), wähl einen Ordner und klick auf **Add** (Hinzufügen). Charaktere, die schon im Chat sind, werden übersprungen. Das Bedienelement erscheint nur, wenn du mindestens einen Ordner hast. Siehe [Die Charakter-Bibliothek organisieren](../characters/library-organization.md). Die Zeile **Random** (Zufall, beschriftet mit **Dice pick**) fügt einen zufälligen Charakter hinzu, der noch nicht im Chat ist.
 
-Benennst du den Chat nicht selbst um, setzt Marinara die Charakternamen mit Kommas zum Chatnamen zusammen, zum Beispiel „Alice, Bob, Carol“.
+## Mitglieder verwalten
 
-### Viele Charaktere auf einmal über Folders aufnehmen
+Öffne **Chat Settings** (Chat-Einstellungen) und such den Abschnitt **Characters**. Im Game Mode gibt es ihn nicht. Jede Mitgliederzeile hat einen Avatar, einen Namen, einen Ziehpunkt, ein Augensymbol und ein Papierkorbsymbol.
 
-Hast du bereits einen Ordner mit Charakteren angelegt, holst du ihn komplett in einem Schritt in den Chat. Ordner sind gespeicherte Charakterlisten, die du im Panel **Characters** zusammenstellst. Für Gruppenchats, die du öfter verwenden willst, sind sie der schnellste Weg.
+| Vorhaben | So geht's |
+| --- | --- |
+| Einen Charakter hinzufügen | Klick auf **Add Character** (Charakter hinzufügen) und such ihn. |
+| Einen Ordner hinzufügen | Klick auf **Add Character** und dann in der Ordnerzeile auf **Add all** (alle hinzufügen). |
+| Mehrere auf einmal ändern | Klick auf den Namen eines Mitglieds. Es öffnet sich dieselbe Auswahl. |
+| Einen Charakter entfernen | Klick auf das Papierkorbsymbol (**Remove from chat**). |
+| Umsortieren | Zieh den Ziehpunkt (**Drag to reorder**). Bei der Reihenfolge **Sequential** antworten die Charaktere in dieser Reihenfolge. |
+| Vorübergehend ausschalten | Klick auf das Auge (**Disable in chat**). Ein erneuter Klick schaltet ihn wieder ein (**Enable in chat**). |
 
-1. Öffne im Schritt **Persona & Characters** das Dropdown-Menü **Add from Folder** (Aus Ordner hinzufügen).
-2. Wähl einen Ordner aus der Liste.
-3. Klick auf **Add** (Hinzufügen) neben dem Dropdown-Menü.
+Ein deaktivierter Charakter bleibt in der Liste, wird aber bei jeder Antwort ausgelassen. Seine Karte wird nicht an das Modell gesendet, und er kann nicht als Sprecher gewählt werden. Deaktivierst du alle Charaktere, behandelt Marinara alle als aktiv, damit eine Antwort nie leer bleibt. Das wird pro Chat gespeichert und ändert an keiner anderen Stelle etwas. In einer Roleplay-Gruppe im Modus Merged kann [Automate active characters](#automate-active-characters-merged-only) (aktive Charaktere automatisieren) das für dich übernehmen.
 
-Marinara nimmt jeden Charakter aus diesem Ordner auf, der noch nicht im Chat ist. Das Bedienelement **Add from Folder** erscheint nur, wenn mindestens ein Ordner existiert. Wie du Ordner anlegst und verwaltest, steht in der unten verlinkten Anleitung zur Charakterbibliothek.
+<a id="choose-who-speaks"></a>
 
-Möglich ist außerdem ein Klick auf die Zeile **Random** (Zufall, beschriftet mit **Dice pick**): Sie nimmt einen zufälligen Charakter auf, der noch nicht im Chat ist.
+## Festlegen, wer spricht
 
-## Mitglieder nachträglich verwalten
+Öffne **Chat Settings → Group Chat**. Der Abschnitt erscheint nur, wenn der Chat zwei oder mehr Charaktere hat. Beide Modi nutzen denselben Schalter **Mode** (Modus).
 
-In **Chat Settings** (Chat-Einstellungen) fügst du Charaktere hinzu, entfernst sie und änderst ihre Reihenfolge. Öffne die Einstellungen über die Schaltfläche **Chat Settings** im Chat.
+- Eine Antwort spricht für alle Charaktere. In Roleplay heißt das **Merged (Narrator)**, in Conversation **Grouped**. Das ist der Standard. In Roleplay ist der Erzähler eine Erzählstimme, die die Szene beschreibt, und er ist Teil derselben Antwort.
+- **Individual** gibt jedem Charakter eine eigene Antwort.
 
-In Chat Settings findest du den Abschnitt **Characters**. Er zeigt die Mitgliederzahl und den Hilfetext „Characters in this chat. Each character has their own personality that the AI roleplays as.“ Jede Mitgliederzeile besteht aus Avatar, Charakternamen, Ziehpunkt, Augensymbol und Papierkorbsymbol.
+In Conversation zeigt der Wechsel zu **Individual** eine Warnung: **Individual replies can use many tokens**. Jeder antwortende Charakter nutzt eine eigene Modellanfrage, und große Gruppen mit Autonomous Messaging verbrauchen schnell Tokens.
 
-- Für einen weiteren Charakter klick auf **Add Character** (Charakter hinzufügen) und such nach ihm.
-- Für einen kompletten Ordner klick auf **Add from Folder** und wähl einen aus.
-- Zum Entfernen klick auf das Papierkorbsymbol. Sein Tooltip lautet **Remove from chat**.
-- Zum Umsortieren zieh ein Mitglied am Ziehpunkt nach oben oder unten. Dessen Tooltip lautet **Drag to reorder**.
+### Automate active characters (Roleplay, nur bei Merged)
 
-Die Reihenfolge der Mitglieder ist wichtig. Bei der Antwortreihenfolge **Sequential** (siehe unten) antworten die Charaktere genau in der Reihenfolge, in der sie hier stehen. Zieh ein Mitglied an eine andere Stelle, und es kommt früher oder später zu Wort.
+Diese Einstellung schaltet in einer großen Besetzung Charaktere für dich ein und aus. Siehe [Automate active characters](#automate-active-characters-merged-only) am Ende dieser Anleitung.
 
-Im Game Mode fehlt der Abschnitt **Characters**. Dort wird die Party an anderer Stelle verwaltet.
+### Color Dialogues (Roleplay, nur bei Merged)
 
-### Ein Mitglied stummschalten, statt es zu entfernen
-
-Manchmal soll ein Charakter eine Weile pausieren, aber in der Liste bleiben. Dafür ist das Augensymbol in seiner Mitgliederzeile da.
-
-- Ein Klick auf das Auge deaktiviert den Charakter. Der Tooltip wechselt zu **Disable in chat**, und das Auge wird durchgestrichen.
-- Ein zweiter Klick holt ihn zurück. Der Tooltip lautet dann **Enable in chat**.
-
-Ein deaktivierter Charakter bleibt in der Mitgliederliste, hält sich aber aus jeder Antwort heraus. Marinara schickt seine Charakterkarte nicht ans Modell, und er lässt sich auch nicht als Sprecher auswählen.
-
-Eine Absicherung gibt es: Deaktivierst du alle Charaktere im Chat, behandelt Marinara wieder alle als aktiv. So kommt keine Antwort ganz ohne Charaktere zustande.
-
-Diesen Zustand speichert Marinara pro Chat. Am Charakter selbst ändert sich an keiner anderen Stelle der App etwas. In einer Roleplay-Gruppe im Modus Merged kann [Aktive Charaktere automatisieren](#automate-active-characters-merged-only) ihn für dich setzen.
-
-## Wer spricht: Roleplay Mode
-
-Im Roleplay Mode bekommt ein Gruppenchat in den **Chat Settings** einen Abschnitt **Group Chat**. Er taucht nur auf, wenn mindestens zwei Charaktere im Chat sind. Dort legst du fest, wie die Charaktere antworten.
-
-### Merged (Narrator) oder Individual
-
-Die Einstellung **Mode** ist ein Schalter mit zwei Positionen.
-
-- **Merged (Narrator)** ist der Standard. Eine einzige Antwort spricht für alle Charaktere und enthält zusätzlich die Erzählung.
-- **Individual** lässt jeden Charakter eine eigene Antwort generieren.
-
-### Color Dialogues (nur bei Merged)
-
-Steht **Mode** auf **Merged (Narrator)**, kannst du **Color Dialogues** einschalten. Standardmäßig ist die Option aus. Ist sie an, erscheinen die Zeilen jedes Charakters in dessen eigenen Farben. Diese Farben stammen aus dem Tab **Colors** im Charakter-Editor. Dort stellst du Namensfarbe, Dialogfarbe und Boxfarbe ein. Wie das geht, steht in der Anleitung zum Bearbeiten von Charakteren.
-
-<a id="automate-active-characters-merged-only"></a>
-
-### Automate active characters (nur bei Merged)
-
-Im Modus Merged steckt die Karte jedes aktiven Charakters bei jeder Antwort im Prompt. Eine große Besetzung füllt also entweder den Kontext, oder du musst die Augen von Hand umschalten, wenn Charaktere kommen und gehen. Steht **Mode** auf **Merged (Narrator)**, kann **Automate active characters** (Aktive Charaktere automatisieren) sie für dich umschalten. Die Einstellung hat drei Optionen und ist standardmäßig **Off**.
-
-- **Off**: Du wählst mit den Augen-Schaltern, wer aktiv ist.
-- **Decision model** (Entscheidungsmodell): Vor jeder Antwort wird deinem [Decision-Modell](../connections/decision-models.md) pro Charakter eine Ja/Nein-Frage gestellt: Ist dieser Charakter in der Szene, die die Antwort fortsetzt, oder betritt er sie? Erwähnt oder erinnert zu werden zählt nicht, ein Charakter, über den nur gesprochen wird, bleibt also aus. Charaktere, die als anwesend gelten, werden eingeschaltet, die übrigen ausgeschaltet.
-- **Character Tracker**: Die anwesenden Charaktere aus der letzten Antwort laut [Character Tracker](../agents/built-in-agents.md#character-tracker) bestimmen, wer aktiv ist. Das braucht keinen zusätzlichen Modellaufruf, läuft aber eine Runde hinterher: Ein Charakter, der in diesem Zug hereinkommt, wird erst für den nächsten eingeschaltet.
-
-Der Hinweis unter der Einstellung sagt dir, wenn etwas fehlt: kein Decision-Modell gewählt, der Character Tracker in diesem Chat aus oder ein Tracker, der manuell läuft und die Liste erst ändert, nachdem du ihn ausgeführt hast.
-
-Ein paar Regeln halten den Chat funktionsfähig:
-
-- **Anheftungen.** Solange die Automatik an ist, zeigt jede Zeile in der Liste **Characters** links neben dem Auge eine Stecknadel. Klick darauf, um den Charakter so anzuheften, wie er gerade ist, an oder aus; die Automatik lässt ihn dann in Ruhe. Auch das Umschalten eines Auges von Hand heftet diesen Charakter an, damit die nächste Antwort deine Wahl nicht rückgängig macht. Die Stecknadel einer angehefteten Zeile erscheint in deiner Akzentfarbe; klick erneut, um die Anheftung zu lösen. Schaltest du die Automatik auf **Off**, werden alle Anheftungen gelöscht.
-- **Der Erzähler bleibt aktiv.** Der ernannte **Narrator** (Erzähler) aus **Roleplay Commands** wird nie ausgeschaltet.
-- **Ohne Antwort bleibt die Liste.** Liefert das Modell im Modus **Decision model** nicht für jeden Charakter eine Antwort, wird stattdessen die letzte Szene des Character Trackers verwendet, sofern es eine gibt. Ein Modell, das zuerst nachdenkt, antwortet vor der Antwort nur dann, wenn **Also gate agents that run before the reply** (auch Agenten vor der Antwort prüfen) eingeschaltet ist; deshalb springt der Tracker ein. Das gilt auch für eine Besetzung, die selbst allein mit Namen nicht in die Eingabe des Decision-Modells passt und deshalb gar nicht erst gefragt wird. Hat keins von beiden eine Antwort, bleibt die Liste, wie sie ist.
-- **Niemand aktiv ist keine Option.** Ein Ergebnis, das alle ausschalten würde, wird ignoriert.
-- **Ein Character-Activity-Agent hat Vorrang.** Hat ein Chat einen eigenen Agenten mit dem Ergebnistyp **Character Activity**, bleibt dieser Agent zuständig, und die Automatik tut nichts.
-
-Der Character Tracker schreibt für jeden Charakter, den er sieht, einen eigenen Namen. Ein Charakter wird seiner Karte zugeordnet, und zwar zuerst über die ID der Karte, dann über den Namen und dann über die Namensaliasse der Karte aus dem Tab **Colors** im Charakter-Editor. So wird auch eine Karte gefunden, die ausgeschaltet hereingekommen ist. Eine Tracker-Liste, die keinen der Charaktere des Chats nennt, etwa eine Szene nur mit Statisten, lässt die aktuelle Liste unverändert.
-
-Die Automatik läuft vor jeder Antwort, jedem Swipe und jedem Neugenerieren. **Continue** und Impersonate überspringt sie. Die Einstellung wird in Einstellungsprofilen gespeichert; Anheftungen gehören zu genau einem Chat.
+**Color Dialogues** (Dialoge einfärben) ist standardmäßig aus. Ist die Option an, erscheinen die Zeilen jedes Charakters in dessen eigenen Farben aus dem Tab **Colors** (Farben) im Charakter-Editor. In einer Conversation-Gruppe werden die Zeilen automatisch nach Sprecher eingefärbt, und es gibt keinen Schalter.
 
 <a id="response-order-individual-only"></a>
 
 ### Response Order (nur bei Individual)
 
-Steht **Mode** auf **Individual**, erscheint die Einstellung **Response Order** (Antwortreihenfolge) – ein Schalter mit drei Positionen.
+Steht **Mode** auf **Individual**, erscheint **Response Order** (Antwortreihenfolge). **Sequential** ist der Standard.
 
-- **Sequential** ist der Standard. Alle Charaktere antworten nacheinander, in der Reihenfolge der Liste **Characters**. Sortier die Mitglieder um, und die Zugfolge ändert sich mit.
-- **Smart** entscheidet über einen kurzen, verborgenen KI-Aufruf, welcher Charakter als Nächstes antwortet. Dabei fließen die letzten Nachrichten und die Details aller Charaktere ein; meist fällt die Wahl auf einen einzigen Sprecher. Schreibst du eine At-Erwähnung wie `@Alice` in die Nachricht, hat sie Vorrang vor dieser Wahl.
-  Hast du ein **Decision model** ausgewählt (siehe [Decision-Modelle](../connections/decision-models.md)), kannst du darunter **Also use it to pick who speaks in Smart response order** (auch die Sprecherwahl bei Smart-Reihenfolge übernehmen) aktivieren. Smart lässt dann jeden Kandidaten einzeln mit ja oder nein bewerten. Die Fragen teilen sich die letzten fünf Nachrichten und eine Liste mit Namen, Status, Aktivität, Gesprächigkeit sowie einem kurzen Auszug aus Persönlichkeit oder Beschreibung. Ein gehosteter Anbieter erhält auch diese Liste; siehe [Was das Modell sieht](../connections/decision-models.md#what-the-model-sees).
+| Reihenfolge | Was passiert |
+| --- | --- |
+| **Sequential** | Die Charaktere antworten nacheinander, in der Reihenfolge der Liste **Characters**. In Conversation werden Charaktere übersprungen, die offline sind. |
+| **Smart** | Ein kurzer, verborgener Modellaufruf wählt, wer als Nächstes antwortet, meist ein einzelner Charakter. Eine Erwähnung wie `@Alice` in deiner Nachricht hat Vorrang. In Conversation berücksichtigt er das Gespräch, den Zeitplanstatus und die Gesprächigkeit. |
+| **Manual** | Niemand antwortet von selbst. In Roleplay nutzt du die Auswahl **Trigger Response** (Antwort auslösen). In Conversation erwähnst du einen oder mehrere Charaktere per `@mention` oder nutzt die Auswahl. |
 
-  Diese Bewertungen können schneller vorliegen als eine vollständige KI-Antwort; Geschwindigkeit und Kosten hängen aber vom Modell und der Kandidatenzahl ab. In Roleplay wählt Marinara den wahrscheinlichsten Sprecher. In Conversation antworten alle mit einem Anlass, die wahrscheinlichsten zuerst. Wer gerade gesprochen hat, wartet, wenn jemand anderes einen Grund zum Antworten hat. Antwortet das Decision-Modell nicht, verwendet Smart seinen gewöhnlichen KI-Aufruf.
+Bei der Reihenfolge **Smart** kann das Modell mehrere Charaktere in eine Warteschlange stellen. Nur der erste antwortet sofort. Nutze die Auswahl **Trigger Response** oder schick eine leere Nachricht, um den nächsten Charakter aus der Warteschlange antworten zu lassen.
 
-- **Manual** unterbindet jede automatische Antwort. Wer antwortet, bestimmst du über die Auswahl **Trigger Response** in der Nachrichtenleiste.
+Hast du ein [Decision-Modell](../connections/decision-models.md) gewählt, kannst du darunter **Also use it to pick who speaks in Smart response order** (auch die Sprecherwahl bei Smart-Reihenfolge übernehmen) einschalten. Die Smart-Reihenfolge fragt dann für jeden Kandidaten eine Ja-oder-Nein-Bewertung ab.
 
-Bei **Smart** kann die KI mehrere Charaktere in eine Warteschlange stellen. Sofort antwortet nur der erste. Wer als Nächstes spricht, wählst du über die Auswahl **Trigger Response** in der Nachrichtenleiste. Alternativ schickst du eine leere Nachricht ab, dann kommt der nächste Charakter aus der Warteschlange dran.
+- Die Fragen teilen sich die letzten fünf Nachrichten und eine Liste mit Name, Status, Aktivität, Gesprächigkeit und einem kurzen Auszug aus der Persönlichkeit jedes Kandidaten. Ein gehosteter Dienst erhält diese Liste ebenfalls. Siehe [Was das Modell sieht](../connections/decision-models.md#what-the-model-sees).
+- Geschwindigkeit und Kosten hängen vom Modell und der Zahl der Kandidaten ab.
+- In Roleplay wählt Marinara den wahrscheinlichsten Sprecher. In Conversation antworten alle mit einem Anlass, die wahrscheinlichsten zuerst. Wer gerade gesprochen hat, wartet, wenn jemand anderes einen Grund zum Antworten hat.
+- Liefert das Decision-Modell keine Antwort, macht die Smart-Reihenfolge ihren gewöhnlichen Modellaufruf.
 
-In Roleplay mit **Individual** und der Reihenfolge **Smart** oder **Manual** heißt die erste Option der Auswahl **Smart**. Sie trägt ein Personengruppen-Symbol in deiner Akzentfarbe. Damit wählt das Modell den nächsten Sprecher für diese eine Antwort; ist die Smart-Reihenfolge für das Decision-Modell aktiviert, übernimmt dieses die Auswahl. Deine gespeicherte Antwortreihenfolge bleibt unverändert. Über die benannten Charakteroptionen kannst du weiterhin direkt auswählen.
+In Roleplay im Modus **Individual** mit der Reihenfolge **Smart** oder **Manual** ist die erste Option der Auswahl **Smart**, markiert mit einem Personengruppen-Symbol. Damit wählt das Modell den nächsten Sprecher für diese eine Antwort. Deine gespeicherte Reihenfolge bleibt unverändert.
 
-Im Modus **Individual** kommen zwei weitere Schalter dazu:
+### Eine Antwort von Hand auslösen
 
-- **Add Turn To Prompt** ist standardmäßig an. Der Schalter ergänzt eine kurze Anweisung, die den Charakter für diesen Zug benennt.
-- **Name Prefix History** ist standardmäßig aus. Der Schalter ändert, wie vergangene Nachrichten vor dem Versand ans Modell mit Sprechernamen versehen werden. Lass ihn aus, solange kein Charakter durcheinanderbringt, wer was gesagt hat.
+Mit der Auswahl **Trigger Response** wählst du einen Sprecher. Am Computer ist das eine Schaltfläche neben **Send** (Senden) mit der Beschriftung **Trigger character response**. Am Telefon steht sie unter **Trigger Response** im Werkzeugfach, das du über die Nachrichtenleiste öffnest. Um einen Sprecher im Text zu nennen, tipp `@` und den Namen des Charakters. Eine Vorschlagsliste erscheint.
 
-### Scenario Override
+### Weitere Einstellungen für Individual
 
-Über das Feld **Scenario Override** (Szenario überschreiben) gibst du der ganzen Gruppe ein gemeinsames Szenario. Der eingetippte Text ersetzt im Prompt das jeweils eigene Szenario jedes Charakters. Bleibt das Feld leer, behält jeder Charakter wie gewohnt sein eigenes Szenario.
+- **Add Turn To Prompt** ist standardmäßig an. Der Schalter ergänzt eine kurze Anweisung, die nennt, welcher Charakter antworten soll.
+- **Name Prefix History** (nur Roleplay) ist standardmäßig aus. Der Schalter ändert, wie vergangene Nachrichten mit Sprechernamen versehen werden. Lass ihn aus, solange kein Charakter immer wieder durcheinanderbringt, wer was gesagt hat.
 
-Einen Schalter zum Ein- und Ausschalten gibt es nicht: Text eintippen aktiviert die Funktion, Text löschen deaktiviert sie. Für ein größeres Fenster klick auf das Symbol zum Aufklappen (Tooltip **Expand editor**). Der größere Editor trägt den Titel **Group Scenario Override**.
+### Scenario Override (Roleplay)
 
-Ein Hinweis zur Wiederverwendung: Der Text in **Scenario Override** hängt an genau diesem einen Chat. Einstellungsprofile nehmen ihn nicht mit, er wandert also nicht mit einem Profil in einen neuen Chat.
+**Scenario Override** (Szenario überschreiben) gibt der ganzen Gruppe ein gemeinsames Szenario. Text im Feld ersetzt im Prompt das eigene Szenario jedes Charakters. Ein leeres Feld lässt jedes Szenario, wie es ist. Einen Schalter gibt es nicht. Um in einem größeren Fenster zu bearbeiten, klick auf das Symbol zum Aufklappen (**Expand editor**, mit dem Titel **Group Scenario Override**). Dieser Text bleibt bei einem einzelnen Chat und wird nicht in Einstellungsprofile übernommen.
 
-### Einstellungen und Standardwerte (Roleplay)
+### Character Exchanges (Conversation)
+
+Schalte **Character Exchanges** (Charaktere untereinander) unter **Chat Settings → Autonomous Messaging** ein, damit Charaktere miteinander reden, während du weg bist. Die Option ist standardmäßig aus und erscheint nur in einem Gruppenchat. Sie läuft nur, solange Marinara in deinem Browser geöffnet ist, und teilt sich das tägliche Nachrichtenlimit der autonomen Nachrichten. Sie funktioniert mit und ohne Charakter-Zeitpläne. In einer Gruppe im Modus **Individual** verbrauchen Wortwechsel und Antworten auf eine `@mention` nie die letzte Meldung, die der Gruppe an einem Tag zusteht.
+
+## Einstellungen und Standardwerte
 
 | Einstellung | Wo | Standard |
-|---|---|---|
-| **Mode** (**Merged (Narrator)** / **Individual**) | Abschnitt Group Chat | Merged (Narrator) |
-| **Color Dialogues** | Abschnitt Group Chat, Modus Merged | Off |
-| **Automate active characters** (Off / Decision model / Character Tracker) | Abschnitt Group Chat, Modus Merged | Off |
-| **Response Order** (Sequential / Smart / Manual) | Abschnitt Group Chat, Modus Individual | Sequential |
-| **Add Turn To Prompt** | Abschnitt Group Chat, Modus Individual | On |
-| **Name Prefix History** | Abschnitt Group Chat, Modus Individual | Off |
-| **Scenario Override** | Abschnitt Group Chat | Leer (aus) |
+| --- | --- | --- |
+| **Mode** | Abschnitt Group Chat | **Merged (Narrator)** in Roleplay, **Grouped** in Conversation |
+| **Color Dialogues** | Roleplay, Merged | Aus |
+| **Automate active characters** | Roleplay, Merged | Aus |
+| **Response Order** | Individual | Sequential |
+| **Add Turn To Prompt** | Individual | An |
+| **Name Prefix History** | Roleplay, Individual | Aus |
+| **Scenario Override** | Roleplay | Leer |
+| **Character Exchanges** | Conversation, Autonomous Messaging | Aus |
 
-Die meisten dieser Einstellungen landen in den Einstellungsprofilen und lassen sich so wiederverwenden. Die einzige Ausnahme ist **Scenario Override**: Sie bleibt beim einzelnen Chat. Auch die Anheftungen der Automatik bleiben beim Chat.
+Einstellungsprofile speichern diese Werte, außer **Scenario Override** und den Anheftungen der Automatik. Siehe [Einstellungsprofile](settings-profiles.md).
 
-## Wer spricht: Conversation Mode
+## Referenz
 
-Der Conversation Mode unterstützt dieselben Gruppenchats, zeigt aber keinen Abschnitt **Group Chat**. Seine Bedienelemente sitzen stattdessen im Abschnitt **Autonomous Messaging** (Autonome Nachrichten) der **Chat Settings**.
+<a id="automate-active-characters-merged-only"></a>
 
-Standardmäßig verhält sich eine Gruppen-Conversation wie der Modus Merged. Eine Antwort kann für mehrere Charaktere sprechen, und ihre Zeilen färbt Marinara automatisch nach Sprecher ein. Einen eigenen Schalter für Farben gibt es im Conversation Mode nicht.
+### Automate active characters (nur bei Merged)
 
-### Reply When Mentioned
+Im Modus Merged steckt die Karte jedes aktiven Charakters bei jeder Antwort im Prompt. In Roleplay kann **Automate active characters** Karten für dich ein- und ausschalten, damit eine große Besetzung den Kontext nicht füllt. Die Einstellung hat drei Optionen und ist standardmäßig **Off**.
 
-Schalte **Reply When Mentioned** (Nur bei Erwähnung antworten) ein, damit im Chat immer nur ein Charakter zur Zeit spricht. Ist die Option an, antworten Charaktere ausschließlich, wenn du sie namentlich nennst oder von Hand auslöst. Die Beschreibung des Schalters lautet „Characters wait for direct mentions or manual response triggers.“
+| Option | Was sie macht |
+| --- | --- |
+| **Off** | Du wählst mit den Augen-Schaltern, wer aktiv ist. |
+| **Decision model** (Entscheidungsmodell) | Vor jeder Antwort beantwortet dein [Decision-Modell](../connections/decision-models.md) pro Charakter eine Ja-oder-Nein-Frage: Ist dieser Charakter in der Szene, die die Antwort fortsetzt, oder betritt er sie? Ein Charakter, der nur erwähnt wird oder an den nur jemand zurückdenkt, bleibt aus. |
+| **Character Tracker** | Die anwesenden Charaktere aus der letzten Antwort laut [Character Tracker](../agents/built-in-agents.md#character-tracker) bestimmen, wer aktiv ist. Das braucht keinen zusätzlichen Modellaufruf, läuft aber eine Runde hinterher: Ein Charakter, der jetzt hereinkommt, wird erst für die nächste Antwort eingeschaltet. |
 
-Einen Charakter nennst du über eine At-Erwähnung. Tipp `@` gefolgt vom Charakternamen ins Nachrichtenfeld, und eine Vorschlagsliste klappt auf. Es antworten genau die Charaktere, die du erwähnst.
+Ein Hinweis unter der Einstellung sagt dir, wenn etwas fehlt: kein Decision-Modell gewählt, der Character Tracker in diesem Chat aus oder ein Tracker, der manuell läuft und die Liste erst ändert, nachdem du ihn ausgeführt hast.
 
-Willst du einen Sprecher ohne Erwähnung bestimmen, nutz die Auswahl **Trigger Response**.
+- **Anheftungen.** Solange die Automatik an ist, zeigt jede Charakterzeile links neben dem Auge eine Stecknadel. Klick darauf, um den Charakter so anzuheften, wie er gerade ist, an oder aus; die Automatik lässt ihn dann in Ruhe. Schaltest du ein Auge von Hand um, wird dieser Charakter ebenfalls angeheftet. Klick erneut auf eine Stecknadel, um die Anheftung zu lösen. Schaltest du die Automatik auf **Off**, werden alle Anheftungen gelöscht.
+- **Der Erzähler bleibt aktiv.** Der ernannte Narrator (Erzähler) wird nie ausgeschaltet.
+- **Ohne Antwort bleibt die Liste.** Liefert das Modell im Modus **Decision model** keine Antwort, wird die letzte Szene des Character Trackers verwendet, sofern es eine gibt. Das gilt auch für ein Modell, das zuerst nachdenkt, außer **Also gate agents that run before the reply** (auch Agenten vor der Antwort prüfen) ist eingeschaltet, und für eine Besetzung, die zu groß für die Eingabe des Decision-Modells ist. Kommt von keinem der beiden eine Antwort, bleibt die Liste, wie sie ist.
+- **Niemand aktiv wird ignoriert.** Ein Ergebnis, das alle ausschalten würde, wird nicht übernommen.
+- **Ein Character-Activity-Agent hat Vorrang.** Hat ein Chat einen eigenen Agenten mit dem Ergebnistyp **Character Activity**, bleibt dieser Agent zuständig.
 
-- Am Desktop ist das eine Schaltfläche neben Send.
-- Auf dem Handy findest du sie unter der Überschrift **Trigger Response** im Werkzeugfach, das du über die Nachrichtenleiste öffnest.
-
-Der Tooltip der Schaltfläche lautet „Trigger character response“.
-
-### Character Exchanges
-
-Schalte **Character Exchanges** (Charaktere untereinander) ein, damit die Charaktere von sich aus miteinander reden. Standardmäßig ist die Option aus. Die Beschreibung lautet „Characters chat with each other in group chats.“
-
-Ist sie an, antworten die Charaktere auch einander, während du weg bist – nicht nur dir. Das läuft nur, solange Marinara im Browser geöffnet ist. Schließt du die App, hören die Wortwechsel auf. Außerdem zählen sie auf dasselbe tägliche Nachrichtenlimit wie autonome Nachrichten.
-
-Wortwechsel laufen unabhängig davon, ob Charakter-Zeitpläne aktiv sind. In einer Gruppe im Modus **Individual** verbrauchen Wortwechsel und Antworten auf At-Erwähnungen unter den Charakteren nie die letzte Meldung, die der Gruppe an einem Tag zusteht. So kann sich später am Tag noch ein Charakter melden.
-
-## Zugfolge auf einen Blick
-
-| Modus und Einstellung | Was passiert | So steuerst du es |
-|---|---|---|
-| Roleplay, Merged | Eine Antwort spricht für alle Charaktere | Immer alle Charaktere gemeinsam |
-| Roleplay, Individual, Sequential | Jeder Charakter antwortet in Mitgliederreihenfolge | Mitglieder per Ziehen umsortieren |
-| Roleplay, Individual, Smart | Die KI wählt den nächsten Sprecher oder die nächsten Sprecher | Die Erwähnung `@Name` hat Vorrang |
-| Roleplay, Individual, Manual | Niemand antwortet von selbst | Auswahl **Trigger Response** nutzen |
-| Conversation, Standard | Eine Antwort kann für mehrere Charaktere sprechen | Die Erwähnung `@Name` spricht einen Charakter an |
-| Conversation, Reply When Mentioned an | Ohne Erwähnung oder Auslöser antwortet niemand | Erwähnung `@Name` oder Auswahl **Trigger Response** |
-| Conversation, Character Exchanges an | Charaktere schreiben auch einander | Zum Beenden wieder ausschalten |
-
-## Verwandte Anleitungen
-
-- [Charakterbibliothek organisieren](../characters/library-organization.md)
-- [Conversation Mode: Erste Schritte](../conversation/getting-started.md)
-- [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md)
+Der Character Tracker schreibt für jeden Charakter einen eigenen Namen. Marinara ordnet ihn einer Karte zu, zuerst über die ID der Karte, dann über den Namen und dann über die Namensaliasse im Tab **Colors**. Eine Tracker-Liste, die keinen der Charaktere des Chats nennt, lässt die aktuelle Liste unverändert. Die Automatik läuft vor jeder Antwort, jedem Swipe und jedem Neugenerieren und überspringt **Continue** und Impersonation. Die Einstellung wird in Einstellungsprofilen gespeichert. Anheftungen bleiben bei dem einen Chat.

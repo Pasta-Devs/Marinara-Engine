@@ -1,43 +1,47 @@
 # Pisanie zestawów zasad Game Mode
 
-Zestaw zasad mówi trybowi Game Mode, jak działa system stołowy: jakie kości rzuca test, co znajduje się w arkuszu postaci, jakie zasoby są wydawane i co odnawia odpoczynek. Ten przewodnik jest dla osób chcących napisać i udostępnić własny zestaw. Jeśli chcesz grać z zestawem kogoś innego, zacznij od [Gry z zestawem zasad](../game/rulesets.md).
+Zestaw zasad mówi trybowi Game Mode, jak działa system stołowy: jakie kości rzuca test, co znajduje się w arkuszu postaci, jakie zasoby są wydawane i co odnawia odpoczynek. Napisz własny, żeby przenieść swój system do trybu Game Mode i udostępnić go innym. Jeśli chcesz grać z zestawem zasad przygotowanym przez kogoś innego, zobacz przewodnik [Game Mode: gra z zestawem zasad](../game/rulesets.md).
 
-Zestaw zasad jest jednym plikiem JSON. Zawiera dane, nie kod. Nic się w nim nie wykonuje, więc import nie może niczego zrobić z twoim komputerem. Przed importem cudzego pliku dokładnie przeczytaj tekst Game Master: trafia do modelu w każdej grze używającej zestawu.
+Zestaw zasad to jeden plik JSON. Zawiera dane, nie kod, więc nic się w nim nie wykonuje, a import nie może zaszkodzić twojemu komputerowi. Zanim zaimportujesz cudzy plik, przeczytaj tekst mistrza gry, bo ten tekst trafia do modelu w każdej grze, która używa tego zestawu zasad.
 
-## Najpierw przeczytaj: co zestaw zasad może, a czego nie może
+## Tworzenie zestawu zasad
 
-Zestaw może jedynie uzupełniać mechanikę, którą Engine już zna. Obecnie Engine zna pięć sposobów rozstrzygania testu; plik wybiera jeden przez `resolution.kind`:
+1. Skopiuj przykładowy plik pasujący do sposobu rzucania w twoim systemie:
+   - [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json) to niewielki system 2d6 z trzema cechami. Pokazuje, że format nie zakłada d20 ani sześciu atrybutów.
+   - [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) to niewielka pula kości dziesięciościennych z trzema cechami i sześcioma umiejętnościami zawodowymi.
+   - Oficjalny [pakiet 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014), czyli pełnowymiarowy przykład. Jego `ruleset.json` i `catalogs/` to pliki instalowane przez Agent Organizer.
+2. Zmień `id` na własne. Identyfikator zawiera małe litery, cyfry i pojedyncze łączniki, np. `ember-roads`.
+3. Otwórz kopię w edytorze tekstu, takim jak Notatnik albo VS Code, i zapisz ją z końcówką `.json`. Najpierw zmień `name`, potem nazwy atrybutów w `sheet`, a następnie `rests` i tekst `gm`. Sekcja [Części pliku](#parts-of-the-file) wymienia każdy klucz, a sekcja [Strony referencyjne](#reference-pages) zawiera linki do stron, które je objaśniają.
+4. Zaimportuj plik (zobacz [Wypróbowanie zestawu zasad](#try-your-ruleset)). Import sprawdza cały plik i wskazuje błędy wiersz po wierszu, zanim cokolwiek zapisze.
+5. Utwórz nową grę (zobacz [Game Mode: pierwsze kroki](../game/getting-started.md)), wybierz swój zestaw zasad w **Rules** (zasady) i wykonaj kilka testów.
+
+Jeśli to nie zadziała, zobacz sekcję [Rozwiązywanie problemów](#troubleshooting).
+
+Aby edytor pomagał ci podczas pisania, dodaj tę linię jako pierwszą wewnątrz zewnętrznych klamer pliku. Wskazuje ona edytorowi JSON Schema:
+
+```json
+"$schema": "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/staging/docs/extending/ruleset.schema.json",
+```
+
+Schemat wyłapuje błędne nazwy kluczy i niewłaściwe typy. Nie sprawdza, czy nazwy wskazują istniejące rzeczy, np. czy atrybut podany przez umiejętność istnieje. Robi to import. Do dowolnego obiektu możesz dodać linię `"$comment": "..."` z notatką dla siebie. Engine ją ignoruje.
+
+## Co zestaw zasad może, a czego nie może
+
+Zestaw zasad uzupełnia luki w mechanice, którą Engine już zna. Engine zna pięć sposobów rozstrzygania testu, a twój plik wybiera jeden przez `resolution.kind`:
 
 - **`dice-sum`**: rzuć kośćmi, dodaj liczby z arkusza i osiągnij lub przekrocz trudność. Obejmuje systemy d20, systemy 2d6 plus cecha i wiele innych.
 - **`dice-pool`**: rzuć liczbą kości wynikającą z postaci i policz te, które osiągnęły próg. Obejmuje systemy, w których wartość oznacza garść kości zamiast premii.
-
 - **`dice-highest`**: rzuć pulą i odczytaj jej najwyższą kość albo dodaj kilka najwyższych. Obejmuje Blades in the Dark i Trophy Dark.
 - **`roll-against`**: rzuć wynik równy liczbie z arkusza lub niższy (albo wyższy). Obejmuje umiejętności procentowe i testy GURPS.
 - **`symbol-pool`**: zbuduj i ulepsz kości narracyjne, a potem anuluj przeciwstawne symbole. Obejmuje testy Genesys, a od Capability API 1.382 także walki w tym systemie.
 
 Wszystkie pięć rodzajów dokładnie opisuje sekcja [Rodzaje rozstrzygania](ruleset-checks.md#resolution-kinds).
 
-Mechaniki niepasującej do żadnej z tych postaci nie da się zapisać w pliku zestawu. Przykładem są przeciwstawne pule. Każda taka mechanika wymaga nowego rodzaju rozstrzygania w Engine, czyli wkładu w kod z testami, nie pliku JSON. Jeśli twój system go potrzebuje, zgłoś prośbę o funkcję w repozytorium Engine i opisz mechanikę kilkoma w pełni rozpisanymi rzutami. Te przykłady staną się testami.
+Mechaniki, która nie pasuje do tych postaci, np. przeciwstawnych pul, nie da się zapisać w pliku zestawu zasad. Potrzebuje ona nowego rodzaju rozstrzygania wewnątrz Engine, czyli wkładu w kod z testami. Jeśli twój system go potrzebuje, zgłoś prośbę o funkcję w repozytorium Engine i opisz mechanikę kilkoma w pełni rozpisanymi rzutami. Te rzuty staną się testami.
 
-Game Mode może rozstrzygać walkę według własnych zasad Marinara albo twojego zestawu. Opcjonalny blok `battle` przekazuje walce Marinara liczby z arkuszy postaci: zobacz [Bitwy](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat). Opcjonalny `combat` zamiast tego definiuje rozstrzyganie walki według zestawu: zobacz [Walkę](ruleset-combat.md#combat-a-fight-your-own-rules-resolve). Engine już stosuje te zasady. Ustawienie Combat Preference (preferowany rodzaj walki) gry wybiera prezentację Classic lub, gdy zestaw definiuje odległość, pole bitwy Tactical. Zestaw zasad może ograniczyć dostępne w swoich grach style przez `combat.styles` (zobacz [Które style może wykorzystywać gra](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)).
+Game Mode rozstrzyga walkę albo własnym systemem walki Marinara, albo według zasad twojego zestawu. Opcjonalny blok `battle` przekazuje walce Marinara liczby z arkuszy postaci: zobacz [Bitwy](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat). Opcjonalny blok `combat` określa, jak zestaw zasad sam rozstrzyga walkę: zobacz [Walka](ruleset-combat.md#combat-a-fight-your-own-rules-resolve). Ustawienie Combat Preference (preferowany rodzaj walki) gry wybiera prezentację Classic lub, gdy zestaw zasad definiuje odległość, pole bitwy Tactical. Zestaw zasad może ograniczyć, których z nich używają jego gry, przez `combat.styles` (zobacz [Które style może wykorzystywać gra](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)).
 
-## Szybki start
-
-1. Skopiuj przykład pasujący do rzutów twojego systemu. [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json) to niewielki system 2d6 z trzema cechami, pokazujący, że format nie zakłada d20 ani sześciu atrybutów. [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) to mała pula kości dziesięciościennych z trzema cechami i sześcioma umiejętnościami zawodowymi. Pełnowymiarowy przykład znajdziesz w oficjalnym [pakiecie 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014): jego `ruleset.json` i `catalogs/` to pliki instalowane przez Agent Organizer.
-2. Zmień `id` na własne. Identyfikator zawiera małe litery, cyfry i pojedyncze łączniki, np. `ember-roads`.
-3. Edytuj arkusz, odpoczynki i tekst Game Master.
-4. Zaimportuj plik (zobacz [Wypróbowanie zestawu](#trying-your-ruleset)). Import sprawdza cały plik i wskazuje błędy wiersz po wierszu, zanim cokolwiek zapisze.
-5. Utwórz nową grę, wybierz zestaw w **Rules** (zasady) i wykonaj kilka testów.
-
-Aby uzyskać pomoc podczas pisania, wskaż edytorowi JSON Schema, dodając tę pierwszą linię wewnątrz zewnętrznych klamer pliku:
-
-```json
-"$schema": "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/staging/docs/extending/ruleset.schema.json",
-```
-
-Schemat podczas pisania wyłapuje błędne nazwy kluczy i typy. Nie sprawdza, czy nazwy w pliku wskazują istniejące rzeczy, np. czy umiejętność podaje istniejący atrybut. Robi to import.
-
-Do dowolnego obiektu pliku możesz dodać linię `"$comment": "..."` z własną notatką. Engine ją ignoruje.
+<a id="parts-of-the-file"></a>
 
 ## Części pliku
 
@@ -48,61 +52,69 @@ Do dowolnego obiektu pliku możesz dodać linię `"$comment": "..."` z własną 
 | `name` | To, co gracze widzą w kreatorze konfiguracji. |
 | `edition` | Opcjonalne. Jedna linia określająca wydanie lub szkic. |
 | `license` | Opcjonalne. Identyfikator SPDX i wymagany przez źródło tekst uznania autorstwa. |
-| `coverage` | Zakres zestawu i jednoliniowy opis widoczny w kreatorze. |
+| `coverage` | Zakres zestawu i jednoliniowy opis widoczny w kreatorze konfiguracji. |
 | `resolution` | Sposób rzutu testu lub rzutu obronnego. |
 | `sheet` | Cała zawartość arkusza postaci. |
 | `rests` | Co odnawia i usuwa każdy rodzaj odpoczynku. |
-| `gm` | Tekst dla modelu Game Master i wartości arkusza widoczne dla każdej postaci. |
+| `gm` | Tekst dla modelu mistrza gry i wartości arkusza, które widzi on dla każdej postaci. |
 | `catalogs` | Opcjonalne. Gotowe wpisy oferowane przez edytor arkusza, aby gracze nie przepisywali długich list. |
 | `items` | Opcjonalne. Słowa, którymi opisuje się twoje przedmioty: kategorie, rzadkości, statystyki, miejsca, pieniądze. |
 | `battle` | Opcjonalne. Dane, które bitwa może odczytać z arkusza i zapisać po zakończeniu. |
 | `combat` | Opcjonalne. Sposób rozstrzygania walki według własnych zasad i to, co pokazuje ekran bitwy. |
 | `layers` | Opcjonalne. Warianty zestawu włączane przez gracza przy tworzeniu gry. |
 
-Plik może mieć do 512 KB (256 KB przed Capability API 1.340). Tekst trafiający do promptu (nazwy, etykiety, tekst Game Master) nie może zawierać nowych linii, nawiasów kwadratowych ani podwójnych klamer.
+Plik może mieć do 512 KB (256 KB przed Capability API 1.340). Tekst trafiający do promptu (nazwy, etykiety, tekst mistrza gry) nie może zawierać nowych linii, nawiasów kwadratowych ani podwójnych klamer.
 
 Identyfikatory w arkuszu (atrybutów, umiejętności, pól, pul itd.) zaczynają się literą i zawierają małe litery, cyfry oraz podkreślenia, np. `grit_max`.
 
-## Strony tego przewodnika
+<a id="reference-pages"></a>
 
-Ta strona wyjaśnia, czym jest zestaw zasad, jak zacząć go tworzyć oraz jak go wypróbować i udostępnić. Reszta przewodnika jest podzielona według tematów:
+## Strony referencyjne
 
-- [Testy zestawu zasad](ruleset-checks.md): Jak zestaw zasad wykonuje rzut w teście lub rzucie obronnym: pięć rodzajów rozstrzygania, przedziały wyników, testy rzucane na własny sposób oraz wydawanie zasobów lub talizmany zmieniające rzut
-- [Arkusze zestawu zasad](ruleset-sheets.md): Co znajduje się w arkuszu postaci zestawu zasad: atrybuty, umiejętności, pola i listy, stany bieżące, tory ran, kary, odpoczynki i tekst mistrza gry, a także arkusz drużyny i zegary postępu
-- [Katalogi zestawu zasad](ruleset-catalogs.md): Gotowe wpisy oferowane przez edytor arkusza postaci w selektorze: nagłówek katalogu, wpisy, wartości utrzymywane przez zestaw zasad, polecenia arkusza postaci i polecenie użycia
-- [Mechanika wpisów zestawu zasad](ruleset-mechanics.md): Co wpis katalogu robi w liczbach: blok `mechanics` wpisu, odczytywany przez testy, odpoczynki i walki
-- [Kreator postaci zestawu zasad](ruleset-character-builder.md): Prowadzony kreator: tworzenie postaci krok po kroku, od rasy i klasy po wyniki, biegłości, zaklęcia i sprzęt
-- [Przedmioty zestawu zasad](ruleset-items.md): Co nosi drużyna: kategorie, broń, pancerz, amunicja, łupy, pieniądze, początkowy sprzęt i targi
-- [Walka według zestawu zasad](ruleset-combat.md): Jak zestaw zasad uczestniczy w walce: blok `battle`, który udostępnia arkusz postaci systemowi walki aplikacji Marinara Engine, oraz blok `combat`, który rozstrzyga całą walkę według własnych reguł zestawu zasad, z jego bestiariuszem, planszą, reakcjami i testami przeciwstawnymi
-- [Warstwy, tłumaczenia i migracje zestawu zasad](ruleset-layers-and-translations.md): Warianty włączane przez gracza dla jednej gry, tłumaczenia tekstu zestawu zasad i przenoszenie wartości do nowych identyfikatorów przy zmianie arkusza postaci
+Ta strona opisuje tworzenie, wypróbowanie i udostępnianie zestawu zasad. Każda z pozostałych stron omawia jeden temat:
 
-<a id="trying-your-ruleset"></a>
+- [Testy zestawu zasad](ruleset-checks.md): pięć rodzajów rozstrzygania, przedziały wyników, testy rzucane na własny sposób oraz wydawanie zasobów lub talizmany zmieniające rzut.
+- [Arkusze zestawu zasad](ruleset-sheets.md): atrybuty, umiejętności, pola i listy, stany bieżące, tory ran, kary, odpoczynki, tekst mistrza gry, arkusz drużyny i zegary postępu.
+- [Katalogi zestawu zasad](ruleset-catalogs.md): gotowe wpisy oferowane przez edytor arkusza w selektorze.
+- [Mechanika wpisów zestawu zasad](ruleset-mechanics.md): blok `mechanics` wpisu katalogu, odczytywany przez testy, odpoczynki i walki.
+- [Kreator postaci zestawu zasad](ruleset-character-builder.md): tworzenie postaci krok po kroku, od rasy i klasy po wyniki, biegłości, zaklęcia i sprzęt.
+- [Przedmioty zestawu zasad](ruleset-items.md): kategorie, broń, pancerz, amunicja, łupy, pieniądze, początkowy sprzęt i targi.
+- [Walka według zestawu zasad](ruleset-combat.md): blok `battle` i blok `combat`, z bestiariuszem, planszą, reakcjami i testami przeciwstawnymi.
+- [Warstwy, tłumaczenia i migracje zestawu zasad](ruleset-layers-and-translations.md): warianty włączane przez gracza dla jednej gry, tłumaczenia i przenoszenie wartości do nowych identyfikatorów przy zmianie arkusza.
+
+<a id="try-your-ruleset"></a>
 
 ## Wypróbowanie zestawu zasad
 
-Zestawy zasad społeczności używają tego samego przełącznika co importowani agenci. Otwórz **Settings** (ustawienia) > **Advanced** (zaawansowane) > **Danger Zone** (strefa niebezpieczna) i upewnij się, że **Allow custom Agent imports** (zezwalaj na import własnych agentów) jest włączone. Import wymaga też dostępu przez localhost lub skonfigurowanego **Admin Access** (dostępu administratora).
+Zanim zaczniesz, włącz **Allow custom Agent imports** (zezwolenie na import własnych agentów) w **Settings → Advanced → Danger Zone** (ustawienia, zaawansowane, strefa zagrożenia). Importowane zestawy zasad używają tego samego przełącznika bezpieczeństwa co importowani agenci, więc jest on wyłączony, dopóki go nie włączysz. Import wymaga też dostępu przez localhost albo sekretu administratora: **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny).
 
-1. Otwórz panel **Agents** i wybierz przycisk **Import agents** (importuj agentów; ikona pobierania w rzędzie przycisków u góry panelu).
-2. Wybierz **Game Mode ruleset** (zestaw zasad trybu Game) i swój plik JSON albo plik pakietu zestawu zasad z końcówką `.ruleset.json` (zobacz [Udostępnianie zestawu zasad](#sharing-your-ruleset)).
-3. Przeczytaj podgląd. Pokazuje nazwę, wersję, licencję, zakres obsługi zestawu zasad i tekst Mistrza Gry. Wybierz **Import** (importuj).
+1. Otwórz panel **Agents** (agenci) i wybierz przycisk **Import agents** (import agentów, ikona pobierania w rzędzie przycisków u góry panelu).
+2. Wybierz **Game Mode ruleset** (zestaw zasad trybu Game Mode) i swój plik JSON albo plik pakietu zestawu zasad z końcówką `.ruleset.json` (zobacz [Udostępnianie zestawu zasad](#sharing-your-ruleset)).
+3. Przeczytaj podgląd. Pokazuje nazwę, wersję, licencję, zakres zestawu zasad i tekst mistrza gry. Wybierz **Import** (import).
 
-Twój zestaw zasad pojawi się w sekcji **Rules** (zasady) panelu oraz w wyborze **Rules** kreatora nowych gier. Zestaw importowany z pliku jest zapisywany jako `local/<your id>`, więc nie można pomylić go z oficjalnym zestawem ani z cudzym.
+Twój zestaw zasad pojawi się w sekcji **Rules** panelu oraz w wyborze **Rules** kreatora konfiguracji nowych gier. Zestaw zasad zaimportowany z pliku jest zapisywany jako `local/<your id>`, więc nigdy nie zostanie pomylony z oficjalnym zestawem zasad ani z cudzym.
 
 ### Zmiana już zaimportowanego zestawu zasad
 
-Zaimportowana wersja nigdy nie jest nadpisywana. Jeśli zmienisz plik i zaimportujesz go ponownie z tym samym `version`, import zostanie odrzucony z prośbą o zwiększenie numeru. To celowe: gra jest związana z dokładną wersją, na której ją utworzono, więc trwająca kampania nigdy nie obudzi się z inną matematyką.
+Zaimportowana wersja nigdy nie jest nadpisywana. Jeśli zaimportujesz zmieniony plik z tym samym `version`, import zostanie odrzucony z prośbą o zwiększenie numeru. Gra jest związana z dokładną wersją, na której ją utworzono, więc trwająca kampania nigdy nie zmienia swojej matematyki.
 
-Cykl podczas tworzenia wygląda więc tak: edytuj, zwiększ `version`, importuj, rozpocznij nową grę. Stare wersje pozostają zainstalowane obok nowej, dopóki nie usuniesz zestawu z sekcji **Rules**. Usunięcie zestawu nadal używanego przez grę sprawia, że gra zgłasza jego brak aż do ponownego importu.
+Podczas tworzenia cykl wygląda tak: edytuj, zwiększ `version`, zaimportuj, rozpocznij nową grę. Stare wersje pozostają zainstalowane obok nowej, dopóki nie usuniesz zestawu zasad z sekcji **Rules**. Usunięcie zestawu zasad, którego gra nadal używa, sprawia, że ta gra zgłasza jego brak aż do ponownego importu.
 
-Jeśli zmienisz kształt karty (dodasz, usuniesz lub zmienisz nazwy elementów), zwiększ też `sheet.version`. Istniejące karty są odczytywane tolerancyjnie: wartości nieznane nowej karcie zostają zachowane, a brakujące otrzymują wartości domyślne.
+Jeśli zmienisz kształt arkusza (dodasz, usuniesz lub zmienisz nazwy elementów), zwiększ też `sheet.version`. Istniejące arkusze są odczytywane tolerancyjnie: wartości nieznane nowemu arkuszowi zostają zachowane, a brakujące otrzymują wartości domyślne.
 
 <a id="sharing-your-ruleset"></a>
 
 ## Udostępnianie zestawu zasad
 
-**Jako plik.** Wyślij znajomemu plik JSON. Zaimportuje go tak samo jak ty.
+Zestaw zasad można udostępnić na pięć sposobów.
 
-**Jako plik pakietu.** Zestaw zasad zbyt duży na jeden plik, z katalogami we własnych plikach, przenosi się jako jeden zwykły plik JSON o nazwie `<name>.ruleset.json`. Zawiera manifest pakietu i dokumenty zestawu, każdy jako dokładne bajty zakodowane w base64:
+### Jako plik
+
+Wyślij plik JSON znajomemu. Zaimportuje go tak samo jak ty.
+
+### Jako plik pakietu
+
+Zestaw zasad zbyt duży na jeden plik, z katalogami we własnych plikach, przenosi się jako jeden zwykły plik JSON o nazwie `<name>.ruleset.json`. Zawiera manifest pakietu i dokumenty zestawu zasad, każdy zapisany w base64 (sposobie zapisania pliku jako zwykłego tekstu):
 
 ```json
 {
@@ -116,11 +128,30 @@ Jeśli zmienisz kształt karty (dodasz, usuniesz lub zmienisz nazwy elementów),
 }
 ```
 
-Manifest wymienia `ruleset.json` i każdy `catalogs/<id>.json` w `contributions.assets.paths` oraz w `files`, z rozmiarem i sha256 każdego z nich. Tworzy go edytor zestawów zasad, np. Pixelforge. **Import agents** → **Game Mode ruleset** przyjmuje plik i pokazuje ten sam podgląd co dla pliku zestawu zasad, z każdym katalogiem i liczbą jego wpisów. Nic w nim nie jest skompresowane, więc nigdy nie zawiera więcej niż własny rozmiar. Jest odczytywany jako dane i nigdy nie jest instalowany jako pakiet: zostaje odrzucony, z podaniem powodu, jeśli zawiera cokolwiek innego (inny klucz, jakikolwiek inny plik, dokument, który nie jest ściśle zakodowany w base64 lub nie jest tekstem UTF-8), jeśli jego manifest zawiera więcej niż zestaw zasad (jakikolwiek kod, uprawnienia lub inne elementy), jeśli plik nie jest tym, który wymienia manifest, jeśli `$comment` jest dłuższy niż 2 000 znaków albo `$schema` wskazuje cokolwiek poza własnym schematem Engine, albo jeśli zestawu zasad lub katalogu nie da się odczytać. Jest zapisywany jako `local/<its id>` tak jak plik zestawu zasad, ma najwyżej 132 MB i najwyżej 12 plików katalogów po 2 MB każdy oraz 40 tłumaczeń po 8 MB każde (zobacz niżej). Wersja to zestaw zasad razem z katalogami, więc zmieniony katalog także wymaga wyższego `version`. Pakiety zestawów zasad nie są przyjmowane jako archiwa zip.
+Manifest wymienia `ruleset.json` i każdy `catalogs/<id>.json` w `contributions.assets.paths` oraz w `files`, z rozmiarem i sha256 (odciskiem pliku) każdego z nich. Tworzy go edytor zestawów zasad, np. Pixelforge. **Import agents** → **Game Mode ruleset** przyjmuje plik i pokazuje ten sam podgląd co dla pliku zestawu zasad, z każdym katalogiem i liczbą jego wpisów.
 
-**Przez oficjalny katalog agentów.** Zestaw zasad opublikowany w katalogu to plik pakietu zestawu zasad dokładnie w tej postaci, `<id>.ruleset.json`, nigdy archiwum zip pakietu (Capability API 1.374). Jego manifest deklaruje Capability API 1.374 lub nowsze, więc starszy Engine nigdy nie otrzymuje takiej oferty. Engine odczytuje go tym samym mechanizmem i sprawdza tak samo jak importowany plik pakietu, weryfikuje jego zgodność z manifestem wymienionym w katalogu i instaluje go jak każdy pakiet z katalogu. Zestaw zasad z katalogu, którego artefaktem jest archiwum zip, zostaje odrzucony przed pobraniem czegokolwiek; już zainstalowane zestawy nadal działają.
+Plik jest odczytywany jako dane i nigdy nie jest instalowany jako pakiet. Nic w nim nie jest skompresowane, więc nigdy nie zawiera więcej niż własny rozmiar. Limity:
 
-**Z repozytorium GitHub.** Jeśli przechowujesz pracę w publicznym repozytorium GitHub, umieść każdy zestaw zasad w folderze `rulesets` w głównym katalogu repozytorium, po jednym pliku na zestaw:
+- Jest zapisywany jako `local/<its id>`, tak jak plik zestawu zasad.
+- Ma najwyżej 132 MB, najwyżej 12 plików katalogów po 2 MB każdy i 40 tłumaczeń po 8 MB każde (zobacz niżej).
+- Wersja to zestaw zasad razem z katalogami, więc zmieniony katalog także wymaga wyższego `version`.
+- Pakiety zestawów zasad nie są przyjmowane jako archiwa zip.
+
+Plik zostaje odrzucony, z podaniem powodu, jeśli:
+
+- zawiera inny klucz lub jakikolwiek inny plik albo dokument, który nie jest ściśle zakodowany w base64 lub nie jest tekstem UTF-8;
+- jego manifest żąda więcej, niż potrzebuje zestaw zasad (jakiegokolwiek kodu, uprawnień lub innych elementów);
+- plik nie jest tym, który wymienia manifest;
+- `$comment` jest dłuższy niż 2 000 znaków albo `$schema` wskazuje cokolwiek poza własnym schematem Engine;
+- zestawu zasad lub katalogu nie da się odczytać.
+
+### Przez oficjalny katalog agentów
+
+Zestaw zasad opublikowany w katalogu to plik pakietu zestawu zasad dokładnie w tej postaci, `<id>.ruleset.json`, nigdy archiwum zip pakietu. Jego manifest deklaruje Capability API 1.374 lub nowsze, więc starszy Engine nigdy nie otrzymuje takiej oferty. Engine odczytuje go tym samym mechanizmem i sprawdza tak samo jak importowany plik pakietu, weryfikuje jego zgodność z manifestem wymienionym w katalogu i instaluje go jak każdy pakiet z katalogu. Zestaw zasad z katalogu, którego artefaktem jest archiwum zip, zostaje odrzucony przed pobraniem czegokolwiek; już zainstalowane zestawy zasad nadal działają.
+
+### Z repozytorium GitHub
+
+Jeśli przechowujesz pracę w publicznym repozytorium w serwisie GitHub, umieść każdy zestaw zasad w folderze `rulesets` w głównym katalogu repozytorium, po jednym pliku na zestaw:
 
 ```text
 your-repository/
@@ -130,19 +161,23 @@ your-repository/
     another-system.json
 ```
 
-Użytkownik dodaje twoje repozytorium raz przez listę własnych repozytoriów agentów, przegląda zawartość i może później synchronizować nowe wersje. Lista własnych repozytoriów to zaawansowana funkcja włączana przez osobę prowadzącą serwer za pomocą `ENABLE_CUSTOM_AGENT_REPOS=true`. Zestawy z repozytorium są zapisywane pod nazwą właściciela repozytorium, np. `alice/ember-roads`, więc dwóch autorów może opublikować zestaw `v20` bez kolizji.
+Użytkownik dodaje twoje repozytorium raz, przegląda jego zawartość i później je synchronizuje, żeby otrzymać nowe wersje. Lista własnych repozytoriów to zaawansowana funkcja. Osoba prowadząca serwer włącza ją przez `ENABLE_CUSTOM_AGENT_REPOS=true`, a potem otwiera **Agents → Agent Organizer → Custom Sources** (agenci, organizowanie agentów, własne źródła). Zestawy zasad z repozytorium są zapisywane pod nazwą właściciela repozytorium, np. `alice/ember-roads`, więc dwie różne osoby mogą opublikować zestaw zasad o nazwie `v20` bez kolizji.
 
-Obowiązują dwa limity. Repozytorium może zawierać najwyżej 32 pliki JSON bezpośrednio w `rulesets`; większa liczba powoduje odrzucenie. Konto o nazwie `local` nie może publikować zestawów, ponieważ `local/` jest zarezerwowane dla importów z pliku.
+Obowiązują dwa limity. Repozytorium może zawierać najwyżej 32 pliki JSON bezpośrednio w `rulesets`, a repozytorium z większą liczbą plików zostaje odrzucone. Konto o nazwie `local` nie może publikować zestawów zasad, ponieważ `local/` jest zarezerwowane dla zestawów zasad zaimportowanych z pliku.
 
-**W oficjalnym katalogu.** Popularny system z jasną licencją może być oferowany wszystkim przez **Agent Organizer** (organizowanie agentów). Wymaga to pull requestu do repozytorium [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Układ można sprawdzić w tamtejszym pakiecie `ruleset-5e-2014`.
+### W oficjalnym katalogu
+
+Popularny system z jasną licencją może być oferowany wszystkim przez **Agent Organizer**. Aby go zaproponować, otwórz pull request do repozytorium [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Układ można sprawdzić w tamtejszym pakiecie `ruleset-5e-2014`.
 
 ## Licencjonowanie
 
-Publikuj tylko tekst zasad, który masz prawo udostępniać. Wiele systemów publikuje dokument referencyjny na otwartej licencji i właśnie z niego można kopiować. Umieść identyfikator licencji oraz wymagany przez nią tekst uznania autorstwa w `license`. Nie kopiuj tekstu z podręczników bez otwartej licencji. Zestaw zasad potrzebuje głównie nazw i liczb, a tekst Mistrza Gry powinien być napisany twoimi słowami.
+Publikuj tylko tekst zasad, który masz prawo udostępniać. Wiele systemów publikuje dokument referencyjny na otwartej licencji i właśnie z niego można kopiować. W `license` umieść identyfikator licencji (identyfikator SPDX, czyli krótką standardową nazwę, np. `CC-BY-4.0`) oraz wymagany przez nią tekst uznania autorstwa. Nie kopiuj tekstu z podręczników bez otwartej licencji. Zestaw zasad potrzebuje głównie nazw i liczb. Tekst mistrza gry napisz własnymi słowami.
+
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
-- **Import mówi, że nazwa nie istnieje.** Coś w pliku wskazuje niezadeklarowany identyfikator, np. umiejętność wskazująca usuniętą cechę. Komunikat podaje ścieżkę do wiersza.
-- **Import mówi, że wersja jest już zainstalowana z inną zawartością.** Zwiększ `version` i importuj ponownie.
-- **Mojego zestawu zasad nie ma w kreatorze.** Sprawdź, czy **Allow custom Agent imports** jest włączone. Gdy jest wyłączone, importowane zestawy nie są dostępne dla nowych gier. Gry już ich używające nadal działają.
-- **Gra mówi, że brakuje zestawu zasad.** Dokładna wersja, na której utworzono grę, nie jest zainstalowana. Zaimportuj ponownie tę wersję pliku.
+- **Import zgłasza, że nazwa nie istnieje.** Coś w pliku wskazuje niezadeklarowany identyfikator, np. umiejętność wskazującą usunięty atrybut. Komunikat podaje ścieżkę do wiersza.
+- **Import zgłasza, że wersja jest już zainstalowana z inną zawartością.** Zwiększ `version` i zaimportuj ponownie.
+- **Mojego zestawu zasad nie ma w kreatorze konfiguracji.** Sprawdź, czy **Allow custom Agent imports** jest włączone. Gdy jest wyłączone, importowane zestawy zasad są pomijane w nowych grach, a gry, które już ich używają, nadal działają.
+- **Gra zgłasza brak zestawu zasad.** Dokładna wersja, na której utworzono grę, nie jest zainstalowana. Zaimportuj ponownie tę wersję pliku.

@@ -1,117 +1,86 @@
 # Wyszukiwanie semantyczne w lorebookach
 
-Ten przewodnik wyjaśnia, jak działa wyszukiwanie semantyczne w lorebookach w aplikacji Marinara Engine. Dzięki niemu wpis lorebooka aktywuje się na podstawie znaczenia, a nie tylko dokładnych słów kluczowych. Zobaczysz, jak ustawić źródło embeddingów, zwektoryzować wpisy i dopracować dopasowanie.
+Dzięki wyszukiwaniu semantycznemu wpis lorebooka aktywuje się na podstawie znaczenia, a nie tylko dokładnych słów kluczowych. Wpis ze słowem kluczowym "sword" dopasuje się wtedy także do wiadomości, w której pada "blade". Przydaje się, gdy w tekście na tę samą rzecz używasz wielu różnych słów.
 
-## Co daje wyszukiwanie semantyczne
+Działa to dzięki embeddingom, czyli listom liczb, które oddają znaczenie tekstu. Marinara przechowuje jeden embedding, nazywany też wektorem, dla każdego wpisu. Budowanie ich nazywa się wektoryzacją. Podczas czatu Marinara tworzy embedding ostatnich wiadomości i szuka najbliższych wpisów.
 
-Lorebook to zbiór wpisów. Każdy wpis ma słowa wyzwalające i blok tekstu. Zwykle wpis aktywuje się tylko wtedy, gdy w ostatnich wiadomościach czatu padnie dokładnie jedno z jego słów kluczowych. Jeśli w tekście pojawi się inne słowo, wpis milczy.
+Wyszukiwanie semantyczne dokłada dopasowania. Słowa kluczowe działają dalej. Dopasowania po słowach kluczowych i dopasowania semantyczne mają równy priorytet w limitach, więc gdy nie wszystko się mieści, decyduje ustawienie **Order** (kolejność) wpisu.
 
-Wyszukiwanie semantyczne rozwiązuje ten problem. Porównuje znaczenie ostatnich wiadomości czatu ze znaczeniem wpisów. Wpis aktywuje się wtedy nawet bez dokładnego trafienia w słowo kluczowe. Przykład: wpis ze słowem kluczowym "sword" dopasuje się także do wiadomości, w której pada tylko "blade".
+## Konfiguracja wyszukiwania semantycznego
 
-Działa to dzięki embeddingom. Embedding to liczbowa reprezentacja tekstu: lista liczb, która oddaje znaczenie fragmentu. Marinara przechowuje jeden embedding, nazywany też wektorem, dla każdego wpisu. Ten etap nazywa się wektoryzacją. Podczas czatu Marinara tworzy embedding ostatnich wiadomości i szuka wpisów o najbliższym znaczeniu.
+Najpierw potrzebujesz źródła embeddingów, potem przełącznika **Vectors** (Wektory), a na końcu wektoryzacji.
 
-Dopasowanie po słowach kluczowych działa dalej, kiedy wyszukiwanie semantyczne jest włączone. Wyszukiwanie semantyczne dokłada dodatkowe dopasowania. Nie zastępuje słów kluczowych.
+### Krok 1: wybierz źródło embeddingów
 
-Dopasowania po słowach kluczowych i dopasowania semantyczne mają równy priorytet, gdy Marinara stosuje limity wpisów lorebooka i limity tokenów. Jeśli nie wszystkie pasujące wpisy się mieszczą, o wyborze między jednymi a drugimi decyduje ustawiona kolejność wpisów, a nie sam sposób aktywacji.
+Zanim zaczniesz: potrzebujesz konta, którego usługa oferuje embeddingi, albo modelu wbudowanego. Nie każda usługa oferuje embeddingi. Jeśli twoja ich nie ma, edytor podpowiada, żeby wybrać osobne konto przeznaczone do embeddingów.
 
-## Zanim zaczniesz: wybierz źródło embeddingów
+Opcja 1: konto z modelem embeddingów.
 
-Wyszukiwanie semantyczne potrzebuje modelu, który potrafi tworzyć embeddingi. Są dwie możliwości.
+1. Otwórz panel **Connections** (Połączenia) i otwórz konto do edycji.
+2. Otwórz **Advanced** (zaawansowane), potem **More** (więcej) i znajdź **Semantic search (embeddings)**.
+3. Wpisz nazwę modelu embeddingów, na przykład `text-embedding-3-small`. Jeśli nie znasz nazwy, sprawdź dokumentację usługi albo użyj zamiast tego modelu wbudowanego.
+4. Zapisz konto.
+5. Kliknij **Test embedding** (test embeddingu), żeby to sprawdzić. Marinara najpierw zapisuje zmiany, tworzy embedding krótkiego przykładu i pokazuje rozmiar wektora, na przykład "1536 dimensions", albo błąd zwrócony przez usługę.
 
-Niezależnie od wyboru możesz ustawić to źródło jako domyślne w całej aplikacji: otwórz **Connections** (połączenia), potem **Defaults** (ustawienia domyślne) i wybierz je w sekcji **Embeddings**. Każde połączenie, które nie ma własnego modelu embeddingów ani własnego pola **Embedding provider** (dostawca embeddingów), korzysta wtedy z tego ustawienia. Własne ustawienie połączenia nadal ma pierwszeństwo, a wiersz pokazuje, ile połączeń używa własnych ustawień. **None** zostawia wbudowany model lokalny jako rozwiązanie zapasowe.
+Żeby wysyłać żądania embeddingów przez klucz i adres innego konta, wybierz to konto w polu **Embedding provider** (dostawca embeddingów). Domyślna wartość to **Same as this provider** (ten sam dostawca). Jeśli wybrane konto ma własny model embeddingów, Marinara go używa. W przeciwnym razie używa nazwy modelu wpisanej tutaj.
 
-Opcja 1: połączenie z modelem embeddingów.
+Opcja 2: model wbudowany. Działa na twoim komputerze bez klucza API, a na liście wyboru nazywa się **Built-in model** (model wbudowany). Pojawia się po pobraniu i jest ukryty w wersjach Lite. Zobacz [Konfiguracja modelu wbudowanego](../connections/local-model.md).
 
-1. Otwórz panel **Connections** (Połączenia).
-2. Otwórz połączenie do edycji.
-3. Otwórz **Advanced** (zaawansowane), potem **More** (więcej) i znajdź sekcję **Semantic search (embeddings)**.
-4. Wpisz nazwę modelu embeddingów w polu modelu. Częsta wartość to `text-embedding-3-small`.
-5. Zapisz połączenie.
+Żeby jedno źródło stało się domyślne dla każdego konta, które nie ustawia własnego, otwórz **Connections** i wybierz je w zadaniu **Embeddings** (embeddingi). Własne ustawienie konta nadal ma pierwszeństwo. Domyślna pozycja, **Marinara's own search** (własne wyszukiwanie aplikacji Marinara), zachowuje wbudowane rozwiązanie zapasowe.
 
-Żeby sprawdzić konfigurację, kliknij **Test embedding** (test embeddingu) pod ustawieniami embeddingów. Marinara najpierw zapisuje zmiany, a potem tworzy embedding krótkiego przykładowego tekstu tym samym modelem, kluczem API i adresem, których używa wyszukiwanie semantyczne. Następnie pokazuje rozmiar otrzymanego wektora, na przykład "1536 dimensions", albo błąd zwrócony przez dostawcę.
+### Krok 2: włącz Vectors
 
-Połączenie może też wysyłać żądania embeddingów przez klucz API i adres innego połączenia. W tej samej sekcji wybierz to połączenie w polu **Embedding provider**. Domyślna wartość to **Same as this provider** (ten sam dostawca). Jeśli wybrane połączenie ma własny model embeddingów, Marinara go używa; w przeciwnym razie używa nazwy modelu wpisanej tutaj. Dotyczy to zarówno wektoryzacji, jak i czatu.
+W nowych lorebookach wyszukiwanie semantyczne jest wyłączone.
 
-Nie każdy dostawca oferuje embeddingi. Jeśli dostawca nie obsługuje embeddingów, edytor podpowiada, żeby wybrać osobne połączenie przeznaczone do embeddingów.
+1. Otwórz lorebook i zostań na zakładce **Overview** (Przegląd).
+2. Włącz **Vectors**. Gdy przełącznik jest włączony, wpisy można znaleźć także po znaczeniu. Gdy jest wyłączony, słowa kluczowe działają dalej, a lorebook nie jest wektoryzowany.
 
-Opcja 2: wbudowany model lokalny.
+Kiedy **Vectors** jest wyłączony, panel pokazuje napis "Semantic search is disabled by the lorebook-level Vectors toggle."
 
-Marinara potrafi uruchomić mały model embeddingów na własnym komputerze, bez klucza API (to tajny kod, trochę jak hasło). Na liście wyboru w lorebooku ta opcja nazywa się **Built-in model** (model wbudowany). Pojawia się dopiero po pobraniu modelu lokalnego. Instrukcję instalacji znajdziesz w przewodniku [Konfiguracja modelu Local Model](../connections/local-model.md).
+### Krok 3: zwektoryzuj wpisy
 
-W wersji Marinara Lite opcja **Built-in model** jest ukryta. Tam wyszukiwanie semantyczne wymaga połączenia z modelem embeddingów.
+1. W panelu **Semantic search (embeddings)** wybierz źródło z listy rozwijanej. Pierwsza opcja to **No semantic search**. Zaraz po niej stoi **Built-in model**, o ile jest dostępny, a dalej twoje pasujące konta.
+2. Kliknij **Vectorize N missing**, na przykład "Vectorize 5 missing".
+3. Zaczekaj. Kafelek pokazuje postęp, na przykład "8/12 entries vectorized", i robi się zielony, gdy wszystkie wpisy są gotowe.
 
-## Włączanie przełącznika Vectors w lorebooku
-
-W nowych lorebookach wyszukiwanie semantyczne jest domyślnie wyłączone. Włącza się je osobno dla każdego lorebooka.
-
-1. Otwórz lorebook, który ma być przeszukiwany po znaczeniu.
-2. Zostań na zakładce **Overview** (Przegląd).
-3. Znajdź przełącznik **Vectors** (Wektory) i włącz go.
-
-Tekst pomocy przy przełączniku **Vectors** brzmi: "When on, entries in this lorebook may use semantic embeddings. When off, keyword matching still works and vectorization skips this lorebook."
-
-Kiedy przełącznik **Vectors** jest wyłączony, panel semantyczny pokazuje notkę: "Semantic search is disabled by the lorebook-level Vectors toggle."
+Jeśli to nie zadziałało: gdy żadne konto nie ma modelu embeddingów, panel pokazuje napis "No connections with an embedding model configured. Set an Embedding Model on a connection first." Wykonaj krok 1 i spróbuj ponownie.
 
 ## Panel Semantic search (embeddings)
 
-Po włączeniu przełącznika **Vectors** na zakładce **Overview** pojawia się panel **Semantic search (embeddings)**. Kafelek stanu pokazuje, ile wpisów ma już wektory, na przykład "8/12 entries vectorized". Gdy gotowe są wszystkie wpisy, kafelek robi się zielony i dostaje znaczek potwierdzenia.
-
-Panel ma trzy ustawienia liczbowe.
+Po włączeniu przełącznika **Vectors** panel pojawia się na zakładce **Overview** z takimi ustawieniami.
 
 | Ustawienie | Do czego służy | Domyślnie | Zakres |
-|---|---|---|---|
-| **Query Messages** | Ile ostatnich wiadomości czatu trafia do embeddingu przy przeszukiwaniu tego lorebooka. | 10 | 0 do 100 |
-| **Score Threshold** | Minimalne skalibrowane podobieństwo, jakiego wpis potrzebuje, żeby się aktywować. Wyższa wartość jest bardziej wymagająca. | 0.3 | 0 do 1 |
-| **Vector Limit** | Najwięcej dopasowań semantycznych, jakie ten lorebook dokłada do jednego generowania. | 10 | 1 do 100 |
+| --- | --- | --- | --- |
+| **Query Messages** | Ilu ostatnich wiadomości użytkownika używa wyszukiwanie. 0 oznacza wszystkie dostępne wiadomości. | 10 | 0 do 100 |
+| **Score Threshold** | Podobieństwo, jakiego wpis potrzebuje, żeby się aktywować. Wyższa wartość jest bardziej wymagająca. | 0.3 | 0 do 1 |
+| **Vector Limit** | Najwięcej wpisów, jakie ten lorebook może dodać po znaczeniu w jednej odpowiedzi. | 10 | 1 do 100 |
 
-Ustaw **Query Messages** na 0, żeby przeszukiwać całą historię czatu zamiast ostatniego fragmentu.
+**Include character context** (uwzględnianie kontekstu postaci) przeszukuje też ostatnie odpowiedzi postaci, osobno od twoich wiadomości, i zachowuje silniejsze dopasowanie. Tworzy embedding dodatkowego tekstu i domyślnie jest wyłączone. **Query Messages** obejmuje wtedy także odpowiedzi postaci.
 
-**Score Threshold** decyduje o tym, jak bliskie musi być znaczenie. Niska wartość, na przykład 0.2, przepuszcza więcej wpisów, ale grozi dopasowaniami nie na temat. Wysoka wartość, na przykład 0.5, jest bardziej wymagająca i łapie tylko bliskie znaczenia. Zacznij od wartości domyślnej i zmieniaj ją, jeśli dopasowań jest za dużo albo za mało.
+Niski **Score Threshold**, na przykład 0.2, przepuszcza więcej wpisów, ale grozi dopasowaniami nie na temat. Wysoki, na przykład 0.5, łapie tylko bliskie znaczenia. Zacznij od wartości domyślnej.
 
-Marinara kalibruje ten wynik względem kilku niepowiązanych, neutralnych fragmentów tekstu z tego samego modelu embeddingów. Dzięki temu znika nienaturalnie wysoki wspólny próg cosinusowy. Produkują go niektóre lokalne i zgodne z OpenAI silniki embeddingów: niepowiązane teksty potrafią tam wszystkie dostawać wynik około 0.95 albo wyższy. To ustawienie pozostaje więc użyteczne przy różnych modelach embeddingów, zamiast wymagać progu blisko 1.0 dobieranego pod konkretny model.
+**Vector Limit** liczy tylko dopasowania po znaczeniu. Zwykłe limity tokenów nadal obowiązują.
 
-**Vector Limit** ogranicza wyłącznie dopasowania semantyczne. Zwykłe limity tokenów obowiązują niezależnie od niego.
+## Ponowna wektoryzacja, usuwanie i pomijanie
 
-## Wektoryzacja wpisów
+- **Re-vectorize N entries** pojawia się, gdy każdy wpis ma wektor. Po potwierdzeniu buduje od nowa wszystkie wektory.
+- **Re-vectorize all** pojawia się, gdy część wpisów ma wektory, a część nie. Przebudowuje wszystko za jednym razem.
+- **Delete vectors** usuwa tylko zapisane wektory. Treść wpisów i słowa kluczowe zostają, a słowa kluczowe działają dalej.
+- **No Vector** we wpisie pomija ten wpis. Tekst pomocy mówi, że zbiorcza wektoryzacja pomija wpis i usuwa zapisany embedding. Wpis nadal aktywuje się po słowie kluczowym.
 
-Wektoryzacja polega na zbudowaniu i zapisaniu embeddingu dla każdego wpisu. Bez tego kroku dopasowanie semantyczne nie zadziała.
+### Po zmianie modelu embeddingów
 
-1. Włącz przełącznik **Vectors** dla lorebooka.
-2. W panelu **Semantic search (embeddings)** wybierz źródło embeddingów z listy rozwijanej. Pierwsza opcja to **No semantic search**. Zaraz po niej stoi **Built-in model**, o ile jest dostępna. Dalej idą pasujące połączenia.
-3. Kliknij przycisk wektoryzacji. Gdy części wpisów brakuje wektora, na przycisku widnieje **Vectorize N missing**, na przykład "Vectorize 5 missing".
-4. Poczekaj na koniec przetwarzania. Kafelek stanu zmienia się i pokazuje, że wszystkie wpisy mają wektory.
+Zapisane wektory należą do modelu, który je stworzył. Po zmianie modelu użyj **Re-vectorize N entries** albo **Re-vectorize all**, żeby wszystkie wpisy korzystały z tego samego modelu. Wektoryzacja w trybie "tylko brakujące", która zwraca inny rozmiar wektora, zostaje odrzucona z komunikatem "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Jeśli żadne połączenie nie ma modelu embeddingów ani ustawionego pola **Embedding provider**, zamiast listy rozwijanej panel pokazuje notkę: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Najpierw ustaw źródło embeddingów, według kroków powyżej.
+Jedna awaria jest cicha. Podczas czatu Marinara tworzy embedding twoich wiadomości modelem embeddingów aktywnego konta albo modelem z jego pola **Embedding provider**. Jeśli konto nie ustawia żadnego z nich, używa źródła z zadania **Embeddings** albo modelu wbudowanego. Jeśli rozmiar wektora tego modelu różni się od wektorów twoich wpisów, Marinara pomija te wpisy przy dopasowaniu semantycznym i nie pokazuje żadnego błędu. Wektoryzuj tym samym źródłem, którego używasz w czacie, i powtarzaj wektoryzację po każdej zmianie modelu.
 
-Kiedy każdy wpis ma już wektor, główny przycisk zmienia się w **Re-vectorize N entries**. Buduje on od nowa wszystkie zapisane wektory. Przed nadpisaniem prosi o potwierdzenie.
+## Wyszukiwanie semantyczne a agent Knowledge Router
 
-Osobny przycisk **Re-vectorize all** pojawia się wtedy, gdy część wpisów ma wektory, a innym wciąż ich brakuje. Użyj go, żeby przebudować wszystko za jednym razem.
-
-Żeby usunąć zapisane wektory, kliknij przycisk **Delete vectors**. Usuwa on wyłącznie embeddingi. Nie zmienia treści wpisów ani słów kluczowych. Po usunięciu wektorów dopasowanie po słowach kluczowych działa dalej.
-
-### Pomijanie pojedynczego wpisu
-
-Da się wyłączyć jeden wpis z wektoryzacji, zostawiając resztę bez zmian. Otwórz wpis i włącz w nim przełącznik **No Vector**. Tekst pomocy brzmi: "When enabled, bulk vectorization skips this entry and removes any stored embedding." Taki wpis nadal aktywuje się po słowie kluczowym. Nie dopasuje się tylko po znaczeniu.
-
-## Ponowna wektoryzacja po zmianie modelu
-
-Zapisane wektory są związane z modelem embeddingów, który je stworzył. Po przejściu na inny model embeddingów stare wektory mogą już nie pasować.
-
-Po zmianie modelu embeddingów przebuduj każdy wektor. Użyj przycisku **Re-vectorize N entries** albo **Re-vectorize all**, żeby wszystkie wpisy korzystały z tego samego modelu.
-
-Po zmianie modelu nie uruchamiaj samej częściowej wektoryzacji. Jeśli przetwarzanie w trybie "tylko brakujące" zwróci inny rozmiar wektora niż zapisane wektory, serwer je odrzuca i pokazuje komunikat: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
-
-Warto znać jeszcze jeden cichy tryb awarii. Podczas czatu Marinara tworzy embedding ostatnich wiadomości modelem zapytań. Model zapytań to model embeddingów ustawiony w aktywnym połączeniu albo model z pola **Embedding provider**, jeśli je ustawiono. Jeśli połączenie nie ma żadnego z nich, Marinara używa domyślnego ustawienia **Embeddings** z sekcji **Defaults** w panelu **Connections**, a gdy jest tam **None**, wbudowanego modelu lokalnego. Model zapytań może dawać inny rozmiar wektora niż model, którym zwektoryzowano wpisy. Marinara pomija wtedy takie wpisy przy dopasowaniu semantycznym. Nie widać żadnego błędu. Dlatego wektoryzuj wpisy tym samym źródłem embeddingów, którego używasz podczas czatu. Pomaga ustawienie domyślne **Embeddings**: lista wektoryzacji zaczyna od niego, o ile wcześniej nie wybrano czegoś innego, a połączenia bez własnych ustawień embeddingów odpytują właśnie nim. Po każdej zmianie modelu powtórz wektoryzację.
-
-## Jak to zasila agenta Knowledge Router
-
-Wyszukiwanie semantyczne pomaga też agentowi **Knowledge Router**. Przy dużych lorebookach ten agent wybiera pasujące wpisy lorebooka i wstawia je do promptu (to tekst, który Marinara wysyła do AI). Gdy lorebook jest zwektoryzowany, router buduje listę kandydatów na podstawie dopasowań semantycznych, obok dopasowań po słowach kluczowych.
-
-Dla routera ten etap jest opcjonalny. Jeśli lorebook nie jest zwektoryzowany albo nie ma dostępnego źródła embeddingów, router opiera się wyłącznie na dopasowaniach po słowach kluczowych. Wektoryzacja daje mu po prostu lepszą listę kandydatów. Działanie tego agenta opisuje przewodnik [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md).
+Gdy lorebook jest zwektoryzowany, agent **Knowledge Router** także korzysta z dopasowań po znaczeniu, żeby zbudować listę kandydatów. Bez wektorów korzysta tylko z dopasowań po słowach kluczowych. Zobacz [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md).
 
 ## Powiązane przewodniki
 
 - [Lorebooki – przegląd](overview.md)
 - [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md)
-- [Konfiguracja modelu Local Model](../connections/local-model.md)
+- [Konfiguracja modelu wbudowanego](../connections/local-model.md)
 - [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md)

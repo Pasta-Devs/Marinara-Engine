@@ -1,6 +1,6 @@
 # Capas, traducciones y migraciones de conjuntos de reglas
 
-Esta página forma parte de [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md). Variantes que un jugador activa para una partida, traducciones del texto de un conjunto de reglas y traslado de valores a nuevos IDs cuando cambia una ficha.
+Usa esta página para ofrecer variantes que un jugador activa para una partida, para traducir el texto de un conjunto de reglas y para trasladar los valores guardados a nuevos IDs cuando cambia una ficha. Es para quienes escriben conjuntos de reglas. Antes de empezar, lee [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md).
 
 ## Capas: variantes de tu propio conjunto de reglas
 
@@ -49,7 +49,7 @@ Una capa es una variante con nombre de tu conjunto de reglas que el jugador acti
 
 **Conflictos.** `conflicts` identifica capas que no pueden estar activas juntas. Basta con indicar un lado del par. El asistente desactiva el otro interruptor y, si una elección guardada contiene ambos de algún modo, se descarta la capa declarada **después**, para que las mismas dos elecciones siempre produzcan las mismas reglas.
 
-**Una ficha que ya contenga un valor retirado lo conserva.** Nada reescribe al personaje. El editor simplemente deja de ofrecer el valor, y un personaje que ya lo tenía lo muestra tal como es. Desactiva la capa en una nueva partida y el valor volverá a ofrecerse. Lo mismo ocurre con una entrada de catálogo oculta: queda fuera del selector y una fila que el jugador ya eligió permanece en la ficha. Las monedas que retira una capa y que alguien ya lleva se quedan en su bolsa.
+**Una ficha que ya contenga un valor retirado lo conserva.** Nada reescribe al personaje. El editor deja de ofrecer el valor, y un personaje que ya lo tenía lo muestra tal como es. Desactiva la capa en una nueva partida y el valor volverá a ofrecerse. Lo mismo ocurre con una entrada de catálogo oculta: queda fuera del selector y una fila que el jugador ya eligió permanece en la ficha. Las monedas que retira una capa y que alguien ya lleva se quedan en su bolsa.
 
 **Límites.** 12 capas por conjunto de reglas y 4000 caracteres de instrucciones por capa, contando ambas cadenas juntas. Un conjunto de reglas empaquetado que declare `layers` o un `gm.worldGuidance` base necesita Capability API 1.25, uno cuyas capas retiran monedas necesita 1.64, y uno cuyas capas cambian su `items` necesita 1.813. Uno que importes lo valida Engine al leerlo, así que no necesita nada.
 

@@ -1,238 +1,234 @@
 # Konfiguracja syntezy mowy (TTS)
 
-Z tego przewodnika dowiesz się, jak uruchomić syntezę mowy w aplikacji Marinara Engine, żeby aplikacja czytała wiadomości i narrację gry na głos. Synteza mowy (TTS) zamienia napisany tekst czatu w mówiony dźwięk. Znajdziesz tu wybór dostawcy głosów, dobór głosów, automatyczne odtwarzanie i sterowanie odtwarzaniem przy pojedynczej wiadomości.
+Synteza mowy (TTS) czyta na głos wiadomości czatu i narrację gry. Z tego przewodnika dowiesz się, jak ją włączyć, wybrać usługę głosową i głosy, ustawić automatyczne odtwarzanie i korzystać ze sterowania przy pojedynczej wiadomości.
 
-## Gdzie są ustawienia TTS
+## Szybki start
 
-Prawie wszystkie ustawienia TTS mieszczą się w jednym miejscu. Otwórz panel **Connections** (Połączenia) i znajdź sekcję **Text to Speech**. Sekcja jest domyślnie zwinięta, więc kliknij jej nagłówek, żeby ją rozwinąć.
+1. Otwórz sekcję syntezy mowy (kroki niżej) i włącz **Use text to speech** (używanie syntezy mowy).
+2. Wybierz **Source** (źródło) i wklej klucz w pole **API key** (klucz API).
+3. Kliknij **Preview** (Odsłuchaj), żeby usłyszeć próbkę.
+4. W czacie kliknij **Speak** (Mów) pod wiadomością.
 
-Aplikacja wysyła żądania TTS przez własny serwer. Marinara szyfruje klucz API dostawcy i tak zaszyfrowany trzyma go na serwerze. Po zapisaniu klucza pole pokazuje wartość zamaskowaną, czyli rząd kropek, a nie prawdziwy klucz. Prawdziwy klucz nigdy nie wraca do przeglądarki.
+## Włączanie syntezy mowy
 
-Samo włączenie TTS niczego jeszcze nie odczyta. Odsłania tylko przycisk **Speak** (Mów) przy każdej wiadomości oraz opcje **Auto-play** (automatyczne odtwarzanie). O tym, co i kiedy zostanie przeczytane, nadal decydujesz ty.
+Prawie wszystkie ustawienia TTS mieszczą się w jednej sekcji. Samo włączenie TTS niczego jeszcze nie odczyta. Odsłania tylko przycisk **Speak** przy każdej wiadomości oraz opcje **Auto-play** (automatyczne odtwarzanie). O tym, co i kiedy zostanie przeczytane, nadal decydujesz ty.
 
-## Krok 1: włącz TTS i wybierz Source
+1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
+2. W grupie **Voice** (głos) wybierz **Text to speech** (synteza mowy). Otwiera się sekcja. Jeśli już korzystasz z PocketTTS, ta sama sekcja jest też w grupie **On this device** (na tym urządzeniu).
+3. Włącz **Use text to speech**. Dopóki jest wyłączone, nic nie jest czytane na głos.
+4. Otwórz listę **Source** i wybierz usługę.
 
-1. Otwórz panel **Connections** i rozwiń sekcję **Text to Speech**.
-2. Kliknij przełącznik w nagłówku sekcji, żeby włączyć TTS. Najedź na przełącznik, a zobaczysz podpowiedź: **Enable TTS**, gdy jest wyłączony, i **Disable TTS**, gdy jest włączony.
-3. Otwórz listę rozwijaną **Source** (źródło) i wskaż dostawcę.
+**Source** to usługa, która tworzy dźwięk.
 
-Pole **Source** określa usługę, która tworzy dźwięk. Do wyboru są cztery opcje:
-
-- **OpenAI-compatible**: OpenAI albo dowolny serwer naśladujący format TTS od OpenAI.
+- **OpenAI-compatible**: OpenAI albo dowolny serwer naśladujący format TTS od OpenAI. To ustawienie domyślne.
 - **ElevenLabs**: usługa głosowa ElevenLabs.
 - **PocketTTS**: darmowy serwer głosowy uruchamiany na własnym komputerze.
 - **xAI Voice**: usługa głosowa xAI.
 
-Domyślne źródło to **OpenAI-compatible**. Marinara trzyma osobny zapisany profil dla każdego źródła, razem z zaszyfrowanym kluczem API, adresem, modelem, głosami i parametrami dostawcy. Zmiana źródła przywraca poprzednią konfigurację tego źródła; źródło jeszcze nieskonfigurowane startuje z wartościami domyślnymi.
+Marinara trzyma osobny zapisany profil dla każdego źródła: jego klucz, adres, model, głosy i parametry. Zmiana źródła przywraca wcześniejszą konfigurację tego źródła. Źródło jeszcze nieskonfigurowane startuje z wartościami domyślnymi.
+
+Żądania przechodzą przez własny serwer aplikacji Marinara Engine. Klucz API jest przechowywany na serwerze w postaci zaszyfrowanej. Po zapisaniu klucza pole pokazuje zamaskowane kropki, a prawdziwy klucz nigdy nie wraca do przeglądarki.
 
 <a id="use-an-audio-connection"></a>
 
 ### Korzystanie z połączenia Audio
 
-Jeśli masz już skonfigurowane połączenie **Audio** (zobacz [Obsługiwani dostawcy AI](../connections/providers-reference.md#audio)), nie musisz tu ponownie wpisywać jego danych. Twoje połączenia Audio są wymienione na liście rozwijanej **Source** w grupie **Audio connections** (połączenia Audio), każde z typem źródła w nawiasie.
+Jeśli masz już dodane konto **Audio** (zobacz [Obsługiwani dostawcy AI](../connections/providers-reference.md#audio)), nie musisz ponownie wpisywać jego danych. Pojawia się na liście **Source** w grupie **Audio providers** (dostawcy audio), z typem źródła w nawiasie.
 
-1. Otwórz listę rozwijaną **Source** i wybierz połączenie.
-2. Jak zwykle wybierz głosy i pozostałe ustawienia opisane niżej.
+1. Otwórz listę **Source** i wybierz konto.
+2. Wybierz jego głosy i pozostałe ustawienia opisane niżej.
 
-Marinara mówi wtedy z użyciem adresu bazowego, klucza API, modelu i wartości **Request timeout (seconds)** (limit czasu żądania w sekundach) tego połączenia, więc sekcja ukrywa te pola. Klucz zostaje w połączeniu: nie jest kopiowany do ustawień sekcji ani wysyłany do przeglądarki. Zmiany w połączeniu, na przykład nowy klucz, działają od razu.
+Marinara używa wtedy adresu, klucza, modelu i wartości **Request timeout (seconds)** (limit czasu żądania w sekundach) tego konta, więc sekcja ukrywa te pola. Klucz zostaje w koncie: nigdy nie jest kopiowany do sekcji ani wysyłany do przeglądarki. Zmiany w koncie, na przykład nowy klucz, działają od razu.
 
-Głosy, prędkość i pozostałe ustawienia mowy są zapisywane osobno dla każdego połączenia. Dwa połączenia tego samego typu, na przykład dwa serwery OpenAI-compatible, nigdy ich nie współdzielą. Twoje ustawienia czterech zwykłych źródeł pozostają bez zmian, więc w każdej chwili możesz do nich wrócić. Przełącznik w nagłówku sekcji nadal włącza i wyłącza zwykłe Text to Speech. Generowana muzyka i efekty dźwiękowe korzystają teraz z osobnej kategorii połączeń.
+Głosy, prędkość i pozostałe ustawienia mowy są zapisywane osobno dla każdego konta. Dwa konta tego samego typu nigdy ich nie współdzielą. Twoje ustawienia czterech zwykłych źródeł pozostają bez zmian. Przełącznik sekcji nadal włącza i wyłącza zwykłe TTS.
 
-Jeśli wybrane połączenie zostanie usunięte albo nie da się go użyć, sekcja pokazuje **Missing Audio connection** (brak połączenia Audio) i nic nie jest odczytywane, dopóki nie wybierzesz innego źródła. Marinara nigdy sama nie przełącza się na inne połączenie.
+Jeśli wybrane konto zostanie usunięte albo nie da się go użyć, sekcja pokazuje **Missing Audio provider** (brak dostawcy audio) i nic nie jest odczytywane, dopóki nie wybierzesz innego źródła. Marinara nigdy nie przełącza się sama. Jeśli konto udostępnia listę swoich głosów, sekcja wskazuje każdy zapisany głos, którego nie ma na tej liście.
 
-Gdy połączenie udostępnia listę swoich głosów, sekcja wskazuje każdy zapisany głos, którego nie ma na tej liście, żeby można było wybrać głos oferowany przez połączenie.
+## Ustawianie adresu, klucza i modelu
 
-<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+Pomiń ten krok, jeśli wybrano konto Audio. Te dane pochodzą z konta.
 
-## Muzyka i efekty dźwiękowe Game na zgodnym serwerze audio
+1. Sprawdź pole **Base URL** (adres bazowy). Każde źródło wpisuje tu wartość domyślną (tabela niżej). Zmieniaj ją tylko przy korzystaniu z serwera proxy albo z serwera uruchamianego samodzielnie.
+2. Wklej klucz w pole **API key**. Żeby zachować dotychczasowy klucz, zostaw zamaskowane kropki. Żeby go usunąć, wyczyść pole.
+3. Sprawdź pole **Model**. Każde źródło wpisuje tu model domyślny. Można wpisać inny model obsługiwany przez usługę.
 
-W panelu **Connections** utwórz połączenie **Music & Sound Effects** (muzyka i efekty dźwiękowe) i wybierz **Custom compatible server** (własny zgodny serwer). Użyj adresu, klucza i modelu serwera muzyki lub efektów dźwiękowych. Ustaw **Generation API format** (format API generowania), wpisz ścieżki endpointów udostępnianych przez serwer i włącz **Music generation** (generowanie muzyki), **Sound-effect generation** (generowanie efektów dźwiękowych) albo oba przełączniki. Pusta ścieżka oznacza, że dana funkcja jest niedostępna. Wybierz to połączenie podczas konfiguracji gry lub w jej ustawieniach audio. W sekcji Text to Speech pozostaw osobno wybrane połączenie do mowy.
+| Source | Domyślny Base URL | Model domyślny | Głos domyślny |
+| --- | --- | --- | --- |
+| OpenAI-compatible | `https://api.openai.com/v1` | `tts-1` | `alloy` |
+| ElevenLabs | `https://api.elevenlabs.io` | `eleven_multilingual_v2` | brak, trzeba wybrać samodzielnie |
+| PocketTTS | `http://localhost:8000` | `pocket-tts` | `alba` |
+| xAI Voice | `https://api.x.ai/v1` | `grok-tts` | `eve` |
 
-Ścieżki endpointów są dopisywane do Base URL połączenia: dla `http://localhost:8002/v1` użyj `chat/completions`, aby otrzymać `/v1/chat/completions`. Lokalne endpointy HTTP wymagają `TTS_LOCAL_URLS_ENABLED=true` w `.env`, tak jak inne lokalne żądania do zgodnych serwerów audio.
+W przypadku źródła **ElevenLabs** lista **Model** wczytuje modele mowy dostępne na twoim koncie. Wybierz zwykły model mowy. Identyfikatory modeli zawierające `ttv` należą do modeli projektowania głosu, które nie potrafią czytać tekstu. Po wyborze takiego modelu odtwarzanie kończy się błędem z informacją, że trzeba użyć modelu mowy.
 
-Obsługiwane są dwa jawne kontrakty API:
+### PocketTTS
 
-- **Prompt JSON → MP3 audio** wysyła `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` i oczekuje bajtów MP3. Muzyka Game używa długości utworu kontekstowego (domyślnie 120 sekund); efekty dźwiękowe żądają 5 sekund. Użyj endpointu lub adaptera, który przyjmuje te pola.
-- **Chat Completions → inline audio (ACE-Step compatible)** wysyła `model`, jeden wpis użytkownika w `messages`, `stream: false` oraz `audio_config` z polami `duration`, `instrumental: true` i `format: "mp3"`. Przyjmuje osadzone audio MP3 z `choices[0].message.audio`: tablicę adresów audio ACE-Step zawierającą URL danych base64 albo obiekt z polem `data` w base64. Zobacz [kontrakt API zgodnego z ACE-Step](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Te kontrakty nie obsługują zdalnych adresów wyników ani asynchronicznych API zadań.
-
-Włączaj tylko funkcje faktycznie obsługiwane przez serwer. Sam endpoint mowy zgodny z OpenAI nie oznacza obsługi muzyki ani efektów dźwiękowych. Dostawca taki jak Infermatic musi udostępniać jeden z opisanych kontraktów albo adapter; jego działający endpoint muzyczny nie został tu zweryfikowany. Do natywnego generowania przez ElevenLabs lub SunoAPI wybierz odpowiednie źródło w kategorii **Music & Sound Effects**; zobacz [opis połączeń](../connections/providers-reference.md#music--sound-effects).
-
-Muzyka kontekstowa nadal powstaje raz na obszar lub poziom starcia i jest używana ponownie. Powtarzane efekty dźwiękowe korzystają z pamięci podręcznej audio. Błąd generowania pozostawia pamięć podręczną dostępną do ponownej próby.
-
-<a id="gacha-forge-dialogue-and-audio"></a>
-
-## Dialogi i dźwięk w pakiecie Gacha Forge
-
-Gacha Forge w wersji 1.11.0 lub nowszej korzysta z połączenia wybranego obecnie w sekcji **Text to Speech** i jego przypisań głosów do postaci. W kroku **Lore** (wiedza o świecie) podczas tworzenia nowego świata albo w **Settings → World → Sources** (ustawienia → świat → źródła) istniejącego świata włącz **Read character dialogue** (czytanie dialogów postaci), żeby odczytywać dialogi zaimportowanych postaci z jawnie przypisanym głosem. Narracja, myśli, wygenerowane jednostki bez identyfikatora postaci w aplikacji Marinara Engine oraz postacie bez przypisanego głosu pozostają nieme. Sama nazwa postaci nigdy nie pożycza głosu innej postaci. Wybrane połączenie Audio może działać przy włączonym przełączniku TTS świata; przy bezpośrednim korzystaniu z dawnych ustawień źródła w sekcji musi być też włączony jej główny przełącznik TTS.
-
-Wbudowana muzyka i efekty dźwiękowe Game działają bez połączenia generowania. Żeby tworzyć nowe utwory, włącz **Generate music and sound effects** (generowanie muzyki i efektów dźwiękowych) w pakiecie Gacha Forge, a potem wybierz połączenie Music & Sound Effects w polu **Audio connection** (połączenie audio). Ta lista pojawia się po włączeniu generowania. Ekran główny, walka, bossowie, wesołe/napięte/smutne sceny fabularne oraz historie postaci korzystają z osobnych utworów kontekstowych, generowanych przy pierwszej potrzebie, a potem używanych ponownie. Te żądania korzystają z twojego konta u dostawcy.
-
-Przycisk wyciszenia w prawym górnym rogu wycisza jednocześnie muzykę, dialogi i efekty dźwiękowe. W **Settings → Look (Visual)** (ustawienia → wygląd: wizualne) są osobne regulatory głośności tych trzech kanałów, w tym głośność zerowa, oraz pauza automatycznego odtwarzania. Pauza domyślnie trwa **3 sekundy** i zaczyna się po zakończeniu odsłaniania tekstu i ewentualnej wypowiadanej kwestii. Wybory nadal czekają na gracza. Opuszczenie sceny anuluje wypowiadany dialog. Muzyka gra dalej albo zmienia się, żeby pasować do nowego ekranu; opuszczenie świata zatrzymuje jego dźwięk. Zaktualizuj zarówno zainstalowany pakiet Gacha Forge, jak i aplikację Marinara Engine, żeby otrzymać te opcje.
-
-## Krok 2: wpisz Base URL, API Key i Model
-
-Pomiń ten krok, jeśli źródłem jest połączenie Audio: Marinara używa wtedy własnych ustawień tego połączenia.
-
-Każde źródło potrzebuje adresu internetowego, a większość z nich także klucza API. Klucz API to tajny kod od dostawcy, trochę jak hasło, który potwierdza, że żądanie pochodzi od ciebie.
-
-1. Sprawdź pole **Base URL** (adres bazowy). Każde źródło wpisuje tu sensowną wartość domyślną z tabeli poniżej. Zmieniaj ją tylko przy korzystaniu z proxy albo z własnego serwera.
-2. Wklej klucz dostawcy w pole **API Key** (klucz API). Żeby zachować dotychczasowy klucz, zostaw zamaskowane kropki bez zmian. Żeby usunąć zapisany klucz, wyczyść pole.
-3. Sprawdź pole **Model**. Każde źródło wpisuje tu model domyślny. Można wpisać nazwę innego modelu obsługiwanego przez dostawcę.
-
-Aplikacja wstawia takie wartości domyślne dla poszczególnych źródeł:
-
-| Source            | Domyślny Base URL         | Domyślny Model         | Głos wstawiany domyślnie przez aplikację |
-| ----------------- | ------------------------- | ---------------------- | ------------------------------- |
-| OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
-| ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | brak (trzeba wybrać samodzielnie) |
-| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
-| xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
-
-W przypadku źródła **ElevenLabs** pole **Model** wczytuje modele mowy dostępne przez twoje połączenie i po otwarciu zawsze pokazuje pełną listę. Wybierz zwykły model mowy. Identyfikatory modeli zawierające `ttv` należą do modeli projektowania głosu, a nie do modeli mowy, i nie potrafią czytać tekstu na głos. Po pomyłkowym wyborze takiego modelu odtwarzanie kończy się błędem z informacją, że trzeba użyć modelu mowy.
-
-### PocketTTS to osobny program
-
-PocketTTS nie jest wbudowany w aplikację Marinara Engine. Zainstaluj osobno [oficjalny serwer PocketTTS](https://github.com/kyutai-labs/pocket-tts), a następnie uruchom go poleceniem `uvx pocket-tts serve`. Marinara nie pobiera go ani nim nie zarządza.
-
-Oficjalny serwer domyślnie używa `http://localhost:8000`. Zostaw tę wartość **Base URL**, chyba że zmienisz host lub port. Marinara automatycznie wykrywa oficjalne wieloczęściowe API `/tts`. Istniejące własne adresy [adaptera PocketTTS zgodnego z OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) pozostają obsługiwane.
+PocketTTS nie jest wbudowany w aplikację Marinara Engine. Zainstaluj osobno [oficjalny serwer PocketTTS](https://github.com/kyutai-labs/pocket-tts) i uruchom go poleceniem `uvx pocket-tts serve`. Marinara nie pobiera go ani nim nie zarządza. Oficjalny serwer używa `http://localhost:8000`. Zostaw tę wartość **Base URL**, chyba że zmienisz host lub port. Marinara wykrywa oficjalne wieloczęściowe API `/tts`. Własne adresy [adaptera PocketTTS zgodnego z OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) nadal działają.
 
 <a id="request-timeout"></a>
 
 ### Limit czasu żądania
 
-Domyślnie Marinara czeka na każdą wypowiadaną kwestię do 60 sekund. Serwer głosu działający na twoim komputerze, zwłaszcza na laptopie, może potrzebować więcej czasu na długą kwestię. Żeby czekać dłużej, zwiększ **Request timeout (seconds)** pod polem **Model** w sekcji. Możesz ustawić od 10 do 3 600 sekund.
+Marinara czeka na każdą wypowiadaną kwestię do 60 sekund. Serwer głosu działający na twoim komputerze, zwłaszcza na laptopie, może potrzebować więcej czasu na długą kwestię. Zwiększ **Request timeout (seconds)** pod polem **Model**. Zakres wynosi od 10 do 3 600 sekund.
 
-Połączenie audio ma własne pole **Request timeout (seconds)** pod polem **Default Voice** w edytorze połączenia. Gdy czaty mówią przez połączenie audio, także wybrane jako **Source** w sekcji, używają limitu tego połączenia. Limit z sekcji dotyczy mowy z jej własnych ustawień, w tym przycisku **Preview**.
+Konto Audio ma własne pole **Request timeout (seconds)** pod polem **Default voice** (domyślny głos) w swoim edytorze. Czaty, które mówią przez konto Audio, także wybrane jako **Source**, używają tego limitu. Limit z sekcji dotyczy mowy z jej własnych ustawień, w tym przycisku **Preview**. Jeśli kwestia trwa zbyt długo, komunikat błędu podaje, ile sekund Marinara czekała i które ustawienie trzeba zwiększyć.
 
-Jeśli kwestia trwa zbyt długo, komunikat błędu podaje, ile sekund Marinara czekała i które ustawienie trzeba zwiększyć.
+## Wybór głosów
 
-## Krok 3: wybierz głos (Voice Option)
+Ustawienie **Voice option** (opcja głosu) decyduje o tym, jak przydzielane są głosy.
 
-Ustawienie **Voice Option** (opcja głosu) decyduje o tym, jak przydzielane są głosy:
+- **One voice for all** (jeden głos dla wszystkich): każda mówiąca osoba używa tego samego głosu. To ustawienie domyślne.
+- **Selected per character or persona** (wybór dla każdej postaci lub persony): wybrane postacie i persony dostają od ciebie własne głosy.
 
-- **One voice for all characters**: każda mówiąca osoba używa tego samego głosu. To ustawienie domyślne.
-- **Selected per character**: wybrane postacie dostają własne głosy.
+### Jeden głos dla wszystkich
 
-### Jeden głos dla wszystkich postaci
+Wybierz głos w polu **Shared voice** (wspólny głos). Żeby wczytać prawdziwą listę głosów usługi, wpisz jej dane i kliknij **Refresh voices from provider** (odświeżenie głosów od dostawcy, ikona okrągłej strzałki). Odświeżenie najpierw zapisuje sekcję, więc świeżo wpisany klucz działa od razu. Przed nawiązaniem połączenia aplikacja pokazuje krótką wbudowaną listę, żeby pole nie było puste. Błąd usługi jest pokazywany wprost, zamiast przedstawiać listę zastępczą jako udane odświeżenie.
 
-Wybierz głos w **All Characters Voice**. Oficjalny serwer PocketTTS nie udostępnia punktu listy głosów, więc Marinara pokazuje wbudowane głosy i zachowuje obok listy pole tekstowe dla innej wbudowanej nazwy lub obsługiwanego URL głosu. Zgodne serwery adapterów nadal mogą zwracać własną listę głosów i przyjmować własne ID lub ścieżki.
+Oficjalny serwer PocketTTS nie ma punktu końcowego listy głosów, więc Marinara pokazuje wbudowane głosy i zachowuje obok listy pole tekstowe na inną wbudowaną nazwę lub obsługiwany URL głosu. Zgodne serwery adapterów mogą zwracać własną listę i przyjmować własne identyfikatory lub ścieżki.
 
-Żeby wczytać prawdziwą listę głosów od dostawcy, uzupełnij dane połączenia i kliknij przycisk **Refresh voices** (ikona okrągłej strzałki). Da się to zrobić jeszcze przed włączeniem odtwarzania. Odświeżenie najpierw zapisuje sekcję, więc świeżo wpisany klucz API działa od razu. Przed nawiązaniem połączenia aplikacja pokazuje krótką wbudowaną listę zastępczą, żeby pole nie było puste. Błąd dostawcy pojawia się wprost, zamiast po cichu udawać, że lista zastępcza to udane odświeżenie.
+W przypadku źródła **ElevenLabs** wybór głosu jest obowiązkowy. Marinara wczytuje całą bibliotekę konta: głosy osobiste, głosy przestrzeni roboczej, zapisane i domyślne. Okno wyboru ma pole wyszukiwania i licznik wczytanych głosów. Na starcie widnieje w nim "Select an ElevenLabs voice", a odtwarzanie jest zablokowane do czasu wybrania prawdziwego głosu.
 
-W przypadku źródła **ElevenLabs** wybór głosu jest obowiązkowy. Marinara wczytuje stronicowaną bibliotekę konta, w tym głosy osobiste, głosy przestrzeni roboczej, zapisane i domyślne. Okno wyboru ma pole wyszukiwania oraz stale widoczny pasek przewijania, gdy biblioteka jest dłuższa niż panel. Pokazuje też, ile głosów udało się wczytać. Na starcie widnieje tam "Select an ElevenLabs voice", a odtwarzanie jest zablokowane do czasu wskazania prawdziwego głosu.
+### Głosy wybrane dla postaci i person
 
-### Głosy wybrane dla poszczególnych postaci
+1. Ustaw **Voice option** na **Selected per character or persona**.
+2. W ramce **Character and persona voices** (głosy postaci i person) kliknij **Add voice** (dodanie głosu).
+3. Wskaż postać lub personę na liście po lewej, a głos na liście po prawej.
+4. Powtórz to dla każdej z nich.
 
-1. Ustaw **Voice Option** na **Selected per character**.
-2. Pojawia się tabela **Character Voices** z kolumnami **Character** i **Voice**.
-3. Kliknij przycisk **Add character voice**, żeby dodać wiersz.
-4. Wskaż postać na liście rozwijanej po lewej, a głos na liście po prawej.
-5. Powtórz to dla każdej postaci, która ma dostać własny głos.
+Głos postaci można też ustawić na zakładce **Voice** w oknie **Character Editor**. Ten wybór zmienia ten sam wiersz. Przycisk **Refresh** (odświeżenie) w tej ramce wczytuje ponownie listę głosów. Postacie trzeba utworzyć wcześniej. Jeśli nie ma żadnej, aplikacja poprosi o dodanie postaci lub persony przed przypisywaniem głosów.
 
-Głos postaci można też wybrać w oknie **Character Editor**, na zakładce **Voice**. Ten wybór zmienia ten sam wiersz, więc w obu miejscach zawsze widać ten sam głos.
+Postać bez własnego głosu korzysta z głosu karty o pasującej nazwie, na przykład oryginału kopii AU. W przeciwnym razie używa wspólnego głosu. Zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md).
 
-Przycisk **Refresh** w ramce Character Voices wczytuje ponownie tę samą bibliotekę dostawcy, bez wracania do trybu jednego głosu. Postacie trzeba utworzyć wcześniej. Jeśli nie ma jeszcze żadnej, aplikacja poprosi o dodanie postaci w zakładce Characters przed przypisywaniem głosów. Postać bez własnego głosu korzysta z głosu ustawionego dla karty o pasującej nazwie, na przykład dla oryginału kopii AU. W przeciwnym razie używa głosu globalnego. Zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md).
+### Głos narratora
 
-## Narrator Voice
+Narracja to tekst, którego nie wypowiada żadna konkretna postać, na przykład opis sceny albo kwestie mistrza gry.
 
-Narracja to tekst, którego nie wypowiada żadna konkretna postać, na przykład opis sceny albo kwestie mistrza gry. Można jej przypisać osobny głos.
+1. W ramce **Narrator voice** (głos narratora) włącz **Use separate narrator voice** (osobny głos narratora).
+2. Wybierz głos.
 
-1. W ramce **Narrator Voice** włącz opcję **Use separate narrator voice**.
-2. Wskaż głos w oknie wyboru, które się pojawi.
+Aplikacja używa go, gdy mówiącym w danej kwestii jest Narrator, GM, Game Master albo System, w wiadomościach trybu Roleplay i trybu Conversation, a także w narracji trybu Game Mode bez wskazanego mówcy. Przy źródle ElevenLabs wybierz tu głos narratora. Jeśli zostawisz to pole puste, narracja korzysta z głosu zastępczego tylko wtedy, gdy ustawiony jest głos globalny.
 
-Aplikacja sięga po ten głos, kiedy mówiącym jest Narrator, GM, Game Master albo System. Działa to w wiadomościach trybu Roleplay i trybu Conversation. Obejmuje też wiersze narracji w trybie Game Mode, które nie mają wskazanej mówiącej postaci. Przy korzystaniu ze źródła ElevenLabs wskaż tutaj głos narratora. Pozostawione puste pole sprawia, że narracja korzysta z zastępczego głosu tylko wtedy, gdy ustawiony jest głos globalny.
+### Losowe głosy postaci NPC (tylko w trybie Game Mode)
 
-## Random NPC Voices (tylko w trybie Game Mode)
+Ta funkcja przydziela zapasowe głosy pobocznym postaciom w grze, które śledzi tryb Game Mode. W trybie Roleplay ani Conversation nie ma żadnego efektu.
 
-Ta funkcja przydziela zapasowe głosy pobocznym postaciom w grze. Działa wyłącznie w trybie Game Mode i tylko dla postaci NPC, które ten tryb śledzi. W trybie Roleplay ani Conversation nie ma żadnego efektu.
+1. W ramce **Random NPC voices** (losowe głosy postaci NPC) włącz **Use default voices for random NPCs** (domyślne głosy dla losowych postaci NPC).
+2. Zaznacz głosy w polach **Male NPC defaults** (domyślne głosy męskie) i **Female NPC defaults** (domyślne głosy żeńskie).
 
-1. W ramce **Random NPC Voices** włącz opcję **Use default voices for random NPCs**.
-2. Pojawiają się dwie siatki pól wyboru: **Male NPC defaults** i **Female NPC defaults**.
-3. Zaznacz głosy, z których ma korzystać każda z pul.
+Śledzona postać NPC bez własnego głosu dostaje stały wybór z pasującej puli i zachowuje go przez całą sesję. Postać NPC z przypisanym głosem zostaje przy tym głosie. Postacie NPC o niejasnej płci wybierają z obu pul. Jeśli aplikacja nie znajdzie głosów oznaczonych jako męskie lub żeńskie, każda pula korzysta z pełnej listy.
 
-Śledzona postać NPC bez własnego głosu dostaje stały wybór z pasującej puli. W trakcie jednej sesji ta sama postać NPC zachowuje ten sam głos. Postać NPC z przypisanym głosem postaci zawsze zostaje przy tym przypisanym głosie. Jeśli aplikacja nie rozpozna głosów oznaczonych jako męskie i żeńskie, każda pula korzysta z pełnej listy głosów.
+## Format dźwięku i prędkość
 
-## Audio Format i Speed
+Ustawienie **Audio format** (format dźwięku) to **MP3** (wartość domyślna) albo **WAV**. Format WAV przydaje się przy serwerach lokalnych, które nie potrafią tworzyć plików MP3. Ta kontrolka jest ukryta dla źródła ElevenLabs, które zawsze używa formatu MP3. Dla źródła xAI Voice jest widoczna, ale nic nie zmienia, bo xAI zawsze zwraca MP3.
 
-Ustawienie **Audio Format** pozwala wybrać **MP3** (wartość domyślna) albo **WAV**. Format WAV przydaje się przy serwerach lokalnych lub własnych, które nie potrafią tworzyć plików MP3. Dwie uwagi:
+Zakres suwaka **Speed** (prędkość) zależy od źródła:
 
-- Kontrolka **Audio Format** jest ukryta dla źródła ElevenLabs, które zawsze używa formatu MP3.
-- Dla źródła xAI Voice kontrolka jest widoczna, ale nic nie zmienia. xAI Voice zawsze zwraca format MP3.
+| Source | Zakres |
+| --- | --- |
+| OpenAI-compatible | od 0,25 do 4,0 normalnej prędkości |
+| PocketTTS | od 0,25 do 4,0 przy zgodnych adapterach. Oficjalny serwer sam steruje prędkością. |
+| ElevenLabs | od 0,7 do 1,2 normalnej prędkości |
+| xAI Voice | od 0,7 do 1,5 normalnej prędkości |
 
-Suwak **Speed** decyduje o tempie mowy. Dopuszczalny zakres zależy od źródła:
+Zapisana prędkość spoza zakresu jest sprowadzana do najbliższej dozwolonej wartości. Dla źródła ElevenLabs są jeszcze dwie kontrolki: **Language** (język; wymusza język albo zostaje na **Auto detect**, czyli automatycznym wykrywaniu) i **Stability** (stabilność; od większej ekspresji do większej powtarzalności).
 
-- OpenAI-compatible: od 0.25 do 4.0 normalnej prędkości.
-- PocketTTS: zgodne adaptery mogą korzystać z ustawienia prędkości od 0.25 do 4.0; oficjalny serwer obecnie sam steruje prędkością syntezy.
-- ElevenLabs: od 0.7 do 1.2.
-- xAI Voice: od 0.7 do 1.5.
+## Auto-play: automatyczne odtwarzanie
 
-Jeśli zapisana prędkość wykracza poza zakres bieżącego źródła, aplikacja przy odczycie sprowadza ją do najbliższej dozwolonej wartości.
+Każdy przełącznik **Auto-play** każe aplikacji czytać jeden rodzaj nowej wiadomości od razu po jej wygenerowaniu. Wszystkie wymagają włączonego **Use text to speech**. Każdy startuje wyłączony.
 
-Tylko dla źródła **ElevenLabs** pojawiają się dwie dodatkowe kontrolki. Pole **Language** wymusza język mowy albo zostaje na wartości **Auto detect**. Suwak **Stability** przesuwa mowę między większą ekspresją a większą powtarzalnością.
-
-## Auto-play: automatyczne czytanie wiadomości
-
-Pod nagłówkiem **Auto-play** każdy przełącznik każe aplikacji czytać jeden rodzaj nowej wiadomości od razu po jej wygenerowaniu. Wszystkie wymagają wcześniejszego włączenia **Enable TTS**. Każdy przełącznik startuje wyłączony.
-
-- **Roleplay messages**: czyta nowe odpowiedzi w trybie Roleplay.
-- **Conversation messages**: czyta nowe odpowiedzi w trybie Conversation.
-- **Game narration**: czyta nową narrację i wiersze walki w trybie Game Mode.
-- **Progressive playback**: gdy odpowiedź ma kilka wierszy, odtwarza pierwszy od razu, bez czekania na całość.
+- **Roleplay messages**: nowe odpowiedzi w trybie Roleplay.
+- **Conversation messages**: nowe odpowiedzi w trybie Conversation.
+- **Game narration**: nowa narracja i wiersze walki w trybie Game Mode.
+- **Progressive playback**: gdy odpowiedź ma kilka wierszy, odtwarza pierwszy od razu, bez czekania na całą odpowiedź.
 - **Only read dialogues**: czyta wyłącznie kwestie ujęte w cudzysłów lub oznaczone jako mówione i pomija zwykłą narrację.
 
-W Roleplay przygotowanie głosu zaczyna się zaraz po zapisaniu głównej odpowiedzi. Rozpoznawanie mówców i emocji korzysta z tego tekstu bez czekania na niezwiązanych agentów. Jeśli włączony agent przepisuje odpowiedź, na przykład Prose Guardian, Marinara czeka z przygotowaniem mowy na ostateczny tekst po zmianach.
+Automatyczne odtwarzanie uruchamia się raz, przy najnowszej odpowiedzi, w chwili jej zakończenia. Nie czyta ponownie starych wiadomości po ponownym otwarciu czatu ani przy przewijaniu.
 
-Automatyczne odtwarzanie uruchamia się tylko raz, przy najnowszej odpowiedzi, w chwili jej zakończenia. Nie czyta ponownie starych wiadomości po ponownym otwarciu czatu ani przy przewijaniu.
+W trybie Roleplay przygotowanie głosu zaczyna się zaraz po zapisaniu głównej odpowiedzi. Jeśli włączony agent przepisuje odpowiedź, na przykład Prose Guardian, Marinara czeka na ostateczny tekst.
 
-Te same ustawienia odtwarzania pozwalają też włączyć **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników), **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu) lub **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych). Bloki kodu są domyślnie pomijane; pozostałe dwa filtry są początkowo wyłączone. Filtrowanie znaczników usuwa ich zawartość, na przykład ukryty blok `<simulation>...</simulation>`, ale zachowuje znaczniki mówców używane do wyboru głosów. Filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w Roleplay.
+### Filtry tekstu i wskazówki dotyczące emocji
 
-Włącz **Roleplay speaker extractor** (rozpoznawanie mówców w trybie Roleplay), aby zobaczyć opcję **Enable emotion indicators** (włącz oznaczenia emocji). Gdy oznaczenia emocji są włączone, tekst w nawiasach kwadratowych trafia do usługi syntezy mowy nawet przy włączonej opcji **Skip text inside square brackets**. Dotyczy to także notatek. Aby notatki w nawiasach nie były odczytywane, wyłącz oznaczenia emocji i zostaw opcję pomijania włączoną.
+Te filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w trybie Roleplay. Bloki kodu są domyślnie pomijane. Pozostałe dwa filtry są początkowo wyłączone.
 
-Wskazówki dotyczące głosu, takie jak `[Low, steady voice, restrained urgency]`, pozostają w całości, gdy długa kwestia jest dzielona do odczytu. Znane oznaczenia mówców i scen nadal są usuwane. O tym, jak wykorzystać daną wskazówkę, decyduje model mowy.
+- **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników): usuwa zawartość znaczników, na przykład ukryty blok `<simulation>...</simulation>`. Znaczniki mówców używane do wyboru głosów zostają.
+- **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu).
+- **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych).
 
-**Roleplay speaker extractor** dodaje wskazówki bez zmiany słów oryginalnych kwestii. Gdy **Enable TTS**, **Game narration** i oznaczenia emocji są włączone, takie wskazówki mogą też trafiać do kwestii mówionych w scenach, dialogach drużyny i podczas walki w trybie Game Mode.
+Włącz **Roleplay speaker extractor** (rozpoznawanie mówców w trybie Roleplay), aby zobaczyć opcję **Enable emotion indicators** (włącz oznaczenia emocji). Dodaje ona wskazówki dotyczące głosu bez zmiany słów kwestii. Gdy oznaczenia emocji są włączone, tekst w nawiasach kwadratowych trafia do usługi syntezy mowy nawet przy włączonej opcji **Skip text inside square brackets**. Dotyczy to także notatek. Aby notatki w nawiasach nie były odczytywane, wyłącz oznaczenia emocji i zostaw pomijanie włączone. Wskazówki takie jak `[Low, steady voice, restrained urgency]` pozostają w całości, gdy długa kwestia jest dzielona. Znane oznaczenia mówców i scen nadal są usuwane. O tym, jak wykorzystać daną wskazówkę, decyduje model mowy. Gdy **Use text to speech**, **Game narration** i oznaczenia emocji są włączone, wskazówki mogą też trafiać do dialogów w scenach, w drużynie i podczas walki w trybie Game Mode.
 
 ## Odczytanie pojedynczej wiadomości
 
-Kiedy TTS jest włączony, na pasku narzędzi pod każdą wiadomością postaci lub narratora pojawia się przycisk **Speak** (ikona mikrofonu). Czyta on tę jedną wiadomość na żądanie.
+Kiedy TTS jest włączony, na pasku narzędzi pod każdą wiadomością postaci lub narratora pojawia się przycisk **Speak** (ikona mikrofonu).
 
-- Kliknij przycisk **Speak**, żeby odczytać wiadomość. W czasie pobierania dźwięku przycisk pokazuje stan wczytywania.
+- Kliknij **Speak**, żeby odczytać wiadomość. W czasie pobierania dźwięku przycisk pokazuje stan wczytywania.
 - Kliknij go ponownie w trakcie odtwarzania, żeby przerwać. Podpowiedź brzmi wtedy **Stop speaking**.
 - Wiadomość bez tekstu do odczytania, na przykład sam obrazek, pokazuje **No dialogue to speak** i pozostaje nieaktywna.
 
-W trakcie odczytywania wiadomości pojawiają się jeszcze dwa przyciski. **Pause speaking** i **Resume speaking** wstrzymują i wznawiają odtwarzanie. **Restart speaking** zaczyna wiadomość od początku.
+W trakcie odczytywania wiadomości pojawiają się przyciski **Pause speaking**, **Resume speaking** i **Restart speaking**. Przycisk z ikoną głośnika otwiera suwak **Line volume** w zakresie od 0 do 100 procent (domyślnie 50). Ta głośność jest niezależna od miksera w trybie Game Mode i od głośności rozmowy w trybie Conversation.
 
-Przycisk z ikoną głośnika otwiera suwak **Line volume** w zakresie od 0 do 100 procent, domyślnie 50. Ta głośność ma własne zapisane ustawienie. Jest niezależna od miksera w trybie Game Mode i od głośności rozmowy w trybie Conversation, więc zmiana jednej wartości nie rusza pozostałych.
+Jeśli to nie zadziałało, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
 ## Zapisane nagrania
 
-Aplikacja zapisuje wygenerowany dźwięk w przeglądarce, żeby nie tworzyć tej samej kwestii dwa razy. Panel **Cached clips** pokazuje na bieżąco ich liczbę i łączny rozmiar.
-
-Kliknij przycisk **Export cached TTS clips** (ikona pobierania), żeby zapisać na urządzeniu wszystkie zachowane nagrania jako osobne pliki dźwiękowe. Pamięć podręczna sama usuwa najstarsze nagrania. W aplikacji nie ma przycisku ręcznego czyszczenia, więc do jej opróżnienia wyczyść dane przeglądarki.
+Marinara zapisuje wygenerowany dźwięk w przeglądarce, żeby nie tworzyć tej samej kwestii dwa razy. Panel **Cached clips** pokazuje na bieżąco ich liczbę i łączny rozmiar. Kliknij **Export cached TTS clips** (ikona pobierania), żeby zapisać wszystkie zachowane nagrania jako osobne pliki dźwiękowe. Pamięć podręczna sama usuwa najstarsze nagrania. W aplikacji nie ma przycisku czyszczenia. Żeby ją opróżnić, wyczyść dane przeglądarki.
 
 ## TTS w poszczególnych trybach czatu
 
-Ta sama konfiguracja TTS obsługuje każdy tryb, a każdy z nich dokłada kilka własnych elementów:
+- Tryb **Roleplay** korzysta z przełącznika **Roleplay messages** i z przycisków **Speak**. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md).
+- Tryb **Conversation** korzysta z przełącznika **Conversation messages** i z tych samych przycisków. Rozmowy audio opisuje przewodnik [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
+- Tryb **Game Mode** korzysta z przełącznika **Game narration**. Jego mikser ma kanał **TTS** obok kanałów **Master**, **Music**, **Sound Effects** i **Ambient**. Ten kanał ustawia głośność mówionego dźwięku w grze i startuje na 100 procent. Zobacz [Kontrolki gry](../game/getting-started.md#the-games-controls).
 
-- Tryb Roleplay korzysta z przełącznika **Roleplay messages** i z przycisków **Speak** przy pojedynczych wiadomościach. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md).
-- Tryb Conversation korzysta z przełącznika **Conversation messages** i z tych samych przycisków **Speak**. Mówione rozmowy audio to osobna, większa funkcja, opisana w przewodniku [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
-- Tryb Game Mode korzysta z przełącznika **Game narration**. Ma też własny mikser dźwięku z kanałem **TTS** obok kanałów **Master**, **Music**, **Sound Effects** i **Ambient**. Ten kanał ustawia ogólną głośność mówionego dźwięku w grze i startuje na 100 procent. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md#the-games-controls).
+### Phonetic name (wymowa w rozmowach)
 
-## Phonetic name (wymowa w rozmowach)
+Jeśli głos przekręca nazwę postaci albo persony, uzupełnij pole **Phonetic name** (nazwa fonetyczna) i wpisz, jak nazwa ma brzmieć. W oknie **Character Editor** pole to jest na zakładce **Voice**. W oknie **Persona Editor** znajduje się przy polach z podstawowymi informacjami. Działa wyłącznie podczas rozmów audio i wideo w trybie Conversation. Przycisk **Speak**, automatyczne odtwarzanie i narracja w trybie Game Mode je pomijają.
 
-Jeśli nazwa postaci albo persony jest zapisana tak, że głos ją przekręca, uzupełnij pole **Phonetic name** (nazwa fonetyczna). W oknie **Character Editor** pole to jest na zakładce **Voice**. W oknie **Persona Editor** znajduje się przy pozostałych podstawowych informacjach. Wpisz, jak nazwa ma brzmieć.
-
-Ta zmiana działa wyłącznie podczas rozmów audio i wideo w trybie Conversation. Zwykły przycisk **Speak** przy wiadomości, automatyczne odtwarzanie w czacie ani narracja w trybie Game Mode nie sięgają po to pole.
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
-- Sekcja pokazuje **Missing Audio connection**: połączenie Audio wybrane jako źródło zostało usunięte albo nie da się go użyć. Wybierz inne źródło. Zobacz [Korzystanie z połączenia Audio](#use-an-audio-connection).
-- Nic nie jest odczytywane: sprawdź, czy przełącznik **Enable TTS** jest włączony. Potem sprawdź właściwy dla danego trybu przełącznik **Auto-play** albo użyj przycisku **Speak** przy wiadomości. Przycisk **Speak** i opcje automatycznego odtwarzania pojawiają się dopiero po włączeniu TTS.
-- Brak głosów na liście rozwijanej: zapisz sekcję z włączonym TTS i, jeśli dostawca go wymaga, poprawnym kluczem API, a potem kliknij przycisk **Refresh voices**. Oficjalny serwer PocketTTS korzysta z wbudowanej listy Marinara, ponieważ nie udostępnia punktu końcowego listy głosów. W przypadku zgodnego adaptera PocketTTS sprawdź, czy `<Base URL>/v1/voices` odpowiada.
-- ElevenLabs nie mówi: sprawdź, czy wybrany jest prawdziwy głos, a nie tekst zastępczy "Select an ElevenLabs voice". Sprawdź też, czy w polu **Model** stoi model mowy, a nie model projektowania głosu z `ttv` w identyfikatorze.
-- Kwestia urywa się z komunikatem **No audio after 60 s**: serwer głosu potrzebuje więcej czasu. Zwiększ **Request timeout (seconds)** w miejscu wskazanym w komunikacie. Zobacz [Limit czasu żądania](#request-timeout).
-- Własny serwer TTS pod adresem lokalnym jest blokowany: włącz na serwerze ustawienie `TTS_LOCAL_URLS_ENABLED`. Dzięki temu aplikacja sięgnie po adres lokalny lub prywatny w przypadku serwerów zgodnych z OpenAI oraz serwerów w stylu ElevenLabs. Źródło PocketTTS tego ustawienia nie potrzebuje. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
-- Szybki test konfiguracji: kliknij przycisk **Preview** w sekcji, żeby odtworzyć krótką próbkę z bieżącymi ustawieniami.
+- **Nic nie jest odczytywane**: sprawdź, czy **Use text to speech** jest włączone. Potem sprawdź właściwy przełącznik **Auto-play** albo użyj przycisku **Speak** przy wiadomości.
+- **Sekcja pokazuje Missing Audio provider**: konto wybrane jako **Source** zostało usunięte albo nie da się go użyć. Wybierz inne źródło. Zobacz [Korzystanie z połączenia Audio](#use-an-audio-connection).
+- **Brak głosów na liście**: zapisz sekcję z włączonym TTS i poprawnym kluczem, a potem kliknij **Refresh voices from provider**. Oficjalny serwer PocketTTS korzysta z wbudowanej listy aplikacji Marinara Engine. W przypadku zgodnego adaptera PocketTTS sprawdź, czy `<Base URL>/v1/voices` odpowiada.
+- **ElevenLabs nie mówi**: wybierz prawdziwy głos, a nie tekst zastępczy "Select an ElevenLabs voice". Sprawdź, czy w polu **Model** jest model mowy, a nie model projektowania głosu z `ttv` w identyfikatorze.
+- **Kwestia urywa się z komunikatem "No audio after 60 s"**: serwer głosu potrzebuje więcej czasu. Zwiększ **Request timeout (seconds)** w miejscu wskazanym w komunikacie. Zobacz [Limit czasu żądania](#request-timeout).
+- **Własny serwer pod adresem lokalnym jest blokowany**: włącz `TTS_LOCAL_URLS_ENABLED` w pliku `.env`. Dzięki temu Marinara sięgnie po adres lokalny lub prywatny w przypadku serwerów zgodnych z OpenAI albo serwerów w stylu ElevenLabs. Źródło PocketTTS tego nie potrzebuje. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
+- **Szybki test**: kliknij **Preview** w sekcji, żeby odtworzyć krótką próbkę z bieżącymi ustawieniami.
+
+## Odniesienie: muzyka, efekty dźwiękowe i Gacha Forge
+
+Te sekcje dotyczą zaawansowanych konfiguracji.
+
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+### Muzyka i efekty dźwiękowe Game na zgodnym serwerze audio
+
+1. W panelu **Connections** otwórz konto **Music & Sound Effects** (muzyka i efekty dźwiękowe) przez **Edit model** (edycja modelu) i wybierz **Custom compatible server** (własny zgodny serwer). Okno **Add account** nie ma kafelka dla tego typu konta. Takie konto powstaje przy aktualizacji albo przez import (zobacz [opis kont](../connections/providers-reference.md#music--sound-effects)).
+2. Wpisz adres, klucz i model serwera muzyki lub efektów dźwiękowych.
+3. Ustaw **Generation API format** (format API generowania) i wpisz ścieżki endpointów udostępnianych przez serwer. Pusta ścieżka oznacza, że dana funkcja jest niedostępna.
+4. Włącz **Music generation** (generowanie muzyki), **Sound-effect generation** (generowanie efektów dźwiękowych) albo oba przełączniki.
+5. Wybierz to konto podczas konfiguracji gry albo w jej ustawieniach audio. W sekcji TTS pozostaw osobno wybrane konto do mowy.
+
+Ścieżki endpointów są dopisywane do Base URL konta. Dla `http://localhost:8002/v1` użyj `chat/completions`, aby otrzymać `/v1/chat/completions`. Lokalne endpointy HTTP wymagają `TTS_LOCAL_URLS_ENABLED=true` w `.env`, tak jak inne lokalne żądania do zgodnych serwerów audio.
+
+Obsługiwane są dwa formaty API:
+
+- **Prompt JSON → MP3 audio** wysyła `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` i oczekuje bajtów MP3. Muzyka Game używa długości utworu kontekstowego (domyślnie 120 sekund). Efekty dźwiękowe żądają 5 sekund.
+- **Chat Completions → inline audio (ACE-Step compatible)** wysyła `model`, jeden wpis użytkownika w `messages`, `stream: false` oraz `audio_config` z polami `duration`, `instrumental: true` i `format: "mp3"`. Przyjmuje osadzone audio MP3 z `choices[0].message.audio`: tablicę adresów audio ACE-Step zawierającą URL danych base64 albo obiekt z polem `data` w base64. Zobacz [kontrakt API zgodnego z ACE-Step](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Zdalne adresy wyników i asynchroniczne API zadań nie są obsługiwane.
+
+Włączaj tylko funkcje faktycznie obsługiwane przez serwer. Sam endpoint mowy zgodny z OpenAI nie oznacza obsługi muzyki ani efektów dźwiękowych. Usługa taka jak Infermatic musi udostępniać jeden z tych formatów albo adapter. Jej działający endpoint muzyczny nie został tu zweryfikowany. Do natywnego generowania przez ElevenLabs lub SunoAPI użyj odpowiedniego źródła w kategorii **Music & Sound Effects**. Zobacz [opis kont](../connections/providers-reference.md#music--sound-effects).
+
+Wygenerowana muzyka kontekstowa powstaje raz na obszar lub poziom starcia i jest używana ponownie. Powtarzane efekty dźwiękowe korzystają z pamięci podręcznej audio. Błąd generowania pozostawia pamięć podręczną dostępną do ponownej próby.
+
+<a id="gacha-forge-dialogue-and-audio"></a>
+
+### Dialogi i dźwięk w pakiecie Gacha Forge
+
+Gacha Forge w wersji 1.11.0 lub nowszej korzysta z konta wybranego w sekcji TTS i jego przypisań głosów do postaci. - Włącz **Read character dialogue** (czytanie dialogów postaci), żeby odczytywać dialogi zaimportowanych postaci z przypisanym głosem. Ta opcja jest w kroku **Lore** (wiedza o świecie) podczas tworzenia nowego świata albo we własnych ustawieniach świata pakietu Gacha Forge dla istniejącego świata. Narracja, myśli, wygenerowane jednostki bez identyfikatora postaci w aplikacji Marinara Engine oraz postacie bez głosu pozostają nieme. Sama nazwa nigdy nie pożycza głosu innej postaci.
+- Wybranego konta Audio można używać, gdy przełącznik TTS świata jest włączony. Przy bezpośrednim korzystaniu z własnych ustawień źródła w sekcji musi być też włączone **Use text to speech**.
+- Wbudowana muzyka i efekty dźwiękowe Game nie wymagają konta do generowania. Żeby tworzyć nowe utwory, włącz **Generate music and sound effects** (generowanie muzyki i efektów dźwiękowych) w pakiecie Gacha Forge i wybierz konto Music & Sound Effects w polu **Audio connection** (połączenie audio). To pole pojawia się po włączeniu generowania. Utwory ekranu głównego, walki, bossów, scen fabularnych i historii postaci są generowane przy pierwszej potrzebie, a potem używane ponownie. Te żądania korzystają z twojego konta w usłudze.
+- Przycisk wyciszenia w prawym górnym rogu wycisza jednocześnie muzykę, dialogi i efekty dźwiękowe. Ustawienia wizualne pakietu Gacha Forge mają osobne regulatory głośności tych trzech kanałów, w tym głośność zerową, oraz pauzę automatycznego odtwarzania (domyślnie **3 sekundy**, po zakończeniu odsłaniania tekstu i ewentualnej wypowiadanej kwestii). Wybory nadal czekają na gracza. Opuszczenie sceny anuluje wypowiadany dialog. Opuszczenie świata zatrzymuje jego dźwięk.
+
+Zaktualizuj zarówno zainstalowany pakiet Gacha Forge, jak i aplikację Marinara Engine, żeby otrzymać te opcje.
 
 ## Powiązane przewodniki
 

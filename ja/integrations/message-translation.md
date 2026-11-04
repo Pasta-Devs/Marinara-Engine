@@ -1,126 +1,113 @@
 # メッセージの翻訳
 
-Marinara Engineには、チャットのメッセージを別の言語に翻訳する機能があります。このガイドでは、4つの翻訳プロバイダー、自動翻訳のトグル、メッセージごとの**Translate**(翻訳)ボタン、そして各プロバイダーの制限を説明します。
+Marinara Engineには、チャットのメッセージを別の言語に翻訳する機能があります。このガイドでは、翻訳サービスの選び方、言語の設定、自動翻訳をオンにする方法、1つのメッセージを翻訳する方法を説明します。
 
-翻訳の設定はチャットごとです。プロバイダー、言語、キーは、そのチャットだけに保存されます。新しいチャットを同じ設定で始めるには、[新しいチャット用の翻訳のデフォルト](#translator-defaults-for-new-chats)として保存してください。
+翻訳の設定はチャットごとです。サービス、言語、キーは、チャットごとに保存されます。新しいチャットを同じ設定で始めるには、[新しいチャット用の翻訳のデフォルト](#translator-defaults-for-new-chats)として保存してください。
 
 ## 翻訳設定の場所
 
 1. いずれかのモード(Conversation、Roleplay、Game)でチャットを開きます。
-2. そのチャットの**Chat Settings**(チャット設定)パネルを開きます。
+2. **Chat Settings**(チャット設定)を開きます。
 3. **Translation**(翻訳)セクションを探します。
 
-以下で説明するプロバイダーとトグルの設定は、すべてこの**Translation**セクションにあります。
+以下の設定は、すべてこのセクションにあります。
 
-## プロバイダーの選び方
+## プロバイダーを選ぶ
 
-**Provider**ドロップダウンには4つの選択肢があります。
+**Provider**の一覧には4つの選択肢があります。
 
 | プロバイダー | 必要なもの | 備考 |
-|---|---|---|
+| --- | --- | --- |
 | **Google Translate** | なし | デフォルト。無料で、キーも不要。1回のリクエストにつき5000文字まで。 |
 | **DeepL API** | DeepLのAPIキー | 品質が高い。無料キーと有料キーのどちらでも使えます。 |
-| **DeepLX (self-hosted)** | DeepLXサーバーのURL | 自分で動かしているDeepLXに接続する場合に使います。 |
-| **AI (via connection)** | AIの接続 | 手持ちのAIプロバイダーに翻訳させます。 |
+| **DeepLX (self-hosted)** | DeepLXサーバーのURL | 自分で動かしているDeepLXサーバー向け。 |
+| **AI (via connection)** | AIのアカウント | 手持ちのAIモデルの1つに翻訳させます。 |
 
-デフォルトでは**Google Translate**が選ばれていて、準備は何も要りません。以下の機能が必要なときだけ、別のプロバイダーに切り替えてください。
+Google Translateは、準備なしで使えます。ほかのプロバイダーは、それが提供するものが必要な場合にだけ選んでください。
 
-### Model LanguageとMy Language
+### 言語を設定する
 
 言語は2つの欄で指定します。どちらもデフォルトは`en`(英語)です。
 
-- **Model Language**(モデルの言語): 自分のメッセージは、AIが読む前にこの言語に翻訳されます。**Translate My Messages**と**Translate draft**はこの言語を使います。
-- **My Language**(自分の言語): AIの返信はこの言語に翻訳されます。**Auto-Translate Responses**とメッセージごとの**Translate**ボタンはこの言語を使います。
+- **Model Language**(モデルの言語)は、AIモデルが理解し、返信に使う言語です。自分の言語で入力すると、AIが読む前にメッセージがこの言語に翻訳されます。**Translate My Messages**と**Translate draft**はこの言語を使います。
+- **My Language**(自分の言語)は、自分が読む言語です。AIの返信はこの言語に翻訳されます。**Auto-Translate Responses**とメッセージごとの**Translate**(翻訳)ボタンはこの言語を使います。
 
-書き方はプロバイダーによって変わります。
+たとえば、スペイン語で書き、AIは英語のほうがうまく動く場合は、**Model Language**を`en`に、**My Language**を`es`にします。
 
-- **Google Translate**、**DeepL API**、**DeepLX (self-hosted)**では、短い言語コードを入力します。例: `en`、`ja`、`es`、`de`、`fr`、`zh`、`ko`。
-- **AI (via connection)**では、言語名を入力します。例: `English`、`Japanese`、`Spanish`。
+Google Translate、DeepL API、DeepLXでは、`en`、`ja`、`es`、`de`、`fr`、`zh`、`ko`のような短いコードを入力します。AI (via connection)では、`English`、`Japanese`、`Spanish`のような言語名を入力します。
 
-### DeepL APIの設定
+うまくいかなかった場合: コードや名前が間違っていると、エラーになるか、テキストが変わらないままになります。使っているプロバイダーの形式を確認してください。
 
-**DeepL API**を選ぶと、**DeepL API Key**(DeepLのAPIキー)欄が現れます。ここにDeepLアカウントのキーを貼り付けます。DeepLのキーは次のような形です。
+### DeepL API
 
-```
+**DeepL API**を選び、DeepLアカウントのキーを**DeepL API Key**(DeepLのAPIキー)に貼り付けます。`:fx`で終わるキーは無料プランのキーで、MarinaraはDeepLの無料サービスに送信します。それ以外のキーは有料として扱います。
+
+```text
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 ```
 
-`:fx`で終わるキーは無料プランのキーで、MarinaraはDeepLの無料サービスに送信します。それ以外のキーは有料キーとして扱います。
+### DeepLX
 
-### DeepLXの設定
+DeepLXは、自分で動かす無料の翻訳サーバーです。**DeepLX (self-hosted)**を選び、**DeepLX URL**(DeepLXのURL)にサーバーのアドレスを入力します。たとえば`http://localhost:1188`です。
 
-DeepLXは、自分で動かす無料の翻訳サーバーです。**DeepLX (self-hosted)**を選ぶと、**DeepLX URL**(DeepLXのURL)欄が現れます。ここにDeepLXサーバーのアドレスを入力します。例:
+自分のコンピューターやローカルネットワークにあるDeepLXサーバーのアドレスは、ローカルアドレスです。Marinaraは安全のため、デフォルトでローカルアドレスをブロックします。許可するには、`.env`ファイルに次の行を追加して保存します。再起動は不要です。ふつうは数秒以内、長くても約30秒で反映されます。ファイルの場所は[サーバー設定リファレンス](../CONFIGURATION.md)で説明しています。
 
-```
-http://localhost:1188
-```
-
-DeepLXサーバーを同じコンピューターやローカルネットワークで動かしている場合、そのアドレスはローカルアドレスです。Marinaraは安全のため、デフォルトではローカルアドレスへのリクエストをブロックします。許可するには、`.env`ファイルに次の行を書いて保存します。
-
-```
+```text
 DEEPLX_LOCAL_URLS_ENABLED=true
 ```
 
-`.env`はサーバーの設定ファイルです。置き場所は[サーバー設定リファレンス](../CONFIGURATION.md)で説明しています。サーバーを再起動する必要はありません。数秒以内に変更が反映されます。
+インターネット上の公開アドレスにあるDeepLXサーバーなら、この設定は不要です。
 
-インターネット上の公開アドレスにあるDeepLXサーバーなら、この設定は不要です。デフォルトでブロックされるのは、ローカルアドレスとプライベートネットワークのアドレスだけです。
+### AI (via connection)
 
-### AI翻訳の設定
+**AI (via connection)**を選ぶと、手持ちのAIモデルの1つに翻訳させます。3つの欄が表示されます。
 
-**AI (via connection)**を選ぶと、Marinaraは手持ちのAIプロバイダーに翻訳させます。このとき3つの欄が追加されます。
+- **Connection**(接続): どのAIアカウントに翻訳させるかを選びます。必須です。未設定のままだと、翻訳は「Connection ID is required for AI translation」というメッセージで失敗します。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。
+- **Outgoing Message Prompt**(送信メッセージのプロンプト)と**Incoming Response Prompt**(受信した返信のプロンプト): 自分のメッセージとAI自身の返信を翻訳するときに、AIが受け取る指示です。どちらにも組み込みのデフォルトが入っていて、このチャット用に書き換えられます。`{{targetLanguage}}`は、**Model Language**または**My Language**に置き換わります。プロンプトを変更したあとは、**Restore**(復元)で元に戻せます。デフォルトのプロンプトは次のとおりです。
 
-**Connection**(接続)ドロップダウンでは、どのAIの接続に翻訳させるかを選びます。この欄は必須です。未設定のままだと翻訳は失敗し、「Connection ID is required for AI translation」というメッセージが表示されます。接続とは、AIプロバイダーへの接続情報をまとめて保存したものです。作り方は下の接続のガイドを参照してください。
-
-**Outgoing Message Prompt**(送信メッセージのプロンプト)欄と**Incoming Response Prompt**(受信した返信のプロンプト)欄は、自分のメッセージとAIの返信を翻訳するときにAIへ送る指示です。どちらにも組み込みのデフォルトが入っていて、このチャット用にそれぞれ書き換えられます。プロンプト内の`{{targetLanguage}}`は、**Model Language**または**My Language**に置き換わります。プロンプトを書き換えると**Restore**(復元)ボタンが現れ、押すと組み込みのデフォルトに戻ります。デフォルトのプロンプトは次のとおりです。
-
+```text
+You are a translator. Translate the given text accurately into {{targetLanguage}},
+preserving formatting, markdown, and any special characters like *asterisks* for actions.
+Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
-You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
-```
 
-## 自動翻訳のトグル
+## 自動翻訳をオンにする
 
-プロバイダーの設定の下には、4つのトグルがあります。4つともデフォルトはオフです。
+プロバイダーの設定の下に、4つのトグルがあります。どれも最初はオフです。
 
-**Auto-Translate Responses**(AIの返信を自動翻訳)は、AIの返信が生成された直後に、毎回自動で翻訳します。Game Modeでは、地の文からゲームマスター専用のタグを取り除いてから翻訳します。
+- **Auto-Translate Responses**(AIの返信を自動翻訳): AIの返信が生成された直後に、毎回翻訳します。Game Modeでは、先に地の文からゲームマスター専用のタグを取り除きます。
+- **Translate My Messages**(自分のメッセージを翻訳): 自分のメッセージをAIに送る直前に**Model Language**へ翻訳し、入力した文章を置き換えます。翻訳に失敗した場合は、Marinaraが元の文章を送信し、エラーを表示します。
+- **Show Draft Translate Button**(下書きの翻訳ボタンを表示): **Send**の隣に**Translate draft**ボタンを追加します。送信する前に翻訳を確かめ、手直しできます。**Translate My Messages**の手動版です。
+- **Show Only Translation**(翻訳だけを表示): 翻訳したメッセージで、原文と翻訳を並べる代わりに、原文の位置に翻訳を表示します。
 
-**Translate My Messages**(自分のメッセージを翻訳)は、自分が書いたメッセージをAIに送信する直前に、**Model Language**で指定した言語へ翻訳します。入力した文章は翻訳文に置き換わります。翻訳に失敗した場合は、Marinaraが元の文章をそのまま送信し、エラーメッセージを表示します。
-
-**Show Draft Translate Button**(下書きの翻訳ボタンを表示)をオンにすると、**Send**ボタンの隣に**Translate draft**ボタンが追加されます。送信する前にメッセージを翻訳して、結果を確かめたり手直ししたりできます。**Translate My Messages**は送信時に翻訳するため内容を確認できませんが、こちらはその手動版です。
-
-**Show Only Translation**(翻訳だけを表示)をオンにすると、翻訳したメッセージは、原文と翻訳を並べる代わりに翻訳だけを表示します。
-
-**Conversation**では、パソコンでもモバイルでも、入力欄のスマイルボタン→**Tools → Translate draft**(ツール → 下書きを翻訳)から未送信の下書きをいつでも翻訳できます。**Show Draft Translate Button**や自動翻訳を有効にする必要はありません。このチャットの入力翻訳設定を使い、確認できるよう下書きを置き換えます。メッセージは送信しません。翻訳に失敗した場合、下書きはそのまま残ります。
+Conversationでは、パソコンでもモバイルでも、入力欄のスマイルボタンから**Tools → Translate draft**(ツール → 下書きを翻訳)を選んで、未送信の下書きをいつでも翻訳できます。どちらのトグルもオンにする必要はありません。このチャットの入力翻訳の設定を使い、確認できるよう下書きを置き換えます。何も送信しません。翻訳に失敗した場合、下書きは元のまま残ります。
 
 <a id="translator-defaults-for-new-chats"></a>
 
 ## 新しいチャット用の翻訳のデフォルト
 
-トグルの下にある**Save translator defaults**(翻訳のデフォルト設定を保存)は、このチャットの翻訳設定を、すべてのモードの新しいチャット用に保存します。セットアップウィザードと設定プロファイルの設定が優先されます。既存のチャットは、それぞれの設定を保ちます。**Forget saved defaults**(保存したデフォルトを消去)で消去できます。[Noodle](../noodle/settings.md#translation)も同じデフォルトを使います。
+トグルの下にある**Save translator defaults**(翻訳のデフォルト設定を保存)は、このチャットの翻訳設定を、すべてのモードの新しいチャット用に保存します。セットアップウィザードと設定プロファイルの設定が優先されます。既存のチャットは、それぞれの設定を保ちます。**Forget saved defaults**(保存したデフォルトを消去)で消去できます。[Noodle](../agents/noodle-settings.md#translation)も同じデフォルトを使います。
 
 DeepLのAPIキーとDeepLXのURLは、このMarinaraのインストールの中にとどまります。チャットのエクスポート、エクスポートした設定プロファイル、**Export Profile**のファイルにはこれらが含まれず、それらをインポートしても設定されることはありません。チャットを別のインストールに移した後は、もう一度入力してください。
 
-## メッセージごとのTranslateボタン
+## 1つのメッセージを翻訳する
 
-自分のメッセージもAIのメッセージも、カーソルを重ねると出る操作バーに**Translate**ボタンがあります。ボタンのアイコンは言語のマークです。このボタンは単独で動くので、上のトグルはどれもオンにする必要はありません。
+自分のメッセージにもAIのメッセージにも、操作バーに**Translate**(翻訳)ボタン(言語のアイコン)があります。上のトグルはどれもオンにしなくても使えます。
 
-1. メッセージにポインターを重ねて、操作バーを表示します。
-2. **Translate**ボタンをクリックします。
+1. メッセージにポインターを重ねる、またはスマートフォンではタップして、操作バーを表示します。
+2. **Translate**をクリックします。
 3. メッセージの下に翻訳が表示されます。**Show Only Translation**がオンの場合は、メッセージの代わりに表示されます。
-4. もう一度同じボタンをクリックすると翻訳が隠れます。このときボタンのヒントは**Hide translation**に変わります。
+4. もう一度ボタンをクリックすると翻訳が隠れます。このときボタンの表示は**Hide translation**に変わります。
 
-こうして作った翻訳はメッセージと一緒に保存されます。ページを再読み込みしても消えず、別のチャットに移って戻ってきても残っています。
-
-メッセージごとのボタンは、**Translation**セクションで設定したプロバイダーと**My Language**をそのまま使います。
+翻訳はメッセージと一緒に保存され、ページを再読み込みしても、チャットを切り替えても残ります。上のセクションで設定したのと同じプロバイダーと**My Language**を使います。
 
 ## プロバイダーの制限
 
-プロバイダーを選ぶときは、次の制限を頭に入れておいてください。
-
-- **Google Translate**は5000文字を超えるテキストを受け付けません。「Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts.」というエラーが表示されます。長い文章はDeepLかAIに切り替えてください。
+- **Google Translate**は5000文字を超えるテキストを受け付けず、「Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts.」というエラーを表示します。
 - **DeepL API**、**DeepLX (self-hosted)**、**AI (via connection)**はもっと長いテキストを扱えます。上限はサーバー側の制限で、1回のリクエストにつき50000文字です。
-- **Google Translate**、**DeepL API**、**DeepLX (self-hosted)**は、15秒を超えると処理を打ち切ってエラーを表示します。
-- **AI (via connection)**はこの15秒の制限ではなく、その接続のモデルとタイムアウトの挙動に従います。
-- ローカルアドレスへの**DeepLX (self-hosted)**は、上で説明した`DEEPLX_LOCAL_URLS_ENABLED=true`を設定しないかぎりブロックされます。
+- **Google Translate**、**DeepL API**、**DeepLX (self-hosted)**は、15秒で処理を打ち切ってエラーを表示します。
+- **AI (via connection)**は、15秒の制限ではなく、AIモデル自体のタイムアウトに従います。
+- ローカルアドレスにある**DeepLX (self-hosted)**は、`DEEPLX_LOCAL_URLS_ENABLED=true`を設定しないかぎりブロックされます。
 
 ## 関連ガイド
 

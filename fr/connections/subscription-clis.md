@@ -1,145 +1,103 @@
 # Connexions par abonnement Claude, ChatGPT et Grok
 
-Ce guide explique les trois connexions qui passent par un compte au lieu d'une clé API : **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)**. Tu installes un petit outil en ligne de commande, tu te connectes une fois, et Marinara Engine utilise ce compte pour discuter. Un outil en ligne de commande (CLI) est un programme que tu lances en tapant une commande dans une fenêtre de terminal.
+Trois services te permettent de discuter avec un forfait que tu paies déjà, au lieu d'une clé API : **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)**. Tu installes un petit outil en ligne de commande (CLI) et tu te connectes une fois. Marinara Engine réutilise ensuite cette identification. Rien n'est collé dans Marinara.
 
-## À quoi servent les connexions par abonnement
+Le forfait qu'il te faut :
 
-La plupart des connexions de Marinara Engine utilisent une clé API. Une clé API est un code secret, un peu comme un mot de passe, que tu colles dans la connexion pour que le service d'IA facture ton compte.
+- **Claude (Subscription)** : Anthropic Pro ou Max, ou un autre forfait accepté par Claude Code.
+- **OpenAI (ChatGPT)** : un compte ChatGPT. Les limites d'utilisation dépendent du forfait.
+- **Grok CLI (Subscription)** : SuperGrok ou X Premium+.
 
-Ces trois connexions fonctionnent autrement. Elles s'appuient sur une identification locale plutôt que sur une clé API. Tu te connectes à un CLI sur ta propre machine, et Marinara réutilise cette identification. Rien n'est collé dans Marinara.
+## Ajouter un compte par abonnement
 
-Choisis une connexion par abonnement quand ton compte donne accès à l'un de ces CLI :
+Avant de commencer, sache que le CLI doit être installé et connecté sur l'ordinateur qui fait tourner le serveur Marinara. Ce n'est pas le téléphone ni le navigateur depuis lequel tu consultes Marinara. Si Marinara tourne sur un autre ordinateur ou dans Docker, fais les étapes 1 et 2 là-bas. Les commandes `npm` ont besoin de Node.js, que tu as déjà si tu as installé Marinara depuis le code source. Voir [Installation](../INSTALLATION.md).
 
-- **Claude (Subscription)** utilise ton abonnement Anthropic **Pro** ou **Max**.
-- **OpenAI (ChatGPT)** utilise ton compte ChatGPT.
-- **Grok CLI (Subscription)** utilise ton compte **SuperGrok** ou **X Premium+**.
+1. Ouvre un terminal sur l'ordinateur qui fait tourner Marinara. Un terminal est la fenêtre dans laquelle tu tapes des commandes. Sous Windows, ouvre PowerShell. Sous macOS, ouvre Terminal.
+2. Lance la commande d'installation de ton service, puis sa commande de connexion. L'outil affiche ses propres étapes de connexion, en général une page web sur laquelle tu te connectes.
 
-## Ce qu'il te faut au préalable
+| Service | Installation | Connexion |
+| --- | --- | --- |
+| Claude | `npm i -g @anthropic-ai/claude-code` | `claude login` |
+| ChatGPT | `npm i -g @openai/codex` | `codex login` |
+| Grok | voir ci-dessous | `grok login` |
 
-Les conditions de compte dépendent du fournisseur.
+Pour Grok, l'application affiche cette commande d'installation. Si elle ne fonctionne pas sur ton système, suis les instructions de x.ai pour le CLI Grok.
 
-- **Claude (Subscription)** demande un forfait Claude compatible avec l'identification par abonnement de Claude Code.
-- **OpenAI (ChatGPT)** accepte les forfaits ChatGPT gratuits et payants éligibles. Les limites d'utilisation varient selon le forfait.
-- **Grok CLI (Subscription)** demande SuperGrok ou X Premium+.
-
-Pour les trois fournisseurs, le CLI doit être installé et connecté sur la machine qui fait tourner le serveur Marinara. Ce n'est pas le navigateur ni le téléphone depuis lequel tu consultes Marinara. Marinara lance le CLI en local, donc l'identification doit se trouver juste à côté du serveur.
-
-Si tu fais tourner Marinara sur ton propre ordinateur, c'est cet ordinateur qui est le serveur. Si tu le fais tourner sur une autre machine ou dans Docker, installe et connecte le CLI là-bas.
-
-## Claude (Subscription)
-
-Il te faut un abonnement Anthropic Pro ou Max. C'est la même identification que celle utilisée par Visual Studio Code et les autres outils Anthropic.
-
-1. Sur la machine qui fait tourner Marinara, installe le CLI Claude Code :
-
-```
-npm i -g @anthropic-ai/claude-code
-```
-
-2. Connecte-toi une fois :
-
-```
-claude auth login
-```
-
-3. Dans Marinara, ouvre le panneau **Connections** (Connexions) et clique sur **Add** (ajouter). La fenêtre **Add account** (ajouter un compte) s'ouvre.
-4. À l'étape 1, choisis le service **Claude (Subscription)**.
-5. À l'étape 2, tu remarques qu'il n'y a pas de champ de clé. L'étape indique **No key needed. Marinara uses the login on this computer.** Clique sur **Connect** (connecter). **Connected** signifie que l'identification fonctionne.
-6. À l'étape 3, choisis un modèle Claude, par exemple un modèle Opus ou Sonnet, puis clique sur **Done** (terminé). La liste affiche les modèles que ta session Claude Code propose quand Claude Code en fournit une liste, sinon une liste intégrée.
-
-Les connexions Claude par abonnement gèrent uniquement le chat textuel. Cette connexion propose deux réglages supplémentaires, **Fast Mode** et **Diagnose Model Routing**, décrits plus bas.
-
-## OpenAI (ChatGPT)
-
-Il te faut un compte ChatGPT. Marinara fait passer le chat par l'identification du CLI Codex.
-
-1. Sur la machine qui fait tourner Marinara, installe le CLI Codex :
-
-```
-npm i -g @openai/codex
-```
-
-2. Connecte-toi une fois :
-
-```
-codex login
-```
-
-3. Dans Marinara, ouvre le panneau **Connections** et clique sur **Add**. La fenêtre **Add account** s'ouvre.
-4. À l'étape 1, choisis le service **OpenAI (ChatGPT)**.
-5. À l'étape 2, clique sur **Connect** pour vérifier que l'identification fonctionne.
-6. À l'étape 3, choisis un modèle. La liste provient de ta session ChatGPT quand elle est disponible, sinon d'une liste intégrée. Clique sur **Done**.
-
-Marinara lit le fichier d'identification local de Codex et rafraîchit la session quand c'est possible.
-
-Pour régler le temps de réflexion de Codex avant qu'il réponde, ouvre la connexion, active l'interrupteur **Use custom defaults for this connection** (utiliser des valeurs par défaut propres à cette connexion) sous **Default Chat Parameters** (paramètres de chat par défaut), puis choisis un niveau dans **Reasoning Effort** (effort de raisonnement) ; il démarre sur **Default**. Un chat peut choisir son propre niveau dans **Advanced Parameters** (paramètres avancés). **Default** garde le niveau que Codex utilise pour le modèle. Codex s'en tient à cette valeur par défaut tant que la connexion ou le chat n'a pas choisi de niveau ; le niveau défini dans ton preset ne la change pas, et une connexion Codex utilisée comme connexion de secours ne suit que son propre niveau. Les agents qui utilisent cette connexion suivent le niveau de la connexion. Les niveaux correspondent à ceux que Codex propose pour chaque modèle : GPT-5.5 monte jusqu'à **Extra high**, et les modèles GPT-5.6 et GPT-6 jusqu'à **Max**.
-
-## Grok CLI (Subscription)
-
-Il te faut un compte SuperGrok ou X Premium+.
-
-1. Sur la machine qui fait tourner Marinara, installe le CLI Grok :
-
-```
+```bash
 curl -fsSL https://x.ai/cli/install.sh | bash
 ```
 
-2. Connecte-toi une fois :
+3. Dans Marinara, clique sur **Connections** (Connexions) dans la barre du haut, puis sur **Add** (ajouter).
+4. Sous **Chat**, clique sur ton service. Ces services portent l'étiquette **Sign in** (se connecter).
+5. La fenêtre affiche **Sign in first** et indique la commande à lancer. Il n'y a pas de champ de clé. Clique sur **Connect** (connecter). Marinara teste l'identification. **Connected** veut dire qu'elle fonctionne.
+6. Choisis un modèle dans la liste, puis clique sur **Done** (terminé). Pour Grok CLI, tu peux aussi laisser le modèle vide, ce qui utilise le modèle par défaut du CLI (voir [Grok CLI (Subscription)](#grok-cli-subscription)).
 
-```
-grok login
-```
+Envoie un message dans un chat pour confirmer. Une réponse veut dire que ça fonctionne.
 
-3. Dans Marinara, ouvre le panneau **Connections** et clique sur **Add**. La fenêtre **Add account** s'ouvre.
-4. À l'étape 1, choisis le service **Grok CLI (Subscription)**.
-5. À l'étape 2, clique sur **Connect** pour vérifier que l'identification fonctionne.
-6. À l'étape 3, choisis un modèle, ou laisse le champ **Model** (modèle) vide sur le modèle enregistré pour utiliser celui du CLI par défaut. Le modèle le plus sûr pour le roleplay est en général `grok-composer-2.5-fast`.
+Si ça n'a pas marché :
 
-Deux particularités du CLI Grok. Il ne fait pas de streaming (affichage au fil de l'écriture), donc la réponse apparaît d'un seul coup au lieu de s'écrire mot à mot. Sa fenêtre de contexte est fixée à 32000 tokens par défaut, moins que chez les autres fournisseurs, car les prompts très longs peuvent atteindre la limite de tour propre au CLI.
+- **Marinara could not use the login on this computer.** veut dire que le CLI n'est pas installé ou pas connecté sur l'ordinateur de Marinara. Lance la commande de connexion sur cet ordinateur, puis clique sur **Try again** (réessayer).
 
-Pour charger les modèles Grok, utilise le bouton **Fetch Models from Grok CLI** dans la section **Model**.
+## Claude (Subscription)
 
-## Durée du cache de prompts Claude
+À partir d'ici, les sections décrivent des réglages facultatifs. Tu n'en as pas besoin pour discuter.
 
-Dans l'éditeur de connexion Claude, **Prompt Caching → Extended token caching (1 hour)** demande un cache d'une heure pour permettre des pauses plus longues entre les messages. Il faut Claude Code **2.1.242 ou une version ultérieure**. Marinara transmet ce réglage pour la requête sans modifier tes paramètres Claude enregistrés.
+Ce service utilise ton forfait Claude via Claude Code. Il propose trois contrôles supplémentaires dans l'éditeur de modèle, **Edit model** (modifier le modèle) : le cache de prompts, **Fast mode** (mode rapide) et **Diagnose model routing** (diagnostiquer le routage du modèle).
 
-Ce réglage change aussi la part d'un chat que Claude peut réutiliser. Quand il est activé, Claude réutilise l'historique précédent du chat et ne traite de nouveau que la partie la plus récente. Quand il est désactivé, Claude ne réutilise que les instructions du début et traite de nouveau tout l'historique du chat à chaque message. Sur les longs chats, le réglage désactivé consomme une plus grande part de ton forfait.
+### Cache de tokens étendu
 
-Quand l'option est désactivée, les conversations principales et les requêtes de l'Agent SDK conservent le comportement par défaut de Claude : actuellement une heure pour l'usage par abonnement dans les limites du forfait, et cinq minutes pour l'usage supplémentaire, les crédits ou la facturation API. Les sous-agents de Claude Code utilisent cinq minutes sans configuration distincte ; certaines requêtes auxiliaires contrôlées par le serveur peuvent utiliser une heure. Les variables d'environnement du CLI qui remplacent cette valeur restent prioritaires. Consulte [le cache de prompts de Claude Code](https://code.claude.com/docs/en/prompt-caching).
+Le cache de prompts permet à Claude de réutiliser le début de ton prompt (le texte que Marinara envoie à l'IA), pour que les requêtes répétées consomment moins de ta limite. **Prompt caching → Extended token caching (1 hour)** (cache de prompts → cache de tokens étendu, 1 heure) demande un cache d'une heure, utile quand tu fais des pauses entre les messages. Il faut Claude Code 2.1.242 ou une version ultérieure. Marinara envoie ce réglage avec la requête et ne modifie pas tes réglages Claude enregistrés.
 
-Les journaux de débogage distinguent les écritures en cache de cinq minutes et d'une heure à partir de l'usage indiqué par le SDK. Les coûts équivalents utilisent les multiplicateurs habituels des tokens de l'API, pas ta facture d'abonnement. Si le SDK ne fournit pas la répartition par durée, l'estimation reste inconnue.
+Quand il est désactivé, Claude applique sa propre valeur par défaut pour ton compte. Consulte [le cache de prompts de Claude Code](https://code.claude.com/docs/en/prompt-caching).
 
-## Pourquoi il n'y a pas de champ de clé API
+### Fast mode
 
-Chez les trois services par abonnement, le champ de clé et le champ **Address** (adresse) sont masqués. C'est voulu. L'identification vit à l'intérieur du CLI, sur la machine du serveur : tu n'as donc rien à taper dans Marinara.
+**Fast mode → Use Claude Code fast-mode routing** (mode rapide → utiliser le routage rapide de Claude Code) est désactivé par défaut. Laisse-le désactivé. Il demande à Claude Code une gamme de modèles plus rapide, mais l'application indique que les modèles actuels n'en proposent plus : l'activer n'apporte donc rien d'utile et peut alourdir le traitement. Si tu essaies de l'activer, une boîte de dialogue intitulée **Turn on fast mode?** apparaît. Clique sur **Keep it off** (le laisser désactivé).
 
-Si tu as choisi le mauvais service par erreur et que tu ne vois aucun champ de clé, reviens à l'étape 1 et choisis le service voulu. Le champ de clé réapparaît pour les services qui fonctionnent avec une clé API.
+### Diagnose model routing
 
-## Fast Mode (Claude uniquement)
+Utilise **Diagnose model routing** quand tu as demandé un gros modèle comme Opus mais que tu soupçonnes d'en avoir reçu un plus petit.
 
-L'éditeur **Claude (Subscription)** comporte une section **Fast Mode** avec un seul interrupteur, **Use Claude Code fast-mode routing**. Il est désactivé par défaut.
+1. Choisis un modèle. Le bouton reste désactivé tant qu'aucun modèle n'est défini.
+2. Clique sur **Diagnose model routing**. Marinara enregistre d'abord les modifications non enregistrées.
+3. Lis le résultat. Marinara envoie un vrai prompt via ton identification Claude Code et indique quel modèle a été facturé à ton compte.
 
-Laisse-le désactivé. L'application elle-même annonce que cette fonctionnalité ne fait rien aujourd'hui. Elle demande à Claude Code une gamme de modèles plus rapide, mais les modèles Claude actuels n'en proposent plus. L'activer n'apporte rien et peut même alourdir le traitement. L'interrupteur reste dans l'interface au cas où Anthropic remettrait la fonctionnalité en service.
+## OpenAI (ChatGPT)
 
-Si tu essaies de l'activer, une boîte de dialogue de confirmation intitulée **YOU DON'T WANT THIS SETTING ON!** apparaît. Choisis **Keep it off**.
+Ce service utilise ton compte ChatGPT via le CLI Codex. Marinara lit le fichier d'identification local de Codex et rafraîchit la session quand c'est possible.
 
-## Diagnose Model Routing (Claude uniquement)
+Pour régler le temps de réflexion de Codex avant qu'il réponde, ouvre **Edit model**, active **Use custom defaults for this model** (utiliser des valeurs par défaut propres à ce modèle) et choisis un niveau dans **Reasoning Effort** (effort de raisonnement). Il démarre sur **Default** (par défaut), qui garde le niveau propre à Codex pour le modèle. Un chat peut choisir son propre niveau dans **Advanced Parameters** (paramètres avancés). Le niveau défini dans un preset, un modèle de prompt enregistré, ne le change pas. Un modèle Codex utilisé comme modèle de secours ne suit que son propre niveau, et les agents qui utilisent ce modèle suivent le niveau du modèle. Les niveaux proposés correspondent à ceux qui sont disponibles pour le modèle choisi.
 
-L'éditeur **Claude (Subscription)** comporte un bouton **Diagnose Model Routing** dans la zone des tests. Sers-t'en quand tu demandes un modèle Claude précis mais que tu soupçonnes d'en avoir reçu un plus petit.
+## Grok CLI (Subscription)
 
-1. Choisis un modèle et clique sur **Save** (enregistrer). Le bouton reste désactivé tant qu'aucun modèle n'est sélectionné.
-2. Clique sur **Diagnose Model Routing**.
-3. Lis le résultat. Marinara envoie un vrai prompt (le texte que Marinara envoie à l'IA) via ton identification Claude Code. Il indique ensuite quel modèle a réellement été facturé à ton compte.
+Ce service fait tourner le CLI Grok sur l'ordinateur de Marinara. Deux choses le distinguent des autres services :
 
-Cela permet de repérer une rétrogradation silencieuse, quand tu demandes un gros modèle comme Opus et que tu reçois discrètement Sonnet ou Haiku.
+- Il ne fait pas de streaming. Une réponse apparaît d'un seul coup au lieu de s'écrire mot à mot.
+- Sa fenêtre de contexte est fixée par défaut à 32 000 tokens. Les tokens sont de petits morceaux de texte que les modèles comptent. Les gros prompts peuvent atteindre la limite de tour propre au CLI, donc la valeur par défaut reste basse. Tu peux définir une valeur **Max Context Window** (fenêtre de contexte maximale) plus grande sur le modèle.
 
-## Limites à connaître
+Dans l'éditeur de modèle, **Use the Grok CLI default** (utiliser le modèle par défaut du CLI Grok) laisse le modèle vide pour que le CLI choisisse le sien. L'éditeur présente `grok-composer-2.5-fast` comme le modèle en général le plus sûr pour le roleplay, car Marinara lance le CLI sans interface (headless), avec les outils, la mémoire, la recherche web, les plans et les sous-agents propres à Grok désactivés.
 
-- Ces connexions demandent un abonnement payant et un CLI connecté sur la machine du serveur.
-- Aucune des trois ne propose d'embeddings. La recherche sémantique dans les lorebooks et la mémoire ont besoin d'une connexion séparée pour les embeddings.
-- **Claude (Subscription)** gère uniquement le chat textuel.
-- **Grok CLI (Subscription)** ne fait pas de streaming et démarre avec une fenêtre de contexte plus petite.
-- **Send Test Message** (envoyer un message de test) exige de choisir d'abord un modèle, sauf pour le CLI Grok, qui peut tester sans modèle.
+## Consommation du forfait
+
+Les comptes Claude (Subscription) et OpenAI (ChatGPT) peuvent afficher la part des limites de ton forfait que tu as déjà utilisée.
+
+1. Clique sur **⋯** sur la ligne du compte, choisis **Edit account** (modifier le compte) et ouvre **Usage and balance** (utilisation et solde).
+2. Si les lectures externes sont désactivées, clique sur **Turn on** (activer).
+3. Active **Show the usage meter on the card** (afficher l'indicateur de consommation sur la carte), puis enregistre.
+
+Chaque fenêtre de limite reçoit une barre avec le pourcentage utilisé et le moment de sa réinitialisation, par exemple `58% · resets in 2h`. Les mêmes barres apparaissent dans le sélecteur de connexion d'un chat et dans les réglages **Connection** (connexion) du chat tant que ce compte est actif. Elles n'apparaissent pas pour **Shuffle** (mélange).
+
+- Les barres comptent toute l'utilisation de ton forfait, pas seulement celle de Marinara. Pour Claude, cela inclut Claude Code et claude.ai. Pour ChatGPT, cela inclut toute l'utilisation de Codex, comme le CLI Codex. Les chats sur chatgpt.com ont leurs propres limites et ne sont pas inclus.
+- Les services indiquent un pourcentage pour chaque fenêtre, sans aucun nombre de tokens.
+- Une lecture demande au CLI de l'ordinateur de Marinara les mêmes données que celles qu'affiche sa propre commande de consommation. Elle n'envoie aucun message à un modèle et ne consomme rien de ton forfait. Le bouton d'actualisation relance la lecture.
+- Un forfait qui n'a qu'une seule fenêtre affiche une seule barre.
+- Claude Code marque ses données de consommation comme expérimentales. Si une nouvelle version les modifie, les barres affichent une erreur et un bouton pour réessayer au lieu d'un chiffre faux.
+
+## Limites de ces services
+
+- Ils demandent un forfait payant (ou un forfait ChatGPT éligible) et le CLI connecté sur l'ordinateur de Marinara.
+- Aucun d'eux ne propose d'embeddings (des représentations numériques du texte). La recherche sémantique dans les lorebooks et le rappel de mémoire ont besoin d'un compte séparé pour les embeddings.
+- **Send test message** (envoyer un message de test) exige de choisir d'abord un modèle, sauf pour Grok CLI.
 
 ## Guides associés
 

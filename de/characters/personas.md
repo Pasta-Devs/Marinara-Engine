@@ -1,218 +1,145 @@
-# Personas: erstellen und bearbeiten
+# Personas
 
-In dieser Anleitung erfährst du, was eine Persona ist, wie du eine erstellst und bearbeitest und wie du Personas importierst, exportierst, duplizierst und löschst. Eine Persona ist deine eigene Charakterkarte: die Identität, mit der Marinara Engine dich im Chat darstellt.
-
-## Was eine Persona ist
-
-Eine Persona ist die Rolle, die du im Chat einnimmst. Sie hat einen Namen, eine Beschreibung und weitere optionale Angaben. Marinara schickt diese Angaben in jeden Prompt – also in den Text, den Marinara an die KI sendet –, damit die KI weiß, mit wem sie spricht.
-
-Du kannst beliebig viele Personas anlegen und im **Personas**-Panel verwalten. Wähle für jeden Chat eine Persona oder **None** (keine), um keine Persona zu verwenden. Diese Anleitung behandelt das Erstellen und Bearbeiten. Wie du festlegst, welche Persona ein Chat verwendet, steht unter [Die Persona für einen Chat wählen](choosing-your-persona.md).
-
-### Das Makro {{user}}
-
-Ein Makro ist ein Platzhalter im Text, den die App vor dem Senden des Prompts durch einen echten Wert ersetzt. Für **{{user}}** setzt Marinara den Namen der Persona ein, die der Chat gerade verwendet – also die für diesen Chat ausgewählte Persona. Heißt diese Persona zum Beispiel Alex, dann steht im Prompt Alex.
-
-Wenn für einen Chat keine Persona ausgewählt ist, spricht die KI dich mit dem allgemeinen Namen „User“ an, und es gehen keinerlei Persona-Angaben mit. Wie ein Chat seine Persona auswählt, steht unter [Die Persona für einen Chat wählen](choosing-your-persona.md). Mehr zu Makros findest du unter [Makros](../prompts/macros.md).
-
-## Das Personas-Panel
-
-Das **Personas**-Panel ist deine Persona-Bibliothek. Öffne es über das Personen-Symbol oben in der rechten Seitenleiste. Es steht dort neben den Schaltflächen **Lorebooks**, **Presets**, **Connections** (Verbindungen) und **Agents** (Agenten).
-
-Diese Bedienelemente stehen bereit:
-
-- **Download** (Herunterladen) öffnet den [Card Browser](bot-browser.md), in dem du auf PlotLight auch Personas findest.
-- **Open Library** (Bibliothek öffnen) öffnet die Persona-Bibliothek als eigene, responsive Seite. Sie nutzt dasselbe Layout aus Raster und Vorschau wie die Charakter-Bibliothek – mit Persona-Beschreibungen, Kartenabschnitten, Tags und Token-Schätzungen.
-- **New** (Neu) erstellt eine Persona.
-- **Import** (Importieren) öffnet das Fenster **Import Persona**.
-- **Select** (Auswählen) schaltet die Mehrfachauswahl ein, sodass du mehrere Personas auf einmal bearbeiten kannst.
-- Das Suchfeld mit dem Platzhaltertext **Search personas/tags** (Personas/Tags durchsuchen) durchsucht Name, Beschreibung, Kommentar und Tags. Gib `male genshin` oder `male,genshin` ein, um Personas mit beiden exakten Tags zu finden; setze Tags aus mehreren Wörtern in Anführungszeichen, etwa `male "Modern AU"`. Gewöhnliche Namens- und Phrasensuchen funktionieren weiterhin. Die ganzseitige **Persona Library** (Persona-Bibliothek) unterstützt dieselbe Suche.
-- Das Sortier-Dropdown-Menü bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** und **Tokens** (geschätzte Prompt-Größe). **Manual order** behält die Reihenfolge bei, die du festlegst: Zieh eine Zeile nach oben oder unten oder drück auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen.
-- **New Folder** (Neuer Ordner) legt einen Ordner an, um Personas zu sortieren.
-- Der Chip **Tags** klappt die Tag-Liste zum Filtern auf.
-
-Jede Zeile zeigt Avatar, Name und eine kurze Vorschau der Beschreibung. Zeigst du auf eine Zeile, erscheinen die Aktionen **Duplicate** (Duplizieren) und **Delete** (Löschen). Ein Klick auf die Zeile öffnet die Persona im ganzseitigen **Persona Editor**.
-
-Passen nicht alle Personas auf eine Seite, erscheint unten die Schaltfläche **Load more** (Mehr laden). Solange noch keine Persona existiert, zeigt das Panel den kurzen Hinweis „No personas yet“.
+Eine Persona ist die Charakterkarte, die dich in einem Chat vertritt: dein Name, deine Beschreibung und weitere optionale Angaben. Marinara schickt diese Angaben in jedem Prompt mit, damit die KI weiß, mit wem sie spricht. Du kannst viele Personas anlegen und pro Chat eine auswählen. Wie du eine verwendest, steht unter [Die Persona für einen Chat auswählen](choosing-your-persona.md).
 
 ## Eine Persona erstellen
 
-1. Öffne das **Personas**-Panel.
-2. Klick auf **New**. Das Fenster **Create Persona** öffnet sich.
+1. Klick in der oberen Navigationsleiste auf **Personas**. Siehst du den Eintrag nicht, öffne zuerst **More** (Mehr).
+2. Klick auf **New** (Neu). Das Fenster **Create Persona** öffnet sich.
 3. Trag im Feld **Name** einen Namen ein. Das ist das einzige Pflichtfeld.
 4. Klick auf **Create**.
 
-Die Persona entsteht mit leerer Beschreibung und öffnet sich sofort im vollständigen **Persona Editor**, wo du den Rest ausfüllst. Weitere Felder lassen sich im Erstellen-Fenster nicht setzen. Alles Übrige bearbeitest du danach im **Persona Editor**.
+Die Persona entsteht mit leerer Beschreibung und öffnet sich im Persona-Editor.
 
-Wähle die neu erstellte Persona in dem Chat aus, in dem du sie verwenden möchtest.
+5. Öffne den Tab **Card** und schreib deine **Description**: deinen Namen, dein Aussehen und wie du dich verhältst.
+6. Klick in der Kopfzeile auf **Save** (Speichern).
 
-## Der Persona Editor
+Wähle die Persona danach in dem Chat aus, in dem du sie verwenden möchtest. Siehe [Die Persona für einen Chat auswählen](choosing-your-persona.md).
 
-Öffnest du eine Persona, ersetzt der ganzseitige **Persona Editor** den Chatbereich. Die Kopfzeile enthält:
+## Was eine Persona bewirkt
 
-- Einen Pfeil **Back** (Zurück), der den Editor schließt.
-- Die Avatar-Kachel. Ein Klick darauf lädt einen neuen Avatar hoch. Ist eine Verbindung für die Bildgenerierung eingerichtet, erscheint hier zusätzlich die Zauberstab-Schaltfläche **Generate avatar** (Avatar generieren).
-- Das Namensfeld und ein Kommentarfeld (für eine kurze Notiz wie „Modern AU version“).
-- Eine Schaltfläche **Save** (Speichern). Sie bleibt ausgegraut, bis du etwas änderst.
-- Symbolaktionen in der Kopfzeile: **Export persona** (Persona exportieren), **Add persona as character** (Persona als Charakter hinzufügen), **Duplicate persona** (Persona duplizieren) und **Delete persona** (Persona löschen).
+Marinara schickt deine Persona in jedem Prompt an die KI. Wähle in einem Chat **None** (keine), um keine Persona zu senden. Ohne Persona nennt dich die KI „User“.
 
-Beim Verlassen des Editors wird die geänderte Persona gespeichert, bevor es weitergeht. Schlägt das Speichern fehl, bleibt der Editor mit deinem Entwurf geöffnet, damit du es erneut versuchen kannst.
+Das Makro `{{user}}` ist ein Platzhalter. Marinara ersetzt es durch den Namen der Persona, bevor es den Prompt sendet. Heißt deine Persona Alex, wird aus `{{user}}` Alex. Siehe [Makros](../prompts/macros.md).
 
-Der Editor-Inhalt ist in Tabs gegliedert, in dieser Reihenfolge: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** und **Stats**.
+## Das Personas-Panel
 
-### Tab **Metadata**
+Das Panel **Personas** ist deine Persona-Bibliothek. Klick auf eine Zeile, um diese Persona im Persona-Editor zu öffnen.
 
-Im Tab **Metadata** stehen Identität und Bibliotheksangaben:
+| Bedienelement | Funktion |
+| --- | --- |
+| **Download** (Herunterladen) | Öffnet den [Card Browser](bot-browser.md), in dem du auf PlotLight auch Personas findest. |
+| **Open Library** (Bibliothek öffnen) | Öffnet die ganzseitige Persona-Bibliothek mit demselben Raster und derselben Vorschau wie die Charakter-Bibliothek. |
+| **New** | Erstellt eine Persona. |
+| **Import** (Importieren) | Öffnet das Fenster **Import Persona**. |
+| **Select** (Auswählen) | Schaltet den Auswahlmodus ein, um mehrere Personas auf einmal zu löschen oder zu exportieren. |
+| Suchfeld | Platzhaltertext **Search personas/tags** (Personas/Tags durchsuchen). Es durchsucht Name, Beschreibung, Kommentar und Tags. Zur Suche nach Tags siehe [Suche](library-organization.md#search). |
+| Sortier-Dropdown | **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** oder **Tokens** (geschätzte Prompt-Größe). |
+| **New Folder** (Neuer Ordner) | Legt einen Ordner an. |
+| **Tags** | Klappt die Tag-Liste zum Filtern auf. |
 
-- Eine Zeile **Persona ID** mit einer Schaltfläche **Copy** (Kopieren). Die meisten brauchen sie nie; für Support-Anfragen ist sie nützlich.
-- Das Widget zum Zuschneiden des Avatars. Zieh am runden Ausschnitt, um ihn zu verschieben oder zu zoomen.
-- **Name**: der Anzeigename der Persona. Marinara fügt ihn als deine Identität in die Prompts ein.
-- **Creator**: wer diese Persona erstellt hat – für die Namensnennung beim Teilen.
-- **Phonetic name**: eine optionale Aussprachevorgabe. Sie greift nur, wenn Text to Speech (TTS) den Persona-Namen vorliest. TTS ist die Sprachausgabe der App.
-- **Title / Comment**: eine kurze private Notiz, die in der Bibliothek unter dem Namen steht.
-- **Version**: eine frei wählbare Versionsangabe, mit der du eigene Änderungen nachhältst. Der Standard ist **1.0**.
-- **Tags**: frei wählbare Schlagwörter. Drück Enter oder klick auf **Add** (Hinzufügen), um eines zu ergänzen. Sobald Tags vorhanden sind, erscheint die Schaltfläche **Remove All** (Alle entfernen). Im **Personas**-Panel kannst du nach Tags filtern.
-- **Creator Notes**: eine private, mehrzeilige Notiz. Sie geht nicht an die KI.
+In **Manual order** ziehst du eine Zeile oder drückst auf einer fokussierten Zeile <kbd>Alt</kbd>+<kbd>Up</kbd> oder <kbd>Alt</kbd>+<kbd>Down</kbd>. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen. Zeigst du auf eine Zeile, erscheinen **Duplicate** (Duplizieren) und **Delete** (Löschen). Gibt es mehr Personas, als eine Seite zeigt, erscheint die Schaltfläche **Load more** (Mehr laden). Ohne Personas zeigt das Panel **No personas yet**.
 
-Unter dem Feld **Version** sitzt das Panel **Version history**. Wie es funktioniert, erklärt der Abschnitt „Versionsverlauf“ weiter unten.
+## Der Persona-Editor
 
-### Tab **Card**
+Öffnest du eine Persona, ersetzt der ganzseitige Persona-Editor den Chatbereich. Die Kopfzeile enthält:
 
-Im Tab **Card** schreibst du die zentralen Persona-Felder. Jedes Feld ist ein großes Textfeld mit laufend geschätzter Token-Zahl darunter. Über eine Leiste mit Sprungmarken springst du direkt zu jedem Abschnitt.
+- Einen Pfeil **Back** (Zurück).
+- Die Avatar-Kachel. Klick darauf, um ein Bild hochzuladen. Ist eine Verbindung für die Bildgenerierung eingerichtet, erzeugt eine Zauberstab-Schaltfläche auch eines.
+- Das Namensfeld und ein Kommentarfeld für eine kurze Bezeichnung wie `Modern AU version`.
+- **Save**. Die Schaltfläche bleibt ausgegraut, bis du etwas änderst.
+- **Export persona** (Persona exportieren), **Add persona as character** (Persona als Charakter hinzufügen), **Duplicate persona** (Persona duplizieren) und **Delete persona** (Persona löschen).
 
-- **Summary** (Zusammenfassung): ein Überblick für die Persona-Bibliothek und Kartenvorschauen. Er gehört zu den Metadaten und wird nicht in Chat-Prompts an das Modell gesendet.
-- **Description**: deine allgemeine Identität und Rolle. Dieser Text geht in jeden Prompt, damit die KI weiß, wer du bist.
-- **Personality**: Temperament, Verhalten, Sprechgewohnheiten und emotionale Muster.
-- **Backstory**: Vorgeschichte, Herkunft, Beziehungen und prägende Ereignisse.
-- **Appearance**: äußere Beschreibung, Kleidung und visuelle Details, die sich das Modell merken soll.
-- **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder): ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für kurze Bild-Tags zu öffnen, die deine Persona beschreiben, etwa ein LoRA-Triggerwort. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diese Tags genau so, wie sie dastehen, und **Appearance** dient als Hintergrund. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**.
-- **Scenario**: die Standardsituation oder der Rahmen für Roleplay. Damit legst du fest, wo die Persona startet.
-- **Example Dialogue** (Beispieldialog): Beispielgespräche, die die Sprechweise deiner Persona zeigen. Trenne Gespräche mit `<START>` und verwende `{{user}}` für deine Persona sowie `{{char}}` für den anderen Charakter.
+Beim Verlassen des Editors werden deine Änderungen zuerst gespeichert. Schlägt das Speichern fehl, bleibt der Editor mit deinem Entwurf geöffnet.
 
-Diese Textfelder unterstützen Makros. Anführungszeichen, die du tippst, passt die App automatisch an den eingestellten Zitatstil an.
+Die Tabs sind, in dieser Reihenfolge, **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** und **Stats**. Jeder Tab springt zu seinem Abschnitt in einem einzigen langen Formular.
 
-### Ein Persona-Feld mit dem Zauberstab generieren
+Der Persona-Editor funktioniert wie der [Charakter-Editor](creating-and-editing-characters.md). Die Hinweise unten beschreiben, was anders ist.
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** und **Example Dialogue** haben jeweils einen Button mit einem Zauberstab-Symbol und einem Tooltip, der das Feld nennt. Gib Stichwörter, einen Satz oder anderen Ausgangstext ein und klicke auf den Zauberstab, um 100–300 Wörter für diesen Abschnitt anzufordern. Lass das Feld leer, um anhand der restlichen Persona-Karte zu generieren. **Example Dialogue** erzeugt Beispielgespräche.
+| Tab | Hinweise für Personas |
+| --- | --- |
+| **Metadata** | Identität und Bibliotheksangaben. Siehe die Liste unter dieser Tabelle. |
+| **Card** | Siehe [Tab „Card“](#card-tab) unten. |
+| **Convo** | Felder, die nur im Conversation Mode gelten. Siehe [Conversation-Mode-Profile](../conversation/profiles.md). |
+| **Lorebook** | Hänge Lorebook-Einträge an, die auslösen, wenn diese Persona im Chat ist. Siehe [Lorebooks – Überblick](../lorebooks/overview.md). |
+| **Sprites** | Stehende Bilder für Game Mode und Roleplay. Mit **Facial Expressions**, **Full-body** und **Clips** sowie **Upload Folder** (Ordner hochladen). Siehe [Charakter-Sprites](sprites.md). |
+| **Gallery** | Referenzbilder und Videos, mit **Upload Persona Images** und **Upload Persona Videos**. Siehe [Galerien für Charaktere und Personas](galleries.md). |
+| **Colors** | Farben für Name, Dialog und Nachrichtenbox. Siehe [Charakterfarben und RPG-Werte](colors-and-stats.md). |
+| **Stats** | Statusbalken und RPG-Attribute. Siehe [Tab „Stats“](#stats-tab) unten. |
 
-Marinara verwendet den aktuellen Persona-Namen und die anderen Kartenfelder als Referenz, einschließlich ungespeicherter Änderungen. Der vorhandene Text des ausgewählten Felds ist die Grundlage für den neuen Abschnitt. Die Verbindung wird wie bei der Charakterzusammenfassung gewählt: zuerst deine Standard-Textverbindung für Agenten, dann deine Standard-Textverbindung, gegebenenfalls mit der eingerichteten Ausweichverbindung für Agenten. Siehe [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
+Der Tab **Metadata** zeigt:
 
-Das Ergebnis ersetzt nur das gewählte Feld im Entwurf. Prüfe es und klicke auf **Save**, um es zu behalten. Der Zauberstab selbst speichert nicht; beim Weitergehen gilt das normale Speichern beim Verlassen des Editors. Eine fehlgeschlagene Anfrage lässt deinen Text unverändert. Bearbeitest du das Zielfeld während der Anfrage oder öffnest vor deren Ende eine andere Persona, überschreibt ein verspätetes Ergebnis deine neueren Änderungen nicht. Das ist eine schnelle Alternative dazu, Professor Mari eine Karte schreiben zu lassen.
+- **Persona ID** mit **Copy** (Kopieren).
+- Den Zuschnitt des Avatars.
+- **Name** und **Creator**.
+- **Phonetic name**, das nur verwendet wird, wenn Text to Speech deinen Namen vorliest.
+- **Title / Comment**, eine kurze Bezeichnung.
+- **Version**, standardmäßig `1.0`, mit dem Schalter **Automatic versioning** (automatische Versionierung).
+- **Tags**.
+- **Creator Notes**, die nie an die KI gehen.
 
-### Alternative Persona-Felder in ausgewählten Chats verwenden
+<a id="card-tab"></a>
 
-Unter jedem der sieben Kartenfelder kopiert **+ Add Alternative Field** (alternatives Feld hinzufügen) den aktuellen Text in eine bearbeitbare Alternative. Verwende sie für eine andere Rolle, Vorgeschichte, Erscheinung oder Sprechweise in ausgewählten Chats, ohne die Originalkarte für alle Chats zu ändern.
+### Tab „Card“
 
-Bearbeite die Alternative, öffne **Active in 0 chats** (in 0 Chats aktiv) und markiere die Chats, in denen sie das Originalfeld ersetzen soll. Die Liste enthält nur Chats mit dieser Persona. Öffne sie erneut, um die Auswahl nach einem Persona-Wechsel im Chat zu aktualisieren. Du kannst keinen, einen oder viele Chats auswählen. Ohne Auswahl bleibt die Alternative für später inaktiv.
+Der Tab **Card** enthält die Felder, die dich der KI beschreiben. Jedes zeigt eine laufend aktualisierte Token-Schätzung.
 
-Du kannst beliebig viele Alternativen anlegen. Jeder Chat verwendet eine Alternative pro Feld. Markierst du ihn in einer anderen Alternative, wird die Zuordnung dieses Felds dorthin verschoben. Eine leere Alternative leert das Feld in den ausgewählten Chats absichtlich. Andere Chats behalten das Originalfeld. Vorhandene chatspezifische Überschreibungen für Szenario und Bildaussehen haben weiterhin Vorrang. **Summary**-Alternativen bleiben Metadaten und werden nicht automatisch im Chat-Prompt gesendet.
+| Feld | Was du schreibst | An die KI gesendet |
+| --- | --- | --- |
+| **Summary** (Zusammenfassung) | Ein Überblick für die Bibliothek und Vorschauen. | Nein |
+| **Description** | Deine allgemeine Identität und Rolle. | In jedem Prompt |
+| **Personality** | Temperament, Verhalten, Sprechgewohnheiten. | Ja |
+| **Backstory** | Vorgeschichte, Herkunft, Beziehungen. | Ja |
+| **Appearance** | Aussehen, Kleidung, visuelle Details. | Ja |
+| **Scenario** | Deine Standardsituation in Roleplays. | Ja |
+| **Example Dialogue** (Beispieldialog) | Beispielgespräche. Trenne sie mit `<START>`. Verwende `{{user}}` für deine Persona und `{{char}}` für den anderen Charakter. | Ja |
 
-Eine Alternative hat einen eigenen Zauberstab, der ihren Text als Ausgangspunkt und die anderen Persona-Felder als Referenz nutzt. Die Generierung ändert nur diese Alternative. Klicke auf **Save**, um Änderungen und Chat-Zuordnungen zu behalten; auch das normale Speichern beim Verlassen gilt.
+**Image Appearance Override** (eigene Aussehensbeschreibung für Bilder) unter **Appearance** funktioniert wie bei Charakteren. Siehe [Tab „Card“](creating-and-editing-characters.md#card-tab). Die Textfelder unterstützen Makros.
 
-Der Zähler **Active in** umfasst nur Chats, die diese Persona derzeit verwenden. Gespeicherte Zuordnungen pausieren, wenn ein Chat eine andere Persona wählt, und werden bei Rückkehr zu dieser Persona wieder aktiv. Eine ladende oder nicht verfügbare Chat-Liste löscht keine Zuordnungen; öffne die Auswahl erneut, um ihre Einträge zu aktualisieren.
+Diese Funktionen arbeiten wie bei Charakteren, nur mit der Persona als Gegenstand:
 
-Kartenexport, Import, Duplizieren und die Umwandlung zwischen Charakteren und Personas erhalten den alternativen Text, löschen aber die Chat-Auswahl. Sicherungen des gesamten Profils behalten diese Zuordnungen.
+- Die Zauberstab-Schaltfläche über jedem Feld schreibt es für dich. Siehe [Ein Kartenfeld mit dem Zauberstab schreiben](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
+- **Add Alternative Field** (alternatives Feld hinzufügen) unter jedem Feld gibt ausgewählten Chats eine andere Fassung. Die Liste **Active in** zeigt nur Chats, die diese Persona verwenden, und Zuordnungen pausieren, wenn ein Chat eine andere Persona wählt. Siehe [Ein alternatives Feld in ausgewählten Chats verwenden](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Version history** (Versionsverlauf) liegt im Tab **Metadata**. Vor deiner ersten Bearbeitung steht dort `Previous persona states will appear here after the next edit.` **Reset** (Zurücksetzen) löscht jede Momentaufnahme und setzt die Version auf 1.0. Siehe [Versionsverlauf](creating-and-editing-characters.md#version-history).
 
-Über den Papierkorb einer Alternative entfernst du sie. Die Bestätigung bietet **Cancel**, um sie zu behalten, oder **Delete**, um sie aus dem Entwurf zu löschen. Speichere die Persona, um das Löschen anzuwenden. Die ausgewählten Chats kehren dann zum Originalfeld zurück, unter Berücksichtigung vorhandener Chat-Überschreibungen; das Originalfeld wird nie mitgelöscht.
+<a id="stats-tab"></a>
 
-### Tab **Convo**
+### Tab „Stats“
 
-Der Tab **Convo** enthält Felder, die nur im Conversation Mode gelten. In Roleplay oder Game Mode gehen sie nie mit. Dazu zählen **Convo Display Name**, **About Me** und **Convo Behavior**. Da Charaktere dieselben Felder haben, gibt es dafür eine eigene Anleitung: [Profile im Conversation Mode](../conversation/profiles.md).
+Der Tab **Stats** hat zwei getrennte Blöcke. Beide speisen das HUD, die Werteanzeige, die während eines Chats auf dem Bildschirm erscheint.
 
-### Tab **Lorebook**
+- **Enable Persona Stats** (Persona-Werte aktivieren) schaltet Statusbalken ein, also Anzeigen für Bedürfnisse wie Hunger und Stimmung. Neu eingeschaltet beginnt der Block mit Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Der Agent **Persona Stats** passt sie im Lauf der Geschichte an.
+- **Enable RPG Attributes** (RPG-Attribute aktivieren) schaltet Pools (Balken wie HP und MP) und Attribute (Zahlen wie Stärke) ein. Beides erklärt [Charakterfarben und RPG-Werte](colors-and-stats.md). Neu eingeschaltet beginnt der Block mit HP und MP bei 100 von 100 sowie STR, DEX, CON, INT, WIS und CHA bei 10. Diese Werte werden für Kampf und Game Mode sowie für optionale Würfe mit der Persona gesendet. Agenten aktualisieren sie nicht.
 
-Im Tab **Lorebook** hängst du Lorebook-Einträge an die Persona. Ein Lorebook ist eine Sammlung von World-Info-Einträgen, die bei passender Gelegenheit zusätzliches Hintergrundwissen liefern. Einträge, die an eine Persona gekoppelt sind, können auslösen, sobald diese Persona im Chat ist. Siehe [Lorebooks im Überblick](../lorebooks/overview.md).
-
-### Tab **Sprites**
-
-Im Tab **Sprites** lädst du stehende Charakterbilder für die Persona hoch. Sprites – die Charakterbilder auf der Bühne – kommen in Game Mode und Roleplay zum Einsatz. Es gibt Kategorie-Tabs für **Facial Expressions**, **Full-body** und **Clips**. Du kannst Bilder einzeln hochladen oder mit **Upload Folder** (Ordner hochladen) einen ganzen Ordner voller PNG-Bilder auf einmal einlesen. Sprites sind ein gemeinsames System; alle Details stehen unter [Charakter-Sprites](sprites.md).
-
-Gesichtsausdrücke und Ganzkörper-Sprites haben getrennte, optionale Ordner über dem Raster ohne Ordner. Leg mit **New folder** (Neuer Ordner) einen an und benenne ihn mit Doppelklick oder Doppeltippen auf den Namen um. Ziehe Sprites in Ordner hinein oder heraus, oder nutze mit der Tastatur die Aktion **Move sprite** (Sprite verschieben) einer Kachel und die Auswahl **Folder** (Ordner). Wird ein Ordner entfernt, bleiben seine Sprites erhalten. Alle Sprites stehen Chats und Agenten weiterhin zur Verfügung, und unterstützte Exporte, Importe und Profilübertragungen behalten Ordnerzuordnung und Namen.
-
-Die Suche filtert das Raster. Eine Suche ohne Treffer zeigt einen entsprechenden Hinweis; sie bedeutet nicht, dass die Sammlung leer ist. **Delete All Expressions** und **Delete All Full-Body** gelten weiterhin für die ganze Kategorie, auch für Sprites, die eine Suche gerade ausblendet.
-
-### Tab **Gallery**
-
-Im Tab **Gallery** sammelst du Referenzbilder und Videos zur Persona. Er hat die beiden Unter-Tabs **Images** und **Videos**. Über **Upload Persona Images** oder **Upload Persona Videos** fügst du Dateien hinzu. Der Unter-Tab **Videos** verwaltet außerdem die Videoclips für die Anruf-Funktion im Conversation Mode. Siehe [Galerien für Charaktere und Personas](galleries.md).
-
-### Tab **Colors**
-
-Der Tab **Colors** bestimmt, wie die Persona im Chat aussieht. Die Farben gelten für den Namen, die Dialogzeilen und die Nachrichtenblase.
-
-- **Extract Colors from Avatar** (Farben aus dem Avatar übernehmen) wählt die Farben automatisch aus dem Avatarbild. Ohne Avatar bleibt die Schaltfläche ausgegraut und zeigt „Upload an avatar first“.
-- **Name Display Color** setzt die Farbe des Persona-Namens. CSS-Verläufe sind erlaubt.
-- **Dialogue Highlight Color** setzt die Farbe des Textes innerhalb von Anführungszeichen.
-- **Message Box Color** setzt die Hintergrundfarbe der Chatblase deiner Persona.
-
-Bleibt eines dieser Felder leer, gelten die Standardfarben des Themes. Ausführlich beschreiben Farben und Werte die [Charakterfarben und RPG-Werte](colors-and-stats.md).
-
-### Tab **Stats**
-
-Der Tab **Stats** besteht aus zwei getrennten Blöcken. Beide speisen die Werteanzeige (HUD) im Chat – die Info-Leiste am oberen Chatrand.
-
-- **Enable Persona Stats** (Persona-Werte aktivieren) schaltet Statusbalken für Bedürfnisse wie Hunger, Energie und Stimmung frei. Beim ersten Aktivieren bekommst du Startbalken für Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Der Agent **Persona Stats** passt diese Werte im Lauf der Geschichte an.
-- **Enable RPG Attributes** (RPG-Attribute aktivieren) schaltet Pools und Attribute im RPG-Stil frei. Beim ersten Aktivieren bekommst du die Start-Pools HP und MP bei 100 von 100 und die Startattribute STR, DEX, CON, INT, WIS und CHA bei 10. Diese Werte werden für Kampf und Game Mode sowie für optionale Würfe in Roleplay oder Game Mode mit der Persona-Karte gesendet. Tracker-Agenten aktualisieren sie nicht.
-
-Der Block **Game Mode Icon** (Symbol für Game Mode) legt das Bild auf dem Token deiner Persona bei einem Kampf in Game Mode fest: den Avatar, ein Bild aus der Galerie der Persona oder die Initialen. Siehe [Symbol für Game Mode](colors-and-stats.md#game-mode-icon).
-
-Ist ein Game-Mode-Regelsatz installiert oder enthält die Persona noch einen Bogen für einen Regelsatz, den du nicht mehr hast, erscheint unter diesen beiden Blöcken der Block **Ruleset sheets** (Regelsatzbögen). Er enthält die Startkonfiguration deiner Persona für jeden Regelsatz, die ein neues Spiel mit diesem Regelsatz übernimmt. Siehe [Regelsatzbögen](colors-and-stats.md#ruleset-sheets).
-
-Die Werte hier sind die Startvorgaben für neue Chats. Die Persona-Statusbalken können sich automatisch aktualisieren, wenn der Agent Persona Stats aktiviert ist; Pools und Attribute im RPG-Stil der Persona verwaltet kein Agent. Die vollständige Erklärung steht unter [Charakterfarben und RPG-Werte](colors-and-stats.md).
-
-## Versionsverlauf
-
-Speicherst du eine Änderung an den Kartenfeldern einer Persona, legt Marinara automatisch einen Schnappschuss an. Das Panel **Version history** im Tab **Metadata** listet diese gespeicherten Versionen mit Zeitstempel auf.
-
-Zu jeder gespeicherten Version kannst du:
-
-1. Auf den Titel klicken, um sie mit der aktuellen Persona zu vergleichen.
-2. Auf **Rename this saved version** (Stiftsymbol) klicken, um die Versionsbezeichnung zu korrigieren, ohne die Version wiederherzustellen.
-3. Auf **Restore this version** klicken, um die aktuelle Persona mit der gespeicherten Version zu überschreiben. Ein Dialogfenster fragt vorher nach.
-4. Auf **Delete this saved version** klicken, um den Eintrag aus dem Verlauf zu entfernen. An der aktuellen Persona ändert das nichts.
-
-Vor der ersten Bearbeitung steht im Panel „Previous persona states will appear here after the next edit.“.
-
-Mit **Reset** (Zurücksetzen) in der Panel-Kopfzeile löschst du alle gespeicherten Persona-Schnappschüsse und setzt die aktuelle Kartenversion auf `0.0`. Marinara fragt vorher nach, denn ein gelöschter Verlauf lässt sich nicht zurückholen.
-
-## Eine Persona duplizieren
-
-Klick in einer Persona-Zeile auf **Duplicate** oder in der Kopfzeile des **Persona Editor** auf das Symbol **Duplicate persona**. Das erzeugt eine vollständige Kopie mit dem Namen „{original name} (Copy)“. Übernommen werden alle Kartenfelder, Farben, Werte und Convo-Felder. Das Duplizieren einer Persona ändert die Persona-Auswahl keines Chats.
-
-## Personas löschen
-
-Um eine einzelne Persona zu löschen, klick in ihrer Zeile auf das Papierkorb-Symbol oder in der Kopfzeile des **Persona Editor** auf **Delete persona**. Es erscheint ein Dialogfenster zur Bestätigung. Eine gelöschte Persona lässt sich nicht zurückholen.
-
-Für mehrere auf einmal klick im **Personas**-Panel auf **Select** und hak die gewünschten Personas ab. Lösch sie anschließend über **Delete** in der Auswahlleiste. Schlägt eine Löschung fehl, bleiben die betroffenen Einträge ausgewählt, sodass du es erneut versuchen kannst.
+Der Block **Game Mode Icon** (Symbol für Game Mode) legt das Bild auf deinem Token bei einem Kampf in Game Mode fest. Siehe [Symbol für Game Mode](colors-and-stats.md#game-mode-icon). Ist ein Game-Mode-Regelsatz (ein Regelwerk für Spiele im Tabletop-Stil) installiert, enthält der Block **Ruleset sheets** (Regelsatzbögen) deine Startkonfiguration dafür. Siehe [Regelsatzbögen](colors-and-stats.md#ruleset-sheets). Die Werte, die du hier setzt, sind die Startvorgaben für neue Chats.
 
 ## Personas importieren und exportieren
 
-### Import
+Zum Importieren klick im Panel **Personas** auf **Import**. Das Fenster **Import Persona** nimmt `.marinara`- und `.json`-Dateien an, auch mehrere auf einmal. Eine Marinara-Datei stellt alle Details, Sprites und die Struktur der Galerie wieder her. Eine allgemeine JSON-Datei aus einem anderen Werkzeug wird Feld für Feld einer neuen Persona zugeordnet. Ein Name ist Pflicht. Jede Datei zeigt ein Zeichen für Erfolg oder Fehlschlag.
 
-Klick im **Personas**-Panel auf **Import**, um das Fenster **Import Persona** zu öffnen. Zieh Dateien hinein oder klick, um sie auszuwählen. Mehrere Dateien auf einmal sind möglich. Zwei Dateitypen werden akzeptiert:
+Zum Exportieren klick im Editor auf **Export persona** oder nutze im Auswahlmodus **Export**. Das Fenster **Export Persona** bietet zwei Formate:
 
-- Native Paketdateien **.marinara**. Sie stellen alle Persona-Details, Sprites und die Struktur der Galerie wieder her.
-- **.json**-Dateien. Ein JSON-Export aus Marinara wird vollständig importiert. Eine allgemeine JSON-Datei aus einem anderen Werkzeug ordnet Marinara Feld für Feld einer neuen Persona zu. Der Name ist Pflicht. Weitere erkannte Felder übernimmt Marinara, sofern sie vorhanden sind.
+| Format | Was du bekommst |
+| --- | --- |
+| **Marinara Native** | Alle Marinara-Persona-Details, Sprites und angehängten Lorebooks. Nimm dieses Format, um eine Persona zwischen Marinara-Installationen umzuziehen. |
+| **Compatible JSON** | Nur die einfachen Persona-Felder, für andere Werkzeuge. |
 
-Jede Datei zeigt ein Symbol für Erfolg oder Fehlschlag samt Meldung. Eine Zusammenfassungszeile nennt, wie viele Dateien geklappt haben und wie viele nicht.
+Ein Sammelexport lädt eine ZIP-Datei mit je einer Datei pro Persona herunter.
 
-### Export
+## Eine Persona duplizieren oder löschen
 
-Exportieren kannst du über das Symbol **Export persona** im **Persona Editor** oder über die Sammelaktion **Export** im Auswahlmodus des Panels. Das Fenster **Export Persona** bietet zwei Formate:
+Zum Duplizieren klick in einer Zeile auf **Duplicate** oder im Editor auf **Duplicate persona**. Die Kopie heißt „{original name} (Copy)“ und behält alle Kartenfelder, Farben, Werte und Convo-Felder. Kein Chat wechselt dadurch seine Persona.
 
-- **Marinara Native**: behält alle Marinara-Persona-Details, Sprites und angehängten Lorebooks. Nimm dieses Format, um eine Persona zwischen zwei Marinara-Installationen umzuziehen.
-- **Compatible JSON**: exportiert nur die einfachen Persona-Felder. Nimm dieses Format für andere Werkzeuge, die Marinaras Format nicht kennen.
+Zum Löschen klick in einer Zeile auf **Delete** oder im Editor auf **Delete persona** und bestätige. Das lässt sich nicht rückgängig machen. Um mehrere zu löschen, klick auf **Select**, hak die Personas ab und nutze **Delete** in der Auswahlleiste. Schlägt eine Löschung fehl, bleiben diese Personas ausgewählt, damit du es erneut versuchen kannst.
 
-Ein Sammelexport lädt eine einzelne ZIP-Datei herunter, mit je einer Datei pro ausgewählter Persona.
+## Eine Persona als Charakter hinzufügen
 
-## Persona als Charakter hinzufügen
-
-In der Kopfzeile des **Persona Editor** sitzt das Symbol **Add persona as character**. Es legt eine neue Charakterkarte in der Charakter-Bibliothek an. Die neue Karte übernimmt Name, Beschreibung, Persönlichkeit, Szenario, Vorgeschichte, Aussehen, Tags, Ersteller, Version und Avatar der Persona.
-
-Praktisch ist das, wenn du eine frühere Persona lieber als Charakter spielen willst. Die ursprüngliche Persona bleibt unverändert und wird nicht gelöscht. Wie du Charaktere bearbeitest, steht unter [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md).
+**Add persona as character** in der Kopfzeile des Editors legt eine neue Karte bei deinen Charakteren an. Sie übernimmt Name, Beschreibung, Persönlichkeit, Szenario, Vorgeschichte, Aussehen, Tags, Ersteller, Version und Avatar. Die Persona bleibt, wie sie war. Wie du die neue Karte bearbeitest, steht unter [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md).
 
 ## Verwandte Anleitungen
 
-- [Die Persona für einen Chat wählen](choosing-your-persona.md)
+- [Die Persona für einen Chat auswählen](choosing-your-persona.md)
 - [Charakterfarben und RPG-Werte](colors-and-stats.md)
 - [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md)
-- [Profile im Conversation Mode](../conversation/profiles.md)
+- [Conversation-Mode-Profile](../conversation/profiles.md)
 - [Makros](../prompts/macros.md)

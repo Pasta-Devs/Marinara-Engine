@@ -855,6 +855,8 @@ Ręczna mapa może też zawierać własny opis dla Mistrza Gry:
 
 `props` to jeden wpis na miejsce obiektu, od 0 do 7 (`null` dla nieopisanego miejsca). Mistrz Gry dostaje wtedy opis mapy jako "Ręcznie wykonane miejsce (ziemia ze ścierniskiem, ściany ze stojącej kukurydzy), z rowem deszczówki; w nim: strach na wróble (2), kapliczka kukurydzianej lalki", zamiast samej informacji, że wykonano ją ręcznie. Obie funkcje wymagają Experience deklarującego 1.357.
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359: przedmioty zużywające liczbę fabuły
 
 Nakładka może wskazywać przedmioty, których użycie zużywa jedną z flag liczbowych fabuły Experience (albo ją zwiększa):
@@ -1055,6 +1057,40 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 - `enterLabel` i `exitLabel`: zlokalizowane etykiety dostępności przełącznika.
 
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814: zapisywanie stałej części promptu pakietu w pamięci podręcznej
+
+Pakiet, który pisze tekst przez `api.runtime.languageModels`, może oznaczyć, gdzie kończy się ta część jego promptu, która przy każdym wywołaniu jest taka sama: ustaw `cacheBreakpoint: true` w wiadomości przekazywanej do `chatComplete`. Prompt aż do tej wiadomości włącznie trafia do pamięci podręcznej, więc późniejsze wywołania, które zaczynają się od tego samego tekstu, płacą za niego mniej. Na początku umieść instrukcje, karty postaci i dotychczasowy przebieg opowieści, utrzymuj je bajt w bajt takie same między wywołaniami, a to, co się zmienia, umieść po oznaczonej wiadomości.
+
+- Anthropic: silnik ustawia granicę pamięci podręcznej na każdej oznaczonej wiadomości, także na wiadomościach systemowych, nawet gdy zapisywanie promptu w pamięci podręcznej jest w połączeniu wyłączone, i nie dodaje żadnej własnej. Prompt pozostaje w pamięci podręcznej 5 minut albo 1 godzinę, gdy połączenie żąda dłuższego czasu przechowywania w pamięci podręcznej. Zapis do pamięci podręcznej kosztuje jednorazowo więcej niż cena tokenów wejściowych, a odczyt kosztuje ułamek tej ceny; dokładne stawki zależą od modelu, więc zajrzyj do cennika modeli Anthropic. Usługa Anthropic przyjmuje najwyżej cztery granice: przy większej liczbie oznaczonych wiadomości liczą się cztery ostatnie. Oznaczona wiadomość bez tekstu oznacza zamiast siebie wiadomość poprzednią. Prefiks krótszy niż minimum modelu nie trafia do pamięci podręcznej i kosztuje tyle co zwykle.
+- Usługi OpenAI, Gemini, xAI i DeepSeek samodzielnie zapisują identyczne prefiksy w pamięci podręcznej: znacznik niczego nie zmienia.
+- Usługa OpenRouter i własne endpointy zgodne z OpenAI nie obsługują jeszcze znacznika: wywołanie jest wysyłane tak, jakby go nie było, więc prompt modelu Claude używanego tą drogą nie trafia do pamięci podręcznej.
+- Claude (Subscription): Agent SDK samodzielnie zapisuje prompt w pamięci podręcznej, a znacznik nie jest wysyłany; obowiązuje czas przechowywania w pamięci podręcznej ustawiony w połączeniu.
+
+`usage` podaje `cachedPromptTokens` (odczytane z pamięci podręcznej) i `cacheWritePromptTokens` (zapisane do niej), gdy dostawca je zgłasza. `promptTokens` jest nadal liczone tak, jak liczy je dostawca. W usługach Anthropic i Claude (Subscription) obejmuje tylko dane wejściowe, których ani nie odczytano z pamięci podręcznej, ani do niej nie zapisano, więc cały prompt to `promptTokens + cachedPromptTokens + cacheWritePromptTokens`, a gdy pakiet oznaczy prefiks, `promptTokens` spada do samej końcówki spoza pamięci podręcznej. Trasy zgodne z OpenAI (łącznie z usługą OpenRouter) i Gemini już wliczają tokeny z pamięci podręcznej do `promptTokens`, więc ponowne ich dodanie policzy je dwa razy. Wywołanie bez oznaczonej wiadomości pozostaje bez zmian.
+
+Starsze wersje silnika ignorują to pole, więc pakiet może je zawsze ustawiać. Zadeklaruj wersję 1.814, gdy pakiet polega na zapisywaniu w pamięci podręcznej albo na danych o użyciu pamięci podręcznej.
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815: wybór, jak długo oznaczony prompt pozostaje w pamięci podręcznej
+
+`chatComplete` przyjmuje `cacheTtl: "5m" | "1h"`: jak długo prompt aż do wiadomości wywołania oznaczonych `cacheBreakpoint` (1.814) pozostaje w pamięci podręcznej usługi Anthropic. Bez tej opcji obowiązuje, tak jak dotąd, czas przechowywania w pamięci podręcznej ustawiony w połączeniu. Poproś o `"1h"`, gdy ten sam prefiks wraca w odstępach dłuższych niż pięć minut, na przykład kontekst opowieści, którego każda scena używa ponownie, gdy gracz czyta. Zapis do pamięci podręcznej na godzinę kosztuje więcej niż zapis na 5 minut, więc opłaca się tylko wtedy, gdy prefiks zostanie ponownie odczytany w ciągu tej godziny. Wywołanie bez oznaczonej wiadomości ignoruje tę opcję. Ignorują ją też dostawcy, którzy samodzielnie zapisują prompt w pamięci podręcznej (OpenAI, Gemini, xAI, DeepSeek), oraz Claude (Subscription), gdzie obowiązuje czas przechowywania w pamięci podręcznej ustawiony w połączeniu.
+
+Starsze wersje silnika ignorują tę opcję, więc pakiet może ją zawsze przekazywać. Zadeklaruj wersję 1.815, gdy pakiet na niej polega.
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

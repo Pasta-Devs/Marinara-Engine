@@ -1,61 +1,49 @@
 # Wybór persony w czacie
 
-Ten przewodnik wyjaśnia, jak wybrać personę, która reprezentuje cię w czacie. Opisuje szybkie przełączniki i możliwość korzystania z czatu bez persony.
+Każdy czat ma własną personę, czyli kartę postaci, która cię reprezentuje. Możesz ją wybrać w panelu Chat Settings, podczas tworzenia czatu albo szybkim przełącznikiem obok pola wiadomości.
 
-## Każdy czat ma własną personę
+Zanim zaczniesz: utwórz personę. Zobacz [Persony](personas.md).
 
-Persona (postać, w którą się wcielasz) to twoja własna karta postaci – tożsamość, której aplikacja Marinara Engine używa, żeby cię przedstawić. Przekazuje AI imię i szczegóły, dzięki czemu AI wie, z kim rozmawia. O tym, jak ją zbudować, mówi przewodnik [Persony użytkownika](personas.md).
+Wybór dotyczy tylko tego czatu, więc różne czaty mogą używać różnych person. Wybierz **None** (brak), żeby nie używać persony. AI nazywa cię wtedy "User" i nie dostaje żadnych szczegółów persony. Dotyczy to trybów Conversation, Roleplay i Game Mode.
 
-Wybierz personę osobno dla każdego czatu, w którym chcesz jej używać. Wybór dotyczy tylko tego czatu. Wybierz **None** (brak), żeby nie używać persony; AI otrzyma ogólną nazwę "User" bez szczegółów persony.
+## Szybkie przełączanie w otwartym czacie
 
-Dawne globalne ustawienie **aktywnej persony** zostało usunięte. Zapisane persony i dotychczasowy wybór w każdym czacie zostają zachowane. Czat bez wybranej persony pozostaje anonimowy.
+To najszybszy sposób. Na komputerze przełącznik **Quick Persona Switcher** (szybki przełącznik person) to mały okrągły przycisk z awatarem obok pola wiadomości. Jego podpowiedź pokazuje nazwę persony albo napis **Quick Persona Switcher**, gdy żadna persona nie jest ustawiona. W otwartym menu wiersz **None** ma napis **No persona selected** (nie wybrano persony).
 
-## Wybór persony dla jednego czatu
+1. Kliknij przycisk z awatarem. Otwiera się menu o nazwie **Personas** (persony).
+2. Kliknij personę, żeby przełączyć się od razu, albo kliknij **None**, żeby nie używać persony.
 
-Każdy czat może mieć zapisaną własną personę. W różnych czatach możesz używać różnych person.
+Persony są pogrupowane według folderów. Te bez folderu pojawiają się w grupie **Ungrouped** (bez grupy).
 
-### Z panelu Chat Settings
+Na telefonie przełączanie person dzieli menu z przełączaniem połączeń. Dotknij strzałki **Quick Switcher** (szybki przełącznik) obok pola wiadomości, a potem otwórz zakładkę **Personas**. Zakładka **Connections** (Połączenia) jest w tym samym menu.
 
-1. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
+Przełączenie persony w trakcie czatu nie zmienia wcześniejszych wiadomości. Każda już wysłana wiadomość zachowuje personę, z którą ją wysłano.
+
+## Z panelu Chat Settings
+
+1. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w prawym górnym rogu czatu, chyba że przycisk przeniesiono w inne miejsce.
 2. Znajdź sekcję **Persona**. Jej tekst pomocy zaczyna się od "Your persona defines who you are in this chat."
-3. Kiedy żadna persona nie jest ustawiona, widać napis "No persona selected."
-4. Kliknij przycisk **Choose Persona** (wybór persony). Po ustawieniu persony przycisk zmienia nazwę na **Change Persona**.
-5. Wyszukaj personę w oknie wyboru (tekst zastępczy "Search personas...") i kliknij ją.
+3. Kliknij **Choose Persona** (wybór persony). Gdy persona jest już ustawiona, przycisk ma napis **Change Persona** (zmiana persony). Wcześniej sekcja pokazuje napis "No persona selected."
+4. Wyszukaj personę w oknie wyboru (tekst zastępczy **Search personas**) i ją kliknij.
 
-Żeby usunąć personę czatu, kliknij przycisk usuwania (X) obok niej albo wybierz opcję **None** w oknie wyboru.
+Żeby wyczyścić wybór persony, kliknij X obok niej albo wybierz **None** w oknie wyboru.
 
-W trybie Game Mode ta sekcja jest opisana jako drużyna w grze, ale etykieta pozostaje ta sama: **Persona**.
+Jeśli to nie zadziałało: możesz wybrać tylko te persony, które już utworzono. Najpierw utwórz personę albo użyj opcji **Create your persona** (utworzenie własnej persony) w oknie wyboru (zobacz [Interaktywny onboarding](interactive-onboarding.md)).
 
-### Podczas tworzenia czatu
+W trybie Game Mode ta sekcja jest przedstawiona jako twoja drużyna w grze, ale nadal ma etykietę **Persona**.
 
-Kreator **New Chat** ma pole **Your Persona** (twoja persona). Działa w nim to samo okno wyboru z wyszukiwarką oraz opcja **None**. W kreatorze **New Game Setup** to samo pole nosi nazwę **Player's Persona**.
+## Podczas tworzenia czatu
 
-W czacie Roleplay karta postaci może oferować na górze tego okna wyboru opcję **Create your persona** (utworzenie własnej persony). Wybierz ją, żeby odpowiedzieć na pytania karty i dostać nową personę. Zobacz [Interaktywny onboarding](interactive-onboarding.md).
+Kreator konfiguracji New Chat ma pole **Your Persona** (twoja persona). Korzysta z tego samego okna wyboru z polem wyszukiwania i z opcji **None**. W kreatorze New Game Setup to pole nazywa się **Player's Persona** (persona gracza), a czat zachowuje ten wybór.
 
-Ten sam wiersz jest w oknie wyboru persony w Chat Settings, więc personę da się utworzyć także po zakończeniu konfiguracji. W Chat Settings sekcja **Characters** (postacie) pokazuje też znacznik onboardingu karty. Ponownie otwiera on pytania o postać z tej karty, dzięki czemu możesz zmienić odpowiedź albo przywrócić usuniętą.
+W czacie w trybie Roleplay okno wyboru może też oferować opcję **Create your persona**, która zadaje pytania z karty postaci i tworzy personę. Zobacz [Interaktywny onboarding](interactive-onboarding.md).
 
-## Przełącznik **Quick Persona Switcher**
+## Granie jako postać
 
-W otwartym czacie, obok pola wiadomości, znajduje się mały okrągły przycisk z awatarem. To właśnie przełącznik **Quick Persona Switcher** (szybki przełącznik person). Kiedy żadna persona nie jest ustawiona, podpowiedź pokazuje tę właśnie nazwę.
-
-1. Kliknij przycisk z awatarem.
-2. Otwiera się menu o nazwie **Personas**.
-3. Kliknij dowolną personę, żeby przełączyć się od razu, albo kliknij opcję **None**, żeby nie używać żadnej.
-
-Persony są pogrupowane według folderów. Persony bez folderu trafiają do grupy **Ungrouped**.
-
-Na telefonie przełączanie person dzieli menu z przełączaniem połączeń. Dotknij strzałki **Quick Switcher** obok pola wiadomości, a potem otwórz zakładkę **Personas**. Zakładka **Connections** jest w tym samym menu.
-
-## Która persona wygrywa
-
-O twojej tożsamości decyduje persona wybrana dla czatu. Jeśli wybierzesz **None**, AI zwraca się do ciebie per "User" i nie otrzymuje szczegółów persony. Dotyczy to trybów Conversation, Roleplay i Game Mode.
-
-W trybie Game Mode wybierasz personę w kreatorze New Game Setup. Czat zachowuje ten wybór.
-
-Przełączenie persony w trakcie czatu nie zmienia wcześniejszych wiadomości. Każda wysłana wiadomość zachowuje tę personę, z którą została wysłana.
+Żeby użyć karty postaci jako swojej tożsamości, włącz **Show characters in Persona pickers** (pokaż postacie w wyborze persony) w sekcji **Settings → Advanced → Message Tools** (ustawienia, zaawansowane, narzędzia wiadomości). Okna wyboru pokazują wtedy grupę **Play as a character** (granie jako postać) z listą twoich postaci.
 
 ## Powiązane przewodniki
 
-- [Persony użytkownika: tworzenie i edycja](personas.md)
+- [Persony](personas.md)
 - [Interaktywny onboarding](interactive-onboarding.md)
 - [Panel **Chat Settings** – przegląd](../chats/chat-settings.md)

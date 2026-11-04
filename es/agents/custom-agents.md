@@ -1,168 +1,207 @@
 # Crear agentes personalizados
 
-Esta guía te muestra cómo construir tu propio agente en Marinara Engine. Un agente es un pequeño ayudante de IA que se ejecuta automáticamente junto a tu chat. Aprenderás a configurar su fase, poderes, tipo de salida, palabras clave y preguntas de activación, herramientas y prompt (las instrucciones enviadas a la IA), con un ejemplo completo trabajado.
+Un agente personalizado es un ayudante que escribes tú: tus propias instrucciones, cuándo se ejecuta y qué puede cambiar. Construye uno cuando ningún [agente descargable](built-in-agents.md) haga lo que quieres. Si un agente instalado se acerca a lo que buscas, pasa el cursor sobre su tarjeta en el panel **Agents** (Agentes) y haz clic en **Copy agent** (Copiar agente) para obtener una copia editable.
 
-¿Eres nuevo con los agentes? Lee primero [Agentes: ayudantes de IA para tus chats](agents-overview.md) para conocer lo básico y luego vuelve aquí.
-
-## Cuándo construir un agente personalizado
-
-Marinara Engine ofrece muchos agentes oficiales descargables. Consulta la [Referencia de agentes descargables](built-in-agents.md) y el repositorio público del paquete [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) antes de construir el tuyo. Puede que un agente del catálogo ya haga lo que quieres, y los manifiestos oficiales proporcionan ejemplos de paquetes que funcionan.
-
-Construye un agente personalizado cuando necesites algo que los integrados no cubren. Algunas buenas razones son:
-
-- Quieres un ayudante con tus propias instrucciones y voz.
-- Quieres inyectar una nota específica en cada prompt.
-- Quieres reescribir cada respuesta con un cierto estilo.
-- Quieres que un agente llame a tu propia herramienta personalizada.
-
-Si un agente oficial ya instalado se acerca a lo que buscas, cópialo en su lugar. En el panel **Agents** (Agentes), pasa el cursor sobre su tarjeta y haz clic en **Copy agent**. Esto crea una copia personalizada editable.
-
-## Antes de empezar
-
-Dos cosas importan antes de construir:
-
-1. Los agentes se configuran por chat, no por personaje. Construir un agente en la biblioteca no lo ejecuta. Debes añadirlo a un chat y activar **Enable Agents** en **Chat Settings** (Ajustes del chat).
-2. Los agentes personalizados funcionan en todos los modos de chat: Roleplay, Game Mode y Conversation. Los paquetes oficiales aparecen solo en sus modos compatibles, mientras que tus propios agentes personalizados quedan disponibles en todas partes.
+Antes de empezar: lee [Agentes: ayudantes de IA para tus chats](agents-overview.md). Construir un agente no lo ejecuta. Lo añades a un chat después. Los agentes personalizados funcionan en todos los modos de chat.
 
 ## Crear un agente personalizado
 
-Sigue estos pasos para crear un nuevo agente personalizado desde cero.
-
 1. Abre el panel **Agents**.
-2. Haz clic en el botón **New** (Nuevo), el icono del signo más, cerca de la parte superior.
-3. Se abre el editor de agentes a página completa con un agente personalizado en blanco.
-4. Escribe un nombre en el campo de título en la parte superior, por ejemplo `Weather Reporter`.
-5. Rellena los campos **Description** (Descripción) y **Author** (Autor) para que recuerdes qué hace.
-6. Elige una **Pipeline Phase** (Fase del pipeline) (ver más abajo).
-7. Activa los poderes que necesites en **Custom Agent Abilities** (Habilidades del agente personalizado).
-8. Elige un **Result Type** (Tipo de resultado) que coincida con lo que el agente debe producir.
-9. Escribe las instrucciones del agente en **Prompt Template** (Plantilla de prompt).
-10. Haz clic en **Save** (Guardar) en la barra superior. Deberías ver una insignia verde **Saved**.
+2. Haz clic en **New** (Nuevo), el icono del signo más, cerca de la parte superior. Se abre el editor de agentes a página completa.
+3. Escribe un nombre en el campo de título, por ejemplo `Weather Reporter`.
+4. Rellena **Description** (Descripción) y **Author** (Autor).
+5. Elige una **Pipeline Phase** (Fase del pipeline). Consulta [Pipeline Phase](#pipeline-phase).
+6. Activa los poderes que necesita en **Custom Agent Abilities** (Habilidades del agente personalizado).
+7. Elige un **Result Type** (Tipo de resultado) que coincida con lo que produce el agente. Si tienes dudas, elige **Context Injection**. No necesita ninguna habilidad ni un formato de salida estricto.
+8. Escribe sus instrucciones en **Prompt Template** (Plantilla de prompt).
+9. Haz clic en **Save** (Guardar) en la barra superior. Aparece una insignia verde **Saved**.
 
-Tu nuevo agente aparece ahora en la sección **Custom Agents** (Agentes personalizados) del panel **Agents**. Para usarlo, abre un chat, ve a **Chat Settings**, activa **Enable Agents** y añade tu agente desde la sección **Custom Agents** que hay allí.
+El agente aparece ahora en la sección **Custom Agents** (Agentes personalizados) del panel **Agents**. Para usarlo, abre un chat, ve a **Chat Settings** (Ajustes del chat), activa **Enable Agents** (Activar agentes) y añade el agente desde **Custom Agents**.
 
 ## Pipeline Phase
 
-La **Pipeline Phase** establece cuándo se ejecuta tu agente. Elige uno de tres botones:
+**Pipeline Phase** establece cuándo se ejecuta el agente.
 
-- **Pre-Generation**: se ejecuta antes de que la IA responda. Puede añadir contexto o cambiar el prompt.
-- **Parallel**: se ejecuta al mismo tiempo que la respuesta. No puede ver la respuesta terminada.
-- **Post-Processing**: se ejecuta después de que la respuesta esté completa. Puede leer y, para algunos tipos de resultado, editar la respuesta.
+- **Pre-Generation**: antes de la respuesta. Puede añadir contexto o cambiar el prompt (las instrucciones enviadas a la IA).
+- **Parallel**: al mismo tiempo que la respuesta. No puede ver la respuesta terminada.
+- **Post-Processing**: después de la respuesta. Puede leer la respuesta y, para algunos tipos de resultado, editarla.
 
-Algunos tipos de resultado obligan a una fase. Si eliges **Text Rewrite**, la fase cambia a **Post-Processing**. Si eliges **Prompt Patch**, la fase cambia a **Pre-Generation**. Esto ocurre porque esos trabajos solo tienen sentido en esa fase.
+Algunos tipos de resultado obligan a una fase. **Text Rewrite** cambia a **Post-Processing**. **Prompt Patch** y **Character Activity** cambian a **Pre-Generation**.
 
-Los agentes personalizados de Post-Processing también obtienen una sección **Turn Data Access** (Acceso a datos del turno). Tiene dos interruptores opcionales: **Pre-generation injections** y **Parallel agent results**. Actívalos para que tu agente pueda leer lo que otros agentes produjeron durante el mismo turno. Déjalos desactivados para mantener tu agente aislado.
+Los agentes de Post-Processing también obtienen una sección **Turn Data Access** (Acceso a datos del turno) con dos interruptores, **Pre-generation injections** y **Parallel agent results**. Actívalos para que el agente pueda leer lo que otros agentes produjeron en el mismo turno.
 
 ## Custom Agent Abilities
 
-Las **Custom Agent Abilities** son poderes que se activan de forma opcional. Un poder permanece bloqueado hasta que activas su interruptor. Esto mantiene un agente personalizado seguro de forma predeterminada. Las habilidades disponibles son:
+Las habilidades son poderes que se activan de forma opcional. Cada una permanece bloqueada hasta que activas su interruptor.
 
-| Habilidad | Lo que permite hacer al agente |
-|---|---|
-| **Create lorebooks** | Crear un nuevo lorebook (libro de trasfondo) hecho por el agente cuando su salida de lore no tiene destino. |
-| **Edit lorebooks** | Escribir entradas de lorebook o generar resultados de actualización de lorebook. |
-| **Edit messages** | Reemplazar el texto del mensaje generado por texto reescrito o añadirle opciones de continuación. |
-| **Edit trackers** | Actualizar el estado del tracker (agente de seguimiento) del juego, del personaje, de la persona o personalizado. |
-| **Frontend styling** | Aplicar un efecto de estilo visual temporal durante la generación. |
-| **Change chat backgrounds** | Cambiar y conservar el fondo seleccionado para un chat. |
-| **Change character sprites** | Cambiar las expresiones de personajes y Personas que se muestran en el chat. |
-| **Control media playback** | Controlar la reproducción de Spotify, YouTube o música local. |
-| **Control haptic devices** | Enviar comandos limitados a un dispositivo háptico conectado. |
-| **Edit About Me details** | Cambiar el texto About Me específico del chat. Los cambios de tarjetas públicas siguen necesitando una aprobación aparte. |
-| **Image generation** | Activar el generador de imágenes con un prompt de imagen. |
-| **Vectors/embeddings** | Usar contexto de vectores o embeddings (representaciones numéricas del texto). Los vectores son una forma de buscar texto por su significado. |
-| **Main prompt edits** | Editar el prompt enviado al modelo de IA principal. |
+- **Create lorebooks**: crear un nuevo lorebook (libro de trasfondo) hecho por el agente cuando su salida de trasfondo no tiene destino.
+- **Edit lorebooks**: escribir entradas de lorebook o devolver resultados de actualización de lorebook.
+- **Edit messages**: reemplazar el texto del mensaje generado o añadirle opciones de continuación.
+- **Edit trackers**: actualizar el estado del tracker (agente de seguimiento) del juego, del personaje, de la persona o personalizado.
+- **Frontend styling**: aplicar un estilo visual temporal durante la generación.
+- **Change chat backgrounds**: cambiar y guardar el fondo de un chat.
+- **Change character sprites**: cambiar las expresiones de personajes y personas que se muestran en el chat.
+- **Control media playback**: controlar Spotify, YouTube o la música local.
+- **Control haptic devices**: enviar comandos limitados a un dispositivo háptico conectado.
+- **Edit About Me details**: cambiar el texto About Me específico del chat. Los cambios de tarjetas públicas siguen necesitando tu aprobación.
+- **Image generation**: enviar un prompt de imagen al generador de imágenes.
+- **Vectors/embeddings**: usar contexto de vectores. Los vectores permiten a Marinara buscar texto por su significado.
+- **Main prompt edits**: editar el prompt enviado al modelo principal.
+- **Create character cards**: proponer una nueva tarjeta de personaje. Solo se guarda después de que la revises y la aceptes.
+- **Choose active chat characters**: elegir qué personajes adjuntos están activados para la respuesta actual de Conversation o Roleplay.
 
-Un lorebook es un conjunto de notas de trasfondo que la IA puede incorporar a una escena. Un tracker es un panel en vivo que almacena datos como estadísticas, estado de ánimo o ubicación.
-
-Si activas **Edit lorebooks**, aparece una sección **Lorebook Writer**. Activa **Allow lorebook entry writes** y elige un lorebook en el menú desplegable **Target lorebook**. El agente solo puede escribir en ese único lorebook.
+Si activas **Edit lorebooks**, aparece una sección **Lorebook Writer**. Activa **Allow lorebook entry writes** y elige un lorebook en **Target lorebook**. El agente solo puede escribir en ese lorebook.
 
 ## Result Type
 
-El **Result Type** le dice a Marinara cómo leer la salida de tu agente. La mayoría de los tipos de resultado esperan que el agente devuelva JSON. JSON es un formato de texto simple escrito con llaves y comillas. Cada tipo de resultado necesita la habilidad correspondiente de la tabla anterior.
+**Result Type** le dice a Marinara cómo leer la respuesta del agente. La mayoría de los tipos esperan JSON, un formato de texto escrito con llaves y comillas. Un tipo permanece atenuado hasta que activas la habilidad que necesita.
 
-| Result Type | Lo que hace | Habilidad necesaria |
-|---|---|---|
-| **Context Injection** | Añade texto antes de la generación o registra una nota después de la generación. | Ninguna |
-| **Text Rewrite** | Se ejecuta después de la respuesta y reemplaza el texto del mensaje. | Edit messages |
-| **Lorebook Update** | Crea o actualiza entradas de lorebook. | Edit lorebooks |
-| **Character Tracker** | Actualiza el tracker del personaje (personajes presentes). | Edit trackers |
-| **Persona Stats** | Actualiza las estadísticas, el estado y el inventario de la persona. | Edit trackers |
-| **Custom Tracker** | Reemplaza los campos de tu propio tracker personalizado. | Edit trackers |
-| **Game State** | Actualiza datos de juego al estilo del estado del mundo. | Edit trackers |
-| **Image Prompt** | Pide al generador de imágenes que dibuje una escena. | Image generation |
-| **Prompt Patch** | Añade, antepone o reemplaza secciones del prompt. | Main prompt edits |
-| **Frontend Style** | Aplica un efecto de estilo temporal. | Frontend styling |
-| **Background Change** | Selecciona y conserva un fondo de chat disponible. | Change chat backgrounds |
-| **Sprite Change** | Cambia las expresiones de personajes y Personas que se muestran en el chat. | Change character sprites |
-| **Spotify Control** | Controla la reproducción de Spotify. | Control media playback |
-| **YouTube Control** | Controla la reproducción de YouTube. | Control media playback |
-| **Local Music Control** | Controla la reproducción de tu colección de música local. | Control media playback |
-| **Haptic Command** | Envía un comando limitado a un dispositivo háptico conectado. | Control haptic devices |
-| **About Me Update** | Actualiza el texto About Me específico del chat y propone ediciones públicas. | Edit About Me details |
-| **Interactive Choices** | Añade opciones de continuación al mensaje generado. | Edit messages |
+Tipos que no necesitan ninguna habilidad:
 
-**Context Injection** es el punto de partida más amigable. No necesita ningún interruptor de habilidad ni un formato de salida estricto. Úsalo cuando solo quieras que el agente añada una nota corta al prompt o registre un resumen.
+- **Context Injection**: añade texto antes de la generación o registra una nota después de ella. El punto de partida más fácil.
 
-Si un tipo de resultado aparece atenuado, es que aún no has activado su habilidad. Activa el interruptor correspondiente en **Custom Agent Abilities** y entonces el tipo de resultado se vuelve seleccionable.
+Tipos que necesitan **Edit messages**:
 
-### Controles por chat para agentes de imagen
+- **Text Rewrite**: reemplaza el texto del mensaje después de la respuesta.
+- **Interactive Choices**: añade opciones de continuación al mensaje.
 
-Un agente con la capacidad **Image generation** recibe dos controles adicionales en su tarjeta de **Chat Settings → Agents → Custom Agents**, junto al selector de plantilla de prompt que tienen todos los agentes personalizados:
+Tipos que necesitan **Edit trackers**:
 
-- **Image Connection** — sustituye solo en este chat la conexión de imagen que usa el agente. Déjalo en **Agent default** para conservar la conexión de sus propios ajustes. El selector **Image Style** del chat también se aplica a sus imágenes, por lo que un agente puede renderizar de forma distinta en cada chat sin duplicarlo.
-- **Camera button** — genera una imagen con ese agente de inmediato, sin esperar a sus palabras de activación. El agente sigue escribiendo el prompt; si su plantilla decide no producirlo, aparece una notificación de error en vez de una imagen.
+- **Character Tracker**: actualiza los personajes presentes.
+- **Persona Stats**: actualiza las estadísticas, el estado y el inventario de la persona.
+- **Custom Tracker**: reemplaza los campos de tu tracker personalizado.
+- **Game State**: actualiza datos de juego al estilo del estado del mundo.
+
+Otros tipos, cada uno con su propia habilidad:
+
+- **Lorebook Update** (Edit lorebooks): crea o actualiza entradas de lorebook.
+- **Image Prompt** (Image generation): pide al generador de imágenes que dibuje una escena.
+- **Prompt Patch** (Main prompt edits): añade, antepone o reemplaza secciones del prompt.
+- **Frontend Style** (Frontend styling): aplica un efecto de estilo temporal.
+- **Background Change** (Change chat backgrounds): elige y guarda un fondo disponible.
+- **Sprite Change** (Change character sprites): cambia las expresiones que se muestran en el chat.
+- **Spotify Control**, **YouTube Control**, **Local Music Control** (Control media playback): controlan la reproducción.
+- **Haptic Command** (Control haptic devices): envía un comando limitado a un dispositivo háptico.
+- **About Me Update** (Edit About Me details): actualiza el texto About Me específico del chat y propone ediciones públicas.
+- **Character Card Creation** (Create character cards): propone una tarjeta de personaje editable para tu aprobación.
+- **Character Activity** (Choose active chat characters): selecciona las tarjetas de personaje que se usan para la respuesta actual. Se ejecuta antes de la respuesta y debe seleccionar al menos un personaje adjunto.
+
+### Controles para agentes de imagen en un chat
+
+Un agente con la habilidad **Image generation** recibe dos controles adicionales en **Chat Settings → Agents → Custom Agents**.
+
+- **Image model** (Modelo de imagen): sustituye la conexión de imagen de este agente solo en este chat. Déjalo en **Agent default** (Predeterminado del agente) para conservar el ajuste propio del agente. El **Image Style** (Estilo de imagen) del chat también se aplica a las imágenes de los agentes personalizados.
+- **Camera button**: crea una imagen ahora, sin esperar a las palabras clave de activación. Si la plantilla del agente se niega a escribir un prompt, recibes una notificación de error en lugar de una imagen.
 
 ## Activation Keywords
 
-De forma predeterminada, un agente personalizado se ejecuta con su cadencia normal. Las **Activation Keywords** (Palabras clave de activación) te permiten omitir el agente a menos que la escena sea relevante. Esto ahorra tokens (fragmentos de texto) y costo. Un token es un pequeño fragmento de texto que la IA cuenta.
+De forma predeterminada, un agente se ejecuta con su cadencia normal (la frecuencia con la que se ejecuta). Las **Activation Keywords** (Palabras clave de activación) omiten el agente a menos que la escena sea relevante, lo que ahorra tokens (fragmentos de texto).
 
-Para configurar esto:
+1. En **Activation Keywords**, escribe una palabra clave o frase por línea, como `tavern` o `secret door`.
+2. Establece **Scan Depth** en el número de mensajes recientes que se buscan. El valor predeterminado es 5 y el máximo es 200.
 
-1. En la sección **Activation Keywords**, escribe una palabra clave o frase por línea. Por ejemplo:
+Entonces el agente solo se ejecuta cuando una palabra clave aparece en esos mensajes. Deja el cuadro vacío para desactivar el filtro. La cadencia y cualquier pregunta de activación siguen aplicándose.
 
+## Adjuntar herramientas
+
+Un agente puede llamar a herramientas: funciones que la IA ejecuta para obtener o cambiar algo, y cuyo resultado luego lee. Esto también se llama function calling.
+
+1. En el editor de agentes, abre **Tools / Function Calling** y activa cada herramienta que quieras. La lista incluye herramientas integradas y las tuyas. Para construir una, consulta [Herramientas personalizadas](../extending/custom-tools.md).
+2. En **Chat Settings**, abre **Function Calling** y activa **Enable Tool Use**. Sin él, las herramientas del agente permanecen desactivadas.
+
+Los agentes importados nunca obtienen acceso a herramientas. Revisa un agente importado y luego selecciona tú sus herramientas.
+
+Un agente recibe como máximo 16 rondas de llamadas a herramientas por ejecución (menos si el `MAX_TOOL_ROUNDS` del servidor es menor) y luego responde con lo que tenga. Un modelo que llama a las herramientas de una en una gasta una ronda en cada llamada, así que un agente que guarda muchas entradas debería hacer varias llamadas en una sola respuesta. Una ejecución de puesta al día de lorebook recibe hasta 64 rondas.
+
+## Named prompt options
+
+Un agente puede contener varias variantes de prompt, así que cada chat puede elegir una sin editar el agente.
+
+1. En **Prompt Template**, busca **Named prompt options** (Opciones de prompt con nombre).
+2. Haz clic en **Add option** (Añadir opción).
+3. Dale un nombre y una descripción corta, y luego escribe su prompt completo.
+
+Cuando alguien añade el agente a un chat, un menú desplegable **Prompt Mode** lista tus opciones. Si no hay ninguna, solo se muestra el prompt predeterminado.
+
+## Otros ajustes
+
+- **Model override** (Modelo alternativo): usa un modelo distinto para este agente, por ejemplo uno más barato. Déjalo vacío para usar el modelo del chat. El agente envía los parámetros de generación guardados en esa conexión. Consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
+- **Agent Budget**: **Context Size** es cuántos mensajes recientes lee el agente (5 de forma predeterminada). **Max Output Tokens** es el espacio de salida reservado (4096 de forma predeterminada, de 128 a 32768).
+- **Add as Prompt Section**: expone la salida más reciente del agente como una sección que puedes colocar en un preset (ajuste guardado) de prompt.
+
+Las macros como `{{user}}` y `{{char}}` funcionan en **Prompt Template**. Consulta [Macros](../prompts/macros.md).
+
+## Ejemplo trabajado
+
+Este agente reescribe cada respuesta en inglés británico.
+
+1. Ponle el nombre `British English Editor`.
+2. En **Custom Agent Abilities**, activa **Edit messages**.
+3. En **Result Type**, elige **Text Rewrite**. La fase cambia a **Post-Processing**.
+4. Pega esto en **Prompt Template**:
+
+   ```text
+   You are a copy editor. Rewrite the latest reply into British English.
+   Change spelling and vocabulary only. Do not change the meaning, tone, or events.
+   Return JSON with an "editedText" field holding the full rewritten reply,
+   and a "changes" array of short notes describing what you changed.
+   ```
+
+5. Haz clic en **Save**.
+6. Abre un chat de Roleplay, activa **Enable Agents** en **Chat Settings** y añade el agente desde **Custom Agents**.
+
+Después de cada respuesta, el agente devuelve JSON como este:
+
+```json
+{"editedText":"The colour of the harbour caught her eye.","changes":[{"description":"color to colour, harbor to harbour"}]}
 ```
-tavern
-secret door
-moonlit ritual
-```
 
-2. Configura **Scan Depth** con el número de mensajes recientes a buscar. El valor predeterminado es 5. El máximo es 200.
-3. El agente ahora se ejecuta solo cuando al menos una palabra clave aparece en esa cantidad de mensajes recientes.
+Marinara sustituye la respuesta por `editedText`. Las notas de `changes` aparecen como un breve resumen.
 
-Deja la casilla de palabras clave vacía para desactivar el filtro de palabras clave. La frecuencia y cualquier pregunta de activación siguen aplicándose.
+## Importar y exportar agentes
+
+Para exportar un agente, haz clic en **Export agent** (Exportar agente, el icono de subir) en la barra superior del editor. El archivo contiene el prompt y los ajustes del agente, nunca definiciones de herramientas personalizadas. Para exportar varios, usa **Select agents** (Seleccionar agentes) en el panel **Agents**, elígelos y expórtalos.
+
+Las importaciones externas están bloqueadas de forma predeterminada.
+
+1. Abre **Settings → Advanced → Danger Zone** (Configuración → Avanzado → Zona de peligro) y activa **Allow custom Agent imports** (Permitir importaciones de agentes personalizados). No hace falta ningún cambio en `.env`.
+2. En el panel **Agents**, haz clic en **Import agents** (Importar agentes) y elige archivos de agente o una carpeta.
+3. Revisa la lista de permisos que muestra Marinara. Aprueba solo lo que necesita el agente. Las capacidades sin marcar permanecen bloqueadas.
+
+Este bloqueo solo afecta a los agentes de archivos, carpetas o repositorios personalizados. Los agentes que creas y los agentes oficiales de **Agent Organizer** (Organizador de agentes) funcionan con normalidad. Cada archivo importado recibe una nueva identidad personalizada, así que no puede reemplazar a un agente oficial.
+
+Por seguridad, Marinara ignora las funciones incluidas, borra las selecciones de herramientas, sanea el CSS temporal y comprueba las capacidades aprobadas antes de que un agente importado pueda cambiar mensajes, trackers, lorebooks, fondos, sprites, contenido multimedia, dispositivos hápticos, datos About Me, prompts o imágenes. Importa por separado las funciones de confianza, revísalas y adjúntalas tú al agente. Desactivar el interruptor de **Danger Zone** impide que se ejecuten los agentes importados.
 
 <a id="activation-questions"></a>
 
 ## Preguntas de activación
 
-Una **Activation question** (pregunta de activación) pregunta si la escena reciente necesita tu agente personalizado, por ejemplo `In the latest message, the characters move to a different location.` Puede reconocer paráfrasis que las palabras clave no detectan. Déjala vacía para conservar el comportamiento existente.
+Una pregunta de activación pregunta si la escena reciente necesita tu agente. Detecta paráfrasis que las palabras clave pasan por alto. Necesita un **Decision model** (modelo de decisión), un modelo pequeño que responde preguntas de sí o no. Elige uno en el panel Connections. Consulta [Modelos de decisión](../connections/decision-models.md). Con **Decision model** en **None** (Ninguno), el valor predeterminado, los campos de la pregunta permanecen desactivados y un agente con pregunta se ejecuta como si no tuviera ninguna.
 
-Responde un **Decision model** (modelo de decisión). Elige uno en **Decision model** del panel Connections: el modelo local que ya ejecutas, una conexión Decision alojada o un modelo de decisión que Marinara instala por ti. [Modelos de decisión](../connections/decision-models.md) explica cada opción, cuál elegir y cómo configurarla. Con **Decision model** en **None** (ninguno), el valor predeterminado, los campos de pregunta del editor de agentes permanecen desactivados y un agente con pregunta se ejecuta como si no tuviera ninguna.
+1. Abre el agente personalizado.
+2. Escribe una **Question** (Pregunta) de hasta 500 caracteres. Las macros `{{user}}` y `{{char}}` funcionan en ella.
+3. Establece **Run when probability is at least** (Ejecutar cuando la probabilidad sea al menos) en el umbral de este agente. El agente se ejecuta cuando la probabilidad de "sí" lo alcanza, así que los valores más altos omiten más ejecuciones. El editor muestra un valor recomendado para tu modelo: 0,5 para modelos de chat locales y cuentas Decision, o 0,1 para los modelos Open-Jev integrados. Compruébalo con tus propios chats después de cambiar de modelo. Consulta [Umbrales](../connections/decision-models.md#thresholds).
+4. Opcional: establece **Bypass the question after this many messages without a successful run** (Omitir la pregunta después de esta cantidad de mensajes sin una ejecución correcta). Después de esa cantidad de mensajes se omite la pregunta, así que un modelo que sigue respondiendo "no" no puede silenciar al agente para siempre. Las palabras clave y la cadencia siguen aplicándose.
 
-### Configurar tu agente
+Escribe la pregunta como una declaración sobre el último mensaje, como `The latest message moves the scene to a new place.` Un modelo pequeño respondió a esto con más fiabilidad que a `Did the scene change?` Consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
 
-Quien importa un agente con una pregunta de activación o declaraciones de decisión en el prompt ve un aviso que enlaza a la guía de modelos de decisión. Sin un Decision model seleccionado, explica que las preguntas de activación dejan que el agente se ejecute cuando lo permitan sus palabras clave y **Trigger Cadence**, mientras que las declaraciones del prompt se interpretan como no y usan la rama `{{else}}`. Configura también una frecuencia si el agente no debe ejecutarse cada turno sin un Decision model. El mismo aviso aparece al instalar un paquete del catálogo de Agents.
+Cómo se ejecuta:
 
-Con un Decision model seleccionado, abre un agente personalizado e introduce una **Question** (pregunta) de hasta 500 caracteres. Las macros estándar de agentes, incluidas `{{user}}` y `{{char}}`, funcionan en la pregunta. **Scan Depth** controla los mensajes recientes usados tanto por las palabras clave como por la pregunta.
+- Las palabras clave y la cadencia se comprueban primero, así que un agente omitido no gasta ninguna solicitud de decisión. Las preguntas con la misma profundidad de análisis se agrupan por fase.
+- **Scan Depth** establece los mensajes que usan tanto las palabras clave como la pregunta.
+- Los agentes de pregeneración y paralelos usan el chat anterior a la respuesta. Los de posprocesamiento también ven la respuesta terminada.
+- Un tiempo de espera agotado, un modelo no disponible o una respuesta inválida permiten que el agente se ejecute normalmente. El límite de tiempo depende del tipo de modelo y de si el modelo tiene que razonar primero. Consulta [Límites de tiempo](../connections/decision-models.md#time-limits).
+- Los agentes importados con una pregunta de activación o declaraciones de decisión muestran un aviso que enlaza a la guía de modelos de decisión. Sin un Decision model, el agente se ejecuta siempre que lo permitan las palabras clave y **Trigger Cadence**, y las declaraciones del prompt se interpretan como no.
 
-Aunque el campo se llame así, escribe una declaración de un hecho sobre el último mensaje, no una pregunta. En nuestras pruebas, un modelo de decisión pequeño respondió `Did the scene change?` con menos fiabilidad que `The latest message moves the scene to a new place.` Aquí vale el mismo consejo que para las declaraciones de decisión en prompts; consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
-
-- **Run when probability is at least** (ejecutar cuando la probabilidad sea al menos) define el umbral de este agente. Se ejecuta cuando la probabilidad de "sí" alcanza o supera el umbral; los valores más altos omiten más ejecuciones. El editor recomienda 0,5 para modelos de chat locales y conexiones Decision, o el valor del manifiesto del proceso auxiliar administrado (0,1 para los modelos Open-Jev integrados). Un endpoint personalizado no recibe automáticamente una calibración específica del modelo. Comprueba el umbral con tus chats, sobre todo al cambiar de modelo. Cambiarlo afecta esta pregunta de activación, no las declaraciones dentro del prompt del agente. Consulta [Umbrales](../connections/decision-models.md#thresholds).
-- **Bypass the question after this many messages without a successful run** (omitir la pregunta después de esta cantidad de mensajes sin una ejecución correcta) es opcional. Una vez que pasan esos mensajes de usuario/asistente desde la última ejecución correcta, se omite la pregunta. Un agente nuevo, o cuyo mensaje anterior fue eliminado, también omite la pregunta cuando este ajuste está activado. Las palabras clave y la frecuencia todavía deben permitir la ejecución. Considera configurarlo para un agente importante: cualquier modelo se equivoca a veces y esto impide que uno que sigue respondiendo "no" silencie al agente para siempre.
-- Los agentes de pregeneración y paralelos usan la conversación anterior a la respuesta. Los de posprocesamiento también ven la respuesta terminada.
-
-Las palabras clave y la frecuencia se comprueban primero, así que un agente ya omitido no hace una solicitud de decisión de pago. Las preguntas con la misma profundidad se agrupan por fase. Un tiempo agotado, modelo no disponible o respuesta inválida permite que el agente afectado se ejecute normalmente. El presupuesto es **Time limit** (límite de tiempo) de la conexión Decision (1,5 segundos de forma predeterminada, 4 para una conexión de modelo de chat compatible con OpenAI) y 4 segundos para un modelo local, o 20 si debe razonar primero. Las solicitudes de decisión siguen la cancelación de la generación. Los registros ordinarios omiten el contenido del chat; el registro de depuración de prompts incluye los mensajes y preguntas evaluados.
-
-Este ajuste se aplica a agentes personalizados. La activación de agentes integrados y la evaluación de actividad de personajes conservan su comportamiento existente.
+Las preguntas de activación solo se aplican a agentes personalizados.
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 
-### Declaraciones de decisión en el prompt del agente
+## Declaraciones de decisión en el prompt del agente
 
-Una pregunta de activación decide si el agente se ejecuta. Una declaración de decisión en **Prompt Template** (plantilla de prompt) decide qué instrucciones recibe un agente en ejecución. Ambas usan el mismo Decision model y la sintaxis de [Prompts condicionales](../prompts/conditional-prompts.md#asking-the-decision-model):
+Una pregunta de activación decide si el agente se ejecuta. Una declaración de decisión en **Prompt Template** decide qué se le dice a un agente en ejecución. La sintaxis está en [Prompts condicionales](../prompts/conditional-prompts.md#asking-the-decision-model):
 
-```
+```text
 {{#if decision:"In the latest message, the characters move to a different location"}}
 Update the location field.
 {{else}}
@@ -170,99 +209,14 @@ Leave the location as it is.
 {{/if}}
 ```
 
-Juntas, permiten que un agente omita por completo los turnos tranquilos y envíe un prompt menor en los turnos donde se ejecuta. Algunas ideas:
+Úsalas para enviar un prompt más pequeño en los turnos tranquilos. Un tracker puede actualizar la ubicación solo cuando cambió. Un agente de imágenes puede describir una imagen nueva solo cuando cambió la escena. Un agente de música puede cambiar de pista solo cuando cambió el ambiente. Para elegir uno entre varios conjuntos de instrucciones, usa `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, luego `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, y así sucesivamente. Consulta [Prompts condicionales](../prompts/conditional-prompts.md#asking-the-decision-model).
 
-- Un tracker incluye sus instrucciones de "actualizar la ubicación" solo cuando cambia la ubicación, en lugar de deducirla de nuevo cada turno.
-- Un agente de imágenes describe una imagen nueva solo cuando la escena se ve diferente.
-- Un agente de música recibe instrucciones de cambiar de pista solo cuando cambia el ambiente.
-- Una elección selecciona entre varias instrucciones: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, etc.
+- Los agentes de pregeneración y paralelos leen el chat anterior a la respuesta y comparten las respuestas con el prompt principal. Los de posprocesamiento leen la respuesta terminada, y sus declaraciones se vuelven a consultar con ella.
+- Volver a ejecutar un agente reutiliza las respuestas correctas que siguen en caché para el mismo turno, modelo y declaraciones. Consulta [Reutilización de respuestas](../prompts/conditional-prompts.md#answer-reuse).
+- En el prompt de un agente, `{{char}}` nombra a todos los personajes del chat, así que en un grupo `{{char}} is angry` se convierte en "Kaelen, Alyssa is angry". Nombra al personaje o escribe "a character".
+- Sin respuesta, una declaración se interpreta como no. Haz que la rama `{{else}}` sea sensata, porque muchos usuarios no tienen un Decision model.
 
-Cómo se ejecuta:
-
-- Los agentes de pregeneración y paralelos leen el chat anterior a la respuesta, el mismo turno que el prompt principal, y comparten sus respuestas. Los de posprocesamiento leen la respuesta terminada como mensaje más reciente y sus declaraciones se vuelven a evaluar con ella.
-- Volver a ejecutar un agente, por ejemplo con el botón de actualizar de un tracker, reintentando un agente fallido o con **Re-run** (volver a ejecutar) en una inyección, reutiliza las respuestas correctas que sigan en caché para el mismo turno, modelo y declaraciones. Las respuestas fallidas se pueden reintentar; reiniciar el servidor, el descarte de caché o cambiar las entradas también puede producir solicitudes nuevas. Consulta [Reutilización de respuestas](../prompts/conditional-prompts.md#answer-reuse).
-- En el prompt de un agente, `{{char}}` nombra todos los personajes del chat a la vez, así que en un grupo `{{char}} is angry` se convierte en "Kaelen, Alyssa is angry". Nombra al personaje o escribe "a character".
-- Sin respuesta, una declaración se interpreta como no. El agente debe hacer algo sensato con su rama `{{else}}`, porque muchos usuarios no tendrán un Decision model.
-
-Los agentes instalados desde Marinara-Agents procesan sus plantillas de prompt de la misma manera, así que también pueden usar declaraciones de decisión.
-
-## Adjuntar herramientas (Function Calling)
-
-Tu agente puede llamar a herramientas. Una herramienta es una función que la IA puede ejecutar para obtener o cambiar algo y luego leer el resultado. Esto también se llama function calling.
-
-Para adjuntar herramientas, abre la sección **Tools / Function Calling** y activa o desactiva cada herramienta. La lista incluye herramientas integradas y cualquier herramienta personalizada que hayas creado. Para aprender a construir la tuya, lee [Herramientas personalizadas](../extending/custom-tools.md).
-
-Las herramientas solo funcionan si el propio chat las permite. En **Chat Settings**, abre la sección **Function Calling** y activa **Enable Tool Use**. Sin ese ajuste del chat, las herramientas del agente permanecen desactivadas incluso cuando las activas aquí.
-
-Los archivos de agente importados no otorgan acceso a herramientas. Después de importar un agente, inspecciona su prompt y sus ajustes, y luego selecciona tú mismo las herramientas que quieras que use.
-
-Un agente recibe como máximo 16 rondas de llamadas a herramientas en una ejecución (menos si el `MAX_TOOL_ROUNDS` del servidor es menor) y luego da su respuesta con lo que tenga. Un modelo que llama a las herramientas de una en una gasta una ronda en cada llamada, así que un agente que guarda muchas entradas debería hacer varias llamadas en una sola respuesta cuando el modelo admita llamadas a herramientas en paralelo. Una ejecución de puesta al día de lorebook, que solo guarda entradas, recibe hasta 64 rondas.
-
-## Named prompt options
-
-Un solo agente puede contener varias variantes de prompt. Esta es la función **Named prompt options** (Opciones de prompt con nombre). Un chat puede entonces elegir una variante sin que tengas que editar el agente de forma global.
-
-Para añadir una variante:
-
-1. En **Prompt Template**, busca **Named prompt options**.
-2. Haz clic en **Add option**.
-3. Dale a la opción un nombre y una descripción corta.
-4. Escribe el cuerpo completo del prompt para esa opción.
-
-Cuando alguien añade tu agente a un chat, ve un menú desplegable **Prompt Mode** que lista tus opciones con nombre. Si no añades ninguna, el menú del chat muestra solo el prompt predeterminado.
-
-## Otros ajustes que puedes cambiar
-
-Los agentes personalizados comparten algunos ajustes con los agentes integrados:
-
-- **Connection Override**: elige una conexión de IA distinta para este agente. Por ejemplo, usa un modelo más barato para el trabajo en segundo plano. Déjalo vacío para usar la conexión del chat. El agente envía los parámetros de generación guardados en esa conexión; consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
-- **Agent Budget**: configura **Context Size** (cuántos mensajes recientes lee el agente, predeterminado 5). Configura también **Max Output Tokens** (el espacio de salida reservado, predeterminado 4096, de 128 a 32768).
-- **Add as Prompt Section**: activa esto para exponer la salida más reciente del agente como una sección que puedes inyectar en un preset de prompt.
-
-Los macros como `{{user}}` y `{{char}}` funcionan dentro de la **Prompt Template**. Consulta [Macros](../prompts/macros.md) para ver la lista completa.
-
-## Un ejemplo trabajado
-
-Aquí tienes un agente personalizado completo que reescribe cada respuesta en inglés británico.
-
-Configuración en el editor:
-
-1. Ponle el nombre `British English Editor`.
-2. En **Custom Agent Abilities**, activa **Edit messages**.
-3. En **Result Type**, elige **Text Rewrite**. La fase cambia a **Post-Processing** por sí sola.
-4. Pega esto en la **Prompt Template**:
-
-```
-You are a copy editor. Rewrite the latest reply into British English.
-Change spelling and vocabulary only. Do not change the meaning, tone, or events.
-Return JSON with an "editedText" field holding the full rewritten reply,
-and a "changes" array of short notes describing what you changed.
-```
-
-5. Haz clic en **Save**.
-6. Abre un chat de Roleplay, ve a **Chat Settings**, activa **Enable Agents** y añade `British English Editor` desde la sección **Custom Agents**.
-
-El agente devuelve JSON como este después de cada respuesta:
-
-```
-{"editedText":"The colour of the harbour caught her eye.","changes":[{"description":"color to colour, harbor to harbour"}]}
-```
-
-Marinara lee `editedText` y lo intercambia en la respuesta. Ves el mensaje en inglés británico. Las notas de `changes` aparecen como un breve resumen de lo que el agente ajustó.
-
-## Importar y exportar agentes
-
-Puedes compartir un agente personalizado como archivo.
-
-Para exportar desde el editor, haz clic en el botón **Export agent** (el icono de subir) en la barra superior. Esto guarda el prompt y la configuración del agente como un paquete. Los paquetes de agente nunca incluyen definiciones de herramientas personalizadas.
-
-Para exportar varios agentes a la vez, usa **Select agents** en el panel **Agents**, elige los agentes que quieras y exporta el grupo.
-
-Las importaciones de agentes externos están bloqueadas de forma predeterminada. Abre **Settings → Advanced → Danger Zone** y activa primero **Allow custom Agent imports**. Esta opción no necesita un cambio en `.env`. Solo afecta a los agentes proporcionados mediante archivos, carpetas o repositorios personalizados: los agentes que creas en Marinara y los agentes oficiales instalados mediante **Agent Organizer (Organizador de agentes)** siguen disponibles normalmente.
-
-Para importar, abre el panel **Agents** y haz clic en **Import agents** para un solo archivo, o en **Import agent folder** para elegir una carpeta entera. Marinara muestra una revisión de permisos antes de guardar nada. Aprueba solo las capacidades que necesita el agente; las capacidades sin marcar permanecen bloqueadas. Cada archivo importado recibe una nueva identidad personalizada, por lo que no puede reemplazar a un agente curado con el mismo tipo interno.
-
-Por seguridad, Marinara ignora las funciones incluidas, borra las selecciones de herramientas de los ajustes importados, sanea el CSS temporal antes de aplicarlo y comprueba las capacidades aprobadas antes de que un agente importado pueda cambiar mensajes, trackers, lorebooks, fondos, sprites, contenido multimedia, dispositivos hápticos, datos About Me, prompts o imágenes generadas. Importa funciones de confianza por separado desde **Function Calls**, revísalas y adjúntalas al agente de forma explícita después. Desactivar de nuevo la opción de la Danger Zone impide que se ejecuten los agentes importados externamente; no afecta a los agentes creados localmente ni a los oficiales.
+Los agentes instalados desde Marinara-Agents procesan los prompts de la misma manera.
 
 ## Guías relacionadas
 

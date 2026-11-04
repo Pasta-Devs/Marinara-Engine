@@ -1,88 +1,99 @@
 # iOS / iPadOS PWA 指南
 
-本指南介绍如何在 iPhone 或 iPad 上使用 Marinara Engine。iOS 和 iPadOS 自身跑不了 Marinara 服务器，所以要连到另一台设备上的服务器，再把它保存到主屏幕，当成网页应用来用。
+在 iPhone 或 iPad 上使用 Marinara Engine。Apple 不允许 Marinara 服务器在这些设备上运行，所以要在 Safari 里打开运行在另一台设备上的服务器。然后可以把它作为 PWA 保存到主屏幕。PWA(Progressive Web App，渐进式网页应用) 是在自己的窗口里打开、用起来像应用的网站。
 
-## iOS 需要把服务器跑在别的设备上
+## 快速上手
 
-Marinara Engine 由两部分组成：一个负责实际工作的服务器，以及一个在浏览器里打开的网页应用。在 iPhone 和 iPad 上，Apple 不允许服务器在本机运行。所以服务器要跑在别处，然后在 iPhone 或 iPad 的 Safari 里打开。
+1. 在电脑、家庭服务器或 Android 手机上安装并启动 Marinara(见下面的列表)，让它保持运行。
+2. 在那台电脑上设置登录。见[远程访问](../REMOTE_ACCESS.md#option-1-login-recommended)。
+3. 找到那台电脑的 IP 地址（见下文）。
+4. 在 iPhone 或 iPad 上打开 **Safari**，访问 `http://` 加上那个 IP 地址再加 `:7860`。
 
-服务器可以跑在下面任何一种环境上：
+不要在 iPhone 或 iPad 上用 `127.0.0.1`。这个地址指的是 iPhone 本身。
 
-- 一台 Windows 电脑（见 [Windows 安装指南](windows.md)）。
-- 一台 Mac 或 Linux 机器（见 [macOS / Linux 安装指南](macos-linux.md)）。
-- 一部装了 Termux 的 Android 手机（见 [Android (Termux) 安装指南](android-termux.md)）。
-- 一个 Docker 或 Podman 容器（见[通过容器运行](containers.md)）。
+## 服务器运行在哪里
 
-iPhone 或 iPad 通过网络访问那台服务器。这和打开任何一个网站是一回事，只不过这个网站是自己的 Marinara 服务器。
+服务器可以运行在：
+
+- Windows 电脑：[Windows 安装指南](windows.md)。
+- Mac 或 Linux 电脑：[macOS / Linux 安装指南](macos-linux.md)。
+- 装了 Termux 的 Android 手机：[Android (Termux) 安装指南](android-termux.md)。
+- Docker 或 Podman 容器：[通过容器运行](containers.md)。
 
 ## 从 Safari 连接
 
-服务器在宿主设备上跑起来之后，按下面的步骤操作。
+开始之前：服务器必须正在运行，并且允许你的设备进入，通常要设置登录。见[远程访问](../REMOTE_ACCESS.md)。
 
-1. 确认宿主设备和 iPhone 或 iPad 处在同一个网络里，或者同时接入了同一个 Tailscale 网络。LAN 指的是本地网络，比如家里的 Wi-Fi。Tailscale 是一个免费工具，能通过互联网把设备连成一个私有网络。
-2. 找到宿主服务器的地址，格式见下面的示例。把 `<host-ip>` 换成宿主设备的 LAN 或 Tailscale IP 地址。默认端口是 `7860`。
+1. 让服务器设备和 iPhone 或 iPad 连在同一个网络里，比如家里的 Wi-Fi。想从别处连接，就用 Tailscale，一个能通过互联网把设备连成私有网络的免费工具。
+2. 找到服务器设备的 IP 地址。在服务器电脑的终端（输入命令的窗口）里运行一条命令，读出地址，它看起来像 `192.168.1.42`。
 
-```
+   - Windows(命令提示符)：`ipconfig`。读 **IPv4 Address**(IPv4 地址)。
+   - Linux：`hostname -I`。
+   - macOS：`ipconfig getifaddr en0`。
+
+3. 打开 **Safari**，访问这个地址。把 `<host-ip>` 换成那个 IP 地址。默认端口是 `7860`。
+
+```text
 http://<host-ip>:7860
 ```
 
-3. 在 iPhone 或 iPad 上打开 **Safari**。
-4. 在 Safari 地址栏里输入这个地址并访问。
-5. 浏览器里应该会加载出 Marinara 的主页。
+4. Marinara 的主页会加载出来。
 
-如果页面打不开，或者出现登录页或设置页，参见下面的故障排查一节。网络访问权限和密码由服务器管理者控制，这些服务器设置写在[远程访问](../REMOTE_ACCESS.md)指南里，不在 iPhone 或 iPad 上。
+如果看到登录页，就用服务器的用户名和密码登录。如果看到设置页，就输入服务器日志里的一次性设置码，并设定用户名和密码。见[远程访问](../REMOTE_ACCESS.md)。
+
+如果没有成功：检查服务器是否还在运行，两台设备是否在同一个网络或同一个 Tailscale 网络里。检查 IP 地址和端口。见 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
 
 ## 添加到主屏幕
 
-可以把 Marinara 保存成 PWA，这样打开起来就跟普通应用一样。PWA 是 Progressive Web App(渐进式网页应用) 的缩写，指在自己的窗口里运行、并且有独立主屏幕图标的网站。
-
-1. 在 **Safari** 里打开自己的 Marinara 服务器（见上面的步骤）。
+1. 在 **Safari** 里打开你的 Marinara 服务器。
 2. 点按分享按钮，就是那个带向上箭头的方块图标。
 3. 在分享面板里向下滚动，点按 **Add to Home Screen**(添加到主屏幕)。
 4. 需要的话改一下名字，然后点按 **Add**(添加)。
-5. 这时主屏幕上应该出现了 Marinara 图标。
 
-点按这个图标，Marinara 就会在独立窗口里打开，没有 Safari 的地址栏。
+主屏幕上会出现 Marinara 图标。点按它，Marinara 就会在独立窗口里打开，没有 Safari 的地址栏。
 
-## 关于 HTTPS
+## 应用不正常时改用 HTTPS
 
-PWA 在 HTTPS 下运行最稳定。HTTPS 指的是安全加密的网页连接，地址开头是 `https://`。
+PWA 在 HTTPS 下运行最好。HTTPS 是一种安全连接，地址以 `https://` 开头。普通的 `http://` 地址在 Safari 里可以用，但某些 iOS 和 iPadOS 版本会限制普通 `http://` 地址下的主屏幕应用。遇到这种情况，就让 Marinara 通过 HTTPS 提供服务，或者把它留作 Safari 书签。
 
-在局域网里用普通 HTTP 访问，Safari 日常使用也没问题。但某些 iOS 或 iPadOS 版本会限制普通 `http://` 地址下的独立 PWA 行为。遇到这种情况，就给 Marinara 配上 HTTPS。
+光靠 Tailscale 并不能让地址变成 HTTPS。要用能提供 HTTPS 的 Tailscale 设置，或者请服务器所有者把 Marinara 放到 HTTPS 后面。见[远程访问](../REMOTE_ACCESS.md#serving-over-https)。
 
-Tailscale 会给每台设备分配一个固定的私有地址，可达性也更好，但光靠 Tailscale 并不能把 `http://` 地址变成 HTTPS。要用明确提供 HTTPS 的 Tailscale 方案，或者请服务器管理者把 Marinara 放到 HTTPS 后面。
-
-这些做法在[远程访问](../REMOTE_ACCESS.md)指南里有说明。如果普通 HTTP 地址当作主屏幕应用老出问题，那就退一步，把它存成 Safari 书签。
+<a id="clearing-and-reinstalling-the-pwa"></a>
 
 ## 清除并重装 PWA
 
-有时候 Safari 一直显示旧版本的应用，或者保存下来的网页应用卡住不动。把主屏幕上的应用重装一遍，通常就能解决。
+Safari 有时会一直保留旧版本的应用，或者保存下来的应用卡住不动。重装一遍通常就能解决。聊天、角色和设置都存在服务器上，所以重装不会删掉它们。
 
 1. 按住主屏幕上的 Marinara 图标。
-2. 点按移除或删除应用的选项，然后确认。
+2. 点按移除应用的选项，然后确认。
 3. 在 iPhone 或 iPad 上打开 **Settings**(设置) 应用。
-4. 点按 **Safari**。在较新的 iOS 和 iPadOS 版本里，它可能藏在 **Apps**(应用) 下面，再进 **Safari**。
+4. 点按 **Safari**。在较新的 iOS 和 iPadOS 版本里，它可能在 **Apps**(应用) 下面，再进 **Safari**。
 5. 点按 **Advanced**(高级)，再点按 **Website Data**(网站数据)。
-6. 找到自己 Marinara 宿主地址对应的条目。如果没看到，点按 **Show All Sites**(显示所有站点)。
-7. 在那个条目上向左滑动，然后点按 **Delete**(删除)。这样就删掉了那台服务器留下的旧文件。
-8. 按“从 Safari 连接”里的步骤，重新在 **Safari** 里打开 Marinara。
-9. 按“添加到主屏幕”里的步骤，再把它添加到主屏幕。
-
-聊天、角色和设置都存在服务器上，不在 iPhone 或 iPad 上。重装主屏幕应用不会把它们删掉。
+6. 找到你的 Marinara 地址对应的条目。如果没看到，点按 **Show All Sites**(显示所有站点)。
+7. 在那个条目上向左滑动，然后点按 **Delete**(删除)。
+8. 在 **Safari** 里重新打开 Marinara，按上面的步骤再次添加到主屏幕。
 
 ## 故障排查
 
-**Safari 里页面打不开。** 检查服务器在宿主设备上是否还在运行。检查两台设备是否处在同一个网络或同一个 Tailscale 网络里。确认 IP 地址和端口 `7860` 都填对了。需要更深入的网络排查，参见[远程访问](../REMOTE_ACCESS.md)指南和 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
+**Safari 里页面打不开。** 检查服务器是否在运行，两台设备是否在同一个网络或同一个 Tailscale 网络里，以及 IP 地址和端口 `7860` 是否正确。见[远程访问](../REMOTE_ACCESS.md)和 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
 
-**更新后 Safari 显示登录页或设置页。** 在 `/login` 用服务器的用户名和密码登录。如果还没有登录，就从服务器日志里取一次性设置码，在设置页里设置一个。如果服务器只监听回环地址、没有打印设置码，请在服务器设备上到 **Settings → Advanced → Access** 设置登录。出现 **403** 可能是因为 iPhone 不在 `IP_ALLOWLIST` 里，请在服务器上修改这个列表。PWA 无法重置服务器登录。如果应用登录丢失，请让服务器管理者在服务器上运行 `pnpm reset-login`（在 Docker 里：`docker exec <container> node scripts/reset-login.mjs`），或者在那里修改 `.env` 里设置的登录。参见[更新后被锁在外面](../REMOTE_ACCESS.md#locked-out-after-updating)。
+**更新后 Safari 显示登录页或设置页。**
 
-**Safari 一直显示旧版本。** 先刷新页面。如果还是旧的，按上面“清除并重装 PWA”的步骤操作。
+- 在 `/login` 用服务器的用户名和密码登录。
+- 如果还没有登录，就在设置页输入服务器日志里的一次性设置码。
+- 如果服务器没有打印设置码，就在服务器设备上到 **Settings → Advanced → Access**(设置 → 高级 → 访问) 设置登录。
+- 出现 **403** 可能是因为 iPhone 不在 `IP_ALLOWLIST` 里。这个列表由服务器所有者修改。
+- PWA 无法重置服务器登录。服务器所有者需要在服务器上的 Marinara 文件夹里运行 `node scripts/reset-login.mjs`(在 Docker 里：`docker exec <container> node scripts/reset-login.mjs`)，或者修改 `.env` 里设置的登录。
 
-**生成期间，主屏幕应用关闭或变成空白。** 重新打开并返回聊天即可，无须重启正常的服务器。浏览器断开后，自动聊天回复以及仅使用 Illustrator 的手动或重试图像请求仍会在服务器运行。重新打开的聊天会检查未完成工作，完成后刷新已保存消息和图库图片。**Stop**(停止) 仍可取消所选聊天的生成。如果空白屏幕反复出现，请报告 Support Diagnostics，并说明重新打开是否恢复聊天；此恢复机制并不能诊断或预防所有 iOS 浏览器故障。
+见[更新后被锁在外面](../REMOTE_ACCESS.md#locked-out-after-updating)。
 
-**出现红色横幅，提示保存会静默失败。** 这是服务器发出的网络信任警告，不是 iPhone 或 iPad 的问题。需要服务器管理者把你的地址加入信任。参见[远程访问](../REMOTE_ACCESS.md)指南和 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
+**Safari 一直显示旧版本。** 刷新页面。如果还是旧的，按上面的步骤重装 PWA。
 
-**特权操作被拦住。** 有些维护操作需要服务器管理者提供的管理员密钥。在 iPhone 或 iPad 上，这个值保存在 **Settings**，然后 **Advanced**，再进 **Admin Access**(管理员访问)。[远程访问](../REMOTE_ACCESS.md)指南说明了管理员密钥是什么、怎么拿到。
+**生成期间，主屏幕应用关闭或变成空白。** 重新打开并返回聊天即可。正常的服务器会继续工作：聊天回复和 Illustrator 的图像请求仍在服务器上运行，完成后，重新打开的聊天会刷新。**Stop**(停止) 仍可取消所选聊天里的生成。如果空白屏幕反复出现，请附上 Support Diagnostics(支持诊断信息) 报告这个问题。
+
+**出现红色横幅，提示保存会静默失败。** 这是服务器发出的网络信任警告，不是 iPhone 或 iPad 的问题。需要服务器所有者信任你的地址。见[远程访问](../REMOTE_ACCESS.md#why-is-my-save-blocked-csrf)。
+
+**高权限操作被拦住。** 有些维护操作需要服务器所有者提供的管理员密钥（第二个密码）。在 iPhone 或 iPad 上把它保存到 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问)。见[远程访问](../REMOTE_ACCESS.md#admin-access-and-privileged-actions)。
 
 ## 相关指南
 

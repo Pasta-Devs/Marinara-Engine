@@ -1,14 +1,12 @@
 # 提示词宏
 
-本指南介绍 Marinara Engine 里的提示词宏。宏就是一小段 `{{tag}}`，Marinara 会把它换成当时的真实值。替换发生在组装提示词（Marinara Engine 发给 AI 的那段文字）的时候，换进去的可能是你的名字，也可能是当天日期。下面会讲全部内置宏、能在哪些地方写宏，以及要避开的坑。
+宏就是一小段 `{{tag}}`，Marinara 组装提示词时会把它换成当时的真实值，比如你的名字或当天日期。本指南列出全部内置宏、能写宏的地方，以及要避开的坑。
 
-## 宏是什么，能用在哪里
+## 宏能用在哪里
 
-宏就是用双大括号包起来的一串字面文本，比如 `{{user}}` 或 `{{char}}`。Marinara 组装要发给 AI 的文字时，会扫描这些标签，把每一个换成它当前的值。宏没有总开关，只要某个输入框支持宏，它就一定会解析。
+Marinara 组装要发给 AI 的文字时，会把每个 `{{tag}}` 换成它当前的值。宏没有总开关，只要某个输入框支持宏，它就一定会解析。内置宏的名字不区分大小写，所以 `{{user}}` 和 `{{USER}}` 都能用。宏展开出来的内容里还可以再有宏，Marinara 会继续解析。
 
-内置标签的宏名不区分大小写，`{{user}}` 和 `{{USER}}` 都能用。
-
-应用里很多地方都可以写宏：
+可以在以下这些地方写宏：
 
 - **Character Editor**(角色编辑器) 里的角色字段：Description、Personality、Backstory、Appearance、Scenario、Example Dialogue、System Prompt、Post-History Instructions，以及 **Depth Prompt**。
 - **Persona Editor**(用户角色编辑器) 里的用户角色字段（和角色卡上同名的那几个字段）。
@@ -18,13 +16,7 @@
 - 智能体的提示词模板。
 - 聊天输入框。在消息里写 `{{roll:1d20}}`，消息发出去之前就会被解析。
 
-宏展开出来的内容里还可以再有宏，Marinara 会继续解析。
-
-## 开始之前
-
-不用做任何准备。内置宏开箱即用，既不需要 API 密钥，也不需要额外的连接。API 密钥（类似密码的一串秘密字符）是 Marinara 跟 AI 服务商通信的凭据，而宏完全在 Marinara 内部运行。
-
-只有两项宏功能依赖应用的其他部分：
+宏在 Marinara 内部运行，不需要任何设置，也不需要 API 密钥。只有两项功能依赖应用的其他部分：
 
 - 预设变量（`{{NAME}}` 这种通配写法）需要提示词预设先把它们定义好。见[预设变量](preset-variables.md)。
 - 智能体宏 `{{agent::TYPE}}` 只有等对应的智能体跑完并产出内容之后，才会显示文字。
@@ -116,7 +108,7 @@ Conversation 模式会自动往提示词里插入好几个内容块。这些宏�
 | `{{gameStoryboardKeyframeCount}}` | Game Mode(游戏模式) 当前的 **Keyframes per Turn**(每回合关键帧数) 目标值，范围 1 到 6，默认是 `3`。 |
 | `{{agent::TYPE}}` | 指定类型的智能体保存下来的输出。 |
 
-`{{reasoning}}` 给出的是模型实际收到的等级，即叠加了预设、连接和聊天设置之后的结果。**Maximum** 会显示为该模型接受的最高等级，所以可能读作 `max`、`xhigh` 或 `high`。因为 `off` 会被当作假值，所以 `{{#if reasoning}}` 只在模型思考时才保留其中的块。如果你的预设或聊天里已经有一个名为 `reasoning` 的变量，这个名字归那个变量所有。
+`{{reasoning}}` 给出的是发给模型的等级，即叠加了预设、账号和聊天设置之后的结果。**Maximum** 会显示为该模型接受的最高等级，所以可能读作 `max`、`xhigh` 或 `high`。因为 `off` 会被当作假值，所以 `{{#if reasoning}}` 只在模型思考时才保留其中的块。如果你的预设或聊天里已经有一个名为 `reasoning` 的变量，这个名字归那个变量所有。
 
 `{{lastGenerationType}}` 的值只是一个普通标签。应用里出现过的取值包括 `normal`、`continue`、`regenerate`、`impersonate`、`guided`、`autonomous`、`turn_game`、`preview`、`game_setup`、`lorebook_scan` 和 `retry_agents`。这份清单以后还会变长，所以只当举例看，不是固定集合。
 
@@ -134,7 +126,7 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 
 ## 世界书大小宏
 
-`{{lorebooksize::ID}}` 展开为指定 ID 的世界书条目总数。将 `ID` 替换为世界书实际 ID，可从 Lorebooks 面板复制。例如 ID 为 `V1StGXR8_Z5jdHi6B-myT` 且有 151 个条目时，`{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` 展开为 `151`。
+`{{lorebooksize::ID}}` 展开为指定 ID 的世界书条目总数。将 `ID` 替换为世界书的 ID，可以从 **Lorebooks**(世界书) 面板复制。例如 ID 为 `V1StGXR8_Z5jdHi6B-myT` 且有 151 个条目时，`{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` 展开为 `151`。
 
 未知 ID 展开为 `0`。计数包含所有条目，无论是否启用或位于文件夹中。
 
@@ -234,15 +226,15 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 | `{{incvar::name}}` | 给数值变量加 1，并插入新值。 |
 | `{{decvar::name}}` | 给数值变量减 1，并插入新值。 |
 
-变量在提示词组装时按从左到右的顺序解析，并保存到当前聊天。靠前的位置设好的值，比如排在最前面的那条世界书条目，同一次提示词里后面就能读到。与 SillyTavern 的局部变量一样，它会在后续回合和重启后保留，但不会泄漏到其他聊天。
+变量在一次提示词组装中按从左到右的顺序解析。靠前的位置设好的值，比如排在最前面的那条世界书条目，同一次提示词里后面就能读到。Marinara 还会把它们保存到当前聊天，与 SillyTavern 的局部变量行为一致：后续回合和应用重启后都会保留，而其他聊天各有一套独立的值。
 
 凡是不属于内置宏的 `{{NAME}}`，都会按名字查找：先查预设变量，再查聊天自身的变量。如果两边都没有这个名字，标签就原样留在文本里，跟你输入的一模一样。两边使用同一个名字时，预设变量优先。预设部分的说明见[预设变量](preset-variables.md)。
 
 ### 聊天变量
 
-创建变量不一定要使用 `{{setvar}}`。在 **Chat Settings**(聊天设置)面板的 **Chat Variables**(聊天变量)部分，你可以直接输入名字和值，再把这个名字用在任何支持宏的地方，包括你自己的消息。添加 `char1`，把值设为 `Mary`，再输入 `{{char1}} walks in.`，AI 读到的就是 "Mary walks in."。
+创建变量不一定要使用 `{{setvar}}`。在 **Chat Settings**(聊天设置) 面板的 **Chat Variables**(聊天变量) 部分，你可以直接输入名字和值，再把这个名字用在任何支持宏的地方，包括你自己的消息。添加 `char1`，把值设为 `Mary`，再输入 `{{char1}} walks in.`，AI 读到的就是“Mary walks in.”
 
-需要知道的规则：
+聊天变量的规则：
 
 - 名字可以包含字母、数字和下划线，而且必须以字母或下划线开头。正好 21 个字符的名字保留给角色引用。带点号或连字符的名字仍然可以用 `{{setvar}}` 设置、用 `{{getvar}}` 读取，但不能直接写成 `{{name}}` 来解析。
 - 不能使用内置宏的名字。`{{char}}` 始终代表角色。
@@ -282,19 +274,26 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 
 也可以在聊天输入框里输入 `/macros`(简写 `/macro` 同样有效)。完整的宏列表会直接打印在聊天里，方便随时对照。
 
-条件块里可以用 `||`(或)、`&&`(与) 和小括号组合多个比较。判断相等时还能用紧凑写法 `{{#if character == "Maukie" || "Pantalone"}}`。优先级、群聊示例和完整的运算符清单见[条件提示词](conditional-prompts.md)。
+## 在条件里使用宏
 
-条件也能向 Decision 模型询问场景：是/否使用 `{{#if decision:"The latest message moves the scene to a new place"}}`，多选一使用 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`。没有模型或没有答案时都按否处理。见[询问 Decision 模型](conditional-prompts.md#asking-the-decision-model)。陈述后加 `sticky:3 cooldown:5` 可保持是 3 回合，再休息 5 回合；见 [Sticky 与 Cooldown](conditional-prompts.md#sticky-and-cooldown)。加 `until:"..."` 或 `while:"..."`，只要第二条陈述允许，就一直保持是；见 [Until 与 While](conditional-prompts.md#until-and-while)。`every:3` 只每 3 回合询问一次，`priority:high` 或 `priority:low` 决定哪些陈述进入提示词计划；见[每隔几回合检查](conditional-prompts.md#checking-every-few-turns)、[优先级](conditional-prompts.md#priority)和[限制与成本](conditional-prompts.md#limits-and-cost)。
+条件块（`{{#if ...}}`）里可以用 `||`(或)、`&&`(与) 和小括号组合多个比较。判断相等时还能用紧凑写法 `{{#if character == "Maukie" || "Pantalone"}}`。优先级、群聊示例和完整的运算符清单见[条件提示词](conditional-prompts.md)。
+
+条件也能向 Decision 模型询问场景，比如是/否用 `{{#if decision:"The latest message moves the scene to a new place"}}`，多选一用 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`。没有 Decision 模型或没有答案时，都按否处理。见[询问 Decision 模型](conditional-prompts.md#asking-the-decision-model)。陈述后面还可以加这些选项：
+
+- `sticky:3 cooldown:5` 让是保持 3 回合，然后休息 5 回合。见 [Sticky 与 Cooldown](conditional-prompts.md#sticky-and-cooldown)。
+- `until:"..."` 或 `while:"..."` 只要第二条陈述允许，就一直保持是。见 [Until 与 While](conditional-prompts.md#until-and-while)。
+- `every:3` 只每 3 回合询问一次陈述。见[每隔几回合检查](conditional-prompts.md#checking-every-few-turns)。
+- `priority:high` 或 `priority:low` 决定哪些陈述进入提示词计划。见[优先级](conditional-prompts.md#priority)和[限制与成本](conditional-prompts.md#limits-and-cost)。
 
 ## 常见错误
 
 - 不要在 `{{random::...}}` 块里写变量。放在随机选项里的 `{{setvar}}` 会在选择发生之前对每个选项都跑一遍，而不是只跑被选中的那个。
 - 不要把局部变量当成全局状态。它只在设置它的那个聊天里保留。
-- 提示词章节或世界书条目执行 `{{setvar}}` 时，会覆盖同名的聊天变量，因为两者在每个聊天里共用一份存储。如果想保留两者，请使用不同的名字。
+- 提示词小节或世界书条目执行 `{{setvar}}` 时，会覆盖同名的聊天变量，因为两者在每个聊天里共用一份存储。如果想保留两者，请使用不同的名字。
 - `{{prompt}}` 不是宏。如果整条消息就是 `{{prompt}}`，Marinara 不会把它发出去，而是打开 **Peek Prompt** 查看器。见 [Peek Prompt](../chats/peek-prompt.md)。
 - Custom Tools 不认 `{{macro}}` 这种写法。别把 `{{roll:1d20}}` 粘进工具的字段里，指望它会解析。
 - **Impersonate**(代写) 提示词模板只接受少数几个占位符，不是完整的宏列表。它用的名字也不一样，所以在角色卡里能用的宏，放到那里未必有效。
-- 体量过大或者嵌套过深的宏输出会被静默截断。不会有任何报错，所以宏展开的规模要控制在合理范围内。
+- 体量大或者嵌套深的宏输出会被静默截断。不会有任何报错，所以宏展开的规模要控制在合理范围内。
 
 ## 相关指南
 

@@ -1,6 +1,6 @@
 # シーン背景とギャラリー
 
-このガイドでは、AIが生成するシーン背景、つまりMarinara Engineが**Gallery**(ギャラリー)から作る背景画像と、Galleryそのものについて説明します。関連するガイドが2つあります。手動でアップロードして選ぶライブラリーについては[チャットの背景](../appearance/chat-backgrounds.md)を、ターンごとに背景を自動で選ぶエージェントについては[Roleplayの背景](../roleplay/backgrounds.md)を参照してください。
+AIが生成するシーン背景とは、Marinara Engineが**Gallery**(ギャラリー)から作る背景画像です。このガイドでは、背景の作り方、Galleryに入っているもの、画像を描き直したり確認したりする方法を説明します。手動でアップロードして選ぶライブラリーについては[チャットの背景](../appearance/chat-backgrounds.md)を、ターンごとに背景を選ぶエージェントについては[Roleplayの背景](../roleplay/backgrounds.md)を参照してください。
 
 ## シーン背景が使える場所
 
@@ -10,11 +10,11 @@
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-背景を生成するには、**Image Generation**(画像生成)の接続が必要です。まだ用意していない場合は先に設定してください。[画像生成プロバイダーと設定](image-providers.md)を参照してください。
+始める前に: 画像モデルが必要です。まだ用意していない場合は、先に設定してください。[画像生成プロバイダーと設定](image-providers.md)を参照してください。
 
 ## Galleryから背景を生成して適用する
 
-**Gallery**には、チャットの画像と動画が保存されます。**Chat Settings**(チャット設定)内のセクションなので、Chat Settingsを開いて**Gallery**を展開してください。コンピューターでは、独立したウィンドウとして切り離すこともできます([Chat Settingsの概要](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)を参照)。**Background**(背景)ボタンを押すと、現在のシーンに合わせた背景を生成できます。
+**Gallery**には、チャットの画像と動画が保存されます。**Chat Settings**(チャット設定)内のセクションです。コンピューターでは、独立したウィンドウとして切り離すこともできます([Chat Settingsの概要](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)を参照)。その**Background**(背景)ボタンで、現在のシーンに合わせた背景を作れます。
 
 Roleplayでは、**Illustrator**エージェントをインストールした時点で**Background**ボタンが表示されます。チャットに追加する必要も、エージェントをオンにする必要もありません。**Illustrate**(イラスト生成)と同じく1回だけ動き、自動実行は始まりません。
 
@@ -23,20 +23,18 @@ Roleplayでは、**Illustrator**エージェントをインストールした時
 1. **Chat Settings**内の**Gallery**セクションを開きます。
 2. **Background**ボタンをクリックします。
 3. 画像を作成している間、ボタンの表示が**Generating...**に変わります。
-4. 次の状態メッセージが表示されます: 「AI background generation is running. The new background will be applied when it finishes.」
-5. 生成が終わると、新しい画像がすぐに現在のシーンへ適用されます。「Background generated.」というメッセージが表示されて完了がわかります。
+4. 状態メッセージに「AI background generation is running. The new background will be applied when it finishes.」と表示されます。
+5. 生成が終わると、新しい画像がすぐに現在のシーンへ適用され、「Background generated.」と表示されます。
 
-背景は現在のシーンをもとに作られます。ゲーム中であれば、ジャンル、舞台設定、現在地、天候、時間帯が反映されます。生成される背景のサイズは**Backgrounds**のキャンバスサイズに従い、デフォルトは1280×720ピクセルです。このサイズは**Settings**(設定)、**Generations**(生成)、**Image Generation**の順に開いて変更できます。
+背景は現在のシーンをもとに作られます。ゲーム中であれば、ジャンル、舞台設定、現在地、天候、時間帯が反映されます。生成される背景のサイズは**Backgrounds**のキャンバスサイズに従い、デフォルトは1280×720ピクセルです。このサイズは**Settings**(設定)、**Generations**(生成)、**Image Generation**(画像生成)の順に開いて変更できます。
 
-### 画像の接続が設定されていない場合
-
-使用する画像の接続が見つからないと、生成は次のメッセージとともに失敗します。
+うまくいかなかった場合: 使える画像モデルが見つからないと、この手順は次のメッセージとともに失敗します。
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-このときは、**Connections**(接続)パネルを開いて**Defaults**(デフォルト)を展開し、**Images**で画像の接続を選びます。または**Illustrator**エージェント側で画像の接続を個別に指定します。
+解決するには、**Connections**(接続)パネルの**Defaults**(デフォルト)で**Images**(画像)の役割を設定するか、**Illustrator**エージェントに専用の画像モデルを指定してください。
 
 ## Galleryセクション
 
@@ -73,14 +71,14 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 1. Galleryか、画像が入っているメッセージから、画像を原寸で開きます。
 2. **Regenerate image**(画像を再生成)をクリックします。画像の右上にある円形の矢印のボタンです。
-3. 画像の下の欄で、変えたいところを変更します。**Prompt**(プロンプト)、**Negative prompt**(ネガティブプロンプト)、画像にキャラクターごとのプロンプトがあった場合は**Character prompts**(キャラクターのプロンプト)の下にあるキャラクターごとの欄、**Image connection**(画像用の接続)を変更できます。
+3. 画像の下の欄で、変えたいところを変更します。**Prompt**(プロンプト)、**Negative prompt**(ネガティブプロンプト)、画像にキャラクターごとのプロンプトがあった場合は**Character prompts**(キャラクターのプロンプト)の下にあるキャラクターごとの欄、画像モデルを変更できます。
 4. **Generate image**(画像を生成)をクリックします。画像をそのままにする場合は**Cancel**(キャンセル)をクリックします。
 
 新しい画像がメッセージ内の古い画像と置き換わります。古い画像はGalleryに残るので、もう一度固定できます。参照画像は、キャラクターの現在のアバターから改めて送られます。古い画像の中には、ネガティブプロンプトとキャラクターごとのプロンプトが保存されていないものがあります。その場合は、エディターにそのことが表示されます。
 
 ## 送信前にプロンプトを確認する
 
-Marinaraが背景の生成リクエストを画像のプロバイダーへ送る前に、プロンプトを確認して編集できます。
+Marinaraが背景の生成リクエストを画像サービスへ送る前に、プロンプトを確認して編集できます。
 
 1. **Settings**、**Generations**、**Overall Generations**の順に開きます。
 2. **Expose media prompts before sending**(送信前にメディアのプロンプトを表示)をオンにします。
@@ -108,5 +106,5 @@ Marinaraが背景の生成リクエストを画像のプロバイダーへ送る
 - [チャットの背景](../appearance/chat-backgrounds.md): 手動で選ぶアップロード用のライブラリー。
 - [Roleplayの背景](../roleplay/backgrounds.md): ターンごとに背景を自動で選ぶエージェント。
 - [Illustratorエージェント](illustrator-agent.md): RoleplayモードとGame Modeのシーンイラスト。
-- [画像生成プロバイダーと設定](image-providers.md): 画像の接続を設定する。
+- [画像生成プロバイダーと設定](image-providers.md): 画像モデルを設定する。
 - [シーン動画の生成](scene-video.md): Galleryの画像を動画にする。

@@ -1,142 +1,133 @@
 # Perfis de configurações
 
-O perfil de configurações é um pacote com nome que reúne configurações reutilizáveis do chat. Ele pode conter a conexão, o preset de prompt, os agentes, as ferramentas, a tradução, a Memory Recall, os parâmetros avançados e outras opções de cada chat. Aplique o perfil em outro chat em vez de configurar tudo de novo.
+Um perfil de configurações é um pacote com nome de configurações de chat reutilizáveis: a conexão, o preset de prompt, os agentes, as ferramentas, a tradução, a Memory Recall, os parâmetros avançados e mais. Aplique o perfil em outro chat em vez de configurar essas opções de novo.
 
-Os perfis ficam no topo da seção **Chat Settings** (configurações do chat). Eles funcionam nos modos Conversation e Roleplay. Game Mode não mostra esses controles.
+Os perfis ficam no topo de **Chat Settings** (configurações do chat). Eles funcionam em Conversation e em Roleplay. Os chats de Game não mostram os controles de perfil.
 
-## Perfis de configurações e presets de prompt
+O **preset de prompt** é outra coisa. Ele controla a estrutura do prompt de sistema e os valores de geração, e você o edita no painel Presets. Veja [Editor de presets e gerenciador de prompts](../prompts/presets.md). O perfil de configurações é o pacote mais amplo, e pode incluir um preset de prompt como um dos itens.
 
-Marinara usa a palavra **preset** só para os modelos de prompt salvos:
+## Aplique um perfil
 
-- O **preset de prompt** define a estrutura do prompt de sistema e os parâmetros de geração. A edição acontece no painel Presets. Veja [Editor de presets e gerenciador de prompts](../prompts/presets.md).
-- O **perfil de configurações** é a configuração reutilizável mais ampla. Ele pode incluir o preset de prompt escolhido junto com a conexão, os agentes e outras configurações do chat.
+1. Abra o chat que você quer alterar e depois abra **Chat Settings**. Veja [Chat Settings](chat-settings.md).
+2. Abra o menu suspenso **Profile** (perfil), identificado como **Apply a settings profile to this chat**.
+3. Escolha um perfil pelo nome.
 
-Ou seja, o preset de prompt pode ser apenas um dos itens dentro de um perfil de configurações.
+O chat muda na hora. Se o perfil liga ou desliga **Hide summarised messages** (ocultar as mensagens resumidas), as mensagens resumidas do chat ficam ocultas para o modelo, ou voltam a aparecer para ele, no mesmo momento.
 
-## O que o perfil inclui
+Se não funcionou: quando os valores do chat não correspondem a nenhum perfil salvo, o menu suspenso mostra **Custom settings profile**. Se o perfil aplicado foi excluído, ele mostra **Missing profile - choose a profile**. Escolha outro perfil.
 
-O perfil salva a forma como o chat conversa com a IA:
+## Crie ou edite um perfil
 
-- Conexão
-- Preset de prompt (chamado de fonte do prompt no Conversation Mode)
-- Agentes e ferramentas
-- Tradução
-- Memory Recall
-- Advanced Parameters
-- Layout de janelas e botões: posições e tamanhos das janelas, fixações e travas, ferramentas dentro ou fora de Chat Settings, janelas de controles abertas e posições dos botões no computador e no celular. Perfis sem layout salvo, como **Default**, mantêm o layout do chat.
-- Se as dicas de layout de Chat Settings estão ocultas. Aplicar **Default** ou um perfil antigo sem essa escolha mostra as dicas novamente.
-- Outras opções reutilizáveis do chat
+1. Ao lado do menu suspenso, toque em **New** (novo), cuja dica diz "New profile from this chat's settings". O criador de perfis abre com as configurações deste chat nos espaços. Para alterar um perfil salvo, selecione-o e clique em **Edit** (editar). O perfil Default não pode ser editado.
+2. Digite um **Profile name** (nome do perfil).
+3. Preencha os espaços (veja a lista abaixo).
+4. Toque em **Save and choose chats…** (salvar e escolher os chats).
+5. Para usar o perfil nos chats novos, marque **Make this the default** (tornar este o padrão). A lista começa com **New conversation chats** ou **New roleplay chats**.
+6. Marque os chats existentes que devem receber o perfil agora.
+7. Toque em **Apply to N chats** (aplicar a N chats) ou em **Save** (salvar) se nenhum estiver marcado.
 
-Um perfil também pode guardar **escolhas iniciais**: uma persona, lorebooks para ativar e um plano de fundo. Ao aplicar o perfil, essas escolhas são copiadas para o chat. Se uma das três estiver vazia no perfil, o chat mantém a sua. As outras configurações do perfil ainda substituem as do chat. As escolhas não ficam vinculadas: uma mudança posterior no chat permanece nele. **Save current chat settings into this profile** mantém a persona, os lorebooks e o plano de fundo do próprio perfil. Se o perfil não tiver plano de fundo, ele recebe o do chat quando você salva nele. Atualizar outros chats nunca altera a persona, os lorebooks nem o plano de fundo deles. Os arquivos de perfil exportados não incluem persona nem lorebooks, pois eles só existem nesta instalação.
+O criador agrupa os espaços em **Chat**, **Story**, **Pictures** e **Behind the scenes** (chat, história, imagens e nos bastidores). Os espaços são:
 
-O perfil não substitui o conteúdo que pertence ao chat, como personagens, sprites, resumo, tags ou prompt da cena. Ele também não salva o histórico da conversa nem o estado em andamento de um chat, como as variáveis de macro, os personagens que você desativou nele ou a sala multijogador dele.
+- **Connection**, **Prompt preset** e **Parameters** (conexão, preset de prompt e parâmetros)
+- **Agents**, **Tools** e **Memory & summary** (agentes, ferramentas e memória e resumo)
+- **Persona**, **Lorebooks** e **Background** (plano de fundo)
+- **Image style** e **Translation** (estilo de imagem e tradução)
 
-## Como aplicar um perfil
+Como preencher os espaços:
 
-O menu suspenso de perfis fica no topo da seção **Chat Settings**. A dica dele diz **Apply a settings profile to this chat**.
+- Escolha os itens na lista de cada espaço. **Agents**, **Tools** e **Lorebooks** aceitam mais de uma escolha. Use as caixas de seleção em **Tools** para ligar ou desligar cada ferramenta. Em um espaço de item único, escolha **None** (nenhum) para limpá-lo.
+- Nas listas de agentes e de lorebooks, no computador, segure <kbd>Ctrl</kbd> (<kbd>Command</kbd> no macOS) para escolher vários itens. No celular, use os controles de seleção. **Clear selection** (limpar a seleção) esvazia uma lista.
+- No computador, você pode abrir uma barra lateral de biblioteca com o editor ainda aberto e arrastar um item até o campo correspondente.
+- **Parameters**, **Memory & summary** e **Translation** só mostram se o perfil inclui essas configurações. Altere-as em Chat Settings e depois salve no perfil.
 
-1. Abra o chat que você quer alterar.
-2. Abra a seção **Chat Settings**.
-3. Abra o menu suspenso **Profile**.
-4. Escolha um perfil pelo nome.
+No assistente de configuração de novo chat, a etapa **Use a Profile** (usar um perfil) também tem **New profile…** no topo da lista e **Edit** ao lado de um perfil salvo. Depois que você salva, o assistente seleciona esse perfil.
 
-O chat muda na hora. Se o perfil liga ou desliga **Hide summarised messages** (ocultar as mensagens resumidas), as mensagens resumidas do chat ficam ocultas para a IA, ou voltam a aparecer para ela, no mesmo momento. Quando os valores atuais não batem com nenhum perfil salvo, o menu mostra **Custom settings profile**. Se um perfil aplicado antes não existe mais, aparece **Missing profile - choose a profile**.
+## Salve as configurações do chat em um perfil
 
-## O criador de perfis
+Para atualizar um perfil a partir de um chat, aplique-o, mude o chat e depois use a linha de ícones abaixo do menu suspenso.
 
-O criador mostra o perfil como espaços agrupados em Chat, Story, Pictures e Behind the scenes. Cada espaço aceita um tipo de configuração, como conexão, agentes, persona ou lorebooks.
-
-- Escolha os itens nas listas de cada espaço. Agentes, ferramentas e lorebooks aceitam mais de uma escolha. Use as caixas de seleção em **Tools** (ferramentas) para ligar ou desligar cada ferramenta.
-- Nas listas de agentes e de lorebooks, no computador, segure Ctrl (Command no macOS) para escolher vários itens. No celular, use os controles de seleção. Escolha **Clear selection** (limpar a seleção) para esvaziar uma lista.
-- No computador, abra uma barra lateral de biblioteca com o editor ainda aberto e arraste um item até o campo correspondente. Os itens já selecionados continuam selecionados quando você os solta de novo. Em um campo de item único, escolha **None** (nenhum) para limpá-lo.
-- Parameters, Memory & summary e Translation mostram se o perfil inclui essas configurações. Altere-as em Chat Settings e depois salve no perfil.
-
-Escolha **Save and choose chats…** para salvar. A etapa seguinte mostra **New roleplay chats** (ou chats Conversation) e seus chats existentes daquele modo. Marque **Make this the default** para usar o perfil em chats novos. Marque os chats que devem recebê-lo agora e escolha **Apply**.
-
-No assistente de chat novo, a etapa **Use a Profile** também tem **New profile…** no topo da lista de perfis e **Edit** ao lado de um perfil salvo. Depois de salvar, o assistente seleciona esse perfil.
-
-## Como salvar um perfil
-
-A linha de ícones embaixo do menu suspenso traz estas ações:
-
-| Botão | Dica | Resultado |
+| Botão | Rótulo | Resultado |
 |---|---|---|
-| Save | **Save current chat settings into this profile** | Substitui os valores salvos no perfil selecionado |
-| Rename | **Rename profile** | Muda o nome do perfil selecionado |
-| Import | **Import settings profile (.json)** | Carrega um arquivo de perfil |
-| Export | **Export settings profile (.json)** | Baixa o perfil selecionado |
-| Delete | **Delete profile** | Exclui o perfil selecionado de vez |
+| Save | **Save current chat settings into this profile** | Substitui os valores salvos no perfil. |
+| Rename | **Rename profile** | Muda o nome. |
+| Import | **Import settings profile (.json)** | Carrega um arquivo de perfil. |
+| Export | **Export settings profile (.json)** | Baixa o perfil. |
+| Delete | **Delete profile** | Exclui o perfil de vez. |
 
-Para criar um perfil, escolha **New** ao lado do menu suspenso. O criador de perfis abre com as configurações deste chat já nos espaços. Para alterar um perfil, selecione-o e escolha **Edit**. O perfil **Default** não pode ser editado. Para atualizar um perfil a partir de um chat, aplique-o, mude o chat e escolha **Save current chat settings into this profile**.
+### Atualize outros chats que usam o perfil
 
-### Como atualizar outros chats que usam o perfil
-
-Cada chat guarda a própria cópia das configurações do perfil, então salvar um perfil não muda os outros chats por si só. Quando outros chats do mesmo modo usam o perfil, salvar pergunta o que fazer:
+Cada chat guarda a própria cópia das configurações de um perfil, então salvar um perfil não muda os outros chats por si só. Quando outros chats do mesmo modo usam o perfil, a janela **Other chats use this profile** (outros chats usam este perfil) pergunta:
 
 - **Save to this profile only** (salvar só neste perfil) salva o perfil e deixa os outros chats como estão.
-- **Save and update** (salvar e atualizar), seguido do número de chats, como em **Save and update 3 other chats**, também copia para esses chats as configurações de Chat Settings do perfil. As mudanças que esses chats tinham nessas configurações são substituídas, e uma configuração que você deixou no padrão no chat de onde salva também volta ao padrão neles.
+- **Save and update N other chats** (salvar e atualizar N outros chats) também copia para esses chats as configurações de Chat Settings do perfil. Isso substitui as mudanças próprias deles nessas configurações, e uma configuração que você deixou no padrão no chat de onde salva também volta ao padrão neles.
 
-**Save and update** copia:
-
-- Opções de geração e de contexto
-- Opções de chat em grupo
-- Botões liga/desliga de recursos e de comandos
-- Agentes e as opções deles
-- Configurações de memória e de resumo
-- Tradução
-- O layout das janelas
-
-Todo o resto continua como cada chat tem, inclusive:
-
-- A conexão, o preset de prompt e o prompt personalizado
-- A história e os personagens
-- Os lorebooks e o plano de fundo
-- As notas e o progresso
-- Quais comandos de Roleplay só o narrador do chat pode usar
-- Se o Noodle pode usar as mensagens do chat
-
-Advanced Parameters e a descrição de imagens (ligada ou desligada, e qual conexão descreve as imagens) só mudam nos chats que usam a conexão do perfil, porque são definidos para essa conexão. As agendas de personagem só mudam se foram ligadas ou desligadas no chat de onde você salva; caso contrário, cada chat mantém a própria escolha. Knowledge Retrieval, Knowledge Router, Lorebook Keeper e Expression Engine continuam ligados ou desligados, com os seus modelos de prompt, como cada chat os tem. Cada chat escolhe por conta própria as fontes, o lorebook ou os sprites deles.
-
-As salas multijogador nunca são atualizadas dessa forma. Quando nenhum outro chat usa o perfil, **Save** (salvar) funciona sem perguntar.
+Quando nenhum outro chat usa o perfil, **Save** funciona sem perguntar. As salas multijogador nunca são atualizadas dessa forma.
 
 <a id="choosing-the-default-profile"></a>
 
 ## Como escolher o perfil padrão
 
-A estrela ao lado do menu suspenso marca o perfil usado automaticamente nos chats novos daquele modo. Cada modo tem um único perfil padrão.
+A estrela ao lado do menu suspenso marca o perfil usado automaticamente nos chats novos daquele modo. Só um perfil por modo pode ser o padrão. Os rótulos são **Mark this profile as default for new chats in this mode**, **This profile is the default for new chats in this mode** e **Select a profile to mark it as default**. Você também pode marcar **Make this the default** no criador.
 
-As dicas da estrela descrevem o estado atual:
+## Importe e exporte um perfil
 
-- **Mark this profile as default for new chats in this mode**
-- **This profile is the default for new chats in this mode**
-- **Select a profile to mark it as default**
+**Export settings profile (.json)** baixa um arquivo `.marinara-settings-profile.json` que você pode guardar como backup ou compartilhar. **Import settings profile (.json)** cria um perfil novo a partir de um arquivo compatível e nunca sobrescreve um perfil existente. As exportações antigas ainda podem ser importadas. Uma importação que falha mostra **Import failed**.
 
-## Layouts de janelas favoritos
-
-A estrela ao lado de **Reset View** na barra de título de Chat Settings salva um layout favorito para novos chats no modo atual. Ela também lembra se você ocultou as dicas de layout, além do modo de Scoped Regex Scripts do chat. Você pode usá-la em Conversation, Roleplay e Game. A estrela ao lado do menu **Profile** continua escolhendo o perfil de configurações padrão.
-
-Ao atualizar uma instalação existente, a disposição conhecida dos botões de ferramentas vira o favorito para novos chats nos três modos. Isso acontece uma vez e respeita qualquer favorito que você já tenha salvo ou limpado. O layout continua sendo o padrão até você mudá-lo. Uma instalação nova começa com as ferramentas dentro de Chat Settings e sem layout favorito.
-
-Organize as janelas e os botões e clique na estrela da barra de título para salvar. Ela fica preenchida quando a disposição, as dicas e o modo de Scoped Regex Scripts atuais correspondem ao favorito. Se você mover uma janela ou mudar a disposição, clique na estrela novamente para substituir o favorito. Clique na estrela preenchida para limpar e usar o layout padrão nos próximos chats. Essas mudanças não alteram os chats existentes.
-
-Quando um novo chat usa um perfil de configurações padrão, o layout salvo nesse perfil tem prioridade sobre o favorito. Perfis sem layout salvo mantêm a disposição do chat, inclusive a fornecida por um favorito. Um perfil ainda aplica sua própria configuração de dicas; perfis antigos sem essa configuração mostram as dicas. O perfil também aplica o próprio modo de Scoped Regex Scripts ou, quando não tem um, o padrão do preset de prompt.
-
-Veja os passos em [Escolher um layout para novos chats](chat-settings.md#choosing-a-layout-for-new-chats).
-
-## Importação e exportação de perfis
-
-A ação **Export settings profile (.json)** baixa um arquivo `.marinara-settings-profile.json`, que serve como backup ou para compartilhar. A ação **Import settings profile (.json)** cria um perfil novo a partir de um arquivo compatível, sem sobrescrever nenhum perfil existente. Os perfis exportados em versões antigas ainda podem ser importados.
-
-Os perfis salvam configurações, nunca os segredos do provedor. Um perfil exportado ou importado também deixa de fora o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Os perfis que você salva nesta instalação mantêm esses dados.
+Os perfis guardam configurações, não os segredos do provedor. Um perfil exportado ou importado também deixa de fora o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Os perfis que você salva nesta instalação mantêm esses dados. Os arquivos exportados deixam de fora a persona e os lorebooks, porque eles só existem nesta instalação.
 
 ## O perfil Default
 
-Os modos Conversation e Roleplay têm, cada um, um perfil **Default** embutido. Ao aplicá-lo, as configurações controladas pelo perfil voltam ao padrão do Marinara para aquele modo.
+Conversation e Roleplay têm, cada um, um perfil **Default** embutido. Aplicá-lo devolve as configurações controladas pelo perfil aos padrões do Marinara para aquele modo. Ele não pode ser renomeado, sobrescrito nem excluído. Os controles desativados dizem **Cannot save into the Default profile**, **Cannot rename the Default profile** e **Cannot delete the Default profile**.
 
-O perfil Default não pode ser renomeado, sobrescrito nem excluído. Os controles desativados explicam isso com **Cannot save into the Default profile**, **Cannot rename the Default profile** e **Cannot delete the Default profile**.
+<a id="favorite-window-layouts"></a>
 
-## Guias relacionados
+## Layouts de janelas favoritos
 
-- [Visão geral do painel Chat Settings](chat-settings.md)
-- [Editor de presets e gerenciador de prompts](../prompts/presets.md)
-- [Parâmetros de geração](../prompts/generation-parameters.md)
+A estrela ao lado de **Reset View** na barra de título de Chat Settings salva um layout de janelas favorito para novos chats. Já a estrela ao lado do menu suspenso **Profile** escolhe o perfil padrão. Veja os passos em [Escolher um layout para novos chats](chat-settings.md#choosing-a-layout-for-new-chats).
+
+Quando um novo chat usa um perfil padrão que tem um layout salvo, esse layout tem prioridade sobre o layout favorito. Um perfil sem layout salvo mantém a disposição do chat, inclusive a que vem de um favorito. Um perfil ainda aplica a própria configuração de dicas de layout (perfis antigos sem essa configuração mostram as dicas) e o próprio modo de Scoped Regex Scripts, ou o padrão do preset de prompt quando não tem um.
+
+## O que o perfil inclui
+
+O perfil salva a forma como o chat conversa com o modelo:
+
+- A conexão.
+- O preset de prompt (chamado de fonte do prompt em Conversation).
+- Os agentes e as ferramentas.
+- A tradução, a Memory Recall e os Advanced Parameters.
+- O layout de janelas e botões: posições, tamanhos, fixações, travas, quais ferramentas estão dentro de Chat Settings ou destacadas, janelas de controles abertas e posições dos botões no computador e no celular. Perfis sem layout salvo, como **Default**, deixam o layout do chat como está.
+- Se as dicas de layout estão ocultas. Aplicar **Default**, ou um perfil antigo sem essa escolha, mostra as dicas de novo.
+- Outras opções reutilizáveis do chat.
+
+Um perfil também pode guardar **escolhas iniciais**: uma persona, lorebooks para ativar e um plano de fundo.
+
+- Aplicar o perfil copia as escolhas para o chat. Se o perfil deixar uma delas vazia, o chat mantém a sua.
+- As outras configurações do perfil ainda substituem as do chat.
+- As escolhas não ficam vinculadas. Uma mudança posterior no chat fica naquele chat.
+- **Save current chat settings into this profile** mantém a persona, os lorebooks e o plano de fundo do próprio perfil. Um perfil sem plano de fundo recebe o plano de fundo do chat quando você salva nele.
+- Atualizar outros chats nunca muda a persona, os lorebooks nem o plano de fundo deles.
+
+O perfil não substitui o conteúdo que pertence ao chat: personagens, sprites, resumo, tags e prompt da cena. Ele também não guarda o histórico da conversa nem estado em andamento, como as variáveis de macro, os personagens que você desativou ou uma sala multijogador.
+
+### O que Save and update copia
+
+**Save and update** copia isto para os outros chats:
+
+- As opções de geração e de contexto.
+- As opções de chat em grupo.
+- Os botões liga/desliga de recursos e de comandos.
+- Os agentes e as opções deles.
+- As configurações de memória e de resumo.
+- A tradução.
+- O layout das janelas.
+
+Todo o resto continua como cada chat tem:
+
+- A conexão, o preset de prompt e o prompt personalizado.
+- A história e os personagens.
+- Os lorebooks e o plano de fundo.
+- As notas e o progresso.
+- Quais comandos de Roleplay só o narrador do chat pode usar.
+- Se o Noodle pode usar as mensagens do chat.
+
+Advanced Parameters e a descrição de imagens (ligada ou desligada, e qual conexão descreve as imagens) só mudam nos chats que usam a conexão do perfil, porque são definidos para essa conexão. As agendas de personagem só mudam se foram ligadas ou desligadas no chat de onde você salva. Knowledge Retrieval, Knowledge Router, Lorebook Keeper e Expression Engine continuam ligados ou desligados, com os seus modelos de prompt, como cada chat os tem. Cada chat escolhe por conta própria as fontes, o lorebook ou os sprites deles.

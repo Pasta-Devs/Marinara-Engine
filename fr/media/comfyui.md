@@ -1,25 +1,26 @@
 # Configurer un workflow ComfyUI
 
-Marinara Engine sait envoyer des demandes de génération d'images et de vidéos à un serveur ComfyUI local, et des demandes d'images à un endpoint RunPod Serverless qui fait tourner ComfyUI. Une connexion d'image locale peut se contenter du workflow de base intégré à Marinara, alors que les connexions vidéo et les montages d'images avancés réclament un workflow personnalisé au format API.
+Marinara Engine sait envoyer des demandes d'images et de vidéos à un serveur ComfyUI local, et des demandes d'images à un point d'accès RunPod Serverless qui fait tourner ComfyUI. Un modèle d'images local peut se contenter du workflow de base intégré à Marinara. Les configurations vidéo et les configurations d'images avancées utilisent ton propre workflow au format API, c'est-à-dire un workflow exporté depuis ComfyUI en JSON.
 
-Le JSON du workflow collé dans Marinara n'est qu'un instantané. Marinara ne garde aucun lien direct avec le workflow ouvert dans ComfyUI. À chaque fois que tu modifies le workflow dans ComfyUI, teste-le de nouveau, exporte-le de nouveau, puis remplace le JSON enregistré sur la connexion Marinara.
+Le JSON que tu colles dans Marinara n'est qu'un instantané. Marinara ne garde aucun lien direct avec le workflow ouvert dans ComfyUI. Quand tu modifies le workflow dans ComfyUI, teste-le, exporte-le de nouveau et remplace le JSON enregistré dans Marinara.
 
 ## Avant de commencer
 
 Installe ComfyUI, ajoute les checkpoints et les nodes personnalisés dont le workflow a besoin, puis démarre son serveur. L'adresse locale habituelle est `http://127.0.0.1:8188`.
 
-Si ComfyUI tourne sur un autre ordinateur du réseau domestique, son serveur doit écouter sur une adresse joignable par Marinara. Les connexions d'image exigent en plus `IMAGE_LOCAL_URLS_ENABLED=true` dans le fichier `.env` de Marinara ; voir la [référence de configuration du serveur](../CONFIGURATION.md). Si la connexion échoue toujours, vérifie le pare-feu de l'autre ordinateur.
+Si ComfyUI tourne sur un autre ordinateur du réseau domestique, son serveur doit écouter sur une adresse joignable par Marinara. Les comptes d'images exigent en plus `IMAGE_LOCAL_URLS_ENABLED=true` dans le fichier `.env` de Marinara ; voir la [référence de configuration du serveur](../CONFIGURATION.md). Si la connexion échoue toujours, vérifie le pare-feu de l'autre ordinateur.
 
-Un modèle de langage local et un modèle d'image ne tiennent pas forcément en même temps dans la mémoire du GPU, surtout sur une carte de 8 Go. La file d'attente d'images de Marinara empêche plusieurs travaux d'images de s'exécuter ensemble, mais elle ne peut pas faire entrer deux modèles chargés dans la même VRAM. En cas de mémoire insuffisante, prends un modèle de langage dans le cloud ou hébergé à part, fais tourner ComfyUI sur un autre appareil, ou décharge un modèle avant d'utiliser l'autre.
+Un modèle de langage local et un modèle d'image ne tiennent pas forcément en même temps dans la mémoire du GPU, surtout sur une carte de 8 Go. La file d'attente d'images de Marinara empêche les tâches d'images de s'exécuter ensemble, mais elle ne peut pas faire entrer deux modèles chargés dans la même VRAM. En cas de mémoire insuffisante, prends un modèle de langage dans le cloud, fais tourner ComfyUI sur un autre appareil, ou décharge un modèle avant d'utiliser l'autre.
 
 ## Créer la connexion Marinara
 
-1. Ouvre la section **Connections** (Connexions) et crée une connexion **Image Generation** (génération d'images).
-2. Choisis **ComfyUI** pour un serveur local, ou **RunPod Serverless (ComfyUI)** pour un endpoint RunPod.
-3. Pour ComfyUI en local, saisis son URL de base. Aucune clé API n'est nécessaire. Si le champ **ComfyUI Workflow** (workflow ComfyUI) est vide, Marinara utilise un workflow texte-vers-image de base intégré.
-4. Pour RunPod, saisis la clé API et l'Endpoint ID. Un workflow personnalisé est obligatoire.
-5. Règle la section **Local Image Defaults** (valeurs d'image locales par défaut). Ces valeurs remplacent les placeholders correspondants dans le workflow.
-6. Enregistre la connexion, puis utilise le bouton **Test Image** (tester l'image) une fois le workflow ajouté.
+1. Clique sur **Connections** (Connexions), puis sur **Add** (ajouter). Dans la fenêtre **Add account** (ajouter un compte), choisis **ComfyUI** pour un serveur local ou **RunPod Serverless (ComfyUI)** pour un point d'accès RunPod, sous **Images & video** (images et vidéo).
+2. Pour ComfyUI en local, saisis son adresse (`http://127.0.0.1:8188`). Aucune clé API n'est nécessaire. Si le champ **ComfyUI workflow (optional)** est vide, Marinara utilise un workflow texte-vers-image de base intégré.
+3. Pour RunPod, saisis ta clé API et le **RunPod endpoint ID** (identifiant du point d'accès RunPod). Un workflow personnalisé est obligatoire.
+4. Règle **Local image defaults** (valeurs par défaut des images locales) sur le modèle d'images. Ces valeurs remplacent les placeholders correspondants dans ton workflow.
+5. Colle le workflow, enregistre, puis clique sur **Test image** (tester une image).
+
+Si ça n'a pas marché, voir [Dépannage](#troubleshooting).
 
 ## Construire et exporter un workflow
 
@@ -37,9 +38,9 @@ Un workflow au format API n'a rien à voir avec le workflow normal de l'éditeur
 
 ## Workflows vidéo ComfyUI
 
-Crée une connexion **Video Generation** (génération de vidéos), choisis **ComfyUI**, puis colle un workflow au format API dans le champ obligatoire **ComfyUI Workflow**. WAN 2.2 et les autres graphes vidéo locaux fonctionnent, à condition que le même workflow s'exécute dans ComfyUI et enregistre un MP4 via une sortie comme le node **SaveVideo** du cœur de ComfyUI.
+Ajoute un compte **ComfyUI** sous **Images & video** et ouvre son modèle vidéo. Colle un workflow au format API dans le champ obligatoire **ComfyUI workflow (optional)**. WAN 2.2 et les autres graphes vidéo locaux fonctionnent, à condition que le même workflow s'exécute dans ComfyUI et enregistre un MP4 via une sortie comme le node **SaveVideo** du cœur de ComfyUI.
 
-Les workflows vidéo acceptent ces placeholders entre guillemets :
+Les workflows vidéo acceptent ces placeholders, à garder entre guillemets :
 
 | Placeholder | Valeur fournie par Marinara |
 | --- | --- |
@@ -52,7 +53,7 @@ Les workflows vidéo acceptent ces placeholders entre guillemets :
 
 Marinara met le workflow en file via `/prompt`, interroge `/history`, puis télécharge le MP4 indiqué dans une sortie `gifs` ou `images`. Les actions image-vers-vidéo fournissent `%reference_image_name%` ; les tests de connexion en texte seul, non. Garde donc cette entrée facultative si le même workflow doit gérer les deux cas.
 
-Un rendu WAN local peut dépasser 30 minutes sur un GPU de milieu de gamme. Les travaux vidéo ComfyUI suivent `VIDEO_GEN_TIMEOUT_MS`, et non `COMFYUI_GEN_TIMEOUT` qui ne concerne que les images. Si un workflow valide est interrompu trop tôt, augmente le délai d'expiration vidéo et redémarre Marinara.
+Un rendu WAN local peut dépasser 30 minutes sur un GPU de milieu de gamme. Les tâches vidéo ComfyUI suivent `VIDEO_GEN_TIMEOUT_MS`, et non `COMFYUI_GEN_TIMEOUT` qui ne concerne que les images. Si un workflow valide est interrompu trop tôt, augmente le délai d'expiration vidéo et redémarre Marinara.
 
 ## Ajouter les placeholders de Marinara
 
@@ -116,7 +117,7 @@ Ce n'est qu'un extrait : conserve les liens entre nodes et les autres entrées d
 | `%denoise%` | La force de débruitage. `%denoising_strength%` est aussi accepté. |
 | `%clip_skip%` | La valeur Clip Skip pour un node compatible. |
 
-Une fois les modifications faites, enregistre le JSON, copie tout le fichier, colle-le dans le champ **ComfyUI Workflow** de la connexion d'image, enregistre la connexion et clique sur **Test Image**.
+Une fois les modifications faites, enregistre le JSON, copie tout le fichier, colle-le dans **ComfyUI workflow (optional)** sur le modèle d'images, enregistre et clique sur **Test image**.
 
 ## Utiliser des images de référence
 
@@ -140,7 +141,7 @@ Pour un node **LoadImage** standard de ComfyUI, utilise un placeholder de nom de
 
 Marinara téléverse la référence dans le dossier d'entrée de ComfyUI, puis remplace le placeholder par le nom de fichier renvoyé par ComfyUI. `%reference_image_name%` désigne la première image. Un workflow comptant plusieurs entrées de référence peut utiliser `%reference_image_name_01%` jusqu'à `%reference_image_name_04%`.
 
-Si le workflow exige toujours une image en entrée, active l'option **Upload a 1x1 placeholder when no reference image is provided** dans **Local Image Defaults**. Marinara fournit alors une minuscule image de remplacement quand la demande n'a aucune référence réelle.
+Si le workflow exige toujours une image en entrée, active l'option de téléversement d'une image de remplacement de 1x1 dans **Local image defaults**. Marinara fournit alors une minuscule image de remplacement quand la demande n'a aucune référence réelle.
 
 ### Données d'image brutes en base64
 
@@ -150,9 +151,11 @@ Les workflows RunPod acceptent les placeholders base64 bruts. Les placeholders d
 
 ## Garder des workflows propres à chaque personnage
 
-Rien n'empêche de créer un workflow exporté et une connexion d'image Marinara distincts pour chaque personnage qui réclame un checkpoint particulier, une pile de LoRA, un montage ControlNet ou une disposition d'images de référence spécifique. Sélectionne ensuite la bonne connexion d'image partout où ce personnage ou cette fonctionnalité d'image te laisse le choix.
+Rien n'empêche de créer un workflow exporté et une connexion d'image Marinara distincts pour chaque personnage qui réclame un checkpoint particulier, une pile de LoRA, un montage ControlNet ou une disposition d'images de référence spécifique. Sélectionne ensuite le modèle d'images correspondant partout où ce personnage ou cette fonctionnalité d'image te laisse en choisir un.
 
-Le résultat est souvent plus cohérent qu'avec un workflow générique unique, mais chaque connexion conserve sa propre copie du JSON. Après avoir modifié le workflow d'un personnage dans ComfyUI, refais pour cette connexion les étapes d'export, de modification, de copie et de collage.
+Le résultat peut être plus cohérent qu'avec un workflow générique unique, mais chaque modèle conserve sa propre copie du JSON. Après avoir modifié le workflow d'un personnage dans ComfyUI, refais pour cette connexion les étapes d'export, de modification, de copie et de collage.
+
+<a id="troubleshooting"></a>
 
 ## Dépannage
 
@@ -165,7 +168,7 @@ Le résultat est souvent plus cohérent qu'avec un workflow générique unique, 
 | ComfyUI signale un node ou une entrée manquante | Installe les mêmes paquets de nodes personnalisés que ceux utilisés à la construction du workflow, et vérifie que leurs noms d'entrée n'ont pas changé. |
 | Le travail se termine, mais Marinara ne reçoit aucune image | Ajoute une sortie **SaveImage** correctement reliée, puis teste de nouveau le workflow directement dans ComfyUI. |
 | Un node d'image de référence échoue | Pour un node **LoadImage** local normal, utilise un placeholder `%reference_image_name...%`. Ne recours au base64 brut qu'avec un node prévu pour, et vérifie que la fonctionnalité Marinara a bien fourni une référence. |
-| Une URL ComfyUI distante ou en réseau local est bloquée | Pour les connexions d'image, active `IMAGE_LOCAL_URLS_ENABLED`. Fais écouter ComfyUI sur l'interface réseau et vérifie le pare-feu de la machine hôte. N'expose jamais un serveur ComfyUI sans authentification sur l'internet public. |
+| Une URL ComfyUI distante ou en réseau local est bloquée | Pour les connexions d'image, active `IMAGE_LOCAL_URLS_ENABLED`. Fais écouter ComfyUI sur l'interface réseau et vérifie le pare-feu de la machine hôte. N'expose pas un serveur ComfyUI sans authentification sur l'internet public. |
 | Erreur : `Outbound response exceeded N bytes` | La réponse a dépassé la limite configurée, de 30 Mio par défaut. Les métadonnées de workflow ou d'images de référence intégrées au fichier peuvent en être la cause. Désactive les métadonnées dans ComfyUI, ou augmente `IMAGE_GEN_MAX_RESPONSE_BYTES` dans le fichier `.env` de Marinara et redémarre Marinara. |
 | Une longue génération d'images dépasse le délai | Augmente `COMFYUI_GEN_TIMEOUT` dans le fichier `.env` de Marinara. La valeur s'exprime en secondes et vaut `2400` par défaut. |
 | Une longue génération de vidéos dépasse le délai | Augmente `VIDEO_GEN_TIMEOUT_MS` dans le fichier `.env` de Marinara. La valeur s'exprime en millisecondes et vaut `1800000` (30 minutes) par défaut. |

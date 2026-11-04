@@ -1,6 +1,6 @@
 # Noodle-Prompt-Interna (Entwicklung)
 
-Entwickler-Referenz: wo die Generierungs-Prompts von Noodle im Code liegen, wie du sie anpasst und wie du die fertigen Prompts debuggst. Ein Prompt ist der Text, den Marinara an die KI schickt. Endnutzende konfigurieren Noodle über das **Settings**-Panel (Einstellungen); dazu gibt es die Noodle-Anleitungen in `docs/noodle/`.
+Entwickler-Referenz: wo die Generierungs-Prompts von Noodle im Code liegen, wie du sie anpasst und wie du die fertigen Prompts debuggst. Ein Prompt ist der Text, den Marinara an die KI schickt. Endnutzende konfigurieren Noodle über das **Settings**-Panel (Einstellungen); dazu gibt es die Noodle-Anleitungen `docs/agents/noodle.md` und `docs/agents/noodle-settings.md`.
 
 Noodle ist ein herunterladbares Paket. Seine Routen (`/api/noodle`, registriert beim Aktivieren des Pakets) und sein Generierungscode liegen im Noodle-Paket in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), unter `packages/noodle/src/engine/packages/server/src/`. In der Tabelle unten ist eine mit **package** markierte Quelle relativ zu diesem Ordner angegeben. Die Engine behält das gemeinsame Noodle-Schema und die Typen, den Noodle-Speicher, die registrierten Prompt-Overrides, die Settings auflistet, und den Standardtext des Timeline-Prompts in `packages/server/src/services/noodle/noodle-prompt.ts`. Das Paket hat eigene Kopien von `services/prompt-overrides/registry/noodle.ts` und `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## Verwandte Anleitungen
 
-- [Noodle: die In-App-Social-Timeline](../noodle/overview.md)
-- [Noodle-Einstellungen und Chat-Übernahme](../noodle/settings.md)
+- [Noodle: die Social-Timeline in der App](../agents/noodle.md)
+- [Noodle-Einstellungen und Chat-Carryover](../agents/noodle-settings.md)
 - [Optionale Agent- und Capability-Pakete](optional-agent-packages.md)
-- [Architektur-Übersicht (Entwicklung)](architecture-map.md)
+- [Architektur-Übersicht (für Entwickler)](architecture-map.md)

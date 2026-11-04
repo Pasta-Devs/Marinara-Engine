@@ -1,8 +1,8 @@
 # Katalogi zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Gotowe wpisy oferowane przez edytor arkusza postaci w selektorze: nagłówek katalogu, wpisy, wartości utrzymywane przez zestaw zasad, polecenia arkusza postaci i polecenie użycia.
+Ta strona pomoże ci dołączyć do zestawu zasad gotowe wpisy (zaklęcia, ekwipunek, zdolności klasy), które edytor arkusza postaci oferuje w selektorze, dzięki czemu gracze nie muszą ręcznie wpisywać długich list. Opisuje nagłówek katalogu, wpisy, wartości utrzymywane przez zestaw zasad, polecenia arkusza postaci i polecenie użycia. Jest przeznaczona dla osób piszących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
 
-Wpisywanie zaklęć, ekwipunku lub strony zdolności klasy wiersz po wierszu jest uciążliwe. Katalog to nazwany zbiór gotowych wpisów dostarczany z zestawem. Edytor proponuje je w selektorze każdej zasilanej listy; wybór wypełnia wiersz.
+Wpisywanie długiej listy zaklęć lub tabeli ekwipunku wiersz po wierszu zajmuje dużo czasu. Katalog to nazwany zbiór gotowych wpisów dostarczany z zestawem. Edytor proponuje je w selektorze każdej zasilanej listy; wybór wypełnia wiersz.
 
 Katalogi są opcjonalne. Zestaw może mieć ich do dwunastu, a Engine nie zna ich tematyki: wszystkie ID, kolumny, filtry i słowa pochodzą z pliku.
 

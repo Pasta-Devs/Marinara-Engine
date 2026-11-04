@@ -1,141 +1,147 @@
 # Configuración de apariencia
 
-Esta guía recorre la pestaña **Settings -> Appearance** (Configuración -> Apariencia) de Marinara Engine sección por sección. Cubre colores, tamaño del texto, distribución del chat, estilo de los mensajes en cada modo y cómo restablecer todo a los valores predeterminados.
+La pestaña **Appearance** (Apariencia) cambia el aspecto de Marinara: colores, tamaño del texto, distribución del chat y estilo de los mensajes en cada modo de chat.
 
-Las fuentes, los fondos y los temas de CSS personalizado tienen cada uno su propia guía. Esta página enlaza a ellas donde corresponde.
+¿Buscas otra cosa?
+
+- Otra fuente: [Fuentes personalizadas y Google Fonts](fonts.md).
+- Una imagen de fondo para el chat: [Fondos del chat](chat-backgrounds.md).
+- Un tema personalizado (**Settings → Addons → Theme Library**, Configuración → Complementos → Biblioteca de temas): [Temas de CSS personalizado](custom-css-themes.md).
+- El aspecto propio de un personaje en el chat: [Guía de temas con CSS de tarjeta](card-css-theming.md).
 
 ## Abrir la configuración de apariencia
 
 1. Abre **Settings**.
 2. Selecciona la pestaña **Appearance**.
+3. Elige un botón en la parte superior: **App**, **Conversation**, **Roleplay** o **Game**.
 
-La pestaña se divide en secciones que recorres desplazándote: **App Style**, **Text & Scale**, **Conversation Display**, **Tracker Panel**, **Roleplay Messages**, **Game Presentation**, **Atmosphere**, **Conversation Theme** y **Backgrounds**.
+Los botones agrupan las configuraciones por modo de chat, y la pestaña muestra solo el grupo que eliges.
 
-## Color Scheme (oscuro o claro)
+| Botón | Secciones |
+| --- | --- |
+| **App** | **App Style**, **Text & Scale**, **Atmosphere**, **Backgrounds** |
+| **Conversation** | **Conversation Display**, **Conversation Theme** |
+| **Roleplay** | **Tracker Panel**, **Roleplay Presentation** |
+| **Game** | **Game Presentation** |
 
-El menú desplegable **Color Scheme** (esquema de color) está en la sección **App Style**. Tiene dos opciones:
+Para empezar de cero, haz clic en **Reset Appearance** (Restablecer apariencia) en la parte superior de **App Style** (estilo de la app). Restablece toda la pestaña a los valores predeterminados de Marinara, borra el fondo del chat actual y desactiva cualquier tema activo de la Theme Library.
 
-- **Dark** (el predeterminado). Más cómodo para la vista en una habitación oscura.
-- **Light**.
+## Botón App
 
-Varios colores de abajo tienen valores predeterminados separados para oscuro y claro. Siguen el Color Scheme activo automáticamente hasta que fijas tu propio color.
+### Color Scheme y Visual Style
 
-## Visual Style
+En **App Style**, el menú desplegable **Color Scheme** (esquema de color) tiene **Dark** (el predeterminado) y **Light**. La app cambia al instante. Los colores que tienen valores predeterminados separados para oscuro y claro lo siguen hasta que fijas los tuyos.
 
-**Visual Style** (estilo visual) elige el aspecto general de toda la app. Eliges entre dos tarjetas:
+**Visual Style** (estilo visual) tiene dos tarjetas. **Default (Marinara)** es un aspecto retro Y2K con efectos de brillo. **SillyTavern** es un aspecto limpio y minimalista. Solo cambia el aspecto y no tiene nada que ver con importar desde SillyTavern.
 
-- **Default (Marinara)** (el predeterminado). Un aspecto retro Y2K con efectos de brillo.
-- **SillyTavern**. Un aspecto limpio y minimalista inspirado en el SillyTavern original.
+### Background Color y Accent Color
 
-Esto es solo una capa visual. No tiene nada que ver con importar datos desde SillyTavern, que es una herramienta aparte.
+Ambos aceptan un color plano o un degradado, una mezcla suave de dos o más colores. Borra un campo con **Reset to default** (Restablecer al predeterminado) para volver al predeterminado.
 
-## Background Color y Accent Color
+| Ajuste | Qué colorea | Predeterminado |
+| --- | --- | --- |
+| **Background Color** (color de fondo) | El marco principal de la app. | `#050312` en Dark, `#faf8ff` en Light |
+| **Accent Color** (color de acento) | Los botones, los iconos activos, los anillos de foco, los resaltes, los contornos de los paneles y los controles alrededor del chat. | **Marinara Gradient** (degradado de Marinara), una mezcla de rosa, naranja y cian |
 
-Estos dos controles están en la sección **App Style**. Ambos aceptan un color plano o un degradado. Un degradado es una mezcla suave entre dos o más colores.
+Un valor como `#050312` es un código de color hexadecimal, una forma corta de escribir un color.
 
-- **Background Color** (color de fondo) pinta el marco principal de la app detrás de todo. El predeterminado es `#050312` en modo Dark y `#faf8ff` en modo Light.
-- **Accent Color** (color de acento) da color a los botones, los iconos activos, los anillos de foco, los resaltes y los contornos de los paneles. El predeterminado es `#d4acfb` en ambos esquemas.
+Dos interruptores cambian el comportamiento del acento. Solo uno puede estar activado a la vez.
 
-Un valor como `#d4acfb` es un código de color hexadecimal, una forma corta de escribir un color. Para volver al predeterminado del esquema, borra el campo con **Reset to default** (Restablecer al predeterminado).
+- **Accent Pulse** (pulso del acento) anima tu acento. Los colores planos se aclaran y se oscurecen, y los degradados recorren sus colores. Está activado de forma predeterminada en el escritorio y desactivado en los teléfonos.
+- **RGB Mode** (modo RGB) hace que el acento recorra un arcoíris. Tu **Accent Color** guardado no cambia. Está desactivado de forma predeterminada.
 
-Dos interruptores cambian el comportamiento del Accent Color:
+Si tu dispositivo pide reducir el movimiento, ambas animaciones se omiten.
 
-- **Accent Pulse** (desactivado de forma predeterminada) anima suavemente tu Accent Color. Los colores planos se aclaran y se oscurecen. Los degradados recorren sus colores.
-- **RGB Mode** (desactivado de forma predeterminada) hace que el acento recorra una paleta de arcoíris mientras está activo. Tu Accent Color guardado no cambia.
+### Otros controles de App Style
 
-Solo puedes usar uno de estos a la vez. Activar **RGB Mode** desactiva **Accent Pulse**, y activar **Accent Pulse** desactiva **RGB Mode**. Accent Pulse se previsualiza en vivo mientras la pestaña Appearance está abierta. Si tu dispositivo está configurado para reducir el movimiento, ambas animaciones se omiten.
+- **Custom Mouse Pointer** (puntero del ratón personalizado, activado de forma predeterminada) usa el cursor de Marinara con el color de acento. Desactívalo para usar el cursor de tu sistema, o para dejar que un tema personalizado lo controle.
+- **Reduce Ambient Animations & Effects** (reducir animaciones y efectos ambientales) detiene la animación decorativa, las partículas ambientales, las vistas previas giratorias y la aparición gradual del texto. Marinara también lo hace cuando tu dispositivo pide reducir el movimiento.
+- **Desktop sidebar width** (ancho de las barras laterales en el escritorio) fija el ancho de las dos barras laterales en el escritorio. **Reset width** (Restablecer el ancho) lo restablece. Los teléfonos conservan su distribución.
 
-## Chat widget style
+### Chat widget style
 
-Al final de **App Style**, elige **Default**, **Dottore** o **Prof. Mari** para los botones, las ventanas y las secciones móviles del chat. Puedes cambiar por separado la fuente, la forma del marco y los tres colores principales. Los selectores de color también admiten degradados.
+Al final de **App Style**, elige **Default**, **Dottore** o **Prof. Mari** para los botones, las ventanas y las secciones móviles del chat. Puedes cambiar por separado la fuente, la forma y los tres colores principales, y los tres interruptores **Apply preset** (aplicar el preset) llevan el estilo a los mensajes, los campos de entrada y los controles del chat. **Button size (px)** (tamaño del botón en píxeles) cambia el tamaño de los botones móviles del chat y de sus iconos sin cambiar **Display Size** (tamaño de visualización). Introduce un valor de 32 a 96, o deja el campo vacío para usar el predeterminado. Consulta [Temas de CSS personalizado](custom-css-themes.md#ready-made-chat-window-styles) para ver todos los controles.
 
-**Button size (px)** (tamaño del botón en píxeles) cambia los botones móviles del chat y sus iconos sin cambiar Display Size. Introduce un tamaño de 32 a 96 píxeles. Deja el campo vacío o usa su botón de restablecer para conservar el valor predeterminado actual. El tamaño se guarda con tus preferencias de apariencia y se mantiene al elegir otro preset.
+### Display Size y Chat Font Size
 
-Debajo de los selectores de color, **Apply preset font** (aplicar fuente del preset), **Apply preset shape** (aplicar forma del preset) y **Apply preset colors** (aplicar colores del preset) hacen que el resto del chat tenga el mismo aspecto. Empiezan desactivados y funcionan de forma independiente. Se aplican a los mensajes, los campos de entrada y los controles del chat. En Game Mode también se aplican a los widgets del HUD, el panel del mapa, los comentarios al margen, las fichas de personaje, los registros, el inventario, los paneles de combate y los cuadros de diálogo. Los mensajes de Conversation usan la fuente y los colores opcionales, pero conservan su propia forma. También incluyen tu fuente, tu forma y tus colores personalizados. Con **Apply preset colors** activado, el diálogo entrecomillado sigue usando el Dialogue Highlight Color propio de cada personaje o persona. Para ver ejemplos y temas personalizados, consulta [Temas de CSS personalizado](custom-css-themes.md#ready-made-chat-window-styles).
+En **Text & Scale** (texto y escala):
 
-## Custom Mouse Pointer
+- **Display Size** fija el tamaño base del texto para toda la app en este dispositivo. El cambio se aplica al instante. Elige una de estas opciones:
 
-**Custom Mouse Pointer** (puntero del ratón personalizado, activado de forma predeterminada) usa el cursor con el color de acento de Marinara en toda la app. Desactívalo para usar tu cursor normal del sistema, o para dejar que un tema de CSS personalizado controle el cursor.
+| Opción | Tamaño |
+| --- | --- |
+| **Tiny** | 12 px |
+| **Small** | 14 px |
+| **Medium** | 16 px |
+| **Default** | 17 px |
+| **Large** | 19 px |
+| **Huge** | 22 px |
+| **Extra large** | 26 px |
+| **Extra extra large** | 30 px |
+| **Maximum** | 34 px |
 
-## Display Size y Chat Font Size
+- **Chat Font Size** (tamaño de fuente del chat) es un control deslizante para el texto de los mensajes del chat, de 12 px a 72 px. El predeterminado es 16 px.
 
-Estos dos controles están en la sección **Text & Scale**.
+El menú desplegable **Font** (fuente) está en la misma sección. Consulta [Fuentes personalizadas y Google Fonts](fonts.md).
 
-- **Display Size** (tamaño de visualización) fija el tamaño base del texto para toda la app en este dispositivo. Las opciones son **Tiny**, **Small**, **Medium**, **Default** (17px), **Large** y **Huge**.
-- **Chat Font Size** (tamaño de fuente del chat) es un control deslizante que fija el tamaño del texto de los mensajes del chat. Va de 12px a 48px. El predeterminado es 16px.
+### Colores y contorno del texto del chat
 
-El menú desplegable **Font** (fuente) está en esta misma sección. Para añadir tus propias fuentes o descargarlas de Google Fonts, consulta [Fuentes personalizadas y Google Fonts](fonts.md).
+También en **Text & Scale**:
 
-## Colores y contorno del texto del chat
+- **Chat Text Color** (color del texto del chat) es el color principal del texto de los mensajes. El predeterminado es `#d4d4d4` en Dark y `#1a1025` en Light.
+- **Default Dialogue Color** (color de diálogo predeterminado) da color al diálogo entrecomillado cuando un personaje o una persona no tiene su propio Dialogue Highlight Color. Los colores de la tarjeta tienen prioridad. Mientras **Apply preset colors** (aplicar colores del preset) está activado, el diálogo usa el color del texto del estilo del chat.
+- **Chat Chrome Text Color** (color del texto de la interfaz del chat) fija el texto de los controles alrededor del chat: los widgets del tracker, las etiquetas de las carpetas y las descripciones de la configuración. Tiene los mismos valores predeterminados que **Chat Text Color**.
+- **Text Outline / Stroke** (contorno del texto) añade un contorno para que el texto siga siendo legible sobre fondos recargados. Fija el color y un **Width** (ancho) de 0 a 5 px. El predeterminado es 0,5 px, y 0 lo desactiva.
 
-También en la sección **Text & Scale**, cuatro controles cambian cómo se lee el texto del chat sobre tu fondo.
+Borrar un campo de color lo devuelve al predeterminado del esquema.
 
-- **Chat Text Color** (color del texto del chat) fija el color principal del texto de los mensajes del chat. El predeterminado es `#d4d4d4` en modo Dark y `#1a1025` en modo Light.
-- **Default Dialogue Color** (color de diálogo predeterminado) da color al diálogo entrecomillado cuando una tarjeta de personaje o persona no define su propio Dialogue Highlight Color. Los colores específicos de la tarjeta tienen prioridad. Mientras **Apply preset colors** está activado, este diálogo usa en su lugar el color del texto del estilo del chat.
-- **Chat Chrome Text Color** fija el texto ordinario de los widgets del tracker, las etiquetas de las carpetas y las descripciones de la configuración. Usa los mismos valores predeterminados que **Chat Text Color**.
-- **Text Outline / Stroke** (contorno del texto) añade un contorno alrededor del texto del chat para que siga siendo legible sobre fondos recargados. Fija el color del contorno y un **Width** (ancho) de 0px a 5px. El ancho predeterminado es 0.5px. Fija el ancho en 0 para desactivar el contorno.
+### Atmosphere
 
-Cada color sigue el predeterminado del Color Scheme hasta que fijas el tuyo. Borrar un campo de color lo devuelve a ese predeterminado del esquema, en lugar de dejarlo en blanco.
+**Dynamic weather effects (rain, snow, fog, etc.)** (efectos de clima dinámicos: lluvia, nieve, niebla, etc.) está activado de forma predeterminada. Muestra partículas de clima según el clima y la hora del día de la historia. Solo muestra algo cuando el agente **World State** está activado para el chat. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
 
-## Chat Layout (Conversation Display)
+### Backgrounds
 
-La sección **Conversation Display** tiene un control, **Chat Layout** (distribución del chat), que cambia el aspecto de los mensajes en modo Conversation. Una vista previa en vivo se actualiza a medida que eliges.
+La sección **Backgrounds** (fondos) contiene el selector **Chat Background** (fondo del chat) y **Background Blur** (desenfoque del fondo). Aquí hay dos controles más. **Conversation background image opacity** (opacidad de la imagen de fondo de Conversation) fija con qué intensidad se ve el fondo del chat en el modo Conversation, sin que deje de verse el degradado. **Chat List Backgrounds** (fondos en la lista de chats) muestra el fondo de cada chat como un banner atenuado detrás de su fila en la lista de chats. Elige **Active & Hovered**, **Every Row** u **Off**. Consulta [Fondos del chat](chat-backgrounds.md).
 
-- **Linear** (el predeterminado). Filas al estilo de un chat.
-- **Bubbles**. Burbujas al estilo de una app de mensajería.
+## Botón Conversation
 
-## Tracker Panel
+- **Chat Layout** (distribución del chat), en **Conversation Display** (visualización de Conversation), cambia el aspecto de los mensajes de Conversation, con una vista previa en vivo. **Linear** (el predeterminado) muestra filas al estilo de un chat. **Bubbles** muestra burbujas al estilo de una app de mensajería.
+- **Avatar Shape** (forma del avatar) es **Circular** o **Square**. El tamaño del avatar no cambia.
+- **Always display swipe menu** (mostrar siempre el menú de swipes) muestra las flechas de los swipes (respuestas alternativas) y el contador desde la primera respuesta. Desactívalo para mostrarlos solo después de regenerar.
+- **Conversation Theme** (tema de Conversation) fija un degradado de dos colores detrás de cada chat de Conversation. Las pestañas **Dark** y **Light** conservan cada una su propio degradado. Este es un predeterminado para todo el dispositivo, no una configuración por chat.
 
-La sección **Tracker Panel** da estilo al panel lateral del tracker de Roleplay. Ese panel es una función aparte con su propia guía. Consulta [HUD y trackers de Roleplay](../roleplay/hud-and-trackers.md).
+## Botón Roleplay
 
-## Apariencia de los mensajes de Roleplay
+**Tracker Panel** (panel de trackers) da estilo al panel lateral del tracker de Roleplay. Consulta [HUD y trackers de Roleplay](../roleplay/hud-and-trackers.md).
 
-La sección **Roleplay Messages** da estilo a los mensajes en los chats de Roleplay.
+**Roleplay Presentation** (presentación de Roleplay) da estilo a los mensajes de Roleplay.
 
-- **Chat position** elige dónde se ubican los mensajes y el cuadro de entrada en una pantalla ancha: **Left**, **Center** (el predeterminado) o **Right**. Se mueven juntos, y una barra lateral abierta o el Tracker Panel del mismo lado los desplaza para que el chat nunca quede debajo. En un teléfono o una ventana estrecha el chat conserva todo el ancho, y el modo Game mantiene centrado su cuadro de diálogo.
-- **Roleplay Messages Background Opacity** es un control deslizante de 0% a 100%. El predeterminado es 90%. Bájalo para dejar que el fondo se vea a través de las burbujas de mensaje.
-- **Roleplay Avatars** elige el estilo del avatar junto a cada mensaje. Las cuatro opciones son **None**, **Small Circles** (el predeterminado), **Small Rectangles** y **Glued Side Panel**.
-- **Scrollable Avatars** (desactivado de forma predeterminada) mantiene los avatares visibles mientras te desplazas por un mensaje largo.
-- **Message avatar scale** es un control deslizante de 75% a 250%. El predeterminado es 100%.
-- **Default sprite scale** es un control deslizante de 50% a 175%. El predeterminado es 100%. Un tamaño de sprite (imagen del personaje) por chat sigue anulando este predeterminado.
+| Ajuste | Qué hace | Predeterminado |
+| --- | --- | --- |
+| **Chat position** | Dónde se ubican los mensajes y el cuadro de entrada en pantallas anchas: **Left**, **Center** o **Right**. Una barra lateral abierta o un Tracker Panel del mismo lado los desplaza. Los teléfonos conservan todo el ancho. | **Center** |
+| **Visual Novel display** (visualización de novela visual) | Muestra un párrafo terminado a la vez, con un retrato de diálogo y tus sprites (imágenes del personaje). Cambia el Roleplay actual y el predeterminado de los chats que no tienen un estilo guardado. | Desactivado |
+| **Roleplay Messages Background Opacity** | Un control deslizante de 0% a 100%. Bájalo para dejar que el fondo se vea a través de las burbujas de mensaje. | 90% |
+| **Roleplay Avatars** | El estilo del avatar junto a cada mensaje: **None**, **Small Circles**, **Small Rectangles** o **Glued Side Panel**. | **Small Circles** |
+| **Scrollable Avatars** | Mantiene los avatares visibles mientras te desplazas por un mensaje largo. | Desactivado |
+| **Message avatar scale** | Un control deslizante de 75% a 250%. | 100% |
+| **Default sprite scale** | Un control deslizante de 50% a 175%. El tamaño de sprite propio de un chat sigue teniendo prioridad. | 100% |
 
-## Game Presentation
+Esta sección también tiene **Custom chat width** (ancho de chat personalizado), **Always display swipe menu**, **Reduced paint effects** (efectos de pintura reducidos: aplana las transparencias y las sombras costosas para que la navegación siga siendo fluida), **Show Thinking In Messages** (mostrar el razonamiento en los mensajes), **Don't Collapse Thinking** (no contraer el razonamiento) y **Narrator's Cycling Avatars** (avatares rotativos del Narrator). Con **Visual Novel display** activado, también aparecen **Auto-play VN paragraphs** (reproducir automáticamente los párrafos de la novela visual) con el ajuste **Paragraph delay** (pausa entre párrafos), **Dialogue portrait scale** (escala de los retratos de diálogo) y **Full-body sprite scale** (escala de los sprites de cuerpo entero).
 
-La sección **Game Presentation** escala el arte en el modo Game. El modo Game puede mostrar tanto un retrato de diálogo como un sprite de cuerpo entero. Estos dos controles deslizantes fijan su tamaño.
+## Botón Game
 
-- **Dialogue portrait scale** es un control deslizante de 75% a 175%. El predeterminado es 100%.
-- **Full-body sprite scale** es un control deslizante de 75% a 275%. El predeterminado es 135%.
+En **Game Presentation** (presentación de Game), **Game VN Art** (arte de novela visual de Game) tiene dos controles deslizantes: **Dialogue portrait scale** (de 75% a 175%, predeterminado 100%) y **Full-body sprite scale** (de 75% a 275%, predeterminado 135%).
 
-**Game Dialogue Display** elige cómo se comporta el cuadro de diálogo:
+**Game Dialogue Display** (visualización del diálogo de Game) elige cómo se comporta el cuadro de diálogo.
 
-- **Classic VN** (el predeterminado). Un segmento activo se muestra en el cuadro de diálogo. Las líneas más antiguas están en el botón **Logs**.
-- **History Above VN**. Los segmentos anteriores se muestran encima del cuadro de diálogo. La sesión completa se mantiene desplazable ahí.
+- **Classic Dialogue Box** (el predeterminado) muestra un segmento activo. Las líneas más antiguas están en el botón **Logs**.
+- **History Above Dialogue Box** muestra los segmentos anteriores encima del cuadro, y toda la sesión se mantiene desplazable ahí.
 
-## Efectos de clima de Atmosphere
-
-La sección **Atmosphere** tiene un interruptor, **Dynamic weather effects (rain, snow, fog, etc.)**, que está activado de forma predeterminada. Muestra partículas de clima animadas según el clima y la hora del día de la historia.
-
-Este interruptor solo muestra algo cuando el agente **World State** está activado para el chat. Ese agente lee el clima de la historia. Sin él, el interruptor no tiene ningún efecto visible. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
-
-## Conversation Theme
-
-La sección **Conversation Theme** fija un fondo de degradado de dos colores para cada chat en modo Conversation. Tiene pestañas separadas **Dark** y **Light** para que cada Color Scheme conserve su propio degradado. Este es un predeterminado para todo el dispositivo en los chats de Conversation, no una configuración por chat.
-
-## Backgrounds
-
-La sección **Backgrounds** te permite importar y elegir imágenes de fondo del chat y fijar un **Background Blur** (desenfoque del fondo). Como esta es su propia área de función con su propia biblioteca, tiene una guía dedicada. Consulta [Fondos del chat](chat-backgrounds.md).
-
-## Reset Appearance
-
-El botón **Reset Appearance** (Restablecer apariencia) está en la parte superior de la sección **App Style**. Restablece toda la pestaña **Appearance** a los valores predeterminados de Marinara. Esto incluye colores, tamaños de texto, distribución, escalas de avatar y sprite, y degradados.
-
-Restablecer también borra el fondo del chat actual y desactiva cualquier tema personalizado activo de la Theme Library. Úsalo cuando tu estilo se desordene y quieras empezar de cero.
+**Game text effects** (efectos de texto del juego, activado de forma predeterminada) anima las palabras dramáticas, el énfasis en MAYÚSCULAS, los apartes entre paréntesis y las etiquetas de efectos de texto. Desactívalo para ver el texto sin efectos.
 
 ## Configuraciones que se quedan en este dispositivo
 
-La mayoría de las configuraciones de Appearance se sincronizan con tus otros dispositivos. Dos no lo hacen: **Display Size** y **Chat Font Size** se guardan en el navegador que estás usando y nunca se sincronizan.
-
-Para el panorama completo de qué configuraciones se sincronizan entre dispositivos y cuáles se quedan en local, consulta [Resumen de configuración](../settings/settings-overview.md).
+La mayoría de las configuraciones de Appearance se sincronizan con tus otros dispositivos. **Display Size** y **Chat Font Size** no. Se guardan en el navegador que usas. Consulta [Resumen de configuración](../settings/settings-overview.md) para ver qué se sincroniza.
 
 ## Guías relacionadas
 

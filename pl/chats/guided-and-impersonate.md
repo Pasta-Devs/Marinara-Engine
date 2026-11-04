@@ -1,140 +1,101 @@
 # Sterowane generowanie i Impersonate
 
-Z tego przewodnika dowiesz się, jak kierować czatem w aplikacji Marinara Engine na dwa sposoby. Sterowane generowanie podpowiada AI, w którą stronę ma pójść, i nie zostawia przy tym widocznej wiadomości. Funkcja Impersonate każe AI napisać za ciebie twoją własną odpowiedź. Opisane jest tu też menu Quick replies (szybkie odpowiedzi), które stawia obie akcje obok przycisku **Send**.
+Dwa sposoby na kierowanie czatem. Sterowane generowanie nadaje kolejnej odpowiedzi kierunek bez publikowania widocznej wiadomości. Funkcja Impersonate każe modelowi napisać twoją własną odpowiedź. Menu Quick replies (szybkie odpowiedzi) stawia obie akcje obok przycisku **Send** (wysłanie).
 
-## Sterowane generowanie
+## Sterowanie odpowiedzią komendą /guided
 
-Dzięki sterowanemu generowaniu możesz wskazać AI, dokąd ma poprowadzić kolejną odpowiedź. Twoja wskazówka jest poza rolą. Nadaje odpowiedzi kierunek, ale nie pojawia się jako zwykła wiadomość na czacie.
+Twoja wskazówka jest poza rolą. Kształtuje odpowiedź, ale nie pojawia się jako wiadomość na czacie.
 
-### Sterowanie odpowiedzią komendą /guided
+1. Wpisz w polu wiadomości `/guided` i swoją wskazówkę.
+2. Naciśnij <kbd>Enter</kbd> albo kliknij **Send**.
 
-Podstawowy sposób na pokierowanie odpowiedzią to komenda slash `/guided`.
+Model pisze kolejną odpowiedź zgodnie z twoją wskazówką. Na przykład:
 
-1. Wpisz w polu wiadomości `/guided`, a po nim swoją wskazówkę.
-2. Naciśnij Enter albo kliknij przycisk **Send**.
-3. AI generuje kolejną odpowiedź, prowadząc ją we wskazanym kierunku.
-
-Na przykład taka wskazówka popycha następną odpowiedź w stronę wyznania:
-
-```
+```text
 /guided make him admit he is lying
 ```
 
-Komenda ma krótkie odpowiedniki. Zamiast `/guided` możesz wpisać `/narrator`, `/narrate` albo `/nar`.
+Zamiast `/guided` możesz wpisać `/narrator`, `/narrate` albo `/nar`. Na czacie grupowym skieruj wskazówkę do jednej postaci za pomocą `respond as`, `reply as` albo `respond for`:
 
-Na czacie grupowym wskazówkę da się skierować do jednej postaci. Wpisz `/guided respond as <character> <direction>`. W miejsce `<character>` wstaw nazwę postaci, a w miejsce `<direction>` swoją wskazówkę. Działają też `reply as` i `respond for`. Na przykład:
-
-```
+```text
 /guided respond as Alice make her admit she is lying
 ```
 
-### Sterowanie przy ponownym generowaniu
+## Sterowanie ponownym generowaniem
 
-Odpowiedzią można też pokierować w trakcie ponownego generowania. Marinara wykorzystuje wtedy tekst wpisany w polu wiadomości jako jednorazową wskazówkę.
+Ten sposób wykorzystuje tekst z pola wiadomości jako jednorazową wskazówkę dla ponownego generowania.
 
-1. Otwórz **Settings** (Ustawienia), potem **Advanced**, potem **Message Tools**.
-2. Włącz **Guide swipes/regens with chat input**. To ustawienie jest domyślnie wyłączone.
-3. Wróć do czatu i wpisz wskazówkę w polu wiadomości, ale jej nie wysyłaj.
-4. Kliknij przycisk **Regenerate** przy wiadomości od AI.
+1. Otwórz **Settings → Advanced → Message Tools** (ustawienia, zaawansowane, narzędzia wiadomości) i włącz **Guide swipes/regens with chat input** (sterowanie swipe'ami i ponownym generowaniem tekstem z pola wiadomości). Domyślnie jest wyłączone.
+2. Na czacie wpisz wskazówkę w polu wiadomości, ale jej nie wysyłaj.
+3. Kliknij **Regenerate** (ponowne generowanie) na wiadomości AI. Gdy w polu jest tekst, przycisk nosi nazwę **Regenerate (guided)**.
 
-Kiedy ustawienie jest włączone, a w polu jest tekst, podpowiedź przycisku **Regenerate** zmienia się na **Regenerate (guided)**. AI tworzy nową wersję odpowiedzi, traktując wpisany tekst jako wskazówkę.
+Wskazówka zostaje potem w polu, więc możesz ją poprawić i ponownie wygenerować odpowiedź. Żeby zamiast tego pole się czyściło, wyłącz **Keep guidance after regenerating** (zachowanie wskazówki po ponownym generowaniu) w **Settings → General → Input & Editing** (ustawienia, ogólne, wprowadzanie i edycja).
 
-Wskazówka zostaje potem w polu wiadomości, więc możesz ją poprawić i ponownie wygenerować odpowiedź. Żeby zamiast tego znikała z pola, wyłącz **Keep guidance after regenerating** w **Settings** > **General** > **Input & Editing**.
+Jeśli to nie zadziałało: przycisk musi nosić nazwę **Regenerate (guided)**. Jeśli widnieje na nim tylko **Regenerate**, ustawienie jest wyłączone albo pole jest puste.
 
-### Odczytywanie zapisanych wskazówek w oknie Stored guidance
+<a id="read-stored-guidance"></a>
 
-Kiedy odpowiedź powstała ze wskazówką, Marinara zapisuje tę wskazówkę do późniejszego wglądu. Przy wiadomości pojawia się akcja **Stored guidance** (zapisana wskazówka) z ikoną zwoju.
+## Odczytywanie wskazówek Stored guidance
 
-1. Kliknij ikonę **Stored guidance** przy wiadomości od AI.
-2. Otwiera się okno **Stored guidance** z wskazówką, która dała tę odpowiedź.
+Marinara zapisuje wskazówkę, która pokierowała odpowiedzią.
 
-Okno opisuje wskazówkę zależnie od tego, skąd pochodzi:
+1. Kliknij ikonę **Stored guidance** (zapisana wskazówka, zwój) na wiadomości AI.
+2. Okno o tytule **Stored guidance** pokazuje wskazówkę.
 
-- **/guided**: wskazówka pochodzi z komendy `/guided`.
-- **Guided regenerate**: wskazówka pochodzi ze sterowanego kliknięcia przycisku **Regenerate**.
-- **Game start**: wskazówka pochodzi z konfiguracji trybu Game Mode.
+Okno podaje, skąd pochodzi wskazówka: **/guided**, **Guided regenerate** (sterowane ponowne generowanie) albo **Game start** (konfiguracja trybu Game Mode). Przy wskazówkach z `/guided` i ze sterowanego ponownego generowania przycisk **Copy /guided** kopiuje gotową do użycia komendę `/guided`, którą możesz wkleić na innym czacie.
 
-Przy wskazówkach z komendy `/guided` i ze sterowanego ponownego generowania przycisk **Copy /guided** kopiuje wskazówkę z powrotem jako gotową komendę `/guided`. Można ją wkleić na innym czacie i użyć tego samego kierunku jeszcze raz.
+## Pisanie odpowiedzi funkcją Impersonate
 
-## Impersonate
+Funkcja Impersonate każe modelowi napisać twoją kolejną wiadomość głosem twojej persony. Persona to postać, w którą się wcielasz, zapisywana jako `{{user}}`. Zobacz [Persony](../characters/personas.md).
 
-Funkcja Impersonate każe AI napisać za ciebie kolejną wiadomość, głosem twojej persony. Persona to postać, w którą się wcielasz, wpisana do czatu jako `{{user}}`. O tym, jak ją przygotować, mówi przewodnik [Persony użytkownika](../characters/personas.md).
+Zanim zaczniesz: Impersonate działa tylko na czatach w trybie Roleplay. W trybie Conversation zobaczysz komunikat "Impersonate is not available in Conversation mode." Funkcja nie jest dostępna także w trybie Game.
 
-Impersonate działa wyłącznie na czatach w trybie Roleplay. W trybie Conversation ani w trybie Game Mode nie jest dostępna. Po próbie użycia jej na czacie Conversation zobaczysz komunikat "Impersonate is not available in Conversation mode."
+1. Wpisz `/impersonate` w polu wiadomości. Jeśli chcesz, dodaj po niej wskazówkę.
+2. Naciśnij <kbd>Enter</kbd> albo kliknij **Send**.
 
-### Korzystanie z /impersonate
+Model publikuje wiadomość użytkownika jako twoja persona. Na przykład ta komenda tworzy wiadomość z pytaniem o pogodę:
 
-1. Wpisz `/impersonate` w polu wiadomości. Możesz dodać po niej wskazówkę, ale nie musisz.
-2. Naciśnij Enter albo kliknij przycisk **Send**.
-3. AI pisze wiadomość użytkownika jako twoja persona i umieszcza ją na czacie.
-
-Na przykład tak każesz AI napisać twoim głosem wiadomość z pytaniem o pogodę:
-
-```
+```text
 /impersonate ask about the weather
 ```
 
-Komenda ma krótki odpowiednik. Zamiast `/impersonate` możesz wpisać `/imp`.
+Krótki odpowiednik to `/imp`. **Regenerate** działa na wiadomości napisanej przez Impersonate, więc możesz dostać inną wersję.
 
-Wiadomość napisaną przez Impersonate da się powtórzyć. Akcja **Regenerate** działa na wiadomościach użytkownika utworzonych przez Impersonate, więc możesz dostać inną wersję.
+### Ustawienia Impersonate
 
-### Ustawienia sekcji Impersonate
+Te ustawienia obowiązują przy każdym użyciu `/impersonate` na wszystkich twoich czatach. Otwórz panel **Chat Settings** (ustawienia czatu) na czacie w trybie Roleplay i znajdź sekcję **Impersonate**. Jak otworzyć ten panel, opisuje [Panel **Chat Settings** – przegląd](chat-settings.md).
 
-Impersonate ma własną sekcję ustawień, która obowiązuje przy każdym uruchomieniu `/impersonate`, na wszystkich czatach. Otwiera się ją z ustawień pojedynczego czatu.
+| Kontrolka | Do czego służy |
+| --- | --- |
+| **Prompt Template** (szablon promptu) | Opcjonalna instrukcja wysyłana przy każdym użyciu Impersonate. Gdy pole jest puste, używany jest prompt samego czatu albo wbudowany prompt domyślny. Obsługuje `{{user}}`, `{{persona_description}}` i `{{impersonate_direction}}` – symbole zastępcze, które Marinara zamienia na prawdziwy tekst. Wybierz **Built-in default** (wbudowany domyślny), żeby przeczytać domyślną treść, **Copy built-in default to edit** (skopiowanie wbudowanego domyślnego do edycji), żeby zacząć od kopii, **Save as** (zapisanie jako), żeby zachować nazwany szablon, i **Delete template** (usunięcie szablonu), żeby go usunąć. |
+| **Preset** | Preset promptu tylko dla odpowiedzi z Impersonate. Domyślnie: **Use chat default** (użyj ustawienia czatu). Zobacz [Edytor presetów i menedżer promptów](../prompts/presets.md). |
+| **Connection** (połączenie) | Model dla odpowiedzi z Impersonate, na przykład tańszy albo szybszy. Domyślnie: **Use chat default**. Możesz też wybrać **Random** (losowo). Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md). |
+| **Skip agents** (pomijanie agentów) | Pomija agentów (trackery, agentów kierujących lorebookami i podobnych pomocników) podczas Impersonate. Dzięki temu Impersonate działa szybko i nie zmienia stanu świata. Domyślnie wyłączone. Zobacz [Agenci](../agents/agents-overview.md). |
+| **Use CYOA as direction** (użycie CYOA jako wskazówki) | Kliknięcie opcji CYOA (choose your own adventure, czyli "wybierz własną przygodę") używa jej jako wskazówki dla Impersonate zamiast publikować ją na czacie. Domyślnie wyłączone. Jeśli w **Settings → General → Input & Editing** włączono **Add CYOA choices to the message box instead of sending them** (dodawanie wyborów CYOA do pola wiadomości zamiast ich wysyłania), kliknięcie tylko dodaje tekst do pola wiadomości, a to ustawienie nic nie zmienia. |
 
-1. Otwórz panel **Chat Settings** (ustawienia czatu) dla czatu w trybie Roleplay.
-2. Znajdź sekcję **Impersonate**.
+### Ustawianie promptu dla jednego czatu
 
-W sekcji są takie ustawienia:
+1. Wpisz `/impersonate_prompt` i swój prompt w cudzysłowie.
+2. Naciśnij <kbd>Enter</kbd>.
 
-- **Prompt Template**: nieobowiązkowa instrukcja wysyłana do modelu przy każdym użyciu Impersonate. Zostaw puste, żeby korzystać z promptu samego czatu, a gdy czat go nie ma – z wbudowanego domyślnego. Prompt to tekst, który Marinara wysyła do AI. Obsługiwane są makra `{{user}}`, `{{persona_description}}` i `{{impersonate_direction}}`. Makro to symbol zastępczy, który Marinara zamienia na prawdziwy tekst przed wysłaniem. Kliknij **Built-in default**, żeby zobaczyć domyślną treść. Przycisk **Reset** czyści własny szablon z powrotem do pustego.
-- **Preset**: użycie konkretnego presetu promptu tylko dla odpowiedzi z Impersonate. Preset to zapisany zestaw ustawień promptu. Zobacz przewodnik [Edytor presetów i menedżer promptów](../prompts/presets.md). Domyślnie ustawione jest **Use chat default**. Presety działają wyłącznie w trybie Roleplay.
-- **Connection**: kierowanie odpowiedzi z Impersonate do konkretnego połączenia, na przykład do tańszego albo szybszego modelu. Połączenie to zapisany skrót do dostawcy AI. Zobacz przewodnik [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md). Domyślnie ustawione jest **Use chat default**. Możesz też wybrać **Random**.
-- **Skip agents**: po włączeniu Marinara pomija podczas Impersonate cały ciąg agentów (trackery, agentów kierujących lorebookami i podobnych pomocników). Dzięki temu Impersonate działa szybko i nie zmienia stanu świata. Domyślnie wyłączone. Zobacz przewodnik [Agenci](../agents/agents-overview.md).
-- **Use CYOA as direction**: po włączeniu kliknięty wybór CYOA staje się wskazówką dla Impersonate, zamiast trafić na czat jako zwykła wiadomość. CYOA to skrót od "choose your own adventure", czyli zestaw klikalnych wyborów, które niektóre czaty pokazują po odpowiedzi. To ustawienie jest domyślnie wyłączone. Jeśli w **Settings** > **General** > **Input & Editing** (Ustawienia, Ogólne, Wprowadzanie i edycja) włączono **Add CYOA choices to the message box instead of sending them** (dodawanie wyborów CYOA do pola wiadomości zamiast ich wysyłania), kliknięcie wyboru tylko dodaje jego tekst do pola wiadomości, a to ustawienie nic nie zmienia.
-
-### Ustawianie własnego promptu dla Impersonate
-
-Prompt dla Impersonate da się też ustawić tylko dla jednego czatu, komendą slash.
-
-1. Wpisz `/impersonate_prompt`, a po niej swój prompt w cudzysłowie.
-2. Naciśnij Enter.
-
-Na przykład:
-
-```
+```text
 /impersonate_prompt "You will now play as my OC:"
 ```
 
-Żeby wyczyścić prompt dla danego czatu i wrócić do domyślnego, wpisz:
+Aby wrócić do domyślnego promptu, wpisz `/impersonate_prompt reset`. Odpowiednik tej komendy to `/imp_prompt`.
 
-```
-/impersonate_prompt reset
-```
+## Dodawanie Quick replies obok przycisku Send
 
-Komenda ma krótki odpowiednik: `/imp_prompt`.
+Quick replies dodają obok **Send** alternatywy dostępne jednym kliknięciem, więc nie trzeba wpisywać komendy slash.
 
-## Menu Quick replies
-
-Menu Quick replies dokłada dodatkowe akcje wysyłania obok zwykłego przycisku **Send**. Daje dostęp do sterowanego generowania i do Impersonate jednym kliknięciem, bez wpisywania komendy slash.
-
-To, które akcje się pokazują, wybierasz w ustawieniach.
-
-1. Otwórz **Settings**, potem **Advanced**, potem **Message Tools**.
+1. Otwórz **Settings → General → Input & Editing**.
 2. Włącz **Quick replies**. Domyślnie jest wyłączone.
-3. Rozwiń tę pozycję i zaznacz akcje, które mają się pojawić. Po włączeniu menu wszystkie trzy akcje są domyślnie włączone.
+3. Rozwiń tę pozycję, żeby wybrać akcje, które mają się pojawić. Po włączeniu wszystkie trzy akcje są domyślnie włączone.
 
-Te trzy akcje to:
+| Akcja | Do czego służy |
+| --- | --- |
+| **Post only** (tylko publikacja) | Dodaje wpisaną wiadomość na czat bez odpowiedzi. To samo robi komenda `/send <message>`. |
+| **Guide reply** (pokierowanie odpowiedzią) | Wysyła wpisany tekst jako wskazówkę `/guided`. |
+| **Impersonate** (pisanie za ciebie) | Generuje odpowiedź po stronie persony, używając wpisanego tekstu jako wskazówki. Na czatach Conversation ta akcja jest ukryta. |
 
-- **Post only**: dodanie wpisanej wiadomości na czat bez wywoływania odpowiedzi AI. Możesz też użyć komendy slash `/send <message>`.
-- **Guide reply**: wysłanie wpisanego tekstu jako wskazówki `/guided` zamiast zwykłej wiadomości.
-- **Impersonate**: wygenerowanie odpowiedzi jako twoja persona, z wpisanym tekstem w roli wskazówki. Ta akcja jest ukryta na czatach Conversation, bo Impersonate tam nie działa.
-
-Kiedy włączona jest tylko jedna akcja, jej przycisk stoi wprost obok przycisku **Send**. Przy większej liczbie akcje zwijają się do małego menu. Otwiera je przycisk z trzema kropkami, opisany jako **Quick replies**.
-
-## Powiązane przewodniki
-
-- [Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie](messages.md)
-- [Peek Prompt: zobacz, co dostał model AI](peek-prompt.md)
-- [Persony użytkownika: tworzenie i edycja](../characters/personas.md)
-- [Edytor presetów i menedżer promptów](../prompts/presets.md)
+Gdy włączona jest jedna akcja, jej przycisk stoi obok **Send**. Gdy jest ich więcej, zwijają się do przycisku z trzema kropkami (**Quick replies**), który otwiera menu.

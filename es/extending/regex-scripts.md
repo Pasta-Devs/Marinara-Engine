@@ -1,185 +1,196 @@
 # Scripts de regex
 
-Esta guía explica los scripts de regex en Marinara Engine. Un script de regex es una regla de buscar y reemplazar que reescribe el texto del chat de forma automática. Esta guía cubre qué hacen los scripts de regex, cómo crear uno, dónde se ejecutan y cómo limitarlos a un solo personaje.
+Un script de regex es una regla de buscar y reemplazar que reescribe el texto del chat de forma automática. Úsalo para limpiar una respuesta de la IA, reformar tu propio mensaje o cambiar el texto que recibe el modelo. No necesitas saber programar para usar uno.
 
-## Qué es un script de regex
+Regex es la forma corta de "regular expression" (expresión regular), un patrón de búsqueda que encuentra el texto que coincide con una regla. Defines el patrón una vez, y se ejecuta en cada mensaje que coincida.
 
-Regex es la forma corta de "regular expression" (expresión regular). Una expresión regular es un patrón de búsqueda. Encuentra el texto que coincide con una regla, y un script de regex reemplaza ese texto por otra cosa. No necesitas saber programar para usar uno.
+Ejemplo: algunos modelos envuelven las acciones entre asteriscos.
 
-Un script de regex se ejecuta por su cuenta cada vez que un mensaje pasa por un chat. Puede limpiar una respuesta de la IA antes de que la veas. Puede cambiar tu propio mensaje antes de enviarlo. También puede cambiar el texto que recibe el modelo. Defines el patrón una vez, y sigue funcionando en cada mensaje que coincida.
-
-Aquí tienes un ejemplo simple de antes y después. Algunos modelos envuelven las acciones entre asteriscos, así:
-
-```
+```text
 *She smiles* Hello there.
 ```
 
-Si buscas el patrón `\*([^*]+)\*` y lo reemplazas por `$1`, los asteriscos se eliminan y el texto dentro de ellos se conserva:
+Copia este patrón tal cual: `\*([^*]+)\*`. Reemplázalo por `$1`, y los asteriscos desaparecen mientras el texto de dentro se conserva:
 
-```
+```text
 She smiles Hello there.
 ```
 
-El `$1` en el reemplazo significa "el texto que el patrón capturó en el primer par de paréntesis". Usarás `$1`, `$2` y tokens (fragmentos de texto) similares a menudo.
-
-Entre los usos comunes están quitar asteriscos, borrar notas fuera de personaje entre paréntesis, censurar una palabra y corregir manías de formato repetidas de un personaje.
-
-## Dónde encontrar tus scripts de regex
-
-Tus scripts de regex globales viven en el panel **Presets** (ajustes guardados). Ábrelo con el botón **Presets** de la barra superior, y luego busca la sección titulada **Regexes**. La nota de la sección dice **Find/replace patterns applied to AI output or user input** (patrones de buscar/reemplazar aplicados a la salida de la IA o a la entrada del usuario).
-
-Cada fila de la lista muestra:
-
-- El nombre del script.
-- Una pequeña etiqueta **AI** o **User** que muestra dónde se ejecuta el script.
-- El patrón, mostrado como `/pattern/flags`.
-- Un interruptor para activar o desactivar el script. Esto tiene efecto de inmediato, sin necesidad de abrir el editor.
-- Un botón **Edit regex** (editar regex, icono de lápiz).
-- Un botón **Delete regex** (eliminar regex, icono de papelera).
-
-Si aún no tienes scripts, la lista muestra **No regexes yet** (aún no hay regexes). Puedes arrastrar una fila por su asa para cambiar el orden de ejecución. Esta lista muestra solo tus scripts globales. Los scripts ligados a un solo personaje se guardan aparte. Consulta "Scripts de regex limitados a un personaje" más abajo.
-
-El encabezado de la sección también tiene tres botones de icono:
-
-- **Create regex** (crear regex): abre un nuevo script en blanco.
-- **Import regexes from JSON** (importar regexes desde JSON): lee scripts de un archivo.
-- **Export regexes to JSON** (exportar regexes a JSON): guarda todos tus scripts globales en un solo archivo.
+`$1` significa "el texto capturado por el primer par de paréntesis". Otros usos comunes son borrar notas fuera de personaje entre paréntesis, censurar una palabra y corregir las manías de formato de un personaje.
 
 ## Crear un script de regex
 
-Para hacer un nuevo script global:
+Tus scripts globales están en el panel **Presets** (Ajustes guardados), en la sección **Regexes**. Ábrelo con el botón **Presets** de la barra superior.
 
-1. Abre el panel **Presets** y busca la sección **Regexes**.
-2. Haz clic en **Create regex**. Se abre el editor completo del script de regex.
-3. Escribe un nombre en el cuadro de la parte superior. Un script nuevo empieza con el nombre **New Regex Script**.
-4. Rellena los campos que se describen a continuación.
-5. Haz clic en **Save** (guardar). Aparece por un momento una nota verde de **Saved** (guardado).
+### Cómo crear un script de regex
 
-El editor tiene estos campos.
+1. Abre **Presets** y busca **Regexes**.
+2. Haz clic en **Create regex** (Crear regex). Se abre el editor completo.
+3. Escribe un nombre en la parte superior. Un script nuevo se llama "New Regex Script".
+4. En **Find Pattern (Regex)** (Patrón de búsqueda: regex), escribe `\*([^*]+)\*` (consulta [Campos del editor](#editor-fields)).
+5. En **Replace With** (Reemplazar por), escribe `$1`.
+6. En **Apply To** (Aplicar a), deja seleccionado **AI Output** (Salida de la IA). El modo de aplicación predeterminado, **Only Display** (Solo pantalla), es la opción segura (consulta [Elegir dónde se ejecuta un script](#choose-where-a-script-runs)).
+7. Pega `*She smiles* Hello there.` en **Live Test** (Prueba en vivo). **Result:** debería decir `She smiles Hello there.`
+8. Haz clic en **Save** (Guardar). Aparece por un momento una nota verde **Saved** (Guardado).
+9. Compruébalo en un chat: cuando una respuesta de la IA tenga texto entre asteriscos, los asteriscos ya no se muestran.
+
+Si no funcionó: un error rojo bajo **Find Pattern (Regex)** bloquea el guardado. El patrón no es válido o no es seguro; consulta [Seguridad y rendimiento](#safety-and-performance).
+
+### Gestionar tus scripts
+
+Cada fila de la lista **Regexes** muestra el nombre del script, una etiqueta **AI** o **User**, el patrón como `/pattern/flags`, un interruptor de activar/desactivar (tiene efecto de inmediato), **Edit regex** (Editar regex, lápiz) y **Delete regex** (Eliminar regex, papelera). Sin scripts, la lista dice "No regexes yet" (aún no hay regexes). Arrastra una fila por su asa para cambiar el orden de ejecución.
+
+El encabezado de la sección tiene tres botones de icono: **Create regex**, **Import regexes from JSON** (Importar regexes desde JSON) y **Export regexes to JSON** (Exportar regexes a JSON: guarda todos tus scripts globales en un solo archivo). Los scripts ligados a un solo personaje se guardan aparte; consulta [Limitar un script a un personaje](#limit-a-script-to-one-character).
+
+<a id="editor-fields"></a>
+
+## Campos del editor
 
 ### Find Pattern (Regex)
 
-**Find Pattern (Regex)** (patrón de búsqueda) es el patrón de búsqueda. Escríbelo sin las barras delimitadoras. El texto de ejemplo muestra un caso: `\*([^*]+)\*`. Si el patrón no es válido o no es seguro, aparece un error rojo debajo del cuadro y bloquea el guardado. Consulta "Seguridad y rendimiento" más abajo.
+El patrón de búsqueda. Escribe solo el patrón, sin barra al principio ni al final. El marcador de posición muestra un ejemplo: `\*([^*]+)\*`.
 
 ### Replace With
 
-**Replace With** (reemplazar por) es el texto que reemplaza cada coincidencia. Déjalo vacío para borrar el texto coincidente. Puedes reutilizar el texto capturado con `$1`, `$2`, y así sucesivamente. Las transformaciones de mayúsculas antes de una captura cambian sus letras:
+El texto que reemplaza cada coincidencia. Déjalo vacío para borrar la coincidencia. Reutiliza el texto capturado con `$1`, `$2`, y así sucesivamente. Estos cambios de mayúsculas funcionan antes de una captura:
 
-- `\u$1` pone en mayúscula la primera letra de la captura.
-- `\U$1\E` pone en mayúsculas toda la captura.
-- `\l$1` pone en minúscula la primera letra de la captura.
-- `\L$1\E` pone en minúsculas toda la captura.
+| Escribe | Resultado |
+| --- | --- |
+| `\u$1` | Pone en mayúscula la primera letra de la captura |
+| `\U$1\E` | Pone en mayúsculas toda la captura |
+| `\l$1` | Pone en minúscula la primera letra de la captura |
+| `\L$1\E` | Pone en minúsculas toda la captura |
 
 El texto literal con barra invertida, como una ruta de Windows del tipo `C:\Users`, se conserva tal como está escrito.
 
 ### Regex Flags
 
-**Regex Flags** (banderas de regex) son botones de interruptor que cambian cómo coincide el patrón. Un script nuevo empieza con `g` e `i` activados:
+Botones de interruptor que cambian cómo coincide el patrón. Un script nuevo empieza con `g` e `i` activados.
 
-- `g` (global): reemplaza cada coincidencia, no solo la primera.
-- `i` (case-insensitive): coincide sin importar si las letras están en mayúsculas o minúsculas.
-- `m` (multiline): deja que `^` y `$` coincidan en los saltos de línea.
-- `s` (dotAll): deja que `.` coincida también con los caracteres de nueva línea.
-- `u` (unicode), `y` (sticky) y `d` (match indices) son banderas avanzadas para casos especiales.
+| Bandera | Significado |
+| --- | --- |
+| `g` | Global: reemplaza cada coincidencia, no solo la primera |
+| `i` | Sin distinguir entre mayúsculas y minúsculas |
+| `m` | Multilínea: `^` y `$` coinciden en los saltos de línea |
+| `s` | dotAll: `.` también coincide con los caracteres de nueva línea |
+| `u`, `y`, `d` | Unicode, sticky e índices de coincidencia, para casos especiales |
 
 ### Trim Strings
 
-**Trim Strings** (cadenas a recortar) es una lista opcional de cadenas de texto simples que se eliminan después de ejecutarse el reemplazo. Haz clic en **Add trim string** (añadir cadena a recortar) para añadir una fila, y en el botón **X** para quitar una. Esto es útil para borrar un fragmento de texto fijo que es más fácil de escribir que de coincidir con un patrón.
+Una lista opcional de cadenas de texto simples que se eliminan después de ejecutarse el reemplazo. Haz clic en **Add trim string** (Añadir cadena a recortar) para añadir una fila y en el botón **X** para quitar una. Úsala para un fragmento de texto fijo que es más fácil de escribir que de coincidir con un patrón.
 
 ### Live Test
 
-**Live Test** (prueba en vivo) te permite comprobar tu patrón antes de guardar. Pega un texto de ejemplo en el cuadro, y el resultado aparece debajo, bajo **Result:** (resultado). **Live Test** solo prueba la lógica de buscar, reemplazar y recortar. No comprueba la ubicación, el estado activado o desactivado, el alcance por personaje ni la profundidad. La nota bajo el cuadro lo dice: **Pattern preview only: placement, enabled state, character scope, and depth are evaluated at runtime** (solo vista previa del patrón: la ubicación, el estado activado, el alcance por personaje y la profundidad se evalúan en tiempo de ejecución).
+Pega un texto de ejemplo, y el resultado aparece bajo **Result:**. Live Test solo comprueba la lógica de buscar, reemplazar y recortar. La ubicación, el estado activado o desactivado, el alcance por personaje y la profundidad se evalúan en un chat real. Puedes usar macros como `{{user}}` y `{{char}}` en el patrón, en el reemplazo y en las cadenas a recortar. En Live Test usan valores de ejemplo. Consulta [Macros](../prompts/macros.md).
 
-Puedes usar macros como `{{user}}` y `{{char}}` en el patrón, en el reemplazo y en las cadenas a recortar. En **Live Test** se resuelven en valores de ejemplo. En un chat real se resuelven en los nombres y el texto reales. Para saber más sobre las macros, consulta [Macros](../prompts/macros.md).
+<a id="choose-where-a-script-runs"></a>
 
-## Ubicación: AI Output o User Input
+## Elegir dónde se ejecuta un script
 
-El campo **Apply To** (aplicar a) decide qué lado del chat vigila un script. Al menos una opción debe quedar seleccionada. Puedes elegir ambas.
+### Apply To
 
-- **AI Output** (salida de la IA): el script se ejecuta en las respuestas de la IA antes de que se muestren.
-- **User Input** (entrada del usuario): el script se ejecuta en tus mensajes antes de enviarlos.
+**Apply To** decide qué lado del chat vigila un script. Mantén al menos una opción seleccionada. Puedes elegir ambas.
 
-Usa **AI Output** para limpiar lo que escribe el modelo. Usa **User Input** para corregir o reformar tu propio texto.
+- **AI Output**: se ejecuta en las respuestas de la IA antes de que se muestren.
+- **User Input** (Entrada del usuario): se ejecuta en tus mensajes antes de que se envíen.
 
-Con **Only Prompt** o **Both**, en un chat **Roleplay** con el modo de grupo **Individual** (respuestas individuales), la aplicación depende del personaje que recibe el prompt: tus mensajes y los de otros personajes usan **User Input**, mientras que las respuestas propias del personaje que va a responder usan **AI Output**. Esto también se aplica a las respuestas anteriores del mismo turno del grupo. Las restricciones por personaje siguen determinando quién recibe el prompt modificado, así que un narrador excluido de un script que oculta pensamientos conserva los pensamientos originales. Usa **Only Prompt** para mantener intacto el texto guardado del chat.
+### Apply Mode
 
-## Apply Mode: Only Display, Only Prompt o Both
+**Apply Mode** (Modo de aplicación) está dentro de **Advanced Options** (Opciones avanzadas). Decide qué cambia la reescritura. Un script nuevo empieza en **Only Display**.
 
-El selector **Apply Mode** (modo de aplicación) vive dentro de **Advanced Options** (opciones avanzadas). Decide cuándo tiene efecto la reescritura. Esto es distinto de la ubicación. Un script nuevo empieza en **Only Display**.
+- **Only Display**: cambia lo que ves en el chat. El mensaje guardado y el contexto posterior del modelo no cambian. Es lo más seguro para arreglar cómo se ve una respuesta.
+- **Only Prompt** (Solo prompt): cambia lo que recibe el modelo, y también se muestra en la vista previa del prompt. La pantalla y el mensaje guardado no cambian. Úsalo para quitar algo que el modelo sigue copiando.
+- **Both** (Ambos): cambia la pantalla y el texto del prompt.
 
-- **Only Display** (solo pantalla): cambia solo lo que ves en el chat. El mensaje guardado y el texto que el modelo recibe en turnos posteriores no cambian.
-- **Only Prompt** (solo prompt): cambia solo lo que recibe el modelo. La pantalla del chat y el mensaje guardado no cambian. Esto es también lo que ves en la vista previa del prompt de la app.
-- **Both** (ambos): cambia la pantalla y el texto del prompt.
+Para tus propios mensajes, un script de **User Input** configurado en **Only Display** o **Both** reescribe el mensaje justo antes de enviarlo. Cambia el mensaje guardado y enviado, no solo cómo se ve. No hay un modo de solo pantalla para los mensajes salientes.
 
-### Qué modo de aplicación quiero
+### Execution Order y Depth Range
 
-Usa esta guía rápida:
+Ambos están en **Advanced Options**.
 
-- Solo quieres pulir cómo se ve una respuesta en la pantalla: elige **Only Display**. Es la opción más segura para arreglos cosméticos.
-- Quieres cambiar lo que lee el modelo, por ejemplo para quitar una etiqueta que el modelo sigue copiando: elige **Only Prompt**.
-- Quieres que el cambio se aplique en la pantalla y en el contexto del modelo: elige **Both**.
+- **Execution Order** (Orden de ejecución) es un número. Los números más bajos se ejecutan primero, lo que importa cuando varios scripts pueden coincidir con el mismo texto. Un script nuevo empieza en 0, y la app asigna el siguiente número libre cuando guardas. También puedes arrastrar filas en la lista **Regexes**.
+- **Depth Range** (Rango de profundidad) limita hasta dónde hacia atrás se ejecuta un script, con **Min** y **Max**. El mensaje más nuevo es la profundidad 0, el anterior es la profundidad 1, y así sucesivamente. Deja ambos vacíos para ejecutarlo a cualquier profundidad. El guardado se bloquea si **Min** es mayor que **Max**.
 
-Algo que debes saber sobre tus propios mensajes. Cuando un script de **User Input** está en **Only Display** o **Both**, la reescritura ocurre justo antes de enviar tu mensaje. Así que cambia el mensaje que realmente se guarda y se envía, no solo cómo se ve después. No hay un modo de solo pantalla para tus propios mensajes salientes.
+### Chats de grupo
 
-## Execution Order y Depth
+Esto se aplica a **Only Prompt** y **Both** en un chat de **Roleplay** con el modo de grupo **Individual**.
 
-Ambos ajustes están en **Advanced Options**.
+- La ubicación sigue al personaje que recibe el prompt.
+- Tus mensajes y los mensajes de otros personajes cuentan como **User Input**.
+- Las respuestas propias del personaje que responde cuentan como **AI Output**, incluidas las respuestas anteriores del mismo turno del grupo.
+- Los límites por personaje siguen decidiendo quién recibe el prompt reescrito. Un narrador excluido de un script que oculta pensamientos conserva los pensamientos originales.
 
-**Execution Order** (orden de ejecución) es un número. Los números más bajos se ejecutan primero. Esto importa cuando más de un script puede coincidir con el mismo texto. Un script nuevo empieza en 0, y la app asigna el siguiente número libre cuando guardas, para que los scripts recién creados no choquen. También puedes arrastrar filas en la lista **Regexes** para reordenarlas.
+<a id="limit-a-script-to-one-character"></a>
 
-**Depth Range** (rango de profundidad) limita hasta qué punto hacia atrás en el chat se ejecuta un script, usando dos campos numéricos, **Min** y **Max**. La profundidad cuenta hacia atrás desde el mensaje más nuevo. El mensaje más nuevo es la profundidad 0, el anterior es la profundidad 1, y así sucesivamente. Deja ambos campos vacíos para ejecutarlo a cualquier profundidad. Si el mínimo es mayor que el máximo, el guardado se bloquea.
+## Limitar un script a un personaje
 
-## Scripts de regex limitados a un personaje
+Un script puede pertenecer a personajes concretos en lugar de ejecutarse en todas partes. Hay dos maneras.
 
-Un script de regex puede pertenecer a uno o más personajes concretos en lugar de ejecutarse en todas partes. Hay dos maneras de limitar un script a un personaje.
+- En el editor, activa **Specific Characters** (Personajes específicos) en la tarjeta **Apply To** y elige uno o más personajes. Con el interruptor desactivado, el script "Applies to all characters" (se aplica a todos los personajes). Elige al menos un personaje cuando esté activado.
+- En el personaje: abre el personaje, ve a la pestaña **Advanced** (Avanzado) y busca la tarjeta **Regex Scripts**. Lista solo los scripts de ese personaje y tiene sus propios botones **Create regex**, importar y exportar. Guarda primero el personaje, o la tarjeta dice que todavía no puede añadir scripts.
 
-La primera manera es dentro del editor. Activa el interruptor **Specific Characters** (personajes específicos) en la tarjeta **Apply To**, y luego elige uno o más personajes de la cuadrícula. Cuando el interruptor está desactivado, el script **Applies to all characters** (se aplica a todos los personajes). Debes elegir al menos un personaje si el interruptor está activado.
-
-La segunda manera es por personaje. Abre un personaje, ve a la pestaña **Advanced** (avanzado) y busca la tarjeta titulada **Regex Scripts**. Esta tarjeta lista solo los scripts ligados a ese personaje, y tiene sus propios botones **Create regex**, importar y exportar. Debes guardar el personaje primero antes de poder añadir scripts limitados. Si el personaje no está guardado, la tarjeta lo indica.
-
-Abrir el editor completo desde esta tarjeta te saca del Character Editor (editor de personajes). Si el personaje tiene cambios sin guardar, la app te avisa primero para que no los pierdas.
+Abrir el editor completo desde esta tarjeta te saca del Character Editor (Editor de personajes). Si el personaje tiene cambios sin guardar, la app te avisa primero.
 
 <a id="the-per-chat-scoped-regex-scripts-setting"></a>
 
 ### El ajuste por chat Scoped Regex Scripts
 
-Los scripts limitados a un personaje no se ejecutan automáticamente en todos los chats. Un ajuste por chat los controla. Abre el panel **Chat Settings** (Ajustes del chat) de un chat. Una sección titulada **Scoped Regex Scripts** (scripts de regex limitados) aparece solo cuando al menos un personaje de ese chat tiene scripts limitados. Ofrece tres modos:
+Los scripts limitados a un personaje no se ejecutan por sí solos en todos los chats. Un ajuste por chat los controla. Abre **Chat Settings** (Ajustes del chat). La sección **Scoped Regex Scripts** (Scripts de regex limitados) aparece solo cuando al menos un personaje de ese chat tiene scripts limitados.
 
-- **Disabled** (desactivado, el predeterminado): los scripts limitados a un personaje están desactivados, y solo se ejecutan los scripts globales.
-- **Exclusive** (exclusivo): cada script limitado solo cambia los mensajes del personaje al que pertenece.
-- **Chat** (chat): cada script limitado cambia todos los mensajes del chat.
+| Modo | Qué ocurre |
+| --- | --- |
+| **Disabled** (Desactivado, el predeterminado) | Los scripts limitados están desactivados. Solo se ejecutan los scripts globales. |
+| **Exclusive** (Exclusivo) | Cada script limitado cambia solo los mensajes de su propio personaje. |
+| **Chat** | Cada script limitado cambia todos los mensajes del chat. |
 
-**Use preset default** (Usar el valor predeterminado del preset) sigue el **Scoped regex default** (Valor predeterminado de los regex limitados) del preset de prompt; elegir un modo lo anula para este chat. Para que los chats nuevos empiecen con un modo, establécelo como valor predeterminado del preset, guárdalo en tu [perfil de ajustes predeterminado](../chats/settings-profiles.md#choosing-the-default-profile) o elígelo y luego haz clic en la estrella del diseño favorito junto a **Reset View** (Restablecer vista). Consulta [Elegir un diseño para chats nuevos](../chats/chat-settings.md#choosing-a-layout-for-new-chats).
+**Use preset default** (Usar el valor predeterminado del preset) sigue el **Scoped regex default** (Valor predeterminado de los regex limitados) del preset de prompt. Elegir un modo lo anula para este chat. Para que los chats nuevos empiecen con un modo, usa una de estas opciones:
 
-Debajo de los botones de modo, el panel lista cada personaje con scripts limitados y te deja activar o desactivar cada script. Ese interruptor es propio del script, así que cambia el script en todos los chats. El modo controla los scripts del lado de la pantalla. Los scripts de prompt siempre siguen al personaje que realmente está generando la respuesta.
+- Establécelo como valor predeterminado del preset.
+- Guárdalo en tu [perfil de ajustes predeterminado](../chats/settings-profiles.md#choosing-the-default-profile).
+- Elígelo y luego haz clic en la estrella del diseño favorito junto a **Reset View** (Restablecer vista). Consulta [Elegir un diseño para chats nuevos](../chats/chat-settings.md#choosing-a-layout-for-new-chats).
 
-## Importar scripts de regex desde SillyTavern
+Debajo de los modos, el panel lista los scripts limitados de cada personaje con un interruptor para cada uno. Ese interruptor es propio del script, así que cambia el script en todos los chats. El modo controla los scripts del lado de la pantalla. Los scripts de prompt siempre siguen al personaje que está generando la respuesta.
 
-Marinara puede leer scripts de regex que vienen incluidos dentro de una tarjeta de personaje de SillyTavern. Cuando importas una tarjeta, aparece una sección titulada **Imported regex scripts** (scripts de regex importados) con dos opciones:
+## Importar y reemplazar scripts
 
-- **Character only** (solo personaje, el predeterminado): los scripts quedan limitados a ese único personaje.
-- **Global** (global): los scripts se añaden a **Presets** y se ejecutan en cada chat.
+### Importar desde SillyTavern
 
-Esta opción aparece tanto en la ventana de importación de un solo personaje como en el flujo masivo **Import from SillyTavern Folder** (importar desde carpeta de SillyTavern). Los scripts incluidos con un patrón vacío, o con un patrón que falla la comprobación de seguridad, se omiten durante la importación. También puedes importar un archivo JSON simple de scripts con el botón **Import regexes from JSON** de la sección **Regexes**. Para el recorrido completo de importación, consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md).
+Marinara lee los scripts de regex incluidos en una tarjeta de personaje de SillyTavern. Cuando importas una tarjeta, una sección **Imported regex scripts** (Scripts de regex importados) ofrece dos opciones:
 
-## Reemplazar un paquete de regex
+- **Character only** (Solo personaje, el predeterminado): los scripts quedan limitados a ese personaje.
+- **Global**: los scripts se añaden a **Presets** y se ejecutan en todos los chats.
 
-En **Presets → Regexes** (Presets → Regex), elige **Select regex scripts** (Seleccionar scripts regex) y marca las entradas del paquete anterior, o usa **Select all regex scripts** (Seleccionar todos los scripts regex). La barra de acciones permite **Export** (Exportar) o **Delete** (Eliminar) la selección. La eliminación pide una sola confirmación y no se puede deshacer. Las entradas que no se puedan eliminar siguen seleccionadas para reintentar; las no seleccionadas se conservan. Importa el paquete actualizado después de quitar el anterior. No necesitas carpetas; las asignaciones a presets siguen disponibles en el editor de regex.
+La opción aparece en la ventana de importación de un solo personaje y en la importación masiva **Import from SillyTavern Folder** (Importar desde carpeta de SillyTavern). Se omiten los scripts con un patrón vacío o con uno que falla la comprobación de seguridad. Para importar un archivo JSON simple de scripts, usa **Import regexes from JSON** en **Regexes**. Consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md).
+
+### Reemplazar un paquete de regex
+
+1. En **Presets → Regexes** (Presets → Regex), elige **Select regex scripts** (Seleccionar scripts regex).
+2. Marca las entradas del paquete anterior, o elige **Select all regex scripts** (Seleccionar todos los scripts regex).
+3. Usa **Export** (Exportar) o **Delete** (Eliminar) en la barra de acciones. La eliminación pide una sola confirmación y no se puede deshacer.
+4. Importa el paquete actualizado.
+
+Las eliminaciones que fallen siguen seleccionadas para que puedas reintentarlas. Los scripts no seleccionados se quedan donde están. Las asignaciones a presets siguen disponibles en el editor de regex.
+
+<a id="safety-and-performance"></a>
 
 ## Seguridad y rendimiento
 
-Cada patrón se comprueba antes de poder guardarse o ejecutarse. Marinara bloquea los patrones que muy probablemente se ejecutarían despacio y colgarían la app. Un patrón bloqueado muestra este mensaje: **Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns** (el patrón de regex no es seguro: evita cuantificadores anidados, alternativas cuantificadas ambiguas y patrones sobredimensionados). El guardado se bloquea hasta que lo corrijas.
+Cada patrón se comprueba antes de poder guardarse o ejecutarse. Un patrón que probablemente se ejecute despacio y cuelgue la app se bloquea con este mensaje, y el guardado se detiene hasta que lo corrijas:
 
-En palabras sencillas, evita estas formas:
+```text
+Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.
+```
+
+Si ves este mensaje, haz el patrón más corto y más simple. Evita estas formas:
 
 - Patrones de más de 1000 caracteres.
-- Un grupo que se repite colocado dentro de otro grupo que se repite, como `(a+)+`.
+- Un grupo que se repite dentro de otro grupo que se repite, como `(a+)+`.
 - Dos comodines amplios seguidos, como `.*.*` o `\s*\w*`. Un comodín amplio es un token como `.*`, `\s*` o `\w+` que puede coincidir con una cantidad ilimitada de texto.
 - Tres o más comodines amplios en cualquier parte de un patrón, incluso con otro texto entre ellos.
 
-Una sola repetición como `a+` o `(a+)` está bien. Un solo comodín amplio por su cuenta, como un único `.*`, también está bien.
+Una sola repetición como `a+` o `(a+)`, o un solo comodín amplio como un único `.*`, está bien.
 
-Incluso con un patrón seguro, la app también limita cuánto puede tardar un solo reemplazo en un mensaje más largo. Si un script tarda demasiado en un mensaje, la app omite ese script solo para ese mensaje y sigue adelante. El script no se desactiva, y lo intentará de nuevo en el siguiente mensaje. Para ir seguro, prueba siempre un patrón nuevo en **Live Test** con texto de ejemplo corto antes de activarlo.
+Incluso un patrón seguro tiene un tiempo límite por reemplazo en un mensaje largo. Si un script tarda demasiado en un mensaje, la app omite ese script solo para ese mensaje. El script sigue activado y lo intenta de nuevo en el siguiente mensaje. Prueba primero un patrón nuevo en **Live Test** con un texto de ejemplo corto.
 
 ## Guías relacionadas
 

@@ -1,107 +1,82 @@
 # Zatwierdzanie zapisów agentów i Agent Suite
 
-Ten przewodnik wyjaśnia, jak sprawdzać i nadzorować to, co agenci (niewielcy pomocnicy AI pracujący obok twoich odpowiedzi) zapisują w trakcie czatu. Opisuje przełącznik **Review Agent Outputs** (sprawdzanie wyników agentów), dwa okna weryfikacji, edytor **Agent Suite** oraz panel **Cached prompt injections**.
+Agenci mogą zapisywać dane w twoim czacie: wpisy lorebooków, podsumowania i zmiany w kartach postaci. Ten przewodnik pokazuje, jak sprawdzać te zapisy, zanim zostaną zapisane, oraz jak w **Agent Suite** przeglądać i poprawiać to, co agenci przechowują.
 
-## Review Agent Outputs
+## Sprawdzanie zapisów agentów przed zapisem
 
-Część agentów chce zapisywać w czacie nowe dane. Agent lorebooków potrafi dodać wpisy do lorebooka (zbioru faktów o twoim świecie). Agent podsumowań potrafi zapisać podsumowanie czatu. Domyślnie niektóre z tych zapisów trafiają do danych automatycznie. Przełącznik **Review Agent Outputs** sprawia, że każdy zapis możesz najpierw obejrzeć.
+Domyślnie część zapisów agentów zapisuje się sama. Przełącznik **Review Agent Outputs** (przeglądanie wyników agentów) sprawia, że każdy z nich czeka na twoją zgodę.
 
-Gdzie go znaleźć:
-
-1. Otwórz czat, który chcesz nadzorować.
-2. Otwórz **Chat Settings** (ustawienia czatu).
-3. Przewiń do sekcji **Agents**.
-4. W czacie Roleplay rozwiń kartę **Trackers Control** (sterowanie trackerami). W trybie Game Mode pomiń ten krok.
-5. Włącz przełącznik **Review Agent Outputs**.
-
-Kiedy przełącznik **Review Agent Outputs** jest włączony, aktualizacje lorebooków, aktualizacje podsumowań i inne wyniki agentów zapisujących dane czekają na twoją zgodę. Kiedy jest wyłączony, aktualizacje lorebooków i podsumowań mogą zapisywać się automatycznie.
-
-Zmiany w karcie postaci to osobny przypadek. Zawsze wymagają twojej zgody, nawet przy wyłączonym przełączniku **Review Agent Outputs**. Tego zabezpieczenia nie da się wyłączyć.
-
-## Okno Agent Write Approval
-
-Kiedy przełącznik **Review Agent Outputs** jest włączony, a agent proponuje zapis do lorebooka lub podsumowania, otwiera się okno weryfikacji. Nosi ono tytuł **Review Lorebook Update** albo **Review Summary Update**, zależnie od rodzaju zapisu.
-
-W oknie widać:
-
-- Nazwę agenta, który przygotował propozycję.
-- Pole **Proposed Text** z tekstem propozycji, który można poprawić przed zapisem.
-- Przy zapisach do lorebooka krótkie przypomnienie, żeby każdy wpis trzymać pod nagłówkiem `###`.
-
-Na dole okna czekają trzy możliwości:
-
-- **Accept**: zapisuje tekst w czacie razem z wprowadzonymi poprawkami.
-- **Regenerate**: uruchamia ponownie tego jednego agenta po nową propozycję.
-- **Discard**: odrzuca propozycję bez zapisywania.
-
-Jeśli czeka więcej propozycji, okno pokazuje, ile ich zostało w kolejce. Po obsłużeniu bieżącej otwiera się ponownie dla następnej.
-
-## Weryfikacja zmian w karcie postaci
-
-Agent **Card Evolution Auditor** potrafi zaproponować zmiany w polach karty postaci na podstawie tego, co wydarzyło się w trakcie roleplayu. Wbudowane narzędzie `update_about_me` trybu Conversation również może zaproponować zmianę publicznego opisu About Me. Żadna z tych dróg nie edytuje karty samodzielnie: obie otwierają okno **Review Character Card Updates**, a decyzja należy do ciebie.
-
-Okno wypisuje wszystkie proponowane zmiany. Przy każdej z nich widać:
-
-- Pole karty, którego dotyczy (na przykład opis, osobowość albo wygląd).
-- Krótkie uzasadnienie zmiany, o ile agent je podał.
-- Blok **Before** z obecnym tekstem.
-- Pole **After** z nowym tekstem. Ten tekst możesz poprawić przed zatwierdzeniem.
-
-Do dyspozycji są takie działania:
-
-- **Approve**: wprowadza zmiany. Liczba na przycisku mówi, ile zmian zostanie wprowadzonych. Zatwierdzenie podnosi numer wersji postaci i zapisuje wpis w historii wersji.
-- **Regenerate**: uruchamia agenta ponownie po nowy zestaw propozycji.
-- **Reject**: odrzuca propozycje i zostawia kartę bez zmian.
-
-Czasem karta zmienia się już po tym, jak agent przygotował propozycję. Wtedy aplikacja oznacza taką zmianę jako **stale** (nieaktualna) i ją przygasza. Jeśli są nieaktualne zmiany, pojawia się przycisk **Override stale** wraz z ich liczbą. Skorzystaj z niego tylko wtedy, gdy mimo wszystko chcesz zachować ten tekst. Aplikacja najpierw prosi o potwierdzenie. Nieaktualny tekst zostaje potem dopisany do pola, zamiast zastąpić tekst, który już do niego nie pasuje.
-
-## Edytor Agent Suite i przepisywanie z pomocą AI
-
-W panelu **Agent Suite** widać wszystko, co zapisali agenci działający w tym czacie, i można to od razu edytować. Chodzi o dane trackerów (agentów śledzących stan) – na przykład bieżącą scenę, obecne postacie i statystyki persony – oraz o zapisane wyniki własnych agentów. Błędne imię, złą wartość statystyki czy pogmatwany zapisany tekst da się poprawić ręcznie albo z pomocą AI.
-
-Jak go otworzyć:
-
-1. Otwórz **Chat Settings**.
+1. Otwórz czat i kliknij **Chat Settings** (ustawienia czatu).
 2. Przewiń do sekcji **Agents**.
-3. Kliknij przycisk **Agent Suite**.
+3. W czacie Roleplay otwórz **Trackers Control** (sterowanie trackerami). W trybie Game Mode pomiń ten krok.
+4. Włącz **Review Agent Outputs**.
 
-Po lewej stronie jest lista agentów aktywnych w tym czacie. Wybierz jednego, żeby zobaczyć, co zapisał. Po prawej pojawiają się bloki do edycji. Dzielą się na sekcje **Stored Memory** (zapisana pamięć), **Tracker Data** (tylko dla trackerów) oraz **Recent Outputs** (tylko dla własnych agentów). Agenci, którzy nie śledzą danych, mają wyłącznie sekcję **Stored Memory**.
+Kiedy przełącznik jest włączony, aktualizacje lorebooków, aktualizacje podsumowań i inne wyniki agentów zapisujących dane, które podlegają sprawdzeniu, czekają na ciebie. Kiedy jest wyłączony, aktualizacje lorebooków i podsumowań mogą zapisywać się automatycznie.
 
-Każdy blok to edytor tekstu albo edytor formatu JSON. Bloki JSON mają numery wierszy i od razu pokazują, gdy JSON się nie parsuje; **Save** pozostaje wyłączony, dopóki nie zacznie się parsować. Aby przeszukać wszystkie dane trackerów naraz albo edytować je jako pola, kliknij **Open in State Editor** w nagłówku **Tracker Data** (zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor)).
+Zmiany w karcie postaci zawsze najpierw wymagają twojej zgody, nawet przy wyłączonym **Review Agent Outputs**. Tego zabezpieczenia nie da się wyłączyć.
 
-Po zmianie bloku:
+### Sprawdzanie aktualizacji lorebooka lub podsumowania
 
-- Kliknij przycisk **Save**, żeby zachować poprawkę.
-- Kliknij przycisk **Reset**, żeby cofnąć niezapisaną zmianę i wrócić do zapisanej wartości.
+Kiedy agent proponuje zapis, otwiera się okno zatytułowane **Review Lorebook Update** albo **Review Summary Update**. Widać w nim nazwę agenta i pole **Proposed Text**, które można edytować. Przy zapisach do lorebooka okno przypomina też, żeby każdy wpis trzymać pod nagłówkiem `###`.
 
-Blok może też przepisać za ciebie AI:
+- **Accept** zapisuje tekst razem z twoimi poprawkami.
+- **Regenerate** uruchamia ponownie tylko tego agenta po nową propozycję.
+- **Discard** odrzuca propozycję bez zapisywania.
 
-1. Kliknij przycisk **AI Edit** przy bloku, który chcesz zmienić.
-2. Aby objąć zmianą tylko fragment tekstu, najpierw zaznacz go w edytorze. Bez zaznaczenia przepisany zostaje cały blok.
-3. Wpisz polecenie, na przykład "fix the garbled character names, she is called Mira".
-4. Opcjonalnie: kliknij przycisk **Add Context**, żeby dołączyć karty postaci albo wpisy z lorebooków. Dzięki temu AI lepiej rozumie, co oznaczają dane.
-5. Wybierz połączenie (dostawcę AI i model), które wykona przepisanie.
-6. Kliknij przycisk **Rewrite**.
+Jeśli czeka więcej propozycji, okno pokazuje, ile ich jest. Po zakończeniu bieżącej otwiera się ponownie dla następnej.
 
-Przepisany tekst trafia do bloku jako niezapisana wersja robocza. Przejrzyj go, a potem kliknij przycisk **Save**, żeby go zachować, albo **Reset**, żeby go odrzucić.
+Agent ze zdolnością **Create character cards** (tworzenie kart postaci) może też zaproponować nową kartę postaci. Otwiera się wtedy okno przeglądu z tekstem karty. Nic nie zostaje zapisane, dopóki nie zaakceptujesz.
 
-Kilka uwag:
+### Sprawdzanie aktualizacji karty postaci
 
-- Jeśli agenci wciąż pracują nad tym czatem, zapisywanie jest wstrzymane do czasu, aż skończą.
-- Sekcja **Stored Memory** ma jeden przycisk **Clear memory**. Pojawia się tylko wtedy, gdy agent ma zapisane dane. Usuwa naraz wszystko, co ten agent zapisał dla tego czatu, i tej operacji nie da się cofnąć. Aplikacja najpierw prosi o potwierdzenie.
-- W przypadku agenta **Narrative Director** zapisane spoilery są ukryte. Użyj przycisku **Reveal spoilers**, żeby je zobaczyć i edytować.
+Agent **Card Evolution Auditor** proponuje zmiany w karcie postaci na podstawie tego, co wydarzyło się w roleplayu. W trybie Conversation wbudowane narzędzie `update_about_me` również może zaproponować zmianę publicznego opisu About Me. Żadne z nich nie edytuje karty samodzielnie. Oba otwierają okno **Review Character Card Updates**.
 
-## Panel Cached prompt injections
+Przy każdej proponowanej zmianie okno pokazuje pole karty, którego dotyczy, krótkie uzasadnienie, jeśli agent je podał, blok **Before** z obecnym tekstem i pole **After**, które można edytować.
 
-Zanim powstanie odpowiedź, część agentów zapisujących dane dopisuje tekst do promptu (tekstu, który Marinara wysyła do AI). Robią tak zwłaszcza **Prose Guardian**, **Narrative Director** oraz własni agenci od wstawiania tekstu. Panel **Cached prompt injections** pokazuje ten dopisany tekst na potrzeby diagnostyki. Znajdziesz go w zakładce **Injections** (wstawienia do promptu) w sekcji **Agent activity** (aktywność agentów) czatu Roleplay. Zakładka jest widoczna, gdy włączony jest **Debug mode** (tryb debugowania). Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#agent-activity). Panel obejmuje najnowszą odpowiedź.
+- **Approve** wprowadza zmiany. Liczba na przycisku mówi, ile zmian zostanie wprowadzonych. Zatwierdzenie podnosi numer wersji postaci i zapisuje wpis w historii wersji.
+- **Regenerate** uruchamia agenta ponownie po nowe propozycje.
+- **Reject** odrzuca je bez zmieniania karty.
 
-Przy każdym zapisanym wstawieniu możesz:
+Jeśli karta zmieniła się po tym, jak agent przygotował propozycję, zmiana zostaje oznaczona jako nieaktualna i przygaszona. Pojawia się wtedy przycisk **Override stale** z liczbą takich zmian. Użyj go tylko wtedy, gdy nadal chcesz zachować ten tekst. Marinara prosi o potwierdzenie, a potem dopisuje nieaktualny tekst do pola, zamiast zastępować tekst, który już do niego nie pasuje.
 
-- Rozwinąć je, żeby przeczytać i poprawić tekst.
-- Kliknąć ikonę **Save**, żeby zachować poprawkę.
-- Kliknąć ikonę **Re-run**, żeby ten jeden agent napisał wstawienie od nowa.
+## Przeglądanie i edycja tego, co zapisali agenci
 
-Wstawień agentów **Knowledge Retrieval** i **Knowledge Router** nie da się uruchomić ponownie z tego panelu. Poprawki i ponowne uruchomienia zadziałają tylko wtedy, gdy wygenerujesz tę samą odpowiedź jeszcze raz. Ponowne uruchomienie korzysta z pierwotnej historii czatu z tamtego momentu, a nie z nowszych wiadomości.
+**Agent Suite** pokazuje wszystko, co zapisali agenci w tym czacie: dane trackerów, takie jak bieżąca scena, obecne postacie i statystyki persony, oraz zapisane wyniki własnych agentów. Użyj go, żeby poprawić błędne imię, złą wartość statystyki albo pogmatwany tekst.
+
+1. Otwórz **Chat Settings** i przewiń do sekcji **Agents**.
+2. Kliknij **Agent Suite**.
+3. Wybierz agenta z listy po lewej.
+
+Po prawej stronie widać bloki do edycji, w maksymalnie trzech grupach: **Stored Memory** (zapisana pamięć), **Tracker Data** (tylko agenci trackerów) i **Recent Outputs** (tylko własni agenci). Agenci, którzy nie śledzą danych, mają tylko **Stored Memory**.
+
+Każdy blok to edytor tekstu albo JSON. Bloki JSON mają numery wierszy i od razu zgłaszają niepoprawny JSON. **Save** pozostaje wyłączony, dopóki JSON nie da się sparsować. Aby przeszukać wszystkie dane trackerów albo edytować je jako pola, kliknij **Open in State Editor** w nagłówku **Tracker Data**. Zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+Po zmianie bloku kliknij **Save**, żeby go zachować, albo **Reset**, żeby wrócić do zapisanej wartości.
+
+### Przepisywanie bloku przez AI
+
+1. Kliknij **AI Edit** przy bloku.
+2. Aby zmienić tylko jego część, najpierw zaznacz ten tekst. Bez zaznaczenia przepisany zostaje cały blok.
+3. Wpisz instrukcję, na przykład "fix the garbled character names, she is called Mira".
+4. Opcjonalnie: kliknij **Add Context**, żeby dołączyć karty postaci albo wpisy lorebooków. Dzięki temu AI wie, co oznaczają dane.
+5. Wybierz połączenie (usługę AI i model), które wykona przepisanie.
+6. Kliknij **Rewrite**.
+
+Wynik trafia do bloku jako niezapisana wersja robocza. Przejrzyj go, a potem kliknij **Save** albo **Reset**.
+
+- Jeśli agenci wciąż pracują nad tym czatem, zapisywanie czeka, aż skończą.
+- **Clear memory** pojawia się w **Stored Memory** tylko wtedy, gdy agent ma zapisane dane. Usuwa naraz wszystko, co ten agent zapisał dla tego czatu, i nie da się tego cofnąć. Marinara najpierw prosi o potwierdzenie.
+- W przypadku agenta **Narrative Director** zapisane spoilery są ukryte. Użyj **Reveal spoilers**, żeby je zobaczyć i edytować.
+
+## Podgląd panelu Cached prompt injections
+
+Zanim powstanie odpowiedź, część agentów zapisujących dane dopisuje tekst do promptu (tekstu, który Marinara wysyła do AI). Robią tak zwłaszcza **Prose Guardian**, **Narrative Director** i własni agenci od wstawiania tekstu. Panel **Cached prompt injections** pokazuje ten tekst dla najnowszej odpowiedzi. To widok do diagnostyki.
+
+Zanim zaczniesz: włącz **Debug mode** (tryb diagnostyczny). Zobacz [Agenci: pomocnicy AI w czatach](agents-overview.md#tell-whether-an-agent-ran). W czacie Roleplay otwórz zakładkę **Injections** (wstawienia do promptu) w **Agent activity** (aktywność agentów). Zobacz [Agent activity](../roleplay/getting-started.md#agent-activity).
+
+Każde wstawienie możesz rozwinąć, żeby przeczytać i poprawić tekst, kliknąć ikonę **Save**, żeby zachować poprawkę, albo kliknąć ikonę **Re-run**, żeby ten agent napisał je od nowa.
+
+Wstawień agentów **Knowledge Retrieval** i **Knowledge Router** nie da się tutaj uruchomić ponownie. Poprawki i ponowne uruchomienia zadziałają tylko wtedy, gdy wygenerujesz tę samą odpowiedź jeszcze raz. Ponowne uruchomienie korzysta z historii czatu z tamtego momentu, a nie z nowszych wiadomości.
 
 ## Powiązane przewodniki
 

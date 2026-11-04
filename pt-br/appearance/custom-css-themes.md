@@ -1,101 +1,124 @@
 # Temas de CSS personalizados (Theme Library)
 
-Este guia explica como mudar toda a aparência do Marinara Engine com um tema de CSS personalizado. Aqui você vê como criar, importar, exportar e ativar temas. Também vê quais variáveis de CSS pode alterar e como os temas convivem com o Card CSS.
+Um tema de CSS personalizado repinta todo o visual do Marinara. Use a **Theme Library** (biblioteca de temas) para criar, importar, exportar e trocar de tema. Este guia também lista as variáveis e as classes de CSS que um tema pode usar e explica como os temas convivem com o Card CSS. Para uma mudança rápida sem CSS, veja [Estilos prontos para janelas de chat](#ready-made-chat-window-styles).
+
+Antes de começar: se você abre Marinara em outro dispositivo, como um celular, o servidor precisa de um segredo de administrador antes que você possa criar, editar, importar, ativar ou remover temas. No computador que roda o servidor, nenhum segredo é necessário.
+
+1. No servidor, defina `ADMIN_SECRET` no arquivo `.env`.
+2. No aplicativo, abra **Settings → Advanced → Admin Access** (Configurações → Avançado → acesso de administrador) e informe o mesmo valor.
+
+Veja a [Referência de configuração do servidor](../CONFIGURATION.md) e o guia [Acesso remoto](../REMOTE_ACCESS.md). Para trocar para um tema que alguém passou para você, vá para [Ativar um tema](#activating-a-theme).
+
+## O que é um tema personalizado
+
+CSS, sigla de Cascading Style Sheets, é o código que define cores, bordas e espaçamentos. Um tema é um bloco de CSS que pode mudar o plano de fundo da página, a cor de destaque, os cards, as bordas, o texto e muito mais.
+
+Os temas ficam na **Theme Library**, no seu servidor do Marinara, então eles sincronizam com todos os dispositivos conectados ao mesmo servidor. A maioria das outras configurações de aparência fica em um só dispositivo. Só um tema fica ativo por vez, e você pode guardar quantos quiser.
+
+## Onde encontrar a Theme Library
+
+1. Abra **Settings**.
+2. Abra a aba **Addons**.
+3. Procure a seção **Theme Library**.
+
+## Criar um tema
+
+1. Na seção **Theme Library**, clique em **Create Theme** (criar tema).
+2. Digite um nome na caixa de nome (ela mostra "Theme name...").
+3. Escreva ou cole o CSS na caixa de texto grande.
+4. Deixe a opção **Preview** ativada para ver as mudanças ao vivo enquanto digita. Desative-a para parar a visualização ao vivo.
+5. Clique em **Save**.
+
+Todo tema novo começa a partir de um modelo que lista as variáveis mais comuns como exemplos comentados. Remova as marcas de comentário e coloque os seus valores. Um tema recém-criado é ativado quando você o salva, e aparece: Theme "My Theme" saved and activated.
+
+Para mudar um tema depois, encontre-o em **Installed Themes** (temas instalados), clique no ícone de código (dica **Edit theme CSS**), faça as edições e clique em **Save**. Editar não muda qual tema está ativo.
+
+## Importar e exportar temas
+
+Para importar um tema:
+
+1. Clique em **Import File** (importar arquivo) na seção **Theme Library**.
+2. Escolha um arquivo `.css` ou `.json`.
+3. Leia a mensagem. Ela informa quantos temas foram importados, ignorados ou falharam.
+
+Um arquivo `.css` vira um tema só, com o nome do arquivo. Um arquivo `.json` pode conter um ou vários temas. Importe do jeito que está um arquivo exportado do Marinara, ou escreva você mesmo um arquivo pequeno:
+
+```json
+{ "name": "My Theme", "css": "..." }
+```
+
+Os temas importados não se ativam por conta própria. Um tema com o mesmo nome e o mesmo CSS de um que já está no servidor é ignorado.
+
+Para exportar um tema, clique no ícone de upload (dica **Export theme**) na linha dele em **Installed Themes**. Marinara baixa um arquivo `.json` que você pode importar em outro lugar.
+
+<a id="activating-a-theme"></a>
+
+## Ativar um tema
+
+**Installed Themes** lista todos os temas, com um item **Default Theme** no topo.
+
+1. Clique no nome de um tema para ativá-lo. Uma marca de seleção indica o tema ativo.
+2. Clique em **Default Theme** para desligar o tema personalizado e voltar ao visual embutido.
+
+**Reset Appearance** (restaurar a aparência), no topo de **App Style** em **Settings → Appearance** (Configurações → Aparência), também desliga o tema ativo.
+
+Para excluir um tema, clique no ícone de lixeira (dica **Remove theme**) e confirme na janela **Delete Theme**. Isso exclui em definitivo o CSS dele do servidor.
+
+Se não funcionou: quando o aplicativo estiver com a aparência errada, confira tanto o tema ativo quanto qualquer Card CSS no chat. Veja [Temas e Card CSS](#themes-and-card-css).
 
 <a id="ready-made-chat-window-styles"></a>
 
 ## Estilos prontos para janelas de chat
 
-Para mudar o visual sem escrever CSS, abra **Settings > Appearance > App** (Configurações > Aparência > Aplicativo) e encontre **Chat widget style** (estilo dos widgets do chat) no fim de **App Style**. **Dottore** dá aos controles molduras de instrumentos em azul-gelo, bordas de metal claro e cantos recortados. **Prof. Mari** acrescenta molduras de conto de fadas com detalhes dourados, azuis de pedras preciosas e Gemas Essenciais nos títulos das janelas. Os botões usam o mesmo fundo das janelas. Cada preset tem sua própria fonte, funciona nos modos claro e escuro e muda juntos os botões, as janelas e as seções expansíveis.
+Antes de começar: isto não precisa de CSS.
 
-Os controles **Font** e **Shape** permitem mudar esses detalhes separadamente. **Preset font** e **Preset shape** seguem o estilo escolhido.
+1. Abra **Settings → Appearance → App** (Configurações → Aparência → Aplicativo).
+2. No fim de **App Style**, encontre **Chat widget style** (estilo dos widgets do chat).
+3. Escolha um estilo.
 
-Abaixo ficam três controles de cor. Cada um tem um seletor de cor sólida e uma opção de gradiente para misturar cores:
+| Estilo | Visual |
+| --- | --- |
+| **Default** | O visual original. |
+| **Dottore** | Molduras de instrumentos em azul-gelo, bordas de metal claro e cantos recortados. |
+| **Prof. Mari** | Molduras de livro de histórias com detalhes dourados, azuis de pedras preciosas e Gemas Essenciais nos títulos das janelas. Os botões usam o mesmo fundo das janelas. |
 
+Cada estilo tem sua própria fonte, funciona nos modos claro e escuro e muda juntos os botões, as janelas e as seções expansíveis. Escolher um estilo redefine **Font**, **Shape** e as três cores. As posições das janelas continuam como estão.
+
+Você pode mudar estes itens separadamente:
+
+- **Font** e **Shape** seguem o estilo (**Preset font**, **Preset shape**) até você escolher outra opção.
 - **Border & Buttons Color** muda os contornos e os ícones dos botões. Os ícones usam a primeira cor do gradiente.
 - **Background Color** preenche botões, janelas, seções expansíveis e campos editáveis.
-- **Text Color** muda o texto dos widgets. Os gradientes aparecem nos títulos e rótulos; o texto dos campos editáveis usa a primeira cor.
+- **Text Color** muda o texto dos widgets. Os gradientes aparecem nos títulos e rótulos, e os campos editáveis usam a primeira cor.
 
-Os controles de cor mantêm as cores originais dos ornamentos.
+Cada cor tem um seletor de cor sólida e uma opção de gradiente. **Reset color**, ao lado de um controle, volta a seguir as cores claras ou escuras do estilo. Os brasões decorativos mantêm as cores originais.
 
-Use **Reset color** ao lado de um controle para voltar às cores claras ou escuras do preset. Escolher um preset redefine **Font**, **Shape** e as três cores. **Default** restaura o visual original. As janelas ficam onde você as colocou.
+### Levar o estilo para o chat
 
-Para levar esse visual ao restante do chat, use os três botões liga/desliga abaixo dos seletores de cor:
+Três botões liga/desliga abaixo dos seletores de cor estendem o estilo. Cada um começa desativado e funciona de forma independente. Desativar um deles restaura o estilo habitual do chat naquela parte, e escolher outro estilo mantém as suas escolhas nesses botões.
 
-- **Apply preset font** (aplicar fonte do preset) usa a fonte escolhida para os widgets nas mensagens, nos campos de entrada e nos controles do chat.
-- **Apply preset shape** (aplicar forma do preset) usa a forma de moldura escolhida nas mensagens de Roleplay com layout clássico ou de visual novel, na caixa de diálogo de Game, nos campos de entrada e nos controles. As mensagens de Conversation mantêm sua própria forma.
-- **Apply preset colors** (aplicar cores do preset) usa as cores de borda, fundo e texto do widget nessas áreas, incluindo as mensagens de Conversation. Suas cores e gradientes personalizados também se aplicam. As falas entre aspas mantêm a Dialogue Highlight Color própria de cada personagem ou persona. Uma mensagem feita de HTML, como o card estilizado de um agente, mantém as cores de texto que ela mesma define.
+| Botão liga/desliga | O que ele aplica |
+| --- | --- |
+| **Apply preset font** (aplicar fonte do preset) | A fonte dos widgets, nas mensagens, nos campos de entrada e nos controles do chat. |
+| **Apply preset shape** (aplicar forma do preset) | A forma da moldura, nas mensagens de Roleplay (clássico e visual novel), na caixa de diálogo de Game, nos campos de entrada e nos controles. As mensagens de Conversation mantêm sua própria forma. |
+| **Apply preset colors** (aplicar cores do preset) | As cores de borda, fundo e texto nessas áreas, incluindo as mensagens de Conversation. Suas cores e gradientes personalizados também se aplicam. As falas entre aspas mantêm a Dialogue Highlight Color própria de cada personagem ou persona. Uma mensagem feita de HTML, como o card estilizado de um agente, mantém as cores de texto que ela mesma define. |
 
-Os botões que carregam mensagens mais antigas ou mais novas, como **Load More** (carregar mais) e **Show older** (mostrar mais antigas), seguem esses botões liga/desliga como os outros controles do chat.
+Os botões de histórico, **Load More** (carregar mais) e **Show older** (mostrar mais antigas), seguem esses botões liga/desliga como os outros controles do chat. No Game Mode, os botões liga/desliga também se aplicam aos comentários laterais, aos widgets do HUD, ao painel do mapa, às fichas de personagem, aos registros, ao inventário, aos painéis de combate e às janelas de diálogo. Professor Mari também pode criar temas personalizados para essas áreas.
 
-No Game Mode, os botões também se aplicam aos comentários laterais, aos widgets do HUD, ao painel do mapa, às fichas de personagem, aos registros, ao inventário, aos painéis de combate e às janelas de diálogo.
+Um tema personalizado ainda pode substituir os estilos. As variáveis de janelas e gavetas abaixo têm prioridade sobre as cores do estilo. Use `--mari-window-font-family` para as letras das janelas, `--mari-drawer-radius` para os cantos das seções e `--mari-window-ornament: none` para ocultar o ornamento do título. Para remover toda a decoração do estilo, escolha **Default** primeiro.
 
-Cada botão começa desativado e funciona de forma independente. Por exemplo, você pode usar as letras da Professor Mari e manter as cores habituais do chat. Desativar um botão restaura essa parte do estilo habitual do chat. Escolher outro preset mantém as opções desses botões. Professor Mari também pode criar temas personalizados para essas áreas.
+<a id="themes-and-card-css"></a>
 
-Os temas CSS personalizados ainda podem substituir esses presets. As variáveis públicas de janelas e gavetas abaixo têm prioridade sobre as cores do preset. Use `--mari-window-font-family` para as letras das janelas, `--mari-drawer-radius` para os cantos das seções e `--mari-window-ornament: none` para ocultar o ornamento do título. Para remover toda a decoração do preset, escolha **Default** primeiro.
+## Temas e Card CSS
 
-## O que é um tema personalizado
+Marinara tem duas formas de adicionar CSS personalizado, e as duas podem ficar ativas ao mesmo tempo.
 
-Um tema personalizado é um bloco de CSS que repinta Marinara. CSS, sigla de Cascading Style Sheets, é o código que define cores, bordas e espaçamentos no aplicativo inteiro. Um tema pode mudar o plano de fundo da página, a cor de destaque, os cards, as bordas, o texto e muito mais.
+- Um tema personalizado repinta o aplicativo inteiro. Ele pode substituir as variáveis centrais do Marinara, usar `!important` e usar `position: fixed`.
+- O Card CSS fica embutido em um card de personagem ou de persona e é ativado por chat. A limpeza dele é mais rígida: ele não pode substituir as variáveis centrais, o `!important` é removido e `position: fixed` vira `position: absolute`. Ele estiliza as mensagens do chat, não o aplicativo inteiro. Veja o [Guia de temas com Card CSS](card-css-theming.md).
 
-Os temas personalizados ficam na seção **Theme Library** (biblioteca de temas). Marinara guarda esses temas no servidor, então eles aparecem em todos os dispositivos e navegadores conectados ao mesmo servidor. Isso é diferente da maioria das outras configurações de aparência, que ficam só em um dispositivo. Para as configurações por dispositivo, veja o guia [Configurações de aparência](appearance-settings.md).
+## Limites de tamanho e de nome
 
-Só um tema personalizado fica ativo por vez. Guarde quantos temas quiser na biblioteca e alterne entre eles quando precisar.
-
-## Onde encontrar a Theme Library
-
-1. Abra **Settings** (Configurações).
-2. Abra a aba **Addons**.
-3. Procure a seção **Theme Library**.
-
-A seção se chama **Theme Library** e traz o texto "Create, import, activate, edit, export, or remove custom CSS themes."
-
-## Criar um tema
-
-1. Na seção **Theme Library**, clique em **Create Theme** (criar tema).
-2. Digite um nome no campo **Theme name**.
-3. Escreva ou cole o CSS na caixa de texto grande.
-4. Deixe a opção **Preview** ativada para ver as mudanças no aplicativo enquanto digita. Desative **Preview** para parar a visualização ao vivo.
-5. Clique em **Save**.
-
-Todo tema novo começa a partir de um modelo. Esse modelo lista as variáveis mais comuns como exemplos comentados, então basta remover as marcas de comentário e colocar os seus valores. Ao salvar um tema recém-criado, Marinara já o ativa na hora. E ainda mostra uma confirmação com o nome do tema, mais ou menos assim: Theme "My Theme" saved and activated.
-
-Para mudar um tema depois, encontre-o na lista **Installed Themes** (temas instalados). Clique no ícone de código (a dica dele diz **Edit theme CSS**), faça as edições e clique em **Save**. Editar um tema salvo atualiza o conteúdo dele, mas não muda qual tema está ativo.
-
-## Importar e exportar temas
-
-Os temas podem ser compartilhados como arquivos. Isso ajuda a levar um tema de um servidor para outro ou a passá-lo para um amigo.
-
-Para importar um tema:
-
-1. Clique em **Import File** (importar arquivo) na seção **Theme Library**.
-2. Escolha um arquivo `.css` ou um arquivo `.json`.
-3. Leia a mensagem de aviso. Ela informa quantos temas foram importados, ignorados ou falharam.
-
-Um arquivo `.css` vira um tema só, com o nome do arquivo. Um arquivo `.json` pode conter um ou vários temas, e existem dois tipos dele.
-
-O primeiro tipo é o arquivo exportado por Marinara. Ele envolve cada tema em campos extras que Marinara acrescenta na exportação. Você não precisa ler nem editar nada. Importe o arquivo do jeito que está.
-
-O segundo tipo é um arquivo pequeno que você mesmo escreve. Para um único tema, isto basta:
-
-```
-{ "name": "My Theme", "css": "..." }
-```
-
-Os temas importados vão para o servidor, mas não se ativam sozinhos. Se um tema com o mesmo nome e o mesmo CSS já existir no servidor, ele é ignorado em vez de entrar duas vezes.
-
-Para exportar um tema, encontre-o na lista **Installed Themes** e clique no ícone de upload (a dica dele diz **Export theme**). Marinara baixa um arquivo `.json` que pode ser importado em outro lugar.
-
-## Ativar um tema
-
-A lista **Installed Themes** mostra todos os temas, mais um item **Default Theme** no topo.
-
-1. Clique no nome de um tema para ativá-lo. Uma marca de seleção indica o tema ativo.
-2. Clique em **Default Theme** para desligar o tema personalizado e voltar à aparência original do Marinara.
-
-O botão **Reset Appearance** (restaurar a aparência) fica no topo da seção **App Style**, em **Settings -> Appearance**. Ao usá-lo, o tema personalizado ativo também é desligado.
-
-Para excluir um tema de vez, clique no ícone de lixeira na linha dele (a dica diz **Remove theme**) e confirme na janela **Delete Theme**. Isso exclui em definitivo o CSS do tema no servidor.
+O nome do tema aceita até 200 caracteres. O CSS aceita até 256 KiB, medidos em bytes UTF-8. Um tema maior é recusado quando você o salva ou importa. O CSS do tema personalizado também é limpo antes de rodar: estilos que carregam um arquivo de outro site não funcionam. Em vez disso, incorpore a imagem ou a fonte como uma URI `data:`.
 
 ## Referência das variáveis de CSS
 
@@ -118,19 +141,15 @@ O editor de temas tem uma seção retrátil chamada **CSS Variable Reference**. 
 | `--popover` | Plano de fundo do menu suspenso |
 | `--accent` | Realce ao passar o mouse |
 
-Essa lista não é um limite. Um tema pode definir qualquer variável de CSS que Marinara usa e ainda acrescentar outros estilos personalizados.
-
-Alguns efeitos visuais têm variáveis próprias. Um tema pode pedir a animação de pulso do destaque, por exemplo, definindo `--marinara-theme-accent-pulse: enabled`.
-
-Por segurança, Marinara limpa o CSS do tema personalizado antes de executá-lo. Estilos que carregam um arquivo de outro site não funcionam. Para usar uma imagem ou uma fonte dentro de um tema, incorpore o conteúdo como URI `data:` em vez de um link da web. Uma URI `data:` guarda o conteúdo do arquivo direto dentro do CSS.
+Um tema pode definir qualquer variável de CSS que Marinara usa, não só estas. Alguns efeitos têm variáveis próprias. Por exemplo, `--marinara-theme-accent-pulse: enabled` pede a animação de pulso do destaque.
 
 ## Estilizar janelas e gavetas do chat
 
 No computador, **Chat Settings** abre como uma janela móvel. Suas seções recolhíveis são chamadas de **drawers** (gavetas). Uma gaveta pode sair para uma janela própria e depois se minimizar em um pequeno botão móvel, chamado **bubble** (bolha).
 
-Outras ferramentas também usam essas janelas e botões, incluindo Game controls, Session, Volume, Game Assets, chats conectados e controles de pacotes. No celular, a maioria das janelas abre como painéis de largura total; Echo Chamber continua sendo uma janela compacta que você pode mover e redimensionar. As ferramentas retiradas de Chat Settings ficam no menu móvel de três pontos **Chat tools** (ferramentas do chat); os botões dos trackers continuam separados.
+Outras ferramentas do chat também usam essas janelas e botões, incluindo Game controls, Session, Volume, Game Assets, chats conectados e controles de pacotes. No celular, a maioria das janelas abre como painéis de largura total; Echo Chamber continua sendo uma janela compacta que você pode mover e redimensionar. As ferramentas retiradas de Chat Settings ficam no menu móvel de três pontos **Chat tools** (ferramentas do chat); os botões dos trackers continuam separados.
 
-As classes, os atributos de dados e as variáveis abaixo permitem estilizar essas partes juntas. As regras do tema substituem os padrões sem `!important`.
+As classes, os atributos de dados e as variáveis abaixo permitem que um tema estilize essas partes juntas. As regras do seu tema substituem os padrões sem `!important`.
 
 ### Classes
 
@@ -165,11 +184,11 @@ As classes, os atributos de dados e as variáveis abaixo permitem estilizar essa
 - `data-window-control` identifica cada botão da barra de título: `"pin"`, `"lock"`, `"close"` ou `"put-back"`. Um botão de fixar ou travar ativado também tem `aria-pressed="true"`.
 - `data-chat-settings-control` identifica os botões extras da barra de título de Chat Settings: `"reset-view"`, `"favorite-layout"` e `"tracker-panel"`. A estrela favorita tem `aria-pressed="true"` e um ícone preenchido quando o layout atual corresponde ao favorito salvo.
 - `data-edge` vale `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` ou `"sw"` em cada alça de redimensionamento.
-- O botão de uma gaveta aberta dentro de `.mari-drawer__header` tem `aria-expanded="true"`.
+- O botão de abrir e fechar de uma gaveta aberta, dentro de `.mari-drawer__header`, tem `aria-expanded="true"`.
 - `data-drawer-control="pop-out"` marca o botão para destacar uma gaveta.
 - `data-outside="true"` marca uma prévia de arraste longe o bastante da janela para se destacar ao soltar.
 - `data-axis` vale `"x"` em uma guia de alinhamento vertical e `"y"` em uma horizontal.
-- `data-detached` vale `"true"` quando uma gaveta aparece em sua própria janela, tanto na janela quanto na gaveta dentro dela. Essa janela é identificada por `data-window="drawer:<window>:<drawer>"`, por exemplo `data-window="drawer:chat-settings:chat-name"`, e `data-drawer-host` indica a janela de origem.
+- `data-detached` vale `"true"` quando uma gaveta aparece em sua própria janela, tanto na janela quanto na gaveta dentro dela. A janela de uma gaveta destacada é identificada por `data-window="drawer:<window>:<drawer>"`, por exemplo `data-window="drawer:chat-settings:chat-name"`, e `data-drawer-host` indica a janela de origem.
 - `data-dragging` vale `"true"` em uma gaveta enquanto seu título é arrastado, e `data-drop-target` vale `"true"` em uma janela quando uma gaveta destacada fica sobre ela, pronta para voltar.
 - Uma bolha tem o `data-window` da sua janela e `data-minimized="true"`, por exemplo `.mari-window-bubble[data-window="control:volume"]`. As janelas de controles se chamam `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` e `control:beholder:<package>`. `data-dragging` vale `"true"` em uma bolha durante o arraste. Uma bolha que mostra um resumo ao vivo no lugar do ícone, como um tracker World State minimizado, tem `data-banner="true"` e fica tão larga quanto o resumo.
 - Uma bolha travada tem `data-locked="true"`, inclusive o botão Chat Settings. Ela continua abrindo sua janela, mas não pode ser movida até a janela ser destravada. Use `.mari-window-bubble[data-locked="true"]` para dar uma aparência diferente a esses botões.
@@ -186,13 +205,13 @@ Cada variável usa as cores compartilhadas dos controles do chat quando não é 
 | `--mari-window-bg` | Fundo da janela |
 | `--mari-window-text` | Texto da janela |
 | `--mari-window-border`, `--mari-window-border-width` | Borda da janela |
-| `--mari-window-radius` | Arredondamento dos cantos |
+| `--mari-window-radius` | Arredondamento dos cantos da janela |
 | `--mari-window-shadow` | Sombra da janela |
 | `--mari-window-backdrop-filter` | Desfoque atrás da janela |
 | `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Cores da barra de título |
 | `--mari-window-header-padding` | Espaçamento da barra de título |
-| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Botões de título, incluindo a estrela favorita |
-| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Botões de título ativados, incluindo fixar, travar e estrela favorita preenchida |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Botões da barra de título, incluindo a estrela favorita |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Botões da barra de título ativados, incluindo fixar, travar e a estrela favorita preenchida |
 | `--mari-window-control-radius`, `--mari-window-control-gap` | Arredondamento e espaçamento dos botões |
 | `--mari-window-focus-ring` | Contorno do foco do teclado e da janela para onde uma gaveta vai voltar |
 | `--mari-window-resize-handle-size` | Largura das bordas de redimensionamento |
@@ -221,7 +240,7 @@ Defina uma variável em `:root` para mudar todas as janelas, ou em um seletor pa
 
 ## Estilizar mensagens, campos de entrada e controles do chat
 
-Os três botões **Apply preset** também permitem que um tema personalizado use o design dos widgets no restante do chat. Um tema pode substituir cada parte com as variáveis abaixo. Peça ao Professor Mari um tema de chat que combine se preferir não escrever o CSS por conta própria.
+Os três botões **Apply preset** também permitem que um tema personalizado use o design dos widgets no restante do chat. Um tema pode substituir cada parte com as variáveis abaixo. Peça à Professor Mari um tema de chat que combine se preferir não escrever o CSS por conta própria.
 
 | Parte | Classe |
 | --- | --- |
@@ -260,33 +279,6 @@ Por exemplo, com **Apply preset font** e **Apply preset colors** ativados:
 As variáveis não definidas seguem as configurações e o preset dos widgets. O botão correspondente precisa estar ativado para essas variáveis se aplicarem pelo estilo integrado. As mensagens de Conversation mantêm sua própria forma mesmo com **Apply preset shape** ativado. Os temas personalizados também podem usar as classes diretamente; mantenha os contornos de foco, os menus e o conteúdo das mensagens fora de qualquer recorte decorativo.
 
 No celular, o menu de três pontos se expande em botões redondos. Seu acionador é `[data-chat-tools-menu-button]`, a pilha aberta é `[data-chat-tools-menu]` e cada item da lista tem `data-chat-tools-menu-item` definido com o ID de sua janela. Os botões de ferramentas usam `.mari-window-bubble.mari-chat-tools-button` e `data-chat-tools-menu-tool` com esse mesmo ID. A pilha não tem moldura de janela; seus botões seguem as cores dos widgets e o tamanho dos botões, independentemente dos três botões liga/desliga para o restante do chat, mantendo sua forma redonda.
-
-## Limites de tamanho e de nome
-
-O nome do tema aceita até 200 caracteres. O CSS aceita até 256 KiB, medidos em bytes UTF-8, e não em caracteres. Um tema maior que isso é recusado na hora de salvar ou importar.
-
-## Admin Access em instalações remotas
-
-Criar, editar, importar, ativar e excluir um tema são ações protegidas. Isso só importa quando você abre Marinara pela rede.
-
-Se você abre Marinara no mesmo computador que roda o servidor, por loopback (também chamado de localhost), essas ações funcionam sem mais nada. Se você abre Marinara em outro dispositivo, como um celular ou um computador da mesma rede, o servidor precisa antes de um segredo de administrador.
-
-Para gerenciar temas pela rede:
-
-1. No servidor, defina a variável `ADMIN_SECRET` no arquivo `.env`.
-2. No aplicativo, abra **Settings -> Advanced -> Admin Access** e informe o mesmo valor.
-
-Sem isso, as mudanças de tema feitas pela rede falham. Para a configuração completa, veja a [Referência de configuração do servidor](../CONFIGURATION.md) e o guia [Acesso remoto](../REMOTE_ACCESS.md).
-
-## Como os temas e o Card CSS funcionam juntos
-
-Marinara tem duas formas de adicionar CSS personalizado. São recursos separados e os dois podem ficar ativos ao mesmo tempo.
-
-Um tema personalizado repinta o aplicativo inteiro. Ele pode substituir as variáveis centrais do Marinara, usar `!important` e usar `position: fixed`. É exatamente para isso que serve um tema.
-
-O Card CSS é outra coisa. Quem cria um personagem ou uma persona pode embutir CSS no card, e você ativa esse CSS por chat. A limpeza do Card CSS é bem mais rígida. Ele não pode substituir as variáveis centrais do aplicativo, o `!important` é removido e `position: fixed` vira `position: absolute`. Ele estiliza as mensagens do chat, não o aplicativo inteiro. Veja o [guia de temas com Card CSS](card-css-theming.md).
-
-Se o aplicativo estiver com a aparência estranha, vale conferir tanto o tema ativo quanto o Card CSS. Qualquer um dos dois pode ser a causa.
 
 ## Guias relacionados
 

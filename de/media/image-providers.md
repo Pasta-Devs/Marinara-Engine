@@ -1,38 +1,43 @@
 # Anbieter für Bildgenerierung und Einrichtung
 
-In dieser Anleitung erfährst du, wie du einen Dienst für Bildgenerierung mit Marinara Engine verbindest. Außerdem steht hier, was die Dienste jeweils brauchen. Die Bildgenerierung liefert Szenenillustrationen, Selfies, Szenenhintergründe sowie generierte Avatare, Porträts und Sprites.
+Die Bildgenerierung liefert Szenenillustrationen, Selfies, Szenenhintergründe sowie generierte Avatare, Porträts und Sprites. In dieser Anleitung erfährst du, wie du einen Bilddienst hinzufügst und was die einzelnen Dienste jeweils brauchen. Sobald ein Bildmodell funktioniert, kann jede Bildfunktion der App es nutzen.
 
-Die Bildgenerierung richtest du als besondere Art von Verbindung ein. Sobald eine Bildverbindung läuft, greift jede Bildfunktion der App darauf zu.
+## Einen Bilddienst hinzufügen
 
-## Verbindung für die Bildgenerierung anlegen
+Ein API-Key ist ein geheimer Code, den dir ein Dienst gibt, damit Marinara dein Konto dort nutzen kann. Die Webadresse jedes Dienstes trägt Marinara selbst ein, du musst also nur selten eine eintippen.
 
-Ein **API-Key** ist ein geheimes Passwort vom Anbieter, mit dem Marinara dein Konto nutzen darf. Die **Base URL** – in der Verbindung als **Endpoint** (Endpunkt) angezeigt – ist die Webadresse der Programmierschnittstelle des Dienstes. Sobald du einen Dienst auswählst, trägt Marinara die passende automatisch ein.
+1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und dann auf **Add** (Hinzufügen). Das Fenster **Add account** (Konto hinzufügen) öffnet sich.
+2. Such den Dienst heraus. Die Liste hat einen Abschnitt **Images & video** (Bilder und Video), und mit **Search providers** (Anbieter suchen) findest du einen Dienst schneller.
+3. Füge deinen Key in das Feld **API key** ein. Kostenlose und lokale Dienste brauchen keinen. Für einen Server, den du selbst betreibst, füllst du das Adressfeld aus.
+4. Klick auf **Connect** (Verbinden). Marinara testet das Konto.
+5. Wähle ein Bildmodell aus der Liste oder tipp eine Modell-ID ein. Das ist dein Bildmodell. Es erscheint im Panel **Connections** unter dem Konto.
+6. Öffne das Bildmodell und klick auf **Test image** (Bild testen). Marinara erzeugt ein kleines Testbild.
+7. Soll die App dieses Modell für Bilder verwenden, setze oben im Panel **Connections** unter **Defaults** (Standardwerte) die Aufgabe **Images** (Bilder).
 
-So legst du eine Bildverbindung an:
+Um einem Konto ein weiteres Bildmodell hinzuzufügen, öffne sein Menü **⋯** und klick auf **Add image model** (Bildmodell hinzufügen). Das vollständige Fenster beschreibt [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
-1. Öffne das Panel **Connections** (Verbindungen).
-2. Klick auf **Add connection** (Verbindung hinzufügen).
-3. Öffne in Schritt 1 **Images, video & voice** (Bilder, Video und Stimme) und wähle **Image Generation** (Bildgenerierung).
-4. Füge in Schritt 2 deinen Key in das Feld **API key** ein, falls der geplante Dienst einen braucht. Kostenlose und lokale Dienste kommen ohne aus. Für einen lokalen Server legst du hier seinen **Endpoint** fest. Klick auf **Save and test** (Speichern und testen). Der Modell-Editor für dein neues Bildmodell öffnet sich.
-5. Wähle im Modell-Editor im Raster einen **Service** (Dienst) aus.
-6. Wähle ein **Model** (Modell) aus der Liste oder tippe eine Modell-ID ein. Manche Dienste bieten **Fetch Models from API** (Modelle über die API laden) an, um die aktuelle Liste zu holen.
-7. Klick auf **Save** (Speichern).
-8. Klick auf **Test Image** (Testbild), um die Verbindung zu prüfen. Marinara generiert dann ein kleines Testbild.
+Wenn es nicht funktioniert hat: **Test image** schlägt fehl, wenn Key oder Adresse falsch sind. Prüf zuerst beides. **Test provider** (Anbieter testen) prüft nur, ob Marinara den Dienst erreichen kann. **Test image** erzeugt ein echtes Bild und kann Guthaben verbrauchen.
 
-Um einer bestehenden Verbindung ein weiteres Bildmodell hinzuzufügen, öffne ihre Seite im Panel **Connections** und klick auf **Add image model** (Bildmodell hinzufügen). Soll die App ein bestimmtes Bildmodell verwenden, setze oben im Panel **Connections** unter **Defaults** (Standardwerte) die Kachel **Images** (Bilder).
+## Ein Bild im Chat erzeugen
 
-Liefert **Test Image** ein Bild, ist die Verbindung einsatzbereit. Schlägt der Test fehl, prüfe API-Key und Base URL.
+Ist ein Bildmodell als Aufgabe **Images** gesetzt, kannst du in einem Chat ein Bild anfordern.
+
+1. Füge den Agenten Illustrator einem Roleplay-Chat hinzu. Siehe [Illustrator-Agent](illustrator-agent.md).
+2. Öffne **Chat Settings** (Chat-Einstellungen), klapp **Gallery** (Galerie) auf und klick auf **Illustrate** (Illustrieren).
+3. Warte, bis **Generating...** fertig ist. Das Bild erscheint in der Gallery.
+
+In einem Roleplay-Chat kannst du auch den Befehl `/illustrate` nutzen. Siehe [Slash-Befehle](../chats/slash-commands.md).
 
 ## Den passenden Dienst auswählen
 
-Die Dienste teilen sich in drei Gruppen. Cloud-Dienste brauchen ein Konto, die meisten zusätzlich einen API-Key. Kostenlose Dienste brauchen keinen Key. Lokale Dienste lassen die Bildsoftware auf dem eigenen Rechner laufen.
+Die Adresse jedes Dienstes trägt Marinara für dich ein. Cloud-Dienste brauchen ein Konto, die meisten zusätzlich einen API-Key. Kostenlose Dienste brauchen keinen Key. Lokale Dienste lassen die Bildsoftware auf deinem eigenen Rechner laufen.
 
-Die Tabelle zeigt alle Dienste auf einen Blick. Details und Eigenheiten folgen weiter unten im Abschnitt zum jeweiligen Dienst.
+**Der einfachste Einstieg:** Wähle **Pollinations**. Der Dienst ist kostenlos und braucht weder Konto noch Key. Willst du bessere Bilder, nimm später einen stärkeren Dienst.
 
 | Dienst | API-Key | Wo er läuft |
 | --- | --- | --- |
 | OpenAI (DALL-E) | Ja | Cloud |
-| ChatGPT (Codex login) | Nein, nutzt deine Anmeldung per `codex login` | Cloud |
+| ChatGPT (Codex login) | Nein, nutzt `codex login` | Cloud |
 | Stability AI | Ja | Cloud |
 | Together AI | Ja | Cloud |
 | Arli AI | Ja | Cloud |
@@ -54,198 +59,154 @@ Die Tabelle zeigt alle Dienste auf einen Blick. Details und Eigenheiten folgen w
 | SwarmUI | Optional | Lokal |
 | Draw Things | Nein | Lokal |
 
-## OpenAI (DALL-E)
+Hinweise zu den einfachen Diensten:
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.openai.com/v1`. Nötig ist ein API-Key aus dem OpenAI-Konto. Zur Auswahl stehen DALL-E- und GPT-Image-Modelle. GPT-Image-Modelle nehmen bis zu 16 Referenzbilder an, DALL-E-Modelle keine.
+- **OpenAI (DALL-E)**: bietet DALL-E- und GPT-Image-Modelle.
+- **Stability AI**: Stable-Diffusion- und Stable-Image-Modelle.
+- **Together AI**: FLUX und weitere offene Bildmodelle.
+- **OpenRouter Images**: erreicht Bildmodelle über die Chat-Schnittstelle von OpenRouter, deshalb unterscheiden sich die Modelle von Konto zu Konto.
+- **xAI / Grok Imagine**: nutzt Grok Imagine.
+- **NanoGPT**: bündelt mehrere Anbieter, nutze also seine Modellliste.
+- **Pollinations**: der schnellste Weg, die Bildgenerierung auszuprobieren. Ein Konto ist nicht nötig.
+- **Stable Horde**: ein Netzwerk aus freiwillig geteilter Rechenleistung. Ein kostenloser Key bringt dich in der Warteschlange weiter nach vorn.
+- **SD Web UI** und **Draw Things**: Starte die Software mit eingeschalteter Programmierschnittstelle. Marinara behandelt Draw Things wie einen AUTOMATIC1111-Server (die App läuft unter macOS oder iOS).
+- **Block Entropy**: Marinara hat dafür keine eigene Behandlung und schickt deshalb OpenAI-kompatible Anfragen. Ob das zusammenpasst, ist nicht bestätigt. Teste den Dienst mit **Test image**, bevor du dich darauf verlässt.
 
-## ChatGPT (Codex login)
+## Dienste mit besonderer Einrichtung
 
-Cloud-Dienst, der statt eines API-Keys deinen ChatGPT-Tarif nutzt. Für Bilder brauchst du also kein API-Guthaben bei OpenAI. Installiere auf dem Rechner, auf dem der Marinara-Server läuft, die Codex CLI und führ einmal `codex login` aus. Es ist dieselbe Anmeldung, die auch die Chat-Verbindung **OpenAI (ChatGPT)** verwendet; die einzelnen Schritte beschreibt [Abo-Verbindungen für Claude, ChatGPT und Grok](../connections/subscription-clis.md#openai-chatgpt). Einen API-Key oder eine Base URL musst du nicht eintragen. Marinara trägt das Modell `gpt-image-2` ein, das auch Codex selbst für Bilder verwendet.
+### ChatGPT (Codex login)
 
-**Test Connection** (Verbindung testen) prüft nur, ob Marinara deine Codex-Anmeldung lesen kann. **Test Image** erzeugt ein echtes Bild und wird auf deine Bildlimits bei ChatGPT angerechnet. Sind Referenzbilder dabei, sendet Marinara eine Bearbeitungsanfrage mit bis zu 16 davon. ChatGPT liefert unter Umständen eine andere Pixelgröße als die angeforderte, deshalb nennt Marinara das gewünschte Seitenverhältnis zusätzlich im Prompt.
+Dieser Dienst nutzt statt eines API-Keys deinen ChatGPT-Tarif. Für Bilder brauchst du also kein API-Guthaben bei OpenAI.
 
-Dieser Dienst spricht nicht mit der öffentlichen OpenAI-API, sondern mit dem Bild-Endpunkt von ChatGPT, den auch Codex nutzt. OpenAI kann ihn deshalb ohne Vorankündigung ändern.
+1. Installiere auf dem Rechner, auf dem Marinara läuft, die Codex CLI und führ einmal `codex login` aus. Es ist dieselbe Anmeldung, die auch das ChatGPT-Konto für Chats nutzt. Siehe [Abo-Verbindungen für Claude, ChatGPT und Grok](../connections/subscription-clis.md#openai-chatgpt).
+2. Wähle den Dienst. Key oder Adresse musst du nicht eintragen. Marinara trägt das Modell `gpt-image-2` ein, das auch Codex für Bilder verwendet.
 
-## Stability AI
+**Test provider** prüft nur, ob Marinara deine Codex-Anmeldung lesen kann. **Test image** erzeugt ein echtes Bild und wird auf deine Bildlimits bei ChatGPT angerechnet. Sind Referenzbilder dabei, sendet Marinara eine Bearbeitungsanfrage mit bis zu 16 davon. ChatGPT liefert unter Umständen eine andere Pixelgröße, deshalb nennt Marinara das gewünschte Seitenverhältnis zusätzlich im Prompt. Dieser Dienst nutzt den Bild-Endpunkt von ChatGPT, den auch Codex nutzt, und nicht die öffentliche OpenAI-API. OpenAI kann ihn deshalb ohne Vorankündigung ändern.
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.stability.ai/v2beta`. Nötig ist ein API-Key von Stability AI. Zur Auswahl stehen Stable-Diffusion- und Stable-Image-Modelle.
+### Arli AI
 
-## Together AI
+Der Dienst führt gehostete Stable-Diffusion-Modelle aus. Ein Modell ist Pflicht, tipp also den Namen des gewünschten Bildmodells von Arli AI ein. Er nutzt dieselben Felder unter **Local Image Defaults** (Standardwerte für lokale Bilder) wie SD Web UI, siehe [Local Image Defaults](#local-image-defaults-per-connection). Das erste Referenzbild dient als Ausgangsbild. Dieser Dienst ist nur für Bilder gedacht. Für Chat-Modelle von Arli AI siehe [Unterstützte KI-Anbieter](../connections/providers-reference.md#arli-ai).
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.together.xyz/v1`. Nötig ist ein API-Key von Together AI. Zur Auswahl stehen FLUX und weitere offene Bildmodelle.
+### NovelAI
 
-## Arli AI
+NovelAI hat seinen Schwerpunkt auf Artwork im Anime-Stil. Bei V4-, V4.5- und V5-Modellen sendet Marinara für Storyboards und Illustrator-Szenen mit mehreren Figuren native Figuren-Prompts samt Positionen. Präzise Referenzbilder funktionieren nur auf einem V4.5-Modell.
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.arliai.com/v1`. Nötig ist ein API-Key von Arli AI. Der Dienst führt gehostete Stable-Diffusion-Modelle aus. Ein **Model** ist Pflicht, gib also den Namen des gewünschten Bildmodells von Arli AI ein. Er nutzt dieselben Felder unter **Local Image Defaults** wie **SD Web UI (AUTOMATIC1111 / Forge)**, siehe weiter unten. Schickst du Referenzbilder mit, verwendet Marinara das erste als Ausgangsbild (Image-to-Image).
+### Venice.ai
 
-Der Dienst **Arli AI** ist hier nur für Bilder gedacht. Für Chat-Modelle von Arli AI nutzt du stattdessen den Chat-Anbieter **Arli AI**; siehe [Unterstützte KI-Anbieter](../connections/providers-reference.md#arli-ai).
+Marinara nutzt den nativen Bild-Endpunkt von Venice, schaltet den optionalen Safe-Mode-Weichzeichner von Venice ab und rechnet die gewünschten Maße in das Größenformat des jeweiligen Modells um. Die eigenen Richtlinien oder Modellgrenzen von Venice können eine Anfrage trotzdem ablehnen.
 
-## NovelAI
+### Z.AI
 
-Cloud-Dienst mit der Standard-Base-URL `https://image.novelai.net`. Nötig ist ein API-Key von NovelAI. Der Schwerpunkt liegt auf Artwork im Anime-Stil. Bei V4-, V4.5- und V5-Modellen sendet Marinara für Storyboard- und Illustrator-Szenen mit mehreren Figuren native Figuren-Prompts samt Positionen. Einige neuere Funktionen wie präzise Referenzbilder laufen nur auf einem V4.5-Modell.
+Nutze einen allgemeinen API-Key von Z.AI. Keys aus dem GLM Coding Plan und die Adresse `/api/coding/paas/v4` funktionieren für Bilder nicht. Wähle **GLM-Image** oder **CogView 4**. Marinara rechnet das Seitenverhältnis in eine Größe um, die das Modell unterstützt, und lädt das temporäre Ergebnis in den lokalen Speicher herunter. Der Dienst beherrscht nur Text-to-Image und schickt keine Referenzbilder mit.
 
-## OpenRouter Images
+### Atlas Cloud
 
-Cloud-Dienst mit der Standard-Base-URL `https://openrouter.ai/api/v1`. Nötig ist ein API-Key von OpenRouter. Die Bildmodelle laufen über die Chat-Schnittstelle von OpenRouter, deshalb unterscheidet sich das verfügbare Angebot von Konto zu Konto.
+Marinara lädt den aktuellen Katalog von Atlas Cloud für Text-to-Image und Image-to-Image. Klappt das nicht, zeigt Marinara eine Startliste (Nano Banana, Gemini Flash Image, FLUX 1.1 Pro). Du kannst jederzeit eine genaue Modell-ID eintippen. Aufträge laufen asynchron: Marinara startet den Auftrag und fragt nach, bis das Bild fertig ist. Referenzbilder werden an Modell-IDs gesendet, die Image-to-Image, Bearbeitung oder Kontext-Verhalten ausweisen. Die Modellschemas von Atlas unterscheiden sich, prüf bei anderen IDs also die Dokumentation von Atlas Cloud zum jeweiligen Modell.
 
-## xAI / Grok Imagine
+### fal.ai
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.x.ai/v1`. Nötig ist ein API-Key von xAI. Für die Bildgenerierung kommt Grok Imagine zum Einsatz.
+Erstelle bei [fal.ai](https://fal.ai/dashboard/keys) einen API-Key. Die Startliste enthält `fal-ai/flux/schnell` und `fal-ai/flux/dev`. Du kannst die ID eines anderen Text-to-Image-Endpunkts mit kompatibler Ein- und Ausgabe eintippen. **Test provider** prüft nur die Einrichtung. **Test image** sendet eine echte Anfrage und verbraucht fal.ai-Guthaben.
 
-## Venice.ai
+Marinara sendet den Prompt und die Maße und lädt das erste zurückgegebene Bild herunter. Negative Prompts werden als Text angehängt. Nutze **Custom Parameters** (eigene Parameter) für Modelloptionen wie `seed`, `num_inference_steps` oder `image_size`. Der Dienst nutzt synchrone Text-to-Image-Anfragen, sendet keine Referenzbilder und setzt unterbrochene Aufträge nicht fort. Siehe die [API-Referenz](https://fal.ai/models/fal-ai/flux/schnell/api) des Modells.
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.venice.ai/api/v1`. Nötig ist ein API-Key von Venice. Mit **Fetch Models from API** lädst du die Bildmodelle, die dein Konto freischaltet. Marinara nutzt den nativen Bild-Endpunkt von Venice, schaltet den optionalen Safe-Mode-Weichzeichner ab und rechnet die gewünschten Maße automatisch in das Größenformat des jeweiligen Modells um: Pixel, Seitenverhältnis oder Auflösungsstufe. Trotzdem kann eine Anfrage an den Richtlinien des Anbieters oder an Modellgrenzen scheitern.
+### SpicyAPI
 
-## Z.AI
+Erstelle in der [SpicyAPI-Konsole](https://spicyapi.ai/console/keys) einen Key und wähle **SpicyAPI**. Marinara trägt das Modell `alibaba/z-image-spicy-pro/text-to-image` ein. Du kannst eine andere ID eintippen, etwa `bytedance/seedream-5.0-pro/text-to-image`. **Test provider** liest die Modellliste, das kostet also nichts. **Test image** erzeugt ein echtes Bild und verbraucht dein Guthaben.
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.z.ai/api/paas/v4`. Nötig ist ein allgemeiner API-Key von Z.AI; Keys aus dem GLM Coding Plan und der Endpunkt `/api/coding/paas/v4` taugen nicht für die Bildgenerierung. Mit **Fetch Models from API** wählst du **GLM-Image** oder **CogView 4** aus. Marinara rechnet das gewünschte Seitenverhältnis in eine Größe um, die das gewählte Modell unterstützt, schickt die Anfrage an den nativen Bild-Endpunkt von Z.AI und lädt die temporäre Ergebnis-URL in den lokalen Speicher. Diese erste Fassung beherrscht nur Text-to-Image und schickt keine Referenzbilder mit.
+Wähle den Dienst **SpicyAPI**. Nutze weder **OpenAI (DALL-E)** noch ein OpenAI-kompatibles Konto mit einer SpicyAPI-Adresse. Die Adresse im OpenAI-Stil von SpicyAPI verarbeitet nur Text.
 
-## Atlas Cloud
+Jedes Modell hat eigene Einstellungen. Marinara fragt bei SpicyAPI nach, welche das Modell akzeptiert, und sendet nur diese, in der nächstliegenden Form, die das Modell anbietet (Seitenverhältnis, Breite und Höhe oder eine feste Größe). Hat ein Modell kein Feld für einen negativen Prompt, wird der negative Prompt ans Ende des Prompts angehängt. Nutze **Custom Parameters** für weitere Optionen wie `seed`, `resolution` oder `loras`.
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.atlascloud.ai/api/v1`. Nötig ist ein API-Key von Atlas Cloud. **Fetch Models** (Modelle abrufen) lädt den aktuellen Katalog von Atlas Cloud für Text-to-Image und Image-to-Image. Ist der Katalog nicht erreichbar, zeigt Marinara stattdessen eine kleine Startliste mit Nano Banana, Gemini Flash Image und FLUX 1.1 Pro. Du kannst jederzeit die genaue ID eines Bildmodells von Atlas Cloud eingeben. Aufträge laufen asynchron: Marinara startet die Generierung und fragt Atlas Cloud ab, bis das Bild fertig ist. Übliche Einstellungen für Text-to-Image werden automatisch zugeordnet; Referenzbilder werden an Modell-IDs gesendet, die Image-to-Image, Bearbeitung oder Kontext-Verhalten ausweisen. Da sich die Schemas unterscheiden können, prüf bei einer anderen Modell-ID die Dokumentation von Atlas Cloud zum gewählten Modell.
+Jedes Bild ist ein Auftrag. Marinara wartet, fragt nach etwa einer Minute erneut nach und lädt dann das Ergebnis herunter. Bricht die Verbindung ab, nimmt Marinara denselben Auftrag wieder auf, statt für einen neuen zu bezahlen. Edit-Modelle (IDs, die auf `/edit` enden) erhalten deine Referenzbilder. SpicyAPI nimmt bis zu 1 MB pro Bild und 2 MB pro Anfrage an, deshalb verkleinert Marinara größere Bilder und lässt überzählige weg, die nicht hineinpassen.
 
-## fal.ai
+### SwarmUI
 
-Cloud-Dienst mit der standardmäßigen **Base URL** `https://fal.run`. Erstelle bei [fal.ai](https://fal.ai/dashboard/keys) einen API-Key und wähle **fal.ai** im Raster der Bilddienste. Die anfängliche **Model**-Liste bietet `fal-ai/flux/schnell` und `fal-ai/flux/dev`; du kannst die ID eines anderen Text-to-Image-Endpunkts mit kompatiblem Ein- und Ausgabeschema eingeben. **Test Connection** prüft nur die Konfiguration. **Test Image** sendet eine echte Generierungsanfrage und verbraucht dein fal.ai-Guthaben.
+SwarmUI kann ComfyUI-Arbeit über seine eigene Warteschlange verteilen. Ein lokaler Server ohne Benutzerkonten braucht keinen Key. Verlangt dein Server ein Konto, füge ein Swarm Auth Token in **API key** ein. Die Modellliste zeigt die Modelle auf deinem SwarmUI-Server.
 
-Marinara sendet den Prompt und die gewünschten Abmessungen und lädt dann das erste zurückgegebene Bild in den bestehenden Bildablauf herunter. Negative Prompts werden als Textanweisungen angehängt. Nutze **Custom Parameters** (benutzerdefinierte Parameter) für modellspezifische Optionen wie `seed`, `num_inference_steps` oder `image_size`. Die Integration nutzt synchrone Text-to-Image-Anfragen; sie sendet keine Referenzbilder und setzt unterbrochene Aufträge nicht fort. Welche Eingaben das gewählte Modell unterstützt, steht in seiner [API-Referenz](https://fal.ai/models/fal-ai/flux/schnell/api).
+Das Feld **ComfyUI workflow (optional)** kann leer bleiben. Lass es leer, um die eigenen Bildeinstellungen von SwarmUI zu nutzen, oder füge einen Workflow ein (siehe unten). Schalte **Save images in SwarmUI** (Bilder in SwarmUI speichern) unter **Local Image Defaults** ein, um jedes Bild zusätzlich im Ausgabeordner von SwarmUI abzulegen. Marinara behält in jedem Fall eine eigene Kopie.
 
-## SpicyAPI
+### Lokale Dienste im eigenen Netzwerk
 
-Cloud-Dienst mit der standardmäßigen **Base URL** `https://api.spicyapi.ai/api/v1`. Erstelle in der [SpicyAPI-Konsole](https://spicyapi.ai/console/keys) einen API-Key und wähle dann **SpicyAPI** im Raster der Bilddienste. Marinara trägt das Modell `alibaba/z-image-spicy-pro/text-to-image` ein. Klick auf **Fetch Models from API**, um alle Text-to-Image- und Edit-Modelle von SpicyAPI zu laden, oder gib eine Modell-ID wie `bytedance/seedream-5.0-pro/text-to-image` ein. **Test Connection** prüft deinen Key, indem die Modellliste abgerufen wird; das kostet nichts. **Test Image** erzeugt ein echtes Bild und verbraucht dein SpicyAPI-Guthaben.
+`localhost` meint den Rechner, auf dem Marinara läuft. Lokale Bildserver auf diesem Rechner funktionieren ohne weitere Einrichtung. Läuft der Server auf einem anderen Rechner in deinem Netzwerk, gib lokale Netzwerkadressen in der Serverkonfiguration frei. Siehe die [Referenz zur Server-Konfiguration](../CONFIGURATION.md).
 
-Wähl den Dienst **SpicyAPI**. Nutze weder **OpenAI (DALL-E)** noch eine Verbindung vom Typ **Custom (OAI-Compatible)** mit einer SpicyAPI-Adresse. Die Adresse im OpenAI-Stil von SpicyAPI verarbeitet nur Text, deshalb können diese Verbindungen keine Bilder erzeugen.
-
-Jedes SpicyAPI-Modell hat eigene Einstellungen. Marinara fragt bei SpicyAPI nach, welche das gewählte Modell akzeptiert, und sendet nur diese. Dabei wählt Marinara die nächstliegende Form, die das Modell anbietet, etwa ein Seitenverhältnis, Breite und Höhe oder eine feste Größe. Hat das Modell kein Feld für einen negativen Prompt, wird der negative Prompt als Text ans Ende des Prompts angehängt. Nutze **Custom Parameters** für weitere Modelloptionen wie `seed`, `resolution` oder `loras`.
-
-SpicyAPI bearbeitet jedes Bild als Auftrag. Marinara wartet, bis der Auftrag fertig ist, fragt erneut nach, wenn er länger als etwa eine Minute dauert, und lädt dann das Ergebnis herunter. Bricht die Verbindung ab, nimmt Marinara denselben Auftrag wieder auf, statt für einen neuen zu bezahlen. Edit-Modelle (IDs, die auf `/edit` enden) erhalten deine Referenzbilder. SpicyAPI nimmt Referenzbilder bis 1 MB pro Bild und 2 MB pro Anfrage an. Deshalb verkleinert Marinara größere Bilder und lässt überzählige weg, die nicht mehr hineinpassen.
-
-## NanoGPT
-
-Cloud-Dienst mit der Standard-Base-URL `https://nano-gpt.com/api/v1`. Nötig ist ein API-Key von NanoGPT. NanoGPT bündelt mehrere Anbieter, deshalb lädst du die Modellliste am besten mit **Fetch Models from API**.
-
-## Block Entropy
-
-Cloud-Dienst mit der Standard-Base-URL `https://api.blockentropy.ai`. Nötig ist ein API-Key. Marinara hat für Block Entropy keine eigene Behandlung und schickt die Anfragen deshalb im OpenAI-kompatiblen Format. Ob das tatsächlich zusammenpasst, ist nicht bestätigt: Teste den Dienst also mit **Test Image**, bevor du dich darauf verlässt.
-
-## RunPod Serverless (ComfyUI)
-
-Cloud-Dienst mit der Standard-Base-URL `https://api.runpod.ai/v2`. Er führt einen ComfyUI-Workflow auf einem serverlosen RunPod-Endpunkt aus. Dafür sind drei Angaben nötig: das RunPod-API-Token als **API Key**, eine **RunPod Endpoint ID** und ein **ComfyUI Workflow** als JSON. Mehr dazu im Abschnitt zum ComfyUI-Workflow weiter unten.
-
-## Pollinations
-
-Kostenloser Cloud-Dienst mit der Standard-Base-URL `https://image.pollinations.ai`. Weder Konto noch API-Key sind nötig. Schneller kommst du nicht zur ersten Bildgenerierung.
-
-## Stable Horde
-
-Kostenloser Cloud-Dienst mit der Standard-Base-URL `https://stablehorde.net/api/v2`. Dahinter steckt ein Netzwerk aus freiwillig geteilter Rechenleistung. Ein API-Key ist optional. Ein kostenloser Key bringt dich in der Warteschlange weiter nach vorn.
-
-## SD Web UI (AUTOMATIC1111 / Forge)
-
-Lokaler Dienst mit der Standard-Base-URL `http://localhost:7860`. Er spricht mit einer Stable Diffusion Web UI auf dem eigenen Rechner. Starte diese Software mit aktivierter Programmierschnittstelle. Ein API-Key ist nicht nötig.
-
-## ComfyUI
-
-Lokaler Dienst mit der Standard-Base-URL `http://127.0.0.1:8188`. Er spricht mit einem ComfyUI-Server auf dem eigenen Rechner. Eigene Workflows sind möglich, siehe weiter unten. Ein API-Key ist nicht nötig.
-
-## SwarmUI
-
-Lokaler Dienst mit der Standard-Base-URL `http://127.0.0.1:7801`. Er spricht mit einem SwarmUI-Server, der ComfyUI-Aufträge über seine eigene Warteschlange verteilen kann. Bei einem lokalen Server ohne Benutzerkonten ist kein API-Key nötig. Verlangt dein SwarmUI-Server ein Konto, füge ein Swarm Auth Token in **API Key** ein. **Fetch Models from API** listet die Modelle auf deinem SwarmUI-Server auf.
-
-Das Feld **ComfyUI Workflow** ist bei SwarmUI optional. Lass es leer, um die eigenen Bildeinstellungen von SwarmUI zu verwenden, oder füge einen Workflow ein, wie weiter unten beschrieben. Aktiviere **Save images in SwarmUI** (Bilder in SwarmUI speichern) unter **Local Image Defaults**, um jedes Bild zusätzlich im Ausgabeordner von SwarmUI abzulegen. Marinara behält in jedem Fall eine eigene Kopie.
-
-## Draw Things
-
-Lokaler Dienst mit der Standard-Base-URL `http://localhost:7860`. Er spricht mit der Draw-Things-App unter macOS oder iOS. Marinara behandelt sie wie einen AUTOMATIC1111-Server. Ein API-Key ist nicht nötig.
-
-## Lokale Dienste im eigenen Netzwerk
-
-Das Wort `localhost` (auch Loopback genannt) meint denselben Rechner, auf dem Marinara läuft. Lokale Bildserver auf genau diesem Rechner brauchen keine weitere Einrichtung.
-
-Läuft der Bildserver auf einem anderen Rechner im Heimnetzwerk, musst du lokale Netzwerkadressen in der Serverkonfiguration freigeben. Wie das geht, steht in der [Referenz zur Serverkonfiguration](../CONFIGURATION.md).
-
-Liefert ein Anbieter statt der Bilddaten eine URL, lädt Marinara öffentliche CDN-URLs über die üblichen Sicherheitsprüfungen für ausgehende Anfragen herunter. Eine private oder Loopback-URL akzeptiert Marinara nur, wenn Schema, Hostname und Port exakt zum eingerichteten Bildanbieter passen. Weiterleitungen von dieser privaten Adresse dürfen nicht zu einem anderen lokalen Dienst springen. Legt ein lokaler Proxy die Ergebnisse auf einer anderen privaten Adresse ab, richte ihn so ein, dass er diese Dateien über dieselbe Adresse wie seine Bild-API ausliefert.
+Liefert ein Dienst statt der Bilddaten eine URL, lädt Marinara öffentliche CDN-URLs über die üblichen Prüfungen für ausgehende Anfragen herunter. Eine private oder Loopback-URL als Ergebnis akzeptiert Marinara nur, wenn Schema, Hostname und Port exakt zum eingerichteten Bilddienst passen. Weiterleitungen von dieser Adresse dürfen nicht zu einem anderen lokalen Dienst springen. Legt ein lokaler Proxy die Ergebnisse unter einer anderen privaten Adresse ab, richte ihn so ein, dass er diese Dateien über dieselbe Adresse wie seine Bild-API ausliefert.
 
 ## ComfyUI-Workflow-JSON und RunPod
 
-Bei **ComfyUI**, **SwarmUI** und **RunPod Serverless (ComfyUI)** erscheint das Feld **ComfyUI Workflow**. Füge dort ein Workflow-JSON ein, das du in ComfyUI über **Save (API Format)**, **Export (API)** oder **Export to API** exportiert hast – je nach Version des Frontends. Bei **ComfyUI** und **SwarmUI** ist das Feld als Optional markiert, bei **RunPod Serverless (ComfyUI)** als Required.
+Bei **ComfyUI**, **SwarmUI** und **RunPod Serverless (ComfyUI)** erscheint ein Feld **ComfyUI workflow (optional)** oder **(required)**. Füge dort ein Workflow-JSON ein, das du in ComfyUI über **Save (API Format)**, **Export (API)** oder **Export to API** exportiert hast, je nach ComfyUI-Version. Bei ComfyUI und SwarmUI ist es optional, bei RunPod Pflicht. RunPod braucht dein RunPod-API-Token als API-Key, eine **RunPod endpoint ID** und den Workflow.
 
-Marinara füllt den Workflow über Platzhalter. Setze diese Textmarker an die Stellen im Workflow, an denen der jeweilige Wert landen soll.
+Setze diese Textmarker an die Stellen im Workflow, an denen Marinara einen Wert einfüllen soll:
 
 - `%prompt%` und `%negative_prompt%` für die Prompts.
 - `%width%`, `%height%` und `%seed%` für Bildgröße und Seed.
 - `%model%`, `%steps%`, `%cfg%`, `%sampler%`, `%scheduler%` und `%denoise%` für die Einstellungen der Generierung.
-- `%reference_image%` sowie `%reference_image_01%` bis `%reference_image_04%` fügen die Bilddaten der Referenzbilder ein.
-- `%reference_image_name%` sowie `%reference_image_name_01%` bis `%reference_image_name_04%` laden Referenzbilder hoch und fügen deren Dateinamen für einen lokalen LoadImage-Knoten in ComfyUI ein.
+- `%reference_image%` sowie `%reference_image_01%` bis `%reference_image_04%` für die Bilddaten der Referenzbilder.
+- `%reference_image_name%` sowie `%reference_image_name_01%` bis `%reference_image_name_04%`, um Referenzbilder hochzuladen und ihre Dateinamen für einen lokalen LoadImage-Node in ComfyUI einzufügen.
 
-Der wichtigste Platzhalter ist `%prompt%`. Fehlt er, warnt der Editor. Bei **ComfyUI** greift ein eingebauter Standard-Workflow, solange das Feld leer bleibt. Bei **SwarmUI** gelten bei leerem Feld die eigenen Bildeinstellungen von SwarmUI. Bei **RunPod Serverless (ComfyUI)** ist der Workflow Pflicht, denn der Endpunkt hat keinen Standard. Alle drei verarbeiten bis zu 4 rohe base64-Referenzbilder; die Platzhalter für den Dateinamen-Upload gibt es nur beim lokalen ComfyUI.
+Am wichtigsten ist `%prompt%`. Fehlt er, warnt dich der Editor. Bei ComfyUI nutzt ein leeres Feld einen eingebauten Standard-Workflow. Bei SwarmUI gelten dann die eigenen Einstellungen von SwarmUI. RunPod hat keinen Standard, deshalb ist der Workflow dort Pflicht. Alle drei nehmen bis zu 4 rohe base64-Referenzbilder an. Die Platzhalter für den Dateinamen-Upload funktionieren nur beim lokalen ComfyUI.
 
-Den kompletten Exportvorgang, JSON-Beispiele, die Zitierregeln für Platzhalter, die Einrichtung von Referenzbildern, charakterspezifische Workflows, den LAN-Zugriff und die Fehlerbehebung findest du unter [ComfyUI-Workflow einrichten](comfyui.md).
+Die vollständigen Exportschritte, Beispiele, die Regeln für Anführungszeichen, Referenzbilder, charakterspezifische Workflows, den Netzwerkzugriff und die Fehlerbehebung findest du unter [ComfyUI-Workflow einrichten](comfyui.md).
+
+<a id="local-image-defaults-per-connection"></a>
 
 ## Local Image Defaults pro Verbindung
 
-Steht der Dienst auf **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **NovelAI**, **Draw Things**, **Arli AI**, **SwarmUI** oder **RunPod Serverless (ComfyUI)**, erscheint bei der Verbindung das Panel **Local Image Defaults** (lokale Bildstandards). Bei **Draw Things** und **Arli AI** zeigt das Panel dieselben Felder und Standardwerte wie bei **SD Web UI (AUTOMATIC1111 / Forge)**. Bei **SwarmUI** und **RunPod Serverless (ComfyUI)** zeigt es dieselben Felder und Standardwerte wie bei **ComfyUI**. Diese Einstellungen greifen nur, wenn genau diese Verbindung ein Bild generiert. Die Schaltfläche **Reset** (Zurücksetzen) stellt die eingebauten Werte wieder her.
+Bei **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **NovelAI**, **Draw Things**, **Arli AI**, **SwarmUI** und **RunPod Serverless (ComfyUI)** erscheint an einem Bildmodell das Panel **Local image defaults**. Draw Things und Arli AI zeigen die Felder von SD Web UI. SwarmUI und RunPod zeigen die Felder von ComfyUI. Diese Werte gelten nur, wenn dieses Modell ein Bild erzeugt. **Reset** (Zurücksetzen) stellt die eingebauten Werte wieder her.
 
-Alle diese Dienste zeigen ein Feld **Seed**. Der Wert -1 hält jedes Bild zufällig. Jede andere Zahl nutzt jedes Mal exakt denselben Seed.
-
-Die übrigen Felder hängen vom Dienst ab.
+Jeder Dienst hat ein Feld **Seed**. Mit -1 bleibt jedes Bild zufällig. Jede andere Zahl nutzt jedes Mal genau diesen Seed. Die übrigen Felder hängen vom Dienst ab.
 
 | Dienst | Feld | Standard |
 | --- | --- | --- |
 | AUTOMATIC1111 / Forge | Steps | 20 |
-| AUTOMATIC1111 / Forge | CFG Scale | 7 |
+| AUTOMATIC1111 / Forge | CFG scale | 7 |
 | AUTOMATIC1111 / Forge | Sampler | Euler a |
-| AUTOMATIC1111 / Forge | Img2Img Denoise | 0.6 |
+| AUTOMATIC1111 / Forge | Img2img denoise | 0.6 |
 | ComfyUI | Steps | 20 |
-| ComfyUI | CFG Scale | 7 |
+| ComfyUI | CFG scale | 7 |
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
 | NovelAI | Steps | 28 |
-| NovelAI | Prompt Guidance | 6 |
+| NovelAI | Prompt guidance | 6 |
 | NovelAI | Sampler | k_euler_ancestral |
-| NovelAI | Noise Schedule | karras |
+| NovelAI | Noise schedule | karras |
 
-Jeder Dienst hat außerdem die Textfelder **Prompt Prefix** und **Negative Prefix**. Was dort steht, stellt Marinara jedem Prompt dieser Verbindung voran. AUTOMATIC1111 / Forge und ComfyUI haben zusätzlich ein Feld **Clip Skip**. Bei AUTOMATIC1111 / Forge kommt der Schalter **Restore faces** dazu. ComfyUI ergänzt den Schalter **Upload a 1x1 placeholder when no reference image is provided**. Er spielt nur bei eigenen Workflows mit Referenzbild-Platzhaltern eine Rolle. NovelAI ergänzt die Felder **Guidance Rescale** und **UC Preset**.
+Jeder Dienst hat außerdem die Felder **Prompt prefix** und **Negative prefix**. Text darin wird jedem Prompt dieses Modells vorangestellt. AUTOMATIC1111 / Forge und ComfyUI haben ein Feld **Clip skip**. AUTOMATIC1111 / Forge ergänzt den Schalter **Restore faces**. ComfyUI ergänzt einen Schalter, der einen 1x1-Platzhalter hochlädt, wenn kein Referenzbild mitkommt. Er spielt nur bei eigenen Workflows mit Referenz-Platzhaltern eine Rolle. NovelAI ergänzt **Guidance rescale** und **UC preset**.
 
-## Referenzbilder je nach Anbieter
+## Referenzbilder je nach Dienst
 
-Ein **Referenzbild** ist ein vorhandenes Bild, das du zusammen mit dem Prompt schickst. Damit behält das neue Bild etwa das Gesicht eines Charakters oder einen Kunststil bei. Wie viele Referenzbilder erlaubt sind, unterscheidet sich je nach Anbieter.
+Ein Referenzbild ist ein vorhandenes Bild, das du zusammen mit dem Prompt schickst. So behält das neue Bild etwa das Gesicht eines Charakters oder einen Kunststil bei.
 
-| Anbieter | Referenzbilder |
+| Dienst | Referenzbilder |
 | --- | --- |
 | OpenAI (DALL-E) | Bis zu 16, nur GPT-Image-Modelle |
 | ChatGPT (Codex login) | Bis zu 16 |
 | NovelAI | Bis zu 16, nur V4.5-Modell |
 | xAI / Grok Imagine | Bis zu 3 |
-| Venice.ai | Bei Text-to-Image-Generierung nicht unterstützt |
-| Z.AI | In der aktuellen Text-to-Image-Integration nicht unterstützt |
-| Atlas Cloud | Erstes Bild bei passenden Modell-IDs für Image-to-Image, Edit oder Kontext |
-| SpicyAPI | Nur Edit-Modelle, bis zum Limit des Modells; größere Bilder werden passend verkleinert |
 | NanoGPT | Bis zu 3 |
-| Stability AI | Nur das erste Bild, als Image-to-Image genutzt |
-| Arli AI | Nur das erste Bild, als Image-to-Image genutzt |
-| SD Web UI (AUTOMATIC1111 / Forge) und Draw Things | Nur das erste Bild, als Image-to-Image genutzt |
+| ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | Bis zu 4, über Workflow-Platzhalter |
+| Stability AI, Arli AI, SD Web UI, Draw Things | Nur das erste Bild, als Image-to-Image |
+| Atlas Cloud | Erstes Bild, bei passenden Modell-IDs für Image-to-Image, Edit oder Kontext |
+| SpicyAPI | Nur Edit-Modelle, bis zum Limit des Modells, passend verkleinert |
 | OpenRouter Images | Unterstützt, ohne feste Obergrenze |
-| ComfyUI und RunPod Serverless (ComfyUI) | Bis zu 4, über Workflow-Platzhalter |
-| SwarmUI | Bis zu 4 |
+| Venice.ai, Z.AI | Bei Text-to-Image nicht unterstützt |
 | Together AI, Pollinations, Stable Horde, fal.ai | Nicht unterstützt |
 
-Präzise Referenzbilder funktionieren bei NovelAI nur auf einem V4.5-Modell, etwa `nai-diffusion-4-5-full`. NovelAI hat Precise Reference für V5 noch nicht veröffentlicht. Forderst du Referenzen auf einem anderen Modell an, erzeugt Marinara das Bild ohne sie und schreibt eine Warnung ins Server-Log.
+Präzise Referenzbilder funktionieren bei NovelAI nur auf einem V4.5-Modell wie `nai-diffusion-4-5-full`. NovelAI hat Precise Reference für V5 noch nicht veröffentlicht. Forderst du Referenzen auf einem anderen Modell an, erzeugt Marinara das Bild ohne sie und schreibt eine Warnung ins Server-Log.
 
 ## Anfragen zur Mediengenerierung in die Warteschlange stellen
 
-Der Schalter **Queue media generation requests** (Anfragen zur Mediengenerierung in die Warteschlange stellen) sitzt unter **Settings** (Einstellungen), dann **Generations**, dann **Overall Generations**. Standardmäßig ist er aktiv.
+Der Schalter **Queue media generation requests** (Anfragen zur Mediengenerierung in die Warteschlange stellen) sitzt unter **Settings → Generations → Overall Generations**. Standardmäßig ist er an.
 
-Ist er aktiv, schickt Marinara Bildaufträge an jedes Konto bei einem Bildanbieter einzeln nacheinander und Videoaufträge an jedes Konto bei einem Videoanbieter ebenso, jeweils in einer eigenen Warteschlange. Ein Bild und ein Video für dasselbe Konto können gleichzeitig laufen. Das gilt unabhängig davon, welche Funktion sie anfordert: der Illustrator, Tracker, Befehle, die Galerie, Game-Assets und heruntergeladene Agenten wie Slurp. Zwei Verbindungen mit derselben Adresse und demselben API-Key teilen sich die jeweilige Warteschlange. Verschiedene Konten und Anbieter arbeiten weiterhin gleichzeitig. Bei NovelAI kommt außerdem eine kurze Pause zwischen den Aufträgen hinzu. Antwortet NovelAI, dass es ausgelastet ist, wartet Marinara und versucht es noch zweimal, statt das Bild scheitern zu lassen.
+Ist er an, schickt Marinara Bildaufträge an jedes Bildkonto einzeln nacheinander und Videoaufträge an jedes Videokonto ebenso, jeweils in einer eigenen Warteschlange. Ein Bild und ein Video für dasselbe Konto können gleichzeitig laufen. Das gilt für jede Funktion, die sie anfordert: den Illustrator, Tracker, Befehle, die Gallery, Game-Assets und heruntergeladene Agenten wie Slurp. Zwei Modelle mit derselben Adresse und demselben API-Key teilen sich eine Warteschlange. Verschiedene Konten laufen weiterhin gleichzeitig. Bei NovelAI kommt außerdem eine kurze Pause zwischen den Aufträgen hinzu. Antwortet NovelAI, dass es ausgelastet ist, wartet Marinara und versucht es noch zweimal.
 
-Lass ihn an bei Diensten, die zwei gleichzeitige Anfragen ablehnen. Schalte ihn nur aus, wenn dein Dienst viele Anfragen parallel verkraftet und es schneller gehen soll.
+Lass ihn an bei Diensten, die zwei gleichzeitige Anfragen ablehnen. Schalte ihn nur aus, wenn dein Dienst viele Anfragen gleichzeitig verkraftet und es schneller gehen soll.
 
 ## Verwandte Anleitungen
 
-- [ComfyUI-Workflow einrichten](comfyui.md) erklärt das Workflow-JSON für lokale Installationen und RunPod Schritt für Schritt.
-- [Illustrator-Agent](illustrator-agent.md) richtet automatische Szenenillustrationen ein.
-- [Bildstil-Profile](style-profiles.md) prägen den Look jedes generierten Bildes.
-- [Szenenhintergründe und die Galerie](scene-backgrounds.md) behandelt generierte Szenenhintergründe.
-- [Selfies](../conversation/selfies.md) beschreibt den Befehl für Charakter-Selfies im Conversation Mode.
-- [Unterstützte KI-Anbieter](../connections/providers-reference.md) listet alle Anbieter für Chat, Bild und Video auf.
+- [ComfyUI-Workflow einrichten](comfyui.md)
+- [Illustrator-Agent](illustrator-agent.md)
+- [Bild-Stilprofile](style-profiles.md)
+- [Szenen-Hintergründe und die Gallery](scene-backgrounds.md)
+- [Selfies](../conversation/selfies.md)
+- [Unterstützte KI-Anbieter](../connections/providers-reference.md)

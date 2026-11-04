@@ -1,140 +1,101 @@
 # Geführte Generierung und Impersonate
 
-In dieser Anleitung erfährst du, wie du einen Chat in Marinara Engine auf zwei Arten lenkst. Die geführte Generierung gibt der KI eine Richtung vor, ohne dass eine sichtbare Nachricht im Chat landet. Impersonate lässt die KI deine eigene Antwort schreiben. Dazu kommt das **Quick replies**-Menü (Schnellantworten), das beide Aktionen direkt neben die Schaltfläche Send legt.
+Zwei Wege, einen Chat zu lenken. Die geführte Generierung gibt der nächsten Antwort eine Richtung vor, ohne eine sichtbare Nachricht zu posten. Impersonate lässt das Modell deine eigene Antwort schreiben. Das Menü **Quick replies** (Schnellantworten) legt beides neben **Send** (Senden).
 
-## Geführte Generierung
+## Eine Antwort mit /guided lenken
 
-Mit der geführten Generierung sagst du der KI, wohin die nächste Antwort führen soll. Deine Vorgabe bleibt außerhalb der Rolle. Sie lenkt die Antwort, erscheint aber nicht als normale Chat-Nachricht.
+Deine Vorgabe steht außerhalb der Rolle. Sie prägt die Antwort, erscheint aber nicht als Chat-Nachricht.
 
-### Eine Antwort mit /guided lenken
+1. Tipp `/guided` und deine Vorgabe ins Nachrichtenfeld.
+2. Drück <kbd>Enter</kbd> oder klick auf **Send**.
 
-Der wichtigste Weg dahin ist der Slash-Befehl `/guided`.
+Das Modell schreibt seine nächste Antwort in Richtung deiner Vorgabe. Zum Beispiel:
 
-1. Tippe `/guided` und dahinter deine Vorgabe ins Nachrichtenfeld.
-2. Drück Enter oder klick auf Send.
-3. Die KI generiert ihre nächste Antwort – in der Richtung, die du vorgegeben hast.
-
-Dieses Beispiel drängt die nächste Antwort in Richtung eines Geständnisses:
-
-```
+```text
 /guided make him admit he is lying
 ```
 
-Der Befehl hat kurze Aliasse. Statt `/guided` funktionieren auch `/narrator`, `/narrate` oder `/nar`.
+Statt `/guided` kannst du auch `/narrator`, `/narrate` oder `/nar` tippen. In einem Gruppenchat richtest du die Vorgabe mit `respond as`, `reply as` oder `respond for` an einen einzelnen Charakter:
 
-Im Gruppenchat lässt sich die Vorgabe an einen einzelnen Charakter richten. Tippe `/guided respond as <character> <direction>`. Ersetze `<character>` durch den Charakternamen und `<direction>` durch deine Vorgabe. Auch `reply as` und `respond for` funktionieren. Beispiel:
-
-```
+```text
 /guided respond as Alice make her admit she is lying
 ```
 
-### Geführt neu generieren
+## Geführt neu generieren
 
-Eine Antwort lässt sich auch beim Neugenerieren lenken. Dabei dient der Text, der gerade im Nachrichtenfeld steht, einmalig als Vorgabe.
+Dabei dient der Text in deinem Nachrichtenfeld einmalig als Vorgabe für eine Neugenerierung.
 
-1. Öffne **Settings** (Einstellungen), dann **Advanced** (Erweitert), dann **Message Tools** (Nachrichten-Werkzeuge).
-2. Aktiviere **Guide swipes/regens with chat input**. Diese Einstellung ist standardmäßig aus.
-3. Geh zurück in einen Chat und tippe eine Vorgabe ins Nachrichtenfeld, ohne sie abzuschicken.
-4. Klick bei der KI-Nachricht auf **Regenerate** (neu generieren).
+1. Öffne **Settings → Advanced → Message Tools** und schalte **Guide swipes/regens with chat input** (Swipes und Neugenerierungen mit der Chat-Eingabe lenken) ein. Standardmäßig ist die Einstellung aus.
+2. Tipp in einem Chat eine Vorgabe ins Nachrichtenfeld, aber schick sie nicht ab.
+3. Klick an der KI-Nachricht auf **Regenerate** (neu generieren). Steht Text im Feld, heißt die Schaltfläche **Regenerate (guided)**.
 
-Ist die Einstellung aktiv und steht Text im Feld, ändert sich der Tooltip (der Kurzhinweis beim Draufzeigen) der Schaltfläche **Regenerate** zu **Regenerate (guided)**. Die KI erstellt dann eine neue Fassung der Antwort und nutzt deinen getippten Text als Vorgabe.
+Deine Vorgabe bleibt danach im Feld stehen, sodass du sie anpassen und noch einmal neu generieren kannst. Soll das Feld stattdessen geleert werden, schalte **Keep guidance after regenerating** (Vorgabe nach dem Neugenerieren behalten) unter **Settings → General → Input & Editing** aus.
 
-Deine Vorgabe bleibt danach im Nachrichtenfeld stehen. So kannst du sie anpassen und noch einmal neu generieren. Soll das Feld stattdessen geleert werden, schalte unter **Settings** > **General** > **Input & Editing** die Einstellung **Keep guidance after regenerating** aus.
+Wenn es nicht funktioniert hat: Die Schaltfläche muss **Regenerate (guided)** heißen. Steht dort nur **Regenerate**, ist die Einstellung aus oder das Feld leer.
 
-### Stored guidance nachlesen
+<a id="read-stored-guidance"></a>
 
-Entsteht eine Antwort mit einer Vorgabe, speichert Marinara diese Vorgabe zum späteren Nachlesen. An der Nachricht erscheint dann die Aktion **Stored guidance** (gespeicherte Vorgabe) – ein Schriftrollen-Symbol.
+## Stored guidance nachlesen
 
-1. Klick bei der KI-Nachricht auf das Symbol **Stored guidance**.
-2. Es öffnet sich ein Fenster namens **Stored guidance** und zeigt die Vorgabe hinter der Antwort.
+Marinara speichert die Vorgabe, die eine Antwort geprägt hat.
 
-Das Fenster kennzeichnet, woher die Vorgabe stammt:
+1. Klick an der KI-Nachricht auf das Symbol **Stored guidance** (gespeicherte Vorgabe), eine Schriftrolle.
+2. Ein Fenster mit dem Titel **Stored guidance** zeigt die Vorgabe.
 
-- **/guided**: Die Vorgabe kam über den Befehl `/guided`.
-- **Guided regenerate**: Die Vorgabe kam von einem geführten Klick auf **Regenerate**.
-- **Game start**: Die Vorgabe kam aus der Einrichtung des Game Mode.
+Das Fenster kennzeichnet, woher die Vorgabe stammt: **/guided**, **Guided regenerate** oder **Game start** (Einrichtung des Game Mode). Bei Vorgaben aus `/guided` und aus dem geführten Neugenerieren kopiert **Copy /guided** (als /guided kopieren) einen fertigen `/guided`-Befehl, den du in einen anderen Chat einfügen kannst.
 
-Bei Vorgaben aus `/guided` und aus dem geführten Neugenerieren kopiert die Schaltfläche **Copy /guided** die Vorgabe als fertigen `/guided`-Befehl heraus. Den kannst du in einen anderen Chat einfügen und dieselbe Lenkung noch einmal nutzen.
+## Deine Antwort mit Impersonate schreiben
 
-## Impersonate
+Impersonate lässt das Modell deine nächste Nachricht im Tonfall deiner Persona schreiben. Eine Persona ist der Charakter, den du spielst, geschrieben als `{{user}}`. Siehe [Personas](../characters/personas.md).
 
-Impersonate lässt die KI deine nächste Nachricht schreiben – in der Stimme deiner Persona. Die Persona ist der Charakter, den du spielst; im Chat steht sie als `{{user}}`. Wie du eine einrichtest, steht unter [Benutzer-Personas](../characters/personas.md).
+Bevor du anfängst: Impersonate funktioniert nur in Roleplay-Chats. In Conversation siehst du „Impersonate is not available in Conversation mode.“ Auch in Game steht es nicht zur Verfügung.
 
-Impersonate funktioniert nur in Roleplay-Chats, nicht in Conversation- oder Game-Chats. Im Conversation-Chat erscheint stattdessen die Meldung „Impersonate is not available in Conversation mode.“
+1. Tipp `/impersonate` ins Nachrichtenfeld. Wenn du willst, häng eine Vorgabe an.
+2. Drück <kbd>Enter</kbd> oder klick auf **Send**.
 
-### /impersonate verwenden
+Das Modell postet eine Nutzernachricht als deine Persona. Dieses Beispiel schreibt eine Nachricht, die nach dem Wetter fragt:
 
-1. Tippe `/impersonate` ins Nachrichtenfeld. Dahinter kannst du optional eine Vorgabe setzen.
-2. Drück Enter oder klick auf Send.
-3. Die KI schreibt als deine Persona eine Nutzer-Nachricht und stellt sie in den Chat.
-
-So bringst du die KI etwa dazu, in deiner Stimme nach dem Wetter zu fragen:
-
-```
+```text
 /impersonate ask about the weather
 ```
 
-Der Befehl hat einen kurzen Alias. Statt `/impersonate` funktioniert auch `/imp`.
-
-Eine von Impersonate geschriebene Nachricht lässt sich wiederholen. Die Aktion **Regenerate** greift auch bei Nutzer-Nachrichten aus Impersonate – so bekommst du eine andere Fassung.
+Der kurze Alias ist `/imp`. **Regenerate** funktioniert auch bei einer Nachricht, die Impersonate geschrieben hat, sodass du eine andere Fassung bekommst.
 
 ### Die Impersonate-Einstellungen
 
-Impersonate hat einen eigenen Einstellungsbereich, der für jedes `/impersonate` gilt – in allen Chats. Du öffnest ihn über die Einstellungen des jeweiligen Chats.
+Diese Einstellungen gelten für jedes `/impersonate` in all deinen Chats. Öffne in einem Roleplay-Chat **Chat Settings** (Chat-Einstellungen) und such den Abschnitt **Impersonate**. Wie du das Panel öffnest, steht in [Chat Settings](chat-settings.md).
 
-1. Öffne das Panel **Chat Settings** (Chat-Einstellungen) eines Roleplay-Chats.
-2. Such den Abschnitt **Impersonate**.
+| Bedienelement | Funktion |
+| --- | --- |
+| **Prompt Template** (Prompt-Vorlage) | Eine optionale Anweisung, die bei jedem Impersonate mitgeschickt wird. Bleibt sie leer, gilt der Prompt des Chats oder der eingebaute Standard. Sie unterstützt `{{user}}`, `{{persona_description}}` und `{{impersonate_direction}}` – Platzhalter, die Marinara durch echten Text ersetzt. Wähl **Built-in default** (eingebauter Standard), um den Standard zu lesen, **Copy built-in default to edit** (eingebauten Standard zum Bearbeiten kopieren), um eine Kopie anzulegen, **Save as** (Speichern unter), um eine Vorlage unter einem Namen zu behalten, und **Delete template** (Vorlage löschen), um eine zu entfernen. |
+| **Preset** | Ein Prompt-Preset nur für Impersonate-Antworten. Standard: **Use chat default** (Chat-Standard verwenden). Siehe [Presets](../prompts/presets.md). |
+| **Connection** (Verbindung) | Das Modell für Impersonate-Antworten, etwa ein günstigeres oder schnelleres. Standard: **Use chat default**. Du kannst auch **Random** (Zufall) wählen. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md). |
+| **Skip agents** (Agenten überspringen) | Überspringt während Impersonate die Agenten (Tracker, Lorebook-Router und ähnliche Helfer). Das hält Impersonate schnell und verhindert, dass es den Weltzustand ändert. Standardmäßig aus. Siehe [Agenten](../agents/agents-overview.md). |
+| **Use CYOA as direction** (CYOA als Vorgabe verwenden) | Ein Klick auf eine CYOA-Option (choose your own adventure, „wähle dein eigenes Abenteuer“) dient als Impersonate-Vorgabe, statt sie zu posten. Standardmäßig aus. Ist **Add CYOA choices to the message box instead of sending them** (CYOA-Auswahlmöglichkeiten ins Nachrichtenfeld einfügen, statt sie abzuschicken) unter **Settings → General → Input & Editing** an, fügt ein Klick nur den Text in dein Nachrichtenfeld ein, und diese Einstellung hat keine Wirkung. |
 
-Der Abschnitt enthält diese Bedienelemente:
+### Einen Prompt für einen Chat festlegen
 
-- **Prompt Template**: eine optionale Anweisung, die bei jedem Impersonate an das Modell geht. Bleibt das Feld leer, greift der Prompt des Chats – oder der eingebaute Standard, falls der Chat keinen hat. Unterstützt werden die Makros `{{user}}`, `{{persona_description}}` und `{{impersonate_direction}}`. Ein Makro ist ein Platzhalter, den Marinara vor dem Senden durch echten Text ersetzt. Über **Built-in default** liest du den Standardtext nach. Die Schaltfläche **Reset** setzt eine eigene Vorlage wieder auf leer zurück.
-- **Preset**: nutzt ein bestimmtes Prompt-Preset nur für Impersonate-Antworten. Ein Preset ist eine gespeicherte Sammlung von Prompt-Einstellungen. Siehe [Presets](../prompts/presets.md). Der Standard ist **Use chat default**. Presets greifen nur im Roleplay.
-- **Connection**: leitet Impersonate-Antworten über eine bestimmte Verbindung, etwa über ein günstigeres oder schnelleres Modell. Eine Verbindung ist eine gespeicherte Verknüpfung zu einem KI-Anbieter. Siehe [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md). Der Standard ist **Use chat default**. Möglich ist außerdem **Random**.
-- **Skip agents**: Ist der Schalter an, überspringt Marinara während Impersonate die Agenten-Pipeline (Tracker, Lorebook-Router und ähnliche Helfer). Das hält Impersonate schnell und verhindert Änderungen am Weltzustand. Standardmäßig ist der Schalter aus. Siehe [Agenten](../agents/agents-overview.md).
-- **Use CYOA as direction**: Ist der Schalter an, wird ein angeklickter CYOA-Punkt zur Impersonate-Vorgabe, statt als normale Nachricht im Chat zu landen. CYOA steht für „choose your own adventure“ – eine Reihe anklickbarer Auswahlmöglichkeiten, die manche Chats nach einer Antwort anzeigen. Standardmäßig ist diese Einstellung aus. Ist unter **Settings** > **General** > **Input & Editing** die Option **Add CYOA choices to the message box instead of sending them** (CYOA-Auswahlen ins Nachrichtenfeld einfügen statt sie zu senden) eingeschaltet, fügt ein Klick auf eine Auswahl nur ihren Text in dein Nachrichtenfeld ein, und diese Einstellung hat keine Wirkung.
+1. Tipp `/impersonate_prompt` und deinen Prompt in Anführungszeichen.
+2. Drück <kbd>Enter</kbd>.
 
-### Einen eigenen Impersonate-Prompt setzen
-
-Ein Impersonate-Prompt lässt sich per Slash-Befehl auch nur für einen einzelnen Chat setzen.
-
-1. Tippe `/impersonate_prompt` und dahinter deinen Prompt in Anführungszeichen.
-2. Drück Enter.
-
-Beispiel:
-
-```
+```text
 /impersonate_prompt "You will now play as my OC:"
 ```
 
-Um den Prompt dieses Chats zu löschen und zum Standard zurückzukehren, tippe:
+Um zum Standard zurückzukehren, tipp `/impersonate_prompt reset`. Der Alias ist `/imp_prompt`.
 
-```
-/impersonate_prompt reset
-```
+## Quick replies neben Send hinzufügen
 
-Der Befehl hat einen kurzen Alias: `/imp_prompt`.
+Quick replies ergänzen **Send** um Alternativen mit einem Klick, sodass du keinen Slash-Befehl tippen musst.
 
-## Das **Quick replies**-Menü
+1. Öffne **Settings → General → Input & Editing**.
+2. Schalte **Quick replies** ein. Standardmäßig ist es aus.
+3. Klapp es auf, um zu wählen, welche Aktionen erscheinen. Sobald es an ist, sind alle drei Aktionen standardmäßig an.
 
-Das **Quick replies**-Menü legt zusätzliche Sende-Aktionen neben die normale Schaltfläche Send. Damit erreichst du die geführte Generierung und Impersonate mit einem Klick, ganz ohne Slash-Befehl.
+| Aktion | Funktion |
+| --- | --- |
+| **Post only** (nur posten) | Stellt deine getippte Nachricht ohne Antwort in den Chat. Der Befehl `/send <message>` bewirkt dasselbe. |
+| **Guide reply** (Antwort lenken) | Schickt deinen getippten Text als `/guided`-Vorgabe. |
+| **Impersonate** | Erzeugt eine Antwort von der Seite deiner Persona und nutzt deinen getippten Text als Vorgabe. In Conversation-Chats ist diese Aktion ausgeblendet. |
 
-Welche Aktionen erscheinen, legst du in den Einstellungen fest.
-
-1. Öffne **Settings**, dann **Advanced**, dann **Message Tools**.
-2. Aktiviere **Quick replies**. Standardmäßig ist die Option aus.
-3. Klapp sie auf und wähle die gewünschten Aktionen. Sobald das Menü aktiv ist, sind alle drei Aktionen standardmäßig an.
-
-Diese drei Aktionen gibt es:
-
-- **Post only**: stellt deine getippte Nachricht in den Chat, ohne eine KI-Antwort auszulösen. Das geht auch mit dem Slash-Befehl `/send <message>`.
-- **Guide reply**: schickt deinen getippten Text als `/guided`-Vorgabe statt als normale Nachricht.
-- **Impersonate**: generiert eine Antwort als deine Persona und nutzt den getippten Text als Vorgabe. In Conversation-Chats ist diese Aktion ausgeblendet, weil Impersonate dort nicht funktioniert.
-
-Ist nur eine Aktion aktiv, sitzt ihre Schaltfläche direkt neben Send. Sind mehrere aktiv, rutschen sie in ein kleines Menü. Ein Klick auf die Drei-Punkte-Schaltfläche (Beschriftung **Quick replies**) öffnet es.
-
-## Verwandte Anleitungen
-
-- [Nachrichten-Aktionen: Bearbeiten, Löschen, Swipen, Neu generieren](messages.md)
-- [Peek Prompt: Sehen, was die KI bekommen hat](peek-prompt.md)
-- [Benutzer-Personas: Anlegen und Bearbeiten](../characters/personas.md)
-- [Presets](../prompts/presets.md)
+Ist eine Aktion an, sitzt ihre Schaltfläche neben **Send**. Sind es mehrere, wandern sie in eine Drei-Punkte-Schaltfläche (**Quick replies**), die ein Menü öffnet.

@@ -1,171 +1,144 @@
 # Referência de comandos de barra
 
-Neste guia estão listados os comandos de barra que você pode digitar em um chat do Marinara Engine. Um comando de barra é um atalho digitado na caixa de mensagem, começando com uma barra, para fazer algo rápido. Alguns comandos agem na tela na hora, e outros pedem que a IA escreva alguma coisa.
+Um comando de barra é um atalho que você digita na caixa de mensagem, começando com `/`, para fazer algo rápido. Alguns mudam a tela na hora. Outros pedem que o modelo escreva alguma coisa.
 
 ## Como funcionam os comandos de barra
 
-Para executar um comando de barra, digite ele na caixa de mensagem no rodapé do chat e clique em **Send** (enviar). A tecla Enter também envia, se a opção **Send on Enter** (enviar com Enter) estiver ativada para o modo de chat em uso na seção **Settings** (Configurações). Por padrão, Enter envia nos chats de Conversation e começa uma linha nova nos chats de Roleplay. A própria caixa de mensagem lembra os comandos de barra. Em um chat de Roleplay, o texto de exemplo diz **Write your response, / for commands**. Em um chat de Conversation, o texto de exemplo mostra o nome do personagem, como "Message @Alice, / for commands". Uma conversa com mais de um personagem mostra o nome do chat no lugar.
+1. Digite o comando na caixa de mensagem, na parte de baixo do chat.
+2. Clique em **Send** (enviar) ou pressione <kbd>Enter</kbd> se **Send on Enter** (enviar com Enter) estiver ativado para o seu modo de chat. Veja [Enviar mensagens e streaming](sending-and-streaming.md#send-on-enter).
 
-Assim que você digita uma barra, um pequeno menu com os comandos correspondentes aparece acima da caixa. Cada linha traz o formato do comando, incluindo os argumentos, e uma descrição curta. Clique ou toque em uma linha para preencher a caixa com aquele comando, depois acrescente o texto extra e envie.
+Assim que você digita `/`, um menu com os comandos correspondentes aparece acima da caixa. Cada linha mostra o formato do comando e uma descrição curta. Clique em uma linha para preenchê-la na caixa, acrescente o texto extra e envie. A dica da caixa também menciona os comandos: **Write your response, / for commands** em Roleplay e "Message @Alice, / for commands" em Conversation.
 
-Substitua os rótulos entre colchetes, como `[name]` ou `[range]`, pelos seus valores; não digite os colchetes. Os argumentos marcados com `(optional)` podem ser omitidos. O símbolo `|` separa alternativas, sejam valores como `prompt|reset` ou formatos completos de comando.
+Nas tabelas, o formato de cada comando fica na linha dele. Substitua os rótulos entre colchetes, como `[name]` ou `[range]`, pelos seus próprios valores e não digite os colchetes. As entradas marcadas com `(optional)` podem ser omitidas. O `|` separa alternativas. Muitos comandos têm apelidos mais curtos, como `/cont` para `/continue`. Para ver todos os comandos no aplicativo, digite:
 
-Muitos comandos têm apelidos mais curtos. Por exemplo, `/continue` e o apelido `/cont` fazem exatamente a mesma coisa. Para ver a lista completa dentro do aplicativo a qualquer momento, execute este comando:
-
-```
+```text
 /help
 ```
 
-Alguns comandos rodam no navegador e mudam o chat na hora, sem custo nenhum. Outros pedem que a IA gere texto, o que usa o provedor conectado e pode consumir tokens. O token é a unidade que a maioria dos provedores de IA usa para medir e cobrar o texto. As tabelas abaixo indicam o que cada comando faz.
+Alguns comandos rodam no navegador e não custam nada. Outros pedem que o modelo escreva texto, o que usa a sua conta e pode consumir tokens (as unidades que os serviços contam e cobram).
 
-Os comandos de barra funcionam nas caixas de mensagem de **Conversation** e **Roleplay**. No modo **Game**, só `/illustrate` funciona como comando de barra. Qualquer outra coisa digitada com barra na frente é enviada como texto comum.
+Os comandos de barra funcionam nas caixas de mensagem de Conversation e de Roleplay. Em Game, só funciona `/illustrate` (ou `/ill`) sozinho, sem intervalo nem prompt, e só quando as ilustrações de Game estão configuradas com uma conta de imagem. Qualquer outra coisa que comece com barra é enviada como texto comum. Em Roleplay e em Conversation, os comandos `/illustrate`, `/selfie` e `/video` precisam do agente Illustrator e só aparecem quando ele está instalado.
 
-Vários comandos usam números de mensagem. Marinara conta as mensagens a partir da primeira do chat como número 1, depois 2, depois 3, e assim por diante. Comandos como `/goto`, `/hide` e `/unhide` usam esses números.
+Vários comandos usam números de mensagem. Marinara conta a partir da primeira mensagem do chat, que é a número 1. `/goto`, `/hide` e `/unhide` usam esses números. **Show message numbers** (mostrar os números das mensagens) os exibe. Veja [Ações de mensagem](messages.md#message-display-toggles).
 
 ## Comandos de chat e de mensagem
 
-Estes comandos ajudam a cuidar do chat e das mensagens dele. Funcionam nos chats de **Conversation** e **Roleplay**.
+Estes funcionam em Conversation e em Roleplay.
 
-| Comando | Também funciona como | O que faz |
-|---|---|---|
-| `/help` | | Lista todos os comandos de barra. |
-| `/send [message]` | | Publica uma mensagem no papel da sua persona sem iniciar uma geração. Ela é salva do mesmo jeito que pelo **Send**, com as macros preenchidas. |
-| `/continue` | `/cont` | Acrescenta mais texto à última resposta da IA, sem enviar uma mensagem nova. A opção **Add a new line before /continue text** em **Settings → General → Responses** define se esse texto começa depois de uma linha em branco ou direto no ponto em que parou. |
-| `/goto [number]` | `/jump`, `/scroll` | Rola o chat até uma mensagem pelo número dela. |
-| `/hide [range] [name (optional)]` | | Esconde uma ou mais mensagens da IA nos turnos seguintes. |
-| `/unhide [range]` | | Devolve as mensagens escondidas para a visão da IA. |
-| `/sys [message]` | `/system` | Acrescenta uma mensagem de sistema. Essa nota aparece no chat e orienta a IA, mas nenhum personagem a diz. |
-| `/macros` | `/macro` | Lista as macros de prompt com suporte, como `{{user}}` e `{{char}}`. |
-| `/remind [time] [message]` | `/reminder`, `/timer` | Marca um tempo e depois publica uma mensagem de lembrete no chat. |
+| Comando | O que faz |
+|---|---|
+| `/help` | Lista todos os comandos de barra. |
+| `/send` | Publica uma mensagem como a sua persona sem pedir uma resposta. As macros são preenchidas, como no **Send**. Formato: `/send [message]`. |
+| `/continue` | Acrescenta mais texto à última resposta da IA, sem uma mensagem nova. Também `/cont`. **Settings → General → Responses → Add a new line before /continue text** (Configurações → Geral → Respostas → Adicionar uma nova linha antes do texto de /continue) define se o texto começa depois de uma linha em branco ou no ponto em que parou. |
+| `/goto` | Rola o chat até um número de mensagem. Também `/jump`, `/scroll`. Formato: `/goto [number]`. |
+| `/hide` | Esconde mensagens do modelo nos próximos turnos. Formato: `/hide [range] [name (optional)]`. |
+| `/unhide` | Devolve as mensagens escondidas globalmente. Formato: `/unhide [range]`. |
+| `/sys` | Acrescenta uma mensagem de sistema. Ela aparece no chat e orienta o modelo, mas nenhum personagem a diz. Também `/system`. Formato: `/sys [message]`. |
+| `/macros` | Lista as macros de prompt, como `{{user}}` e `{{char}}`. Também `/macro`. |
+| `/remind` | Marca um tempo e depois publica um lembrete no chat. Também `/reminder`, `/timer`. Formato: `/remind [time] [message]`. |
 
-Para pular até a mensagem 27, digite isto:
+Exemplos:
 
-```
+```text
 /goto 27
-```
-
-Os comandos `/hide` e `/unhide` aceitam um número, um intervalo ou uma mistura dos dois. Este exemplo esconde as mensagens de 3 a 8:
-
-```
 /hide 3-8
+/remind 30m check the oven
 ```
 
-Você também pode escrever `/hide 5` para uma mensagem ou `/hide 2-5,9,12` para várias. Sem um nome de personagem, as mensagens ficam ocultas para todos. As mensagens ocultas continuam no chat, mas a IA não as lê no próximo turno. Use `/unhide` com o mesmo tipo de lista de números para restaurar as mensagens ocultas globalmente.
+`/hide` e `/unhide` aceitam um número, um intervalo ou uma mistura dos dois: `/hide 5`, `/hide 3-8`, `/hide 2-5,9,12`. As mensagens escondidas continuam no chat, mas o modelo não as lê.
 
-No **Roleplay**, acrescente um nome de personagem depois do intervalo para ocultar essas mensagens apenas daquele personagem:
+Em Roleplay, acrescente um nome de personagem depois do intervalo para esconder as mensagens só daquele personagem. Os outros personagens continuam com acesso.
 
-```
+```text
 /hide 3-8 Maukie
 /hide 2-5,9 "Powers That Be"
 ```
 
-O acesso dos outros personagens não muda. Se colocar o nome primeiro, use aspas nos nomes com espaços: as formas anteriores `/hide Maukie 3-8` e `/hide "Powers That Be" 2-5,9` continuam funcionando. Se um nome corresponder a vários personagens, use o nome completo. Coloque nomes numéricos entre aspas para distingui-los dos números de mensagem, por exemplo `/hide 1 "123"`. Em um chat de grupo Roleplay, use o seletor de avatares de **Hide from AI** (ocultar da IA) da mensagem para conferir ou desfazer a ocultação por personagem. Em um chat Roleplay com apenas um personagem, use a ação **Unhide from AI** (mostrar novamente à IA) da mensagem. `/unhide` desfaz apenas a ocultação global.
+Coloque entre aspas os nomes que têm espaços. As formas antigas com o nome primeiro, como `/hide Maukie 3-8`, continuam funcionando. Se um nome corresponder a vários personagens, use o nome completo. Coloque nomes numéricos entre aspas para diferenciá-los dos números de mensagem, como em `/hide 1 "123"`. Para conferir ou desfazer a ocultação por personagem, use o seletor de avatares de **Hide from AI** (ocultar da IA) da mensagem em um chat de Roleplay em grupo, ou **Unhide from AI** (mostrar para a IA) em um chat com um só personagem. `/unhide` desfaz apenas a ocultação global.
 
-O comando `/remind` recebe um tempo e depois uma mensagem. O tempo usa `h` para horas, `m` para minutos e `s` para segundos. Este exemplo avisa você em 30 minutos:
+`/remind` recebe um tempo com `h` (horas), `m` (minutos) ou `s` (segundos) e depois uma mensagem. O lembrete vive na sessão do navegador, então deixe a aba aberta até ele disparar.
 
-```
-/remind 30m check the oven
-```
+## Comandos de história e de roleplay
 
-O lembrete vive na sessão do navegador, então deixe a aba aberta até a hora chegar.
+| Comando | O que faz |
+|---|---|
+| `/guided` | Conduz a próxima resposta. Também `/narrator`, `/narrate`, `/nar`. Formato: `/guided [direction]`. |
+| `/as` | Publica uma mensagem como um personagem, ou pede que esse personagem responda. Também `/respond`. Formato: `/as [name] [message (optional)]`. |
+| `/emote` | Lista ou troca uma expressão de sprite. Também `/emotion`, `/sprite`. Formato: `/emote [expression]`. |
+| `/roll` | Rola dados e publica o resultado. Também `/r`, `/dice`. Formato: `/roll [dice (optional)]`. |
+| `/random` | Pede que o modelo acrescente um evento surpresa. Também `/rand`, `/event`. |
+| `/scene` | Começa uma cena de Roleplay que se ramifica a partir da conversa. Também `/rp`. Formato: `/scene [description (optional)]`. |
+| `/illustrate` | Só em Roleplay. Gera uma imagem de galeria. Precisa do agente Illustrator. Também `/ill`. Formato: `/illustrate [range=N-M] [prompt]`. |
+| `/html` | Só em Roleplay. Cria um artefato do mundo da história, como `a spellbook page`, no fim da resposta mais recente. Formato: `/html [what you want]`. |
+| `/video` | Só em Roleplay. Cria um clipe curto da resposta mais recente, ou da sua descrição, abaixo dessa resposta. Segue a configuração **First frame** (primeiro quadro) do Illustrator. Precisa do Illustrator. Formato: `/video [description]`. |
+| `/impersonate` | Escreve uma resposta como a sua persona. Também `/imp`. Formato: `/impersonate [direction (optional)]`. |
+| `/impersonate_prompt` | Define a instrução que `/impersonate` usa neste chat. Também `/imp_prompt`. Formato: `/impersonate_prompt [prompt or reset]`. |
 
-## Comandos de história e roleplay
+A maioria funciona melhor em Roleplay. `/scene` é executado a partir de um chat de Conversation. `/impersonate` e `/impersonate_prompt` não estão disponíveis em Conversation.
 
-Estes comandos ajudam a conduzir a história, interpretar um personagem e acrescentar arte. A maioria funciona melhor em um chat de **Roleplay**. A exceção é `/scene`, que você executa a partir de um chat de **Conversation**.
+### Conduza uma resposta
 
-| Comando | Também funciona como | O que faz |
-|---|---|---|
-| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Conduz a próxima resposta da IA na direção que você descrever. |
-| `/as [name] [message (optional)]` | `/respond` | Publica uma mensagem como um personagem, ou pede que um personagem responda. |
-| `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Lista ou troca a expressão do sprite de um personagem. |
-| `/roll [dice (optional)]` | `/r`, `/dice` | Rola os dados e publica o resultado. |
-| `/random` | `/rand`, `/event` | Pede que a IA acrescente um evento surpresa à história. |
-| `/scene [description (optional)]` | `/rp` | Executado a partir de um chat de Conversation. Começa uma cena nova de Roleplay, criando uma ramificação a partir daquela conversa. |
-| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Gera uma imagem de galeria para o chat atual. |
-| `/html [what you want]` | | Roleplay: cria um artefato do mundo da história no fim da resposta mais recente, por exemplo `a spellbook page`. |
-| `/video [description (optional)]` | | Roleplay: cria um clipe curto da resposta mais recente, ou do que você descrever, abaixo dessa resposta. Segue a configuração **First frame** (primeiro quadro) de Illustrator. Em Conversation, `/video` envia uma mensagem de vídeo (veja abaixo). |
-| `/impersonate [direction (optional)]` | `/imp` | Escreve uma resposta no papel da persona. |
-| `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Define a instrução que `/impersonate` usa neste chat. |
-
-Em **Roleplay**, `/illustrate range=12` ilustra a mensagem 12, e `/illustrate range=12-18` envia as mensagens de 12 a 18 ao Illustrator. Use os mesmos números de `/goto`, em ordem crescente, com no máximo 200 mensagens. Mensagens ocultas continuam excluídas. A imagem é anexada à última mensagem visível do intervalo; a revisão do prompt mantém essa seleção mesmo se chegarem mensagens novas. Mensagens anteriores continuam disponíveis com Advanced Memory ativado. Sem `range=`, o comando mantém o comportamento normal para a cena atual. Um prompt digitado opcional é usado diretamente, como antes.
-
-`/html a terminal readout` cria um artefato no fim da resposta mais recente. Ele não precisa de agente e funciona com **HTML Artifacts** (artefatos HTML) ativado ou não. O próprio narrador pode fazer o mesmo pedido com `[html: prompt="..."]` quando **HTML Artifacts** está ativado em **Roleplay Commands**. Veja [Artefatos sob demanda](../roleplay/getting-started.md#artifacts-on-demand).
-
-Para conduzir a próxima resposta, escreva a direção depois de `/guided`:
-
-```
+```text
 /guided make him confess he is lying
-```
-
-Em um chat de grupo Roleplay, use `/guided respond as [name] [direction (optional)]` para escolher o personagem que vai responder. `reply as` e `respond for` também funcionam. Por exemplo:
-
-```
 /guided respond as "Powers That Be" describe the approaching storm
 ```
 
-Use `/as [name] [message (optional)]` para publicar texto no papel de um personagem. Se omitir a mensagem, o modelo gera a próxima resposta daquele personagem:
+`reply as` e `respond for` também funcionam no lugar de `respond as`. Veja [Geração guiada e Impersonate](guided-and-impersonate.md).
 
-```
+### Publique como um personagem
+
+Omita a mensagem para o modelo escrever a próxima resposta daquele personagem.
+
+```text
 /as Dottore "The experiment begins."
 /as Dottore
 ```
 
-O comando `/roll` entende a notação de dados. Este exemplo rola dois dados de seis lados:
+### Role dados
 
-```
-/roll 2d6
-```
+`/roll 2d6` rola dois dados de seis lados. Acrescente um modificador, como em `/roll 1d20+5`. Sem nada depois, `/roll` rola `1d20`. Para manter só alguns dados, acrescente `kh` (manter os maiores) ou `kl` (manter os menores) e um número: `/roll 4d6kh3` soma os três maiores, e `/roll 2d20kl1` mantém o menor de dois. Já `dl` e `dh` descartam os menores ou os maiores, como em `/roll 4d6dl1`. Os dados que não contam continuam aparecendo, esmaecidos.
 
-Você pode acrescentar um modificador, como `/roll 1d20+5`. Se digitar `/roll` sem mais nada, Marinara rola `1d20`.
+### Troque um sprite
 
-Para manter apenas alguns dos dados, acrescente `kh` (manter os maiores) ou `kl` (manter os menores) e um número: `/roll 4d6kh3` rola quatro dados e soma os três maiores, e `/roll 2d20kl1` mantém o menor de dois. Já `dl` e `dh` descartam os menores ou os maiores, como em `/roll 4d6dl1`. Os dados que não contam continuam aparecendo, esmaecidos.
+Um sprite é uma imagem do personagem que mostra uma expressão. Digite `/emote` sozinho para ver as expressões disponíveis, ou escreva o nome de uma:
 
-O sprite é uma imagem do personagem que mostra uma expressão. O comando `/emote` troca qual delas aparece. Digite `/emote` sozinho para ver as expressões disponíveis, ou escreva o nome de uma para trocar:
-
-```
+```text
 /emote joy
+/emote "Powers That Be" joy
 ```
 
-Para escolher um personagem, use `/emote "[name]" [expression (optional)]`, por exemplo `/emote "Powers That Be" joy`. Omita a expressão para listar as expressões disponíveis daquele personagem.
+Com um nome e sem expressão, ele lista as expressões daquele personagem. O comando precisa de um chat de Roleplay com sprites enviados. Veja [Sprites de personagem](../characters/sprites.md).
 
-A troca de sprite exige um chat de Roleplay com sprites enviados. Veja [Sprites de personagem](../characters/sprites.md) para saber como acrescentá-los.
+### Ilustre e crie artefatos
 
-A persona é o personagem que representa você em um chat, escrito como `{{user}}` nos prompts. O comando `/impersonate` escreve uma resposta no seu lugar. Você pode acrescentar uma direção depois dele:
+`/illustrate range=12` ilustra a mensagem 12. `/illustrate range=12-18` envia as mensagens de 12 a 18 ao Illustrator. Use os mesmos números de mensagem de `/goto`, em ordem crescente, com no máximo 200 mensagens. As mensagens escondidas ficam de fora. A imagem é anexada à última mensagem visível do intervalo. As mensagens anteriores continuam disponíveis com o Advanced Memory ativado. Sem `range=`, o comando age sobre a cena atual. Um prompt que você digita é usado do jeito que foi escrito.
 
-```
-/impersonate ask about the weather
-```
+`/html a terminal readout` não precisa de agente e funciona com **HTML Artifacts** (artefatos HTML) ativado ou não. O narrador pode pedir o mesmo com `[html: prompt="..."]` quando **HTML Artifacts** está ativado em **Roleplay Commands** (comandos de Roleplay). Veja [Artefatos sob demanda](../roleplay/getting-started.md#artifacts-on-demand).
 
-Os comandos `/impersonate` e `/impersonate_prompt` não estão disponíveis nos chats de **Conversation**. Para um passo a passo completo de geração guiada e personificação, veja [Geração guiada e Impersonate](guided-and-impersonate.md).
+### Escreva a sua resposta
 
-## Comandos do Conversation Mode
+`/impersonate ask about the weather` escreve uma resposta com a voz da sua persona. A persona é o personagem que representa você, escrito `{{user}}` nos prompts. Estes dois comandos não estão disponíveis em Conversation.
 
-Estes comandos só funcionam em um chat de **Conversation**.
+## Comandos do modo Conversation
+
+Estes só funcionam em um chat de Conversation.
 
 | Comando | O que faz |
 |---|---|
-| `/games` | Abre o seletor de jogos de Conversation instalados. `/game` e `/play` fazem o mesmo. |
-| `/selfie [name (optional)]` | Gera uma selfie com o agente Illustrator instalado. Acrescente um nome para escolher um personagem. |
-| `/video [name (optional)]` | Faz um personagem enviar uma mensagem de vídeo curta para você, usando as configurações de **Video messages** (mensagens de vídeo) do chat. Acrescente um nome para escolher um personagem. Veja [Mensagens de vídeo](../conversation/selfies.md#video-messages). |
+| `/games` | Abre o seletor de jogos instalados. `/game` e `/play` fazem o mesmo. |
+| `/selfie` | Gera uma selfie com o agente Illustrator. Acrescente um nome para escolher um personagem. Formato: `/selfie [name (optional)]`. |
+| `/video` | Faz um personagem enviar uma mensagem de vídeo curta, usando as configurações de **Video messages** (mensagens de vídeo) do chat. Veja [Mensagens de vídeo](../conversation/selfies.md#video-messages). Formato: `/video [name (optional)]`. |
 | `/uno` | Começa uma partida de UNO com os personagens do chat. |
 | `/chess` | Começa uma partida de xadrez de um contra um com um personagem. |
-| `/poker` | Começa uma partida de pôquer Texas Hold'em com os personagens. |
-| `/8ball` | Começa uma partida de sinuca bola 8 de um contra um com um personagem. `/pool` faz a mesma coisa. |
-| `/status [online\|idle\|dnd\|offline\|clear] [name (optional)]` | Define ou limpa o status de presença de um personagem. |
+| `/poker` | Começa uma partida de Texas Hold'em com os personagens. |
+| `/8ball` | Começa uma partida de sinuca bola 8 de um contra um com um personagem. `/pool` faz o mesmo. |
+| `/status` | Define ou limpa o status de presença de um personagem. Formato: `/status [online, idle, dnd, offline or clear] [name]`. |
 
-Os comandos `/uno`, `/chess`, `/poker` e `/8ball` abrem a tela de configuração daquele jogo. Só é possível jogar uma partida por vez em um chat. Para as regras e as opções, veja [Jogos de mesa](../conversation/table-games.md).
+Os comandos de jogo abrem a tela de configuração daquele jogo, e cada um só aparece quando o agente do jogo está instalado. Você pode jogar uma partida por vez em um chat. Veja [Jogos de mesa](../conversation/table-games.md).
 
-O comando `/status` sobrepõe a presença de um personagem. O status pode ser `online`, `idle`, `dnd` (não perturbe) ou `offline`. Use `clear` para remover a sobreposição. Este exemplo deixa o personagem ausente:
+`/status` sobrepõe a presença de um personagem. O status pode ser `online`, `idle`, `dnd` (não perturbe) ou `offline`. `clear` remove a sobreposição. Em um chat com vários personagens, acrescente o nome no fim.
 
-```
+```text
 /status idle
+/status online Alice
 ```
-
-Em um chat com mais de um personagem, escreva o nome do personagem no fim, como `/status online Alice`.
-
-## Guias relacionados
-
-- [Ações de mensagem](messages.md)
-- [Geração guiada e Impersonate](guided-and-impersonate.md)
-- [Jogos de mesa](../conversation/table-games.md)
-- [Macros](../prompts/macros.md)

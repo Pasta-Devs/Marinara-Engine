@@ -1,126 +1,113 @@
 # 消息翻译
 
-Marinara Engine 可以把聊天消息在不同语言之间互译。本指南介绍四种翻译服务商、自动翻译开关、每条消息上的 Translate(翻译) 按钮，以及各家服务商的限制。
+Marinara Engine 可以把聊天消息在不同语言之间互译。本指南介绍如何选择翻译服务、设置语言、开启自动翻译，以及翻译单条消息。
 
-翻译是按聊天分别设置的。每个聊天都有自己的服务商、语言和密钥。想让新聊天沿用同样的设置，就把它们保存为[翻译默认设置](#translator-defaults-for-new-chats)。
+翻译是按聊天分别设置的。每个聊天都有自己的服务、语言和密钥。想让新聊天沿用同样的设置，就把它们保存为[翻译默认设置](#translator-defaults-for-new-chats)。
 
 ## 翻译设置在哪里
 
 1. 在任意模式下打开一个聊天（Conversation、Roleplay 或 Game）。
-2. 打开这个聊天的 **Chat Settings**(聊天设置) 面板。
+2. 打开 **Chat Settings**(聊天设置)。
 3. 找到 **Translation**(翻译) 这一节。
 
-下面讲到的服务商设置和各个开关，全都在 **Translation** 这一节里。
+下面的所有设置都在这一节里。
 
 ## 选择服务商
 
-**Provider**(服务商) 下拉菜单有四个选项：
+**Provider**(服务商) 列表有四个选项。
 
 | 服务商 | 需要什么 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | **Google Translate** | 什么都不用 | 默认选项。免费，不需要密钥。单次请求最多 5000 个字符。 |
 | **DeepL API** | 一个 DeepL API 密钥 | 质量更高。免费密钥和付费密钥都能用。 |
-| **DeepLX (self-hosted)** | 一个 DeepLX 服务器地址 | 用于自己搭建的 DeepLX 实例。 |
-| **AI (via connection)** | 一个 AI 连接 | 调用已配置好的 AI 服务商来翻译。 |
+| **DeepLX (self-hosted)** | 一个 DeepLX 服务器地址 | 用于自己运行的 DeepLX 服务器。 |
+| **AI (via connection)** | 一个 AI 账号 | 用你的某个 AI 模型来翻译。 |
 
-默认选中的是 **Google Translate**，不需要任何设置。只有需要下面这些能力时，才去换别的服务商。
+Google Translate 不需要任何设置。只有需要别的服务商提供的能力时，才去换。
 
-### Model Language 与 My Language
+### 设置语言
 
 两个输入框决定语言，默认都是 `en`(英语)。
 
-- **Model Language**(模型语言)：你自己的消息会在 AI 读到之前翻译成这种语言。**Translate My Messages**(翻译我的消息) 和 **Translate draft**(翻译草稿) 用的就是它。
-- **My Language**(我的语言)：AI 的回复会翻译成这种语言。**Auto-Translate Responses**(自动翻译回复) 和每条消息上的 **Translate** 按钮用的就是它。
+- **Model Language**(模型语言) 是 AI 模型理解并用来回复的语言。你用自己的语言输入时，消息会在 AI 读到之前翻译成这种语言。**Translate My Messages**(翻译我的消息) 和 **Translate draft**(翻译草稿) 用的就是它。
+- **My Language**(我的语言) 是你阅读的语言。AI 的回复会翻译成这种语言。**Auto-Translate Responses**(自动翻译回复) 和每条消息上的 **Translate** 按钮用的就是它。
 
-填写格式取决于服务商：
+例如，你用西班牙语写作，而 AI 用英语效果最好，就把 **Model Language** 设为 `en`，把 **My Language** 设为 `es`。
 
-- **Google Translate**、**DeepL API** 和 **DeepLX (self-hosted)** 填语言代码，例如 `en`、`ja`、`es`、`de`、`fr`、`zh`、`ko`。
-- **AI (via connection)** 填语言名称，例如 `English`、`Japanese`、`Spanish`。
+Google Translate、DeepL API 和 DeepLX 填简短的语言代码，例如 `en`、`ja`、`es`、`de`、`fr`、`zh` 或 `ko`。AI (via connection) 填语言名称，例如 `English`、`Japanese` 或 `Spanish`。
 
-### DeepL API 的设置
+如果没有成功：代码或名称填错时，会报错，或者文本原样不变。检查一下服务商要求的格式。
 
-选择 **DeepL API** 之后会多出一个 **DeepL API Key**(DeepL API 密钥) 输入框。把 DeepL 账号的密钥粘贴进去。DeepL 密钥长这样：
+### DeepL API
 
-```
+选择 **DeepL API**，把 DeepL 账号的密钥粘贴到 **DeepL API Key**(DeepL API 密钥) 里。以 `:fx` 结尾的是免费版密钥，Marinara 会把它发到 DeepL 的免费服务。其他密钥一律按付费密钥处理。
+
+```text
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 ```
 
-以 `:fx` 结尾的是免费版密钥，Marinara 会把请求发到 DeepL 的免费服务。其他形式的密钥一律按付费密钥处理。
+### DeepLX
 
-### DeepLX 的设置
+DeepLX 是一个需要自己运行的免费翻译服务器。选择 **DeepLX (self-hosted)**，在 **DeepLX URL**(DeepLX 地址) 里填入服务器的地址，例如 `http://localhost:1188`。
 
-DeepLX 是一个免费的翻译服务器，需要自己搭建运行。选择 **DeepLX (self-hosted)** 之后会多出一个 **DeepLX URL**(DeepLX 地址) 输入框，填入 DeepLX 服务器的地址，例如：
+跑在自己电脑或局域网里的 DeepLX 服务器使用的是本地地址。出于安全考虑，Marinara 默认会拦截本地地址。想放行的话，在 `.env` 文件里加上这一行并保存。不用重启，通常几秒之内就会生效，最多约 30 秒。文件在哪里见[服务器配置参考](../CONFIGURATION.md)。
 
-```
-http://localhost:1188
-```
-
-如果 DeepLX 服务器跑在自己的电脑或局域网里，那么它的地址属于本地地址。出于安全考虑，Marinara 默认会拦截发往本地地址的请求。想放行的话，在 `.env` 文件里加上这一行并保存：
-
-```
+```text
 DEEPLX_LOCAL_URLS_ENABLED=true
 ```
 
-`.env` 是服务器的设置文件，具体位置见[服务器配置参考](../CONFIGURATION.md)。不用重启服务器，改动几秒钟之内就会生效。
+DeepLX 服务器在公网地址上的话，就不需要这项设置。
 
-如果 DeepLX 服务器在公网地址上，就不需要这项设置。默认被拦截的只有本地地址和内网地址。
+### AI (via connection)
 
-### AI 翻译的设置
+选择 **AI (via connection)**，用你的某个 AI 模型来翻译。此时会出现三个输入框。
 
-选择 **AI (via connection)** 之后，Marinara 会调用已配置好的 AI 服务商来翻译，此时会多出三个输入框。
+- **Connection**(连接)：由哪个 AI 账号负责翻译，必须选。留空的话翻译会失败，并提示“Connection ID is required for AI translation”。见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
+- **Outgoing Message Prompt**(传出消息提示词) 和 **Incoming Response Prompt**(传入回复提示词)：AI 翻译你的消息和它自己的回复时收到的指令。两者一开始都是内置的默认提示词，可以只针对当前聊天修改。`{{targetLanguage}}` 会替换成 **Model Language** 或 **My Language**。改动某段提示词之后，**Restore**(恢复) 可以把它恢复原样。默认提示词是：
 
-**Connection**(连接) 下拉菜单用来指定由哪个 AI 连接负责翻译，必须选。留空的话翻译会失败，并提示“Connection ID is required for AI translation”。连接就是保存下来的一套 AI 服务接入信息，创建方法见下面的连接指南。
-
-**Outgoing Message Prompt**(传出消息提示词) 和 **Incoming Response Prompt**(传入回复提示词) 输入框里，分别是 AI 翻译你的消息和翻译 AI 回复时收到的指令。两者都内置了一段默认提示词（Marinara Engine 发给 AI 的那段文字），也都可以只针对当前聊天修改。提示词里的 `{{targetLanguage}}` 会替换成 **Model Language** 或 **My Language**。改动某段提示词之后，旁边会出现 **Restore**(恢复) 按钮，点它就能恢复成内置默认值。默认提示词是：
-
+```text
+You are a translator. Translate the given text accurately into {{targetLanguage}},
+preserving formatting, markdown, and any special characters like *asterisks* for actions.
+Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
-You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
-```
 
-## 自动翻译开关
+## 开启自动翻译
 
 服务商设置下面有四个开关，默认全部关闭。
 
-**Auto-Translate Responses** 会在 AI 回复生成完成后立刻自动翻译。在 Game Mode 下，Marinara 会先把叙述里只给游戏主持人（GM）看的标记去掉，再翻译。
+- **Auto-Translate Responses**：在 AI 回复生成完成后立刻翻译。在 Game Mode 下，Marinara 会先把叙述里只给游戏主持人（GM）看的标记去掉。
+- **Translate My Messages**：在你的消息发给 AI 之前，先把它翻译成 **Model Language**，译文替换你输入的原文。翻译失败时，Marinara 会发送原文，并显示一条错误提示。
+- **Show Draft Translate Button**(显示草稿翻译按钮)：在 **Send**(发送) 旁边加一个 **Translate draft** 按钮，让你在发送前检查和修改译文。它相当于 **Translate My Messages** 的手动版。
+- **Show Only Translation**(仅显示译文)：翻译过的消息只显示译文，代替原文，而不是把两者一起显示。
 
-**Translate My Messages** 会在你的消息发给 AI 之前，先把它翻译成 **Model Language**，译文直接替换你输入的原文。万一翻译失败，Marinara 会改为发送原文，并显示一条错误提示。
-
-**Show Draft Translate Button**(显示草稿翻译按钮) 会在 **Send**(发送) 按钮旁边加一个 **Translate draft** 按钮，让你先翻译再检查或修改，然后才发出去。它相当于 **Translate My Messages** 的手动版，后者是发送时直接翻译，没有检查的机会。
-
-**Show Only Translation**(仅显示译文) 会让翻译过的消息只显示译文，代替原文，而不是把原文和译文一起显示。
-
-在 **Conversation** 模式中，无论使用桌面端还是移动端，都可以通过消息输入框的笑脸按钮 → **Tools → Translate draft**(工具 → 翻译草稿) 翻译尚未发送的草稿。无需开启 **Show Draft Translate Button** 或自动翻译。该操作使用当前聊天的输入翻译设置，将草稿替换为译文供你检查，不会发送消息。如果翻译失败，草稿会保持原样。
+在 Conversation 模式中，无论桌面端还是移动端，都可以随时通过消息输入框的笑脸按钮，再选 **Tools → Translate draft**(工具 → 翻译草稿)，翻译尚未发送的草稿。两个开关都不需要开启。它使用当前聊天的输入翻译设置，把草稿替换为译文供你检查。它不会发送任何东西。翻译失败时，草稿保持原样。
 
 <a id="translator-defaults-for-new-chats"></a>
 
 ## 新聊天的翻译默认设置
 
-开关下面的 **Save translator defaults**(保存翻译默认设置) 会把这个聊天的翻译设置保存下来，供所有模式的新聊天使用。设置向导和设置方案里的设置优先。已有的聊天保留各自的设置。**Forget saved defaults**(清除已保存的默认设置) 会清除它们。[Noodle](../noodle/settings.md#translation) 也使用同一套默认设置。
+开关下面的 **Save translator defaults**(保存翻译默认设置) 会把这个聊天的翻译设置保存下来，供所有模式的新聊天使用。设置向导和设置方案里的设置优先。已有的聊天保留各自的设置。**Forget saved defaults**(清除已保存的默认设置) 会清除它们。[Noodle](../agents/noodle-settings.md#translation) 也使用同一套默认设置。
 
 DeepL API 密钥和 DeepLX 地址只保存在这个 Marinara 安装实例里。聊天导出、导出的设置方案和 **Export Profile**(导出档案) 文件都不包含它们，导入其中任何一种也绝不会设置它们。把聊天挪到另一个安装实例后，请重新填写。
 
-## 每条消息上的 Translate 按钮
+## 翻译单条消息
 
-不管是你的消息还是 AI 的消息，鼠标悬停时出现的操作栏里都有一个 **Translate** 按钮，图标是一个语言符号。这个按钮单独就能用，不需要上面任何一个开关。
+每条消息，不管是你的还是 AI 的，操作栏里都有一个 **Translate** 按钮（语言图标）。它不需要上面任何一个开关就能用。
 
-1. 把鼠标移到消息上，让操作栏显示出来。
-2. 点击 **Translate** 按钮。
+1. 把指针移到消息上，手机上则点一下，让操作栏显示出来。
+2. 点击 **Translate**。
 3. 译文出现在这条消息下方；开启 **Show Only Translation** 时则代替原文显示。
-4. 再点一次同一个按钮就能收起译文，此时它的悬停提示变成 **Hide translation**(隐藏译文)。
+4. 再点一次这个按钮就能收起译文，此时它的标签变成 **Hide translation**(隐藏译文)。
 
-这样得到的译文会跟消息一起保存下来。刷新页面不会丢，切换到别的聊天再切回来也还在。
-
-每条消息上的按钮，用的就是 **Translation** 这一节里设置的服务商和 **My Language**。
+译文会跟消息一起保存下来，刷新页面或切换聊天都不会丢。它使用上面那一节设置的服务商和 **My Language**。
 
 ## 各服务商的限制
 
-选服务商时记得考虑下面这些限制。
-
-- **Google Translate** 不接受超过 5000 个字符的文本，会报错“Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts.”文本更长时改用 DeepL 或 AI。
+- **Google Translate** 不接受超过 5000 个字符的文本，会报错“Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts.”
 - **DeepL API**、**DeepLX (self-hosted)** 和 **AI (via connection)** 能处理更长的文本，服务器端的上限是单次请求 50000 个字符。
-- **Google Translate**、**DeepL API** 和 **DeepLX (self-hosted)** 超过 15 秒还没完成就会中止并报错。
-- **AI (via connection)** 走的是所选连接自身的模型和超时（等待一个任务的最长时间）设置，不受这 15 秒的限制。
-- **DeepLX (self-hosted)** 指向本地地址时会被拦截，除非按上面的说明设置 `DEEPLX_LOCAL_URLS_ENABLED=true`。
+- **Google Translate**、**DeepL API** 和 **DeepLX (self-hosted)** 超过 15 秒就会中止并报错。
+- **AI (via connection)** 遵循 AI 模型自身的超时设置，不受这 15 秒的限制。
+- **DeepLX (self-hosted)** 指向本地地址时会被拦截，除非设置了 `DEEPLX_LOCAL_URLS_ENABLED=true`。
 
 ## 相关指南
 

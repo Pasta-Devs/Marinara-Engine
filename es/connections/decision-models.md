@@ -1,128 +1,238 @@
 # Modelos de decisión
 
-Esta guía explica **Decision model** (modelo de decisión): qué es, las tres formas de obtener uno, cómo configurar cada opción y dónde lo usa Marinara. Es opcional. Sin uno, los chats siguen generando respuestas, pero cada función usa el comportamiento de respaldo descrito abajo.
+Un modelo de decisión es un modelo pequeño que responde preguntas de sí o no para Marinara, como "Does the latest message move the scene to a new place?". Lo usan los lorebooks (libros de trasfondo), los agentes personalizados, los prompts (las instrucciones enviadas a la IA) y los chats grupales. Es opcional. Sin uno, los chats siguen funcionando y cada función usa el respaldo descrito en [Dónde lo usa Marinara](#where-marinara-uses-it).
 
-## Qué es un modelo de decisión
+Sus respuestas controlan lo que hace Marinara y nunca se publican en el chat. Puntúa una declaración de 0 a 1. Marinara compara ese número con un umbral y trata el resultado como sí o no. También puede elegir una respuesta de una lista corta, como "angry", "sad" o "none of these".
 
-Un modelo de decisión responde un tipo de pregunta. Recibe los mensajes recientes de un chat y una declaración, como "The latest message moves the scene to a new place", y calcula la probabilidad de que sea verdadera como un número de 0 a 1. Marinara compara ese número con un umbral y trata el resultado como sí o no. También puede elegir una respuesta de una lista corta, como "angry", "sad" o "none of these".
-
-Sus respuestas controlan el comportamiento de Marinara; no se publican como respuestas en el chat. Un modelo creado específicamente para decisiones puntúa las declaraciones directamente. A un modelo de chat local normalmente se le pide un solo token de sí/no, aunque algunos modelos necesitan razonar primero. Las decisiones pueden ser más rápidas que una respuesta completa, pero muchas declaraciones o un modelo que razona pueden añadir un tiempo considerable.
-
-<a id="where-marinara-uses-it"></a>
-
-## Dónde lo usa Marinara
-
-- Las **[preguntas de activación](../agents/custom-agents.md#activation-questions)** deciden si se ejecuta un agente personalizado antes de su trabajo en su fase. Sin respuesta, la pregunta no lo detiene; siguen aplicándose las palabras clave y **Trigger Cadence** (frecuencia de activación).
-- Las **[declaraciones en prompts](../prompts/conditional-prompts.md#asking-the-decision-model)** eligen texto al preparar el prompt de un chat o agente. Sin respuesta, la decisión se interpreta como no, así que un bloque de decisión simple usa su rama `{{else}}`, si existe.
-- Los **[campos Decision de lorebooks](../lorebooks/entries.md#decision-activation)** comprueban Require o Trigger durante el análisis de lorebooks del chat. Sin respuesta, Require no puede admitir una entrada nueva y Trigger no añade una vía de activación. Siguen aplicándose las retenciones Sticky existentes y las vías ordinarias de activación de las entradas Trigger.
-- El **[orden de respuesta Smart](../chats/group-chats.md#response-order-individual-only)** puntúa quién debería hablar después en un chat grupal, si está activado. Sin respuesta, el orden Smart hace su llamada habitual a la IA.
-- **[Automatizar personajes activos](../chats/group-chats.md#automate-active-characters-merged-only)** pregunta quién está en la escena antes de cada respuesta en un grupo de Roleplay en modo Merged, si está en **Decision model**. Si no hay respuesta para todos los personajes, usa la última escena del Character Tracker o conserva la lista.
-- **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** puede usar un modelo local o una conexión de decisión elegidos por separado para detectar límites de escena y seleccionar recuerdos en Roleplay. Activa **Use Decision model** en los ajustes de Advanced Memory de ese chat. Los resúmenes siguen a cargo del modelo auxiliar. Las decisiones fallidas recurren a la recuperación o comprobación de escenas habitual.
-
-Una pregunta de activación controla si un agente se ejecuta; una declaración de decisión dentro de su prompt controla qué instrucciones recibe ese agente al ejecutarse. Usa `{{#if decision:"..."}}` para condiciones de prompt de sí/no y `{{#if decision_choice:"..." == "..."}}` para elegir entre respuestas.
-
-<a id="what-the-model-sees"></a>
-
-## Qué ve el modelo
-
-Para las preguntas de activación y las declaraciones de prompts/lorebooks, el modelo recibe la declaración y los mensajes recientes tal como se guardaron en el chat. No recibe el resto del prompt ensamblado: tu preset, tarjeta de personaje, descripción de persona, entradas de lorebook (incluidas las Constant), resúmenes ni salida de agentes. También se omite el texto insertado entre mensajes, como un preset o una entrada de lorebook colocada **@ Depth** (a una profundidad). Una declaración que dependa de uno de esos datos debe incluir el dato mismo.
-
-**El orden de respuesta Smart también envía una lista de personajes.** Incluye el nombre, estado, actividad y locuacidad de cada candidato cuando están disponibles, además de hasta 300 caracteres de su personalidad o, si está vacía, de su descripción. Un proveedor de Decision alojado recibe esta lista junto con los mensajes recientes.
-
-**Automatizar personajes activos también envía una lista de personajes.** Incluye el nombre de cada personaje y hasta 300 caracteres de su descripción o, si está vacía, de su personalidad, recortados a 100 caracteres o a solo los nombres cuando un reparto grande no cabría, además de los nombres que el Character Tracker vio por última vez en la escena. Si incluso con solo los nombres queda muy poco espacio para los mensajes recientes, no se le pregunta al modelo y el Character Tracker lo sustituye. Un proveedor de Decision alojado recibe esta lista junto con los mensajes recientes. Las respuestas de un grupo Merged se etiquetan como "the narrator", porque una sola respuesta da voz a todos.
-
-- Las declaraciones de decisión en prompts y entradas de lorebook, el orden de respuesta Smart y Automatizar personajes activos leen los últimos 5 mensajes. Este número es fijo.
-- Las preguntas de activación leen la **Scan Depth** (profundidad de análisis) del agente, 5 de forma predeterminada.
-- Cada mensaje lleva el nombre de quien habla. Se omiten los mensajes ocultos a la IA.
-- Todo lo que se comprueba después de la respuesta, como la pregunta de activación de un agente de posprocesamiento o una declaración en su prompt, también ve la respuesta recién escrita.
-- Las macros de la declaración se completan primero, así que `{{char}}` llega como el nombre del personaje.
-- Cuando los mensajes no caben en el presupuesto del modelo, se descartan primero los más antiguos. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection) para el presupuesto alojado.
-
-**Advanced Memory usa su propio modelo de decisión por chat.** Las comprobaciones de escena leen la ventana pertinente del historial. La recuperación envía conversación reciente y hasta 24 resúmenes archivados preseleccionados, o más si **Maximum recalled scenes** (máximo de escenas recuperadas) es mayor, y luego mensajes originales de las escenas que eligió el modelo, tras comprobar el acceso de los personajes; no usa la regla fija de las últimas 5 intervenciones. Los proveedores alojados reciben esos textos, a veces en varios lotes limitados. Cada pasada de recuperación recibe normalmente entre 10 y 25 segundos, según la velocidad del modelo. Las dos pasadas comparten un límite de 40 segundos por respuesta, así que una pasada puede recibir menos de 10 segundos cuando queda poco tiempo. Las memorias que no reciben respuesta a tiempo recurren a la recuperación habitual. Consulta [Modelo de decisión opcional](../agents/memory.md#optional-decision-model).
+Nuestro consejo: déjalo en **None** (ninguno) si tienes dudas. Si quieres decisiones, usa el modelo integrado que quizá ya tengas o un modelo de chat en un servidor que ya ejecutas. Ninguna de las dos opciones cuesta nada adicional.
 
 ## Elegir un modelo de decisión
 
-Abre **Connections** (Conexiones), expande el cuadro **Jobs** (tareas) y busca la fila **Decision** (decisión) en **Behind the scenes** (entre bastidores). Haz clic en la fila para abrir el selector **Model for** (modelo para). La lista tiene tres grupos:
+Antes de empezar, consulta [Cuál elegir](#which-one-to-pick).
 
-- **None** (ninguno), el predeterminado. No se pregunta nada y los campos de preguntas de activación del editor de agentes permanecen desactivados.
-- **Local models** (modelos locales): el **Primary local model** (modelo local principal) o **Utility local model** (modelo local auxiliar) que ya ejecutas. No se descarga nada y nada sale de tu computadora. Aquí también aparece **Decision sidecar** (proceso auxiliar de decisiones), si lo instalaste.
-- **Connections**: cualquier conexión Decision que hayas creado: alojada, un servidor System One que ejecutes tú o un modelo de chat en un servidor que ya uses, como Ollama o LM Studio.
+1. Haz clic en **Connections** (Conexiones) en la barra superior y abre el cuadro **Jobs** (tareas).
+2. En **Behind the scenes** (entre bastidores), haz clic en la fila **Decision** (decisión). Se abre una lista.
+3. Elige un modelo. La lista tiene tres grupos:
+   - **None (decisions off)** (ninguno: decisiones desactivadas) es el predeterminado. No se pregunta nada y los campos de preguntas de activación del editor de agentes permanecen desactivados.
+   - **Built-in model** (modelo integrado) enumera los modelos que Marinara ejecuta en tu computadora: **Built-in model**, **Built-in model (utility)** (modelo integrado: auxiliar) y **Built-in model (decisions)** (modelo integrado: decisiones). Nada sale de tu computadora.
+   - **Connections** enumera tus cuentas que pueden responder decisiones: alojadas, o un modelo de chat en un servidor que ya ejecutas.
+4. Para probarlo, haz clic en el engranaje **Decision settings** (ajustes de decisión) de la fila y luego en **Test** (probar). Ese botón aparece para las entradas del modelo integrado. Para una cuenta de TypeSafe u OpenRouter, abre **Edit model** (editar modelo) en su modelo y haz clic en **Test provider** (probar proveedor). Para una cuenta **Own decision server** (servidor de decisiones propio), usa **Test** en el menú **⋯** de la cuenta.
 
-Las opciones que no pueden responder ahora permanecen en la lista, atenuadas y con el motivo, para que sepas qué corregir. Para probar el modelo seleccionado, haz clic en el engranaje de la fila **Decision** y usa los ajustes que se abren debajo de la fila. Los ajustes en línea contienen **Test** (probar), **Thinking** (razonamiento) y controles de orden. La prueba envía una muestra fija, no tu chat.
+Una prueba correcta muestra la probabilidad de sí y cuánto tardó la respuesta. Para un modelo en tu computadora también indica si había log-probabilidades disponibles y si el modelo responde directamente. Las log-probabilidades son los números de confianza del modelo para cada palabra que podría escribir. La prueba envía una muestra fija, no tu chat.
+
+Si no funcionó, el mensaje explica por qué. Causas habituales: la clave fue rechazada, el servicio está limitando las solicitudes, el modelo integrado no está en ejecución o la respuesta superó el límite de tiempo. Consulta [Solución de problemas](#troubleshooting).
+
+Las entradas que no pueden responder ahora permanecen en la lista, en gris y con el motivo. Elegir **None** desactiva las decisiones sin borrar ninguna pregunta de activación ni declaración de decisión.
+
+<a id="which-one-to-pick"></a>
 
 ### Cuál elegir
 
-Si ya ejecutas un modelo local, pruébalo primero. En una pequeña prueba de redacción basada en una escena de Roleplay, Gemma 4 E4B respondió correctamente 32 de 32 declaraciones recomendadas, y Open-Jev 2B y 9B respondieron 31 cada uno. Es un ejemplo de por qué importa la redacción, no una clasificación general de precisión. Prueba turnos representativos de tus propios chats; consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
+- **Un modelo que ya ejecutas en el modelo integrado.** No cuesta nada adicional. Lo mejor para la mayoría de quienes usan el modelo integrado.
+- **Un modelo de chat en tu propio servidor** (Ollama, LM Studio, llama.cpp u otro servidor compatible con OpenAI). No cuesta nada adicional. Útil cuando tu modelo se ejecuta fuera de Marinara, para no cargarlo dos veces.
+- **Una cuenta Decision alojada** (clave de TypeSafe u OpenRouter). Se factura por solicitud, y un turno puede hacer varias. Útil para teléfonos y computadoras que no ejecutan ningún modelo local.
+- **El modelo de decisión integrado.** Usa espacio en disco y memoria de GPU separados. Necesita Linux x86-64 y una GPU NVIDIA compatible. Para un modelo de decisión separado junto a tu modelo de chat.
 
-**Jev y Open-Jev son modelos distintos.** Jev es el modelo alojado de TypeSafe, disponible directamente o mediante OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) es un modelo publicado por separado y basado en Qwen que Marinara puede ejecutar localmente. Las pruebas de redacción de Open-Jev no miden la precisión de Jev alojado.
+Si ya ejecutas un modelo local, pruébalo primero y prueba turnos de tus propios chats. La redacción importa mucho. Consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
 
-| Opción | Costos | Necesita | Útil para |
-| --- | --- | --- | --- |
-| Un modelo que ya ejecutas | Nada adicional | Un modelo local en **Local Model** (modelo local) | La mayoría de quienes ejecutan un modelo local |
-| Un modelo de chat en tu propio servidor | Sin costo adicional | Ollama, LM Studio, llama.cpp u otro servidor compatible con OpenAI que ya ejecutes | Quienes ejecutan el modelo fuera de Marinara, para no cargarlo dos veces |
-| Una conexión Decision alojada | Solicitudes facturadas; un turno puede hacer varias | Una clave de API (TypeSafe u OpenRouter) | Teléfonos y computadoras que no ejecutan un modelo local |
-| El modelo de decisión instalable | Espacio en disco y memoria de GPU separados; consulta los [tamaños de modelos](#let-marinara-install-a-decision-model) | Linux x86-64 y una GPU NVIDIA compatible | Un modelo de decisión separado junto a tu modelo de chat |
+Jev y Open-Jev son modelos distintos. Jev es el modelo alojado de TypeSafe, disponible directamente o mediante OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) es un modelo publicado por separado y basado en Qwen, que Marinara puede ejecutar localmente. Las pruebas de Open-Jev no miden Jev alojado.
 
-**En Android (Termux),** el modelo de decisión instalable no puede ejecutarse porque necesita una computadora con GPU NVIDIA. Un modelo local pequeño en el procesador de un teléfono también puede ser demasiado lento para el límite de tiempo. Una conexión Decision alojada es la opción práctica en un teléfono, por ejemplo Jev mediante OpenRouter. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection).
+En Android (Termux), el **Built-in decision model** (modelo de decisión integrado) no puede ejecutarse, y un modelo local pequeño en el procesador de un teléfono puede ser demasiado lento. Una cuenta alojada es la opción práctica, por ejemplo Jev mediante OpenRouter. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection).
 
-Los presets, tarjetas y agentes deben escribirse para "un modelo de decisión", nunca como "requiere Jev". Usan la misma sintaxis de declaraciones cualquiera que sea el modelo elegido, pero distintos modelos pueden dar respuestas diferentes.
+Escribe los presets (ajustes guardados), las tarjetas y los agentes para "un modelo de decisión", nunca como "requiere Jev". Usan la misma sintaxis de declaraciones con cualquier modelo, pero los modelos pueden dar respuestas distintas. Cuando importas contenido que usa decisiones, incluidos agentes personalizados e instalaciones de Agent Organizer, Marinara muestra un aviso con un enlace a esta guía. Restaurar un ZIP de perfil completo no lo muestra.
 
-Cuando alguien importa contenido que usa decisiones, Marinara muestra un aviso con un enlace a esta guía. Esto incluye agentes personalizados e instalaciones del catálogo de Agents. Si no hay un Decision model seleccionado, el aviso explica el respaldo: las declaraciones en prompts se interpretan como no, las entradas de lorebook no pueden activarse por una decisión y las preguntas de activación de agentes permiten que el agente se ejecute cuando lo permitan sus palabras clave y **Trigger Cadence**. Configura también una frecuencia si el agente no debe ejecutarse cada turno sin un Decision model. La restauración de un ZIP de perfil completo no muestra este aviso de importación.
+## Usar el modelo integrado
 
-<a id="use-a-model-you-already-run"></a>
+Si tienes descargado el modelo integrado, puedes usarlo para decisiones sin cuenta y sin costo. Consulta [Configuración del modelo integrado](local-model.md).
 
-## Usar un modelo que ya ejecutas
+1. Haz clic en la fila **Decision**, en **Behind the scenes**, dentro del cuadro **Jobs**.
+2. Elige **Built-in model** (o **Built-in model (utility)** si tienes uno).
+3. Haz clic en el engranaje **Decision settings** y luego en **Test**.
 
-Si tienes un modelo local en **Local Model**, puedes usarlo para decisiones sin crear una conexión ni pagar por una solicitud.
+Marinara hace una sola pregunta de sí o no al modelo, le permite escribir un token (un fragmento de texto) y lee la respuesta a partir de las probabilidades de ese token. No se escribe ninguna respuesta, así que la solicitud es corta. Una elección entre varias respuestas se formula como una pregunta de sí o no por respuesta.
 
-1. En **Connections**, expande **Jobs**, busca la fila **Decision** en **Behind the scenes** y haz clic en ella. En el selector **Model for**, establece el modelo en **Primary local model**, o en **Utility local model** si tienes uno configurado.
-2. Haz clic en el engranaje de la fila **Decision** y luego en **Test**, en los ajustes que se abren debajo de la fila. Un resultado correcto muestra la probabilidad y la duración de la solicitud, además de dos datos específicos de los modelos locales: si había log-probabilidades disponibles y si el modelo responde directamente.
+El ajuste **Thinking** (razonamiento) controla qué pasa cuando un modelo no puede responder con una palabra. Algunos modelos siempre razonan primero.
 
-Marinara hace una sola pregunta de sí/no al modelo, le permite producir un token y lee la respuesta a partir de las probabilidades de ese token. No se escribe ninguna respuesta de chat, así que la solicitud es corta. Una elección entre varias respuestas se formula como una pregunta de sí/no por respuesta. La cantidad de mensajes recientes que caben se calcula a partir del tamaño de contexto de la propia ranura.
+| Thinking | Qué hace |
+| --- | --- |
+| **Auto (try one word, allow thinking if the model cannot)** (automático: intentar una palabra y permitir el razonamiento si el modelo no puede) | Predeterminado. Tras dos respuestas fallidas de una palabra seguidas, se permite que el modelo razone primero, y Marinara te lo indica. |
+| **Off (always answer in one word)** (desactivado: responder siempre con una palabra) | Un modelo que no puede responder con una palabra no da respuesta. |
+| **Allowed (let the model think first)** (permitido: dejar que el modelo razone primero) | Nunca pide al modelo que omita el razonamiento. |
 
-**Razonamiento.** La mayoría de los modelos responde con una palabra. Algunos siempre razonan primero, se les pida lo que se les pida. El ajuste **Thinking** de la fila **Decision** expandida controla esto:
+Un modelo que razona primero tarda segundos, así que de forma predeterminada solo responde para comprobaciones que se ejecutan después de que la respuesta aparece en pantalla, como los agentes de posprocesamiento. Para que también controle los agentes que se ejecutan antes de la respuesta, activa **Also gate agents that run before the reply** (evaluar también los agentes que se ejecutan antes de la respuesta). Entonces cada respuesta lo espera.
 
-- **Auto** (predeterminado) intenta el método rápido de una palabra y, si el modelo no puede responder así dos veces seguidas, le permite razonar primero y te lo indica.
-- **Off** (desactivado) usa siempre el método de una palabra. Un modelo que no pueda responder así no da respuesta.
-- **Allowed** (permitido) nunca pide al modelo que omita el razonamiento.
-
-Un modelo que razona primero tarda segundos, así que de forma predeterminada solo responde para tareas que ocurren después de que la respuesta aparece en pantalla, como los agentes de posprocesamiento. Antes de la respuesta no da respuesta, salvo que actives **Also gate agents that run before the reply** (evaluar también los agentes que se ejecutan antes de la respuesta), lo que hace que cada respuesta lo espere.
-
-**Sobre los números.** Las probabilidades de sí/no de un modelo de chat general se pueden usar con un umbral, pero nunca se entrenaron para estar calibradas como las de un modelo específico de decisiones; un entorno de ejecución que no devuelve log-probabilidades responde con un 1 o 0 fijo. Ajusta los umbrales con tus propios chats en lugar de confiar en el valor predeterminado.
+Las probabilidades de sí o no de un modelo de chat general sirven para un umbral, pero no se entrenaron para estar calibradas como las de un modelo creado específicamente para decisiones. Un entorno de ejecución que no devuelve log-probabilidades responde con un 1 o un 0 fijo. Ajusta los umbrales con tus propios chats.
 
 <a id="on-a-server-you-already-run"></a>
 
 ### En un servidor que ya ejecutas
 
-Si tu modelo de chat ya se ejecuta en Ollama, LM Studio, llama.cpp u otro servidor compatible con OpenAI, puede responder decisiones sin que Marinara cargue una segunda copia.
+Si tu modelo de chat se ejecuta en Ollama, LM Studio, llama.cpp u otro servidor compatible con OpenAI, puede responder decisiones sin que Marinara cargue una segunda copia.
 
-1. Abre la conexión **Custom** que usas para ese servidor y haz clic en **Use this model for decisions** (usar este modelo para decisiones). Esto crea una conexión Decision con la fuente **OpenAI-compatible chat model** (modelo de chat compatible con OpenAI), usando la misma URL base, modelo y clave. También puedes crearla tú: una conexión Decision, esa fuente, la misma URL base que la conexión de chat (por ejemplo `http://localhost:11434/v1` para Ollama) y el nombre del modelo que ofrece el servidor.
-2. Selecciónala en el selector **Model for** de la fila **Decision**. Abre el engranaje de la fila y haz clic en **Test**. El resultado también indica si el servidor devolvió log-probabilidades y si el modelo tuvo que razonar primero.
+1. Haz clic en **⋯** en ese modelo del panel **Connections** y elige **Use this model for decisions** (usar este modelo para decisiones). La ventana **Add account** (añadir cuenta) se abre en el paso de decisiones con la misma dirección, el mismo modelo y la misma clave.
+2. Elige el modelo y haz clic en **Test decision** (probar decisión). Una prueba correcta indica si el servidor devolvió log-probabilidades y si el modelo tuvo que razonar primero. Haz clic en **Done** (listo).
+3. Haz clic en la fila **Decision**, en **Behind the scenes**, y elige el nuevo modelo.
 
-Se consulta igual que un modelo local: una palabra de sí/no por declaración, leída de sus probabilidades. Las declaraciones se envían de una en una, porque Marinara no sabe cuántas solicitudes puede procesar tu servidor a la vez. **Thinking** siempre es **Auto** para una conexión, así que un modelo que necesita razonar primero cambia tras dos respuestas fallidas y después solo responde evaluaciones posteriores a la respuesta, salvo que **Also gate agents that run before the reply** esté activado. Un servidor en otra computadora de tu red también necesita `PROVIDER_LOCAL_URLS_ENABLED`, como cualquier proveedor local; consulta [Conectar un modelo local o autohospedado](local-self-hosted.md).
+También puedes crearla tú. Usa una cuenta Decision con la fuente **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)** (modelo de chat compatible con OpenAI: Ollama, LM Studio, llama.cpp), la misma dirección que tu cuenta de chat (por ejemplo `http://localhost:11434/v1` para Ollama) y el nombre de modelo que usa el servidor.
+
+Se consulta igual que el modelo integrado: una palabra de sí o no por declaración. Las declaraciones se envían de una en una, porque Marinara no puede saber cuántas solicitudes procesa tu servidor a la vez. **Thinking** siempre es **Auto** para una cuenta. Un servidor en otra computadora necesita `PROVIDER_LOCAL_URLS_ENABLED`. Consulta [Conectar un modelo local o autoalojado](local-self-hosted.md).
 
 <a id="set-up-a-decision-connection"></a>
 
 ## Configurar una conexión Decision
 
-1. En **Connections**, haz clic en **Add** (añadir). En la ventana **Add account** (añadir cuenta), elige el servicio **Decision**.
-2. Elige **TypeSafe**, **OpenRouter**, **Custom System One endpoint** (endpoint System One personalizado) u **OpenAI-compatible chat model**. Las fuentes alojadas necesitan una clave de API. TypeSafe envía las solicitudes a `https://api.typesafe.ai`, salvo que reemplaces su **Base URL** (URL base) por la dirección de otro servidor que ejecute la API de TypeSafe, sin `/v1/systemone`; sigue necesitando tu clave de TypeSafe, que se envía a ese servidor. Un servidor en otro lugar de tu red local necesita `PROVIDER_LOCAL_URLS_ENABLED`, como cualquier proveedor local; Android lo activa de forma predeterminada. Custom acepta un servidor System One que ya ejecutes, incluido Open-Jev o [Strands decider](#run-strands-decider-yourself); introduce su URL base sin `/v1/systemone` y usa un nombre de modelo compatible. Un servidor de modelos de chat como Ollama o LM Studio no habla System One: usa **OpenAI-compatible chat model**, como se explica en [En un servidor que ya ejecutas](#on-a-server-you-already-run).
-3. Para OpenRouter, elige una conexión OpenRouter guardada en **API key source** (origen de la clave de API) o introduce una clave aparte. Su editor también ofrece **Use this key for decisions** (usar esta clave para decisiones), que configura Jev a través de OpenRouter. Las claves vinculadas siguen automáticamente los cambios posteriores. Las conexiones Custom System One y OpenAI-compatible chat model solo pueden tomar la clave de una conexión de chat personalizada cuando ambas URL tienen el mismo origen: esquema, host y puerto.
-4. Haz clic en **Connect** (conectar). Cuando la cuenta se conecte, haz clic en **Done** (listo) para elegir su modelo. Abre la fila **Decision** en **Behind the scenes**, dentro de **Jobs**, haz clic en la fila y selecciona el nuevo modelo en **Model for**. Haz clic en el engranaje de la fila para abrir los ajustes debajo de ella y luego haz clic en **Test**. Un resultado correcto muestra la probabilidad, cuánto tardó la respuesta y el límite de tiempo de la conexión. Test espera al menos 10 segundos y 5 segundos más que un límite mayor, para informar la duración real de una respuesta lenta. Si superó el límite, el resultado lo indica: durante un chat esa respuesta contaría como ausencia de respuesta.
+Una cuenta Decision alojada envía al servicio los mensajes recientes seleccionados y las declaraciones, y puede costar dinero. El orden de respuesta Smart también envía una [lista de personajes](#what-the-model-sees).
 
-El valor predeterminado de Decision es independiente de los de chat, agentes, imágenes, video y audio. Elegir **None** desactiva las decisiones sin borrar preguntas de activación ni declaraciones de decisión.
+1. Haz clic en **Connections** en la barra superior y luego en **Add** (añadir).
+2. En **Decisions** (decisiones), haz clic en **TypeSafe** u **Own decision server**. Para OpenRouter, haz clic en **OpenRouter** en **Chat**, conéctalo y luego usa **Use this key for decisions** (usar esta clave para decisiones) en el menú **⋯** del modelo.
+3. Introduce la **API key** (clave de API) o, para **Own decision server**, la **Server address** (dirección del servidor). Haz clic en **Connect** (conectar). La ventana se cierra y el panel muestra la nueva cuenta.
+4. Haz clic en la fila **Decision**, en **Behind the scenes**, y elige el nuevo modelo.
+5. Para probarlo, haz clic en el modelo en el panel para abrir **Edit model** y luego haz clic en **Test provider** en la tarjeta **Provider tests** (pruebas del proveedor). Un modelo de **Own decision server** no tiene ahí el botón **Test provider**. En su lugar, abre el menú **⋯** de la cuenta en el panel y haz clic en **Test**.
 
-Las decisiones alojadas envían los mensajes recientes seleccionados y las declaraciones al proveedor elegido y pueden generar cargos. El orden de respuesta Smart también incluye la [lista de personajes](#what-the-model-sees). **Recent-message token budget** (presupuesto de tokens de mensajes recientes) tiene un valor predeterminado de 30.000 tokens estimados para fuentes alojadas y 3.500 para servidores personalizados. Redúcelo si tu servidor tiene un límite de contexto menor. Marinara descarta primero los mensajes más antiguos y después recorta la parte más antigua del mensaje más reciente. Las estimaciones de tokens pueden diferir del tokenizador del servidor; una solicitud rechazada o que supera el presupuesto no da respuesta.
+Un **Test provider** correcto muestra la probabilidad, cuánto tardó la respuesta y el límite de tiempo de la cuenta. El **Test** de la cuenta en el menú **⋯** solo indica si funcionó y cuánto tardó. La prueba espera al menos 10 segundos, o 5 segundos más que un límite mayor. Si la respuesta tardó más que el límite, el resultado lo indica: en los chats, esa respuesta contaría como ausencia de respuesta.
 
-**Time limit (seconds)** (límite de tiempo en segundos) indica cuánto espera cada conexión Decision la respuesta de cada declaración durante los chats, de 0,5 a 30 segundos (1,5 de forma predeterminada o 4 para una conexión **OpenAI-compatible chat model**). Un turno que pregunta varias declaraciones en una solicitud recibe ese tiempo para cada una. Una respuesta posterior cuenta como ausencia de respuesta. Algunos proveedores alojados a veces tardan más de 1,5 segundos, lo que hace que las decisiones parezcan fallar al azar. Haz clic en **Test** varias veces y fija el límite por encima de la respuesta más lenta. La contrapartida es que cada declaración anterior a la respuesta, como una decisión en un preset o una pregunta de activación de un agente previo a la respuesta, puede retrasarla hasta ese tiempo.
+Si no funcionó, consulta [Solución de problemas](#troubleshooting).
 
-Al eliminar una conexión usada para una clave vinculada se muestra una advertencia y la conexión Decision queda pendiente de volver a vincularse. Los archivos de conexión independientes importados también necesitan que se restauren sus claves o vínculos; nunca contienen claves de API ni IDs de conexiones prestadas.
+El editor de Decision (**Edit model** en un modelo de decisión) tiene estos campos:
+
+| Campo | Qué hace |
+| --- | --- |
+| **Decision source** (fuente de decisión) | **TypeSafe**, **OpenRouter**, **Custom System One endpoint** (endpoint System One personalizado) u **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. Queda fija al crear el modelo. |
+| **API key source** (origen de la clave de API) | **Enter a separate key (optional for local servers)** (introducir una clave aparte: opcional para servidores locales) o **Use key from …** (usar la clave de …) otra cuenta. Las claves vinculadas siguen los cambios posteriores de la clave. Un modelo System One personalizado o compatible con OpenAI puede tomar prestada la clave de una cuenta de chat personalizada solo cuando ambas direcciones tienen el mismo esquema, host y puerto. |
+| **Recent-message token budget** (presupuesto de tokens de mensajes recientes) | Cuántos tokens estimados del chat se envían. De 1 a 30.000. 30.000 de forma predeterminada para TypeSafe y OpenRouter, y 3.500 para servidores personalizados. Marinara descarta primero los mensajes más antiguos y después recorta la parte más antigua del mensaje más reciente. Una solicitud rechazada o que supera el presupuesto no da respuesta. |
+| **Time limit (seconds)** (límite de tiempo en segundos) | Cuánto se espera cada declaración durante los chats. De 0,5 a 30. 1,5 de forma predeterminada, o 4 para un modelo de chat compatible con OpenAI. Consulta [Límites de tiempo](#time-limits). |
+
+TypeSafe envía las solicitudes a `https://api.typesafe.ai`. Puedes reemplazar su **Base URL** (URL base) por otro servidor que ejecute la API de TypeSafe, sin `/v1/systemone`. Sigue necesitando tu clave de TypeSafe, que se envía a ese servidor. **Custom System One endpoint** acepta un servidor System One que ejecutes tú, como Open-Jev o [Strands decider](#run-strands-decider-yourself). Introduce su dirección sin `/v1/systemone`. Un servidor de modelos de chat como Ollama no habla System One. Usa **OpenAI-compatible chat model** para él.
+
+Algunos servicios alojados a veces tardan más de 1,5 segundos, lo que hace que las decisiones parezcan fallar al azar. Prueba varias veces y fija el límite por encima de la respuesta más lenta. Las declaraciones que se preguntan antes de la respuesta, como las decisiones de un preset o una pregunta de activación de un agente que se ejecuta antes de la respuesta, pueden retrasarla hasta ese tiempo cada una.
+
+Al borrar una cuenta cuya clave se usa para decisiones se muestra una advertencia. Después hay que volver a vincular la cuenta Decision, y hasta entonces las decisiones no dan respuesta. Los archivos de conexión importados nunca contienen API keys ni vínculos a cuentas prestadas, así que restáuralos a mano.
+
+<a id="where-marinara-uses-it"></a>
+
+## Dónde lo usa Marinara
+
+- Las [preguntas de activación](../agents/custom-agents.md#activation-questions) deciden si se ejecuta un agente personalizado. Sin respuesta: la pregunta no lo detiene. Siguen aplicándose las palabras clave y **Trigger Cadence** (frecuencia de activación).
+- Las [declaraciones en prompts](../prompts/conditional-prompts.md#asking-the-decision-model) eligen texto al preparar el prompt de un chat o de un agente. Sin respuesta: la decisión se interpreta como no, así que un bloque de decisión usa su rama `{{else}}`, si existe.
+- Los [campos Decision de lorebooks](../lorebooks/entries.md#decision-activation) comprueban Require o Trigger durante el análisis de lorebooks. Sin respuesta: Require no puede admitir una entrada nueva y Trigger no añade ninguna vía. Siguen aplicándose las retenciones Sticky y las vías ordinarias de Trigger.
+- El [orden de respuesta Smart](../chats/group-chats.md#response-order-individual-only) puntúa quién habla después en un chat grupal, si está activado. Sin respuesta: el orden Smart hace su llamada habitual a la IA.
+- [Automatizar personajes activos](../chats/group-chats.md#automate-active-characters-merged-only) pregunta quién está en la escena antes de cada respuesta en un grupo de Roleplay en modo Merged, si está en **Decision model** (modelo de decisión). Sin respuesta: si ningún personaje recibe respuesta, usa la última escena del Character Tracker o conserva la lista.
+- [Advanced Memory Recall](../agents/memory.md#optional-decision-model) puede usar su propio modelo de decisión para los límites de escena y la selección de recuerdos en Roleplay. Activa **Use Decision model** (usar modelo de decisión) en los ajustes de Advanced Memory de ese chat. Sin respuesta: las decisiones fallidas recurren a la recuperación o a las comprobaciones de escena habituales. Los resúmenes siguen usando el Helper model.
+
+Una pregunta de activación decide si un agente se ejecuta. Una declaración de decisión dentro de su prompt decide qué se le dice a ese agente al ejecutarse. Usa `{{#if decision:"..."}}` para condiciones de sí o no y `{{#if decision_choice:"..." == "..."}}` para elegir entre respuestas.
+
+<a id="what-the-model-sees"></a>
+
+## Qué ve el modelo
+
+Para las preguntas de activación y las declaraciones de prompts y lorebooks, el modelo recibe la declaración y los mensajes recientes tal como se guardaron en el chat. No recibe tu preset, tu tarjeta de personaje, tu persona, las entradas de lorebook (tampoco las Constant), los resúmenes ni la salida de agentes. También se omite el texto colocado entre mensajes, como una entrada configurada en **@ Depth** (a una profundidad). Una declaración que dependa de uno de esos datos debe incluir el dato mismo.
+
+- Las declaraciones de prompts y lorebooks, el orden de respuesta Smart y Automatizar personajes activos leen los últimos 5 mensajes. Este número es fijo.
+- Las preguntas de activación leen la **Scan Depth** (profundidad de análisis) del agente, 5 de forma predeterminada.
+- Cada mensaje lleva el nombre de quien habla. Se omiten los mensajes ocultos a la IA.
+- Una comprobación que se ejecuta después de la respuesta, como la pregunta de un agente de posprocesamiento, también ve la respuesta que se escribió.
+- Las macros de la declaración se completan primero, así que `{{char}}` llega como el nombre del personaje.
+- Cuando los mensajes no caben en el presupuesto del modelo, se descartan primero los más antiguos.
+
+**El orden de respuesta Smart** también envía una lista de personajes: el nombre, el estado, la actividad y la locuacidad de cada candidato cuando se conocen, además de hasta 300 caracteres de su personalidad o, si está vacía, de su descripción.
+
+**Automatizar personajes activos** también envía una lista de personajes: el nombre de cada personaje y hasta 300 caracteres de su descripción o, si está vacía, de su personalidad, recortados a 100 caracteres o a solo los nombres cuando un reparto grande no cabe, además de los nombres que el Character Tracker vio por última vez. Si incluso solo con los nombres queda muy poco espacio para los mensajes, no se le pregunta al modelo y el Character Tracker lo sustituye. Las respuestas de un grupo Merged se etiquetan como "the narrator", porque una sola respuesta da voz a todos.
+
+Un servicio de decisión alojado recibe estas listas además de los mensajes.
+
+**Advanced Memory** usa su propio modelo de decisión por chat y no la regla de los últimos 5. Las comprobaciones de escena leen la ventana pertinente del historial. La recuperación envía texto reciente de la conversación y hasta 24 resúmenes archivados preseleccionados —más si **Maximum recalled scenes** (máximo de escenas recuperadas) es mayor—, y luego mensajes originales de las escenas que eligió el modelo, tras comprobar el acceso de los personajes. Los servicios alojados reciben estos textos, a veces en varios lotes. Cada pasada de recuperación recibe normalmente entre 10 y 25 segundos, según la velocidad del modelo. Las dos pasadas comparten 40 segundos por respuesta, así que una pasada puede recibir menos de 10 segundos. Las memorias sin respuesta a tiempo recurren a la recuperación habitual. Consulta [Modelo de decisión opcional](../agents/memory.md#optional-decision-model).
+
+<a id="thresholds"></a>
+
+## Umbrales
+
+Las probabilidades no son comparables entre modelos. El mismo ejemplo puede puntuar 0,99 en uno y 0,2 en otro. El umbral predeterminado de sí o no depende del modelo:
+
+- **Modelo integrado o cuenta de modelo de chat compatible con OpenAI:** 0,5
+- **Cuenta de TypeSafe, OpenRouter o Custom System One:** 0,5
+- **Modelo de decisión integrado:** la recomendación del manifiesto del modelo: 0,1 para Open-Jev 2B y 9B
+
+**Run when probability is at least** (ejecutar cuando la probabilidad sea al menos) de un agente reemplaza este valor. El editor ofrece restaurar la recomendación del modelo cuando el valor guardado difiere. Compruébalo siempre que cambies de modelo. Las declaraciones en prompts y los campos Decision de lorebooks usan el valor predeterminado del modelo, y el umbral de un agente no cambia el suyo.
+
+Un Open-Jev autoalojado detrás de una cuenta Custom System One sigue usando 0,5, porque Marinara no puede calibrar endpoints personalizados arbitrarios. Sus resultados pueden diferir de los del Open-Jev integrado, incluida la interpretación de un resultado positivo inferior a 0,5 como no.
+
+<a id="time-limits"></a>
+
+## Límites de tiempo
+
+Una decisión que no llega a tiempo no da respuesta, y la generación continúa con el respaldo de la función (consulta [Dónde lo usa Marinara](#where-marinara-uses-it)). Cada límite es por declaración. Una solicitud con varias declaraciones recibe el límite para cada una, y cada respuesta Choice cuenta como una declaración. Un modelo local solo procesa unas pocas solicitudes a la vez, así que las declaraciones esperan su turno, y el tiempo de una declaración empieza cuando el modelo comienza con ella.
+
+- **Cuenta de TypeSafe, OpenRouter o Custom System One:** 1,5 segundos, o tu **Time limit**
+- **Cuenta de modelo de chat compatible con OpenAI:** 4 segundos, o tu **Time limit**. Un modelo que debe razonar primero recibe al menos 20 segundos.
+- **Modelo integrado:** 4 segundos. Un modelo que debe razonar primero recibe 20 segundos.
+- **Modelo de decisión integrado:** 4 segundos para la primera declaración. Cada una de las siguientes recibe el tiempo medido del modelo: 0,35 segundos para Open-Jev 2B y 0,8 segundos para Open-Jev 9B. Un modelo que instalaste desde un repositorio recibe 4 segundos para cada una.
+
+Las solicitudes de decisión se detienen cuando cancelas una generación.
+
+## Otros ajustes
+
+Están en el engranaje **Decision settings**:
+
+- **Also use it to pick who speaks in Smart response order** (usarlo también para elegir quién habla en el orden de respuesta Smart) está desactivado de forma predeterminada. Consulta [Chats grupales](../chats/group-chats.md#response-order-individual-only).
+- **Decision statements per turn** (declaraciones de decisión por turno) limita la planificación de declaraciones de prompts y lorebooks. 32 de forma predeterminada, hasta 255. El margen se aplica en varias etapas y no es un límite único para todas las solicitudes ni para el gasto de un turno. Las preguntas de activación de agentes y el orden de respuesta Smart son independientes. Consulta [Límites y costo](../prompts/conditional-prompts.md#limits-and-cost).
+- **Also gate agents that run before the reply** y **Thinking** aparecen para las entradas del modelo integrado que pueden razonar. El **Built-in decision model** nunca razona, así que no tiene ninguno de los dos.
+
+## Prevé respuestas incorrectas
+
+Cualquier modelo puede responder incorrectamente, y las respuestas "sí" correctas pueden quedar cerca del umbral.
+
+- Usa una decisión para afinar una respuesta, nunca para algo indispensable para el chat. Una decisión fallida debería hacer que una respuesta quede menos adaptada, no romperla.
+- No supedites el consentimiento, las advertencias de contenido ni las instrucciones de seguridad a una decisión.
+- Para un agente que solo se ejecuta con una pregunta de activación, configura **Bypass the question after this many messages** (omitir la pregunta después de esta cantidad de mensajes), para que un modelo que siga respondiendo que no no pueda silenciarlo para siempre.
+
+<a id="troubleshooting"></a>
+
+## Solución de problemas
+
+- **La prueba falla.** El mensaje explica por qué: la clave fue rechazada, el servicio está limitando las solicitudes, el modelo integrado no está en ejecución, el modelo de decisión no está instalado, el modelo no respondió sí o no, o se agotó el tiempo.
+- **El servidor no tiene ese endpoint.** La fuente Decision no corresponde al servidor. Ollama, LM Studio y otros servidores de modelos de chat necesitan **OpenAI-compatible chat model**. **Custom System One endpoint** es solo para servidores System One como Open-Jev.
+- **La respuesta superó el límite de tiempo, o las decisiones solo funcionan a veces.** El servicio es a veces más lento que el **Time limit**. Prueba varias veces y sube el límite por encima de la respuesta más lenta.
+- **Un agente con pregunta de activación se ejecuta cada turno.** No hay ningún modelo de decisión configurado o no responde, así que el agente se ejecuta como si no tuviera pregunta. Haz una prueba.
+- **Una rama de decisión en un prompt nunca aparece.** Consulta [Cuando una rama de decisión nunca aparece](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
+- **El orden de respuesta Smart sigue haciendo su llamada habitual a la IA.** El interruptor está desactivado o el modelo de decisión no respondió en ese turno.
+- **Automatizar personajes activos sigue al Character Tracker.** El modelo no respondió para todos los personajes, razona primero y **Also gate agents that run before the reply** está desactivado, o el reparto es demasiado grande para la entrada del modelo incluso solo con los nombres.
+
+Para ver las puntuaciones y salidas de las decisiones durante la generación, activa Debug Mode o establece el nivel de registro en debug. Consulta [Niveles de registro](../CONFIGURATION.md#logging-levels). Para probar tus propias declaraciones sin generar una respuesta, abre **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnóstico de decisiones → probar decisiones). Las pruebas explícitas llaman al modelo seleccionado y pueden costar dinero en un servicio alojado. Consulta [Probar declaraciones de decisión](../chats/peek-prompt.md#testing-decision-statements).
+
+<a id="let-marinara-install-a-decision-model"></a>
+
+## Dejar que Marinara instale un modelo de decisión
+
+El **Built-in decision model** es un modelo experimental, creado específicamente para decisiones, que Marinara descarga y ejecuta como su propio proceso local, junto a tu modelo de chat. Su uso de memoria se suma al de tu modelo de chat. Si ya tienes un modelo local, prueba primero sus decisiones.
+
+Los modelos Open-Jev necesitan Linux **x86-64**, una GPU NVIDIA con capacidad de cómputo 7.5 o posterior (Turing, la serie RTX 20 o posterior) y el controlador 580 o posterior. Linux ARM y las tarjetas más antiguas no son compatibles. Donde un modelo no puede ejecutarse, la opción permanece visible, indica el motivo y ofrece **Set up a Decision provider instead** (configurar un proveedor de decisiones en su lugar).
+
+| Modelo | Descarga del modelo | Disco incluido el entorno de ejecución | Memoria de GPU |
+| --- | --- | --- | --- |
+| Open-Jev 2B | Aproximadamente 4,6 GB | Aproximadamente 10 GB | Aproximadamente 4,8 GB (4,5 GiB) |
+| Open-Jev 9B | Aproximadamente 19,4 GB | Aproximadamente 25,3 GB | Aproximadamente 23,6 GB (22 GiB) |
+
+Son las estimaciones del catálogo. El modelo 9B deja poco margen en una GPU de 24 GB. Comprueba el dictamen del instalador para tu tarjeta.
+
+1. Haz clic en **Add** en el panel **Connections** y luego en **Built-in model (decisions)**, en **Decisions**. Se abre una ventana titulada **Built-in decision model**. También puedes abrirla desde la página de la tarjeta **Built-in model**.
+2. Lee la advertencia y luego activa **Use the built-in decision model** (usar el modelo de decisión integrado). Un cuadro de diálogo titulado **Turn on the built-in decision model?** (¿activar el modelo de decisión integrado?) muestra el dictamen para tu computadora. Haz clic en **Enable** (activar), o en **Enable anyway** (activar de todos modos) cuando el dictamen es una advertencia.
+3. En **Available decision models** (modelos de decisión disponibles), elige **Open-Jev 2B** u **Open-Jev 9B**. Haz clic en **Download and install** (descargar e instalar) y confirma el tamaño, el dictamen de hardware y las licencias. No se descarga nada antes de eso.
+4. Haz clic en la fila **Decision**, en **Behind the scenes**, y elige **Built-in model (decisions)**.
+
+Otros controles de la ventana:
+
+- **Install from a repository** (instalar desde un repositorio) acepta un modelo de decisión de HuggingFace como `owner/model-name`. Haz clic en **Check** (comprobar). Marinara lee el manifiesto del propio repositorio, comprueba que corresponda a un entorno de ejecución incluido en esta compilación y muestra los pesos base y el tamaño total. Rechaza con el motivo un repositorio que no pueda verificar. Después haz clic en **Download and install this one** (descargar e instalar este).
+- **GPU** elige la tarjeta en una computadora con varias GPU NVIDIA. Cambiarla detiene el modelo, que vuelve a iniciarse en la nueva tarjeta.
+- **Start this model when Marinara starts** (iniciar este modelo cuando se inicie Marinara) es opcional. Si está desactivado, el modelo se inicia la primera vez que un agente lo necesita.
+- **Remove files** (eliminar archivos) borra el modelo y su entorno de ejecución. Desactivar el modelo detiene el proceso y conserva los archivos.
+
+La primera respuesta de un modelo tras iniciarse es más lenta, así que Marinara hace una pregunta de calentamiento mientras lo carga. Si falla, el modelo se inicia de todos modos y la primera pregunta real asume esa demora. Un turno con muchas declaraciones en un chat largo tarda más. En un chat largo, Open-Jev 2B tarda aproximadamente un cuarto de segundo por declaración.
 
 <a id="run-strands-decider-yourself"></a>
 
 ### Ejecutar Strands decider por tu cuenta
 
-[Strands decider 2B](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19) es otro modelo de decisión abierto (Apache-2.0) que usa System One. Marinara no puede instalarlo, pero funciona como **Custom System One endpoint** mientras lo mantengas en ejecución.
+[Strands decider 2B](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19) es otro modelo de decisión abierto (Apache-2.0) que habla System One. Marinara no puede instalarlo, pero funciona como **Custom System One endpoint** mientras lo mantengas en ejecución.
 
 1. En un entorno con Python 3.10 o posterior, instálalo e inicia su servidor:
 
@@ -131,107 +241,17 @@ Al eliminar una conexión usada para una clave vinculada se muestra una adverten
    strands-decider serve StrandsAgents/strands-decider-2B-hobson-v19 --port 8000
    ```
 
-   Usa una GPU NVIDIA o Apple silicon si encuentra uno de ellos; en caso contrario, usa el procesador, con menor velocidad. El primer inicio descarga el modelo y unos 4,6 GB de pesos base, y sus paquetes de Python ocupan unos 5,5 GB. El servidor no tiene contraseña, así que mantenlo en `127.0.0.1`.
+   Usa una GPU NVIDIA o Apple silicon cuando encuentra uno de ellos y, si no, el procesador, con menor velocidad. El primer inicio descarga el modelo y unos 4,6 GB de pesos base, y sus paquetes de Python ocupan unos 5,5 GB. El servidor no tiene contraseña, así que mantenlo en `127.0.0.1`.
 
-2. Crea una conexión de decisión con la fuente **Custom System One endpoint** y la URL base `http://127.0.0.1:8000`. Cualquier nombre de modelo funciona.
-3. Selecciónala en el selector **Model for** de la fila **Decision**. Abre el engranaje de la fila y haz clic en **Test**. La primera respuesta tras iniciarse tarda unos 2 segundos, más que el **Time limit** predeterminado, así que pruébalo una vez antes de chatear.
+2. Añade una cuenta **Own decision server** con la **Server address** `http://127.0.0.1:8000`. Cualquier nombre de modelo funciona.
+3. Elígelo en la fila **Decision** y pruébalo con **Test** en el menú **⋯** de la cuenta. Su primera respuesta tras iniciarse tarda unos 2 segundos, más que el límite de tiempo predeterminado, así que pruébalo una vez antes de chatear.
 
-Sus probabilidades están calibradas, por lo que el umbral predeterminado de 0,5 de una conexión personalizada resulta adecuado, a diferencia de Open-Jev autoalojado (consulta [Umbrales](#thresholds)). En una pequeña prueba de Roleplay con 80 declaraciones en una RTX 5090, respondió correctamente a 73, frente a las 74 de Open-Jev 2B, y usó unos 5,1 GB (4,7 GiB) de memoria de GPU. Procesar de una a ocho declaraciones le tomó de 0,04 a 0,1 segundos, frente a los 0,1 a 0,14 de Open-Jev 2B; en un chat largo, ambos tardaron unos 0,3 segundos. Sus respuestas dependen más de cómo redactes las declaraciones, así que sigue [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements) y prueba turnos de tus propios chats.
-
-Para alternar entre este modelo y el Decision sidecar, elige uno de los dos en el selector **Model for** de la fila **Decision**. Ambos siguen configurados.
-
-<a id="let-marinara-install-a-decision-model"></a>
-
-## Dejar que Marinara instale un modelo de decisión
-
-Marinara también puede descargar y ejecutar por ti un modelo creado específicamente para decisiones. Funciona como un proceso local propio, ejecutes o no un modelo de chat local. Su uso de memoria se suma al del modelo de chat. Si ya tienes un modelo local, prueba sus decisiones antes de descargar otro.
-
-Los modelos Open-Jev integrados necesitan Linux **x86-64**, una GPU NVIDIA con capacidad de cómputo 7.5 o posterior (Turing, la serie RTX 20 o posterior) y el controlador 580 o posterior. Estos paquetes no admiten dispositivos Linux ARM ni tarjetas Pascal o anteriores. Donde un modelo no puede ejecutarse, la opción permanece visible, indica el motivo y ofrece configurar una conexión Decision en su lugar.
-
-| Modelo integrado | Descarga del modelo | Disco incluido el entorno de ejecución | Memoria de GPU |
-| --- | --- | --- | --- |
-| Open-Jev 2B | Aproximadamente 4,6 GB | Aproximadamente 10 GB | Aproximadamente 4,8 GB (4,5 GiB) |
-| Open-Jev 9B | Aproximadamente 19,4 GB | Aproximadamente 25,3 GB | Aproximadamente 23,6 GB (22 GiB) |
-
-Son las estimaciones del catálogo, basadas en las versiones fijadas de los modelos y las cargas de trabajo medidas. El uso de GPU y la velocidad varían con la carga. El modelo 9B deja poco margen en una GPU de 24 GB; comprueba el dictamen del instalador para la tarjeta elegida y los otros modelos en ejecución.
-
-1. Abre **Connections**, expande **Local Model** y elige **Decision sidecar (experimental)** (proceso auxiliar de decisiones experimental).
-2. Lee la advertencia y activa **Enable decision sidecar** (activar el proceso auxiliar de decisiones). Al confirmar se muestra el dictamen para tu computadora, y el botón dice **Enable anyway** (activar de todos modos) cuando el dictamen es una advertencia.
-3. Elige un modelo y confirma su tamaño, el dictamen de hardware y las licencias. No se descarga nada antes de ese punto. **Open-Jev 2B** necesita mucha menos memoria que **Open-Jev 9B**; ninguno garantiza respuestas correctas para tu chat.
-4. Selecciona **Decision sidecar** en el selector **Model for** de la fila **Decision**.
-
-**Velocidad.** La primera respuesta de un modelo tras iniciarse es más lenta, así que Marinara hace una pregunta de calentamiento mientras lo carga. Si funciona, **Test** y el primer turno muestran su velocidad normal. Si falla, el modelo se inicia de todos modos y la primera pregunta asume esa demora. Cada declaración vuelve a leer el chat reciente, por lo que un turno con muchas declaraciones en un chat largo tarda más: en un chat largo, Open-Jev 2B tarda aproximadamente un cuarto de segundo por declaración.
-
-También puedes pegar el repositorio HuggingFace de un modelo de decisión. Marinara lee el manifiesto del propio repositorio, comprueba que el tipo de artefacto corresponda a un entorno incluido en esta compilación y muestra los pesos base que descargará y el tamaño total antes de ofrecer instalarlo. Rechaza con el motivo cualquier repositorio que no pueda verificar, en vez de instalarlo sin garantías.
-
-En una computadora con varias GPU NVIDIA, un menú **GPU** elige la tarjeta donde se carga. Los dictámenes corresponden a esa tarjeta; cambiarla detiene el modelo para que se inicie allí.
-
-Desactivar el proceso auxiliar detiene el proceso y conserva los archivos. **Remove files** (eliminar archivos) borra el modelo y su entorno de ejecución y sigue disponible cuando el proceso auxiliar está desactivado.
-
-<a id="thresholds"></a>
-
-## Umbrales
-
-Las probabilidades no son directamente comparables entre modelos. El mismo ejemplo positivo puede puntuar 0,99 en un modelo y 0,2 en otro. El umbral predeterminado de Marinara depende de cómo esté conectado el modelo:
-
-| Backend seleccionado | Umbral predeterminado de sí/no |
-| --- | --- |
-| Modelo de chat local Primary o Utility, o conexión a un modelo de chat compatible con OpenAI | 0,5 |
-| Conexión Decision TypeSafe, OpenRouter o Custom System One | 0,5 |
-| Decision sidecar administrado | La recomendación del manifiesto del modelo; 0,1 para los Open-Jev 2B y 9B integrados |
-
-**Run when probability is at least** (ejecutar cuando la probabilidad sea al menos) de un agente puede reemplazar este valor predeterminado. El editor ofrece restaurar la recomendación del backend cuando el valor guardado difiere. Comprueba el ajuste siempre que cambies de modelo.
-
-Las declaraciones en prompts y los campos Decision de lorebooks usan el valor predeterminado del backend; cambiar el umbral de un agente no cambia el suyo. **Un Open-Jev autoalojado detrás de una conexión Custom System One sigue usando 0,5.** Marinara no puede identificar y calibrar automáticamente endpoints personalizados arbitrarios. Sus resultados pueden diferir de los del proceso auxiliar Open-Jev administrado, incluida la interpretación de un resultado positivo inferior a 0,5 como no.
-
-<a id="time-limits"></a>
-
-## Límites de tiempo
-
-Una decisión que no llega a tiempo no da respuesta. La generación continúa con el [respaldo de la función](#where-marinara-uses-it); esto puede omitir una rama de prompt o una entrada de lorebook requerida.
-
-Cada límite de tiempo es por declaración. Una solicitud con varias declaraciones recibe el límite para cada una, y cada respuesta Choice cuenta como una declaración. Un modelo local solo procesa unas pocas solicitudes a la vez, por lo que las declaraciones esperan su turno; su tiempo empieza cuando el modelo comienza a procesarlas.
-
-- **1,5 segundos** por declaración para una conexión Decision TypeSafe, OpenRouter o Custom System One, salvo que cambies su **Time limit**. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection).
-- **4 segundos** por declaración para una conexión de modelo de chat compatible con OpenAI, salvo que cambies su **Time limit**. Un modelo que necesita razonar primero recibe al menos 20 segundos.
-- **4 segundos** por declaración para un modelo local.
-- **4 segundos** para la primera declaración del sidecar de decisión. Cada declaración adicional recibe el tiempo medido del modelo: 0,35 segundos para Open-Jev 2B y 0,8 para Open-Jev 9B. Un modelo instalado pegando su repositorio recibe 4 segundos por declaración.
-- **20 segundos** por declaración para un modelo local que necesita razonar primero.
-
-Las solicitudes de decisión se detienen cuando cancelas una generación.
-
-## Otros ajustes de Decision model
-
-- **Also use it to pick who speaks in Smart response order.** (Usarlo también para elegir quién habla en el orden de respuesta Smart). Desactivado de forma predeterminada. Consulta [Chats grupales](../chats/group-chats.md#response-order-individual-only).
-- **Decision statements per turn.** (Declaraciones de decisión por turno). Limita la planificación de declaraciones de prompts y lorebooks, 32 de forma predeterminada y hasta 255. El presupuesto se aplica en varias etapas; no es un límite único para todas las solicitudes Decision ni para el gasto de un turno. Las preguntas de activación de agentes y el orden de respuesta Smart son independientes. Consulta [Límites y costo](../prompts/conditional-prompts.md#limits-and-cost) para el alcance, los lotes y las reglas de prioridad.
-- **Also gate agents that run before the reply** y **Thinking** aparecen para **Primary local model** y **Utility local model**. El sidecar de decisión nunca razona, así que no tiene ninguna de las dos opciones. Consulta [Usar un modelo que ya ejecutas](#use-a-model-you-already-run).
-
-## Precisión: prevé respuestas incorrectas
-
-Cualquier modelo puede responder incorrectamente. En la pequeña prueba de redacción anterior, varias respuestas "sí" correctas de Open-Jev 2B quedaron apenas por encima de su umbral. Prevé respuestas ausentes o equivocadas:
-
-- Usa una decisión para afinar, nunca para algo indispensable para el chat. Una decisión fallida debería hacer la respuesta un poco menos adaptada, no romperla.
-- No supedites el consentimiento, las advertencias de contenido ni las instrucciones de seguridad a una decisión.
-- Para un agente que solo se ejecuta con una pregunta de activación, configura **Bypass the question after this many messages** (omitir la pregunta después de esta cantidad de mensajes) para que un modelo que siga respondiendo "no" no pueda silenciarlo para siempre.
-
-Para ejemplos concretos de redacción y una forma de probarlos en tus chats, consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
-
-## Solución de problemas
-
-- **Test falla.** El mensaje explica por qué: la clave fue rechazada, el proveedor limita la frecuencia, el modelo local no está en ejecución, el modelo de decisión no está instalado, el modelo no respondió sí o no o se agotó el tiempo.
-- **Test indica que el servidor no tiene ese endpoint.** La fuente Decision no corresponde al servidor. Ollama, LM Studio y otros servidores de modelos de chat necesitan **OpenAI-compatible chat model**; **Custom System One endpoint** es solo para servidores System One como Open-Jev.
-- **Test indica que la respuesta superó el límite de tiempo, o las decisiones solo funcionan a veces.** El proveedor responde más despacio que el **Time limit** de la conexión al menos algunas veces. Prueba varias veces y sube el límite por encima de la respuesta más lenta.
-- **Un agente con pregunta de activación se ejecuta cada turno.** No hay un Decision model configurado o no responde, así que el agente se ejecuta como si no tuviera pregunta. Comprueba **Test**.
-- **Una rama de decisión en un prompt nunca aparece.** Consulta [Cuando una rama de decisión nunca aparece](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
-- **El orden de respuesta Smart sigue haciendo su llamada habitual a la IA.** El interruptor está desactivado o el Decision model no respondió en ese turno.
-- **Automatizar personajes activos sigue al Character Tracker en su lugar.** El Decision model no respondió para todos los personajes en ese turno, piensa primero y **Also gate agents that run before the reply** está desactivado, o el reparto es demasiado grande para caber en la entrada del modelo incluso solo con nombres, así que no se le preguntó.
-- **Para ver puntuaciones y salidas de decisiones durante la generación**, activa Debug Mode o establece el nivel de registro en debug. Los registros de decisiones del prompt incluyen umbrales, resultados y si las respuestas se reutilizaron o mantuvieron por reglas de tiempo. Consulta [Niveles de registro](../CONFIGURATION.md#logging-levels).
-- **Para probar tus declaraciones sin generar una respuesta**, abre **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnóstico de decisiones → probar decisiones). Las vistas previas de entradas son pasivas; los tests explícitos llaman al modelo seleccionado y pueden generar cargos de alojamiento. Consulta [Probar declaraciones de decisión](../chats/peek-prompt.md#testing-decision-statements).
+Sus probabilidades están calibradas, así que el umbral predeterminado de 0,5 le resulta adecuado, a diferencia de un Open-Jev autoalojado (consulta [Umbrales](#thresholds)). Sus respuestas dependen de la redacción, así que sigue [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
 
 ## Guías relacionadas
 
 - [Crear agentes personalizados](../agents/custom-agents.md)
 - [Prompts condicionales](../prompts/conditional-prompts.md)
 - [Chats grupales](../chats/group-chats.md)
-- [Configuración del Local Model](local-model.md)
+- [Configuración del modelo integrado](local-model.md)
 - [Conectarse a un proveedor de IA](connecting-to-a-provider.md)

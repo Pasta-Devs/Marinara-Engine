@@ -1,235 +1,206 @@
 # シーン動画の生成
 
-このガイドでは、Marinara Engineがシーンのイラストを短いMP4動画クリップに変換する仕組みを説明します。動画のプロバイダー、Galleryからクリップを生成する手順、Game Modeでの操作、動画関連の設定を取り上げます。シーン動画とは、静止画から、または**Roleplay**では物語だけから作る短いアニメーションクリップです。
+シーン動画は、場面を映す短いMP4クリップです。Galleryの画像を開始フレームにして、AIが動きを加えることができます。Roleplayでは、物語だけから作ることもできます。このガイドでは、動画サービスの設定、GalleryとGame Modeからクリップを作る方法、動画の設定の変え方を説明します。
 
-## シーン動画でできること
+シーン動画は、RoleplayとGame Modeのチャットで使えます。Conversationのチャットでは、代わりに動画メッセージが送られます。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。
 
-シーン動画は、場面を映す短いMP4クリップです。ギャラリーの画像を開始フレームにしてAIが動きを加えることも、**Roleplay**では物語だけから作ることもできます。シーン動画は**Roleplay**と**Game Mode**のチャットで使えます。Conversationチャットでは、代わりに動画メッセージが送られます。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。
+Game Modeと**Animate illustration**は必ず画像から始まるため、先に画像を生成するかアップロードしてください。Roleplayの`/video`とGalleryの**Video**ボタンは、Illustratorの**First frame**(開始フレーム)設定に従います。First frameを選んでいなければ、画像は必要ありません。
 
-**Game Mode**と**Animate illustration**は必ず画像から始まるため、先に画像を生成するかアップロードしてください。**Roleplay**の`/video`とGalleryの**Video**ボタンはIllustratorの**First frame**(開始フレーム)設定に従います。開始フレームを選んでいなければ、画像は一切必要ありません。
+シーン動画は、通常の画像生成ではなく、**Video Generation**(動画生成)という別の種類のアカウントを使います。完成したクリップはチャットとともに保存され、Galleryに表示されます。Galleryでは、ピン留め、ダウンロード、再生ができます。
 
-シーン動画は**Video Generation**(動画生成)という専用の接続タイプを使います。通常の画像生成とは別物です。完成したクリップはチャットとともに保存され、Galleryに表示されます。Galleryではピン留め、ダウンロード、再生ができます。
+## 動画サービスを設定する
 
-## Video Generationの接続
+1. 上部バーの**Connections**(接続)をクリックし、続いて**Add**(追加)をクリックします。**Add account**(アカウントの追加)ウィンドウが開きます。
+2. **Images & video**(画像と動画)のセクションから、サービスを選びます。サービスの一覧は下にあります。
+3. クラウドサービスの場合は、APIキーを貼り付けます。ローカルのComfyUIには不要です。SwarmUIでは、サーバーでアカウントが必要な場合にだけSwarm Auth Tokenが要ります。
+4. **Connect**(接続)をクリックし、モデルを選ぶか、デフォルトのままにします。NanoGPTにはデフォルトがないため、一覧から1つ選んでください。ComfyUIでは、ワークフローが`%model%`を使っていないかぎり、モデルは未設定のままにします。SwarmUIでは、モデルは任意です。
+5. 動画モデルを開き、**Test video**(動画をテスト)をクリックして確認します。
 
-シーン動画を作るには、まず動画を生成できる接続を追加します。チャットや画像生成の接続と同じConnectionsパネルを使います。
+各サービスは、デフォルトのアドレスと、該当する場合はデフォルトのモデルを自動で入力します。NanoGPTにはデフォルトのモデルがないため、1つ選んでください。
 
-1. **Settings**(設定)を開き、**Connections**(接続)を開きます。
-2. **Add Connection**(接続の追加)をクリックします。
-3. プロバイダーの種類を**Video Generation**にします。
-4. **Video Service**(動画サービス)で、下の8つのサービスから1つを選びます。
-5. クラウドサービスの場合はAPIキーを入力します。ローカルのComfyUIには不要です。SwarmUIでは、SwarmUIサーバーでアカウントが必要な場合にだけSwarm Auth Tokenが要ります。
-6. クラウドサービスではモデルを選ぶか、プロバイダーのデフォルトのままにします。NanoGPTにはデフォルトがないため、**Fetch Models from API**をクリックして1つ選びます。ComfyUIでは、ワークフローが`%model%`を使っていないかぎりモデルは未設定のままにします。SwarmUIでは、モデルは任意です。
-7. 接続を保存します。
+| 動画サービス | デフォルトのモデル | 備考 |
+| --- | --- | --- |
+| **Google AI Studio** | `gemini-omni-flash-preview` | Gemini API経由でGemini OmniとVeoのモデルを実行します。 |
+| **xAI Imagine** | `grok-imagine-video-1.5` | xAI Videos API経由のGrok Imagine動画です。 |
+| **OpenRouter Video** | `google/veo-3.1` | OpenRouterの動画モデルIDを自由に入力できます。 |
+| **NanoGPT** | なし、自分で選ぶ | NanoGPT経由の動画モデルです。 |
+| **Atlas Cloud** | `google/veo3.1/text-to-video` | ホストされた、テキストから動画、画像から動画のモデルです。 |
+| **Seedance 2.0** | `seedance-2-0` | テキスト、最初のフレーム、最初と最後のフレームの各モードに対応します。 |
+| **ComfyUI** | ワークフローで指定 | ローカルのWANなど、API形式の動画ワークフローです。 |
+| **SwarmUI** | ワークフローで指定 | SwarmUIサーバー経由で実行するComfyUIの動画ワークフローです。 |
 
-**Video Service**の選択肢は8つです。それぞれデフォルトのWebアドレスと、該当する場合はデフォルトのモデルが自動で入ります。
+**Google AI Studio**は2つのファミリーを扱います。**Gemini Omni**は`gemini-omni-flash-preview`を、**Google Veo**は`veo-3.1-generate-preview`を使います。どちらが動くかは、選んだモデルで決まります。
 
-| Video Service        | デフォルトのモデル                | 備考                                                                          |
-| -------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
-| **Google AI Studio** | `gemini-omni-flash-preview`       | Gemini API経由でGemini OmniとVeoの動画モデルを実行します。                     |
-| **xAI Imagine**      | `grok-imagine-video-1.5`          | xAI Videos API経由のGrok Imagine動画です。                                     |
-| **OpenRouter Video** | `google/veo-3.1`                  | OpenRouter経由の動画モデルです。OpenRouterの動画モデルIDを自由に入力できます。 |
-| **NanoGPT**          | なし(自分で選択)                  | NanoGPT経由の動画モデルです。**Fetch Models from API**で一覧を読み込みます。 |
-| **Atlas Cloud**      | `google/veo3.1/text-to-video`     | Atlas Cloudでホストされるテキストから動画、画像から動画のモデルです。          |
-| **Seedance 2.0**     | `seedance-2-0`                    | テキスト、最初のフレーム、最初と最後のフレームの各モードに対応します。          |
-| **ComfyUI**          | ワークフローで指定                | ローカルのWANなど、API形式で書き出した動画ワークフローです。                   |
-| **SwarmUI**          | ワークフローで指定                | SwarmUIサーバー経由で実行するComfyUIの動画ワークフローです。                   |
+**ComfyUI**では`http://127.0.0.1:8188`を使い、API形式の動画ワークフローを**ComfyUI workflow (required)**(ComfyUIワークフロー、必須)に貼り付けます。これは必須です。プレースホルダーと出力ノードについては、[ComfyUIワークフローの設定](comfyui.md#comfyui-video-workflows)を参照してください。
 
-**Google AI Studio**は2つのモデルファミリーを扱います。**Gemini Omni**は`gemini-omni-flash-preview`を使います。**Google Veo**は`veo-3.1-generate-preview`を使います。どちらが動くかは、接続で選んだモデルによって決まります。
+**SwarmUI**では、Marinaraが`http://127.0.0.1:7801`を入力します。API形式の動画ワークフローを**ComfyUI workflow (required)**に貼り付けます。これは必須です。SwarmUIでは`%reference_image_name%`のプレースホルダーを使えないため、`%reference_image%`を使ってください。サーバーでアカウントが必要な場合は、**API key**(APIキー)にSwarm Auth Tokenを貼り付けます。
 
-**ComfyUI**では、ローカルアドレスの`http://127.0.0.1:8188`を使い、API形式の動画ワークフローを**ComfyUI Workflow**(ComfyUIワークフロー)に貼り付けます。ワークフローは必須です。プレースホルダーと出力ノードの要件については[ComfyUIワークフローの設定](comfyui.md#comfyui-video-workflows)を参照してください。
+### デフォルトの動画モデルにする
 
-**SwarmUI**では、ローカルアドレスの`http://127.0.0.1:7801`が自動で入ります。API形式の動画ワークフローを**ComfyUI Workflow**に貼り付けます。ワークフローは必須です。SwarmUIでは`%reference_image_name%`のプレースホルダーを使えないため、参照画像には代わりに`%reference_image%`を使ってください。SwarmUIサーバーでアカウントが必要な場合は、**API Key**にSwarm Auth Tokenを貼り付けます。**Fetch Models from API**で、SwarmUIサーバーにあるモデルの一覧を表示できます。
+チャットに独自の動画モデルがないときに使う動画モデルを決めるには、**Connections**(接続)パネル上部の**Defaults**(デフォルト)にある**Video**(動画)の役割を設定します。Chat Settingsでは、これが**Default video provider**と表示されます。チャットのモデルもデフォルトもない場合、動画の操作時にモデルを選ぶよう警告が表示されます。
 
-### Video Prompting Instructions
+### Video prompting instructions
 
-Video Generationの接続には**Video Prompting Instructions**(動画プロンプトの作成指示)欄があります。動画のプロンプトを書くAIに、カメラの動き、プロンプトの長さ、音など、使う動画モデルが求めるものを伝えるために使います。この指示は、RoleplayのGalleryのアニメーション、Conversationの動画メッセージ、Storyboardの**Image-aware shot planning**(画像を考慮したショット計画)に使われます。AIがこの欄の文をまるごと動画のプロンプトに写した場合、Marinaraはその文を取り除きます。Game Modeのシーン動画、通話のクリップ、アニメーション表情は、プロンプトを別の方法で作ります。**Video Prompting Instructions**はこれらには影響しません。
+各動画モデルには、**Video prompting instructions**(動画プロンプトの作成指示)欄があります。動画のプロンプトを書くAIに、カメラの動き、プロンプトの長さ、音など、使う動画モデルが求めるものを伝えます。この指示は、RoleplayのGalleryのアニメーション、Conversationの動画メッセージ、Storyboardの**Image-aware shot planning**(画像を考慮したショット計画)に使われます。AIがこの欄の文をまるごとプロンプトに写した場合、Marinaraはその文を取り除きます。Game Modeのシーン動画、通話のクリップ、アニメーション表情はプロンプトを別に作るため、この指示を無視します。
 
-### デフォルトの動画接続にする
+### モデルごとの動画デフォルト
 
-Video Generationの接続エディターには**Default for Videos**(動画のデフォルト)というグループがあります。**Use as default video connection**(デフォルトの動画接続として使う)をオンにすると、動画接続が個別に設定されていないチャットでもMarinaraがこの接続を使えます。デフォルトの動画接続に指定するのは1つだけにしてください。
+動画モデルには、クリップのデフォルトの長さ、アスペクト比、解像度を設定する**Video defaults**(動画のデフォルト設定)パネルがあります。これらは、アプリ全体のフォールバックの長さより優先されます。
 
-### 接続ごとの動画デフォルト
+サービスごとのデフォルトの長さ、範囲、アスペクト比、解像度は次のとおりです。
 
-Video Generationの接続には、接続エディター内に専用の**Video Generation Defaults**(動画生成のデフォルト)パネルがあります。ここでは、その接続で使うクリップの長さ、アスペクト比、解像度のデフォルトを設定します。接続ごとのこの設定は、アプリ全体のフォールバックの長さより優先されます。
+- Gemini Omni: 10秒、1秒から60秒、16:9、プロバイダーのデフォルトの解像度
+- Google Veo: 8秒、4秒か6秒か8秒、16:9、720p
+- xAI Imagine: 10秒、1秒から15秒、16:9、720p
+- OpenRouter Video: 10秒、1秒から60秒、16:9、720p
+- Atlas Cloud: 8秒、1秒から60秒、16:9、720p
+- Seedance 2.0: 5秒、4秒から15秒、16:9、720p
+- ComfyUIとSwarmUI: 5秒、1秒から60秒、16:9、720p
 
-| サービス         | デフォルトの長さ | 長さの範囲     | アスペクト比 | 解像度                 |
-| ---------------- | -------------- | ------------ | ------------ | ---------------- |
-| Gemini Omni      | 10秒           | 1秒から60秒     | 16:9         | プロバイダーのデフォルト |
-| Google Veo       | 8秒            | 4秒、6秒、8秒  | 16:9         | 720p             |
-| xAI Imagine      | 10秒           | 1秒から15秒     | 16:9         | 720p             |
-| OpenRouter Video | 10秒           | 1秒から60秒     | 16:9         | 720p             |
-| NanoGPT          | 10秒           | 1秒から60秒     | 16:9         | 720p             |
-| Atlas Cloud      | 8秒            | 1秒から60秒     | 16:9         | 720p             |
-| Seedance 2.0     | 5秒            | 4秒から15秒     | 16:9         | 720p             |
-| ComfyUI          | 5秒            | 1秒から60秒     | 16:9         | 720p             |
-| SwarmUI          | 5秒            | 1秒から60秒     | 16:9         | 720p             |
+Gemini Omniには解像度の欄がなく、長さはプロンプトの文章に書き込まれます。Google Veoは、参照画像を動かすときに必ず8秒になります。最初と最後のフレームをつなぐのに8秒必要だからです。
 
-Gemini Omniには解像度の欄がなく、長さも独立した設定ではなくプロンプトの文章に書き込まれます。Google Veoは参照画像を動かすときに必ず8秒になります。最初と最後のフレームをつなぐのに8秒必要だからです。
+<a id="seedance-reference-frames"></a>
 
 ### Seedanceの参照フレーム
 
-Seedanceは、参照画像を動かす前に公開Webリンク経由でその画像を取得する必要があります。ローカルのMarinaraサーバーには公開リンクがないため、そのままのローカル環境ではもう1手順必要です。
+Seedanceは、公開Webリンク経由で参照画像を取得する必要があります。ローカルのMarinaraサーバーには公開リンクがないため、そのままのローカル環境ではもう1手順必要です。
 
-Seedanceの接続を開き、**Upload Seedance reference frames temporarily**(Seedanceの参照フレームを一時的にアップロードする)をオンにします。これで参照フレームが一時的な公開リンクにアップロードされ、Seedanceから読み取れるようになります。リンクの有効期間は**Temporary link lifetime**(一時リンクの有効期間)で選べます。デフォルトは12時間です。
+1. Seedanceのモデルを開きます。
+2. **Upload Seedance reference frames temporarily**(Seedanceの参照フレームを一時的にアップロードする)をオンにします。フレームは一時的な公開リンクにアップロードされます。
+3. 任意: **Temporary link lifetime**(一時リンクの有効期間)を設定します。デフォルトは12時間です。
 
-Marinaraサーバーにすでに公開Webアドレスがある場合は、一時アップロードの代わりに環境変数を設定できます。動画の参照に関する設定は[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
+Marinaraサーバーにすでに公開アドレスがある場合は、代わりに環境変数を設定できます。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 
-## プロバイダーの選び方
+## Galleryから動画を作る
 
-8つのサービスはいずれも画像から短いクリップを作ります。違いは速度、クリップの長さ、参照画像の扱い方です。
+RoleplayとGame Modeのチャットでは、Galleryからシーン動画を作れます。**Chat Settings**(チャット設定)を開き、**Gallery**(ギャラリー)を展開してください。Galleryには**Images**タブと**Videos**タブがあり、それぞれ件数が表示されます。
 
-- **Google AI Studio (Gemini Omni)**: 最長60秒まで長さを自由に指定できます。長さは独立した設定ではなくプロンプトに埋め込まれます。
-- **Google AI Studio (Veo)**: 品質が高い一方、長さは4秒、6秒、8秒に固定されます。画像を動かすときは8秒になります。
-- **xAI Imagine**: 1秒から15秒のクリップを作ります。プロンプトの上限が他のサービスより短めです。
-- **OpenRouter Video**: 1秒から60秒に対応し、OpenRouterのアカウントで使える動画モデルを自由に入力できます。
-- **NanoGPT**: 1秒から60秒に対応します。デフォルトのモデルがないため、**Fetch Models from API**でNanoGPTの動画モデルを読み込み、1つ選んでください。
-- **Atlas Cloud**: **Fetch Models**(モデルを取得)は最新の動画モデル一覧を読み込み、画像から動画のモデルを先に表示します。各モデルには出力動画1秒あたりの開始価格が表示されます。一覧を取得できない場合は、Veo 3.1とSeedance 2.0の初期モデルを表示します。Atlas Cloudの動画モデルIDを正確に直接入力することもできます。モデル固有の長さ、解像度、参照画像の制限は引き続き適用されます。
-- **Seedance 2.0**: 4秒から15秒のクリップを作り、最初のフレーム、最初と最後のフレームのモードがあります。参照画像への公開リンクが必要です。
-- **ComfyUI**: 自分で用意したAPI形式のワークフローによるローカル生成です。ワークフローが`%reference_image_name%`を使っている場合、Marinaraは参照画像をComfyUIへ直接アップロードします。
-- **SwarmUI**: 自分で用意したAPI形式のワークフローを、SwarmUIサーバー経由で実行するローカル生成です。参照画像は`%reference_image%`でワークフローに渡します。
+### Roleplayの場合
 
-動画の処理には時間がかかります。プロバイダーが処理を開始し、Marinaraはクリップが完成するまで待って状態を確認し続けます。1本あたり数分かかることもあり、静止画より長くなります。大きなローカルのWANモデルではデフォルトの30分では足りない場合があります。必要に応じて`VIDEO_GEN_TIMEOUT_MS`の値を上げ、Marinaraを再起動してください。
+Gallery上部の操作列にある**Video**は、`/video`と同じく、最新の返信のクリップを作ります。何を映すか指定するには、`/video`の後に説明を加えてください。
+
+- **First frame**(開始フレーム): Illustratorの**First frame**設定に従います。最新の返信を描いた新しいIllustrator画像(先に描いてから動かします)、キャラクターのアバターやスプライト、または画像なしのいずれかです。何も選んでいなければ、物語だけからクリップを作ります。
+- **アバター**: 説明の中で最初に名前を挙げた人物から始まります。ペルソナも対象です。ほかの人と重ならない名前の一部を、先頭を大文字にして書けば十分です(「Dr. Lena Kowalski」に対する「Lena」など)。名前を挙げなければ、チャットのキャラクターから始まります。
+- **確認**: **Expose media prompts before sending**(送信前にメディアのプロンプトを表示)がオンなら、先にクリップのプロンプトを確認して編集できます。
+- **文脈**: AIは、Illustratorが画像を作るときと同じ件数の最近のメッセージを読みます(Illustratorの設定画面の**Agent Budget**(エージェントの予算)にある**Context Size**(コンテキストサイズ))。
+- **画像なし**: 画像なし、またはアバターから始まるクリップでは、AIが場面自体を描写します。その指示は、**Settings → Generations → Video Generation Prompt Overrides**(設定 → 生成 → 動画生成プロンプトの上書き)の**Roleplay Clip Director**(Roleplayクリップの演出)です。
+
+完成したクリップは、画像がそれより前の返信のものでも、最新の返信の下でその場で再生されます。クリップが自動でフローティングウィンドウに開くことはありません。フローティング表示にするには、**Videos**の**Pin video to chat**(動画をチャットにピン留め)を使います。メッセージからクリップを外すには、その**X**ボタンを使います。外したクリップはGalleryに残ります。
+
+### Game Modeの場合
+
+1. **Images**に画像が1枚以上あることを確かめます。**Illustrate**を使うか、画像をアップロードします。
+2. Gallery上部の操作列で**Video**をクリックします。
+3. **Settings → Generations → Overall Generations**(設定 → 生成 → 生成全般)で**Expose media prompts before sending**(送信前にメディアのプロンプトを表示)がオンになっている場合は、プロンプトを確認または編集し、**Generate**をクリックします。キャンセルした場合、リクエストは送られません。
+4. ボタンが**Generating...**になり、動画生成が進行中であることを知らせるバナーが出ます。
+5. 完成すると、クリップが**Videos**に表示されます。
+
+画像がない場合、Marinaraは「Add or generate a gallery image before generating a scene video.」と表示します。画像を作るかアップロードしてから、もう一度試してください。
+
+### 1枚の画像を動かす
+
+1. **Images**タブを開きます。
+2. 画像にカーソルを合わせます。
+3. **Animate illustration**ボタン(フィルムのアイコン)をクリックします。
+
+プロンプトの確認がオンの場合、その画像に使われる、組み立て済みのプロンプト、長さ、アスペクト比、解像度が、そのままウィンドウに表示されます。ここでの編集は、そのクリップにだけ適用されます。Roleplayでは、動きを計画するAIが、Illustratorと同じ件数の最近のメッセージを読みます。読み取る範囲は、その画像が属する返信で終わります。繰り返し使うその指示は、**Settings → Generations → Video Generation Prompt Overrides**(設定 → 生成 → 動画生成プロンプトの上書き)の**Roleplay Gallery Animation Director**です。
+
+**Videos**の各クリップはその場で再生され、長さとモデル名が表示されます。**Pin video to chat**(動画をチャットにピン留め)か**Download scene video**(シーン動画をダウンロード)を使えます。クリップがない場合、タブには**No videos yet**と表示されます。
+
+## サービスを選ぶ
+
+8つのサービスはいずれも、画像から短いクリップを作ります。
+
+- **Google AI Studio (Gemini Omni)**: 最長60秒。長さはプロンプトに書き込まれます。
+- **Google AI Studio (Veo)**: 品質が高く、長さは4秒、6秒、8秒のいずれかに固定されます。画像を動かすときは8秒を使います。
+- **xAI Imagine**: 1秒から15秒。プロンプトの上限がほかより短めです。
+- **OpenRouter Video**: 1秒から60秒。自分のアカウントで使える動画モデルを自由に使えます。
+- **NanoGPT**: 1秒から60秒。デフォルトのモデルはありません。
+- **Atlas Cloud**: Atlas Cloudの最新の動画カタログを読み込み、画像から動画のモデルを先に表示します。各モデルには、出力1秒あたりの開始価格が表示されます。読み込めない場合、MarinaraはVeo 3.1とSeedance 2.0の初期モデルを表示します。正確なモデルIDを入力することもできます。モデルの制限は引き続き適用されます。
+- **Seedance 2.0**: 4秒から15秒。最初のフレームのモードと、最初と最後のフレームのモードがあります。参照画像への公開リンクが必要です。
+- **ComfyUI**: API形式のワークフローによるローカル生成です。ワークフローが`%reference_image_name%`を使っている場合、Marinaraは参照画像を直接アップロードします。
+- **SwarmUI**: ワークフローとSwarmUIサーバーによるローカル生成です。参照画像は`%reference_image%`で渡します。
+
+動画の処理には時間がかかります。サービスが処理を開始し、Marinaraはクリップが完成するまで待って状態を確認します。1本に数分かかることもあります。大きなローカルのWANモデルでは、デフォルトの30分では足りない場合があります。`VIDEO_GEN_TIMEOUT_MS`の値を上げ、Marinaraを再起動してください。
 
 ### Atlas Cloudのモデルごとの違い
 
-Atlas Cloudのモデルが受け付ける設定は一律ではありません。Marinaraはリクエストごとに`static.atlascloud.ai`から公開された入力スキーマを読み込み、接続のデフォルト設定を調整します。
+Atlas Cloudのモデルが受け付ける設定は一律ではありません。Marinaraはリクエストごとに、`static.atlascloud.ai`で公開されているモデルの入力スキーマを読み込み、デフォルト設定をそれに合わせます。
 
-- 元のイラストは、そのモデルが使う画像フィールドに送信されます。
-- クリップの長さは、対応する長さのうち最も近い値に変わります。5秒または10秒だけに対応するモデルでは、デフォルトの8秒は10秒になります。
-- 解像度は、対応する段階のうち最も近いものに変わります。ピクセル単位のサイズを受け付けるモデルには、アスペクト比と解像度に最も近い`width*height`が送られます。
-- モデルにない設定は省かれ、モデル側のデフォルトが使われます。
+- 元の画像は、そのモデルが使う画像フィールドに送られます。
+- クリップの長さは、モデルが対応する長さのうち最も近い値に変わります。5秒または10秒だけに対応するモデルでは、デフォルトの8秒は10秒になります。
+- 解像度は、モデルが対応する段階のうち最も近いものに変わります。ピクセル単位のサイズを受け付けるモデルには、アスペクト比と解像度に最も近い`width*height`が送られます。
+- モデルにない設定は省かれ、モデルのデフォルトが使われます。
 
-変更した値は、サーバーログの`[video-gen/atlas-cloud] fitted request`で始まる行に記録されます。スキーマを読み取れない場合、Marinaraは従来と同じ汎用リクエストを送信します。
+変更された値はすべて、サーバーログの`[video-gen/atlas-cloud] fitted request`で始まる行に記録されます。スキーマを読み取れない場合、Marinaraは従来と同じ汎用リクエストを送ります。
 
-シーン動画には**image-to-video**(画像から動画)モデルを選んでください。テキストから動画のモデルには画像フィールドがないため、イラストを無視し、プロンプトだけから別のクリップを生成します。この場合はサーバーログにも記録されます。
+シーン動画には、画像から動画のモデルを選んでください。テキストから動画のモデルには、画像フィールドがありません。画像を無視してプロンプトから無関係なクリップを作り、そのことがサーバーログに記録されます。モデルが画像を必要とする場合、**Test video**(動画をテスト)は単純なグラデーションを最初のフレームとして送るため、画像から動画のモデルもテストに合格できます。
 
-選択したAtlas Cloudモデルが画像を必須とする場合、**Test Video**(動画をテスト)は単純なグラデーションを最初のフレームとして送信します。これにより、画像から動画のモデルでも接続テストを実行できます。
+多くのAtlas Cloudモデルには、`negative_prompt`、`seed`、`generate_audio`、`shot_type`、`enable_prompt_expansion`、LoRAリストなどの独自の入力があります。
 
-### Atlas Cloudのモデルオプション
+1. Atlas Cloudのモデルを開き、モデルを選ぶか入力します。
+2. **Video defaults**(動画のデフォルト設定)を展開し、続いて**Atlas Cloud setup**(Atlas Cloudの設定)を展開します。
+3. 長さ、アスペクト比、解像度の項目の下にある**Model options**(モデルオプション)を探します。
 
-多くのAtlas Cloudモデルには、`negative_prompt`、`seed`、`generate_audio`、`shot_type`、`enable_prompt_expansion`、LoRAリストなどの独自の入力があります。接続エディターは選択したモデルの入力を表示します。
+**Model options**の上部には、モデルが受け付ける長さ、解像度、フレームサイズ、アスペクト比が一覧表示されます。テキストから動画のモデルでは、警告も表示されます。各オプションにはAtlas Cloud自身の名前と説明が使われ、最初は**Model default**(モデルのデフォルト)で、デフォルト値が括弧内に表示されます。**Model default**のままのオプションは送信されません。変更すると、**Test video**を含め、このモデルで作るすべての動画にその値が送られます。LoRAなどのリストやオブジェクトの入力には、JSONを使います。
 
-1. Atlas Cloudの接続を開き、モデルを選択するか入力します。
-2. **Video Defaults**(動画のデフォルト設定)、続いて**Atlas Cloud setup**(Atlas Cloudの設定)を開きます。
-3. 長さ、アスペクト比、解像度の下にある**Model options**(モデルオプション)を確認します。
+選択内容はモデルごとに保存されます。**Reset model options**(モデルオプションをリセット)は、現在のモデルの選択内容を消去します。変更を保持するには、**Save**(保存)をクリックします。保存済みのオプションがモデルに合わなくなった場合、Marinaraはそのオプションを送信せず、ログ行にその名前を記録します。
 
-**Model options**の上部には、モデルが対応する長さ、解像度、フレームサイズ、アスペクト比が表示されます。テキストから動画のモデルでは、ギャラリー画像を使えないため、ここに警告も表示されます。
+## Game Assetsで動画を作る
 
-各オプションの名前と説明はAtlas Cloudの表記のままです。すべてのオプションは**Model default**(モデルのデフォルト)から始まり、プロバイダーのデフォルト値が括弧内に表示されます。**Model default**のままのオプションは送信されず、Atlas Cloudが値を決めます。変更した値は、この接続で作るすべての動画に送信され、**Test Video**にも適用されます。LoRAなどのリストやオブジェクトの入力にはJSONを使います。
-
-選択内容はモデルごとに保存されます。別のモデルに切り替えて戻っても、それぞれの設定が保持されます。**Reset model options**(モデルオプションをリセット)は現在のモデルの選択内容を消去します。変更を保存するには、接続の**Save**(保存)をクリックしてください。
-
-Atlas Cloudによる入力仕様の変更などで保存済みのオプションがモデルに合わなくなった場合、Marinaraはそのオプションを送信せず、`[video-gen/atlas-cloud] fitted request`のログ行に名前を記録します。
-
-## Galleryから動画を生成する
-
-**Roleplay**と**Game Mode**のどちらのチャットでも、**Gallery**(ギャラリー)からシーン動画を作れます。**Chat Settings**を開き、**Gallery**セクションを展開してください。Game Modeのチャットには、このガイドの後半で説明する**Game Assets**という2つ目の入口もあります。
-
-Galleryには**Images**タブと**Videos**タブがあり、それぞれ件数が表示されます。静止画は**Images**に、完成したクリップは**Videos**に入ります。
-
-**Roleplay**では、Gallery上部の操作列にある**Video**で、**最新の返信**のクリップを作ります。`/video`と入力する場合と同じです。何を映すか指定するには、`/video`の後に説明を加えてください。
-
-- **First frame**: クリップはIllustratorの**First frame**設定に従います。最新の返信を描いた新しいIllustrator画像(先に描いてから動かします)、キャラクターのアバターやスプライト、または画像なしから始まります。開始フレームを選んでいなければ画像は描かず、物語だけからクリップを作ります。
-- **アバター**: 説明の中で最初に名前を挙げた人物から始まります。ペルソナも対象です。ほかの人と重ならない名前の一部を、先頭を大文字にして書けば十分です(「Dr. Lena Kowalski」に対する「Lena」など)。名前を挙げなければ、チャットのキャラクターから始まります。
-- **確認**: **Expose media prompts before sending**がオンなら、先にクリップのプロンプトを確認して編集できます。
-- **読み取る文脈**: クリップの内容を書くAIは、Illustratorが画像を作るときと同じ件数の最近のメッセージを読みます。件数はIllustratorの設定画面の**Agent Budget**(エージェントの予算)にある**Context Size**(コンテキストサイズ)で決まるため、今起きていることが映ります。
-- **画像なしの場合**: 画像なし、またはアバターから始まるクリップでは、AIが場面自体を描写します。その指示は**Settings**、**Generations**、**Video Generation Prompt Overrides**の**Roleplay Clip Director**(Roleplayクリップの演出)です。
-
-**Game Mode**では、**Video**でいちばん新しい画像を動かします。
-
-1. **Images**タブに画像が1枚以上あることを確かめます。まず**Illustrate**を使うか、画像をアップロードします。
-2. Galleryの上部にある操作列で**Video**をクリックします。
-3. **Settings**、**Generations**、**Overall Generations**の下で**Expose media prompts before sending**が有効になっている場合は、組み立てられたアニメーション用のプロンプトを確認または編集し、**Generate**をクリックします。このウィンドウをキャンセルした場合、プロバイダーへのリクエストは発生しません。
-4. ボタンの表示が**Generating...**に変わり、動画生成が進行中であることを知らせるバナーが出ます。
-5. 完成すると、クリップが**Videos**タブに表示されます。
-
-**Roleplay**では、完成したクリップがチャットの中でもその場で再生されます。画像がそれより前の返信のものでも、クリップはいちばん新しい返信の下に表示されます。クリップが自動でフローティングウィンドウに開くことはなくなりました。フローティング表示にしたい場合は、**Videos**タブで**Pin video to chat**(動画をチャットにピン留め)を使います。メッセージからクリップを外すには、その**X**ボタンを使います。外したクリップはGalleryに残ります。
-
-いちばん新しい画像ではなく、特定の画像を動かす手順は次のとおりです。
-
-1. **Images**タブを開きます。
-2. 動かしたい画像にカーソルを合わせます。
-3. ホバー時の操作から**Animate illustration**ボタン(フィルムのアイコン)をクリックします。
-
-プロンプトの確認が有効な場合、**Animate illustration**でも同じ**Review Video Prompt**ウィンドウが開きます。そこには、選んだ画像に実際に使われる、サーバーで組み立てられたプロンプト、長さ、アスペクト比、解像度が表示されます。ここでの編集はその生成にだけ適用されます。Roleplayでは、動きを計画するAIがIllustratorと同じ件数の最近のメッセージ(**Context Size**)を読みます。読み取る範囲は、その画像が属する返信で終わります。 Roleplayでは、このプロンプトのもとになる繰り返し使う指示を、**Settings**、**Generations**、**Video Generation Prompt Overrides**にある**Roleplay Gallery Animation Director**で個別に管理します。
-
-**Videos**タブでは、各クリップがその場で再生され、長さとモデル名が表示されます。**Pin video to chat**でクリップをピン留めしたり、**Download scene video**で保存したりできます。クリップがまだない場合、タブには**No videos yet**と表示されます。
-
-Game Modeで、チャットに画像がない状態で画像を動かそうとすると、Marinaraは「Add or generate a gallery image before generating a scene video.」というメッセージを表示します。先に画像を生成するかアップロードしてから、もう一度試してください。
-
-## Game Modeのシーン動画
-
-Game Modeには、シーン動画を作る2つ目の場所として**Game Assets**(ゲームアセット)があります。最初はチャットの右上付近にあるフォルダーボタンをクリックまたはタップしてください。コンピューターではウィンドウ、スマートフォンでは画面幅いっぱいのパネルとして開きます。Chat Settingsに移した場合は、代わりにそこの**Game Assets**セクションを開いてください。
+Game Modeには、シーン動画を作る2つ目の場所として**Game Assets**(ゲームアセット)があります。チャットの右上付近にあるフォルダーボタンをクリックしてください。コンピューターではウィンドウ、スマートフォンでは画面幅いっぱいのパネルとして開きます。Chat Settingsに移した場合は、そこの**Game Assets**セクションを開いてください。
 
 1. **Game Assets**を開きます。
-2. **Generate video**をクリックします。ツールチップには「Generate a scene video from the latest illustration.」と表示されます。
+2. **Generate video**(「Generate a scene video from the latest illustration」)をクリックします。
 3. 完成すると、いちばん新しいクリップがそこで再生されます。
 
-**Generate video**ボタンは、ゲームに動画接続とシーンのイラストの両方がそろうまで押せません。早すぎるタイミングでクリックすると、次のいずれかのメッセージが出ることがあります。
+**Generate video**は、ゲームに動画モデルとシーンのイラストの両方がそろうまで押せません。早すぎるタイミングでクリックすると、「Choose a Video Generation connection in Game Settings first.」(ゲームに動画モデルを設定してください)や、「Generate a scene illustration before generating a scene video.」と表示されることがあります。クリップの生成に失敗すると、パネルに「Scene video generation failed.」と表示されます。もう一度試し、それでも失敗が続く場合はキーを確認してください。
 
-- 「Choose a Video Generation connection in Game Settings first.」ゲームに動画接続を設定してください。
-- 「Generate a scene illustration before generating a scene video.」先に画像を作ってください。
+## チャットで使う動画モデルを選ぶ
 
-クリップの生成に失敗すると、パネルに「Scene video generation failed.」と表示されます。もう一度試し、それでも失敗が続く場合は接続とAPIキーを確認してください。
+動画モデルは、チャットごとに**Chat Settings → Agents → Scene Videos**(チャット設定 → エージェント → シーン動画)で選びます。
 
-## チャットで使う動画接続を選ぶ
+- **Roleplay**では、**Scene Videos**カード(「Generate manual MP4 scene videos from gallery images」)が表示されます。操作は、動画モデルの一覧の1つだけです。
+- **Game Mode**では、操作の多い**Scene Videos**カード(「Generate MP4 scene videos from game illustrations」)が表示されます。動画モデルの一覧でモデルを選びます。**Game Video Prompt**は、画像をどう動かすかを決めるテンプレートです。組み込みのデフォルトは**Cinematic Scene Video**です。**Edit Video Prompt Presets**では、このチャット用に自分のコピーを追加したり編集したりします。
 
-動画接続はチャットごとに選びます。**Chat Settings**(チャット設定)、**Agents**、**Scene Videos**の順に開いて設定します。
+**Game Video Prompt**は、Game ModeでGalleryとGame Assetsから手動で作る動画に適用されます。RoleplayのGalleryのアニメーションでは、代わりに**Roleplay Gallery Animation Director**を使います。Storyboardエージェントは、独自のデフォルトの**Storyboard Video Prompt**を持ちます。チャットごとに、**Chat Settings → Agents → Storyboards**(チャット設定 → エージェント → 絵コンテ)で上書きできます。リセットすると、Storyboardエージェントのデフォルトに戻ります。
 
-**Roleplay**のチャットには「Generate manual MP4 scene videos from gallery images.」と説明された**Scene Videos**カードが表示されます。操作は1つだけで、**Video Connection**ドロップダウンです。ここでVideo Generationの接続を選びます。
-
-**Game Mode**のチャットには「Generate MP4 scene videos from game illustrations.」と説明された**Scene Videos**カードが表示されます。こちらは操作が多くなります。
-
-- **Video Connection**: このゲームで使うVideo Generationの接続です。
-- **Game Video Prompt**: 画像をどう動かすかを決めるプロンプトのテンプレートです。組み込みのデフォルトは**Cinematic Scene Video**です。
-- **Edit Video Presets**: このチャット用に、動画プロンプトのテンプレートのコピーを追加したり編集したりします。
-
-**Game Video Prompt**は、Game ModeでGalleryとGame Assetsから手動で作る動画にも引き続き適用されます。RoleplayのGalleryのアニメーションでは、代わりに**Roleplay Gallery Animation Director**を使います。インストールしたStoryboardエージェントは、独自のデフォルトの**Storyboard Video Prompt**を持ちます。RoleplayとGameのチャットごとに、**Chat Settings > Agents > Storyboards**で上書きできます。この選択をリセットするとStoryboardエージェントのデフォルトに戻り、ほかのチャットのプロンプトを引き継ぐことはありません。
-
-Game Modeのチャットを新規作成すると、設定ウィザードにも**Video Generation Connection**の選択肢があります。**Features**のステップにあり、**Visual Generation**をオンにすると表示されます。
-
-チャットに動画接続が設定されていない場合、Marinaraは**Use as default video connection**を指定した接続にフォールバックします。チャットの接続もデフォルトもない場合は、動画の操作時に接続を選ぶよう促す警告が表示されます。
+Game Modeのチャットを作成するとき、ビジュアル生成をオンにすると、設定ウィザードの**Features**ステップに動画モデルの選択欄が表示されます。
 
 ## 動画生成の設定
 
-動画のデフォルトの一部は、接続ではなくアプリの設定にあります。**Settings**、**Generations**の順に開き、**Video Generation**セクションを開きます。このセクションは「Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls.」と説明されています。
+動画のデフォルトの一部は、アプリ全体の設定です。**Settings → Generations**(設定 → 生成)を開き、**Video Generation**(「Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls」)を探します。
 
-ここにあるシーン動画の主な設定は**Scene video fallback length**で、デフォルトは10秒です。選んだ動画接続に長さの設定がない場合にだけ使われます。1秒から60秒の範囲で設定できます。
-
-このセクションには**Video Generation Prompt Overrides**もあり、繰り返し使う動画プロンプトのテンプレートを編集できます。**Roleplay Gallery Animation Director**は、RoleplayのGalleryのクリップを生成する前に、選んだPrompt Modelへ送る指示を管理します。`${durationSeconds}`の変数は、選んだクリップの長さに置き換わります。コードを書かずにクリップの動きを変えられる、上級者向けの方法です。
-
-**Videos per reply**(1返信あたりの動画数)は、Conversationのキャラクターが1返信で自発的に送れる動画メッセージ数と、IllustratorがRoleplayの1返信に追加するクリップ数を設定します。デフォルトは3で、1から10まで設定できます。Conversationの各キャラクターは最大1本です。1返信で複数のキャラクターが答えるグループチャットや、複数の動画を同時に依頼するときに使います。値を増やすとより多くのキャラクターがクリップを送れます。1本ごとに動画リクエストになるため、節約するには値を下げてください。上限を超えるクリップはスキップされます。`/video`とGalleryの**Video**ボタンはこの上限に含まれません。
-
-同じセクションには**Animated expression length**という設定もあります。これは別の機能であるアニメーションする立ち絵スプライトの設定です。詳しくは[アニメーション表情](animated-expressions.md)を参照してください。
+- **Scene video fallback length**: 選んだ動画モデルに独自の長さがない場合にだけ使われます。デフォルトは10秒です。範囲は1から60です。
+- **Video Generation Prompt Overrides**: 繰り返し使う動画プロンプトのテンプレートを編集します。**Roleplay Gallery Animation Director**は、RoleplayのGalleryのクリップを作る前にPrompt Modelへ送る指示を決めます。その`${durationSeconds}`変数は、クリップの長さに置き換わります。
+- **Videos per reply**(返信ごとの動画数): Conversationのキャラクターが1返信で送れる動画メッセージの数と、IllustratorがRoleplayの1返信に追加するクリップの数です。デフォルトは3です。範囲は1から10です。Conversationの各キャラクターが送るのは最大1本です。グループチャットや、複数の動画をまとめて頼むときのための設定です。値を増やすと、より多くのキャラクターがクリップを送れます。値を下げると、リクエストを節約できます。上限を超えるクリップはスキップされます。`/video`とGalleryの**Video**ボタンは、数に含まれません。
+- **Animated expression length**は、アニメーションする立ち絵スプライトの設定です。[アニメーション表情](animated-expressions.md)を参照してください。
 
 ## 絵コンテ
 
-ダウンロードして使うStoryboardエージェントは、RoleplayとGame Modeで、順番に並んだキーフレーム画像とクリップを作れます。Game Modeは完了したGMの1ターンを使い、Roleplayは完了したやり取りをまとめてチャット内のエピソードにします。アニメーションを有効にすると、Marinaraは選択した動画接続とエージェントの**Storyboard Video Prompt**を使って、成功した各キーフレームを動かします。
-
-絵コンテには専用の操作と専用のガイドがあります。インストール方法と両モードの使い方は[Storyboardエージェントガイド](../game/storyboard.md)を参照してください。
+ダウンロードして使うStoryboardエージェントは、RoleplayとGame Modeで、順番に並んだキーフレーム画像とクリップを作ります。アニメーションがオンの場合、Marinaraは選んだ動画モデルとエージェントの**Storyboard Video Prompt**を使って、成功した各キーフレームを動かします。[Storyboardエージェントガイド](../game/storyboard.md)を参照してください。
 
 ## トラブルシューティング
 
 ### 「Choose a Video Generation connection」と表示される
 
-チャットに動画接続が選ばれていません。**Chat Settings**、**Agents**、**Scene Videos**の順に開いて接続を選びます。ドロップダウンが空の場合は、**Settings**、**Connections**の順に開いて接続を追加します。
+チャットに動画モデルがありません。**Chat Settings → Agents → Scene Videos**(チャット設定 → エージェント → シーン動画)を開いて選んでください。一覧が空の場合は、**Connections**(接続)で追加します。
 
 ### 「Add or generate a gallery image before generating a scene video」と表示される
 
-**Game Mode**と**Animate illustration**は既存の画像を必要とし、**Roleplay**では開始フレームを選んでいなければ物語だけから生成できます。**Illustrate**を使うか、画像をアップロードするか、手持ちの画像で**Animate illustration**をクリックしてください。
+Game Modeと**Animate illustration**には、既存の画像が必要です。Roleplayでは、開始フレームを選んでいなければ、物語だけからクリップを作れます。**Illustrate**を使うか、画像をアップロードするか、手持ちの画像で**Animate illustration**をクリックしてください。
 
 ### 動画の生成に時間がかかる
 
-これは正常です。プロバイダーが処理を開始し、Marinaraはクリップが完成するまで待って状態を確認し続けます。Veo、xAI、OpenRouter、NanoGPT、Atlas Cloud、Seedanceはいずれもこの方式で動作し、1本に数分かかることがあります。
+これは正常です。Google、xAI、OpenRouter、NanoGPT、Atlas Cloud、Seedanceはいずれも処理を開始し、Marinaraがその完了を待ちます。1本に数分かかることがあります。
 
 ### Seedanceが参照画像を読み取れない
 
-Seedanceには画像への公開リンクが必要です。ローカルサーバーの場合は、Seedanceの接続を開いて**Upload Seedance reference frames temporarily**をオンにします。上のSeedanceの節を参照してください。
+Seedanceには、画像への公開リンクが必要です。ローカルサーバーの場合は、Seedanceのモデルで**Upload Seedance reference frames temporarily**(Seedanceの参照フレームを一時的にアップロードする)をオンにします。[Seedanceの参照フレーム](#seedance-reference-frames)を参照してください。
 
 ### 動画のリクエストが失敗し続ける
 
-接続に有効なAPIキーが設定されていること、アカウントで動画機能が使えることを確かめてください。**Settings**、**Connections**の順に開いて接続を開き、キーとモデルを確認します。サーバー側の動画のタイムアウトについては[サーバー設定リファレンス](../CONFIGURATION.md)で説明しています。
+アカウントに有効なAPIキーが設定されていること、動画機能が使えることを確かめてください。**Connections**(接続)でアカウントを開き、キーとモデルを確認します。サーバーのタイムアウトについては、[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 
 ## 関連ガイド
 

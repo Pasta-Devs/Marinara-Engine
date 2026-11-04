@@ -1,88 +1,99 @@
 # Przewodnik po PWA na iOS / iPadOS
 
-Z tego przewodnika dowiesz się, jak korzystać z aplikacji Marinara Engine na iPhone lub iPad. Systemy iOS i iPadOS nie potrafią same uruchomić serwera Marinara. Zamiast tego łączysz się z serwerem na innym urządzeniu i zapisujesz go na ekranie głównym jako aplikację internetową.
+Korzystaj z aplikacji Marinara Engine na urządzeniu iPhone lub iPad. Apple nie pozwala uruchomić serwera Marinara na tych urządzeniach, więc w przeglądarce Safari otwierasz serwer działający na innym urządzeniu. Potem możesz zapisać go na ekranie głównym jako PWA. PWA (Progressive Web App) to strona internetowa, która otwiera się we własnym oknie, jak aplikacja.
 
-## iOS uruchamia serwer na innym urządzeniu
+## Szybka ścieżka
 
-Marinara Engine składa się z dwóch części: serwera, który wykonuje całą pracę, oraz aplikacji internetowej, którą oglądasz w przeglądarce. Na iPhone i iPad Apple nie pozwala uruchomić serwera lokalnie. Serwer działa więc gdzie indziej, a ty otwierasz go w przeglądarce Safari na iPhone lub iPad.
+1. Zainstaluj i uruchom aplikację Marinara na komputerze, serwerze domowym albo telefonie z systemem Android (zobacz listę niżej). Nie wyłączaj jej.
+2. Ustaw logowanie na tym komputerze. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md#option-1-login-recommended).
+3. Ustal adres IP tego komputera (zobacz niżej).
+4. Na urządzeniu iPhone lub iPad otwórz przeglądarkę **Safari** i przejdź pod adres złożony z `http://`, tego adresu IP i `:7860`.
 
-Serwer może działać w dowolnym z tych miejsc:
+Nie używaj adresu `127.0.0.1` na urządzeniu iPhone lub iPad. Ten adres oznacza sam iPhone.
 
-- Na komputerze z systemem Windows (zobacz [Przewodnik instalacji w systemie Windows](windows.md)).
-- Na komputerze z systemem macOS lub Linux (zobacz [Przewodnik instalacji na macOS i Linux](macos-linux.md)).
-- Na telefonie z systemem Android i aplikacją Termux (zobacz [Przewodnik instalacji na Android (Termux)](android-termux.md)).
-- W kontenerze Docker lub Podman (zobacz [Uruchamianie w kontenerze](containers.md)).
+## Gdzie działa serwer
 
-iPhone lub iPad łączy się z tym serwerem przez sieć. Działa to tak samo jak otwieranie dowolnej strony internetowej, tyle że tą stroną jest twój własny serwer Marinara.
+Serwer może działać:
+
+- Na komputerze z systemem Windows: [Przewodnik instalacji w systemie Windows](windows.md).
+- Na komputerze Mac lub z systemem Linux: [Przewodnik instalacji na macOS i Linux](macos-linux.md).
+- Na telefonie z systemem Android i aplikacją Termux: [Przewodnik instalacji na Android (Termux)](android-termux.md).
+- W kontenerze Docker lub Podman: [Uruchamianie w kontenerze](containers.md).
 
 ## Łączenie z przeglądarki Safari
 
-Kiedy serwer działa już na urządzeniu głównym, wykonaj kolejno te kroki.
+Zanim zaczniesz: serwer musi działać i wpuszczać twoje urządzenie, zwykle po zalogowaniu. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md).
 
-1. Sprawdź, czy urządzenie główne oraz iPhone lub iPad są w tej samej sieci albo w tej samej sieci Tailscale. Sieć LAN to twoja sieć lokalna, na przykład domowe Wi-Fi. Tailscale to bezpłatne narzędzie, które łączy urządzenia w prywatną sieć przez internet.
-2. Ustal adres serwera głównego. Wygląda on tak jak w przykładzie poniżej. W miejsce `<host-ip>` wpisz adres IP urządzenia głównego w sieci LAN lub Tailscale. Domyślny port to `7860`.
+1. Podłącz urządzenie z serwerem oraz iPhone lub iPad do tej samej sieci, na przykład do domowego Wi-Fi. Żeby łączyć się z innego miejsca, użyj narzędzia Tailscale, bezpłatnego narzędzia, które łączy urządzenia w prywatną sieć przez internet.
+2. Ustal adres IP urządzenia z serwerem. Na komputerze z serwerem uruchom jedno polecenie w terminalu (oknie, w którym wpisuje się polecenia) i odczytaj adres, który wygląda jak `192.168.1.42`.
 
-```
+   - Windows (wiersz polecenia): `ipconfig`. Odczytaj wartość **IPv4 Address** (adres IPv4).
+   - Linux: `hostname -I`.
+   - macOS: `ipconfig getifaddr en0`.
+
+3. Otwórz przeglądarkę **Safari** i przejdź pod ten adres. W miejsce `<host-ip>` wpisz ustalony adres IP. Domyślny port to `7860`.
+
+```text
 http://<host-ip>:7860
 ```
 
-3. Otwórz przeglądarkę **Safari** na iPhone lub iPad.
-4. Wpisz ten adres w pasku adresu przeglądarki Safari i przejdź do niego.
-5. W przeglądarce powinna wczytać się strona startowa aplikacji Marinara Engine.
+4. Wczyta się strona startowa aplikacji Marinara.
 
-Jeśli strona się nie wczytuje albo pojawia się strona logowania lub konfiguracji, zajrzyj do sekcji Rozwiązywanie problemów poniżej. To właściciel serwera decyduje o dostępie sieciowym i hasłach. Te ustawienia serwera opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md), a nie ustawienia na iPhone lub iPad.
+Jeśli zobaczysz stronę logowania, zaloguj się nazwą użytkownika i hasłem serwera. Jeśli zobaczysz stronę konfiguracji, wpisz jednorazowy kod konfiguracji z logu serwera i wybierz nazwę użytkownika oraz hasło. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md).
+
+Jeśli to nie zadziałało: sprawdź, czy serwer nadal działa i czy oba urządzenia są w tej samej sieci albo w sieci Tailscale. Sprawdź adres IP i port. Zobacz [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Dodawanie do ekranu głównego
 
-Marinara Engine da się zapisać jako aplikację PWA, dzięki czemu otwiera się jak zwykła aplikacja. PWA to skrót od Progressive Web App: strona internetowa działająca we własnym oknie i z własną ikoną na ekranie głównym.
-
-1. Otwórz serwer Marinara w przeglądarce **Safari** (zobacz kroki powyżej).
-2. Dotknij przycisku udostępniania. To kwadratowa ikona ze strzałką skierowaną w górę.
+1. Otwórz serwer Marinara w przeglądarce **Safari**.
+2. Dotknij przycisku udostępniania, czyli kwadratowej ikony ze strzałką skierowaną w górę.
 3. Przewiń panel udostępniania w dół i dotknij opcji **Add to Home Screen** (dodanie do ekranu głównego).
-4. Zmień nazwę, jeśli chcesz, a potem dotknij przycisku **Add**.
-5. Na ekranie głównym powinna pojawić się ikona aplikacji Marinara Engine.
+4. Jeśli chcesz, zmień nazwę, a potem dotknij przycisku **Add** (dodaj).
 
-Dotknij tej ikony, aby otworzyć aplikację Marinara Engine we własnym oknie, bez paska adresu przeglądarki Safari.
+Na ekranie głównym pojawi się ikona aplikacji Marinara. Dotknij jej, aby otworzyć aplikację Marinara we własnym oknie, bez paska adresu przeglądarki Safari.
 
-## Uwaga o HTTPS
+## Użyj HTTPS, gdy aplikacja działa nieprawidłowo
 
-Aplikacje PWA działają najstabilniej przez HTTPS. HTTPS to bezpieczne, zaszyfrowane połączenie z internetem, widoczne jako `https://` na początku adresu.
+PWA działa najlepiej przez HTTPS, czyli bezpieczne połączenie, którego adres zaczyna się od `https://`. Zwykły adres `http://` działa w przeglądarce Safari. Niektóre wersje systemów iOS i iPadOS ograniczają jednak aplikację z ekranu głównego pod zwykłym adresem `http://`. Jeśli tak się dzieje, udostępnij aplikację Marinara przez HTTPS albo zostaw ją jako zakładkę w przeglądarce Safari.
 
-Zwykły HTTP w sieci LAN nadal działa w przeglądarce Safari do codziennego użytku. Niektóre wersje systemu iOS lub iPadOS ograniczają jednak działanie samodzielnej aplikacji PWA pod adresem `http://`. W takim wypadku udostępnij aplikację Marinara Engine przez HTTPS.
+Samo narzędzie Tailscale nie zamienia adresu na HTTPS. Użyj konfiguracji Tailscale, która udostępnia HTTPS, albo poproś właściciela serwera o ustawienie aplikacji Marinara za HTTPS. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md#serving-over-https).
 
-Tailscale nadaje każdemu urządzeniu stały adres prywatny i poprawia dostępność, ale sam nie zamienia adresu `http://` na HTTPS. Wybierz konfigurację Tailscale, która wprost udostępnia HTTPS, albo poproś właściciela serwera o ustawienie aplikacji Marinara Engine za HTTPS.
-
-Te możliwości opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Jeśli zwykły adres HTTP sprawia kłopoty jako aplikacja na ekranie głównym, zostaw go raczej jako zakładkę w przeglądarce Safari.
+<a id="clearing-and-reinstalling-the-pwa"></a>
 
 ## Czyszczenie i ponowna instalacja aplikacji PWA
 
-Czasem przeglądarka Safari wciąż pokazuje starszą wersję aplikacji albo zapisana aplikacja internetowa się zacina. Zwykle pomaga ponowna instalacja aplikacji z ekranu głównego.
+Przeglądarka Safari czasem trzyma starszą wersję aplikacji albo zapisana aplikacja się zacina. Zwykle pomaga ponowna instalacja. Czaty, postacie i ustawienia są na serwerze, więc ponowna instalacja ich nie usuwa.
 
-1. Naciśnij i przytrzymaj ikonę aplikacji Marinara Engine na ekranie głównym.
+1. Naciśnij i przytrzymaj ikonę aplikacji Marinara na ekranie głównym.
 2. Dotknij opcji usunięcia aplikacji, a potem potwierdź.
-3. Otwórz aplikację **Settings** (Ustawienia) na iPhone lub iPad.
-4. Dotknij pozycji **Safari**. W nowszych wersjach systemu iOS i iPadOS może się ona kryć w sekcji **Apps**, a potem **Safari**.
+3. Otwórz aplikację **Settings** (Ustawienia) na urządzeniu iPhone lub iPad.
+4. Dotknij pozycji **Safari**. W nowszych wersjach systemów iOS i iPadOS może się ona kryć w sekcji **Apps**, a potem **Safari**.
 5. Dotknij pozycji **Advanced**, a potem pozycji **Website Data**.
 6. Znajdź wpis z adresem serwera Marinara. Jeśli go nie widać, dotknij opcji **Show All Sites**.
-7. Przesuń palcem w lewo na tym wpisie i dotknij przycisku **Delete**. To usuwa stare pliki zapisane dla tego serwera.
-8. Otwórz aplikację Marinara Engine ponownie w przeglądarce **Safari**, zgodnie z krokami z sekcji Łączenie z przeglądarki Safari.
-9. Dodaj ją ponownie do ekranu głównego, zgodnie z krokami z sekcji Dodawanie do ekranu głównego.
-
-Czaty, postacie i ustawienia są zapisane na serwerze, a nie na iPhone lub iPad. Ponowna instalacja aplikacji z ekranu głównego ich nie usuwa.
+7. Przesuń palcem w lewo po tym wpisie i dotknij przycisku **Delete**.
+8. Otwórz aplikację Marinara ponownie w przeglądarce **Safari** i jeszcze raz dodaj ją do ekranu głównego, wykonując kroki opisane wyżej.
 
 ## Rozwiązywanie problemów
 
-**Strona nie wczytuje się w przeglądarce Safari.** Sprawdź, czy serwer nadal działa na urządzeniu głównym. Sprawdź, czy oba urządzenia są w tej samej sieci lub w sieci Tailscale. Upewnij się, że adres IP i port `7860` są poprawne. Więcej pomocy dotyczącej sieci znajdziesz w dokumentach [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+**Strona nie wczytuje się w przeglądarce Safari.** Sprawdź, czy serwer działa, czy oba urządzenia są w tej samej sieci lub w sieci Tailscale oraz czy adres IP i port `7860` są poprawne. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari po aktualizacji pokazuje stronę logowania lub konfiguracji.** Zaloguj się na `/login` nazwą użytkownika i hasłem serwera. Jeśli logowania nie ma, weź jednorazowy kod konfiguracyjny z logu serwera i ustaw logowanie na stronie konfiguracji. Jeśli serwer nasłuchuje tylko na loopback i nie wypisuje kodu, ustaw logowanie na urządzeniu z serwerem w **Settings → Advanced → Access**. **403** może oznaczać, że iPhone nie jest na liście `IP_ALLOWLIST`; zmień tę listę na serwerze. PWA nie może zresetować logowania serwera. Jeśli logowanie do aplikacji zostało utracone, poproś właściciela serwera o uruchomienie na serwerze `pnpm reset-login` (w Dockerze: `docker exec <container> node scripts/reset-login.mjs`) albo o zmianę tam logowania ustawionego w `.env`. Zobacz [Zablokowany dostęp po aktualizacji](../REMOTE_ACCESS.md#locked-out-after-updating).
+**Safari po aktualizacji pokazuje stronę logowania lub konfiguracji.**
 
-**Safari wciąż pokazuje starą wersję.** Najpierw odśwież stronę. Jeśli nadal wygląda staro, wykonaj kroki z sekcji Czyszczenie i ponowna instalacja aplikacji PWA powyżej.
+- Zaloguj się na `/login` nazwą użytkownika i hasłem serwera.
+- Jeśli logowania nie ma, wpisz na stronie konfiguracji jednorazowy kod konfiguracji z logu serwera.
+- Jeśli serwer nie wypisuje kodu, ustaw logowanie na urządzeniu z serwerem w **Settings → Advanced → Access** (ustawienia, zaawansowane, dostęp).
+- Kod **403** może oznaczać, że twojego urządzenia iPhone nie ma na liście `IP_ALLOWLIST`. Tę listę zmienia właściciel serwera.
+- PWA nie może zresetować logowania serwera. Właściciel serwera uruchamia `node scripts/reset-login.mjs` w folderze aplikacji Marinara na serwerze (w kontenerze Docker: `docker exec <container> node scripts/reset-login.mjs`) albo zmienia logowanie ustawione w `.env`.
 
-**Aplikacja z ekranu głównego zamyka się lub bieleje podczas generowania.** Otwórz ją ponownie i wróć do czatu. Nie musisz restartować zdrowego serwera. Automatyczne odpowiedzi czatu i ręczne lub ponawiane żądania obrazów wyłącznie Illustrator działają dalej na serwerze po utracie połączenia przeglądarki. Ponownie otwarty czat sprawdza niedokończoną pracę i po jej zakończeniu odświeża zapisane wiadomości oraz obrazy galerii. **Stop** nadal anuluje generowanie wybranego czatu. Jeśli pusty ekran wraca, zgłoś Support Diagnostics i to, czy ponowne otwarcie przywraca czat; to odzyskiwanie nie diagnozuje ani nie zapobiega każdej awarii przeglądarki iOS.
+Zobacz [Zablokowany dostęp po aktualizacji](../REMOTE_ACCESS.md#locked-out-after-updating).
 
-**Czerwony pasek ostrzega, że zapisy będą po cichu przepadać.** To ostrzeżenie serwera o zaufaniu sieciowym, a nie problem z iPhone lub iPad. Właściciel serwera musi dodać twój adres do zaufanych. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+**Safari wciąż pokazuje starą wersję.** Odśwież stronę. Jeśli nadal wygląda staro, zainstaluj PWA ponownie, wykonując kroki opisane wyżej.
 
-**Działania uprzywilejowane są blokowane.** Część czynności serwisowych wymaga sekretu administratora od właściciela serwera. Na iPhone lub iPad zapisujesz tę wartość w sekcji **Settings**, potem **Advanced**, potem **Admin Access**. [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) wyjaśnia, czym jest sekret administratora i jak go zdobyć.
+**Aplikacja z ekranu głównego zamyka się lub robi się pusta podczas generowania.** Otwórz ją ponownie i wróć do czatu. Sprawny serwer pracuje dalej: odpowiedzi czatu i żądania obrazów agenta Illustrator nadal działają na serwerze, a ponownie otwarty czat odświeża się po ich zakończeniu. **Stop** nadal anuluje generowanie w wybranym czacie. Jeśli pusty ekran wraca, zgłoś to razem z kopią z sekcji Support Diagnostics.
+
+**Czerwony pasek ostrzega, że zapisy będą po cichu przepadać.** To ostrzeżenie serwera o zaufaniu sieciowym, a nie problem z urządzeniem iPhone lub iPad. Właściciel serwera musi uznać twój adres za zaufany. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md#why-is-my-save-blocked-csrf).
+
+**Działania uprzywilejowane są blokowane.** Niektóre czynności serwisowe wymagają sekretu administratora (drugiego hasła) od właściciela serwera. Zapisz go na urządzeniu iPhone lub iPad w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny). Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
 
 ## Powiązane przewodniki
 

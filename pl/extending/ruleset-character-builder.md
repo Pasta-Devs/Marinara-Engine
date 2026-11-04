@@ -1,6 +1,6 @@
 # Kreator postaci zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Prowadzony kreator: tworzenie postaci krok po kroku, od rasy i klasy po wyniki, biegłości, zaklęcia i sprzęt.
+Ta strona pomoże ci dodać prowadzony kreator, który tworzy postać krok po kroku, od rasy i klasy po wyniki, biegłości, zaklęcia i sprzęt. Jest przeznaczona dla osób piszących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
 
 Arkusz może deklarować `sheet.builder` (Capability API 1.86). Edytor arkusza, w edytorach postaci i person oraz w opcji **Edit sheet** (edytuj arkusz) w grze, otwiera się wtedy na widoku **Guided** (prowadzony) obok pełnego formularza **All fields** (wszystkie pola): kroki u góry, każdy z plakietką liczącą wybory, na które jeszcze czeka, przyciski **Back** (wstecz) i **Next** (dalej), które nigdy nie blokują (gracz może zostawić wybory na później), a obok nich postać w obecnym stanie: to, co zapisały kroki, wartości atrybutów, wartości wskazane przez `gm.sheetSummary` (klasa pancerza, premia biegłości) oraz wyszkolone rzuty obronne i umiejętności.
 

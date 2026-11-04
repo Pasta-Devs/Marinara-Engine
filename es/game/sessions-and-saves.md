@@ -1,142 +1,143 @@
-# Game Mode: Sesiones y partidas guardadas
+# Game Mode: sesiones y partidas guardadas
 
-Esta guía explica cómo Marinara Engine registra tu progreso en Game Mode (modo de juego) a lo largo de las sesiones de juego. Cubre cómo terminar y empezar una sesión y cómo leer sesiones pasadas en **Session History** (Historial de sesiones). También cubre la vista **Show Spoilers** (Mostrar spoilers), cómo corregir a mano los datos del juego y cómo el juego guarda tus datos.
+Game Mode divide tu aventura en sesiones numeradas, como las noches de juego de mesa. Esta guía muestra cómo terminar y empezar una sesión, leer sesiones pasadas, compartir tu configuración, corregir a mano los datos guardados y volver a un momento anterior.
 
-## Qué es una sesión
+Tu primera sesión es **Session 1**. Terminarla y empezar de nuevo crea **Session 2**, y así sucesivamente. Cuando terminas una sesión, el Game Master (GM, la IA que dirige tu juego) escribe un resumen que puedes releer más tarde.
 
-Game Mode divide tu aventura en sesiones numeradas. Una sesión es un tramo continuo de juego, como una sola noche de juego de mesa. El Game Master (GM, la IA que dirige tu juego, es decir, el director del juego) narra cada sesión. Cuando terminas una sesión, el GM escribe un resumen que puedes releer más tarde.
+## Guardar y continuar
 
-Tu primera sesión es **Session 1**. Terminarla y empezar de nuevo crea **Session 2**, y así sucesivamente.
+No hay botón de guardar. Tu juego se guarda solo mientras juegas.
+
+1. Para parar por ahora, cierra la pestaña o la app.
+2. Para continuar, abre el mismo chat del juego. Vuelves a donde lo dejaste.
+3. Para cerrar un capítulo, termina la sesión (consulta [Terminar una sesión](#end-a-session)).
+
+Para volver a un momento anterior, consulta [Cómo se guarda tu juego](#how-your-game-saves).
 
 <a id="opening-session"></a>
 
 ## Abrir Session
 
-En **Session** terminas sesiones, empiezas otras y lees tu historial.
+En **Session** terminas sesiones, empiezas otras nuevas y lees tu historial.
 
-1. Inicia o abre un chat de Game Mode para ver la pantalla del juego.
-2. Haz clic o toca el botón **Session** (la pluma). Empieza cerca de la esquina superior derecha del chat. Puedes arrastrarlo a otro sitio; consulta [Ventanas de controles y sus botones](../chats/chat-settings.md#control-windows-and-their-buttons).
-3. **Session** se abre como ventana en computadora o panel de ancho completo en teléfono. Su primera línea muestra **Session** con el número y el estado actuales.
-4. Tiene dos pestañas: **Session History** y **Journal**. Quédate en **Session History** para los controles de sesión y para compartir la configuración.
+1. Abre un chat de Game Mode.
+2. Haz clic o toca el botón **Session** (la pluma) cerca de la esquina superior derecha del chat. Puedes arrastrarlo a otro sitio (consulta [Ventanas de controles y sus botones](../chats/chat-settings.md#control-windows-and-their-buttons)).
+3. **Session** se abre como ventana en una computadora o como panel de ancho completo en un teléfono. Su primera línea muestra el número y el estado de la sesión actual.
+4. Tiene dos pestañas: **Session History** (Historial de sesiones) y **Journal** (Diario). Quédate en **Session History** para los controles de sesión.
 
-Si usaste **Put back in Chat Settings** para guardar esta ventana, abre la sección **Session** dentro de Chat Settings.
+Si usaste **Put back in Chat Settings** para mover esta ventana, abre en su lugar la sección **Session** de Chat Settings.
 
-## Compartir la configuración que creó un juego
-
-Game Mode conserva una instantánea inmutable de la configuración usada para crear cada campaña nueva. Esto te permite jugar primero, decidir que la combinación funciona bien y compartirla después sin anotar manualmente cada campo antes de empezar.
-
-1. Abre la campaña de Game Mode que quieres compartir.
-2. Abre **Session** (el botón de la pluma).
-3. Quédate en **Session History**, luego despliega **Initial Game Setup** (Configuración inicial del juego).
-4. Revisa la aventura guardada, el reparto, el modelo, el prompt (las instrucciones enviadas a la IA), los parámetros de generación efectivos, y los ajustes visuales, de storyboard (secuencia de viñetas) y de herramientas de mundo.
-5. Haz clic en **Copy setup** (Copiar configuración) para poner el texto en tu portapapeles, o en **Download .txt** (Descargar .txt) para guardar un archivo de texto que puedas compartir.
-
-El texto copiado incluye preferencias largas del jugador e instrucciones personalizadas del GM. Léelo antes de publicarlo si esos campos contienen material privado. Las credenciales de conexión, las URL de servidor, las API keys (claves de API) y los ID de base de datos local nunca se incluyen. Las tarjetas de personaje, las personas, los lorebooks (libros de trasfondo), los modelos y las cuentas de proveedor se nombran como referencia, pero no se empaquetan, así que otro jugador debe tener o seleccionar sus propios equivalentes locales.
-
-Las campañas creadas antes de que se añadieran las instantáneas de configuración no pueden recuperar preferencias que nunca se guardaron, así que **Initial Game Setup** aparece solo cuando hay disponible una instantánea de creación fiable.
+<a id="end-a-session"></a>
 
 ## Terminar una sesión
 
-Termina una sesión cuando quieras cerrar el capítulo actual y dejar que el GM lo resuma.
+Termina una sesión cuando quieras cerrar un capítulo y dejar que el GM lo resuma.
 
-1. Abre **Session** y quédate en la pestaña **Session History**.
-2. Arriba ves la sesión actual, etiquetada como **Session N (Current)**.
-3. En esa fila, haz clic en el botón **End Session** (Terminar sesión) (el pequeño icono de cuadrado junto a **Show Spoilers**).
-4. Se abre una ventana titulada **End Session** que te pide confirmar.
-5. Si quieres, escribe en el cuadro etiquetado **What do you want to happen in the next session (optional)?** (¿Qué quieres que pase en la próxima sesión (opcional)?). Puedes escribir hasta 5000 caracteres.
-6. Deja ese cuadro vacío para dejar que el GM guíe la historia de forma natural.
-7. Haz clic en **End Session** en la ventana para confirmar, o haz clic en **Cancel** (Cancelar) para retroceder.
+1. Abre **Session** y quédate en **Session History**.
+2. Busca arriba la sesión actual, etiquetada como **Session N (Current)**.
+3. En esa fila, haz clic en el botón **End Session** (Terminar sesión), el pequeño icono de cuadrado. La fila tiene varios botones pequeños de icono, así que pasa el cursor por encima para leer sus tooltips. Un cuadro de diálogo titulado **End Session** te pide que confirmes.
+4. Opcional: en **What do you want to happen in the next session (optional)?** (¿Qué quieres que pase en la próxima sesión?, opcional), escribe una nota de hasta 5.000 caracteres. Déjalo vacío para que el GM guíe la historia.
+5. Haz clic en **End Session** en el cuadro de diálogo. Haz clic en **Cancel** (Cancelar) para retroceder.
 
-Después de confirmar, el motor genera un resumen. Espera en esta pantalla hasta que termine. Mientras trabaja, el título de la ventana dice **Ending Session** (Terminando sesión). Cuando termina, la sesión se marca como concluida y aparece en tu historial.
+El título del cuadro de diálogo cambia a **Ending Session** (Terminando sesión) mientras el GM escribe el resumen. Espera en esta pantalla hasta que termine. Después, la sesión se marca como concluida y aparece en tu historial.
+
+Si no funcionó, comprueba que tu modelo del GM esté accesible. El resumen es una solicitud al modelo y puede fallar como cualquier otra. Vuelve a intentarlo y consulta [Solución de problemas de Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Empezar una nueva sesión
 
-Una vez que la sesión actual está concluida, el mismo botón cambia a **New Session** (Nueva sesión).
+Cuando una sesión está concluida, el mismo botón de su fila cambia a **New Session** (Nueva sesión).
 
-1. Abre **Session** y ve a la pestaña **Session History**.
-2. En la fila de la sesión actual, haz clic en el botón **New Session** (el icono de reproducir).
-3. El GM reanuda la historia. Usa el resumen de la última sesión y cualquier nota para la próxima sesión que hayas escrito al terminarla.
+1. Abre **Session** y ve a **Session History**.
+2. En la fila de la sesión actual, haz clic en **New Session** (el icono de reproducir).
 
-En un juego con un mundo generado, el mundo continúa desde donde lo dejó la última sesión: los días que pasaron, las hazañas y la reputación del grupo, los lugares y las agrupaciones que añadió la historia y los sitios a los que fue el grupo pasan todos a la nueva sesión.
+El GM reanuda la historia a partir del último resumen y de cualquier nota que hayas escrito al terminar la sesión. En un juego con un mundo generado, el mundo continúa desde donde se dejó: los días que pasaron, las hazañas y la reputación del grupo, los lugares y las agrupaciones que añadió la historia, y adónde fue el grupo.
 
 ## Leer sesiones pasadas
 
-La pestaña **Session History** lista tus sesiones concluidas, la más reciente primero. Antes de terminar una, muestra **No completed sessions yet** (Aún no hay sesiones completadas).
+**Session History** lista las sesiones concluidas, la más reciente primero. Antes de que termines una, muestra **No completed sessions yet** (Aún no hay sesiones completadas). Cada fila muestra el número de sesión, la fecha y cuántos descubrimientos registró. Haz clic en una fila para desplegarla. Pueden aparecer estos campos:
 
-Cada fila muestra el número de sesión, la fecha y cuántos descubrimientos registró. Haz clic en una fila para desplegarla. Una sesión desplegada puede mostrar estos campos:
+| Campo | Qué contiene |
+| --- | --- |
+| **Summary** (Resumen) | Qué pasó. |
+| **Resume Point** (Punto de reanudación) | Cómo debería retomar la próxima sesión. |
+| **Party Dynamics** (Dinámica del grupo) | Cómo se relacionaron entre sí los miembros del grupo. |
+| **Key Discoveries** (Descubrimientos clave) | Hechos, giros y revelaciones importantes. |
+| **Character Moments** (Momentos de personaje) | Momentos destacados. |
+| **Little Details To Recall** (Pequeños detalles para recordar) | Hábitos, promesas o detalles pequeños. |
+| **NPC Updates** (Actualizaciones de NPC) | Cambios en los personajes no jugadores (NPC, la gente que controla el GM). |
+| **Next Session Request** (Petición para la próxima sesión) | La nota que dejaste al terminar la sesión. |
+| **Stats Snapshot** (Instantánea de estadísticas), **Party Status** (Estado del grupo) | Números y estado del grupo guardados. |
 
-- **Summary** (Resumen): qué pasó durante la sesión.
-- **Resume Point** (Punto de reanudación): cómo debería retomar la próxima sesión.
-- **Party Dynamics** (Dinámica del grupo): cómo se relacionaron entre sí los miembros de tu grupo.
-- **Key Discoveries** (Descubrimientos clave): hechos, giros y revelaciones importantes.
-- **Character Moments** (Momentos de personaje): momentos destacados de los personajes.
-- **Little Details To Recall** (Pequeños detalles para recordar): hábitos, promesas o detalles pequeños.
-- **NPC Updates** (Actualizaciones de NPC): cambios en los NPC (personajes no jugadores, la gente que controla el GM).
-- **Next Session Request** (Petición para la próxima sesión): la nota que dejaste al terminar la sesión.
-- **Stats Snapshot** (Instantánea de estadísticas) y **Party Status** (Estado del grupo): números y estado del grupo guardados.
+### Volver a reproducir una sesión
 
-### Volver a reproducir una sesión completada
+La reproducción es de solo lectura. No llama al GM, no crea mensajes, no cambia el inventario ni las estadísticas, no actualiza el diario ni restaura un punto de control.
 
-Las sesiones completadas se pueden volver a reproducir sin cambiar tu campaña.
-
-1. Despliega una sesión concluida en **Session History**.
+1. Despliega una sesión concluida.
 2. Haz clic en **Replay Session** (Volver a reproducir sesión).
 3. Usa **Next** (Siguiente) y **Next turn** (Siguiente turno) para avanzar por la narración y el diálogo originales.
-4. Cuando la reproducción llega a una elección, solo la opción que seleccionaste durante la sesión original está activada. Haz clic en ella para continuar por el camino registrado.
-5. Haz clic en el botón de cerrar en la parte superior de la reproducción o en **Return to current session** (Volver a la sesión actual) cuando hayas terminado.
+4. En una elección, solo está activada la opción que elegiste originalmente. Haz clic en ella para continuar por el camino registrado.
+5. Haz clic en el botón de cerrar de la parte superior, o en **Return to current session** (Volver a la sesión actual), cuando hayas terminado.
 
-La reproducción es de solo lectura. No llama al GM, no crea mensajes, no cambia el inventario ni las estadísticas, no actualiza el diario ni restaura un punto de control. Las sesiones creadas antes de que existiera la compatibilidad con la reproducción aún pueden usar su texto guardado, los efectos en línea, las elecciones y los recursos disponibles. Un turno más antiguo puede omitir un efecto de escena que no se guardó cuando ese turno se jugó originalmente.
+Las sesiones de antes de que existiera la reproducción se siguen reproduciendo a partir de su texto, sus efectos, sus elecciones y sus recursos guardados. Un turno más antiguo puede omitir un efecto de escena que entonces no se guardaba.
 
 ### Editar una sesión pasada
 
-Puedes editar a mano las notas de una sesión concluida para que las sesiones futuras las recuerden correctamente.
+Edita las notas de una sesión concluida para que las sesiones futuras las recuerden correctamente.
 
-1. Despliega la sesión que quieres cambiar.
+1. Despliega la sesión.
 2. Haz clic en **Edit Details** (Editar detalles).
-3. Cambia cualquier campo, luego haz clic en **Save Details** (Guardar detalles). Haz clic en **Cancel** para descartar tus ediciones.
+3. Cambia cualquier campo y luego haz clic en **Save Details** (Guardar detalles). Haz clic en **Cancel** para descartar tus ediciones.
 
 Aparecen dos botones más en una sesión desplegada:
 
-- **Regenerate** (Regenerar): vuelve a ejecutar la conclusión de la IA para esa sesión. Esto reescribe el resumen y todos los demás campos de la entrada. Cualquier cambio que hayas hecho con **Edit Details** se perderá.
-- **Update Plot Arcs** (Actualizar arcos argumentales): pide a la IA que actualice los planes de historia ocultos del GM usando los eventos de esa sesión. Estos planes son el **Story Arc** (Arco de la historia), los **Plot Twists** (Giros argumentales) y los **Party Arcs** (Arcos del grupo) que se muestran en la vista **Show Spoilers**.
+- **Regenerate** (Regenerar) vuelve a ejecutar la conclusión de la IA. Reescribe el resumen y todos los demás campos, así que se pierden los cambios hechos con **Edit Details**.
+- **Update Plot Arcs** (Actualizar arcos argumentales) pide a la IA que actualice los planes de historia ocultos del GM a partir de los eventos de esa sesión. Estos planes son el **Story Arc** (Arco de la historia), los **Plot Twists** (Giros argumentales) y los **Party Arcs** (Arcos del grupo) de la vista **Show Spoilers** (Mostrar spoilers).
 
-Un botón **Regenerate Lorebook** (Regenerar lorebook) aparece solo en tu última sesión concluida, y solo cuando la función opcional Lorebook Keeper está activada. Un lorebook es un conjunto de hechos del mundo que la IA puede recordar.
+**Regenerate Lorebook** (Regenerar lorebook) aparece solo en tu última sesión concluida, y solo cuando la función Lorebook Keeper está activada. Un lorebook (libro de trasfondo) es un conjunto de hechos del mundo que la IA puede recordar.
 
-## La vista Show Spoilers
+## Compartir la configuración que creó un juego
 
-**Show Spoilers** revela las notas ocultas del GM para la sesión actual. Normalmente se mantienen en secreto para ti durante el juego. Leerlas puede arruinar giros argumentales.
+Game Mode conserva una instantánea de la configuración usada para crear cada campaña nueva. Juega primero y luego comparte la combinación si funciona bien.
 
-1. Abre **Session** y ve a la pestaña **Session History**.
+1. Abre la campaña y abre **Session**.
+2. En **Session History**, despliega **Initial Game Setup** (Configuración inicial del juego).
+3. Revisa la aventura guardada, el reparto, el modelo, el prompt (las instrucciones enviadas a la IA), los parámetros de generación, y los ajustes visuales, de storyboard (secuencia de viñetas) y de herramientas de mundo.
+4. Haz clic en **Copy setup** (Copiar configuración) para copiar el texto, o en **Download setup** (Descargar configuración) para guardar un archivo de texto.
+
+> **Advertencia:** El texto incluye tus preferencias largas de jugador y las instrucciones personalizadas del GM. Léelo antes de publicarlo. Las credenciales, las URL de servidor, las API keys (claves de API) y los ID de base de datos local nunca se incluyen.
+
+Las tarjetas de personaje, las personas, los lorebooks, los modelos y las cuentas se nombran, pero no se empaquetan, así que otro jugador necesita sus propios equivalentes. Las campañas creadas antes de que existieran las instantáneas no pueden recuperar ajustes que nunca se guardaron, así que **Initial Game Setup** aparece solo cuando existe una instantánea fiable.
+
+## Ver las notas ocultas del GM
+
+**Show Spoilers** (el icono de ojo en la fila de la sesión actual) revela las notas privadas del GM para la sesión actual. Leerlas puede arruinar giros argumentales.
+
+1. Abre **Session** y ve a **Session History**.
 2. En la fila de la sesión actual, haz clic en **Show Spoilers** (el icono de ojo).
-3. Aparece el estado privado del GM.
 
-La vista de spoilers puede mostrar estas secciones:
+La vista puede mostrar **World Overview** (Visión general del mundo), **Story Arc**, **Plot Twists**, **Party Arcs**, y los **Maps** (Mapas), **NPCs** y **Character Cards** (Tarjetas de personaje) guardados. Haz clic en el mismo botón, que ahora dice **Hide Spoilers** (Ocultar spoilers), para ocultarlas.
 
-- **World Overview** (Visión general del mundo): la ambientación a grandes rasgos.
-- **Story Arc** (Arco de la historia): la dirección planificada de la historia.
-- **Plot Twists** (Giros argumentales): sorpresas que el GM está reservando.
-- **Party Arcs** (Arcos del grupo): viajes planificados para tu grupo.
-- **Maps** (Mapas), **NPCs** y **Character Cards** (Tarjetas de personaje): los datos guardados del juego.
-
-Para ocultar las notas de nuevo, haz clic en el mismo botón. Ahora dice **Hide Spoilers** (Ocultar spoilers).
-
-También puedes editar estos secretos, lo que funciona como un panel de trucos de director del juego. Haz clic en **Edit Spoilers** (Editar spoilers), cambia el texto, luego haz clic en **Save Spoilers** (Guardar spoilers). Algunos campos se muestran como JSON, un formato de texto estructurado. Edita los campos JSON solo si entiendes el formato, ya que un JSON incorrecto no se guardará.
+Para cambiar estas notas, haz clic en **Edit Spoilers** (Editar spoilers), edita el texto y haz clic en **Save Spoilers** (Guardar spoilers). Algunos campos son JSON, un formato de texto estructurado. Edítalos solo si conoces el formato, porque un JSON incorrecto no se guardará.
 
 <a id="editing-game-data-by-hand"></a>
 
 ## Editar los datos del juego a mano
 
-Cuando el Game Master se equivoca en algo, como la reputación de un NPC o una misión que sigue abierta, puedes corregir tú mismo los datos guardados del juego.
+Cuando el GM se equivoca en algo, como la reputación de un NPC o una misión que sigue abierta, puedes corregir tú mismo los datos guardados.
 
 1. Abre **Game controls** (Controles del juego) y elige **Edit game data** (Editar datos del juego). En un teléfono, **Game controls** está en el menú de tres puntos **Chat tools** (Herramientas del chat).
-2. Se abre la ventana **Game Data** (Datos del juego). Un aviso en la parte superior dice: "Hand edits can break a game. Every change is checked before it saves, and names can't change here." (Las ediciones a mano pueden romper una partida. Cada cambio se comprueba antes de guardarse y aquí no se pueden cambiar los nombres.)
-3. Elige una sección de la lista, o de la fila de chips en un teléfono. También puedes escribir en el cuadro de búsqueda para encontrar un valor en todas las secciones a la vez.
-4. Cambia los valores en **Fields** (Campos), o cambia a **JSON** para editar los datos sin procesar.
+2. Se abre la ventana **Game Data** (Datos del juego). Un aviso dice: "Hand edits can break a game. Every change is checked before it saves, and names can't change here." (Las ediciones a mano pueden romper una partida. Cada cambio se comprueba antes de guardarse y aquí no se pueden cambiar los nombres.)
+3. Elige una sección de la lista (una fila de chips en un teléfono). El cuadro de búsqueda encuentra un valor en todas las secciones a la vez.
+4. Cambia los valores en **Fields** (Campos), o cambia a **JSON** para los datos sin procesar.
 5. Haz clic en **Review changes** (Revisar cambios) para ver exactamente qué cambia y luego haz clic en **Save changes** (Guardar cambios).
 
-Puedes cambiar **Party Cards** (Tarjetas del grupo), **Party Sheet** (Ficha del grupo), **NPCs**, **Journal** (Diario), **Player Notes** (Notas del jugador), **Inventory** (Inventario), **Story** (Historia), **Session Summaries** (Resúmenes de sesión), **World Edits** (Ediciones del mundo), **Story Script** (Guion de historia) y **HUD Widgets** (Widgets del HUD). Una sección solo aparece cuando el juego tiene esos datos, así que un juego sin mundo no tiene **World Edits**. Las demás secciones, como **World** (Mundo), **Maps & Position** (Mapas y posición), **Time, Weather & Morale** (Hora, clima y moral), **Combat** (Combate) y **Settings** (Configuración), están marcadas como **Read-only** (Solo lectura). Puedes leerlas y buscar en ellas, pero el juego las mantiene por su cuenta. Las preferencias de prompts, imágenes, música y dados se cambian en **Chat Settings** (Ajustes del chat).
+> **Advertencia:** Las ediciones a mano pueden corromper una partida. Antes de cada guardado, Marinara intenta crear un punto de control marcado como **Before a State Editor save** (Antes de un guardado del State Editor). Consulta [Cómo se guarda tu juego](#how-your-game-saves). Carga ese punto de control para deshacer una edición mala. Un juego tan nuevo que todavía no tiene guardado su primer turno aún no tiene nada que guardar en un punto de control.
 
-Cada cambio se comprueba antes de guardarse:
+Si no funcionó, el editor te dice por qué y conserva tu borrador para que puedas corregirlo. Si el juego cambió los mismos datos mientras editabas, el guardado se rechaza para que no deshaga el cambio del juego. **Reload** (Recargar) muestra la versión del juego y descarta tus borradores.
+
+Puedes cambiar estas secciones: **Party Cards** (Tarjetas del grupo), **Party Sheet** (Ficha del grupo), **NPCs**, **Journal**, **Player Notes** (Notas del jugador), **Inventory** (Inventario), **Story** (Historia), **Session Summaries** (Resúmenes de sesión), **World Edits** (Ediciones del mundo), **Story Script** (Guion de historia) y **HUD Widgets** (Widgets del HUD). Una sección solo aparece cuando el juego tiene esos datos, así que un juego sin mundo no tiene **World Edits**. Secciones como **World** (Mundo), **Maps & Position** (Mapas y posición), **Time, Weather & Morale** (Hora, clima y moral), **Combat** (Combate) y **Settings** (Configuración) están marcadas como **Read-only** (Solo lectura): puedes leerlas y buscar en ellas, pero el juego las mantiene por su cuenta. Las preferencias de prompts, imágenes, música y dados se cambian en **Chat Settings** (Ajustes del chat).
+
+Reglas que imponen las comprobaciones:
 
 - Los nombres no se pueden cambiar, porque las tarjetas, los NPC, el grupo y las bolsas se encuentran entre sí por el nombre. Aquí no se pueden añadir ni quitar miembros del grupo.
 - La reputación de un NPC va de -100 a 100.
@@ -144,27 +145,28 @@ Cada cambio se comprueba antes de guardarse:
 - En **Session Summaries**, solo se puede cambiar el texto de una sesión.
 - **World Edits** guarda tus ediciones a mano sobre el mundo, como lugares renombrados o personas añadidas. El mundo en sí nunca cambia.
 
-Cuando un cambio no se puede guardar, el editor te dice por qué, y esa sección conserva tu borrador para que puedas corregirlo. Si el juego cambió los mismos datos mientras editabas, el guardado se rechaza para que no deshaga el cambio del juego. **Reload** (Recargar) muestra la versión del juego y descarta tus borradores.
-
-Antes de cada guardado, el juego intenta crear un punto de control, marcado como **Before a State Editor save** (Antes de un guardado del State Editor) en **Checkpoints** (Puntos de control). Si una edición sale mal, carga ese punto de control para deshacerla (ver más abajo).
-
 La ventana funciona como el State Editor de Roleplay. Consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
 
 <a id="how-your-game-saves"></a>
 
 ## Cómo se guarda tu juego
 
-Game Mode guarda tu progreso automáticamente. No necesitas pulsar un botón de guardar. Tu mundo, tu grupo, el mapa, el inventario, el tiempo dentro del juego y los resúmenes de sesión se conservan por ti mientras juegas.
+Game Mode guarda automáticamente. Tu mundo, tu grupo, el mapa, el inventario, el tiempo dentro del juego y los resúmenes de sesión se conservan mientras juegas, sin botón de guardar.
 
-La app también registra puntos de control automáticos entre bastidores. Captura un punto de control al inicio de la sesión, al final de la sesión, cuando empieza o termina el combate, cuando llegas a un lugar nuevo y a intervalos automáticos. El [editor de datos del juego](#editing-game-data-by-hand) también intenta crear uno antes de cada guardado, aunque un juego tan nuevo que todavía no ha guardado su primer turno aún no tiene nada que guardar en un punto de control. Abre **Game controls → Checkpoints** (Controles del juego → Puntos de control) para verlos, del más reciente al más antiguo. **Load** (Cargar) devuelve el juego a ese momento: se restauran el tracker, el mapa, las **World Edits** (Ediciones del mundo) del editor de datos del juego y la historia a partir de ahí, y un mensaje del sistema marca el punto en que el juego retrocedió. Las tarjetas y las fichas del grupo, los NPC, el diario, tus notas, el inventario, los resúmenes de sesión, los planes de historia del GM, los widgets del HUD y la hora, el clima y la moral también vuelven a ese momento. Tus ajustes se quedan como están. **Delete** (Eliminar) borra uno para siempre.
+Marinara también registra puntos de control automáticos al inicio de la sesión, al final de la sesión, cuando empieza o termina el combate, cuando llegas a un lugar nuevo y a intervalos fijos. Conserva los cinco más recientes de cada tipo y elimina los más antiguos. El editor de datos del juego también intenta crear uno antes de cada guardado.
 
-Los puntos de control automáticos se limitan a los cinco más recientes de cada tipo, así que los más antiguos se eliminan a medida que juegas.
+Para volver atrás:
 
-Para deshacer un solo turno malo, usa en su lugar **Retry turn** (Reintentar turno) en **Game controls** o un swipe (respuesta alternativa). Cargar un punto de control también restaura la historia a ese momento.
+1. Abre **Game controls → Checkpoints** (Controles del juego → Puntos de control). Aparecen del más reciente al más antiguo.
+2. Haz clic en **Load** (Cargar) en el momento que quieras.
 
-Para conservar tu propia copia de tus datos, usa las herramientas de copia de seguridad de la app. Consulta [Copia de seguridad y restauración](../data/backup-and-restore.md).
+**Load** devuelve el juego a ese momento. El tracker, el mapa, las **World Edits**, la historia, las tarjetas y las fichas del grupo, los NPC, el diario, tus notas, el inventario, los resúmenes de sesión, los planes de historia del GM, los widgets del HUD, la hora, el clima y la moral vuelven todos atrás. Un mensaje del sistema marca el punto en que el juego retrocedió. Tus ajustes se quedan como están. **Delete** (Eliminar) borra un punto de control para siempre.
+
+Para deshacer solo un turno malo, usa **Retry turn** (Reintentar turno) en **Game controls**, o usa un swipe (respuesta alternativa) para pasar a otra versión de la respuesta.
+
+Para conservar tu propia copia de tus datos, consulta [Copia de seguridad y restauración](../data/backup-and-restore.md).
 
 ## Guías relacionadas
 
-- [Game Mode: Primeros pasos](getting-started.md)
+- [Game Mode: primeros pasos](getting-started.md)
 - [Copia de seguridad y restauración](../data/backup-and-restore.md)

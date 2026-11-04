@@ -1,6 +1,6 @@
 # Fiches des ensembles de règles
 
-Cette page fait partie du guide [Écrire des ensembles de règles Game Mode](writing-rulesets.md). Ce qui figure sur la fiche de personnage d'un ensemble de règles : attributs, compétences, champs et listes, états vivants, pistes de blessures, pénalités, repos et texte du GM (maître du jeu), ainsi que la fiche d'équipe et les décomptes de progression.
+Utilise cette page pour concevoir la fiche de personnage d'un ensemble de règles : attributs, compétences, champs et listes, états vivants, pistes de blessures, pénalités, repos et texte du GM (maître du jeu), ainsi que la fiche d'équipe et les décomptes de progression. Elle s'adresse aux auteurs d'ensembles de règles. Avant de commencer, lis [Écrire des ensembles de règles Game Mode](writing-rulesets.md).
 
 ## La fiche
 
@@ -86,7 +86,7 @@ Un champ enum est choisi à la création du personnage et le reste, et un état 
 - `from` nomme exactement l'un de `field` (un champ enum) ou `liveState`. Chaque ligne de `table` est une valeur que celui-ci peut prendre, de une à quarante. Une valeur absente de la table, et un état que la fiche cache, lisent `default` (0 si tu l'omets).
 - Un champ est fixé à la création du personnage : une table indexée sur un champ peut donc alimenter un maximum. Gravewatch donne une Resolve de plus à un gardien de la garde de l'aube. Un état vivant change en jeu : une table indexée sur lui est donc une lecture de l'état courant, comme `liveTrack`, et rien de ce qui est calculé avant qu'un état courant existe ne peut la lire, directement ou par une autre valeur dérivée. C'est pourquoi la clé est `liveState` plutôt que `state` : toute lecture de l'état courant est nommée `live`, ce qui permet à toi comme à l'importation de savoir ce qu'un maximum ne peut pas utiliser.
 - Pour appliquer le nombre aux dés, fais pointer `resolution.adjust` dessus (voir Modificateurs de la fiche). Ember Roads ajoute sa Stance à chaque jet de Brawn ; Gravewatch retire des dés à chaque jet de Nerve quand la lanterne est voilée ou éteinte.
-- Une couche peut retirer d'un champ une valeur pour laquelle une table a une ligne. Cette ligne n'est alors simplement jamais lue tant que la couche est active.
+- Une couche peut retirer d'un champ une valeur pour laquelle une table a une ligne. Cette ligne n'est alors jamais lue tant que la couche est active.
 
 Les états vivants, `enumTable` et une étape de repos qui nomme un `state` relèvent de Capability API 1.42 pour un ensemble en package.
 
@@ -96,7 +96,7 @@ Les états vivants, `enumTable` et une étape de repos qui nomme un `state` rel�
 
 Beaucoup de systèmes ne comptent pas de points de vie. Ils utilisent une colonne de cases, chacune pire que la précédente, dont on coche une lorsqu'on est blessé. Donne à une entrée `live.tracks` des `kinds` et soit des `levels` nommés, soit des `boxes` numérotées (ci-dessous), pour remplacer un nombre sur une échelle par une telle piste :
 
-**Quelle forme convient à ton système ?** Une réserve enregistre COMBIEN de dégâts sont passés ; une piste enregistre combien ET le type de chaque part. Si une blessure est contondante, létale ou aggravée et que ce type importe après le coup (parce que l'aggravé guérit moins vite, ne peut pas être absorbé ou finit par tuer), il doit être conservé après le jet. Seule une marque le porte. Une réserve ne le peut pas : après soustraction des dégâts, il reste un plus petit nombre, sans souvenir de la nature des points. Voilà pourquoi `combat.damageKinds` est refusé lorsque la santé est une réserve, plutôt qu'ignoré. Une réserve peut toujours avoir `damageTypes` et un adversaire peut y résister ou en être immunisé : cela concerne la quantité qui passe, pas la nature de la blessure après le coup.
+**Quelle forme convient à ton système ?** Une réserve enregistre COMBIEN de dégâts sont passés ; une piste enregistre combien ET le type de chaque part. Si une blessure est contondante, létale ou aggravée et que ce type importe après le coup (parce que l'aggravé guérit moins vite, ne peut pas être absorbé ou finit par tuer), il doit être conservé après le jet. Seule une marque le porte. Une réserve ne le peut pas : après soustraction des dégâts, il ne reste qu'un plus petit nombre, sans souvenir de la nature des points. Voilà pourquoi `combat.damageKinds` est refusé lorsque la santé est une réserve, plutôt qu'ignoré. Une réserve peut toujours avoir `damageTypes` et un adversaire peut y résister ou en être immunisé : cela concerne la quantité qui passe, pas la nature de la blessure après le coup.
 
 ```json
 {
@@ -208,6 +208,8 @@ Le résultat indique ce que la fiche a ajouté (`adjust="-2"` dans le registre, 
 ## Repos
 
 Un repos liste des restaurations et des éléments à effacer. Chaque étape nomme une cible (`pool`, `poolGroup`, `listPools`, `track` ou `state`) et la fixe (`"to": "max"`, `"to": "min"` ou un nombre) ou la modifie (`"by": { "const": 1 }` ou `"by": { "fractionOfMax": 0.5 }`). Une étape visant une piste de blessures peut seulement la soigner : son `by` est donc négatif ; voir plus haut. Une étape visant un état vivant le fixe seulement, à `"default"` ou à l'une de ses valeurs. Une étape `poolGroup` avec un `fractionOfMax` modifie chaque réserve du groupe de sa propre fraction ; ajoute `"shared": true` (Capability API 1.77) pour calculer plutôt la fraction sur le maximum de tout le groupe et la répartir entre les réserves du groupe dans l'ordre où la fiche les liste, chacune jusqu'à ce qui lui manque. Le repos long de 5e, "half of the character's total number of" dés de vie gardés dans une réserve par dé, s'écrit `{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`.
+
+<a id="game-master-text"></a>
 
 ## Texte du Game Master
 

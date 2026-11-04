@@ -1,104 +1,103 @@
 # Vincular lorebooks a personajes y personas
 
-Esta guía muestra cómo vincular lorebooks (libros de trasfondo) a un personaje o a una persona para que se activen automáticamente en los chats correctos. También cubre cómo incrustar un lorebook dentro de una tarjeta de personaje y los controles de **Lorebooks** de cada chat. Un lorebook es un conjunto de entradas de World Info que se disparan por palabras clave. Consulta [Resumen de lorebooks](overview.md) si son nuevos para ti.
+Vincula un lorebook (libro de trasfondo) a un personaje o a una persona y se activará por sí solo en los chats correctos. También puedes incrustar un lorebook dentro de una tarjeta de personaje y controlar los lorebooks de un solo chat. ¿Es la primera vez que usas lorebooks? Empieza por [Resumen de lorebooks](overview.md).
 
-## Dos formas de adjuntar un lorebook
+## Vincular o incrustar
 
-Hay dos formas distintas de adjuntar un lorebook a un personaje. Se comportan de manera diferente, así que elige la que quieras.
+| Aspecto | Vincular (asignar) | Incrustar |
+| --- | --- | --- |
+| Qué ocurre | El personaje o la persona apunta a un lorebook de tu biblioteca. | El lorebook se escribe dentro de la tarjeta de personaje. |
+| Se activa | En los chats con ese personaje o esa persona. | Igual, y viaja con la tarjeta. |
+| Se exporta con la tarjeta | No | Sí |
+| Disponible para | Personajes y personas | Solo personajes |
 
-- **Link (Assign)** (Vincular / Asignar): el lorebook se queda en tu biblioteca. El personaje o la persona apunta a él. El lorebook se activa por sí solo en los chats que incluyen ese personaje o que usan esa persona. Un lorebook vinculado NO viaja dentro de una tarjeta de personaje exportada.
-- **Embed** (Incrustar): el lorebook se escribe dentro de la tarjeta de personaje misma. Viaja con la tarjeta cuando exportas o compartes el personaje. Incrustar está disponible solo para personajes, no para personas.
-
-La mayoría de las veces quieres vincular un lorebook. Incrústalo solo cuando planeas compartir la tarjeta de personaje con el lorebook ya integrado.
+Casi siempre, vincula. Incrusta solo cuando planees compartir la tarjeta con su lorebook.
 
 ## La pestaña Lorebook en el editor
 
-Tanto el editor de personajes (Character editor) como el editor de personas (Persona editor) tienen una pestaña **Lorebook**.
+Tanto el editor de personajes como el editor de personas tienen una pestaña **Lorebook**.
 
-1. Abre un personaje o una persona para editarlo.
-2. Haz clic en la pestaña **Lorebook**.
-3. Verás una sección **Lorebooks** con dos botones: **New** (Nuevo) y **Assign Lorebook** (Asignar lorebook).
+1. Abre un personaje o una persona para editar.
+2. Haz clic en la pestaña **Lorebook**. La sección **Lorebooks** tiene dos botones, **New** (Nuevo) y **Assign Lorebook** (Asignar lorebook).
 
-**New** crea un lorebook nuevo que ya está vinculado al personaje o la persona que estás editando. Abre la ventana **Create Lorebook** (Crear lorebook) con la **Category** (Categoría) establecida en **Character** (Personaje).
-
-**Assign Lorebook** vincula un lorebook existente de tu biblioteca. El selector solo muestra los lorebooks de la categoría **Character**. Esto se describe a continuación.
+**New** crea un lorebook ya vinculado a este personaje o persona, con su categoría establecida en **Character** (Personaje). **Assign Lorebook** vincula un lorebook que ya tienes.
 
 ## Asignar un lorebook existente
 
-El selector de **Assign Lorebook** solo muestra los lorebooks cuya **Category** es **Character**. Esto también es cierto al editar una persona. Un lorebook de otra categoría, como World o NPC, no aparecerá en el selector ni en la lista de asignados. Para que aparezca, abre el lorebook y establece su **Category** en **Character** en la pestaña **Overview** (Resumen). El botón **New** evita este problema, porque crea un lorebook de categoría Character por ti.
+Antes de empezar: el selector solo muestra los lorebooks cuya **Category** (Categoría) es **Character**, también para las personas. Si falta un lorebook, ábrelo, establece **Category** en **Character** en la pestaña **Overview** (Resumen) y vuelve a intentarlo.
 
 1. En la pestaña **Lorebook**, haz clic en **Assign Lorebook**.
-2. En el cuadro de búsqueda, escribe parte del nombre del lorebook para encontrarlo.
-3. Haz clic en el lorebook que quieres. Aparece una marca de verificación junto a él.
-4. A la derecha, elige un **Scope** (Alcance) (consulta la siguiente sección).
-5. Haz clic en **Assign**.
+2. Escribe parte del nombre en el cuadro de búsqueda.
+3. Haz clic en el lorebook. Aparece una marca de verificación.
+4. Deja **Scope** (Alcance) en **All chats with** (Todos los chats con) seguido del nombre, o cámbialo (consulta abajo).
+5. Haz clic en **Assign** (Asignar).
 
-El lorebook ahora aparece en la lista de asignados. Cada fila de lorebook asignado tiene un botón **Scope** para cambiar su alcance más tarde y un icono de papelera para quitar el vínculo. Haz clic en el nombre del lorebook para abrirlo en el editor completo.
+El lorebook aparece ahora en la lista de asignados. Usa el botón **Scope** de su fila para cambiar el alcance, y el icono de la papelera para quitar el vínculo. Haz clic en el nombre para abrir el lorebook.
 
-Un lorebook establecido como Global está activo en todos los chats. No puede vincularse además a un personaje o una persona. Global se explica en [Resumen de lorebooks](overview.md).
+Un lorebook global no puede estar también vinculado. Consulta [Resumen de lorebooks](overview.md).
 
-## Scope: qué chats pueden usar el lorebook vinculado
+### Scope
 
-**Scope** controla dónde se permite que un lorebook vinculado se active. No significa todos los chats de Marinara. Significa los chats que incluyen este personaje, o que usan esta persona. Hay tres modos de alcance.
+**Scope** decide qué chats pueden usar el lorebook vinculado. Solo se tienen en cuenta los chats con este personaje, o que usan esta persona.
 
-- **All chats with [name]** (Todos los chats con [nombre]): el predeterminado. El lorebook se activa en todos los chats que incluyen este personaje o usan esta persona.
-- **Disabled for all chats** (Desactivado para todos los chats): el vínculo se mantiene, pero el lorebook nunca se activa. Usa esto para pausar un lorebook sin desvincularlo.
-- **Specific chats** (Chats específicos): eliges chats exactos de una lista de verificación. Solo los chats que marcas pueden usar el lorebook. La lista muestra los chats que ya incluyen este personaje o usan esta persona.
+| Scope | Resultado |
+| --- | --- |
+| **All chats with** (el nombre) | El predeterminado. Se activa en todos esos chats. |
+| **Disabled for all chats** (Desactivado para todos los chats) | El vínculo se mantiene, pero el lorebook nunca se activa. Úsalo para pausarlo. |
+| **Specific chats** (Chats específicos) | Solo los chats que marques en la lista. Marca al menos uno antes de poder guardar. |
 
-Si eliges **Specific chats**, debes marcar al menos un chat antes de poder guardar.
-
-Para cambiar el alcance más tarde, haz clic en el botón **Scope** de la fila del lorebook asignado, ajústalo y haz clic en **Assign** de nuevo.
+Para cambiar el alcance más tarde, haz clic en **Scope** en la fila, ajústalo y vuelve a hacer clic en **Assign**.
 
 ## Incrustar un lorebook en una tarjeta de personaje
 
-Incrustar escribe un lorebook dentro de la tarjeta de personaje para que se exporte con el personaje. Esto es solo para personajes. Úsalo cuando quieres compartir un personaje que ya lleva su World Info.
+Antes de empezar: asigna primero el lorebook al personaje (consulta arriba).
 
-1. Abre el personaje en el Character editor.
-2. Ve a la pestaña **Lorebook**.
-3. Asegúrate de que el lorebook que quieres ya esté asignado (consulta lo anterior).
-4. En la fila de ese lorebook, haz clic en **Embed into card** (Incrustar en la tarjeta).
+1. Abre el personaje y haz clic en la pestaña **Lorebook**.
+2. En la fila del lorebook, haz clic en **Embed into card** (Incrustar en la tarjeta).
 
-Deberías ver aparecer una insignia **Embedded** (Incrustado) en la fila. A partir de ahora las entradas del lorebook viven dentro de la tarjeta y se exportan con ella.
+Aparece una insignia **Embedded** (Incrustado) en la fila, y ahora las entradas se exportan con la tarjeta.
 
-Una tarjeta de personaje contiene un lorebook incrustado a la vez. Si una tarjeta ya tiene uno, el botón **Embed into card** está desactivado con la nota "Remove the current embedded lorebook first". Quita la copia incrustada existente antes de incrustar un lorebook diferente.
+Una tarjeta contiene un solo lorebook incrustado. Si ya tiene uno, **Embed into card** está desactivado, y su tooltip (texto de ayuda) indica que quites primero el lorebook incrustado actual.
 
-Si editas el lorebook vinculado después de incrustarlo, haz clic en **Refresh** (Actualizar) en su fila. Esto reescribe la copia incrustada a partir de las entradas actuales del lorebook, para que la copia integrada se mantenga al día.
+Después de editar el lorebook vinculado, haz clic en **Refresh** (Actualizar) en su fila para reescribir la copia incrustada a partir de las entradas actuales.
 
-## Gestionar un lorebook incrustado
+### Gestionar un lorebook incrustado
 
-Cuando una tarjeta de personaje ya tiene un lorebook incrustado, aparecen controles adicionales debajo de la lista de asignados. Allí también aparece una lista de solo lectura de las entradas incrustadas.
+Cuando una tarjeta tiene un lorebook incrustado, estos controles aparecen debajo de la lista de asignados, junto con una lista de solo lectura de sus entradas.
 
-- **Import Embedded Lorebook** (Importar lorebook incrustado): convierte las entradas integradas de la tarjeta en un lorebook normal y editable en tu biblioteca. El nuevo lorebook queda vinculado de vuelta al personaje. El botón dice **Reimport Embedded Lorebook** (Reimportar lorebook incrustado) una vez que ya existe una copia vinculada.
-- **Edit Embedded Lorebook** (Editar lorebook incrustado): abre ese lorebook vinculado en el editor completo. Tus ediciones allí se sincronizan de vuelta en la copia incrustada de la tarjeta automáticamente.
-- **Remove from card** (Quitar de la tarjeta): elimina la copia incrustada de la tarjeta. Cualquier lorebook vinculado por separado en tu biblioteca queda intacto.
+- **Import Embedded Lorebook** (Importar lorebook incrustado) convierte las entradas de la tarjeta en un lorebook normal de tu biblioteca, vinculado de vuelta al personaje. Una vez que existe una copia vinculada, el botón dice **Reimport Embedded Lorebook** (Reimportar lorebook incrustado).
+- **Edit Embedded Lorebook** (Editar lorebook incrustado) abre ese lorebook vinculado. Tus ediciones se sincronizan de vuelta en la copia de la tarjeta.
+- **Remove from card** (Quitar de la tarjeta) elimina la copia incrustada. Un lorebook vinculado por separado queda intacto.
 
-Esto es útil para tarjetas que importaste de otras herramientas. Muchas tarjetas importadas llegan con un lorebook incrustado. Haz clic en **Import Embedded Lorebook** para obtener una versión totalmente editable en Marinara.
+Muchas tarjetas importadas de otras herramientas llegan con un lorebook incrustado. Haz clic en **Import Embedded Lorebook** para obtener una versión editable.
 
 ## La sección Lorebooks de Chat Settings
 
-Cada chat tiene sus propios controles de **Lorebooks**. Aquí es donde ves qué lorebooks están activos en el chat actual y los ajustas solo para ese chat.
+Cada chat tiene sus propios controles de lorebooks.
 
 1. Abre un chat.
 2. Abre **Chat Settings** (Ajustes del chat).
-3. Busca la sección **Lorebooks**. La insignia de conteo muestra cuántos lorebooks están activos.
+3. Busca la sección **Lorebooks**. Una insignia muestra cuántos lorebooks están activos.
 
-Cada lorebook activo muestra una o más insignias que te dicen por qué está activado:
+Cada lorebook activo tiene una insignia que indica por qué está activado.
 
-- **Chat**: lo fijaste a este chat a mano.
-- **Global**: es un lorebook global.
-- **Character**: está vinculado a un personaje de este chat.
-- **Persona**: está vinculado a la persona de este chat.
+| Insignia | Significado |
+| --- | --- |
+| **Chat** | Lo añadiste a este chat. |
+| **Global** | Es un lorebook global. |
+| **Character** | Está vinculado a un personaje de este chat. |
+| **Persona** | Está vinculado a la persona de este chat. |
 
 Puedes cambiar lo que está activo solo para este chat.
 
-- **Add Lorebook** (Añadir lorebook): fija un lorebook a este chat. Los lorebooks fijados muestran la insignia **Chat**.
-- Icono de papelera (**Remove from chat** / Quitar del chat): quita un lorebook que añadiste a mano.
-- Icono de ojo tachado (**Disable in this chat** / Desactivar en este chat): oculta temporalmente un lorebook activado automáticamente solo para este chat, sin desvincularlo. Los lorebooks desactivados muestran un nombre tachado y una insignia **Disabled** (Desactivado).
-- Icono de ojo (**Enable in this chat** / Activar en este chat): vuelve a activar un lorebook desactivado para este chat.
+- **Add Lorebook** (Añadir lorebook) añade un lorebook a este chat. Muestra la insignia **Chat**.
+- El icono de la papelera (**Remove from chat**, Quitar del chat) quita un lorebook que añadiste.
+- El icono del ojo tachado (**Disable in this chat**, Desactivar en este chat) oculta aquí un lorebook automático sin desvincularlo. Después muestra un nombre tachado y una insignia **Disabled** (Desactivado).
+- El icono del ojo (**Enable in this chat**, Activar en este chat) lo vuelve a activar.
 
 ### Lorebook Token Budget
 
-**Lorebook Token Budget** (Presupuesto de tokens del lorebook) es un campo numérico de esta sección. Limita cuánto texto de lorebook se puede inyectar en este chat, medido en tokens (fragmentos de texto). El predeterminado es **8192**. Establécelo en **0** para no tener límite. Este presupuesto de todo el chat es independiente del presupuesto de tokens propio de cada lorebook. Ambos límites aplican. Consulta [Presupuestos de tokens y recursión de lorebooks](token-budgets.md) para saber cómo funcionan juntos los dos presupuestos.
+**Lorebook Token Budget** (Presupuesto de tokens del lorebook) limita cuántos tokens (fragmentos de texto) de texto de lorebook puede añadir este chat. El predeterminado es 8192, y 0 significa sin límite. Se aplica además del **Token Budget** propio de cada lorebook. Consulta [Presupuestos de tokens y recursión de lorebooks](token-budgets.md).
 
 ## Guías relacionadas
 

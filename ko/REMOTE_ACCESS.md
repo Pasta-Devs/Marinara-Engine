@@ -8,6 +8,24 @@
 - 루프백: 서버를 실제로 실행하고 있는 컴퓨터입니다. 주소는 `127.0.0.1` 또는 `localhost`입니다.
 - 원격 접근: 서버를 실행하는 컴퓨터가 아닌 다른 기기에서 Marinara를 여는 것입니다.
 
+<a id="connect-from-anywhere-with-tailscale"></a>
+
+## Tailscale로 어디서나 접속하기
+
+[Tailscale](https://tailscale.com)은 내 기기들만 연결하는 사설 네트워크입니다. Tailscale을 쓰면 집에서든 밖에서든 휴대폰이나 노트북으로 Marinara를 열 수 있습니다. 공유기의 포트를 열거나 Marinara를 공용 인터넷에 공개할 필요가 없습니다. Marinara는 Tailscale로 직접 접속하는 기기를 신뢰하므로 로그인을 설정하지 않아도 됩니다.
+
+1. Marinara를 실행하는 컴퓨터와 다른 기기 양쪽에 Tailscale을 설치하세요. [tailscale.com/download](https://tailscale.com/download)에서 받을 수 있습니다.
+2. 두 기기 모두 같은 계정으로 Tailscale에 로그인하세요.
+3. `start.sh`, `start.bat`, `start-termux.sh` 또는 Windows 설치 프로그램으로 Marinara를 시작하세요. 이 방법으로 시작하면 다른 기기에서 접속할 수 있습니다. 대신 `pnpm start`로 실행한다면 먼저 `.env` 파일에 `HOST=0.0.0.0`을 추가하세요([.env 파일의 위치](#where-the-env-file-lives) 참고).
+4. Marinara 컴퓨터의 Tailscale 주소를 확인하세요. 그 컴퓨터에서 Tailscale 앱을 열거나 `tailscale ip -4`를 실행하세요. 주소는 `100.`으로 시작하며, 예를 들면 `100.101.102.103`입니다.
+5. 다른 기기에서 Tailscale을 켜고 브라우저로 `http://100.101.102.103:7860`을 여세요. 주소는 내 주소로 바꾸고, `PORT`를 바꿨다면 바꾼 포트를 쓰세요. Marinara가 로그인 페이지 없이 열립니다.
+
+페이지가 열리지 않으면 두 기기 모두 Tailscale이 켜져 있는지, 서버가 `HOST=0.0.0.0`에서 요청을 받고 있는지 확인하세요.
+
+> **참고:** Docker로 설치한 경우에는 이 방법이 통하지 않습니다. Tailscale 트래픽은 Docker 게이트웨이를 거쳐 컨테이너에 도착하므로, Marinara는 그 트래픽이 Tailscale에서 왔다는 것을 알 수 없습니다. 먼저 로그인을 설정한 다음([선택지 1](#option-1-login-recommended)), 포트를 `127.0.0.1` 밖으로 공개하세요.
+
+원격 기기에서 백업, 가져오기, 업데이트를 비롯한 위험한 작업을 하려면 여전히 관리자 시크릿이 필요합니다. [Admin Access와 권한이 필요한 작업](#admin-access-and-privileged-actions)을 참고하세요.
+
 ## Marinara가 기본적으로 차단하는 것
 
 Marinara는 데이터를 보호하기 위해, 로그인을 설정하기 전까지 새로 설치한 상태에서 다른 기기의 접속을 거부합니다. 기본적으로 신뢰하는 클라이언트는 3가지뿐입니다.
@@ -19,6 +37,8 @@ Marinara는 데이터를 보호하기 위해, 로그인을 설정하기 전까�
 그 밖의 기기는 로그인을 설정하기 전까지 모두 차단됩니다. 같은 Wi-Fi에 연결된 휴대폰이나 공용 인터넷의 클라이언트도 마찬가지입니다. 차단된 기기에서 브라우저로 Marinara를 열면 어두운 색의 안내 페이지가 나타납니다. 제목은 **This Marinara Engine install needs a login before remote devices can connect.**입니다. 이 페이지에는 서버 로그에 나오는 1회용 설정 코드를 입력하는 양식이 있어, 그 기기에서 바로 로그인을 설정할 수 있습니다.
 
 아무것도 하지 않고 비밀번호도 설정하지 않으면 Marinara는 위 3가지 신뢰 대상에만 열려 있는 상태로 남습니다. 이것이 안전한 기본값입니다.
+
+<a id="where-the-env-file-lives"></a>
 
 ## .env 파일의 위치
 
@@ -64,7 +84,7 @@ Marinara를 시작하는 방법별 기본 바인드 주소는 다음과 같습�
 
 로그인은 원격 기기마다 필요한 사용자 이름과 비밀번호입니다. 설정 방법은 3가지입니다.
 
-- **설정에서.** 이미 로그인된 브라우저나 Marinara를 실행하는 컴퓨터(`http://localhost:7860`을 여세요)에서 **Settings**(설정) → **Advanced**(고급) → **Access**로 이동하세요. **Remote login**에서 사용자 이름과 비밀번호를 설정하세요. 로그인이 없는 동안 Marinara가 거부한 기기(예: Docker 호스트의 브라우저)는 같은 곳에서 서버 로그의 설정 코드를 입력할 수 있습니다.
+- **설정에서.** 이미 로그인된 브라우저나 Marinara를 실행하는 컴퓨터(`http://localhost:7860`을 여세요)에서 **Settings → Advanced → Access**(설정 → 고급 → 접근)로 이동하세요. **Remote login**에서 사용자 이름과 비밀번호를 설정하세요. 로그인이 없는 동안 Marinara가 거부한 기기(예: Docker 호스트의 브라우저)는 같은 곳에서 서버 로그의 설정 코드를 입력할 수 있습니다.
 - **설정 코드로, 어느 기기에서든.** 로그인이 없고 서버가 루프백 밖에서 요청을 받는 동안 Marinara는 로그에 1회용 설정 코드를 출력합니다. 로그 줄은 `[login] One-time setup code:`로 시작합니다. Marinara를 실행하는 터미널에서 찾으세요. Docker에서는 `docker logs <container> 2>&1 | grep "setup code"`를 실행하세요. 로그인이 없는 동안에는 거부 경고가 이 코드를 반복해서 출력합니다. 그다음 아무 기기에서 Marinara를 여세요. 그 기기를 막는 페이지에 설정 코드, 사용자 이름, 비밀번호를 입력하는 양식이 있습니다. 코드는 `XXXX-XXXX-XXXX-XXXX` 형태입니다. 대문자, 공백, 대시는 구분하지 않습니다. 코드는 한 번만 쓸 수 있으며, 재시작이나 초기화를 하면 새 코드가 출력됩니다. Docker에서는 이 페이지가 데이터 폴더(`/app/data/.env`)의 `.env`나 compose 파일의 `environment:` 목록에서 로그인을 설정하는 방법도 보여 줍니다(그다음 `docker compose up -d`를 실행하세요). 호스트에 브라우저가 없는 Docker, NAS 설치에는 이 방법을 쓰세요. Marinara는 로그인이 없다는 배너를 로컬 방문자와 로그인된 세션에 화면 아래 카드로 표시합니다.
 - **`.env`에서.** 두 줄을 추가하세요.
 
@@ -87,9 +107,9 @@ openssl rand -base64 24
 2. 로그인 페이지에서 사용자 이름과 비밀번호로 로그인하세요.
 3. 앱이 열립니다. 브라우저는 로그아웃할 때까지 최대 1년간 로그인된 상태로 유지됩니다. 스크립트와 API 클라이언트는 요청마다 사용자 이름과 비밀번호를 함께 보냅니다(Basic Auth).
 
-비밀번호를 입력하지 않고 다른 기기에 로그인하려면 페어링 코드를 쓰세요. 이미 로그인된 기기에서 **Settings** → **Advanced** → **Access**를 열고 **Add a device**를 선택하세요. 그다음 새 기기의 로그인 페이지에 그 코드를 입력하세요. 코드는 몇 분 동안, 한 번만 쓸 수 있습니다. 만료된 코드는 별도 메시지가 표시되며, 새로 만들면 됩니다. **Signed-in devices**에서는 각 기기와 로그인 방식, 처음 로그인한 날짜를 볼 수 있습니다. 지금 쓰는 기기를 포함해 어느 기기든 로그아웃시킬 수 있습니다. 비밀번호를 바꾸거나 지울 수도 있습니다. 이때 Marinara를 실행하는 컴퓨터에서 작업하거나 `ADMIN_SECRET`을 설정한 경우가 아니라면 Marinara가 현재 비밀번호를 묻습니다.
+비밀번호를 입력하지 않고 다른 기기에 로그인하려면 페어링 코드를 쓰세요. 이미 로그인된 기기에서 **Settings → Advanced → Access**를 열고 **Add a device**를 선택하세요. 그다음 새 기기의 로그인 페이지에 그 코드를 입력하세요. 코드는 몇 분 동안, 한 번만 쓸 수 있습니다. 만료된 코드는 별도 메시지가 표시되며, 새로 만들면 됩니다. **Signed-in devices**에서는 각 기기와 로그인 방식, 처음 로그인한 날짜를 볼 수 있습니다. 지금 쓰는 기기를 포함해 어느 기기든 로그아웃시킬 수 있습니다. 비밀번호를 바꾸거나 지울 수도 있습니다. 이때 Marinara를 실행하는 컴퓨터에서 작업하거나 `ADMIN_SECRET`을 설정한 경우가 아니라면 Marinara가 현재 비밀번호를 묻습니다.
 
-비밀번호를 잊었다면 Marinara를 실행하는 컴퓨터에서 `pnpm reset-login`을 실행하세요. Docker에서는 `docker exec <container> node scripts/reset-login.mjs`를 실행하세요. 앱에서 설정한 로그인을 제거하고 모든 브라우저를 로그아웃합니다. 서버가 루프백 밖에서 요청을 받는다면 새 설정 코드도 출력합니다. 그 명령이 동작하지 않을 때만 데이터 폴더에서 `.remote-login.json`과 `.remote-sessions.json`을 삭제하세요. 기본 `/app/data`에서는 `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`을 실행하세요. `DATA_DIR`을 바꿨다면 그 폴더를 쓰세요. `.env`의 로그인은 `.env`에서 바꾸세요.
+비밀번호를 잊었다면 Marinara를 실행하는 컴퓨터의 Marinara 폴더에서 `node scripts/reset-login.mjs`를 실행하세요. Docker에서는 `docker exec <container> node scripts/reset-login.mjs`를 실행하세요. 앱에서 설정한 로그인을 제거하고 모든 브라우저를 로그아웃합니다. 서버가 루프백 밖에서 요청을 받는다면 새 설정 코드도 출력합니다. 그 명령이 동작하지 않을 때만 데이터 폴더에서 `.remote-login.json`과 `.remote-sessions.json`을 삭제하세요. 기본 `/app/data`에서는 `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`을 실행하세요. `DATA_DIR`을 바꿨다면 그 폴더를 쓰세요. `.env`의 로그인은 `.env`에서 바꾸세요.
 
 **브라우저가 없는 헤드리스 서버인가요?** 헤드리스 서버의 네이티브 설치는 루프백에서만 요청을 받으며 설정 코드를 출력하지 않습니다. 내 컴퓨터에서 `ssh -L 7860:127.0.0.1:7860 user@server`를 실행하세요. 그다음 `http://localhost:7860`을 열고 **Settings**를 쓰세요.
 
@@ -182,7 +202,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 TRUSTED_AUTH_PROXY=192.168.1.5
 ```
 
-그러면 Marinara는 그 주소에서 연결이 들어오는 모든 요청을 들여보냅니다. Marinara는 자체 로그인을 묻지 않으며 설정 코드도 출력하지 않습니다. Marinara는 연결 자체의 주소를 확인합니다. 이 판단에서 `X-Forwarded-For` 같은 전달 헤더는 무시합니다. 프록시가 들여보낼 사람을 정하므로 프록시의 요청은 `IP_ALLOWLIST`도 통과합니다. 이 요청은 로컬로 취급하지 않으므로, 권한이 필요한 동작에는 여전히 관리자 시크릿이 필요합니다. 설정이 켜져 있는 동안 **Settings** → **Advanced** → **Access**에 **Trusted login proxy: Set**이 표시됩니다.
+그러면 Marinara는 그 주소에서 연결이 들어오는 모든 요청을 들여보냅니다. Marinara는 자체 로그인을 묻지 않으며 설정 코드도 출력하지 않습니다. Marinara는 연결 자체의 주소를 확인합니다. 이 판단에서 `X-Forwarded-For` 같은 전달 헤더는 무시합니다. 프록시가 들여보낼 사람을 정하므로 프록시의 요청은 `IP_ALLOWLIST`도 통과합니다. 이 요청은 로컬로 취급하지 않으므로, 권한이 필요한 동작에는 여전히 관리자 시크릿이 필요합니다. 설정이 켜져 있는 동안 **Settings → Advanced → Access**에 **Trusted login proxy: Set**이 표시됩니다.
 
 설정하기 전에 확인하세요.
 
@@ -222,6 +242,8 @@ marinara.example.com {
 
 Traefik과 nginx는 해당 프록시의 forward-auth 가이드를 따르세요. Marinara에는 프록시의 주소 외에 필요한 것이 없습니다.
 
+<a id="serving-over-https"></a>
+
 ## HTTPS로 서비스하기
 
 HTTPS는 TLS로 통신을 암호화합니다. TLS는 평범한 `http` 주소를 안전한 `https` 주소로 만들어 주는 암호화 기술입니다. 완전히 신뢰할 수 있는 사설 네트워크 바깥에서 접근할 수 있는 설치본에는 항상 HTTPS를 쓰세요. Basic Auth를 함께 쓸 때는 특히 그렇습니다.
@@ -239,11 +261,29 @@ SSL_KEY=/path/to/key.pem
 
 `SSL_CERT`와 `SSL_KEY`를 설정하려면 먼저 인증서와 키가 있어야 합니다. 로컬에서 쓸 때는 `mkcert`, 공개 도메인에는 `certbot` 같은 도구로 만들 수 있습니다. 파일이 없거나 읽을 수 없으면 서버가 시작하다가 멈추고, 어떤 경로를 찾아봤는지 정확히 알려 줍니다.
 
+<a id="admin-access-and-privileged-actions"></a>
+
 ## Admin Access와 권한이 필요한 작업
 
-특히 민감한 작업이 있습니다. 데이터 삭제, 백업 생성과 다운로드, 프로필 가져오기와 내보내기, 테마 설치, Local Model 런타임 설치가 그렇습니다. 이런 작업에는 위에서 고른 접근 방식과 별개로, 관리자 시크릿이라고 부르는 공유 비밀 문자열이 따로 필요합니다.
+특히 민감한 작업이 있습니다. 데이터 삭제, 백업 생성과 다운로드, 프로필 가져오기와 내보내기, 테마와 에이전트 설치, Local Model 런타임 설치가 그렇습니다. 이런 작업에는 위에서 고른 접근 방식과 별개로, 관리자 시크릿이라고 부르는 공유 비밀 문자열이 따로 필요합니다.
 
-루프백 컴퓨터에서는 관리자 시크릿 없이도 대체로 동작합니다. 원격 기기에서는 시크릿을 설정해야 합니다. 아래 단계를 따르세요.
+루프백 컴퓨터에서는 관리자 시크릿 없이도 대체로 동작합니다. 원격 기기에서는 시크릿을 설정해야 합니다. 시크릿은 앱에서 만들거나 `.env`에 설정할 수 있습니다.
+
+홈 화면의 에이전트처럼 설치된 에이전트에는 관리자 시크릿이 필요하지 않습니다. 로그인한 기기라면 쓸 수 있습니다. 에이전트를 설치, 업데이트, 제거할 때는 여전히 시크릿이 필요합니다.
+
+### 앱에서 관리자 시크릿 만들기
+
+1. Marinara를 실행하는 컴퓨터에서 **Settings**(설정)를 열고 **Advanced**(고급) 탭을 연 다음 **Admin Access**(관리자 접근) 항목으로 이동하세요.
+2. **Make admin secret**(관리자 시크릿 만들기)을 클릭하세요. Marinara는 새 시크릿을 한 번만 보여 주고 이 브라우저에 저장합니다.
+3. 각 원격 기기에서 **Settings** → **Advanced** → **Admin Access**를 열고 입력란에 시크릿을 입력한 다음 **Save**(저장)를 클릭하세요. 대소문자, 공백, 대시는 상관없습니다.
+
+이미 시크릿이 있는 기기도 시크릿을 만들 수 있습니다. 로그인만 한 기기는 만들 수 없습니다. 이렇게 하면 로그인을 도용당하더라도 위험한 작업까지 빼앗기지 않습니다.
+
+Docker에서는 브라우저가 Docker 네트워크를 거쳐 Marinara에 접속하므로, Marinara는 이를 같은 컴퓨터로 취급하지 않습니다. 첫 시크릿은 대신 `.env`에 설정하세요(아래 참고).
+
+시크릿을 바꾸려면 **Replace admin secret**(관리자 시크릿 교체)을 클릭하세요. 이전 시크릿은 모든 기기에서 더 이상 동작하지 않습니다. 시크릿을 끄려면 **Remove admin secret**(관리자 시크릿 제거)을 클릭하세요. Marinara는 시크릿의 지문만 데이터 폴더의 `.admin-secret.json`에 보관합니다. 이 파일을 삭제해도 시크릿이 제거됩니다.
+
+### .env에서 관리자 시크릿 설정하기
 
 1. `.env`에 길고 무작위한 값을 넣고 저장하세요. 재시작 없이 몇 초 안에 적용됩니다.
 
@@ -251,18 +291,20 @@ SSL_KEY=/path/to/key.pem
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. 원격 기기에서 Marinara를 열고 **Settings**(설정)에서 **Advanced**(고급) 탭을 연 다음 **Admin Access**(관리자 접근) 항목으로 이동하세요.
-3. 같은 값을 입력란(플레이스홀더에 **ADMIN_SECRET**이 표시됩니다)에 붙여넣고 **Save**(저장)를 클릭하세요.
+2. 원격 기기에서 **Settings** → **Advanced** → **Admin Access**를 여세요.
+3. 같은 값을 입력란(플레이스홀더에 **ADMIN_SECRET**이 표시됩니다)에 붙여넣고 **Save**를 클릭하세요.
 4. **Admin secret saved for this browser** 메시지가 표시됩니다.
 
-관리자 시크릿에 대해 알아 둘 점입니다.
+`.env`의 `ADMIN_SECRET`은 앱에서 만든 시크릿보다 우선합니다. 이 값이 설정되어 있는 동안에는 **Admin Access**에 그 사실이 표시되며, 시크릿은 `.env`에서만 바꿀 수 있습니다.
 
-- 값은 그 브라우저 하나에만 저장됩니다. 기기 사이에 동기화되지 않습니다. 권한이 필요한 작업을 하려는 브라우저마다 따로 붙여넣어야 합니다.
+### 알아 둘 점
+
+- 브라우저마다 자기 사본을 따로 보관합니다. 기기 사이에 동기화되지 않습니다.
 - 입력란을 비운 채 **Save**를 클릭하면 값이 지워지고 **Admin secret cleared**가 표시됩니다.
-- 서버 운영자가 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`로 설정하면 루프백 컴퓨터에서도 시크릿이 필요합니다.
+- 서버 운영자가 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`로 설정하면 루프백 컴퓨터에서도 시크릿이 필요합니다. 이때는 앱에서 시크릿을 만들거나 교체하거나 제거하려면 현재 시크릿이 필요하므로, 첫 시크릿은 `.env`에 설정하세요.
 - 이것은 Basic Auth와 별개입니다. 둘을 함께 쓸 수 있습니다. Basic Auth는 앱 전체를 막고, 관리자 시크릿은 위험한 작업을 막습니다.
 
-원격 기기에서 권한이 필요한 작업이 실패하면 Marinara는 해결 방법 2가지를 담은 오류 메시지를 표시합니다. 하나는 localhost로 앱을 여는 것이고, 다른 하나는 서버의 `.env`에 `ADMIN_SECRET`을 설정한 뒤 같은 값을 **Settings** > **Advanced** > **Admin Access**에 붙여넣는 것입니다.
+원격 기기에서 권한이 필요한 작업이 실패하면 Marinara는 해결 방법 2가지를 담은 오류 메시지를 표시합니다. 하나는 localhost로 앱을 여는 것이고, 다른 하나는 위에서 설명한 대로 관리자 시크릿을 설정하는 것입니다.
 
 <a id="why-is-my-save-blocked-csrf"></a>
 
@@ -317,9 +359,9 @@ TRUSTED_HOSTS=chat.example.com
 
 다시 들어가려면:
 
-1. Marinara를 실행하는 컴퓨터에서 `http://localhost:7860`(또는 직접 정한 `PORT`)으로 Marinara를 엽니다. 로컬 사용에는 비밀번호가 필요 없습니다. 헤드리스 서버에서는 먼저 내 컴퓨터에서 `ssh -L 7860:127.0.0.1:7860 user@server`를 실행한 다음 거기서 `http://localhost:7860`을 엽니다. Docker에서는 로그인과 `IP_ALLOWLIST`가 모두 설정되지 않은 동안에만 이 방법이 동작합니다. 그렇지 않으면 서버 로그의 설정 코드(`docker logs <container> 2>&1 | grep "setup code"`)를 막힌 페이지나 **Settings** → **Advanced** → **Access**에 입력하거나, 아직 로그인된 브라우저를 쓰세요.
-2. **Settings** → **Advanced** → **Access**로 이동해 **Remote login**에서 사용자 이름과 비밀번호를 설정합니다. 또는 그 컴퓨터에서 `.env` 파일을 열고 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정합니다. `IP_ALLOWLIST`가 설정되어 있다면 다른 기기의 주소를 추가하거나 설정을 지우세요. 목록에 없는 기기는 로그인해도 **403**을 받습니다.
-3. 다른 기기에서 그 사용자 이름과 비밀번호로 로그인합니다.
+1. Marinara를 실행하는 컴퓨터에서 `http://localhost:7860`(또는 직접 정한 `PORT`)으로 Marinara를 여세요. 로컬 사용에는 비밀번호가 필요 없습니다. 헤드리스 서버에서는 먼저 내 컴퓨터에서 `ssh -L 7860:127.0.0.1:7860 user@server`를 실행한 다음 거기서 `http://localhost:7860`을 여세요. Docker에서는 로그인과 `IP_ALLOWLIST`가 모두 설정되지 않은 동안에만 이 방법이 동작합니다. 그렇지 않으면 서버 로그의 설정 코드(`docker logs <container> 2>&1 | grep "setup code"`)를 막힌 페이지나 **Settings → Advanced → Access**에 입력하거나, 아직 로그인된 브라우저를 쓰세요.
+2. **Settings → Advanced → Access**로 이동해 **Remote login**에서 사용자 이름과 비밀번호를 설정하세요. 또는 그 컴퓨터에서 `.env` 파일을 열고 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. `IP_ALLOWLIST`가 설정되어 있다면 다른 기기의 주소를 추가하거나 설정을 지우세요. 목록에 없는 기기는 로그인해도 **403**을 받습니다.
+3. 다른 기기에서 그 사용자 이름과 비밀번호로 로그인하세요.
 
 ## 검색 엔진
 

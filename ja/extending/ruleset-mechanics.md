@@ -1,6 +1,6 @@
 # ルールセットのエントリーの仕組み
 
-このページは[Game Modeのルールセットを作成する](writing-rulesets.md)の一部です。カタログのエントリーが数値の面で何をするかを説明します。判定、休息、戦闘が読み取る、エントリーの`mechanics`ブロックを扱います。
+このページでは、カタログのエントリーが数値の面で何をするかを調べられます。判定、休息、戦闘が読み取る、エントリーの`mechanics`ブロックを扱います。ルールセットの作者向けのリファレンスです。始める前に、[Game Modeのルールセットを作成する](writing-rulesets.md)を読んでください。
 
 任意の`mechanics`ブロックで効果を数値化できます。`kind`(`attack`、`heal`、`buff`、`debuff`、`utility`、`rider`)、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、`amount`(`2d6`などのダイスか固定値)、`amountAdd`(使用者のシートから読んで量に加える値です。たとえば`{ "field": "level_fighter" }`なら、1d10にファイターのレベルを加えるSecond Windになります。`amount`が必要で、ルールセット独自の戦闘でだけ読まれ(EngineのClassicとTacticalの戦闘は書かれた量をそのまま使います)、Capability API 1.83です)、`damageType`、`attackRoll`、`autoHit`、`save`(シートのセーヴと成功時の効果)、`applies`(対象への状態付与)、`temporary`(体力プールの一時ポイント)、`scales`(シートに応じて増える量)、`cost`(消費プール)、`perCostStep`、`targetsPerCostStep`、`budget`(消費する行動枠)、`concentration`、`reaction`、`plus`、`free`、`gives`、`standard`、`rider`、`check`があります。
 
@@ -111,13 +111,13 @@ Cloudkillには`"drift": { "distance": 10 }`を加えます。Spike Growthは独
 
 戦闘は、一部の者が不意を突かれた状態で始められます(Capability API 1.237)。誰が不意を突かれたかはシーンが示します。元になる遭遇が、パーティーか敵かを問わず、`"surprised": true`で印を付けます。その者は最初のターンに移動も行動もできず、メニューにはそのターンを終える選択肢しかありません。そのターンか最初のラウンドのどちらか早い方が終わるまで、リアクションも伝説的な使用も行いません。`"cannotBeSurprised": true`を持つ戦闘の状態は、持ち主が不意を突かれないようにします。5eのForesightです。`"ignoresSurpriseWith": "<catalog>/<entry>"`を持つカタログの項目は、持ち主が不意を突かれている間も使える使用を指定し、それを使うとその時点で不意打ちが終わるため、ターンの残りは持ち主のものになります。5eのFeral Instinctは、不意を突かれたバーバリアンが先に激怒することで通常どおり行動できるようにします。
 
-カタログの項目は、戦闘の最初のラウンドに持ち主へ2回目のターンを与えられます(Capability API 1.238)。シートのリストで保持する項目の`"extraFirstTurn": { "initiative": -10 }`は、持ち主自身のイニシアチブにその数を加えた位置に2回目のターンを置き、その数以上の全員の後になります。2回とも完全なターンで、2ラウンド目からは通常どおり1ラウンドに1ターンです。2回目のターンの前に倒された持ち主は、単にそれを逃します。`"unlessSurprised": true`なら、不意を突かれて戦闘を始めた者には2回目のターンがありません。5eのThief's Reflexesです。
+カタログの項目は、戦闘の最初のラウンドに持ち主へ2回目のターンを与えられます(Capability API 1.238)。シートのリストで保持する項目の`"extraFirstTurn": { "initiative": -10 }`は、持ち主自身のイニシアチブにその数を加えた位置に2回目のターンを置き、その数以上の全員の後になります。2回とも完全なターンで、2ラウンド目からは通常どおり1ラウンドに1ターンです。2回目のターンの前に倒された持ち主は、それを逃します。`"unlessSurprised": true`なら、不意を突かれて戦闘を始めた者には2回目のターンがありません。5eのThief's Reflexesです。
 
 戦闘の状態は、与える行動枠で買えるものを間合いの攻撃に絞り、終了時に持ち主のトラックに印を残せます(Capability API 1.239)。`"grants": { "budget": "bonus", "attacks": true, "melee": true }`では、その行動枠で支払う1回の打撃は、間合いで打つ武器でしか行えません。投擲武器は投げずに振るうため、間合い内の相手にしか使えません。射程があって間合いのない武器は提示されません。`"onEnd": { "tracks": [{ "track": "exhaustion", "by": 1 }] }`は、カタログの項目の`tracks`と同じく、状態がどのように終わっても、終了時に持ち主のライブのトラックを段階単位で動かします。`applies`と`tracks`は併用も単独使用もできます。カタログの項目の`"usesOf": "<row name>"`は、自身の使用回数の代わりに、その行の項目の使用回数(そのカウンター行)を消費します。これにより5eのFrenzyは、BerserkerのFrenzied Rageという項目になります。`"usesOf": "Rage"`を持ち、激怒と、それに`endsWith`する`frenzied`の状態を付与し、後者の状態がこの2つを両方持ちます。
 
 イニシアチブは2回振って、良い方か悪い方を採用できます(Capability API 1.240)。`combat.initiative.checkAbility`はイニシアチブがその能力値で行う判定であることを示すため、その判定を2回振らせるものは、イニシアチブも2回振らせます。`own-checks-advantage`を持つ状態(5eのForesight)や、その能力値に絞った、または何も絞っていない`mode`付きの`checks`修正値(DexterityへのEnhance AbilityのCat's Grace)です。シートのリストで保持する`"initiativeMode": "advantage"`(または`"disadvantage"`)を持つカタログの項目は、何を保持していても、持ち主のイニシアチブを2回振らせます。5eのFeral Instinctです。有利と不利は、どのロールとも同じく打ち消し合います。ログのイニシアチブの項目は`mode`と、採用しなかった`dropped`のロールを持ちます。毎ラウンドイニシアチブを振る戦闘では、毎ラウンド2回振ります。対象は振るダイスだけで、プールのイニシアチブは2回振りません。
 
-リアクションは、持ち主自身の攻撃の命中に応じられます(Capability API 1.241)。`"by": "self"`を持つ`"hit"`のリアクションは、攻撃者のロールが命中し、打撃を受けた全員が応じた後に攻撃者へ提示され、命中した相手に向けられます(`"at": "target"`と書きます)。`"weapon": true`は、あらゆる命中の瞬間を武器の打撃に絞ります。カタログに属さない攻撃か、クリーチャーの単一標的のアクションです。自分の命中へのリアクションは、それを選ぶことが攻撃の一部であるため、リアクションを止めるものでは止まりません。本当に行動枠を消費するのでない限り、`"free"`と印を付けてください。5eのStunning Strikeがその例で、`"reaction": { "on": "hit", "by": "self", "weapon": true, "blow": "melee", "at": "target" }`、無料、気のコスト、Constitutionのセーヴ、モンクの次のターンの終わりまでの`stunned`です。`"addsToBlow": true`を持つ攻撃の項目の量は、単独で与えられる代わりにその打撃に加わります。打撃の命中時に振り、クリティカルで倍になり、その条項は届く標的にだけ適用されます。5eのDivine Smiteは2d8の光輝、`perCostStep`は1d8、フィーンドかアンデッドを`targetIs`とする1d8の光輝の条項、`"perCostStepsMax": 3`です。最後のものは、`perCostStep`や`targetsPerCostStep`を持つあらゆる項目で数える、上位コストの段階の最大数です。別のウィンドウの中で行う攻撃(機会攻撃)は命中で保留されないため、何も加わりません。
+リアクションは、持ち主自身の攻撃の命中に応じられます(Capability API 1.241)。`"by": "self"`を持つ`"hit"`のリアクションは、攻撃者のロールが命中し、打撃を受けた全員が応じた後に攻撃者へ提示され、命中した相手に向けられます(`"at": "target"`と書きます)。`"weapon": true`は、あらゆる命中の瞬間を武器の打撃に絞ります。カタログに属さない攻撃か、クリーチャーの単一標的のアクションです。自分の命中へのリアクションは、それを選ぶことが攻撃の一部であるため、リアクションを止めるものでは止まりません。行動枠を消費するのでない限り、`"free"`と印を付けてください。5eのStunning Strikeがその例で、`"reaction": { "on": "hit", "by": "self", "weapon": true, "blow": "melee", "at": "target" }`、無料、気のコスト、Constitutionのセーヴ、モンクの次のターンの終わりまでの`stunned`です。`"addsToBlow": true`を持つ攻撃の項目の量は、単独で与えられる代わりにその打撃に加わります。打撃の命中時に振り、クリティカルで倍になり、その条項は届く標的にだけ適用されます。5eのDivine Smiteは2d8の光輝、`perCostStep`は1d8、フィーンドかアンデッドを`targetIs`とする1d8の光輝の条項、`"perCostStepsMax": 3`です。最後のものは、`perCostStep`や`targetsPerCostStep`を持つあらゆる項目で数える、上位コストの段階の最大数です。別のウィンドウの中で行う攻撃(機会攻撃)は命中で保留されないため、何も加わりません。
 
 シートが保持するものは、攻撃の行を変え、打撃を与え、攻撃アクションを待てます(Capability API 1.242)。`attackRows`を持つ、シートのリストで保持するカタログの項目は、`when`の範囲が成り立つ間(着用している鎧が最大0など、シート上の値)、名前を列挙した行(大文字と小文字を区別せず照合します)を変えます。`abilities`は、行自身の能力値とこれらのうち最良のものを命中に使い、行のダメージが同じ能力値を加える場合はダメージにも使います。`die`(シートの値`from`から、段階の`table`を通して面数を得ます)は、その方が平均が高い場合に、行のダイスの代わりにその面数のダイスを1個振ります。`qualities`は、打撃が抵抗を越えて持つ性質に加えます。5eのMartial Artsは`{ "names": ["Unarmed Strike", "Shortsword", ...], "abilities": ["str", "dex"], "die": { "from": { "field": "level_monk" }, "table": [[1, 4], [5, 6], [11, 8], [17, 10]] }, "when": { "value": { "derived": "armor_worn" }, "atMost": 0 } }`で、Ki-Empowered Strikesは`{ "names": ["Unarmed Strike"], "qualities": ["magical"] }`です。保持する項目の`grantsStrike`は、状態の`grants.attacks`とまったく同じく、攻撃自身の行動枠を使い切った後に、持ち主が別の行動枠で1回の打撃を購入できるようにします。`names`はそれらの攻撃に、`melee`は間合いに、`afterAttack`は攻撃アクションを行ったターンに絞ります(`true`か、それらのいずれかで攻撃アクションを行った場合を表す`{ "names": [...] }`)。Martial Artsのボーナスの素手打撃は`{ "budget": "bonus", "names": ["Unarmed Strike"], "afterAttack": { "names": [...the monk weapons] } }`です。状態の`grants`も同じ`names`と`afterAttack`を取ります。`afterAttack`を持つ項目は攻撃アクションの後にだけ提示されます。Flurry of Blowsは、ボーナスの行動枠で気を1消費する`utility`の項目で、`afterAttack`を持ち、数0で宣言した行動枠を2つ`gives`し、その行動枠でUnarmed Strikeの`grantsStrike`を持ちます。攻撃アクションとは、攻撃リストやアイテムから、それ自身の行動枠かすでに購入した打撃で支払って行う攻撃で、付与で支払った攻撃は決して含みません。
 
@@ -189,9 +189,9 @@ Heightenedの標的とAcid Arrowです(Capability API 1.255)。`heightens`の変
 
 テレポートです(Capability API 1.276)。カタログの項目の`mechanics.teleport`、アイテムの`use.teleport`、クリーチャーのアクションの`teleport`は、使用者を`distance`(ルールセット独自の単位)以内の空いた場所へ即座に移動させます。間の歩はないため、離れるときに誰も打撃できず、着いた場所のゾーンは歩いて入ったときと同じく巻き込みます。盤面上でのみ働くため、`combat.distance`が必要です。盤面がなければ、テレポートするだけのアクションは提示されません。`seen`があれば、使用者が今見える場所だけです(壁、霧、目を奪う盲目は、その向こうのマスを一覧から除きます)。5eのMisty Stepは`{ "distance": 30, "seen": true }`です。`carries`(1～8)は、`carriesWithin`以内(省略時は接触)にいる、使用者以下の大きさの、使用者の側の自ら望むクリーチャーをその数だけ連れて行き、それぞれは余地がある限り使用者の近くに着きます。Dimension Doorは`{ "distance": 500, "carries": 1, "carriesWithin": 5 }`です。テレポートを持つクリーチャーのアクションは、クリーチャー自身に効果が及びます(ブリンク・ドッグのTeleport)。選択肢は行ける先のマスを`teleport.cells`として、一緒に行ける者を`teleport.carries`として列挙します。選択はマスを`at`として、同行者を`carries`として指定します。テレポートが範囲やリアクションになることはありません。
 
-一度に6つの状態と、本当に見ることとしての視界です(Capability API 1.277)。`applies`は、カタログの項目のmechanics、アイテムの使用、クリーチャーのアクションで最大6項目を持てます(以前は4)。RageとFrenzyは、それぞれ4つに加えてMindless Rageの状態を加えます。また、`whileSourceInSight`(と、それに並べた`orSourceWithin`)は、オーラの`orSeen`と同じく、持ち主自身の視界を読むようになりました。盤面上の遮るもののない線は引き続き必要で、そのうえで持ち主は目か感覚で出所を見る必要があります。そのため、目を奪う盲目、視界を遮る霧、見通せる範囲を超えた暗闇、持ち主から見えない出所(不可視)は、壁と同じくどれもそれを断ちます。
+一度に6つの状態と、真に見る視界です(Capability API 1.277)。`applies`は、カタログの項目のmechanics、アイテムの使用、クリーチャーのアクションで最大6項目を持てます(以前は4)。RageとFrenzyは、それぞれ4つに加えてMindless Rageの状態を加えます。また、`whileSourceInSight`(と、それに並べた`orSourceWithin`)は、オーラの`orSeen`と同じく、持ち主自身の視界を読むようになりました。盤面上の遮るもののない線は引き続き必要で、そのうえで持ち主は目か感覚で出所を見る必要があります。そのため、目を奪う盲目、視界を遮る霧、見通せる範囲を超えた暗闇、持ち主から見えない出所(不可視)は、壁と同じくどれもそれを断ちます。
 
-Calm Emotionsです(Capability API 1.278)。セーヴは`alliesMayFail: true`を指定できます(カタログの項目、アイテムの使用、クリーチャーのアクションの`save`で)。使用者自身の側の標的はそれを受け入れて振らずに失敗し、ログがそれを示します。それ以外の者は通常どおり振ります。状態の`effects`は`cannot-target-source-side`を持てます。持ち主は、状態を付与した者にも、その側の誰にも何も向けません。ただし、その側が持ち主自身の側なら誰も除外しません。`endsWhen`は、`damaged`と`harmed-by-source-side`に加えて、さらに2つの終了条件を取り、最大4つすべてを指定できます。`attacked`は、誰かが持ち主に行う攻撃判定で、命中か外れかを問いません(ロールせずに命中するアクションは該当しません)。`ally-harmed-in-sight`は、持ち主が見ている、持ち主の側のほかの誰かへのダメージです(盤面上の遮るもののない線と、自身の目か感覚が必要です)。また、`endsWhenHarmedFrom`はカタログを列挙します。誰によるものでも、それらのいずれかから発動されたもの(スクロールの呪文や場に残ったゾーンを含みます)による持ち主への被害で状態が終わります。被害とは、`harmed-by-source-side`と同じく、ダメージか有害なアクションの標的になることで、まったく同じ状態を再び発動すると、終わらせずに更新します。これらはどれも、原因となった処理が終わるまで待ちます。また、持ち主自身の有効な状態が`suppresses`する状態は、その同じ状態が与える完全耐性ではもう終わらなくなりました。治るのではなく一時停止するため、恐怖への完全耐性を持つ激怒が始まったときにすでに付いていた恐怖は、激怒が終わると戻ります(5eのMindless Rage)。新しい恐怖は引き続き付与されません。
+Calm Emotionsです(Capability API 1.278)。セーヴは`alliesMayFail: true`を指定できます(カタログの項目、アイテムの使用、クリーチャーのアクションの`save`で)。使用者自身の側の標的はそれを受け入れて振らずに失敗し、ログがそれを示します。それ以外の者は通常どおり振ります。状態の`effects`は`cannot-target-source-side`を持てます。持ち主は、状態を付与した者にも、その側の誰にも何も向けません。ただし、その側が持ち主自身の側なら誰も除外しません。`endsWhen`は、`damaged`と`harmed-by-source-side`に加えて、さらに2つの終了条件を取り、最大4つすべてを指定できます。`attacked`は、誰かが持ち主に行う攻撃判定で、命中か外れかを問いません(ロールせずに命中するアクションは該当しません)。`ally-harmed-in-sight`は、持ち主が見ている、持ち主の側のほかの誰かへのダメージです(盤面上の遮るもののない線と、自身の目か感覚が必要です)。また、`endsWhenHarmedFrom`はカタログを列挙します。誰によるものでも、それらのいずれかから発動されたもの(スクロールの呪文や場に残ったゾーンを含みます)による持ち主への被害で状態が終わります。被害とは、`harmed-by-source-side`と同じく、ダメージか有害なアクションの標的になることで、同じ状態を再び発動すると、終わらせずに更新します。これらはどれも、原因となった処理が終わるまで待ちます。また、持ち主自身の有効な状態が`suppresses`する状態は、その同じ状態が与える完全耐性ではもう終わらなくなりました。治るのではなく一時停止するため、恐怖への完全耐性を持つ激怒が始まったときにすでに付いていた恐怖は、激怒が終わると戻ります(5eのMindless Rage)。新しい恐怖は引き続き付与されません。
 
 戦闘の外へのテレポート、見える同行者、煙です(Capability API 1.279)。`teleport`(カタログの項目、アイテムの使用、クリーチャーのアクションのもの)は、さらに3つのキーを取ります。`leaves: true`は、マスへ移動する代わりに、使用者を戦闘から完全に連れ出せます(ユニコーンの1マイル)。この場合、選択は`at`を指定せず(メニューには「Leave the fight」ボタンが表示されます)、使用者と同行者は生きたまま去ります(「Left the fight」と表示され、体力は保たれ、何も彼らを戻しません)。盤面がなければ、行き先は戦闘の外だけで、近くに誰が立っているかを測るものがないため、使用者の側に立っている誰でも同行できます。パーティーが戦闘から抜け、その一員がこの方法で去った場合は、逃走したことになります(結果は`fled`で、逃走と同じく戦闘を終えます)。この方法で去った敵は、打ち負かされたのでもまだ立っているのでもなく、逃げおおせたことになり、振り返りがそう示します。ディレクター自身のクリーチャーは、体力が4分の1以下になると、連れて行ける者を連れて去ります。`carriesSeen: true`(`carries`と併用)は、使用者が見える者だけを同行させます。ユニコーンの「見える自ら望むクリーチャー」です。`smoke`(`{}`か`{ "pierced": [senses] }`)は、使用者が離れたマスと着いたマスに雲を残し、着いた瞬間から使用者の次のターンの終わりまで、ゾーンの`obscures`と同じく視界を遮ります。Cape of the Mountebankの煙です。
 
@@ -205,7 +205,7 @@ Calm Emotionsです(Capability API 1.278)。セーヴは`alliesMayFail: true`を
 
 伝説的な発動です(Capability API 1.284)。`signature`のコストを持つクリーチャーのアクションは、ほかに何もせず`casting`だけを指定できます。ターンの間に、作り手が自身のターンにアクションの`budget`で発動できる各呪文を、その`spellcasting`かシートの呪文から、「Cast a Spell: Fireball」のような名前で提示します。それぞれはクリーチャーのターンとまったく同じく狙い、支払い、解決し(標的、範囲のマス、いつもどおり消費するスロットや使用回数)、行動枠の代わりにポイントを消費するため、自身のターンはすべての行動枠を保ちます。`casting: { "cantripsOnly": true }`は初級呪文(どのプールからも支払わない呪文)だけを提示します。リッチのCantripは`signature: { "cost": 1 }`です。スフィンクスのCast a Spellは、`signature: { "cost": 3 }`を持つ`casting: {}`です。呪文が開くもの(Counterspell、それによる被害へのリアクション)はターン中と同じく応じられ、それを購入したウィンドウには、それらがすべて閉じた後に再び尋ねます。ディレクターは、ほかのシグネチャーアクションと同じく評価し、ポイントに見合う呪文のときに購入します。
 
-アクションの後の移動と、1つの移動速度での移動です(Capability API 1.285)。何かをする(ダメージ、範囲、セーヴ、状態)シグネチャーアクションは、`move`も持てます。効果が先に適用され、その後、作り手はメニューが提示したマスのうち、アクションとともに選んだマスへ移動できます。何も選ばないことも選択で、効果の後に届かなくなったマスへは単に歩きません。`move`は`speed`(`walk`、`fly`、`swim`、`climb`、`burrow`)で移動方法を1つ指定することもできます。その場合、`share`はその移動速度だけから読み、その方法でだけ移動し、その移動速度を持たないクリーチャーはどこへも行けません。ドラゴンのWing Attackは、周囲のバースト(`area: { "shape": "burst", "size": 10, "around": true }`、そのセーヴと伏せ状態)に`move: { "share": 0.5, "speed": "fly" }`を加えたものです。「その後、ドラゴンは飛行速度の半分まで飛行できる」です。`move`は引き続き`teleport`、`sequence`、`reaction`、`charge`を持ちません。ディレクターは、敵の隣でひどく傷ついているときは打ち付けた後に飛び去り、間合いの外の敵には近づきます。
+アクションの後の移動と、1つの移動速度での移動です(Capability API 1.285)。何かをする(ダメージ、範囲、セーヴ、状態)シグネチャーアクションは、`move`も持てます。効果が先に適用され、その後、作り手はメニューが提示したマスのうち、アクションとともに選んだマスへ移動できます。何も選ばないことも選択で、効果の後に届かなくなったマスへは歩きません。`move`は`speed`(`walk`、`fly`、`swim`、`climb`、`burrow`)で移動方法を1つ指定することもできます。その場合、`share`はその移動速度だけから読み、その方法でだけ移動し、その移動速度を持たないクリーチャーはどこへも行けません。ドラゴンのWing Attackは、周囲のバースト(`area: { "shape": "burst", "size": 10, "around": true }`、そのセーヴと伏せ状態)に`move: { "share": 0.5, "speed": "fly" }`を加えたものです。「その後、ドラゴンは飛行速度の半分まで飛行できる」です。`move`は引き続き`teleport`、`sequence`、`reaction`、`charge`を持ちません。ディレクターは、敵の隣でひどく傷ついているときは打ち付けた後に飛び去り、間合いの外の敵には近づきます。
 
 軽度の視界不良と風です(Capability API 1.286)。ゾーンの`obscures`やテレポートの`smoke`は`light: true`を指定できます。その場合は誰も隠さず、5eの薄暗い光やCape of the Mountebankの煙と同じく、それを通して、またはその中で見られる者を軽度に視界不良にするだけです(Engineはそのように見られる者を把握しており、HideとPerceptionがそれを読みます)。`dispersed: true`も指定できます。その場合、規則が`disperses: true`を示すゾーンは、すべてのアクションの後、両者が重なる場所でそれを、それを保つ集中とともに終わらせます。5eのFog Cloudは`obscures: { "dispersed": true }`、Gust of Windは`disperses: true`を持つゾーンです。Darknessはどちらも指定しないため、風はそれを残します。散らすだけのゾーンにトリガーは不要です。
 
@@ -372,7 +372,7 @@ Held Groundの解除です(Capability API 1.330)。物語は、年が変わる�
 
 シートから読み取る値によるダメージ軽減と、落下の軽減(Capability API 1.413)。`damage`または`damage-taken`の修正値は`"add"`を持てます。これは持ち主のシートから読み取る値で(シートのないクリーチャーはブロックの`const`または`abilityMod`を読みます)、`dice`と`flat`に加算します。`"minus": true`ではダイスと値の両方を差し引き、打撃は、0を下回ることはありません。5eのDeflect Missilesは、遠隔の`hit`に対するリアクションで、攻撃一回だけ続く状態(`endsAfter: "attacked"`)を付与します。その内容は`{"to": "damage-taken", "blow": "ranged", "dice": "1d10", "add": {"derived": "deflect_missiles"}, "minus": true}`で、派生値はDexterity修正値 + モンクのレベルです。`"falls": true`を持つ`damage-taken`の修正値は、落下のダメージだけを軽減し、`attacks`、`blow`、`ability`、`fromSource`、`times`とは併用しません。修正値が落下を軽減した状態は、それによって消費されます。5eのSlow Fallは、`falls`に対するリアクションで、`{"to": "damage-taken", "falls": true, "add": {"derived": "slow_fall"}, "minus": true}`を持つ状態を付与し、その値はモンクのレベルの五倍です。どちらを使うルールセットにもCapability API 1.413が必要です。
 
-カタログのフィルターによるエントリーの変更(Capability API 1.414)。変更は`"entry"`の代わりに`"catalogs"`を指定でき、持ち主が使うそれらのカタログの全エントリーを変更します。`"where": {"filter", "equals"}`で、宣言済みフィルターが指定の値を示すエントリーに絞れます(単語、数値、または単語のリストのいずれかで、大文字と小文字は区別しません)。これに加えて、さらに二種類の変更があります。`"damageOnce"`は持ち主のシートから読み取る値で、使用一回につき一回のダメージロールに加えます。全員が同じロールのダメージを受ける場合(範囲や必ず命中するダーツ)はすべての標的に、標的ごとに命中のダイスを振るエントリーでは最初の命中に加えます。5eのEmpowered Evocationは`{"catalogs": ["spells"], "where": {"filter": "school", "equals": "evocation"}, "damageOnce": {"abilityMod": "int"}}`です。`"halfOnSave": true`は、エントリーのダメージを`negates`するセーヴに成功した場合に、代わりにダメージの半分を残します。エントリーのほかの効果には影響しません。Potent Cantripでは、`where`で、0レベルのものを指定します。改変(`alters`)も同じ`"where"`を取り、それに合うエントリーだけに適用します。また、`spares`用のキーがさらに二つあります。`"sparesByLevel": true`は、エントリーが支払った段階のレベルと同数だけ、影響を免れる数を増やします。`"sparesWhole": true`では、セーヴ成功時に半分が残る場合も、影響を免れる者は何も受けません(ログには回避したと記録されます)。5eのSculpt Spellsは、コストのない`utility`で、`{"catalogs": ["spells"], "where": {"filter": "school", "equals": "evocation"}, "spares": {"const": 1}, "sparesByLevel": true, "sparesWhole": true}`を持ちます。選択時にはCareful Spellと同様に、影響を免れる者を`spares`に指定します。これらのいずれかを使うルールセットにはCapability API 1.414が必要です。
+カタログのフィルターによるエントリーの変更(Capability API 1.414)。変更は`"entry"`の代わりに`"catalogs"`を指定でき、持ち主が使うそれらのカタログの全エントリーを変更します。`"where": {"filter", "equals"}`で、宣言済みフィルターが指定の値を示すエントリーに絞れます(単語、数値、または単語のリストのいずれかで、大文字と小文字は区別しません)。これに加えて、さらに二種類の変更があります。`"damageOnce"`は持ち主のシートから読み取る値で、使用一回につき一回のダメージロールに加えます。全員が同じロールのダメージを受ける場合(範囲や命中するダーツ)はすべての標的に、標的ごとに命中のダイスを振るエントリーでは最初の命中に加えます。5eのEmpowered Evocationは`{"catalogs": ["spells"], "where": {"filter": "school", "equals": "evocation"}, "damageOnce": {"abilityMod": "int"}}`です。`"halfOnSave": true`は、エントリーのダメージを`negates`するセーヴに成功した場合に、代わりにダメージの半分を残します。エントリーのほかの効果には影響しません。Potent Cantripでは、`where`で、0レベルのものを指定します。改変(`alters`)も同じ`"where"`を取り、それに合うエントリーだけに適用します。また、`spares`用のキーがさらに二つあります。`"sparesByLevel": true`は、エントリーが支払った段階のレベルと同数だけ、影響を免れる数を増やします。`"sparesWhole": true`では、セーヴ成功時に半分が残る場合も、影響を免れる者は何も受けません(ログには回避したと記録されます)。5eのSculpt Spellsは、コストのない`utility`で、`{"catalogs": ["spells"], "where": {"filter": "school", "equals": "evocation"}, "spares": {"const": 1}, "sparesByLevel": true, "sparesWhole": true}`を持ちます。選択時にはCareful Spellと同様に、影響を免れる者を`spares`に指定します。これらのいずれかを使うルールセットにはCapability API 1.414が必要です。
 
 最大の出目を使うダメージと回復、および使用者に被害を与える改変(Capability API 1.415)。改変の`"maximizes": {"fromLevel"?, "upToLevel"?}`は、合致するエントリーのダメージで最大の出目を使い、すべてのダイス(条項や高い段階での支払いによるものも含みます)を最大の目にします。ダメージを与えるエントリーだけに合致し、支払った段階のレベルがその範囲内にあるものに限ります(範囲外の選択は`bad-alter`として拒否されます)。`"backlash": {"free", "dice", "grows"?, "type"?, "unblockable"?}`は、変更したものの発動後に使用者へ被害を与えます。ただし、そのエントリーが`usesOf`で消費するカウンターの最初の`free`回を超えた後です(そのカウンターが最後に回復してから数えます)。エントリーが支払った段階のレベルごとに`dice`を与え、被害を与える最初の使用を超えるたびに、レベルごとにさらに`grows`を加えます。`unblockable`は抵抗と完全耐性を無視します。5eのOverchannelは、大休憩で回復する「Overchannel uses」カウンターを消費する`utility`で、`{"catalogs": ["spells"], "where": <wizard spells>, "maximizes": {"fromLevel": 1, "upToLevel": 5}, "backlash": {"free": 1, "dice": "2d12", "grows": "1d12", "type": "necrotic", "unblockable": true}}`を持ちます。変更の`"maxHeal": true`は、変更するすべてのエントリーで最大の出目を使って回復します。Supreme Healingは`{"catalogs": ["spells"], "maxHeal": true}`です。これらのいずれかを使うルールセットにはCapability API 1.415が必要です。
 
@@ -382,16 +382,7 @@ Held Groundの解除です(Capability API 1.330)。物語は、年が変わる�
 
 判定の下限(Capability API 1.418)。戦闘の状態またはレベルは`"checkFloor": {"face"?, "total"?, "proficient"?, "abilities"?, "skills"?}`を持て、戦闘中にも戦闘外にも適用します。単一のダイスの出目が`face`未満なら`face`として扱い(素の出目も同様なので、1ではなくなります)、合計が、持ち主のシートから読み取る値`total`未満なら、その値として扱います。`proficient: true`は持ち主が習熟しているスキルの判定に、`abilities`と`skills`はそれらを使う判定に限定します。セーヴには一切影響しません。5eのReliable Talentは、レベル`{"derived": "<rogue level>", "at": 11, "checkFloor": {"face": 10, "proficient": true}}`で、Indomitable Mightは、レベル`{"derived": "<barbarian level>", "at": 18, "checkFloor": {"total": {"abilityScore": "str"}, "abilities": ["str"]}}`です。これを使うルールセットにはCapability API 1.418が必要です。
 
-未習熟時に加えるシートの値(Capability API 1.419)。
-スキル、セーヴ、またはセクションの`untrained`は`{"add": <value>}`にできます。
-最初の段階の判定では、シートの現在の状態から計算したその値を加え、スキルの数値にも表示します。
-能力値の`"checkAdd"`は、スキルを使わずその能力値だけで行う判定に加えます。
-上限と同様、どちらもスキルやセーヴの修正値を読めません。読み取る派生値とそこに至るまでのどの派生値も、それらの修正値を読めません。
-5eのJack of All Tradesは、派生値`jack`(習熟ボーナスの半分を切り捨てた値で、2レベルのバードから適用し、それ以外の場合は、0)を、すべてのスキルの`untrained`の`{"add": {"derived": "jack"}}`、すべての能力値の`checkAdd`、およびイニシアチブの派生値に使います。
-Remarkable Athleteも同様ですが、Strength、Dexterity、Constitutionについて半分を切り上げ、両者の大きいほうを取ります。
-どちらを使うルールセットにもCapability API 1.419が必要です。
-同じマイナーバージョンで、`combat.levels`のエントリー数の上限も、20から、40に増えます。
-20を超えるルールセットにも、1.419が必要です。
+未習熟時に加えるシートの値(Capability API 1.419)。スキル、セーヴ、またはセクションの`untrained`は`{"add": <value>}`にできます。最初の段階の判定では、シートの現在の状態から計算したその値を加え、スキルの数値にも表示します。能力値の`"checkAdd"`は、スキルを使わずその能力値だけで行う判定に加えます。上限と同様、どちらもスキルやセーヴの修正値を読めません。読み取る派生値とそこに至るまでのどの派生値も、それらの修正値を読めません。5eのJack of All Tradesは、派生値`jack`(習熟ボーナスの半分を切り捨てた値で、2レベルのバードから適用し、それ以外の場合は、0)を、すべてのスキルの`untrained`の`{"add": {"derived": "jack"}}`、すべての能力値の`checkAdd`、およびイニシアチブの派生値に使います。Remarkable Athleteも同様ですが、Strength、Dexterity、Constitutionについて半分を切り上げ、両者の大きいほうを取ります。どちらを使うルールセットにもCapability API 1.419が必要です。同じマイナーバージョンで、`combat.levels`のエントリー数の上限も、20から、40に増えます。20を超えるルールセットにも、1.419が必要です。
 
 カタログエントリーの長距離射程と、投げ返しのダイス(Capability API 1.420)。カタログのエントリーの`mechanics.longRange`は、`range`を超えて届く距離で、同じ単位を使い、それより大きくします。`range`を超えると、アイテムやクリーチャーの長距離射程と同様、`combat.ranged`の指定に従って難しくなり、Distant型の改変は両方を延ばします。`throwsCaught`は`{"die": {"from": <value>, "table": [[level, sides], ...]}}`にできます。平均値が高くなる場合、受け止めた飛び道具を、その元のダイスの代わりにその面数のダイス一つで投げ返し、被害の種別は維持します。5eのDeflect Missilesの投げ返しは、`"range": 20, "longRange": 60`と`"throwsCaught": {"die": {"from": {"field": "level"}, "table": [[1, 4], [5, 6], [11, 8], [17, 10]]}}`で、飛び道具をモンク武器として扱います。どちらを使うルールセットにもCapability API 1.420が必要です。
 
@@ -401,7 +392,7 @@ Remarkable Athleteも同様ですが、Strength、Dexterity、Constitutionにつ
 
 聖域(Capability API 1.423)。戦闘の状態の`"sanctuary": {"save", "difficulty"?, "from"?, "immuneOnSave"?}`は、持ち主に攻撃または有害なエントリーを向ける者に、まず`save`のダイスを振らせます(範囲は除き、持ち主自身には決して適用しません)。難易度は、その状態を付与したときのものを使い、それがなければ持ち主のシートから`difficulty`を読み取ります。失敗した場合、その攻撃やエントリーは、狙えるほかのクリーチャーのうち、すでにその標的に含まれず、聖域を持たない最も近い者に向かいます。該当する者がいなければ失われます。`from`は標的の条件を満たす攻撃者に限定し、`immuneOnSave`は、セーヴに成功した者をその戦闘の残りの間、影響から解放します。5eのSanctuaryは`{"save": "wis_save"}`を持つ状態で、呪文のセーヴ難易度とともに呪文によって付与され、`endsWhenHolder`の攻撃と発動で終了します。Tranquilityは同じ状態を大休憩時に付与し、`"difficulty"`はモンクの気のセーヴDCです。Nature's Sanctuaryは`{"save": "wis_save", "difficulty": <spell save DC>, "from": {"types": ["beast", "plant"]}, "immuneOnSave": true}`で、特性により付けたままにします。これを使うルールセットにはCapability API 1.423が必要です。
 
-カタログのエントリーが付与したものの終了(Capability API 1.424)。カタログのエントリーの`"endsSpells": {"catalogs", "count"?, "upTo"?, "above"?}`は、効果を受けた各クリーチャーについて、それらのカタログのエントリーが付与した状態を、レベルの高い順に最大`count`個終了します。`upTo`以内のもの(`"paid"`ならエントリーが支払った段階のレベル、または数値)はそのまま終了し、それを超えるものは、使用者のシートから読み取る値`above.check`による判定で、`above.dc`にそのレベルを加えた難易度を満たした場合のみ終了します。`upTo`がなければ、どれもそのまま終了します。術者の集中で維持されているものは、その呪文全体を終了します。5eのDispel Magicは`{"catalogs": ["spells"], "upTo": "paid", "above": {"check": {"derived": "spellcasting_mod"}, "dc": 10}}`で、Cleansing Touchは`{"catalogs": ["spells"], "count": 1}`を持つ`utility`です。これを使うルールセットにはCapability API 1.424が必要です。
+カタログのエントリーが付与したものの終了(Capability API 1.424)。カタログのエントリーの`"endsSpells": {"catalogs", "count"?, "upTo"?, "above"?}`は、効果を受けた各クリーチャーについて、それらのカタログのエントリーが付与した状態を、レベルの高い順に最大`count`個終了します。`upTo`以内のもの(`"paid"`ならエントリーが支払った段階のレベル、または数値)は終了し、それを超えるものは、使用者のシートから読み取る値`above.check`による判定で、`above.dc`にそのレベルを加えた難易度を満たした場合のみ終了します。`upTo`がなければ、どれも終了します。術者の集中で維持されているものは、その呪文全体を終了します。5eのDispel Magicは`{"catalogs": ["spells"], "upTo": "paid", "above": {"check": {"derived": "spellcasting_mod"}, "dc": 10}}`で、Cleansing Touchは`{"catalogs": ["spells"], "count": 1}`を持つ`utility`です。これを使うルールセットにはCapability API 1.424が必要です。
 
 敵に届く発動と、聖域が防ぐもの(Capability API 1.425)。付与される状態の`endsWhenHolder`は、`casts`に加えて`"castsAtFoes": true`を取ります。その場合、それらのカタログからの発動が持ち主の敵に届いたときだけ終了します。敵を狙うものや、その範囲または被害が敵を巻き込むものが該当するため、Sanctuaryで防護されたクレリックは、味方にCure Woundsを発動しても防護を保ちます。戦闘の状態の`sanctuary`は`"against": {"attacks"?: true, "casts"?: [catalogs]}`を取り、すべての有害なエントリーではなく、攻撃と、それらのカタログから発動した有害なエントリーだけを止めます。5eのSanctuaryは`{"attacks": true, "casts": ["spells"]}`、Nature's Sanctuaryは`{"attacks": true}`です。どちらを使うルールセットにもCapability API 1.425が必要です。
 
@@ -475,7 +466,7 @@ Remarkable Athleteも同様ですが、Strength、Dexterity、Constitutionにつ
 
 特定の者の侵入を防ぐ処理(Capability API 1.452)。ゾーンには`"keepsOut": {"is": <target test>}`を指定できます。一致する者は歩いて中に入れません(`"way": "out"`を指定すると、中に入った後は歩いて外に出られません)。`"attacksInto": "disadvantage"`を指定すると、その者が外から内部に立っている者を攻撃する場合、不利になります。`"cantGive"`には、その者が内部に立っている者に付与できない状態を列挙します。5eのMagic Circleは、選んだ種別を対象とする、10フィートの円筒で、`{"is": {"types": ["fiend"]}, "attacksInto": "disadvantage", "cantGive": ["charmed", "frightened"]}`とし、種別ごとにエントリーを作るか、`way: "out"`で閉じ込めます。Hallowの防護も同じ処理を、60フィートにわたって行います。これを使うルールセットにはCapability API 1.452が必要です。
 
-起爆後も残るゾーン(Capability API 1.453)。`detonates`を持つゾーンには、起爆後の姿を`becomes`で指定できます。`"becomes": {"size": <radius>, "rounds": <n>, "triggers": [...], "lights"?: {"bright": .., "dim": ..}}`です。その後は、中心の周囲にルールセット独自の単位で指定サイズのバーストとして、そこで指定したラウンド数だけ残り、指定したトリガーでエントリー自身の効果を再び適用し、指定した光を放ちます。再起爆はせず、ラウンドが尽きると終了するだけです。5eのSymbolでは、起爆したグリフが、60フィートの球体を十分間薄暗い光で満たし、中に入るか内部でターンを終える者に作用します。`{"size": 60, "rounds": 100, "triggers": ["enter", "turn-end"], "lights": {"bright": 0, "dim": 60}}`です。これを使うルールセットにはCapability API 1.453が必要です。
+起爆後も残るゾーン(Capability API 1.453)。`detonates`を持つゾーンには、起爆後の姿を`becomes`で指定できます。`"becomes": {"size": <radius>, "rounds": <n>, "triggers": [...], "lights"?: {"bright": .., "dim": ..}}`です。その後は、中心の周囲にルールセット独自の単位で指定サイズのバーストとして、そこで指定したラウンド数だけ残り、指定したトリガーでエントリー自身の効果を再び適用し、指定した光を放ちます。再起爆はせず、ラウンドが尽きると終了します。5eのSymbolでは、起爆したグリフが、60フィートの球体を十分間薄暗い光で満たし、中に入るか内部でターンを終える者に作用します。`{"size": 60, "rounds": 100, "triggers": ["enter", "turn-end"], "lights": {"bright": 0, "dim": 60}}`です。これを使うルールセットにはCapability API 1.453が必要です。
 
 呪文のグリフ(Capability API 1.454)。誰かが`entered`して起爆するゾーンには、`"stores": true`を指定できます。発動時に術者は、シートからコストを支払う自身のエントリーのうち、第一レベル以上で、グリフの支払った段階以下のものをモードとして選び、両方のコストを支払います。起爆すると、グリフ自身の効果に代えて、蓄えたエントリーを起爆させた者に発動します。範囲を持つエントリーなら、その者を中心とする範囲内の全員に発動します。この時点でコストはかからず、術者の集中を必要とするはずの効果も、持続時間いっぱい続きます。モードを選ばなければ、グリフ自身の効果を適用します。5eのGlyph of Wardingの、呪文のグリフまたは爆発のルーンです。これを使うルールセットにはCapability API 1.454が必要です。
 
@@ -493,62 +484,13 @@ Remarkable Athleteも同様ですが、Strength、Dexterity、Constitutionにつ
 
 複数ラウンドにわたる発動(Capability API 1.461)。エントリーの仕組みには`"castingRounds": <2 to 10>`を指定できます。使用するとコストを支払って発動を開始し、使用者はその発動に集中します(他に集中していたものは終了します)。続く自身の各ターンの開始時に、再び同じ行動枠を消費し、最後の消費時に当初の照準どおりに効果が適用されます。集中が途切れるか、行動できないか、消費できる行動枠が残っていなければ失敗し、支払ったコストは回復します。5eのSymbolなど、発動時間が一分の呪文では、`"castingRounds": 10`です。これを使うルールセットにはCapability API 1.461が必要です。
 
-戦闘前の設置(Capability API 1.462)。
-`zone`を持つエントリーはすべて、戦闘
-開始時にすでに設置されている状態にで
-きます。Game Masterが戦闘前に誰が何
-を設置したかを指定すると(そのパーテ
-ィーメンバーまたは敵に
-`"standing": [{"entry": <name>, "at": "between" | "self", "stores": <name>}]`
-を指定)、Engineはその者のシートから
-コストを支払い、今発動したかのように
-、その者と最も近い敵との間、またはそ
-の者の立っている場所に設置します。集
-中が必要なら、その者の集中で維持しま
-す。隠されたゾーンは告知せずに設置し
-ます。仕組みに`"beforeFight": true`
-を指定したエントリーは、発動に戦闘の
-長さを超える時間がかかるため、戦闘メ
-ニューには表示されず、この方法でのみ
-設置できます。5eのGlyph of Warding(
-一時間)とHallow(一日)は
-`"beforeFight": true`です。一分で発
-動するSymbolは、どちらの方法も使えま
-す。`beforeFight`を使うルールセット
-にはCapability API 1.462が必要です。
+戦闘前の設置(Capability API 1.462)。`zone`を持つエントリーはすべて、戦闘開始時にすでに設置されている状態にできます。Game Masterが戦闘前に誰が何を設置したかを指定すると(そのパーティーメンバーまたは敵に`"standing": [{"entry": <name>, "at": "between" | "self", "stores": <name>}]`を指定)、Engineはその者のシートからコストを支払い、新たに発動したかのように、その者と最も近い敵との間、またはその者の立っている場所に設置します。集中が必要なら、その者の集中で維持します。隠されたゾーンは告知せずに設置します。仕組みに`"beforeFight": true`を指定したエントリーは、発動に戦闘の長さを超える時間がかかるため、戦闘メニューには表示されず、この方法でのみ設置できます。5eのGlyph of Warding(一時間)とHallow(一日)は`"beforeFight": true`です。一分で発動するSymbolは、どちらの方法も使えます。`beforeFight`を使うルールセットにはCapability API 1.462が必要です。
 
 ターンの浪費(Capability API 1.463)。状態の行動には`"wastes": {"save": <save id>, "budget": <budget id>}`を指定できます。持ち主の各ターンの開始時に、付与時の難易度に対してそのセーヴを行い、失敗すると、そのターンの指定行動枠が無駄になります。5eのBestow Curseの、ターンを浪費させる選択肢では、`{"save": "wis_save", "budget": "action"}`です。これを使うルールセットにはCapability API 1.463が必要です。
 
 歩行と誘導(Capability API 1.464)。`moves`を持つ状態の行動には、`"walks": true`を指定できます。持ち主の各ターンの開始時に、逆方向への歩行を防ぐだけでなく、その方向へ可能な限り歩かせます。`from`には`"steered"`を指定できます。付与者が最後に誘導先とした地点から測定し、まだ誘導していなければ、どこからも測定しません。仕組みに`"steers": <condition id>`を指定したエントリー(照準用の`area`を伴います)は、使用者がその状態を付与した持ち主全員を、照準地点に向けて誘導し、他の処理は一切行いません。使用者からその状態を受けている者がいる間だけ提示されます。5eのCompulsionでは、呪文が`{"moves": "toward", "from": "steered", "walks": true}`を持つ状態を付与し、ボーナスアクションのエントリーが`"steers"`で誘導します。これらのいずれかを使うルールセットにはCapability API 1.464が必要です。
 
-ゾーンを持たない効果の戦闘前の準備(
-Capability API 1.465)。
-`"beforeFight": true`は、ゾーンを持
-つものに限らず、どのエントリーにも指
-定できます。そのエントリーは戦闘メニ
-ューには決して表示されません。そのよ
-うなエントリーも、それ以外のエントリ
-ーも、Game Masterの`standing`リスト
-に`"on": [names]`を伴って含められま
-す。戦闘開始時に、指定された者のうち
-適用可能な者にその効果を適用し、使用
-者のシートからコストを支払います(誰
-も指定せず、エントリーが使用者または
-味方用なら使用者に適用します)。5eの
-Heroes' Feast、Foresight、
-Antipathy/Sympathyを事前に発動する場
-合です。アイテムの使用にも
-`"beforeFight": true`を指定できます(
-塗布に、10分かかる
-Oil of Slipperinessなど)。`standing`
-リストでは、メニューと同じ表記(
-`"Oil of Slipperiness: Apply the Oil"`
-)でも、その使用自体のラベルだけ(
-`"Apply the Oil"`)でも指定できます。
-準備すると、使用時と同様にアイテムを
-消費します。ゾーンを持たないエントリ
-ーに`beforeFight`を使うルールセット
-にはCapability API 1.465が必要です。
+ゾーンを持たない効果の戦闘前の準備(Capability API 1.465)。`"beforeFight": true`は、ゾーンを持つものに限らず、どのエントリーにも指定できます。そのエントリーは戦闘メニューには決して表示されません。そのようなエントリーも、それ以外のエントリーも、Game Masterの`standing`リストに`"on": [names]`を伴って含められます。戦闘開始時に、指定された者のうち適用可能な者にその効果を適用し、使用者のシートからコストを支払います(誰も指定せず、エントリーが使用者または味方用なら使用者に適用します)。5eのHeroes' Feast、Foresight、Antipathy/Sympathyを事前に発動する場合です。アイテムの使用にも`"beforeFight": true`を指定できます(塗布に、10分かかるOil of Slipperinessなど)。`standing`リストでは、メニューと同じ表記(`"Oil of Slipperiness: Apply the Oil"`)でも、その使用自体のラベルだけ(`"Apply the Oil"`)でも指定できます。準備すると、使用時と同様にアイテムを消費します。ゾーンを持たないエントリーに`beforeFight`を使うルールセットにはCapability API 1.465が必要です。
 
 シートへの保持(Capability API 1.798)。クリーチャーを`calls`する`beforeFight`エントリーを、戦闘外でシートコマンドの`use`によって使用すると(`as="Owl"`。`asTypes`でクリーチャー種別を選べる場合は、コンマの後に種別を付けて`as="Owl, Fey"`とします)、呼び出したものを使用者のシートに保持します。シートでは「With them」(同行者)の下に表示され、Game Masterもそこから読み取ります。戦闘中に死亡するか退去させられる、または戦闘外で退去させられるまで(シートコマンドの`dismiss`、またはシート自体の退去ボタン)、再びコストを支払うことなく、使用者が参加するすべての戦闘に加わります。エントリーを再使用すると置き換わります。5eのFind Familiarが該当します。専用のデータは不要で、1.798以降のEngineが、このようなエントリーすべてに対して処理します。
 
@@ -564,7 +506,7 @@ Oil of Slipperinessなど)。`standing`
 
 支払ったコストに応じた持続時間と集中(Capability API 1.470)。`applies`の持続時間の`"bySteps": [100, 4800]`は、エントリーのコストを一ステップ高く支払った場合、二ステップ高く支払った場合、という順に、代わりにそのラウンド数だけ持続させます。それを超えるすべてのステップには最後の値を使います(`perStep`とは併用しません)。エントリーの`"concentrationBelowStep": 2`は、指定数未満のステップだけ高く支払った場合にのみ`concentration`を維持します。それ以上なら誰も集中を維持する必要はなく、付与したものは持続時間いっぱい続きます。5eのBestow Curseでは、`{"rounds": 10, "bySteps": [100, 4800, 4800, 14400, 14400, 14400]}`に`"concentrationBelowStep": 2`を伴わせます。4レベルのスロットなら十分間、5レベルなら集中で維持せずに八時間続きます。これを使うルールセットにはCapability API 1.470が必要です。
 
-攻撃ロールのないダメージへの変更(Capability API 1.471)。`damage`または`damage-taken`の変更は、攻撃の命中時にのみ適用します。`"alsoUnrolled": true`を指定すると、セーヴによるものや無条件に命中するものなど、攻撃ロールを伴わないダメージにも適用します。セーヴでエントリー自身のダメージが半分になっても、変更による追加分は減りません。5eのBestow Curseの「自身の攻撃と呪文は、標的に追加で、1d8の死霊ダメージを与える」は、`{"to": "damage-taken", "dice": "1d8", "damageType": "necrotic", "fromSource": true, "alsoUnrolled": true}`です。これを使うルールセットにはCapability API 1.471が必要です。
+攻撃ロールのないダメージへの変更(Capability API 1.471)。`damage`または`damage-taken`の変更は、攻撃の命中時にのみ適用します。`"alsoUnrolled": true`を指定すると、セーヴによるものや命中するものなど、攻撃ロールを伴わないダメージにも適用します。セーヴでエントリー自身のダメージが半分になっても、変更による追加分は減りません。5eのBestow Curseの「自身の攻撃と呪文は、標的に追加で、1d8の死霊ダメージを与える」は、`{"to": "damage-taken", "dice": "1d8", "damageType": "necrotic", "fromSource": true, "alsoUnrolled": true}`です。これを使うルールセットにはCapability API 1.471が必要です。
 
 打撃のダメージ種別に応じた、一度で消費するダメージ変更(Capability API 1.792)。`"onTypes"`を持つ`damage`または`damage-taken`の変更(最大で、8種類のダメージ種別を指定し、大文字と小文字は区別しません)は、打撃自身のダメージまたはそのいずれかの条項が、指定した種別のどれかを与える場合にのみ適用します。`damageType`は引き続き、その変更自身が追加するダメージの種別を指定します。`"spentOnUse": true`を指定すると、その変更の元となる状態は、最初にダメージを追加した時点で消費されます。アイテム、レベル、またはシート自体から得た変更は消費されません。戦闘AIは、相手側が指定した種別のいずれかを与える場合にのみその変更を評価し、消費されるものは半分として評価します。5eの油の「油が乾く前に標的が火ダメージを受けた場合、燃える油によって追加で、5の火ダメージを受ける」は、`{"to": "damage-taken", "flat": 5, "damageType": "fire", "onTypes": ["fire"], "spentOnUse": true, "alsoUnrolled": true}`です。いずれかを使うルールセットにはCapability API 1.792が必要です。
 
@@ -578,39 +520,7 @@ Oil of Slipperinessなど)。`standing`
 
 付与元に応じた付与の防止(Capability API 1.476)。`conditionImmunitiesFrom`のエントリーには、`from`の代わりに、またはそれとともに、`"catalogs": ["spells"]`を指定できます。指定したカタログのいずれかのエントリーがその状態を付与しようとする場合にのみ付与を防ぎ、すでに付与されているものは残ります。5eのFreedom of Movementでは、`{"conditions": ["paralyzed", "restrained"], "catalogs": ["spells"]}`により、魔法による麻痺状態と拘束状態を防ぎます。これを使うルールセットにはCapability API 1.476が必要です。
 
-落下を和らげる、また
-は状態の適用を抑える
-アイテム(
-Capability API 1.477
-)。アイテムの`worn`
-または`carried`効果
-には、状態と同様に
-`"fallsSafely": true`
-を指定できます。持ち
-主は落下ダメージを受
-けず、落下で伏せ状態
-にもなりません(5eの
-Ring of Feather Falling
-)。また、
-`"suppresses": ["sewer_plague"]`
-は、それらの状態を終
-了するのではなく、持
-ち主への適用を抑えま
-す。効果は止まります
-が時計は進み続け、ア
-イテムを外すと再び適
-用されます。5eの
-Periapt of Healthは
-、病気をここにも
-`conditionImmunities`
-にも列挙するため、す
-でにかかっているもの
-は適用を抑え、新たに
-かかることは防ぎます
-。これを使うルールセ
-ットには
-Capability API 1.477
-が必要です。
+落下を和らげる、または状態の適用を抑えるアイテム(Capability API 1.477)。アイテムの`worn`または`carried`効果には、状態と同様に`"fallsSafely": true`を指定できます。持ち主は落下ダメージを受けず、落下で伏せ状態にもなりません(5eのRing of Feather Falling)。また、`"suppresses": ["sewer_plague"]`は、それらの状態を終了するのではなく、持ち主への適用を抑えます。効果は止まりますが時計は進み続け、アイテムを外すと再び適用されます。5eのPeriapt of Healthは、病気をここにも`conditionImmunities`にも列挙するため、すでにかかっているものは適用を抑え、新たにかかることは防ぎます。これを使うルールセットにはCapability API 1.477が必要です。
 
 特定の地形での適用の抑制(Capability API 1.478)。状態の`"whileOffTerrain": ["water"]`は、持ち主が指定した地形のいずれかのタイルに立っているか、盤面の環境がそのいずれかである間、状態を終了せずに適用を抑えます。効果は止まりますが時計は進み続け、その地形を離れると再び適用されます。盤面のない戦闘では適用されます。5eのアボレスの呪いは、水中以外での回復を防ぐもので、`"effects": ["cannot-heal"]`と`"whileOffTerrain": ["water"]`を持つ状態です。これを使うルールセットにはCapability API 1.478が必要です。
 
@@ -618,58 +528,7 @@ Capability API 1.477
 
 手に持たせた武器の落下(Capability API 1.480)。エントリーの`conjures`が作った武器は、結び付けた武器の場合と異なり、状態の`drops`がその武器の占めるスロットか持っているタグを指定すると、保持しているアイテムと同様に落ち(5eのFear)、同じ方法で拾えます。作り手は引き続き消すことができます。`conjures`に`"vanishes": {"beyond": 5, "rounds": 10}`を指定すると、作り手の各ターンの開始時に、その武器が作り手から`beyond`を超える距離(ルールセットの距離)に落ちている場合、その距離を超えたまま`rounds`回のターンが経過すると消滅します。5eの契約武器の「自身から、5フィートを超えて離れた状態が、1分以上続いた場合」です。従来どおり、再使用、消去、または作り手の死亡によっても終了します。`vanishes`を使うルールセットにはCapability API 1.480が必要です。
 
-他者の目を通した
-視認(
-Capability API 1.481
-)。戦闘状態の
-`"lendsSenses": true`
-は、その状態が続
-く間、付与者が自
-身の見ているもの
-に加えて持ち主の
-見ているものも見
-えるようにします
-。これは、誰が誰
-を見ているかを読
-み取るすべての処
-理に適用します。
-視認が必要な標的
-、見えていない者
-への攻撃、視認を
-必要とするオーラ
-などです。付与者
-からは隠れていて
-も、持ち主から隠
-れていない者は、
-それを通して見え
-ます。5eで使い魔
-の目を通して見る
-場合は、使い魔を
-呼び出す際にこの
-指定を持つ状態を
-使い魔に付与する
-か(
-`appliesToCalled`
-、1.479)、ウォー
-ロックのアクショ
-ン(
-Voice of the Chain Master
-)で付与します。
-Gaze of Two Minds
-では、接触した同
-意する人型生物に
-付与します。その
-間に術者自身の感
-覚が失われる処理
-は、エントリーの
-`appliesSelf`(盲
-目状態と聴覚を失
-った状態)で指定
-します。これを使
-うルールセットに
-は
-Capability API 1.481
-が必要です。
+他者の目を通した視認(Capability API 1.481)。戦闘状態の`"lendsSenses": true`は、その状態が続く間、付与者が自身の見ているものに加えて持ち主の見ているものも見えるようにします。これは、誰が誰を見ているかを読み取るすべての処理に適用します。視認が必要な標的、見えていない者への攻撃、視認を必要とするオーラなどです。付与者からは隠れていても、持ち主から隠れていない者は、それを通して見えます。5eで使い魔の目を通して見る場合は、使い魔を呼び出す際にこの指定を持つ状態を使い魔に付与するか(`appliesToCalled`、1.479)、ウォーロックのアクション(Voice of the Chain Master)で付与します。Gaze of Two Mindsでは、接触した同意する人型生物に付与します。その間に術者自身の感覚が失われる処理は、エントリーの`appliesSelf`(盲目状態と聴覚を失った状態)で指定します。これを使うルールセットにはCapability API 1.481が必要です。
 
 持続時間の延長(Capability API 1.482)。持続時間の`rounds`には、一日分にあたる、14400まで指定できるようになりました。5eのAidの、8時間は`{"rounds": 4800}`、Heroes' Feastの、24時間は`{"rounds": 14400}`です。また、持続時間の`bySteps`のどの要素にも`"until-dispelled"`を指定できます。その数以上のステップだけ高く支払うと、付与するものには時計がなく、何かが取り除くまで続きます。5eのBestow Curseは、3レベルのコストに`{"rounds": 10, "bySteps": [100, 4800, 4800, 14400, 14400, "until-dispelled"]}`を指定します。`rounds`に、1000を超える値を指定するか、`"until-dispelled"`のステップを持つルールセットにはCapability API 1.482が必要です。
 
@@ -679,97 +538,9 @@ Capability API 1.481
 
 解呪されるまでの持続(Capability API 1.485)。状態の`duration`には`"until-dispelled"`を指定できます。時計を一切持たず、何かが取り除くまで(治療、解呪、または指定した終了条件)、戦闘中もその後も付与されたままになります。`"instant"`と同じ処理を、字義どおりに表す指定です。5eのContinual Flameが該当します。これを使うルールセットにはCapability API 1.485が必要です。
 
-移動の自由(
-Capability API 1.486
-)。状態の
-`speedKeptFrom: { "catalogs": [...] }`
-は、指定したカタログ
-のエントリーが持ち主
-に付与したものによっ
-て、持ち主の移動速度
-が低下するのを防ぎま
-す。呪文が付与した減
-速、半減、停止(「
-speed-zero」)は歩行
-に影響しませんが、網
-や掴みによる同じ効果
-は引き続き影響します
-。
-`slipsFree: { "conditions": [...], "cost": 5, "unlessCatalogs": [...] }`
-は、持ち主のターンに
-、指定した状態それぞ
-れから判定なしで抜け
-出す選択肢を提示しま
-す。コストはルールセ
-ット独自の距離で歩行
-の`cost`分です(マス
-単位に切り上げます。
-歩行を測定しない戦闘
-では何も行いません)
-。`unlessCatalogs`の
-エントリーが付与した
-状態は残ります。状態
-が終了すると、その状
-態によって奪われてい
-た歩行が戻るため、掴
-まれて停止していた者
-も抜け出して歩き続け
-られます。Engineが操
-作するクリーチャーは
-、ターンの開始時に抜
-け出します。アイテム
-の`worn`、`carried`
-、`otherwise`効果に
-も、
-`conditionImmunitiesFrom`
-、`speedKeptFrom`、
-`slipsFree`の三つす
-べてを含められます。
-Ring of Freedom of Movement
-が該当します。5eの
-Freedom of Movement
-は、
-`"conditionImmunitiesFrom": [{ "conditions": ["paralyzed", "restrained"], "catalogs": ["spells"] }]`
-、
-`"speedKeptFrom": { "catalogs": ["spells"] }`
-、
-`"slipsFree": { "conditions": ["grappled", "restrained"], "cost": 5, "unlessCatalogs": ["spells"] }`
-です。いずれかを使う
-ルールセットには
-Capability API 1.486
-が必要です。
+移動の自由(Capability API 1.486)。状態の`speedKeptFrom: { "catalogs": [...] }`は、指定したカタログのエントリーが持ち主に付与したものによって、持ち主の移動速度が低下するのを防ぎます。呪文が付与した減速、半減、停止(「speed-zero」)は歩行に影響しませんが、網や掴みによる同じ効果は引き続き影響します。`slipsFree: { "conditions": [...], "cost": 5, "unlessCatalogs": [...] }`は、持ち主のターンに、指定した状態それぞれから判定なしで抜け出す選択肢を提示します。コストはルールセット独自の距離で歩行の`cost`分です(マス単位に切り上げます。歩行を測定しない戦闘では何も行いません)。`unlessCatalogs`のエントリーが付与した状態は残ります。状態が終了すると、その状態によって奪われていた歩行が戻るため、掴まれて停止していた者も抜け出して歩き続けられます。Engineが操作するクリーチャーは、ターンの開始時に抜け出します。アイテムの`worn`、`carried`、`otherwise`効果にも、`conditionImmunitiesFrom`、`speedKeptFrom`、`slipsFree`の三つすべてを含められます。Ring of Freedom of Movementが該当します。5eのFreedom of Movementは、`"conditionImmunitiesFrom": [{ "conditions": ["paralyzed", "restrained"], "catalogs": ["spells"] }]`、`"speedKeptFrom": { "catalogs": ["spells"] }`、`"slipsFree": { "conditions": ["grappled", "restrained"], "cost": 5, "unlessCatalogs": ["spells"] }`です。いずれかを使うルールセットにはCapability API 1.486が必要です。
 
-使い魔(Capability API 1.487)。エント
-リーの`targetTypes`には
-`"calledBySelf": true`を指定できます
-。使用者が戦闘に呼び出したクリーチャ
-ーだけを対象とします。5eの
-Voice of the Chain Masterや、その目
-を通して見る場合の「自身の使い魔」で
-す。呼び出しの`asTypes`には、呼び出
-したクリーチャーが本来の種別の代わり
-になる`combat.creatureTypes.types`の
-IDを列挙します。使用時にモードのよう
-に選び、呼び出し可能な各クリーチャー
-に対して一つずつ選びます。
-Find Familiarの
-`["celestial", "fey", "fiend"]`が該
-当します。呼び出しだけを行うエントリ
-ーも、他のすべてのエントリーと同様に
-、使用者に`appliesSelf`を付与するよ
-うになりました。Find Familiarの絆で
-す。戦闘前に準備する場合、複数の方法
-で実行できるエントリーは、`mode`にそ
-の方法をIDまたは名前で指定します(
-Find Familiarが呼び出すフクロウなど)
-。使用時にクリーチャー種別を指定する
-エントリーは、`kind`に指定します(物
-体へのAntipathy/Sympathyなど)。方法
-の指定が必要なのに指定されていないも
-のは省かれ、その旨が告知されます。
-`calledBySelf`または`asTypes`を使う
-ルールセットにはCapability API 1.487
-が必要です。
+使い魔(Capability API 1.487)。エントリーの`targetTypes`には`"calledBySelf": true`を指定できます。使用者が戦闘に呼び出したクリーチャーだけを対象とします。5eのVoice of the Chain Masterや、その目を通して見る場合の「自身の使い魔」です。呼び出しの`asTypes`には、呼び出したクリーチャーが本来の種別の代わりになる`combat.creatureTypes.types`のIDを列挙します。使用時にモードのように選び、呼び出し可能な各クリーチャーに対して一つずつ選びます。Find Familiarの`["celestial", "fey", "fiend"]`が該当します。呼び出しだけを行うエントリーも、他のすべてのエントリーと同様に、使用者に`appliesSelf`を付与するようになりました。Find Familiarの絆です。戦闘前に準備する場合、複数の方法で実行できるエントリーは、`mode`にその方法をIDまたは名前で指定します(Find Familiarが呼び出すフクロウなど)。使用時にクリーチャー種別を指定するエントリーは、`kind`に指定します(物体へのAntipathy/Sympathyなど)。方法の指定が必要なのに指定されていないものは省かれ、その旨が告知されます。`calledBySelf`または`asTypes`を使うルールセットにはCapability API 1.487が必要です。
 
 呼び出したクリーチャーへの攻撃の譲渡(Capability API 1.488)。状態の`lendsStrikes: { "budget": "reaction" }`は、持ち主が攻撃アクションの攻撃一回を手放し、呼び出したクリーチャーに自身の攻撃のうち一つを行わせられるようにします。呼び出したクリーチャー自身の行動枠から指定の枠を支払い、そのクリーチャーが自身の状態によって他の方法では誰にも被害を与えられない間でも行えます。攻撃アクションの打撃が手元に残っているか、まだそのアクションを行える間、間合いに届く相手がいる各該当クリーチャーの各攻撃について提示します。その時点で選択すると、アクションを消費し、残りの打撃を手元に残します。5eのPact of the Chainでは、契約を読み取る`when`を伴う使い魔の絆の`appliesSelf`と、使い魔自身の「攻撃できない」を表す`cannot-harm`状態を使います。Engineが操作するクリーチャーは、自分の攻撃を手放しません。これを使うルールセットにはCapability API 1.488が必要です。
 
@@ -793,71 +564,7 @@ Find Familiarが呼び出すフクロウなど)
 
 水中戦闘(Capability API 1.498)。`combat.underwater`は、`terrain`で盤面の水中のタイルを指定します。そのタイルに立つ者は、空中にいるか、水泳移動速度のない飛行者である場合を除き、水中にいるものとします。水泳移動速度を持つか、武器が`melee.unless`の指定に該当する場合を除き、その者の近接攻撃に`melee.mode`を適用します。`names`は攻撃のラベルの単語と、`qualities`はその性質と照合します。`ranged.pastNormal: "never"`は、水中にいる者による射撃、または水中にいる者への射撃が武器の通常射程を超えて届くのを防ぎます。その射程内の射撃には、`ranged.unless`で武器が指定されている場合を除き、`ranged.mode`を適用します。水中にいる者が受ける、`resist`内の種別のダメージは半分になります。`breath`は、水中での自身のターンを数えます。`holds`ターンの間息を止め(`rounds`に、能力値の修正値の各ポイントにつき`perMod.rounds`を加え、`atLeast`を下回ることはありません)、その後さらに`then`ターンの間持ちこたえ、その次のターン開始時に体力が、0になります。`exempt.conditions`内の状態を持つか、`exempt.tags`内のタグを持つ者は呼吸でき、水から出ると息は回復します。5eでは、`{ "terrain": ["water"], "melee": { "mode": "disadvantage", "unless": { "names": ["dagger", "javelin", "shortsword", "spear", "trident"] } }, "ranged": { "pastNormal": "never", "mode": "disadvantage", "unless": { "names": ["crossbow", "net", "javelin", "spear", "trident", "dart"] } }, "resist": ["fire"], "breath": { "holds": { "rounds": 10, "perMod": { "ability": "con", "rounds": 10 }, "atLeast": 5 }, "then": { "rounds": 0, "perMod": { "ability": "con", "rounds": 1 }, "atLeast": 1 }, "exempt": { "conditions": ["water_breathing"] } } }`です。
 
-跳躍(Capability API 1.499)。
-`combat.jumping`は、盤面上の
-すべての戦闘参加者の移動メニ
-ューに、`cells`のいずれかへ
-向かう「Jump」(跳躍、
-`move:jump`)を追加します。
-`long`は走り幅跳びの距離、
-`high`は走り高跳びで越えられ
-る高さで、それぞれ能力値の
-`score`または`modifier`(`of`
-)に`plus`を加えた、ルールセ
-ット独自の距離です。いずれも
-、そのターンの跳躍直前に
-`runUp`分の助走を歩いた場合
-にのみ、その距離まで届きます
-。助走なしでは、
-`standing: "half"`によって半
-分になります。跳躍は八方向の
-いずれかへの直線で、二マス以
-上を進み、地面にかかわらず各
-マスで一マス分の移動を使いま
-す。移動困難な地形、水、穴、
-味方、そして走り高跳びで越え
-られる高さ以下の地面を跳び越
-えますが、壁や敵を通り抜ける
-ことはありません。跳躍者が立
-てる場所で、高低差が下方に一
-段階以内の場所に着地します。
-途中では歩行と同様に機会攻撃
-を受け、持続する範囲は着地点
-でのみ跳躍者に作用します。移
-動困難な地形に着地した場合、
-`difficulty`に対して
-`hardLanding`判定を行い、失
-敗すると`applies`の状態を受
-けます。状態の`jumps`は、持
-ち主がさらに遠くへ跳べるよう
-にします。距離を`times`倍に
-し(最大のものを適用)、助走の
-ある跳躍には、`plus`で能力値
-の修正値をさらに加えます。
-`long: true`の場合、加算は走
-り幅跳びにのみ適用します。騎
-乗中、誰かの内部にいる、空中
-にいる、誰かを引きずっている
-、または移動方向を決める状態
-を受けている者は、跳躍できま
-せん。
-`cannot-approach-source`を受
-けている者は、その出所に近づ
-く跳躍はできません。移動イベ
-ントには`jumped: true`を含め
-ます。5eでは、
-`{ "long": { "ability": "str", "of": "score" }, "high": { "ability": "str", "of": "modifier", "plus": 3 }, "runUp": 10, "standing": "half", "hardLanding": { "check": "agility", "difficulty": 10, "applies": "prone" } }`
-です。Jumpの呪文と
-Boots of Striding and Springing
-は
-`{ "jumps": { "times": 3 } }`
-、Step of the Windは
-`{ "times": 2 }`、
-Remarkable Athleteは
-`{ "plus": { "ability": "str", "long": true } }`
-、Second-Story Workは
-`{ "plus": { "ability": "dex" } }`
-です。
+跳躍(Capability API 1.499)。`combat.jumping`は、盤面上のすべての戦闘参加者の移動メニューに、`cells`のいずれかへ向かう「Jump」(跳躍、`move:jump`)を追加します。`long`は走り幅跳びの距離、`high`は走り高跳びで越えられる高さで、それぞれ能力値の`score`または`modifier`(`of`)に`plus`を加えた、ルールセット独自の距離です。いずれも、そのターンの跳躍直前に`runUp`分の助走を歩いた場合にのみ、その距離まで届きます。助走なしでは、`standing: "half"`によって半分になります。跳躍は八方向のいずれかへの直線で、二マス以上を進み、地面にかかわらず各マスで一マス分の移動を使います。移動困難な地形、水、穴、味方、そして走り高跳びで越えられる高さ以下の地面を跳び越えますが、壁や敵を通り抜けることはありません。跳躍者が立てる場所で、高低差が下方に一段階以内の場所に着地します。途中では歩行と同様に機会攻撃を受け、持続する範囲は着地点でのみ跳躍者に作用します。移動困難な地形に着地した場合、`difficulty`に対して`hardLanding`判定を行い、失敗すると`applies`の状態を受けます。状態の`jumps`は、持ち主がさらに遠くへ跳べるようにします。距離を`times`倍にし(最大のものを適用)、助走のある跳躍には、`plus`で能力値の修正値をさらに加えます。`long: true`の場合、加算は走り幅跳びにのみ適用します。騎乗中、誰かの内部にいる、空中にいる、誰かを引きずっている、または移動方向を決める状態を受けている者は、跳躍できません。`cannot-approach-source`を受けている者は、その出所に近づく跳躍はできません。移動イベントには`jumped: true`を含めます。5eでは、`{ "long": { "ability": "str", "of": "score" }, "high": { "ability": "str", "of": "modifier", "plus": 3 }, "runUp": 10, "standing": "half", "hardLanding": { "check": "agility", "difficulty": 10, "applies": "prone" } }`です。Jumpの呪文とBoots of Striding and Springingは`{ "jumps": { "times": 3 } }`、Step of the Windは`{ "times": 2 }`、Remarkable Athleteは`{ "plus": { "ability": "str", "long": true } }`、Second-Story Workは`{ "plus": { "ability": "dex" } }`です。
 
 瀕死セーヴと、最大の出目を使う回復(Capability API 1.500)。`combat.dying.asSave: true`は瀕死ロールをセーヴにします。持ち主のセーヴ全般を変更し、特定のセーヴに限定されないものは、加算する数値(Bless、Aura of Protection)も、ダイスを二度振るかどうかも、瀕死ロールに適用されます。状態の`deathSaves: "advantage"`(または`"disadvantage"`)は、`asSave`の有無にかかわらず、持ち主の瀕死ロールをその有利または不利で振らせます。その場合、瀕死イベントには`mode`が入り、`asSave`があれば`bonuses`と`total`も入ります。出目そのもの(1、20のいずれか)は、引き続き採用したダイスから読み取ります。状態の`healedMax: true`は、アクション、復活、再生、相手を倒した際の回復のいずれであっても、持ち主が受けるすべての回復に、そのダイスで出せる最大値を使います。5eでは、`dying`に`"asSave": true`を指定し、Beacon of Hopeの状態を`{ "effects": ["own-saves-advantage"], "saves": ["wis_save"], "deathSaves": "advantage", "healedMax": true }`とします。
 
@@ -907,63 +614,7 @@ Remarkable Athleteは
 
 呪文の反射(Capability API 1.523)。修正値の`against`には`"alone": true`を指定できます。持ち主だけに向けられたものに対するセーヴでのみ適用され、範囲には適用されません。また、ほかに指定した条件も満たす必要があります。戦闘の状態またはアイテムの`worn`には、`turns`を指定できます。内容は、防護と同じく`catalogs`、`maxLevel`、`by`です。そのレベル以下の、それらのカタログのエントリーを、敵が持ち主だけを標的として使い、そのセーヴで持ち主がダイスの最大の目を出した場合、持ち主には何の効果も与えず、使用者へ反射されます。数値は同じまま、使用者だけが標的だったものとして処理し、コストは一度だけ支払います。反射されたものが再び反射されることはなく、反魔法のゾーンで適用を抑えられたアイテムは何も反射しません。プールを振る戦闘には最大の目がないため、反射は起きません。5eのRing of Spell Turningは`"worn": { "modifiers": [{ "to": "saves", "mode": "advantage", "against": { "casts": ["spells"], "alone": true } }], "turns": { "catalogs": ["spells"], "maxLevel": 7 } }`です。
 
-後で発動するための呪文の保存(Capability API 1.524)。
-アイテムまたはクリーチャーには、
-`stores`を指定できます。
-内容は`catalogs`、
-`levels`(1～40)、
-`count`(20以下)です。
-戦闘中、
-それらのカタログのエントリーで、
-使用者がシートから読み取ってコストを支払うものは、
-実行する代わりに保存できます。
-保存先は、
-保存機能のある自分のアイテム(装備中または携行中)、
-隣の味方が持つそのようなアイテム、
-またはエントリーを自ら保存できる隣の味方です。
-その選択肢には、
-`storesIn`の下に保存先が列挙されます(`holderId`、
-持ち主のシート上の場所を表す`item`でクリーチャーの場合は指定なし、
-`label`、
-そして空いているレベル数を表す`room`)。
-選択時には標的を指定せず、
-その一つを`storesIn`で指定します。
-発動と同じように支払い、
-行動枠を消費し、
-支払ったレベルで保存します。
-そのレベルは本来のレベル以上で、
-空き容量に収まる必要があります。
-その時点では何の効果も与えません。
-その後、
-アイテムの着用者またはクリーチャー自身が、
-コストなしで一度発動できます。
-両方の名前を付けた選択肢(「Ring of Spell Storing: Cure Wounds」)として、
-保存時のレベル、
-保存した者のセーヴ難易度と攻撃値を使い、
-構成要素は一切必要ありません。
-ただし、
-反魔法のゾーンでアイテムの適用が抑えられている間は発動できません。
-アイテムの内容は戦闘後もスタックに保持され(`storedEntries`で、
-各エントリーは`entry`、
-`label`、
-`level`、
-`saveDifficulty`、
-`toHit`を持ちます)、
-インベントリーに表示され、
-次の戦闘の開始時に読み取られます。
-戦闘に渡すクリーチャーには、
-同じリストを`stored`として指定できます。
-戦闘前に設定する場合、
-Game Masterの`standing`で`"into"`を指定できます。
-術者のアイテム、
-`on`が最初に指定する者のアイテム、
-または名前で指定したそのクリーチャー自身が保存先です。
-術者のシートから読み取って本来のレベルでコストを支払い、
-保存します。
-5eのRing of Spell Storingは`"stores": { "catalogs": ["spells"], "levels": 5 }`、
-Ioun Stone of Reserveは`{ "catalogs": ["spells"], "levels": 3 }`、
-シールド・ガーディアンのSpell Storingは`{ "catalogs": ["spells"], "levels": 4, "count": 1 }`です。
-これを使うルールセットにはCapability API 1.524が必要です。
+後で発動するための呪文の保存(Capability API 1.524)。アイテムまたはクリーチャーには、`stores`を指定できます。内容は`catalogs`、`levels`(1～40)、`count`(20以下)です。戦闘中、それらのカタログのエントリーで、使用者がシートから読み取ってコストを支払うものは、実行する代わりに保存できます。保存先は、保存機能のある自分のアイテム(装備中または携行中)、隣の味方が持つそのようなアイテム、またはエントリーを自ら保存できる隣の味方です。その選択肢には、`storesIn`の下に保存先が列挙されます(`holderId`、持ち主のシート上の場所を表す`item`でクリーチャーの場合は指定なし、`label`、そして空いているレベル数を表す`room`)。選択時には標的を指定せず、その一つを`storesIn`で指定します。発動と同じように支払い、行動枠を消費し、支払ったレベルで保存します。そのレベルは本来のレベル以上で、空き容量に収まる必要があります。その時点では何の効果も与えません。その後、アイテムの着用者またはクリーチャー自身が、コストなしで一度発動できます。両方の名前を付けた選択肢(「Ring of Spell Storing: Cure Wounds」)として、保存時のレベル、保存した者のセーヴ難易度と攻撃値を使い、構成要素は一切必要ありません。ただし、反魔法のゾーンでアイテムの適用が抑えられている間は発動できません。アイテムの内容は戦闘後もスタックに保持され(`storedEntries`で、各エントリーは`entry`、`label`、`level`、`saveDifficulty`、`toHit`を持ちます)、インベントリーに表示され、次の戦闘の開始時に読み取られます。戦闘に渡すクリーチャーには、同じリストを`stored`として指定できます。戦闘前に設定する場合、Game Masterの`standing`で`"into"`を指定できます。術者のアイテム、`on`が最初に指定する者のアイテム、または名前で指定したそのクリーチャー自身が保存先です。術者のシートから読み取って本来のレベルでコストを支払い、保存します。5eのRing of Spell Storingは`"stores": { "catalogs": ["spells"], "levels": 5 }`、Ioun Stone of Reserveは`{ "catalogs": ["spells"], "levels": 3 }`、シールド・ガーディアンのSpell Storingは`{ "catalogs": ["spells"], "levels": 4, "count": 1 }`です。これを使うルールセットにはCapability API 1.524が必要です。
 
 アイテムの使用禁止と、スロット別のより多くの状態(Capability API 1.525)。状態の`forbids`には`"items": { "tags": [...] }`を指定できます。適用中は、戦闘内外で、それらのタグのいずれかを持つアイテムは使えず、そこに保存したエントリーも発動できません。`tags`がなければ、すべてのアイテムが対象です。武器による打撃は引き続き行えます。5eのFeeblemindは`"forbids": { "casts": ["spells"], "items": { "tags": ["magical"] } }`です。また、各状態に`paidSteps`を指定すれば、エントリーは`appliesOneOf`なしで、12個までの状態を付与でき、支払ったステップに対応する状態だけが付与されます。5eのBranding Smiteでは、2～9レベルのスロットごとに、2d6～9d6までの状態を一つずつ用意します。どちらかを使うルールセットにはCapability API 1.525が必要です。
 
@@ -983,109 +634,9 @@ Ioun Stone of Reserveは`{ "catalogs": ["spells"], "levels": 3 }`、
 
 呼び出されたクリーチャーの一時除外(Capability API 1.533)。ゾーンの`suppresses`には、`catalogs`とともに`"setsAsideCalled": true`を指定できます。それらのカタログのエントリーによって戦闘に呼び出されたクリーチャーは、ゾーンに覆われている間、一時的に除外されます。追放された者と同じように戦闘から外れ、ターンは回ってこず、誰からも狙われませんが、それを維持するもの(集中、ラウンド)は進み続けます。ゾーンが移動するか終了して、そのクリーチャーを覆わなくなると、元の場所に戻ります。5eのAntimagic Fieldの「召喚されたクリーチャーは消える」は、`"suppresses": { "catalogs": ["spells"], "tags": ["magical"], "setsAsideCalled": true }`です。これを使うルールセットにはCapability API 1.533が必要です。
 
-独自の
-使用回数を
-持つ武器の
-命中(Capability API 1.534)。
-アイテムの
-`attack.spends`のエントリーは、
-`charges`の代わりに
-`"uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }`を指定できます。
-追加の使用と同じく
-スタックに保持される
-独自の
-使用回数を
-一回分消費し、
-`recharge`が指定する
-休息で回復します。
-`onHit`だけが効果である場合は、
-`amount`を省略できます。
-命中を受けた
-者が振る
-`save`(`{ "save": "con", "difficulty": 17 }`)に成功すると、
-その量の
-適用を防ぎます。
-`drain`(`{ "share": 0.5 }`)は、
-その量が
-実際に
-与えた分の
-指定割合を、
-使い手の体力として
-回復します。
-`onHit`のエントリーは、
-`saveEnds`とともに
-最長持続時間の
-`rounds`を指定でき、
-`"of": "source"`は使い手の
-ターンで
-ラウンドを
-数えます。
-5eのRod of Lordly MightのDrain Lifeは`{ "label": "Drain Life", "uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }, "amount": { "dice": "4d6" }, "type": "necrotic", "save": { "save": "con_save", "difficulty": 17 }, "drain": { "share": 0.5 } }`です。
-Paralyzeは、
-量の指定なしで
-`"onHit": [{ "condition": "paralyzed", "rounds": 10, "save": { "save": "str_save", "difficulty": 17 }, "saveEnds": { "save": "str_save", "difficulty": 17, "at": "turn-end" } }]`です。
-Staff of Thunder and LightningのThunderは`"onHit": [{ "condition": "stunned", "rounds": 1, "of": "source", "save": { "save": "con_save", "difficulty": 17 } }]`です。
-これを使う
-ルールセットには
-Capability API 1.534が必要です。
+独自の使用回数を持つ武器の命中(Capability API 1.534)。アイテムの`attack.spends`のエントリーは、`charges`の代わりに`"uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }`を指定できます。追加の使用と同じくスタックに保持される独自の使用回数を一回分消費し、`recharge`が指定する休息で回復します。`onHit`だけが効果である場合は、`amount`を省略できます。命中を受けた者が振る`save`(`{ "save": "con", "difficulty": 17 }`)に成功すると、その量の適用を防ぎます。`drain`(`{ "share": 0.5 }`)は、その量が実際に与えた分の指定割合を、使い手の体力として回復します。`onHit`のエントリーは、`saveEnds`とともに最長持続時間の`rounds`を指定でき、`"of": "source"`は使い手のターンでラウンドを数えます。5eのRod of Lordly MightのDrain Lifeは`{ "label": "Drain Life", "uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }, "amount": { "dice": "4d6" }, "type": "necrotic", "save": { "save": "con_save", "difficulty": 17 }, "drain": { "share": 0.5 } }`です。Paralyzeは、量の指定なしで`"onHit": [{ "condition": "paralyzed", "rounds": 10, "save": { "save": "str_save", "difficulty": 17 }, "saveEnds": { "save": "str_save", "difficulty": 17, "at": "turn-end" } }]`です。Staff of Thunder and LightningのThunderは`"onHit": [{ "condition": "stunned", "rounds": 1, "of": "source", "save": { "save": "con_save", "difficulty": 17 } }]`です。これを使うルールセットにはCapability API 1.534が必要です。
 
-同時に行う使用(Capability API 1.535)。
-アイテムの
-`moreUses`の
-一つに、
-アイテムの
-ほかの
-使用の
-ラベルを
-`"alongside": ["Thunderclap"]`として
-指定できます。
-それを
-使うと、
-それらの
-使用も
-それぞれ、
-使用者を
-囲む
-バーストに
-巻き込まれた
-者に対して
-発生し、
-それら自身は
-何も
-消費しません。
-ほかの
-使用と
-同時に
-行えるのは、
-使用者を
-中心とする
-使用(`"area": { ..., "around": true }`)だけです。
-そのため、
-狙いを
-二度
-定めることはなく、
-同時に
-行われる
-使用自身に、
-さらに
-同時に
-行う
-使用を
-指定することは
-できません。
-5eのStaff of Thunder and LightningのThunder and Lightningは
-`{ "label": "Thunder and Lightning", "use": { ...Lightning Strike's line... }, "uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }, "alongside": ["Thunderclap"] }`で、
-それ自身の
-一日ごとの
-使用回数を
-消費し、
-ほかの
-どちらの
-使用回数も
-消費しません。
-これを使う
-ルールセットには
-Capability API 1.535が必要です。
+同時に行う使用(Capability API 1.535)。アイテムの`moreUses`の一つに、アイテムのほかの使用のラベルを`"alongside": ["Thunderclap"]`として指定できます。それを使うと、それらの使用もそれぞれ、使用者を囲むバーストに巻き込まれた者に対して発生し、それら自身は何も消費しません。ほかの使用と同時に行えるのは、使用者を中心とする使用(`"area": { ..., "around": true }`)だけです。そのため、狙いを二度定めることはなく、同時に行われる使用自身に、さらに同時に行う使用を指定することはできません。5eのStaff of Thunder and LightningのThunder and Lightningは`{ "label": "Thunder and Lightning", "use": { ...Lightning Strike's line... }, "uses": { "max": 1, "recharge": { "rests": ["long"], "amount": "max" } }, "alongside": ["Thunderclap"] }`で、それ自身の一日ごとの使用回数を消費し、ほかのどちらの使用回数も消費しません。これを使うルールセットにはCapability API 1.535が必要です。
 
 ダイスで決める回数(Capability API 1.536)。追加の使用の`uses`には、`max`とともに`"rolled": "1d10"`を指定できます。アイテムの各スタックはその回数を持ち、作成時に一度だけダイスを振り、それ以降は読み取るたびに同じ値を使います。`max`は決して超えません(この場合はダイスで出せる最大値です)。`recharge`があれば、そのスタック固有の回数まで回復します。5eのHelm of Brillianceは`{ "label": "Daylight (diamond)", "use": { ... }, "uses": { "max": 10, "rolled": "1d10" } }`で、ファイアーオパールは`"max": 30, "rolled": "3d10"`です。Necklace of Prayer Beadsのビーズは`"max": 6, "rolled": "1d4+2"`です。これを使うルールセットにはCapability API 1.536が必要です。
 
@@ -1127,79 +678,13 @@ Capability API 1.535が必要です。
 
 遮蔽を与える壁、移動手段を限定する移動速度、特定の場所で付与を防ぐ再生、標的の条件における飛行、保有状態、代替条件(Capability API 1.555)。ゾーンの`"cover": "half"`または`"three-quarters"`は、標的への線がゾーンの残存マスのいずれかを横切る攻撃や効果に、少なくともその段階の遮蔽を適用します(破壊された区画のマスは数えません)。段階の扱いは`combat.cover`に従い、標的自身と攻撃者自身のマスは途中のマスになりません。5eのBlade Barrierは`"cover": "three-quarters"`です。戦闘の状態の`"onlySpeeds": true`は、その状態がある間、`speeds`だけを持ち主の移動手段にします。歩行と自身のほかの移動速度は、0になります。5eのGaseous Formは`{"speeds": {"fly": 10}, "hover": true, "onlySpeeds": true}`です。再生の`"notIn": { "light": ["sunlight"], "terrain": ["running-water"] }`は、持ち主がその場所でそれらの光のいずれかに照らされているか、`terrain`が指定する場所のタイルまたは盤面上でターンを開始した場合、そのターン開始時の再生の付与を防ぎます(クリーチャーの`checkModes`と同じ読み方です)。ヴァンパイアの「ヴァンパイアが日光の下や流水の中にいない場合」に相当します。標的の条件(`targetIs`、ゾーンの`keepsOut.is`、および標的の条件を読むほかのすべての箇所)は、`"flying": true`(飛行の移動速度があるものだけ)や`"holding": ["gaseous_form"]`(これらの戦闘の状態のいずれかを持つものだけ)も指定でき、それぞれほかの要求条件も満たす必要があります。また、`"anyOf": [ ... ]`で、二つから四つの標的の条件のうち少なくとも一つを満たすことも指定できます。5eのWind Wallが進入を防ぐのは`{"anyOf": [{"upToSize": "tiny", "flying": true}, {"holding": ["gaseous_form"]}]}`です。いずれかを使うルールセットにはCapability API 1.555が必要です。
 
-ゲーム内時間の経過後に
-回復するチャージと使用回数
-(Capability API 1.556)。
-アイテムの`charges.recharge`、
-追加の使用方法の`uses.recharge`、
-命中の`uses.recharge`は`"after": { "days": 2 }`または`"after": { "hours": { "dice": "1d12" } }`(または両方を加算したもの)を持てます。
-回数を使い切ると、
-ゲームの時計で
-その時間が経過するのを
-待ち、
-その後`amount`だけ回復します(`"max"`なら全量)。
-待機は回数を使い切った後で
-時計が初めて進むときに始まり、
-時間をダイスで決める場合もそのときに振ります。
-待機はスタックに保持されます。
-`after`がある場合は`rests`を空にでき、
-どの休息でも回数が早く回復しなくなります。
-両方がある場合はどちらでも回復し、
-休息で回復した回数については待機が終わります。
-時計はゲーム自身のものです。
-時計が進むたびに(アクションの所要時間、
-マップ上や世界を横断する歩行、
-Game Masterの語りで経過する日数)、
-バッグの待機時間に
-計上されます。
-5eのFigurines of Wondrous Powerは`{"rests": [], "amount": "max", "after": {"days": 2}}`(日数はそれぞれ固有)で、
-Wings of Flyingは`{"rests": [], "amount": "max", "after": {"hours": {"dice": "1d12"}}}`です。
-`after`を使うルールセットにはCapability API 1.556が必要です。
+ゲーム内時間の経過後に回復するチャージと使用回数(Capability API 1.556)。アイテムの`charges.recharge`、追加の使用方法の`uses.recharge`、命中の`uses.recharge`は`"after": { "days": 2 }`または`"after": { "hours": { "dice": "1d12" } }`(または両方を加算したもの)を持てます。回数を使い切ると、ゲームの時計でその時間が経過するのを待ち、その後`amount`だけ回復します(`"max"`なら全量)。待機は回数を使い切った後で時計が初めて進むときに始まり、時間をダイスで決める場合もそのときに振ります。待機はスタックに保持されます。`after`がある場合は`rests`を空にでき、どの休息でも回数が早く回復しなくなります。両方がある場合はどちらでも回復し、休息で回復した回数については待機が終わります。時計はゲーム自身のものです。時計が進むたびに(アクションの所要時間、マップ上や世界を横断する歩行、Game Masterの語りで経過する日数)、バッグの待機時間に計上されます。5eのFigurines of Wondrous Powerは`{"rests": [], "amount": "max", "after": {"days": 2}}`(日数はそれぞれ固有)で、Wings of Flyingは`{"rests": [], "amount": "max", "after": {"hours": {"dice": "1d12"}}}`です。`after`を使うルールセットにはCapability API 1.556が必要です。
 
 段階式のゾーン(Capability API 1.557)。ゾーンの`"stages"`(一つから十個、順序付き)は、発動したターンを最初のターンとして数え、術者のどのターン以降に何をするかを示します。`{ "from": 3, "label": "Lightning", "amount": { "dice": "10d6" }, "damageType": "lightning", "save": "dex_save", "onSave": "half", "count": 6 }`のように書きます。術者のターンの開始時に、そのターンの段階(その時点で`from`に到達している最後の段階)が、中にいる者に`amount`の量の`damageType`のダメージを与えます。エントリー自身の難易度で`save`のセーヴを行います(`onSave`は「half」、省略時は「none」)。`count`を指定した場合はその数だけに与え、術者の敵を優先し、ゾーンの中心に近い者を優先します。`amount`のない段階は誰にも打撃を与えません。段階が続く間、`difficult`はゾーンの地面を移動困難にし、`obscures`はゾーンを重度の視界不良にし、`noRanged`はゾーンの内外やゾーンを横切る遠隔武器によるすべての攻撃を止めます(呪文や範囲効果は武器ではありません)。エントリー自身の効果は最初のターンのもので、ゾーンの`triggers`(空でも可)のタイミングか、発動時に生じます。5eのStorm of Vengeanceは、発動時には雷鳴と聴覚喪失をもたらし、その後の段階は、2(酸の雨、1d6の酸)、3(稲妻、10d6の電撃を六本、Dexterityセーヴ成功で半減)、4(雹、2d6の殴打)、5(突風と氷雨、1d6の冷気、`difficult`、`obscures`、`noRanged`)から始まります。`stages`を使うルールセットにはCapability API 1.557が必要です。
 
 呼び出し手を基に作るクリーチャーと指示による行動(Capability API 1.558)。カタログのエントリーやアイテムの使用の`calls`は`"fromCaller": { "health": true, "toHit": <value>, "adds": <value> }`を指定できます。呼び出す各クリーチャーは、呼び出し手の体力の最大値を自身の体力とし、各攻撃では`toHit`(呼び出し手のシートから、`amountAdd`と同じように読む値)をボーナスとしてダイスを振り、同じように読む`adds`を各ダメージ量に加えます。`"commandedWith": "bonus"`(戦闘の行動経済にある行動枠)がある場合は、呼び出し手の指示によってのみ行動します。出現した最初のターンは無償で、それ以降の各ターンでは呼び出し手がその行動枠から、1を消費するか、ターンが何もせず過ぎます(待機したことがログに表示されます)。`"initiative": "after"`がある場合、そのターンは呼び出し手の直後なので、自身のターンで行動枠を消費した呼び出し手には、指示用の行動枠が残りません。5eのArcane Handは`{"initiative": "after", "fromCaller": {"health": true, "toHit": <spell attack>, "adds": <spellcasting modifier>}, "commandedWith": "bonus"}`で大型の手を呼び出します。四種類の手は自身のアクションで、Clenched Fistの攻撃、Forceful Handの押す対抗判定、Grasping Handの掴む対抗判定と掴んでいる者への圧壊、Interposing Handの遮蔽として立ちはだかる行動です。どちらかを使うルールセットにはCapability API 1.558が必要です。
 
-ダイスで決める表(Capability API 1.559)。
-`"rolled": true`を持つカタログのエントリーやアイテムの使用の`calls`は、
-使用時に`options`のどれが出るかをダイスで決め、
-選択では決めません。
-各選択肢はほかとの比較で`"weight"`(1から、
-100まで。
-指定しない場合: 1)に比例する確率を持ち、
-一つの`creature`を指定します。
-`"hostile": true`の選択肢は呼び出し手に敵対し、
-反対側に加わるクリーチャーを呼び出します。
-`"none": true`と`label`を持つものは誰も呼び出さず、
-ラベルだけが伝えられます。
-5eのBag of Tricksはそれぞれ一体の野獣を呼ぶ八つの選択肢からダイスで決めます。
-Efreeti Bottleは`{"creature": "creatures/efreeti", "count": {"flat": 1}, "weight": 1, "hostile": true, "label": "It attacks you"}`、
-使用者に仕える同じイフリートを`"weight": 8`で呼ぶもの、
-`{"none": true, "weight": 1, "label": "It grants three wishes"}`からダイスで決めます。
-2行から、
-24行までの`useTable`もアイテムに指定できます。
-各行は固有の`weight`、
-`label`、
-`use`を持ち、
-アイテムの`use`が`"rollsTable": true`を指定するとこの表でダイスを振り、
-自身の使用分だけを支払います(一体のクリーチャー、
-または`targets`が指定する側を標的にする`utility`の使用です)。
-出た行の効果は使用の標的に生じ、
-範囲があればそこを中心とし、
-標的が`self`なら使用者に生じます。
-`use`のない行(草が生える、
-蝶が現れるなど)は描写だけです。
-5eのWand of Wonderは、
-120フィート以内の一体を標的とする使用にチャージを消費し、
-その表でSlow、
-Faerie Fire、
-使用者への朦朧、
-Stinking Cloud、
-サイの突撃、
-Lightning Bolt、
-Fireballなどからダイスで決めます。
-ログには振ったダイスと出た結果が表示されます。
-いずれかを使うルールセットにはCapability API 1.559が必要です。
+ダイスで決める表(Capability API 1.559)。`"rolled": true`を持つカタログのエントリーやアイテムの使用の`calls`は、使用時に`options`のどれが出るかをダイスで決め、選択では決めません。各選択肢はほかとの比較で`"weight"`(1から、100まで。指定しない場合: 1)に比例する確率を持ち、一つの`creature`を指定します。`"hostile": true`の選択肢は呼び出し手に敵対し、反対側に加わるクリーチャーを呼び出します。`"none": true`と`label`を持つものは誰も呼び出さず、ラベルだけが伝えられます。5eのBag of Tricksはそれぞれ一体の野獣を呼ぶ八つの選択肢からダイスで決めます。Efreeti Bottleは`{"creature": "creatures/efreeti", "count": {"flat": 1}, "weight": 1, "hostile": true, "label": "It attacks you"}`、使用者に仕える同じイフリートを`"weight": 8`で呼ぶもの、`{"none": true, "weight": 1, "label": "It grants three wishes"}`からダイスで決めます。2行から、24行までの`useTable`もアイテムに指定できます。各行は固有の`weight`、`label`、`use`を持ち、アイテムの`use`が`"rollsTable": true`を指定するとこの表でダイスを振り、自身の使用分だけを支払います(一体のクリーチャー、または`targets`が指定する側を標的にする`utility`の使用です)。出た行の効果は使用の標的に生じ、範囲があればそこを中心とし、標的が`self`なら使用者に生じます。`use`のない行(草が生える、蝶が現れるなど)は描写だけです。5eのWand of Wonderは、120フィート以内の一体を標的とする使用にチャージを消費し、その表でSlow、Faerie Fire、使用者への朦朧、Stinking Cloud、サイの突撃、Lightning Bolt、Fireballなどからダイスで決めます。ログには振ったダイスと出た結果が表示されます。いずれかを使うルールセットにはCapability API 1.559が必要です。
 
 物体へのダメージの倍増(Capability API 1.560)。`"doubleToObjects": true`を持つクリーチャーのステータスブロックは、クリーチャー以外のあらゆるものに通常の倍のダメージを与えます。対象は壁の区画、多層の壁の層、盤面の小道具で、物体が軽減する分や倍受ける分を適用した後に倍増します。5eの地のエレメンタルなど、「物体と建造物に倍のダメージを与える」クリーチャーのSiege Monsterに相当します。これを使うルールセットにはCapability API 1.560が必要です。
 
@@ -1247,45 +732,7 @@ Fireballなどからダイスで決めます。
 
 エントリーの`save`は`"advantageIfFought": true`を指定できます。戦闘中に使用者の側と敵対する側の標的、つまり使用者やその仲間が戦っている相手は、有利でそのセーヴを振ります。5eのCharm PersonとEnthrallに相当します。これを使うルールセットにはCapability API 1.582が必要です。
 
-アイテムの`use`と、
-各`moreUses`の`use`は、
-カタログの
-エントリーと
-同じように、
-`concentration`と
-ともに
-`repeats`を
-指定できます。
-使用者が
-その効果への
-集中を
-続けている
-間は、
-`repeats.budget`で
-再び
-提示され、
-使用した際に
-支払った
-コストの
-段階で
-実行されます。
-アイテムから
-再び
-消費するものは
-ありません。
-5eの
-Telekinesis、
-Vampiric Touch、
-Call Lightning、
-Heat Metalの
-巻物と、
-Staff of the Magiの
-Telekinesisに
-相当します。
-これを使う
-ルールセットには
-Capability API 1.583が
-必要です。
+アイテムの`use`と、各`moreUses`の`use`は、カタログのエントリーと同じように、`concentration`とともに`repeats`を指定できます。使用者がその効果への集中を続けている間は、`repeats.budget`で再び提示され、使用した際に支払ったコストの段階で実行されます。アイテムから再び消費するものはありません。5eのTelekinesis、Vampiric Touch、Call Lightning、Heat Metalの巻物と、Staff of the MagiのTelekinesisに相当します。これを使うルールセットにはCapability API 1.583が必要です。
 
 `combat.conditions`のエントリーは`endsWhenSource`を指定できます。その状態を付与した者に、指定した`effects`のいずれかが生じるか、指定した`conditions`のいずれかが付いている場合、指定した`components`のいずれかを使用できなくなった場合(Silenceが`verbal`を阻む場合など)、または持ち主が指定した`holderLacks`の感覚のいずれかを欠いた場合に、その状態は外れます。感覚は、宣言済みの戦闘の感覚か、状態の`lacks`が指定するものです(5eの聴覚を失った状態が指定する`hearing`など)。5eのEnthrallは、術者が無力状態になるか発声できなくなると終了し、術者の声を聞ける者にだけ持続します。`{"effects": ["cannot-act"], "components": ["verbal"], "holderLacks": ["hearing"]}`です。これを使うルールセットにはCapability API 1.584が必要です。
 
@@ -1363,62 +810,7 @@ Capability API 1.583が
 
 呼び出し(クリーチャーのアクション、カタログのエントリー、アイテムによるもの)には、`"within": {"distance": <distance>}`を指定でき、必要に応じて`"seen": true`を加えられます。呼び出された者は、呼び出し手からその距離以内にある空きマスに置かれます。`seen`があれば呼び出し手に見えるマスだけが対象となり、呼び出し手の敵に最も近いマスから優先します。盤面外では何も変わりません。5eのトレントのAnimate Treesは、`{"calls": {"creature": "creatures/animated-tree", "count": {"flat": 2}, "leash": 120, "within": {"distance": 60, "seen": true}}}`です。これを使うルールセットにはCapability API 1.621が必要です。
 
-戦闘
-の
-状態
-には
-`"endable": {"budget": "<budget>"}`を
-指定
-できます。
-持ち主
-が
-その
-状態
-を
-保持
-する
-間、
-状態の
-ラベル
-を
-添えた
-「End」
-(終了)が
-提示
-されます。
-エントリーの
-`endsCondition`と
-同様に、
-指定の
-行動枠
-を
-1
-消費して
-状態
-を
-外します
-(その
-状態
-を
-保つ
-集中も、
-ともに
-終わります)。
-5eの
-Ring of Invisibilityは
-`{"condition": "ring_invisible", "effects": [...], "endable": {"budget": "bonus"}}`で、
-Potion of Gaseous Formや
-Boots of Speedも
-同様
-です。
-これ
-を
-使う
-ルールセット
-には
-Capability API 1.622が
-必要
-です。
+戦闘の状態には`"endable": {"budget": "<budget>"}`を指定できます。持ち主がその状態を保持する間、状態のラベルを添えた「End」(終了)が提示されます。エントリーの`endsCondition`と同様に、指定の行動枠を1消費して状態を外します(その状態を保つ集中も、ともに終わります)。5eのRing of Invisibilityは`{"condition": "ring_invisible", "effects": [...], "endable": {"budget": "bonus"}}`で、Potion of Gaseous FormやBoots of Speedも同様です。これを使うルールセットにはCapability API 1.622が必要です。
 
 アイテムの`use`や追加の使用方法には、`"chargesPerRound": true`を指定できます。付与するものは、アイテムのチャージが続く間だけ持続します。最初のラウンドについては、通常どおり使用自体の`charges`を支払います。その後、状態が持続する各ラウンドでは、その状態の時計が一ラウンド減る際にさらに一チャージを消費し、最後のチャージを消費すると状態が外れます。(たとえば`endable`で)早く終えた場合、残りは次の使用に持ち越します。5eのBoots of Speedは、`"charges": 100`(10分をラウンドで表したもの)を持つアイテムで、使用方法は`{"kind": "buff", "targets": "self", "budget": "bonus", "charges": 1, "chargesPerRound": true, "applies": [{"condition": "boots_of_speed", "duration": {"rounds": 100}}]}`です。これを使うルールセットにはCapability API 1.623が必要です。
 
@@ -1426,7 +818,7 @@ Capability API 1.622が
 
 ラウンド数による持続時間には`"times": "<dice>"`を指定できます。付与時にダイスを振り、その出目の倍数だけ`rounds`が続きます。5eのPotion of Growthの「1d4時間」は、`{"rounds": 600, "times": "1d4"}`です。ダイスの最大の出目に`rounds`を掛けた値は、一日(14400ラウンド)以下にする必要があります。これを使うルールセットにはCapability API 1.625が必要です。
 
-`"caught"`の瞬間に使うエントリーやアイテムの使用には、`"keepsCaught": true`、または`{"otherwise": "<catalog>/<entry>"}`を指定できます。持ち主は、今受け止めた飛び道具を手元に残します。それが射手自身の弾薬なら、そのアイテムを保持し、射手は戦闘後に回収できなくなります。それ以外(クリーチャー自身の矢)なら`otherwise`のアイテムとなり、指定がなければ何も残りません。受け止めた者の袋に同じアイテムのスタックがあればそこに加わり、なければ他のスタックに並ぶ新しいスタックとなり、戦闘の他のアイテムとともに書き戻されます。それ自体ではダメージを与えません。`"free": true`なら、飛び道具のダメージをなくしたリアクションの一部であるため、リアクションを消費しません。5eのGloves of Missile Snaringは、`{"kind": "utility", "targets": "self", "free": true, "reaction": {"on": "caught", "freeSlot": "hand"}, "keepsCaught": {"otherwise": "gear/arrow"}}`です。これを使うルールセットにはCapability API 1.626が必要です。
+`"caught"`の瞬間に使うエントリーやアイテムの使用には、`"keepsCaught": true`、または`{"otherwise": "<catalog>/<entry>"}`を指定できます。持ち主は、受け止めた飛び道具を手元に残します。それが射手自身の弾薬なら、そのアイテムを保持し、射手は戦闘後に回収できなくなります。それ以外(クリーチャー自身の矢)なら`otherwise`のアイテムとなり、指定がなければ何も残りません。受け止めた者の袋に同じアイテムのスタックがあればそこに加わり、なければ他のスタックに並ぶ新しいスタックとなり、戦闘の他のアイテムとともに書き戻されます。それ自体ではダメージを与えません。`"free": true`なら、飛び道具のダメージをなくしたリアクションの一部であるため、リアクションを消費しません。5eのGloves of Missile Snaringは、`{"kind": "utility", "targets": "self", "free": true, "reaction": {"on": "caught", "freeSlot": "hand"}, "keepsCaught": {"otherwise": "gear/arrow"}}`です。これを使うルールセットにはCapability API 1.626が必要です。
 
 エントリーやアイテムの使用が、使用者に付与した状態の持続中にその使用者自身を`dismisses`で退去させ、`"turns": true`を指定している場合、戦闘から退去しても使用者は自分のターンを続けます。その状態が`endable`なら、退去中のターンにも「End」(終了)が提示され、それを選ぶと退去した場所、または最も近い空き場所に戻ります。5eのRobe of Starsの「アクションを使ってアストラル界に入り…アクションを使って戻るまで」は、`{"kind": "buff", "targets": "self", "budget": "action", "applies": [{"condition": "astral", "duration": "until-dispelled"}], "dismisses": {"while": "astral", "turns": true}}`と、戦闘の状態`{"condition": "astral", "effects": [], "endable": {"budget": "action"}}`で表します。これを使うルールセットにはCapability API 1.627が必要です。
 
@@ -1492,74 +884,7 @@ Capability API 1.622が
 
 持ち主に引き寄せられる攻撃です(Capability API 1.658)。戦闘の状態やアイテムの`worn`効果には、`drawsAim`を、`{"within", "blow"?, "weapon"?}`として持たせられます。持ち主から`within`以内(ルールセットの距離)にいる他の者への攻撃は、代わりに持ち主に向けられます。これはリアクションではありません。何も消費せず、誰にも選択を求めず、攻撃した者自身に引き寄せられることはありません。`blow`は間合い内で行う打撃(`"melee"`)か遠くからの打撃(`"ranged"`)に、`weapon`は武器の打撃に絞り込みます。複数の者が引き寄せる場合、標的に最も近い者が引き寄せます。範囲は引き寄せられず、盤面のない戦闘でも引き寄せは起こりません。5eのShield of Missile Attractionの呪いは、盾の`worn`に`{"within": 10, "blow": "ranged", "weapon": true}`を設定します。これを使うルールセットにはCapability API 1.658が必要です。
 
-空気を封じたり
-射撃を止めたりする
-ゾーンです
-(Capability API 1.659)。ゾーンには
-`"sealsAir": true`を持たせられます。
-ガス、
-風、
-霧は
-その境界を
-通過しません。
-そのため、
-`dispersed`である
-視界を遮る
-ゾーンや、
-風(
-`disperses`を持つもの、
-または
-それを行う
-段階)は、
-その中心と
-同じ側にある
-マスだけを
-覆います。
-外側の
-Fog Cloudはその面で
-止まり、
-内側に
-発動したものは
-中に留まり、
-外側の
-Gust of Windは内側の霧に
-決して届きません。
-また、
-ゾーンの
-`blocks`には、
-壁である
-か
-どうかに
-かかわらず、
-`"ranged"`を指定できます。
-魔法かどうかに
-かかわらず、
-武器による
-遠くからの
-攻撃は、
-中へ、
-外へ、
-あるいは
-横断して
-行えません
-(呪文や範囲は
-武器による
-攻撃では
-ありません)。
-どちらも
-ゾーンが
-その地面に
-与える効果なので、
-トリガーは
-不要です。
-5eのCube of Forceは術者を
-中心とする
-バーストで、
-最初の面は
-`"sealsAir": true`、次の面は
-`"blocks": ["ranged"]`です。これを使う
-ルールセットには
-Capability API 1.659が必要です。
+空気を封じたり射撃を止めたりするゾーンです(Capability API 1.659)。ゾーンには`"sealsAir": true`を持たせられます。ガス、風、霧はその境界を通過しません。そのため、`dispersed`である視界を遮るゾーンや、風(`disperses`を持つもの、またはそれを行う段階)は、その中心と同じ側にあるマスだけを覆います。外側のFog Cloudはその面で止まり、内側に発動したものは中に留まり、外側のGust of Windは内側の霧に決して届きません。また、ゾーンの`blocks`には、壁であるかどうかにかかわらず、`"ranged"`を指定できます。魔法かどうかにかかわらず、武器による遠くからの攻撃は、中へ、外へ、あるいは横断して行えません(呪文や範囲は武器による攻撃ではありません)。どちらもゾーンがその地面に与える効果なので、トリガーは不要です。5eのCube of Forceは術者を中心とするバーストで、最初の面は`"sealsAir": true`、次の面は`"blocks": ["ranged"]`です。これを使うルールセットにはCapability API 1.659が必要です。
 
 満載を超えた乗騎の移動速度です(Capability API 1.660)。クリーチャーの`mountCarries`には、`slowedUpTo`と並べて、ルールセットの距離による`slowedSpeed`を持たせられます。`weight`を超える重量を運ぶ場合、移動速度が半分になる代わりに、指定の速度以下で移動します。5eのBroom of Flyingは、50フィートで飛行するクリーチャーに`{"weight": 200, "slowedUpTo": 400, "slowedSpeed": 30}`を設定します。これを使うルールセットにはCapability API 1.660が必要です。
 
@@ -1591,25 +916,7 @@ Capability API 1.659が必要です。
 
 各クリーチャーに一度だけ使うクリーチャーのアクションです(Capability API 1.674)。クリーチャーのアクションは`oncePerTarget`を指定できます。`{"whenSaved": true}`はセーヴに成功したクリーチャー、`{"whenEnds": true}`はそのアクションによる状態が終了したクリーチャーを対象外にし、両方ならどちらかに該当するもの、どちらもなければ使った全員を対象外にします。対象外になったクリーチャーは、その戦闘では二度と選ばれず、巻き込まれもしません。`"until": "<rest id>"`があれば、キャラクターはその休息を取るまでシートに記録を保持します。`"shared": "<id>"`は、アクションに同じIDを指定する全クリーチャーを同じ出所にします。なければ、各クリーチャー(名前で区別)とアクションがそれぞれ独自の出所になります。5eのドラゴンのFrightful Presenceは`{"whenSaved": true, "whenEnds": true, "until": "long"}`です。マミーのDreadful Glareは`"shared": "mummy-glare"`を加え、マミー・ロードは独自のものにします。これを使うルールセットにはCapability API 1.674が必要です。
 
-引き寄せる者に向かっての引き寄せです(Capability API 1.675)。
-クリーチャーのアクションやカタログのエントリーは、
-ルールセット自身の単位による距離`pull`を指定できます。
-命中した相手(セーヴがある場合はその失敗時)を、
-互いの最も近いマスから一マスずつ、
-使用者に向かってまっすぐ引き寄せます。
-隣接した時点、
-壁、
-埋まったマス、
-急な上り段差で止まります。
-段差からの落下は、
-押し出しと同じ処理です。
-アクションは押し出すか引き寄せるかのどちらかで、
-両方は行いません。
-5eのバロールの鞭は`"pull": 25`にDC 20のStrengthセーヴ、
-ローパーのReelは`"pull": 25`に`"targetHolds": {"fromSelf": ["grappled"]}`、
-Thorn WhipとLightning Lureは`"pull": 10`です。
-ログは「pulls ... in」(引き寄せる)と示します。
-これを使うルールセットにはCapability API 1.675が必要です。
+引き寄せる者に向かっての引き寄せです(Capability API 1.675)。クリーチャーのアクションやカタログのエントリーは、ルールセット自身の単位による距離`pull`を指定できます。命中した相手(セーヴがある場合はその失敗時)を、互いの最も近いマスから一マスずつ、使用者に向かってまっすぐ引き寄せます。隣接した時点、壁、埋まったマス、急な上り段差で止まります。段差からの落下は、押し出しと同じ処理です。アクションは押し出すか引き寄せるかのどちらかで、両方は行いません。5eのバロールの鞭は`"pull": 25`にDC 20のStrengthセーヴ、ローパーのReelは`"pull": 25`に`"targetHolds": {"fromSelf": ["grappled"]}`、Thorn WhipとLightning Lureは`"pull": 10`です。ログは「pulls ... in」(引き寄せる)と示します。これを使うルールセットにはCapability API 1.675が必要です。
 
 しがみつくクリーチャーです(Capability API 1.676)。戦闘の状態は`attaches`を指定できます。状態を付与した者はその持ち主にしがみつき、持ち主が歩いたり押し出されたりすると、最後に通過したマスへ一緒に運ばれ、機会攻撃を誘発しません。`"sourceAttacks": "none"`なら、しがみついている間は誰も攻撃できず(スタージ)、`"holder"`なら持ち主だけを攻撃できます(クローカー、ダークマントル)。`endsAfterHarm`は、状態の`harms`が与えた被害の合計がその値に達すると、しがみつきを解きます(スタージでは「10」、`harms`は`{"at": "source-turn-start", "dice": "1d4", "flat": 3}`)。歩いて離れたときの終了には付与の`endsAway`、誰でもアクションで終わらせるには`checkEnds`の`"by": "any"`、出所がダウンしたときの終了には`endsWhenSourceDown`を使います。クローカーのDamage Transferは`takesSourceHarm`の`{"share": 0.5}`です。付与のエントリーは`"withAdvantage": true`を指定でき、有利でダイスを振った攻撃からしか付与されないようにします。クローカーの頭への噛みつきで、掴んでいる状態を`endsWith`に指定する`blinded`です。このいずれかを使うルールセットにはCapability API 1.676が必要です。
 
@@ -1639,42 +946,7 @@ Periapt of Wound Closureです(Capability API 1.688)。戦闘の状態の`"stabi
 
 慎重に歩けば安全に通れる地面と、歩行を止める地面です(Capability API 1.689)。持続する範囲の`terrain`は`"spareSlowWalkers": true`を指定できます。そのような範囲が存在する間、歩く者には「Move」(移動)と並んで「Move carefully」(慎重に移動)が提示されます。これを使うと、その地面に入る各ステップのコストは二倍になり(そこでの移動速度は半分)、範囲の`enter`トリガーはその者を通します。また、`"endsWalk": true`なら、`enter`トリガーに捉えられ、セーヴに失敗した歩く者(または行うセーヴがない場合)は、そのマスで止まり、そのターンの残りの移動を失います。5eのカルトロップは、`"triggers": ["enter"]`に`"terrain": {"spareSlowWalkers": true, "endsWalk": true}`、DC 15のDexterityセーヴ、刺突ダメージ: 1、そして回復時に終わる歩行速度の低下(1.684)です。ボール・ベアリングは`spareSlowWalkers`に伏せ状態のセーヴを組み合わせます。
 
-テキストフィールドの語句から
-読み取る数値です(Capability API 1.690)。
-派生値
-`{"op": "wordsTable", "from": {"field": "alignment"}, "table": {"good": 1, "evil": -1}, "default": 0}`は、
-プレイヤーが書いたままの
-フィールドを読み取ります。
-各キーは
-単語または語句で(1-40個、
-40文字以内のキー)、
-大文字と小文字を区別せず
-単語全体で照合します。
-フィールドに含まれる
-キーのうち、
-表の順序で
-最初のキーが
-数値を与え、
-どれも含まない
-フィールドは
-`default`になります。
-そのため、
-「Lawful Good」: 1、
-「Goodly」: 0と
-読み取られます。
-フィールドは
-テキスト(または列挙型)です。
-ほかの派生値と
-同様に読み取れるため、
-属性に応じた
-状態、
-判定、
-クリーチャーのルールは
-これを数値として
-読み取れます。
-5eのBook of Exalted DeedsやTalisman of Pure Goodが、
-触れた悪の者に
-被害を与える場合です。
+テキストフィールドの語句から読み取る数値です(Capability API 1.690)。派生値`{"op": "wordsTable", "from": {"field": "alignment"}, "table": {"good": 1, "evil": -1}, "default": 0}`は、プレイヤーが書いたままのフィールドを読み取ります。各キーは単語または語句で(1-40個、40文字以内のキー)、大文字と小文字を区別せず単語全体で照合します。フィールドに含まれるキーのうち、表の順序で最初のキーが数値を与え、どれも含まないフィールドは`default`になります。そのため、「Lawful Good」: 1、「Goodly」: 0と読み取られます。フィールドはテキスト(または列挙型)です。ほかの派生値と同様に読み取れるため、属性に応じた状態、判定、クリーチャーのルールはこれを数値として読み取れます。5eのBook of Exalted DeedsやTalisman of Pure Goodが、触れた悪の者に被害を与える場合です。
 
 指定した要件のどれか一つを求めるアイテムです(Capability API 1.691)。`binds.needs`と併せて`"needsAny": true`を指定すると、すべてではなく、要件のいずれかを満たせば結び付けの条件を満たします。5eの「クレリック、ドルイド、ウォーロックのいずれかによる同調が必要」で、各クラスのレベルにつき一つの要件を指定し、それぞれ`atLeast: 1`にします。`"userNeedsAny": true`は`userNeeds`に同じ処理をします。バード、クレリック、ウィザードのリストに載っている呪文のスクロールを、その三者の誰でも読める場合です。どちらも要件を指定できます(8個まで。1.691より前: 4個)。`items.needsWaivedBy`は、引き続きすべての要件を免除します。
 
@@ -1692,75 +964,7 @@ Periapt of Wound Closureです(Capability API 1.688)。戦闘の状態の`"stabi
 
 追加効果が一部の標的にしか適用されないクリーチャーのアクションです(Capability API 1.698)。クリーチャーのアクションは、ほかと同じ標的の条件`"ridersIs"`を持てます(`types`、`tags`、`upToSize`、`atLeastSize`など)。状態の付与(`applies`)、押し出し(`push`)、引き寄せ(`pull`)、退去(`dismisses`)は、これに該当する標的にしか適用されず、`contest`(1.695)もそのような標的に対してしか行いません。ダメージは命中した誰にでも入ります。5eのメロウのHarpoonの「標的がHuge以下なら、メロウとのStrengthの対抗判定に成功しなければ、メロウに向かって最大距離(20フィート)まで引き寄せられる」は、`"contest": {"attacker": ["athletics"], "defender": ["athletics"]}, "pull": 20, "ridersIs": {"upToSize": "huge"}`です。同じ形で、特定のサイズのクリーチャーだけを掴んだり、飲み込んだりする場合も表せます。アクションには、この指定で絞り込む対象となる処理が必要です。
 
-語句で書かれた
-属性から
-読み取る
-タグです(Capability API 1.699)。
-クリーチャーは
-`"alignment": "lawful evil"`を
-指定でき、
-`combat.creatureTypes`は、
-キャラクターの
-テキストフィールドか
-選択フィールドを
-指定する
-`"tagsFrom": "alignment"`を
-持てます。
-`creatureTypes.tags`のうち、
-その語句に
-ラベルかIDが
-単語全体で
-含まれるものを、
-大文字と
-小文字を
-区別せず
-読み取り、
-`tags`で
-直接
-指定したものに
-加えて、
-その者の
-タグに
-します。
-「non-」
-または
-「not」の後の
-単語は
-何も
-指定しないため、
-「any non-good alignment」
-(善以外の
-任意の属性)は
-`good`に
-なりません。
-`lawful`、
-`chaotic`、
-`good`、
-`evil`、
-`neutral`などの
-タグを
-宣言すると、
-すべての
-標的の条件が、
-ほかのタグと
-同じく
-属性を
-読み取ります。
-Talisman of Pure Goodの、
-悪の者だけを
-即死させる
-亀裂は
-`"targetTypes": {"is": {"tags": ["evil"]}}`です。
-Holy Avengerや
-Protection from Evil and Goodも
-同じ方法で
-絞り込めます。
-「Any alignment」
-(任意の属性)と
-「unaligned」
-(無属性)は
-何も
-指定しません。
+語句で書かれた属性から読み取るタグです(Capability API 1.699)。クリーチャーは`"alignment": "lawful evil"`を指定でき、`combat.creatureTypes`は、キャラクターのテキストフィールドか選択フィールドを指定する`"tagsFrom": "alignment"`を持てます。`creatureTypes.tags`のうち、その語句にラベルかIDが単語全体で含まれるものを、大文字と小文字を区別せず読み取り、`tags`で直接指定したものに加えて、その者のタグにします。「non-」または「not」の後の単語は何も指定しないため、「any non-good alignment」(善以外の任意の属性)は`good`になりません。`lawful`、`chaotic`、`good`、`evil`、`neutral`などのタグを宣言すると、すべての標的の条件が、ほかのタグと同じく属性を読み取ります。Talisman of Pure Goodの、悪の者だけを即死させる亀裂は`"targetTypes": {"is": {"tags": ["evil"]}}`です。Holy AvengerやProtection from Evil and Goodも同じ方法で絞り込めます。「Any alignment」(任意の属性)と「unaligned」(無属性)は何も指定しません。
 
 一部の着用者だけに与えるアイテムのステータスです(Capability API 1.700)。アイテムは`statsIf`を持て、`{"needs": [...], "needsAny": true, "add": {"spell_attack_bonus": 2}}`を指定できます(4行まで)。着用中(結び付けが必要なものは結び付け中)、`binds.needs`(1.667)と同じ読み方で、着用者のシートが`needs`をすべて満たす行、または`needsAny`があればいずれかを満たす行のそれぞれについて、`add`をアイテム自身の数値`stats`に加えます(存在しない値: 0として数えます)。そのため、読み取るすべての`itemStat`がこれを数えます。5eのTalisman of Pure Goodは、善の者だけが同調でき(属性の`wordsTable`に対する`binds.needs`、1.690)、善のクレリックかパラディンの「呪文攻撃判定に+2」には`"statsIf": [{"needs": [{"value": {"track": "cleric_level"}, "atLeast": 1}, {"value": {"track": "paladin_level"}, "atLeast": 1}], "needsAny": true, "add": {"spell_attack_bonus": 2}}]`を使います。
 
@@ -1778,7 +982,7 @@ Protection from Evil and Goodも
 
 呼び出し手が命令し、その呼び出し手と同じように攻撃する、クリーチャーによる呼び出しです(Capability API 1.707)。クリーチャーのアクションの`calls`は、カタログのエントリーと同じく(1.558)、`"commandedWith": "bonus"`を持てます。呼び出された者は、呼び出し手の命令でのみ行動し、呼び出し手は最初を除く自分の各ターンに、その行動枠を「1」支払います。また、`"fromCaller": {"action": "greatsword"}`を指定すると、呼び出された者の攻撃は、呼び出し手自身の攻撃のうち、その攻撃の命中とダメージへのボーナスを使って行います。5eのソーラーのFlying Swordは`{"creature": "creatures/flying-sword", "count": {"flat": 1}, "commandedWith": "bonus", "fromCaller": {"action": "greatsword"}, "endsWithCaller": true}`です。
 
-一部のクリーチャーが簡単に通れる地面と、被害を受ける地面です(Capability API 1.708)。状態の`"easyGround": ["snow", "Sleet Storm"]`は、指定したタイル上、指定した場所を持つ盤面全体、IDかラベルで指定したアクションが残す持続する範囲内で、移動困難な地面での持ち主のコストを通常のステップと同じにします。5eのホワイト・ドラゴンのIce Walkを`keepsOn`で付けたままにすると、「氷や雪から成る移動困難な地形は追加の移動を消費しない」です。雪の盤面とSleet Stormの氷が該当します。また、状態の`"harmedEntering": {"terrain": ["water"], "zones": ["Wall of Water"], "harm": {"flat": 1, "damageType": "cold"}}`は、それらのタイルか、それらのアクションの持続する範囲内の各マスに持ち主が歩いて入るたび、セーヴなしでその被害を与えます。`terrain`と`zones`の少なくとも一方が必要です。5eのファイアー・エレメンタルのWater Susceptibilityの「エレメンタルは、水中で一定の距離(5フィート)を移動するごとに…冷気ダメージ「1」を受ける」です。
+一部のクリーチャーが追加のコストなしで通れる地面と、被害を受ける地面です(Capability API 1.708)。状態の`"easyGround": ["snow", "Sleet Storm"]`は、指定したタイル上、指定した場所を持つ盤面全体、IDかラベルで指定したアクションが残す持続する範囲内で、移動困難な地面での持ち主のコストを通常のステップと同じにします。5eのホワイト・ドラゴンのIce Walkを`keepsOn`で付けたままにすると、「氷や雪から成る移動困難な地形は追加の移動を消費しない」です。雪の盤面とSleet Stormの氷が該当します。また、状態の`"harmedEntering": {"terrain": ["water"], "zones": ["Wall of Water"], "harm": {"flat": 1, "damageType": "cold"}}`は、それらのタイルか、それらのアクションの持続する範囲内の各マスに持ち主が歩いて入るたび、セーヴなしでその被害を与えます。`terrain`と`zones`の少なくとも一方が必要です。5eのファイアー・エレメンタルのWater Susceptibilityの「エレメンタルは、水中で一定の距離(5フィート)を移動するごとに…冷気ダメージ「1」を受ける」です。
 
 大ダメージです(Capability API 1.709)。戦闘ブロックの`dying`は`"instantDeath": "overflow-at-least-max"`を持てます。通常なら瀕死になる者の体力を打撃が「0」にし、余ったダメージがその者のヒットポイント最大値以上なら、代わりに即死します。ダウン中に少なくともそれだけ大きな打撃を受けた場合も死亡します。一時ヒットポイントが先に吸収し、独自の体力を持つ形態がある場合は、それを超えて持ち越す分だけを数えます。もともと「0」で死ぬクリーチャーには影響しません。体力「1」で持ちこたえる効果は、即死を防ぐ場合だけ、これに対して機能します(`hangsOn.outright`、1.596)。Death Wardは機能し、Relentless Enduranceは機能しません。ログは大ダメージによって死亡したことを示します。Held Groundでは、通常どおり倒されます。
 
@@ -1812,1139 +1016,99 @@ Protection from Evil and Goodも
 
 標的が選ぶセーヴです(Capability API 1.724)。クリーチャーのアクションやカタログのエントリーの`mechanics`のセーヴは、`"or": "dex_save"`を持てます。標的は`save`と`or`のうち、得意な方を行い、ログは行った方を示します。5eのブーレイのDeadly Leapは「StrengthまたはDexterityのセーヴ(標的が選択)」で、`{"save": "str_save", "or": "dex_save", ...}`です。これを使うルールセットにはCapability API 1.724が必要です。
 
-ほかの者への飛び乗りです(Capability API 1.725)。
-クリーチャーのアクションは`"leapsOnto": {"atLeast": 15, "noRoom": "prone"}`を持てます。
-盤面では、
-跳躍と同じようにマスを選択します。
-`combat.jumping`と自身の`jump`で許される範囲で、
-クリーチャー自身の移動を使って少なくとも`atLeast`の距離(ルールセットの距離単位)を跳び、
-敵も含め、
-ほかの誰かが一体以上いる空間に着地します。
-`combat.jumping`が必要で、
-範囲は持ちません。
-着地された者はそれぞれアクションのセーヴを行います。
-失敗すると通常どおりアクションのダメージと`applies`を受け、
-成功すると`"onSuccess": "half"`なら半分のダメージを受けます。
-その後、
-それぞれ着地したクリーチャーの空間から押し出され、
-その隣に置かれます。
-セーヴに成功しても置ける場所がなければ、
-現在地で`noRoom`の状態を受けます。
-盤面がなければ、
-そのアクションの通常の方法で標的を指定します。
-5eのビュレットのDeadly Leapは`{"leapsOnto": {"atLeast": 15, "noRoom": "prone"}, "save": {"save": "str_save", "or": "dex_save", "difficulty": 16, "onSuccess": "half"}, "applies": [{"condition": "prone"}], ...}`
-です。
-これを使うルールセットにはCapability API 1.725が必要です。
+ほかの者への飛び乗りです(Capability API 1.725)。クリーチャーのアクションは`"leapsOnto": {"atLeast": 15, "noRoom": "prone"}`を持てます。盤面では、跳躍と同じようにマスを選択します。`combat.jumping`と自身の`jump`で許される範囲で、クリーチャー自身の移動を使って少なくとも`atLeast`の距離(ルールセットの距離単位)を跳び、敵も含め、ほかの誰かが一体以上いる空間に着地します。`combat.jumping`が必要で、範囲は持ちません。着地された者はそれぞれアクションのセーヴを行います。失敗すると通常どおりアクションのダメージと`applies`を受け、成功すると`"onSuccess": "half"`なら半分のダメージを受けます。その後、それぞれ着地したクリーチャーの空間から押し出され、その隣に置かれます。セーヴに成功しても置ける場所がなければ、現在地で`noRoom`の状態を受けます。盤面がなければ、そのアクションの通常の方法で標的を指定します。5eのビュレットのDeadly Leapは`{"leapsOnto": {"atLeast": 15, "noRoom": "prone"}, "save": {"save": "str_save", "or": "dex_save", "difficulty": 16, "onSuccess": "half"}, "applies": [{"condition": "prone"}], ...}`です。これを使うルールセットにはCapability API 1.725が必要です。
 
-特定の条件に当てはまる標的への攻撃です(Capability API 1.726)。
-`to`が`"attacks"`または`"damage"`の修正値は、
-`from`と同じ標的の条件である`"at"`を持てます。
-その変更は、
-その条件に当てはまる標的に対する持ち主自身の攻撃またはダメージだけに及びます。
-5eのDemon Armorは`{"to": "attacks", "mode": "disadvantage", "at": {"tags": ["demon"]}}`
-です。
-これを使うルールセットにはCapability API 1.726が必要です。
+特定の条件に当てはまる標的への攻撃です(Capability API 1.726)。`to`が`"attacks"`または`"damage"`の修正値は、`from`と同じ標的の条件である`"at"`を持てます。その変更は、その条件に当てはまる標的に対する持ち主自身の攻撃またはダメージだけに及びます。5eのDemon Armorは`{"to": "attacks", "mode": "disadvantage", "at": {"tags": ["demon"]}}`です。これを使うルールセットにはCapability API 1.726が必要です。
 
-クリーチャーのアクションの維持です(Capability API 1.727)。
-クリーチャーのアクションは、
-カタログのエントリーの`mechanics`と同じように(1.431)、
-`"sustains": {"budget": "bonus"}`を持てます。
-クリーチャーに付与したものが付いていれば、
-以降の自身のターンにその行動枠を使って維持し、
-付与したもののラウンド数を最初から数え直します。
-セーヴも、
-ほかの消費もありません。
-このアクションは、
-何ラウンドか続く状態を付与します。
-5eのハーピーのLuring Songがこれにあたります。
-これを使うルールセットにはCapability API 1.727が必要です。
+クリーチャーのアクションの維持です(Capability API 1.727)。クリーチャーのアクションは、カタログのエントリーの`mechanics`と同じように(1.431)、`"sustains": {"budget": "bonus"}`を持てます。クリーチャーに付与したものが付いていれば、以降の自身のターンにその行動枠を使って維持し、付与したもののラウンド数を最初から数え直します。セーヴも、ほかの消費もありません。このアクションは、何ラウンドか続く状態を付与します。5eのハーピーのLuring Songがこれにあたります。これを使うルールセットにはCapability API 1.727が必要です。
 
-クリーチャーのアクションで設置する壁です(Capability API 1.728)。
-クリーチャーのアクションの`area`は、
-カタログのエントリーと同じように(1.177)、
-`"wall"`にできます。
-長さが`size`、
-厚さが`width`で、
-`ring`があれば、
-代わりにその直径の輪として設置でき、
-`ringOnly`なら常に輪になります。
-壁は必ずその場に残るため、
-アクションは`zone`を持ちます。
-このゾーンは`block`で遮ったり、
-`sections`で区画に分かれたり(1.200)、
-アクション自身のセーヴを使って壊れた区画の効果を及ぼしたりでき、
-設置した場所に留まります。
-5eのアイス・デヴィルのWall of Iceは、
-長さ
-30フィートまたは直径
-20フィートのドームで、
-各区画はAC 5、
-体力
-30を持ち、
-火からより大きな被害を受け、
-壊れた区画には極寒の空気が残ります。
-これを使うルールセットにはCapability API 1.728が必要です。
+クリーチャーのアクションで設置する壁です(Capability API 1.728)。クリーチャーのアクションの`area`は、カタログのエントリーと同じように(1.177)、`"wall"`にできます。長さが`size`、厚さが`width`で、`ring`があれば、代わりにその直径の輪として設置でき、`ringOnly`なら常に輪になります。壁は必ずその場に残るため、アクションは`zone`を持ちます。このゾーンは`block`で遮ったり、`sections`で区画に分かれたり(1.200)、アクション自身のセーヴを使って壊れた区画の効果を及ぼしたりでき、設置した場所に留まります。5eのアイス・デヴィルのWall of Iceは、長さ30フィートまたは直径20フィートのドームで、各区画はAC 5、体力30を持ち、火からより大きな被害を受け、壊れた区画には極寒の空気が残ります。これを使うルールセットにはCapability API 1.728が必要です。
 
-派生値の上限拡大です(Capability API 1.729)。
-シートに指定できる`derived`値は、
-400から最大
-800に増えました。
-5eの鎧の訓練に必要な数が以前の上限を超えたためです。
-400を超えて宣言するルールセットにはCapability API 1.729が必要です。
+派生値の上限拡大です(Capability API 1.729)。シートに指定できる`derived`値は、400から最大800に増えました。5eの鎧の訓練に必要な数が以前の上限を超えたためです。400を超えて宣言するルールセットにはCapability API 1.729が必要です。
 
-独自のレベルで発動するアイテムの使用と、
-応答したものを止める使用です(Capability API 1.730)。
-アイテムの`use`は、
-スクロールの呪文のように、
-発動時の`level`を指定できます。
-エントリーが支払った段階を読むものはすべてこの値を読み、
-リアクションの`"upTo": "paid"`もその一つです。
-また、
-`"utility"`の使用は、
-カタログのエントリーのCounterspellと同じ`upTo`と`above`を持つ(1.116)、
-`cancels`を指定した`reaction`だけにできます。
-5eのCounterspellのスクロールである`{"kind": "utility", "budget": "reaction", "consumes": true, "level": 3, "reaction": {"on": "used", "cancels": true, "against": {"catalogs": ["spells"]}, "upTo": "paid", "above": {"check": {"abilityModFromField": "spellcasting_ability"}, "dc": 10}}}`
-は、
-3レベル以下の呪文を無条件に止め、
-それより高い呪文は、
-読む者が
-10に呪文のレベルを加えた値に対する判定に成功すると止めます。
-`"upTo": "paid"`を持つアイテムの使用は`level`を持ちます。
-どちらかを使うルールセットにはCapability API 1.730が必要です。
+独自のレベルで発動するアイテムの使用と、応答したものを止める使用です(Capability API 1.730)。アイテムの`use`は、スクロールの呪文のように、発動時の`level`を指定できます。エントリーが支払った段階を読むものはすべてこの値を読み、リアクションの`"upTo": "paid"`もその一つです。また、`"utility"`の使用は、カタログのエントリーのCounterspellと同じ`upTo`と`above`を持つ(1.116)、`cancels`を指定した`reaction`だけにできます。5eのCounterspellのスクロールである`{"kind": "utility", "budget": "reaction", "consumes": true, "level": 3, "reaction": {"on": "used", "cancels": true, "against": {"catalogs": ["spells"]}, "upTo": "paid", "above": {"check": {"abilityModFromField": "spellcasting_ability"}, "dc": 10}}}`は、3レベル以下の呪文を無条件に止め、それより高い呪文は、読む者が10に呪文のレベルを加えた値に対する判定に成功すると止めます。`"upTo": "paid"`を持つアイテムの使用は`level`を持ちます。どちらかを使うルールセットにはCapability API 1.730が必要です。
 
-値を列挙するビルダーのステップのフィルターです(Capability API 1.731)。
-ガイド付きビルダーの`catalog`ステップの`filters`は、
-フィルターに最大
-12個の値のリストを指定でき、
-そのいずれかに一致するエントリーが提示されます。
-5eのバードのMagical Secretsで、
-すべてのクラスの呪文または初級呪文を選べるようにするなら、
-`{"kind": ["spell", "cantrip"]}`でカタログのほかの種類を除外します。
-これを使うルールセットにはCapability API 1.731が必要です。
+値を列挙するビルダーのステップのフィルターです(Capability API 1.731)。ガイド付きビルダーの`catalog`ステップの`filters`は、フィルターに最大12個の値のリストを指定でき、そのいずれかに一致するエントリーが提示されます。5eのバードのMagical Secretsで、すべてのクラスの呪文または初級呪文を選べるようにするなら、`{"kind": ["spell", "cantrip"]}`でカタログのほかの種類を除外します。これを使うルールセットにはCapability API 1.731が必要です。
 
-アイテムの残量がある間だけ働く効果です(Capability API 1.732)。
-アイテムの`worn`または`carried`効果は、
-`"whileLeft"`に最大
-4行の`{"keys": [...], "charges": true}`または`{"keys": [...], "uses": "<a further use's label>"}`
-を指定できます。
-`keys`で指定した効果の部分は、
-アイテムのチャージが残っている間、
-または独自の使用回数を数える(1.519)その追加の使用に残り回数がある間だけ働きます。
-シートではスタックが保持する残量を読み、
-戦闘中は戦闘で消費した後の残量を読みます。
-5eのHelm of Brillianceの`[{"keys": ["resist"], "uses": "Wall of Fire"}, {"keys": ["keepsOn"], "charges": true}]`
-は、
-ルビーが残っている間の火への抵抗と、
-ダイヤモンドが残っている間のアンデッドを焼く光です。
-これを使うルールセットにはCapability API 1.732が必要です。
+アイテムの残量がある間だけ働く効果です(Capability API 1.732)。アイテムの`worn`または`carried`効果は、`"whileLeft"`に最大4行の`{"keys": [...], "charges": true}`または`{"keys": [...], "uses": "<a further use's label>"}`を指定できます。`keys`で指定した効果の部分は、アイテムのチャージが残っている間、または独自の使用回数を数える(1.519)その追加の使用に残り回数がある間だけ働きます。シートではスタックが保持する残量を読み、戦闘中は戦闘で消費した後の残量を読みます。5eのHelm of Brillianceの`[{"keys": ["resist"], "uses": "Wall of Fire"}, {"keys": ["keepsOn"], "charges": true}]`は、ルビーが残っている間の火への抵抗と、ダイヤモンドが残っている間のアンデッドを焼く光です。これを使うルールセットにはCapability API 1.732が必要です。
 
-呼び出し手とともに終了する、
-エントリーまたはアイテムによる呼び出しです(Capability API 1.733)。
-カタログのエントリーまたはアイテムの`calls`は、
-クリーチャーの呼び出しと同じように(1.446)、
-`"endsWithCaller": true`を指定できます。
-呼び出された者は、
-呼び出し手が戦闘から脱落するとすぐに去ります。
-`"incapacitated"`なら、
-呼び出し手がダウンするか、
-`cannot-act`を持つ何かが付与されても、
-すぐに去らせます。
-5eのFeather Token (whip)の「無力状態になるか死亡すると消滅する」は、
-`{"calls": {"creature": "monsters/feather_whip", "count": {"flat": 1}, "rounds": 600, "endsWithCaller": "incapacitated"}}`
-です。
-どちらかを使うルールセットにはCapability API 1.733が必要です。
+呼び出し手とともに終了する、エントリーまたはアイテムによる呼び出しです(Capability API 1.733)。カタログのエントリーまたはアイテムの`calls`は、クリーチャーの呼び出しと同じように(1.446)、`"endsWithCaller": true`を指定できます。呼び出された者は、呼び出し手が戦闘から脱落するとすぐに去ります。`"incapacitated"`なら、呼び出し手がダウンするか、`cannot-act`を持つ何かが付与されても、すぐに去らせます。5eのFeather Token (whip)の「無力状態になるか死亡すると消滅する」は、`{"calls": {"creature": "monsters/feather_whip", "count": {"flat": 1}, "rounds": 600, "endsWithCaller": "incapacitated"}}`です。どちらかを使うルールセットにはCapability API 1.733が必要です。
 
-理解されずに理解することです(Capability API 1.734)。
-戦闘の状態の`languages`は`"understands"`にできます。
-持ち主はあらゆる言語を理解するため、
-標的が使用者を理解できることを必要とするアクション(`targetTypes.understands`)が持ち主にも届きますが、
-これによって持ち主の言葉を理解できる者が増えることはありません。
-`"all"`(1.648)はこれに優先し、
-`"none"`は両方に優先します。
-5eのComprehend Languagesと、
-Helm of Comprehending Languagesによるその発動がこれにあたります。
-これを使うルールセットにはCapability API 1.734が必要です。
+理解されずに理解することです(Capability API 1.734)。戦闘の状態の`languages`は`"understands"`にできます。持ち主はあらゆる言語を理解するため、標的が使用者を理解できることを必要とするアクション(`targetTypes.understands`)が持ち主にも届きますが、これによって持ち主の言葉を理解できる者が増えることはありません。`"all"`(1.648)はこれに優先し、`"none"`は両方に優先します。5eのComprehend Languagesと、Helm of Comprehending Languagesによるその発動がこれにあたります。これを使うルールセットにはCapability API 1.734が必要です。
 
-騎乗されている間のオーラです(Capability API 1.735)。
-状態のオーラは`"whileRidden": true`を指定できます。
-誰かが持ち主に騎乗している間だけ広がり、
-`side`は乗り手のものを読み取るため、
-`"enemies"`は乗り手の敵です。
-5eのgoat of terrorに`keepsOn`で付けたままにするオーラは、
-`{"distance": 30, "side": "enemies", "whileRidden": true, "save": {"save": "wis_save", "difficulty": 15, "applies": [{"condition": "frightened", "duration": {"rounds": 10}}]}}`
-です。
-これを使うルールセットにはCapability API 1.735が必要です。
+騎乗されている間のオーラです(Capability API 1.735)。状態のオーラは`"whileRidden": true`を指定できます。誰かが持ち主に騎乗している間だけ広がり、`side`は乗り手のものを読み取るため、`"enemies"`は乗り手の敵です。5eのgoat of terrorに`keepsOn`で付けたままにするオーラは、`{"distance": 30, "side": "enemies", "whileRidden": true, "save": {"save": "wis_save", "difficulty": 15, "applies": [{"condition": "frightened", "duration": {"rounds": 10}}]}}`です。これを使うルールセットにはCapability API 1.735が必要です。
 
-アクションで指揮する呼び出しです(Capability API 1.736)。
-クリーチャーのアクションの`calls`は、
-同じクリーチャーのアクションの一つを指定する`"commandedBy": {"action": "multiattack"}`を持てます。
-呼び出されたクリーチャーは、
-自身の前回のターン以降に呼び出し手がそのアクションを使っていた場合だけ自身のターンに行動し、
-それ以外はターンを飛ばします。
-クリーチャーの呼び出しでも`"endsWithCaller": "incapacitated"`を指定でき、
-呼び出し手が無力状態になるか死亡すると、
-呼び出されたクリーチャーを去らせます。
-カタログの呼び出しでは
-1.733から可能だったものです。
-`commandedBy`は`commandedWith`と併用できません。
-5eのチェイン・デヴィルのAnimate ChainsがMultiattackを通じてしか行動しないことは、
-`{"calls": {"creature": "animated-chain", "count": 4, "initiative": "after", "commandedBy": {"action": "multiattack"}, "endsWithCaller": "incapacitated"}}`
-で表します。
-これを使うルールセットにはCapability API 1.736が必要です。
+アクションで指揮する呼び出しです(Capability API 1.736)。クリーチャーのアクションの`calls`は、同じクリーチャーのアクションの一つを指定する`"commandedBy": {"action": "multiattack"}`を持てます。呼び出されたクリーチャーは、自身の前回のターン以降に呼び出し手がそのアクションを使っていた場合だけ自身のターンに行動し、それ以外はターンを飛ばします。クリーチャーの呼び出しでも`"endsWithCaller": "incapacitated"`を指定でき、呼び出し手が無力状態になるか死亡すると、呼び出されたクリーチャーを去らせます。カタログの呼び出しでは1.733から可能だったものです。`commandedBy`は`commandedWith`と併用できません。5eのチェイン・デヴィルのAnimate ChainsがMultiattackを通じてしか行動しないことは、`{"calls": {"creature": "animated-chain", "count": 4, "initiative": "after", "commandedBy": {"action": "multiattack"}, "endsWithCaller": "incapacitated"}}`で表します。これを使うルールセットにはCapability API 1.736が必要です。
 
-武器のボーナスを防御に移すことです(Capability API 1.737)。
-アイテムの`attack`は`"bonusToDefense": {"upTo": 3}`を持てます。
-使い手は、
-そのターンにその武器で初めて攻撃する前に、
-コストなしでボーナスの
-1から`upTo`までを自身の防御に移せます。
-各量が独立した切り替えになります(`label`が名前を指定し、
-デフォルトではアイテム名です)。
-そのターン、
-その武器の攻撃は命中とダメージから同じ量を失い、
-使い手の防御は次の自身のターン開始までその量を保ちます。
-5eの+3武器であるDefenderは、
-`{"attack": {..., "toHit": {..., "bonus": 3}, "damage": {..., "bonus": 3}, "bonusToDefense": {"upTo": 3, "label": "Defender"}}}`
-です。
-これを使うルールセットにはCapability API 1.737が必要です。
+武器のボーナスを防御に移すことです(Capability API 1.737)。アイテムの`attack`は`"bonusToDefense": {"upTo": 3}`を持てます。使い手は、そのターンにその武器で初めて攻撃する前に、コストなしでボーナスの1から`upTo`までを自身の防御に移せます。各量が独立した切り替えになります(`label`が名前を指定し、デフォルトではアイテム名です)。そのターン、その武器の攻撃は命中とダメージから同じ量を失い、使い手の防御は次の自身のターン開始までその量を保ちます。5eの+3武器であるDefenderは、`{"attack": {..., "toHit": {..., "bonus": 3}, "damage": {..., "bonus": 3}, "bonusToDefense": {"upTo": 3, "label": "Defender"}}}`です。これを使うルールセットにはCapability API 1.737が必要です。
 
-特定の標的に対するエントリーの攻撃です(Capability API 1.738)。
-カタログのエントリーの`mechanics`またはアイテムの`use`は、
-武器の`attack`と同じように(1.187)、
-`against`を持てます。
-最大
-4個の`{"is", "marked", "toHit", "mode", "ignoresCover", "ignoresLongRange"}`で、
-一致する標的への攻撃ロールを変更します。
-5eのShocking Graspが金属を身に着けた標的に対して有利になることは、
-`{"against": [{"is": {"wears": {"tags": ["metal"]}}, "mode": "advantage"}]}`で表しま
-す(1.711の`wears`は、
-金属の武器も含め、
-シート上で着用しているものや手に持っているものすべてを読み取ります)。
-これを使うルールセットにはCapability API 1.738が必要です。
+特定の標的に対するエントリーの攻撃です(Capability API 1.738)。カタログのエントリーの`mechanics`またはアイテムの`use`は、武器の`attack`と同じように(1.187)、`against`を持てます。最大4個の`{"is", "marked", "toHit", "mode", "ignoresCover", "ignoresLongRange"}`で、一致する標的への攻撃ロールを変更します。5eのShocking Graspが金属を身に着けた標的に対して有利になることは、`{"against": [{"is": {"wears": {"tags": ["metal"]}}, "mode": "advantage"}]}`で表します(1.711の`wears`は、金属の武器も含め、シート上で着用しているものや手に持っているものすべてを読み取ります)。これを使うルールセットにはCapability API 1.738が必要です。
 
-呼び出しによって貸し与えられる武
-器です(Capability API 1.739)。
-`calls`を持つアイテムの`use`
-(または`moreUses`の一
-つ)は、
-`"wieldsWhileCalled": {"items": ["gear/goat-horn-lance", "gear/goat-horn-longsword"], "takes": "action"}`
-を持てます。
-ルールセットの武器(`attack`
-を持つアイテム)を最大
-4個指定でき、
-その使用で呼び出されたクリーチャ
-ーが立っている間だけ使用者が使え
-ます。
-`takes`があれば、
-各武器はまずその行動枠で手に取り
-ます(「Take」の切り替え)。
-取り外した元のクリーチャーが立っ
-ている間、
-その武器を使えます。
-スロットを占めず、
-インベントリーにも書き込まれませ
-ん。
-5eのFigurine of Wondrous Power
-のgoat of terrorが
-これにあたります。
-この山羊には自身の攻撃がなく、
-角は+1のランスと+2のロングソ
-ードで、
-一本取り外すのにアクションを使い、
-元の姿に戻ると消えます。
-これを使うルールセットにはCapability API 1.739
-が必要です。
+呼び出しによって貸し与えられる武器です(Capability API 1.739)。`calls`を持つアイテムの`use`(または`moreUses`の一つ)は、`"wieldsWhileCalled": {"items": ["gear/goat-horn-lance", "gear/goat-horn-longsword"], "takes": "action"}`を持てます。ルールセットの武器(`attack`を持つアイテム)を最大4個指定でき、その使用で呼び出されたクリーチャーが立っている間だけ使用者が使えます。`takes`があれば、各武器はまずその行動枠で手に取ります(「Take」の切り替え)。取り外した元のクリーチャーが立っている間、その武器を使えます。スロットを占めず、インベントリーにも書き込まれません。5eのFigurine of Wondrous Powerのgoat of terrorがこれにあたります。この山羊には自身の攻撃がなく、角は+1のランスと+2のロングソードで、一本取り外すのにアクションを使い、元の姿に戻ると消えます。これを使うルールセットにはCapability API 1.739が必要です。
 
-付与する者がすでに誰かに付与していなければ付与する状態です(Capability API 1.740)。
-`applies`のエントリーは、
-アクション自身のものと同じように(1.715)、
-`"unlessImposing": ["grappled"]`を持てます。
-付与する者が、
-そのリストの状態を誰にも付与していない間だけ付与され、
-同じリスト内でそれを`endsWith`に指定するものも、
-同じ条件を満たさなければ付与されません。
-5eのチェイン・デヴィルのChainの「デヴィルがすでにクリーチャーを掴んでいなければ、
-掴まれた状態(脱出DC 14)になる」は、
-拘束状態の`endsWith`に掴まれた状態を指定し、
-`[{"condition": "grappled", "unlessImposing": ["grappled"], ...}, {"condition": "restrained", "endsWith": "grappled", ...}]`
-で表します。
-これを使うルールセットにはCapability API 1.740が必要です。
+付与する者がすでに誰かに付与していなければ付与する状態です(Capability API 1.740)。`applies`のエントリーは、アクション自身のものと同じように(1.715)、`"unlessImposing": ["grappled"]`を持てます。付与する者が、そのリストの状態を誰にも付与していない間だけ付与され、同じリスト内でそれを`endsWith`に指定するものも、同じ条件を満たさなければ付与されません。5eのチェイン・デヴィルのChainの「デヴィルがすでにクリーチャーを掴んでいなければ、掴まれた状態(脱出DC 14)になる」は、拘束状態の`endsWith`に掴まれた状態を指定し、`[{"condition": "grappled", "unlessImposing": ["grappled"], ...}, {"condition": "restrained", "endsWith": "grappled", ...}]`で表します。これを使うルールセットにはCapability API 1.740が必要です。
 
-作り手が無力状態になると終了する範囲です(Capability API 1.741)。
-カタログのエントリーまたはクリーチャーのアクションの`zone`は、
-`"endsWithCaller": "incapacitated"`を指定できます。
-ラウンド数が尽きた場合に加え、
-作り手がダウンするか、
-戦闘から脱落するか、
-`cannot-act`を持つ何かが付与されると、
-すぐに終了します。
-`outlasts`とは併用できません。
-5eのアイス・デヴィルのWall of Iceの「デヴィルが無力状態になるか死亡するまで」がこれにあたります。
-これを使うルールセットにはCapability API 1.741が必要です。
+作り手が無力状態になると終了する範囲です(Capability API 1.741)。カタログのエントリーまたはクリーチャーのアクションの`zone`は、`"endsWithCaller": "incapacitated"`を指定できます。ラウンド数が尽きた場合に加え、作り手がダウンするか、戦闘から脱落するか、`cannot-act`を持つ何かが付与されると、すぐに終了します。`outlasts`とは併用できません。5eのアイス・デヴィルのWall of Iceの「デヴィルが無力状態になるか死亡するまで」がこれにあたります。これを使うルールセットにはCapability API 1.741が必要です。
 
-使い切ると終了する呼び出しです(Capability API 1.742)。
-カタログのエントリーまたはアイテムの使用の`calls`は、
-`"endsWhenSpent": true`を指定できます。
-呼び出された者は、
-`uses`を数える自身のすべてのアクションに残り回数がなくなると去り、
-アイテムに変わっていたなら(`becomesItem`、
-1.613)、
-そのアイテムは持ち主の手に戻ります。
-5eのDancing Swordの「浮遊する剣が四回目の攻撃をした後」は、
-浮遊する剣の攻撃に`"uses": {"per": "encounter", "count": 4}`を指定して表します。
-これを使うルールセットにはCapability API 1.742が必要です。
+使い切ると終了する呼び出しです(Capability API 1.742)。カタログのエントリーまたはアイテムの使用の`calls`は、`"endsWhenSpent": true`を指定できます。呼び出された者は、`uses`を数える自身のすべてのアクションに残り回数がなくなると去り、アイテムに変わっていたなら(`becomesItem`、1.613)、そのアイテムは持ち主の手に戻ります。5eのDancing Swordの「浮遊する剣が四回目の攻撃をした後」は、浮遊する剣の攻撃に`"uses": {"per": "encounter", "count": 4}`を指定して表します。これを使うルールセットにはCapability API 1.742が必要です。
 
-感覚の上限拡大です(Capability API 1.743)。
-`combat.senses`で指定できる感覚は、
-8個から最大
-12個になりました。
-5eのRing of X-ray Visionが九番目の感覚です。
-8個を超えるルールセットにはCapability API 1.743が必要です。
+感覚の上限拡大です(Capability API 1.743)。`combat.senses`で指定できる感覚は、8個から最大12個になりました。5eのRing of X-ray Visionが九番目の感覚です。8個を超えるルールセットにはCapability API 1.743が必要です。
 
-休息する前にアイテムを再び使うコストです(Capability API 1.744)。
-アイテムの`use`は`againBeforeRest`を指定できます。
-回数をリセットする`rests`、
-`save`(`save`、
-`difficulty`)、
-セーヴに失敗すると使用者に起こることとして、
-移動する`tracks`(それぞれ`track`と`by`)と付与する`conditions`の片方または両方を指定します。
-それらの休息のいずれかを取った後の最初の使用にはコストがなく、
-それ以降の使用は毎回セーヴを求めます。
-回数は戦闘中も戦闘外もアイテムのスタックに保持され、
-指定した休息によってリセットされます。
-セーヴでダイスを振るのは、
-判定がダイスの合計を使う場合だけです。
-5eのRing of X-ray Visionは、
-`{"rests": ["long"], "save": {"save": "con_save", "difficulty": 15}, "tracks": [{"track": "exhaustion", "by": 1}]}`
-です。
-これを使うルールセットにはCapability API 1.744が必要です。
+休息する前にアイテムを再び使うコストです(Capability API 1.744)。アイテムの`use`は`againBeforeRest`を指定できます。回数をリセットする`rests`、`save`(`save`、`difficulty`)、セーヴに失敗すると使用者に起こることとして、移動する`tracks`(それぞれ`track`と`by`)と付与する`conditions`の片方または両方を指定します。それらの休息のいずれかを取った後の最初の使用にはコストがなく、それ以降の使用は毎回セーヴを求めます。回数は戦闘中も戦闘外もアイテムのスタックに保持され、指定した休息によってリセットされます。セーヴでダイスを振るのは、判定がダイスの合計を使う場合だけです。5eのRing of X-ray Visionは、`{"rests": ["long"], "save": {"save": "con_save", "difficulty": 15}, "tracks": [{"track": "exhaustion", "by": 1}]}`です。これを使うルールセットにはCapability API 1.744が必要です。
 
-アイテムの使用で作るアイテムです(Capability API 1.745)。
-アイテムの`use`は、
-カタログのエントリーの仕組みと同じように(1.721)、
-`makesItems`(`item`、
-`count`)を指定できます。
-戦闘中に使うと、
-その数のアイテムが使用者の手に入り、
-ほかの手に持つアイテムと同じようにその場で使用でき、
-戦闘終了時にインベントリーに書き込まれます。
-戦闘外で使うと、
-使ったアイテムと同じインベントリーに直接入ります。
-Goodberryのスクロールは`{"item": "gear/goodberry", "count": 10}`です。
-これを使うルールセットにはCapability API 1.745が必要です。
+アイテムの使用で作るアイテムです(Capability API 1.745)。アイテムの`use`は、カタログのエントリーの仕組みと同じように(1.721)、`makesItems`(`item`、`count`)を指定できます。戦闘中に使うと、その数のアイテムが使用者の手に入り、ほかの手に持つアイテムと同じようにその場で使用でき、戦闘終了時にインベントリーに書き込まれます。戦闘外で使うと、使ったアイテムと同じインベントリーに直接入ります。Goodberryのスクロールは`{"item": "gear/goodberry", "count": 10}`です。これを使うルールセットにはCapability API 1.745が必要です。
 
-スタックごとにダイスで決める追加の使用の回数です(Capability API 1.746)。
-アイテムは`moreUsesRolled`に`dice`と`weights`を指定できます。
-`moreUses`の各使用はそれぞれ自身の`uses`を数え、
-その順番で各使用に一つずつ重みを指定します。
-各スタックは`dice`で決まる数の部品を持つように作られ、
-各部品は重みの比率に応じた確率で追加の使用のいずれかに割り当てられます。
-各追加の使用は、
-割り当てられた部品の数だけ使用回数を持ちます(`max`を超えることはなく、
-部品がなければ回数もなく、
-その使用は提示されません)。
-スタックのIDから一度だけダイスを振り、
-どの読み取りでも同じ結果になります。
-`uses.recharge`は、
-その回数を回復します。
-5eのNecklace of Prayer Beadsの、
-六種類からなる
-1d4 + 2個のビーズは`{"dice": "1d4+2", "weights": [6, 6, 4, 2, 1, 1]}`で、
-各種類は`{"max": 6, "recharge": {"rests": ["long"], "amount": "max"}}`を持つ追加の使用です。
-これを使うルールセットにはCapability API 1.746が必要です。
+スタックごとにダイスで決める追加の使用の回数です(Capability API 1.746)。アイテムは`moreUsesRolled`に`dice`と`weights`を指定できます。`moreUses`の各使用はそれぞれ自身の`uses`を数え、その順番で各使用に一つずつ重みを指定します。各スタックは`dice`で決まる数の部品を持つように作られ、各部品は重みの比率に応じた確率で追加の使用のいずれかに割り当てられます。各追加の使用は、割り当てられた部品の数だけ使用回数を持ちます(`max`を超えることはなく、部品がなければ回数もなく、その使用は提示されません)。スタックのIDから一度だけダイスを振り、どの読み取りでも同じ結果になります。`uses.recharge`は、その回数を回復します。5eのNecklace of Prayer Beadsの、六種類からなる1d4 + 2個のビーズは`{"dice": "1d4+2", "weights": [6, 6, 4, 2, 1, 1]}`で、各種類は`{"max": 6, "recharge": {"rests": ["long"], "amount": "max"}}`を持つ追加の使用です。これを使うルールセットにはCapability API 1.746が必要です。
 
-ほかの使用の回数を消費する追加の使用です(Capability API 1.747)。
-アイテムの`moreUses`の一つは、
-自身の`uses`を数えるほかの追加の使用のラベルを`usesOf`に指定し、
-自身の`uses`を持たないようにできます。
-その使用に残り回数がある間だけ提示され、
-戦闘中も戦闘外も、
-その回数を消費します。
-`moreUsesRolled`では重みを
-0にします。
-5eのNecklace of Prayer Beadsのbead of curingなら、
-`Cure Wounds`はビーズの`uses`を持ち、
-`Lesser Restoration`は`"usesOf": "Cure Wounds"`を持ちます。
-これを使うルールセットにはCapability API 1.747が必要です。
+ほかの使用の回数を消費する追加の使用です(Capability API 1.747)。アイテムの`moreUses`の一つは、自身の`uses`を数えるほかの追加の使用のラベルを`usesOf`に指定し、自身の`uses`を持たないようにできます。その使用に残り回数がある間だけ提示され、戦闘中も戦闘外も、その回数を消費します。`moreUsesRolled`では重みを0にします。5eのNecklace of Prayer Beadsのbead of curingなら、`Cure Wounds`はビーズの`uses`を持ち、`Lesser Restoration`は`"usesOf": "Cure Wounds"`を持ちます。これを使うルールセットにはCapability API 1.747が必要です。
 
-カタログから読み取っ
-た候補の中からダイス
-で決める呼び出しです
-(Capability API 1.748)。
-`from`を持つ呼
-び出し(`calls`)
-は、
-`"rolled": true`
-を指定できます。
-使用時に、
-読み取ったクリーチャ
-ーのうち一体が等しい
-確率で使用者のために
-選ばれ、
-使用者自身では選びま
-せん。
-`keepsRoll`
-と`lifetimeUses`
-は、
-ダイスで決める`options`
-と同じように働きます。
-`rounds`がな
-ければ、
-退去させられるか戦闘
-から脱落するまで留ま
-ります。
-5eのNecklace of Prayer Beads
-のbead of summons
-による、
-神格が選ぶPlanar Ally
-は、
-`{"from": {"catalog": "creatures", "filters": {"type": ["celestial", "elemental", "fiend"]}}, "count": {"flat": 1}, "rolled": true}`
-です。
-これを使うルールセッ
-トにはCapability API 1.748
-が必要です。
+カタログから読み取った候補の中からダイスで決める呼び出しです(Capability API 1.748)。`from`を持つ呼び出し(`calls`)は、`"rolled": true`を指定できます。使用時に、読み取ったクリーチャーのうち一体が等しい確率で使用者のために選ばれ、使用者自身では選びません。`keepsRoll`と`lifetimeUses`は、ダイスで決める`options`と同じように働きます。`rounds`がなければ、退去させられるか戦闘から脱落するまで留まります。5eのNecklace of Prayer Beadsのbead of summonsによる、神格が選ぶPlanar Allyは、`{"from": {"catalog": "creatures", "filters": {"type": ["celestial", "elemental", "fiend"]}}, "count": {"flat": 1}, "rolled": true}`です。これを使うルールセットにはCapability API 1.748が必要です。
 
-追加の使用だけを持つアイテムです(Capability API 1.749)。
-`moreUsesRolled`を持つアイテムは、
-自身の`use`を持たないようにできます。
-戦闘中も戦闘外も、
-そのメニューには追加の使用だけが並び、
-スタックのダイスの結果で回数がなくなった追加の使用は提示されません。
-5eのNecklace of Prayer Beadsがこれにあたり、
-すべてのビーズが追加の使用の一つです。
-これを使うルールセットにはCapability API 1.749が必要です。
+追加の使用だけを持つアイテムです(Capability API 1.749)。`moreUsesRolled`を持つアイテムは、自身の`use`を持たないようにできます。戦闘中も戦闘外も、そのメニューには追加の使用だけが並び、スタックのダイスの結果で回数がなくなった追加の使用は提示されません。5eのNecklace of Prayer Beadsがこれにあたり、すべてのビーズが追加の使用の一つです。これを使うルールセットにはCapability API 1.749が必要です。
 
-日数経過で行い、
-成功回数を数えて被害を与えるセーヴと、
-回復を妨げるダメージです(Capability API 1.750)。
-`"at": "days"`を持つ`saveEnds`は、
-`successes`(2から
-10)を指定できます。
-状態はその回数だけセーヴに成功して初めて終了し、
-持ち主のシートで日をまたいで成功回数を数えます(失敗しても何もリセットしません)。
-`harmsOnFail: { "dice", "flat", "type" }`も指定でき、
-各日のセーヴに失敗するたびに持ち主の体力にその被害を与えます。
-`keepsDamage: true`を指定した戦闘の状態は、
-自身が与えたもの(`harms`と日ごとのセーヴによる被害)が、
-その状態が続く間は回復しないようにします。
-そのダメージは持ち主の体力の最大値を下げ、
-どのように終了したかにかかわらず、
-状態が終了するまでは回復や休息で取り戻せません。
-戦闘中のステータスブロックの体力も同じように保持されます。
-5eのPale tinctureは、
-付与するものに`"saveEnds": { "save": "con_save", "at": "days", "days": 1, "successes": 7, "harmsOnFail": { "dice": "1d6", "type": "poison" } }`
-を指定し、
-状態に`keepsDamage`を指定します。
-どちらかを使うルールセットにはCapability API 1.750が必要です。
+日数経過で行い、成功回数を数えて被害を与えるセーヴと、回復を妨げるダメージです(Capability API 1.750)。`"at": "days"`を持つ`saveEnds`は、`successes`(2から10)を指定できます。状態はその回数だけセーヴに成功して初めて終了し、持ち主のシートで日をまたいで成功回数を数えます(失敗しても何もリセットしません)。`harmsOnFail: { "dice", "flat", "type" }`も指定でき、各日のセーヴに失敗するたびに持ち主の体力にその被害を与えます。`keepsDamage: true`を指定した戦闘の状態は、自身が与えたもの(`harms`と日ごとのセーヴによる被害)が、その状態が続く間は回復しないようにします。そのダメージは持ち主の体力の最大値を下げ、どのように終了したかにかかわらず、状態が終了するまでは回復や休息で取り戻せません。戦闘中のステータスブロックの体力も同じように保持されます。5eのPale tinctureは、付与するものに`"saveEnds": { "save": "con_save", "at": "days", "days": 1, "successes": 7, "harmsOnFail": { "dice": "1d6", "type": "poison" } }`を指定し、状態に`keepsDamage`を指定します。どちらかを使うルールセットにはCapability API 1.750が必要です。
 
-真夜中まで続く状態と、
-セーヴ成功で半減する終了時の被害です(Capability API 1.751)。
-付与した状態の`lastsDays`は`"midnight"`にできます。
-戦闘中は時計を持たず、
-戦闘終了時にもシートに残っている場合(または戦闘外でアイテムの使用により付与した場合)、
-シートで次に一日を`pass`すると終了します。
-`onEnd.harm`は`save: { "save", "difficulty", "onSuccess": "half" }`を指定でき、
-戦闘中も日数経過時も、
-被害を受ける際に持ち主がダイスを振り、
-成功すると半分になります。
-戦闘外では、
-`onEnd.when`が許すとおり、
-日数が尽きたとき(`expired`)、
-または日ごとのセーヴで状態が終了したとき(`save`)に、
-終了時の被害を与えます。
-治療で被害を与えることはなく、
-`when: ["expired"]`なら戦闘中の治療でも被害を与えません。
-5eのMidnight tearsは、
-`"lastsDays": "midnight"`に`"onEnd": { "harm": { "dice": "9d6", "type": "poison", "save": { "save": "con_save", "difficulty": 17, "onSuccess": "half" } }, "when": ["expired"] }`
-を組み合わせます。
-どちらかを使うルールセットにはCapability API 1.751が必要です。
+真夜中まで続く状態と、セーヴ成功で半減する終了時の被害です(Capability API 1.751)。付与した状態の`lastsDays`は`"midnight"`にできます。戦闘中は時計を持たず、戦闘終了時にもシートに残っている場合(または戦闘外でアイテムの使用により付与した場合)、シートで次に一日を`pass`すると終了します。`onEnd.harm`は`save: { "save", "difficulty", "onSuccess": "half" }`を指定でき、戦闘中も日数経過時も、被害を受ける際に持ち主がダイスを振り、成功すると半分になります。戦闘外では、`onEnd.when`が許すとおり、日数が尽きたとき(`expired`)、または日ごとのセーヴで状態が終了したとき(`save`)に、終了時の被害を与えます。治療で被害を与えることはなく、`when: ["expired"]`なら戦闘中の治療でも被害を与えません。5eのMidnight tearsは、`"lastsDays": "midnight"`に`"onEnd": { "harm": { "dice": "9d6", "type": "poison", "save": { "save": "con_save", "difficulty": 17, "onSuccess": "half" } }, "when": ["expired"] }`を組み合わせます。どちらかを使うルールセットにはCapability API 1.751が必要です。
 
-目的を指定して行う判定で
-す(Capability API 1.752)。
-`checks`の修正値
-は`for: ["climb", "swim"]`
-を指定できます。
-変更するのはGame Master
-のタグが`for="climb"`
-または`for="swim"`
-と指定した判定だけです(
-大文字と小文字は区別しま
-せん)。
-同じスキルでもほかの目的
-で振るものや、
-そのような目的を持たない
-戦闘自身の判定(掴みや突
-き飛ばし)には適用しませ
-ん。
-Game Masterに
-は、
-ルールセットの状態とカタ
-ログが指定するすべての目
-的が伝えられ、
-記録には`for=`が保
-持されます。
-5eのGloves of Swimming and Climbing
-は、
-着用中の効果として`{ "to": "checks", "skills": ["athletics"], "flat": 5, "for": ["climb", "swim"] }`
-を指定します。
-これを使うルールセットに
-はCapability API 1.752
-が必要です。
+目的を指定して行う判定です(Capability API 1.752)。`checks`の修正値は`for: ["climb", "swim"]`を指定できます。変更するのはGame Masterのタグが`for="climb"`または`for="swim"`と指定した判定だけです(大文字と小文字は区別しません)。同じスキルでもほかの目的で振るものや、そのような目的を持たない戦闘自身の判定(掴みや突き飛ばし)には適用しません。Game Masterには、ルールセットの状態とカタログが指定するすべての目的が伝えられ、記録には`for=`が保持されます。5eのGloves of Swimming and Climbingは、着用中の効果として`{ "to": "checks", "skills": ["athletics"], "flat": 5, "for": ["climb", "swim"] }`を指定します。これを使うルールセットにはCapability API 1.752が必要です。
 
-Forbiddanceの選択と、
-内部への瞬間移動の禁止です(Capability API 1.753)。
-ゾーンの`forbids.teleport`は`"into"`にできます。
-ゾーンが誰に効果を及ぼすかにかかわらず、
-誰もその内部へ瞬間移動できませんが、
-内部での瞬間移動や外への瞬間移動は引き続き許され、
-同行する者も内部には置かれません。
-ゾーンを持つエントリー(またはアイテムの使用)は`"kindChoice": "many"`を指定できます。
-使用者は発動時に、
-`combat.creatureTypes`の種類とタグを一つ以上指定します。
-`targetTypes.is`が候補を指定していれば、
-その中から選びます(Forbiddanceでは五種類です)(選択肢は候補を`kindsOf`として列挙し、
-選択は選んだものを`kinds`として指定します)。
-ゾーンは`targetTypes`で指定した種類の代わりに、
-選んだものだけを攻撃します。
-何も指定しなければ、
-`targetTypes`が指定する者を攻撃します。
-ダメージを与えるエントリーは、
-`"damageTypeChoice"`にルールセットのダメージ種別を二つから八つ指定できます。
-それらはモード(`damage-<type>`)として提示され、
-選んだ種別が、
-エントリー自身とそのゾーンの打撃が与えるダメージ種別になります。
-ほかのモードと同じように選ぶため、
-モードとして行うほかの選択とは併用できず、
-戦闘中に何も選ばず発動すると最初の種別のダメージを与えます。
-戦闘前に準備する場合、
-Game Masterの`standing`は種類を`"kinds": [names]`、
-ダメージ種別を`"mode"`として指定します。
-ダメージ種別を指定しなければ最初のものを使い、
-そのことが伝えられます。
-5eのForbiddanceは、
-`"kindChoice": "many"`、
-`"damageTypeChoice": ["radiant", "necrotic"]`、
-`"targetTypes": { "is": { "types": ["celestial", "elemental", "fey", "fiend", "undead"] } }`
-に、
-`"forbids": { "teleport": "into" }`を持つゾーンを組み合わせます。
-いずれかを使うルールセットにはCapability API 1.753が必要です。
+Forbiddanceの選択と、内部への瞬間移動の禁止です(Capability API 1.753)。ゾーンの`forbids.teleport`は`"into"`にできます。ゾーンが誰に効果を及ぼすかにかかわらず、誰もその内部へ瞬間移動できませんが、内部での瞬間移動や外への瞬間移動は引き続き許され、同行する者も内部には置かれません。ゾーンを持つエントリー(またはアイテムの使用)は`"kindChoice": "many"`を指定できます。使用者は発動時に、`combat.creatureTypes`の種類とタグを一つ以上指定します。`targetTypes.is`が候補を指定していれば、その中から選びます(Forbiddanceでは五種類です)(選択肢は候補を`kindsOf`として列挙し、選択は選んだものを`kinds`として指定します)。ゾーンは`targetTypes`で指定した種類の代わりに、選んだものだけを攻撃します。何も指定しなければ、`targetTypes`が指定する者を攻撃します。ダメージを与えるエントリーは、`"damageTypeChoice"`にルールセットのダメージ種別を二つから八つ指定できます。それらはモード(`damage-<type>`)として提示され、選んだ種別が、エントリー自身とそのゾーンの打撃が与えるダメージ種別になります。ほかのモードと同じように選ぶため、モードとして行うほかの選択とは併用できず、戦闘中に何も選ばず発動すると最初の種別のダメージを与えます。戦闘前に準備する場合、Game Masterの`standing`は種類を`"kinds": [names]`、ダメージ種別を`"mode"`として指定します。ダメージ種別を指定しなければ最初のものを使い、そのことが伝えられます。5eのForbiddanceは、`"kindChoice": "many"`、`"damageTypeChoice": ["radiant", "necrotic"]`、`"targetTypes": { "is": { "types": ["celestial", "elemental", "fey", "fiend", "undead"] } }`に、`"forbids": { "teleport": "into" }`を持つゾーンを組み合わせます。いずれかを使うルールセットにはCapability API 1.753が必要です。
 
-最大
-16個のアクションを持つクリーチャーです(Capability API 1.754)。
-ベスティアリのクリーチャーと、
-クリーチャーのシートのブロックが持てるアクションは、
-以前の
-12個から最大
-16個になりました。
-5eのヴァンパイアが、
-自身の形態に加えて蝙蝠と霧の形態を持つ例がこれにあたります。
-12個を超えるアクションを持つクリーチャーがいるルールセットにはCapability API 1.754が必要です。
+最大16個のアクションを持つクリーチャーです(Capability API 1.754)。ベスティアリのクリーチャーと、クリーチャーのシートのブロックが持てるアクションは、以前の12個から最大16個になりました。5eのヴァンパイアが、自身の形態に加えて蝙蝠と霧の形態を持つ例がこれにあたります。12個を超えるアクションを持つクリーチャーがいるルールセットにはCapability API 1.754が必要です。
 
-立っている場所を調べる標的の条件です(Capability API 1.755)。
-標的の条件(`targetIs`、
-`targetTypes.is`または`not`、
-および標的の条件を読み取るほかのすべての場所)は、
-`insideZoneOf`または`outsideZoneOf`
-を指定できます。
-エントリーをID(`magic-circle`または`spells/magic-circle`)
-または名前で、
-最大
-8個指定します。
-`insideZoneOf`は、
-誰が発動したかにかかわらず、
-そのいずれかが残したゾーン内に立つ者だけに一致し、
-`outsideZoneOf`はそのいずれのゾーン内にも立っ
-ていない者だけに一致します。
-どちらも`except`と`anyOf`の中にも指定できます。
-戦闘外では、
-誰もゾーン内に立っていません。
-5eのMagic Jarで「protection from evil and good
-またはmagic circleの呪文で防護されている」クリー
-チャーに憑依できないことは、
-`{"outsideZoneOf": ["magic-circle"], "except": {"holding": ["protected_from_evil"]}}`
-で表します。
-これを使うルールセットにはCapability API 1.755
-が必要です。
+立っている場所を調べる標的の条件です(Capability API 1.755)。標的の条件(`targetIs`、`targetTypes.is`または`not`、および標的の条件を読み取るほかのすべての場所)は、`insideZoneOf`または`outsideZoneOf`を指定できます。エントリーをID(`magic-circle`または`spells/magic-circle`)または名前で、最大8個指定します。`insideZoneOf`は、誰が発動したかにかかわらず、そのいずれかが残したゾーン内に立つ者だけに一致し、`outsideZoneOf`はそのいずれのゾーン内にも立っていない者だけに一致します。どちらも`except`と`anyOf`の中にも指定できます。戦闘外では、誰もゾーン内に立っていません。5eのMagic Jarで「protection from evil and goodまたはmagic circleの呪文で防護されている」クリーチャーに憑依できないことは、`{"outsideZoneOf": ["magic-circle"], "except": {"holding": ["protected_from_evil"]}}`で表します。これを使うルールセットにはCapability API 1.755が必要です。
 
-Wishの負担です(Capability API 1.756)。
-状態の`abilities`は、
-ほかのすべての変更を適用した後で、
-能力値が指定値より高い場合だけその値まで下げる`{"atMost": 3}`を指定できます(複数あれば最も低い値を使います)。
-能力値を上げることはありません。
-付与した状態の`lastsDays`は、
-付与時に`{"dice": "2d4"}`でダイスを振って決められ、
-`restingCounts`(2から
-7)があれば、
-持ち主が休息して過ごした日はそれぞれその日数分として数えます。
-Game Masterの`[sheet: op="pass" days="N" resting="yes"]`で、
-それらの日を休息して過ごしたと指定します。
-5eのWishの負担の「筋力は、
-すでに
-3以下でなければ、
-2d4日の間
-3に下がります。
-その期間中に休息し、
-軽い活動より激しいことをせずに過ごした日は、
-その日ごとに残りの回復期間が
-2日短くなります」は、
-`"abilities": {"str": {"atMost": 3}}`を持つ状態を、
-`"duration": "until-dispelled", "lastsDays": {"dice": "2d4", "restingCounts": 2}`
-で付与して表します。
-どちらかを使うルールセットにはCapability API 1.756が必要です。
+Wishの負担です(Capability API 1.756)。状態の`abilities`は、ほかのすべての変更を適用した後で、能力値が指定値より高い場合だけその値まで下げる`{"atMost": 3}`を指定できます(複数あれば最も低い値を使います)。能力値を上げることはありません。付与した状態の`lastsDays`は、付与時に`{"dice": "2d4"}`でダイスを振って決められ、`restingCounts`(2から7)があれば、持ち主が休息して過ごした日はそれぞれその日数分として数えます。Game Masterの`[sheet: op="pass" days="N" resting="yes"]`で、それらの日を休息して過ごしたと指定します。5eのWishの負担の「筋力は、すでに3以下でなければ、2d4日の間3に下がります。その期間中に休息し、軽い活動より激しいことをせずに過ごした日は、その日ごとに残りの回復期間が2日短くなります」は、`"abilities": {"str": {"atMost": 3}}`を持つ状態を、`"duration": "until-dispelled", "lastsDays": {"dice": "2d4", "restingCounts": 2}`で付与して表します。どちらかを使うルールセットにはCapability API 1.756が必要です。
 
-失った分をすべて回復することです(Capability API 1.757)。
-`healsAll: true`を持つ`heal`は、
-指定した`amount`にかかわらず(指定する必要もありません)、
-各標的が失っている体力をすべて回復します。
-回復量を分け合ったり(`sharesHeal`)、
-使用回数に応じて回復したり(`usesChosen`)することはありません。
-5eのWishの「見える範囲の最大二十体のクリーチャーのヒットポイントがすべて回復する」がこれにあたります。
-これを使うルールセットにはCapability API 1.757が必要です。
+失った分をすべて回復することです(Capability API 1.757)。`healsAll: true`を持つ`heal`は、指定した`amount`にかかわらず(指定する必要もありません)、各標的が失っている体力をすべて回復します。回復量を分け合ったり(`sharesHeal`)、使用回数に応じて回復したり(`usesChosen`)することはありません。5eのWishの「見える範囲の最大二十体のクリーチャーのヒットポイントがすべて回復する」がこれにあたります。これを使うルールセットにはCapability API 1.757が必要です。
 
-発動時に選ぶ防護です(Capability API 1.758)。
-`applies`を持つエントリーは、
-`wardPick: true`を指定できます。
-使用時に、
-使用者は戦闘中の誰かが持つエントリーまたはクリーチャーのアクションを一つ選びます(掴みなど、
-誰もが持つ対抗判定は含みません)。
-付与する各状態は、
-選んだその一つだけから持ち主を防護し、
-持ち主自身以外の誰がどのレベルで使った場合にも働きます。
-エントリーは`<catalog>/<entry>`で指定し、
-エントリーを持たないクリーチャーのアクションは、
-小文字の`action:<its name>`で指定します。
-メニューはそれらを、
-必ず一つだけ選ぶ選択として提示します(選択の`kinds`にIDを一つ指定します)。
-クリーチャー自身が選ぶ場合は最初のものを取ります。
-`until-dispelled`で付与した状態は、
-何から防護するかを持ち主のシートに保持し、
-その後の戦闘でも使います。
-5eのWishの「見える範囲の最大十体のクリーチャーに、
-単一の呪文またはほかの魔法効果に対する完全耐性を
-8時間与える」(リッチの生命力吸収など)は、
-`{"kind": "buff", "targets": "ally", "wardPick": true, "applies": [{"condition": "wished_ward", "duration": {"rounds": 4800}}]}`
-です。
-これを使うルールセットにはCapability API 1.758が必要です。
+発動時に選ぶ防護です(Capability API 1.758)。`applies`を持つエントリーは、`wardPick: true`を指定できます。使用時に、使用者は戦闘中の誰かが持つエントリーまたはクリーチャーのアクションを一つ選びます(掴みなど、誰もが持つ対抗判定は含みません)。付与する各状態は、選んだその一つだけから持ち主を防護し、持ち主自身以外の誰がどのレベルで使った場合にも働きます。エントリーは`<catalog>/<entry>`で指定し、エントリーを持たないクリーチャーのアクションは、小文字の`action:<its name>`で指定します。メニューはそれらを、必ず一つだけ選ぶ選択として提示します(選択の`kinds`にIDを一つ指定します)。クリーチャー自身が選ぶ場合は最初のものを取ります。`until-dispelled`で付与した状態は、何から防護するかを持ち主のシートに保持し、その後の戦闘でも使います。5eのWishの「見える範囲の最大十体のクリーチャーに、単一の呪文またはほかの魔法効果に対する完全耐性を8時間与える」(リッチの生命力吸収など)は、`{"kind": "buff", "targets": "ally", "wardPick": true, "applies": [{"condition": "wished_ward", "duration": {"rounds": 4800}}]}`です。これを使うルールセットにはCapability API 1.758が必要です。
 
-素材ごとに指定した厚さまでの透視
-です(Capability API 1.759)。
-感覚の`throughWalls`
-は、
-`true`の代わりに、
-各素材を何インチまで見通せるかと
-いう最大値を指定できます(素材は
-1から
-16種類、
-それぞれ
-1から
-1200インチ)。
-射線上の壁は素材ごとに厚さを合計
-し、
-指定していない素材は透視を遮りま
-す。
-発動によって作られた視界を遮る壁
-は、
-`material`に`{"of": "stone", "inches": 6}`
-を指定できます。
-盤面自身の壁(壁や山のタイル、
-視界を遮る小道具、
-間にある隆起した地面)は、
-`combat.sight.boardWalls`
-が指定する素材と厚さになり、
-各マスがその厚さを持ちます。
-たとえば`{"of": "stone", "inches": 60}`
-です。
-これを指定していない場合や、
-発動によって作られた壁に素材が指
-定されていない場合、
-このような感覚ではそれらを見通せ
-ません。
-5eのRing of X-ray Vision
-の「石は
-1フィート、
-一般的な金属は
-1インチ、
-木や土は最大
-3フィートまで見通せます。
-それより厚い物質は視界を遮り、
-薄い鉛の板も同様です」は、
-鉛を指定せずに`"throughWalls": {"stone": 12, "metal": 1, "wood": 36, "dirt": 36}`
-で表します。
-Wall of Stoneは`{"of": "stone", "inches": 6}`、
-Wall of Ironは`{"of": "metal", "inches": 1}`
-です。
-いずれかを使うルールセットにはCapability API 1.759
-が必要です。
+素材ごとに指定した厚さまでの透視です(Capability API 1.759)。感覚の`throughWalls`は、`true`の代わりに、各素材を何インチまで見通せるかという最大値を指定できます(素材は1から16種類、それぞれ1から1200インチ)。射線上の壁は素材ごとに厚さを合計し、指定していない素材は透視を遮ります。発動によって作られた視界を遮る壁は、`material`に`{"of": "stone", "inches": 6}`を指定できます。盤面自身の壁(壁や山のタイル、視界を遮る小道具、間にある隆起した地面)は、`combat.sight.boardWalls`が指定する素材と厚さになり、各マスがその厚さを持ちます。たとえば`{"of": "stone", "inches": 60}`です。これを指定していない場合や、発動によって作られた壁に素材が指定されていない場合、このような感覚ではそれらを見通せません。5eのRing of X-ray Visionの「石は1フィート、一般的な金属は1インチ、木や土は最大3フィートまで見通せます。それより厚い物質は視界を遮り、薄い鉛の板も同様です」は、鉛を指定せずに`"throughWalls": {"stone": 12, "metal": 1, "wood": 36, "dirt": 36}`で表します。Wall of Stoneは`{"of": "stone", "inches": 6}`、Wall of Ironは`{"of": "metal", "inches": 1}`です。いずれかを使うルールセットにはCapability API 1.759が必要です。
 
-作られたものが消えるまでの持続時間です(Capability API 1.760)。
-`makesItems`は、
-作るものがどれだけ`lasts`かを、
-ゲーム内時間の分で指定できます(1から
-5256000、
-十年)。
-指定例は`"lasts": [{"minutes": 60}]`です。
-作られたものは独立したスタックになり、
-ほかのスタックを補充せず、
-補充されることもなく、
-時間が尽きるとインベントリーから消え、
-「Items vanished」の行が表示されます。
-戦闘中は、
-`combat.roundSeconds`(未指定なら
-6秒)に従って作り手のターンで時間を数え、
-戦闘終了時の残り時間はスタックに保持されます。
-複数の`lasts`を指定し、
-それぞれに`label`を持たせると、
-使用者が使用時に一つ選びます。
-発動時はそれぞれ独立した選択肢になり、
-インベントリーから使うアイテムにはそれぞれのボタンが付きます。
-5eのCreationは`"lasts": [{"label": "Vegetable matter", "minutes": 1440}, {"label": "Stone or crystal", "minutes": 720}, {"label": "Precious metals", "minutes": 60}, {"label": "Gems", "minutes": 10}, {"label": "Adamantine or mithral", "minutes": 1}]`
-です。
-ルールセットがあれば、
-Game Masterも`[inventory: action="add" item="Rope" lasts="1 hour"]`でそのようなアイテムを追加で
-きます(分、
-時間、
-日、
-週を使えます)。
-`lasts`を使うルールセットにはCapability API 1.760が必要です。
+作られたものが消えるまでの持続時間です(Capability API 1.760)。`makesItems`は、作るものがどれだけ`lasts`かを、ゲーム内時間の分で指定できます(1から5256000、十年)。指定例は`"lasts": [{"minutes": 60}]`です。作られたものは独立したスタックになり、ほかのスタックを補充せず、補充されることもなく、時間が尽きるとインベントリーから消え、「Items vanished」の行が表示されます。戦闘中は、`combat.roundSeconds`(省略時は6秒)に従って作り手のターンで時間を数え、戦闘終了時の残り時間はスタックに保持されます。複数の`lasts`を指定し、それぞれに`label`を持たせると、使用者が使用時に一つ選びます。発動時はそれぞれ独立した選択肢になり、インベントリーから使うアイテムにはそれぞれのボタンが付きます。5eのCreationは`"lasts": [{"label": "Vegetable matter", "minutes": 1440}, {"label": "Stone or crystal", "minutes": 720}, {"label": "Precious metals", "minutes": 60}, {"label": "Gems", "minutes": 10}, {"label": "Adamantine or mithral", "minutes": 1}]`です。ルールセットがあれば、Game Masterも`[inventory: action="add" item="Rope" lasts="1 hour"]`でそのようなアイテムを追加できます(分、時間、日、週を使えます)。`lasts`を使うルールセットにはCapability API 1.760が必要です。
 
-クリーチャーが戦闘でどれだけ考えるかです(Capability API 1.761)。
-Engineは、
-ほかの誰も操作しないすべてのクリーチャーを、
-五つの思考のいずれかで操作します。
-`mindless`は最も近い者に向かって攻撃し続け、
-ターンの間には離れて歩く者への打撃以外は行わず、
-決して後退しません。
-`instinct`は本能に従って弱い者から攻撃し、
-傷を負うと自身の安全を気にかけ、
-計画を立てる性格を持ちません。
-`cunning`は基本を理解しています。
-`tactical`は戦況を考えて行動します。
-`genius`は常に熟練者以上の最善の戦い方をします。
-クリーチャーの思考は、
-自身のステータスブロックの`mind`、
-なければ種類のもの(`combat.creatureTypes.types[].mind`)、
-それもなければ`combat.minds.ability`の評価値が達する段階(`tiers`を昇順に並べ、
-それぞれ`{"atLeast": n, "mind": ...}`で指定します)で決まります。
-伝説的アクションを行うか、
-伝説的抵抗を持つ者は、
-通常なら`tactical`となる場合に`genius`になります。
-何も指定していなければ、
-種類が`beast`のクリーチャーは本能で戦い、
-`construct`または`ooze`は思考を持たず、
-それ以外は従来どおりに行動します。
-Game Masterは、
-戦闘ごとに思考を指定することもできます。
-5eでは、
-`"minds": {"ability": "int", "tiers": [{"atLeast": 0, "mind": "mindless"}, {"atLeast": 3, "mind": "cunning"}, {"atLeast": 8, "mind": "tactical"}, {"atLeast": 15, "mind": "genius"}]}`
-とし、
-野獣を`instinct`、
-人造と粘体を`mindless`にし、
-ゾンビやスケルトンには独自の`"mind": "mindless"`を指定します。
-これにより、
-クラーケン(知力
-22)は天才になります。
-思考にかかわらず、
-Engineは、
-マスに立つことで生じる危険、
-相手に狙われている傷ついた味方を守ること、
-自分の側がすでに狙っている者を攻撃することも評価します。
-慎重、
-臆病、
-忍耐強いクリーチャーや傷ついた動物は、
-回避、
-逃走(`disengage`の後に走る)、
-隠れることを、
-攻撃と比較して評価します。
-`tactical`または`genius`の者は、
-応答に必要なものを残します。
-自身が持つリアクション(CounterspellやShield)の支払いにまだ使える最後のスロット、
-使用回数、
-プールの消費には慎重です。
-次の自身のターンまでに歩いて近づいて打撃を加えられる相手がいなければ、
-小さなダメージを与える攻撃よりも、
-持続する支援(Shield of FaithやMage Armor)を自身または味方に付与することを優先します。
-遠方から攻撃した後(射程を持ち、
-自身の間合いを持たない打撃で、
-弓や呪文は含み、
-投げるダガーは含みません)、
-途中で打撃を受けず、
-相手がまだ射程内にいる最も安全なマスまで後退します。
-少しでも思考するクリーチャーは、
-まだ射撃できる相手に歩いて近づくことはせず、
-撃った場所に留まります。
-`mind`または`combat.minds`を使うルールセットにはCapability API 1.761が必要です。
+クリーチャーが戦闘でどれだけ考えるかです(Capability API 1.761)。Engineは、ほかの誰も操作しないすべてのクリーチャーを、五つの思考のいずれかで操作します。`mindless`は最も近い者に向かって攻撃し続け、ターンの間には離れて歩く者への打撃以外は行わず、決して後退しません。`instinct`は本能に従って弱い者から攻撃し、傷を負うと自身の安全を気にかけ、計画を立てる性格を持ちません。`cunning`は基本を理解しています。`tactical`は戦況を考えて行動します。`genius`は常に熟練者以上の最善の戦い方をします。クリーチャーの思考は、自身のステータスブロックの`mind`、なければ種類のもの(`combat.creatureTypes.types[].mind`)、それもなければ`combat.minds.ability`の評価値が達する段階(`tiers`を昇順に並べ、それぞれ`{"atLeast": n, "mind": ...}`で指定します)で決まります。伝説的アクションを行うか、伝説的抵抗を持つ者は、通常なら`tactical`となる場合に`genius`になります。何も指定していなければ、種類が`beast`のクリーチャーは本能で戦い、`construct`または`ooze`は思考を持たず、それ以外は従来どおりに行動します。Game Masterは、戦闘ごとに思考を指定することもできます。5eでは、`"minds": {"ability": "int", "tiers": [{"atLeast": 0, "mind": "mindless"}, {"atLeast": 3, "mind": "cunning"}, {"atLeast": 8, "mind": "tactical"}, {"atLeast": 15, "mind": "genius"}]}`とし、野獣を`instinct`、人造と粘体を`mindless`にし、ゾンビやスケルトンには独自の`"mind": "mindless"`を指定します。これにより、クラーケン(知力22)は天才になります。思考にかかわらず、Engineは、マスに立つことで生じる危険、相手に狙われている傷ついた味方を守ること、自分の側がすでに狙っている者を攻撃することも評価します。慎重、臆病、忍耐強いクリーチャーや傷ついた動物は、回避、逃走(`disengage`の後に走る)、隠れることを、攻撃と比較して評価します。`tactical`または`genius`の者は、応答に必要なものを残します。自身が持つリアクション(CounterspellやShield)の支払いにまだ使える最後のスロット、使用回数、プールの消費には慎重です。次の自身のターンまでに歩いて近づいて打撃を加えられる相手がいなければ、小さなダメージを与える攻撃よりも、持続する支援(Shield of FaithやMage Armor)を自身または味方に付与することを優先します。遠方から攻撃した後(射程を持ち、自身の間合いを持たない打撃で、弓や呪文は含み、投げるダガーは含みません)、途中で打撃を受けず、相手がまだ射程内にいる最も安全なマスまで後退します。少しでも思考するクリーチャーは、まだ射撃できる相手に歩いて近づくことはせず、撃った場所に留まります。`mind`または`combat.minds`を使うルールセットにはCapability API 1.761が必要です。
 
-戦意の喪失です(Capability API 1.762)。
-`combat.morale`は、
-Engineが操作するクリーチャーが戦意を保てるかを、
-いつ、
-どのように判定するかを指定します。
-`on`の各項目は、
-それが起きた後の自身のターン開始時に、
-クリーチャーごとに一度判定します。
-`first-fall`は自分の側の誰かが倒れた後、
-`half-down`は自分の側の半数が倒れた後、
-`leader-down`はステータスブロックに`"leader": true`を持つ自分の側のクリーチャーが倒れた後、
-`hurt`は自身の体力が最大値に対する`hurtBelow`の割合(未指定なら半分)を下回った後です。
-`check`は、
-クリーチャーのステータスブロックの`morale`評価値に対してダイスを振り(`{"roll": "2d6", "score": 7}`で、
-評価値がないクリーチャーには`score`を使います)、
-出目が評価値を超えると戦意を失う方法か、
-セーヴを行い(`{"save": "wis_save", "difficulty": 10}`)、
-失敗すると戦意を失う方法のいずれかです。
-判定するのはステータスブロックを持つクリーチャーだけで、
-思考を持たない者、
-召喚された者や呼び出された者、
-`unlessImmune`が指定する状態に完全耐性を持つ者は判定しません。
-戦意を失った者は逃げます。
-隣の相手から離脱し(それ以外は早足移動し)、
-最も近い盤面の端に向かって走り、
-そこで自身の次のターンが始まると戦闘を離れます。
-盤面がなければすぐに離れます。
-戦闘の要約には、
-逃げ切ったことが示されます。
-思考が`surrenders`に含まれ、
-相手が隣にいれば、
-代わりに降伏し、
-生きたまま戦闘から脱落し、
-Game Masterにはパーティーの捕虜になったことが伝えられます。
-Old-School Essentialsでは、
-各クリーチャーの`morale`とともに`{"check": {"roll": "2d6"}, "on": ["first-fall", "half-down"]}`
-を指定します。
-5e(Dungeon Master's Guideの選択ルール)では、
-`{"check": {"save": "wis_save", "difficulty": 10}, "on": ["leader-down", "hurt"], "surrenders": ["cunning", "tactical", "genius"], "unlessImmune": "frightened"}`
-です。
-狂乱やRötschreckのような、
-状態によって強制される行動は、
-その状態自身の`behavior`で指定します(`nearest`、
-`walks`を伴う`moves: "away"`)。
-`combat.morale`、
-またはステータスブロックの`morale`や`leader`を使うルールセットにはCapability API 1.762が必要です。
-Capability API 1.775以降では、
-`on`に`surprised`と`helpless`も指定できます。
-前者は不意を突かれた状態でターンを開始すると判定し、
-後者は相手側に被害を与える方法がない状態で自身のターンを開始すると一度判定します(相手に向けられるメニューの項目が、
-掴みや突き飛ばしなどの対抗判定しかない場合です)。
-`"halfDownUnanswered": true`は、
-相手側がまだ誰も失っていない間だけ`half-down`を数えます。
-Dungeon Master's Guideの完全な指定は、
-`{"check": {"save": "wis_save", "difficulty": 10}, "on": ["surprised", "hurt", "helpless", "leader-down", "half-down"], "halfDownUnanswered": true, "surrenders": ["cunning", "tactical", "genius"], "unlessImmune": "frightened"}`
-です。
-物語がその側のリーダーとして指定したクリーチャー(遭遇の`aiHints.leader`で、
-どのベスティアリにも指定されていない山賊の首領など)も、
-ステータスブロックの`leader`と同じように`leader-down`の対象になります。
-`surprised`または`helpless`を指定するか、
-`halfDownUnanswered`を使うルールセットにはCapability API 1.775が必要です。
-`neverSurrender`は、
-決して降伏しない`combat.creatureTypes`のクリーチャーの種類を指定します。
-その種類の者は、
-思考にかかわらず、
-戦意を失うと必ず逃走します(5eでは`["undead", "fiend"]`)。
-これを使うルールセットにはCapability API 1.785が必要です。
+戦意の喪失です(Capability API 1.762)。`combat.morale`は、Engineが操作するクリーチャーが戦意を保てるかを、いつ、どのように判定するかを指定します。`on`の各項目は、それが起きた後の自身のターン開始時に、クリーチャーごとに一度判定します。`first-fall`は自分の側の誰かが倒れた後、`half-down`は自分の側の半数が倒れた後、`leader-down`はステータスブロックに`"leader": true`を持つ自分の側のクリーチャーが倒れた後、`hurt`は自身の体力が最大値に対する`hurtBelow`の割合(省略時は半分)を下回った後です。`check`は、クリーチャーのステータスブロックの`morale`評価値に対してダイスを振り(`{"roll": "2d6", "score": 7}`で、評価値がないクリーチャーには`score`を使います)、出目が評価値を超えると戦意を失う方法か、セーヴを行い(`{"save": "wis_save", "difficulty": 10}`)、失敗すると戦意を失う方法のいずれかです。判定するのはステータスブロックを持つクリーチャーだけで、思考を持たない者、召喚された者や呼び出された者、`unlessImmune`が指定する状態に完全耐性を持つ者は判定しません。戦意を失った者は逃げます。隣の相手から離脱し(それ以外は早足移動し)、最も近い盤面の端に向かって走り、そこで自身の次のターンが始まると戦闘を離れます。盤面がなければすぐに離れます。戦闘の要約には、逃げ切ったことが示されます。思考が`surrenders`に含まれ、相手が隣にいれば、代わりに降伏し、生きたまま戦闘から脱落し、Game Masterにはパーティーの捕虜になったことが伝えられます。Old-School Essentialsでは、各クリーチャーの`morale`とともに`{"check": {"roll": "2d6"}, "on": ["first-fall", "half-down"]}`を指定します。5e(Dungeon Master's Guideの選択ルール)では、`{"check": {"save": "wis_save", "difficulty": 10}, "on": ["leader-down", "hurt"], "surrenders": ["cunning", "tactical", "genius"], "unlessImmune": "frightened"}`です。狂乱やRötschreckのような、状態によって強制される行動は、その状態自身の`behavior`で指定します(`nearest`、`walks`を伴う`moves: "away"`)。`combat.morale`、またはステータスブロックの`morale`や`leader`を使うルールセットにはCapability API 1.762が必要です。Capability API 1.775以降では、`on`に`surprised`と`helpless`も指定できます。前者は不意を突かれた状態でターンを開始すると判定し、後者は相手側に被害を与える方法がない状態で自身のターンを開始すると一度判定します(相手に向けられるメニューの項目が、掴みや突き飛ばしなどの対抗判定しかない場合です)。`"halfDownUnanswered": true`は、相手側がまだ誰も失っていない間だけ`half-down`を数えます。Dungeon Master's Guideの完全な指定は、`{"check": {"save": "wis_save", "difficulty": 10}, "on": ["surprised", "hurt", "helpless", "leader-down", "half-down"], "halfDownUnanswered": true, "surrenders": ["cunning", "tactical", "genius"], "unlessImmune": "frightened"}`です。物語がその側のリーダーとして指定したクリーチャー(遭遇の`aiHints.leader`で、どのベスティアリにも指定されていない山賊の首領など)も、ステータスブロックの`leader`と同じように`leader-down`の対象になります。`surprised`または`helpless`を指定するか、`halfDownUnanswered`を使うルールセットにはCapability API 1.775が必要です。`neverSurrender`は、決して降伏しない`combat.creatureTypes`のクリーチャーの種類を指定します。その種類の者は、思考にかかわらず、戦意を失うと必ず逃走します(5eでは`["undead", "fiend"]`)。これを使うルールセットにはCapability API 1.785が必要です。
 
-戦闘のポーズです(Capability API 1.786)。
-`combat.poses`は、
-何を祈りによって行うか、
-何が持ち主を隠すかを指定します。
-現在は戦闘画面の印に、
-将来はイラストにも使うためのもので、
-ルールがこれを読み取ることはありません。
-`hidden`は、
-持ち主を隠す、
-現在付与されている状態を列挙します。
-そのいずれかを持つか、
-`combat.hiding`で隠れているパーティーメンバーにはHiddenの印が付き、
-画面には忍び歩きをしていると伝えられます(相手側にはこの印を決して付けません)。
-`divine`は、
-祈りによって発動するものです。
-誰が使うかにかかわらず、
-シートの行の`column`に`values`のいずれかが入っている能力(大文字と小文字を区別せずに照合します)、
-または`entries`(`catalog/entry`)のいずれかが該当します。
-Channel Divinity、
-退散、
-Divine Intervention、
-祈りと名付けられたものも、
-祈りによって行います。
-それらを使った戦闘参加者には、
-次の自身のターン開始までPrayingの印が付き、
-ログには「Corwin prays: Bless.」と表示されます。
-5eでは、
-`{ "hidden": ["invisible"], "divine": { "column": "class", "values": ["Cleric", "Paladin"] } }`
-です。
-`hidden`の各状態は、
-ルールセットの状態のいずれかでなければなりません。
-`combat.poses`を持つルールセットには
-1.786が必要です。
+戦闘のポーズです(Capability API 1.786)。`combat.poses`は、何を祈りによって行うか、何が持ち主を隠すかを指定します。現在は戦闘画面の印に、将来はイラストにも使うためのもので、ルールがこれを読み取ることはありません。`hidden`は、持ち主を隠す、現在付与されている状態を列挙します。そのいずれかを持つか、`combat.hiding`で隠れているパーティーメンバーにはHiddenの印が付き、画面には忍び歩きをしていると伝えられます(相手側にはこの印を決して付けません)。`divine`は、祈りによって発動するものです。誰が使うかにかかわらず、シートの行の`column`に`values`のいずれかが入っている能力(大文字と小文字を区別せずに照合します)、または`entries`(`catalog/entry`)のいずれかが該当します。Channel Divinity、退散、Divine Intervention、祈りと名付けられたものも、祈りによって行います。それらを使った戦闘参加者には、次の自身のターン開始までPrayingの印が付き、ログには「Corwin prays: Bless.」と表示されます。5eでは、`{ "hidden": ["invisible"], "divine": { "column": "class", "values": ["Cleric", "Paladin"] } }`です。`hidden`の各状態は、ルールセットの状態のいずれかでなければなりません。`combat.poses`を持つルールセットには1.786が必要です。
 
-5e特有の記述をさらに四つ表す設定です(Capability API 1.787)。
-エントリーの`"fellsKill": true`(`damage`と併用します)は、
-そのダメージで体力が
-0になった者、
-またはすでにその値だった者を即死させ、
-瀕死のままにすることはありません。
-1で持ちこたえた者(Death Ward)は生き残ります。
-Disintegrateがこれにあたります。
-クリーチャーのアクションの`"whileFlying": true`は、
-クリーチャーが空中にいる間だけ提示され(盤面では地面を離れている場合、
-盤面がなければ飛行中の場合、
-または飛行しかできない場合)、
-それを指定するシーケンスのステップも、
-その間だけ実行されます。
-ワイヴァーンの「飛行中は、
-ほかの攻撃一回の代わりに爪を使える」は、
-噛みつきと爪を使う二つ目のMultiattackに`whileFlying`を持たせて表します。
-シーケンスの`"castsOne": true`は、
-行動枠を再び消費せず、
-そのクリーチャーの呪文発動の呪文のうち任意の一つを、
-このターンに続けて発動できるようにします(使用回数とスロットは通常どおり消費し、
-一つを発動するとほかは選べなくなります)。
-グラブレズゥの「鋏で二回攻撃し、
-呪文を一つ発動する」は、
-鋏で二回攻撃する二つ目のMultiattackにこれを持たせて表します。
-救済の`against`は、
-`saves`の救済を、
-宣言されたフィルターを読み取った値が`where`の指定と一致するエントリー(`{"filter": "school", "equals": "necromancy"}`)
-に対するセーヴ、
-または`fromTypes`(`combat.creatureTypes`のID)のいずれかの種類のクリーチャーが行うあらゆるものに対するセーヴに絞ります。
-どちらか一方を満たせば十分です。
-Scarab of Protectionは、
-`{"where": {"filter": "school", "equals": "necromancy"}, "fromTypes": ["undead"]}`
-です。
-いずれかを使うルールセットには
-1.787が必要です。
+5e特有の記述をさらに四つ表す設定です(Capability API 1.787)。エントリーの`"fellsKill": true`(`damage`と併用します)は、そのダメージで体力が0になった者、またはすでにその値だった者を即死させ、瀕死のままにすることはありません。1で持ちこたえた者(Death Ward)は生き残ります。Disintegrateがこれにあたります。クリーチャーのアクションの`"whileFlying": true`は、クリーチャーが空中にいる間だけ提示され(盤面では地面を離れている場合、盤面がなければ飛行中の場合、または飛行しかできない場合)、それを指定するシーケンスのステップも、その間だけ実行されます。ワイヴァーンの「飛行中は、ほかの攻撃一回の代わりに爪を使える」は、噛みつきと爪を使う二つ目のMultiattackに`whileFlying`を持たせて表します。シーケンスの`"castsOne": true`は、行動枠を再び消費せず、そのクリーチャーの呪文発動の呪文のうち任意の一つを、このターンに続けて発動できるようにします(使用回数とスロットは通常どおり消費し、一つを発動するとほかは選べなくなります)。グラブレズゥの「鋏で二回攻撃し、呪文を一つ発動する」は、鋏で二回攻撃する二つ目のMultiattackにこれを持たせて表します。救済の`against`は、`saves`の救済を、宣言されたフィルターを読み取った値が`where`の指定と一致するエントリー(`{"filter": "school", "equals": "necromancy"}`)に対するセーヴ、または`fromTypes`(`combat.creatureTypes`のID)のいずれかの種類のクリーチャーが行うあらゆるものに対するセーヴに絞ります。どちらか一方を満たせば十分です。Scarab of Protectionは、`{"where": {"filter": "school", "equals": "necromancy"}, "fromTypes": ["undead"]}`です。いずれかを使うルールセットには1.787が必要です。
 
-ビルダーのバッジ、
-付与するエントリー、
-戦闘外の回復、
-アイテムの別名です(Capability API 1.788)。
-`fields`のビルダーのステップの`unansweredAtDefault`は、
-`default`のままであればバッジがまだ回答を待つフィールドを列挙します。
-「まだ選択していない」をデフォルトが表す列挙型で、
-5eの竜の祖先(`draconic_damage_type`、
-デフォルトは`"none"`)がこれにあたります。
-付与の`entries.add`は、
-行を持つ別のカタログのエントリーを直接与えます。
-`[{"catalog": "languages", "ids": ["common", "elvish"]}]`のように指定し、
-その行は選択で得た行と同じように書き込まれ、
-この方法で与えたエントリーを`entries.choose`が再び提示することはありません。
-エルフの共通語とエルフ語や、
-エルフの場合はエルフ語を除いて選ぶAcolyteの二つの言語がこれにあたります。
-カタログは、
-ビルダーのステップが読み取るものでなければなりません。
-回復の`"outsideFight": true`(`"targets": "self"`と`amount`を併用します)は、
-Game Masterがその回復を`[sheet: op="use"]`で使ったとき、
-使用による消費に加え、
-シート上の使用者も回復するようにします。
-`amountAdd`を加えてダイスを振ります。
-戦闘外でのSecond Windがこれにあたります。
-アイテムのエントリーの`aliases`は、
-そのアイテムを検索できる別名で、
-名前からアイテムを探すあらゆる場所(店の購入タグ、
-Game Masterのインベントリーのタグ)で、
-全アイテムの本来の名前を調べた後に使われます。
-Plate Armorなら`["Plate"]`です。
-いずれかを使うルールセットには
-1.788が必要です。
+ビルダーのバッジ、付与するエントリー、戦闘外の回復、アイテムの別名です(Capability API 1.788)。`fields`のビルダーのステップの`unansweredAtDefault`は、`default`のままであればバッジがまだ回答を待つフィールドを列挙します。「まだ選択していない」をデフォルトが表す列挙型で、5eの竜の祖先(`draconic_damage_type`、デフォルトは`"none"`)がこれにあたります。付与の`entries.add`は、行を持つ別のカタログのエントリーを直接与えます。`[{"catalog": "languages", "ids": ["common", "elvish"]}]`のように指定し、その行は選択で得た行と同じように書き込まれ、この方法で与えたエントリーを`entries.choose`が再び提示することはありません。エルフの共通語とエルフ語や、エルフの場合はエルフ語を除いて選ぶAcolyteの二つの言語がこれにあたります。カタログは、ビルダーのステップが読み取るものでなければなりません。回復の`"outsideFight": true`(`"targets": "self"`と`amount`を併用します)は、Game Masterがその回復を`[sheet: op="use"]`で使ったとき、使用による消費に加え、シート上の使用者も回復するようにします。`amountAdd`を加えてダイスを振ります。戦闘外でのSecond Windがこれにあたります。アイテムのエントリーの`aliases`は、そのアイテムを検索できる別名で、名前からアイテムを探すあらゆる場所(店の購入タグ、Game Masterのインベントリーのタグ)で、全アイテムの本来の名前を調べた後に使われます。Plate Armorなら`["Plate"]`です。いずれかを使うルールセットには1.788が必要です。
 
-特性の`recovers`は、
-`atRest`に休息を指定できます(Capability API 1.789)。
-その休息が終わる際、
-ゲーム内のシートがその特性の使用を提示します。
-そのグループの消費済みプールが列挙され、
-`upTo`以内に収まる最も高いものがあらかじめ選ばれています。
-休息とともにその使用が行われ、
-特性自身のカウンターを消費します。
-5eのArcane RecoveryとNatural Recoveryは、
-`"recovers": { "group": "slots", "upTo": { "derived": "arcane_recovery_levels" }, "most": 5, "atRest": "short" }`
-です。
-休息はルールセットが持つものの一つでなければならず、
-アイテムの使用にこの指定は持たせられません。
-これを使うルールセットには
-1.789が必要です。
+特性の`recovers`は、`atRest`に休息を指定できます(Capability API 1.789)。その休息が終わる際、ゲーム内のシートがその特性の使用を提示します。そのグループの消費済みプールが列挙され、`upTo`以内に収まる最も高いものがあらかじめ選ばれています。休息とともにその使用が行われ、特性自身のカウンターを消費します。5eのArcane RecoveryとNatural Recoveryは、`"recovers": { "group": "slots", "upTo": { "derived": "arcane_recovery_levels" }, "most": 5, "atRest": "short" }`です。休息はルールセットが持つものの一つでなければならず、アイテムの使用にこの指定は持たせられません。これを使うルールセットには1.789が必要です。
 
-エントリーは、
-`material`で価格のある物質を必要とするようにできます(Capability API 1.790)。
-形式は`{ "label", "worth": { "amount", "unit" }, "items"?, "tags"?, "consumed"? }`で
-す。
-使用者は、
-`items`(`"<catalog>/<entry>"`)のいずれか、
-または`tags`のいずれかを持つアイテムを、
-それぞれ自身の`cost`による価値の合計が`worth`になるだけ携帯していなければなりません。
-焦点具や構成要素ポーチを含め、
-ほかのものでは代用できず、
-偽物が数えられることもありません。
-シートから発動する場合、
-戦闘中は十分な量を携帯している間だけ提示され、
-戦闘外でGame Masterが`use`すると、
-なければ`no-material: <label>`として拒否されます。
-`"consumed": true`なら、
-発動時に物質を消費します。
-単独で足りるもののうち最も安いアイテムを一つ、
-なければ最も高いものから、
-十分な量を取るまでインベントリーから取り除きます。
-5eのIdentifyは`"material": { "label": "a pearl worth at least 100 gp", "worth": { "amount": 100, "unit": "gp" }, "tags": ["pearl"] }`
-です。
-Revivifyは、
-価値が
-300 gpのダイヤモンドに`"consumed": true`を追加します。
-単位はルールセットの通貨の一つでなければならず、
-アイテムの使用にこの指定は持たせられず、
-コストなしでそのエントリーを発動するアイテム、
-クリーチャー、
-ほかのエントリーはこの物質を必要としません。
-これを使うルールセットには
-1.790が必要です。
+エントリーは、`material`で価格のある物質を必要とするようにできます(Capability API 1.790)。形式は`{ "label", "worth": { "amount", "unit" }, "items"?, "tags"?, "consumed"? }`です。使用者は、`items`(`"<catalog>/<entry>"`)のいずれか、または`tags`のいずれかを持つアイテムを、それぞれ自身の`cost`による価値の合計が`worth`になるだけ携帯していなければなりません。焦点具や構成要素ポーチを含め、ほかのものでは代用できず、偽物が数えられることもありません。シートから発動する場合、戦闘中は十分な量を携帯している間だけ提示され、戦闘外でGame Masterが`use`すると、なければ`no-material: <label>`として拒否されます。`"consumed": true`なら、発動時に物質を消費します。単独で足りるもののうち最も安いアイテムを一つ、なければ最も高いものから、十分な量を取るまでインベントリーから取り除きます。5eのIdentifyは`"material": { "label": "a pearl worth at least 100 gp", "worth": { "amount": 100, "unit": "gp" }, "tags": ["pearl"] }`です。Revivifyは、価値が300 gpのダイヤモンドに`"consumed": true`を追加します。単位はルールセットの通貨の一つでなければならず、アイテムの使用にこの指定は持たせられず、コストなしでそのエントリーを発動するアイテム、クリーチャー、ほかのエントリーはこの物質を必要としません。これを使うルールセットには1.790が必要です。
 
-クリーチャーの戦い方です(Capability API 1.763)。
-`behavior`は、
-`mind`とは別に、
-Engineが操作するクリーチャーの戦い方を指定します。
-通常割り当てられるものを置き換える`temperament`(`reckless`、
-`cautious`、
-`opportunistic`、
-`protective`、
-`supportive`、
-`disciplined`、
-`cowardly`、
-`patient`、
-`methodical`、
-`coordinated`、
-`fanatical`(1.778)、
-`arrogant`(1.780)、
-`territorial`(1.781)、
-`cruel`(1.782)、
-`honourable`(1.783)、
-`hungry`(1.784)のいずれか)と`role`(`bruiser`、
-`bulwark`、
-`skirmisher`、
-`marksman`、
-`spellcaster`、
-`supporter`、
-`controller`のいずれか)、
-誰を優先して狙うかを指定する`targets`で、
-`nearest`、
-`weakest`、
-`wounded`(体力が半分未満)、
-`strongest`(最も危険)、
-`casters`(呪文または保持中の呪文を持つ者)、
-`healers`、
-`attacker`(最後に自身に被害を与えた者)、
-`concentrating`、
-`leader`(ステータスブロックの`"leader": true`)から優先順に最大四つ、
-`opens`で、
-自身のアクションのIDまたはカタログのエントリー(`fireball`または`spells/fireball`)を最大四つ指定し、
-最初の数ターンに、
-その中で使用でき、
-何らかの価値がある最初のものを一度使うこと、
-`pack: true`で、
-味方が隣に立っている者を狙うこと、
-`ambush: true`で、
-隠れられる場所に隠れ、
-先に歩けばこのターン中に打撃を加えられる位置に相手が立つか、
-自身が被害を受けるまで動かずに待ち、
-その後は二度と待たないことを指定できます。
-`behavior`は、
-`combat`(すべてのクリーチャー)、
-`combat.creatureTypes.types`のクリーチャーの種類、
-クリーチャー自身のステータスブロックに置け、
-各キーは前のものを上書きします。
-Game Masterがその戦闘用に指定する性格は、
-自身の性格に優先し、
-思考を持たないクリーチャーにはこれらはいずれも適用されません。
-5eでは、
-狼は`{"targets": ["wounded"], "pack": true}`、
-ゴブリンは`{"temperament": "cowardly", "targets": ["weakest"]}`、
-若いドラゴンは`{"opens": ["fire_breath"]}`、
-グールは`{"ambush": true}`、
-メイジは`{"role": "controller", "targets": ["casters"]}`です。
-このような`behavior`を使うルールセットにはCapability API 1.763が必要です。
+クリーチャーの戦い方です(Capability API 1.763)。`behavior`は、`mind`とは別に、Engineが操作するクリーチャーの戦い方を指定します。通常割り当てられるものを置き換える`temperament`(`reckless`、`cautious`、`opportunistic`、`protective`、`supportive`、`disciplined`、`cowardly`、`patient`、`methodical`、`coordinated`、`fanatical`(1.778)、`arrogant`(1.780)、`territorial`(1.781)、`cruel`(1.782)、`honourable`(1.783)、`hungry`(1.784)のいずれか)と`role`(`bruiser`、`bulwark`、`skirmisher`、`marksman`、`spellcaster`、`supporter`、`controller`のいずれか)、誰を優先して狙うかを指定する`targets`で、`nearest`、`weakest`、`wounded`(体力が半分未満)、`strongest`(最も危険)、`casters`(呪文または保持中の呪文を持つ者)、`healers`、`attacker`(最後に自身に被害を与えた者)、`concentrating`、`leader`(ステータスブロックの`"leader": true`)から優先順に最大四つ、`opens`で、自身のアクションのIDまたはカタログのエントリー(`fireball`または`spells/fireball`)を最大四つ指定し、最初の数ターンに、その中で使用でき、何らかの価値がある最初のものを一度使うこと、`pack: true`で、味方が隣に立っている者を狙うこと、`ambush: true`で、隠れられる場所に隠れ、先に歩けばこのターン中に打撃を加えられる位置に相手が立つか、自身が被害を受けるまで動かずに待ち、その後は二度と待たないことを指定できます。`behavior`は、`combat`(すべてのクリーチャー)、`combat.creatureTypes.types`のクリーチャーの種類、クリーチャー自身のステータスブロックに置け、各キーは前のものを上書きします。Game Masterがその戦闘用に指定する性格は、自身の性格に優先し、思考を持たないクリーチャーにはこれらはいずれも適用されません。5eでは、狼は`{"targets": ["wounded"], "pack": true}`、ゴブリンは`{"temperament": "cowardly", "targets": ["weakest"]}`、若いドラゴンは`{"opens": ["fire_breath"]}`、グールは`{"ambush": true}`、メイジは`{"role": "controller", "targets": ["casters"]}`です。このような`behavior`を使うルールセットにはCapability API 1.763が必要です。
 
-各役割の行動です(戦闘AI A1)。
-`bruiser`はただ戦います。
-`bulwark`は味方を守ります。
-相手を味方に近づけない行動を最も重視し、
-相手に狙われている味方の隣で歩行を終えます。
-`skirmisher`は、
-とどめの打撃と自分の側の攻撃への加勢をより重視し、
-すでに標的を攻撃している味方と標的を挟んだ向かい側から打撃を加えること(挟撃)を好みます。
-近くで打撃を加えた後、
-`skirmisher`(または`cautious`や`cowardly`のクリーチャー)は、
-残りの歩行で再び離れます。
-まだ行える離脱(ゴブリンのNimble Escape)があればそれを使い、
-なければ打撃を誘発せずに到達できるマスだけに移動します。
-`marksman`は、
-立っている場所の危険をより気にかけます。
-`spellcaster`は、
-重要な場面のために最善の手を残し、
-準備を整えることをより重視します。
-`controller`は、
-相手を動けなくすることを最も重視します。
-`supporter`は支援をより重視し、
-傷ついた者の近くに留まります。
-`solo`(Capability API 1.776)は、
-相手側全員と単独で戦います。
-持つものを惜しまず使い、
-打撃を受けることを気にしません。
-データで`role`を指定していないクリーチャーは、
-できることから役割を割り当てられます。
-ターンの間に独自の行動を行える(`signaturePoints`)か、
-伝説的抵抗を持つ者は`solo`、
-ほかの者を回復する者は`supporter`、
-術者は`controller`または`spellcaster`、
-最も強い打撃が射撃なら`marksman`、
-味方のためのリアクション(シールド・ガーディアンのShield)か、
-打撃を受け流すもの(命中された際のリアクションで、
-誰にも被害を与えず、
-自身の`defense`を高める状態以外は何も付与しないもの。
-5eのParryなど)を持つ者は`bulwark`、
-無償の離脱か隠れ身(Nimble Escape)、
-`flyby`を持つ付けたままの状態、
-または味方より打撃が強くない一方で味方よりはるかに速い足を持つ者は`skirmisher`、
-それ以外は`bruiser`です。
-その役割を考慮して性格も割り当てられます。
-役割に`solo`を指定するルールセットにはCapability API 1.776が必要です。
+各役割の行動です(戦闘AI A1)。`bruiser`は戦います。`bulwark`は味方を守ります。相手を味方に近づけない行動を最も重視し、相手に狙われている味方の隣で歩行を終えます。`skirmisher`は、とどめの打撃と自分の側の攻撃への加勢をより重視し、すでに標的を攻撃している味方と標的を挟んだ向かい側から打撃を加えること(挟撃)を好みます。近くで打撃を加えた後、`skirmisher`(または`cautious`や`cowardly`のクリーチャー)は、残りの歩行で再び離れます。まだ行える離脱(ゴブリンのNimble Escape)があればそれを使い、なければ打撃を誘発せずに到達できるマスだけに移動します。`marksman`は、立っている場所の危険をより気にかけます。`spellcaster`は、重要な場面のために最善の手を残し、準備を整えることをより重視します。`controller`は、相手を動けなくすることを最も重視します。`supporter`は支援をより重視し、傷ついた者の近くに留まります。`solo`(Capability API 1.776)は、相手側全員と単独で戦います。持つものを惜しまず使い、打撃を受けることを気にしません。データで`role`を指定していないクリーチャーは、できることから役割を割り当てられます。ターンの間に独自の行動を行える(`signaturePoints`)か、伝説的抵抗を持つ者は`solo`、ほかの者を回復する者は`supporter`、術者は`controller`または`spellcaster`、最も強い打撃が射撃なら`marksman`、味方のためのリアクション(シールド・ガーディアンのShield)か、打撃を受け流すもの(命中された際のリアクションで、誰にも被害を与えず、自身の`defense`を高める状態以外は何も付与しないもの。5eのParryなど)を持つ者は`bulwark`、無償の離脱か隠れ身(Nimble Escape)、`flyby`を持つ付けたままの状態、または味方より打撃が強くない一方で味方よりはるかに速い足を持つ者は`skirmisher`、それ以外は`bruiser`です。その役割を考慮して性格も割り当てられます。役割に`solo`を指定するルールセットにはCapability API 1.776が必要です。
 
-護衛です(Capability API 1.777)。
-`behavior`は、
-`guards`に、
-`leader`(ステータスブロックの`"leader": true`、
-または物語がその側のリーダーとして指定した者)、
-`casters`(呪文を持つ者)、
-`healers`(ほかの者を回復する者)から一つから三つを指定できます。
-クリーチャーは、
-指定した種類の、
-まだ立っている最も近い味方から三マス以内に留まり、
-その味方を狙っている者を優先して攻撃します。
-保護を指示された仲間と同じです。
-指定した種類の者が誰も残っていなければ、
-通常どおり戦います。
-継続的な命令なので、
-思考を持たないクリーチャー(シールド・ガーディアン、
-ゾンビ)も従い、
-可能なら護衛対象を狙っている者に打撃を加えます。
-5eでは、
-貴族の護衛は`{"guards": ["leader"]}`、
-狂信的なカルト信者の従者は`{"guards": ["casters"]}`です。
-`guards`を使うルールセットにはCapability API 1.777が必要です。
+護衛です(Capability API 1.777)。`behavior`は、`guards`に、`leader`(ステータスブロックの`"leader": true`、または物語がその側のリーダーとして指定した者)、`casters`(呪文を持つ者)、`healers`(ほかの者を回復する者)から一つから三つを指定できます。クリーチャーは、指定した種類の、まだ立っている最も近い味方から三マス以内に留まり、その味方を狙っている者を優先して攻撃します。保護を指示された仲間と同じです。指定した種類の者が誰も残っていなければ、通常どおり戦います。継続的な命令なので、思考を持たないクリーチャー(シールド・ガーディアン、ゾンビ)も従い、可能なら護衛対象を狙っている者に打撃を加えます。5eでは、貴族の護衛は`{"guards": ["leader"]}`、狂信的なカルト信者の従者は`{"guards": ["casters"]}`です。`guards`を使うルールセットにはCapability API 1.777が必要です。
 
-リーダーです(戦闘AI A6、
-Capabilityのマイナーバージョン指定なし)。
-自分の側を率いるクリーチャー(ステータスブロックの`"leader": true`、
-または物語が指定した者)は、
-最初の二ラウンドに、
-自分の側の複数の者を同時に助けるものを優先して使います(複数の標的または範囲を持つ味方向けの選択肢で、
-鬨の声やBlessなどです。
-または、
-自分の側に届く`auras`を持つ状態を自身に付与するもの、
-たとえば
-5eのLeadershipです)。
-その側は、
-リーダーが最後に狙った者を優先して狙います。
-また、
-`combat.morale`を持つルールセットでは、
-リーダーから六マス以内で戦闘から逃走中の同じ側の者はそれぞれ、
-リーダーのターン開始時に立ち止まり、
-次の自身のターンに再び気を強く持てるかを判定します。
+リーダーです(戦闘AI A6、Capabilityのマイナーバージョン指定なし)。自分の側を率いるクリーチャー(ステータスブロックの`"leader": true`、または物語が指定した者)は、最初の二ラウンドに、自分の側の複数の者を同時に助けるものを優先して使います(複数の標的または範囲を持つ味方向けの選択肢で、鬨の声やBlessなどです。または、自分の側に届く`auras`を持つ状態を自身に付与するもの、たとえば5eのLeadershipです)。その側は、リーダーが最後に狙った者を優先して狙います。また、`combat.morale`を持つルールセットでは、リーダーから六マス以内で戦闘から逃走中の同じ側の者はそれぞれ、リーダーのターン開始時に立ち止まり、次の自身のターンに再び気を強く持てるかを判定します。
 
 狂信者(Capability API 1.778)。`behavior.temperament`が`fanatical`になることは偶然にはなく、クリーチャーのデータか物語で指定された場合だけです。どのような危険にさらされていても全力で攻撃し、自陣営のために踏みとどまり、`combat.morale`を判定することはなく、ClassicとTacticalの戦闘では士気の評価値を持ちません。`disciplined`のクリーチャー(マイナーバージョンの指定なし)は隊形を保ち、自陣営と同じ方向への移動を考慮し、リーダーが選んだ標的を攻撃し、自陣営で最初の者が倒れても(`first-fall`)動揺しません。5e: カルトの狂信者とその信者は`{"temperament": "fanatical"}`です。`fanatical`を指定するルールセットにはCapability API 1.778が必要です。
 

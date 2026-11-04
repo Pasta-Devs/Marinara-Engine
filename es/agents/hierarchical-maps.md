@@ -1,8 +1,10 @@
 # World Maps: configuración, creación y viajes
 
-> **Compatibilidad actual:** esta guía corresponde a World Maps **1.3.1**. El paquete admite Marinara Engine **2.3.5 a 3.x** y funciona en chats de Roleplay y Game. Marinara Engine **2.4.1** añade la limpieza coordinada del flujo de movimiento y la actualización inmediata de Lorebooks tras las importaciones portátiles. Engine **2.3.5 a 2.4.0** sigue siendo compatible, pero requiere actualizar Lorebooks manualmente después de importar y no incluye esa limpieza del flujo.
+> **Compatibilidad actual:** esta guía corresponde a World Maps **1.3.1**, que admite Marinara Engine **2.3.5 a 3.x** en chats de Roleplay y Game. Engine **2.4.1** añade la limpieza del movimiento en el streaming y la actualización inmediata de Lorebooks tras las importaciones portátiles. Engine 2.3.5 a 2.4.0 sigue funcionando, pero requiere actualizar Lorebooks manualmente después de importar.
 
-World Maps agrega un estado del mundo persistente a Roleplay y Game. En lugar de guardar una sola ubicación de texto libre, representa el mundo como lugares anidados:
+World Maps le da a tu historia un mapa de lugares que pueden estar unos dentro de otros, como una costa, un pueblo, un distrito y una posada. Marinara siempre sabe dónde está el grupo, y la IA usa eso para mantener la coherencia. Para probarlo: instala **World Maps** en **Agent Organizer** (Organizador de agentes), reinicia y sigue el [Inicio rápido](#quick-start).
+
+En lugar de una sola ubicación de texto libre, el mundo es un conjunto de lugares anidados:
 
 ```text
 The Shattered Coast
@@ -19,30 +21,18 @@ Los mapas pueden ser independientes en cada chat o estar vinculados a un único 
 
 ## Descripción general de funciones
 
-World Maps 1.3.1 ofrece:
+World Maps 1.3.1 te ofrece:
 
-- regiones, asentamientos, lugares, edificios, pisos y habitaciones anidados;
-- rutas de navegación y una ubicación actual de la historia con autoridad;
-- vistas de lista, mapa posicionado y capas ordenadas para las ubicaciones hijas;
-- viajes entre padre e hijo, enlaces directos y planificación de rutas de varios turnos;
-- movimiento y descubrimiento validados que establece el último mensaje del usuario;
-- mundos compartidos de tu cuenta que se pueden vincular entre chats de Roleplay y de Game;
-- borradores por chat revisables, con controles para publicar, descartar, resolver conflictos y separar;
-- plantillas de mapa para toda la cuenta creadas a mano, con IA o por importación;
-- borradores y ampliaciones de mapa asistidos por IA, basados en la configuración o en el trasfondo que elijas;
-- descripciones públicas de las ubicaciones, memoria privada del modelo y trasfondo de la ubicación exacta;
-- exportaciones portátiles con entradas vinculadas opcionales o lorebooks completos;
-- importación revisable de trasfondo con coincidencia exacta, elecciones explícitas para los casos ambiguos y copias separadas sin conflictos de nombre;
-- una imagen de referencia opcional del chat o de la Global Gallery para cada ubicación;
-- un fondo aparte del chat o de la Global Gallery para cada mapa de hijos posicionado;
-- generación por lotes revisable para las ilustraciones de ubicación que falten;
-- una anulación global del prompt (las instrucciones enviadas a la IA) de ilustraciones de Maps, basada en variables;
-- soporte de referencia de ubicación para las ilustraciones de Roleplay y los Storyboards (secuencias de viñetas) de Game;
-- una reparación de formato controlada para el JSON de mapa mal formado de la IA, con indicaciones aparte para la salida truncada por tokens;
-- importación, exportación, archivado, edición que respeta el historial y vínculos con el mapa de Game; y
-- bibliotecas globales de prompts para la construcción de mapas con IA y para el inserto de ubicación en tiempo de ejecución.
+- regiones, asentamientos, lugares, edificios, pisos y habitaciones anidados, con rutas de navegación y una ubicación actual de la historia con autoridad;
+- vistas de lista, mapa posicionado y capas ordenadas, viajes entre padre e hijo, enlaces directos y rutas de varios turnos;
+- movimiento y descubrimiento validados que establece tu último mensaje;
+- plantillas para toda la cuenta y mundos compartidos que puedes vincular entre chats de Roleplay y de Game, con borradores por chat revisables;
+- borradores y ampliaciones de mapa asistidos por IA, descripciones públicas, memoria privada del modelo y trasfondo de la ubicación exacta;
+- importación y exportación portátiles con trasfondo vinculado e ilustraciones opcionales;
+- imágenes de referencia y fondos para las ubicaciones, con generación por lotes revisable de las ilustraciones que falten; y
+- bibliotecas globales de prompts (las instrucciones enviadas a la IA) para la construcción de mapas con IA y para el inserto de ubicación en tiempo de ejecución.
 
-Los destinos disponibles se incluyen en el contexto del modelo. Por eso, cuando las opciones CYOA (elige tu propia aventura) están activadas, el modelo puede ofrecer los hijos actuales o los lugares conectados como siguientes opciones. Las opciones exactas las sigue generando el modelo.
+Los destinos disponibles están en el contexto del modelo. Con las opciones CYOA (elige tu propia aventura) activadas, el modelo puede ofrecer los hijos actuales o los lugares conectados como siguientes opciones. Las opciones exactas las sigue generando el modelo.
 
 ## Elige la relación de mapa adecuada
 
@@ -58,34 +48,34 @@ La biblioteca contiene dos recursos reutilizables que pertenecen a tu cuenta, mi
 
 Copiar no es vincular. **Use template**, **Add to chat** e **Independent copy** crean mapas separados. **Use shared world** durante la configuración de Game y **Link to chat** en la biblioteca conectan el chat al mundo compartido canónico.
 
+<a id="quick-start"></a>
+
 ## Inicio rápido
 
-1. Abre **Agents** (Agentes), haz clic en **Agent Organizer (Organizador de agentes)** e instala **World Maps**.
-2. Reinicia Marinara cuando se te pida. El paquete contiene código de servidor.
-3. Abre un chat de Roleplay o de Game.
-4. Abre el globo terráqueo dedicado de **World Maps** si tu Engine lo ofrece, o usa **Agents → World Maps**, y actívalo para el chat actual. También puedes activarlo desde la sección **Chat Settings → Agents** (Ajustes del chat → Agentes) de ese chat.
-5. Crea el mapa con **Use template**, **Create with AI** o **Build manually**. Los chats existentes también pueden importar un archivo de mapa.
-6. Revisa la jerarquía de trabajo, elige una ubicación inicial, activa el mapa y haz clic en **Save**.
-7. Abre el **Story map** mientras chateas. Selecciona un destino alcanzable y envía el siguiente turno, o establece directamente el movimiento del grupo en tu mensaje para que Maps pueda validar y aplicar la llegada.
-8. Si quieres, asigna ilustraciones de la Gallery a las ubicaciones o usa **Location artwork** para revisar y generar las imágenes que falten.
+1. Abre **Agents** (Agentes), haz clic en **Agent Organizer** e instala **World Maps**. Reinicia Marinara cuando se te pida, porque el paquete tiene código de servidor.
+2. Abre un chat de Roleplay o de Game.
+3. Abre **Agents → World Maps** (o el globo terráqueo de World Maps si tu Engine tiene uno) y actívalo para el chat. También puedes activarlo en **Chat Settings → Agents** (Ajustes del chat → Agentes).
+4. Crea el mapa con **Use template**, **Create with AI** o **Build manually**. Los chats existentes también pueden importar un archivo de mapa.
+5. Revisa la jerarquía de trabajo, elige una ubicación inicial, activa **Enabled** y haz clic en **Save**.
+6. Abre el **Story map** mientras chateas. Selecciona un destino alcanzable y envía tu siguiente turno, o indica el movimiento del grupo en tu mensaje para que Maps pueda validar y aplicar la llegada.
+7. Opcional: asigna ilustraciones de la Gallery a las ubicaciones, o usa **Location artwork** para revisar y generar las imágenes que falten.
 
 Aplicar una plantilla, un borrador de IA o un archivo importado solo cambia la copia de trabajo del editor. No afecta a las respuestas hasta que la jerarquía se active y se guarde.
 
+Si no funcionó, consulta [World Maps no aparece en Chat Settings](#world-maps-is-missing-from-chat-settings).
+
 ## Instalar y activar el paquete
 
-Abre **Agents** desde la pestaña Sparkles de la barra lateral derecha. Haz clic en **Agent Organizer (Organizador de agentes)**, selecciona **World Maps** y haz clic en **Install**. Si a continuación el catálogo ofrece **Update**, instálalo también. Sigue el aviso de reinicio antes de usar el paquete.
-
-La página de World Maps informa de la versión del paquete instalado y de si está listo, ofrece la biblioteca de mapas de mundo de toda la cuenta, nombra el chat de destino actual y muestra el estado del mapa de ese chat. Instalar el paquete lo deja disponible, pero no lo activa en todos los chats.
+La página de World Maps muestra la versión instalada y su estado de preparación, la biblioteca de mapas de mundo de toda la cuenta, el chat al que apunta y el estado del mapa de ese chat. Instalar el paquete lo deja disponible. No lo activa en todos los chats.
 
 ### Roleplay
 
-1. Abre el chat de Roleplay.
-2. Abre **Chat Settings**.
-3. Activa **Enable Agents**.
-4. En **Tracker Agents**, activa **World Maps**.
-5. Abre **Edit world map** o la **World map library**. En las versiones compatibles de Engine, el globo terráqueo de la barra superior en computadora abre esa misma biblioteca; en el teléfono, usa el globo terráqueo del panel lateral Chats.
+1. Abre el chat de Roleplay y haz clic en **Chat Settings**.
+2. Activa **Enable Agents**.
+3. En **Tracker Agents**, activa **World Maps**.
+4. Abre **Edit world map** o la **World map library**. En las versiones compatibles de Engine, el globo terráqueo de la barra superior en computadora abre esa misma biblioteca. En el teléfono, usa el globo terráqueo del panel lateral Chats.
 
-La biblioteca se comporta igual tanto si la abres desde la página principal de **Agents** como desde **Chat Settings** en Roleplay. Usa **Add to chat** para una copia independiente de la plantilla, o **Link to chat** para un mundo compartido duradero.
+La biblioteca se comporta igual dondequiera que la abras. Usa **Add to chat** para una copia independiente de la plantilla, o **Link to chat** para un mundo compartido duradero.
 
 ### Game
 
@@ -107,26 +97,17 @@ También puedes agregar World Maps a una partida de Game existente más adelante
 
 ## Crear y reutilizar plantillas de mapa
 
-Abre **World Maps → Open world library**. Las plantillas pertenecen a tu cuenta y no a un solo chat, así que sirven para mundos de fandom reutilizables, ambientaciones de campaña, mazmorras, ciudades o mapas de inicio personales.
+Abre **World Maps → Open world library**. Las plantillas pertenecen a tu cuenta, no a un solo chat, así que sirven para mundos de fandom reutilizables, ambientaciones de campaña, mazmorras y ciudades.
 
-Desde la biblioteca puedes:
+Desde la biblioteca puedes crear una plantilla a mano o con **Create with AI**, importar un archivo `.hierarchical-map.json`, buscar, ver, editar, exportar o eliminar una plantilla, usar **Add to chat** con un chat de Roleplay o de Game abierto, o elegir **Use template** durante la configuración de Game.
 
-- crear una plantilla a mano;
-- usar **Create with AI** para redactarla;
-- importar un archivo `.hierarchical-map.json`;
-- buscar, ver, editar, exportar o eliminar una plantilla;
-- usar **Add to chat** con un chat de Roleplay o de Game abierto; o
-- elegir **Use template** durante la configuración de Game.
+Cada uso crea una copia de trabajo independiente. Las ediciones posteriores de la plantilla no cambian los chats que ya la copiaron, y las ediciones del chat no cambian la plantilla.
 
-Cada aplicación crea una copia de trabajo independiente. Las ediciones posteriores de la plantilla no cambian los chats que ya la copiaron, y las ediciones del chat no cambian la plantilla.
-
-Las plantillas conservan las referencias a ilustraciones de la Global Gallery de toda la cuenta. Cuando usas **Save as template** desde un chat, Maps promociona a la Global Gallery las ilustraciones del chat referenciadas y reutiliza una imagen compartida idéntica cuando ya existe. Cada chat que aplique la plantilla apunta entonces a esa misma ilustración compartida, sin crear otra copia en la Gallery.
-
-Solo se comparten las ilustraciones. Cada definición de mapa aplicada sigue siendo una copia de trabajo independiente: editar la plantilla no actualiza los mapas que ya se agregaron a los chats.
+Las plantillas conservan las referencias a ilustraciones de la Global Gallery de toda la cuenta. Cuando usas **Save as template** desde un chat, Maps promociona a la Global Gallery las ilustraciones del chat referenciadas y reutiliza una imagen compartida idéntica cuando existe. Solo se comparten las ilustraciones. Cada mapa aplicado sigue siendo una copia independiente.
 
 ## Vincular varios chats a un mismo mundo compartido
 
-Usa **Shared worlds** en la World map library cuando varios chats de Roleplay o de Game deban leer la misma jerarquía canónica. Crea un mundo compartido en blanco, importa uno, promociona una plantilla existente con **Make shared**, o abre un mapa de chat guardado y elige **Make shared**. Esta última opción promociona a la Global Gallery sus ilustraciones de chat referenciadas, crea el mundo que pertenece a tu cuenta y vuelve a vincular con él el chat original.
+Usa **Shared worlds** en la World map library cuando varios chats de Roleplay o de Game deban leer la misma jerarquía. Crea un mundo compartido en blanco, importa uno, promociona una plantilla con **Make shared**, o abre un mapa de chat guardado y elige **Make shared**. Esta última opción promociona a la Global Gallery sus ilustraciones de chat referenciadas, crea el mundo compartido y vincula con él el chat original.
 
 Elige **Link to chat** para conectar el chat que indica el estado de chat de destino de la biblioteca. La ubicación actual y todos los ID de ubicación que ya use el historial de la campaña deben existir en el mundo compartido. Si no, usa **Independent copy** o migra primero el mapa actual del chat a un mundo compartido nuevo.
 
@@ -298,7 +279,7 @@ El control **Story location** aparece encima del cuadro de mensaje.
 
 Game Mode agrega un **Hierarchical world map**. **You are here** marca la ubicación actual de la historia. Explorar, centrar el mapa e inspeccionar no mueven al grupo. Pon en cola un destino o una ruta y luego envía el siguiente turno de Game.
 
-Cuando el último mensaje del usuario establece la llegada del grupo, la respuesta generada de Game puede emitir el comando oculto que actualiza la ubicación jerárquica. Los detalles de la ubicación actual anclan entonces al GM (director del juego), al grupo, al arte de la escena y a la referencia de Storyboard que corresponda.
+Cuando el último mensaje del usuario establece la llegada del grupo, la respuesta generada de Game puede emitir el comando oculto que actualiza la ubicación jerárquica. Los detalles de la ubicación actual anclan entonces al GM (director del juego), al grupo, al arte de la escena y a la referencia de Storyboard (secuencia de viñetas) que corresponda.
 
 ## El mapa de mundo jerárquico frente al mapa de Game normal
 
@@ -372,7 +353,7 @@ Abre **Settings → Generations → Prompt Overrides** (Configuración → Gener
 | `${locationPath}` | Ruta de navegación completa desde la raíz hasta la ubicación |
 | `${genre}` / `${genreLine}` | Género de Game sin formato o con puntuación; vacío fuera de Game |
 | `${campaignArtStyle}` / `${campaignArtStyleLine}` | Estilo de campaña, solo cuando **Use campaign art style** está activado |
-| `${imageInstructions}` / `${imageInstructionsLine}` | Instrucciones de imagen guardadas en **Chat Settings**, sin formato o con formato |
+| `${imageInstructions}` / `${imageInstructionsLine}` | Instrucciones de imagen guardadas en Chat Settings, sin formato o con formato |
 
 La plantilla integrada usa el prompt de la ubicación exacta más el género, el estilo de campaña y las instrucciones de imagen guardadas, si los hay. A propósito no incluye la descripción del padre ni la ruta completa de forma predeterminada, lo que evita meter a la fuerza un punto de referencia del padre —como una torre— en la imagen de cada hijo o de cada piso.
 
@@ -454,97 +435,83 @@ Archivar conserva las referencias antiguas. Antes de archivar una ubicación:
 - elige otra ubicación inicial activa si hace falta; y
 - elige un reemplazo activo si es la ubicación actual en tiempo de ejecución.
 
-Las ubicaciones archivadas se pueden restaurar desde el panel **Details**. World Maps 1.3.1 también ofrece **Delete permanently** para una ubicación archivada o para una rama archivada por completo cuando se puede quitar sin riesgo. El editor desactiva esa acción cuando la ubicación es la ubicación inicial guardada o la ubicación actual de la historia, aparece en el historial de mensajes, tiene un vínculo con el mapa de Game, participa en un destino o una ruta en cola, o pertenece a un chat que sigue vinculado a un mundo compartido. Los editores de mundos compartidos y de plantillas no ofrecen la eliminación permanente de ubicaciones. Resuelve primero la dependencia que se indica, separa el chat vinculado si corresponde, o deja la ubicación archivada.
+Las ubicaciones archivadas se pueden restaurar desde el panel Details. World Maps 1.3.1 también ofrece **Delete permanently** para una ubicación archivada o para una rama archivada por completo cuando se puede quitar sin riesgo. El editor desactiva esa acción cuando la ubicación es la ubicación inicial guardada o la ubicación actual de la historia, aparece en el historial de mensajes, tiene un vínculo con el mapa de Game, participa en un destino o una ruta en cola, o pertenece a un chat que sigue vinculado a un mundo compartido. Los editores de mundos compartidos y de plantillas no ofrecen la eliminación permanente de ubicaciones. Resuelve primero la dependencia que se indica, separa el chat vinculado si corresponde, o deja la ubicación archivada.
 
 La eliminación permanente quita la ubicación del borrador de trabajo y limpia sus referencias de jerarquía y de enlaces directos cuando haces clic en **Save**. Cerrar sin guardar sigue descartando la eliminación. Las ubicaciones eliminadas ya no aparecen en las exportaciones; las ubicaciones archivadas que siguen protegidas se siguen exportando para que sus ID estables puedan dar soporte al historial y a los datos vinculados. No edites el JSON exportado para saltarte estas protecciones.
 
 ## Solución de problemas
 
+<a id="world-maps-is-missing-from-chat-settings"></a>
+
 ### World Maps no aparece en Chat Settings
 
-Comprueba que el paquete esté instalado y que Marinara se haya reiniciado. El chat activo debe ser de Roleplay o de Game. Activa **Enable Agents** y luego activa **World Maps** en **Tracker Agents**.
+Instala el paquete y reinicia Marinara. El chat debe ser de Roleplay o de Game. Activa **Enable Agents** y luego activa **World Maps** en **Tracker Agents**.
 
 ### Add to chat o Link to chat no aparecen en la biblioteca de mundos
 
-Abre un chat compatible de Roleplay o de Game antes de abrir la biblioteca. La biblioteca nombra el chat de destino y muestra **Add to chat** para las plantillas o **Link to chat** para los mundos compartidos. Durante la configuración de Game, las acciones equivalentes son **Use template** y **Use shared world**.
-
-Si la biblioteca lista mundos compartidos durante la configuración de Game pero no muestra **Use shared world**, puede que el navegador siga ejecutando un cliente del paquete anterior a la actualización. En cualquier editor de mapas abierto, guarda el mapa o descarta su borrador a propósito, y luego cierra el editor. Guarda el trabajo que no tenga relación, recarga Marinara una vez de forma forzada y vuelve a abrir la configuración de Game. Las versiones más recientes de Engine avisan explícitamente cuando una actualización de paquete necesita esa recarga.
+Abre un chat de Roleplay o de Game antes de abrir la biblioteca. La biblioteca nombra el chat de destino y muestra **Add to chat** para las plantillas o **Link to chat** para los mundos compartidos. Durante la configuración de Game, las acciones equivalentes son **Use template** y **Use shared world**. Si falta **Use shared world** aunque la lista muestre mundos compartidos, puede que el navegador siga ejecutando un cliente del paquete más antiguo. Guarda o descarta el editor de mapas abierto, ciérralo, guarda el trabajo sin relación que tengas en otras pestañas, recarga Marinara una vez de forma forzada y vuelve a abrir la configuración de Game.
 
 ### La configuración de Game usó ubicaciones equivocadas o de reserva
 
-Elige **Use template** y luego confirma **Use template** para una copia independiente o **Use shared world** para un vínculo canónico, antes de terminar la configuración de Game. Revisa y guarda el mapa de Game. La plantilla no cambia; una partida de Game vinculada mantiene los cambios sin publicar hasta que elijas **Publish**.
+Elige **Use template** y luego confirma **Use template** para una copia independiente o **Use shared world** para un vínculo, antes de terminar la configuración. Revisa y guarda el mapa de Game.
 
 ### Un chat vinculado todavía muestra una versión anterior del mundo compartido
 
-Los editores limpios de chats vinculados almacenados en la pestaña donde publicas se actualizan automáticamente. Un chat con cambios sin guardar o publicar conserva su borrador y muestra un conflicto. Vuelve a abrir los chats de otras pestañas o ventanas para obtener la nueva revisión canónica.
+Los editores de la pestaña donde publicas se actualizan por sí solos. Un chat con cambios sin guardar o sin publicar conserva su borrador y muestra un conflicto. Vuelve a abrir los chats de otras pestañas o ventanas para cargar la nueva revisión.
 
 ### El mapa no se puede activar
 
-Crea al menos una ubicación activa y marca una ubicación inicial activa. Resuelve todos los problemas que se muestran en la parte de arriba del editor, y luego vuelve a activar y guardar.
+Crea al menos una ubicación activa y marca una ubicación inicial activa. Corrige todos los problemas que se muestran en la parte de arriba del editor, y luego vuelve a activar y guardar.
 
-### La generación de mapas con IA no está disponible
+### La generación de mapas con IA no está disponible o falla
 
-Comprueba que el chat o el **Connection Override** de Maps tengan una conexión de modelo de lenguaje que funcione. Guarda o descarta los cambios del editor antes de volver a abrir el constructor de IA. Para una ampliación, elige un objetivo activo. Para una generación basada en trasfondo, selecciona al menos un lorebook activado y no excluido.
-
-### La generación de mapas con IA informa JSON incompleto o mal formado
-
-Si Maps indica que la respuesta terminó antes de que el JSON estuviera completo, aumenta **Max Output Tokens** en la conexión o elige un tamaño de mapa más pequeño, y luego vuelve a generar. World Maps no gasta otra solicitud intentando reparar una respuesta incompleta.
-
-Si Maps informa de un JSON mal formado, ya hizo un intento de reparación solo de sintaxis. Vuelve a intentar la generación. Si el mismo modelo devuelve repetidamente una salida mal formada, usa otra conexión u otro modelo; cambiar **Max Output Tokens** está pensado para el caso de la salida incompleta.
+- Asegúrate de que el chat o el **Connection Override** de la página de World Maps tengan una conexión de modelo de lenguaje que funcione.
+- Guarda o descarta los cambios del editor antes de volver a abrir el constructor de IA. Para una ampliación, elige un objetivo activo. Para una generación basada en trasfondo, selecciona al menos un lorebook activado y no excluido.
+- Si Maps indica que la respuesta terminó antes de que el JSON estuviera completo, aumenta **Max Output Tokens** en la conexión o elige un tamaño de mapa más pequeño. Maps no repara las respuestas incompletas.
+- Si Maps informa de un JSON mal formado, ya hizo un intento de reparación solo de sintaxis. Vuelve a intentarlo. Si el modelo sigue fallando, usa otra conexión u otro modelo.
 
 ### La ubicación actual no siguió a un mensaje
 
-Para que el movimiento sea automático, el último mensaje del usuario tiene que establecer directamente la llegada del grupo protagonista, y el modelo tiene que producir una directiva oculta de Maps válida. La narración de la IA por sí sola, la intención, la conversación sobre el tema, los viajes fallidos, el movimiento de un NPC solo y los lugares pasajeros no mueven el marcador. Prueba con una frase directa como “Vamos a la Cocina”. Usa **Set destination** para un movimiento determinista en el siguiente turno.
+Para que el movimiento sea automático, tu último mensaje tiene que establecer directamente la llegada del grupo, y el modelo tiene que producir una directiva oculta de Maps válida. La narración de la IA por sí sola, la intención, la conversación sobre el tema, los viajes fallidos, el movimiento de un NPC solo y los lugares temporales no mueven el marcador. Prueba con una frase directa como "Vamos a la Cocina". Usa **Set destination** para un movimiento determinista en el siguiente turno.
 
 ### La ubicación actual cambió al volver a abrir el chat
 
-Comprueba qué rama de mensajes y qué swipe están seleccionados; la ubicación actual sigue la instantánea espacial guardada con ese historial. Si el historial seleccionado es el correcto pero el marcador no lo es, abre el editor de mapas, selecciona la ubicación activa correcta, elige **Set current story location** y haz clic en **Save**.
+Comprueba qué rama de mensajes y qué swipe están seleccionados. La ubicación sigue la instantánea guardada con ese historial. Si el historial es el correcto pero el marcador no, abre el editor, selecciona la ubicación activa correcta, elige **Set current story location** y haz clic en **Save**.
 
 ### Un destino o una ruta dice Needs review
 
-La revisión del mapa o la ubicación actual cambiaron después de poner el movimiento en cola. Abre el mapa de la historia, revisa la ruta actual y vuelve a seleccionar el destino o la ruta. Si el destino que se muestra sigue en cola, cancélalo antes de volver a seleccionarlo.
+La revisión del mapa o la ubicación actual cambiaron después de poner el movimiento en cola. Abre el mapa de la historia, comprueba el camino y vuelve a seleccionar el destino o la ruta. Cancela un destino que siga mostrándose antes de volver a seleccionarlo.
 
 ### Una ruta planificada no avanza
 
-Cada turno del usuario debería confirmar el paso siguiente que se muestra y poner en cola el que viene después. No hay un control de avance aparte. Si un turno completo no hace avanzar la ruta, cancélala y vuelve a planificarla desde la ubicación actual. Si la ubicación guardada ya es incorrecta, usa **Set current story location** y **Save**; esa corrección administrativa borra la ruta obsoleta.
+Cada turno del usuario confirma el paso que se muestra y pone en cola el siguiente. Si un turno no hace avanzar la ruta, cancélala y vuelve a planificarla desde la ubicación actual. Si la ubicación guardada es incorrecta, usa **Set current story location** y **Save**, lo que borra la ruta obsoleta.
 
 ### Este chat debería usar un mapa completamente distinto
 
-Abre el editor de mapas y elige **Replace / start over**. Si hace falta, guarda antes una plantilla o una exportación, y luego crea, importa, copia o vincula el reemplazo. Si el chat está vinculado y debe conservar su jerarquía actual, usa primero **Detach and keep copy**. Quitar World Maps y volver a agregarlo no borra su mapa.
+Abre el editor y elige **Replace / start over**. Si hace falta, guarda antes una plantilla o una exportación. Si el chat está vinculado y debe conservar su jerarquía, usa primero **Detach and keep copy**. Quitar World Maps y volver a agregarlo no borra su mapa.
 
 ### No se puede seleccionar una ubicación lejana
 
-Usa **Plan route** si existe un camino activo de padre, hijo o enlace. Si no, agrega un enlace directo disponible o viaja por lugares alcanzables, un turno cada vez. Los controles de exploración nunca mueven la historia.
+Usa **Plan route** si existe un camino activo de padre, hijo o enlace. Si no, agrega un enlace directo o viaja por lugares alcanzables, un turno cada vez. Explorar nunca mueve la historia.
 
-### El prompt automático de ilustraciones siempre incluye el género de Game
+### Los prompts automáticos de ilustraciones incluyen material no deseado
 
-Abre **Settings → Generations → Prompt Overrides → Maps location artwork** y quita `${genreLine}` de la plantilla. Guarda la anulación y luego vuelve a abrir la revisión de ilustraciones.
-
-### El estilo de campaña aparece cuando debería estar desactivado
-
-Revisa **Chat Settings → Illustrator → Use campaign art style**. Con ese interruptor apagado, `${campaignArtStyle}` y `${campaignArtStyleLine}` se resuelven como vacío. El resumen de la revisión debería indicar el estilo artístico de la campaña como **Off**.
-
-### Un punto de referencia del padre aparece en la imagen de cada hijo
-
-Evita `${parentLocationDescription}` y `${locationPath}` en la plantilla global de ilustraciones salvo que sean necesarios. El prompt de ubicación predeterminado se limita a la ubicación exacta y omite esos campos amplios.
-
-### El prompt de imagen negativo contiene material inesperado
-
-Revisa y edita el campo negativo antes de confirmar. Después revisa el ajuste global compartido de imagen negativa. La plantilla de ilustraciones de Maps construye el prompt positivo; no se copia al campo negativo.
+- El género de Game aparece siempre: abre **Settings → Generations → Prompt Overrides → Maps location artwork**, quita `${genreLine}` y guarda.
+- El estilo de campaña aparece cuando debería estar desactivado: revisa **Chat Settings → Illustrator → Use campaign art style**. Cuando está desactivado, `${campaignArtStyle}` y `${campaignArtStyleLine}` quedan vacíos.
+- Un punto de referencia del padre aparece en la imagen de cada hijo: evita `${parentLocationDescription}` y `${locationPath}` en la plantilla salvo que hagan falta.
+- El prompt negativo tiene texto inesperado: edita el campo negativo antes de confirmar y luego revisa el ajuste global de imagen negativa. La plantilla de Maps solo construye el prompt positivo.
 
 ### Una referencia de ubicación no se usa en las imágenes ni en los Storyboards
 
-Comprueba que la imagen de la Gallery siga existiendo y que **Use for Roleplay illustrations and Game storyboards** esté activado en la ubicación actual exacta. El fondo del mapa de hijos es solo visual y no puede sustituir a una referencia, a menos que esa misma imagen de la Gallery se asigne también como referencia de ubicación.
+Comprueba que la imagen de la Gallery siga existiendo y que **Use for Roleplay illustrations and Game storyboards** esté activado para la ubicación actual exacta. Un fondo de mapa de hijos es solo visual y no puede sustituir a una referencia, a menos que esa misma imagen se asigne también como referencia de ubicación.
 
 ### El modelo ignora el mapa
 
-Comprueba que World Maps esté activo para el chat, que la jerarquía esté **Enabled**, que los últimos cambios se hayan guardado y que aparezca una ubicación actual en el control Story location. Usa la vista previa resuelta de **Turn prompt insert** para un diagnóstico avanzado.
+Comprueba que World Maps esté activo para el chat, que la jerarquía esté **Enabled**, que tus cambios estén guardados y que aparezca una ubicación actual en el control Story location. La vista previa resuelta de **Turn prompt insert** ayuda con el diagnóstico.
 
 ### El trasfondo vinculado no se activa
 
-Comprueba que la entrada esté adjunta a la ubicación actual exacta. Revisa que la entrada y el lorebook estén activados y que el lorebook no esté excluido del chat. El trasfondo vinculado a un padre no se hereda en las ubicaciones hijas.
-
-En un mapa importado, revisa el resumen de la importación. **Map only** lleva la procedencia legible, pero no el contenido de los lorebooks, así que no puede restaurar un libro que falte. Importa un archivo exportado con **Map + linked entries** o **Map + complete lorebooks** y luego elige la coincidencia exacta, el destino ambiguo o la copia aparte que corresponda. Con Engine **2.3.5 a 2.4.0**, actualiza Marinara una vez después de restaurar el trasfondo portátil para que el lorebook creado aparezca en la vista principal de Lorebooks. Engine **2.4.1** o posterior lo actualiza de inmediato.
+Comprueba que la entrada esté adjunta a la ubicación actual exacta y que la entrada y el lorebook estén activados y no excluidos del chat. El trasfondo vinculado a un padre no se hereda. En un mapa importado, revisa el resumen de la importación. **Map only** no lleva contenido de lorebooks, así que importa un archivo exportado con **Map + linked entries** o **Map + complete lorebooks** y luego elige la coincidencia exacta, el destino ambiguo o la copia aparte. Con Engine 2.3.5 a 2.4.0, actualiza Marinara una vez después de restaurar el trasfondo.
 
 ## Guías relacionadas
 

@@ -1,6 +1,6 @@
 # Creador de personajes de conjuntos de reglas
 
-Esta página forma parte de [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md). El creador guiado: crear un personaje por pasos, desde la raza y la clase hasta las puntuaciones, las competencias, los conjuros y el equipo.
+Usa esta página para añadir un creador guiado que crea un personaje por pasos, desde la raza y la clase hasta las puntuaciones, las competencias, los conjuros y el equipo. Es para quienes escriben conjuntos de reglas. Antes de empezar, lee [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md).
 
 Una ficha puede declarar `sheet.builder` (Capability API 1.86). El editor de fichas, en los editores de personajes y de personas y en **Edit sheet** (Editar ficha) de una partida, se abre entonces en una vista **Guided** (Guiado) junto al formulario completo (**All fields**, Todos los campos): los pasos en la parte superior, cada uno con una insignia que cuenta las elecciones que aún esperan, **Back** (Atrás) y **Next** (Siguiente), que nunca bloquean (un jugador puede dejar elecciones para más tarde), y, a su lado, el personaje tal como está: lo que escribieron los pasos, las puntuaciones, los valores que nombra `gm.sheetSummary` (clase de armadura, bonificación de competencia) y las salvaciones y habilidades entrenadas.
 

@@ -1,131 +1,125 @@
 # Cómo gestionar tu lista de chats
 
-Esta guía trata sobre la lista de chats en Marinara Engine. Explica las tres pestañas de modo y cómo crear, importar, renombrar, eliminar, organizar, buscar y gestionar en lote tus chats. También trata sobre el widget de chats recientes en la pantalla de inicio.
+El panel **Chats** de la izquierda contiene todos tus chats. Úsalo para empezar, encontrar, ordenar, organizar y eliminar chats.
 
 ## La lista de chats y las pestañas de modo
 
-Tus chats viven en el panel **Chats**, la barra lateral de la izquierda. En la parte superior del panel hay tres pestañas de modo:
+En la parte superior del panel hay tres pestañas de modo. Cada pestaña muestra solo los chats de ese modo.
 
-- **CONVO** para Conversation (Conversación), un chat sencillo estilo mensajería.
-- **RP** para Roleplay, una escena inmersiva con personajes y seguimiento del mundo.
-- **GM** para Game (Juego), un RPG para un solo jugador dirigido por la IA.
+| Pestaña | Modo |
+| --- | --- |
+| **CONVO** | Conversation (Conversación): un chat estilo mensajería. |
+| **RP** | Roleplay: una escena con personajes y seguimiento del mundo. |
+| **GM** | Game (Juego): un RPG para un solo jugador dirigido por la IA. |
 
-Cada pestaña muestra solo los chats de ese modo. Al hacer clic en una pestaña se cambia la lista.
+Cada fila muestra el nombre del chat y los avatares de sus personajes. En los chats de Conversation, un punto de color sobre un avatar muestra el estado de ese personaje. Una insignia roja es el número de mensajes sin leer. Una fila con un pequeño icono de rama y un número es un chat con varias ramas, agrupadas en una sola fila. Consulta [Ramas de chat](branches.md).
 
-Cada fila de la lista muestra el nombre del chat y el avatar de su personaje o personajes. En los chats de Conversation, un pequeño punto de color sobre el avatar muestra el estado de cada personaje. Si aparece una insignia roja en una fila, ese es el número de mensajes sin leer.
+## Cómo empezar un chat
 
-Algunas filas muestran un pequeño icono de rama con un número. Esto significa que el chat tiene más de una rama, y las ramas se agrupan en una sola fila. Para saber qué son las ramas, consulta [Ramas de chat](branches.md).
+Antes de empezar: añade al menos una cuenta en **Connections** (Conexiones). Consulta [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
-## Cómo crear un chat nuevo
+1. Haz clic en la pestaña del modo que quieras.
+2. Toca el botón **+** de la parte superior del panel. Su etiqueta es **New Conversation**, **New Roleplay** o **New Game**, según la pestaña.
 
-1. Elige la pestaña de modo que quieras (**CONVO**, **RP** o **GM**).
-2. Haz clic en el botón **+** cerca de la parte superior del panel. Su tooltip (texto de ayuda) dice **New Conversation**, **New Roleplay** o **New Game**, según la pestaña activa.
-3. La app crea el chat, lo abre y abre el panel **Chat Settings** (Ajustes del chat) junto con un asistente de configuración para que puedas terminar la configuración.
+Marinara crea el chat y lo abre. **Chat Settings** (Ajustes del chat) y un asistente de configuración se abren a su lado. El chat empieza con el nombre **New Conversation**, **New Roleplay** o **New Game**. Si guardaste un perfil de ajustes predeterminado con estrella para Conversation o Roleplay, Marinara lo aplica al chat nuevo. Consulta [Perfiles de ajustes](settings-profiles.md).
 
-El nuevo chat se llama **New Conversation**, **New Roleplay** o **New Game**. Puedes renombrarlo más tarde (consulta Cómo renombrar un chat más abajo).
-
-Necesitas al menos una conexión antes de que se abra un chat. Una conexión enlaza Marinara con un proveedor de IA. Si aún no tienes ninguna conexión, se abre la ventana **Add account** (Añadir cuenta) en lugar del chat. Elige un servicio y haz clic en **Connect** (Conectar). Después, la ventana abre la selección de modelo. Elige un modelo, usa si quieres la opción **Make ... my Main** (Convertir ... en mi Principal) y haz clic en **Start chatting** (Empezar a chatear). Para configurar una cuenta normal, haz clic en **Done** (Listo) en su lugar. Para el recorrido completo, consulta [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md).
-
-Si guardaste un perfil de ajustes predeterminado con estrella para ese modo, Marinara lo aplica al chat nuevo automáticamente. Consulta [Descripción general de Chat Settings](chat-settings.md).
+Si no funcionó: si no tienes ninguna cuenta guardada, se abre la ventana **Add account** (Añadir cuenta) en lugar de un chat. Elige un servicio, haz clic en **Connect** (Conectar) y luego elige un modelo. Los pasos completos están en [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
 ## Cómo importar un chat
 
-Puedes importar un registro de chat guardado como archivo `.jsonl`, desde SillyTavern o desde Marinara.
+Puedes importar un registro de chat `.jsonl` desde SillyTavern o desde Marinara.
 
-1. Elige la pestaña de modo en la que quieres que aterrice el chat importado.
-2. Haz clic en el botón **Import** (Importar) cerca de la parte superior del panel. Su tooltip dice **Import SillyTavern or Marinara chat JSONL**.
+1. Haz clic en la pestaña del modo en el que debe quedar el chat.
+2. Toca el botón **Import** (Importar) de la parte superior del panel. Su etiqueta es **Import SillyTavern or Marinara chat JSONL**.
 3. Elige tu archivo `.jsonl`.
 
-Marinara crea un chat nuevo en el modo de la pestaña actual y lo abre. Deberías ver un mensaje que dice **Imported N messages**, donde N es el número de mensajes.
+Marinara crea el chat, lo abre y muestra **Imported N messages**. Para los formatos de exportación y la exportación en lote, consulta [Cómo exportar e importar chats](export-import.md).
 
-Para conocer todas las formas de importar y exportar chats, incluidos los formatos de importación y exportación en lote, consulta [Cómo exportar e importar chats](export-import.md).
+Si no funcionó: un mensaje pequeño en la parte inferior de la pantalla dice **Import failed** con el motivo. Solo se aceptan archivos `.jsonl`.
 
 ## Cómo renombrar un chat
 
-El nombre del chat solo lo ves tú. No se envía a la IA y no cambia la conversación.
+El nombre del chat es solo para ti. No se envía al modelo.
 
-1. Abre el chat.
-2. Abre **Chat Settings** con su botón en el chat.
-3. En la sección **Chat Name** (Nombre del chat), haz clic en el nombre actual para convertirlo en un campo de texto.
-4. Escribe el nombre nuevo, luego pulsa Enter o haz clic en el botón de marca de verificación.
+1. Abre el chat y luego abre **Chat Settings**.
+2. En **Chat Name** (Nombre del chat), haz clic en el nombre actual.
+3. Escribe el nombre nuevo y luego pulsa <kbd>Enter</kbd> o haz clic en la marca de verificación.
 
-Para más información sobre el panel Chat Settings, consulta [Descripción general de Chat Settings](chat-settings.md).
+Consulta [Descripción general de Chat Settings](chat-settings.md) para saber cómo abrir el panel.
+
+<a id="delete-a-chat"></a>
 
 ## Cómo eliminar un chat
 
-Para eliminar un solo chat, pasa el cursor sobre su fila y haz clic en el botón de papelera. En el teléfono, el botón de papelera se muestra siempre. Una ventana titulada **Delete Chat** (Eliminar chat) pregunta "Delete this chat?". Haz clic en **Delete** para confirmar.
+1. Toca el botón de la papelera en la fila del chat. En una computadora, aparece cuando pasas el cursor sobre la fila.
+2. En el cuadro de diálogo **Delete Chat** (Eliminar chat), haz clic en **Delete** (Eliminar).
 
-Eliminar un chat es permanente. También detiene cualquier respuesta que aún se esté generando para ese chat.
+Eliminar es permanente. También detiene cualquier respuesta que aún se esté escribiendo para ese chat.
 
-### La ventana de elección de rama
+Si el chat tiene varias ramas, el cuadro de diálogo dice cuántas y ofrece dos opciones:
 
-Si el chat que eliminas tiene más de una rama, se abre una ventana distinta en su lugar. Se titula **Delete Chat** y dice que la conversación tiene varias ramas. Te da dos opciones:
+- **Delete This Branch Only** (Eliminar solo esta rama) quita la rama en la que hiciste clic.
+- **Delete All N branches** (Eliminar las N ramas) quita todas las ramas del grupo.
 
-- **Delete This Branch Only** (Eliminar solo esta rama) quita únicamente la rama en la que hiciste clic.
-- **Delete All N Branches** (Eliminar todas las N ramas) quita cada rama del grupo, donde N es el número de ramas.
+Para gestionar las ramas sin eliminar el chat, consulta [Ramas de chat](branches.md).
 
-Para gestionar ramas sin eliminar el chat completo, consulta [Ramas de chat](branches.md).
-
-### Cómo activar o desactivar las confirmaciones de eliminación
-
-Una opción de toda la app llamada **Confirm before deleting** (Confirmar antes de eliminar) controla si aparecen estas ventanas de confirmación. Está activada de forma predeterminada y se encuentra en **Settings** (Configuración) bajo la pestaña **General**. Su propio texto de ayuda recomienda mantenerla activada.
+El ajuste de toda la app **Confirm before deleting** (Confirmar antes de eliminar) controla estos cuadros de diálogo. Está activado de forma predeterminada. Lo encontrarás en **Settings → General** (Configuración → General).
 
 ## Carpetas de chat
 
-Puedes agrupar chats en carpetas dentro de cada pestaña de modo.
+Las carpetas agrupan chats dentro de una pestaña de modo.
 
-1. Asegúrate de que la pestaña actual tenga al menos un chat. El botón **New Folder** (Nueva carpeta) aparece sobre la lista solo entonces.
-2. Haz clic en **New Folder**. La carpeta se crea con el nombre **unnamed** (sin nombre) (o **unnamed 2**, **unnamed 3**, y así sucesivamente si ese nombre ya está tomado).
+1. Abre una pestaña que tenga al menos un chat. Solo entonces aparece **New Folder** (Nueva carpeta) debajo de las pestañas.
+2. Haz clic en **New Folder**. La carpeta se llama **unnamed** (Sin nombre), y las siguientes, **unnamed 2** y **unnamed 3**.
 
-Para renombrar una carpeta, haz doble clic en ella, doble toque sobre ella, o selecciónala y pulsa F2. Renombrar a un nombre vacío se ignora.
+| Para hacer esto | Haz esto |
+| --- | --- |
+| Renombrar una carpeta | Haz doble clic o doble toque en ella, o selecciónala y pulsa <kbd>F2</kbd>. Un nombre vacío se ignora. |
+| Eliminar una carpeta | Haz clic en el botón de la papelera de la fila de la carpeta. Aparece un cuadro de diálogo **Delete Folder** (Eliminar carpeta) cuando la carpeta contiene chats. Los chats pasan al nivel superior y no se eliminan. |
+| Reordenar las carpetas | Arrastra una carpeta hacia arriba o hacia abajo. El menú de orden cambia a **Custom** (Personalizado). |
+| Mover un chat a una carpeta | Arrastra la fila del chat sobre la carpeta. En una pantalla táctil, primero mantén pulsado el chat durante medio segundo aproximadamente. |
+| Sacar un chat de una carpeta | Arrástralo al área vacía debajo de las carpetas. |
 
-Para eliminar una carpeta, haz clic en el botón de papelera de la fila de la carpeta. Una ventana titulada **Delete Folder** (Eliminar carpeta) lo confirma. Eliminar una carpeta nunca elimina los chats que hay dentro. Esos chats vuelven al nivel superior.
+Con varios chats seleccionados, arrastrar uno mueve toda la selección. Los chats que no están en carpetas aparecen debajo de las carpetas.
 
-Para reordenar las carpetas, arrastra la fila de una carpeta hacia arriba o hacia abajo. Se abre un hueco donde va a quedar. Entonces el menú de orden cambia a **Custom** (Personalizado), que conserva el orden de tus carpetas.
+## Cómo buscar, ordenar y filtrar
 
-Para mover un chat a una carpeta, arrastra su fila sobre la carpeta. Para sacar un chat de todas las carpetas, arrástralo al área vacía debajo de las carpetas. En una pantalla táctil, mantén pulsado un chat durante medio segundo aproximadamente para empezar a arrastrarlo. Si tienes varios chats seleccionados, arrastrar uno de ellos mueve toda la selección.
+### Encontrar un chat por su nombre
 
-Los chats que no están en ninguna carpeta aparecen en una lista sencilla debajo de las carpetas.
+Cada pestaña tiene un cuadro de búsqueda. Su marcador de posición es **Search conversations**, **Search roleplays** o **Search games**. Escribe una palabra. La búsqueda coincide con los nombres de los chats, las etiquetas y los nombres de los personajes, no con el texto de los mensajes.
 
-## Cómo buscar, ordenar y filtrar por etiqueta
+### Encontrar un mensaje en todos los chats
 
-Cada pestaña de modo tiene su propio cuadro de búsqueda en la parte superior de la lista. El texto de marcador de posición cambia según la pestaña: **Search conversations...**, **Search roleplays...** o **Search games...**. La búsqueda coincide con el nombre del chat, sus etiquetas y los nombres de sus personajes. No busca dentro del texto de los mensajes.
+1. Toca **Search all chats** (Buscar en todos los chats), el botón que está junto al menú de orden.
+2. Escribe tus palabras.
 
-Junto al cuadro de búsqueda hay un menú de orden con el tooltip **Sort chats**. Tiene estas opciones:
+Busca en todos los chats y puede filtrar por modo, personaje, remitente y fecha.
 
-- **Custom** mantiene tus carpetas en el orden en que las arrastraste.
-- **Manual order** (Orden manual) te permite arrastrar los chats a tu propio orden. Con el teclado, pon el foco en un chat y pulsa Alt+Arriba o Alt+Abajo.
-- **Recent** (Recientes), la opción predeterminada, muestra primero los chats con actividad más reciente.
-- **Newest** (Más nuevos) muestra primero los chats creados más recientemente.
-- **Oldest** (Más antiguos) muestra primero los chats más antiguos.
-- **A-Z** ordena por nombre de la A a la Z.
-- **Z-A** ordena por nombre de la Z a la A.
+El menú de orden (**Sort chats**, Ordenar chats) tiene estas opciones:
 
-Si algún chat de la pestaña tiene etiquetas, aparece una fila de filtro por etiqueta. Haz clic en el chip **Tags** (Etiquetas) para desplegar la lista de etiquetas. Luego haz clic en una etiqueta para mostrar solo los chats que la llevan. Haz clic en **Clear** (Limpiar) para quitar el filtro. Cuando hay muchas etiquetas, un chip **+N more** (+N más) revela el resto.
+| Opción | Orden |
+| --- | --- |
+| **Custom** | El orden de tus carpetas. |
+| **Manual order** (Orden manual) | Los chats en el orden en que los arrastras. Con el teclado, pon el foco en un chat y pulsa <kbd>Alt</kbd>+<kbd>Up</kbd> o <kbd>Alt</kbd>+<kbd>Down</kbd>. |
+| **Recent** (Recientes) | Primero los que tuvieron actividad más reciente. Es el valor predeterminado. |
+| **Newest** (Más nuevos) | Primero los creados más recientemente. |
+| **Oldest** (Más antiguos) | Primero los más antiguos. |
+| **A-Z** y **Z-A** | Por nombre. |
 
-Nota: esta pantalla solo filtra por etiquetas que un chat ya tiene. Aquí no hay ningún botón para añadir una etiqueta a un chat.
+Cuando algún chat de la pestaña tiene una etiqueta, aparece un chip **Tags (N)** (Etiquetas: N). Haz clic en él para desplegar las etiquetas y luego haz clic en una etiqueta para mostrar solo los chats que la llevan. Haz clic en **Clear** (Limpiar) para quitar el filtro. Este panel no puede añadir etiquetas a un chat.
 
-La lista muestra hasta 100 chats a la vez. Si tienes más, aparece un botón **Load more** (Cargar más) en la parte inferior para revelar el siguiente lote.
+La lista muestra 100 chats a la vez. Haz clic en **Load more** (Cargar más) para ver el siguiente lote.
+
+<a id="selecting-multiple-chats"></a>
 
 ## Cómo seleccionar varios chats
 
-Puedes actuar sobre varios chats a la vez.
+1. Haz clic en el botón de la marca de verificación (**Select chats**, Seleccionar chats) de la parte superior del panel.
+2. Haz clic en cada chat que quieras. Las filas muestran una casilla en lugar de abrirse.
+3. Usa la barra de la parte inferior, que muestra cuántos chats hay seleccionados.
 
-1. Haz clic en el botón **Select chats** (Seleccionar chats) cerca de la parte superior del panel (el icono de marca de verificación).
-2. Haz clic en cada chat que quieras. En lugar de abrir el chat, se activa una casilla en cada fila seleccionada.
-3. Una barra en la parte inferior muestra cuántos chats están seleccionados, con dos botones.
-
-El botón **Export** (Exportar) descarga todos los chats seleccionados juntos como un solo archivo `.zip`. El botón **Delete** los elimina. Delete muestra primero una confirmación titulada **Delete Chats** (Eliminar chats).
-
-Para salir del modo de selección sin actuar, haz clic de nuevo en el botón de selección. Cambiar de pestaña también borra la selección.
+**Export** (Exportar) descarga los chats seleccionados como un solo archivo `.zip` de archivos `.jsonl`. **Delete** te pide que confirmes en un cuadro de diálogo **Delete Chats** (Eliminar chats) y luego los quita. Haz clic otra vez en el botón de la marca de verificación para salir del modo de selección. Cambiar de pestaña también borra la selección.
 
 ## Chats recientes en la pantalla de inicio
 
-La pantalla de inicio tiene un widget **Recent chats** (Chats recientes) con tus chats de actividad más reciente. Cada chat muestra su nombre, una insignia de modo y su último mensaje. Haz clic en un chat para abrirlo, o haz clic en una parte vacía del widget para abrir la lista de chats. Si aún no tienes chats, el widget dice **Your chats will show here** (Tus chats aparecerán aquí). Consulta [Widgets de inicio](../home/welcome.md#home-widgets).
-
-## Guías relacionadas
-
-- [Ramas de chat](branches.md)
-- [Cómo exportar e importar chats](export-import.md)
-- [Descripción general de Chat Settings](chat-settings.md)
-- [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md)
+La pantalla de inicio tiene un widget **Recent chats** (Chats recientes) con tus chats más recientes. Cada uno muestra su nombre, una insignia de modo y su último mensaje. Haz clic en un chat para abrirlo. Si no tienes chats, dice **Your chats will show here** (Tus chats aparecerán aquí). Consulta [Widgets de inicio](../home/welcome.md#home-widgets).

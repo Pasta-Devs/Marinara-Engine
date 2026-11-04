@@ -1,135 +1,141 @@
 # Planos de fundo do chat
 
-Este guia explica a biblioteca de planos de fundo no Marinara Engine. São imagens que você mesmo envia e escolhe na mão para ficarem atrás do chat. Se o que você quer é o agente **Background**, que escolhe um cenário para cada turno, veja [Planos de fundo do Roleplay](../roleplay/backgrounds.md). Para planos de fundo de cena gerados por IA a partir da galeria, veja [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md).
+A biblioteca de planos de fundo guarda as imagens que você envia e escolhe na mão para ficarem atrás do chat. Para o agente **Background**, que escolhe um cenário para você a cada turno, veja [Planos de fundo do Roleplay](../roleplay/backgrounds.md). Para planos de fundo gerados por IA a partir da galeria, veja [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md).
+
+O plano de fundo do chat aparece em todos os modos de chat. Nos chats de Conversation, o gradiente do **Conversation Theme** (tema do Conversation) fica por cima da imagem, e **Conversation background image opacity** (opacidade da imagem de fundo no Conversation) define com que intensidade a imagem aparece. Veja [Configurações de aparência](appearance-settings.md).
+
+## Como mudar o plano de fundo de um chat
+
+Antes de começar: abra o chat que você quer mudar. O plano de fundo escolhido vale para esse chat.
+
+1. Abra **Settings** (Configurações), depois **Appearance** (Aparência) e então o botão **App**.
+2. Em **Backgrounds** (planos de fundo), toque em **Browse library** (navegar pela biblioteca).
+3. Toque em uma imagem. Ela vira o plano de fundo deste chat, e a janela se fecha.
+
+Para usar uma imagem sua, importe-a primeiro (veja [Importar um plano de fundo](#import-a-background)).
 
 ## Onde encontrar os planos de fundo
 
-Tudo fica em um lugar só: abra **Settings** (Configurações), depois a aba **Appearance** (Aparência) e então a seção **Backgrounds** (planos de fundo).
+1. Abra **Settings**.
+2. Escolha a aba **Appearance** e depois o botão **App**.
+3. Localize a seção **Backgrounds**.
 
-A seção **Backgrounds** tem três partes:
+Ela tem o seletor **Chat Background** (plano de fundo do chat), o controle deslizante **Background Blur** (desfoque do plano de fundo) e os controles **Conversation background image opacity** e **Chat List Backgrounds** (veja [Configurações de aparência](appearance-settings.md)).
 
-1. O seletor **Chat Background** (plano de fundo do chat), onde você escolhe a imagem do chat aberto no momento.
-2. O controle deslizante **Background Blur** (desfoque do plano de fundo).
-3. A biblioteca de planos de fundo, onde você importa, organiza, filtra, marca com tags, renomeia, baixa e exclui imagens.
-
-O plano de fundo do chat só aparece nos chats de Roleplay e Game Mode. O Conversation Mode usa um gradiente, definido na seção **Conversation Theme**. Isso está explicado em [Configurações de aparência](appearance-settings.md).
+O seletor mostra uma prévia do plano de fundo atual, ou **Default background** (plano de fundo padrão) quando nenhum foi escolhido. Abaixo dele, até três planos de fundo **Recent** (recentes) ficam a um toque de distância. Clique em **Browse library** para abrir a janela **Background Library** (biblioteca de planos de fundo).
 
 ## A biblioteca de planos de fundo
 
-A biblioteca reúne todas as imagens disponíveis para escolha. Nela ficam juntas as imagens que você enviou e as artes que já vêm com Marinara. Cada imagem traz uma etiqueta pequena para você distinguir uma da outra:
+A biblioteca mistura as imagens que você enviou com as artes que já vêm com Marinara. Cada imagem tem uma etiqueta.
 
-- **Library**: uma imagem enviada por você. Essas podem ser renomeadas, marcadas com tags e excluídas.
-- **Game asset**: uma imagem que já vem com Marinara. Essas são somente leitura, ou seja, não podem ser renomeadas, marcadas com tags nem excluídas.
+| Etiqueta | Significado |
+| --- | --- |
+| **My upload** | Uma imagem que você enviou. Você pode renomear, marcar com tags e excluir. |
+| **Game asset** | Arte embutida. É somente leitura: não dá para renomear, marcar com tags nem excluir. |
+
+Os botões **All sources**, **My uploads** e **Game assets**, de **Filter by source** (filtrar por origem), mostram quantas imagens cada um reúne.
+
+<a id="import-a-background"></a>
 
 ### Importar um plano de fundo
 
-1. Localize a caixa **Import Backgrounds** (importar planos de fundo) no topo da biblioteca.
-2. Arraste um ou mais arquivos de imagem para a caixa, ou clique nela para escolher os arquivos.
-3. Espere o upload terminar. Durante o processo, a caixa mostra **Importing...**.
-4. As imagens novas aparecem na grade abaixo, com a etiqueta **Library**.
+1. Na janela **Background Library**, localize **Import Backgrounds** (importar planos de fundo) ao lado da caixa de busca.
+2. Toque ou clique nele e escolha os arquivos de imagem. Você pode escolher vários de uma vez. No computador, também dá para soltar os arquivos sobre ele.
+3. Espere. Ele mostra **Importing…** enquanto trabalha.
 
-Vários arquivos podem ser importados de uma vez. Cada arquivo precisa ser uma imagem em um destes formatos: JPG, PNG, GIF, WebP ou AVIF. O tamanho máximo por arquivo é de 20 MB.
+As imagens novas aparecem na grade com a etiqueta **My upload**.
 
-Marinara verifica o conteúdo real de cada arquivo, não só o nome. Se você renomear um arquivo que não é imagem para terminar em `.png`, o upload é recusado.
+Cada arquivo precisa ser JPG, PNG, GIF, WebP ou AVIF, com até 20 MB. Marinara verifica o que há dentro do arquivo, não o nome dele. Um arquivo que não é imagem renomeado para `.png` é recusado.
 
 ### Escolher um plano de fundo para o chat atual
 
-1. Abra **Settings**, depois **Appearance** e então **Backgrounds**.
-2. Na grade, clique na miniatura que você quiser.
-3. Um sinal de confirmação aparece sobre a imagem escolhida. Ela vira o plano de fundo do chat aberto no momento.
-4. Para voltar ao padrão, clique de novo na miniatura escolhida ou clique no botão **Remove** ao lado de **Chat Background**.
+1. Abra **Browse library**.
+2. Clique em uma miniatura. Aparece um sinal de confirmação, a imagem vira o plano de fundo deste chat e a janela se fecha.
+3. Para voltar ao padrão, clique de novo na miniatura escolhida ou clique no X (**Clear selection**) da prévia.
 
-### Buscar na biblioteca
+### Buscar e filtrar
 
-Use a caixa **Search backgrounds** acima da biblioteca para filtrar por nome, tag ou origem. A linha de contagem mostra quantas imagens correspondem, por exemplo "3 of 20 backgrounds". Clique no X pequeno dentro da caixa de busca para limpá-la.
+- **Search backgrounds** (buscar planos de fundo) filtra por nome, tag ou origem. Uma linha de contagem mostra quantas imagens correspondem, por exemplo "3 of 20 backgrounds". Clique no X dentro da caixa para limpá-la.
+- **Sort backgrounds** (ordenar planos de fundo) oferece **Manual order**, **A-Z**, **Z-A**, **Newest** e **Oldest**. Com **Manual order** (ordem manual), arraste para reordenar, ou pressione <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd> com uma imagem em foco.
+- Os chips de pasta **All folders**, **Favorites** e **Unfiled** (sem pasta), mais um chip para cada pasta, filtram por pasta.
+- Em tags, **All** limpa os filtros de tag. Abra **Tags** e escolha uma ou mais tags. Uma imagem corresponde se tiver qualquer uma das tags escolhidas.
 
-Use o seletor ao lado da busca para ordenar os planos de fundo por **A-Z**, **Z-A**, **Newest** ou **Oldest**. Selecione **All** para limpar os filtros de tag, ou abra **Tags** e selecione uma ou mais tags. Com várias tags selecionadas, um plano de fundo aparece se tiver qualquer uma delas.
+Clique na estrela de uma imagem para adicioná-la aos favoritos. Isso não muda o plano de fundo padrão.
 
 ### Organizar os planos de fundo em pastas
 
-As pastas organizam a biblioteca sem mover nem esconder os arquivos de imagem originais.
+As pastas organizam a biblioteca sem mover nem esconder os arquivos de imagem.
 
-1. Clique em **New Folder** (nova pasta). Marinara cria uma pasta com nome único.
-2. Dê dois cliques ou dois toques no nome da pasta para renomeá-la. Outra opção: coloque o foco nela e pressione F2.
-3. No computador, arraste a linha de um plano de fundo para dentro de uma pasta. No celular ou tablet, mantenha a linha pressionada e depois arraste-a.
-4. Arraste o plano de fundo de volta para a área sem pasta e ele sai da pasta atual.
+1. Clique em **New Folder** (nova pasta), digite um nome e clique em **Add** (adicionar).
+2. Toque no botão **Move to folder** (mover para a pasta) de uma imagem e escolha a pasta. Ou arraste a imagem para o chip de uma pasta. No celular ou tablet, mantenha a imagem pressionada e depois arraste.
+3. Para trazer uma imagem de volta, arraste-a para **Unfiled**.
+4. Selecione o chip de uma pasta para mostrar os botões de lápis (**Rename folder**) e de lixeira (**Delete folder**).
 
-Marinara salva as pastas e as atribuições no servidor e as inclui nos backups. Ao excluir uma pasta, os planos de fundo dela voltam para a lista sem pasta; as imagens continuam onde estavam. Os filtros de busca e de tag mostram automaticamente os itens correspondentes que estão dentro das pastas.
-
-O agente **Background** continua enxergando todos os planos de fundo disponíveis, inclusive os que estão em pastas. As pastas mudam apenas a organização dentro de **Settings**.
+Excluir uma pasta devolve as imagens dela para **Unfiled** e não as exclui. As pastas ficam salvas no servidor e entram nos backups. O agente **Background** continua vendo todos os planos de fundo, inclusive os que estão em pastas.
 
 ### Renomear um plano de fundo
 
-Só é possível renomear imagens com a etiqueta **Library**.
+Só as imagens **My upload** podem ser renomeadas.
 
-1. Passe o mouse sobre a linha da imagem e clique no ícone de lápis (**Rename**).
-2. Digite o nome novo. Não precisa digitar a extensão do arquivo.
-3. Clique em **Save**.
+1. Clique no lápis (**Rename background**) da imagem.
+2. Digite o nome novo. Não precisa da extensão do arquivo.
+3. Clique em **Save** (salvar).
 
 ### Marcar um plano de fundo com tags
 
-As tags ajudam a agrupar e a buscar as imagens que você enviou. Só é possível marcar imagens com a etiqueta **Library**.
+Só as imagens **My upload** podem receber tags.
 
-1. Clique no ícone de tag (**Edit tags**) na linha da imagem.
-2. Digite uma tag no campo **Add tag...**. Conforme você digita, Marinara sugere tags já usadas antes.
-3. Pressione Enter ou clique em **Add**.
-4. Para tirar uma tag, clique nela. Enquanto a edição de tags está aberta, cada tag aparece como um botão com um X.
+1. Clique no ícone de tag (**Edit tags**) da imagem.
+2. Digite uma tag em **Add tag…**. Marinara sugere as tags que você já usou.
+3. Pressione <kbd>Enter</kbd> ou clique em **Add**.
+
+Para tirar uma tag, clique nela durante a edição de tags.
 
 <a id="download-a-background"></a>
 
 ### Baixar um plano de fundo
 
-Você pode baixar qualquer plano de fundo, inclusive os que já vêm com Marinara. Passe o mouse sobre a linha da imagem e clique no ícone de download (**Download background**). A imagem é salva com o próprio nome de arquivo. No iPhone ou iPad, a folha de compartilhamento se abre para você salvar a imagem; se ela não abrir, toque em **Save file** (salvar arquivo) na mensagem que aparece.
+Clique no ícone de download (**Download background**) de qualquer imagem, inclusive as embutidas. No iPhone ou iPad, a folha de compartilhamento se abre. Se ela não abrir, toque em **Save file** (salvar arquivo) na mensagem que aparece.
 
 ### Excluir um plano de fundo
 
-Só é possível excluir imagens com a etiqueta **Library**. Passe o mouse sobre a linha da imagem, clique no ícone de lixeira e confirme a exclusão. Se a imagem era o plano de fundo do chat atual ou o plano de fundo padrão do Roleplay, Marinara volta sozinha para o plano de fundo padrão que já vem com Marinara.
+Só as imagens **My upload** podem ser excluídas.
+
+1. Clique no ícone de lixeira (**Delete background**) da imagem.
+2. Confirme.
+
+Se ela era o plano de fundo do chat atual ou o plano de fundo padrão do Roleplay, Marinara volta para o padrão embutido.
 
 ## Definir um plano de fundo padrão para o Roleplay
 
-O plano de fundo padrão do Roleplay é a imagem com que todo chat novo de Roleplay começa, antes de escolher a própria. Basta definir uma vez e todo chat novo de Roleplay passa a usá-la.
+O plano de fundo padrão do Roleplay é a imagem com que todo chat novo de Roleplay começa.
 
-1. Na seção **Backgrounds**, localize a imagem que você quer na grade.
-2. Clique no ícone de alfinete (**Set as default for new Roleplay chats**) na linha dessa imagem.
-3. O botão de alfinete continua destacado, e a etiqueta **Default** (padrão) aparece na miniatura. A partir daí, os chats novos de Roleplay começam com ela.
+1. Na janela **Background Library**, localize a imagem.
+2. Clique no ícone de alfinete dela (**Set as default for new Roleplay chats**).
 
-A estrela no canto superior esquerdo da imagem a adiciona aos favoritos. Ela não muda o padrão.
-
-Para voltar atrás, clique no alfinete da imagem que está como padrão. Outra opção: clique no botão **Reset Roleplay default** perto do topo da grade. Esse botão só aparece quando o plano de fundo padrão é diferente do que já vem com Marinara.
+A miniatura mostra a etiqueta **Default** (padrão). Para desfazer, clique de novo no alfinete dessa imagem, ou clique em **Reset Roleplay default** acima da grade. Esse botão só aparece quando o seu padrão é diferente do embutido.
 
 ## Background Blur
 
-O **Background Blur** deixa a imagem de fundo mais suave atrás do chat, o que facilita a leitura do texto. Vale para os planos de fundo de Roleplay e de Game Mode.
+O **Background Blur** suaviza o plano de fundo atrás do chat, o que facilita a leitura do texto. Vale para os planos de fundo em todos os modos de chat.
 
 1. Na seção **Backgrounds**, localize o controle deslizante **Background Blur**.
 2. Arraste-o entre 0 e 24. Quanto maior o número, maior o desfoque.
-3. Deixe em 0 para manter os planos de fundo nítidos. Em 0, o valor aparece como **Off**.
 
-O padrão é 0 (**Off**).
-
-## Como suas imagens e as que já vêm com Marinara se misturam
-
-A biblioteca mostra na mesma grade as imagens que você enviou e as imagens **Game asset** que já vêm com Marinara. A escolha funciona igual nos dois casos. A diferença é que as imagens **Game asset** são somente leitura, então os controles de renomear, marcar com tags e excluir não aparecem nelas.
-
-Os planos de fundo de cena gerados por IA que você cria a partir da galeria também vão parar nessa mesma biblioteca, prontos para reutilizar depois. Veja [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md).
+Em 0, o valor aparece como **Off**, e os planos de fundo ficam nítidos. O padrão é 0.
 
 ## Onde suas escolhas de plano de fundo ficam salvas
 
-Três configurações diferentes decidem qual plano de fundo um chat mostra, e cada uma é salva de um jeito:
+| Configuração | Onde fica salva |
+| --- | --- |
+| O **Chat Background** de um chat | Com aquele chat, no servidor. Ele acompanha o chat em qualquer dispositivo. |
+| As pastas e as atribuições delas | No servidor, junto com a biblioteca. |
+| O plano de fundo padrão do Roleplay e o **Background Blur** | Por dispositivo. Eles não sincronizam entre navegadores nem entre dispositivos. |
 
-- Marinara salva o **Chat Background** escolhido junto com aquele chat, no servidor. Ele acompanha o chat em qualquer dispositivo onde você o abrir.
-- As pastas de planos de fundo e suas atribuições ficam salvas no servidor e acompanham a biblioteca em outros dispositivos.
-- O plano de fundo padrão do Roleplay e o **Background Blur** ficam salvos por dispositivo. Eles não sincronizam entre navegadores nem entre dispositivos. O modelo completo de sincronização está em [Configurações de aparência](appearance-settings.md).
-
-## Planos de fundo automáticos e gerados por IA
-
-Este guia trata da biblioteca em que você escolhe na mão. Dois recursos relacionados cuidam do plano de fundo por você:
-
-- O agente **Background** consegue escolher sozinho um cenário da biblioteca, turno a turno, nos chats de Roleplay. Veja [Planos de fundo do Roleplay](../roleplay/backgrounds.md).
-- A galeria consegue gerar com IA um plano de fundo de cena inédito a partir da cena atual. Veja [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md).
+Para o modelo completo de sincronização, veja [Configurações de aparência](appearance-settings.md).
 
 ## Guias relacionados
 
-- [Planos de fundo do Roleplay](../roleplay/backgrounds.md): o agente Background, que escolhe um cenário sozinho a cada turno.
-- [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md): planos de fundo de cena gerados por IA a partir da galeria.
-- [Configurações de aparência](appearance-settings.md): a aba Appearance inteira, incluindo quais configurações sincronizam e quais ficam em um dispositivo só.
+- [Planos de fundo do Roleplay](../roleplay/backgrounds.md): o agente Background, que escolhe um cenário a cada turno.
+- [Planos de fundo de cena e a galeria](../media/scene-backgrounds.md): planos de fundo de cena gerados por IA a partir da galeria. Eles também vão parar nesta biblioteca.
+- [Configurações de aparência](appearance-settings.md): a aba Appearance inteira.

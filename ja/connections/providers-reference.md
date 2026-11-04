@@ -1,271 +1,203 @@
 # 対応しているAIプロバイダー
 
-このガイドでは、Marinara Engineが接続できるAIプロバイダーをすべて紹介します。プロバイダーごとに、APIキーの入手先、デフォルトのBase URL、知っておきたいクセをまとめました。APIキーとは、プロバイダーが発行するパスワードのような秘密の文字列です。これがあることで、MarinaraはそのAIサービスとやり取りできます。
+このページは、Marinara Engineが接続できる主なサービスのリファレンスです。サービスごとに、APIキーの入手先、デフォルトのアドレス、知っておきたいクセをまとめています。アカウントを順を追って追加する方法は、先に[AIプロバイダーへの接続](connecting-to-a-provider.md)を読んでください。
 
-アカウントを追加する一般的な手順は、先に[AIプロバイダーへの接続](connecting-to-a-provider.md)をお読みください。このページは、特定のプロバイダーの詳細を調べたいときに検索して使うリファレンスです。
+サービスは、**Add account**(アカウントの追加)ウィンドウで、用途ごとのセクションから選びます。セクションは**Chat**(チャット)、**Images & video**(画像と動画)、**Voice**(音声)、**Decisions**(判定)です。タイルには、以下に挙げる名前が表示されます。アドレスとは、Marinaraがリクエストを送る宛先のWebアドレスです。アカウントエディターでは**Address**(アドレス)、モデルエディターでは**Base URL**(ベースURL)と呼ばれます。既知のサービスなら、Marinaraが自動で入力します。変更するのは、プロキシや自分で動かしているサーバーを使う場合だけにしてください。
 
-## このページの読み方
+モデルは頻繁に入れ替わるため、このページには一覧を載せていません。接続すると、選択画面にモデルの一覧が読み込まれます。読み込み直すには、選択画面で**Refresh model list**(モデル一覧を更新)をクリックします。
 
-サービスは、**Add account**(アカウントの追加)ウィンドウで選びます。ステップ1には、サービスごとにボタンが並びます。ボタンのラベルは、以下に挙げる名前とまったく同じです。
+## チャットサービス
 
-このページに載っているプロバイダーの多くは、AIを代わりに動かしてくれるクラウドサービスです。プロバイダーでアカウントを作り、APIキーをコピーして、**API key**(APIキー)欄に貼り付けます。サブスクリプション型の3つのプロバイダーだけは、キーの代わりにローカルでのサインインを使います。該当するセクションにその旨を書いてあります。
+これらのサービスはAPIキーを使います。ただし、3つのサブスクリプションサービスは、自分のコンピューター上でのサインインを使います。
 
-次の2つの用語がこのあと何度も出てきます。
+| サービス | キーの入手先 |
+| --- | --- |
+| LinkAPI | `linkapi.ai` |
+| OpenAI | `platform.openai.com/api-keys` |
+| Anthropic | `console.anthropic.com/settings/keys` |
+| Google Gemini | `aistudio.google.com/apikey` |
+| Google Vertex AI | `cloud.google.com/vertex-ai/docs/authentication`(資格情報のガイド) |
+| Mistral | `console.mistral.ai/api-keys` |
+| Cohere | `dashboard.cohere.com/api-keys` |
+| OpenRouter | `openrouter.ai/keys` |
+| NanoGPT | `nano-gpt.com/api` |
+| xAI / Grok | `console.x.ai` |
+| Arli AI | `www.arliai.com/account` |
+| Z.AI | `z.ai/manage-apikey/apikey-list` |
+| DeepSeek | `platform.deepseek.com/api_keys` |
+| OpenAI-compatible、Claude (Subscription)、OpenAI (ChatGPT)、Grok CLI (Subscription) | キーのページはありません。下の注記を参照してください。 |
 
-- Base URL: Marinaraがリクエストを送る宛先のWebアドレスです。接続のエディターでは**Address**(アドレス)と呼ばれます。ほとんどのプロバイダーでは自動的に入力されます。変更が必要なのは、ローカルサーバーやカスタムサーバーを使う場合だけです。
-- Model: プロバイダーを選んだあとに指定する、具体的なAIモデルです。使えるモデルは頻繁に入れ替わるため、このページには一覧を載せていません。最新の一覧は、接続エディターの**Model**(モデル)ドロップダウン、または**Fetch Models from API**(APIからモデルを取得)ボタンで確認できます。
+デフォルトのアドレスは次のとおりです。Marinaraが自動で入力します。
 
-## OpenAI
+- LinkAPI: `https://linkapi.ai/v1`(独自のキーを使うOpenAI互換のゲートウェイ)
+- OpenAI: `https://api.openai.com/v1`
+- Anthropic: `https://api.anthropic.com/v1`
+- Google Gemini: `https://generativelanguage.googleapis.com/v1beta`
+- Google Vertex AI:
+  `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
+- Mistral: `https://api.mistral.ai/v1`
+- Cohere: `https://api.cohere.ai/compatibility/v1`
+- OpenRouter: `https://openrouter.ai/api/v1`
+- NanoGPT: `https://nano-gpt.com/api/v1`
+- xAI / Grok: `https://api.x.ai/v1`
+- Arli AI: `https://api.arliai.com/v1`
+- Z.AI: `https://api.z.ai/api/paas/v4`
+- DeepSeek: `https://api.deepseek.com/v1`
+- OpenAI-compatibleとサブスクリプションサービス: なし。アドレスを自分で入力するか、アドレスが不要です。
 
-- キーの入手先: `https://platform.openai.com/api-keys`
-- デフォルトのBase URL: `https://api.openai.com/v1`
+キーのページのアドレスは、すべて`https://`で始まります。
 
-**OpenAI**はGPTシリーズのモデルを提供しています。キーを貼り付けたら、ドロップダウンからモデルを選ぶか、**Fetch Models from API**をクリックして最新の一覧を読み込みます。この接続で使えるのはチャット用のモデルだけです。DALL-Eの画像を使いたい場合は、代わりに**Image Generation**プロバイダーとその**OpenAI (DALL-E)**サービスを利用します。
+3つのサブスクリプションサービスでは、**API key**(APIキー)欄とアドレス欄が表示されません。埋め込みにも対応していません。インストールとサインインの手順は[Claude、ChatGPT、Grokのサブスクリプション接続](subscription-clis.md)にあり、プランの使用量についてもそちらで説明しています。
 
-## Anthropic
+アグリゲーターとは、1つのキーで多くの企業のモデルを利用できるサービスです。OpenRouterとNanoGPTはアグリゲーターです。ゲートウェイも同じ考え方のもので、自分で動かすか借りて使うプロキシを指します。
 
-- キーの入手先: `https://console.anthropic.com/settings/keys`
-- デフォルトのBase URL: `https://api.anthropic.com/v1`
+## サービスごとの注意点
 
-**Anthropic**はClaudeのモデルを提供しています。プロンプトキャッシュに対応しており、長いチャットのコストを抑えられます。接続エディターの**Enable prompt caching**(プロンプトキャッシュを有効にする)トグルでオンにできます。
+### OpenAI
 
-**Anthropic**は埋め込みに対応していません。埋め込みとは、テキストを数値の並びに変換する仕組みです。これによってMarinaraはロアブックや記憶を検索できます。この機能を使うには、埋め込み用の接続を別に用意します(下の「埋め込み」のセクションを参照)。
+**OpenAI**はGPTシリーズのモデルを提供しています。DALL-Eの画像を使うには、**OpenAI**を追加し、同じアカウントで**Image**(画像)のモデルを選びます。同じキーで画像を作れるほかのサービスでも同様です。
 
-## Google Gemini
+### Anthropic
 
-- キーの入手先: `https://aistudio.google.com/apikey`
-- デフォルトのBase URL: `https://generativelanguage.googleapis.com/v1beta`
+**Anthropic**はClaudeのモデルを提供しています。プロンプトキャッシュを使うと、サービスがプロンプトの冒頭部分を再利用できるため、長いチャットのコストを抑えられることがあります。モデルエディターの**Enable prompt caching**(プロンプトキャッシュを有効にする)でオンにします。**Anthropic**は埋め込みに対応していません([埋め込み](#embeddings)を参照)。
 
-**Google Gemini**は、Google AI Studio経由でGeminiのモデルを提供します。2つあるGoogleの選択肢のうち、こちらのほうが手軽です。
+### Google GeminiとGoogle Vertex AI
 
-Marinaraは、どちらのGoogleの選択肢でも、Googleの調整可能なセーフティフィルターをオフにします。ただし、**Custom Parameters**(カスタムパラメーター)で自分で設定したカテゴリーは除きます。なお、児童の安全などに関するGoogleの基本的な保護は引き続き適用されます。
+**Google Gemini**は、Google AI Studio経由でGeminiのモデルを提供します。Googleの選択肢のうち、こちらのほうが手軽です。どちらのGoogleの選択肢でも、MarinaraはGoogleの調整可能なセーフティフィルターをオフにします。ただし、**Custom Parameters**(カスタムパラメーター)で自分で設定したカテゴリーは除きます。児童の安全などに関するGoogleの基本的な保護は引き続き適用されます。
 
-## Google Vertex AI
+**Google Vertex AI**は、Google CloudのプロジェクトからGeminiを利用するもので、設定の手間が多くかかります。アドレスを編集し、`YOUR_PROJECT_ID`を自分のプロジェクトIDに置き換えてください。リージョンが`us-central1`でない場合は、そこも変更します。**API key**(APIキー)欄には次のいずれかを入力でき、どれを貼り付けたかはMarinaraが判別します。
 
-- 資格情報のドキュメント: `https://cloud.google.com/vertex-ai/docs/authentication`
-- デフォルトのBase URL: `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
-
-**Google Vertex AI**は、Google CloudのプロジェクトからGeminiのモデルを利用します。**Google Gemini**より設定の手間がかかります。**Base URL**を編集し、`YOUR_PROJECT_ID`を実際のプロジェクトIDに置き換えてください。リージョンが`us-central1`でない場合は、そこも変更します。
-
-**API Key**欄には、次の3種類の資格情報のいずれかを入力できます。どれを貼り付けたかはMarinaraが自動で判別します。
-
-1. サービスアカウントのJSONキー。
+1. サービスアカウントのJSONキー(Google Cloudが発行する、サービスアカウントを指定したファイル)。
 2. OAuthのアクセストークン(たとえば`gcloud auth print-access-token`で取得したもの)。
 3. Vertex APIキー。
 
-**Gemini 4 Argon**は`global`、`us`、`eu`のロケーションでのみ動作し、`us-central1`のような単一のリージョンでは動きません。使うには、**Base URL**を`https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`に設定してください。ほかのロケーションではGoogleがエラーを返し、Marinaraがそのエラーを表示します。
+Googleのドキュメントに沿ったMarinaraのコード内の注記によると、**Gemini 4 Argon**は`global`、`us`、`eu`のロケーションでのみ動作し、`us-central1`のような単一のリージョンでは動きません。使うには、アドレスを`https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`に設定してください。ほかのロケーションではGoogleがエラーを返し、Marinaraがそのエラーを表示します。
 
-Argonは、どちらのGoogleの接続でも、応答に数分かかることがあります。チャットの返信がタイムアウトする場合は、`CHAT_GENERATION_TIMEOUT_MS`を大きくしてください。エージェントの呼び出しがタイムアウトする場合は、`AGENT_CALL_TIMEOUT_MS`を大きくしてください([サーバー設定リファレンス](../CONFIGURATION.md)を参照)。Googleは少なくとも15分を見込むよう勧めています。15分は`900000`です。
+### Cohere
 
-## Mistral
+**Cohere**はOpenAI互換のエンドポイントを使います。古いCohere v2のアドレスを貼り付けた場合は、Marinaraが互換エンドポイントに切り替えます。
 
-- キーの入手先: `https://console.mistral.ai/api-keys`
-- デフォルトのBase URL: `https://api.mistral.ai/v1`
+### OpenRouter
 
-**Mistral**はMistralシリーズのモデルを提供しています。APIキー以外に特別な設定は必要ありません。
+**OpenRouter**はアグリゲーターで、モデルエディターに次の2つの項目が追加されます。
 
-## Cohere
+- **Preferred provider**(優先プロバイダー)は、転送先を名前で指定した1つのバックエンドに固定します。名前は、OpenRouterのモデルページに表示されているものと一致させる必要があります。自動で振り分ける場合は空のままにします。
+- **Enable prompt caching**(プロンプトキャッシュを有効にする)は、OpenRouter経由で利用するClaudeのモデルにキャッシュのヒントを送ります。ほかのほとんどのモデルは自動でキャッシュします。
 
-- キーの入手先: `https://dashboard.cohere.com/api-keys`
-- デフォルトのBase URL: `https://api.cohere.ai/compatibility/v1`
+### NanoGPT
 
-**Cohere**はデフォルトでOpenAI互換のエンドポイントを使います。古いCohere v2のURLを貼り付けた場合は、Marinaraが互換エンドポイントに切り替えます。リクエストはそのまま動作します。
+**NanoGPT**は、モデル一覧を内蔵していないアグリゲーターです。接続すると、アカウントで使えるモデルが選択画面に読み込まれます。選択画面はNanoGPTの詳細なカタログを読み、サブスクリプションの対象となるモデルに印を付けます。
 
-## OpenRouter
+| バッジ | 意味 |
+| --- | --- |
+| 緑色の`1x` | サブスクリプションに含まれ、通常の消費率です。 |
+| `2x`などのより大きい値 | 含まれますが、入力トークン1個につき、割り当てからその倍数のトークンを消費します。 |
+| **Paid** | 含まれません。使用料は有料残高から差し引かれます。 |
+| バッジなし | NanoGPTにそのモデルのサブスクリプション情報がありませんでした。 |
 
-- キーの入手先: `https://openrouter.ai/keys`
-- デフォルトのBase URL: `https://openrouter.ai/api/v1`
+#### サブスクリプション使用量
 
-**OpenRouter**は複数のサービスをまとめて扱うアグリゲーターです。1つのキーで、さまざまな企業の多くのモデルを利用できます。接続エディターには次の2つの項目が追加されます。
-
-- **Preferred Provider**(優先プロバイダー): **OpenRouter**の転送先を特定のバックエンドに固定するテキスト欄です。名前は、OpenRouterのモデルページに表示されているものと完全に一致させてください。自動で振り分けたい場合は空のままにします。
-- **Enable prompt caching**: **OpenRouter**経由で利用するClaudeのモデルにキャッシュのヒントを送ります。**OpenRouter**上のほかのモデルは自動でキャッシュするため、通常は不要です。
-
-## NanoGPT
-
-- キーの入手先: `https://nano-gpt.com/api`
-- デフォルトのBase URL: `https://nano-gpt.com/api/v1`
-
-**NanoGPT**もアグリゲーターです。モデル一覧を内蔵していないため、**Model**ドロップダウンは最初は空です。キーを貼り付けたら、**Fetch Models from API**をクリックして、アカウントで使えるモデルを読み込みます。
-
-MarinaraはNanoGPTの詳細なモデルカタログを読み、サブスクリプション対象のモデルと、より多くの割り当てを消費するモデルをドロップダウンに表示します。
-
-- 対象モデルには**入力トークン倍率**のバッジが付きます。通常の消費率なら緑色の`1x`、送信トークン1個につき割り当てから複数の入力トークンを消費する場合は`2x`などの値です。対象*外*のモデルには**Paid**が付き、使用料は有料残高から差し引かれます。バッジがないモデルは、サブスクリプション情報を取得できなかったものです。
-
-### サブスクリプション使用量
-
-NanoGPTのサブスクリプションがある場合、この接続で現在の割り当てを確認できます。
+NanoGPTのサブスクリプションがある場合、アカウントに現在の割り当てを表示できます。
 
 1. アカウントの行にある**⋯**をクリックし、**Edit account**(アカウントの編集)を選んで、**Usage and balance**(使用量と残高)を開きます。
-2. 外部からの読み取りがオフになっている場合は、**Turn on**(オンにする)をクリックして使用量の読み取りを許可します。NanoGPTの管理トークンを追加するには、**Add a usage-only key**(使用量専用のキーを追加)をクリックし、トークンを貼り付けて、**Show usage**(使用量を表示)をクリックします。
-3. **Show the usage meter on the card**(カードに使用量メーターを表示)をオンにして保存してください。
+2. 外部からの読み取りがオフになっている場合は、**Turn on**(オンにする)をクリックします。管理キーを追加するには、**Add a usage-only key**(使用量専用のキーを追加)をクリックし、キーを貼り付けて、**Show usage**(使用量を表示)をクリックします。
+3. **Show the usage meter on the card**(カードに使用量メーターを表示)をオンにして保存します。
 
-ウィジェットはNanoGPTの使用量エンドポイントを読み、週ごとと日ごとの入力トークン割り当てを表示します。次の2種類の認証情報を使えます。
+メーターには、週ごとと日ごとの入力トークンの割り当てが、残量とそれぞれのリセットまでの時間とともに表示されます。たとえば`42M remaining · resets in 4d`です。NanoGPTが報告できない割り当ては、未使用ではなく不明として表示されます。無効なサブスクリプションは、全量が残っているようには描かれず、その状態が明示されます。更新ボタンで読み取り直せます。
 
-- **Management token**(管理トークン、推奨): `https://nano-gpt.com/settings#management-api-tokens`で、**Usage only**(使用量のみ)のスコープを持つトークンを作成してください。割り当てを読めますが、モデルの実行や残高の消費はできないため、使用量表示にはこちらが安全です。Marinaraは暗号化して保存し、NanoGPTの管理エンドポイントだけに送信します。
-- **APIキー**: 管理トークンが保存されていない場合に自動で使います。これでも動作しますが、割り当ての読み取りに残高を消費できる認証情報を使うことになります。
+使用量の読み取りには、次の2種類の認証情報を使えます。
 
-各バーの下には、残量とウィンドウがリセットされるまでの時間が表示されます。たとえば`42M remaining · resets in 4d`です。
+- **管理キー**(推奨)。`https://nano-gpt.com/settings#management-api-tokens`で、使用量の読み取り専用として作成します。割り当てを読み取れますが、モデルの実行や残高の消費はできません。Marinaraは暗号化して保存し、NanoGPTの管理エンドポイントにだけ送信します。
+- **自分のAPIキー**。管理キーが保存されていない場合に使われます。これでも動作しますが、割り当ての読み取りに、残高を消費できるキーを使うことになります。
 
-NanoGPTが現在報告できない割り当ては、未使用ではなく**不明**として表示します。無効なサブスクリプションはその状態を明示し、全量が利用可能であるかのようには表示しません。更新ボタンで必要なときにウィジェットを更新できます。
+同じメーターは、チャットの接続選択にあるコンテキストバーの下と、チャットの**Connection**(接続)設定にも表示されます。チャットのモデルがNanoGPTのもので、メーターがオンになっている場合だけ表示され、**Shuffle**(シャッフル)では表示されません。
 
-同じメーターはチャットの接続選択にあるコンテキスト表示の下と、チャットの**Connection**(接続)設定にも表示されるため、チャットを離れずに割り当てを確認できます。アクティブな接続に連動し、NanoGPT接続で**Show the usage meter on the card**がオンの場合だけ表示します。問い合わせる接続を1つに特定できない**Shuffle**(シャッフル)では表示しません。接続選択では上のコンテキストバーに合わせた外観になり、読み方も同じです。週の割り当てに対する使用量を、たとえば`8.9M / 60M tokens`と表示し、パーセンテージの横にリセット時刻を添えます。
+### xAI / Grok
 
-## xAI / Grok
+**xAI / Grok**はGrokのモデルを提供しています。Grok 4.6と4.7は、500,000トークンのコンテキストウィンドウと、**Extra high**までの推論に対応しています。**Web Search**(ウェブ検索)を含むチャットツールに対応しているため、検索結果を完成した返信に反映できます。
 
-- キーの入手先: `https://console.x.ai`
-- デフォルトのBase URL: `https://api.x.ai/v1`
+### Arli AI
 
-**xAI / Grok**はGrokのモデルを提供しています。**Add account**ウィンドウでこのサービスを選ぶと、モデルにはGrok 4.5があらかじめ入ります。あとから変更できます。Grok 4.6と4.7は500,000トークンのコンテキストウィンドウと、**Extra high** (`xhigh`)までの推論に対応しています。**Web Search**(ウェブ検索)を含む既存のチャットツールを使用でき、検索結果を最終的な返信に反映できます。
+**Arli AI**は、モデル一覧を内蔵していないホスト型のチャットサービスです。接続すると、選択画面にモデルが読み込まれます。Arli AIで画像を作るには、**Arli AI**を追加し、同じアカウントで**Image**(画像)のモデルを選びます。
 
-## Arli AI
+### Z.AI
 
-- キーの入手先: `https://www.arliai.com/account`
-- デフォルトのBase URL: `https://api.arliai.com/v1`
+**Z.AI**は、GLMモデル(GLM 5.3、GLM 5.3 Flash、およびそれ以前のモデル)を独自のAPIで提供しています。GLM 5.2と5.3のモデルは、**Maximum**(最大)の推論レベルを受け付けます。デフォルトのアドレスは従量課金用のエンドポイントです。Z.AIのCoding Planは別のエンドポイントを使うため、Coding Planのキーはここでは動作しない場合があります。
 
-**Arli AI**はホスト型のチャットサービスです。組み込みのモデル一覧がないため、**Model**ドロップダウンは最初は空です。キーを貼り付けたら、**Fetch Models from API**をクリックして現在のモデルを読み込んでください。Arli AIで画像を生成する場合は、代わりに**Image Generation**プロバイダーとその**Arli AI**サービスを使います。
+### DeepSeek
 
-## Z.AI
+**DeepSeek**は`deepseek-flash`と`deepseek-v4-pro`を提供しています。DeepSeekはデフォルトで思考します。**Reasoning Effort**(推論の度合い)にはDeepSeek独自の段階を使い、**Off**(オフ)にするとそのリクエストでは思考しません。DeepSeekは中程度の指定をHighとして処理します。思考の内容は、いつもの思考表示で返信に表示されます。
 
-- キーの入手先: `https://z.ai/manage-apikey/apikey-list`
-- デフォルトのBase URL: `https://api.z.ai/api/paas/v4`
+適用されないパラメーターもあるため、パネルではそれらを表示しません。**Verbosity**、**Top K**、各種ペナルティーは廃止されており、無視されます。DeepSeekは一度にどちらか一方しか使わないため、**Temperature**(温度)と**Top P**は対になっています。思考がオフのときは**Temperature**が、オンのときは**Top P**が表示されます。
 
-**Z.AI**は、GLMモデル(GLM 5.3、GLM 5.3 Flash、およびそれ以前のモデル)を独自のAPIで提供しています。**Model**ドロップダウンには現在のGLMモデルが表示され、**Fetch Models from API**でアカウントから一覧を更新できます。GLM 5.3モデルは常に推論を行います。プリセットの**Reasoning Effort**(推論の強度)は、Z.AIが受け付ける**Low**(低)、**High**(高)、**Maximum**(最大)の3段階に対応付けられます。未設定の場合は、Z.AIのデフォルトである**Maximum**が使われます。デフォルトのBase URLは従量課金用のエンドポイントです。Z.AIのCoding Planは別のエンドポイントを使い、利用規約では指定の一覧にあるツール専用とされています。そのため、この接続でCoding Planのキーが動作することは想定されていません。
+DeepSeekには、**OpenAI**にDeepSeekのアドレスを指定するのではなく、DeepSeek専用のタイルで接続してください。OpenAIのサービスはOpenAIのモデルを前提としているため、DeepSeekのモデルでは生成の設定項目が非表示になり、設定のほとんどが送信されません。
 
-## DeepSeek
+### OpenAI-compatible
 
-- キーの入手先: `https://platform.deepseek.com/api_keys`
-- デフォルトのBase URL: `https://api.deepseek.com/v1`
+**OpenAI-compatible**は、Ollama、LM Studio、KoboldCppなど、OpenAIのリクエスト形式を受け付けるサーバーやプロキシに接続します。**Add account**(アカウントの追加)ウィンドウでは、**OpenAI-compatible address**(OpenAI互換のアドレス)として表示されます。ほとんどのローカルサーバーでは、キーは空のままでかまいません。アドレスは自分で入力します。[ローカルモデルやセルフホストモデルへの接続](local-self-hosted.md)を参照してください。Marinaraが自分で動かす小さなモデルについては、[内蔵モデルのセットアップ](local-model.md)を参照してください。
 
-**DeepSeek**は、独自のチャットモデルである`deepseek-flash`と`deepseek-v4-pro`を提供しています。キーを貼り付けると**Model**ドロップダウンにこれらのモデルが表示され、**Fetch Models from API**でアカウントから一覧を更新できます。
+## 画像と動画
 
-DeepSeekはデフォルトで思考します。**Reasoning Effort**(推論の強度)には、DeepSeek独自の段階である**Low**(低)、**High**(高)、**Max**(最大)を使います。**Off**(オフ)にすると、そのリクエストでは思考を行いません。**Medium**はありません。DeepSeekは中程度の指定をHighとして処理するため、同じ動作になる2つ目のボタンを置く代わりに、MarinaraはHighを用意しています。思考の内容は、いつもの思考表示で返信に表示されます。
+**Images & video**(画像と動画)の下にある各タイルには、それぞれ独自のアドレスがあり、キーが必要かどうかもタイルごとに異なります。タイルは、Stability AI、Together AI、NovelAI、Venice.ai、Atlas Cloud、fal.ai、SpicyAPI、Pollinations、Stable Horde、Seedance 2.0と、ローカルサーバーのComfyUI、SD Web UI (AUTOMATIC1111 / Forge)、SwarmUI、RunPod Serverless (ComfyUI)、Draw Things、Block Entropyです。Draw Things、ComfyUI、SwarmUI、SD Web UI、RunPodには**Self-hosted**(セルフホスト)のタグが付きます。
 
-パラメーターパネルの設定には、DeepSeekに適用されないものがあります。パネルはそれらを効くように見せかけるのではなく、表示から外します。**Verbosity**、**Top K**、各種ペナルティーもその一部です。DeepSeekはこれらを廃止しており、指定しても無視します。**Temperature**(温度)と**Top P**は対になっています。DeepSeekは、思考しているかどうかに応じて一度にどちらか一方しか使いません。そのため、思考がオフのときは**Temperature**が、オンのときは**Top P**が表示されます。
+OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI、Googleの画像と動画のモデルは、そのサービスのチャット用アカウントから使います。チャット用のアカウントを追加し、そのアカウントで**Image**(画像)または**Video**(動画)のモデルを選んでください。
 
-DeepSeekにつなぐときは、**OpenAI**プロバイダーにDeepSeekのURLを指定するのではなく、このプロバイダーを使ってください。OpenAIプロバイダーはOpenAI自身のモデルを前提としているため、DeepSeekのモデルでは生成の設定項目が非表示になり、設定のほとんどが送信されません。
-
-## Claude (Subscription)
-
-- APIキー: 不要です。代わりにローカルのツールにサインインします。
-
-**Claude (Subscription)**は、Claude Codeというツールを介してAnthropicのProプランまたはMaxプランを利用します。ツールはMarinaraのサーバーが動いているコンピューターで実行し、最初に一度だけサインインします。このプロバイダーでは**API Key**欄と**Base URL**欄は表示されません。埋め込みには対応していません(下の「埋め込み」のセクションを参照)。
-
-インストールとログインの手順は[Claude、ChatGPT、Grokのサブスクリプション接続](subscription-clis.md)にあります。
-
-### プランの使用量
-
-この接続では、Claudeプランのレート制限をどれだけ使ったかを表示できます。
-
-1. アカウントの行にある**⋯**をクリックし、**Edit account**(アカウントの編集)を選んで、**Usage and balance**(使用量と残高)を開きます。
-2. 外部からの読み取りがオフになっている場合は、**Turn on**(オンにする)をクリックします。**Show the usage meter on the card**(カードに使用量メーターを表示)をオンにします。アカウントエディターには利用できる使用量の枠が表示されます。5時間枠と週間枠のバーを個別に切り替えるスイッチはありません。
-3. 接続を保存します。
-
-各ウィンドウには、使用済みのパーセンテージとリセットまでの時間を示すバーが付きます。たとえば`58% · resets in 2h`です。この接続がアクティブな間は、同じバーがチャットの接続選択にあるコンテキスト表示の下と、チャットの**Connection**設定にも表示されます。問い合わせる接続を1つに特定できない**Shuffle**(シャッフル)では表示しません。
-
-知っておくこと:
-
-- バーには、Claude Codeやclaude.aiなど、Claudeプランのすべての利用が含まれます。Marinaraだけではありません。
-- Claudeはウィンドウごとのパーセンテージを返し、トークン数は返さないため、トークン数は表示されません。
-- 読み取りでは、Marinaraのホスト上のClaude Codeツールに、`/usage`コマンドが表示するのと同じデータを問い合わせます。Claudeにメッセージは送らず、プランの利用枠も消費しません。1～2秒かかり、更新ボタンでもう一度読み取ります。
-- タイトルの横のプラン名(たとえば**Pro**)は、サインイン中のアカウントについてClaudeが返したものです。
-- Claude Codeは、この使用量データを実験的なものとしています。将来のバージョンで変更された場合、バーは誤った数値の代わりに、再試行ボタン付きのエラーを表示します。
-
-## OpenAI (ChatGPT)
-
-- APIキー: 不要です。代わりにローカルのツールにサインインします。
-
-**OpenAI (ChatGPT)**は、Codexというツールを介してChatGPTのアカウントを利用します。ツールはMarinaraのサーバーが動いているコンピューターで実行し、最初に一度だけサインインします。このプロバイダーでは**API Key**欄と**Base URL**欄は表示されません。埋め込みには対応していません(下の「埋め込み」のセクションを参照)。思考の度合いは、接続またはチャットのパラメーターにある**Reasoning Effort**(推論の強度)で決まります。レベルを選ぶまでは、そのモデルに対するCodex自身のデフォルトが使われます。
-
-インストールとログインの手順は[Claude、ChatGPT、Grokのサブスクリプション接続](subscription-clis.md)にあります。
-
-### プランの使用量
-
-この接続では、ChatGPTプランのCodex制限をどれだけ使ったかを表示できます。上のClaude (Subscription)と同じように使えます。**Edit account**で**Usage and balance**を開き、必要なら**Turn on**で外部からの読み取りを許可し、**Show the usage meter on the card**をオンにして、保存します。アカウントエディターには利用できる使用量の枠が表示され、5時間枠や週間枠を個別に切り替えるスイッチはありません。バーはアカウントエディター、チャットの接続選択、チャットの**Connection**設定に表示されます。
-
-知っておくこと:
-
-- バーには、Codex CLIなど、ChatGPTプランでのCodexの利用がすべて含まれます。Marinaraだけではありません。chatgpt.comのチャットには別の制限があり、このバーには含まれません。
-- ChatGPTはウィンドウごとのパーセンテージを返し、トークン数は返さないため、トークン数は表示されません。
-- 読み取りでは、MarinaraのホストにあるCodexのログインを使い、Codex CLIが制限として表示するのと同じデータをChatGPTに問い合わせます。モデルにメッセージは送らず、プランの利用枠も消費しません。
-- 2つのウィンドウのうち片方しかないプランでは、バーは1本だけ表示されます。
-
-## Grok CLI (Subscription)
-
-- APIキー: 不要です。代わりにローカルのツールにサインインします。
-
-**Grok CLI (Subscription)**は、Grok CLIというツールを介してSuperGrokまたはX Premium+のアカウントを利用します。ツールはMarinaraのサーバーが動いているコンピューターで実行し、最初に一度だけサインインします。このプロバイダーでは**API Key**欄と**Base URL**欄は表示されません。埋め込みには対応していません(下の「埋め込み」のセクションを参照)。
-
-インストールとログインの手順は[Claude、ChatGPT、Grokのサブスクリプション接続](subscription-clis.md)にあります。
-
-## Custom (OAI-Compatible)
-
-- デフォルトのBase URL: ありません。自分で入力します。
-
-Ollama、LM Studio、KoboldCppのように、ローカルまたは自前で立てたモデルサーバーにつなぐときは**Custom (OAI-Compatible)**を選びます。OpenAIのチャット形式に対応したホスティング型のプロキシにも使えます。ほとんどのローカルサーバーでは、**API Key**は空のままでかまいません。**Base URL**にはサーバーのアドレスを入力します。
-
-手順の詳しい説明と**Treat as local/custom endpoint**(ローカル/カスタムエンドポイントとして扱う)トグルについては、[ローカルモデルやセルフホストモデルへの接続](local-self-hosted.md)をお読みください。Marinaraに同梱されている小さなモデルについては、[Local Modelのセットアップ](local-model.md)を参照してください。
-
-## Image Generation
-
-**Image Generation**(画像生成)は特別なプロバイダーです。これを選んだあと、実際の処理を担当する画像バックエンドとして**Service**(サービス)も選びます。サービスごとにデフォルトのBase URLが違い、APIキーが必要かどうかも違います。サービスには、**OpenAI (DALL-E)**、**Stability AI**、**NovelAI**、**Z.AI**のような有料のクラウドAPIがあります。**Pollinations**や**Stable Horde**のような無料の選択肢もあります。**ComfyUI**や**SD Web UI (AUTOMATIC1111 / Forge)**のようなローカルサーバーも利用できます。
-
-画像サービスの全一覧、その設定、生成のオプションは[画像生成プロバイダーと設定](../media/image-providers.md)にまとめています。
-
-## Video Generation
-
-**Video Generation**(動画生成)も特別なプロバイダーで、専用の**Video Service**(動画サービス)の選択肢があります。Marinaraは、これを使って短いMP4のシーン動画を作ります。サービスは**Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**NanoGPT**、**Atlas Cloud**、**Seedance 2.0**、**ComfyUI**、**SwarmUI**です。クラウドサービスにはAPIキーが必要です。**ComfyUI**と**SwarmUI**は自分のコンピューターで動くため、通常はキーが要りません。
-
-各動画サービスの詳しい設定と制限は[シーン動画の生成](../media/scene-video.md)にまとめています。
+[画像生成プロバイダーと設定](../media/image-providers.md)と[シーン動画の生成](../media/scene-video.md)を参照してください。
 
 ## Decision
 
-- デフォルトのBase URL: **TypeSafe**ソースでは`https://api.typesafe.ai`
-
-**Decision**は、チャットに関する問いに、はい、またはいいえで答えるモデルのための、任意の特別なプロバイダーです。たとえば、カスタムエージェントを動かすかどうかを判定できます。回答はMarinaraの動作を制御するもので、チャットには投稿されません。選んだあと、ソースを**TypeSafe**、**OpenRouter**、**Custom System One endpoint**(カスタムSystem Oneエンドポイント)、**OpenAI-compatible chat model**から選びます。ホスト型のソースにはAPIキーが必要です。
-
-Decisionモデルの役割、選び方、詳しい設定は[Decisionモデル](decision-models.md)にまとめています。
+**Decisions**(判定)の下にあるタイルは、**TypeSafe**(デフォルトのアドレスは`https://api.typesafe.ai`)、**Own decision server**(自分の判定サーバー)、**Built-in model (decisions)**(判定用の内蔵モデル)です。OpenAIのチャット形式を使うチャットサービスも判定に使えますが、対数確率(考えられる各回答のスコア)を返すモデルに限られます。Decisionモデルは、チャットについてのはい・いいえの質問に答えます。[Decisionモデル](decision-models.md)を参照してください。
 
 ## Audio
 
-**Audio**(音声)は、読み上げとキャラクターの声のための特別なプロバイダーです。選んだあと、**Audio Source**(音声の提供元)を選びます。
+**Voice**(音声)の下にある音声サービスは、キャラクターの声とナレーションを読み上げます。**Audio source**(音声の提供元)を選びます。
 
-- **ElevenLabs**: キャラクターの声とナレーション。
-- **OpenAI-compatible**: OpenAI、またはOpenAIの音声形式に合わせたサーバー。
-- **PocketTTS**: 自分のコンピューターで動かせる無料の音声サーバー。
-- **xAI Voice**: xAIの音声サービス。
+| ソース | 内容 |
+| --- | --- |
+| ElevenLabs | キャラクターの声とナレーション。 |
+| OpenAI-compatible | OpenAI、またはOpenAIの音声形式に合わせた任意のサーバー。 |
+| PocketTTS | 自分のコンピューターで動かす無料の音声サーバー。 |
+| xAI Voice | xAIの音声サービス。 |
 
-ソースごとに、デフォルトのBase URLとモデルが入ります。**Default Voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間で、デフォルトは60秒です。音声サーバーが遅い場合は値を大きくしてください。Marinaraがデフォルトで使う音声の接続を選ぶには、**Connections**パネルを開き、**Defaults**(デフォルト)を展開して、**Text to Speech**の下で選びます。その接続でメッセージを読み上げるには、**Text to Speech**(音声合成)カードの**Source**(音声の提供元)でその接続を選びます。[音声の接続を使う](../media/tts-setup.md#use-an-audio-connection)を参照してください。
+ソースごとに、デフォルトのアドレスとモデルが入力されます。**Default voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間です。音声サーバーが遅い場合は値を大きくしてください。
 
-声やメッセージの読み上げについては、[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。音楽や効果音の生成は、以下のように別に設定します。
+Marinaraがデフォルトで使う読み上げ用のアカウントを選ぶには、**Jobs**(役割)ボックスの**Voice (Text to Speech)**(音声合成)の行をクリックします。そのアカウントでメッセージを読み上げるには、**Text to Speech**(音声合成)カードの**Source**(音声の提供元)でそのアカウントを選びます。[Text to Speech (TTS)の設定](../media/tts-setup.md)と[音声の接続を使う](../media/tts-setup.md#use-an-audio-connection)を参照してください。
 
 <a id="music--sound-effects"></a>
 
 ## Music & Sound Effects
 
-**Music & Sound Effects**(音楽と効果音)の接続カテゴリーは、読み上げとは別にインストゥルメンタルの音楽と効果音を生成します。ソースを選び、そのキーとモデルを入力して、**Music generation**(音楽生成)、**Sound-effect generation**(効果音生成)、または両方をオンにしてください。デフォルトとフォールバックの接続は、Audioや言語モデルの接続とは独立しています。設定するには、**Connections**パネルを開き、**Defaults**を展開して、**Music & Sound Effects**の下で選んでください。
+この種類のアカウントは、読み上げとは別に、インストゥルメンタルの音楽と効果音を作ります。**Add account**(アカウントの追加)ウィンドウには、このアカウント用のタイルはありません。これらのアカウントは、アップグレード(下記を参照)かインポートによって作られます。編集は**Edit model**(モデルの編集)で行い、そこでサービスを選んで、**Music generation**(音楽生成)、**Sound-effect generation**(効果音生成)、またはその両方をオンにします。Gameのセットアップでは**Music & Sound Effects account**(音楽と効果音のアカウント)でアカウントを指定します。デフォルトの選択肢は**Use the default Music & Sound Effects account**(デフォルトの音楽と効果音のアカウントを使用)です。
 
-| ソース | デフォルトのAPIベースURL | 設定 |
-| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabsのキー。音楽と効果音には別々のモデル欄があります。 |
-| SunoAPI | `https://apibox.erweima.ai` | [sunoapi.org](https://sunoapi.org/)のキー。音楽をオンにする場合は、公開HTTPSコールバックURLも必要です。これはSunoAPIのサービスであり、一般向けSunoサブスクリプションのログインではありません。 |
-| Custom compatible server(カスタム互換サーバー) | サーバーのアドレス | 音楽や効果音の明示的なエンドポイントパスと、対応するリクエスト形式。[互換オーディオの入出力仕様](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)を参照してください。 |
+サービスは次のとおりです。
 
-SunoAPIの音楽には、完了通知を送信できる公開HTTPSコールバックアドレスが必要です。このアドレスは自分で用意してください。Marinaraは作成しません。Marinaraはトラックの完成を自分で確認するため、再生にはその通知を使いません。
+- **ElevenLabs**: デフォルトのアドレスは`https://api.elevenlabs.io`です。ElevenLabsのキーが必要です。音楽と効果音には別々のモデル欄があります。
+- **SunoAPI**: デフォルトのアドレスは`https://apibox.erweima.ai`です。[sunoapi.org](https://sunoapi.org/)のキーが必要で、音楽をオンにする場合は公開HTTPSの**SunoAPI music callback URL**(SunoAPIの音楽コールバックURL)も必要です。これはSunoAPI独自のサービスで、Sunoのサブスクリプションへのサインインではありません。
+- **Custom compatible server**(カスタム互換サーバー): 自分のサーバーのアドレスです。音楽または効果音の明示的なエンドポイントパスと、対応するリクエスト形式が必要です。[互換オーディオの入出力仕様](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)を参照してください。
 
-音楽スタイルのプロンプトは最大1,000文字、効果音のプロンプトは最大500文字です。新しいリクエストごとに、プロバイダーの料金が発生する場合があります。アカウントの要件は[音楽API](https://docs.sunoapi.org/suno-api/generate-music)と[効果音API](https://docs.sunoapi.org/suno-api/generate-sounds)を参照してください。SunoAPIの効果音は、有料アカウントではまだ検証していません。
+注意点:
 
-アップグレードすると、生成がオンになっている各Audio接続に、別のMusic & Sound Effects接続が追加されます。以前の独立したElevenLabsのGame設定からも専用の接続が作成される場合があるため、複数の接続が表示されることがあります。元の読み上げ用接続と声の割り当ては変わりません。保存済みのGame接続IDは変わりません。生成が動作するのは、対応する移行済み接続が利用でき、要求した音楽または効果音の生成がその接続で有効になっている場合だけです。それ以外の場合は、適切な別のMusic & Sound Effects接続を選んでください。接続が複数ある場合は、**Defaults**の下でMusic & Sound Effectsのデフォルトとフォールバックを確認してください。移行された生成用接続を削除しても、再起動で再作成されることはありません。プロファイルから復元したエンドポイントは、ローカルで確認して保存するまで使えません。
+- Marinaraはトラックの完成を自分で確認しますが、SunoAPIにはコールバックアドレスが必要です。アドレスは自分で用意してください。Marinaraは作成しません。
+- 音楽スタイルのプロンプトは最大1,000文字、効果音のプロンプトは最大500文字です。
+- リクエストごとに、プロバイダーの料金が発生する場合があります。[音楽API](https://docs.sunoapi.org/suno-api/generate-music)と[効果音API](https://docs.sunoapi.org/suno-api/generate-sounds)を参照してください。SunoAPIの効果音は、有料アカウントではまだ検証していません。
 
-Gameごとに音楽や効果音の生成をオンにするか、Roleplayのコマンド設定で**Sound effects**(効果音)をオンにして`[sound: description]`を使ってください。Gacha Forgeには、独自のオーディオ生成設定と接続選択があります。生成がオフでも、同梱のGame音声は使えます。
+アップグレードすると、生成がオンになっている各Audioアカウントに、別のMusic & Sound Effectsアカウントが追加されます。以前の独立したElevenLabsのGame設定からも専用のアカウントが作成される場合があるため、複数表示されることがあります。読み上げ用のアカウントと声の割り当ては変わらず、保存済みのGameのアカウントIDも変わりません。生成が動作するのは、対応する移行済みのアカウントが利用でき、音楽または効果音のオプションがオンになっている場合だけです。それ以外の場合は、適切な別のアカウントを選んでください。移行されたアカウントを削除しても、再起動で再作成されることはありません。プロファイルから復元したエンドポイントは、ローカルで確認して保存するまで使えません。
+
+生成オーディオはGameごとにオンにします。または、Roleplayのコマンド設定で**Sound effects**(効果音)をオンにすると、`[sound: description]`を使えます。Gacha Forgeには独自のオーディオ生成設定があります。生成がオフでも、同梱のGameの音声は使えます。
+
+<a id="embeddings"></a>
 
 ## 埋め込み
 
-埋め込みは、ロアブックの意味検索とMemory Recallを支える仕組みです。テキストを数値の並びに変換することで、Marinaraは関連するエントリーを見つけられます。ほとんどのチャットプロバイダーでは、接続エディターで**Embedding Model**(埋め込みモデル)と、任意で**Embedding Endpoint URL**(埋め込みエンドポイントのURL)を設定できます。
+埋め込みは、テキストを数値の並びに変換し、Marinaraが関連するテキストを見つけられるようにする仕組みです。ロアブックのセマンティック検索とMemory Recallを支えています。ほとんどのチャットサービスでは、モデルエディターの**Semantic search (embeddings)**(埋め込みによるセマンティック検索)で、埋め込みモデルと、任意の**Embedding endpoint URL**(埋め込みエンドポイントのURL)を設定できます。
 
-埋め込みを作れないプロバイダーもあります。**Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)**、**Grok CLI (Subscription)**は対応していません。これらを使う場合は、**Embedding Connection**(埋め込み用の接続)ドロップダウンでほかの接続を借ります。OpenAI互換の接続、**Google Gemini**、内蔵の**Local Model**などが使えます。
+**Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)**、**Grok CLI (Subscription)**は埋め込みを作れません。これらを使う場合は、**Embedding provider**(埋め込み用のプロバイダー)ドロップダウンで、OpenAI互換のアカウント、**Google Gemini**、**Built-in model**(内蔵モデル)など、ほかのアカウントを借ります。
 
-独自の埋め込みの設定がないすべての接続で1つの埋め込みの生成元を使うには、**Connections**(接続)パネルを開いて**Defaults**(デフォルト)を展開し、**Embeddings**(埋め込み)で選びます。**None (built-in local model)**を選ぶと、内蔵のローカル埋め込みモデルを使い続けます。接続自身の埋め込みモデルや**Embedding Connection**の設定は、引き続き優先されます。変更した後は、ロアブックと記憶をベクトル化し直してください。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+独自の埋め込み設定がないすべてのアカウントで1つの埋め込みの生成元を使うには、**Jobs**(役割)ボックスの**Embeddings**(埋め込み)の行をクリックします。**Marinara's own search**(Marinara独自の検索)を選ぶと、内蔵の埋め込みモデルを使い続けます。アカウント自身の埋め込みモデルや**Embedding provider**の設定は、引き続き優先されます。変更した後は、ロアブックと記憶をベクトル化し直してください。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+
+## タイムアウト
+
+遅いモデルでは、チャットの返信やエージェントの呼び出しがサーバーの制限時間に達することがあります。これらの制限時間を決めるサーバー側の設定は、[サーバー設定](../CONFIGURATION.md)にあります。
 
 ## 関連ガイド
 

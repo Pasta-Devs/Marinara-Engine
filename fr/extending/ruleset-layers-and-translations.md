@@ -1,6 +1,6 @@
 # Couches, traductions et migrations des ensembles de règles
 
-Cette page fait partie du guide [Écrire des ensembles de règles Game Mode](writing-rulesets.md). Elle traite des variantes qu'un joueur active pour une partie, des traductions du texte d'un ensemble de règles et du déplacement de valeurs vers de nouveaux identifiants quand une fiche change.
+Utilise cette page pour proposer des variantes qu'un joueur active pour une partie, pour traduire le texte d'un ensemble de règles et pour déplacer des valeurs enregistrées vers de nouveaux identifiants quand une fiche change. Elle s'adresse aux auteurs d'ensembles de règles. Avant de commencer, lis [Écrire des ensembles de règles Game Mode](writing-rulesets.md).
 
 ## Couches : variantes de ton propre ensemble de règles
 
@@ -49,7 +49,7 @@ Une couche est une variante nommée de ton ensemble de règles, activée par le 
 
 **Conflits.** `conflicts` nomme les couches qui ne peuvent être actives ensemble. Nommer un seul côté de la paire suffit. L'assistant désactive l'autre interrupteur, et si un choix sauvegardé contient malgré tout les deux, la couche déclarée **plus tard** est retirée ; les deux mêmes choix donnent donc toujours les mêmes règles.
 
-**Une fiche contenant déjà une valeur retirée la conserve.** Rien ne réécrit un personnage. L'éditeur cesse simplement de proposer la valeur, et un personnage qui la possédait déjà l'affiche telle quelle. Désactive la couche dans une nouvelle partie et la valeur sera proposée à nouveau. Il en va de même pour une entrée de catalogue masquée : elle disparaît du sélecteur, et une ligne déjà choisie par le joueur reste sur la fiche. Les pièces qu'une couche retire et que quelqu'un transporte déjà restent dans son sac.
+**Une fiche contenant déjà une valeur retirée la conserve.** Rien ne réécrit un personnage. L'éditeur cesse de proposer la valeur, et un personnage qui la possédait déjà l'affiche telle quelle. Désactive la couche dans une nouvelle partie et la valeur sera proposée à nouveau. Il en va de même pour une entrée de catalogue masquée : elle disparaît du sélecteur, et une ligne déjà choisie par le joueur reste sur la fiche. Les pièces qu'une couche retire et que quelqu'un transporte déjà restent dans son sac.
 
 **Limites.** 12 couches par ensemble de règles et 4000 caractères de consignes par couche, les deux chaînes comptées ensemble. Un ensemble de règles en package qui déclare `layers`, ou un `gm.worldGuidance` de base, nécessite Capability API 1.25, un ensemble dont les couches retirent des pièces nécessite 1.64, et un ensemble dont les couches modifient son `items` nécessite 1.813. Un ensemble que tu importes est validé par Engine à la lecture et n'a donc besoin de rien.
 

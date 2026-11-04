@@ -1,6 +1,6 @@
 # Detalhes internos dos prompts do Noodle (desenvolvedores)
 
-Referência para quem desenvolve: onde ficam no código os prompts de geração do Noodle, como personalizá-los e como depurar o prompt final. O prompt é o texto que Marinara envia para a IA. Quem usa o aplicativo configura o Noodle pelo painel **Settings** (Configurações); veja os guias do Noodle em `docs/noodle/`.
+Referência para quem desenvolve: onde ficam no código os prompts de geração do Noodle, como personalizá-los e como depurar o prompt final. O prompt é o texto que Marinara envia para a IA. Quem usa o aplicativo configura o Noodle pelo painel **Settings** (Configurações); veja os guias do Noodle `docs/agents/noodle.md` e `docs/agents/noodle-settings.md`.
 
 O Noodle é um pacote para download. As rotas dele (`/api/noodle`, registradas quando o pacote é ativado) e o código de geração ficam no pacote Noodle em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), dentro de `packages/noodle/src/engine/packages/server/src/`. Na tabela abaixo, uma fonte marcada como **package** (pacote) é relativa a essa pasta. O Engine mantém o schema e os tipos compartilhados do Noodle, o armazenamento do Noodle, as substituições de prompt registradas que Settings lista e o texto padrão do prompt da linha do tempo em `packages/server/src/services/noodle/noodle-prompt.ts`. O pacote mantém as próprias cópias de `services/prompt-overrides/registry/noodle.ts` e `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ As mudanças no código que pertence ao pacote são feitas e validadas no Marina
 
 ## Guias relacionados
 
-- [Noodle: a linha do tempo social dentro do aplicativo](../noodle/overview.md)
-- [Configurações do Noodle e transferência para os chats](../noodle/settings.md)
+- [Noodle: a linha do tempo social dentro do aplicativo](../agents/noodle.md)
+- [Configurações do Noodle e transferência para os chats](../agents/noodle-settings.md)
 - [Pacotes opcionais de agentes e capacidades](optional-agent-packages.md)
 - [Mapa da arquitetura (desenvolvedores)](architecture-map.md)

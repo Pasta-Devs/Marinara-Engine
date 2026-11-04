@@ -1,271 +1,200 @@
 # Fournisseurs d'IA pris en charge
 
-Ce guide recense tous les fournisseurs d'IA auxquels Marinara Engine peut se connecter. Pour chacun, tu trouves où obtenir une clé API, l'URL de base par défaut et les particularités à connaître. Une clé API est un code secret délivré par un fournisseur, qui autorise Marinara à dialoguer avec son service d'IA.
+Cette page est une référence pour les principaux services auxquels Marinara Engine peut se connecter : où obtenir leur clé API, leur adresse par défaut et leurs particularités. Pour ajouter un compte pas à pas, lis d'abord [Se connecter à un fournisseur d'IA](connecting-to-a-provider.md).
 
-Pour la marche à suivre générale d'ajout d'un compte, lis d'abord [Se connecter à un fournisseur d'IA](connecting-to-a-provider.md). Cette page-ci est une référence à consulter quand tu cherches un détail sur un fournisseur précis.
+Tu choisis un service dans la fenêtre **Add account** (ajouter un compte), sous la section qui correspond à ce qu'il fait : **Chat**, **Images & video** (images et vidéo), **Voice** (voix) ou **Decisions** (décisions). La tuile porte le nom indiqué ci-dessous. L'adresse est l'adresse web à laquelle Marinara envoie les requêtes. Elle s'appelle **Address** (adresse) dans l'éditeur du compte et **Base URL** (URL de base) dans l'éditeur du modèle. Marinara la remplit pour les services connus. Ne la change que pour un proxy ou un serveur que tu fais tourner.
 
-## Comment lire cette page
+Les modèles changent souvent, cette page ne les liste donc pas. Une fois le compte connecté, la liste des modèles se charge dans le sélecteur. Clique sur **Refresh model list** (actualiser la liste des modèles) dans le sélecteur pour la recharger.
 
-Tu choisis un service dans la fenêtre **Add account** (ajouter un compte). Chaque service dispose d'un bouton à l'étape 1, portant exactement le nom indiqué ci-dessous.
+## Services de chat
 
-La plupart des fournisseurs de cette page sont des services cloud qui hébergent l'IA à ta place. Tu crées un compte chez le fournisseur, tu copies une clé API, puis tu la colles dans le champ **API key** (clé API). Trois fournisseurs sur abonnement passent par une identification locale au lieu d'une clé. Leurs sections le précisent.
+Ces services utilisent une clé API, sauf les trois services par abonnement, qui passent par une identification sur ton ordinateur.
 
-Deux termes reviennent souvent :
+| Service | Où obtenir une clé |
+| --- | --- |
+| LinkAPI | `linkapi.ai` |
+| OpenAI | `platform.openai.com/api-keys` |
+| Anthropic | `console.anthropic.com/settings/keys` |
+| Google Gemini | `aistudio.google.com/apikey` |
+| Google Vertex AI | `cloud.google.com/vertex-ai/docs/authentication` (guide des identifiants) |
+| Mistral | `console.mistral.ai/api-keys` |
+| Cohere | `dashboard.cohere.com/api-keys` |
+| OpenRouter | `openrouter.ai/keys` |
+| NanoGPT | `nano-gpt.com/api` |
+| xAI / Grok | `console.x.ai` |
+| Arli AI | `www.arliai.com/account` |
+| Z.AI | `z.ai/manage-apikey/apikey-list` |
+| DeepSeek | `platform.deepseek.com/api_keys` |
+| OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | Pas de page de clé. Voir les notes ci-dessous. |
 
-- URL de base : l'adresse web à laquelle Marinara envoie les requêtes. L'éditeur de la connexion l'appelle **Address** (adresse). La plupart des fournisseurs la remplissent pour toi. Tu ne la modifies que pour les serveurs locaux ou personnalisés.
-- Modèle : le modèle d'IA précis que tu choisis après avoir sélectionné un fournisseur. Les modèles disponibles changent souvent, cette page ne les liste donc pas. Pour voir la liste du moment, utilise le menu déroulant **Model** (modèle) ou le bouton **Fetch Models from API** (récupérer les modèles depuis l'API) dans l'éditeur de connexion.
+Adresses par défaut, que Marinara remplit pour toi :
 
-## OpenAI
+- LinkAPI : `https://linkapi.ai/v1` (une passerelle compatible OpenAI avec sa propre clé)
+- OpenAI : `https://api.openai.com/v1`
+- Anthropic : `https://api.anthropic.com/v1`
+- Google Gemini : `https://generativelanguage.googleapis.com/v1beta`
+- Google Vertex AI : `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
+- Mistral : `https://api.mistral.ai/v1`
+- Cohere : `https://api.cohere.ai/compatibility/v1`
+- OpenRouter : `https://openrouter.ai/api/v1`
+- NanoGPT : `https://nano-gpt.com/api/v1`
+- xAI / Grok : `https://api.x.ai/v1`
+- Arli AI : `https://api.arliai.com/v1`
+- Z.AI : `https://api.z.ai/api/paas/v4`
+- DeepSeek : `https://api.deepseek.com/v1`
+- OpenAI-compatible et les services par abonnement : aucune. Tu saisis une adresse, ou aucune n'est nécessaire.
 
-- Où obtenir une clé : `https://platform.openai.com/api-keys`
-- URL de base par défaut : `https://api.openai.com/v1`
+Toutes les pages de clés commencent par `https://`.
 
-**OpenAI** propose la famille de modèles GPT. Une fois la clé collée, choisis un modèle dans le menu déroulant ou clique sur **Fetch Models from API** pour charger la liste du moment. Cette connexion ne sert qu'aux modèles de chat. Pour les images DALL-E, passe plutôt par le fournisseur **Image Generation** (génération d'images) et son service **OpenAI (DALL-E)**.
+Les trois services par abonnement masquent le champ **API key** (clé API) et le champ d'adresse. Ils ne proposent pas d'embeddings. Les étapes d'installation et d'identification se trouvent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md), qui traite aussi de la consommation du forfait.
 
-## Anthropic
+Un agrégateur est un service où une seule clé donne accès aux modèles de nombreuses entreprises. OpenRouter et NanoGPT sont des agrégateurs. Une passerelle repose sur la même idée, pour un proxy que tu fais tourner ou que tu loues.
 
-- Où obtenir une clé : `https://console.anthropic.com/settings/keys`
-- URL de base par défaut : `https://api.anthropic.com/v1`
+## Notes par service
 
-**Anthropic** propose les modèles Claude. Le fournisseur prend en charge la mise en cache des prompts (le prompt, c'est le texte que Marinara envoie à l'IA), ce qui peut réduire le coût des longs chats. Active-la avec l'interrupteur **Enable prompt caching** (activer la mise en cache des prompts) dans l'éditeur de connexion.
+### OpenAI
 
-**Anthropic** ne propose pas d'embeddings. Les embeddings transforment le texte en listes de nombres, ce qui permet à Marinara de fouiller les lorebooks et la mémoire. Pour ces fonctions, utilise une connexion d'embeddings distincte (voir la section Embeddings plus bas).
+**OpenAI** fait tourner les modèles GPT. Pour les images DALL-E, ajoute **OpenAI** et choisis des modèles **Image** sur le même compte. Il en va de même pour les autres services qui génèrent des images avec la même clé.
 
-## Google Gemini
+### Anthropic
 
-- Où obtenir une clé : `https://aistudio.google.com/apikey`
-- URL de base par défaut : `https://generativelanguage.googleapis.com/v1beta`
+**Anthropic** fait tourner les modèles Claude. La mise en cache des prompts permet au service de réutiliser le début de ton prompt, ce qui peut réduire le coût des longs chats. Active-la avec **Enable prompt caching** (activer la mise en cache des prompts) dans l'éditeur du modèle. **Anthropic** ne propose pas d'embeddings (voir [Embeddings](#embeddings)).
 
-**Google Gemini** propose les modèles Gemini via Google AI Studio. C'est la plus simple des deux options Google.
+### Google Gemini et Google Vertex AI
 
-Marinara désactive les filtres de sécurité ajustables de Google sur les deux options Google, sauf pour toute catégorie que tu règles toi-même dans **Custom Parameters** (paramètres personnalisés). Les protections de base de Google, comme la protection de l'enfance, s'appliquent toujours.
+**Google Gemini** fait tourner les modèles Gemini via Google AI Studio. C'est la plus simple des deux options Google. Sur les deux options Google, Marinara désactive les filtres de sécurité ajustables de Google, sauf pour toute catégorie que tu règles toi-même dans **Custom Parameters** (paramètres personnalisés). Les protections de base de Google, comme la protection de l'enfance, s'appliquent toujours.
 
-## Google Vertex AI
+**Google Vertex AI** fait tourner Gemini via un projet Google Cloud et demande plus de configuration. Modifie l'adresse et remplace `YOUR_PROJECT_ID` par l'identifiant de ton projet. Change la région si ce n'est pas `us-central1`. Le champ **API key** accepte l'un des éléments suivants, et Marinara reconnaît celui que tu as collé :
 
-- Documentation sur les identifiants : `https://cloud.google.com/vertex-ai/docs/authentication`
-- URL de base par défaut : `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
-
-**Google Vertex AI** propose les modèles Gemini via un projet Google Cloud. La configuration est plus lourde qu'avec **Google Gemini**. Tu dois modifier le champ **Base URL** (URL de base) et remplacer `YOUR_PROJECT_ID` par l'identifiant réel de ton projet. Change aussi la région si ce n'est pas `us-central1`.
-
-Le champ **API Key** accepte l'un de ces trois types d'identifiants, et Marinara reconnaît celui que tu as collé :
-
-1. Une clé JSON de compte de service.
+1. Une clé JSON de compte de service (un fichier fourni par Google Cloud qui désigne un compte de service).
 2. Un jeton d'accès OAuth, par exemple issu de `gcloud auth print-access-token`.
 3. Une clé API Vertex.
 
-**Gemini 4 Argon** ne fonctionne que dans les emplacements `global`, `us` et `eu`, pas dans une région unique comme `us-central1`. Pour l'utiliser, règle le champ **Base URL** sur `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Avec tout autre emplacement, Google renvoie une erreur, et Marinara l'affiche.
+**Gemini 4 Argon** ne fonctionne que dans les emplacements `global`, `us` et `eu`, pas dans une région unique comme `us-central1`, d'après une note du code de Marinara qui suit la documentation de Google. Pour l'utiliser, règle l'adresse sur `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Avec un autre emplacement, Google renvoie une erreur, et Marinara l'affiche.
 
-Argon peut mettre plusieurs minutes à répondre, sur l'une ou l'autre des connexions Google. Si les réponses du chat atteignent le délai d'expiration, augmente `CHAT_GENERATION_TIMEOUT_MS`. Si les appels d'agents atteignent le délai d'expiration, augmente `AGENT_CALL_TIMEOUT_MS` (voir [Référence de configuration du serveur](../CONFIGURATION.md)). Google conseille de prévoir au moins 15 minutes, soit `900000`.
+### Cohere
 
-## Mistral
+**Cohere** utilise son point d'accès compatible OpenAI. Si tu colles une ancienne adresse Cohere v2, Marinara la bascule pour toi vers le point d'accès de compatibilité.
 
-- Où obtenir une clé : `https://console.mistral.ai/api-keys`
-- URL de base par défaut : `https://api.mistral.ai/v1`
+### OpenRouter
 
-**Mistral** propose la famille de modèles Mistral. Aucune configuration particulière n'est nécessaire au-delà de la clé API.
+**OpenRouter** est un agrégateur qui ajoute deux options dans l'éditeur du modèle :
 
-## Cohere
+- Le champ **Preferred provider** (fournisseur préféré) force le routage vers un backend nommé. Le nom doit correspondre à celui de la page des modèles d'OpenRouter. Laisse-le vide pour un routage automatique.
+- L'option **Enable prompt caching** envoie des indications de mise en cache pour les modèles Claude routés via OpenRouter. La plupart des autres modèles gèrent le cache tout seuls.
 
-- Où obtenir une clé : `https://dashboard.cohere.com/api-keys`
-- URL de base par défaut : `https://api.cohere.ai/compatibility/v1`
+### NanoGPT
 
-**Cohere** utilise par défaut son point de terminaison compatible OpenAI. Si tu colles une ancienne URL Cohere v2, Marinara la bascule pour toi vers le point de terminaison de compatibilité. Les requêtes continuent de fonctionner.
+**NanoGPT** est un agrégateur sans liste de modèles intégrée. Une fois le compte connecté, le sélecteur charge les modèles auxquels ton compte a droit. Il lit le catalogue détaillé de NanoGPT et indique quels modèles ton abonnement couvre :
 
-## OpenRouter
+| Pastille | Signification |
+| --- | --- |
+| `1x` en vert | Inclus dans ton abonnement, au tarif normal. |
+| Une valeur supérieure comme `2x` | Inclus, mais chaque token d'entrée coûte autant de tokens de ton quota. |
+| **Paid** (payant) | Non inclus. L'utilisation est facturée sur ton solde payant. |
+| Pas de pastille | NanoGPT n'avait aucune donnée d'abonnement pour ce modèle. |
 
-- Où obtenir une clé : `https://openrouter.ai/keys`
-- URL de base par défaut : `https://openrouter.ai/api/v1`
+#### Consommation de l'abonnement
 
-**OpenRouter** est un agrégateur. Une seule clé te donne accès à de nombreux modèles de nombreuses entreprises. Deux options supplémentaires apparaissent dans l'éditeur de connexion :
-
-- **Preferred Provider** (fournisseur préféré) : un champ de texte qui force **OpenRouter** à router vers un backend nommé. Le nom doit correspondre à celui affiché sur la page des modèles d'OpenRouter. Laisse-le vide pour un routage automatique.
-- **Enable prompt caching** : envoie des indications de mise en cache pour les modèles Claude routés via **OpenRouter**. La plupart des autres modèles d'**OpenRouter** gèrent le cache tout seuls et n'en ont pas besoin.
-
-## NanoGPT
-
-- Où obtenir une clé : `https://nano-gpt.com/api`
-- URL de base par défaut : `https://nano-gpt.com/api/v1`
-
-**NanoGPT** est lui aussi un agrégateur. Il n'a pas de liste de modèles intégrée, le menu déroulant **Model** est donc vide au départ. Une fois la clé collée, clique sur **Fetch Models from API** pour charger les modèles auxquels ton compte a droit.
-
-Marinara lit le catalogue détaillé de NanoGPT. Le menu déroulant indique donc quels modèles ton abonnement couvre et lesquels en consomment davantage :
-
-- Un modèle inclus affiche une pastille de **multiplicateur de tokens d'entrée** : `1x` en vert pour la consommation normale, ou une valeur supérieure comme `2x` si chaque token envoyé décompte autant de tokens d'entrée de ton quota. Un modèle *non inclus* affiche **Paid** (payant), car son utilisation est facturée sur ton solde payant. Sans pastille, le modèle n'avait aucune donnée d'abonnement à communiquer.
-
-### Consommation de l'abonnement
-
-Si tu as un abonnement NanoGPT, cette connexion peut afficher ton quota actuel :
+Avec un abonnement NanoGPT, le compte peut afficher ton quota en temps réel.
 
 1. Clique sur **⋯** sur la ligne du compte, choisis **Edit account** (modifier le compte) et ouvre **Usage and balance** (utilisation et solde).
-2. Si les lectures externes sont désactivées, clique sur **Turn on** (activer) pour autoriser la lecture de la consommation. Pour ajouter un jeton de gestion NanoGPT, clique sur **Add a usage-only key** (ajouter une clé réservée à la consommation), colle-le, puis clique sur **Show usage** (afficher la consommation).
+2. Si les lectures externes sont désactivées, clique sur **Turn on** (activer). Pour ajouter une clé de gestion, clique sur **Add a usage-only key** (ajouter une clé réservée à la consommation), colle-la, puis clique sur **Show usage** (afficher la consommation).
 3. Active **Show the usage meter on the card** (afficher l'indicateur de consommation sur la carte) et enregistre.
 
-Le widget interroge le point d'accès de consommation de NanoGPT et affiche tes quotas hebdomadaires et quotidiens de tokens d'entrée. Deux identifiants permettent de les lire :
+L'indicateur affiche tes quotas hebdomadaires et quotidiens de tokens d'entrée, avec ce qu'il reste et le moment où chacun se réinitialise, par exemple `42M remaining · resets in 4d`. Un quota que NanoGPT ne peut pas communiquer apparaît comme inconnu, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté comme plein. Le bouton d'actualisation le relit.
 
-- **Management token** (recommandé) : crée-le sur `https://nano-gpt.com/settings#management-api-tokens` avec la portée **Usage only** (consommation uniquement). Il peut lire tes quotas, mais ne peut ni exécuter de modèles ni dépenser ton solde : c'est donc le choix le plus sûr pour afficher la consommation. Marinara le conserve chiffré et l'envoie uniquement au point d'accès de gestion de NanoGPT.
-- **Ta clé API** : utilisée automatiquement si aucun jeton de gestion n'est enregistré. Cela fonctionne, mais les lectures emploient alors le même identifiant que celui permettant de dépenser ton solde.
+Deux identifiants permettent de lire la consommation :
 
-Sous chaque barre, le widget indique ce qu'il reste et quand la fenêtre se réinitialise, par exemple `42M remaining · resets in 4d`.
+- **Management key** (clé de gestion, recommandée). Crée-en une sur `https://nano-gpt.com/settings#management-api-tokens`, uniquement pour lire la consommation. Elle lit les quotas, mais ne peut ni exécuter de modèles ni dépenser ton solde. Marinara la conserve chiffrée et l'envoie uniquement au point d'accès de gestion de NanoGPT.
+- **Ta clé API**, utilisée quand aucune clé de gestion n'est enregistrée. Cela fonctionne, mais la lecture du quota utilise alors une clé qui peut dépenser ton solde.
 
-Un quota que NanoGPT ne peut pas communiquer apparaît comme **unknown**, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté avec tout son quota disponible. Le bouton d'actualisation du widget permet de le rafraîchir à la demande.
+Le même indicateur apparaît sous la barre de contexte dans le sélecteur de connexion d'un chat et dans les réglages **Connection** (connexion) du chat. Il n'apparaît que si le modèle du chat est un modèle NanoGPT dont l'indicateur est activé, et pas pour **Shuffle** (mélange).
 
-Le même indicateur apparaît sous celui du contexte dans le sélecteur de connexion du chat et dans ses réglages **Connection** (connexion). Tu peux ainsi suivre ton quota sans quitter le chat. Il suit la connexion active : il apparaît uniquement pour une connexion NanoGPT avec **Show the usage meter on the card** activé, jamais pour **Shuffle**, qui ne désigne pas une seule connexion à interroger. Dans le sélecteur, il reprend le style de la barre de contexte au-dessus et se lit de la même manière : consommation par rapport au quota hebdomadaire, par exemple `8.9M / 60M tokens`, avec l'heure de réinitialisation à côté du pourcentage.
+### xAI / Grok
 
-## xAI / Grok
+**xAI / Grok** fait tourner les modèles Grok. Grok 4.6 et 4.7 disposent d'une fenêtre de contexte de 500 000 tokens et d'un raisonnement allant jusqu'à **Extra high** (très élevé). Ils prennent en charge les outils du chat, dont **Web Search** (recherche web), pour que les résultats de recherche alimentent la réponse finale.
 
-- Où obtenir une clé : `https://console.x.ai`
-- URL de base par défaut : `https://api.x.ai/v1`
+### Arli AI
 
-**xAI / Grok** propose les modèles Grok. Quand tu choisis ce service dans la fenêtre **Add account**, Marinara préremplit le modèle avec Grok 4.5. Rien ne t'empêche de le changer ensuite. Grok 4.6 et 4.7 disposent d'une fenêtre de contexte de 500 000 tokens et d'un raisonnement allant jusqu'à **Extra high** (`xhigh`). Ils prennent en charge les outils existants du chat, dont **Web Search** (recherche web), pour intégrer les résultats de recherche à la réponse finale.
+**Arli AI** est un service de chat hébergé sans liste de modèles intégrée. Une fois le compte connecté, le sélecteur charge ses modèles. Pour les images Arli AI, ajoute **Arli AI** et choisis des modèles **Image** sur le même compte.
 
-## Arli AI
+### Z.AI
 
-- Où obtenir une clé : `https://www.arliai.com/account`
-- URL de base par défaut : `https://api.arliai.com/v1`
+**Z.AI** sert les modèles GLM (GLM 5.3, GLM 5.3 Flash et les précédents) sur sa propre API. Les modèles GLM 5.2 et 5.3 acceptent le niveau de raisonnement **Maximum**. L'adresse par défaut correspond au point d'accès facturé à l'usage. Le Coding Plan de Z.AI utilise un autre point d'accès : une clé Coding Plan risque donc de ne pas fonctionner ici.
 
-**Arli AI** est un service de chat hébergé. Il n'a pas de liste de modèles intégrée, le menu déroulant **Model** est donc vide au départ. Une fois la clé collée, clique sur **Fetch Models from API** pour charger ses modèles du moment. Pour les images Arli AI, passe plutôt par le fournisseur **Image Generation** et son service **Arli AI**.
+### DeepSeek
 
-## Z.AI
+**DeepSeek** sert `deepseek-flash` et `deepseek-v4-pro`. DeepSeek réfléchit par défaut. Son réglage **Reasoning Effort** (effort de raisonnement) utilise les niveaux propres à DeepSeek, et **Off** (désactivé) coupe la réflexion pour cette requête. DeepSeek traite une requête de niveau moyen comme High. La réflexion apparaît dans la réponse, avec l'affichage habituel des pensées.
 
-- Où obtenir une clé : `https://z.ai/manage-apikey/apikey-list`
-- URL de base par défaut : `https://api.z.ai/api/paas/v4`
+Certains paramètres ne s'appliquent pas : le panneau les omet donc. **Verbosity** (verbosité), **Top K** et les pénalités sont abandonnés et ignorés. **Temperature** (température) et **Top P** forment une paire, car DeepSeek n'en utilise qu'un à la fois. Tu vois **Temperature** quand la réflexion est désactivée et **Top P** quand elle est active.
 
-**Z.AI** propose les modèles GLM (GLM 5.3, GLM 5.3 Flash et les précédents) sur sa propre API. La liste **Model** affiche les modèles GLM actuels, et **Fetch Models from API** la met à jour depuis ton compte. Les modèles GLM 5.3 raisonnent toujours : le réglage **Reasoning Effort** (effort de raisonnement) de ton preset est ramené aux trois niveaux acceptés par Z.AI : **Low** pour un effort faible, **High** pour un effort élevé et **Maximum** pour un effort maximal. Si tu ne le définis pas, Z.AI utilise sa valeur par défaut, **Maximum**. L'URL de base par défaut correspond au point d'accès facturé à l'usage. Le Coding Plan de Z.AI utilise un autre point d'accès que sa politique d'utilisation réserve aux outils de sa liste ; il ne faut donc pas s'attendre à ce qu'une clé de ce plan fonctionne ici.
+Connecte DeepSeek avec sa propre tuile, plutôt que de diriger **OpenAI** vers l'adresse de DeepSeek. Le service OpenAI attend les modèles d'OpenAI : avec un modèle DeepSeek, il masque donc les commandes de génération et n'envoie presque aucun de tes réglages.
 
-## DeepSeek
+### OpenAI-compatible
 
-- Où obtenir une clé : `https://platform.deepseek.com/api_keys`
-- URL de base par défaut : `https://api.deepseek.com/v1`
+Le service **OpenAI-compatible** connecte un serveur ou un proxy qui accepte le format de requête d'OpenAI, comme Ollama, LM Studio ou KoboldCpp. Dans la fenêtre **Add account**, il apparaît sous le nom **OpenAI-compatible address** (adresse compatible OpenAI). Sur la plupart des serveurs locaux, la clé peut rester vide. C'est toi qui saisis l'adresse. Consulte [Connecter un modèle local ou auto-hébergé](local-self-hosted.md). Pour le petit modèle que Marinara fait tourner lui-même, consulte [Configuration du modèle intégré](local-model.md).
 
-**DeepSeek** propose ses propres modèles de chat, `deepseek-flash` et `deepseek-v4-pro`. Une fois la clé collée, le menu déroulant **Model** les affiche, et **Fetch Models from API** actualise la liste depuis ton compte.
+## Images et vidéo
 
-DeepSeek réfléchit par défaut. Son réglage **Reasoning Effort** utilise les niveaux propres à DeepSeek – **Low**, **High** et **Max** – et **Off** (désactivé) coupe la réflexion pour cette requête. Il n'y a pas de **Medium** : DeepSeek traite une requête de niveau moyen comme High, Marinara propose donc High plutôt qu'un second bouton qui ferait la même chose. Sa réflexion apparaît dans la réponse, avec l'affichage habituel des pensées.
+Sous **Images & video**, chaque tuile a sa propre adresse et sa propre règle sur la nécessité d'une clé. Les tuiles sont Stability AI, Together AI, NovelAI, Venice.ai, Atlas Cloud, fal.ai, SpicyAPI, Pollinations, Stable Horde, Seedance 2.0 et des serveurs locaux : ComfyUI, SD Web UI (AUTOMATIC1111 / Forge), SwarmUI, RunPod Serverless (ComfyUI), Draw Things et Block Entropy. Draw Things, ComfyUI, SwarmUI, SD Web UI et RunPod portent l'étiquette **Self-hosted** (auto-hébergé).
 
-Certains réglages du panneau des paramètres ne s'appliquent pas à DeepSeek : le panneau les omet donc, au lieu de faire comme s'ils fonctionnaient. **Verbosity**, **Top K** et les pénalités en font partie : DeepSeek les a abandonnés et les ignore. **Temperature** (température) et **Top P** forment une paire – DeepSeek n'en utilise qu'un à la fois, selon qu'il réfléchit ou non –, si bien que tu vois **Temperature** quand la réflexion est désactivée et **Top P** quand elle est active.
+Les modèles d'images et de vidéo d'OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI et Google proviennent de ton compte de chat pour ce service. Ajoute le compte de chat, puis choisis des modèles **Image** ou **Video** (vidéo) sur ce compte.
 
-Passe par ce fournisseur pour connecter DeepSeek, plutôt que de diriger le fournisseur **OpenAI** vers l'URL de DeepSeek. Le fournisseur OpenAI attend les modèles propres à OpenAI : avec un modèle DeepSeek, il masque donc les commandes de génération et n'envoie presque aucun de tes réglages.
-
-## Claude (Subscription)
-
-- Clé API : aucune. Tu t'identifies dans un outil local à la place.
-
-**Claude (Subscription)** exploite ton abonnement Anthropic Pro ou Max via l'outil Claude Code. L'outil tourne sur l'ordinateur qui héberge le serveur Marinara, et tu t'y identifies une seule fois. Les champs **API Key** et **Base URL** sont masqués pour ce fournisseur. Il ne propose pas d'embeddings (voir la section Embeddings plus bas).
-
-Les étapes d'installation et d'identification figurent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md).
-
-### Consommation du forfait
-
-Cette connexion peut afficher la part des limites de ton forfait Claude déjà consommée :
-
-1. Clique sur **⋯** sur la ligne du compte, choisis **Edit account** et ouvre **Usage and balance**.
-2. Si les lectures externes sont désactivées, clique sur **Turn on**. Active **Show the usage meter on the card**. L'éditeur du compte affiche les fenêtres de consommation disponibles ; il n'a pas d'interrupteurs distincts pour les barres de 5 heures et hebdomadaire.
-3. Enregistre la connexion.
-
-Chaque fenêtre a une barre avec le pourcentage consommé et le moment de sa réinitialisation, par exemple `58% · resets in 2h`. Les mêmes barres apparaissent sous l'indicateur de contexte dans le sélecteur de connexion d'un chat et dans les réglages **Connection** du chat tant que cette connexion est active. Elles n'apparaissent pas pour **Shuffle**, qui ne désigne pas une seule connexion à interroger.
-
-À savoir :
-
-- Les barres comptent tout ce qui passe par ton forfait Claude, comme Claude Code et claude.ai, pas seulement Marinara.
-- Claude donne un pourcentage par fenêtre et aucun nombre de tokens, donc aucun n'est affiché.
-- Une lecture demande à l'outil Claude Code de l'hôte Marinara les mêmes données que sa commande `/usage`. Elle n'envoie aucun message à Claude et n'utilise rien de ton forfait. Elle prend une seconde ou deux, et le bouton d'actualisation la relit.
-- Le nom du forfait à côté du titre, comme **Pro**, est celui que Claude indique pour le compte connecté.
-- Claude Code signale ces données d'usage comme expérimentales. Si une version future les change, les barres affichent une erreur avec un bouton de nouvel essai plutôt qu'un chiffre faux.
-
-## OpenAI (ChatGPT)
-
-- Clé API : aucune. Tu t'identifies dans un outil local à la place.
-
-**OpenAI (ChatGPT)** exploite ton compte ChatGPT via l'outil Codex. L'outil tourne sur l'ordinateur qui héberge le serveur Marinara, et tu t'y identifies une seule fois. Les champs **API Key** et **Base URL** sont masqués pour ce fournisseur. Il ne propose pas d'embeddings (voir la section Embeddings plus bas). Son niveau de réflexion correspond au réglage **Reasoning Effort** des paramètres de la connexion ou du chat ; tant que tu n'en choisis aucun, Codex utilise sa propre valeur par défaut pour le modèle.
-
-Les étapes d'installation et d'identification figurent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md).
-
-### Consommation du forfait
-
-Cette connexion peut afficher la part des limites Codex de ton forfait ChatGPT déjà consommée. Elle fonctionne comme celle de Claude (Subscription) ci-dessus : ouvre **Usage and balance** dans **Edit account**, autorise les lectures externes avec **Turn on** si nécessaire, active **Show the usage meter on the card**, puis enregistre. L'éditeur du compte affiche les fenêtres de consommation disponibles, sans interrupteurs distincts pour les fenêtres de 5 heures ou hebdomadaire. Les barres apparaissent dans l'éditeur du compte, dans le sélecteur de connexion d'un chat et dans les réglages **Connection** du chat.
-
-À savoir :
-
-- Les barres comptent tout l'usage de Codex sur ton forfait ChatGPT, comme la Codex CLI, pas seulement Marinara. Les chats sur chatgpt.com ont leurs propres limites et ne font pas partie de ces barres.
-- ChatGPT donne un pourcentage par fenêtre et aucun nombre de tokens, donc aucun n'est affiché.
-- Une lecture demande à ChatGPT les mêmes données que la Codex CLI affiche comme ses limites, en utilisant la connexion Codex de l'hôte Marinara. Elle n'envoie aucun message à un modèle et n'utilise rien de ton forfait.
-- Un forfait qui n'a qu'une des deux fenêtres affiche une seule barre.
-
-## Grok CLI (Subscription)
-
-- Clé API : aucune. Tu t'identifies dans un outil local à la place.
-
-**Grok CLI (Subscription)** exploite ton compte SuperGrok ou X Premium+ via l'outil Grok CLI. L'outil tourne sur l'ordinateur qui héberge le serveur Marinara, et tu t'y identifies une seule fois. Les champs **API Key** et **Base URL** sont masqués pour ce fournisseur. Il ne propose pas d'embeddings (voir la section Embeddings plus bas).
-
-Les étapes d'installation et d'identification figurent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md).
-
-## Custom (OAI-Compatible)
-
-- URL de base par défaut : aucune. Tu dois en saisir une.
-
-Choisis le fournisseur **Custom (OAI-Compatible)** pour te connecter à un serveur de modèles local ou auto-hébergé, comme Ollama, LM Studio ou KoboldCpp. Il convient aussi à tout proxy hébergé qui parle le format de chat d'OpenAI. Sur la plupart des serveurs locaux, le champ **API Key** peut rester vide. Renseigne le champ **Base URL** avec l'adresse de ton serveur.
-
-Pour la configuration pas à pas et l'interrupteur **Treat as local/custom endpoint** (traiter comme un point de terminaison local ou personnalisé), lis [Connecter un modèle local ou auto-hébergé](local-self-hosted.md). Pour le petit modèle livré avec Marinara, lis [Configuration du modèle local](local-model.md).
-
-## Image Generation
-
-**Image Generation** est un fournisseur à part. Une fois que tu l'as choisi, tu sélectionnes aussi un **Service** (service), c'est-à-dire le moteur d'images qui fait le travail. Chaque service a sa propre URL de base par défaut et sa propre règle sur la nécessité d'une clé API. On y trouve des API cloud payantes comme **OpenAI (DALL-E)**, **Stability AI**, **NovelAI** et **Z.AI**. On y trouve aussi des options gratuites comme **Pollinations** et **Stable Horde**. Les serveurs locaux comme **ComfyUI** et **SD Web UI (AUTOMATIC1111 / Forge)** fonctionnent également.
-
-La liste complète des services d'images, leur configuration et les réglages de génération se trouvent dans [Fournisseurs de génération d'images et configuration](../media/image-providers.md).
-
-## Video Generation
-
-**Video Generation** est également un fournisseur à part, avec son propre sélecteur **Video Service** (service vidéo). Marinara s'en sert pour produire de courtes vidéos de scène au format MP4. Les services sont **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, **ComfyUI** et **SwarmUI**. Les services cloud exigent une clé API. **ComfyUI** et **SwarmUI** tournent sur ton propre ordinateur et n'en ont normalement pas besoin.
-
-La configuration complète et les limites de chaque service vidéo se trouvent dans [Génération de vidéos de scène](../media/scene-video.md).
+Consulte [Fournisseurs de génération d'images et configuration](../media/image-providers.md) et [Génération de vidéos de scène](../media/scene-video.md).
 
 ## Decision
 
-- URL de base par défaut : `https://api.typesafe.ai` pour la source **TypeSafe**.
-
-**Decision** (décision) est un fournisseur à part, facultatif, pour un modèle qui répond par oui ou par non à des questions sur ton chat. Il peut par exemple décider si un agent personnalisé doit s'exécuter. Ses réponses orientent Marinara et ne sont pas publiées dans le chat. Une fois que tu l'as choisi, sélectionne une source : **TypeSafe**, **OpenRouter**, **Custom System One endpoint** (point d'accès System One personnalisé) ou **OpenAI-compatible chat model** (modèle de chat compatible OpenAI). Les sources hébergées exigent une clé API.
-
-Le rôle d'un modèle de décision, la façon d'en choisir un et la configuration complète sont détaillés dans [Modèles de décision](decision-models.md).
+Sous **Decisions**, les tuiles sont **TypeSafe** (adresse par défaut `https://api.typesafe.ai`), **Own decision server** (ton propre serveur de décision) et **Built-in model (decisions)**. Les services de chat qui utilisent le format de chat d'OpenAI peuvent aussi prendre des décisions, mais seulement avec un modèle qui renvoie des log-probabilités (des scores pour chaque réponse possible). Un modèle de décision répond par oui ou par non à des questions sur ton chat. Consulte [Modèles de décision](decision-models.md).
 
 ## Audio
 
-**Audio** est un fournisseur à part pour la parole et les voix des personnages. Une fois que tu l'as choisi, sélectionne une **Audio Source** (source audio) :
+Sous **Voice**, un service audio fait parler les voix des personnages et la narration. Choisis une **Audio source** (source audio) :
 
-- **ElevenLabs** : voix des personnages et narration.
-- **OpenAI-compatible** : OpenAI, ou tout serveur qui reproduit le format de synthèse vocale d'OpenAI.
-- **PocketTTS** : un serveur de voix gratuit que tu fais tourner sur ton propre ordinateur.
-- **xAI Voice** : le service de voix de xAI.
+| Source | Ce que c'est |
+| --- | --- |
+| ElevenLabs | Voix des personnages et narration. |
+| OpenAI-compatible | OpenAI, ou tout serveur qui reproduit le format de synthèse vocale d'OpenAI. |
+| PocketTTS | Un serveur de voix gratuit que tu fais tourner sur ton propre ordinateur. |
+| xAI Voice | Le service de voix de xAI. |
 
-Chaque source remplit une URL de base et un modèle par défaut. **Default Voice** (voix par défaut) est la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. **Request timeout (seconds)** (délai d'attente de la requête, en secondes) est le temps pendant lequel Marinara attend une réplique parlée, 60 secondes par défaut ; augmente-le pour un serveur vocal lent. Pour choisir la connexion de synthèse vocale que Marinara utilise par défaut, ouvre le panneau **Connections** (Connexions), déplie **Defaults** (valeurs par défaut) et choisis-la sous **Text to Speech**. Pour lire les messages à voix haute avec une connexion audio, choisis-la comme **Source** dans la carte **Text to Speech** (synthèse vocale). Voir [Utiliser une connexion Audio](../media/tts-setup.md#use-an-audio-connection).
+Chaque source remplit une adresse et un modèle par défaut. Le réglage **Default voice** (voix par défaut) désigne la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. Le réglage **Request timeout (seconds)** (délai d'attente de la requête, en secondes) fixe le temps pendant lequel Marinara attend une réplique parlée. Augmente-le pour un serveur vocal lent.
 
-Pour les voix et la lecture des messages à voix haute, voir [Configuration du Text to Speech (TTS)](../media/tts-setup.md). L'audio généré se configure séparément, comme indiqué ci-dessous.
+Pour choisir le compte de synthèse vocale que Marinara utilise par défaut, clique sur la ligne **Voice (Text to Speech)** (voix, synthèse vocale) dans l'encadré **Jobs** (tâches). Pour lire les messages à voix haute avec l'un d'eux, choisis-le comme **Source** dans la carte **Text to Speech** (synthèse vocale). Consulte [Configuration du Text to Speech (TTS)](../media/tts-setup.md) et [Utiliser une connexion Audio](../media/tts-setup.md#use-an-audio-connection).
 
 <a id="music--sound-effects"></a>
 
 ## Musique et effets sonores
 
-La catégorie de connexion **Music & Sound Effects** (musique et effets sonores) génère de la musique instrumentale et des effets sonores séparément de la parole. Choisis une source, saisis sa clé et ses modèles, puis active **Music generation** (génération de musique), **Sound-effect generation** (génération d'effets sonores) ou les deux. Ses connexions par défaut et de secours sont indépendantes des connexions Audio et des modèles de langage. Pour les définir, ouvre le panneau **Connections**, déplie **Defaults** et choisis-les sous **Music & Sound Effects**.
+Ce type de compte génère de la musique instrumentale et des effets sonores, séparément de la parole. La fenêtre **Add account** n'a pas de tuile pour lui. Ces comptes proviennent d'une mise à jour (voir plus bas) ou d'un import. Tu en modifies un avec **Edit model** (modifier le modèle), où tu choisis son service et actives **Music generation** (génération de musique), **Sound-effect generation** (génération d'effets sonores) ou les deux. La configuration de Game en demande un dans **Music & Sound Effects account** (compte de musique et d'effets sonores), dont le choix par défaut est **Use the default Music & Sound Effects account** (utiliser le compte de musique et d'effets sonores par défaut).
 
-| Source | Base de l'API par défaut | Configuration |
-| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ElevenLabs | `https://api.elevenlabs.io` | Clé ElevenLabs ; la musique et les effets sonores ont des champs de modèle distincts. |
-| SunoAPI | `https://apibox.erweima.ai` | Une clé de [sunoapi.org](https://sunoapi.org/), avec une URL de rappel HTTPS publique lorsque la musique est activée. Il s'agit du service SunoAPI, pas d'une connexion avec un abonnement grand public à Suno. |
-| Custom compatible server (serveur compatible personnalisé) | L'adresse de ton serveur | Un chemin d'endpoint explicite pour la musique et les effets sonores, et un format de requête pris en charge ; consulte les [contrats audio compatibles](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server). |
+Les services :
 
-La musique SunoAPI nécessite une adresse de rappel HTTPS publique à laquelle le service peut envoyer ses notifications de fin. Tu dois fournir cette adresse ; Marinara n'en crée pas. Marinara vérifie lui-même quand la piste est prête et n'utilise donc pas ces notifications pour la lecture.
+- **ElevenLabs** : adresse par défaut `https://api.elevenlabs.io`. Nécessite une clé ElevenLabs. La musique et les effets sonores ont des champs de modèle distincts.
+- **SunoAPI** : adresse par défaut `https://apibox.erweima.ai`. Nécessite une clé de [sunoapi.org](https://sunoapi.org/) et, quand la musique est activée, une **SunoAPI music callback URL** (URL de rappel pour la musique SunoAPI) publique en HTTPS. Il s'agit du service propre à SunoAPI, pas d'une identification avec un abonnement Suno.
+- **Custom compatible server** (serveur compatible personnalisé) : l'adresse de ton serveur. Nécessite un chemin de point d'accès explicite pour la musique ou les effets sonores, et un format de requête pris en charge. Consulte les [contrats audio compatibles](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server).
 
-Les prompts de style musical peuvent compter jusqu'à 1 000 caractères. Ceux des effets sonores sont limités à 500. Chaque nouvelle requête peut être facturée par ton fournisseur. Consulte l'[API de musique](https://docs.sunoapi.org/suno-api/generate-music) et l'[API d'effets sonores](https://docs.sunoapi.org/suno-api/generate-sounds) pour les conditions liées au compte. Les effets sonores SunoAPI n'ont pas encore été vérifiés avec un compte payant.
+À savoir :
 
-Lors de la mise à niveau, chaque connexion Audio dont la génération est activée reçoit une connexion Music & Sound Effects distincte. Les anciens réglages ElevenLabs autonomes de Game peuvent aussi créer leur propre connexion ; plusieurs connexions peuvent donc apparaître. Les connexions de voix d'origine et les voix attribuées ne changent pas. Les identifiants de connexion enregistrés pour Game ne changent pas. La génération fonctionne uniquement si la connexion migrée correspondante est disponible et que la génération de musique ou d'effets sonores demandée y est activée ; sinon, choisis une autre connexion Music & Sound Effects adaptée. Si plusieurs connexions sont présentes, vérifie les connexions par défaut et de secours de Music & Sound Effects sous **Defaults**. Si tu supprimes une connexion de génération issue de la migration, elle n'est pas recréée au redémarrage. Les endpoints restaurés depuis un profil restent indisponibles tant que tu ne les as pas vérifiés et enregistrés localement.
+- SunoAPI a besoin de l'adresse de rappel, même si Marinara vérifie lui-même quand la piste est terminée. C'est toi qui fournis l'adresse. Marinara n'en crée pas.
+- Les prompts de style musical peuvent compter jusqu'à 1 000 caractères. Ceux des effets sonores, jusqu'à 500.
+- Chaque requête peut être facturée par ton fournisseur. Consulte l'[API de musique](https://docs.sunoapi.org/suno-api/generate-music) et l'[API d'effets sonores](https://docs.sunoapi.org/suno-api/generate-sounds). Les effets sonores SunoAPI n'ont pas été vérifiés avec un compte payant.
 
-Active l'audio généré pour chaque Game, ou active **Sound effects** (effets sonores) dans les réglages des commandes de Roleplay pour utiliser `[sound: description]`. Gacha Forge possède son propre réglage d'audio généré et sa propre sélection de connexion. L'audio fourni avec Game reste disponible lorsque la génération est désactivée.
+Lors de la mise à jour, chaque compte Audio dont la génération est activée reçoit un compte Music & Sound Effects distinct. Les anciens réglages ElevenLabs autonomes de Game peuvent créer le leur : tu peux donc en voir plusieurs. Les comptes de voix et les voix attribuées ne changent pas, et les identifiants de compte enregistrés pour Game non plus. La génération ne fonctionne que si le compte migré correspondant est disponible et que l'option de musique ou d'effets sonores y est activée. Sinon, choisis un autre compte adapté. Supprimer un compte migré ne le recrée pas au redémarrage. Les points d'accès restaurés depuis un profil restent indisponibles tant que tu ne les as pas vérifiés et enregistrés localement.
+
+Active l'audio généré pour chaque Game, ou active **Sound effects** (effets sonores) dans les réglages des commandes de Roleplay pour utiliser `[sound: description]`. Gacha Forge possède son propre réglage d'audio génératif. L'audio fourni avec Game reste disponible quand la génération est désactivée.
 
 ## Embeddings
 
-Les embeddings font tourner la recherche sémantique des lorebooks et Memory Recall. Ils transforment le texte en listes de nombres, ce qui permet à Marinara de retrouver les entrées apparentées. Chez la plupart des fournisseurs de chat, tu peux définir un **Embedding Model** (modèle d'embeddings) et, en option, une **Embedding Endpoint URL** (URL du point de terminaison d'embeddings) dans l'éditeur de connexion.
+Les embeddings transforment le texte en listes de nombres pour que Marinara puisse retrouver du texte apparenté. Ils font tourner la recherche sémantique des lorebooks et Memory Recall. La plupart des services de chat te permettent de définir un modèle d'embedding et, en option, une **Embedding endpoint URL** (URL du point d'accès d'embeddings) sous **Semantic search (embeddings)** (recherche sémantique) dans l'éditeur du modèle.
 
-Certains fournisseurs ne savent pas produire d'embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)** n'en proposent pas. Dans ce cas, utilise le menu déroulant **Embedding Connection** (connexion d'embeddings) pour emprunter une autre connexion : une connexion compatible OpenAI, **Google Gemini** ou le **Local Model** intégré.
+**Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)** ne savent pas produire d'embeddings. Pour ceux-là, utilise le menu déroulant **Embedding provider** (fournisseur d'embeddings) pour emprunter un autre compte, comme un compte compatible OpenAI, **Google Gemini** ou le **Built-in model** (modèle intégré).
 
-Pour utiliser une même source d'embeddings pour toutes les connexions qui n'ont pas leurs propres réglages d'embedding, ouvre le panneau **Connections**, déplie **Defaults** et choisis-la sous **Embeddings**. **None (built-in local model)** garde le modèle d'embedding local intégré. Le modèle d'embedding propre à une connexion, ou son **Embedding Connection**, reste prioritaire. Revectorise tes lorebooks et tes souvenirs après ce changement. Consulte [Recherche sémantique pour les lorebooks](../lorebooks/semantic-search.md).
+Pour utiliser une même source d'embeddings pour tous les comptes qui n'ont pas leurs propres réglages d'embedding, clique sur la ligne **Embeddings** dans l'encadré **Jobs**. L'option **Marinara's own search** (recherche propre à Marinara) garde le modèle d'embedding intégré. Le modèle d'embedding propre à un compte, ou son **Embedding provider**, reste prioritaire. Revectorise tes lorebooks et tes souvenirs après ce changement. Consulte [Recherche sémantique pour les lorebooks](../lorebooks/semantic-search.md).
+
+## Délais d'expiration
+
+Les modèles lents peuvent atteindre les délais d'expiration du serveur pour les réponses de chat et les appels d'agents. Les réglages du serveur correspondants se trouvent dans [Configuration](../CONFIGURATION.md).
 
 ## Guides associés
 

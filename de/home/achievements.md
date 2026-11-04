@@ -1,98 +1,76 @@
 # Errungenschaften
 
-In dieser Anleitung erfährst du, wie die Errungenschaften in Marinara Engine funktionieren. Errungenschaften sind rein kosmetische Abzeichen, die sich beim Benutzen der App freischalten. Es geht um den Fundort, die vollständige Liste, den Schalter zum Ein- und Ausschalten und den Ablauf beim Freischalten.
+Errungenschaften sind kosmetische Abzeichen, die sich freischalten, während du Marinara Engine benutzt, zum Beispiel wenn du Chats anlegst oder Community-Links besuchst. An der Funktionsweise der App ändern sie nichts. In dieser Anleitung erfährst du, wo du sie findest, wie die vollständige Liste aussieht und wie du sie ausschaltest.
 
-## Was Errungenschaften sind
-
-Errungenschaften sind kleine Sammelabzeichen. Marinara Engine schaltet sie im Hintergrund frei, während du ganz normale Dinge tust: Chats, Charaktere oder Personas anlegen, Community-Links besuchen.
-
-Errungenschaften sind rein kosmetisch. Sie schalten keine Funktionen frei und ändern nichts am Verhalten der App. Sie zeigen einfach auf nette Weise, was du schon alles gemacht hast.
-
-Der Fortschritt liegt lokal im gerade verwendeten Profil. In einem anderen Profil oder nach einer Neuinstallation ist noch nichts freigeschaltet. Da die Einträge bei den übrigen Profildaten liegen, wandern sie mit einem vollständigen Profil-Backup mit.
-
-## Das Achievements-Panel öffnen
-
-Das Lesezeichen **Achievements** (Errungenschaften) sitzt auf dem Home-Bildschirm. Der Home-Bildschirm ist das, was du siehst, solange kein Chat geöffnet ist. Das Lesezeichen liegt oben in der Reihe der Lesezeichen und trägt ein Pokal-Symbol. Auf dem Handy tippst du links neben den Tabs auf die Lesezeichen-Schaltfläche, um es zu finden.
-
-Du kannst Home auch das Widget **Achievements** hinzufügen. Klick in den Lesezeichen auf **Widgets** und schalte es ein. Das Widget zeigt einen laufenden Zähler, etwa **12 of 24 unlocked**, dazu deine Errungenschaften unter **Last obtained** (zuletzt erhalten) und **Closest next** (als Nächstes in Reichweite). Solange noch geladen wird, steht beim Zähler stattdessen **Checking the collection...**. Ein Klick auf das Widget öffnet das Panel. Siehe [Home-Widgets](welcome.md#home-widgets).
-
-So öffnest du das Panel:
+## Das Fenster Achievements öffnen
 
 1. Geh auf den Home-Bildschirm.
-2. Such oben das Lesezeichen **Achievements**.
-3. Klick darauf.
+2. Klick auf das Lesezeichen **Achievements** (Errungenschaften) mit dem Pokal-Symbol. Auf dem Handy tippst du vorher links neben den Tabs auf die Lesezeichen-Schaltfläche.
 
-Daraufhin öffnet sich das Fenster **Achievements**. Ganz oben steht eine Übersichtszeile, zum Beispiel **12 of 24 achievements unlocked in this profile.** Darunter liegt ein Raster aus Errungenschaftskarten.
+Das Fenster **Achievements** öffnet sich. Ganz oben steht eine Übersicht wie **12 of 24 achievements unlocked in this profile.** Ein Profil ist dein gespeicherter Bestand an Marinara-Daten. Darunter liegt ein Raster aus Karten.
 
-Jede Karte zeigt ein Abzeichen-Symbol, einen Titel, eine Kategorie und eine kurze Beschreibung. Bei einer gesperrten Karte lautet der Titel **?????** und das Symbol ist ein Schloss. Was dahintersteckt, erfährst du erst nach dem Freischalten. Verdiente Karten tragen die Markierung **unlocked** (freigeschaltet). Karten mit einem Zielwert zeigen zusätzlich eine Zeile **Progress** (Fortschritt) und einen Fortschrittsbalken.
+- Eine gesperrte Karte zeigt **?????** und ein Schloss-Symbol. Was sie enthält, kannst du erst nach dem Freischalten lesen.
+- Eine freigeschaltete Karte trägt die Markierung **unlocked**.
+- Eine Karte mit Zielwert zeigt außerdem eine Zeile **Progress** (Fortschritt) und einen Balken.
 
-Lesezeichen, Widget und Panel erscheinen nur, wenn die Einstellung **Achievements** aktiviert ist. Mehr dazu im Abschnitt zur Einstellung weiter unten. Ein anderes Menü oder eine andere Seite mit Errungenschaften gibt es nicht.
+Du kannst Home auch das Widget **Achievements** hinzufügen. Klick in den Lesezeichen auf **Widgets** und schalte es ein. Es zeigt einen Zähler wie **12 of 24 unlocked**, deine Errungenschaft unter **Last obtained** (zuletzt erhalten) und die unter **Closest next** (als Nächstes in Reichweite). Solange es lädt, steht dort **Checking the collection...**. Ein Klick darauf öffnet das Fenster. Siehe [Home-Widgets](welcome.md#home-widgets).
+
+Wenn es nicht funktioniert hat: Lesezeichen, Widget und Fenster erscheinen nur, wenn die Einstellung **Achievements** eingeschaltet ist. Siehe [Errungenschaften ein- oder ausschalten](#turn-achievements-on-or-off).
+
+Dein Fortschritt wird im verwendeten Profil gespeichert. In einem anderen Profil oder nach einer Neuinstallation ist noch nichts freigeschaltet. Freischaltungen werden in einem vollständigen Backup mitgesichert.
 
 ## Die 24 Errungenschaften
 
-Es gibt 24 Errungenschaften in vier Kategorien: **Milestone**, **Community**, **Creation** und **Collection**.
-
-Manche Errungenschaften schalten sich genau einmal frei. Die aus **Creation** und **Collection** haben Stufen, gekennzeichnet mit **I**, **II** und **III**. Die Stufen fallen bei 5, dann 25, dann 100. Der Titel des Abzeichens lautet also zum Beispiel **Hoarder II**, sobald du die zweite Stufe erreichst.
+Es gibt 24, in vier Kategorien: **Milestone**, **Community**, **Creation** und **Collection**. Die Errungenschaften aus **Creation** und **Collection** haben drei Stufen, **I**, **II** und **III**, bei 5, 25 und 100. Ein Abzeichentitel kann **Hoarder II** lauten, sobald du die zweite Stufe erreichst.
 
 | Errungenschaft | Kategorie | So schaltest du sie frei |
-|---|---|---|
-| **Diligent Student** | Milestone | Schließ das Einsteiger-Tutorial ab oder überspring es. |
-| **Hello World** | Milestone | Schick die erste Nachricht an Professor Mari. |
+| --- | --- | --- |
+| **Diligent Student** | Milestone | Schließ das Tutorial beim ersten Start ab oder überspring es. |
+| **Hello World** | Milestone | Schick deine erste Nachricht an Professor Mari. |
 | **Please Handle With Care** | Milestone | Zieh das Bild von Professor Mari über den Bildschirm. |
-| **One Of Us** | Community | Klick auf das Lesezeichen **Discord** oder auf den Link **Discord** im Widget **Community** auf Home. |
-| **Based Backer** | Community | Klick in den Lesezeichen auf Home oder im Widget **Community** auf **Support** (öffnet Ko-fi). |
-| **Backseat Appreciator** | Community | Klick in den Lesezeichen auf Home oder im Widget **Community** auf **Credits**. |
-| **Who Needs IRL Friends** | Creation | Leg Chats im Conversation Mode an (5, 25, 100). |
+| **One Of Us** | Community | Klick auf das Lesezeichen **Discord** oder auf den Link **Discord** im Widget **Community**. |
+| **Based Backer** | Community | Klick in den Lesezeichen oder im Widget **Community** auf **Support** (öffnet Ko-fi). |
+| **Backseat Appreciator** | Community | Klick in den Lesezeichen oder im Widget **Community** auf **Credits**. |
+| **Who Needs IRL Friends** | Creation | Leg Conversation-Chats an (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Leg Roleplay-Chats an (5, 25, 100). |
-| **I Have No Other Hobbies** | Creation | Leg Chats im Game Mode an (5, 25, 100). |
+| **I Have No Other Hobbies** | Creation | Leg Game-Chats an (5, 25, 100). |
 | **Hoarder** | Collection | Sammle Charaktere (5, 25, 100). |
 | **The World's A Stage** | Collection | Sammle Lorebooks (5, 25, 100). |
 | **I Am A Gamer** | Collection | Sammle Personas (5, 25, 100). |
 
-Ein paar Anmerkungen zur Liste:
-
-- Eine Persona ist das Profil, das dich im Chat vertritt. Ein Lorebook ist eine Sammlung von Weltwissen, auf die die KI zurückgreifen kann.
-- Die **Collection**-Errungenschaften zählen alles dieser Art in der Bibliothek. Importiertes und Heruntergeladenes zählt genauso mit, nicht nur Selbstgebautes. Bei **Hoarder** gibt es eine Ausnahme: Der mitgelieferte Charakter Professor Mari zählt nie mit.
-- Bei den Community-Errungenschaften reicht der Besuch des Links. Du musst dich auf der anderen Seite weder anmelden noch irgendetwas abschließen.
+- Eine Persona ist die Charakterkarte, die im Chat für dich steht. Ein Lorebook ist eine Sammlung von Weltwissen, die die KI liest, sobald die passenden Schlüsselwörter fallen.
+- **Collection** zählt alles dieser Art in deiner Bibliothek, auch Importiertes und Heruntergeladenes. Bei **Hoarder** zählt der mitgelieferte Charakter Professor Mari nie mit.
+- Bei den Community-Errungenschaften reicht der Besuch des Links. Auf der anderen Seite musst du dich nicht anmelden.
 
 ## Errungenschaften von Agenten
 
-Installierte Agenten können eigene Errungenschaften hinzufügen. Sie erscheinen im selben Fenster **Achievements**, nach den mitgelieferten Errungenschaften, unter einer Überschrift wie **From Noodle** (Von Noodle). Der Abschnitt erscheint nur für Agenten, die Errungenschaften hinzugefügt haben.
+Installierte Agenten können eigene Errungenschaften hinzufügen. Sie erscheinen im selben Fenster nach den mitgelieferten, unter einer Überschrift wie **From Noodle** (von Noodle). Für sie gelten dieselben Regeln, und ein Agent kann eigene Abzeichenbilder zeigen.
 
-Für die Errungenschaften eines Agenten gelten dieselben Regeln wie für die mitgelieferten. Sie sind anfangs gesperrt, manche haben einen Fortschrittsbalken, und beim Freischalten erscheint derselbe Hinweis als Einblendung. Auf freigeschalteten Karten kann ein Agent eigene Abzeichenbilder anzeigen.
+Entfernst du einen Agenten, verschwindet sein Abschnitt, und deine Freischaltungen bleiben erhalten. Installierst du ihn erneut, erscheinen sie wieder als freigeschaltet. Der Zähler oben schließt die Agenten ein, die du installiert hast.
 
-Entfernst du einen Agenten, verschwindet sein Abschnitt. Deine Freischaltungen bleiben erhalten. Installierst du den Agenten erneut, erscheinen seine bereits freigeschalteten Errungenschaften wieder als freigeschaltet.
+<a id="turn-achievements-on-or-off"></a>
 
-Der Zähler oben im Fenster schließt die Errungenschaften deiner installierten Agenten ein.
+## Errungenschaften ein- oder ausschalten
 
-## Die Einstellung Achievements
+1. Öffne **Settings → General** (Einstellungen → Allgemein).
+2. Schalte im Bereich **App Behavior** (App-Verhalten) den Schalter **Achievements** ein oder aus. Er ist standardmäßig eingeschaltet.
 
-Die gesamte Funktion lässt sich mit einem einzigen Schalter ein- und ausschalten. Öffne **Settings** (Einstellungen), geh auf den Tab **General** (Allgemein) und such den Bereich **App Behavior** (App-Verhalten). Der Schalter heißt **Achievements** und ist standardmäßig aktiviert.
-
-Das bewirkt der Schalter:
-
-- Aktiviert: Das Lesezeichen **Achievements** auf dem Home-Bildschirm und das Fenster stehen bereit, und beim Freischalten kommt ein kleiner Hinweis als Einblendung. Das optionale Widget **Achievements** erscheint nur, wenn du es deinem Home-Layout hinzugefügt hast.
-- Deaktiviert: Lesezeichen und Widget sind ausgeblendet, die Einblendungen bleiben aus. Im Hintergrund zeichnet die App die Freischaltungen trotzdem still weiter auf.
-
-Weil die Aufzeichnung auch bei deaktivierter Einstellung weiterläuft, geht kein Fortschritt verloren. Aktivierst du die Einstellung später wieder, ist alles zwischenzeitlich Verdiente bereits vorhanden.
+- Ein: Lesezeichen und Fenster stehen bereit, und beim Freischalten erscheint eine Einblendung.
+- Aus: Lesezeichen, Widget und Einblendungen sind ausgeblendet. Die App zeichnet Freischaltungen im Hintergrund weiter auf, deshalb geht nichts verloren, wenn du die Einstellung wieder einschaltest.
 
 ## Wie das Freischalten abläuft
 
-Marinara gleicht die gestuften Errungenschaften mit den aktuellen Zählerständen ab. Dieser Abgleich läuft, sobald eine erfasste Aktion passiert – etwa ein neuer Chat oder ein Klick auf ein Lesezeichen auf Home. Er läuft außerdem beim Öffnen des Achievements-Panels.
+Marinara prüft deine Zählerstände, sobald eine erfasste Aktion passiert, etwa ein neuer Chat oder ein Klick auf ein Lesezeichen, und wenn du das Fenster öffnest.
 
-Löst eine Aktion eine Freischaltung aus und ist die Einstellung aktiviert, erscheint ein kleiner Hinweis als Einblendung. Sein Titel lautet **Achievement unlocked**, dazu nennt er das Abzeichen, zum Beispiel **Hoarder II** oder **One Of Us**.
+- Schaltet eine Aktion ein Abzeichen frei und ist die Einstellung eingeschaltet, nennt eine Einblendung mit dem Titel **Achievement unlocked** das Abzeichen, zum Beispiel **Hoarder II**.
+- Das Öffnen des Fensters kann Abzeichen freischalten, die du schon auf anderem Weg verdient hast. Das geschieht still: Die Karte erscheint als freigeschaltet, ohne Einblendung.
+- Ein freigeschaltetes Abzeichen bleibt freigeschaltet, auch wenn du später Chats, Charaktere, Lorebooks oder Personas löschst.
+- Der Balken **Progress** auf einer freigeschalteten Karte zeigt deinen aktuellen Zählerstand. Eine Karte kann also **2 / 5** zeigen, obwohl das Abzeichen verdient ist. Das ist normal.
 
-Auch das Öffnen des Panels kann Abzeichen freischalten, die du längst anderweitig verdient hast. Solche nachgeholten Freischaltungen laufen still ab: Die Karte gilt einfach als freigeschaltet, eine Einblendung erscheint nicht.
-
-Einmal freigeschaltet, bleibt eine Errungenschaft für immer freigeschaltet. Das gilt auch, wenn du später Chats, Charaktere, Lorebooks oder Personas löschst und der Zähler wieder sinkt. Das Abzeichen sperrt sich nicht erneut.
-
-Eins solltest du wissen: Der Balken **Progress** zeigt auch auf einer bereits freigeschalteten Karte den aktuellen Zählerstand. Auf einer Karte kann also **2 / 5** stehen, obwohl das Abzeichen längst verdient ist. Das ist normal.
-
-Eine Schaltfläche zum Zurücksetzen oder Löschen der Errungenschaften gibt es nirgends in der App.
+Eine Schaltfläche zum Zurücksetzen der Errungenschaften gibt es nicht.
 
 ## Verwandte Anleitungen
 
 - [Erste Schritte mit Marinara Engine](welcome.md)
-- [Das Einsteiger-Tutorial](tutorial.md)
+- [Das Tutorial beim ersten Start](tutorial.md)
 - [Professor Mari, deine Assistentin in der App](professor-mari.md)
-- [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md)

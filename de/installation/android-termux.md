@@ -1,107 +1,92 @@
 # Installationsanleitung für Android (Termux)
 
-In dieser Anleitung erfährst du, wie Marinara Engine auf einem Android-Handy oder -Tablet läuft. Marinara arbeitet dabei in Termux, einer kostenlosen Linux-Umgebung für Android. Zwei Wege führen zum Ziel: bequem über die Android-App oder von Hand im Termux-Terminal.
+In dieser Anleitung erfährst du, wie du Marinara Engine auf einem Android-Handy oder -Tablet betreibst. Marinara läuft dabei in Termux, einer kostenlosen App, die deinem Handy ein kleines Linux-System gibt. Einrichten kannst du es mit der Android-App von Marinara (am einfachsten) oder von Hand in Termux.
 
 ## Was Termux und F-Droid sind
 
-Termux ist eine kostenlose App, die dem Handy ein kleines Linux-System samt Kommandozeile verpasst. Marinara Engine braucht sie, weil Marinara ein Linux-Server ist und keine native Android-App.
+Marinara ist ein Linux-Server und keine native Android-App, deshalb braucht es Termux, um zu laufen. F-Droid ist ein kostenloser, quelloffener App-Store. Die Einrichtung der Android-App lädt die stabile F-Droid-Version von Termux herunter. Termux gibt es außerdem als experimentelle Google-Play-Version. Ist sie bereits installiert, akzeptiert Marinara sie, diese Anleitung empfiehlt aber F-Droid.
 
-F-Droid ist ein kostenloser, quelloffener App-Store für Android. Marinaras automatische Einrichtung lädt die stabile F-Droid-Version von Termux herunter. Termux hat außerdem eine separate experimentelle Google-Play-Version; ist sie bereits installiert, erkennt Marinara ihre offizielle Signatur, für diese Anleitung bleibt F-Droid aber der empfohlene Weg.
+Installiere Termux über [Termux bei F-Droid](https://f-droid.org/en/packages/com.termux/). Installiere Termux und seine Plugin-Apps nicht aus unterschiedlichen Quellen, denn ihre Signaturen müssen übereinstimmen. Siehe die [offiziellen Installationshinweise von Termux](https://github.com/termux/termux-app#installation).
 
-Hier geht es zur Installation von Termux über F-Droid: [Termux bei F-Droid](https://f-droid.org/en/packages/com.termux/). Vermische Termux und seine Plugin-Apps nicht aus verschiedenen Quellen, da ihre Signaturen übereinstimmen müssen. Einzelheiten zu den Quellen stehen in den [offiziellen Installationshinweisen von Termux](https://github.com/termux/termux-app#installation).
+## Installation mit der Android-App
 
-## Installation über die Android-App (APK)
+Die Android-App von Marinara Engine richtet Termux ein und öffnet Marinara, sobald der lokale Server läuft. Unterwegs bittet Android dich, ein paar Systemabfragen zu bestätigen.
 
-Am einfachsten geht es mit der Android-App von Marinara Engine. Eine APK ist die Installationsdatei einer Android-App. Diese App ist nur ein kleiner Helfer: Sie richtet Termux ein und öffnet Marinara, sobald der lokale Server läuft. Die eigentliche Arbeit erledigt weiterhin Termux – deshalb musst du unterwegs ein paar Systemabfragen bestätigen. Für die Installation der fertigen APK brauchst du weder Signaturschlüssel noch Passwort, lokalen Zugriffsgeheimwert oder eine Änderung an `CSRF_TRUSTED_ORIGINS`. Die App erzeugt und überträgt ihre privaten localhost-Zugangsdaten automatisch. Füge `null` nicht zu `CSRF_TRUSTED_ORIGINS` hinzu; es wird absichtlich wie nicht gesetzt behandelt und ist für den APK-Handshake unnötig.
+1. Tipp auf [Neueste Android-APK herunterladen](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Eine APK ist die Installationsdatei einer Android-App.
+2. Installiere die APK und öffne dann die App.
+3. Tipp auf **Install / Start Marinara** (Marinara installieren/starten).
+4. Ist Termux noch nicht installiert, bestätige die Installationsabfragen von Android, damit die App Termux von F-Droid installieren kann. Dazu gehört auch, der App das Installieren von Apps zu erlauben.
+5. Erteile die Berechtigung **Run commands in Termux environment** (Befehle in der Termux-Umgebung ausführen), wenn Android danach fragt.
+6. Blockiert Termux die Einrichtung, kopiert die App einen `allow-external-apps`-Befehl und öffnet Termux. Halte den Termux-Bildschirm gedrückt, tipp auf **Paste** (Einfügen) und drück Enter. Geh dann zurück und tipp erneut auf **Install / Start Marinara**.
+7. Warte, während Termux die Abhängigkeiten (die Bestandteile, die die App braucht) installiert und Marinara baut. Termux zeigt dabei durchlaufenden Text. Der erste Build dauert ein paar Minuten.
+8. Kehr zur Marinara-Engine-App zurück, wenn Termux fertig ist. Sobald der Server bereit ist, verbindet sie sich und meldet sich von selbst an, und du siehst den Startbildschirm von Marinara.
 
-1. Tipp auf [Neueste Android-APK herunterladen](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).
-2. Installiere die APK und öffne die App.
-3. Tippe auf **Install / Start Marinara** (Marinara installieren/starten).
-4. Falls Termux noch fehlt, bestätige die Installationsabfragen von Android, damit die App Termux aus F-Droid herunterladen und installieren kann.
-5. Erteile die Berechtigung **Run commands in Termux environment** (Befehle in der Termux-Umgebung ausführen), sobald Android danach fragt.
-6. Blockiert Termux die Einrichtung, kopiert die App einen `allow-external-apps`-Befehl für dich. Füge ihn einmal in Termux ein und tippe danach erneut auf **Install / Start Marinara**.
-7. Warte, bis Termux die Abhängigkeiten installiert und Marinara gebaut hat. Der erste Build dauert ein paar Minuten.
-8. Kehr zur Marinara-Engine-App zurück, wenn Termux fertig ist. Sobald der lokale Server bereit ist, verbindet sich die App und meldet sich automatisch an. Wähle im Launcher **Open in browser** (im Browser öffnen), wenn du lieber deinen Browser nutzt. Die Auswahl wird gespeichert, und auch dort erfolgt die Anmeldung automatisch.
+Willst du stattdessen deinen Browser nutzen, wähle im Launcher der App **Open in browser** (im Browser öffnen). Die App merkt sich die Auswahl, und auch dort erfolgt die Anmeldung automatisch.
 
-Du hättest gern ein Symbol auf dem Startbildschirm, das Marinara wie eine gewöhnliche App öffnet? Genau das liefert diese Android-App mit. Sie ist allerdings nur eine Hülle um den Termux-Server, der also zuerst eingerichtet sein muss. Die Installations- und Berechtigungsabfragen von Android lassen sich damit nicht umgehen, aber du musst keinen Marinara-Installationsgeheimwert konfigurieren.
+Wenn es nicht funktioniert hat: Erledige die Abfrage, die die Einrichtung blockiert hat, und tipp danach erneut auf **Install / Start Marinara**. Kann die App localhost nicht öffnen, aktualisiere die APK und tipp auf **Install / Start Marinara**. Siehe [Hilfe zur Android-localhost-Anmeldung](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503).
+
+Die App braucht keinen Signaturschlüssel, kein Passwort und keine Änderung an `CSRF_TRUSTED_ORIGINS`. Sie erzeugt ihre eigenen privaten localhost-Zugangsdaten. Füge `null` nicht zu `CSRF_TRUSTED_ORIGINS` hinzu.
 
 ## Manuelle Installation in Termux
 
-Ohne App geht es genauso. Öffne Termux und füge diesen einen Befehl ein:
+Nimm diesen Weg, wenn du die App nicht nutzen willst. Öffne Termux, halte den Bildschirm gedrückt und tipp auf **Paste**, um diesen Befehl einzufügen (kopiere ihn vollständig):
 
+```bash
+pkg upgrade -y && pkg install -y git nodejs-lts && \
+([ -d "$HOME/Marinara-Engine/.git" ] || \
+  git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && \
+cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
-pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
-```
 
-Dieser eine Befehl erledigt fünf Dinge:
+Der Befehl macht der Reihe nach Folgendes:
 
-1. Er aktualisiert alle Termux-Pakete. Termux unterstützt es nicht, nur einen Teil der Pakete zu aktualisieren: Ein neueres Node.js startet nicht mit älteren Termux-Bibliotheken. Fragt er, ob du eine Konfigurationsdatei behalten willst, drück Enter, um deine aktuelle zu behalten.
-2. Er installiert Git und Node.js. Marinara unterstützt die Node.js-Versionen 24, 25 und 26.
-3. Er lädt Marinara Engine herunter, sofern es nicht schon installiert ist.
-4. Er macht den Starter (das Skript `start-termux.sh`) ausführbar.
-5. Er ruft den Starter zum ersten Mal auf.
+1. Er aktualisiert alle Termux-Pakete. Ein neueres Node.js startet nicht mit älteren Termux-Bibliotheken, deshalb braucht Termux eine vollständige Aktualisierung. Fragt die Aktualisierung, ob du eine Konfigurationsdatei behalten willst, drück Enter, um deine zu behalten.
+2. Er installiert Git und Node.js. Marinara unterstützt Node.js 24, 25 und 26.
+3. Er lädt Marinara herunter, sofern es noch nicht vorhanden ist.
+4. Er macht den Launcher (`start-termux.sh`) ausführbar und startet ihn.
 
-Der Starter installiert die Abhängigkeiten der App, baut Marinara direkt auf dem Gerät und startet den lokalen Server. Ist die Node.js-Version zu alt, aktualisiert er sie gleich mit. Der erste Durchlauf dauert, weil die App gebaut wird. Danach geht es deutlich schneller.
+Der Launcher installiert die Abhängigkeiten, baut Marinara auf deinem Gerät und startet den lokalen Server. Ist deine Node.js-Version zu alt, aktualisiert er sie. Der erste Durchlauf dauert lange, und Termux zeigt durchlaufenden Text. Spätere Durchläufe gehen schneller.
 
-Der speichersparende Build enthält alle erforderlichen Client-Dateien. Sharps WebAssembly-Ersatz für die Bildverarbeitung wird automatisch installiert und bleibt bei Updates erhalten; du musst keine separate Android-Version von Sharp installieren.
+Meldet der Launcher, dass der Server läuft, öffne diese Adresse im Browser deines Android-Geräts:
 
-Ist alles fertig, öffne diese Adresse im Android-Browser:
-
-```
+```text
 http://127.0.0.1:7860
 ```
 
-Marinara lauscht auf dem Port aus `PORT` (dem Netzwerk-Port der App). Der Standard ist 7860. Bei einem abweichenden `PORT` nimmst du entsprechend diese Nummer.
+Hast du einen anderen `PORT` gesetzt, nimm diese Nummer. Für ein App-ähnliches Symbol nutzt du den Eintrag im Browser-Menü, der die Seite zum Startbildschirm hinzufügt. Wie er heißt, ist von Browser zu Browser verschieden.
 
-Tipp: Für ein App-ähnliches Symbol öffnest du das Browser-Menü und wählst dort den Eintrag, der Marinara zum Startbildschirm hinzufügt. Wie der Eintrag genau heißt, ist von Browser zu Browser verschieden.
+## Marinara starten und stoppen
 
-## Marinara erneut starten
+Mit der App: Öffne sie und tipp auf **Install / Start Marinara**, wenn der Server gestoppt ist. Um zwischen App und Browser zu wechseln, nutze im Launcher **Open in browser** und danach **Retry connection** (Verbindung erneut versuchen). Aus der App heraus kommst du über **Settings → General → App Behavior → Open Android launcher (app or browser)** (Einstellungen → Allgemein → App-Verhalten → Android-Launcher öffnen (App oder Browser)) zurück zum Launcher.
 
-Öffne bei einer APK-Installation Marinara und tippe auf **Install / Start Marinara**, wenn der Server gestoppt ist. Ein bereits laufender, authentifizierter Server wird weiterverwendet. Mit **Open in browser** im Launcher und anschließend **Retry connection** (Verbindung erneut versuchen) wechselst du zwischen App und Browser. Aus der App kommst du über **Settings > General > App Behavior > Open Android launcher (app or browser)** (Einstellungen > Allgemein > App-Verhalten > Android-Launcher öffnen (App oder Browser)) dorthin zurück. Die automatische Browser-Anmeldung benötigt eine aktuelle APK und Engine. Öffne keinen abgelaufenen Einmal-Link aus dem Browserverlauf erneut.
+Bei einer manuellen Installation öffnest du Termux und führst Folgendes aus:
 
-Bei einer manuellen Termux-Installation entfällt nach der ersten Einrichtung die Installation. Öffne Termux und führe aus:
-
-```
+```bash
 cd Marinara-Engine
 ./start-termux.sh
 ```
 
-Der Starter sucht nach Updates und startet danach Marinara. Soll die vorhandene Version ohne Blick auf GitHub starten, hängst du `--skip-update` an:
+Um den Server zu stoppen, drück in Termux <kbd>Ctrl</kbd>+<kbd>C</kbd>.
 
+## Marinara aktualisieren
+
+Bei jedem Aufruf von `./start-termux.sh` prüft der Launcher auf GitHub, ob es eine neuere Version gibt, und aktualisiert vor dem Start. Um ohne Update zu starten, häng `--skip-update` an. Weitere Optionen und die Schritte für ein APK-Update findest du unter [Marinara Engine aktualisieren](../UPGRADING.md#android-termux).
+
+Bei Updates entfernt der Launcher außerdem nicht mehr benötigte Pakete aus seinem lokalen pnpm-Cache. So belegen alte Releases nicht mehrere Gigabyte Speicherplatz. Deine Chats und Einstellungen bleiben dabei unangetastet.
+
+## Marinara von einem anderen Gerät öffnen
+
+Der Launcher macht Marinara für andere Geräte in deinem WLAN erreichbar, blockiert sie aber, bis du eine Anmeldung einrichtest. Siehe die [FAQ](../FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) und [Fernzugriff](../REMOTE_ACCESS.md).
+
+Kann sich ein anderes Gerät nach einem Update nicht anmelden, siehe [Ausgesperrt nach dem Update](../REMOTE_ACCESS.md#locked-out-after-updating). In Termux entfernt dieser Befehl die App-Anmeldung und meldet alle Browser ab:
+
+```bash
+cd "$HOME/Marinara-Engine" && node scripts/reset-login.mjs
 ```
-cd Marinara-Engine
-./start-termux.sh --skip-update
-```
-
-Beim Aktualisieren der Abhängigkeiten räumt der Starter außerdem nicht mehr benötigte Pakete aus dem lokalen pnpm-Cache. So sammeln sich keine alten Releases im Gigabyte-Bereich auf dem Handy an; Chats, Einstellungen und andere Nutzerdaten von Marinara bleiben unangetastet.
-
-## Nach dem Update ausgesperrt
-
-Kann sich ein anderes Gerät nicht anmelden, öffne Termux und führe `cd "$HOME/Marinara-Engine" && pnpm reset-login` aus. Das entfernt die App-Anmeldung und meldet alle Browser ab. Schlägt der Befehl fehl, entferne `.remote-login.json` und `.remote-sessions.json` aus `packages/server/data` (oder deinem konfigurierten `DATA_DIR`). Hast du `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` in der `.env` des Projekts gesetzt, ändere sie dort. Zeigt das Gerät **403**, prüfe `IP_ALLOWLIST` in derselben `.env`-Datei. Lege danach unter **Settings → Advanced → Access** auf dem Server-Gerät eine neue Remote-Anmeldung fest oder nutze auf dem blockierten Gerät den Einrichtungscode aus dem Termux-Server-Log. Siehe [Nach dem Update ausgesperrt](../REMOTE_ACCESS.md#locked-out-after-updating).
-
-Kann die APK selbst localhost nicht öffnen, aktualisiere die APK und tippe auf **Install / Start Marinara**. Ihre private lokale Zugangskennung ist von der Remote-Anmeldung getrennt; siehe [Hilfe zur Android-localhost-Anmeldung](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503).
-
-## Zugriff von einem anderen Gerät
-
-Standardmäßig macht der Starter Marinara im lokalen Netzwerk erreichbar. Ein Laptop oder ein zweites Handy im selben WLAN kann es also öffnen. Wie du die passende Adresse Schritt für Schritt findest, steht in den [Häufig gestellten Fragen](../FAQ.md).
-
-## Aktualisieren
-
-Bei jedem Start des Starters (`./start-termux.sh`) prüft dieser GitHub auf eine neuere Version und aktualisiert vor dem Start. Am einfachsten bleibst du also aktuell, indem du Marinara ganz normal startest.
-
-Soll die installierte Version ohne Update starten, nimm den Skip-Schalter:
-
-```
-./start-termux.sh --skip-update
-```
-
-Damit die installierte Engine-Version über Neustarts hinweg erhalten bleibt, trag `AUTO_UPDATE_ENABLED=false` in die `.env` des Projekts ein. Manuelle Update-Befehle und **Settings → Advanced → Updates** bleiben davon unberührt.
-
-Auch in der App selbst lässt sich nach Updates suchen. Öffne **Settings** (Einstellungen), wechsle auf den Tab **Advanced** (Erweitert) und klapp den Bereich **Updates** auf. Über **Check for Updates** (nach Updates suchen) erfährst du, ob ein neueres Release vorliegt. Die Schaltfläche **Apply Update** (Update anwenden) in der App ist standardmäßig deaktiviert und muss erst eingerichtet werden. Wie du sie aktivierst und nutzt, steht unter [Marinara Engine aktualisieren](../UPGRADING.md).
 
 ## Verwandte Anleitungen
 
-- [Installation von Marinara Engine](../INSTALLATION.md)
-- [PWA-Anleitung für iOS/iPadOS](ios-pwa.md)
+- [Marinara Engine installieren](../INSTALLATION.md)
+- [Anleitung für iOS / iPadOS (PWA)](ios-pwa.md)
 - [Marinara Engine aktualisieren](../UPGRADING.md)
-- [Häufig gestellte Fragen](../FAQ.md)
+- [Häufige Fragen](../FAQ.md)

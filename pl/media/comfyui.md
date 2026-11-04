@@ -1,25 +1,26 @@
 # Konfiguracja workflow w ComfyUI
 
-Marinara Engine wysyła żądania generowania obrazów i generowania wideo do lokalnego serwera ComfyUI, a żądania obrazów także do punktu końcowego RunPod Serverless, na którym działa ComfyUI. Lokalne połączenie do generowania obrazów może korzystać z prostego workflow wbudowanego w aplikację Marinara Engine, natomiast połączenia wideo i zaawansowana konfiguracja obrazów wymagają własnego workflow w formacie API.
+Marinara Engine wysyła żądania obrazów i wideo do lokalnego serwera ComfyUI, a żądania obrazów także do punktu końcowego RunPod Serverless, na którym działa ComfyUI. Lokalny model obrazów może korzystać z prostego workflow wbudowanego w aplikację Marinara Engine. Wideo i zaawansowana konfiguracja obrazów wymagają własnego workflow w formacie API, czyli workflow wyeksportowanego z ComfyUI jako plik JSON.
 
-Workflow wklejony do aplikacji Marinara Engine w formacie JSON to migawka. Marinara nie śledzi na bieżąco workflow otwartego w ComfyUI. Po każdej zmianie workflow w ComfyUI przetestuj go ponownie, wyeksportuj jeszcze raz i podmień kod JSON zapisany w połączeniu.
+Kod JSON wklejony do aplikacji Marinara Engine to migawka. Marinara nie śledzi na bieżąco workflow otwartego w ComfyUI. Po zmianie workflow w ComfyUI przetestuj go, wyeksportuj jeszcze raz i podmień kod JSON zapisany w aplikacji Marinara Engine.
 
 ## Zanim zaczniesz
 
 Zainstaluj ComfyUI, dodaj checkpointy i własne węzły, których wymaga workflow, a potem uruchom serwer. Zwykły adres lokalny to `http://127.0.0.1:8188`.
 
-Jeśli ComfyUI działa na innym komputerze w sieci domowej, jego serwer musi nasłuchiwać pod adresem osiągalnym dla aplikacji Marinara Engine. Połączenia do generowania obrazów wymagają dodatkowo wpisu `IMAGE_LOCAL_URLS_ENABLED=true` w pliku `.env` aplikacji Marinara Engine; zobacz [Konfiguracja serwera](../CONFIGURATION.md). Jeśli połączenie nadal się nie udaje, sprawdź zaporę sieciową na tym drugim komputerze.
+Jeśli ComfyUI działa na innym komputerze w sieci domowej, jego serwer musi nasłuchiwać pod adresem osiągalnym dla aplikacji Marinara Engine. Konta do generowania obrazów wymagają dodatkowo wpisu `IMAGE_LOCAL_URLS_ENABLED=true` w pliku `.env` aplikacji Marinara Engine; zobacz [Konfiguracja serwera](../CONFIGURATION.md). Jeśli połączenie nadal się nie udaje, sprawdź zaporę sieciową na tym drugim komputerze.
 
-Lokalny model językowy i model do obrazów mogą nie zmieścić się w pamięci karty graficznej jednocześnie, zwłaszcza przy 8 GB. Kolejka obrazów w aplikacji Marinara Engine pilnuje, żeby kilka zadań nie ruszyło naraz, ale nie sprawi, że dwa załadowane modele zmieszczą się w tej samej pamięci VRAM. Gdy zabraknie pamięci, użyj modelu językowego w chmurze albo hostowanego osobno, uruchom ComfyUI na innym urządzeniu lub zwolnij pamięć po jednym modelu przed użyciem drugiego.
+Lokalny model językowy i model do obrazów mogą nie zmieścić się w pamięci karty graficznej jednocześnie, zwłaszcza przy 8 GB. Kolejka obrazów w aplikacji Marinara Engine pilnuje, żeby zadania graficzne nie ruszyły naraz, ale nie sprawi, że dwa załadowane modele zmieszczą się w tej samej pamięci VRAM. Gdy zabraknie pamięci, użyj modelu językowego w chmurze, uruchom ComfyUI na innym urządzeniu lub zwolnij pamięć po jednym modelu przed użyciem drugiego.
 
 ## Tworzenie połączenia w aplikacji Marinara Engine
 
-1. Otwórz sekcję **Connections** (Połączenia) i utwórz nowe połączenie typu **Image Generation** (generowanie obrazów).
-2. Wybierz **ComfyUI** dla serwera lokalnego albo **RunPod Serverless (ComfyUI)** dla punktu końcowego RunPod.
-3. Przy lokalnym ComfyUI wpisz jego Base URL. Klucz API (tajny kod, trochę jak hasło) nie jest potrzebny. Jeśli pole **ComfyUI Workflow** zostanie puste, Marinara używa wbudowanego prostego workflow typu tekst-na-obraz.
-4. Przy RunPod wpisz klucz API oraz Endpoint ID. Własny workflow jest tu obowiązkowy.
-5. Skonfiguruj sekcję **Local Image Defaults** (domyślne ustawienia obrazów lokalnych). Te wartości zastępują odpowiadające im symbole zastępcze w workflow.
-6. Zapisz połączenie, a po dodaniu workflow użyj przycisku **Test Image** (test obrazu).
+1. Kliknij **Connections** (Połączenia), a potem **Add** (dodaj). W oknie **Add account** (dodanie konta), w sekcji **Images & video** (obrazy i wideo), wybierz **ComfyUI** dla serwera lokalnego albo **RunPod Serverless (ComfyUI)** dla punktu końcowego RunPod.
+2. Przy lokalnym ComfyUI wpisz jego adres (`http://127.0.0.1:8188`). Klucz API nie jest potrzebny. Jeśli pole **ComfyUI workflow (optional)** (workflow ComfyUI, opcjonalny) jest puste, Marinara używa wbudowanego prostego workflow typu tekst-na-obraz.
+3. Przy RunPod wpisz klucz API oraz **RunPod endpoint ID** (identyfikator punktu końcowego RunPod). Własny workflow jest tu obowiązkowy.
+4. Ustaw panel **Local image defaults** (domyślne ustawienia obrazów lokalnych) w modelu obrazów. Te wartości zastępują odpowiadające im symbole zastępcze w workflow.
+5. Wklej workflow, zapisz i kliknij **Test image** (test obrazu).
+
+Jeśli się nie udało, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
 ## Tworzenie i eksport workflow
 
@@ -37,9 +38,9 @@ Workflow w formacie API różni się od zwykłego workflow z edytora wizualnego.
 
 ## Workflow wideo w ComfyUI
 
-Utwórz połączenie typu **Video Generation** (generowanie wideo), wybierz **ComfyUI** i wklej workflow w formacie API do wymaganego pola **ComfyUI Workflow**. WAN 2.2 i inne lokalne grafy wideo są obsługiwane, o ile ten sam workflow działa w ComfyUI i zapisuje plik MP4 przez wyjście takie jak podstawowy węzeł **SaveVideo**.
+Dodaj konto **ComfyUI** w sekcji **Images & video** i otwórz jego model wideo. Wklej workflow w formacie API do wymaganego pola **ComfyUI workflow (optional)**. WAN 2.2 i inne lokalne grafy wideo są obsługiwane, o ile ten sam workflow działa w ComfyUI i zapisuje plik MP4 przez wyjście takie jak podstawowy węzeł **SaveVideo**.
 
-Workflow wideo może korzystać z tych symboli zastępczych ujętych w cudzysłowy:
+Workflow wideo może korzystać z tych symboli zastępczych, trzymanych wewnątrz cudzysłowów:
 
 | Symbol zastępczy         | Wartość podstawiana przez aplikację Marinara Engine                 |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -116,7 +117,7 @@ To tylko fragment: zachowaj powiązania między węzłami i pozostałe wejścia 
 | `%denoise%`           | Siła odszumiania. Akceptowane jest też `%denoising_strength%`.                               |
 | `%clip_skip%`         | Wartość Clip Skip dla zgodnego węzła.                                                       |
 
-Po edycji zapisz plik JSON, skopiuj całą jego zawartość, wklej ją w polu **ComfyUI Workflow** połączenia do generowania obrazów, zapisz połączenie i kliknij przycisk **Test Image**.
+Po edycji zapisz plik JSON, skopiuj całą jego zawartość, wklej ją w polu **ComfyUI workflow (optional)** w modelu obrazów, zapisz i kliknij **Test image**.
 
 ## Korzystanie z obrazów referencyjnych
 
@@ -140,7 +141,7 @@ W standardowym węźle **LoadImage** w ComfyUI użyj symbolu zastępczego z nazw
 
 Marinara wgrywa obraz referencyjny do folderu wejściowego ComfyUI i zastępuje symbol zastępczy nazwą pliku zwróconą przez ComfyUI. `%reference_image_name%` oznacza pierwszy obraz. W workflow z kilkoma wejściami referencyjnymi użyj symboli od `%reference_image_name_01%` do `%reference_image_name_04%`.
 
-Jeśli workflow zawsze wymaga wejścia obrazu, włącz opcję **Upload a 1x1 placeholder when no reference image is provided** w sekcji **Local Image Defaults**. Marinara podeśle wtedy maleńki obrazek zastępczy, gdy w żądaniu nie ma prawdziwego obrazu referencyjnego.
+Jeśli workflow zawsze wymaga wejścia obrazu, włącz opcję wgrywania obrazka zastępczego 1x1 w panelu **Local image defaults**. Marinara podeśle wtedy maleńki obrazek zastępczy, gdy w żądaniu nie ma prawdziwego obrazu referencyjnego.
 
 ### Surowe dane obrazu w base64
 
@@ -150,9 +151,11 @@ Workflow dla RunPod obsługują surowe symbole base64. Symbole z nazwą wgranego
 
 ## Osobne workflow dla poszczególnych postaci
 
-Dla każdej postaci, która potrzebuje konkretnego checkpointu, zestawu modeli LoRA, konfiguracji ControlNet albo własnego układu obrazów referencyjnych, da się przygotować osobny wyeksportowany workflow i osobne połączenie do generowania obrazów. Wybierz odpowiednie połączenie wszędzie tam, gdzie dana postać lub funkcja obrazów pozwala je wskazać.
+Dla każdej postaci, która potrzebuje konkretnego checkpointu, zestawu modeli LoRA, konfiguracji ControlNet albo własnego układu obrazów referencyjnych, da się przygotować osobny wyeksportowany workflow i osobne połączenie do generowania obrazów. Wybierz pasujący model obrazów wszędzie tam, gdzie dana postać lub funkcja obrazów pozwala je wskazać.
 
-Efekty bywają dzięki temu spójniejsze niż przy jednym uniwersalnym workflow, ale każde połączenie i tak przechowuje własną kopię kodu JSON. Po zmianie workflow danej postaci w ComfyUI powtórz dla tego połączenia kroki: eksport, edycję, skopiowanie i wklejenie.
+Efekty bywają dzięki temu spójniejsze niż przy jednym uniwersalnym workflow, ale każdy model i tak przechowuje własną kopię kodu JSON. Po zmianie workflow danej postaci w ComfyUI powtórz dla tego połączenia kroki: eksport, edycję, skopiowanie i wklejenie.
+
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 

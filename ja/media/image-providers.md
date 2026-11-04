@@ -1,33 +1,38 @@
 # 画像生成プロバイダーと設定
 
-このガイドでは、画像生成サービスをMarinara Engineに接続する方法を説明します。各サービスに何が必要かもまとめています。画像生成は、シーンの挿絵、自撮り写真、シーン背景、そして生成されるアバター、ポートレート、スプライトを支える機能です。
+画像生成は、シーンの挿絵、自撮り写真、シーン背景、そして生成されるアバター、ポートレート、スプライトを支える機能です。このガイドでは、画像サービスを追加する方法と、各サービスに必要なものを説明します。画像モデルが1つ動けば、アプリ内のすべての画像機能がそれを使えます。
 
-画像生成は、特別な種類の接続として設定します。画像用の接続が1つ動けば、アプリ内のすべての画像機能がそれを利用できます。
+## 画像サービスを追加する
 
-## 画像生成の接続を追加する方法
+APIキーとは、サービスが発行する秘密のコードで、Marinaraが自分のアカウントを使えるようにするものです。各サービスのWebアドレスはMarinaraが自動で入力するので、自分で入力することはほとんどありません。
 
-**API key**(APIキー)とは、プロバイダーが発行する秘密のパスワードのような文字列で、これによってMarinaraがアカウントを利用できるようになります。**Base URL**とは、そのサービスのAPIのWebアドレスで、接続では**Endpoint**(エンドポイント)と表示されます。サービスを選ぶと、Marinaraが正しいアドレスを自動で入力します。
+1. 上部バーの**Connections**(接続)をクリックし、**Add**(追加)をクリックします。**Add account**(アカウントの追加)ウィンドウが開きます。
+2. サービスを探します。一覧には**Images & video**(画像と動画)のセクションがあり、**Search providers**(プロバイダーを検索)を使って探すこともできます。
+3. **API key**(APIキー)欄にキーを貼り付けます。無料サービスとローカルサービスにはキーは不要です。自分で動かしているサーバーの場合は、アドレスの欄に入力します。
+4. **Connect**(接続)をクリックします。Marinaraがアカウントをテストします。
+5. 一覧から画像モデルを選ぶか、モデルIDを入力します。これが画像モデルになります。**Connections**パネルで、そのアカウントの下に表示されます。
+6. 画像モデルを開き、**Test image**(画像をテスト)をクリックします。Marinaraが小さなテスト画像を作ります。
+7. アプリが画像に使うモデルにするには、**Connections**パネル上部の**Defaults**(デフォルト)で、**Images**(画像)の役割に設定します。
 
-画像用の接続は次の手順で追加します。
+アカウントに別の画像モデルを追加するには、そのアカウントの**⋯**メニューを開き、**Add image model**(画像モデルを追加)をクリックします。ウィンドウ全体については[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。
 
-1. **Connections**(接続)パネルを開きます。
-2. **Add connection**(接続を追加)をクリックします。
-3. ステップ1で**Images, video & voice**(画像、動画、音声)を開き、**Image Generation**を選びます。
-4. ステップ2で、使う予定のサービスにキーが必要な場合は、**API key**欄にキーを貼り付けます。無料サービスとローカルサービスには不要です。ローカルサーバーの場合は、ここでその**Endpoint**を設定します。**Save and test**(保存してテスト)をクリックします。新しい画像モデルのモデルエディターが開きます。
-5. モデルエディターで、グリッドから**Service**(サービス)を選びます。
-6. 一覧から**Model**を選ぶか、モデルIDを直接入力します。サービスによっては**Fetch Models from API**で最新の一覧を読み込めます。
-7. **Save**をクリックします。
-8. **Test Image**をクリックして動作を確認します。Marinaraが小さなテスト画像を生成します。
+うまくいかなかった場合: キーかアドレスが間違っていると、**Test image**は失敗します。まずその両方を確認してください。**Test provider**(プロバイダーをテスト)は、Marinaraがサービスに到達できるかどうかだけを確認します。**Test image**は実際に画像を作るので、クレジットを消費することがあります。
 
-すでにある接続に別の画像モデルを追加するには、**Connections**パネルでその接続のページを開き、**Add image model**(画像モデルを追加)をクリックします。アプリで使う画像モデルにするには、**Connections**パネル上部の**Defaults**(デフォルト)にある**Images**(画像)のタイルで設定します。
+## チャットで画像を作る
 
-**Test Image**で画像が返ってくれば、接続の準備は完了です。失敗する場合は、APIキーとBase URLを確かめます。
+画像モデルを**Images**(画像)の役割に設定したら、チャットで画像を依頼します。
+
+1. RoleplayのチャットにIllustratorエージェントを追加します。[Illustratorエージェント](illustrator-agent.md)を参照してください。
+2. **Chat Settings**(チャット設定)を開き、**Gallery**(ギャラリー)を展開して、**Illustrate**(イラストを生成)をクリックします。
+3. **Generating...**の表示が終わるまで待ちます。画像がGalleryに表示されます。
+
+Roleplayのチャットでは、`/illustrate`コマンドも使えます。[スラッシュコマンド](../chats/slash-commands.md)を参照してください。
 
 ## サービスの選び方
 
-サービスは3つのグループに分かれます。クラウドサービスにはアカウントが必要で、ほとんどのサービスではAPIキーも必要です。無料サービスにキーは要りません。ローカルサービスは、自分のコンピューターで画像生成ソフトを動かします。
+各サービスのアドレスはMarinaraが自動で入力します。クラウドサービスにはアカウントが必要で、ほとんどはAPIキーも必要です。無料サービスにキーは要りません。ローカルサービスは、自分のコンピューターで画像生成ソフトを動かします。
 
-次の表は各サービスの概要です。細かい違いや注意点は、サービスごとの節で説明します。
+**いちばん手軽な始め方:** **Pollinations**を選びます。無料で、アカウントもキーも要りません。もっと良い画像がほしくなったら、あとでより高性能なサービスを選んでください。
 
 | サービス | APIキー | 動作場所 |
 | --- | --- | --- |
@@ -54,198 +59,154 @@
 | SwarmUI | 任意 | ローカル |
 | Draw Things | 不要 | ローカル |
 
-## OpenAI (DALL-E)
+設定の簡単なサービスについての補足です。
 
-デフォルトのBase URLが`https://api.openai.com/v1`のクラウドサービスです。OpenAIアカウントのAPIキーが必要です。DALL-EとGPT Imageのモデルを利用できます。GPT Imageのモデルは参照画像を最大16枚まで受け付けますが、DALL-Eのモデルは受け付けません。
+- **OpenAI (DALL-E)**: DALL-EとGPT Imageのモデルを利用できます。
+- **Stability AI**: Stable DiffusionとStable Imageのモデルを利用できます。
+- **Together AI**: FLUXをはじめとするオープンな画像モデルを利用できます。
+- **OpenRouter Images**: OpenRouterのチャット用インターフェイスを経由して画像モデルを利用するため、使えるモデルはアカウントによって変わります。
+- **xAI / Grok Imagine**: Grok Imagineを使います。
+- **NanoGPT**: 複数のサービスをまとめるアグリゲーターなので、NanoGPTのモデル一覧から選んでください。
+- **Pollinations**: 画像生成をいちばん手早く試せます。アカウントは不要です。
+- **Stable Horde**: 有志のコンピューターを集めたクラウドソーシング型のネットワークです。無料のキーを取得すると、順番待ちの優先度が上がります。
+- **SD Web UI**と**Draw Things**: ソフトウェアは、アプリケーションインターフェイスをオンにした状態で起動してください。MarinaraはDraw ThingsをAUTOMATIC1111のサーバーと同じように扱います(このアプリはmacOSまたはiOSで動きます)。
+- **Block Entropy**: MarinaraにはBlock Entropy専用の処理がないため、OpenAI互換のリクエストを送ります。互換性は確認されていません。本格的に使う前に**Test image**(画像をテスト)で試してください。
 
-## ChatGPT (Codex login)
+## 特別な設定が必要なサービス
 
-APIキーの代わりにChatGPTのプランを使うクラウドサービスです。そのため、画像生成にOpenAIのAPIクレジットは要りません。Marinaraのサーバーが動いているコンピューターにCodex CLIをインストールし、`codex login`を一度だけ実行してください。**OpenAI (ChatGPT)**のチャット接続で使うログインと同じものです。手順は[Claude、ChatGPT、Grokのサブスクリプション接続](../connections/subscription-clis.md#openai-chatgpt)を参照してください。APIキーやBase URLを入力する必要はありません。モデルには、Codex自身が画像生成に使っている`gpt-image-2`をMarinaraが自動で入力します。
+### ChatGPT (Codex login)
 
-**Test Connection**(接続テスト)は、MarinaraがCodexのログイン情報を読み取れるかどうかだけを確認します。**Test Image**は実際に画像を生成するので、ChatGPTの画像生成の利用上限にカウントされます。参照画像がある場合は、Marinaraが最大16枚の参照画像を付けて画像編集のリクエストを送ります。ChatGPTは指定したものとは異なるピクセルサイズで画像を返すことがあるため、Marinaraは希望するアスペクト比をプロンプトにも明記します。
+このサービスはAPIキーの代わりにChatGPTのプランを使うので、画像生成にOpenAIのAPIクレジットは要りません。
 
-このサービスは、OpenAIの公開APIではなく、Codexが使うChatGPTの画像エンドポイントと通信します。そのため、このエンドポイントはOpenAIによって予告なく変更される可能性があります。
+1. Marinaraが動いているコンピューターにCodex CLIをインストールし、`codex login`を一度だけ実行します。ChatGPTのチャット用アカウントが使うのと同じサインインです。[Claude、ChatGPT、Grokのサブスクリプション接続](../connections/subscription-clis.md#openai-chatgpt)を参照してください。
+2. サービスを選びます。キーやアドレスを入力する必要はありません。モデルには、Codexが画像に使う`gpt-image-2`をMarinaraが自動で入力します。
 
-## Stability AI
+**Test provider**(プロバイダーをテスト)は、MarinaraがCodexのログイン情報を読み取れるかどうかだけを確認します。**Test image**(画像をテスト)は実際に画像を作るので、ChatGPTの画像生成の利用上限にカウントされます。参照画像がある場合、Marinaraは最大16枚の参照画像を付けて編集リクエストを送ります。ChatGPTは異なるピクセルサイズで画像を返すことがあるため、Marinaraは希望するアスペクト比をプロンプトにも明記します。このサービスはOpenAIの公開APIではなく、Codexが使うChatGPTの画像エンドポイントを使うため、OpenAIによって予告なく変更される可能性があります。
 
-デフォルトのBase URLが`https://api.stability.ai/v2beta`のクラウドサービスです。Stability AIのAPIキーが必要です。Stable DiffusionとStable Imageのモデルを利用できます。
+### Arli AI
 
-## Together AI
+ホスト型のStable Diffusionモデルを動かします。モデルの指定が必須なので、使いたいArli AIの画像モデルの名前を入力してください。**Local Image Defaults**(ローカル画像のデフォルト設定)では、SD Web UIと同じ欄を使います([Local Image Defaults](#local-image-defaults-per-connection)を参照)。参照画像は、1枚目が元画像として使われます。このサービスは画像専用です。Arli AIのチャットモデルについては、[対応しているAIプロバイダー](../connections/providers-reference.md#arli-ai)を参照してください。
 
-デフォルトのBase URLが`https://api.together.xyz/v1`のクラウドサービスです。Together AIのAPIキーが必要です。FLUXをはじめとするオープンな画像モデルを利用できます。
+### NovelAI
 
-## Arli AI
+NovelAIはアニメ調のイラストを得意とします。V4、V4.5、V5のモデルでは、複数のキャラクターが登場する絵コンテやIllustratorのシーンに対して、Marinaraが位置情報付きのキャラクターごとのプロンプトをNovelAI標準の形式で送ります。精密な参照画像は、V4.5のモデルでしか動作しません。
 
-デフォルトのBase URLが`https://api.arliai.com/v1`のクラウドサービスです。Arli AIのAPIキーが必要です。ホスト型のStable Diffusionモデルを利用できます。**Model**の指定が必須なので、使いたいArli AIの画像モデルの名前を入力してください。後述の**Local Image Defaults**では、**SD Web UI (AUTOMATIC1111 / Forge)**と同じ欄を使います。参照画像を送ると、Marinaraは1枚目を元画像として使います(image to image)。
+### Venice.ai
 
-ここでの**Arli AI**サービスは画像専用です。Arli AIのチャットモデルを使うには、代わりに**Arli AI**チャットプロバイダーを使ってください。[対応しているAIプロバイダー](../connections/providers-reference.md#arli-ai)を参照してください。
+MarinaraはVenice独自の画像エンドポイントを使い、Veniceの任意設定であるセーフモードのぼかしをオフにして、指定されたサイズを各モデルのサイズ形式に変換します。それでも、Venice自身のポリシーやモデルの制限によってリクエストが拒否されることはあります。
 
-## NovelAI
+### Z.AI
 
-デフォルトのBase URLが`https://image.novelai.net`のクラウドサービスです。NovelAIのAPIキーが必要です。アニメ調のイラストを得意とします。V4、V4.5、V5モデルでは、複数のキャラクターを含むストーリーボードやIllustratorのシーンに対して、位置情報付きのキャラクタープロンプトをNovelAI標準の形式で送信します。精密な参照画像などの新しい機能は、V4.5系のモデルでしか動作しません。
+Z.AIの一般向けAPIキーを使ってください。GLM Coding Planのキーと`/api/coding/paas/v4`のアドレスは、画像生成には使えません。**GLM-Image**か**CogView 4**を選びます。Marinaraはアスペクト比をモデルが対応するサイズに変換し、一時的な結果をローカルストレージにダウンロードします。text-to-image専用で、参照画像は送りません。
 
-## OpenRouter Images
+### Atlas Cloud
 
-デフォルトのBase URLが`https://openrouter.ai/api/v1`のクラウドサービスです。OpenRouterのAPIキーが必要です。OpenRouterのチャット用インターフェイスを経由して画像モデルを利用するため、実際に使えるモデルはアカウントによって変わります。
+MarinaraはAtlas Cloudの最新のtext-to-imageとimage-to-imageのカタログを読み込みます。読み込めない場合は、初期リスト(Nano Banana、Gemini Flash Image、FLUX 1.1 Pro)を表示します。正確なモデルIDは、いつでも直接入力できます。ジョブは非同期で実行されるため、Marinaraはジョブを開始し、画像ができあがるまで状態を問い合わせます。参照画像は、image-to-image、編集、Kontextの動作をうたうモデルIDに送られます。Atlasのモデルはスキーマがそれぞれ異なるため、ほかのIDについては、そのモデルのAtlas Cloudドキュメントを確認してください。
 
-## xAI / Grok Imagine
+### fal.ai
 
-デフォルトのBase URLが`https://api.x.ai/v1`のクラウドサービスです。xAIのAPIキーが必要です。画像生成にはGrok Imagineを使います。
+[fal.ai](https://fal.ai/dashboard/keys)でAPIキーを作成します。初期リストには`fal-ai/flux/schnell`と`fal-ai/flux/dev`があります。入力と出力の形式が対応している、別のtext-to-imageエンドポイントIDも入力できます。**Test provider**(プロバイダーをテスト)は設定だけを確認します。**Test image**(画像をテスト)は実際にリクエストを送り、fal.aiのクレジットを消費します。
 
-## Venice.ai
+Marinaraはプロンプトとサイズを送り、最初に返された画像をダウンロードします。ネガティブプロンプトはテキストとして追加されます。`seed`、`num_inference_steps`、`image_size`などのモデルのオプションには、**Custom Parameters**(カスタムパラメーター)を使ってください。同期式のtext-to-imageリクエストを使い、参照画像は送らず、中断したジョブは再開しません。モデルの[APIリファレンス](https://fal.ai/models/fal-ai/flux/schnell/api)を参照してください。
 
-デフォルトのBase URLが`https://api.venice.ai/api/v1`のクラウドサービスです。VeniceのAPIキーが必要です。**Fetch Models from API**を使うと、アカウントで利用できる画像モデルを読み込めます。MarinaraはVenice独自の画像エンドポイントを使い、Veniceの任意設定であるセーフモードのぼかしを無効にしたうえで、指定されたサイズを各モデルのピクセル指定、アスペクト比指定、解像度ティア指定のいずれかの形式へ自動的に変換します。それでも、プロバイダー側のポリシーやモデルの制限によってリクエストが拒否されることはあります。
+### SpicyAPI
 
-## Z.AI
+[SpicyAPIのコンソール](https://spicyapi.ai/console/keys)でキーを作成し、**SpicyAPI**を選びます。モデルには`alibaba/z-image-spicy-pro/text-to-image`をMarinaraが自動で入力します。`bytedance/seedream-5.0-pro/text-to-image`のように、別のIDを入力することもできます。**Test provider**(プロバイダーをテスト)はモデル一覧を読み取るだけなので、費用はかかりません。**Test image**(画像をテスト)は実際に画像を作り、残高を消費します。
 
-デフォルトのBase URLが`https://api.z.ai/api/paas/v4`のクラウドサービスです。Z.AIの一般向けAPIキーが必要です。GLM Coding Planのキーと`/api/coding/paas/v4`エンドポイントは、画像生成には使えません。**Fetch Models from API**を使って、**GLM-Image**か**CogView 4**を選びます。Marinaraは指定されたアスペクト比を、選んだモデルが対応するサイズへ変換し、Z.AI独自の画像エンドポイントへリクエストを送ったうえで、一時的な結果URLをローカルストレージにダウンロードします。この最初のバージョンはtext-to-image専用で、参照画像は送信しません。
+**SpicyAPI**のサービスを選んでください。**OpenAI (DALL-E)**や、SpicyAPIのアドレスを入れたOpenAI互換のアカウントは使わないでください。SpicyAPIのOpenAI形式のアドレスは、テキストしか扱いません。
 
-## Atlas Cloud
+モデルごとに受け付ける設定が異なります。Marinaraは、モデルが受け付ける設定をSpicyAPIに問い合わせてそれだけを送り、モデルが用意している形式のうち最も近いもの(アスペクト比、幅と高さ、固定サイズ)を使います。ネガティブプロンプトの欄がないモデルでは、ネガティブプロンプトをプロンプトの末尾に追加します。`seed`、`resolution`、`loras`などのその他のオプションには、**Custom Parameters**(カスタムパラメーター)を使ってください。
 
-デフォルトのBase URLが`https://api.atlascloud.ai/api/v1`のクラウドサービスです。Atlas CloudのAPIキーが必要です。**Fetch Models**(モデルを取得)は、Atlas Cloudの最新のテキストから画像・画像から画像のモデル一覧を読み込みます。一覧を取得できない場合は、Nano Banana、Gemini Flash Image、FLUX 1.1 Proの初期リストを表示します。Atlas Cloudの画像モデルIDを正確に直接入力することもできます。処理は非同期で行われ、Marinaraは生成を開始した後、画像が完成するまでAtlas Cloudに状態を問い合わせます。一般的なテキストから画像の設定は自動で対応付けられます。参照画像は、IDがimage-to-image、編集、Kontextの機能を示すモデルに送信されます。モデルごとにスキーマが異なるため、別のIDを使う場合は、そのモデルのAtlas Cloudドキュメントを確認してください。
+画像は1枚ずつタスクとして処理されます。Marinaraは完了を待ち、1分ほどたったら状態を確認し直してから、結果をダウンロードします。接続が切れた場合は、新しいタスクに料金を払うのではなく、同じタスクを引き継ぎます。編集モデル(IDが`/edit`で終わるもの)には参照画像が送られます。SpicyAPIが受け付けるのは1枚あたり1 MBまで、1リクエストあたり2 MBまでなので、Marinaraは大きい画像を縮小し、収まらない分の画像は送りません。
 
-## fal.ai
+### SwarmUI
 
-デフォルトの**Base URL**が`https://fal.run`のクラウドサービスです。[fal.ai](https://fal.ai/dashboard/keys)でAPIキーを作成し、画像サービスの一覧で**fal.ai**を選んでください。初期の**Model**一覧には`fal-ai/flux/schnell`と`fal-ai/flux/dev`があります。入出力スキーマが対応する別のテキストから画像を生成するエンドポイントIDも入力できます。**Test Connection**(接続テスト)は設定だけを確認します。**Test Image**は実際に生成をリクエストし、fal.aiのクレジットを消費します。
+SwarmUIは、ComfyUIの処理を独自のキューに振り分けられます。アカウントのないローカルサーバーなら、キーは不要です。サーバーでアカウントが必要な場合は、**API key**(APIキー)にSwarm Auth Tokenを貼り付けます。モデル一覧には、SwarmUIサーバーにあるモデルが表示されます。
 
-Marinaraはプロンプトと指定サイズを送り、最初に返された画像を既存の画像処理フローにダウンロードします。ネガティブプロンプトはテキストの指示として追加します。`seed`、`num_inference_steps`、`image_size`などモデル固有のオプションには**Custom Parameters**(カスタムパラメーター)を使ってください。この連携は同期式のテキストから画像への生成リクエストを使います。参照画像の送信や中断したジョブの再開には対応していません。対応する入力は、選択したモデルや独自エンドポイントのAPIページで確認してください。例として[flux/schnellのAPIリファレンス](https://fal.ai/models/fal-ai/flux/schnell/api)を参照できます。
+**ComfyUI workflow (optional)**(ComfyUIワークフロー、任意)欄は空のままでかまいません。空のままにするとSwarmUI自身の画像設定を使います。ワークフローを貼り付けることもできます(後述)。各画像をSwarmUIの出力フォルダーにも残すには、**Local Image Defaults**(ローカル画像のデフォルト設定)で**Save images in SwarmUI**(SwarmUIに画像を保存)をオンにします。どちらの場合も、Marinaraは自分用のコピーを保存します。
 
-## SpicyAPI
+### ネットワーク上のローカルサービス
 
-デフォルトの**Base URL**が`https://api.spicyapi.ai/api/v1`のクラウドサービスです。[SpicyAPIのコンソール](https://spicyapi.ai/console/keys)でAPIキーを作成し、画像サービスの一覧で**SpicyAPI**を選んでください。モデルには`alibaba/z-image-spicy-pro/text-to-image`をMarinaraが入力します。**Fetch Models from API**をクリックすると、SpicyAPIのテキストから画像を生成するモデルと編集モデルをすべて読み込めます。`bytedance/seedream-5.0-pro/text-to-image`のようにモデルIDを入力することもできます。**Test Connection**(接続テスト)はモデル一覧を読み取ってキーを確認するだけなので、費用はかかりません。**Test Image**は実際に画像を生成し、SpicyAPIの残高を消費します。
+`localhost`は、Marinaraが動いているコンピューターを指します。そのコンピューター上のローカル画像サーバーなら、追加の設定なしで使えます。サーバーがネットワーク上の別のコンピューターで動いている場合は、サーバーの設定でローカルネットワークのアドレスを許可してください。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 
-**SpicyAPI**のサービスを選んでください。**OpenAI (DALL-E)**や、SpicyAPIのアドレスを入れた**Custom (OAI-Compatible)**の接続は使わないでください。SpicyAPIのOpenAI形式のアドレスはテキストしか扱わないため、それらでは画像を作れません。
-
-SpicyAPIのモデルは、それぞれ受け付ける設定が異なります。Marinaraは、選んだモデルが受け付ける設定をSpicyAPIに問い合わせ、それだけを送ります。サイズは、アスペクト比、幅と高さ、固定サイズなど、モデルが受け付ける形式のうち最も近いものを選びます。モデルにネガティブプロンプトの欄がない場合は、ネガティブプロンプトをテキストとしてプロンプトの末尾に追加します。`seed`、`resolution`、`loras`など、それ以外のモデルのオプションには**Custom Parameters**(カスタムパラメーター)を使ってください。
-
-SpicyAPIは、画像を1枚ずつタスクとして処理します。Marinaraはタスクの完了を待ち、1分ほどたっても終わらない場合はあらためて状態を確認してから、結果をダウンロードします。接続が切れた場合は、新しいタスクに料金を払うのではなく、同じタスクを引き継ぎます。編集モデル(IDが`/edit`で終わるもの)には参照画像が送られます。SpicyAPIが受け付ける参照画像は1枚あたり1 MBまで、1リクエストあたり2 MBまでなので、Marinaraは大きい画像を縮小し、収まらない分の画像は送りません。
-
-## NanoGPT
-
-デフォルトのBase URLが`https://nano-gpt.com/api/v1`のクラウドサービスです。NanoGPTのAPIキーが必要です。NanoGPTは複数のサービスをまとめるアグリゲーターなので、**Fetch Models from API**でモデル一覧を読み込みます。
-
-## Block Entropy
-
-デフォルトのBase URLが`https://api.blockentropy.ai`のクラウドサービスです。APIキーが必要です。MarinaraにはBlock Entropy専用の処理がなく、OpenAI互換の形式でリクエストを送ります。実際の互換性は確認できていないので、本格的に使う前に**Test Image**で試してください。
-
-## RunPod Serverless (ComfyUI)
-
-デフォルトのBase URLが`https://api.runpod.ai/v2`のクラウドサービスです。RunPodのサーバーレスエンドポイント上でComfyUIのワークフローを実行します。必要なものは3つあります。**API Key**に入れるRunPodのAPIトークン、**RunPod Endpoint ID**、そして**ComfyUI Workflow**のJSONです。後述のComfyUIワークフローの節を参照してください。
-
-## Pollinations
-
-デフォルトのBase URLが`https://image.pollinations.ai`の無料クラウドサービスです。アカウントもAPIキーも要りません。画像生成をいちばん手軽に試せます。
-
-## Stable Horde
-
-デフォルトのBase URLが`https://stablehorde.net/api/v2`の無料クラウドサービスです。有志のコンピューターを集めたネットワークです。APIキーは任意です。無料のキーを取得すると、順番待ちの優先度が上がります。
-
-## SD Web UI (AUTOMATIC1111 / Forge)
-
-デフォルトのBase URLが`http://localhost:7860`のローカルサービスです。自分のコンピューターで動いているStable Diffusion Web UIと通信します。そのアプリは、APIを有効にした状態で起動してください。APIキーは不要です。
-
-## ComfyUI
-
-デフォルトのBase URLが`http://127.0.0.1:8188`のローカルサービスです。自分のコンピューターで動いているComfyUIサーバーと通信します。後述のカスタムワークフローに対応しています。APIキーは不要です。
-
-## SwarmUI
-
-デフォルトのBase URLが`http://127.0.0.1:7801`のローカルサービスです。SwarmUIサーバーと通信します。SwarmUIは、ComfyUIの処理を独自のキューに振り分けられます。アカウントのないローカルサーバーなら、APIキーは不要です。SwarmUIサーバーでアカウントが必要な場合は、**API Key**にSwarm Auth Tokenを貼り付けます。**Fetch Models from API**で、SwarmUIサーバーにあるモデルの一覧を表示できます。
-
-SwarmUIでは、**ComfyUI Workflow**欄は任意です。空のままにするとSwarmUI自身の画像設定を使います。後述のワークフローを貼り付けることもできます。各画像をSwarmUIの出力フォルダーにも残すには、**Local Image Defaults**で**Save images in SwarmUI**(SwarmUIに画像を保存)をオンにします。どちらの場合も、Marinaraは自分用のコピーを保存します。
-
-## Draw Things
-
-デフォルトのBase URLが`http://localhost:7860`のローカルサービスです。macOSまたはiOSのDraw Thingsアプリと通信します。MarinaraはこれをAUTOMATIC1111のサーバーと同じように扱います。APIキーは不要です。
-
-## ネットワーク上のローカルサービス
-
-`localhost`(ループバックとも呼びます)は、Marinaraが動いているコンピューター自身を指します。同じコンピューター上のローカル画像サーバーなら、追加の設定なしで使えます。
-
-画像サーバーを家庭内ネットワークの別のコンピューターで動かしている場合は、サーバーの設定でローカルネットワークのアドレスを許可する必要があります。手順は[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
-
-プロバイダーが画像データではなくURLを返す場合、Marinaraは通常の外部リクエストの安全確認を通して、公開CDNのURLをダウンロードします。プライベートアドレスやループバックのURLが返ってきたときは、スキーム、ホスト名、ポートが設定済みの画像プロバイダーと完全に一致する場合にだけ受け入れます。そのプライベートオリジンからのリダイレクトで、別のローカルサービスへ飛ぶことはできません。ローカルのプロキシが結果を別のプライベートオリジンに保存している場合は、画像APIと同じオリジンからそれらのファイルを配信するようプロキシを設定してください。
+サービスが画像データではなくURLを返す場合、Marinaraは通常の外部リクエストの確認を通して、公開CDNのURLをダウンロードします。結果のURLがプライベートアドレスやループバックの場合は、スキーム、ホスト名、ポートが設定済みの画像サービスと完全に一致するときだけ受け入れます。そのオリジンからのリダイレクトで、別のローカルサービスへ飛ぶことはできません。ローカルのプロキシが結果を別のプライベートオリジンに保存している場合は、画像APIと同じオリジンからそれらのファイルを配信するようにしてください。
 
 ## ComfyUIのワークフローJSONとRunPod
 
-**ComfyUI**、**SwarmUI**、**RunPod Serverless (ComfyUI)**では、**ComfyUI Workflow**欄が表示されます。ComfyUIから**Save (API Format)**、**Export (API)**、**Export to API**のいずれか(フロントエンドのバージョンによって名前が異なります)で書き出したワークフローJSONを貼り付けます。この欄は、**ComfyUI**と**SwarmUI**ではOptional、**RunPod Serverless (ComfyUI)**ではRequiredと表示されます。
+**ComfyUI**、**SwarmUI**、**RunPod Serverless (ComfyUI)**では、**ComfyUI workflow (optional)**(ComfyUIワークフロー、任意)または**(required)**(必須)の欄が表示されます。ComfyUIのバージョンに応じて、**Save (API Format)**、**Export (API)**、**Export to API**のいずれかで書き出したワークフローJSONを貼り付けます。この欄はComfyUIとSwarmUIでは任意、RunPodでは必須です。RunPodには、APIキーとしてのRunPodのAPIトークン、**RunPod endpoint ID**(RunPodのエンドポイントID)、そしてワークフローが必要です。
 
-Marinaraはプレースホルダーを使ってワークフローを埋めます。値を入れたい位置に、次のテキストマーカーを書いておきます。
+Marinaraに値を入れてほしい位置に、ワークフロー内で次のテキストマーカーを書いておきます。
 
 - `%prompt%`と`%negative_prompt%`はプロンプトに使います。
-- `%width%`、`%height%`、`%seed%`は画像サイズとシード値に使います。
+- `%width%`、`%height%`、`%seed%`はサイズとシードに使います。
 - `%model%`、`%steps%`、`%cfg%`、`%sampler%`、`%scheduler%`、`%denoise%`は生成設定に使います。
-- `%reference_image%`と`%reference_image_01%`から`%reference_image_04%`までは、参照画像のデータを挿入します。
-- `%reference_image_name%`と`%reference_image_name_01%`から`%reference_image_name_04%`までは、参照画像をアップロードし、ローカルのComfyUIのLoadImageノード用にそのファイル名を挿入します。
+- `%reference_image%`と`%reference_image_01%`から`%reference_image_04%`までは、参照画像のデータに使います。
+- `%reference_image_name%`と`%reference_image_name_01%`から`%reference_image_name_04%`までは、参照画像をアップロードし、ローカルのComfyUIのLoadImageノード用にそのファイル名を入れます。
 
-中でも重要なのは`%prompt%`です。これが見つからないと、エディターが警告します。**ComfyUI**では、欄を空のままにすると組み込みのデフォルトワークフローを使います。**SwarmUI**では、空のままにするとSwarmUI自身の画像設定を使います。**RunPod Serverless (ComfyUI)**では、エンドポイント側にデフォルトがないため、ワークフローが必須です。3つともbase64形式の参照画像を最大4枚まで受け付けます。ファイル名でアップロードするプレースホルダーは、ローカルのComfyUIでしか使えません。
+中でも重要なのは`%prompt%`です。これがないと、エディターが警告します。ComfyUIでは、欄が空のときは組み込みのデフォルトワークフローを使います。SwarmUIでは、SwarmUI自身の設定を使います。RunPodにはデフォルトがないので、ワークフローが必須です。3つとも、base64の生データの参照画像を最大4枚まで受け付けます。ファイル名でアップロードするプレースホルダーは、ローカルのComfyUIでしか使えません。
 
-書き出しの手順、JSONの例、プレースホルダーの引用符の扱い、参照画像の設定、キャラクターごとのワークフロー、LANからのアクセス、トラブルシューティングについては、[ComfyUIワークフローの設定](comfyui.md)を参照してください。
+エクスポートの詳しい手順、例、引用符のルール、参照画像、キャラクターごとのワークフロー、ネットワークからのアクセス、トラブルシューティングについては、[ComfyUIワークフローの設定](comfyui.md)を参照してください。
+
+<a id="local-image-defaults-per-connection"></a>
 
 ## 接続ごとのLocal Image Defaults
 
-サービスが**SD Web UI (AUTOMATIC1111 / Forge)**、**ComfyUI**、**NovelAI**、**Draw Things**、**Arli AI**、**SwarmUI**、**RunPod Serverless (ComfyUI)**のいずれかのとき、その接続に**Local Image Defaults**(ローカル画像のデフォルト設定)パネルが表示されます。**Draw Things**と**Arli AI**では、**SD Web UI (AUTOMATIC1111 / Forge)**と同じ欄とデフォルト値が並びます。**SwarmUI**と**RunPod Serverless (ComfyUI)**では、**ComfyUI**と同じ欄とデフォルト値が並びます。これらの設定は、この接続で画像を生成するときにだけ適用されます。**Reset**ボタンで組み込みの値に戻せます。
+**SD Web UI (AUTOMATIC1111 / Forge)**、**ComfyUI**、**NovelAI**、**Draw Things**、**Arli AI**、**SwarmUI**、**RunPod Serverless (ComfyUI)**の画像モデルには、**Local image defaults**(ローカル画像のデフォルト設定)パネルが表示されます。Draw ThingsとArli AIにはSD Web UIの欄が、SwarmUIとRunPodにはComfyUIの欄が表示されます。これらの設定は、このモデルで画像を作るときにだけ適用されます。**Reset**(リセット)で組み込みの値に戻せます。
 
-これらのサービスにはいずれも**Seed**欄があります。-1のままにすると、毎回ランダムな画像になります。ほかの数値を入れると、常に同じシード値を使い回します。
-
-そのほかの欄はサービスによって異なります。
+どのサービスにも**Seed**欄があります。-1にすると、毎回ランダムな画像になります。ほかの数値を入れると、毎回そのシードを使います。そのほかの欄はサービスによって異なります。
 
 | サービス | 欄 | デフォルト |
 | --- | --- | --- |
 | AUTOMATIC1111 / Forge | Steps | 20 |
-| AUTOMATIC1111 / Forge | CFG Scale | 7 |
+| AUTOMATIC1111 / Forge | CFG scale | 7 |
 | AUTOMATIC1111 / Forge | Sampler | Euler a |
-| AUTOMATIC1111 / Forge | Img2Img Denoise | 0.6 |
+| AUTOMATIC1111 / Forge | Img2img denoise | 0.6 |
 | ComfyUI | Steps | 20 |
-| ComfyUI | CFG Scale | 7 |
+| ComfyUI | CFG scale | 7 |
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
 | NovelAI | Steps | 28 |
-| NovelAI | Prompt Guidance | 6 |
+| NovelAI | Prompt guidance | 6 |
 | NovelAI | Sampler | k_euler_ancestral |
-| NovelAI | Noise Schedule | karras |
+| NovelAI | Noise schedule | karras |
 
-どのサービスにも**Prompt Prefix**と**Negative Prefix**のテキスト欄があります。ここに入れた文章は、この接続で送るすべてのプロンプトの先頭に追加されます。AUTOMATIC1111 / ForgeとComfyUIには、どちらにも**Clip Skip**欄があります。AUTOMATIC1111 / Forgeにはさらに**Restore faces**トグルが加わります。ComfyUIには**Upload a 1x1 placeholder when no reference image is provided**というトグルが加わります。これは、参照画像のプレースホルダーを含むカスタムワークフローでのみ意味を持ちます。NovelAIには**Guidance Rescale**と**UC Preset**の欄が加わります。
+どのサービスにも**Prompt prefix**と**Negative prefix**の欄もあります。ここに入れたテキストは、このモデルで送るすべてのプロンプトの先頭に追加されます。AUTOMATIC1111 / ForgeとComfyUIには**Clip skip**欄があります。AUTOMATIC1111 / Forgeにはさらに**Restore faces**トグルがあります。ComfyUIには、参照画像がないときに1x1のプレースホルダー画像をアップロードするトグルがあります。これは、参照画像のプレースホルダーを含むカスタムワークフローでだけ意味を持ちます。NovelAIには**Guidance rescale**と**UC preset**があります。
 
-## プロバイダーごとに異なる参照画像への対応
+## サービスごとに異なる参照画像への対応
 
-**参照画像**とは、プロンプトと一緒に送る既存の画像です。キャラクターの顔立ちや絵柄を新しい画像に引き継ぐのに役立ちます。受け付けられる枚数はプロバイダーごとに違います。
+参照画像とは、プロンプトと一緒に送る既存の画像で、新しい画像にキャラクターの顔や絵柄を引き継ぐためのものです。
 
-| プロバイダー | 参照画像 |
+| サービス | 参照画像 |
 | --- | --- |
 | OpenAI (DALL-E) | 最大16枚、GPT Imageのモデルのみ |
 | ChatGPT (Codex login) | 最大16枚 |
-| NovelAI | 最大16枚、V4.5系モデルのみ |
+| NovelAI | 最大16枚、V4.5のモデルのみ |
 | xAI / Grok Imagine | 最大3枚 |
-| Venice.ai | text-to-imageの生成では非対応 |
-| Z.AI | 現在のtext-to-image連携では非対応 |
-| Atlas Cloud | image-to-image、編集、Kontextに対応したモデルIDでは1枚目のみ |
-| SpicyAPI | 編集モデルのみ、モデルの上限まで。大きい画像は収まるように縮小 |
 | NanoGPT | 最大3枚 |
-| Stability AI | 1枚目のみ、image to imageとして使用 |
-| Arli AI | 1枚目のみ、image to imageとして使用 |
-| SD Web UI (AUTOMATIC1111 / Forge)とDraw Things | 1枚目のみ、image to imageとして使用 |
-| OpenRouter Images | 対応、枚数の上限なし |
-| ComfyUIとRunPod Serverless (ComfyUI) | 最大4枚、ワークフローのプレースホルダー経由 |
-| SwarmUI | 最大4枚 |
+| ComfyUI、RunPod Serverless (ComfyUI)、SwarmUI | 最大4枚、ワークフローのプレースホルダー経由 |
+| Stability AI、Arli AI、SD Web UI、Draw Things | 1枚目のみ、image to imageとして使用 |
+| Atlas Cloud | 1枚目、image-to-image、編集、Kontextに対応したモデルIDの場合 |
+| SpicyAPI | 編集モデルのみ、モデルの上限まで。収まるように縮小 |
+| OpenRouter Images | 対応、固定の上限なし |
+| Venice.ai、Z.AI | text-to-imageでは非対応 |
 | Together AI、Pollinations、Stable Horde、fal.ai | 非対応 |
 
-NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5系モデルでしか動作しません。NovelAIはV5向けのPrecise Referenceをまだ公開していません。ほかのモデルで参照画像を指定すると、Marinaraは参照画像なしで画像を生成し、サーバーログに警告を記録します。
+NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5のモデルでしか動作しません。NovelAIはV5向けのPrecise Referenceをまだ公開していません。ほかのモデルで参照画像を指定すると、Marinaraは参照画像なしで画像を生成し、サーバーに警告を記録します。
 
 ## メディア生成リクエストを順番に処理
 
-**Queue media generation requests**(メディア生成リクエストを順番に処理)トグルは、**Settings**(設定) → **Generations** → **Overall Generations**にあります。デフォルトはオンです。
+**Queue media generation requests**(メディア生成リクエストを順番に処理)トグルは、**Settings → Generations → Overall Generations**(設定 → 生成 → 生成全般)にあります。デフォルトはオンです。
 
-オンのとき、Marinaraは画像のジョブを画像プロバイダーのアカウントごとに1件ずつ、動画のジョブを動画プロバイダーのアカウントごとに1件ずつ、別々のキューで送ります。同じアカウントでも、画像と動画は同時に処理できます。これは、依頼元の機能にかかわらず適用されます。対象は、Illustrator、トラッカー、コマンド、Gallery、Gameのアセット、Slurpのようなダウンロードしたエージェントです。アドレスとAPIキーが同じ2つの接続は、対応するキューを共有します。異なるアカウントやプロバイダーは、引き続き同時に処理されます。NovelAIでは、ジョブの間に短い間隔も空けます。NovelAIが混雑していると応答した場合は、画像を失敗させずに、待ってから2回まで再試行します。
+オンのとき、Marinaraは画像のジョブを画像のアカウントごとに1件ずつ、動画のジョブを動画のアカウントごとに1件ずつ、別々のキューで送ります。同じアカウントでも、画像と動画は同時に処理できます。これは、画像や動画を求めるすべての機能に適用されます。対象は、Illustrator、トラッカー、コマンド、Gallery、Gameのアセット、Slurpのようなダウンロードしたエージェントです。アドレスとAPIキーが同じ2つのモデルは、キューを共有します。異なるアカウントは、引き続き同時に処理されます。NovelAIでは、ジョブの間に短い間隔も空けます。NovelAIが混雑していると応答した場合、Marinaraは待ってから、さらに2回まで再試行します。
 
-同時に2件のリクエストを受け付けないサービスでは、オンのままにしてください。同時に多くのリクエストを処理できるサービスを使っていて、生成を速くしたい場合だけオフにします。
+同時に2件のリクエストを受け付けないサービスでは、オンのままにしてください。サービスが同時に多くのリクエストを処理でき、速さを優先したい場合だけオフにします。
 
 ## 関連ガイド
 
-- [ComfyUIワークフローの設定](comfyui.md)では、ローカルとRunPod向けのカスタムワークフローJSONを手順を追って説明します。
-- [Illustratorエージェント](illustrator-agent.md)では、シーンの挿絵の自動生成を設定します。
-- [画像スタイルプロファイル](style-profiles.md)は、生成されるすべての画像の見た目を決めます。
-- [シーン背景とギャラリー](scene-backgrounds.md)では、生成したシーン背景について説明します。
-- [自撮り写真](../conversation/selfies.md)は、Conversationモードでキャラクターの自撮り写真を撮るコマンドです。
-- [対応しているAIプロバイダー](../connections/providers-reference.md)には、チャット、画像、動画の全プロバイダーが一覧されています。
+- [ComfyUIワークフローの設定](comfyui.md)
+- [Illustratorエージェント](illustrator-agent.md)
+- [画像スタイルプロファイル](style-profiles.md)
+- [シーン背景とギャラリー](scene-backgrounds.md)
+- [自撮り写真](../conversation/selfies.md)
+- [対応しているAIプロバイダー](../connections/providers-reference.md)

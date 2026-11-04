@@ -1,81 +1,61 @@
 # Expressions animées
 
-Ce guide explique les expressions animées de Marinara Engine : de courtes animations en boucle qui servent de sprites de portrait à un personnage. Le sprite, c'est l'image du personnage que Marinara affiche pendant un chat. Avec les expressions animées, ces portraits bougent au lieu de rester figés.
+Les expressions animées sont de courtes animations en boucle qui servent de sprites de portrait à un personnage. Le sprite, c'est l'image du personnage que Marinara affiche pendant un chat. Un sprite d'expression classique est une image fixe, comme un visage joyeux. Une expression animée se joue à sa place et est enregistrée en GIF, un fichier image qui joue une courte animation en boucle, tout seul.
 
-## À quoi correspond une expression animée
+La création se fait en deux temps. Marinara demande à un compte **Video Generation** (génération de vidéos) un court clip de l'expression, puis convertit ce clip en GIF en boucle sur ton ordinateur. Une fois enregistrée, l'expression animée fonctionne comme n'importe quel autre sprite. L'agent téléchargeable **Expression Engine** l'affiche quand la scène appelle cette émotion. Voir [Sprites de personnage](../characters/sprites.md) et [Référence des agents téléchargeables](../agents/built-in-agents.md).
 
-Un sprite d'expression classique est une image fixe : un visage joyeux, un visage en colère. Une expression animée est une courte animation en boucle qui remplace cette image fixe. Marinara enregistre chacune d'elles sous forme de sprite GIF. Le GIF est un fichier image qui joue une courte animation en boucle, tout seul.
-
-Marinara crée une expression animée en deux temps. D'abord, Marinara demande à une connexion **Video Generation** (génération de vidéos) de produire un court clip vidéo de l'expression. Ensuite, ce clip est converti en sprite GIF animé sur ta machine.
-
-Une fois enregistrée, l'expression animée fonctionne comme n'importe quel autre sprite. L'agent téléchargeable **Expression Engine** la choisit et l'affiche quand la scène appelle cette émotion. Voir [Sprites de personnage](../characters/sprites.md) pour l'affichage des sprites, et [Référence des agents téléchargeables](../agents/built-in-agents.md) pour Expression Engine.
+<a id="before-you-start"></a>
 
 ## Avant de commencer
 
-Deux éléments doivent être en place avant de générer des expressions animées.
+Il te faut deux choses.
 
-1. Une connexion **Video Generation**. C'est un fournisseur enregistré capable de produire de la vidéo. Voir [Génération de vidéos de scène](scene-video.md) pour en ajouter une.
-2. ffmpeg installé sur la machine qui fait tourner Marinara. ffmpeg est un outil média gratuit qui convertit le clip vidéo en sprite GIF.
+1. Un compte vidéo. Voir [Génération de vidéos de scène](scene-video.md) pour en ajouter un.
+2. ffmpeg sur l'ordinateur qui fait tourner Marinara. ffmpeg est un outil média gratuit qui convertit le clip en GIF.
 
-Si ffmpeg est introuvable, la génération échoue immédiatement avec ce message :
+Si ffmpeg manque, la génération échoue immédiatement avec ce message :
 
-```
+```text
 Animated expression GIF conversion requires ffmpeg. Install ffmpeg and make it available on PATH, or set FFMPEG_PATH.
 ```
 
-Pour corriger ça, installe ffmpeg et vérifie que le système sait le trouver. Autre option : renseigner la variable d'environnement `FFMPEG_PATH` avec le chemin complet du programme ffmpeg. Une variable d'environnement est un réglage que tu donnes au serveur avant son démarrage.
+Installe ffmpeg de façon que ton système le trouve, ou définis la variable d'environnement `FFMPEG_PATH` avec le chemin complet du programme ffmpeg. Une variable d'environnement est un réglage que tu donnes au serveur avant son démarrage.
 
-## Activer les portraits animés
+## Générer des expressions animées
 
-Les expressions animées se génèrent depuis la même fenêtre que les sprites fixes.
+Tu utilises la même fenêtre que pour les sprites fixes.
 
-1. Ouvre le **Character Editor** (éditeur de personnage) pour ton personnage, ou le **Persona Editor** (éditeur de persona) pour un persona.
-2. Va dans l'onglet **Sprites**, puis dans la catégorie **Facial Expressions**.
+1. Ouvre le **Character Editor** (éditeur de personnage) d'un personnage, ou le **Persona Editor** (éditeur de persona) d'un persona.
+2. Ouvre l'onglet **Sprites**, puis la catégorie **Facial Expressions** (expressions du visage).
 3. Clique sur **Generate Sprite** (générer un sprite). La fenêtre **Generate Sprites** s'ouvre.
-4. Coche la case **Generate animated portraits** (générer des portraits animés). La fenêtre passe en mode animé :
-   - Le sélecteur de connexion passe de **Image Generation Connection** à **Video Generation Connection**.
-   - Les réglages de grille des planches de sprites fixes disparaissent.
-   - Marinara génère alors une expression à la fois, et non une planche entière.
-5. Choisis la connexion **Video Generation Connection** dans le menu déroulant.
-6. Remplis le champ **Appearance Description** (description de l'apparence) pour que le fournisseur sache à quoi ressemble le personnage.
+4. Coche **Generate animated portraits** (générer des portraits animés). La fenêtre passe en mode animé. Le sélecteur d'images devient un sélecteur de vidéos, les réglages de grille des planches de sprites disparaissent, et Marinara crée une expression à la fois.
+5. Choisis ton compte vidéo.
+6. Remplis le champ **Appearance Description** (description de l'apparence) pour que le service sache à quoi ressemble le personnage.
 7. Choisis les expressions à générer.
 8. Clique sur **Generate Animated Portrait** pour une seule expression, ou sur **Generate Animated Portraits** pour plusieurs.
 
-Pendant le traitement, le message "Generating animated portrait GIFs..." s'affiche. Chaque expression devient d'abord une courte vidéo, que Marinara convertit ensuite en sprite GIF.
+Pendant le traitement, tu vois "Generating animated portrait GIFs...". Une fois la génération terminée, examine les résultats et clique sur le bouton d'enregistrement pour les ajouter au personnage ou au persona. Si une expression échoue, Marinara conserve celles qui ont abouti et liste les noms en échec pour que tu puisses réessayer.
 
-Une fois la génération terminée, examine les résultats et clique sur le bouton d'enregistrement pour les ajouter au personnage ou au persona. Si une expression échoue, Marinara conserve celles qui ont abouti. Les noms en échec sont listés pour que tu puisses réessayer.
+Les expressions animées prennent plus de temps que les sprites fixes, car elles sont créées une par une. Commence par quelques-unes.
+
+Quand le réglage **Expose media prompts before sending** (afficher les prompts médias avant l'envoi) est activé dans **Settings → Generations → Overall Generations** (Paramètres → Générations → Générations globales), Marinara marque une pause pour que tu puisses lire et modifier chaque prompt – le texte que Marinara envoie à l'IA – avant qu'il parte vers le service.
 
 ## Durée et format
 
-Chaque expression animée est un clip de portrait vertical. Le format est fixé à 9:16 (portrait) et n'est pas modifiable.
+Chaque expression animée est un clip de portrait vertical au format 9:16, que tu ne peux pas modifier. Pour changer la durée de chaque clip, ouvre **Settings → Generations** (Paramètres → Générations), repère **Video Generation** et règle **Animated expression length** (durée des expressions animées). La valeur par défaut est de 3 secondes. La plage va de 1 à 8 secondes. Marinara enregistre un petit GIF en boucle, large de 512 pixels. Un clip plus court donne un fichier plus léger et une boucle plus serrée.
 
-En revanche, la durée de chaque clip se règle. Ouvre **Settings** (Paramètres) et repère la section **Video Generation**. Le réglage s'appelle **Animated expression length**. Il vaut 3 secondes par défaut. Tu peux le fixer entre 1 et 8 secondes.
+<a id="backgrounds-are-not-removed"></a>
 
-Marinara enregistre le résultat final sous forme de petit GIF en boucle, large de 512 pixels. Un clip plus court donne un fichier plus léger et une boucle plus courte et plus nerveuse.
+## L'arrière-plan n'est pas retiré
 
-## Réserve sur la transparence
-
-Les sprites fixes peuvent être détourés de leur arrière-plan, pour que le personnage flotte au-dessus de la scène. Les expressions animées, c'est différent. Marinara ne leur applique aucun nettoyage d'arrière-plan.
-
-En mode animé, la case de l'arrière-plan transparent s'intitule **Prefer clean transparent-style background**. Cette case ajoute seulement une indication au prompt vidéo, c'est-à-dire au texte que Marinara envoie à l'IA. Son texte d'aide le dit clairement : "Adds a flat transparent-friendly background instruction to the video prompt. GIF transparency is not guaranteed."
-
-L'étape de relecture confirme la même chose. Elle affiche cette note : "Animated portrait sprites are saved as looping GIFs. Static background cleanup, sheet slicing, and frame cropping are skipped for GIF output." Une expression animée peut donc garder un arrière-plan visible. Demande un arrière-plan uni dans le champ **Appearance Description** si tu veux un rendu plus net.
-
-## À quoi s'attendre
-
-Les expressions animées prennent plus de temps que les sprites fixes. Marinara les génère une par une, jamais par lot. Choisir beaucoup d'expressions d'un coup peut être long : commence par quelques-unes.
-
-Si tu as activé **Expose media prompts before sending** (dans **Settings**, section **Overall Generations**), Marinara marque une pause à une étape de relecture des prompts. Tu peux lire et modifier chaque prompt avant son envoi au fournisseur. Laisse ce réglage désactivé pour sauter la relecture.
+Les sprites fixes peuvent être détourés de leur arrière-plan, pour que le personnage flotte au-dessus de la scène. Les expressions animées sautent ce nettoyage. En mode animé, la case à cocher **Prefer clean transparent-style background** (préférer un arrière-plan net, de style transparent) ajoute seulement une indication au prompt vidéo. Son texte d'aide indique "GIF transparency is not guaranteed." L'étape de relecture signale que le nettoyage d'arrière-plan, le découpage des planches et le recadrage des images sont ignorés pour une sortie GIF. Une expression animée peut garder un arrière-plan visible. Demande un arrière-plan uni dans le champ **Appearance Description** pour un rendu plus propre.
 
 ## Dépannage
 
-La génération échoue avec un message au sujet de ffmpeg. Installe ffmpeg et vérifie que le serveur sait le trouver, ou renseigne la variable d'environnement `FFMPEG_PATH`. Voir "Avant de commencer" plus haut.
-
-Le menu déroulant indique qu'aucune connexion de génération de vidéos n'a été trouvée. Ajoute d'abord une connexion **Video Generation**. Voir [Génération de vidéos de scène](scene-video.md).
-
-Le bouton **Generate Sprite** est désactivé. Sur certains appareils, Marinara ne parvient pas à charger sa bibliothèque d'images, ce qui désactive toute génération de sprites, expressions animées comprises. Ça arrive sur certaines installations Android et Termux.
-
-Le GIF enregistré affiche toujours un arrière-plan. C'est normal. Les expressions animées sautent le nettoyage d'arrière-plan. Voir "Réserve sur la transparence" plus haut.
+- **La génération échoue avec un message au sujet de ffmpeg** : installe ffmpeg ou définis `FFMPEG_PATH`. Voir [Avant de commencer](#before-you-start).
+- **Le sélecteur indique qu'aucun compte vidéo n'a été trouvé** : ajoutes-en un d'abord. Voir [Génération de vidéos de scène](scene-video.md).
+- **Le bouton Generate Sprite est désactivé** : sur certains appareils, comme certaines installations Android et Termux, Marinara ne parvient pas à charger sa bibliothèque d'images. Cela désactive toute génération de sprites, expressions animées comprises.
+- **Le GIF enregistré affiche toujours un arrière-plan** : c'est normal. Voir [L'arrière-plan n'est pas retiré](#backgrounds-are-not-removed).
 
 ## Guides associés
 

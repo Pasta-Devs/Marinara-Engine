@@ -1,6 +1,6 @@
 # Les arrière-plans de scène et la galerie
 
-Ce guide explique les arrière-plans de scène générés par l'IA, ces images d'arrière-plan que Marinara Engine crée pour toi depuis la **Gallery** (la galerie), ainsi que la galerie elle-même. Deux guides voisins complètent celui-ci : [Arrière-plans de chat](../appearance/chat-backgrounds.md) présente la bibliothèque d'images téléversées que tu choisis à la main, et [Arrière-plans en Roleplay](../roleplay/backgrounds.md) présente l'agent qui choisit tout seul un arrière-plan à chaque tour.
+Les arrière-plans de scène générés par l'IA sont des images de décor que Marinara Engine crée depuis la **Gallery** (la galerie). Ce guide explique comment en créer un, ce que contient la galerie, et comment redessiner ou relire une image. Pour la bibliothèque d'images téléversées que tu choisis à la main, voir [Arrière-plans de chat](../appearance/chat-backgrounds.md). Pour l'agent qui choisit un arrière-plan à chaque tour, voir [Arrière-plans en Roleplay](../roleplay/backgrounds.md).
 
 ## Où fonctionnent les arrière-plans de scène
 
@@ -10,11 +10,11 @@ Les arrière-plans de scène fonctionnent dans les modes Roleplay et Game. Ils n
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-Pour générer un arrière-plan, il te faut une connexion **Image Generation** (génération d'images). Si ce n'est pas encore fait, commence par en configurer une. Voir [Fournisseurs de génération d'images et configuration](image-providers.md).
+Avant de commencer : il te faut un modèle d'image. Si ce n'est pas encore fait, commence par en configurer un. Voir [Fournisseurs de génération d'images et configuration](image-providers.md).
 
 ## Générer et appliquer un arrière-plan depuis la galerie
 
-La **Gallery** contient les images et vidéos du chat. C'est une section de **Chat Settings** : ouvre Chat Settings et déplie Gallery. Sur ordinateur, tu peux en faire une fenêtre séparée ; consulte [Présentation de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window). Le bouton **Background** (arrière-plan) génère le décor de la scène actuelle.
+La **Gallery** contient les images et vidéos d'un chat. C'est une section de **Chat Settings** (réglages du chat). Sur ordinateur, tu peux en faire une fenêtre séparée (voir [Vue d'ensemble des Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Son bouton **Background** (arrière-plan) crée le décor de la scène actuelle.
 
 En Roleplay, le bouton **Background** apparaît dès que l'agent **Illustrator** est installé. Tu n'as pas besoin de l'ajouter au chat ni d'activer les agents. Comme **Illustrate** (illustrer), il s'exécute une seule fois et ne lance pas d'exécutions automatiques.
 
@@ -23,20 +23,18 @@ Pour générer un arrière-plan :
 1. Ouvre la section **Gallery** de **Chat Settings**.
 2. Clique sur le bouton **Background**.
 3. Le libellé du bouton devient **Generating...** pendant la génération de l'image.
-4. Un message d'état doit apparaître : "AI background generation is running. The new background will be applied when it finishes."
-5. Une fois terminé, la nouvelle image s'applique immédiatement à la scène en cours. Le message "Background generated." te le confirme.
+4. Un message d'état indique : "AI background generation is running. The new background will be applied when it finishes."
+5. Une fois terminé, la nouvelle image s'applique aussitôt à la scène en cours, et "Background generated." le confirme.
 
 L'arrière-plan est construit à partir de la scène en cours. Dans une partie, cela comprend le genre, le cadre, le lieu, la météo et le moment de la journée. Les arrière-plans générés utilisent la taille de canevas **Backgrounds**, soit 1280 sur 720 pixels par défaut. Tu peux changer cette taille dans **Settings** (Paramètres), puis **Generations**, puis **Image Generation**.
 
-### Si aucune connexion d'image n'est définie
-
-Si Marinara ne trouve aucune connexion d'image à utiliser, l'étape de génération échoue avec ce message :
+Si ça n'a pas marché : si Marinara ne trouve aucun modèle d'image à utiliser, l'étape échoue avec ce message :
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-Pour corriger cela, ouvre le panneau **Connections** (Connexions), déplie la section **Defaults** et choisis une connexion d'image sous **Images**. Autre option : définir une connexion d'image spécifique sur l'agent **Illustrator**.
+Pour corriger cela, définis la tâche **Images** sous **Defaults** (valeurs par défaut) dans le panneau **Connections** (Connexions), ou donne à l'agent **Illustrator** son propre modèle d'image.
 
 ## La section Gallery
 
@@ -56,7 +54,7 @@ Sous les boutons se trouve la zone de dépôt **Upload Images** (téléverser de
 
 ### Actions image par image
 
-Passe le pointeur sur une image de l'onglet **Images**, ou touche-la sur mobile, pour faire apparaître ses actions :
+Passe le pointeur sur une image de l'onglet **Images**, ou touche-la sur mobile, pour voir ses actions :
 
 - Ouvrir l'image en taille réelle (**Open gallery image**).
 - **Pin to chat** : épingle l'image au chat sous forme d'image flottante. Fais-la glisser pour la déplacer et utilise sa poignée d'angle pour la redimensionner. Elle garde sa place et sa taille quand tu recharges la page dans ce navigateur. Le bouton de verrou, à côté du bouton de fermeture, l'empêche de bouger ou d'être redimensionnée tant que tu ne la déverrouilles pas.
@@ -73,14 +71,14 @@ Tu peux refaire une image générée sans régénérer la réponse à laquelle e
 
 1. Ouvre l'image en taille réelle, depuis la galerie ou depuis le message qui la contient.
 2. Clique sur **Regenerate image** (régénérer l'image), le bouton en forme de flèche circulaire en haut à droite de l'image.
-3. Modifie ce que tu veux dans les champs sous l'image : **Prompt**, **Negative prompt** (prompt négatif), un champ pour chaque personnage sous **Character prompts** (prompts de personnage) si l'image en avait, et l'**Image connection** (connexion d'image).
+3. Modifie ce que tu veux dans les champs sous l'image : **Prompt**, **Negative prompt** (prompt négatif), un champ pour chaque personnage sous **Character prompts** (prompts de personnage) si l'image en avait, et le modèle d'image.
 4. Clique sur **Generate image** (générer l'image), ou sur **Cancel** pour laisser l'image telle quelle.
 
 La nouvelle image remplace l'ancienne dans le message. L'ancienne reste dans la galerie : tu peux donc l'épingler de nouveau. Les images de référence sont renvoyées à partir des avatars actuels des personnages. Certaines images plus anciennes n'ont pas enregistré leur prompt négatif ni leurs prompts de personnage ; l'éditeur l'indique le cas échéant.
 
 ## Relire un prompt avant l'envoi
 
-Tu peux vérifier et modifier le prompt avant que Marinara n'envoie une demande d'arrière-plan au fournisseur d'images.
+Tu peux vérifier et modifier le prompt avant que Marinara n'envoie une demande d'arrière-plan à ton service d'images.
 
 1. Ouvre **Settings**, puis **Generations**, puis **Overall Generations**.
 2. Active l'option **Expose media prompts before sending**.
@@ -99,14 +97,14 @@ Si l'un des champs de prompt est vide, le bouton **Generate** est désactivé et
 
 Chaque arrière-plan de scène que tu génères est enregistré dans ta bibliothèque d'arrière-plans. Tu peux aussi y ajouter tes propres images. Les arrière-plans téléversés acceptent les fichiers JPG, PNG, GIF, WebP et AVIF, jusqu'à 20 Mo chacun.
 
-Les arrière-plans que tu as ajoutés se renomment, se taguent et se suppriment à tout moment. Les tags s'écrivent en minuscules et acceptent lettres, chiffres, espaces, traits d'union et tirets bas, dans la limite de 40 caractères chacun. Les arrière-plans fournis avec les ressources de jeu apparaissent aux côtés des tiens, mais tu ne peux ni les renommer, ni les taguer, ni les supprimer.
+Les arrière-plans que tu as ajoutés se renomment, se taguent et se suppriment. Les tags s'écrivent en minuscules et acceptent lettres, chiffres, espaces, traits d'union et tirets bas, dans la limite de 40 caractères chacun. Les arrière-plans fournis avec les ressources de jeu apparaissent aux côtés des tiens, mais tu ne peux ni les renommer, ni les taguer, ni les supprimer.
 
-Cette bibliothèque se gère depuis les paramètres d'apparence, où tu définis aussi un arrière-plan par chat ou par défaut. Pour la bibliothèque complète, le sélecteur et le réglage **Background Blur**, voir [Arrière-plans de chat](../appearance/chat-backgrounds.md).
+Cette bibliothèque se gère depuis les réglages d'apparence, où tu définis aussi un arrière-plan par chat ou par défaut. Pour la bibliothèque complète, le sélecteur et le réglage **Background Blur**, voir [Arrière-plans de chat](../appearance/chat-backgrounds.md).
 
 ## Guides associés
 
 - [Arrière-plans de chat](../appearance/chat-backgrounds.md) : la bibliothèque d'images téléversées dans laquelle tu choisis à la main.
 - [Arrière-plans en Roleplay](../roleplay/backgrounds.md) : l'agent qui choisit tout seul un arrière-plan à chaque tour.
 - [Agent Illustrator](illustrator-agent.md) : les illustrations de scène pour les modes Roleplay et Game.
-- [Fournisseurs de génération d'images et configuration](image-providers.md) : configurer une connexion d'image.
+- [Fournisseurs de génération d'images et configuration](image-providers.md) : configurer un modèle d'image.
 - [Génération de vidéos de scène](scene-video.md) : transformer une image de la galerie en vidéo.

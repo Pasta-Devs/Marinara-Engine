@@ -1,8 +1,8 @@
 # Catalogues des ensembles de règles
 
-Cette page fait partie du guide [Écrire des ensembles de règles Game Mode](writing-rulesets.md). Les entrées préparées que l'éditeur de fiche propose dans un sélecteur : l'en-tête du catalogue, les entrées, les valeurs maintenues par l'ensemble de règles, les commandes de fiche et la commande d'utilisation.
+Utilise cette page pour distribuer des entrées préparées (sorts, équipement, capacités de classe) que l'éditeur de fiche propose dans un sélecteur, pour que les joueurs n'aient pas à saisir de longues listes à la main. Elle couvre l'en-tête du catalogue, les entrées, les valeurs maintenues par l'ensemble de règles, les commandes de fiche et la commande d'utilisation. Elle s'adresse aux auteurs d'ensembles de règles. Avant de commencer, lis [Écrire des ensembles de règles Game Mode](writing-rulesets.md).
 
-Saisir une liste de sorts, un tableau d'équipement ou une page de capacités ligne par ligne est pénible. Un catalogue est une collection nommée d'entrées préparées que tu distribues avec l'ensemble. L'éditeur les propose dans un sélecteur sur chaque liste alimentée par le catalogue ; un choix remplit la ligne.
+Saisir ligne par ligne une longue liste de sorts ou un tableau d'équipement prend du temps. Un catalogue est une collection nommée d'entrées préparées que tu distribues avec l'ensemble. L'éditeur les propose dans un sélecteur sur chaque liste alimentée par le catalogue ; un choix remplit la ligne.
 
 Les catalogues sont facultatifs. Un ensemble peut en avoir douze ; le moteur ne connaît pas leur sujet : chaque identifiant, colonne, filtre et mot vient de ton fichier.
 

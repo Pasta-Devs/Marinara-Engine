@@ -1,6 +1,6 @@
 # Внутреннее устройство промптов Noodle (для разработчиков)
 
-Справка для разработчиков: где в коде лежат промпты генерации для Noodle, как их менять и как разобрать итоговый промпт. Промпт – это текст, который Marinara отправляет ИИ. Обычные пользователи настраивают Noodle через панель **Settings** (настройки); об этом рассказывают руководства в папке `docs/noodle/`.
+Справка для разработчиков: где в коде лежат промпты генерации для Noodle, как их менять и как разобрать итоговый промпт. Промпт – это текст, который Marinara отправляет ИИ. Обычные пользователи настраивают Noodle через панель **Settings** (настройки); об этом рассказывают руководства Noodle `docs/agents/noodle.md` и `docs/agents/noodle-settings.md`.
 
 Noodle – это скачиваемый пакет. Его маршруты (`/api/noodle`, регистрируются при активации пакета) и код генерации находятся в пакете Noodle в репозитории [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), в папке `packages/noodle/src/engine/packages/server/src/`. В таблице ниже источник с пометкой **package** указан относительно этой папки. Engine хранит общие схему и типы Noodle, хранилище Noodle, зарегистрированные переопределения промптов, которые перечислены в Settings, и текст промпта ленты по умолчанию в `packages/server/src/services/noodle/noodle-prompt.ts`. Пакет хранит собственные копии `services/prompt-overrides/registry/noodle.ts` и `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## Смежные руководства
 
-- [Noodle: встроенная социальная лента](../noodle/overview.md)
-- [Настройки Noodle и перенос в чаты](../noodle/settings.md)
+- [Noodle: встроенная социальная лента](../agents/noodle.md)
+- [Настройки Noodle и перенос в чаты](../agents/noodle-settings.md)
 - [Дополнительные пакеты агентов и возможностей](optional-agent-packages.md)
 - [Карта архитектуры (для разработчиков)](architecture-map.md)

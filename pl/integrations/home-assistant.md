@@ -1,119 +1,86 @@
 # Integracja z Home Assistant
 
-Z tego przewodnika dowiesz się, jak połączyć aplikację Marinara Engine z platformą Home Assistant. Po połączeniu postacie AI sterują prawdziwymi urządzeniami inteligentnego domu prosto z czatu. Obsługują światła, klimatyzację, rolety i odtwarzacze multimediów. Dzięki temu połączeniu automatyzacje Home Assistant mogą też wysyłać wiadomości do aplikacji Marinara Engine.
+Ta integracja pozwala postaciom AI sterować prawdziwymi urządzeniami inteligentnego domu prosto z czatu, na przykład światłami, klimatyzacją, roletami i odtwarzaczami multimediów. Pozwala też automatyzacjom Home Assistant wysyłać wiadomości do aplikacji Marinara Engine. Home Assistant to darmowa platforma open source do obsługi urządzeń inteligentnego domu. Jeśli z niej nie korzystasz, ten przewodnik nie jest ci potrzebny.
 
-Home Assistant to darmowa platforma open source do sterowania urządzeniami inteligentnego domu. Bez platformy Home Assistant ta integracja nie jest do niczego potrzebna.
+## Co dodaje integracja
 
-## Do czego służy ta integracja
+Integracja to niewielki program, który instaluje się wewnątrz platformy Home Assistant i łączy ją z serwerem Marinara Engine. Przy pierwszej konfiguracji sama tworzy poniższe elementy. Nigdzie nie trzeba kopiować adresów narzędzi ani konfigurować narzędzi ręcznie.
 
-Integracja to niewielki program, który instaluje się wewnątrz platformy Home Assistant. Łączy działającą platformę Home Assistant z działającym serwerem Marinara Engine. Po instalacji robi automatycznie trzy rzeczy:
+- Narzędzia inteligentnego domu w sekcji **Functions** (funkcje) panelu Presets. Zobacz [Własne narzędzia](../extending/custom-tools.md).
+- Jednego agenta o nazwie **Home Assistant**, czyli pomocnika AI, który pracuje obok czatu. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
+- Encje Home Assistant (urządzenia, czujniki i kontrolki), dzięki którym można podglądać aplikację Marinara Engine i sterować nią z platformy Home Assistant.
 
-- Tworzy w aplikacji Marinara Engine narzędzia inteligentnego domu. Pojawiają się one w sekcji **Functions** (Funkcje) w panelu Presets. Marinara nazywa je "custom tools" albo "Functions". O tym, jak działają Functions w ogóle, opowiada przewodnik [Własne narzędzia](../extending/custom-tools.md).
-- Tworzy w aplikacji Marinara Engine jednego agenta AI o nazwie **Home Assistant**. Agent to pomocnik AI, który pracuje obok czatu. Zobacz przewodnik [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
-- Tworzy kilka encji Home Assistant, dzięki którym można podglądać aplikację Marinara Engine i sterować nią od strony platformy Home Assistant. Encja to urządzenie, czujnik lub kontrolka w platformie Home Assistant.
+## Zanim zaczniesz
 
-Nigdzie nie trzeba kopiować adresów narzędzi ani konfigurować ich ręcznie. Integracja łączy wszystko ze sobą już przy pierwszej konfiguracji.
+- Home Assistant w wersji 2024.1.0 lub nowszej.
+- HACS zainstalowany w platformie Home Assistant. HACS to Home Assistant Community Store, narzędzie do instalowania niestandardowych integracji.
+- Aplikacja Marinara Engine uruchomiona i dostępna z komputera z platformą Home Assistant. Domyślny adres to `localhost:7860`.
+- Ustawienie `WEBHOOK_LOCAL_URLS_ENABLED=true` w pliku `.env` aplikacji Marinara Engine.
 
-## Czego potrzebujesz na start
+Plik `.env` to zwykły tekstowy plik ustawień serwera Marinara Engine. Gdzie go znaleźć, wyjaśnia przewodnik [Konfiguracja serwera](../CONFIGURATION.md). Integracja korzysta z webhooka, czyli adresu internetowego, przez który jedna aplikacja przesyła dane do drugiej. Webhook platformy Home Assistant to lokalny adres w zwykłym protokole `http`, a Marinara ze względów bezpieczeństwa domyślnie blokuje takie adresy. To ustawienie na nie zezwala. Dopisz tę linię i zapisz plik. Ustawienie zaczyna działać bez ponownego uruchamiania, zwykle w ciągu kilku sekund (najwyżej po około 30 sekundach):
 
-Zanim zaczniesz, przygotuj wszystko z tej listy.
-
-- Działającą platformę Home Assistant w wersji 2024.1.0 lub nowszej.
-- HACS zainstalowany w platformie Home Assistant. HACS to Home Assistant Community Store, narzędzie do instalowania integracji, których nie ma w standardzie.
-- Zainstalowaną i uruchomioną aplikację Marinara Engine, dostępną z komputera z platformą Home Assistant. Domyślny adres to `localhost:7860`. Jeśli Home Assistant działa na innym urządzeniu, przeczytaj uwagę o hasłach poniżej.
-- Ustawienie `WEBHOOK_LOCAL_URLS_ENABLED=true` dopisane do pliku `.env` aplikacji Marinara Engine.
-
-Plik `.env` to zwykły tekstowy plik ustawień serwera Marinara Engine. Gdzie go znaleźć i jak go edytować, wyjaśnia przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
-
-To ostatnie ustawienie jest konieczne, ponieważ integracja korzysta z webhooka. Webhook to adres internetowy, dzięki któremu jedna aplikacja automatycznie przesyła dane do drugiej. Adres webhooka platformy Home Assistant jest lokalny i używa zwykłego protokołu `http`. Marinara ze względów bezpieczeństwa domyślnie blokuje wywołania lokalnych adresów `http`. Ustawienie `WEBHOOK_LOCAL_URLS_ENABLED=true` na nie zezwala.
-
-Dopisz tę linię do pliku `.env`:
-
-```
+```text
 WEBHOOK_LOCAL_URLS_ENABLED=true
 ```
 
-Ustawienie zaczyna działać po paru sekundach. Serwera Marinara Engine nie trzeba uruchamiać ponownie.
-
 ### Kiedy Home Assistant działa na innym urządzeniu
 
-Integracja łączy się z aplikacją Marinara Engine bez nazwy użytkownika i hasła. W formularzu konfiguracji nie ma nawet pól, w które dałoby się je wpisać. Dlatego ma znaczenie, gdzie działa Home Assistant:
+Integracja łączy się bez nazwy użytkownika i hasła, a w formularzu konfiguracji nie ma pól, w które dałoby się je wpisać.
 
-- Kiedy Home Assistant i Marinara Engine działają na tym samym komputerze, połączenie działa od razu.
-- Kiedy Home Assistant działa na innym urządzeniu, Marinara domyślnie blokuje połączenie. Trzeba wtedy zezwolić temu urządzeniu na połączenie bez hasła. Jeden ze sposobów to dopisanie jego adresu IP do zmiennej `IP_ALLOWLIST` w pliku `.env` aplikacji Marinara Engine. Adres IP to liczbowy adres urządzenia w sieci. W całkowicie zaufanej sieci domowej można zamiast tego ustawić `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true`.
-- Jeśli aplikacja Marinara Engine jest chroniona zmiennymi `BASIC_AUTH_USER` i `BASIC_AUTH_PASS`, integracja nie ma jak się zalogować. Działa wtedy wyłącznie z tego samego komputera albo z urządzenia wpisanego do `IP_ALLOWLIST`.
+- Ten sam komputer: połączenie działa od razu.
+- Inne urządzenie: Marinara domyślnie je blokuje. Dopisz adres IP tego urządzenia (jego liczbowy adres w sieci) do zmiennej `IP_ALLOWLIST` w pliku `.env`. W całkowicie zaufanej sieci domowej można zamiast tego ustawić `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true`.
+- Jeśli aplikacja Marinara Engine używa zmiennych `BASIC_AUTH_USER` i `BASIC_AUTH_PASS` (logowania), integracja nie ma jak się zalogować. Działa wtedy wyłącznie z tego samego komputera albo z urządzenia wpisanego do `IP_ALLOWLIST`.
 
-Jak działają te ustawienia i które wybrać, opisuje przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
+Którą opcję wybrać, wyjaśnia przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
 
-## Instalacja integracji w platformie Home Assistant
-
-Instalacja przebiega w dwóch etapach. Najpierw dodajesz integrację do HACS, potem ją konfigurujesz.
+## Instalacja integracji
 
 ### Dodanie do HACS
 
 1. W platformie Home Assistant otwórz **HACS**.
 2. Otwórz menu z trzema kropkami i kliknij **Custom repositories**.
-3. W polu repozytorium wpisz ten adres:
-
-```
-https://github.com/Pasta-Devs/Marinara-Engine
-```
-
-4. Ustaw kategorię na **Integration**, a potem kliknij przycisk **Add**.
+3. W polu repozytorium wpisz `https://github.com/Pasta-Devs/Marinara-Engine`.
+4. Ustaw kategorię na **Integration** i kliknij **Add**.
 5. Wyszukaj **Marinara Engine** i zainstaluj integrację.
 6. Uruchom ponownie platformę Home Assistant.
 
 ### Konfiguracja
 
-1. Przejdź do **Settings** (Ustawienia), potem **Devices & Services** i kliknij przycisk **Add Integration**.
+1. Przejdź do **Settings → Devices & Services** (ustawienia, urządzenia i usługi) i kliknij **Add Integration**.
 2. Wyszukaj **Marinara Engine**.
 3. Wpisz **Host** i **Port**, pod którymi działa aplikacja Marinara Engine. Domyślne wartości to `localhost` i `7860`.
-4. Kliknij przycisk **Submit**.
+4. Kliknij **Submit**.
 
-Jeśli aplikacja Marinara Engine jest pod tym adresem nieosiągalna, Home Assistant pokazuje błąd i przerywa konfigurację. Zajrzyj do sekcji Rozwiązywanie problemów poniżej.
+Jeśli się nie udało: Home Assistant pokazuje błąd, gdy nie może połączyć się z aplikacją Marinara Engine. Zobacz [Rozwiązywanie problemów](#troubleshooting).
 
-## Co Marinara Engine tworzy automatycznie
+Po udanej konfiguracji integracja rejestruje prywatny webhook w platformie Home Assistant, tworzy w sekcji **Functions** aplikacji Marinara Engine narzędzia wskazujące na ten webhook, tworzy agenta **Home Assistant** z listą wszystkich włączonych narzędzi i tworzy encje opisane niżej.
 
-Po udanej konfiguracji integracja buduje całą resztę sama.
+## Dodanie agenta do czatu
 
-- Rejestruje prywatny webhook wewnątrz platformy Home Assistant.
-- Tworzy narzędzia inteligentnego domu w sekcji **Functions** aplikacji Marinara Engine, każde od razu wskazujące na ten webhook.
-- Tworzy w aplikacji Marinara Engine agenta **Home Assistant** z listą wszystkich włączonych narzędzi.
-- Tworzy encje Home Assistant opisane dalej w tym przewodniku.
+Utworzenie agenta nie podpina go do każdego czatu. Dodaj go do każdego czatu, w którym chcesz sterować inteligentnym domem.
 
-## Dodanie agenta Home Assistant do czatu
+1. Otwórz czat i kliknij **Chat Settings** (ustawienia czatu).
+2. Otwórz sekcję **Agents** (agenci).
+3. Dodaj agenta **Home Assistant**.
 
-Utworzenie agenta nie podpina go do każdego czatu. Trzeba dodać go osobno w każdym czacie, w którym ma działać sterowanie inteligentnym domem.
+Agent działa w czatach Roleplay, Conversation i Game. Po dodaniu narzędzia są dostępne dla AI w tym czacie. Nic więcej nie trzeba włączać.
 
-1. Otwórz wybrany czat.
-2. Otwórz **Chat Settings** (ustawienia czatu), a potem sekcję **Agents**.
-3. Dodaj do czatu agenta **Home Assistant**.
+### Sprawdzenie, czy działa
 
-Agent Home Assistant działa w czatach Roleplay, Conversation i Game. Po dodaniu narzędzia inteligentnego domu stają się automatycznie dostępne dla AI w tym czacie. Nic więcej w czacie włączać nie trzeba.
+1. W tym czacie napisz zwykłą prośbę, na przykład `Turn on the office lights`, i wyślij ją.
+2. AI powinno wywołać narzędzie, na przykład `ha_turn_on`, światła powinny się zapalić, a AI to potwierdza.
 
-## Sprawdzenie, czy wszystko działa
+Jeśli nic się nie dzieje, sprawdź, czy ustawiono `WEBHOOK_LOCAL_URLS_ENABLED=true`, i zajrzyj do sekcji [Rozwiązywanie problemów](#troubleshooting).
 
-Przetestuj połączenie jedną prostą prośbą.
+## Wybór narzędzi, z których może korzystać AI
 
-1. Dodaj agenta **Home Assistant** do czatu, tak jak opisano powyżej.
-2. W tym czacie napisz zwykłą prośbę, na przykład: `Turn on the office lights`.
-3. Wyślij wiadomość.
+Narzędzia są podzielone na osiem kategorii. Żeby wybrać, z których Marinara może korzystać, otwórz **Settings → Devices & Services**, kliknij **Marinara Engine**, a potem **Configure**. Są tam dwie opcje:
 
-AI powinno wywołać narzędzie inteligentnego domu, na przykład `ha_turn_on`, a odpowiednie światła powinny się zapalić. Potem AI potwierdza, co zrobiło. Jeśli nic się nie dzieje, sprawdź, czy ustawienie `WEBHOOK_LOCAL_URLS_ENABLED=true` jest na miejscu, i zajrzyj do sekcji Rozwiązywanie problemów.
-
-## Udostępniane kategorie narzędzi
-
-Integracja dzieli narzędzia inteligentnego domu na osiem kategorii. To ty decydujesz, z których kategorii Marinara może korzystać.
-
-Żeby zmienić kategorie, otwórz **Settings**, potem **Devices & Services**, kliknij **Marinara Engine**, a następnie przycisk **Configure**. Zobaczysz dwie opcje:
-
-- **Primary Chat**: domyślny czat, do którego kierują usługi Home Assistant. Te usługi opisuje dalsza część przewodnika.
-- **Exposed Tool Categories**: lista kategorii narzędzi, z których Marinara może korzystać.
-
-Ta tabela zestawia kategorie, ich stan domyślny i narzędzia, które zawierają.
+- **Primary Chat**: domyślny czat, do którego kierują usługi Home Assistant.
+- **Exposed Tool Categories**: kategorie, z których Marinara może korzystać.
 
 | Kategoria | Domyślnie | Narzędzia |
-|---|---|---|
+| --- | --- | --- |
 | Lights & Switches (światła i przełączniki) | On | ha_turn_on, ha_turn_off, ha_toggle, ha_set_brightness, ha_set_color, ha_set_color_temp |
 | Climate (klimatyzacja) | On | ha_set_temperature, ha_set_hvac_mode |
 | Covers (Blinds & Garage) (rolety i brama garażowa) | On | ha_open_cover, ha_close_cover, ha_set_cover_position |
@@ -123,41 +90,41 @@ Ta tabela zestawia kategorie, ich stan domyślny i narzędzia, które zawierają
 | Query (zapytania) | On | ha_get_state, ha_list_areas, ha_list_entities, ha_notify |
 | Generic Service Calls (Advanced) (ogólne wywołania usług) | Off | ha_call_service |
 
-Kategorie **Locks** oraz **Generic Service Calls (Advanced)** są domyślnie wyłączone. Włącz je tylko wtedy, gdy naprawdę mają być używane. Kategoria **Generic Service Calls (Advanced)** pozwala AI wywołać dowolną usługę Home Assistant, więc obchodź się z nią ostrożnie.
+> **Ostrzeżenie:** **Generic Service Calls (Advanced)** pozwala AI wywołać dowolną usługę Home Assistant. **Locks** pozwala mu zamykać i otwierać zamki w drzwiach. Obie kategorie są domyślnie wyłączone. Włącz je tylko wtedy, gdy naprawdę mają być używane.
 
-Większość narzędzi przyjmuje albo jedno konkretne urządzenie, albo nazwę pomieszczenia. Po podaniu nazwy pomieszczenia narzędzie działa naraz na wszystkich pasujących urządzeniach w tym pomieszczeniu.
+Większość narzędzi przyjmuje jedno urządzenie albo nazwę pomieszczenia. Po podaniu nazwy pomieszczenia narzędzie działa na wszystkich pasujących urządzeniach w tym pomieszczeniu. Zmiany kategorii zaczynają obowiązywać po naciśnięciu przycisku **Marinara Sync HA Tools** albo po ponownym uruchomieniu platformy Home Assistant.
 
-Zmiany kategorii zaczynają obowiązywać dopiero po naciśnięciu przycisku **Marinara Sync HA Tools** albo po ponownym uruchomieniu platformy Home Assistant. Ten przycisk opisuje następna sekcja.
+## Encje w platformie Home Assistant
 
-## Encje Home Assistant
-
-Integracja tworzy poniższe encje w ramach urządzenia Home Assistant o nazwie **Marinara Engine**.
+Integracja tworzy te encje w ramach urządzenia o nazwie **Marinara Engine**.
 
 | Encja | Typ | Do czego służy |
-|---|---|---|
-| Marinara Chat Count | Sensor | Pokazuje łączną liczbę czatów w aplikacji Marinara Engine |
-| Marinara Active Agent Count | Sensor | Pokazuje, ilu agentów jest włączonych w aplikacji Marinara Engine |
-| Marinara Active Chat | Select | Wybiera czat, do którego kierują usługi Home Assistant |
-| Marinara Agent: (nazwa) | Switch | Włącza i wyłącza jednego agenta. Każdy agent ma własny przełącznik |
+| --- | --- | --- |
+| Marinara Chat Count | Sensor | Łączna liczba czatów w aplikacji Marinara Engine |
+| Marinara Active Agent Count | Sensor | Liczba włączonych agentów w aplikacji Marinara Engine |
+| Marinara Active Chat | Select | Wybiera czat, do którego kierują usługi |
+| Marinara Agent: (nazwa) | Switch | Włącza i wyłącza jednego agenta, po jednym przełączniku na agenta |
 | Marinara Abort Generation | Button | Przerywa trwające generowanie odpowiedzi AI |
 | Marinara Sync HA Tools | Button | Wysyła ponownie wszystkie narzędzia i odbudowuje agenta Home Assistant |
 
-Integracja sprawdza w aplikacji Marinara Engine nowe czaty i nowych agentów co 30 sekund. Czat lub agent utworzony przed chwilą może pojawić się tutaj z opóźnieniem do 30 sekund.
+Integracja sprawdza w aplikacji Marinara Engine nowe czaty i nowych agentów co 30 sekund, więc coś, co utworzono przed chwilą, może pojawić się z opóźnieniem do 30 sekund.
 
-## Sterowanie aplikacją Marinara Engine z automatyzacji Home Assistant
+### Synchronizacja po zmianie ustawień
 
-Integracja dodaje dwie usługi Home Assistant. Używa się ich w automatyzacjach Home Assistant, a nie w aplikacji Marinara Engine. Obie domyślnie kierują do czatu **Primary Chat**.
+Naciśnij **Marinara Sync HA Tools** na stronie urządzenia **Marinara Engine**. Przycisk aktualizuje istniejące narzędzia w miejscu, odbudowuje agenta **Home Assistant**, jeśli został usunięty, i wyłącza (nie usuwa) narzędzia z wyłączonych kategorii. Nie edytuj ręcznie narzędzi Home Assistant w aplikacji Marinara Engine. Kolejna synchronizacja nadpisuje takie zmiany i włącza narzędzia z powrotem.
+
+## Sterowanie aplikacją Marinara Engine z automatyzacji
+
+Integracja dodaje dwie usługi Home Assistant do automatyzacji. Działają one w platformie Home Assistant, a nie w aplikacji Marinara Engine. Obie domyślnie kierują do czatu **Primary Chat**.
 
 ### Send Message (marinara_engine.send_message)
 
-Ta usługa wysyła wiadomość do czatu w aplikacji Marinara Engine.
-
 - `message`: treść wiadomości. To pole jest wymagane.
 - `chat_id`: czat, do którego trafia wiadomość. Puste pole oznacza czat Primary Chat.
-- `role`: nadawca wiadomości. Możliwe wartości to `user`, `assistant`, `system` i `narrator`. Domyślnie `user`.
-- `trigger_generation`: przy wartości true AI odpowiada po wysłaniu wiadomości. Domyślnie false.
+- `role`: `user`, `assistant`, `system` lub `narrator`. Domyślnie `user`.
+- `trigger_generation`: przy wartości true AI też odpowiada. Domyślnie false.
 
-Oto automatyzacja, która informuje AI o otwarciu drzwi wejściowych:
+Ta automatyzacja informuje AI o otwarciu drzwi wejściowych:
 
 ```yaml
 automation:
@@ -168,64 +135,48 @@ automation:
   action:
     service: marinara_engine.send_message
     data:
-      message: "Someone just arrived at the front door."
+      message: "Someone has arrived at the front door."
       trigger_generation: true
 ```
 
 ### Trigger Generation (marinara_engine.trigger_generation)
 
-Ta usługa zaczyna generowanie odpowiedzi AI w czacie, bez wysyłania widocznej wiadomości.
+Ta usługa uruchamia odpowiedź AI bez widocznej wiadomości.
 
-- `chat_id`: czat, w którym ma powstać odpowiedź. Puste pole oznacza czat Primary Chat.
+- `chat_id`: czat. Puste pole oznacza czat Primary Chat.
 - `user_message`: opcjonalna wiadomość dołączana do tury z odpowiedzią.
 
-## Ponowna synchronizacja po zmianie ustawień
-
-Po zmianie włączonych kategorii naciśnij przycisk **Marinara Sync HA Tools**, żeby zmiana zaczęła obowiązywać. Znajdziesz go na stronie urządzenia **Marinara Engine** w platformie Home Assistant.
-
-Naciśnięcie przycisku **Marinara Sync HA Tools** powoduje, że:
-
-- Istniejące narzędzia aktualizują się w miejscu, więc wszystkie zmiany docierają do aplikacji Marinara Engine.
-- Agent **Home Assistant** odbudowuje się, jeśli został usunięty w aplikacji Marinara Engine.
-- Narzędzia z wyłączonych kategorii zostają wyłączone. Nie są przy tym usuwane.
-
-Nie edytuj narzędzi Home Assistant ręcznie w aplikacji Marinara Engine. Kolejna synchronizacja nadpisuje takie zmiany i włącza narzędzia z powrotem.
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
 ### Formularz konfiguracji zgłasza brak połączenia
 
-Sprawdź, czy aplikacja Marinara Engine działa. Zweryfikuj, czy wpisane **Host** i **Port** odpowiadają temu, gdzie nasłuchuje. Domyślnie są to `localhost` i `7860`.
+Sprawdź, czy aplikacja Marinara Engine działa i czy **Host** i **Port** odpowiadają temu, gdzie nasłuchuje (domyślnie `localhost` i `7860`). Jeśli Home Assistant działa na innym urządzeniu, Marinara je blokuje, chyba że urządzenie jest wpisane do `IP_ALLOWLIST`. Integracja nie potrafi wysłać hasła, więc aplikacja Marinara Engine chroniona logowaniem także ją odrzuca. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md). Te zasady obowiązują także po konfiguracji. Jeśli Marinara później zablokuje urządzenie, czujniki i lista czatów po cichu przestają się aktualizować.
 
-Kiedy Home Assistant działa na innym urządzeniu niż Marinara Engine, Marinara domyślnie je blokuje. Integracja nie potrafi wysłać hasła, więc Marinara musi przyjąć to urządzenie bez hasła. Dopisz adres IP urządzenia z platformą Home Assistant do zmiennej `IP_ALLOWLIST` w pliku `.env` aplikacji Marinara Engine. Ten i inne warianty opisuje przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md). Marinara chroniona zmiennymi `BASIC_AUTH_USER` i `BASIC_AUTH_PASS` również odrzuca integrację, chyba że urządzenie widnieje w `IP_ALLOWLIST`.
+### AI próbuje użyć narzędzia urządzenia, ale nic się nie dzieje
 
-Te zasady obowiązują także po konfiguracji. Jeśli Marinara zablokuje później urządzenie z platformą Home Assistant, czujniki i lista czatów po cichu przestają się aktualizować.
+Najprawdopodobniej blokowane jest wywołanie webhooka. Dopisz `WEBHOOK_LOCAL_URLS_ENABLED=true` do pliku `.env` i zapisz go. Bez tego wywołania narzędzi mogą kończyć się komunikatem o niedozwolonym protokole `http` albo o odrzuconym adresie prywatnym. Kiedy Marinara Engine i Home Assistant działają na tym samym komputerze, integracja sama używa adresu wewnętrznego. Kiedy Marinara Engine działa na innym urządzeniu, sprawdź, czy lokalny adres platformy Home Assistant jest z niego osiągalny.
 
-### AI próbuje użyć narzędzia, ale nic się nie dzieje
+### Narzędzia nie pojawiają się w sekcji Functions
 
-Najprawdopodobniej blokowane jest wywołanie webhooka. Dopisz `WEBHOOK_LOCAL_URLS_ENABLED=true` do pliku `.env` aplikacji Marinara Engine i zapisz plik. Zmiana działa po paru sekundach. Bez niej wywołania narzędzi kończą się komunikatem o niedozwolonym protokole `http` albo o odrzuconym adresie prywatnym.
-
-Kiedy Marinara Engine i Home Assistant działają na tym samym komputerze, integracja sama używa adresu wewnętrznego dla webhooka. Kiedy Marinara Engine działa na innym urządzeniu, sprawdź, czy adres platformy Home Assistant w sieci lokalnej jest z tego urządzenia osiągalny.
-
-### Narzędzia nie pojawiają się na liście Functions
-
-Naciśnij przycisk **Marinara Sync HA Tools** albo uruchom ponownie platformę Home Assistant. Potem sprawdź sekcję **Functions** w panelu Presets w aplikacji Marinara Engine.
+Naciśnij **Marinara Sync HA Tools** albo uruchom ponownie platformę Home Assistant, a potem sprawdź sekcję **Functions** w panelu Presets.
 
 ### Agenta Home Assistant nie ma w moim czacie
 
-Najpierw potwierdź, że agent **Home Assistant** istnieje w aplikacji Marinara Engine w sekcji Agents. Jeśli go brakuje, naciśnij przycisk **Marinara Sync HA Tools**, żeby go odbudować. Potem otwórz **Chat Settings**, przejdź do sekcji **Agents** i dodaj agenta **Home Assistant** do tego czatu.
+Sprawdź, czy agent istnieje w aplikacji Marinara Engine w sekcji Agents. Jeśli go nie ma, naciśnij **Marinara Sync HA Tools**, żeby go odbudować. Potem dodaj go w **Chat Settings → Agents**.
 
 ### Ręczne odszukanie adresu webhooka
 
-Rzadko bywa to potrzebne, bo każde narzędzie ma już wpisany adres. Żeby go znaleźć, otwórz w platformie Home Assistant **Settings**, potem **Devices & Services**, a następnie **Marinara Engine**. Webhook korzysta z takiego wzorca, gdzie 8123 to domyślny port platformy Home Assistant:
+Rzadko jest to potrzebne, bo każde narzędzie ma już ten adres. Otwórz w platformie Home Assistant **Settings → Devices & Services → Marinara Engine**. Webhook korzysta z takiego wzorca, gdzie 8123 to domyślny port platformy Home Assistant:
 
-```
+```text
 http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 ```
 
 ## Odinstalowanie
 
-Żeby usunąć integrację, skasuj ją w platformie Home Assistant w **Settings**, potem **Devices & Services**, a następnie **Marinara Engine**. Usuwa to encje Home Assistant. Narzędzia utworzone w sekcji **Functions** aplikacji Marinara Engine pozostają na miejscu. Tak samo agent **Home Assistant**. Jeśli nie są już potrzebne, usuń jedno i drugie ręcznie w aplikacji Marinara Engine.
+Usuń integrację w platformie Home Assistant w **Settings → Devices & Services → Marinara Engine**. Usuwa to encje. Narzędzia w sekcji **Functions** aplikacji Marinara Engine i agent **Home Assistant** zostają. Jeśli nie są już potrzebne, usuń je ręcznie w aplikacji Marinara Engine.
 
 ## Powiązane przewodniki
 

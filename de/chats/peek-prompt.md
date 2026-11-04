@@ -1,109 +1,95 @@
 # Peek Prompt: Sieh nach, was die KI bekommen hat
 
-Peek Prompt zeigt dir genau den Text, den Marinara Engine für eine Antwort an das KI-Modell geschickt hat. Möglich ist außerdem eine Live-Vorschau des Prompts, bevor überhaupt etwas rausgeht. In dieser Anleitung erfährst du, was das Fenster anzeigt, wie du es öffnest, wie du **Stored guidance** (gespeicherte Anweisung) liest und wie du damit Antworten analysierst.
+Peek Prompt zeigt genau den Text, den Marinara Engine für eine Antwort an das Modell geschickt hat, oder eine Live-Vorschau der nächsten. Nutze es, wenn eine Antwort nicht deinen Erwartungen entspricht und du wissen willst, was das Modell gesehen hat.
 
-Ein Prompt ist der komplette Block aus Anweisungen und Chatverlauf, den Marinara zusammenbaut und an das Modell schickt. Das Modell liest diesen Prompt und schreibt eine Antwort. Mit Peek Prompt siehst du den fertig zusammengesetzten Block – damit bleibt an keiner Antwort etwas rätselhaft.
-
-## Was Peek Prompt anzeigt
-
-Beim Öffnen von Peek Prompt erscheint ein Fenster mit dem Titel **Assembled Prompt** (zusammengesetzter Prompt). Es besteht aus drei Teilen.
-
-Oben neben dem Titel sitzt ein Quellen-Badge. Er sagt dir, welche Version des Prompts du gerade vor dir hast:
-
-- **Exact Text Model Request**: die wörtliche Anfrage, die an das Modell ging.
-- **Live Preview**: eine Vorschau, die gerade eben neu erzeugt wurde.
-- **Raw Messages**: die rohe Liste der Nachrichten.
-- **Prompt Preview**: eine allgemeine Vorschau.
-- **Decision test preview**: ein Prompt mit den Antworten eines ausdrücklich gestarteten Entscheidungstests. Er wurde nicht an das Chat-Modell gesendet.
-
-Unter dem Badge liegt ein Panel mit Infos zur Generierung. Dort stehen Anbieter und Modellname, eine geschätzte Anzahl an Tokens und – sobald eine Antwort fertig ist – die echte Token-Zahl des Prompts. Ein Token ist ein kleines Textstück; Modelle zählen damit statt in Wörtern. Das Panel zeigt außerdem kleine Tags für die verwendeten Werte, etwa **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** und **Assistant Prefill**. Auch Sampling-Werte wie **Top P**, **Top K** und **Min P** können hier auftauchen.
-
-Der Rest des Fensters ist der Prompt selbst, aufgeteilt in ausklappbare Abschnitte. Jeder Abschnitt hat eine Beschriftung und eine eigene grobe Token-Schätzung. Die Chat-Nachrichten stehen gesammelt im Abschnitt **Chat History**. Bei einer exakt gespeicherten Anfrage kann der Anbieter mehrere Chat-Züge zu einem einzigen Block zusammengefasst haben. Klapp jeden Block auf, um den gesamten für das Modell sichtbaren Text darin zu prüfen. Ein Klick auf die Abschnittsüberschrift öffnet oder schließt sie.
-
-Willst du den ganzen Prompt woanders verwenden, klick oben im Fenster auf die Kopier-Schaltfläche neben der Schaltfläche zum Schließen. Sie kopiert jeden Abschnitt und jede Chat-Nachricht als reinen Text, in der Reihenfolge, in der sie gesendet wurden, auch Abschnitte, die du nicht aufgeklappt hast. Jede Nachricht beginnt mit einer Zeile, die ihre Rolle nennt, etwa `[system]`, `[user]` oder `[assistant]`. Bei einer exakt gespeicherten Anfrage kopiert sie diese gespeicherte Anfrage so, wie sie gesendet wurde. Das Kopieren schickt nichts an das Modell und ändert den Prompt nicht.
-
-## Text im Prompt suchen
-
-Nutze das sichtbare Feld **Find** (Suchen) oben in **Assembled Prompt** am Computer, auf dem Tablet oder auf dem Smartphone. Mit einer Tastatur drückst du im Anzeigefenster Ctrl+F oder Cmd+F, um das Feld zu fokussieren.
-
-Die Suche gleicht Text wörtlich und ohne Unterscheidung zwischen Groß- und Kleinschreibung im gesamten Prompt ab, auch in zugeklappten Abschnitten und im Chatverlauf. Treffer werden hervorgehoben, und der Zähler zeigt den aktuellen Treffer und die Gesamtzahl an. Mit den Pfeilschaltflächen nach oben und unten oder mit Enter und Shift+Enter im Feld wechselst du zwischen den Treffern. An beiden Enden springt die Suche zum jeweils anderen Ende.
-
-Solange Text im Feld **Find** steht, zeigt das Fenster den vollständigen Nachrichtentext. Leere das Feld, um zu den ausklappbaren Abschnitten zurückzukehren. Die Suche bearbeitet den Prompt nicht und ändert auch nicht, was die Kopier-Schaltfläche kopiert.
+Der Prompt ist der komplette Block aus Anweisungen und Chatverlauf, den Marinara zusammenstellt und abschickt. Das Modell liest ihn und schreibt die Antwort.
 
 ## Peek Prompt öffnen
 
-Es gibt zwei Wege zum Fenster.
+Das Fenster **Assembled Prompt** (zusammengesetzter Prompt) öffnest du auf zwei Wegen.
 
-Der erste führt über die Aktionsleiste einer Nachricht. So geht's:
+Über eine Nachricht:
 
-1. Zeig mit der Maus auf die neueste KI-Nachricht im Chat.
-2. Such die Aktion **Peek prompt** (Prompt einsehen). Ihr Symbol ist eine Lupe.
-3. Klick darauf. Das Fenster **Assembled Prompt** öffnet sich.
+1. Tipp auf die neueste KI-Nachricht, damit ihre Aktionsleiste erscheint.
+2. Klick auf **Peek prompt** (Prompt einsehen), eine Lupe.
 
-Die Aktion **Peek prompt** erscheint nur bei der letzten KI-Nachricht im Chat. Bei älteren Nachrichten fehlt sie.
+Die Aktion erscheint nur bei der letzten KI-Nachricht. Ältere Nachrichten zeigen sie nicht.
 
-Der zweite Weg ist ein getippter Kurzbefehl. Er funktioniert schon, bevor eine KI-Antwort existiert – so lässt sich der Prompt vorab ansehen. So geht's:
+Über das Eingabefeld – das klappt auch, bevor es überhaupt eine KI-Antwort gibt:
 
-1. Klick in das Eingabefeld für Nachrichten.
-2. Tipp genau diesen Text:
+1. Tipp genau diesen Text ins Nachrichtenfeld: `{{prompt}}`
+2. Drück <kbd>Enter</kbd> oder klick auf **Send** (Senden).
 
-```
-{{prompt}}
-```
+Marinara leert das Feld und öffnet das Fenster, statt eine Nachricht zu senden. `{{prompt_preview}}` und `{{preview_prompt}}` bewirken dasselbe.
 
-3. Drück Enter oder klick auf Send.
+## Was das Fenster zeigt
 
-Statt eine Nachricht zu senden, leert Marinara das Feld und öffnet das Peek-Prompt-Fenster. Die Kurzbefehle `{{prompt_preview}}` und `{{preview_prompt}}` bewirken dasselbe.
+Ein Badge neben dem Titel sagt dir, welche Version des Prompts du liest.
 
-## Stored guidance lesen
+| Badge | Bedeutung |
+| --- | --- |
+| **Exact Text Model Request** | Die wörtliche Anfrage, die an das Modell ging. |
+| **Live Preview** | Eine Vorschau, die gerade eben erstellt wurde. |
+| **Raw Messages** | Die rohe Liste der Nachrichten. |
+| **Prompt Preview** | Eine allgemeine Vorschau. |
+| **Decision test preview** | Ein Prompt mit den Antworten aus einem Entscheidungstest. Er wurde nicht an das Chat-Modell gesendet. |
 
-Mit Guided Generation steuerst du eine Antwort über eine Anweisung außerhalb der Rolle. Entstand eine Nachricht mit einer gespeicherten Anweisung, trägt sie zusätzlich die Aktion **Stored guidance**. Ihr Symbol ist eine kleine Schriftrolle. Auch Nachrichten aus dem Befehl `/impersonate` haben diese Aktion.
+Darunter kann ein Info-Panel den Dienst und das Modell zeigen, eine geschätzte Token-Zahl und, sobald eine Antwort fertig ist, die echte Token-Zahl des Prompts. Ein Token ist ein kleines Textstück; Modelle zählen in Tokens statt in Wörtern. Außerdem zeigt das Panel Tags für die verwendeten Werte, etwa **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** und **Assistant Prefill**, sowie Sampling-Werte wie **Top P**, **Top K** und **Min P**. Tags wie **Service Tier** und **Assistant Prefill** und die Sampling-Werte sind fortgeschrittene Modelleinstellungen. Am Anfang kannst du sie ignorieren. Ist das erste Modell gescheitert und hat dein Fallback-Modell die Antwort geschrieben, nennt das Panel das gescheiterte Modell und einen kurzen Grund, etwa „key rejected“ oder „rate limited“.
 
-Ein Klick auf **Stored guidance** öffnet ein Fenster mit der Anweisung, die für diese Nachricht galt. Bei einer gesteuerten Nachricht zeigt das Fenster zugleich die Herkunft der Anweisung:
+Der Rest ist der Prompt in ausklappbaren Abschnitten, jeder mit seiner eigenen groben Token-Schätzung. Chat-Nachrichten stehen gesammelt unter **Chat History**. Bei einer exakt gespeicherten Anfrage kann der Dienst mehrere Chat-Züge zu einem Block zusammengefasst haben; klapp also jeden Block auf, um den ganzen Text zu sehen. Ein Klick auf eine Abschnittsüberschrift öffnet oder schließt den Abschnitt.
 
-- **/guided**: du hast den Slash-Befehl `/guided` benutzt.
-- **Guided regenerate**: du hast die Nachricht mit einer getippten Anweisung neu generiert.
-- **Game start**: die Anweisung stammt aus der Einrichtung des Game Mode.
+### Den Prompt kopieren
 
-Die Schaltfläche **Copy /guided** (als /guided kopieren) erscheint nur bei Anweisungen vom Typ **/guided** und **Guided regenerate**. Sie kopiert die Anweisung als `/guided`-Befehl heraus. Diesen Befehl kannst du später einfügen und dieselbe Steuerung erneut verwenden. Bei **Game start** fehlt die Schaltfläche.
+Klick auf die Kopier-Schaltfläche neben der Schaltfläche zum Schließen. Sie kopiert jeden Abschnitt und jede Nachricht als reinen Text in der gesendeten Reihenfolge, auch zugeklappte Abschnitte. Jede Nachricht beginnt mit einer Zeile, die ihre Rolle nennt, etwa `[system]`, `[user]` oder `[assistant]`. Bei einer exakt gespeicherten Anfrage kopiert sie die Anfrage so, wie sie gesendet wurde. Das Kopieren sendet nichts.
 
-Bei einer Nachricht aus `/impersonate` zeigt das Fenster statt einer einzelnen Anweisung die Details der Verkörperung. Den vollständigen Ablauf von Guided Generation und Impersonate beschreibt die unten verlinkte Anleitung.
+### Text im Prompt suchen
 
-## Antworten mit Peek Prompt analysieren
+Nutze das Feld **Find** (Suchen) oben oder drück im Fenster <kbd>Strg</kbd>+<kbd>F</kbd> (auf dem Mac <kbd>Cmd</kbd>+<kbd>F</kbd>). Die Suche ignoriert Groß- und Kleinschreibung und durchsucht den ganzen Prompt, auch zugeklappte Abschnitte und den Chatverlauf. Der Zähler zeigt den aktuellen Treffer, etwa „2 of 5“. Mit den Schaltflächen nach oben und unten oder mit <kbd>Enter</kbd> und <kbd>Shift</kbd>+<kbd>Enter</kbd> wechselst du zwischen den Treffern. Nach dem letzten Treffer springt die Suche wieder zum ersten und umgekehrt. Solange in **Find** Text steht, zeigt das Fenster den vollständigen Nachrichtentext. Leere das Feld, um zu den Abschnitten zurückzukehren.
 
-Für eine unerwartete Antwort ist Peek Prompt das beste Werkzeug. Greif darauf zurück, wenn ein Charakter etwas vergisst, eine Regel ignoriert oder aus der Rolle fällt.
+## Eine Antwort mit Reply checkup prüfen
 
-Öffne das Fenster **Assembled Prompt** und prüf diese Punkte:
+Erkennt Marinara eine wahrscheinliche Ursache für eine schwache Antwort, zeigt das Fenster über dem Prompt das Panel **Reply checkup** (Antwortprüfung). Es kann melden:
 
-- Halt Ausschau nach fehlenden Informationen. Steht ein Lorebook-Eintrag, eine Erinnerung oder ein Detail der Persona in keinem Abschnitt, hat das Modell es nie gesehen.
-- Sieh dir die Parameter-Tags an. Ein sehr hoher Wert bei **Temperature** macht Antworten zufällig, ein niedriger bei **Max Output Tokens** schneidet sie ab.
-- Klapp den Abschnitt **Chat History** auf. Prüf, ob die erwarteten Nachrichten da sind und in der richtigen Reihenfolge stehen.
-- Lies nach der Antwort die echte Token-Zahl. Ein sehr großer Prompt drängt ältere Nachrichten aus dem Limit des Modells.
+- Die Charakterkarte ist groß und belegt einen großen Teil des Prompt-Budgets (**Large character card**).
+- Die Antwort hat ihr Token-Limit erreicht und mitten im Satz aufgehört (**Cut off**).
+- Das Modell hat keinen sichtbaren Text zurückgeschickt (**Empty reply**).
+- Ältere Nachrichten wurden nicht gesendet, weil der Prompt nicht gepasst hat (**N older messages not sent**).
+- Lorebook-Einträge haben gegriffen, passten aber nicht ins Budget (**N lorebook entries left out**).
+- Das Antwortlimit wurde gesenkt, um Platz für den Prompt zu schaffen (**Reply limit cut**).
 
-Sobald du weißt, was das Modell tatsächlich bekommen hat, lässt sich die Ursache beheben. Vielleicht überarbeitest du eine Charakterkarte, passt einen Lorebook-Eintrag an oder änderst einen Wert in den Parametern für die Generierung.
+Wo es hilft, springt ein Link zu der Einstellung, die du ändern solltest, etwa **Max output tokens** oder **Lorebook token budget**.
+
+## Eine unerwartete Antwort analysieren
+
+Öffne **Assembled Prompt** und prüf:
+
+- **Fehlende Informationen.** Steht ein Lorebook-Eintrag, eine Erinnerung oder ein Detail der Persona in keinem Abschnitt, hat das Modell es nie gesehen.
+- **Parameter-Tags.** Ein hoher Wert bei **Temperature** kann Antworten zufällig machen, ein niedriger bei **Max Output Tokens** kann sie abschneiden.
+- **Chat History.** Prüf, ob die erwarteten Nachrichten da sind, in der richtigen Reihenfolge.
+- **Token-Zahl.** Ein großer Prompt kann ältere Nachrichten aus dem Limit des Modells drängen.
+
+Behebe dann die Ursache: Überarbeite eine Charakterkarte, pass einen Lorebook-Eintrag an oder ändere eine Generierungseinstellung. Siehe [Generierungsparameter](../prompts/generation-parameters.md).
+
+Die Vorgabe hinter einer gelenkten Antwort liest du über **Stored guidance** (gespeicherte Vorgabe) an der Nachricht. Siehe [Geführte Generierung und Impersonate](guided-and-impersonate.md#read-stored-guidance).
 
 <a id="testing-decision-statements"></a>
 
 ## Entscheidungsaussagen testen
 
-Öffne in Peek Prompt **Decision diagnostics** (Entscheidungsdiagnose), um die Prompt-Aussagen und Lorebook-Entscheidungen des aktuellen Chats zu prüfen. Das Öffnen des Panels oder **Preview inputs** (Eingaben ansehen) bereitet die Anfrageinhalte vor, ohne das Decision-Modell zu fragen oder ein lokales Modell zu starten. Klapp **Prepared request bodies** (vorbereitete Anfrageinhalte) auf, um die jüngsten Nachrichten, aufgelösten Aussagen, Optionen und das modellspezifische Anfrageformat zu sehen. Weitere Lorebook-Aussagen können erst erreichbar werden, nachdem eine frühere Entscheidung beantwortet wurde.
+Ein [Decision-Modell](../connections/decision-models.md) beantwortet Ja-Nein-Fragen für Funktionen wie Lorebooks. Mit **Decision diagnostics** (Entscheidungsdiagnose) in Peek Prompt prüfst und testest du diese Fragen für den aktuellen Chat.
 
-Wähle **Test decisions** (Entscheidungen testen), um die zulässigen Fragen an dein ausgewähltes Decision-Modell zu senden. Dabei werden echte Entscheidungsanfragen gestellt, für die ein gehostetes Modell Gebühren berechnen kann. Der Test erzeugt keine Chat-Antwort, führt keine Agenten aus, verändert keinen Spielzustand und speichert weder seine Antworten noch seine Zeitsteuerung im Chat.
+1. Öffne Peek Prompt und such **Decision diagnostics**.
+2. Öffnest du den Bereich oder klickst du auf **Preview inputs** (Eingaben ansehen), werden die Anfrageinhalte vorbereitet, ohne ein Modell zu fragen. Klapp **Prepared request bodies** (vorbereitete Anfrageinhalte) auf, um die jüngsten Nachrichten, die aufgelösten Aussagen, die Optionen und das Anfrageformat zu sehen.
+3. Klick auf **Test decisions** (Entscheidungen testen), um deinem Decision-Modell die zulässigen Fragen zu stellen.
 
-Ein ausdrücklich gestarteter Test kann auf ein lokales Reasoning-Modell warten, selbst wenn gewöhnliche Entscheidungen vor der Antwort aufgeschoben werden. Deine Einstellung für laufende Antworten bleibt dabei erhalten; die Eingabevorschau sendet weiterhin keine Modellanfragen.
+**Test decisions** stellt echte Anfragen, für die ein gehostetes Modell Gebühren berechnen kann. Der Test schreibt keine Chat-Antwort, führt keine Agenten aus, ändert keinen Spielzustand und speichert weder seine Antworten noch seine Timer im Chat. Spätere Lorebook-Aussagen werden womöglich erst erreichbar, nachdem eine frühere beantwortet ist. Ein ausdrücklich gestarteter Test kann auf ein lokales Reasoning-Modell warten, selbst wenn gewöhnliche Entscheidungen vor der Antwort aufgeschoben werden. Deine Einstellung für laufende Antworten ändert das nicht.
 
-Jedes Ergebnis zeigt, soweit verfügbar, seinen Wert, den Schwellenwert für eine Ja/Nein-Aussage und die daraus folgende Antwort. Gibt ein Modell nur ein Ja/Nein-Wort zurück, wird das entsprechend gekennzeichnet; seine Antwort wird nicht als Wahrscheinlichkeit dargestellt. Choice-Ergebnisse zeigen die gewählte Option. Für gehaltene, aufgeschobene, über dem Limit liegende, nicht verfügbare und fehlgeschlagene Entscheidungen gibt es eigene Erklärungen, damit eine fehlende Antwort nicht mit einem niedrigen Wert verwechselt wird.
+Jedes Ergebnis zeigt seinen Wert, sofern es einen gibt, den Schwellenwert für eine Ja-Nein-Aussage und die Antwort. Ein Modell, das nur „Ja“ oder „Nein“ zurückgibt, wird entsprechend gekennzeichnet, und seine Antwort erscheint nicht als Wahrscheinlichkeit. Choice-Ergebnisse zeigen die gewählte Option. Gehaltene, aufgeschobene, über dem Limit liegende, nicht verfügbare und fehlgeschlagene Entscheidungen haben jeweils ihre eigene Erklärung.
 
-Nach einem Test verwendet der Prompt darunter dessen Antworten. Mit **Show original prompt** (ursprünglichen Prompt anzeigen) kehrst du zum ursprünglich geöffneten Inhalt zurück; **Show tested prompt** (getesteten Prompt anzeigen) wechselt wieder zur Testfassung. **Requests sent and results** (gesendete Anfragen und Ergebnisse) zeigt die tatsächlichen Entscheidungsanfragen und ihre Ergebnisse, ohne Authentifizierungsheader.
+Nach einem Test verwendet der Prompt darunter die Antworten des Tests. Klick auf **Show original prompt** (ursprünglichen Prompt anzeigen), um zu dem zurückzukehren, was du geöffnet hast, oder auf **Show tested prompt** (getesteten Prompt anzeigen), um wieder zurückzuwechseln. **Requests sent and results** (gesendete Anfragen und Ergebnisse) zeigt die tatsächlichen Anfrageinhalte und Ergebnisse, ohne Authentifizierungsheader.
 
-Tests verwenden den aktuellen Chat und die aktuellen Einstellungen, auch wenn du Peek Prompt über eine ältere Antwort geöffnet hast. Sie rekonstruieren die ursprünglichen Entscheidungsanfragen nicht. Tests prüfen Prompt-Aussagen und Lorebook-Entscheidungen; Agentenaktivierung und Entscheidungen nach der Antwort werden nicht ausgeführt. Gewöhnliches Peek Prompt bleibt passiv, bis du ausdrücklich **Test decisions** wählst.
+Wenn es nicht funktioniert hat: **Could not prepare the decision test. Check the chat connection and try again.** Prüf, ob der Chat ein funktionierendes Modell hat, und versuch es dann erneut.
 
-Ist **Use Decision model** (Decision-Modell verwenden) für Advanced Memory aktiviert, zeigt das Panel außerdem **Advanced Memory activity** (Advanced-Memory-Aktivität). Diese gespeicherten Berichte beschreiben den letzten Abruf und die letzte Prüfung auf ein Szenenende mit Modell, Zeit, Werten, Auswahl und verwendetem Ersatzverfahren. Sie können auch ohne Entscheidungsaussagen im Prompt erscheinen. Sie beschreiben tatsächlich erfolgte Aufrufe, nicht die aktuelle Vorschau oder eine Wiederholung der ausgewählten historischen Antwort. Kompatible Swipes können einen früheren Abrufbericht wiederverwenden. Pro Bericht werden bis zu 128 Ergebnisse gespeichert, ausgewählte Ergebnisse zuerst; ausgelassene Ergebnisse werden gezählt. Neue Berichte erscheinen nach dem nächsten zulässigen Decision-Modell-Aufruf. Ihre Anzeige stellt keine Modellanfragen.
+Tests verwenden den aktuellen Chat und die aktuellen Einstellungen, auch wenn du Peek Prompt über eine ältere Antwort geöffnet hast. Sie bauen die ursprünglichen Entscheidungsanfragen nicht nach. Sie decken Prompt-Aussagen und Lorebook-Entscheidungen ab, nicht die Agentenaktivierung oder Entscheidungen nach der Antwort.
 
-## Verwandte Anleitungen
-
-- [Parameter für die Generierung](../prompts/generation-parameters.md)
-- [Preset-Editor und Prompt Manager](../prompts/presets.md)
-- [Decision-Modelle](../connections/decision-models.md)
-- [Guided Generation und Impersonate](guided-and-impersonate.md)
-- [Nachrichten-Aktionen: Bearbeiten, Löschen, Swipe, Neu generieren](messages.md)
+Ist **Use Decision model** (Entscheidungsmodell verwenden) für Advanced Memory eingeschaltet (die Langzeitgedächtnis-Funktion von Marinara, siehe [Memory Recall und Chat-Zusammenfassungen](../agents/memory.md)), zeigt das Panel außerdem **Advanced Memory activity** (Advanced-Memory-Aktivität). Diese gespeicherten Berichte zeigen den letzten Abruf und die letzte Prüfung auf ein Szenenende mit Modell, Zeit, Werten, Auswahl und Fallback-Status. Sie beschreiben vergangene Aufrufe, nicht die aktuelle Vorschau, und können auch erscheinen, wenn der Prompt keine Entscheidungsaussagen enthält. Kompatible Swipes können einen früheren Abrufbericht wiederverwenden. Jeder Bericht behält bis zu 128 Ergebnisse, ausgewählte zuerst, und zählt den Rest. Neue Berichte erscheinen nach dem nächsten zulässigen Aufruf des Decision-Modells. Ihre Anzeige stellt keine Modellanfragen.

@@ -1,98 +1,73 @@
 # Cenas: criando uma ramificação do roleplay
 
-Este guia explica as cenas do Marinara Engine. Uma cena é um roleplay curto e independente, que nasce como ramificação de um chat Conversation. Aqui você vê como começar uma cena, como jogar e como encerrar, descartar, bifurcar ou converter.
+Uma cena é um roleplay curto que nasce como ramificação de um chat de Conversation. Use uma para um flashback, um encontro romântico ou uma briga, sem perder a linha principal.
 
-## O que é uma cena
+Cada cena é um chat de Roleplay próprio, com plano de fundo, personagens e mensagem de abertura próprios. Enquanto ela está aberta, o chat de Conversation original mostra um cartão com o texto **A scene is in progress** e um botão **Go to Scene** (ir para a cena).
 
-Uma cena é um roleplay paralelo que cresce a partir de um chat Conversation. O chat Conversation é o modo de mensagem direta, no estilo de um mensageiro. Com a cena, você e um personagem saem desse chat para viver um momento de roleplay bem focado. Esse momento pode ser um flashback, um encontro romântico ou uma briga. E a linha principal da história continua intacta.
+Enquanto a cena roda, os personagens dela não respondem no chat de Conversation, e um aviso diz que eles estão em uma cena ativa. Para deixar que eles respondam ali mesmo assim, ative **Allow replies here** (permitir respostas aqui) no cartão. A opção começa desativada. Com ela ativada, os personagens da cena respondem quando você manda mensagem para eles, mas continuam sem enviar mensagens por conta própria.
 
-Cada cena é um chat de roleplay próprio. Ela tem plano de fundo próprio, personagens próprios no palco (a área da cena) e mensagem de abertura própria. Quem escreve essa preparação quando a cena começa é o personagem ou a própria história.
+## Começar uma cena
 
-Uma cena é temporária por natureza. Enquanto ela está aberta, o chat Conversation original mostra um pequeno card com o texto **A scene is in progress**. Nesse card fica o botão **Go to Scene** (ir para a cena), que leva você direto para a cena ativa.
+Antes de começar: abra um chat de Conversation que já tenha algumas mensagens. Veja [Conversation Mode: primeiros passos](../conversation/getting-started.md).
 
-Enquanto a cena roda, os personagens dela não respondem no chat Conversation original, e um aviso diz que eles estão em uma cena ativa. Para deixar que eles respondam ali mesmo assim, ative **Allow replies here** (permitir respostas aqui) no card. A opção começa desligada. Com ela ligada, os personagens da cena respondem quando você manda mensagem para eles, mas continuam sem enviar mensagens ali por conta própria.
+1. Na caixa de mensagem, digite `/scene` e uma descrição curta. `/rp` faz a mesma coisa. Por exemplo: `/scene we sneak into the old library at midnight`
+2. Pressione <kbd>Enter</kbd>. A janela **Scene Prompt Setup** (preparação do prompt da cena) abre.
+3. Se você vir **Scene persona** (persona da cena), escolha quem interpreta você. **Use the Conversation persona** (usar a persona da Conversation) mantém a persona da Conversation.
+4. Se você vir **Scene characters** (personagens da cena), deixe **Let the scene planner choose characters** (deixar o planejador da cena escolher os personagens) ativado para que Marinara escolha. Ou desative a opção e escolha pelo menos um personagem.
+5. Escolha um **Prompt preset** (preset de prompt). Deixe em **None** (nenhum) para usar o preset do seu [perfil de configurações](../chats/settings-profiles.md#choosing-the-default-profile) padrão de Roleplay. Marinara lembra a sua escolha para a próxima cena.
+6. Em **POV**, escolha **First Person**, **Second Person** ou **Third Person**.
+7. Em **Tense** (tempo verbal), escolha **Past**, **Present** ou **Future**.
+8. Opcional: escreva observações em **Extra instructions** (instruções extras) para direcionar a cena.
+9. Clique em **Plan Scene** (planejar a cena).
 
-Ao terminar, você escolhe o destino da cena. É possível salvar um resumo de volta na conversa, jogar a cena fora ou guardá-la como um roleplay permanente. As três opções estão explicadas abaixo.
+A cena abre como um novo chat de Roleplay na sua lista de chats, com uma mensagem de abertura que apresenta a situação. Clique em **Cancel** (cancelar) na janela de preparação para parar sem criar uma cena.
 
-## Como começar uma cena
+`/scene` sozinho também funciona quando a conversa tem histórico suficiente. Se a conversa ainda não tiver mensagens, Marinara pede que você acrescente uma descrição ou converse um pouco antes.
 
-A cena começa dentro de um chat Conversation, com o comando `/scene`. O comando tem um apelido, `/rp`, que faz exatamente a mesma coisa.
+Um personagem também pode pedir para começar uma cena. Um convite **Set up scene** (configurar cena) aparece ao lado da resposta dele. Clique nele para abrir **Scene Prompt Setup** e continue a partir da etapa 3. **Cancel** fecha a preparação, e o convite continua disponível, mesmo depois de recarregar.
 
-Siga estes passos:
+Como a cena abre:
 
-1. Abra um chat Conversation que já tenha algumas mensagens.
-2. Na caixa de mensagem, digite o comando da cena. Depois dele, você pode escrever uma descrição curta do que quer.
+- Ela parte do seu perfil de configurações padrão de Roleplay, como qualquer novo chat de Roleplay. Um [perfil de configurações](../chats/settings-profiles.md) é um conjunto salvo de configurações do chat.
+- Quando o plano da cena traz esses textos, uma nota curta sobre como jogar a cena é publicada primeiro, como mensagem do narrador, e depois a descrição da cena, como uma segunda mensagem do narrador. Um plano sem a nota a pula.
+- Com um personagem, a abertura é escrita na voz dele, com as falas entre aspas duplas, a menos que as suas instruções de escrita definam outro estilo.
+- Em uma cena em grupo, a abertura segue o modo de grupo do perfil. **Merged (Narrator)** é o padrão: uma única resposta dá voz a todos os personagens. No modo **Individual**, o personagem que abre a cena a escreve. Veja [Chats em grupo](../chats/group-chats.md#choose-who-speaks).
 
-```
-/scene we sneak into the old library at midnight
-```
+## Usar a barra da cena
 
-3. Pressione Enter. A janela **Scene Prompt Setup** (preparação do prompt da cena) abre.
-4. Escolha um **Prompt preset** (predefinição de prompt) para a nova cena ou mantenha **None** (nenhum) para usar a predefinição do perfil de configurações de Roleplay marcado com estrela. Marinara lembra essa escolha para a próxima cena. As instruções da própria cena continuam valendo junto com a predefinição.
-5. Na seção **POV**, escolha o enquadramento da narração: **First Person**, **Second Person** ou **Third Person**.
-6. Na seção **Tense**, escolha **Past**, **Present** ou **Future**.
-7. Se quiser, escreva observações no campo **Extra instructions** para direcionar a cena.
-8. Clique em **Plan Scene**.
+Dentro de uma cena, uma barra acima da caixa de mensagem decide o que acontece com ela. Os botões exibidos dependem de a cena ter ou não uma conversa de origem.
 
-Marinara planeja a cena e abre tudo como um novo chat de roleplay. A cena nova aparece na lista de chats e abre sozinha, já com uma mensagem de abertura que apresenta a situação. Mudou de ideia na janela de preparação? Clique em **Cancel** e nenhuma cena é criada.
+| Botão | O que faz |
+| --- | --- |
+| **Back to conversation** (voltar para a conversa) | Volta ao chat de Conversation que começou a cena. A cena continua aberta. Só aparece quando existe uma conversa de origem. |
+| **End Scene** (encerrar a cena) | Salva um resumo e encerra a cena. Clique em **Yes** (sim) em **End and save summary?**. |
+| **Discard** (descartar) | Exclui a cena e não salva nada. Clique em **Yes** em **Discard scene?**. |
+| **Convert** (converter) | Transforma a cena em um Roleplay independente. Veja abaixo. |
 
-A nova cena parte do perfil de configurações de Roleplay marcado com estrela, como qualquer novo chat de Roleplay. A abertura funciona assim:
+**End Scene** mostra **Saving...**, escreve um resumo curto na conversa como uma lembrança e leva você de volta para lá. **Discard** não guarda nada. Os dois tiram a cena da sua conversa.
 
-- A descrição da cena aparece como uma mensagem própria do narrador, publicada antes da abertura.
-- Com um personagem, a mensagem de abertura é escrita na voz dele. As falas ficam entre aspas duplas, a menos que as instruções de escrita definam outro estilo.
-- Em uma cena em grupo, a abertura segue o modo de grupo do perfil. No modo mesclado (o padrão), uma única voz narrativa fala por todos. No modo **Individual** (individual), o personagem que inicia a cena escreve a abertura.
+## Clonar uma cena a partir de uma mensagem
 
-Também é possível começar uma cena sem descrição nenhuma. Digite só o comando, desde que a conversa já tenha histórico suficiente para servir de base.
+Para copiar uma cena até uma mensagem e continuá-la separadamente, enquanto a original continua aberta:
 
-```
-/scene
-```
+1. Passe o mouse sobre a mensagem a partir da qual você quer criar a ramificação.
+2. Clique na ação **Clone from here** (clonar a partir daqui) dessa mensagem.
 
-Se a conversa ainda não tiver mensagem nenhuma, Marinara pede que você escreva uma descrição ou converse um pouco antes de planejar a cena.
+Marinara cria um novo Roleplay independente com as mensagens até aquela, incluindo ela, mostra uma confirmação e o abre.
 
-Um personagem também pode propor uma cena. Um convite com **Set up scene** (configurar cena) aparece junto da resposta sem cobrir a conversa. Clique quando quiser abrir **Scene Prompt Setup**, escolha **Prompt preset**, **POV** e **Tense** e clique em **Plan Scene**. **Cancel** fecha a configuração sem criar uma cena; o convite continua disponível após cancelar ou recarregar.
+## Converter uma cena em Roleplay
 
-## A barra da cena: End Scene, Discard, Convert e Back to conversation
+Use **Convert** quando uma cena tiver virado uma história que você quer manter como um Roleplay normal.
 
-Dentro de uma cena ativa, existe uma barra logo acima da caixa de mensagem. É nela que ficam os controles que decidem o destino da cena. Os botões exibidos dependem de a cena ter ou não uma conversa vinculada.
+1. Clique em **Convert** na barra da cena.
+2. Leia **Convert this scene into a standalone roleplay?** Isso cria um novo chat de Roleplay a partir da cena e desvincula a cena original da conversa dela. Nenhum resumo da cena nem lembrança do personagem é escrito de volta.
+3. Clique em **Convert**, ou em **Cancel** para não mudar nada.
 
-- **Back to conversation** (voltar para a conversa) leva você de volta ao chat Conversation que originou a cena. A cena continua aberta e em andamento, então você pode retomá-la depois. Esse botão só aparece quando a cena tem uma conversa de origem.
-- **End Scene** (encerrar a cena) finaliza a cena e salva um resumo. Ao clicar, a barra pergunta **End and save summary?**, com os botões **Yes** e **No**. Clique em **Yes** para confirmar. Durante o processo, o botão mostra o estado **Saving...**. Marinara escreve um resumo curto da cena de volta na conversa de origem, na forma de uma lembrança, e devolve você ao ponto onde a conversa parou.
-- **Discard** (descartar) joga a cena fora sem salvar nada. Ao clicar, a barra pergunta **Discard scene?**, com os botões **Yes** e **No**. Clique em **Yes** para excluir a cena e voltar para a conversa. Nada é salvo de volta.
-- **Convert** (converter) transforma a cena em um chat de roleplay independente. Esse botão tem uma seção só para ele mais abaixo, porque a mudança que ele faz é permanente.
+Clonar mantém a cena original aberta. Converter, não.
 
-Pense bem antes de clicar em **End Scene** ou **Discard**, porque os dois tiram a cena da conversa. **End Scene** guarda uma lembrança do que aconteceu. **Discard** não guarda nada.
+## Cenas e chats conectados
 
-## Como clonar uma cena a partir de uma mensagem
-
-Dentro de um chat de cena, cada mensagem tem um pequeno botão de ação cuja dica (o texto que aparece ao passar o mouse) diz **Clone from here**. Com ele, você bifurca o conteúdo da cena para um chat de roleplay novinho, copiado até a mensagem escolhida, incluindo ela.
-
-Veja como fazer:
-
-1. Passe o mouse sobre a mensagem de onde quer criar a ramificação.
-2. Clique na ação **Clone from here** (clonar a partir daqui).
-
-Marinara cria um roleplay independente a partir da cena, copiando as mensagens até aquele ponto. A cena original continua aberta e ativa, então essa é uma forma segura de testar outro caminho. Aparece uma confirmação de que a cena foi clonada como roleplay, e o chat novo abre.
-
-Clonar preserva a cena original. Converter, o assunto seguinte, não preserva.
-
-## Como converter uma cena em roleplay independente
-
-O botão **Convert**, na barra da cena, desvincula a cena e a transforma em um chat de roleplay permanente. Ao clicar em **Convert**, abre uma janela de confirmação com o título **Convert this scene into a standalone roleplay?**
-
-A janela explica o que vai acontecer. Marinara cria um chat de roleplay a partir da cena atual e desvincula a cena original da conversa. Nenhum resumo da cena e nenhuma lembrança do personagem voltam para a conversa original. Clique em **Convert** para seguir em frente ou em **Cancel** para deixar tudo como está.
-
-Use **Convert** quando a cena virar uma história que você quer manter e continuar como um roleplay normal. Quando quiser uma cópia mas também quiser a cena original no lugar, use **Clone from here**.
-
-Resumindo a diferença entre os dois caminhos de bifurcação: **Clone from here** bifurca ramificações da cena e mantém a original ativa. **Convert** converte as ramificações da cena em um roleplay independente e tira a original da conversa.
-
-## Por que a cena não herda o contexto do chat conectado
-
-Um chat Conversation pode ficar conectado a um roleplay, de modo que o contexto circule entre os dois. Com as cenas, o funcionamento é outro, e isso é proposital. A cena é independente.
-
-A cena não puxa automaticamente o contexto de ida e volta de uma conversa conectada, mesmo quando o chat de origem puxa. Uma conversa conectada pode passar discretamente observações curtas de direcionamento para um roleplay vinculado, para guiar a história, mas a cena ignora essas observações. Assim a cena fica concentrada no próprio momento, sem arrastar a conversa inteira junto.
-
-É por isso que a cena se lê como uma historinha completa em si. Se você quer o vínculo contínuo de mão dupla entre uma conversa e um roleplay, use um chat conectado em vez de uma cena. Esse recurso está no guia de chats conectados, com link abaixo.
+Uma cena é independente. Ela não puxa contexto de uma Conversation conectada, mesmo quando o chat de origem puxa, e ignora as observações curtas de direcionamento que uma conversa conectada pode enviar a um Roleplay vinculado. Para um vínculo contínuo de mão dupla entre uma conversa e um roleplay, use um chat conectado. Veja [Conectar uma Conversation a um Roleplay ou Game](../chats/connected-chats.md).
 
 ## Guias relacionados
 

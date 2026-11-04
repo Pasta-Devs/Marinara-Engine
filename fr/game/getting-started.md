@@ -1,294 +1,261 @@
 # Game Mode : premiers pas
 
-Game Mode transforme Marinara Engine en jeu de rôle solo, mené par un Game Master piloté par l'IA. Ce guide explique ce qu'est Game Mode et ce qu'il te faut avant de commencer. Il détaille ensuite l'assistant de configuration et indique où trouver chaque fonctionnalité de jeu. Lis-le une fois, lance une partie, puis suis les liens de fin de page pour approfondir.
+Game Mode transforme Marinara Engine en jeu de rôle solo, mené par un Game Master piloté par l'IA. Ce guide t'aide à lancer une partie, à jouer le premier tour et à trouver les contrôles.
 
-## Ce qu'est Game Mode
+Game Mode est l'un des trois modes de chat (Conversation, Roleplay et Game Mode). Le Game Master (GM), ou maître du jeu, est l'IA qui narre le monde, joue tous les personnages que tu croises et décide de la suite, comme le Dungeon Master d'un jeu de rôle sur table. Marinara suit la carte, ton équipe, les personnages non-joueurs (PNJ), les objets, les quêtes, l'heure dans le monde et la météo. Tu peux découper une longue partie en plusieurs **sessions**, comme les soirées de jeu d'une même campagne.
 
-Game Mode est l'un des modes de chat de Marinara. Les deux autres sont Conversation et Roleplay.
-
-Dans Game Mode, un Game Master (GM) piloté par l'IA mène une histoire pour toi. Le Game Master, ou maître du jeu, est l'IA qui narre le monde, joue tous les personnages que tu croises et décide de la suite. Son rôle est celui du Dungeon Master dans un jeu de rôle sur table.
-
-Le moteur suit l'état du jeu à ta place, tour après tour. Cela englobe la carte, ton équipe, les personnages non-joueurs (PNJ), tes objets, les quêtes, l'heure dans le monde et la météo. Une partie s'étend sur de nombreux tours. Tu peux découper une longue partie en plusieurs **sessions**, comme une tablée qui étale une campagne sur plusieurs soirées. La campagne, c'est l'histoire entière.
-
-Rien ne t'oblige à utiliser toutes les mécaniques. Certains joueurs laissent de côté le combat et les dés, et se servent de Game Mode pour du jeu visuel, centré sur l'histoire. Les systèmes de jeu de rôle sont là quand tu en as envie.
+Rien ne t'oblige à utiliser toutes les mécaniques. Tu peux laisser de côté le combat et les dés, et jouer pour l'histoire.
 
 ## Avant de commencer
 
-Une seule chose est indispensable pour lancer une partie : une connexion à un fournisseur d'IA pour le GM. Une connexion relie Marinara à un fournisseur d'IA afin qu'il puisse générer du texte. Si ce n'est pas encore fait, va voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+Il te faut une seule chose : un compte d'IA pour le Game Master. Si tu n'en as pas encore ajouté, va voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
-Tout le reste est optionnel et désactivé par défaut. Ces éléments s'ajoutent plus tard :
+Tout le reste est optionnel et désactivé par défaut. Tu peux l'ajouter plus tard :
 
-- **La génération d'images.** Game Mode a une mise en page visuelle, avec des arrière-plans et des illustrations de personnages. Pour la remplir, il te faut une connexion de génération d'images. Le réglage **Visual Generation** (génération visuelle) de l'assistant est désactivé par défaut : à toi de l'activer. Sans lui, tu gardes l'histoire, le suivi de l'état et le combat, mais les zones visuelles restent vides.
-- **Un modèle local pour les effets de scène.** Marinara sait faire tourner un petit modèle sur ta propre machine, sous l'étiquette **Local Model (Gemma)**. Il alimente les suggestions d'arrière-plan et de musique sans coût supplémentaire. C'est le choix par défaut dans l'assistant. Voir [Configurer un modèle local](../connections/local-model.md).
-- **L'agent Storyboard.** Installe-le depuis **Agents > Agent Organizer (organisateur d’agents)**. Active-le ensuite pour la partie créée, dans **Chat Settings > Agents**, quand tu veux des storyboards fixes ou animés.
-- **Une connexion de génération de vidéos.** Elle ne sert que pour les vidéos de scène et les storyboards animés.
-- **La musique.** L'agent **Music DJ** peut lancer la musique du jeu. Il lui faut Spotify ou un dossier de musique local, et il est désactivé par défaut.
+- **Les images.** L'agent **Illustrator** dessine les portraits des PNJ, les arrière-plans des lieux et les images de scène. Télécharge-le depuis **Agents → Agent Organizer** (Agents → organisateur d'agents). Il lui faut un compte de génération d'images. Sans lui, tu gardes l'histoire, le suivi de l'état et le combat, mais les zones visuelles restent vides.
+- **Les effets de scène avec le Built-in model (modèle intégré).** Marinara peut faire tourner un petit modèle sur ton propre ordinateur pour choisir les arrière-plans et la musique, sans frais. Il devient le **Scene effects model** (modèle des effets de scène) par défaut une fois que tu l'as téléchargé. D'ici là, le choix par défaut est **Skip - use inline tags from GM** (ignorer, utiliser les balises en ligne du GM). Voir [Configuration du modèle intégré](../connections/local-model.md).
+- **Les storyboards.** Télécharge l'agent Storyboard, puis active-le pour la partie. Voir [Guide de l'agent Storyboard](storyboard.md).
+- **La vidéo.** Un compte de génération de vidéos n'est nécessaire que pour les vidéos de scène ou les storyboards animés.
+- **La musique.** L'agent **Music DJ** joue de la musique depuis Spotify ou un dossier de musique local.
 
-## L'assistant de configuration
+## Lancer une partie
 
-Quand tu crées un chat en Game Mode, un **assistant de configuration** s'ouvre. Il compte sept étapes. Le seul champ obligatoire est la connexion du GM, à la première étape. Tous les autres champs ont une valeur par défaut sensée. Rien ne t'empêche de traverser l'assistant rapidement et de laisser Marinara compléter le reste.
+1. Dans la barre latérale des chats, ouvre l'onglet **GM** et clique sur le bouton **+** (**New Game**, nouvelle partie). Tu peux aussi cliquer sur **Game** dans l'écran d'accueil. L'assistant de configuration s'ouvre. Voir [Gérer la liste des chats](../chats/managing-chats.md).
+2. À la première étape, choisis le **Model** (modèle) qui fait tourner le GM. Choisis un compte que tu as déjà ajouté. Si la liste est vide, ajoutes-en un d'abord. Pour la génération du monde, prends un modèle payant performant (voir [Choisir un modèle](#choosing-a-model)).
+3. Clique sur **Next** (suivant) à chaque étape. Tous les autres champs ont une valeur par défaut : tu peux donc simplement cliquer jusqu'au bout.
+4. À la dernière étape, clique sur **Create world** (créer le monde). Le bouton affiche **Generating World…** pendant que Marinara construit ton monde. C'est une seule grosse requête à ton modèle : attends qu'elle se termine.
+5. Quand le monde est prêt, l'écran de jeu affiche **Start Game** (démarrer la partie). Clique dessus. Le GM écrit alors le premier message.
 
-Voici les sept étapes :
+Si les widgets HUD personnalisés sont activés (c'est le cas par défaut), un bouton **Review Starting Widgets** (vérifier les widgets de départ) se trouve sous **Start Game**. Tu peux l'ignorer, ou t'en servir pour modifier d'abord les widgets de départ. Voir [Game Mode : les widgets HUD](hud-widgets.md).
 
-1. **Connection** (connexion). Choisis le **Game Mode** : **Overworld RPG** ou **Classic**. Overworld RPG n'est pas encore prêt : pour l'instant, les nouvelles parties démarrent donc en **Classic**. Voir [Classic ou Overworld RPG](#classic-or-overworld-rpg). Donne un nom à la partie, choisis la connexion du GM et, si tu veux, une connexion pour les effets de scène. Les effets de scène utilisent **Local Model (Gemma)** par défaut.
-2. **World.** Définis le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. Les idées proposées sous le cadre, puis plus tard sous les objectifs, viennent de différents types d'univers, dans un nouveau mélange à chaque ouverture de l'assistant. Choisis **Classic** (combat par menus) ou **Tactical** (combat sur grille) sous **Combat Preference** (préférence de combat). Si un ensemble de règles Game Mode est installé, **Rules** (règles) apparaît dessous : garde **Marinara's own rules** ou choisis l'ensemble de règles. Consulte [Choisir les règles](#choosing-rules). En Overworld RPG, on trouve encore dessous **Setting kit** (kit d'univers) et **Your world** (ton monde). Consulte [Choisir un kit d'univers](#choosing-a-setting-kit) et [Créer un monde](#making-a-world).
-3. **Party** (l'équipe). Choisis ton persona, c'est-à-dire le personnage que tu incarnes, le **Game Master Mode** (mode du Game Master) et, au besoin, des membres de l'équipe. **GM intro message** (message d'introduction du GM) définit le premier message de la partie. Consulte [Le message d'introduction du GM](#the-gm-intro-message).
-4. **Goals** (objectifs). Dis au GM ce que tu attends de l'aventure.
-5. **Lorebooks**. Rattache les lorebooks dont les faits doivent faire foi pour le GM. Un lorebook est un recueil de faits sur ton univers. Voir [Lorebooks](../lorebooks/overview.md).
-6. **Features** (fonctionnalités). Active les systèmes optionnels : Visual Generation, Music DJ et les widgets du HUD. Les agents installables s'activent depuis Chat Settings, une fois la partie créée.
-7. **GM**. Choisis le style de présentation et relis les instructions avancées du GM avant la construction du monde.
+> **Astuce :** si tu débutes en Game Mode, laisse **Game Master Mode** (mode du Game Master) sur **Standalone GM**. Marinara te construit un narrateur sarcastique.
 
-Une fois l'assistant terminé, clique sur **Start Game**.
+Si ça n'a pas marché, voir [La génération du monde échoue avec une erreur JSON ou 422](#world-generation-fails-with-a-json-or-422-error).
 
-Dans une partie Tactical, le GM rédige une courte description de la scène de chaque combat et le moteur génère un plateau à partir de celle-ci. Consulte [Game Mode : le combat](combat.md#tactical-battles-and-terrain) pour les règles de déplacement, les bonus de terrain et les échecs de génération.
+### L'assistant de configuration
 
-<a id="classic-or-overworld-rpg"></a>
+| Étape | Ce que tu définis |
+| --- | --- |
+| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **Classic** pour l'instant (voir [Classic ou Overworld RPG](#classic-or-overworld-rpg)). |
+| **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Classic** ou **Tactical**. Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
+| **Party** (équipe) | Ton persona (le personnage que tu incarnes), le **Game Master Mode**, les membres de l'équipe et le **GM intro message** (message d'introduction du GM). Voir [Le message d'introduction du GM](#the-gm-intro-message). |
+| **Goals** (objectifs) | Ce que tu attends de l'aventure. |
+| **Lorebooks** | Les lorebooks qui font foi pour le GM. Un lorebook est un recueil de faits sur ton univers. Voir [Lorebooks](../lorebooks/overview.md). |
+| **Features** (fonctionnalités) | **Enable Agents** (activer les agents), puis un encart pour chaque agent téléchargé (**Illustrator**, **Music DJ**, **Lorebook Keeper**), ainsi que **Custom HUD Widgets** (widgets HUD personnalisés), **Quick Time Events** et **Start Muted** (démarrer en sourdine). |
+| **GM** | Le style de présentation et le **GM Prompt** (prompt du GM). |
 
-### Classic ou Overworld RPG
+Les idées proposées sous le cadre et les objectifs changent à chaque ouverture de l'assistant. Dans une partie Tactical, le GM rédige une courte description de chaque combat, et Marinara construit un plateau à partir de celle-ci. Voir [Combat](combat.md#tactical-battles-and-terrain).
 
-Une nouvelle partie se joue dans l'un de deux Game Modes, choisi à la première étape et conservé pour toutes les sessions de la partie :
+L'étape **World** propose aussi des options de combat pour les boss. **GM directs bosses** (le GM dirige les boss) est activé par défaut. Il laisse le GM décider des tours des boss avec ta connexion de GM, ce qui peut prendre un moment. Les ennemis ordinaires décident seuls, sauf si **GM directs bosses** est activé et que l'ensemble de règles de la partie confie l'opposition au Game Master (voir [Texte du Game Master](../extending/ruleset-sheets.md#game-master-text)). Tant que **GM directs bosses** est activé, **Game Master also plays named and brilliant opponents** (le Game Master joue aussi les adversaires nommés et brillants), activé par défaut, permet au GM de jouer aussi les personnages nommés et les ennemis très rusés. Deux autres options sont toujours affichées : **Companions fight on their own** (les compagnons combattent seuls), activé par défaut (désactive-le pour jouer toi-même toute l'équipe), et **Let cruel opponents strike the fallen** (laisser les adversaires cruels frapper ceux qui sont à terre), désactivé par défaut. Voir [Combat](combat.md).
 
-- **Overworld RPG** (le choix par défaut une fois prêt) : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes à visiter, des lieux à explorer et des donjons où descendre. Il lui faut un kit d'univers et un monde ; tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy pour un genre qui n'en a pas), et un monde est tiré au sort pour lui.
-- **Classic** : Game Mode tel qu'il a toujours été. L'histoire se raconte scène par scène, avec la carte de scène et les combats, sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
+Avec l'agent **Hierarchical Maps** téléchargé (désormais appelé World Maps, voir [World Maps](../agents/hierarchical-maps.md)) et **Enable Agents** activé, l'étape **Features** peut aussi esquisser une **Hierarchical world map** (carte hiérarchique du monde), utiliser un modèle de carte enregistré ou lier un monde partagé.
 
-Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie Classic.
+### Valeurs par défaut à connaître
 
-Overworld RPG est encore en cours de finition. Tant qu'il n'est pas prêt, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Toutes les nouvelles parties sont alors Classic, et les choix de kit d'univers et de monde ci-dessous n'apparaissent pas. Ils décrivent les parties Overworld RPG.
+| Réglage | Par défaut | Notes |
+| --- | --- | --- |
+| Genre | Fantasy | Choix multiple, avec tes propres entrées. Un kit d'univers choisi en premier définit le sien. |
+| Tone | Heroic | Choix multiple. |
+| Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Plus le niveau est élevé, plus les attaques ennemies frappent fort (voir [Combat](combat.md#difficulty-scaling)). |
+| Content Rating | SFW | **SFW** ou **NSFW**. NSFW autorise seulement le contenu adulte, il ne l'impose pas. |
+| Language | English | Tout le texte en jeu est écrit dans cette langue. |
+| Game Master Mode | Standalone GM | **Character GM** prend une de tes fiches de personnage comme GM. |
+| Scene effects model | Built-in model | Seulement une fois que tu l'as téléchargé. D'ici là, le choix par défaut est **Skip - use inline tags from GM**. |
+| Enable Agents | Off | À activer pour voir les encarts des agents. |
+| Illustrator | Off | Nécessite l'agent Illustrator et un compte de génération d'images. |
+| Music DJ | Off | Nécessite Spotify ou un dossier de musique local. |
+| Custom HUD Widgets | On | Le modèle conçoit des widgets d'état pour le nouveau monde. |
+| Quick Time Events | On | À désactiver pour jouer avec un lecteur d'écran ou sans limite de temps. |
+| Start Muted | Off | Démarre la partie avec tout le son coupé. |
+| Game Presentation | Standard | Voir plus bas. |
 
-<a id="choosing-rules"></a>
+<a id="choose-rules"></a>
 
 ### Choisir les règles
 
-**Rules** (règles) n'apparaît que si au moins un ensemble de règles est installé, et uniquement pour une nouvelle partie. **Marinara's own rules** (règles propres à Marinara) est le choix par défaut : les tests intégrés au d20 et la fiche à six attributs. Un ensemble de règles, comme **5e (SRD 5.1)**, les remplace par les tests et la fiche de personnage propres à un système de jeu de rôle sur table, et peut aussi résoudre les combats selon ses propres règles. L'assistant montre ce que chaque ensemble de règles couvre et comment ses combats se dérouleront. L'ensemble de règles est fixé une fois la partie créée.
-
-Consulte [Jouer avec un ensemble de règles](rulesets.md) pour savoir comment obtenir un ensemble de règles, connaître ses couches et les fiches d'équipe, et découvrir ce qui change en jeu.
-
-<a id="choosing-a-setting-kit"></a>
-
-### Choisir un kit d'univers
-
-Un **Setting kit** donne au Game Master les mots dans lesquels s'écrit ton type de monde : le nom de ses lieux et la taille que peut atteindre une agglomération, ses types de groupes, ce pour quoi un lieu peut être connu, la façon dont on y voyage, le nom d'une année et d'un jour, la façon dont ses peuples se nomment, ce qu'un combat gagné peut rapporter, sa monnaie et les objets du quotidien qu'on y vend, ses éléments, les lieux où ses combats se déroulent, et la famille d'illustrations, de musiques et de sons qu'il utilise (voir [Les visuels et la musique propres à un univers](game-assets.md#a-settings-own-art-and-music)). Il indique aussi quels types de changements connaît le monde, comme les rivalités, le crime, les guerres ou les catastrophes, et à quelle vitesse il change de lui-même. Un type désactivé n'est jamais introduit comme événement de fond, et une scène ne dégénère pas dans ce sens : une querelle peut donc rester une querelle.
-
-Il n'est proposé que pour une nouvelle partie Overworld RPG, qui en a toujours un : tant que tu n'as pas choisi de kit, celui de ton premier genre est pris. Il y en a huit pour commencer : high fantasy, wuxia et xianxia, époque moderne, moderne surnaturel, années 1920, cyberpunk, space opera et post-apocalyptique. L'époque moderne est paisible par défaut, sans crime, conflit ni catastrophe, à un rythme lent, pour la tranche de vie.
-
-Choisir un kit avant d'avoir choisi un genre définit le genre qui lui correspond, comme **Cyberpunk** pour cyberpunk ou **Wuxia** pour wuxia et xianxia, et les idées de cadre et d'objectifs commencent alors par celles du kit. Un genre que tu as choisi toi-même reste tel quel.
-
-Une fois le kit choisi, **Write it for my setting** (l'écrire pour mon univers) demande à ta connexion de Game Master de le réécrire pour le genre, le cadre et le ton que tu as choisis. Si ce qu'écrit le modèle ne tient pas debout, la demande lui est refaite une fois avec les raisons, puis l'assistant t'indique ce qui n'allait pas et garde le kit que tu avais. **Change its words** (modifier ses termes) ouvre chaque mot du kit à la modification. Une liste se saisit sur une seule ligne, avec des virgules entre les éléments. Un kit qui a un problème, comme un nom vide ou aucune agglomération, indique ce qui ne va pas, et la partie ne peut pas commencer tant qu'il n'est pas corrigé.
-
-La partie garde le kit avec lequel elle a été créée. Le Game Master le lit à chaque tour, et la génération du monde utilise ses mots. Un fichier de configuration partagé emporte aussi son kit.
-
-Une Experience peut fournir son propre **map pack** (pack de cartes) : un kit d'univers, des cartes toutes prêtes et ses propres tuiles. Avec
-cette Experience activée, la configuration affiche son kit comme déjà défini (aucun kit à choisir) et, si elle fournit des cartes, une **Map** (carte)
-à choisir ; la partie se joue sur cette carte, dessinée avec les tuiles de l'Experience. Désactiver
-l'Experience te rend tes propres choix.
-
-**Download this kit** (télécharger ce kit) enregistre le kit dans un fichier (`.worldkit.json`) à partager, et **Import a kit file** (importer un fichier de kit) en relit un. **Import a world file** (importer un fichier de monde) fait entrer un monde entier d'un coup (voir plus bas).
-
-<a id="making-a-world"></a>
-
-### Créer un monde
-
-Une fois un kit d'univers choisi, **Your world** dispose un monde entier dans les mots du kit avant le début de la partie : ses régions, ses agglomérations de toutes les tailles de l'échelle du kit, ce pour quoi chaque lieu est connu, et les chemins qui les relient (routes, rivières, voies maritimes, couloirs de saut) avec le nombre de jours que prend chaque trajet. Chaque nouvelle partie Overworld RPG en a un, tiré d'une graine que tu peux changer.
-
-Un monde se crée à partir d'une **World seed** (graine du monde). La même graine, le même kit et le même brief (les grandes lignes écrites pour le monde) donnent toujours le même monde : **Roll** (tirer) t'en donne donc un autre, et ressaisir un nombre en fait revenir un. L'aperçu en dessous est le monde que jouera la partie : une petite carte du sol et de ses agglomérations, le point de départ de l'équipe, et la liste de toutes les agglomérations par région.
-
-- **Start from this lore** (partir de ce lore) lit les lorebooks que tu coches pour y trouver les lieux qu'ils décrivent et les événements datés qu'ils rapportent, chacun conservé exactement comme le dit le lore, avec les entrées d'où il vient. **Build around the lore** (construire autour du lore) complète le monde autour d'eux ; **Only the lore's places** (seulement les lieux du lore) ne crée rien d'autre.
-- **Write the world's brief** (écrire le brief du monde) demande le reste à ta connexion de Game Master : le présent au début de la partie, les lieux majeurs, les groupes autour desquels tourne ce présent (ce que veut chacun, et qui sont ses alliés et ses rivaux), et des noms pour les lieux et les personnes que dessine le monde, dans la sonorité et l'ordre propres à chacun des peuples du kit. Les lieux du lore sont conservés quoi qu'écrive le modèle, et tout ce qui ne correspond pas au kit est écarté et compté, tout comme les quelques noms vers lesquels les modèles reviennent sans cesse. **Change the brief** (modifier le brief) ouvre ses mots à la modification, y compris les prénoms et les noms de famille de chaque peuple.
-
-Sans brief, le monde se limite au kit et aux lieux du lore, et les lieux qu'il dessine sont numérotés jusqu'à ce qu'un brief leur donne des noms.
-
-Un monde a aussi un passé. Avant le début de la partie, le moteur propre au monde le fait avancer année après année depuis sa fondation : chaque agglomération est fondée et grandit jusqu'à sa taille actuelle, les groupes du brief sont fondés à leur siège, prennent et perdent des chefs, se rapprochent et se brouillent entre eux et, là où le monde en a, les bandits, les guerres et les famines laissent leur marque, certains lieux disparaissant à cause d'eux. Un changement grave ne survient qu'après avoir couvé un moment (des tensions avant une guerre, une sécheresse avant une famine), et il n'utilise que les types de changements que le kit autorise : le passé d'un monde paisible est paisible lui aussi. Les événements datés qu'indique ton lore, ou que nomme le brief, se produisent quand et où ils le disent. La même graine et le même brief donnent toujours le même passé.
-
-Le Game Master apprend les événements les plus notables du passé, qui tient le lieu où se trouve l'équipe et qui le dirige, ainsi que le passé propre à ce lieu. Pour tout autre lieu ou groupe, il peut demander, et reçoit la réponse à son tour suivant.
-
-Chaque agglomération a ses habitants, tirés par la graine quand l'équipe y arrive : plus nombreux dans les grands lieux, chacun avec un nom tiré de la liste de sa propre culture, un métier adapté à ce pour quoi le lieu est connu, un tempérament, ce qui lui tient à cœur, sa façon de parler et son apparence, certains étant venus d'ailleurs. Le Game Master voit quelques habitants du lieu actuel que l'équipe n'a pas encore rencontrés, et en fait entrer un quand quelqu'un de nouveau arrive dans la scène. Une personne qu'il nomme en entier rejoint les personnages suivis par la partie, avec ce qu'elle fait et son apparence : deux personnes qui portent le même nom restent donc distinctes. Sans les listes de noms d'un brief, les gens sont désignés par leur métier.
-
-En jeu, le Game Master sait toujours où se trouve l'équipe, où elle peut aller de là et combien de temps prend chaque chemin. Il nomme l'endroit où va l'équipe avec une balise de lieu. Un lieu que liste le monde garde la taille que le monde lui a donnée. Avec un ensemble de règles qui a des marchés, il prend aussi la taille correspondante sur l'échelle du marché : la capitale d'un monde est donc le plus grand lieu du marché. Un lieu que le monde ne liste pas, comme une ferme ou un campement, garde le nom que lui donne le Game Master. Une fois la partie commencée, le passé du monde est figé. Sa disposition l'est aussi, sauf pour les modifications manuelles (voir plus bas). Un fichier de configuration partagé emporte le monde tel qu'il a été créé à l'origine.
-
-Ce que fait l'équipe au monde reste fait. Quand l'équipe aide ou gêne un groupe, rend deux groupes amis ou ennemis, se range du côté d'un groupe ou le trahit, améliore ou abîme un lieu, prend un lieu pour un groupe, détruit un groupe, met quelqu'un à la tête d'un groupe ou mène un lieu à la ruine, le Game Master l'enregistre dans sa réponse, comme il le fait pour un lieu ou un groupe que l'histoire introduit. Chaque changement est vérifié par rapport au monde : un changement d'un type que le kit désactive, comme une guerre dans un monde moderne paisible, ou qui nomme un lieu ou un groupe que le monde n'a pas, est refusé. Dès lors, le Game Master reçoit le monde tel que l'histoire l'a laissé : l'état du lieu, qui le tient et qui le dirige, ce que l'équipe y a fait, la réputation de l'équipe auprès de chaque groupe avec lequel elle a traité, et ce qui a changé depuis le début de la partie. Un lieu ajouté par l'histoire est un lieu où l'équipe peut aller. Un changement appartient à la réponse qui l'a produit : un swipe, une régénération ou un message supprimé l'annule donc avec cette réponse.
-
-Le monde continue aussi sans l'équipe. Quand le Game Master dit que le temps passe (un voyage, une nuit de repos, une longue attente), le monde avance de lui-même, une semaine à la fois, et seulement dans les types de changements qu'autorise le kit : les fortunes montent et descendent, des nouveaux venus s'installent, des groupes se rapprochent ou deviennent rivaux, des chefs se retirent et, là où le monde en a, les ennuis touchent les lieux en difficulté, et la tension entre deux groupes peut devenir une guerre après une saison à monter. Les catastrophes ne viennent jamais d'elles-mêmes ; seul le Game Master peut en narrer une, comme tout événement hors de portée de l'équipe, refusé si son type est désactivé. Rien n'est décidé là où se trouve l'équipe : ce qui est sur le point d'y arriver est laissé à la scène. Les nouvelles voyagent : le Game Master apprend un changement une fois écoulés les jours que prennent les routes, sous la forme d'une rumeur venue de loin, et voit ce qui couve à proximité, pour que l'équipe puisse intervenir. Il ne peut retenir une guerre qui couve que si elle n'a aucun sens pour le monde ou ruinerait la partie sans réelle chance pour l'équipe de l'arrêter. Les actes de l'équipe comptent davantage à mesure qu'elle se fait connaître : l'aide d'un inconnu change peu de choses, celle d'une équipe célèbre beaucoup.
-
-Un monde peut aussi conserver des **hand edits** (modifications manuelles). Ce sont les changements que tu fais avec un éditeur de monde, un outil qui modifie un monde après sa création. Tu peux renommer ou déplacer des lieux, peindre le sol, et ajouter des lieux et des habitants. Tu peux aussi peindre le champ de bataille tactique d'un lieu (voir [Combat](combat.md#tactical-battles-and-terrain)) et disposer une ville à la main (voir [La ville](map-time-weather.md#the-town)). Chaque partie du jeu voit aussitôt les modifications : le Game Master, la carte du monde, les villes et l'onglet World. Un lieu renommé répond toujours à son ancien nom, et le Game Master apprend comment il s'appelait autrefois.
-
-Les modifications manuelles changent le monde à partir de maintenant, jamais son passé. L'histoire du monde, et les changements qu'il a faits de lui-même, restent tels qu'ils étaient. Une agglomération que tu ajoutes reste telle que tu l'as ajoutée. Une ville garde sa disposition : les lieux et les habitants que tu ajoutes vont donc sur ses prochaines parcelles libres et dans ses prochains logements libres.
-
-Un monde peut voyager sous forme de fichier. **Download this world** (télécharger ce monde), sous **Your world**, enregistre le monde que tu es en train de créer, et **Download the world** (télécharger le monde), dans l'onglet World d'une partie, enregistre le monde de cette partie, modifications manuelles comprises, dans un fichier `.world.json`. **Import a world file** (à côté du kit d'univers) en lit un dans la configuration d'une nouvelle partie : il choisit le kit d'univers du fichier et crée son monde, avec ses modifications manuelles. **Your worlds** (tes mondes) fait de même avec un monde conservé dans ta bibliothèque, comme un monde créé hors de toute partie avec un outil comme Pixelforge.
-
-Un fichier de monde peut aussi emporter l'**histoire** du monde : les événements et les scènes qu'un créateur a écrits pour lui. L'histoire accompagne le monde et est conservée aux mêmes conditions. En jeu, les scènes d'une histoire apparaissent dans la narration avant la réponse du Game Master, exactement telles qu'elles ont été écrites. Ses objectifs de quête sont listés sous **Story** (histoire) dans l'onglet World du journal dès que l'histoire les fait apparaître. Pour en écrire une, consulte [Écrire des scripts d'histoire Game Mode](../extending/writing-story-scripts.md).
-
-Les modifications manuelles et l'histoire ont été faites pour cette graine et ce brief : elles sont donc écartées si tu changes l'un ou l'autre. Si un fichier ne peut pas être lu, il est refusé et l'assistant dit pourquoi. Un fichier de monde emporte aussi le monde tel qu'il a été créé : un monde créé par une autre version du générateur de mondes s'ouvre donc exactement tel qu'il a été créé. Un fichier plus ancien qui ne l'emporte pas est refusé. Si quelque chose dans le fichier ne correspond pas au kit d'univers, c'est écarté et l'assistant indique quoi.
-
-Une partie créée sans monde avant l'existence du choix du Game Mode peut en recevoir un plus tard, seulement si tu le veux : l'onglet **World** (monde) du journal propose **Make a world for this game** (créer un monde pour cette partie), avec les mêmes choix de kit d'univers et de monde qu'une nouvelle partie. Le monde commence au tour suivant ; les tours passés de la partie, sa carte et ses personnages restent tels quels. Tant qu'Overworld RPG n'est pas prêt, le bouton est grisé avec la même note que dans la configuration.
-
-Une partie garde son monde tel qu'il a été créé. Les lieux, les habitants, les villes et le passé sont enregistrés avec la partie à son début et à chaque enregistrement de ses modifications manuelles : une mise à jour qui change la façon de créer les mondes ne modifie donc jamais un monde déjà en jeu. Une nouvelle session, une branche et un chat exporté gardent le même monde, et la façon dont le monde a évolué lors des sessions précédentes (ses fortunes, ses dirigeants et ses guerres) est conservée telle qu'elle s'est jouée. Un monde créé par une version antérieure du générateur de mondes continue de se jouer tel qu'il a été créé, mais ne peut plus être modifié.
-
-Une partie avec un monde s'ouvre sur l'**overworld**, la carte du monde : le monde dessiné comme une carte en pixels, où tu peux faire marcher l'équipe d'agglomération en agglomération le long des chemins du monde et entrer dans la ville où elle se trouve ; la vue de scène n'est qu'à un clic. Consulte [La carte du monde](map-time-weather.md#the-overworld).
+**Rules** n'apparaît que pour une nouvelle partie, et seulement si au moins un ensemble de règles est installé. **Marinara's own rules** (règles propres à Marinara) est le choix par défaut : les tests intégrés au d20 et la fiche à six attributs. Un ensemble de règles comme **5e (SRD 5.1)** les remplace par les tests et la fiche de personnage propres à un système de jeu de rôle sur table, et peut aussi résoudre les combats selon ses propres règles. L'assistant montre ce que couvre chaque ensemble de règles. Le choix est fixé une fois la partie créée. Voir [Jouer avec un ensemble de règles](rulesets.md).
 
 <a id="the-gm-intro-message"></a>
 
 ### Le message d'introduction du GM
 
-**GM intro message**, à l'étape **Party**, décide de la façon dont la partie s'ouvre :
+**GM intro message** (à l'étape **Party**) décide de la façon dont la partie s'ouvre :
 
-- **None** (aucun), le choix par défaut : le Game Master ouvre la partie comme il l'entend.
-- **Defined** (défini) : saisis le premier message exactement tel qu'il doit se lire. La partie s'ouvre avec exactement ce message, et le régénérer donne le même texte.
-- **Guided** (guidé) : décris comment l'ouverture doit se passer, par exemple où elle commence, qui est là et ce qui arrive en premier. Le Game Master écrit l'ouverture à partir de là.
+- **None** (aucun), le choix par défaut : le GM ouvre la partie comme il l'entend.
+- **Defined** (défini) : saisis le premier message exactement tel qu'il doit se lire. La partie s'ouvre avec ce texte, et le régénérer donne le même texte.
+- **Guided** (guidé) : décris comment l'ouverture doit se passer, par exemple où elle commence et qui est là. Le GM écrit l'ouverture à partir de là.
 
-Le texte peut compter jusqu'à 8 000 caractères. Il ne peut pas contenir de doubles accolades, et le texte **Guided** ne peut pas non plus contenir de crochets. Le champ indique quand le texte ne peut pas être utilisé. L'histoire d'un monde peut apporter sa propre introduction. Quand l'histoire la verrouille, le champ l'affiche avec "Set by this Experience and locked, so the game opens as its creator meant." et elle ne peut pas être changée.
+Le texte peut compter jusqu'à 8 000 caractères. Il ne peut pas contenir de doubles accolades, et le texte **Guided** ne peut pas non plus contenir de crochets. Le champ t'indique quand le texte ne peut pas être utilisé. L'histoire d'un monde peut définir sa propre introduction. Le champ l'affiche alors comme verrouillée, et tu ne peux pas la changer.
 
-### Valeurs par défaut à connaître
+### Storyboard Optimized
 
-Voici les valeurs de départ des étapes **World**, **Party** et **Features**. Tu peux toutes les modifier.
+À l'étape **GM**, **Game Presentation** (présentation de la partie) peut valoir **Standard** ou **Storyboard Optimized**. **Storyboard Optimized** utilise le Storyboard Game Prompt, qui façonne les tours du GM en séquences visuelles filmables. Il ne télécharge pas l'agent Storyboard et ne l'active pas, il n'active pas la génération d'images ou de vidéos et il ne change pas tes comptes. Une fois la partie créée, configure tout cela dans **Chat Settings → Agents → Storyboards** (réglages du chat → agents → storyboards).
 
-| Réglage | Par défaut | Notes |
-|---|---|---|
-| Genre | Fantasy | Choix multiple, avec tes propres entrées si tu veux ; un kit d'univers choisi en premier définit le sien |
-| Tone | Heroic | Choix multiple |
-| Difficulty | Normal | Casual, Normal, Hard ou Brutal ; plus le niveau monte, plus le combat est impitoyable |
-| Content Rating | SFW | SFW ou NSFW ; NSFW autorise le contenu adulte, il ne l'impose pas |
-| Language | English | Tout le texte en jeu est écrit dans cette langue |
-| Game Master Mode | Standalone GM | Standalone GM construit un GM pour toi ; Character GM prend une de tes fiches de personnage comme GM |
-| Visual Generation | Off | À activer pour les images ; nécessite une connexion de génération d'images |
-| Game Presentation | Standard | **Storyboard Optimized** utilise le Storyboard Game Prompt pour façonner la narration du GM ; il n'installe pas l'agent Storyboard et ne l'active pas |
-| Music DJ | Off | Nécessite Spotify ou un dossier de musique local |
-| Custom HUD Widgets | On | Utilise les widgets d'état créés par l'IA pour le nouveau monde |
-| Start Muted | Off | Démarre la partie avec le son coupé |
+L'éditeur **GM Prompt** affiche un aperçu du prompt de la présentation choisie. Si tu laisses le texte tel quel, le preset intégré reste sélectionné. Si tu le modifies, ton texte prend le pas sur le preset.
 
-Tu débutes en Game Mode ? Laisse le réglage **Game Master Mode** sur **Standalone GM**. Marinara te construit un GM juste, avec un brin d'ironie, et tu prends la mesure du mode avant d'écrire ta propre fiche de GM.
+Une autre combinaison, celle du plan unique façon anime, reste disponible après la configuration : choisis **Anime Episode Director** pour l'Animation Planner et **Anime Game Video** pour le Storyboard Video Prompt.
 
-Choisis **Storyboard Optimized** à la dernière étape quand tu veux des tours de GM écrits comme des séquences visuelles filmables. Ce choix retient le preset intégré **Storyboard Game Prompt** pour la narration du GM. Il n'installe pas l'agent Storyboard et ne l'active pas. Il ne touche pas non plus à la génération d'images ou de vidéos, ni aux connexions que tu as choisies. Les réglages par défaut du planificateur et de la mise en forme de l'agent restent eux aussi inchangés. Une fois la partie créée, installe et active Storyboard à part, puis configure ses réglages d'images-clés, de planificateur, d'images et de vidéos dans **Chat Settings > Agents > Storyboards**.
+## Jouer ton premier tour
 
-L'autre combinaison, celle du plan unique façon anime, reste disponible après la configuration : choisis **Anime Episode Director** pour l'Animation Planner et **Anime Game Video** pour le Storyboard Video Prompt.
+Tape ce que ton personnage fait ou dit, puis envoie-le. Le GM répond, met à jour le monde et peut demander un jet de dés ou lancer un combat.
 
-L'éditeur **GM Prompt** affiche un aperçu du prompt effectif pour la présentation choisie. Avec **Storyboard Optimized**, ouvrir l'éditeur montre le Storyboard Game Prompt, y compris sa macro de nombre d'images-clés. Si tu laisses ce texte tel quel, le preset intégré reste sélectionné ; si tu le modifies, tu crées un prompt personnalisé qui prend le pas sur le preset de présentation.
+Le bouton en forme de bulle, à côté du bouton de pièces jointes (infobulle **Choose who to address**, choisir à qui s'adresser), définit qui reçoit ton message :
 
-## Les trois types d'appel à l'IA
+| Mode | Ce qu'il fait |
+| --- | --- |
+| Par défaut | Ton message part dans la scène, comme une action ou une réplique. Le GM et ton équipe répondent dans l'histoire. |
+| **Talk to Party** (parler à l'équipe) | Ajoute un marqueur `[To the party]` et s'adresse à tes compagnons. N'apparaît que si ton équipe n'est pas vide. |
+| **Talk to GM** (parler au GM) | Ajoute un marqueur `[To the GM]` et interroge le GM hors personnage, par exemple "Est-ce que mon personnage connaît le temple ?". |
 
-Game Mode fait trois types d'appel à l'IA. Les connaître aide à comprendre d'où viennent les coûts et les erreurs.
-
-1. **La génération du monde.** Elle a lieu une seule fois, quand tu cliques sur **Start Game**. La connexion du GM renvoie un gros document structuré, dans un format nommé JSON. Ce document contient la présentation du monde, la carte de départ, les PNJ, les feuilles de personnage de ton équipe et les widgets affichés à l'écran. Le JSON est un format texte strict que l'IA doit renvoyer à la lettre, sinon le jeu ne peut pas le lire. C'est l'étape la plus exigeante, et c'est là que le choix du modèle compte le plus.
-2. **Les tours de jeu.** Chaque message que tu envoies construit un nouveau prompt, avec l'état courant. Le GM narre ensuite la suite et met à jour le monde. Les calculs des rounds de combat sont faits par le moteur, pas par le modèle : les résultats restent justes et cohérents.
-3. **Les résumés de session.** Quand tu termines une session, le GM rédige un récapitulatif structuré et des notes de continuité. Quand tu en démarres une nouvelle, il écrit un court message de transition pour que le chapitre suivant reparte proprement. Les sessions plus anciennes sont compressées en résumés, pour qu'une longue campagne ne submerge pas le modèle.
-
-## Les modes d'adresse : à qui tu parles
-
-La barre de saisie comporte un petit bouton en forme de bulle, à côté du bouton de pièces jointes. Son infobulle indique "Choose who to address" (choisir à qui s'adresser). Ce bouton définit le destinataire de ton message, et il a trois états.
-
-- Par défaut, ton message part dans la scène. C'est une action ou une réplique normale, dans le jeu. Le GM et ton équipe y répondent au fil de l'histoire.
-- **Talk to Party** (parler à l'équipe) ajoute un marqueur `[To the party]` et s'adresse directement à tes compagnons. Sers-t'en pour les échanges tactiques, du genre "Qu'est-ce qu'on fait maintenant ?". Cette option n'apparaît que si ton équipe n'est pas vide.
-- **Talk to GM** (parler au GM) ajoute un marqueur `[To the GM]` et interroge le GM hors personnage. Utilise-le pour des questions comme "Est-ce que mon personnage connaît le temple ?", ou pour demander un changement de rythme.
-
-Le mode actif affiche un marqueur **On** dans le menu. Pour désactiver **Talk to Party** ou **Talk to GM**, clique de nouveau sur la même entrée du menu. Tes messages repartent alors dans la scène.
-
-<a id="optional-tool-planning-and-lore-searches"></a>
-
-## Planification facultative des outils et recherches dans le lore
-
-Pendant la partie, ouvre **Chat Settings → Function Calling** (réglages du chat → appels de fonctions). **Let the GM search lore** (laisser le GM rechercher dans le lore) permet au GM de chercher des informations par leur sens sans activer tous les autres outils facultatifs. Active d'abord la vectorisation des lorebooks concernés et vectorise leurs entrées. Les recherches respectent les livres et dossiers activés ainsi que les interrupteurs d'entrées propres au chat. Elles utilisent la connexion d'embeddings configurée et peuvent ajouter une requête de suivi au modèle.
-
-Les chats Game exigent **Let the GM search lore** pour les recherches dans les lorebooks par outil, même quand **Enable Tool Use** est activé. Lorsque l'option est désactivée, `search_lorebook` est indisponible dans le sélecteur d'outils. Un élément déjà sélectionné reste visible avec une explication, pour que tu puisses le retirer ou réactiver la recherche de lore.
-
-**Game tool connection** (connexion des outils du jeu) vaut par défaut **Same as narrator** (comme le narrateur), ce qui conserve la boucle d'outils habituelle. Choisir une autre connexion lance une seule requête de planification séparée avant la narration. Ce modèle choisit les outils, puis le narrateur reçoit leurs résultats réels sous forme de texte. La requête supplémentaire est facturée sur la connexion choisie ; un modèle moins cher peut réduire le coût des outils, mais choisir d'autres outils. Cette unique phase de planification ne peut pas enchaîner une deuxième recherche à partir du premier résultat. Utilise **Same as narrator** pour que le narrateur raisonne sur plusieurs cycles d'outils (jusqu'à quatre par tour, après quoi il poursuit la narration avec les résultats dont il dispose).
-
-Les connexions par abonnement Claude et Grok ne prennent pas en charge les appels natifs aux outils. Les contrôles concernés l'expliquent et restent désactivés tant qu'une connexion compatible pour les outils de Game n'est pas choisie. Les commandes textuelles et les balises de dés fonctionnent toujours. Si une connexion séparée manque ou si sa requête échoue, le tour signale l'échec au lieu de poursuivre discrètement la narration sans le travail demandé aux outils.
-
-**Finish rolled turns in one request** (Terminer les tours avec des dés en une requête) change le second type d'appel décrit plus haut. Sans cette option, un tour avec des jets coûte deux requêtes : le brouillon, puis une réécriture avec les vrais nombres. Avec cette option, le GM écrit l'issue à l'aveugle et le moteur remplit les nombres ensuite : le tour coûte une requête. Elle est activée par défaut. Deux choses ajoutent encore une requête : un appel à l'outil de dés avec **Enable Tool Use** actif et une **Game tool connection** distincte, qui fait toujours sa propre planification. Consulte [Game Mode : Dés et tests de compétence](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request).
-
-Si tes modèles locaux partagent une mémoire GPU limitée, ouvre **Chat Settings → Agents** et active **Run Game tasks one at a time** (exécuter les tâches Game une par une). La narration, les agents et les médias de scène s'attendent dans ce chat Game. L'option est désactivée par défaut et ne réserve pas le GPU face aux autres chats ou applications. Les commandes d'annulation existantes restent disponibles pendant l'exécution et l'attente.
-
-## Activer les agents
-
-Les agents sont des aides IA optionnelles qui tournent aux côtés du GM. Pour t'en servir en partie, ouvre **Chat Settings** (réglages du chat) pendant le jeu, va dans la section **Agents** et active **Enable Agents**. Faire tourner des agents coûte plus cher, puisqu'ils passent des appels supplémentaires.
-
-Deux agents méritent l'attention en Game Mode :
-
-- **Game Session Keeper** aide à maintenir la continuité d'une session à l'autre.
-- **Music DJ** choisit la musique d'ambiance. Il lui faut Spotify ou un dossier de musique local.
-
-Game Mode se sert aussi de **Review Agent Outputs** (relire les sorties des agents), pour que tu puisses vérifier ce qu'un agent a produit. Pour tout savoir sur les agents, voir [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
-
-## Choisir un modèle
-
-La génération du monde est la partie la plus difficile de Game Mode. Elle demande au modèle un long document JSON strict, sans le moindre champ manquant. Un modèle très à l'aise dans un chat ordinaire peut malgré tout échouer à cette étape.
-
-Pour la génération du monde, prends un modèle récent et performant, du haut du panier, sur une connexion payante. En 2026, les joueurs rapportent de bons résultats avec les gammes phares des grands fournisseurs. Par exemple Anthropic Claude, OpenAI GPT et Google Gemini. Les noms de modèles changent souvent : vois-y des exemples, pas une liste figée.
-
-Les modèles les moins chers que nous recommandons, tous deux testés en jeu au 31/10/2026, sont DeepSeek V4 Flash et Claude Haiku 5.5.
-
-Pour les tours de jeu courants, il est parfois possible de descendre vers un modèle moins cher, car un tour demande de la narration, pas du JSON strict. Si le GM se met à oublier des PNJ ou à contredire des détails passés, remonte vers un modèle plus solide.
-
-Évite les modèles gratuits ou à routage automatique pour la génération du monde. Ils peuvent basculer vers un modèle plus petit, incapable de produire un JSON de génération du monde valide. Les petits modèles à poids ouverts échouent en général aussi à cette étape.
-
-Pour la référence complète des paramètres, voir [Les paramètres de génération](../prompts/generation-parameters.md).
+Le mode actif affiche **On** dans le menu. Clique de nouveau sur la même entrée pour le désactiver.
 
 <a id="the-games-controls"></a>
 
 ## Les contrôles du jeu
 
-Sur ordinateur, les contrôles du jeu s'ouvrent avec les boutons près du coin supérieur droit du chat. Sur téléphone, ils se trouvent dans le menu à trois points déplaçable **Chat tools** (outils du chat) :
+Sur ordinateur, les contrôles s'ouvrent avec les boutons près du coin supérieur droit du chat. Sur téléphone, ils se trouvent dans le menu à trois points déplaçable **Chat tools** (outils du chat).
 
-- **Game controls** (contrôles du jeu, la manette) :
-  - **Retry turn**, **Retry scene analysis**, **Retry Music DJ** quand Music DJ joue la musique du jeu, et **Retry assets image generation**.
-  - Quand un storyboard joue en arrière-plan du jeu, il propose aussi relecture, lecture/pause et coupure du son.
-  - Dans une partie avec un monde, **Show the scene** (afficher la scène) et **Show the overworld** (afficher la carte du monde) changent de vue, et **Show the map** (afficher la carte) revient à une carte de donjon, de grotte ou de station ouverte.
-  - **Edit game data** (modifier les données de jeu) corrige à la main les données enregistrées de la partie (voir [Modifier les données de la partie à la main](sessions-and-saves.md#editing-game-data-by-hand)), et **Checkpoints** (points de contrôle) ramène la partie à un moment antérieur (voir [Comment ta partie s'enregistre](sessions-and-saves.md#how-your-game-saves)).
-- **Session** (la plume) : historique des sessions, journal et contrôles de session. Consulte [Game Mode : sessions et sauvegardes](sessions-and-saves.md).
-- **Volume** (le haut-parleur) : volume de **Master**, **Music**, **Sound Effects**, **TTS** et **Ambient**.
-- **Game Assets** (le dossier) : médias de scène et Asset Browser. Consulte [Ressources du jeu](game-assets.md).
-- **Connected chat**, quand le jeu est lié à Conversation. Consulte [Chats connectés](../chats/connected-chats.md#switching-between-connected-chats).
+| Contrôle | Ce qu'il contient |
+| --- | --- |
+| **Game controls** (contrôles du jeu, icône de manette) | **Retry turn** (relancer le tour), **Retry scene analysis** (relancer l'analyse de scène), **Retry Music DJ** (relancer Music DJ, quand Music DJ joue la musique) et **Retry assets image generation** (relancer la génération des images des ressources). Pour un arrière-plan de storyboard, aussi relecture, lecture/pause et coupure du son. **Show the scene** (afficher la scène), **Show the overworld** (afficher la carte du monde) et **Show the map** (afficher la carte) changent de vue dans les parties qui en ont. **Edit game data** (modifier les données de jeu) corrige à la main les données enregistrées (voir [Modifier les données de la partie à la main](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** (points de contrôle) ramène la partie à un moment antérieur (voir [Comment ta partie s'enregistre](sessions-and-saves.md#how-your-game-saves)). |
+| **Session** (icône de plume) | L'historique des sessions, le journal et les contrôles de session. Voir [Game Mode : sessions et sauvegardes](sessions-and-saves.md). |
+| **Volume** (icône de haut-parleur) | Le volume de **Master** (général), **Music** (musique), **Sound Effects** (effets sonores), **TTS** (synthèse vocale) et **Ambient** (ambiance). |
+| **Game Assets** (ressources de jeu, icône de dossier) | Les médias de scène et l'Asset Browser. Voir [Ressources de jeu](game-assets.md). |
+| **Connected chat** (chat connecté) | Affiché quand la partie est liée à un chat Conversation. Voir [Chats connectés](../chats/connected-chats.md#switching-between-connected-chats). |
 
-Choisis un outil pour ouvrir ses contrôles dans une fenêtre déplaçable sur ordinateur, ou dans un panneau sur toute la largeur sur téléphone. Sur ordinateur, fais glisser son bouton pour le déplacer. Sur téléphone, déplace le menu à trois points, ou déverrouille-le pour réordonner les outils qu'il contient. Fermer la fenêtre ou le panneau te permet de rouvrir l'outil depuis le même endroit. Consulte [Fenêtres de contrôles et leurs boutons](../chats/chat-settings.md#control-windows-and-their-buttons).
+Choisis un outil pour l'ouvrir dans une fenêtre déplaçable sur ordinateur, ou dans un panneau sur toute la largeur sur téléphone. Sur ordinateur, fais glisser le bouton d'un outil pour le déplacer. Sur téléphone, déplace le menu à trois points, ou déverrouille-le pour réordonner les outils qu'il contient. Voir [Fenêtres de contrôles et leurs boutons](../chats/chat-settings.md#control-windows-and-their-buttons).
 
-Tu peux aussi garder ces contrôles dans **Chat Settings**. Ouvre la fenêtre d'un contrôle et choisis **Put back in Chat Settings** : il devient une section repliable. Son bouton de détachement lui redonne une fenêtre séparée. Chaque partie enregistre ton choix, et **Reset View** (réinitialiser la vue) rétablit la disposition de départ : des boutons sur ordinateur, ou des entrées de Chat tools sur téléphone.
+Tu peux aussi garder un contrôle dans **Chat Settings**. Ouvre la fenêtre du contrôle et choisis **Put back in Chat Settings** (remettre dans Chat Settings). Il y apparaît alors comme une section repliable, et son bouton de détachement en refait une fenêtre. Chaque partie enregistre ton choix. **Reset View** (réinitialiser la vue) rétablit la disposition de départ.
 
-**Character Profiles** (profils des personnages) reste en dehors de Chat tools, sur ordinateur comme sur téléphone. Fais glisser son bouton en forme de portrait où tu veux, puis ouvre-le pour choisir un membre de l'équipe et consulter ou modifier sa feuille de personnage. Sur téléphone, **Map** a aussi son propre bouton déplaçable. Les deux suivent le style de widget de ton chat, enregistrent leur position pour cette partie et peuvent être verrouillés depuis leur fenêtre ouverte. La carte sur ordinateur garde ses contrôles habituels de panneau de carte.
+**Character Profiles** (profils des personnages) reste en dehors de Chat tools, sur ordinateur comme sur téléphone. Fais glisser son bouton en forme de portrait où tu veux, puis ouvre-le pour choisir un membre de l'équipe et consulter ou modifier sa feuille de personnage. Sur téléphone, **Map** (carte) a aussi son propre bouton déplaçable. Les deux suivent le style de widget de ton chat, enregistrent leur position pour cette partie et peuvent être verrouillés depuis leur fenêtre ouverte.
 
-## Où trouver chaque sujet de jeu
+<a id="choosing-a-model"></a>
 
-Ce guide t'amène jusqu'au début de la partie. Chaque sujet plus poussé a son propre guide :
+## Choisir un modèle
 
-- [Game Mode : le combat](combat.md) traite des rencontres, du menu d'action, du calcul des dégâts et des quick-time events.
-- [Game Mode : l'équipe et les PNJ](party-and-npcs.md) traite de Character Profiles, des feuilles de personnage et de l'Adventure Journal.
-- [Game Mode : sessions et sauvegardes](sessions-and-saves.md) traite de la fin et du démarrage des sessions, ainsi que de l'historique des sessions.
-- [Game Mode : carte, temps et météo](map-time-weather.md) traite des vues de la carte, de l'horloge automatique et de la météo.
-- [Game Mode : dés et jets de compétence](dice-and-skill-checks.md) traite du menu des dés et des règles de jet de compétence.
-- [Game Mode : les widgets du HUD](hud-widgets.md) traite des widgets d'état affichés à l'écran.
-- [Les ressources de jeu](game-assets.md) traite de la bibliothèque de musiques, de sons, de sprites et d'arrière-plans.
-- [Guide de l'agent Storyboard](storyboard.md) explique l'installation, puis les storyboards en Roleplay et en Game Mode.
+La génération du monde est la partie la plus difficile de Game Mode. Elle demande au modèle un long document JSON strict (un format texte qui doit être exact, sinon le jeu ne peut pas le lire), sans le moindre champ manquant. Un modèle à l'aise dans un chat peut malgré tout échouer à cette étape.
 
-Les Author's Notes (notes de l'auteur) fonctionnent ici comme dans les autres modes. Voir [Mode Roleplay : premiers pas](../roleplay/getting-started.md).
+- Pour la génération du monde, prends un modèle récent et performant, du haut du panier, sur un compte payant. En 2026, les joueurs rapportent de bons résultats avec les gammes phares des grands fournisseurs, comme Anthropic Claude, OpenAI GPT et Google Gemini. Les noms de modèles changent souvent : vois-y des exemples, pas une liste figée.
+- Les modèles les moins chers que nous recommandons, tous deux testés en jeu au 31/10/2026, sont DeepSeek V4 Flash et Claude Haiku 5.5.
+- Pour les tours suivants, tu peux parfois passer à un modèle moins cher, car un tour demande de la narration, pas du JSON strict. Si le GM oublie des PNJ ou contredit des détails passés, reviens à un modèle plus solide.
+- Évite les modèles gratuits ou à routage automatique pour la génération du monde. Ils peuvent basculer vers un petit modèle incapable de produire un JSON valide. Les petits modèles à poids ouverts échouent en général aussi.
+
+Pour la référence complète des paramètres, voir [Paramètres de génération](../prompts/generation-parameters.md).
+
+## Ce que coûte un tour
+
+Game Mode fait trois types de requêtes à l'IA :
+
+1. **La génération du monde.** Une seule fois, quand tu cliques sur **Start Game**. Une grosse requête qui renvoie la présentation du monde, la carte de départ, les PNJ, les feuilles de l'équipe et les widgets.
+2. **Les tours de jeu.** Chaque message construit un nouveau prompt avec l'état courant. Le GM narre et met à jour le monde. C'est le moteur, et non le modèle, qui fait les calculs des rounds de combat : les résultats restent justes.
+3. **Les résumés de session.** Quand tu termines une session, le GM écrit un récapitulatif et des notes de continuité. Quand tu démarres la suivante, il écrit un court message de transition. Les sessions plus anciennes sont compressées en résumés, pour que les longues campagnes tiennent dans le modèle.
+
+<a id="optional-tool-planning-and-lore-searches"></a>
+
+## Planification facultative des outils et recherches dans le lore
+
+Pendant la partie, ouvre **Chat Settings → Function Calling** (réglages du chat → appels de fonctions).
+
+- **Let the GM search lore** (laisser le GM rechercher dans le lore) permet au GM de chercher des faits des lorebooks par leur sens. Active d'abord la vectorisation des lorebooks et vectorise leurs entrées. Les recherches respectent les livres et dossiers activés ainsi que les interrupteurs d'entrées propres au chat. Elles utilisent ton compte d'embeddings et peuvent ajouter une requête au modèle. Les chats Game ont besoin de cet interrupteur pour les recherches dans les lorebooks, même quand **Enable Tool Use** (autoriser l'usage des outils) est activé. Tant qu'il est désactivé, `search_lorebook` est indisponible dans le sélecteur d'outils.
+- **Game tool provider** (fournisseur des outils du jeu) vaut par défaut **Same as narrator** (comme le narrateur), ce qui conserve la boucle d'outils habituelle (jusqu'à quatre cycles d'outils par tour). Choisir un autre compte lance une requête de planification séparée avant la narration. Ce modèle choisit les outils, et le narrateur reçoit leurs résultats sous forme de texte. Cela coûte une requête de plus par tour sur ce compte. Un modèle moins cher peut réduire le coût, mais choisir d'autres outils. Une seule phase de planification ne peut pas enchaîner une deuxième recherche.
+- **Finish rolled turns in one request** (terminer les tours avec des dés en une requête) est activé par défaut et économise une requête sur les tours où l'on lance des dés. Voir [Game Mode : jets de dés et jets de compétence](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request).
+
+Les comptes par abonnement Claude et Grok ne prennent pas en charge les appels natifs aux outils. Les contrôles l'expliquent et restent désactivés tant qu'un **Game tool provider** compatible n'est pas choisi. Les commandes textuelles et les balises de dés fonctionnent toujours. Si un compte séparé manque ou si sa requête échoue, le tour signale l'échec au lieu de narrer sans le travail des outils.
+
+Si tes modèles locaux partagent une mémoire GPU limitée, ouvre **Chat Settings → Agents** (réglages du chat → agents) et active **Run Game tasks one at a time** (exécuter les tâches Game une par une). La narration, les agents et les médias de scène s'attendent alors les uns les autres dans ce chat Game. L'option est désactivée par défaut et ne réserve pas le GPU face aux autres chats ou applications.
+
+## Activer les agents
+
+Les agents sont des aides IA facultatives qui tournent aux côtés du GM. Ils font des requêtes supplémentaires, ce qui augmente le coût. Pour t'en servir, ouvre **Chat Settings → Agents** pendant la partie et active **Enable Agents**. Deux agents sont utiles en Game Mode :
+
+- **Game Session Keeper** aide à maintenir la continuité d'une session à l'autre.
+- **Music DJ** choisit la musique d'ambiance.
+
+**Review Agent Outputs** (relire les sorties des agents) te permet de vérifier ce qu'un agent a produit. Voir [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
 
 ## Dépannage
 
+<a id="world-generation-fails-with-a-json-or-422-error"></a>
+
 ### La génération du monde échoue avec une erreur JSON ou 422
 
-La cause la plus fréquente : le modèle n'a pas réussi à produire l'intégralité du JSON structuré. Essaie ceci, dans l'ordre.
+Le modèle n'a probablement pas réussi à produire l'intégralité du JSON. Essaie ceci, dans l'ordre.
 
-1. Regarde quelle connexion le GM utilise. Si elle pointe vers un modèle gratuit ou à routage automatique, passe à un modèle payant performant.
-2. Réessaie. Certains échecs sont ponctuels, et la même configuration passe au deuxième essai.
-3. Raccourcis un champ d'univers ou de préférences trop long. Des saisies longues laissent moins de place au modèle pour produire le JSON.
+1. Regarde quel modèle utilise le GM. Si c'est un modèle gratuit ou à routage automatique, passe à un modèle payant performant.
+2. Réessaie. Certains échecs sont ponctuels.
+3. Raccourcis un champ de cadre ou de préférences trop long. Une saisie longue laisse moins de place au JSON.
 
-Si un appel a presque abouti mais que le JSON est légèrement cassé, Marinara propose une fenêtre **Repair JSON** (réparer le JSON). Elle ouvre un éditeur numéroté ligne par ligne, avec la sortie brute du modèle. Une ligne d'état t'indique si le JSON est valide, ou affiche l'erreur d'analyse. Clique sur **Format** pour remettre au propre un JSON valide. Clique ensuite sur **Apply Repaired JSON** pour utiliser ta version corrigée, sans payer un nouvel essai complet. L'option **Repair JSON** apparaît aussi pour les résumés de session et les autres appels structurés.
-
-Pour d'autres symptômes et solutions, voir [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
+Si un appel a presque abouti, Marinara propose une fenêtre **Repair JSON** (réparer le JSON) avec la sortie brute du modèle dans un éditeur numéroté ligne par ligne. Une ligne d'état indique si le JSON est valide, ou affiche l'erreur d'analyse. Clique sur **Format** (mettre en forme) pour remettre au propre un JSON valide, puis sur **Apply Repaired JSON** (appliquer le JSON réparé) pour utiliser ta correction sans payer un nouvel essai. **Repair JSON** apparaît aussi pour les résumés de session et les autres appels structurés. Pour d'autres solutions, voir [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
 
 ### Le GM narre gaiement alors que tu as choisi un ton sombre
 
-Certains modèles restent enjoués quoi qu'il arrive. Deux options s'offrent à toi. Ajoute une consigne claire dans le champ de préférences de l'assistant, par exemple "garde une narration sombre, n'adoucis pas les échecs". Ou passe à un modèle dont la voix par défaut colle au ton que tu veux.
+Certains modèles restent enjoués. Ajoute une consigne claire dans le champ de préférences de l'assistant, par exemple "garde une narration sombre, n'adoucis pas les échecs". Ou passe à un modèle dont la voix par défaut colle au ton.
 
-## Guides associés
+## Où trouver chaque sujet
 
-- [Game Mode : le combat](combat.md)
-- [Game Mode : l'équipe et les PNJ](party-and-npcs.md)
-- [Game Mode : sessions et sauvegardes](sessions-and-saves.md)
-- [Game Mode : carte, temps et météo](map-time-weather.md)
-- [Game Mode : dés et jets de compétence](dice-and-skill-checks.md)
-- [Game Mode : les widgets du HUD](hud-widgets.md)
-- [Les ressources de jeu](game-assets.md)
-- [Guide de l'agent Storyboard](storyboard.md)
-- [Mode Roleplay : premiers pas](../roleplay/getting-started.md)
-- [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md)
-- [Agents : des aides IA pour tes chats](../agents/agents-overview.md)
-- [Les paramètres de génération](../prompts/generation-parameters.md)
-- [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md)
+- [Game Mode : le combat](combat.md) : les rencontres, le menu d'action, le calcul des dégâts et les quick-time events.
+- [Game Mode : l'équipe et les PNJ](party-and-npcs.md) : Character Profiles, les feuilles de personnage et l'Adventure Journal.
+- [Game Mode : sessions et sauvegardes](sessions-and-saves.md) : la fin et le début des sessions, l'historique et les points de contrôle.
+- [Game Mode : carte, heure et météo](map-time-weather.md) : les vues de la carte, l'horloge, la météo et le moral.
+- [Game Mode : jets de dés et jets de compétence](dice-and-skill-checks.md) : le menu des dés et les règles des jets de compétence.
+- [Game Mode : les widgets HUD](hud-widgets.md) : les widgets d'état affichés à l'écran.
+- [Ressources de jeu](game-assets.md) : la bibliothèque de musiques, de sons, de sprites et d'arrière-plans.
+- [Guide de l'agent Storyboard](storyboard.md) : les storyboards pour Game Mode et Roleplay.
+- [Mode Roleplay : premiers pas](../roleplay/getting-started.md) : les Author's Notes (notes de l'auteur) fonctionnent ici de la même façon.
+
+## Overworld RPG
+
+Les sections ci-dessous décrivent **Overworld RPG**, qui n'est pas encore disponible. Ne les lis que si ton serveur l'a activé.
+
+<a id="classic-or-overworld-rpg"></a>
+
+### Classic ou Overworld RPG
+
+Une nouvelle partie se joue dans l'un de deux modes de jeu, choisi à la première étape et conservé pour toutes ses sessions :
+
+- **Overworld RPG** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
+- **Classic** : Game Mode tel qu'il a toujours été, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
+
+Overworld RPG est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Toute nouvelle partie est alors Classic, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie Classic.
+
+<a id="choosing-a-setting-kit"></a>
+
+### Choisir un kit d'univers
+
+Un **Setting kit** (kit d'univers) donne au GM les mots dans lesquels s'écrit ton type de monde : les noms de lieux et les tailles d'agglomération, les types de groupes, la façon dont on voyage, le nom d'une année et d'un jour, la façon dont les peuples se nomment, la monnaie et les marchandises, les éléments, les lieux de combat et la famille d'illustrations et de musiques qu'il utilise (voir [Ressources de jeu](game-assets.md#a-settings-own-art-and-music)). Il indique aussi quels types de changements le monde autorise, comme les rivalités, le crime, les guerres ou les catastrophes, et à quelle vitesse il change. Un type désactivé n'est jamais introduit : une querelle peut donc rester une querelle.
+
+Il y a huit kits : high fantasy, wuxia et xianxia, époque moderne, moderne surnaturel, années 1920, cyberpunk, space opera et post-apocalyptique. L'époque moderne est paisible par défaut, sans crime, conflit ni catastrophe, à un rythme lent.
+
+- Choisir un kit avant un genre définit le genre qui lui correspond. Un genre que tu as choisi toi-même reste tel quel.
+- **Write it for my setting** (l'écrire pour mon univers) demande à ton modèle de GM de réécrire le kit pour le genre, le cadre et le ton que tu as choisis. Si le résultat ne tient pas debout, la demande est refaite une fois au modèle avec les raisons. Si cela échoue encore, l'assistant t'indique ce qui n'allait pas et garde le kit que tu avais.
+- **Change its words** (modifier ses mots) ouvre chaque mot du kit. Tape une liste sur une seule ligne, avec des virgules entre les éléments. Un kit qui a un problème, comme un nom vide ou aucune agglomération, indique ce qui ne va pas, et la partie ne peut pas commencer tant qu'il n'est pas corrigé.
+- **Download this kit** (télécharger ce kit) enregistre un fichier `.worldkit.json` à partager. **Import a kit file** (importer un fichier de kit) en relit un.
+
+La partie garde le kit avec lequel elle a été créée, et un fichier de configuration partagé l'inclut. Une Experience peut fournir son propre pack de carte (un kit, des cartes toutes prêtes et des tuiles). Avec cette Experience activée, la configuration affiche son kit comme déjà défini et, si elle fournit des cartes, une **Map** à choisir. Désactiver l'Experience te rend tes choix.
+
+<a id="making-a-world"></a>
+
+### Créer un monde
+
+Une fois un kit choisi, **Your world** (ton monde) dispose un monde dans les mots du kit avant le début de la partie : les régions, les agglomérations de toutes les tailles, ce pour quoi chaque lieu est connu et les chemins qui les relient (routes, rivières, voies maritimes, couloirs de saut), avec la durée de chaque trajet en jours.
+
+Un monde se crée à partir d'une **World seed** (graine du monde). La même graine, le même kit et le même brief donnent toujours le même monde. **Roll** (tirer) en donne un autre, et ressaisir un nombre en fait revenir un. L'aperçu montre une petite carte du sol et des agglomérations, le point de départ de l'équipe et la liste des agglomérations par région.
+
+- **Start from this lore** (partir de ce lore) lit les lorebooks cochés pour y trouver les lieux et les événements datés qu'ils indiquent, conservés exactement tels qu'ils sont écrits. **Build around the lore** (construire autour du lore) complète le monde autour d'eux. **Only the lore's places** (seulement les lieux du lore) ne crée rien d'autre.
+- **Write the world's brief** (écrire le brief du monde) demande à ton modèle de GM le présent, les lieux majeurs, les groupes autour desquels tourne le présent (ce que veut chacun, ses alliés et ses rivaux) et des noms pour les lieux et les personnes, dans la sonorité propre à chaque peuple. Les lieux du lore sont conservés quoi qu'écrive le modèle. Tout ce qui ne correspond pas au kit est écarté et compté. **Change the brief** (modifier le brief) ouvre ses mots, y compris les prénoms et les noms de famille de chaque peuple. Sans brief, les lieux sont numérotés et les gens sont désignés par leur métier.
+
+**Un monde a un passé.** Avant le début de la partie, le monde avance année après année depuis sa fondation. Les agglomérations grandissent, et les groupes sont fondés, prennent et perdent des chefs, se rapprochent et se brouillent entre eux. Là où le monde en a, les bandits, les guerres et les famines laissent leur marque. Un changement grave ne survient qu'après avoir couvé, et seulement dans les types que le kit autorise. Les événements datés de ton lore ou du brief se produisent quand et où ils le disent. La même graine et le même brief donnent le même passé.
+
+**Ce que sait le GM.** Le GM sait toujours où se trouve l'équipe, où elle peut aller et combien de temps prend chaque chemin. Il apprend les événements les plus notables du passé, qui dirige le lieu actuel et le passé de ce lieu. Pour tout autre lieu ou groupe, il peut demander, et reçoit la réponse à son tour suivant. Il nomme l'endroit où va l'équipe avec une balise de lieu. Un lieu que liste le monde garde la taille que le monde lui a donnée. Un lieu que le monde ne liste pas, comme une ferme, garde le nom que lui donne le GM. Chaque agglomération a ses habitants, tirés par la graine quand l'équipe y arrive : un nom issu de leur culture, un métier adapté au lieu, un tempérament, une façon de parler et une apparence. Quand le GM nomme quelqu'un en entier, cette personne rejoint les personnages suivis.
+
+**Ce que fait l'équipe reste fait.** Quand l'équipe aide ou gêne un groupe, change ce que deux groupes pensent l'un de l'autre, prend ou ruine un lieu, ou met quelqu'un à la tête d'un groupe, le GM l'enregistre dans sa réponse. Chaque changement est vérifié par rapport au monde. Un changement d'un type que le kit désactive, ou qui nomme un lieu ou un groupe que le monde n'a pas, est refusé. Dès lors, le GM reçoit le monde tel que l'histoire l'a laissé. Un lieu ajouté par l'histoire est un lieu où l'équipe peut aller. Un swipe (une réponse alternative), une régénération ou un message supprimé annule un changement avec sa réponse.
+
+**Le monde continue sans l'équipe.** Quand le GM dit que le temps passe, le monde avance d'une semaine à la fois, seulement dans les types de changements qu'autorise le kit. Les catastrophes ne viennent jamais d'elles-mêmes : seul le GM peut en narrer une, et elle est refusée si son type est désactivé. Rien n'est décidé là où se trouve l'équipe. Les nouvelles voyagent : le GM apprend un changement lointain une fois écoulés les jours que prennent les routes. Les actes de l'équipe comptent davantage à mesure qu'elle se fait connaître.
+
+**Modifications manuelles.** Dans un éditeur de monde, tu peux renommer ou déplacer des lieux, peindre le sol, ajouter des lieux et des habitants, peindre le champ de bataille tactique d'un lieu (voir [Combat](combat.md#tactical-battles-and-terrain)) et disposer une ville (voir [La ville](map-time-weather.md#the-town)). Tous les éléments du jeu voient aussitôt les modifications. Un lieu renommé répond toujours à son ancien nom. Les modifications changent le monde à partir de maintenant, jamais son passé. Une ville garde sa disposition : les lieux et les habitants que tu ajoutes vont donc sur ses prochaines parcelles libres et dans ses prochains logements libres.
+
+**Fichiers de monde.** **Download this world** (télécharger ce monde), sous **Your world**, enregistre le monde que tu es en train de créer, et **Download the world** (télécharger le monde), dans l'onglet World d'une partie, enregistre le monde de cette partie, modifications manuelles comprises, dans un fichier `.world.json`. **Import a world file** (importer un fichier de monde), à côté du kit d'univers, en lit un dans la configuration d'une nouvelle partie : il choisit le kit du fichier et crée son monde. **Your worlds** (tes mondes) fait de même avec un monde de ta bibliothèque. Un fichier peut aussi contenir l'histoire du monde : les événements et les scènes que son créateur a écrits. Les scènes d'une histoire apparaissent dans la narration avant la réponse du GM, exactement telles qu'elles ont été écrites, et ses objectifs de quête sont listés sous **Story** (histoire) dans l'onglet World du journal. Pour en écrire une, voir [Écrire des scripts d'histoire Game Mode](../extending/writing-story-scripts.md). Les modifications manuelles et l'histoire appartiennent à cette graine et à ce brief : elles sont donc écartées si tu changes l'un ou l'autre. Un fichier illisible est refusé, et l'assistant dit pourquoi. Si le contenu d'un fichier ne correspond pas au kit, il est en partie écarté, et l'assistant indique ce qui l'a été.
+
+**Plus tard, et ce qui est enregistré.** Une partie créée sans monde peut en recevoir un plus tard depuis l'onglet **World** du journal, avec **Make a world for this game** (créer un monde pour cette partie). Le monde commence au tour suivant, et les tours passés, la carte et les personnages restent. Le bouton est grisé tant qu'Overworld RPG est verrouillé. Une partie garde son monde tel qu'il a été créé : une nouvelle session, une branche et un chat exporté gardent donc le même monde. Un monde créé par une version antérieure du générateur continue de se jouer, mais ne peut plus être modifié.
+
+Une partie avec un monde s'ouvre sur l'**overworld**, la carte du monde en pixels où tu fais marcher l'équipe d'une agglomération à l'autre et où tu entres dans les villes. Voir [La carte du monde](map-time-weather.md#the-overworld).

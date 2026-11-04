@@ -1,74 +1,74 @@
 # Importar e exportar lorebooks
 
-Neste guia você aprende a trazer lorebooks para Marinara Engine e a salvá-los como arquivos. Aqui você vê como lidar com um arquivo, com vários de uma vez e com os dois formatos de exportação. Um lorebook é um conjunto de anotações acionadas por palavras-chave, que Marinara acrescenta ao prompt (o texto que Marinara envia para a IA) quando uma palavra correspondente aparece. Em outras ferramentas de roleplay, esse recurso se chama **World Info**.
+Importe lorebooks para trazer fatos do mundo a partir de arquivos, e exporte-os para compartilhar ou fazer backup. Este guia trata de um arquivo, de vários arquivos de uma vez e dos quatro formatos de exportação. Um lorebook é um conjunto de anotações acionadas por palavras-chave, que Marinara acrescenta ao prompt quando uma palavra correspondente aparece. Outras ferramentas chamam esse recurso de World Info.
 
 ## O que você pode importar
 
-Marinara lê dois tipos de arquivo de lorebook e reconhece sozinha qual deles você forneceu:
+Marinara reconhece o tipo de arquivo sozinho. Os dois tipos são arquivos `.json`, e você não precisa de conta nem de chave de API.
 
-- Um lorebook exportado da própria Marinara. Esse formato preserva todos os campos e todas as pastas.
-- Um arquivo **World Info** de outra ferramenta. Entram aqui os arquivos World Info do SillyTavern e o formato "character-book" do card de personagem V2. Marinara converte os campos da outra ferramenta para os seus próprios.
-
-Os dois tipos são arquivos `.json` comuns. Para importar um lorebook, você não precisa de conta nem de chave de API (um código secreto, parecido com uma senha).
+- Um lorebook exportado do Marinara. Esse formato preserva todos os campos e todas as pastas.
+- Um arquivo World Info de outra ferramenta, como o World Info do SillyTavern ou o formato "character-book" do card de personagem V2. Marinara converte os campos para os seus próprios.
 
 ## Importar um lorebook
 
-Siga estes passos para importar um arquivo de lorebook:
+1. Abra o painel **Lorebooks**.
+2. Clique no ícone de seta para baixo na linha do topo, o do meio entre três ícones. A dica dele é **Import** (importar). O ícone de mais é **New** e o ícone de visto é **Select**.
+3. Na janela **Import Lorebook**, toque ou clique na caixa com o texto **Drop one or more lorebook files here or click to browse** e escolha os seus arquivos `.json`. No computador, também dá para soltar os arquivos sobre a caixa. Você pode escolher vários de uma vez e misturar arquivos do Marinara e World Info.
+4. Espere os resultados. Cada arquivo mostra um visto verde com **Imported lorebook** ou uma marca vermelha com um erro. Com vários arquivos, uma linha de resumo mostra quantos deram certo e quantos falharam.
+5. Clique em **Close** (fechar). Os novos lorebooks ficam no painel **Lorebooks**.
 
-1. Abra o painel **Lorebooks** no lado esquerdo do aplicativo.
-2. Clique no ícone de seta para baixo na linha de ações do topo. A dica (o texto que aparece ao passar o mouse) diz **Import** (importar). Ele fica entre o ícone de mais (**New**) e o ícone de visto (**Select**). Esses três botões mostram só o ícone, então passe o mouse por cima para ver os nomes.
-3. A janela **Import Lorebook** se abre. Você deve ver uma caixa com o texto **Drop one or more lorebook files here or click to browse**.
-4. Arraste o arquivo `.json` para a caixa ou clique nela para escolher um arquivo.
-5. Espere o resultado. Cada arquivo mostra um visto verde com **Imported lorebook** ou uma marca vermelha com uma mensagem de erro.
-6. Clique em **Close**. O novo lorebook já aparece na lista do painel **Lorebooks**.
+Marinara mantém a data do próprio arquivo como data de criação.
 
-Marinara mantém a data original do arquivo importado como data de criação do lorebook, e não o momento da importação.
-
-## Importar vários lorebooks de uma vez (importação em lote)
-
-A janela **Import Lorebook** aceita mais de um arquivo na mesma operação.
-
-1. Abra o painel **Lorebooks** e clique no ícone de seta para baixo. A dica diz **Import**.
-2. Arraste vários arquivos `.json` para a caixa ao mesmo tempo, ou clique nela e selecione vários arquivos.
-3. Marinara importa um arquivo depois do outro e mostra uma linha de resultado para cada um. Uma linha de resumo informa quantos deram certo e quantos falharam.
-
-No mesmo lote você pode misturar arquivos da Marinara com arquivos **World Info**. Marinara analisa cada arquivo separadamente.
-
-## Exportar um lorebook
-
-A exportação salva um lorebook em um arquivo no seu dispositivo. É assim que você compartilha um lorebook ou o leva para outra instalação.
-
-1. No painel **Lorebooks**, clique em um lorebook para abrir o editor dele.
-2. Clique no ícone de exportar no cabeçalho do editor. A dica diz **Export lorebook**.
-3. A janela **Export Lorebook** se abre com duas opções. Escolha uma:
-   - **Marinara Native** preserva as pastas da Marinara e todos os campos das entradas. Use essa opção para levar um lorebook a outra instalação da Marinara sem perder nada. O nome do arquivo termina em `.marinara.json`.
-   - **Compatible JSON** salva um arquivo **World Info** sem pastas, para outras ferramentas de roleplay. Alguns detalhes exclusivos da Marinara são descartados. O nome do arquivo termina em `.json`.
-4. O navegador baixa o arquivo.
-
-Escolha **Marinara Native** quando o arquivo for para Marinara. Escolha **Compatible JSON** quando o arquivo for para outra ferramenta.
-
-## Exportar vários lorebooks de uma vez (exportação em lote)
-
-Vários lorebooks podem ser salvos em um único arquivo zip.
-
-1. No painel **Lorebooks**, clique no ícone de visto na linha de ações do topo. A dica diz **Select** (selecionar).
-2. Marque a caixa de seleção de cada lorebook que você quer exportar.
-3. Clique em **Export** na barra de seleção, na parte de baixo.
-4. O navegador baixa um único zip chamado `marinara-lorebooks.zip`.
-
-A exportação em lote sempre usa o formato **Marinara Native**, então o arquivo volta para Marinara sem perder nada.
-
-## Importar uma pasta inteira do SillyTavern
-
-Os passos acima importam arquivos de lorebook que você já tem. Também é possível puxar os lorebooks direto de uma pasta completa de instalação do SillyTavern. Esse caminho traz personagens, chats e presets ao mesmo tempo. Ele usa um assistente de configuração de importação de pasta separado. Veja [Importando do SillyTavern](../data/importing-from-sillytavern.md).
+Se não funcionou: leia o erro ao lado do arquivo. Um arquivo que não é um lorebook, ou que está danificado, falha sozinho enquanto os outros arquivos são importados.
 
 ## Depois da importação
 
-Um lorebook importado já funciona de imediato com os gatilhos por palavra-chave. Se você usa a busca semântica, que encontra entradas pelo sentido, os vetores dela precisam ser gerados de novo após a importação. Veja [Busca semântica para lorebooks](semantic-search.md).
+Um lorebook importado funciona com palavras-chave de imediato. Se você usa a busca semântica, gere os vetores dele de novo. Veja [Busca semântica para lorebooks](semantic-search.md).
+
+## Exportar um lorebook
+
+1. No painel **Lorebooks**, clique em um lorebook para abri-lo.
+2. Clique no ícone de exportar no cabeçalho do editor, perto do canto superior direito. A dica dele é **Export lorebook** (exportar lorebook).
+3. Na janela **Export Lorebook**, escolha um formato. O navegador baixa o arquivo.
+
+| Formato | O que você recebe | Para que usar |
+| --- | --- | --- |
+| **Marinara Native** | Todos os campos das entradas e todas as pastas. O arquivo termina em `.marinara.json`. | Levar um lorebook para outra instalação do Marinara. |
+| **Compatible JSON** | Um arquivo World Info sem pastas, terminado em `.json`. Alguns detalhes exclusivos do Marinara são descartados. | Outras ferramentas de roleplay. |
+| **Markdown** | Um título `## Name` por entrada, com uma linha `Keys:`. | Ler e editar em um editor de texto. |
+| **CSV** | Uma planilha com as colunas name, keys, content, folder, enabled, constant e probability. | Editar muitas entradas em uma planilha. |
+
+## Exportar vários lorebooks de uma vez
+
+1. No painel **Lorebooks**, clique no ícone de visto (**Select**).
+2. Marque cada lorebook que você quer.
+3. Clique em **Export** (exportar) na barra da parte de baixo.
+
+O navegador baixa `marinara-lorebooks.zip`. A exportação em lote sempre usa **Marinara Native**, então tudo volta quando você importa o arquivo.
+
+## Importar entradas de Markdown ou CSV
+
+Você pode acrescentar entradas a um lorebook a partir de um arquivo de texto Markdown ou CSV, por exemplo um que você editou depois de exportar.
+
+1. Abra o lorebook e clique em **Import entries from Markdown or CSV** (importar entradas de Markdown ou CSV) no cabeçalho do editor.
+2. Na janela **Import entries**, clique em **Choose file** (escolher arquivo) ou cole o texto na caixa.
+3. Confira **Format** (formato). Marinara o deduz a partir do texto.
+4. Leia a prévia. No Markdown, use um título `## Name` por entrada, uma linha `Keys: a, b` opcional e depois o texto. No CSV, use uma linha de cabeçalho com name, keys e content, e as colunas opcionais folder, enabled, constant e probability. A prévia mostra quantas entradas estão prontas e lista os erros e avisos por linha.
+5. Em **Import into** (importar para), escolha **This lorebook** ou **New lorebook**. Para um novo, digite um nome em **New lorebook name**.
+6. Em **When an entry name already exists** (quando já existe uma entrada com esse nome), escolha **Skip the imported entry**, **Import as a renamed copy** ou **Overwrite the existing entry**.
+7. Clique no botão **Import**, que mostra a quantidade de entradas.
+
+Uma notificação mostra quantas entradas foram acrescentadas, substituídas e puladas.
+
+Se não funcionou: o botão continua desativado quando o arquivo tem um erro que afeta o arquivo inteiro, como colunas obrigatórias ausentes, ou quando nenhuma entrada é válida. Corrija as linhas que a prévia lista.
+
+## Importar uma pasta inteira do SillyTavern
+
+Para importar de uma pasta completa do SillyTavern, com personagens, chats e presets, veja [Importar do SillyTavern](../data/importing-from-sillytavern.md).
 
 ## Guias relacionados
 
 - [Visão geral dos lorebooks](overview.md)
 - [Vincular lorebooks a personagens e personas](linking-to-characters.md)
 - [Busca semântica para lorebooks](semantic-search.md)
-- [Importando do SillyTavern](../data/importing-from-sillytavern.md)
+- [Importar do SillyTavern](../data/importing-from-sillytavern.md)

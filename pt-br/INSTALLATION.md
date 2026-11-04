@@ -1,52 +1,55 @@
 # Instalação do Marinara Engine
 
-Este guia ajuda a escolher a melhor forma de instalar Marinara Engine no seu dispositivo. Marinara roda na sua própria máquina, então os chats e os dados ficam locais. Cada plataforma abaixo tem um guia passo a passo próprio, com link na tabela.
+Marinara roda no seu próprio dispositivo. Escolha abaixo o guia do seu dispositivo.
 
 ## Escolha a plataforma
 
-Escolha o guia que corresponde ao dispositivo onde você quer rodar Marinara.
-
-| Plataforma | Guia de instalação |
-|---|---|
+| Seu dispositivo | Guia |
+| --- | --- |
 | Windows | [Instalação no Windows](installation/windows.md) |
 | macOS ou Linux | [Guia de instalação no macOS / Linux](installation/macos-linux.md) |
 | Docker ou Podman | [Rodar em contêiner (Docker / Podman)](installation/containers.md) |
-| Celular ou tablet Android | [Baixar APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Guia de instalação no Android](installation/android-termux.md) |
+| Celular ou tablet Android | [Guia de instalação no Android](installation/android-termux.md) |
 | iPhone ou iPad | [Guia do PWA para iOS / iPadOS](installation/ios-pwa.md) |
 
-Alguns pontos importantes antes da escolha:
+## Qual devo escolher?
 
-- No **iPhone ou iPad**, Marinara não roda o servidor. O servidor fica em um computador, em um servidor doméstico ou em um dispositivo Android. Depois você abre o aplicativo no Safari do iPhone ou do iPad. O guia de iOS explica isso.
-- No **Android**, Marinara roda dentro do **Termux**. Termux é um aplicativo gratuito que dá ao Android um pequeno ambiente Linux. Toque no link direto do APK, aceite os avisos obrigatórios de instalação e de permissão do Termux e deixe o aplicativo cuidar automaticamente da credencial privada do localhost. O instalador nunca pede credenciais de assinatura do Android nem esse segredo local.
+- **Windows:** use o instalador do Windows. Ele configura tudo e cria um atalho na área de trabalho.
+- **Android:** [baixe o APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Abra o arquivo baixado e toque em **Install / Start Marinara** (instalar / iniciar Marinara) no aplicativo.
+- **macOS, Linux ou um servidor doméstico:** escolha uma das duas opções. O guia nativo roda Marinara direto no computador com um script de inicialização. O Docker não precisa de Node.js e não compila nada, mas você precisa instalar o Docker antes.
+- **iPhone ou iPad:** Marinara não consegue rodar o servidor nesses dispositivos. Rode o servidor em um computador, em um servidor doméstico ou em um dispositivo Android e depois abra Marinara no Safari. O guia de iOS explica como.
+- **Você quer editar o código:** rode a partir do código-fonte. Isso significa baixar o código e compilar o aplicativo no seu dispositivo. Os guias de Windows, de macOS e Linux e de Android cobrem esse caminho.
 
-## Qual devo escolher
+No Android, Marinara roda dentro do **Termux**, um aplicativo Android gratuito que dá ao celular um pequeno sistema Linux. O APK configura o Termux para você.
 
-Se você está começando agora e quer a configuração mais simples, escolha uma destas opções:
+## Do que você precisa
 
-- No **Windows**, use o **instalador do Windows**. Ele baixa e configura tudo para você, e ainda cria um atalho na área de trabalho.
-- No **Android**, use o link **Baixar APK** acima. Abra o arquivo baixado e toque em **Install / Start Marinara** no aplicativo.
-- No **macOS**, no **Linux** ou em um servidor doméstico, use o **Docker**. Um único comando roda o aplicativo. A imagem já traz o Node.js, todas as dependências e uma cópia compilada do aplicativo. Assim você não precisa instalar o Node.js nem compilar o aplicativo por conta própria.
+- Para rodar a partir do código-fonte: **Node.js** 24, 25 ou 26, e **Git**. O Node.js executa o aplicativo. O Git baixa o código e o atualiza. Os guias de cada plataforma trazem os links dos dois downloads.
+- Para Docker ou Podman: sem Node.js. A configuração recomendada com Compose usa o Git uma vez, para baixar os arquivos do projeto.
 
-Se você se dá bem com o terminal e talvez queira editar o código, rode a partir do código-fonte. "Rodar a partir do código-fonte" significa baixar o código e compilar o aplicativo na sua máquina. Os guias de **Windows**, **macOS e Linux** e **Android (Termux)** cobrem esse caminho.
+## Abrir Marinara
 
-## Requisitos mínimos
-
-- Você precisa de um computador ou dispositivo capaz de rodar um servidor: Windows, macOS, Linux ou Android.
-- Para rodar a partir do código-fonte, você precisa do **Node.js** versão 24 e do **Git**. O Node.js executa o aplicativo, e o Git baixa e atualiza o código. Os guias de cada plataforma trazem os links dos dois downloads.
-- Instalações com **Docker** e **Podman** não precisam do Node.js. A configuração recomendada com Compose ainda usa o Git para baixar os arquivos do projeto. O guia de contêiner explica isso.
-- Por padrão, o aplicativo roda na sua própria máquina neste endereço:
+Com Marinara rodando, abra este endereço em um navegador no mesmo dispositivo. Não use esse endereço a partir de outro dispositivo.
 
 ```text
 http://127.0.0.1:7860
 ```
 
-- O endereço `127.0.0.1` significa o seu próprio computador, e `7860` é a porta padrão. Para acessar Marinara pelo celular ou por outro dispositivo da rede, veja o acesso pela rede local nas [Perguntas frequentes](FAQ.md).
+`127.0.0.1` significa este dispositivo. `7860` é a porta padrão, o número em que o aplicativo escuta. Os inicializadores (os scripts que iniciam Marinara) também deixam outros dispositivos da sua rede alcançá-lo, mas esses dispositivos ficam bloqueados até você definir um login. Uma instalação com Docker ou Podman só responde neste dispositivo até você mudar a linha da porta; veja [Contêineres](installation/containers.md#open-marinara-from-another-device).
 
-## O que fazer depois da instalação
+## Abrir Marinara no celular
 
-Com Marinara rodando e aberto no navegador, leia [Primeiros passos com Marinara Engine](home/welcome.md). O guia acompanha você nas primeiras etapas: adicionar uma conexão, criar ou importar um personagem e começar um chat.
+1. Instale e inicie Marinara em um computador, em um servidor doméstico ou em um celular Android.
+   Com Docker ou Podman, siga antes [Abrir Marinara a partir de outro dispositivo](installation/containers.md#open-marinara-from-another-device).
+2. Defina um login nesse dispositivo. Veja [Acesso remoto](REMOTE_ACCESS.md#option-1-login-recommended).
+3. Descubra o endereço IP desse dispositivo. As [Perguntas frequentes](FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) mostram como.
+4. No celular, abra `http://` seguido do endereço IP e de `:7860`.
 
-Para manter a instalação em dia mais adiante, veja [Atualizando Marinara Engine](UPGRADING.md).
+Para iPhone, veja [Guia do PWA para iOS / iPadOS](installation/ios-pwa.md).
+
+## Depois de instalar
+
+Leia [Primeiros passos com Marinara Engine](home/welcome.md) para adicionar uma conexão, criar ou importar um personagem e começar um chat. Para atualizar mais tarde, veja [Atualizando Marinara Engine](UPGRADING.md).
 
 ## Guias relacionados
 

@@ -1,189 +1,163 @@
 # Game Mode: Würfel und Fertigkeitsproben
 
-In dieser Anleitung erfährst du, wie das Würfeln im Game Mode von Marinara Engine funktioniert: das Schnellwürfel-Menü, die eigene Würfelnotation und die Grenzen für eigene Würfe. Außerdem geht es darum, wie der Game Master (die KI, die das Spiel leitet) eine Fertigkeitsprobe gegen eine Difficulty Class (DC) abwickelt.
+Mit der Würfel-Schaltfläche würfelst du im Game Mode für den Game Master (GM). Diese Anleitung zeigt außerdem, wie der GM eine Fertigkeitsprobe gegen eine Difficulty Class (DC) abwickelt, die Zahl, die ein Wurf erreichen oder übertreffen muss.
 
 ## Würfeln
 
-Die Eingabeleiste in einem Game-Mode-Chat hat eine Würfel-Schaltfläche. Zeig mit der Maus darauf, dann erscheint der Tooltip **Roll dice** (Kurzhinweis beim Draufzeigen). Ein Klick öffnet das Schnellwürfel-Menü.
+Die Eingabeleiste hat eine Würfel-Schaltfläche. Ihr Tooltip lautet **Roll dice** (Würfeln).
 
-Das Menü bietet acht Presets für einen Klick:
+1. Klick auf die Würfel-Schaltfläche, um das Schnellwürfel-Menü zu öffnen.
+2. Klick auf ein Preset: d20, d6, 2d6, d10, d100, d4, d8 oder d12.
+3. In der Eingabeleiste erscheint ein Chip, etwa `🎲 d20`. Der Wurf steht in der Warteschlange und ist noch nicht gesendet.
+4. Schick deine Nachricht ab. Marinara würfelt und hängt das Ergebnis als Tag ans Ende deiner Nachricht. Der GM liest es und erzählt passend dazu weiter.
 
-| Preset | Würfelt |
-|---|---|
-| d20 | einen 20-seitigen Würfel |
-| d6 | einen 6-seitigen Würfel |
-| 2d6 | zwei 6-seitige Würfel |
-| d10 | einen 10-seitigen Würfel |
-| d100 | einen 100-seitigen Würfel |
-| d4 | einen 4-seitigen Würfel |
-| d8 | einen 8-seitigen Würfel |
-| d12 | einen 12-seitigen Würfel |
+Um einen wartenden Wurf vor dem Senden zu entfernen, klick am Chip auf **Clear queued roll** (wartenden Wurf entfernen).
 
-So kommst du zu einem schnellen Wurf:
+Ein einzelner Würfel ohne Bonus sieht so aus:
 
-1. Öffne die Eingabeleiste in einem Game-Mode-Chat.
-2. Klick auf die Würfel-Schaltfläche.
-3. Klick auf eines der acht Presets, zum Beispiel **d20**.
-4. In der Eingabeleiste erscheint ein kleiner Chip, etwa `🎲 d20`.
-
-Der Wurf geht nicht sofort raus, sondern wandert in die Warteschlange. Zum Entfernen klick auf die Lösch-Schaltfläche am Chip; ihr Tooltip lautet **Clear queued roll**.
-
-Gerechnet wird erst, wenn du die nächste Nachricht abschickst. Die App hängt das Ergebnis als Tag (Schlagwort) ans Ende der Nachricht. Ein einzelner Würfel ohne Bonus sieht so aus:
-
-```
+```text
 [dice: d20 = 14]
 ```
 
 Bei mehreren Würfeln oder mit Bonus stehen auch die Einzelwerte dabei:
 
-```
+```text
 [dice: 3d8+2 = 18 (4, 6, 6 +2)]
 ```
 
-Der Game Master liest dieses Tag und erzählt passend zum Ergebnis weiter.
+Der GM kann in seiner Erzählung auch mit `[dice: 3d8+2]` einen Wurf anfordern. Marinara liefert die tatsächlichen Zahlen und zeigt dieselbe animierte Karte. Das funktioniert auch mit reinen Textverbindungen, einschließlich Claude- und Grok-Abonnements. Würfelt der GM in einem Zug mehrmals, wartet jede Würfelkarte, bis sie an der Reihe ist: Schließe eine, um die nächste zu sehen. Alle Würfe werden im aktiven Swipe (der alternativen Antwort) dieses Zugs gespeichert und bleiben nach dem Neuladen unter **Logs** (Protokolle) erhalten. Beim Fortsetzen eines Zugs bleiben seine früheren Würfe bestehen. Beim erneuten Generieren entsteht ein neuer Satz für den neuen Swipe.
 
-Wenn der Game Master in einem Zug mehrmals würfelt, erhält jede Würfelkarte einen eigenen Platz in der Warteschlange. Schließe eine Karte, um die nächste zu sehen. Alle Würfe werden im aktiven Swipe (der alternativen Antwort) dieses Zugs gespeichert und bleiben nach dem Neuladen unter **Logs** (Protokolle) erhalten. Beim Fortsetzen bleiben frühere Würfe bestehen; beim erneuten Generieren entsteht ein eigener Satz für den neuen Swipe.
+## Eigene Würfel werfen
 
-Der Game Master kann auch in der Erzählung mit `[dice: 3d8+2]` einen Wurf anfordern. Die Engine liefert die tatsächlichen Zahlen und zeigt dieselbe animierte Karte. Das funktioniert auch mit reinen Textverbindungen, einschließlich Claude- und Grok-Abonnements. Es gelten dieselbe Notation und dieselben Grenzen wie im Würfelmenü.
+Das Würfelmenü hat ein Textfeld für einen eigenen Wurf in `NdM`-Notation: `N` Würfel mit je `M` Seiten, optional mit einem Bonus oder Abzug am Ende. Das Feld zeigt das Beispiel `3d8+2` (drei 8-seitige Würfel, 2 addieren).
 
-## Eigene Würfelnotation
+1. Öffne das Würfelmenü.
+2. Tipp deine Notation ein, zum Beispiel `2d6+1`.
+3. Drück <kbd>Enter</kbd> oder klick auf die Papierflieger-Schaltfläche. Der Wurf steht als Chip in der Warteschlange.
 
-Im Würfelmenü gibt es zusätzlich ein Textfeld für einen eigenen Wurf. Es versteht die übliche `NdM`-Notation: `N` ist die Anzahl der Würfel, `M` die Zahl der Seiten pro Würfel. Am Ende lässt sich ein Bonus oder ein Abzug anhängen.
+| Notation | Bedeutung |
+| --- | --- |
+| `d20` | Ein 20-seitiger Würfel |
+| `4d8-1` | Vier 8-seitige Würfel, 1 abziehen |
+| `4d6kh3` | Vier 6-seitige Würfel werfen, die höchsten drei behalten |
+| `2d20kl1` | Den niedrigsten behalten: ein Wurf mit Nachteil |
+| `4d6dl1+2` | Den niedrigsten Würfel verwerfen, 2 addieren |
 
-Der Platzhalter im Feld zeigt ein Beispiel: `3d8+2`. Das heißt: drei 8-seitige Würfel werfen und 2 zur Summe addieren.
+`kh` und `kl` behalten die höchsten oder niedrigsten Würfel, `dh` und `dl` verwerfen sie. Jeder geworfene Würfel wird aufgezeichnet, und nur die behaltenen werden addiert.
 
-So nutzt du einen eigenen Wurf:
+Wenn es nicht funktioniert hat: Text, der weder `NdM` noch ein einzelnes `dM` ist, optional gefolgt von `kh`, `kl`, `dh` oder `dl` und einer Zahl, schlägt mit einer Fehlermeldung fehl, die das erwartete Format nennt.
 
-1. Klick auf die Würfel-Schaltfläche, um das Menü zu öffnen.
-2. Tipp die Notation ins Textfeld, zum Beispiel `2d6+1`.
-3. Drück Enter oder klick auf die kleine Papierflieger-Schaltfläche (senden) neben dem Feld.
-4. Der Wurf steht als Chip bereit und wartet auf das Absenden.
-
-Weitere Beispiele zum Ausprobieren:
-
-- `d20` wirft einen 20-seitigen Würfel.
-- `4d8-1` wirft vier 8-seitige Würfel und zieht 1 ab.
-- `2d6+3` wirft zwei 6-seitige Würfel und addiert 3.
-- `4d6kh3` wirft vier 6-seitige Würfel und behält die höchsten drei. `kl` behält die niedrigsten, während `dh` und `dl` stattdessen die höchsten oder niedrigsten verwerfen. Damit ist `2d20kl1` ein Wurf mit Nachteil, und `4d6dl1+2` verwirft den niedrigsten Würfel und addiert 2. Jeder geworfene Würfel wird aufgezeichnet, und nur die behaltenen werden addiert.
-
-Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werfen, und jeder Würfel darf maximal 1000 Seiten haben. Fordert ein einfacher Wurf mehr an, begrenzt die App die Anfrage, statt sie abzulehnen. Die Ergebniskarte zeigt die begrenzte Notation: Aus `500d6` wird eine `100d6`-Karte für die hundert tatsächlich geworfenen Würfel. Ein Wurf, der Würfel behält oder verwirft und die Grenzen überschreitet, etwa `101d6kh3`, wird stattdessen mit einer Fehlermeldung wegen der Bereichsüberschreitung abgelehnt, weil eine Begrenzung der Würfelanzahl ändern würde, welche Würfel behalten werden. Ist dein Text keine gültige Würfelnotation, also `NdM` oder ein einzelnes `dM` wie `d20`, optional gefolgt von `kh`, `kl`, `dh` oder `dl` und einer Zahl, schlägt der Wurf fehl und eine Fehlermeldung nennt das erwartete Format.
-
-<a id="symbol-dice-by-name"></a>
-
-### Symbolwürfel nach Namen
-
-In einem Spiel, dessen Regelsatz Symbolwürfel wirft (ein `symbol-pool`-Regelsatz, etwa ein System im Stil von Genesys), nimmt das Feld für eigene Würfe diese Würfel auch nach Namen an. Gib für jede Art die Anzahl und den Würfelnamen an, zum Beispiel `2 ability 1 proficiency vs 2 difficulty`. Als Name dient die ID oder die Beschriftung des Würfels; Groß- und Kleinschreibung spielen keine Rolle. Du kannst die Angaben mit Leerzeichen, Kommas, `+` oder `vs` trennen.
-
-Die Karte zeigt jeden Würfel mit den Symbolen auf seiner Seite, dann die Symbole, die nach dem gegenseitigen Aufheben übrig bleiben, und ob das Ergebnis ein Erfolg ist. Das Tag in deiner Nachricht enthält dasselbe, zum Beispiel `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Ein Wurf kann bis zu 40 Würfel benennen. Auch der Game Master kann diese Namen mit seinem Würfel-Tool verwenden. Die übliche `NdM`-Notation würfelt weiterhin in jedem Spiel wie oben beschrieben.
+Du kannst höchstens 100 Würfel auf einmal werfen, und jeder Würfel darf höchstens 1.000 Seiten haben. Ein einfacher Wurf darüber wird auf die Grenzen gekürzt, und die Karte zeigt die gekürzte Notation: Aus `500d6` wird eine `100d6`-Karte. Ein Wurf, der Würfel behält oder verwirft und die Grenzen überschreitet, etwa `101d6kh3`, wird mit einer Fehlermeldung wegen Bereichsüberschreitung abgelehnt, weil eine Kürzung ändern würde, welche Würfel behalten werden.
 
 <a id="skill-checks"></a>
 
 ## Fertigkeitsproben
 
-Eine Fertigkeitsprobe entscheidet, ob dir etwas Riskantes gelingt – anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest eine Probe nicht selbst. Der Game Master fordert sie mitten in seiner Erzählung ein. Die App macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner.
-
-Eine im Text angeforderte Probe beginnt mit dem Versuch. Die Engine würfelt und stellt dann eine zusätzliche Modellanfrage mit den tatsächlichen Ergebnissen, damit der Game Master den Ausgang in derselben Runde abschließen kann. Das korrigiert auch einen Entwurf, der vor dem Wurf ein Ergebnis geraten hat. Die zusätzliche Anfrage sendet den Prompt erneut und verbraucht weitere Eingabe- und Ausgabe-Tokens. Scheitert sie, behält die Runde die gewürfelten Ergebnisse im Protokoll, ohne einen geratenen oder unvollständigen Ausgang zu speichern. Ein Hinweis mit der Schaltfläche **Regenerate turn** (Runde neu generieren) bleibt an der Runde sichtbar, auch nach dem Neuladen des Chats.
-
-Deaktiviere **Narrate dice outcomes immediately** (Würfelergebnisse sofort erzählen) unter **Chat Settings → Function Calling**, um die tatsächlichen Ergebnisse ohne diese zusätzliche Anfrage für die nächste Runde aufzubewahren. Die Einstellung ist standardmäßig aktiviert. Anfragen, bei denen kein tatsächlicher Wurf stattfindet, lösen niemals die zusätzliche Erzählanfrage aus.
-
-Eine dritte Möglichkeit behält den Ausgang im selben Zug, ohne zweite Anfrage. Siehe unten [Einen gewürfelten Zug mit einer Anfrage abschließen](#finishing-a-rolled-turn-in-one-request).
-
-Bei einer Verbindung mit Unterstützung für das Würfel-Tool kann der Game Master bereits während der Generierung einen echten Wurf erhalten. Die Würfelkarte erscheint, sobald das Tool antwortet; die abgeschlossene Probe übernimmt dieses Ergebnis, ohne erneut zu würfeln. Jede ausgewertete Fertigkeitsprobe erhält ein eigenes Banner nach den wartenden Würfelkarten.
-
-Das Banner nennt die Fertigkeit und die Zielzahl, zum Beispiel **Stealth Check** und daneben **DC 15**. DC steht für Difficulty Class, also den Schwierigkeitsgrad: die Zahl, die dein Wurf erreichen oder übertreffen muss.
+Eine Fertigkeitsprobe testet etwas Riskantes, etwa Anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest keine selbst. Der GM fordert sie in seiner Erzählung an, und Marinara macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner. Das Banner zeigt die Fertigkeit und die Zielzahl, zum Beispiel **Stealth Check** mit **DC 15**. Jede ausgewertete Probe bekommt ein eigenes Banner, nach etwaigen wartenden Würfelkarten.
 
 ### Wie das Ergebnis zustande kommt
 
-Die Probe wirft einen 20-seitigen Würfel und addiert zwei Modifikatoren:
+Die Probe wirft einen d20 und addiert zwei Modifikatoren:
 
-- einen Fertigkeits-Modifikator aus der Fertigkeitsstufe, die das Spiel für den Charakter mitführt. Fehlt für diese Fertigkeit noch eine Stufe, beträgt der Modifikator 0.
-- einen Attribut-Modifikator aus dem Attribut, das für diese Fertigkeit zuständig ist.
+- Einen Fertigkeits-Modifikator aus der Fertigkeitsstufe, die das Spiel für deinen Charakter mitführt. Hat das Spiel für diese Fertigkeit noch keine Stufe, beträgt er 0.
+- Einen Attribut-Modifikator aus dem Attribut, das für die Fertigkeit zuständig ist. Jede Fertigkeit ist automatisch einem Attribut zugeordnet: Stealth (Heimlichkeit) nutzt Dexterity (Geschicklichkeit), Perception (Wahrnehmung) nutzt Wisdom (Weisheit), Persuasion (Überredung) nutzt Charisma. Eine Fertigkeit, die Marinara nicht kennt, nutzt Intelligence (Intelligenz).
 
-Würfelwurf plus beide Modifikatoren ergeben das Gesamtergebnis. Erreicht oder übertrifft es die DC, ist die Probe bestanden. Bleibt es darunter, ist sie misslungen. Jede Fertigkeit hängt automatisch an einem zuständigen Attribut. Stealth (Heimlichkeit) nutzt zum Beispiel Dexterity (Geschicklichkeit), Perception (Wahrnehmung) nutzt Wisdom (Weisheit) und Persuasion (Überredung) nutzt Charisma. Kennt die App eine Fertigkeit nicht, greift sie auf Intelligence (Intelligenz) zurück.
+Erreicht oder übertrifft die Summe die DC, gelingt die Probe. Zwei Würfe setzen die Rechnung außer Kraft:
 
-### Kritischer Erfolg und kritischer Fehlschlag
+- Eine natürliche 20 ist ein **CRITICAL SUCCESS** und gelingt immer.
+- Eine natürliche 1 ist ein **CRITICAL FAILURE** und misslingt immer.
 
-Zwei Würfelergebnisse setzen die Rechnung außer Kraft:
-
-- Eine natürliche 20 (der Würfel selbst zeigt 20) ist ein **CRITICAL SUCCESS**. Sie gelingt immer, auch gegen eine hohe DC.
-- Eine natürliche 1 (der Würfel selbst zeigt 1) ist ein **CRITICAL FAILURE**. Sie misslingt immer, auch bei großen Modifikatoren.
-
-Das Banner zeigt eines von vier Ergebnissen: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** oder **CRITICAL FAILURE**.
-
-### Andere Würfelsysteme
-
-Der Game Master kann eine andere Notation angeben, etwa `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Solche Proben verwenden den festen Modifikator der Notation statt der d20-Modifikatoren des Charakterbogens und gelingen, wenn die Summe den DC erreicht. Die Regeln für eine natürliche 1 und eine natürliche 20 gelten nur für die oben beschriebene Standard-d20-Probe.
-
-Erfolgspools müssen sowohl den Schwellenwert pro Würfel als auch die benötigte Anzahl an Erfolgen angeben: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` würfelt sechs d10, zählt jeden Würfel mit mindestens 6 einmal und gelingt ab vier Erfolgen. Die Engine errät keinen fehlenden Schwellenwert und setzt weder explodierende Würfel noch Patzer oder andere besondere Poolregeln um. Ein Pool ohne gültigen Schwellenwert bleibt unaufgelöst; vom Modell erfundene Zahlen werden entfernt.
-
-Dieser Pool gilt unverändert für Spiele **ohne Regelsatz**. Ein Spiel mit einem Würfelpool-Regelsatz folgt dagegen den Regeln, die die Engine tatsächlich umsetzt; siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
-
-Das Attribut `dice=` einer Probe akzeptiert nur einfaches `NdM`. Dort werden Anfragen wie `4d6kh3`, `3d6!` oder `4dF` nicht gewürfelt. Die Engine protokolliert die nicht unterstützte Notation und entfernt erfundene Zahlen aus Probenaufzeichnungen. Diese Ausgänge bleiben offen; die Engine ersetzt nicht stillschweigend das Würfelsystem.
+Das Banner zeigt **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** oder **CRITICAL FAILURE**.
 
 ### Vorteil und Nachteil
 
-Der Game Master kann eine Probe mit Vorteil oder mit Nachteil ansetzen. Beides zusammen kommt bei einer Probe nie vor.
+Der GM kann eine Probe mit Vorteil (zwei d20 werfen, den höheren behalten) oder mit Nachteil (den niedrigeren behalten) ansetzen. Das Banner zeigt den Modus neben der DC und markiert den verwendeten Würfel. Fordert der GM beides zugleich an, lässt Marinara diese Probe unverändert, statt zu raten, und du bekommst dafür kein Banner.
 
-- Mit Vorteil wirft die App zwei 20-seitige Würfel und behält den höheren.
-- Mit Nachteil wirft die App zwei Würfel und behält den niedrigeren.
+### Eigenen d20 vorab werfen
 
-Fordert der Game Master beides zugleich an, lässt die App diese Probe unverändert, statt die Absicht zu erraten. Dafür erscheint dann kein Banner.
+Leg vor der Probe über das Würfelmenü einen `d20` in die Warteschlange. Die Probe nimmt dann deine Zahl, statt einen neuen Würfel zu werfen. Deine Fertigkeits- und Attribut-Modifikatoren gelten weiterhin.
 
-Ist eines von beiden aktiv, zeigt das Banner den Modus neben der DC an und markiert, welchen Würfel es verwendet hat.
-
-### Eigenen Würfel vorab werfen
-
-Du kannst vor der Probe einen eigenen `d20` über das Würfelmenü in die Warteschlange legen. Dann übernimmt die Fertigkeitsprobe deine gewürfelte Zahl, statt neu zu würfeln. Fertigkeits- und Attribut-Modifikator kommen weiterhin obendrauf.
+Wie der GM einen Zug nach einem Wurf abschließt und was das kostet, steht unter [Wie ein gewürfelter Zug erzählt wird](#how-a-rolled-turn-is-narrated).
 
 <a id="games-that-use-a-ruleset"></a>
 
-## Spiele mit einem Regelsatz
+### Spiele mit einem Regelsatz
 
-In einem Spiel mit Regelsatz, etwa 5e (SRD 5.1), werden Proben nach den Regeln des Regelsatzes gewürfelt: mit seinen eigenen Würfeln, seiner Schwierigkeitsskala und seinen Modifikatoren aus dem Charakterbogen sowie bei manchen Regelsätzen mit einem Würfelpool oder Symbolwürfeln. Siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
+In einem Spiel mit Regelsatz, etwa 5e (SRD 5.1), nutzen Proben die eigenen Würfel des Regelsatzes, seine Schwierigkeitsskala und seine Modifikatoren aus dem Charakterbogen, bei manchen Regelsätzen auch einen Würfelpool oder Symbolwürfel. Siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
+
+## Referenz
+
+<a id="how-a-rolled-turn-is-narrated"></a>
+
+### Wie ein gewürfelter Zug erzählt wird
+
+Fordert der GM im Text eine Probe an, wertet Marinara die Würfel aus und hat drei Wege, den Ausgang abzuschließen. Alle drei stehen unter **Chat Settings → Function Calling**.
+
+| Einstellung | Standard | Was passiert |
+| --- | --- | --- |
+| **Finish rolled turns in one request** (gewürfelte Züge mit einer Anfrage abschließen) | An | Eine Anfrage. Der GM schreibt den Ausgang ohne Zahlen, und Marinara setzt sie ein. Siehe unten. |
+| **Narrate dice outcomes immediately** (Würfelergebnisse sofort erzählen) | An | Zwei Anfragen. Der GM schreibt einen Entwurf, Marinara würfelt, dann sendet eine weitere Anfrage den Prompt mit den tatsächlichen Ergebnissen erneut, damit der GM den Ausgang im selben Zug abschließt. Das kostet mehr Eingabe- und Ausgabe-Tokens. |
+| Beide aus | | Die tatsächlichen Ergebnisse werden für den nächsten Zug aufbewahrt, ohne zusätzliche Anfrage. |
+
+Scheitert bei **Narrate dice outcomes immediately** die zusätzliche Anfrage, behält der Zug die ausgewerteten Ergebnisse in seinem Protokoll, ohne einen geratenen oder unvollständigen Ausgang zu speichern. Ein Hinweis mit der Schaltfläche **Regenerate turn** (Zug neu generieren) bleibt am Zug, auch nach dem Neuladen. Eine Anfrage ohne tatsächliche Würfe löst die zusätzliche Anfrage nie aus.
+
+Bei einer Verbindung, die das Würfel-Tool unterstützt, kann der GM stattdessen schon während der Generierung einen echten Wurf bekommen. Die Würfelkarte erscheint, sobald das Tool antwortet, und die abgeschlossene Probe übernimmt dieses Ergebnis, ohne erneut zu würfeln.
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 
-## Einen gewürfelten Zug mit einer Anfrage abschließen
+#### Einen gewürfelten Zug mit einer Anfrage abschließen
 
-Ohne diese Option kostet ein Zug mit Würfelwurf zwei Modellanfragen: eine für den Entwurf und eine zum Umschreiben mit den tatsächlichen Zahlen. **Finish rolled turns in one request** (gewürfelte Züge mit einer Anfrage abschließen) unter **Chat Settings → Function Calling** entfernt die zweite. Die Option ist standardmäßig an. Schalte sie in einem Chat aus, damit dort stattdessen jeder gewürfelte Zug mit den tatsächlichen Zahlen neu geschrieben wird.
+Ohne diese Option kostet ein Zug mit Würfelwurf zwei Anfragen. **Finish rolled turns in one request** entfernt die zweite. Die Option ist standardmäßig an. Schalte sie in einem Chat aus, damit dieser Chat stattdessen jeden gewürfelten Zug mit den tatsächlichen Zahlen neu schreibt.
 
-Der Game Master legt dabei seinen Text fest, bevor irgendeine Zahl vorliegt. Er sieht keinen Wurf, bevor er über den Ausgang entscheidet, und kann den Ausgang deshalb nicht an einen erhaltenen Würfelwert anpassen. Die Engine würfelt anschließend; ihr Protokoll wird gespeichert.
+Das funktioniert, weil der GM seinen Text festlegt, bevor irgendeine Zahl existiert. Er sieht keinen Wurf, bevor er entscheidet, was passiert, und kann den Ausgang deshalb nicht steuern. Marinara würfelt danach und speichert ein eigenes Protokoll. Solange der Schalter an ist, schreibt der GM eine Probe auf eine von drei Arten:
 
-Bei aktivierter Option soll der Game Master je nach Art des Ergebnisses eine von drei Formen wählen.
+- **Zwei Ausgänge.** Der GM schreibt die Probe ohne Zahlen, dann eine Erfolgs- und eine Fehlschlagzeile. Marinara würfelt, behält die Hälfte, die der Wurf ausgewählt hat, und löscht die andere, bevor du den Zug liest.
+- **Nur eine Zahl.** Für Schaden, Heilung, Gold, eine Dauer, eine Anzahl oder eine Entfernung schreibt der GM mitten in den Satz einen Platzhalter wie `[[roll: 2d6+3]]`, und Marinara setzt an seiner Stelle die Zahl ein. Ein Platzhalter kann einen Modifikator aus dem Charakterbogen nennen, etwa `[[roll: 1d8+STR]]`. Diese Form wird nur angeboten, wenn dein Spiel einen lesbaren Charakterbogen hat, und ein Name, den Marinara nicht auflösen kann, wird abgelehnt, statt als null zu gelten. Zeig auf eine Zahl aus einem Platzhalter, um ihre Würfel zu sehen. Jede erscheint außerdem als eigene Wurfzeile in **Logs**.
+- **Drei oder mehr Ausgänge.** Der GM fragt nach dem Wert und hält an. Marinara würfelt und protokolliert ihn, der Zug endet ohne Ausgang, und der GM erzählt zu Beginn des nächsten Zugs, was die Zahl bedeutet hat.
 
-**Bei zwei möglichen Ausgängen schreibt er beide.** Auf die Probe ohne Zahlen folgt ein Block mit Erfolgs- und Fehlschlagtext. Die Engine würfelt, behält die passende Hälfte und entfernt die andere, bevor du den Zug liest. Sichtbar ist genau ein Ausgang, als wäre zuerst gewürfelt worden.
+Eine Probe, die in keiner dieser Formen geschrieben ist, fällt auf das letzte Verhalten zurück, sodass nichts unaufgelöst bleibt und nichts erfunden wird.
 
-**Ist das Ergebnis nur eine Zahl, schreibt er einen Platzhalter und fährt fort.** Für Schaden, Heilung, Gold, Dauer, Anzahl oder Entfernung setzt er `[[roll: 2d6+3]]` mitten in den Satz; die Engine ersetzt es durch das Ergebnis. Ein Platzhalter kann einen Bogenmodifikator statt eines festen Werts nennen, etwa `[[roll: 1d8+STR]]`; die Engine addiert ihn selbst. Diese Form wird nur angeboten, wenn das Spiel tatsächlich einen lesbaren Bogen hat. Unbekannte Namen werden abgelehnt, nicht als null behandelt. Zeig auf eine ersetzte Zahl, um die Würfel dahinter zu sehen. Jeder Wurf steht außerdem einzeln in **Logs** (Protokolle).
+- **Narrate dice outcomes immediately** wird währenddessen nicht verwendet. Die Option bleibt sichtbar, aber deaktiviert, und ihr gespeicherter Wert bleibt erhalten und gilt wieder, sobald du diese Option ausschaltest.
+- Bestehende Züge ändern sich nicht. Der Schalter betrifft nur Züge, die nach dem Einschalten generiert werden.
+- In zwei Fällen kann ein Zug weiterhin mehr als eine Anfrage kosten: wenn **Enable Tool Use** (Tool-Nutzung aktivieren) an ist und das Würfel-Tool in deiner Tool-Liste steht (ein Tool-Aufruf kostet eine volle zusätzliche Runde), oder wenn ein anderer **Game tool provider** (Anbieter für Game-Tools) als **Same as narrator** (wie der Erzähler) eingestellt ist (er stellt immer eine Planungsanfrage).
+- Lässt sich etwas nicht würfeln, ersetzt ein kurzer Hinweis die Zahl, nie ein erfundener Wert. **Logs** sagt, was ausgelassen wurde.
+- Während der Zug geschrieben wird, bleiben Platzhalter und Zweigblöcke aus dem Streaming-Text heraus, sodass du nie siehst, wie sich eine Zahl ändert.
 
-**Wählt die Zahl selbst zwischen mindestens drei Ausgängen, fragt er nach dem Wert und hält an.** Das ist dieselbe knappe Probe oder `[dice:]`-Anfrage wie bisher. Die Engine würfelt und protokolliert; der Zug endet ohne erzählten Ausgang. Der Game Master erzählt dessen Bedeutung zu Beginn des nächsten Zuges, genau wie bei ausgeschaltetem **Narrate dice outcomes immediately** (Würfelergebnisse sofort erzählen).
+<a id="symbol-dice-by-name"></a>
 
-Eine Probe außerhalb dieser Formen fällt auf dasselbe Verhalten zurück; nichts bleibt ungewürfelt und nichts wird erfunden.
+### Symbolwürfel nach Namen
 
-Vor dem Einschalten solltest du Folgendes wissen:
+In einem Spiel, dessen Regelsatz Symbolwürfel wirft (ein `symbol-pool`-Regelsatz, etwa ein System im Stil von Genesys), nimmt das Feld für eigene Würfe diese Würfel auch nach Namen an. Gib für jede Art eine Anzahl und einen Würfelnamen an, zum Beispiel `2 ability 1 proficiency vs 2 difficulty`. Namen können die ID oder die Beschriftung eines Würfels sein, in beliebiger Groß- und Kleinschreibung, getrennt durch Leerzeichen, Kommas, `+` oder `vs`. Ein Wurf kann bis zu 40 Würfel benennen.
 
-- **Narrate dice outcomes immediately wird währenddessen nicht verwendet.** Die Option bleibt sichtbar, aber mit erklärendem Hinweis deaktiviert. Ihr gespeicherter Wert bleibt erhalten; nach Ausschalten der Ein-Anfrage-Würfe gilt die bisherige Einstellung wieder.
-- **Bestehende Züge ändern sich nicht.** Die Option betrifft nur anschließend erzeugte Züge; gespeicherte Verläufe bleiben unverändert.
-- **In zwei Fällen kann ein Zug weiterhin mehrere Anfragen kosten.** Bei **Enable Tool Use** (Tool-Nutzung aktivieren) und einem Würfel-Tool in der Tool-Liste kann der Game Master es weiterhin aufrufen; das kostet eine vollständige Zusatzrunde. Eine **Game tool connection** (Game-Tool-Verbindung) ungleich **Same as narrator** (wie der Erzähler) stellt stets eine eigene Planungsanfrage. Beides ist nicht die Ergebnisumschreibung, die dieser Schalter entfernt.
-- **Nicht mögliche Würfe werden gemeldet.** Eine unlesbare Zahl wird durch einen kurzen Hinweis statt eines erfundenen Werts ersetzt. Bei einem unlesbaren Zweig bleibt der protokollierte Wurf erhalten, beide Texte werden entfernt. In **Logs** steht jeweils, was ausgelassen wurde.
-- **Während des Schreibens** bleiben Platzhalter und Zweigblöcke aus dem Streaming-Text ausgeblendet; du siehst keine Zahl auftauchen und später wechseln. Der fertige Satz erscheint nach Abschluss des Zuges.
+Die Karte zeigt jeden Würfel mit den Symbolen seiner Seite, dann die Symbole, die nach dem gegenseitigen Aufheben übrig bleiben, und ob das ein Erfolg ist. Das Tag der Nachricht enthält dasselbe, zum Beispiel `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Auch das Würfel-Tool des GM nimmt diese Namen an. Einfaches `NdM` funktioniert weiterhin in jedem Spiel.
+
+### Andere Würfel in einer Fertigkeitsprobe
+
+Der GM kann eine andere Notation angeben, etwa `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Solche Proben verwenden den festen Modifikator der Notation statt der d20-Modifikatoren des Charakterbogens und gelingen, wenn die Summe die DC erreicht. Die Regeln für eine natürliche 1 und eine natürliche 20 gelten nur für die Standard-d20-Probe.
+
+Ein Erfolgspool muss sowohl einen Schwellenwert pro Würfel als auch die Zahl der benötigten Erfolge angeben: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` würfelt sechs d10, zählt jeden Würfel, der mindestens 6 zeigt, und gelingt ab vier Erfolgen. Marinara errät keinen fehlenden Schwellenwert und setzt weder explodierende Würfel noch Patzer oder andere besondere Poolregeln um. Ein Pool ohne gültigen Schwellenwert bleibt unaufgelöst, und erfundene Zahlen werden entfernt.
+
+Diesen Pool bekommt ein Spiel ohne Regelsatz. Ein Spiel mit einem Regelsatz, der auf Würfelpools aufbaut, funktioniert anders: Siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
+
+Das Attribut `dice=` einer Probe nimmt nur einfaches `NdM` an. Anfragen wie `4d6kh3`, `3d6!` oder `4dF` werden nicht gewürfelt: Marinara protokolliert die nicht unterstützte Notation und entfernt erfundene Zahlen, und der Ausgang bleibt offen.
 
 ### Dem Game Master einen Würfel jeder Größe zeigen
 
-Darunter steht **Let the Game Master see one die of each size** (dem Game Master einen Würfel jeder Größe zeigen), ebenfalls standardmäßig aus. Die Option dient dem Fall, den die beiden blinden Formen nicht abdecken: Die Zahl selbst wählt zwischen mindestens drei Ausgängen, etwa Erfolgsspanne, Trefferzonentabelle oder Reaktionswurf. Ohne sie endet eine solche Probe den Zug; die Erzählung folgt am Anfang des nächsten.
+**Let the Game Master see one die of each size** (dem Game Master einen Würfel jeder Größe zeigen) steht unter **Finish rolled turns in one request**. Die Option ist standardmäßig aus. Sie dient einem Fall, den die blinden Formen nicht abdecken: einer Zahl, die zwischen drei oder mehr Ausgängen wählen muss, etwa einer Erfolgsspanne oder einer Trefferzonentabelle. Ohne sie beendet eine solche Probe den Zug und wird im nächsten Zug erzählt.
 
-Bei aktivierter Option würfelt die Engine vor dem Zug einen Würfel jeder Standardgröße und zeigt dem Game Master den jeweils nächsten Wert. Er kann einen davon verbrauchen und dessen Bedeutung im selben Durchlauf erzählen.
+Ist sie an, wirft Marinara vor dem Zug einen Würfel jeder Standardgröße und zeigt dem GM den jeweils nächsten Wert, damit er im selben Durchlauf schreiben kann, was er bedeutet.
 
-**Diese Abwägung solltest du genau lesen.** Der Game Master sieht die Zahl, bevor er die Probe und ihre Schwierigkeit festlegt. Dadurch kann er den Ausgang beeinflussen, was die blinden Formen verhindern: Er kann eine mit dem bekannten Wert erreichbare Schwierigkeit wählen oder bei einem schlechten Wert ganz auf die Probe verzichten. Die Engine kann nicht beurteilen, welche Schwierigkeit zur Geschichte passt, und das daher nicht erkennen. Wer nicht weiß, dass der Game Master die Würfel gesehen hat, hält einen auffällig heldenhaften Verlauf womöglich für Glück.
+> **Warnung:** Der GM sieht die Zahl dann, bevor er entscheidet, was er prüft und wie schwer er es macht. Er kann eine Schwierigkeit wählen, die der Würfel, den er kennt, schafft, oder bei einer schlechten Zahl ganz auf eine Probe verzichten. Marinara kann nicht beurteilen, ob eine Schwierigkeit zur Geschichte passt, und das daher nicht erkennen. Ein auffällig heldenhafter Spielverlauf kann zurechtgebogenes Glück sein.
 
-Folgendes erzwingt die Engine unabhängig von der Mitarbeit des Game Masters:
+Was Marinara ohne die Mitarbeit des GM durchsetzt:
 
-- **Werte werden der Reihe nach und jeweils nur einmal ausgegeben.** Die Engine verwaltet die Warteschlange und gibt den nächsten Wert aus, unabhängig vom Text des Zuges.
-- **Jede protokollierte Zahl stammt von der Engine.** Wurf, Modifikator, Summe und Ergebnis werden aus Warteschlange und Charakterbogen neu berechnet. Abweichende Modellzahlen werden ersetzt und in **Logs** vermerkt.
-- **Die Schwierigkeit ist begrenzt.** Sie bleibt zwischen 1 und 40, was für geschriebene Proben zuvor nicht galt. Ein Spiel mit Regelsatz darf stattdessen dessen Schwierigkeitsskala ausschöpfen.
-- **Erneutes Fragen verbessert das Glück nicht.** Swipe, Neugenerierung und Fortsetzung desselben Zuges erhalten dieselben Werte; wiederholtes Würfeln bis zum guten Ergebnis ist so nicht möglich.
-- **Nur der nächste Wert jeder Größe ist sichtbar.** Das steuert **Values shown per size** (angezeigte Werte je Größe), standardmäßig 1. Weitere Würfe derselben Größe innerhalb eines Zuges bleiben ungesehen und werden erst im nächsten Zug erzählt.
-- **Ein ungenutzter Würfel wird nach einiger Zeit neu geworfen.** Das steuert **Rethrow after idle turns** (nach ungenutzten Zügen neu würfeln), standardmäßig 3. Sonst könnte ein niedriger Wert für den gesamten Chat vorne liegen bleiben, während der Game Master diese Größe meidet. 0 schaltet das Neuwürfeln aus und erlaubt genau dieses Verhalten wieder.
-- **Eine Anfrage über den Vorrat hinaus erzeugt keinen Wurf.** Die Probe behält ihre Frage, verliert alle Zahlen und wird im nächsten Zug erzählt. **Logs** nennt den betroffenen Zug.
+- Werte werden der Reihe nach ausgegeben, und keiner kommt zweimal.
+- Jede Zahl im Protokoll stammt von Marinara. Wurf, Modifikator, Summe und Ergebnis werden aus der Warteschlange und deinem Charakterbogen neu berechnet. Eine abweichende Zahl wird ersetzt, und **Logs** vermerkt das.
+- Die Schwierigkeit bleibt zwischen 1 und 40. Ein Spiel mit Regelsatz darf bis an die Schwierigkeitsskala seines Regelsatzes gehen.
+- Swipe, Neugenerierung und Fortsetzung desselben Zugs bekommen dieselben Werte, Neuwürfeln für mehr Glück gibt es also nicht.
+- **Values shown per size** (angezeigte Werte je Größe) legt fest, wie viele Werte der GM je Größe sieht. Standard ist 1. Spätere Würfe dieser Größe in einem Zug bleiben ungesehen und werden im nächsten Zug erzählt.
+- **Rethrow after idle turns** (nach ungenutzten Zügen neu würfeln) wirft einen ungenutzten Würfel nach so vielen Zügen neu, standardmäßig nach 3. Ohne das könnte ein niedriger Wert für den Rest des Chats vorne liegen bleiben. Mit 0 schaltest du das Neuwürfeln aus.
+- Fordert der GM mehr Würfe an, als die Warteschlange enthält, behält die Probe ihre Frage, verliert alle Zahlen und wird im nächsten Zug erzählt. **Logs** nennt den Zug.
 
 ## Verwandte Anleitungen
 

@@ -1,88 +1,66 @@
 # Starcia bojowe (Roleplay)
 
-Ten przewodnik wyjaśnia starcia bojowe w trybie Roleplay. Zobaczysz, jak włączyć agenta **Combat**, rozpocząć walkę i rozegrać ją w oknie starcia. Dowiesz się też, czym ta funkcja różni się od walki w trybie Game Mode.
+Starcie bojowe dodaje do sceny w trybie Roleplay ekran walki turowej z paskami zdrowia, listami wrogów i drużyny oraz dziennikiem walki. To funkcja opcjonalna. Czat bez niej działa tak jak wcześniej. Tryb Game Mode ma własny, osobny system walki: zobacz [Game Mode: walka](../game/combat.md).
 
-Starcia bojowe to opcjonalna funkcja trybu Roleplay. Dodają do sceny osobny ekran walki turowej z paskami zdrowia, listami wrogów i drużyny oraz dziennikiem walki. Bez włączenia tej funkcji czaty w trybie Roleplay działają dokładnie tak jak wcześniej.
+## Włącz walkę
 
-## Włączanie agenta **Combat**
+Agent to pomocnik, który działa obok odpowiedzi. Agent **Combat** dodaje funkcję walki. Domyślnie jest wyłączony, więc włączasz go osobno w każdym czacie.
 
-Agent to pomocnik, który uruchamia się automatycznie podczas generowania wiadomości. Agent **Combat** dodaje funkcję walki do czatu w trybie Roleplay. Domyślnie jest wyłączony, więc trzeba go włączyć osobno w każdym czacie.
+1. Otwórz czat. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem z suwakami w czacie.
+2. Przejdź do sekcji **Agents**.
+3. Włącz przełącznik **Enable Agents**, jeśli jest wyłączony.
+4. Dodaj agenta **Combat** z list pod przełącznikiem.
 
-1. Otwórz czat, do którego chcesz dodać walkę.
-2. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
-3. Przejdź do sekcji **Agents**.
-4. Włącz przełącznik **Enable Agents**, jeśli jeszcze nie jest włączony.
-5. Dodaj do czatu agenta **Combat**.
+Nad polem wiadomości pojawia się teraz przycisk **Encounter** (skrzyżowane miecze). Jego podpowiedź brzmi **Start Combat Encounter**.
 
-Nad polem wiadomości, w rzędzie akcji, powinien teraz pojawić się przycisk **Encounter** z ikoną skrzyżowanych mieczy. Jego podpowiedź brzmi **Start Combat Encounter**. Brak tego przycisku oznacza, że agent **Combat** nie działa w tym czacie.
+Jeśli to nie zadziałało: brak przycisku oznacza, że agent **Combat** nie działa w tym czacie. Zasady działania agentów opisuje przewodnik [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
-Pełny opis panelu **Agents** i zasad działania agentów znajdziesz w przewodniku [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
+## Rozpocznij starcie
 
-## Rozpoczynanie starcia
+1. Kliknij **Encounter**. Otworzy się okno **Configure Combat Narrative**. Ustala ono styl, jakim pisze AI.
+2. Wybierz styl dla grupy **Combat Narration** (w trakcie walki) i dla grupy **Summary Narration** (podsumowanie zapisywane w czacie po zakończeniu walki). Obie grupy mają te same cztery ustawienia, wymienione niżej. Ustawienia domyślne działają, więc możesz od razu kliknąć **Begin Combat**.
+3. Opcjonalnie: wybierz **Spellbook** (księga zaklęć). Spellbook to lorebook (zapisany zbiór faktów o świecie), który wymienia zaklęcia i zdolności dostępne w walce. Jeśli go nie używasz, zostaw wartość **None** (brak).
+4. Kliknij **Begin Combat**. Kliknij **Cancel**, aby zamknąć okno bez walki.
 
-Kliknij przycisk **Encounter**, aby otworzyć okno konfiguracji o nazwie **Configure Combat Narrative**. Decyduje ono o stylu, jakim AI pisze w trakcie walki i po niej.
+Gdy AI tworzy wrogów, twoją drużynę oraz ich ataki i przedmioty, widzisz komunikat "Initializing combat encounter...". Może to potrwać kilka sekund.
 
-Okno konfiguracji ma dwie grupy ustawień stylu:
+| Ustawienie stylu | Opcje |
+| --- | --- |
+| Czas | **Present Tense**, **Past Tense** |
+| Osoba | **First Person**, **Second Person**, **Third Person** |
+| Narracja | **Omniscient**: narrator wie wszystko. **Limited**: narrator wie to, co wie jedna postać. |
+| Punkt widzenia | Pole tekstowe na to, czyimi oczami opowiadana jest scena. Zostaw je puste, aby narrator był neutralny. |
 
-- **Combat Narration**: styl pisania używany w trakcie walki.
-- **Summary Narration**: styl podsumowania, które trafia do czatu po zakończeniu walki.
+## Rozegraj swoją turę
 
-Każda grupa ma te same cztery ustawienia:
+Ekran **Combat Encounter** ma cztery części:
 
-- Czas: **Present Tense** albo **Past Tense**.
-- Osoba: **First Person**, **Second Person** albo **Third Person**.
-- Narracja: **Omniscient** (narrator wie wszystko) albo **Limited** (narrator wie tylko to, co wie jedna postać).
-- Pole tekstowe punktu widzenia: wpisz, czyimi oczami opowiadana jest scena. Puste pole zostawia neutralny głos narratora.
+- **Enemies**: karty z paskiem zdrowia i efektami statusu.
+- **Party**: twoja strona. Twoja własna postać jest oznaczona jako **(You)**.
+- **Combat Log**: zapis każdej tury.
+- **Your Actions**: twoje przyciski.
 
-Pod grupami stylu jest opcjonalna lista rozwijana **Spellbook**. Spellbook to specjalny lorebook (zapisany zbiór wpisów z informacjami o świecie), który wymienia zaklęcia i zdolności dostępne w walce. Podłącz taki lorebook, żeby AI wiedziało, co potrafią rzucić twoje postacie. Jeśli nie używasz spellbooków, zostaw wartość **None**.
+W swojej turze wybierz atak z listy **Attacks**, użyj przedmiotu z listy **Items** albo wpisz dowolną akcję w polu **Custom Action** i wyślij ją, na przykład "Sypię strażnikowi piaskiem w oczy".
 
-Na koniec kliknij przycisk **Begin Combat**. Przycisk **Cancel** zamyka okno konfiguracji bez rozpoczynania walki.
+Gdy akcja wymaga celu, otwiera się okno **Select Target**. Wskaż jednego wroga lub sojusznika albo wybierz **All Enemies** przy ataku obszarowym. Akcje wyłącznie obszarowe pomijają ten krok.
 
-Po kliknięciu przycisku **Begin Combat** aplikacja pokazuje komunikat "Initializing combat encounter...", a AI buduje w tym czasie walkę. Tworzy wrogów, twoją drużynę, ich ataki oraz przedmioty. Może to potrwać kilka sekund.
+Gdy AI rozpatruje turę, widzisz komunikat "Processing action...", a twoje przyciski są zablokowane. Odblokowują się po zakończeniu tury.
 
-## Przebieg starcia (okno starcia)
+Jeśli to nie zadziałało: gdy AI zwróci dane, których aplikacja nie potrafi odczytać, pojawia się ekran **Combat Error**. Kliknij **Close Encounter**, aby bezpiecznie wyjść z walki, a potem rozpocznij nowe starcie.
 
-Pełny ekran walki (okno starcia) nosi tytuł **Combat Encounter**. Składa się z takich części:
+## Zakończ starcie
 
-- **Enemies**: siatka kart wrogów. Na każdej karcie widać pasek zdrowia i ewentualne efekty statusu.
-- **Party**: twoja strona walki. Twoja własna postać jest oznaczona jako **(You)**.
-- **Combat Log**: bieżący zapis tego, co dzieje się w każdej turze.
-- **Your Actions**: przyciski, których używasz w swojej turze.
+- Przycisk **Conclude** na górnym pasku kończy walkę wcześniej. Okno prosi o potwierdzenie, a potem aplikacja zapisuje w czacie podsumowanie walki.
+- Przycisk **X** na górnym pasku zamyka i porzuca walkę po potwierdzeniu w oknie o nazwie **End Combat**. Podsumowanie nie powstaje.
+- Gdy jedna ze stron wygra, baner pokazuje **VICTORY**, **DEFEAT**, **FLED** albo **INTERRUPTED**. Aplikacja zapisuje w czacie podsumowanie w stylu wybranym w grupie **Summary Narration**. Gdy jest gotowe, kliknij **Close Combat Window**.
 
-W sekcji **Your Actions** możesz:
-
-- Wybrać jeden z ataków z listy **Attacks**.
-- Użyć jednego z przedmiotów z listy **Items**.
-- Wpisać dowolną akcję w polu **Custom Action** i wysłać ją. Przydaje się to do wszystkiego, czego nie obejmują przyciski, na przykład "Sypię strażnikowi piaskiem w oczy".
-
-Kiedy atak albo przedmiot wymaga celu, otwiera się okno **Select Target**. Wskaż pojedynczego wroga lub sojusznika albo wybierz **All Enemies** przy ataku obszarowym, który trafia wszystkich wrogów naraz. Niektóre akcje działają wyłącznie obszarowo i pomijają wybór pojedynczego celu.
-
-Gdy AI rozpatruje turę, na ekranie widać komunikat "Processing action...", a przyciski są zablokowane. Odblokowują się po zakończeniu tury.
-
-Jeśli AI zwróci dane, których aplikacja nie potrafi odczytać, zamiast zepsutego ekranu pojawia się komunikat **Combat Error**. Kliknij na nim przycisk **Close Encounter**, aby bezpiecznie wyjść z walki.
-
-## Kończenie starcia
-
-Walkę można przerwać na dwa sposoby, a poza tym kończy się ona sama, gdy jedna ze stron wygra.
-
-- Przycisk **Conclude** na górnym pasku kończy walkę wcześniej. Najpierw pojawia się prośba o potwierdzenie. Aplikacja zapisuje potem w czacie podsumowanie walki.
-- Przycisk **X** na górnym pasku zamyka walkę i porzuca ją. Najpierw pojawia się okno potwierdzenia o nazwie **End Combat**. Podsumowanie w tym przypadku nie powstaje.
-
-Gdy walka kończy się naturalnie, pojawia się baner z wynikiem: **VICTORY**, **DEFEAT**, **FLED** albo **INTERRUPTED**. Aplikacja zapisuje wtedy w czacie wiadomość z podsumowaniem walki, w stylu wybranym w grupie **Summary Narration**. Gdy podsumowanie jest gotowe, kliknij przycisk **Close Combat Window**, aby wrócić do sceny.
-
-Jeśli podsumowanie się nie wygeneruje, przycisk nosi nazwę **Close Anyway**. Kliknij go, żeby wrócić do sceny bez podsumowania.
+Jeśli podsumowanie się nie uda, przycisk nosi nazwę **Close Anyway**. Kliknij go, aby wrócić do sceny bez podsumowania.
 
 ## Czym to się różni od walki w trybie Game Mode
 
-Starcia bojowe to lżejsza, osobna warstwa walki dla trybu Roleplay. Tryb Game Mode ma własny, wbudowany system walki.
-
-Najważniejsze różnice:
-
-- Starcie w trybie Roleplay rozpoczynasz samodzielnie przyciskiem **Encounter**. W trybie Game Mode walkę zaczyna prowadzona przez AI postać Game Master (mistrz gry), kiedy wymaga tego fabuła.
-- Walka w trybie Roleplay wymaga włączonego agenta **Combat**. Walka w trybie Game Mode nie korzysta z agenta **Combat** i działa bez niego.
-- Oba systemy używają różnych ekranów walki i nie są ze sobą powiązane.
-
-System walki w trybie Game Mode opisuje przewodnik [Game Mode: walka](../game/combat.md).
+- Starcie w trybie Roleplay rozpoczynasz samodzielnie przyciskiem **Encounter**. W trybie Game Mode walkę zaczyna Game Master (mistrz gry), kiedy wymaga tego fabuła.
+- Walka w trybie Roleplay wymaga agenta **Combat**. Walka w trybie Game Mode go nie wymaga.
+- Oba systemy używają różnych ekranów walki.
 
 ## Powiązane przewodniki
 

@@ -1,218 +1,230 @@
 # Tworzenie i edycja postaci
 
-Ten przewodnik wyjaśnia, jak stworzyć postać w aplikacji Marinara Engine. Pokazuje też, jak pisać, zapisywać i porządkować wersje karty w edytorze **Character Editor** (edytor postaci). Opisuje zakładki **Metadata**, **Card**, **Voice** i **Advanced**, awatary oraz zapisaną historię wersji.
-
-## Czym jest karta postaci
-
-Karta postaci to plik, który definiuje postać AI. Zapisuje, kim ona jest, jak mówi, jak wygląda i od czego zaczyna się czat z nią. Wszystkie te szczegóły wpisuje się w edytorze **Character Editor**. Kartę da się zbudować od zera, zaimportować z innej aplikacji albo wyeksportować i udostępnić innym.
-
-Większość tego, co napiszesz, trafia do kilku pól tekstowych. AI czyta te pola przy każdej odpowiedzi, więc im jaśniej i konkretniej piszesz, tym spójniejsza jest postać.
+Karta postaci to plik, który definiuje postać AI: kim jest, jak mówi, jak wygląda i od czego zaczyna się czat z nią. Pisze się ją w edytorze **Character Editor** (edytor postaci). AI czyta pola karty przy każdej odpowiedzi, więc im jaśniej i konkretniej piszesz, tym spójniejsza jest postać.
 
 ## Tworzenie postaci
 
-1. Otwórz panel **Characters** (postacie) z paska bocznego.
-2. Kliknij przycisk **New** (nowa) z ikoną plusa. Otwiera się okno **Create Character**.
-3. Kliknij okrągłe pole awatara, żeby wgrać obrazek. Ten krok jest opcjonalny.
-4. Wpisz nazwę w polu **Name \***. Nazwa jest wymagana.
-5. Kliknij przycisk **Create**.
+1. Kliknij **Characters** (postacie) na górnym pasku nawigacji. Jeśli tej pozycji nie widzisz, najpierw otwórz **More** (więcej).
+2. Kliknij **New** (nowa, ikona plusa). Otwiera się okno **Create Character** (tworzenie postaci).
+3. Wpisz nazwę w polu **Name \***. Nazwa jest wymagana.
+4. Kliknij okrągłe pole awatara, żeby dodać obrazek. Ten krok jest opcjonalny.
+5. Kliknij **Create** (utwórz).
 
-Nowa karta zapisuje się z pustymi polami. Zaraz potem otwiera się pełny edytor **Character Editor**, w którym uzupełnisz resztę. Jeśli plik karty już istnieje, zamiast przycisku **New** użyj przycisku **Import**. Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+Karta zapisuje się z pustymi polami i otwiera się edytor **Character Editor**.
+
+6. Otwórz zakładkę **Card** i napisz **Description** (opis): kim jest postać. W sekcji **Dialogue & Greetings** dodaj **First Message** (pierwsza wiadomość), od której zaczyna się czat w trybie Roleplay.
+7. Kliknij **Save** (zapis) w nagłówku.
+
+Jeśli masz już plik karty, kliknij zamiast tego **Import**. Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+
+### Rozpoczynanie czatu z postacią
+
+Wybierz postać przy rozpoczynaniu czatu. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md) albo [Tryb Conversation: pierwsze kroki](../conversation/getting-started.md).
 
 ## Edytor postaci w skrócie
 
-Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. U góry biegnie nagłówek z najczęściej używanymi elementami.
+Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. Na szerokim ekranie zakładki biegną wzdłuż lewej krawędzi. Na wąskim zamieniają się w przewijany pasek u góry. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** i **Advanced**. Każda zakładka przeskakuje do swojej sekcji jednego długiego formularza, więc można też po prostu przewijać.
 
-Po lewej stronie u góry znajdziesz strzałkę **Back**, kafelek awatara, pole nazwy oraz pole tytułu lub komentarza. Pole komentarza służy do krótkiej etykiety w rodzaju `Modern AU version`. Pod nimi drobny wiersz pokazuje autora i wersję.
+W nagłówku są elementy używane najczęściej:
 
-Po prawej stronie u góry są takie przyciski:
+- Strzałka **Back** (wstecz), kafelek awatara, pole nazwy oraz pole tytułu lub komentarza na krótką etykietę w rodzaju `Modern AU version`. Wiersz pod nimi pokazuje autora i wersję.
+- **Save**. Przycisk jest nieaktywny, dopóki czegoś nie zmienisz. W trakcie pracy pokazuje napis **Uploading…** (wgrywa się awatar), **Embedding…** (lorebook jest dołączany do karty) albo **Saving…**.
+- Gwiazdka **Favorite** (ulubiona).
+- **Export character** (eksport postaci). Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+- **Import character as persona** (import postaci jako persony), czyli skopiowanie tej karty do nowej persony. Zobacz [Persony](personas.md).
+- **Duplicate character** (duplikowanie postaci).
+- **Delete character** (usunięcie postaci).
 
-- **Save** (zapis). Ten przycisk jest nieaktywny, dopóki nic nie zmienisz. Jego napis pokazuje bieżący stan: **Uploading…**, **Embedding…** albo **Saving…**.
-- Gwiazdka **Favorite**, która oznacza kartę jako ulubioną.
-- **Export character**.
-- **Import character as persona**, czyli skopiowanie tej karty do nowej persony użytkownika.
-- **Duplicate character**.
-- **Delete character**.
+Opuszczenie edytora najpierw zapisuje zmiany. Jeśli zapis się nie powiedzie, edytor pozostaje otwarty z twoją wersją roboczą, żeby można było spróbować ponownie.
 
-Przy opuszczaniu edytora zmieniona karta zapisuje się przed przejściem dalej. Jeśli zapis się nie powiedzie, edytor pozostaje otwarty z twoją wersją roboczą, żeby można było spróbować ponownie.
+Zakładki, które mają własne przewodniki:
 
-Edytor dzieli się na zakładki. Na szerokim ekranie biegną one wzdłuż lewej krawędzi. Na wąskim zamieniają się w przewijany pasek u góry. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** i **Advanced**.
+| Zakładka | Przewodnik |
+| --- | --- |
+| **Onboarding** | [Interaktywny onboarding](interactive-onboarding.md) |
+| **Convo** | [Profile w trybie Conversation Mode](../conversation/profiles.md) |
+| **Lorebook** | [Podpinanie lorebooków do postaci](../lorebooks/linking-to-characters.md) |
+| **Sprites** | [Sprite'y postaci](sprites.md) |
+| **Gallery** | [Galerie postaci i person](galleries.md) |
+| **Colors** i **Stats** | [Kolory postaci i statystyki RPG](colors-and-stats.md) |
 
-Ten przewodnik omawia zakładki **Metadata**, **Card**, **Voice** i **Advanced**, a do tego awatary i historię wersji. Pozostałe zakładki mają własne przewodniki:
+Poniższe sekcje omawiają zakładki **Metadata**, **Card**, **Voice** i **Advanced**, a do tego awatary i historię wersji.
 
-- **Onboarding**: [Interaktywny onboarding](interactive-onboarding.md).
-- **Convo**: [Profile w trybie Conversation Mode (nazwa wyświetlana, About Me, zachowanie)](../conversation/profiles.md).
-- **Lorebook**: [Podpinanie lorebooków do postaci i person](../lorebooks/linking-to-characters.md).
-- **Sprites**: [Sprite'y postaci](sprites.md).
-- **Gallery**: [Galerie postaci i person](galleries.md).
-- **Colors** i **Stats**: [Kolory postaci i statystyki RPG](colors-and-stats.md).
+<a id="metadata-tab"></a>
 
 ## Zakładka Metadata
 
-Zakładka **Metadata** zbiera dane o tożsamości karty i jej porządkowaniu. Pomagają sortować, udostępniać i śledzić kartę, ale większość z nich nie trafia do AI.
+Zakładka **Metadata** zbiera dane o tożsamości karty i jej porządkowaniu. Pomagają sortować, udostępniać i śledzić kartę. Większość z nich nie trafia do AI.
 
-- **Character ID**. Wartość tylko do odczytu, widoczna dopiero po zapisaniu karty. Kliknij przycisk **Copy**, żeby ją skopiować.
-- **Name**. Wyświetlana nazwa. W promptach używa się jej jako `{{char}}`.
-- **Creator**. Osoba, która stworzyła kartę, do podania przy udostępnianiu.
-- **Version**. Numer wersji, który ustawiasz samodzielnie, na przykład `1.0`.
+- **Character ID**. Wartość tylko do odczytu. Pojawia się po zapisaniu karty. Kliknij **Copy** (kopiowanie), żeby ją skopiować.
+- **Name**. Wyświetlana nazwa. W promptach to `{{char}}`, symbol zastępczy, który Marinara zamienia na nazwę postaci.
+- **Creator**. Osoba, która stworzyła kartę, podawana jako autor przy udostępnianiu.
+- **Version**. Numer wersji, który ustawiasz samodzielnie, na przykład `1.0`. Przełącznik **Automatic versioning** (automatyczne wersjonowanie) obok niego zachowuje wcześniejsze wersje i podnosi ten numer, gdy karta się zmienia. Historia wersji zapisuje migawki tylko wtedy, gdy ten przełącznik jest włączony.
 - **Talkativeness**. Suwak od 0 do 100 procent. Decyduje o tym, jak często ta postać odzywa się na czatach grupowych. Domyślnie 50 procent.
-- **Tags**. Wpisz jeden lub więcej tagów w polu dodawania tagu i naciśnij Enter albo kliknij przycisk **Add**. Kilka tagów naraz rozdziel przecinkami. Pole podpowiada też tagi używane już w bibliotece, od najczęściej używanych, z liczbą postaci, które mają każdy z nich. Wpisywanie zawęża listę. Kliknij podpowiedź albo wybierz ją strzałkami i klawiszem Enter. Pojedynczy tag usuwa jego X, a wszystkie naraz przycisk **Remove All**.
-- **Creator Notes**. Prywatne notatki, które nigdy nie trafiają do AI. W bibliotece widać je za to jako krótkie podsumowanie.
+- **Tags**. Wpisz tagi w polu dodawania tagu i naciśnij <kbd>Enter</kbd> albo kliknij **Add** (dodaj). Kilka tagów rozdziel przecinkami. Pole proponuje tagi używane już w bibliotece, od najczęściej używanych. Pojedynczy tag usuwa jego X, a wszystkie naraz przycisk **Remove All** (usunięcie wszystkich).
+- **Creator Notes**. Prywatne notatki, które nigdy nie trafiają do AI.
 
-Na tej samej zakładce mieszka panel **Version history**. Opisuje go sekcja o zapisywaniu i historii wersji poniżej.
+**Split description into fields** (podział opisu na pola) to przycisk pod polem **Version**. Przenosi oznaczone etykietami fragmenty tekstu (osobowość, wygląd, historię, scenariusz, zasady, przykładowy dialog) z pola **Description** do osobnych pól. Najpierw widać krótkie podsumowanie, a zastosowanie zmian zapisuje kartę jako nową wersję. Przycisk jest nieaktywny, dopóki pole **Description** jest puste.
+
+Na tej zakładce jest też panel **Version history** (historia wersji). Zobacz [Historia wersji](#version-history).
+
+<a id="card-tab"></a>
 
 ## Zakładka Card
 
-Zakładka **Card** to główne miejsce pisania. Odnośniki u góry pozwalają przeskoczyć do dowolnej sekcji. Każde pole ma licznik znaków aktualizowany na bieżąco.
+Zakładka **Card** to główne miejsce pisania. Odnośniki u góry przeskakują do dowolnej sekcji, a każde pole ma licznik znaków aktualizowany na bieżąco.
 
-- **Summary** (podsumowanie). Krótki opis do biblioteki i podglądu karty. To metadane, które nie trafiają do modelu w promptach czatu.
-- **Description**. Ogólna tożsamość i rola postaci. Ten tekst trafia do każdego promptu.
-- **Personality**. Krótkie podsumowanie temperamentu, sposobu mówienia i typowych zachowań.
-- **Backstory**. Historia, pochodzenie i ważne relacje.
-- **Appearance**. Opis fizyczny, ubiór i szczegóły wyglądu. Marinara używa tego tekstu również jako zalążka promptu do awatara AI.
-- **Image Appearance Override** (osobny opis wyglądu do obrazów). Opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na krótkie tagi obrazu opisujące postać, na przykład słowo wyzwalające LoRA. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Ten tekst służy też do wstępnego wypełnienia promptu awatara AI. Narrator zawsze otrzymuje pełny opis z **Appearance**. Zostaw przełącznik wyłączony, aby zachować dotychczasowe działanie.
-- **Scenario**. Domyślna sytuacja wyjściowa nowych czatów z tą postacią.
+| Pole | Co wpisać | Trafia do AI |
+| --- | --- | --- |
+| **Summary** (podsumowanie) | Krótki opis do biblioteki i podglądu karty. | Nie |
+| **Description** | Ogólna tożsamość i rola postaci. | W każdym prompcie |
+| **Personality** | Temperament, sposób mówienia, typowe zachowania. | Tak |
+| **Backstory** | Historia, pochodzenie, ważne relacje. | Tak |
+| **Appearance** | Wygląd, ubiór, szczegóły wizualne. Służy też jako zalążek promptu do awatara AI. | Tak |
+| **Scenario** | Domyślna sytuacja wyjściowa nowych czatów z tą postacią. | Tak |
+
+Przełącznik **Image Appearance Override** (osobny opis wyglądu do obrazów) znajduje się pod polem **Appearance** i domyślnie jest wyłączony. Włącz go, żeby pokazać drugie pole na krótkie tagi obrazu, na przykład słowo wyzwalające LoRA (słowo kluczowe, które włącza własny styl obrazu). Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Z tego pola wypełnia się też wstępnie prompt awatara AI. Narrator zawsze widzi pełny tekst z **Appearance**.
 
 Sekcja **Dialogue & Greetings** ustala, jak zaczyna się czat i jak brzmi postać:
 
-- **First Message**. Wiadomość otwierająca, pokazywana na początku nowego czatu Roleplay. Czaty Conversation i Game nie zaczynają się od powitania.
-- **Alternate Greetings**. Dodatkowe wiadomości otwierające. Przy rozpoczynaniu czatu Roleplay wybierasz, której użyć. Kolejność zmieniają strzałki w górę i w dół, a X usuwa wybraną pozycję.
-- **Example Dialogue**. Przykładowe wymiany zdań, które uczą AI głosu postaci. Do rozdzielania wymian służy `<START>`. Jako symbole zastępcze wpisuj `{{user}}` i `{{char}}`.
+- **First Message**. Wiadomość otwierająca nowy czat w trybie Roleplay. Czaty w trybach Conversation i Game nie zaczynają się od powitania.
+- **Alternate Greetings** (alternatywne powitania). Dodatkowe wiadomości otwierające. Przy rozpoczynaniu czatu w trybie Roleplay można wybrać, której użyć. Kontrolki w górę i w dół zmieniają ich kolejność, a X usuwa wybrane powitanie.
+- **Example Dialogue**. Przykładowe wymiany zdań, które uczą głosu postaci. Wymiany rozdzielaj znacznikiem `<START>`, a jako symboli zastępczych używaj `{{user}}` i `{{char}}`.
 
-Powitania i przykładowe wiadomości mogą też pokazywać obrazy z galerii postaci; zobacz [Galerie postaci → Ponowne używanie obrazu z galerii w wiadomościach i powitaniach](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
-
-Gdy powitania pokazują obrazy z innych stron internetowych, przycisk **Save images locally** (zapisanie obrazów lokalnie) zachowuje ich kopie w galerii postaci; zobacz [Galerie postaci → Zapisywanie obrazów z sieci w powitaniach](galleries.md#save-web-images-from-greetings).
-
-Krótki wpis w polu **Example Dialogue** wygląda tak:
-
-```
+```text
 <START>
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
 
+Powitania i przykładowe wiadomości mogą pokazywać obrazy z galerii postaci. Zobacz [Ponowne używanie obrazu z galerii w wiadomościach i powitaniach](galleries.md#reuse-a-gallery-image-in-messages-and-greetings). Gdy powitania pokazują obrazy z innych stron internetowych, przycisk **Save images locally** (zapisanie obrazów lokalnie) zachowuje ich kopię w galerii. Zobacz [Zapisywanie obrazów z sieci w powitaniach](galleries.md#save-web-images-from-greetings).
+
+<a id="write-a-card-field-with-the-wand"></a>
+
 ### Generowanie pola karty różdżką
 
-Nad polami **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** i każdym **Alternate Greeting** znajduje się przycisk z samą ikoną różdżki. Podpowiedź i nazwa dostępna dla czytnika ekranu wskazują generowane pole.
+Nad polami **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** i każdym **Alternate Greeting** znajduje się przycisk z samą ikoną różdżki. Jego podpowiedź podaje nazwę pola, które wypełnia.
+
+Zanim zaczniesz: skonfiguruj działające połączenie tekstowe. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
 1. Wpisz w polu pomysły, które chcesz zachować, na przykład `smart, scientist, handsome`, albo zostaw je puste.
-2. Uzupełnij inne pola karty, które AI ma wykorzystać jako kontekst. Nie musisz najpierw zapisywać tych zmian.
-3. Kliknij różdżkę wybranego pola. Marinara prosi o 100–300 słów dla tej sekcji, wykorzystując jej obecną treść jako punkt wyjścia, a pozostałe pola jako kontekst. **Example Dialogue** tworzy przykładowe wymiany zdań. **First Message** i **Alternate Greeting** tworzą po jednej wiadomości otwierającej roleplay, pozostawiając wybór twojej odpowiedzi tobie.
-4. Przejrzyj i popraw wynik, a następnie kliknij **Save**, aby go zachować.
+2. Uzupełnij inne pola karty, które AI ma wykorzystać jako punkt odniesienia. Nie musisz najpierw zapisywać.
+3. Kliknij różdżkę danego pola. Marinara prosi o 100–300 słów dla tego pola, traktując twój tekst jako punkt wyjścia. Dla pola Example Dialogue prosi o przykładowe wymiany zdań. **First Message** i każde **Alternate Greeting** proszą o jedną wiadomość otwierającą, która zostawia ci miejsce na odpowiedź.
+4. Popraw wynik, a potem kliknij **Save**.
 
-Różdżka wybiera połączenie tak samo jak wcześniejszy generator podsumowania: domyślne połączenie tekstowe agentów, a w razie potrzeby domyślne połączenie tekstowe. Nadal obowiązuje skonfigurowane zapasowe połączenie agentów. Przed generowaniem skonfiguruj działające połączenie tekstowe; zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Różdżka używa domyślnego połączenia tekstowego agentów, a jeśli go nie ma, domyślnego połączenia tekstowego. Skonfigurowane zapasowe połączenie agentów nadal obowiązuje.
 
-Generowanie zastępuje tylko wybrane pole w niezapisanej wersji roboczej. Sama różdżka nie zapisuje karty ani nie zmienia innych pól; przy przechodzeniu dalej nadal obowiązuje zwykłe zapisywanie przy opuszczaniu edytora. Jeśli generowanie się nie powiedzie, tekst pozostaje bez zmian. Jeśli podczas oczekiwania edytujesz docelowe pole albo otworzysz inną kartę, spóźniony wynik nie nadpisze nowszych zmian. Po przeniesieniu alternatywnego powitania generowanie pozostaje powiązane z tym powitaniem; usunięcie go odrzuca oczekiwany wynik. Różdżki możesz używać bez otwierania rozmowy z Professor Mari.
-
-### Alternatywne pola w wybranych czatach
-
-Pod każdym z siedmiu pól karty znajduje się **+ Add Alternative Field** (dodaj alternatywne pole). Pozwala nadać tej samej postaci inny opis, wygląd, historię lub inny szczegół w wybranych czatach, zachowując oryginalną kartę we wszystkich pozostałych.
-
-1. Kliknij **+ Add Alternative Field** pod polem, które chcesz zmienić. Marinara kopiuje jego obecną treść do nowego wariantu.
-2. Edytuj wariant albo użyj jego własnej różdżki. Wykorzystuje ona tekst wariantu jako punkt wyjścia, a pozostałe pola karty jako kontekst; nie zastępuje oryginalnego pola.
-3. Otwórz **Active in 0 chats** (aktywne w 0 czatach) i wybierz dowolną liczbę nazw czatów. Lista zawiera tylko czaty z tą postacią. Otwórz wybór ponownie, aby odświeżyć listę po dodaniu lub usunięciu postaci w innym czacie.
-4. Kliknij **Save**, aby zastosować wariant. Obowiązuje też zwykłe zapisywanie przy opuszczaniu edytora.
-
-Możesz dodawać dowolną liczbę wariantów. Brak zaznaczonych czatów pozostawia wariant nieaktywny na później. Pusty wariant celowo czyści dane pole w wybranych czatach. Każdy czat może używać tylko jednego wariantu tego samego pola: zaznaczenie czatu w innym wariancie przenosi tam jego przypisanie. Pozostałe pola i czaty zachowują oryginalne wartości. Istniejące nadpisania scenariusza i wyglądu do obrazów dla danego czatu nadal mają pierwszeństwo.
-
-Warianty **Summary** pozostają metadanymi. Nie dodają podsumowania do promptu czatu wysyłanego modelowi.
-
-Licznik **Active in** obejmuje tylko czaty, które obecnie używają tej postaci. Zapisane przypisania są wstrzymywane po usunięciu postaci z czatu i wznawiane po jej ponownym dodaniu. Wczytywanie lub niedostępność listy czatów nie usuwa przypisań; otwórz wybór ponownie, aby odświeżyć opcje.
-
-Eksport, import, duplikowanie kart oraz konwersja między postaciami a personami zachowują tekst wariantów, ale czyszczą wybór czatów. Kopie zapasowe całego profilu zachowują te przypisania.
-
-Aby usunąć wariant, użyj jego przycisku kosza i potwierdź **Delete**. Anulowanie go zachowuje. Zapisz kartę, aby zastosować usunięcie; wybrane czaty znów użyją oryginalnego pola, z uwzględnieniem istniejących nadpisań czatu. Usunięcie wariantu nigdy nie usuwa oryginalnego pola.
+Różdżka zastępuje tylko wybrane pole w niezapisanej wersji roboczej. Jeśli generowanie się nie powiedzie, twój tekst zostaje. Jeśli podczas oczekiwania edytujesz to pole albo przełączysz się na inną kartę, spóźniony wynik nie nadpisze twojej pracy. Do używania różdżki nie potrzebujesz asystentki Professor Mari.
 
 ## Dodawanie awatara
 
-Awatar to obrazek pokazywany przy postaci na czacie i w bibliotece. Można go wgrać, dobrać jego kadr albo wygenerować przez AI.
+Awatar to obrazek pokazywany przy postaci na czacie i w bibliotece.
 
 ### Wgranie obrazka
 
 1. Kliknij kafelek awatara w nagłówku edytora.
-2. Wskaż plik obrazu. Nowy obrazek pojawia się od razu.
+2. Wybierz plik obrazu. Nowy obrazek pojawia się od razu.
 
-Kiedy postać ma już awatar, na zakładce **Metadata** pojawia się narzędzie do kadrowania. Dzięki niemu przesuniesz albo przybliżysz obrazek w kółku bez ponownego wgrywania pliku. To samo narzędzie ma kontrolkę do usunięcia awatara.
+Kiedy postać ma już awatar, na zakładce **Metadata** pojawia się narzędzie do kadrowania awatara. Dzięki niemu przesuniesz albo przybliżysz obrazek w kółku albo usuniesz awatar.
 
 ### Generowanie awatara przez AI
 
-Opcja awatara AI pojawia się dopiero wtedy, gdy skonfigurowane jest co najmniej jedno połączenie do generowania obrazów. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Zanim zaczniesz: dodaj połączenie do generowania obrazów. Przycisk awatara AI pojawia się dopiero wtedy, gdy takie połączenie istnieje. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
-1. Najedź na kafelek awatara i kliknij mały przycisk różdżki **Generate avatar**.
-2. Otwiera się okno **Generate Character Avatar**.
-3. Wybierz połączenie w polu **Image Generation Connection**.
-4. Przejrzyj lub popraw pole **Avatar Prompt**. Jeśli **Image Appearance Override** jest włączone i wypełnione, jego tekst służy jako początkowy prompt. W przeciwnym razie Marinara korzysta z **Appearance**, potem **Description**, a na końcu **Personality**, wybierając pierwsze pole zawierające tekst.
-5. Jeśli karta ma już awatar, można zaznaczyć pole wyboru **Use current avatar as a reference**.
-6. Kliknij przycisk **Generate**. Kolejną próbę uruchamia przycisk **Regenerate**.
-7. Kiedy wynik się podoba, kliknij przycisk **Use Avatar**.
+1. Najedź na kafelek awatara i kliknij przycisk różdżki. Otwiera się okno **Generate Character Avatar** (generowanie awatara postaci).
+2. Wybierz połączenie w polu **Image Generation Connection** (połączenie do generowania obrazów).
+3. Przejrzyj lub popraw pole **Avatar Prompt** (prompt awatara). Jeśli **Image Appearance Override** jest włączone i wypełnione, prompt zaczyna się od jego tekstu. W przeciwnym razie korzysta z pola **Appearance**, potem **Description**, a potem **Personality**, zależnie od tego, które pierwsze zawiera tekst.
+4. Jeśli karta ma już awatar, można zaznaczyć pole wyboru **Use current avatar as a reference** (użycie bieżącego awatara jako referencji).
+5. Kliknij **Generate** (generuj). Żeby spróbować ponownie, kliknij **Regenerate**.
+6. Kiedy wynik ci się podoba, kliknij **Use Avatar** (użycie awatara).
 
-Rozmiar obrazka bierze się z ustawienia rozmiaru **Portraits** w ustawieniach generowania obrazów, a domyślnie wynosi 1024 na 1024. Przy włączonej opcji **Expose media prompts before sending** przed każdym żądaniem pojawia się dodatkowy krok z podglądem promptu.
+Rozmiar obrazka pochodzi z rozmiaru obrazów **Portraits** (portrety) w ustawieniach generowania obrazów. Domyślnie wynosi 1024 na 1024. Jeśli opcja **Expose media prompts before sending** jest włączona, przed każdym żądaniem pojawia się krok przeglądu promptu.
 
 ## Zakładka Voice
 
 Zakładka **Voice** (głos) ustala, jak brzmi postać, kiedy funkcja Text to Speech (synteza mowy) czyta jej wypowiedzi na głos.
 
-- **Voice**. Głos, którego funkcja Text to Speech używa dla tej postaci. Zmiana zapisuje się od razu, bez klikania przycisku **Save**. To ustawienie jest wspólne z wierszem tej postaci w sekcji **Connections → Text to Speech** (Połączenia → synteza mowy), więc oba miejsca zawsze się zgadzają. Puste pole oznacza głos domyślny. Jeśli karta o pasującej nazwie, na przykład oryginał kopii AU, ma własny głos, w pustym polu widać nazwę tego głosu, bo bieżąca karta również z niego korzysta.
-- **Preview** (Odsłuchaj). Odtwarza krótką kwestię tym głosem. Pada w niej nazwa postaci albo, jeśli jest ustawiona, nazwa z pola Phonetic name, więc od razu słychać, jak brzmi.
-- **Phonetic name**. Opcjonalny zapis, który poprawia wyłącznie wymowę w syntezie mowy. Puste pole oznacza zwykłą nazwę. W odróżnieniu od głosu ten zapis należy do karty, więc kliknij przycisk **Save**, żeby go zachować.
+- **Voice**. Głos tej postaci. Zmiana zapisuje się od razu, bez klikania **Save**. To samo ustawienie co wiersz tej postaci w sekcji **Connections → Text to Speech** (połączenia, synteza mowy). Puste pole oznacza głos domyślny. Jeśli karta o pasującej nazwie, na przykład oryginał kopii AU, ma głos, w pustym polu widać nazwę tego głosu, bo ta karta również z niego korzysta.
+- **Preview** (Odsłuchaj). Odtwarza krótką kwestię tym głosem. Pada w niej nazwa postaci albo, jeśli jest ustawiona, nazwa z pola **Phonetic name** (nazwa fonetyczna).
+- **Phonetic name**. Opcjonalny zapis, który służy wyłącznie do poprawienia wymowy. Należy do karty, więc kliknij **Save**, żeby go zachować.
 
-Kiedy funkcja Text to Speech jest wyłączona albo wszystkie postacie mają jeden wspólny głos, w miejscu pola **Voice** pojawia się krótka uwaga. Przy jednym wspólnym głosie uwaga ma też przycisk **Use a voice per character** (osobny głos dla każdej postaci). Przycisk **Open Text to Speech settings** (otwarcie ustawień syntezy mowy) otwiera panel Connections, w którym sekcja **Text to Speech** zbiera wszystkie ustawienia. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
+Kiedy funkcja Text to Speech jest wyłączona albo wszystkie postacie mają jeden wspólny głos, w miejscu pola **Voice** pojawia się krótka uwaga. Przy jednym wspólnym głosie uwaga proponuje przycisk **Use a voice per character** (osobny głos dla każdej postaci). Przycisk **Open Text to Speech settings** (otwarcie ustawień syntezy mowy) otwiera panel Connections. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
 
 ## Zakładka Advanced
 
-Zakładka **Advanced** zbiera ustawienia promptu dla zaawansowanych. Przy zwykłej postaci wszystkie mogą zostać puste.
+Zakładka **Advanced** zbiera ustawienia promptu. Przy zwykłej postaci zostaw je puste. Działają w trybach Conversation, Roleplay i Game. Preset trybu Conversation albo Game zmienia otaczający prompt, ale nie wyłącza pól Post-History Instructions ani Depth Prompt danej postaci.
 
-Te ustawienia promptu, zapisane w karcie postaci, działają w trybach Conversation, Roleplay i Game. Wybrany preset trybu Conversation albo Game zmienia otaczający prompt, ale nie wyłącza pól **Post-History Instructions** ani **Depth Prompt** danej postaci.
+- **System Prompt**. Instrukcje dla konkretnej postaci, dodawane przez blok postaci w aktywnym presecie, kontekst postaci w trybie Conversation albo kartę postaci w trybie Game. Nie zastępuje głównego promptu systemowego czatu.
+- **Post-History Instructions**. Tekst umieszczany po historii czatu, tuż przed tym, jak AI zacznie pisać, na przykład "Stay in character".
+- **Depth Prompt**. Tekst wstawiany do historii czatu. **Depth** (głębokość) to liczba wiadomości wstecz: 0 oznacza miejsce tuż za ostatnią wiadomością. Domyślnie 4. **Role** (rola) to **System**, **User** albo **Assistant**. Domyślnie System.
 
-- **System Prompt**. Instrukcje dla konkretnej postaci, dodawane przez blok postaci w aktywnym presecie, kontekst postaci w trybie Conversation albo kartę postaci lub GM w trybie Game, zależnie od sytuacji. Nie zastępuje głównego promptu systemowego czatu.
-- **Post-History Instructions**. Tekst umieszczany blisko końca promptu, tuż przed generowaniem. Typowe zastosowanie to krótkie przypomnienie w rodzaju "Stay in character".
-- **Depth Prompt**. Tekst wstawiany w wybranym miejscu historii czatu. Pole **Depth** ustala, o ile wiadomości wstecz sięga. Głębokość 0 to miejsce tuż za ostatnią wiadomością, a głębokość 4 to cztery wiadomości wstecz. Domyślna głębokość to 4. Pole **Role** decyduje, czy tekst wstawia się jako **System**, **User** czy **Assistant**. Domyślna rola to System.
+Sekcja **Regex Scripts** zbiera skrypty typu znajdź i zamień, działające tylko dla tej jednej postaci. Zobacz [Skrypty regex](../extending/regex-scripts.md).
 
-Sekcja **Regex Scripts** na tej zakładce zbiera skrypty typu znajdź i zamień, działające tylko na tej jednej postaci. Korzystają ze wspólnego silnika regex. Zasady ich działania opisuje [Skrypty regex](../extending/regex-scripts.md).
+<a id="use-an-alternative-field-in-selected-chats"></a>
 
-## Zapisywanie i historia wersji
+## Alternatywne pola w wybranych czatach
 
-Kliknij przycisk **Save** w nagłówku, żeby zachować zmiany. Przycisk pozostaje nieaktywny do pierwszej edycji, a potem się włącza.
+Alternatywne pole nadaje tej samej postaci inny opis, wygląd, historię lub inny szczegół w wybranych czatach, a wszystkie pozostałe czaty zachowują oryginał. Pod każdym z siedmiu pól karty jest przycisk **Add Alternative Field** (dodaj alternatywne pole).
 
-Każdy zapis może dołożyć migawkę do panelu **Version history** na zakładce **Metadata**. Przed pierwszą kolejną edycją panel pokazuje tekst `Previous card states will appear here after the next edit.` Licznik podaje liczbę zapisanych migawek.
+1. Kliknij **Add Alternative Field** pod polem, które chcesz zmienić. Marinara kopiuje tekst pola do nowego wariantu.
+2. Edytuj wariant. Ma własną różdżkę, która traktuje tekst wariantu jako punkt wyjścia i nie zmienia oryginalnego pola.
+3. Otwórz **Active in 0 chats** (aktywne w 0 czatach) i zaznacz czaty, które mają go używać. Lista zawiera tylko czaty z tą postacią.
+4. Kliknij **Save**.
 
-Porównanie zapisanej wersji z bieżącą kartą wygląda tak:
+Zasady:
+
+- Czat może używać tylko jednego wariantu danego pola. Zaznaczenie czatu w innym wariancie przenosi go tam.
+- Bez zaznaczonych czatów wariant pozostaje nieaktywny na później.
+- Pusty wariant czyści to pole w swoich czatach.
+- Nadpisania scenariusza i wyglądu do obrazów ustawione dla konkretnego czatu nadal mają pierwszeństwo.
+- Warianty pola **Summary** pozostają metadanymi i nie trafiają do AI.
+- Jeśli postać opuści czat, jej przypisanie zostaje wstrzymane i wznawia się po ponownym dodaniu postaci.
+- Eksport, import i duplikowanie karty oraz konwersja między postaciami a personami zachowują tekst wariantów, ale czyszczą zaznaczenia czatów. Kopie zapasowe całego profilu zachowują zaznaczenia.
+
+Aby usunąć wariant, kliknij jego przycisk kosza, potwierdź **Delete** (usunięcie), a potem kliknij **Save**. Jego czaty wracają do oryginalnego pola. Usunięcie wariantu nigdy nie usuwa oryginalnego pola.
+
+<a id="version-history"></a>
+
+## Historia wersji
+
+Gdy przełącznik **Automatic versioning** jest włączony, każdy zapis może dołożyć migawkę do panelu **Version history** na zakładce **Metadata**. Do tego czasu panel pokazuje tekst `Previous card states will appear here after the next edit.` Licznik podaje liczbę zapisanych migawek.
+
+Porównanie zapisanej wersji z bieżącą kartą:
 
 1. Otwórz zakładkę **Metadata**.
-2. W panelu **Version history** kliknij zapisaną wersję.
-3. Otwiera się okno **Compare**. Zestawia obok siebie pola takie jak Name, Description, Personality, Scenario, First Message i Example Dialogue. Każde zmienione pole jest oznaczone.
+2. W panelu **Version history** kliknij zapisaną wersję. Okno porównania zestawia pola karty obok siebie i oznacza każde, które się zmieniło.
 
 Powrót do starszej wersji:
 
-1. Otwórz okno **Compare** dla wybranej wersji albo kliknij jej ikonę przywracania na liście.
-2. Kliknij przycisk **Restore this version** i potwierdź.
+1. Otwórz okno porównania dla tej wersji albo kliknij jej ikonę przywracania na liście.
+2. Kliknij **Restore this version** (przywrócenie tej wersji) i potwierdź.
 
-Przywrócenie zastępuje bieżącą kartę tą migawką. Nie dokłada przy tym nowego wpisu w historii. Ikona ołówka poprawia etykietę wersji zapisanej migawki bez jej przywracania. Zapisaną migawkę można też usunąć z listy; usunięcie nie rusza bieżącej karty.
+Marinara najpierw zapisuje bieżącą kartę w historii wersji (chyba że już odpowiada tej wersji), więc później da się do niej wrócić.
 
-Przycisk **Reset** w nagłówku panelu **Version history** przydaje się wtedy, gdy chcesz zacząć wersjonowanie karty od nowa. Po potwierdzeniu Marinara kasuje wszystkie zapisane migawki i ustawia wersję bieżącej karty na `0.0`. Tego nie da się cofnąć.
+Inne kontrolki w panelu:
+
+- Ikona ołówka zmienia numer wersji karty zapisany w migawce bez jej przywracania.
+- Ikona kosza usuwa migawkę. Bieżąca karta się nie zmienia.
+- **Reset** usuwa wszystkie zapisane migawki i ustawia wersję karty na 1.0. Marinara prosi o potwierdzenie, a tej operacji nie da się cofnąć. Przycisk **Reset** jest nieaktywny, dopóki masz niezapisane zmiany.
 
 ## Przeglądanie zmian w karcie proponowanych przez agenta
 
-Na czacie w trybie Roleplay opcjonalny agent potrafi zaproponować drobne poprawki w polach karty na podstawie tego, co wydarzyło się w scenie. Wtedy pojawia się okno **Review Character Card Updates**, żeby decyzja została po twojej stronie. Ty wybierasz, co zostaje.
+Na czacie w trybie Roleplay opcjonalny agent może zaproponować drobne poprawki w polach karty na podstawie sceny. Otwiera się wtedy okno **Review Character Card Updates** (przegląd zmian w karcie postaci), w którym decydujesz, co zostaje. Przy każdej proponowanej zmianie:
 
-Przy każdej propozycji masz do wyboru:
+- **Approve** (zatwierdzenie) wprowadza ją, podnosi numer wersji i dokłada wpis do historii wersji.
+- **Regenerate** prosi agenta o kolejną próbę.
+- **Reject** (odrzucenie) odrzuca ją.
 
-- **Approve**. Wprowadza zmianę. Podnosi też numer wersji i dokłada wpis do historii wersji.
-- **Regenerate**. Prosi agenta o kolejną próbę.
-- **Reject**. Odrzuca propozycję.
+Jeśli tekst zmienił się od czasu zgłoszenia propozycji, aplikacja ostrzega, zanim pozwoli wymusić edycję. Jak włączyć i wyłączyć takich agentów, opisuje [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
-Jeśli tekst zmienił się już po zgłoszeniu propozycji, aplikacja ostrzega, zanim pozwoli wymusić edycję. O tym, jak włączyć i wyłączyć takich agentów, mówi [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
+## Jeśli to nie zadziałało
 
-## Słowo o Professor Mari
-
-**Professor Mari** to wbudowana postać asystentki, która przychodzi razem z aplikacją Marinara Engine. Nie da się jej usunąć. Przy próbie aplikacja blokuje operację i informuje, że to postać wbudowana. Czym się zajmuje, opisuje [Professor Mari, twoja asystentka w aplikacji](../home/professor-mari.md).
+- **Różdżka nic nie robi albo zgłasza błąd.** Sprawdź, czy masz działające połączenie tekstowe. Przy błędzie wersja robocza nigdy nie zostaje nadpisana.
+- **Brak przycisku awatara AI.** Najpierw dodaj połączenie do generowania obrazów.
+- **Nie da się usunąć asystentki Professor Mari.** To wbudowana postać, którą Marinara resetuje przy każdym uruchomieniu. Zobacz [Professor Mari, twoja asystentka w aplikacji](../home/professor-mari.md).
 
 ## Powiązane przewodniki
 
-- [Persony użytkownika: tworzenie i edycja](personas.md)
-- [Interaktywny onboarding](interactive-onboarding.md)
-- [Sprite'y postaci](sprites.md)
-- [Galerie postaci i person](galleries.md)
+- [Persony](personas.md)
 - [Importowanie i eksportowanie kart postaci](import-export.md)
-- [Kolory postaci i statystyki RPG](colors-and-stats.md)
-- [Profile w trybie Conversation Mode (nazwa wyświetlana, About Me, zachowanie)](../conversation/profiles.md)
-- [Podpinanie lorebooków do postaci i person](../lorebooks/linking-to-characters.md)
+- [Porządkowanie biblioteki postaci](library-organization.md)

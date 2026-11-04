@@ -1,114 +1,124 @@
 # 메시지 조작: 편집, 삭제, 스와이프, 재생성
 
-이 가이드에서는 채팅에 있는 메시지 하나로 할 수 있는 일을 설명합니다. 메시지 툴바, 메시지를 편집하고 삭제하는 방법, 스와이프와 재생성이 작동하는 방식을 다룹니다. 토큰 수와 메시지 번호를 보여 주는 표시 토글도 함께 설명합니다.
+직접 쓴 메시지든 AI가 쓴 메시지든, 모든 메시지에는 툴바가 있습니다. 툴바로 메시지 하나를 편집, 삭제, 재생성하거나 숨길 수 있고, 그 메시지에서 분기를 만들 수도 있습니다.
 
-Marinara Engine의 메시지에는 직접 쓴 것이든 AI가 쓴 것이든 작은 툴바가 붙어 있습니다. 컴퓨터에서는 메시지에 마우스를 올리면, 휴대폰이나 태블릿에서는 메시지를 탭하면 툴바가 나타납니다.
+휴대폰이나 태블릿에서는 메시지를 탭하면, 컴퓨터에서는 메시지에 마우스를 올리면 툴바가 나타납니다.
 
 ## 메시지 툴바
 
-아래 버튼이 메시지에 표시됩니다. 특정 상황에서만 나타나는 버튼도 있으며, 그 조건은 표에 적었습니다. 버튼마다 여기 적힌 라벨과 같은 툴팁이 붙어 있습니다.
+가장 자주 쓰는 버튼은 다음과 같습니다.
 
-| 버튼 | 하는 일 | 표시되는 경우 |
-| --- | --- | --- |
-| **Copy**(복사) | 메시지 텍스트를 복사합니다. 아이콘이 잠시 체크 표시로 바뀝니다. | 항상 |
-| **Add reaction**(반응 추가) | 이모지 선택기를 열고 메시지에 남긴 반응을 켜거나 끕니다. | Conversation(대화) 모드에서만 |
-| **Translate**(번역) / **Hide translation**(번역 숨기기) | 메시지를 사용 중인 언어로 번역하고, 번역을 다시 숨깁니다. | 항상 |
-| **Edit**(편집) | 메시지를 편집할 수 있게 엽니다. 아래에서 자세히 설명합니다. | 항상 |
-| **Regenerate**(재생성) | 같은 답변의 다른 안, 즉 스와이프를 새로 만듭니다. 아래에서 자세히 설명합니다. | AI 메시지. Roleplay(롤플레이) 모드에서는 직접 쓴 메시지에도 표시됩니다. Conversation 모드에서는 Impersonate(유저 사칭)로 만든 메시지에도 표시됩니다 |
-| **Show original before rewrite**(재작성 전 원문 보기) / **Show rewritten version**(재작성된 버전 보기) | 원래 텍스트와 재작성된 텍스트를 오갑니다. 두 버전이 모두 남아 있어 비교하거나 마음에 드는 쪽을 남길 수 있습니다. | 에이전트가 메시지를 재작성한 뒤에만 |
-| **Hide from AI**(AI에게서 숨기기) / **Unhide from AI**(AI에게 다시 표시) | 이후 턴에서 이 메시지를 AI에 보내지 않거나, 다시 보냅니다. Roleplay 그룹 채팅에서는 캐릭터 선택기가 열립니다. | 항상 |
-| **Peek prompt**(프롬프트 미리보기) | 이 답변을 만들 때 AI가 실제로 받은 프롬프트를 보여 줍니다. | 가장 최근 AI 메시지에만 |
-| **Stored guidance**(저장된 지침) | 이 답변을 이끈 지침을 보여 줍니다. | 답변에 가이드 지침을 썼거나 Impersonate로 만든 경우에만 |
-| **Branch from here**(여기서 분기 생성) | 이 메시지까지의 채팅을 새 분기로 복사합니다. | 항상 |
-| **View model thoughts**(모델의 생각 보기) | 모델이 감춰 둔 추론 텍스트를 엽니다. | 모델이 추론 내용을 함께 보낸 경우에만 |
-| **Delete**(삭제) | 메시지를 삭제합니다. 아래에서 자세히 설명합니다. | 항상 |
-| **Pause speaking**(말하기 일시 중지) / **Resume speaking**(말하기 재개) / **Restart speaking**(말하기 다시 시작) | 메시지를 읽어 주는 음성을 제어합니다. | Text to Speech가 켜져 있고 읽어 주는 중일 때만 |
+- **Edit**(편집)는 메시지 텍스트를 바꿉니다.
+- **Regenerate**(재생성)는 AI 답변의 새 버전을 모델에 요청합니다. 각 버전을 스와이프라고 부릅니다.
+- **Delete**(삭제)는 메시지를 지웁니다.
 
-**Peek prompt** 화면은 [Peek Prompt](peek-prompt.md)에서 설명합니다. **Branch from here**는 [채팅 분기](branches.md)를 참고하세요. **Translate**는 [메시지 번역](../integrations/message-translation.md)에서 다룹니다. 음성 재생 버튼은 [Text to Speech(TTS) 설정](../media/tts-setup.md)에서 설명합니다. 가이드 지침과 **Stored guidance**, Impersonate는 [지침 기반 생성과 Impersonate](guided-and-impersonate.md)를 참고하세요.
+버튼은 아이콘으로 표시됩니다. 각 버튼의 라벨은 아래와 같습니다. 일부 버튼은 특정 상황에서만 나타납니다.
+
+| 버튼 | 하는 일 |
+| --- | --- |
+| **Copy**(복사) | 메시지 텍스트를 복사합니다. |
+| **Edit** | 메시지를 편집할 수 있게 엽니다. |
+| **Regenerate** | 새 스와이프(답변의 다른 버전)를 만듭니다. AI 메시지에만 표시됩니다. Roleplay(롤플레이)에서는 직접 쓴 메시지에도, Conversation(대화)에서는 Impersonate(유저 사칭)로 만든 메시지에도 표시됩니다. |
+| **Delete** | 메시지를 삭제합니다. |
+| **Translate**(번역) / **Hide translation**(번역 숨기기) | 메시지를 내 언어로 번역하고, 번역을 다시 숨깁니다. |
+| **Add reaction**(반응 추가) | 이모지 선택기를 엽니다. Conversation에서만 표시됩니다. |
+| **Hide from AI**(AI에게서 숨기기) / **Unhide from AI**(AI에게 다시 표시) | 이 메시지를 모델에 보내지 않거나 다시 보냅니다. Roleplay 그룹 채팅에서는 캐릭터 선택기가 열립니다. |
+| **Bookmark, pin or note**(북마크, 핀 또는 메모) | 메시지를 북마크하거나, 기록 한도를 넘어서도 프롬프트에 남도록 고정하거나(채팅당 최대 10개), **Private note**(비공개 메모)를 추가합니다. **Show the note to the narrator character**(내레이터 캐릭터에게 메모 보여 주기)를 켜지 않으면 모델은 메모를 절대 보지 않습니다. 이 설정은 캐릭터가 하나인 채팅과 개별 답변을 쓰는 그룹 채팅에서 작동합니다. |
+| **Branch from here**(여기서 분기 생성) | 이 메시지까지의 채팅을 새 분기로 복사합니다. 장면 채팅에는 없습니다. |
+| **Clone from here**(여기서 복제) | 이 메시지까지의 장면 채팅을 새 Roleplay로 복사합니다. 장면 채팅에만 있습니다. |
+| **Peek prompt**(프롬프트 미리보기) | 이 답변에 쓰인 프롬프트를 그대로 보여 줍니다. 가장 최근 AI 메시지에만 표시됩니다. |
+| **Stored guidance**(저장된 지침) | 이 답변을 이끈 방향을 보여 줍니다. 지침이나 Impersonate로 만든 답변에만 표시됩니다. |
+| **View model thoughts**(모델의 생각 보기) | 모델이 감춰 둔 추론을 엽니다. 모델이 추론을 돌려준 경우에만 표시됩니다. |
+| **Show original before rewrite**(재작성 전 원문 보기) / **Show rewritten version**(재작성된 버전 보기) | 에이전트(답변과 함께 실행되는 보조 기능)가 메시지를 재작성했을 때 원문과 재작성된 텍스트를 오갑니다. |
+| **Mark as new start**(새 시작점으로 표시) | Roleplay에서만 표시됩니다. Advanced Memory(Marinara의 장기 기억 기능)가 켜져 있을 때 채팅에 대한 모델의 기억을 이 메시지부터 시작합니다. [Advanced Memory](../agents/memory.md)를 참고하세요. |
+| **Pause speaking**(말하기 일시 중지) / **Resume speaking**(말하기 재개) / **Restart speaking**(말하기 다시 시작) | Text to Speech(음성 합성, 메시지를 소리 내어 읽어 주는 기능)가 켜져 있고 읽는 중일 때 음성을 제어합니다. |
+
+더 알아보기: [Peek Prompt](peek-prompt.md), [채팅 분기](branches.md), [장면](../roleplay/scenes.md)(장면 채팅은 채팅에서 갈라져 나온 짧은 Roleplay입니다), [메시지 번역](../integrations/message-translation.md), [Text to Speech(TTS) 설정](../media/tts-setup.md), [지침 기반 생성과 Impersonate](guided-and-impersonate.md), [비공개 메모](../roleplay/getting-started.md#your-private-notes).
 
 ## 메시지 편집
 
-메시지 텍스트는 직접 쓴 것이든 AI가 쓴 것이든 모두 편집할 수 있습니다.
-
 1. 메시지에서 **Edit**를 클릭하세요. 텍스트가 편집할 수 있는 입력란으로 바뀝니다.
 2. 텍스트를 고치세요.
-3. **Save**(저장)를 클릭하거나 Ctrl과 Enter를 함께 누르세요(Mac에서는 Cmd와 Enter). 버튼 툴팁은 **Save (Cmd+Enter)**입니다.
-4. 저장하지 않고 그만두려면 **Cancel**(취소)을 클릭하거나 Escape 키를 누르세요. 버튼 툴팁은 **Cancel (Esc)**입니다.
+3. **Save**(저장)를 클릭하거나 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>를 누르세요(Mac에서는 <kbd>Cmd</kbd>+<kbd>Enter</kbd>).
+4. 저장하지 않고 그만두려면 **Cancel**(취소)을 클릭하거나 <kbd>Esc</kbd>를 누르세요.
 
-편집을 더 빨리 시작하는 설정이 2개 있습니다. 둘 다 **Settings**(설정)의 **General**(일반) 탭, **Input & Editing**(입력 및 편집) 항목에 있습니다.
+**Settings → General → Input & Editing**(설정 → 일반 → 입력 및 편집)에 있는 설정 2개를 쓰면 편집을 더 빨리 시작할 수 있습니다. 둘 다 기본값은 켜짐입니다.
 
-- **Up Arrow edits last message**(위쪽 화살표로 마지막 메시지 편집, 기본값 켜짐): 입력란이 비어 있을 때 Up Arrow 키를 누르세요. 가장 최근 메시지가 편집 상태로 열립니다.
-- **Double-click edits messages**(더블 클릭으로 메시지 편집, 기본값 켜짐): Roleplay 메시지를 더블 클릭하거나 두 번 탭하면 편집 상태로 열립니다.
+- **Up Arrow edits last message**(위쪽 화살표로 마지막 메시지 편집): 입력란이 비어 있을 때 <kbd>Up</kbd>을 누르세요.
+- **Double-click edits messages**(더블 클릭으로 메시지 편집): Roleplay 메시지를 더블 클릭하거나 두 번 탭하세요.
 
 ## 메시지 삭제
 
-메시지를 삭제하면 **How to proceed?**(어떻게 할까요?)라는 제목의 창이 열립니다. 삭제 선택지는 다음과 같습니다.
+1. 메시지에서 **Delete**를 클릭하세요. **Delete message**(메시지 삭제) 창이 열립니다.
+2. 선택지 하나를 고르세요.
 
-- **Delete only this swipe (1/3)**(이 스와이프만 삭제): 지금 보고 있는 답변 하나만 지웁니다. 이 선택지는 메시지에 스와이프가 둘 이상 있을 때만 나타납니다. 숫자는 지금 보고 있는 스와이프와 전체 개수를 뜻합니다.
-- **Delete this message**(이 메시지 삭제): 메시지 전체와 그 메시지의 모든 스와이프를 지웁니다.
-- **Delete more**(추가 삭제): 이 메시지와 그 아래의 모든 메시지를 선택하고 메시지 다중 선택을 켭니다. 지우기 전에 선택 범위를 조정할 수 있습니다.
-- **Cancel**: 창을 닫고 아무것도 지우지 않습니다.
+| 선택지 | 하는 일 |
+| --- | --- |
+| **Delete only this swipe (1/3)**(이 스와이프만 삭제) | 지금 보고 있는 스와이프를 지웁니다. 스와이프가 둘 이상일 때만 표시됩니다. |
+| **Delete all other swipes**(다른 모든 스와이프 삭제) | 지금 보고 있는 스와이프는 남기고 나머지를 지웁니다. 스와이프가 둘 이상일 때만 표시됩니다. |
+| **Delete this message**(이 메시지 삭제) | 메시지와 그 메시지의 모든 스와이프를 지웁니다. |
+| **Delete more**(추가 삭제) | 이 메시지와 그 아래의 모든 메시지를 선택하고 선택 막대를 엽니다. |
+| **Cancel** | 창을 닫습니다. |
 
-"joined the chat" 줄처럼 앱이 남기는 시스템 메시지에는 창이 열리지 않고 단순한 삭제 버튼만 있습니다.
+선택 막대에서 메시지를 클릭하면 선택에 추가됩니다. **Select all messages above**(위의 모든 메시지 선택)와 **Select all messages below**(아래의 모든 메시지 선택)는 선택 범위를 넓히고, **Unselect all**(모두 선택 취소)은 선택을 비우고, **Delete selected**(선택된 메시지 삭제)는 선택에 남은 메시지를 지웁니다. 막대에는 선택한 메시지 수가 표시됩니다.
+
+"joined the chat" 줄 같은 시스템 메시지는 창 없이 한 번의 클릭으로 삭제됩니다.
 
 ## 스와이프: 같은 답변의 다른 안
 
-스와이프는 AI 답변의 한 가지 버전입니다. 메시지 하나가 스와이프를 여러 개 담을 수 있어서, 같은 턴에 대한 여러 답변을 비교하고 마음에 드는 것을 고를 수 있습니다.
+스와이프는 AI 답변의 한 가지 버전입니다. 메시지 하나가 스와이프를 여러 개 담을 수 있어서, 답변을 비교하고 마음에 드는 것을 남길 수 있습니다. 메시지에 스와이프가 둘 이상 생기면 스와이프 컨트롤이 나타납니다. 컨트롤에는 "2/4"처럼 활성 스와이프와 전체 개수가 표시됩니다.
 
-스와이프가 둘 이상이 되면 메시지에 스와이프 컨트롤이 나타납니다. "2/4"처럼 지금 보고 있는 스와이프와 전체 개수를 보여 주며, 다음과 같은 조작을 제공합니다.
+- **Previous swipe**(이전 스와이프)와 **Next swipe**(다음 스와이프)로 스와이프를 차례로 넘깁니다.
+- 숫자 입력란으로 원하는 스와이프로 바로 이동합니다. 번호를 입력하고 <kbd>Enter</kbd>를 누르세요. 입력란의 라벨은 **Jump to swipe 1-N**(1~N번 스와이프로 이동)입니다.
+- 가장 최신 스와이프에서는 앞으로 가는 버튼이 **Generate next swipe**(다음 스와이프 생성)로 바뀌고, 새 스와이프를 만듭니다.
 
-- **Previous swipe**(이전 스와이프)와 **Next swipe**(다음 스와이프): 스와이프를 앞뒤로 넘깁니다.
-- 숫자 입력란: 스와이프 번호를 입력하고 Enter를 누르면 그 스와이프로 바로 이동합니다. 툴팁은 **Jump to swipe 1-N**이며, N은 전체 개수입니다.
-- **Generate next swipe**(다음 스와이프 생성): 가장 최신 스와이프를 보고 있으면 앞으로 가는 버튼이 이 버튼으로 바뀌고, 완전히 새로운 스와이프를 만듭니다.
-
-메시지에 하나 남은 마지막 스와이프는 삭제할 수 없습니다. 삭제하려고 하면 "Cannot delete the last remaining swipe"라는 안내가 표시됩니다. 메시지 전체를 지우려면 **Delete this message**를 쓰세요.
+마지막 스와이프는 삭제할 수 없습니다. 앱에 "Cannot delete the last remaining swipe"라는 안내가 표시됩니다. 대신 **Delete this message**를 쓰세요.
 
 ## 재생성, 이어 쓰기, 다시 시도
 
-이 세 가지 동작은 비슷해 보이지만 결과가 다릅니다. 원하는 결과에 맞는 것을 고르세요.
+이 세 가지는 비슷해 보이지만 하는 일이 다릅니다.
 
-**Regenerate**는 새 스와이프를 만듭니다. AI 메시지에서 **Regenerate**를 클릭하면 그 답변의 다른 버전을 생성합니다. 원래 스와이프는 그대로 남습니다. 터치 화면에서는 실수로 누르는 일이 없도록 앱이 먼저 "Regenerate this message as a new swipe?"라고 확인합니다. 가이드 지침을 걸어 둔 상태에서는 버튼이 **Regenerate (guided)**로 바뀝니다.
+| 동작 | 결과 |
+| --- | --- |
+| **Regenerate** | 새 스와이프가 생깁니다. 원래 스와이프는 남습니다. 터치 화면에서는 앱이 먼저 "Regenerate this message as a new swipe?"라고 묻습니다. 지침을 걸어 둔 상태에서는 버튼이 **Regenerate (guided)**로 표시됩니다. |
+| `/continue` | 새 스와이프 없이 같은 메시지에 텍스트가 더해집니다. |
+| 빈 **Send**(전송) | 새 답변이 만들어집니다. |
 
-**/continue** 명령어는 같은 메시지를 이어서 씁니다. 입력란에 `/continue`(줄임형은 `/cont`)를 입력해 보내세요. AI가 새 스와이프를 만드는 대신, 직전 답변이 끊긴 지점부터 같은 메시지에 텍스트를 덧붙입니다.
+### 답변 이어 쓰기
 
-Marinara는 기본적으로 덧붙이는 텍스트 앞에 빈 줄을 하나 넣습니다. 앞 응답의 마지막 글자에 곧바로 이어 붙이려면 **Settings → General → Responses → Add a new line before /continue text**를 끄세요. 그러면 Marinara가 구분 없이 끊긴 지점에서 정확히 이어 쓰도록 모델에 지시합니다.
+입력란에 `/continue`(또는 `/cont`)를 입력해 보내세요. 모델이 직전 답변이 멈춘 지점부터 이어서 씁니다.
 
-```
+```text
 /continue
 ```
 
-입력란을 비운 채 보내는 다시 시도는 답변을 새로 만듭니다. 채팅의 마지막 메시지가 직접 쓴 것이고 입력란이 비어 있으면, 같은 **Send**(전송) 버튼이 전송 대신 다시 시도를 실행합니다. 버튼 모양은 바뀌지 않습니다. 메시지를 다시 입력하지 않아도 버튼을 클릭하거나 Enter를 눌러 답변을 받을 수 있습니다. Roleplay 모드에서는 빈 상태로 **Send**를 눌러 AI가 새 턴으로 장면을 이어 가도록 유도할 수도 있습니다. 이는 **/continue**와 다릅니다. 빈 상태로 보내면 항상 새 답변이 만들어지고, **/continue**는 기존 답변에 덧붙입니다.
+Marinara는 새 텍스트 앞에 빈 줄을 하나 넣습니다. 마지막 글자에 곧바로 이어 붙이려면 **Settings → General → Responses → Add a new line before /continue text**(설정 → 일반 → 응답 → /continue 텍스트 앞에 새 줄 추가)를 끄세요.
+
+### 빈 Send로 다시 시도하기
+
+마지막 메시지가 내가 쓴 것이고 입력란이 비어 있으면 **Send**는 전송 대신 다시 시도를 실행합니다. Roleplay에서는 AI가 이미 답한 뒤에도 빈 **Send**로 새 턴을 시작합니다. 이때 앞 답변에 덧붙이는 일은 없습니다. [메시지 보내기와 스트리밍](sending-and-streaming.md#retry-without-retyping)을 참고하세요.
 
 ## AI에게서 메시지 숨기기
 
-AI 컨텍스트는 앱이 매 턴 AI에 보내는 메시지 묶음입니다. **Hide from AI**를 클릭하면 이후 턴부터 그 메시지가 컨텍스트에서 빠집니다. 메시지는 화면에 그대로 보이고 **Hidden from AI** 라벨이 붙습니다. 다시 보내려면 **Unhide from AI**를 클릭하세요.
+**Hide from AI**를 클릭하면 이후 턴부터 그 메시지가 프롬프트에서 빠집니다. 메시지는 화면에 그대로 보이고 **Hidden from AI** 라벨이 붙습니다. 다시 보내려면 **Unhide from AI**를 클릭하세요.
 
-캐릭터가 둘 이상인 Roleplay 그룹 채팅에서 **Hide from AI**를 누르면 작은 아바타 선택기가 열립니다. 그룹 아바타를 선택하면 모두에게서 숨기고, 캐릭터 아바타를 하나 이상 선택하면 그 캐릭터에게만 숨깁니다. 전체를 선택하면 개별 선택이 지워지고, 개별 캐릭터를 선택하면 전체 선택이 꺼집니다. 메시지에 붙는 눈 가림 표시는 그 메시지를 볼 수 없는 캐릭터의 아바타를 보여 줍니다. 캐릭터가 하나뿐인 채팅에서는 버튼이 곧바로 메시지를 숨기거나 다시 표시합니다.
+Roleplay 그룹 채팅에서는 **Hide from AI**를 누르면 아바타 선택기가 열립니다. 그룹 아바타를 고르면 모두에게서 메시지를 숨기고, 캐릭터를 하나 이상 고르면 그 캐릭터에게만 숨깁니다. 메시지에 붙는 눈 가림 표시로 누가 그 메시지를 볼 수 없는지 알 수 있습니다. 캐릭터가 하나뿐인 채팅에서는 버튼이 곧바로 메시지를 숨기거나 다시 표시합니다.
 
-메시지를 귓속말 수신자에게만 숨겨도 메시지 안의 귓속말은 그 수신자에게 계속 전달됩니다. 수신자는 귓속말을 받지만 메시지의 나머지 부분은 받지 않습니다. 메시지를 모두에게서 숨기면 귓속말도 함께 빠집니다. [귓속말과 비밀](../roleplay/getting-started.md#whispers-and-secrets)을 참고하세요.
+메시지를 한 캐릭터에게서 숨겨도, 그 캐릭터는 메시지 안의 귓속말은 계속 받고 나머지 부분은 받지 않습니다. 모두에게서 숨기면 귓속말도 함께 빠집니다. [귓속말과 비밀](../roleplay/getting-started.md#whispers-and-secrets)을 참고하세요.
 
-`/hide [range] [name (optional)]`로 메시지를 숨길 수도 있습니다. 예를 들어 `/hide 3-8`입니다. Roleplay에서 `/hide 3-8 Maukie`는 Maukie에게만 메시지를 숨기고, 이름을 생략하면 모두에게 숨깁니다. `/unhide [range]`는 전체에 대해 숨긴 메시지를 복원합니다. 캐릭터별 숨김을 해제하려면 Roleplay 그룹 채팅에서는 아바타 선택기를, 캐릭터가 하나인 Roleplay 채팅에서는 메시지의 **Unhide from AI** 동작을 사용하세요. 메시지 번호는 채팅의 첫 메시지를 1로 삼아 셉니다. 형식과 예시는 [슬래시 명령어 참고서](slash-commands.md)를 확인하세요.
+여러 메시지를 범위로 숨기려면 `/hide`와 `/unhide`를 쓰세요. [슬래시 명령어 참조](slash-commands.md)를 참고하세요. 메시지 번호는 첫 메시지를 1로 삼아 셉니다.
 
-Advanced Memory의 **Decide who sees new messages**(새 메시지를 볼 대상 결정)가 켜져 있으면, 캐릭터가 한 명씩 답하는 그룹 채팅의 새 메시지를 자리에 없는 캐릭터에게서 자동으로 숨기고 같은 표시를 붙입니다. 메시지의 설정을 직접 바꾸면 항상 그 선택이 우선합니다. [새 메시지를 볼 대상 정하기](../agents/memory.md#deciding-who-sees-new-messages)를 참고하세요.
+Advanced Memory의 **Decide who sees new messages**(새 메시지를 볼 대상 결정)가 켜져 있으면, 캐릭터가 한 명씩 답하는 그룹 채팅에서 새 메시지가 자리에 없는 캐릭터에게서 자동으로 숨겨집니다. 직접 정한 선택이 항상 우선합니다. [새 메시지를 볼 대상 정하기](../agents/memory.md#deciding-who-sees-new-messages)를 참고하세요.
+
+<a id="message-display-toggles"></a>
 
 ## 메시지 표시 토글
 
-메시지에 부가 정보를 더 보여 주는 토글이 2개 있습니다. 둘 다 **Settings**의 **Advanced**(고급) 탭, **Message Tools**(메시지 도구) 섹션에 있습니다. 둘 다 기본값은 꺼짐입니다.
+이 토글은 **Settings → Advanced → Message Tools**(설정 → 고급 → 메시지 도구)에 있습니다.
 
-- **Show message numbers**(메시지 번호 표시): 메시지마다 번호를 표시합니다. 번호는 채팅의 첫 메시지를 1로 삼아 셉니다. `/goto`, `/hide`, `/unhide` 명령어가 쓰는 번호와 같습니다. 메시지 번호를 확인해야 할 때 켜세요.
-- **Show token usage on messages**(메시지에 토큰 사용량 표시): AI 답변에 메시지별 토큰 수를 붙입니다. 토큰은 AI가 읽고 쓰는 글을 잘게 나눈 단위입니다. 해당 답변의 프롬프트 토큰과 완성 토큰 수를 보여 줍니다. 정보가 있으면 캐시 적중과 답변에 걸린 시간도 함께 표시합니다.
-
-같은 **Message Tools** 섹션에는 관련 토글로 **Show model name on messages**(메시지에 모델 이름 표시)가 있습니다. 각 답변을 쓴 AI 모델의 이름을 함께 표시하며, 이 토글도 기본값은 꺼짐입니다.
-
-프롬프트 크기를 맞추려고 이전 메시지를 빼야 했을 때는 답변 아래에 몇 개를 뺐는지 알려 주는 짧은 안내가 표시됩니다. 예를 들면 "1109 older messages not sent"입니다. 답변 아래의 이 안내를 숨기려면 같은 섹션에서 **Show "older messages not sent" note**("전송되지 않은 이전 메시지" 안내 표시)를 끄세요. Checkup을 열면 여전히 이 안내가 표시될 수 있습니다. 기본값은 켜짐입니다. 답변이 잘렸거나 비어 있었다는 안내는 그대로 표시됩니다.
-
-## 관련 가이드
-
-- [메시지 보내기와 스트리밍](sending-and-streaming.md)
-- [지침 기반 생성과 Impersonate](guided-and-impersonate.md)
-- [Peek Prompt](peek-prompt.md)
-- [채팅 분기](branches.md)
-- [Text to Speech(TTS) 설정](../media/tts-setup.md)
-- [메시지 번역](../integrations/message-translation.md)
-- [설정 개요](../settings/settings-overview.md)
-- [Marinara Engine 문제 해결](../TROUBLESHOOTING.md)
+| 토글 | 기본값 | 표시하는 내용 |
+| --- | --- | --- |
+| **Show message numbers**(메시지 번호 표시) | 꺼짐 | 메시지마다 번호를 붙입니다. `/goto`, `/hide`, `/unhide`가 쓰는 번호와 같습니다. |
+| **Show token usage on messages**(메시지에 토큰 사용량 표시) | 꺼짐 | AI 답변마다 프롬프트 토큰과 완성 토큰 수(토큰은 모델이 세는 작은 텍스트 조각입니다)를 표시하고, 정보가 있으면 캐시 적중과 답변 시간도 함께 표시합니다. |
+| **Show model name on messages**(메시지에 모델 이름 표시) | 꺼짐 | 각 답변을 쓴 모델을 표시합니다. |
+| **Show "older messages not sent" note**("전송되지 않은 이전 메시지" 안내 표시) | 켜짐 | 이전 메시지가 프롬프트에 다 들어가지 못했을 때 답변 아래에 "1109 older messages not sent" 같은 안내를 표시합니다. 답변이 잘렸거나 비어 있다는 안내는 항상 표시됩니다. |

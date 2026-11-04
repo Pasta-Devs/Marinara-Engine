@@ -8,6 +8,24 @@ Um rápido glossário para acompanhar o guia:
 - Loopback: a própria máquina que está rodando o servidor. O endereço dela é `127.0.0.1` ou `localhost`.
 - Acesso remoto: abrir Marinara em qualquer dispositivo que NÃO seja a máquina que roda o servidor.
 
+<a id="connect-from-anywhere-with-tailscale"></a>
+
+## Conectar de qualquer lugar com o Tailscale
+
+O [Tailscale](https://tailscale.com) é uma rede privada para os seus próprios dispositivos. Use-o para abrir Marinara no celular ou no notebook, em casa ou fora dela, sem abrir portas no roteador e sem colocar Marinara na internet pública. Marinara confia nos dispositivos que se conectam diretamente pelo Tailscale, então você não precisa definir um login.
+
+1. Instale o Tailscale no computador que roda Marinara e no seu outro dispositivo. Baixe em [tailscale.com/download](https://tailscale.com/download).
+2. Entre no Tailscale com a mesma conta nos dois dispositivos.
+3. Inicie Marinara com `start.sh`, `start.bat`, `start-termux.sh` ou o instalador do Windows. Essas formas de iniciar deixam outros dispositivos se conectarem. Se você usa `pnpm start`, primeiro acrescente `HOST=0.0.0.0` ao seu arquivo `.env` (veja [Onde fica o arquivo .env](#where-the-env-file-lives)).
+4. Descubra o endereço Tailscale do computador do Marinara. Abra o aplicativo do Tailscale nele ou execute `tailscale ip -4`. O endereço começa com `100.`, por exemplo `100.101.102.103`.
+5. No outro dispositivo, ative o Tailscale e abra `http://100.101.102.103:7860` em um navegador. Use o seu próprio endereço, e a sua `PORT` se você a mudou. Marinara abre sem página de login.
+
+Se a página não carregar, verifique se o Tailscale está ativado nos dois dispositivos e se o servidor escuta em `HOST=0.0.0.0`.
+
+> **Observação:** isso não funciona em instalações Docker. O tráfego do Tailscale chega ao contêiner pelo gateway do Docker, então Marinara não consegue ver que ele veio do Tailscale. Defina um login primeiro ([Opção 1](#option-1-login-recommended)) e depois publique a porta além de `127.0.0.1`.
+
+Backups, importações, atualizações e outras ações arriscadas ainda precisam do segredo de administrador a partir de um dispositivo remoto. Veja [Admin Access e ações privilegiadas](#admin-access-and-privileged-actions).
+
 ## O que Marinara bloqueia por padrão
 
 Para proteger os seus dados, uma instalação nova do Marinara recusa conexões de outros dispositivos até você configurar o controle de acesso. Por padrão, só três tipos de cliente são confiáveis:
@@ -19,6 +37,8 @@ Para proteger os seus dados, uma instalação nova do Marinara recusa conexões 
 Todo o resto, como o celular na mesma rede Wi-Fi ou um cliente vindo da internet pública, fica bloqueado até você definir um login. Um dispositivo bloqueado que abre Marinara no navegador vê uma página escura de configuração. O título dela diz **This Marinara Engine install needs a login before remote devices can connect.** A página tem um formulário para o código de configuração de uso único do log do servidor, para que você defina o login a partir desse dispositivo.
 
 Se você não fizer nada e nunca definir uma senha, Marinara continua restrito a essas três origens confiáveis. Esse é o padrão seguro.
+
+<a id="where-the-env-file-lives"></a>
 
 ## Onde fica o arquivo .env
 
@@ -35,6 +55,8 @@ Pode acontecer de outros dispositivos não alcançarem o servidor de jeito nenhu
 ```env
 HOST=0.0.0.0
 ```
+
+Os inicializadores de shell (`start.bat`, `start.sh`) definem `HOST=0.0.0.0` para você. Executar `pnpm start` diretamente não faz isso.
 
 O endereço de bind padrão depende de como você inicia o Marinara:
 
@@ -71,9 +93,9 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-Um login no `.env` tem prioridade sobre um login definido no app, e você só o muda no `.env`. Salve o `.env`; a mudança entra em vigor em poucos segundos, sem reiniciar.
+Um login no `.env` tem prioridade sobre um login definido no aplicativo, e você só o muda no `.env`. Salve o `.env`; a mudança entra em vigor em poucos segundos, sem reiniciar.
 
-Escolha uma senha forte e exclusiva. O app pede pelo menos 10 caracteres. É possível gerar uma senha aleatória:
+Escolha uma senha forte e exclusiva. O aplicativo pede pelo menos 10 caracteres. É possível gerar uma senha aleatória:
 
 ```bash
 openssl rand -base64 24
@@ -83,15 +105,15 @@ Depois, siga estes passos a partir do dispositivo remoto.
 
 1. Abra Marinara no navegador usando o endereço do servidor, por exemplo `http://192.168.1.50:7860`.
 2. Entre na página de login com o seu nome de usuário e a sua senha.
-3. Você deve ver o app carregar. O navegador permanece conectado por até um ano, até você sair. Scripts e clientes de API enviam o nome de usuário e a senha a cada requisição (Basic Auth).
+3. Você deve ver o aplicativo carregar. O navegador permanece conectado por até um ano, até você sair. Scripts e clientes de API enviam o nome de usuário e a senha a cada requisição (Basic Auth).
 
 Para entrar em outro dispositivo sem digitar a senha, use um código de pareamento. Em um dispositivo que já está conectado, abra **Settings → Advanced → Access** e escolha **Add a device** (adicionar um dispositivo). Depois digite o código na página de login do novo dispositivo. O código funciona uma vez, por alguns minutos. Um código expirado recebe a sua própria mensagem; gere um novo. Em **Signed-in devices** (dispositivos conectados), você vê cada dispositivo com o seu método de login e a data do primeiro login. Você pode desconectar qualquer dispositivo, inclusive o que você usa. Você também pode mudar ou remover a senha. Para isso, Marinara pede a senha atual, a menos que você trabalhe no computador que roda Marinara ou tenha definido `ADMIN_SECRET`.
 
-Se você esquecer a senha, execute `pnpm reset-login` no computador que roda Marinara. No Docker, execute `docker exec <container> node scripts/reset-login.mjs`. Ele remove o login definido no app e desconecta todos os navegadores. Se o servidor escuta além do loopback, ele então imprime um novo código de configuração. Só se esse comando não funcionar, apague `.remote-login.json` e `.remote-sessions.json` da pasta de dados. Com o `/app/data` padrão, execute `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`; se você mudou `DATA_DIR`, use essa pasta. Um login no `.env` que você muda no `.env`.
+Se você esquecer a senha, execute `node scripts/reset-login.mjs` na pasta do Marinara, no computador que roda Marinara. No Docker, execute `docker exec <container> node scripts/reset-login.mjs`. Ele remove o login definido no aplicativo e desconecta todos os navegadores. Se o servidor escuta além do loopback, ele então imprime um novo código de configuração. Só se esse comando não funcionar, apague `.remote-login.json` e `.remote-sessions.json` da pasta de dados. Com o `/app/data` padrão, execute `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`; se você mudou `DATA_DIR`, use essa pasta. Um login no `.env` que você muda no `.env`.
 
 **Servidor sem navegador?** Uma instalação nativa em um servidor sem navegador escuta só no loopback e não imprime código de configuração. No seu próprio computador, execute `ssh -L 7860:127.0.0.1:7860 user@server`. Depois abra `http://localhost:7860` ali e use **Settings**.
 
-Depois de 10 senhas ou códigos errados diferentes em 15 minutos, Marinara recusa logins desse endereço com **429 Too Many Requests** (muitas requisições) até os 15 minutos acabarem. Uma senha correta antes disso zera a contagem. Os visitantes que usam um proxy reverso ou túnel no host repassam compartilham uma única contagem, e o login de um deles não a zera. Reiniciar o servidor também zera a contagem. Um navegador que já entrou antes continua entrando com a senha correta, então as senhas erradas de outras pessoas não podem bloquear você em um dispositivo que você já usa. A página de login informa quantos minutos esperar. Se você esquecer a senha, a página de login tem uma dica **Forgot the password?**.
+Depois de 10 senhas ou códigos errados diferentes em 15 minutos, Marinara recusa logins desse endereço com **429 Too Many Requests** (muitas requisições) até os 15 minutos acabarem. Uma senha correta antes disso zera a contagem. Os visitantes que um proxy reverso ou túnel no host repassa compartilham uma única contagem, e o login de um deles não a zera. Reiniciar o servidor também zera a contagem. Um navegador que já entrou antes continua entrando com a senha correta, então as senhas erradas de outras pessoas não podem bloquear você em um dispositivo que você já usa. A página de login informa quantos minutos esperar. Se você esquecer a senha, a página de login tem uma dica **Forgot the password?**.
 
 Os navegadores fazem login na página `/login`. `BASIC_AUTH_REALM` altera o realm do desafio de Basic Auth para scripts e clientes de API; ele não altera a página de login.
 
@@ -101,7 +123,7 @@ Alguns clientes pulam a senha mesmo com Basic Auth ativo:
 - Qualquer endereço na variável `IP_ALLOWLIST`. Atenção: definir uma lista de IPs permitidos também bloqueia todos os endereços que não estiverem nela (veja a Opção 2).
 - O tráfego direto do Tailscale (`100.64.0.0/10`), a menos que você desative a liberação dele.
 - O tráfego de bridge/gateway do Docker, só enquanto nenhum login, lista de IPs permitidos ou `TRUSTED_AUTH_PROXY` estiver definido (veja [Liberação para Tailscale e Docker](#tailscale-and-docker-bypass)).
-- O endereço `/api/health`, para que os monitores de disponibilidade continuem funcionando. Quem não puder abrir o app recebe só `{"status": "ok"}`; os detalhes de versão, sistema e modelos ficam neste computador, nas redes confiáveis e nos navegadores com sessão iniciada.
+- O endereço `/api/health`, para que os monitores de disponibilidade continuem funcionando. Quem não puder abrir o aplicativo recebe só `{"status": "ok"}`; os detalhes de versão, sistema e modelos ficam neste computador, nas redes confiáveis e nos navegadores com sessão iniciada.
 
 Importante: Basic Auth apenas codifica a senha. Não criptografa. Quem estiver observando uma conexão sem criptografia consegue ler a senha. Se você expõe Marinara à internet pública, combine Basic Auth com HTTPS (veja abaixo).
 
@@ -166,7 +188,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 Ferramentas que encaminham conexões brutas, como `socat` ou `ssh -R`, não acrescentam cabeçalhos, então o tráfego delas parece local. Não as use para publicar Marinara.
 
-Se o seu proxy já faz todo visitante entrar com um login antes de encaminhar qualquer coisa, você pode pular as verificações do próprio Marinara para o tráfego dele. Faça isso apenas quando o próprio proxy exigir login de todo visitante. Leia [Proxies de login (forward auth)](#login-proxies-forward-auth).
+Se o seu proxy já faz todo visitante entrar com um login antes de encaminhar qualquer coisa, veja [Proxies de login (forward auth)](#login-proxies-forward-auth).
 
 <a id="login-proxies-forward-auth"></a>
 
@@ -189,9 +211,9 @@ Antes de defini-la:
 - **Liste só o endereço do próprio proxy.** Uma faixa deve ficar dentro do espaço de endereços privados; Marinara ignora as outras faixas. Ela registra um aviso para cada faixa, porque todo dispositivo em uma faixa pula o login.
 - **Acrescente o nome público como para qualquer outro proxy.** Coloque o nome do host em `TRUSTED_HOSTS` e a origem em `CSRF_TRUSTED_ORIGINS` (veja [Por que meu salvamento está bloqueado (CSRF)](#why-is-my-save-blocked-csrf)).
 
-Quando `TRUSTED_AUTH_PROXY` está definido, Marinara também interrompe a confiança automática no Docker. Os visitantes diretos que não são o proxy precisam do login do Marinara ou da lista de IPs permitidos. Marinara então também mostra um banner "no login yet".
+Quando `TRUSTED_AUTH_PROXY` está definido, Marinara também interrompe a confiança automática no Docker. Os visitantes diretos que não são o proxy precisam do login do Marinara ou da lista de IPs permitidos. Marinara então também não mostra o banner "no login yet".
 
-Se o proxy roda no mesmo computador que Marinara, use `TRUSTED_AUTH_PROXY=127.0.0.1` e aponte o proxy para `127.0.0.1:7860`, não para `localhost`. Um proxy que disca `localhost` pode se conectar por `::1`, que não corresponde a `127.0.0.1`. Então todo outro proxy ou túnel nesse computador também é confiável, por isso use isso só quando o proxy de login for o único. Isso não dá aos visitantes do proxy o acesso da máquina local.
+Se o proxy roda no mesmo computador que Marinara, use `TRUSTED_AUTH_PROXY=127.0.0.1` e aponte o proxy para `127.0.0.1:7860`, não para `localhost:7860`. Um proxy que disca `localhost` pode se conectar por `::1`, que não corresponde a `127.0.0.1`. Então todo outro proxy ou túnel nesse computador também é confiável, por isso use isso só quando o proxy de login for o único. Isso não dá aos visitantes do proxy o acesso da máquina local.
 
 Um exemplo de Caddy, com Marinara em `192.168.1.20:7860`:
 
@@ -204,7 +226,7 @@ marinara.example.com {
 }
 ```
 
-Para o Authelia, use `forward_auth authelia:9091` com `uri /api/authz/forward-auth`. O Authentik também serve as próprias páginas de login pelo proxy. Coloque-as em um bloco `route` para que o Caddy mantenha a ordem delas e o caminho do outpost não passe pelo próprio forward auth:
+Para o Authelia, use `forward_auth authelia:9091` com `uri /api/authz/forward-auth`. O Authentik também serve as próprias páginas de login pelo proxy. Coloque as linhas dele em um bloco `route` para que o Caddy mantenha a ordem delas e o caminho do outpost não passe pelo próprio forward auth:
 
 ```caddy
 marinara.example.com {
@@ -219,6 +241,8 @@ marinara.example.com {
 ```
 
 Para Traefik e nginx, siga o guia de forward auth do seu proxy. Marinara não precisa de nada além do endereço do proxy.
+
+<a id="serving-over-https"></a>
 
 ## Servir por HTTPS
 
@@ -237,11 +261,29 @@ SSL_KEY=/path/to/key.pem
 
 Você precisa de um certificado e de uma chave antes de definir as variáveis `SSL_CERT` e `SSL_KEY`. Uma ferramenta como o `mkcert` cria um certificado para uso local, e o `certbot` cria um para um domínio público. Se os arquivos estiverem faltando ou ilegíveis, o servidor para na inicialização e informa os caminhos exatos que tentou usar.
 
+<a id="admin-access-and-privileged-actions"></a>
+
 ## Admin Access e ações privilegiadas
 
-Algumas ações são especialmente delicadas: limpar dados, criar ou baixar backups, importar e exportar perfis, instalar temas e instalar o runtime de modelo local. Elas exigem um segredo compartilhado à parte, chamado segredo de administrador, além da opção de acesso que você escolheu acima.
+Algumas ações são especialmente delicadas: limpar dados, criar ou baixar backups, importar e exportar perfis, instalar temas e agentes e instalar o runtime de modelo local. Elas exigem um segredo compartilhado à parte, chamado segredo de administrador, além da opção de acesso que você escolheu acima.
 
-Na máquina de loopback, essas ações costumam funcionar sem o segredo de administrador. Em um dispositivo remoto, você precisa configurar o segredo. Siga estes passos.
+Na máquina de loopback, essas ações costumam funcionar sem o segredo de administrador. Em um dispositivo remoto, você precisa configurar o segredo. Você pode criá-lo no aplicativo ou defini-lo no `.env`.
+
+Os agentes instalados, como os da tela inicial, não precisam do segredo de administrador. Um dispositivo que entrou com o login pode usá-los. Instalar, atualizar e remover um agente ainda exige o segredo.
+
+### Criar o segredo de administrador no aplicativo
+
+1. No computador que roda Marinara, abra **Settings** (Configurações), depois a aba **Advanced** e então a seção **Admin Access** (acesso de administrador).
+2. Clique em **Make admin secret** (criar segredo de administrador). Marinara mostra o novo segredo uma única vez e o salva neste navegador.
+3. Em cada dispositivo remoto, abra **Settings** → **Advanced** → **Admin Access**, digite o segredo no campo e clique em **Save**. Letras maiúsculas, espaços e traços não importam.
+
+Um dispositivo que já tem o segredo também pode criá-lo. Um dispositivo que só entrou com o login não pode. Isso impede que um login roubado assuma o controle das ações arriscadas.
+
+No Docker, o seu navegador alcança Marinara pela rede do Docker, então Marinara não o trata como o mesmo computador. Nesse caso, defina o primeiro segredo no `.env` (veja abaixo).
+
+Para mudar o segredo, clique em **Replace admin secret** (substituir segredo de administrador). O segredo antigo deixa de funcionar em todos os dispositivos. Para desativá-lo, clique em **Remove admin secret** (remover segredo de administrador). Marinara guarda só uma impressão digital do segredo, em `.admin-secret.json` na pasta de dados. Excluir esse arquivo também remove o segredo.
+
+### Definir o segredo de administrador no .env
 
 1. No arquivo `.env`, defina um valor aleatório forte e salve. Ele entra em vigor em poucos segundos, sem reiniciar.
 
@@ -249,18 +291,20 @@ Na máquina de loopback, essas ações costumam funcionar sem o segredo de admin
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. No dispositivo remoto, abra Marinara e vá em **Settings** (Configurações), depois na aba **Advanced** e então na seção **Admin Access** (acesso de administrador).
+2. No dispositivo remoto, abra **Settings** → **Advanced** → **Admin Access**.
 3. Cole o mesmo valor no campo (o texto de exemplo dele diz **ADMIN_SECRET**) e clique em **Save**.
 4. A mensagem **Admin secret saved for this browser** deve aparecer.
 
-Alguns pontos importantes sobre o segredo de administrador:
+O `ADMIN_SECRET` do `.env` prevalece sobre um segredo criado no aplicativo. Enquanto ele estiver definido, a seção **Admin Access** informa isso, e você muda o segredo apenas no `.env`.
 
-- Ele fica guardado só naquele navegador. Não sincroniza entre dispositivos. Cada navegador que precisa das ações privilegiadas tem que receber o valor colado separadamente.
+### Bom saber
+
+- Cada navegador guarda a sua própria cópia. Ela não sincroniza entre dispositivos.
 - Clicar em **Save** com o campo vazio limpa o valor e mostra **Admin secret cleared**.
-- Se quem administra o servidor definir `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, até a máquina de loopback passa a precisar do segredo.
+- Se quem administra o servidor definir `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, até a máquina de loopback passa a precisar do segredo. Nesse caso, você precisa do segredo atual para criá-lo, substituí-lo ou removê-lo no aplicativo, então defina o primeiro no `.env`.
 - Isso é independente de Basic Auth. Os dois podem ser usados juntos. Basic Auth protege o aplicativo inteiro, e o segredo de administrador protege as ações perigosas.
 
-Quando uma ação privilegiada falha em um dispositivo remoto, Marinara mostra uma mensagem de erro com duas soluções. Uma é abrir o aplicativo pelo localhost. A outra é definir a variável `ADMIN_SECRET` no arquivo `.env` do servidor e depois colar o mesmo valor em **Settings** > **Advanced** > **Admin Access**.
+Quando uma ação privilegiada falha em um dispositivo remoto, Marinara mostra uma mensagem de erro com duas soluções. Uma é abrir o aplicativo pelo localhost. A outra é configurar o segredo de administrador como descrito acima.
 
 <a id="why-is-my-save-blocked-csrf"></a>
 

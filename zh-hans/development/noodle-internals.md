@@ -1,6 +1,6 @@
 # Noodle 提示词内部结构（开发者）
 
-面向开发者的参考，说明 Noodle 的生成提示词在代码里的位置、怎么自定义，以及怎么调试最终提示词。普通读者是通过 Noodle 的 Settings 面板来配置它的，见 `docs/noodle/` 下的 Noodle 指南。
+面向开发者的参考，说明 Noodle 的生成提示词在代码里的位置、怎么自定义，以及怎么调试最终提示词。普通读者是通过 Noodle 的 Settings 面板来配置它的，见 Noodle 指南 `docs/agents/noodle.md` 和 `docs/agents/noodle-settings.md`。
 
 Noodle 是一个可下载的包。它的路由（`/api/noodle`，在包激活时注册）和生成代码都在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 的 Noodle 包里，位于 `packages/noodle/src/engine/packages/server/src/` 下。下表中标为 **package** 的来源都是相对于这个文件夹的路径。Engine 保留共享的 Noodle schema 和类型、Noodle 存储、Settings 里列出的已注册提示词覆盖项，以及 `packages/server/src/services/noodle/noodle-prompt.ts` 里的默认时间线提示词文本。包里另有自己的 `services/prompt-overrides/registry/noodle.ts` 和 `services/noodle/noodle-prompt.ts` 副本。
 
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## 相关指南
 
-- [Noodle：应用内的社交时间线](../noodle/overview.md)
-- [Noodle 设置与聊天延续](../noodle/settings.md)
+- [Noodle：应用内的社交时间线](../agents/noodle.md)
+- [Noodle 设置与聊天延续](../agents/noodle-settings.md)
 - [可选智能体包与能力包](optional-agent-packages.md)
 - [架构地图（开发者）](architecture-map.md)

@@ -1,6 +1,6 @@
 # 장면 배경과 Gallery
 
-이 가이드에서는 AI가 만들어 주는 장면 배경, 즉 Marinara Engine이 **Gallery**(갤러리)에서 생성하는 배경 이미지와 Gallery 자체를 설명합니다. 관련 가이드가 둘 더 있습니다. 직접 올려 둔 이미지 중에서 고르는 방법은 [채팅 배경](../appearance/chat-backgrounds.md)에서, 턴마다 배경을 자동으로 골라 주는 에이전트는 [Roleplay 배경](../roleplay/backgrounds.md)에서 다룹니다.
+AI가 생성하는 장면 배경은 Marinara Engine이 **Gallery**(갤러리)에서 만드는 배경 이미지입니다. 이 가이드에서는 배경을 만드는 방법, Gallery에 담기는 것, 이미지를 다시 그리거나 검토하는 방법을 설명합니다. 직접 골라 쓰는 업로드 라이브러리는 [채팅 배경](../appearance/chat-backgrounds.md)을, 턴마다 배경을 골라 주는 에이전트는 [Roleplay 배경](../roleplay/backgrounds.md)을 참고하세요.
 
 ## 장면 배경을 쓸 수 있는 곳
 
@@ -10,11 +10,11 @@
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-배경을 생성하려면 **Image Generation**(이미지 생성) 연결이 필요합니다. 아직 없다면 먼저 하나 만드세요. [이미지 생성 제공자와 설정](image-providers.md)을 참고하세요.
+시작하기 전에: 이미지 모델이 필요합니다. 아직 없다면 먼저 설정하세요. [이미지 생성 제공자와 설정](image-providers.md)을 참고하세요.
 
 ## Gallery에서 배경 생성하고 적용하기
 
-**Gallery**에는 채팅의 이미지와 동영상이 모여 있습니다. **Chat Settings**(채팅 설정) 안의 섹션이므로 Chat Settings를 열고 **Gallery**를 펼치세요. 컴퓨터에서는 별도 창으로 꺼낼 수 있습니다([채팅 설정 개요](../chats/chat-settings.md#popping-a-section-out-into-its-own-window) 참고). **Background**(배경) 버튼을 누르면 현재 장면에 맞는 배경 그림을 생성합니다.
+**Gallery**에는 채팅의 이미지와 동영상이 모여 있습니다. **Chat Settings**(채팅 설정)의 한 섹션입니다. 컴퓨터에서는 별도 창으로 꺼낼 수 있습니다([채팅 설정 개요](../chats/chat-settings.md#popping-a-section-out-into-its-own-window) 참고). **Background**(배경) 버튼은 현재 장면에 맞는 배경 그림을 만듭니다.
 
 Roleplay에서는 **Illustrator** 에이전트를 설치하기만 하면 **Background** 버튼이 나타납니다. Illustrator를 채팅에 추가하거나 에이전트를 켤 필요는 없습니다. **Illustrate**(이미지 생성) 버튼과 마찬가지로 한 번만 실행되며 자동 실행을 시작하지 않습니다.
 
@@ -23,20 +23,18 @@ Roleplay에서는 **Illustrator** 에이전트를 설치하기만 하면 **Backg
 1. **Chat Settings**의 **Gallery** 섹션을 여세요.
 2. **Background** 버튼을 클릭하세요.
 3. 이미지를 만드는 동안 버튼 이름이 **Generating...**으로 바뀝니다.
-4. "AI background generation is running. The new background will be applied when it finishes." 상태 메시지가 나타납니다.
-5. 생성이 끝나면 새 이미지가 현재 장면에 곧바로 적용됩니다. "Background generated." 메시지로 완료를 알려 줍니다.
+4. "AI background generation is running. The new background will be applied when it finishes."라는 상태 메시지가 표시됩니다.
+5. 생성이 끝나면 새 이미지가 현재 장면에 곧바로 적용되고, "Background generated." 메시지로 완료를 알려 줍니다.
 
-배경은 현재 장면을 바탕으로 만듭니다. 게임에서는 장르, 설정, 장소, 날씨, 시간대까지 반영합니다. 생성한 배경에는 **Backgrounds** 캔버스 크기가 적용되며, 기본값은 1280 x 720 픽셀입니다. 이 크기는 **Settings**(설정) → **Generations**(생성) → **Image Generation**에서 바꿀 수 있습니다.
+배경은 현재 장면을 바탕으로 만듭니다. 게임에서는 장르, 설정, 장소, 날씨, 시간대까지 반영합니다. 생성한 배경에는 **Backgrounds** 캔버스 크기가 적용되며, 기본값은 1280 x 720 픽셀입니다. 이 크기는 **Settings**(설정) → **Generations**(생성) → **Image Generation**(이미지 생성)에서 바꿀 수 있습니다.
 
-### 이미지 연결이 설정되어 있지 않을 때
-
-Marinara가 사용할 이미지 연결을 찾지 못하면 생성 단계가 실패하고 다음 메시지가 표시됩니다.
+작동하지 않는 경우: Marinara가 사용할 이미지 모델을 찾지 못하면 이 단계가 실패하고 다음 메시지가 표시됩니다.
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-이때는 **Connections**(연결) 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Images**(이미지)에서 이미지 연결을 고르세요. 또는 **Illustrator** 에이전트에 이미지 연결을 따로 지정해도 됩니다.
+해결하려면 **Connections**(연결) 패널의 **Defaults**(기본값)에서 **Images**(이미지) 작업을 지정하거나, **Illustrator** 에이전트에 이미지 모델을 따로 지정하세요.
 
 ## Gallery 섹션
 
@@ -73,14 +71,14 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 1. Gallery나 이미지가 들어 있는 메시지에서 이미지를 원래 크기로 여세요.
 2. **Regenerate image**(이미지 재생성)를 클릭하세요(그림 오른쪽 위의 원형 화살표 버튼).
-3. 그림 아래 입력란에서 바꾸고 싶은 내용을 바꾸세요. **Prompt**(프롬프트), **Negative prompt**(부정 프롬프트), 이미지에 캐릭터 프롬프트가 있었다면 **Character prompts**(캐릭터 프롬프트) 아래의 캐릭터별 입력란, 그리고 **Image connection**(이미지 연결)이 있습니다.
+3. 그림 아래 입력란에서 바꾸고 싶은 내용을 바꾸세요. **Prompt**(프롬프트), **Negative prompt**(부정 프롬프트), 이미지에 캐릭터 프롬프트가 있었다면 **Character prompts**(캐릭터 프롬프트) 아래의 캐릭터별 입력란, 그리고 이미지 모델이 있습니다.
 4. **Generate image**(이미지 생성)를 클릭하세요. 이미지를 그대로 두려면 **Cancel**(취소)을 클릭하세요.
 
 새 이미지가 메시지의 예전 이미지를 대신합니다. 예전 이미지는 Gallery에 남으므로 다시 고정할 수 있습니다. 참조 그림은 캐릭터의 현재 아바타로 다시 보냅니다. 일부 예전 이미지는 부정 프롬프트와 캐릭터 프롬프트를 저장하지 않았으며, 그런 경우 편집기에 그 사실이 표시됩니다.
 
 ## 전송 전에 프롬프트 확인하기
 
-Marinara가 이미지 제공자에게 배경 요청을 보내기 전에 프롬프트를 확인하고 고칠 수 있습니다.
+Marinara가 이미지 서비스에 배경 요청을 보내기 전에 프롬프트를 확인하고 고칠 수 있습니다.
 
 1. **Settings** → **Generations** → **Overall Generations**(전체 생성)를 여세요.
 2. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)을 켜세요.
@@ -91,7 +89,7 @@ Marinara가 이미지 제공자에게 배경 요청을 보내기 전에 프롬�
 
 - 프롬프트 본문과 네거티브 프롬프트를 수정합니다.
 - 이미지 종류와 크기, 그리고 실시간 글자 수를 확인합니다.
-- **Cancel**(취소)을 클릭해 중단하거나 **Generate**(생성)를 클릭해 전송합니다.
+- **Cancel**을 클릭해 중단하거나 **Generate**(생성)를 클릭해 전송합니다.
 
 프롬프트 입력란이 하나라도 비어 있으면 **Generate**를 누를 수 없고 "Every image request needs a prompt." 안내가 나타납니다. 입력한 글은 적은 그대로 전송됩니다.
 
@@ -108,5 +106,5 @@ Marinara가 이미지 제공자에게 배경 요청을 보내기 전에 프롬�
 - [채팅 배경](../appearance/chat-backgrounds.md): 직접 골라 쓰는 업로드 라이브러리입니다.
 - [Roleplay 배경](../roleplay/backgrounds.md): 턴마다 배경을 자동으로 골라 주는 에이전트입니다.
 - [Illustrator 에이전트](illustrator-agent.md): Roleplay와 Game Mode의 장면 삽화입니다.
-- [이미지 생성 제공자와 설정](image-providers.md): 이미지 연결을 설정합니다.
+- [이미지 생성 제공자와 설정](image-providers.md): 이미지 모델을 설정합니다.
 - [장면 동영상 생성](scene-video.md): Gallery의 이미지를 동영상으로 만듭니다.

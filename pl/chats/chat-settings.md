@@ -1,215 +1,173 @@
 # Panel **Chat Settings** – przegląd
 
-W **Chat Settings** (ustawienia czatu) wybierzesz połączenie, postacie, agentów i inne ustawienia otwartego czatu. Znajdziesz tu też wyszukiwanie wiadomości, podsumowania, gałęzie i galerię.
-
-Większość tych ustawień dotyczy bieżącego czatu. Położenie okien też zapisuje się osobno dla każdego czatu. Przełącznik **Tracker Panel** (panel trackerów) działa natomiast również w pozostałych czatach Roleplay.
-
-Przy pierwszym wejściu do czatu po tej aktualizacji krótki film pokazuje, jak ustawiać przyciski i okna. Wprowadzenie pojawia się na komputerach i telefonach, także u osób już korzystających z aplikacji. Gdy wszystko jest jasne, wybierz **Got it** (rozumiem). Film pozostanie zamknięty w innych czatach i po odświeżeniu strony.
+**Chat Settings** (ustawienia czatu) to panel opcji otwartego czatu: jego modelu, postaci, agentów, wyszukiwania, podsumowań, gałęzi i galerii. Większość ustawień dotyczy tylko tego czatu.
 
 ## Otwieranie Chat Settings
 
 1. Otwórz czat.
-2. Kliknij lub dotknij przycisku **Chat Settings** z ikoną suwaków. Domyślnie znajduje się w prawym górnym rogu czatu, pod górnym paskiem aplikacji. Na komputerze, gdy po prawej stronie widać Tracker Panel, jego domyślne miejsce jest natomiast tuż na lewo od panelu.
-3. Kliknij tytuł sekcji, aby ją rozwinąć. Te sekcje są też nazywane **drawers**. Ponowne kliknięcie tytułu zwija sekcję.
+2. Dotknij przycisku **Chat Settings** (ikona suwaków). Otworzy się panel. Na telefonie przycisk **Help** (pomoc, **?**) pokazuje opis ikon.
+3. Dotknij tytułu sekcji, aby ją rozwinąć. Ponowne dotknięcie tytułu zwija sekcję.
 
-Przy tworzeniu nowego czatu **Chat Settings** otwiera się automatycznie. Aby je zamknąć, kliknij **X** lub ponownie naciśnij przycisk z suwakami.
+Chat Settings otwiera się automatycznie po utworzeniu czatu. Aby je zamknąć, dotknij **X** w panelu albo ponownie przycisku z suwakami.
 
-Czaty utworzone przed aktualizacją zachowują znane narzędzia poza Chat Settings: jako przesuwane przyciski na komputerze albo w menu **Chat tools** (narzędzia czatu) z trzema kropkami na telefonie. Przy aktualizacji istniejącej instalacji taki układ staje się też ulubionym dla nowych czatów w każdym trybie, chyba że masz już wybrany inny ulubiony układ. Otwórz narzędzie i wybierz **Put back in Chat Settings** (przeniesienie do Chat Settings), jeśli chcesz mieć je wewnątrz ustawień. Na komputerze trackery Roleplay są zebrane w oknie **Trackers**. Zapisane wcześniej układy pozostają bez zmian.
+Na komputerze przycisk z suwakami początkowo znajduje się w prawym górnym rogu czatu. Gdy po prawej stronie widać Tracker Panel, przycisk początkowo stoi na lewo od tego panelu. Tracker Panel to panel boczny w trybie Roleplay, który pokazuje, co śledzą agenci (pomocnicy działający obok odpowiedzi), na przykład postacie w scenie.
 
-Przeciągnij przycisk z suwakami w wygodne miejsce. Podczas przeciągania wyrównuje się z pobliskimi przyciskami czatu. Na komputerze przytrzymaj Alt, aby ustawić go swobodnie. Każdy czat zapamiętuje jego położenie. Mała kropka na przycisku oznacza, że agenci pracują. W czacie Roleplay z włączoną funkcją Advanced Memory Recall stale świecąca kropka w drugim rogu przycisku oznacza, że niektóre wspomnienia scen wymagają uwagi; zobacz [Naprawianie problemów z pamięcią](../agents/memory.md#fixing-memory-problems).
+Przycisk z suwakami da się przeciągnąć w wygodniejsze miejsce. Podczas przeciągania wyrównuje się z pobliskimi przyciskami czatu. Na komputerze przytrzymaj <kbd>Alt</kbd>, aby ustawić go swobodnie. Każdy czat zapamiętuje jego położenie. Mała kropka na przycisku oznacza, że agenci pracują. W czacie Roleplay z funkcją Advanced Memory Recall stała kropka w drugim rogu oznacza, że niektóre wspomnienia scen wymagają uwagi. Zobacz [Naprawianie problemów z pamięcią](../agents/memory.md#fixing-memory-problems).
 
-Małe przypomnienie obok przycisku z suwakami w trybie Roleplay wystarczy zamknąć raz. Jego **X** ukrywa je także w innych czatach i po odświeżeniu strony.
+Przy pierwszym otwarciu czatu krótki film pokazuje, jak rozmieszczać przyciski i okna. Kliknij **Got it** (rozumiem). Film pozostanie zamknięty w innych czatach i po odświeżeniu strony. Aby wskazówki dotyczące układu pozostały ukryte w jednym czacie, kliknij **X** obok nich, z podpowiedzią **Hide these tips for this chat** (ukrycie wskazówek dla tego czatu).
 
-Na komputerze kliknij **X** obok wskazówek dotyczących układu, z podpowiedzią **Hide these tips for this chat** (ukrycie wskazówek dla tego czatu). Pozostaną ukryte w tym czacie również po odświeżeniu lub użyciu **Reset View**. Możesz zapisać ten wybór dla nowych czatów gwiazdką ulubionego układu albo w profilu ustawień.
+## Sekcje w skrócie
 
-## Zmiana wyglądu okien czatu
+To, które sekcje widać, zależy od trybu czatu. Sekcję **Impersonate** opisuje przewodnik [Sterowane generowanie i Impersonate](guided-and-impersonate.md).
 
-Otwórz **Settings > Appearance > App** (ustawienia, wygląd, aplikacja) i przewiń do **Chat widget style** (styl widgetów czatu) na dole sekcji **App Style** (styl aplikacji). **Default** (domyślny) zachowuje znajomy wygląd aplikacji Marinara Engine. **Dottore** łączy lodowe błękity i jasny metal z techniczną czcionką i przyciętymi narożnikami; **Prof. Mari** zestawia błękity kamieni szlachetnych i ciepłe złoto z baśniową czcionką i łukowatymi ramkami. Oba style dostosowują się do jasnego i ciemnego trybu oraz obejmują przesuwane przyciski, okna i rozwijane sekcje we wszystkich trzech trybach czatu.
+- Pasek profilu ustawień: stosuje lub zapisuje zestaw ustawień czatu. Zobacz [Profile ustawień](settings-profiles.md). (Conversation, Roleplay.)
+- **Search messages** (wyszukiwanie wiadomości): znajduje wiadomości po słowach albo po `#` i numerze wiadomości. Zakładki **Bookmarks** (zakładki) i **Trash** (kosz) pokazują wiadomości dodane do zakładek i usunięte. (Nie w trybie Game.)
+- **Chat Name** (nazwa czatu): nazwa na liście czatów. Kliknij ją, aby ją zmienić. Nigdy nie trafia do modelu.
+- **Chat Branches** (gałęzie czatu): przełączanie, zmiana nazw, eksport i import gałęzi. Zobacz [Gałęzie czatu](branches.md).
+- **Connection** (połączenie): model, który odpowiada w tym czacie. Opis niżej.
+- **Prompt Preset** (preset promptu): zapisana struktura promptu dla tego czatu.
+- **Advanced Parameters** (parametry zaawansowane): nadpisuje w tym czacie ustawienia generowania, takie jak temperatura. Zobacz [Parametry generowania](../prompts/generation-parameters.md).
+- **Persona**: postać, w którą się wcielasz. Zobacz [Wybór persony w czacie](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
+- **Characters** (postacie): postacie w czacie. (Conversation, Roleplay.)
+- **Party** (drużyna): zastępuje sekcje **Persona** i **Characters**, łącząc je w jednym miejscu. (Game.)
+- **Group Chat** (czat grupowy): kto zabiera głos w grupie. Zobacz [Czaty grupowe](group-chats.md). (Czaty z więcej niż jedną postacią.)
+- **Scoped Regex Scripts**: osobne dla każdego czatu ustawienie skryptów regex należących do postaci. Zobacz [Skrypty regex](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Widoczne tylko wtedy, gdy postać w czacie ma przypisane skrypty.)
+- **Chat Variables** (zmienne czatu): nazwany tekst, którego używasz ponownie przez `{{name}}`. Opis niżej.
+- **Connected Chats** (połączone czaty): łączy czat z innym czatem. Zobacz [Łączenie czatu Conversation z czatem Roleplay lub Game](connected-chats.md).
+- **Lorebooks** (lorebooki): podpina informacje o świecie. Zobacz [Lorebooki – przegląd](../lorebooks/overview.md).
+- **Chat Summary** (podsumowanie czatu): przeglądanie i tworzenie podsumowań. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md#chat-summary-roleplay). (Tam, gdzie działają podsumowania.)
+- **Active Context** (aktywny kontekst): pokazuje lorebooki i kontekst aktywne w tym czacie. Zobacz [Limity tokenów i rekurencja w lorebookach](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
+- **Agents** (agenci): włącza pomocników. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
+- **Agent activity** (aktywność agentów): pokazuje, co zrobili agenci. Pozwala ponownie uruchomić trackery, ponowić lub zatrzymać agentów i wyczyścić trackery. Zobacz [Agent activity](../roleplay/getting-started.md#agent-activity). (Roleplay, z włączonymi agentami lub funkcją Advanced Memory.)
+- **Author's Notes** (notatki autora): notatka, którą model czyta w każdej turze. Zobacz [Author's Notes](../roleplay/getting-started.md#authors-notes). (Roleplay.)
+- **Background** (tło): obraz tła czatu. (Roleplay, Game.)
+- **Gallery** (galeria): obrazy i filmy czatu. Zobacz [Tła scen i galeria](../media/scene-backgrounds.md).
+- **Widgets** (widgety): to, które widgety paska HUD są widoczne w grze. (Game.)
+- **Impersonate**: ustawienia komendy `/impersonate`. (Roleplay.)
+- **Memory Recall**: pamięta wcześniejsze części czatu. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md). (Niedostępne w wersji Lite.)
+- **Function Calling** (wywoływanie funkcji): pozwala modelowi używać w tym czacie narzędzi (funkcji).
+- **Translation** (tłumaczenie): automatyczne tłumaczenie wiadomości. Zobacz [Tłumaczenie wiadomości](../integrations/message-translation.md).
 
-Użyj opcji **Font** (czcionka), **Shape** (kształt) i trzech narzędzi wyboru kolorów pod presetami, aby dopasować wygląd. Lista czcionek zawiera też te zainstalowane w aplikacji Marinara Engine. Ponowne wybranie presetu przywraca jego czcionkę, kształt i kolory. Nie zmienia to położenia okien ani zapisanych układów czatów. Te wybory zapisują się w preferencjach aplikacji i synchronizują z przeglądarkami połączonymi z tym samym serwerem.
+Czaty Conversation mają też sekcje Autonomous Messaging (postacie piszą do ciebie pierwsze), Commands (działania, które postacie podejmują same) oraz sekcje notatek. Opisuje je przewodnik [Tryb Conversation: pierwsze kroki](../conversation/getting-started.md).
 
-**Button size (px)** (rozmiar przycisków w pikselach) zmienia rozmiar przesuwanych przycisków czatu i ich ikon bez zmiany ustawienia Display Size. Wpisz rozmiar od 32 do 96 pikseli. Zostaw pole puste lub użyj jego przycisku resetowania, aby zachować bieżący rozmiar domyślny. Rozmiar zapisuje się w preferencjach wyglądu i nie zmienia się po wybraniu innego presetu.
+## Wybór modelu dla czatu
 
-Aby dopasować resztę czatu, włącz **Apply preset font** (zastosowanie czcionki presetu), **Apply preset shape** (zastosowanie kształtu presetu) lub **Apply preset colors** (zastosowanie kolorów presetu). Każdy przełącznik działa osobno i uwzględnia własne ustawienia wybrane powyżej. Obejmują wiadomości, pola wpisywania i kontrolki czatu; wiadomości Conversation mogą korzystać z wybranej czcionki i kolorów, ale zachowują swój kształt. Przy włączonym przełączniku **Apply preset colors** wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony. Wszystkie trzy są początkowo wyłączone. Wyłączenie przełącznika przywraca zwykły wygląd odpowiedniej części czatu. Więcej informacji znajdziesz w przewodniku [Własne motywy CSS](../appearance/custom-css-themes.md#ready-made-chat-window-styles).
+Sekcja **Connection** wybiera model, który odpowiada w tym czacie. Wybór zmienia tylko ten czat.
 
-## Przesuwanie, przypinanie i blokowanie okna
+1. Otwórz **Chat Settings** i sekcję **Connection**.
+2. Dotknij pola **Model**. Pokazuje ono bieżący model.
+3. Sprawdź, czy pole informuje, że czat podąża za modelem **Main** (główny). Main to domyślny model ustawiany w **Connections** (Połączenia).
+4. Wybierz model. To samo okno wyboru otwiera przycisk modelu w polu wiadomości. Bieżący model zostaje na górze, a pod nim są ostatnio używane modele i modele oznaczone gwiazdką, zgrupowane według kont. Przeszukuj modele i konta albo użyj przycisku **Browse** (przeglądanie), aby otworzyć katalog jednego konta.
 
-Na komputerze **Chat Settings** jest oknem nad czatem. Jego zawartość dopasowuje się do rozmiaru. Przy pierwszym otwarciu przyciskiem okno pojawia się pod nim, w miejscu mieszczącym się w obszarze czatu. Jeśli ma już zapisane położenie, otwiera się właśnie tam.
+**Follow Main** (podążanie za modelem głównym) usuwa własny wybór czatu, więc czat zmienia model, gdy zmieniasz model Main. **Shuffle** (losowanie) wybiera inny model z twojej puli Shuffle przy każdej odpowiedzi. Zobacz [Funkcja Shuffle](../connections/organizing-connections.md#shuffle). Jeśli konto wymaga klucza albo jest wyłączone, jego model prowadzi do działania naprawczego. Jak dodać konto, opisuje przewodnik [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
-- **Przesuwanie:** przeciągnij pasek tytułu. Możesz też zaznaczyć go klawiaturą i użyć klawiszy strzałek; przytrzymaj Shift, aby przesuwać większymi krokami.
-- **Zmiana rozmiaru:** przeciągnij krawędź lub narożnik. Możesz też zaznaczyć klawiaturą uchwyt w prawym dolnym rogu i użyć strzałek.
-- **Pin** (przypięcie) utrzymuje okno otwarte po kliknięciu poza nim. Przypięte okna otwierają się ponownie po odświeżeniu strony. Jeśli wcześniej zamkniesz lub zminimalizujesz takie okno, pozostanie w tym stanie. Nieprzypięte okno zamyka się po kliknięciu poza nim lub naciśnięciu Escape, chyba że piszesz w polu tekstowym albo korzystasz z otwartego menu.
-- **Lock** (blokada) uniemożliwia przesuwanie i zmianę rozmiaru okna oraz unieruchamia jego przycisk. Przycisk nadal otwiera okno. Odblokuj okno, aby znów przesuwać je lub jego przycisk.
-- **Close** (zamknięcie, **X**) ukrywa okno.
+## Używanie zmiennych czatu
 
-Okna pozostają w obszarze czatu, gdy zmieniasz rozmiar przeglądarki lub otwierasz panel boczny. Na komputerze okno lub przycisk może stać w miejscu obok pola wiadomości, aż do samego dołu czatu. Nigdy nie zasłania jednak samego pola wiadomości.
+Zmienna czatu to nazwa fragmentu tekstu. Na przykład dodaj zmienną `char1` o wartości `Mary`, a potem wpisz w wiadomości `{{char1}} walks in.`. Model przeczyta "Mary walks in."
 
-Na telefonie **Chat Settings** otwiera się jako panel na całą szerokość. Podczas pisania mieści się nad klawiaturą.
+1. Otwórz **Chat Settings** i sekcję **Chat Variables**.
+2. Dotknij **Add variable** (dodanie zmiennej), a potem wypełnij w wierszu pola **name** (nazwa) i **value** (wartość).
+3. Naciśnij <kbd>Enter</kbd> albo kliknij poza polem, aby zapisać. Przycisk kosza usuwa zmienną.
 
-## Pomoc, trackery i Reset View
+Nazwy składają się z liter, cyfr i podkreśleń, zaczynają się od litery lub podkreślenia i mają najwyżej 64 znaki. Nazwa mająca dokładnie 21 znaków jest zarezerwowana dla odwołań do postaci. Nazwa należąca do wbudowanego makra, na przykład `char` lub `user`, zostanie odrzucona.
 
-Na pasku tytułu są też inne przydatne przyciski:
+- Twoja wiadomość nadal pokazuje wpisany znacznik. Wartość widzi tylko model. Późniejsza zmiana wartości zmienia każdą wcześniejszą turę, w której użyto tego znacznika.
+- Zmienne należą tylko do tego czatu i zostają zachowane po ponownym uruchomieniu.
+- To ten sam magazyn, którego używa `{{setvar}}`. Sekcja promptu lub wpis lorebooka, który ustawia tę samą nazwę, nadpisuje twoją wartość.
 
-- **Help** (pomoc, **?** obok tytułu) pokazuje objaśnienia kontrolek czatu. Na telefonie najpierw zamyka **Chat Settings**, aby odsłonić czat. Dotknij wyróżnionego przycisku **Chat Settings**, aby zobaczyć opis jego ikon: przywracania widoku, ulubionego układu, panelu trackerów Roleplay, blokady, zamknięcia i wydzielania sekcji. Przewiń opis, aby przeczytać wszystkie pozycje. Przycisk pomocy można ukryć w **Settings → General → App Behavior → Hide chat Help button** (ustawienia, ogólne, zachowanie aplikacji, ukrycie przycisku pomocy czatu).
-- **Reset View** (przywrócenie widoku, okrągła strzałka) prosi o potwierdzenie, a potem przywraca początkowy układ tego czatu. Wkłada wydzielone sekcje z powrotem oraz przywraca domyślne rozmiary, położenia, przypięcia i blokady okien.
-- **Favorite layout** (ulubiony układ, gwiazdka obok **Reset View**) zapisuje bieżący układ dla nowych czatów w tym trybie. Zobacz [Wybieranie układu dla nowych czatów](#choosing-a-layout-for-new-chats).
-- **Tracker Panel** (kość) włącza lub wyłącza panel w czacie Roleplay korzystającym z agentów lub funkcji **Advanced Memory** (pamięć zaawansowana). Na komputerze panel otwiera się obok czatu. Na telefonie lub tablecie przesuwany przycisk otwiera go i zamyka. Ten wybór zmienia też ustawienie **Tracker Panel** w **Settings → Appearance**.
-
-Gdy **Tracker Panel** nie jest pokazany, na komputerze trackery korzystają z [okna Trackers](../roleplay/hud-and-trackers.md#the-trackers-window). Jeśli obok wiadomości brakuje miejsca, najpierw pojawia się mały przycisk **Trackers**. Zamknięcie okna przywraca ten przycisk. Użyj kości na pasku tytułu **Chat Settings**, aby znów pokazać **Tracker Panel**.
-
-<a id="popping-a-section-out-into-its-own-window"></a>
-
-## Wydzielanie sekcji do osobnego okna
-
-Aby mieć sekcję pod ręką, kliknij jej przycisk **Pop out** (wydzielenie do okna, kwadrat ze strzałką obok **?**). Sekcja dostaje własne okno i znika z **Chat Settings**, dopóki nie włożysz jej z powrotem.
-
-Na komputerze możesz też przeciągnąć tytuł sekcji poza **Chat Settings**. Nowe okno nie jest przypięte, więc kliknięcie poza nim zwija je do przycisku. Przypnij je, jeśli ma pozostać otwarte podczas korzystania z czatu. Przesuwaj je, zmieniaj rozmiar i blokuj tak samo jak **Chat Settings**.
-
-- **Close** (**X**) zmniejsza sekcję do małego przycisku z jej ikoną. Przeciągnij go w wybrane miejsce i kliknij, aby ponownie otworzyć okno tam, gdzie było.
-- **Put back in Chat Settings** (zakrzywiona strzałka obok **X**) wkłada sekcję z powrotem do **Chat Settings**. Możesz też przeciągnąć jej okno na **Chat Settings**.
-- Nieprzypięta sekcja zmniejsza się do przycisku po kliknięciu poza nią lub naciśnięciu Escape, chyba że piszesz w polu tekstowym albo korzystasz z otwartego menu.
-
-Na telefonie wydzielenie sekcji zamyka **Chat Settings** i dodaje ją do przesuwanego menu **Chat tools** z trzema kropkami. Dotknij kropek, a potem okrągłego przycisku z ikoną sekcji, aby otworzyć jej panel. Zamknij panel, aby znów użyć menu, lub dotknij **Put back in Chat Settings**, aby włożyć sekcję z powrotem.
-
-Trackery można tak samo wydzielać z okna **Trackers**. Ich przycisk powrotu nazywa się **Put back in Trackers** (przeniesienie do Trackers).
-
-<a id="the-phones-chat-tools-menu"></a>
-
-## Menu Chat tools na telefonie
-
-Przesuwany przycisk z trzema kropkami zbiera w jednym miejscu narzędzia wydzielone z **Chat Settings**. Dotknij go, aby rozwinąć kolumnę okrągłych przycisków z ikonami, a potem dotknij narzędzia, aby je otworzyć. Ponownie dotknij kropek, aby zwinąć przyciski. Przyciski trackerów, mapy Game i Character Profiles pozostają osobno, więc masz do nich bezpośredni dostęp.
-
-Przeciągnij przycisk z trzema kropkami, aby przesunąć całe menu. Otwórz menu i użyj blokady u góry, aby je unieruchomić. Gdy jest odblokowane, przeciągnij przycisk narzędzia w górę lub w dół, aby zmienić jego miejsce w kolumnie. Korzystając z klawiatury, zaznacz przycisk i użyj strzałki w górę lub w dół. Blokada uniemożliwia przesuwanie menu i zmianę kolejności; nadal możesz otwierać narzędzia.
-
-Każdy czat zapisuje położenie menu, jego blokadę i kolejność. Ulubione układy i profile ustawień także je uwzględniają. Menu korzysta ze stylu widgetów czatu, tak jak otwierane przez nie okna.
-
-<a id="control-windows-and-their-buttons"></a>
-
-## Okna narzędzi i ich przyciski
-
-Niektóre narzędzia otwierają własne małe okna: **Game controls** (sterowanie grą), **Session** (sesja), **Volume** (głośność) i **Game Assets** (zasoby gry) w trybie Game Mode, a także **Connected chat** (powiązany czat) i kontrolki zainstalowanych pakietów.
-
-Na komputerze ich przyciski zaczynają w pobliżu prawego górnego rogu czatu. Kliknij przycisk, aby otworzyć okno; zamknięcie okna przywraca przycisk. Na telefonie znajdziesz te narzędzia w menu **Chat tools** z trzema kropkami. Otwierają się jako panele na całą szerokość.
-
-Aby umieścić takie narzędzie wewnątrz **Chat Settings**, otwórz jego okno i wybierz **Put back in Chat Settings**. Pojawi się tam jako rozwijana sekcja. Użyj jej przycisku wydzielenia, aby znów otworzyć ją w osobnym oknie, albo na komputerze przeciągnij tytuł poza ustawienia. **Reset View** przywraca początkowy układ: osobne przyciski na komputerze lub pozycje w menu Chat tools na telefonie.
-
-Na komputerze przeciągnij przycisk, aby go przesunąć. Pobliskie przyciski wyrównują się podczas przeciągania; przytrzymaj Alt, aby ustawić położenie swobodnie, albo zaznacz przycisk klawiaturą i użyj strzałek. **Calls** (rozmowy głosowe) w trybie Conversation pozostaje zwykłym przyciskiem. W trybie Game **Character Profiles** (profile postaci) ma własny przesuwany przycisk na komputerze i telefonie. Przycisk **Map** (mapa) na telefonie też jest osobny i można go przesuwać. Otwórz jedną z tych kontrolek i użyj blokady, aby unieruchomić jej okno i przycisk; każda gra zapamiętuje ich położenie.
-
-## Każdy czat zapamiętuje własny układ okien
-
-Każdy czat zapamiętuje rozmiary i położenia okien, przypięcia i blokady, wydzielone sekcje oraz położenia przycisków. Położenia na telefonie oraz kolejność i blokada menu Chat tools zapisują się oddzielnie od położeń na komputerze. Przełączenie czatu przywraca jego układ.
-
-[Profil ustawień](#settings-profiles) może zapisać układ do użycia w innych czatach. **Reset View** przywraca początkowy układ bieżącego czatu.
-
-<a id="choosing-a-layout-for-new-chats"></a>
-
-## Wybieranie układu dla nowych czatów
-
-Użyj gwiazdki obok **Reset View**, aby bieżący układ stał się początkowym układem nowych czatów w tym samym trybie. Tryby Conversation, Roleplay i Game Mode mają osobne ulubione układy.
-
-Po aktualizacji znany układ przycisków narzędzi jest już oznaczony gwiazdką we wszystkich trzech trybach. Nowe czaty korzystają z niego, dopóki nie zastąpisz lub nie usuniesz tego wyboru. Nowa instalacja zaczyna z narzędziami wewnątrz **Chat Settings**, bez wybranego ulubionego układu. Późniejszy import starszego czatu zachowuje jego narzędzia, ale nie zmienia domyślnego układu nowych czatów.
-
-1. Ustaw okna i przyciski tak, jak chcesz. Umieść narzędzia w **Chat Settings** lub wydziel je do osobnych okien.
-2. Ukryj wskazówki dotyczące układu, jeśli mają być ukryte również w nowych czatach.
-3. Kliknij gwiazdkę obok **Reset View**. Wypełni się, gdy bieżący układ, wybór dotyczący wskazówek i tryb Scoped Regex Scripts będą odpowiadać zapisanemu ulubionemu.
-
-Ulubiony układ zapisuje położenia i rozmiary okien oraz przycisków, przypięcia, blokady, narzędzia wydzielone lub umieszczone w ustawieniach, wybór dotyczący wskazówek oraz tryb [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) czatu. Czat z opcją **Use preset default** (użyj ustawienia domyślnego presetu) nie zapisuje trybu, więc nowe czaty przejmują tryb ze swojego presetu promptu. Postacie, połączenie, ustawienia AI i wiadomości pozostają przypisane do czatu.
-
-Aby zastąpić ulubiony układ, zmień rozmieszczenie i ponownie kliknij gwiazdkę. Aby przestać z niego korzystać, kliknij wypełnioną gwiazdkę. Nowe czaty zaczną wtedy używać standardowego układu. Zapisanie, zastąpienie lub usunięcie ulubionego układu dotyczy tylko czatów utworzonych później. Istniejące czaty zachowują swoje układy.
-
-Zastosowanie profilu ustawień z własnym zapisanym układem ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu pozostawia ulubione rozmieszczenie bez zmian. Profile nadal stosują własne ustawienie dotyczące wskazówek i własny tryb Scoped Regex Scripts; profil bez trybu korzysta z ustawienia domyślnego presetu promptu.
-
-## Sekcja **Chat Name**
-
-Sekcja **Chat Name** (nazwa czatu) trzyma nazwę widoczną na liście czatów. Tę nazwę widzisz tylko ty. Marinara nie wysyła jej do AI i nie wpływa ona w żaden sposób na przebieg czatu.
-
-1. W sekcji **Chat Name** kliknij bieżącą nazwę.
-2. Nazwa zamienia się w pole tekstowe.
-3. Wpisz nową nazwę.
-4. Naciśnij Enter albo kliknij przycisk z ptaszkiem, aby zatwierdzić.
-
-## Sekcja **Connection**
-
-Sekcja **Connection** (połączenie) decyduje o tym, który model AI odpowiada w tym czacie. Połączenie to jeden klucz API, jedno konto albo jeden endpoint (adres) usługi AI. Zapisane modele są zgrupowane pod nim. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara Engine korzysta z twojego konta w danej usłudze.
-
-Pole **Model** pokazuje model, który jest faktycznie używany, oraz to, czy ten czat podąża za modelem **Main** (główny), czy ma własny wybór. Kliknij je, żeby otworzyć to samo okno wyboru co przycisk modelu w polu wiadomości. Bieżący model zostaje na górze, a pod nim są ostatnio używane modele i modele oznaczone gwiazdką, zgrupowane według kont. Przeszukuj modele i konta albo użyj przycisku **Browse** (przeglądanie), żeby otworzyć katalog jednego konta. Wybór zmienia tylko ten czat.
-
-**Follow Main** (podążanie za modelem głównym) usuwa własny wybór czatu. **Shuffle** (losowanie) wybiera inny model z twojej puli przy każdej odpowiedzi. Jeśli połączenie wymaga klucza albo jest wyłączone, jego model prowadzi do działania naprawczego. Gwiazdki zapisują modele na twojej liście bez zmiany czatu. Szczegóły znajdziesz w sekcji [Funkcja Shuffle](../connections/organizing-connections.md#shuffle).
-
-O tym, jak w ogóle utworzyć połączenie, przeczytasz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Przy wielu zmiennych kliknij **Search and edit all in the State Editor** (szukaj i edytuj wszystko w State Editor). Pokazuje wszystkie zmienne na jednej liście, więc możesz je przeszukiwać, edytować, wklejać wiele naraz jako JSON i przejrzeć zmiany przed zapisem. Zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor). Inne makra w podwójnych klamrach opisuje przewodnik [Makra promptów](../prompts/macros.md).
 
 <a id="settings-profiles"></a>
 
 ## Profile ustawień
 
-Na górze panelu znajduje się kontrolka **Profile**. Profil ustawień to zapisany zestaw ustawień czatu, który da się wykorzystać ponownie w innych czatach. Wybierz profil z listy rozwijanej, aby zastosować go do bieżącego czatu.
+Profil ustawień to zapisany zestaw ustawień czatu, który da się zastosować w innych czatach. Pasek profilu znajduje się na górze panelu i nie pojawia się w trybie Game. Zapisywanie, stosowanie, import, eksport i wybór profilu domyślnego opisuje przewodnik [Profile ustawień](settings-profiles.md).
 
-Profil zbiera połączenie, preset promptu, agentów, narzędzia, tłumaczenie, przywoływanie pamięci, parametry zaawansowane, układ okien i inne ustawienia tego czatu. Nigdy nie rusza postaci, persony, lorebooków, sprite'ów, podsumowania, tagów ani promptu sceny. To wszystko zostaje przypisane do samego czatu. Profil zapisany przed wprowadzeniem układów okien, podobnie jak profil **Default**, pozostawia układ okien czatu bez zmian.
+## Przesuwanie, przypinanie i blokowanie okna
 
-Na pasku jest rząd małych przycisków z ikonami, bez podpisów. Po najechaniu kursorem każdy przycisk pokazuje swoją nazwę w podpowiedzi:
+Na komputerze Chat Settings to okno unoszące się nad czatem, a jego zawartość dopasowuje się do rozmiaru okna. Okno otwiera się pod swoim przyciskiem za pierwszym razem albo w zapisanym położeniu.
 
-- Ikona dyskietki (**Save current chat settings into this profile**) zapisuje ustawienia bieżącego czatu w wybranym profilu. Jeśli z profilu korzystają inne czaty, pyta, czy je również zaktualizować.
-- Ikona ołówka (**Rename profile**) zmienia nazwę wybranego profilu.
-- Ikona pliku z plusem (**Save current chat settings as a new profile**) zapisuje ustawienia bieżącego czatu jako nowy profil.
-- Ikona strzałki w dół (**Import settings profile (.json)**) wczytuje profil z pliku `.json`.
-- Ikona strzałki w górę (**Export settings profile (.json)**) zapisuje wybrany profil do pliku `.json`.
-- Ikona kosza (**Delete profile**) usuwa wybrany profil.
+- Przesuwanie: przeciągnij pasek tytułu. Możesz też zaznaczyć go klawiaturą i użyć klawiszy strzałek; z klawiszem <kbd>Shift</kbd> kroki są większe.
+- Zmiana rozmiaru: przeciągnij krawędź lub narożnik. Możesz też zaznaczyć klawiaturą uchwyt w prawym dolnym rogu i użyć strzałek.
+- Przypinanie: kliknij **Pin** (przypięcie). Przypięte okno zostaje otwarte po kliknięciu gdzie indziej i otwiera się ponownie po odświeżeniu strony. Nieprzypięte okno zamyka się po kliknięciu poza nim lub naciśnięciu <kbd>Esc</kbd>, chyba że piszesz albo korzystasz z otwartego menu.
+- Blokowanie: kliknij **Lock** (blokada). Okna nie da się przesunąć ani zmienić jego rozmiaru, a jego przycisk zostaje w miejscu. Nadal można je otworzyć.
+- Zamykanie: kliknij **X**.
 
-Obok listy rozwijanej stoi przycisk z gwiazdką. Kliknij go, aby profil stał się domyślny dla nowych czatów w tym trybie. Przy każdym nowym czacie w tym trybie Marinara sama zastosuje oznaczony gwiazdką profil. Domyślny może być tylko jeden profil na tryb.
+Okna pozostają w obszarze czatu. Okno lub przycisk może stać obok pola wiadomości, ale nigdy go nie zasłania. Na telefonie Chat Settings otwiera się jako panel na całą szerokość, który mieści się nad klawiaturą.
 
-Każdy tryb obsługujący tę funkcję ma wbudowany profil **Default**. Profilu **Default** nie da się przemianować, usunąć ani nadpisać zapisem. Jego zastosowanie przywraca ustawieniom sterowanym przez profil wartości domyślne aplikacji.
+## Pomoc, trackery i Reset View
 
-W trybie Game Mode kontrolki profili się nie pojawiają.
+Te przyciski są na pasku tytułu.
 
-Słowo **preset** jest w aplikacji Marinara Engine zarezerwowane dla presetów promptu. Preset promptu kształtuje strukturę promptu systemowego i parametry generowania, a profil ustawień zbiera wymienioną wyżej konfigurację czatu do ponownego użytku. Pełne zasady opisuje przewodnik [Profile ustawień](settings-profiles.md).
+- **Help** (**?**) pokazuje etykiety objaśniające kontrolki czatu. Na telefonie najpierw zamyka Chat Settings. Aby go ukryć, włącz **Settings → General → App Behavior → Hide chat Help button** (ustawienia, ogólne, zachowanie aplikacji, ukrycie przycisku pomocy czatu).
+- **Reset View** (przywrócenie widoku, okrągła strzałka) prosi o potwierdzenie, a potem przywraca początkowy układ tego czatu: wydzielone sekcje wracają na miejsce, a rozmiary, położenia, przypięcia i blokady okien wracają do stanu początkowego.
+- **Favorite layout** (ulubiony układ, gwiazdka) zapisuje to rozmieszczenie dla nowych czatów. Zobacz [Wybieranie układu dla nowych czatów](#choosing-a-layout-for-new-chats).
+- **Tracker Panel** (panel trackerów, kość) włącza lub wyłącza panel w czacie Roleplay korzystającym z agentów lub funkcji Advanced Memory. Na komputerze panel otwiera się obok czatu. Na telefonie lub tablecie otwiera go przesuwany przycisk. Zmienia też ustawienie Tracker Panel w **Settings → Appearance** (ustawienia, wygląd).
 
-## Zmienne czatu
+Gdy Tracker Panel nie jest widoczny, trackery na komputerze korzystają z [okna Trackers](../roleplay/hud-and-trackers.md#the-trackers-window). Jeśli obok wiadomości jest mało miejsca, okno zaczyna jako mały przycisk **Trackers**. Użyj kości, aby znów pokazać Tracker Panel.
 
-Sekcja **Chat Variables** (zmienne czatu) pozwala nadać nazwę fragmentowi tekstu i używać go ponownie, wpisując tę nazwę w podwójnych klamrach. Dodaj zmienną `char1` o wartości `Mary`, a potem wpisz w wiadomości `{{char1}} walks in.`. AI przeczyta "Mary walks in."
+<a id="popping-a-section-out-into-its-own-window"></a>
 
-Każdy wiersz ma **name** (nazwę) i **value** (wartość). Nazwy mogą zawierać litery, cyfry i podkreślenia, a muszą zaczynać się od litery lub podkreślenia. Nazwy mające dokładnie 21 znaków są zarezerwowane dla odwołań do postaci. Nazwa wbudowanego makra, na przykład `char` lub `user`, zostanie odrzucona, ponieważ wbudowane makro zawsze ma pierwszeństwo. Naciśnij Enter lub kliknij poza polem, aby zapisać zmianę. Przycisk kosza usuwa zmienną.
+## Wydzielanie sekcji do osobnego okna
 
-Pamiętaj o trzech rzeczach.
+Wydziel sekcję, aby dostała własne okno.
 
-- Twoja wiadomość nadal pokazuje wpisany znacznik. Tylko AI widzi jego wartość. Oznacza to również, że późniejsza zmiana wartości zmienia każdy wcześniejszy fragment rozmowy, który używał tego znacznika.
-- Zmienne należą wyłącznie do tego czatu. Inny czat ma własną listę, a Twoja pozostaje po ponownym uruchomieniu aplikacji.
-- To ten sam magazyn, którego używa `{{setvar}}`. Wartość ustawiona przez sekcję promptu lub wpis lorebooka pojawia się tutaj jako edytowalny wiersz. Taki wpis nadpisze wpisaną przez Ciebie wartość, jeśli użyje tej samej nazwy.
+1. Kliknij w sekcji przycisk **Pop out** (wydzielenie do okna, kwadrat ze strzałką obok jej **?**). Na komputerze możesz też przeciągnąć tytuł sekcji poza Chat Settings.
+2. Przesuwaj, zmieniaj rozmiar, przypinaj lub blokuj nowe okno tak samo jak Chat Settings. Na początku nie jest przypięte, więc kliknięcie gdzie indziej zwija je do przycisku.
+3. Aby włożyć je z powrotem, kliknij **Put back in Chat Settings** (przeniesienie do Chat Settings, zakrzywiona strzałka obok **X**) albo przeciągnij okno na Chat Settings.
 
-Gdy masz wiele zmiennych, kliknij **Search and edit all in the State Editor** (szukaj i edytuj wszystko w State Editor) na górze sekcji. Otwiera ona wszystkie zmienne na jednej liście, na której możesz szukać, edytować wartości jako pola albo wkleić wiele naraz jako JSON, a przed zapisem przejrzeć zmiany. Zapis zmienia tylko nazwy, które zmieniasz, więc wartość, którą w międzyczasie zapisze `{{setvar}}` pod inną nazwą, zostaje zachowana. Zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+**X** zmniejsza sekcję do małego przycisku z jej ikoną. Przeciągnij przycisk w wybrane miejsce i kliknij go, aby ponownie otworzyć okno. Trackery wydziela się z okna Trackers tak samo, a ich przycisk powrotu to **Put back in Trackers** (przeniesienie do Trackers).
 
-Pozostałe możliwości podwójnych klamer opisuje przewodnik [Makra promptu](../prompts/macros.md).
+Na telefonie wydzielenie zamyka Chat Settings i dodaje sekcję do menu **Chat tools** (narzędzia czatu) z trzema kropkami. Dotknij kropek, a potem okrągłej ikony sekcji. Dotknij **Put back in Chat Settings**, aby ją przywrócić.
 
-## Narzędzia czatu w Chat Settings
+<a id="the-phones-chat-tools-menu"></a>
 
-Narzędzia czatu też są sekcjami **Chat Settings**. Ich dostępność zależy od trybu czatu.
+## Menu Chat tools na telefonie
 
-- **Search messages** (wyszukiwanie wiadomości) to rozwijana sekcja u góry, pod profilem ustawień. Wpisz słowa albo `#` i numer wiadomości, aby ją znaleźć. Zakładki **Bookmarks** (zakładki) i **Trash** (kosz) pokazują zapisane zakładki i usunięte wiadomości. Tę sekcję można wydzielić do osobnego okna tak samo jak inne. Nie występuje w czatach Game Mode.
-- **Chat Branches** (gałęzie czatu), pod **Chat Name**, pozwala przełączać gałęzie tego czatu, zmieniać ich nazwy oraz je eksportować i importować. Zobacz [Gałęzie czatu](branches.md).
-- **Chat Summary** (podsumowanie czatu), pod **Lorebooks**, służy do przeglądania i tworzenia podsumowań czatu Roleplay. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md#chat-summary-roleplay).
-- **Active Context** (aktywny kontekst), pod **Chat Summary**, pokazuje lorebooki i kontekst używane w tym czacie. Zobacz [Limity tokenów i rekurencja w lorebookach](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
-- **Agent activity** (aktywność agentów), tuż pod **Agents**, pokazuje pracę agentów w czacie Roleplay korzystającym z agentów lub funkcji **Advanced Memory**. Pozwala też ponownie uruchamiać trackery, ponawiać lub zatrzymywać agentów i czyścić trackery. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes** (notatki autora), pod **Agents**, zawiera notatkę, którą AI czyta w każdej turze czatu Roleplay. Gdy wysuniesz ją do osobnego okna, jej pole tekstowe rośnie razem z oknem; na telefonie wypełnia cały ekran. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#authors-notes).
-- **Gallery** (galeria) przechowuje obrazy i filmy czatu. Zobacz [Tła scen i galeria](../media/scene-backgrounds.md).
+Przesuwany przycisk z trzema kropkami zbiera narzędzia wyjęte z Chat Settings. Dotknij go, aby rozwinąć okrągłe przyciski z ikonami, a potem dotknij narzędzia. Ponownie dotknij kropek, aby je zwinąć. Przyciski trackerów, przycisk mapy Game i Character Profiles pozostają osobno.
 
-## Pozostałe sekcje panelu
+Przeciągnij przycisk z trzema kropkami, aby przesunąć menu. Otwórz je i użyj blokady u góry, aby je unieruchomić. Gdy menu jest odblokowane, przeciągnij narzędzie w górę lub w dół, aby zmienić jego miejsce, albo zaznacz je klawiaturą i użyj strzałek. Blokada uniemożliwia zarówno przesuwanie, jak i zmianę kolejności. Menu korzysta z twojego stylu widgetów czatu.
 
-Panel **Chat Settings** jest też domem wielu funkcji działających osobno w każdym czacie. Każda ma własny przewodnik:
+<a id="control-windows-and-their-buttons"></a>
 
-- Sekcja **Persona** decyduje o tym, kogo odgrywasz w tym czacie. Persona (postać, w którą się wcielasz) pojawia się w czatach Conversation i Roleplay. Zobacz [Wybór persony w czacie](../characters/choosing-your-persona.md).
-- Sekcja **Characters** zarządza postaciami w czatach Conversation i Roleplay. O czatach z dwiema postaciami lub większą ich liczbą przeczytasz w przewodniku [Czaty grupowe w trybach Conversation i Roleplay](group-chats.md).
-- Sekcja **Party** pojawia się tylko w czatach Game. Zastępuje sekcje **Persona** i **Characters**, łącząc obie w jednym miejscu.
-- Sekcja **Lorebooks** podpina do czatu informacje o świecie. Zobacz [Lorebooki – przegląd](../lorebooks/overview.md).
-- Sekcja **Agents** włącza w tym czacie pomocników AI. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
-- Sekcja **Translation** konfiguruje automatyczne tłumaczenie wiadomości. Zobacz [Tłumaczenie wiadomości](../integrations/message-translation.md).
-- Sekcja **Advanced Parameters** nadpisuje w tym czacie ustawienia generowania, takie jak temperatura i maksymalna liczba tokenów. Zobacz [Parametry generowania](../prompts/generation-parameters.md).
+## Okna narzędzi i ich przyciski
 
-To, które sekcje widać, zależy od trybu czatu. Część z nich pojawia się tylko w czatach Roleplay, Conversation albo Game.
+Niektóre narzędzia otwierają własne małe okna: **Game controls** (sterowanie grą), **Session** (sesja), **Volume** (głośność) i **Game Assets** (zasoby gry) w trybie Game, a także **Connected chat** (połączony czat) i kontrolki zainstalowanych pakietów.
 
-## Powiązane przewodniki
+Na komputerze te przyciski początkowo stoją w pobliżu prawego górnego rogu czatu. Kliknij przycisk, aby otworzyć jego okno. Zamknięcie okna przywraca przycisk. Na telefonie są w menu **Chat tools** i otwierają się jako panele na całą szerokość.
 
-- [Zarządzanie listą czatów](managing-chats.md)
-- [Wybór persony w czacie](../characters/choosing-your-persona.md)
-- [Lorebooki – przegląd](../lorebooks/overview.md)
-- [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md)
-- [Profile ustawień](settings-profiles.md)
-- [Parametry generowania](../prompts/generation-parameters.md)
+Aby trzymać takie narzędzie wewnątrz Chat Settings, otwórz jego okno i wybierz **Put back in Chat Settings**. Przycisk wydzielenia sekcji znów je oddziela. **Reset View** przywraca początkowe rozmieszczenie.
+
+Przeciągnij przycisk, aby go przesunąć. Pobliskie przyciski wyrównują się podczas przeciągania. Przytrzymaj <kbd>Alt</kbd>, aby ustawić go swobodnie, albo użyj strzałek, gdy jest zaznaczony. Przycisk **Calls** (rozmowy głosowe) w trybie Conversation pozostaje zwykłym przyciskiem. W trybie Game przycisk **Character Profiles** (profile postaci) i przycisk **Map** (mapa) na telefonie można przesuwać, a ich blokada zachowuje położenia w każdej grze.
+
+## Każdy czat zapamiętuje własny układ okien
+
+Każdy czat zapamiętuje rozmiary i położenia okien, przypięcia i blokady, wydzielone sekcje oraz położenia przycisków. Położenia na telefonie oraz kolejność i blokada menu Chat tools zapisują się oddzielnie od położeń na komputerze. [Profil ustawień](settings-profiles.md) może zapisać układ do użycia w innych czatach.
+
+<a id="choosing-a-layout-for-new-chats"></a>
+
+## Wybieranie układu dla nowych czatów
+
+Gwiazdka obok **Reset View** sprawia, że bieżące rozmieszczenie staje się początkowym układem nowych czatów w tym samym trybie. Tryby Conversation, Roleplay i Game mają osobne ulubione układy.
+
+1. Rozmieść okna i przyciski. Umieść narzędzia w Chat Settings lub wydziel je do osobnych okien.
+2. Ukryj wskazówki dotyczące układu, jeśli mają być ukryte również w nowych czatach.
+3. Kliknij gwiazdkę. Wypełnia się, gdy bieżący układ, wskazówki i tryb Scoped Regex Scripts odpowiadają zapisanemu ulubionemu układowi.
+
+Ulubiony układ zapisuje położenia, rozmiary, przypięcia, blokady, narzędzia wydzielone lub umieszczone w Chat Settings, wybór dotyczący wskazówek oraz tryb [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) czatu. Czat z opcją **Use preset default** (użyj ustawienia domyślnego presetu) nie zapisuje trybu, więc nowe czaty przejmują go ze swojego presetu promptu. Postacie, model, ustawienia AI i wiadomości pozostają przypisane do czatu.
+
+Aby zastąpić ulubiony układ, zmień rozmieszczenie i ponownie kliknij gwiazdkę. Aby przestać z niego korzystać, kliknij wypełnioną gwiazdkę. Dotyczy to tylko czatów utworzonych później.
+
+Zastosowany profil ustawień z własnym zapisanym układem ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu pozostawia ulubione rozmieszczenie bez zmian. Profile nadal stosują własne ustawienie wskazówek i własny tryb Scoped Regex Scripts. Zobacz [Profile ustawień](settings-profiles.md#favorite-window-layouts).
+
+Po aktualizacji ze starszej wersji dotychczasowy układ przycisków narzędzi jest już oznaczony gwiazdką we wszystkich trzech trybach, dopóki go nie zastąpisz lub nie usuniesz. Nowa instalacja ma narzędzia wewnątrz Chat Settings i nie ma ulubionego układu.
+
+## Zmiana wyglądu okien czatu
+
+Otwórz **Settings → Appearance → App** (ustawienia, wygląd, aplikacja) i przewiń do **Chat widget style** (styl widgetów czatu) na dole sekcji **App Style** (styl aplikacji). **Default** (domyślny) zachowuje wygląd aplikacji Marinara Engine. **Dottore** używa lodowych błękitów, jasnego metalu i przyciętych narożników. **Prof. Mari** używa błękitów kamieni szlachetnych, ciepłego złota i łukowatych ramek. Oba style dostosowują się do jasnego i ciemnego trybu i obejmują przesuwane przyciski, okna i sekcje we wszystkich trzech trybach czatu.
+
+- **Font** (czcionka), **Shape** (kształt) i trzy narzędzia wyboru kolorów pod presetami pozwalają dopasować wygląd. Czcionki zainstalowane w aplikacji Marinara Engine pojawiają się na liście czcionek. Ponowne wybranie presetu resetuje czcionkę, kształt i własne kolory.
+- **Button size (px)** (rozmiar przycisków w pikselach) ustawia rozmiar przesuwanych przycisków czatu, od 32 do 96. Puste pole zachowuje rozmiar domyślny.
+- **Apply preset font** (zastosowanie czcionki presetu), **Apply preset shape** (zastosowanie kształtu presetu) i **Apply preset colors** (zastosowanie kolorów presetu) rozszerzają styl na wiadomości, pola wpisywania i kontrolki czatu. Każdy przełącznik działa osobno i wszystkie są początkowo wyłączone. Wiadomości Conversation korzystają z czcionki i kolorów, ale zachowują własny kształt. Przy włączonym **Apply preset colors** wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color danej postaci lub persony.
+
+Te wybory nie przesuwają okien. Zapisują się w preferencjach aplikacji i synchronizują z przeglądarkami połączonymi z tym samym serwerem. Zobacz [Własne motywy CSS](../appearance/custom-css-themes.md#ready-made-chat-window-styles).

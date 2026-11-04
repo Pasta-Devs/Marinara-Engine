@@ -1,193 +1,167 @@
 # Game Mode: dados y pruebas de habilidad
 
-Esta guía cubre las tiradas de dados en el Game Mode (modo juego) de Marinara Engine. Explica el menú de dados rápidos, la notación de dados personalizada y los límites de las tiradas personalizadas. También explica cómo el Game Master (director del juego) resuelve una prueba de habilidad contra una Clase de Dificultad (DC).
+Usa el botón de dados para tirar dados para el Game Master (GM, el director del juego) en Game Mode. Esta guía también muestra cómo el GM hace una prueba de habilidad contra una Clase de Dificultad (DC, Difficulty Class), el número que una tirada debe alcanzar o superar.
 
-## Tiradas de dados
+## Tirar dados
 
-La barra de entrada de mensajes en un chat de Game Mode tiene un botón de dados. Pasa el cursor por encima para ver la tooltip (texto de ayuda) **Roll dice**. Haz clic en él para abrir el menú de dados rápidos.
+La barra de entrada de mensajes tiene un botón de dados. Su tooltip (texto de ayuda) es **Roll dice** (Tirar dados).
 
-El menú tiene ocho presets (ajustes guardados) de un solo clic:
+1. Haz clic en el botón de dados para abrir el menú de dados rápidos.
+2. Haz clic en un preset (ajuste guardado): d20, d6, 2d6, d10, d100, d4, d8 o d12.
+3. Aparece un chip en la barra de entrada, como `🎲 d20`. La tirada queda en cola; todavía no se envía.
+4. Envía tu mensaje. Marinara tira y añade el resultado al final de tu mensaje como una etiqueta, que el GM lee y en torno a la cual narra.
 
-| Preset | Tira |
-|---|---|
-| d20 | un dado de 20 caras |
-| d6 | un dado de 6 caras |
-| 2d6 | dos dados de 6 caras |
-| d10 | un dado de 10 caras |
-| d100 | un dado de 100 caras |
-| d4 | un dado de 4 caras |
-| d8 | un dado de 8 caras |
-| d12 | un dado de 12 caras |
+Para quitar una tirada en cola antes de enviar, haz clic en **Clear queued roll** (Quitar la tirada en cola) en el chip.
 
-Para hacer una tirada rápida:
+Un solo dado sin bono se ve así:
 
-1. Abre la barra de entrada de mensajes en un chat de Game Mode.
-2. Haz clic en el botón de dados.
-3. Haz clic en uno de los ocho presets, por ejemplo **d20**.
-4. Deberías ver un pequeño chip en la barra de entrada, como `🎲 d20`.
-
-La tirada no se envía de inmediato. Queda en cola. Para quitar una tirada en cola, haz clic en el botón de borrar del chip. Su tooltip es **Clear queued roll**.
-
-El cálculo de los dados se ejecuta cuando envías tu siguiente mensaje. La app añade el resultado al final de tu mensaje como una etiqueta. Un solo dado sin bono se ve así:
-
-```
+```text
 [dice: d20 = 14]
 ```
 
-Una tirada con más de un dado o con un bono también muestra las partes:
+Con más de un dado, o con un bono, también se muestran las partes:
 
-```
+```text
 [dice: 3d8+2 = 18 (4, 6, 6 +2)]
 ```
 
-El Game Master lee esa etiqueta y narra en torno al resultado.
+El GM también puede pedir una tirada en su narración con `[dice: 3d8+2]`. Marinara proporciona los números reales y muestra la misma tarjeta animada. Funciona en conexiones que solo admiten texto, incluidas las suscripciones de Claude y Grok. Cuando el GM tira varias veces en un turno, cada tarjeta de dados espera su turno: cierra una para ver la siguiente. Todas las tiradas se guardan en el swipe (respuesta alternativa) activo de ese turno y siguen en **Logs** (Registros) después de recargar. Continuar un turno conserva sus tiradas anteriores. Regenerarlo crea un conjunto nuevo para el nuevo swipe.
 
-Cuando el Game Master hace varias tiradas en un turno, cada tarjeta de dados ocupa su propio lugar en la cola. Cierra una tarjeta para ver la siguiente. Todas las tiradas se guardan en el swipe (respuesta alternativa) activo de ese turno y siguen en **Logs** (registros) después de recargar. Continuar un turno conserva las tiradas anteriores; regenerarlo crea un conjunto independiente para el nuevo swipe.
+## Tirar dados personalizados
 
-El Game Master también puede pedir una tirada en la narración con `[dice: 3d8+2]`. El motor proporciona los números reales y muestra la misma tarjeta animada. Funciona en conexiones que solo admiten texto, incluidas las suscripciones de Claude y Grok. Usa la misma notación y los mismos límites que el menú de dados.
+El menú de dados tiene un campo de texto para una tirada personalizada en notación `NdM`: `N` dados de `M` caras cada uno, con un bono o una penalización opcional al final. El campo muestra el ejemplo `3d8+2` (tres dados de 8 caras, suma 2).
 
-## Notación de dados personalizada
+1. Abre el menú de dados.
+2. Escribe tu notación, por ejemplo `2d6+1`.
+3. Pulsa <kbd>Enter</kbd> o haz clic en el botón del avión de papel. La tirada queda en cola como un chip.
 
-El menú de dados también tiene un campo de texto para una tirada personalizada. Usa la notación estándar `NdM`. `N` es cuántos dados tirar y `M` es cuántas caras tiene cada dado. Puedes añadir un bono o una penalización al final.
+| Notación | Significado |
+| --- | --- |
+| `d20` | Un dado de 20 caras |
+| `4d8-1` | Cuatro dados de 8 caras, resta 1 |
+| `4d6kh3` | Tira cuatro dados de 6 caras, conserva los tres más altos |
+| `2d20kl1` | Conserva el más bajo: una tirada con desventaja |
+| `4d6dl1+2` | Descarta el dado más bajo, suma 2 |
 
-El texto de ejemplo del campo muestra un ejemplo: `3d8+2`. Eso significa tirar tres dados de 8 caras y sumar 2 al total.
+`kh` y `kl` conservan los dados más altos o más bajos. `dh` y `dl` los descartan. Se registra cada dado tirado, y solo se suman los que se conservan.
 
-Para usar una tirada personalizada:
+Si no funcionó: un texto que no sea `NdM` o un simple `dM`, seguido opcionalmente de `kh`, `kl`, `dh` o `dl` y un número, falla con un error que indica el formato esperado.
 
-1. Haz clic en el botón de dados para abrir el menú.
-2. Escribe tu notación en el campo de texto, por ejemplo `2d6+1`.
-3. Pulsa Enter, o haz clic en el pequeño botón de avión de papel (enviar) junto al campo.
-4. Deberías ver la tirada en cola como un chip, lista para enviar.
-
-Algunos ejemplos más que puedes escribir:
-
-- `d20` tira un dado de 20 caras.
-- `4d8-1` tira cuatro dados de 8 caras y resta 1.
-- `2d6+3` tira dos dados de 6 caras y suma 3.
-- `4d6kh3` tira cuatro dados de 6 caras y conserva los tres más altos. `kl` conserva los más bajos, y `dh` y `dl` descartan los más altos o los más bajos en su lugar, así que `2d20kl1` es una tirada con desventaja y `4d6dl1+2` descarta el dado más bajo y suma 2. Se registra cada dado tirado y solo se suman los que se conservan.
-
-Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez y cada dado puede tener hasta 1000 caras. Si una tirada simple pide más, la aplicación la reduce a esos límites en lugar de rechazarla, y la tarjeta de resultado muestra la notación reducida: escribir `500d6` genera una tarjeta `100d6` para los cien dados que realmente tiró. En cambio, una tirada que conserva o descarta dados y supera los límites, como `101d6kh3`, se rechaza con un error de fuera de rango, porque reducir los dados cambiaría cuáles se conservan. Si el texto no es una notación de dados válida, es decir, `NdM` o un simple `dM` como `d20`, seguido opcionalmente de `kh`, `kl`, `dh` o `dl` y un número, la tirada falla y aparece un error que indica el formato esperado.
-
-<a id="symbol-dice-by-name"></a>
-
-### Dados de símbolos por nombre
-
-En una partida cuyo conjunto de reglas tira dados de símbolos (un conjunto `symbol-pool`, como un sistema de estilo Genesys), el campo personalizado también acepta esos dados por nombre. Indica una cantidad y el nombre del dado para cada tipo, por ejemplo `2 ability 1 proficiency vs 2 difficulty`. Los nombres pueden ser el ID del dado o su etiqueta, sin distinguir mayúsculas de minúsculas, y puedes separarlos con espacios, comas, `+` o `vs`.
-
-La tarjeta muestra cada dado con los símbolos de su cara, después los símbolos que quedan tras cancelarse y si el resultado es un éxito. La etiqueta añadida a tu mensaje lleva lo mismo, por ejemplo `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Una tirada puede nombrar hasta 40 dados. Cuando el Game Master tira con su herramienta de dados, también puede usar estos nombres. La notación normal `NdM` sigue tirándose como se describe arriba en todas las partidas.
+Puedes tirar como máximo 100 dados a la vez, y cada dado puede tener como máximo 1000 caras. Una tirada simple que los supere se reduce a esos límites y la tarjeta muestra la notación reducida, así que `500d6` da una tarjeta `100d6`. Una tirada que conserva o descarta dados y supera los límites, como `101d6kh3`, se rechaza con un error de fuera de rango, porque reducirla cambiaría qué dados se conservan.
 
 <a id="skill-checks"></a>
 
 ## Pruebas de habilidad
 
-Una prueba de habilidad comprueba si tienes éxito en algo arriesgado, como escabullirte, detectar una pista o convencer a un NPC (personaje no jugador). Tú no inicias una prueba de habilidad por tu cuenta. El Game Master la solicita dentro de su narración. La app la convierte entonces en una tirada de d20 animada con un banner de resultado.
-
-Una prueba solicitada por texto empieza con el intento. El motor resuelve los dados y realiza una solicitud adicional al modelo con los resultados reales para que el Game Master complete el desenlace en el mismo turno. También corrige borradores que adivinaron el resultado antes de la tirada. La solicitud adicional vuelve a enviar el prompt y consume más tokens de entrada y salida. Si falla, el turno conserva los resultados resueltos en su registro sin guardar un desenlace inventado o parcial. Un aviso con el botón **Regenerate turn** (regenerar turno) permanece en el turno, incluso después de recargar el chat.
-
-Desactiva **Narrate dice outcomes immediately** (narrar los resultados de los dados inmediatamente) en **Chat Settings → Function Calling** para conservar los resultados reales para el siguiente turno sin esta solicitud adicional. Esta opción está activada de forma predeterminada. Las solicitudes que no producen ninguna tirada real nunca activan la solicitud de narración adicional.
-
-Hay una tercera opción que mantiene el desenlace en el mismo turno sin la segunda solicitud. Consulta [Terminar un turno con dados en una sola solicitud](#finishing-a-rolled-turn-in-one-request).
-
-En una conexión compatible con la herramienta de dados, el Game Master puede obtener una tirada real durante la generación. La tarjeta aparece en cuanto responde la herramienta; la prueba completada registra ese resultado sin volver a tirar. Cada prueba de habilidad resuelta recibe su propio aviso de resultado después de las tarjetas de dados en cola.
-
-El banner muestra la habilidad y el número objetivo, por ejemplo **Stealth Check** con **DC 15** al lado. DC significa Clase de Dificultad (Difficulty Class). Es el número que tu tirada debe alcanzar o superar.
+Una prueba de habilidad pone a prueba algo arriesgado, como escabullirte, detectar una pista o convencer a un NPC (personaje no jugador). Tú no la inicias. El GM la pide en su narración, y Marinara la convierte en una tirada de d20 animada con un banner de resultado. El banner muestra la habilidad y el objetivo, por ejemplo **Stealth Check** con **DC 15**. Cada prueba resuelta recibe su propio banner, después de las tarjetas de dados en cola.
 
 ### Cómo se decide el resultado
 
-La prueba tira un dado de 20 caras y suma dos modificadores:
+La prueba tira un d20 y suma dos modificadores:
 
-- Un modificador de habilidad, a partir del nivel de habilidad que el juego lleva para tu personaje. Si el juego todavía no tiene un nivel para esa habilidad, este modificador es 0.
-- Un modificador de atributo, a partir del atributo que gobierna esa habilidad.
+- Un modificador de habilidad, a partir del nivel de habilidad que el juego lleva para tu personaje. Es 0 si el juego todavía no tiene un nivel para esa habilidad.
+- Un modificador de atributo, a partir del atributo que gobierna la habilidad. Cada habilidad se asigna a uno automáticamente: Stealth usa Dexterity, Perception usa Wisdom y Persuasion usa Charisma. Una habilidad que Marinara no reconoce usa Intelligence.
 
-La tirada del dado más ambos modificadores es tu total. Si el total alcanza o supera la DC, la prueba tiene éxito. Si se queda corta, la prueba falla. Cada habilidad se asigna a un atributo gobernante automáticamente. Por ejemplo, Stealth usa Dexterity, Perception usa Wisdom y Persuasion usa Charisma. Una habilidad que la app no reconoce recurre a Intelligence.
+Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan el cálculo:
 
-### Éxito crítico y fallo crítico
+- Un 20 natural es un **CRITICAL SUCCESS** (Éxito crítico) y siempre pasa.
+- Un 1 natural es un **CRITICAL FAILURE** (Fallo crítico) y siempre falla.
 
-Dos tiradas anulan el cálculo:
-
-- Un 20 natural (el dado en sí muestra 20) es un **CRITICAL SUCCESS**. Siempre pasa, incluso contra una DC alta.
-- Un 1 natural (el dado en sí muestra 1) es un **CRITICAL FAILURE**. Siempre falla, incluso con modificadores grandes.
-
-El banner muestra uno de cuatro resultados: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** o **CRITICAL FAILURE**.
-
-### Otros sistemas de dados
-
-El Game Master puede indicar otra notación, como `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Estas pruebas usan el modificador fijo de la notación en lugar de los modificadores de d20 de la ficha del personaje y tienen éxito cuando el total alcanza la DC. Las reglas del 1 y el 20 naturales solo se aplican a la prueba estándar de d20 descrita arriba.
-
-Las reservas de éxitos deben indicar tanto el umbral por dado como el número de éxitos necesarios: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` tira seis d10, cuenta una vez cada dado que muestre al menos 6 y tiene éxito con un mínimo de cuatro éxitos. El motor no adivina un umbral ausente ni implementa dados explosivos, pifias u otras reglas especiales de reservas. Una reserva sin un umbral válido queda sin resolver y se eliminan los números inventados por el modelo.
-
-Esta es la reserva de una partida **sin conjunto de reglas** y no cambia. Una partida con un conjunto basado en reservas es distinta: el motor posee sus reglas. Consulta [Pruebas con un conjunto de reglas](rulesets.md#checks-on-a-ruleset).
-
-El atributo `dice=` de una prueba solo acepta `NdM` simple. Las solicitudes en ese atributo, como `4d6kh3`, `3d6!` o `4dF`, no se tiran. El motor registra la notación no compatible y elimina los números inventados de los registros de pruebas. Estos resultados quedan sin resolver; el motor no sustituye silenciosamente el sistema de dados.
+El banner muestra **CRITICAL SUCCESS**, **SUCCESS** (Éxito), **FAILURE** (Fallo) o **CRITICAL FAILURE**.
 
 ### Ventaja y desventaja
 
-El Game Master puede solicitar una prueba con ventaja o con desventaja. Una prueba nunca se tira con ambas al mismo tiempo.
+El GM puede pedir una prueba con ventaja (se tiran dos d20 y se conserva el más alto) o con desventaja (se conserva el más bajo). El banner muestra el modo junto a la DC y marca el dado usado. Si el GM pide ambas a la vez, Marinara deja esa prueba sin tocar en vez de adivinar, así que no recibes ningún banner para ella.
 
-- Con ventaja, la app tira dos dados de 20 caras y se queda con el más alto.
-- Con desventaja, la app tira dos dados y se queda con el más bajo.
+### Tirar tu propio d20 por adelantado
 
-Si el GM pide ambas a la vez, la app deja la prueba sin resolver en vez de adivinar su intención; no aparece ningún banner para ella.
+Pon en cola un `d20` desde el menú de dados antes de que ocurra la prueba. La prueba usa entonces tu número en lugar de tirar un dado nuevo. Tus modificadores de habilidad y de atributo se siguen aplicando.
 
-Cuando cualquiera de las dos está activa, el banner muestra el modo junto a la DC, y marca qué dado usó.
-
-### Tirar tu propio dado por adelantado
-
-Puedes poner en cola tu propio `d20` desde el menú de dados antes de que ocurra la prueba. Cuando lo haces, la prueba de habilidad usa tu número tirado en lugar de tirar un dado nuevo. Tus modificadores de habilidad y de atributo se aplican igualmente por encima de él.
+Para saber cómo termina el GM un turno después de una tirada, y cuánto cuesta, consulta [Cómo se narra un turno con dados](#how-a-rolled-turn-is-narrated).
 
 <a id="games-that-use-a-ruleset"></a>
 
-## Partidas con un conjunto de reglas
+### Partidas con un conjunto de reglas
 
-En una partida con un conjunto de reglas, como 5e (SRD 5.1), las pruebas se tiran a la manera del conjunto de reglas: con sus propios dados, escala de dificultad y modificadores de la ficha, y en algunos conjuntos de reglas, con una reserva de dados o dados de símbolos. Consulta [Pruebas con un conjunto de reglas](rulesets.md#checks-on-a-ruleset).
+En una partida con un conjunto de reglas, como 5e (SRD 5.1), las pruebas usan los propios dados, la escala de dificultad y los modificadores de la ficha del conjunto de reglas, y en algunos conjuntos de reglas, una reserva de dados o dados de símbolos. Consulta [Pruebas con un conjunto de reglas](rulesets.md#checks-on-a-ruleset).
+
+## Referencia
+
+<a id="how-a-rolled-turn-is-narrated"></a>
+
+### Cómo se narra un turno con dados
+
+Cuando el GM pide una prueba por texto, Marinara resuelve los dados y tiene tres formas de terminar el desenlace. Las tres están en **Chat Settings → Function Calling** (Ajustes del chat → Llamadas a funciones).
+
+| Ajuste | Predeterminado | Qué ocurre |
+| --- | --- | --- |
+| **Finish rolled turns in one request** (Terminar los turnos con dados en una sola solicitud) | Activado | Una solicitud. El GM escribe el desenlace sin números y Marinara los rellena. Consulta abajo. |
+| **Narrate dice outcomes immediately** (Narrar los resultados de los dados inmediatamente) | Activado | Dos solicitudes. El GM escribe un borrador, Marinara tira y luego una solicitud más vuelve a enviar el prompt (las instrucciones enviadas a la IA) con los resultados reales para que el GM termine el desenlace en el mismo turno. Esto cuesta más tokens (fragmentos de texto) de entrada y de salida. |
+| Ambos desactivados | | Los resultados reales se guardan para el siguiente turno, sin ninguna solicitud adicional. |
+
+Con **Narrate dice outcomes immediately**, si la solicitud adicional falla, el turno conserva los resultados resueltos en su registro sin guardar un desenlace inventado o parcial. Un aviso con un botón **Regenerate turn** (Regenerar turno) permanece en el turno, incluso después de recargar. Una solicitud sin tiradas reales nunca activa la solicitud adicional.
+
+En una conexión compatible con la herramienta de dados, el GM puede obtener en su lugar una tirada real durante la generación. La tarjeta de dados aparece en cuanto responde la herramienta, y la prueba completada registra ese resultado sin volver a tirar.
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 
-## Terminar un turno con dados en una sola solicitud
+#### Terminar un turno con dados en una sola solicitud
 
-Sin esta opción, un turno con tiradas cuesta dos solicitudes al modelo: una para el borrador y otra para reescribir el desenlace con las cifras reales. **Finish rolled turns in one request** (Terminar los turnos con dados en una sola solicitud), en **Chat Settings → Function Calling**, elimina la segunda. Está activado de forma predeterminada; desactívalo en un chat para que ese chat reescriba cada turno con tiradas usando las cifras reales.
+Sin esta opción, un turno con tiradas cuesta dos solicitudes. **Finish rolled turns in one request** elimina la segunda. Está activado de forma predeterminada. Desactívalo en un chat para que ese chat reescriba en su lugar cada turno con tiradas usando los números reales.
 
-Funciona porque el Game Master fija su texto antes de que exista ningún número. No ve la tirada antes de decidir qué ocurre, así que no puede orientar el desenlace hacia el dado recibido. El motor tira después y se guarda su registro.
+Funciona porque el GM fija su texto antes de que exista ningún número. Nunca ve una tirada antes de decidir qué ocurre, así que no puede orientar el desenlace. Marinara tira después y guarda su propio registro. Mientras el interruptor está activado, el GM escribe una prueba de una de estas tres formas:
 
-Con la opción activa, se pide al GM que escriba la prueba de una de estas tres formas, según el tipo de desenlace.
+- **Dos desenlaces.** El GM escribe la prueba sin números, seguida de una línea de éxito y otra de fracaso. Marinara tira, conserva la mitad que eligió la tirada y elimina la otra antes de que leas el turno.
+- **Solo un número.** Para daño, curación, oro, una duración, una cantidad o una distancia, el GM escribe un marcador de posición como `[[roll: 2d6+3]]` en mitad de la frase, y Marinara pone el número en su lugar. Un marcador puede nombrar un modificador de la ficha, como en `[[roll: 1d8+STR]]`. Esa forma solo se ofrece cuando tu partida tiene una ficha que leer, y un nombre que Marinara no puede resolver se rechaza en lugar de tratarse como cero. Pasa el puntero sobre un número de un marcador para ver sus dados. Cada uno aparece también en **Logs** como su propia línea de tirada.
+- **Tres o más finales.** El GM pide el valor y se detiene. Marinara tira y lo registra, el turno termina sin el desenlace, y el GM narra lo que significó el número al principio del siguiente turno.
 
-**Si el desenlace tiene dos posibilidades, escribe ambas.** La prueba se escribe sin números, seguida de un bloque con una línea de éxito y otra de fracaso. El motor tira, conserva la mitad elegida por el resultado y elimina la otra antes de que leas el turno. Ves un único desenlace, igual que si se hubiera tirado primero.
+Una prueba que no se escriba de ninguna de estas formas recurre al último comportamiento, así que nada queda sin resolver y nada se inventa.
 
-**Si el resultado es solo un número, escribe un marcador y sigue.** Daño, curación, oro, duración, cantidad o distancia: el GM escribe `[[roll: 2d6+3]]` dentro de la frase y el motor lo sustituye por el número. Un marcador puede nombrar un modificador de la ficha en vez de un valor, como `[[roll: 1d8+STR]]`, y el motor lo añade; esta forma solo se ofrece cuando la partida tiene una ficha que consultar. Un nombre que no pueda resolverse se rechaza, no se trata como cero. Pasa el puntero sobre el número de un marcador para ver los dados; cada uno aparece también en **Logs** (Registros) como una línea de tirada independiente.
+- **Narrate dice outcomes immediately** no se usa mientras esta opción está activada. Sigue visible pero desactivado, y su valor guardado se conserva para cuando desactives esta opción.
+- Los turnos existentes no cambian. El interruptor solo afecta a los turnos generados después de activarlo.
+- Un turno aún puede costar más de una solicitud en dos casos: si **Enable Tool Use** (Activar el uso de herramientas) está activado y la herramienta de dados está en tu lista de herramientas (una llamada a una herramienta cuesta una ronda completa adicional), o si hay configurado un **Game tool provider** (Proveedor de herramientas del juego) distinto de **Same as narrator** (El mismo que el narrador), que siempre hace una solicitud de planificación.
+- Cuando algo no puede tirarse, un aviso breve sustituye al número, nunca un valor inventado. **Logs** indica qué se omitió.
+- Mientras se escribe el turno, los marcadores y los bloques de ramas se retienen del texto en streaming, así que nunca ves cambiar un número.
 
-**Si el número debe elegir entre tres o más finales, pide el valor y se detiene.** Es la misma prueba mínima o solicitud `[dice:]` que el GM escribe actualmente. El motor tira y guarda el resultado; el turno termina sin desenlace. El GM narra lo que significó el número al principio del siguiente turno, igual que con **Narrate dice outcomes immediately** desactivado.
+<a id="symbol-dice-by-name"></a>
 
-Una prueba que no use ninguna de esas formas vuelve a ese mismo comportamiento: nunca queda sin resolver ni se inventa un resultado.
+### Dados de símbolos por nombre
 
-Conviene conocer estos detalles antes de activarlo:
+En una partida cuyo conjunto de reglas tira dados de símbolos (un conjunto `symbol-pool`, como un sistema de estilo Genesys), el campo personalizado también acepta esos dados por nombre. Indica una cantidad y el nombre de un dado para cada tipo, por ejemplo `2 ability 1 proficiency vs 2 difficulty`. Los nombres pueden ser el ID o la etiqueta de un dado, sin distinguir mayúsculas de minúsculas, separados por espacios, comas, `+` o `vs`. Una tirada puede nombrar hasta 40 dados.
 
-- **Narrate dice outcomes immediately no se usa mientras esté activo.** Sigue visible, desactivado y con una nota explicativa. Su valor guardado no cambia; al desactivar la solicitud única recuperas el ajuste anterior.
-- **Los turnos existentes no cambian.** Solo afecta a los generados después de activarlo; la transcripción guardada se lee como antes.
-- **Un turno aún puede costar más de una solicitud en dos casos.** Si **Enable Tool Use** está activo y la herramienta de dados está en la lista, el GM puede llamarla, lo que cuesta una ronda completa adicional. Y una **Game tool connection** distinta de **Same as narrator** siempre hace su propia solicitud de planificación. Ninguna es la reescritura del desenlace que elimina esta opción.
-- **Si algo no puede tirarse, se te avisa.** Un número que el motor no pueda interpretar se sustituye por un aviso breve, no por un valor inventado. Si no puede interpretar una rama, conserva la tirada y elimina ambas mitades. En ambos casos, una línea en **Logs** indica qué se omitió.
-- **Mientras se escribe el turno**, los marcadores y bloques de ramas se retienen del texto transmitido, para que no veas un número aparecer y después cambiar. La frase terminada llega al finalizar el turno.
+La tarjeta muestra cada dado con los símbolos de su cara, después los símbolos que quedan tras cancelarse y si eso es un éxito. La etiqueta del mensaje lleva lo mismo, por ejemplo `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. La herramienta de dados del GM también acepta estos nombres. La notación simple `NdM` sigue funcionando en todas las partidas.
+
+### Otros dados en una prueba de habilidad
+
+El GM puede indicar otra notación, como `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Estas pruebas usan el modificador fijo de la notación en lugar de los modificadores de d20 de la ficha y tienen éxito cuando el total alcanza la DC. Las reglas del 1 natural y del 20 natural solo se aplican a la prueba estándar de d20.
+
+Una reserva de éxitos debe indicar tanto el umbral por dado como el número de éxitos necesarios: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` tira seis d10, cuenta cada dado que muestre al menos 6 y tiene éxito con al menos cuatro. Marinara no adivina un umbral que falte ni implementa dados explosivos, pifias u otras reglas especiales de reservas. Una reserva sin un umbral válido queda sin resolver, y se eliminan los números inventados.
+
+Esta es la reserva que recibe una partida sin conjunto de reglas. Una partida con un conjunto de reglas basado en reservas de dados es distinta: consulta [Pruebas con un conjunto de reglas](rulesets.md#checks-on-a-ruleset).
+
+El atributo `dice=` de una prueba solo acepta `NdM` simple. Las solicitudes como `4d6kh3`, `3d6!` o `4dF` no se tiran: Marinara registra la notación no compatible y elimina los números inventados, y el desenlace queda abierto.
 
 ### Dejar que el Game Master vea un dado de cada tamaño
 
-Debajo hay otra opción, **Let the Game Master see one die of each size** (Dejar que el Game Master vea un dado de cada tamaño), desactivada de forma predeterminada. Atiende al caso que las dos formas a ciegas no pueden resolver: un número que elige entre tres o más finales, como un margen de éxito, una tabla de localización de impactos o una tirada de reacción. Sin ella, la prueba debe terminar el turno y narrarse al inicio del siguiente.
+**Let the Game Master see one die of each size** (Dejar que el Game Master vea un dado de cada tamaño) está debajo de **Finish rolled turns in one request**. Está desactivado de forma predeterminada. Atiende un caso que las formas a ciegas no pueden resolver: un número que debe elegir entre tres o más finales, como un margen de éxito o una tabla de localización de impactos. Sin él, esa prueba termina el turno y se narra en el siguiente.
 
-Al activarla, el motor tira un dado de cada tamaño estándar antes del turno y muestra el siguiente valor de cada uno al GM, para que pueda gastar uno y narrar lo que significa en la misma pasada.
+Al activarlo, Marinara tira un dado de cada tamaño estándar antes del turno y muestra al GM el siguiente valor de cada uno, para que pueda escribir lo que significa en la misma pasada.
 
-**Este es el coste de esa decisión; conviene leerlo con atención.** El GM ve el número antes de decidir qué probar y con qué dificultad. Puede orientar los resultados de formas que las opciones a ciegas no permiten: elegir una dificultad que el dado recibido pueda superar o evitar pedir una prueba mientras tenga un número malo. El motor no puede saber si la dificultad encaja con la ficción, por lo que tampoco puede detectar esto. Un jugador que no sabe que el GM vio los dados interpretará una sesión sospechosamente heroica como buena suerte.
+> **Advertencia:** El GM ve entonces el número antes de decidir qué probar y con qué dificultad. Puede elegir una dificultad que el dado que tiene vaya a superar, o evitar pedir una prueba mientras tenga un número malo. Marinara no puede saber si una dificultad encaja con la ficción, así que no puede detectarlo. Una sesión sospechosamente heroica puede deberse a que el GM está moldeando la suerte.
 
-El motor sí impone lo siguiente, sin depender de la cooperación del GM:
+Lo que Marinara impone sin depender de la cooperación del GM:
 
-- **Los valores salen en orden y ninguno se usa dos veces.** El motor controla la cola y entrega el siguiente, diga lo que diga el turno.
-- **Todos los números del registro proceden del motor.** La tirada, el modificador, el total y el resultado se recalculan a partir de la cola y la ficha. Los números del GM que no coincidan se sustituyen y se indica en **Logs**.
-- **La dificultad tiene límites.** Se mantiene entre 1 y 40, algo que antes no se aplicaba a las pruebas escritas. Una partida con conjunto puede usar toda su escala de dificultad.
-- **Volver a pedir no mejora la suerte.** Las variantes de respuesta, regeneraciones y continuaciones del mismo turno reciben los mismos valores; no se puede volver a tirar hasta obtener algo bueno.
-- **Solo se muestra el siguiente valor de cada tamaño.** Lo controla **Values shown per size** (Valores mostrados por tamaño), cuyo valor predeterminado es 1. Las tiradas posteriores del mismo tamaño en un turno no se ven de antemano y se narran en el siguiente.
-- **Un dado sin gastar se vuelve a tirar pasado un tiempo.** Lo controla **Rethrow after idle turns** (Volver a tirar tras turnos sin uso), con valor predeterminado 3. Sin ello, un valor bajo puede quedarse al frente de la cola durante todo el chat mientras el GM evita ese tamaño. El valor 0 desactiva esta renovación y permite ese comportamiento.
-- **Pedir más tiradas de las que contiene la cola no produce otra.** La prueba conserva su pregunta, pierde todos los números y se narra en el siguiente turno. **Logs** indica en qué turno ocurrió.
+- Los valores salen en orden y ninguno sale dos veces.
+- Todos los números del registro son de Marinara. La tirada, el modificador, el total y el resultado se recalculan a partir de la cola y de tu ficha. Un número que no coincide se sustituye, y **Logs** lo indica.
+- La dificultad se mantiene entre 1 y 40. Una partida con un conjunto de reglas puede llegar hasta donde llegue la escala de dificultad de su conjunto.
+- Un swipe, una regeneración o una continuación del mismo turno se enfrenta a los mismos valores, así que no se puede volver a tirar para tener suerte.
+- **Values shown per size** (Valores mostrados por tamaño) fija cuántos valores ve el GM por tamaño. El valor predeterminado es 1. Las tiradas posteriores de ese tamaño en un turno no se ven y se narran en el siguiente turno.
+- **Rethrow after idle turns** (Volver a tirar tras turnos sin uso), con valor predeterminado 3, vuelve a tirar un dado sin gastar después de esa cantidad de turnos. Sin ello, un valor bajo podría quedarse al frente durante el resto del chat. Pon 0 para desactivar esta nueva tirada.
+- Si el GM pide más tiradas de las que contiene la cola, la prueba conserva su pregunta, pierde todos los números y se narra en el siguiente turno. **Logs** indica en qué turno.
 
 ## Guías relacionadas
 
 - [Game Mode: jugar con un conjunto de reglas](rulesets.md)
-- [Game Mode: Combate](combat.md)
-- [Game Mode: Primeros pasos](getting-started.md)
-- [Game Mode: Grupo y NPCs](party-and-npcs.md)
+- [Game Mode: combate](combat.md)
+- [Game Mode: primeros pasos](getting-started.md)
+- [Game Mode: grupo y NPC](party-and-npcs.md)

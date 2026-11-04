@@ -1,6 +1,6 @@
 # Charakterbögen im Regelsatz
 
-Diese Seite gehört zu [Regelsätze für Game Mode schreiben](writing-rulesets.md). Was auf den Charakterbogen eines Regelsatzes gehört: Attribute, Fertigkeiten, Felder und Listen, Live-Zustände, Wundleisten, Abzüge, Rasten und der Text für den Game Master sowie der Gruppenbogen und Fortschrittsuhren.
+Diese Seite zeigt dir, wie du den Charakterbogen eines Regelsatzes gestaltest: Attribute, Fertigkeiten, Felder und Listen, Live-Zustände, Wundleisten, Abzüge, Rasten und der Text für den Game Master sowie der Gruppenbogen und Fortschrittsuhren. Sie richtet sich an Regelsatz-Autoren. Bevor du anfängst, lies [Regelsätze für Game Mode schreiben](writing-rulesets.md).
 
 ## Der Bogen
 
@@ -86,7 +86,7 @@ Ein Enum-Feld wird beim Erstellen eines Charakters gewählt und bleibt dann so, 
 - `from` nennt genau eines von `field` (ein Enum-Feld) oder `liveState`. Jede Zeile von `table` ist ein Wert, den dieses annehmen kann, eine bis vierzig davon. Ein von der Tabelle ausgelassener Wert und ein vom Bogen ausgeblendeter Live-Zustand lesen `default` (0, wenn du ihn weglässt).
 - Ein Feld steht fest, sobald der Charakter erstellt ist. Eine darauf beruhende Tabelle darf daher ein Maximum speisen: Gravewatch gibt einem Wächter der Morgenwache ein Resolve mehr. Ein Live-Zustand ändert sich im Spiel. Eine darauf beruhende Tabelle ist daher wie `liveTrack` ein Live-Lesezugriff: Nichts, was berechnet wird, bevor es einen Live-Zustand gibt, darf sie lesen, weder direkt noch über einen anderen abgeleiteten Wert. Deshalb heißt der Schlüssel `liveState` und nicht `state`: Jeder Lesezugriff auf den Live-Zustand trägt `live` im Namen. Daran erkennen du und der Import, was ein Maximum nicht verwenden darf.
 - Um die Zahl auf die Würfel zu bringen, verweise mit `resolution.adjust` darauf (siehe „Modifikatoren vom Bogen“). Ember Roads addiert seine Stance zu jedem Brawn-Wurf; Gravewatch zieht eine abgeblendete oder dunkle Laterne von jedem Nerve-Wurf ab.
-- Eine Ebene darf aus einem Feld einen Wert entfernen, für den eine Tabelle eine Zeile hat. Solange die Ebene aktiv ist, wird diese Zeile einfach nie gelesen.
+- Eine Ebene darf aus einem Feld einen Wert entfernen, für den eine Tabelle eine Zeile hat. Solange die Ebene aktiv ist, wird diese Zeile nie gelesen.
 
 Live-Zustände, `enumTable` und ein Rast-Schritt, der einen `state` nennt, brauchen bei einem als Paket ausgelieferten Regelsatz Capability API 1.42.
 
@@ -208,6 +208,8 @@ Das Ergebnis nennt, was der Bogen hinzugefügt hat (`adjust="-2"` im Datensatz u
 ## Rasten
 
 Eine Rast ist eine Liste von Wiederherstellungsschritten und zu entfernenden Dingen. Jeder Schritt nennt genau ein Ziel (`pool`, `poolGroup`, `listPools`, `track` oder `state`) und setzt es entweder auf einen Wert (`"to": "max"`, `"to": "min"` oder eine Zahl) oder verändert es (`"by": { "const": 1 }` oder `"by": { "fractionOfMax": 0.5 }`). Ein Schritt für eine Wundleiste kann sie nur heilen, sein `by` ist daher negativ; siehe oben. Ein Schritt für einen Live-Zustand setzt ihn nur, und zwar auf `"default"` oder einen seiner Werte. Ein `poolGroup`-Schritt mit `fractionOfMax` verändert jeden Pool der Gruppe um seinen eigenen Anteil. Mit `"shared": true` (Capability API 1.77) wird der Anteil stattdessen aus dem Maximum der ganzen Gruppe berechnet und in der Reihenfolge, in der der Bogen die Pools auflistet, auf die Pools der Gruppe verteilt, jeder bis zu dem, was ihm fehlt. Die lange Rast in 5e, „die Hälfte der Gesamtzahl der“ Trefferwürfel des Charakters, gehalten in einem Pool pro Würfeltyp, ist `{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`.
+
+<a id="game-master-text"></a>
 
 ## Text für den Game Master
 

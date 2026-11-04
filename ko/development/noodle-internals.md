@@ -1,6 +1,6 @@
 # Noodle 프롬프트 내부 구조(개발자용)
 
-Noodle의 생성 프롬프트가 코드 어디에 있는지, 어떻게 고치는지, 최종 프롬프트를 어떻게 확인하는지 정리한 개발자용 참고 문서입니다. 일반 사용자는 Noodle의 Settings 패널에서 설정하면 됩니다. `docs/noodle/`의 Noodle 가이드를 참고하세요.
+Noodle의 생성 프롬프트가 코드 어디에 있는지, 어떻게 고치는지, 최종 프롬프트를 어떻게 확인하는지 정리한 개발자용 참고 문서입니다. 일반 사용자는 Noodle의 Settings 패널에서 설정하면 됩니다. Noodle 가이드 `docs/agents/noodle.md`와 `docs/agents/noodle-settings.md`를 참고하세요.
 
 Noodle은 다운로드 가능한 패키지입니다. 라우트(`/api/noodle`, 패키지가 활성화될 때 등록)와 생성 코드는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)의 Noodle 패키지 안, `packages/noodle/src/engine/packages/server/src/` 아래에 있습니다. 아래 표에서 **package**로 표시한 소스는 그 폴더를 기준으로 한 경로입니다. Engine에는 공용 Noodle 스키마와 타입, Noodle 저장소, Settings에 나열되는 등록된 프롬프트 재정의, 그리고 `packages/server/src/services/noodle/noodle-prompt.ts`의 기본 타임라인 프롬프트 텍스트가 남아 있습니다. 패키지는 `services/prompt-overrides/registry/noodle.ts`와 `services/noodle/noodle-prompt.ts`의 자체 사본을 가지고 있습니다.
 
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## 관련 가이드
 
-- [Noodle: 앱 안의 소셜 타임라인](../noodle/overview.md)
-- [Noodle 설정과 채팅 반영](../noodle/settings.md)
+- [Noodle: 앱 안의 소셜 타임라인](../agents/noodle.md)
+- [Noodle 설정과 채팅 반영](../agents/noodle-settings.md)
 - [선택 설치 에이전트 및 기능 패키지](optional-agent-packages.md)
 - [아키텍처 지도(개발자용)](architecture-map.md)

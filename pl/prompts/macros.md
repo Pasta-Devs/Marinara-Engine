@@ -1,37 +1,29 @@
 # Makra promptów
 
-Ten przewodnik wyjaśnia makra promptów w aplikacji Marinara Engine. Makro to krótki zapis `{{tag}}`, który Marinara zamienia na aktualną wartość. Wartość trafia do tekstu w chwili budowania promptu – może to być twoje imię albo dzisiejsza data. Poznasz tu wszystkie wbudowane makra, miejsca, w których da się je wpisać, i błędy, których lepiej unikać.
+Makro to krótki zapis `{{tag}}`, który Marinara zamienia na aktualną wartość, na przykład twoje imię albo dzisiejszą datę, gdy buduje prompt. Ten przewodnik wymienia wszystkie wbudowane makra, miejsca, w których da się je wpisać, i błędy, których lepiej unikać.
 
-## Czym są makra i gdzie działają
+## Gdzie działają makra
 
-Makro to zwykły tekst ujęty w podwójne nawiasy klamrowe, na przykład `{{user}}` albo `{{char}}`. Kiedy Marinara buduje tekst wysyłany do AI, wyszukuje takie tagi i podmienia każdy z nich na bieżącą wartość. Nie ma przełącznika, który włącza makra. Każde pole, które je obsługuje, zawsze je rozwija.
+Kiedy Marinara buduje tekst wysyłany do AI, podmienia każdy zapis `{{tag}}` na jego bieżącą wartość. Nie ma przełącznika, który włącza makra. Każde pole, które je obsługuje, zawsze je rozwija. Wielkość liter w nazwach wbudowanych makr nie ma znaczenia, więc `{{user}}` i `{{USER}}` działają tak samo. Wartość makra może zawierać kolejne makro – Marinara rozwija także je.
 
-Wielkość liter w nazwach wbudowanych makr nie ma znaczenia. Dlatego `{{user}}` i `{{USER}}` działają tak samo.
-
-Makra można wpisywać w wielu miejscach aplikacji:
+Makra można wpisywać w tych miejscach:
 
 - Pola postaci w panelu **Character Editor** (edytor postaci): Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions oraz pole **Depth Prompt**.
-- Pola persony w panelu **Persona Editor** (edytor persony) – te same pola karty. Persona to postać, w którą się wcielasz.
-- Pola Description i Content we wpisie lorebooka. Lorebook to zbiór faktów o twoim świecie.
-- Sekcje presetu promptu w panelu **Preset Editor** (edytor presetów). Preset to zapisany szablon promptu.
-- Pola Find, Replace i Trim w skrypcie regex, czyli w wyrażeniu regularnym.
+- Pola persony w panelu **Persona Editor** (edytor persony) – te same pola karty.
+- Pola Description i Content we wpisie lorebooka.
+- Sekcje presetu promptu w panelu **Preset Editor** (edytor presetów).
+- Pola Find, Replace i Trim w skrypcie regex.
 - Szablony promptów agentów.
 - Pole wiadomości na czacie. Wpisz `{{roll:1d20}}` w wiadomości, a makro rozwinie się przed jej wysłaniem.
 
-Wartość makra może zawierać kolejne makro – Marinara rozwija także je.
-
-## Zanim zaczniesz
-
-Nie trzeba niczego konfigurować. Wbudowane makra działają od razu, bez klucza API i bez dodatkowego połączenia. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara rozmawia z dostawcą AI. Makra działają jednak wewnątrz aplikacji, całkiem samodzielnie.
-
-Dwie funkcje makr zależą od innych części aplikacji:
+Makra działają wewnątrz aplikacji Marinara Engine i nie wymagają konfiguracji ani klucza API. Dwie funkcje zależą od innych części aplikacji:
 
 - Zmienne presetu (uniwersalny zapis `{{NAME}}`) wymagają presetu promptu, który je definiuje. Zobacz [Zmienne presetu](preset-variables.md).
 - Makro agenta `{{agent::TYPE}}` pokazuje tekst dopiero wtedy, gdy odpowiedni agent zakończy pracę i zwróci wynik.
 
 ## Makra tożsamości, postaci i persony
 
-Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej postaci. Użytkownik to ty (albo twoja aktywna persona). Postać to ta, która odpowiada.
+Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej postaci. Użytkownik to ty (albo twoja aktywna persona). Postać to bot, który odpowiada.
 
 | Makro | Wynik |
 | --- | --- |
@@ -39,7 +31,7 @@ Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej pos
 | `{{userNamePhonetic}}` | Pole Phonetic name twojej persony, a przy pustym polu `{{user}}`. |
 | `{{char}}` / `{{charName}}` | Nazwa bieżącej postaci. Domyślnie `Character`. |
 | `{{21-character-card-ID}}` | Nazwa innej postaci. Zastąp tekst zastępczy dokładnym 21-znakowym ID karty, aby dodać ją do kontekstu. |
-| `{{persona-21-character-card-ID}}` | Zapis zastępczy dla nazwy innej persony. Tekst po `persona-` zastąp dokładnym 21-znakowym ID jej karty, aby pobrać kontekst z tej karty. |
+| `{{persona-21-character-card-ID}}` | Nazwa innej persony. Zastąp tekst zastępczy po `persona-` dokładnym 21-znakowym ID jej karty, aby dodać ją do kontekstu. |
 | `{{charNamePhonetic}}` | Pole Phonetic name postaci, a przy pustym polu `{{char}}`. |
 | `{{characters}}` | Wszystkie postacie w czacie, także nieaktywne, oddzielone przecinkami. To makro dodaje tylko nazwy; nie dodaje do promptu kart nieaktywnych postaci. |
 | `{{group}}` | Wszystkie pozostałe aktywne postacie w czacie grupowym, bez postaci właśnie odpowiadającej. Persona nie należy do tej listy postaci. |
@@ -69,9 +61,9 @@ Makro `{{group}}` podąża za postacią, która właśnie odpowiada – równie�
 
 Pole Phonetic name pełni dwie funkcje. Decyduje o tym, jak imię wymawia syntezator mowy. Zasila też makra `{{charNamePhonetic}}` i `{{userNamePhonetic}}`. Znajdziesz je zarówno w panelu **Character Editor**, jak i w panelu **Persona Editor**.
 
-Aby wskazać postać spoza czatu, skopiuj ID jej karty i umieść bezpośrednio w podwójnych nawiasach, na przykład `{{V1StGXR8_Z5jdHi6B-myT}}`. Nie dodawaj dosłownych znaków `<` ani `>`. Marinara zastępuje makro imieniem. W czatach Roleplay korzystających z presetu promptu dodaje też pola Description, Personality, Appearance, Backstory, Scenario i Example Dialogue karty do promptu systemowego; w pozostałych czatach makro zamienia się tylko w imię. Działa to w wiadomościach i polach promptu, a w czatach Roleplay z presetem także w aktywowanych wpisach lorebooka. Początkowe powitania są pomijane. Włączone lorebooki karty nadal podlegają zwykłym regułom słów kluczowych, Constant, filtrów, prawdopodobieństwa i limitu tokenów. Jeśli postać jest już w czacie, makro nadal zamienia się w jej imię, a jej karta nie jest dodawana po raz drugi.
+Aby wskazać postać spoza bieżącego czatu, skopiuj ID jej karty i umieść je bezpośrednio w podwójnych nawiasach klamrowych, na przykład `{{V1StGXR8_Z5jdHi6B-myT}}`. Nie dodawaj dosłownych znaków `<` ani `>`. Marinara zastępuje makro imieniem postaci. W czatach Roleplay korzystających z presetu promptu dodaje też pola Description, Personality, Appearance, Backstory, Scenario i Example Dialogue wskazanej karty do promptu systemowego; w pozostałych czatach makro zamienia się tylko w imię. Działa to w wiadomościach i polach promptu, a w czatach Roleplay z presetem także w aktywowanych wpisach lorebooka. Początkowe powitania wskazanej karty są pomijane. Włączone lorebooki podpięte do tej karty nadal podlegają zwykłym regułom słów kluczowych, trybu Constant, filtrów, prawdopodobieństwa i limitu tokenów. Jeśli postać jest już w czacie, makro nadal zamienia się w jej imię, a jej karta nie jest dodawana po raz drugi.
 
-Aby odwołać się do nieaktywnej persony, dodaj `persona-` przed skopiowanym ID, na przykład `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia makro na nazwę persony i dodaje jej pola Description, Personality, Appearance, Backstory i Scenario do ID Macro Cards. Podpięte lorebooki nadal podlegają swoim zwykłym regułom aktywacji.
+Aby odwołać się do persony innej niż aktywna, dodaj `persona-` przed skopiowanym ID, na przykład `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia makro na nazwę persony i dodaje pola Description, Personality, Appearance, Backstory i Scenario jej karty do tego samego kontekstu ID Macro Cards. Włączone lorebooki podpięte do tej persony zachowują swoje zwykłe reguły aktywacji.
 
 ## Makra trybu Conversation
 
@@ -116,25 +108,25 @@ Te makra opisują bieżący czat i bieżące zapytanie.
 | `{{gameStoryboardKeyframeCount}}` | Bieżąca wartość docelowa **Keyframes per Turn** w trybie Game Mode, od 1 do 6. Domyślnie `3`. |
 | `{{agent::TYPE}}` | Zapisany wynik agenta danego typu. |
 
-`{{reasoning}}` podaje poziom, który model faktycznie dostaje po nałożeniu na siebie presetu, połączenia i ustawień czatu. **Maximum** pokazuje się jako najwyższy poziom, jaki model przyjmuje, więc może to być `max`, `xhigh` albo `high`. Ponieważ `off` czyta się jako fałsz, `{{#if reasoning}}` zachowuje blok tylko wtedy, gdy model myśli. Jeśli twój preset lub czat ma już własną zmienną o nazwie `reasoning`, to ta zmienna zachowuje nazwę.
+`{{reasoning}}` podaje poziom, który dostaje model, po nałożeniu na siebie ustawień presetu, konta i czatu. **Maximum** pokazuje się jako najwyższy poziom, jaki model przyjmuje, więc może to być `max`, `xhigh` albo `high`. Ponieważ `off` czyta się jako fałsz, `{{#if reasoning}}` zachowuje blok tylko wtedy, gdy model myśli. Jeśli twój preset lub czat ma już własną zmienną o nazwie `reasoning`, to ta zmienna zachowuje nazwę.
 
 Wartość `{{lastGenerationType}}` to prosta etykieta. W aplikacji pojawiają się między innymi `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan` i `retry_agents`. Ta lista może się rozrastać, więc traktuj ją jako przykłady, a nie zamknięty zbiór.
 
-Makro `{{gameStoryboardKeyframeCount}}` trafia do promptów Game Master (mistrza gry) w trybie Game Mode, w tym do wbudowanego promptu **Storyboard Game Prompt**. To cel narracyjny, a nie żądanie dokładnie takiej liczby akapitów. Planer storyboardu nadal zwraca mniej ujęć, kiedy w turze brakuje wyraźnie różnych momentów wizualnych.
+Makro `{{gameStoryboardKeyframeCount}}` trafia do promptów mistrza gry (GM) w trybie Game Mode, w tym do wbudowanego promptu **Storyboard Game Prompt**. To cel narracyjny, a nie żądanie dokładnie takiej liczby akapitów. Planer storyboardu nadal zwraca mniej ujęć, kiedy w turze brakuje wyraźnie różnych momentów wizualnych.
 
 Makro `{{agent::TYPE}}` wstawia zapisany wynik agenta, czyli pomocnika działającego w tle – takiego jak tracker sceny. Najprościej dodać je w panelu **Preset Editor**: kliknij przycisk **Add Section** (dodanie sekcji), rozwiń grupę **Agent Sections** i wybierz agenta. Marinara tworzy sekcję, w której od razu jest właściwy tag `{{agent::TYPE}}`. To makro rozwija się na samym końcu, więc tekst od agenta nie może wstawić do promptu kolejnych makr.
 
 ## Makra outletów lorebooka
 
-Makro `{{outlet::name}}` wstawia treść z tych wpisów lorebooka, które mają pole **Position** ustawione na **Outlet**, a w polu **Outlet name** dokładnie wartość `name`. Outlet to nazwany punkt wstawiania, a wielkość liter w jego nazwie ma znaczenie. Przykładowo `{{outlet::character_rules}}` nie pasuje do outletu o nazwie `Character_Rules`.
+Makro `{{outlet::name}}` wstawia treść z tych wpisów lorebooka, które mają pole **Position** ustawione na **Outlet**, a w polu **Outlet name** dokładnie wartość `name`. Wielkość liter w nazwach outletów ma znaczenie. Przykładowo `{{outlet::character_rules}}` nie pasuje do outletu o nazwie `Character_Rules`.
 
 Wpisy outletu nadal aktywują się na zwykłych zasadach lorebooka. O tym, czy wpis jest aktywny przy danym generowaniu, decydują słowa kluczowe, tryb Constant, prawdopodobieństwo, filtry, czas, limity wpisów i limity tokenów. Aktywne wpisy o tej samej nazwie outletu łączą się w kolejności z pola **Order**, oddzielone znakami nowej linii. Trafiają wyłącznie w miejsce makra i nie są dodatkowo wstawiane na zwykłej pozycji lorebooka.
 
-Makr outletów używa się w sekcjach promptu w trybie Conversation, Roleplay i Game Mode. Makro działa nawet wtedy, gdy stoi przed znacznikiem lorebooka w ustawieniach presetu, a preset korzystający wyłącznie z wpisów outletu wcale nie potrzebuje takiego znacznika. Nieznany lub nieaktywny outlet daje pusty tekst. Wpis outletu nie rozwija kolejnego makra outletu, więc zagnieżdżone outlety nie działają rekurencyjnie.
+Makr outletów używa się w sekcjach promptu w trybie Conversation, Roleplay i Game Mode. Makro działa nawet wtedy, gdy stoi przed znacznikiem lorebooka w presecie, a preset korzystający wyłącznie z wpisów outletu wcale nie potrzebuje takiego znacznika. Nieznany lub nieaktywny outlet daje pusty tekst. Wpis outletu nie rozwija kolejnego makra outletu, więc zagnieżdżone outlety nie działają rekurencyjnie.
 
 ## Makro rozmiaru lorebooka
 
-`{{lorebooksize::ID}}` daje łączną liczbę wpisów lorebooka o podanym identyfikatorze. Zastąp `ID` rzeczywistym ID skopiowanym z panelu Lorebooks. Na przykład lorebook z ID `V1StGXR8_Z5jdHi6B-myT` i 151 wpisami daje `151` dla `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`.
+`{{lorebooksize::ID}}` daje łączną liczbę wpisów lorebooka o podanym identyfikatorze. Zastąp `ID` identyfikatorem lorebooka, który można skopiować z panelu **Lorebooks** (lorebooki). Na przykład lorebook z ID `V1StGXR8_Z5jdHi6B-myT` i 151 wpisami daje `151` dla `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`.
 
 Nieznane ID lorebooków dają `0`. Liczba obejmuje wszystkie wpisy: włączone, wyłączone i w folderach.
 
@@ -182,7 +174,7 @@ Na przykład `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/
 
 ## Makra losowe i rzuty kością
 
-Te makra wprowadzają do promptów element przypadku. Makro `{{random}}` służy do liczb i wyborów, a makro `{{roll}}` do rzutów kością.
+Te makra wprowadzają do promptów element przypadku. Makro losowe (`{{random}}`) służy do liczb i wyborów, a makro rzutu (`{{roll}}`) do rzutów kością.
 
 | Makro | Działanie |
 | --- | --- |
@@ -229,12 +221,12 @@ Dzięki zmiennym jedna część promptu zapisuje wartość, a dalsza część mo
 | --- | --- |
 | `{{setvar::name::value}}` | Zapisuje wartość i nie zostawia nic w tekście. |
 | `{{getvar::name}}` | Odczytuje zapisaną wartość (pusty tekst, jeśli nigdy jej nie ustawiono). |
-| `{{addvar::name::value}}` | Dodaje liczby, jeśli obie wartości są liczbowe; w przeciwnym razie dopisuje tekst. |
-| `{{addnumvar::name::value}}` | Rozszerzenie Marinara, które zawsze wykonuje dodawanie liczbowe. Brakującą lub nieprawidłową wartość traktuje jak 0, a przepełnienie ignoruje. |
+| `{{addvar::name::value}}` | Dodaje liczby, jeśli obie wartości są liczbowe; w przeciwnym razie dopisuje nowy tekst. |
+| `{{addnumvar::name::value}}` | Rozszerzenie aplikacji Marinara Engine: zawsze dodaje liczbę do zapisanej wartości liczbowej. Brakujące lub nieprawidłowe liczby liczą się jako 0; dodawanie, które powoduje przepełnienie, jest ignorowane. |
 | `{{incvar::name}}` | Dodaje 1 do zmiennej liczbowej i wstawia nową wartość. |
 | `{{decvar::name}}` | Odejmuje 1 od zmiennej liczbowej i wstawia nową wartość. |
 
-Zmienne rozwijają się od lewej do prawej podczas budowania promptu i są zapisywane w bieżącym czacie. Wartość ustawioną wcześnie, na przykład we wpisie lorebooka stojącym na początku, da się odczytać dalej w treści tego samego promptu. Tak jak zmienne lokalne w SillyTavern, zachowuje się przez kolejne tury i restarty, ale nie przechodzi do innych czatów.
+Zmienne rozwijają się od lewej do prawej w obrębie jednego budowania promptu. Wartość ustawioną wcześnie, na przykład we wpisie lorebooka stojącym na początku, da się odczytać dalej w tym samym prompcie. Marinara zapisuje je też w bieżącym czacie, tak jak zmienne lokalne w aplikacji SillyTavern: zostają zachowane w kolejnych turach i po ponownym uruchomieniu aplikacji, a inny czat ma własne, osobne wartości.
 
 Każdy zapis `{{NAME}}`, który nie jest wbudowanym makrem, jest wyszukiwany po nazwie: najpierw wśród zmiennych presetu, a potem wśród zmiennych czatu. Jeśli żadna z tych grup nie zawiera tej nazwy, znacznik pozostaje w tekście dokładnie tak, jak został wpisany. Zmienna presetu ma pierwszeństwo, gdy obie grupy używają tej samej nazwy. Zmienne definiowane w presecie opisuje przewodnik [Zmienne presetu](preset-variables.md).
 
@@ -242,14 +234,14 @@ Każdy zapis `{{NAME}}`, który nie jest wbudowanym makrem, jest wyszukiwany po 
 
 Nie musisz używać `{{setvar}}`, aby utworzyć zmienną. Sekcja **Chat Variables** (zmienne czatu) w panelu **Chat Settings** (ustawienia czatu) pozwala wpisać nazwę i wartość bezpośrednio, a potem używać tej nazwy wszędzie, gdzie działają makra, także we własnych wiadomościach. Dodaj `char1` o wartości `Mary`, wpisz `{{char1}} walks in.`, a AI przeczyta "Mary walks in."
 
-Pamiętaj o tych zasadach:
+Zasady dotyczące zmiennych czatu:
 
-- Nazwy mogą zawierać litery, cyfry i podkreślenia, a muszą zaczynać się od litery lub podkreślenia. Nazwy mające dokładnie 21 znaków są zarezerwowane dla odwołań do postaci. Nazwę z kropką lub łącznikiem nadal można ustawiać i odczytywać przez `{{setvar}}` i `{{getvar}}`, ale nie zostanie ona rozwiązana w samym zapisie `{{name}}`.
+- Nazwy mogą zawierać litery, cyfry i podkreślenia, a muszą zaczynać się od litery lub podkreślenia. Nazwy mające dokładnie 21 znaków są zarezerwowane dla odwołań do postaci. Nazwę z kropką lub łącznikiem nadal można ustawiać i odczytywać przez `{{setvar}}` i `{{getvar}}`, ale nie zostanie ona rozwinięta jako sam zapis `{{name}}`.
 - Nie można użyć nazwy wbudowanego makra. `{{char}}` zawsze oznacza postać.
-- Twoja wiadomość nadal pokazuje wpisany znacznik. Wartość jest podstawiana przy budowaniu promptu, więc jej późniejsza zmiana wpływa również na wcześniejsze fragmenty rozmowy, które jej używały.
+- Twoja wiadomość nadal pokazuje wpisany znacznik. Wartość jest podstawiana przy budowaniu promptu, więc jej późniejsza zmiana wpływa również na wcześniejsze tury, które jej używały.
 - Sekcja pokazuje także zmienne ustawione przez `{{setvar}}`, ponieważ korzystają z tego samego magazynu w obrębie czatu.
 
-Sam panel opisuje przewodnik [Ustawienia czatu](../chats/chat-settings.md).
+Sam panel opisuje przewodnik [Panel **Chat Settings** – przegląd](../chats/chat-settings.md).
 
 ## Makra formatowania
 
@@ -275,27 +267,33 @@ Makra nie mają znaku ucieczki. Jeśli podwójne nawiasy klamrowe mają zostać 
 
 Każde pole obsługujące makra ma w rogu dwa małe przyciski:
 
-- Przycisk **Expand editor** otwiera większe okno edycji tego pola.
-- Przycisk **Macro reference** otwiera okno o tytule **Macro reference**, w którym są wszystkie wbudowane makra podzielone na kategorie, każde z dokładną składnią. Lista powstaje z tego samego źródła, którego używa silnik, więc zawsze jest aktualna.
+- Przycisk **Expand editor** (rozwinięcie edytora) otwiera większe okno edycji tego pola.
+- Przycisk **Macro reference** (wykaz makr) otwiera okno o tytule **Macro reference**, w którym są wszystkie wbudowane makra podzielone na kategorie, każde z dokładną składnią. Lista powstaje z tego samego źródła, którego używa silnik, więc zawsze jest aktualna.
 
 Te pola same też dokańczają nazwy makr. Wpisz `{{ch` na końcu wiersza, a reszta, `ar}}`, pojawi się bladym tekstem. Naciśnij Tab albo dotknij bladego tekstu, żeby go przyjąć. Pisz dalej, żeby go zignorować. W makrze, które przyjmuje wartość, na przykład `{{getvar::`, uzupełnienie kończy się w miejscu, w którym wpisujesz wartość.
 
 Można też wpisać `/macros` w polu czatu (krótsza forma `/macro` również działa). Pełna lista makr wypisuje się wtedy wprost na czacie, jako szybka ściągawka.
 
-Bloki warunkowe łączą porównania operatorami `||` (LUB) i `&&` (ORAZ) oraz nawiasami. Listy równości można zapisać zwięźle: `{{#if character == "Maukie" || "Pantalone"}}`. Kolejność działań, przykłady dla czatu grupowego i pełną listę operatorów opisuje przewodnik [Prompty warunkowe](conditional-prompts.md).
+## Warunki z makrami
 
+Bloki warunkowe (`{{#if ...}}`) mogą łączyć porównania operatorami `||` (LUB) i `&&` (ORAZ) oraz nawiasami. Listy równości można zapisać zwięźle: `{{#if character == "Maukie" || "Pantalone"}}`. Kolejność działań, przykłady dla czatu grupowego i pełną listę operatorów opisuje przewodnik [Prompty warunkowe](conditional-prompts.md).
 
-Warunek może zapytać model decyzyjny o scenę: `{{#if decision:"The latest message moves the scene to a new place"}}` dla tak/nie lub `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` dla wyboru opcji. Bez modelu lub odpowiedzi oznaczają nie. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model). Dodaj `sticky:3 cooldown:5` po stwierdzeniu, by zachować tak przez trzy tury, a potem odpocząć przez pięć; zobacz [Sticky i cooldown](conditional-prompts.md#sticky-and-cooldown). Dodaj `until:"..."` lub `while:"..."`, by zachować tak, dopóki pozwala na to drugie stwierdzenie; zobacz [Until i while](conditional-prompts.md#until-and-while). `every:3` pyta tylko co trzy tury, a `priority:high` lub `priority:low` wybiera stwierdzenia mieszczące się w planie; zobacz [Sprawdzanie co kilka tur](conditional-prompts.md#checking-every-few-turns), [Priorytet](conditional-prompts.md#priority) i [Limity i koszty](conditional-prompts.md#limits-and-cost).
+Warunek może też zapytać twój model decyzyjny o scenę, na przykład `{{#if decision:"The latest message moves the scene to a new place"}}` dla odpowiedzi tak lub nie oraz `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` dla wyboru jednej opcji. Bez modelu decyzyjnego albo bez odpowiedzi takie warunki oznaczają nie. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model). Opcje, które można dopisać po stwierdzeniu:
+
+- `sticky:3 cooldown:5` zachowuje odpowiedź tak przez trzy tury, a potem wstrzymuje ją na pięć. Zobacz [Sticky i cooldown](conditional-prompts.md#sticky-and-cooldown).
+- `until:"..."` lub `while:"..."` zachowuje odpowiedź tak tak długo, jak pozwala na to drugie stwierdzenie. Zobacz [Until i while](conditional-prompts.md#until-and-while).
+- `every:3` zadaje pytanie o stwierdzenie tylko co trzy tury. Zobacz [Sprawdzanie co kilka tur](conditional-prompts.md#checking-every-few-turns).
+- `priority:high` lub `priority:low` decyduje, które stwierdzenia zmieszczą się w planie promptu. Zobacz [Priorytet](conditional-prompts.md#priority) i [Limity i koszty](conditional-prompts.md#limits-and-cost).
 
 ## Częste błędy
 
 - Nie wpisuj zmiennych wewnątrz bloku `{{random::...}}`. Makro `{{setvar}}` w opcji losowania wykonuje się dla każdej opcji jeszcze przed wyborem, a nie tylko dla tej wylosowanej.
-- Nie używaj zmiennej lokalnej jak globalnej. Wartości ustawione przez `{{setvar}}` zachowują się tylko w bieżącym czacie; każdy inny czat ma własną wartość.
+- Nie używaj zmiennej lokalnej jako stanu globalnego. Zostaje zachowana tylko w czacie, w którym ją ustawiono.
 - Sekcja promptu lub wpis lorebooka uruchamiający `{{setvar}}` nadpisuje zmienną czatu o tej samej nazwie, ponieważ oba korzystają z jednego magazynu dla danego czatu. Nadaj im różne nazwy, jeśli chcesz zachować obie wartości.
 - `{{prompt}}` nie jest makrem. Jeśli cała wiadomość to `{{prompt}}`, Marinara jej nie wysyła, tylko otwiera podgląd **Peek Prompt**. Zobacz [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools (narzędzia własne) nie korzystają z zapisu `{{macro}}`. Nie wklejaj `{{roll:1d20}}` do pola narzędzia z nadzieją, że się rozwinie.
 - Szablon promptu **Impersonate** przyjmuje tylko kilka symboli zastępczych, a nie pełną listę makr. Ich nazwy też się różnią, więc makro działające w karcie może tam nie zadziałać.
-- Bardzo duży albo głęboko zagnieżdżony wynik makra jest po cichu ucinany. Nie pojawia się żaden błąd, więc trzymaj rozwinięcia makr w rozsądnych granicach.
+- Duży albo głęboko zagnieżdżony wynik makra jest po cichu ucinany. Nie pojawia się żaden błąd, więc trzymaj rozwinięcia makr w rozsądnych granicach.
 
 ## Powiązane przewodniki
 

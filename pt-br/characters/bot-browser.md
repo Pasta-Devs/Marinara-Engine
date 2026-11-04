@@ -1,205 +1,143 @@
 # Card Browser: encontrar e importar personagens
 
-Este guia explica o **Card Browser** (navegador de cards), a ferramenta integrada do Marinara Engine para encontrar cards de personagem em sites públicos e trazê-los para a sua biblioteca. Aqui você vê as fontes disponíveis, como buscar e filtrar, e como o conteúdo adulto funciona em cada fonte. O guia também mostra como importar um personagem ou salvá-lo como arquivo. Em versões antigas, esta aba se chamava **Bot Browser** ou **Browser**.
+O **Card Browser** (navegador de cards) encontra cards de personagem em sites públicos e os importa para a sua biblioteca de dentro do Marinara, então você não precisa baixar e fazer upload de arquivos à mão. Versões antigas o chamavam de **Bot Browser** ou **Browser**.
 
-O card de personagem é um arquivo que guarda o nome, a personalidade, a saudação inicial e outros detalhes de um personagem. Normalmente você baixaria o card de um site e depois faria upload dele no Marinara. O **Card Browser** faz as duas etapas para você, em um lugar só.
+O card de personagem é um arquivo que guarda o nome, a personalidade, a saudação e outros detalhes de um personagem. Nas configurações padrão, você não precisa de conta nem de chave de API para navegar e importar.
 
-## O que é o Card Browser
+## Abra o Card Browser
 
-O **Card Browser** busca em vários sites públicos de cards de personagem sem sair do Marinara. Ele tem suporte a seis sites: **ChubAI**, **JannyAI**, **Pygmalion**, **Wyvern**, **DataCat** e **PlotLight**. PlotLight tem duas fontes, uma para personagens e outra para personas (veja [PlotLight](#plotlight)). **CharacterTavern** continua na lista, mas por enquanto não é possível navegar nessa fonte (veja [CharacterTavern](#charactertavern)). Escolha uma fonte, filtre os resultados e veja os detalhes completos de um personagem. Depois, importe esse personagem para a biblioteca ou salve como arquivo PNG. Nas configurações padrão, não é preciso ter conta nem chave de API para navegar e importar cards de personagem.
+1. Clique em **Characters** (personagens) ou **Personas** na barra de navegação superior. Se não os encontrar, abra **More** (mais) primeiro.
+2. Clique no botão **Download** (baixar), no topo. A dica dele diz **Download character cards** (baixar cards de personagem).
 
-## Como abrir o Card Browser
+O Card Browser ocupa toda a área de conteúdo, com o título **Browse character cards online**. Para sair, clique na seta para trás, no canto superior esquerdo.
 
-Existem duas formas de abrir o **Card Browser**.
+Se você fechar e abrir de novo, a última busca, os filtros e o personagem selecionado continuam lá. Recarregar o aplicativo zera tudo isso.
 
-1. Abra o painel **Characters** (personagens) e clique no botão **Download** (baixar), no topo. A dica dele diz **Download character cards** (baixar cards de personagem).
-2. Ou clique no mesmo botão **Download**, no topo do painel **Personas**.
+## Escolha uma fonte
 
-De qualquer uma das formas, toda a área de conteúdo passa a mostrar a tela completa do **Card Browser**. Essa tela substitui a área do chat. Não é uma janelinha pop-up.
+Clique no botão de fonte no cabeçalho. O menu lista, nesta ordem: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** e **PlotLight Personas**. **ChubAI** vem selecionada na primeira vez. Trocar de fonte limpa o texto de busca, as tags e os filtros. Cada fonte guarda a própria configuração de conteúdo adulto e o próprio login.
 
-Para sair, clique no botão de seta para trás, no canto superior esquerdo do cabeçalho do **Card Browser**. Você volta para a tela de onde veio.
+| Fonte | Conteúdo adulto (NSFW) |
+| --- | --- |
+| **ChubAI** | A caixa de seleção **NSFW** funciona. Vem desmarcada por padrão. |
+| **JannyAI** | A caixa de seleção **NSFW** funciona. Vem desmarcada por padrão. |
+| **Pygmalion** | Fica esmaecida até você [fazer login](#log-in-to-pygmalion). Depois, segue as configurações da sua conta no Pygmalion. |
+| **Wyvern** | Sempre esmaecida. Em vez disso, escolha a ordenação **🔞 Popular NSFW**. |
+| **DataCat** | Todo card tem marcação adulta, então a caixa fica travada como marcada. |
+| **PlotLight** e **PlotLight Personas** | Sempre esmaecida. PlotLight aplica as próprias regras. Os resultados com marcação adulta recebem o selo **NSFW**. |
 
-O **Card Browser** continua carregado enquanto o aplicativo estiver aberto. Se você fechar e abrir de novo, a última busca, os filtros e o personagem selecionado continuam lá. Recarregar o aplicativo inteiro zera tudo.
+Não sabe por onde começar? Use **ChubAI**, a primeira fonte. Cada fonte começa com a própria ordenação, e você pode mudá-la no menu suspenso de ordenação.
 
-## Escolher uma fonte
+Os cards adultos exibem um pequeno selo vermelho **NSFW** na miniatura. O menu diz **ChubAI**, mas o link externo de um card diz **View on Chub**, que é o nome que o próprio site usa.
 
-Clique no botão de fonte no cabeçalho. Ele mostra o nome da fonte atual e uma setinha. Abre um menu com as fontes nesta ordem: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** e **PlotLight Personas**. **CharacterTavern** aparece com o selo **Unavailable** (indisponível).
+### DataCat
 
-**ChubAI** vem selecionada na primeira vez que você abre o **Card Browser**. Ao trocar de fonte, o texto de busca, as tags e os filtros são limpos. Cada fonte guarda separadamente a própria configuração de conteúdo adulto e o próprio login, então mudar uma coisa em uma fonte não afeta as outras.
+Na primeira vez que você escolhe **DataCat**, aparece uma janela chamada **DataCat is NSFW only**. Clique em **Continue to DataCat** para navegar, ou em **Don't continue to DataCat** para voltar. A ordenação **Fresh** dessa fonte só mostra resultados recentes quando não há filtro de tag nem texto de busca.
 
-Uma observação sobre nomes: o menu lista **ChubAI**, mas na página de detalhes de um personagem o link externo diz **View on Chub**. É assim que o site chama a si mesmo. As outras fontes usam o mesmo nome nos dois lugares.
+### CharacterTavern
 
-## CharacterTavern
-
-CharacterTavern reformulou o site e não oferece mais a conexão que Marinara usava para buscar e baixar cards. Quando você escolhe **CharacterTavern**, o **Card Browser** mostra um aviso curto no lugar dos resultados de busca. A navegação pode voltar se CharacterTavern passar a oferecer acesso à API.
-
-Até lá, você ainda pode trazer personagens do CharacterTavern para Marinara à mão:
+CharacterTavern reformulou o site e não oferece mais a conexão que Marinara usava. Quando você escolhe essa fonte, um aviso aparece no lugar dos resultados. A navegação pode voltar se CharacterTavern passar a oferecer acesso à API. Até lá, importe os cards de lá à mão:
 
 1. Clique em **Open CharacterTavern** (abrir CharacterTavern) no aviso. O site abre em uma nova aba.
-2. Baixe o arquivo do card de personagem em character-tavern.com.
-3. Clique em **Import Character** (importar personagem) no aviso e escolha o arquivo baixado. Veja [Importar e exportar cards de personagem](import-export.md).
+2. Baixe o arquivo do card em character-tavern.com.
+3. Clique em **Import Character** (importar personagem) no aviso e escolha o arquivo. Veja [Importar e exportar cards de personagem](import-export.md).
 
-Os personagens que você já importou do CharacterTavern continuam na sua biblioteca.
+Os personagens que você já importou de lá continuam na sua biblioteca.
 
-## PlotLight
+### PlotLight
 
-PlotLight compartilha os personagens e as personas públicos dele com aplicativos como Marinara. Ele tem duas fontes no menu:
+PlotLight compartilha personagens e personas públicos. **PlotLight** lista cards de personagem. **PlotLight Personas** lista personas, os personagens que representam você nos chats. Você não precisa de uma conta no PlotLight. A tela de detalhes tem um link **View on PlotLight** para a página original.
 
-- **PlotLight** lista cards de personagem.
-- **PlotLight Personas** lista personas. A persona é o personagem que representa você nos chats.
+Marinara baixa o arquivo que PlotLight oferece. Um card de personagem normalmente vem como PNG, com o retrato e qualquer lorebook que o criador permita. Uma persona vem como arquivo de texto, e Marinara copia a imagem dela separadamente. Você pode importar qualquer um dos dois como personagem ou como persona.
 
-Você não precisa de uma conta no PlotLight. Cada resultado mantém o nome do criador, e a tela de detalhes tem um link **View on PlotLight** para a página original.
+PlotLight limita a frequência com que os aplicativos podem fazer pedidos a ele. Se você for rápido demais, Marinara mostra **PlotLight is busy** com um número de segundos e espera esse tempo. Busca e importação têm limites separados.
 
-Quando você importa do PlotLight, Marinara baixa o arquivo que PlotLight oferece para aquele item. Um card de personagem normalmente vem como PNG, com o retrato e qualquer lorebook que o criador permita dentro dele. Uma persona vem como arquivo de texto, e Marinara copia a imagem dela separadamente. Você pode importar qualquer um dos dois como personagem ou como persona.
-
-PlotLight limita a frequência com que os aplicativos podem fazer pedidos a ele. Se você buscar ou importar rápido demais, Marinara mostra **PlotLight is busy** e quantos segundos esperar. Marinara espera esse tempo antes de pedir de novo. Busca e importação têm limites separados, então uma não atrasa a outra.
-
-Alguns cards e personas não podem ser baixados, por exemplo quando o criador não permite. Marinara então mostra **PlotLight doesn't offer this for download.** Você não consegue importar esse item nem ver os detalhes completos dele, mas a imagem, o criador e o link **View on PlotLight** continuam na tela.
+Alguns cards não podem ser baixados, por exemplo quando o criador não permite. Marinara então mostra **PlotLight doesn't offer this for download.** Você não consegue importar esse card nem ver os detalhes dele, mas a imagem, o criador e o link **View on PlotLight** continuam lá.
 
 ## Busca, ordenação e páginas
 
-Digite na caixa **Search characters...** para buscar. Não precisa apertar Enter. Marinara espera um instante (cerca de meio segundo) depois que você para de digitar e busca sozinho. Limpar a caixa ou mudar um filtro também refaz a busca.
+Digite em **Search characters**. Não precisa apertar <kbd>Enter</kbd>. Marinara busca um instante depois que você para de digitar, e de novo quando você limpa a caixa ou muda um filtro. Cada fonte tem o próprio menu suspenso de ordenação. Clique no botão **Refresh** (atualizar), com a seta circular, para rodar a busca de novo.
 
-Ao lado da caixa de busca fica um menu suspenso de ordenação. As opções mudam conforme a fonte, e cada fonte começa com a própria ordenação padrão:
+Abaixo dos resultados ficam **Previous** (anterior) e **Next** (próxima), com uma etiqueta como **Page 2**. Quando a fonte não consegue informar um total, aparece só a página atual. **PlotLight** nunca informa um total, então o cabeçalho mostra **Browsing PlotLight**. Uma página do PlotLight pode ter poucos cards, ou nenhum, e ainda ter mais páginas. **Next** continua ativado, para você poder seguir em frente.
 
-| Fonte                          | Ordenação padrão |
-| ------------------------------ | ---------------- |
-| ChubAI                         | Most Downloaded  |
-| JannyAI                        | Newest           |
-| Pygmalion                      | Downloads        |
-| Wyvern                         | Popular          |
-| DataCat                        | Relevance        |
-| PlotLight / PlotLight Personas | Popular          |
+## Filtre por tags
 
-Clique no botão **Refresh** (atualizar), com o ícone de seta circular, para rodar a busca atual de novo.
+1. Clique em **Tags** na barra de ferramentas.
+2. Digite em **Search tags** para reduzir a lista.
+3. Clique no visto verde ao lado de uma tag para incluí-la, ou no menos vermelho para excluí-la. Uma tag não pode ser as duas coisas.
+4. Clique em uma etiqueta para remover aquela tag, ou em **Clear** (limpar) para remover todas.
 
-Abaixo dos resultados ficam os botões **Previous** (anterior) e **Next** (próxima), com uma etiqueta de página como **Page 2**. Quando a fonte não consegue informar o total exato, aparece só o número da página atual. **PlotLight** nunca informa um total, então o cabeçalho mostra **Browsing PlotLight** e **Next** fica desativado na última página. Uma página do PlotLight pode ter menos cards que o normal, ou nenhum, e ainda ter mais páginas depois dela. Nesse caso, **Next** continua ativado, para você poder seguir em frente.
-
-Uma observação sobre **DataCat**: a ordenação **Fresh** só mostra resultados recentes quando não há filtro de tag nem texto de busca. Assim que você digita uma busca ou escolhe uma tag, **DataCat** volta aos resultados normais por relevância.
-
-## Filtrar por tags
-
-Clique no botão **Tags** na barra de ferramentas para abrir o painel de tags.
-
-- Digite na caixa **Search tags...** para reduzir a lista de tags.
-- Clique no visto verde ao lado de uma tag para incluí-la. Clique no menos vermelho para excluí-la dos resultados. Uma tag pode ser incluída ou excluída, nunca as duas coisas.
-- As tags incluídas viram uma etiqueta verde. As excluídas viram uma etiqueta vermelha. Clique em qualquer etiqueta para removê-la.
-- O botão **Clear** (limpar) remove todas as tags ativas.
-
-Na maioria das fontes, a lista de tags é montada a partir dos personagens das suas buscas recentes. Antes da primeira busca, o painel diz **Tags will appear after searching**. Se a tag que você quer não estiver na lista, digite o nome dela. Aparecem dois botões: um para usá-la como filtro e outro para bloqueá-la nos resultados.
-
-**DataCat** funciona de outro jeito. Ele carrega as tags mais populares logo de cara, porque a lista de tags é enorme. Mesmo assim, você pode digitar qualquer outra tag à mão.
-
-Em **PlotLight**, escolha tags da lista ou digite uma à mão, como **Elf**. Marinara procura cada tag na própria lista de tags do PlotLight. Uma tag digitada que PlotLight não tem não corresponde a nada.
+Na maioria das fontes, a lista é montada a partir dos personagens das suas buscas recentes. Antes da primeira busca, o painel diz **Tags will appear after searching**. Se a tag que você quer não estiver na lista, digite o nome dela. Aparecem dois botões: um a adiciona como filtro, o outro a bloqueia. **DataCat** carrega as tags mais populares logo de cara, e você ainda pode digitar outras. Em **PlotLight**, Marinara procura uma tag digitada na própria lista de tags do PlotLight, e uma tag que PlotLight não tem não corresponde a nada.
 
 ## Mais filtros
 
-Algumas fontes acrescentam um botão **Filters** (filtros) na barra de ferramentas. Ele só aparece quando a fonte tem filtros a oferecer, então não aparece em **DataCat** nem em **PlotLight**. Um selo pequeno mostra quantos filtros estão ativos.
+A maioria das fontes acrescenta um botão **Filters** (filtros), com um selo que conta os filtros ativos. Ele não aparece em **DataCat** nem em **PlotLight**. O painel pode ter:
 
-O painel de filtros pode ter:
+- Caixas de seleção de conteúdo, como **Lorebook** ou **Alt Greetings**, que mantêm só os personagens com esse recurso. O lorebook é um conjunto de informações de fundo que o personagem carrega.
+- **Sort Direction** (direção da ordenação), **Descending** ou **Ascending**, em **ChubAI** e **Pygmalion**.
+- As caixas **Min Tokens** e **Max Output Tokens**, que limitam os resultados por tamanho. Deixe-as em branco para usar o padrão da fonte.
+- Um botão liga/desliga **Show Low Quality** em **JannyAI**. Ele vem desativado, o que esconde os cards que JannyAI marcou como de baixa qualidade.
 
-- Caixas de seleção de conteúdo, como **Lorebook** ou **Alt Greetings**, que mantêm só os personagens com esse recurso. O lorebook é um conjunto de informações de fundo que o personagem pode carregar consigo.
-- **Sort Direction** (direção da ordenação), com as opções **Descending** ou **Ascending**, em **ChubAI** e **Pygmalion**.
-- As caixas numéricas **Min Tokens** e **Max Output Tokens**, que limitam os resultados por tamanho. Se você deixar em branco, a fonte usa o próprio padrão.
-- **JannyAI** tem o botão liga/desliga **Show Low Quality**. Ele vem desativado, o que esconde os personagens que **JannyAI** marcou como de baixa qualidade. Ative para incluí-los.
+Em **Wyvern**, as caixas de seleção **Lorebook** e **Alt Greetings** e as caixas de tokens aparecem, mas não mudam os resultados. Use o menu suspenso de ordenação e as tags.
 
-Observação sobre **Wyvern**: as caixas de seleção **Lorebook** e **Alt Greetings** aparecem, assim como as caixas **Min Tokens** e **Max Output Tokens**. Nenhuma delas muda os resultados de **Wyvern**. Para refinar os resultados de **Wyvern**, use o menu suspenso de ordenação e as tags.
+## Confira um personagem
 
-## Conteúdo adulto (NSFW) em cada fonte
+Clique em um resultado para abrir a tela de detalhes dele. **Back to results** (voltar aos resultados) retorna à lista.
 
-O conteúdo adulto aparece com a etiqueta **NSFW** no aplicativo. Existe uma única caixa de seleção **NSFW** na barra de ferramentas, mas cada fonte trata isso de um jeito. Essa é a dúvida mais comum, então leia com atenção.
+A tela de detalhes mostra o avatar, o nome, o criador, uma frase curta de apresentação, até vinte etiquetas de tag e um link **View on** para a página original. Abaixo disso vêm os detalhes completos, quando a fonte os fornece, sob títulos como **Creator's Notes**, **Personality**, **Scenario**, **First Message** e **Alternate Greetings**. Um selo âmbar **Has embedded lorebook** aparece quando o card carrega um lorebook. Se uma fonte não devolver detalhes, a tela avisa que você ainda pode importar com as informações básicas.
 
-- **ChubAI** e **JannyAI**: a caixa **NSFW** funciona na hora. Não precisa de login. Ela vem desmarcada.
-- **Pygmalion**: a caixa **NSFW** fica esmaecida até você entrar na conta. A dica manda fazer login primeiro. Depois do login, o aplicativo segue as configurações da sua conta no Pygmalion. A caixa passa a dizer **NSFW depends on your account settings**. Não existe um liga/desliga separado depois do login.
-- **Wyvern**: a caixa **NSFW** fica sempre esmaecida. Um aviso diz **Use "🔞 Popular NSFW" sort for NSFW content**. Para ver conteúdo adulto em **Wyvern**, escolha a opção **🔞 Popular NSFW** no menu suspenso de ordenação.
-- **DataCat**: todo personagem tem marcação adulta, então a caixa fica travada como ativa. Na primeira vez que você escolhe **DataCat**, aparece uma janela chamada **DataCat is NSFW only**. Clique em **Continue to DataCat** para navegar por lá, ou em **Don't continue to DataCat** para voltar.
-- **PlotLight** e **PlotLight Personas**: a caixa **NSFW** fica sempre esmaecida. A dica dela diz **PlotLight decides what you can see without an account, and adult-tagged results are marked NSFW.** PlotLight aplica as próprias regras para visitantes sem conta. Alguns resultados que ele compartilha ainda têm marcação de conteúdo adulto, e esses recebem o selo **NSFW**.
+## Importe um personagem
 
-Os personagens adultos exibem um pequeno selo vermelho **NSFW** no canto da miniatura.
-
-## Login em Pygmalion
-
-**Pygmalion** esconde o conteúdo adulto atrás de um login. Para os personagens públicos comuns, não é preciso fazer login. O login só libera o conteúdo adulto.
-
-Para entrar, clique no botão **Log In** (entrar) na barra de ferramentas. Abre uma janela de login. Você cola nela um valor copiado da sua própria conta do Pygmalion. Marinara não pede a sua senha.
-
-Em **Pygmalion**, a janela se chama **Pygmalion Authentication** e pede um **Auth Token**:
-
-1. Acesse pygmalion.chat e entre na sua conta.
-2. Abra as ferramentas de desenvolvedor do navegador. Na maioria dos navegadores, basta apertar a tecla F12. As ferramentas de desenvolvedor são um painel do próprio navegador, voltado para usuários avançados.
-3. Abra a aba **Application** e depois **Local Storage**.
-4. Encontre a entrada chamada `authn` e copie o valor dela.
-5. Cole o valor na caixa **Auth Token** no Marinara. A caixa esconde o que você colar.
-6. Clique em **Save & Connect**. Aparece uma mensagem avisando que o conteúdo NSFW foi ativado.
-
-A janela tem uma seção de ajuda que repete esses passos e um link **Website** que abre pygmalion.chat.
-
-Esse é o login da sua conta do Pygmalion. Marinara o mantém na memória até reiniciar ou até você clicar em **Log Out**. Para sair da conta, abra a janela de login de novo e clique em **Log Out**. Para sair por completo, saia também da conta em pygmalion.chat.
-
-Marinara verifica o token com Pygmalion antes de mantê-lo. Se Pygmalion não aceitar o token, nada é salvo e uma mensagem explica o motivo. Se Pygmalion deixar de aceitá-lo mais tarde, Marinara tira você da conta e pede um novo login.
-
-Importante: esse login fica guardado apenas na memória do servidor. Marinara nunca o salva em arquivo. Se você reiniciar o servidor do Marinara, sai da conta e precisa colar o token outra vez. Quando isso acontece, Marinara mostra uma mensagem pedindo um novo login.
-
-## Conferir um personagem antes de importar
-
-Clique em qualquer card de resultado para abrir a tela de detalhes. Use **Back to results** (voltar aos resultados) para retornar.
-
-A tela de detalhes mostra o avatar, o nome, o criador, uma frase curta de apresentação e até vinte etiquetas de tag do personagem. Ela também tem um link **View on**, que abre a página original do personagem em uma nova aba.
-
-Logo abaixo vêm os detalhes completos do personagem, exibidos apenas quando a fonte os fornece. Essas seções usam títulos como **Creator's Notes**, **Personality**, **Scenario**, **First Message** e **Alternate Greetings**. Um selo âmbar **Has embedded lorebook** aparece quando o personagem carrega um lorebook.
-
-Algumas fontes nem sempre devolvem os detalhes completos. Se nada carregar, a tela avisa que você ainda pode importar o personagem com as informações básicas.
-
-## Importar ou baixar um personagem
-
-A tela de detalhes traz dois botões. **Import** (importar) adiciona o personagem à sua biblioteca do Marinara. **Download as PNG** (baixar como PNG) salva o personagem como arquivo no seu dispositivo, sem adicioná-lo à biblioteca.
-
-Para importar cards de personagem para a biblioteca:
+Antes de começar: para conversar com o personagem, você vai precisar de uma conexão de texto que funcione. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
 1. Abra a tela de detalhes de um personagem.
-2. Escolha uma opção em **Imported tags** (tags importadas), conforme a tabela abaixo.
-3. Clique em **Import**. Durante o processo, o botão mostra **Importing...**.
-4. Espere a mensagem de sucesso. Aparece um aviso confirmando que o personagem foi importado.
-5. Abra o painel **Characters** para encontrar o personagem importado antes de começar um chat.
+2. Escolha uma opção em **Imported tags** (tags importadas), ao lado do avatar. O padrão é **All tags**. Veja [Opções de importação](import-export.md#import-options).
+3. Clique em **Import** (importar). A janela **Import Card** abre e pergunta **Where should this card live?**
+4. Se quiser, marque **Split description into fields** (dividir a descrição em campos). Veja [Opções de importação](import-export.md#import-options).
+5. Clique em **Import as Character** para adicioná-lo a **Characters**, ou em **Import as Persona** para adicioná-lo a **Personas**.
+6. Se o card tiver um lorebook embutido, um painel **Embedded lorebook found** mostra quantas entradas ele tem. Clique em **Import Lorebook** para criar também um lorebook independente, ou em **No Import** para mantê-lo só dentro do card. **Back** volta para o passo 5.
+7. Espere enquanto o botão mostra **Importing...**. Uma mensagem diz `Imported "Name" successfully!`
+8. Abra **Characters** (ou **Personas**) para encontrá-lo.
 
-O personagem importado se comporta como qualquer outro. Para conversar com ele de verdade, ainda é preciso ter uma conexão de provedor funcionando. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
-
-### Imported tags
-
-O painel **Imported tags**, ao lado do avatar, controla quais tags vêm junto com o personagem. O padrão é **All tags**.
-
-| Opção         | O que faz                                    |
-| ------------- | -------------------------------------------- |
-| All tags      | Mantém as tags da fonte.                     |
-| No tags       | Ignora as tags da fonte.                     |
-| Existing only | Mantém só as tags que você já usa no Marinara. |
-
-### Aviso de lorebook embutido
-
-Se o personagem carrega um lorebook embutido, a importação abre uma pequena caixa de confirmação do navegador. Ela pergunta se você também quer salvar esse lorebook como um lorebook independente do Marinara. Clique em **OK** para criar o lorebook separado, além da cópia anexada ao personagem. Clique em **Cancel** para manter o lorebook só anexado ao personagem.
+Se não funcionou: leia a mensagem de erro no aviso que aparece na tela. Em **JannyAI**, um bloqueio da Cloudflare é a causa mais comum (veja Solução de problemas, abaixo).
 
 ### Download as PNG
 
-Clique em **Download as PNG** para salvar o personagem como um arquivo PNG de card de personagem no formato comum. Durante o processo, o botão mostra **Building PNG...**. Isso funciona em todas as fontes. O arquivo salvo leva o nome do personagem, por exemplo `Some_Character.png`. Você pode compartilhar esse arquivo ou importá-lo em outro aplicativo depois.
-
-JSON e PNG são dois formatos comuns para os mesmos dados de personagem. JSON é um formato de texto simples. O card PNG é um arquivo de imagem com os dados do personagem guardados dentro dele. Os dois carregam o personagem completo.
+Clique em **Download as PNG** (baixar como PNG) na tela de detalhes para salvar o card como um card de personagem PNG comum no seu dispositivo, sem adicioná-lo à sua biblioteca. O botão mostra **Building PNG...** enquanto trabalha. Isso funciona em todas as fontes, e o arquivo leva o nome do personagem, como `Some_Character.png`. O card PNG é uma imagem com os dados do personagem guardados dentro dela. Você pode compartilhá-lo ou importá-lo em outro aplicativo.
 
 ## Solução de problemas
 
-**A busca ou os detalhes de JannyAI falham com um erro da Cloudflare.** Alguns sites bloqueiam requisições automatizadas. Visite jannyai.com uma vez no mesmo navegador, passe pela verificação que aparecer e volte a Marinara para buscar de novo.
+| Problema | Solução |
+| --- | --- |
+| A busca ou os detalhes de **JannyAI** falham com um erro que menciona a Cloudflare (uma verificação de segurança que bloqueia requisições automáticas), ou a definição completa do card é bloqueada. | Visite jannyai.com uma vez no mesmo navegador e passe pela verificação que aparecer. Depois, busque de novo. Se o card continuar bloqueado, abra-o no JannyAI, baixe o PNG dele e importe esse arquivo. |
+| O meu login do Pygmalion parou de funcionar. | Reiniciar o servidor limpa o login. Faça login de novo com um token novo. |
+| **CharacterTavern** só mostra um aviso. | Isso é esperado. Veja [CharacterTavern](#charactertavern). |
+| **PlotLight is busy.** | Espere o número de segundos indicado na mensagem e tente de novo. |
+| **PlotLight doesn't offer this for download.** | O criador pode não permitir downloads, ou o card não é mais público. Use **View on PlotLight** para conferir. |
+| Uma busca falha ou uma fonte para de funcionar. | Os sites públicos podem mudar ou bloquear o acesso a qualquer momento. Tente mais tarde, ou baixe o card do site e use a importação normal. Veja [Importar e exportar cards de personagem](import-export.md). |
 
-**Meu login de Pygmalion parou de funcionar.** Reiniciar o servidor do Marinara limpa esse login. Abra a janela **Log In** de novo e cole o token mais uma vez.
+<a id="log-in-to-pygmalion"></a>
 
-**CharacterTavern só mostra um aviso.** Isso é esperado. Veja [CharacterTavern](#charactertavern) para saber como importar os cards de lá como arquivos.
+## Faça login no Pygmalion
 
-**PlotLight diz que está ocupado.** PlotLight limita a frequência com que os aplicativos podem fazer pedidos a ele. Espere o número de segundos indicado na mensagem e tente de novo.
+Pygmalion esconde o conteúdo adulto atrás de um login. Os personagens públicos não precisam de login. Marinara nunca pede a sua senha. Você cola um valor copiado da sua própria conta.
 
-**PlotLight não deixa baixar um card ou uma persona.** O criador pode não permitir downloads, ou o item pode não ser mais público. Use **View on PlotLight** para conferir no site.
+1. Clique em **Log In** (entrar) na barra de ferramentas. A janela **Pygmalion Authentication** abre.
+2. Acesse pygmalion.chat no navegador e entre na sua conta.
+3. Abra as ferramentas de desenvolvedor do navegador, um painel embutido para usuários avançados. Na maioria dos navegadores de computador, pressione <kbd>F12</kbd>. Os navegadores de celular normalmente não têm essas ferramentas, então use um computador nesta etapa.
+4. Abra a aba **Application** e depois **Local Storage**.
+5. Encontre a entrada chamada `authn` e copie o valor dela.
+6. Cole o valor em **Auth Token** no Marinara. A caixa esconde o que você colar.
+7. Clique em **Save & Connect**. Uma mensagem avisa que o conteúdo NSFW foi ativado.
 
-**Uma busca falha ou uma fonte para de funcionar.** Os sites públicos podem mudar as páginas ou bloquear o acesso a qualquer momento. Tente mais tarde. Se uma fonte continuar falhando, abra o personagem direto no site e baixe o card você mesmo. Depois, traga o arquivo pelo fluxo normal de importação. Veja [Importar e exportar cards de personagem](import-export.md).
+A janela tem uma seção de ajuda que repete esses passos e um link **Website** para pygmalion.chat.
+
+Marinara verifica o token com Pygmalion primeiro. Se Pygmalion recusar o token, nada é salvo e uma mensagem explica o motivo. Se Pygmalion deixar de aceitá-lo mais tarde, Marinara tira você da conta e pede um novo login.
+
+O login fica guardado apenas na memória do servidor. Ele nunca é salvo em arquivo, então reiniciar o servidor do Marinara tira você da conta. Para sair por conta própria, abra a janela de novo e clique em **Log Out**. Para sair por completo, saia também da conta em pygmalion.chat.
 
 ## Guias relacionados
 
 - [Importar e exportar cards de personagem](import-export.md)
 - [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md)
-- [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md)
+- [Solução de problemas](../TROUBLESHOOTING.md)

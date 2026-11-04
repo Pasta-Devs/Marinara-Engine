@@ -1,57 +1,53 @@
 # Les arrière-plans en Roleplay
 
-Ce guide explique l'arrière-plan de scène du mode Roleplay : l'agent **Background** (arrière-plan) qui en choisit un après chaque réponse, la création manuelle d'un arrière-plan, et la façon d'en fixer un pour un seul chat. Pour la bibliothèque d'arrière-plans que tu importes et ses réglages, va voir [Arrière-plans de chat](../appearance/chat-backgrounds.md). Pour les arrière-plans générés par l'IA depuis la galerie, va voir [Arrière-plans de scène](../media/scene-backgrounds.md).
+Un chat Roleplay affiche une image de scène en pleine page derrière tes messages. Tu peux laisser l'agent **Background** (arrière-plan) la choisir après chaque réponse, en créer une nouvelle à la main, ou fixer une image pour un seul chat. Quand l'image change, Marinara passe en fondu de l'ancienne à la nouvelle.
 
-## L'arrière-plan de scène
-
-Le mode Roleplay affiche un arrière-plan de scène en pleine page derrière les messages. Quand l'arrière-plan change, Marinara passe en fondu enchaîné de l'ancienne image à la nouvelle : les changements de scène restent doux, sans à-coups.
-
-La génération d'images n'est pas nécessaire pour autant. Sans connexion de génération d'images configurée, l'arrière-plan s'affiche en couleur unie. Le chat continue de fonctionner comme un chat textuel classique.
-
-## L'agent Background
-
-L'agent **Background** est un assistant facultatif qui choisit l'arrière-plan de scène à ta place. Il s'exécute après chaque réponse. Il lit la scène en cours, puis retient l'image la plus adaptée parmi tous les arrière-plans disponibles. Les dossiers de la bibliothèque servent uniquement à s'organiser dans les paramètres : ils ne cachent jamais d'images à l'agent. L'agent se contente de sélectionner des images existantes ; la génération automatique d'arrière-plans relève de l'agent **Illustrator** (illustrateur).
-
-L'agent **Background** est désactivé par défaut. Pour l'activer :
-
-1. Ouvre le chat Roleplay.
-2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
-3. Ouvre la section **Agents**.
-4. Active l'agent **Background**.
-
-Ensuite, l'arrière-plan de scène se met à jour tout seul au fil des lieux que traverse l'histoire.
-
-## Générer un arrière-plan à la main
-
-Autre option : créer un arrière-plan toi-même, sans l'agent. Marinara construit un prompt d'image – le texte envoyé à l'IA – à partir de la scène (genre, cadre, lieu actuel, météo et moment de la journée), puis crée un arrière-plan inédit. Le bouton **Background** demande que l'agent **Illustrator** soit installé, mais tu n'as pas besoin de l'ajouter au chat.
-
-1. Ouvre **Chat Settings** et déplie **Gallery** (galerie).
-2. Clique sur le bouton **Background**.
-3. Attends la fin du traitement. Le bouton affiche **Generating...** pendant l'opération.
-
-Pendant l'exécution, cette note s'affiche : "AI background generation is running. The new background will be applied when it finishes." La nouvelle image rejoint la bibliothèque d'arrière-plans et s'applique à la scène.
-
-La génération manuelle utilise la connexion d'images de l'agent **Illustrator**, puis se rabat sur la connexion de génération d'images par défaut. L'agent **Background**, lui, n'a besoin d'aucune connexion d'images : il sélectionne seulement des images déjà présentes dans la bibliothèque. Si Marinara ne trouve aucune connexion, la génération échoue avec ce message : "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection."
-
-La génération d'arrière-plans de scène fonctionne uniquement en mode Roleplay et en Game Mode. Elle n'est pas disponible en mode Conversation.
+La génération d'images n'est pas nécessaire. Sans compte de génération d'images, l'arrière-plan est une couleur unie et le chat fonctionne en texte.
 
 ## Fixer un arrière-plan pour un seul chat
 
-Tu peux attribuer un arrière-plan précis au chat que tu consultes, au lieu de laisser l'agent choisir.
+Sers-t'en pour garder une seule image derrière le chat ouvert, au lieu de laisser l'agent choisir. Cela ne modifie que ce chat.
 
-1. Ouvre le panneau **Settings** (Paramètres).
-2. Ouvre l'onglet **Appearance**.
-3. Repère la section **Backgrounds**.
-4. Sous le réglage **Chat Background**, choisis une image importée ou l'un des arrière-plans issus des assets de jeu.
+1. Ouvre le chat. Ouvre ensuite **Settings → Appearance** (Paramètres → Apparence) et repère **Backgrounds** (arrière-plans).
+2. Sous **Chat Background** (arrière-plan du chat), choisis une image téléversée ou l'un de tes arrière-plans issus des ressources de jeu.
 
-Pour revenir à l'arrière-plan par défaut, clique sur le bouton **Remove** à côté du réglage **Chat Background**.
+Tu vois l'image derrière tes messages. Pour revenir à l'arrière-plan par défaut, clique sur **Remove** (retirer) à côté de **Chat Background**.
 
-## La bibliothèque d'arrière-plans et le flou
+Pas encore d'image ? Téléverses-en une d'abord. Voir [Arrière-plans de chat](../appearance/chat-backgrounds.md).
 
-Les images proposées se trouvent dans cette même section **Backgrounds**, sous **Settings** puis **Appearance**. Le guide [Arrière-plans de chat](../appearance/chat-backgrounds.md) détaille toute cette bibliothèque : import d'images, tags, renommage, suppression, curseur **Background Blur** (flou d'arrière-plan) et choix d'un arrière-plan par défaut pour les nouveaux chats Roleplay.
+## Laisser l'agent Background choisir l'arrière-plan
+
+L'agent **Background** est un assistant qui travaille en parallèle des réponses. Après chaque réponse, il lit la scène en cours et choisit, parmi tous tes arrière-plans, l'image qui convient le mieux. Il ne choisit que des images existantes. C'est l'agent **Illustrator** (illustrateur) qui en crée de nouvelles automatiquement.
+
+1. Ouvre ton chat Roleplay.
+2. Ouvre **Chat Settings** (réglages du chat) avec le bouton de curseurs dans le chat.
+3. Ouvre **Agents** et active **Enable Agents** (activer les agents).
+4. Ajoute l'agent **Background**.
+
+L'arrière-plan change désormais tout seul quand l'histoire passe d'un lieu à l'autre.
+
+Si ça n'a pas marché : avec seulement un ou deux arrière-plans, l'agent continue de choisir ceux-là. Ajoutes-en d'autres à ta bibliothèque. Voir [Arrière-plans de chat](../appearance/chat-backgrounds.md).
+
+## Générer un arrière-plan à la main
+
+Marinara construit un prompt d'image – le texte que Marinara envoie à l'IA – à partir de la scène (genre, cadre, lieu, météo et moment de la journée), puis crée un nouvel arrière-plan.
+
+Avant de commencer : installe l'agent **Illustrator** et attribue-lui un compte de génération d'images, ou marque un compte de génération d'images comme compte par défaut. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md). Tu n'as pas besoin d'ajouter Illustrator au chat.
+
+1. Ouvre **Chat Settings** avec le bouton de curseurs dans le chat, et déplie **Gallery** (galerie).
+2. Clique sur **Background**. Le bouton affiche **Generating...** pendant le traitement, et la galerie indique "Illustrator is generating a background image for this scene."
+3. Attends la fin. La nouvelle image rejoint ta bibliothèque d'arrière-plans et s'applique à la scène.
+
+La génération manuelle utilise le compte d'images de l'agent Illustrator, puis ton compte de génération d'images par défaut. Elle fonctionne en Roleplay et en Game Mode, pas en mode Conversation.
+
+Si ça n'a pas marché : le message "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection." signifie que Marinara n'a trouvé aucun compte d'images. Définis-en un, puis réessaie. Si le bouton **Background** est absent, Illustrator n'est pas installé.
+
+## Ta bibliothèque et le flou
+
+Les images parmi lesquelles tu choisis se trouvent dans la même section **Backgrounds**. L'import, les tags, le renommage, la suppression, le curseur **Background Blur** (flou d'arrière-plan) et l'arrière-plan par défaut des nouveaux chats Roleplay sont décrits dans [Arrière-plans de chat](../appearance/chat-backgrounds.md).
 
 ## Guides associés
 
-- [Arrière-plans de chat](../appearance/chat-backgrounds.md) : la bibliothèque d'images importées et les réglages d'apparence des arrière-plans.
-- [Arrière-plans de scène](../media/scene-backgrounds.md) : les arrière-plans générés par l'IA depuis la galerie.
-- [Mode Roleplay : premiers pas](getting-started.md) : la scène Roleplay au complet, les sprites et le HUD.
+- [Arrière-plans de chat](../appearance/chat-backgrounds.md) : la bibliothèque d'images téléversées et les réglages d'apparence.
+- [Arrière-plans de scène](../media/scene-backgrounds.md) : des illustrations de scène créées par l'IA à partir de ta galerie.
+- [Mode Roleplay : premiers pas](getting-started.md) : le plateau Roleplay, les sprites et le HUD.

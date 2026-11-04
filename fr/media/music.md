@@ -1,177 +1,152 @@
 # Music DJ : Spotify, YouTube et musique locale
 
-Ce guide explique comment diffuser de la musique d'arrière-plan dans Marinara Engine grâce à **Music DJ**. Au programme : connecter Spotify, YouTube ou tes propres fichiers audio locaux. Tu découvres aussi le fonctionnement du lecteur de musique, du créateur de playlists **DJ Mari** et de la musique en Game Mode.
+**Music DJ** diffuse une musique d'arrière-plan assortie à ta scène. Ce guide explique comment connecter Spotify, YouTube ou tes propres fichiers audio, utiliser le lecteur de musique, et profiter de la musique en Game Mode et en Conversation.
 
 ## Ce qu'est Music DJ
 
-**Music DJ** est un agent téléchargeable, facultatif. Un agent est un petit programme qui tourne automatiquement en arrière-plan d'un chat. Ouvre le panneau **Agents**, sélectionne **Agent Organizer** (organisateur d’agents) et installe **Music DJ** avant de le configurer. Après chaque réponse, Music DJ peut lire l'ambiance de la scène et lancer une musique d'arrière-plan assortie.
+**Music DJ** est un agent téléchargeable facultatif. Un agent est un assistant qui tourne en arrière-plan d'un chat. Après chaque réponse, il peut lire l'ambiance de la scène et lancer une musique assortie.
 
-**Music DJ** puise sa musique à trois sources :
+Avant de commencer : ouvre **Agents**, sélectionne **Agent Organizer** (organisateur d'agents) et installe **Music DJ**. Il est désactivé après l'installation. Active-le pour un chat comme n'importe quel autre agent. Il fonctionne dans les chats Roleplay, en Game Mode via un interrupteur distinct ([Music DJ en Game Mode](#music-dj-in-game-mode)), et en Conversation via la commande **Music** (musique) ([La commande Music en Conversation](#the-conversation-music-command)).
 
-- **Spotify** : pilote la lecture sur ton vrai compte Spotify et tes appareils.
-- **YouTube** : cherche sur YouTube et lit le résultat dans un petit lecteur intégré. Aucune connexion n'est nécessaire.
-- **Custom** : lit tes propres fichiers audio depuis un dossier de la machine qui fait tourner Marinara.
+Il puise sa musique à trois sources.
 
-Quelle que soit la source active, elle apparaît sous la forme d'un petit **Music Player** (lecteur de musique) épinglé dans la barre supérieure de l'application. Sur téléphone et dans les fenêtres étroites, il devient un petit widget rond flottant que tu peux déplacer.
+| Source | Compte nécessaire | Coût | Idéal pour |
+| --- | --- | --- | --- |
+| **Spotify** | Ton propre compte Spotify, et Spotify Premium pour la lecture | Gratuit à configurer, Premium pour écouter | Des morceaux réels et nommés, sur tes propres appareils |
+| **YouTube** | Une clé API Google gratuite | Gratuit | Écouter sans se connecter et sans Premium |
+| **Custom** | Aucun | Gratuit | Tes propres fichiers audio |
 
-**Music DJ** est désactivé par défaut après l'installation. Tu l'actives pour un chat comme n'importe quel agent. Il est disponible dans les chats **Roleplay**, et en mode **Game** via un interrupteur distinct (voir Music DJ en Game Mode, plus bas). En mode **Conversation**, utilise plutôt la commande **Music** (voir La commande Music en Conversation, plus bas).
+La source active apparaît sous la forme d'un petit **Music Player** (lecteur de musique) épinglé dans la barre supérieure. Sur téléphone et dans les fenêtres étroites, il devient un petit widget rond flottant que tu peux déplacer.
 
-La configuration de **Music DJ** se fait à un seul endroit, commun à tout. Ouvre le panneau **Agents** à droite, puis ouvre **Music DJ**. Autre option : clique sur l'icône d'engrenage du mini-lecteur. Son infobulle indique **Music DJ setup**.
+La configuration de Music DJ se fait à un seul endroit, partagé par toute l'application. Ouvre le panneau **Agents** à droite, puis **Music DJ**. Tu peux aussi cliquer sur l'icône d'engrenage du mini-lecteur (infobulle **Music DJ setup**).
 
 ### Choisir une source de musique
 
-Dans l'éditeur de **Music DJ**, le champ **Music Player** propose trois boutons : **Spotify**, **YouTube** et **Custom**. Le texte d'aide indique "Choose which service Music DJ should use for future music picks. The same choice switches the visible player surface."
-
-Sous les boutons, une ligne indique la source active du moment, par exemple "Visible player: Spotify. Saved provider: Spotify." Ce choix de source vaut pour toute l'application. Il n'est pas enregistré chat par chat.
-
-Pour choisir rapidement :
-
-| Source | Compte nécessaire | Coût | Idéal pour |
-|---|---|---|---|
-| **Spotify** | Ton propre compte Spotify, plus Spotify Premium pour la lecture | Gratuit à configurer, Premium pour écouter | Des morceaux réels et nommés, sur tes propres appareils |
-| **YouTube** | Une clé API Google gratuite | Gratuit | Écouter sans se connecter et sans Premium |
-| **Custom** | Aucun | Gratuit | Tes propres fichiers audio locaux |
+Dans l'éditeur de **Music DJ**, le champ **Music Player** propose trois boutons : **Spotify**, **YouTube** et **Custom**. Une ligne en dessous indique ce qui est actif, par exemple "Visible player: Spotify. Saved provider: Spotify." Ce choix vaut pour toute l'application ; il n'est pas enregistré chat par chat.
 
 ## Configurer Spotify
 
-Spotify passe par ta propre application développeur Spotify, gratuite. Tu colles uniquement un **Spotify Client ID**. Il n'y a pas de client secret à saisir.
+Spotify passe par ta propre application développeur Spotify, gratuite. Tu colles uniquement un **Spotify Client ID**. Il n'y a pas de client secret.
 
-Ouvre l'éditeur de **Music DJ** et repère le champ **Spotify Connection**. Voici la marche à suivre :
+1. Dans l'éditeur de **Music DJ**, repère **Spotify Connection**.
+2. Ouvre le **Spotify Developer Dashboard** via le lien affiché dans l'application.
+3. Crée une nouvelle application et sélectionne "Web API".
+4. Dans les Redirect URIs de l'application, ajoute l'adresse de redirection exacte que Marinara affiche à l'étape 3 de l'encadré de configuration intégré. Une adresse de redirection est l'adresse vers laquelle Spotify te renvoie après la connexion.
+5. Copie le **Client ID** et colle-le dans **Spotify Client ID**.
+6. Enregistre l'agent, puis clique sur **Connect Spotify Account** (connecter le compte Spotify).
 
-1. Ouvre le **Spotify Developer Dashboard** via le lien affiché dans l'application.
-2. Crée une nouvelle application et sélectionne "Web API".
-3. Dans les Redirect URIs de l'application, ajoute l'adresse de redirection exacte que Marinara affiche à l'étape 3 de l'encadré de configuration intégré. Une adresse de redirection est l'adresse web vers laquelle Spotify te renvoie après la connexion.
-4. Copie le **Client ID** de ton application Spotify et colle-le dans le champ **Spotify Client ID**.
-5. Enregistre l'agent, puis clique sur **Connect Spotify Account**.
+Une fenêtre de connexion et d'autorisation Spotify s'ouvre. Après ton accord, elle affiche une courte page de réussite, puis se ferme. Marinara affiche une pastille verte **Connected to Spotify**. **Disconnect** (se déconnecter) supprime la connexion enregistrée.
 
-Une fenêtre de connexion et d'autorisation Spotify s'ouvre. Après ton accord, elle affiche brièvement une page "Spotify Connected!" puis se ferme. De retour dans Marinara, une pastille verte **Connected to Spotify** doit apparaître. Le bouton **Disconnect** supprime la connexion enregistrée.
+> **Remarque :** Spotify Premium (la formule payante) est nécessaire pour la lecture, la pause, le passage au morceau suivant et le volume. Un compte gratuit peut se connecter. Les jetons d'accès se renouvellent automatiquement.
 
-L'application affiche cette note : "Requires Spotify Premium. Tokens refresh automatically, no need to reconnect." Un compte Spotify gratuit peut se connecter, mais la lecture, la pause, le passage au morceau suivant et le réglage du volume exigent Spotify Premium. Premium est la formule payante de Spotify.
+Si ça n'a pas marché : sur une autre machine, la fenêtre de connexion peut échouer (voir ci-dessous). Sinon, vérifie que l'adresse de redirection correspond exactement.
 
-### Notes sur les appareils Spotify
+### Appareils Spotify
 
-Spotify diffuse la musique par l'intermédiaire d'un appareil : ton téléphone, l'application Spotify de ton ordinateur ou un lecteur intégré.
+Spotify diffuse la musique par l'intermédiaire d'un appareil, comme ton téléphone, l'application Spotify de ton ordinateur ou un lecteur intégré.
 
-Sur ordinateur, tu peux transformer l'onglet du navigateur lui-même en appareil Spotify. Clique sur l'icône d'ordinateur portable du mini-lecteur. Son infobulle indique **Enable Marinara player** ou **Use Marinara player**. Cela enregistre un appareil Spotify nommé "Marinara Engine" pour que la musique arrive dans l'onglet. Le streaming intégré (l'écoute au fil de la lecture) demande lui aussi Spotify Premium.
-
-Sur mobile, le lecteur privilégie l'appareil Spotify du téléphone. Quand tu lances la lecture, la musique sort donc du téléphone, et non de l'onglet de navigateur en arrière-plan.
-
-Si un appareil Spotify n'autorise pas le réglage du volume à distance, le curseur de volume laisse place à un bouton **Use device volume**. Sers-toi alors des boutons de volume de l'appareil.
+- Sur ordinateur, clique sur l'icône d'ordinateur portable du mini-lecteur (**Enable Marinara player** ou **Use Marinara player**) pour transformer l'onglet du navigateur en appareil Spotify nommé "Marinara Engine". Le streaming dans l'onglet demande Premium.
+- Sur mobile, le lecteur privilégie l'appareil Spotify du téléphone : la lecture se fait donc sur le téléphone, et non dans un onglet en arrière-plan.
+- Si un appareil n'autorise pas le réglage du volume à distance, le curseur est remplacé par **Use device volume** (utiliser le volume de l'appareil). Sers-toi alors des boutons de volume de l'appareil.
 
 ### Spotify sur une autre machine
 
-Spotify n'accepte que les adresses de redirection sécurisées en `https://` ou l'adresse de bouclage `http://127.0.0.1`. Le bouclage désigne le même ordinateur. Si Marinara tourne sur une autre machine en `http` simple, la fenêtre de connexion risque de ne pas se charger.
+Spotify n'accepte que les adresses de redirection sécurisées en `https://` ou l'adresse de bouclage `http://127.0.0.1` (le même ordinateur). Si Marinara tourne sur une autre machine en `http` simple, la fenêtre de connexion peut échouer. Deux solutions :
 
-Deux solutions dans ce cas :
+- Pendant la connexion, ouvre "Browser couldn't reach the callback?" sous **Connect Spotify Account**. Copie l'adresse complète depuis la fenêtre en échec, colle-la dans le champ et clique sur **Complete connection** (terminer la connexion).
+- Ou fixe une adresse de redirection avec une variable d'environnement (un réglage du serveur lu au démarrage) :
 
-- Pendant la connexion, ouvre la section "Browser couldn't reach the callback?" sous le bouton **Connect Spotify Account**. Copie l'adresse complète depuis la fenêtre en échec, colle-la dans le champ, puis clique sur **Complete connection**.
-- Autre option : fixe une adresse de redirection avec une variable d'environnement sur le serveur. Une variable d'environnement est un réglage du serveur lu au démarrage.
-
-```
+```text
 SPOTIFY_REDIRECT_URI=https://your-address/api/spotify/callback
 ```
 
-Consulte la [Référence de configuration du serveur](../CONFIGURATION.md) pour savoir comment définir des variables d'environnement.
+Voir la [Référence de configuration du serveur](../CONFIGURATION.md).
+
+### Choisir où Spotify puise les morceaux (Roleplay)
+
+Quand Music DJ tourne dans un chat Roleplay, sa carte propose une liste **Spotify source** (source Spotify).
+
+- **Liked Songs** : puiser d'abord dans tes titres enregistrés.
+- **Playlist** : rester dans une seule playlist, choisie dans la liste **Playlist**.
+- **Artist** : chercher autour d'un artiste, saisi dans le champ **Artist**.
+- **Any Spotify** : laisser le DJ utiliser la recherche Spotify quand cela s'y prête.
 
 ## Configurer YouTube
 
-Le mode YouTube demande une clé API YouTube Data, gratuite. Une clé API est un code secret qui autorise Marinara à utiliser un service en ton nom. Aucun compte YouTube ni abonnement Premium n'est nécessaire.
+Le mode YouTube demande une clé API YouTube Data, gratuite. Une clé API est un code secret qui permet à Marinara d'utiliser un service en ton nom. Aucune connexion à YouTube ni abonnement Premium n'est nécessaire.
 
-Ouvre l'éditeur de **Music DJ** et repère le champ **YouTube Connection**. Voici la marche à suivre :
+1. Dans l'éditeur de **Music DJ**, repère **YouTube Connection**.
+2. Ouvre la **Google Cloud Console** via le lien de l'application, puis crée ou choisis un projet.
+3. Active **YouTube Data API v3**.
+4. Va dans Credentials, puis Create credentials, puis API key.
+5. Colle la clé dans **YouTube Data API Key**.
+6. Clique sur **Save Key** (enregistrer la clé). Le bouton indique ensuite **Update Key** et une pastille verte "API key configured" apparaît. **Remove** (retirer) supprime la clé.
 
-1. Ouvre la **Google Cloud Console** via le lien affiché dans l'application, puis crée ou choisis un projet.
-2. Active le service **YouTube Data API v3**.
-3. Va dans Credentials, puis Create credentials, puis API key.
-4. Colle la clé dans le champ **YouTube Data API Key**.
-5. Clique sur **Save Key**. Une fois la clé enregistrée, le bouton indique **Update Key** et une pastille verte "API key configured" apparaît. Le lien **Remove** supprime la clé.
+Laisse la clé sans restriction, ou restreins-la uniquement par API à YouTube Data API v3. Ne la restreins pas par référent HTTP. La recherche s'exécute sur le serveur : une restriction par référent la bloquerait. L'application indique que le quota gratuit (environ 100 recherches par jour) suffit largement pour un DJ personnel. Ce chiffre vient du texte de l'application et peut changer. Ta clé reste sur le serveur, chiffrée.
 
-Laisse la clé sans restriction, ou restreins-la uniquement par API en choisissant YouTube Data API v3. Ne la restreins pas par référent HTTP : la recherche s'exécute sur le serveur, et une telle restriction la bloquerait.
+## Utiliser tes propres fichiers de musique
 
-L'application affiche cette note : "The free quota (~100 searches/day) is plenty for a personal DJ." Le quota est la limite d'utilisation quotidienne. Ce chiffre vient du texte de l'application et peut évoluer avec le temps. La clé reste sur le serveur, où Marinara la stocke chiffrée.
+Le mode Custom lit des fichiers audio depuis la machine qui fait tourner Marinara. Les formats pris en charge sont `.mp3`, `.ogg`, `.wav`, `.flac`, `.m4a`, `.aac` et `.webm`.
 
-## Musique Custom (locale)
+Dans l'éditeur de **Music DJ**, repère **Custom Music Library** (bibliothèque musicale personnalisée). Elle contient un seul interrupteur, **Use Game Assets music folder** (utiliser le dossier de musique des ressources de jeu).
 
-Le mode Custom lit tes propres fichiers audio depuis la machine qui fait tourner le serveur de Marinara. Les formats pris en charge sont `.mp3`, `.ogg`, `.wav`, `.flac`, `.m4a`, `.aac` et `.webm`.
+- **On** : le mode Custom lit l'audio que tu as téléversé dans Game Assets, la bibliothèque de ressources de Marinara pour Game Mode. Utilise **Game Assets music folder** pour choisir un dossier. Saisis `music` pour toute la bibliothèque, ou un sous-dossier comme `music/combat`. **Open Folder** (ouvrir le dossier) l'ouvre sur la machine du serveur.
+- **Off** : le mode Custom lit un dossier de l'appareil serveur. Utilise **Select Folder** (sélectionner un dossier) pour ouvrir un sélecteur sur la machine du serveur, ou colle le chemin dans **Music folder on this device** (dossier de musique sur cet appareil).
 
-Ouvre l'éditeur de **Music DJ** et repère le champ **Custom Music Library**. Il contient un seul interrupteur : **Use Game Assets music folder**.
+Les configurations Roleplay et Game Mode affichent la même source. Si tu as choisi un dossier sur l'appareil serveur, les réglages Music DJ du chat affichent ce chemin et un bouton **Choose Folder** (choisir un dossier).
 
-- Interrupteur activé : le mode Custom lit l'audio que tu as téléversé dans Game Assets. Game Assets est la bibliothèque d'éléments intégrée de Marinara pour Game Mode. Le champ **Game Assets music folder** sert à choisir un dossier. Saisis `music` pour toute la bibliothèque musicale, ou un sous-dossier comme `music/combat`. Le bouton **Open Folder** ouvre ce dossier sur la machine du serveur.
-- Interrupteur désactivé : le mode Custom lit un dossier de l'appareil serveur. Le bouton **Select Folder** ouvre un sélecteur de dossier sur la machine du serveur ; sinon, colle le chemin dans le champ **Music folder on this device**.
-
-La configuration du chat en Roleplay et en Game affiche la même source sélectionnée. Si tu as choisi un dossier sur l'appareil serveur, les réglages Music DJ du chat affichent ce chemin enregistré et un bouton **Choose Folder**, au lieu de demander un chemin Game Assets.
-
-La lecture depuis un dossier hors Game Assets exige un accès local au serveur. Si tu utilises Marinara depuis un autre appareil sans mot de passe ni secret administrateur, cette fonction précise peut être bloquée. Voir [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+La lecture depuis un dossier hors de Game Assets demande un accès local au serveur. Depuis un autre appareil, sans identifiants de connexion ni secret d'administration, cette fonction peut être bloquée. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 
 ## Utiliser le lecteur de musique
 
-Le **Music Player** apparaît sous la forme d'une petite pastille dans la barre supérieure sur ordinateur, ou d'un widget flottant déplaçable sur mobile. Un réglage permet de l'afficher ou de le masquer.
+Le **Music Player** est une pastille dans la barre supérieure sur ordinateur et un widget déplaçable sur mobile. Pour l'afficher ou le masquer, ouvre **Settings → General → App Behavior** (Paramètres → Général → Comportement de l'application) et active ou désactive **Music Player**. Il est activé par défaut. S'il est activé alors que Music DJ n'est pas installé, le lecteur affiche **Download Music DJ Agent to configure** et propose un bouton **Agent Organizer**.
 
-Ouvre **Settings** (Paramètres), va dans l'onglet **General** et repère la section **App Behavior**. Active ou désactive l'interrupteur **Music Player**. Le texte d'aide indique "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Cet interrupteur est toujours disponible et activé par défaut. S'il est activé sans que Music DJ soit installé, le lecteur affiche à la place **Download Music DJ Agent to configure**, avec un bouton **Agent Organizer (organisateur d’agents)**.
+Sur un profil neuf, la source de départ est **YouTube**. Change-la avec le bouton rond de changement de source sur le lecteur (infobulle "Switch to ... player"), avec les boutons **Music Player** de l'éditeur, ou dans les réglages **Music DJ** d'un chat.
 
-Sur un profil neuf, la source visible au départ est **YouTube**. Trois façons de la changer :
+Le lecteur affiche la pochette ou la miniature du morceau, son titre et l'artiste ou la chaîne. Les commandes dépendent de la source.
 
-- Le petit bouton rond de changement de source, sur le lecteur. Son infobulle indique "Switch to ... player".
-- Les boutons **Music Player** de l'éditeur de **Music DJ**.
-- Les réglages **Music DJ** d'un chat.
-
-Le lecteur affiche la pochette ou la miniature du morceau en cours, son titre et l'artiste ou la chaîne. Les commandes dépendent de la source.
-
-- Spotify : lecture aléatoire, **Previous**, lecture ou pause, **Next**, répétition, un curseur de volume avec sourdine, le bouton **DJ**, le bouton **Marinara player** en forme d'ordinateur portable et l'engrenage **Music DJ setup**.
-- YouTube : lecture ou pause, une flèche d'agrandissement qui ouvre un petit panneau vidéo en 16:9, un bouton **Stop** et un curseur de volume avec sourdine.
-- Custom : lecture ou pause et volume, à partir de tes fichiers locaux.
-
-Si Spotify n'est pas encore connecté, le lecteur affiche "Spotify not connected", et un appui dessus ouvre **Music DJ setup**.
-
-### Source Spotify par chat
-
-Quand **Music DJ** tourne dans un chat **Roleplay**, sa carte de réglages propose un menu déroulant **Spotify source** avec quatre choix.
-
-- **Liked Songs** : puiser d'abord dans tes titres enregistrés.
-- **Playlist** : rester dans une seule playlist Spotify. Un menu déroulant **Playlist** liste les tiennes.
-- **Artist** : chercher uniquement autour d'un artiste précis. Un champ texte **Artist** apparaît.
-- **Any Spotify** : laisser le DJ utiliser la recherche Spotify quand cela se prête.
+- **Spotify** : lecture aléatoire, **Previous** (précédent), lecture ou pause, **Next** (suivant), répétition, volume avec sourdine, **DJ**, le bouton **Marinara player** en forme d'ordinateur portable et l'engrenage **Music DJ setup**. Quand Spotify n'est pas connecté, le lecteur affiche "Spotify not connected", et un appui dessus ouvre **Music DJ setup**.
+- **YouTube** : lecture ou pause, une flèche qui ouvre un petit panneau vidéo en 16:9, **Stop** (arrêter), et volume avec sourdine.
+- **Custom** : lecture ou pause et volume.
 
 ## DJ Mari : le créateur de playlists par IA
 
-Le bouton **DJ** du mini-lecteur Spotify te compose une playlist thématique. Son infobulle indique "DJ Mari composes a playlist for you!"
+Le bouton **DJ** du mini-lecteur Spotify ("DJ Mari composes a playlist for you!") compose une playlist thématique. DJ Mari demande à ton modèle d'IA connecté de la bâtir à partir de ton persona, du personnage que tu utilises le plus et de tes chats récents, tous chats confondus. Les morceaux trouvés sont ajoutés à une nouvelle playlist Spotify nommée "DJ Mari" suivi de la date du jour, et la lecture démarre.
 
-**DJ Mari** demande au modèle d'IA connecté de bâtir une playlist à partir de ton persona (le personnage que tu incarnes), du personnage que tu utilises le plus et des chats récents, toutes conversations confondues. Les morceaux trouvés sont ensuite ajoutés à une nouvelle playlist Spotify nommée "DJ Mari" suivi de la date du jour, et la lecture démarre.
+DJ Mari a besoin de deux choses.
 
-**DJ Mari** a besoin de deux choses :
+- Un modèle attribué à l'agent **Music DJ**. Sans modèle, tu vois "Configure a model connection on the Music DJ agent before using DJ Mari." Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+- Au moins 25 morceaux Spotify trouvés. DJ Mari en retient jusqu'à 50. En dessous de 25, DJ Mari te demande d'ajouter des Liked Songs et de réessayer.
 
-- Une connexion à un modèle assignée à l'agent **Music DJ**. Sans elle, le message "Configure a model connection on the Music DJ agent before using DJ Mari." s'affiche. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
-- Assez de morceaux Spotify trouvés. Il en faut au moins 25, et jusqu'à 50 sont retenus. En dessous de 25, DJ Mari te demande d'ajouter des Liked Songs et de réessayer.
+En cas de réussite, tu vois "DJ Mari playlist is ready" avec un bouton **Open playlist** (ouvrir la playlist).
 
-En cas de réussite, un message "DJ Mari playlist is ready" s'affiche avec un bouton **Open playlist**.
+<a id="music-dj-in-game-mode"></a>
 
 ## Music DJ en Game Mode
 
-Game Mode dispose de sa propre musique d'arrière-plan intégrée, issue de Game Assets. Pour utiliser **Music DJ** à la place, active l'interrupteur **Music DJ** dans la configuration de la partie. Sa description indique "Use the Music DJ for this game instead of local music assets." Cet interrupteur est désactivé par défaut.
+Game Mode a sa propre musique d'arrière-plan, issue de Game Assets. Pour utiliser Music DJ à la place, active l'interrupteur **Music DJ** dans la configuration de la partie ("Use the Music DJ for this game instead of local music assets"). Il est désactivé par défaut. Tu retrouves alors les mêmes choix **Spotify**, **YouTube** et **Custom**, et les mêmes champs, qu'en Roleplay.
 
-Une fois actif, tu retrouves les mêmes choix **Spotify**, **YouTube** et **Custom**, ainsi que les mêmes champs par source qu'en Roleplay.
+Avec Spotify, après chaque scène, le serveur dresse une courte liste de vrais morceaux candidats tirés de la source choisie, et l'IA en choisit un. Cela l'empêche d'inventer un morceau. Game Mode joue un seul morceau en boucle à la fois. Pour obtenir une nouvelle sélection pour la scène actuelle, ouvre **Game controls** (contrôles du jeu) et choisis **Retry Music DJ** (relancer Music DJ). Voir [Les contrôles du jeu](../game/getting-started.md#the-games-controls).
 
-Spotify fonctionne un peu différemment en Game Mode. Après chaque scène, le serveur dresse une courte liste de morceaux réels tirés de la source choisie. L'IA choisit ensuite un morceau dans cette liste. Elle ne peut donc pas inventer un titre qui n'existe pas. En Game Mode, un seul morceau tourne en boucle à la fois.
-
-Ouvre **Game controls** et choisis **Retry Music DJ** pour demander une nouvelle sélection pour la scène actuelle. Cela fonctionne sur ordinateur et téléphone. Consulte [Les contrôles du jeu](../game/getting-started.md#the-games-controls).
+<a id="the-conversation-music-command"></a>
 
 ## La commande Music en Conversation
 
-En mode **Conversation**, tu ne peux pas ajouter **Music DJ** comme agent. À la place, les personnages peuvent lancer des morceaux via la commande **Music**.
+En Conversation, tu ne peux pas ajouter Music DJ comme agent. Les personnages lancent plutôt des morceaux via la commande **Music**.
 
-Ouvre la section **Commands** du chat. Active d'abord l'interrupteur principal **Commands**, puis l'interrupteur **Music**. Sa description indique "Let characters play songs through the active Music Player."
+1. Ouvre la section **Commands** (commandes) du chat et active l'interrupteur principal **Commands**.
+2. Active **Music** ("Let characters play songs through the active Music Player").
 
-Un personnage peut alors nommer un morceau pour Spotify, ou décrire un titre pour YouTube, et Marinara le lance sur la source active. Cela marche même si **Music DJ** n'est activé nulle part. Il suffit que Spotify soit connecté, ou qu'une clé YouTube soit enregistrée.
-
-Si Spotify n'est pas connecté ou n'a pas l'autorisation de lecture, une commande de morceau Spotify ne fait rien et n'affiche aucune erreur. Configure donc la source d'abord si rien ne se lance.
+Un personnage peut alors nommer un morceau pour Spotify, ou décrire un titre pour YouTube, et Marinara le lance sur la source active. Cela fonctionne même si Music DJ n'est activé nulle part. Il suffit que Spotify soit connecté ou qu'une clé YouTube soit enregistrée. Si Spotify n'est pas connecté ou n'a pas l'autorisation de lecture, une commande de morceau Spotify ne fait rien et n'affiche aucune erreur.
 
 ## Dépannage
 
-- Le mini-lecteur a disparu. Active **Music Player** dans **Settings**, onglet **General**, section **App Behavior**.
-- Spotify ne joue rien. Le pilotage de la lecture exige Spotify Premium et un appareil Spotify actif. Ouvre l'application de bureau sur un appareil, ou clique sur **Enable Marinara player** sur ordinateur.
-- La fenêtre de connexion Spotify échoue sur une autre machine. Utilise le champ de collage "Browser couldn't reach the callback?", ou définis `SPOTIFY_REDIRECT_URI` sur le serveur.
-- La recherche YouTube échoue. Vérifie que le service **YouTube Data API v3** est activé pour ton projet et que la clé n'est pas restreinte par référent HTTP. Si tu atteins le quota quotidien, réessaie le lendemain ou utilise une autre clé.
-- La musique Custom refuse de se lancer depuis un dossier de l'appareil en accès distant. Ce dossier exige un accès local au serveur. Voir [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
-- La commande de morceau d'un personnage ne fait rien en mode Conversation. Connecte Spotify ou enregistre une clé YouTube, et vérifie que les interrupteurs **Commands** et **Music** sont activés.
+- **Le mini-lecteur a disparu** : active **Music Player** dans **Settings → General → App Behavior**.
+- **Spotify ne joue rien** : la lecture exige Spotify Premium et un appareil Spotify actif. Ouvre l'application de bureau sur un appareil, ou clique sur **Enable Marinara player** sur ordinateur.
+- **La fenêtre de connexion Spotify échoue sur une autre machine** : utilise le champ de collage "Browser couldn't reach the callback?", ou définis `SPOTIFY_REDIRECT_URI` sur le serveur.
+- **La recherche YouTube échoue** : vérifie que **YouTube Data API v3** est activé pour ton projet et que la clé n'est pas restreinte par référent HTTP. Si tu atteins le quota quotidien, réessaie le lendemain ou utilise une autre clé.
+- **La musique Custom ne se lance pas depuis un dossier de l'appareil en accès à distance** : ce dossier demande un accès local au serveur. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+- **La commande de morceau d'un personnage ne fait rien en Conversation** : connecte Spotify ou enregistre une clé YouTube, et vérifie que les interrupteurs **Commands** et **Music** sont activés.
 
 ## Guides associés
 

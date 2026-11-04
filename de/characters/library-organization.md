@@ -1,134 +1,113 @@
 # Die Charakter-Bibliothek organisieren
 
-In dieser Anleitung erfährst du alles über das **Characters panel** (Charakter-Panel) – die Seitenleiste, in der alle Charaktere liegen. Du lernst, wie du suchst, sortierst, Charaktere in Ordner gruppierst, Favoriten markierst, nach Tags filterst und mehrere Charaktere auf einmal exportierst oder löschst.
+Das Panel **Characters** (Charaktere) ist die Liste in der Seitenleiste mit jedem Charakter, den du erstellt oder importiert hast. Darin suchst und sortierst du, gruppierst Charaktere in Ordner, markierst Favoriten, filterst nach Tags und exportierst oder löschst mehrere Charaktere auf einmal.
 
-## Das Characters panel
+## Das Panel „Characters“
 
-Das **Characters panel** ist die Charakterliste im Seiten-Panel. Dort landet jeder Charakter, den du erstellt oder importiert hast. Am oberen Rand des Panels stehen dir diese Möglichkeiten offen:
+Oben im Panel hast du diese Möglichkeiten:
 
-- **Download** (Herunterladen) öffnet den [Card Browser](bot-browser.md), mit dem du Charaktere auf öffentlichen Seiten findest.
-- **Open Library** (Bibliothek öffnen) zeigt dieselben Charaktere in einer größeren Rasteransicht über die ganze Seite.
-- Die Schaltfläche **New** (Neu, das Plus-Symbol) öffnet das Fenster **Create Character** (Charakter erstellen).
-- Die Schaltfläche **Import** (Importieren, das Download-Symbol) importiert eine Charakterdatei.
-- Die Schaltfläche **Select** (Auswählen, das Haken-Symbol) schaltet den Mehrfachauswahl-Modus für Sammelaktionen ein.
+- Klick auf **Download** (Herunterladen), um den [Card Browser](bot-browser.md) zu öffnen und Charaktere auf öffentlichen Seiten zu finden.
+- Klick auf **Open Library** (Bibliothek öffnen), um dieselben Charaktere in einem größeren Raster über die ganze Seite zu öffnen.
+- Klick auf **New** (Neu, das Plus-Symbol), um das Fenster **Create Character** (Charakter erstellen) zu öffnen.
+- Klick auf **Import** (Importieren, das Download-Symbol), um eine Charakterdatei zu importieren. Siehe [Charakterkarten importieren und exportieren](import-export.md).
+- Klick auf **Select** (Auswählen, das Haken-Symbol), um den Auswahlmodus für Sammelaktionen einzuschalten.
 
-Die vollständige Bibliothek übernimmt die Chroma-Textfarbe aus **Settings** (Einstellungen). Öffnest du einen Charakter zum Bearbeiten und kehrst zurück, bleiben die ausgewählte Karte, die Sortierreihenfolge und die Scroll-Position erhalten.
+Öffnest du einen Charakter zum Bearbeiten und kehrst zurück, behält die vollständige Bibliothek die ausgewählte Karte, die Sortierreihenfolge und die Scroll-Position.
 
-Jede Charakterzeile zeigt den Avatar, den Namen, optional eine Titelzeile, Ersteller und Version, bis zu 3 Tags (Schlagwörter) und eine grobe Token-Schätzung. Ein kleines Stern-Abzeichen kennzeichnet einen Favoriten. Zeigst du auf eine Zeile, erscheinen die Schaltflächen **Duplicate** (Duplizieren) und **Delete** (Löschen).
+Jede Zeile zeigt den Avatar, den Namen, optional eine Titelzeile, Ersteller und Version, bis zu 3 Tags und eine grobe Token-Schätzung. Ein kleines Stern-Abzeichen kennzeichnet einen Favoriten. Zeigst du auf eine Zeile, erscheinen **Duplicate** (Duplizieren) und **Delete** (Löschen). Hast du viele Charaktere, klick unten auf **Load more** (Mehr laden), um die nächste Seite zu laden.
 
-Bei vielen Charakteren taucht unten die Schaltfläche **Load more** (Mehr laden) auf. Ein Klick darauf lädt die nächste Seite mit Charakteren.
+<a id="search"></a>
 
 ## Suche
 
-Tippe in das Suchfeld oben im Panel, um die Liste zu filtern. Der Platzhaltertext lautet **Search characters/tags** (Charaktere/Tags durchsuchen).
+Tippe in das Suchfeld oben. Der Platzhaltertext lautet **Search characters/tags** (Charaktere/Tags durchsuchen). Einfacher Text wird ohne Rücksicht auf Groß- und Kleinschreibung mit Name, Titel, Beschreibung und Tags eines Charakters abgeglichen. Tippst du `knight`, erscheint jeder Charakter, bei dem „knight“ in einem dieser Felder steht.
 
-Einfacher Text wird mit Name, Titel, Beschreibung und Tags eines Charakters abgeglichen. Tippst du zum Beispiel `knight`, erscheint jeder Charakter, bei dem „knight“ in einem dieser Felder steht.
+| Suche | Was sie findet |
+| --- | --- |
+| `male genshin` oder `male,genshin` | Karten mit beiden exakten Tags. |
+| `male "Modern AU"` | Setz ein Tag mit Leerzeichen oder Kommas in Anführungszeichen. |
+| `-tag:"slow burn"` | Blendet jede Karte mit diesem Tag aus, auch wenn der Rest deiner Suche passt. |
+| `-vampire` | Dasselbe für ein Tag aus einem Wort. Die Anführungszeichen kannst du weglassen. |
+| `mage -tag:"villain"` | Karten, die zu „mage“ passen, ohne die mit „villain“ getaggten. |
 
-Um mehrere Tags zusammen abzugleichen, trenne sie durch Leerzeichen oder Kommas: `male genshin` oder `male,genshin` findet Karten mit beiden exakten Tags. Setze ein Tag mit Leerzeichen oder Kommas in Anführungszeichen, etwa `male "Modern AU"`. Groß- und Kleinschreibung spielen keine Rolle. Gewöhnliche Phrasensuchen funktionieren weiterhin, eine Karte kann also auch durch die vollständige Phrase in ihrem Namen oder Text passen. Diese Suche funktioniert auch in der ganzseitigen **Character Library** (Charakter-Bibliothek) und für Personas.
-
-Möglich ist außerdem, Charaktere mit einem bestimmten Tag auszuschließen. Setz dafür ein Minuszeichen vor das Tag:
-
-```
--tag:"tag name"
-```
-
-Zum Ausschließen von Tags solltest du ein paar Dinge wissen:
-
-- Enthält das Tag ein Leerzeichen, brauchst du Anführungszeichen, etwa `-tag:"slow burn"`.
-- Bei einem Tag aus nur einem Wort kannst du sie weglassen, etwa `-vampire`.
-- Ein ausgeschlossenes Tag blendet jeden Charakter aus, der es trägt – auch dann, wenn der restliche Suchtext passt.
-
-Beides lässt sich im selben Feld kombinieren. `mage -tag:"villain"` findet zum Beispiel alle Treffer für „mage“ und blendet dabei alles aus, was mit „villain“ getaggt ist.
+Gewöhnliche Phrasensuchen funktionieren weiterhin. Dieselbe Suche funktioniert auch in der ganzseitigen Charakter-Bibliothek und für Personas.
 
 ## Sortierung
 
-Neben dem Suchfeld sitzt das Sortier-Dropdown-Menü. Zur Wahl stehen diese Reihenfolgen:
+Wähle im Sortier-Dropdown neben dem Suchfeld eine Reihenfolge.
 
-| Option        | Wirkung                              |
-| ------------- | ------------------------------------ |
+| Option | Wirkung |
+| --- | --- |
 | **Manual order** (manuelle Reihenfolge) | Die Reihenfolge, die du selbst festlegst. |
-| **A-Z**       | Namen von A bis Z.                   |
-| **Z-A**       | Namen von Z bis A.                   |
-| **Newest**    | Zuletzt erstellte zuerst.            |
-| **Oldest**    | Zuerst erstellte zuerst.             |
-| **Favorites** | Favoriten zuerst, dann der Rest.     |
+| **A-Z** | Namen von A bis Z. |
+| **Z-A** | Namen von Z bis A. |
+| **Newest** | Zuletzt erstellte zuerst. |
+| **Oldest** | Zuerst erstellte zuerst. |
+| **Favorites** | Favoriten zuerst, dann der Rest. |
 
-Für eine manuelle Reihenfolge ziehst du eine Charakterzeile nach oben oder unten. Du kannst auch auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten drücken. Beides stellt die Sortierung auf **Manual order** um.
+Für eine manuelle Reihenfolge ziehst du eine Zeile nach oben oder unten oder drückst auf einer fokussierten Zeile <kbd>Alt</kbd>+<kbd>Up</kbd> oder <kbd>Alt</kbd>+<kbd>Down</kbd>. Beides stellt die Sortierung auf **Manual order** um.
 
 ## Ordner
 
-Mit Ordnern gruppierst du verwandte Charaktere direkt im Panel. Pflicht sind sie nicht – wenn dir eine einzige flache Liste lieber ist, bleibt einfach alles darin.
+Ordner gruppieren verwandte Charaktere, etwa nach Geschichte oder Serie, sodass sich eine lange Liste leichter überblicken lässt. Sie sind optional.
 
-So legst du einen Ordner an:
+1. Klick auf **New Folder** (Neuer Ordner). Ein Ordner namens **unnamed** erscheint.
+2. Benenn ihn um: Doppelklick oder doppeltes Tippen darauf, oder wähl ihn aus und drück <kbd>F2</kbd>. Tipp den neuen Namen ein und drück <kbd>Enter</kbd>.
+3. Zieh eine Charakterzeile auf den Ordner, um den Charakter hineinzulegen. Sobald es einen Ordner gibt, erscheint der Hinweis **Drag and drop characters to folders, double-click or double-tap to rename**.
 
-1. Klick auf die Schaltfläche **New Folder** (Neuer Ordner).
-2. Ein neuer Ordner erscheint, standardmäßig mit dem Namen **unnamed**.
-3. Benenn ihn sofort um oder später (siehe unten).
+Um einen Charakter wieder herauszunehmen, zeig im Ordner auf seine Zeile und klick auf die Schaltfläche zum Entfernen aus dem Ordner, oder zieh ihn heraus. Ein Klick auf einen Ordner klappt ihn auf oder zu. Die Zahl neben seinem Namen zeigt, wie viele Charaktere darin liegen.
 
-Zum Umbenennen machst du einen Doppelklick auf den Ordner, tippst zweimal darauf oder wählst ihn aus und drückst F2. Tipp den neuen Namen ein und drück Enter.
+Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen, und ziehst sie dann. Eine normale Wischbewegung scrollt weiterhin.
 
-Um einen Charakter in einen Ordner zu legen, zieh die Charakterzeile auf den Ordner und lass sie dort los. Sobald mindestens ein Ordner existiert, erscheint der Hinweis **Drag and drop characters to folders, double-click or double-tap to rename**. Wieder heraus kommt ein Charakter, indem du im Ordner auf seine Zeile zeigst und auf die Schaltfläche zum Entfernen aus dem Ordner klickst – oder indem du ihn herausziehst.
+Um mehrere auf einmal zu verschieben, hältst du eine Zeile und tippst mit einem zweiten Finger auf weitere Zeilen, um sie als Stapel mitzunehmen. Lass den Stapel dann auf einem Ordner los.
 
-Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen, und ziehst sie dann. Eine normale Wischbewegung scrollt weiterhin die Liste. Während du eine Zeile hältst, tippst du mit einem zweiten Finger auf weitere Zeilen, um sie als Stapel mitzunehmen, und lässt den Stapel dann auf einem Ordner los.
+Um einen Ordner zu löschen, zeig auf ihn und klick auf seine Papierkorb-Schaltfläche. Bei einem Ordner mit Charakteren kommt eine Rückfrage: **Delete "name"? Its N characters will stay in the library and move out of the folder.** Ein leerer Ordner verschwindet sofort. Das Löschen eines Ordners löscht nie die Charaktere darin.
 
-Ein Klick auf den Ordner klappt ihn auf oder zu. Die Zahl neben dem Ordnernamen zeigt, wie viele Charaktere darin liegen.
+### Einen Ordner als Besetzungsliste für Gruppenchats nutzen
 
-Zum Löschen zeigst du auf den Ordner und klickst auf seine Papierkorb-Schaltfläche. Liegen Charaktere darin, kommt eine Rückfrage: **Delete "name"? Its N characters will stay in the library and move out of the folder.** Ein leerer Ordner verschwindet sofort, ganz ohne Rückfrage. Das Löschen eines Ordners löscht nie die Charaktere darin. Sie wandern schlicht zurück in die Hauptliste.
+Jeder Ordner ist zugleich eine gespeicherte Besetzungsliste für Gruppenchats. Richtest du einen Chat mit mehreren Charakteren ein, fügt **Add from Folder** (Aus Ordner hinzufügen) alle Charaktere eines Ordners in einem Schritt hinzu. Siehe [Gruppenchats und Gruppen-Conversations](../chats/group-chats.md).
 
-## Favoriten und Tag-Chips
+## Favoriten und Tags
 
 ### Favoriten
 
-Als Favorit markierte Charaktere findest du später schneller wieder. Den Favoriten-Stern setzt du im Charakter selbst, nicht in der Panel-Liste. Öffne dazu einen Charakter und klick auf den Stern **Favorite** (Favorit), um ihn ein- oder auszuschalten. Favorisierte Charaktere tragen im Panel ein kleines Stern-Abzeichen am Avatar.
-
-Unter dem Suchbereich liegen drei Filter-Schaltflächen:
+Öffne einen Charakter und klick auf seinen Stern **Favorite** (Favorit), um ihn ein- oder auszuschalten. In der Panel-Liste lässt er sich nicht setzen. Favoriten tragen ein kleines Stern-Abzeichen. Unter dem Suchfeld filtern drei Schaltflächen die Liste:
 
 - **All** zeigt alle Charaktere.
-- **Favs** zeigt nur die Favoriten.
-- **Non-favs** zeigt nur die Charaktere, die keine Favoriten sind.
+- **Favs** zeigt nur Favoriten.
+- **Non-favs** zeigt nur Charaktere, die keine Favoriten sind.
 
-Alternativ wählst du im Sortier-Dropdown-Menü **Favorites**, damit alle Favoriten nach oben rutschen.
+Du kannst auch im Sortier-Dropdown **Favorites** wählen, um Favoriten nach oben zu holen.
 
 ### Tags
 
-Tags sind Schlagwörter, mit denen du einen Charakter beschreibst, etwa `fantasy` oder `slow burn`. Angelegt und bearbeitet werden sie im Charakter-Editor.
+Tags sind Schlagwörter wie `fantasy` oder `slow burn`. Du legst sie im Charakter-Editor an. Siehe [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md#metadata-tab). Klick im Panel in einer beliebigen Zeile auf einen Tag-Chip, um die Liste auf Charaktere mit diesem Tag zu filtern.
 
-Im Panel zeigt jede Charakterzeile bis zu 3 ihrer Tags. Klick auf einen Tag-Chip in einer beliebigen Zeile, und die Liste zeigt nur noch Charaktere mit diesem Tag.
+Haben deine Charaktere Tags, erscheint eine Schaltfläche **Tags** mit einer Anzahl, etwa **Tags (12)**. Klick darauf, um die vollständige Liste aufzuklappen:
 
-Sobald deine Charaktere Tags haben, erscheint in der Filterzeile die Schaltfläche **Tags** – mit der Gesamtzahl in Klammern, zum Beispiel **Tags (12)**. Ein Klick darauf klappt die vollständige Tag-Liste auf:
+- Klick auf ein Tag, um es als Filter aufzunehmen. Sind mehrere Tags ausgewählt, passt ein Charakter, wenn er eines davon hat.
+- Klick auf das X an einem Tag, um dieses Tag bei jedem Charakter zu löschen, der es hat. Vorher kommt eine Rückfrage: **Remove tag "name" from all characters?**
+- **Clear** (Zurücksetzen) erscheint, sobald ein Tag-Filter aktiv ist. Klick darauf, um die Tag-Filter zu leeren.
 
-- Klick auf ein Tag in der aufgeklappten Liste, um damit zu filtern. Wählst du mehrere Tags, passen alle Charaktere, die eines der ausgewählten Tags tragen.
-- Neben jedem Tag in der aufgeklappten Liste steht ein kleines X. Ein Klick darauf löscht dieses Tag bei jedem Charakter, der es hat. Vorher kommt eine Rückfrage: **Remove tag "name" from all characters?**
-- Sobald ein Tag-Filter aktiv ist, erscheint die Schaltfläche **Clear** (Zurücksetzen). Ein Klick darauf leert alle Tag-Filter.
+Willst du ein Tag stattdessen ausschließen, nutze `-tag:` im Suchfeld, wie unter [Suche](#search) gezeigt.
 
-Willst du ein Tag ausschließen statt einschließen, nutz die Suchsyntax `-tag:` aus dem Abschnitt zur Suche weiter oben.
+<a id="export-or-delete-many-characters"></a>
 
-## Mehrfachauswahl, Export und Löschen
+## Mehrere Charaktere exportieren oder löschen
 
-Wenn du mehrere Charaktere auf einmal bearbeiten willst, hilft der Auswahlmodus.
-
-1. Klick oben im Panel auf die Schaltfläche **Select**.
-2. In jeder Charakterzeile erscheint ein Kontrollkästchen.
-3. Klick die gewünschten Charaktere an. Die Panel-Kopfzeile zeigt, wie viele ausgewählt sind.
-4. Nutz die Aktionsleiste am unteren Rand des Panels.
+1. Klick oben im Panel auf **Select**. In jeder Zeile erscheint ein Kontrollkästchen.
+2. Klick die gewünschten Charaktere an. Die Panel-Kopfzeile zeigt, wie viele ausgewählt sind.
+3. Nutze die Aktionsleiste am unteren Rand.
 
 Die Aktionsleiste hat zwei Schaltflächen:
 
-- **Export** lädt alle ausgewählten Charaktere gemeinsam als eine einzige ZIP-Datei namens `marinara-characters.zip` herunter. Das ist ein Sammelexport im hauseigenen Format von Marinara Engine.
-- **Delete** entfernt alle ausgewählten Charaktere. Vorher kommt eine Rückfrage: **Delete N characters?**
+- **Export** lädt die ausgewählten Charaktere als eine ZIP-Datei namens `marinara-characters.zip` herunter, im nativen Format von Marinara.
+- **Delete** entfernt die ausgewählten Charaktere. Vorher kommt eine Rückfrage: **Delete N characters?**
 
-Im Auswahlmodus kannst du die ausgewählten Charaktere auch in einem Rutsch in einen Ordner ziehen, statt sie einzeln zu verschieben.
-
-Die vollständige Liste der Import- und Exportformate steht in der Anleitung zum Importieren und Exportieren weiter unten.
-
-## Ordner sind zugleich Besetzungslisten für Gruppenchats
-
-Die Ordner, die du hier anlegst, haben noch einen zweiten Zweck: Jeder Ordner ist zugleich eine gespeicherte Besetzungsliste für einen Gruppenchat.
-
-Richtest du einen Chat mit mehreren Charakteren ein, halt nach der Option **Add from Folder** (Aus Ordner hinzufügen) Ausschau. Sie fügt in einem Schritt alle Charaktere eines gewählten Ordners hinzu. Schneller kommst du zu keinem Gruppenchat mit einer Besetzung, die du oft zusammen spielst. Wie Gruppenchats funktionieren, steht in der Anleitung zu Gruppenchats weiter unten.
+Im Auswahlmodus kannst du die ausgewählten Charaktere auch gemeinsam in einen Ordner ziehen. Zu den Dateiformaten siehe [Charakterkarten importieren und exportieren](import-export.md).
 
 ## Verwandte Anleitungen
 
 - [Charakterkarten importieren und exportieren](import-export.md)
 - [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md)
-- [Gruppenchats und Gruppengespräche](../chats/group-chats.md)
+- [Gruppenchats und Gruppen-Conversations](../chats/group-chats.md)

@@ -1,196 +1,131 @@
 # Czaty grupowe w trybach Conversation i Roleplay
 
-Z tego przewodnika dowiesz się, jak działają czaty grupowe w aplikacji Marinara Engine, czyli czaty z dwiema postaciami albo z większą ich liczbą. Zobaczysz, jak utworzyć czat grupowy oraz jak dodawać i usuwać uczestników. Poznasz też sposoby na to, by decydować, kto zabiera głos w trybie Conversation i w trybie Roleplay.
+Czat grupowy to każdy czat Conversation lub Roleplay z co najmniej dwiema postaciami. Ten przewodnik pokazuje, jak go utworzyć, jak zarządzać uczestnikami i jak wybierać, kto zabiera głos. Tryb Game Mode ma własny system drużyny i ten przewodnik go nie opisuje.
 
-## Czym jest czat grupowy
-
-Czat grupowy to każdy czat, w którym są co najmniej dwie postacie. Nie ma osobnego przycisku "czat grupowy". Zwykły czat staje się grupowy w chwili, gdy dojdzie do niego druga postać.
-
-Czaty grupowe działają w dwóch trybach: **Conversation** i **Roleplay**. Tryb Game Mode ma własny, oddzielny system drużyny i ten przewodnik go nie opisuje.
-
-Słowo "grupa" pojawia się w aplikacji Marinara Engine w kilku znaczeniach. Czat grupowy to wiele postaci w jednym czacie. Czym innym są **Folders** (foldery), czyli zapisane listy postaci do wielokrotnego użytku. Czym innym są też **Chat Branches** (gałęzie czatu), czyli alternatywne wersje tego samego czatu. Tutaj mowa wyłącznie o czatach grupowych.
+Nie ma osobnego przycisku "czat grupowy". Czat staje się grupowy, gdy dodasz do niego drugą postać. Czat grupowy to nie **Folder** (folder, zapisana lista postaci do wielokrotnego użytku) ani **Chat Branch** (gałąź czatu, alternatywna wersja jednego czatu).
 
 ## Tworzenie czatu grupowego
 
-Czat grupowy tworzy się tym samym kreatorem New Chat, co każdy inny czat. Wystarczy wybrać więcej niż jedną postać.
+1. W panelu **Chats** (czaty) kliknij przycisk **+** dla wybranego trybu (**New Conversation** albo **New Roleplay**).
+2. Otworzy się kreator. W kroku **Persona & Characters** (persona i postacie) wpisz nazwę w polu **Search characters...** i kliknij postać, aby ją dodać.
+3. Tak samo dodaj drugą postać.
+4. Zakończ kreator, aby otworzyć czat.
 
-1. Na pasku bocznym kliknij przycisk nowego czatu dla wybranego trybu. Na przycisku widnieje napis **New Conversation** albo **New Roleplay**.
-2. Przejdź do kroku kreatora o nazwie **Persona & Characters**.
-3. W polu **Search characters...** znajdź postać, a potem kliknij jej awatar lub imię, żeby ją dodać.
-4. Tak samo dodaj drugą postać. Liczba postaci zależy tylko od ciebie.
-5. Zakończ kreator, żeby otworzyć czat.
+Etykieta nad listą wyboru się zmienia. W trybie Conversation pokazuje **Group Chat** (czat grupowy) i liczbę uczestników. W trybie Roleplay pokazuje **Characters** (postacie) i tę liczbę. Jeśli nie zmienisz nazwy czatu, Marinara nazwie go imionami postaci, na przykład "Alice, Bob, Carol".
 
-Po dodaniu drugiej postaci etykieta nad listą wyboru zmienia się. W trybie Conversation pokazuje napis **Group Chat** (czat grupowy) i liczbę uczestników. W trybie Roleplay pokazuje napis **Characters** i tę samą liczbę.
+Liczba postaci nie ma sztywnego limitu. Więcej postaci oznacza dłuższy prompt (tekst, który Marinara wysyła do AI) i wyższy koszt jednej odpowiedzi, więc dodawaj tylko te postacie, których scena potrzebuje.
 
-Liczba postaci nie ma sztywnego limitu. W praktyce im więcej postaci, tym dłuższy prompt, czyli tekst wysyłany do AI, i tym wyższy koszt jednej odpowiedzi. Dodawaj tylko te postacie, których scena naprawdę potrzebuje.
+Aby dodać naraz cały folder, w tym samym kroku rozwiń listę **Add from Folder** (dodanie z folderu), wybierz folder i kliknij **Add** (dodaj). Postacie, które już są w czacie, zostają pominięte. Ta kontrolka pojawia się tylko wtedy, gdy masz co najmniej jeden folder. Zobacz [Porządkowanie biblioteki postaci](../characters/library-organization.md). Wiersz **Random** (losowo, z etykietą **Dice pick**) dodaje jedną losową postać, której jeszcze nie ma w czacie.
 
-Jeśli nie zmienisz nazwy czatu, Marinara nadaje mu nazwę złożoną z imion postaci rozdzielonych przecinkami. Przykład: "Alice, Bob, Carol".
+## Zarządzanie uczestnikami
 
-### Dodawanie wielu postaci naraz przez **Folders**
+Otwórz **Chat Settings** (ustawienia czatu) i znajdź sekcję **Characters**. Nie ma jej w trybie Game Mode. Każdy wiersz uczestnika ma awatar, imię, uchwyt przeciągania, ikonę oka i ikonę kosza.
 
-Gotowy folder postaci da się dodać w całości, jednym ruchem. **Folders** to zapisane listy postaci, które tworzy się w panelu **Characters**. To najszybszy sposób na przygotowanie czatu grupowego, do którego chcesz wracać.
+| Cel | Co zrobić |
+| --- | --- |
+| Dodanie postaci | Kliknij **Add Character** (dodanie postaci) i wyszukaj postać. |
+| Dodanie folderu | Kliknij **Add Character**, a potem **Add all** (dodanie wszystkich) w wierszu folderu. |
+| Zmiana kilku postaci naraz | Kliknij imię uczestnika. Otworzy się ta sama lista wyboru. |
+| Usunięcie postaci | Kliknij ikonę kosza z podpowiedzią **Remove from chat**. |
+| Zmiana kolejności | Przeciągnij uchwyt z podpowiedzią **Drag to reorder**. Przy kolejności **Sequential** postacie odpowiadają w tej kolejności. |
+| Czasowe wyłączenie | Kliknij oko z podpowiedzią **Disable in chat**. Kliknij ponownie, aby włączyć postać (podpowiedź **Enable in chat**). |
 
-1. W kroku **Persona & Characters** rozwiń listę **Add from Folder**.
-2. Wybierz folder z listy.
-3. Kliknij przycisk **Add** obok listy rozwijanej.
+Wyłączona postać zostaje na liście, ale nie bierze udziału w żadnej odpowiedzi. Jej karta nie trafia do modelu i nie da się jej wybrać jako mówiącej. Jeśli wyłączysz wszystkie postacie, Marinara traktuje je wszystkie jako aktywne, więc odpowiedź nigdy nie jest pusta. Ten stan zapisuje się osobno dla każdego czatu i niczego nie zmienia gdzie indziej. W grupie Roleplay w trybie Merged może go ustawiać za ciebie [Automate active characters](#automate-active-characters-merged-only).
 
-Do czatu trafiają wszystkie postacie z tego folderu, których jeszcze w nim nie ma. Kontrolka **Add from Folder** pojawia się dopiero wtedy, gdy istnieje co najmniej jeden folder. O tworzeniu folderów i zarządzaniu nimi przeczytasz w przewodniku o porządkowaniu biblioteki postaci, podlinkowanym niżej.
+<a id="choose-who-speaks"></a>
 
-Można też kliknąć wiersz **Random** (opisany jako **Dice pick**), żeby dodać jedną losową postać spoza czatu.
+## Kto zabiera głos
 
-## Zarządzanie uczestnikami po utworzeniu czatu
+Otwórz **Chat Settings → Group Chat** (ustawienia czatu, czat grupowy). Ta sekcja pojawia się tylko wtedy, gdy w czacie są co najmniej dwie postacie. Oba tryby korzystają z tego samego przełącznika **Mode** (tryb).
 
-Postacie dodaje się, usuwa i porządkuje w **Chat Settings** (ustawienia czatu). Otwórz je przyciskiem **Chat Settings** w czacie.
+- Jedna odpowiedź mówi głosem wszystkich postaci. W trybie Roleplay ta opcja to **Merged (Narrator)** (odpowiedź scalona z narracją), a w trybie Conversation **Grouped** (grupowo). Jest domyślna. W trybie Roleplay narrator to głos opisujący scenę i jest częścią tej samej odpowiedzi.
+- **Individual** (osobno) daje każdej postaci własną odpowiedź.
 
-W **Chat Settings** znajdź sekcję **Characters**. Widać w niej liczbę uczestników oraz tekst pomocy "Characters in this chat. Each character has their own personality that the AI roleplays as." Każdy wiersz uczestnika ma awatar, imię postaci, uchwyt przeciągania, ikonę oka i ikonę kosza.
+W trybie Conversation przełączenie na **Individual** pokazuje ostrzeżenie **Individual replies can use many tokens**. Każda odpowiadająca postać to osobne zapytanie do modelu, a duże grupy z funkcją Autonomous Messaging szybko zużywają tokeny.
 
-- Żeby dodać kolejną postać, kliknij przycisk **Add Character** i wyszukaj ją.
-- Żeby dodać cały folder, kliknij **Add from Folder** i wybierz jeden z nich.
-- Żeby usunąć postać, kliknij ikonę kosza. Jej podpowiedź brzmi **Remove from chat**.
-- Żeby zmienić kolejność postaci, przeciągnij uczestnika w górę lub w dół za uchwyt przeciągania. Podpowiedź brzmi **Drag to reorder**.
+### **Automate active characters** (Roleplay, tylko przy **Merged**)
 
-Kolejność uczestników ma znaczenie. Przy kolejności odpowiedzi **Sequential** (opisanej niżej) postacie odzywają się dokładnie w tej kolejności, w jakiej stoją na liście. Przeciągnij uczestnika, żeby zmienić moment, w którym zabiera głos.
+To ustawienie włącza i wyłącza za ciebie postacie w dużej obsadzie. Zobacz [Automate active characters](#automate-active-characters-merged-only) na końcu tego przewodnika.
 
-Sekcja **Characters** nie pojawia się w trybie Game Mode. Tam drużyną zarządza się w innym miejscu.
+### **Color Dialogues** (Roleplay, tylko przy **Merged**)
 
-### Wyłączanie uczestnika bez usuwania go
-
-Czasem postać ma na chwilę usiąść z boku, ale zostać na liście. Służy do tego ikona oka w jej wierszu.
-
-- Kliknij oko, żeby wyłączyć postać. Podpowiedź zmienia się na **Disable in chat**, a oko zostaje przekreślone.
-- Kliknij ponownie, żeby przywrócić postać do gry. Podpowiedź brzmi wtedy **Enable in chat**.
-
-Wyłączona postać zostaje na liście uczestników, ale nie bierze udziału w żadnej odpowiedzi. Marinara nie wysyła jej karty postaci do modelu, więc nie da się jej też wskazać jako mówiącej.
-
-Jest jeden bezpiecznik. Jeśli wyłączysz wszystkie postacie w czacie, Marinara traktuje je z powrotem jako aktywne. Dzięki temu nie powstaje odpowiedź bez żadnej postaci.
-
-Stan włączenia i wyłączenia zapisuje się osobno dla każdego czatu. Nigdzie indziej w aplikacji nic się przy tym nie zmienia. W grupie Roleplay w trybie Merged może go ustawiać za ciebie [Automate active characters](#automate-active-characters-merged-only).
-
-## Kto zabiera głos: tryb Roleplay
-
-W trybie Roleplay czat grupowy dostaje w panelu **Chat Settings** sekcję **Group Chat**. Widać ją tylko wtedy, gdy w czacie są co najmniej dwie postacie. To tam ustawia się sposób, w jaki postacie odpowiadają.
-
-### **Merged (Narrator)** albo **Individual**
-
-Ustawienie **Mode** to przełącznik z dwoma przyciskami.
-
-- **Merged (Narrator)** (odpowiedź scalona z narracją) jest domyślne. Jedna odpowiedź obejmuje naraz wszystkie postacie i całą narrację.
-- **Individual** (osobno) sprawia, że każda postać generuje własną, oddzielną odpowiedź.
-
-### **Color Dialogues** (tylko przy **Merged**)
-
-Kiedy ustawienie **Mode** stoi na **Merged (Narrator)**, można włączyć **Color Dialogues** (kolorowe dialogi). Domyślnie jest wyłączone. Po włączeniu kwestie każdej postaci wyświetlają się w jej własnych kolorach. Kolory pochodzą z zakładki **Colors** w edytorze postaci. Ta zakładka ustawia kolor imienia, kolor dialogu i kolor ramki. Sposób ich ustawienia opisuje przewodnik o edycji postaci.
-
-<a id="automate-active-characters-merged-only"></a>
-
-### **Automate active characters** (tylko przy **Merged**)
-
-W trybie Merged karta każdej aktywnej postaci trafia do promptu przy każdej odpowiedzi, więc duża obsada albo zapełnia kontekst, albo wymusza ręczne przełączanie oczu, gdy postacie przychodzą i odchodzą. Kiedy ustawienie **Mode** stoi na **Merged (Narrator)**, **Automate active characters** (automatyzowanie aktywnych postaci) może je przełączać za ciebie. Ma trzy opcje i domyślnie jest ustawione na **Off**.
-
-- **Off**: aktywne postacie wybierasz przełącznikami z okiem.
-- **Decision model** (model decyzyjny): przed każdą odpowiedzią twój [Decision model](../connections/decision-models.md) dostaje po jednym pytaniu tak/nie o każdą postać: czy ta postać jest w scenie, którą odpowiedź kontynuuje, albo do niej wchodzi? Wzmianka lub wspomnienie się nie liczy, więc postać, o której się tylko mówi, zostaje wyłączona. Postacie uznane za obecne są włączane, a pozostałe wyłączane.
-- **Character Tracker**: o tym, kto jest aktywny, decydują obecne postacie z ostatniej odpowiedzi według [Character Tracker](../agents/built-in-agents.md#character-tracker). Nie wymaga to dodatkowego wywołania modelu, ale działa z jedną turą opóźnienia: postać, która wchodzi w tej turze, zostaje włączona dopiero na następną.
-
-Podpowiedź pod ustawieniem mówi, kiedy czegoś brakuje: nie wybrano Decision model, Character Tracker jest wyłączony w tym czacie albo tracker działa ręcznie, co zmienia listę dopiero po jego uruchomieniu.
-
-Kilka reguł sprawia, że czat działa poprawnie:
-
-- **Przypięcia.** Gdy automatyzacja jest włączona, każdy wiersz listy **Characters** pokazuje pinezkę na lewo od oka. Kliknij ją, żeby przypiąć postać w obecnym stanie, włączoną lub wyłączoną; automatyzacja zostawia ją wtedy w spokoju. Ręczne przełączenie oka też przypina postać, żeby następna odpowiedź nie cofnęła twojego wyboru. Pinezka przypiętego wiersza ma kolor akcentu; kliknij ją ponownie, żeby odpiąć. Przełączenie automatyzacji na **Off** usuwa wszystkie przypięcia.
-- **Narrator pozostaje aktywny.** Wyznaczony **Narrator** (narrator) z **Roleplay Commands** (komendy Roleplay) nigdy nie jest wyłączany.
-- **Brak odpowiedzi zostawia listę.** W trybie **Decision model**, jeśli model nie odpowie dla każdej postaci, używana jest zamiast tego ostatnia scena Character Tracker, o ile istnieje. Model, który najpierw myśli, nie odpowiada przed odpowiedzią, chyba że włączone jest **Also gate agents that run before the reply** (sprawdzaj także agentów działających przed odpowiedzią), więc zastępuje go tracker. Tak samo jest przy obsadzie zbyt dużej, by zmieściła się w danych wejściowych Decision model nawet po samych imionach – wtedy model nie jest w ogóle pytany. Jeśli żadne z nich nie ma odpowiedzi, lista zostaje taka, jaka jest.
-- **Nikt aktywny to nie opcja.** Wynik, który wyłączyłby wszystkich, jest ignorowany.
-- **Agent Character Activity ma pierwszeństwo.** Czat z własnym agentem używającym typu wyniku **Character Activity** zostawia tego agenta za sterami, a automatyzacja nic nie robi.
-
-Character Tracker zapisuje własną nazwę każdej postaci, którą widzi. Postać jest dopasowywana do swojej karty najpierw po identyfikatorze karty, potem po imieniu, a potem po aliasach imienia karty z zakładki **Colors** w edytorze postaci, więc karta, która weszła, będąc wyłączoną, i tak zostaje znaleziona. Lista trackera, która nie wymienia żadnej postaci z czatu, na przykład scena z samymi statystami, zachowuje bieżącą listę.
-
-Automatyzacja działa przed każdą odpowiedzią, swipe'em i regeneracją. Pomija **Continue** i funkcję Impersonate. Ustawienie zapisuje się w profilach ustawień; przypięcia należą do jednego czatu.
+**Color Dialogues** (kolorowe dialogi) jest domyślnie wyłączone. Po włączeniu kwestie każdej postaci mają jej własne kolory z zakładki **Colors** (kolory) w edytorze postaci. W grupie Conversation kwestie same dostają kolory mówiących i nie ma przełącznika.
 
 <a id="response-order-individual-only"></a>
 
 ### **Response Order** (tylko przy **Individual**)
 
-Kiedy ustawienie **Mode** stoi na **Individual**, pojawia się ustawienie **Response Order** (kolejność odpowiedzi). To przełącznik z trzema przyciskami.
+Gdy **Mode** ma wartość **Individual**, pojawia się **Response Order** (kolejność odpowiedzi). Domyślna jest kolejność **Sequential**.
 
-- **Sequential** jest domyślne. Każda postać odpowiada po kolei, zgodnie z listą **Characters**. Zmień kolejność uczestników, a zmienisz kolejność tur.
-- **Smart** wykonuje krótkie, ukryte zapytanie do AI i na tej podstawie decyduje, która postać albo które postacie mają się odezwać jako następne. Czyta ostatnie wiadomości i opisy postaci, a zwykle wskazuje jedną osobę. Wzmianka w stylu `@Alice` w twojej wiadomości unieważnia ten wybór.
+| Kolejność | Co się dzieje |
+| --- | --- |
+| **Sequential** | Postacie odpowiadają po kolei, zgodnie z kolejnością listy **Characters**. W trybie Conversation postacie offline są pomijane. |
+| **Smart** | Krótkie, ukryte wywołanie modelu wybiera, kto odpowiada następny, zwykle jedną postać. Wzmianka `@Alice` w twojej wiadomości unieważnia ten wybór. W trybie Conversation bierze pod uwagę rozmowę, status z harmonogramu i rozmowność. |
+| **Manual** | Nikt nie odpowiada sam z siebie. W trybie Roleplay użyj selektora **Trigger Response** (wywołanie odpowiedzi). W trybie Conversation wywołaj jedną lub więcej postaci wzmianką `@mention` albo użyj selektora. |
 
-  Jeśli wybierzesz **Decision model**, możesz włączyć pod nim **Also use it to pick who speaks in Smart response order** (wybieraj nim także mówiącego w kolejności Smart). Kolejność Smart prosi wtedy o osobny wynik tak/nie dla każdego kandydata. Pytania współdzielą pięć ostatnich wiadomości i listę kandydatów z imionami, statusem, aktywnością, rozmownością oraz krótkim fragmentem osobowości lub opisu. Zdalny dostawca też otrzymuje tę listę; zobacz [Co widzi model](../connections/decision-models.md#what-the-model-sees).
+Przy kolejności **Smart** model może ustawić w kolejce kilka postaci. Od razu odpowiada tylko pierwsza. Aby wygenerować odpowiedź następnej postaci z kolejki, użyj selektora **Trigger Response** albo wyślij pustą wiadomość.
 
-  Te wyniki mogą przyjść szybciej niż pełna odpowiedź AI, ale szybkość i koszt zależą od modelu i liczby kandydatów. W trybie Roleplay Marinara wybiera najbardziej prawdopodobnego mówiącego. W Conversation odpowiada każdy, kto ma powód, w kolejności prawdopodobieństwa. Postać, która właśnie mówiła, czeka, jeśli ktoś inny ma powód odpowiedzieć. Gdy model decyzyjny nie odpowie, Smart wykonuje zwykłe wywołanie AI.
-- **Manual** wyłącza wszystkie automatyczne odpowiedzi. Wtedy samodzielnie wskazujesz mówiącego listą **Trigger Response** na pasku wiadomości.
+Jeśli masz wybrany [Decision model](../connections/decision-models.md) (model decyzyjny), możesz włączyć pod nim **Also use it to pick who speaks in Smart response order** (wybieraj nim także mówiącego w kolejności Smart). Kolejność Smart prosi wtedy o wynik tak/nie dla każdego kandydata.
 
-Przy kolejności **Smart** AI potrafi ustawić w kolejce więcej niż jedną postać. Od razu odpowiada tylko pierwsza. Kolejnego mówiącego wskaże lista **Trigger Response** na pasku wiadomości. Inna opcja: wyślij pustą wiadomość, a odezwie się następna postać z kolejki.
+- Pytania współdzielą pięć ostatnich wiadomości i listę kandydatów z imieniem, statusem, aktywnością, rozmownością i krótkim fragmentem osobowości każdego z nich. Zdalna usługa też otrzymuje tę listę. Zobacz [Co widzi model](../connections/decision-models.md#what-the-model-sees).
+- Szybkość i koszt zależą od modelu i liczby kandydatów.
+- W trybie Roleplay Marinara wybiera najbardziej prawdopodobnego mówiącego. W trybie Conversation odpowiada każdy, kto ma powód, zaczynając od najbardziej prawdopodobnego. Postać, która właśnie mówiła, czeka, jeśli ktoś inny ma powód odpowiedzieć.
+- Jeśli model decyzyjny nie odpowie, kolejność Smart wykonuje swoje zwykłe wywołanie modelu.
 
-W Roleplay w trybie **Individual** z kolejnością **Smart** lub **Manual** pierwszą opcją selektora jest **Smart**, oznaczone ikoną osób w kolorze akcentu. Prosi model o wybranie następnego rozmówcy dla tej odpowiedzi, korzystając z modelu decyzyjnego, jeśli jego opcja kolejności Smart jest włączona. Zapisana kolejność odpowiedzi nie zmienia się, a opcje z nazwami postaci nadal pozwalają wybrać je bezpośrednio.
+W trybie Roleplay przy **Individual** z kolejnością **Smart** lub **Manual** pierwszą opcją selektora jest **Smart**, oznaczona ikoną osób. Prosi model o wybranie następnego mówiącego dla tej jednej odpowiedzi. Zapisana kolejność się nie zmienia.
 
-W trybie **Individual** dochodzą jeszcze dwa przełączniki:
+### Ręczne wywołanie odpowiedzi
 
-- **Add Turn To Prompt** jest domyślnie włączone. Dodaje krótką instrukcję z imieniem postaci, która ma odpowiedzieć w tej turze.
-- **Name Prefix History** jest domyślnie wyłączone. Zmienia sposób oznaczania wcześniejszych wiadomości imionami mówiących, zanim trafią one do modelu. Zostaw je wyłączone, chyba że któraś postać ciągle myli, kto co powiedział.
+Użyj selektora **Trigger Response**, aby wybrać mówiącego. Na komputerze to przycisk obok **Send** (wyślij), z etykietą **Trigger character response**. Na telefonie znajdziesz go pod nagłówkiem **Trigger Response** w tacce narzędzi otwieranej z paska wiadomości. Aby wskazać mówiącego w tekście, wpisz `@` i imię postaci. Pojawi się lista autouzupełniania.
 
-### **Scenario Override**
+### Więcej ustawień trybu Individual
 
-Pole **Scenario Override** (nadpisanie scenariusza) pozwala dać całej grupie jeden wspólny scenariusz. Wpisany tam tekst zastępuje w prompcie własny scenariusz każdej postaci. Puste pole oznacza, że każda postać zachowuje swój scenariusz.
+- **Add Turn To Prompt** (dodanie tury do promptu) jest domyślnie włączone. Dodaje krótką instrukcję z imieniem postaci, która ma odpowiedzieć.
+- **Name Prefix History** (prefiksy imion w historii, tylko Roleplay) jest domyślnie wyłączone. Zmienia sposób oznaczania wcześniejszych wiadomości imionami mówiących. Zostaw je wyłączone, chyba że któraś postać ciągle myli, kto co powiedział.
 
-Nie ma tu osobnego przełącznika. Wpisanie tekstu włącza tę funkcję, a wyczyszczenie pola ją wyłącza. Do edycji w większym oknie służy ikona rozwijania (podpowiedź **Expand editor**). Większy edytor nosi tytuł **Group Scenario Override**.
+### **Scenario Override** (Roleplay)
 
-Jedna uwaga o wielokrotnym użyciu: tekst z pola **Scenario Override** należy do tego jednego czatu. Profile ustawień go nie obejmują, więc nie przeniesie się razem z profilem do nowego czatu.
+**Scenario Override** (nadpisanie scenariusza) daje całej grupie jeden wspólny scenariusz. Tekst w polu zastępuje w prompcie własny scenariusz każdej postaci. Puste pole zostawia scenariusze bez zmian. Nie ma przełącznika. Aby edytować w większym oknie, kliknij ikonę rozwijania (podpowiedź **Expand editor**, okno z tytułem **Group Scenario Override**). Ten tekst należy do jednego czatu i profile ustawień go nie obejmują.
 
-### Ustawienia i wartości domyślne (Roleplay)
+### **Character Exchanges** (Conversation)
+
+Włącz **Character Exchanges** (rozmowy między postaciami) w **Chat Settings → Autonomous Messaging** (ustawienia czatu, wiadomości autonomiczne), aby postacie rozmawiały ze sobą podczas twojej nieobecności. Ta opcja jest domyślnie wyłączona i pojawia się tylko w czacie grupowym. Działa tylko wtedy, gdy aplikacja Marinara Engine jest otwarta w przeglądarce, i dzieli dzienny limit wiadomości z wiadomościami autonomicznymi. Działa z harmonogramami postaci i bez nich. W grupie **Individual** rozmowy między postaciami i odpowiedzi na wzmianki `@mention` nigdy nie wykorzystują ostatniego dziennego odezwania się grupy.
+
+## Ustawienia i wartości domyślne
 
 | Ustawienie | Gdzie | Domyślnie |
-|---|---|---|
-| **Mode** (**Merged (Narrator)** / **Individual**) | sekcja Group Chat | Merged (Narrator) |
-| **Color Dialogues** | sekcja Group Chat, tryb Merged | Off |
-| **Automate active characters** (Off / Decision model / Character Tracker) | sekcja Group Chat, tryb Merged | Off |
-| **Response Order** (Sequential / Smart / Manual) | sekcja Group Chat, tryb Individual | Sequential |
-| **Add Turn To Prompt** | sekcja Group Chat, tryb Individual | On |
-| **Name Prefix History** | sekcja Group Chat, tryb Individual | Off |
-| **Scenario Override** | sekcja Group Chat | puste (wyłączone) |
+| --- | --- | --- |
+| **Mode** | sekcja Group Chat | **Merged (Narrator)** w trybie Roleplay, **Grouped** w trybie Conversation |
+| **Color Dialogues** | Roleplay, Merged | wyłączone |
+| **Automate active characters** | Roleplay, Merged | Off |
+| **Response Order** | Individual | Sequential |
+| **Add Turn To Prompt** | Individual | włączone |
+| **Name Prefix History** | Roleplay, Individual | wyłączone |
+| **Scenario Override** | Roleplay | puste |
+| **Character Exchanges** | Conversation, Autonomous Messaging | wyłączone |
 
-Większość tych ustawień zapisuje się w profilach ustawień, więc da się ich używać wielokrotnie. Wyjątkiem jest **Scenario Override**, które zostaje przy jednym czacie. Przypięcia automatyzacji też zostają przy czacie.
+Profile ustawień zapisują te ustawienia z wyjątkiem **Scenario Override** i przypięć automatyzacji. Zobacz [Profile ustawień](settings-profiles.md).
 
-## Kto zabiera głos: tryb Conversation
+## Szczegóły
 
-Tryb Conversation obsługuje te same czaty grupowe, ale nie pokazuje sekcji **Group Chat**. Odpowiednie ustawienia leżą w sekcji **Autonomous Messaging** (wiadomości autonomiczne) w panelu **Chat Settings**.
+<a id="automate-active-characters-merged-only"></a>
 
-Domyślnie czat grupowy w tym trybie zachowuje się jak tryb Merged. Jedna odpowiedź może objąć kilka postaci naraz, a ich kwestie same dostają kolory mówiących. W trybie Conversation nie ma osobnego przełącznika kolorów.
+### **Automate active characters** (tylko przy **Merged**)
 
-### **Reply When Mentioned**
+W trybie Merged karta każdej aktywnej postaci trafia do promptu przy każdej odpowiedzi. W trybie Roleplay **Automate active characters** (automatyzowanie aktywnych postaci) może włączać i wyłączać karty za ciebie, żeby duża obsada nie zapełniała kontekstu. Ma trzy opcje i domyślnie jest ustawione na **Off**.
 
-Włącz **Reply When Mentioned** (odpowiedź po wzmiance), a czat przejdzie na tryb jednej postaci naraz. Wtedy postacie odzywają się tylko wtedy, gdy je wymienisz albo wskażesz ręcznie. Opis przełącznika brzmi "Characters wait for direct mentions or manual response triggers."
+| Opcja | Co robi |
+| --- | --- |
+| **Off** | Aktywne postacie wybierasz przełącznikami z okiem. |
+| **Decision model** | Przed każdą odpowiedzią twój [Decision model](../connections/decision-models.md) odpowiada na jedno pytanie tak/nie o każdą postać: czy ta postać jest w scenie, którą kontynuuje odpowiedź, albo do niej wchodzi? Postać, o której tylko się mówi albo którą ktoś wspomina, pozostaje wyłączona. |
+| **Character Tracker** | O tym, kto jest aktywny, decydują obecne postacie z ostatniej odpowiedzi według agenta [Character Tracker](../agents/built-in-agents.md#character-tracker). Nie wymaga to dodatkowego wywołania modelu, ale działa z jedną turą opóźnienia: postać, która wchodzi teraz, zostaje włączona dopiero przy następnej odpowiedzi. |
 
-Postać wymienia się wzmianką. Wpisz w polu wiadomości `@`, a potem imię postaci, a pojawi się lista podpowiedzi. Odpowiadają te postacie, które wymienisz.
+Wskazówka pod ustawieniem informuje, kiedy czegoś brakuje: nie wybrano modelu decyzyjnego, Character Tracker jest wyłączony w tym czacie albo tracker działa ręcznie i zmienia listę dopiero po uruchomieniu.
 
-Żeby wskazać mówiącego bez wpisywania wzmianki, użyj listy **Trigger Response**.
+- **Przypięcia.** Gdy automatyzacja jest włączona, każdy wiersz postaci pokazuje pinezkę na lewo od oka. Kliknij ją, aby przypiąć postać w obecnym stanie, włączoną lub wyłączoną; automatyzacja zostawia ją wtedy w spokoju. Ręczne przełączenie oka też przypina postać. Kliknij pinezkę ponownie, aby odpiąć postać. Przełączenie automatyzacji na **Off** usuwa wszystkie przypięcia.
+- **Narrator pozostaje aktywny.** Wyznaczony Narrator nigdy nie jest wyłączany.
+- **Brak odpowiedzi zostawia listę.** W trybie **Decision model**, jeśli model nie odpowie, używana jest ostatnia scena z Character Tracker, o ile istnieje. Dotyczy to też modelu, który najpierw myśli, chyba że włączone jest **Also gate agents that run before the reply** (sprawdzaj także agentów działających przed odpowiedzią), oraz obsady zbyt dużej dla danych wejściowych modelu decyzyjnego. Jeśli żadne z nich nie da odpowiedzi, lista zostaje taka, jaka jest.
+- **Wynik bez aktywnych postaci jest ignorowany.** Wynik, który wyłączyłby wszystkich, nie zostaje zastosowany.
+- **Agent Character Activity ma pierwszeństwo.** W czacie z własnym agentem używającym typu wyniku **Character Activity** sterowanie zostaje przy tym agencie.
 
-- Na komputerze jest to przycisk obok przycisku Send.
-- Na urządzeniu mobilnym znajdziesz go pod nagłówkiem **Trigger Response** w tacce narzędzi otwieranej z paska wiadomości.
-
-Podpowiedź przy przycisku brzmi "Trigger character response".
-
-### **Character Exchanges**
-
-Włącz **Character Exchanges** (rozmowy między postaciami), a postacie zaczną odzywać się do siebie same z siebie. Domyślnie jest to wyłączone. Opis brzmi "Characters chat with each other in group chats."
-
-Po włączeniu postacie mogą odpowiadać sobie nawzajem podczas twojej nieobecności, nie tylko tobie. Działa to wyłącznie wtedy, gdy Marinara jest otwarta w przeglądarce. Po zamknięciu aplikacji wymiana zdań ustaje. Obowiązuje tu też ten sam dzienny limit wiadomości, co przy wiadomościach autonomicznych.
-
-Rozmowy między postaciami działają niezależnie od tego, czy harmonogramy postaci są włączone. W czacie grupowym ustawionym na **Individual** te rozmowy i odpowiedzi na wzmianki `@Name` między postaciami nigdy nie zajmują ostatniego miejsca w dziennym limicie odezwań grupy, więc to miejsce zostaje dla późniejszego odezwania się.
-
-## Kolejność tur w skrócie
-
-| Tryb i ustawienie | Co się dzieje | Jak nad tym zapanować |
-|---|---|---|
-| Roleplay, Merged | jedna odpowiedź obejmuje wszystkie postacie | zawsze wszystkie postacie razem |
-| Roleplay, Individual, Sequential | każda postać odpowiada zgodnie z kolejnością uczestników | przeciągnij uczestników, żeby zmienić kolejność |
-| Roleplay, Individual, Smart | AI wskazuje następnego mówiącego lub mówiących | wzmianka `@Name` unieważnia ten wybór |
-| Roleplay, Individual, Manual | nikt nie odzywa się sam z siebie | użyj listy **Trigger Response** |
-| Conversation, domyślnie | jedna odpowiedź może objąć kilka postaci | wzmianka `@Name` wskazuje postać |
-| Conversation, włączone Reply When Mentioned | bez wzmianki lub wskazania nikt nie odpowiada | wzmianka `@Name` albo lista **Trigger Response** |
-| Conversation, włączone Character Exchanges | postacie mogą też pisać do siebie | wyłącz to ustawienie, żeby przerwać |
-
-## Powiązane przewodniki
-
-- [Porządkowanie biblioteki postaci](../characters/library-organization.md)
-- [Tryb Conversation: pierwsze kroki](../conversation/getting-started.md)
-- [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md)
+Character Tracker zapisuje własną nazwę każdej postaci. Marinara dopasowuje ją do karty najpierw po identyfikatorze karty, potem po imieniu, a potem po aliasach imienia z zakładki **Colors**. Lista trackera, która nie wymienia żadnej postaci z czatu, zachowuje bieżącą listę. Automatyzacja działa przed każdą odpowiedzią, swipe'em i ponownym generowaniem, a pomija **Continue** i funkcję Impersonate. Ustawienie zapisuje się w profilach ustawień. Przypięcia zostają przy jednym czacie.

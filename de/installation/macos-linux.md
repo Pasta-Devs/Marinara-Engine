@@ -1,41 +1,36 @@
 # Installationsanleitung für macOS und Linux
 
-In dieser Anleitung erfährst du, wie du Marinara Engine unter macOS oder Linux installierst und startest. Du installierst zwei nötige Werkzeuge, startest die App über das Startskript und lernst, wie Updates später ablaufen. Marinara Engine (ab hier kurz Marinara) läuft komplett auf dem eigenen Rechner.
+Installiere Marinara Engine auf einem Mac oder einem Linux-Rechner und starte es mit dem Launcher `start.sh`. Marinara läuft danach auf deinem eigenen Rechner.
 
-## Voraussetzungen
+## Bevor du anfängst
 
-Zwei kostenlose Werkzeuge müssen vorher installiert sein:
+Du brauchst zwei Werkzeuge:
 
-- **Node.js**: das Programm, das Marinara ausführt. Nimm Version 24, 25 oder 26 (empfohlen ist die LTS-Version 24).
-- **Git**: das Werkzeug, das Marinara herunterlädt und Updates holt.
+- **Node.js** 24, 25 oder 26. Node.js führt Marinara aus. Version 24 ist die empfohlene LTS-Version (Long Term Support).
+- **Git**. Git lädt Marinara herunter und holt Updates.
 
-pnpm musst du nicht selbst installieren. pnpm ist der Paketmanager, mit dem Marinara seine Bestandteile holt. Das Startskript installiert die passende pnpm-Version automatisch.
+pnpm (das Werkzeug, das die Bestandteile der App installiert) musst du nicht installieren. Der Launcher richtet die passende Version ein.
 
-### Installation unter macOS
+### Node.js und Git unter macOS installieren
 
-Am einfachsten geht es mit Homebrew. Ein einziger Befehl installiert beide Werkzeuge:
+Mit Homebrew installiert ein einziger Befehl beide:
 
 ```bash
 brew install node git
 ```
 
-Ohne Homebrew lädst du das Node.js-Installationsprogramm von https://nodejs.org herunter. Git kommt anschließend über die Xcode Command Line Tools dazu:
+Ohne Homebrew lädst du den Node.js-Installer von [nodejs.org](https://nodejs.org) herunter. Git installierst du dann mit den Xcode Command Line Tools:
 
 ```bash
 xcode-select --install
 ```
 
-### Installation unter Linux
+### Node.js und Git unter Linux installieren
 
-Nutze den Paketmanager der Distribution. Unter Ubuntu oder Debian ist das mitgelieferte Node.js oft älter als Version 24. Binde deshalb zuerst die neuere NodeSource-Version ein:
+Nutze deinen Paketmanager. Unter Ubuntu oder Debian ist das mitgelieferte Node.js oft älter als Version 24. Binde deshalb zuerst die NodeSource-Version ein:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash -
-```
-
-Danach installierst du Node.js und Git:
-
-```bash
 sudo apt install -y nodejs git
 ```
 
@@ -53,196 +48,144 @@ sudo pacman -S nodejs npm git
 
 ### Werkzeuge prüfen
 
-Prüfe, ob beide Werkzeuge bereitstehen. Führe diesen Befehl aus:
-
 ```bash
 node -v
-```
-
-Angezeigt werden sollte `v24` oder eine höhere Nummer. Führe danach diesen Befehl aus:
-
-```bash
 git --version
 ```
 
-Angezeigt werden sollte eine Version wie `git version 2.40` oder höher. Meldet einer der Befehle „command not found“, ist das Werkzeug nicht korrekt installiert.
+`node -v` muss `v24` oder höher anzeigen. Meldet einer der Befehle „command not found“, ist das Werkzeug nicht korrekt installiert.
 
-## Schnellstart über das Startskript
+## Marinara installieren und starten
 
-Das Startskript `start.sh` ist der empfohlene Weg, Marinara zu starten. Es installiert alles, baut die App und öffnet sie im Browser.
+1. Öffne ein Terminal, also ein Fenster, in das du Befehle eintippst. Auf dem Mac drückst du <kbd>Cmd</kbd>+<kbd>Leertaste</kbd>, tippst Terminal ein und drückst Enter. Unter Linux öffnest du deine Terminal-App.
+2. Lade Marinara herunter.
 
-1. Lade Marinara herunter. Führe diesen Befehl aus:
+   ```bash
+   git clone https://github.com/Pasta-Devs/Marinara-Engine.git
+   ```
 
-```bash
-git clone https://github.com/Pasta-Devs/Marinara-Engine.git
-```
+3. Wechsle in den neuen Ordner.
 
-2. Wechsle in den neuen Ordner. Führe diesen Befehl aus:
+   ```bash
+   cd Marinara-Engine
+   ```
 
-```bash
-cd Marinara-Engine
-```
+4. Starte Marinara mit dem Launcher, also dem Skript, das es einrichtet und startet.
 
-3. Mach das Startskript ausführbar. Führe diesen Befehl aus:
+   ```bash
+   ./start.sh
+   ```
 
-```bash
-chmod +x start.sh
-```
+Der erste Start dauert ein paar Minuten, weil dabei alles heruntergeladen und gebaut wird. Das Terminal zeigt den Fortschritt und dann `Press Ctrl+C to stop`. Marinara öffnet sich in deinem Browser unter `http://127.0.0.1:7860`. Öffnet sich der Browser nicht, ruf die Adresse selbst auf.
 
-4. Starte Marinara. Führe diesen Befehl aus:
+Wenn es nicht funktioniert hat:
 
-```bash
-./start.sh
-```
+- `permission denied`: Führ `chmod +x start.sh` aus und dann erneut `./start.sh`.
+- `[ERROR] Node.js 24 LTS or newer is required`: Dein Node.js ist zu alt. Installier eine neuere Version und führ dann erneut `./start.sh` aus.
 
-Der erste Start dauert ein paar Minuten, weil dabei alles heruntergeladen und gebaut wird. Ist er fertig, öffnet sich Marinara im Browser unter http://127.0.0.1:7860. Die 7860 ist der Standard-Port – also die Tür, über die die App auf dem Rechner erreichbar ist.
+## Marinara starten und stoppen
 
-Öffnet sich der Browser nicht von allein, ruf die Adresse einfach selbst auf.
+- **Erneut starten:** Führ `./start.sh` im Marinara-Ordner aus. Läuft Marinara schon, öffnet der Launcher es erneut in deinem Browser.
+- **Stoppen:** Drück <kbd>Ctrl</kbd>+<kbd>C</kbd> im Terminal.
 
-### Was das Startskript bei jedem Start tut
+Jedes Mal, wenn du `./start.sh` aus einem Git-Download ausführst, macht der Launcher Folgendes:
 
-Bei jedem `./start.sh` aus einem Git-Download macht das Startskript Folgendes:
+1. Er sucht nach einer neueren Version und aktualisiert, wenn er eine findet.
+2. Er prüft Node.js und die passende pnpm-Version.
+3. Er installiert fehlende Bestandteile und baut die App neu, wenn sich der Code geändert hat.
+4. Er startet den Server und öffnet deinen Browser.
 
-1. Es sucht nach einer neueren Version und aktualisiert sich selbst, falls es eine gibt.
-2. Es prüft, ob Node.js und die passende pnpm-Version bereitstehen.
-3. Es installiert fehlende Bestandteile.
-4. Es baut die App neu, sobald sich der Code geändert hat.
-5. Es bereitet den lokalen Speicher für die Daten vor.
-6. Es startet den Server und öffnet die App im Browser.
+## Launcher-Einstellungen ändern
 
-### Automatisches Öffnen des Browsers abschalten
-
-Standardmäßig öffnet das Startskript den Browser. Um das zu unterbinden, legst du im Marinara-Ordner eine Datei namens `.env` an und trägst diese Zeile ein:
+Die Einstellungen des Launchers stehen in einer `.env`-Datei im Marinara-Ordner. Eine `.env`-Datei ist eine reine Textdatei mit einer Einstellung pro Zeile. Damit der Launcher deinen Browser nicht öffnet, trag diese Zeile ein:
 
 ```bash
 AUTO_OPEN_BROWSER=false
 ```
 
-Eine `.env`-Datei ist eine reine Textdatei mit Einstellungen, eine pro Zeile. Ein kleiner Anfang sieht so aus:
+`PORT` legt den Port fest, also die Zahl nach dem Doppelpunkt in der Adresse (standardmäßig 7860). Der Launcher lässt andere Geräte in deinem lokalen Netzwerk an Marinara heran, doch Marinara blockiert sie, bis du eine Anmeldung einrichtest. Siehe [Fernzugriff](../REMOTE_ACCESS.md).
 
-```bash
-PORT=7860
-AUTO_OPEN_BROWSER=true
-```
+## Marinara aktualisieren
 
-`PORT` legt den Port der Adresse fest (standardmäßig 7860). Außerdem lässt das Startskript standardmäßig zu, dass andere Geräte im LAN den Server erreichen. LAN steht für Local Area Network, also das Netzwerk zu Hause oder im Büro. Marinara blockiert diese Geräte trotzdem, bis du ein Passwort oder eine andere Zugriffsoption einrichtest. Wie das geht, zeigt die Anleitung [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
+`./start.sh` aktualisiert Marinara zuerst. Deine Chats, Charaktere und Einstellungen bleiben, wo sie sind. Hast du den Code selbst geändert, legt der Launcher deine Änderungen beiseite und holt sie nach dem Update zurück. Zum Überspringen eines Updates, zur Schaltfläche **Apply Update** (Update einspielen) in der App und zu manuellen Befehlen siehe [Marinara Engine aktualisieren](../UPGRADING.md#macos-and-linux).
 
-## Manuelle Einrichtung
+## Manuelle Einrichtung ohne Launcher
 
-Für die meisten ist das Startskript oben die bessere Wahl. Wer jeden Schritt lieber selbst ausführt, nimmt stattdessen diese Befehle. Für die manuelle Einrichtung muss pnpm verfügbar sein. Node.js 24 bringt Corepack mit, Node.js 25 dagegen nicht.
+Für die meisten ist der Launcher die richtige Wahl. Willst du jeden Schritt selbst ausführen, brauchst du pnpm. Node.js 24 bringt Corepack mit, ein Werkzeug, das pnpm aktiviert. Node.js 25 bringt es nicht mit.
 
-1. Unter Node.js 24 aktivierst du pnpm über Corepack:
+1. Unter Node.js 24 aktivierst du pnpm:
 
-```bash
-corepack enable pnpm
-```
+   ```bash
+   corepack enable pnpm
+   ```
 
-Unter Node.js 25 oder 26 installierst du zuerst das separate Corepack-Paket und aktivierst dann pnpm:
+   Unter Node.js 25 oder 26 installierst du zuerst Corepack:
 
-```bash
-npm install --global corepack
-corepack enable pnpm
-```
+   ```bash
+   npm install --global corepack
+   corepack enable pnpm
+   ```
 
-2. Lade Marinara herunter. Führe diesen Befehl aus:
+2. Lade Marinara herunter.
 
-```bash
-git clone https://github.com/Pasta-Devs/Marinara-Engine.git
-```
+   ```bash
+   git clone https://github.com/Pasta-Devs/Marinara-Engine.git
+   ```
 
-3. Wechsle in den Ordner. Führe diesen Befehl aus:
+3. Wechsle in seinen Ordner.
 
-```bash
-cd Marinara-Engine
-```
+   ```bash
+   cd Marinara-Engine
+   ```
 
-4. Installiere die Bestandteile. Führe diesen Befehl aus:
+4. Installier die Bestandteile, bau die App und starte den Server.
 
-```bash
-pnpm install --force
-```
+   ```bash
+   pnpm install --force
+   pnpm build
+   pnpm start
+   ```
 
-5. Baue die App. Führe diesen Befehl aus:
+5. Öffne `http://127.0.0.1:7860`.
 
-```bash
-pnpm build
-```
+Mit `pnpm start` lauscht der Server nur auf deinem eigenen Rechner. Damit sich andere Geräte verbinden können, trag `HOST=0.0.0.0` in die `.env` ein und starte neu.
 
-6. Starte den Server. Führe diesen Befehl aus:
+## Optional: Hintergrundentfernung
 
-```bash
-pnpm start
-```
+Marinara fordert für generierte Sprites (Charakterbilder) transparente Hintergründe an und bereinigt flache Hintergründe selbst. Als Rückfalllösung für detaillierte Kulissen oder Schatten kannst du die optionale KI-Hintergrundentfernung installieren. Sie richtet ein Python-venv ein (einen eigenen Ordner für Python-Pakete) und lädt große Dateien herunter: PyTorch (eine Bibliothek für maschinelles Lernen) und die U2Net-Modelle (Dateien, die das Motiv eines Bildes finden).
 
-Öffne nun http://127.0.0.1:7860 im Browser. Mit `pnpm start` lauscht der Server standardmäßig nur auf dem eigenen Rechner. Alles läuft lokal, und der Datenspeicher wird beim ersten Start vorbereitet.
+1. Unter macOS läuft Python 3.11 am besten. Installier es zuerst. Python 3.9 bis 3.11 funktioniert.
 
-### Wenn die Installation unter Linux scheitert
+   ```bash
+   brew install python@3.11
+   ```
 
-Manche Linux-Systeme lehnen sehr lange Dateipfade bei der Installation ab. Erscheint ein Fehler mit `ERR_PNPM_ENAMETOOLONG`, lösch die halbfertigen Ordner und fang mit dem Startskript neu an. Führe diesen Befehl aus:
+2. Führ im Marinara-Ordner Folgendes aus:
 
-```bash
-rm -rf node_modules .pnpm .pnpm-store
-```
+   ```bash
+   pnpm backgroundremover:install
+   ```
 
-Führe danach diesen Befehl aus:
-
-```bash
-./start.sh
-```
-
-## Optionale Hintergrundentfernung
-
-Marinara kann den Hintergrund aus Charakter-Sprites entfernen. Ein Sprite ist das Charakterbild auf der Bühne in Roleplay und Game Mode. Native Transparenz und die eingebaute adaptive Matte-Bereinigung funktionieren ohne diesen Download. Installier die zusätzliche KI-Variante nur, wenn du zusätzlich eine Rückfalllösung für Sprites vor detaillierter Kulisse, Schatten oder anderen unruhigen Hintergründen brauchst; sie lädt große Dateien herunter.
-
-Das Zusatzwerkzeug ist ein Python-Programm. Bei der Installation entsteht ein Python-venv (eine virtuelle Umgebung, also ein eigener Ordner für Python-Pakete). Dazu kommt PyTorch, eine Bibliothek für maschinelles Lernen. Zuletzt lädt es die U2Net-Modelle herunter – die Dateien, die das Motiv im Bild finden.
-
-Für die einmalige Installation führst du diesen Befehl im Marinara-Ordner aus:
-
-```bash
-pnpm backgroundremover:install
-```
-
-Unter macOS läuft Python 3.11 am zuverlässigsten. Installier es zuerst mit Homebrew:
-
-```bash
-brew install python@3.11
-```
-
-Führe danach den Installationsbefehl erneut aus:
-
-```bash
-pnpm backgroundremover:install
-```
-
-Soll das Startskript das Werkzeug beim nächsten Start selbst installieren, trag diese Zeile in die `.env`-Datei ein:
+Soll der Launcher sie beim nächsten Start installieren, trag diese Zeile in die `.env` ein:
 
 ```bash
 BACKGROUNDREMOVER_AUTO_INSTALL=true
 ```
 
-## Updates
+## Wenn etwas schiefgeht
 
-Startest du Marinara mit `./start.sh` aus einem Git-Download, sucht das Startskript nach einer neueren Version. Es aktualisiert sich vor dem Start automatisch. Chats, Charaktere und Einstellungen bleiben erhalten.
+Auf manchen Linux-Systemen schlägt die Installation mit einem Fehler fehl, der `ERR_PNPM_ENAMETOOLONG` enthält (Dateipfade zu lang). Lösch die halbfertigen Ordner und starte den Launcher erneut:
 
-Mit `./start.sh --skip-update` überspringst du eine einzelne Prüfung. Damit die installierte Engine-Version über alle Starts hinweg gleich bleibt, trägst du `AUTO_UPDATE_ENABLED=false` in die `.env` ein. Prüfen und aktualisieren kannst du weiterhin von Hand – über **Settings → Advanced → Updates** oder per Git-Befehl.
+```bash
+rm -rf node_modules .pnpm .pnpm-store
+./start.sh
+```
 
-Das geht auch in der App selbst. Öffne **Settings** (Einstellungen), wechsle auf den Tab **Advanced** (Erweitert) und such den Bereich **Updates**. Ein Klick auf **Check for Updates** (Nach Updates suchen) zeigt, ob eine neuere Version vorliegt. Die Schaltfläche **Apply Update** (Update anwenden) ist standardmäßig deaktiviert. Um sie freizuschalten, setzt du einige Server-Optionen. Danach hinterlegst du ein Admin-Geheimnis unter **Settings**, **Advanced**, **Admin Access**. Ohne diese Freischaltung genügt ein Neustart mit `./start.sh`, um zu aktualisieren.
-
-Alle Update-Schritte – inklusive vorherigem Backup und Wechsel des Release-Kanals – stehen in der unten verlinkten Update-Anleitung.
-
-## Wichtige Begriffe
-
-- **pnpm**: der Paketmanager, mit dem Marinara seine Bestandteile herunterlädt und ordnet.
-- **Corepack**: ein Helfer in Node.js, der pnpm aktiviert.
-- **LAN**: Local Area Network, das private Netzwerk zu Hause oder im Büro.
-- **.env**: eine reine Textdatei mit Einstellungen im Marinara-Ordner, eine Einstellung pro Zeile.
-- **venv**: eine virtuelle Python-Umgebung, also ein eigener Ordner für Python-Pakete.
-- **PyTorch**: eine Bibliothek für maschinelles Lernen, die die optionale Hintergrundentfernung nutzt.
-- **U2Net**: die Modelldateien, mit denen die Hintergrundentfernung das Motiv im Bild findet.
+Weitere Lösungen findest du unter [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Verwandte Anleitungen
 
-- [Marinara Engine installieren](../INSTALLATION.md): die passende Installationsmethode für dein Gerät finden.
-- [Marinara Engine aktualisieren](../UPGRADING.md): vollständige Update- und Backup-Schritte für jede Plattform.
-- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md): ein Passwort einrichten, damit andere Geräte Marinara erreichen.
-- [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md): Lösungen für Probleme bei Installation und Start.
+- [Marinara Engine installieren](../INSTALLATION.md)
+- [Marinara Engine aktualisieren](../UPGRADING.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md)

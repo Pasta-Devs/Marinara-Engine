@@ -1,107 +1,82 @@
 # Agent-Freigaben und die Agent Suite
 
-In dieser Anleitung erfährst du, wie du prüfst und steuerst, was Agenten (kleine KI-Helfer, die parallel zu den Antworten laufen) während eines Chats schreiben. Beschrieben werden der Schalter **Review Agent Outputs** (Agent-Ausgaben prüfen), die beiden Prüffenster, der **Agent Suite**-Editor und das Panel **Cached prompt injections** (zwischengespeicherte Prompt-Einfügungen).
+Agenten können in deinen Chat schreiben: Lorebook-Einträge, Zusammenfassungen und Änderungen an Charakterkarten. In dieser Anleitung erfährst du, wie du diese Schreibvorgänge prüfst, bevor sie gespeichert werden, und wie du mit der **Agent Suite** liest und korrigierst, was Agenten gespeichert haben.
 
-## Review Agent Outputs
+## Agent-Schreibvorgänge vor dem Speichern prüfen
 
-Manche Agenten wollen neue Daten in den Chat schreiben. Ein Lorebook-Agent legt Einträge in einem Lorebook an, also in einer Sammlung von Weltwissen. Ein Zusammenfassungs-Agent speichert eine Chat-Zusammenfassung. Standardmäßig speichert Marinara einen Teil dieser Schreibvorgänge automatisch. Mit **Review Agent Outputs** prüfst du jeden davon erst selbst.
+Standardmäßig werden manche Schreibvorgänge von Agenten von selbst gespeichert. Mit **Review Agent Outputs** (Agent-Ausgaben prüfen) wartet jeder davon auf deine Freigabe.
 
-So findest du den Schalter:
-
-1. Öffne den Chat, den du steuern willst.
-2. Öffne **Chat Settings** (Chat-Einstellungen).
-3. Scroll zum Abschnitt **Agents**.
-4. Öffne in einem Roleplay-Chat **Trackers Control** (Tracker-Steuerung). In einem Game-Chat überspringst du diesen Schritt.
-5. Aktivier **Review Agent Outputs**.
-
-Ist **Review Agent Outputs** aktiv, warten Lorebook-Updates, Zusammenfassungs-Updates und alle anderen prüfbaren Ausgaben schreibender Agenten auf deine Freigabe. Ist der Schalter aus, speichert Marinara Lorebook- und Zusammenfassungs-Updates auch automatisch.
-
-Änderungen an der Charakterkarte sind ein Sonderfall. Sie fragen immer erst nach deiner Freigabe, selbst wenn **Review Agent Outputs** aus ist. Diese Sicherheitsabfrage lässt sich nicht abschalten.
-
-## Das Freigabefenster für Agent-Schreibvorgänge
-
-Ist **Review Agent Outputs** aktiv und schlägt ein Agent einen Lorebook- oder Zusammenfassungs-Eintrag vor, öffnet sich ein Prüffenster. Je nach Art des Schreibvorgangs heißt es **Review Lorebook Update** oder **Review Summary Update**.
-
-Das Fenster zeigt:
-
-- Den Namen des Agenten, von dem der Vorschlag stammt.
-- Ein Feld **Proposed Text** (vorgeschlagener Text), das du vor dem Speichern bearbeiten kannst.
-- Bei Lorebook-Schreibvorgängen einen kurzen Hinweis, jeden Eintrag unter eine `###`-Überschrift zu setzen.
-
-Unten im Fenster hast du drei Möglichkeiten:
-
-- **Accept** (übernehmen): speichert den Text samt deiner Änderungen in den Chat.
-- **Regenerate** (neu generieren): lässt nur diesen einen Agenten noch einmal laufen und liefert einen frischen Vorschlag.
-- **Discard** (verwerfen): wirft den Vorschlag weg, ohne zu speichern.
-
-Warten mehrere Vorschläge, zeigt das Fenster, wie viele noch in der Warteschlange stehen. Sobald du einen erledigt hast, öffnet es sich für den nächsten.
-
-## Die Prüfung von Charakterkarten-Updates
-
-Der Agent **Card Evolution Auditor** kann Änderungen an Feldern der Charakterkarte vorschlagen, passend zu dem, was im Roleplay passiert ist. Im Conversation Mode schlägt außerdem das eingebaute Tool `update_about_me` gelegentlich eine Änderung am öffentlichen About Me vor. Keiner der beiden Wege ändert die Karte eigenmächtig: Beide öffnen das Fenster **Review Character Card Updates**, und du entscheidest.
-
-Das Fenster listet jede vorgeschlagene Änderung auf. Zu jeder siehst du:
-
-- Das Kartenfeld, um das es geht (zum Beispiel description, personality oder appearance).
-- Eine kurze Begründung, sofern der Agent eine mitliefert.
-- Einen Block **Before** (vorher) mit dem aktuellen Text.
-- Ein Feld **After** (nachher) mit dem neuen Text. Diesen Text kannst du vor der Freigabe bearbeiten.
-
-Dafür gibt es diese Aktionen:
-
-- **Approve** (freigeben): übernimmt die Änderungen. Die Zahl auf der Schaltfläche zeigt, wie viele Änderungen greifen. Eine Freigabe erhöht die Versionsnummer des Charakters und legt einen Eintrag in der Versionshistorie an.
-- **Regenerate**: lässt den Agenten noch einmal laufen und liefert neue Vorschläge.
-- **Reject** (ablehnen): verwirft die Vorschläge, ohne die Karte zu ändern.
-
-Manchmal hat sich die Karte geändert, seit der Agent seinen Vorschlag geschrieben hat. Dann markiert die App die Änderung als **stale** (veraltet) und stellt sie abgedunkelt dar. Gibt es veraltete Änderungen, erscheint eine Schaltfläche **Override stale** mit der Anzahl. Nutze sie nur, wenn du den Text trotzdem behalten willst. Die App fragt vorher nach einer Bestätigung. Sie hängt den veralteten Text dann an das Feld an, statt Text zu ersetzen, der ohnehin nicht mehr passt.
-
-## Der Agent-Suite-Editor und das Umschreiben mit KI-Hilfe
-
-In der **Agent Suite** siehst und bearbeitest du alles, was die Agenten dieses Chats gespeichert haben. Dazu gehören Tracker-Daten wie die aktuelle Szene, die anwesenden Charaktere und die Persona-Werte, außerdem die gespeicherten Ausgaben deiner eigenen Agenten. So korrigierst du einen falschen Namen, einen Wert oder wirren gespeicherten Text, von Hand oder mit KI-Hilfe.
-
-So öffnest du sie:
-
-1. Öffne **Chat Settings**.
+1. Öffne den Chat und klick auf **Chat Settings** (Chat-Einstellungen).
 2. Scroll zum Abschnitt **Agents**.
-3. Klick auf **Agent Suite**.
+3. Öffne in einem Roleplay-Chat **Trackers Control** (Tracker-Steuerung). In einem Game-Chat überspringst du diesen Schritt.
+4. Schalte **Review Agent Outputs** an.
 
-Links stehen die Agenten, die in diesem Chat aktiv sind. Wähl einen aus, um zu sehen, was er gespeichert hat. Rechts erscheinen die bearbeitbaren Blöcke, gruppiert in **Stored Memory** (gespeichertes Gedächtnis), **Tracker Data** (nur bei Tracker-Agenten) und **Recent Outputs** (nur bei eigenen Agenten). Agenten ohne Tracker-Daten zeigen nur **Stored Memory**.
+Ist der Schalter an, warten Lorebook-Updates, Zusammenfassungs-Updates und andere prüfbare Ausgaben schreibender Agenten auf dich. Ist er aus, können Lorebook- und Zusammenfassungs-Updates automatisch gespeichert werden.
 
-Jeder Block ist ein Text- oder JSON-Editor. JSON-Blöcke haben Zeilennummern und melden sofort, wenn sich das JSON nicht parsen lässt; **Save** bleibt deaktiviert, bis es wieder stimmt. Um alle Tracker-Daten auf einmal zu durchsuchen oder als Felder zu bearbeiten, klick in der Kopfzeile von **Tracker Data** auf **Open in State Editor** (siehe [Der State Editor](../roleplay/hud-and-trackers.md#the-state-editor)).
+Änderungen an Charakterkarten fragen immer zuerst nach, selbst wenn **Review Agent Outputs** aus ist. Diese Abfrage lässt sich nicht abschalten.
 
-Nach einer Änderung an einem Block:
+### Ein Lorebook- oder Zusammenfassungs-Update prüfen
 
-- Klick auf **Save** (speichern), um sie zu behalten.
-- Klick auf **Reset** (zurücksetzen), um sie zu verwerfen und zum gespeicherten Wert zurückzukehren.
+Schlägt ein Agent einen Schreibvorgang vor, öffnet sich ein Fenster mit dem Titel **Review Lorebook Update** oder **Review Summary Update**. Es zeigt den Namen des Agenten und ein Feld **Proposed Text** (vorgeschlagener Text), das du bearbeiten kannst. Bei Lorebook-Schreibvorgängen erinnert es dich außerdem daran, jeden Eintrag unter eine `###`-Überschrift zu setzen.
 
-Möglich ist außerdem, einen Block von der KI umschreiben zu lassen:
+- **Accept** (übernehmen) speichert den Text samt deiner Änderungen.
+- **Regenerate** (neu generieren) lässt nur diesen Agenten noch einmal laufen und liefert einen frischen Vorschlag.
+- **Discard** (verwerfen) wirft den Vorschlag weg, ohne zu speichern.
 
-1. Klick beim gewünschten Block auf **AI Edit** (mit KI bearbeiten).
-2. Willst du nur einen Teil des Textes ändern, markier ihn vorher im Editor. Ohne Markierung wird der ganze Block umgeschrieben.
+Warten weitere Vorschläge, zeigt das Fenster, wie viele. Sobald du mit dem aktuellen fertig bist, öffnet es sich für den nächsten.
+
+Ein Agent mit der Fähigkeit **Create character cards** (Charakterkarten erstellen) kann auch eine neue Charakterkarte vorschlagen. Dann öffnet sich ein Prüffenster mit dem Kartentext. Gespeichert wird erst, wenn du annimmst.
+
+### Ein Charakterkarten-Update prüfen
+
+Der Agent **Card Evolution Auditor** schlägt Änderungen an einer Charakterkarte vor, je nachdem, was im Roleplay passiert ist. In Conversation kann außerdem das eingebaute Tool `update_about_me` eine Änderung am öffentlichen About Me vorschlagen. Keiner der beiden ändert deine Karte eigenmächtig. Beide öffnen **Review Character Card Updates**.
+
+Zu jeder vorgeschlagenen Änderung zeigt das Fenster das betroffene Kartenfeld, eine kurze Begründung, sofern der Agent eine liefert, einen Block **Before** (vorher) mit dem aktuellen Text und ein Feld **After** (nachher), das du bearbeiten kannst.
+
+- **Approve** (freigeben) übernimmt die Änderungen. Die Zahl auf der Schaltfläche zeigt, wie viele davon greifen. Die Freigabe erhöht die Versionsnummer des Charakters und legt einen Eintrag in der Versionshistorie an.
+- **Regenerate** lässt den Agenten noch einmal laufen und liefert neue Vorschläge.
+- **Reject** (ablehnen) verwirft sie, ohne die Karte zu ändern.
+
+Hat sich die Karte geändert, nachdem der Agent seinen Vorschlag geschrieben hat, wird die Änderung als veraltet markiert und abgedunkelt. Dann erscheint eine Schaltfläche **Override stale** mit der Anzahl. Nutze sie nur, wenn du diesen Text trotzdem willst. Marinara bittet dich um eine Bestätigung und hängt den veralteten Text dann an das Feld an, statt Text zu ersetzen, der nicht mehr passt.
+
+## Gespeicherte Agentendaten ansehen und bearbeiten
+
+Die **Agent Suite** zeigt alles, was die Agenten in diesem Chat gespeichert haben: Tracker-Daten wie die aktuelle Szene, die anwesenden Charaktere und die Persona-Werte, dazu die gespeicherten Ausgaben eigener Agenten. Damit behebst du einen falschen Namen, korrigierst einen Wert oder räumst wirren Text auf.
+
+1. Öffne **Chat Settings** und scroll zu **Agents**.
+2. Klick auf **Agent Suite**.
+3. Wähl links einen Agenten aus der Liste.
+
+Rechts erscheinen bearbeitbare Blöcke in bis zu drei Gruppen: **Stored Memory** (gespeichertes Gedächtnis), **Tracker Data** (nur bei Tracker-Agenten) und **Recent Outputs** (nur bei eigenen Agenten). Agenten ohne Tracker-Daten zeigen nur **Stored Memory**.
+
+Jeder Block ist ein Text- oder JSON-Editor. JSON-Blöcke zeigen Zeilennummern und melden ungültiges JSON sofort. **Save** (Speichern) bleibt deaktiviert, bis sich das JSON parsen lässt. Um alle Tracker-Daten zu durchsuchen oder als Felder zu bearbeiten, klick in der Kopfzeile von **Tracker Data** auf **Open in State Editor**. Siehe [Der State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+Hast du einen Block geändert, klick auf **Save**, um die Änderung zu behalten, oder auf **Reset** (zurücksetzen), um zum gespeicherten Wert zurückzukehren.
+
+### Einen Block von der KI umschreiben lassen
+
+1. Klick beim Block auf **AI Edit** (mit KI bearbeiten).
+2. Willst du nur einen Teil ändern, markier diesen Text zuerst. Ohne Markierung wird der ganze Block umgeschrieben.
 3. Gib eine Anweisung ein, zum Beispiel „korrigiere die verstümmelten Charakternamen, sie heißt Mira“.
-4. Optional: Klick auf **Add Context** (Kontext hinzufügen), um Charakterkarten oder Lorebook-Einträge anzuhängen. Das hilft der KI zu verstehen, wofür die Daten stehen.
-5. Wähl die Verbindung aus, die das Umschreiben übernimmt (KI-Anbieter und Modell).
+4. Optional: Klick auf **Add Context** (Kontext hinzufügen), um Charakterkarten oder Lorebook-Einträge anzuhängen, damit die KI weiß, was die Daten bedeuten.
+5. Wähl die Verbindung (den KI-Dienst und das Modell), die das Umschreiben übernimmt.
 6. Klick auf **Rewrite** (umschreiben).
 
-Der neue Text landet als ungespeicherter Entwurf im Block. Prüf ihn und klick dann auf **Save**, um ihn zu behalten, oder auf **Reset**, um ihn zu verwerfen.
+Das Ergebnis landet als ungespeicherter Entwurf im Block. Prüf es und wähl dann **Save** oder **Reset**.
 
-Noch ein paar Hinweise:
+- Laufen für diesen Chat noch Agenten, wartet das Speichern, bis sie fertig sind.
+- **Clear memory** (Gedächtnis leeren) erscheint in **Stored Memory** nur, wenn der Agent Daten gespeichert hat. Es löscht auf einen Schlag alles, was dieser Agent für diesen Chat gespeichert hat, und lässt sich nicht rückgängig machen. Marinara bittet dich vorher um eine Bestätigung.
+- Beim **Narrative Director** sind gespeicherte Spoiler verborgen. Über **Reveal spoilers** (Spoiler anzeigen) siehst und bearbeitest du sie.
 
-- Laufen für diesen Chat noch Agenten, pausiert das Speichern, bis sie fertig sind.
-- Der Bereich **Stored Memory** hat eine Schaltfläche **Clear memory** (Gedächtnis leeren). Sie erscheint nur, wenn der Agent Daten gespeichert hat. Sie löscht auf einen Schlag alles, was dieser Agent für diesen Chat gespeichert hat, und lässt sich nicht rückgängig machen. Die App fragt vorher nach einer Bestätigung.
-- Beim **Narrative Director** bleiben gespeicherte Spoiler verborgen. Über **Reveal spoilers** (Spoiler anzeigen) siehst und bearbeitest du sie.
+## Zwischengespeicherte Prompt-Einfügungen ansehen
 
-## Das Panel „Cached prompt injections“
+Bevor eine Antwort generiert wird, fügen manche schreibenden Agenten Text in den Prompt ein. Typisch ist das bei **Prose Guardian**, **Narrative Director** und eigenen Einfügungs-Agenten. Das Panel **Cached prompt injections** (zwischengespeicherte Prompt-Einfügungen) zeigt diesen Text für die letzte Antwort. Es ist eine Ansicht zur Fehlersuche.
 
-Bevor eine Antwort generiert wird, fügen manche schreibenden Agenten Text in den Prompt ein, also in den Text, den Marinara an die KI schickt. Typisch ist das bei **Prose Guardian**, **Narrative Director** und eigenen Einfügungs-Agenten. Das Panel **Cached prompt injections** zeigt diesen zusätzlichen Text zur Fehlersuche. Du findest es im Tab **Injections** von **Agent activity**, wenn **Debug mode** eingeschaltet ist (siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md#agent-activity)). Es bezieht sich auf die jeweils letzte Antwort.
+Bevor du anfängst: Schalte **Debug mode** an (siehe [Agenten im Überblick](agents-overview.md#tell-whether-an-agent-ran)). Öffne in einem Roleplay-Chat den Tab **Injections** von **Agent activity** (Agentenaktivität). Siehe [Agent activity](../roleplay/getting-started.md#agent-activity).
 
-Zu jeder zwischengespeicherten Einfügung kannst du:
+Jede Einfügung kannst du aufklappen, um den Text zu lesen und zu bearbeiten. Über das Symbol **Save** behältst du deine Änderung, über das Symbol **Re-run** (erneut ausführen) schreibt dieser Agent eine frische Einfügung.
 
-- Sie aufklappen, um den Text zu lesen und zu bearbeiten.
-- Auf das Symbol **Save** klicken, um deine Änderung zu behalten.
-- Auf das Symbol **Re-run** (erneut ausführen) klicken, damit dieser eine Agent eine frische Einfügung schreibt.
-
-Einfügungen von **Knowledge Retrieval** und **Knowledge Router** lassen sich in diesem Panel nicht erneut ausführen. Änderungen und erneute Läufe wirken sich nur aus, wenn du genau diese Antwort neu generierst. Ein erneuter Lauf nutzt den ursprünglichen Chatverlauf ab diesem Punkt, nicht die neueren Nachrichten.
+Einfügungen von **Knowledge Retrieval** und **Knowledge Router** lassen sich hier nicht erneut ausführen. Änderungen und erneute Läufe wirken sich nur aus, wenn du genau diese Antwort neu generierst. Ein erneuter Lauf nutzt den Chatverlauf bis zu diesem Punkt, nicht neuere Nachrichten.
 
 ## Verwandte Anleitungen
 

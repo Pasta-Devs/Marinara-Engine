@@ -2,7 +2,17 @@
 
 Um **pacote de criaturas** traz a arte das criaturas que você enfrenta nas lutas do Game Mode. Quando um pacote é escolhido, um inimigo que tem arte no pacote é desenhado com essa arte no tabuleiro de batalha, em vez de um marcador redondo. A arte fica virada para a direção em que o inimigo se moveu por último e é desenhada no tamanho da própria criatura. Um inimigo sem arte no pacote continua com o marcador. Veja [Batalhas táticas e terreno](../game/combat.md#tactical-battles-and-terrain) para saber como isso aparece durante o jogo.
 
-Um pacote é um único arquivo JSON (`.creatures.json`). O jeito mais fácil de criar um é a aba **Creatures** (criaturas) do Pixelforge, que monta o arquivo a partir de uma imagem por criatura. Esta página descreve o próprio arquivo, para quem monta pacotes de outra forma.
+Um pacote é um único arquivo JSON (`.creatures.json`). O jeito mais fácil de criar um é a aba **Creatures** (criaturas) do Pixelforge, uma ferramenta externa que monta o arquivo a partir de uma imagem por criatura. Este guia descreve o próprio arquivo, para quem monta pacotes de outra forma.
+
+## Usar um pacote
+
+Antes de começar, crie ou baixe um arquivo `.creatures.json`. O Pixelforge é um aplicativo de criação separado e não faz parte do Marinara.
+
+1. Abra a aba **Creatures** do Pixelforge.
+2. Para carregar um arquivo, escolha **Import a creature pack file** (importar um arquivo de pacote de criaturas). Para um pacote que você fez no Pixelforge, escolha **Save to the library** (salvar na biblioteca).
+3. Escolha **Use for fights** (usar nas lutas).
+
+Um único pacote desenha todas as lutas. Para voltar aos marcadores, remova o pacote escolhido ou escolha **Use tokens instead** (usar marcadores em vez disso).
 
 ## O arquivo
 
@@ -41,6 +51,7 @@ Um pacote é um único arquivo JSON (`.creatures.json`). O jeito mais fácil de 
 | `tileSize` | O tamanho de uma casa da grade em pixels: um múltiplo de 16, de 16 a 96. A grade do Game Mode é de 48. |
 | `sheets` | Até 64 imagens, cada uma com no máximo 8.192 pixels de lado. |
 | `creatures` | Até 2.000 criaturas. |
+| Tamanho do arquivo | No máximo 32 MB. |
 
 ## Folhas
 
@@ -55,12 +66,21 @@ O `png` de uma folha (a imagem que reúne os quadros) precisa ser uma **data URL
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` ou `gargantuan`. Isso muda só a aparência; toda unidade continua ocupando uma casa. |
 | `w`, `h` | O tamanho de um quadro em casas, de 1 a 6 cada. |
 | `frames` | `1` para uma criatura parada, `3` para uma que anda (passo, parada, passo). |
-| `variants` | As **aparências** dela, de 1 a 8, cada uma indicando onde o seu bloco começa numa folha: `sheet` e a casa superior esquerda `x`, `y`. |
-| `fly` | Opcional, exige `creaturePackVersion` 2: os blocos de **voo**, dispostos como um bloco de caminhada (três quadros na horizontal, as quatro direções na vertical), posicionados como `variants`. Um para todas as aparências, ou um por aparência na mesma ordem. |
+| `variants` | As aparências dela, de 1 a 8, cada uma indicando onde o seu bloco começa numa folha: `sheet` e a casa superior esquerda `x`, `y`. |
+| `fly` | Opcional, exige `creaturePackVersion` 2: os blocos de voo, dispostos como um bloco de caminhada (três quadros na horizontal, as quatro direções na vertical), posicionados como `variants`. Um para todas as aparências, ou um por aparência na mesma ordem. |
 
 ### Voo
 
-Uma criatura com `fly` é desenhada a partir do bloco de voo, com os quadros reproduzidos na ordem 0, 1, 2, 1, enquanto aparece no ar numa luta: ela tem velocidade de voo e nenhuma de caminhada, paira, está acima do chão ou voou neste turno (um passo que só o voo permite, como sobre a água). Caso contrário, é desenhada a partir da sua aparência como antes. Um pacote de mapas de Experience cujos pacotes de criaturas tenham arte de voo exige Capability API 1.352.
+Uma criatura com `fly` é desenhada a partir do bloco de voo, com os quadros reproduzidos na ordem 0, 1, 2, 1, enquanto aparece no ar numa luta. Isso significa que ela tem qualquer um destes:
+
+- velocidade de voo e nenhuma velocidade de caminhada
+- a capacidade de pairar
+- uma posição acima do chão
+- um voo feito neste turno (um passo que só o voo dela permite, como sobre a água)
+
+Caso contrário, é desenhada a partir da sua aparência, como antes.
+
+Um pacote de mapas de Experience cujos pacotes de criaturas tenham arte de voo exige Capability API 1.352.
 
 ### O que `match` nomeia
 
@@ -90,14 +110,10 @@ Cada aparência é um **bloco** na sua folha. Um bloco tem `frames` quadros na h
 3. para a direita
 4. para cima (vista de costas)
 
-Uma criatura parada (`frames: 1`) é uma coluna com as quatro direções. Uma que anda (`frames: 3`) tem passo, parada e passo ao longo de cada linha, como um personagem andando no RPG Maker. Todo bloco precisa ficar inteiro dentro da sua folha; o Engine aponta qualquer bloco que passe da borda.
+Uma criatura parada (`frames: 1`) é uma coluna com as quatro direções. Uma que anda (`frames: 3`) tem passo, parada e passo ao longo de cada linha, como numa folha de sprites de caminhada comum. Todo bloco precisa ficar inteiro dentro da sua folha; o Engine aponta qualquer bloco que passe da borda.
 
 ### Aparências
 
 Uma criatura com várias aparências (outras roupas, cores ou armas) dá uma delas a cada um dos seus combatentes. Um combatente mantém a mesma aparência toda vez que é desenhado, e dois goblins na mesma luta podem ser diferentes. Todas as aparências de uma criatura têm o mesmo tamanho.
 
 Na aba **Creatures** do Pixelforge, **Add looks** (adicionar aparências), ao lado de uma criatura, acrescenta mais imagens do mesmo tamanho da primeira, até oito no total.
-
-## Usar um pacote
-
-Na aba **Creatures** do Pixelforge, use **Import a creature pack file** (importar um arquivo de pacote de criaturas) ou, para um pacote feito ali, **Save to the library** (salvar na biblioteca). Depois, escolha **Use for fights** (usar nas lutas). Um único pacote desenha todas as lutas. Remover o pacote escolhido, ou usar **Use tokens instead** (usar marcadores em vez disso), volta para os marcadores.

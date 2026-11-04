@@ -1,95 +1,63 @@
 # Łączenie czatu Conversation z czatem Roleplay lub Game
 
-Z tego przewodnika dowiesz się, jak połączyć czat w trybie Conversation z czatem w trybie Roleplay lub Game, żeby oba dzieliły wspólny kontekst. Opisuje też funkcję **Cross-Chat Awareness** (świadomość innych czatów), specjalne tagi przekazujące informacje przez takie połączenie oraz sposób przeskakiwania między połączonymi czatami.
+Połącz czat w trybie Conversation z czatem w trybie Roleplay lub Game, żeby oba dzieliły wspólny kontekst. Typowe zastosowanie: w jednym czacie prowadzisz opowieść, a w czacie Conversation, który pozostaje z nią na bieżąco, rozmawiasz o niej poza fabułą (OOC, czyli out-of-character).
 
-Marinara Engine (dalej krótko: Marinara) ma dwie osobne funkcje, dzięki którym czaty wiedzą o sobie nawzajem. Jedna działa automatycznie. Druga to jawne połączenie jeden do jednego, które trzeba utworzyć samodzielnie. Ten przewodnik traktuje je oddzielnie, bo działają zupełnie inaczej.
+Sekcja **Connected Chats** (połączone czaty) w panelu **Chat Settings** (ustawienia czatu) zawiera dwie różne funkcje. Połączenie **Connected Chats** łączy czaty jeden do jednego i tworzysz je ręcznie. **Cross-Chat Awareness** (świadomość innych czatów) to przełącznik, który działa samoczynnie i pozwala postaci pamiętać jej pozostałe czaty Conversation.
 
-## Do czego służą Connected Chats
+## Jak działa połączenie
 
-Sekcja **Connected Chats** (połączone czaty) łączy jeden czat Conversation z jednym czatem Roleplay lub Game. Połączenie jest jeden do jednego. Każdy czat może mieć w danej chwili tylko jeden taki odpowiednik.
+Połączenie łączy jeden czat Conversation z jednym czatem Roleplay lub Game. Każdy czat może mieć w danej chwili tylko jedno połączenie.
 
-Po utworzeniu połączenia strona Conversation sama czyta ostatnie wiadomości z połączonego czatu fabularnego. W każdej turze wciąga je do własnego kontekstu. To automatyczny kierunek połączenia.
+- Czat Conversation w każdej turze automatycznie czyta ostatnie wiadomości z połączonego czatu fabularnego.
+- Czat fabularny nie czyta z powrotem czatu Conversation. Informacje w drugą stronę postacie przekazują za pomocą tagów, opisanych niżej.
 
-Czat fabularny (Roleplay lub Game) nie czyta automatycznie wiadomości z czatu Conversation. Informacje w drugą stronę przekazuje postać za pomocą specjalnych tagów. Opisujemy je niżej.
+## Podłączanie czatu Conversation do czatu Roleplay lub Game
 
-Typowe zastosowanie: w jednym czacie toczy się wciągająca rozgrywka Roleplay lub Game, a w czacie Conversation trwa luźna rozmowa poza fabułą (OOC, czyli out-of-character) na wiadomości prywatne. Czat OOC zna bieżące wydarzenia, więc można je komentować na żywo.
+Zanim zaczniesz: przygotuj oba czaty. Zobacz [Zarządzanie listą czatów](managing-chats.md).
 
-## Cross-Chat Awareness to nie to samo co połączenie
+1. Otwórz czat Conversation, a w nim panel **Chat Settings**. Zobacz [Panel **Chat Settings** – przegląd](chat-settings.md).
+2. Otwórz sekcję **Connected Chats**.
+3. Kliknij **Link to Roleplay or Game** (połączenie z czatem Roleplay lub Game).
+4. Wyszukaj czat w oknie wyboru, a potem go kliknij.
 
-Te dwie funkcje łatwo pomylić. Przeczytaj ten fragment, zanim cokolwiek skonfigurujesz.
+Sekcja pokazuje teraz nazwę i tryb połączonego czatu oraz mały przycisk rozłączenia.
 
-Funkcja **Cross-Chat Awareness** działa automatycznie. To ustawienie trybu Conversation. Kiedy ta sama postać występuje w kilku czatach Conversation, potrafi pamiętać i przywoływać to, co wydarzyło się w pozostałych. Nic nie trzeba łączyć ręcznie. Ustawienie jest domyślnie włączone.
+Jeśli to nie zadziałało: w oknie wyboru pojawiają się wyłącznie czaty, które nie są jeszcze połączone. Najpierw rozłącz ten drugi czat.
 
-Znajdziesz je w sekcji **Cross-Chat Awareness** w panelu **Chat Settings** (ustawienia czatu). Opis pomocniczy brzmi: "Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context." Marinara dobiera te pokrewne czaty po wspólnej postaci, a nie po wspólnym użytkowniku.
-
-Połączenie **Connected Chats** działa inaczej. Tworzy się je świadomie. Łączy dokładnie jeden czat Conversation z jednym czatem Roleplay lub Game. Przenosi kontekst fabuły i obsługuje opisane niżej specjalne tagi.
-
-W skrócie: **Cross-Chat Awareness** automatycznie łączy postać między jej własnymi czatami Conversation. Połączenie **Connected Chats** ręcznie spina jeden czat Conversation z jednym czatem fabularnym.
-
-## Łączenie czatu Conversation z czatem Roleplay lub Game
-
-Połączenie zaczyna się od strony czatu Conversation albo od czatu Game. Oto, jak zrobić to od strony czatu Conversation.
-
-1. Otwórz czat Conversation, który chcesz połączyć.
-2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu; możesz go przenieść.
-3. Znajdź sekcję **Connected Chats**.
-4. Kliknij przycisk **Link to Roleplay or Game**.
-5. Wyszukaj czat Roleplay lub Game w oknie wyboru, a potem go kliknij.
-
-W sekcji **Connected Chats** powinna teraz widnieć nazwa połączonego czatu wraz z jego trybem. Obok znajduje się mały przycisk rozłączenia.
-
-Żeby rozpocząć od strony czatu Game, otwórz panel **Chat Settings** tego czatu, znajdź sekcję **Connected Chats** i kliknij przycisk **Link to Conversation**. Następnie wskaż czat Conversation.
-
-Czat Roleplay nie ma własnego przycisku łączenia. Pokazuje gotowe połączenie, ale utworzyć je trzeba od strony czatu Conversation.
-
-W oknie wyboru pojawiają się wyłącznie czaty jeszcze niepołączone. Jeden czat obsługuje w danej chwili jedno połączenie.
+Żeby zacząć od czatu Game, otwórz w nim **Chat Settings → Connected Chats**, kliknij **Link to Conversation** (połączenie z czatem Conversation) i wybierz czat Conversation. Czat Roleplay nie ma przycisku łączenia. Pokazuje połączenie dopiero wtedy, gdy ono istnieje, więc utwórz je od strony czatu Conversation.
 
 ### Usuwanie połączenia
 
-Żeby usunąć połączenie, otwórz panel **Chat Settings**, znajdź sekcję **Connected Chats** i kliknij przycisk rozłączenia (jego podpowiedź brzmi **Disconnect**). Rozłączenie kasuje też wszystkie oczekujące wpływy i zapisane notatki związane z tym połączeniem.
+Otwórz **Chat Settings → Connected Chats** i kliknij przycisk rozłączenia (z etykietą **Disconnect**). To kasuje też oczekujące wpływy i zapisane notatki związane z tym połączeniem. Usunięcie czatu również go rozłącza.
 
-Usunięcie czatu również rozłącza go od powiązanego czatu.
+## Funkcja Cross-Chat Awareness
+
+**Cross-Chat Awareness** to przełącznik w sekcji **Connected Chats** czatu Conversation. Jego opis brzmi "Characters know what happens in their other chats". Kiedy postać występuje w kilku czatach Conversation, potrafi pamiętać to, co wydarzyło się w pozostałych, i o tym wspominać. Marinara dobiera te czaty po wspólnej postaci, a nie po wspólnym użytkowniku. Przełącznik jest domyślnie włączony i nie wymaga połączenia.
 
 ## Przekazywanie informacji przez połączenie
 
-Czat Conversation czyta czat fabularny automatycznie. Pozostałe kierunki obsługują tagi. Tagi te pojawiają się w wiadomościach postaci. Pisze je AI. Zwykle nie wpisuje się ich ręcznie, ale wiedza o tym, co robią, ułatwia zrozumienie całego pomostu.
+Postacie zapisują te tagi w swoich wiadomościach. Nie musisz nic robić. W ten sposób oba czaty komunikują się ze sobą.
 
-Gdyby zaszła potrzeba odwołania się do nich, zapisz je dosłownie. Każdy pokazujemy tutaj jako kod, żeby wyświetlił się dokładnie tak, jak trzeba.
+| Tag | Co robi |
+| --- | --- |
+| `<influence>` | Jednorazowa wskazówka z czatu Conversation dla połączonego czatu fabularnego. Wpływa na najbliższą turę w połączonym czacie, a potem się zużywa. |
+| `<note>` | Zapisuje trwały fakt z czatu Conversation w czacie fabularnym. Zostaje w prompcie czatu fabularnego w każdej turze, dopóki go nie usuniesz. |
+| `<ooc>` | Pozwala postaci z czatu Roleplay wyjść z fabuły i odpowiedzieć w połączonym czacie Conversation. Marinara publikuje tam ten tekst. |
 
-- `<influence>` wysyła jednorazową podpowiedź z czatu Conversation do połączonego czatu fabularnego. Wpływa na najbliższą turę w tym czacie, a potem się zużywa.
-- `<note>` zapisuje trwały fakt z czatu Conversation w połączonym czacie fabularnym. Zostaje w treści promptu czatu fabularnego w każdej turze, dopóki go nie usuniesz.
-- `<ooc>` pozwala postaci z czatu Roleplay wyjść z fabuły i odpowiedzieć wprost w połączonym czacie Conversation. Marinara publikuje ten tekst w połączonym czacie na wiadomości prywatne.
+### Conversation Notes
 
-Dzięki temu postać z czatu Conversation może dyskretnie kształtować fabułę lub uzupełniać ją o fakty za pomocą tagów `<influence>` i `<note>`. Postać z czatu Roleplay może odpowiedzieć do czatu Conversation tagiem `<ooc>`.
-
-## Conversation Notes
-
-Kiedy postać z czatu Conversation zapisze trwałą notatkę tagiem `<note>`, notatka pojawia się po stronie fabuły. W panelu **Chat Settings** czatu Roleplay lub Game przybywa wtedy sekcja **Conversation Notes** (notatki z czatu Conversation).
-
-Sekcja ta wymienia wszystkie zapisane notatki. Przy każdej znajduje się przycisk usuwania. Żeby skasować je wszystkie naraz, użyj przycisku **Clear all notes**. Marinara prosi wtedy o potwierdzenie, a operacji nie da się cofnąć.
-
-Jeśli żadna postać nie zapisała jeszcze notatki, sekcja wyjaśnia, że notatki objęte tagiem `<note>` pojawią się tutaj po zapisaniu.
+Fakty zapisane tagiem `<note>` pojawiają się w sekcji **Conversation Notes** (notatki z czatu Conversation) w panelu **Chat Settings** czatu fabularnego. Przy każdej notatce jest przycisk usuwania. **Clear all notes** (usunięcie wszystkich notatek) po potwierdzeniu usuwa je wszystkie i tej operacji nie da się cofnąć. Gdy nie ma żadnych notatek, sekcja informuje, że pojawią się w niej notatki objęte tagiem `<note>`.
 
 <a id="switching-between-connected-chats"></a>
 
 ## Przeskakiwanie między połączonymi czatami
 
-Kiedy czat ma swój odpowiednik, na komputerze w prawym górnym rogu czatu pojawia się mały przycisk **Connected chat** z ikoną podwójnej strzałki. Możesz przeciągnąć go w inne miejsce. Na telefonie **Connected chat** znajdziesz w menu **Chat tools** (narzędzia czatu) z trzema kropkami. Otwórz tę kontrolkę, a następnie wybierz **Switch to** z nazwą drugiego czatu.
+Gdy połączenie istnieje, w obu czatach pojawia się przycisk **Connected chat** (połączony czat, ikona podwójnej strzałki). Na komputerze zaczyna w prawym górnym rogu i można go przeciągać. Na telefonie otwórz menu **Chat tools** (narzędzia czatu) z trzema kropkami, otwórz **Connected chat** i wybierz **Switch to** (przełącz na) z nazwą drugiego czatu.
 
-Od razu przejdziesz do połączonego czatu. Przycisk działa po obu stronach połączenia.
-
-Przyciskiem **Put back in Chat Settings** możesz przenieść tę kontrolkę do Chat Settings. Pojawi się tam w osobnej sekcji **Connected chat**. Przycisk otwierania sekcji w osobnym oknie pozwala ponownie ją odłączyć.
+Żeby trzymać tę kontrolkę wewnątrz Chat Settings, wybierz **Put back in Chat Settings** (przeniesienie do Chat Settings). Pojawia się wtedy jako osobna sekcja **Connected chat**. Użyj przycisku wydzielania w tej sekcji, żeby znów zrobić z niej osobne okno.
 
 ## Pozostałe kontrolki w tej sekcji
 
-Sekcja **Connected Chats** zawiera też dwie dodatkowe kontrolki należące do innych funkcji. Wyświetlają się tutaj dla wygody.
-
-- Pole na adres URL webhooka Discord (**Discord webhook URL**). Nie ma widocznej etykiety, tylko tekst zastępczy zaczynający się od `https://discord.com/api/webhooks/`. Wklejony tutaj adres URL webhooka Discord powiela wiadomości czatu na kanał Discord. To część funkcji powielania wiadomości na Discord, która ma własny przewodnik.
-- Przełącznik **Allow Noodle references** (domyślnie wyłączony). Dzięki niemu wbudowana oś czasu Noodle może pobierać ostatnie wiadomości z tego czatu. Noodle ma własny przewodnik.
-
-Po stronie czatu Roleplay widać dodatkowo przełącznik **Allow character DMs** (domyślnie wyłączony). Po włączeniu postać z czatu Roleplay może sama napisać do ciebie w nowym czacie Conversation na wiadomości prywatne, prosto z fabuły. Działa to nawet wtedy, gdy żaden czat Conversation nie jest jeszcze połączony.
-
-## Powiązane przewodniki
-
-- [Tryb Conversation: pierwsze kroki](../conversation/getting-started.md)
-- [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md)
+- **Discord webhook URL** (adres URL webhooka Discord): pole bez etykiety, z samym tekstem zastępczym, który zaczyna się od `https://discord.com/api/webhooks/`. Wklej adres URL webhooka, żeby kopiować wiadomości czatu na kanał Discord. Ta funkcja ma własny przewodnik.
+- **Allow Noodle references** (zezwolenie na odwołania do Noodle): pozwala osi czasu Noodle pobierać ostatnie wiadomości z tego czatu. Domyślnie jest wyłączony i pojawia się tylko wtedy, gdy zainstalowano Noodle.
+- **Allow character DMs** (zezwolenie na wiadomości prywatne od postaci, w trybie Roleplay): pozwala postaci z czatu Roleplay rozpocząć z tobą, prosto z fabuły, nowy czat Conversation na wiadomości prywatne. Domyślnie jest wyłączony i działa nawet bez połączenia.

@@ -1,61 +1,58 @@
 # Fontes personalizadas e Google Fonts
 
-Neste guia você aprende a trocar a fonte que Marinara Engine usa em todo o aplicativo. Use a fonte que já vem instalada, adicione arquivos de fonte próprios ou baixe uma fonte do Google Fonts pelo nome.
+Troque a fonte que Marinara usa em todo o aplicativo. Escolha a fonte que já vem com ele, adicione arquivos de fonte próprios ou baixe uma fonte do Google Fonts pelo nome.
 
 ## Como escolher a fonte do aplicativo
 
-A opção de fonte fica em **Settings** (Configurações), na aba **Appearance** (aparência), dentro da seção **Text & Scale** (texto e escala).
+1. Abra **Settings** (Configurações) e clique na aba **Appearance** (aparência). Depois clique no botão **App** (aplicativo).
+2. Localize a seção **Text & Scale** (texto e escala).
+3. Abra o menu suspenso **Font** (fonte) e escolha uma fonte.
 
-1. Abra **Settings** e clique na aba **Appearance**.
-2. Localize a seção **Text & Scale**.
-3. Abra o menu suspenso **Font**.
-4. Escolha uma fonte da lista.
+O jeito mais fácil de conseguir uma fonte nova é o [Google Fonts](#downloading-from-google-fonts). O padrão é **Default (Inter)**, uma fonte limpa, escolhida para leitura na tela. As fontes que você adiciona aparecem no mesmo menu suspenso, abaixo dela.
 
-A opção padrão é **Default (Inter)**. Inter é uma fonte limpa, pensada para leitura na tela. As fontes personalizadas que você adiciona aparecem no mesmo menu suspenso **Font**, logo abaixo da opção padrão.
+A fonte escolhida é sincronizada entre os dispositivos. Todo navegador conectado ao mesmo servidor Marinara passa a usá-la. Veja [Visão geral das configurações](../settings/settings-overview.md).
 
-Os campos de prompt do editor de presets e o Example Dialogue de um personagem usam uma fonte monoespaçada enquanto a fonte padrão está selecionada. Escolha qualquer outra fonte e eles também passam a usá-la. Os outros campos de prompt, como o modelo de prompt de um agente, continuam monoespaçados.
-
-Os widgets do chat têm uma opção **Font** própria em **Settings → Appearance → App → Chat widget style** (Configurações → Aparência → Aplicativo → Estilo dos widgets do chat). Ative **Apply preset font** (aplicar fonte do preset) nessa mesma seção para usar essa fonte também nas mensagens, nos campos de entrada e nos controles do chat. Deixe esse botão liga/desliga desativado para que eles mantenham a fonte habitual. Veja [Estilos prontos para janelas de chat](custom-css-themes.md#ready-made-chat-window-styles).
-
-A fonte escolhida é sincronizada entre os dispositivos. Ao escolher uma fonte, todos os navegadores e dispositivos ligados ao mesmo servidor Marinara passam a usá-la. Para entender como essa sincronização funciona, veja o guia [Visão geral das configurações](../settings/settings-overview.md).
+Os widgets do chat têm uma opção **Font** própria em **Chat widget style** (estilo dos widgets do chat). Ative **Apply preset font** (aplicar fonte do preset) ali para usá-la também nas mensagens, nos campos de entrada e nos controles do chat. Veja [Estilos prontos para janelas de chat](custom-css-themes.md#ready-made-chat-window-styles).
 
 ## Como adicionar fontes próprias
 
-Para adicionar uma fonte personalizada, coloque o arquivo de fonte em uma pasta do servidor, ou seja, a máquina que executa Marinara.
+Antes de começar: as fontes ficam em uma pasta no servidor. O servidor é o computador que executa Marinara. Se você roda Marinara no seu próprio computador, ele é o servidor, e a pasta de dados é onde Marinara guarda os seus dados.
 
-1. Localize a pasta `data/fonts/` dentro da pasta de dados do Marinara, na máquina do servidor.
-2. Copie o arquivo de fonte para essa pasta.
-3. Volte para **Settings**, depois **Appearance**, depois **Text & Scale**.
-4. Abra o menu suspenso **Font**. A fonte já aparece na lista.
-5. Selecione a fonte.
+1. Clique em **Open Fonts Folder** (abrir a pasta de fontes), ao lado do menu suspenso **Font**, para abrir `data/fonts/` no servidor. Ou localize por conta própria a pasta `data/fonts/` dentro da pasta de dados do Marinara.
+2. Copie o arquivo de fonte para ela.
+3. Vá para **Settings → Appearance → App → Text & Scale**.
+4. Abra o menu suspenso **Font**. A sua fonte está na lista.
+5. Selecione-a. O texto do aplicativo muda na hora.
 
-Marinara lê estes tipos de arquivo de fonte: `.ttf`, `.otf`, `.woff` e `.woff2`. Arquivos com qualquer outra extensão são ignorados.
+Marinara lê arquivos `.ttf`, `.otf`, `.woff` e `.woff2` e ignora outros tipos. O nome de exibição é montado a partir do nome do arquivo, então `OpenSans-Bold.ttf` aparece como "Open Sans". Dê nomes claros aos arquivos para manter a lista organizada.
 
-Marinara monta o nome de exibição a partir do nome do arquivo. Por exemplo, um arquivo chamado `OpenSans-Bold.ttf` aparece como "Open Sans". Então dê nomes claros aos arquivos para manter a lista organizada.
+Todo dispositivo que se conecta ao mesmo servidor pode usar as fontes de `data/fonts/`.
 
-Os arquivos de fonte da pasta `data/fonts/` ficam no servidor. Todo dispositivo que se conecta ao mesmo servidor Marinara pode usá-los. A fonte escolhida também é sincronizada entre esses dispositivos, então todos mostram a mesma fonte.
+Se não funcionou: confira o tipo do arquivo e se ele está em `data/fonts/` no servidor, não no dispositivo pelo qual você está acessando.
+
+<a id="downloading-from-google-fonts"></a>
 
 ## Como baixar do Google Fonts
 
-Marinara busca uma fonte direto do Google Fonts para você. Para isso funcionar, o servidor precisa de acesso à internet.
+O servidor precisa de acesso à internet para isso.
 
-1. Abra **Settings**, depois **Appearance**, depois **Text & Scale**.
-2. Localize o campo **Google Fonts**.
-3. Digite o nome exato da fonte, por exemplo `Fira Code` ou `Lora`.
-4. Clique em **Add** (adicionar).
-5. Espere o download terminar. A nova fonte então aparece no menu suspenso **Font**.
+1. Vá para **Settings → Appearance → App → Text & Scale**.
+2. No campo **Google Fonts**, digite o nome exato da fonte, por exemplo `Fira Code` ou `Lora`.
+3. Clique em **Add** (adicionar).
+4. Aguarde o download. A fonte então aparece no menu suspenso **Font**.
 
-Digite o nome exatamente como o Google Fonts escreve. O link **Browse fonts at fonts.google.com** fica ao lado do campo. Ele abre o site do Google Fonts em uma nova aba, para você consultar os nomes.
+O link **Browse fonts at fonts.google.com →**, ao lado do campo, abre o site do Google Fonts para você consultar os nomes. O nome aceita apenas letras, números e espaços. Baixar a mesma fonte de novo substitui a cópia antiga.
 
-O nome aceita apenas letras, números e espaços. Se você baixar a mesma fonte de novo mais tarde, Marinara substitui a cópia antiga em vez de criar uma duplicata.
+Se não funcionou, leia a mensagem de erro.
 
-Se o download falhar, leia a mensagem de erro. Quando Marinara não consegue alcançar o Google Fonts, ela pede que você verifique a conexão com a internet. Quando a mensagem diz que a fonte não foi encontrada, há duas causas possíveis. O nome pode não corresponder a nenhuma fonte do Google Fonts. Ou a fonte pode não ter o peso regular (400), que é o estilo normal, sem negrito. Confira a grafia e veja no site do Google Fonts se a fonte oferece o estilo Regular.
+- Se Marinara não conseguir alcançar o Google Fonts, verifique a sua conexão com a internet.
+- Se a mensagem disser que a fonte não foi encontrada, confira a grafia e veja no site do Google Fonts se a fonte tem o estilo Regular (400). Marinara baixa só esse peso.
 
-## O botão Open Fonts Folder só funciona localmente
+## O botão Open Fonts Folder
 
-Ao lado do menu suspenso **Font** existe o botão **Open Fonts Folder** (abrir a pasta de fontes). Ele abre a pasta `data/fonts/` no explorador de arquivos da máquina do servidor.
+O botão **Open Fonts Folder**, ao lado do menu suspenso **Font**, abre `data/fonts/` no explorador de arquivos do computador do servidor, não no dispositivo que você está usando. Se você roda Marinara no seu próprio computador, ele abre a pasta para você. De um celular ou de um segundo computador, copie por conta própria os arquivos de fonte para a pasta `data/fonts/` do servidor.
 
-Esse botão age no servidor, não no dispositivo em que você está usando Marinara. Se Marinara roda no seu próprio computador, ele abre a pasta para você. Se você acessa de um celular ou de um segundo computador, o botão não faz nada de útil. Nesse caso, copie os arquivos de fonte para a pasta `data/fonts/` do servidor por conta própria.
+Enquanto a fonte padrão está selecionada, os campos de prompt do editor de presets e o Example Dialogue de um personagem usam uma fonte monoespaçada. Qualquer outra fonte também vale para eles. Os outros campos de prompt, como o modelo de prompt de um agente, continuam monoespaçados.
 
 ## Guias relacionados
 

@@ -1,254 +1,86 @@
 # 개인 확장
 
-Personal Extensions(개인 확장)는 Professor Mari가 만들어 주는 비공개 코드 초안입니다. **Settings**(설정) > **Addons**(애드온) > **Personal Extensions**를 여세요.
+Personal Extension(개인 확장)은 Marinara에 버튼, 패널, 도우미 기능을 추가하는 작은 코드입니다. Professor Mari가 대신 작성해 줄 수 있으며, 실행할지는 언제나 직접 정합니다. 이 가이드에서는 확장을 검토하고, 활성화하고, 내보내고, 복구하는 방법을 설명합니다. 직접 작성하려면 [Personal Extensions 작성](writing-personal-extensions.md)을 참고하세요.
 
-기본 안내 문구는 다음과 같습니다.
+## 확장 종류 구분하기
 
-> Professor Mari에게 확장 만들기를 요청하세요. 직접 활성화하고 정확한 코드 해시를 승인하기 전에는 아무것도 실행되지 않습니다.
+| 이름 | 설명 |
+| --- | --- |
+| Personal Extension | Professor Mari가 대신 작성한 확장입니다. **Settings → Addons**(설정 → 애드온) 아래에 초안으로 나타납니다. |
+| External Extension(외부 확장) | 다른 사람이 만든 확장이나 직접 작성한 확장입니다. [서드파티 가져오기 허용하기](#allow-third-party-imports)의 추가 단계가 필요합니다. |
+| Browser Extension | 브라우저 안의 샌드박스에서 실행됩니다. 기본적으로 안전합니다. |
+| Server Extension | Marinara를 실행하는 컴퓨터에서 운영체제 샌드박스 안에 실행됩니다. 지원되는 플랫폼이 필요합니다. |
+| Full page access(전체 페이지 접근) | 샌드박스를 없애는 권한입니다. 완전히 신뢰하는 코드에만 쓰세요. |
 
-이 섹션에는 새 초안을 만드는 동작도, 가져오기 컨트롤도 없습니다. 초안을 만들거나 고치는 일은 Professor Mari에게 요청하세요. Professor Mari는 코드를 저장할 수 있을 뿐, 승인하거나 활성화할 수는 없습니다.
+## 공유받은 확장 설치하기
 
-직접 패키지를 작성하고 가져오려면 [개인 확장 작성 안내서](writing-personal-extensions.md)를 이용하세요. 직접 만든 패키지는 별도로 권한을 확인하는 External Extensions 흐름을 사용합니다.
+시작하기 전에 [서드파티 가져오기 허용하기](#allow-third-party-imports)의 두 단계를 마치세요. 이 단계를 마치지 않으면 가져오기 버튼이 숨겨져 있습니다.
 
-## 텍스트 토큰 수 추정
+1. **Settings → Addons**를 여세요. **External Extensions**(외부 확장) 아래에서 `.zip`, `.json`, `.css`, `.js` 파일은 **Import Extension File**(확장 파일 가져오기)을, 폴더는 **Import Extension Folder**(확장 폴더 가져오기)를 선택하세요.
+2. 새 초안을 여세요. 초안은 비활성화되어 있으며 코드와 해시를 보여 줍니다. 해시는 바로 그 코드의 짧은 지문입니다(Marinara는 SHA-256을 사용합니다).
+3. 코드와 **Requested access**(요청된 접근 권한) 목록을 읽으세요.
+4. 그 버전을 그대로 받아들일 때만 **Review and Run**(검토 및 실행)을 선택하세요. 그러면 확장이 활성화된 것으로 표시됩니다.
 
-Browser, Full page access, Server의 개인 확장에서는 Marinara에 내장된 텍스트 토큰 수 추정 함수를 사용할 수 있습니다.
+작동하지 않는 경우: 가져오기 버튼이 없으면 두 단계 중 하나를 마치지 않은 것입니다. `.env`를 바꾼 뒤에는 Marinara를 다시 시작해야 한다는 점을 잊지 마세요.
 
-```js
-const tokens = marinara.estimateTextTokens(text);
-```
+## Professor Mari가 만든 확장 검토하기
 
-시그니처는 `estimateTextTokens(text: string): number`이며, `@marinara-engine/shared`에서 내보내는 `PersonalExtensionTokenApi` 타입에도 정의되어 있습니다. 이 호출은 동기식이며 추가 권한이 필요하지 않습니다. 특정 모델에 종속되지 않는 Marinara의 토큰 수 추정값을 반환하며, 토크나이저로 센 정확한 값은 아닙니다. 이전 Engine 버전에서는 호출 전에 `typeof marinara.estimateTextTokens === "function"`을 확인하세요.
+시작하기 전에 [Professor Mari](../home/professor-mari.md)에게 확장을 만들어 달라고 요청하세요. Professor Mari는 코드를 저장할 수는 있지만 승인하거나 활성화할 수는 없습니다. 이 섹션에는 New Draft 버튼도, 가져오기 컨트롤도 없습니다.
 
-## 검토와 활성화
+1. **Settings → Addons → Personal Extensions**(설정 → 애드온 → 개인 확장)를 여세요. 초안이 없으면 "Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash."(Mari 교수님에게 확장 만들기를 요청하세요. 사용자가 활성화하고 정확한 코드 해시를 승인하기 전에는 아무것도 실행되지 않습니다.)라고 표시됩니다.
+2. 초안을 열고 코드를 읽으세요. 해시와 **Requested access** 목록을 확인하세요.
+3. 그 버전을 그대로 받아들일 때만 **Review and Run**을 선택하세요.
 
-모든 초안은 비활성화 상태로 시작합니다. Marinara는 실행될 코드 그 자체를 SHA-256으로 지문화합니다. 초안을 열어 코드를 살펴보고, 화면에 표시된 해시를 대조한 다음, 그 버전을 그대로 받아들일 때만 **Review and Run**(검토 및 실행)을 선택하세요. 실행 코드를 조금이라도 수정하거나 이전 개정판을 되살리면 확장이 비활성화되고 승인을 처음부터 다시 받아야 합니다.
+모든 초안은 비활성화 상태로 시작합니다. 코드를 편집하거나, 권한을 바꾸거나, 개정판을 복원하면 확장이 비활성화되고 승인을 다시 받아야 합니다.
 
-샌드박스는 권한을 줄여 줄 뿐, 아무 코드나 믿어도 되게 만들어 주지는 않습니다. 악성 확장은 감시 장치가 멈춰 세울 때까지 CPU를 낭비할 수 있고, 정해진 한도 안에서 자기 저장소를 가득 채울 수 있으며, 로그로 사람을 속일 수도 있습니다. 전체 페이지 확장은 그 격리를 의도적으로 포기합니다. 활성화하기 전에 코드를 반드시 검토하세요.
+> **경고:** 샌드박스는 코드가 할 수 있는 일을 제한할 뿐, 코드를 믿을 수 있게 만들어 주지는 않습니다. 해로운 확장도 감시 장치(폭주하는 코드를 멈추는 타이머)가 멈출 때까지 프로세서 시간을 낭비하거나, 한도까지 자기 저장소를 채우거나, 로그로 사용자를 속일 수 있습니다. 전체 페이지 확장은 의도적으로 샌드박스를 포기합니다. 활성화하기 전에 코드를 읽고, 서드파티 코드는 모든 줄을 검사하세요.
 
-## 런타임 격리
+작동하지 않는 경우: Professor Mari가 편집하거나 개정판을 복원하면 초안이 비활성화 상태로 돌아갑니다. 다시 검토하고, 대화 상자에 표시된 해시가 읽은 코드의 해시와 같은지 확인하세요.
 
-Browser Extension은 불투명 출처(opaque origin) 샌드박스 iframe 안의 전용 Worker에서 실행됩니다. Marinara의 페이지, DOM, 쿠키, 브라우저 저장소, 출처 API, 네트워크에는 접근할 수 없습니다. 쓸 수 있는 기능은 전용 확장 저장소, 로깅, 관리형 타이머, 정리 콜백 등록, 제한된 창, 안전한 호스트 기여 슬롯, 그리고 현재 채팅과 캐릭터 ID의 읽기 전용 스냅샷뿐입니다. 현재 채팅의 캐릭터 카드나 선택된 페르소나에서 일부 필드를 받아 볼 수도 있지만, 해당 권한을 매니페스트에 선언하고 승인받은 경우에만 가능합니다.
+## 확장이 할 수 있는 일
 
-확장은 `marinara.ui.registerContribution(...)`으로 상단 막대나 사이드 패널 동작, Extensions 메뉴 항목, 오른쪽에 고정되는 패널을 추가할 수 있습니다. 이런 화면 요소는 Marinara가 현재 테마와 정해진 컨트롤 묶음으로 그립니다. 제목, 텍스트, 서식이 고정된 출력, 버튼, 텍스트 입력란, 선택 목록, 토글, 슬라이더, 색상 컨트롤, 여백입니다. 확장이 넘기는 것은 내용과 상태뿐이며, HTML, CSS, URL, React 컴포넌트, 호스트 이벤트 핸들러는 넘길 수 없습니다.
+Browser Extension은 브라우저 안의 샌드박스(격리된 영역)에서 실행됩니다. Marinara의 페이지, 쿠키, 브라우저 저장소, 네트워크에는 접근할 수 없습니다. 할 수 있는 일은 다음과 같습니다.
 
-이 UI 기능과 규칙은 출처와 상관없이 샌드박스에서 실행되는 모든 Browser Extension에 똑같이 적용됩니다. 가져온 서드파티 확장(External Extension)도 이 안전한 런타임을 씁니다. 패키지가 **Full page access**(페이지 전체 접근)를 명시적으로 요청하거나 아래에서 설명하는 샌드박스 이전 형식인 `marinara.extension`을 쓰는 경우만 예외입니다.
+- 전용 저장소를 두고 로그 쓰기
+- Marinara가 현재 테마로 그리는 버튼, 메뉴 항목, 패널 추가하기
+- 열려 있는 채팅의 ID 읽기
+- 해당 권한을 승인한 경우에만 현재 캐릭터나 페르소나의 일부 필드 읽기
 
-<a id="add-a-marinara-rendered-panel"></a>
+전체 목록은 [Personal Extensions 작성](writing-personal-extensions.md#what-a-browser-extension-can-do)에 있습니다.
 
-### Marinara가 그리는 패널 추가하기
-
-```js
-const panel = marinara.ui.registerContribution({
-  id: "weather-settings",
-  kind: "panel",
-  label: "Weather controls",
-  description: "Tune a weather scene without leaving Marinara.",
-  icon: "sparkles",
-  elements: [
-    { kind: "heading", text: "Atmosphere" },
-    {
-      kind: "select",
-      id: "weather",
-      label: "Weather",
-      value: "rain",
-      options: [
-        { value: "rain", label: "Rain" },
-        { value: "snow", label: "Snow" },
-        { value: "aurora", label: "Aurora" },
-      ],
-    },
-    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
-    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
-    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
-    { kind: "button", id: "apply", label: "Apply" },
-  ],
-  onActivate: async () => {
-    const settings = await marinara.storage.get();
-    // Update the panel when stored state should be reflected in the controls.
-  },
-  onEvent: async ({ elementId, values }) => {
-    if (elementId !== "apply") return;
-    await marinara.storage.patch(values);
-  },
-});
-
-marinara.onCleanup(() => panel.remove());
-```
-
-간단한 동작에는 `kind: "button"`을, Extensions 메뉴 동작에는 `kind: "menu-item"`을 쓰세요. 같은 확장 리비전에 있는 기존 기여를 실행하는 Command Center 항목에는 `kind: "command"`를 쓰세요. 명령에는 `targetContributionId`가 필요하며 `onActivate`나 `onEvent`를 쓸 수 없습니다.
-
-```js
-marinara.ui.registerContribution({
-  id: "open-weather",
-  kind: "command",
-  label: "Open weather controls",
-  targetContributionId: "weather-settings",
-});
-```
-
-호스트는 대상의 확장 ID와 콘텐츠 해시가 같을 때만 명령의 대상을 찾습니다. 대상이 없거나, 다른 확장에 속하거나, 오래된 리비전이면 안전하게 실패합니다. 버튼의 기본값은 `surface: "top-bar"`입니다. 대신 `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings`를 대상으로 삼고 `position`을 `header`, `before-content`, `after-content`로 설정할 수 있습니다. `icon`에는 Marinara가 지원하는 kebab-case Lucide 아이콘 이름을 쓸 수 있습니다. 두 동작 모두 `onActivate`를 호출합니다. `panel`은 열릴 때 `onActivate`를 호출하며 버튼은 모든 패널 컨트롤의 현재 값과 함께 `onEvent`를 호출합니다. 핸들은 종류별 업데이트를 지원합니다. `button`은 `label`, `description`, `icon`, `surface`, `position`을, `menu-item`은 `label`, `description`, `icon`을, `panel`은 `label`, `description`, `icon`, `elements`를 받습니다. 모든 핸들은 `remove()`를 지원합니다. ID에는 영문자, 숫자, `.`, `_`, `-`를 넣을 수 있습니다.
-
-다음 예시는 Presets 패널 내용 위에 네이티브 동작을 배치합니다.
-
-```js
-marinara.ui.registerContribution({
-  id: "preset-helper",
-  kind: "button",
-  label: "Preset helper",
-  description: "Run the preset helper",
-  icon: "list-sparkles",
-  surface: "presets",
-  position: "before-content",
-  onActivate: () => {
-    // Run extension behavior here.
-  },
-});
-```
-
-복잡한 도구라면 이벤트가 발생한 뒤 패널 요소를 갱신하는 식으로 여러 단계짜리 화면을 만들 수 있습니다. 앱의 상태는 `marinara.storage`에 두세요. 마크업 안에 상태를 심지 마세요.
-
-<a id="use-active-chat-context"></a>
-
-### 현재 채팅 컨텍스트 사용하기
-
-Browser Extension API 버전 5는 Marinara에 지금 표시된 채팅의 불투명 식별자를 제공합니다.
-
-```js
-const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
-  if (!chatId) return; // Home, a library, or another surface without an active chat.
-
-  const storage = await marinara.storage.get();
-  const tab = storage.tabsByChat?.[chatId];
-
-  // characterId is available only for a single-Character chat.
-  // Use characterIds for group chats.
-  marinara.log.debug("Loaded Notepad tab", {
-    chatId,
-    characterId,
-    characterIds,
-    personaId,
-    characterNames: characters.map((character) => character.name),
-    personaName: persona?.name ?? null,
-    tab,
-  });
-};
-
-const unsubscribe = marinara.context.subscribe(renderForContext);
-marinara.onCleanup(unsubscribe);
-```
-
-`marinara.context.get()`은 구독하지 않고 같은 현재 스냅샷만 돌려줍니다. 활성화된 채팅이 없으면 `chatId`는 `null`이고 `characterIds`는 비어 있습니다. `characterId`는 캐릭터가 정확히 한 명 참여할 때만 채워집니다. 그룹 채팅에서는 참여자 전원이 `characterIds`로 나오고 `characterId`는 `null`로 남습니다. `personaId`는 `read_active_persona`가 승인된 경우에만 채워집니다.
-
-채팅 ID와 캐릭터 ID는 항상 제공되므로, 확장이 자기 전용 저장소를 채팅별로 나눠 쓸 수 있습니다. 레코드의 필드를 받으려면 확장 매니페스트에 아래 선택 권한 중 하나 또는 둘 다가 필요합니다.
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["read_active_characters", "read_active_persona"]
-}
-```
-
-- `read_active_characters`는 현재 채팅에 참여 중인 카드 정보를 `characters`에 채웁니다.
-- `read_active_persona`는 현재 채팅에서 선택된 페르소나 정보를 `persona`에 채웁니다.
-
-권한이 없으면 값은 각각 `[]`와 `null`로 남습니다. Marinara는 요청된 권한을 모두 **Requested access**(요청된 접근 권한)에 보여 주고, 정확한 해시를 승인하는 창에서 다시 한번 보여 줍니다. 권한을 추가하거나 빼면 실행 코드의 해시가 달라져 확장이 비활성화되고 승인을 다시 받아야 합니다.
-
-캐릭터 스냅샷에 들어가는 것은 `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe`, `conversationDisplayName`뿐입니다. 페르소나 스냅샷에 들어가는 것은 `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe`, `conversationDisplayName`뿐입니다. 텍스트는 샌드박스 경계를 넘기 전에 길이가 제한됩니다.
-
-Marinara는 메시지, 제작자 노트, 시스템 프롬프트, 후행 지시문, 주석, 아바타 경로, 캐릭터나 페르소나 라이브러리 전체, 선언하지 않은 필드, 채팅 메타데이터, 데이터베이스 핸들, 네트워크 접근, 변경 작업을 절대 넘기지 않습니다. 컨텍스트 갱신도 승인된 코드 해시에 묶여 있으며, 현재 채팅이나 그 캐릭터 목록, 선택된 페르소나가 바뀔 때 전달됩니다.
-
-<a id="add-a-dice-format"></a>
-
-### 주사위 형식 추가하기
-
-Browser Extension API 버전 6에서는 확장이 서사 주사위 풀 같은 자체 표기법을 `/roll`에 추가할 수 있습니다. 확장이 표기법을 읽고 굴릴 주사위를 지정하면, Marinara가 자체 보안 주사위 굴림 기능으로 굴리고 나온 눈을 돌려줍니다. 확장은 굴림의 의미를 정할 수 있지만, 나온 눈을 정할 수는 없습니다.
-
-```js
-const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
-
-const format = marinara.dice.registerFormat({
-  id: "narrative",
-  label: "Narrative dice",
-  // Return null for notation this format does not read.
-  parse(notation) {
-    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
-    if (!terms.length) return null;
-    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
-    return { dice: kinds.map(() => 6), kinds };
-  },
-  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
-  read({ notation, dice, rolls, plan }) {
-    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
-    return { total: net, text: net > 0 ? `${net} success` : "failure" };
-  },
-});
-marinara.onCleanup(() => format.remove());
-```
-
-이제 `/roll 2 boost 1 setback`은 주사위 눈, 합계, 확장의 텍스트를 형식 이름과 함께 게시합니다. `2d6`이나 `4d6kh3` 같은 일반 표기법은 항상 기존 방식으로 굴리며 확장으로 전달되지 않습니다. 그 밖의 표기법은 등록된 형식에 차례로 전달되며, `parse`가 처음으로 주사위를 반환하는 형식으로 굴립니다.
-
-- `parse(notation)`은 `null`이나 `{ dice: [sides, ...] }`를 반환합니다. 주사위는 1~100개이며 각각 2~1000면입니다. 객체의 다른 값은 샌드박스 안에 남아 `plan`으로 `read`에 다시 전달됩니다.
-- `read(...)`는 `{ total, text?, kept? }`를 반환합니다. 유한한 숫자, 최대 200자의 일반 텍스트, 그리고 선택적으로 계산에 넣은 주사위의 위치를 오름차순으로 담습니다. `/roll`은 나머지 주사위에 취소선을 긋습니다.
-- 확장마다 형식 4개를 등록할 수 있습니다. 표기법은 최대 100자입니다. `parse`와 `read`는 비동기 함수여도 되지만 각각 2초 안에 응답해야 합니다.
-- 텍스트는 일반 텍스트로 표시됩니다. 링크, 이미지, 서식, HTML은 이스케이프 처리됩니다.
-
-주사위 형식은 브라우저의 `/roll`에 적용됩니다. 게임 마스터의 `roll_dice` 도구와 다른 서버 측 굴림은 내장 표기법과 규칙 집합의 주사위를 계속 사용합니다. 이전 Engine에서는 호출하기 전에 `typeof marinara.dice?.registerFormat === "function"`을 확인하세요.
-
-### 구형 확장과 전체 페이지 확장
-
-날씨 조절기, 프롬프트 편집기를 비롯한 묵직한 워크플로도 기여 기능으로 만들기에 알맞은 사례입니다. 이런 도구를 안전하게 옮길 때는 메뉴나 상단 막대의 실행 버튼에 단계별로 갱신되는 패널을 붙이면 됩니다. 다만 DOM 오버레이를 끼워 넣거나, Marinara의 CSS 선택자를 조회하거나, React 내부 구조를 훑거나, 동일 출처 `/api` 경로를 호출하는 기존 패키지는 그대로는 안전한 런타임으로 가져올 수 없습니다.
-
-UI 기여는 화면을 제공할 뿐, 주변 권한까지 주지는 않습니다. 컨텍스트 API는 현재 채팅 ID와 캐릭터 ID를 항상 제공하고, 그 밖에는 위에 적힌 대로 선언된 현재 레코드 필드만 제공할 수 있습니다. 메시지, 프리셋, 로어북, 선언하지 않은 캐릭터나 페르소나 데이터, 장면 시각 효과가 필요한 기능이라면 Marinara가 따로 좁게 열어 주는 중개 기능이 있어야 합니다. 확장이 호스트 DOM 접근이나 제한 없는 네트워크 요청으로 그것을 흉내 내서는 안 됩니다.
-
-External Extension이 정말로 호스트 DOM 접근에 의존한다면 다음과 같이 요청할 수 있습니다.
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["full_page_access"]
-}
-```
-
-**페이지 전체 접근은 샌드박스 기능이 아닙니다.** 승인된 JavaScript와 CSS가 Marinara의 페이지 안에서 그대로 실행됩니다. 이 코드는 현재 브라우저 세션에 보이는 것이라면 무엇이든 읽거나 바꿀 수 있고, 채팅과 카드를 들여다보고, 브라우저 저장소를 쓰고, 네트워크 요청을 보내고, 동일 출처의 Marinara API를 호출할 수 있습니다. 브라우저 콘솔에 코드를 붙여넣어 실행하는 것과 실질적으로 같은 권한입니다. Professor Mari가 만든 초안은 이 권한을 요청할 수 없습니다.
-
-페이지 전체 접근 권한을 가진 확장은 네트워크 요청에 `marinara.fetch(...)`를 사용하세요. 함수 시그니처와 반환값은 `window.fetch`와 같으며, **Settings > Addons > External Extensions**(설정 > 애드온 > 외부 확장)에서 해당 확장의 세션 내 요청 수, 응답에 보고된 전송 바이트 수, 최근 요청 빈도, 높은 트래픽이 지속될 때의 경고를 표시할 수 있습니다. 페이지 전체 접근 코드는 신뢰하는 페이지 코드로 실행되므로 `window.fetch` 직접 호출도 계속 사용할 수 있지만, 해당 요청은 확장에 귀속시킬 수 없습니다.
-
-Marinara는 `capabilities` 필드가 없는 구형 `kind: "marinara.extension"` v1 형식을 샌드박스 이전 패키지로 인식하고, 가져오는 시점에 **Full page access**를 부여합니다. 덕분에 WeatherTweaker 같은 구형 패키지가 Worker 안에서 조용히 실패하지 않고 올바른 검토 절차를 밟게 됩니다. 이 형식을 쓰면서도 안전한 런타임을 원하는 최신 패키지라면 `"capabilities": []`를 넣어야 합니다.
-
-External Extension의 두 단계 안전장치와 정확한 해시 승인은 이 경우에도 그대로 적용됩니다. 코드, CSS, 권한이 바뀌면 확장이 비활성화되고 승인을 다시 받아야 합니다. 비활성화하면 Marinara가 넣어 둔 스크립트와 스타일시트 노드를 제거하고, 호환 API로 만든 타이머를 취소하고, `marinara.onCleanup(...)`으로 등록한 콜백을 실행합니다. 다만 페이지 코드는 등록되지 않은 리스너, 타이머, 전역 변수, DOM 변경을 만들어 낼 수 있어서 정리는 최선을 다하는 수준입니다. 확장을 비활성화한 뒤에도 흔적이 남아 있으면 페이지를 새로 고치세요.
-
-구형 `marinara.ui.showWindow(...)` API도 그대로 쓸 수 있으며, 불투명 출처 iframe 안에 임시 창을 띄웁니다. 컨트롤 묶음은 동일하고 `update(...)`와 `close()` 핸들을 돌려줍니다. 도구를 Marinara의 평소 내비게이션으로 열 수 있게 하려면 기여 기능 쪽을 쓰세요.
-
-Server Extension은 macOS Seatbelt나 Linux Bubblewrap 안에서 권한이 제한된 별도의 Node 프로세스로 실행됩니다. Marinara 파일, 사용자 파일, 상속된 서버 비밀 정보, 네트워크, 자식 프로세스, 워커, 네이티브 애드온에는 접근할 수 없습니다. 지원되는 운영체제 샌드박스를 Marinara가 마련하지 못하면 Server Extension은 계속 비활성화 상태로 남습니다.
+Server Extension은 운영체제 샌드박스 안에서 별도의 Node 프로세스(서버 컴퓨터에서 실행되는 프로그램)로 실행됩니다. Marinara 파일, 사용자 파일, 서버 시크릿, 네트워크, 자식 프로세스, 워커, 네이티브 애드온에는 접근할 수 없습니다.
 
 <a id="platform-support"></a>
 
 ### 플랫폼 지원
 
-Browser Extension은 브라우저 자체가 격리해 주므로 어디서나 동작합니다. Server Extension에는 지원되는 운영체제 샌드박스가 필요합니다. 샌드박스가 없는 환경에서는 비활성화 상태로 남아 켤 수 없습니다. Marinara는 샌드박스 없이 실행하는 방식으로 물러서지 않습니다.
+Browser Extension은 브라우저가 샌드박스로 격리하므로 어디서나 동작합니다. Server Extension에는 지원되는 운영체제 샌드박스가 필요합니다. 샌드박스가 없는 환경에서는 비활성화 상태로 남으며, Marinara는 샌드박스 없이는 절대 실행하지 않습니다.
 
-| 플랫폼                     | 샌드박스 Browser Extension | 전체 페이지 External Extension | Server Extension                       |
-| -------------------------- | -------------------------- | ------------------------------ | -------------------------------------- |
-| macOS                      | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ✅ 샌드박스 적용(Seatbelt)             |
-| Linux(Bubblewrap 있음)     | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ✅ 샌드박스 적용(Bubblewrap)           |
-| Linux(`bwrap` 없음)        | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. `bwrap`을 설치하세요      |
-| Docker(기본값) | ✅ 샌드박스 적용 | ⚠️ 명시적 신뢰 필요 | ⛔ 비활성화. 컨테이너 권한 제한 |
-| Windows                    | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. Browser Extension을 쓰세요 |
-| Android                    | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. Browser Extension을 쓰세요 |
+| 플랫폼 | Server Extension |
+| --- | --- |
+| macOS | macOS 샌드박스인 Seatbelt로 격리 |
+| Linux(Bubblewrap 있음) | Linux 샌드박스 도구인 Bubblewrap으로 격리 |
+| Linux(`bwrap` 없음) | 비활성화. `bwrap`을 설치하세요 |
+| Docker(기본값) | 비활성화. 컨테이너 권한 제한 |
+| Windows | 비활성화. Browser Extension을 쓰세요 |
+| Android | 비활성화. Browser Extension을 쓰세요 |
 
-공식 Docker 이미지에는 Bubblewrap이 포함되어 있지만, 최소 권한으로 실행되는 기본 컨테이너는 Bubblewrap에 필요한 중첩 네임스페이스와 마운트를 생성할 수 없습니다. Marinara는 실행 중에 샌드박스를 검사하고 컨테이너가 허용하지 않으면 Server Extension을 비활성화된 상태로 유지합니다. Docker 권한을 명시적으로 변경하는 방법과 그에 따른 보안상의 절충은 [문제 해결](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)을 참고하세요.
+Browser Extension은 모든 플랫폼에서 샌드박스로 격리됩니다. 전체 페이지 External Extension은 어떤 플랫폼에서도 격리되지 않으며, 언제나 명시적인 신뢰가 필요합니다.
 
-Windows와 Android에는 지원되는 운영체제 프로세스 샌드박스가 없어서 Server Extension을 설계상 쓸 수 없습니다. 대신 Browser Extension을 쓰거나, Server Extension이 꼭 필요하다면 Marinara 서버를 macOS나 Linux(`bwrap` 설치 필요)에서 실행하세요.
+공식 Docker 이미지에는 Bubblewrap이 들어 있지만, 기본 컨테이너는 Bubblewrap에 필요한 중첩 네임스페이스와 마운트를 만들 수 없습니다. Marinara는 실행 중에 샌드박스를 검사하고, 컨테이너가 허용하지 않으면 Server Extension을 비활성화된 상태로 둡니다. Docker 권한을 재정의하는 방법과 그에 따른 보안상의 절충은 [문제 해결](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)을 참고하세요.
 
-## 외부 확장
+Windows와 Android에는 지원되는 프로세스 샌드박스가 없으므로 Server Extension을 쓸 수 없습니다. Browser Extension을 쓰거나, macOS 또는 `bwrap`이 설치된 Linux에서 Marinara 서버를 실행하세요.
 
-서드파티 가져오기는 기본적으로 잠겨 있고 화면에도 나오지 않습니다. 두 단계를 거쳐야 합니다.
+<a id="allow-third-party-imports"></a>
 
-1. Marinara를 실행하는 호스트의 `.env`에 `ENABLE_EXTERNAL_EXTENSIONS=true`를 설정하세요.
-2. **Settings** > **Advanced**(고급) > **Danger Zone**(위험 구역)을 열고, 데이터 삭제 컨트롤 아래까지 스크롤한 다음, 경고문을 읽고 **Allow third-party extension imports**(서드파티 확장 가져오기 허용)를 활성화하세요.
+## 서드파티 가져오기 허용하기
 
-그제서야 **Settings** > **Addons**에 **External Extensions**(외부 확장)가 나타나고 파일과 폴더 가져오기 컨트롤을 쓸 수 있습니다. 지원 형식은 항상 아래와 같이 펼쳐져 표시됩니다.
+서드파티 가져오기는 다른 사람이 작성한 코드를 실행하므로 기본적으로 잠겨 있고 화면에도 나오지 않습니다. 두 단계를 거치면 열립니다.
+
+1. Marinara를 실행하는 컴퓨터의 `.env` 파일에 `ENABLE_EXTERNAL_EXTENSIONS=true`를 설정한 다음 Marinara를 다시 시작하세요. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
+2. **Settings → Advanced → Danger Zone**(설정 → 고급 → 위험 구역)을 열고, 데이터 삭제 컨트롤 아래로 스크롤한 다음, 경고를 읽고 **Allow third-party extension imports**(서드파티 확장 가져오기 허용)를 켜세요.
+
+그러면 **Settings → Addons**에 파일과 폴더 가져오기 컨트롤이 있는 **External Extensions**가 표시됩니다. 지원 형식은 다음과 같습니다.
 
 - `.personal-extension.zip` 및 호환되는 `.zip` 패키지
 - `.json` 매니페스트
@@ -256,26 +88,31 @@ Windows와 Android에는 지원되는 운영체제 프로세스 샌드박스가 
 - `.js`, `.mjs`, `.cjs`
 - `.server.js`, `.server.mjs`, `.server.cjs`
 
-가져오기만으로는 승인이 따라오지 않으며, 확장이 스스로 활성화할 수도 없습니다. 구형 레코드, 프로필로 가져온 레코드, 수동으로 저장한 레코드, 출처를 알 수 없는 레코드도 외부 확장으로 취급합니다. 이런 레코드는 숨겨진 채로 승인할 수 없고, 두 안전장치가 모두 열리기 전까지는 양쪽 런타임에서 제외됩니다.
+가져온 확장에는 승인이 따라오지 않으며, 확장이 스스로 활성화할 수도 없습니다. 대부분의 Browser Extension은 안전한 샌드박스 안에 그대로 두는 편이 좋습니다. **Full page access**가 표시된 패키지는 다릅니다.
 
-정확한 해시를 승인하기 전에 **Requested access** 목록을 확인하세요. 대부분의 Browser Extension은 안전한 샌드박스 안에 그대로 두는 편이 좋습니다. **Full page access**가 표시된 패키지는 의도적으로 격리되지 않으므로, 코드를 직접 살펴보고 그 버전을 신뢰할 수 있을 때만 활성화하세요.
+- 코드가 샌드박스 없이 Marinara의 페이지 안에서 실행됩니다.
+- 채팅과 카드를 읽고, 브라우저 저장소를 사용하고, 네트워크 요청을 보내고, Marinara 자체 API를 호출할 수 있습니다.
+- 그 버전을 직접 검사하고 신뢰할 수 있을 때만 활성화하세요.
+- Professor Mari의 초안은 이 권한을 요청할 수 없습니다.
 
-두 안전장치 중 하나라도 끄면 실행 중인 외부 서버 프로세스가 멈추고, 브라우저 워커와 전체 페이지 런타임 노드가 제거되며, 저장된 외부 레코드가 비활성화됩니다. 안전장치를 다시 열어도 확장이 자동으로 다시 실행되지는 않습니다. 전체 페이지 확장이 정리 대상으로 등록하지 않은 변경을 남겼다면 페이지를 새로 고치세요.
+구형 레코드, 프로필로 가져온 레코드, 수동으로 저장한 레코드, 출처를 알 수 없는 레코드도 외부 확장으로 취급합니다. 이런 레코드는 숨겨진 채로 승인할 수 없으며, 두 단계를 모두 마치기 전에는 실행되지 않습니다.
 
-서드파티 확장에는 악성 코드나 위험한 코드가 들어 있을 수 있습니다. 다운로드, 가져오기, 활성화 전에 항상 모든 줄을 확인하세요. 진행에 따르는 책임은 전적으로 본인에게 있습니다.
+두 단계 중 하나라도 끄면 가져온 확장이 모두 비활성화됩니다. 다시 켜도 확장이 다시 실행되지는 않습니다. 전체 페이지 확장이 남긴 변경이 있으면 페이지를 새로 고치세요.
+
+작동하지 않는 경우: 가져오기 컨트롤이 나타나지 않으면 두 단계를 모두 마쳤는지, 그리고 서버 컴퓨터에서 접속했거나 **Settings → Advanced → Admin Access**(설정 → 고급 → 관리자 접근)에 관리자 시크릿을 저장했는지 확인하세요.
 
 ## 내보내기, 개정판, 복구
 
-확장의 내보내기 동작을 쓰면 옮겨 쓸 수 있는 패키지를 다운로드할 수 있습니다. 내보낸 패키지와 복원한 패키지는 비활성화 상태를 유지합니다. 개정판을 되살릴 때도 비활성화된 초안으로 돌아갑니다.
+확장의 내보내기 동작을 쓰면 옮겨 쓸 수 있는 패키지를 다운로드할 수 있습니다. 내보낸 패키지와 복원한 패키지는 비활성화 상태를 유지합니다. 개정판을 복원해도 비활성화된 초안으로 돌아갑니다.
 
-**Settings → Addons → Extension revision history**(설정 → 애드온 → 확장 수정 기록)에서 모든 개인 확장과 외부 확장의 이전 코드 버전을 몇 개 보관할지 정합니다. 기본값은 **10**이며 **0–10** 중에서 선택합니다. **0**이면 기록을 남기지 않습니다. 한도를 줄이면 오래된 개정판을 영구적으로 삭제하기 전에 확인을 요청합니다. 현재 확장 코드, 승인, 활성화 상태, 저장된 확장 데이터는 보존됩니다. 이후의 편집과 롤백에도 같은 한도가 적용되며, Professor Mari를 통한 편집도 포함됩니다.
+**Settings → Addons → Extension revision history**(설정 → 애드온 → 확장 수정 기록)에서 모든 개인 확장과 외부 확장의 이전 코드 버전을 몇 개 보관할지 정합니다. 기본값은 **10**입니다. **0**부터 **10**까지 고를 수 있으며, **0**이면 기록이 꺼집니다. 한도를 줄이면 오래된 개정판을 영구적으로 삭제하기 전에 확인을 요청합니다. 현재 코드, 승인, 활성화 상태, 저장된 확장 데이터는 보존됩니다. Professor Mari를 통한 편집에도 같은 한도가 적용됩니다.
 
-확장이 이상하게 동작하면 **Disable**(비활성화)를 선택하세요. 화면을 쓸 수 없는 상황이라면 Marinara를 종료하고 해당 `installed_extensions` 레코드의 `enabled` 값을 `"false"`로 바꾸세요. `approvedHash`는 절대 직접 손대지 마세요.
+확장이 이상하게 동작하면 **Disable**(비활성화)를 선택하세요. 화면을 쓸 수 없다면 Marinara를 중지하고 해당 `installed_extensions` 레코드의 `enabled` 값을 `"false"`로 바꾸세요. `approvedHash`는 절대 직접 설정하지 마세요.
 
 ## 관련 가이드
 
-- [개인 확장 작성하기](writing-personal-extensions.md)
+- [Personal Extensions 작성](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
-- [서버 설정 참고 문서](../CONFIGURATION.md)
+- [서버 설정](../CONFIGURATION.md)
 - [Marinara 백업과 복원](../data/backup-and-restore.md)
 - [원격 접근](../REMOTE_ACCESS.md)

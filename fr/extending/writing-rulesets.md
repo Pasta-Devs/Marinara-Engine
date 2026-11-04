@@ -1,108 +1,120 @@
 # Écrire des ensembles de règles Game Mode
 
-Un ensemble de règles explique à Game Mode le fonctionnement d'un système sur table : les dés d'un test, le contenu de la fiche, les ressources dépensées et ce qu'un repos rend. Ce guide s'adresse à ceux qui veulent en écrire un et le partager. Pour jouer avec celui d'une autre personne, commence par [Jouer avec un ensemble de règles](../game/rulesets.md).
+Un ensemble de règles explique à Game Mode le fonctionnement d'un système sur table : les dés d'un test, le contenu de la fiche de personnage, les ressources dépensées et ce qu'un repos rend. Écris-en un pour faire entrer ton propre système dans Game Mode et le partager. Pour jouer avec un ensemble de règles créé par quelqu'un d'autre, consulte [Jouer avec un ensemble de règles](../game/rulesets.md).
 
-Un ensemble est un fichier JSON. Ce sont des données, pas du code. Rien ne s'y exécute, donc l'importer ne peut rien faire à ton ordinateur. Avant d'importer un fichier d'autrui, lis attentivement le texte du Game Master : il est envoyé au modèle dans toutes les parties utilisant cet ensemble.
+Un ensemble de règles est un fichier JSON. Ce sont des données, pas du code : rien ne s'y exécute, et l'importer ne peut pas nuire à ton ordinateur. Lis le texte du Game Master avant d'importer le fichier de quelqu'un d'autre, car ce texte est envoyé au modèle dans toutes les parties qui utilisent cet ensemble de règles.
 
-## À lire d'abord : ce qu'un ensemble peut et ne peut pas faire
+## Commencer un ensemble de règles
 
-Un ensemble ne peut que remplir les paramètres d'une mécanique déjà connue du moteur. Aujourd'hui, celui-ci connaît cinq façons de résoudre un test ; ton fichier en choisit une avec `resolution.kind` :
+1. Copie le fichier d'exemple qui correspond à la façon dont ton système lance les dés :
+   - [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json) est un petit système à 2d6 avec trois attributs. Il montre que rien dans le format ne suppose un d20 ou six caractéristiques.
+   - [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) est une petite réserve de dés à dix faces avec trois valeurs et six métiers.
+   - Le [package officiel 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014), un exemple complet. Son `ruleset.json` et son dossier `catalogs/` sont ce qu'Agent Organizer installe.
+2. Remplace `id` par le tien. Un identifiant se compose de minuscules, de chiffres et de tirets simples, comme `ember-roads`.
+3. Ouvre ta copie dans un éditeur de texte comme le Bloc-notes ou VS Code, et enregistre-la avec l'extension `.json`. Change d'abord `name`, puis les noms des attributs dans `sheet`, puis `rests` et le texte `gm`. [Parties du fichier](#parts-of-the-file) liste chaque clé, et [Pages de référence](#reference-pages) donne les liens vers les pages qui les expliquent.
+4. Importe-le (voir [Essayer ton ensemble de règles](#try-your-ruleset)). L'importation vérifie tout le fichier et signale les erreurs, ligne par ligne, avant d'enregistrer quoi que ce soit.
+5. Crée une nouvelle partie (voir [Game Mode : premiers pas](../game/getting-started.md)), choisis ton ensemble de règles sous **Rules** (règles) et joue quelques tests.
+
+Si ça n'a pas marché, consulte [Dépannage](#troubleshooting).
+
+Pour obtenir de l'aide dans ton éditeur pendant la saisie, ajoute cette ligne en première position à l'intérieur des accolades extérieures du fichier. Elle indique le JSON Schema à l'éditeur :
+
+```json
+"$schema": "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/staging/docs/extending/ruleset.schema.json",
+```
+
+Le schéma repère les clés mal écrites et les mauvais types. Il ne peut pas vérifier que les noms désignent des éléments qui existent, par exemple une compétence qui nomme un attribut. L'importation s'en charge. Tu peux ajouter une ligne `"$comment": "..."` à n'importe quel objet pour te laisser une note. Le moteur l'ignore.
+
+## Ce qu'un ensemble de règles peut et ne peut pas faire
+
+Un ensemble de règles remplit les paramètres d'une mécanique que le moteur connaît déjà. Le moteur connaît cinq façons de résoudre un test, et ton fichier en choisit une avec `resolution.kind` :
 
 - **`dice-sum`** : lancer des dés, ajouter des nombres de la fiche et atteindre ou dépasser une difficulté. Cela couvre les systèmes d20, ceux à 2d6 plus attribut et bien d'autres.
-- **`dice-pool`** : lancer le nombre de dés du personnage et compter ceux qui atteignent une cible. Cela couvre les systèmes où une valeur représente une poignée de dés plutôt qu'un bonus.
-
+- **`dice-pool`** : lancer le nombre de dés propre au personnage et compter ceux qui atteignent une cible. Cela couvre les systèmes où une valeur représente une poignée de dés plutôt qu'un bonus.
 - **`dice-highest`** : lancer une réserve et lire son plus haut dé, ou additionner ses quelques plus hauts. Cela couvre Blades in the Dark et Trophy Dark.
 - **`roll-against`** : obtenir un résultat inférieur ou égal (ou supérieur ou égal) au nombre de la fiche. Cela couvre les compétences en pourcentage et les tests de GURPS.
 - **`symbol-pool`** : constituer et améliorer des dés narratifs, puis annuler les symboles opposés. Cela couvre les tests de Genesys, et ses combats depuis Capability API 1.382.
 
 Les cinq sont décrits intégralement dans [Types de résolution](ruleset-checks.md#resolution-kinds).
 
-Une mécanique qui n'entre dans aucune de ces formes ne peut pas s'écrire dans le fichier. Les réserves opposées en sont un exemple. Chacune exige un nouveau type de résolution dans le moteur : une contribution de code avec des tests, pas un JSON. Si ton système en a besoin, ouvre une demande de fonctionnalité sur le dépôt du moteur et décris la mécanique avec quelques jets détaillés. Ces exemples deviennent les tests.
+Une mécanique qui n'entre pas dans ces formes, comme les réserves opposées, ne peut pas s'écrire dans un fichier d'ensemble de règles. Elle exige un nouveau type de résolution dans le moteur, c'est-à-dire une contribution de code avec des tests. Si ton système en a besoin, ouvre une demande de fonctionnalité sur le dépôt du moteur et décris la mécanique avec quelques jets détaillés. Ces jets deviennent les tests.
 
-Game Mode peut résoudre un combat avec les règles de Marinara ou celles de ton ensemble. Le bloc facultatif `battle` prête au combat Marinara les nombres des fiches : consulte [Batailles](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat). Le bloc facultatif `combat` définit comment ton ensemble résout le combat : consulte [Combat](ruleset-combat.md#combat-a-fight-your-own-rules-resolve). Le moteur applique déjà ces règles. Combat Preference (Préférence de combat) choisit la présentation Classic ou, si l'ensemble définit une distance, un champ Tactical. Un ensemble de règles peut limiter les styles utilisés par ses parties avec `combat.styles` (voir [Les styles qu'une partie peut utiliser](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)).
+Game Mode résout un combat soit avec le combat propre à Marinara, soit avec les règles de ton ensemble. Le bloc facultatif `battle` prête au combat de Marinara les nombres de tes fiches de personnage : consulte [Batailles](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat). Le bloc facultatif `combat` définit comment l'ensemble de règles résout lui-même le combat : consulte [Combat](ruleset-combat.md#combat-a-fight-your-own-rules-resolve). Le réglage Combat Preference (préférence de combat) de la partie choisit la présentation Classic ou, si l'ensemble de règles définit une distance, un champ de bataille Tactical. Un ensemble de règles peut limiter ceux que ses parties utilisent avec `combat.styles` (voir [Les styles qu'une partie peut utiliser](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)).
 
-## Démarrage rapide
+<a id="parts-of-the-file"></a>
 
-1. Copie l'exemple correspondant aux jets de ton système. [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json) est un petit système à 2d6 et trois attributs montrant que le format ne suppose ni d20 ni six caractéristiques. [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) est une petite réserve de dés à dix faces avec trois valeurs et six métiers. Pour un exemple complet, consulte le [package officiel 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) : son `ruleset.json` et son dossier `catalogs/` sont ce qu'Agent Organizer installe.
-2. Remplace `id` par le tien. Il utilise minuscules, chiffres et tirets simples, comme `ember-roads`.
-3. Modifie la fiche, les repos et le texte du Game Master.
-4. Importe-le ; consulte [Essayer ton ensemble](#trying-your-ruleset). L'importation vérifie tout le fichier et indique les erreurs ligne par ligne avant de sauvegarder quoi que ce soit.
-5. Crée une partie, choisis ton ensemble sous **Rules** (Règles) et joue quelques tests.
-
-Pour une aide pendant la saisie, indique le JSON Schema à ton éditeur en ajoutant cette première ligne à l'intérieur des accolades extérieures du fichier :
-
-```json
-"$schema": "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/staging/docs/extending/ruleset.schema.json",
-```
-
-Le schéma repère les clés mal écrites et les mauvais types pendant la saisie. Il ne vérifie pas que les noms désignent des éléments existants, par exemple une compétence nommant un attribut. L'importation s'en charge.
-
-Tu peux ajouter une ligne `"$comment": "..."` à n'importe quel objet pour te laisser une note. Le moteur l'ignore.
-
-## Les parties du fichier
+## Parties du fichier
 
 | Clé | Contenu |
 | --- | --- |
 | `schemaVersion` | Toujours `1`. |
-| `id`, `version` | Le nom de l'ensemble pour le moteur et un entier que tu augmentes à chaque changement publié. |
-| `name` | Ce que voient les joueurs dans l'assistant. |
-| `edition` | Facultatif. Une ligne sur l'édition ou le brouillon. |
-| `license` | Facultatif. Un identifiant SPDX et l'attribution exigée par ta source. |
-| `coverage` | Ce que couvre l'ensemble et le résumé d'une ligne affiché dans l'assistant. |
-| `resolution` | Comment lancer un test ou une sauvegarde. |
-| `sheet` | Tout le contenu de la fiche. |
-| `rests` | Ce que chaque repos restaure et efface. |
-| `gm` | Le texte donné au modèle du Game Master et les valeurs de fiche qu'il voit par personnage. |
-| `catalogs` | Facultatif. Les entrées préparées que propose l'éditeur pour éviter de saisir de longues listes. |
+| `id`, `version` | Le nom de ton ensemble de règles pour le moteur, et un entier que tu augmentes chaque fois que tu publies un changement. |
+| `name` | Ce que les joueurs voient dans l'assistant de configuration. |
+| `edition` | Facultatif. Une ligne sur l'édition ou le brouillon dont il s'agit. |
+| `license` | Facultatif. Un identifiant SPDX et le texte d'attribution exigé par ta source. |
+| `coverage` | Ce que couvre l'ensemble de règles, plus le résumé d'une ligne affiché dans l'assistant de configuration. |
+| `resolution` | Comment se lance un test ou une sauvegarde. |
+| `sheet` | Tout le contenu de la fiche de personnage. |
+| `rests` | Ce que chaque type de repos restaure et efface. |
+| `gm` | Le texte donné au modèle du Game Master, et les valeurs de fiche qu'il voit pour chaque personnage. |
+| `catalogs` | Facultatif. Des entrées toutes prêtes que propose l'éditeur de fiche, pour que les joueurs ne saisissent pas de longues listes à la main. |
 | `items` | Facultatif. Les mots dans lesquels tes objets sont écrits : catégories, raretés, statistiques, emplacements, monnaie. |
-| `battle` | Facultatif. Ce qu'une bataille lit dans la fiche et y réécrit ensuite. |
-| `combat` | Facultatif. Comment tes règles résolvent un combat et ce que joue l'écran de bataille. |
-| `layers` | Facultatif. Les variantes activées par le joueur à la création d'une partie. |
+| `battle` | Facultatif. Ce qu'une bataille peut lire dans la fiche, et ce qu'elle y réécrit ensuite. |
+| `combat` | Facultatif. Comment un combat est résolu par tes propres règles, et ce que joue ensuite l'écran de bataille. |
+| `layers` | Facultatif. Des variantes de ton ensemble de règles qu'un joueur active à la création d'une partie. |
 
-Le fichier peut atteindre 512 KB (256 KB avant Capability API 1.340). Le texte destiné à un prompt (noms, libellés, texte du Game Master) ne peut pas contenir de sauts de ligne, de crochets ni de doubles accolades.
+Le fichier peut atteindre 512 KB (256 KB avant Capability API 1.340). Le texte qui finit dans un prompt (noms, libellés, texte du Game Master) ne peut pas contenir de sauts de ligne, de crochets ni de doubles accolades.
 
-Les identifiants de la fiche (attributs, compétences, champs, réserves, etc.) utilisent minuscules, chiffres et traits de soulignement, en commençant par une lettre, comme `grit_max`.
+Les identifiants de la fiche (attributs, compétences, champs, réserves, etc.) se composent de minuscules, de chiffres et de traits de soulignement, et commencent par une lettre, comme `grit_max`.
 
-## Les pages de ce guide
+<a id="reference-pages"></a>
 
-Cette page explique ce qu'est un ensemble de règles, comment commencer à en créer un, puis comment l'essayer et le partager. Le reste du guide est organisé par sujet :
+## Pages de référence
 
-- [Tests des ensembles de règles](ruleset-checks.md) : Comment un ensemble de règles résout un test ou une sauvegarde : les cinq types de résolution, les bandes de résultat, les tests qui se lancent à leur façon et les dépenses ou les charmes qui modifient un jet
-- [Fiches des ensembles de règles](ruleset-sheets.md) : Ce qui figure sur la fiche de personnage d'un ensemble de règles : attributs, compétences, champs et listes, états vivants, pistes de blessures, pénalités, repos et texte du GM (maître du jeu), ainsi que la fiche d'équipe et les décomptes de progression
-- [Catalogues des ensembles de règles](ruleset-catalogs.md) : Les entrées préparées que l'éditeur de fiche propose dans un sélecteur : l'en-tête du catalogue, les entrées, les valeurs maintenues par l'ensemble de règles, les commandes de fiche et la commande d'utilisation
-- [Mécaniques des entrées des ensembles de règles](ruleset-mechanics.md) : Ce que fait une entrée de catalogue en chiffres : le bloc `mechanics` d'une entrée, lu par les tests, les repos et les combats
-- [Assistant de création de personnages des ensembles de règles](ruleset-character-builder.md) : L'assistant de création guidée : créer un personnage par étapes, de la race et de la classe aux scores, aux maîtrises, aux sorts et à l'équipement
-- [Objets des ensembles de règles](ruleset-items.md) : Ce que transporte une équipe : catégories, armes, armures, munitions, butin, argent, équipement de départ et marchés
-- [Combat des ensembles de règles](ruleset-combat.md) : Comment un ensemble de règles intervient dans un combat : le bloc `battle`, qui prête la fiche au combat de Marinara, et le bloc `combat`, qui résout l'intégralité du combat selon les règles propres à l'ensemble, avec son bestiaire, son plateau, ses réactions et ses confrontations
-- [Couches, traductions et migrations des ensembles de règles](ruleset-layers-and-translations.md) : Les variantes qu'un joueur active pour une partie, les traductions du texte d'un ensemble de règles et le transfert des valeurs vers de nouveaux identifiants quand une fiche change
+Cette page explique comment commencer, essayer et partager un ensemble de règles. Les autres pages traitent chacune d'un sujet :
 
-<a id="trying-your-ruleset"></a>
+- [Tests des ensembles de règles](ruleset-checks.md) : les cinq types de résolution, les bandes de résultat, les tests qui se lancent à leur façon et les dépenses ou les charmes qui modifient un jet.
+- [Fiches des ensembles de règles](ruleset-sheets.md) : attributs, compétences, champs et listes, états vivants, pistes de blessures, pénalités, repos, texte du Game Master, fiche d'équipe et décomptes de progression.
+- [Catalogues des ensembles de règles](ruleset-catalogs.md) : les entrées toutes prêtes que l'éditeur de fiche propose dans un sélecteur.
+- [Mécaniques des entrées des ensembles de règles](ruleset-mechanics.md) : le bloc `mechanics` d'une entrée de catalogue, lu par les tests, les repos et les combats.
+- [Assistant de création de personnages des ensembles de règles](ruleset-character-builder.md) : créer un personnage par étapes, de la race et de la classe aux scores, aux maîtrises, aux sorts et à l'équipement.
+- [Objets des ensembles de règles](ruleset-items.md) : catégories, armes, armures, munitions, butin, argent, équipement de départ et marchés.
+- [Combat des ensembles de règles](ruleset-combat.md) : le bloc `battle` et le bloc `combat`, avec le bestiaire, le plateau, les réactions et les confrontations.
+- [Couches, traductions et migrations des ensembles de règles](ruleset-layers-and-translations.md) : les variantes qu'un joueur active pour une partie, les traductions et le déplacement de valeurs vers de nouveaux identifiants quand une fiche change.
+
+<a id="try-your-ruleset"></a>
 
 ## Essayer ton ensemble de règles
 
-Les ensembles de règles communautaires utilisent le même interrupteur que les agents importés. Ouvre **Settings** (réglages) > **Advanced** (avancé) > **Danger Zone** (zone de danger) et vérifie que **Allow custom Agent imports** (autoriser l'importation d'agents personnalisés) est activé. L'importation nécessite aussi un accès localhost ou **Admin Access** (accès administrateur) configuré.
+Avant de commencer, active **Allow custom Agent imports** (autoriser l'importation d'agents personnalisés) dans **Settings → Advanced → Danger Zone** (Paramètres → Avancé → Zone de danger). Les ensembles de règles importés utilisent le même interrupteur de sécurité que les agents importés : il reste désactivé tant que tu ne l'actives pas. L'importation exige aussi un accès localhost ou le secret d'administration (**Settings → Advanced → Admin Access** (Paramètres → Avancé → Accès administrateur)).
 
-1. Ouvre le panneau **Agents** (agents) et choisis le bouton **Import agents** (importer des agents), l'icône de téléchargement dans la rangée de boutons en haut du panneau.
-2. Choisis **Game Mode ruleset** (ensemble de règles Game Mode) et sélectionne ton fichier JSON, ou un fichier de package d'ensemble qui se termine par `.ruleset.json` (voir [Partager ton ensemble de règles](#sharing-your-ruleset)).
+1. Ouvre le panneau **Agents** et choisis le bouton **Import agents** (importer des agents), l'icône de téléchargement dans la rangée de boutons en haut du panneau.
+2. Choisis **Game Mode ruleset** (ensemble de règles Game Mode) et sélectionne ton fichier JSON, ou un fichier de package d'ensemble de règles qui se termine par `.ruleset.json` (voir [Partager ton ensemble de règles](#sharing-your-ruleset)).
 3. Lis l'examen. Il montre le nom, la version, la licence, ce que couvre l'ensemble de règles et le texte du Game Master. Choisis **Import** (importer).
 
-Ton ensemble apparaît dans la section **Rules** (règles) du panneau et dans le choix **Rules** de l'assistant de configuration des nouvelles parties. Un ensemble importé depuis un fichier est classé sous `local/<your id>`, pour ne jamais être confondu avec un ensemble officiel ou celui de quelqu'un d'autre.
+Ton ensemble de règles apparaît dans la section **Rules** du panneau et dans le choix **Rules** de l'assistant de configuration des nouvelles parties. Un ensemble de règles importé depuis un fichier est classé sous `local/<your id>`, pour ne jamais être confondu avec un ensemble officiel ou celui de quelqu'un d'autre.
 
 ### Modifier un ensemble de règles déjà importé
 
-Une version importée n'est jamais réécrite. Si tu modifies le fichier et le réimportes avec la même `version`, l'importation est refusée et te demande d'augmenter le numéro. C'est volontaire : une partie est liée à la version exacte utilisée à sa création, pour qu'une campagne en cours ne se réveille jamais avec des calculs différents.
+Une version importée n'est jamais réécrite. Si tu importes un fichier modifié avec la même `version`, l'importation est refusée et te demande d'augmenter le numéro. Une partie est liée à la version exacte utilisée à sa création, pour qu'une campagne en cours ne change jamais de calculs.
 
-Pendant la rédaction, le cycle est donc : modifier, augmenter `version`, importer, commencer une nouvelle partie. Les anciennes versions restent installées à côté de la nouvelle jusqu'à ce que tu retires l'ensemble de règles de la section **Rules**. Retirer un ensemble encore utilisé par une partie fait signaler à celle-ci que son ensemble de règles manque, jusqu'à sa réimportation.
+Pendant la rédaction, le cycle est : modifier, augmenter `version`, importer, commencer une nouvelle partie. Les anciennes versions restent installées à côté de la nouvelle jusqu'à ce que tu retires l'ensemble de règles de la section **Rules**. Si tu retires un ensemble de règles qu'une partie utilise encore, cette partie signale que son ensemble de règles manque, jusqu'à ce que tu le réimportes.
 
-Si tu changes la structure de la fiche (ajout, suppression ou renommage d'éléments), augmente aussi `sheet.version`. Les fiches existantes sont lues avec tolérance : les valeurs inconnues de la nouvelle fiche sont conservées, et les valeurs manquantes prennent leur valeur par défaut.
+Si tu changes la structure de la fiche (ajout, suppression ou renommage d'éléments), augmente aussi `sheet.version`. Les fiches existantes sont lues avec tolérance : les valeurs que la nouvelle fiche ne connaît pas sont conservées, et les valeurs manquantes prennent leur valeur par défaut.
 
 <a id="sharing-your-ruleset"></a>
 
 ## Partager ton ensemble de règles
 
-**Sous forme de fichier.** Envoie le fichier JSON à un ami. Il l'importe comme toi.
+Il existe cinq façons de le partager.
 
-**Sous forme de fichier de package.** Un ensemble trop gros pour un seul fichier, avec des catalogues dans leurs propres fichiers, voyage sous la forme d'un simple fichier JSON nommé `<name>.ruleset.json`. Il contient le manifeste du package et les documents de l'ensemble, chacun sous forme de ses octets exacts en base64 :
+### Sous forme de fichier
+
+Envoie le fichier JSON à un ami. Il l'importe de la même façon que toi.
+
+### Sous forme de fichier de package
+
+Un ensemble de règles trop gros pour un seul fichier, avec des catalogues dans leurs propres fichiers, voyage sous la forme d'un simple fichier JSON nommé `<name>.ruleset.json`. Il contient le manifeste du package et les documents de l'ensemble de règles, chacun stocké en base64 (une façon d'écrire un fichier en texte brut) :
 
 ```json
 {
@@ -116,11 +128,30 @@ Si tu changes la structure de la fiche (ajout, suppression ou renommage d'élém
 }
 ```
 
-Le manifeste liste `ruleset.json` et chaque `catalogs/<id>.json` dans `contributions.assets.paths` et dans `files`, avec la taille et le sha256 de chacun. Un éditeur d'ensembles comme Pixelforge en crée un. **Import agents** → **Game Mode ruleset** prend le fichier et affiche le même examen que pour un fichier d'ensemble, avec chaque catalogue et son nombre d'entrées. Rien n'y est compressé : il ne contient donc jamais plus que sa propre taille. Il est lu comme des données et n'est jamais installé comme un package : il est refusé, avec la raison, s'il contient autre chose (une autre clé, tout autre fichier, un document qui n'est pas du base64 strict ou pas du texte UTF-8), si son manifeste va au-delà de celui d'un ensemble (du code, des permissions ou d'autres contributions), si un fichier n'est pas celui que liste le manifeste, si un `$comment` dépasse 2 000 caractères ou si `$schema` nomme autre chose que le propre schéma du moteur, ou si l'ensemble ou un catalogue ne peut pas être lu. Il est classé sous `local/<its id>` comme un fichier d'ensemble, 132 MB au plus, avec au plus 12 fichiers de catalogue de 2 MB chacun et 40 traductions de 8 MB chacune (voir ci-dessous). Une version, c'est son ensemble et ses catalogues réunis : un catalogue modifié exige donc aussi une `version` plus élevée. Les packages d'ensembles ne sont pas acceptés sous forme de zip.
+Le manifeste liste `ruleset.json` et chaque `catalogs/<id>.json` dans `contributions.assets.paths` et dans `files`, avec la taille et le sha256 (une empreinte du fichier) de chacun. Un éditeur d'ensembles de règles comme Pixelforge en crée un. **Import agents** → **Game Mode ruleset** prend le fichier et affiche le même examen que pour un fichier d'ensemble de règles, avec chaque catalogue et son nombre d'entrées.
 
-**Par le catalogue officiel d'agents.** Un ensemble publié dans le catalogue est un fichier de package d'ensemble ayant exactement cette forme, `<id>.ruleset.json`, jamais un package zip (Capability API 1.374). Son manifeste déclare Capability API 1.374 ou plus récent, pour qu'un moteur plus ancien ne se le voie jamais proposer. Le moteur le lit avec le même lecteur et les mêmes vérifications qu'un fichier de package que tu importes, le vérifie par rapport au manifeste listé par le catalogue et l'installe comme tout package du catalogue. Un ensemble du catalogue dont l'artefact est un zip est refusé avant tout téléchargement ; les ensembles déjà installés continuent de fonctionner.
+Le fichier est lu comme des données et n'est jamais installé comme un package. Rien n'y est compressé : il ne contient donc jamais plus que sa propre taille. Limites :
 
-**Depuis un dépôt GitHub.** Si tu conserves ton travail dans un dépôt GitHub public, place chaque ensemble de règles dans un dossier `rulesets` à la racine, un fichier par ensemble :
+- Il est classé sous `local/<its id>`, comme un fichier d'ensemble de règles.
+- Il fait au plus 132 MB, avec au plus 12 fichiers de catalogue de 2 MB chacun et 40 traductions de 8 MB chacune (voir ci-dessous).
+- Une version, c'est son ensemble de règles et ses catalogues réunis : un catalogue modifié exige donc aussi une `version` plus élevée.
+- Les packages d'ensembles de règles ne sont pas acceptés sous forme de zip.
+
+Il est refusé, avec la raison, si :
+
+- il contient une autre clé ou tout autre fichier, ou un document qui n'est pas du base64 strict ou pas du texte UTF-8
+- son manifeste demande plus que ce dont un ensemble de règles a besoin (du code, des permissions ou d'autres contributions)
+- un fichier n'est pas celui que liste le manifeste
+- un `$comment` dépasse 2 000 caractères, ou `$schema` nomme autre chose que le propre schéma du moteur
+- l'ensemble de règles ou un catalogue ne peut pas être lu
+
+### Par le catalogue officiel d'agents
+
+Un ensemble de règles publié dans le catalogue est un fichier de package d'ensemble de règles ayant exactement cette forme, `<id>.ruleset.json`, jamais un package zip. Son manifeste déclare Capability API 1.374 ou plus récent, pour qu'un moteur plus ancien ne se le voie jamais proposer. Le moteur le lit avec le même lecteur et les mêmes vérifications qu'un fichier de package que tu importes, le vérifie par rapport au manifeste que liste le catalogue et l'installe comme tout package du catalogue. Un ensemble de règles du catalogue dont l'artefact est un zip est refusé avant tout téléchargement ; les ensembles de règles déjà installés continuent de fonctionner.
+
+### Depuis un dépôt GitHub
+
+Si tu conserves ton travail dans un dépôt GitHub public, place chaque ensemble de règles dans un dossier `rulesets` à la racine du dépôt, un fichier par ensemble de règles :
 
 ```text
 your-repository/
@@ -130,19 +161,23 @@ your-repository/
     another-system.json
 ```
 
-Un utilisateur ajoute ton dépôt une seule fois via la liste des dépôts d'agents personnalisés, examine son contenu et peut le synchroniser plus tard pour recevoir les nouvelles versions. Cette liste est une fonction avancée que la personne qui gère le serveur doit activer avec `ENABLE_CUSTOM_AGENT_REPOS=true`. Les ensembles de règles d'un dépôt sont classés sous le nom de son propriétaire, comme `alice/ember-roads`, pour que deux auteurs puissent chacun publier un ensemble nommé `v20` sans conflit.
+Un utilisateur ajoute ton dépôt une seule fois, examine son contenu et le synchronise plus tard pour recevoir les nouvelles versions. La liste des dépôts personnalisés est une fonction avancée. La personne qui gère le serveur l'active avec `ENABLE_CUSTOM_AGENT_REPOS=true`, puis ouvre **Agents → Agent Organizer → Custom Sources** (Agents → organisateur d'agents → sources personnalisées). Les ensembles de règles d'un dépôt sont classés sous le nom du propriétaire du dépôt, comme `alice/ember-roads`, pour que deux auteurs puissent chacun publier un ensemble de règles nommé `v20` sans conflit.
 
-Deux limites s'appliquent. Un dépôt peut contenir au maximum 32 fichiers JSON directement dans `rulesets` ; au-delà, il est refusé. Un compte nommé `local` ne peut publier d'ensembles de règles, car `local/` est réservé à ceux importés depuis un fichier.
+Deux limites s'appliquent. Un dépôt peut contenir au maximum 32 fichiers JSON directement dans `rulesets`, et un dépôt qui en contient plus est refusé. Un compte nommé `local` ne peut pas publier d'ensembles de règles, car `local/` est réservé aux ensembles de règles importés depuis un fichier.
 
-**Dans le catalogue officiel.** Un système largement joué, dont les licences sont claires, peut être proposé à tous via **Agent Organizer** (organisateur d’agents). Cela passe par une pull request au dépôt [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulte le package `ruleset-5e-2014` pour sa structure.
+### Dans le catalogue officiel
+
+Un système largement joué, dont la licence est claire, peut être proposé à tous via **Agent Organizer**. Pour en proposer un, ouvre une pull request sur le dépôt [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulte le package `ruleset-5e-2014` qui s'y trouve pour sa structure.
 
 ## Licences
 
-Ne publie que du texte de règles que tu as le droit de partager. Beaucoup de systèmes publient un document de référence sous licence ouverte ; c'est ce document que tu peux copier. Place l'identifiant de licence et le texte d'attribution exigé sous `license`. Ne copie pas le texte de livres de règles sans licence ouverte. Un ensemble de règles a surtout besoin de noms et de nombres, et le texte du Game Master doit être rédigé dans tes propres mots.
+Ne publie que du texte de règles que tu as le droit de partager. Beaucoup de systèmes publient un document de référence sous licence ouverte, et c'est ce document que tu peux copier. Place l'identifiant de licence (un identifiant SPDX, un nom standard court comme `CC-BY-4.0`) et le texte d'attribution exigé par la licence sous `license`. Ne copie pas le texte de livres de règles qui ne sont pas sous licence ouverte. Un ensemble de règles a surtout besoin de noms et de nombres. Rédige le texte du Game Master dans tes propres mots.
+
+<a id="troubleshooting"></a>
 
 ## Dépannage
 
-- **L'importation dit qu'un nom n'existe pas.** Quelque chose dans le fichier pointe vers un identifiant non déclaré, comme une compétence nommant une caractéristique supprimée. Le message donne le chemin vers la ligne.
+- **L'importation dit qu'un nom n'existe pas.** Quelque chose dans le fichier pointe vers un identifiant non déclaré, comme une compétence qui nomme un attribut que tu as supprimé. Le message donne le chemin vers la ligne.
 - **L'importation dit qu'une version est déjà installée avec un contenu différent.** Augmente `version` et réimporte.
-- **Mon ensemble de règles n'apparaît pas dans l'assistant de configuration.** Vérifie que **Allow custom Agent imports** est activé. Lorsqu'il est désactivé, les ensembles importés sont exclus des nouvelles parties. Les parties qui en utilisent déjà un continuent de fonctionner.
-- **Une partie dit que son ensemble de règles manque.** La version exacte utilisée à sa création n'est pas installée. Réimporte cette version du fichier.
+- **Mon ensemble de règles n'apparaît pas dans l'assistant de configuration.** Vérifie que **Allow custom Agent imports** est activé. Tant qu'il est désactivé, les ensembles de règles importés sont exclus des nouvelles parties, et les parties qui en utilisent déjà un continuent de fonctionner.
+- **Une partie dit que son ensemble de règles manque.** La version exacte utilisée à la création de la partie n'est pas installée. Réimporte cette version du fichier.

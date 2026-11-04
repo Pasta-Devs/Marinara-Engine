@@ -1,109 +1,95 @@
 # Peek Prompt: veja o que a IA recebeu
 
-O recurso **Peek Prompt** (espiar o prompt) mostra o texto exato que Marinara Engine enviou ao modelo de IA para gerar uma resposta. Ele também exibe uma prévia ao vivo do prompt antes de qualquer envio. Neste guia você aprende o que o visualizador mostra, como abri-lo, como ler a direção armazenada e como usar tudo isso para investigar respostas estranhas.
+O Peek Prompt mostra o texto exato que Marinara Engine enviou ao modelo para uma resposta, ou uma prévia ao vivo da próxima. Use-o quando uma resposta não for o que você esperava e você quiser saber o que o modelo viu.
 
-O prompt é o bloco completo de instruções e histórico do chat que Marinara monta e envia ao modelo. O modelo lê esse bloco e escreve a resposta. Com o Peek Prompt, você vê o bloco já montado, e nada na resposta continua sendo um mistério.
-
-## O que o Peek Prompt mostra
-
-Ao abrir o Peek Prompt, aparece uma janela chamada **Assembled Prompt** (prompt montado). Ela tem três partes.
-
-No topo, ao lado do título, fica um selo de origem. Ele indica qual versão do prompt está na tela:
-
-- **Exact Text Model Request**: a requisição literal enviada ao modelo.
-- **Live Preview**: uma prévia montada neste momento.
-- **Raw Messages**: a lista bruta de mensagens.
-- **Prompt Preview**: uma prévia geral.
-- **Decision test preview**: um prompt montado com as respostas de um teste explícito de decisões. Ele não foi enviado ao modelo de chat.
-
-Abaixo do selo fica o painel de informações da geração. Ele pode mostrar o nome do provedor e do modelo, uma contagem estimada de tokens e a contagem real de tokens do prompt assim que a resposta termina. O token é um pedacinho de texto que os modelos contam no lugar das palavras. Esse painel também traz pequenas tags com os valores usados, como **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** e **Assistant Prefill**. Valores de amostragem como **Top P**, **Top K** e **Min P** também podem aparecer aqui. Se a conexão para a qual a resposta se destinava falhou e a sua conexão de reserva escreveu a resposta no lugar dela, o painel também mostra a conexão que falhou, o modelo dela e um motivo curto, como "key rejected" ou "rate limited".
-
-O resto da janela é o prompt em si, dividido em seções que abrem e fecham. Cada seção tem um rótulo e sua própria estimativa aproximada de tokens. As mensagens do chat ficam agrupadas em uma única seção **Chat History**. Em uma requisição salva exata, o provedor pode ter juntado vários turnos do chat em um só bloco. Abra cada bloco para inspecionar todo o texto visível ao modelo lá dentro. Clique no cabeçalho de uma seção para abri-la ou fechá-la.
-
-Para levar o prompt inteiro para outro lugar, clique no botão de copiar ao lado do botão de fechar, no topo da janela. Ele copia todas as seções e mensagens do chat como texto simples, na ordem em que foram enviadas, inclusive as seções que você não abriu. Cada mensagem começa com uma linha que indica o papel dela, como `[system]`, `[user]` ou `[assistant]`. Em uma requisição salva exata, ele copia essa requisição salva do jeito que foi enviada. Copiar não envia nada ao modelo nem muda o prompt.
-
-## Buscar texto no prompt
-
-Use o campo visível **Find** (Buscar) no topo de **Assembled Prompt**, no computador, tablet ou celular. Com um teclado, pressione Ctrl+F ou Cmd+F dentro do visualizador para colocar o foco no campo.
-
-A busca encontra texto literal sem diferenciar maiúsculas de minúsculas em todo o prompt, incluindo as seções fechadas e o histórico do chat. As correspondências ficam destacadas, e o contador mostra a correspondência atual e o total. Use os botões para cima e para baixo, ou Enter e Shift+Enter no campo, para navegar entre elas. Ao chegar a qualquer uma das pontas, a navegação continua pela ponta oposta.
-
-Enquanto o campo **Find** contém texto, o visualizador mostra o texto completo das mensagens. Limpe o campo para voltar às seções recolhíveis. A busca não edita o prompt nem muda o que o botão de copiar copia.
+O prompt é o bloco completo de instruções e histórico do chat que Marinara monta e envia. O modelo lê esse bloco e escreve a resposta.
 
 ## Como abrir o Peek Prompt
 
-Há duas formas de abrir o visualizador.
+Há duas formas de abrir a janela **Assembled Prompt** (prompt montado).
 
-A primeira é pela barra de ações da mensagem. Siga estes passos:
+Por uma mensagem:
 
-1. Passe o mouse sobre a mensagem de IA mais recente do chat.
-2. Localize a ação **Peek prompt**. O ícone dela é uma lupa.
-3. Clique nela. A janela **Assembled Prompt** abre.
+1. Toque na mensagem mais recente da IA para mostrar a barra de ações dela.
+2. Clique em **Peek prompt** (espiar o prompt), uma lupa.
 
-A ação **Peek prompt** só aparece na última mensagem de IA do chat. Nas mensagens antigas, ela não aparece.
+Ele só aparece na última mensagem da IA. As mensagens mais antigas não o mostram.
 
-A segunda forma é um atalho digitado. Ele funciona mesmo antes de existir qualquer resposta da IA, então você consegue ver a prévia do prompt primeiro. Siga estes passos:
+Pela caixa de entrada, o que também funciona antes de qualquer resposta da IA:
 
-1. Clique na caixa de mensagem.
-2. Digite exatamente este texto:
+1. Digite exatamente este texto na caixa de mensagem: `{{prompt}}`
+2. Pressione <kbd>Enter</kbd> ou clique em **Send** (enviar).
 
-```
-{{prompt}}
-```
+Marinara limpa a caixa e abre a janela em vez de enviar uma mensagem. `{{prompt_preview}}` e `{{preview_prompt}}` fazem a mesma coisa.
 
-3. Pressione Enter ou clique em Send.
+## O que a janela mostra
 
-Em vez de enviar uma mensagem, Marinara limpa a caixa e abre o visualizador do Peek Prompt. Os atalhos `{{prompt_preview}}` e `{{preview_prompt}}` fazem a mesma coisa.
+Um selo ao lado do título indica qual versão do prompt você está lendo.
 
-## Como ler a direção armazenada
+| Selo | Significado |
+| --- | --- |
+| **Exact Text Model Request** | A requisição literal que foi enviada ao modelo. |
+| **Live Preview** | Uma prévia montada neste momento. |
+| **Raw Messages** | A lista bruta de mensagens. |
+| **Prompt Preview** | Uma prévia geral. |
+| **Decision test preview** | Um prompt montado com as respostas de um teste de decisões. Ele não foi enviado ao modelo de chat. |
 
-A geração guiada permite conduzir uma resposta com uma instrução fora do personagem. Quando a mensagem foi criada com uma direção armazenada, ela ganha a ação **Stored guidance** (direção armazenada). O ícone dela é um pergaminho pequeno. Essa ação também aparece nas mensagens criadas com o comando `/impersonate`.
+Abaixo dele, um painel de informações pode mostrar o serviço e o modelo, uma contagem estimada de tokens e a contagem real de tokens do prompt depois que a resposta termina. Um token é um pedacinho de texto que os modelos contam no lugar das palavras. O painel também mostra tags com os valores usados, como **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** e **Assistant Prefill**, e valores de amostragem como **Top P**, **Top K** e **Min P**. Tags como **Service Tier** e **Assistant Prefill**, e os valores de amostragem, são configurações avançadas do modelo. No começo, você pode ignorá-las. Se o primeiro modelo falhou e o seu modelo de reserva escreveu a resposta, o painel mostra o modelo que falhou e um motivo curto, como "key rejected" ou "rate limited".
 
-Clique em **Stored guidance** para abrir uma janela com a direção usada naquela mensagem. Em uma mensagem guiada, a janela identifica a direção pela origem:
+O resto é o prompt, em seções que abrem e fecham, cada uma com a sua própria estimativa aproximada de tokens. As mensagens do chat ficam agrupadas em **Chat History**. Em uma requisição salva exata, o serviço pode ter juntado vários turnos do chat em um só bloco, então abra cada bloco para ver todo o texto. Clique no cabeçalho de uma seção para abri-la ou fechá-la.
 
-- **/guided**: você usou o comando de barra `/guided`.
-- **Guided regenerate**: você regenerou a mensagem com uma direção digitada.
-- **Game start**: a direção veio da configuração do Game Mode.
+### Copiar o prompt
 
-O botão **Copy /guided** aparece apenas nas direções **/guided** e **Guided regenerate**. Ele copia a direção de volta no formato de um comando `/guided`. Depois, é só colar esse comando para reaproveitar a mesma condução. Nas direções **Game start**, o botão não aparece.
+Clique no botão de copiar ao lado do botão de fechar. Ele copia todas as seções e mensagens como texto simples, na ordem em que foram enviadas, inclusive as seções fechadas. Cada mensagem começa com uma linha que indica o papel dela, como `[system]`, `[user]` ou `[assistant]`. Em uma requisição salva exata, ele copia a requisição do jeito que foi enviada. Copiar não envia nada.
 
-Em uma mensagem de impersonação, a janela mostra os detalhes da impersonação em vez de uma direção única. O fluxo completo de geração guiada e impersonação está no guia indicado abaixo.
+### Buscar texto no prompt
 
-## Como usar o Peek Prompt para investigar respostas
+Use o campo **Find** (buscar) no topo, ou pressione <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd> no Mac) dentro da janela. A busca não diferencia maiúsculas de minúsculas e procura no prompt inteiro, incluindo as seções fechadas e o histórico do chat. O contador mostra a correspondência atual, por exemplo "2 of 5". Use os botões para cima e para baixo, ou <kbd>Enter</kbd> e <kbd>Shift</kbd>+<kbd>Enter</kbd>, para passar de uma correspondência a outra. Ao chegar a uma das pontas, a busca continua pela outra. Enquanto **Find** tem texto, a janela mostra o texto completo das mensagens. Limpe o campo para voltar às seções.
 
-O Peek Prompt é a melhor ferramenta para entender uma resposta inesperada. Use-o quando o personagem esquecer algo, ignorar uma regra ou sair do personagem.
+## Verificar uma resposta com o Reply checkup
 
-Abra a janela **Assembled Prompt** e verifique estes pontos:
+Quando Marinara identifica uma causa provável para uma resposta ruim, a janela mostra um painel **Reply checkup** (diagnóstico da resposta) acima do prompt. Ele pode dizer:
 
-- Procure informações que ficaram de fora. Se uma entrada de lorebook, uma lembrança ou um detalhe da persona não estiver em nenhuma seção, o modelo nunca viu esse conteúdo.
-- Confira as tags de parâmetros. Um valor muito alto em **Temperature** deixa as respostas aleatórias, e um valor baixo em **Max Output Tokens** corta as respostas no meio.
-- Abra a seção **Chat History**. Confirme se as mensagens esperadas estão presentes e na ordem certa.
-- Leia a contagem real de tokens depois da resposta. Um prompt muito grande empurra as mensagens antigas para fora do limite do modelo.
+- O card de personagem é grande e ocupa uma boa parte do orçamento do prompt (**Large character card**).
+- A resposta atingiu o limite de tokens e parou no meio de uma frase (**Cut off**).
+- O modelo não devolveu nenhum texto visível (**Empty reply**).
+- As mensagens mais antigas não foram enviadas porque o prompt não cabia (**N older messages not sent**).
+- Entradas de lorebook corresponderam, mas não couberam no orçamento (**N lorebook entries left out**).
+- O limite da resposta foi reduzido para abrir espaço para o prompt (**Reply limit cut**).
 
-Sabendo o que o modelo realmente recebeu, você consegue corrigir a causa. Talvez seja editar um card de personagem, ajustar uma entrada de lorebook ou mudar um valor nos parâmetros de geração.
+Quando ajuda, um link leva direto à configuração que deve ser mudada, como **Max output tokens** ou **Lorebook token budget**.
+
+## Investigar uma resposta inesperada
+
+Abra **Assembled Prompt** e verifique:
+
+- **Informações ausentes.** Se uma entrada de lorebook, uma memória ou um detalhe da persona não está em nenhuma seção, o modelo nunca viu esse conteúdo.
+- **Tags de parâmetros.** Um valor alto de **Temperature** pode deixar as respostas aleatórias, e um valor baixo de **Max Output Tokens** pode cortá-las no meio.
+- **Chat History.** Confirme se as mensagens que você espera estão lá, na ordem certa.
+- **Contagem de tokens.** Um prompt grande pode empurrar as mensagens mais antigas para fora do limite do modelo.
+
+Depois, corrija a causa: edite um card de personagem, ajuste uma entrada de lorebook ou mude uma configuração de geração. Veja [Parâmetros de geração](../prompts/generation-parameters.md).
+
+Para ler a direção por trás de uma resposta guiada, use **Stored guidance** (orientação salva) na mensagem. Veja [Geração guiada e Impersonate](guided-and-impersonate.md#read-stored-guidance).
 
 <a id="testing-decision-statements"></a>
 
 ## Como testar declarações de decisão
 
-Abra **Decision diagnostics** (diagnóstico de decisões) no Peek Prompt para inspecionar as declarações do prompt e as decisões de lorebooks do chat atual. Abrir o painel ou escolher **Preview inputs** (prévia das entradas) prepara os corpos das requisições sem consultar o modelo de decisão nem iniciar um modelo local. Expanda **Prepared request bodies** (corpos das requisições preparados) para ver as mensagens recentes, as declarações resolvidas, as opções e o formato de requisição específico do modelo. Outras declarações de lorebooks podem se tornar acessíveis somente depois da resposta a uma decisão anterior.
+Um [modelo de decisão](../connections/decision-models.md) responde a perguntas de sim ou não para recursos como os lorebooks. O **Decision diagnostics** (diagnóstico de decisões), dentro do Peek Prompt, permite inspecionar e testar essas perguntas para o chat atual.
 
-Escolha **Test decisions** (testar decisões) para enviar as perguntas elegíveis ao modelo de decisão selecionado. Isso faz requisições reais de decisão, pelas quais um modelo hospedado pode cobrar. Não gera uma resposta de chat, executa agentes, altera o estado do jogo nem salva as respostas ou os temporizadores do teste no chat.
+1. Abra o Peek Prompt e encontre **Decision diagnostics**.
+2. Abrir o painel, ou clicar em **Preview inputs** (prévia das entradas), prepara os corpos das requisições sem consultar nenhum modelo. Expanda **Prepared request bodies** (corpos das requisições preparados) para ver as mensagens recentes, as declarações resolvidas, as opções e o formato da requisição.
+3. Clique em **Test decisions** (testar decisões) para enviar as perguntas elegíveis ao seu modelo de decisão.
 
-Um teste explícito pode esperar por um modelo local de raciocínio mesmo quando as decisões normais anteriores à resposta são adiadas. Isso não altera sua preferência para as respostas em andamento; a prévia das entradas continua sem enviar requisições ao modelo.
+**Test decisions** faz requisições reais, então um modelo hospedado pode cobrar por elas. Ele não escreve uma resposta no chat, não executa agentes, não muda o estado do jogo nem salva as respostas ou os temporizadores no chat. Declarações de lorebook posteriores podem ficar acessíveis só depois que uma anterior é respondida. Um teste explícito pode esperar por um modelo local de raciocínio mesmo quando as decisões normais anteriores à resposta são adiadas. Isso não muda a sua configuração para as respostas ao vivo.
 
-Cada resultado mostra sua pontuação, quando disponível, o limite usado para uma declaração de sim/não e a resposta resultante. Um modelo que só retorna uma palavra de sim/não é identificado como tal; sua resposta não é apresentada como probabilidade. Resultados Choice mostram a opção selecionada. Decisões mantidas, adiadas, acima do limite, indisponíveis e com falha têm explicações separadas, para que uma resposta ausente não seja confundida com uma pontuação baixa.
+Cada resultado mostra a pontuação, quando há uma, o limiar de uma declaração de sim ou não e a resposta. Um modelo que só devolve "yes" ou "no" é identificado assim, e a resposta dele não aparece como probabilidade. Os resultados de escolha mostram a opção selecionada. Decisões mantidas, adiadas, acima do limite, indisponíveis e com falha têm cada uma a sua própria explicação.
 
-Depois de um teste, o prompt abaixo usa as respostas dele. Use **Show original prompt** (mostrar prompt original) para voltar ao conteúdo aberto inicialmente ou **Show tested prompt** (mostrar prompt testado) para retornar ao teste. **Requests sent and results** (requisições enviadas e resultados) mostra os corpos reais das requisições de decisão e os resultados recebidos, sem cabeçalhos de autenticação.
+Depois de um teste, o prompt abaixo usa as respostas do teste. Clique em **Show original prompt** (mostrar o prompt original) para voltar ao que você abriu, ou em **Show tested prompt** (mostrar o prompt testado) para voltar ao teste. **Requests sent and results** (requisições enviadas e resultados) mostra os corpos reais das requisições e os resultados, sem os cabeçalhos de autenticação.
 
-Os testes usam o chat e as configurações atuais, mesmo se você abriu Peek Prompt a partir de uma resposta antiga. Eles não reconstroem as requisições de decisão originais. Cobrem declarações do prompt e decisões de lorebooks; não executam a ativação de agentes nem decisões posteriores à resposta. O Peek Prompt comum permanece passivo até você escolher **Test decisions** explicitamente.
+Se não funcionou: **Could not prepare the decision test. Check the chat connection and try again.** Confira se o chat tem um modelo que funciona e tente de novo.
 
-Quando **Use Decision model** (usar modelo de decisão) está ativado no Advanced Memory, o painel também mostra **Advanced Memory activity** (atividade do Advanced Memory). Esses relatórios salvos identificam a recuperação e a verificação de fim de cena mais recentes, com modelo, tempo, pontuações, seleções e estado do mecanismo alternativo. Eles podem aparecer mesmo sem declarações de decisão no prompt. Descrevem chamadas reais anteriores, não a prévia atual nem uma repetição da resposta histórica selecionada. Swipes compatíveis podem reutilizar um relatório de recuperação anterior. São salvos até 128 resultados por relatório, com os selecionados primeiro; os omitidos são contados. Novos relatórios aparecem depois da próxima chamada elegível ao modelo de decisão, e consultá-los não faz requisições ao modelo.
+Os testes usam o chat e as configurações atuais, mesmo quando você abriu o Peek Prompt a partir de uma resposta antiga. Eles não reconstroem as requisições de decisão originais. Eles cobrem as declarações do prompt e as decisões de lorebook, não a ativação de agentes nem as decisões posteriores à resposta.
 
-## Guias relacionados
-
-- [Parâmetros de geração](../prompts/generation-parameters.md)
-- [Editor de presets e gerenciador de prompts](../prompts/presets.md)
-- [Modelos de decisão](../connections/decision-models.md)
-- [Geração guiada e Impersonate](guided-and-impersonate.md)
-- [Ações de mensagem: editar, excluir, swipe e regenerar](messages.md)
+Quando **Use Decision model** (usar modelo de decisão) está ativado no Advanced Memory (o recurso de memória de longo prazo do Marinara, veja [Memory Recall e resumos do chat](../agents/memory.md)), o painel também mostra **Advanced Memory activity** (atividade do Advanced Memory). Esses relatórios salvos mostram a recuperação e a verificação de fim de cena mais recentes, com o modelo, o tempo, as pontuações, as seleções e o estado do fallback. Eles descrevem chamadas anteriores, não a prévia atual, e podem aparecer mesmo quando o prompt não tem declarações de decisão. Swipes compatíveis podem reutilizar um relatório de recuperação anterior. Cada relatório guarda até 128 resultados, com os selecionados primeiro, e conta os restantes. Novos relatórios aparecem depois da próxima chamada elegível ao modelo de decisão. Consultá-los não faz nenhuma requisição ao modelo.

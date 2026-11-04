@@ -1,88 +1,66 @@
 # Encontros de combate (Roleplay)
 
-Este guia explica os encontros de combate no Roleplay Mode. Aqui você vê como ativar o agente **Combat**, começar uma luta e conduzi-la na janela de encontro. O guia também mostra a diferença entre esse recurso e o combate do Game Mode.
+Um encontro de combate dá a uma cena de Roleplay uma tela de batalha por turnos, com barras de vida, listas de inimigos e da equipe, e um registro do combate. Ele é opcional. Um chat sem ele funciona como antes. O Game Mode tem o próprio combate, separado: veja [Game Mode: combate](../game/combat.md).
 
-Os encontros de combate são um recurso opcional do Roleplay. Eles dão à cena uma tela de batalha estruturada, por turnos, com barras de vida, listas de inimigos e da equipe, e um registro do combate. Se você nunca ativar o recurso, os chats de roleplay continuam funcionando exatamente como antes.
+## Ativar o combate
 
-## Ativar o agente Combat
+Um agente é um ajudante que roda junto com as respostas. O agente **Combat** acrescenta o recurso de batalha. Ele vem desativado por padrão, então você o ativa chat a chat.
 
-Um agente é um ajudante que roda automaticamente durante a geração da mensagem. O agente **Combat** acrescenta o recurso de batalha a um chat de Roleplay. Ele vem desativado por padrão, então precisa ser ativado chat a chat.
+1. Abra o chat. Abra **Chat Settings** (configurações do chat) pelo botão de controles deslizantes no chat.
+2. Vá até **Agents**.
+3. Ative a opção **Enable Agents**, se ela estiver desativada.
+4. Adicione o agente **Combat** pelas listas abaixo do botão liga/desliga.
 
-1. Abra o chat em que você quer usar o combate.
-2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
-3. Abra a seção **Agents**.
-4. Ative a opção **Enable Agents**, caso ainda não esteja ativa.
-5. Adicione o agente **Combat** ao chat.
+Agora aparece o botão **Encounter** (espadas cruzadas) acima da caixa de mensagem. A dica dele diz **Start Combat Encounter**.
 
-Agora deve aparecer o botão **Encounter** (com o ícone de espadas cruzadas) na fileira de ações acima da caixa de mensagem. A dica dele diz **Start Combat Encounter**. Se o botão não aparecer, o agente **Combat** não está ativo nesse chat.
-
-Para conhecer o painel **Agents** por inteiro e entender como os agentes funcionam, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
+Se não funcionou: sem o botão, o agente **Combat** não está ativo neste chat. Para entender como os agentes funcionam, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 
 ## Começar um encontro
 
-Clique no botão **Encounter** para abrir a caixa de configuração, chamada **Configure Combat Narrative**. Ela define o estilo de escrita que a IA usa durante e depois da luta.
+1. Clique em **Encounter**. A caixa **Configure Combat Narrative** abre. Ela define o estilo de escrita que a IA usa.
+2. Escolha o estilo de **Combat Narration** (enquanto a luta acontece) e de **Summary Narration** (o resumo escrito no chat quando ela termina). Os dois grupos têm as mesmas quatro configurações, listadas abaixo. Os padrões funcionam, então você pode clicar em **Begin Combat** na hora.
+3. Opcional: escolha um **Spellbook**. Um spellbook é um lorebook (um conjunto salvo de fatos do mundo) que lista as magias e habilidades disponíveis na luta. Deixe em **None** se você não usa um.
+4. Clique em **Begin Combat**. Clique em **Cancel** para fechar a caixa sem lutar.
 
-A caixa de configuração tem dois grupos de estilo:
+Você vê "Initializing combat encounter..." enquanto a IA monta os inimigos, a sua equipe e os ataques e itens deles. Isso pode levar alguns segundos.
 
-- **Combat Narration**: o estilo de escrita usado enquanto a luta acontece.
-- **Summary Narration**: o estilo de escrita do resumo salvo no chat quando a luta termina.
+| Controle de estilo | Opções |
+| --- | --- |
+| Tempo verbal | **Present Tense**, **Past Tense** |
+| Pessoa | **First Person**, **Second Person**, **Third Person** |
+| Narração | **Omniscient**: sabe de tudo. **Limited**: sabe o que um personagem sabe. |
+| Ponto de vista | Um campo de texto para dizer por quais olhos a cena é contada. Deixe em branco para um narrador neutro. |
 
-Cada grupo tem os mesmos quatro controles:
+## Jogar o seu turno
 
-- Tempo verbal: **Present Tense** ou **Past Tense**.
-- Pessoa: **First Person**, **Second Person** ou **Third Person**.
-- Narração: **Omniscient** (o narrador sabe de tudo) ou **Limited** (o narrador só sabe o que um personagem sabe).
-- Um campo de ponto de vista: escreva por quais olhos a cena é contada. Deixe o campo em branco para manter uma voz neutra de narrador.
+A tela **Combat Encounter** tem quatro partes:
 
-Abaixo dos grupos de estilo fica o menu suspenso opcional **Spellbook**. Um spellbook é um lorebook especial (um conjunto de fatos do seu mundo salvo em entradas) que lista as magias e habilidades disponíveis na luta. Escolha um para que a IA saiba o que os seus personagens podem conjurar. Deixe em **None** se você não usa spellbooks.
+- **Enemies**: cartões com uma barra de vida e os efeitos de status.
+- **Party**: o seu lado. O seu próprio personagem aparece marcado com **(You)**.
+- **Combat Log**: um registro de cada turno.
+- **Your Actions**: os seus botões.
 
-Quando tudo estiver pronto, clique em **Begin Combat**. Clique em **Cancel** para fechar a configuração sem começar a luta.
+No seu turno, escolha um ataque em **Attacks**, use um item em **Items** ou escreva uma ação livre em **Custom Action** e envie, por exemplo "I kick sand into the guard's eyes".
 
-Depois do clique em **Begin Combat**, o aplicativo mostra "Initializing combat encounter..." enquanto a IA monta a luta. Ela cria os inimigos, a sua equipe, os ataques e os itens de cada um. Isso leva alguns segundos.
+Quando uma ação precisa de alvo, abre a caixa **Select Target**. Escolha um inimigo ou aliado, ou **All Enemies** para um ataque em área. As ações só de área pulam esta etapa.
 
-## Conduzir o encontro (a janela de encontro)
+Enquanto a IA resolve o turno, você vê "Processing action..." e os seus botões ficam travados. Eles destravam quando o turno termina.
 
-A tela de batalha completa (a janela de encontro) se chama **Combat Encounter**. Ela tem estas partes:
-
-- **Enemies**: uma grade de cards de inimigos. Cada card mostra uma barra de vida e os efeitos de status ativos.
-- **Party**: o seu lado da luta. O seu próprio personagem aparece marcado com **(You)**.
-- **Combat Log**: o registro contínuo do que acontece em cada turno.
-- **Your Actions**: os botões que você usa no seu turno.
-
-Em **Your Actions** você tem estas opções:
-
-- Escolher um dos seus **Attacks**.
-- Usar um dos seus **Items**.
-- Escrever uma ação livre no campo **Custom Action** e enviá-la. Use isso para tudo que os botões não cobrem, por exemplo "I kick sand into the guard's eyes".
-
-Quando um ataque ou item precisa de alvo, abre a caixa **Select Target**. Escolha um inimigo ou aliado específico, ou escolha **All Enemies** para um ataque em área que atinge todos os inimigos de uma vez. Algumas ações só funcionam em área e pulam a escolha de alvo único.
-
-Enquanto a IA resolve um turno, a tela mostra "Processing action..." e os botões ficam travados. Eles destravam quando o turno termina.
-
-Se a IA devolver dados que o aplicativo não consegue ler, aparece a tela **Combat Error** no lugar de um aplicativo quebrado. Clique em **Close Encounter** nessa tela para sair da luta com segurança.
+Se não funcionou: se a IA devolver dados que o aplicativo não consegue ler, aparece a tela **Combat Error**. Clique em **Close Encounter** para sair da luta com segurança e depois comece uma nova.
 
 ## Encerrar um encontro
 
-Há duas formas de terminar uma luta antes da hora, além do fim natural, quando um dos lados vence.
+- **Conclude**, na barra superior, termina a luta antes da hora. Uma caixa pede confirmação e depois um resumo do combate é escrito no chat.
+- O **X**, na barra superior, fecha e descarta a luta, depois de uma caixa de confirmação chamada **End Combat**. Nenhum resumo é escrito.
+- Quando um dos lados vence, uma faixa mostra **VICTORY**, **DEFEAT**, **FLED** ou **INTERRUPTED**. Um resumo é escrito no chat no seu estilo de **Summary Narration**. Quando ele ficar pronto, clique em **Close Combat Window**.
 
-- Clique em **Conclude**, na barra superior, para terminar a luta antes da hora. Uma caixa de confirmação pergunta primeiro. Em seguida, o aplicativo salva um resumo do combate no chat.
-- Clique no botão **X**, na barra superior, para fechar e descartar a luta. Uma caixa de confirmação chamada **End Combat** pergunta primeiro. Nesse caso, o aplicativo não salva nenhum resumo.
-
-Quando a luta termina naturalmente, aparece uma faixa com o resultado: **VICTORY**, **DEFEAT**, **FLED** ou **INTERRUPTED**. Depois, o aplicativo salva no chat uma mensagem com o resumo do combate, no estilo **Summary Narration** que você escolheu. Assim que o resumo ficar pronto, clique em **Close Combat Window** para voltar à cena.
-
-Se o resumo não for gerado, o botão passa a mostrar **Close Anyway**. Clique nele para voltar à cena sem resumo.
+Se o resumo falhar, o botão passa a mostrar **Close Anyway**. Clique nele para voltar à cena sem resumo.
 
 ## Diferenças em relação ao combate do Game Mode
 
-Os encontros de combate são uma camada de combate mais leve e separada, feita para o Roleplay Mode. O Game Mode tem o próprio sistema de combate, já embutido.
-
-As diferenças principais:
-
-- No Roleplay, quem começa o encontro é você, pelo botão **Encounter**. No Game Mode, o Game Master de IA começa o combate quando a história pede.
-- O combate do Roleplay exige o agente **Combat** ativado. O combate do Game Mode não usa o agente **Combat** e funciona sem ele.
-- Os dois sistemas usam telas de batalha diferentes e nada é compartilhado entre eles.
-
-Para conhecer o sistema de batalha, veja [Game Mode: combate](../game/combat.md).
+- No Roleplay, quem começa o encontro é você, com **Encounter**. No Game Mode, o Game Master começa o combate quando a história pede.
+- O combate do Roleplay precisa do agente **Combat**. O combate do Game Mode, não.
+- Os dois sistemas usam telas de batalha diferentes.
 
 ## Guias relacionados
 

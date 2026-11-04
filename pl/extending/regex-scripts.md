@@ -1,185 +1,196 @@
 # Skrypty regex
 
-Ten przewodnik wyjaśnia skrypty regex w aplikacji Marinara Engine. Skrypt regex to reguła "znajdź i zamień", która sama przepisuje tekst czatu. Dowiesz się, do czego służą skrypty regex, jak utworzyć własny, w których miejscach działają i jak ograniczyć ich zasięg do jednej postaci.
+Skrypt regex to reguła "znajdź i zamień", która automatycznie przepisuje tekst czatu. Użyj go, żeby uporządkować odpowiedź AI, przekształcić własną wiadomość albo zmienić tekst, który otrzymuje model. Do korzystania z niego nie trzeba umieć programować.
 
-## Czym jest skrypt regex
+Regex to skrót od "regular expression", czyli wyrażenia regularnego: wzorca wyszukiwania, który znajduje tekst pasujący do reguły. Wzorzec ustawiasz raz, a potem działa w każdej pasującej wiadomości.
 
-Regex to skrót od "regular expression", czyli wyrażenia regularnego. Wyrażenie regularne to wzorzec wyszukiwania. Znajduje tekst pasujący do reguły, a skrypt regex zastępuje ten tekst czymś innym. Do korzystania z niego nie trzeba umieć programować.
+Przykład: niektóre modele otaczają opisy czynności gwiazdkami.
 
-Skrypt regex uruchamia się sam za każdym razem, gdy wiadomość przechodzi przez czat. Potrafi uporządkować odpowiedź AI, zanim pojawi się na ekranie. Potrafi zmienić twoją własną wiadomość przed wysłaniem. Potrafi też zmienić tekst, który trafia do modelu. Wzorzec ustawia się raz, a potem działa w każdej pasującej wiadomości.
-
-Oto prosty przykład "przed i po". Niektóre modele otaczają opisy czynności gwiazdkami, w ten sposób:
-
-```
+```text
 *She smiles* Hello there.
 ```
 
-Jeśli wzorzec `\*([^*]+)\*` zostanie zamieniony na `$1`, gwiazdki znikają, a tekst z ich wnętrza zostaje:
+Skopiuj dokładnie ten wzorzec: `\*([^*]+)\*`. Zamień go na `$1`, a gwiazdki znikną, a tekst z ich wnętrza zostanie:
 
-```
+```text
 She smiles Hello there.
 ```
 
-Zapis `$1` w polu zamiany oznacza "tekst przechwycony przez wzorzec w pierwszej parze nawiasów". Tokeny `$1`, `$2` i podobne przydają się bardzo często.
-
-Typowe zastosowania to usuwanie gwiazdek, kasowanie uwag spoza roli w nawiasach, cenzurowanie wybranego słowa i poprawianie powtarzalnych dziwactw formatowania u jednej postaci.
-
-## Gdzie znaleźć swoje skrypty regex
-
-Globalne skrypty regex mieszkają w panelu **Presets** (presety). Otwórz go przyciskiem **Presets** na górnym pasku, a potem odszukaj sekcję **Regexes**. Notatka przy sekcji brzmi "Find/replace patterns applied to AI output or user input".
-
-Każdy wiersz listy pokazuje:
-
-- Nazwę skryptu.
-- Mały tag **AI** albo **User**, który mówi, gdzie skrypt działa.
-- Wzorzec w postaci `/pattern/flags`.
-- Przełącznik włączający i wyłączający skrypt. Zmiana działa od razu, bez otwierania edytora.
-- Przycisk **Edit regex** (edycja skryptu regex, ikona ołówka).
-- Przycisk **Delete regex** (usunięcie skryptu regex, ikona kosza).
-
-Kiedy nie ma jeszcze żadnego skryptu, lista pokazuje "No regexes yet". Wiersz można przeciągnąć za uchwyt i w ten sposób zmienić kolejność uruchamiania. Na tej liście widać wyłącznie skrypty globalne. Skrypty powiązane z jedną postacią trzymane są osobno. Zobacz sekcję "Skrypty regex przypisane do postaci" poniżej.
-
-W nagłówku sekcji są też trzy przyciski z ikonami:
-
-- **Create regex** (utworzenie skryptu regex): otwiera nowy, pusty skrypt.
-- **Import regexes from JSON** (import skryptów z pliku JSON): wczytuje skrypty z pliku.
-- **Export regexes to JSON** (eksport skryptów do pliku JSON): zapisuje wszystkie skrypty globalne do jednego pliku.
+`$1` oznacza "tekst przechwycony przez pierwszą parę nawiasów". Inne typowe zastosowania to usuwanie uwag spoza roli w nawiasach, cenzurowanie wybranego słowa i poprawianie dziwactw formatowania jednej postaci.
 
 ## Tworzenie skryptu regex
 
-Aby zrobić nowy skrypt globalny:
+Twoje globalne skrypty znajdują się w panelu **Presets** (presety), w sekcji **Regexes** (skrypty regex). Otwórz go przyciskiem **Presets** na górnym pasku.
 
-1. Otwórz panel **Presets** i odszukaj sekcję **Regexes**.
-2. Kliknij przycisk **Create regex**. Otwiera się pełny edytor skryptów regex.
-3. Wpisz nazwę w polu na górze. Nowy skrypt startuje z nazwą "New Regex Script".
-4. Wypełnij pola opisane poniżej.
-5. Kliknij przycisk **Save**. Na moment pojawia się zielona notatka **Saved**.
+### Jak utworzyć skrypt regex
 
-Edytor ma następujące pola.
+1. Otwórz **Presets** i znajdź **Regexes**.
+2. Kliknij **Create regex** (utworzenie skryptu regex). Otwiera się pełny edytor.
+3. Wpisz nazwę na górze. Nowy skrypt ma nazwę "New Regex Script".
+4. W polu **Find Pattern (Regex)** (wzorzec wyszukiwania) wpisz `\*([^*]+)\*` (zobacz [Pola edytora](#editor-fields)).
+5. W polu **Replace With** (zamiana na) wpisz `$1`.
+6. W polu **Apply To** (zakres stosowania) zostaw zaznaczone **AI Output** (odpowiedzi AI). Domyślny tryb zastosowania **Only Display** (tylko wyświetlanie) jest bezpiecznym wyborem (zobacz [Wybór miejsca działania skryptu](#choose-where-a-script-runs)).
+7. Wklej `*She smiles* Hello there.` do sekcji **Live Test** (test na żywo). Pod **Result:** powinien pojawić się tekst `She smiles Hello there.`
+8. Kliknij **Save** (zapis). Na moment pojawi się zielona notatka **Saved**.
+9. Sprawdź to w czacie: gdy odpowiedź AI zawiera tekst między gwiazdkami, gwiazdki nie są już widoczne.
+
+Jeśli to nie zadziałało: czerwony komunikat pod polem **Find Pattern (Regex)** blokuje zapis. Wzorzec jest błędny albo niebezpieczny; zobacz [Bezpieczeństwo i wydajność](#safety-and-performance).
+
+### Zarządzanie skryptami
+
+Każdy wiersz listy **Regexes** pokazuje nazwę skryptu, tag **AI** albo **User**, wzorzec w postaci `/pattern/flags`, przełącznik włącz/wyłącz (zmiana działa od razu), **Edit regex** (edycja skryptu regex, ołówek) i **Delete regex** (usunięcie skryptu regex, kosz). Gdy nie ma żadnych skryptów, lista pokazuje "No regexes yet". Przeciągnij wiersz za uchwyt, żeby zmienić kolejność uruchamiania.
+
+Nagłówek sekcji ma trzy przyciski z ikonami: **Create regex**, **Import regexes from JSON** (import skryptów z pliku JSON) i **Export regexes to JSON** (eksport skryptów do pliku JSON; zapisuje wszystkie twoje skrypty globalne do jednego pliku). Skrypty powiązane z jedną postacią są przechowywane osobno; zobacz [Ograniczenie skryptu do jednej postaci](#limit-a-script-to-one-character).
+
+<a id="editor-fields"></a>
+
+## Pola edytora
 
 ### Pole **Find Pattern (Regex)**
 
-Pole **Find Pattern (Regex)** to wzorzec wyszukiwania. Zapisz go bez ukośników po bokach. Tekst zastępczy pokazuje przykład: `\*([^*]+)\*`. Jeśli wzorzec jest błędny albo niebezpieczny, pod polem pojawia się czerwony komunikat i blokuje zapis. Zobacz sekcję "Bezpieczeństwo i wydajność" poniżej.
+Wzorzec wyszukiwania. Wpisz sam wzorzec, bez ukośnika na początku ani na końcu. Tekst zastępczy pokazuje przykład: `\*([^*]+)\*`.
 
 ### Pole **Replace With**
 
-Pole **Replace With** zawiera tekst, który zastępuje każde dopasowanie. Zostaw je puste, żeby dopasowany tekst po prostu zniknął. Przechwycony tekst da się wykorzystać ponownie przez `$1`, `$2` i kolejne. Przekształcenia wielkości liter postawione przed przechwyceniem zmieniają jego zapis:
+Tekst, który zastępuje każde dopasowanie. Zostaw je puste, żeby usunąć dopasowanie. Przechwycony tekst wykorzystasz ponownie przez `$1`, `$2` i kolejne. Przed przechwyceniem działają takie zmiany wielkości liter:
 
-- `\u$1` zamienia pierwszą literę przechwycenia na wielką.
-- `\U$1\E` zapisuje całe przechwycenie wielkimi literami.
-- `\l$1` zamienia pierwszą literę przechwycenia na małą.
-- `\L$1\E` zapisuje całe przechwycenie małymi literami.
+| Zapis | Wynik |
+| --- | --- |
+| `\u$1` | Zamienia pierwszą literę przechwycenia na wielką |
+| `\U$1\E` | Zapisuje całe przechwycenie wielkimi literami |
+| `\l$1` | Zamienia pierwszą literę przechwycenia na małą |
+| `\L$1\E` | Zapisuje całe przechwycenie małymi literami |
 
-Dosłowny tekst z odwrotnym ukośnikiem, na przykład ścieżka Windows w rodzaju `C:\Users`, zostaje dokładnie taki, jaki jest.
+Dosłowny tekst z odwrotnym ukośnikiem, np. ścieżka Windows w rodzaju `C:\Users`, zostaje taki, jak go zapisano.
 
 ### Sekcja **Regex Flags**
 
-Sekcja **Regex Flags** (flagi wyrażenia regularnego) to przyciski przełączające, które zmieniają sposób dopasowania wzorca. Nowy skrypt startuje z włączonymi `g` i `i`:
+Przyciski przełączające (flagi wyrażenia regularnego), które zmieniają sposób dopasowania wzorca. Nowy skrypt startuje z włączonymi `g` i `i`.
 
-- `g` (global): zamienia każde dopasowanie, nie tylko pierwsze.
-- `i` (case-insensitive): dopasowuje niezależnie od wielkości liter.
-- `m` (multiline): pozwala znakom `^` i `$` dopasować się przy końcach wierszy.
-- `s` (dotAll): pozwala znakowi `.` dopasować także znaki nowej linii.
-- `u` (unicode), `y` (sticky) i `d` (match indices) to flagi zaawansowane, do szczególnych przypadków.
+| Flaga | Znaczenie |
+| --- | --- |
+| `g` | Global: zamienia każde dopasowanie, nie tylko pierwsze |
+| `i` | Case-insensitive: bez rozróżniania wielkości liter |
+| `m` | Multiline: `^` i `$` dopasowują się przy podziałach wierszy |
+| `s` | dotAll: `.` dopasowuje także znaki nowej linii |
+| `u`, `y`, `d` | Unicode, sticky i match indices, do szczególnych przypadków |
 
 ### Sekcja **Trim Strings**
 
-Sekcja **Trim Strings** (przycinane ciągi tekstu) to opcjonalna lista zwykłych fragmentów tekstu, które znikają już po wykonaniu zamiany. Kliknij przycisk **Add trim string**, żeby dodać wiersz, a przycisk **X**, żeby go usunąć. Przydaje się to przy kasowaniu stałego fragmentu, który łatwiej wpisać, niż opisać wzorcem.
+Opcjonalna lista zwykłych fragmentów tekstu (przycinanych ciągów), które są usuwane po wykonaniu zamiany. Kliknij **Add trim string** (dodanie przycinanego ciągu), żeby dodać wiersz, a przycisk **X**, żeby go usunąć. Użyj tego dla stałego fragmentu tekstu, który łatwiej wpisać, niż dopasować wzorcem.
 
 ### Sekcja **Live Test**
 
-Sekcja **Live Test** (test na żywo) pozwala sprawdzić wzorzec jeszcze przed zapisem. Wklej przykładowy tekst do pola, a wynik pojawi się niżej, pod napisem **Result:**. **Live Test** potwierdza wyłącznie logikę wyszukiwania, zamiany i przycinania. Nie sprawdza miejsca działania, stanu włączenia, zasięgu postaci ani głębokości. Notatka pod polem mówi to wprost: "Pattern preview only: placement, enabled state, character scope, and depth are evaluated at runtime".
+Wklej przykładowy tekst, a wynik pojawi się pod **Result:**. Live Test sprawdza tylko logikę wyszukiwania, zamiany i przycinania. Miejsce działania, stan włączenia, zasięg postaci i głębokość są oceniane w prawdziwym czacie. We wzorcu, w tekście zamiany i w przycinanych ciągach możesz używać makr takich jak `{{user}}` i `{{char}}`. W Live Test przyjmują wartości przykładowe. Zobacz [Makra](../prompts/macros.md).
 
-We wzorcu, w tekście zamiany i w przycinanych ciągach można używać makr takich jak `{{user}}` i `{{char}}`. W sekcji **Live Test** zamieniają się na wartości przykładowe. W prawdziwym czacie zamieniają się na prawdziwe imiona i teksty. Więcej o makrach znajdziesz w przewodniku [Makra](../prompts/macros.md).
+<a id="choose-where-a-script-runs"></a>
 
-## Miejsce działania: **AI Output** albo **User Input**
+## Wybór miejsca działania skryptu
 
-Pole **Apply To** (zakres stosowania) decyduje, którą stronę czatu obserwuje skrypt. Przynajmniej jedna opcja musi zostać zaznaczona. Da się wybrać obie naraz.
+### Pole **Apply To**
 
-- **AI Output**: skrypt działa na odpowiedziach AI, zanim pojawią się na ekranie.
-- **User Input**: skrypt działa na twoich wiadomościach, zanim zostaną wysłane.
+**Apply To** decyduje, którą stronę czatu obserwuje skrypt. Zostaw zaznaczoną co najmniej jedną opcję. Możesz wybrać obie.
 
-Opcja **AI Output** służy do porządkowania tego, co pisze model. Opcja **User Input** poprawia i przekształca twój własny tekst.
+- **AI Output**: działa na odpowiedziach AI, zanim zostaną wyświetlone.
+- **User Input** (wiadomości użytkownika): działa na twoich wiadomościach, zanim zostaną wysłane.
 
-W czacie **Roleplay** z grupowym trybem **Individual** (osobne odpowiedzi), przy ustawieniu **Only Prompt** lub **Both**, miejsce działania zależy od postaci otrzymującej prompt: twoje wiadomości i wiadomości innych postaci podlegają regułom **User Input**, a własne odpowiedzi postaci, która właśnie odpowiada, podlegają regułom **AI Output**. Dotyczy to także odpowiedzi napisanych wcześniej w tej samej turze grupowej. Ograniczenia do wybranych postaci nadal określają, kto otrzymuje przepisany prompt, więc narrator wykluczony ze skryptu ukrywającego myśli zachowuje ich oryginalną treść. Wybierz **Only Prompt**, aby nie zmieniać zapisanego tekstu czatu.
+### Selektor **Apply Mode**
 
-## Tryb **Apply Mode**: **Only Display**, **Only Prompt** albo **Both**
+**Apply Mode** (tryb zastosowania) znajduje się w sekcji **Advanced Options** (opcje zaawansowane). Decyduje o tym, co zmienia przepisanie. Nowy skrypt startuje w trybie **Only Display**.
 
-Selektor **Apply Mode** (moment zastosowania) znajduje się w sekcji **Advanced Options**. Decyduje o tym, kiedy przepisanie tekstu wchodzi w życie. To coś innego niż miejsce działania. Nowy skrypt startuje w trybie **Only Display**.
+- **Only Display**: zmienia to, co widzisz w czacie. Zapisana wiadomość i późniejszy kontekst modelu pozostają bez zmian. Najbezpieczniejsza opcja przy porządkowaniu wyglądu odpowiedzi.
+- **Only Prompt** (tylko prompt): zmienia to, co otrzymuje model, co widać też w podglądzie promptu. Widok i zapisana wiadomość pozostają bez zmian. Użyj go, żeby usunąć coś, co model uparcie kopiuje.
+- **Both** (oba): zmienia widok i tekst promptu.
 
-- **Only Display**: zmienia tylko to, co widać w czacie. Zapisana wiadomość i tekst, który model dostaje w kolejnych turach, pozostają bez zmian.
-- **Only Prompt**: zmienia tylko to, co trafia do modelu. Widok czatu i zapisana wiadomość pozostają bez zmian. To samo widać w podglądzie promptu w aplikacji.
-- **Both**: zmienia i widok, i tekst promptu.
+W przypadku twoich własnych wiadomości skrypt **User Input** w trybie **Only Display** albo **Both** przepisuje wiadomość tuż przed jej wysłaniem. Zmienia się zapisana i wysłana wiadomość, a nie tylko jej wygląd. Dla wychodzących wiadomości nie ma trybu działającego wyłącznie na widok.
 
-### Który tryb wybrać
+### Kolejność wykonania i zakres głębokości
 
-Kieruj się tą krótką ściągą:
+Oba ustawienia są w sekcji **Advanced Options**.
 
-- Chodzi tylko o wygląd odpowiedzi na ekranie: wybierz **Only Display**. To najbezpieczniejsza opcja przy poprawkach kosmetycznych.
-- Chodzi o zmianę tego, co czyta model, na przykład o usunięcie tagu, który model uparcie kopiuje: wybierz **Only Prompt**.
-- Zmiana ma obowiązywać na ekranie i w kontekście modelu: wybierz **Both**.
+- **Execution Order** (kolejność wykonania) to liczba. Niższe liczby działają pierwsze, co ma znaczenie, gdy do tego samego tekstu może pasować kilka skryptów. Nowy skrypt startuje od 0, a przy zapisie aplikacja przydziela kolejną wolną liczbę. Możesz też przeciągać wiersze na liście **Regexes**.
+- **Depth Range** (zakres głębokości) ogranicza, jak daleko wstecz działa skrypt, za pomocą pól **Min** i **Max**. Najnowsza wiadomość ma głębokość 0, poprzednia głębokość 1 i tak dalej. Zostaw oba pola puste, żeby skrypt działał na każdej głębokości. Zapis jest zablokowany, gdy **Min** jest większe od **Max**.
 
-Jedna rzecz warta uwagi przy twoich własnych wiadomościach. Kiedy skrypt **User Input** ma tryb **Only Display** albo **Both**, przepisanie tekstu następuje tuż przed wysłaniem wiadomości. Zmienia więc wiadomość faktycznie zapisaną i wysłaną, a nie tylko jej późniejszy wygląd. Dla wychodzących wiadomości nie ma trybu działającego wyłącznie na widok.
+### Czaty grupowe
 
-## Kolejność wykonania i głębokość
+Dotyczy to trybów **Only Prompt** i **Both** w czacie **Roleplay** z grupowym trybem **Individual** (osobne odpowiedzi).
 
-Oba ustawienia siedzą w sekcji **Advanced Options**.
+- Miejsce działania zależy od postaci, która otrzymuje prompt.
+- Twoje wiadomości i wiadomości innych postaci liczą się jako **User Input**.
+- Własne odpowiedzi odpowiadającej postaci liczą się jako **AI Output**, także wcześniejsze odpowiedzi w tej samej turze grupowej.
+- Ograniczenia do postaci nadal decydują, kto otrzymuje przepisany prompt. Narrator wykluczony ze skryptu ukrywającego myśli zachowuje oryginalne myśli.
 
-Pole **Execution Order** (kolejność wykonania) to liczba. Niższe liczby idą pierwsze. Ma to znaczenie wtedy, gdy do tego samego tekstu pasuje więcej niż jeden skrypt. Nowy skrypt startuje z wartością 0, a przy zapisie aplikacja przydziela kolejną wolną liczbę, więc świeże skrypty nie wchodzą sobie w drogę. Kolejność zmienia też przeciąganie wierszy na liście **Regexes**.
+<a id="limit-a-script-to-one-character"></a>
 
-Ustawienie **Depth Range** (zakres głębokości) ogranicza to, jak daleko wstecz w czacie sięga skrypt, i korzysta z dwóch pól liczbowych, **Min** oraz **Max**. Głębokość liczy się wstecz od najnowszej wiadomości. Najnowsza wiadomość ma głębokość 0, poprzednia głębokość 1, i tak dalej. Zostaw oba pola puste, żeby skrypt działał na każdej głębokości. Jeśli minimum jest większe od maksimum, zapis zostaje zablokowany.
+## Ograniczenie skryptu do jednej postaci
 
-## Skrypty regex przypisane do postaci
+Skrypt może należeć do wybranych postaci, zamiast działać wszędzie. Są dwa sposoby.
 
-Skrypt regex może należeć do jednej lub kilku wybranych postaci, zamiast działać wszędzie. Są dwa sposoby na przypisanie skryptu do postaci.
+- W edytorze: włącz **Specific Characters** (wybrane postacie) w sekcji **Apply To** i wybierz jedną lub kilka postaci. Przy wyłączonym przełączniku skrypt "Applies to all characters". Gdy jest włączony, wybierz co najmniej jedną postać.
+- Przy postaci: otwórz postać, przejdź do zakładki **Advanced** (zaawansowane) i znajdź sekcję **Regex Scripts** (skrypty regex). Wymienia ona tylko skrypty tej postaci i ma własne przyciski **Create regex**, importu i eksportu. Najpierw zapisz postać, bo inaczej sekcja informuje, że nie można jeszcze dodać skryptów.
 
-Pierwszy sposób prowadzi przez edytor. Włącz przełącznik **Specific Characters** (wybrane postacie) na karcie **Apply To**, a potem wskaż jedną lub kilka postaci w siatce. Przy wyłączonym przełączniku skrypt "Applies to all characters". Przy włączonym trzeba wskazać co najmniej jedną postać.
-
-Drugi sposób prowadzi przez samą postać. Otwórz postać, przejdź do zakładki **Advanced** i odszukaj kartę **Regex Scripts**. Ta karta wymienia wyłącznie skrypty powiązane z tą postacią i ma własne przyciski **Create regex**, importu i eksportu. Postać trzeba najpierw zapisać, dopiero potem da się dodać przypisane skrypty. Przy niezapisanej postaci karta o tym informuje.
-
-Otwarcie pełnego edytora z tej karty oznacza opuszczenie edytora postaci. Jeśli w postaci są niezapisane zmiany, aplikacja najpierw ostrzega, żeby nic nie przepadło.
+Otwarcie pełnego edytora z tej sekcji opuszcza edytor postaci (Character Editor). Jeśli postać ma niezapisane zmiany, aplikacja najpierw cię ostrzega.
 
 <a id="the-per-chat-scoped-regex-scripts-setting"></a>
 
 ### Ustawienie **Scoped Regex Scripts** dla pojedynczego czatu
 
-Skrypty przypisane do postaci nie działają automatycznie w każdym czacie. Steruje nimi ustawienie osobne dla każdego czatu. Otwórz panel **Chat Settings** (ustawienia czatu) dla danego czatu. Sekcja **Scoped Regex Scripts** pojawia się tylko wtedy, gdy przynajmniej jedna postać w tym czacie ma przypisane skrypty. Oferuje trzy tryby:
+Skrypty przypisane do postaci nie działają same z siebie w każdym czacie. Steruje nimi ustawienie osobne dla każdego czatu. Otwórz **Chat Settings** (ustawienia czatu). Sekcja **Scoped Regex Scripts** pojawia się tylko wtedy, gdy co najmniej jedna postać w tym czacie ma przypisane skrypty.
 
-- **Disabled** (domyślnie): skrypty przypisane do postaci są wyłączone i działają tylko skrypty globalne.
-- **Exclusive**: każdy przypisany skrypt zmienia wyłącznie wiadomości postaci, do której należy.
-- **Chat**: każdy przypisany skrypt zmienia każdą wiadomość w czacie.
+| Tryb | Co się dzieje |
+| --- | --- |
+| **Disabled** (domyślnie) | Skrypty przypisane do postaci są wyłączone. Działają tylko skrypty globalne. |
+| **Exclusive** | Każdy przypisany skrypt zmienia tylko wiadomości swojej postaci. |
+| **Chat** | Każdy przypisany skrypt zmienia każdą wiadomość w czacie. |
 
-Opcja **Use preset default** (użyj ustawienia domyślnego presetu) stosuje ustawienie **Scoped regex default** (domyślny tryb skryptów regex przypisanych do postaci) z presetu promptu; wybranie trybu zastępuje je w tym czacie. Żeby nowe czaty zaczynały z wybranym trybem, ustaw go jako domyślny w presecie, zapisz go w swoim [domyślnym profilu ustawień](../chats/settings-profiles.md#choosing-the-default-profile) albo wybierz go, a potem kliknij gwiazdkę ulubionego układu obok **Reset View** (zobacz [Wybieranie układu dla nowych czatów](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
+**Use preset default** (użyj ustawienia domyślnego presetu) stosuje ustawienie **Scoped regex default** (domyślny tryb skryptów regex przypisanych do postaci) z presetu promptu. Wybranie trybu zastępuje je w tym czacie. Żeby nowe czaty zaczynały z wybranym trybem, użyj jednego z tych sposobów:
 
-Pod przyciskami trybów panel wypisuje każdą postać z przypisanymi skryptami i pozwala włączyć albo wyłączyć każdy skrypt. To przełącznik samego skryptu, więc zmienia go we wszystkich czatach. Tryb steruje skryptami działającymi po stronie widoku. Skrypty promptu zawsze idą za postacią, która akurat generuje odpowiedź.
+- Ustaw go jako ustawienie domyślne presetu.
+- Zapisz go w swoim [domyślnym profilu ustawień](../chats/settings-profiles.md#choosing-the-default-profile).
+- Wybierz go, a potem kliknij gwiazdkę ulubionego układu obok **Reset View** (zobacz [Wybieranie układu dla nowych czatów](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
 
-## Importowanie skryptów regex z aplikacji SillyTavern
+Pod trybami panel wypisuje przypisane skrypty każdej postaci, każdy z własnym przełącznikiem. To przełącznik samego skryptu, więc zmienia skrypt we wszystkich czatach. Tryb steruje skryptami działającymi po stronie widoku. Skrypty promptu zawsze idą za postacią, która generuje odpowiedź.
 
-Marinara odczytuje skrypty regex dołączone do karty postaci z aplikacji SillyTavern. Przy imporcie karty pojawia się sekcja **Imported regex scripts** z dwiema możliwościami:
+## Import i zastępowanie skryptów
 
-- **Character only** (domyślnie): skrypty zostają przypisane do tej jednej postaci.
-- **Global**: skrypty trafiają do panelu **Presets** i działają w każdym czacie.
+### Import z aplikacji SillyTavern
 
-Ten wybór pojawia się zarówno w oknie importu pojedynczej postaci, jak i w zbiorczym imporcie **Import from SillyTavern Folder**. Dołączone skrypty z pustym wzorcem albo ze wzorcem, który nie przechodzi kontroli bezpieczeństwa, zostają przy imporcie pominięte. Zwykły plik JSON ze skryptami wczytasz przyciskiem **Import regexes from JSON** w sekcji **Regexes**. Pełny opis importu znajdziesz w przewodniku [Importowanie z SillyTavern](../data/importing-from-sillytavern.md).
+Marinara odczytuje skrypty regex dołączone do karty postaci z aplikacji SillyTavern. Przy imporcie karty sekcja **Imported regex scripts** (zaimportowane skrypty regex) oferuje dwie możliwości:
 
-## Zastępowanie pakietu regexów
+- **Character only** (tylko postać; domyślnie): skrypty pozostają przypisane do tej postaci.
+- **Global** (globalnie): skrypty trafiają do panelu **Presets** i działają w każdym czacie.
 
-W sekcji **Presets → Regexes** (presety → regexy) wybierz **Select regex scripts** (wybierz skrypty regex), a następnie zaznacz wpisy starego pakietu lub użyj **Select all regex scripts** (zaznacz wszystkie skrypty regex). Pasek akcji pozwala użyć **Export** (eksportuj) lub **Delete** (usuń) dla zaznaczonych wpisów. Usuwanie wymaga jednego potwierdzenia i jest nieodwracalne. Wpisy, których nie udało się usunąć, pozostają zaznaczone do ponowienia próby; niezaznaczone skrypty pozostają bez zmian. Po usunięciu starego pakietu zaimportuj nowy. Foldery nie są potrzebne; przypisania do presetów nadal są dostępne w edytorze regexów.
+Ten wybór pojawia się w oknie importu pojedynczej postaci i w zbiorczym imporcie **Import from SillyTavern Folder**. Skrypty z pustym wzorcem albo ze wzorcem, który nie przechodzi kontroli bezpieczeństwa, są pomijane. Żeby zaimportować zwykły plik JSON ze skryptami, użyj **Import regexes from JSON** w sekcji **Regexes**. Zobacz [Importowanie z SillyTavern](../data/importing-from-sillytavern.md).
+
+### Zastępowanie pakietu regexów
+
+1. W **Presets → Regexes** (presety, skrypty regex) wybierz **Select regex scripts** (wybierz skrypty regex).
+2. Zaznacz wpisy starego pakietu albo wybierz **Select all regex scripts** (zaznacz wszystkie skrypty regex).
+3. Użyj **Export** (eksportuj) lub **Delete** (usuń) na pasku akcji. Usuwanie wymaga jednego potwierdzenia i jest nieodwracalne.
+4. Zaimportuj zaktualizowany pakiet.
+
+Wpisy, których nie udało się usunąć, pozostają zaznaczone, żeby można było ponowić próbę. Niezaznaczone skrypty pozostają na miejscu. Przypisania do presetów nadal są dostępne w edytorze regexów.
+
+<a id="safety-and-performance"></a>
 
 ## Bezpieczeństwo i wydajność
 
-Każdy wzorzec przechodzi kontrolę przed zapisem i przed uruchomieniem. Marinara blokuje wzorce, które z dużym prawdopodobieństwem będą działać wolno i zawieszą aplikację. Zablokowany wzorzec pokazuje komunikat "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Zapis pozostaje zablokowany do czasu poprawki.
+Każdy wzorzec jest sprawdzany, zanim będzie można go zapisać lub uruchomić. Wzorzec, który prawdopodobnie będzie działać wolno i zawiesi aplikację, zostaje zablokowany z tym komunikatem, a zapis jest wstrzymany do czasu poprawki:
 
-Mówiąc prosto, unikaj takich konstrukcji:
+```text
+Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.
+```
+
+Jeśli widzisz ten komunikat, skróć i uprość wzorzec. Unikaj takich konstrukcji:
 
 - Wzorce dłuższe niż 1000 znaków.
-- Powtarzalna grupa umieszczona wewnątrz innej powtarzalnej grupy, na przykład `(a+)+`.
-- Dwa szerokie symbole wieloznaczne obok siebie, na przykład `.*.*` albo `\s*\w*`. Szeroki symbol wieloznaczny to token w rodzaju `.*`, `\s*` czy `\w+`, który potrafi dopasować dowolnie dużo tekstu.
-- Trzy lub więcej szerokich symboli wieloznacznych w jednym wzorcu, nawet gdy dzieli je inny tekst.
+- Powtarzalna grupa wewnątrz innej powtarzalnej grupy, np. `(a+)+`.
+- Dwa szerokie symbole wieloznaczne obok siebie, np. `.*.*` albo `\s*\w*`. Szeroki symbol wieloznaczny to token w rodzaju `.*`, `\s*` czy `\w+`, który może dopasować dowolnie dużo tekstu.
+- Trzy lub więcej szerokich symboli wieloznacznych w dowolnym miejscu jednego wzorca, nawet gdy dzieli je inny tekst.
 
-Pojedyncze powtórzenie w rodzaju `a+` albo `(a+)` jest w porządku. Jeden szeroki symbol wieloznaczny sam w sobie, na przykład jedno `.*`, też nie sprawia kłopotu.
+Pojedyncze powtórzenie w rodzaju `a+` albo `(a+)` lub jeden szeroki symbol wieloznaczny, np. pojedyncze `.*`, są w porządku.
 
-Nawet przy bezpiecznym wzorcu aplikacja pilnuje, ile czasu może zająć jedna zamiana w dłuższej wiadomości. Kiedy skrypt zajmuje zbyt dużo czasu przy jednej wiadomości, aplikacja pomija go tylko dla tej wiadomości i pracuje dalej. Skrypt nie zostaje wyłączony i spróbuje ponownie przy następnej wiadomości. Dla pewności zawsze przetestuj nowy wzorzec w sekcji **Live Test** na krótkim przykładowym tekście, zanim go włączysz.
+Nawet bezpieczny wzorzec ma limit czasu na jedną zamianę w długiej wiadomości. Jeśli skrypt trwa zbyt długo przy jednej wiadomości, aplikacja pomija ten skrypt tylko dla tej wiadomości. Skrypt pozostaje włączony i próbuje ponownie przy następnej wiadomości. Najpierw przetestuj nowy wzorzec w sekcji **Live Test** na krótkim przykładowym tekście.
 
 ## Powiązane przewodniki
 

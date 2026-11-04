@@ -1,61 +1,49 @@
 # Die Persona für einen Chat auswählen
 
-Diese Anleitung erklärt, wie du die Persona auswählst, die dich in einem Chat vertritt. Sie behandelt die Schnellwechsler und die Möglichkeit, keine Persona zu verwenden.
+Jeder Chat hat seine eigene Persona: die Charakterkarte, die dich vertritt. Du kannst sie in Chat Settings auswählen, beim Anlegen des Chats oder mit einem Schnellwechsler neben dem Nachrichtenfeld.
 
-## Jeder Chat hat seine eigene Persona
+Bevor du anfängst: Erstelle eine Persona. Siehe [Personas](personas.md).
 
-Eine Persona ist deine eigene Charakterkarte – die Identität, mit der Marinara Engine dich darstellt. Sie liefert der KI deinen Namen und weitere Details, damit die KI weiß, mit wem sie spricht. Wie du eine anlegst, steht unter [Nutzer-Personas](personas.md).
+Die Auswahl gilt nur für diesen Chat, verschiedene Chats können also verschiedene Personas verwenden. Wähle **None** (keine), um keine Persona zu verwenden. Die KI nennt dich dann „User“ und erhält keine Persona-Angaben. Das gilt in Conversation, Roleplay und Game Mode.
 
-Wähle für jeden Chat eine Persona, wenn du dort eine verwenden möchtest. Die Auswahl gilt nur für diesen Chat. Mit **None** (keine) verwendest du keine Persona; die KI erhält den allgemeinen Namen „User“ und keine Persona-Angaben.
+## Im geöffneten Chat schnell wechseln
 
-Die frühere globale Einstellung der **aktiven Persona** wurde entfernt. Deine gespeicherten Personas und die bestehende Auswahl jedes Chats bleiben erhalten. Ein Chat ohne ausgewählte Persona bleibt anonym.
+Das ist der schnellste Weg. Am Computer ist der **Quick Persona Switcher** (schneller Persona-Wechsel) die kleine runde Avatar-Schaltfläche neben dem Nachrichtenfeld. Ihr Tooltip zeigt den Namen der Persona oder, wenn keine gesetzt ist, **Quick Persona Switcher**. Im geöffneten Menü steht in der Zeile **None** der Text **No persona selected**.
 
-## Eine Persona für einen einzelnen Chat wählen
-
-Jeder Chat kann seine eigene Persona speichern. Du kannst in verschiedenen Chats unterschiedliche Personas verwenden.
-
-### Über Chat Settings
-
-1. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
-2. Such den Abschnitt **Persona**. Sein Hilfetext beginnt mit „Your persona defines who you are in this chat.“
-3. Ist keine Persona gesetzt, steht dort „No persona selected.“
-4. Klick auf **Choose Persona** (Persona wählen). Sobald eine Persona gesetzt ist, heißt die Schaltfläche **Change Persona**.
-5. Such im Auswahlfenster (Platzhalter „Search personas...“) und klick auf eine Persona.
-
-Zum Entfernen der Chat-Persona klick daneben auf die Schaltfläche X oder wähle im Auswahlfenster **None**.
-
-Im Game Mode ist dieser Abschnitt als deine Ingame-Party formuliert, er trägt aber weiterhin die Beschriftung **Persona**.
-
-### Beim Anlegen eines Chats
-
-Der Einrichtungsassistent **New Chat** hat ein Feld **Your Persona**. Es nutzt dasselbe durchsuchbare Auswahlfenster samt Option **None**. Im Assistenten **New Game Setup** heißt dieses Feld stattdessen **Player's Persona**.
-
-In einem Roleplay-Chat kann eine Charakterkarte oben in diesem Auswahlfenster **Create your persona** (deine Persona erstellen) anbieten. Wähl diesen Eintrag, um die Fragen der Karte zu beantworten und eine neue Persona zu erhalten. Siehe [Interaktives Onboarding](interactive-onboarding.md).
-
-Dieselbe Zeile steht auch im Persona-Auswahlfenster von Chat Settings, sodass du auch nach der Einrichtung noch eine Persona erstellen kannst. Unter Chat Settings → **Characters** (Charaktere) zeigt eine Karte außerdem ihre Onboarding-Markierung. Sie öffnet die Charakterfragen dieser Karte erneut, damit du eine Antwort ändern oder eine gelöschte wiederherstellen kannst.
-
-## Der Quick Persona Switcher
-
-Ist ein Chat geöffnet, sitzt neben dem Nachrichtenfeld eine kleine runde Avatar-Schaltfläche: der **Quick Persona Switcher** (schneller Persona-Wechsel). Ohne gesetzte Persona zeigt der Tooltip (Kurzhinweis beim Draufzeigen) genau diesen Namen.
-
-1. Klick auf die Avatar-Schaltfläche.
-2. Es öffnet sich ein Menü mit dem Titel **Personas**.
-3. Klick auf eine beliebige Persona, um sofort zu wechseln – oder auf **None**, um ganz ohne Persona zu chatten.
+1. Klick auf die Avatar-Schaltfläche. Es öffnet sich ein Menü mit dem Titel **Personas**.
+2. Klick auf eine Persona, um sofort zu wechseln, oder auf **None**, um keine Persona zu verwenden.
 
 Personas sind nach Ordnern gruppiert. Personas ohne Ordner stehen unter **Ungrouped** (ohne Gruppe).
 
-Auf dem Handy teilt sich der Persona-Wechsel ein Menü mit dem Wechsel der Verbindung. Tipp neben dem Nachrichtenfeld auf den Pfeil **Quick Switcher** und öffne dann den Tab **Personas**. Der Tab **Connections** liegt im selben Menü.
-
-## Welche Persona gewinnt
-
-Die für den Chat ausgewählte Persona bestimmt deine Identität. Mit **None** spricht die KI dich als „User“ an und erhält keine Persona-Angaben. Das gilt für Conversation, Roleplay und Game Mode.
-
-Im Game Mode wählst du deine Persona im Assistenten New Game Setup. Der Chat behält diese Auswahl.
+Auf dem Handy teilt sich der Persona-Wechsel ein Menü mit dem Wechsel der Verbindung. Tipp neben dem Nachrichtenfeld auf den Pfeil **Quick Switcher** und öffne dann den Tab **Personas**. Der Tab **Connections** (Verbindungen) liegt im selben Menü.
 
 Wechselst du mitten im Chat die Persona, ändert das frühere Nachrichten nicht. Jede bereits gesendete Nachricht behält die Persona, unter der sie gesendet wurde.
 
+## Über Chat Settings
+
+1. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche oben rechts im Chat, sofern du sie nicht verschoben hast.
+2. Such den Abschnitt **Persona**. Sein Hilfetext beginnt mit „Your persona defines who you are in this chat.“
+3. Klick auf **Choose Persona** (Persona wählen). Sobald eine Persona gesetzt ist, heißt die Schaltfläche **Change Persona**. Bis dahin steht im Abschnitt „No persona selected.“
+4. Such im Auswahlfenster (Platzhalter **Search personas**) und klick auf eine Persona.
+
+Zum Entfernen der Persona klick auf das X daneben oder wähle im Auswahlfenster **None**.
+
+Wenn es nicht funktioniert hat: Du kannst nur Personas wählen, die du schon erstellt hast. Erstelle zuerst eine oder nutze im Auswahlfenster **Create your persona** (deine Persona erstellen). Siehe [Interaktives Onboarding](interactive-onboarding.md).
+
+Im Game Mode ist dieser Abschnitt als deine Ingame-Party formuliert, trägt aber weiterhin die Beschriftung **Persona**.
+
+## Beim Anlegen eines Chats
+
+Der Einrichtungsassistent New Chat hat ein Feld **Your Persona** (deine Persona). Es nutzt dasselbe durchsuchbare Auswahlfenster samt Option **None**. Im Assistenten New Game Setup heißt das Feld **Player's Persona**, und der Chat behält diese Auswahl.
+
+In einem Roleplay-Chat kann das Auswahlfenster auch **Create your persona** anbieten. Damit stellt die Charakterkarte ihre Fragen und baut daraus eine Persona. Siehe [Interaktives Onboarding](interactive-onboarding.md).
+
+## Als Charakter spielen
+
+Um eine Charakterkarte als deine Identität zu verwenden, schalte unter **Settings → Advanced → Message Tools** die Option **Show characters in Persona pickers** (Charaktere in Persona-Auswahlen anzeigen) ein. Die Auswahlfenster zeigen dann eine Gruppe **Play as a character** (als Charakter spielen), in der deine Charaktere stehen.
+
 ## Verwandte Anleitungen
 
-- [Nutzer-Personas: anlegen und bearbeiten](personas.md)
+- [Personas](personas.md)
 - [Interaktives Onboarding](interactive-onboarding.md)
 - [Chat Settings im Überblick](../chats/chat-settings.md)

@@ -1,101 +1,124 @@
 # Własne motywy CSS (Theme Library)
 
-Z tego przewodnika dowiesz się, jak zmienić cały wygląd aplikacji Marinara Engine za pomocą własnego motywu CSS. Zobaczysz, jak tworzyć, importować, eksportować i włączać motywy. Poznasz też zmienne CSS, które da się nadpisać, oraz to, jak motywy współpracują z Card CSS.
+Własny motyw CSS przemalowuje całą aplikację Marinara Engine. W sekcji **Theme Library** (biblioteka motywów) możesz tworzyć, importować, eksportować i przełączać motywy. Ten przewodnik wymienia też zmienne i klasy CSS, z których może korzystać motyw, i wyjaśnia, jak motywy współpracują z Card CSS. Aby szybko zmienić wygląd bez CSS, zobacz [Gotowe style okien czatu](#ready-made-chat-window-styles).
+
+Zanim zaczniesz: jeśli otwierasz aplikację Marinara Engine z innego urządzenia, na przykład z telefonu, serwer potrzebuje sekretu administratora, zanim będzie można tworzyć, edytować, importować, włączać lub usuwać motywy. Na komputerze, na którym działa serwer, sekret nie jest potrzebny.
+
+1. Na serwerze ustaw `ADMIN_SECRET` w pliku `.env`.
+2. W aplikacji otwórz **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny) i wpisz tę samą wartość.
+
+Zobacz dokument [Konfiguracja serwera](../CONFIGURATION.md) oraz przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md). Aby przełączyć się na motyw, który ktoś ci przekazał, przejdź do sekcji [Włączanie motywu](#activating-a-theme).
+
+## Czym jest własny motyw
+
+CSS, czyli Cascading Style Sheets, to kod, który ustala kolory, obramowania i odstępy. Motyw to blok kodu CSS, który może zmienić tło strony, kolor akcentu, karty, obramowania, tekst i sporo więcej.
+
+Motywy są przechowywane w sekcji **Theme Library** na twoim serwerze Marinara, więc synchronizują się z każdym urządzeniem połączonym z tym samym serwerem. Większość pozostałych ustawień wyglądu zostaje na jednym urządzeniu. Aktywny może być tylko jeden motyw naraz, a w bibliotece możesz trzymać dowolnie wiele motywów.
+
+## Gdzie znaleźć sekcję Theme Library
+
+1. Otwórz **Settings** (Ustawienia).
+2. Przejdź do zakładki **Addons** (dodatki).
+3. Znajdź sekcję **Theme Library**.
+
+## Tworzenie motywu
+
+1. W sekcji **Theme Library** kliknij przycisk **Create Theme** (utworzenie motywu).
+2. Wpisz nazwę w polu nazwy (widać w nim tekst "Theme name...").
+3. Wpisz lub wklej kod CSS w dużym polu tekstowym.
+4. Zostaw przełącznik **Preview** (podgląd) włączony, żeby widzieć zmiany na żywo podczas pisania. Wyłącz go, aby zatrzymać podgląd na żywo.
+5. Kliknij przycisk **Save**.
+
+Nowy motyw powstaje z szablonu, który wypisuje najczęściej używane zmienne jako zakomentowane przykłady. Usuń znaki komentarza i wpisz własne wartości. Zupełnie nowy motyw zostaje włączony od razu po zapisaniu, a na ekranie pojawia się komunikat: Theme "My Theme" saved and activated.
+
+Aby zmienić motyw później, znajdź go na liście **Installed Themes** (zainstalowane motywy), kliknij ikonę kodu (jej podpowiedź brzmi **Edit theme CSS**), wprowadź zmiany i kliknij przycisk **Save**. Edycja nie zmienia tego, który motyw jest aktywny.
+
+## Importowanie i eksportowanie motywów
+
+Aby zaimportować motyw:
+
+1. Kliknij przycisk **Import File** (import pliku) w sekcji **Theme Library**.
+2. Wybierz plik `.css` albo `.json`.
+3. Przeczytaj komunikat. Podaje on, ile motywów zostało zaimportowanych, pominiętych lub odrzuconych.
+
+Plik `.css` staje się jednym motywem, a jego nazwa pochodzi od nazwy pliku. Plik `.json` może zawierać jeden motyw lub więcej. Plik wyeksportowany z aplikacji Marinara Engine zaimportuj bez zmian albo samodzielnie napisz mały plik:
+
+```json
+{ "name": "My Theme", "css": "..." }
+```
+
+Zaimportowane motywy nie włączają się same. Motyw o tej samej nazwie i z tym samym kodem CSS co motyw, który już jest na serwerze, zostaje pominięty.
+
+Aby wyeksportować motyw, kliknij ikonę wysyłania (jej podpowiedź brzmi **Export theme**) w jego wierszu na liście **Installed Themes**. Marinara pobiera plik `.json`, który da się zaimportować w innym miejscu.
+
+<a id="activating-a-theme"></a>
+
+## Włączanie motywu
+
+Lista **Installed Themes** pokazuje wszystkie motywy, a na samej górze znajduje się pozycja **Default Theme** (motyw domyślny).
+
+1. Kliknij nazwę motywu, aby go włączyć. Aktywny motyw jest oznaczony haczykiem.
+2. Kliknij **Default Theme**, aby wyłączyć własne motywy i wrócić do wbudowanego wyglądu.
+
+Przycisk **Reset Appearance** (przywrócenie wyglądu) na górze sekcji **App Style** (styl aplikacji) w **Settings → Appearance** (ustawienia, wygląd) także wyłącza aktywny motyw.
+
+Aby usunąć motyw, kliknij ikonę kosza (jej podpowiedź brzmi **Remove theme**) i potwierdź w oknie **Delete Theme** (usunięcie motywu). To trwale kasuje kod CSS motywu z serwera.
+
+Jeśli to nie zadziałało: gdy aplikacja wygląda źle, sprawdź zarówno aktywny motyw, jak i Card CSS w czacie. Zobacz [Motywy i Card CSS](#themes-and-card-css).
 
 <a id="ready-made-chat-window-styles"></a>
 
 ## Gotowe style okien czatu
 
-Aby zmienić wygląd bez pisania CSS, otwórz **Settings > Appearance > App** (ustawienia, wygląd, aplikacja) i znajdź **Chat widget style** (styl widgetów czatu) na dole sekcji **App Style** (styl aplikacji). **Dottore** nadaje kontrolkom czatu lodowoniebieskie ramki przywodzące na myśl aparaturę, jasne metalowe krawędzie i przycięte narożniki. **Prof. Mari** dodaje baśniowe ramki ze złotym wykończeniem, błękity kamieni szlachetnych i Primogemy przy tytułach okien. Przyciski tego presetu mają takie samo tło jak okna. Każdy preset ma własną czcionkę, działa w jasnym i ciemnym trybie i obejmuje przyciski, okna oraz rozwijane sekcje.
+Zanim zaczniesz: do tego nie potrzeba CSS.
 
-Opcje **Font** (czcionka) i **Shape** (kształt) pozwalają zmieniać te elementy osobno. **Preset font** (czcionka presetu) i **Preset shape** (kształt presetu) korzystają z wybranego stylu.
+1. Otwórz **Settings → Appearance → App** (ustawienia, wygląd, aplikacja).
+2. Na dole sekcji **App Style** znajdź **Chat widget style** (styl widgetów czatu).
+3. Wybierz styl.
 
-Niżej są trzy ustawienia kolorów. Każde ma narzędzie wyboru jednolitego koloru oraz opcję gradientu, czyli płynnego przejścia między kolorami:
+| Styl | Wygląd |
+| --- | --- |
+| **Default** (domyślny) | Pierwotny wygląd. |
+| **Dottore** | Lodowoniebieskie ramki przywodzące na myśl aparaturę, jasne metalowe krawędzie i przycięte narożniki. |
+| **Prof. Mari** | Baśniowe ramki ze złotym wykończeniem, błękity kamieni szlachetnych i Primogemy przy tytułach okien. Przyciski tego stylu mają takie samo tło jak okna. |
 
+Każdy styl ma własną czcionkę, działa w jasnym i ciemnym trybie i nadaje wspólny wygląd przyciskom, oknom oraz rozwijanym sekcjom. Wybranie stylu przywraca ustawienia **Font** (czcionka), **Shape** (kształt) i wszystkich trzech kolorów. Położenie okien pozostaje bez zmian.
+
+Te elementy możesz zmieniać osobno:
+
+- **Font** i **Shape** korzystają ze stylu (opcje **Preset font** i **Preset shape**, czyli czcionka i kształt presetu), dopóki nie wybierzesz innych.
 - **Border & Buttons Color** (kolor obramowań i przycisków) zmienia obrysy oraz ikony przycisków. Ikony korzystają z pierwszego koloru gradientu.
 - **Background Color** (kolor tła) wypełnia przyciski, okna, rozwijane sekcje i pola edycji.
-- **Text Color** (kolor tekstu) zmienia tekst widgetów. Gradienty są widoczne w nagłówkach i etykietach; tekst w polach edycji korzysta z pierwszego koloru.
+- **Text Color** (kolor tekstu) zmienia tekst widgetów. Gradienty są widoczne w nagłówkach i etykietach, a pola edycji korzystają z pierwszego koloru.
 
-Ozdobne emblematy zachowują swoje oryginalne kolory.
+Każdy kolor ma narzędzie wyboru jednolitego koloru oraz opcję gradientu. **Reset color** (przywrócenie koloru) przy danej opcji przywraca jasne lub ciemne kolory stylu. Ozdobne emblematy zachowują swoje oryginalne kolory.
 
-Użyj **Reset color** (przywrócenie koloru) przy wybranej opcji, aby znów korzystać z jasnych lub ciemnych kolorów presetu. Wybranie presetu przywraca jego ustawienia **Font**, **Shape** i wszystkich trzech kolorów. **Default** (domyślny) przywraca pierwotny wygląd. Położenie okien pozostaje bez zmian.
+### Przenoszenie stylu na czat
 
-Aby przenieść ten wygląd na resztę czatu, użyj trzech przełączników pod narzędziami wyboru kolorów:
+Trzy przełączniki pod narzędziami wyboru kolorów rozszerzają działanie stylu. Każdy jest początkowo wyłączony i działa niezależnie. Wyłączenie przełącznika przywraca zwykły wygląd odpowiedniej części czatu, a wybranie innego stylu zachowuje ustawienia przełączników.
 
-- **Apply preset font** (zastosowanie czcionki presetu) stosuje wybraną czcionkę widgetów w wiadomościach, polach wpisywania i kontrolkach czatu.
-- **Apply preset shape** (zastosowanie kształtu presetu) stosuje wybrany kształt ramki w wiadomościach Roleplay w układzie klasycznym i visual novel, polu dialogowym Game, polach wpisywania oraz kontrolkach. Wiadomości Conversation zachowują swój kształt.
-- **Apply preset colors** (zastosowanie kolorów presetu) stosuje kolory obramowań, tła i tekstu widgetów w tych obszarach, także w wiadomościach Conversation. Uwzględnia też własne kolory i gradienty. Wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony. Wiadomość złożona z HTML, na przykład ostylowany blok od agenta, zachowuje kolory tekstu, które sama ustawia.
+| Przełącznik | Co stosuje |
+| --- | --- |
+| **Apply preset font** (zastosowanie czcionki presetu) | Czcionkę widgetów w wiadomościach, polach wpisywania i kontrolkach czatu. |
+| **Apply preset shape** (zastosowanie kształtu presetu) | Kształt ramki w wiadomościach Roleplay (w układzie klasycznym i visual novel), polu dialogowym Game, polach wpisywania i kontrolkach. Wiadomości Conversation zachowują swój kształt. |
+| **Apply preset colors** (zastosowanie kolorów presetu) | Kolory obramowań, tła i tekstu w tych obszarach, także w wiadomościach Conversation. Twoje własne kolory i gradienty też są stosowane. Wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony. Wiadomość złożona z HTML, na przykład ostylowany blok od agenta, zachowuje kolory tekstu, które sama ustawia. |
 
-Przyciski wczytujące starsze lub nowsze wiadomości, takie jak **Load More** (wczytaj więcej) i **Show older** (pokaż starsze), stosują się do tych przełączników tak jak pozostałe kontrolki czatu.
+Przyciski historii, czyli **Load More** (wczytaj więcej) i **Show older** (pokaż starsze), stosują się do przełączników tak jak pozostałe kontrolki czatu. W trybie Game Mode przełączniki obejmują też uwagi poboczne, widgety paska HUD, panel mapy, karty postaci, dzienniki, ekwipunek, panele walki i okna dialogowe. Asystentka Professor Mari może też tworzyć własne motywy dla tych obszarów.
 
-W trybie Game Mode przełączniki obejmują też uwagi poboczne, widgety paska HUD, panel mapy, karty postaci, dzienniki, ekwipunek, panele walki i okna dialogowe.
+Własny motyw nadal może nadpisywać style. Opisane niżej zmienne okien i rozwijanych sekcji mają pierwszeństwo przed kolorami stylu. Zmienna `--mari-window-font-family` ustawia czcionkę okien, `--mari-drawer-radius` zmienia narożniki sekcji, a `--mari-window-ornament: none` ukrywa ozdobę przy tytule. Aby usunąć wszystkie ozdoby stylu, najpierw wybierz **Default**.
 
-Każdy przełącznik jest początkowo wyłączony i działa niezależnie. Możesz na przykład użyć czcionki Professor Mari, zachowując zwykłe kolory czatu. Wyłączenie przełącznika przywraca zwykły wygląd odpowiedniej części czatu. Wybranie innego presetu zachowuje ustawienia przełączników. Asystentka Professor Mari może też tworzyć własne motywy dla tych obszarów.
+<a id="themes-and-card-css"></a>
 
-Własne motywy CSS nadal mogą nadpisywać te presety. Opisane niżej publiczne zmienne okien i sekcji mają pierwszeństwo przed kolorami presetu. Zmienna `--mari-window-font-family` ustawia czcionkę okien, `--mari-drawer-radius` zmienia narożniki sekcji, a `--mari-window-ornament: none` ukrywa ozdobę przy tytule. Aby usunąć wszystkie ozdoby presetu, najpierw wybierz **Default**.
+## Motywy i Card CSS
 
-## Czym jest własny motyw
+Marinara ma dwa sposoby na dodanie własnego kodu CSS i oba mogą być aktywne jednocześnie.
 
-Własny motyw to blok kodu CSS, który przemalowuje aplikację Marinara Engine. CSS, czyli Cascading Style Sheets, to kod odpowiadający za kolory, obramowania i odstępy w całej aplikacji. Motyw może zmienić tło strony, kolor akcentu, karty, obramowania, tekst i sporo więcej.
+- Własny motyw przemalowuje całą aplikację. Wolno mu nadpisywać podstawowe zmienne aplikacji Marinara Engine, używać `!important` oraz `position: fixed`.
+- Card CSS jest osadzony w karcie postaci lub persony i włącza się go osobno dla każdego czatu. Jest czyszczony ostrzej: nie może nadpisać podstawowych zmiennych, `!important` zostaje usunięty, a `position: fixed` zamienia się w `position: absolute`. Nadaje styl wiadomościom w czacie, a nie całej aplikacji. Zobacz [Przewodnik po stylowaniu kart w CSS](card-css-theming.md).
 
-Własne motywy mieszkają w sekcji **Theme Library** (biblioteka motywów). Marinara zapisuje je na serwerze, więc synchronizują się z każdym urządzeniem i każdą przeglądarką połączoną z tym samym serwerem. Tym różnią się od większości pozostałych ustawień wyglądu, które zostają na jednym urządzeniu. Ustawienia przypisane do jednego urządzenia opisuje przewodnik [Ustawienia wyglądu](appearance-settings.md).
+## Limity rozmiaru i nazwy
 
-Aktywny może być tylko jeden własny motyw naraz. W bibliotece da się trzymać dowolnie wiele motywów i przełączać się między nimi.
-
-## Gdzie znaleźć sekcję Theme Library
-
-1. Otwórz **Settings** (Ustawienia).
-2. Przejdź do zakładki **Addons**.
-3. Znajdź sekcję **Theme Library**.
-
-Sekcja nosi tytuł **Theme Library**, a jej opis brzmi "Create, import, activate, edit, export, or remove custom CSS themes."
-
-## Tworzenie motywu
-
-1. W sekcji **Theme Library** kliknij przycisk **Create Theme** (utworzenie motywu).
-2. Wpisz nazwę w polu **Theme name**.
-3. Wpisz lub wklej kod CSS w dużym polu tekstowym.
-4. Zostaw przełącznik **Preview** (podgląd) włączony, żeby widzieć zmiany w aplikacji na żywo podczas pisania. Wyłącz **Preview**, aby zatrzymać podgląd na żywo.
-5. Kliknij przycisk **Save**.
-
-Nowy motyw powstaje z szablonu. Szablon wypisuje najczęściej używane zmienne jako zakomentowane przykłady, więc wystarczy usunąć znaki komentarza i wpisać własne wartości. Zupełnie nowy motyw Marinara włącza od razu po zapisaniu. Pokazuje przy tym potwierdzenie z nazwą motywu, na przykład: Theme "My Theme" saved and activated.
-
-Aby zmienić motyw później, znajdź go na liście **Installed Themes** (zainstalowane motywy). Kliknij ikonę kodu (jej podpowiedź brzmi **Edit theme CSS**), wprowadź zmiany i kliknij przycisk **Save**. Edycja zapisanego motywu aktualizuje go, ale nie zmienia tego, który motyw jest aktywny.
-
-## Importowanie i eksportowanie motywów
-
-Motywami da się dzielić w postaci plików. Przydaje się to przy przenoszeniu motywu między serwerami albo przy przekazywaniu go znajomym.
-
-Aby zaimportować motyw:
-
-1. Kliknij przycisk **Import File** (import pliku) w sekcji **Theme Library**.
-2. Wybierz plik `.css` albo plik `.json`.
-3. Przeczytaj komunikat, który się pojawi. Podaje on, ile motywów zostało zaimportowanych, pominiętych lub odrzuconych.
-
-Plik `.css` staje się jednym motywem, a jego nazwa pochodzi od nazwy pliku. Plik `.json` może zawierać jeden motyw lub więcej i występuje w dwóch odmianach.
-
-Pierwsza odmiana to plik wyeksportowany z aplikacji Marinara Engine. Każdy motyw jest w nim opakowany w dodatkowe pola, które Marinara dokłada przy eksporcie. Nie trzeba tego czytać ani edytować. Zaimportuj plik bez zmian.
-
-Druga odmiana to mały plik napisany samodzielnie. Dla pojedynczego motywu wystarczy tyle:
-
-```
-{ "name": "My Theme", "css": "..." }
-```
-
-Zaimportowane motywy synchronizują się z serwerem, ale nie włączają się same. Motyw, który już jest na serwerze pod tą samą nazwą i z tym samym kodem CSS, zostaje pominięty, a nie dodany po raz drugi.
-
-Aby wyeksportować motyw, znajdź go na liście **Installed Themes** i kliknij ikonę wysyłania (jej podpowiedź brzmi **Export theme**). Marinara pobiera plik `.json`, który da się zaimportować w innym miejscu.
-
-## Włączanie motywu
-
-Lista **Installed Themes** pokazuje wszystkie motywy, a na samej górze znajduje się **Default Theme** (motyw domyślny).
-
-1. Kliknij nazwę motywu, aby go włączyć. Aktywny motyw jest oznaczony haczykiem.
-2. Kliknij **Default Theme**, aby wyłączyć własne motywy i wrócić do wbudowanego wyglądu aplikacji Marinara Engine.
-
-Przycisk **Reset Appearance** (przywrócenie wyglądu) znajduje się na górze sekcji **App Style** w **Settings -> Appearance**. Jego użycie wyłącza także aktywny własny motyw.
-
-Aby usunąć motyw na dobre, kliknij ikonę kosza w jego wierszu (jej podpowiedź brzmi **Remove theme**), a potem potwierdź w oknie **Delete Theme**. To trwale kasuje kod CSS motywu z serwera.
+Nazwa motywu może mieć do 200 znaków. Kod CSS może zajmować do 256 KiB, liczone w bajtach UTF-8. Większy motyw zostaje odrzucony przy zapisie lub imporcie. Kod CSS własnego motywu przechodzi też przez czyszczenie, zanim zacznie działać: style, które wczytują plik z innej strony, nie działają. Zamiast tego osadź obrazek albo czcionkę jako URI `data:`.
 
 ## Wykaz zmiennych CSS
 
@@ -118,11 +141,7 @@ Edytor motywu ma rozwijaną sekcję **CSS Variable Reference**. Kliknij ją, aby
 | `--popover` | Tło listy rozwijanej |
 | `--accent` | Podświetlenia pod kursorem |
 
-Ta lista nie jest granicą. Motyw może ustawić dowolną zmienną CSS używaną przez aplikację Marinara Engine, a do tego dołożyć własne style.
-
-Niektóre efekty wizualne mają swoje własne zmienne. Motyw może na przykład poprosić o animację pulsowania akcentu, ustawiając `--marinara-theme-accent-pulse: enabled`.
-
-Kod CSS własnego motywu przechodzi przez czyszczenie, zanim zacznie działać – dla bezpieczeństwa. Style, które wczytują plik z innej strony, nie działają. Aby użyć w motywie obrazka albo czcionki, osadź je jako URI `data:` zamiast odnośnika sieciowego. URI `data:` mieści treść pliku bezpośrednio w kodzie CSS.
+Motyw może ustawić dowolną zmienną CSS używaną przez aplikację Marinara Engine, nie tylko te. Niektóre efekty mają własne zmienne. Na przykład `--marinara-theme-accent-pulse: enabled` prosi o animację pulsowania akcentu.
 
 ## Styl okien i rozwijanych sekcji czatu
 
@@ -260,33 +279,6 @@ Na przykład przy włączonych **Apply preset font** i **Apply preset colors**:
 Nieustawione zmienne korzystają z ustawień widgetów i presetu. Aby te zmienne działały przez wbudowane style, odpowiedni przełącznik musi być włączony. Wiadomości Conversation zachowują swój kształt nawet przy włączonym **Apply preset shape**. Własne motywy mogą też bezpośrednio odwoływać się do klas; ozdobne przycinanie nie powinno obejmować obrysów fokusu, menu ani treści wiadomości.
 
 Na telefonach menu z trzema kropkami rozwija się w okrągłe przyciski. Jego przycisk otwierający to `[data-chat-tools-menu-button]`, rozwinięta kolumna to `[data-chat-tools-menu]`, a każda pozycja listy ma `data-chat-tools-menu-item` ustawione na identyfikator swojego okna. Przyciski narzędzi używają `.mari-window-bubble.mari-chat-tools-button` i `data-chat-tools-menu-tool` z tym samym identyfikatorem. Kolumna nie ma ramki okna; jej przyciski korzystają z kolorów widgetów i ustawionego rozmiaru przycisków, niezależnie od trzech przełączników dla reszty czatu, a przy tym zachowują okrągły kształt.
-
-## Limity rozmiaru i nazwy
-
-Nazwa motywu może mieć do 200 znaków. Kod CSS może zajmować do 256 KiB, liczone w bajtach UTF-8, a nie w znakach. Większy motyw zostaje odrzucony przy zapisie lub imporcie.
-
-## Admin Access przy instalacji zdalnej
-
-Tworzenie, edycja, import, włączanie i usuwanie motywu to działania chronione. Ma to znaczenie tylko wtedy, gdy aplikacja Marinara Engine jest otwierana przez sieć.
-
-Jeśli aplikacja Marinara Engine jest otwarta na tym samym komputerze, na którym działa serwer, przez pętlę zwrotną (zwaną też localhost), te działania działają bez dodatkowych kroków. Jeśli otwierasz aplikację z innego urządzenia, na przykład z telefonu albo z innego komputera w sieci, serwer potrzebuje najpierw sekretu administratora.
-
-Aby zarządzać motywami przez sieć:
-
-1. Na serwerze ustaw `ADMIN_SECRET` w pliku `.env`.
-2. W aplikacji otwórz **Settings -> Advanced -> Admin Access** i wpisz tę samą wartość.
-
-Bez tego zmiany motywów przez sieć kończą się błędem. Pełną konfigurację opisują [Konfiguracja serwera](../CONFIGURATION.md) oraz przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
-
-## Jak motywy współpracują z Card CSS
-
-Marinara ma dwa sposoby na dodanie własnego kodu CSS. To osobne funkcje i obie mogą być aktywne jednocześnie.
-
-Własny motyw przemalowuje całą aplikację. Wolno mu nadpisywać podstawowe zmienne aplikacji Marinara Engine, używać `!important` oraz `position: fixed`. Na tym właśnie polega motyw.
-
-Card CSS działa inaczej. Autor postaci lub persony może osadzić kod CSS w karcie, a ty włączasz go osobno dla każdego czatu. Card CSS jest czyszczony ostrzej. Nie może nadpisać podstawowych zmiennych aplikacji, `!important` zostaje usunięty, a `position: fixed` zamienia się w `position: absolute`. Nadaje styl wiadomościom w czacie, a nie całej aplikacji. Zobacz [Przewodnik po stylowaniu kart w CSS](card-css-theming.md).
-
-Jeśli aplikacja wygląda źle, warto sprawdzić zarówno aktywny motyw, jak i Card CSS. Przyczyną może być każde z nich.
 
 ## Powiązane przewodniki
 

@@ -1,32 +1,20 @@
 # Przewodnik po stylowaniu kart w CSS
 
-Ten przewodnik pokazuje twórcom postaci i person, jak nadać karcie własny wygląd na czacie. Kod CSS wpisuje się w pole **Creator Notes** (notatki twórcy) na karcie, a Marinara Engine bezpiecznie stosuje go do wiadomości tej postaci. Taki kod zmienia wyłącznie wygląd czatu i nigdy nie sięga do reszty aplikacji.
+CSS karty nadaje karcie postaci lub persony własny wygląd na czacie. Kod CSS wpisujesz w pole **Creator Notes** (notatki twórcy) na karcie, a Marinara stosuje go do wiadomości tej postaci. Może zmieniać wyłącznie wygląd czatu, nigdy reszty aplikacji. Ten przewodnik jest przeznaczony dla twórców kart.
 
 ## Zanim zaczniesz
 
-Kilka prostych definicji, które przewijają się przez cały przewodnik:
+Pojęcia używane w tym przewodniku:
 
-- **CSS** to język, który decyduje o kolorach, krojach pisma, obramowaniach i odstępach na stronie internetowej.
-- **CSS karty** to kod CSS wpisany w kartę postaci lub persony. Nadaje styl wiadomościom tej karty.
-- **Card Theming** (stylowanie kart) włącza CSS karty dla danego czatu. Te kontrolki znajdziesz w **Chat Settings → Characters** (ustawienia czatu → postacie), a w trybie Game w **Party** (drużyna).
-- **Selektor** to ta część reguły CSS, która wybiera elementy do ostylowania.
-- **Selektor potomka** używa spacji w znaczeniu "wewnątrz". Zapis `.a .b` pasuje do elementu `.b` znajdującego się wewnątrz `.a`.
-- **Kaskada** to mechanizm CSS, który rozstrzyga, która reguła wygrywa, gdy do tego samego elementu pasuje kilka reguł.
-- **Układ** to sposób rozmieszczenia wiadomości na ekranie. Marinara ma układ wierszowy **Linear** oraz układ **Bubbles**.
+- **CSS** decyduje o kolorach, krojach pisma, obramowaniach i odstępach.
+- **CSS karty** to kod CSS wpisany w kartę. Nadaje styl wiadomościom tej karty.
+- **Card Theming** (stylowanie kart) to ustawienie czatu, które włącza CSS karty. Znajdziesz je w **Chat Settings → Characters** (ustawienia czatu, postacie), a w trybie Game w **Party** (drużyna).
+- **Selektor** to ta część reguły CSS, która wybiera elementy do ostylowania. Spacja między dwoma selektorami oznacza "wewnątrz", więc `.a .b` pasuje do elementu `.b` wewnątrz `.a`.
+- **Układ** to sposób rozmieszczenia wiadomości. Tryb Conversation ma układ wierszowy **Linear** oraz układ **Bubbles**.
 
 ## Szybki start
 
-Stylowanie karty odbywa się w dwóch miejscach. Najpierw dodaj CSS do karty. Potem włącz go na czacie.
-
-1. Otwórz postać w edytorze **Character Editor** (edytor postaci) i znajdź pole **Creator Notes**. Persony mają to samo pole w edytorze **Persona Editor** (edytor persony).
-2. Wklej blok `<style>` w pole **Creator Notes** i zapisz kartę.
-3. Otwórz czat z tą postacią.
-4. Otwórz **Chat Settings**, a potem **Characters** (lub **Party** w trybie Game).
-5. Wybierz **Exclusive** albo **Chat**. Na starcie tryb stoi na **Disabled**.
-
-Wiadomości postaci powinny zmienić wygląd od razu. Przyciski trybu **Card Theming** (Disabled, Exclusive, Chat) pojawiają się dopiero wtedy, gdy aktywna postać w tym czacie ma kod CSS w polu **Creator Notes**. W czatach Roleplay przełącznik **Color Character Names in Text** (kolorowanie imion postaci w tekście) znajduje się w **Characters**, bezpośrednio pod **Add from Folder** (dodaj z folderu), gdy folder jest dostępny. Sam CSS persony nie wywoła przycisków. Przynajmniej jedna postać w czacie musi mieć własny blok `<style>`. Jeśli przycisków nie widać, sprawdź, czy blok `<style>` zapisał się poprawnie.
-
-Oto blok na początek, do wklejenia w pole **Creator Notes**:
+Oto blok na początek, do wklejenia w kroku 2:
 
 ```html
 <style>
@@ -47,9 +35,21 @@ Oto blok na początek, do wklejenia w pole **Creator Notes**:
 </style>
 ```
 
-Nazwa postaci świeci na różowo, a jej tekst robi się delikatnie różowy w każdym układzie. Reguła dla dymka dokłada fioletowy gradient z różowym obramowaniem. Jedno zastrzeżenie: `.mari-message-bubble` istnieje wyłącznie w układzie **Bubbles** oraz w trybie Roleplay. Domyślny układ trybu Conversation to **Linear**, w którym nie ma elementu dymka, więc reguła dla dymka nic tam nie zmieni. Różnicę wyjaśnia niżej uwaga "Bubbles a Linear".
+Najpierw dodajesz CSS do karty, a potem włączasz go na czacie.
 
-**Szybki test:** żeby sprawdzić to ponad wszelką wątpliwość, użyj reguły poniżej. Obejmuje ona tekst wiadomości, który istnieje w każdym trybie i układzie. Tło tekstu powinno natychmiast zrobić się jaskraworóżowe.
+1. Otwórz postać w edytorze postaci (Character Editor) i znajdź pole **Creator Notes**. Persony mają to samo pole w edytorze persony (Persona Editor).
+2. Wklej blok startowy w pole **Creator Notes** i zapisz kartę.
+3. Otwórz czat z tą postacią.
+4. Otwórz **Chat Settings**, a potem **Characters** (w trybie Game **Party**).
+5. W sekcji **Card Theming** wybierz **Exclusive** albo **Chat**. Na starcie ustawienie to **Disabled** (wyłączone).
+
+Wiadomości postaci od razu zmieniają wygląd.
+
+Jeśli to nie zadziałało: przyciski **Disabled**, **Exclusive** i **Chat** pojawiają się tylko wtedy, gdy aktywna postać w czacie ma kod CSS w polu **Creator Notes**. Sam CSS persony ich nie wywoła, więc motyw persony też wymaga w czacie jednej postaci z blokiem `<style>`. Sprawdź, czy twój blok `<style>` się zapisał. W czatach Roleplay przełącznik **Color Character Names in Text** (kolorowanie imion postaci w tekście) znajduje się w **Characters**, pod **Add Character** (dodanie postaci).
+
+Nazwa świeci na różowo, a tekst robi się delikatnie różowy w każdym układzie. Reguła dla dymka dodaje fioletowy gradient z różowym obramowaniem. `.mari-message-bubble` istnieje tylko w układzie **Bubbles** i w trybie Roleplay, więc w domyślnym układzie **Linear** trybu Conversation reguła dla dymka nic nie zmienia.
+
+Do testu, którego nie da się przeoczyć, użyj tej reguły. Obejmuje tekst wiadomości, który istnieje w każdym trybie i układzie, i zmienia jego tło na jaskraworóżowe.
 
 ```css
 [data-card-css] .mari-message-content {
@@ -59,33 +59,26 @@ Nazwa postaci świeci na różowo, a jej tekst robi się delikatnie różowy w k
 
 ## Jak działa Card Theming
 
-Kiedy aktywna jest postać z kodem CSS w polu **Creator Notes**, Marinara robi cztery rzeczy:
+Gdy aktywna jest postać z kodem CSS w polu **Creator Notes**, Marinara odczytuje każdy blok `<style>`, usuwa wszystko, co niebezpieczne (zobacz [Czego nie da się ostylować](#what-you-cannot-style)), ogranicza zakres CSS tak, żeby sięgał tylko do czatu, i wstawia go tak, żeby jego selektory miały pierwszeństwo przed własnymi stylami wiadomości w aplikacji.
 
-1. Odczytuje każdy blok `<style>` z pola **Creator Notes**.
-2. Oczyszcza kod CSS i usuwa wszystko, co niebezpieczne. Zajrzyj do sekcji "Czego nie da się ostylować" poniżej.
-3. Ogranicza zakres kodu CSS tak, żeby sięgał tylko do czatu.
-4. Wstawia kod CSS w taki sposób, żeby jego selektory o ograniczonym zakresie miały pierwszeństwo przed własnymi stylami wiadomości w aplikacji.
-
-Sposób zastosowania wybiera się osobno dla każdego czatu w **Chat Settings → Characters** (lub **Party** w trybie Game). Do wyboru są trzy tryby.
+Sposób zastosowania wybierasz osobno dla każdego czatu w **Chat Settings → Characters** (w trybie Game **Party**).
 
 | Tryb | Co robi |
 | --- | --- |
-| **Disabled** (domyślnie) | CSS karty jest wyłączony, więc żadne style postaci nie działają. |
+| **Disabled** (domyślnie) | CSS karty jest wyłączony. |
 | **Exclusive** | CSS każdej postaci obejmuje wyłącznie jej własne wiadomości. |
-| **Chat** | Cały CSS karty obejmuje cały obszar czatu, razem z elementami interfejsu. |
+| **Chat** | Cały CSS kart obejmuje cały obszar czatu, razem z elementami interfejsu. |
 
-Tryb **Exclusive** sprawdza się na czatach grupowych, gdzie każda postać ma własny wygląd. Tryb **Chat** wybierz na czatach z jedną postacią, kiedy karta ma nadać styl całej powierzchni czatu.
+Tryb **Exclusive** wybierz na czatach grupowych, gdzie każda postać ma własny wygląd. Tryb **Chat** wybierz przy kartach do rozmów sam na sam, które nadają styl całej powierzchni czatu, na przykład tłu.
 
-## Jedna zasada zakresu, która naprawdę się liczy
+## Zasada zakresu
 
-Marinara przepisuje twój kod CSS tak, żeby sięgał tylko do czatu. Sposób przepisania zależy od trybu.
+Marinara przepisuje twój kod CSS tak, żeby sięgał tylko do czatu.
 
-- Tryb **Chat** ogranicza zakres wszystkiego do obszaru czatu. Selektor `.mari-message-bubble` pasuje normalnie, bo dymek leży wewnątrz tego obszaru.
-- Tryb **Exclusive** ogranicza zakres wszystkiego do poszczególnych elementów wiadomości danej postaci. To one mają atrybut `data-card-css`. Klasa na tym samym elemencie nie dopasuje się jako potomek. Pasuje tylko to, co jest w środku.
+- W trybie **Chat** zakres wszystkiego ogranicza się do obszaru czatu. `[data-card-css]` oznacza obszar czatu.
+- W trybie **Exclusive** zakres wszystkiego ogranicza się do poszczególnych elementów wiadomości twojej postaci. `[data-card-css]` oznacza wiadomość tej postaci.
 
-Stąd bierze się reguła uniwersalna. Do stylowania samego elementu wiadomości używaj `[data-card-css]`. Do wszystkiego w jego wnętrzu używaj zwykłych selektorów klas, takich jak `.mari-message-bubble`, `.mari-message-content` czy `.mari-message-name`.
-
-Zapis `[data-card-css]` oznacza "wiadomość tej postaci" w trybie **Exclusive** oraz "obszar czatu" w trybie **Chat**. Działa w obu. Selektory elementów wewnętrznych (te ze spacją) działają w obu trybach tak samo.
+Dlatego do stylowania samego elementu wiadomości używaj `[data-card-css]`, a do elementów w jego wnętrzu zwykłych selektorów klas, takich jak `.mari-message-bubble`, `.mari-message-content` i `.mari-message-name`. Klasa na tym samym elemencie nie dopasuje się jako potomek. Buduj kod na selektorach `[data-card-css] .mari-message-...`, a karta zadziała w obu trybach.
 
 ```css
 [data-card-css] {
@@ -98,18 +91,19 @@ Zapis `[data-card-css]` oznacza "wiadomość tej postaci" w trybie **Exclusive**
 }
 ```
 
+W zakresie **Exclusive** `[data-card-css]` to własna wiadomość postaci, która jest zarazem `.mari-message-assistant`. Żeby ostylować także własne wiersze, użyj zakresu **Chat**. Tam `[data-card-css] .mari-message-user` i `.mari-message-assistant` wybierają każdą ze stron.
+
 ## Wybór trybu przez @chat-mode
 
-Reguły zamknięte w blokach `@chat-mode` obejmują tylko jedną powierzchnię. Kod CSS poza takim blokiem działa wszędzie.
+Zamknij reguły w `@chat-mode roleplay`, `@chat-mode conversation` albo `@chat-mode game`, żeby objąć nimi tylko jedną powierzchnię. Kod CSS poza takim blokiem działa wszędzie. Standardowe zapytania `@media` działają wewnątrz tych bloków.
 
 ```html
 <style>
-  /* Applies in ALL modes */
+  /* Applies in all modes */
   [data-card-css] .mari-message-name {
     color: #00ff95;
   }
 
-  /* Only in Roleplay mode */
   @chat-mode roleplay {
     [data-card-css] .mari-message-bubble {
       border: 1px solid rgba(0, 255, 149, 0.4);
@@ -117,7 +111,6 @@ Reguły zamknięte w blokach `@chat-mode` obejmują tylko jedną powierzchnię. 
     }
   }
 
-  /* Only in Conversation mode */
   @chat-mode conversation {
     [data-card-css] .mari-message-bubble {
       background: rgba(0, 40, 28, 0.9);
@@ -127,31 +120,29 @@ Reguły zamknięte w blokach `@chat-mode` obejmują tylko jedną powierzchnię. 
 </style>
 ```
 
-Standardowe zapytania `@media` działają normalnie wewnątrz bloków `@chat-mode`. Przydają się do układów responsywnych.
-
-Tryb **Game Mode** ma wsparcie podstawowe. W trybie **Chat** kod CSS karty sięga całej powierzchni gry. Dzięki temu `[data-card-css]` nadaje styl obszarowi gry, a `@chat-mode game` go obejmuje. Gra korzysta z własnego układu. Nie ma tam opisanych wyżej punktów zaczepienia dymka wiadomości, więc celuj szeroko, na przykład w tło obszaru. Stylowanie narracji w grze osobno dla każdej postaci (tryb **Exclusive**) nie jest jeszcze dostępne.
+Tryb Game Mode ma wsparcie podstawowe. W trybie **Chat** CSS karty sięga całej powierzchni gry, więc `[data-card-css]` nadaje styl obszarowi gry. Gra ma własny układ i nie ma dymków wiadomości, więc celuj szeroko, na przykład w tło obszaru. Stylowanie narracji w grze osobno dla każdej postaci (tryb **Exclusive**) nie jest jeszcze dostępne.
 
 ## Co da się ostylować
 
-Struktura czatu opiera się na tym samym szkielecie w trybie Roleplay i Conversation. Poniżej są elementy, które może objąć CSS karty. Wewnętrzne klasy pomocnicze nie są stabilnymi punktami zaczepienia. Zmieniają się między wersjami, więc trzymaj się klas `mari-*` i atrybutów `data-*` wymienionych niżej.
+Tryby Roleplay i Conversation mają ten sam szkielet. Trzymaj się klas `mari-*` i atrybutów `data-*` wymienionych niżej. Inne klasy zmieniają się między wersjami.
 
 | Selektor | Co obejmuje |
 | --- | --- |
-| `[data-card-css]` | Cały wiersz wiadomości (element wyznaczający zakres). Dobry do akcentów przy lewej lub bocznej krawędzi, a w trybie **Chat** także do obszaru czatu. |
-| `[data-card-css] .mari-message-bubble` | Widoczny dymek: tło, obramowanie, narożniki, cień. Występuje w układzie **Bubbles** oraz w trybie Roleplay. |
-| `[data-card-css] .mari-message-content` | W układzie **Bubbles** sam element dymka, razem z tłem, obramowaniem i narożnikami. W układzie **Linear** wyłącznie tekst wiadomości. |
+| `[data-card-css]` | Cały wiersz wiadomości (element wyznaczający zakres). Dobry do akcentów przy krawędzi, a w trybie **Chat** do obszaru czatu. |
+| `[data-card-css] .mari-message-bubble` | Widoczny dymek: tło, obramowanie, narożniki, cień. W układzie **Bubbles** i w trybie Roleplay. |
+| `[data-card-css] .mari-message-content` | W układzie **Bubbles** sam element dymka. W układzie **Linear** wyłącznie tekst wiadomości. |
 | `[data-card-css] .mari-message-name` | Wyświetlana nazwa postaci. |
 | `[data-card-css] .mari-message-meta` | Wiersz nagłówka z nazwą i znacznikiem czasu. |
 | `[data-card-css] .mari-message-timestamp` | Znacznik czasu. |
 | `[data-card-css] .mari-message-avatar` | Kolumna z awatarem. |
 | `[data-card-css] .mari-message-narrator` | Wiadomości narratora (tryb Roleplay). |
 | `[data-card-css] .mari-message-user` | Wiadomości użytkownika. Do wiadomości postaci użyj `.mari-message-assistant`. |
-| `[data-card-css] p`, `... span` | Akapity i elementy span w tekście. |
-| `[data-grouped]` | Kolejne wiadomości tej samej postaci. Tylko w trybie Conversation; wiersze w trybie Roleplay nigdy tego nie mają. Do pierwszej wiadomości w grupie użyj `[data-card-css]:not([data-grouped])`. |
+| `[data-card-css] p`, `[data-card-css] span` | Akapity i elementy span w tekście. |
+| `[data-grouped]` | Kolejne wiadomości tej samej postaci. Tylko w trybie Conversation. Do pierwszej wiadomości w grupie użyj `[data-card-css]:not([data-grouped])`. |
 
-**Bubbles a Linear.** To układ **Bubbles** jest tym, co obejmuje `.mari-message-bubble`. Układ **Linear** nie ma elementu dymka, więc styluj tam `.mari-message-content` (tekst) oraz `[data-card-css]` (wiersz). Układ zmienisz w **Settings** (Ustawienia), dalej **Appearance**, potem sekcja **Conversation Display** i pozycja **Chat Layout**. Tryb Roleplay zawsze ma dymek.
+Żeby zmienić układ, otwórz **Settings → Appearance → Conversation** (ustawienia, wygląd, Conversation), potem **Conversation Display**, a potem **Chat Layout** (układ czatu). W układzie **Linear** styluj `.mari-message-content` (tekst) i `[data-card-css]` (wiersz), bo nie ma tam dymka.
 
-Oto ostylowany dymek dla trybu Conversation lub Roleplay:
+Ostylowany dymek:
 
 ```css
 [data-card-css] .mari-message-bubble {
@@ -171,13 +162,13 @@ Oto ostylowany dymek dla trybu Conversation lub Roleplay:
 
 ### Wskaźnik pisania
 
-Kiedy postać pisze odpowiedź, układ **Linear** w trybie Conversation pokazuje wiersz "(name) is typing...". Da się go ostylować.
+W układzie **Linear** trybu Conversation wiersz "(name) is typing..." jest widoczny, gdy postać pisze.
 
 | Selektor | Co obejmuje |
 | --- | --- |
-| `[data-card-css] .mari-typing-text` | Napis "(name) is typing...". |
+| `[data-card-css] .mari-typing-text` | Napis. |
 | `[data-card-css] .mari-typing-dots span` | Animowane kropki. |
-| `[data-card-css] .mari-typing-indicator` | Sam wiersz. Niesie też nazwę w atrybucie `data-typing-name`. |
+| `[data-card-css] .mari-typing-indicator` | Wiersz. Niesie nazwę w atrybucie `data-typing-name`. |
 
 ```css
 [data-card-css] .mari-typing-text {
@@ -191,14 +182,13 @@ Kiedy postać pisze odpowiedź, układ **Linear** w trybie Conversation pokazuje
 
 ### Awatar
 
-Awatar jest domyślnie kółkiem. Samym CSS da się zmienić jego kształt i dodać obwódkę. Przykłady poniżej obejmują klikalny przycisk awatara. Jeśli na jakiejś powierzchni awatar nie jest klikalny, zastosuj ten sam pomysł do zapasowego `.mari-message-avatar > div` w tym układzie. W trybie Roleplay przycisk siedzi dodatkowo w elemencie `div` z poświatą. Wypłaszcz ten element, jeśli chcesz zostawić samą swoją obwódkę.
+Awatar jest domyślnie kółkiem. Przykład obejmuje klikalny przycisk awatara. Do awatara, który nie jest klikalny, użyj `.mari-message-avatar > div`. W trybie Roleplay przycisk siedzi dodatkowo w elemencie `div` z poświatą. Wypłaszcz ten element, jeśli chcesz zostawić tylko własną obwódkę.
 
 ```css
 [data-card-css] .mari-message-avatar button {
   border-radius: 6px; /* 0 for sharp corners, 50% for a circle */
   box-shadow: 0 0 0 2px #ff66cc;
 }
-/* roleplay only: drop the app glow wrapper so just your ring shows */
 @chat-mode roleplay {
   [data-card-css] .mari-message-avatar > div {
     box-shadow: none;
@@ -208,30 +198,25 @@ Awatar jest domyślnie kółkiem. Samym CSS da się zmienić jego kształt i dod
 
 ### Panel profilu About Me (tylko tryb Conversation)
 
-W trybie Conversation kliknięcie awatara otwiera panel podręczny profilu z sekcją "about me" postaci lub persony. Można go ostylować w tym samym zakresie `[data-card-css]`. Ten panel istnieje wyłącznie w trybie Conversation. Nie ma go w trybie Roleplay ani Game Mode. Zamknij te reguły w `@chat-mode conversation`, jeśli w karcie jest też CSS dla trybu Roleplay lub Game Mode. Zarówno karty postaci, jak i persony mogą ostylować własny panel z poziomu pola **Creator Notes**.
+W trybie Conversation kliknięcie awatara otwiera panel podręczny profilu z sekcją "about me". Karty postaci i persony mogą ostylować własny panel. Nie istnieje on w trybach Roleplay ani Game, więc zamknij te reguły w `@chat-mode conversation`, jeśli karta obsługuje też inne tryby.
 
-Jedno zastrzeżenie przy personach: przyciski trybu **Card Theming** pojawiają się tylko wtedy, gdy aktywna postać w czacie ma kod CSS w polu **Creator Notes**. Sam CSS persony ich nie wywoła. Żeby motyw panelu persony zadziałał, przynajmniej jedna postać w czacie też musi mieć blok `<style>`.
+Karta panelu jest elementem wyznaczającym zakres. Obejmij ją zapisem `[data-card-css].mari-about-me-popout` (bez spacji, ten sam element), a jej elementy podrzędne selektorami potomka. W trybie **Chat** możesz pisać wprost `.mari-about-me-name`.
 
 | Selektor | Co obejmuje |
 | --- | --- |
-| `[data-card-css].mari-about-me-popout` | Sama karta panelu (element wyznaczający zakres): tło, obramowanie, kształt. |
+| `[data-card-css].mari-about-me-popout` | Karta panelu: tło, obramowanie, kształt. |
 | `[data-card-css] .mari-about-me-banner` | Górny pasek banera (domyślnie w kolorze nazwy). |
-| `[data-card-css] .mari-about-me-avatar` | Element obejmujący powiększony awatar. Do samego kółka użyj `... > div`. |
+| `[data-card-css] .mari-about-me-avatar` | Element obejmujący powiększony awatar. Do kółka użyj `... > div`. |
 | `[data-card-css] .mari-about-me-status` | Kropka statusu obecności (tylko postacie). |
 | `[data-card-css] .mari-about-me-name` | Nagłówek z wyświetlaną nazwą. |
-| `[data-card-css] .mari-about-me-handle` | Dodatkowa linia z @nazwą (widoczna, gdy nazwa wyświetlana w trybie Conversation jest inna). |
+| `[data-card-css] .mari-about-me-handle` | Dodatkowa linia z @nazwą, widoczna, gdy nazwa wyświetlana w trybie Convo jest inna. |
 | `[data-card-css] .mari-about-me-presence` | Linia statusu lub aktywności (tylko postacie). |
 | `[data-card-css] .mari-about-me-box` | Ramka z treścią About Me. |
 | `[data-card-css] .mari-about-me-label` | Podpis "ABOUT ME". |
-| `[data-card-css] .mari-about-me-badge` | Kafelek Default lub Chat-specific. |
-| `[data-card-css] .mari-about-me-text` | Wyrenderowana treść sekcji about me. |
+| `[data-card-css] .mari-about-me-badge` | Plakietka Default lub Chat-specific. |
+| `[data-card-css] .mari-about-me-text` | Treść sekcji about me. |
 
-Karta panelu jest elementem wyznaczającym zakres. Obejmiesz ją zapisem `[data-card-css].mari-about-me-popout` (bez spacji, ten sam element). Elementy w środku obejmij selektorem potomka, na przykład `[data-card-css] .mari-about-me-name`. W trybie **Chat** zakresem objęty jest cały obszar, więc można pisać wprost `.mari-about-me-name`.
-
-Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub persony, a potem wybierz tryb CSS karty w **Chat Settings → Characters** (lub **Party** w trybie Game). Przy wklejaniu do persony pamiętaj o zastrzeżeniu powyżej. Jakaś postać w czacie też musi mieć kod CSS w polu **Creator Notes**, inaczej przyciski trybu pozostaną ukryte.
-
-```html
-<style>
+```css
 @chat-mode conversation {
   [data-card-css].mari-about-me-popout {
     background: radial-gradient(120% 120% at 50% 0%, #241a3a 0%, #14101f 70%);
@@ -241,30 +226,13 @@ Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub p
   [data-card-css] .mari-about-me-banner {
     background: linear-gradient(90deg, #b478ff, #ff77c6);
   }
-  [data-card-css] .mari-about-me-avatar > div {
-    border-radius: 0.9rem; /* squircle avatar */
-    box-shadow: 0 0 0 2px #b478ff;
-  }
   [data-card-css] .mari-about-me-name {
     color: #e9d8ff;
-    text-shadow: 0 0 10px rgba(180, 120, 255, 0.6);
-  }
-  [data-card-css] .mari-about-me-box {
-    background: rgba(180, 120, 255, 0.08);
-    border: 1px solid rgba(180, 120, 255, 0.25);
-    border-radius: 0.75rem;
-  }
-  [data-card-css] .mari-about-me-label {
-    color: #b478ff;
-    letter-spacing: 0.12em;
-  }
-  [data-card-css] .mari-about-me-text {
-    font-family: Georgia, serif;
-    color: #f2e9ff;
   }
 }
-</style>
 ```
+
+<a id="what-you-cannot-style"></a>
 
 ## Czego nie da się ostylować
 
@@ -273,18 +241,18 @@ Filtr oczyszczający usuwa te rzeczy ze względów bezpieczeństwa.
 | Zablokowane | Dlaczego |
 | --- | --- |
 | `url(https://...)` | Żadnych zapytań sieciowych, żeby nie dało się śledzić użytkownika ani wyprowadzać danych. Dozwolone jest tylko `url(data:...)`, do obrazów i krojów pisma osadzonych w kodzie. |
-| `@font-face` z zewnętrznymi adresami URL | Zostają wyłącznie źródła krojów pisma w formie `data:`. Nazwa rodziny dostaje automatycznie nową nazwę, żeby nie mogła nadpisać krojów aplikacji. |
+| `@font-face` z zewnętrznymi adresami URL | Zostają wyłącznie źródła krojów pisma w formie `data:`. Nazwa rodziny zostaje zmieniona, żeby nie mogła nadpisać krojów aplikacji. |
 | `@import` | Żadnego wczytywania zewnętrznych arkuszy stylów. |
 | selektory `:has()` | Nie mogą badać elementów spoza czatu. |
-| Zagnieżdżone reguły i selektory zaczynające się od `~` lub `+` | Usuwane, żeby CSS karty nie mógł sięgnąć poza swój zakres. Zapisz je jako zwykłe selektory. |
+| Zagnieżdżone reguły i selektory zaczynające się od `~` lub `+` | Usuwane, żeby CSS karty nie mógł sięgnąć poza swój zakres. Pisz zwykłe selektory. |
 | HTML w `content:` | Tekst ozdobny jest dozwolony, ale znaki `<` i `>` są usuwane, a długość tekstu ograniczona do 200 znaków. Zapisy `attr()` i `counter()` są dozwolone. |
 | `position: fixed` | Zamieniane na `position: absolute`, więc nie da się przykryć całego ekranu. |
 | `!important` | Usuwane, więc CSS karty nie może na siłę nadpisać stylów aplikacji. |
 | Tokeny motywu aplikacji | Tokeny takie jak `--primary` czy `--background` są usuwane, więc CSS karty nie przemaluje interfejsu aplikacji. |
 
-Marinara wstawia CSS karty z selektorami o ograniczonym zakresie, które mają pierwszeństwo przed własnymi stylami wiadomości w aplikacji. Wygrywa więc przy kolorach, tłach, obramowaniach i krojach pisma wewnątrz czatu. Nie przebije jedynie tego, co usuwa filtr oczyszczający, wszystkiego poza czatem oraz stylów, które aplikacja nakłada w linii albo z `!important`. Globalny kolor i rozmiar czcionki czatu z sekcji **Settings** to właśnie taki przypadek.
+CSS karty ma pierwszeństwo przed własnymi stylami wiadomości w aplikacji przy kolorach, tłach, obramowaniach i krojach pisma wewnątrz czatu. Nie przebije tego, co usuwa filtr oczyszczający, niczego poza czatem ani stylów, które aplikacja nakłada w linii albo z `!important`. Przykładem są globalny kolor i rozmiar czcionki czatu ustawione w **Settings**.
 
-**Własne kroje pisma.** Osadź krój pisma jako identyfikator `data:` w kodowaniu base64 albo skorzystaj z krojów systemowych lub bezpiecznych dla stron internetowych.
+Własny krój pisma osadź jako identyfikator `data:` w kodowaniu base64 albo użyj zestawu krojów systemowych.
 
 ```css
 @font-face {
@@ -293,44 +261,20 @@ Marinara wstawia CSS karty z selektorami o ograniczonym zakresie, które mają p
 }
 ```
 
-```css
-font-family: "Courier New", Consolas, monospace;
-```
-
-## Exclusive a Chat: wybór zakresu
-
-- W trybie **Exclusive** zapis `[data-card-css]` oznacza wiadomości tej jednej postaci. Najlepiej sprawdza się na czatach grupowych i tam, gdzie każda postać ma mieć własną tożsamość. Kod CSS obejmujący elementy wewnątrz wiadomości działa tak samo jak w trybie **Chat**.
-- W trybie **Chat** zapis `[data-card-css]` oznacza cały obszar czatu. Najlepiej sprawdza się przy kartach do rozmów sam na sam, kiedy chodzi o tło albo klimat całości, a nie tylko o dymki wiadomości.
-
-Buduj kod na selektorach `[data-card-css] .mari-message-...`, a karta zadziała poprawnie w obu trybach.
-
 ## Wskazówki
 
-1. Dymek styluj przez `.mari-message-bubble`, a nie `[data-card-css]`. To drugie to wiersz na pełną szerokość, więc tło na nim zwykle w ogóle nie będzie widoczne.
+1. Dymek styluj przez `.mari-message-bubble`, a nie `[data-card-css]`. Wiersz ma pełną szerokość, więc tło na nim jest zwykle prawie niewidoczne.
 2. Używaj kolorów `rgba()`, żeby wtapiały się w motyw jasny i ciemny.
-3. Zachowaj umiar w animacjach. Na słabszych urządzeniach lepiej sprawdza się `transition` niż ciężka `animation`.
+3. Zachowaj umiar w animacjach. Na słabszych urządzeniach lepiej sprawdza się `transition` niż ciężka `animation`. Animuj `opacity`, a nie `box-shadow`, który wymusza ponowne rysowanie w każdej klatce.
 4. Do telefonów użyj `@media (max-width: 768px)`.
 5. Nie opieraj się na klasach pomocniczych. Stabilne są tylko udokumentowane punkty zaczepienia `mari-*`.
 
 ## Przykład popisowy: Eldritch Grimoire
 
-To karta z rozmysłem przesadzona. Sięga po każdy udokumentowany punkt zaczepienia, w każdym trybie. Pokazuje:
-
-- świecące nazwy pisane runicznymi kapitalikami i tekst w klimatycznej szeryfowej czcionce
-- awatar o zmienionym kształcie i z obwódką, a do tego znaczniki czasu w kapitalikach
-- sigil na krawędzi wiersza wiadomości
-- animowany dymek w trybie Roleplay z runą w rogu i ostylowaną narrację
-- dymek w trybie Conversation oraz niepokojący wskaźnik pisania
-- w pełni ostylowany panel profilu otwierany kliknięciem awatara
-- powierzchnię gry
-
-Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Chat Settings → Characters** (lub **Party** w trybie Game). Karta nadaje styl wiadomościom w trybie Roleplay i Conversation, panelowi w trybie Conversation oraz powierzchni w Game Mode (dla gry ustaw tryb **Chat**). Sekcje są rozdzielone przez `@chat-mode`, żeby każdy tryb dostał dokładnie te punkty zaczepienia, które ma. Wszystko przechodzi przez filtr oczyszczający.
+Ten przykład sięga po główne punkty zaczepienia w każdym trybie: świecące nazwy, klimatyczny tekst szeryfowy, awatar z obwódką, animowany dymek w trybie Roleplay z runą w rogu, dymek w trybie Conversation, niepokojący wskaźnik pisania i powierzchnię gry. Wklej go w pole **Creator Notes**, a potem wybierz tryb Card Theming w **Chat Settings → Characters** (w trybie Game **Party**). Dla powierzchni gry ustaw **Chat**. Podmień kolory, znak w `content` i kroje pisma, żeby karta stała się twoja.
 
 ```html
 <style>
-  /* shared keyframe. Animate OPACITY, never box-shadow: box-shadow is a "paint"
-     property, so animating it repaints and re-blurs the whole element every frame
-     (which pins weak GPUs). Animating a layer's opacity is GPU-composited and cheap. */
   @keyframes grimoire-pulse {
     0%,
     100% {
@@ -341,69 +285,42 @@ Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Cha
     }
   }
 
-  /* EVERYWHERE (all modes). */
-  /* These descendant hooks only match where message rows exist, so they are inert
-     in Game and safe to leave unwrapped. */
-
-  /* the character name, glowing crimson rune-caps */
+  /* All modes */
   [data-card-css] .mari-message-name {
     color: #ff5c8a;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-size: 0.82rem;
     text-shadow: 0 0 8px rgba(255, 92, 138, 0.7), 0 0 16px rgba(168, 85, 247, 0.45);
-  }
-  /* header row and timestamp */
-  [data-card-css] .mari-message-meta {
-    align-items: baseline;
   }
   [data-card-css] .mari-message-timestamp {
     color: rgba(243, 215, 255, 0.5);
     font-variant: small-caps;
   }
-  /* reshape, ring, and saturate the clickable avatar. For a non-clickable avatar,
-     target .mari-message-avatar > div for that layout. */
   [data-card-css] .mari-message-avatar button {
     border-radius: 7px;
     box-shadow: 0 0 0 2px rgba(220, 38, 120, 0.6), 0 0 14px rgba(168, 85, 247, 0.5);
-    filter: saturate(1.2) contrast(1.05);
   }
-  /* glowing serif message text */
   [data-card-css] .mari-message-content {
     color: #f3d7ff;
-    text-shadow: 0 0 2px rgba(168, 85, 247, 0.4);
     font-family: "Iowan Old Style", Georgia, "Times New Roman", serif;
   }
 
-  /* ROLEPLAY */
   @chat-mode roleplay {
-    /* the row itself, an arcane left edge. (data-grouped does not exist in
-       roleplay, so there is no first-of-run trick here.) */
     [data-card-css] {
       border-left: 2px solid rgba(220, 38, 120, 0.35);
     }
-    /* roleplay wraps the avatar button in its own glow layer. Flatten it
-       so only the eldritch ring above hugs the picture. */
     [data-card-css] .mari-message-avatar > div {
       box-shadow: none;
     }
-    /* the visible bubble and a corner sigil */
     [data-card-css] .mari-message-bubble {
       background: linear-gradient(135deg, #1a0a24 0%, #2d0a2e 55%, #3a0a1e 100%);
       border: 1px solid rgba(220, 38, 120, 0.45);
       border-radius: 4px 16px 16px 16px;
       position: relative;
       overflow: hidden;
-      /* a steady outer halo. An element's own box-shadow is not clipped by its own
-         overflow: hidden, so this bloom shows even though message content is clipped.
-         (No inset here: the pulsing inset glow lives on the ::after, so a static inset
-         would stack with it and over-brighten the inner glow.) */
       box-shadow: 0 0 16px rgba(190, 70, 190, 0.4);
     }
-    /* the breathing inner glow. Animate a full-bleed overlay's OPACITY (cheap, GPU
-       composited) instead of the bubble's box-shadow (expensive: a full repaint every
-       frame). overflow: hidden clips a child's OUTER shadow, so the pulse rides the inset
-       glow while the halo above stays steady. pointer-events keeps it click-through. */
+    /* breathing inner glow: animate a full-bleed overlay's opacity, which is cheap */
     [data-card-css] .mari-message-bubble::after {
       content: "";
       position: absolute;
@@ -412,7 +329,6 @@ Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Cha
       pointer-events: none;
       box-shadow: inset 0 0 26px rgba(120, 0, 80, 0.65);
       animation: grimoire-pulse 4s ease-in-out infinite;
-      will-change: opacity;
     }
     [data-card-css] .mari-message-bubble::before {
       content: "✦";
@@ -421,48 +337,29 @@ Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Cha
       right: 7px;
       font-size: 0.7rem;
       color: rgba(220, 38, 120, 0.55);
-      text-shadow: 0 0 6px rgba(220, 38, 120, 0.9);
     }
-    /* narration */
     [data-card-css] .mari-message-narrator {
       color: #c9a8ff;
       font-style: italic;
-      opacity: 0.9;
     }
   }
 
-  /* CONVERSATION */
   @chat-mode conversation {
-    /* an arcane left edge on the first message of a run. [data-grouped] marks
-       continuations from the same character, and it exists only in
-       Conversation mode. */
     [data-card-css]:not([data-grouped]) {
       border-left: 2px solid rgba(220, 38, 120, 0.35);
     }
-    [data-card-css][data-grouped] {
-      border-left: 2px solid transparent;
-    }
-    /* the Bubbles-layout bubble. In the Linear layout there is no bubble, so
-       the EVERYWHERE row hooks above carry the theme instead. */
     [data-card-css] .mari-message-bubble {
       background: rgba(26, 10, 36, 0.92);
       border: 1px solid rgba(220, 38, 120, 0.4);
       border-radius: 1rem;
     }
-    /* "(name) is typing..." (Linear layout) */
     [data-card-css] .mari-typing-text {
       color: #ff5c8a;
       font-style: italic;
-      letter-spacing: 0.05em;
-      text-shadow: 0 0 8px rgba(255, 92, 138, 0.6);
     }
     [data-card-css] .mari-typing-dots span {
       background: #ff5c8a;
-      box-shadow: 0 0 6px rgba(255, 92, 138, 0.85);
     }
-
-    /* the avatar-click profile popout. The popout card is the scope element,
-       so target it with no space, and its children as descendants. */
     [data-card-css].mari-about-me-popout {
       background: radial-gradient(120% 120% at 50% 0%, #241a3a 0%, #12081c 72%);
       border: 1px solid rgba(220, 38, 120, 0.45);
@@ -471,46 +368,13 @@ Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Cha
     [data-card-css] .mari-about-me-banner {
       background: linear-gradient(90deg, #a855f7, #dc2678);
     }
-    [data-card-css] .mari-about-me-avatar > div {
-      border-radius: 0.9rem;
-      box-shadow: 0 0 0 2px #dc2678, 0 0 14px rgba(168, 85, 247, 0.5);
-    }
-    [data-card-css] .mari-about-me-status {
-      box-shadow: 0 0 8px rgba(255, 92, 138, 0.9);
-    }
     [data-card-css] .mari-about-me-name {
       color: #ffd7ef;
-      text-shadow: 0 0 10px rgba(220, 38, 120, 0.6);
-    }
-    [data-card-css] .mari-about-me-handle {
-      color: rgba(201, 168, 255, 0.8);
-    }
-    [data-card-css] .mari-about-me-presence {
-      color: rgba(201, 168, 255, 0.7);
-    }
-    [data-card-css] .mari-about-me-box {
-      background: rgba(168, 85, 247, 0.08);
-      border: 1px solid rgba(220, 38, 120, 0.3);
-      border-radius: 0.75rem;
-    }
-    [data-card-css] .mari-about-me-label {
-      color: #dc2678;
-      letter-spacing: 0.14em;
-    }
-    [data-card-css] .mari-about-me-badge {
-      background: rgba(220, 38, 120, 0.18);
-      color: #ffd7ef;
-    }
-    [data-card-css] .mari-about-me-text {
-      color: #f3d7ff;
-      font-family: "Iowan Old Style", Georgia, serif;
     }
   }
 
-  /* GAME (set the mode to Chat) */
+  /* Game: in Chat scope, [data-card-css] is the whole game surface */
   @chat-mode game {
-    /* Game has its own layout with no message bubbles. In Chat scope,
-       [data-card-css] is the whole game surface, so theme the area broadly. */
     [data-card-css] {
       background-image: radial-gradient(120% 80% at 50% 0%, rgba(58, 10, 46, 0.5), transparent 70%);
     }
@@ -518,13 +382,9 @@ Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Cha
 </style>
 ```
 
-**Wiersze użytkownika a wiersze postaci.** W zakresie **Exclusive** zapis `[data-card-css]` to własna wiadomość postaci, która jest zarazem `.mari-message-assistant`. Żeby ostylować także własne wiersze, przełącz się na zakres **Chat**. Tam `[data-card-css]` to cały obszar, a zapisy `[data-card-css] .mari-message-user` i `.mari-message-assistant` wybierają każdą ze stron.
-
-Podmień kolory, znak w `content` i kroje pisma, a karta stanie się w pełni twoja.
-
 ## Tworzenie CSS karty z pomocą asystenta AI
 
-Jeśli wolisz nie pisać CSS ręcznie, przekaż asystentowi AI ten prompt (tekst, który Marinara wysyła do AI). Uzupełnij zaznaczone miejsce koncepcją swojej postaci.
+Żeby nie pisać CSS ręcznie, przekaż asystentowi AI ten prompt. Uzupełnij zaznaczone miejsce koncepcją swojej postaci.
 
 ```text
 I'm creating a character card for Marinara Engine (an AI chat app). The card has a

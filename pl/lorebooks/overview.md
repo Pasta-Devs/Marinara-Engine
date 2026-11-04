@@ -1,107 +1,91 @@
 # Lorebooki – przegląd
 
-Z tego przewodnika dowiesz się, czym jest lorebook w aplikacji Marinara Engine, jak działa panel **Lorebooks** (Lorebooki) i jak lorebook staje się aktywny w czacie. Znajdziesz tu też instrukcję tworzenia pierwszego lorebooka i pierwszego wpisu. Trudniejsze tematy, takie jak słowa kluczowe, czas działania i wyszukiwanie semantyczne, mają własne przewodniki, do których linki są na końcu.
+Lorebook to zbiór faktów o świecie, które AI czyta, gdy w czacie padną ich słowa kluczowe. Zapisz w nim miejsca, frakcje, historie postaci i zasady, żeby nie powtarzać ich w każdej wiadomości.
 
-## Czym jest lorebook
+Każdy lorebook zawiera wpisy. Wpis składa się z wyzwalających słów kluczowych i bloku tekstu. Kiedy słowo kluczowe pojawi się w niedawnych wiadomościach, Marinara dodaje tekst wpisu do promptu, czyli tekstu wysyłanego do modelu przy jednej odpowiedzi. W innych narzędziach lorebooki nazywają się też World Info.
 
-Lorebook to niewielka baza wiedzy, z której AI może korzystać w trakcie czatu. Druga nazwa tego samego mechanizmu to **World Info** i oba określenia znaczą to samo. Każdy lorebook zawiera listę wpisów. Wpis składa się z dwóch części: wyzwalających słów kluczowych oraz bloku tekstu.
+Na przykład wpis ze słowem kluczowym `Eldoria` i poniższym tekstem sprawia, że AI zna to miasto za każdym razem, gdy ktoś o nim wspomni.
 
-Kiedy słowo kluczowe pojawi się w niedawnych wiadomościach, Marinara Engine dodaje tekst tego wpisu do promptu. Prompt to ukryte instrukcje i historia czatu wysyłane do AI przy każdej odpowiedzi. Dzięki temu AI korzysta z faktów, których nikt nie podał wprost w czacie.
-
-Oto prosty przykład. Utwórz w lorebooku wpis ze słowem kluczowym `Eldoria` i taką treścią:
-
-```
+```text
 Eldoria is a rainy port city ruled by a council of nine merchants.
 ```
 
-Od tej chwili każda wzmianka o mieście Eldoria – twoja albo postaci – sprawia, że AI dostaje ten fakt. Może wtedy odpowiadać tak, jakby zawsze znało to miasto. Bez wpisu musiałoby zgadywać.
+Dopasowanie po słowach kluczowych działa z każdym modelem i nie wymaga konfiguracji. Żeby dopasowywać wpisy po znaczeniu, a nie po dokładnych słowach, zobacz [Wyszukiwanie semantyczne w lorebookach](semantic-search.md).
 
-Lorebooki przydają się do opisu świata, historii postaci, nazw miejsc, frakcji, zasad i wszystkich faktów, o których AI ma pamiętać. Nie trzeba powtarzać ich w każdej wiadomości. Lorebook podaje je tylko wtedy, gdy są potrzebne, dzięki czemu oszczędza miejsce w treści promptu.
+## Tworzenie lorebooka i dodawanie wpisu
 
-Dopasowanie po słowach kluczowych działa z każdym połączeniem z AI i nie wymaga dodatkowej konfiguracji. Marinara umie też dopasowywać wpisy po znaczeniu, a nie po dokładnych słowach – służy do tego wyszukiwanie semantyczne. To osobna funkcja, którą trzeba włączyć samodzielnie, opisana we własnym przewodniku.
+1. Otwórz panel **Lorebooks** (Lorebooki) z paska bocznego.
+2. Kliknij **New** (nowy, znak plus). Otwiera się okno **Create Lorebook** (utworzenie lorebooka).
+3. Wpisz nazwę w polu **Name** (nazwa). To pole jest wymagane.
+4. Jeśli chcesz, dodaj opis w polu **Description** (opis).
+5. Wybierz kategorię w polu **Category** (kategoria). Domyślnie jest to **Other**. Jeśli zamierzasz podpiąć ten lorebook do postaci, wybierz **Character**, bo lista wyboru w postaci pokazuje tylko tę kategorię.
+6. Kliknij **Create Lorebook**. Nowy lorebook pojawia się na liście.
+7. Kliknij wiersz lorebooka. Otwiera się edytor na całą stronę.
+8. Kliknij zakładkę **Entries** (wpisy).
+9. Kliknij **Add Entry** (dodanie wpisu). Pojawia się nowy, pusty wiersz wpisu.
+10. Wpisz w wierszu nazwę, na przykład `Eldoria`, a potem kliknij wiersz, żeby go otworzyć.
+11. W polu **Primary Keys** (główne słowa kluczowe) wpisz `Eldoria` i naciśnij <kbd>Enter</kbd>.
+12. W polu **Content** (treść) napisz tekst dla AI.
 
-## Panel Lorebooks
+Wpis zapisuje się sam chwilę po zakończeniu pisania, a na ekranie widać napis **Saved automatically**. Od teraz wpis dołącza do promptu za każdym razem, gdy jego słowo kluczowe pasuje. Słowa kluczowe, pozycję i czas działania opisuje przewodnik [Wpisy lorebooka: słowa kluczowe, pozycja i czas działania](entries.md).
 
-Panel **Lorebooks** to biblioteka, w której przegląda się, wyszukuje i porządkuje wszystkie lorebooki. Otwórz go z paska bocznego aplikacji. Panel pokazuje każdy lorebook razem z obrazkiem, nazwą i krótkim opisem.
+Jeśli to nie zadziałało: sprawdź, czy lorebook jest aktywny w czacie (zobacz niżej), czy jego przełącznik **Enabled** (włączony) jest włączony i czy słowo kluczowe pada w kilku ostatnich wiadomościach. Marinara przeszukuje tylko tyle wiadomości, ile wskazuje ustawienie **Scan Depth**.
 
-Na górze panelu są trzy przyciski z ikonami. Mają samą ikonę, bez podpisu. Najedź myszą na przycisk, żeby zobaczyć jego nazwę.
+## Włączanie lorebooka w czacie
 
-- Przycisk **New** (nowy, znak plus) otwiera okno **Create Lorebook**, w którym tworzy się lorebook.
-- Przycisk **Import** (import, strzałka w dół) otwiera okno **Import Lorebook** i służy do wczytania lorebooka z pliku.
-- Przycisk **Select** (wybór, znak zaznaczenia) włącza tryb wielokrotnego wyboru, dzięki czemu da się naraz wyeksportować lub usunąć kilka lorebooków.
+Lorebook zasila AI tylko wtedy, gdy jest aktywny w otwartym czacie. Są trzy sposoby.
 
-Pod przyciskami jest pole wyszukiwania z tekstem zastępczym **Search lorebooks**. Filtruje ono listę po nazwie, opisie, nazwach powiązanych postaci i person oraz po tagach. Obok stoi lista rozwijana **Sort order** z opcjami: **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest**, **Oldest** i **Token Budget**. Przy opcji **Manual order** przeciągnij lorebooki w wybranej kolejności albo przesuń jeden z nich klawiszami Alt+strzałka w górę i Alt+strzałka w dół. Ustawiona kolejność zostaje zachowana.
+| Sposób | Gdzie go ustawić | Aktywny w |
+| --- | --- | --- |
+| Globalnie | Przełącznik **Global** (globalny) na zakładce **Overview** (przegląd) lorebooka | Każdym czacie |
+| Przez powiązanie | Zakładka **Overview** lorebooka albo edytor postaci lub persony | Czatach z tą postacią lub personą |
+| Dodany do jednego czatu | **Chat Settings → Lorebooks** (ustawienia czatu, lorebooki) | Tylko tym czacie |
 
-W wierszu każdego lorebooka są przyciski **Copy** (kopiowanie) i **Delete** (usunięcie). Pojawiają się po najechaniu myszą na wiersz, a na urządzeniach mobilnych widać je zawsze. Przycisk **Copy** tworzy kopię lorebooka. Wyłączony lorebook ma małą plakietkę **OFF**. Kliknij obrazek, żeby go wgrać albo podmienić.
+Lorebook nie może być jednocześnie globalny i powiązany. Włączenie przełącznika **Global** kasuje przy zapisie jego powiązania z postaciami i personami.
 
-Bibliotekę da się też podzielić na foldery przyciskiem **New Folder** (nowy folder). Przeciągnij lorebook na folder, żeby go tam schować. W dużej bibliotece pomaga to utrzymać porządek. Na telefonie przytrzymaj chwilę lorebook, a potem go przeciągnij. Te foldery biblioteki to co innego niż foldery wpisów wewnątrz pojedynczego lorebooka.
-
-## Kategorie
-
-Każdy lorebook ma jedną kategorię. Kategoria jest tylko etykietą, która porządkuje bibliotekę. Nie zmienia tego, jak ani kiedy lorebook się aktywuje.
-
-W panelu są takie zakładki kategorii:
-
-- **All** pokazuje wszystkie lorebooki pogrupowane według kategorii.
-- **Active** pokazuje tylko lorebooki związane z aktualnie otwartym czatem.
-- **World**, **Character**, **NPC**, **Spellbook** i **Other** pokazują lorebooki z jednej wybranej kategorii.
-
-Przy tworzeniu lorebooka wybiera się jedną z pięciu kategorii: **World**, **Character**, **NPC**, **Spellbook** albo **Other**. Domyślnie jest to **Other**. Kategorię można zmienić później w zakładce **Overview** (przegląd) danego lorebooka. Uwaga: w zakładce **Overview** ta sama kategoria nazywa się **Uncategorized**, a nie **Other**. Używaj tych etykiet tak, jak ci wygodnie. Notatki o miejscach i realiach świata trafiają na przykład do **World**, a historia towarzysza do **Character**.
-
-## Jak lorebook staje się aktywny
-
-Lorebook zasila AI tylko wtedy, gdy jest aktywny w bieżącym czacie. Są trzy sposoby aktywacji. Wybierz ten, który pasuje.
-
-1. **Global.** Globalny lorebook jest aktywny w każdym czacie, o ile jest włączony. Włącz przełącznik **Global** (globalny) w zakładce **Overview** lorebooka. Nadaje się do faktów ważnych wszędzie, na przykład do zasad wspólnego świata.
-2. **Powiązanie z postacią lub personą.** Powiązany lorebook włącza się sam w każdym czacie z tą postacią albo z tą personą. Powiązania ustawia się w zakładce **Overview** lub w edytorze postaci czy persony. To najczęstszy wybór dla historii samej postaci.
-3. **Przypięcie do jednego czatu.** Lorebook można dodać tylko do jednego czatu z jego ustawień. Zostaje wtedy aktywny wyłącznie w tym czacie. Przydaje się przy wiedzy pasującej do jednej historii, a nie do całej biblioteki.
-
-Ten sam lorebook nie może być jednocześnie globalny i powiązany. Włączenie przełącznika **Global** kasuje przy zapisie wszystkie powiązania z postaciami i personami. Marinara traktuje te dwie opcje jako wzajemnie się wykluczające.
-
-Każdy aktywny lorebook nadal podlega przełącznikowi **Enabled** (włączony). Kiedy lorebook jest wyłączony, żaden z jego wpisów się nie aktywuje, nawet jeśli jest globalny albo powiązany. Aby sprawdzić, które lorebooki są aktywne w otwartym czacie, otwórz jego ustawienia i znajdź sekcję **Lorebooks**. Tam też da się edytować listę aktywnych lorebooków. Ta sekcja ma osobny przewodnik.
-
-## Tworzenie pierwszego lorebooka i wpisu
-
-Wykonaj kolejno te kroki, aby utworzyć lorebook i dodać do niego jeden wpis.
-
-1. Otwórz panel **Lorebooks** i kliknij przycisk **New**. Otwiera się okno **Create Lorebook**.
-2. Wpisz nazwę w polu **Name**. To pole jest wymagane. Dobry przykład to `Eldoria World Lore`.
-3. Dodaj krótki opis w polu **Description**, jeśli chcesz. Jest opcjonalny i ułatwia tylko późniejsze odnalezienie lorebooka.
-4. Wybierz kategorię z listy rozwijanej **Category** albo zostaw **Other**.
-5. Kliknij przycisk **Create Lorebook**. Nowy lorebook pojawia się na liście w panelu.
-
-Lorebook nie ma jeszcze żadnych wpisów. Czas dodać pierwszy.
-
-1. Kliknij wiersz swojego lorebooka w panelu. Otwiera się edytor na całą stronę.
-2. Kliknij zakładkę **Entries** (wpisy). Plakietka obok niej pokazuje liczbę wpisów.
-3. Kliknij przycisk **Add Entry** (dodanie wpisu). Pojawia się nowy, pusty wpis.
-4. We wpisie dodaj przynajmniej jedno wyzwalające słowo kluczowe, na przykład `Eldoria`.
-5. W polu **Content** wpisz tekst, który ma trafić do AI.
-
-Wpis zapisuje się sam chwilę po zakończeniu pisania. Na ekranie widać wtedy krótką informację **Saved automatically**. Lorebook już działa: kiedy słowo kluczowe pasuje do niedawnych wiadomości, treść wpisu dołącza do promptu. Przewodnik [Wpisy lorebooka](entries.md) wyjaśnia słowa kluczowe, zasady dopasowania i opcje czasu działania. Sekcje [Strategia pisania](entries.md#authoring-strategy-choosing-the-right-entry) i [Przykład w praktyce](entries.md#worked-example-a-small-setting) pokazują, jak dobrać właściwe ustawienia do każdego wpisu.
+Aktywny lorebook nadal musi mieć włączony przełącznik **Enabled**. Powiązania opisuje przewodnik [Podpinanie lorebooków do postaci i person](linking-to-characters.md).
 
 ## Ustawienia w zakładce Overview
 
-Otwórz lorebook i kliknij zakładkę **Overview**, aby ustawić zachowanie całego lorebooka. Najważniejsze pola to nazwa, kategoria, powiązania i opisane wyżej przełączniki. W zakładce są też takie ustawienia liczbowe.
+Otwórz lorebook i kliknij **Overview**, żeby ustawić zachowanie całego lorebooka.
 
 | Ustawienie | Do czego służy | Domyślnie |
-|---|---|---|
-| **Scan Depth** | Ile ostatnich wiadomości Marinara sprawdza pod kątem słów kluczowych. Wpisz 0, aby przeszukać cały czat. | 2 |
-| **Token Budget** | Największa liczba tokenów, jaką ten lorebook może dodać do jednego promptu. Wpisz 0, aby znieść limit. | 2048 |
-| **Entry Limit** | Największa liczba wpisów, jaką ten lorebook może dodać do jednego promptu. Zakres od 1 do 1000. | 100 |
-| **Max Depth** | Ile dodatkowych przebiegów rekurencyjnych ma się wykonać. Pole widać tylko przy włączonym przełączniku **Recursive**. Zakres od 1 do 10. | 3 |
+| --- | --- | --- |
+| **Scan Depth** | Ile ostatnich wiadomości Marinara sprawdza pod kątem słów kluczowych. 0 przeszukuje cały czat. | 2 |
+| **Token Budget** | Największa liczba tokenów, jaką ten lorebook może dodać do jednej odpowiedzi. 0 oznacza brak limitu. | 2048 |
+| **Entry Limit** | Największa liczba wpisów, jaką ten lorebook może dodać do jednej odpowiedzi. Zakres od 1 do 1000. | 100 |
+| **Max Depth** | Dodatkowe przebiegi rekurencji. Widoczne tylko przy włączonym przełączniku **Recursive**. Zakres od 1 do 10. | 3 |
 
-Token to mały kawałek tekstu, mniej więcej kilka znaków. AI ma ograniczone miejsce na prompt, więc **Token Budget** pilnuje, żeby jeden lorebook go nie zapełnił.
+Tokeny to małe kawałki tekstu, które liczą modele; w języku angielskim token to mniej więcej trzy czwarte słowa. Działanie każdego limitu i znaczenie rekurencji opisuje przewodnik [Limity tokenów i rekurencja w lorebookach](token-budgets.md).
 
-W zakładce są też trzy przełączniki:
+Zakładka ma też takie przełączniki.
 
 - **Enabled** włącza i wyłącza cały lorebook. Domyślnie jest włączony.
-- **Recursive** sprawia, że tekst aktywowanego wpisu wyzwala kolejne wpisy w dodatkowych przebiegach. Domyślnie jest wyłączony. Włącz go, gdy jedna informacja o świecie ma pociągać za sobą powiązane informacje.
-- **Vectors** udostępnia wpisom dopasowanie po znaczeniu. Domyślnie jest wyłączony. Dopasowanie po słowach kluczowych działa również wtedy, gdy ten przełącznik jest wyłączony.
+- **Global** sprawia, że lorebook jest aktywny w każdym czacie.
+- **Recursive** pozwala, żeby tekst aktywowanego wpisu wyzwalał kolejne wpisy. Domyślnie jest wyłączony.
+- **Vectors** pozwala dopasowywać wpisy także po znaczeniu. Domyślnie jest wyłączony, a słowa kluczowe działają w obu przypadkach.
 
-Pod tymi ustawieniami jest panel **Semantic Search (Embeddings)**. Buduje on dane, na których opiera się dopasowanie po znaczeniu. Przewodnik o wyszukiwaniu semantycznym opisuje konfigurację, źródła embeddingów i przyciski wektoryzacji.
+Panel **Semantic search (embeddings)** pod przełącznikami opisuje przewodnik [Wyszukiwanie semantyczne w lorebookach](semantic-search.md).
 
-Szczegóły limitów, ustawienia **Entry Limit** i rekurencji też mają własny przewodnik. Zacznij od podanych wyżej wartości domyślnych. Sprawdzają się w większości lorebooków, a zmienić je można w każdej chwili.
+## Panel Lorebooks
+
+Na górze panelu są trzy przyciski z ikonami. Ich nazwy widać po najechaniu na nie kursorem.
+
+- **New** otwiera okno **Create Lorebook**.
+- **Import** (import) otwiera okno **Import Lorebook**. Zobacz [Importowanie i eksportowanie lorebooków](import-export.md).
+- **Select** (wybór) włącza tryb wielokrotnego wyboru, dzięki czemu da się naraz wyeksportować lub usunąć kilka lorebooków.
+
+Pod przyciskami:
+
+- Pole **Search lorebooks** filtruje po nazwie, opisie, nazwach powiązanych postaci i person oraz po tagach.
+- Lista **Sort order** oferuje **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest**, **Oldest** i **Token Budget**. Przy opcji **Manual order** przeciągnij lorebooki na miejsce albo użyj <kbd>Alt</kbd>+<kbd>Up</kbd> i <kbd>Alt</kbd>+<kbd>Down</kbd>.
+- **New Folder** (nowy folder) tworzy folder biblioteki. Przeciągnij na niego lorebook. Na telefonie przytrzymaj lorebook, a potem go przeciągnij. Te foldery to co innego niż foldery wpisów wewnątrz lorebooka.
+
+Każdy wiersz ma przyciski **Copy** (kopiowanie, tworzy kopię lorebooka) i **Delete** (usunięcie). Pojawiają się po najechaniu kursorem na wiersz, a na urządzeniach mobilnych widać je zawsze. Wyłączony lorebook ma plakietkę **OFF**. Kliknij obrazek, żeby go wgrać albo podmienić.
+
+### Kategorie
+
+Kategoria to etykieta porządkująca bibliotekę. Nie zmienia tego, kiedy lorebook się aktywuje. Zakładki to **All**, **Active** (lorebooki związane z otwartym czatem), **World**, **Character**, **NPC**, **Spellbook** i **Other**. Kategorię lorebooka zmienisz na jego zakładce **Overview**, gdzie **Other** nazywa się **Uncategorized**.
 
 ## Powiązane przewodniki
 

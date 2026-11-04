@@ -1,89 +1,81 @@
 # Exportar e importar chats
 
-Esta guía te muestra cómo guardar un chat en un archivo y cómo volver a cargar un chat en Marinara Engine. Puedes exportar un solo chat o muchos chats a la vez, y puedes guardar un solo chat como una historia legible para compartir. También puedes importar un archivo de chat que venga de Marinara o de SillyTavern (otra app de chat de roleplay).
+Guarda un chat en un archivo, compártelo como una historia legible o vuelve a cargar un archivo de chat de Marinara o de SillyTavern (otra app de chat de roleplay). Puedes exportar un chat, una parte de un chat o muchos chats a la vez.
 
 <a id="file-formats-you-will-see"></a>
 
 ## Formatos de archivo que verás
 
-Marinara puede guardar un chat en cuatro formatos.
+| Formato | Qué es | ¿Se puede volver a importar? |
+| --- | --- | --- |
+| **JSONL** | JSON Lines, un archivo de texto simple con un mensaje por línea. El formato predeterminado. | Sí |
+| **Text** (Texto) | Una transcripción `.txt` legible. | No |
+| **Markdown** | Un archivo `.md` legible. Empieza con el nombre del chat y las fechas que abarca, y luego muestra cada mensaje bajo el nombre de quien habla. | No |
+| **Story** (Historia) | Una página web `.html` con estilo, con el nombre y el avatar de quien habla en cada mensaje. Ábrela en un navegador para leerla, compartirla o imprimirla. | No |
 
-- **JSONL**: JSONL significa JSON Lines. Es un archivo de texto simple que guarda un mensaje por línea. Este es el formato de exportación predeterminado. Puedes volver a importar un archivo JSONL en Marinara más tarde.
-- **Text**: Una transcripción `.txt` simple y legible. Es fácil de leer y compartir, pero Marinara no puede volver a importarla. Usa **Text** solo cuando quieras que una persona lea el chat.
-- **Markdown**: Un archivo `.md` legible. Empieza con el nombre del chat y las fechas que abarca, y luego muestra cada mensaje bajo el nombre de quien lo envió.
-- **Story**: Una página web `.html` con estilo. Muestra cada mensaje con el nombre y el avatar de quien habla. Ábrela en cualquier navegador web para leerla, compartirla o imprimirla.
+Los archivos **Markdown** y **Story** omiten los mensajes del sistema y los mensajes que están ocultos para ti. La importación de chats acepta únicamente archivos `.jsonl`, así que exporta como **JSONL** si quieres importar el chat más tarde.
 
-Los archivos **Markdown** y **Story** omiten los mensajes del sistema y los mensajes que están ocultos para ti.
-
-La función de importación de chats acepta únicamente un archivo `.jsonl`. Si quieres volver a importar un chat más tarde, expórtalo como **JSONL**, no como **Text**, **Markdown** ni **Story**.
-
-Un archivo **JSONL** deja fuera algunas direcciones guardadas con el chat: el webhook de Discord Mirror, la dirección de DeepLX, la clave de DeepL y la dirección de Intiface. Importar un chat tampoco las trae nunca. Si las usas, vuelve a introducirlas en **Chat Settings** (Ajustes del chat) del chat importado.
+Un archivo **JSONL** deja fuera algunas direcciones guardadas con el chat: el webhook de Discord Mirror, la dirección de DeepLX, la clave de DeepL y la dirección de Intiface. Importar tampoco las trae nunca. Si las usas, vuelve a introducirlas en **Chat Settings** (Ajustes del chat) del chat importado.
 
 ## Exportar un solo chat
 
-Para exportar un chat a un archivo, usa la sección **Chat Branches** de **Chat Settings** (Ramas del chat). Esta es la forma más rápida de exportar el historial de chat de una sola conversación.
+1. Abre el chat.
+2. Abre **Chat Settings** y despliega **Chat Branches** (Ramas de chat), debajo de **Chat Name**. Los botones de exportación están en esta sección aunque el chat solo tenga una rama.
+3. Toca **JSONL**, **Text**, **Markdown** o **Story**.
 
-1. Abre el chat que quieres exportar.
-2. Abre **Chat Settings** y despliega **Chat Branches**, debajo de **Chat Name**.
-3. Haz clic en **JSONL** para guardar el chat como archivo JSONL, en **Text** para un archivo de texto legible, en **Markdown** para un archivo Markdown o en **Story** para una página web con estilo.
-4. Tu navegador descarga el archivo.
+Tu navegador descarga el archivo. Contiene la rama que estás viendo, con sus mensajes.
 
-La descarga guarda el chat que está abierto en ese momento, incluidos sus mensajes.
+<a id="export-part-of-a-chat"></a>
+
+## Exportar parte de un chat
+
+Usa **Export a range** (Exportar un intervalo) para guardar solo algunos mensajes. No está disponible en los chats de Game.
+
+1. En **Chat Branches**, haz clic en **Export a range**.
+2. Haz clic en el primer mensaje y luego en el último. Una indicación dice "Select the first and last message to export."
+3. Haz clic en **Export selected** (Exportar selección).
+4. En el cuadro de diálogo **Export messages** (Exportar mensajes), revisa el número de mensajes y el primer y el último mensaje, y luego elige **Text**, **Markdown**, **JSONL** o **Story**.
+
+Marinara exporta todos los mensajes desde el primero hasta el último que elegiste. Haz clic en **Cancel** (Cancelar) para detenerte sin exportar.
 
 ## Exportar varios chats a la vez
 
-Puedes seleccionar muchos chats y descargarlos juntos en un solo archivo `.zip`.
+1. En la barra lateral izquierda, haz clic en la pestaña del modo que quieras: **CONVO**, **RP** o **GM**. Cada pestaña exporta solo sus propios chats.
+2. Haz clic en **Select chats** en la parte superior de la lista.
+3. Haz clic en cada chat que quieras. Una barra en la parte inferior muestra el recuento, por ejemplo "3 selected".
+4. Haz clic en **Export** en la barra.
 
-1. Abre la lista de chats en la barra lateral izquierda.
-2. Elige la pestaña de modo que quieras: **CONVO** (Conversation), **RP** (Roleplay) o **GM** (Game). Cada pestaña exporta solo sus propios chats.
-3. Haz clic en el botón **Select chats** en la parte superior de la lista de chats.
-4. Haz clic en cada chat que quieras incluir. Se activa una casilla para cada uno.
-5. Aparece una barra en la parte inferior que muestra la cuenta, por ejemplo "3 selected".
-6. Haz clic en **Export** en esa barra.
-7. Tu navegador descarga un archivo `.zip` de transcripciones JSONL, un archivo por chat.
-
-La exportación en lote siempre usa el formato **JSONL**. Haz clic en **Delete** en esa misma barra solo si en lugar de eso quieres eliminar los chats seleccionados.
+Tu navegador descarga un archivo `.zip` con una transcripción JSONL por chat. La exportación en lote siempre usa **JSONL**. Consulta [Gestionar tu lista de chats](managing-chats.md#selecting-multiple-chats).
 
 ## Importar un chat como un chat nuevo
 
-Esto crea un chat completamente nuevo a partir de un archivo `.jsonl`. Úsalo para importar archivos de chat guardados por Marinara o exportados desde SillyTavern.
+Esto crea un chat nuevo a partir de un archivo `.jsonl` guardado por Marinara o exportado desde SillyTavern.
 
-1. Abre la lista de chats en la barra lateral izquierda.
-2. Elige la pestaña de modo que quieras: **CONVO**, **RP** o **GM**. Marinara crea el chat importado en la pestaña que tienes abierta en ese momento.
-3. Haz clic en el botón de importar que está junto al botón **New** en la parte superior de la lista. Su tooltip dice **Import SillyTavern or Marinara chat JSONL**.
-4. Elige tu archivo `.jsonl` en el selector de archivos.
-5. Deberías ver un mensaje que dice "Imported N messages", y Marinara te cambia al chat nuevo.
+1. En la barra lateral izquierda, haz clic en la pestaña del modo que quieras. El chat importado usa el modo de la pestaña que tienes abierta, no el modo del archivo.
+2. Haz clic en el botón **Import** (Importar) junto al botón **+**. Su etiqueta es **Import SillyTavern or Marinara chat JSONL**.
+3. Elige tu archivo `.jsonl`.
 
-Si quieres el chat nuevo en modo Roleplay, abre la pestaña **RP** antes de importar. La pestaña que tienes abierta define el modo, no el archivo.
+Ves el mensaje "Imported N messages", y Marinara abre el chat nuevo. Para ver los archivos de SillyTavern con más detalle, consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md).
+
+Si no funcionó: un pequeño mensaje en la parte inferior de la pantalla dice **Import failed** (No se pudo importar) con el motivo. Comprueba que el archivo termine en `.jsonl`.
 
 ## Importar un chat como una rama nueva
 
-También puedes cargar un archivo `.jsonl` en un chat existente como una rama nueva. Una rama es una copia guardada aparte de un chat que puedes explorar por su cuenta. Consulta [Chat Branches](branches.md) para saber más sobre las ramas.
+Esto carga un archivo `.jsonl` en un chat que ya tienes, como una rama nueva. Consulta [Ramas de chat](branches.md).
 
-1. Abre el chat al que quieres añadir la rama.
-2. Abre **Chat Settings** y despliega **Chat Branches**, debajo de **Chat Name**.
-3. Haz clic en **Import** en esa sección.
-4. Elige tu archivo `.jsonl`.
-5. Deberías ver un mensaje que dice "Imported N messages as a new branch".
+1. Abre el chat que debe recibir la rama.
+2. Abre **Chat Settings**, despliega **Chat Branches** y haz clic en **Import**.
+3. Elige tu archivo `.jsonl`.
 
-La rama nueva se une al chat abierto. Reutiliza los personajes, la persona, la conexión y el preset de prompt del chat abierto.
+Ves el mensaje "Imported N messages as a new branch". La rama reutiliza los personajes, la persona, la conexión y el preset de prompt del chat abierto.
 
-## Incluir el razonamiento en las exportaciones
+## Incluir el razonamiento y las notas privadas en las exportaciones
 
-Algunos modelos guardan texto de pensamiento o razonamiento oculto junto con una respuesta. Un ajuste decide si ese texto oculto entra en tus archivos de exportación.
+Dos ajustes deciden si el texto oculto entra en los archivos de exportación. Ambos son interruptores en **Settings → Advanced → Message Tools** (Configuración → Avanzado → Herramientas de mensaje), y ambos están desactivados de forma predeterminada. Afectan tanto a las exportaciones de un solo chat como a las exportaciones `.zip`.
 
-El ajuste es **Include reasoning in exports** (Incluir el razonamiento en las exportaciones). Lo encuentras en **Settings** (Configuración), en la pestaña **Advanced**, en la sección **Message Tools**. Es un interruptor, y está **off** (desactivado) de forma predeterminada.
+| Ajuste | Cuando está activado |
+| --- | --- |
+| **Include reasoning in exports** (Incluir el razonamiento en las exportaciones) | Añade el pensamiento guardado del modelo a todos los formatos. En los archivos **Markdown** y **Story**, aparece en una sección plegable **Thinking** (Pensamiento) debajo del mensaje. |
+| **Include private notes in exports** (Incluir las notas privadas en las exportaciones) | Añade tus notas privadas de los mensajes a las exportaciones **JSONL** y **Text**. |
 
-- Cuando está **off**, Marinara deja fuera el texto de pensamiento y razonamiento guardado de todas las exportaciones de chat.
-- Cuando está **on**, Marinara añade ese texto de pensamiento y razonamiento oculto a todos los formatos. En los archivos **Markdown** y **Story**, aparece en una sección plegable **Thinking** (Pensamiento) debajo del mensaje.
-
-Este ajuste afecta tanto a las exportaciones de un solo chat como a las exportaciones en lote `.zip`.
-
-Mantén **Include reasoning in exports** desactivado antes de compartir una transcripción con otra persona. El razonamiento oculto puede contener notas que no querías enviar. Actívalo solo cuando quieras un registro completo para ti.
-
-## Guías relacionadas
-
-- [Chat Branches](branches.md)
-- [Importing from SillyTavern](../data/importing-from-sillytavern.md)
-- [Backup and Restore](../data/backup-and-restore.md)
-- [Settings Overview](../settings/settings-overview.md)
+> **Advertencia:** mantén ambos desactivados antes de compartir una transcripción. El razonamiento oculto y las notas privadas pueden contener cosas que no querías enviar.

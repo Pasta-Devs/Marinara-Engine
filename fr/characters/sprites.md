@@ -1,193 +1,183 @@
 # Sprites de personnage (expressions et corps entier)
 
-Ce guide explique comment ajouter des illustrations de personnage appelées sprites et comment les faire générer par l'IA. Il montre aussi comment nettoyer l'arrière-plan et régler l'affichage des sprites à l'écran. Les sprites fonctionnent en mode Roleplay et en Game Mode.
+Un sprite est une image de ton personnage pour une humeur donnée, comme joyeux ou triste. Marinara l'affiche en surimpression au-dessus de la scène du chat. Tu peux téléverser les tiens, les générer avec l'IA, nettoyer leur arrière-plan et régler leur affichage.
 
-## Ce qu'est un sprite
+Avant de commencer : nomme chaque fichier d'après l'humeur, par exemple `happy.png`, pour que Marinara puisse le choisir. Dans un chat Roleplay, les sprites demandent aussi que l'agent **Expression Engine** (une aide qui choisit le sprite) soit activé. Voir [Comment les sprites s'affichent dans le chat](#how-sprites-show-up-in-your-chat).
 
-Un sprite est une illustration de personnage debout : une image que Marinara Engine fait flotter au-dessus de la scène du chat. Marinara utilise deux types de sprite :
+Il existe deux types de sprite :
 
-- **Facial Expressions** (expressions du visage) : des portraits pour différentes humeurs, comme joyeux, triste ou en colère.
-- **Full-body** (corps entier) : des images en pied pour différentes poses, comme au repos, en marche ou en position de combat.
+- **Facial Expressions** (expressions du visage) : des portraits pour des humeurs comme joyeux, triste ou en colère.
+- **Full-body** (corps entier) : des images en pied pour des poses comme au repos, en marche ou en position de combat.
 
-Les sprites ne s'affichent qu'en mode **Roleplay** et en **Game Mode**. Les chats en mode Conversation, eux, n'affichent aucun sprite. Rien ne t'empêche d'en téléverser depuis n'importe quel mode : un personnage conserve ses sprites, quel que soit le chat qui l'utilise.
+Les sprites s'affichent à l'écran en mode Roleplay et en Game Mode, pas dans les chats Conversation. Tu peux les téléverser depuis n'importe quel mode, car un personnage garde ses sprites dans chaque chat. Un persona possède le même onglet **Sprites**.
 
-Les sprites s'ajoutent personnage par personnage. Autre option : en ajouter à un persona, le personnage que tu incarnes. L'éditeur de persona propose le même onglet **Sprites** que celui décrit plus bas.
+## Trouver l'onglet Sprites
 
-## Où trouver l'onglet Sprites
+1. Ouvre un personnage (ou un persona) dans son éditeur.
+2. Clique sur l'onglet **Sprites**.
+3. En haut, choisis une catégorie : **Facial Expressions**, **Full-body** ou **Clips**.
 
-Les sprites se gèrent depuis l'éditeur de personnage (ou de persona).
-
-1. Ouvre un personnage pour le modifier.
-2. Clique sur l'onglet **Sprites** dans l'éditeur.
-3. En haut de l'onglet, choisis une catégorie : **Facial Expressions**, **Full-body** ou **Clips**.
-
-Ce guide traite des catégories **Facial Expressions** et **Full-body**. La catégorie **Clips** relève d'une autre fonctionnalité, dédiée aux appels audio et vidéo. Pour les clips, consulte [Appels audio et vidéo en mode Conversation](../conversation/calls.md).
+Les sections ci-dessous traitent de **Facial Expressions** et de **Full-body**. **Clips** relève de la fonctionnalité d'appel. Voir [Appels audio et vidéo en Conversation](../conversation/calls.md).
 
 ## Téléverser tes propres sprites
 
-Tu peux téléverser des images PNG, JPEG, GIF, WebP, AVIF et SVG passives. Les fichiers PNG transparents donnent le meilleur résultat : la zone vide autour du personnage laisse voir la scène. Une image de remplacement non prise en charge ou invalide est refusée sans retirer le sprite enregistré.
+Tu peux téléverser des images PNG, JPEG, GIF, WebP, AVIF et SVG. Les fichiers PNG transparents donnent le meilleur résultat, car la zone vide autour du personnage reste transparente. Une image de remplacement invalide est refusée, et le sprite enregistré reste en place.
 
-### Téléverser un sprite
+### Téléverser un ou plusieurs sprites
 
 1. Ouvre l'onglet **Sprites** et choisis **Facial Expressions** ou **Full-body**.
-2. Clique sur **Add sprites** (ajouter des sprites), puis sur **Upload images** (téléverser des images). Tu peux sélectionner plusieurs images à la fois.
-3. Chaque nom de fichier devient le libellé initial du sprite. Ouvre un sprite pour le renommer plus tard.
+2. Clique sur **Add sprites** (ajouter des sprites).
+3. Clique sur **Upload images** (téléverser des images) et choisis tes fichiers. Tu peux en sélectionner plusieurs à la fois.
+4. Chaque nom de fichier devient le nom du sprite (son libellé). Ouvre un sprite pour le renommer plus tard.
 
-Les nouveaux sprites apparaissent hors dossier dans la grille habituelle. Dans l'éditeur de persona, utilise toujours le champ de nom de l'encadré **Add Sprite** (ajouter un sprite) et le bouton **Upload** (téléverser) pour un seul sprite.
+Les nouveaux sprites apparaissent dans la grille, hors de tout dossier. Dans l'éditeur de persona, utilise le champ de nom **Add Sprite** (ajouter un sprite) et le bouton **Upload** (téléverser) pour un seul sprite.
 
-### Téléverser un dossier entier d'un coup
+### Téléverser un dossier entier
 
-Si tes sprites sont déjà rassemblés dans un dossier, importe-les tous en une seule opération.
+1. Nomme tes fichiers image d'après l'expression ou la pose, par exemple `admiration.png` pour une expression appelée admiration.
+2. Ouvre **Add sprites** et clique sur **Import folder** (importer un dossier). Dans l'éditeur de persona, clique sur **Upload Folder** (téléverser un dossier) dans **Add Sprite**.
+3. Choisis le dossier qui contient tes images.
 
-1. Nomme chaque fichier image d'après l'expression ou la pose. Par exemple, un fichier nommé `admiration.png` crée une expression appelée admiration.
-2. Ouvre **Add sprites**, puis clique sur **Import folder** (importer un dossier). Dans l'éditeur de persona, clique sur **Upload Folder** (téléverser un dossier) dans **Add Sprite**.
-3. Choisis le dossier qui contient les images.
+Chaque nom de fichier, extension mise à part, devient le nom du sprite. Une ligne de progression indique "Uploading X/Y sprites". Les sous-dossiers deviennent des dossiers de sprites facultatifs. Un `catalog.json` issu d'un export restaure aussi les dossiers et les libellés modifiés. Une entrée de dossier défectueuse est signalée, et les images utilisables sont tout de même importées.
 
-Chaque nom de fichier, extension mise à part, devient le nom du sprite. Pendant l'opération, une ligne de progression indique "Uploading X/Y sprites".
+Si ça n'a pas marché : un import échoué ou partiel signale l'échec au lieu d'annoncer une réussite avec zéro image. Vérifie les types de fichier ci-dessus.
 
-Les sous-dossiers deviennent des dossiers de sprites facultatifs. Un `catalog.json` exporté restaure aussi l'appartenance aux dossiers et les libellés modifiés. Les informations de dossier invalides sont signalées, et les images utilisables sont tout de même importées. Un import échoué ou partiel signale l'échec au lieu d'annoncer une réussite avec zéro image.
+### Variantes de nom
 
-Pour créer plusieurs versions d'une même expression, donne-leur un nom commun avant un tiret bas. Par exemple, `happy_01.png` et `happy_blush.png` comptent tous deux comme des variantes de happy.
+| Nom de fichier | Ce qu'il signifie |
+| --- | --- |
+| `happy_01.png`, `happy_blush.png` | Deux images joyeuses. Commence les deux noms par `happy_`. |
+| `happy_pajamas.png` | Joyeux, en pyjama. Mets d'abord l'humeur, puis la tenue. |
+| `angry_formalwear_soaked_01.png` | En colère, en tenue habillée, trempé. Un nombre final indique seulement une autre version de la même image. |
 
-Pour que l'agent Expression Engine puisse aussi choisir selon la tenue ou l'état du personnage, ajoute d'autres mots après l'expression, le plus important en premier. Par exemple, utilise `happy_pajamas.png` ou `angry_formalwear_soaked_01.png`. Un nombre final comme `_01` indique seulement une autre version de la même image. Quand plusieurs sprites partagent une expression, l'agent voit à la fois l'expression (`happy`) et leurs noms complets (`happy_pajamas`). Quand aucun sprite ne porte tous les mots demandés, c'est le dernier mot qui est retiré en premier. S'il n'existe pas de `happy_pajamas_wounded`, un sprite `happy_pajamas` est utilisé, puis n'importe quel sprite happy.
+L'agent Expression Engine voit à la fois l'expression (`happy`) et le nom complet (`happy_pajamas`). Si aucun sprite ne porte tous les mots, c'est le dernier mot qui est retiré en premier : en l'absence de `happy_pajamas_wounded`, Marinara se rabat sur `happy_pajamas`, puis sur n'importe quel sprite happy.
 
-### Gérer un sprite
+<a id="how-sprites-show-up-in-your-chat"></a>
 
-Ouvre un sprite de personnage pour l'afficher en aperçu avec ses actions. Les sprites de persona gardent leurs actions sur la vignette :
+## Comment les sprites s'affichent dans le chat
 
-- **Frame** (recadrer) : recadre l'image pour placer le personnage où tu le souhaites.
-- **Download** (télécharger) : enregistre le fichier du sprite sur ton ordinateur.
-- **Replace** (remplacer) : téléverse une nouvelle image sous le même nom.
-- **Rename** (renommer ; aperçu du personnage) : modifie son libellé, jusqu'à 160 caractères, en conservant son identifiant de fichier et son URL. Les références concrètes à l'image qui existent déjà continuent de fonctionner.
-- **Folder** (dossier ; aperçu du personnage) ou **Move sprite** (déplacer le sprite ; vignette de persona) : choisis un dossier, ou **No folder** (aucun dossier), sans glisser.
-- **Delete** (supprimer) : supprime ce sprite.
+Tu choisis quand et comment les sprites apparaissent dans les réglages du chat, pas dans l'éditeur de personnage.
 
-La suppression demande une confirmation. Dans l'éditeur de persona, **Delete All Expressions** ou **Delete All Full-Body** supprime toute la catégorie, même quand une recherche est active.
+### Mode Roleplay
 
-### Dossiers facultatifs et sélection
+L'agent Expression Engine pilote les sprites en Roleplay. Un agent est une aide qui fonctionne en parallèle des réponses. Voir [Agents : des aides IA pour tes chats](../agents/agents-overview.md). L'Expression Engine lit l'humeur de chaque message et choisit le sprite d'expression correspondant. Ajoute-le au chat, et installe-le depuis **Agent Organizer** si tu ne l'as pas. Voir [Référence des agents téléchargeables](../agents/built-in-agents.md#expression-engine).
 
-Clique sur **New folder** (nouveau dossier) pour créer un dossier replié nommé **unnamed**. Double-clique ou touche deux fois son nom pour le renommer ; utilise le chevron pour le déplier. Les expressions et les sprites en pied ont des dossiers séparés. Les dossiers apparaissent au-dessus des sprites hors dossier et se réordonnent par glisser-déposer.
+Pour que les sprites apparaissent, toutes ces conditions doivent être réunies :
 
-Glisse des sprites un par un dans des dossiers dépliés ou repliés. Sur téléphone, maintiens le doigt sur une vignette pour commencer à la glisser ; un balayage normal fait toujours défiler la page. Glisse un sprite rangé vers la zone hors dossier pour le retirer de son dossier. La zone mise en évidence indique la destination. Le contrôle **Folder** de l'aperçu et le bouton **Move sprite** de la vignette de persona offrent une alternative au clavier.
+- L'agent Expression Engine est activé pour le chat.
+- Au moins un personnage, ou le persona, est désigné comme porteur de sprites.
+- Au moins une source de sprites est activée.
 
-Clique sur **Select** (sélectionner) pour afficher les cases à cocher et **Select all sprites** (sélectionner tous les sprites), puis glisse ensemble les sprites sélectionnés ou utilise les outils de nettoyage et de suppression disponibles. **Cancel** (annuler) quitte le mode sélection. La recherche filtre les sprites visibles ; une recherche sans résultat ne signifie pas que la bibliothèque est vide.
+Ouvre **Chat Settings → Agents** (réglages du chat → Agents) et repère la carte **Expression Engine** :
 
-Les dossiers servent à ranger les sprites : ils ne choisissent jamais un ensemble actif et ne cachent aucune image aux chats ni aux agents. Supprimer un dossier laisse ses sprites hors dossier.
+- **Sprite Source** (source des sprites) vaut **Expressions**, **Full-body** ou les deux. Les deux sont activées par défaut, et au moins une doit le rester.
+- **Expression Avatars** (avatars d'expression) remplace le petit avatar du message par le sprite d'expression correspondant. Cette option est désactivée par défaut et ne fonctionne qu'en Roleplay.
+- **Only show active sprites** (n'afficher que les sprites actifs) n'affiche que les personnages du dernier résultat terminé, et garde les sprites actuels visibles pendant la production du résultat suivant.
 
-### Character Sheet
+### Game Mode
 
-Dans l'éditeur de personnage, la ligne compacte **Character Sheet** s'ouvre avec **Manage** (gérer). Crée ou téléverse une fiche à cet endroit et active **Use as reference image** (utiliser comme image de référence) quand tu veux qu'elle soit privilégiée pour la ressemblance du personnage. Le choix des références et le repli sur l'avatar fonctionnent comme avant.
+En Game Mode, un sprite en pied s'affiche automatiquement pour le personnage qui parle ou qui combat. Tu n'as pas besoin de l'Expression Engine, seulement de sprites en pied pour ce personnage. Voir [Game Mode : premiers pas](../game/getting-started.md).
+
+### Déplacer et redimensionner les sprites
+
+Dès qu'un porteur de sprites est activé, la carte **Expression Engine** affiche **Sprite Layout** (disposition des sprites).
+
+1. Clique sur **Arrange** (disposer), puis fais glisser chaque sprite à l'endroit voulu.
+2. Clique sur **Done** (terminé).
+
+**Reset** (réinitialiser) efface tes positions et rétablit la disposition automatique. **Default Side** (côté par défaut) vaut **Left** ou **Right**, et démarre sur Left. Le changer retourne ta disposition actuelle. **Apply to** (appliquer à) permet de régler la disposition pour tous les personnages ou pour un seul.
+
+Quatre curseurs règlent la taille et la transparence. **Expression Size** et **Full-body Size** vont de 5 % à 200 %. **Expression Opacity** et **Full-body Opacity** vont de 0 % à 100 %. Les tailles et les opacités démarrent à 100 %.
 
 ## Générer des sprites avec l'IA
 
-Si une connexion d'images est configurée, Marinara peut dessiner les sprites à ta place. Une connexion, c'est le lien entre Marinara et un service d'IA. La génération de sprites demande une connexion d'images, et les sprites animés une connexion vidéo. Consulte [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md) pour en configurer une.
+Avant de commencer : ajoute une connexion de génération d'images. Pour les sprites animés, il te faut aussi une connexion vidéo. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
-Pour commencer, clique sur **Generate Sprite** (générer un sprite) dans l'encadré **Add Sprite**. La fenêtre **Generate Sprites** s'ouvre. En haut, choisis une source : **Expressions (Portrait)** ou **Full-body**.
+1. Ouvre **Add sprites** et clique sur **Generate Sprite** (générer un sprite). Dans l'éditeur de persona, le bouton se trouve dans **Add Sprite**. La fenêtre **Generate Sprites** s'ouvre.
+2. En haut, choisis une source : **Expressions (Portrait)** ou **Full-body**.
+3. Choisis une connexion dans **Image Generation Connection** (connexion de génération d'images).
+4. Si tu veux, ajoute jusqu'à quatre **Reference Images** (images de référence), ou coche la case pour utiliser l'avatar actuel comme référence.
+5. Remplis le champ **Appearance Description** (description de l'apparence). Il est obligatoire.
+6. Si tu le souhaites, active **Transparent sprite background** (arrière-plan de sprite transparent). Marinara rend l'arrière-plan transparent. Si le service ne peut pas le faire, Marinara dessine un fond uni vert, magenta ou cyan, différent des couleurs du champ **Appearance Description**, puis le retire.
+7. Règle **Expression Count** (nombre d'expressions), ou **Pose Count** (nombre de poses) pour le corps entier, et choisis les expressions ou les poses à créer.
+8. Clique sur **Generate** (générer).
 
-Remplis la fenêtre :
+À l'arrivée des images, active ou désactive chacune d'elles, renomme-la et recadre-la. Enregistre ensuite les images sélectionnées dans les sprites du personnage. Si exactement un sprite enregistré de cette catégorie porte le libellé généré, l'enregistrement remplace son image et conserve son dossier et son identifiant. Un sprite que tu as renommé pour ne plus porter ce libellé est conservé. Si le même libellé figure dans plusieurs dossiers, remplace à la main le sprite que tu vises.
 
-1. Choisis une connexion dans le menu déroulant **Image Generation Connection** (connexion de génération d'images).
-2. Ajoute jusqu'à quatre **Reference Images** (images de référence) si tu veux que l'illustration respecte un style précis. Autre possibilité : coche la case pour utiliser l'avatar actuel comme référence.
-3. Rédige une **Appearance Description** (description de l'apparence) du personnage. Ce champ est obligatoire.
-4. Si tu le souhaites, active l'option **Transparent sprite background** (arrière-plan de sprite transparent). Marinara demande d'abord une transparence PNG native. Si le fournisseur ne renvoie pas de couche alpha, Marinara retient un fond vert, magenta ou cyan saturé, celui qui recoupe le moins les couleurs de la **Appearance Description**, puis le retire automatiquement.
-5. Indique le nombre d'images à produire avec **Expression Count** (nombre d'expressions), ou **Pose Count** (nombre de poses) pour le corps entier, puis choisis les expressions ou les poses à remplir.
-6. Clique sur le bouton **Generate** (générer).
+Dans la source **Full-body**, si le personnage a déjà des expressions en portrait, coche **Match existing expression sprites** (accorder aux sprites d'expression existants) pour créer des poses en pied qui correspondent à chaque nom d'expression.
 
-À l'arrivée des images, tu les passes en revue. Tu peux activer ou désactiver chacune d'elles, la renommer et la recadrer avant d'enregistrer. Quand le résultat te convient, enregistre les images retenues dans le jeu de sprites du personnage.
+La génération peut prendre quelques minutes, davantage sur les services lents. Patiente plutôt que de tout recommencer. Sur certains appareils, comme certaines installations Android, la génération de sprites par IA et le nettoyage d'arrière-plan ne sont pas disponibles. Le bouton est désactivé et Marinara affiche la raison.
 
-Quand un seul sprite enregistré de cette catégorie porte le libellé généré, l'enregistrement remplace son image et conserve son dossier et son identifiant. Un sprite renommé pour ne plus porter ce libellé est préservé. Si le même libellé figure dans plusieurs dossiers, il faut choisir explicitement le sprite à remplacer pour viser le bon de façon fiable.
+### Portraits animés
 
-Dans la source **Full-body**, si le personnage possède déjà des expressions en portrait, tu peux cocher **Match existing expression sprites**. Marinara crée alors des poses en pied qui correspondent à chaque nom d'expression déjà présent.
-
-Deux remarques sur la génération par IA :
-
-- La génération peut prendre plusieurs minutes, même si le texte affiché dans l'application laisse entendre le contraire. Les services d'IA lents mettent plus de temps. Patiente plutôt que de tout recommencer.
-- Sur certains appareils, notamment certaines installations Android, la génération de sprites par IA et le nettoyage d'arrière-plan ne sont pas disponibles. Dans ce cas, le bouton est désactivé et Marinara affiche la raison à l'écran.
-
-### Sprites de portrait animés
-
-Dans la source **Expressions (Portrait)** se trouve une case à cocher **Generate animated portraits** (générer des portraits animés). Une fois activée, Marinara produit de courts clips animés au lieu d'images fixes, puis transforme chaque clip en sprite GIF qui tourne en boucle. Un GIF est un fichier image qui joue une courte animation. Les portraits animés passent par une connexion vidéo, et non par une connexion d'images.
+Dans la source **Expressions (Portrait)**, **Generate animated portraits** (générer des portraits animés) crée de courts clips animés et transforme chacun en sprite GIF qui tourne en boucle. Un GIF est un fichier image qui joue une courte animation. Cette option utilise une connexion vidéo au lieu d'une connexion d'images. Voir [Expressions animées](../media/animated-expressions.md).
 
 ## Nettoyer l'arrière-plan des sprites
 
-Un sprite rend mieux quand seul le personnage apparaît et que l'arrière-plan laisse voir la scène. Les sprites fixes générés utilisent la transparence native quand le fournisseur la prend en charge. Sinon, Marinara retire un fond chroma uni adaptatif avec un bord adouci, et en efface la couleur dans les cheveux, les tissus et les autres pixels partiellement transparents. Les anciens sprites sur arrière-plan blanc restent pris en charge.
+Un sprite rend mieux quand seul le personnage apparaît. Les sprites générés utilisent la transparence native quand le service la prend en charge. Sinon, Marinara retire une couleur de fond unie et adaptative avec un bord adouci, et efface cette couleur des cheveux, des tissus et des autres pixels partiellement transparents. Les anciens sprites sur fond blanc fonctionnent toujours.
 
 ### Nettoyer un sprite à la main
 
-Ouvre l'aperçu du sprite de personnage et son action de nettoyage (la baguette), ou clique sur l'image d'un sprite de persona pour ouvrir l'éditeur de nettoyage. Tu peux y effacer l'arrière-plan, repeindre certaines zones et vérifier le résultat sur des fonds sombre, clair et en damier. Tu peux annuler, revenir à l'original et appliquer tes modifications une fois terminé.
+Ouvre l'aperçu du sprite de personnage et utilise son action de nettoyage (la baguette), ou clique sur l'image d'un sprite de persona. L'éditeur de nettoyage te permet d'effacer l'arrière-plan, de repeindre certaines zones et de vérifier le résultat sur des fonds sombre, clair et en damier. Tu peux annuler, revenir à l'original et appliquer tes modifications une fois terminé.
 
 ### Nettoyer plusieurs sprites d'un coup
 
-Dans l'éditeur de personnage, clique sur **Select**, choisis des sprites, puis clique sur **Clean Backgrounds** (nettoyer les arrière-plans). Dans l'éditeur de persona, le bouton de nettoyage s'applique aux sprites sélectionnés, ou à la catégorie affichée si rien n'est sélectionné.
+1. Dans l'éditeur de personnage, clique sur **Select** (sélectionner) et choisis des sprites. Dans l'éditeur de persona, le bouton de nettoyage s'applique aux sprites sélectionnés, ou à la catégorie affichée si rien n'est sélectionné.
+2. Clique sur **Clean Backgrounds** (nettoyer les arrière-plans).
+3. Règle le curseur **Cleanup strength** (intensité du nettoyage), de **Soft** à **Aggressive**, sur une échelle de 0 à 100. Il démarre à 35. Une valeur élevée retire davantage d'arrière-plan, mais risque de mordre sur le personnage.
+4. Confirme.
 
-1. Règle le curseur **Cleanup strength** (intensité du nettoyage). Il va de Soft à Aggressive, sur une échelle de 0 à 100, et démarre à 35. Une valeur élevée retire davantage d'arrière-plan, mais risque de mordre sur le personnage.
-2. Clique sur **Clean Backgrounds** et confirme.
+Marinara conserve une copie de sécurité. Une ligne indique "Last cleanup has a restore point", avec **Undo Cleanup** (annuler le nettoyage). Clique dessus pour remettre chaque sprite concerné dans son état d'avant.
 
-Après un nettoyage groupé, Marinara conserve une sauvegarde. Une ligne indique "Last cleanup has a restore point", avec un bouton **Undo Cleanup** (annuler le nettoyage). Clique dessus pour remettre chaque sprite concerné dans son état d'origine.
+Le nettoyage fonctionne sur les formats PNG, JPG, JPEG, WEBP et AVIF. Il ne fonctionne pas sur GIF ni SVG.
 
-Le nettoyage d'arrière-plan fonctionne sur les images PNG, JPG, JPEG, WEBP et AVIF. Il ne fonctionne pas sur les fichiers GIF ni SVG.
+Le nettoyage automatique examine d'abord l'image. Le nettoyage intégré, rapide, traite les fonds de couleur unie et les anciens fonds blancs. Si la bordure n'est pas uniforme, Marinara peut se rabattre sur le module d'IA facultatif de suppression d'arrière-plan, s'il est installé. Pour une scène chargée, ou un sujet dont les couleurs ressemblent à celles de l'arrière-plan, l'éditeur manuel reste l'option la plus sûre.
 
-Le nettoyage automatique examine l'image avant de choisir un moteur. Le nettoyage de fond intégré, rapide, traite d'abord les fonds chroma unis et les anciens arrière-plans blancs. Si la bordure n'est pas vraiment uniforme, Marinara peut se rabattre sur le module d'IA de suppression d'arrière-plan, à condition qu'il soit installé. Pour une scène chargée ou un sujet dont les couleurs sont presque identiques à celles de l'arrière-plan, l'éditeur de nettoyage manuel reste l'option la plus sûre.
+## Gérer les sprites
+
+Ouvre un sprite de personnage pour l'afficher en aperçu et voir ses actions. Les sprites de persona gardent leurs actions sur la vignette.
+
+- **Frame** (recadrer) recadre l'image pour placer le personnage où tu le souhaites.
+- **Download** (télécharger) enregistre le fichier du sprite.
+- **Replace** (remplacer) téléverse une nouvelle image sous le même nom.
+- **Rename** (renommer ; aperçu du personnage) modifie son libellé, jusqu'à 160 caractères, et conserve son identifiant de fichier et son URL : les références existantes à l'image continuent donc de fonctionner.
+- **Folder** (dossier ; aperçu du personnage) ou **Move sprite** (déplacer le sprite ; vignette de persona) choisit un dossier, ou **No folder** (aucun dossier), sans glisser.
+- **Delete** (supprimer) supprime ce sprite après confirmation. Dans l'éditeur de persona, **Delete All** (tout supprimer) suivi du nom de la catégorie supprime toute la catégorie, même quand une recherche est active.
+
+### Dossiers et sélection
+
+Clique sur **New folder** (nouveau dossier) pour créer un dossier replié nommé **unnamed**. Double-clique ou touche deux fois son nom pour le renommer, et utilise le chevron pour le déplier. Les expressions et les sprites en pied ont des dossiers séparés. Les dossiers apparaissent au-dessus des sprites hors dossier et se réordonnent par glisser-déposer.
+
+Glisse des sprites dans un dossier, ou glisse un sprite rangé vers la zone hors dossier pour le retirer de son dossier. Sur téléphone, maintiens le doigt sur une vignette pour commencer à la glisser. Un balayage normal fait toujours défiler la page. Les dossiers servent seulement à ranger : ils ne choisissent jamais un ensemble actif et ne cachent aucune image aux chats ni aux agents. Supprimer un dossier laisse ses sprites hors dossier.
+
+Clique sur **Select** pour afficher les cases à cocher et **Select all sprites** (sélectionner tous les sprites), puis glisse ensemble les sprites sélectionnés ou utilise le nettoyage et la suppression. **Cancel** (annuler) quitte le mode sélection. La recherche filtre les sprites visibles. Une recherche sans résultat ne signifie pas que la bibliothèque est vide.
+
+### Character Sheet
+
+Dans l'éditeur de personnage, la ligne **Character Sheet** s'ouvre avec **Manage** (gérer). Crée ou téléverse une fiche à cet endroit. Active **Use as reference image** (utiliser comme image de référence) pour qu'elle soit privilégiée pour la ressemblance du personnage.
 
 ## Exporter des sprites
-
-Tu peux enregistrer les sprites d'un personnage sur ton ordinateur sous forme de fichier zip. Un zip est un fichier unique qui en rassemble plusieurs.
 
 1. Ouvre l'onglet **Sprites**.
 2. Clique sur **Export** (exporter) au-dessus de la grille du personnage, ou dans l'encadré **Add Sprite** du persona.
 3. Choisis **Expressions only** ou **Full-body only** pour exporter la catégorie en cours, ou **All sprites** pour tout exporter.
 
-Le téléchargement contient les fichiers image des sprites et un `catalog.json` pour les libellés et l'organisation en dossiers. Les transferts natifs pris en charge de personnages et de personas, ainsi que les sauvegardes de profil, conservent aussi ces métadonnées.
-
-### Intégrations qui tiennent compte des dossiers
-
-`GET /api/sprites/:ownerId` renvoie toujours tous les sprites, rangés ou non. `GET /api/sprites/:ownerId/catalog` ajoute les dossiers et l'appartenance pour les intégrations qui veulent découvrir ou importer un dossier à la fois. Chaque sprite inclut son identifiant stable `expression`, son `label` modifiable, `folderId` et son URL. Utilise les identifiants de dossier pour l'appartenance ; le tableau `folders` est l'ordre enregistré, que l'éditeur affiche à l'envers pour que les nouveaux dossiers apparaissent en premier. L'ordre des dossiers ne fixe ni la priorité ni la disponibilité pour les agents.
-
-Le navigateur de ressources du chat affiche les libellés modifiés, mais insère des liens concrets `card://sprites/<ownerId>/<filename>`, qui fonctionnent toujours après un renommage. Les liens propres au chat comme `card://sprites/facial/joy.png` peuvent aussi résoudre le libellé modifié ; un nom de fichier correspondant existant est prioritaire.
-
-Des métadonnées facultatives absentes ou illisibles ne masquent pas les images utilisables. Les modifications refusent les métadonnées endommagées au lieu de les remplacer en silence. Les listes en lecture seule ignorent les bibliothèques inaccessibles ; l'export et les écritures refusent toujours les dossiers de propriétaire liés.
-
-## Comment les sprites s'affichent dans le chat
-
-Téléverser des sprites ne fait que la moitié du travail. Tu décides aussi quand et comment ils apparaissent pendant un chat. Cela se règle dans les réglages du chat, pas dans l'éditeur de personnage.
-
-### Mode Roleplay
-
-En mode **Roleplay**, c'est l'agent optionnel **Expression Engine** qui pilote l'affichage des sprites. Télécharge-le depuis **Agents → Agent Organizer (organisateur d’agents)**, puis ajoute-le au chat. Il analyse l'humeur de chaque message et choisit le sprite d'expression correspondant. Consulte [Référence des agents téléchargeables](../agents/built-in-agents.md) pour le détail.
-
-Pour que les sprites apparaissent dans un chat Roleplay, il faut que toutes ces conditions soient réunies :
-
-- L'agent **Expression Engine** est activé pour le chat.
-- Au moins un personnage ou le persona actif est désigné comme porteur de sprites.
-- Au moins une source de sprites est activée.
-
-Ouvre les réglages du chat et repère la carte de l'agent **Expression Engine**. C'est là que tu règles l'affichage des sprites :
-
-- **Sprite Source** (source des sprites) : choisis **Expressions**, **Full-body** ou les deux. Les deux sont actives par défaut. Au moins une doit le rester.
-- **Expression Avatars** : remplace le petit avatar du message par le sprite d'expression correspondant, au lieu d'afficher une image flottante par-dessus la scène. Cette option est désactivée par défaut et ne concerne que le mode Roleplay.
-
-### Game Mode
-
-En **Game Mode**, un sprite en pied s'affiche automatiquement pour le personnage qui parle ou qui combat. L'agent Expression Engine n'est pas nécessaire. Il suffit d'avoir téléversé des sprites de corps entier pour ce personnage. Consulte [Game Mode : premiers pas](../game/getting-started.md) pour la configuration générale du Game Mode.
-
-### Déplacer et redimensionner les sprites (mode Arrange)
-
-Dès qu'un porteur de sprites est activé, la carte de l'agent **Expression Engine** affiche une section **Sprite Layout** (disposition des sprites).
-
-- Clique sur **Arrange** (disposer) pour passer en mode glisser-déposer, puis fais glisser chaque sprite à l'endroit voulu. Clique sur **Done** (terminé) une fois satisfait.
-- Le bouton **Reset** efface tes positions personnalisées et rétablit la disposition automatique.
-- **Default Side** (côté par défaut) définit si les nouveaux sprites penchent vers la gauche, **Left**, ou vers la droite, **Right**. La valeur par défaut est **Left**. Changer de côté retourne la disposition en cours.
-- Quatre curseurs règlent la taille et la transparence : **Expression Size** et **Full-body Size** vont de 5 % à 200 %. **Expression Opacity** et **Full-body Opacity** vont de 15 % à 100 %. Tous démarrent à 100 %.
-
-## Clips d'appel vidéo
-
-La catégorie **Clips** de l'onglet **Sprites** relève d'une autre fonctionnalité. Elle produit de courtes vidéos en boucle qui tiennent lieu de caméra au personnage pendant un appel audio ou vidéo en mode Conversation. Comme elle appartient à la fonctionnalité d'appel, elle est documentée à part. Consulte [Appels audio et vidéo en mode Conversation](../conversation/calls.md).
+Tu obtiens un zip avec les fichiers des sprites et un `catalog.json` pour les libellés et les dossiers. Les exports natifs de personnages et de personas, ainsi que les sauvegardes de profil, conservent aussi ces données.
 
 ## Guides associés
 
 - [Créer et modifier des personnages](creating-and-editing-characters.md)
+- [Personas](personas.md)
 - [Mode Roleplay : premiers pas](../roleplay/getting-started.md)
 - [Game Mode : premiers pas](../game/getting-started.md)
-- [Appels audio et vidéo en mode Conversation](../conversation/calls.md)
+- [Appels audio et vidéo en Conversation](../conversation/calls.md)
 - [Expressions animées](../media/animated-expressions.md)
 - [Référence des agents téléchargeables](../agents/built-in-agents.md)
+
+## Référence pour les développeurs : API des sprites et liens
+
+`GET /api/sprites/:ownerId` renvoie tous les sprites, rangés ou non. `GET /api/sprites/:ownerId/catalog` ajoute les dossiers et l'appartenance, pour les outils qui importent un dossier à la fois. Chaque sprite a un identifiant stable `expression`, un `label` modifiable, un `folderId` et une URL. Utilise les identifiants de dossier pour l'appartenance. Le tableau `folders` suit l'ordre enregistré, que l'éditeur affiche à l'envers pour que les nouveaux dossiers apparaissent en premier. L'ordre des dossiers ne fixe ni la priorité ni la disponibilité pour les agents.
+
+Le navigateur de ressources du chat affiche les libellés modifiés, mais insère des liens concrets `card://sprites/<ownerId>/<filename>`, qui fonctionnent toujours après un renommage. Les liens propres au chat comme `card://sprites/facial/joy.png` peuvent aussi résoudre le libellé modifié. Un nom de fichier correspondant existant est prioritaire.
+
+Des métadonnées facultatives absentes ou illisibles ne masquent pas les images utilisables. Les modifications refusent les métadonnées endommagées au lieu de les remplacer. Les listes en lecture seule ignorent les bibliothèques inaccessibles, et l'export et les écritures refusent les dossiers de propriétaire liés.

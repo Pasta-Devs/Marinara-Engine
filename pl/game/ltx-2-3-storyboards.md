@@ -1,85 +1,36 @@
 # Storyboardy LTX 2.3 w Game Mode
 
-Ten przewodnik wyjaśnia, jak podłączyć lokalny workflow LTX 2.3 w ComfyUI (obraz do wideo) do storyboardów trybu Game Mode w aplikacji Marinara Engine. Część graczy mówi na to Story Mode; kontrolki w aplikacji Marinara noszą nazwy **Game Mode** i **Storyboards**.
+Ten przewodnik pokazuje, jak podłączyć lokalny workflow LTX 2.3 w ComfyUI (obraz do wideo) do storyboardów trybu Game Mode, żeby każda klatka storyboardu stawała się krótkim klipem wideo. To zaawansowana konfiguracja dla graczy z lokalną kartą graficzną (GPU) i ComfyUI. Część graczy mówi na to Story Mode. W aplikacji Marinara Engine kontrolki noszą nazwy **Game Mode** i **Storyboards**.
 
-Opisaną niżej konfigurację opracowano na generowaniu pierwszej klatki przez **Krea 2** oraz na stylu obrazu **Z-Image Turbo Narrative**, opartym na języku naturalnym. Inne połączenia obrazu też powinny działać, o ile przyjmują opisowe prompty scen w języku naturalnym. Renderowanie wideo LTX odbywa się lokalnie w ComfyUI; to, czy pierwsza klatka powstaje lokalnie, czy w chmurze, zależy od wybranego połączenia obrazu.
+Konfigurację opracowano na obrazach pierwszej klatki z **Krea 2** i stylu obrazu **Z-Image Turbo Narrative**. Inne konta do generowania obrazów też powinny działać, o ile przyjmują opisowe prompty scen w języku naturalnym. Wideo LTX renderuje się lokalnie w ComfyUI. To, czy obraz pierwszej klatki powstaje lokalnie, czy w chmurze, zależy od wybranego konta do generowania obrazów.
 
-Gotowa ścieżka wygląda tak:
+Gotowa ścieżka składa się z tych kroków:
 
-```text
-GM narration
-  -> Animation Planner
-     -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> Narration Passthrough -> %prompt%
-  -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
-```
+1. Mistrz gry (GM) pisze turę narracji.
+2. Animation Planner zwraca `imagePrompt` i `narrationBeat`.
+3. `imagePrompt` trafia do konta do generowania obrazów i staje się ilustracją pierwszej klatki.
+4. `narrationBeat` przechodzi przez **Narration Passthrough** i staje się `%prompt%`.
+5. Pierwsza klatka i prompt trafiają do workflow LTX 2.3 w ComfyUI, który tworzy klip MP4.
 
-Wygenerowana ilustracja jest pierwszą klatką filmu. Dzięki temu LTX dostaje jednocześnie wizualny punkt wyjścia i prompt skupiony na tym, co dzieje się dalej.
+Ilustracja jest pierwszą klatką klipu. LTX dostaje więc zarówno obraz wyjściowy, jak i prompt o tym, jaki ruch nastąpi dalej. Jeśli wszystko działa, klip pojawia się w zakładce **Videos** (filmy) galerii.
 
 ## Zanim zaczniesz
 
 Potrzebne są:
 
-1. Działająca lokalna instalacja ComfyUI, do której aplikacja Marinara Engine ma dostęp.
-2. Edytowalny workflow `ltx-director-simple` albo równoważny graf LTX 2.3 obraz-do-wideo, który poprawnie kończy pracę w ComfyUI.
-3. Eksport tego samego grafu w formacie API, czyli `ltx-director-simple-api`, przeznaczony dla połączenia w aplikacji Marinara Engine.
-4. Połączenie generowania obrazów w aplikacji Marinara Engine, które tworzy ilustracje pierwszej klatki.
-5. Agent **Storyboard** zainstalowany z **Agents > Agent Organizer (organizowanie agentów)** i włączony w grze w panelu **Chat Settings > Agents** (ustawienia czatu).
+1. Działająca lokalna instalacja ComfyUI, do której aplikacja Marinara Engine ma dostęp. Zobacz [Konfiguracja workflow w ComfyUI](../media/comfyui.md).
+2. Karta graficzna z wystarczającą ilością pamięci VRAM (pamięci na karcie graficznej). Karta z 8 GB może wystarczyć do pierwszego testu w rozdzielczości 480p z jedną klatką kluczową.
+3. Edytowalny workflow `ltx-director-simple` albo równoważny graf LTX 2.3 obraz-do-wideo, który poprawnie kończy pracę w ComfyUI, oraz jego eksport w formacie API, `ltx-director-simple-api`.
+4. Konto do generowania obrazów w aplikacji Marinara Engine, które tworzy ilustracje pierwszej klatki.
+5. Agent **Storyboard**, pobrany z **Agents → Agent Organizer** (agenci, organizowanie agentów) i włączony w grze w **Chat Settings → Agents** (ustawienia czatu, agenci). Zobacz [Przewodnik po agencie Storyboard](storyboard.md).
 
-Edytowalny workflow ComfyUI i jego eksport API to dwa różne pliki. Otwórz `ltx-director-simple` w ComfyUI, zainstaluj każdy brakujący węzeł zgłoszony przez ComfyUI Manager i przetestuj graf na miejscu. Do połączenia w aplikacji Marinara Engine zaimportuj `ltx-director-simple-api`. Po każdej zmianie węzła lub modelu wyeksportuj graf ponownie w formacie API i podmień plik JSON zapisany w połączeniu. Nie wklejaj do aplikacji Marinara Engine zwykłego workflow z edytora wizualnego.
-
-Ogólny proces eksportu i konfiguracji połączenia opisuje [Konfiguracja workflow w ComfyUI](../media/comfyui.md).
-
-## Wybór modelu LTX 2.3
-
-Format modelu dobierz do architektury karty graficznej i do pamięci, która zostaje po załadowaniu przez ComfyUI enkodera tekstu, modeli VAE i upscalera. Traktuj poniższe wskazania jako punkt wyjścia, a nie gwarancję, że każdy workflow zmieści się na każdej karcie.
-
-| Rodzina GPU | Praktyczny punkt wyjścia | Uwagi |
-| --- | --- | --- |
-| RTX serii 30 (Ampere) | INT8 ConvRot | Wariant oszczędzający pamięć, przeznaczony dla kart klasy 3070, 3080 i 3090. |
-| RTX serii 40 z 16-24 GB | FP8 input-scaled | Korzysta z przyspieszonej ścieżki FP8 dostępnej w układach generacji Ada. |
-| RTX serii 40 z 8-12 GB | INT8 ConvRot, gdy przenoszenie danych przy FP8 jest zbyt wolne | Porównaj oba warianty na docelowym workflow; dostępna pamięć VRAM i sposób odciążania nadal mają znaczenie. |
-| RTX serii 50 (Blackwell) | Workflow NVFP4 dev | Wymaga ComfyUI, CUDA i zestawu węzłów obsługujących NVFP4. |
-| RTX serii 50 na istniejącym workflow distilled | FP8 input-scaled | Ta ścieżka zgodności wystarczy, dopóki nie pojawi się oficjalny checkpoint distilled w formacie NVFP4. |
-
-Przetestowany workflow dla RTX 3080 używa:
-
-```text
-ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
-```
-
-Te końcówki nazw opisują różne formaty kwantyzacji i ścieżki wykonania, a nie presety jakości, które da się dowolnie wymieniać:
-
-- **INT8 ConvRot** to praktyczna, wypracowana przez społeczność ścieżka niskiej pamięci dla kart RTX serii 30 i słabszych kart Ada.
-- **FP8 input-scaled** korzysta z przyspieszonych operacji macierzowych FP8, mniej więcej od RTX serii 40 wzwyż.
-- **NVFP4** to czterobitowa ścieżka natywna dla architektury Blackwell, używana w workflow dla RTX serii 50.
-- Workflow **dev** i **distilled** zakładają inny sposób próbkowania. Nie podstawiaj checkpointu dev do dołączonego grafu distilled bez dostosowania całego workflow.
-
-Karta z 8 GB pamięci powinna zacząć pierwszy test integracji od rozdzielczości 480p i jednej klatki kluczowej. To, że checkpoint się mieści, nie oznacza jeszcze, że zmieści się dłuższe wideo albo wyższa rozdzielczość: pamięć zajmują też latenty wideo, enkoder tekstu, modele VAE, dźwięk i upscaling.
-
-Oficjalny workflow dla początkujących składa się z tych elementów:
-
-- `ltx-2.3-22b-dev-fp8.safetensors`
-- `ltx-2.3-22b-distilled-lora-384.safetensors`
-- `gemma_3_12B_it_fp4_mixed.safetensors`
-- `ltx-2.3-spatial-upscaler-x2-1.1.safetensors`
-
-Własne workflow mogą używać checkpointu distilled w wersji v1.1, kwantyzacji od innego autora, innych węzłów ładujących albo innych folderów z modelami. Nazwy plików zapisane w workflow API muszą dokładnie odpowiadać plikom, które widzi ComfyUI.
-
-Oficjalne materiały:
-
-- [Przewodnik LTX 2.3 obraz-do-wideo](https://docs.ltx.io/open-source-model/usage-guides/image-to-video)
-- [Przewodnik po promptach LTX](https://docs.ltx.io/open-source-model/usage-guides/prompting-guide)
-- [Karta modelu LTX 2.3](https://huggingface.co/Lightricks/LTX-2.3)
-- [Karta modelu LTX 2.3 NVFP4](https://huggingface.co/Lightricks/LTX-2.3-nvfp4)
-- [Oficjalne przykłady LTX 2.3 dla ComfyUI](https://github.com/Lightricks/ComfyUI-LTXVideo/tree/master/example_workflows/2.3)
-- [Społecznościowe wagi rozdzielone dla ComfyUI i wersje FP8](https://huggingface.co/Kijai/LTX2.3_comfy)
+Edytowalny workflow i jego eksport API to dwa różne pliki. Otwórz `ltx-director-simple` w ComfyUI, zainstaluj każdy węzeł niestandardowy, który ComfyUI Manager zgłasza jako brakujący, i przetestuj graf na miejscu. Do aplikacji Marinara Engine zaimportuj `ltx-director-simple-api`. Po każdej zmianie węzła lub modelu wyeksportuj graf ponownie w formacie API i podmień plik JSON zapisany na koncie w aplikacji Marinara Engine. Nie wklejaj do aplikacji Marinara Engine zwykłego workflow z edytora wizualnego.
 
 ## Przygotowanie workflow API w ComfyUI
 
-Najpierw uruchom edytowalny workflow bezpośrednio w ComfyUI, na prawdziwym obrazie źródłowym i prostym prompcie. Sprawdź, czy zapisuje plik MP4 z dźwiękiem, i dopiero potem przygotuj jego eksport API dla aplikacji Marinara Engine.
+Najpierw dodaj edytowalny workflow do kolejki w ComfyUI, z prawdziwym obrazem źródłowym i prostym promptem. Sprawdź, czy zapisuje plik MP4 z dźwiękiem.
 
-Prosta ścieżka w aplikacji Marinara Engine korzysta z jednego kompletnego promptu w globalnym wejściu promptu węzła LTX Director:
+Prosta ścieżka w aplikacji Marinara Engine umieszcza jeden kompletny prompt w globalnym wejściu promptu węzła LTX Director:
 
 ```json
 {
@@ -89,24 +40,26 @@ Prosta ścieżka w aplikacji Marinara Engine korzysta z jednego kompletnego prom
 }
 ```
 
-Węzeł LTX Director nadal może obsługiwać kondycjonowanie obrazem, dane prowadzące, dźwięk i dwa etapy próbkowania. Słowo "prosta" dotyczy wyłącznie umowy o prompt: Marinara wysyła jeden spójny akapit opisujący przejście z obrazu w wideo, a nie oś czasu Prompt Relay.
+Węzeł LTX Director nadal może obsługiwać kondycjonowanie obrazem, dane prowadzące, dźwięk i dwa etapy próbkowania. "Prosta" oznacza, że Marinara wysyła jeden spójny akapit obraz-do-wideo, a nie oś czasu Prompt Relay.
 
-### Wymagane symbole zastępcze
+### Symbole zastępcze
 
-W eksporcie API podmień odpowiednie wartości na symbole zastępcze aplikacji Marinara Engine, ujęte w cudzysłowy:
+W eksporcie API podmień odpowiednie wartości na te symbole zastępcze aplikacji Marinara Engine, ujęte w cudzysłowy:
 
-| Symbol zastępczy | Wstawiana wartość |
+| Symbol zastępczy | Wartość wstawiana przez aplikację Marinara Engine |
 | --- | --- |
-| `%prompt%` | Kompletny prompt przygotowany przez wybrany Storyboard Animation Planner i szablon wideo |
+| `%prompt%` | Kompletny prompt z Animation Planner i szablonu wideo |
 | `%reference_image_name%` | Obraz pierwszej klatki wgrany do ComfyUI |
-| `%duration_seconds%` | Długość klipu storyboardu w sekundach |
-| `%length%` | Ta sama długość przeliczona na klatki według umowy 16 FPS w aplikacji Marinara Engine |
-| `%fps%` | Liczba klatek na sekundę, której Marinara używa dla klipu |
-| `%width%`, `%height%` | Wymiary wynikające z rozdzielczości i proporcji obrazu ustawionych w połączeniu wideo |
-| `%seed%` | Nowe losowe ziarno dla danego żądania |
-| `%model%` | Opcjonalna wartość modelu z połączenia, gdy workflow nie ma modelu wpisanego na stałe w węźle ładującym |
+| `%duration_seconds%` | Długość klipu w sekundach |
+| `%length%` | Długość przeliczona na liczbę klatek przy domyślnych 16 FPS aplikacji Marinara Engine |
+| `%fps%` | Liczba klatek na sekundę, której używa Marinara |
+| `%width%`, `%height%` | Wymiary wynikające z rozdzielczości i proporcji obrazu ustawionych na koncie wideo |
+| `%seed%` | Nowe losowe ziarno dla każdego żądania |
+| `%model%` | Opcjonalna wartość modelu z konta, gdy workflow nie ustala modelu na stałe w swoim węźle ładującym |
 
-Obraz referencyjny należy do tablicy `segments` wewnątrz `timeline_data` w węźle LTX Director. W workflow API `timeline_data` jest tekstowym zapisem JSON. Symbol `%length%` utrzymuje dynamiczną długość klipu przez `normalDurationFrames`, a segment obrazu referencyjnego w klatce zerowej celowo zachowuje własną, krótką i sztywną wartość `"length":16`:
+Marinara potrafi też wypełnić `%length_s%`, `%global_prompt%`, `%local_prompts%` i `%segment_lengths%`. Te cztery są opcjonalne. Prosta ścieżka ich nie potrzebuje i wysyła swój prompt przez `%prompt%`.
+
+Obraz referencyjny należy do tablicy `segments` wewnątrz `timeline_data` węzła LTX Director, które w workflow API jest serializowanym tekstem JSON. Symbol `%length%` utrzymuje dynamiczną długość klipu przez `normalDurationFrames`. Segment obrazu referencyjnego w klatce zerowej zachowuje własną, stałą wartość `"length":16`.
 
 ```json
 {
@@ -114,160 +67,135 @@ Obraz referencyjny należy do tablicy `segments` wewnątrz `timeline_data` w wę
 }
 ```
 
-Nie wpisuj `%reference_image_name%` obok `timeline_data` ani w osobnym polu obrazu na najwyższym poziomie. Liczbę klatek, sekundy i liczbę klatek na sekundę powiąż z zewnętrznymi wejściami workflow przez `%length%`, `%duration_seconds%` i `%fps%`. Wartości liczbowe pokazywane w edytowalnym grafie ComfyUI nie są wartościami domyślnymi aplikacji Marinara Engine.
-
-Tekstowe symbole zastępcze, takie jak `%reference_image_name%`, zostaw w cudzysłowach. Dokładne liczbowe wejścia węzłów mogą mieć `%length%`, `%duration_seconds%` i `%fps%` w cudzysłowach, bo Marinara zamienia je na liczby. Wewnątrz tekstowego zapisu `timeline_data` zostaw `%length%` bez cudzysłowów, dokładnie tak jak wyżej, żeby po odczytaniu osi czasu wartość była liczbą.
+- Nie wpisuj `%reference_image_name%` obok `timeline_data` ani w osobnym polu obrazu na najwyższym poziomie.
+- Tekstowe symbole zastępcze, takie jak `%reference_image_name%`, zostaw w cudzysłowach.
+- Liczbowe wejścia węzłów mogą mieć `%length%`, `%duration_seconds%` i `%fps%` w cudzysłowach, bo Marinara zamienia je na liczby. Wewnątrz serializowanego tekstu `timeline_data` zostaw `%length%` bez cudzysłowów, tak jak w przykładzie, żeby odczytana wartość była liczbą.
+- Liczbę klatek, sekundy i liczbę klatek na sekundę powiąż z tymi symbolami zastępczymi. Liczby pokazywane w edytowalnym grafie ComfyUI nie są wartościami domyślnymi aplikacji Marinara Engine.
 
 ### Eksport po każdej zmianie
 
-1. Uruchom edytowalny workflow w ComfyUI.
-2. Sprawdź, czy bieżący graf tworzy odtwarzalny plik MP4.
-3. Wybierz **Save (API Format)**, **Export (API)** albo **Export to API**.
-4. Dodaj symbole zastępcze do nowego pliku JSON w formacie API albo potwierdź, że tam są.
-5. Podmień workflow zapisany w połączeniu aplikacji Marinara Engine.
+1. Dodaj edytowalny workflow do kolejki w ComfyUI i sprawdź, czy tworzy odtwarzalny plik MP4.
+2. Wybierz **Save (API Format)**, **Export (API)** albo **Export to API**, zależnie od wersji ComfyUI.
+3. Dodaj symbole zastępcze do nowego pliku JSON w formacie API albo potwierdź, że tam są.
+4. Podmień workflow zapisany na koncie w aplikacji Marinara Engine.
 
-Jeśli usuniesz węzeł i dalej używasz starego eksportu API, w pliku mogą zostać odwołania do węzła, którego już nie ma. ComfyUI odrzuca wtedy żądanie, zanim zacznie się generowanie.
+Jeśli usuniesz węzeł i dalej używasz starszego eksportu, zostają w nim odwołania do węzła, którego już nie ma. ComfyUI odrzuca wtedy żądanie.
 
-## Tworzenie połączenia wideo w aplikacji Marinara Engine
+## Tworzenie konta wideo
 
-1. Otwórz sekcję **Settings** (Ustawienia), a potem **Connections** (Połączenia).
-2. Dodaj połączenie typu **Video Generation**.
+1. Otwórz **Settings → Connections** (ustawienia, połączenia).
+2. Kliknij **Add account** (dodanie konta) i wybierz konto typu **Video Generation**.
 3. Wybierz **ComfyUI**.
-4. Wpisz bazowy adres URL ComfyUI, zwykle `http://127.0.0.1:8188`, jeśli działa na tym samym komputerze.
-5. Wklej kompletny workflow w formacie API w polu **ComfyUI Workflow**.
-6. Na pierwszy test przy małej ilości pamięci VRAM ustaw domyślną długość sześciu sekund, proporcje **16:9** i rozdzielczość 480p.
-7. Zapisz połączenie.
+4. Wpisz **Base URL** (adres bazowy), zwykle `http://127.0.0.1:8188`, gdy ComfyUI działa na tym samym komputerze.
+5. Wklej kompletny workflow w formacie API w polu **ComfyUI workflow**.
+6. Na pierwszy test przy małej ilości pamięci VRAM wybierz domyślną długość sześciu sekund, proporcje **16:9** i rozdzielczość 480p.
+7. Zapisz konto.
 
-Test połączenia oparty tylko na tekście nie sprawdzi symbolu `%reference_image_name%`. Po zapisaniu połączenia zweryfikuj ścieżkę obraz-do-wideo na obrazie z galerii albo na storyboardzie.
+Test połączenia oparty tylko na tekście nie sprawdzi symbolu `%reference_image_name%`. Po zapisaniu przetestuj ścieżkę obraz-do-wideo na obrazie z galerii albo na storyboardzie.
 
 ## Konfiguracja czatu w trybie Game Mode
 
-Otwórz czat w trybie Game Mode, przejdź do **Chat Settings** i wybierz zakładkę **Agents**. Zanim zaczniesz konfigurować sekcje opisane niżej, włącz przełączniki **Enable Agents** i **Enable Storyboards**. Prezentacja Storyboard Optimized z kreatora nowej gry nie włącza agenta.
+Otwórz czat w trybie Game Mode, a potem **Chat Settings → Agents**. Najpierw włącz **Enable Agents** (włączenie agentów) i **Enable Storyboards** (włączenie storyboardów). Prezentacja Storyboard Optimized z kreatora nie włącza agenta.
 
 ### Illustrator
 
 | Ustawienie | Zalecana wartość |
 | --- | --- |
 | **Game Illustrator** | On |
-| **Image Connection** | **Krea 2** |
+| **Image model** | **Krea 2** |
 | **Image Style** | **Z-Image Turbo Narrative** |
 | **Use Campaign Art Style** | Off |
 | **Attach Card Appearance** | Off |
 | **Send Avatar References** | Off dla tego przetestowanego workflow |
 
-Animation Planner i tak dostaje kontekst wyglądu postaci z tury storyboardu, dlatego w tej konfiguracji **Attach Card Appearance** zostaje wyłączone: inaczej te same informacje trafiłyby ponownie do końcowego formatowania obrazu. Podobnie **Storyboard First Frame** nie powtarza wytycznych artystycznych kampanii wokół gotowej sceny T=0 przygotowanej przez planera.
+Animation Planner i tak dostaje kontekst wyglądu postaci z danej tury, dlatego **Attach Card Appearance** zostaje wyłączone, żeby nie dodawać tych informacji dwa razy. **Storyboard First Frame** również nie powtarza wytycznych artystycznych kampanii wokół gotowej sceny pierwszej klatki przygotowanej przez planera.
 
-Ustawienie **Send Avatar References** steruje obrazami referencyjnymi wysyłanymi do dostawcy obrazu pierwszej klatki, a nie wejściem pierwszej klatki w LTX. Gotową ilustrację storyboardu LTX dostaje przez `%reference_image_name%`. W tej przetestowanej konfiguracji z Krea zostaw referencje awatarów wyłączone, a włącz je osobno dopiero wtedy, gdy potwierdzisz, że wybrane połączenie obrazu je obsługuje i faktycznie na nich zyskuje.
+**Send Avatar References** steruje obrazami referencyjnymi wysyłanymi do usługi, która generuje obraz pierwszej klatki. Nie steruje wejściem pierwszej klatki w LTX: LTX dostaje gotową ilustrację przez `%reference_image_name%`. Referencje awatarów włącz dopiero wtedy, gdy potwierdzisz, że twoje konto do generowania obrazów je obsługuje i że faktycznie pomagają.
 
-Obraz pierwszej klatki bardzo mocno wpływa na jakość animacji. Powinien pokazywać dokładnie ten moment tuż przed planowanym ruchem, z wyraźnie widoczną postacią, trasą, dłońmi, drzwiami, rekwizytem albo celem.
+Pierwsza klatka bardzo mocno wpływa na jakość animacji. Powinna pokazywać dokładnie moment tuż przed planowanym ruchem, z wyraźnie widoczną postacią, trasą, dłońmi, drzwiami, rekwizytem albo celem.
 
 ### Scene Videos
 
 | Ustawienie | Zalecana wartość |
 | --- | --- |
-| **Video Connection** | Połączenie LTX 2.3 w ComfyUI utworzone wyżej |
+| **Video model** | Konto LTX 2.3 w ComfyUI utworzone wyżej |
 | **Game Video Prompt** | **Narration Passthrough** |
 
-Ogólne ustawienie **Game Video Prompt** odpowiada za ręczne animacje w galerii i w sekcji Game Assets. Klipy storyboardu mogą mieć własny prompt, bez ruszania tych pozostałych animacji.
+**Game Video Prompt** odpowiada za ręczne animacje w galerii i w sekcji Game Assets. Klipy storyboardu mogą korzystać z własnego promptu bez zmieniania tamtych.
 
 ### Storyboards
-
-Zacznij od takiego profilu:
 
 | Ustawienie | Zalecana wartość początkowa |
 | --- | --- |
 | **Automatic Storyboard Illustrations** | On |
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
-| **Keyframes per Turn** | zwykle 3; w pierwszym teście na karcie z 8 GB pamięci VRAM zacznij od 1 |
+| **Keyframes per Turn** | Zwykle 3. W pierwszym teście na karcie z 8 GB pamięci VRAM zacznij od 1. |
 | **Animation Clip Duration** | 5 sekund |
 | **Viewer Display** | Floating na czas testów |
-| **Illustration Planner** | **Still Keyframes**; zostaje jako wariant zapasowy dla samych obrazów |
+| **Illustration Planner** | **Still Keyframes** (wariant zapasowy dla tur bez wideo) |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
 | **Storyboard Video Prompt** | **Narration Passthrough** |
 
-Zalecanym ustawieniem domyślnym jest **LTX Simple Image-to-Video**. Planuje jedną pierwszą klatkę gotową do animacji i jeden bezpośredni prompt ruchu długości 4–8 zdań. Stawia na jedną główną akcję, jedno zachowanie kamery, powściągliwy ruch otoczenia oraz pasujący dźwięk albo krótką kwestię dialogową.
+- **LTX Simple Image-to-Video** to zalecany planer. Planuje jedną pierwszą klatkę gotową do animacji i jeden bezpośredni prompt ruchu długości od 4 do 8 zdań, z jedną główną akcją, jednym zachowaniem kamery, powściągliwym ruchem wokół niej oraz pasującym dźwiękiem albo krótkim dialogiem.
+- **LTX Director Storyboard** to opcja zaawansowana z bardziej szczegółową reżyserią uwzględniającą czas trwania i z zasadami ciągłości. Wypróbuj ją, gdy prosta ścieżka działa już stabilnie albo gdy dłuższy klip potrzebuje więcej powiązanych faz. Oba planery korzystają z tej samej umowy opartej na `%prompt%`.
+- Przy włączonych animacjach **LTX Simple Image-to-Video** przygotowuje oba wyjścia: `imagePrompt` dla Krea i `narrationBeat` dla LTX. **Still Keyframes** służy tylko turom bez wideo.
+- **Storyboard First Frame** wysyła do Krea pełną scenę pierwszej klatki w języku naturalnym, przygotowaną przez planera, bez tytułu klatki kluczowej, etykiet promptu, powtórzonych opisów wyglądu ani wytycznych artystycznych kampanii. Zostaw **Use Storyboard Template** włączone, żeby to ustawienie zadziałało.
+- **Narration Passthrough** przekazuje gotowy `narrationBeat` planera przez umowę promptu wideo, bez kolejnego streszczenia sceny.
 
-Wariant **LTX Director Storyboard** pozostaje dostępny jako opcja zaawansowana. Daje bardziej szczegółową reżyserię uwzględniającą czas trwania oraz zasady ciągłości. Sięgnij po niego, gdy prosta ścieżka już działa stabilnie albo gdy dłuższy klip naprawdę potrzebuje kilku powiązanych faz. Oba planery korzystają z tej samej umowy workflow opartej na `%prompt%`.
-
-Ustawienie **Illustration Planner: Still Keyframes** nie tworzy promptu dla Krea, gdy animacje są włączone. W trybie animacji oba wyjścia przygotowuje **LTX Simple Image-to-Video**: `imagePrompt` w języku naturalnym dla Krea oraz `narrationBeat` dla LTX. Still Keyframes zostaje wybrane tylko na potrzeby tur generowanych bez wideo.
-
-Ustawienie **Storyboard First Frame** przekazuje do Krea kompletną scenę T=0 w języku naturalnym, przygotowaną przez Animation Planner, bez dokładania tytułu klatki kluczowej, etykiet promptu, powtórzonych opisów wyglądu ani wytycznych artystycznych kampanii. Zostaw **Use Storyboard Template** włączone, żeby ten formater faktycznie zadziałał.
-
-Ustawienie **Narration Passthrough** jest celowo minimalne. Przekazuje gotowy `narrationBeat` z Animation Planner przez uniwersalną umowę promptu wideo, nie obudowując go kolejnym streszczeniem sceny.
-
-Każda klatka kluczowa uruchamia jedno zadanie obrazu w Krea i jedno lokalne zadanie wideo w LTX. Trzy klatki kluczowe to więc trzy renderowania pierwszej klatki i trzy renderowania wideo. Na karcie z 8 GB pamięci VRAM zacznij od jednej klatki kluczowej w rozdzielczości 480p. Kiedy to się uda, przejdź do trzech klatek kluczowych i wyższych rozdzielczości.
+Każda klatka kluczowa uruchamia jedno zadanie obrazu w Krea i jedno lokalne zadanie wideo w LTX, więc trzy klatki kluczowe to trzy renderowania obrazów i trzy renderowania wideo.
 
 ## Pierwszy test
 
-Weź zakończoną turę GM z jedną wyraźną akcją wizualną: otwarciem drzwi, spojrzeniem w stronę dźwięku, kilkoma krokami albo jedną krótką wypowiedzią.
+Weź zakończoną turę GM z jedną wyraźną akcją wizualną, na przykład otwarciem drzwi, spojrzeniem w stronę dźwięku albo jedną krótką wypowiedzią.
 
-1. Najszybciej sprawdzisz działanie przy małej pamięci VRAM, ustawiając tymczasowo **Keyframes per Turn** na 1 i zostawiając **Animation Clip Duration** na 5 sekundach. Normalny przetestowany profil ma 3 klatki kluczowe.
-2. Oba automatyczne ustawienia storyboardu włącz dopiero wtedy, gdy bieżąca tura GM jest już zakończona.
-3. Otwórz **Chat Settings > Gallery** i wybierz **Create storyboard** dla tej zakończonej tury GM. W ten sposób ręcznie uruchomisz pełną ścieżkę ilustracji i animacji, bez czekania na kolejną turę.
-4. Jeśli podgląd promptów jest włączony, przejrzyj prompt pierwszej klatki przed wysłaniem.
-5. Sprawdź, czy wygenerowana pierwsza klatka daje sensowną pozycję wyjściową dla ruchu.
-6. Poczekaj na renderowanie pierwszej klatki, a potem na gotowy klip z ComfyUI.
-7. Gdy ręczna ścieżka działa, przywróć **Keyframes per Turn** na 3 i zostaw oba automatyczne ustawienia włączone dla kolejnych tur.
+1. Najszybciej sprawdzisz działanie przy małej pamięci VRAM, ustawiając **Keyframes per Turn** na 1 i zostawiając **Animation Clip Duration** na 5 sekundach.
+2. Oba automatyczne ustawienia storyboardu włącz po zakończeniu tury GM.
+3. Otwórz **Chat Settings → Gallery** (ustawienia czatu, galeria) i wybierz **Create storyboard** (utworzenie storyboardu). Uruchamia to pełną ścieżkę ilustracji i animacji bez czekania na kolejną turę.
+4. Jeśli przeglądanie promptów jest włączone, sprawdź prompt pierwszej klatki przed wysłaniem.
+5. Sprawdź, czy pierwsza klatka daje fizycznie sensowną pozycję wyjściową.
+6. Poczekaj na renderowanie pierwszej klatki, a potem na klip z ComfyUI.
+7. Gdy ręczna ścieżka działa, przywróć **Keyframes per Turn** na 3 i zostaw oba automatyczne ustawienia włączone.
 
-Na czas konfiguracji korzystaj z trybu podglądu **Floating**, bo łatwiej wtedy obejrzeć każdy obraz i klip. Kiedy workflow zacznie działać niezawodnie, przełącz się na **Background**, jeśli chcesz, żeby materiały storyboardu były wtopione w scenę trybu Game Mode.
+Na czas konfiguracji korzystaj z podglądu **Floating** (pływający), żeby obejrzeć każdy obraz i klip. Później przełącz się na **Background** (tło), jeśli chcesz, żeby materiały storyboardu pojawiały się w scenie gry.
+
+Jeśli coś nie zadziałało, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
 ## Jak działa przekazanie promptu
 
-Dla każdej klatki kluczowej Animation Planner zwraca:
+Dla każdej klatki kluczowej Animation Planner zwraca `imagePrompt` (wyłącznie widoczną pierwszą klatkę w chwili T=0) i `narrationBeat` (kompletny prompt LTX opisujący, co dzieje się dalej). **Storyboard First Frame** formatuje `imagePrompt` i wysyła go do Krea 2. Kiedy obraz już istnieje, **Narration Passthrough** rozwija się do `narrationBeat`. Marinara umieszcza go w polu `prompt` żądania wideo, podmienia `%prompt%` w workflow ComfyUI, wgrywa pierwszą klatkę i zastępuje `%reference_image_name%` jej nazwą pliku w ComfyUI. Nie potrzebujesz dwóch lokalnych segmentów promptu. Normalną ścieżką jest jeden globalny prompt.
 
-- `imagePrompt`: wyłącznie widoczną pierwszą klatkę w chwili T=0;
-- `narrationBeat`: kompletny prompt LTX obraz-do-wideo, opisujący, co dzieje się dalej.
+## Pisanie dobrego promptu LTX
 
-Wybrany Animation Planner wypełnia oba pola. **Storyboard First Frame** formatuje `imagePrompt` i wysyła tę scenę T=0 w języku naturalnym do Krea 2. Kiedy obraz już istnieje, **Narration Passthrough** rozwija się do `narrationBeat`. Marinara umieszcza go w polu `prompt` zwykłego żądania wideo, podmienia `%prompt%` w workflow ComfyUI, wgrywa pierwszą klatkę i zastępuje `%reference_image_name%` jej nazwą pliku w ComfyUI.
+Obraz źródłowy pokazuje już wygląd, kompozycję, otoczenie, światło i styl. Prompt wideo powinien dotyczyć ruchu:
 
-Nie trzeba tworzyć dwóch lokalnych segmentów promptu. Dla tych presetów storyboardu normalną ścieżką jest jeden globalny prompt.
+- Jeden płynny akapit w czasie teraźniejszym.
+- Jedna skupiona akcja, która mieści się w długości klipu.
+- Ruch kamery opisany względem postaci.
+- Widoczne reakcje pokazane spojrzeniem, mimiką, postawą, oddechem albo gestem.
+- Najwyżej jeden przydatny ruch w otoczeniu.
+- Dźwięk otoczenia, efekty, muzyka albo krótki dialog w cudzysłowie, gdy pasuje.
+- Naturalne zakończenie, wyciszenie ruchu albo krótkie zatrzymanie.
 
-## Co składa się na dobry prompt LTX
-
-Obraz źródłowy opisuje już wygląd postaci, kompozycję, otoczenie, oświetlenie, paletę i teksturę. Prompt wideo powinien skupić się na ruchu:
-
-- jeden płynny akapit w czasie teraźniejszym;
-- jedna wyraźna akcja, mieszcząca się w długości klipu;
-- ruch kamery opisany względem postaci;
-- widoczne reakcje pokazane spojrzeniem, mimiką, postawą, oddechem albo gestem;
-- najwyżej jeden sensowny ruch w otoczeniu;
-- dźwięk otoczenia, efekty, muzyka albo krótka kwestia w cudzysłowie, jeśli pasuje;
-- naturalne domknięcie, wyciszenie ruchu albo krótkie zatrzymanie na koniec.
-
-Unikaj zmian scen, cięć, teleportacji, kilku niepowiązanych akcji, złożonej fizyki, tłocznej choreografii, dokładnego czytelnego tekstu oraz powtarzania listy szczegółów widocznych już na pierwszej klatce.
-
-Przykład:
+Unikaj zmian sceny, cięć, teleportacji, kilku niepowiązanych akcji, złożonej fizyki, tłocznej choreografii, dokładnego czytelnego tekstu oraz powtarzania szczegółów widocznych już na pierwszej klatce.
 
 ```text
 She pushes the door open and walks outside as the camera follows closely behind her. A light breeze moves her hair while her pace remains steady. She glances toward the empty street and says, "Stay close." Footsteps and distant traffic continue as the camera settles behind her.
 ```
 
-## Zapisanie powtarzalnej konfiguracji
-
-Wynik "na 8 GB" zależy od czegoś więcej niż sam checkpoint. Udostępniając workflow, zanotuj:
-
-- dokładny model karty graficznej i ilość pamięci VRAM;
-- wersję albo commit ComfyUI;
-- wersje sterownika NVIDIA, CUDA, PyTorch i Pythona;
-- wymagane pakiety węzłów niestandardowych wraz z wersjami;
-- dokładne nazwy plików modeli i ich foldery w ComfyUI;
-- rozdzielczość wyjściową, długość, liczbę klatek kluczowych i orientacyjny czas renderowania;
-- to, czy Krea 2 działa w tej konfiguracji lokalnie, czy przez połączenie obrazu w chmurze.
-
-Dołączony plik JSON w formacie API przechowuje migawkę identyfikatorów węzłów, ścieżek modeli i nazw wejść. Jeśli ktoś trzyma modele w innym folderze, na przykład `LTX2/`, musi poprawić wartości w węzłach ładujących i wyeksportować świeżą kopię API. Workflow, który działa u swojego autora, potrafi zawieść gdzie indziej, gdy różni się węzeł niestandardowy albo ścieżka modelu.
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
 ### ComfyUI zwraca HTTP 400 albo "Prompt outputs failed validation"
 
-Workflow API nie odpowiada aktualnie zainstalowanemu grafowi. Poszukaj usuniętego węzła, wiszącego identyfikatora węzła, brakującego węzła niestandardowego, wejścia przemianowanego przy aktualizacji węzła albo nazwy pliku modelu, którego już nie ma. Wyeksportuj świeży workflow API z działającego grafu ComfyUI.
+Workflow API nie odpowiada zainstalowanemu grafowi. Poszukaj usuniętego węzła, wiszącego identyfikatora węzła, brakującego węzła niestandardowego, wejścia przemianowanego przy aktualizacji węzła albo nazwy pliku modelu, którego już nie ma. Wyeksportuj świeży workflow API z działającego grafu.
 
 ### Obrazy powstają, ale wideo nie
 
-Sprawdź **Automatic Storyboard Animations** oraz **Video Connection** w trybie Game Mode. Animacje wymagają zarówno ilustracji pierwszej klatki, jak i wybranego połączenia wideo.
+Sprawdź **Automatic Storyboard Animations** oraz **Video model** w trybie Game Mode. Animacje wymagają zarówno ilustracji pierwszej klatki, jak i wybranego konta wideo.
 
 ### LTX nie dostaje obrazu początkowego
 
@@ -275,25 +203,52 @@ Upewnij się, że `%reference_image_name%` występuje w zapisanym workflow API i
 
 ### Klip się rozpływa, zmienia postacie albo robi się chaotyczny
 
-Wróć do **LTX Simple Image-to-Video**, ustaw jedną klatkę kluczową i przetestuj turę z jedną akcją. Jeden obraz źródłowy nie zmieni się czysto w kilka lokacji, póz i zakończeń w trakcie krótkiego, ciągłego klipu. Sprawdź też pierwszą klatkę: mylące ujęcie wyjściowe utrudnia animację nawet przy dobrym prompcie ruchu.
+Wróć do **LTX Simple Image-to-Video**, ustaw jedną klatkę kluczową i przetestuj turę z jedną akcją. Jeden obraz nie zmieni się czysto w kilka miejsc, póz i zakończeń w krótkim klipie. Sprawdź też pierwszą klatkę: mylące ujęcie wyjściowe utrudnia animację.
 
-### Każde generowanie wygląda podobnie
+### Każde generowanie wygląda zbyt podobnie
 
-Zamień każde wpisane na stałe ziarno próbkowania na `%seed%`. Kiedy pojawi się dobry wynik, ustal to ziarno w workflow na stałe tylko na czas porównywania zmian promptu albo próbkowania.
+Zamień każde wpisane na stałe ziarno próbkowania na `%seed%`. Kiedy uzyskasz przydatny wynik, ustal to ziarno w workflow tymczasowo, tylko na czas porównywania zmian promptu albo próbkowania.
 
 ### Brakuje pamięci przy generowaniu
 
-Zacznij od 480p. Następnie w razie potrzeby skróć klip. Na czas testów zostaw jedną klatkę kluczową na turę, zamknij inne programy korzystające z karty graficznej i nie trzymaj lokalnego modelu językowego załadowanego na tym samym GPU o małej pamięci. Kwantyzowany checkpoint zmniejsza pamięć zajętą przez model, ale nie usuwa pamięci potrzebnej na latenty wideo, enkoder tekstu, modele VAE, dźwięk i upscaling.
+Zacznij od 480p. Potem skróć klip. Na czas testów zostaw jedną klatkę kluczową na turę, zamknij inne programy korzystające z karty graficznej i nie trzymaj lokalnego modelu językowego załadowanego na tym samym GPU z małą ilością pamięci VRAM. Kwantyzowany checkpoint zmniejsza pamięć zajmowaną przez model, ale nie pamięć potrzebną na latenty wideo, enkoder tekstu, modele VAE, dźwięk i upscaling.
 
 ### Marinara przestaje czekać, a ComfyUI dalej renderuje
 
-Zamknięcie żądania w przeglądarce albo utrata połączenia z klientem potrafi zatrzymać odpytywanie po stronie aplikacji Marinara Engine, nie anulując zadania już stojącego w kolejce ComfyUI. Zanim uruchomisz to samo renderowanie ponownie, sprawdź w ComfyUI kolejkę, historię i folder wyjściowy.
+Zamknięcie żądania w przeglądarce albo utrata połączenia może zatrzymać odpytywanie po stronie aplikacji Marinara Engine bez anulowania zadania, które już czeka w kolejce ComfyUI. Zanim uruchomisz to samo renderowanie ponownie, sprawdź w ComfyUI kolejkę, historię i folder wyjściowy.
 
 ### Workflow działa w ComfyUI, ale zawodzi z poziomu aplikacji Marinara Engine
 
-Porównaj plik JSON zapisany w połączeniu z najnowszym eksportem API. Zweryfikuj bazowy adres URL, pisownię symboli zastępczych, wymagane węzły niestandardowe, ścieżki modeli, węzeł wyjściowy, wymiary i pola długości. Edytowalny graf może działać, podczas gdy Marinara wciąż trzyma starszą wyeksportowaną migawkę.
+Porównaj plik JSON zapisany na koncie z najnowszym eksportem API. Sprawdź bazowy adres URL, pisownię symboli zastępczych, węzły niestandardowe, ścieżki modeli, węzeł wyjściowy, wymiary i pola długości. Edytowalny graf może działać, podczas gdy Marinara wciąż trzyma starszą wyeksportowaną migawkę.
 
-Po szczegółowe ślady z serwera włącz logowanie diagnostyczne i szukaj wpisów `[debug/game/storyboard-video]` oraz `[video-gen/comfyui]`. Poprawne żądanie pokazuje kompletny prompt globalny, nazwę wgranego pliku obrazu referencyjnego, długość, liczbę klatek oraz identyfikator promptu w kolejce ComfyUI.
+Po ślady z serwera włącz logowanie diagnostyczne i szukaj wpisów `[debug/game/storyboard-video]` oraz `[video-gen/comfyui]`. Poprawne żądanie pokazuje kompletny prompt globalny, nazwę wgranego pliku obrazu referencyjnego, długość, liczbę klatek oraz identyfikator promptu w kolejce ComfyUI.
+
+## Informacje: modele LTX 2.3
+
+Format modelu dobierz do rodziny karty graficznej i do pamięci, która zostaje po załadowaniu przez ComfyUI enkodera tekstu, modeli VAE i upscalera. To punkty wyjścia, a nie obietnice.
+
+| Rodzina GPU | Praktyczny punkt wyjścia | Uwagi |
+| --- | --- | --- |
+| RTX serii 30 (Ampere) | INT8 ConvRot | Start przy małej pamięci dla kart klasy 3070, 3080 i 3090. |
+| RTX serii 40 z 16 do 24 GB | FP8 input-scaled | Korzysta z przyspieszonej ścieżki FP8 w układach Ada. |
+| RTX serii 40 z 8 do 12 GB | INT8 ConvRot, gdy odciążanie przy FP8 jest zbyt wolne | Porównaj oba warianty na swoim workflow. |
+| RTX serii 50 (Blackwell) | Workflow NVFP4 dev | Wymaga ComfyUI, CUDA i zestawu węzłów obsługujących NVFP4. |
+| RTX 50 na istniejącym workflow distilled | FP8 input-scaled | Używaj tego, dopóki nie pojawi się oficjalny checkpoint distilled w formacie NVFP4. |
+
+Przetestowany workflow dla RTX 3080 używa `ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors`. Te końcówki nazw oznaczają różne formaty kwantyzacji i ścieżki wykonania, a nie presety jakości, które zawsze da się wymienić. Workflow **Dev** i **distilled** zakładają inny sposób próbkowania, więc nie podstawiaj checkpointu dev do grafu distilled bez zmiany workflow. To, że checkpoint się mieści, nie gwarantuje, że zmieści się dłuższe wideo albo wyższa rozdzielczość.
+
+Oficjalny workflow dla początkujących używa `ltx-2.3-22b-dev-fp8.safetensors`, `ltx-2.3-22b-distilled-lora-384.safetensors`, `gemma_3_12B_it_fp4_mixed.safetensors` i `ltx-2.3-spatial-upscaler-x2-1.1.safetensors`. Własne workflow mogą używać innych checkpointów, kwantyzacji, węzłów ładujących albo folderów. Nazwy plików zapisane w workflow API muszą dokładnie odpowiadać plikom, które widzi ComfyUI. Jeśli trzymasz modele w innym folderze, na przykład `LTX2/`, popraw wartości w węzłach ładujących i wyeksportuj świeżą kopię API.
+
+Udostępniając workflow, zanotuj model karty graficznej i ilość pamięci VRAM, wersję ComfyUI, wersje sterownika NVIDIA, CUDA, PyTorch i Pythona, węzły niestandardowe wraz z wersjami, nazwy plików modeli i ich foldery, rozdzielczość, długość, liczbę klatek kluczowych i czas renderowania oraz to, czy model Krea 2 działał lokalnie, czy w chmurze.
+
+Oficjalne materiały:
+
+- [Przewodnik LTX 2.3 obraz-do-wideo](https://docs.ltx.io/open-source-model/usage-guides/image-to-video)
+- [Przewodnik po promptach LTX](https://docs.ltx.io/open-source-model/usage-guides/prompting-guide)
+- [Karta modelu LTX 2.3](https://huggingface.co/Lightricks/LTX-2.3)
+- [Karta modelu LTX 2.3 NVFP4](https://huggingface.co/Lightricks/LTX-2.3-nvfp4)
+- [Oficjalne przykłady LTX 2.3 dla ComfyUI](https://github.com/Lightricks/ComfyUI-LTXVideo/tree/master/example_workflows/2.3)
+- [Społecznościowe wagi rozdzielone dla ComfyUI i wersje FP8](https://huggingface.co/Kijai/LTX2.3_comfy)
 
 ## Powiązane przewodniki
 

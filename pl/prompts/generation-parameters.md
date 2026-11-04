@@ -1,71 +1,81 @@
 # Parametry generowania
 
-Ten przewodnik wyjaśnia parametry generowania w aplikacji Marinara Engine. To ustawienia, które decydują o tym, jak AI pisze każdą odpowiedź – na przykład **Temperature** (losowość) i **Max Output Tokens** (maksymalna długość odpowiedzi). Presety i połączenia dostarczają wartości domyślne; w panelu **Advanced Parameters** (parametry zaawansowane) możesz je nadpisać dla każdego czatu.
-
-## Do czego służą parametry generowania
-
-Parametr generowania to ustawienie próbkowania. Decyduje o tym, jak model zamienia prompt (tekst, który Marinara wysyła do AI) w gotową wypowiedź. Nie zmienia tego, co mówisz do AI. Zmienia to, jak AI odpowiada.
-
-Na przykład jeden parametr sprawia, że odpowiedzi są bardziej losowe i kreatywne. Inny ustala, jak długą odpowiedź model może napisać. Większość osób nigdy nie musi tu nic ruszać. Wartości domyślne sprawdzają się w zwykłym czacie i w trybie Roleplay.
-
-Zmieniaj te ustawienia tylko wtedy, gdy chcesz rozwiązać konkretny problem. Pod koniec tego przewodnika znajdziesz listę typowych problemów i parametrów, które warto przy nich wypróbować.
+Parametry generowania to ustawienia, które decydują o tym, jak model pisze każdą odpowiedź, na przykład **Temperature** (losowość) i **Max Output Tokens** (maksymalna długość odpowiedzi). Presety i konta dostarczają wartości domyślne, a sekcja **Advanced Parameters** (parametry zaawansowane) w **Chat Settings** (ustawienia czatu) nadpisuje je dla jednego czatu. Wartości domyślne dobrze sprawdzają się w zwykłym czacie i w trybie Roleplay, więc zmieniaj te ustawienia tylko po to, żeby rozwiązać konkretny problem.
 
 ## Gdzie ich szukać
 
-Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Chat Parameters** (połączenia > domyślne parametry czatu). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane). Presety nie ustawiają limitów tokenów kontekstu ani odpowiedzi. Okno kontekstu ustaw w **Connections**, a limity odpowiedzi w **Connections** lub **Chat Settings > Advanced Parameters**. Starsze pliki presetów nadal się wczytują, ale ich zapisane limity tokenów są ignorowane.
+| Co | Gdzie |
+| --- | --- |
+| Wartości początkowe presetu | **Presets** (presety), otwórz preset, zakładka **Parameters** (parametry) |
+| Wartości zapisane w koncie | **Connections** (Połączenia), otwórz konto, sekcja **Chat defaults** (domyślne ustawienia czatu) |
+| Nadpisania dla jednego czatu | **Chat Settings**, sekcja **Advanced Parameters** |
 
-Wbudowany **Marinara's Universal Preset** nie wnosi żadnych parametrów generowania, w tym próbkowania, rozumowania i formatowania wiadomości. Korzysta z ustawień połączenia i czatu, a dla nieustawionych wartości z ustawień domyślnych Engine. Edytowalne presety użytkownika zachowują własne ustawienia parametrów.
+Presety nie ustawiają limitów tokenów kontekstu ani odpowiedzi. Okno kontekstu ustaw w **Connections**, a limity odpowiedzi w **Connections** albo w **Advanced Parameters**. Starsze pliki presetów nadal się wczytują, ale ich zapisane limity tokenów są ignorowane. Wbudowany **Marinara's Universal Preset** nie wnosi żadnych parametrów generowania.
 
-1. Otwórz czat, w którym chcesz coś zmienić.
-2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
-3. Znajdź sekcję **Advanced Parameters** i kliknij ją, żeby ją rozwinąć.
+Aby nadpisać parametry dla jednego czatu:
 
-Powinna pojawić się podpowiedź o treści: "Override generation parameters for this chat. Only change these if you know what you're doing." Wszystkie opisane niżej ustawienia znajdują się w sekcji **Advanced Parameters**.
+1. Otwórz czat.
+2. Otwórz **Chat Settings**.
+3. Znajdź **Advanced Parameters** i kliknij, żeby rozwinąć tę sekcję.
+4. Znajdź parametr, na przykład **Temperature**, i wpisz nową wartość.
+5. Sprawdź mały przełącznik obok jego nazwy. Jeśli jest wyłączony, włącz go. Parametr z wyłączonym przełącznikiem nie jest wysyłany, więc twoja zmiana nic nie da. **Temperature** zaczyna z wyłączonym przełącznikiem (zobacz [Przełącznik Send](#the-send-switch)).
 
-Sekcja **Advanced Parameters** jest dostępna w każdym trybie czatu (Conversation, Roleplay i Game).
+Pojawia się informacja: "Change generation settings for this chat only. Leave these alone unless you know what they do." Sekcja **Advanced Parameters** jest dostępna w czatach w trybach Conversation, Roleplay i Game.
 
 ## Każdy parametr prostym językiem
 
-Każdy parametr liczbowy ma pole do wpisania wartości oraz własny przełącznik. Ten przełącznik decyduje o tym, czy parametr trafia do modelu. Opisuje go następna sekcja.
+Każdy parametr liczbowy ma pole do wpisania wartości i przełącznik Send (zobacz niżej).
 
-**Temperature** steruje losowością. Zakres to od 0 do 2. Niższe wartości dają odpowiedzi bardziej skupione i przewidywalne. Wyższe wartości dają odpowiedzi bardziej kreatywne i różnorodne. Wartość w okolicach 1 to popularny złoty środek.
+| Parametr | Co robi | Zakres |
+| --- | --- | --- |
+| **Temperature** | Losowość. Niższa wartość daje odpowiedzi bardziej skupione i przewidywalne. Wyższa daje odpowiedzi bardziej kreatywne. Wartość w okolicach 1 to popularny złoty środek. | Od 0 do 2 |
+| **Max Output Tokens** | Najdłuższa odpowiedź, jaką model może napisać w jednej turze. Tokeny to małe kawałki tekstu. Podnieś tę wartość, jeśli odpowiedzi się urywają. | Bez sztywnego górnego limitu |
+| **Top P** | Model wybiera tylko spośród najbardziej prawdopodobnych słów, których łączna szansa sięga tej wartości. Przy 1 bierze pod uwagę wszystko. | Od 0 do 1 |
+| **Top K** | Ogranicza model do kilku najbardziej prawdopodobnych słów na każdym kroku. 0 wyłącza ten limit. Wiele usług go ignoruje. | Od 0 do 500 |
+| **Frequency** | Karze słowa tym mocniej, im częściej już wystąpiły. Wartości dodatnie ograniczają powtarzanie słów. | Od -2 do 2 |
+| **Presence** | Karze słowa, które w ogóle się pojawiły. Wartości dodatnie popychają model w stronę nowych tematów. | Od -2 do 2 |
 
-**Max Output Tokens** ustala, jak długą odpowiedź model może napisać w jednej turze. Token to mały kawałek tekstu, mniej więcej krótkie słowo albo jego część. Podnieś tę wartość, jeśli odpowiedzi wciąż się urywają. Pole nie ma sztywnego górnego limitu.
+**Frequency** i **Presence** to kary za powtórzenia.
 
-**Top P** to tak zwane próbkowanie jądrowe (nucleus sampling). Zakres to od 0 do 1. Model wybiera tylko spośród najbardziej prawdopodobnych słów, których łączna szansa sięga tej wartości. Niższe wartości dają odpowiedzi bardziej skupione. Wartość 1 pozwala modelowi brać pod uwagę wszystko.
+**Reasoning Effort** mówi modelowi zdolnemu do myślenia, czyli takiemu, który najpierw rozpisuje problem w ukrytych krokach, ile ma rozumować przed odpowiedzią. Do wyboru są **Off**, **Low**, **Medium**, **High**, **Extra high** i **Maximum**. Jeśli model nie obsługuje wybranego poziomu, Marinara obniża go do najwyższego poziomu, na jaki ten model pozwala. Po wybraniu modelu przyciski noszą nazwy poziomów, które dostaje ten model, więc **Maximum** może się wyświetlać jako **Max**, **Extra high** albo **High**.
 
-**Top K** ogranicza model do kilku najbardziej prawdopodobnych słów na każdym kroku. Zakres to od 0 do 500. Wartość 0 wyłącza ten limit. Wielu dostawców ignoruje to ustawienie.
+- Przy włączonym przełączniku Send wartość **Off** prosi usługę o wyłączenie myślenia, o ile wiadomo, że model to obsługuje. Część modeli nie potrafi wyłączyć myślenia i nadal może zwracać rozumowanie. Gdy myślenia ma nie być, wybierz model, który nie rozumuje.
+- Przy wyłączonym przełączniku Send nie jest wysyłana żadna preferencja co do rozumowania, a usługa używa własnego ustawienia domyślnego.
 
-**Frequency** karze słowa tym mocniej, im częściej już wystąpiły. Zakres to od -2 do 2. Wartość dodatnia ogranicza powtarzanie słów. To kara za częstotliwość, w aplikacji podpisana jako **Frequency**.
+**Verbosity** ustala, jak długie i szczegółowe mają być odpowiedzi: **None**, **Low**, **Medium** albo **High**. Korzystają z tego tylko niektóre modele.
 
-**Presence** karze słowa, które w ogóle się pojawiły, niezależnie od tego, jak często. Zakres to od -2 do 2. Wartość dodatnia popycha model w stronę nowych tematów. To kara za obecność, w aplikacji podpisana jako **Presence**.
+## Wskazówki dotyczące dostrajania
 
-Razem **Frequency** i **Presence** tworzą kary za powtórzenia.
+Zmieniaj po jednym ustawieniu naraz, żeby widzieć, co pomogło. To zasady z doświadczenia, a modele się różnią.
 
-**Reasoning Effort** mówi modelowi myślącemu, ile ma się zastanawiać, zanim odpowie. Model myślący to taki, który najpierw rozpisuje problem w ukrytych krokach. Do wyboru są **Off**, **Low**, **Medium**, **High**, **Extra high** i **Maximum**. Jeśli model nie obsługuje wybranego poziomu, Marinara obniża go do najwyższego poziomu, na jaki ten model pozwala. Po wybraniu połączenia przyciski noszą nazwy poziomów, które dostaje dany model, więc **Maximum** może się wyświetlać jako **Max**, **Extra high** albo **High**, a poziomy wysyłające to samo pokazują się jako jeden przycisk.
+| Problem | Co wypróbować |
+| --- | --- |
+| Odpowiedzi są sztywne albo powtarzalne | Podnieś nieco **Temperature**, do wartości między 1,1 a 1,3. |
+| Odpowiedzi są chaotyczne albo odbiegają od tematu | Obniż **Temperature**, do wartości między 0,7 a 0,9. |
+| Odpowiedzi się urywają | Podnieś **Max Output Tokens**. |
+| Postać powtarza te same sformułowania | Podnieś nieco **Frequency** albo **Presence**, do wartości między 0,3 a 0,6. |
 
-Kiedy przełącznik parametru jest włączony, wartość **Off** prosi dostawcę o wyraźne wyłączenie myślenia, zamiast tylko pominąć ustawienie wysiłku. Marinara wysyła właściwą dla dostawcy komendę wyłączenia wyłącznie do modeli, o których wiadomo, że ją obsługują. Część modeli ma rozumowanie wymuszone, nie da się go u nich wyłączyć i nadal mogą je zwracać. Kiedy myślenia ma nie być, wybierz model, który nie rozumuje. Wyłączenie samego przełącznika parametru działa inaczej: wtedy Marinara nie wysyła żadnej preferencji co do rozumowania i zostawia domyślne zachowanie dostawcy bez zmian.
+Aby zobaczyć, jakie parametry wysłano z daną wiadomością, użyj funkcji **Peek Prompt**. Pokazuje złożony prompt, a do tego model, temperaturę, maksymalną liczbę tokenów, poziom rozumowania i więcej.
 
-**Verbosity** decyduje o tym, jak długie i szczegółowe mają być odpowiedzi. Do wyboru są **None**, **Low**, **Medium** i **High**. Wartość **Low** skraca odpowiedzi. Wartość **High** zachęca do dłuższych i bardziej opisowych odpowiedzi. Z tego ustawienia korzystają tylko niektóre modele.
+<a id="the-send-switch"></a>
 
 ## Przełącznik Send
 
-Każdy parametr liczbowy, a także **Reasoning Effort** i **Verbosity**, ma obok nazwy mały przełącznik. W aplikacji nie ma on żadnego podpisu; w tym przewodniku występuje pod nazwą przełącznik Send. Najedź na niego, żeby zobaczyć podpowiedź "This parameter is sent to the model" albo "This parameter is not sent to the model."
+Każdy parametr liczbowy, a także **Reasoning Effort** i **Verbosity**, ma obok nazwy mały przełącznik. Nie ma on podpisu. Najedź na niego kursorem, żeby zobaczyć "This parameter is sent to the model" albo "This parameter is not sent to the model."
 
-Kiedy przełącznik Send przy parametrze jest włączony, Marinara dołącza ten parametr do żądania wysyłanego do dostawcy. Kiedy jest wyłączony, Marinara całkowicie pomija ten parametr. Dostawca używa wtedy własnej wartości domyślnej.
+- Włączony: Marinara dołącza parametr do żądania.
+- Wyłączony: Marinara pomija parametr, a usługa używa własnej wartości domyślnej. To co innego niż wartość taka jak 0 czy 1, która nadal mówi usłudze, czego ma użyć.
 
-Wyłączenie przełącznika Send to co innego niż wpisanie wartości 1 czy 0. Wartość 1 wciąż mówi dostawcy, czego ma użyć. Wyłączony przełącznik nie mówi dostawcy nic, więc decyduje sam model.
+Korzystaj z niego, gdy usługa zgłasza, że dwóch ustawień nie można używać razem (wyłącz jedno z nich), albo gdy komunikat błędu mówi, że parametr nie jest akceptowany (wyłącz go) lub jest wymagany (włącz go).
 
-Przełącznik Send przydaje się wtedy, gdy dostawca zgłasza, że dwóch ustawień nie można używać razem. Wyłącz jedno z nich i spróbuj ponownie. Przyda się też wtedy, gdy komunikat błędu mówi, że parametr nie jest akceptowany albo że jest wymagany. Wyłącz przełącznik tego parametru, jeśli parametr nie jest akceptowany, albo włącz go, jeśli jest wymagany.
-
-W sekcji **Advanced Parameters** danego czatu przełącznik Send jest domyślnie włączony tylko przy **Max Output Tokens** i **Reasoning Effort**. Pozostałe zaczynają jako wyłączone.
+W sekcji **Advanced Parameters** czatu domyślnie wysyłane są tylko **Max Output Tokens** i **Reasoning Effort**.
 
 ## Wartości domyślne
 
-Tabela pokazuje wartości zastępcze wyświetlane w edytorze parametrów i domyślny stan przełączników Send. Nie muszą to być wartości wysyłane do modelu: bez presetu generowanie zaczyna się od `4096` tokenów wyjściowych, przed zastosowaniem wartości połączenia i czatu. Aktywna scena może użyć `8192`. Tryb Game korzysta z zapisanych parametrów połączenia i czatu; wartości domyślne zadania stosuje tylko do nieustawionych parametrów. Wiersz **Effective** pokazuje wynikową wartość.
+To wartości, które pokazuje edytor, a nie zawsze te, które są wysyłane. Bez presetu generowanie zaczyna się od 4096 tokenów odpowiedzi, przed nadpisaniami konta i czatu. Aktywna scena może użyć 8192. Wiersz **Effective** (obowiązująca wartość) pokazuje wynikową wartość.
 
 | Parametr | Wartość początkowa | Wysyłane domyślnie |
-|---|---|---|
+| --- | --- | --- |
 | Temperature | 1 | Nie |
 | Max Output Tokens | 4096 w trybie Conversation, 8192 w trybie Roleplay; bez nadpisania w trybie Game | Tak |
 | Top P | 1 | Nie |
@@ -75,120 +85,90 @@ Tabela pokazuje wartości zastępcze wyświetlane w edytorze parametrów i domy�
 | Reasoning Effort | Maximum | Tak |
 | Verbosity | High | Nie |
 
-Wartość widnieje w polu nawet wtedy, gdy przełącznik **Send toggle** jest wyłączony. Po prostu nie trafia do modelu, dopóki go nie włączysz.
+Wartość nadal widnieje w polu, gdy przełącznik Send jest wyłączony. Nie jest wysyłana, dopóki go nie włączysz.
 
-## Assistant Prefill
+## Prefille i znaczniki myślenia
 
-**Assistant Prefill** to opcjonalny tekst dopisywany na samym początku odpowiedzi AI, zaraz po twojej wiadomości. Większość osób zostawia to pole puste.
+**Assistant Prefill** (wstępny tekst odpowiedzi asystenta) to opcjonalny tekst dodawany na początku odpowiedzi AI. Zostaw to pole puste, chyba że model obsługuje tę funkcję.
 
-Korzystaj z niego tylko przy modelach, które obsługują prefill albo ustalony znacznik otwierający. Można na przykład wpisać znacznik otwierający taki jak w tekście zastępczym pola, żeby wymusić na modelu określony początek odpowiedzi. W razie wątpliwości zostaw to pole puste.
+- Jest wysyłany jako ostatni, po twojej wiadomości i po każdej instrukcji, która po niej następuje.
+- Jeśli czat kończy się odpowiedzią AI, a **Post-Processing Messages** (przetwarzanie wiadomości) ma wartość **Apply** (zastosowanie), prefill zostaje dodany na końcu tej odpowiedzi.
+- Niektóre modele odrzucają prompt, który kończy się słowami samego AI, w tym **Claude (Subscription)** z dowolnym modelem. W ich przypadku Marinara dodaje prefill na początku ostatniej odpowiedzi AI, więc nowa odpowiedź nie zaczyna się od niego.
+- W czacie, w którym nie ma jeszcze odpowiedzi AI, prefill jest wysyłany na końcu jako twoja wiadomość.
 
-## Assistant Reasoning Prefill
+**Assistant Reasoning Prefill** (wstępne rozumowanie asystenta) to opcjonalny ukryty tekst dodawany na początku rozumowania AI, przed widoczną odpowiedzią. Używaj go tylko z modelami, które obsługują osobny prefill rozumowania, takimi jak Kimi K3. Można go używać razem z **Assistant Prefill**.
 
-**Assistant Reasoning Prefill** (wstępne rozumowanie asystenta) to opcjonalny ukryty tekst dopisywany na samym początku rozumowania modelu, zanim powstanie widoczna odpowiedź. Większość osób zostawia to pole puste.
-
-Korzystaj z niego tylko przy modelach, które obsługują osobny prefill rozumowania, takich jak Kimi K3. Można używać go razem z **Assistant Prefill**: jedno rozpoczyna ukryte rozumowanie modelu, a drugie jego widoczną odpowiedź. Jeśli nie masz pewności, czy model to obsługuje, zostaw pole puste.
-
-## Thinking Tags
-
-Pole **Thinking Tags** mówi aplikacji Marinara Engine, jak dany model oznacza ukryte rozumowanie w zwykłym tekście. Część modeli opakowuje rozumowanie w znaczniki. Jeśli Marinara zna te znaczniki, chowa rozumowanie pod akcją **View model thoughts** (podgląd myśli modelu) zamiast pokazywać je w odpowiedzi.
-
-Wpisuj jedno opakowanie w każdej linii, z miejscem na ukryty tekst pośrodku. Popularne opakowania – think, thinking, thought, pipe, channel oraz pary nawiasów – Marinara rozpoznaje sama. To pole przydaje się tylko przy modelach, które używają nietypowego opakowania.
+Pole **Thinking Tags** (znaczniki myślenia) mówi aplikacji Marinara Engine, jak model oznacza ukryte rozumowanie w zwykłym tekście, dzięki czemu Marinara może schować to rozumowanie pod **View model thoughts** (podgląd myśli modelu). Wpisz jedno opakowanie w każdej linii, z miejscem na ukryty tekst pośrodku. Popularne opakowania, takie jak think, thinking, thought, pipe, channel i pary nawiasów, są już rozpoznawane. To pole jest potrzebne tylko przy nietypowym opakowaniu.
 
 ## Custom Parameters
 
-Pole **Custom Parameters** pozwala dodać surowe ustawienia, dla których Marinara nie ma osobnego pola. Wpisujesz obiekt w formacie JSON, a Marinara dołącza go do żądania wysyłanego do dostawcy.
+Pole **Custom Parameters** (parametry własne) pozwala dodać surowe ustawienia, dla których Marinara nie ma osobnego pola. Wpisz obiekt JSON, a Marinara scali go z żądaniem.
 
-Wartości **Custom Parameters** zapisane jako domyślne dla połączenia trafiają do każdego generowania tekstu przez API, które korzysta z tego połączenia – w tym do trybów Conversation, Roleplay i Game, do zakładki Noodle, do podsumowań, agentów i zainstalowanych pakietów agentów. Dotyczy to również własnych endpointów działających na twoim komputerze. Wartości **Custom Parameters** ustawione dla pojedynczego czatu dochodzą tylko w tym czacie i mają pierwszeństwo przed pasującymi kluczami z poziomu połączenia.
-
-To pole dla zaawansowanych. Zły klucz może sprawić, że dostawca odrzuci żądanie. W obiekcie trzeba pisać `true`, `false` i `null` małymi literami. Zostaw to pole puste, chyba że przewodnik dostawcy każe dodać konkretny klucz.
+- Zapisane jako wartości domyślne konta są wysyłane przy każdym generowaniu tekstu, które korzysta z tego konta: w trybach Conversation, Roleplay i Game, w zakładce Noodle, przy podsumowaniach, agentach i zainstalowanych pakietach agentów. Dotyczy to również własnych endpointów na twoim komputerze.
+- Custom Parameters ustawione dla czatu są dodawane w tym czacie i mają pierwszeństwo przed pasującymi kluczami konta.
+- Zły klucz może sprawić, że usługa odrzuci żądanie. Pisz `true`, `false` i `null` małymi literami. Zostaw to pole puste, chyba że przewodnik usługi każe dodać klucz.
 
 ## Service Tier
 
-Ustawienie **Service Tier** pojawia się tylko wtedy, gdy połączenie czatu korzysta z dostawcy OpenRouter lub NanoGPT. Decyduje o tym, jak dostawca kieruje żądanie. Do wyboru są **Default**, **Flex** i **Priority**. Opcja **Flex** bywa tańsza i wolniejsza. Opcja **Priority** bywa szybsza i droższa. Opcja **Default** nie wysyła żadnego poziomu.
+Ustawienie **Service Tier** (poziom usługi) pojawia się tylko wtedy, gdy konto czatu korzysta z usługi OpenRouter lub NanoGPT. Decyduje o tym, jak usługa kieruje twoje żądanie. **Default** nie wysyła żadnego poziomu. **Flex** bywa tańsze i wolniejsze. **Priority** bywa szybsze i droższe.
 
 ## Limit wiadomości w kontekście
 
-Ustawienie **Limit Context Messages** decyduje o tym, ile historii czatu trafia do modelu. Włącz je, żeby wysyłać tylko ostatnie N wiadomości zamiast całego czatu.
+Ustawienie **Limit Context Messages** (limit wiadomości w kontekście; podpisane też jako **Context message limit**) wysyła tylko ostatnie N wiadomości zamiast całego czatu. Domyślnie jest wyłączone. Po włączeniu licznik startuje od 50, a ustawić można wartość od 1 do 9999. Mniejsza liczba obniża koszt i przyspiesza działanie, a AI pamięta mniej.
 
-Po włączeniu licznik startuje z wartości 50. Da się wpisać dowolną liczbę od 1 do 9999. Mniejsza liczba wysyła mniej historii, co potrafi obniżyć koszt i przyspieszyć działanie. Oznacza też, że AI pamięta mniej ze starszej części czatu. To ustawienie jest domyślnie wyłączone.
-
-W czacie Roleplay z włączoną funkcją **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) ten limit nie jest używany. Advanced Memory decyduje, ile historii wysłać, na podstawie swojego ustawienia **Maximum allowed context before compression (tokens)** (maksymalny kontekst przed kompresją), a starsze sceny wracają jako podsumowania i fragmenty. Żeby wysyłać tam mniej historii, zmniejsz to ustawienie w **Chat Settings → Memory Recall**. Gdy obie opcje są włączone, pod ustawieniem **Limit Context Messages** pojawia się informacja o tym. Zobacz [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+W czacie w trybie Roleplay z włączoną funkcją **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) ten limit nie jest używany. Advanced Memory Recall ustala, ile historii jest wysyłane, za pomocą ustawienia **Maximum allowed context before compression (tokens)** (maksymalny kontekst przed kompresją). Aby wysyłać mniej, zmniejsz to ustawienie w **Chat Settings → Memory Recall**. Zobacz [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay-and-game-mode).
 
 ## Exclude Past Reasoning
 
-Ustawienie **Exclude Past Reasoning** jest domyślnie włączone. Trzyma zapisane myślenie i rozumowanie z wcześniejszych tur z dala od nowych promptów. Marinara nie wysyła tego rozumowania do modelu po raz drugi.
+Ustawienie **Exclude Past Reasoning** (pomijanie wcześniejszego rozumowania) jest domyślnie włączone. Trzyma zapisane rozumowanie z wcześniejszych tur z dala od nowych promptów. Zostaw je włączone, chyba że masz wyraźny powód, żeby podawać modelowi stare rozumowanie z powrotem.
 
-Po wyłączeniu tej opcji pojawia się **Past reasoning blocks** (bloki wcześniejszego rozumowania). Domyślna wartość `1` zachowuje najnowszy dostępny blok rozumowania asystenta; `0` dołącza wszystkie dostępne bloki. Wybór jest zapisywany dla tego czatu i pozostaje zapisany po ponownym włączeniu wykluczania. Nie usuwa to zapisanych myśli. Ponownie wysyłane może być tylko rozumowanie obsługiwane przez bieżące połączenie.
+Po jego wyłączeniu pojawia się **Past reasoning blocks** (bloki wcześniejszego rozumowania). Domyślna wartość to 1, która zachowuje najnowszy dostępny blok rozumowania. Wartość 0 dołącza wszystkie dostępne bloki. Nie usuwa to zapisanych myśli, a ponownie wysłać można tylko rozumowanie obsługiwane przez bieżące konto.
 
-Zostaw je włączone, chyba że masz wyraźny powód, by podawać modelowi stare rozumowanie z powrotem.
+## Image captioning
 
-## Image Captioning
+Ustawienie **Image captioning** (opisywanie obrazów) sprawia, że Marinara opisuje słowami każdy załączony obraz, korzystając z innego modelu, zamiast wysyłać sam obraz. Używaj go przy modelach, które nie widzą obrazów. Domyślnie jest wyłączone.
 
-Ustawienie **Image Captioning** zmienia sposób, w jaki AI obsługuje załączone obrazy. Po włączeniu Marinara opisuje każdy załączony obraz tekstem, korzystając z wybranego połączenia, zamiast wysyłać sam obraz.
+1. W sekcji **Advanced Parameters** włącz **Image captioning**.
+2. Wybierz model z listy rozwijanej **Captioning model** (model do opisywania obrazów).
+3. Opcjonalnie edytuj **Captioning Prompt** (prompt do opisywania obrazów), czyli instrukcje wysyłane razem z każdym obrazem. Przycisk resetowania albo wyczyszczenie pola przywraca wartość domyślną. Prompt jest zapisywany tylko dla tego czatu, a **Save as Connection Default** go nie kopiuje.
 
-Przydaje się przy modelach, które nie widzą obrazów. Po włączeniu wybierz połączenie z listy rozwijanej **Captioning Connection**. Endpoint obsługujący tylko tekst może zgłosić błąd, jeśli wskażesz niewłaściwe połączenie. To ustawienie jest domyślnie wyłączone.
-
-Pole **Captioning Prompt** (prompt do opisywania obrazów) pod listą rozwijaną zawiera instrukcje wysyłane razem z każdym obrazem. Edytuj je, aby zmienić opisy, na przykład poprosić o więcej szczegółów. Przycisk resetowania obok etykiety przywraca domyślny prompt, podobnie jak wyczyszczenie pola. Prompt jest zapisywany tylko dla tego czatu, a przycisk **Save as Connection Default** go nie kopiuje.
-
-Jeśli opisywanie się nie powiedzie, na przykład dlatego, że połączenie używane do opisów jest uszkodzone, zostało usunięte albo nic nie zwraca, generowanie odpowiedzi zatrzymuje się z błędem **Image captioning failed**. Marinara nie wysyła wtedy samego obrazu zamiast opisu. Napraw lub zmień to połączenie albo wyłącz ustawienie Image Captioning.
+Jeśli to nie zadziałało: gdy opisywanie się nie uda, bo konto używane do opisów jest uszkodzone, zostało usunięte albo nic nie zwraca, odpowiedź zatrzymuje się z błędem **Image captioning failed**. Marinara nie wysyła wtedy zamiast tego samego obrazu. Napraw lub zmień model do opisywania obrazów albo wyłącz **Image captioning**.
 
 ## Save as Connection Default
 
-Na dole sekcji **Advanced Parameters** przycisk **Save as Connection Default** zapisuje bieżące wartości parametrów w samym połączeniu. Od tej pory nowe czaty korzystające z tego połączenia startują z tych wartości.
+Na dole sekcji **Advanced Parameters** przycisk **Save as Connection Default** (zapisanie jako domyślne dla połączenia) zapisuje bieżące wartości w koncie. Nowe czaty korzystające z tego konta zaczynają wtedy od tych wartości. Przycisk pojawia się tylko przy zapisanym, zwykłym koncie. Jest ukryty przy losowej puli i przy wbudowanym modelu.
 
-Przycisk pojawia się tylko przy zwykłym, zapisanym połączeniu. Nie ma go przy losowej puli połączeń ani przy wbudowanym modelu lokalnym.
-
-Przycisk **Reset to Defaults** poniżej kasuje wszystkie zmiany parametrów wprowadzone w tym czacie i przywraca jego odziedziczone ustawienia. Odziedziczone przełączniki **Send** podążają za wybranym połączeniem; edycja innej wartości nie zamienia ich w ustawienia tego czatu. Przełącznik **Send** zmieniony ręcznie pozostaje ustawieniem tego czatu aż do zresetowania.
+**Reset to Defaults** (przywrócenie wartości domyślnych) kasuje wszystkie zmiany wprowadzone w tym czacie i przywraca czatowi odziedziczone ustawienia. Odziedziczone przełączniki Send podążają za wybranym kontem. Przełącznik Send zmieniony samodzielnie pozostaje nadpisaniem czatu, dopóki go nie zresetujesz.
 
 ## Jak nakładają się i nadpisują wartości domyślne
 
-Parametry są ustalane osobno dla każdego pola, w tej kolejności:
+Marinara ustala każdy parametr według tej listy. Późniejsze pozycje nadpisują wcześniejsze.
 
-1. Sekcja **Parameters** (parametry) wybranego presetu albo wbudowane wartości domyślne generowania, jeśli nie używasz presetu (temperatura `1`). Początkowy limit odpowiedzi wynosi `4096` tokenów niezależnie od presetu; presety nie mogą ustawiać limitów kontekstu ani odpowiedzi. W trybie Roleplay preset przypisany w połączeniu ma pierwszeństwo przed presetem wybranym w czacie.
-2. Sekcja **Default Chat Parameters** (domyślne parametry czatu) połączenia.
+1. Sekcja **Parameters** presetu albo wbudowane wartości domyślne, gdy nie używasz presetu. Limit odpowiedzi zaczyna się od 4096 tokenów, bo presety nie mogą ustawiać limitów odpowiedzi. W trybie Roleplay nadpisanie presetu ustawione w koncie ma pierwszeństwo przed presetem wybranym w czacie.
+2. Sekcja **Chat defaults** konta.
 3. Sekcja **Advanced Parameters** tego czatu.
-4. Reguły trybu: aktywny czat sceny ustawia limit odpowiedzi na `8192`, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game używa zapisanych parametrów połączenia i czatu, bez wymuszania próbkowania, rozumowania ani minimalnej długości odpowiedzi. Wywołania pomocnicze również uwzględniają zapisane parametry; wartości domyślne zadania stosuje się tylko wtedy, gdy dany parametr nie jest ustawiony.
-5. Limity odpowiedzi: tryb Game uwzględnia znany limit odpowiedzi modelu, a ustawienie **Max Output Tokens override** w połączeniu ogranicza żądania w każdym trybie. Dostępny kontekst może dodatkowo zmniejszyć budżet odpowiedzi.
+4. Reguły trybu. Aktywny czat sceny ustawia limit odpowiedzi na 8192, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game używa zapisanych parametrów konta i czatu bez wymuszania próbkowania, rozumowania ani minimalnej długości odpowiedzi.
+5. Limity odpowiedzi. Tryb Game stosuje znany limit odpowiedzi modelu, a ustawienie **Max output tokens override** (nadpisanie maksymalnej liczby tokenów odpowiedzi) konta ogranicza żądania w każdym trybie. Dostępny kontekst może dodatkowo zmniejszyć budżet.
 
-Wiersz **Effective** (obowiązująca wartość) obok parametru pokazuje zapisaną wartość i warstwę, która ma pierwszeństwo, z uwzględnieniem reguł trybu oraz limitów odpowiedzi. W edytorze połączenia korzysta z aktualnie otwartego czatu używającego tego połączenia albo z wartości bazowych trybu Roleplay, gdy żaden czat nie jest otwarty. Zapisz zmiany, żeby odświeżyć wskazanie. Wyłączony przełącznik Send jest pokazany jako **not sent**; dostawcy nadal mogą wymuszać wymagane parametry lub dostosowywać nieobsługiwane wartości. Custom Parameters i dopasowanie do kontekstu mogą dodatkowo zmienić ostateczne żądanie.
-
-Na przykład połączenie z wartością `8192` i ten czat z wartością `16384` dają **Effective: 16384 · this chat**. Limit odpowiedzi połączenia wynoszący `4096` zmienia wskazanie na **Effective: 4096 · output token cap**. Zresetowanie parametrów czatu odsłania następną obowiązującą warstwę; nie usuwa reguł presetu ani trybu.
+Wiersz **Effective** obok parametru pokazuje wartość, która wygrywa, i warstwę, z której pochodzi, na przykład **Effective: 16384 · this chat** albo **Effective: 4096 · output token cap**, gdy obowiązuje limit konta. Wyłączony przełącznik Send pokazuje **not sent**. Usługi nadal mogą wymagać parametrów lub dostosowywać nieobsługiwane wartości. Custom Parameters i dopasowanie do kontekstu mogą zmienić ostateczne żądanie. Zresetowanie parametrów czatu usuwa tylko nadpisanie tego czatu (pozycja 3). Wartość pochodzi wtedy z **Chat defaults** konta, jeśli są ustawione, a w przeciwnym razie z presetu. Reguły trybu i limity odpowiedzi (pozycje 4 i 5) nadal obowiązują potem.
 
 <a id="parameters-for-agents"></a>
 
 ## Parametry agentów
 
-Wywołania agentów korzystają z **Default Chat Parameters** zapisanych w połączeniu, którego używają: własnym połączeniu agenta albo połączeniu czatu, jeśli agent nie ma własnego. Marinara stosuje te same reguły co przy odpowiedzi na czacie, w tym przełączniki Send i opisane niżej limity modeli. Presety i **Advanced Parameters** czatu nie zmieniają wywołań agentów, z wyjątkiem opisanej niżej reguły temperatury.
+Wywołania agentów korzystają z **Chat defaults** zapisanych w koncie, na którym działają: własnym koncie agenta albo koncie czatu, gdy agent nie ma własnego. Przełączniki Send i limity modeli działają tak samo jak przy odpowiedzi na czacie. Presety i **Advanced Parameters** czatu nie zmieniają wywołań agentów, z wyjątkiem opisanej niżej reguły temperatury.
 
-- **Wysyłane do agentów**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, własne nagłówki oraz dodatkowe parametry dodane w **Settings** (ustawienia), potem **Advanced** (zaawansowane), a następnie **Parameters** (parametry), takie jak Top A lub ziarno losowości. Parametr z wyłączonym przełącznikiem Send nie jest wysyłany.
-- **Niewysyłane do agentów**: Max Output Tokens, sekwencje zatrzymania, prefiksy odpowiedzi i rozumowania, Thinking Tags oraz inne ustawienia formatu promptu. Każdy agent zachowuje własne **Max Output Tokens**.
-- **Temperature**: agent korzysta z temperatury połączenia albo z `0.7`, jeśli nie ma zapisanej wartości. Beholder zawsze używa `0`, a moduł piszący prompty dla agenta Illustrator ma własną wartość. Podczas generowania odpowiedzi na czacie agenci na połączeniu czatu korzystają z ustalonych przez czat temperatury i przełączników Send, tak jak wcześniej, ale parametr wyłączony w połączeniu nadal nie jest wysyłany. Ponowienia korzystają z zapisanych wartości i przełączników Send połączenia, a nie czatu.
-- **Reasoning Effort**: wybrany poziom lub **Off** (wyłączone) dotyczy każdego agenta na tym połączeniu, którego model obsługuje Reasoning Effort. Włączenie **Use custom defaults for this connection** (własne wartości domyślne dla tego połączenia) ustawia początkowo Reasoning Effort na **Maximum** (maksymalny) w większości połączeń (**Default** w Codex), więc ich agenci rozumują na najwyższym poziomie modelu, co trwa dłużej i kosztuje więcej. Wybierz niższy poziom lub wyłącz przełącznik Send, jeśli agenci mają myśleć mniej. Bez zapisanego poziomu (własne wartości domyślne wyłączone albo **Default** w połączeniu Codex) agenci odpowiadający w JSON proszą o wyłączenie myślenia, a pozostali zostawiają domyślne ustawienie modelu.
-- **Miejsce na myślenie**: gdy połączenie ma zapisany poziom Reasoning Effort dla modelu, Marinara dodaje miejsce na myślenie ponad **Max Output Tokens** agenta, aby odpowiedź się nie urwała. To dodatkowe miejsce mieści się w limicie odpowiedzi połączenia, limicie modelu i kontekście pozostawionym przez prompt. Własny endpoint dostaje je nawet wtedy, gdy nie wysyła poziomu, ponieważ lokalny model może myśleć samodzielnie.
+- **Wysyłane do agentów:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, własne nagłówki oraz dodatkowe parametry, takie jak Top A albo ziarno losowości, dodane w **Settings** (Ustawienia), potem **Advanced** (zaawansowane), a następnie **Parameters**. Parametr z wyłączonym przełącznikiem Send nie jest wysyłany.
+- **Niewysyłane do agentów:** Max Output Tokens, sekwencje zatrzymania, prefille, Thinking Tags i inne ustawienia formatu promptu. Każdy agent zachowuje własne **Max Output Tokens**.
+- **Temperature:** agent korzysta z temperatury konta albo z 0,7, gdy nie zapisano żadnej. Beholder zawsze używa 0, a moduł piszący prompty dla agenta Illustrator używa własnej wartości. Podczas odpowiedzi na czacie agenci na koncie czatu przyjmują temperaturę i przełączniki Send ustalone przez czat. Ponowienia korzystają z wartości zapisanych w koncie.
+- **Reasoning Effort:** wybrany poziom albo **Off** dotyczy każdego agenta na tym koncie, którego model przyjmuje to ustawienie. **Use custom defaults for this model** (własne wartości domyślne dla tego modelu) ustawia początkowo Reasoning Effort na **Maximum** w większości kont (**Default** na koncie Codex), więc agenci myślą na najwyższym poziomie, co trwa dłużej i kosztuje więcej. Wybierz niższy poziom albo wyłącz przełącznik Send tego parametru, żeby agenci myśleli mniej. Bez zapisanego poziomu agenci odpowiadający w JSON proszą o wyłączenie myślenia, a pozostali zostawiają ustawienie domyślne modelu.
+- **Miejsce na myślenie:** gdy konto ma zapisany Reasoning Effort, Marinara dodaje miejsce na myślenie ponad **Max Output Tokens** agenta, w granicach limitu odpowiedzi konta, limitu modelu i wolnego kontekstu. Własny endpoint dostaje je nawet wtedy, gdy nie wysyła poziomu.
 
-Zainstalowane pakiety agentów korzystają z tych samych wartości połączenia. Wartość zapisana i wysyłana przez połączenie zastępuje tę, o którą prosi pakiet, a parametr bez ustawionej wartości w połączeniu zachowuje ustawienie pakietu. Parametry **Reasoning Effort** lub **Max Output Tokens** z wyłączonym przełącznikiem Send w połączeniu nie są wysyłane nawet wtedy, gdy pakiet o nie prosi. Przełączniki Temperature i Verbosity są początkowo wyłączone, więc te parametry zachowują własne wartości pakietu. Pakiety zachowują własny budżet odpowiedzi, powiększony o miejsce na myślenie, gdy ma zastosowanie Reasoning Effort połączenia.
+Zainstalowane pakiety agentów korzystają z tych samych wartości konta. Wartość, którą konto zapisuje i wysyła, zastępuje tę, o którą prosi pakiet, a wszystko, co nie jest ustawione, zachowuje ustawienie pakietu. **Reasoning Effort** albo **Max Output Tokens** wyłączone w koncie nie są wysyłane, nawet jeśli pakiet o nie prosi. Temperature i Verbosity są początkowo wyłączone, więc zostaje własna wartość pakietu.
 
 ## Część modeli ignoruje część parametrów
 
-Nie każdy model przyjmuje każdy parametr. Kiedy Marinara wie, że model odrzuca dane ustawienie, pomija je w żądaniu. Suwak albo pole nadal widnieje w aplikacji, ale jego zmiana nie robi przy tym modelu żadnej różnicy.
-
-Zdarza się to często przy modelach rozumujących i myślących, które odrzucają ustawienia próbkowania takie jak temperatura. Jeśli ustawienie sprawia wrażenie martwego, model może go nie przyjmować. Zachowanie zależy też mocno od wybranego modelu, więc ta sama wartość potrafi dawać inny efekt w różnych modelach.
-
-Przy modelu z automatycznym routingiem, który za każdym razem może wybrać inny model do odpowiedzi, parametry potrafią zachowywać się inaczej z tury na turę. Wskazanie jednego konkretnego modelu utrzymuje stabilne zachowanie.
-
-## Wskazówki: co zmienić przy jakim objawie
-
-Większość osób nigdy tego nie zmienia. Jeśli chcesz spróbować, zmieniaj po jednym ustawieniu naraz – tylko wtedy widać, co faktycznie pomogło.
-
-- Odpowiedzi są sztywne albo powtarzalne: podnieś nieco **Temperature**, na przykład z 1 do wartości między 1.1 a 1.3.
-- Odpowiedzi są chaotyczne albo odbiegają od tematu: obniż **Temperature**, na przykład do wartości między 0.7 a 0.9.
-- Odpowiedzi urywają się w połowie: podnieś **Max Output Tokens**.
-- Postać wciąż powtarza te same sformułowania: podnieś nieco **Frequency** albo **Presence**, na przykład do wartości między 0.3 a 0.6.
-
-To zasady z doświadczenia, a nie przetestowane zalecenia. Różne modele reagują różnie, więc wartość, która sprawdza się na jednym połączeniu, nie musi zadziałać na innym.
-
-Żeby zobaczyć dokładnie, jakie parametry poszły z konkretną wiadomością, użyj funkcji **Peek Prompt**. Pokazuje ona złożony prompt, a do tego model, temperaturę, maksymalną liczbę tokenów, poziom rozumowania i więcej.
+Nie każdy model przyjmuje każdy parametr. Gdy Marinara wie, że model odrzuca dane ustawienie, pomija je w żądaniu. Kontrolka nadal jest widoczna, ale jej zmiana nic nie daje. Zdarza się to często przy modelach rozumujących, które odrzucają ustawienia próbkowania, takie jak temperatura. Przy modelu z automatycznym routingiem, który za każdym razem zmienia model udzielający odpowiedzi, parametry mogą zachowywać się inaczej z tury na turę. Wybierz jeden stały model, żeby zachowanie było stabilne.
 
 ## Powiązane przewodniki
 

@@ -1,186 +1,190 @@
 # Editor de presets y gestor de prompts
 
-Esta guía explica los presets de prompt (ajuste guardado) en Marinara Engine. Aprenderás qué son, cómo crear uno en el **Preset Editor** (Editor de presets) y cómo asignarlo a un chat. Un preset controla la estructura del texto que Marinara envía a la IA.
+Un preset (ajuste guardado) es un plano guardado del prompt, el texto que Marinara envía al modelo en cada respuesta. Decide qué entra y en qué orden: tus instrucciones, la tarjeta de personaje, tu persona, el historial del chat, las entradas de lorebook (libro de trasfondo) y más. Usa el **Preset Editor** (Editor de presets) para construir uno y después asígnalo a un chat.
 
-## Qué es un preset
-
-Un preset es un plano reutilizable. Decide qué información envía Marinara a la IA y en qué orden. Eso incluye las instrucciones de sistema que escribes, la tarjeta de personaje, tu persona, el historial del chat, las entradas de lorebook (libro de trasfondo) y más.
-
-Los presets dan forma al prompt (instrucciones enviadas a la IA) en los chats de **Roleplay** y **Game**. El modo **Conversation** funciona de otra manera y usa un solo campo de prompt. Consulta "En qué se diferencian los modos Conversation y Game" más abajo.
-
-Los presets no necesitan una API key (clave de API) ni una cuenta. Solo describen cómo se arma un prompt. Aún necesitas una conexión que funcione para enviar el prompt. Consulta [Conectar con un proveedor de IA](../connections/connecting-to-a-provider.md).
-
-El **Marinara's Universal Preset** integrado proporciona el texto del prompt sin asignar parámetros de generación. Sus ajustes antiguos guardados de muestreo, razonamiento, formato y tokens se ignoran. Siguen aplicándose los ajustes de conexión, las sustituciones del chat y los valores predeterminados de Engine. Crea una copia editable para personalizar el preset.
-
-## Abrir el Preset Editor
-
-Los presets de prompt viven en la sección **Prompts** del panel **Presets**, en el lado izquierdo de la app. Las otras secciones de este panel son **Regexes** y **Functions**.
-
-El panel tiene tres botones en la parte superior:
-
-- **New** (Nuevo; icono de más): crea un preset nuevo.
-- **Import** (Importar; icono de descarga): carga un preset desde un archivo `.json`.
-- **Select** (Seleccionar; icono de marca): elige varios presets para exportarlos o borrarlos a la vez.
-
-Debajo de los botones hay una casilla **Search presets** (Buscar presets) y un menú de orden con **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** y **Oldest**. **Manual order** conserva el orden que tú fijes: arrastra la fila de un preset hacia arriba o hacia abajo, o pulsa Alt+Arriba o Alt+Abajo en una fila con el foco. Un botón **New Folder** (Nueva carpeta) te deja agrupar presets en carpetas. Arrastra un preset sobre una carpeta para moverlo. En una pantalla táctil, mantén pulsada una fila para tomarla. Haz doble clic o doble toque en una carpeta para cambiarle el nombre.
-
-Cada fila de preset muestra su nombre, formato de envoltura, número de secciones y autor. Aparece una insignia **DEFAULT** si el preset es el predeterminado marcado con estrella. Haz clic en una fila de preset para abrirlo en el **Preset Editor**.
-
-## Crear y editar un preset
-
-Sigue estos pasos para hacer un preset nuevo.
-
-1. Abre el panel **Presets**.
-2. Haz clic en el botón **New**. Se abre la ventana **Create Preset** (Crear preset).
-3. Escribe un **Name** (Nombre). Este campo es obligatorio.
-4. Agrega una **Description** (Descripción) opcional para recordar para qué sirve el preset.
-5. Haz clic en **Create** (Crear). El preset nuevo se abre en el **Preset Editor**.
-6. Arma tu prompt en la pestaña **Sections** (Secciones) (se explica más abajo).
-7. Haz clic en **Save** (Guardar) en la esquina superior derecha cuando termines.
-
-El editor no guarda por su cuenta. Tus cambios solo se conservan después de que haces clic en **Save**. Si intentas salir con ediciones sin guardar, aparece un aviso con los botones **Keep editing** (Seguir editando), **Discard** (Descartar) y **Save & close** (Guardar y cerrar).
-
-Para exportar un preset, ábrelo y haz clic en el botón de exportar (icono de flecha hacia arriba) en la barra superior. Marinara te pide guardar primero si tienes ediciones sin guardar. Para borrar un preset, usa el icono de papelera en la barra superior.
-
-## Las cinco pestañas del Preset Editor
-
-El **Preset Editor** tiene cinco pestañas.
-
-- **Overview** (Resumen): el nombre del preset, la descripción, el formato de envoltura y el autor.
-- **Sections**: la estructura real del prompt, construida a partir de bloques y marcadores.
-- **Prompts**: los prompts de modo que usan los chats de Conversation y Game.
-- **Parameters** (Parámetros): los ajustes de generación iniciales para los chats que usan este preset. Consulta [Parámetros de generación](generation-parameters.md).
-- **Regex**: los scripts de regex vinculados a este preset y el **Scoped regex default** (Valor predeterminado de los regex limitados). Consulta [Scripts de regex](../extending/regex-scripts.md).
-
-### Pestaña Overview
-
-La pestaña **Overview** contiene cuatro campos. **Name** es el nombre visible que se muestra en el panel **Presets**. **Description** es un resumen corto del preset. **Wrap Format** (Formato de envoltura) controla cómo se formatean las secciones (consulta "Formatos de envoltura"). **Author** (Autor) es un nombre de creador opcional, útil cuando compartes un preset. Dos tarjetas de solo lectura muestran los recuentos de **Sections** y **Groups** (Grupos).
-
-### Pestaña Prompts
-
-La pestaña **Prompts** contiene los prompts de modo.
-
-- **Conversation Mode** (Modo Conversation): un cuadro de texto que se usa como prompt de Conversation de este preset. Déjalo vacío para usar el prompt de conversación integrado de Marinara.
-- **Roleplay Mode** (Modo Roleplay): no se edita aquí. Roleplay usa el prompt ensamblado a partir de tus **Sections**.
-- **Game Mode** (Modo Game): un cuadro de texto que se usa como prompt de Game de este preset. Déjalo vacío para usar el prompt de juego integrado de Marinara.
-
-## Secciones y marcadores
-
-La pestaña **Sections** es donde construyes el prompt. Cada sección se vuelve parte del texto final que se envía a la IA. Las secciones se ensamblan de arriba hacia abajo.
-
-Haz clic en **Add Section** (Agregar sección) para abrir el menú de añadir. Ofrece dos tipos de sección.
-
-Un **Prompt Block** (Bloque de prompt) es una sección de texto libre que escribes tú. Úsalo para instrucciones de sistema, reglas de tono o cualquier redacción que quieras en cada prompt.
-
-Un **marker** (marcador) es una sección que se rellena de forma automática. No tiene texto propio. En su lugar, Marinara lo rellena en el momento del envío con contenido en vivo de tu chat. La tabla de abajo lista los marcadores.
-
-| Marcador | Qué inserta |
-|---|---|
-| **Character Info** | Los detalles de la tarjeta de personaje activa. |
-| **Persona** | Los detalles de tu persona activa. |
-| **Chat History** | Los mensajes en curso del chat. |
-| **Chat Summary** | El resumen compilado de este chat. |
-| **Dialogue Examples** | El diálogo de ejemplo del personaje. |
-| **Lorebook Marker (All)** | Todas las entradas de lorebook activas. |
-| **Lorebook Marker (Before)** | Entradas de lorebook configuradas para insertarse antes. |
-| **Lorebook Marker (After)** | Entradas de lorebook configuradas para insertarse después. |
-
-Una sección que es un marcador muestra una insignia **MARKER** en su fila. Expándela para ver una nota que nombra el tipo de marcador. No puedes escribir contenido en la mayoría de los marcadores, porque Marinara los genera por ti.
-
-Cuando un preset no tiene un marcador **Dialogue Examples** activado, el diálogo de ejemplo no vacío se añade a **Character Info** después de Scenario. Usa el formato XML, Markdown o sin envoltura del preset. Agrega un marcador Dialogue Examples cuando quieras controlar su ubicación de forma explícita; Marinara no lo incluirá dos veces.
-
-Si tu chat tiene lorebooks activos pero tu preset no tiene ningún marcador de lorebook, aparece un aviso. Dice: "Add a lorebook marker when this preset should receive active lorebook entries." Agrega un marcador de lorebook para que esas entradas lleguen a la IA. Consulta [Introducción a los lorebooks](../lorebooks/overview.md).
-
-Si has configurado agentes personalizados con la opción "inject as section" activada, el menú de añadir muestra un grupo **Agent Sections** (Secciones de agente). Cada sección de agente inserta la última salida de ese agente en el prompt. Puedes agregar tus propias instrucciones alrededor.
-
-Cada fila de sección tiene controles a la derecha. **Duplicate** (Duplicar) copia la sección. El icono de ojo activa o desactiva la sección. **Delete** (Borrar) la elimina. Para reordenar las secciones, arrastra el tirador, usa las flechas hacia arriba y hacia abajo, o mantén pulsado en una pantalla táctil.
-
-Expande una sección (haz clic en su nombre o en el chevrón) para editarla. Puedes cambiar su **Name** y su rol (**System**, **User** o **Assistant**). Para un **Prompt Block**, también puedes editar su **Content** (Contenido). El cuadro de contenido admite macros. Consulta [Macros de prompt](macros.md).
-
-## Grupos y posición de sección
-
-### Grupos
-
-Los grupos envuelven varias secciones en un contenedor. Esto mantiene juntas las secciones relacionadas en el prompt final.
-
-1. En la pestaña **Sections**, haz clic en el botón **Groups** de la barra de herramientas.
-2. Haz clic en **New Group** (Nuevo grupo). Aparece un grupo llamado "New Group".
-3. Haz clic en el nombre del grupo para cambiarlo.
-4. Expande una sección y elige tu grupo en su menú desplegable **Group**.
-
-Con el formato de envoltura **XML**, un grupo se convierte en una etiqueta padre alrededor de sus secciones. Con **Markdown**, un grupo se convierte en un encabezado. Borrar un grupo no borra sus secciones. Simplemente pierden el grupo.
-
-### Posición y profundidad
-
-Cada sección tiene un ajuste **Position** (Posición) dentro de su editor expandido.
-
-- **Ordered (in sequence)** (Ordenado, en secuencia): la sección se sitúa donde aparece en la lista. Esta es la opción normal.
-- **Depth (from end of chat)** (Profundidad, desde el final del chat): la sección se coloca un número fijo de mensajes hacia arriba desde el final del chat. Cuando eliges esto, aparece un número **Depth** (Profundidad). Una profundidad de 0 significa que la sección va después del último mensaje.
-
-Usa **Depth** para recordatorios que quieres que la IA vea cerca de los mensajes más nuevos, como una nota corta de estilo.
-
-## Formatos de envoltura
-
-**Wrap Format** en la pestaña **Overview** controla cómo se envuelve cada sección cuando se ensambla el prompt. Hay tres botones.
-
-- **XML**: cada sección se envuelve en etiquetas, por ejemplo una etiqueta con el nombre alrededor de su contenido. Los grupos se convierten en etiquetas padre. Este es el predeterminado.
-- **MARKDOWN**: cada sección se envuelve con un encabezado. Los grupos se convierten en encabezados de nivel superior.
-- **NONE**: no se agrega ninguna envoltura. El contenido de la sección se envía exactamente como está escrito.
-
-XML es un buen valor predeterminado para la mayoría de los modelos. Prueba **MARKDOWN** o **NONE** solo si un modelo parece responder mejor sin etiquetas.
-
-Para enviar un solo **Prompt Block** sin su etiqueta ni su encabezado mientras el resto del preset sigue envuelto, expándelo en la pestaña **Sections** y activa **Send without wrapper** (Enviar sin envoltura). El contenido del bloque se envía exactamente como está escrito. Si el bloque pertenece a un grupo, la etiqueta o el encabezado del grupo pueden seguir rodeándolo; quítalo del grupo cuando quieras enviarlo completamente sin envoltura. Los marcadores siempre conservan su envoltura, así que el interruptor solo aparece en los bloques de prompt. También se oculta cuando el formato de envoltura del preset es **NONE**, porque en ese caso no se envuelve nada.
+Los presets construyen el prompt en los chats de **Roleplay**. Los chats de **Conversation** y **Game** usan en su lugar un solo cuadro de prompt (consulta [Chats de Conversation y Game](#conversation-and-game-chats)). Los presets no necesitan una API key (clave de API), pero aún necesitas una cuenta que funcione para enviar el prompt. Consulta [Conectar con un proveedor de IA](../connections/connecting-to-a-provider.md).
 
 ## Asignar un preset a un chat
 
-Un preset no hace nada hasta que lo asignas a un chat. Hay dos maneras de hacerlo en un chat de **Roleplay**.
+Un preset no hace nada hasta que un chat lo usa. En un chat de **Roleplay**, usa cualquiera de las dos maneras. Para elegir uno, asígnalo. Para hacer el tuyo, consulta [Crear un preset](#create-a-preset).
 
 Desde el panel **Presets**:
 
-1. Abre el chat que quieres cambiar.
-2. En el panel **Presets**, pasa el cursor sobre una fila de preset.
-3. Haz clic en el botón de marca **Assign to chat** (Asignar al chat). Vuelve a hacer clic para quitar la asignación.
+1. Abre el chat.
+2. En el panel **Presets**, busca la fila de un preset. En una computadora, pasa el cursor sobre la fila para mostrar sus botones.
+3. Haz clic en el botón de marca **Assign to chat** (Asignar al chat). Una marca indica que el preset está en uso. Vuelve a hacer clic para quitar la asignación.
 
 Desde **Chat Settings** (Ajustes del chat):
 
-1. Abre el chat.
-2. Abre **Chat Settings**.
-3. Busca la sección **Prompt Preset**.
-4. Elige un preset en el menú desplegable.
+1. Abre el chat y luego **Chat Settings**.
+2. Busca **Prompt Preset** (Preset de prompt) y elige un preset en el menú desplegable.
 
-Si un preset tiene variables, se abre una ventana **Configure Preset Variables** (Configurar variables del preset) cuando lo asignas. Completa tus opciones ahí. Consulta [Variables de preset](preset-variables.md). Cambiar a un preset distinto borra cualquier opción de variable que hayas hecho antes.
+Si el preset tiene variables, se abre la ventana **Configure Preset Variables** (Configurar variables del preset). Consulta [Variables de preset](preset-variables.md). Cambiar de preset borra las opciones de variables anteriores.
 
-Los presets de prompt no están disponibles en el modo **Conversation** desde el panel. Hacer clic en el botón de asignar en un chat de Conversation muestra un mensaje: "Prompt presets are not available in conversation mode." Consulta la siguiente sección para ver cómo los chats de Conversation y Game usan presets en su lugar.
+<a id="create-a-preset"></a>
 
-## En qué se diferencian los modos Conversation y Game
+## Crear un preset
 
-Los chats de **Conversation** y **Game** no construyen un prompt a partir de Sections. En su lugar usan un solo prompt de modo, que puedes anular por cada chat.
+1. Abre el panel **Presets** desde la barra lateral.
+2. Haz clic en **New** (Nuevo; el icono de más). Se abre la ventana **Create Preset** (Crear preset).
+3. Escribe un **Name** (Nombre). Es obligatorio. Agrega una **Description** (Descripción) si quieres.
+4. Haz clic en **Create** (Crear). El preset se abre en el **Preset Editor**.
+5. Arma el prompt en la pestaña **Sections** (Secciones).
+6. Haz clic en **Save** (Guardar) en la esquina superior derecha.
 
-En estos modos, **Chat Settings** muestra una sección **Prompt Preset** con un menú desplegable **Prompt source** (Fuente del prompt). El menú desplegable lista tus presets. Su valor predeterminado es "Default conversation prompt" o "Default game prompt". Si no tienes presets, dice "No presets available" (No hay presets disponibles).
+El editor no guarda por su cuenta. Haz clic en **Save** después de cada cambio. Si sales con ediciones sin guardar, un aviso ofrece **Keep editing** (Seguir editando), **Discard** (Descartar) y **Save & close** (Guardar y cerrar).
 
-Debajo del menú desplegable hay una fila de estado. Muestra uno de tres estados:
+Para exportar un preset, haz clic en el icono de flecha hacia arriba de la barra superior (su tooltip dice **Export preset**). Marinara te pide guardar primero si tienes ediciones sin guardar. Para borrarlo, haz clic en el icono de papelera.
 
-- **Default**: se usa el prompt de modo integrado.
-- **Preset**: el prompt viene del preset elegido.
-- **Custom**: has escrito una edición local para este chat únicamente.
+## El panel Presets
 
-Haz clic en **Edit Prompt** (Editar prompt) para escribir un prompt solo para este chat. El editor se abre como **Edit Conversation Prompt** o **Edit Game Prompt**. Si tu edición coincide con el preset o el predeterminado de forma exacta, Marinara la trata como no personalizada. Una vez que existe una edición personalizada, aparece un botón **Reset to default prompt** (Restablecer al prompt predeterminado) para borrarla.
+**Prompts** es la sección de los presets. Las otras secciones son **Regexes** y **Functions**. Los botones superiores son **New**, **Import** (Importar; carga un archivo `.json`) y **Select** (Seleccionar; exporta o borra varios a la vez).
 
-Los chats de Game también tienen un cuadro **Extra instructions** (Instrucciones adicionales). El texto ahí se agrega al prompt de Game. Tiene un límite de 2000 caracteres. Una instrucción de ejemplo es "Write in the style of Terry Pratchett."
+- **Search presets** (Buscar presets) filtra la lista.
+- El menú de orden ofrece **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** y **Oldest**. Con **Manual order**, arrastra una fila, o pulsa <kbd>Alt</kbd>+<kbd>Up</kbd> o <kbd>Alt</kbd>+<kbd>Down</kbd> en una fila con el foco. En una pantalla táctil, mantén pulsada una fila para tomarla.
+- **New Folder** (Nueva carpeta) agrupa presets. Arrastra un preset sobre una carpeta, y haz doble clic o doble toque en una carpeta para cambiarle el nombre.
+
+Cada fila muestra el nombre, el formato de envoltura, el número de secciones y el autor. Una insignia **DEFAULT** marca el predeterminado con estrella. Haz clic en una fila para abrirla.
+
+## Las pestañas del Preset Editor
+
+| Pestaña | Qué contiene |
+| --- | --- |
+| **Overview** (Resumen) | Nombre, descripción, formato de envoltura y autor. |
+| **Sections** | La estructura del prompt, construida a partir de bloques y marcadores. |
+| **Prompts** | Los prompts de modo de los chats de Conversation y Game. |
+| **Parameters** (Parámetros) | Los ajustes de generación iniciales. Consulta [Parámetros de generación](generation-parameters.md). |
+| **Regex** | Los scripts de regex vinculados a este preset y el **Scoped regex default** (Valor predeterminado de los regex limitados). Consulta [Scripts de regex](../extending/regex-scripts.md). |
+
+### Pestaña Overview
+
+- **Name** es el título en el panel **Presets**.
+- **Description** es un resumen corto.
+- **Wrap Format** (Formato de envoltura) controla cómo se formatean las secciones (consulta [Formatos de envoltura](#wrap-formats)).
+- **Author** (Autor) es un nombre de creador opcional, útil cuando compartes un preset.
+
+Dos tarjetas de solo lectura muestran los recuentos de **Sections** y **Groups** (Grupos).
+
+### Pestaña Prompts
+
+- **Conversation Mode** (Modo Conversation) es un cuadro de texto para el prompt de Conversation de este preset. Déjalo vacío para usar el prompt integrado.
+- **Roleplay Mode** (Modo Roleplay) no se edita aquí. Roleplay usa el prompt ensamblado a partir de tus **Sections**.
+- **Game Mode** (Modo Game) es un cuadro de texto para el prompt de Game de este preset. Déjalo vacío para usar el prompt integrado.
+
+El **Marinara's Universal Preset** integrado aporta el texto del prompt, pero ningún parámetro de generación. Sus ajustes antiguos guardados de muestreo, razonamiento, formato y tokens se ignoran, y en su lugar se aplican los ajustes de tu cuenta, las sustituciones del chat y los valores predeterminados de la app. Crea una copia editable para personalizarlo.
+
+## Secciones y marcadores
+
+La pestaña **Sections** es donde construyes el prompt. Las secciones se ensamblan de arriba hacia abajo.
+
+1. Haz clic en **Add Section** (Agregar sección).
+2. Elige **Prompt Block** (Bloque de prompt) o un marcador.
+
+Un **Prompt Block** es texto que escribes tú: instrucciones de sistema, reglas de tono, cualquier cosa que quieras en cada prompt. Un marcador no tiene texto propio. Marinara lo rellena con contenido en vivo del chat cuando envía el prompt.
+
+| Marcador | Qué inserta |
+| --- | --- |
+| **Character Info** | Los detalles de la tarjeta de personaje activa. |
+| **Persona** | Los detalles de tu persona activa. |
+| **Chat History** | Los mensajes del chat. |
+| **Chat Summary** | El resumen compilado del chat. |
+| **Dialogue Examples** | El diálogo de ejemplo del personaje. |
+| **Lorebook Marker (All)** | Todas las entradas de lorebook activas. |
+| **Lorebook Marker (Before)** | Las entradas de lorebook configuradas para ir antes. |
+| **Lorebook Marker (After)** | Las entradas de lorebook configuradas para ir después. |
+
+La fila de un marcador muestra una insignia **MARKER**. No puedes escribir en la mayoría de los marcadores. Usa **Lorebook Marker (All)** salvo que quieras separar las entradas de lorebook en antes y después.
+
+Tres marcadores menos comunes:
+
+- **Current Scene Summary** y **Recalled Scenes** colocan los resúmenes que crea Advanced Memory Recall. Sin un marcador **Recalled Scenes**, aparecen antes del historial del chat. Consulta [Memoria](../agents/memory.md).
+- **ID Macro Cards** coloca las tarjetas de personaje que traes a un prompt escribiendo el ID de la tarjeta de un personaje entre llaves dobles. Sin este marcador, van en el lugar predeterminado. Consulta [Macros de prompt](macros.md).
+
+Sin un marcador **Dialogue Examples** activado, el diálogo de ejemplo no vacío se agrega a **Character Info** después del escenario, en el formato de envoltura del preset. Agrega el marcador para elegir la ubicación. Marinara nunca lo incluye dos veces.
+
+Si tu chat tiene lorebooks activos pero el preset no tiene ningún marcador de lorebook, un aviso dice: "Add a lorebook marker when this preset should receive active lorebook entries." Agrega uno para que las entradas lleguen al modelo. Consulta [Introducción a los lorebooks](../lorebooks/overview.md).
+
+Si tienes agentes personalizados con "inject as section" activado, el menú de agregar muestra **Agent Sections** (Secciones de agente). Cada una inserta la última salida de ese agente, y puedes agregar tus propias instrucciones alrededor.
+
+### Editar una sección
+
+1. Haz clic en el nombre o en la flecha de una sección para expandirla.
+2. Cambia su **Name** o su rol (**System**, **User** o **Assistant**).
+3. En un **Prompt Block**, edita **Content** (Contenido). Admite [macros](macros.md).
+4. Haz clic en **Save** en la esquina superior derecha.
+
+Los controles de la fila:
+
+- **Duplicate** (Duplicar) copia la sección.
+- El icono de ojo la activa o la desactiva.
+- **Delete** (Borrar) la elimina.
+- Para reordenar, arrastra el tirador, usa las flechas hacia arriba y hacia abajo, o mantén pulsado en una pantalla táctil.
+
+### Grupos
+
+Un grupo envuelve varias secciones en un contenedor.
+
+1. En la pestaña **Sections**, haz clic en **Groups** y luego en **New Group** (Nuevo grupo).
+2. Haz clic en el nombre del grupo para cambiarlo.
+3. Expande una sección y elige el grupo en su menú desplegable **Group**.
+
+Con **XML**, un grupo se convierte en una etiqueta padre. Con **MARKDOWN**, se convierte en un encabezado. Borrar un grupo no borra sus secciones. Solo pierden el grupo.
+
+### Posición y profundidad
+
+Cada sección tiene un ajuste **Position** (Posición) en su editor.
+
+- **Ordered (in sequence)** (Ordenado: en secuencia) coloca la sección donde está en la lista. Esta es la opción normal.
+- **Depth (from end of chat)** (Profundidad: desde el final del chat) la coloca un número fijo de mensajes hacia arriba desde el final del chat, según el número **Depth** (Profundidad). Una profundidad de 0 va después del último mensaje. Úsalo para recordatorios que el modelo debe ver cerca de los mensajes más nuevos.
+
+<a id="wrap-formats"></a>
+
+## Formatos de envoltura
+
+**Wrap Format**, en la pestaña **Overview**, fija cómo se envuelve cada sección.
+
+| Formato | Resultado |
+| --- | --- |
+| **XML** | Cada sección va dentro de etiquetas. Los grupos se convierten en etiquetas padre. Este es el predeterminado. |
+| **MARKDOWN** | Cada sección recibe un encabezado. Los grupos se convierten en encabezados de nivel superior. |
+| **NONE** | No se agrega ninguna envoltura. El contenido se envía tal como está escrito. |
+
+XML sirve para la mayoría de los modelos. Prueba los demás solo si un modelo responde mejor sin etiquetas.
+
+Para enviar un solo **Prompt Block** sin su etiqueta ni su encabezado, expándelo y activa **Send without wrapper** (Enviar sin envoltura). La etiqueta de un grupo todavía puede rodearlo, así que quita el bloque de su grupo para enviarlo completamente sin envoltura. Los marcadores siempre conservan su envoltura, y el interruptor se oculta cuando el formato es **NONE**.
+
+<a id="conversation-and-game-chats"></a>
+
+## Chats de Conversation y Game
+
+Estos chats no construyen un prompt a partir de Sections. Usan un solo prompt de modo. En **Chat Settings**, la sección **Prompt Preset** tiene un menú desplegable **Prompt source** (Fuente del prompt) con tus presets. Empieza en **Default conversation prompt** o **Default game prompt**, o dice **No presets available** (No hay presets disponibles) cuando no tienes ninguno. En el panel **Presets**, el botón de asignar muestra "Prompt presets are not available in conversation mode."
+
+Debajo del menú desplegable, una insignia muestra de dónde viene el prompt.
+
+| Insignia | Significado |
+| --- | --- |
+| **Default** | El prompt integrado. |
+| **Preset** | El prompt del preset elegido. |
+| **Style** | El prompt del estilo de prompt del GM seleccionado. Solo en los chats de Game. |
+| **Custom** | Una edición local solo para este chat. Tiene prioridad sobre todas las demás. |
+
+El cuadro de texto muestra el prompt en uso. Edítalo para crear una copia local del chat. Si tu texto coincide exactamente con el del preset o el predeterminado, Marinara lo trata como no personalizado. Mientras exista una edición personalizada, aparece un icono de restablecer (su tooltip dice **Reset to default prompt**).
+
+Los chats de Game agregan dos controles. **GM prompt style** (Estilo de prompt del GM) solo sustituye el prompt de Game, y una edición local del chat sigue teniendo prioridad. **Extra instructions** (Instrucciones adicionales) agrega texto al prompt de Game, hasta 2000 caracteres, como "Write in the style of Terry Pratchett."
 
 <a id="decision-blocks-and-prompt-caching"></a>
 
 ## Bloques de decisión y caché de prompts
 
-Una sección puede contener un bloque `{{#if decision:"..."}}` para enviar esa parte del preset solo cuando una declaración sobre el chat sea verdadera. Consulta [Consultar al Decision model](conditional-prompts.md#asking-the-decision-model).
+Una sección puede contener un bloque de decisión, `{{#if decision:"..."}}`, para que esa parte solo se envíe cuando una declaración sobre el chat sea verdadera. Consulta [Consultar al Decision model](conditional-prompts.md#asking-the-decision-model).
 
-**Coloca los bloques de decisión cambiantes al final del prompt**, como en instrucciones posteriores al historial. Cambiar una rama puede impedir que el proveedor reutilice el prompt desde ese punto, así que un cambio temprano puede perder la mayor parte del ahorro. Un prefijo anterior sin cambios puede seguir siendo válido; no se factura necesariamente todo como nuevo. Mantén una decisión al inicio solo si cambia poco y sus instrucciones deben ir allí. Consulta los detalles por proveedor en [Caché de prompts](conditional-prompts.md#prompt-caching).
+Coloca al final del prompt los bloques de decisión que cambian a menudo, por ejemplo en las instrucciones posteriores al historial. Una rama que cambia puede impedir que un proveedor reutilice el prompt desde ese punto, así que un cambio temprano pierde la mayor parte del ahorro de caché. Una parte anterior sin cambios todavía se puede reutilizar. Mantén una decisión cerca del inicio solo cuando su respuesta cambie poco. Consulta [Caché de prompts](conditional-prompts.md#prompt-caching).
 
-Las declaraciones en secciones y grupos desactivados nunca se preguntan ni cuentan para **Decision statements per turn** (declaraciones de decisión por turno).
+Las declaraciones en secciones y grupos desactivados nunca se preguntan y no cuentan para **Decision statements per turn** (Declaraciones de decisión por turno).
 
 ## Comprobar qué recibió la IA
 
-Para confirmar qué preset y qué secciones llegaron realmente a la IA, usa **Peek Prompt**. Muestra el prompt completamente ensamblado de un mensaje. Esta es la manera más rápida de depurar una respuesta rara. Consulta [Peek Prompt: ver qué recibió la IA](../chats/peek-prompt.md).
+**Peek Prompt** muestra el prompt completamente ensamblado de un mensaje. Es la manera más rápida de depurar una respuesta rara. Consulta [Peek Prompt: ver qué recibió la IA](../chats/peek-prompt.md).
 
 ## Guías relacionadas
 

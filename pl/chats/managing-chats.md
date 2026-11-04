@@ -1,131 +1,125 @@
 # Zarządzanie listą czatów
 
-Z tego przewodnika dowiesz się, jak działa lista czatów w aplikacji Marinara Engine. Opisuje on trzy zakładki trybów oraz tworzenie, importowanie, zmianę nazwy, usuwanie, porządkowanie, wyszukiwanie i zbiorcze zarządzanie czatami. Znajdziesz tu też opis widgetu z ostatnimi czatami na ekranie startowym.
+Panel **Chats** (czaty) po lewej stronie zawiera wszystkie twoje czaty. Służy do zakładania, wyszukiwania, sortowania, porządkowania i usuwania czatów.
 
 ## Lista czatów i zakładki trybów
 
-Czaty znajdują się w panelu **Chats** (czaty), czyli na pasku bocznym po lewej stronie. U góry panelu są trzy zakładki trybów:
+U góry panelu są trzy zakładki trybów. Każda zakładka pokazuje tylko czaty z danego trybu.
 
-- **CONVO** dla trybu Conversation, czyli zwykłego czatu w stylu komunikatora.
-- **RP** dla trybu Roleplay, czyli wciągającej sceny z postaciami i śledzeniem stanu świata.
-- **GM** dla trybu Game, czyli gry RPG dla jednego gracza prowadzonej przez AI.
+| Zakładka | Tryb |
+| --- | --- |
+| **CONVO** | Conversation: czat w stylu komunikatora. |
+| **RP** | Roleplay: scena z postaciami i śledzeniem stanu świata. |
+| **GM** | Game: gra RPG dla jednego gracza prowadzona przez AI. |
 
-Każda zakładka pokazuje tylko czaty z danego trybu. Kliknięcie zakładki przełącza listę.
+Każdy wiersz pokazuje nazwę czatu i awatary jego postaci. W czatach w trybie Conversation kolorowa kropka na awatarze pokazuje status postaci. Czerwona plakietka to liczba nieprzeczytanych wiadomości. Wiersz z małą ikoną gałęzi i liczbą to czat z kilkoma gałęziami, zebranymi w jednym wierszu. Zobacz [Gałęzie czatu](branches.md).
 
-Każdy wiersz listy pokazuje nazwę czatu oraz awatar postaci biorących w nim udział. W czatach w trybie Conversation mała kolorowa kropka przy awatarze pokazuje status każdej postaci. Czerwona plakietka w wierszu to liczba nieprzeczytanych wiadomości.
+## Zakładanie czatu
 
-Niektóre wiersze mają małą ikonę gałęzi z liczbą. Oznacza to, że czat ma więcej niż jedną gałąź, a gałęzie są zebrane w jednym wierszu. Czym są gałęzie, wyjaśnia [Gałęzie czatu](branches.md).
+Zanim zaczniesz: dodaj co najmniej jedno konto w **Connections** (Połączenia). Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
-## Tworzenie nowego czatu
+1. Kliknij zakładkę wybranego trybu.
+2. Dotknij przycisku **+** u góry panelu. Jego etykieta to **New Conversation**, **New Roleplay** albo **New Game**, zgodnie z zakładką.
 
-1. Wybierz zakładkę trybu (**CONVO**, **RP** albo **GM**).
-2. Kliknij przycisk **+** u góry panelu. Jego podpowiedź brzmi **New Conversation**, **New Roleplay** albo **New Game** – zgodnie z aktywną zakładką.
-3. Aplikacja tworzy czat, otwiera go i wyświetla panel **Chat Settings** (ustawienia czatu) razem z kreatorem konfiguracji, żeby dokończyć ustawienia.
+Marinara tworzy czat i go otwiera. Obok otwierają się panel **Chat Settings** (ustawienia czatu) i kreator konfiguracji. Czat startuje z nazwą **New Conversation**, **New Roleplay** albo **New Game**. Jeśli dla trybu Conversation lub Roleplay zapisano domyślny profil ustawień oznaczony gwiazdką, Marinara stosuje go do nowego czatu. Zobacz [Profile ustawień](settings-profiles.md).
 
-Nowy czat nosi nazwę **New Conversation**, **New Roleplay** albo **New Game**. Nazwę da się później zmienić (zobacz sekcję Zmiana nazwy czatu poniżej).
-
-Zanim czat się otworzy, potrzebne jest co najmniej jedno połączenie. Połączenie łączy aplikację Marinara Engine z dostawcą AI. Jeśli nie ma jeszcze żadnego połączenia, zamiast czatu otwiera się okno **Add account** (dodanie konta). Wybierz usługę i kliknij **Connect** (połącz). Okno otwiera wtedy wybór modelu. Wybierz model, opcjonalnie użyj opcji **Make ... my Main** (ustaw jako mój główny) i kliknij **Start chatting** (rozpocznij czat). Przy zwykłej konfiguracji konta kliknij zamiast tego **Done** (gotowe). Pełny opis krok po kroku znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
-
-Jeśli dla danego trybu jest zapisany oznaczony gwiazdką domyślny profil ustawień, Marinara stosuje go do nowego czatu automatycznie. Zobacz [Panel **Chat Settings** – przegląd](chat-settings.md).
+Jeśli to nie zadziałało: gdy nie ma zapisanego konta, zamiast czatu otwiera się okno **Add account** (dodanie konta). Wybierz usługę, kliknij **Connect** (połącz), a potem wybierz model. Pełny opis krok po kroku znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
 ## Importowanie czatu
 
-Czat zapisany jako plik `.jsonl` można zaimportować – z aplikacji SillyTavern albo z aplikacji Marinara Engine.
+Możesz zaimportować zapis czatu w pliku `.jsonl` z aplikacji SillyTavern lub Marinara Engine.
 
-1. Wybierz zakładkę trybu, w którym ma wylądować zaimportowany czat.
-2. Kliknij przycisk **Import** (import) u góry panelu. Jego podpowiedź brzmi **Import SillyTavern or Marinara chat JSONL**.
-3. Wskaż plik `.jsonl`.
+1. Kliknij zakładkę trybu, w którym ma się znaleźć czat.
+2. Dotknij przycisku **Import** (import) u góry panelu. Jego etykieta to **Import SillyTavern or Marinara chat JSONL**.
+3. Wybierz plik `.jsonl`.
 
-Marinara tworzy nowy czat w trybie bieżącej zakładki i otwiera go. Powinien pojawić się komunikat **Imported N messages**, gdzie N to liczba wiadomości.
+Marinara tworzy czat, otwiera go i pokazuje **Imported N messages**. Formaty eksportu i eksport zbiorczy opisuje przewodnik [Eksport i import czatów](export-import.md).
 
-Wszystkie sposoby importowania i eksportowania czatów, w tym import zbiorczy oraz formaty eksportu, opisuje [Eksport i import czatów](export-import.md).
+Jeśli to nie zadziałało: na dole ekranu pojawia się krótki komunikat **Import failed** z przyczyną. Przyjmowane są tylko pliki `.jsonl`.
 
 ## Zmiana nazwy czatu
 
-Nazwę czatu widzisz tylko ty. Nie trafia ona do AI i nie zmienia przebiegu czatu.
+Nazwa czatu jest tylko dla ciebie. Nie trafia do modelu.
 
-1. Otwórz czat.
-2. Otwórz **Chat Settings** przyciskiem w czacie.
-3. W sekcji **Chat Name** kliknij bieżącą nazwę, żeby zamieniła się w pole tekstowe.
-4. Wpisz nową nazwę, a potem naciśnij Enter albo kliknij przycisk z ptaszkiem.
+1. Otwórz czat, a potem panel **Chat Settings**.
+2. W sekcji **Chat Name** (nazwa czatu) kliknij bieżącą nazwę.
+3. Wpisz nową nazwę, a potem naciśnij <kbd>Enter</kbd> albo kliknij znak zaznaczenia.
 
-Więcej o panelu **Chat Settings** znajdziesz w przewodniku [Panel **Chat Settings** – przegląd](chat-settings.md).
+Jak otworzyć ten panel, opisuje [Panel **Chat Settings** – przegląd](chat-settings.md).
+
+<a id="delete-a-chat"></a>
 
 ## Usuwanie czatu
 
-Aby usunąć pojedynczy czat, najedź na jego wiersz i kliknij przycisk kosza. Na urządzeniu mobilnym przycisk kosza jest widoczny zawsze. Okno o tytule **Delete Chat** (usunięcie czatu) pyta "Delete this chat?". Kliknij przycisk **Delete**, żeby potwierdzić.
+1. Dotknij przycisku kosza w wierszu czatu. Na komputerze pojawia się on po najechaniu kursorem na wiersz.
+2. W oknie **Delete Chat** (usunięcie czatu) kliknij **Delete** (usuń).
 
-Usunięcie czatu jest nieodwracalne. Zatrzymuje też odpowiedź, która akurat jest generowana w tym czacie.
+Usunięcie jest nieodwracalne. Zatrzymuje też odpowiedź, która wciąż się pisze w tym czacie.
 
-### Okno wyboru gałęzi
+Jeśli czat ma kilka gałęzi, okno podaje ich liczbę i daje dwie możliwości:
 
-Jeśli usuwany czat ma więcej niż jedną gałąź, otwiera się inne okno. Nosi tytuł **Delete Chat** i informuje, że czat ma kilka gałęzi. Do wyboru są dwie opcje:
+- **Delete This Branch Only** (usunięcie tylko tej gałęzi) usuwa klikniętą gałąź.
+- **Delete All N branches** (usunięcie wszystkich N gałęzi) usuwa wszystkie gałęzie w grupie.
 
-- **Delete This Branch Only** usuwa tylko klikniętą gałąź.
-- **Delete All N Branches** usuwa wszystkie gałęzie w grupie, gdzie N to ich liczba.
+Jak zarządzać gałęziami bez usuwania czatu, opisuje [Gałęzie czatu](branches.md).
 
-Jak zarządzać gałęziami bez usuwania całego czatu, opisuje [Gałęzie czatu](branches.md).
-
-### Włączanie i wyłączanie potwierdzeń usunięcia
-
-O tym, czy te okna z potwierdzeniem się pojawiają, decyduje obejmujące całą aplikację ustawienie **Confirm before deleting** (potwierdzanie przed usunięciem). Domyślnie jest włączone, a znajdziesz je w **Settings** (Ustawienia) w zakładce **General**. Jego własny opis pomocy zaleca, żeby je zostawić włączone.
+O tych oknach decyduje ustawienie całej aplikacji **Confirm before deleting** (potwierdzanie przed usunięciem). Domyślnie jest włączone. Znajdziesz je w **Settings → General** (ustawienia, ogólne).
 
 ## Foldery czatów
 
-Czaty można grupować w foldery osobno w każdej zakładce trybu.
+Foldery grupują czaty w obrębie jednej zakładki trybu.
 
-1. Zadbaj o to, żeby bieżąca zakładka miała co najmniej jeden czat. Dopiero wtedy nad listą pojawia się przycisk **New Folder** (nowy folder).
-2. Kliknij przycisk **New Folder**. Folder powstaje z nazwą **unnamed** (albo **unnamed 2**, **unnamed 3** i tak dalej, jeśli ta nazwa jest zajęta).
+1. Otwórz zakładkę, która ma co najmniej jeden czat. Dopiero wtedy pod zakładkami pojawia się **New Folder** (nowy folder).
+2. Kliknij **New Folder**. Folder dostaje nazwę **unnamed** (a kolejne **unnamed 2**, **unnamed 3**).
 
-Aby zmienić nazwę folderu, kliknij go dwukrotnie, dotknij dwukrotnie albo zaznacz i naciśnij F2. Pusta nazwa jest ignorowana.
+| Cel | Co zrobić |
+| --- | --- |
+| Zmiana nazwy folderu | Kliknij go dwukrotnie albo dotknij dwukrotnie, albo ustaw na nim fokus i naciśnij <kbd>F2</kbd>. Pusta nazwa jest ignorowana. |
+| Usunięcie folderu | Kliknij przycisk kosza w wierszu folderu. Gdy folder zawiera czaty, pojawia się okno **Delete Folder** (usunięcie folderu). Czaty przechodzą na poziom główny i nie są usuwane. |
+| Zmiana kolejności folderów | Przeciągnij folder w górę lub w dół. Menu sortowania przełącza się na **Custom** (własna). |
+| Przeniesienie czatu do folderu | Przeciągnij wiersz czatu na folder. Na ekranie dotykowym najpierw naciśnij i przytrzymaj czat przez mniej więcej pół sekundy. |
+| Wyjęcie czatu z folderu | Przeciągnij go na pusty obszar pod folderami. |
 
-Aby usunąć folder, kliknij przycisk kosza w jego wierszu. Potwierdza to okno o tytule **Delete Folder**. Usunięcie folderu nigdy nie usuwa czatów, które są w środku. Te czaty wracają na poziom główny.
+Gdy zaznaczonych jest kilka czatów, przeciągnięcie jednego przenosi całe zaznaczenie. Czaty spoza folderów są wypisane pod folderami.
 
-Aby zmienić kolejność folderów, przeciągnij wiersz folderu w górę lub w dół. W miejscu, w którym wyląduje, otwiera się luka. Menu sortowania przełącza się wtedy na **Custom** (własna), które zachowuje twoją kolejność folderów.
+## Wyszukiwanie, sortowanie i filtrowanie
 
-Aby przenieść czat do folderu, przeciągnij jego wiersz na ten folder. Aby wyjąć czat ze wszystkich folderów, przeciągnij go na pusty obszar pod folderami. Na ekranie dotykowym naciśnij i przytrzymaj czat przez mniej więcej pół sekundy, żeby zacząć przeciąganie. Gdy zaznaczonych jest kilka czatów, przeciągnięcie jednego z nich przenosi całe zaznaczenie.
+### Wyszukiwanie czatu po nazwie
 
-Czaty, które nie należą do żadnego folderu, są na zwykłej liście pod folderami.
+Każda zakładka ma pole wyszukiwania. Jego tekst zastępczy to **Search conversations**, **Search roleplays** albo **Search games**. Wpisz słowo. Wyszukiwanie dopasowuje nazwy czatów, tagi i imiona postaci, ale nie treść wiadomości.
 
-## Wyszukiwanie, sortowanie i filtrowanie po tagach
+### Wyszukiwanie wiadomości we wszystkich czatach
 
-Każda zakładka trybu ma własne pole wyszukiwania u góry listy. Tekst zastępczy zmienia się zależnie od zakładki: **Search conversations...**, **Search roleplays...** albo **Search games...**. Wyszukiwanie obejmuje nazwę czatu, jego tagi oraz imiona postaci. Nie przeszukuje treści wiadomości.
+1. Dotknij **Search all chats** (przeszukiwanie wszystkich czatów), przycisku obok menu sortowania.
+2. Wpisz szukane słowa.
 
-Obok pola wyszukiwania jest menu sortowania z podpowiedzią **Sort chats**. Ma takie opcje:
+Wyszukiwanie obejmuje każdy czat i może filtrować po trybie, postaci, nadawcy i dacie.
 
-- **Custom** zachowuje foldery w kolejności, w jakiej je przeciągnięto.
-- **Manual order** (kolejność ręczna) pozwala ułożyć czaty we własnej kolejności przez przeciąganie. Z klawiatury ustaw fokus na czacie i naciśnij Alt+strzałka w górę albo Alt+strzałka w dół.
-- **Recent** (ostatnie), opcja domyślna, pokazuje najpierw czaty ostatnio aktywne.
-- **Newest** pokazuje najpierw czaty utworzone najpóźniej.
-- **Oldest** pokazuje najpierw najstarsze czaty.
-- **A-Z** sortuje nazwy od A do Z.
-- **Z-A** sortuje nazwy od Z do A.
+Menu sortowania **Sort chats** (sortowanie czatów) ma takie opcje:
 
-Jeśli którykolwiek czat w zakładce ma tagi, pojawia się wiersz filtrowania po tagach. Kliknij kafelek **Tags**, żeby rozwinąć listę tagów. Potem kliknij tag, aby zobaczyć tylko czaty z tym tagiem. Kliknij przycisk **Clear**, żeby usunąć filtr. Przy dużej liczbie tagów resztę odsłania kafelek **+N more**.
+| Opcja | Kolejność |
+| --- | --- |
+| **Custom** | Twoja kolejność folderów. |
+| **Manual order** (kolejność ręczna) | Czaty w kolejności, w jakiej je przeciągniesz. Z klawiatury ustaw fokus na czacie i naciśnij <kbd>Alt</kbd>+<kbd>Up</kbd> albo <kbd>Alt</kbd>+<kbd>Down</kbd>. |
+| **Recent** (ostatnie) | Najpierw ostatnio aktywne. To opcja domyślna. |
+| **Newest** (najnowsze) | Najpierw ostatnio utworzone. |
+| **Oldest** (najstarsze) | Najpierw najstarsze. |
+| **A-Z** i **Z-A** | Według nazwy. |
 
-Uwaga: ten ekran filtruje wyłącznie po tagach, które czat już ma. Nie ma tu przycisku dodającego tag do czatu.
+Gdy którykolwiek czat w zakładce ma tag, pojawia się kafelek **Tags (N)** (tagi). Kliknij go, żeby rozwinąć tagi, a potem kliknij tag, żeby zobaczyć tylko czaty z tym tagiem. Kliknij **Clear** (wyczyszczenie), żeby usunąć filtr. W tym panelu nie da się dodać tagów do czatu.
 
-Lista pokazuje jednorazowo do 100 czatów. Przy większej liczbie na dole pojawia się przycisk **Load more**, który odsłania kolejną porcję.
+Lista pokazuje naraz 100 czatów. Kliknij **Load more** (wczytanie kolejnych), żeby zobaczyć następną porcję.
+
+<a id="selecting-multiple-chats"></a>
 
 ## Zaznaczanie wielu czatów
 
-Na kilku czatach można działać naraz.
+1. Kliknij przycisk **Select chats** (wybór czatów) ze znakiem zaznaczenia u góry panelu.
+2. Kliknij każdy czat, który chcesz zaznaczyć. Zamiast się otwierać, wiersze pokazują pole wyboru.
+3. Użyj paska na dole, który pokazuje liczbę zaznaczonych czatów.
 
-1. Kliknij przycisk **Select chats** (wybór czatów) u góry panelu – ten z ikoną ptaszka.
-2. Kliknij każdy czat, który ma być zaznaczony. Zamiast otwierać czat, klikanie włącza pole wyboru w wierszu.
-3. Pasek na dole pokazuje liczbę zaznaczonych czatów i dwa przyciski.
-
-Przycisk **Export** pobiera wszystkie zaznaczone czaty razem, w jednym pliku `.zip`. Przycisk **Delete** je usuwa. Usuwanie najpierw pokazuje potwierdzenie o tytule **Delete Chats**.
-
-Aby wyjść z trybu zaznaczania bez żadnej akcji, kliknij przycisk wyboru ponownie. Przełączenie zakładki też czyści zaznaczenie.
+**Export** (eksport) pobiera zaznaczone czaty jako jeden plik `.zip` z plikami `.jsonl`. **Delete** prosi o potwierdzenie w oknie **Delete Chats** (usunięcie czatów), a potem je usuwa. Kliknij ponownie przycisk ze znakiem zaznaczenia, żeby wyjść z trybu zaznaczania. Przełączenie zakładki też czyści zaznaczenie.
 
 ## Ostatnie czaty na ekranie startowym
 
-Ekran startowy ma widget **Recent chats** (ostatnie czaty) z ostatnio aktywnymi czatami. Każdy czat pokazuje swoją nazwę, plakietkę trybu i ostatnią wiadomość. Kliknij czat, żeby go otworzyć, albo kliknij puste miejsce widgetu, żeby otworzyć listę czatów. Gdy nie ma jeszcze żadnych czatów, widget pokazuje napis **Your chats will show here**. Zobacz [Widgety ekranu głównego](../home/welcome.md#home-widgets).
-
-## Powiązane przewodniki
-
-- [Gałęzie czatu](branches.md)
-- [Eksport i import czatów](export-import.md)
-- [Panel **Chat Settings** – przegląd](chat-settings.md)
-- [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md)
+Ekran startowy ma widget **Recent chats** (ostatnie czaty) z twoimi najnowszymi czatami. Każdy czat pokazuje swoją nazwę, plakietkę trybu i ostatnią wiadomość. Kliknij czat, żeby go otworzyć. Gdy nie ma czatów, widget pokazuje napis **Your chats will show here**. Zobacz [Widgety ekranu głównego](../home/welcome.md#home-widgets).

@@ -1,10 +1,10 @@
 # Camadas, traduções e migrações de conjuntos de regras
 
-Esta página faz parte de [Escrever conjuntos de regras de Game Mode](writing-rulesets.md). Variantes que um jogador ativa para uma partida, traduções do texto de um conjunto de regras e a transferência de valores para novos IDs quando uma ficha muda.
+Use esta página para oferecer variantes que um jogador ativa para uma partida, para traduzir o texto de um conjunto de regras e para transferir valores salvos para novos IDs quando uma ficha muda. Ela é para autores de conjuntos de regras. Antes de começar, leia [Escrever conjuntos de regras de Game Mode](writing-rulesets.md).
 
 ## Camadas: variantes do seu próprio conjunto de regras
 
-Uma camada é uma variante nomeada do seu conjunto de regras que o jogador ativa ao criar uma partida: pouca magia, inverno rigoroso, uma dificuldade mais dura. As camadas ficam no arquivo do conjunto de regras, em uma matriz opcional `layers`; assim, viajam com ele e nunca podem faltar em uma partida que as usou. O assistente as mostra como interruptores abaixo do conjunto de regras, e a escolha fica fixa durante toda a vida da partida, exatamente como o próprio conjunto.
+Uma camada é uma variante nomeada do seu conjunto de regras que o jogador ativa ao criar uma partida: pouca magia, inverno rigoroso, uma dificuldade mais dura. As camadas ficam no arquivo do conjunto de regras, em uma matriz opcional `layers`; assim, viajam com ele e nunca podem faltar em uma partida que as usou. O assistente as mostra como botões liga/desliga abaixo do conjunto de regras, e a escolha fica fixa durante toda a vida da partida, exatamente como o próprio conjunto.
 
 ```json
 "layers": [
@@ -47,9 +47,9 @@ Uma camada é uma variante nomeada do seu conjunto de regras que o jogador ativa
 
 **O que uma camada não pode fazer.** Ela não pode adicionar um valor enumerado, campo, perícia, reserva ou descanso, adicionar um vendedor ou uma tabela de loot, mudar o tipo de resolução, tocar no estado atual ou nos números de combate, nem adicionar uma chamada de modelo. Um valor que uma camada _adicionasse_ seria desconhecido de todos os outros leitores da ficha, então valores só podem ser removidos. Tudo além dessa lista é uma alteração no próprio conjunto de regras ou um segundo conjunto.
 
-**Conflitos.** `conflicts` nomeia camadas que não podem ficar ativas juntas. Basta nomear um lado do par. O assistente desativa o outro interruptor e, se uma escolha salva tiver ambos de alguma forma, a camada declarada **depois** é descartada; assim, as mesmas duas escolhas sempre produzem as mesmas regras.
+**Conflitos.** `conflicts` nomeia camadas que não podem ficar ativas juntas. Basta nomear um lado do par. O assistente desativa o outro botão liga/desliga e, se uma escolha salva tiver ambos de alguma forma, a camada declarada **depois** é descartada; assim, as mesmas duas escolhas sempre produzem as mesmas regras.
 
-**Uma ficha que já contém um valor removido o mantém.** Nada reescreve um personagem. O editor simplesmente deixa de oferecer o valor, e um personagem que já o tinha o mostra como é. Desative a camada em uma nova partida e o valor será oferecido de novo. O mesmo vale para uma entrada de catálogo oculta: ela sai do seletor, e uma linha que o jogador já escolheu permanece na ficha. Moedas que uma camada retira e que alguém já carrega continuam na bolsa dessa pessoa.
+**Uma ficha que já contém um valor removido o mantém.** Nada reescreve um personagem. O editor deixa de oferecer o valor, e um personagem que já o tinha o mostra como é. Desative a camada em uma nova partida e o valor será oferecido de novo. O mesmo vale para uma entrada de catálogo oculta: ela sai do seletor, e uma linha que o jogador já escolheu permanece na ficha. Moedas que uma camada retira e que alguém já carrega continuam na bolsa dessa pessoa.
 
 **Limites.** 12 camadas por conjunto de regras e 4000 caracteres de orientações por camada, contando as duas strings juntas. Um conjunto de regras empacotado que declara `layers`, ou um `gm.worldGuidance` de base, precisa da Capability API 1.25, um cujas camadas retiram moedas precisa da 1.64, e um cujas camadas mudam seus `items` precisa da 1.813. Um conjunto importado é validado pelo Engine que o lê, então não precisa de nada.
 
