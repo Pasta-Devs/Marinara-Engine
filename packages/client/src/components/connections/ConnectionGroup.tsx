@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import {
   IMAGE_GENERATION_SOURCES,
   IMAGE_SOURCE_VENDOR,
+  isChatProvider,
+  isLocalAuthProvider,
   PROVIDERS,
   type APIProvider,
   type ConnectionAccountListItem,
@@ -109,6 +111,28 @@ export function sameServiceTargets(
           allRows.some((candidate) => candidate.accountId === item.id && mediaService(candidate) === source))) &&
       (!(account.provider === "custom" || isMediaRow(row)) || originOf(item.baseUrl) === originOf(account.baseUrl)),
   );
+}
+
+/**
+ * Where one Model can move: `same` moves instantly (same service); `other` needs the Move dialog's
+ * per-Model step. Mirrors the server: chat Models move to chat Connections of other services;
+ * media, decision and local-login (subscription) Models and Connections never change service.
+ * Bulk move offers only `same` targets valid for every picked Model.
+ */
+export function moveTargetsFor(
+  row: ConnectionRowData,
+  account: ConnectionAccountListItem | undefined,
+  accounts: readonly ConnectionAccountListItem[],
+  allRows: readonly ConnectionRowData[],
+) {
+  if (!account) return { same: [], other: [] };
+  const same = sameServiceTargets(row, account, accounts, allRows);
+  const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
+  const other =
+    !row.credentialsFromConnectionId && portable(row.provider) && portable(account.provider)
+      ? accounts.filter((item) => item.id !== account.id && portable(item.provider) && !same.includes(item))
+      : [];
+  return { same, other };
 }
 
 export function ConnectionGroup({
@@ -199,18 +223,27 @@ export function ConnectionGroup({
   // single-Model Move dialog asks for. A target must take every picked Model (every Model while none is picked).
   const moveTargets = (accounts ?? []).filter((item) =>
     (pickedRows.length ? pickedRows : rows).every((row) =>
-      sameServiceTargets(row, account, accounts ?? [], allRows ?? rows).includes(item),
+      moveTargetsFor(row, account, accounts ?? [], allRows ?? rows).same.includes(item),
     ),
   );
   const runBulk = async (each: (row: ConnectionRowData) => Promise<unknown>): Promise<boolean> => {
     setBulkBusy(true);
+    const failed: ConnectionRowData[] = [];
     try {
-      for (const row of pickedRows) await each(row);
-      setPicked(null);
-      return true;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-      return false;
+      for (const row of pickedRows) {
+        try {
+          await each(row);
+        } catch (error) {
+          console.warn("Bulk Connection action failed", row.id, error);
+          failed.push(row);
+        }
+      }
+      // Done rows leave the pick; failed ones stay checked so the user can retry or inspect them.
+      setPicked(failed.length ? new Set(failed.map((row) => row.id)) : null);
+      if (failed.length) {
+        toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
+      }
+      return failed.length === 0;
     } finally {
       setBulkBusy(false);
     }
@@ -462,7 +495,16 @@ export function ConnectionGroup({
         />
       )}
       {picked && (
-        <div data-connection-select className="mari-connection-model-list min-w-0">
+        <div
+          data-connection-select
+          className="mari-connection-model-list min-w-0"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !bulkBusy) {
+              event.stopPropagation();
+              setPicked(null);
+            }
+          }}
+        >
           <div className="mari-connection-model-well min-w-0">
             {sortByModelId(rows).map((row) => {
               const checked = picked.has(row.id);
