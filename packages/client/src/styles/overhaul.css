@@ -6908,3 +6908,8 @@ input.ov-edhead__title:focus {
     width: 9rem;
   }
 }
+
+/* A tab coming back stays hidden for a moment until its scroll position is restored (use-tab-scroll-memory). */
+[data-ov-restoring-scroll] [data-component="CenterContent"] {
+  visibility: hidden;
+}
