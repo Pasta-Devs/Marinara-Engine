@@ -341,17 +341,32 @@ export function OverhaulMobileTopBar() {
 
   return (
     <header data-component="TopBar" data-overhaul-topbar="mobile" className="ovm-topbar">
-      <button
-        type="button"
-        className={cn("ovm-icon-btn", sidebarOpen && "is-on")}
-        aria-pressed={sidebarOpen}
-        aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-        title={localize("Chats")}
-        onClick={toggleChats}
-        data-tour="sidebar-toggle"
-      >
-        <PanelLeft size={22} />
-      </button>
+      {/* Three columns with equal sides, so the title sits in the true centre. */}
+      <div className="ovm-topbar__side">
+        <button
+          type="button"
+          className={cn("ovm-icon-btn", sidebarOpen && "is-on")}
+          aria-pressed={sidebarOpen}
+          aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
+          title={localize("Chats")}
+          onClick={toggleChats}
+          data-tour="sidebar-toggle"
+        >
+          <PanelLeft size={22} />
+        </button>
+        <button
+          type="button"
+          className={cn("ovm-icon-btn", !current && !sidebarOpen && "is-on")}
+          aria-label={localize("Home")}
+          title={localize("Home")}
+          onClick={() => {
+            closeMobilePanels();
+            goHome();
+          }}
+        >
+          <Home size={22} />
+        </button>
+      </div>
       <button
         type="button"
         className="ovm-title"
@@ -386,33 +401,35 @@ export function OverhaulMobileTopBar() {
           </>
         )}
       </button>
-      {chatOnScreen ? (
+      <div className="ovm-topbar__side ovm-topbar__side--end">
+        {chatOnScreen ? (
+          <button
+            type="button"
+            className={cn("ovm-icon-btn", chatSettingsOpen && "is-on")}
+            aria-pressed={chatSettingsOpen}
+            aria-label={localize("Chat settings")}
+            title={localize("Chat settings")}
+            data-window-opener={CHAT_SETTINGS_WINDOW_ID}
+            onClick={(event) => toggleChatSettings(event.currentTarget)}
+          >
+            <Settings2 size={22} />
+          </button>
+        ) : null}
         <button
+          ref={stackRef}
           type="button"
-          className={cn("ovm-icon-btn", chatSettingsOpen && "is-on")}
-          aria-pressed={chatSettingsOpen}
-          aria-label={localize("Chat settings")}
-          title={localize("Chat settings")}
-          data-window-opener={CHAT_SETTINGS_WINDOW_ID}
-          onClick={(event) => toggleChatSettings(event.currentTarget)}
+          className={cn("ovm-stack-btn", stackOpen && "is-on", wide && "has-label")}
+          aria-expanded={stackOpen}
+          aria-haspopup="menu"
+          aria-label={localize("Library")}
+          title={localize("Library")}
+          onClick={() => setStackOpen((open) => !open)}
+          data-tour="panel-buttons"
         >
-          <Settings2 size={22} />
+          <Layers size={22} aria-hidden="true" />
+          {wide ? <span>{localize("Library")}</span> : null}
         </button>
-      ) : null}
-      <button
-        ref={stackRef}
-        type="button"
-        className={cn("ovm-stack-btn", stackOpen && "is-on", wide && "has-label")}
-        aria-expanded={stackOpen}
-        aria-haspopup="menu"
-        aria-label={localize("Library")}
-        title={localize("Library")}
-        onClick={() => setStackOpen((open) => !open)}
-        data-tour="panel-buttons"
-      >
-        <Layers size={22} aria-hidden="true" />
-        {wide ? <span>{localize("Library")}</span> : null}
-      </button>
+      </div>
       {stackOpen ? <StackMenu anchor={stackRef.current} onClose={() => setStackOpen(false)} /> : null}
       {allTabsOpen ? <AllTabsViewer chats={chats} current={current} /> : null}
     </header>

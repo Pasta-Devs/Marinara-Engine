@@ -11,7 +11,8 @@
 .ovm-topbar {
   position: relative;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   flex: none;
   align-items: center;
   gap: 0.125rem;
@@ -40,13 +41,23 @@
 .ovm-icon-btn:disabled {
   opacity: 0.45;
 }
+.ovm-topbar__side {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+.ovm-topbar__side--end {
+  justify-content: flex-end;
+}
 .ovm-title {
   display: flex;
-  flex: 1;
+  max-width: calc(100vw - 12rem);
   min-width: 0;
+  overflow: hidden;
   height: 2.75rem;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   gap: 0.5rem;
   padding: 0 0.25rem;
   border: 0;
@@ -72,8 +83,14 @@
 .ovm-title__text {
   display: flex;
   min-width: 0;
+  max-width: 100%;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   line-height: 1.2;
+}
+.ovm-title__text > * {
+  max-width: 100%;
 }
 .ovm-title__text b,
 .ovm-title__text .ov-tab__label {
@@ -82,7 +99,7 @@
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: none;
+  max-width: 100%;
 }
 .ovm-title__text small {
   overflow: hidden;

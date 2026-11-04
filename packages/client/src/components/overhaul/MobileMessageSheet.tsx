@@ -2,7 +2,7 @@
 // UI overhaul, phones and tablets: long-press a message
 //
 // Messages show no action row on phones. Holding a message opens this sheet:
-// Copy, Edit, Regenerate and Branch as big buttons, the swipes, then every
+// Regenerate, Edit, Copy and Branch as big buttons, the swipes, then every
 // other action as labelled rows (the same buttons the desktop More menu lists).
 // Pulling the sheet down, tapping outside or Escape closes it.
 // ──────────────────────────────────────────────
@@ -215,17 +215,17 @@ export function OvMobileMessageSheet({
           </div>
         ) : null}
         <div className="ovm-sheet__quick">
-          <button type="button" onClick={run(onCopy)}>
-            {copied ? <Check size={22} /> : <Copy size={22} />}
-            {localize("Copy")}
+          <button type="button" onClick={run(onRegenerate)} disabled={!onRegenerate}>
+            <RefreshCw size={22} />
+            {localize("Regenerate")}
           </button>
           <button type="button" onClick={run(onEdit)} disabled={!onEdit}>
             <Pencil size={22} />
             {localize("Edit")}
           </button>
-          <button type="button" onClick={run(onRegenerate)} disabled={!onRegenerate}>
-            <RefreshCw size={22} />
-            {localize("Regenerate")}
+          <button type="button" onClick={run(onCopy)}>
+            {copied ? <Check size={22} /> : <Copy size={22} />}
+            {localize("Copy")}
           </button>
           <button type="button" onClick={run(onBranch)} disabled={!onBranch}>
             <GitBranch size={22} />
