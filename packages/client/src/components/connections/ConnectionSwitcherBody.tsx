@@ -786,6 +786,8 @@ export function ConnectionSwitcherBody({
       ? "starred"
       : ((currentGroup?.account ? currentGroup : groups.find((group) => group.account))?.key ?? "starred"));
   const paneGroup = groups.find((group) => group.key === paneKey);
+  // Edit order belongs to the pane it was turned on in.
+  useEffect(() => setEditOrder(false), [paneKey]);
   // A selected account scopes the search to its own models.
   const scopeGroup = paneGroup;
   // The open account's list: shares the cache loadCatalog fills, and tells the pane when it failed.
@@ -972,8 +974,11 @@ export function ConnectionSwitcherBody({
       now = false,
       star = "unstarred",
       away = false,
+      order = false,
     }: {
       index?: number;
+      /** Only the Starred lists that show the Edit order toggle pass this. */
+      order?: boolean;
       now?: boolean;
       star?: "all" | "unstarred" | "none";
       /** Shown outside its provider's list (Now, Starred, Recent): line 2 names the provider, and the upstream it goes via. */
@@ -981,6 +986,7 @@ export function ConnectionSwitcherBody({
     } = {},
   ) => {
     // The provider's own name when it has one; the id is the second line only when two rows would look the same.
+    const ordering = editOrder && order;
     const catalogFacts = rawEntry.group ? catalogOf(rawEntry.group) : undefined;
     const niceName =
       rawEntry.model && rawEntry.title === rawEntry.model ? catalogFacts?.nameOf(rawEntry.model) : undefined;
@@ -1077,8 +1083,8 @@ export function ConnectionSwitcherBody({
         end={
           <>
             {now && unavailable && group && fixButton(group)}
-            {editOrder && starred && group && orderButtons(group, entry.model!, entry.title)}
-            {starred && entry.row && !editOrder && (
+            {ordering && starred && group && orderButtons(group, entry.model!, entry.title)}
+            {starred && entry.row && !ordering && (
               <button
                 type="button"
                 data-switcher-settings={entry.model}
@@ -1098,7 +1104,7 @@ export function ConnectionSwitcherBody({
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>
             )}
-            {showStar && !editOrder && starButton(group!, entry.model!, entry.title, starred)}
+            {showStar && !ordering && starButton(group!, entry.model!, entry.title, starred)}
           </>
         }
       />
@@ -1469,7 +1475,9 @@ export function ConnectionSwitcherBody({
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
                 {heading(t("connections.switcher.starred"), shownEntries.starred.length)}
                 {shownEntries.starred.length > 1 && orderToggle}
-                {shownEntries.starred.map((entry) => renderEntry(entry, { star: "all" }))}
+                {shownEntries.starred.map((entry) =>
+                  renderEntry(entry, { star: "all", order: shownEntries.starred.length > 1 }),
+                )}
               </section>
             )}
             {shownEntries.rest.length > 0 && (
@@ -1498,7 +1506,9 @@ export function ConnectionSwitcherBody({
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
               {starredEntries.length > 1 && orderToggle}
-              {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+              {starredEntries.map((entry) =>
+                renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
+              )}
             </section>
             {starredEntries.length === 0 && knownEntries.length === 0 && (
               <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
