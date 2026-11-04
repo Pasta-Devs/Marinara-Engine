@@ -148,12 +148,13 @@ const PACKAGE_STORE_DIR_NAMES = new Set(["node_modules", ".pnpm", ".pnpm-store"]
 // the carve-out every default-scaffold build fails on a read-only store.
 const PACKAGE_STORE_WRITABLE_CACHES = [".cache", ".vite", ".vite-temp"];
 // The app's media folders in the data dir. Only mari images and the app write them, both in the server process, so the
-// shell has no reason to. Fonts, stickers, emojis, sounds and the prompt, agent and connection images have no mari
-// command, so a file her shell writes stays her way to add one.
+// shell has no reason to. No mari command writes fonts, stickers, emojis, sounds, avatar models or the prompt, agent
+// and connection images, so those keep their current shell access.
 const APP_MEDIA_FOLDERS = [
   "avatars",
   "backgrounds",
   "backgrounds-thumbs",
+  "conversation-call-character-videos",
   "game-assets",
   "game-scene-videos",
   "gallery",
@@ -843,7 +844,9 @@ export async function buildMacosWorkspaceShellProfile(
     writableWorkspace && appDataWrites.length ? `(deny file-write*\n${appDataWrites.join("\n")})` : "";
   const storeCacheAllows = storeCaches.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   // Placed AFTER the store deny: seatbelt's last matching rule wins, so the
-  // cache subpaths stay writable inside the otherwise read-only store.
+  // cache subpaths stay writable inside the otherwise read-only store. The
+  // saved-data and media deny comes after it, so a store inside one of those
+  // folders gets no writable cache.
   const storeCacheRule = writableWorkspace && storeCacheAllows ? `(allow file-write*\n${storeCacheAllows})` : "";
   // #6984: build output stays read-only. The pattern also covers folders that do not exist yet, new packages
   // and dist-* builds; seatbelt matched DIST to dist on a case-insensitive volume when this was tested.
@@ -876,8 +879,8 @@ ${workspaceWriteRule}
     (literal "/dev/tty"))
 ${sensitiveWriteRule}
 ${storeWriteRule}
-${appDataWriteRule}
 ${storeCacheRule}
+${appDataWriteRule}
 ${buildOutputRule}
 ${forbiddenRule}
 ${forbiddenWriteRule}
@@ -898,9 +901,10 @@ function isRealFolder(path: string) {
  * A mount needs an existing folder, so a missing media folder is made first, one part at a time so that no part is
  * made through a link. The app makes these folders when it needs them anyway.
  */
-// ponytail: a media folder that is itself a link, or sits behind one, gets no mount (a mount cannot sit on a link), so
-// her shell could still replace that link; mari images refuses such a folder, and the server logs it here. Upgrade
-// path: refuse the shell while a media folder is a link.
+// ponytail: a media folder that is itself a link, or sits behind one, when her shell starts gets no mount (a mount
+// cannot sit on a link), so for that run her shell can replace it with a folder of its own and swap that folder as in
+// #8802. mari images refuses the link itself, and the server logs it here. Upgrade path: refuse the shell while a media
+// folder is a link.
 async function mediaFolderMounts(dataDir: string | null, mediaDirs: string[]) {
   if (!dataDir) return [];
   const mounts: string[] = [];

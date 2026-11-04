@@ -10,9 +10,10 @@ import { assertInsideDir } from "./security.js";
 // A folder outside the data dir (a test root) is held to its own real path. A path that does not exist yet is checked
 // as the real path of its nearest existing folder plus the rest of it, so a write never creates a file or folder
 // through a link.
-// ponytail: checked, then used by the checked path, so a folder swapped for a link between the two is not caught;
-// opening each path part without following links (O_NOFOLLOW per part) or keeping the shell out of these folders
-// would close that window.
+// ponytail: checked, then used by the checked path, so a folder swapped for a link between the two is not caught. The
+// shell sandbox keeps her shell from changing these folders wherever it runs (macOS and Linux; on Linux, not a media
+// folder that is already a link when the shell starts), so the window remains for processes outside that sandbox.
+// Upgrade path: open each path part without following links (O_NOFOLLOW per part, or openat).
 export function realPathInAppFolder(folder: string, path: string): string {
   let existing = path;
   while (!lstatSync(existing, { throwIfNoEntry: false })) existing = dirname(existing);

@@ -49,6 +49,7 @@ const MEDIA = [
   "avatars",
   "backgrounds",
   "backgrounds-thumbs",
+  "conversation-call-character-videos",
   "game-assets",
   "game-scene-videos",
   "gallery",
@@ -98,6 +99,9 @@ try {
   mkdirSync(join(dataDir, "gallery", "mari-images"), { recursive: true });
   writeFileSync(join(dataDir, "gallery", "mari-images", "manifest.json"), "[]\n");
   mkdirSync(join(workspace, "outside-media"));
+  // A package store the user left in a media folder: its build caches must not reopen the folder.
+  const mediaStore = join(dataDir, "game-assets", "pack", "node_modules");
+  mkdirSync(mediaStore, { recursive: true });
   let linked = true;
   try {
     symlinkSync(keyFile, join(workspace, "key-link"));
@@ -177,6 +181,11 @@ try {
   const mediaPattern = `^${dataDir}/(${MEDIA.map(anyCase).join("|")})(/|$)`;
   assert.ok(appDataRule.includes(`(regex ${JSON.stringify(mediaPattern)})`), "media folders are matched by name");
   assert.ok(appDataRule.includes(`(regex ${JSON.stringify(`^${dataDir}/(${anyCase("lorebooks")})$`)})`));
+  const cacheAllow = profile.indexOf(`(subpath ${JSON.stringify(join(mediaStore, ".cache"))})`);
+  assert.ok(
+    cacheAllow >= 0 && cacheAllow < appDataStart,
+    "the media deny comes after the store cache allow, so the last matching rule keeps the media folder read-only",
+  );
   const readOnly = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), false, "/bin/bash", true);
   assert.ok(!readOnly.includes(mediaPattern), "a read-only workspace needs no media rule");
   const forbiddenRule = profile.slice(profile.indexOf("(deny file-read* file-write*\n"));
@@ -197,6 +206,11 @@ try {
       assert.ok(pinned >= 0 && pinned < at, `${holder} is pinned before the ${name} mount`);
     }
   }
+  const cacheBind = bwrap.indexOf(`--bind\0${join(mediaStore, ".cache")}\0${join(mediaStore, ".cache")}\0`);
+  assert.ok(
+    cacheBind >= 0 && cacheBind < bwrap.indexOf(`--ro-bind\0${media("game-assets")}\0${media("game-assets")}\0`),
+    "the read-only media mount comes after the store cache bind, so it covers it",
+  );
   const pinOrder = holders.map((holder) => bwrap.indexOf(`--bind\0${holder}\0${holder}\0`));
   assert.deepEqual(
     pinOrder,
@@ -352,7 +366,10 @@ try {
         `ln -s ../../../../../outside-media ${data}/gallery/mari-images/link`,
         `printf planted > ${data}/gallery/mari-images/manifest.json`,
         `ln ${data}/avatars/face.png hard-face && printf planted >> hard-face`,
-        `mv ${data}/avatars moved-avatars`,
+        // Inside the data dir on every backend: under bubblewrap a move out of it crosses mounts, and mv then copies.
+        `mv ${data}/avatars ${data}/avatars.moved`,
+        ...(seatbelt ? [`mv ${data}/avatars moved-avatars`] : []),
+        `printf planted > ${data}/game-assets/pack/node_modules/.cache/planted && echo cache-written`,
         `rm -rf ${data}/game-assets`,
         `ln -s ../../../outside-media ${data}/sprites`,
         `mkdir -p ${data}/lorebooks/images`,
@@ -372,7 +389,11 @@ try {
     assert.equal(readFileSync(join(dataDir, "gallery", "mari-images", "manifest.json"), "utf8"), "[]\n");
     assert.deepEqual(readdirSync(join(dataDir, "gallery", "mari-images")), ["manifest.json"]);
     assert.equal(readFileSync(join(dataDir, "avatars", "face.png"), "utf8"), "image\n", "not even through a hard link");
-    assert.ok(existsSync(media("game-assets")) && !existsSync(join(workspace, "moved-avatars")));
+    assert.ok(!lstatSync(media("avatars")).isSymbolicLink(), "avatars is never a link");
+    assert.equal(existsSync(join(dataDir, "avatars.moved")), false, "avatars cannot be moved away");
+    if (seatbelt) assert.equal(existsSync(join(workspace, "moved-avatars")), false, "not even out of the data dir");
+    assert.doesNotMatch(mediaShell.output, /^cache-written$/mu, "a store cache in a media folder stays read-only");
+    assert.ok(existsSync(media("game-assets")), "game-assets cannot be deleted");
     for (const name of ["backgrounds", "sprites", "lorebooks", "lorebooks/images"]) {
       const stats = lstatSync(media(name), { throwIfNoEntry: false });
       assert.ok(!stats?.isSymbolicLink(), `${name} is never a link`);
