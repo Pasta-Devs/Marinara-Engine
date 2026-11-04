@@ -93,6 +93,15 @@ assert(diffLines("", "").length === 0, "empty to empty has nothing to show");
     joined.map((s) => s.type).join(",") === "equal,removed,added",
     `single kept words fold into one run (got ${joined.map((s) => s.type).join(",")})`,
   );
+  // Words only inserted (or only cut) around a kept word never strike that word.
+  const inserted = diffWordRuns("A foo B", "A X foo Y B");
+  assert(!inserted.some((s) => s.type === "removed"), "a pure insertion strikes nothing");
+  assert(
+    inserted.some((s) => s.type === "equal" && s.value.includes("foo")),
+    "the kept word between two insertions stays kept",
+  );
+  const cut = diffWordRuns("A X foo Y B", "A foo B");
+  assert(!cut.some((s) => s.type === "added"), "a pure deletion adds nothing");
   const apart = diffWordRuns("one cat sleeps quietly here", "two cat sleeps loudly here");
   assert(
     apart.filter((s) => s.type === "equal").some((s) => s.value.includes("cat sleeps")),

@@ -1922,7 +1922,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 
 /* An edited run is its old words struck, then its new words: keep a gap so they don't run together. */
 .mari-field__text del:has(+ ins) {
-  margin-right: 0.3em;
+  margin-inline-end: 0.3em;
 }
 
 .mari-field__text ins {
@@ -3925,7 +3925,7 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
    The gap sits on the struck text, since the new text's cloned box would repeat it on every line. */
 .mari-receipt del:has(+ ins),
 .mari-field-review del:has(+ ins) {
-  margin-right: 0.3em;
+  margin-inline-end: 0.3em;
 }
 
 .mari-receipt ins,

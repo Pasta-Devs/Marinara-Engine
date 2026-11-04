@@ -104,7 +104,22 @@ export function groupChangeRuns(segments: readonly DiffSegment[]): DiffSegment[]
   };
   let removed = "";
   let added = "";
+  // The run's own segments, and whether it really removes and really adds anything.
+  let raw: DiffSegment[] = [];
+  let removes = false;
+  let adds = false;
   const flush = () => {
+    if (!(removes && adds)) {
+      // Pure insertions or deletions around a kept word: striking that word would say it was cut.
+      for (const segment of raw) {
+        if (segment.type === "equal") keep(segment.value);
+        else out.push({ ...segment });
+      }
+      raw = [];
+      removed = "";
+      added = "";
+      return;
+    }
     // Space both sides share at the run's edges is kept text, not part of the edit.
     let head = "";
     let tail = "";
@@ -124,17 +139,27 @@ export function groupChangeRuns(segments: readonly DiffSegment[]): DiffSegment[]
     if (removed) out.push({ type: "removed", value: removed });
     if (added) out.push({ type: "added", value: added });
     keep(tail);
+    raw = [];
+    removes = false;
+    adds = false;
     removed = "";
     added = "";
   };
   for (let k = 0; k < segments.length; k++) {
     const segment = segments[k];
     const inRun = removed !== "" || added !== "";
-    if (segment.type === "removed") removed += segment.value;
-    else if (segment.type === "added") added += segment.value;
-    else if (inRun && k + 1 < segments.length && segments[k + 1].type !== "equal" && isBridge(segment.value)) {
+    if (segment.type === "removed") {
+      removed += segment.value;
+      removes = true;
+      raw.push(segment);
+    } else if (segment.type === "added") {
+      added += segment.value;
+      adds = true;
+      raw.push(segment);
+    } else if (inRun && k + 1 < segments.length && segments[k + 1].type !== "equal" && isBridge(segment.value)) {
       removed += segment.value;
       added += segment.value;
+      raw.push(segment);
     } else {
       flush();
       keep(segment.value);
