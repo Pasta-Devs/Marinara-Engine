@@ -55,9 +55,13 @@ import {
   PersonalExtensionTopbarButtons,
 } from "../layout/PersonalExtensionContributionsMenu";
 import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
+import { BrowserPackageTabIcon } from "../chat/HomeBrowserHub";
+import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
+import { useTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 
-const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library">, LucideIcon> = {
+const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, LucideIcon> = {
   character: Users,
   persona: VenetianMask,
   lorebook: BookOpen,
@@ -92,6 +96,7 @@ function useCurrentTab(): OverhaulTab | null {
   const activeDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const activeMari = useOverhaulStore((s) => s.activeMari);
   const activeSchedules = useOverhaulStore((s) => s.activeSchedules);
+  const activeApp = useOverhaulStore((s) => s.activeApp);
   return useMemo(() => {
     const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
     if (activeSchedules) return { kind: "schedules", id: "main" };
@@ -109,8 +114,10 @@ function useCurrentTab(): OverhaulTab | null {
     if (real(lorebookDetailId)) return { kind: "lorebook", id: lorebookDetailId! };
     if (libraryPage) return { kind: "library", id: libraryPage };
     if (activeChatId) return { kind: "chat", id: activeChatId };
+    if (activeApp) return { kind: "app", id: activeApp };
     return null;
   }, [
+    activeApp,
     activeChatId,
     activeDocsTab,
     activeMari,
@@ -152,6 +159,12 @@ function activateTab(tab: OverhaulTab) {
   if (tab.kind === "schedules") {
     ui.closeAllDetails();
     overhaul.openSchedules();
+    return;
+  }
+  if (tab.kind === "app") {
+    ui.closeAllDetails();
+    useChatStore.getState().setActiveChatId(null);
+    overhaul.openApp(tab.id);
     return;
   }
   overhaul.leaveDocs();
@@ -221,6 +234,27 @@ function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string 
   return <small>{parts.length ? parts.join(" · ") : fallback}</small>;
 }
 
+/** Installed Home apps (Noodle, Slurp...) with their tab label and icon. */
+function useHomeApps() {
+  const { i18n } = useTranslation();
+  const installed = useInstalledCapabilityPackages();
+  return useMemo(
+    () => ({
+      loaded: Boolean(installed.data),
+      apps: selectHomeBrowserPackages(installed.data).map((item) => {
+        const display = resolveCapabilityPackageDisplay(item.manifest, i18n.resolvedLanguage ?? i18n.language);
+        return {
+          id: item.id,
+          version: item.version,
+          label: display.homeBrowserTab?.label ?? display.name,
+          iconPaths: display.homeBrowserTab?.iconPaths,
+        };
+      }),
+    }),
+    [i18n.language, i18n.resolvedLanguage, installed.data],
+  );
+}
+
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
 function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const localize = useLocalizedUiText();
@@ -231,6 +265,7 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const connection = useConnection(tab.kind === "connection" ? tab.id : null);
   const docsPath = useOverhaulStore((s) => (tab.kind === "docs" ? (s.docsTabs[tab.id] ?? null) : null));
   const docsIndex = useDocsIndex(tab.kind === "docs");
+  const homeApps = useHomeApps();
   const docsTitle = (path: string | null) =>
     path ? (docsIndex.data?.docs.find((entry) => entry.path === path)?.title ?? null) : null;
   let label: string | null = null;
@@ -250,6 +285,7 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   else if (tab.kind === "regex") label = localize("Regex script");
   else if (tab.kind === "mari") label = localize("Professor Mari");
   else if (tab.kind === "schedules") label = localize("Character schedules");
+  else if (tab.kind === "app") label = homeApps.apps.find((app) => app.id === tab.id)?.label ?? tab.id;
   else if (tab.kind === "docs") {
     const title = docsTitle(docsPath);
     label = title ? `${localize("Docs")}: ${title}` : localize("Docs");
@@ -296,6 +332,16 @@ function GamePaneToggle() {
   );
 }
 
+function AppTabIcon({ id }: { id: string }) {
+  const app = useHomeApps().apps.find((entry) => entry.id === id);
+  if (!app) return <Sparkles aria-hidden="true" size={14} className="ov-tab__icon" />;
+  return (
+    <span className="ov-tab__icon ov-tab__appicon" aria-hidden="true">
+      <BrowserPackageTabIcon packageId={app.id} version={app.version} iconPaths={app.iconPaths} />
+    </span>
+  );
+}
+
 function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
@@ -307,6 +353,7 @@ function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     const Icon = LIBRARY_SECTIONS.find((entry) => entry.id === tab.id)?.icon ?? Layers;
     return <Icon aria-hidden="true" size={14} className="ov-tab__icon" />;
   }
+  if (tab.kind === "app") return <AppTabIcon id={tab.id} />;
   const Icon = TAB_ICONS[tab.kind];
   return <Icon aria-hidden="true" size={14} className="ov-tab__icon" />;
 }
@@ -347,6 +394,20 @@ export function OverhaulTopBar() {
       inline: "nearest",
     });
   }, [currentKey, tabs.length]);
+
+  // Opening a chat leaves the app it was opened over.
+  useEffect(() => {
+    if (activeChatId && useOverhaulStore.getState().activeApp) useOverhaulStore.setState({ activeApp: null });
+  }, [activeChatId]);
+
+  // Drop app tabs whose app was uninstalled.
+  const homeApps = useHomeApps();
+  useEffect(() => {
+    if (!homeApps.loaded) return;
+    for (const tab of tabs) {
+      if (tab.kind === "app" && !homeApps.apps.some((app) => app.id === tab.id)) closeTab(tab);
+    }
+  }, [closeTab, homeApps, tabs]);
 
   // Drop chat tabs whose chat was deleted.
   useEffect(() => {
