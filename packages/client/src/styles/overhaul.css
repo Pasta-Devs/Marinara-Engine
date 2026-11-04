@@ -6212,3 +6212,41 @@ input.ov-edhead__title:focus {
   :is(textarea, select, input:not([type="checkbox"])) {
   font-size: 0.8125rem;
 }
+
+/* Chat Branches: Import, one Export menu (format picker) and Stats in a single flat row. */
+.ov-cb-io {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-cb-io__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.875rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.4375rem;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.ov-cb-io__btn:hover {
+  background: var(--ov-hover);
+}
+.ov-cb-io__btn:disabled {
+  opacity: 0.5;
+}
+.ov-cb-io__btn svg {
+  color: var(--ov-dim);
+}
+.ov-cb-io__menu {
+  left: 0;
+  right: auto;
+  min-width: 11rem;
+}
+.ov-cb-io__menu button small {
+  margin-left: auto;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+}
