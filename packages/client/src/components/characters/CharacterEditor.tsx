@@ -205,7 +205,7 @@ import {
 } from "../../lib/stat-icon-assignments";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
-import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulLook, useOverhaulLook } from "../../stores/overhaul.store";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
@@ -454,8 +454,7 @@ export function CharacterEditor() {
   const { data: connectionsList } = useConnections();
 
   const [activeTab, setActiveTab] = useState<TabId>(
-    () =>
-      (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulActive() ? "card" : "metadata"),
+    () => (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulLook() ? "card" : "metadata"),
   );
   const [formData, setFormData] = useState<CharacterData | null>(null);
   // Same rule as the Onboarding tab: only a missing block is empty, so a block
@@ -468,7 +467,7 @@ export function CharacterEditor() {
   const { contentRef, scrollToSection } = useEditorSections(
     characterId,
     !!formData,
-    (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulActive() ? "card" : "metadata"),
+    (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulLook() ? "card" : "metadata"),
     setActiveTab,
   );
   const [characterComment, setCharacterComment] = useState("");
@@ -518,7 +517,7 @@ export function CharacterEditor() {
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
   const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
   const [newTag, setNewTag] = useState("");
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const { startChatFromCharacter } = useStartChatFromCharacter();
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
@@ -2893,7 +2892,7 @@ function MetadataTab({
   // Read existing crop in either current or legacy shape; the widget handles both
   // and writes back the current shape on first interaction.
   const savedCrop = normalizeAvatarCrop(formData.extensions.avatarCrop);
-  const overhaulMeta = useOverhaulActive();
+  const overhaulMeta = useOverhaulLook();
   const copyCharacterId = async () => {
     if (!characterId) return;
     const copied = await copyToClipboard(characterId);

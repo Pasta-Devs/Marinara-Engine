@@ -75,7 +75,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { EditorCrumbs } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
@@ -170,7 +170,7 @@ function readMarkerConfig(value: unknown) {
 
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const [ovPage, setOvPage] = useState<"overview" | "prompts" | "variables" | "parameters" | "regex">("overview");
   const [ovSelected, setOvSelected] = useState<string | null>(null);
   const [ovResetKey, setOvResetKey] = useState(0);

@@ -29,7 +29,7 @@ import { compareChatsByActivityDesc } from "../../lib/chat-recency";
 import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type BranchRow = {
@@ -57,7 +57,7 @@ export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: Cha
   const updateMetadata = useUpdateChatMetadata();
   const qc = useQueryClient();
   const [isImporting, setIsImporting] = useState(false);
-  const overhaul = useOverhaulActive();
+  const overhaul = useOverhaulLook();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

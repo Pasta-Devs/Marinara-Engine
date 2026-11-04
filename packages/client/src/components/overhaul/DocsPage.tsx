@@ -4,10 +4,10 @@
 // The guide reads on the left in a wide column; the guide list sits on the
 // right, grouped by folder, with search above it. Opened from the top bar's
 // "?" button, the Home page, Macro Reference, or anything that used to open the
-// Docs modal.
+// Docs modal. Phones show the list, then the open guide with a back button.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Search, X } from "lucide-react";
+import { BookOpen, ChevronLeft, Search, X } from "lucide-react";
 import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 import { useDocContent, useDocsIndex, useDocsSearch, type DocSummary } from "../../hooks/use-docs";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
@@ -77,7 +77,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   };
 
   return (
-    <section className="ov-docs" data-component="OverhaulDocsPage">
+    <section className="ov-docs" data-component="OverhaulDocsPage" data-has-doc={path !== null ? "true" : undefined}>
       <div className="ov-docs__reader" ref={setScrollEl}>
         {path === null ? (
           <div className="ov-docs__empty">
@@ -91,6 +91,11 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
           <p className="ov-gallery__note">{localize("Could not load this guide.")}</p>
         ) : (
           <>
+            {/* Phones show one pane at a time: this goes back to the guide list. */}
+            <button type="button" className="ov-docs__back" onClick={() => setDocsPath(tabId, null)}>
+              <ChevronLeft size={18} aria-hidden="true" />
+              {localize("All guides")}
+            </button>
             {crumbs.length ? <p className="ov-docs__crumbs">{crumbs.join(" › ")}</p> : null}
             <div
               key={`${doc.path}:${doc.updatedAt}`}

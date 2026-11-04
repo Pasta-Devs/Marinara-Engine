@@ -117,7 +117,7 @@ import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { Modal } from "../ui/Modal";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { EditorCrumbs } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
 
@@ -641,7 +641,7 @@ export function LorebookEditor() {
   const [formCharacterIds, setFormCharacterIds] = useState<string[]>([]);
   const [formPersonaIds, setFormPersonaIds] = useState<string[]>([]);
   const [formTags, setFormTags] = useState<string[]>([]);
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const [ovBookOpen, setOvBookOpen] = useState(true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
   const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);

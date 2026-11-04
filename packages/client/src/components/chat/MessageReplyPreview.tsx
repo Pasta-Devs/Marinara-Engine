@@ -2,12 +2,12 @@ import { Reply, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { messageReplySchema, type Message } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { MessageActionButton, MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 
 export function MessageReplyPreview({ reply: value, onCancel }: { reply: unknown; onCancel?: () => void }) {
   const { t } = useTranslation();
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const parsed = messageReplySchema.safeParse(value);
   if (!parsed.success) return null;
   const reply = parsed.data;

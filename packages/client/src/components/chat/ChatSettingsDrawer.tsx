@@ -252,7 +252,7 @@ import { abortGenerationForChat, useChatStore } from "../../stores/chat.store";
 import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
-import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import {
   OvChatSettingsEditor,
   OvChatSettingsHeader,
@@ -1048,10 +1048,13 @@ export function ChatSettingsDrawer({
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   // Phones show Chat Settings as a full-width sheet.
   const phoneLayout = useMatchMedia("(max-width: 767px)");
-  const overhaulActive = useOverhaulActive() && !phoneLayout;
+  // Overhaul look: the desktop drawer, and on phones/tablets the same look as a bottom sheet (never docked).
+  const overhaulDesktop = useOverhaulActive() && !phoneLayout;
+  const overhaulMobile = useOverhaulMobile();
+  const overhaulActive = overhaulDesktop || overhaulMobile;
   const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
-  const ovDocked = overhaulActive && !ovFloating;
+  const ovDocked = overhaulDesktop && !ovFloating;
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
   const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
   const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);
@@ -5568,7 +5571,7 @@ export function ChatSettingsDrawer({
             ? cn(windowProps.className, "mari-chat-settings-popover mari-chat-settings-drawer ov-cs ov-cs--section")
             : undefined,
         }}
-        presentation={phoneLayout ? "sheet" : "window"}
+        presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
         title={localizeUi("chat.toolbar.settings")}
         titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
         titleAccessory={overhaulActive ? <OvChatSettingsHeader mode={chatMode} /> : helpLayoutButton}

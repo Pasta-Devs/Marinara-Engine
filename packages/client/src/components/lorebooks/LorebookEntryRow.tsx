@@ -1,5 +1,5 @@
 import { LorebookEntryImages } from "./LorebookEntryImages";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
 // ──────────────────────────────────────────────
@@ -281,7 +281,7 @@ export function LorebookEntryRow({
   chatEnabled,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
-  const overhaul = useOverhaulActive();
+  const overhaul = useOverhaulLook();
   const ovDetailTarget = useContext(OvLoreDetailTarget);
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
