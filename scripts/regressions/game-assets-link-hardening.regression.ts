@@ -1,0 +1,551 @@
+// Professor Mari's shell can make links inside the data dir when it sits in her workspace. The game-assets folder is
+// held to its own real path (a game-assets folder that is itself a link, e.g. to another disk, still works): the asset
+// manifest build (startup, uploads, `mari images` background assign/delete) and the game-assets routes create, scan,
+// rename, write, read and delete only inside it, a link that leads out is skipped or refused and its target is never
+// touched, a link cycle ends, and manifest.json is written as a new file, never through a link. The shared avatar
+// cleanup used by the app's own deletes keeps a file whose avatar folder's real path is outside the data dir. Normal
+// work still runs with DATA_DIR behind a link and with game-assets behind a link, and a manifest that cannot be
+// written never blocks boot. Every case runs and the failures are reported together.
+import assert from "node:assert/strict";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative } from "node:path";
+
+const root = realpathSync(mkdtempSync(join(tmpdir(), "marinara-game-assets-links-")));
+const dataDir = join(root, "data");
+const outside = join(root, "outside");
+mkdirSync(join(dataDir, "storage"), { recursive: true });
+mkdirSync(outside);
+symlinkSync(dataDir, join(root, "data-link"), "dir");
+process.env.DATA_DIR = join(root, "data-link");
+process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
+process.env.NODE_ENV = "test";
+process.env.MARINARA_LITE = "true";
+
+const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
+const { default: multipart } = await import("../../packages/server/node_modules/@fastify/multipart/index.js");
+const { buildAssetManifest, ensureAssetDirs, getAssetManifest } =
+  await import("../../packages/server/src/services/game/asset-manifest.service.js");
+const { gameAssetsRoutes } = await import("../../packages/server/src/routes/game-assets.routes.js");
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+const { deleteAbandonedAvatarFiles, mutateAvatarReferencesAndCleanup, removeUnattachedAvatarFile } =
+  await import("../../packages/server/src/services/image/avatar-file-lifecycle.js");
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+const BAIT = "outside-file-the-app-must-not-touch";
+let gameAssets = join(dataDir, "game-assets");
+
+const failures: string[] = [];
+async function check(name: string, run: () => unknown) {
+  try {
+    await run();
+  } catch (error) {
+    failures.push(`${name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`);
+  }
+}
+
+// Every entry under a folder, links recorded as links, so "untouched" means no file moved, changed, added or removed.
+function snapshot(dir: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const walk = (path: string) => {
+    for (const name of readdirSync(path)) {
+      const full = join(path, name);
+      const rel = relative(dir, full);
+      const stat = lstatSync(full);
+      if (stat.isSymbolicLink()) result[rel] = `link:${readlinkSync(full)}`;
+      else if (stat.isDirectory()) {
+        result[rel] = "dir";
+        walk(full);
+      } else result[rel] = readFileSync(full).toString("base64");
+    }
+  };
+  if (existsSync(dir)) walk(dir);
+  return result;
+}
+async function untouched(dir: string, run: () => unknown, label: string) {
+  const before = snapshot(dir);
+  await run();
+  assert.deepEqual(snapshot(dir), before, `${label}: ${dir} is untouched`);
+}
+function bait(dir: string, files: Record<string, string | Buffer>) {
+  for (const [name, content] of Object.entries(files)) {
+    mkdirSync(join(dir, name, ".."), { recursive: true });
+    writeFileSync(join(dir, name), content);
+  }
+  return dir;
+}
+// Swaps an entry (in game-assets unless absolute) for a link and returns a function that puts the real entry back.
+function link(rel: string, target: string) {
+  const path = isAbsolute(rel) ? rel : join(gameAssets, rel);
+  const aside = `${path}.real-${Math.random().toString(36).slice(2)}`;
+  if (lstatSync(path, { throwIfNoEntry: false })) renameSync(path, aside);
+  mkdirSync(join(path, ".."), { recursive: true });
+  symlinkSync(target, path);
+  return () => {
+    rmSync(path, { recursive: true, force: true }); // removes a link itself, never what it leads to
+    if (existsSync(aside)) renameSync(aside, path);
+  };
+}
+const manifestText = () => JSON.stringify(buildAssetManifest());
+const listed = (manifest: string, ...names: string[]) => names.filter((name) => manifest.includes(name));
+
+const app = Fastify();
+await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
+await app.register(gameAssetsRoutes, { prefix: "/api/game-assets" });
+const inject = (method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", url: string, payload?: unknown) =>
+  app.inject({
+    method,
+    url: `/api/game-assets${url}`,
+    ...(payload === undefined ? {} : { payload: payload as never }),
+  });
+const BOUNDARY = "----marinara-game-assets-links";
+const multipartUpload = (subcategory: string, filename: string, content: Buffer, category = "sprites") =>
+  app.inject({
+    method: "POST",
+    url: "/api/game-assets/upload",
+    headers: { "content-type": `multipart/form-data; boundary=${BOUNDARY}` },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${BOUNDARY}\r\nContent-Disposition: form-data; name="category"\r\n\r\n${category}\r\n` +
+          `--${BOUNDARY}\r\nContent-Disposition: form-data; name="subcategory"\r\n\r\n${subcategory}\r\n` +
+          `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+          "Content-Type: application/octet-stream\r\n\r\n",
+      ),
+      content,
+      Buffer.from(`\r\n--${BOUNDARY}--\r\n`),
+    ]),
+  });
+const jsonUpload = (subcategory: string, filename: string, content = PNG, category = "sprites") =>
+  inject("POST", "/upload", { category, subcategory, filename, data: content.toString("base64") });
+const status = async (response: Promise<{ statusCode: number; body: string }>, expected: number, label: string) => {
+  const result = await response;
+  assert.equal(result.statusCode, expected, `${label}: ${result.body}`);
+  return result;
+};
+
+// The normal flows, run with DATA_DIR behind a link and again with game-assets behind a link.
+async function normalFlows(label: string, track: string) {
+  await check(`${label}: legacy flat music migrates and the manifest is a plain file`, () => {
+    bait(join(gameAssets, "music", "combat"), { [`${track}.mp3`]: "drums" });
+    ensureAssetDirs();
+    const manifest = buildAssetManifest();
+    assert.equal(
+      readFileSync(join(gameAssets, "music", "combat", "fantasy", "intense", `${track}.mp3`), "utf8"),
+      "drums",
+    );
+    assert.ok(manifest.assets[`music:combat:fantasy:intense:${track}`], "the migrated track is listed");
+    for (const dir of ["sfx/ui", "ambient/urban", "sprites/generic-scifi", "backgrounds/fantasy"])
+      assert.ok(lstatSync(join(gameAssets, dir)).isDirectory(), `${dir} is created`);
+    assert.ok(lstatSync(join(gameAssets, "manifest.json")).isFile(), "manifest.json is a plain file");
+    assert.equal(getAssetManifest().count, manifest.count, "the written manifest reads back");
+    assert.deepEqual(
+      readdirSync(gameAssets).filter((name) => name.endsWith(".tmp")),
+      [],
+      "no temporary file is left behind",
+    );
+  });
+  await check(`${label}: upload, rename, move, copy, edit and delete`, async () => {
+    await status(jsonUpload("generic-fantasy", "hero.png"), 200, "JSON upload");
+    await status(multipartUpload("exploration/fantasy/calm", "song.mp3", Buffer.from("la"), "music"), 200, "upload");
+    assert.equal(readFileSync(join(gameAssets, "music/exploration/fantasy/calm/song.mp3"), "utf8"), "la");
+    await status(
+      inject("POST", "/rename", { path: "sprites/generic-fantasy/hero.png", newName: "hero-2.png" }),
+      200,
+      "rename",
+    );
+    await status(
+      inject("POST", "/move", { path: "sprites/generic-fantasy/hero-2.png", targetFolder: "sprites/heroes" }),
+      200,
+      "move",
+    );
+    await status(
+      inject("POST", "/copy", { path: "sprites/heroes/hero-2.png", targetFolder: "sprites/generic-scifi" }),
+      200,
+      "copy",
+    );
+    assert.deepEqual(readFileSync(join(gameAssets, "sprites/generic-scifi/hero-2.png")), PNG);
+    await status(inject("PUT", "/file-content/sprites/heroes/notes.md", { content: "# Heroes" }), 200, "edit");
+    assert.equal(JSON.parse((await inject("GET", "/file-content/sprites/heroes/notes.md")).body).content, "# Heroes");
+    await status(inject("GET", "/file-info/sprites/heroes/hero-2.png"), 200, "file info");
+    await status(
+      inject("PATCH", "/folders/description", { path: "sprites/heroes", description: "Heroes" }),
+      200,
+      "note",
+    );
+    assert.match((await inject("GET", "/tree")).body, /"description":"Heroes"/u);
+    await status(inject("POST", "/folders", { path: "sprites/empty" }), 200, "new folder");
+    await status(inject("DELETE", "/folders/sprites/empty"), 200, "delete folder");
+    await status(inject("DELETE", "/file/sprites/generic-scifi/hero-2.png"), 200, "delete");
+    const bulk = JSON.parse(
+      (await inject("POST", "/delete-bulk", { paths: ["sprites/heroes/hero-2.png", "sprites/heroes/notes.md"] })).body,
+    ) as { succeeded: string[] };
+    assert.equal(bulk.succeeded.length, 2, "bulk delete");
+    await status(inject("DELETE", "/folders/sprites/heroes"), 200, "delete emptied folder");
+    assert.ok(!existsSync(join(gameAssets, "sprites/heroes")));
+    assert.ok(getAssetManifest().assets["music:exploration:fantasy:calm:song"], "the upload is in the manifest");
+    await status(inject("DELETE", "/file/music/exploration/fantasy/calm/song.mp3"), 200, "delete upload");
+  });
+  await check(`${label}: bulk move and copy, and a link that stays inside`, async () => {
+    bait(join(gameAssets, "sprites/generic-fantasy"), { "knight.png": PNG, "mage.png": PNG });
+    const restore = link(
+      "sprites/generic-fantasy/knight-alias.png",
+      join(gameAssets, "sprites/generic-fantasy/knight.png"),
+    );
+    try {
+      const tree = (await inject("GET", "/tree")).body;
+      assert.ok(tree.includes("knight-alias.png") && tree.includes("mage.png"), "the tree lists both");
+      assert.ok(buildAssetManifest().assets["sprites:generic-fantasy:knight-alias"], "a link inside is still listed");
+    } finally {
+      restore();
+    }
+    const moved = JSON.parse(
+      (
+        await inject("POST", "/move-bulk", {
+          paths: ["sprites/generic-fantasy/knight.png", "sprites/generic-fantasy/mage.png"],
+          targetFolder: "sprites/party",
+        })
+      ).body,
+    ) as { succeeded: string[] };
+    assert.equal(moved.succeeded.length, 2, "bulk move");
+    const copied = JSON.parse(
+      (
+        await inject("POST", "/copy-bulk", {
+          paths: ["sprites/party/knight.png", "sprites/party/mage.png"],
+          targetFolder: "sprites/generic-scifi",
+        })
+      ).body,
+    ) as { succeeded: string[] };
+    assert.equal(copied.succeeded.length, 2, "bulk copy");
+    assert.deepEqual(readFileSync(join(gameAssets, "sprites/generic-scifi/mage.png")), PNG);
+    await status(inject("DELETE", "/folders/sprites/party?recursive=true"), 200, "delete folder with files");
+    for (const name of ["knight.png", "mage.png"]) rmSync(join(gameAssets, "sprites/generic-scifi", name));
+  });
+}
+
+// Links in game-assets that lead out, each against its own outside folder.
+async function linkedCases(label: string) {
+  await check(`${label}: a linked music/<state> folder is not migrated`, async () => {
+    const flat = bait(join(outside, `${label}-flat-music`), { "battle-theme.mp3": BAIT, "town-square.ogg": BAIT });
+    const restore = link("music/dialogue", flat);
+    try {
+      await untouched(flat, () => buildAssetManifest(), "manifest build");
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: folders are not created through a linked folder`, async () => {
+    const target = join(outside, `${label}-ambient`);
+    mkdirSync(target);
+    const restore = link("ambient", target);
+    try {
+      await untouched(target, () => buildAssetManifest(), "manifest build");
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: a linked folder or file is not listed`, async () => {
+    const art = bait(join(outside, `${label}-art`), { "secret-face.png": PNG });
+    const file = bait(join(outside, `${label}-file`), { "leaked-name.png": PNG });
+    const restores = [
+      link("sprites/secret-art", art),
+      link("sprites/generic-fantasy/leaked-link.png", join(file, "leaked-name.png")),
+      link(join(dataDir, "backgrounds", "linked-background.png"), join(file, "leaked-name.png")),
+    ];
+    try {
+      assert.deepEqual(listed(manifestText(), "secret-face", "leaked-link", "linked-background"), [], "manifest");
+      assert.deepEqual(listed((await inject("GET", "/tree")).body, "secret-face", "leaked-link"), [], "tree");
+    } finally {
+      for (const restore of restores) restore();
+    }
+  });
+  await check(`${label}: a link cycle ends`, async () => {
+    const restore = link("sfx/ui/loop", join(gameAssets, "sfx"));
+    try {
+      buildAssetManifest();
+      await status(inject("GET", "/tree"), 200, "tree");
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: manifest.json is never written or read through a link`, async () => {
+    const target = bait(join(outside, `${label}-manifest`), { "target.json": JSON.stringify({ bait: BAIT }) });
+    const restore = link("manifest.json", join(target, "target.json"));
+    try {
+      await untouched(target, () => buildAssetManifest(), "manifest build");
+      assert.ok(!JSON.stringify(getAssetManifest()).includes(BAIT), "getAssetManifest never reads the target");
+      assert.ok(!(await inject("GET", "/manifest")).body.includes(BAIT), "GET /manifest never reads the target");
+    } finally {
+      restore();
+    }
+    const dangling = join(outside, `${label}-dangling-manifest.json`);
+    const restoreDangling = link("manifest.json", dangling);
+    try {
+      buildAssetManifest();
+      assert.ok(!existsSync(dangling), "a dangling manifest link creates no outside file");
+    } finally {
+      restoreDangling();
+    }
+    buildAssetManifest();
+    assert.ok(lstatSync(join(gameAssets, "manifest.json")).isFile(), "the manifest is written again once unlinked");
+  });
+  await check(`${label}: meta.json is never read through a link`, async () => {
+    const target = bait(join(outside, `${label}-meta`), { "meta.json": JSON.stringify({ "": { description: BAIT } }) });
+    const restore = link("meta.json", join(target, "meta.json"));
+    try {
+      await untouched(
+        target,
+        async () => {
+          assert.ok(!(await inject("GET", "/tree")).body.includes(BAIT), "the tree never shows the target");
+          await inject("PATCH", "/folders/description", { path: "sprites", description: "Sprites" });
+        },
+        "folder note",
+      );
+    } finally {
+      restore();
+    }
+  });
+  // Each request gets fresh links and outside files, so every one is proven on its own.
+  const routeLinks = () => {
+    const art = bait(join(outside, `${label}-route-art`), {
+      "secret-face.png": PNG,
+      "readme.txt": BAIT,
+      "inner/deep.png": PNG,
+    });
+    const notes = bait(join(outside, `${label}-route-notes`), { "notes.txt": BAIT, "picture.png": PNG });
+    bait(join(gameAssets, "sprites/generic-fantasy"), { "own.png": PNG });
+    const restores = [
+      link("sprites/secret-art", art),
+      link("sprites/generic-fantasy/notes.txt", join(notes, "notes.txt")),
+      link("sprites/generic-fantasy/picture.png", join(notes, "picture.png")),
+    ];
+    return { art, restore: () => restores.forEach((restore) => restore()) };
+  };
+  for (const [what, request] of [
+    ["JSON upload into a linked folder", () => jsonUpload("secret-art", "new.png")],
+    ["JSON upload below a linked folder", () => jsonUpload("secret-art/deeper", "new.png")],
+    ["multipart upload into a linked folder", () => multipartUpload("secret-art", "new.png", PNG)],
+    [
+      "rename in a linked folder",
+      () => inject("POST", "/rename", { path: "sprites/secret-art/secret-face.png", newName: "x.png" }),
+    ],
+    [
+      "rename of a link that leads out",
+      () => inject("POST", "/rename", { path: "sprites/generic-fantasy/picture.png", newName: "x.png" }),
+    ],
+    [
+      "move out of a linked folder",
+      () =>
+        inject("POST", "/move", { path: "sprites/secret-art/secret-face.png", targetFolder: "sprites/generic-scifi" }),
+    ],
+    [
+      "move into a linked folder",
+      () => inject("POST", "/move", { path: "sprites/generic-fantasy/own.png", targetFolder: "sprites/secret-art" }),
+    ],
+    [
+      "copy out of a linked folder",
+      () =>
+        inject("POST", "/copy", { path: "sprites/secret-art/secret-face.png", targetFolder: "sprites/generic-scifi" }),
+    ],
+    [
+      "copy into a linked folder",
+      () => inject("POST", "/copy", { path: "sprites/generic-fantasy/own.png", targetFolder: "sprites/secret-art" }),
+    ],
+    [
+      "copy of a link that leads out",
+      () =>
+        inject("POST", "/copy", { path: "sprites/generic-fantasy/picture.png", targetFolder: "sprites/generic-scifi" }),
+    ],
+    [
+      "move-bulk out of a linked folder",
+      () =>
+        inject("POST", "/move-bulk", {
+          paths: ["sprites/secret-art/secret-face.png"],
+          targetFolder: "sprites/generic-scifi",
+        }),
+    ],
+    [
+      "move-bulk into a linked folder",
+      () =>
+        inject("POST", "/move-bulk", {
+          paths: ["sprites/generic-fantasy/own.png"],
+          targetFolder: "sprites/secret-art",
+        }),
+    ],
+    [
+      "copy-bulk out of a linked folder",
+      () =>
+        inject("POST", "/copy-bulk", {
+          paths: ["sprites/secret-art/secret-face.png"],
+          targetFolder: "sprites/generic-scifi",
+        }),
+    ],
+    [
+      "copy-bulk into a linked folder",
+      () =>
+        inject("POST", "/copy-bulk", {
+          paths: ["sprites/generic-fantasy/own.png"],
+          targetFolder: "sprites/secret-art/inner",
+        }),
+    ],
+    ["delete in a linked folder", () => inject("DELETE", "/file/sprites/secret-art/secret-face.png")],
+    ["delete of a link that leads out", () => inject("DELETE", "/file/sprites/generic-fantasy/picture.png")],
+    [
+      "delete-bulk in a linked folder",
+      () => inject("POST", "/delete-bulk", { paths: ["sprites/secret-art/secret-face.png"] }),
+    ],
+    ["folder delete below a linked folder", () => inject("DELETE", "/folders/sprites/secret-art/inner?recursive=true")],
+    ["folder delete of a linked folder", () => inject("DELETE", "/folders/sprites/secret-art?recursive=true")],
+    ["new folder in a linked folder", () => inject("POST", "/folders", { path: "sprites/secret-art/made" })],
+    [
+      "folder note on a linked folder",
+      () => inject("PATCH", "/folders/description", { path: "sprites/secret-art", description: "x" }),
+    ],
+    [
+      "edit of a linked file",
+      () => inject("PUT", "/file-content/sprites/generic-fantasy/notes.txt", { content: "overwritten" }),
+    ],
+    [
+      "edit in a linked folder",
+      () => inject("PUT", "/file-content/sprites/secret-art/readme.txt", { content: "overwritten" }),
+    ],
+    [
+      "new file in a linked folder",
+      () => inject("PUT", "/file-content/sprites/secret-art/made/new.md", { content: "x" }),
+    ],
+    ["read in a linked folder", () => inject("GET", "/file-content/sprites/secret-art/readme.txt")],
+    ["read of a linked file", () => inject("GET", "/file-content/sprites/generic-fantasy/notes.txt")],
+    ["file info in a linked folder", () => inject("GET", "/file-info/sprites/secret-art/secret-face.png")],
+  ] as const) {
+    await check(`${label}: ${what}`, async () => {
+      const { restore } = routeLinks();
+      try {
+        await untouched(
+          outside,
+          async () => {
+            const response = await request();
+            const result = JSON.parse(response.body) as { failed?: unknown[]; succeeded?: unknown[] };
+            const refused = response.statusCode >= 400 || (result.succeeded?.length === 0 && result.failed?.length);
+            assert.ok(refused, `refused: ${response.statusCode} ${response.body}`);
+            assert.ok(!response.body.includes(BAIT), "the outside file is never shown");
+          },
+          what,
+        );
+        assert.ok(lstatSync(join(gameAssets, "sprites/secret-art")).isSymbolicLink(), "the linked folder stays");
+        assert.ok(
+          lstatSync(join(gameAssets, "sprites/generic-fantasy/picture.png")).isSymbolicLink(),
+          "the link stays",
+        );
+        assert.deepEqual(readFileSync(join(gameAssets, "sprites/generic-fantasy/own.png")), PNG, "own file stays");
+      } finally {
+        restore();
+      }
+    });
+  }
+}
+
+const db = await getDB();
+try {
+  // A fresh install, as startup builds it: folders, the legacy flat-music migration and a plain manifest file.
+  await normalFlows("data dir behind a link", "war-drums");
+  await linkedCases("data dir behind a link");
+
+  // The avatar cleanup the app's own deletes use: an avatar folder whose real path is outside keeps its files.
+  await check("avatar deletes through a linked avatar folder keep the outside file", async () => {
+    const avatars = join(dataDir, "avatars");
+    mkdirSync(avatars, { recursive: true });
+    const target = bait(join(outside, "avatars"), {
+      "character-linked.png": PNG,
+      "persona-linked.png": PNG,
+      "character-old.png": PNG,
+    });
+    utimesSync(join(target, "character-old.png"), new Date(0), new Date(0));
+    renameSync(avatars, `${avatars}.real`);
+    symlinkSync(target, avatars, "dir");
+    try {
+      await untouched(
+        target,
+        async () => {
+          await mutateAvatarReferencesAndCleanup({
+            db,
+            collectAvatarPaths: async () => ["/api/avatars/file/character-linked.png"],
+            mutateReferences: async () => undefined,
+          });
+          await removeUnattachedAvatarFile({ avatarPath: "/api/avatars/file/persona-linked.png" });
+          await deleteAbandonedAvatarFiles({ db, minimumAgeMs: 0 });
+        },
+        "avatar cleanup",
+      );
+    } finally {
+      rmSync(avatars);
+      renameSync(`${avatars}.real`, avatars);
+    }
+  });
+  await check("avatar deletes still remove files in the real avatar folder", async () => {
+    const avatars = join(dataDir, "avatars");
+    bait(avatars, { "character-own.png": PNG, "persona-own.png": PNG });
+    const { filesDeleted } = await mutateAvatarReferencesAndCleanup({
+      db,
+      collectAvatarPaths: async () => ["/api/avatars/file/character-own.png"],
+      mutateReferences: async () => undefined,
+    });
+    assert.equal(filesDeleted, 1);
+    await removeUnattachedAvatarFile({ avatarPath: "/api/avatars/file/persona-own.png" });
+    assert.deepEqual(readdirSync(avatars), [], "both avatar files are removed");
+  });
+
+  // game-assets itself behind a link, as when it is moved to another disk: still followed, links inside still held.
+  const otherDisk = join(root, "other-disk", "game-assets");
+  mkdirSync(join(otherDisk, ".."), { recursive: true });
+  renameSync(gameAssets, otherDisk);
+  symlinkSync(otherDisk, gameAssets, "dir");
+  gameAssets = otherDisk;
+  await normalFlows("game-assets behind a link", "siege-drums");
+  await linkedCases("game-assets behind a link");
+
+  // Boot: the startup manifest build runs the legacy migration, and a manifest that cannot be written does not stop it.
+  await check("boot continues when the manifest cannot be written", async () => {
+    bait(join(gameAssets, "music", "travel_rest"), { "quiet-rest.mp3": "rest" });
+    rmSync(join(gameAssets, "manifest.json"), { force: true });
+    mkdirSync(join(gameAssets, "manifest.json"));
+    const { buildApp } = await import("../../packages/server/src/app.js");
+    const booted = await buildApp();
+    try {
+      await booted.ready();
+      assert.equal(
+        readFileSync(join(gameAssets, "music/travel_rest/fantasy/calm/quiet-rest.mp3"), "utf8"),
+        "rest",
+        "startup migrates the legacy flat track",
+      );
+      rmSync(join(gameAssets, "manifest.json"), { recursive: true });
+      const rescan = await booted.inject({ method: "POST", url: "/api/game-assets/rescan" });
+      assert.equal(rescan.statusCode, 200, rescan.body);
+      assert.ok(lstatSync(join(gameAssets, "manifest.json")).isFile(), "rescan writes the manifest");
+    } finally {
+      await booted.close();
+    }
+  });
+
+  assert.deepEqual(failures, [], `game-assets link hardening:\n  ${failures.join("\n  ")}`);
+  console.info("Game assets link hardening regression passed.");
+} finally {
+  await app.close();
+  await closeDB();
+  rmSync(root, { recursive: true, force: true });
+}

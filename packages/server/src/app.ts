@@ -283,10 +283,19 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
 
   // ── Ensure default asset directories exist, then build manifest ──
-  await startup.phase("assets.manifest", () => {
-    ensureAssetDirs();
-    buildAssetManifest();
-  });
+  // Guarded like the post-activation rescan below: the manifest is rebuilt on the next rescan or upload, while a failed
+  // boot costs the user everything.
+  try {
+    await startup.phase("assets.manifest", () => {
+      ensureAssetDirs();
+      buildAssetManifest();
+    });
+  } catch (error) {
+    logger.warn(
+      error,
+      "[game-assets] Startup asset scan failed; the asset manifest may be stale until the next rescan",
+    );
+  }
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
   await startup.phase("gallery.recover", () => recoverGalleryImages(db));
