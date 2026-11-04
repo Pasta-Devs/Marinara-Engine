@@ -4029,8 +4029,7 @@ export const ChatMessage = memo(function ChatMessage({
           onSetSwipe={handleSetActiveSwipe}
           onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
           meta={isGrouped ? genLabel : undefined}
-          placement={isGrouped ? "float" : "header"}
-          side={isUser ? "start" : "end"}
+          placement="below"
           copied={copied}
           onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
           onEdit={startEditing}
@@ -4214,13 +4213,11 @@ export const ChatMessage = memo(function ChatMessage({
                       #{messageIndex}
                     </span>
                   )}
-                {/* New layout: the actions sit on the name row, next to the name and time. */}
-                {rpOverlayActions}
               </div>
             )}
 
-            {/* New layout, grouped message (no name row): the actions float over the bubble's top edge. */}
-            {isGrouped && rpOverlayActions}
+            {/* New layout: the actions hang under the message without taking space, so hovering moves nothing. */}
+            {rpOverlayActions}
             <ConversationStartMarkers
               memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}

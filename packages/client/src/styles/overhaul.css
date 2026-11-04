@@ -3905,61 +3905,32 @@ input.ov-edhead__title:focus {
   background: color-mix(in srgb, currentColor 14%, transparent);
   color: var(--ov-text);
 }
-/* Overlay bar: sits on the name row (or floats over a grouped message) so hovering moves nothing. */
-.ov-rpf.ov-rpf--overlay {
+/* Under-message bar: hangs below the message as an overlay with no background, so it takes no space
+   (nothing moves on hover) and the next message's name and time still show through. */
+.ov-rpf.ov-rpf--below {
   position: absolute;
   z-index: 3;
-  top: -0.25rem;
+  top: 100%;
+  right: 0;
+  left: 0;
   max-height: none;
   margin: 0;
-  padding: 0;
+  padding: 0.125rem 0.25rem 0;
   overflow: visible;
   border: 0;
   background: transparent;
   pointer-events: none;
 }
-.ov-rpf--float.ov-rpf--end {
-  right: 0.25rem;
-}
-.ov-rpf--float.ov-rpf--start {
-  left: 0.25rem;
-}
-/* On the name row the bar is part of the row, next to the name and time; the negative margin keeps
-   the row's height, so showing it moves nothing. */
-.ov-rpf.ov-rpf--header {
-  position: static;
-  align-self: center;
-  margin-block: -0.25rem;
-}
-.ov-rpf--header.ov-rpf--end {
-  margin-left: auto;
-}
-.ov-rpf--overlay .ov-rpf__grow {
-  display: none;
-}
-.ov-rpf.ov-rpf--overlay.is-open,
-.group:hover .ov-rpf.ov-rpf--overlay,
-.ov-rpf.ov-rpf--overlay:focus-within {
+.ov-rpf.ov-rpf--below.is-open,
+.group:hover .ov-rpf.ov-rpf--below,
+.ov-rpf.ov-rpf--below:focus-within {
   max-height: none;
-  padding: 0;
+  padding: 0.125rem 0.25rem 0;
   border: 0;
   pointer-events: auto;
 }
-.ov-rpf.ov-rpf--float {
-  top: -0.875rem;
-  padding: 0 0.125rem;
-  border: 1px solid var(--ov-line);
-  border-radius: 0.5rem;
-  background: var(--background);
-}
-.ov-rpf.ov-rpf--float.is-open,
-.group:hover .ov-rpf.ov-rpf--float,
-.ov-rpf.ov-rpf--float:focus-within {
-  padding: 0 0.125rem;
-  border: 1px solid var(--ov-line);
-}
 @media (pointer: coarse) {
-  .ov-rpf.ov-rpf--overlay {
+  .ov-rpf.ov-rpf--below {
     pointer-events: auto;
   }
 }
