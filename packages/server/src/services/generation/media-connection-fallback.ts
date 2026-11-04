@@ -87,6 +87,7 @@ export async function resolveVideoConnectionFallback(
     model,
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: comfyDefaults?.loras ?? [],
+    customHeaders: videoDefaults?.customHeaders,
     fps: comfyDefaults?.fps,
     // An Atlas Cloud request with no model runs the default model, so its saved options apply.
     atlasModelOptions: videoDefaults?.atlas.modelOptions[model || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL],

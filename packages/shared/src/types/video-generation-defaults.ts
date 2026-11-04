@@ -102,6 +102,11 @@ export interface SeedanceVideoDefaults {
 export interface VideoGenerationDefaultsProfile {
   version: 1;
   service: VideoDefaultsService;
+  /**
+   * Non-secret extra HTTP headers for local-backend requests (ComfyUI, SwarmUI).
+   * Authentication stays host-managed: use the connection's API key field for that.
+   */
+  customHeaders?: Record<string, string>;
   geminiOmni: GeminiOmniVideoDefaults;
   googleVeo: GoogleVeoVideoDefaults;
   xai: XaiVideoDefaults;

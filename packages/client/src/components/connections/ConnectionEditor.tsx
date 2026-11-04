@@ -4231,6 +4231,15 @@ function ImageGenerationDefaultsPanel({
     });
   };
 
+  const updateCustomHeaders = (next: Record<string, unknown>) => {
+    const headers = next as Record<string, string>;
+    onChange({ ...value, customHeaders: Object.keys(headers).length > 0 ? headers : undefined });
+  };
+
+  /** Extra headers only reach the server for backends the user runs themselves. */
+  const showCustomHeaders =
+    (service === "comfyui" && source !== "runpod_comfyui") || (service === "automatic1111" && source !== "arli");
+
   const updateNovelAi = (patch: Partial<typeof novelai>) => {
     onChange({
       ...value,
@@ -4496,6 +4505,9 @@ function ImageGenerationDefaultsPanel({
                   className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
+                {showCustomHeaders && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
+                )}
               </>
             ) : service === "comfyui" ? (
               <>
@@ -4552,6 +4564,9 @@ function ImageGenerationDefaultsPanel({
                   availableLoras={remoteLoras}
                   onChange={(loras) => updateComfyUi({ loras })}
                 />
+                {showCustomHeaders && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
+                )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   {localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.customComfyuiWorkflowsCanUseStepsCfgSamplerScheduler",
@@ -4819,6 +4834,11 @@ function VideoGenerationDefaultsPanel({
     });
   };
 
+  const updateCustomHeaders = (next: Record<string, unknown>) => {
+    const headers = next as Record<string, string>;
+    onChange({ ...value, customHeaders: Object.keys(headers).length > 0 ? headers : undefined });
+  };
+
   return (
     <FieldGroup label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}>
       <div className="rounded-xl border border-[var(--border)]">
@@ -5003,6 +5023,9 @@ function VideoGenerationDefaultsPanel({
                     availableLoras={remoteLoras}
                     onChange={(loras) => updateComfyUi({ loras })}
                   />
+                )}
+                {service === "comfyui" && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
                 )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   {service === "xai"

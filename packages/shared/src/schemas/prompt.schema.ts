@@ -61,6 +61,16 @@ export const customRequestHeadersSchema = z
     }
   });
 
+/**
+ * Validated non-secret custom headers, or undefined when absent, empty, or invalid. Never throws,
+ * so hand-edited or imported connection data degrades to no extra headers instead of failing.
+ */
+export function normalizeCustomRequestHeaders(value: unknown): Record<string, string> | undefined {
+  const parsed = customRequestHeadersSchema.safeParse(value);
+  if (!parsed.success || Object.keys(parsed.data).length === 0) return undefined;
+  return { ...parsed.data };
+}
+
 export const injectionPositionSchema = z.enum(["ordered", "depth"]);
 
 export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);

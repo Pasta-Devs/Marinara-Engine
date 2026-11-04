@@ -12,6 +12,7 @@ import {
   runMediaGenerationRequest,
 } from "../image/image-generation-queue.js";
 import { runSharedGpuTurn } from "../generation/shared-gpu-turns.js";
+import { resolveLocalBackendHeaders } from "../image/image-generation.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
   numberedComfyReferencePlaceholder,
@@ -137,6 +138,7 @@ export async function generateVideo(
       model: fallback.model,
       comfyWorkflow: fallback.comfyWorkflow,
       comfyLoras: fallback.comfyLoras,
+      customHeaders: fallback.customHeaders,
       atlasModelOptions: fallback.atlasModelOptions,
       fps: fallback.fps,
       connectionKey: fallback.connectionId,
@@ -195,7 +197,7 @@ async function generatePrimaryVideo(
   }
   if (resolvedService === "comfyui") {
     return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-      generateComfyUiVideo(baseUrl, { ...request, signal }),
+      generateComfyUiVideo(baseUrl, { ...request, signal }, apiKey),
     );
   }
   if (resolvedService === "swarmui") {
@@ -408,9 +410,22 @@ export function resolveComfyUiVideoWorkflowPlaceholders(
   return replaceComfyUiVideoPlaceholders(workflow, replacements);
 }
 
-function comfyUiVideoFetch(url: string | URL, init?: RequestInit, maxResponseBytes = 2 * 1024 * 1024) {
+function comfyUiVideoFetch(
+  url: string | URL,
+  init?: RequestInit,
+  extraHeaders?: Record<string, string>,
+  maxResponseBytes = 2 * 1024 * 1024,
+) {
+  let mergedInit = init;
+  if (extraHeaders && Object.keys(extraHeaders).length > 0) {
+    const headers = new Headers(init?.headers);
+    for (const [name, value] of Object.entries(extraHeaders)) {
+      if (!headers.has(name)) headers.set(name, value);
+    }
+    mergedInit = { ...init, headers };
+  }
   return safeFetch(url, {
-    ...(init ?? {}),
+    ...(mergedInit ?? {}),
     policy: {
       allowLocal: true,
       allowLoopback: true,
@@ -428,6 +443,7 @@ async function uploadComfyUiVideoReference(
   baseUrl: string,
   reference: VideoReferenceImage,
   signal?: AbortSignal,
+  extraHeaders?: Record<string, string>,
 ): Promise<string> {
   const imageBytes = Buffer.from(stripDataUrl(reference.base64), "base64");
   const extension = reference.mimeType === "image/jpeg" ? "jpg" : "png";
@@ -435,11 +451,15 @@ async function uploadComfyUiVideoReference(
   const formData = new FormData();
   formData.append("image", new Blob([imageBytes], { type: reference.mimeType }), filename);
   formData.append("overwrite", "true");
-  const response = await comfyUiVideoFetch(`${baseUrl}/upload/image`, {
-    method: "POST",
-    body: formData,
-    signal,
-  });
+  const response = await comfyUiVideoFetch(
+    `${baseUrl}/upload/image`,
+    {
+      method: "POST",
+      body: formData,
+      signal,
+    },
+    extraHeaders,
+  );
   const text = await response.text();
   if (!response.ok) {
     throw new Error(`ComfyUI reference image upload failed (${response.status}): ${formatProviderError(text)}`);
@@ -498,10 +518,16 @@ function swarmUiVideoApiError(value: unknown): string | null {
   return error || errorId;
 }
 
-async function createSwarmUiVideoSession(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
+async function createSwarmUiVideoSession(
+  baseUrl: string,
+  apiKey: string,
+  signal?: AbortSignal,
+  customHeaders?: Record<string, string>,
+): Promise<string> {
+  const extraHeaders = resolveLocalBackendHeaders(apiKey, customHeaders);
   const response = await comfyUiVideoFetch(`${baseUrl}/API/GetNewSession`, {
     method: "POST",
-    headers: swarmUiVideoHeaders(apiKey),
+    headers: { ...extraHeaders, ...swarmUiVideoHeaders(apiKey) },
     body: "{}",
     signal,
   });
@@ -588,7 +614,8 @@ async function generateSwarmUiVideo(
   request: VideoGenerationRequest,
 ): Promise<VideoGenerationResult> {
   const base = baseUrl.replace(/\/+$/, "");
-  const sessionId = await createSwarmUiVideoSession(base, apiKey, request.signal);
+  const extraHeaders = resolveLocalBackendHeaders(apiKey, request.customHeaders);
+  const sessionId = await createSwarmUiVideoSession(base, apiKey, request.signal, request.customHeaders);
   const body = buildSwarmUiVideoGenerationBody(request, sessionId);
   const debugBody: Record<string, unknown> = { ...body, session_id: "[session]" };
   if (request.referenceImage && typeof debugBody.comfyworkflowraw === "string") {
@@ -607,10 +634,11 @@ async function generateSwarmUiVideo(
     `${base}/API/GenerateText2Image`,
     {
       method: "POST",
-      headers: swarmUiVideoHeaders(apiKey),
+      headers: { ...extraHeaders, ...swarmUiVideoHeaders(apiKey) },
       body: JSON.stringify(body),
       signal: request.signal,
     },
+    undefined,
     MAX_VIDEO_JSON_RESPONSE_BYTES,
   );
   const text = await response.text();
@@ -634,7 +662,11 @@ async function generateSwarmUiVideo(
     }
     const videoResponse = await comfyUiVideoFetch(
       videoUrl,
-      { headers: swarmUiVideoHeaders(apiKey), signal: request.signal },
+      {
+        headers: { ...extraHeaders, ...swarmUiVideoHeaders(apiKey) },
+        signal: request.signal,
+      },
+      undefined,
       MAX_VIDEO_RESPONSE_BYTES,
     );
     if (!videoResponse.ok) throw new Error(`SwarmUI video fetch failed (${videoResponse.status})`);
@@ -644,7 +676,12 @@ async function generateSwarmUiVideo(
   return { base64: videoBuffer.toString("base64"), mimeType: "video/mp4", ext: "mp4" };
 }
 
-async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationRequest): Promise<VideoGenerationResult> {
+async function generateComfyUiVideo(
+  baseUrl: string,
+  request: VideoGenerationRequest,
+  apiKey = "",
+): Promise<VideoGenerationResult> {
+  const extraHeaders = resolveLocalBackendHeaders(apiKey, request.customHeaders);
   const workflowText = request.comfyWorkflow?.trim();
   if (!workflowText) throw new Error("ComfyUI video generation requires an API-format workflow");
   let workflow: unknown;
@@ -673,7 +710,7 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
     request.referenceImage &&
     referenceImageNamePlaceholders.some((placeholder) => workflowText.includes(placeholder))
   ) {
-    referenceImageName = await uploadComfyUiVideoReference(base, request.referenceImage, request.signal);
+    referenceImageName = await uploadComfyUiVideoReference(base, request.referenceImage, request.signal, extraHeaders);
   }
   const resolvedWorkflow = resolveComfyUiVideoWorkflowPlaceholders(workflow, request, {
     seed: Math.floor(Math.random() * 2 ** 32),
@@ -696,12 +733,16 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
     );
   }
 
-  const queueResponse = await comfyUiVideoFetch(`${base}/prompt`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: resolvedWorkflow }),
-    signal: request.signal,
-  });
+  const queueResponse = await comfyUiVideoFetch(
+    `${base}/prompt`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: resolvedWorkflow }),
+      signal: request.signal,
+    },
+    extraHeaders,
+  );
   const queueText = await queueResponse.text();
   if (!queueResponse.ok) {
     throw new Error(`ComfyUI video queue failed (${queueResponse.status}): ${formatProviderError(queueText)}`);
@@ -725,6 +766,7 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
     const historyResponse = await comfyUiVideoFetch(
       `${base}/history/${encodeURIComponent(promptId)}`,
       { signal: request.signal },
+      extraHeaders,
       MAX_VIDEO_JSON_RESPONSE_BYTES,
     );
     if (!historyResponse.ok) continue;
@@ -742,6 +784,7 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
       const videoResponse = await comfyUiVideoFetch(
         `${base}/view?${params}`,
         { signal: request.signal },
+        extraHeaders,
         MAX_VIDEO_RESPONSE_BYTES,
       );
       if (!videoResponse.ok) throw new Error(`ComfyUI video fetch failed (${videoResponse.status})`);

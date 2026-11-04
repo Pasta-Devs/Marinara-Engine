@@ -401,7 +401,7 @@ export async function generateImage(
           case "atlas":
             return generateAtlasCloudImage(normalizedBaseUrl, apiKey, scopedRequest);
           case "comfyui":
-            return generateComfyUI(normalizedBaseUrl, scopedRequest);
+            return generateComfyUI(normalizedBaseUrl, scopedRequest, apiKey);
           case "swarmui":
             return generateSwarmUI(normalizedBaseUrl, apiKey, scopedRequest);
           case "runpod_comfyui": {
@@ -415,7 +415,7 @@ export async function generateImage(
             return generateRunPodComfyUI(normalizedBaseUrl, endpointId, apiKey, scopedRequest);
           }
           case "automatic1111":
-            return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
+            return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint, apiKey);
           case "gemini_image":
             return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
           case "openai":
@@ -793,14 +793,48 @@ function imageFetch(url: string | URL, init?: RequestInit, options: ImageFetchOp
 function localImageBackendFetch(
   url: string | URL,
   init?: RequestInit,
-  options: { timeoutMs?: number; keepAliveInitialDelayMs?: number } = {},
+  options: {
+    timeoutMs?: number;
+    keepAliveInitialDelayMs?: number;
+    /** Extra headers for user-run backends behind auth or routing proxies. Explicit init headers win. */
+    headers?: Record<string, string>;
+  } = {},
 ) {
   const timeoutMs = options.timeoutMs ?? resolveComfyUiImageGenerationTimeoutMs();
-  return imageFetch(url, init, {
+  return imageFetch(url, withLocalBackendHeaders(init, options.headers), {
     allowLocal: true,
     agentOptions: { bodyTimeout: timeoutMs, headersTimeout: timeoutMs },
     keepAliveInitialDelayMs: options.keepAliveInitialDelayMs,
   });
+}
+
+/**
+ * Extra headers for a user-run local backend: the connection's non-secret custom
+ * headers plus `Authorization` from its API key (a bare token is sent as Bearer;
+ * a value that already carries a scheme, such as `Basic ...`, is sent as-is).
+ * Call-site headers such as Content-Type are never overridden here.
+ */
+export function resolveLocalBackendHeaders(
+  apiKey: string,
+  customHeaders?: Record<string, string> | null,
+): Record<string, string> {
+  const headers: Record<string, string> = { ...(customHeaders ?? {}) };
+  const token = apiKey.trim();
+  if (token) headers.Authorization = /\s/.test(token) ? token : `Bearer ${token}`;
+  return headers;
+}
+
+/** Merge extra local-backend headers under the call's own headers. */
+function withLocalBackendHeaders(
+  init: RequestInit | undefined,
+  extra: Record<string, string> | undefined,
+): RequestInit | undefined {
+  if (!extra || Object.keys(extra).length === 0) return init;
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(extra)) {
+    if (!headers.has(name)) headers.set(name, value);
+  }
+  return { ...init, headers };
 }
 
 // The fewest pixels sent to GPT Image 2 and 2.5; a smaller request is scaled up in its own shape.
@@ -3732,7 +3766,12 @@ function replaceComfyUiPlaceholders(value: unknown, replacements: Record<string,
   return value;
 }
 
-async function uploadComfyReferenceImage(base: string, reference: string, signal?: AbortSignal): Promise<string> {
+async function uploadComfyReferenceImage(
+  base: string,
+  reference: string,
+  signal?: AbortSignal,
+  extraHeaders?: Record<string, string>,
+): Promise<string> {
   const decoded = decodeReferenceImage(reference);
   const imageBytes = Buffer.from(decoded.base64, "base64");
   const hash = createHash("sha256").update(imageBytes).digest("hex").slice(0, 16);
@@ -3742,11 +3781,15 @@ async function uploadComfyReferenceImage(base: string, reference: string, signal
   formData.append("image", new Blob([imageBytes], { type: decoded.mimeType }), filename);
   formData.append("overwrite", "true");
 
-  const resp = await localImageBackendFetch(`${base}/upload/image`, {
-    method: "POST",
-    body: formData,
-    signal: imageRequestSignal({ signal }),
-  });
+  const resp = await localImageBackendFetch(
+    `${base}/upload/image`,
+    {
+      method: "POST",
+      body: formData,
+      signal: imageRequestSignal({ signal }),
+    },
+    { headers: extraHeaders },
+  );
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
@@ -3769,8 +3812,9 @@ function collectComfyReferenceImages(request: ImageGenRequest, defaults: ComfyUi
   return defaults.uploadPlaceholderOnMissingReference ? [COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
 }
 
-async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promise<ImageGenResult> {
+async function generateComfyUI(baseUrl: string, request: ImageGenRequest, apiKey = ""): Promise<ImageGenResult> {
   const base = baseUrl.replace(/\/+$/, "");
+  const extraHeaders = resolveLocalBackendHeaders(apiKey, request.imageDefaults?.customHeaders);
   const defaults = resolveComfyUiDefaults(request);
   const seed = resolveSeed(request.imageDefaults);
   const prompt = mergePromptPrefix(defaults.promptPrefix, request.prompt || "");
@@ -3821,7 +3865,7 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
     if (i === 0) replacements["%reference_image%"] = referenceBase64;
 
     if (workflowJson.includes(namePlaceholder) || (i === 0 && workflowJson.includes("%reference_image_name%"))) {
-      const uploadedName = await uploadComfyReferenceImage(base, reference, request.signal);
+      const uploadedName = await uploadComfyReferenceImage(base, reference, request.signal, extraHeaders);
       if (reference === COMFYUI_PLACEHOLDER_REFERENCE_BASE64) placeholderUploadedName = uploadedName;
       replacements[namePlaceholder] = uploadedName;
       if (i === 0) replacements["%reference_image_name%"] = uploadedName;
@@ -3839,6 +3883,7 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
         base,
         COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
         request.signal,
+        extraHeaders,
       );
       logger.debug("Backfilled ComfyUI reference slot %s with the uploaded placeholder", placeholder);
       replacements[placeholder] = placeholderUploadedName;
@@ -3847,12 +3892,16 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   const resolvedWorkflow = replaceComfyUiPlaceholders(workflow, replacements);
 
   // Queue the workflow
-  const queueResp = await localImageBackendFetch(`${base}/prompt`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: resolvedWorkflow }),
-    signal: imageRequestSignal(request),
-  });
+  const queueResp = await localImageBackendFetch(
+    `${base}/prompt`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: resolvedWorkflow }),
+      signal: imageRequestSignal(request),
+    },
+    { headers: extraHeaders },
+  );
 
   if (!queueResp.ok) {
     const errText = await queueResp.text().catch(() => "Unknown error");
@@ -3872,9 +3921,13 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   while (Date.now() - pollStartedAt < pollTimeoutMs) {
     await sleepWithAbort(1000, request.signal);
 
-    const historyResp = await localImageBackendFetch(`${base}/history/${promptId}`, {
-      signal: imageRequestSignal(request),
-    });
+    const historyResp = await localImageBackendFetch(
+      `${base}/history/${promptId}`,
+      {
+        signal: imageRequestSignal(request),
+      },
+      { headers: extraHeaders },
+    );
     if (!historyResp.ok) continue;
 
     const history = (await historyResp.json()) as Record<string, ComfyUiHistoryEntry>;
@@ -3901,9 +3954,13 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
             type: img.type || "output",
           });
 
-          const imgResp = await localImageBackendFetch(`${base}/view?${params}`, {
-            signal: imageRequestSignal(request),
-          });
+          const imgResp = await localImageBackendFetch(
+            `${base}/view?${params}`,
+            {
+              signal: imageRequestSignal(request),
+            },
+            { headers: extraHeaders },
+          );
           if (!imgResp.ok) {
             throw new Error(`ComfyUI image fetch failed (${imgResp.status})`);
           }
@@ -3942,9 +3999,10 @@ function swarmUiApiError(value: unknown): string | null {
 }
 
 async function createSwarmUiSession(base: string, apiKey: string, request: ImageGenRequest): Promise<string> {
+  const extraHeaders = resolveLocalBackendHeaders(apiKey, request.imageDefaults?.customHeaders);
   const response = await localImageBackendFetch(`${base}/API/GetNewSession`, {
     method: "POST",
-    headers: swarmUiHeaders(apiKey),
+    headers: { ...extraHeaders, ...swarmUiHeaders(apiKey) },
     body: "{}",
     signal: imageRequestSignal(request),
   });
@@ -4085,6 +4143,7 @@ async function generateSwarmUiImageReference(
   apiKey: string,
   body: Record<string, unknown>,
   signal: AbortSignal,
+  customHeaders?: Record<string, string>,
 ): Promise<string> {
   const socketUrl = new URL(`${base}/API/GenerateText2ImageWS`);
   if (socketUrl.protocol === "https:") socketUrl.protocol = "wss:";
@@ -4099,7 +4158,9 @@ async function generateSwarmUiImageReference(
   return new Promise<string>((resolve, reject) => {
     const images = new Map<number, string>();
     const discarded = new Set<number>();
-    const socket = new WebSocket(socketUrl, { headers: swarmUiHeaders(apiKey) });
+    const socket = new WebSocket(socketUrl, {
+      headers: { ...resolveLocalBackendHeaders(apiKey, customHeaders), ...swarmUiHeaders(apiKey) },
+    });
     let settled = false;
 
     const closeSocket = () => {
@@ -4199,7 +4260,13 @@ async function generateSwarmUI(baseUrl: string, apiKey: string, request: ImageGe
     "[debug/image/swarmui] final request payload:\n%s",
     imagePayloadForLog(debugBody),
   );
-  const imageReference = await generateSwarmUiImageReference(base, apiKey, body, imageRequestSignal(request));
+  const imageReference = await generateSwarmUiImageReference(
+    base,
+    apiKey,
+    body,
+    imageRequestSignal(request),
+    request.imageDefaults?.customHeaders,
+  );
   if (imageReference.startsWith("data:")) return decodeImageDataUrl(imageReference);
   const imageUrl = new URL(imageReference, `${base}/`).toString();
   return downloadImageUrl(imageUrl, request.privateImageResultOrigin, request.signal);
@@ -4211,6 +4278,7 @@ async function generateAutomatic1111(
   baseUrl: string,
   request: ImageGenRequest,
   serviceHint?: string,
+  apiKey = "",
 ): Promise<ImageGenResult> {
   const base = baseUrl.replace(/\/+$/, "");
   const isDrawThings = serviceHint?.trim().toLowerCase() === "drawthings";
@@ -4274,12 +4342,16 @@ async function generateAutomatic1111(
   const endpoint = useImg2Img ? `${base}/sdapi/v1/img2img` : `${base}/sdapi/v1/txt2img`;
   const label = isDrawThings ? "Draw Things" : "AUTOMATIC1111";
 
-  const resp = await localImageBackendFetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: imageRequestSignal(request),
-  });
+  const resp = await localImageBackendFetch(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: imageRequestSignal(request),
+    },
+    { headers: resolveLocalBackendHeaders(apiKey, request.imageDefaults?.customHeaders) },
+  );
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
