@@ -125,7 +125,7 @@ import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
-import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { MariContextChip } from "../chat/MariContextChip";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
@@ -1349,6 +1349,7 @@ export function PersonaEditor() {
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
   const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
+  const closeOverhaulMore = useCallback(() => setOverhaulMoreOpen(false), []);
   useEffect(() => {
     setOverhaulAddedSections([]);
     setOverhaulAddedFields([]);
@@ -2149,12 +2150,10 @@ export function PersonaEditor() {
             <Save size="0.875rem" />
             {saveLabel}
           </button>
-          <button type="button" className="ov-btn" onClick={() => setExportDialogOpen(true)}>
-            {localizeUi("ui.overhaul.export", { defaultValue: "Export" })}
-          </button>
           <button
             type="button"
             className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
+            data-ov-more-trigger=""
             onClick={() => setOverhaulMoreOpen((open) => !open)}
             aria-expanded={overhaulMoreOpen}
             title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
@@ -2162,7 +2161,9 @@ export function PersonaEditor() {
           >
             <MoreHorizontal size="0.875rem" />
           </button>
-          {overhaulMoreOpen ? <div className="ov-rail__more mari-editor-actions">{headerActions}</div> : null}
+          <RailMoreMenu open={overhaulMoreOpen} onClose={closeOverhaulMore}>
+            {headerActions}
+          </RailMoreMenu>
         </>
       }
       sectionsTitle={localizeUi("ui.overhaul.onThisPersona", { defaultValue: "On this persona" })}
