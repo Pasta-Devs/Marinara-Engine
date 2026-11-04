@@ -256,8 +256,10 @@ try {
     true,
   );
   assert.ok(!checkProfile.includes("/dist(-"), "the check's build may write dist");
-  assert.ok(checkProfile.includes(`${subpath(storageDir)}\n`), "saved data stays read-only");
-  assert.ok(checkProfile.includes(mediaPattern), "and so do the media folders");
+  const checkAppDataStart = checkProfile.indexOf(`(deny file-write*\n    ${subpath(storageDir)}\n`);
+  assert.ok(checkAppDataStart >= 0, "saved data stays read-only");
+  const checkAppDataRule = checkProfile.slice(checkAppDataStart, checkProfile.indexOf("\n(", checkAppDataStart));
+  assert.ok(checkAppDataRule.includes(`(regex ${JSON.stringify(mediaPattern)})`), "and so do the media folders");
   assert.ok(checkProfile.includes(subpath(pnpmTools)), "the check reads the pnpm versions pnpm keeps");
   assert.ok(!checkProfile.includes(subpath(pnpmHome)), "but not the rest of pnpm's home");
   assert.ok(!checkProfile.includes(subpath(realpathSync(tmpdir()))), "a stray pnpm opens nothing around it");
