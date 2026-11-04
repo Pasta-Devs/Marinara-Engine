@@ -387,10 +387,19 @@ export function ChatSetupStage({
   // Group chats show the first character's card.
   const { data: leadRow } = useCharacter(characters[0]?.id ?? null);
   const leadCard = parseData((leadRow as { data?: unknown } | undefined)?.data);
+  const modeTag = t(`chat.setupStage.tags.${variant}`);
+  // Case-insensitive, so a card tagged "Roleplay" does not repeat the mode word.
+  const seenTags = new Set([modeTag.toLocaleLowerCase()]);
   const tags = (Array.isArray(leadCard?.tags) ? leadCard.tags : [])
-    .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-    .slice(0, 3)
-    .map((tag) => tag.trim());
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const key = tag.toLocaleLowerCase();
+      if (!tag || seenTags.has(key)) return false;
+      seenTags.add(key);
+      return true;
+    })
+    .slice(0, 3);
   const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
@@ -736,7 +745,7 @@ export function ChatSetupStage({
         {!calm && (
           <div
             aria-hidden
-            className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[28vh] -z-10 bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_60%,transparent)_28%,color-mix(in_srgb,var(--background)_88%,transparent)_55%,var(--background)_100%)] md:hidden"
+            className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-16 -z-10 bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_70%,transparent)_16%,color-mix(in_srgb,var(--background)_88%,transparent)_45%,var(--background)_100%)] md:hidden"
           />
         )}
         {(tags.length > 0 || hasCreatorNotes) && (
@@ -745,9 +754,7 @@ export function ChatSetupStage({
             className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs"
           >
             {tags.length > 0 && (
-              <span className="font-semibold uppercase tracking-[0.18em]">
-                {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
-              </span>
+              <span className="font-semibold uppercase tracking-[0.18em]">{[modeTag, ...tags].join(" · ")}</span>
             )}
             {hasCreatorNotes && (
               <button
@@ -880,7 +887,7 @@ export function ChatSetupStage({
                   "rounded-sm",
                 )}
               >
-                {t("chat.setupStage.scene.toggle")}
+                {t(sceneOpen ? "chat.setupStage.scene.hide" : "chat.setupStage.scene.toggle")}
               </button>
             )}
           </div>

@@ -9154,6 +9154,16 @@ html[data-setup-stage]
 
 /* Phones with the composer focused (keyboard open): only the name and a small Start stay. */
 @media (max-width: 767.98px) {
+  /* While the stage is open a lone sprite is the poster art: large and centred in the upper screen.
+     Its placement is inline, hence !important; it returns once Start clears data-setup-stage. */
+  html[data-setup-stage] [data-sprite-overlay] > :only-child {
+    left: 50% !important;
+    top: 56% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :only-child img {
+    height: 50dvh !important;
+    max-width: 92vw !important;
+  }
   html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="hide"] {
     display: none;
   }
