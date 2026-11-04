@@ -586,7 +586,49 @@ function createSpatialSnapshotStore(
   return store;
 }
 
-function createPersistenceSession(db: DB, assertPermission: PersistencePermissionCheck): CapabilityPersistenceSession {
+/**
+ * Capability API 1.818: a package's documents belong to it. `refuse` is called with the foreign package id; it throws
+ * for packages built against 1.818 and only warns for older ones, so no installed package stops working.
+ */
+function scopeDocumentStore(store: CapabilityDocumentStore, owner: CapabilityDocumentOwner): CapabilityDocumentStore {
+  const check = (packageId: unknown) => {
+    if (packageId !== owner.packageId) owner.refuse(String(packageId));
+  };
+  return {
+    async list(packageId, kind) {
+      check(packageId);
+      return store.list(packageId, kind);
+    },
+    async getById(packageId, id) {
+      check(packageId);
+      return store.getById(packageId, id);
+    },
+    async create(input) {
+      check(input?.packageId);
+      return store.create(input);
+    },
+    async update(input) {
+      check(input?.packageId);
+      return store.update(input);
+    },
+    async remove(packageId, id, expectedRevision) {
+      check(packageId);
+      return store.remove(packageId, id, expectedRevision);
+    },
+  };
+}
+
+export interface CapabilityDocumentOwner {
+  packageId: string;
+  /** Called with a package id that is not the owner's. Throw to refuse; return to allow. */
+  refuse(foreignPackageId: string): void;
+}
+
+function createPersistenceSession(
+  db: DB,
+  assertPermission: PersistencePermissionCheck,
+  documentOwner?: CapabilityDocumentOwner,
+): CapabilityPersistenceSession {
   return {
     async listChats() {
       assertPermission("chat-read");
@@ -781,7 +823,7 @@ function createPersistenceSession(db: DB, assertPermission: PersistencePermissio
         );
       });
     },
-    documents: createDocumentStore(db),
+    documents: documentOwner ? scopeDocumentStore(createDocumentStore(db), documentOwner) : createDocumentStore(db),
     spatialSnapshots: createSpatialSnapshotStore(db, assertPermission),
   };
 }
@@ -793,13 +835,20 @@ function createPersistenceSession(db: DB, assertPermission: PersistencePermissio
  */
 const heldChatLocks = new AsyncLocalStorage<ReadonlyArray<{ chatId: string; held: boolean }>>();
 
-/** Omitted permissions are reserved for trusted Engine callers; package activation always passes its manifest. */
-export function createCapabilityPersistenceHost(db: DB, permissions?: readonly string[]): CapabilityPersistenceHost {
+/**
+ * Omitted permissions are reserved for trusted Engine callers; package activation always passes its manifest, and
+ * (Capability API 1.818) the document owner, so a package reads and writes only its own documents.
+ */
+export function createCapabilityPersistenceHost(
+  db: DB,
+  permissions?: readonly string[],
+  documentOwner?: CapabilityDocumentOwner,
+): CapabilityPersistenceHost {
   const granted = permissions ? new Set(permissions) : null;
   const assertPermission: PersistencePermissionCheck = (permission) => {
     if (granted && !granted.has(permission)) throw new Error(`Package persistence requires ${permission} permission.`);
   };
-  const session = createPersistenceSession(db, assertPermission);
+  const session = createPersistenceSession(db, assertPermission, documentOwner);
   // Built on first use: hosts made without a database (tests, early activation) never touch chat storage.
   let chatsStorage: ReturnType<typeof createChatsStorage> | undefined;
   const hostChats = () => (chatsStorage ??= createChatsStorage(db));
@@ -818,7 +867,8 @@ export function createCapabilityPersistenceHost(db: DB, permissions?: readonly s
         }
       });
     },
-    transaction: (operation) => db.transaction((tx) => operation(createPersistenceSession(tx, assertPermission))),
+    transaction: (operation) =>
+      db.transaction((tx) => operation(createPersistenceSession(tx, assertPermission, documentOwner))),
     async patchChatMetadata(chatId, patch, options) {
       assertPermission("chat-write");
       const apply = async () => {

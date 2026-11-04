@@ -9,6 +9,7 @@ import type {
   WeekSummaryEntry,
 } from "./chat.js";
 import type { SessionSummary } from "./game.js";
+import type { GameState } from "./game-state.js";
 import type { SpatialContextSnapshot, SpatialSnapshotSource } from "./spatial-context.js";
 
 export type CapabilityRuntimeLogArgument = unknown;
@@ -74,6 +75,32 @@ export interface CapabilityEventsHost {
   publish(type: string, payload: unknown, scope?: { chatId?: string }): void;
   /** `type` is an exact type or `"<prefix>:*"`. Returns the release; activation teardown releases it too. */
   subscribe(type: string, handler: CapabilityEventHandler): () => void;
+}
+
+/**
+ * Capability API 1.818: a chat's latest committed tracker state, as the Engine trackers wrote it. `location` is the
+ * one the prompt gets, Hierarchical Maps' projection included. Read-only copies.
+ */
+export type CapabilityGameStateView = Pick<
+  GameState,
+  | "chatId"
+  | "messageId"
+  | "swipeIndex"
+  | "date"
+  | "time"
+  | "location"
+  | "weather"
+  | "temperature"
+  | "presentCharacters"
+  | "playerStats"
+  | "personaStats"
+  | "createdAt"
+> & { worldCustomFields: NonNullable<GameState["worldCustomFields"]> };
+
+/** Capability API 1.818: the tracker read contract. Requires `chat-read`. */
+export interface CapabilityGameStateHost {
+  /** null when the chat or its committed tracker state does not exist. */
+  read(chatId: string): Promise<CapabilityGameStateView | null>;
 }
 
 /** Capability API 1.816: which other packages are running. */
@@ -663,6 +690,8 @@ export interface CapabilityRuntimeHost {
   services?: CapabilityServiceLookupHost;
   /** Capability API 1.816. */
   packages?: CapabilityPackagesHost;
+  /** Capability API 1.818. */
+  gameState?: CapabilityGameStateHost;
   /** Capability API 1.341. */
   commands?: CapabilityConversationCommandHost;
 }

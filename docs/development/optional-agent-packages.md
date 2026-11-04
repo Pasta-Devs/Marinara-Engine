@@ -1951,6 +1951,29 @@ Anything that needs a trusted sender goes through the server bus or a privileged
 Older Engines have no `api.events` and no `__MARINARA_HOST__.events`: feature-detect them, or
 declare 1.817. No new permission.
 
+### Capability API 1.818: own documents and the tracker read contract
+
+`runtime.persistence.documents` takes a `packageId` on every call. From 1.818 it must be the
+package's own id. A package that declares 1.818 or newer gets an error for any other id,
+including the Engine's own `__engine__:` rows; an older package still reads and writes them, and
+the Engine logs one warning per foreign id. Move data between packages with a service or an
+event, never through another package's rows.
+
+`runtime.gameState.read(chatId)` returns the chat's latest committed tracker state, or `null`:
+
+```ts
+const state = await api.runtime.gameState?.read(chatId);
+// { chatId, messageId, swipeIndex, date, time, location, weather, temperature,
+//   worldCustomFields, presentCharacters, playerStats, personaStats, createdAt }
+```
+
+`location` is the one the prompt gets: when Hierarchical Maps is active for the chat, its
+projection replaces the tracker's text. The other fields are the trackers' values as they wrote
+them, in the shared `GameState` shapes. The read needs `chat-read`. Writes stay with the Engine
+trackers. Use it instead of reading the tracker table, whose columns can change without notice.
+
+Older Engines have no `runtime.gameState`: feature-detect it, or declare 1.818.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed

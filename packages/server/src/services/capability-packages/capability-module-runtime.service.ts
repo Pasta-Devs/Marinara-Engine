@@ -62,6 +62,7 @@ import {
 import { createCapabilityAchievementHost } from "./capability-achievement-host.service.js";
 import { registerCapabilityAchievements } from "./capability-achievement-registry.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
+import { createCapabilityGameStateHost } from "./capability-game-state.service.js";
 import { createCapabilityResourceHost } from "./capability-resources.service.js";
 import { resolvePackageAgentLorebookEntries } from "./capability-agent-lorebook.service.js";
 import {
@@ -129,19 +130,25 @@ export function declaredCapabilityMinor(manifest: InstalledCapabilityPackage["ma
   return manifest.schemaVersion === 2 && manifest.capabilityApi.major === 1 ? manifest.capabilityApi.minor : 0;
 }
 
-/** Capability API 1.816: the minor from which ownership rules throw instead of warning. */
+/** Capability API 1.816: the minor from which service-key ownership throws instead of warning. */
 export const OWNERSHIP_ENFORCED_MINOR = 816;
+/** Capability API 1.818: the minor from which document ownership throws instead of warning. */
+export const OWNERSHIP_ENFORCED_DOCUMENTS_MINOR = 818;
 
 /**
  * Tightened ownership rules apply in full only to packages built against them. An older package that breaks one
  * keeps working and gets a warning, so no installed package stops activating when the Engine updates.
  */
-export function enforceCapabilityOwnership(installed: InstalledCapabilityPackage, message: string): void {
-  if (declaredCapabilityMinor(installed.manifest) >= OWNERSHIP_ENFORCED_MINOR) throw new Error(message);
+export function enforceCapabilityOwnership(
+  installed: InstalledCapabilityPackage,
+  message: string,
+  enforcedFromMinor = OWNERSHIP_ENFORCED_MINOR,
+): void {
+  if (declaredCapabilityMinor(installed.manifest) >= enforcedFromMinor) throw new Error(message);
   logger.warn(
     "%s (allowed for now: the package declares a Capability API older than 1.%d)",
     message,
-    OWNERSHIP_ENFORCED_MINOR,
+    enforcedFromMinor,
   );
 }
 
@@ -165,6 +172,7 @@ async function createCapabilityRuntimeHost(
 ): Promise<CapabilityRuntimeHost> {
   const packageId = installed.id;
   const permissions = installed.manifest.permissions ?? [];
+  const warnedDocumentOwners = new Set<string>();
   const caller = Object.freeze({
     packageId,
     packageVersion: installed.version,
@@ -216,8 +224,24 @@ async function createCapabilityRuntimeHost(
     }),
     achievements: createCapabilityAchievementHost(app.db, packageId, permissions),
     decisions: createCapabilityDecisionHost(app.db),
-    persistence: createCapabilityPersistenceHost(app.db, permissions),
+    persistence: createCapabilityPersistenceHost(app.db, permissions, {
+      packageId,
+      refuse: (foreign) => {
+        // One warning per foreign id per activation: an older package reading another's documents in a loop
+        // must not flood the log.
+        if (declaredCapabilityMinor(installed.manifest) < OWNERSHIP_ENFORCED_DOCUMENTS_MINOR) {
+          if (warnedDocumentOwners.has(foreign)) return;
+          warnedDocumentOwners.add(foreign);
+        }
+        enforceCapabilityOwnership(
+          installed,
+          `Capability package ${packageId} can only use its own documents, not ${foreign}'s`,
+          OWNERSHIP_ENFORCED_DOCUMENTS_MINOR,
+        );
+      },
+    }),
     resources: createCapabilityResourceHost(app.db),
+    gameState: createCapabilityGameStateHost(app.db, permissions),
     services: Object.freeze({
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
       // itself, so a package can't call another package's hooks through this lookup. The caller identity comes from

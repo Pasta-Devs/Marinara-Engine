@@ -1577,7 +1577,11 @@ const capabilityPackageManifestBaseSchema = z
 //        `engine:package.deactivated`. A chat-scoped event published during that chat's generation also rides the
 //        generation stream to the client, where `__MARINARA_HOST__.events` mirrors the bus cooperatively. A soft
 //        seam: feature-detect `api.events`. No new permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 817 } as const);
+// 1.818: a package's documents are its own: `persistence.documents` refuses another package's id (the throw applies to
+//        packages declaring 1.818 or newer; older ones get a warning). `runtime.gameState.read(chatId)`, the latest
+//        committed tracker state with the prompt's location, replaces reading the tracker table. Needs `chat-read`.
+//        A soft seam: feature-detect `runtime.gameState`.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 818 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
