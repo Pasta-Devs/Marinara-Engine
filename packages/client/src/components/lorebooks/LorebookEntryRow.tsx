@@ -20,6 +20,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { createContext, useContext } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -248,6 +249,9 @@ const PACKAGE_GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string; 
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /
  *  probability / enable, plus an expandable drawer with the rest of the entry editor.
  */
+/** UI overhaul lorebook viewer: where an open entry's editor renders (the right column), if anywhere else. */
+export const OvLoreDetailTarget = createContext<HTMLElement | null>(null);
+
 export function LorebookEntryRow({
   entry,
   lorebookId,
@@ -278,6 +282,7 @@ export function LorebookEntryRow({
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const overhaul = useOverhaulActive();
+  const ovDetailTarget = useContext(OvLoreDetailTarget);
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
   const duplicateEntry = useDuplicateLorebookEntry();
@@ -565,6 +570,57 @@ export function LorebookEntryRow({
     : isVectorized
       ? "This entry has been vectorized"
       : "This entry has not been vectorized yet";
+
+  const expandedDrawer = (
+    <ExpandedDrawer
+      entry={entry}
+      position={localPosition}
+      lorebookId={lorebookId}
+      characters={characters}
+      characterTags={characterTags}
+      compact={compact}
+      onUpdateEntry={onUpdateEntry}
+      onOutletNameDraftChange={handleOutletNameDraftChange}
+      onImagesDraftChange={handleImagesDraftChange}
+      ov={
+        overhaul
+          ? {
+              name: localName,
+              setName: setLocalName,
+              commitName: handleNameCommit,
+              status: localStatus,
+              setStatus: handleStatusChange,
+              setPosition: (n) => {
+                setLocalPosition(n);
+                patch({ position: n });
+              },
+              depth: localDepth,
+              setDepth: (n) => {
+                setLocalDepth(n);
+                patch({ depth: n });
+              },
+              probability: localProbability,
+              setProbability: (n) => {
+                setLocalProbability(n);
+                patch({ probability: n === 100 ? null : n });
+              },
+              folderId: entry.folderId ?? null,
+              folders,
+              setFolder: (id) => patch({ folderId: id }),
+              useRegex: localUseRegex,
+              setUseRegex: (next) => {
+                const previous = localUseRegex;
+                setLocalUseRegex(next);
+                patch({ useRegex: next }, { onError: () => setLocalUseRegex(previous) });
+              },
+              onDuplicate: handleDuplicate,
+              onDelete: handleDelete,
+              duplicateDisabled,
+            }
+          : undefined
+      }
+    />
+  );
 
   return (
     <div
@@ -1265,56 +1321,7 @@ export function LorebookEntryRow({
       )}
 
       {/* ── Expanded drawer ── */}
-      {isExpanded && (
-        <ExpandedDrawer
-          entry={entry}
-          position={localPosition}
-          lorebookId={lorebookId}
-          characters={characters}
-          characterTags={characterTags}
-          compact={compact}
-          onUpdateEntry={onUpdateEntry}
-          onOutletNameDraftChange={handleOutletNameDraftChange}
-          onImagesDraftChange={handleImagesDraftChange}
-          ov={
-            overhaul
-              ? {
-                  name: localName,
-                  setName: setLocalName,
-                  commitName: handleNameCommit,
-                  status: localStatus,
-                  setStatus: handleStatusChange,
-                  setPosition: (n) => {
-                    setLocalPosition(n);
-                    patch({ position: n });
-                  },
-                  depth: localDepth,
-                  setDepth: (n) => {
-                    setLocalDepth(n);
-                    patch({ depth: n });
-                  },
-                  probability: localProbability,
-                  setProbability: (n) => {
-                    setLocalProbability(n);
-                    patch({ probability: n === 100 ? null : n });
-                  },
-                  folderId: entry.folderId ?? null,
-                  folders,
-                  setFolder: (id) => patch({ folderId: id }),
-                  useRegex: localUseRegex,
-                  setUseRegex: (next) => {
-                    const previous = localUseRegex;
-                    setLocalUseRegex(next);
-                    patch({ useRegex: next }, { onError: () => setLocalUseRegex(previous) });
-                  },
-                  onDuplicate: handleDuplicate,
-                  onDelete: handleDelete,
-                  duplicateDisabled,
-                }
-              : undefined
-          }
-        />
-      )}
+      {isExpanded && (ovDetailTarget ? createPortal(expandedDrawer, ovDetailTarget) : expandedDrawer)}
     </div>
   );
 }

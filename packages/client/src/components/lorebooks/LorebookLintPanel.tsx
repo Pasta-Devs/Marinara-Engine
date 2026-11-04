@@ -27,11 +27,13 @@ const SEVERITY_DOT: Record<LorebookLintSeverity, string> = {
 interface Props {
   entries: LorebookEntry[];
   onJumpToEntry: (entryId: string) => void;
+  /** UI overhaul: opened from the Check lorebook tool, so it starts open. */
+  defaultOpen?: boolean;
 }
 
-export function LorebookLintPanel({ entries, onJumpToEntry }: Props) {
+export function LorebookLintPanel({ entries, onJumpToEntry, defaultOpen = false }: Props) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [severityFilter, setSeverityFilter] = useState<LorebookLintSeverity | "all">("all");
   const [maxTokens, setMaxTokens] = useState(LOREBOOK_LINT_DEFAULT_MAX_ENTRY_TOKENS);
   const [maxTokensDraft, setMaxTokensDraft] = useState(String(LOREBOOK_LINT_DEFAULT_MAX_ENTRY_TOKENS));
