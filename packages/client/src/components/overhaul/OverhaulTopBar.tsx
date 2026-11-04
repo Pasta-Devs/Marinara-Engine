@@ -97,10 +97,11 @@ function useCurrentTab(): OverhaulTab | null {
     if (activeSchedules) return { kind: "schedules", id: "main" };
     if (activeMari) return { kind: "mari", id: "main" };
     if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
-    if (real(regexDetailId)) return { kind: "regex", id: regexDetailId! };
+    // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
+    if (regexDetailId) return { kind: "library", id: "regex" };
     if (real(personaDetailId)) return { kind: "persona", id: personaDetailId! };
-    if (real(agentDetailId)) return { kind: "agent", id: agentDetailId! };
-    if (real(connectionDetailId)) return { kind: "connection", id: connectionDetailId! };
+    if (agentDetailId) return { kind: "library", id: "agents" };
+    if (connectionDetailId) return { kind: "library", id: "connections" };
     if (real(presetDetailId)) return { kind: "preset", id: presetDetailId! };
     if (real(characterDetailId)) return { kind: "character", id: characterDetailId! };
     if (characterLibraryOpen)

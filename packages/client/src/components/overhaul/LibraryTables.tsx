@@ -46,14 +46,14 @@ type Column<T> = {
 
 type Chip = { id: string; label: string };
 
-function swatch(id: string) {
+export function swatch(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
   const hue = Math.abs(hash) % 360;
   return `linear-gradient(160deg, hsl(${hue} 55% 55%), hsl(${(hue + 35) % 360} 45% 30%))`;
 }
 
-function Thumb({ id, src }: { id: string; src?: string | null }) {
+export function Thumb({ id, src }: { id: string; src?: string | null }) {
   return (
     <span className="ov-thumb" style={src ? undefined : { background: swatch(id) }} aria-hidden="true">
       {src ? <img src={src} alt="" loading="lazy" /> : null}
@@ -61,7 +61,7 @@ function Thumb({ id, src }: { id: string; src?: string | null }) {
   );
 }
 
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (next: boolean) => void; label: string }) {
+export function Toggle({ on, onChange, label }: { on: boolean; onChange: (next: boolean) => void; label: string }) {
   return (
     <button
       type="button"
@@ -513,7 +513,7 @@ export function PresetsLanding() {
 
 // ── Regex scripts ──
 
-function parseList(value: string | null | undefined): string[] {
+export function parseList(value: string | null | undefined): string[] {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value);
@@ -523,7 +523,7 @@ function parseList(value: string | null | undefined): string[] {
   }
 }
 
-const REGEX_PLACEMENT_LABEL: Record<string, string> = {
+export const REGEX_PLACEMENT_LABEL: Record<string, string> = {
   user_input: "User",
   ai_output: "AI",
   world_info: "Lore",
@@ -531,11 +531,35 @@ const REGEX_PLACEMENT_LABEL: Record<string, string> = {
   slash_command: "Commands",
 };
 
+/** Import regex scripts from a JSON file, appended after the current run order. */
+export function useRegexImport() {
+  const localize = useLocalizedUiText();
+  const { data } = useRegexScripts();
+  const importRegex = useImportRegexScript();
+  return async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text());
+      const entries = getImportEntries(parsed, ["regexScripts", "regexes", "scripts"]);
+      const base = getNextRegexOrderBase((data ?? []) as RegexScriptRow[]);
+      let imported = 0;
+      for (const [index, entry] of entries.entries()) {
+        const normalized = normalizeRegexImportEntry(entry, base + index);
+        if (!normalized) continue;
+        await importRegex.mutateAsync(normalized);
+        imported += 1;
+      }
+      if (imported) toast.success(`${localize("Imported")} ${imported}`);
+      else toast.error(localize("No valid regex scripts found in file."));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
+    }
+  };
+}
+
 export function RegexLanding() {
   const localize = useLocalizedUiText();
   const { data } = useRegexScripts();
   const updateRegex = useUpdateRegexScript();
-  const importRegex = useImportRegexScript();
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
@@ -561,24 +585,7 @@ export function RegexLanding() {
     return sortRows(list, sort);
   }, [chip, data, search, sort]);
 
-  const handleImport = async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text());
-      const entries = getImportEntries(parsed, ["regexScripts", "regexes", "scripts"]);
-      const base = getNextRegexOrderBase((data ?? []) as RegexScriptRow[]);
-      let imported = 0;
-      for (const [index, entry] of entries.entries()) {
-        const normalized = normalizeRegexImportEntry(entry, base + index);
-        if (!normalized) continue;
-        await importRegex.mutateAsync(normalized);
-        imported += 1;
-      }
-      if (imported) toast.success(`${localize("Imported")} ${imported}`);
-      else toast.error(localize("No valid regex scripts found in file."));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
-    }
-  };
+  const handleImport = useRegexImport();
 
   return (
     <ListPage
@@ -668,9 +675,9 @@ export function RegexLanding() {
 
 // ── Connections ──
 
-type ConnectionKind = "text" | "image" | "video" | "audio" | "decision";
+export type ConnectionKind = "text" | "image" | "video" | "audio" | "decision";
 
-function connectionKind(provider: string): ConnectionKind {
+export function connectionKind(provider: string): ConnectionKind {
   if (provider === "image_generation") return "image";
   if (provider === "video_generation") return "video";
   if (provider === "audio") return "audio";
@@ -678,7 +685,7 @@ function connectionKind(provider: string): ConnectionKind {
   return "text";
 }
 
-const KIND_LABEL: Record<ConnectionKind, string> = {
+export const KIND_LABEL: Record<ConnectionKind, string> = {
   text: "Text",
   image: "Image",
   video: "Video",
@@ -686,7 +693,7 @@ const KIND_LABEL: Record<ConnectionKind, string> = {
   decision: "Decision",
 };
 
-function flag(value: unknown) {
+export function flag(value: unknown) {
   return value === true || value === "true" || value === "1" || value === 1;
 }
 
@@ -779,7 +786,7 @@ export function ConnectionsLanding() {
 
 // ── Agents ──
 
-const PHASE_LABEL: Record<string, string> = {
+export const PHASE_LABEL: Record<string, string> = {
   pre_generation: "Before reply",
   parallel: "With reply",
   post_processing: "After reply",
