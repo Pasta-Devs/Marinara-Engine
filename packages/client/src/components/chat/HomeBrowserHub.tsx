@@ -35,6 +35,7 @@ import {
   Sparkles,
   Star,
   Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   APP_VERSION,
@@ -82,6 +83,7 @@ import { ChatModeIcon } from "./ChatModeIcon";
 import { HomeClockCalendar } from "./HomeClockCalendar";
 import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
@@ -1023,6 +1025,10 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [browserPackages],
   );
   const [activeTab, setActiveTab] = useState("home");
+  const overhaulActive = useOverhaulActive();
+  const homeLauncherClass = overhaulActive
+    ? "group !h-9 !gap-1.5 !rounded-full !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_55%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_16%,var(--card))] !px-3.5"
+    : "group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9";
   const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [faqOpen, setFaqOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
@@ -1604,6 +1610,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     <div
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
       data-component="HomeBrowserHub"
+      data-home-tab={activeTab}
     >
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-[var(--border)]/75 bg-[var(--card)]/65 shadow-2xl shadow-black/25 sm:rounded-xl">
         <header className="mari-home-browser-chrome relative z-40 shrink-0 border-b border-[var(--marinara-topbar-border)] bg-[var(--marinara-topbar-surface)] shadow-[0_8px_28px_-26px_rgba(0,0,0,0.8)] backdrop-blur-sm">
@@ -2091,10 +2098,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       {t("home.hero.description")}
                     </p>
                   </div>
-                  <div className="grid w-full max-w-md grid-cols-3 gap-2" aria-label={t("home.shortcuts.label")}>
+                  <div
+                    className={overhaulActive ? "ov-home-modes" : "grid w-full max-w-md grid-cols-3 gap-2"}
+                    aria-label={t("home.shortcuts.label")}
+                  >
                     <HomeNewChatLauncher
                       mode="conversation"
-                      className="group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9"
+                      className={homeLauncherClass}
                       ariaLabel={t("home.shortcuts.newConversation")}
                     >
                       <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.conversation}>
@@ -2106,7 +2116,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     </HomeNewChatLauncher>
                     <HomeNewChatLauncher
                       mode="roleplay"
-                      className="group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9"
+                      className={homeLauncherClass}
                       ariaLabel={t("home.shortcuts.newRoleplay")}
                     >
                       <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.roleplay}>
@@ -2118,7 +2128,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     </HomeNewChatLauncher>
                     <HomeNewChatLauncher
                       mode="game"
-                      className="group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9"
+                      className={homeLauncherClass}
                       ariaLabel={t("home.shortcuts.newGame")}
                     >
                       <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.game}>
@@ -2129,6 +2139,17 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       </span>
                     </HomeNewChatLauncher>
                   </div>
+                  {overhaulActive ? (
+                    <div className="ov-home-hero-actions">
+                      <button type="button" className="ov-btn" onClick={openProfessor}>
+                        {t("home.browser.professorTab")}
+                      </button>
+                      <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
+                        <SlidersHorizontal size={14} aria-hidden="true" />
+                        {t("home.browser.widgets")}
+                      </button>
+                    </div>
+                  ) : null}
                 </section>
                 <div ref={feedShellRef} className="mari-home-feed-shell">
                   <div
