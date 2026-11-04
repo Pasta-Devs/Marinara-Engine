@@ -1,4 +1,5 @@
 import { LorebookEntryImages } from "./LorebookEntryImages";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 // ──────────────────────────────────────────────
 // Lorebook Entry Row
@@ -253,6 +254,7 @@ export function LorebookEntryRow({
   chatEnabled,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaul = useOverhaulActive();
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
   const duplicateEntry = useDuplicateLorebookEntry();
@@ -545,6 +547,8 @@ export function LorebookEntryRow({
     <div
       className={cn(
         "mari-editor-panel mari-editor-panel--soft relative transition-all",
+        overhaul && "ov-lore-row",
+        overhaul && isExpanded && "is-open",
         isExpanded
           ? "border-[var(--marinara-editor-border-strong)]"
           : "hover:border-[var(--marinara-editor-border-strong)]",
@@ -977,6 +981,15 @@ export function LorebookEntryRow({
           )}
         </div>
 
+        {overhaul ? (
+          <span className="ov-lore-row__keys" title={(entry.keys ?? []).join(", ")}>
+            {(entry.keys ?? []).slice(0, 4).map((key, index) => (
+              <code key={`${key}-${index}`}>{key}</code>
+            ))}
+            {(entry.keys ?? []).length > 4 ? <small>+{(entry.keys ?? []).length - 4}</small> : null}
+          </span>
+        ) : null}
+
         {/* Lock badge (display-only on the row; toggled inside the drawer) */}
         {entry.locked && (
           <span
@@ -1051,7 +1064,7 @@ export function LorebookEntryRow({
             min={0}
             max={100}
           />
-          {folders.length > 0 && (
+          {folders.length > 0 && !overhaul && (
             <CompactSelect
               value={entry.folderId ?? ""}
               onChange={(v) => patch({ folderId: v === "" ? null : v })}
@@ -1887,7 +1900,7 @@ function ExpandedDrawer({
 
       {/* Toggles row — note: enable / regex / trigger mode are now on the row header,
           so they are intentionally omitted from this block to avoid duplication. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="ov-lore-toggles grid grid-cols-2 gap-2 sm:grid-cols-5">
         <ToggleButton
           label={localizeUi("ui.lorebooks.expandeddrawer.wholeWords")}
           value={form.matchWholeWords ?? false}
