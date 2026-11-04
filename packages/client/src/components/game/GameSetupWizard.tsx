@@ -44,7 +44,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Timer,
+  Check,
 } from "lucide-react";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
   ANIME_GAME_SYSTEM_PROMPT,
@@ -717,6 +719,8 @@ export function GameSetupWizard({
   });
   const [importedSetupNotice, setImportedSetupNotice] = useState<string | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
+  const ovImportInputRef = useRef<HTMLInputElement>(null);
+  const overhaulActive = useOverhaulActive();
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
   const importedArtStyleSettingsRef = useRef<Pick<
@@ -1792,12 +1796,40 @@ export function GameSetupWizard({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.97 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={cn(GAME_SETUP_WIZARD_PANEL_CLASS, adjustGameAssetsOpen && "max-w-5xl")}
+            className={cn(
+              GAME_SETUP_WIZARD_PANEL_CLASS,
+              adjustGameAssetsOpen && "max-w-5xl",
+              overhaulActive && "ov-gsw",
+            )}
           >
             <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
               <h3 id="game-setup-wizard-title" className={NEUTRAL_PANEL_TITLE}>
                 {localizeUi("navigation.chatSidebar.new.game")}
               </h3>
+              {overhaulActive && (
+                <>
+                  <span className="flex-1" />
+                  <input
+                    ref={ovImportInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={(event) => void handleImportSetupFile(event)}
+                    className="sr-only"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    className="ov-gsw__icon"
+                    onClick={() => ovImportInputRef.current?.click()}
+                    disabled={isLoading || !setupImportResourcesReady}
+                    title={`${localizeUi("ui.game.gamesetupwizard.reuseAGameSetup")}: ${localizeUi("ui.game.gamesetupwizard.importASetupDownloadedFromAnotherCampaignYouCan")}`}
+                    aria-label={localizeUi("ui.game.gamesetupwizard.importSetup")}
+                  >
+                    <FileUp size={15} />
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={onCancel}
@@ -1809,11 +1841,30 @@ export function GameSetupWizard({
               </button>
             </div>
 
+            {overhaulActive && (
+              <nav className="ov-gsw__steps" aria-label="Setup steps">
+                {steps.map((item, i) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-current={i === step ? "step" : undefined}
+                    disabled={isLoading}
+                    className={cn(i === step && "is-on", i < step && "is-done")}
+                    onClick={() => setStep(i)}
+                  >
+                    {i < step ? <Check size={13} aria-hidden="true" /> : <span>{i + 1}</span>}
+                    {item.title}
+                  </button>
+                ))}
+              </nav>
+            )}
             <div
               className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4")}
             >
-              <h4 className="text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h4>
-              <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-4")}>{currentStep.body}</p>
+              {!overhaulActive && (
+                <h4 className="text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h4>
+              )}
+              <p className={cn(NEUTRAL_PANEL_SUBTITLE, overhaulActive ? "ov-gsw__hint" : "mb-4")}>{currentStep.body}</p>
               <div className="space-y-4">
                 {step === 0 && (
                   <>
@@ -1824,7 +1875,12 @@ export function GameSetupWizard({
                     ) : (
                       <MultiplayerPrepareButton chatId={activeChatId} />
                     )}
-                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3">
+                    <div
+                      className={cn(
+                        "rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3",
+                        overhaulActive && "ov-gsw-import",
+                      )}
+                    >
                       <input
                         ref={setupImportInputRef}
                         type="file"
@@ -4197,7 +4253,7 @@ export function GameSetupWizard({
                   </div>
                 </div>
               )}
-              <div className="mb-3 flex items-center justify-center gap-1.5">
+              <div className={cn("mb-3 flex items-center justify-center gap-1.5", overhaulActive && "hidden")}>
                 {steps.map((item, i) => (
                   <button
                     key={item.key}
@@ -4243,6 +4299,7 @@ export function GameSetupWizard({
                     className={GAME_SETUP_PRIMARY_BUTTON_CLASS}
                   >
                     {localizeUi("onboarding.actions.next")}
+                    {overhaulActive ? `: ${steps[step + 1]?.title}` : null}
                     <ArrowRight size={14} />
                   </button>
                 ) : (
