@@ -1579,3 +1579,303 @@
   background: var(--ov-hover);
   color: var(--ov-text);
 }
+
+/* ─── Lorebook editor ─── */
+.ov-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  display: grid;
+  min-width: 12rem;
+  padding: 0.25rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+  background: var(--card);
+  box-shadow: 0 12px 30px -16px rgb(0 0 0 / 0.7);
+}
+.ov-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5rem;
+  border-radius: 0.4375rem;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-menu button:hover {
+  background: var(--ov-hover);
+}
+.ov-menu button.is-danger {
+  color: var(--destructive);
+}
+[data-overhaul="on"] .mari-editor-content-inner--wide:has(> .ov-bk-head) {
+  max-width: none;
+}
+.ov-bk-head {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-bk-head__row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+}
+.ov-bk-head__row h1 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ov-text);
+  font: 400 2rem/1.15 var(--ov-serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-bk-head__meta {
+  flex: none;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+}
+.ov-bk-head__spacer {
+  flex: 1;
+}
+.ov-bk-head__row > .ov-btn,
+.ov-bk-head__more {
+  align-self: center;
+}
+.ov-bk-head__more {
+  position: relative;
+}
+.ov-bk {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+}
+.ov-bk__toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: var(--ov-text);
+  text-align: left;
+}
+.ov-bk__toggle svg {
+  flex: none;
+  color: var(--ov-muted);
+  transition: transform 0.15s ease;
+}
+.ov-bk.is-closed .ov-bk__toggle svg {
+  transform: rotate(-90deg);
+}
+.ov-bk__toggle strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ov-bk__toggle span {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--ov-dim);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-bk__body {
+  display: grid;
+  gap: 0.625rem;
+  padding: 0 0.875rem 0.875rem;
+}
+.ov-bk__grid {
+  display: grid;
+  gap: 0.625rem 1rem;
+  align-items: end;
+}
+.ov-bk__grid--top {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.ov-bk__grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.ov-bk__field {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+.ov-bk__field > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-bk__field input:not([type="checkbox"]),
+.ov-bk__field select,
+.ov-bk__field textarea {
+  width: 100%;
+  min-height: 2.125rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+.ov-bk__field input:focus,
+.ov-bk__field select:focus,
+.ov-bk__field textarea:focus {
+  border-color: color-mix(in srgb, var(--ov-accent) 60%, transparent);
+}
+.ov-bk__num {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-bk__num input {
+  max-width: 5.5rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.ov-bk__num small,
+.ov-bk__switch small,
+.ov-bk__note {
+  color: var(--ov-dim);
+  font-size: 0.8125rem;
+}
+.ov-bk__switch {
+  display: flex;
+  min-height: 2.125rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-bk__chips {
+  display: flex;
+  min-height: 2.125rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+}
+.ov-bk__chips input:not([type="checkbox"]) {
+  width: auto;
+  min-width: 4rem;
+  min-height: 1.5rem;
+  flex: 1;
+  padding: 0 0.25rem;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.ov-bk__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.3125rem;
+  background: var(--ov-hover);
+  color: var(--ov-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+}
+.ov-bk__chip button {
+  color: var(--ov-dim);
+}
+.ov-bk__links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.ov-bk__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.375rem 0 0;
+  color: var(--ov-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ov-bk__eyebrow::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--ov-line);
+}
+.ov-bk__vectors .mari-editor-panel {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+.ov-bk__vectors .mari-editor-panel > div:first-child {
+  display: none;
+}
+/* Entry rows read as table rows: no bubbles, hairline dividers. */
+[data-overhaul="on"] .ov-lore-row {
+  margin-top: 0 !important;
+  border-width: 0 0 1px !important;
+  border-color: var(--ov-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+[data-overhaul="on"] .ov-lore-row:hover > div:first-of-type,
+[data-overhaul="on"] .ov-lore-row.is-open > div:first-of-type {
+  background: var(--ov-hover);
+}
+[data-overhaul="on"] .ov-lore-row > div:first-of-type input[type="text"],
+[data-overhaul="on"] .ov-lore-row > div:first-of-type > input {
+  max-width: 15rem;
+  flex: 0 1 11rem;
+}
+[data-overhaul="on"] .ov-lore-row > div:first-of-type {
+  gap: 0.375rem;
+}
+.ov-lore-row__keys {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 6rem;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+.ov-lore-row__keys code {
+  flex: none;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.3125rem;
+  background: var(--ov-hover);
+  color: var(--ov-text);
+  font-size: 0.75rem;
+}
+.ov-lore-row__keys small {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+[data-overhaul="on"] [data-editor-section="entries"] .space-y-2 > * + *,
+[data-overhaul="on"] [data-editor-section="entries"] .space-y-1\.5 > * + * {
+  margin-top: 0;
+}
+[data-overhaul="on"] .ov-lore-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+[data-overhaul="on"] .ov-lore-toggles > * {
+  width: auto;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000;
+  color: var(--ov-text);
+}
+[data-overhaul="on"] .ov-lore-row.is-open > div:last-child {
+  padding-bottom: 1rem;
+}
