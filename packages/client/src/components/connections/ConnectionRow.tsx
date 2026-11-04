@@ -424,8 +424,15 @@ export async function deleteAccountModels(models: Array<{ id: string }>) {
   for (const row of models) await api.delete(`/connections/${row.id}`);
 }
 
+/** Read the server's ownership before confirming deletion; the visible group can omit or relocate rows. */
+export async function loadAccountDeletionRows(accountId: string) {
+  const rows =
+    await api.get<Array<{ id: string; name: string; model: string; accountId?: string | null }>>("/connections");
+  return rows.filter((row) => row.accountId === accountId);
+}
+
 /**
- * The delete question for a Connection, asked before anything is deleted: it names its model count and what uses them.
+ * The delete question for a Connection, asked before anything is deleted: it names its rows and what uses them.
  * True means: delete the Models, then the Connection.
  */
 export async function confirmAccountDelete(
@@ -441,6 +448,9 @@ export async function confirmAccountDelete(
           t("connections.accounts.editor.deleteWithModels", {
             name,
             count: models.length,
+          }),
+          t("connections.accounts.editor.deleteModelsList", {
+            names: models.map((row) => row.name?.trim() || row.model || row.id).join(", "),
           }),
           ...(await usageLines(ids, new Set(ids), t)),
         ].join("\n")

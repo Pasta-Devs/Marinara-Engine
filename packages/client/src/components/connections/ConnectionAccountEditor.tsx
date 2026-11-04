@@ -28,7 +28,13 @@ import { ToggleSetting } from "../panels/settings/SettingControls";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { confirmAccountDelete, deleteAccountModels, modelSubtitle, type ConnectionRowData } from "./ConnectionRow";
+import {
+  confirmAccountDelete,
+  deleteAccountModels,
+  loadAccountDeletionRows,
+  modelSubtitle,
+  type ConnectionRowData,
+} from "./ConnectionRow";
 import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
@@ -282,9 +288,10 @@ export function ConnectionAccountEditor({
 
   const deleteAccount = async () => {
     if (!account) return;
-    if (!(await confirmAccountDelete(account.name, models, t))) return;
     try {
-      await deleteAccountModels(models);
+      const deletionRows = await loadAccountDeletionRows(account.id);
+      if (!(await confirmAccountDelete(account.name, deletionRows, t))) return;
+      await deleteAccountModels(deletionRows);
       await remove.mutateAsync(account.id);
       onClose();
     } catch (error) {

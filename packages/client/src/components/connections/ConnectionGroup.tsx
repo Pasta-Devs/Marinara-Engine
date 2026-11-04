@@ -64,6 +64,7 @@ import {
   confirmAccountDelete,
   deleteAccountModels,
   isMediaRow,
+  loadAccountDeletionRows,
   ROW_BUTTON,
   type ConnectionRowData,
 } from "./ConnectionRow";
@@ -209,9 +210,10 @@ export function ConnectionGroup({
       onError: () => toast.error(t("connections.accounts.testFailed")),
     });
   const deleteAccount = async () => {
-    if (!(await confirmAccountDelete(account.name, rows, t))) return;
     try {
-      await deleteAccountModels(rows);
+      const deletionRows = await loadAccountDeletionRows(account.id);
+      if (!(await confirmAccountDelete(account.name, deletionRows, t))) return;
+      await deleteAccountModels(deletionRows);
       await removeAccount.mutateAsync(account.id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
