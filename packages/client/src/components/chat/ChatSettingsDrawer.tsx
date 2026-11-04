@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
+import { createPortal } from "react-dom";
 import {
   Fragment,
   lazy,
@@ -1051,6 +1052,7 @@ export function ChatSettingsDrawer({
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
   const ovDocked = overhaulActive && !ovFloating;
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
+  const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);
   const trackerPanelClearance = useTrackerPanelClearance(!phoneLayout);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelEnabled = useUIStore((s) => s.setTrackerPanelEnabled);
@@ -5364,6 +5366,161 @@ export function ChatSettingsDrawer({
     if (confirmed) resetView();
     if (button.isConnected) button.focus({ preventScroll: true });
   };
+  const profileBar = (
+    <div
+      style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
+      data-chat-settings-section="settings-profile"
+      data-ov-label="Settings profile"
+      className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
+    >
+      <input
+        ref={presetFileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+      {/* Dropdown / rename input + help */}
+      <div className="flex items-center gap-2">
+        {renamingPreset ? (
+          <input
+            value={renamePresetVal}
+            onChange={(e) => setRenamePresetVal(e.target.value)}
+            onBlur={handleCommitRenamePreset}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCommitRenamePreset();
+              else if (e.key === "Escape") setRenamingPreset(false);
+            }}
+            autoFocus
+            maxLength={120}
+            className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
+          />
+        ) : (
+          <select
+            value={chatPresetSelectValue}
+            onChange={(e) => handleSelectPreset(e.target.value)}
+            aria-label={localizeUi("chat.settingsProfile.label")}
+            title={localizeUi("chat.settingsProfile.action.apply")}
+            className="mari-preset-native-select flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+          >
+            {presetList.length === 0 && <option value="">{localizeUi("ui.panels.ttsconfigcard.loading")}</option>}
+            {!appliedChatPreset && presetList.length > 0 && (
+              <option value={CHAT_PRESET_UNAPPLIED_SELECT_VALUE}>
+                {appliedPresetId
+                  ? localizeUi("chat.settingsProfile.option.missing")
+                  : localizeUi("chat.settingsProfile.option.custom")}
+              </option>
+            )}
+            {presetList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.isDefault ? localizeUi("ui.noodle.noodlehome.default") : p.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          onClick={handleToggleDefaultPreset}
+          disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
+          title={
+            !selectedChatPreset
+              ? localizeUi("chat.settingsProfile.default.selectFirst")
+              : selectedChatPreset.isActive
+                ? localizeUi("chat.settingsProfile.default.current")
+                : localizeUi("chat.settingsProfile.default.markForMode")
+          }
+          aria-pressed={!!selectedChatPreset?.isActive}
+          aria-label={
+            selectedChatPreset?.isActive
+              ? localizeUi("chat.settingsProfile.default.label")
+              : localizeUi("chat.settingsProfile.action.markDefault")
+          }
+          className={cn(
+            "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
+            selectedChatPreset?.isActive
+              ? "text-yellow-400 disabled:opacity-100"
+              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
+          )}
+        >
+          <Star
+            size="0.875rem"
+            fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
+            strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
+          />
+        </button>
+        <HelpTooltip
+          side="left"
+          text={
+            isRoleplayMode
+              ? localizeUi("chat.settingsProfile.description.roleplay")
+              : localizeUi("chat.settingsProfile.description.conversation")
+          }
+        />
+      </div>
+      {/* Single row of all profile actions */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleSaveIntoPreset}
+          disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+          title={
+            selectedChatPreset?.isDefault
+              ? localizeUi("chat.settingsProfile.default.cannotSave")
+              : localizeUi("chat.settingsProfile.action.saveInto")
+          }
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Save size="0.875rem" />
+        </button>
+        <button
+          onClick={handleStartRenamePreset}
+          disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+          title={
+            selectedChatPreset?.isDefault
+              ? localizeUi("chat.settingsProfile.default.cannotRename")
+              : localizeUi("chat.settingsProfile.action.rename")
+          }
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Pencil size="0.875rem" />
+        </button>
+        <button
+          onClick={handleSaveAsPreset}
+          disabled={!selectedChatPreset}
+          title={localizeUi("chat.settingsProfile.action.saveAs")}
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <FilePlus2 size="0.875rem" />
+        </button>
+        <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
+        <button
+          onClick={handleImportClick}
+          title={localizeUi("chat.settingsProfile.action.import")}
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          <Download size="0.875rem" />
+        </button>
+        <button
+          onClick={handleExportPreset}
+          disabled={!selectedChatPreset}
+          title={localizeUi("chat.settingsProfile.action.export")}
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Upload size="0.875rem" />
+        </button>
+        <button
+          onClick={handleDeletePreset}
+          disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+          title={
+            selectedChatPreset?.isDefault
+              ? localizeUi("chat.settingsProfile.default.cannotDelete")
+              : localizeUi("chat.settingsProfile.action.delete")
+          }
+          className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash2 size="0.875rem" />
+        </button>
+      </div>
+    </div>
+  );
   // Reset View and the favorite arrangement, then the Tracker Panel dice and window controls.
   const headerControls = (
     <>
@@ -5423,7 +5580,13 @@ export function ChatSettingsDrawer({
       >
         {/* Desktop-only: drag-and-drop hint (sidebar drag is disabled on mobile overlays) */}
         {overhaulActive && <OvChatSettingsStyle mode={chatMode} />}
-        {ovEditing && <OvChatSettingsEditor mode={chatMode} container={ovScrollEl} />}
+        {ovEditing && (
+          <OvChatSettingsEditor
+            mode={chatMode}
+            container={ovScrollEl}
+            onProfileSlot={modeSettingsSurfaces.showSettingsProfiles ? setOvProfileSlot : undefined}
+          />
+        )}
         {ovDocked && ovEditing && <OvChatSettingsResizeHandle />}
         {!overhaulActive && metadata.chatSettingsHintDismissed !== true && (
           <div
@@ -5468,163 +5631,13 @@ export function ChatSettingsDrawer({
               gameStart={multiplayerGameStart}
             />
           )}
-          {modeSettingsSurfaces.showSettingsProfiles && (
-            <div
-              style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
-              data-chat-settings-section="settings-profile"
-              data-ov-label="Settings profile"
-              className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
-            >
-              <input
-                ref={presetFileInputRef}
-                type="file"
-                accept=".json,application/json"
-                className="hidden"
-                onChange={handleImportFile}
-              />
-              {/* Dropdown / rename input + help */}
-              <div className="flex items-center gap-2">
-                {renamingPreset ? (
-                  <input
-                    value={renamePresetVal}
-                    onChange={(e) => setRenamePresetVal(e.target.value)}
-                    onBlur={handleCommitRenamePreset}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCommitRenamePreset();
-                      else if (e.key === "Escape") setRenamingPreset(false);
-                    }}
-                    autoFocus
-                    maxLength={120}
-                    className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
-                  />
-                ) : (
-                  <select
-                    value={chatPresetSelectValue}
-                    onChange={(e) => handleSelectPreset(e.target.value)}
-                    aria-label={localizeUi("chat.settingsProfile.label")}
-                    title={localizeUi("chat.settingsProfile.action.apply")}
-                    className="mari-preset-native-select flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                  >
-                    {presetList.length === 0 && (
-                      <option value="">{localizeUi("ui.panels.ttsconfigcard.loading")}</option>
-                    )}
-                    {!appliedChatPreset && presetList.length > 0 && (
-                      <option value={CHAT_PRESET_UNAPPLIED_SELECT_VALUE}>
-                        {appliedPresetId
-                          ? localizeUi("chat.settingsProfile.option.missing")
-                          : localizeUi("chat.settingsProfile.option.custom")}
-                      </option>
-                    )}
-                    {presetList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.isDefault ? localizeUi("ui.noodle.noodlehome.default") : p.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  onClick={handleToggleDefaultPreset}
-                  disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
-                  title={
-                    !selectedChatPreset
-                      ? localizeUi("chat.settingsProfile.default.selectFirst")
-                      : selectedChatPreset.isActive
-                        ? localizeUi("chat.settingsProfile.default.current")
-                        : localizeUi("chat.settingsProfile.default.markForMode")
-                  }
-                  aria-pressed={!!selectedChatPreset?.isActive}
-                  aria-label={
-                    selectedChatPreset?.isActive
-                      ? localizeUi("chat.settingsProfile.default.label")
-                      : localizeUi("chat.settingsProfile.action.markDefault")
-                  }
-                  className={cn(
-                    "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
-                    selectedChatPreset?.isActive
-                      ? "text-yellow-400 disabled:opacity-100"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
-                  )}
-                >
-                  <Star
-                    size="0.875rem"
-                    fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
-                    strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
-                  />
-                </button>
-                <HelpTooltip
-                  side="left"
-                  text={
-                    isRoleplayMode
-                      ? localizeUi("chat.settingsProfile.description.roleplay")
-                      : localizeUi("chat.settingsProfile.description.conversation")
-                  }
-                />
-              </div>
-              {/* Single row of all profile actions */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleSaveIntoPreset}
-                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                  title={
-                    selectedChatPreset?.isDefault
-                      ? localizeUi("chat.settingsProfile.default.cannotSave")
-                      : localizeUi("chat.settingsProfile.action.saveInto")
-                  }
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Save size="0.875rem" />
-                </button>
-                <button
-                  onClick={handleStartRenamePreset}
-                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                  title={
-                    selectedChatPreset?.isDefault
-                      ? localizeUi("chat.settingsProfile.default.cannotRename")
-                      : localizeUi("chat.settingsProfile.action.rename")
-                  }
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Pencil size="0.875rem" />
-                </button>
-                <button
-                  onClick={handleSaveAsPreset}
-                  disabled={!selectedChatPreset}
-                  title={localizeUi("chat.settingsProfile.action.saveAs")}
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FilePlus2 size="0.875rem" />
-                </button>
-                <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
-                <button
-                  onClick={handleImportClick}
-                  title={localizeUi("chat.settingsProfile.action.import")}
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                >
-                  <Download size="0.875rem" />
-                </button>
-                <button
-                  onClick={handleExportPreset}
-                  disabled={!selectedChatPreset}
-                  title={localizeUi("chat.settingsProfile.action.export")}
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Upload size="0.875rem" />
-                </button>
-                <button
-                  onClick={handleDeletePreset}
-                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                  title={
-                    selectedChatPreset?.isDefault
-                      ? localizeUi("chat.settingsProfile.default.cannotDelete")
-                      : localizeUi("chat.settingsProfile.action.delete")
-                  }
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Trash2 size="0.875rem" />
-                </button>
-              </div>
-            </div>
-          )}
+          {modeSettingsSurfaces.showSettingsProfiles &&
+            // Overhaul: the profile bar lives behind Edit, so it is not in the way every time.
+            (!overhaulActive
+              ? profileBar
+              : ovEditing && ovProfileSlot
+                ? createPortal(profileBar, ovProfileSlot)
+                : null)}
 
           {chatTools && !isGame && (
             <Section
