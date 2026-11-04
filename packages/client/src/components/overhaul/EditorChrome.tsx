@@ -158,7 +158,3 @@ export function OvRow({
     </div>
   );
 }
-
-export function OvNote({ children }: { children: ReactNode }) {
-  return <span className="ov-row__note">{children}</span>;
-}
