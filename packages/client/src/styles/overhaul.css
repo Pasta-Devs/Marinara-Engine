@@ -737,8 +737,7 @@
 }
 
 /* Section titles in the editors read like the mockup: serif, with a rule. */
-.ov-ed [data-editor-section] > div > .mb-4:first-child h2,
-.ov-ed [data-editor-section] > .space-y-5 > .mb-4:first-child h2 {
+.ov-ed [data-editor-section] > div > .mb-4:first-child :is(h2, h3) {
   font: 400 1.875rem/1.15 var(--ov-serif);
   color: var(--ov-text);
 }
@@ -788,7 +787,7 @@
 .ov-ed .mari-editor-panel > .mb-4 {
   margin-bottom: 0.375rem;
 }
-.ov-ed .mari-editor-panel > .mb-4 h2 {
+.ov-ed .mari-editor-panel > .mb-4 :is(h2, h3) {
   color: var(--ov-accent);
   font-family: inherit;
   font-size: 0.75rem;

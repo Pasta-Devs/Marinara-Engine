@@ -39,6 +39,7 @@ import {
   ArrowLeft,
   Save,
   User,
+  MoreHorizontal,
   IdCard,
   Camera,
   Trash2,
@@ -123,6 +124,9 @@ import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
+import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
+import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -209,6 +213,28 @@ const PERSONA_STATS_HELP =
 
 const PERSONA_RPG_ATTRIBUTES_HELP =
   "HP is injected into the prompt so the AI knows your persona's current health. Attributes are custom stats, like STR or DEX, that define your persona's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
+
+/** UI overhaul: plain names for the sections in the editor's left rail. */
+const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
+  metadata: "Details",
+  card: "The Card",
+  convo: "Convo profile",
+  lorebook: "Lorebook",
+  sprites: "Sprites",
+  gallery: "Gallery",
+  colors: "Colors",
+  stats: "Game Mode",
+};
+const OVERHAUL_TAB_ORDER = [...TABS.filter((tab) => tab.id !== "metadata"), TABS[0]];
+const OVERHAUL_OPTIONAL_CARD_FIELDS = [
+  { id: "personality", label: "Personality" },
+  { id: "backstory", label: "Backstory" },
+  { id: "appearance", label: "Appearance" },
+  { id: "scenario", label: "Scenario" },
+] as const;
+function overhaulHasText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 interface PersonaFormData {
   name: string;
@@ -1311,10 +1337,20 @@ export function PersonaEditor() {
   const uploadCharacterSheet = useUploadPersonaGalleryImage(personaId ?? "");
   const { data: connectionsList } = useConnections();
 
-  const [activeTab, setActiveTab] = useState<TabId>(() => personaInitialTab ?? "metadata");
+  const overhaulActive = useOverhaulActive();
+  const defaultTab: TabId = isOverhaulActive() ? "card" : "metadata";
+  const [activeTab, setActiveTab] = useState<TabId>(() => personaInitialTab ?? defaultTab);
   useEffect(() => {
-    setActiveTab(personaInitialTab ?? "metadata");
+    setActiveTab(personaInitialTab ?? (isOverhaulActive() ? "card" : "metadata"));
   }, [personaId, personaInitialTab]);
+  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
+  const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
+  const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
+  useEffect(() => {
+    setOverhaulAddedSections([]);
+    setOverhaulAddedFields([]);
+    setOverhaulMoreOpen(false);
+  }, [personaId]);
   // ── Editor state machine ──
   // The draft and the authoritative baseline are each held in a ref *and* in
   // state, always written together through the commit helpers below. The refs are
@@ -1324,7 +1360,7 @@ export function PersonaEditor() {
   const { contentRef, scrollToSection } = useEditorSections(
     personaId,
     !!formData,
-    personaInitialTab ?? "metadata",
+    personaInitialTab ?? defaultTab,
     setActiveTab,
   );
   const formDataRef = useRef<PersonaFormData | null>(null);
@@ -1977,6 +2013,166 @@ export function PersonaEditor() {
     </>
   );
 
+  // ── UI overhaul: only the sections and card fields this persona uses ──
+  const overhaulSectionInUse: Record<TabId, boolean> = {
+    metadata: true,
+    card: true,
+    convo:
+      overhaulHasText(formData.aboutMe) || overhaulHasText(formData.convoDisplayName) || formData.convoBehavior != null,
+    lorebook: true,
+    sprites: false,
+    gallery: false,
+    colors:
+      overhaulHasText(formData.nameColor) ||
+      overhaulHasText(formData.dialogueColor) ||
+      overhaulHasText(formData.boxColor),
+    stats: formData.personaStats != null,
+  };
+  const showSection = (id: TabId) => !overhaulActive || overhaulSectionInUse[id] || overhaulAddedSections.includes(id);
+  const overhaulCardFieldInUse: Record<string, boolean> = {
+    personality: overhaulHasText(formData.personality),
+    backstory: overhaulHasText(formData.backstory),
+    appearance: overhaulHasText(formData.appearance),
+    scenario: overhaulHasText(formData.scenario),
+  };
+  const overhaulVisibleFields = new Set<string>(
+    OVERHAUL_OPTIONAL_CARD_FIELDS.map((field) => field.id).filter(
+      (id) => overhaulCardFieldInUse[id] || overhaulAddedFields.includes(id),
+    ),
+  );
+  const addOverhaulField = (id: string) => {
+    setOverhaulAddedFields((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    window.setTimeout(() => {
+      const anchor = document.getElementById(`persona-card-${id}`);
+      anchor?.scrollIntoView({ behavior: "smooth", block: "center" });
+      anchor?.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true });
+    }, 60);
+  };
+  const addOverhaulSection = (id: string) => {
+    setOverhaulAddedSections((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    window.setTimeout(() => scrollToSection(id as TabId), 60);
+  };
+  const overhaulRail = overhaulActive ? (
+    <EditorRail
+      crumbs={
+        <EditorCrumbs
+          items={[
+            { label: localizeUi("ui.overhaul.library", { defaultValue: "Library" }) },
+            {
+              label: localizeUi("ui.overhaul.personas", { defaultValue: "Personas" }),
+              onClick: () => leaveWithoutSaving(() => openLibrarySection("personas")),
+            },
+            { label: formData.name || localizeUi("ui.personas.personaeditor.personaName") },
+          ]}
+        />
+      }
+      avatarUrl={avatarPreview}
+      avatarStyle={getAvatarCropStyle(formData.avatarCrop)}
+      placeholderIcon={User}
+      onReplaceAvatar={() => {
+        if (!mutationBusy) fileInputRef.current?.click();
+      }}
+      avatarActions={
+        <>
+          {avatarPreview ? (
+            <button
+              type="button"
+              className="ov-chip-btn"
+              onClick={() =>
+                document.getElementById("ov-avatar-crop")?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            >
+              {localizeUi("ui.overhaul.crop", { defaultValue: "Crop" })}
+            </button>
+          ) : null}
+          {imageGenerationAvailable ? (
+            <button
+              type="button"
+              className="ov-chip-btn"
+              onClick={() => {
+                if (!mutationBusy) setAvatarGeneratorOpen(true);
+              }}
+            >
+              {localizeUi("ui.overhaul.generate", { defaultValue: "Generate" })}
+            </button>
+          ) : null}
+        </>
+      }
+      name={formData.name}
+      onNameChange={(value) => updateField("name", value)}
+      namePlaceholder={localizeUi("ui.personas.personaeditor.personaName")}
+      subtitle={formData.comment}
+      onSubtitleChange={(value) => updateField("comment", value)}
+      subtitlePlaceholder={localizeUi("ui.personas.personaeditor.titleCommentEGModernAuVersion")}
+      byline={
+        <>
+          {formData.creator
+            ? localizeUi("ui.personas.personaeditor.byValue1", { value1: formData.creator })
+            : localizeUi("ui.personas.personaeditor.noCreator")}
+          {" · v"}
+          {formData.personaVersion || "1.0"}
+        </>
+      }
+      tags={formData.tags}
+      onAddTag={(value) => updateField("tags", appendNewTags(formData.tags, value))}
+      onRemoveTag={(tag) =>
+        updateField(
+          "tags",
+          formData.tags.filter((item) => item !== tag),
+        )
+      }
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className={cn("ov-btn", dirty && !saveDisabled && "ov-btn--primary")}
+            title={saveLabel}
+          >
+            <Save size="0.875rem" />
+            {saveLabel}
+          </button>
+          <button type="button" className="ov-btn" onClick={() => setExportDialogOpen(true)}>
+            {localizeUi("ui.overhaul.export", { defaultValue: "Export" })}
+          </button>
+          <button
+            type="button"
+            className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
+            onClick={() => setOverhaulMoreOpen((open) => !open)}
+            aria-expanded={overhaulMoreOpen}
+            title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
+            aria-label={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
+          >
+            <MoreHorizontal size="0.875rem" />
+          </button>
+          {overhaulMoreOpen ? <div className="ov-rail__more mari-editor-actions">{headerActions}</div> : null}
+        </>
+      }
+      sectionsTitle={localizeUi("ui.overhaul.onThisPersona", { defaultValue: "On this persona" })}
+      sections={OVERHAUL_TAB_ORDER.filter((tab) => showSection(tab.id)).map((tab) => ({
+        id: tab.id,
+        label: OVERHAUL_SECTION_LABELS[tab.id],
+        children:
+          tab.id === "card"
+            ? [
+                { id: "persona-card-description", label: "Description" },
+                ...OVERHAUL_OPTIONAL_CARD_FIELDS.filter((field) => overhaulVisibleFields.has(field.id)).map(
+                  (field) => ({ id: `persona-card-${field.id}`, label: field.label }),
+                ),
+              ]
+            : undefined,
+      }))}
+      activeSection={activeTab}
+      onJump={(id) => scrollToSection(id as TabId)}
+      addable={OVERHAUL_TAB_ORDER.filter((tab) => !showSection(tab.id)).map((tab) => ({
+        id: tab.id,
+        label: OVERHAUL_SECTION_LABELS[tab.id],
+      }))}
+      onAdd={addOverhaulSection}
+    />
+  ) : null;
+
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       <ExportFormatDialog
@@ -2021,7 +2217,7 @@ export function PersonaEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="mari-editor-header mari-editor-header--with-nav">
+      <div className={cn("mari-editor-header mari-editor-header--with-nav", overhaulActive && "!hidden")}>
         <div className="mari-editor-header-main mari-editor-header-main--identity">
           <button
             type="button"
@@ -2123,74 +2319,94 @@ export function PersonaEditor() {
       </div>
 
       {/* ── Body ── */}
-      <div className="mari-editor-body">
-        {/* Tab Content */}
-        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
-          <div className="mari-editor-content-inner">
-            <section data-editor-section="metadata">
-              <PersonaMetadataTab
-                personaId={personaId}
-                formData={formData}
-                updateField={updateField}
-                avatarPreview={avatarPreview}
-                onSelectAvatar={() => {
-                  if (!mutationBusy) fileInputRef.current?.click();
-                }}
-                onGenerateAvatar={() => {
-                  if (!mutationBusy) setAvatarGeneratorOpen(true);
-                }}
-                imageGenerationAvailable={imageGenerationAvailable}
-                avatarUploading={avatarBusy}
-                hasUnsavedChanges={dirty}
-                avatarMutationBusy={mutationBusy}
-              />
-            </section>
-            <section data-editor-section="card">
-              <PersonaCardTab formData={formData} updateField={updateField} />
-            </section>
-            <section data-editor-section="convo">
-              <PersonaConvoTab
-                key={personaId ?? "new-persona"}
-                personaId={personaId}
-                formData={formData}
-                updateField={updateField}
-              />
-            </section>
-            <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
-              {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
-            </LazyEditorSection>
-            <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
-              {personaId && (
-                <PersonaSpritesTab
+      <div className={overhaulActive ? "ov-ed" : "contents"}>
+        {overhaulRail}
+        <div className="mari-editor-body">
+          {/* Tab Content */}
+          <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
+            <div className="mari-editor-content-inner">
+              <section data-editor-section="metadata">
+                <PersonaMetadataTab
                   personaId={personaId}
-                  personaName={formData.name}
-                  defaultAppearance={formData.appearance || formData.description}
-                  defaultAvatarUrl={avatarPreview}
-                  characterSheetImageId={formData.characterSheetImageId}
-                  useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
+                  formData={formData}
                   updateField={updateField}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  avatarPreview={avatarPreview}
+                  onSelectAvatar={() => {
+                    if (!mutationBusy) fileInputRef.current?.click();
+                  }}
+                  onGenerateAvatar={() => {
+                    if (!mutationBusy) setAvatarGeneratorOpen(true);
+                  }}
+                  imageGenerationAvailable={imageGenerationAvailable}
+                  avatarUploading={avatarBusy}
+                  hasUnsavedChanges={dirty}
+                  avatarMutationBusy={mutationBusy}
+                  compact={overhaulActive}
                 />
-              )}
-            </LazyEditorSection>
-            <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
-              {personaId && (
-                <PersonaGalleryTab
-                  personaId={personaId}
-                  personaName={formData.name}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                  editorBusy={mutationBusy}
-                  galleryAvatarPending={mutationKind === "gallery-avatar"}
-                  onSetAvatar={handleSetGalleryAvatar}
+              </section>
+              <section data-editor-section="card">
+                <PersonaCardTab
+                  formData={formData}
+                  updateField={updateField}
+                  overhaul={overhaulActive ? { visible: overhaulVisibleFields, onAdd: addOverhaulField } : undefined}
                 />
+              </section>
+              {showSection("convo") && (
+                <section data-editor-section="convo">
+                  <PersonaConvoTab
+                    key={personaId ?? "new-persona"}
+                    personaId={personaId}
+                    formData={formData}
+                    updateField={updateField}
+                  />
+                </section>
               )}
-            </LazyEditorSection>
-            <section data-editor-section="colors">
-              <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
-            </section>
-            <section data-editor-section="stats">
-              <PersonaStatsTab formData={formData} updateField={updateField} />
-            </section>
+              {showSection("lorebook") && (
+                <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
+                  {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
+                </LazyEditorSection>
+              )}
+              {showSection("sprites") && (
+                <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
+                  {personaId && (
+                    <PersonaSpritesTab
+                      personaId={personaId}
+                      personaName={formData.name}
+                      defaultAppearance={formData.appearance || formData.description}
+                      defaultAvatarUrl={avatarPreview}
+                      characterSheetImageId={formData.characterSheetImageId}
+                      useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
+                      updateField={updateField}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    />
+                  )}
+                </LazyEditorSection>
+              )}
+              {showSection("gallery") && (
+                <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
+                  {personaId && (
+                    <PersonaGalleryTab
+                      personaId={personaId}
+                      personaName={formData.name}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                      editorBusy={mutationBusy}
+                      galleryAvatarPending={mutationKind === "gallery-avatar"}
+                      onSetAvatar={handleSetGalleryAvatar}
+                    />
+                  )}
+                </LazyEditorSection>
+              )}
+              {showSection("colors") && (
+                <section data-editor-section="colors">
+                  <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
+                </section>
+              )}
+              {showSection("stats") && (
+                <section data-editor-section="stats">
+                  <PersonaStatsTab formData={formData} updateField={updateField} />
+                </section>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -3554,7 +3770,10 @@ function PersonaMetadataTab({
   // while one of those is running would race the image the server is about to
   // return, so both entry points and the cropper follow the same busy state.
   avatarMutationBusy,
+  compact = false,
 }: {
+  /** UI overhaul: name, title, avatar and tags live in the left rail instead. */
+  compact?: boolean;
   personaId: string | null;
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
@@ -3619,42 +3838,47 @@ function PersonaMetadataTab({
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {t("editor.avatar.label")}
-          <HelpTooltip text={t("editor.avatar.persona.help")} />
-        </span>
+      {compact && !avatarPreview ? null : (
+        <div className="space-y-1.5" id="ov-avatar-crop">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            {t("editor.avatar.label")}
+            <HelpTooltip text={t("editor.avatar.persona.help")} />
+          </span>
 
-        {avatarPreview && (
+          {avatarPreview && (
+            <fieldset
+              disabled={avatarMutationBusy}
+              className="min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-60"
+            >
+              <AvatarCropWidget
+                src={avatarPreview}
+                alt={formData.name}
+                crop={formData.avatarCrop}
+                onChange={(next) => {
+                  if (avatarMutationBusy) return;
+                  updateField("avatarCrop", next);
+                }}
+              />
+            </fieldset>
+          )}
+
           <fieldset
             disabled={avatarMutationBusy}
-            className="min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-60"
+            className={cn("min-w-0 border-0 p-0 disabled:opacity-60", compact && "hidden")}
           >
-            <AvatarCropWidget
-              src={avatarPreview}
-              alt={formData.name}
-              crop={formData.avatarCrop}
-              onChange={(next) => {
-                if (avatarMutationBusy) return;
-                updateField("avatarCrop", next);
-              }}
+            <AvatarReplaceActions
+              hasAvatar={Boolean(avatarPreview)}
+              uploading={avatarUploading}
+              generationAvailable={imageGenerationAvailable}
+              onUpload={onSelectAvatar}
+              onGenerate={onGenerateAvatar}
             />
           </fieldset>
-        )}
-
-        <fieldset disabled={avatarMutationBusy} className="min-w-0 border-0 p-0 disabled:opacity-60">
-          <AvatarReplaceActions
-            hasAvatar={Boolean(avatarPreview)}
-            uploading={avatarUploading}
-            generationAvailable={imageGenerationAvailable}
-            onUpload={onSelectAvatar}
-            onGenerate={onGenerateAvatar}
-          />
-        </fieldset>
-      </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personastatstab.name")}{" "}
             <HelpTooltip
@@ -3668,7 +3892,7 @@ function PersonaMetadataTab({
             placeholder={localizeUi("ui.personas.personaeditor.personaName")}
           />
         </label>
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.titleComment")}{" "}
             <HelpTooltip text={localizeUi("ui.personas.personametadatatab.aShortNoteShownUnderThePersonaNameIn")} />
@@ -3751,7 +3975,7 @@ function PersonaMetadataTab({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className={cn("space-y-2", compact && "hidden")}>
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.tags")}{" "}
@@ -4415,11 +4639,15 @@ function PersonaConvoTab({
 function PersonaCardTab({
   formData,
   updateField,
+  overhaul,
 }: {
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+  /** UI overhaul: optional fields show only when used or added. */
+  overhaul?: { visible: ReadonlySet<string>; onAdd: (id: string) => void };
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const showField = (id: string) => !overhaul || overhaul.visible.has(id);
   return (
     <div>
       <SectionHeader
@@ -4427,87 +4655,101 @@ function PersonaCardTab({
         subtitle={localizeUi("ui.personas.personacardtab.writeYourCorePersonaCardFieldsInOneFocused")}
         helpText={PERSONA_CARD_HELP}
       />
-      <EditorSectionJumps items={PERSONA_CARD_SECTIONS} />
+      {overhaul ? null : <EditorSectionJumps items={PERSONA_CARD_SECTIONS} />}
       <div className="space-y-10">
         <EditorSectionAnchor id="persona-card-description">
           <DescriptionTab formData={formData} updateField={updateField} />
         </EditorSectionAnchor>
-        <EditorSectionAnchor id="persona-card-personality">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.personality")}
-            subtitle={localizeUi("ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns")}
-            helpText={PERSONA_PERSONALITY_HELP}
-            value={formData.personality}
-            onChange={(v) => updateField("personality", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone")}
-            rows={8}
-          />
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="persona-card-backstory">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
-            subtitle={localizeUi("ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife")}
-            helpText={PERSONA_BACKSTORY_HELP}
-            value={formData.backstory}
-            onChange={(v) => updateField("backstory", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA")}
-            rows={12}
-          />
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="persona-card-appearance">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.appearance")}
-            subtitle={localizeUi(
-              "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
-            )}
-            helpText={PERSONA_APPEARANCE_HELP}
-            value={formData.appearance}
-            onChange={(v) => updateField("appearance", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
-            )}
-            rows={8}
-          />
-          <div className="mt-3">
-            <SettingsSwitch
-              label={
-                <span className="font-medium">
-                  {localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
-                </span>
-              }
-              description={localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp")}
-              checked={formData.imageAppearanceEnabled}
-              onChange={(enabled) => updateField("imageAppearanceEnabled", enabled)}
-              labelPosition="start"
-              className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+        {showField("personality") && (
+          <EditorSectionAnchor id="persona-card-personality">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.personality")}
+              subtitle={localizeUi("ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns")}
+              helpText={PERSONA_PERSONALITY_HELP}
+              value={formData.personality}
+              onChange={(v) => updateField("personality", v)}
+              placeholder={localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone")}
+              rows={8}
             />
-          </div>
-          {formData.imageAppearanceEnabled && (
+          </EditorSectionAnchor>
+        )}
+        {showField("backstory") && (
+          <EditorSectionAnchor id="persona-card-backstory">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
+              subtitle={localizeUi("ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife")}
+              helpText={PERSONA_BACKSTORY_HELP}
+              value={formData.backstory}
+              onChange={(v) => updateField("backstory", v)}
+              placeholder={localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA")}
+              rows={12}
+            />
+          </EditorSectionAnchor>
+        )}
+        {showField("appearance") && (
+          <EditorSectionAnchor id="persona-card-appearance">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.appearance")}
+              subtitle={localizeUi(
+                "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
+              )}
+              helpText={PERSONA_APPEARANCE_HELP}
+              value={formData.appearance}
+              onChange={(v) => updateField("appearance", v)}
+              placeholder={localizeUi(
+                "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
+              )}
+              rows={8}
+            />
             <div className="mt-3">
-              <TextareaTab
-                title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
-                subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
-                value={formData.imageAppearance}
-                onChange={(v) => updateField("imageAppearance", v)}
-                placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
-                rows={6}
+              <SettingsSwitch
+                label={
+                  <span className="font-medium">
+                    {localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                  </span>
+                }
+                description={localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp")}
+                checked={formData.imageAppearanceEnabled}
+                onChange={(enabled) => updateField("imageAppearanceEnabled", enabled)}
+                labelPosition="start"
+                className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
               />
             </div>
-          )}
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="persona-card-scenario">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
-            subtitle={localizeUi("ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays")}
-            helpText={PERSONA_SCENARIO_HELP}
-            value={formData.scenario}
-            onChange={(v) => updateField("scenario", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
+            {formData.imageAppearanceEnabled && (
+              <div className="mt-3">
+                <TextareaTab
+                  title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                  subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
+                  value={formData.imageAppearance}
+                  onChange={(v) => updateField("imageAppearance", v)}
+                  placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
+                  rows={6}
+                />
+              </div>
             )}
-            rows={8}
+          </EditorSectionAnchor>
+        )}
+        {showField("scenario") && (
+          <EditorSectionAnchor id="persona-card-scenario">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
+              subtitle={localizeUi("ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays")}
+              helpText={PERSONA_SCENARIO_HELP}
+              value={formData.scenario}
+              onChange={(v) => updateField("scenario", v)}
+              placeholder={localizeUi(
+                "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
+              )}
+              rows={8}
+            />
+          </EditorSectionAnchor>
+        )}
+        {overhaul ? (
+          <AddFieldChips
+            items={OVERHAUL_OPTIONAL_CARD_FIELDS.filter((field) => !overhaul.visible.has(field.id))}
+            onAdd={overhaul.onAdd}
           />
-        </EditorSectionAnchor>
+        ) : null}
       </div>
     </div>
   );
