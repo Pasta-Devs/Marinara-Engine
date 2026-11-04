@@ -5972,3 +5972,115 @@ input.ov-edhead__title:focus {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* ─── Home apps live in the top bar's tabs (2026-11-04) ─── */
+/* Home's own tab strip and bookmarks bar are gone in the overhaul: each app is a top tab. */
+:root[data-overhaul="on"] [data-component="HomeBrowserHub"] header.mari-home-browser-chrome {
+  display: none;
+}
+.ov-tab__appicon {
+  display: inline-flex;
+  width: 1.125rem;
+  height: 0.875rem;
+  align-items: center;
+  justify-content: center;
+}
+.ov-home-hero-actions .ov-btn img {
+  height: 0.875rem;
+  width: auto;
+}
+
+/* ─── Sleek list toolbars: Prompt order and lorebook Entries (2026-11-04) ─── */
+/* Search and Order share one line and one look; the actions are plain text buttons, not bubbles. */
+.ov-lv__left .ov-lv-tools {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.ov-lv__left .ov-lv-tools > .ov-lv-tools__search.ov-lv-tools__search {
+  flex: none !important;
+}
+.ov-lv-tools input,
+.ov-lv-tools select {
+  height: 1.75rem !important;
+  min-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border: 1px solid var(--ov-line) !important;
+  border-radius: 0.375rem !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ov-text);
+  font-size: 0.8125rem !important;
+}
+.ov-lv-tools__sort select {
+  height: 1.75rem !important;
+  padding-left: 1.75rem !important;
+  padding-right: 0.5rem !important;
+}
+.ov-lv-tools__sort svg {
+  left: 0.5rem !important;
+}
+.ov-lv-tools__acts.ov-lv-tools__acts {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+}
+:is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action {
+  height: 1.5rem !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ov-muted) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+}
+:is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action:hover {
+  color: var(--ov-text) !important;
+}
+:is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action--primary {
+  color: var(--ov-accent) !important;
+}
+:root[data-overhaul="on"] .ov-po-tools {
+  gap: 0.25rem 0.875rem !important;
+  padding: 0.125rem 0 0.375rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Viewers get the same full header as the Library landing pages (title left, Import and + New right). */
+.ov-vw {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.ov-vw__top {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 2rem 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-vw__top h1 {
+  margin: 0;
+  color: var(--ov-text);
+  font: 600 2rem/1 var(--ov-serif);
+}
+.ov-vw__top small {
+  flex: 1;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-vw__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-vw__left .ov-vw__find {
+  padding-top: 0.75rem;
+}

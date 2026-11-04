@@ -2467,8 +2467,8 @@ export function LorebookEditor() {
                       gracefully on narrow viewports. Search keeps a 12rem
                       (~192px) flex-basis so it stays usable; the buttons tile
                       onto the next row instead of being clipped at ~400px. */}
-      <div className="mari-editor-toolbar flex flex-wrap items-stretch gap-2 p-2">
-        <div className="relative min-w-0 flex-[1_1_12rem]">
+      <div className="mari-editor-toolbar ov-lv-tools flex flex-wrap items-stretch gap-2 p-2">
+        <div className="ov-lv-tools__search relative min-w-0 flex-[1_1_12rem]">
           <Search
             size="0.8125rem"
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
@@ -2481,7 +2481,7 @@ export function LorebookEditor() {
             className="mari-editor-field w-full py-2.5 pl-8 pr-3 text-xs"
           />
         </div>
-        <div className="relative shrink-0">
+        <div className="ov-lv-tools__sort relative shrink-0">
           <ArrowUpDown
             size="0.8125rem"
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
@@ -2498,36 +2498,38 @@ export function LorebookEditor() {
             ))}
           </select>
         </div>
-        <button
-          onClick={() => {
-            if (entrySelectionMode) exitEntrySelectionMode();
-            else setEntrySelectionMode(true);
-          }}
-          className={cn(
-            "mari-editor-action flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs",
-            entrySelectionMode &&
-              "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]",
-          )}
-          title={t("lorebook.editor.batch.selectTitle")}
-        >
-          <CheckSquare2 size="0.8125rem" />
-          {localizeUi("settings.common.select")}
-        </button>
-        <button
-          onClick={handleAddFolder}
-          className="mari-editor-action flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs"
-          title={localizeUi("ui.lorebooks.lorebookeditor.createANewFolderToGroupEntries")}
-        >
-          <FolderPlus size="0.8125rem" />
-          {localizeUi("ui.lorebooks.lorebookeditor.addFolder")}
-        </button>
-        <button
-          onClick={handleAddEntry}
-          className="mari-editor-action mari-editor-action--primary inline-flex shrink-0"
-        >
-          <Plus size="0.8125rem" />
-          {localizeUi("ui.lorebooks.lorebookeditor.addEntry")}
-        </button>
+        <div className="ov-lv-tools__acts contents">
+          <button
+            onClick={() => {
+              if (entrySelectionMode) exitEntrySelectionMode();
+              else setEntrySelectionMode(true);
+            }}
+            className={cn(
+              "mari-editor-action flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs",
+              entrySelectionMode &&
+                "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]",
+            )}
+            title={t("lorebook.editor.batch.selectTitle")}
+          >
+            <CheckSquare2 size="0.8125rem" />
+            {localizeUi("settings.common.select")}
+          </button>
+          <button
+            onClick={handleAddFolder}
+            className="mari-editor-action flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs"
+            title={localizeUi("ui.lorebooks.lorebookeditor.createANewFolderToGroupEntries")}
+          >
+            <FolderPlus size="0.8125rem" />
+            {localizeUi("ui.lorebooks.lorebookeditor.addFolder")}
+          </button>
+          <button
+            onClick={handleAddEntry}
+            className="mari-editor-action mari-editor-action--primary inline-flex shrink-0"
+          >
+            <Plus size="0.8125rem" />
+            {localizeUi("ui.lorebooks.lorebookeditor.addEntry")}
+          </button>
+        </div>
       </div>
 
       <p

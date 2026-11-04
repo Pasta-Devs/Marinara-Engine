@@ -1848,7 +1848,7 @@ function SectionsTab({
       {/* ── Toolbar ── */}
       <div
         className={cn(
-          "mari-editor-toolbar flex flex-wrap items-center",
+          "mari-editor-toolbar ov-po-tools flex flex-wrap items-center",
           compact ? "gap-1.5 px-1 pb-2 pt-1.5" : "gap-2 p-2",
         )}
       >

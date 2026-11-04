@@ -10,6 +10,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Download, Plus, Search, Upload } from "lucide-react";
 import { PROVIDERS, type APIConnection, type APIProvider } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
+import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useConnections } from "../../hooks/use-connections";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
@@ -76,51 +78,37 @@ function OvViewer({
   emptyDetail: string;
   children: ReactNode;
 }) {
-  const localize = useLocalizedUiText();
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const visible = groups.filter((group) => group.rows.length || !search);
   const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
   return (
     <div className="ov-vw">
-      <aside className="ov-vw__left" aria-label={title}>
-        <header className="ov-vw__head">
-          <p className="ov-vw__crumb">
-            <button type="button" onClick={() => useOverhaulStore.getState().setLibraryPage(null)}>
-              {localize("Library")}
+      <header className="ov-vw__top">
+        <h1>{title}</h1>
+        <small>{meta}</small>
+        <div className="ov-vw__actions">
+          {tools.map(({ label, onClick }) => (
+            <button key={label} type="button" className="ov-btn" onClick={onClick}>
+              {label}
             </button>
-            <span aria-hidden="true">›</span>
-            {title}
-          </p>
-          <h1>{title}</h1>
-          <small>{meta}</small>
-        </header>
-        {tools.length ? (
-          <>
-            <p className="ov-vw__label">{localize("Tools")}</p>
-            <div className="ov-vw__tools">
-              {tools.map(({ label, icon: Icon, onClick }) => (
-                <button key={label} type="button" onClick={onClick}>
-                  <Icon size={14} aria-hidden="true" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : null}
-        <p className="ov-vw__label">
-          {listLabel}
-          {listNote ? <small>{listNote}</small> : null}
-        </p>
+          ))}
+          <button type="button" className="ov-btn ov-btn--primary" onClick={onNew}>
+            <Plus size={14} aria-hidden="true" />
+            {newLabel}
+          </button>
+        </div>
+      </header>
+      <aside className="ov-vw__left" aria-label={title}>
         <div className="ov-vw__find">
           <label className="ov-vw__search">
             <Search size={13} aria-hidden="true" />
             <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
           </label>
-          <button type="button" className="ov-vw__new" onClick={onNew}>
-            <Plus size={14} aria-hidden="true" />
-            {newLabel}
-          </button>
         </div>
+        <p className="ov-vw__label">
+          {listLabel}
+          {listNote ? <small>{listNote}</small> : null}
+        </p>
         <div className="ov-vw__list" role="listbox" aria-label={listLabel}>
           {total === 0 ? <p className="ov-vw__empty">{emptyList}</p> : null}
           {visible.map((group) => {
@@ -245,7 +233,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       search={search}
       onSearch={setSearch}
       searchPlaceholder={localize("Search scripts…")}
-      newLabel={localize("Script")}
+      newLabel={localize("New script")}
       onNew={() => openRegexDetail("__new__")}
       groups={groups}
       selectedId={selectedId}
@@ -325,7 +313,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       search={search}
       onSearch={setSearch}
       searchPlaceholder={localize("Search connections…")}
-      newLabel={localize("New")}
+      newLabel={localize("New connection")}
       onNew={() => openModal("create-connection")}
       groups={groups}
       selectedId={selectedId}
@@ -353,6 +341,11 @@ export function OvAgentsViewer({ children }: { children: ReactNode }) {
   const selectedId = useUIStore((s) => s.agentDetailId);
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
+  const installed = useInstalledCapabilityPackages();
+  const homeAppIds = useMemo(
+    () => new Set(selectHomeBrowserPackages(installed.data).map((item) => item.id)),
+    [installed.data],
+  );
   const [search, setSearch] = useState("");
 
   const groups = useMemo<OvViewerGroup[]>(() => {
@@ -377,7 +370,7 @@ export function OvAgentsViewer({ children }: { children: ReactNode }) {
         rows: group.rows.map((row) => ({
           id: row.id,
           name: row.name,
-          sub: row.app ? localize("Opens its own screen") : row.description,
+          sub: row.app ? localize("App, opens in its own tab") : row.description,
           lead: <Thumb id={row.id} src={row.imagePath} />,
         })),
       }));
@@ -396,11 +389,18 @@ export function OvAgentsViewer({ children }: { children: ReactNode }) {
       search={search}
       onSearch={setSearch}
       searchPlaceholder={localize("Search agents…")}
-      newLabel={localize("New")}
+      newLabel={localize("New agent")}
       onNew={() => openAgentDetail("__new__")}
       groups={groups}
       selectedId={selectedId}
-      onSelect={(id) => openAgentDetail(id)}
+      onSelect={(id) => {
+        // Home apps (Noodle, Slurp...) open in their own tab, not on a settings page.
+        if (homeAppIds.has(id)) {
+          useUIStore.getState().closeAllDetails();
+          useChatStore.getState().setActiveChatId(null);
+          useOverhaulStore.getState().openApp(id);
+        } else openAgentDetail(id);
+      }}
       emptyList={localize("No agents installed yet. Use Download agents to add some.")}
       emptyDetail={localize("Pick an agent on the left, or download some.")}
     >

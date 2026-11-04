@@ -247,7 +247,7 @@ function capabilityPackageAssetUrl(packageId: string, version: string, assetPath
   return `/api/capability-packages/${encodeURIComponent(packageId)}/assets/${encodedPath}?v=${encodeURIComponent(version)}`;
 }
 
-function BrowserPackageTabIcon({
+export function BrowserPackageTabIcon({
   packageId,
   version,
   iconPaths,
@@ -1024,8 +1024,19 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     () => browserPackages.find((item) => item.id === "noodle") ?? null,
     [browserPackages],
   );
-  const [activeTab, setActiveTab] = useState("home");
+  const [localActiveTab, setLocalActiveTab] = useState("home");
   const overhaulActive = useOverhaulActive();
+  // UI overhaul: each installed app gets its own tab in the top bar instead of Home's tab strip.
+  const overhaulApp = useOverhaulStore((state) => state.activeApp);
+  const activeTab = overhaulActive ? (overhaulApp ?? "home") : localActiveTab;
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      if (!isOverhaulActive()) setLocalActiveTab(tab);
+      else if (tab === "home") useOverhaulStore.setState({ activeApp: null });
+      else useOverhaulStore.getState().openApp(tab);
+    },
+    [setLocalActiveTab],
+  );
   const homeLauncherClass = overhaulActive
     ? "group !h-9 !gap-1.5 !rounded-full !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_55%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_16%,var(--card))] !px-3.5"
     : "group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9";
@@ -1220,16 +1231,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   }, [mobileBookmarksOpen]);
 
   useEffect(() => {
-    if (activeTab === "home" || activeTab === "professor") return;
+    if (activeTab === "home" || activeTab === "professor" || !installed.data) return;
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
-  }, [activeTab, browserPackages]);
+  }, [activeTab, browserPackages, installed.data, setActiveTab]);
 
   // A scene that ended, or its Back button, asks for the package thread it started in.
   useEffect(() => {
     if (sceneOriginFocus && browserPackages.some((item) => item.id === sceneOriginFocus.packageId)) {
       setActiveTab(sceneOriginFocus.packageId);
     }
-  }, [browserPackages, sceneOriginFocus]);
+  }, [browserPackages, sceneOriginFocus, setActiveTab]);
 
   useEffect(() => {
     if (activeTab !== "noodle" || !latestNoodleRefreshMarker) return;
@@ -1311,7 +1322,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       }
       setActiveTab(tab);
     },
-    [sceneOriginFocus, setSceneOriginFocus],
+    [sceneOriginFocus, setActiveTab, setSceneOriginFocus],
   );
   // UI overhaul: Home opens her in her own tab; ⌘J still opens the popover.
   const openProfessor = () => {
@@ -2149,6 +2160,21 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       <button type="button" className="ov-btn" onClick={openProfessor}>
                         {t("home.browser.professorTab")}
                       </button>
+                      {localizedBrowserPackages.map(({ item, display }) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="ov-btn"
+                          onClick={() => useOverhaulStore.getState().openApp(item.id)}
+                        >
+                          <BrowserPackageTabIcon
+                            packageId={item.id}
+                            version={item.version}
+                            iconPaths={display.homeBrowserTab?.iconPaths}
+                          />
+                          {display.homeBrowserTab?.label ?? display.name}
+                        </button>
+                      ))}
                       <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
                         <SlidersHorizontal size={14} aria-hidden="true" />
                         {t("home.browser.widgets")}
