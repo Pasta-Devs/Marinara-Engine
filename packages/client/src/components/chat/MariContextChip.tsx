@@ -11,7 +11,7 @@ import { suggestMariAction, type MariFieldInput } from "../../lib/mari-field-sug
 
 interface MariContextChipProps {
   /** Where the chip lives; also the handoff entry point. */
-  entryPoint: Extract<ProfessorMariEntryPoint, "character-editor" | "character-chat">;
+  entryPoint: Extract<ProfessorMariEntryPoint, "character-editor" | "persona-editor" | "character-chat">;
   surface: MariFieldInput["surface"];
   /** The resource Mari is looking at (character being edited / chatted with). */
   resource?: ProfessorMariContextResource;

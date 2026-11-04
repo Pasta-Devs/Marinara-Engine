@@ -56,6 +56,7 @@ export function EditorRail({
   onAddTag,
   onRemoveTag,
   actions,
+  assist,
   sectionsTitle,
   sections,
   activeSection,
@@ -81,6 +82,8 @@ export function EditorRail({
   onAddTag?: (value: string) => void;
   onRemoveTag?: (tag: string) => void;
   actions?: ReactNode;
+  /** A helper under the action buttons (e.g. Professor Mari's "Help me fill this"). */
+  assist?: ReactNode;
   sectionsTitle: string;
   sections: RailSection[];
   activeSection?: string | null;
@@ -188,6 +191,7 @@ export function EditorRail({
       ) : null}
 
       {actions ? <div className="ov-rail__actions">{actions}</div> : null}
+      {assist ? <div className="ov-rail__assist">{assist}</div> : null}
 
       <div className="ov-rail__rule" />
       <p className="ov-rail__eyebrow">{sectionsTitle}</p>
