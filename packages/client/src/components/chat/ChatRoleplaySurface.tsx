@@ -24,6 +24,7 @@ import { usePageActivity } from "../../hooks/use-page-activity";
 import {
   appendContinuationMessageContent,
   isLongTermMemoryChatSummaryPromptAllowed,
+  mergedReplyRoster,
   STORYBOARD_AGENT_ID,
   type GameTurnStoryboard,
   type ChatSummaryEntry,
@@ -462,7 +463,8 @@ function RegeneratingMessageContent({
   const streamingOutputStarted = useChatStore((s) =>
     hasVisibleStreamText(s.streamBuffers.get(msg.chatId) ?? (s.activeChatId === msg.chatId ? s.streamBuffer : "")),
   );
-  // A new swipe replaces the old media and reasoning; a continuation retains them.
+  // A new swipe replaces the old media, reasoning and narrator roster; a continuation retains them, with the
+  // roster an older reply derives from its expression result, which the server keeps too.
   const parsedExtra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
   const cleanExtra = {
     ...parsedExtra,
@@ -473,8 +475,9 @@ function RegeneratingMessageContent({
           roleplayCommandActivity: null,
           roleplayPrivateCommands: null,
           diceRollResult: null,
+          mergedRosterCharacterIds: null,
         }
-      : {}),
+      : { mergedRosterCharacterIds: mergedReplyRoster(parsedExtra, rest.chatCharacterIds ?? []) }),
     thinking: thinkingBuffer || (isContinuation ? parsedExtra.thinking : null),
   };
   return (
