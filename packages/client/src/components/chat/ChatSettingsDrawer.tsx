@@ -5560,7 +5560,14 @@ export function ChatSettingsDrawer({
         id={CHAT_SETTINGS_WINDOW_ID}
         hidden={!windowOpen}
         // Sections pop out into windows that look like this one.
-        drawerHost={{ title: localizeUi("chat.toolbar.settings"), scrollClassName: DRAWER_WINDOW_SCROLL_AREA }}
+        drawerHost={{
+          title: localizeUi("chat.toolbar.settings"),
+          scrollClassName: DRAWER_WINDOW_SCROLL_AREA,
+          // Popped-out sections float freely: they keep the look but not the docked pane or Edit mode.
+          windowClassName: overhaulActive
+            ? cn(windowProps.className, "mari-chat-settings-popover mari-chat-settings-drawer ov-cs ov-cs--section")
+            : undefined,
+        }}
         presentation={phoneLayout ? "sheet" : "window"}
         title={localizeUi("chat.toolbar.settings")}
         titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
