@@ -1689,6 +1689,7 @@
   "connections.accounts.editor.deleteBlocked": "This account still has models. Remove these first:",
   "connections.accounts.editor.deleteConfirm": "Delete {{name}}?",
   "connections.accounts.editor.deleteFailed": "Could not delete the account.",
+  "connections.accounts.editor.deleteModelsList": "Saved rows to delete: {{names}}",
   "connections.accounts.editor.deleteWithModels_one": "Delete {{name}}? Its 1 model goes too.",
   "connections.accounts.editor.deleteWithModels_other": "Delete {{name}}? Its {{count}} models go too.",
   "connections.accounts.editor.discardAndContinue": "Discard changes and continue",
