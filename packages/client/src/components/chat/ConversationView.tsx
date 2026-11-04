@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
   Fragment,
   Suspense,
@@ -509,6 +510,7 @@ export function ConversationView({
     !regenerateMessageId &&
     !isStreamWindingDown &&
     (conversationMessageStyle === "bubble" || !!streamBuffer || !!thinkingBuffer);
+  const overhaulActive = useOverhaulActive();
   const showTypingIndicator =
     hasLiveStream && !delayedCharacterInfo && !streamBuffer && !thinkingBuffer && conversationMessageStyle !== "bubble";
 
@@ -1528,7 +1530,7 @@ export function ConversationView({
         )}
 
         {/* Typing indicator — classic mode only; bubble regen uses the draft row instead */}
-        {showTypingIndicator && (
+        {showTypingIndicator && !overhaulActive && (
           <div
             className="mari-typing-indicator flex items-center gap-2 px-4 py-1.5 text-[0.8125rem] text-[var(--text-secondary)]"
             data-typing-name={liveTypingName}
@@ -1623,6 +1625,25 @@ export function ConversationView({
           view="setup"
           capabilityProps={{ chatId, open: true, onClose: closeGameSetup }}
         />
+      )}
+
+      {/* UI overhaul: the typing line sits right above the input, like Discord, and keeps its space so nothing jumps. */}
+      {overhaulActive && (
+        <div className="ov-typing" aria-live="polite">
+          {hasLiveStream && !delayedCharacterInfo && !streamBuffer ? (
+            <>
+              <PendingTypingDots
+                className="mari-typing-dots gap-0.5"
+                dotClassName="bg-[var(--text-secondary)]"
+                label={liveTypingLabel}
+                small
+              />
+              <span>
+                <b>{liveTypingName}</b> {liveTypingVerb} typing…
+              </span>
+            </>
+          ) : null}
+        </div>
       )}
 
       {/* ── Input area ── */}

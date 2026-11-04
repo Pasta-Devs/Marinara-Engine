@@ -10,10 +10,13 @@ import {
   Languages,
   Pencil,
   RefreshCw,
+  MoreHorizontal,
   ScrollText,
   Search,
   Trash2,
 } from "lucide-react";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
 import type { Message, MessageExtra } from "@marinara-engine/shared";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -124,6 +127,143 @@ export function ConversationMessageActions({
     if (messageFocused && !barRef.current?.closest(".group")?.matches(":focus-within")) setMessageFocused(false);
   });
   const visible = showActions || forceShowActions || messageFocused;
+  const overhaulActive = useOverhaulActive();
+  const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
+    null,
+  );
+  // UI overhaul (Convo A): a small Discord-style bar over the message's top-right corner with quick reactions,
+  // React, Reply, Regenerate and More. Every other action lives in the More menu.
+  if (overhaulActive && !thinkingOnly) {
+    const regenerate = canRegenerate && onRegenerate;
+    return (
+      <div
+        ref={barRef}
+        className={cn("ov-cvh", (visible || moreAnchor) && "is-on")}
+        data-component="ConversationMessage.Actions"
+      >
+        {onPickReaction ? (
+          <span className="ov-cvh__quick">
+            {["🔥", "😂", "❤️"].map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                aria-label={`React with ${emoji}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPickReaction(emoji, null);
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </span>
+        ) : null}
+        {onPickReaction && <ReactionAddButton onPick={onPickReaction} />}
+        <ReplyToMessageButton message={message} name={name} />
+        {regenerate ? (
+          <MsgAction
+            icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={onRegenerate}
+            title={regenerateButtonTitle}
+            className={regenerateGuidedClass}
+          />
+        ) : null}
+        <MsgAction
+          icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
+          title="More actions"
+          onClick={() => {
+            if (moreAnchor) return setMoreAnchor(null);
+            const rect = barRef.current?.getBoundingClientRect();
+            if (rect) setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
+          }}
+        />
+        {moreAnchor ? (
+          <FooterPopover anchor={moreAnchor} onClose={() => setMoreAnchor(null)} className="ov-rpf-menu">
+            <p className="ov-rpf-pop__label">Message actions</p>
+            <div className="mari-message-actions" onClickCapture={closeAfterAction(() => setMoreAnchor(null))}>
+              <MsgAction
+                icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onCopy}
+                title={localizeUi("lorebook.editor.batch.copy")}
+              />
+              <MessageMarksAction message={message} align="right" stopPropagation />
+              <MsgAction
+                icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onTranslate}
+                title={
+                  translatedText
+                    ? localizeUi("ui.chat.chatmessage.hideTranslation")
+                    : localizeUi("ui.chat.chatmessage.translate")
+                }
+              />
+              <MsgAction
+                icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onEdit}
+                title={localizeUi("ui.noodle.noodlepostcard.edit")}
+              />
+              {onToggleHiddenFromAI && (
+                <MsgAction
+                  icon={
+                    isHiddenFromAI ? (
+                      <Eye size={MESSAGE_ACTION_ICON_SIZE} />
+                    ) : (
+                      <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />
+                    )
+                  }
+                  onClick={onToggleHiddenFromAI}
+                  title={
+                    isHiddenFromAI
+                      ? localizeUi("ui.chat.conversationmessageactions.unhideFromAi")
+                      : localizeUi("ui.chat.conversationmessageactions.hideFromAi")
+                  }
+                />
+              )}
+              {isLastAssistantMessage && !isUser && onPeekPrompt && (
+                <MsgAction
+                  icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={onPeekPrompt}
+                  title={localizeUi("ui.chat.chatmessage.peekPrompt")}
+                />
+              )}
+              {onBranch && (
+                <MsgAction
+                  icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={onBranch}
+                  title={localizeUi("ui.chat.chatmessage.branchFromHere")}
+                />
+              )}
+              {generationReplay && (
+                <MsgAction
+                  icon={<ScrollText size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={onShowGenerationReplay}
+                  title={localizeUi("ui.chat.chatmessage.storedGuidance")}
+                />
+              )}
+              {hasReasoning && !isUser && (
+                <MsgAction
+                  icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={onShowThinking}
+                  title={t(
+                    reasoningSummaryUnavailable
+                      ? "chat.message.thoughts.unavailable.view"
+                      : "chat.message.thoughts.view",
+                  )}
+                  buttonRef={thinkingButtonRef}
+                />
+              )}
+              {onDelete && (
+                <MsgAction
+                  icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={onDelete}
+                  title={localizeUi("lorebook.editor.batch.delete")}
+                />
+              )}
+            </div>
+          </FooterPopover>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div
       ref={barRef}

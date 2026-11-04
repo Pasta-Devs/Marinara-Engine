@@ -2,13 +2,40 @@ import { Reply, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { messageReplySchema, type Message } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { MessageActionButton, MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 
 export function MessageReplyPreview({ reply: value, onCancel }: { reply: unknown; onCancel?: () => void }) {
   const { t } = useTranslation();
+  const overhaulActive = useOverhaulActive();
   const parsed = messageReplySchema.safeParse(value);
   if (!parsed.success) return null;
   const reply = parsed.data;
+  // UI overhaul: one thin line. Above the input it reads "Replying to Name" with a cancel; on a sent
+  // message it is a quiet quote line over the text.
+  if (overhaulActive) {
+    const quote = reply.content.replace(/\s+/g, " ");
+    return (
+      <div data-message-reply className={onCancel ? "ov-replybar" : "ov-replyquote"}>
+        <Reply size={14} aria-hidden="true" />
+        <span className="ov-replybar__who">
+          {onCancel ? (
+            <>
+              Replying to <b>{reply.name}</b>
+            </>
+          ) : (
+            <b>{reply.name}</b>
+          )}
+        </span>
+        <span className="ov-replybar__q">{quote}</span>
+        {onCancel && (
+          <button type="button" onClick={onCancel} aria-label={t("chat.reply.cancel")}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <div
       data-message-reply
