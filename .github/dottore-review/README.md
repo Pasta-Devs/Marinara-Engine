@@ -116,7 +116,8 @@ variants), up to 1,000 characters. An issue with none of those sections shows th
 - **`scout`** reads outward from the bundle with the read-only tools and keeps places as it reads: the callers in other
   files, imported definitions and what the changed values flow into. Each packet's changed functions are split into
   shares, one scout per share, and the scouts run at once, so the reading takes one scout's time. Code quotes the places
-  into the bundle. A scout names no defect. A failed scout is noted and its share keeps the code-built bundle.
+  into the bundle. A scout names no defect. A scout whose call fails after it has kept places ends with them; one
+  that fails before is noted and its share keeps the code-built bundle.
 - **`finder`** makes one call with no tools on the bundle and claims defects at changed lines.
 - **`verify`** (the checker) judges the finder's claims, one call per file, with the bundle and the code around each
   candidate in view and a few reads for what is still out of reach. Only confirmed findings are published; a confirmed
@@ -343,9 +344,11 @@ progress, however late in the review it starts. A reply that keeps producing thi
 pings, empty deltas and block boundaries do not refresh the watchdog. Claude requests summarized thinking so that
 its progress is visible even on models that omit thinking text by default. A role offered no
 read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
-`medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. On Claude, thinking
-counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room for both thinking
-and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
+`medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. A reply that stops
+at the cap with no output tokens did not spend it: the gateway cut it off, so it is resent at the same effort after
+the transient-error waits, like an overloaded or dropped call; its prompt tokens still count toward the cost limit.
+On Claude, thinking counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room
+for both thinking and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 
 Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECONDS`), the last 8 minutes of it
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,
