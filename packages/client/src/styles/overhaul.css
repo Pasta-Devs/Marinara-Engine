@@ -2009,8 +2009,11 @@
 [data-ov-row] > div:first-child > span.sm\:inline {
   display: none !important;
 }
-[data-ov-row] > div:first-child > div:last-child > button:not(:nth-child(2)) {
+[data-ov-row] > div:first-child > div:last-child > button {
   display: none;
+}
+[data-ov-row] > div:first-child {
+  cursor: pointer;
 }
 [data-ov-row]:hover > div:first-child > div:last-child > button,
 [data-ov-row="selected"] > div:first-child > div:last-child > button {

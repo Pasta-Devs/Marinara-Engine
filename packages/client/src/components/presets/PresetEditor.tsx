@@ -5,6 +5,7 @@ import { GenerationParametersFields, getEditableGenerationParameters } from "../
 // Tabs: Overview · Sections · Prompts · Regex
 // ──────────────────────────────────────────────
 import {
+  startTransition,
   useState,
   useCallback,
   useEffect,
@@ -1639,9 +1640,14 @@ function SectionsTab({
   const masterDetail = detailTarget !== undefined;
   const toggleExpanded = (id: string) => {
     if (masterDetail) {
-      const open = !expandedSections.has(id);
-      setExpandedSections(open ? new Set([id]) : new Set());
-      onSelectionChange?.(open ? id : null);
+      // Master-detail: a click always opens the entry (clicking it again doesn't close it).
+      if (expandedSections.has(id) && expandedSections.size === 1) return;
+      // A transition, so quick clicks through the list drop the entries skipped over instead of
+      // rendering each one in turn.
+      startTransition(() => {
+        setExpandedSections(new Set([id]));
+        onSelectionChange?.(id);
+      });
       return;
     }
     setExpandedSections((prev) => {
@@ -2111,6 +2117,29 @@ function SectionsTab({
                 )}
               </div>
             );
+            const enableButton = (
+              <button
+                type="button"
+                data-preset-section-enable
+                onClick={() =>
+                  onUpdateSection.mutate({
+                    presetId,
+                    sectionId: section.id,
+                    enabled: !isEnabled,
+                  })
+                }
+                className="rounded-lg p-1 hover:bg-[var(--accent)]"
+                title={
+                  isEnabled ? localizeUi("ui.presets.sectionstab.disable") : localizeUi("ui.presets.sectionstab.enable")
+                }
+              >
+                {isEnabled ? (
+                  <Eye size="0.75rem" className="text-green-400" />
+                ) : (
+                  <EyeOff size="0.75rem" className="text-[var(--muted-foreground)]" />
+                )}
+              </button>
+            );
             // Show drop indicator line above this card when dropIdx matches
             const showDropBefore =
               dropIdx === idx && draggingIdx !== null && draggingIdx !== idx && draggingIdx !== idx - 1;
@@ -2150,7 +2179,18 @@ function SectionsTab({
                   )}
                 >
                   {/* Section header */}
-                  <div className={cn("flex min-w-0 items-center", compact ? "gap-1.5 px-2 py-2" : "gap-2 px-3 py-2.5")}>
+                  <div
+                    className={cn("flex min-w-0 items-center", compact ? "gap-1.5 px-2 py-2" : "gap-2 px-3 py-2.5")}
+                    onClick={
+                      masterDetail
+                        ? (event) => {
+                            // The whole row opens the entry, not only its name.
+                            if ((event.target as HTMLElement).closest("button, input, select, a")) return;
+                            toggleExpanded(section.id);
+                          }
+                        : undefined
+                    }
+                  >
                     <div className="flex shrink-0 items-center gap-0.5">
                       <div
                         className="cursor-grab rounded p-0.5 hover:bg-[var(--accent)] active:cursor-grabbing"
@@ -2201,13 +2241,17 @@ function SectionsTab({
                         <ChevronRight size="0.875rem" className="text-[var(--muted-foreground)]" />
                       )}
                     </button>
-                    <RoleIcon size="0.875rem" className={cn("shrink-0", ROLE_COLORS[role])} />
+                    {masterDetail ? enableButton : null}
+                    {/* Every entry is System unless said otherwise, so the master-detail list only marks the others. */}
+                    {!masterDetail || role !== "system" ? (
+                      <RoleIcon size="0.875rem" className={cn("shrink-0", ROLE_COLORS[role])} />
+                    ) : null}
                     <span
                       className={cn(
                         "min-w-0 flex-1 cursor-pointer truncate font-medium",
                         compact ? "text-xs" : "text-sm",
                       )}
-                      onClick={() => toggleExpanded(section.id)}
+                      onClick={masterDetail ? undefined : () => toggleExpanded(section.id)}
                     >
                       {markerConfig?.type === "recalled_messages" && section.name === "Recalled Messages"
                         ? markerLabel("recalled_scenes")
@@ -2251,27 +2295,7 @@ function SectionsTab({
                       >
                         <Copy size="0.75rem" />
                       </button>
-                      <button
-                        onClick={() =>
-                          onUpdateSection.mutate({
-                            presetId,
-                            sectionId: section.id,
-                            enabled: !isEnabled,
-                          })
-                        }
-                        className="rounded-lg p-1 hover:bg-[var(--accent)]"
-                        title={
-                          isEnabled
-                            ? localizeUi("ui.presets.sectionstab.disable")
-                            : localizeUi("ui.presets.sectionstab.enable")
-                        }
-                      >
-                        {isEnabled ? (
-                          <Eye size="0.75rem" className="text-green-400" />
-                        ) : (
-                          <EyeOff size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        )}
-                      </button>
+                      {masterDetail ? null : enableButton}
                       <button
                         onClick={async () => {
                           if (
