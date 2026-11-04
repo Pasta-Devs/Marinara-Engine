@@ -248,6 +248,21 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const settingsOpen = settingsTarget !== null;
   const openSettings = useUIStore((state) => state.openOmnibarSettings);
   const closeSettings = useUIStore((state) => state.closeOmnibarSettings);
+  // Opened straight into the settings view (Settings > Open, a Settings-search jump): closing the
+  // sheet returns to where the user came from, so it closes the omnibar too. Otherwise focus fell
+  // to the page and the empty omnibar left behind no longer heard Escape.
+  const openedIntoSettingsRef = useRef(useUIStore.getState().omnibarSettings !== null);
+  const closeSettingsSheet = () => {
+    if (openedIntoSettingsRef.current) {
+      openedIntoSettingsRef.current = false;
+      onClose();
+      return;
+    }
+    closeSettings();
+  };
+  useEffect(() => {
+    if (!settingsOpen) openedIntoSettingsRef.current = false;
+  }, [settingsOpen]);
   const [mariChatOpen, setMariChatOpen] = useState(() => session.pane === "mari");
   const [mariMounted, setMariMounted] = useState(() => session.pane === "mari");
   const [mariContext, setMariContext] = useState<ProfessorMariAskContext | null>(
@@ -2258,7 +2273,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         {settingsTarget ? (
           <OmnibarSettingsSheet
             focusControlId={settingsTarget.controlId}
-            onClose={closeSettings}
+            onClose={closeSettingsSheet}
             connections={languageConnections}
             marisConnectionName={asideConnectionOffer?.name ?? null}
             onClearSearchHistory={() => {

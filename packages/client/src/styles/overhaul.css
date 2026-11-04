@@ -4167,6 +4167,10 @@ input.ov-edhead__title:focus {
 }
 
 /* ─── New game setup (mockup "New game B": compact stepper dialog) ─── */
+/* The New Game dialog sits under the tab bar, so another tab is always one click away. */
+.ov-gsw-layer {
+  top: var(--ov-topbar-height) !important;
+}
 .ov-gsw {
   max-width: 40rem !important;
   border-radius: 0.75rem !important;
