@@ -10,6 +10,8 @@
  *   - the checks, the sheet commands (a party long rest) and the fight-setup brief count the same
  *     members away, seeded alike with the player's own card: a persona called by a shorter name than
  *     its card ("Lethariel" for "Lethariel Moonwhisper") is still in the party;
+ *   - in a game set up with a persona, its setup put the player's card first, so the first card stays in
+ *     the party once the persona no longer names a card (renamed or deleted since);
  *   - with no persona, the first card is the player's in a game set up with no party (its setup makes a
  *     card for nobody else), so a solo game's only card, the player, is never counted away, even once
  *     it recruits; where the game had a party, a first card whose member was removed is still away.
@@ -214,6 +216,34 @@ try {
     { checks: ["dagna"], sheets: ["Dagna"], brief: ["Dagna"] },
     "a party long rest reaches the player's own card",
   );
+
+  // ── A persona that no longer names a card, in a game set up with it and a party ──
+  // The setup asked for the player's card before the party's (gm-prompts' characterCardTargets), so the
+  // first card stays the player's once the persona is renamed or deleted, or the card renamed.
+  const kae = await createCharactersStorage(db).createPersona("Kae", "The player, renamed since the setup.");
+  assert.ok(kae);
+  for (const personaId of [kae.id, "a-deleted-persona"]) {
+    const camp = await chats.create({ name: "The camp", mode: "game", characterIds: [], personaId });
+    await chats.patchMetadata(camp.id, {
+      gameRuleset: meta.gameRuleset,
+      gameCharacterCards: sheeted("Kaelen", "Rook", "Dagna"),
+      gameNpcs: [{ name: "Rook" }, { name: "Dagna" }],
+      gamePartyCharacterIds: [buildPartyNpcId("Rook")],
+      gameInitialSetup: {
+        config: { personaId, partyCharacterIds: [buildPartyNpcId("Rook"), buildPartyNpcId("Dagna")] },
+        createdAt: "2026-11-04T00:00:00.000Z",
+      },
+    });
+    assert.deepEqual(
+      await awayEverywhere(camp.id, personaId),
+      { checks: ["dagna"], sheets: ["Dagna"], brief: ["Dagna"] },
+      `the player's own card stays in (${personaId === kae.id ? "renamed" : "deleted"} persona)`,
+    );
+    assert.deepEqual(rulesetGroupCheckRollers((await loadSkillCheckModifierContext(db, camp.id)).ruleset!, "party"), [
+      "Kaelen",
+      "Rook",
+    ]);
+  }
 
   // ── No persona: a solo game's only card is the player's ──
   // Set up with no persona and no party, the setup makes a card only for a player character its

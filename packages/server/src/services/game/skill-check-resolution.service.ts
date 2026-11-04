@@ -321,33 +321,39 @@ export async function gamePlayerCardName(
 /**
  * The name `gamePlayerCardName` seeds a roster with, from the card a check finds: a persona called by
  * a shorter name than its card still names that card. Where nothing said whose card is whose, the first
- * card is the player's only in a game set up with no party, whose setup made a card for nobody but the
- * player (gm-prompts' character_card_scope: with no party, characterCards hold the player's character
- * or nothing). With a party, the first card is a companion's, and one taken out of the party must not
- * be kept in it: null.
+ * card is the player's only where the game's setup put it first (`setupPutsPlayerCardFirst`). Otherwise
+ * the first card is a companion's, and one taken out of the party must not be kept in it: null.
  */
 function playerRosterCard(
   meta: Record<string, unknown>,
   { card, byPosition }: { card: Record<string, unknown> | undefined; byPosition: boolean },
 ): string | null {
-  if (byPosition && !gameSetUpWithoutParty(meta)) return null;
+  if (byPosition && !setupPutsPlayerCardFirst(meta)) return null;
   return readTrimmedString(card?.name) || null;
 }
 
-/** Whether a game was set up with no party, by the setup it keeps (`gameInitialSetup`), so a companion
- *  recruited since never changes it. */
-function gameSetUpWithoutParty(meta: Record<string, unknown>): boolean {
-  const kept = (meta.gameInitialSetup as { config?: { partyCharacterIds?: unknown } } | null | undefined)?.config
-    ?.partyCharacterIds;
-  // ponytail: no card is marked as the player's, so this reads the setup, with two known misses. The
-  // party list stands in only for metadata the setup did not write, if any (a ruleset pinned by a
-  // hand-made metadata PATCH): the Engine pins a ruleset (`gameRuleset`) only at setup, in the same
-  // update that keeps the setup, and setups were kept (2026-07) before a ruleset could be chosen at
-  // creation (2026-09). There, once a companion is recruited, the first card is only a stand-in again
-  // and the player is counted away. And a setup that made no card leaves a later recruit first, kept in the
-  // party after leaving it. The upgrade is to mark the player's own card as setup makes it, and seed
-  // the roster with that.
-  const ids = Array.isArray(kept) ? kept : meta.gamePartyCharacterIds;
+/**
+ * Whether the game's setup made the player's card its first, read off the setup the game keeps
+ * (`gameInitialSetup`), so a companion recruited or a persona changed since never changes it. A setup
+ * with a persona asks for the player's card before the party's (gm-prompts' characterCardTargets), so
+ * the first card stays the player's when the persona is later renamed or deleted, or the card renamed.
+ * A setup with no party makes a card for nobody but the player (character_card_scope).
+ */
+function setupPutsPlayerCardFirst(meta: Record<string, unknown>): boolean {
+  type KeptSetup = { config?: { partyCharacterIds?: unknown; personaId?: unknown } } | null | undefined;
+  const kept = (meta.gameInitialSetup as KeptSetup)?.config;
+  const setupConfig = meta.gameSetupConfig as { personaId?: unknown } | null | undefined;
+  if (readTrimmedString(kept?.personaId ?? setupConfig?.personaId)) return true;
+  // ponytail: no card is marked as the player's, so this reads the setup, with three known misses. Where
+  // the model put a companion's card first despite the persona, and the persona no longer names a card,
+  // that companion is kept in the party after leaving it. The party list stands in for the setup only
+  // for metadata the setup did not write, if any (a ruleset pinned by a hand-made metadata PATCH): the
+  // Engine pins a ruleset (`gameRuleset`) only at setup, in the same update that keeps the setup, and
+  // setups were kept (2026-07) before a ruleset could be chosen at creation (2026-09). There, once a
+  // companion is recruited, the first card is only a stand-in again and the player is counted away. And
+  // a setup that made no card leaves a later recruit first, kept in the party after leaving it. The
+  // upgrade is to mark the player's own card as setup makes it, and seed the roster with that.
+  const ids = Array.isArray(kept?.partyCharacterIds) ? kept.partyCharacterIds : meta.gamePartyCharacterIds;
   return Array.isArray(ids) && ids.length === 0;
 }
 
