@@ -1672,9 +1672,10 @@ export function AppShell({
             {mobileNavigationPanel && (
               <motion.aside
                 key="mobile-navigation"
-                initial={{ x: "100%" }}
+                // New layout: the Chats list belongs to the left button, so it slides in from the left.
+                initial={{ x: overhaulMobile && mobileNavigationPanel === "chats" ? "-100%" : "100%" }}
                 animate={{ x: 0 }}
-                exit={{ x: "100%" }}
+                exit={{ x: overhaulMobile && mobileNavigationPanel === "chats" ? "-100%" : "100%" }}
                 transition={{ type: "spring", damping: 28, stiffness: 350 }}
                 data-tour={mobileNavigationPanel === "chats" ? "sidebar" : undefined}
                 data-component={mobileNavigationPanel === "chats" ? "ChatSidebarPanel" : "RightPanelMobile"}

@@ -619,12 +619,7 @@
   background: none !important;
 }
 
-/* The Chats list covers the top bar: its own header (logo, Chats, Home, +, >) is the top line. */
-:root[data-overhaul="mobile"] [data-component="ChatSidebarPanel"] {
-  top: 0 !important;
-  z-index: 60;
-  padding-top: env(safe-area-inset-top);
-}
+/* The Chats list opens under the top bar, so its left button stays put and closes it again. */
 
 /* Convo: quick reactions above the big buttons */
 .ovm-sheet__top {
@@ -805,5 +800,53 @@
     left: auto !important;
     right: 0.5rem !important;
     width: min(28rem, calc(100vw - 1rem)) !important;
+  }
+}
+/* Docs uses the desktop top bar's open-book emoji. */
+.ovm-emoji-icon {
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
+/* ─── Library pages scroll as one page under the top bar (no static half) ─── */
+:root[data-overhaul="mobile"] .ov-settings {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+:root[data-overhaul="mobile"] .ov-settings__scroll {
+  flex: none;
+  overflow: visible;
+}
+:root[data-overhaul="mobile"] .ov-lv {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+:root[data-overhaul="mobile"] .ov-lv > * {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+/* Jump to top: bottom-right on Library pages after scrolling back up. */
+.ovm-jump-top {
+  position: fixed;
+  z-index: 45;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ov-accent);
+  box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.7);
+  animation: ovm-jump-in 160ms ease-out;
+}
+@keyframes ovm-jump-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
   }
 }

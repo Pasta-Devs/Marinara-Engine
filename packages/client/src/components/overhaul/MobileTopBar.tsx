@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, CircleHelp, Home, Layers, PanelLeft, Plus, Search, Settings, Settings2, X } from "lucide-react";
+import { ArrowUp, Check, Home, Layers, PanelLeft, Plus, Search, Settings, Settings2, X } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -121,7 +121,9 @@ function StackMenu({ onClose, anchor }: { onClose: () => void; anchor: HTMLEleme
               useOverhaulStore.getState().openDocs(null);
             })}
           >
-            <CircleHelp size={22} aria-hidden="true" />
+            <span className="ovm-emoji-icon" aria-hidden="true">
+              📖
+            </span>
             <span>{localize("Docs")}</span>
           </button>
           <button
@@ -432,6 +434,7 @@ export function OverhaulMobileTopBar() {
       </div>
       {stackOpen ? <StackMenu anchor={stackRef.current} onClose={() => setStackOpen(false)} /> : null}
       {allTabsOpen ? <AllTabsViewer chats={chats} current={current} /> : null}
+      <JumpToTop />
     </header>
   );
 }
@@ -451,5 +454,49 @@ export function MobileChatsHomeButton() {
       <Home size={18} aria-hidden="true" />
       <span>{localize("Home")}</span>
     </button>
+  );
+}
+
+/** Library pages, editors, Settings and Docs: the scroll areas that get a jump-to-top button. */
+const JUMP_SCROLLERS =
+  ".ov-gallery, .ov-settings, .ov-ed, .ov-lv, .ov-docs__reader, .ov-docs__nav, .ov-libpage, .mari-editor-content";
+const JUMP_MIN_SCROLL = 240;
+
+/**
+ * Bottom-right button that appears on a Library page once the reader is well down it and scrolls back
+ * up (the moment they are looking for the top). Scrolling down or reaching the top hides it.
+ */
+function JumpToTop() {
+  const localize = useLocalizedUiText();
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const last = useRef(new WeakMap<HTMLElement, number>());
+  useEffect(() => {
+    const onScroll = (event: Event) => {
+      const el = event.target;
+      if (!(el instanceof HTMLElement) || !el.matches(JUMP_SCROLLERS)) return;
+      const top = el.scrollTop;
+      const previous = last.current.get(el) ?? top;
+      last.current.set(el, top);
+      if (top < JUMP_MIN_SCROLL || top > previous + 2) setTarget(null);
+      else if (top < previous - 2) setTarget(el);
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+  if (!target || !target.isConnected) return null;
+  return createPortal(
+    <button
+      type="button"
+      className="ovm-jump-top"
+      aria-label={localize("Jump to top")}
+      title={localize("Jump to top")}
+      onClick={() => {
+        target.scrollTo({ top: 0, behavior: "smooth" });
+        setTarget(null);
+      }}
+    >
+      <ArrowUp size={22} aria-hidden="true" />
+    </button>,
+    document.body,
   );
 }
