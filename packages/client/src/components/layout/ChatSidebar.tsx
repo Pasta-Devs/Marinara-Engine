@@ -1,5 +1,5 @@
 import { insertLibraryItems } from "../../lib/library-order";
-import { isOverhaulActive, useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { isOverhaulActive, useOverhaulActive, useOverhaulStore, useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
@@ -88,6 +88,7 @@ import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { MobileChatsHomeButton } from "../overhaul/MobileTopBar";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -239,7 +240,10 @@ export function ChatSidebar() {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
-  const overhaulActive = useOverhaulActive();
+  const overhaulDesktop = useOverhaulActive();
+  const overhaulMobile = useOverhaulMobile();
+  // The overhaul look (compact rows, previews, mode counts) applies to phones too.
+  const overhaulActive = overhaulDesktop || overhaulMobile;
   const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
@@ -1320,8 +1324,9 @@ export function ChatSidebar() {
       <div className="mari-sidebar-header relative flex h-12 items-center justify-between px-4">
         <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]/30" />
         <div className="flex min-w-0 items-center gap-2.5">
-          <ChatSidebarTitleIcon />
+          {overhaulMobile ? <img className="ovm-chats-logo" src="/icon-192.png" alt="" /> : <ChatSidebarTitleIcon />}
           <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize("Chats")}</h2>
+          {overhaulMobile ? null : (
           <HelpTooltip
             text={t("navigation.sidebarHelp.chats")}
             ariaLabel={t("navigation.sidebarHelp.button", { sidebar: localize("Chats") })}
@@ -1330,10 +1335,23 @@ export function ChatSidebar() {
             className="shrink-0 [@media(pointer:coarse)]:-ml-3"
             buttonClassName="justify-center [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
           />
+          )}
         </div>
+        {overhaulMobile ? <MobileChatsHomeButton /> : null}
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PersonalExtensionContributionSlot surface="chats" position="header" className="max-w-28" />
-          {overhaulActive ? (
+          {overhaulMobile ? (
+            <button
+              onClick={handleNewChatFromTab}
+              disabled={createChat.isPending}
+              className="ovm-icon-btn"
+              title={t(`navigation.chatSidebar.new.${activeTab}`)}
+              aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
+            >
+              <Plus size={22} aria-hidden="true" />
+            </button>
+          ) : null}
+          {overhaulDesktop ? (
             <>
               <button
                 onClick={() => chatImportInputRef.current?.click()}
@@ -1376,17 +1394,28 @@ export function ChatSidebar() {
               </button>
             </>
           ) : null}
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9",
-              overhaulActive && "!hidden",
-            )}
-            title={localize("Close")}
-            aria-label={localize("Close chats")}
-          >
-            <X size="0.875rem" />
-          </button>
+          {overhaulMobile ? (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="ovm-icon-btn"
+              title={localize("Close")}
+              aria-label={localize("Close chats")}
+            >
+              <ChevronRight size={22} />
+            </button>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9",
+                overhaulActive && "!hidden",
+              )}
+              title={localize("Close")}
+              aria-label={localize("Close chats")}
+            >
+              <X size="0.875rem" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1434,7 +1463,7 @@ export function ChatSidebar() {
         </div>
       </div>
 
-      <div className={cn("flex gap-2 px-3 pt-2", overhaulActive && "hidden")}>
+      <div className={cn("flex gap-2 px-3 pt-2", overhaulDesktop && "hidden", overhaulMobile && "ovm-chats-tools")}>
         <input
           ref={chatImportInputRef}
           type="file"
@@ -1448,6 +1477,7 @@ export function ChatSidebar() {
           className={cn(
             "mari-chrome-control mari-chrome-control--primary mari-chat-mode-action flex-1 text-xs",
             activeModeConfig.logoModeClass,
+            overhaulMobile && "!hidden",
           )}
           title={t(`navigation.chatSidebar.new.${activeTab}`)}
           aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
@@ -1671,7 +1701,7 @@ export function ChatSidebar() {
         )}
 
         <div className="stagger-children flex flex-col gap-0.5 px-1">
-          {activeModeHasChats && !overhaulActive && (
+          {activeModeHasChats && !overhaulDesktop && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCreateFolder}

@@ -129,7 +129,8 @@ import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./Gene
 import { GenerationFallbackMarker } from "./GenerationFallbackMarker";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { ChatImageLightbox } from "./ChatImageLightbox";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
@@ -1946,6 +1947,8 @@ export const ChatMessage = memo(function ChatMessage({
   const isRoleplay = chatMode === "roleplay";
   const vnPortraitScale = useUIStore((state) => (visualNovel ? state.roleplayVnPortraitScale : 1));
   const overhaulActive = useOverhaulActive();
+  // Phones and tablets with the overhaul: no action row on messages; long-press opens the action sheet.
+  const overhaulMobile = useOverhaulMobile();
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -2042,6 +2045,8 @@ export const ChatMessage = memo(function ChatMessage({
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), []);
   const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
   const [switchingRewriteVersion, setSwitchingRewriteVersion] = useState(false);
   const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
@@ -2360,10 +2365,12 @@ export const ChatMessage = memo(function ChatMessage({
           return;
         }
       }
-      setShowActions((v) => !v);
+      if (!overhaulMobile) setShowActions((v) => !v);
     },
-    [isRoleplay, isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, startQuickEdit],
+    [isRoleplay, isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile, startQuickEdit],
   );
+  const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
+  const longPress = useLongPress(openMobileSheet, overhaulMobile && isRoleplay && !multiSelectMode && !editing);
 
   // Parse message extra for conversation start flag
   const extra = useMemo(() => {
@@ -4035,6 +4042,7 @@ export const ChatMessage = memo(function ChatMessage({
           onClick={handleMobileTap}
           onDoubleClick={handleRoleplayDoubleClick}
           style={roleplayAvatarScaleStyle}
+          {...longPress}
         >
           {/* Multi-select checkbox */}
           {multiSelectMode && (
@@ -4356,6 +4364,23 @@ export const ChatMessage = memo(function ChatMessage({
                   more={rpActionsRow}
                 />
               )}
+              {overhaulMobile && mobileSheetOpen && !editing && (
+                <OvMobileMessageSheet
+                  chatId={message.chatId}
+                  messageId={message.id}
+                  swipeIndex={message.activeSwipeIndex ?? 0}
+                  swipeCount={swipeCount}
+                  onSetSwipe={handleSetActiveSwipe}
+                  onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+                  copied={copied}
+                  onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
+                  onEdit={onEdit && !isStreaming ? startEditing : undefined}
+                  onCopy={handleCopy}
+                  onBranch={onBranch ? () => onBranch(message.id) : undefined}
+                  more={rpActionsRow}
+                  onClose={closeMobileSheet}
+                />
+              )}
             </div>
 
             {roleplayAttachments}
@@ -4369,7 +4394,7 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             {/* Swipes (the overhaul shows them in the footer line instead) */}
-            {!overhaulActive && (hasSwipes || canCreateNextSwipe) && (
+            {!overhaulActive && !overhaulMobile && (hasSwipes || canCreateNextSwipe) && (
               <SwipeJumpControl
                 alwaysShow={alwaysDisplaySwipeMenu && !isUser}
                 messageId={message.id}
@@ -4402,7 +4427,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             {/* Hover actions (tap to toggle on mobile); the overhaul puts them in the footer's More menu */}
-            {!overhaulActive && rpActionsRow}
+            {!overhaulActive && !overhaulMobile && rpActionsRow}
           </div>
         </div>
 

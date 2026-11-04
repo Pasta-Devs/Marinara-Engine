@@ -75,14 +75,14 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, Lu
   schedules: CalendarDays,
 };
 
-const MODE_DOT: Record<string, string> = {
+export const MODE_DOT: Record<string, string> = {
   conversation: "var(--ov-mode-conversation)",
   roleplay: "var(--ov-mode-roleplay)",
   game: "var(--ov-mode-game)",
 };
 
 /** The editor or chat on screen right now, as a tab; null on Home. */
-function useCurrentTab(): OverhaulTab | null {
+export function useCurrentTab(): OverhaulTab | null {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
   const personaDetailId = useUIStore((s) => s.personaDetailId);
@@ -136,7 +136,7 @@ function useCurrentTab(): OverhaulTab | null {
   ]);
 }
 
-function goHome() {
+export function goHome() {
   window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
   useOverhaulStore.getState().leaveDocs();
   useOverhaulStore.getState().setLibraryPage(null);
@@ -144,7 +144,7 @@ function goHome() {
   useUIStore.getState().closeAllDetails();
 }
 
-function activateTab(tab: OverhaulTab) {
+export function activateTab(tab: OverhaulTab) {
   const ui = useUIStore.getState();
   const overhaul = useOverhaulStore.getState();
   if (tab.kind === "docs") {
@@ -213,14 +213,14 @@ function parseCharacterName(record: unknown): string | null {
   }
 }
 
-function nameOf(record: unknown): string | null {
+export function nameOf(record: unknown): string | null {
   if (!record || typeof record !== "object") return null;
   const name = (record as { name?: unknown }).name;
   return typeof name === "string" && name.trim() ? name : null;
 }
 
 /** "Universal · princess · 2 agents": the chat's preset, connection and agents at a glance. */
-function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
+export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
   const localize = useLocalizedUiText();
   const preset = usePresetFull(chat.promptPresetId ?? null);
   const connection = useConnection(chat.connectionId ?? null);
@@ -257,7 +257,7 @@ function useHomeApps() {
 }
 
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
-function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const localize = useLocalizedUiText();
   const character = useCharacter(tab.kind === "character" ? tab.id : null);
   const persona = usePersona(tab.kind === "persona" ? tab.id : null);
@@ -303,7 +303,7 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
 const PRESENCE_LABEL: Record<string, string> = { online: "Online", idle: "Idle", dnd: "Busy", offline: "Offline" };
 
 /** Convo tabs show the character's presence ("Online"), which used to float over the chat. */
-function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
   const firstId = chat?.mode === "conversation" ? chat.characterIds?.[0] : undefined;
   const character = useCharacter(firstId ?? null);
@@ -349,7 +349,7 @@ function AppTabIcon({ id }: { id: string }) {
   );
 }
 
-function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+export function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
     return (
@@ -365,55 +365,21 @@ function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   return <Icon aria-hidden="true" size={14} className="ov-tab__icon" />;
 }
 
-export function OverhaulTopBar() {
-  const localize = useLocalizedUiText();
-  const mariEdgeGlow = useMariEdgeGlow();
+/**
+ * Shared by the desktop tab bar and the mobile top bar: whatever is on screen gets a tab, and tabs whose
+ * chat or app is gone are dropped.
+ */
+export function useTabBookkeeping(current: OverhaulTab | null, chats: Chat[]) {
   const tabs = useOverhaulStore((s) => s.tabs);
   const touchTab = useOverhaulStore((s) => s.touchTab);
   const closeTab = useOverhaulStore((s) => s.closeTab);
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
-  const { data: chats = [] } = useChats();
-  const current = useCurrentTab();
-  const currentKey = current ? overhaulTabKey(current) : null;
-  // Tabs keep their scroll place. Chats are left out: they manage their own scroll (stick to the newest message).
-  useTabScrollMemory(current && current.kind !== "chat" ? currentKey : null);
-  const stripRef = useRef<HTMLDivElement | null>(null);
-  const moveTab = useOverhaulStore((s) => s.moveTab);
-  // Drag to reorder: the dragged tab's key, and where it would land (index in `tabs`).
-  const [dragKey, setDragKey] = useState<string | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   // Whatever is on screen gets a tab, so you can hop back to it. Library sections, Settings and
   // Extensions don't: they are one click away in the Library pane. Neither do the Docs (the Docs button).
   useEffect(() => {
     if (current && current.kind !== "library" && current.kind !== "docs") touchTab(current);
   }, [current, touchTab]);
-
-  // Keep the active tab in view when the strip overflows.
-  useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip || !currentKey) return;
-    strip.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(currentKey)}"]`)?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }, [currentKey, tabs.length]);
-
-  // The docked Chat settings pane and the Library pane share the right edge: opening one closes the other.
-  const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
-  const sidePanesRef = useRef({ library: rightPanelOpen, settings: chatSettingsOpen });
-  useEffect(() => {
-    const before = sidePanesRef.current;
-    sidePanesRef.current = { library: rightPanelOpen, settings: chatSettingsOpen };
-    if (chatSettingsFloating || !rightPanelOpen || !chatSettingsOpen) return;
-    if (!before.settings) useUIStore.getState().closeRightPanel();
-    else if (!before.library) useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-  }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   // Opening a chat leaves the app it was opened over.
   useEffect(() => {
@@ -436,17 +402,65 @@ export function OverhaulTopBar() {
       if (tab.kind === "chat" && !chats.some((chat) => chat.id === tab.id)) closeTab(tab);
     }
   }, [chats, closeTab, tabs]);
+}
 
-  const handleClose = (tab: OverhaulTab) => {
-    const key = overhaulTabKey(tab);
-    const index = tabs.findIndex((entry) => overhaulTabKey(entry) === key);
-    closeTab(tab);
-    if (key !== currentKey) return;
-    const remaining = tabs.filter((entry) => overhaulTabKey(entry) !== key);
-    const next = remaining[Math.min(index, remaining.length - 1)];
-    if (next) activateTab(next);
-    else goHome();
-  };
+/** Close a tab; when it was the one on screen, move to its neighbour (or Home). */
+export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKey: string | null) {
+  const key = overhaulTabKey(tab);
+  const index = tabs.findIndex((entry) => overhaulTabKey(entry) === key);
+  useOverhaulStore.getState().closeTab(tab);
+  if (key !== currentKey) return;
+  const remaining = tabs.filter((entry) => overhaulTabKey(entry) !== key);
+  const next = remaining[Math.min(index, remaining.length - 1)];
+  if (next) activateTab(next);
+  else goHome();
+}
+
+export function OverhaulTopBar() {
+  const localize = useLocalizedUiText();
+  const mariEdgeGlow = useMariEdgeGlow();
+  const tabs = useOverhaulStore((s) => s.tabs);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
+  const activeChatId = useChatStore((s) => s.activeChatId);
+  const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
+  const { data: chats = [] } = useChats();
+  const current = useCurrentTab();
+  const currentKey = current ? overhaulTabKey(current) : null;
+  // Tabs keep their scroll place. Chats are left out: they manage their own scroll (stick to the newest message).
+  useTabScrollMemory(current && current.kind !== "chat" ? currentKey : null);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const moveTab = useOverhaulStore((s) => s.moveTab);
+  // Drag to reorder: the dragged tab's key, and where it would land (index in `tabs`).
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+
+  // Keep the active tab in view when the strip overflows.
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip || !currentKey) return;
+    strip.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(currentKey)}"]`)?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [currentKey, tabs.length]);
+
+  // The docked Chat settings pane and the Library pane share the right edge: opening one closes the other.
+  const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
+  const sidePanesRef = useRef({ library: rightPanelOpen, settings: chatSettingsOpen });
+  useEffect(() => {
+    const before = sidePanesRef.current;
+    sidePanesRef.current = { library: rightPanelOpen, settings: chatSettingsOpen };
+    if (chatSettingsFloating || !rightPanelOpen || !chatSettingsOpen) return;
+    if (!before.settings) useUIStore.getState().closeRightPanel();
+    else if (!before.library) useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+  }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
+
+  useTabBookkeeping(current, chats);
+  const handleClose = (tab: OverhaulTab) => closeTabAndMove(tab, tabs, currentKey);
 
   const activeChat = activeChatId ? chats.find((chat) => chat.id === activeChatId) : undefined;
   const chatOnScreen = current?.kind === "chat";

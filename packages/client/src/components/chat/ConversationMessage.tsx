@@ -40,6 +40,8 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useLongPress } from "../overhaul/MobileMessageSheet";
 import { MessageMarkIndicators } from "./MessageMarks";
 import { ConversationMessageGrouped } from "./ConversationMessageGrouped";
 import { ConversationMessageBubble } from "./ConversationMessageBubble";
@@ -180,6 +182,10 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
+  const overhaulMobile = useOverhaulMobile();
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
+  const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), []);
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
@@ -782,10 +788,11 @@ export const ConversationMessage = memo(function ConversationMessage({
         return;
       }
       if (!matchMedia("(pointer: coarse)").matches) return;
-      setShowActions((v) => !v);
+      if (!overhaulMobile) setShowActions((v) => !v);
     },
-    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect],
+    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile],
   );
+  const longPress = useLongPress(openMobileSheet, overhaulMobile && !multiSelectMode && !editing);
 
   // ── Effects ──
   useEffect(() => {
@@ -1175,6 +1182,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-message-id={message.id}
         data-message-role={message.role}
         onClick={handleMobileTap}
+        {...longPress}
       >
         <div
           className={cn(
@@ -1259,6 +1267,11 @@ export const ConversationMessage = memo(function ConversationMessage({
               onShowGenerationReplay={() => setShowGenerationReplay(true)}
               onShowThinking={() => setShowThinking(true)}
               onPickReaction={handleToggleReaction}
+              mobileSheetOpen={mobileSheetOpen}
+              onSetSwipe={(index) => handleSetActiveSwipe(message.id, index)}
+              swipeIndex={message.activeSwipeIndex ?? 0}
+              swipeCount={message.swipeCount ?? 1}
+              onCloseMobileSheet={closeMobileSheet}
             />
           )}
         </div>

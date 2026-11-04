@@ -68,6 +68,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
+import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
@@ -522,23 +523,27 @@ export function AppShell({
   }, []);
 
   const shellOverlayMode = isMobile;
-  // UI overhaul preview: desktop only; phones keep the standard shell.
+  // UI overhaul preview: the desktop shell gets the tab bar and panes; phones and tablets get the
+  // mobile overhaul (top bar with the Library Stack, All Tabs viewer) over the standard overlay shell.
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
   const overhaulLibraryPage = useOverhaulStore((s) => s.libraryPage);
   const overhaulDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const overhaulMari = useOverhaulStore((s) => s.activeMari);
   const overhaulSchedules = useOverhaulStore((s) => s.activeSchedules);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
+  const overhaulMobile = overhaulEnabled && shellOverlayMode;
+  // Pages the overhaul adds (Library landing pages, Settings tabs, Docs, Mari, Schedules) show on both.
+  const overhaulPages = overhaulActive || overhaulMobile;
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
   }, [isMobile]);
   useEffect(() => {
-    if (!overhaulActive) return;
-    document.documentElement.dataset.overhaul = "on";
+    if (!overhaulActive && !overhaulMobile) return;
+    document.documentElement.dataset.overhaul = overhaulActive ? "on" : "mobile";
     return () => {
       delete document.documentElement.dataset.overhaul;
     };
-  }, [overhaulActive]);
+  }, [overhaulActive, overhaulMobile]);
   // Opening a chat leaves the Library landing page.
   useEffect(() => {
     let previous = useChatStore.getState().activeChatId;
@@ -927,11 +932,11 @@ export function AppShell({
             : null;
 
   const detailView =
-    overhaulActive && overhaulSchedules ? (
+    overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
-    ) : overhaulActive && overhaulMari ? (
+    ) : overhaulPages && overhaulMari ? (
       <OverhaulMariPage />
-    ) : overhaulActive && overhaulDocsTab ? (
+    ) : overhaulPages && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : ovViewer === "regex" ? (
       <OvRegexViewer>{regexDetailId ? <RegexScriptEditor key={regexDetailId} /> : null}</OvRegexViewer>
@@ -943,11 +948,11 @@ export function AppShell({
       <OvAgentsViewer>
         {agentDetailId ? capabilityAgents.isLoading ? <MainPaneFallback /> : <AgentEditor key={agentDetailId} /> : null}
       </OvAgentsViewer>
-    ) : overhaulActive && overhaulSchedules ? (
+    ) : overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
-    ) : overhaulActive && overhaulMari ? (
+    ) : overhaulPages && overhaulMari ? (
       <OverhaulMariPage />
-    ) : overhaulActive && overhaulDocsTab ? (
+    ) : overhaulPages && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : regexDetailId ? (
       <RegexScriptEditor />
@@ -993,7 +998,7 @@ export function AppShell({
       <AgentCatalogView />
     ) : lorebookDetailId ? (
       <LorebookEditor />
-    ) : overhaulActive && overhaulLibraryPage ? (
+    ) : overhaulPages && overhaulLibraryPage ? (
       <LibraryLandingPage key={overhaulLibraryPage} section={overhaulLibraryPage} />
     ) : null;
 
@@ -1530,7 +1535,11 @@ export function AppShell({
             shellOverlayMode && hasDetailView && "z-50",
           )}
         >
-          {!overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />}
+          {overhaulMobile ? (
+            <OverhaulMobileTopBar />
+          ) : (
+            !overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />
+          )}
           <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
             {/* Browser — kept mounted once opened so state persists across close/reopen */}
             <MountOnceWhenOpened open={botBrowserOpen} overlay>

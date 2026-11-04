@@ -15,7 +15,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
 import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
 import type { Message, MessageExtra } from "@marinara-engine/shared";
@@ -61,6 +62,13 @@ export interface ConversationMessageActionsProps {
   onShowThinking: () => void;
   /** Toggle the user's reaction with the picked emoji; omit to hide the add-reaction button. */
   onPickReaction?: (emoji: string, imageUrl: string | null) => void;
+  /** Phones and tablets with the overhaul: the long-press sheet is open (the row is never shown inline). */
+  mobileSheetOpen?: boolean;
+  /** Mobile overhaul sheet: switch to a swipe by index. */
+  onSetSwipe?: (index: number) => void;
+  swipeIndex?: number;
+  swipeCount?: number;
+  onCloseMobileSheet?: () => void;
 }
 
 export function ConversationMessageActions({
@@ -92,6 +100,11 @@ export function ConversationMessageActions({
   onShowGenerationReplay,
   onShowThinking,
   onPickReaction,
+  mobileSheetOpen,
+  onSetSwipe,
+  swipeIndex = 0,
+  swipeCount = 1,
+  onCloseMobileSheet,
 }: ConversationMessageActionsProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -128,9 +141,108 @@ export function ConversationMessageActions({
   });
   const visible = showActions || forceShowActions || messageFocused;
   const overhaulActive = useOverhaulActive();
+  const overhaulMobile = useOverhaulMobile();
   const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
     null,
   );
+  // Mobile overhaul: nothing inline; holding the message opens a sheet with every action.
+  if (overhaulMobile && !thinkingOnly) {
+    if (!mobileSheetOpen || !onCloseMobileSheet) return null;
+    return (
+      <OvMobileMessageSheet
+        chatId={message.chatId}
+        messageId={message.id}
+        swipeIndex={swipeIndex}
+        swipeCount={swipeCount}
+        onSetSwipe={isUser ? undefined : onSetSwipe}
+        onCreateSwipe={!isUser && canRegenerate ? onRegenerate : undefined}
+        copied={copied}
+        onCopy={onCopy}
+        onEdit={onEdit}
+        onRegenerate={canRegenerate ? onRegenerate : undefined}
+        onBranch={onBranch}
+        onClose={onCloseMobileSheet}
+        top={
+          onPickReaction ? (
+            <div className="ovm-sheet__reactions">
+              {["🔥", "😂", "❤️", "👀", "😭"].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  aria-label={`React with ${emoji}`}
+                  onClick={() => onPickReaction(emoji, null)}
+                >
+                  {emoji}
+                </button>
+              ))}
+              <span data-ovm-keep-open="true">
+                <ReactionAddButton onPick={onPickReaction} />
+              </span>
+            </div>
+          ) : undefined
+        }
+        more={
+          <div className="mari-message-actions">
+            <ReplyToMessageButton message={message} name={name} />
+            <MessageMarksAction message={message} align="right" stopPropagation />
+            <MsgAction
+              icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+              onClick={onTranslate}
+              title={
+                translatedText
+                  ? localizeUi("ui.chat.chatmessage.hideTranslation")
+                  : localizeUi("ui.chat.chatmessage.translate")
+              }
+            />
+            {onToggleHiddenFromAI && (
+              <MsgAction
+                icon={
+                  isHiddenFromAI ? <Eye size={MESSAGE_ACTION_ICON_SIZE} /> : <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />
+                }
+                onClick={onToggleHiddenFromAI}
+                title={
+                  isHiddenFromAI
+                    ? localizeUi("ui.chat.conversationmessageactions.unhideFromAi")
+                    : localizeUi("ui.chat.conversationmessageactions.hideFromAi")
+                }
+              />
+            )}
+            {isLastAssistantMessage && !isUser && onPeekPrompt && (
+              <MsgAction
+                icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onPeekPrompt}
+                title={localizeUi("ui.chat.chatmessage.peekPrompt")}
+              />
+            )}
+            {generationReplay && (
+              <MsgAction
+                icon={<ScrollText size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onShowGenerationReplay}
+                title={localizeUi("ui.chat.chatmessage.storedGuidance")}
+              />
+            )}
+            {hasReasoning && !isUser && (
+              <MsgAction
+                icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onShowThinking}
+                title={t(
+                  reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
+                )}
+                buttonRef={thinkingButtonRef}
+              />
+            )}
+            {onDelete && (
+              <MsgAction
+                icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={onDelete}
+                title={localizeUi("lorebook.editor.batch.delete")}
+              />
+            )}
+          </div>
+        }
+      />
+    );
+  }
   // UI overhaul (Convo A): a small Discord-style bar over the message's top-right corner with quick reactions,
   // React, Reply, Regenerate and More. Every other action lives in the More menu.
   if (overhaulActive && !thinkingOnly) {
