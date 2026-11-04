@@ -4156,6 +4156,8 @@ export const ChatMessage = memo(function ChatMessage({
           <div
             className={cn(
               "mari-message-body mari-roleplay-message-body flex min-w-0 flex-col gap-0.5",
+              overhaulActive && "ov-rpmsg relative",
+              overhaulActive && isGrouped && "is-grouped",
               isUser && "items-end",
               editing && "mari-roleplay-message-body--editing",
             )}
@@ -4194,6 +4196,27 @@ export const ChatMessage = memo(function ChatMessage({
               </div>
             )}
 
+            {/* New layout: message actions overlay the name row instead of opening a row in the bubble. */}
+            {overhaulActive && !editing && (
+              <OvRpMessageFooter
+                chatId={message.chatId}
+                messageId={message.id}
+                pinned={Boolean(isLastAssistantMessage && !isUser)}
+                swipeIndex={message.activeSwipeIndex ?? 0}
+                swipeCount={swipeCount}
+                onSetSwipe={handleSetActiveSwipe}
+                onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+                meta={isGrouped ? genLabel : undefined}
+                placement={isGrouped ? "float" : "header"}
+                side={isUser ? "start" : "end"}
+                copied={copied}
+                onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
+                onEdit={startEditing}
+                onCopy={handleCopy}
+                onBranch={onBranch ? () => onBranch(message.id) : undefined}
+                more={rpActionsRow}
+              />
+            )}
             <ConversationStartMarkers
               memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}
@@ -4338,24 +4361,6 @@ export const ChatMessage = memo(function ChatMessage({
               ) : roleplayBubbleContent ? (
                 <div className="px-4 py-3">{roleplayBubbleContent}</div>
               ) : null}
-              {overhaulActive && !editing && (
-                <OvRpMessageFooter
-                  chatId={message.chatId}
-                  messageId={message.id}
-                  pinned={Boolean(isLastAssistantMessage && !isUser)}
-                  swipeIndex={message.activeSwipeIndex ?? 0}
-                  swipeCount={swipeCount}
-                  onSetSwipe={handleSetActiveSwipe}
-                  onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-                  meta={genLabel}
-                  copied={copied}
-                  onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
-                  onEdit={startEditing}
-                  onCopy={handleCopy}
-                  onBranch={onBranch ? () => onBranch(message.id) : undefined}
-                  more={rpActionsRow}
-                />
-              )}
             </div>
 
             {roleplayAttachments}
