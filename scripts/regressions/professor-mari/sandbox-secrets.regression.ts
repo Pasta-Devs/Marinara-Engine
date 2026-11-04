@@ -1,6 +1,8 @@
 // Professor Mari's boundaries around server secrets and code she can edit:
 // - the auto-generated encryption key (DATA_DIR/.encryption-key) is as secret as .env, for her tools and shell;
-// - saved data (DATA_DIR/storage) is read-only to her shell, as it already is to her write tool;
+// - saved data (DATA_DIR/storage) is read-only to her shell, as it already is to her write tool, and so are the app's
+//   media folders, which change only through mari images and the app; the folders holding them are pinned, so a
+//   command can neither move one away nor put a link or a folder of its own in its place;
 // - her shell can neither read nor change .git, .env or the key file, nor create them where they do not exist yet;
 //   a root .git or .env that appears during a run anyway is moved aside after it;
 // - `mari code check` runs pnpm check in the shell sandbox without the server's environment, or not at all when
@@ -10,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -34,12 +37,25 @@ const SECRET = "server-secret-mari-must-not-see";
 const ENV_FILE = "ENV_SECRET=env-secret-mari-must-not-see\n";
 const GIT_CONFIG = "[core]\n\tbare = false\n";
 const originalEnv = {
+  DATA_DIR: process.env.DATA_DIR,
   FILE_STORAGE_DIR: process.env.FILE_STORAGE_DIR,
   MARINARA_GIT_COMMIT: process.env.MARINARA_GIT_COMMIT,
   PATH: process.env.PATH,
   MARI_CHECK_REGRESSION_SECRET: process.env.MARI_CHECK_REGRESSION_SECRET,
 };
+process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = storageDir;
+const MEDIA = [
+  "avatars",
+  "backgrounds",
+  "backgrounds-thumbs",
+  "game-assets",
+  "game-scene-videos",
+  "gallery",
+  "lorebooks/images",
+  "sprites",
+];
+const media = (name: string) => join(dataDir, ...name.split("/"));
 
 const {
   buildMacosWorkspaceShellProfile,
@@ -75,6 +91,13 @@ try {
   writeFileSync(join(workspace, ".git", "config"), GIT_CONFIG);
   writeFileSync(join(storageDir, "tables", "app_settings.json"), "original\n");
   writeFileSync(join(serverDist, "index.js"), "built\n");
+  mkdirSync(join(dataDir, "backgrounds"));
+  writeFileSync(join(dataDir, "backgrounds", "dawn.png"), "image\n");
+  mkdirSync(join(dataDir, "avatars"));
+  writeFileSync(join(dataDir, "avatars", "face.png"), "image\n");
+  mkdirSync(join(dataDir, "gallery", "mari-images"), { recursive: true });
+  writeFileSync(join(dataDir, "gallery", "mari-images", "manifest.json"), "[]\n");
+  mkdirSync(join(workspace, "outside-media"));
   let linked = true;
   try {
     symlinkSync(keyFile, join(workspace, "key-link"));
@@ -133,8 +156,29 @@ try {
   const policy = await workspacePolicyPaths(workspace);
   assert.ok(policy.forbidden.includes(keyFile), "the key file gets the same deny rule as .env");
   assert.equal(policy.storageDir, storageDir);
+  assert.deepEqual(policy.mediaDirs, MEDIA.map(media), "every media folder, made yet or not");
+  const holders = [
+    join(workspace, "packages"),
+    join(workspace, "packages", "server"),
+    dataDir,
+    join(dataDir, "lorebooks"),
+  ];
+  assert.deepEqual(
+    new Set(policy.appDataHolders),
+    new Set(holders),
+    "and the folders holding them, up to the workspace",
+  );
   const profile = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), true, "/bin/bash", true);
-  assert.ok(profile.includes(`(deny file-write*\n    (subpath ${JSON.stringify(storageDir)}))`));
+  const appDataStart = profile.indexOf(`(deny file-write*\n    (subpath ${JSON.stringify(storageDir)})\n`);
+  assert.ok(appDataStart >= 0, "saved data stays read-only");
+  const appDataRule = profile.slice(appDataStart, profile.indexOf("\n(", appDataStart));
+  for (const holder of holders) assert.ok(appDataRule.includes(`(literal ${JSON.stringify(holder)})`), holder);
+  const anyCase = (name: string) => name.replace(/[a-z]/gu, (c) => `[${c}${c.toUpperCase()}]`);
+  const mediaPattern = `^${dataDir}/(${MEDIA.map(anyCase).join("|")})(/|$)`;
+  assert.ok(appDataRule.includes(`(regex ${JSON.stringify(mediaPattern)})`), "media folders are matched by name");
+  assert.ok(appDataRule.includes(`(regex ${JSON.stringify(`^${dataDir}/(${anyCase("lorebooks")})$`)})`));
+  const readOnly = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), false, "/bin/bash", true);
+  assert.ok(!readOnly.includes(mediaPattern), "a read-only workspace needs no media rule");
   const forbiddenRule = profile.slice(profile.indexOf("(deny file-read* file-write*\n"));
   assert.ok(profile.includes("(deny file-read* file-write*\n"), "forbidden paths are closed to writes, not only reads");
   assert.ok(forbiddenRule.includes(`(subpath ${JSON.stringify(keyFile)})`));
@@ -143,6 +187,39 @@ try {
   const bwrap = (await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], true)).join("\0");
   assert.ok(bwrap.includes(`--ro-bind\0/dev/null\0${keyFile}`));
   assert.ok(bwrap.includes(`--ro-bind\0${storageDir}\0${storageDir}`));
+  // A mount needs an existing folder, so the missing media folders were made, and every one is mounted read-only after
+  // the folders holding it are pinned.
+  for (const name of MEDIA) {
+    const at = bwrap.indexOf(`--ro-bind\0${media(name)}\0${media(name)}\0`);
+    assert.ok(at >= 0, `read-only mount: ${name}`);
+    for (const holder of holders) {
+      const pinned = bwrap.indexOf(`--bind\0${holder}\0${holder}\0`);
+      assert.ok(pinned >= 0 && pinned < at, `${holder} is pinned before the ${name} mount`);
+    }
+  }
+  const pinOrder = holders.map((holder) => bwrap.indexOf(`--bind\0${holder}\0${holder}\0`));
+  assert.deepEqual(
+    pinOrder,
+    [...pinOrder].sort((a, b) => a - b),
+    "a holder is pinned before the folders it holds",
+  );
+  assert.ok(
+    bwrap.indexOf(`--bind\0${dataDir}\0${dataDir}\0`) < bwrap.indexOf(`--ro-bind\0/dev/null\0${keyFile}`),
+    "the data dir is pinned before the key is masked, so its bind cannot hide the mask",
+  );
+  const readOnlyBwrap = (await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], false)).join(
+    "\0",
+  );
+  assert.ok(!readOnlyBwrap.includes(`--bind\0${dataDir}\0`), "a read-only workspace stays read-only");
+  // A media folder, or the folder holding one, that is a link gets no mount, and nothing is made through it.
+  rmSync(join(dataDir, "lorebooks"), { recursive: true, force: true });
+  symlinkSync(join(workspace, "outside-media"), join(dataDir, "lorebooks"), "dir");
+  const linkedBwrap = (await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], true)).join(
+    "\0",
+  );
+  assert.deepEqual(readdirSync(join(workspace, "outside-media")), [], "no folder is made through the link");
+  assert.ok(!linkedBwrap.includes(`\0${join(dataDir, "lorebooks")}`), "and none is mounted at or through it");
+  rmSync(join(dataDir, "lorebooks"));
   assert.ok(bwrap.includes(`--ro-bind\0${serverDist}\0${serverDist}`));
   // Only mari code check lifts the build-output rule, so its build can finish, and reads the .tools folder in pnpm's
   // home, where the pinned pnpm waits. A stray pnpm outside a package named pnpm opens nothing around it.
@@ -165,7 +242,8 @@ try {
     true,
   );
   assert.ok(!checkProfile.includes("/dist(-"), "the check's build may write dist");
-  assert.ok(checkProfile.includes(`${subpath(storageDir)})`), "saved data stays read-only");
+  assert.ok(checkProfile.includes(`${subpath(storageDir)}\n`), "saved data stays read-only");
+  assert.ok(checkProfile.includes(mediaPattern), "and so do the media folders");
   assert.ok(checkProfile.includes(subpath(pnpmTools)), "the check reads the pnpm versions pnpm keeps");
   assert.ok(!checkProfile.includes(subpath(pnpmHome)), "but not the rest of pnpm's home");
   assert.ok(!checkProfile.includes(subpath(realpathSync(tmpdir()))), "a stray pnpm opens nothing around it");
@@ -252,6 +330,61 @@ try {
       }
       assert.equal(readFileSync(join(workspace, "ordinary.txt"), "utf8"), "ok", "the pinned workspace takes new files");
     }
+
+    // The media folders: her shell can read them, but it can neither write, delete, link nor move anything there, nor
+    // make a missing one. The loop is the race #8802 left open, in which a command kept swapping the backgrounds
+    // folder for a link while mari images checked it and then wrote; it cannot swap it even once now.
+    // The bubblewrap builders above made every missing media folder, so two go again: Seatbelt starts without them.
+    for (const name of ["sprites", "lorebooks"]) rmSync(media(name), { recursive: true, force: true });
+    const data = "packages/server/data";
+    const swapLoop = [
+      "swaps=0;",
+      "for i in $(seq 1 25); do",
+      `mv ${data}/backgrounds ${data}/backgrounds.real && ln -s ../../../outside-media ${data}/backgrounds && swaps=$((swaps+1));`,
+      `[ -L ${data}/backgrounds ] && rm -f ${data}/backgrounds; [ -d ${data}/backgrounds.real ] && mv ${data}/backgrounds.real ${data}/backgrounds;`,
+      "done",
+    ].join(" ");
+    const mediaShell = await sandboxRun(
+      [
+        `printf planted > ${data}/backgrounds/new.png`,
+        `printf planted >> ${data}/backgrounds/dawn.png`,
+        `rm -f ${data}/backgrounds/dawn.png`,
+        `ln -s ../../../../../outside-media ${data}/gallery/mari-images/link`,
+        `printf planted > ${data}/gallery/mari-images/manifest.json`,
+        `ln ${data}/avatars/face.png hard-face && printf planted >> hard-face`,
+        `mv ${data}/avatars moved-avatars`,
+        `rm -rf ${data}/game-assets`,
+        `ln -s ../../../outside-media ${data}/sprites`,
+        `mkdir -p ${data}/lorebooks/images`,
+        ...(seatbelt ? [`mkdir ${data}/SPRITES`, `mkdir -p staged/images && mv staged ${data}/lorebooks`] : []),
+        `${swapLoop} 2>/dev/null`,
+        'echo "swaps=$swaps"',
+        `cat ${data}/backgrounds/dawn.png`,
+        `printf ok > ${data}/media-notes.txt`,
+        "true",
+      ].join("; "),
+    );
+    assert.equal(mediaShell.code, 0, mediaShell.output);
+    assert.match(mediaShell.output, /^swaps=0$/mu, `the folder is never swapped for a link:\n${mediaShell.output}`);
+    assert.match(mediaShell.output, /^image$/mu, "the shell still reads the media folders");
+    assert.equal(readFileSync(join(dataDir, "backgrounds", "dawn.png"), "utf8"), "image\n");
+    assert.deepEqual(readdirSync(join(dataDir, "backgrounds")), ["dawn.png"], "nothing is written or left there");
+    assert.equal(readFileSync(join(dataDir, "gallery", "mari-images", "manifest.json"), "utf8"), "[]\n");
+    assert.deepEqual(readdirSync(join(dataDir, "gallery", "mari-images")), ["manifest.json"]);
+    assert.equal(readFileSync(join(dataDir, "avatars", "face.png"), "utf8"), "image\n", "not even through a hard link");
+    assert.ok(existsSync(media("game-assets")) && !existsSync(join(workspace, "moved-avatars")));
+    for (const name of ["backgrounds", "sprites", "lorebooks", "lorebooks/images"]) {
+      const stats = lstatSync(media(name), { throwIfNoEntry: false });
+      assert.ok(!stats?.isSymbolicLink(), `${name} is never a link`);
+      if (stats && name !== "backgrounds" && name !== "lorebooks") assert.deepEqual(readdirSync(media(name)), []);
+    }
+    if (seatbelt) {
+      for (const name of ["sprites", "SPRITES", "lorebooks"]) {
+        assert.equal(existsSync(join(dataDir, name)), false, `a missing ${name} folder cannot be made or moved in`);
+      }
+    }
+    assert.deepEqual(readdirSync(join(workspace, "outside-media")), [], "nothing lands where a link would point");
+    assert.equal(readFileSync(join(dataDir, "media-notes.txt"), "utf8"), "ok", "the data dir still takes new files");
   }
 
   // Bubblewrap can only mask paths that exist, so the post-run pass moves aside a root .git or .env that appeared
