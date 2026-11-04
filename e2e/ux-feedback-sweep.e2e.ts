@@ -1,5 +1,4 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
-import { openDevicePage, ttsConfigCard } from "./connections-panel.js";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -200,7 +199,7 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
   page,
   request,
 }, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "The Text to Speech card beside the editor shows each refetch.");
+  test.skip(testInfo.project.name.includes("mobile"), "One desktop run covers the saves; the layout is the same.");
   const original = await (await request.get("/api/tts/config")).json();
   const name = `UX Voice ${Date.now()}`;
   const ids: string[] = [];
@@ -220,23 +219,24 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
     await page.route("**/api/tts/voices", (route) =>
       route.fulfill({ json: { voices: ["echo"], voiceOptions: [{ id: "echo", name: "echo" }], fromProvider: false } }),
     );
+    // A cloud voice source has no Text to Speech card On this device since #8678, so the server shows each save.
+    const savedVoice = async () =>
+      ((await (await request.get("/api/tts/config")).json()).voiceAssignments as Array<Record<string, unknown>>).find(
+        (assignment) => assignment.characterId === auId,
+      )?.voice;
     await page.goto("/");
-    await openDevicePage(page, "tts");
-    const ttsCard = ttsConfigCard(page);
     await openEditor(page, "Character", auId);
     const editor = page.locator(".mari-editor-shell");
     await openSection(editor, "Voice");
     const input = editor.locator('[data-editor-section="voice"]').getByTestId("character-voice-input");
-    const cardInput = ttsCard.getByTestId(`tts-custom-voice-input-character-${auId}`);
     // Without a voice of its own, the copy speaks with the original card's voice, so it must not say "Default voice".
     await expect(input).toHaveAttribute("placeholder", "echo (from a card with a matching name)");
 
     // Another tab saves a new speed after this page read the config. Saving a voice here must keep it.
     const latest = await (await request.get("/api/tts/config")).json();
     expect((await request.put("/api/tts/config", { data: { ...latest, speed: 1.5 } })).ok()).toBeTruthy();
-    await expect(ttsCard.getByText("Speed — 1.00×")).toBeVisible();
     await input.fill("nova");
-    await expect(cardInput).toHaveValue("nova");
+    await expect.poll(savedVoice).toBe("nova");
     const saved = await (await request.get("/api/tts/config")).json();
     expect(saved.speed).toBe(1.5);
     expect(saved.voiceAssignments).toContainEqual({ characterId: auId, characterName: name, voice: "nova" });
@@ -252,13 +252,13 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
     // The next save waits for the held one, so the server gets the saves in the order they were made.
     await page.waitForTimeout(1_000);
     expect(heldSaves).toHaveLength(1);
-    // The settings card shows each refetch as it lands; the typed "abcd" must outlive the older "abc" one.
+    // The first save lands and is refetched while the second is held; the typed "abcd" must outlive that "abc".
     heldSaves[0]!();
     await expect.poll(() => heldSaves.length).toBe(2);
-    await expect(cardInput).toHaveValue("abc");
+    await expect.poll(savedVoice).toBe("abc");
     await expect(input).toHaveValue("abcd");
     heldSaves[1]!();
-    await expect(cardInput).toHaveValue("abcd");
+    await expect.poll(savedVoice).toBe("abcd");
     await expect(input).toHaveValue("abcd");
 
     // A failed save shows an error and the saved voice again, and does not stop the next pick from saving.
@@ -274,7 +274,7 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
     ).toBeVisible();
     await expect(input).toHaveValue("abcd");
     await input.fill("sage");
-    await expect(cardInput).toHaveValue("sage");
+    await expect.poll(savedVoice).toBe("sage");
   } finally {
     for (const release of heldSaves) release();
     await request.put("/api/tts/config", { data: original });
@@ -404,10 +404,8 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   const useButton = card.getByRole("button", { name: /Use .* for this chat/ });
   await useButton.click();
   await expect(library).toBeHidden();
-  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toHaveAttribute(
-    "class",
-    (await page.getByRole("button", { name: "Browse library", exact: true }).getAttribute("class"))!,
-  );
+  // The pick shows in the big preview, with its small Clear selection button over it (#8719).
+  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Browse library", exact: true }).click();
   await expect(library).toHaveCSS("opacity", "1");
   await expect(library.locator(".mari-modal-panel")).toHaveCSS("transform", "none");
@@ -643,15 +641,17 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
             probe.remove();
             return color;
           });
-          // The connection picker is a non-modal dialog: it holds a model search box and pin toggles.
-          for (const [trigger, name, role] of [
-            ["Quick Connection Switcher", "Connections", "dialog"],
-            ["Quick Persona Switcher", "Personas", "menu"],
+          // In Roleplay both composer pickers sit on the card surface: the model chip's (#8456) and Personas (#8763).
+          for (const [trigger, name] of [
+            [page.getByRole("button", { name: /^Model: / }), "Model for this chat"],
+            [page.getByTitle("Quick Persona Switcher", { exact: true }), "Personas"],
           ] as const) {
-            await page.getByTitle(trigger, { exact: true }).click();
-            const picker = page.getByRole(role, { name, exact: true });
+            await trigger.click();
+            const picker = page.getByRole("dialog", { name, exact: true });
             await expect(picker).toHaveCSS("background-color", cardColor);
-            await picker.screenshot({ path: testInfo.outputPath(`desktop-${name.toLowerCase()}-picker.png`) });
+            await picker.screenshot({
+              path: testInfo.outputPath(`desktop-${name.split(" ")[0]!.toLowerCase()}-picker.png`),
+            });
             await picker.press("Escape");
             await expect(picker).toHaveCount(0);
           }
@@ -710,10 +710,7 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
       await choice.getByRole("button", { name: /Use .* for this chat/ }).click();
       await expect(library).toBeHidden();
       await expect(section.locator('img[src*="ancient_library.jpg"]')).toBeVisible();
-      await expect(section.getByRole("button", { name: "Clear selection", exact: true })).toHaveAttribute(
-        "class",
-        (await section.getByRole("button", { name: "Browse library", exact: true }).getAttribute("class"))!,
-      );
+      await expect(section.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
       await expect
         .poll(async () => {
           const data = await (await request.get(`/api/chats/${chat.id}`)).json();

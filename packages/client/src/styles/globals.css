@@ -3757,6 +3757,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   .mari-editor-header--dense .mari-editor-actions {
     gap: 0.25rem;
   }
+
+  /* Seven 2.75rem-wide actions beside the menu need about 425px; a 390px phone has 373px. The tap height
+     stays 2.75rem, only the width is narrower. */
+  .mari-editor-header--dense .mari-editor-action {
+    min-width: 2.25rem;
+  }
 }
 
 /* ─────────────────────────────────────────────

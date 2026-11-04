@@ -61,7 +61,14 @@ test("a party health widget row follows the sheet without a widget tag", async (
       .toMatch(/^0\/\d+$/);
     // Her Luck is not her health, and stays as it was.
     expect((await savedRows()).find((stat) => stat.name === "Juno Luck")?.value).toBe(3);
-    await expect(page.getByText(/^0\/\d+$/).first()).toBeVisible({ timeout: 15_000 });
+    // Phones show each HUD widget as an icon button; the rows appear once it is opened.
+    if (testInfo.project.name.includes("mobile")) await page.getByTitle("Party Health", { exact: true }).click();
+    await expect(
+      page
+        .getByText(/^0\/\d+$/)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible({ timeout: 15_000 });
     await page.screenshot({ path: testInfo.outputPath("widget-health-sync.png") });
   });
 });
