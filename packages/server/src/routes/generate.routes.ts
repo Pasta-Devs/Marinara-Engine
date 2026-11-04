@@ -625,6 +625,7 @@ import {
   extractImageAttachmentDataUrls,
   postProcessMessages,
   appendSeparateAgentInjectionMessage,
+  capSummarizedHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectRollingSummaryMessages,
@@ -2172,6 +2173,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const timelineIds = new Set(roleplayTimeline.map((message) => message.id));
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
         lorebookKeeperMessages = lorebookKeeperMessages.filter((message) => timelineIds.has(message.id));
+      }
+      if (isRoleplaySummaryMode(chatMode) && !advancedMemoryEnabled) {
+        chatMessages = capSummarizedHistory(chatMessages, chatMeta).messages;
       }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {

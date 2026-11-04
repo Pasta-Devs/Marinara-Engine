@@ -151,6 +151,7 @@ import { sendSseEvent, startSseReply } from "./sse.js";
 import {
   postProcessMessages,
   buildGenerationGuideInstruction,
+  capSummarizedHistory,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
   endPromptOnAssistantPrefill,
@@ -779,6 +780,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         const timelineIds = new Set(scopedMessages.slice(0, index).map((message) => message.id));
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
       }
+    }
+    if (chatMode === "roleplay" && !advancedMemoryEnabled) {
+      chatMessages = capSummarizedHistory(chatMessages, chatMeta).messages;
     }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),

@@ -19,6 +19,7 @@ import {
   useGenerateSummary,
   useRollingSummaryBackfill,
   useReorderSummaryEntries,
+  useSummaryBacklog,
   useToggleSummaryEntry,
   useUpdateChatMetadata,
   useUpdateSummaryEntry,
@@ -443,6 +444,16 @@ export function ChatSummaryPanel({
   // Per-chat preference, default off — no global fallback, so one chat never
   // inherits another's setting.
   const hideSummarisedResolved = hideSummarisedMessages === true;
+  // Older messages no summary covers yet are still sent past the tail, so say how many (#8831).
+  const summaryTail = summaryTailMessages ?? SUMMARY_TAIL_MESSAGES.DEFAULT;
+  // Refetched when the tail or what the summaries cover changes.
+  const summaryCoverageKey = [
+    summaryTail,
+    ...(summaryEntries ?? []).map((entry) => `${entry.id}:${entry.enabled}:${entry.messageIds?.length ?? 0}`),
+  ].join(",");
+  const summaryBacklog =
+    useSummaryBacklog(chatId, hideSummarisedResolved && automaticSummariesAvailable, summaryCoverageKey).data
+      ?.backlog ?? 0;
 
   const persistSummaryContextSize = useCallback(
     (size: number) => {
@@ -1730,7 +1741,7 @@ export function ChatSummaryPanel({
                     <DraftNumberInput
                       ariaLabel={localizeUi("ui.chat.summarypopover.recentMessageTail")}
                       min={SUMMARY_TAIL_MESSAGES.MIN}
-                      value={summaryTailMessages ?? SUMMARY_TAIL_MESSAGES.DEFAULT}
+                      value={summaryTail}
                       onCommit={(value) =>
                         updateMeta.mutate({
                           id: chatId,
@@ -1745,6 +1756,11 @@ export function ChatSummaryPanel({
                     <span className="font-medium">0</span>{" "}
                     {localizeUi("ui.chat.summarypopover.toHideTheWholeBatchHigherValuesIncreasePrompt")}
                   </p>
+                  {summaryBacklog > 0 && (
+                    <p role="status" className="text-[0.625rem] text-[var(--popover-foreground)]">
+                      {localizeUi("ui.chat.summarypopover.summaryBacklog", { count: summaryBacklog })}
+                    </p>
+                  )}
                 </div>
               )}
               <SummarySettingsToggle

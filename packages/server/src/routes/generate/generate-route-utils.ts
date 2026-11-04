@@ -866,6 +866,35 @@ export function computeSummaryHideIds(args: {
 }
 
 /**
+ * Hold a roleplay chat's summarized history to its recent message tail (#8831). With "Hide summarised
+ * messages" on, a message an enabled summary entry covers is sent only while it is among the newest `tail`
+ * messages; the summary carries the older ones. Hiding runs only when a summary is written, so without this
+ * every message sent since then stretched the tail. A covered message the user showed again by hand stays.
+ * An older message no entry covers yet stays too, since leaving it out would lose it, and counts as `backlog`;
+ * one only a turned-off entry covers is sent on purpose, like Backfill Summary treats it, so it does not count.
+ * Pure: `messages` must be the chat-ordered history the model may see, without hidden messages.
+ */
+export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
+  messages: T[],
+  chatMeta: Record<string, unknown>,
+): { messages: T[]; backlog: number } {
+  if (chatMeta.hideSummarisedMessages !== true) return { messages, backlog: 0 };
+  const entries = normalizeChatSummaryEntries(chatMeta.summaryEntries);
+  const covered = new Set(entries.flatMap((entry) => (entry.enabled ? (entry.messageIds ?? []) : [])));
+  if (covered.size === 0) return { messages, backlog: 0 };
+  const summarized = new Set(entries.flatMap((entry) => entry.messageIds ?? []));
+  const cut = messages.length - resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  let backlog = 0;
+  const kept = messages.filter((message, index) => {
+    if (index >= cut) return true;
+    if (covered.has(message.id)) return parseExtra(message.extra).visibilityManual === true;
+    if (!summarized.has(message.id)) backlog++;
+    return true;
+  });
+  return { messages: kept, backlog };
+}
+
+/**
  * Hide or show a chat's summarised messages when `next` turns "Hide summarised messages" on or off
  * compared with `current`. Turning it on hides each enabled entry's messages, except the recent tail,
  * and records them in the entry's `hiddenMessageIds`; turning it off shows only those again. Returns
