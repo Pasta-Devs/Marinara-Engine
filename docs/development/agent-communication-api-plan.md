@@ -2,7 +2,18 @@
 
 ## Status
 
-Proposal. Nothing in this plan is implemented.
+Phases 1 through 4 are implemented on branch `ccr-0d52ee33-ky9149` as Capability API 1.816 (caller identity and key ownership), 1.817 (event bus), 1.818 (scoped documents and `gameState.read`) and 1.819 (service declarations and sharing controls). Each has a `### Capability API 1.NNN` section in `docs/development/optional-agent-packages.md` and a regression script. Phase 5 is not started; it still needs the maintainer decision below. No package in `Marinara-Agents` has adopted the new seams yet.
+
+Where the implementation differs from the text below:
+
+- `engine:agent.result` carries `{ chatId, agentType, agentName, resultType, success, messageId, data }`. The SSE frame it is read from has no agent id. `messageId` is `null` when the frame has none, and an oversized `data` is replaced with `null` and `dataOmitted: true`.
+- `engine:generation.completed` reports the last non-user message saved during the generation as `messageId`, or `null`.
+- Engine events are read from the frames `sendSseEvent` writes for a generation bound with `attachCapabilityEventStream` (the main generate route and the agent retry route), so no route has its own emit code. `engine:chat.metadata.changed` fires from the chat storage metadata writes.
+- The client bus stamps `source` from the event type's prefix. Nothing on the client knows which element called it, and the bus is cooperative anyway.
+- `contributions.services` entries take an optional `description`, which is the sentence the **Other agents** rows show. Package text is not localized; the Engine's fallback sentence is.
+- Usage counts are reads through `runtime.services.get` that returned the service. Counting each method call would mean wrapping every service object in a proxy (marked `ponytail:` in `capability-service-sharing.service.ts`).
+- Pair state and usage are stored in app settings (`capabilityServiceSharing`, `capabilityServiceUsage`). Usage is flushed at most every 30 seconds and at shutdown.
+- `schemas/package-manifest.schema.json` in `Marinara-Agents` keeps `contributions` open on purpose (its description says a closed copy would refuse shipped packages), so Phase 4 does not add a second copy of the services shape there. The Engine's zod schema is the install-time check.
 
 This is a Large feature under `.github/agents/chai-workflow.md` (new shared contracts, agent routing, install behavior), so it is phased and each phase is checked with the maintainer before it starts. Phases 1 through 3 are the recommended scope. Phases 4 and 5 are optional and need a separate decision.
 
@@ -52,15 +63,15 @@ What a package can use today, and where it is enforced.
 
 Keys in use in `Marinara-Agents`:
 
-| Key | Producer | Consumers |
-| --- | --- | --- |
-| `long-term-memory:recall` (v1) | long-term-memory | noodle, slurp2 |
-| `long-term-memory:intake` (v1) | long-term-memory | slurp2 only, by a hard-coded allowlist |
-| `long-term-memory:runtime` (hostOnly) | long-term-memory | Engine |
-| `slurp2:actions`, `mari-actions:slurp2`, `slurp2:backup` | slurp2 | Engine |
-| `noodle:backup`, `noodle:prompt-context` | noodle | Engine |
-| `agent-runtime:<id>` | memory-nag, relationship-tracker, quartermaster | Engine |
-| `hierarchical-maps:*` (5 keys), `conversation-calls:*` (2 keys) | generated server entries | Engine |
+| Key                                                             | Producer                                        | Consumers                              |
+| --------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------- |
+| `long-term-memory:recall` (v1)                                  | long-term-memory                                | noodle, slurp2                         |
+| `long-term-memory:intake` (v1)                                  | long-term-memory                                | slurp2 only, by a hard-coded allowlist |
+| `long-term-memory:runtime` (hostOnly)                           | long-term-memory                                | Engine                                 |
+| `slurp2:actions`, `mari-actions:slurp2`, `slurp2:backup`        | slurp2                                          | Engine                                 |
+| `noodle:backup`, `noodle:prompt-context`                        | noodle                                          | Engine                                 |
+| `agent-runtime:<id>`                                            | memory-nag, relationship-tracker, quartermaster | Engine                                 |
+| `hierarchical-maps:*` (5 keys), `conversation-calls:*` (2 keys) | generated server entries                        | Engine                                 |
 
 Every producer already uses the `<ownId>:` prefix. Consumers self-report a `caller` string that nothing verifies. The intake service has a `ponytail:` note naming an Engine-supplied caller id as the intended fix.
 
@@ -100,17 +111,17 @@ Built-in trackers write to `game_state_snapshots`. Slurp reads that table direct
 
 ## Gaps
 
-| Need | Today | Gap |
-| --- | --- | --- |
-| Know who is calling a service | Consumer sends `caller: "slurp2"` | Forgeable. Intake allowlist is hard-coded in the producer. |
-| Stop a package from taking another's key | Only `agent-runtime:` and `mari-actions:` are owned | Any other key can be squatted or shadowed by activation order. |
-| Find out what is available | `services.get(key)` only | No listing, no "is package X active". |
-| React to something happening | None | No event bus on the server or the client. Polling or a hard-coded hook per case. |
-| Agent A feeds agent B in the same turn | Opt-in text blocks, no ordering | No structured handoff, no package-owned result type, no dependency between agents. |
-| Push to the client outside a generation | None | Clients poll. |
-| Keep documents private | None | Any package reads any package's documents. |
-| Read tracker state with a contract | Raw table reads | Schema drift breaks consumers silently. |
-| Tell the user what works with what | Nothing in the manifest or Agent Organizer | Users discover pairings from release notes. |
+| Need                                     | Today                                               | Gap                                                                                |
+| ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Know who is calling a service            | Consumer sends `caller: "slurp2"`                   | Forgeable. Intake allowlist is hard-coded in the producer.                         |
+| Stop a package from taking another's key | Only `agent-runtime:` and `mari-actions:` are owned | Any other key can be squatted or shadowed by activation order.                     |
+| Find out what is available               | `services.get(key)` only                            | No listing, no "is package X active".                                              |
+| React to something happening             | None                                                | No event bus on the server or the client. Polling or a hard-coded hook per case.   |
+| Agent A feeds agent B in the same turn   | Opt-in text blocks, no ordering                     | No structured handoff, no package-owned result type, no dependency between agents. |
+| Push to the client outside a generation  | None                                                | Clients poll.                                                                      |
+| Keep documents private                   | None                                                | Any package reads any package's documents.                                         |
+| Read tracker state with a contract       | Raw table reads                                     | Schema drift breaks consumers silently.                                            |
+| Tell the user what works with what       | Nothing in the manifest or Agent Organizer          | Users discover pairings from release notes.                                        |
 
 ## Architecture
 
@@ -182,12 +193,12 @@ Rules:
 
 Engine-published events for the first release, kept to what packages are already working around:
 
-| Type | Payload | Permission |
-| --- | --- | --- |
-| `engine:agent.result` | `{ chatId, agentId, agentType, resultType, success, messageId?, data }` | `chat-read` |
-| `engine:generation.completed` | `{ chatId, messageId, mode }` | `chat-read` |
-| `engine:chat.metadata.changed` | `{ chatId, keys: string[] }` (keys only, not values) | `chat-read` |
-| `engine:package.activated`, `engine:package.deactivated` | `{ packageId, version }` | none |
+| Type                                                     | Payload                                                                 | Permission  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- | ----------- |
+| `engine:agent.result`                                    | `{ chatId, agentId, agentType, resultType, success, messageId?, data }` | `chat-read` |
+| `engine:generation.completed`                            | `{ chatId, messageId, mode }`                                           | `chat-read` |
+| `engine:chat.metadata.changed`                           | `{ chatId, keys: string[] }` (keys only, not values)                    | `chat-read` |
+| `engine:package.activated`, `engine:package.deactivated` | `{ packageId, version }`                                                | none        |
 
 `engine:agent.result` is emitted where `agentStore.addResult` frames are produced today. This is the event that lets Relationship Tracker react to Character Tracker's `presentCharacters` without reading a table, and lets Long-Term Memory take in a quest or relationship change without a producer-specific intake.
 
@@ -196,7 +207,7 @@ Engine-published events for the first release, kept to what packages are already
 **Client bus.** `__MARINARA_HOST__.events` mirrors the shape for client-to-client use:
 
 ```ts
-host.events.publish(type, payload);   // host stamps source from the calling element's packageId
+host.events.publish(type, payload); // host stamps source from the calling element's packageId
 host.events.subscribe(type, handler); // returns Cleanup
 ```
 
@@ -279,10 +290,10 @@ Why there and not elsewhere:
 
 What the section shows, driven by `contributions.services` (Seam 4) and the caller identity from Seam 1:
 
-| State | Rows | Controls |
-| --- | --- | --- |
-| Not installed | One row per peer the package provides to or requires, each marked installed or with a Get action, plus one plain sentence per row saying what flows (for example "adds memories to Long-Term Memory"). | None. |
-| Installed | The same rows, with last used and uses this week for pairs where both packages are installed. | One switch per pair, on or off. Hidden when the peer is not installed. |
+| State         | Rows                                                                                                                                                                                                   | Controls                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Not installed | One row per peer the package provides to or requires, each marked installed or with a Get action, plus one plain sentence per row saying what flows (for example "adds memories to Long-Term Memory"). | None.                                                                  |
+| Installed     | The same rows, with last used and uses this week for pairs where both packages are installed.                                                                                                          | One switch per pair, on or off. Hidden when the peer is not installed. |
 
 Rules:
 
@@ -349,13 +360,13 @@ Needs a separate maintainer decision before it starts, because of the batching c
 
 Engine, by phase.
 
-| Phase | Files |
-| --- | --- |
-| 1 | `packages/shared/src/types/capability-runtime.ts` (caller type, `services.list`, `packages.isActive`), `packages/server/src/services/capability-packages/capability-service-registry.service.ts`, `capability-module-runtime.service.ts`, `packages/shared/src/schemas/capability-package.schema.ts` (minor bump and comment line), `scripts/regressions/capability-package-lifecycle.regression.ts` (assertion), new `scripts/regressions/capability-service-identity.regression.ts`, `docs/development/optional-agent-packages.md` |
-| 2 | new `packages/server/src/services/capability-packages/capability-event-bus.service.ts`, `capability-module-runtime.service.ts` (`api.events`), `packages/shared/src/types/capability-runtime.ts` (`CapabilityEvent`), emit points in `routes/generate/` where agent results and completion are already written to SSE, `packages/client/src/lib/capability-client-events.ts`, `marinara-host-contract.ts`, `marinara-host.ts`, new `scripts/regressions/capability-event-bus.regression.ts`, docs |
-| 3 | `capability-persistence.service.ts`, new game-state view type in `packages/shared/src/types/`, new host member in `capability-module-runtime.service.ts`, `scripts/regressions/capability-persistence-permissions.regression.ts`, docs |
-| 4 | `capability-package.schema.ts` (`contributions.services`), install validator, activation ordering and pair enforcement in `capability-module-runtime.service.ts`, new pair-state storage and routes under `packages/server/src/services/capability-packages/` and `packages/server/src/routes/`, Agent Organizer package page (`AgentPage.tsx` plus a new `OtherAgentsSection` component), `packages/client/src/locales/en/*.json`, docs |
-| 5 | `packages/server/src/services/agents/agent-pipeline.ts`, `agent-executor.ts`, `packages/shared/src/types/agent.ts`, `capability-agent-runtime.service.ts`, Custom Agents settings UI and docs |
+| Phase | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | `packages/shared/src/types/capability-runtime.ts` (caller type, `services.list`, `packages.isActive`), `packages/server/src/services/capability-packages/capability-service-registry.service.ts`, `capability-module-runtime.service.ts`, `packages/shared/src/schemas/capability-package.schema.ts` (minor bump and comment line), `scripts/regressions/capability-package-lifecycle.regression.ts` (assertion), new `scripts/regressions/capability-service-identity.regression.ts`, `docs/development/optional-agent-packages.md` |
+| 2     | new `packages/server/src/services/capability-packages/capability-event-bus.service.ts`, `capability-module-runtime.service.ts` (`api.events`), `packages/shared/src/types/capability-runtime.ts` (`CapabilityEvent`), emit points in `routes/generate/` where agent results and completion are already written to SSE, `packages/client/src/lib/capability-client-events.ts`, `marinara-host-contract.ts`, `marinara-host.ts`, new `scripts/regressions/capability-event-bus.regression.ts`, docs                                    |
+| 3     | `capability-persistence.service.ts`, new game-state view type in `packages/shared/src/types/`, new host member in `capability-module-runtime.service.ts`, `scripts/regressions/capability-persistence-permissions.regression.ts`, docs                                                                                                                                                                                                                                                                                               |
+| 4     | `capability-package.schema.ts` (`contributions.services`), install validator, activation ordering and pair enforcement in `capability-module-runtime.service.ts`, new pair-state storage and routes under `packages/server/src/services/capability-packages/` and `packages/server/src/routes/`, Agent Organizer package page (`AgentPage.tsx` plus a new `OtherAgentsSection` component), `packages/client/src/locales/en/*.json`, docs                                                                                             |
+| 5     | `packages/server/src/services/agents/agent-pipeline.ts`, `agent-executor.ts`, `packages/shared/src/types/agent.ts`, `capability-agent-runtime.service.ts`, Custom Agents settings UI and docs                                                                                                                                                                                                                                                                                                                                        |
 
 Agents repo: `schemas/package-manifest.schema.json` (Phase 4), `scripts/esbuild-host-plugins.mjs` baseline, `sources/host-runtime-overlay/.../host-runtime.ts` type, then per-package adoption listed under each phase.
 
@@ -370,15 +381,15 @@ Agents repo: `schemas/package-manifest.schema.json` (Phase 4), `scripts/esbuild-
 
 ## Risks and Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
+| Risk                                                     | Mitigation                                                                                                                  |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | An installed package breaks when ownership rules tighten | Throw only for packages declaring the new minor. Older packages warn. All published packages already use own-prefixed keys. |
-| A slow subscriber delays a generation | Fire-and-forget delivery, 2 s deadline, publisher never awaits. Emit points are after the SSE write, not before. |
-| Event storms from chatty packages | 64 KB payload cap, no durability, log at debug only. Add a per-package rate limit if a real case appears. |
-| Packages lean on events for state they should persist | The doc section says events are not storage and are not replayed. |
-| Phase 5 raises per-turn cost | `runAfter` leaves the shared batch and the cost readout counts it. Phase 5 is optional. |
-| Agents-repo overlay baseline lags the Engine | Each phase's follow-up starts with the baseline bump. Packages feature-detect so a stale bundle keeps working. |
-| Client bus mistaken for a trust boundary | Documented as cooperative. Trusted paths stay server-side. |
+| A slow subscriber delays a generation                    | Fire-and-forget delivery, 2 s deadline, publisher never awaits. Emit points are after the SSE write, not before.            |
+| Event storms from chatty packages                        | 64 KB payload cap, no durability, log at debug only. Add a per-package rate limit if a real case appears.                   |
+| Packages lean on events for state they should persist    | The doc section says events are not storage and are not replayed.                                                           |
+| Phase 5 raises per-turn cost                             | `runAfter` leaves the shared batch and the cost readout counts it. Phase 5 is optional.                                     |
+| Agents-repo overlay baseline lags the Engine             | Each phase's follow-up starts with the baseline bump. Packages feature-detect so a stale bundle keeps working.              |
+| Client bus mistaken for a trust boundary                 | Documented as cooperative. Trusted paths stay server-side.                                                                  |
 
 ## Explicit Non-Goals
 

@@ -18,6 +18,7 @@ import {
   typeOf,
   type OrganizerEntry,
 } from "./organizer-model";
+import { OtherAgentsList, otherAgentRows } from "./OtherAgentsSection";
 import {
   AgentAction,
   AgentIcon,
@@ -84,6 +85,7 @@ export function AgentPage({
   const previews = entry.store?.previewUrls ?? [];
   const more = entries.filter((item) => item.manifest.id !== manifest.id && sectionOf(item) === section).slice(0, 4);
 
+  const otherAgents = otherAgentRows(manifest, entries, installedById);
   const installedPermissions = installed?.manifest.permissions;
   const permissionGroups = [
     ...(installed
@@ -312,6 +314,12 @@ export function AgentPage({
               </div>
             ))}
           </Section>
+
+          {otherAgents.length > 0 && (
+            <Section title={localizeUi("ui.agents.agentcatalogview.otherAgents.title")}>
+              <OtherAgentsList rows={otherAgents} installed={!!installed} />
+            </Section>
+          )}
 
           {more.length > 0 && (
             <Section

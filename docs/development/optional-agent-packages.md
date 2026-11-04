@@ -111,6 +111,7 @@ this page. Package builds declare matching structural types instead of importing
 | `components.Modal`        | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
 | `data.emojiCatalog`       | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
 | `api`                     | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
+| `events`                  | Capability API 1.817: the cooperative client event bus, `publish(type, payload, scope?)` and `subscribe(type, handler)`. See "Capability API 1.817: package events".                     |
 
 A package reads a member only after checking it, for example
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
@@ -1973,6 +1974,53 @@ them, in the shared `GameState` shapes. The read needs `chat-read`. Writes stay 
 trackers. Use it instead of reading the tracker table, whose columns can change without notice.
 
 Older Engines have no `runtime.gameState`: feature-detect it, or declare 1.818.
+
+### Capability API 1.819: declare services and let the user decide who shares
+
+`contributions.services` tells the Engine, and the user, which packages work together:
+
+```json
+"contributions": {
+  "services": {
+    "provides": [
+      { "key": "long-term-memory:recall", "version": 1, "description": "Reads memories." },
+      { "key": "long-term-memory:intake", "version": 1, "sharedByDefault": false }
+    ],
+    "requires": [
+      { "key": "slurp2:settings", "version": 1, "optional": true, "description": "Reads Slurp's settings." }
+    ]
+  }
+}
+```
+
+- `provides` keys start with the package's own id. Install refuses a key under another id, a key
+  listed twice, and a block in a manifest that does not declare 1.819: older Engines refuse the
+  whole manifest when it has this block, so this is not a soft seam.
+- `version` is the contract version the service object carries. Bump it for a breaking change and
+  keep the old key registered until consumers move.
+- `requires` is informational. Nothing is blocked at install. When both packages are installed,
+  the provider activates first, so the consumer's `activate` can find it. A cycle falls back to the
+  usual order with a warning.
+- `description` is one plain sentence on what flows, shown on the package page. The consumer's
+  sentence wins over the provider's.
+
+Agent Organizer shows an **Other agents** section on the package page of every package that
+declares services, below Permissions. Before installing, each row names the peer and offers Get
+when it is not installed. Once both packages of a pair are installed, the row shows when the
+consumer last read the service, its reads this week, and a switch. A pair is a provider service key
+and a consumer package id, and the switch on either package's page is the same setting.
+
+The switch starts at the provider's `sharedByDefault` (`true` when left out). The Engine stores
+only the pairs the user changed, so a package update that changes its default applies to pairs the
+user never touched, and a pair the user set keeps their choice. A consumer whose pair is off gets
+`null` from `runtime.services.get` and does not see the key in `runtime.services.list`, exactly as
+if the provider were not installed, so no consumer needs a new code path. The Engine's own reads
+and the provider's reads of its own services are unaffected. A key no active manifest declares in
+`provides` is always shared, as before.
+
+Usage is counted per pair, in the Engine, as reads of `runtime.services.get` that returned the
+service: a consumer that keeps the object counts once. No call is logged and no chat content is
+stored.
 
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 

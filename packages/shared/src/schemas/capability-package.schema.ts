@@ -77,6 +77,17 @@ export const experienceMusicSchema = z
   .strict();
 export type ExperienceMusic = z.infer<typeof experienceMusicSchema>;
 
+/** Capability API 1.819: `<packageId>:<name>`, the form every registered service key takes. */
+export const capabilityServiceKeySchema = z
+  .string()
+  .max(160)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*:[A-Za-z0-9._-]+$/);
+
+/** The package id a service key belongs to: the part before its first colon. */
+export function capabilityServiceKeyOwner(key: string): string {
+  return key.slice(0, key.indexOf(":"));
+}
+
 const capabilityPackageManifestBaseSchema = z
   .object({
     id: z
@@ -394,6 +405,44 @@ const capabilityPackageManifestBaseSchema = z
              * header buttons into. Leave it out to draw the whole page, header included, as before.
              */
             header: z.literal("engine").optional(),
+          })
+          .strict()
+          .optional(),
+        /**
+         * Capability API 1.819. The services this package offers other packages and the ones it uses. `provides`
+         * keys start with the package's own id. `sharedByDefault` (true when left out) is whether a consumer
+         * may read the service before the user decides on the package page. `requires` is informational: nothing
+         * is blocked at install, and the provider activates first when both are installed.
+         */
+        services: z
+          .object({
+            provides: z
+              .array(
+                z
+                  .object({
+                    key: capabilityServiceKeySchema,
+                    version: z.number().int().positive(),
+                    sharedByDefault: z.boolean().optional(),
+                    /** One plain sentence on what flows, shown on the package page ("Reads memories"). */
+                    description: z.string().trim().min(1).max(160).optional(),
+                  })
+                  .strict(),
+              )
+              .max(32)
+              .optional(),
+            requires: z
+              .array(
+                z
+                  .object({
+                    key: capabilityServiceKeySchema,
+                    version: z.number().int().positive(),
+                    optional: z.boolean().optional(),
+                    description: z.string().trim().min(1).max(160).optional(),
+                  })
+                  .strict(),
+              )
+              .max(32)
+              .optional(),
           })
           .strict()
           .optional(),
@@ -1581,7 +1630,13 @@ const capabilityPackageManifestBaseSchema = z
 //        packages declaring 1.818 or newer; older ones get a warning). `runtime.gameState.read(chatId)`, the latest
 //        committed tracker state with the prompt's location, replaces reading the tracker table. Needs `chat-read`.
 //        A soft seam: feature-detect `runtime.gameState`.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 818 } as const);
+// 1.819: `contributions.services`: the services a package provides (`key`, `version`, `sharedByDefault`,
+//        `description`) and requires. `provides` keys start with the package id; `requires` is informational and
+//        orders activation so a provider activates before its consumers. The user can switch each provider service
+//        and consumer pair on or off on the package page; a consumer switched off gets null from
+//        `runtime.services.get`, as if the provider were absent. Not a soft seam: an older Engine refuses a manifest
+//        with the block, so a package that ships it declares 1.819. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 819 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1755,6 +1810,47 @@ export const capabilityPackageManifestSchema = z
             message: `${path} is larger than an audio asset can be (16 MB)`,
           });
         }
+      }
+    }
+    const services = manifest.contributions?.services;
+    if (services) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 819) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "services"],
+          message: "contributions.services requires schemaVersion 2 and capabilityApi 1.819 or newer",
+        });
+      }
+      for (const [list, entries] of [
+        ["provides", services.provides ?? []],
+        ["requires", services.requires ?? []],
+      ] as const) {
+        const seen = new Set<string>();
+        entries.forEach((entry, index) => {
+          if (seen.has(entry.key)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "services", list, index, "key"],
+              message: `${entry.key} is listed twice`,
+            });
+          }
+          seen.add(entry.key);
+          if (list === "provides" && capabilityServiceKeyOwner(entry.key) !== manifest.id) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "services", list, index, "key"],
+              message: `A provided service key must start with "${manifest.id}:", not ${entry.key}`,
+            });
+          }
+          if (list === "requires" && capabilityServiceKeyOwner(entry.key) === manifest.id) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "services", list, index, "key"],
+              message: `A package does not require its own service ${entry.key}`,
+            });
+          }
+        });
       }
     }
     const setup = manifest.contributions?.gameSurface?.setup;

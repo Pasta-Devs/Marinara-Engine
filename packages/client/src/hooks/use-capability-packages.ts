@@ -9,6 +9,7 @@ import {
   type CapabilityPackageManifest,
   type CapabilityPackageUpdate,
   type CapabilityPackageVersionNote,
+  type CapabilityServiceSharingState,
   type BuiltInAgentManifest,
   type InstalledCapabilityPackage,
   type InstalledRuleset,
@@ -34,7 +35,27 @@ export const capabilityPackageKeys = {
   rulesetCatalog: (rulesetId: string, catalogId: string, version: number | undefined) =>
     [...capabilityPackageKeys.rulesets(), "catalog", rulesetId, catalogId, version ?? "latest"] as const,
   releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
+  serviceSharing: () => [...capabilityPackageKeys.all, "service-sharing"] as const,
 };
+
+/** Capability API 1.819: the pairs the user switched on the package page, and each pair's usage. */
+export function useCapabilityServiceSharing(enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.serviceSharing(),
+    queryFn: () => api.get<CapabilityServiceSharingState>("/capability-packages/service-sharing"),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useSetCapabilityServiceSharing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pair: { key: string; consumerId: string; shared: boolean }) =>
+      api.put<CapabilityServiceSharingState>("/capability-packages/service-sharing", pair),
+    onSuccess: (state) => queryClient.setQueryData(capabilityPackageKeys.serviceSharing(), state),
+  });
+}
 
 /** Installed Game Mode rulesets. Keyed under `all`, so installing or removing a package refreshes it. */
 export function useInstalledRulesets(enabled = true) {

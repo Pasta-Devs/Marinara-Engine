@@ -103,6 +103,16 @@ export interface CapabilityGameStateHost {
   read(chatId: string): Promise<CapabilityGameStateView | null>;
 }
 
+/**
+ * Capability API 1.819: `GET /api/capability-packages/service-sharing`. The pairs (provider service key, consumer
+ * package id) the user switched, and each pair's usage. A pair with no override follows the provider's
+ * `sharedByDefault`.
+ */
+export interface CapabilityServiceSharingState {
+  overrides: Array<{ key: string; consumerId: string; shared: boolean }>;
+  usage: Array<{ key: string; consumerId: string; lastUsedAt: string; usesThisWeek: number }>;
+}
+
 /** Capability API 1.816: which other packages are running. */
 export interface CapabilityPackagesHost {
   /** Whether a package's server runtime is activated now. false during a shared-room generation. */

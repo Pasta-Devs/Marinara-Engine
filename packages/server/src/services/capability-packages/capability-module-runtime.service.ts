@@ -63,6 +63,14 @@ import { createCapabilityAchievementHost } from "./capability-achievement-host.s
 import { registerCapabilityAchievements } from "./capability-achievement-registry.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
 import { createCapabilityGameStateHost } from "./capability-game-state.service.js";
+import {
+  declareProvidedCapabilityServices,
+  flushCapabilityServiceUsage,
+  isCapabilityServiceSharedWith,
+  loadCapabilityServiceSharing,
+  orderByServiceRequirements,
+  recordCapabilityServiceUse,
+} from "./capability-service-sharing.service.js";
 import { createCapabilityResourceHost } from "./capability-resources.service.js";
 import { resolvePackageAgentLorebookEntries } from "./capability-agent-lorebook.service.js";
 import {
@@ -246,9 +254,19 @@ async function createCapabilityRuntimeHost(
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
       // itself, so a package can't call another package's hooks through this lookup. The caller identity comes from
       // this package's installed manifest, never from the request.
-      get: <T>(key: string) => (isPackageReadableKey(key) ? getCapabilityServiceForCaller<T>(key, caller) : null),
+      // A pair the user switched off (1.819) reads as an absent service, so no package needs a new code path.
+      get: <T>(key: string) => {
+        if (!isPackageReadableKey(key) || !isCapabilityServiceSharedWith(key, packageId)) return null;
+        const service = getCapabilityServiceForCaller<T>(key, caller);
+        if (service !== null) recordCapabilityServiceUse(key, packageId);
+        return service;
+      },
       list: (prefix: string) =>
-        currentRoomGeneration() ? [] : listCapabilityServiceKeys(String(prefix)).filter(isPackageReadableKey),
+        currentRoomGeneration()
+          ? []
+          : listCapabilityServiceKeys(String(prefix)).filter(
+              (key) => isPackageReadableKey(key) && isCapabilityServiceSharedWith(key, packageId),
+            ),
     }),
     packages: Object.freeze({
       isActive: (id: string) => !currentRoomGeneration() && capabilityModuleRuntime.isActive(String(id)),
@@ -385,7 +403,9 @@ class CapabilityModuleRuntime {
     // location and fail to see host-owned models and storage.
     prepareCapabilityRuntimeEnvironment();
     await this.ensureModuleResolution();
-    for (const runtimePackage of await capabilityPackageManager.runtimePackages()) {
+    await loadCapabilityServiceSharing(app.db);
+    // Providers first, so a consumer's activate can find the services its manifest requires (1.819).
+    for (const runtimePackage of orderByServiceRequirements(await capabilityPackageManager.runtimePackages())) {
       await this.activateOne(app, runtimePackage, true, false);
     }
     await capabilityPackageManager.pruneVersions();
@@ -467,6 +487,8 @@ class CapabilityModuleRuntime {
       const verified = await capabilityPackageManager.verifiedRuntimeFiles(installed);
       const runtimeSnapshot = await this.createVerifiedRuntimeSnapshot(installed, verified);
       registeredCleanups.push(runtimeSnapshot.cleanup);
+      await loadCapabilityServiceSharing(app.db);
+      registeredCleanups.push(declareProvidedCapabilityServices(installed));
       const module = (await import(pathToFileURL(runtimeSnapshot.entrypoint).href)) as CapabilityModule;
       if (typeof module.activate !== "function") throw new Error("Server entrypoint must export activate(context)");
       const trackCleanup = (cleanup: Cleanup) => {
@@ -713,6 +735,7 @@ class CapabilityModuleRuntime {
   }
 
   async stop(): Promise<void> {
+    await flushCapabilityServiceUsage();
     for (const [packageId, cleanup] of [...this.cleanups.entries()].reverse()) {
       this.cleanups.delete(packageId);
       try {

@@ -35,6 +35,7 @@ const MEMBERS = [
   "components",
   "data",
   "api",
+  "events",
 ] as const;
 const STORE_NAMES = ["ui", "chat", "agent", "sidecar", "dialog", "gallery", "encounter", "gameState", "backfill"];
 const MODULE_SPECIFIERS = [

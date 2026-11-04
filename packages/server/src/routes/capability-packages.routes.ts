@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   BUILT_IN_AGENT_MANIFESTS,
+  capabilityServiceKeyOwner,
+  capabilityServiceKeySchema,
   EXPERIENCE_FILE_CONTENT_TYPE,
   ExperienceFileError,
   type InstalledRuleset,
@@ -29,11 +31,26 @@ import { capabilityModuleRuntime } from "../services/capability-packages/capabil
 import { refreshCapabilityAgentRegistry } from "../services/capability-packages/capability-agent-registry.service.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
+import {
+  capabilityServiceSharingState,
+  setCapabilityServiceShared,
+} from "../services/capability-packages/capability-service-sharing.service.js";
 
 const rulesetVersionQuery = z.object({
   rulesetId: z.string().min(1).max(140),
   version: z.coerce.number().int().min(1),
 });
+const serviceSharingBody = z
+  .object({
+    key: capabilityServiceKeySchema,
+    consumerId: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(80),
+    shared: z.boolean(),
+  })
+  .strict();
+
 const packageParams = z.object({
   id: z
     .string()
@@ -272,6 +289,18 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
         .send({ error: "That translation cannot be read", code: "ruleset_locale_unusable", issues: [read.issue] });
     }
     return { rulesetId: definition.id, version: definition.version, locale: opened.locale, strings: read.strings };
+  });
+  // Capability API 1.819: the package page's per-pair sharing switches. Only the Engine enforces them, in
+  // runtime.services.get; these routes read and store the user's choice.
+  app.get("/service-sharing", async () => capabilityServiceSharingState(app.db));
+  app.put("/service-sharing", async (request, reply) => {
+    if (!requirePrivilegedAccess(request, reply, { feature: "Agent sharing" })) return;
+    const { key, consumerId, shared } = serviceSharingBody.parse(request.body);
+    if (capabilityServiceKeyOwner(key) === consumerId) {
+      return reply.status(400).send({ error: "A package always reads its own services" });
+    }
+    await setCapabilityServiceShared(app.db, key, consumerId, shared);
+    return capabilityServiceSharingState(app.db);
   });
   app.get<{ Params: { id: string } }>("/:id/release-notes", async (request) => {
     const { id } = packageParams.parse(request.params);
