@@ -207,7 +207,7 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
-import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
@@ -518,6 +518,7 @@ export function CharacterEditor() {
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
   const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
+  const closeOverhaulMore = useCallback(() => setOverhaulMoreOpen(false), []);
   useEffect(() => {
     setOverhaulAddedSections([]);
     setOverhaulAddedFields([]);
@@ -1384,6 +1385,7 @@ export function CharacterEditor() {
           <button
             type="button"
             className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
+            data-ov-more-trigger=""
             onClick={() => setOverhaulMoreOpen((open) => !open)}
             aria-expanded={overhaulMoreOpen}
             title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
@@ -1391,7 +1393,9 @@ export function CharacterEditor() {
           >
             <MoreHorizontal size="0.875rem" />
           </button>
-          {overhaulMoreOpen ? <div className="ov-rail__more mari-editor-actions">{headerActions}</div> : null}
+          <RailMoreMenu open={overhaulMoreOpen} onClose={closeOverhaulMore}>
+            {headerActions}
+          </RailMoreMenu>
         </>
       }
       sectionsTitle={localizeUi("ui.overhaul.onThisCard", { defaultValue: "On this card" })}

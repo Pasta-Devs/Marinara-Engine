@@ -620,11 +620,75 @@
 .ov-btn.is-on {
   background: var(--ov-active-bg);
 }
+.ov-rail__actions {
+  position: relative;
+}
+/* "⋯" overflow: a labelled vertical menu (same look as Message actions), floating under the buttons. */
 .ov-rail__more {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 40;
+  min-width: 13rem;
+  max-width: 100%;
+  padding: 0.375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+  background: var(--card, #16141b);
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.75);
+  color: var(--ov-text);
+}
+.ov-rail__more-label {
+  margin: 0.125rem 0.5rem 0.25rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ov-rail__more .mari-editor-actions {
+  display: grid !important;
+  gap: 0.0625rem !important;
   width: 100%;
+  padding: 0 !important;
+}
+.ov-rail__more .mari-editor-actions button[title] {
+  display: flex !important;
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 1.875rem !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: 0.625rem;
+  padding: 0.25rem 0.5rem !important;
+  border: 0 !important;
+  border-radius: 0.375rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ov-text) !important;
+  text-align: left;
+}
+.ov-rail__more .mari-editor-actions button[title] svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex: none;
+}
+.ov-rail__more .mari-editor-actions button[title] > :not(svg) {
+  display: none;
+}
+.ov-rail__more .mari-editor-actions button[title]::after {
+  content: attr(title);
+  overflow: hidden;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-rail__more .mari-editor-actions button[title]:hover:not(:disabled) {
+  background: var(--ov-hover) !important;
+}
+.ov-rail__more .mari-editor-actions button[title]:has(svg.lucide-trash2, svg.lucide-trash-2) {
+  color: var(--destructive) !important;
 }
 .ov-rail__rule {
   height: 1px;

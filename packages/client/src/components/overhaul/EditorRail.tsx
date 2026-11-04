@@ -5,7 +5,7 @@
 // them is the jump list of the sections this item actually uses, with
 // "+ Add a section" for the rest. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { ChevronRight, Plus, X, type LucideIcon } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
@@ -268,6 +268,36 @@ export function AddFieldChips({
           {localize(item.label)}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** The rail's "⋯" overflow: the editor's header actions as a labelled menu list, like Message actions. */
+export function RailMoreMenu({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  const localize = useLocalizedUiText();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target || ref.current?.contains(target) || target.closest("[data-ov-more-trigger]")) return;
+      onClose();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onPointer, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div ref={ref} className="ov-rail__more" role="menu" onClick={() => window.setTimeout(onClose, 0)}>
+      <p className="ov-rail__more-label">{localize("More actions")}</p>
+      <div className="mari-editor-actions">{children}</div>
     </div>
   );
 }
