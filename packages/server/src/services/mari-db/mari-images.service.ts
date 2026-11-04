@@ -402,12 +402,20 @@ function appFileEntry(folder: string, path: string): string {
   return join(realPathInAppFolder(folder, dirname(path)), basename(path));
 }
 
-// Writes go to a new temporary file in the checked folder, renamed into place: a link already at the name is refused,
-// and one that appears after the check is replaced by the rename, never followed.
-async function writeAppFile(folder: string, path: string, data: string | Buffer): Promise<void> {
+// The file's own name in its checked real folder, refused when that name is a link, dangling or not, wherever it
+// points. The manifest and meta.json reads and every write share this, so a file a read accepts is one its write
+// accepts, and a refusal comes before any image is saved or deleted.
+function unlinkedAppFile(folder: string, path: string): string {
   const entry = appFileEntry(folder, path);
   if (lstatSync(entry, { throwIfNoEntry: false })?.isSymbolicLink())
     throw new Error(`Linked app file refused: ${basename(entry)}`);
+  return entry;
+}
+
+// Writes go to a new temporary file in the checked folder, renamed into place: a link already at the name is refused,
+// and one that appears after the check is replaced by the rename, never followed.
+async function writeAppFile(folder: string, path: string, data: string | Buffer): Promise<void> {
+  const entry = unlinkedAppFile(folder, path);
   await mkdir(dirname(entry), { recursive: true });
   const temporary = join(dirname(entry), `.mari-${newId()}.tmp`);
   try {
@@ -434,10 +442,11 @@ function galleryFolder(...names: string[]): string {
   return join(GALLERY_DIR, ...names);
 }
 
-// lstat, not exists: a dangling link at the name is refused here, before any image is saved beside it.
+// Refused here, by the same rule as its write, before any image is saved or deleted beside it.
 async function readManifest() {
-  if (!lstatSync(PREVIEW_MANIFEST_PATH, { throwIfNoEntry: false })) return [] as MariImageAsset[];
-  return parseManifest(await readFile(realPathInAppFolder(PREVIEW_DIR, PREVIEW_MANIFEST_PATH), "utf8"));
+  const path = unlinkedAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH);
+  if (!existsSync(path)) return [] as MariImageAsset[];
+  return parseManifest(await readFile(path, "utf8"));
 }
 
 async function writeManifest(assets: MariImageAsset[]) {
@@ -493,9 +502,9 @@ async function savePreviewAsset(args: {
 }
 
 async function readBackgroundMeta(): Promise<Record<string, { tags: string[] }>> {
-  if (!lstatSync(BACKGROUND_META_PATH, { throwIfNoEntry: false })) return {};
-  // Checked outside the try: a linked meta.json, dangling or not, is refused, not read as empty.
-  const path = realPathInAppFolder(BACKGROUND_DIR, BACKGROUND_META_PATH);
+  // Checked outside the try: a linked meta.json is refused, by the same rule as its write, not read as empty.
+  const path = unlinkedAppFile(BACKGROUND_DIR, BACKGROUND_META_PATH);
+  if (!existsSync(path)) return {};
   try {
     return JSON.parse(await readFile(path, "utf8")) as Record<string, { tags: string[] }>;
   } catch {

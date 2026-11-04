@@ -230,6 +230,40 @@ try {
   assert.ok(!existsSync(join(backgrounds, "noon.png")), "no background is saved beside a dangling meta.json");
   rmSync(join(backgrounds, "meta.json"));
 
+  // A manifest or meta.json linked to another file in its own folder is refused by the read as well as the write, so
+  // nothing is saved or deleted before the write would refuse it.
+  const kept = (await ok("generate", "--prompt", "a lantern")).output as { asset: { id: string; filename: string } };
+  const keptPreview = join(previewDir, kept.asset.filename);
+  const siblingManifest = join(previewDir, "manifest-copy.json");
+  renameSync(join(previewDir, "manifest.json"), siblingManifest);
+  symlinkSync(siblingManifest, join(previewDir, "manifest.json"), "file");
+  const previews = files(previewDir);
+  for (const args of [
+    ["generate", "--prompt", "a lantern"],
+    ["edit", "--source", DATA_URL, "--prompt", "a lantern"],
+    ["list", "assets"],
+    ["delete", "--target", "asset", "--asset", kept.asset.id, "--apply"],
+  ]) {
+    await refused(args, siblingManifest, keptPreview);
+    assert.deepEqual(files(previewDir), previews, `${args[0]}: no preview is saved or deleted beside the link`);
+  }
+  rmSync(join(previewDir, "manifest.json"));
+  renameSync(siblingManifest, join(previewDir, "manifest.json"));
+  const siblingMeta = join(backgrounds, "meta-copy.json");
+  writeFileSync(siblingMeta, JSON.stringify({ "dusk.png": { tags: ["evening"] } }));
+  symlinkSync(siblingMeta, join(backgrounds, "meta.json"), "file");
+  const backgroundFiles = files(backgrounds);
+  for (const args of [
+    ["assign", "--target", "background", "--name", "noon", "--source", DATA_URL, "--apply"],
+    ["list", "backgrounds"],
+    ["delete", "--target", "background", "--filename", "dusk.png", "--apply"],
+  ]) {
+    await refused(args, siblingMeta, join(backgrounds, "dusk.png"));
+    assert.deepEqual(files(backgrounds), backgroundFiles, `${args[0]}: no background is saved or deleted beside it`);
+  }
+  rmSync(join(backgrounds, "meta.json"));
+  rmSync(siblingMeta);
+
   // A linked app folder: nothing is written, read or deleted in the folder it points to.
   const outsidePreviews = join(outside, "previews");
   let restore = linkFolder(previewDir, outsidePreviews);
