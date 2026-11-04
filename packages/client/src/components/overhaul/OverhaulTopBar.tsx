@@ -40,6 +40,7 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
+import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { MariTopbarStatus } from "../layout/MariTopbarStatus";
@@ -59,6 +60,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library">, LucideIcon
   connection: Link,
   agent: Sparkles,
   regex: Regex,
+  docs: CircleHelp,
 };
 
 const MODE_DOT: Record<string, string> = {
@@ -80,8 +82,10 @@ function useCurrentTab(): OverhaulTab | null {
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
+  const activeDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   return useMemo(() => {
     const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
+    if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
     if (real(regexDetailId)) return { kind: "regex", id: regexDetailId! };
     if (real(personaDetailId)) return { kind: "persona", id: personaDetailId! };
     if (real(agentDetailId)) return { kind: "agent", id: agentDetailId! };
@@ -96,6 +100,7 @@ function useCurrentTab(): OverhaulTab | null {
     return null;
   }, [
     activeChatId,
+    activeDocsTab,
     agentDetailId,
     cardLibraryKind,
     characterDetailId,
@@ -111,6 +116,7 @@ function useCurrentTab(): OverhaulTab | null {
 
 function goHome() {
   window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
+  useOverhaulStore.getState().leaveDocs();
   useOverhaulStore.getState().setLibraryPage(null);
   useChatStore.getState().setActiveChatId(null);
   useUIStore.getState().closeAllDetails();
@@ -119,6 +125,12 @@ function goHome() {
 function activateTab(tab: OverhaulTab) {
   const ui = useUIStore.getState();
   const overhaul = useOverhaulStore.getState();
+  if (tab.kind === "docs") {
+    ui.closeAllDetails();
+    useOverhaulStore.setState({ activeDocsTab: tab.id, libraryPage: null });
+    return;
+  }
+  overhaul.leaveDocs();
   switch (tab.kind) {
     case "chat":
       ui.closeAllDetails();
@@ -177,6 +189,10 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const lorebook = useLorebook(tab.kind === "lorebook" ? tab.id : null);
   const preset = usePresetFull(tab.kind === "preset" ? tab.id : null);
   const connection = useConnection(tab.kind === "connection" ? tab.id : null);
+  const docsPath = useOverhaulStore((s) => (tab.kind === "docs" ? (s.docsTabs[tab.id] ?? null) : null));
+  const docsIndex = useDocsIndex(tab.kind === "docs");
+  const docsTitle = (path: string | null) =>
+    path ? (docsIndex.data?.docs.find((entry) => entry.path === path)?.title ?? null) : null;
   let label: string | null = null;
   if (tab.kind === "chat") label = chats.find((chat) => chat.id === tab.id)?.name ?? null;
   else if (tab.kind === "character") label = parseCharacterName(character.data);
@@ -190,6 +206,10 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     label = section ? localize(section.label) : null;
   } else if (tab.kind === "agent") label = tab.id.replace(/[-_]/g, " ");
   else if (tab.kind === "regex") label = localize("Regex script");
+  else if (tab.kind === "docs") {
+    const title = docsTitle(docsPath);
+    label = title ? `${localize("Docs")}: ${title}` : localize("Docs");
+  }
   return <span className="ov-tab__label">{label ?? localize("Untitled")}</span>;
 }
 
