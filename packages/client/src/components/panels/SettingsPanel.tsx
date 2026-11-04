@@ -8227,3 +8227,34 @@ function AdvancedSettings() {
     </div>
   );
 }
+
+// ──────────────────────────────────────────────
+// UI overhaul: the settings sections, regrouped
+//
+// Renders the existing section components that hold the requested sections
+// and hides every other section, so each control keeps its real behaviour
+// while the overhaul's Settings page arranges them into its own tabs.
+// ──────────────────────────────────────────────
+export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly SettingsSectionId[] }) {
+  const parts = new Set<string>();
+  for (const id of sectionIds) {
+    const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
+    if (!meta) continue;
+    parts.add(meta.tab === "appearance" ? `appearance:${appearanceGroupForSection(id)}` : meta.tab);
+  }
+  const visible = sectionIds.map((id) => `#${getSettingsSectionAnchorId(id)}`).join(", ");
+  return (
+    <div className="ov-settings__sections" data-ov-settings-sections>
+      <style>{`[data-ov-settings-sections] [id^="settings-section-"]:not(${visible}) { display: none !important; }`}</style>
+      {parts.has("general") ? <GeneralSettings /> : null}
+      {parts.has("appearance:app") ? <AppearanceSettings group="app" /> : null}
+      {parts.has("appearance:conversation") ? <AppearanceSettings group="conversation" /> : null}
+      {parts.has("appearance:roleplay") ? <AppearanceSettings group="roleplay" /> : null}
+      {parts.has("appearance:game") ? <AppearanceSettings group="game" /> : null}
+      {parts.has("generations") ? <GenerationsSettings /> : null}
+      {parts.has("addons") ? <AddonsSettings /> : null}
+      {parts.has("import") ? <ImportSettings /> : null}
+      {parts.has("advanced") ? <AdvancedSettings /> : null}
+    </div>
+  );
+}
