@@ -134,11 +134,36 @@ try {
 }
 const nativeDepsSource = readFileSync(join(repositoryRoot, "scripts", "ensure-native-deps.mjs"), "utf8");
 assert.match(nativeDepsSource, /removeLegacyPnpmStore\(repoRoot\)/u, "The root postinstall reclaims the v10 store.");
-assert.match(
-  readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8"),
-  /prune_pnpm_store\(\) \{[\s\S]*rm -rf \.pnpm-store\/v10[\s\S]*run_pnpm store prune/u,
-  "Termux drops the v10 store before installing, so both stores never have to fit at once.",
-);
+// Termux drops the v10 store before installing, so both stores never have to fit at once. The launcher runs
+// under set -e, so a store it cannot remove, like a prune that fails, is a warning and startup goes on.
+const termuxLauncherSource = readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8");
+const pruneStart = termuxLauncherSource.indexOf("prune_pnpm_store() {");
+const pruneEnd = termuxLauncherSource.indexOf("\ninstall_workspace_dependencies()", pruneStart);
+assert.ok(pruneStart >= 0 && pruneEnd > pruneStart, "start-termux.sh must define prune_pnpm_store");
+const termuxStoreRoot = mkdtempSync(join(tmpdir(), "marinara-termux-store-"));
+const runTermuxPrune = (stubs) => {
+  mkdirSync(join(termuxStoreRoot, ".pnpm-store", "v10", "files"), { recursive: true });
+  writeFileSync(join(termuxStoreRoot, "pnpm-calls"), "");
+  const script = `set -e\n${termuxLauncherSource.slice(pruneStart, pruneEnd)}\n${stubs}\nprune_pnpm_store\necho startup-continued`;
+  const result = spawnSync("bash", ["-c", script], { cwd: termuxStoreRoot, encoding: "utf8" });
+  assert.equal(result.status, 0, `prune_pnpm_store must not stop startup:\n${result.stdout}${result.stderr}`);
+  assert.match(result.stdout, /startup-continued/u);
+  return { output: result.stdout, pnpmCalls: readFileSync(join(termuxStoreRoot, "pnpm-calls"), "utf8") };
+};
+try {
+  const recordPnpm = 'run_pnpm() { echo "$*" >> pnpm-calls; }';
+  let run = runTermuxPrune(recordPnpm);
+  assert.ok(!existsSync(join(termuxStoreRoot, ".pnpm-store", "v10")), "Termux removes the v10 store.");
+  assert.equal(run.pnpmCalls, "store prune\n");
+  assert.doesNotMatch(run.output, /\[WARN\]/u);
+  run = runTermuxPrune(`rm() { return 1; }\n${recordPnpm}`);
+  assert.match(run.output, /\[WARN\] Could not remove the pnpm 10 dependency cache/u);
+  assert.equal(run.pnpmCalls, "store prune\n", "The store is still pruned after a failed removal.");
+  run = runTermuxPrune("run_pnpm() { return 1; }");
+  assert.match(run.output, /\[WARN\] Could not prune the pnpm store/u);
+} finally {
+  rmSync(termuxStoreRoot, { recursive: true, force: true });
+}
 
 async function reservePort() {
   const server = createServer();
