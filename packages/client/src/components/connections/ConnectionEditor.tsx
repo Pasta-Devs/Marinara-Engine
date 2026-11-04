@@ -3263,12 +3263,14 @@ export function ConnectionEditor({
                       {formatContext(selectedModelInfo.context)}
                     </strong>
                   </span>
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.maxOutput")}{" "}
-                    <strong className="font-medium text-[var(--foreground)]">
-                      {formatContext(selectedModelInfo.maxOutput)}
-                    </strong>
-                  </span>
+                  {selectedModelInfo.maxOutput > 0 && (
+                    <span>
+                      {localizeUi("ui.connections.connectioneditor.maxOutput")}{" "}
+                      <strong className="font-medium text-[var(--foreground)]">
+                        {formatContext(selectedModelInfo.maxOutput)}
+                      </strong>
+                    </span>
+                  )}
                 </p>
               )}
               {selectedPrice && (

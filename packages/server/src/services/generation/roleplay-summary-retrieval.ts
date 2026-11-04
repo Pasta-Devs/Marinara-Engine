@@ -30,6 +30,34 @@ function filterExcludedSummaryEntries(entries: ChatSummaryEntry[], excludeMessag
   });
 }
 
+/** Ids of the newest `count` entries by creation time, which semantic retrieval always keeps. */
+function newestSummaryEntryIds(entries: readonly ChatSummaryEntry[], count: number): Set<string> {
+  return new Set(
+    [...entries]
+      .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt))
+      .slice(Math.max(0, entries.length - count))
+      .map((entry) => entry.id),
+  );
+}
+
+/**
+ * The enabled entries every Roleplay prompt keeps. An excluded message, such as the reply a swipe replaces,
+ * leaves out each entry that covers it, and semantic retrieval can leave out any entry but its newest ones.
+ */
+export function summaryEntriesAlwaysInPrompt(
+  chatMetadata: Record<string, unknown>,
+  excludeMessageIds: readonly string[] = [],
+): ChatSummaryEntry[] {
+  const enabled = filterExcludedSummaryEntries(
+    normalizeChatSummaryEntries(chatMetadata.summaryEntries),
+    excludeMessageIds,
+  ).filter((entry) => entry.enabled);
+  if (chatMetadata.semanticSummaryRetrievalEnabled !== true) return enabled;
+  const { semanticSummaryRecentCount } = normalizeSemanticSummaryRetrievalSettings(chatMetadata);
+  const newest = newestSummaryEntryIds(enabled, semanticSummaryRecentCount);
+  return enabled.filter((entry) => newest.has(entry.id));
+}
+
 function buildRoleplaySummaryRetrievalQuery(messages: readonly RoleplaySummaryQueryMessage[]): string {
   return messages
     .filter((message) => message.role === "user" || message.role === "assistant")
@@ -84,12 +112,7 @@ export async function resolveRoleplayChatSummaryForPrompt(args: {
   const settings = normalizeSemanticSummaryRetrievalSettings(args.chatMetadata);
   if (enabledEntries.length <= settings.semanticSummaryRecentCount) return fallbackSummary;
 
-  const newestEntryIds = new Set(
-    [...enabledEntries]
-      .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt))
-      .slice(Math.max(0, enabledEntries.length - settings.semanticSummaryRecentCount))
-      .map((entry) => entry.id),
-  );
+  const newestEntryIds = newestSummaryEntryIds(enabledEntries, settings.semanticSummaryRecentCount);
   if (settings.semanticSummaryOlderCount === 0) {
     return compileChatSummaryEntries(enabledEntries.filter((entry) => newestEntryIds.has(entry.id)));
   }

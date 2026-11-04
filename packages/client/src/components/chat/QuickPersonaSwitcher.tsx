@@ -93,6 +93,10 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
         open={open}
         onOpenChange={setOpen}
         anchorRef={btnRef}
+        // Roleplay's composer pickers sit on the card surface, like the model picker beside this one.
+        windowClassName={
+          chat?.mode === "roleplay" ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]" : undefined
+        }
         value={value}
         onChange={(next) =>
           updateChat.mutate({
