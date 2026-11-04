@@ -607,7 +607,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           result.toolCalls.length === 0 &&
           toolDefs.some((tool) => tool.function.name === "app_data") &&
           printedLorebookLookup(result.content ?? "");
-        const text = !printedLookup && shown.trim() ? shown : "";
+        // Keep a nonempty, argument-free assistant turn in the repair history for strict endpoints.
+        const text = printedLookup ? "I printed a lorebook lookup. It did not run." : shown.trim() ? shown : "";
         // A truncated frame never runs: its tool calls may be cut off mid-argument.
         const calls = truncated ? [] : parsedCalls;
         if (result.usage) {

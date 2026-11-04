@@ -194,7 +194,7 @@ try {
       ] as const) {
         provider = kind;
         const adapter = new OpenAIProvider("http://127.0.0.1:1/v1", "", 32768, null, null, kind);
-        const wire = async (options: ChatOptions, onToken?: (chunk: string) => void) => {
+        const wire = async (options: ChatOptions) => {
           const original = globalThis.fetch;
           globalThis.fetch = async (_url, init) => {
             const body = JSON.parse(String(init?.body));
@@ -212,7 +212,7 @@ try {
             return await adapter.chatComplete(requests.at(-1)!.messages, {
               ...options,
               stream: streaming,
-              onToken: streaming ? onToken : undefined,
+              onToken: streaming ? options.onToken : undefined,
             });
           } finally {
             globalThis.fetch = original;
@@ -246,6 +246,16 @@ try {
     assert.match(requests[1]!.messages.at(-1)!.content, /<tool_call> format/u);
     assert.match(requests[2]!.messages.at(-1)!.content, /hi from the workspace file/u);
     provider = "custom";
+    mode = "plan";
+    const denied = await start("printed lookup retry permissions", [
+      reply(search),
+      reply("", [{ id: "retry-write", name: "write", args: { path: "retry.txt", content: "x", reason: "fixture" } }]),
+      reply("The file was not written."),
+    ]);
+    await denied.done;
+    assert.match(toolMessages(requests[2]!.messages)[0]!.content, /Plan mode is active/u);
+    assert.equal(existsSync(join(workspaceDir, "retry.txt")), false);
+    mode = "auto";
     for (const example of [
       JSON.stringify(search),
       "```xml\n" + entries + "\n```",
