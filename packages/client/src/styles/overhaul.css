@@ -2005,7 +2005,7 @@
 }
 [data-ov-row] > div:first-child > div:first-child > button,
 [data-ov-row] [data-preset-section-toggle],
-[data-ov-row] [data-preset-section-group-badge],
+[data-ov-row] [data-preset-marker-badge],
 [data-ov-row] > div:first-child > span.sm\:inline {
   display: none !important;
 }
@@ -2022,12 +2022,16 @@
 [data-ov-row][data-preset-marker-section] > div:first-child > span.flex-1 {
   font-style: italic;
 }
-[data-ov-row] [data-preset-marker-badge] {
+/* The italic name already says "marker"; the badge spot names the entry's group instead. */
+[data-ov-row] [data-preset-section-group-badge] {
+  max-width: 7rem;
+  overflow: hidden;
   border: 1px solid var(--ov-line);
+  border-radius: 0.25rem;
   background: transparent !important;
   color: var(--ov-muted) !important;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.6875rem !important;
+  text-overflow: ellipsis;
 }
 .ov-preset__left [data-preset-section-root] {
   display: grid;
@@ -6092,4 +6096,29 @@ input.ov-edhead__title:focus {
   flex-direction: row;
   padding: 0;
   overflow: hidden;
+}
+
+/* ─── No drag handles (2026-11-04) ─── */
+/* Lists reorder by dragging the whole row, so the ⋮⋮ handles only took space. Home widget editing,
+   the battle map and the floating music players keep theirs: there the handle is the only grip. */
+:root[data-overhaul="on"]
+  :is(div, button, span):has(> svg.lucide-grip-vertical:only-child):not(
+    [data-component="HomeBrowserHub"] *,
+    [data-component="TacticalCombatUI"] *
+  ),
+:root[data-overhaul="on"] .ov-lrow__grip,
+:root[data-overhaul="on"] .ov-cs-edit__grip {
+  display: none !important;
+}
+:root[data-overhaul="on"] :is([data-ov-row], .ov-cs-edit [draggable="true"]) {
+  cursor: grab;
+}
+.ov-lv__left .ov-lrow {
+  column-gap: 0;
+}
+
+/* Picking a row in a list should feel instant: no fade on the selection highlight. */
+:root[data-overhaul="on"] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]),
+:root[data-overhaul="on"] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]) * {
+  transition: none !important;
 }

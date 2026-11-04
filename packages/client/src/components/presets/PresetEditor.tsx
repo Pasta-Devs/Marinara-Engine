@@ -2127,7 +2127,7 @@ function SectionsTab({
                   data-touch-reorder-index={idx}
                   data-preset-marker-section={compact && isMarker ? "true" : undefined}
                   data-ov-row={masterDetail ? (isExpanded ? "selected" : "") : undefined}
-                  draggable={dragReady === idx}
+                  draggable={masterDetail || dragReady === idx}
                   onDragStart={(e) => handleDragStart(idx, e)}
                   onDragOver={(e) => {
                     e.stopPropagation();

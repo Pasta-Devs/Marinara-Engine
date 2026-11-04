@@ -12,6 +12,7 @@ import {
   type TouchEvent as ReactTouchEvent,
   type RefObject,
 } from "react";
+import { isOverhaulActive } from "../../stores/overhaul.store";
 import type { TFunction } from "i18next";
 import {
   chatKeys,
@@ -2926,7 +2927,7 @@ function SummaryEntryRow({
       aria-busy={togglePending}
       data-touch-reorder-item={reorderable ? "summary-entry" : undefined}
       data-touch-reorder-index={reorderable ? entryIndex : undefined}
-      draggable={reorderable && dragReady}
+      draggable={reorderable && (dragReady || isOverhaulActive())}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
