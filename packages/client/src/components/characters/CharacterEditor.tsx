@@ -91,6 +91,7 @@ import {
   ArrowUp,
   Save,
   User,
+  MoreHorizontal,
   IdCard,
   Settings2,
   Library,
@@ -204,6 +205,10 @@ import {
 } from "../../lib/stat-icon-assignments";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
+import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
+import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { openLibrarySection } from "../overhaul/library-navigation";
+import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Tabs ──
@@ -222,6 +227,41 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+/** UI overhaul: plain names for the sections in the editor's left rail. */
+const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
+  metadata: "Details",
+  card: "The Card",
+  onboarding: "Onboarding",
+  convo: "Convo profile",
+  lorebook: "Lorebook",
+  sprites: "Sprites",
+  gallery: "Gallery",
+  colors: "Colors",
+  voice: "Voice",
+  stats: "Game Mode",
+  advanced: "Advanced",
+};
+
+/** UI overhaul: the card comes first; Details (creator, version…) sits near the end. */
+const OVERHAUL_TAB_ORDER = [
+  ...TABS.filter((tab) => tab.id !== "metadata" && tab.id !== "advanced"),
+  TABS[0],
+  TABS[TABS.length - 1],
+];
+
+/** UI overhaul: card fields that only show once they hold text or are added. */
+const OVERHAUL_OPTIONAL_CARD_FIELDS = [
+  { id: "summary", label: "Summary" },
+  { id: "personality", label: "Personality" },
+  { id: "backstory", label: "Backstory" },
+  { id: "appearance", label: "Appearance" },
+  { id: "scenario", label: "Scenario" },
+] as const;
+
+function overhaulHasText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-summary", label: "Summary" },
@@ -407,7 +447,8 @@ export function CharacterEditor() {
   const { data: connectionsList } = useConnections();
 
   const [activeTab, setActiveTab] = useState<TabId>(
-    () => (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? "metadata",
+    () =>
+      (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulActive() ? "card" : "metadata"),
   );
   const [formData, setFormData] = useState<CharacterData | null>(null);
   // Same rule as the Onboarding tab: only a missing block is empty, so a block
@@ -420,7 +461,7 @@ export function CharacterEditor() {
   const { contentRef, scrollToSection } = useEditorSections(
     characterId,
     !!formData,
-    (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? "metadata",
+    (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? (isOverhaulActive() ? "card" : "metadata"),
     setActiveTab,
   );
   const [characterComment, setCharacterComment] = useState("");
@@ -470,6 +511,18 @@ export function CharacterEditor() {
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
   const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
   const [newTag, setNewTag] = useState("");
+  const overhaulActive = useOverhaulActive();
+  const { startChatFromCharacter } = useStartChatFromCharacter();
+  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
+  const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
+  const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
+  useEffect(() => {
+    setOverhaulAddedSections([]);
+    setOverhaulAddedFields([]);
+    setOverhaulMoreOpen(false);
+  }, [characterId]);
+  const { data: overhaulSprites } = useCharacterSprites(overhaulActive ? characterId : null);
+  const { data: overhaulGallery } = useCharacterGalleryImages(overhaulActive ? characterId : null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestAvatarUploadRef = useRef<{ token: string; characterId: string } | null>(null);
@@ -1078,6 +1131,7 @@ export function CharacterEditor() {
   const favoriteLabel = formData.extensions.fav
     ? localizeUi("ui.characters.charactereditor.removeFromFavorites")
     : localizeUi("ui.characters.charactereditor.addToFavorites");
+
   const headerActions = (
     <>
       <button
@@ -1176,6 +1230,181 @@ export function CharacterEditor() {
     </>
   );
 
+  // ── UI overhaul: only the sections and card fields this character uses ──
+  const overhaulExt = formData.extensions as Record<string, unknown>;
+  const overhaulSectionInUse: Record<TabId, boolean> = {
+    metadata: true,
+    card: true,
+    onboarding: overhaulExt.onboarding != null,
+    convo:
+      overhaulHasText(overhaulExt.convoBehavior) ||
+      overhaulHasText(overhaulExt.aboutMe) ||
+      overhaulHasText(overhaulExt.convoDisplayName) ||
+      overhaulHasText(overhaulExt.conversationImageInstructions),
+    lorebook: true,
+    sprites: (overhaulSprites?.length ?? 0) > 0,
+    gallery: (overhaulGallery?.length ?? 0) > 0,
+    colors:
+      overhaulHasText(overhaulExt.nameColor) ||
+      overhaulHasText(overhaulExt.dialogueColor) ||
+      overhaulHasText(overhaulExt.boxColor) ||
+      (Array.isArray(overhaulExt.nameAliases) && overhaulExt.nameAliases.length > 0),
+    voice: overhaulHasText(overhaulExt.phoneticName),
+    stats: Boolean((overhaulExt.rpgStats as { enabled?: boolean } | undefined)?.enabled),
+    advanced:
+      overhaulHasText(formData.system_prompt) ||
+      overhaulHasText(formData.post_history_instructions) ||
+      overhaulHasText((overhaulExt.depth_prompt as { prompt?: unknown } | undefined)?.prompt),
+  };
+  const showSection = (id: TabId) => !overhaulActive || overhaulSectionInUse[id] || overhaulAddedSections.includes(id);
+  const overhaulCardFieldInUse: Record<string, boolean> = {
+    summary: overhaulHasText(formData.summary),
+    personality: overhaulHasText(formData.personality),
+    backstory: overhaulHasText(overhaulExt.backstory),
+    appearance: overhaulHasText(overhaulExt.appearance),
+    scenario: overhaulHasText(formData.scenario),
+  };
+  const overhaulVisibleFields = new Set(
+    OVERHAUL_OPTIONAL_CARD_FIELDS.map((field) => field.id).filter(
+      (id) => overhaulCardFieldInUse[id] || overhaulAddedFields.includes(id),
+    ),
+  );
+  const addOverhaulField = (id: string) => {
+    setOverhaulAddedFields((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    window.setTimeout(() => {
+      const anchor = document.getElementById(`character-card-${id}`);
+      anchor?.scrollIntoView({ behavior: "smooth", block: "center" });
+      anchor?.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true });
+    }, 60);
+  };
+  const addOverhaulSection = (id: string) => {
+    setOverhaulAddedSections((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    window.setTimeout(() => scrollToSection(id as TabId), 60);
+  };
+  const overhaulRail = overhaulActive ? (
+    <EditorRail
+      crumbs={
+        <EditorCrumbs
+          items={[
+            { label: localizeUi("ui.overhaul.library", { defaultValue: "Library" }) },
+            {
+              label: localizeUi("ui.overhaul.characters", { defaultValue: "Characters" }),
+              onClick: () => leaveWithoutSaving(() => openLibrarySection("characters")),
+            },
+            { label: formData.name || localizeUi("ui.characters.charactereditor.characterName") },
+          ]}
+        />
+      }
+      avatarUrl={avatarPreview}
+      avatarStyle={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
+      placeholderIcon={User}
+      onReplaceAvatar={() => fileInputRef.current?.click()}
+      avatarActions={
+        <>
+          {avatarPreview ? (
+            <button
+              type="button"
+              className="ov-chip-btn"
+              onClick={() =>
+                document.getElementById("ov-avatar-crop")?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            >
+              {localizeUi("ui.overhaul.crop", { defaultValue: "Crop" })}
+            </button>
+          ) : null}
+          {imageGenerationAvailable ? (
+            <button type="button" className="ov-chip-btn" onClick={() => setAvatarGeneratorOpen(true)}>
+              {localizeUi("ui.overhaul.generate", { defaultValue: "Generate" })}
+            </button>
+          ) : null}
+        </>
+      }
+      name={formData.name}
+      onNameChange={(value) => updateField("name", value)}
+      namePlaceholder={localizeUi("ui.characters.charactereditor.characterName")}
+      subtitle={characterComment}
+      onSubtitleChange={updateCharacterComment}
+      subtitlePlaceholder={localizeUi("ui.characters.charactereditor.titleCommentEGModernAuVersion")}
+      byline={
+        <>
+          {formData.creator
+            ? localizeUi("ui.characters.charactereditor.byValue1", { value1: formData.creator })
+            : localizeUi("ui.characters.charactereditor.noCreator")}
+          {" · v"}
+          {formData.character_version || "1.0"}
+        </>
+      }
+      tags={formData.tags}
+      onAddTag={(value) => addTag(value)}
+      onRemoveTag={removeTag}
+      actions={
+        <>
+          <button
+            type="button"
+            className="ov-btn ov-btn--accent"
+            onClick={() => {
+              if (!characterId) return;
+              startChatFromCharacter({
+                characterId,
+                characterName: formData.name,
+                mode: "roleplay",
+                firstMessage: formData.first_mes,
+                alternateGreetings: formData.alternate_greetings,
+              });
+            }}
+          >
+            <MessageCircle size="0.875rem" />
+            {localizeUi("ui.overhaul.chat", { defaultValue: "Chat" })}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className={cn("ov-btn", dirty && !saveDisabled && "ov-btn--primary")}
+            title={saveLabel}
+          >
+            <Save size="0.875rem" />
+            {saveLabel}
+          </button>
+          <button
+            type="button"
+            className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
+            onClick={() => setOverhaulMoreOpen((open) => !open)}
+            aria-expanded={overhaulMoreOpen}
+            title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
+            aria-label={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
+          >
+            <MoreHorizontal size="0.875rem" />
+          </button>
+          {overhaulMoreOpen ? <div className="ov-rail__more mari-editor-actions">{headerActions}</div> : null}
+        </>
+      }
+      sectionsTitle={localizeUi("ui.overhaul.onThisCard", { defaultValue: "On this card" })}
+      sections={OVERHAUL_TAB_ORDER.filter((tab) => showSection(tab.id)).map((tab) => ({
+        id: tab.id,
+        label: OVERHAUL_SECTION_LABELS[tab.id],
+        children:
+          tab.id === "card"
+            ? [
+                ...(overhaulVisibleFields.has("summary") ? [{ id: "character-card-summary", label: "Summary" }] : []),
+                { id: "character-card-description", label: "Description" },
+                ...OVERHAUL_OPTIONAL_CARD_FIELDS.filter(
+                  (field) => field.id !== "summary" && overhaulVisibleFields.has(field.id),
+                ).map((field) => ({ id: `character-card-${field.id}`, label: field.label })),
+                { id: "character-card-dialogue", label: "Greetings & dialogue" },
+              ]
+            : undefined,
+      }))}
+      activeSection={activeTab}
+      onJump={(id) => scrollToSection(id as TabId)}
+      addable={OVERHAUL_TAB_ORDER.filter((tab) => !showSection(tab.id)).map((tab) => ({
+        id: tab.id,
+        label: OVERHAUL_SECTION_LABELS[tab.id],
+      }))}
+      onAdd={addOverhaulSection}
+    />
+  ) : null;
+
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       <ExportFormatDialog
@@ -1226,7 +1455,13 @@ export function CharacterEditor() {
 
       {/* ── Header ── */}
       {/* --dense: eleven sections and seven actions make this the most crowded editor header. */}
-      <div className="mari-editor-header mari-editor-header--with-nav mari-editor-header--dense">
+      {/* The overhaul moves all of this into the left rail. */}
+      <div
+        className={cn(
+          "mari-editor-header mari-editor-header--with-nav mari-editor-header--dense",
+          overhaulActive && "!hidden",
+        )}
+      >
         <div className="mari-editor-header-main mari-editor-header-main--identity">
           <button
             type="button"
@@ -1344,130 +1579,153 @@ export function CharacterEditor() {
       </div>
 
       {/* ── Body ── */}
-      <div className="mari-editor-body">
-        {/* Tab Content */}
-        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
-          <div className="mari-editor-content-inner">
-            {characterId && mariChipField && (
-              <div className="mb-3 flex justify-end">
-                <MariContextChip
-                  entryPoint="character-editor"
-                  surface="character-editor"
-                  resource={{ kind: "character", id: characterId, label: formData.name }}
-                  field={mariChipField.field}
-                  value={mariChipField.value}
-                  subject={formData.name}
-                />
-              </div>
-            )}
-            <section data-editor-section="metadata">
-              <MetadataTab
-                characterId={characterId}
-                formData={formData}
-                characterComment={characterComment}
-                updateCharacterComment={updateCharacterComment}
-                updateField={updateField}
-                updateExtension={updateExtension}
-                newTag={newTag}
-                setNewTag={setNewTag}
-                addTag={addTag}
-                removeTag={removeTag}
-                removeAllTags={removeAllTags}
-                avatarPreview={avatarPreview}
-                onSelectAvatar={() => fileInputRef.current?.click()}
-                onGenerateAvatar={() => setAvatarGeneratorOpen(true)}
-                imageGenerationAvailable={imageGenerationAvailable}
-                avatarUploading={avatarUploading}
-                onRemoveAvatar={handleAvatarRemove}
-                removingAvatar={removeAvatar.isPending}
-                hasUnsavedChanges={dirty}
-              />
-            </section>
-            <section data-editor-section="card">
-              <CharacterCardTab
-                formData={formData}
-                updateField={updateField}
-                updateExtension={updateExtension}
-                updateExtensionVerbatim={updateExtensionVerbatim}
-                updateFormData={updateFormData}
-              />
-            </section>
-            <section data-editor-section="onboarding">
-              <OnboardingTab formData={formData} updateExtension={updateExtension} />
-            </section>
-            <section data-editor-section="convo">
-              <ConvoTab
-                formData={formData}
-                updateExtension={updateExtension}
-                kind="character"
-                characterId={characterId ?? undefined}
-              />
-            </section>
-            <LazyEditorSection key={`lorebook:${characterId}`} id="lorebook">
-              <LorebookTab
-                characterId={characterId}
-                formData={formData}
-                embedding={lorebookEmbedding}
-                isEmbeddingInFlight={isLorebookEmbeddingInFlight}
-                onEmbedded={handleLorebookEmbedded}
-                onEmbeddingChange={setLorebookEmbedInFlight}
-                onUnembed={handleLorebookUnembedded}
-              />
-            </LazyEditorSection>
-            <LazyEditorSection key={`sprites:${characterId}`} id="sprites">
-              {characterId && (
-                <SpritesTab
-                  characterId={characterId}
-                  characterName={formData.name}
-                  defaultAppearance={imageAppearanceGeneratorSeed(
-                    formData.extensions,
-                    (formData.extensions.appearance as string) ?? formData.description,
-                  )}
-                  defaultAvatarUrl={avatarPreview}
-                  characterSheetImageId={
-                    typeof formData.extensions.characterSheetImageId === "string"
-                      ? formData.extensions.characterSheetImageId
-                      : null
-                  }
-                  useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
-                  updateExtension={updateExtension}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                />
+      <div className={overhaulActive ? "ov-ed" : "contents"}>
+        {overhaulRail}
+        <div className="mari-editor-body">
+          {/* Tab Content */}
+          <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
+            <div className="mari-editor-content-inner">
+              {characterId && mariChipField && (
+                <div className="mb-3 flex justify-end">
+                  <MariContextChip
+                    entryPoint="character-editor"
+                    surface="character-editor"
+                    resource={{ kind: "character", id: characterId, label: formData.name }}
+                    field={mariChipField.field}
+                    value={mariChipField.value}
+                    subject={formData.name}
+                  />
+                </div>
               )}
-            </LazyEditorSection>
-            <LazyEditorSection key={`gallery:${characterId}`} id="gallery">
-              {characterId && (
-                <CharacterGalleryTab
+              <section data-editor-section="metadata">
+                <MetadataTab
                   characterId={characterId}
-                  characterName={formData.name}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                />
-              )}
-            </LazyEditorSection>
-            <section data-editor-section="colors">
-              <ColorsTab formData={formData} updateExtension={updateExtension} avatarUrl={avatarPreview} />
-            </section>
-            <LazyEditorSection key={`voice:${characterId}`} id="voice">
-              {characterId && (
-                <VoiceTab
-                  characterId={characterId}
-                  characterName={persistedCharacterName ?? formData.name}
                   formData={formData}
+                  characterComment={characterComment}
+                  updateCharacterComment={updateCharacterComment}
+                  updateField={updateField}
                   updateExtension={updateExtension}
+                  newTag={newTag}
+                  setNewTag={setNewTag}
+                  addTag={addTag}
+                  removeTag={removeTag}
+                  removeAllTags={removeAllTags}
+                  avatarPreview={avatarPreview}
+                  onSelectAvatar={() => fileInputRef.current?.click()}
+                  onGenerateAvatar={() => setAvatarGeneratorOpen(true)}
+                  imageGenerationAvailable={imageGenerationAvailable}
+                  avatarUploading={avatarUploading}
+                  onRemoveAvatar={handleAvatarRemove}
+                  removingAvatar={removeAvatar.isPending}
+                  hasUnsavedChanges={dirty}
+                  compact={overhaulActive}
                 />
+              </section>
+              <section data-editor-section="card">
+                <CharacterCardTab
+                  formData={formData}
+                  updateField={updateField}
+                  updateExtension={updateExtension}
+                  updateExtensionVerbatim={updateExtensionVerbatim}
+                  updateFormData={updateFormData}
+                  overhaul={overhaulActive ? { visible: overhaulVisibleFields, onAdd: addOverhaulField } : undefined}
+                />
+              </section>
+              {showSection("onboarding") && (
+                <section data-editor-section="onboarding">
+                  <OnboardingTab formData={formData} updateExtension={updateExtension} />
+                </section>
               )}
-            </LazyEditorSection>
-            <section data-editor-section="stats">
-              <StatsTab formData={formData} updateExtension={updateExtension} onDraftChange={markDirty} />
-            </section>
-            <section data-editor-section="advanced">
-              <AdvancedTab
-                formData={formData}
-                updateField={updateField}
-                updateExtension={updateExtension}
-                characterId={characterId}
-              />
-            </section>
+              {showSection("convo") && (
+                <section data-editor-section="convo">
+                  <ConvoTab
+                    formData={formData}
+                    updateExtension={updateExtension}
+                    kind="character"
+                    characterId={characterId ?? undefined}
+                  />
+                </section>
+              )}
+              {showSection("lorebook") && (
+                <LazyEditorSection key={`lorebook:${characterId}`} id="lorebook">
+                  <LorebookTab
+                    characterId={characterId}
+                    formData={formData}
+                    embedding={lorebookEmbedding}
+                    isEmbeddingInFlight={isLorebookEmbeddingInFlight}
+                    onEmbedded={handleLorebookEmbedded}
+                    onEmbeddingChange={setLorebookEmbedInFlight}
+                    onUnembed={handleLorebookUnembedded}
+                  />
+                </LazyEditorSection>
+              )}
+              {showSection("sprites") && (
+                <LazyEditorSection key={`sprites:${characterId}`} id="sprites">
+                  {characterId && (
+                    <SpritesTab
+                      characterId={characterId}
+                      characterName={formData.name}
+                      defaultAppearance={imageAppearanceGeneratorSeed(
+                        formData.extensions,
+                        (formData.extensions.appearance as string) ?? formData.description,
+                      )}
+                      defaultAvatarUrl={avatarPreview}
+                      characterSheetImageId={
+                        typeof formData.extensions.characterSheetImageId === "string"
+                          ? formData.extensions.characterSheetImageId
+                          : null
+                      }
+                      useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
+                      updateExtension={updateExtension}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    />
+                  )}
+                </LazyEditorSection>
+              )}
+              {showSection("gallery") && (
+                <LazyEditorSection key={`gallery:${characterId}`} id="gallery">
+                  {characterId && (
+                    <CharacterGalleryTab
+                      characterId={characterId}
+                      characterName={formData.name}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    />
+                  )}
+                </LazyEditorSection>
+              )}
+              {showSection("colors") && (
+                <section data-editor-section="colors">
+                  <ColorsTab formData={formData} updateExtension={updateExtension} avatarUrl={avatarPreview} />
+                </section>
+              )}
+              {showSection("voice") && (
+                <LazyEditorSection key={`voice:${characterId}`} id="voice">
+                  {characterId && (
+                    <VoiceTab
+                      characterId={characterId}
+                      characterName={persistedCharacterName ?? formData.name}
+                      formData={formData}
+                      updateExtension={updateExtension}
+                    />
+                  )}
+                </LazyEditorSection>
+              )}
+              {showSection("stats") && (
+                <section data-editor-section="stats">
+                  <StatsTab formData={formData} updateExtension={updateExtension} onDraftChange={markDirty} />
+                </section>
+              )}
+              {showSection("advanced") && (
+                <section data-editor-section="advanced">
+                  <AdvancedTab
+                    formData={formData}
+                    updateField={updateField}
+                    updateExtension={updateExtension}
+                    characterId={characterId}
+                  />
+                </section>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1510,6 +1768,7 @@ function CharacterCardTab({
   updateExtension,
   updateExtensionVerbatim,
   updateFormData,
+  overhaul,
 }: {
   formData: CharacterData;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
@@ -1517,8 +1776,11 @@ function CharacterCardTab({
   /** `updateExtension` without quote normalisation, for chip inserts. */
   updateExtensionVerbatim: (key: string, value: unknown) => void;
   updateFormData: (update: (data: CharacterData) => CharacterData) => void;
+  /** UI overhaul: optional fields show only when used or added. */
+  overhaul?: { visible: ReadonlySet<string>; onAdd: (id: string) => void };
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const showField = (id: string) => !overhaul || overhaul.visible.has(id);
   // Read from this tab's own draft: the onboarding block is edited on a sibling
   // tab, and `safeParse` (not `parse`) is what keeps a malformed or null block
   // from throwing during render — the Onboarding tab reads it the same way, so
@@ -1595,11 +1857,13 @@ function CharacterCardTab({
         subtitle={localizeUi("ui.characters.charactercardtab.writeTheCharacterSCoreCardFieldsInOne")}
         helpText={CHARACTER_CARD_HELP}
       />
-      <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />
+      {overhaul ? null : <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />}
       <div className="space-y-10">
-        <EditorSectionAnchor id="character-card-summary">
-          <CharacterSummaryField formData={formData} updateField={updateField} />
-        </EditorSectionAnchor>
+        {showField("summary") && (
+          <EditorSectionAnchor id="character-card-summary">
+            <CharacterSummaryField formData={formData} updateField={updateField} />
+          </EditorSectionAnchor>
+        )}
         <EditorSectionAnchor id="character-card-description">
           <CharacterDescriptionTab
             formData={formData}
@@ -1611,105 +1875,119 @@ function CharacterCardTab({
             onDescriptionFocus={() => setActiveField("description")}
           />
         </EditorSectionAnchor>
-        <EditorSectionAnchor id="character-card-personality">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.personality")}
-            subtitle={localizeUi("ui.characters.charactercardtab.aConciseSummaryOfTheCharacterSPersonalityTraits")}
-            helpText={CHARACTER_PERSONALITY_HELP}
-            value={formData.personality}
-            onChange={(v) => updateField("personality", v)}
-            placeholder={localizeUi(
-              "ui.characters.charactercardtab.energeticCuriousAndFiercelyLoyalSpeaksInShortBursts",
-            )}
-            rows={8}
-            textareaRef={(element) => {
-              fieldRefs.current.personality = element;
-            }}
-            onFocus={() => setActiveField("personality")}
-            footer={chipsFor("personality")}
-          />
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="character-card-backstory">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
-            subtitle={localizeUi("ui.characters.charactercardtab.theCharacterSHistoryOriginStoryAndFormativeLife")}
-            helpText={CHARACTER_BACKSTORY_HELP}
-            value={(formData.extensions.backstory as string) ?? ""}
-            onChange={(v) => updateExtension("backstory", v)}
-            placeholder={localizeUi("ui.characters.charactercardtab.bornInASmallVillageOnTheOutskirtsOf")}
-            rows={12}
-            textareaRef={(element) => {
-              fieldRefs.current.backstory = element;
-            }}
-            onFocus={() => setActiveField("backstory")}
-            footer={chipsFor("backstory")}
-          />
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="character-card-appearance">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.appearance")}
-            subtitle={localizeUi(
-              "ui.characters.charactercardtab.detailedPhysicalDescriptionHeightBuildHairEyesClothingDistinguishing",
-            )}
-            helpText={CHARACTER_APPEARANCE_HELP}
-            value={(formData.extensions.appearance as string) ?? ""}
-            onChange={(v) => updateExtension("appearance", v)}
-            placeholder={localizeUi("ui.characters.charactercardtab.tallAndWillowyWithSilverStreakedDarkHairWears")}
-            rows={8}
-            textareaRef={(element) => {
-              fieldRefs.current.appearance = element;
-            }}
-            onFocus={() => setActiveField("appearance")}
-            footer={chipsFor("appearance")}
-          />
-          <div className="mt-3">
-            <SettingsSwitch
-              label={
-                <span className="font-medium">
-                  {localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
-                </span>
-              }
-              description={localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp")}
-              checked={formData.extensions.imageAppearanceEnabled === true}
-              onChange={(enabled) => updateExtension("imageAppearanceEnabled", enabled)}
-              labelPosition="start"
-              className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+        {showField("personality") && (
+          <EditorSectionAnchor id="character-card-personality">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.personality")}
+              subtitle={localizeUi("ui.characters.charactercardtab.aConciseSummaryOfTheCharacterSPersonalityTraits")}
+              helpText={CHARACTER_PERSONALITY_HELP}
+              value={formData.personality}
+              onChange={(v) => updateField("personality", v)}
+              placeholder={localizeUi(
+                "ui.characters.charactercardtab.energeticCuriousAndFiercelyLoyalSpeaksInShortBursts",
+              )}
+              rows={8}
+              textareaRef={(element) => {
+                fieldRefs.current.personality = element;
+              }}
+              onFocus={() => setActiveField("personality")}
+              footer={chipsFor("personality")}
             />
-          </div>
-          {formData.extensions.imageAppearanceEnabled === true && (
+          </EditorSectionAnchor>
+        )}
+        {showField("backstory") && (
+          <EditorSectionAnchor id="character-card-backstory">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
+              subtitle={localizeUi("ui.characters.charactercardtab.theCharacterSHistoryOriginStoryAndFormativeLife")}
+              helpText={CHARACTER_BACKSTORY_HELP}
+              value={(formData.extensions.backstory as string) ?? ""}
+              onChange={(v) => updateExtension("backstory", v)}
+              placeholder={localizeUi("ui.characters.charactercardtab.bornInASmallVillageOnTheOutskirtsOf")}
+              rows={12}
+              textareaRef={(element) => {
+                fieldRefs.current.backstory = element;
+              }}
+              onFocus={() => setActiveField("backstory")}
+              footer={chipsFor("backstory")}
+            />
+          </EditorSectionAnchor>
+        )}
+        {showField("appearance") && (
+          <EditorSectionAnchor id="character-card-appearance">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.appearance")}
+              subtitle={localizeUi(
+                "ui.characters.charactercardtab.detailedPhysicalDescriptionHeightBuildHairEyesClothingDistinguishing",
+              )}
+              helpText={CHARACTER_APPEARANCE_HELP}
+              value={(formData.extensions.appearance as string) ?? ""}
+              onChange={(v) => updateExtension("appearance", v)}
+              placeholder={localizeUi("ui.characters.charactercardtab.tallAndWillowyWithSilverStreakedDarkHairWears")}
+              rows={8}
+              textareaRef={(element) => {
+                fieldRefs.current.appearance = element;
+              }}
+              onFocus={() => setActiveField("appearance")}
+              footer={chipsFor("appearance")}
+            />
             <div className="mt-3">
-              <TextareaTab
-                title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
-                subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
-                value={(formData.extensions.imageAppearance as string) ?? ""}
-                onChange={(v) => updateExtension("imageAppearance", v)}
-                placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
-                rows={6}
+              <SettingsSwitch
+                label={
+                  <span className="font-medium">
+                    {localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                  </span>
+                }
+                description={localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp")}
+                checked={formData.extensions.imageAppearanceEnabled === true}
+                onChange={(enabled) => updateExtension("imageAppearanceEnabled", enabled)}
+                labelPosition="start"
+                className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
               />
             </div>
-          )}
-        </EditorSectionAnchor>
-        <EditorSectionAnchor id="character-card-scenario">
-          <TextareaTab
-            title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
-            subtitle={localizeUi(
-              "ui.characters.charactercardtab.theDefaultSettingOrSituationWhereInteractionsTakePlace",
+            {formData.extensions.imageAppearanceEnabled === true && (
+              <div className="mt-3">
+                <TextareaTab
+                  title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                  subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
+                  value={(formData.extensions.imageAppearance as string) ?? ""}
+                  onChange={(v) => updateExtension("imageAppearance", v)}
+                  placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
+                  rows={6}
+                />
+              </div>
             )}
-            helpText={CHARACTER_SCENARIO_HELP}
-            value={formData.scenario}
-            onChange={(v) => updateField("scenario", v)}
-            placeholder={localizeUi("ui.characters.charactercardtab.aBustlingPortCityDuringATradeFestivalThe")}
-            rows={8}
-            textareaRef={(element) => {
-              fieldRefs.current.scenario = element;
-            }}
-            onFocus={() => setActiveField("scenario")}
-            footer={chipsFor("scenario")}
-          />
-        </EditorSectionAnchor>
+          </EditorSectionAnchor>
+        )}
+        {showField("scenario") && (
+          <EditorSectionAnchor id="character-card-scenario">
+            <TextareaTab
+              title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
+              subtitle={localizeUi(
+                "ui.characters.charactercardtab.theDefaultSettingOrSituationWhereInteractionsTakePlace",
+              )}
+              helpText={CHARACTER_SCENARIO_HELP}
+              value={formData.scenario}
+              onChange={(v) => updateField("scenario", v)}
+              placeholder={localizeUi("ui.characters.charactercardtab.aBustlingPortCityDuringATradeFestivalThe")}
+              rows={8}
+              textareaRef={(element) => {
+                fieldRefs.current.scenario = element;
+              }}
+              onFocus={() => setActiveField("scenario")}
+              footer={chipsFor("scenario")}
+            />
+          </EditorSectionAnchor>
+        )}
         <EditorSectionAnchor id="character-card-dialogue">
           <DialogueTab formData={formData} updateField={updateField} updateFormData={updateFormData} />
         </EditorSectionAnchor>
+        {overhaul ? (
+          <AddFieldChips
+            items={OVERHAUL_OPTIONAL_CARD_FIELDS.filter((field) => !overhaul.visible.has(field.id))}
+            onAdd={overhaul.onAdd}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -2512,7 +2790,10 @@ function MetadataTab({
   onRemoveAvatar,
   removingAvatar,
   hasUnsavedChanges,
+  compact = false,
 }: {
+  /** UI overhaul: name, title, avatar and tags live in the left rail instead. */
+  compact?: boolean;
   characterId: string | null;
   formData: CharacterData;
   characterComment: string;
@@ -2603,35 +2884,39 @@ function MetadataTab({
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {t("editor.avatar.label")}
-          <HelpTooltip text={t("editor.avatar.character.help")} />
-        </span>
+      {compact && !avatarPreview ? null : (
+        <div className="space-y-1.5" id="ov-avatar-crop">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            {t("editor.avatar.label")}
+            <HelpTooltip text={t("editor.avatar.character.help")} />
+          </span>
 
-        {/* Avatar Crop */}
-        {avatarPreview && (
-          <AvatarCropWidget
-            src={avatarPreview}
-            alt={formData.name}
-            crop={savedCrop}
-            onChange={(next) => updateExtension("avatarCrop", next)}
-            onRemove={onRemoveAvatar}
-            removing={removingAvatar}
-          />
-        )}
+          {/* Avatar Crop */}
+          {avatarPreview && (
+            <AvatarCropWidget
+              src={avatarPreview}
+              alt={formData.name}
+              crop={savedCrop}
+              onChange={(next) => updateExtension("avatarCrop", next)}
+              onRemove={onRemoveAvatar}
+              removing={removingAvatar}
+            />
+          )}
 
-        <AvatarReplaceActions
-          hasAvatar={Boolean(avatarPreview)}
-          uploading={avatarUploading}
-          generationAvailable={imageGenerationAvailable}
-          onUpload={onSelectAvatar}
-          onGenerate={onGenerateAvatar}
-        />
-      </div>
+          {compact ? null : (
+            <AvatarReplaceActions
+              hasAvatar={Boolean(avatarPreview)}
+              uploading={avatarUploading}
+              generationAvailable={imageGenerationAvailable}
+              onUpload={onSelectAvatar}
+              onGenerate={onGenerateAvatar}
+            />
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.characters.metadatatab.name")}{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.theCharacterSDisplayNameThisIsWhatAppears")} />
@@ -2646,7 +2931,7 @@ function MetadataTab({
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
         </label>
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.characters.metadatatab.titleComment")}{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.aShortNoteShownUnderTheCharacterNameIn")} />
@@ -2727,7 +3012,7 @@ function MetadataTab({
       </div>
 
       {/* Tags */}
-      <div className="space-y-2">
+      <div className={cn("space-y-2", compact && "hidden")}>
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.characters.metadatatab.tags")}{" "}
