@@ -1379,7 +1379,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     label: "Roleplay Avatars",
     description: "Choose how avatars sit next to roleplay messages.",
     descriptionKey: "settings.search.roleplayAvatarStyle.description",
-    aliases: ["avatar", "portrait", "circles", "rectangles"],
+    aliases: ["avatar", "portrait", "circles", "rectangles", "panel", "faded"],
     kind: "Button group",
   },
   {

@@ -575,6 +575,11 @@ const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: str
     label: "Glued Side Panel",
     desc: "A taller portrait strip fused into the message bubble.",
   },
+  {
+    id: "faded",
+    label: "Faded Side Panel",
+    desc: "A wide portrait that fills the bubble's height and fades into the message.",
+  },
 ];
 
 const CHAT_LIST_BACKGROUND_OPTIONS: Array<{ id: ChatListBackgroundMode; label: string; desc: string }> = [
@@ -3735,8 +3740,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const roleplayAvatarPreviewBase: SettingsArtPreviewSize =
     roleplayAvatarStyle === "none"
       ? { width: 5, height: 2.5 }
-      : roleplayAvatarStyle === "panel"
-        ? { width: 2.6 * roleplayAvatarScale, height: 2 * roleplayAvatarScale }
+      : roleplayAvatarStyle === "panel" || roleplayAvatarStyle === "faded"
+        ? {
+            width: (roleplayAvatarStyle === "faded" ? 3.4 : 2.6) * roleplayAvatarScale,
+            height: 2 * roleplayAvatarScale,
+          }
         : {
             width: (roleplayAvatarStyle === "rectangles" ? 2.15 : 2) * roleplayAvatarScale,
             height: (roleplayAvatarStyle === "rectangles" ? 2.7 : 3.4) * roleplayAvatarScale,
@@ -5057,6 +5065,17 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                               <div className="mari-settings-portrait-preview absolute left-2 top-2 h-4 w-4 overflow-hidden rounded ring-1 ring-white/20">
                                 <div className="h-full w-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_58%)]" />
                               </div>
+                              <div className="h-1.5 w-14 rounded-full bg-white/20" />
+                              <div className="mt-1.5 h-1.5 w-20 rounded-full bg-white/12" />
+                            </div>
+                          </div>
+                        ) : opt.id === "faded" ? (
+                          <div className="relative flex h-14 items-stretch overflow-hidden bg-black/25">
+                            <div className="mari-settings-scene-preview relative w-[55%] shrink-0 overflow-hidden [mask-image:linear-gradient(to_right,#000_40%,transparent)] [-webkit-mask-image:linear-gradient(to_right,#000_40%,transparent)]">
+                              <div className="absolute left-[38%] top-2 h-4 w-4 -translate-x-1/2 rounded-full bg-orange-50/45" />
+                              <div className="absolute bottom-0 left-[38%] h-8 w-8 -translate-x-1/2 rounded-t-full bg-zinc-950/35" />
+                            </div>
+                            <div className="-ml-6 flex-1 px-3 py-2">
                               <div className="h-1.5 w-14 rounded-full bg-white/20" />
                               <div className="mt-1.5 h-1.5 w-20 rounded-full bg-white/12" />
                             </div>

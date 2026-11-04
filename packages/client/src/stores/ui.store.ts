@@ -129,7 +129,7 @@ export interface EchoChamberSize {
   height: number;
 }
 export type UserStatus = "active" | "idle" | "dnd" | "invisible";
-export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel";
+export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel" | "faded";
 export type RoleplayChatPosition = "left" | "center" | "right";
 
 /** Stale or unknown synced values fall back to the centred layout. */
