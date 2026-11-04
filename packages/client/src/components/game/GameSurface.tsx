@@ -12954,6 +12954,7 @@ function GameSurfaceComponent({
             spatialContext={activeSpatialContext}
             spatialContextLoading={activeSpatialContextLoading}
             chatId={activeChatId}
+            docked
           />
         }
         sessions={renderSessionHistory()}

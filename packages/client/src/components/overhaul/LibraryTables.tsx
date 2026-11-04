@@ -8,12 +8,21 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
-import { PROVIDERS, type APIProvider, type APIConnection, type Lorebook } from "@marinara-engine/shared";
+import {
+  BUILT_IN_AGENTS,
+  PROVIDERS,
+  isAgentConfigDeleted,
+  isRetiredBuiltInAgentId,
+  type APIProvider,
+  type APIConnection,
+  type Lorebook,
+} from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
-import { useAgentConfigs } from "../../hooks/use-agents";
+import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
+import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import {
   useImportRegexScript,
   useRegexScripts,
@@ -776,9 +785,71 @@ const PHASE_LABEL: Record<string, string> = {
   post_processing: "After reply",
 };
 
+export interface OvAgentRow {
+  /** What openAgentDetail takes: the type for an installed agent, the config id for a custom one. */
+  id: string;
+  name: string;
+  description: string;
+  phase: string;
+  connectionId: string | null;
+  imagePath: string | null;
+  updatedAt?: string;
+}
+
+/**
+ * Installed agents (from capability packages) plus custom agents, the same
+ * list the classic Agents panel shows. Agent configs alone only hold agents
+ * the user has edited or created, so installed packages never appeared.
+ */
+export function useOvAgentRows() {
+  const { data: configs, isLoading: configsLoading } = useAgentConfigs();
+  const { data: registry, isLoading: registryLoading } = useCapabilityAgentRegistry();
+  const rows = useMemo<OvAgentRow[]>(() => {
+    const configRows = (configs ?? []) as AgentConfigRow[];
+    const available = registry
+      ? BUILT_IN_AGENTS.filter((agent) => registry.some((entry) => entry.id === agent.id))
+      : [...BUILT_IN_AGENTS];
+    const builtInIds = new Set(available.map((agent) => agent.id));
+    const visibleConfigs = configRows.filter((config) => !isAgentConfigDeleted(config.settings));
+    const deleted = new Set(
+      configRows
+        .filter((config) => builtInIds.has(config.type) && isAgentConfigDeleted(config.settings))
+        .map((config) => config.type),
+    );
+    const configByType = new Map(visibleConfigs.map((config) => [config.type, config]));
+    const builtIns = available
+      .filter((agent) => !deleted.has(agent.id))
+      .map((agent) => {
+        const config = configByType.get(agent.id);
+        return {
+          id: agent.id,
+          name: config?.name || agent.name,
+          description: config?.description || agent.description,
+          phase: config?.phase || agent.phase,
+          connectionId: config?.connectionId ?? null,
+          imagePath: config?.imagePath ?? null,
+          updatedAt: config?.updatedAt,
+        };
+      });
+    const custom = visibleConfigs
+      .filter((config) => !builtInIds.has(config.type) && !isRetiredBuiltInAgentId(config.type))
+      .map((config) => ({
+        id: config.id,
+        name: config.name,
+        description: config.description,
+        phase: config.phase,
+        connectionId: config.connectionId,
+        imagePath: config.imagePath,
+        updatedAt: config.updatedAt,
+      }));
+    return [...builtIns, ...custom];
+  }, [configs, registry]);
+  return { rows, ready: !configsLoading && !registryLoading };
+}
+
 export function AgentsLanding() {
   const localize = useLocalizedUiText();
-  const { data } = useAgentConfigs();
+  const { rows: data } = useOvAgentRows();
   const { data: connections } = useConnections();
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
@@ -795,7 +866,7 @@ export function AgentsLanding() {
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const list = (data ?? []).filter(
+    const list = data.filter(
       (agent) =>
         !needle || agent.name.toLowerCase().includes(needle) || agent.description?.toLowerCase().includes(needle),
     );

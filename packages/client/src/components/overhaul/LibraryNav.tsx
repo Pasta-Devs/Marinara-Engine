@@ -13,11 +13,11 @@ import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
-import { useAgentConfigs } from "../../hooks/use-agents";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { OVERHAUL_SETTINGS_TABS } from "./SettingsPage";
+import { useOvAgentRows } from "./LibraryTables";
 
 function characterTags(record: unknown): string[] {
   if (!record || typeof record !== "object") return [];
@@ -40,7 +40,7 @@ export function LibraryNav() {
   const presets = usePresets();
   const connections = useConnections();
   const regexScripts = useRegexScripts();
-  const agents = useAgentConfigs();
+  const agents = useOvAgentRows();
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
@@ -63,7 +63,7 @@ export function LibraryNav() {
     presets: Array.isArray(presets.data) ? presets.data.length : undefined,
     connections: Array.isArray(connections.data) ? connections.data.length : undefined,
     regex: Array.isArray(regexScripts.data) ? regexScripts.data.length : undefined,
-    agents: Array.isArray(agents.data) ? agents.data.length : undefined,
+    agents: agents.ready ? agents.rows.length : undefined,
   };
 
   const tagCounts = useMemo(() => {

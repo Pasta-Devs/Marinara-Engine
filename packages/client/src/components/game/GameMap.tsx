@@ -613,6 +613,8 @@ interface GameMapPanelProps extends GameMapProps {
   chatId: string;
   /** Ref to the game surface element used as a drag boundary. */
   constraintsRef?: RefObject<HTMLElement | null>;
+  /** UI overhaul: shown inside the game pane's Map tab, so it is fixed in place (no lock, no dragging). */
+  docked?: boolean;
 }
 
 /** Desktop: inline collapsible panel. */
@@ -636,6 +638,7 @@ export function GameMapPanel({
   spatialContextLoading,
   chatId,
   constraintsRef,
+  docked = false,
 }: GameMapPanelProps) {
   const { t: localizeUi } = useUiTranslation();
   const [collapsed, setCollapsed] = useState(false);
@@ -643,7 +646,9 @@ export function GameMapPanel({
   const [mapZoom, setMapZoom] = useState(1);
   const [mapViewMode, setMapViewMode] = useState<GameMapViewMode>("world");
   const pendingSpatialTransition = useChatStore((state) => state.pendingSpatialTransitions.get(chatId) ?? null);
-  const { locked, toggleLocked, resetPosition, x, y, handleDragEnd } = useDraggablePanel(chatId, "map");
+  const draggable = useDraggablePanel(chatId, "map");
+  const { toggleLocked, resetPosition, x, y, handleDragEnd } = draggable;
+  const locked = docked || draggable.locked;
   const mapOptions = buildMapOptions(map, maps);
   const selectedMapId = viewedMapId ?? getMapId(map);
   const activeMap = activeMapId == null || selectedMapId === activeMapId;
@@ -700,7 +705,7 @@ export function GameMapPanel({
       dragElastic={0}
       dragConstraints={constraintsRef as RefObject<Element>}
       onDragEnd={handleDragEnd}
-      style={{ x, y }}
+      style={docked ? undefined : { x, y }}
       className={cn(
         GAME_MAP_PANEL_CLASS,
         "game-map-container flex flex-col gap-1 overflow-hidden p-2",
@@ -767,7 +772,7 @@ export function GameMapPanel({
             <ExternalLink size={11} />
           </button>
         )}
-        <PanelLockButton locked={locked} onToggle={toggleLocked} onReset={resetPosition} size={11} />
+        {!docked && <PanelLockButton locked={locked} onToggle={toggleLocked} onReset={resetPosition} size={11} />}
         <span className="shrink-0 text-[var(--marinara-chat-chrome-button-text)]">
           {collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
         </span>
