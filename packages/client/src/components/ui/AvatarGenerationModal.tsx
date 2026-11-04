@@ -234,25 +234,27 @@ export function AvatarGenerationModal({
         width="max-w-2xl"
         footer={
           <>
-            <button
-              type="button"
-              onClick={handleUseAvatar}
-              disabled={!generatedAvatar || generating || saving}
-              className={generatedAvatar ? SHEET_BUTTON_PRIMARY : SHEET_BUTTON_SECONDARY}
-            >
-              {saving ? (
-                <Loader2 size="0.875rem" className="animate-spin" />
-              ) : isCharacterSheet ? (
-                <IdCard size="0.875rem" />
-              ) : (
-                <Camera size="0.875rem" />
-              )}
-              {localizeUi(
-                isCharacterSheet
-                  ? "ui.ui.avatargenerationmodal.saveAsCharacterSheet"
-                  : "ui.ui.avatargenerationmodal.useAvatar",
-              )}
-            </button>
+            {generatedAvatar && (
+              <button
+                type="button"
+                onClick={handleUseAvatar}
+                disabled={!generatedAvatar || generating || saving}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {saving ? (
+                  <Loader2 size="0.875rem" className="animate-spin" />
+                ) : isCharacterSheet ? (
+                  <IdCard size="0.875rem" />
+                ) : (
+                  <Camera size="0.875rem" />
+                )}
+                {localizeUi(
+                  isCharacterSheet
+                    ? "ui.ui.avatargenerationmodal.saveAsCharacterSheet"
+                    : "ui.ui.avatargenerationmodal.useAvatar",
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleGenerate}

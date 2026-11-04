@@ -10558,7 +10558,7 @@ export function ChatSettingsDrawer({
             <button onClick={confirmAddAgent} disabled={addingAgentToChat} className={SHEET_BUTTON_PRIMARY}>
               {addingAgentToChat
                 ? localizeUi("ui.chat.chatsettingsdrawer.adding")
-                : localizeUi("ui.characters.metadatatab.add")}
+                : localizeUi("ui.chat.chatsettingsdrawer.addAgent")}
             </button>
             <button
               onClick={() => {

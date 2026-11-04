@@ -14952,7 +14952,7 @@ function GameSurfaceComponent({
                 className={`${SHEET_CHOICE_ROW_CLASS} font-semibold text-[var(--marinara-app-accent-static)]`}
                 title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
               >
-                {localizeUi("ui.game.gamesurfacecomponent.yes")}
+                {localizeUi("ui.game.gamesurfacecomponent.tryToInterrupt")}
               </button>
             </div>
           </div>

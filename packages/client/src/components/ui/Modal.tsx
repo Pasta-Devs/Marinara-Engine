@@ -371,7 +371,7 @@ export function Modal({
             onClick={onClose}
             disabled={closeDisabled}
             aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : ""} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
+            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : "max-sm:after:absolute max-sm:after:-inset-1 max-sm:after:content-['']"} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
           >
             <X size="1rem" />
           </button>

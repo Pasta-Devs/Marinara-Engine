@@ -873,9 +873,9 @@ export function ChatSidebar() {
   const handleDeleteFolder = useCallback(
     async (folder: ChatFolder, chatCount: number) => {
       const ok = await confirmNonEmptyFolderDelete(chatCount, {
-        title: "Delete Folder",
+        title: "Delete folder?",
         message: `Delete "${folder.name}"? Its ${chatCount} chat${chatCount === 1 ? "" : "s"} will move to the top level.`,
-        confirmLabel: "Delete",
+        confirmLabel: "Delete folder",
         tone: "destructive",
       });
       if (ok) {

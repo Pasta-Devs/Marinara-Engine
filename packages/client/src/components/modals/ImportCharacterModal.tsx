@@ -336,6 +336,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
   return (
     <Modal
+      closeButtonClassName="max-sm:hidden"
       open={open}
       onClose={() => {
         reset();

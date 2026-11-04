@@ -604,6 +604,7 @@ function ChatProfileBuilderBody({
       open
       onClose={onClose}
       title={t(profile ? "chat.settingsProfile.builder.editTitle" : "chat.settingsProfile.builder.newTitle")}
+      closeButtonClassName="max-sm:hidden"
       width="max-w-3xl"
       mobileFullscreen
       modeless

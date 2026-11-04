@@ -515,7 +515,7 @@ function WidgetEditorModal({
   description = "Adjust this widget manually when the model misses an update.",
   numericValueLabel = "Current value",
   syncStartingValue = false,
-  saveLabel = "Save Changes",
+  saveLabel = "Save changes",
 }: {
   widget: HudWidget | null;
   open: boolean;

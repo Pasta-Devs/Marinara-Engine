@@ -121,7 +121,7 @@ export function CallClipGenerationModal({
             className={SHEET_BUTTON_PRIMARY}
           >
             {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
-            {localizeUi("ui.characters.characterclipcard.generate")}
+            {localizeUi("ui.ui.callclipgenerationmodal.generateCallClips")}
           </button>
           <button type="button" onClick={onClose} disabled={generating} className={SHEET_BUTTON_QUIET}>
             {localizeUi("chat.delete.dialog.cancel")}
