@@ -72,7 +72,7 @@ import {
 } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, dropKindFor, hostOf, moveBlockedKey, moveTargetsFor } from "../connections/ConnectionGroup";
+import { ConnectionGroup, GROUP_SURFACE, dropKindFor, hostOf, moveBlockedKey, moveRowsTo, moveTargetsFor } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
@@ -453,32 +453,7 @@ export function ConnectionsPanel() {
         return;
       }
       if (!kinds.every((kind) => kind === "same")) return;
-      const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
-      void (async () => {
-        const failed: ConnectionRowData[] = [];
-        let lastError: unknown;
-        for (const row of rows) {
-          try {
-            await moveModel.mutateAsync({ id: row.id, accountId: target.id });
-          } catch (error) {
-            failed.push(row);
-            lastError = error;
-          }
-        }
-        if (rows.length > 1) {
-          if (failed.length) {
-            toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
-          }
-        } else if (failed.length) {
-          toast.error(
-            t("connections.accounts.row.moveFailed", {
-              error: String(lastError instanceof Error ? lastError.message : (lastError ?? "")),
-            }),
-          );
-        } else {
-          toast.success(t("connections.accounts.row.moved", { model: nameOf(rows[0]!), connection: target.name }));
-        }
-      })();
+      void moveRowsTo(rows, target, moveModel.mutateAsync, t);
     },
   });
   const modelDragProps = (row: ConnectionRowData, pick: string[] | null = null) => {
@@ -494,7 +469,7 @@ export function ConnectionsPanel() {
           kind: "connection",
           ids,
           label: picked.map((item) => item.name || item.model).join(", "),
-          ...(picked.some(isLanguageGenerationConnection) ? { unsupported: "connection-kind" as const } : {}),
+          ...(picked.every(isLanguageGenerationConnection) ? {} : { unsupported: "connection-kind" as const }),
         },
       });
     };

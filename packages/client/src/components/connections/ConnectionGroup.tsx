@@ -2,7 +2,7 @@
 // ConnectionGroup — a Connection card: a heading that folds the card (name, model count, host, one status
 // word), its ⋯ menu ("Edit connection" first) and its model well.
 // ──────────────────────────────────────────────
-import { useState, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ServiceRow } from "./ServiceRow";
 import { getConnectionIdentity, modelKindOf, modelSubtitle } from "../../lib/connection-identity";
@@ -21,6 +21,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
   IMAGE_GENERATION_SOURCES,
@@ -143,6 +144,38 @@ export function moveBlockedKey(row: ConnectionRowData): string | null {
   return isChatProvider(row.provider) ? null : "connections.move.blockedService";
 }
 
+/** Moves `rows` to `target` one by one, toasting the outcome; returns the rows that failed. */
+export async function moveRowsTo(
+  rows: ConnectionRowData[],
+  target: ConnectionAccountListItem,
+  moveRow: (input: { id: string; accountId: string }) => Promise<unknown>,
+  t: TFunction,
+): Promise<ConnectionRowData[]> {
+  const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
+  const failed: ConnectionRowData[] = [];
+  let lastError: unknown;
+  for (const row of rows) {
+    try {
+      await moveRow({ id: row.id, accountId: target.id });
+    } catch (error) {
+      failed.push(row);
+      lastError = error;
+    }
+  }
+  if (rows.length > 1) {
+    if (failed.length) toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
+  } else if (failed.length) {
+    toast.error(
+      t("connections.accounts.row.moveFailed", {
+        error: String(lastError instanceof Error ? lastError.message : (lastError ?? "")),
+      }),
+    );
+  } else {
+    toast.success(t("connections.accounts.row.moved", { model: nameOf(rows[0]!), connection: target.name }));
+  }
+  return failed;
+}
+
 /** What dropping `row` on `target` does: `same` moves at once, `other` opens the Move dialog, null refuses. */
 export function dropKindFor(
   row: ConnectionRowData,
@@ -256,6 +289,13 @@ export function ConnectionGroup({
       toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
     }
   };
+  // A drag move takes Models out of this card: forget them, and leave select mode when none are left.
+  useEffect(() => {
+    if (!picked) return;
+    const here = new Set(rows.map((row) => row.id));
+    const kept = [...picked].filter((id) => here.has(id));
+    if (kept.length !== picked.size) setPicked(kept.length ? new Set(kept) : null);
+  }, [rows, picked]);
   const pickedRows = picked ? rows.filter((row) => picked.has(row.id)) : [];
   const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
   // ponytail: same-service targets only; a move to another service needs a catalog model per Model, which the
@@ -291,7 +331,14 @@ export function ConnectionGroup({
     setMoveDialogOpen(true);
   };
   const moveToAccount = async (target: ConnectionAccountListItem) => {
-    if (await runBulk((row) => moveModel.mutateAsync({ id: row.id, accountId: target.id }))) setMoveDialogOpen(false);
+    setBulkBusy(true);
+    try {
+      const failed = await moveRowsTo(pickedRows, target, moveModel.mutateAsync, t);
+      setPicked(failed.length ? new Set(failed.map((row) => row.id)) : null);
+      if (!failed.length) setMoveDialogOpen(false);
+    } finally {
+      setBulkBusy(false);
+    }
   };
   const deleteSelected = async () => {
     const ok = await showConfirmDialog({
