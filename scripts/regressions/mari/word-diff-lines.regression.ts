@@ -1,4 +1,4 @@
-import { diffLines, diffWords } from "../../../packages/client/src/lib/word-diff.js";
+import { diffLines, diffWordRuns, diffWords } from "../../../packages/client/src/lib/word-diff.js";
 
 // Line diffs for her edit cards (edit-diff.regression.ts covers the word diff).
 function assert(cond: unknown, msg: string) {
@@ -66,5 +66,38 @@ assert(
   "clearing a value is all removals",
 );
 assert(diffLines("", "").length === 0, "empty to empty has nothing to show");
+
+// A rewritten phrase reads as one edit: the whole old run struck, then the whole new run,
+// not old word, new word, old word, new word.
+{
+  const before = "A brilliant researcher and respected authority in her field, a professional shield.";
+  const after = "A brilliant researcher whose outward professionalism has become a shield.";
+  const runs = diffWordRuns(before, after);
+  assert(
+    runs.map((s) => s.type).join(",") === "equal,removed,added,equal",
+    `one edited run, old then new (got ${runs.map((s) => s.type).join(",")})`,
+  );
+  assert(runs[1].value === "and respected authority in her field, a professional", "the old run is whole");
+  assert(runs[2].value === "whose outward professionalism has become a", "the new run is whole");
+  const spell = (keep: string) =>
+    runs
+      .filter((s) => s.type === "equal" || s.type === keep)
+      .map((s) => s.value)
+      .join("");
+  assert(spell("removed") === before, "kept + removed still spells the old text");
+  assert(spell("added") === after, "kept + added still spells the new text");
+
+  // A longer kept word between two edits stays kept, and so does a line break.
+  const apart = diffWordRuns("one cat sleeps quietly here", "two cat sleeps loudly here");
+  assert(
+    apart.filter((s) => s.type === "equal").some((s) => s.value.includes("cat sleeps")),
+    "longer kept words separate two edits",
+  );
+  const lines = diffWordRuns("old\nold", "new\nnew");
+  assert(
+    lines.some((s) => s.type === "equal" && s.value === "\n"),
+    "edits on either side of a line break stay separate",
+  );
+}
 
 console.log("word-diff: ok");

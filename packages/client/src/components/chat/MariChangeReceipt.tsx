@@ -16,7 +16,7 @@ import {
   type MariWorkspacePendingApproval,
 } from "@marinara-engine/shared";
 
-import { diffWords } from "../../lib/word-diff";
+import { diffWordRuns } from "../../lib/word-diff";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { cn } from "../../lib/utils";
 
@@ -137,7 +137,7 @@ export function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind
   if (keptShare(change.before, change.after) >= 0.4) {
     return (
       <div className="mari-receipt__box">
-        {diffWords(change.before, change.after).map((part, index) =>
+        {diffWordRuns(change.before, change.after).map((part, index) =>
           part.type === "removed" ? (
             <del key={index}>{part.value}</del>
           ) : part.type === "added" ? (
