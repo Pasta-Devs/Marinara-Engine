@@ -3404,7 +3404,10 @@ export const ChatMessage = memo(function ChatMessage({
   const compactAvatarIconSize = useCompactRectangleAvatar
     ? `${Math.max(1, Math.min(1.75, 1.125 * roleplayAvatarScale))}rem`
     : `${Math.max(0.875, Math.min(1.5, roleplayAvatarScale))}rem`;
-  const showRoleplayAvatarPanel = isRoleplay && roleplayAvatarStyle === "panel" && !isGrouped;
+  const showRoleplayAvatarPanel =
+    isRoleplay && (roleplayAvatarStyle === "panel" || roleplayAvatarStyle === "faded") && !isGrouped;
+  /** Faded Side Panel: the glued panel's layout with a wider portrait that fades into the bubble. */
+  const fadedRoleplayAvatarPanel = showRoleplayAvatarPanel && roleplayAvatarStyle === "faded";
   const showCompactRoleplayAvatar = isRoleplay && !isGrouped && !hideRoleplayAvatars && !showRoleplayAvatarPanel;
   const roleplayAvatarPanelTail = showRoleplayAvatarPanel ? (
     isMergedGroup && mergedAvatars.length > 0 ? (
@@ -4018,9 +4021,39 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
-    const rpOverlayActions =
+    const rpNameMeta = (
+      <>
+        {hiddenFromAIHeader}
+        <span
+          className={cn(
+            "mari-message-name text-[0.75rem] font-bold tracking-tight",
+            !msgNameColor && !isMergedGroup && (isUser ? "text-neutral-300" : "rpg-char-name"),
+          )}
+          style={!isMergedGroup ? solidNameColorStyle(msgNameColor) : undefined}
+        >
+          {isMergedGroup ? mergedNameElement : <NameColorText color={msgNameColor}>{displayName}</NameColorText>}
+        </span>
+        <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
+        {genLabel && (
+          <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
+            {genLabel}
+          </span>
+        )}
+        {fallbackMarker}
+        {(showRoleplayAvatarPanel || hideRoleplayAvatars) &&
+          (showActions || showMessageNumbers) &&
+          messageIndex != null && (
+            <span className="text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-text)] select-none">
+              #{messageIndex}
+            </span>
+          )}
+      </>
+    );
+    const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
+          part={part}
+          placement={part === "generate" ? "below" : "footer"}
           chatId={message.chatId}
           messageId={message.id}
           pinned={Boolean(isLastAssistantMessage && !isUser)}
@@ -4028,8 +4061,6 @@ export const ChatMessage = memo(function ChatMessage({
           swipeCount={swipeCount}
           onSetSwipe={handleSetActiveSwipe}
           onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-          meta={isGrouped ? genLabel : undefined}
-          placement="below"
           copied={copied}
           onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
           onEdit={startEditing}
@@ -4038,6 +4069,19 @@ export const ChatMessage = memo(function ChatMessage({
           more={rpActionsRow}
         />
       ) : null;
+    const rpGenerateActions = rpActions("generate");
+    /** New layout: name, time and the message tools inside the bubble, above a divider line. */
+    const ovRpHead = overhaulActive ? (
+      isGrouped ? (
+        <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
+      ) : (
+        <div className="ov-rpmsg__head">
+          {rpNameMeta}
+          <span className="ov-rpmsg__grow" />
+          {rpActions("tools")}
+        </div>
+      )
+    ) : null;
     return (
       <>
         <div
@@ -4182,42 +4226,14 @@ export const ChatMessage = memo(function ChatMessage({
               editing && "mari-roleplay-message-body--editing",
             )}
           >
-            {/* Name + time (only if not grouped) */}
-            {!isGrouped && (
-              <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>
-                {hiddenFromAIHeader}
-                <span
-                  className={cn(
-                    "mari-message-name text-[0.75rem] font-bold tracking-tight",
-                    !msgNameColor && !isMergedGroup && (isUser ? "text-neutral-300" : "rpg-char-name"),
-                  )}
-                  style={!isMergedGroup ? solidNameColorStyle(msgNameColor) : undefined}
-                >
-                  {isMergedGroup ? (
-                    mergedNameElement
-                  ) : (
-                    <NameColorText color={msgNameColor}>{displayName}</NameColorText>
-                  )}
-                </span>
-                <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
-                {genLabel && (
-                  <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
-                    {genLabel}
-                  </span>
-                )}
-                {fallbackMarker}
-                {(showRoleplayAvatarPanel || hideRoleplayAvatars) &&
-                  (showActions || showMessageNumbers) &&
-                  messageIndex != null && (
-                    <span className="text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-text)] select-none">
-                      #{messageIndex}
-                    </span>
-                  )}
-              </div>
+            {/* Name + time (only if not grouped). The new layout puts them inside the bubble instead. */}
+            {!isGrouped && !overhaulActive && (
+              <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>{rpNameMeta}</div>
             )}
 
-            {/* New layout: the actions hang under the message without taking space, so hovering moves nothing. */}
-            {rpOverlayActions}
+            {/* New layout: Regenerate and swipes (anything that costs an API call) hang under the message's
+                bottom-right without taking space, so hovering moves nothing. */}
+            {rpGenerateActions}
             <ConversationStartMarkers
               memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}
@@ -4232,6 +4248,8 @@ export const ChatMessage = memo(function ChatMessage({
               className={cn(
                 "mari-message-bubble mari-rp-bubble mari-chat-style-surface relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
                 roleplayAvatarsScrollable && showRoleplayAvatarPanel && "mari-rp-bubble--scrollable-avatar-panel",
+                fadedRoleplayAvatarPanel && "mari-rp-bubble--faded",
+                isUser && "mari-rp-bubble--user",
                 isUser
                   ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
                   : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
@@ -4357,10 +4375,18 @@ export const ChatMessage = memo(function ChatMessage({
                       />
                     </div>
                   </div>
-                  {roleplayBubbleContent && <div className="min-w-0 flex-1 px-3 py-3">{roleplayBubbleContent}</div>}
+                  {roleplayBubbleContent && (
+                    <div className="min-w-0 flex-1 px-3 py-3">
+                      {ovRpHead}
+                      {roleplayBubbleContent}
+                    </div>
+                  )}
                 </div>
               ) : roleplayBubbleContent ? (
-                <div className="px-4 py-3">{roleplayBubbleContent}</div>
+                <div className="px-4 py-3">
+                  {ovRpHead}
+                  {roleplayBubbleContent}
+                </div>
               ) : null}
             </div>
 

@@ -12719,7 +12719,7 @@
   "ui.panels.appearancesettings.chatFontSize": "Chat Font Size",
   "ui.panels.appearancesettings.chatLayout": "Chat Layout",
   "ui.panels.appearancesettings.chatListBackgrounds": "Chat List Backgrounds",
-  "ui.panels.appearancesettings.chooseHowAvatarsSitNextToRoleplayMessagesNone": "Choose how avatars sit next to roleplay messages. None hides message avatars. Small Circles keeps the current compact layout. Small Rectangles gives portraits a taller frame. Glued Side Panel embeds a larger portrait strip into the message bubble itself.",
+  "ui.panels.appearancesettings.chooseHowAvatarsSitNextToRoleplayMessagesNone": "Choose how avatars sit next to roleplay messages. None hides message avatars. Small Circles keeps the current compact layout. Small Rectangles gives portraits a taller frame. Glued Side Panel embeds a larger portrait strip into the message bubble itself. Faded Side Panel uses a wider portrait that fades into the bubble.",
   "ui.panels.appearancesettings.chooseHowTheEntireAppLooksMarinaraUsesA": "Choose how the entire app looks. 'Marinara' uses a retro Y2K aesthetic with glow effects. 'SillyTavern' uses a clean, minimal look inspired by the original SillyTavern.",
   "ui.panels.appearancesettings.chooseTheFontUsedAcrossTheAppDefaultInter": "Choose the font used across the app. 'Default (Inter)' is optimized for screen readability. Drop .ttf, .otf, .woff, or .woff2 font files into the data/fonts/ folder to add custom fonts.",
   "ui.panels.appearancesettings.chooseWhetherGameModeUsesAClassicDialogueBox": "Choose whether Game mode uses a classic dialogue box or shows a scrollable segment history directly above it.",

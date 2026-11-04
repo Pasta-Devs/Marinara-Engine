@@ -174,6 +174,7 @@ export function OvRpMessageFooter({
   onBranch,
   more,
   placement = "footer",
+  part = "all",
 }: {
   chatId: string;
   messageId: string;
@@ -193,6 +194,11 @@ export function OvRpMessageFooter({
   more: ReactNode;
   /** "below" hangs the bar under the message as an overlay, so showing it moves nothing. */
   placement?: "footer" | "below";
+  /**
+   * Which actions to show: "all" (one row), "tools" (Edit, Copy, Branch, More: the message header's
+   * top-right) or "generate" (Regenerate and swipes, everything that costs an API call: bottom-right).
+   */
+  part?: "all" | "tools" | "generate";
 }) {
   const [open, setOpen] = useState<null | { kind: "more" | "swipes"; anchor: Anchor }>(null);
   const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
@@ -205,12 +211,30 @@ export function OvRpMessageFooter({
   };
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
+  if (part === "generate" && !onRegenerate && !hasSwipes && !onCreateSwipe) return null;
   return (
     <div
-      className={cn("ov-rpf", placement === "below" && "ov-rpf--below", pinned && "is-pinned", open && "is-open")}
+      className={cn(
+        "ov-rpf",
+        placement === "below" && "ov-rpf--below",
+        part !== "all" && `ov-rpf--${part}`,
+        pinned && "is-pinned",
+        open && "is-open",
+      )}
       data-ov-rp-footer
     >
-      {hasSwipes || onCreateSwipe ? (
+      {part === "generate" && onRegenerate ? (
+        <button
+          type="button"
+          className="ov-rpf__btn is-accent"
+          title="Regenerate"
+          aria-label="Regenerate"
+          onClick={onRegenerate}
+        >
+          <RefreshCw size={14} />
+        </button>
+      ) : null}
+      {part !== "tools" && (hasSwipes || onCreateSwipe) ? (
         <span className="ov-rpf__swipes">
           <button
             type="button"
@@ -240,9 +264,9 @@ export function OvRpMessageFooter({
           </button>
         </span>
       ) : null}
-      {meta ? <span className="ov-rpf__meta">{meta}</span> : null}
-      <span className="ov-rpf__grow" />
-      {onRegenerate ? (
+      {meta && part === "all" ? <span className="ov-rpf__meta">{meta}</span> : null}
+      {part === "all" ? <span className="ov-rpf__grow" /> : null}
+      {part === "all" && onRegenerate ? (
         <button
           type="button"
           className="ov-rpf__btn is-accent"
@@ -253,33 +277,37 @@ export function OvRpMessageFooter({
           <RefreshCw size={14} />
         </button>
       ) : null}
-      <button type="button" className="ov-rpf__btn" title="Edit" aria-label="Edit" onClick={onEdit}>
-        <Pencil size={14} />
-      </button>
-      <button type="button" className="ov-rpf__btn" title="Copy" aria-label="Copy" onClick={onCopy}>
-        {copied ? <Check size={14} /> : <Copy size={14} />}
-      </button>
-      {onBranch ? (
-        <button
-          type="button"
-          className="ov-rpf__btn"
-          title="Branch from here"
-          aria-label="Branch from here"
-          onClick={onBranch}
-        >
-          <GitBranch size={14} />
-        </button>
+      {part !== "generate" ? (
+        <>
+          <button type="button" className="ov-rpf__btn" title="Edit" aria-label="Edit" onClick={onEdit}>
+            <Pencil size={14} />
+          </button>
+          <button type="button" className="ov-rpf__btn" title="Copy" aria-label="Copy" onClick={onCopy}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          {onBranch ? (
+            <button
+              type="button"
+              className="ov-rpf__btn"
+              title="Branch from here"
+              aria-label="Branch from here"
+              onClick={onBranch}
+            >
+              <GitBranch size={14} />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={cn("ov-rpf__btn", open?.kind === "more" && "is-on")}
+            title="More actions"
+            aria-label="More actions"
+            aria-expanded={open?.kind === "more"}
+            onClick={(event) => openAt("more", event.currentTarget)}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+        </>
       ) : null}
-      <button
-        type="button"
-        className={cn("ov-rpf__btn", open?.kind === "more" && "is-on")}
-        title="More actions"
-        aria-label="More actions"
-        aria-expanded={open?.kind === "more"}
-        onClick={(event) => openAt("more", event.currentTarget)}
-      >
-        <MoreHorizontal size={15} />
-      </button>
       {open?.kind === "more" ? (
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
           <p className="ov-rpf-pop__label">Message actions</p>
