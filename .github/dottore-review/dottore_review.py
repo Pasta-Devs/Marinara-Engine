@@ -1376,7 +1376,8 @@ class StreamStalled(Exception):
 
 
 class ResponseFailed(Exception):
-    """The provider reported a failed response inside a Responses stream, with its error code when it gave one."""
+    """The provider reported a failed response inside the reply stream, or cut one short before any output, with its
+    error code when it gave one."""
 
     def __init__(self, detail, code=None):
         super().__init__(f"the response failed: {detail}")
@@ -1567,6 +1568,12 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
     }
     # An incomplete response names its cause, such as max_output_tokens; a finished one only its status.
     stop = getattr(getattr(response, "incomplete_details", None), "reason", None) or getattr(response, "status", None)
+    if capped and response.usage is not None and not output:
+        # As in claude_reply, a response cut short before any output did not spend its cap, so it is resent at the
+        # same effort. Any other cause, such as content_filter, stops every resend the same way, so it becomes the
+        # code transient_error does not retry. A response without usage cannot tell, so it stays capped.
+        detail = f"it ended at {stop} before the model wrote anything"
+        raise ResponseFailed(detail, "" if stop in ("max_output_tokens", "incomplete") else stop)
     message = SimpleNamespace(
         content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped, stop_reason=stop
     )
@@ -1647,6 +1654,13 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if reply.stop_reason is None:
         # A connection that closes mid-reply ends the stream without an error or a stop reason.
         raise StreamStalled("the reply stream ended before Claude finished")
+    if reply.stop_reason == "max_tokens" and not reply.usage.output_tokens:
+        # A reply that reached its cap has spent it, so one that spent nothing was ended by the gateway: LinkAPI sent
+        # these within seconds to the scout, finder and checker alike (#8817). A lower effort cannot help, so it is
+        # resent at the same effort like any other gateway failure (see transient_error). output_tokens, the billed
+        # total, counts thinking even when only its summary comes back; the content, which is whatever blocks the
+        # gateway relayed, cannot tell a dropped thinking block from none.
+        raise ResponseFailed("the gateway ended the reply at max_tokens before Claude wrote anything")
     capped = reply.stop_reason == "max_tokens"
     blocks, text, calls = [], [], []
     for block in reply.content:
