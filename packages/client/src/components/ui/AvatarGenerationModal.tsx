@@ -230,6 +230,7 @@ export function AvatarGenerationModal({
         onClose={onClose}
         closeDisabled={generating || saving}
         closeButtonClassName="max-sm:hidden"
+        pullToClose={!generating}
         title={title}
         width="max-w-2xl"
         footer={
@@ -288,7 +289,7 @@ export function AvatarGenerationModal({
                     kind="image"
                     value={effectiveConnectionId}
                     onChange={setConnectionId}
-                    className="rounded-lg px-3 py-2 text-xs"
+                    className="rounded-lg px-3 py-2 text-xs max-sm:min-h-11 max-sm:text-[13px]"
                   />
                 )}
               </label>

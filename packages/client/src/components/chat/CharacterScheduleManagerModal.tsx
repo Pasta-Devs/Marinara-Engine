@@ -309,7 +309,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
         mobileFullscreen
       >
         <div className="flex min-h-0 flex-col gap-3">
-          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)] max-sm:text-sm">
             {localizeUi("ui.characters.schedulemanager.description")}
           </p>
           <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2">
@@ -334,25 +334,25 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
             <button
               type="button"
               onClick={() => setSelected(new Set(filtered.map((character) => character.id)))}
-              className="text-xs font-medium text-[var(--primary)]"
+              className="text-xs font-medium text-[var(--primary)] max-sm:min-h-11 max-sm:text-sm"
             >
               {localizeUi("ui.characters.schedulemanager.selectVisible")}
             </button>
             <button
               type="button"
               onClick={() => setSelected(new Set())}
-              className="text-xs text-[var(--muted-foreground)]"
+              className="text-xs text-[var(--muted-foreground)] max-sm:min-h-11 max-sm:text-sm"
             >
               {localizeUi("ui.characters.schedulemanager.clearSelection")}
             </button>
-            <span className="ml-auto text-xs text-[var(--muted-foreground)]">
+            <span className="ml-auto text-xs text-[var(--muted-foreground)] max-sm:text-sm">
               {localizeUi("ui.characters.schedulemanager.selected", { count: selected.size })}
             </span>
             <button
               type="button"
               disabled={!selected.size || working !== null}
               onClick={() => void generate()}
-              className="inline-flex items-center gap-1 rounded-md bg-[var(--primary)] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md bg-[var(--primary)] px-2.5 py-1.5 text-xs font-semibold text-white max-sm:min-h-11 max-sm:text-sm disabled:opacity-50"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {localizeUi("ui.characters.schedulemanager.generate")}
@@ -361,7 +361,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => generationAbortRef.current?.abort()}
-                className="mari-chrome-control px-2.5 py-1.5 text-xs"
+                className="mari-chrome-control px-2.5 py-1.5 text-xs max-sm:min-h-11 max-sm:text-sm"
               >
                 {localizeUi("ui.chat.summarypopover.stop")}
               </button>
@@ -370,7 +370,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               type="button"
               disabled={!selected.size || working !== null}
               onClick={() => void remove()}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--destructive)]/40 px-2.5 py-1.5 text-xs font-semibold text-[var(--destructive)] disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--destructive)]/40 px-2.5 py-1.5 text-xs font-semibold text-[var(--destructive)] max-sm:min-h-11 max-sm:text-sm disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {localizeUi("ui.characters.schedulemanager.remove")}
@@ -391,7 +391,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
                     <button
                       type="button"
                       onClick={() => toggleFolder(folder.id)}
-                      className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
+                      className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] max-sm:min-h-11 max-sm:text-[13px]"
                     >
                       {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       {isExpanded ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
@@ -467,7 +467,7 @@ function CharacterScheduleGroup({
   if (!characters.length) return null;
   return (
     <section className="space-y-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] max-sm:text-[13px]">
         {title} <span className="font-normal">({characters.length})</span>
       </h2>
       {characters.map((character) => {
@@ -489,7 +489,7 @@ function CharacterScheduleGroup({
               type="button"
               onClick={() => onToggle(character.id)}
               aria-label={localizeUi("ui.characters.schedulemanager.selectCharacter", { name: character.name })}
-              className="shrink-0"
+              className="shrink-0 max-sm:flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center"
             >
               {selected.has(character.id) ? (
                 <Check className="h-4 w-4 text-[var(--primary)]" />
@@ -518,7 +518,7 @@ function CharacterScheduleGroup({
               aria-label={localizeUi("ui.characters.schedulemanager.editCharacter", { name: character.name })}
             >
               <p className="truncate text-sm font-medium">{character.name}</p>
-              <p className="truncate text-xs text-[var(--muted-foreground)]">
+              <p className="truncate text-xs text-[var(--muted-foreground)] max-sm:text-[13px]">
                 <span className="inline-flex items-center gap-1.5">
                   <span className={`h-2 w-2 rounded-full ${statusDotClass(currentStatus)}`} />
                   {generationState === "generating" ? (
@@ -546,7 +546,7 @@ function CharacterScheduleGroup({
               </p>
             </button>
             {character.schedule && (
-              <label className="flex shrink-0 items-center gap-1 text-[0.65rem] text-[var(--muted-foreground)]">
+              <label className="flex shrink-0 items-center gap-1 text-[0.65rem] max-sm:min-h-11 max-sm:text-[13px] text-[var(--muted-foreground)]">
                 <input
                   type="checkbox"
                   checked={character.autoRenew}
@@ -559,7 +559,7 @@ function CharacterScheduleGroup({
               <button
                 type="button"
                 onClick={() => onEditSchedule(character.id)}
-                className="text-xs font-medium text-[var(--primary)]"
+                className="text-xs font-medium text-[var(--primary)] max-sm:min-h-11 max-sm:text-sm"
               >
                 {localizeUi("ui.characters.schedulemanager.edit")}
               </button>

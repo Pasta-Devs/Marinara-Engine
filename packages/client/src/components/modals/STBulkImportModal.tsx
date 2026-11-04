@@ -438,7 +438,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <button
                   onClick={handleBrowse}
                   disabled={phase === "scanning" || picking}
-                  className="flex items-center justify-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium max-sm:min-h-11 max-sm:text-sm transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
                   title={localizeUi("ui.modals.stbulkimportmodal.browseForFolder")}
                 >
                   {picking ? <Loader2 size="0.875rem" className="animate-spin" /> : <FolderOpen size="0.875rem" />}

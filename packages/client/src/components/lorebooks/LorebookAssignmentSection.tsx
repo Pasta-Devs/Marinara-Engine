@@ -445,7 +445,7 @@ export function LorebookAssignmentSection({
               <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
                 <div>
                   <p className="text-xs font-semibold">{localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}</p>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
                     {localizeUi(
                       "ui.lorebooks.lorebookassignmentsection.controlsWhereThisAssignmentIsActiveAllChatsMeans",
                     )}{" "}
@@ -460,7 +460,7 @@ export function LorebookAssignmentSection({
                     type="button"
                     onClick={() => setDraft((current) => (current ? { ...current, mode } : current))}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors",
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors max-sm:min-h-11 max-sm:text-sm",
                       draft.mode === mode
                         ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/25"
                         : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

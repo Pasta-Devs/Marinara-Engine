@@ -10584,13 +10584,13 @@ export function ChatSettingsDrawer({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
-                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]">
+                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] uppercase tracking-wide text-[var(--muted-foreground)]">
                       {agentAddPreview.agent.builtIn
                         ? agentAddPreview.agent.category
                         : localizeUi("ui.agents.toolcard.custom")}
                     </span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
+                  <p className="mt-2 whitespace-pre-wrap text-xs max-sm:text-[13px] leading-5 text-[var(--muted-foreground)]">
                     {agentAddPreview.agent.description || "No description available."}
                   </p>
                   {(() => {
@@ -10602,21 +10602,21 @@ export function ChatSettingsDrawer({
             </div>
 
             {agentAddIsFeature ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                 {localizeUi("ui.chat.chatsettingsdrawer.thisLetsCharactersInitiateTheDownloadedFeatureInThis")}
               </div>
             ) : agentAddIsRuntimeDisabled ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                 {localizeUi("ui.chat.chatsettingsdrawer.thisAddsItsInstructionsToTheNextRoleplayPrompt")}
               </div>
             ) : (
               <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
                   {localizeUi("ui.agents.agenteditor.agentBudget")}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agenteditor.contextSize")}
                     </label>
                     <div className="flex items-center gap-3">
@@ -10641,13 +10641,13 @@ export function ChatSettingsDrawer({
                         disabled={addingAgentToChat}
                         className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.messages")}
                       </span>
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agenteditor.maxOutputTokens")}
                     </label>
                     <div className="flex items-center gap-3">
@@ -10676,13 +10676,13 @@ export function ChatSettingsDrawer({
                         disabled={addingAgentToChat}
                         className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.tokens")}
                       </span>
                     </div>
                   </div>
                 </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.chatsettingsdrawer.contextSizeControlsRecentChatMessagesMaxOutputReserves")}
                 </p>
               </div>
@@ -10690,7 +10690,7 @@ export function ChatSettingsDrawer({
 
             {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
               <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
                   {localizeText(agentAddIntervalMeta.label)}
                 </label>
                 <div className="flex items-center gap-3">
@@ -10819,9 +10819,11 @@ export function ChatSettingsDrawer({
                       </div>
                     </div>
                   )}
-                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.unit}</span>
+                  <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                    {agentAddIntervalMeta.unit}
+                  </span>
                 </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {agentAddPreview.agent.id === "illustrator"
                     ? localizeUi("agents.illustrator.chatRunIntervalHelp")
                     : agentAddIntervalMeta.help}
@@ -11138,7 +11140,7 @@ function MemoryRecallMemoriesModal({
     >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--secondary)]/70 px-3 py-2 ring-1 ring-[var(--border)]">
-          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          <div className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
             <span className="font-semibold text-[var(--foreground)]">{memories.length}</span>{" "}
             {memories.length === 1
               ? localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunk")
@@ -11185,7 +11187,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => void handleRevectorize()}
               disabled={memoriesQuery.isFetching || refreshMemories.isPending || importMemories.isPending}
-              className="max-sm:min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
+              className="max-sm:min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemoriesDescription")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemories")}
             >
@@ -11208,19 +11210,19 @@ function MemoryRecallMemoriesModal({
         </div>
 
         {memoriesQuery.isLoading && (
-          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
+          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.loadingMemories")}
           </div>
         )}
 
         {memoriesQuery.error && (
-          <div className="rounded-xl bg-[var(--destructive)]/10 px-4 py-3 text-xs text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25">
+          <div className="rounded-xl bg-[var(--destructive)]/10 px-4 py-3 text-xs max-sm:text-[13px] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.failedToLoadMemories")}
           </div>
         )}
 
         {!memoriesQuery.isLoading && !memoriesQuery.error && memories.length === 0 && (
-          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
+          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.noRecallMemoriesHaveBeenCreatedForThisChat")}
           </div>
         )}
@@ -11230,7 +11232,7 @@ function MemoryRecallMemoriesModal({
             {memories.map((memory) => (
               <article key={memory.id} className="rounded-xl bg-[var(--card)] px-3 py-3 ring-1 ring-[var(--border)]">
                 <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <div className="min-w-0 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     <div className="font-medium text-[var(--foreground)]">
                       {formatMemoryDate(memory.firstMessageAt)} - {formatMemoryDate(memory.lastMessageAt)}
                     </div>

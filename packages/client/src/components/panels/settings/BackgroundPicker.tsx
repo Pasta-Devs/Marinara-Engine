@@ -796,7 +796,7 @@ export function BackgroundPicker({
               decoding="async"
             />
             <span className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
-            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5625rem] font-medium text-white/90 backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5625rem] max-sm:text-[13px] font-medium text-white/90 backdrop-blur-sm">
               {localizeUi(
                 background.source === "game_asset"
                   ? "ui.panels.backgroundpicker.gameAsset"
@@ -806,7 +806,7 @@ export function BackgroundPicker({
             {showRoleplayDefault && isDefaultRoleplay && (
               <span
                 data-background-default-indicator
-                className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-[var(--primary)] md:group-hover:opacity-0"
+                className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] max-sm:text-[13px] font-medium text-[var(--primary)] md:group-hover:opacity-0"
               >
                 {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
               </span>
@@ -859,7 +859,7 @@ export function BackgroundPicker({
           <div
             data-background-actions
             className={cn(
-              "flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5",
+              "flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11",
               isFloatingActions &&
                 "md:absolute md:bottom-2 md:right-2 md:flex-nowrap md:rounded-lg md:bg-black/60 md:px-0.5 md:pb-0.5 md:pt-0.5 md:opacity-0 md:backdrop-blur-sm md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100",
             )}
@@ -1002,7 +1002,7 @@ export function BackgroundPicker({
                 ) : (
                   <span
                     key={tag}
-                    className="inline-flex max-w-28 items-center truncate rounded-full bg-[var(--background)]/65 px-1.5 py-0.5 text-[0.5rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60"
+                    className="inline-flex max-w-28 items-center truncate rounded-full bg-[var(--background)]/65 px-1.5 py-0.5 text-[0.5rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60"
                   >
                     {tag}
                   </span>
@@ -1062,7 +1062,7 @@ export function BackgroundPicker({
               onClick={() => onSelect(null)}
               aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
               title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
-              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 transition-transform active:scale-90"
+              className="absolute right-2 top-2 flex h-8 w-8 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 transition-transform active:scale-90"
             >
               <X size="0.875rem" />
             </button>
@@ -1091,7 +1091,7 @@ export function BackgroundPicker({
                       loading="lazy"
                       decoding="async"
                     />
-                    <span className="truncate text-[0.6875rem] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+                    <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
                       {title}
                     </span>
                   </button>
@@ -1175,7 +1175,7 @@ export function BackgroundPicker({
               icon={uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
               labelClassName="max-md:sr-only"
               // h-10/md:h-9 and the mobile w-10 match the search field and sort select beside it.
-              className={cn(SETTINGS_BUTTON_CLASS, "h-10 max-md:w-10 md:h-9")}
+              className={cn(SETTINGS_BUTTON_CLASS, "h-10 max-md:w-10 md:h-9 max-sm:h-11 max-sm:w-11")}
             />
           </div>
 
@@ -1195,7 +1195,7 @@ export function BackgroundPicker({
                 key={value}
                 type="button"
                 onClick={() => setSourceFilter(value)}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:min-h-11")}
                 aria-pressed={sourceFilter === value}
               >
                 <span>{label}</span>
@@ -1238,7 +1238,7 @@ export function BackgroundPicker({
                 // Only Unfiled is a drop target; All and Favorites are not folders.
                 onDragOver={value === "unfiled" ? allowFolderDrop : undefined}
                 onDrop={value === "unfiled" ? (event) => handleFolderDrop(event, null) : undefined}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:min-h-11")}
                 aria-pressed={folderFilter === value}
               >
                 {value === "favorites" && (
@@ -1258,7 +1258,7 @@ export function BackgroundPicker({
                 data-background-folder-id={folder.id}
                 onDragOver={allowFolderDrop}
                 onDrop={(event) => handleFolderDrop(event, folder.id)}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:min-h-11")}
                 aria-pressed={folderFilter === folder.id}
               >
                 <Folder size="0.75rem" />
@@ -1320,7 +1320,7 @@ export function BackgroundPicker({
             <button
               type="button"
               onClick={() => setIncludedTagValues([])}
-              className={SETTINGS_BUTTON_CLASS}
+              className={cn(SETTINGS_BUTTON_CLASS, "max-sm:min-h-11")}
               aria-pressed={includedTags.size === 0}
             >
               {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
@@ -1347,7 +1347,7 @@ export function BackgroundPicker({
                   key={tag}
                   type="button"
                   onClick={() => toggleIncludedTag(tag)}
-                  className={SETTINGS_BUTTON_CLASS}
+                  className={cn(SETTINGS_BUTTON_CLASS, "max-sm:min-h-11")}
                   aria-pressed={includedTags.has(tag)}
                 >
                   {tag}
@@ -1356,7 +1356,7 @@ export function BackgroundPicker({
             </div>
           )}
 
-          <div className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+          <div className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
             <span>
               {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
               {localizeUi("ui.panels.backgroundpicker.backgrounds")}
@@ -1387,7 +1387,7 @@ export function BackgroundPicker({
           {backgrounds.length === 0 && (
             <div className="flex flex-col items-center gap-1.5 py-4 text-center">
               <Image size="1.25rem" className="text-[var(--muted-foreground)]/40" />
-              <p className="mari-chrome-text-muted text-[0.625rem]">
+              <p className="mari-chrome-text-muted text-[0.625rem] max-sm:text-[13px]">
                 {localizeUi("ui.panels.backgroundpicker.noBackgroundsAvailableYet")}
               </p>
             </div>
@@ -1395,7 +1395,7 @@ export function BackgroundPicker({
           {backgrounds.length > 0 && visibleBackgrounds.length === 0 && (
             <div className="flex flex-col items-center gap-1.5 py-4 text-center">
               <Search size="1.25rem" className="text-[var(--muted-foreground)]/40" />
-              <p className="mari-chrome-text-muted text-[0.625rem]">
+              <p className="mari-chrome-text-muted text-[0.625rem] max-sm:text-[13px]">
                 {localizeUi("ui.panels.backgroundpicker.noBackgroundsMatchThoseFilters")}
               </p>
             </div>

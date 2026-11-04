@@ -470,7 +470,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
 
               {/* Off by default, because a model that only answers gates does not
                     need to hold GPU memory from boot. */}
-              <label className="mt-2 flex items-start gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+              <label className="mt-2 flex items-start gap-2 text-[0.625rem] text-[var(--muted-foreground)] max-sm:min-h-11 max-sm:items-center max-sm:text-[13px]">
                 <input
                   type="checkbox"
                   checked={data?.settings.startPolicy === "with_marinara"}
@@ -516,7 +516,11 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
       )}
 
       {nothingRuns && (
-        <button type="button" onClick={openDecisionConnection} className="mari-chrome-control px-3">
+        <button
+          type="button"
+          onClick={openDecisionConnection}
+          className="mari-chrome-control px-3 text-[var(--foreground)] max-sm:min-h-11"
+        >
           <Link2 size="0.75rem" />
           {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
         </button>

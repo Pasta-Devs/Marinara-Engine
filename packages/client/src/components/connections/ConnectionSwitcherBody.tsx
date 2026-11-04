@@ -1328,7 +1328,7 @@ export function ConnectionSwitcherBody({
   const paneTitle = (title: ReactNode, summary: string) => (
     <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 px-3.5 pb-1 pt-2.5">
       <strong className="truncate text-[0.8125rem] font-semibold">{title}</strong>
-      <span className="truncate text-[0.6875rem] text-foreground/50">{summary}</span>
+      <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/50">{summary}</span>
     </div>
   );
   const starredAccounts = new Set(starredEntries.map((entry) => entry.group?.key)).size;
@@ -1536,7 +1536,7 @@ export function ConnectionSwitcherBody({
                 .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
                 .finally(() => setBusy(false));
             }}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
           >
             <House size="0.8125rem" className="shrink-0" aria-hidden />
             <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>

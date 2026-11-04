@@ -457,7 +457,7 @@ export function ConnectionAccountEditor({
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          <h3 className={SECTION_HEADING_CLASS}>{t("connections.accounts.editor.access")}</h3>
+          <h3 className={`${SECTION_HEADING_CLASS} max-sm:text-[13px]`}>{t("connections.accounts.editor.access")}</h3>
           {addressFirst && (
             <div className="block">
               <label htmlFor="account-address" className={labelClass}>

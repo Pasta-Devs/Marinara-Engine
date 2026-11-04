@@ -275,7 +275,7 @@ export function ScenePromptPreferencesModal({
               type="button"
               disabled={presetsFetching}
               onClick={() => void retryPresets()}
-              className="min-h-10 rounded-lg border border-[var(--border)] px-3 py-2 font-semibold transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+              className="min-h-10 rounded-lg border border-[var(--border)] px-3 py-2 font-semibold max-sm:min-h-11 transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
             >
               {localizeUi("scene.setup.retryPresets")}
             </button>
@@ -338,10 +338,10 @@ function OptionButton({ active, label, onClick }: { active: boolean; label: stri
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "min-h-10 rounded-md border px-2 text-xs font-semibold transition-colors",
+        "min-h-10 rounded-md border px-2 text-xs font-semibold transition-colors max-sm:min-h-11 max-sm:text-[13px]",
         active
           ? "border-[var(--primary)] bg-[var(--primary)]/20 text-[var(--foreground)]"
-          : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+          : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] max-sm:text-[var(--foreground)]",
       ].join(" ")}
     >
       {label}

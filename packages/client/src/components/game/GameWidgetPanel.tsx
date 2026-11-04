@@ -572,7 +572,9 @@ function WidgetEditorModal({
         {isNumericWidgetType(widget.type) && (
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">{numericValueLabel}</span>
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
+                {numericValueLabel}
+              </span>
               <input
                 type="number"
                 value={draft.value}
@@ -581,7 +583,7 @@ function WidgetEditorModal({
               />
             </label>
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.widgeteditormodal.maximumValue")}
               </span>
               <input
@@ -597,7 +599,7 @@ function WidgetEditorModal({
 
         {widget.type === "counter" && (
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.count")}
             </span>
             <input
@@ -628,7 +630,7 @@ function WidgetEditorModal({
                 >
                   {allowStructureEdit ? (
                     <label className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                      <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                         {localizeUi("ui.game.widgeteditormodal.stat")}
                       </span>
                       <input
@@ -648,7 +650,7 @@ function WidgetEditorModal({
                     </label>
                   ) : (
                     <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                      <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                         {localizeUi("ui.game.widgeteditormodal.stat")}
                       </span>
                       <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]/75">
@@ -657,7 +659,7 @@ function WidgetEditorModal({
                     </div>
                   )}
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                    <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.game.widgeteditormodal.value")}
                     </span>
                     <input
@@ -711,7 +713,7 @@ function WidgetEditorModal({
 
         {widget.type === "list" && (
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.items")}
             </span>
             <textarea
@@ -720,7 +722,7 @@ function WidgetEditorModal({
               rows={6}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
             />
-            <span className="block text-xs text-[var(--muted-foreground)]">
+            <span className="block text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.enterOneItemPerLine")}
             </span>
           </label>
@@ -729,7 +731,7 @@ function WidgetEditorModal({
         {widget.type === "timer" && (
           <div className="space-y-3">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.widgeteditormodal.secondsRemaining")}
               </span>
               <input

@@ -147,7 +147,7 @@ export function CallClipGenerationModal({
                 ? undefined
                 : localizeUi("ui.ui.callclipgenerationmodal.noVideoGenerationConnections")
             }
-            className="rounded-lg px-3 py-2 text-sm font-medium"
+            className="rounded-lg px-3 py-2 text-sm font-medium max-sm:min-h-11 max-sm:text-[13px]"
           />
         </label>
 
@@ -156,7 +156,7 @@ export function CallClipGenerationModal({
             <span className="block text-xs font-semibold text-[var(--foreground)]">
               {localizeUi("ui.ui.callclipgenerationmodal.useAvatarAsReference")}
             </span>
-            <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
+            <span className="block text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.ui.callclipgenerationmodal.recommendedForFirstAndFinalFrameMatching")}
             </span>
           </span>
@@ -173,7 +173,7 @@ export function CallClipGenerationModal({
             <span className="text-xs font-semibold text-[var(--foreground)]">
               {localizeUi("ui.ui.callclipgenerationmodal.clipsToGenerate")}
             </span>
-            <span className="rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            <span className="rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
               {selectedKinds.length} {localizeUi("ui.agents.agenteditor.selected")}
             </span>
           </div>
@@ -185,7 +185,7 @@ export function CallClipGenerationModal({
                 <label
                   key={kind}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium max-sm:min-h-11 transition-colors",
                     selected
                       ? "border-[var(--primary)]/45 bg-[var(--primary)]/10 text-[var(--foreground)]"
                       : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -212,7 +212,7 @@ export function CallClipGenerationModal({
               <span className="block text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("ui.ui.callclipgenerationmodal.customClip")}
               </span>
-              <span className="block text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+              <span className="block text-[0.6875rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                 {localizeUi("ui.ui.callclipgenerationmodal.addANamedActionClipTheCharacterCanLater")}
               </span>
             </span>
@@ -249,7 +249,7 @@ export function CallClipGenerationModal({
                 />
               </label>
               {selectedKinds.length === 0 ? (
-                <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                <p className="text-[0.6875rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                   {localizeUi("ui.ui.callclipgenerationmodal.onlyTheCustomClipWillBeGenerated")}
                 </p>
               ) : null}

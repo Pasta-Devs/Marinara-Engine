@@ -85,7 +85,7 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
           type="button"
           onClick={() => setShowTechnical((value) => !value)}
           aria-expanded={showTechnical}
-          className="flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] active:scale-95"
+          className="flex items-center gap-1.5 text-sm font-medium max-sm:min-h-11 text-[var(--primary)] active:scale-95"
         >
           {showTechnical ? (
             <ChevronDown size="0.875rem" aria-hidden="true" />

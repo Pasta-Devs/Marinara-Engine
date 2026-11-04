@@ -111,7 +111,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("connections")}
                 className={cn(
-                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] font-semibold transition-colors",
                   tab === "connections"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",
@@ -123,7 +123,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("personas")}
                 className={cn(
-                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] font-semibold transition-colors",
                   tab === "personas"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",

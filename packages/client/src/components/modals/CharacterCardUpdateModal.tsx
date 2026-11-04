@@ -375,14 +375,14 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
                     {u.field}
                   </span>
                   {stale && (
-                    <span className="rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--destructive)]">
+                    <span className="rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] max-sm:text-[13px] font-medium text-[var(--destructive)]">
                       {localizeUi("ui.modals.charactercardupdatemodal.stale")}
                     </span>
                   )}
                 </div>
                 {u.reason && <p className="text-xs italic text-[var(--muted-foreground)]">{u.reason}</p>}
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                  <span className="text-[10px] max-sm:text-[13px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
                     {localizeUi("ui.modals.charactercardupdatemodal.before")}
                   </span>
                   <p className="whitespace-pre-wrap rounded-md bg-[var(--destructive)]/5 p-2 text-xs leading-relaxed text-[var(--foreground)]">
@@ -390,7 +390,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
                   </p>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                  <span className="text-[10px] max-sm:text-[13px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
                     {localizeUi("ui.modals.charactercardupdatemodal.after")}
                   </span>
                   <textarea

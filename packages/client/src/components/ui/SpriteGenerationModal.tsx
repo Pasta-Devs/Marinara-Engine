@@ -2140,7 +2140,7 @@ export function SpriteGenerationModal({
                   type="button"
                   aria-pressed={spriteType === "expressions"}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors ring-1",
+                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors ring-1 max-sm:min-h-11",
                     spriteType === "expressions"
                       ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/40"
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
@@ -2160,7 +2160,7 @@ export function SpriteGenerationModal({
                   type="button"
                   aria-pressed={spriteType === "full-body"}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors ring-1",
+                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors ring-1 max-sm:min-h-11",
                     spriteType === "full-body"
                       ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/40"
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
@@ -2293,7 +2293,9 @@ export function SpriteGenerationModal({
                       className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[var(--border)] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                     >
                       <ImagePlus size={18} />
-                      <span className="text-[0.5625rem]">{localizeUi("ui.characters.characterclipcard.upload")}</span>
+                      <span className="text-[0.5625rem] max-sm:text-[13px]">
+                        {localizeUi("ui.characters.characterclipcard.upload")}
+                      </span>
                     </button>
                   )}
                 </div>

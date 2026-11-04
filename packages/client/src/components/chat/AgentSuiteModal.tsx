@@ -897,7 +897,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
       chatFloatingPanel
     >
       {agents.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
           {localizeUi("ui.chat.agentsuitemodal.noAgentsAreActiveInThisChatAddAgents")}
         </div>
       ) : (

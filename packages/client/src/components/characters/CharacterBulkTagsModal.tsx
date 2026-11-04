@@ -235,7 +235,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               type="button"
               onClick={() => setRenames((current) => [...current, { from: "", to: "" }])}
               disabled={existingTags.length === 0}
-              className="mari-chrome-control mari-chrome-control--compact"
+              className="mari-chrome-control mari-chrome-control--compact text-[var(--foreground)] max-sm:min-h-11 max-sm:text-[13px]"
             >
               <Plus size="0.625rem" />
               {t("characters.bulkTags.addRename")}

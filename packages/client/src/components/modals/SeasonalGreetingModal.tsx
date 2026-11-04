@@ -92,7 +92,7 @@ export function SeasonalGreetingModal({
             {t("seasonalThemes.greeting.keep")}
           </button>
           <button type="button" onClick={turnOff} className={SHEET_BUTTON_SECONDARY}>
-            {t("seasonalThemes.greeting.turnOff")}
+            {t("seasonalThemes.greeting.turnOffThemes")}
           </button>
         </>
       }

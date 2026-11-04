@@ -574,7 +574,7 @@ function FaqDocsAccess({ compact }: { compact?: boolean }) {
       <div
         className={cn(
           "rounded-lg border border-[var(--border)]/55 bg-[var(--background)]/60 px-2.5 py-1.5",
-          compact ? "text-[0.625rem]" : "text-[0.65625rem]",
+          compact ? "text-[0.625rem] max-sm:text-[13px]" : "text-[0.65625rem] max-sm:text-[13px]",
         )}
       >
         <p className="text-[var(--muted-foreground)]/70">{localize("On disk at:")}</p>
@@ -587,7 +587,9 @@ function FaqDocsAccess({ compact }: { compact?: boolean }) {
         onClick={() => useUIStore.getState().openModal("docs-viewer")}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20",
-          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]",
+          compact
+            ? "px-2 py-1 text-[0.625rem] max-sm:min-h-11 max-sm:text-[13px]"
+            : "px-2.5 py-1.5 text-[0.6875rem] max-sm:min-h-11 max-sm:text-[13px]",
         )}
       >
         <BookOpen size={compact ? "0.6875rem" : "0.75rem"} />
@@ -663,7 +665,9 @@ export function HomeFaq({
       onClick={() => askMari(item)}
       className={cn(
         "mt-2 inline-flex items-center gap-1.5 rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
-        compactButton ? "min-h-7 px-2 text-[0.625rem]" : "min-h-8 px-2.5 text-[0.6875rem]",
+        compactButton
+          ? "min-h-7 px-2 text-[0.625rem] max-sm:min-h-11 max-sm:text-[13px]"
+          : "min-h-8 px-2.5 text-[0.6875rem] max-sm:min-h-11 max-sm:text-[13px]",
       )}
     >
       <MessageCircleQuestion size={compactButton ? "0.6875rem" : "0.75rem"} aria-hidden="true" />
@@ -732,7 +736,7 @@ export function HomeFaq({
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder={localize("Search FAQ")}
                   aria-label={localize("Search FAQ")}
-                  className="min-w-0 flex-1 bg-transparent text-[0.6875rem] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/65"
+                  className="min-w-0 flex-1 bg-transparent text-[0.6875rem] max-sm:text-[13px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/65"
                 />
                 {searchQuery ? (
                   <button
@@ -778,7 +782,7 @@ export function HomeFaq({
                             >
                               {localize(item.category)}
                             </span>
-                            <span className="min-w-0 flex-1 break-words text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
+                            <span className="min-w-0 flex-1 break-words text-[0.6875rem] max-sm:text-[13px] font-medium leading-snug text-[var(--foreground)]">
                               {localize(item.question)}
                             </span>
                           </div>
@@ -792,11 +796,11 @@ export function HomeFaq({
 
                       {isOpen && (
                         <div className="border-t border-[var(--border)]/55 bg-[var(--muted)]/30 px-2.5 py-2 dark:bg-black/10">
-                          <p className="text-[0.6875rem] leading-relaxed text-[var(--foreground)]/92">
+                          <p className="text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--foreground)]/92">
                             {localize(item.answer)}
                           </p>
                           {item.bullets?.length ? (
-                            <ul className="mt-2 space-y-1.5 text-[0.65625rem] leading-relaxed text-[var(--muted-foreground)]/85">
+                            <ul className="mt-2 space-y-1.5 text-[0.65625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]/85">
                               {item.bullets.map((bullet) => (
                                 <li key={bullet} className="flex gap-1.5">
                                   <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]/70" />
@@ -813,7 +817,7 @@ export function HomeFaq({
                   );
                 })}
                 {visibleFaqItems.length === 0 ? (
-                  <div className="rounded-lg border border-[var(--border)]/55 bg-[var(--muted)]/30 px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <div className="rounded-lg border border-[var(--border)]/55 bg-[var(--muted)]/30 px-3 py-3 text-center text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     {localize("No FAQ matches.")}
                   </div>
                 ) : null}
@@ -899,7 +903,7 @@ export function HomeFaq({
                   {HOME_FAQ_ITEMS.length} {localize("answers")}
                 </span>
               </div>
-              <p className="mt-0.5 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]/80">
+              <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]/80">
                 {localize("The recurring setup, model, Game Mode, image, and agent questions people keep asking.")}
               </p>
             </div>
@@ -935,7 +939,7 @@ export function HomeFaq({
                       <p className="mt-2 text-sm font-semibold tracking-tight text-[var(--foreground)]">
                         {localize("Start here before you go hunting through Discord logs.")}
                       </p>
-                      <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">
+                      <p className="mt-1 text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]/85">
                         {localizeUi("ui.chat.homefaq.theBiggestRepeatProblemsAreGameModeModelChoice")}
                       </p>
                     </div>
@@ -943,11 +947,11 @@ export function HomeFaq({
                 </div>
 
                 <div className="mt-3 rounded-[1.1rem] border border-amber-400/20 bg-amber-500/8 p-3">
-                  <div className="flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200/90">
+                  <div className="flex items-center gap-2 text-[0.6875rem] max-sm:text-[13px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200/90">
                     <TriangleAlert size="0.875rem" />
                     {localize("Before You Post A Bug")}
                   </div>
-                  <ul className="mt-2 space-y-1.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/88">
+                  <ul className="mt-2 space-y-1.5 text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]/88">
                     {QUICK_FIXES.map((fix) => (
                       <li key={fix} className="flex gap-2">
                         <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/75 dark:bg-amber-300/75" />
@@ -961,10 +965,10 @@ export function HomeFaq({
 
             <div className={cn(!faqOnly && "mt-3")}>
               <div className="mb-2 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <p className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]/65">
+                <p className="text-[0.6875rem] max-sm:text-[13px] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]/65">
                   {localize("Frequently Asked Questions")}
                 </p>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]/50">
+                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]/50">
                   {localize("Tap a question to reveal the answer.")}
                 </p>
               </div>
@@ -1037,7 +1041,7 @@ export function HomeFaq({
                             {localize(item.answer)}
                           </p>
                           {item.bullets?.length ? (
-                            <ul className="mt-2 space-y-1.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">
+                            <ul className="mt-2 space-y-1.5 text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]/85">
                               {item.bullets.map((bullet) => (
                                 <li key={bullet} className="flex gap-2">
                                   <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]/70" />

@@ -410,7 +410,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
               <p className="text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("ui.modals.importcharactermodal.importedCardTags")}
               </p>
-              <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                 {localizeUi("ui.modals.importcharactermodal.chooseHowSourceSiteTagsAreAppliedToCharacter")}
               </p>
             </div>
@@ -434,7 +434,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   className="sr-only"
                 />
                 <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                   {localizeUi(option.description)}
                 </span>
               </label>
@@ -447,7 +447,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             <p className="text-xs font-semibold text-[var(--foreground)]">
               {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
             </p>
-            <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.modals.importcharactermodal.keepABotSEmbeddedFindReplaceScriptsScoped")}
             </p>
           </div>
@@ -470,7 +470,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   className="sr-only"
                 />
                 <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                   {localizeUi(option.description)}
                 </span>
               </label>
@@ -598,7 +598,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     <div className="truncate font-medium">{result.filename}</div>
                     <div className="text-[var(--muted-foreground)]">{result.message}</div>
                     {result.descriptionSplit && (
-                      <div className="mt-1 flex items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <div className="mt-1 flex items-center gap-1.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         <Scissors size="0.6875rem" className="shrink-0" />
                         <span className="min-w-0 flex-1">{describeSplit(result.descriptionSplit)}</span>
                         <button
