@@ -43,14 +43,17 @@ test("fal.ai selection saves its endpoint and exposes a free configuration check
     const connect = dialog.locator("[data-add-connection-connect]");
     await expect(connect).toBeDisabled();
     await dialog.getByLabel("API key", { exact: true }).fill("synthetic-fal-key");
+    // Take the ids from this page's own create call: another run on the same server may add an account meanwhile.
+    const created = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" && new URL(response.url()).pathname === "/api/connection-accounts",
+    );
     await connect.click();
+    const body = (await (await created).json()) as { account: { id: string }; connectionId: string };
+    accountId = body.account.id;
+    id = body.connectionId;
     await expect(dialog).toHaveCount(0);
-
-    const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
-    accountId = accounts.find((account) => !accountsBefore.has(account.id))?.id ?? "";
-    expect(accountId).not.toBe("");
-    const rows = (await (await request.get("/api/connections")).json()) as Array<{ id: string; accountId?: string }>;
-    id = rows.find((row) => row.accountId === accountId)?.id ?? "";
+    expect(accountsBefore.has(accountId)).toBe(false);
     const saved = await (await request.get(`/api/connections/${id}`)).json();
     expect(saved.imageGenerationSource).toBe("fal");
     expect(saved.imageService).toBe("fal");

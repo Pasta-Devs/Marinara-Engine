@@ -49,12 +49,12 @@ test("the connection editor protects unsaved changes and tests the connection", 
     await expect(editor.locator("[data-account-address]")).toHaveValue("http://127.0.0.1:19093/v1");
     await expect(editor.getByRole("button", { name: "Manage access", exact: true })).toHaveCount(0);
     await expect(editor.getByRole("button", { name: "Test saved model", exact: true })).toHaveCount(0);
-    // The live check replaces the manual Test connection button for a server it can reach.
+    // The live check replaces the manual Test account button for a server it can reach.
     await expect(editor.getByText("Server answers · 1 model found", { exact: true })).toBeVisible();
     expect(checks).toContainEqual(
       expect.objectContaining({ baseUrl: "http://127.0.0.1:19093/v1", accountId: account.id }),
     );
-    await expect(editor.getByRole("button", { name: "Test connection", exact: true })).toHaveCount(0);
+    await expect(editor.getByRole("button", { name: "Test account", exact: true })).toHaveCount(0);
     const name = editor.locator("[data-account-name]");
     await name.fill("Studio changed");
     await editor.locator(`[data-account-model-id="${connectionId}"]`).click();

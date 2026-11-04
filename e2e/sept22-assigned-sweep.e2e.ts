@@ -109,9 +109,13 @@ for (const theme of ["light", "dark"] as const) {
       const prefix = `Folder-order-${Date.now()}`;
       const ids: string[] = [];
       let itemId = "";
+      let accountsBefore = new Set<string>();
       const resource = kind === "persona" ? "characters/personas" : `${kind}s`;
       try {
         if (kind === "connection") {
+          accountsBefore = new Set(
+            ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map((a) => a.id),
+          );
           // A panel with no connection shows the first-run screen instead of folders (#8456).
           const response = await request.post("/api/connections", {
             data: {
@@ -279,7 +283,13 @@ for (const theme of ["light", "dark"] as const) {
           }
         }
       } finally {
+        // Creating the Connection may also create its account; remove that one too, never an older one.
+        const accountId =
+          kind === "connection" && itemId
+            ? ((await (await request.get(`/api/connections/${itemId}`)).json()) as { accountId?: string }).accountId
+            : undefined;
         if (itemId) await request.delete(`/api/${resource}/${itemId}`);
+        if (accountId && !accountsBefore.has(accountId)) await request.delete(`/api/connection-accounts/${accountId}`);
         for (const id of ids) await request.delete(`/api/${folderPath}/${id}`);
       }
     });

@@ -253,9 +253,13 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
     await page.waitForTimeout(1_000);
     expect(heldSaves).toHaveLength(1);
     // The first save lands and is refetched while the second is held; the typed "abcd" must outlive that "abc".
+    const refetched = page.waitForResponse(
+      (response) => response.request().method() === "GET" && new URL(response.url()).pathname === "/api/tts/config",
+    );
     heldSaves[0]!();
     await expect.poll(() => heldSaves.length).toBe(2);
     await expect.poll(savedVoice).toBe("abc");
+    await refetched;
     await expect(input).toHaveValue("abcd");
     heldSaves[1]!();
     await expect.poll(savedVoice).toBe("abcd");
