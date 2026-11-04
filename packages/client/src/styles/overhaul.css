@@ -7018,7 +7018,9 @@ input.ov-edhead__title:focus {
 /* ─── Faded Side Panel avatar style ───
    Like the Glued Side Panel, but a wider portrait that fills the bubble's height and finishes fading
    inside its own strip, before the text starts. */
-.mari-rp-bubble--faded {
+/* The min height goes on the bubble's inner row, so the portrait strip stretches to the bubble's
+   bottom edge instead of stopping at the last line of text. */
+.mari-rp-bubble--faded > div.items-stretch {
   min-height: calc(7rem * var(--roleplay-avatar-scale, 1));
 }
 .mari-rp-bubble--faded .mari-roleplay-avatar-panel-rail {
