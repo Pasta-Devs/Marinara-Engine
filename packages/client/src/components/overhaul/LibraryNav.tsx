@@ -2,7 +2,8 @@
 // UI overhaul: the Library pane (right side)
 //
 // Sections only, never item lists: each section opens its landing page in the
-// main area. Characters shows its tags, which filter the gallery.
+// main area. Characters, Personas and Lorebooks show their tags, which filter
+// the gallery / list.
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import { Hash } from "lucide-react";
@@ -19,18 +20,45 @@ import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { OVERHAUL_SETTINGS_TABS } from "./SettingsPage";
 import { useOvAgentRows } from "./LibraryTables";
 
-function characterTags(record: unknown): string[] {
+function cleanTags(value: unknown): string[] {
+  if (typeof value === "string") {
+    try {
+      return cleanTags(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(value)
+    ? value.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+    : [];
+}
+
+/** Tags of a character (inside its card data), persona or lorebook (top-level `tags`). */
+function recordTags(record: unknown): string[] {
   if (!record || typeof record !== "object") return [];
+  const own = (record as { tags?: unknown }).tags;
+  if (own !== undefined) return cleanTags(own);
   const data = (record as { data?: unknown }).data;
   try {
     const parsed = typeof data === "string" ? (JSON.parse(data) as { tags?: unknown }) : (data as { tags?: unknown });
-    return Array.isArray(parsed?.tags)
-      ? parsed.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-      : [];
+    return cleanTags(parsed?.tags);
   } catch {
     return [];
   }
 }
+
+function countTags(records: unknown) {
+  const map = new Map<string, number>();
+  let untagged = 0;
+  for (const record of Array.isArray(records) ? records : []) {
+    const tags = recordTags(record);
+    if (!tags.length) untagged += 1;
+    for (const tag of tags) map.set(tag, (map.get(tag) ?? 0) + 1);
+  }
+  return { tags: [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])), untagged };
+}
+
+type TaggedSection = "characters" | "personas" | "lorebooks";
 
 export function LibraryNav() {
   const localize = useLocalizedUiText();
@@ -53,6 +81,10 @@ export function LibraryNav() {
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
   const characterTag = useOverhaulStore((s) => s.characterTag);
   const setCharacterTag = useOverhaulStore((s) => s.setCharacterTag);
+  const personaTag = useOverhaulStore((s) => s.personaTag);
+  const setPersonaTag = useOverhaulStore((s) => s.setPersonaTag);
+  const lorebookTag = useOverhaulStore((s) => s.lorebookTag);
+  const setLorebookTag = useOverhaulStore((s) => s.setLorebookTag);
   const settingsTab = useOverhaulStore((s) => s.settingsTab);
   const setSettingsTab = useOverhaulStore((s) => s.setSettingsTab);
 
@@ -66,16 +98,17 @@ export function LibraryNav() {
     agents: agents.ready ? agents.rows.length : undefined,
   };
 
-  const tagCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    let untagged = 0;
-    for (const record of Array.isArray(characters.data) ? characters.data : []) {
-      const tags = characterTags(record);
-      if (!tags.length) untagged += 1;
-      for (const tag of tags) map.set(tag, (map.get(tag) ?? 0) + 1);
-    }
-    return { tags: [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])), untagged };
-  }, [characters.data]);
+  const characterTagCounts = useMemo(() => countTags(characters.data), [characters.data]);
+  const personaTagCounts = useMemo(() => countTags(personas.data), [personas.data]);
+  const lorebookTagCounts = useMemo(() => countTags(lorebooks.data), [lorebooks.data]);
+  const tagState: Record<
+    TaggedSection,
+    { counts: ReturnType<typeof countTags>; value: string | null; set: (tag: string | null) => void }
+  > = {
+    characters: { counts: characterTagCounts, value: characterTag, set: setCharacterTag },
+    personas: { counts: personaTagCounts, value: personaTag, set: setPersonaTag },
+    lorebooks: { counts: lorebookTagCounts, value: lorebookTag, set: setLorebookTag },
+  };
 
   // Which section the main area is showing (an editor counts as its section).
   const activeSection = characterLibraryOpen
@@ -96,9 +129,13 @@ export function LibraryNav() {
                   ? "regex"
                   : libraryPage;
 
-  const pickTag = (tag: string | null) => {
-    setCharacterTag(tag);
-    if (!(characterLibraryOpen && cardLibraryKind === "characters")) openLibrarySection("characters");
+  const pickTag = (section: TaggedSection, tag: string | null) => {
+    tagState[section].set(tag);
+    const onLanding =
+      section === "lorebooks"
+        ? libraryPage === "lorebooks" && !lorebookDetailId
+        : characterLibraryOpen && cardLibraryKind === section;
+    if (!onLanding) openLibrarySection(section);
   };
 
   return (
@@ -118,7 +155,9 @@ export function LibraryNav() {
                   aria-current={on ? "page" : undefined}
                   data-tour={`panel-${entry.id}`}
                   onClick={() => {
-                    if (entry.id === "characters") setCharacterTag(null);
+                    if (entry.id === "characters" || entry.id === "personas" || entry.id === "lorebooks") {
+                      tagState[entry.id].set(null);
+                    }
                     openLibrarySection(entry.id);
                   }}
                 >
@@ -141,43 +180,39 @@ export function LibraryNav() {
                     ))}
                   </div>
                 ) : null}
-                {entry.id === "characters" && on && tagCounts.tags.length > 0 ? (
+                {(entry.id === "characters" || entry.id === "personas" || entry.id === "lorebooks") &&
+                on &&
+                tagState[entry.id].counts.tags.length > 0 ? (
                   <div className="ov-libnav__tags" role="group" aria-label={localize("Tags")}>
-                    <button
-                      type="button"
-                      className={cn("ov-libnav__tag", characterTag === null && "is-on")}
-                      aria-pressed={characterTag === null}
-                      onClick={() => pickTag(null)}
-                    >
-                      <Hash size={12} aria-hidden="true" />
-                      <span>{localize("All")}</span>
-                      <small>{counts.characters}</small>
-                    </button>
-                    {tagCounts.tags.map(([tag, count]) => (
+                    {[
+                      { key: "__all", tag: null, label: localize("All"), count: counts[entry.id] },
+                      ...tagState[entry.id].counts.tags.map(([tag, count]) => ({ key: tag, tag, label: tag, count })),
+                      ...(tagState[entry.id].counts.untagged > 0
+                        ? [
+                            {
+                              key: "__untagged",
+                              tag: "",
+                              label: localize("Untagged"),
+                              count: tagState[entry.id].counts.untagged,
+                            },
+                          ]
+                        : []),
+                    ].map((item) => (
                       <button
-                        key={tag}
+                        key={item.key}
                         type="button"
-                        className={cn("ov-libnav__tag", characterTag === tag && "is-on")}
-                        aria-pressed={characterTag === tag}
-                        onClick={() => pickTag(tag)}
+                        className={cn(
+                          "ov-libnav__tag",
+                          tagState[entry.id as TaggedSection].value === item.tag && "is-on",
+                        )}
+                        aria-pressed={tagState[entry.id as TaggedSection].value === item.tag}
+                        onClick={() => pickTag(entry.id as TaggedSection, item.tag)}
                       >
                         <Hash size={12} aria-hidden="true" />
-                        <span>{tag}</span>
-                        <small>{count}</small>
+                        <span>{item.label}</span>
+                        <small>{item.count}</small>
                       </button>
                     ))}
-                    {tagCounts.untagged > 0 ? (
-                      <button
-                        type="button"
-                        className={cn("ov-libnav__tag", characterTag === "" && "is-on")}
-                        aria-pressed={characterTag === ""}
-                        onClick={() => pickTag("")}
-                      >
-                        <Hash size={12} aria-hidden="true" />
-                        <span>{localize("Untagged")}</span>
-                        <small>{tagCounts.untagged}</small>
-                      </button>
-                    ) : null}
                   </div>
                 ) : null}
               </div>

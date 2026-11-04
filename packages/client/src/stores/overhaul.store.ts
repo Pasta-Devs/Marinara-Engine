@@ -62,6 +62,11 @@ interface OverhaulState {
   libraryPage: LibrarySection | null;
   /** Characters gallery filter picked from the tag list in the Library pane. */
   characterTag: string | null;
+  /** Personas gallery / Lorebooks list filters from the same tag lists ("" = untagged). */
+  personaTag: string | null;
+  lorebookTag: string | null;
+  setPersonaTag: (tag: string | null) => void;
+  setLorebookTag: (tag: string | null) => void;
   /** Which of the overhaul's Settings tabs is open. */
   settingsTab: OverhaulSettingsTab;
   setSettingsTab: (tab: OverhaulSettingsTab) => void;
@@ -119,6 +124,10 @@ export const useOverhaulStore = create<OverhaulState>()(
       tabs: [],
       libraryPage: null,
       characterTag: null,
+      personaTag: null,
+      lorebookTag: null,
+      setPersonaTag: (personaTag) => set({ personaTag }),
+      setLorebookTag: (lorebookTag) => set({ lorebookTag }),
       settingsTab: "general",
       setSettingsTab: (settingsTab) => set({ settingsTab }),
       setCharacterTag: (characterTag) => set({ characterTag }),

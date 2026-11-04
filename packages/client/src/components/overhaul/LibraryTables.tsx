@@ -18,6 +18,7 @@ import {
   type Lorebook,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
@@ -302,9 +303,15 @@ export function LorebooksLanding() {
   const [gallery, setGallery] = useState(false);
   const [sort, setSort] = useState<SortKey>("recent");
 
+  const tagFilter = useOverhaulStore((s) => s.lorebookTag);
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const wantedTag = tagFilter?.toLowerCase() ?? null;
     const list = (data ?? []).filter((book) => {
+      if (wantedTag !== null) {
+        const tags = (book.tags ?? []).filter((tag) => tag.trim());
+        if (wantedTag === "" ? tags.length > 0 : !tags.some((tag) => tag.toLowerCase() === wantedTag)) return false;
+      }
       if (chip === "global" && !book.isGlobal) return false;
       if (chip !== "all" && chip !== "global" && book.category !== chip) return false;
       if (!needle) return true;
@@ -315,7 +322,7 @@ export function LorebooksLanding() {
       );
     });
     return sortRows(list, sort);
-  }, [chip, data, search, sort]);
+  }, [chip, data, search, sort, tagFilter]);
 
   const activeIn = (book: Lorebook) => {
     if (book.isGlobal) return localize("Global");

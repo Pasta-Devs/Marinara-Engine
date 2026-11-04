@@ -425,7 +425,9 @@ export function CharacterLibraryView() {
 
   // UI overhaul: the Library pane's tag list filters the Characters gallery.
   const overhaulActive = useOverhaulActive();
-  const overhaulTag = useOverhaulStore((s) => (s.enabled && s.desktop && !isPersonaLibrary ? s.characterTag : null));
+  const overhaulTag = useOverhaulStore((s) =>
+    s.enabled && s.desktop ? (isPersonaLibrary ? s.personaTag : s.characterTag) : null,
+  );
   const filteredCards = useMemo(() => {
     const query = parseCardLibrarySearchQuery(search);
     const wantedTag = overhaulTag?.toLowerCase() ?? null;
