@@ -1,11 +1,9 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { isSpriteImageFile, readDroppedSpriteFiles } from "../../lib/sprite-folder-import";
-import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
-import { Modal } from "../ui/Modal";
+import { isSpriteImageFile } from "../../lib/sprite-folder-import";
 
 export function SpriteFolderImport({
   disabled,
@@ -15,22 +13,22 @@ export function SpriteFolderImport({
   onImport: (files: File[]) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [reading, setReading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [confirming, setConfirming] = useState(false);
   const busy = useRef(false);
 
-  async function importFiles(readFiles: () => Promise<File[]>) {
-    if (disabled || busy.current) return;
+  async function selectFolder(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (disabled || busy.current || !files.length) return;
+    const count = files.filter(isSpriteImageFile).length;
+    if (!count) {
+      toast.warning(t("sprites.library.noImages"));
+      return;
+    }
     busy.current = true;
-    setReading(true);
+    setConfirming(true);
     try {
-      const files = await readFiles();
-      const count = files.filter(isSpriteImageFile).length;
-      if (!count) {
-        toast.warning(t("sprites.library.noImages"));
-        return;
-      }
-      setOpen(false);
       if (
         await showConfirmDialog({
           title: t("sprites.library.importFolder"),
@@ -41,22 +39,12 @@ export function SpriteFolderImport({
         })
       )
         await onImport(files);
-    } catch {
-      toast.error(t("sprites.library.folderReadFailed"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("sprites.library.importFailed", { count }));
     } finally {
       busy.current = false;
-      setReading(false);
+      setConfirming(false);
     }
-  }
-
-  function drop(event: DragEvent<HTMLElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    const entries = Array.from(event.dataTransfer.items)
-      .map((item) => item.webkitGetAsEntry())
-      .filter((entry): entry is FileSystemEntry => entry !== null);
-    const files = Array.from(event.dataTransfer.files);
-    void importFiles(() => (entries.length ? readDroppedSpriteFiles(entries) : Promise.resolve(files)));
   }
 
   return (
@@ -64,37 +52,21 @@ export function SpriteFolderImport({
       <button
         type="button"
         className="mari-editor-action min-h-[44px]! px-3 md:ml-auto md:min-h-9!"
-        disabled={disabled || reading}
-        onClick={() => setOpen(true)}
+        disabled={disabled || confirming}
+        onClick={() => inputRef.current?.click()}
       >
         <FolderOpen size={14} />
         {t("sprites.library.importFolder")}
       </button>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        closeDisabled={reading}
-        title={t("sprites.library.importFolder")}
-      >
-        <div
-          className="space-y-4"
-          onDropCapture={drop}
-          onDragOverCapture={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            event.dataTransfer.dropEffect = reading ? "none" : "copy";
-          }}
-        >
-          <p className="rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
-            {t(reading ? "sprites.library.readingFolder" : "sprites.library.dropFolder")}
-          </p>
-          <ImageUploadDropzone
-            label={t("sprites.library.uploadImages")}
-            disabled={reading}
-            onFilesSelected={(files) => void importFiles(() => Promise.resolve(files))}
-          />
-        </div>
-      </Modal>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
+        webkitdirectory=""
+        className="hidden"
+        onChange={selectFolder}
+      />
     </>
   );
 }

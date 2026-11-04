@@ -1,6 +1,5 @@
 import { expect, test, request as createRequest, type CDPSession, type Page, type Locator } from "@playwright/test";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
 import { isSpriteImageFile } from "../packages/client/src/lib/sprite-folder-import.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
@@ -19,49 +18,12 @@ const png = Buffer.from(
 );
 
 async function importCharacterFolder(page: Page, library: Locator, directory: string) {
-  const files = readdirSync(directory).map((name) => ({
-    name,
-    contents: readFileSync(`${directory}/${name}`).toString("base64"),
-  }));
-  const button = library.getByRole("button", { name: "Import folder", exact: true });
-  if (!(await button.isVisible())) await library.getByRole("button", { name: "Add sprites", exact: true }).click();
-  await button.click();
-  const dialog = page.getByRole("dialog", { name: "Import folder", exact: true });
-  await dialog.getByText("Drop a folder here, or choose images from a folder below.").evaluate(
-    (target, { files, root }) => {
-      const entries = files.map(({ name, contents }) => ({
-        name,
-        fullPath: `/${root}/${name}`,
-        isFile: true,
-        file: (resolve: (file: File) => void) =>
-          resolve(
-            new File([Uint8Array.from(atob(contents), (c) => c.charCodeAt(0))], name, {
-              type: name.endsWith(".png") ? "image/png" : "application/json",
-            }),
-          ),
-      }));
-      const entry = {
-        isDirectory: true,
-        createReader: () => {
-          let read = false;
-          return {
-            readEntries: (resolve: (entries: unknown[]) => void) => {
-              resolve(read ? [] : entries);
-              read = true;
-            },
-          };
-        },
-      };
-      const event = new Event("drop", { bubbles: true, cancelable: true });
-      Object.defineProperty(event, "dataTransfer", {
-        value: { items: [{ webkitGetAsEntry: () => entry }], files: [] },
-      });
-      target.dispatchEvent(event);
-    },
-    { files, root: basename(directory) },
-  );
-  if (files.some(isSpriteImageFile)) await dialog.getByRole("button", { name: "Import", exact: true }).click();
-  else await dialog.getByRole("button", { name: "Close Import folder", exact: true }).click();
+  await library.locator("input[webkitdirectory]").setInputFiles(directory);
+  if (readdirSync(directory).some((name) => isSpriteImageFile({ name })))
+    await page
+      .getByRole("dialog", { name: "Import folder", exact: true })
+      .getByRole("button", { name: "Import", exact: true })
+      .click();
 }
 
 test("sprite metadata stays optional and folder moves work without dragging", async ({ page, request }, info) => {
