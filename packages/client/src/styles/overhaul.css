@@ -6614,3 +6614,43 @@ input.ov-edhead__title:focus {
 .ov-cs [data-ov-change-persona="set"] {
   display: none !important;
 }
+
+/* ─── Character / Persona page: rail hugs the content (2026-11-04) ─── */
+/* On wide screens the portrait + glossary rail sat at the far left while the fields were centered,
+   leaving a gap between them. The rail and the content column now sit together as one centered group. */
+[data-overhaul="on"] .ov-ed:has(> .ov-rail) {
+  justify-content: center;
+}
+[data-overhaul="on"] .ov-ed:has(> .ov-rail) > .mari-editor-body {
+  max-width: calc(56rem + 4rem);
+}
+[data-overhaul="on"] .ov-ed:has(> .ov-rail) .mari-editor-content-inner {
+  margin-inline: 0;
+}
+
+/* "+ Personality" style add-field chips: tinted with the theme accent, close to the fields they extend. */
+.ov-ed .ov-addchips {
+  gap: 0.375rem;
+  margin-top: -0.625rem !important;
+}
+/* Metadata / Advanced are moved to the end with `order`, so the sibling spacing rule misses them. */
+.ov-ed .mari-editor-content-inner > :is([data-editor-section="metadata"], [data-editor-section="advanced"]) {
+  margin-top: 2rem;
+}
+.ov-addchip {
+  height: 1.75rem;
+  padding: 0 0.75rem 0 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--ov-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+  color: var(--ov-accent);
+  font-weight: 500;
+}
+.ov-addchip:hover {
+  border-color: var(--ov-accent);
+  background: color-mix(in srgb, var(--ov-accent) 22%, transparent);
+  color: var(--ov-accent);
+}
+.ov-ed [data-editor-section]:has(.ov-addchips) + [data-editor-section] {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
