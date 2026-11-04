@@ -1737,6 +1737,10 @@ export function scrubInternalNames(text: string): string {
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
  */
 export function draftVisibleText(raw: string): string {
+  // Hold the standalone lookup opener, including a split across provider deltas.
+  const start = raw.trimStart();
+  const lookupOpener = '<use_tool name="app data">';
+  if (lookupOpener.startsWith(start) || start.startsWith(lookupOpener)) return "";
   const marker = textualCallMarkerIndex(raw);
   let end = marker >= 0 ? marker : raw.length;
   while (marker < 0 && end > 0 && /[\w.`:]/.test(raw[end - 1]!)) end -= 1;
