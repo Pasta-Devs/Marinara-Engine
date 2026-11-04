@@ -126,6 +126,7 @@ import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
 import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -2403,7 +2404,7 @@ export function PersonaEditor() {
               )}
               {showSection("stats") && (
                 <section data-editor-section="stats">
-                  <PersonaStatsTab formData={formData} updateField={updateField} />
+                  <PersonaStatsTab formData={formData} updateField={updateField} overhaul={overhaulActive} />
                 </section>
               )}
             </div>
@@ -3429,7 +3430,10 @@ function createNewRpgPool(existing: readonly RPGStatPool[]): RPGStatPool {
 function PersonaStatsTab({
   formData,
   updateField,
+  overhaul = false,
 }: {
+  /** UI overhaul: the compact Game Mode sheet (attribute tiles, pool and bar tables). */
+  overhaul?: boolean;
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
 }) {
@@ -3511,6 +3515,74 @@ function PersonaStatsTab({
   const removeRpgAttribute = (index: number) => {
     updateRpg({ attributes: rpgStats.attributes.filter((_, i) => i !== index) });
   };
+
+  const rulesetSheets = (
+    <RulesetSheetsSection
+      sheets={parsed.rulesetSheets}
+      onChange={(rulesetSheets) => {
+        const { rulesetSheets: _previous, ...rest } = parsed;
+        save(rulesetSheets ? { ...rest, rulesetSheets } : rest);
+      }}
+    />
+  );
+
+  if (overhaul) {
+    const renderBarIcon = (i: number) => {
+      const bar = parsed.bars[i];
+      if (!bar) return null;
+      return (
+        <StatIconPicker
+          value={resolveStatIconAssignment(
+            formData.trackerCardColors.statIcons ?? [],
+            bar.name,
+            getStatNameOccurrence(parsed.bars, i),
+          )}
+          statName={bar.name}
+          onSelect={(icon) =>
+            updateStatIcons(
+              setStatIconAssignment(
+                formData.trackerCardColors.statIcons ?? [],
+                bar.name,
+                getStatNameOccurrence(parsed.bars, i),
+                icon ?? undefined,
+              ),
+            )
+          }
+        />
+      );
+    };
+    return (
+      <div className="space-y-6">
+        <SectionHeader title="Game Mode" />
+        <GameModeSheet
+          rpgEnabled={rpgStats.enabled}
+          onRpgEnabled={(enabled) => updateRpg({ enabled })}
+          attributes={rpgStats.attributes}
+          onAttributeChange={(index, patch) => {
+            const [key, value] = Object.entries(patch)[0] ?? [];
+            if (key) updateRpgAttribute(index, key, value as string | number);
+          }}
+          onAddAttribute={addRpgAttribute}
+          onRemoveAttribute={removeRpgAttribute}
+          pools={rpgPools}
+          onPoolChange={updateRpgPool}
+          onAddPool={() => updateRpgPools([...rpgPools, createNewRpgPool(rpgPools)])}
+          onRemovePool={(index) => updateRpgPools(rpgPools.filter((_, poolIndex) => poolIndex !== index))}
+          barsEnabled={parsed.enabled}
+          onBarsEnabled={(enabled) => save({ ...parsed, enabled })}
+          bars={parsed.bars}
+          onBarChange={(index, patch) => {
+            const [key, value] = Object.entries(patch)[0] ?? [];
+            if (key) updateBar(index, key as keyof PersonaStatBar, value as never);
+          }}
+          onAddBar={addBar}
+          onRemoveBar={removeBar}
+          renderBarIcon={renderBarIcon}
+        />
+        {rulesetSheets}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -3741,13 +3813,7 @@ function PersonaStatsTab({
         )}
       </div>
 
-      <RulesetSheetsSection
-        sheets={parsed.rulesetSheets}
-        onChange={(rulesetSheets) => {
-          const { rulesetSheets: _previous, ...rest } = parsed;
-          save(rulesetSheets ? { ...rest, rulesetSheets } : rest);
-        }}
-      />
+      {rulesetSheets}
     </div>
   );
 }

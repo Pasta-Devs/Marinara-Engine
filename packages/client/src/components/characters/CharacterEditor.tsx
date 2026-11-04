@@ -206,6 +206,7 @@ import {
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
+import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
@@ -1712,7 +1713,12 @@ export function CharacterEditor() {
               )}
               {showSection("stats") && (
                 <section data-editor-section="stats">
-                  <StatsTab formData={formData} updateExtension={updateExtension} onDraftChange={markDirty} />
+                  <StatsTab
+                    formData={formData}
+                    updateExtension={updateExtension}
+                    onDraftChange={markDirty}
+                    overhaul={overhaulActive}
+                  />
                 </section>
               )}
               {showSection("advanced") && (
@@ -6407,7 +6413,10 @@ function StatsTab({
   formData,
   updateExtension,
   onDraftChange,
+  overhaul = false,
 }: {
+  /** UI overhaul: the compact Game Mode sheet replaces the RPG stats cards. */
+  overhaul?: boolean;
   formData: CharacterData;
   updateExtension: (key: string, value: unknown) => void;
   onDraftChange: () => void;
@@ -6478,160 +6487,207 @@ function StatsTab({
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title={localizeUi("ui.characters.statstab.rpgStats")}
-        subtitle={localizeUi("ui.characters.statstab.toggleStatTrackingForThisCharacterWhenEnabledThe")}
-        helpText={CHARACTER_STATS_HELP}
-      />
-
-      <SettingsSwitch
-        label={<span className="font-medium">{localizeUi("ui.characters.statstab.enableRpgStats")}</span>}
-        description={localizeUi("ui.characters.statstab.statsWillBeInjectedIntoThePromptAndTracked")}
-        checked={stats.enabled}
-        onChange={(checked) => update({ enabled: checked })}
-        labelPosition="start"
-        className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-        labelClassName="text-sm"
-      />
-
-      {stats.enabled && (
+      {overhaul ? (
         <>
-          {/* Pools */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{localizeUi("ui.characters.statstab.pools")}</h3>
-              <button
-                type="button"
-                onClick={() => updatePools([...pools, createNewRpgPool(pools)])}
-                className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
-              >
-                <Plus size="0.75rem" />
-                {localizeUi("ui.characters.metadatatab.add")}
-              </button>
-            </div>
-            <div className="space-y-2">
-              {pools.map((pool, i) => (
-                <div
-                  key={i}
-                  className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
-                >
-                  <input
-                    type="color"
-                    value={pool.color}
-                    onChange={(e) => updatePool(i, { color: e.target.value })}
-                    className="h-8 w-8 rounded border border-[var(--border)] bg-transparent p-0.5"
-                    aria-label={localizeUi("ui.characters.statstab.value1Color", {
-                      value1: pool.name || localizeUi("ui.characters.statstab.pool"),
-                    })}
-                  />
-                  <StatIconPicker
-                    value={resolveStatIconAssignment(
-                      trackerCardAppearance.statIcons ?? [],
-                      pool.name,
-                      getStatNameOccurrence(pools, i),
-                    )}
-                    statName={pool.name}
-                    onSelect={(icon) =>
-                      updateStatIcons(
-                        setStatIconAssignment(
+          <SectionHeader title="Game Mode" />
+          <GameModeSheet
+            rpgEnabled={stats.enabled}
+            onRpgEnabled={(enabled) => update({ enabled })}
+            attributes={stats.attributes}
+            onAttributeChange={(index, patch) => {
+              const [key, value] = Object.entries(patch)[0] ?? [];
+              if (key) updateAttribute(index, key, value as string | number);
+            }}
+            onAddAttribute={addAttribute}
+            onRemoveAttribute={removeAttribute}
+            pools={pools}
+            onPoolChange={updatePool}
+            onAddPool={() => updatePools([...pools, createNewRpgPool(pools)])}
+            onRemovePool={removePool}
+            renderPoolIcon={(i) => {
+              const pool = pools[i];
+              if (!pool) return null;
+              return (
+                <StatIconPicker
+                  value={resolveStatIconAssignment(
+                    trackerCardAppearance.statIcons ?? [],
+                    pool.name,
+                    getStatNameOccurrence(pools, i),
+                  )}
+                  statName={pool.name}
+                  onSelect={(icon) =>
+                    updateStatIcons(
+                      setStatIconAssignment(
+                        trackerCardAppearance.statIcons ?? [],
+                        pool.name,
+                        getStatNameOccurrence(pools, i),
+                        icon ?? undefined,
+                      ),
+                    )
+                  }
+                />
+              );
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <SectionHeader
+            title={localizeUi("ui.characters.statstab.rpgStats")}
+            subtitle={localizeUi("ui.characters.statstab.toggleStatTrackingForThisCharacterWhenEnabledThe")}
+            helpText={CHARACTER_STATS_HELP}
+          />
+
+          <SettingsSwitch
+            label={<span className="font-medium">{localizeUi("ui.characters.statstab.enableRpgStats")}</span>}
+            description={localizeUi("ui.characters.statstab.statsWillBeInjectedIntoThePromptAndTracked")}
+            checked={stats.enabled}
+            onChange={(checked) => update({ enabled: checked })}
+            labelPosition="start"
+            className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+            labelClassName="text-sm"
+          />
+
+          {stats.enabled && (
+            <>
+              {/* Pools */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">{localizeUi("ui.characters.statstab.pools")}</h3>
+                  <button
+                    type="button"
+                    onClick={() => updatePools([...pools, createNewRpgPool(pools)])}
+                    className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
+                  >
+                    <Plus size="0.75rem" />
+                    {localizeUi("ui.characters.metadatatab.add")}
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {pools.map((pool, i) => (
+                    <div
+                      key={i}
+                      className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
+                    >
+                      <input
+                        type="color"
+                        value={pool.color}
+                        onChange={(e) => updatePool(i, { color: e.target.value })}
+                        className="h-8 w-8 rounded border border-[var(--border)] bg-transparent p-0.5"
+                        aria-label={localizeUi("ui.characters.statstab.value1Color", {
+                          value1: pool.name || localizeUi("ui.characters.statstab.pool"),
+                        })}
+                      />
+                      <StatIconPicker
+                        value={resolveStatIconAssignment(
                           trackerCardAppearance.statIcons ?? [],
                           pool.name,
                           getStatNameOccurrence(pools, i),
-                          icon ?? undefined,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    key={pool.name}
-                    defaultValue={pool.name}
-                    onChange={onDraftChange}
-                    onBlur={(e) => {
-                      const name = e.currentTarget.value.trim() || pool.name;
-                      e.currentTarget.value = name;
-                      if (name !== pool.name) updatePool(i, { name });
-                    }}
-                    className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs font-medium"
-                    placeholder={localizeUi("ui.characters.metadatatab.name")}
-                  />
-                  <input
-                    type="number"
-                    value={pool.value}
-                    onChange={(e) => updatePool(i, { value: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
-                    min={0}
-                    aria-label={localizeUi("ui.characters.statstab.value1Value", {
-                      value1: pool.name || localizeUi("ui.characters.statstab.pool"),
-                    })}
-                  />
-                  <input
-                    type="number"
-                    value={pool.max}
-                    onChange={(e) => updatePool(i, { max: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
-                    min={1}
-                    aria-label={localizeUi("ui.characters.statstab.value1Max", {
-                      value1: pool.name || localizeUi("ui.characters.statstab.pool"),
-                    })}
-                  />
+                        )}
+                        statName={pool.name}
+                        onSelect={(icon) =>
+                          updateStatIcons(
+                            setStatIconAssignment(
+                              trackerCardAppearance.statIcons ?? [],
+                              pool.name,
+                              getStatNameOccurrence(pools, i),
+                              icon ?? undefined,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        key={pool.name}
+                        defaultValue={pool.name}
+                        onChange={onDraftChange}
+                        onBlur={(e) => {
+                          const name = e.currentTarget.value.trim() || pool.name;
+                          e.currentTarget.value = name;
+                          if (name !== pool.name) updatePool(i, { name });
+                        }}
+                        className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs font-medium"
+                        placeholder={localizeUi("ui.characters.metadatatab.name")}
+                      />
+                      <input
+                        type="number"
+                        value={pool.value}
+                        onChange={(e) => updatePool(i, { value: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
+                        min={0}
+                        aria-label={localizeUi("ui.characters.statstab.value1Value", {
+                          value1: pool.name || localizeUi("ui.characters.statstab.pool"),
+                        })}
+                      />
+                      <input
+                        type="number"
+                        value={pool.max}
+                        onChange={(e) => updatePool(i, { max: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
+                        min={1}
+                        aria-label={localizeUi("ui.characters.statstab.value1Max", {
+                          value1: pool.name || localizeUi("ui.characters.statstab.pool"),
+                        })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePool(i)}
+                        className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
+                        aria-label={localizeUi("ui.characters.statstab.removeValue1", {
+                          value1: pool.name || localizeUi("ui.characters.statstab.pool_51a4b13"),
+                        })}
+                      >
+                        <X size="0.75rem" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Attributes */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">{localizeUi("ui.characters.statstab.attributes")}</h3>
                   <button
                     type="button"
-                    onClick={() => removePool(i)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
-                    aria-label={localizeUi("ui.characters.statstab.removeValue1", {
-                      value1: pool.name || localizeUi("ui.characters.statstab.pool_51a4b13"),
-                    })}
+                    onClick={addAttribute}
+                    className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
                   >
-                    <X size="0.75rem" />
+                    <Plus size="0.75rem" />
+                    {localizeUi("ui.characters.metadatatab.add")}
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Attributes */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{localizeUi("ui.characters.statstab.attributes")}</h3>
-              <button
-                type="button"
-                onClick={addAttribute}
-                className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
-              >
-                <Plus size="0.75rem" />
-                {localizeUi("ui.characters.metadatatab.add")}
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {stats.attributes.map((attr, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2"
-                >
-                  <input
-                    value={attr.name}
-                    onChange={(e) => updateAttribute(i, "name", e.target.value)}
-                    className="w-20 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs font-medium"
-                    placeholder={localizeUi("ui.characters.metadatatab.name")}
-                  />
-                  <input
-                    type="number"
-                    value={attr.value}
-                    onChange={(e) => updateAttribute(i, "value", parseInt(e.target.value) || 0)}
-                    className="w-16 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeAttribute(i)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
-                  >
-                    <X size="0.75rem" />
-                  </button>
+                <div className="space-y-2">
+                  {stats.attributes.map((attr, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2"
+                    >
+                      <input
+                        value={attr.name}
+                        onChange={(e) => updateAttribute(i, "name", e.target.value)}
+                        className="w-20 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs font-medium"
+                        placeholder={localizeUi("ui.characters.metadatatab.name")}
+                      />
+                      <input
+                        type="number"
+                        value={attr.value}
+                        onChange={(e) => updateAttribute(i, "value", parseInt(e.target.value) || 0)}
+                        className="w-16 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAttribute(i)}
+                        className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
+                      >
+                        <X size="0.75rem" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
