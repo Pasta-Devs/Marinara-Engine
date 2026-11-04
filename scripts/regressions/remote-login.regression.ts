@@ -661,6 +661,19 @@ try {
     "an old app secret cannot come back once .env is cleared",
   );
   assert.equal((await local("GET", "/api/access/status")).json().adminSecretSource, null);
+  const noSecretMessage = async () =>
+    String((await adminSecretCall("POST", "203.0.113.70", fromBrowser)).json().message);
+  assert.match(await noSecretMessage(), /Admin Access/, "with no secret, the refusal offers the in-app path");
+  process.env.MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK = "true";
+  const loopbackLocked = await adminSecretCall("POST", "127.0.0.1", {});
+  assert.equal(loopbackLocked.statusCode, 403);
+  assert.doesNotMatch(
+    String(loopbackLocked.json().message),
+    /Admin Access/,
+    "the loopback flag also refuses the in-app path",
+  );
+  assert.match(String(loopbackLocked.json().message), /ADMIN_SECRET=/);
+  delete process.env.MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK;
 
   // ── .env wins and the app login is read-only meanwhile ──
   process.env.BASIC_AUTH_USER = "envuser";

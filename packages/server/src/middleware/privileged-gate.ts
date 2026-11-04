@@ -75,8 +75,10 @@ export function requirePrivilegedAccess(
   if (!getAdminSecretSource()) {
     reply.status(403).send({
       error: "ADMIN_SECRET is required for privileged APIs",
-      message:
-        "Make the admin secret in Settings > Advanced > Admin Access on the server's own computer, or set ADMIN_SECRET=<secret> in the server .env, and send the same value in the X-Admin-Secret header.",
+      // With the loopback flag on, this gate also refuses making the secret in the app.
+      message: isAdminSecretRequiredOnLoopback()
+        ? "Set ADMIN_SECRET=<secret> in the server .env and send the same value in the X-Admin-Secret header."
+        : "Make the admin secret in Settings > Advanced > Admin Access on the server's own computer, or set ADMIN_SECRET=<secret> in the server .env, and send the same value in the X-Admin-Secret header.",
     });
     return false;
   }
