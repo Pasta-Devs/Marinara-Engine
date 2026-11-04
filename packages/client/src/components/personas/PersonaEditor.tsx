@@ -126,6 +126,7 @@ import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
 import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { MariContextChip } from "../chat/MariContextChip";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
@@ -2121,6 +2122,19 @@ export function PersonaEditor() {
           "tags",
           formData.tags.filter((item) => item !== tag),
         )
+      }
+      assist={
+        personaId ? (
+          <MariContextChip
+            entryPoint="persona-editor"
+            surface="character-editor"
+            resource={{ kind: "persona", id: personaId, label: formData.name }}
+            field="description"
+            value={formData.description ?? ""}
+            subject={formData.name || "my persona"}
+            className="ov-mari-assist"
+          />
+        ) : null
       }
       actions={
         <>

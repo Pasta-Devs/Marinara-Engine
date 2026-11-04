@@ -1338,6 +1338,19 @@ export function CharacterEditor() {
       tags={formData.tags}
       onAddTag={(value) => addTag(value)}
       onRemoveTag={removeTag}
+      assist={
+        characterId ? (
+          <MariContextChip
+            entryPoint="character-editor"
+            surface="character-editor"
+            resource={{ kind: "character", id: characterId, label: formData.name }}
+            field={mariChipField?.field ?? "description"}
+            value={mariChipField?.value ?? formData.description ?? ""}
+            subject={formData.name}
+            className="ov-mari-assist"
+          />
+        ) : null
+      }
       actions={
         <>
           <button
@@ -1586,7 +1599,7 @@ export function CharacterEditor() {
           {/* Tab Content */}
           <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
             <div className="mari-editor-content-inner">
-              {characterId && mariChipField && (
+              {!overhaulActive && characterId && mariChipField && (
                 <div className="mb-3 flex justify-end">
                   <MariContextChip
                     entryPoint="character-editor"
