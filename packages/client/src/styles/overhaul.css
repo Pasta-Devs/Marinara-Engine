@@ -6125,3 +6125,90 @@ input.ov-edhead__title:focus {
 :root[data-overhaul="on"] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]) * {
   transition: none !important;
 }
+
+/* ─── Solid windows, menus and panels (2026-11-04) ─── */
+/* Themes give cards, popovers and chat chrome see-through backgrounds. In the overhaul every window,
+   menu and panel is solid; only the omnibar keeps its glass. It works in two steps because a custom
+   property can't refer to itself: <body> reads the theme's colours at full opacity, and each top-level
+   element (the app, and every menu or window portaled into <body>) swaps them in and rebuilds the
+   surfaces derived from them. */
+@supports (color: rgb(from red r g b / 1)) {
+  :root[data-overhaul="on"] body {
+    --ov-solid-card: rgb(from var(--card) r g b / 1);
+    --ov-solid-popover: rgb(from var(--popover) r g b / 1);
+    --ov-glass-card: var(--card);
+    --ov-glass-popover: var(--popover);
+  }
+  :root[data-overhaul="on"] body > * {
+    --card: var(--ov-solid-card);
+    --popover: var(--ov-solid-popover);
+  }
+  :root[data-overhaul="on"] [data-component="GlobalOmnibar"] {
+    --card: var(--ov-glass-card);
+    --popover: var(--ov-glass-popover);
+  }
+  :root[data-overhaul="on"] :is(body > *, [data-component="GlobalOmnibar"]) {
+    --marinara-chat-chrome-surface-bg: var(--card);
+    --marinara-chat-chrome-surface-bg-hover: color-mix(
+      in srgb,
+      var(--marinara-chat-chrome-surface-bg) 92%,
+      var(--foreground) 8%
+    );
+    --marinara-chat-chrome-surface-bg-active: color-mix(
+      in srgb,
+      var(--marinara-chat-chrome-surface-bg) 88%,
+      var(--foreground) 12%
+    );
+    --marinara-chat-chrome-button-bg: var(--marinara-chat-chrome-surface-bg);
+    --marinara-chat-chrome-button-bg-hover: color-mix(
+      in srgb,
+      var(--marinara-chat-chrome-surface-bg-hover) 90%,
+      var(--marinara-chat-chrome-accent) 10%
+    );
+    --marinara-chat-chrome-button-bg-active: color-mix(
+      in srgb,
+      var(--marinara-chat-chrome-surface-bg-active) 84%,
+      var(--marinara-chat-chrome-accent) 16%
+    );
+    --marinara-chat-chrome-panel-bg: var(--marinara-chat-chrome-button-bg);
+    --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg);
+    --marinara-chat-option-field-bg: var(--marinara-chat-chrome-button-bg);
+    --marinara-chat-option-field-bg-hover: var(--marinara-chat-chrome-button-bg-hover);
+    --marinara-chat-option-field-bg-active: var(--marinara-chat-chrome-button-bg-active);
+    --marinara-editor-surface-bg: var(--marinara-chat-chrome-panel-bg);
+    --marinara-editor-surface-bg-hover: var(--marinara-chat-chrome-surface-bg-hover);
+    --marinara-editor-surface-bg-active: var(--marinara-chat-chrome-surface-bg-active);
+    --marinara-editor-control-bg: color-mix(in srgb, var(--marinara-editor-surface-bg) 78%, var(--background) 22%);
+    --marinara-editor-control-bg-hover: color-mix(
+      in srgb,
+      var(--marinara-editor-surface-bg-hover) 86%,
+      var(--marinara-chat-chrome-accent) 14%
+    );
+  }
+}
+
+/* Bookmark / pin / note popover: same density as the menu it opens from. */
+:root[data-overhaul="on"] .marinara-chat-popover.mari-chat-action-panel {
+  padding: 0.25rem;
+  border-color: var(--ov-line);
+  border-radius: 0.625rem;
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.75);
+}
+:root[data-overhaul="on"]
+  .marinara-chat-popover.mari-chat-action-panel
+  .mari-chat-style-control:not(.mari-chrome-control) {
+  padding: 0.3125rem 0.5rem;
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="on"] .marinara-chat-popover.mari-chat-action-panel .mari-chrome-control {
+  height: 1.625rem !important;
+  min-height: 0 !important;
+  padding: 0 0.625rem !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.75rem !important;
+}
+:root[data-overhaul="on"]
+  .marinara-chat-popover.mari-chat-action-panel
+  :is(textarea, select, input:not([type="checkbox"])) {
+  font-size: 0.8125rem;
+}

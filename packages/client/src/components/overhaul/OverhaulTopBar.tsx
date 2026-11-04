@@ -380,9 +380,9 @@ export function OverhaulTopBar() {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   // Whatever is on screen gets a tab, so you can hop back to it. Library sections, Settings and
-  // Extensions don't: they are one click away in the Library pane.
+  // Extensions don't: they are one click away in the Library pane. Neither do the Docs (the Docs button).
   useEffect(() => {
-    if (current && current.kind !== "library") touchTab(current);
+    if (current && current.kind !== "library" && current.kind !== "docs") touchTab(current);
   }, [current, touchTab]);
 
   // Keep the active tab in view when the strip overflows.
@@ -566,12 +566,12 @@ export function OverhaulTopBar() {
         <PersonalExtensionContributionsMenu />
         <button
           type="button"
-          className="ov-icon-btn"
+          className="ov-text-btn"
           onClick={() => useUIStore.getState().openModal("docs-viewer")}
           title={localize("Docs")}
-          aria-label={localize("Docs")}
         >
-          <CircleHelp size={16} />
+          <span aria-hidden="true">📖</span>
+          <span>{localize("Docs")}</span>
         </button>
         <button
           type="button"
