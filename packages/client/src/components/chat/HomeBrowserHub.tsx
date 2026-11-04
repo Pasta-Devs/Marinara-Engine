@@ -994,7 +994,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [setLocalActiveTab],
   );
   const homeLauncherClass = overhaulActive
-    ? "group !h-9 !gap-1.5 !rounded-full !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_55%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_16%,var(--card))] !px-3.5"
+    ? "group ov-home-mode !h-8 !gap-1.5 !rounded-full !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_45%,var(--border))] !bg-transparent !px-3"
     : "group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9";
   const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [faqOpen, setFaqOpen] = useState(false);
