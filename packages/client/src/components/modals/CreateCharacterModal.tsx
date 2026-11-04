@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
 import { Modal } from "../ui/Modal";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useCreateCharacter, useUploadAvatar } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { Loader2, Sparkles, User, Camera } from "lucide-react";
@@ -27,6 +28,24 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
   const reset = () => {
     setName("");
     setAvatarDataUrl(null);
+  };
+
+  // Pull, backdrop, Esc and Cancel all ask before throwing away typed input.
+  const guardedClose = async () => {
+    const dirty = name.trim() !== defaultName.trim() || avatarDataUrl !== null;
+    if (
+      dirty &&
+      !(await showConfirmDialog({
+        title: localizeUi("ui.stateEditor.discard.title"),
+        message: localizeUi("ui.stateEditor.discard.message"),
+        confirmLabel: localizeUi("ui.stateEditor.discard.confirm"),
+        cancelLabel: localizeUi("ui.stateEditor.discard.cancel"),
+        tone: "destructive",
+      }))
+    )
+      return;
+    onClose();
+    reset();
   };
 
   const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,7 +108,7 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={guardedClose}
       title={localizeUi("ui.modals.createcharactermodal.createCharacter")}
       width="max-w-sm"
     >
@@ -131,10 +150,7 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
         {/* Footer */}
         <div className="flex w-full justify-end gap-2 border-t border-[var(--border)] pt-3">
           <button
-            onClick={() => {
-              onClose();
-              reset();
-            }}
+            onClick={guardedClose}
             className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
           >
             {localizeUi("chat.delete.dialog.cancel")}

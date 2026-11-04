@@ -17160,6 +17160,7 @@
   "ui.ui.spritegenerationmodal.selectExactlyValue1GeneralPosesForAValue2Value3": "Select exactly {{value1}} general poses for a {{value2}}×{{value3}} full-body sheet.",
   "ui.ui.spritegenerationmodal.sprite": "Sprite",
   "ui.ui.spritegenerationmodal.spriteFilenameForValue1": "Sprite filename for {{value1}}",
+  "ui.ui.spritegenerationmodal.stopGenerating": "Stop generating",
   "ui.ui.spritegenerationmodal.theBatchAlreadyRetriedOnceAutomaticallyRetryItHere": "The batch already retried once automatically. Retry it here when the provider is ready; successful batches above are preserved.",
   "ui.ui.spritegenerationmodal.thisMayTake3060SecondsDependingOnThe": "This may take 30–60 seconds depending on the provider.",
   "ui.ui.spritegenerationmodal.thisMayTake3060SecondsDependingOnThe_d8728f7": "This may take 30–60 seconds depending on the provider. The sheet will be sliced into poses after generation.",

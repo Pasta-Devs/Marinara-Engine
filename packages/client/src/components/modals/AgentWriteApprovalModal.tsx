@@ -152,6 +152,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
   return (
     <Modal
       pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
       footer={
         <>
           <button

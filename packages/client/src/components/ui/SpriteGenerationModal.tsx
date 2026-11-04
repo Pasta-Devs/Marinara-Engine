@@ -2576,7 +2576,7 @@ export function SpriteGenerationModal({
               onClick={handleCancelGeneration}
               className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
             >
-              {localizeUi("chat.delete.dialog.cancel")}
+              {localizeUi("ui.ui.spritegenerationmodal.stopGenerating")}
             </button>
           </div>
         )}
