@@ -1327,14 +1327,14 @@ export function ChatSidebar() {
           {overhaulMobile ? <img className="ovm-chats-logo" src="/icon-192.png" alt="" /> : <ChatSidebarTitleIcon />}
           <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize("Chats")}</h2>
           {overhaulMobile ? null : (
-          <HelpTooltip
-            text={t("navigation.sidebarHelp.chats")}
-            ariaLabel={t("navigation.sidebarHelp.button", { sidebar: localize("Chats") })}
-            side="bottom"
-            wide
-            className="shrink-0 [@media(pointer:coarse)]:-ml-3"
-            buttonClassName="justify-center [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
-          />
+            <HelpTooltip
+              text={t("navigation.sidebarHelp.chats")}
+              ariaLabel={t("navigation.sidebarHelp.button", { sidebar: localize("Chats") })}
+              side="bottom"
+              wide
+              className="shrink-0 [@media(pointer:coarse)]:-ml-3"
+              buttonClassName="justify-center [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
+            />
           )}
         </div>
         {overhaulMobile ? <MobileChatsHomeButton /> : null}
@@ -1394,16 +1394,8 @@ export function ChatSidebar() {
               </button>
             </>
           ) : null}
-          {overhaulMobile ? (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="ovm-icon-btn"
-              title={localize("Close")}
-              aria-label={localize("Close chats")}
-            >
-              <ChevronRight size={22} />
-            </button>
-          ) : (
+          {/* New layout on phones: the top bar's left button closes the list, as on desktop. */}
+          {overhaulMobile ? null : (
             <button
               onClick={() => setSidebarOpen(false)}
               className={cn(
