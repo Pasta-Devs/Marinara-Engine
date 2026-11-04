@@ -546,7 +546,7 @@ function CharacterScheduleGroup({
               </p>
             </button>
             {character.schedule && (
-              <label className="flex shrink-0 items-center gap-1 text-[0.65rem] max-sm:min-h-11 max-sm:text-[13px] text-[var(--muted-foreground)]">
+              <label className="flex shrink-0 items-center gap-1 text-[0.65rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px] text-[var(--muted-foreground)]">
                 <input
                   type="checkbox"
                   checked={character.autoRenew}

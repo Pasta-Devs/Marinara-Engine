@@ -887,7 +887,7 @@ export function CharacterScheduleEditorModal({
                   type="button"
                   onClick={generateSummary}
                   disabled={generationBusy || generationUnavailable}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 self-end rounded-md bg-[var(--background)] px-3 py-2 text-xs max-sm:text-[13px] font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 self-end rounded-md bg-[var(--background)] px-3 py-2 text-xs max-sm:min-h-11 max-sm:text-[13px] font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isGeneratingSummary ? (
                     <Loader2 size="0.75rem" className="animate-spin" />

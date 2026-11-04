@@ -463,7 +463,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   >
                     <ArrowLeft size="0.75rem" />
                   </button>
-                  <span className="flex-1 truncate font-mono text-[0.625rem] text-[var(--muted-foreground)]">
+                  <span className="flex-1 truncate font-mono text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     {browserPath || "/"}
                   </span>
                   <button
@@ -471,7 +471,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                       setFolderPath(browserPath);
                       setShowFolderBrowser(false);
                     }}
-                    className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
+                    className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
                   >
                     {localizeUi("ui.modals.stbulkimportmodal.selectThisFolder")}
                   </button>
@@ -482,7 +482,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                       <Loader2 size="0.875rem" className="animate-spin text-[var(--muted-foreground)]" />
                     </div>
                   ) : browserFolders.length === 0 ? (
-                    <p className="py-3 text-center text-[0.625rem] text-[var(--muted-foreground)]">
+                    <p className="py-3 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                       {localizeUi("ui.modals.stbulkimportmodal.noSubfolders")}
                     </p>
                   ) : (
@@ -512,7 +512,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
               <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
               {localizeUi("ui.modals.stbulkimportmodal.thisIsTheMainSillytavernFolderUsuallyTheOne")}{" "}
               <code className="rounded bg-[var(--secondary)] px-1">data/</code> {localizeUi("ui.noodle.noodlehome.or")}{" "}
@@ -527,7 +527,9 @@ export function STBulkImportModal({ open, onClose }: Props) {
               <CheckCircle size="0.875rem" className="mt-0.5 shrink-0" />
               <span>
                 {localizeUi("ui.modals.stbulkimportmodal.foundSillytavernDataIn")}{" "}
-                <code className="rounded bg-[var(--secondary)] px-1 text-[0.625rem]">{scanResult.dataDir}</code>
+                <code className="rounded bg-[var(--secondary)] px-1 text-[0.625rem] max-sm:text-[13px]">
+                  {scanResult.dataDir}
+                </code>
               </span>
             </div>
 
@@ -547,7 +549,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <span className="text-xs font-medium">
                   {localizeUi("ui.modals.stbulkimportmodal.chooseExactlyWhatToImport")}
                 </span>
-                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {localizeUi("ui.modals.stbulkimportmodal.selectedItems", {
                     count: Object.values(selection).reduce((sum, ids) => sum + ids.length, 0),
                   })}
@@ -583,7 +585,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   <p className="text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.modals.stbulkimportmodal.importedCharacterTags")}
                   </p>
-                  <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     {localizeUi("ui.modals.stbulkimportmodal.chooseHowSourceSiteTagsAreAppliedToImported")}
                   </p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -605,7 +607,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                           className="sr-only"
                         />
                         <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
-                        <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                        <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                           {option.description}
                         </span>
                       </label>
@@ -619,7 +621,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   <p className="text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
                   </p>
-                  <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     {localizeUi("ui.modals.stbulkimportmodal.keepEachBotSEmbeddedFindReplaceScriptsScoped")}
                   </p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -641,7 +643,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                           className="sr-only"
                         />
                         <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
-                        <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                        <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                           {option.description}
                         </span>
                       </label>
@@ -730,7 +732,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 }}
                 renderBadge={(item) =>
                   item.isBuiltin ? (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.5625rem] font-medium text-amber-400">
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] font-medium text-amber-400">
                       {localizeUi("ui.modals.stbulkimportmodal.builtIn")}
                     </span>
                   ) : null
@@ -836,9 +838,11 @@ export function STBulkImportModal({ open, onClose }: Props) {
                     style={{ width: `${Math.round((progress.current / Math.max(progress.total, 1)) * 100)}%` }}
                   />
                 </div>
-                <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">{progress.item}</p>
+                <p className="truncate text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                  {progress.item}
+                </p>
 
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {progress.imported.characters > 0 && (
                     <span>
                       {localizeUi("ui.modals.stbulkimportmodal.importedCharacters", {
@@ -964,7 +968,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                     count: importResult.errors.length,
                   })}
                 </div>
-                <div className="max-h-24 overflow-y-auto text-[0.625rem] text-[var(--muted-foreground)]">
+                <div className="max-h-24 overflow-y-auto text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {importResult.errors.map((warning, index) => (
                     <div key={`${warning}-${index}`} className="py-0.5">
                       {warning}
@@ -1028,21 +1032,21 @@ function SelectableImportCategory<T extends ScanItemBase>({
             <button
               type="button"
               onClick={onSelectAll}
-              className="rounded-md px-2 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--accent)]"
+              className="rounded-md px-2 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--accent)]"
             >
               {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
             </button>
             <button
               type="button"
               onClick={onSelectNone}
-              className="rounded-md px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              className="rounded-md px-2 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               {localizeUi("ui.game.gamesurfacecomponent.none")}
             </button>
             <button
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
-              className="rounded-md px-2 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--accent)]"
+              className="rounded-md px-2 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--accent)]"
             >
               {expanded
                 ? localizeUi("ui.noodle.stageprofileview.hide")
@@ -1077,7 +1081,7 @@ function SelectableImportCategory<T extends ScanItemBase>({
                     </span>
                     {renderBadge?.(item)}
                     {checked && (
-                      <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]">
+                      <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.5625rem] max-sm:text-[13px] font-medium text-[var(--primary)]">
                         <span className="inline-flex items-center gap-1">
                           <Check size="0.5625rem" />
                           {localizeUi("ui.modals.selectableimportcategory.selected")}
@@ -1086,7 +1090,9 @@ function SelectableImportCategory<T extends ScanItemBase>({
                     )}
                   </div>
                   {renderDetails && (
-                    <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{renderDetails(item)}</div>
+                    <div className="truncate text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                      {renderDetails(item)}
+                    </div>
                   )}
                 </div>
               </label>
@@ -1104,7 +1110,7 @@ function StatCard({ icon, label, count }: { icon: React.ReactNode; label: string
       <span className="text-[var(--primary)]">{icon}</span>
       <div className="flex flex-col">
         <span className="text-sm font-bold">{count}</span>
-        <span className="text-[0.625rem] text-[var(--muted-foreground)]">{label}</span>
+        <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{label}</span>
       </div>
     </div>
   );

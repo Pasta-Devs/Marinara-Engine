@@ -95,7 +95,7 @@ type BackgroundPickerProps = {
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
 const BACKGROUND_FOLDER_QUERY_KEY = ["background-folders"] as const;
 const CARD_TEXT_FIELD_CLASS =
-  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
+  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] max-sm:text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
 
 /**
  * The rename input keeps its draft here rather than in the picker, so typing a name
@@ -193,7 +193,7 @@ function CardTagInput({
           }
         }}
         placeholder={placeholder}
-        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] max-sm:text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
         data-background-tag-input
         autoFocus
         list={datalistId}
@@ -866,13 +866,13 @@ export function BackgroundPicker({
           >
             <ChatResourceActionButton
               payload={{ version: 1, kind: "background", ids: [background.url], label: title }}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
             />
             <button
               type="button"
               data-background-move
               onClick={() => void handleMoveBackground(background)}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
               title={localizeUi("ui.panels.backgroundpicker.moveToFolder")}
               aria-label={localizeUi("ui.panels.backgroundpicker.moveValue1ToAFolder", { value1: title })}
             >
@@ -886,7 +886,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setRenamingFile(background.id);
                   }}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
                   title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
                 >
@@ -899,7 +899,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setEditingTags(isEditingTags ? null : background.id);
                   }}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
                   title={localizeUi("ui.panels.backgroundpicker.editTags")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
                   aria-pressed={isEditingTags}
@@ -916,7 +916,7 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
                 }}
-                className={SETTINGS_ICON_BUTTON_CLASS}
+                className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
                 title={
                   isDefaultRoleplay
                     ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
@@ -941,7 +941,7 @@ export function BackgroundPicker({
                 cancelPendingClose();
                 void saveExportUrl(background.url, background.filename);
               }}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:min-h-11 max-sm:min-w-11")}
               title={localizeUi("ui.panels.backgroundpicker.downloadBackground")}
               aria-label={localizeUi("ui.panels.backgroundpicker.downloadValue1", { value1: title })}
             >
@@ -954,7 +954,10 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   void handleDeleteBackground(background);
                 }}
-                className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
+                className={cn(
+                  SETTINGS_ICON_BUTTON_CLASS,
+                  "mari-chrome-control--danger max-sm:min-h-11 max-sm:min-w-11",
+                )}
                 title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
                 aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
               >
@@ -1149,7 +1152,7 @@ export function BackgroundPicker({
                   folderDrag.setActive(event.target.value === "custom");
                   if (event.target.value !== "custom") setSort(event.target.value as BackgroundLibrarySort);
                 }}
-                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
+                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
                 title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
                 aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
               >

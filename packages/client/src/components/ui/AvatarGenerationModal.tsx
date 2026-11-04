@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, IdCard, ImagePlus, Loader2, Wand2, X } from "lucide-react";
+import { Camera, IdCard, ImagePlus, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
@@ -268,7 +268,6 @@ export function AvatarGenerationModal({
                 : localizeUi("ui.characters.characterclipcard.generate")}
             </button>
             <button type="button" onClick={onClose} disabled={generating || saving} className={SHEET_BUTTON_QUIET}>
-              <X size="0.875rem" />
               {localizeUi("chat.delete.dialog.cancel")}
             </button>
           </>
@@ -390,7 +389,7 @@ export function AvatarGenerationModal({
                 )}
               </div>
               {generatedPrompt && (
-                <p className="line-clamp-4 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                <p className="line-clamp-4 text-[0.625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
                   {generatedPrompt}
                 </p>
               )}
@@ -398,7 +397,7 @@ export function AvatarGenerationModal({
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+            <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
               {canvasWidth}
               {localizeUi("ui.panels.imagedimensionrow.x")}
               {canvasHeight}{" "}

@@ -588,8 +588,8 @@ function FaqDocsAccess({ compact }: { compact?: boolean }) {
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20",
           compact
-            ? "px-2 py-1 text-[0.625rem] max-sm:min-h-11 max-sm:text-[13px]"
-            : "px-2.5 py-1.5 text-[0.6875rem] max-sm:min-h-11 max-sm:text-[13px]",
+            ? "px-2 py-1 text-[0.625rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
+            : "px-2.5 py-1.5 text-[0.6875rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px]",
         )}
       >
         <BookOpen size={compact ? "0.6875rem" : "0.75rem"} />
@@ -666,8 +666,8 @@ export function HomeFaq({
       className={cn(
         "mt-2 inline-flex items-center gap-1.5 rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
         compactButton
-          ? "min-h-7 px-2 text-[0.625rem] max-sm:min-h-11 max-sm:text-[13px]"
-          : "min-h-8 px-2.5 text-[0.6875rem] max-sm:min-h-11 max-sm:text-[13px]",
+          ? "min-h-7 px-2 text-[0.625rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
+          : "min-h-8 px-2.5 text-[0.6875rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px]",
       )}
     >
       <MessageCircleQuestion size={compactButton ? "0.6875rem" : "0.75rem"} aria-hidden="true" />
@@ -686,7 +686,7 @@ export function HomeFaq({
             <p className="truncate text-xs font-semibold text-[var(--foreground)]">
               {localizeUi("ui.chat.homefaq.faq")}
             </p>
-            <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
+            <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] max-sm:text-[13px] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
               {HOME_FAQ_ITEMS.length}
             </span>
           </div>
@@ -776,7 +776,7 @@ export function HomeFaq({
                           <div className="flex items-start gap-1.5">
                             <span
                               className={cn(
-                                "mt-[0.0625rem] shrink-0 rounded-full border px-1.5 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.12em]",
+                                "mt-[0.0625rem] shrink-0 rounded-full border px-1.5 py-0.5 text-[0.5rem] max-sm:text-[13px] font-medium uppercase tracking-[0.12em]",
                                 CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.Misc,
                               )}
                             >
@@ -848,7 +848,7 @@ export function HomeFaq({
                 <p className="truncate text-xs font-semibold text-[var(--foreground)]">
                   {localizeUi("ui.chat.homefaq.faq")}
                 </p>
-                <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
+                <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] max-sm:text-[13px] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
                   {HOME_FAQ_ITEMS.length}
                 </span>
               </div>
@@ -899,7 +899,7 @@ export function HomeFaq({
                 <p className="text-sm font-semibold tracking-tight text-[var(--foreground)]">
                   {localize("Professor Mari's FAQ")}
                 </p>
-                <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-2 py-0.5 text-[0.5625rem] uppercase tracking-[0.16em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
+                <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
                   {HOME_FAQ_ITEMS.length} {localize("answers")}
                 </span>
               </div>
@@ -932,7 +932,7 @@ export function HomeFaq({
                       />
                     </div>
                     <div className="min-w-0 text-center sm:text-left">
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/50 px-2.5 py-1 text-[0.5625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]/85 dark:border-white/10 dark:bg-black/20">
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/50 px-2.5 py-1 text-[0.5625rem] max-sm:text-[13px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]/85 dark:border-white/10 dark:bg-black/20">
                         <Sparkles size="0.6875rem" />
                         {localizeUi("ui.chat.homefaq.professorMari")}
                       </div>
@@ -1017,13 +1017,13 @@ export function HomeFaq({
                           <div className="flex items-start gap-2">
                             <span
                               className={cn(
-                                "mt-[0.0625rem] shrink-0 rounded-full border px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-[0.16em]",
+                                "mt-[0.0625rem] shrink-0 rounded-full border px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] font-medium uppercase tracking-[0.16em]",
                                 CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.Misc,
                               )}
                             >
                               {localize(item.category)}
                             </span>
-                            <span className="min-w-0 flex-1 break-words text-[0.75rem] font-medium leading-relaxed text-[var(--foreground)]">
+                            <span className="min-w-0 flex-1 break-words text-[0.75rem] max-sm:text-[13px] font-medium leading-relaxed text-[var(--foreground)]">
                               {localize(item.question)}
                             </span>
                           </div>
@@ -1037,7 +1037,7 @@ export function HomeFaq({
 
                       {isOpen && (
                         <div className="border-t border-[var(--border)]/55 bg-[var(--muted)]/30 px-3 py-3 dark:bg-black/10">
-                          <p className="text-[0.72rem] leading-relaxed text-[var(--foreground)]/92">
+                          <p className="text-[0.72rem] max-sm:text-[13px] leading-relaxed text-[var(--foreground)]/92">
                             {localize(item.answer)}
                           </p>
                           {item.bullets?.length ? (

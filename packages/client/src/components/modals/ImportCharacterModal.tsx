@@ -488,6 +488,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--foreground)]">
             {localizeUi("ui.modals.importcharactermodal.splitDescriptionIntoFields")}
             <HelpTooltip
+              buttonClassName="relative max-sm:after:absolute max-sm:after:-inset-4 max-sm:after:content-['']"
               text={localizeUi("ui.modals.importcharactermodal.moveLabelledPersonalityAppearanceBackstory")}
               ariaLabel={localizeUi("ui.modals.importcharactermodal.aboutSplitDescription")}
               wide
