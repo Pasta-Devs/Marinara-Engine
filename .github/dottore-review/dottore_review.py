@@ -1001,6 +1001,7 @@ def build_stats(review_packet):
                 "stop_time": 0,
                 "stop_box": 0,
                 "stop_cap": 0,
+                "stop_error": 0,
                 "prompt_tokens": 0,
                 "cached_tokens": 0,
                 "completion_tokens": 0,
@@ -1377,11 +1378,12 @@ class StreamStalled(Exception):
 
 class ResponseFailed(Exception):
     """The provider reported a failed response inside the reply stream, or cut one short before any output, with its
-    error code when it gave one."""
+    error code when it gave one and the usage of a reply it cut short, which still billed its prompt."""
 
-    def __init__(self, detail, code=None):
+    def __init__(self, detail, code=None, usage=None):
         super().__init__(f"the response failed: {detail}")
         self.code = code or ""
+        self.usage = usage
 
 
 def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT, readiness=None):
@@ -1573,7 +1575,7 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
         # same effort. Any other cause, such as content_filter, stops every resend the same way, so it becomes the
         # code transient_error does not retry. A response without usage cannot tell, so it stays capped.
         detail = f"it ended at {stop} before the model wrote anything"
-        raise ResponseFailed(detail, "" if stop in ("max_output_tokens", "incomplete") else stop)
+        raise ResponseFailed(detail, "" if stop in ("max_output_tokens", "incomplete") else stop, usage)
     message = SimpleNamespace(
         content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped, stop_reason=stop
     )
@@ -1654,13 +1656,23 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if reply.stop_reason is None:
         # A connection that closes mid-reply ends the stream without an error or a stop reason.
         raise StreamStalled("the reply stream ended before Claude finished")
+    cached = reply.usage.cache_read_input_tokens or 0
+    written = reply.usage.cache_creation_input_tokens or 0
+    prompt = reply.usage.input_tokens + written + cached
+    usage = {
+        "prompt_tokens": prompt,
+        "completion_tokens": reply.usage.output_tokens,
+        "total_tokens": prompt + reply.usage.output_tokens,
+        "prompt_tokens_details": {"cached_tokens": cached, "cache_write_tokens": written},
+        "completion_tokens_details": {"reasoning_tokens": usage_value(reply.usage, "output_tokens_details", "thinking_tokens")},
+    }
     if reply.stop_reason == "max_tokens" and not reply.usage.output_tokens:
         # A reply that reached its cap has spent it, so one that spent nothing was ended by the gateway: LinkAPI sent
         # these within seconds to the scout, finder and checker alike (#8817). A lower effort cannot help, so it is
         # resent at the same effort like any other gateway failure (see transient_error). output_tokens, the billed
         # total, counts thinking even when only its summary comes back; the content, which is whatever blocks the
         # gateway relayed, cannot tell a dropped thinking block from none.
-        raise ResponseFailed("the gateway ended the reply at max_tokens before Claude wrote anything")
+        raise ResponseFailed("the gateway ended the reply at max_tokens before Claude wrote anything", usage=usage)
     capped = reply.stop_reason == "max_tokens"
     blocks, text, calls = [], [], []
     for block in reply.content:
@@ -1679,16 +1691,6 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
                 blocks.append({"type": "text", "text": block.text})
         else:
             blocks.append(block.model_dump(exclude_none=True))
-    cached = reply.usage.cache_read_input_tokens or 0
-    written = reply.usage.cache_creation_input_tokens or 0
-    prompt = reply.usage.input_tokens + written + cached
-    usage = {
-        "prompt_tokens": prompt,
-        "completion_tokens": reply.usage.output_tokens,
-        "total_tokens": prompt + reply.usage.output_tokens,
-        "prompt_tokens_details": {"cached_tokens": cached, "cache_write_tokens": written},
-        "completion_tokens_details": {"reasoning_tokens": usage_value(reply.usage, "output_tokens_details", "thinking_tokens")},
-    }
     message = SimpleNamespace(
         content="".join(text) or None, tool_calls=calls or None, claude_blocks=blocks, capped=capped, stop_reason=reply.stop_reason
     )
@@ -1722,6 +1724,18 @@ def transient_error(exc):
 
 class CostLimitReached(Exception):
     """The review has spent its DOTTORE_COST_LIMIT_USD, so no further model call is made."""
+
+
+def charge(ctx, role, settings, usage):
+    """Count one call the provider answered in its role's stats and the review's spend."""
+    with ctx.lock:
+        totals = ctx.stats["roles"][role]
+        totals["model"] = settings["model"]
+        totals["model_calls"] += 1
+        add_usage(totals, usage)
+        cost = call_cost_usd(settings["model"], usage)
+        totals["usd"] += cost
+        ctx.spent_usd += cost
 
 
 def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, settings=None):
@@ -1762,6 +1776,9 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         except ReviewWithheld:
             raise
         except Exception as exc:
+            if isinstance(exc, ResponseFailed) and exc.usage:
+                # A reply cut short before any output still billed its prompt, so the cost limit counts it.
+                charge(ctx, role, settings, exc.usage)
             stalled = isinstance(exc, StreamStalled)
             stalls += stalled
             retry = stalls <= MODEL_MAX_RETRIES if stalled else transient_error(exc)
@@ -1778,13 +1795,7 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
             time.sleep(wait)
     with ctx.lock:
         ctx.failures[role] = 0
-        totals = ctx.stats["roles"][role]
-        totals["model"] = settings["model"]
-        totals["model_calls"] += 1
-        add_usage(totals, usage)
-        cost = call_cost_usd(settings["model"], usage)
-        totals["usd"] += cost
-        ctx.spent_usd += cost
+    charge(ctx, role, settings, usage)
     # request_chars lets the provider's token counts be compared with what was actually sent.
     print(
         f"Dottore call: role={role}; messages={len(messages)}; "
@@ -1847,7 +1858,7 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     call restates them, and a limit loses only the reads not yet kept.
 
     A reply cut off at its output cap without a tool call is sent once more at the next lower effort. A cap that
-    cannot be retried raises, or ends a keep run that has kept items with them.
+    cannot be retried, or a call that fails, raises, or ends a keep run that has kept items with them.
     """
     settings = ctx.models[role]
     budget = settings["reads"] if budget is None else budget
@@ -1885,7 +1896,19 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
         if limits and claude and messages[-1]["role"] == "tool":
             # Claude cannot be made to submit, so it is told; its reads stay offered so the cached prefix holds.
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
-        message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
+        try:
+            message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
+        except ReviewWithheld:
+            raise
+        except Exception as exc:
+            if not kept:
+                raise
+            # Like a limit, a call that still fails after chat's resends ends a keep run with the items already kept,
+            # so a gateway that cuts every resend short (#8817) or the role's failure breaker loses only later reads.
+            print(f"Dottore {role} call failed; ending with the {len(kept)} kept: {error_text(exc)}", flush=True)
+            with ctx.lock:
+                ctx.stats["roles"][role]["stop_error"] += 1
+            return {keep: kept}
         calls = list(message.tool_calls or [])
         # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):

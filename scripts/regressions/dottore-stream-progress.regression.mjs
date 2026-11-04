@@ -110,7 +110,7 @@ class StreamProgress(unittest.TestCase):
         thought = {"type": "thinking", "thinking": "x" * 100, "signature": "s"}
         spent = NS(stop_reason="max_tokens", content=[NS(type="thinking", model_dump=lambda **kwargs: thought)], usage=usage(64000))
         done = NS(stop_reason="tool_use", content=[NS(type="tool_use", id="t", name="submit", input={"findings": []})], usage=usage(50))
-        def run(*replies):
+        def run(*replies, role="finder", tool=submit, keep=None, **limits):
             replies = list(replies)
             seen = NS(efforts=[], waits=[], out=io.StringIO(), result=None, error=None)
             class MessageStream(list):
@@ -121,22 +121,27 @@ class StreamProgress(unittest.TestCase):
                 seen.efforts.append(request["output_config"]["effort"])
                 return MessageStream()
             settings = {"slot": "large", "model": "claude-sonnet-5-5", "api": "anthropic", "effort": "xhigh",
-                        "max_tokens": 64000, "reads": 0, "chars": 0, "minutes": 10}
-            seen.ctx = NS(clients={"large": NS(messages=NS(stream=stream))}, models={"finder": settings}, failures={},
+                        "max_tokens": 64000, "reads": 0, "chars": 0, "minutes": 10, **limits}
+            seen.ctx = NS(clients={"large": NS(messages=NS(stream=stream))}, models={role: settings}, failures={},
                           lock=threading.Lock(), cost_limit=0, spent_usd=0.0, deadline=reviewer.time.monotonic() + 600,
-                          stats={"roles": {"finder": defaultdict(int)}})
+                          stats={"roles": {role: defaultdict(int)}})
+            seen.totals = seen.ctx.stats["roles"][role]
             modules = {"anthropic": NS(Timeout=lambda *args, **kwargs: None), "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError)}
             try:
                 with patch.dict(sys.modules, modules), patch.object(reviewer.time, "sleep", seen.waits.append), \
-                        contextlib.redirect_stdout(seen.out):
-                    seen.result = reviewer.run_agent(seen.ctx, "finder", [{"role": "user", "content": "Review."}], submit)
+                        patch.object(reviewer, "run_tool", lambda *args: "code"), contextlib.redirect_stdout(seen.out):
+                    seen.result = reviewer.run_agent(seen.ctx, role, [{"role": "user", "content": "Review."}], tool, keep=keep)
             except Exception as error:
                 seen.error = error
             return seen
+        # Each empty reply still billed its 19248 prompt tokens, so the cost limit and telemetry count every reply.
+        one = reviewer.call_cost_usd("claude-sonnet-5-5", {"prompt_tokens": 19248})
         with self.subTest("an empty reply is resent after the transient-error wait, at the same effort"):
             seen = run(empty, done)
             self.assertEqual((seen.result, seen.efforts, seen.waits, seen.ctx.failures), ({"findings": []}, ["xhigh", "xhigh"], [15], {"finder": 0}))
             self.assertIn("before Claude wrote anything", seen.out.getvalue())
+            self.assertEqual((seen.totals["model_calls"], seen.totals["prompt_tokens"], seen.totals["completion_tokens"]), (2, 2 * 19248, 50))
+            self.assertAlmostEqual(seen.ctx.spent_usd, 2 * one + reviewer.call_cost_usd("claude-sonnet-5-5", {"completion_tokens": 50}))
         with self.subTest("a reply that spent its cap thinking still goes down a level"):
             seen = run(spent, done)
             self.assertEqual((seen.result, seen.efforts, seen.waits), ({"findings": []}, ["xhigh", "high"], []))
@@ -146,6 +151,22 @@ class StreamProgress(unittest.TestCase):
             self.assertRegex(reviewer.error_text(seen.error), "^ResponseFailed: .*max_tokens before Claude wrote anything")
             self.assertTrue(reviewer.transient_error(seen.error))
             self.assertEqual((seen.efforts, seen.waits, seen.ctx.failures), (["xhigh"] * 3, [15, 45], {"finder": 1}))
+            self.assertEqual((seen.totals["model_calls"], seen.totals["prompt_tokens"]), (3, 3 * 19248))
+            self.assertAlmostEqual(seen.ctx.spent_usd, 3 * one)
+        keep_places = {"type": "function", "function": {"name": "keep_places", "description": "Keep.", "parameters": {"type": "object"}}}
+        place = {"path": "a.py", "start": 1, "end": 2, "why": "caller"}
+        read = NS(stop_reason="tool_use", usage=usage(50), content=[
+            NS(type="tool_use", id="r", name="read_file", input={"path": "a.py"}),
+            NS(type="tool_use", id="k", name="keep_places", input={"places": [place]}),
+        ])
+        with self.subTest("a keep run whose later call fails on every resend ends with what it kept"):
+            seen = run(read, empty, empty, empty, role="scout", tool=keep_places, keep="places", reads=10, chars=100000, max_tokens=16000)
+            self.assertEqual((seen.error, seen.result), (None, {"places": [place]}))
+            self.assertEqual((seen.efforts, seen.waits, seen.totals["stop_error"]), (["xhigh"] * 4, [15, 45], 1))
+            self.assertIn("scout call failed; ending with the 1 kept: ResponseFailed", seen.out.getvalue())
+        with self.subTest("a keep run that has kept nothing still fails"):
+            seen = run(empty, empty, empty, role="scout", tool=keep_places, keep="places", reads=10, chars=100000, max_tokens=16000)
+            self.assertIsInstance(seen.error, reviewer.ResponseFailed)
 
     def test_an_empty_incomplete_response_is_resent_unless_filtered(self):
         def reply(reason, output, items=()):
@@ -166,6 +187,7 @@ class StreamProgress(unittest.TestCase):
                 with self.assertRaisesRegex(reviewer.ResponseFailed, "before the model wrote anything") as stopped:
                     reply(reason, 0)
                 self.assertEqual((stopped.exception.code, reviewer.transient_error(stopped.exception)), (code, not code))
+                self.assertEqual(stopped.exception.usage["prompt_tokens"], 10)
         message, _ = reply("max_output_tokens", 64000, [NS(type="reasoning", encrypted_content=None)])
         self.assertEqual((message.capped, message.stop_reason), (True, "max_output_tokens"))
 
