@@ -582,6 +582,11 @@ export function ConnectionsPanel() {
       rows={rows}
       visibleRows={visibleRows}
       providerName={providerName}
+      onDropOther={(row, target) => {
+        const source = accounts?.find((item) => item.id === row.accountId);
+        const { same, other } = moveTargetsFor(row, source, accounts ?? [], connectionsList);
+        setMoving({ row, same, other, initialTarget: target });
+      }}
       dragBindings={{
         "data-drag-id": account.id,
         "data-drag-order-id": account.id,
