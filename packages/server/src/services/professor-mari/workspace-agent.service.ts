@@ -1732,6 +1732,8 @@ export function scrubInternalNames(text: string): string {
     });
 }
 
+const LOOKUP_OPENERS = ['<use_tool name="app data">', '<use_tool name="app_data">'];
+
 /**
  * The visible part of a live draft: cut at the first textual call opener (or a half-written one), internal names
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
@@ -1739,8 +1741,7 @@ export function scrubInternalNames(text: string): string {
 export function draftVisibleText(raw: string): string {
   // Hold the standalone lookup opener, including a split across provider deltas.
   const start = raw.trimStart();
-  const lookupOpener = '<use_tool name="app data">';
-  if (lookupOpener.startsWith(start) || start.startsWith(lookupOpener)) return "";
+  if (LOOKUP_OPENERS.some((opener) => opener.startsWith(start) || start.startsWith(opener))) return "";
   const marker = textualCallMarkerIndex(raw);
   let end = marker >= 0 ? marker : raw.length;
   while (marker < 0 && end > 0 && /[\w.`:]/.test(raw[end - 1]!)) end -= 1;

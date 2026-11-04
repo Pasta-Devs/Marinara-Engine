@@ -158,10 +158,10 @@ export type PiRunInput = {
 function printedLorebookLookup(content: string): boolean {
   const text = content.trim();
   return (
-    /^<use_tool name="app data">\s*<parameter name="action">lorebook entries<\/parameter>\s*<parameter name="lorebookId">[^<>]+<\/parameter>\s*<\/use_tool>$/u.test(
+    /^<use_tool name="app[ _]data">\s*<parameter name="action">lorebook[. ]entries<\/parameter>\s*<parameter name="lorebookId">[^<>]+<\/parameter>\s*<\/use_tool>$/u.test(
       text,
     ) ||
-    /^<tool_calls>\s*<invoke name="app data">\s*<parameter name="action">lorebook search<\/parameter>\s*<parameter name="query">[^<>]+<\/parameter>\s*<\/invoke>\s*<\/tool_calls>$/u.test(
+    /^<tool_calls>\s*<invoke name="app[ _]data">\s*<parameter name="action">lorebook[. ]search<\/parameter>\s*<parameter name="query">[^<>]+<\/parameter>\s*<\/invoke>\s*<\/tool_calls>$/u.test(
       text,
     )
   );

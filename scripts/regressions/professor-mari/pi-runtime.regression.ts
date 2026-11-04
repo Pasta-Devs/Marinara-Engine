@@ -189,7 +189,9 @@ try {
       '<tool_calls><invoke name="app data"><parameter name="action">lorebook search</parameter><parameter name="query">sample query</parameter></invoke></tool_calls>';
     for (const streaming of [false, true]) {
       for (const [kind, block] of [
+        ["nanogpt", entries.replace("app data", "app_data").replace("lorebook entries", "lorebook.entries")],
         ["nanogpt", entries],
+        ["custom", search.replace("app data", "app_data").replace("lorebook search", "lorebook.search")],
         ["custom", search],
       ] as const) {
         provider = kind;
@@ -201,7 +203,7 @@ try {
             assert.equal(body.stream, streaming);
             assert.ok(body.tools.some((tool: { function: { name: string } }) => tool.function.name === "app_data"));
             if (!streaming) return Response.json({ choices: [{ message: { content: block }, finish_reason: "stop" }] });
-            const frames = [block.slice(0, 3), block.slice(3)].map(
+            const frames = [block.slice(0, 3), block.slice(3, 20), block.slice(20)].map(
               (content) => "data: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\n",
             );
             return new Response(frames.join("") + "data: [DONE]\n\n", {
@@ -232,7 +234,7 @@ try {
         assert.match(requests[1]!.messages.at(-1)!.content, /provided tool interface/u);
         assert.equal(toolMessages(requests[1]!.messages).length, 0);
         assert.match((await lastAssistant(repeated.chat.id))!.content, /lookup did not run/u);
-        assert.ok(!JSON.stringify(repeated.events).includes("<parameter"));
+        assert.doesNotMatch(JSON.stringify(repeated.events), /<use_tool|<tool_calls>|<parameter/u);
       }
     }
     provider = "claude_subscription";
@@ -258,6 +260,8 @@ try {
     mode = "auto";
     for (const example of [
       JSON.stringify(search),
+      "Example: " + entries,
+      search + " is an example.",
       "```xml\n" + entries + "\n```",
       entries.slice(0, -3),
       search.replace("</invoke>", "</wrong>"),
