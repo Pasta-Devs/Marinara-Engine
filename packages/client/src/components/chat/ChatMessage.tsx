@@ -1038,6 +1038,10 @@ interface ChatMessageProps {
   chatCharacterIds?: string[];
   /** The chat's live active characters: a streaming merged Narrator reply shows them; a saved one keeps its own. */
   mergedGroupCharacterIds?: string[];
+  /** Chat members an expression result cannot name, kept on a merged reply saved before its roster was. */
+  noExpressionCharacterIds?: string[];
+  /** For an earlier part of a reply split at scene breaks: its last part's extra, whose saved data its avatars use. */
+  splitReplyLastPartExtra?: Record<string, unknown>;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   /** Distance from the latest message (0 = newest). Used for depth-range regex filtering. */
   messageDepth?: number;
@@ -2017,6 +2021,8 @@ export const ChatMessage = memo(function ChatMessage({
   colorInlineNames: chatColorInlineNames,
   chatCharacterIds,
   mergedGroupCharacterIds,
+  noExpressionCharacterIds,
+  splitReplyLastPartExtra,
   expressionAvatarResolver,
   messageDepth,
   messageIndex,
@@ -3015,10 +3021,20 @@ export const ChatMessage = memo(function ChatMessage({
         chatCharacterIds: chatCharacterIds ?? [],
         liveRoster: mergedGroupCharacterIds,
         isLive: !!isStreaming,
+        noExpressionCharacterIds,
+        splitReplyLastPartExtra,
       }),
       ...referencedAvatarIds,
     ],
-    [chatCharacterIds, extra, isStreaming, mergedGroupCharacterIds, referencedAvatarIds],
+    [
+      chatCharacterIds,
+      extra,
+      isStreaming,
+      mergedGroupCharacterIds,
+      noExpressionCharacterIds,
+      referencedAvatarIds,
+      splitReplyLastPartExtra,
+    ],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
   const reduceAmbientEffects = useReducedAmbientEffects();

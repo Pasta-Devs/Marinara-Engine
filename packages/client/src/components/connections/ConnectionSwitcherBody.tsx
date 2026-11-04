@@ -975,8 +975,11 @@ export function ConnectionSwitcherBody({
       star = "unstarred",
       away = false,
       order = false,
+      pane = false,
     }: {
       index?: number;
+      /** A row in the left pane: its tile takes the panes' 2rem column so it lines up with Starred and accounts. */
+      pane?: boolean;
       /** Only the Starred lists that show the Edit order toggle pass this. */
       order?: boolean;
       now?: boolean;
@@ -1024,7 +1027,7 @@ export function ConnectionSwitcherBody({
         key={entry.key}
         rowProps={{
           "data-switcher-row": true,
-          className: cn("rounded-lg", now ? "bg-transparent" : isCurrent && ACCENT_BAR),
+          className: cn("rounded-lg", now ? "bg-transparent pe-0" : isCurrent && ACCENT_BAR),
         }}
         data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
         data-switcher-model={entry.model}
@@ -1044,20 +1047,35 @@ export function ConnectionSwitcherBody({
           void apply(entry);
         }}
         onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
-        className={cn("rounded-lg disabled:cursor-wait", highlighted && "bg-foreground/10")}
+        className={cn(
+          "rounded-lg disabled:cursor-wait",
+          highlighted && "bg-foreground/10",
+          // Now and pane rows put the tile in the shared 2rem column; text then starts where Starred and accounts start.
+          now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
+          pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
+        )}
         tile={
-          typed ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
-              <Search size="0.875rem" aria-hidden />
-            </span>
-          ) : local ? (
-            <ProviderIcon provider="local_model" size="model" dim={!!unavailable} />
-          ) : (
-            <ModelTile row={entry.row} account={group?.account} model={entry.model} dim={!!unavailable} />
-          )
+          <span className={cn("flex shrink-0 justify-center", (now || pane) && "w-8")}>
+            {typed ? (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
+                <Search size="0.875rem" aria-hidden />
+              </span>
+            ) : local ? (
+              <ProviderIcon provider="local_model" size={now || pane ? "sm" : "model"} dim={!!unavailable} />
+            ) : (
+              <ModelTile
+                row={entry.row}
+                account={group?.account}
+                model={entry.model}
+                dim={!!unavailable}
+                size={now || pane ? "sm" : undefined}
+              />
+            )}
+          </span>
         }
         title={entry.title}
-        subtitle={entry.subtitle}
+        // The Now strip folds its heading into line 2 to stay one compact row.
+        subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
         roles={roleLabels}
         status={
           rowStateOf
@@ -1373,8 +1391,10 @@ export function ConnectionSwitcherBody({
             )}
           </section>
         )}
-        {standaloneGroups.flatMap((group) => group.rows.map((row) => renderEntry(entryOfRow(row, group))))}
-        {showLocalModel && renderEntry(localEntry)}
+        {standaloneGroups.flatMap((group) =>
+          group.rows.map((row) => renderEntry(entryOfRow(row, group), { pane: true })),
+        )}
+        {showLocalModel && renderEntry(localEntry, { pane: true })}
       </ListFrame>
       {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
     </div>
@@ -1565,25 +1585,27 @@ export function ConnectionSwitcherBody({
       data-switcher-section="now"
       aria-label={nowLabel}
       className={cn(
-        "mx-2 mt-2 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] p-1",
+        "mx-2 mt-1.5 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] px-1 py-0.5",
         // In Shuffle the pool list has no Back, so the strip with the dice stays the way out.
         drilled && !searching && !shuffle?.active && "@max-xl:hidden",
       )}
     >
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
-          <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
           {nowEntry && !shuffle?.active ? (
             renderEntry(nowEntry, { now: true, away: true })
           ) : (
-            <p className="truncate px-3 py-2 text-xs font-medium">
-              {shuffle?.active
-                ? t("connections.switcher.shuffle")
-                : (activeExtra?.label ??
-                  (followDefault?.active
-                    ? (followDefault.label ?? t("connections.switcher.followMain"))
-                    : t("connections.switcher.chooseModel")))}
-            </p>
+            <>
+              <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
+              <p className="truncate px-3 py-2 text-xs font-medium">
+                {shuffle?.active
+                  ? t("connections.switcher.shuffle")
+                  : (activeExtra?.label ??
+                    (followDefault?.active
+                      ? (followDefault.label ?? t("connections.switcher.followMain"))
+                      : t("connections.switcher.chooseModel")))}
+              </p>
+            </>
           )}
         </div>
         {followDefault && !followDefault.active && (
@@ -1600,7 +1622,7 @@ export function ConnectionSwitcherBody({
                 .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
                 .finally(() => setBusy(false));
             }}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
+            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
           >
             <House size="0.8125rem" className="shrink-0" aria-hidden />
             <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
@@ -1619,7 +1641,7 @@ export function ConnectionSwitcherBody({
             )}
             onClick={shuffle.onToggle}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25",
               shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
             )}
           >
