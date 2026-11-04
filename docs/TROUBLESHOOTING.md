@@ -36,7 +36,7 @@ More causes:
 - **Custom name for this computer.** A name mapped to `127.0.0.1` in `/etc/hosts` counts as relayed. Use `localhost`, `127.0.0.1`, the machine's hostname or a `*.localhost` name instead.
 - **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `node scripts/reset-login.mjs` in the Marinara folder on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
 - **Untrusted request host.** For a public or reverse-proxy domain, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses stay accepted.
-- **Risky actions blocked** (backups, clearing data, updates) from that device. Set `ADMIN_SECRET` in the server `.env`. Paste the same value into **Settings → Advanced → Admin Access** on that device and click **Save**.
+- **Risky actions blocked** (backups, clearing data, updates) from that device. On the server's own computer, open **Settings → Advanced → Admin Access** and click **Make admin secret**, or set `ADMIN_SECRET` in the server `.env`. Type the secret into **Admin Access** on the other device and click **Save**.
 
 See [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md). If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 
@@ -342,7 +342,7 @@ Marinara clears a lease left by a crashed process on its own on Linux, Android, 
 
 ### Backup or Export returns 403
 
-Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Set `ADMIN_SECRET` on the server and save the same value in **Settings → Advanced → Admin Access**. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
+Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Make it in **Settings → Advanced → Admin Access** on the server's own computer, or set `ADMIN_SECRET` on the server, then save the same value in **Admin Access** on the other device. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
 
 ### Import says the file is not a readable ZIP archive
 

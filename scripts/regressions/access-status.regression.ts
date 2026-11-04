@@ -71,6 +71,8 @@ try {
     loginSource: "env",
     loginUser: "owner",
     adminSecret: true,
+    adminSecretSource: "env",
+    adminSecretStored: false,
     allowlist: true,
     trustedAuthProxy: true,
     passwordlessPeers: [],
