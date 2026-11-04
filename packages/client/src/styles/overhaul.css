@@ -6972,3 +6972,18 @@ input.ov-edhead__title:focus {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* Connections quick picker in the composer: a solid menu like the other overhaul popovers, never see-through. */
+[data-overhaul="on"] [data-quick-connection-menu] {
+  border-color: var(--ov-line);
+  background: var(--card, #16141b) !important;
+  background: rgb(from var(--card, #16141b) r g b) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.75);
+  opacity: 1 !important;
+}
+[data-overhaul="on"] [data-quick-connection-menu] * {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
