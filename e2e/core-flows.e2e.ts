@@ -16,7 +16,7 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import AdmZip from "adm-zip";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
@@ -4677,26 +4677,28 @@ test("Character and Persona avatar actions stay separated and visually balanced"
   }
 });
 
-test("Sprite folder selection opens Engine confirmation and preserves duplicate names across folders", async ({
+test("Sprite image selection uses a regular file picker and Engine confirmation", async ({
   page,
   request,
 }, testInfo) => {
-  const folder = testInfo.outputPath("Front");
-  const single = testInfo.outputPath("Single");
-  const empty = testInfo.outputPath("Empty");
-  for (const path of [`${folder}/Side`, single, empty]) mkdirSync(path, { recursive: true });
-  for (const path of [`${folder}/happy.png`, `${folder}/Side/happy.png`, `${single}/neutral.png`])
-    writeFileSync(path, Buffer.from(TRANSPARENT_PNG_BASE64, "base64"));
-  writeFileSync(`${folder}/notes.txt`, "Not an image");
-  writeFileSync(`${empty}/notes.txt`, "No images");
-  const response = await request.post("/api/characters", { data: { data: { name: "Folder import confirmation" } } });
+  const response = await request.post("/api/characters", { data: { data: { name: "Image import confirmation" } } });
   expect(response.ok()).toBeTruthy();
   const character = (await response.json()) as { id: string };
+  const browserDialogs: string[] = [];
+  page.on("dialog", async (dialog) => {
+    browserDialogs.push(dialog.type());
+    await dialog.dismiss();
+  });
   const uploads: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().includes(`/api/sprites/${character.id}`))
       uploads.push(request.url());
   });
+  const images = ["happy.png", "sad.png"].map((name) => ({
+    name,
+    mimeType: "image/png",
+    buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+  }));
   try {
     await page.goto("/");
     await page.evaluate(async (id) => {
@@ -4707,16 +4709,21 @@ test("Sprite folder selection opens Engine confirmation and preserves duplicate 
     await openEditorSection(editor, "Sprites");
     await editor.getByRole("button", { name: "Manage", exact: true }).last().click();
     await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
-    const confirmation = page.getByRole("dialog", { name: "Import folder", exact: true });
-    async function chooseFolder(path: string) {
+    const section = editor.locator('[data-editor-section="sprites"]');
+    await expect(section.locator("input[webkitdirectory]")).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "Import folder", exact: true })).toHaveCount(0);
+    const confirmation = page.getByRole("dialog", { name: "Import images", exact: true });
+    async function chooseImages(files = images) {
       const opened = page.waitForEvent("filechooser");
-      await editor.getByRole("button", { name: "Import folder", exact: true }).click();
+      await section.getByRole("button", { name: "Upload images", exact: true }).click();
       const chooser = await opened;
-      expect(await chooser.element().getAttribute("webkitdirectory")).toBe("");
-      await chooser.setFiles(path);
+      expect(chooser.isMultiple()).toBe(true);
+      expect(await chooser.element().getAttribute("webkitdirectory")).toBeNull();
+      expect(await chooser.element().getAttribute("accept")).toBe("image/*");
+      await chooser.setFiles(files);
     }
-    await chooseFolder(folder);
-    await expect(confirmation.getByText("Import 2 images from folder?", { exact: true })).toBeVisible();
+    await chooseImages([...images, { name: "unsupported.bmp", mimeType: "image/bmp", buffer: Buffer.from("ignored") }]);
+    await expect(confirmation.getByText("Import 2 images?", { exact: true })).toBeVisible();
     expect(uploads).toEqual([]);
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate(async (theme) => {
@@ -4724,33 +4731,38 @@ test("Sprite folder selection opens Engine confirmation and preserves duplicate 
         useUIStore.getState().setTheme(theme);
       }, theme);
       await expect(confirmation.getByRole("button", { name: "Import", exact: true })).toBeInViewport();
-      await testInfo.attach(`sprite-folder-confirmation-${theme}`, {
+      await testInfo.attach(`sprite-image-confirmation-${theme}`, {
         body: await page.screenshot(),
         contentType: "image/png",
       });
     }
     await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(uploads).toEqual([]);
-    await chooseFolder(empty);
+    await chooseImages([{ name: "unsupported.bmp", mimeType: "image/bmp", buffer: Buffer.from("ignored") }]);
     await expect(page.getByText("No supported sprite images were found.", { exact: true })).toBeVisible();
     await expect(confirmation).toHaveCount(0);
     expect(uploads).toEqual([]);
-    await chooseFolder(folder);
+    await chooseImages();
     await confirmation.getByRole("button", { name: "Import", exact: true }).click();
     await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(2);
     const sprites = (await (await request.get(`/api/sprites/${character.id}`)).json()) as Array<{
-      expression: string;
       label: string;
-      folderName: string;
+      folderId: string | null;
     }>;
-    expect(sprites.map((sprite) => sprite.label)).toEqual(["happy", "happy"]);
-    expect(new Set(sprites.map((sprite) => sprite.expression)).size).toBe(2);
-    expect(new Set(sprites.map((sprite) => sprite.folderName))).toEqual(new Set(["Front", "Front / Side"]));
-    await expect(editor.getByRole("button", { name: "Import folder", exact: true })).toBeEnabled();
-    await chooseFolder(single);
-    await expect(confirmation.getByText("Import 1 image from folder?", { exact: true })).toBeVisible();
+    expect(sprites.map((sprite) => sprite.label)).toEqual(["happy", "sad"]);
+    expect(sprites.every((sprite) => sprite.folderId === null)).toBe(true);
+    expect((await (await request.get(`/api/sprites/${character.id}/catalog`)).json()).folders).toEqual([]);
+    await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await chooseImages([{ ...images[0]!, name: "neutral.png" }]);
+    await expect(confirmation.getByText("Import 1 image?", { exact: true })).toBeVisible();
     await confirmation.getByRole("button", { name: "Import", exact: true }).click();
     await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(3);
+    expect(
+      (await (await request.get(`/api/sprites/${character.id}`)).json()).some(
+        (sprite: { label: string }) => sprite.label === "full_neutral",
+      ),
+    ).toBe(true);
+    expect(browserDialogs).toEqual([]);
   } finally {
     await bestEffortDelete(request, `/api/characters/${character.id}`);
   }

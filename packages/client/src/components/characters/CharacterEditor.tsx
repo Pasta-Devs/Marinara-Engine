@@ -7,7 +7,7 @@ import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
 import { CardIdentityFields } from "../cards/CardIdentityFields";
-import { SpriteFolderImport } from "./SpriteFolderImport";
+import { SpriteImageImport } from "./SpriteImageImport";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -5538,7 +5538,7 @@ function SpritesTab({
     fileInputRef.current?.click();
   };
 
-  const handleImageFiles = async (files: File[], preserveFolders = false) => {
+  const handleImageFiles = async (files: File[]) => {
     if (!files.length || spriteBusy) return;
     setFolderProgress({ done: 0, total: files.length });
     try {
@@ -5546,7 +5546,7 @@ function SpritesTab({
         characterId,
         files,
         folderId: null,
-        preserveFolders,
+        preserveFolders: false,
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
@@ -5976,21 +5976,14 @@ function SpritesTab({
             aria-label={localizeUi("sprites.library.addSprites")}
           >
             <div className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center">
-              <ImageUploadDropzone
-                multiple
-                className="col-span-2 min-h-11 py-2 md:min-h-9"
+              <SpriteImageImport
                 disabled={spriteBusy}
-                label={localizeUi("sprites.library.uploadImages")}
                 pending={!!folderProgress || uploading}
-                pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
-                dragLabel={localizeUi("sprites.library.dropImages")}
-                onFilesSelected={(files) => void handleImageFiles(files)}
-                icon={<Upload size={16} />}
+                onImport={handleImageFiles}
               />
-              <SpriteFolderImport disabled={spriteBusy} onImport={(files) => handleImageFiles(files, true)} />
               <button
                 type="button"
-                className={spriteActionClass}
+                className={cn(spriteActionClass, "col-span-2")}
                 disabled={spriteGenerationUnavailable || spriteBusy}
                 title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
                 onClick={() => setSpriteGenOpen(true)}
