@@ -25,12 +25,20 @@ test("the connection editor protects unsaved changes and tests the connection", 
       rightPanel: "connections",
     });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+    // The account form checks the address and key live; the fixture server answers with one model.
+    const checks: Array<{ baseUrl?: string; accountId?: string }> = [];
+    await page.route("**/api/connections/check", async (route) => {
+      checks.push(route.request().postDataJSON());
+      await route.fulfill({
+        json: { supported: true, reachable: true, keyOk: null, modelCount: 1, status: 200, error: null },
+      });
+    });
     await page.goto("/");
     await page.evaluate(async (accountId) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openModal("connection-account", { accountId });
     }, account.id);
-    const editor = page.getByRole("dialog", { name: "Edit connection", exact: true });
+    const editor = page.getByRole("dialog", { name: "Edit account", exact: true });
     await expect(editor).toBeVisible();
     // Name in the field; the line under it names the service and the model count, and no "Ready" word.
     await expect(editor.getByText("OpenAI-compatible · 1 model", { exact: true })).toBeVisible();
@@ -41,14 +49,12 @@ test("the connection editor protects unsaved changes and tests the connection", 
     await expect(editor.locator("[data-account-address]")).toHaveValue("http://127.0.0.1:19093/v1");
     await expect(editor.getByRole("button", { name: "Manage access", exact: true })).toHaveCount(0);
     await expect(editor.getByRole("button", { name: "Test saved model", exact: true })).toHaveCount(0);
-    const testCalls: string[] = [];
-    await page.route(`**/api/connections/${connectionId}/test`, async (route) => {
-      testCalls.push(route.request().url());
-      await route.fulfill({ json: { success: true, message: "ok", latencyMs: 2, modelName: "Alpha" } });
-    });
-    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
-    await expect.poll(() => testCalls.length).toBe(1);
-    await expect(editor.locator("[data-account-test-result]")).toHaveText("Ready · key works · 2 ms");
+    // The live check replaces the manual Test account button for a server it can reach.
+    await expect(editor.getByText("Server answers · 1 model found", { exact: true })).toBeVisible();
+    expect(checks).toContainEqual(
+      expect.objectContaining({ baseUrl: "http://127.0.0.1:19093/v1", accountId: account.id }),
+    );
+    await expect(editor.getByRole("button", { name: "Test account", exact: true })).toHaveCount(0);
     const name = editor.locator("[data-account-name]");
     await name.fill("Studio changed");
     await editor.locator(`[data-account-model-id="${connectionId}"]`).click();

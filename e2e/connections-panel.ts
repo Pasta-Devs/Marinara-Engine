@@ -1,5 +1,24 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { clickTopbarPanel } from "./topbar-navigation.js";
+
+/**
+ * The shared test server keeps what earlier specs made. Hides the items `path` (such as "/api/connections") lists
+ * now from the page's GETs of it, so the page shows only what the spec adds next.
+ */
+export async function hideExistingItems(page: Page, request: APIRequestContext, path: string) {
+  const items = (await (await request.get(path)).json()) as Array<{ id: string }>;
+  const hidden = new Set(items.map((item) => item.id));
+  await page.route(`**${path}`, async (route) => {
+    if (route.request().method() !== "GET" || new URL(route.request().url()).pathname !== path) {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = ((await response.json()) as Array<{ id: string }>).filter((item) => !hidden.has(item.id));
+    await route.fulfill({ response, json: body });
+  });
+  return { items, hidden };
+}
 
 /** Variant D: a Model shows on its Connection's page; the panel search lists every Model first. */
 export async function openConnectionsPanelModel(panel: Locator, name: string) {
@@ -27,10 +46,18 @@ export async function showConnectionsList(page: Page) {
 }
 
 /**
- * Variant D: Voice and Speech to text open from their Defaults tile, on the engine's page when it is set up and in
- * the Add window when it is not. Either way the engine's settings card is then on the page.
+ * Opens an engine's settings card. Speech to text opens from its Defaults tile: on the engine's page when it is set
+ * up, in the Add window when it is not. The Voice tile picks the voice Model instead (#8456), so "voice" opens the
+ * Text to Speech settings in the Add window (On this device › Text to speech), which every voice source has.
  */
 export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
+  if (tile === "voice") {
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection({ category: "device", item: "tts" });
+    });
+    return;
+  }
   await (await revealDefaultsTile(page, tile)).click();
 }
 
