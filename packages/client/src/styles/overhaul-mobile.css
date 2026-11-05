@@ -414,10 +414,6 @@
 :root[data-overhaul="mobile"] [data-component="ChatSidebar"] .mari-sidebar-header > :last-child {
   justify-content: flex-end;
 }
-.ovm-chats-logo {
-  width: 1.75rem;
-  height: 1.75rem;
-}
 :root[data-overhaul="mobile"] [data-component="ChatSidebar"] .mari-sidebar-header h2 {
   font-size: 1.1875rem;
   font-weight: 700;

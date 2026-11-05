@@ -75,7 +75,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, Lu
   schedules: CalendarDays,
 };
 
-export const MODE_DOT: Record<string, string> = {
+const MODE_DOT: Record<string, string> = {
   conversation: "var(--ov-mode-conversation)",
   roleplay: "var(--ov-mode-roleplay)",
   game: "var(--ov-mode-game)",
