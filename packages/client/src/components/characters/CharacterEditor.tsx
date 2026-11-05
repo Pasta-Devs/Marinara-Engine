@@ -7,6 +7,7 @@ import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
 import { CardIdentityFields } from "../cards/CardIdentityFields";
+import { SpriteImageImport } from "./SpriteImageImport";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -126,7 +127,6 @@ import {
   Upload,
   Plus,
   Palette,
-  FolderOpen,
   Film,
   Link2,
   Loader2,
@@ -346,9 +346,6 @@ const CHARACTER_ADVANCED_HELP =
 
 const CHARACTER_GALLERY_HELP =
   "These images belong to the character, so deleting a chat does not remove them. Use this for reference sheets, outfit variants, or imported ST-style character image packs. Chat gallery is still best for scene-specific illustrations and generated message attachments.";
-
-const CHARACTER_SPRITES_HELP =
-  "Upload sprites one by one, or use Upload Folder to bulk-import a folder of PNGs. Each filename becomes the expression name, for example admiration.png becomes admiration. To rotate variants, share a prefix before an underscore, for example happy_01.png and happy_blush.png. Enable the Expression Engine agent so roleplay can pick matching sprites from detected emotions. Sprites appear as VN-style overlays in the chat area.";
 
 const CHARACTER_STATS_HELP =
   "HP is injected into the prompt so the AI knows the character's current health. Attributes are custom stats, like STR or DEX, that define the character's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
@@ -4006,7 +4003,7 @@ function CharacterSheetSection({
                   : localizeUi("ui.characters.charactersheet.upload")
               }
               pending={pending}
-              pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+              pendingLabel={localizeUi("ui.ui.imageuploaddropzone.uploadingImages")}
               dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
               onFilesSelected={(files) => void handleUpload(files)}
               icon={<Upload size="1rem" />}
@@ -5414,7 +5411,6 @@ function SpritesTab({
   const [folderProgress, setFolderProgress] = useState<{ done: number; total: number } | null>(null);
   const [spriteGenOpen, setSpriteGenOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   const pendingExpressionRef = useRef("");
   const pendingReplaceRef = useRef(false);
 
@@ -5539,7 +5535,7 @@ function SpritesTab({
     fileInputRef.current?.click();
   };
 
-  const handleImageFiles = async (files: File[], preserveFolders = false) => {
+  const handleImageFiles = async (files: File[]) => {
     if (!files.length || spriteBusy) return;
     setFolderProgress({ done: 0, total: files.length });
     try {
@@ -5547,7 +5543,7 @@ function SpritesTab({
         characterId,
         files,
         folderId: null,
-        preserveFolders,
+        preserveFolders: false,
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
@@ -5556,7 +5552,7 @@ function SpritesTab({
           ? result.failed
             ? toast.error
             : toast.warning
-          : result.failed || result.catalogIgnored
+          : result.failed
             ? toast.warning
             : toast.success;
       notify(
@@ -5575,7 +5571,6 @@ function SpritesTab({
                 result.failed > 0 &&
                 localizeUi("sprites.library.importFailed", { count: result.failed }),
               result.firstError,
-              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
             ]
               .filter(Boolean)
               .join(" ") || undefined,
@@ -5586,11 +5581,6 @@ function SpritesTab({
     } finally {
       setFolderProgress(null);
     }
-  };
-
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    await handleImageFiles(Array.from(e.target.files ?? []), true);
-    e.target.value = "";
   };
 
   const handleDeleteSingleSprite = useCallback(async () => {
@@ -5866,7 +5856,7 @@ function SpritesTab({
         <SectionHeader
           title={localizeUi("ui.characters.spritestab.characterSprites")}
           subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
-          helpText={CHARACTER_SPRITES_HELP}
+          helpText={localizeUi("sprites.library.help")}
         />
 
         {characterSheetSection}
@@ -5883,7 +5873,7 @@ function SpritesTab({
       <SectionHeader
         title={localizeUi("ui.characters.spritestab.characterSprites")}
         subtitle={localizeUi("sprites.library.intro")}
-        helpText={CHARACTER_SPRITES_HELP}
+        helpText={localizeUi("sprites.library.help")}
       />
       {characterSheetSection}
       <SpriteLibraryShell
@@ -5948,16 +5938,6 @@ function SpritesTab({
         }
       >
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-        <input
-          ref={folderInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
-          webkitdirectory=""
-          className="hidden"
-          onChange={handleFolderUpload}
-        />
 
         {exportAnchor && (
           <ContextMenu
@@ -5992,29 +5972,14 @@ function SpritesTab({
             aria-label={localizeUi("sprites.library.addSprites")}
           >
             <div className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center">
-              <ImageUploadDropzone
-                multiple
-                className="col-span-2 min-h-11 py-2 md:min-h-9"
+              <SpriteImageImport
                 disabled={spriteBusy}
-                label={localizeUi("sprites.library.uploadImages")}
                 pending={!!folderProgress || uploading}
-                pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
-                dragLabel={localizeUi("sprites.library.dropImages")}
-                onFilesSelected={(files) => void handleImageFiles(files)}
-                icon={<Upload size={16} />}
+                onImport={handleImageFiles}
               />
               <button
                 type="button"
-                className={cn(spriteActionClass, "md:ml-auto")}
-                disabled={spriteBusy}
-                onClick={() => folderInputRef.current?.click()}
-              >
-                <FolderOpen size={14} />
-                {localizeUi("sprites.library.importFolder")}
-              </button>
-              <button
-                type="button"
-                className={spriteActionClass}
+                className={cn(spriteActionClass, "col-span-2")}
                 disabled={spriteGenerationUnavailable || spriteBusy}
                 title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
                 onClick={() => setSpriteGenOpen(true)}

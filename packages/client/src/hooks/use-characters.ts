@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
+import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
 import {
   spriteCatalogSchema,
@@ -635,7 +636,7 @@ export function useImportSpriteFolder() {
       }
       if (manifest && preserveFolders)
         for (const folder of manifest.folders) if (folder.category) await getFolder(folder.name, folder.category);
-      const images = files.filter((file) => /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu.test(file.name));
+      const images = files.filter(isSpriteImageFile);
       let imported = 0,
         failed = 0;
       let firstError: string | undefined;
