@@ -75,7 +75,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
-import { useOverhaulLook } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { EditorCrumbs } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
@@ -1638,6 +1638,11 @@ function SectionsTab({
   }, [agentConfigs, capabilityAgents]);
 
   const masterDetail = detailTarget !== undefined;
+  // New layout on phones and tablets: reordering, Duplicate and Delete wait behind Edit, so a stray tap
+  // never moves or copies a section. Drag a row from anywhere while editing.
+  const touchLayout = useOverhaulMobile() && !masterDetail;
+  const [touchEditing, setTouchEditing] = useState(false);
+  const showRowTools = !touchLayout || touchEditing;
   const toggleExpanded = (id: string) => {
     if (masterDetail) {
       // Master-detail: a click always opens the entry (clicking it again doesn't close it).
@@ -1858,11 +1863,14 @@ function SectionsTab({
           compact ? "gap-1.5 px-1 pb-2 pt-1.5" : "gap-2 p-2",
         )}
       >
-        <HelpTooltip
-          text={localizeUi("ui.presets.sectionstab.everythingWeSendToAModelIsJustText")}
-          side="right"
-          buttonClassName={compact ? "p-1" : undefined}
-        />
+        {/* On phones the "?" would push Edit off the line; the intro above says the same. */}
+        {touchLayout ? null : (
+          <HelpTooltip
+            text={localizeUi("ui.presets.sectionstab.everythingWeSendToAModelIsJustText")}
+            side="right"
+            buttonClassName={compact ? "p-1" : undefined}
+          />
+        )}
         <div ref={addMenuRef} className="relative">
           <button
             onClick={() => setShowAddMenu(!showAddMenu)}
@@ -1926,6 +1934,26 @@ function SectionsTab({
           <FolderOpen size="0.8125rem" /> {localizeUi("ui.presets.sectionstab.groups")}
           {groupMap.size})
         </button>
+        {touchLayout ? (
+          <button
+            type="button"
+            onClick={() => setTouchEditing((editing) => !editing)}
+            aria-pressed={touchEditing}
+            data-preset-touch-edit
+            className={cn(
+              "mari-editor-action mari-editor-action--primary inline-flex",
+              touchEditing && "mari-chrome-accent-surface mari-accent-animated",
+            )}
+          >
+            {touchEditing ? (
+              localizeUi("ui.presets.sectionstab.doneEditing", { defaultValue: "Done" })
+            ) : (
+              <>
+                <span aria-hidden="true">✏️</span> {localizeUi("ui.presets.sectionstab.edit", { defaultValue: "Edit" })}
+              </>
+            )}
+          </button>
+        ) : null}
         {!hasLorebookMarker && parentChatHasLorebook && !lorebookWarningDismissed && (
           <div className="mari-editor-chip mari-editor-chip--warning shrink px-2.5 py-1.5 text-[0.6875rem]">
             <AlertTriangle size="0.75rem" className="shrink-0" />
@@ -2180,6 +2208,18 @@ function SectionsTab({
                 >
                   {/* Section header */}
                   <div
+                    data-touch-editing={touchLayout && touchEditing ? "true" : undefined}
+                    onTouchStart={
+                      touchLayout && touchEditing
+                        ? (event) => {
+                            startSectionTouchDrag(event, section.id, {
+                              sourceElement: event.currentTarget.closest<HTMLElement>(
+                                '[data-touch-reorder-item="preset-section"]',
+                              ),
+                            });
+                          }
+                        : undefined
+                    }
                     className={cn("flex min-w-0 items-center", compact ? "gap-1.5 px-2 py-2" : "gap-2 px-3 py-2.5")}
                     onClick={
                       masterDetail
@@ -2191,7 +2231,7 @@ function SectionsTab({
                         : undefined
                     }
                   >
-                    <div className="flex shrink-0 items-center gap-0.5">
+                    <div className={cn("flex shrink-0 items-center gap-0.5", touchLayout && "hidden")}>
                       <div
                         className="cursor-grab rounded p-0.5 hover:bg-[var(--accent)] active:cursor-grabbing"
                         title={localizeUi("ui.presets.sectionstab.dragToReorder")}
@@ -2285,38 +2325,42 @@ function SectionsTab({
                     </span>
 
                     <div className="flex shrink-0 items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => void duplicateSection(section, idx)}
-                        disabled={onCreateSection.isPending || onReorderSections.isPending}
-                        className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
-                        title={localizeUi("ui.presets.sectionstab.duplicate")}
-                        aria-label={localizeUi("ui.presets.sectionstab.duplicateValue1", { value1: section.name })}
-                      >
-                        <Copy size="0.75rem" />
-                      </button>
-                      {masterDetail ? null : enableButton}
-                      <button
-                        onClick={async () => {
-                          if (
-                            !(await showConfirmDialog({
-                              title: localizeUi("ui.presets.sectionstab.deletePromptBlock"),
-                              message: localizeUi("dialog.delete.namedPermanent", {
-                                name: section.name || localizeUi("ui.presets.sectionstab.promptBlock"),
-                              }),
-                              confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                              tone: "destructive",
-                            }))
-                          ) {
-                            return;
-                          }
-                          onDeleteSection.mutate({ presetId, sectionId: section.id });
-                        }}
-                        className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                        title={localizeUi("lorebook.editor.batch.delete")}
-                      >
-                        <Trash2 size="0.75rem" />
-                      </button>
+                      {showRowTools ? (
+                        <button
+                          type="button"
+                          onClick={() => void duplicateSection(section, idx)}
+                          disabled={onCreateSection.isPending || onReorderSections.isPending}
+                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                          title={localizeUi("ui.presets.sectionstab.duplicate")}
+                          aria-label={localizeUi("ui.presets.sectionstab.duplicateValue1", { value1: section.name })}
+                        >
+                          <Copy size="0.75rem" />
+                        </button>
+                      ) : null}
+                      {masterDetail || (touchLayout && touchEditing) ? null : enableButton}
+                      {showRowTools ? (
+                        <button
+                          onClick={async () => {
+                            if (
+                              !(await showConfirmDialog({
+                                title: localizeUi("ui.presets.sectionstab.deletePromptBlock"),
+                                message: localizeUi("dialog.delete.namedPermanent", {
+                                  name: section.name || localizeUi("ui.presets.sectionstab.promptBlock"),
+                                }),
+                                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                                tone: "destructive",
+                              }))
+                            ) {
+                              return;
+                            }
+                            onDeleteSection.mutate({ presetId, sectionId: section.id });
+                          }}
+                          className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          title={localizeUi("lorebook.editor.batch.delete")}
+                        >
+                          <Trash2 size="0.75rem" />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 

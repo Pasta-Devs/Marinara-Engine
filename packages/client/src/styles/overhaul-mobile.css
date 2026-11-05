@@ -1178,14 +1178,17 @@
 }
 .ovm-cs-row__title {
   min-width: 0;
-  flex: 1;
+  flex: 1 0 auto;
+  max-width: 70%;
   overflow: hidden;
   font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ovm-cs-row__value {
-  max-width: 45%;
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-left: auto;
   overflow: hidden;
   color: var(--ov-muted);
   font-size: 0.9375rem;
@@ -1222,7 +1225,15 @@
   text-transform: uppercase;
 }
 .ovm-cs-listback {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
   padding-top: 0.25rem;
+}
+.ovm-cs-listback__title {
+  text-align: center;
+  font-size: 1.0625rem;
+  font-weight: 600;
 }
 
 /* A section opened as its own page. */
@@ -1231,7 +1242,7 @@
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
   align-items: center;
   min-height: 3rem;
   margin: 0 -0.75rem;
@@ -1241,6 +1252,7 @@
 }
 .ovm-cs-page__back {
   display: inline-flex;
+  min-width: 2.75rem;
   min-height: 2.75rem;
   align-items: center;
   gap: 0.125rem;
@@ -1253,6 +1265,7 @@
 }
 .ovm-cs-page__title {
   overflow: hidden;
+  text-align: center;
   font-size: 1.0625rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1269,7 +1282,7 @@
 .ovm-cs-page__body {
   padding-bottom: 1rem;
   /* The sections keep their desktop density; scale the page up for touch as a whole. */
-  zoom: 1.1;
+  zoom: 1.2;
 }
 [data-ovm-cs-view] .ovm-cs-row {
   display: block;
@@ -1286,6 +1299,14 @@
 }
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__header {
   min-height: 0 !important;
+  padding: 0 !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+  align-items: center !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__body {
+  align-self: center;
+  margin: 0 !important;
   padding: 0 !important;
 }
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] select {
@@ -1376,4 +1397,93 @@
   gap: 0.375rem;
   color: var(--ov-muted);
   font-size: 0.875rem;
+}
+
+/* ─── Section pages: every control big enough for a thumb (44px after the page's zoom) ───
+   These beat the desktop density sweep (.ov-cs .mari-drawer__body …, !important); :not(#ovm-x) only
+   adds specificity. */
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  :is(button, [role="button"], a[href], summary):not(.cursor-help) {
+  min-height: 2.25rem !important;
+  height: auto !important;
+}
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  :is(button, [role="button"]):has(> svg:only-child):not(.cursor-help),
+.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) :is(button, [role="button"]):empty {
+  min-width: 2.25rem !important;
+  justify-content: center;
+}
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select) {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+}
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  :is(input[type="checkbox"], input[type="radio"]):not(.sr-only) {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+}
+/* Help icons stay small to look at but get a thumb-sized hit area. */
+.ovm-cs-page__body .cursor-help,
+.ovm-cs-page__head .cursor-help {
+  position: relative;
+}
+.ovm-cs-page__body .cursor-help::after,
+.ovm-cs-page__head .cursor-help::after {
+  content: "";
+  position: absolute;
+  inset: -0.75rem;
+}
+/* Rows of icon buttons get room between them so a thumb hits only one. */
+.ov-cs.ov-cs .ovm-cs-page__body :is(.gap-0\.5, .gap-1):has(> button > svg:only-child) {
+  gap: 0.25rem !important;
+}
+/* The preset's section list: tall rows; reordering waits behind Edit. */
+.ovm-cs-page__body .mari-quick-preset-editor [data-touch-reorder-item="preset-section"] > div:first-child {
+  min-height: 2.75rem;
+}
+.ovm-cs-page__body .mari-quick-preset-editor [data-touch-editing="true"] {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Two narrow columns of fields squeeze labels to "Temper…"; phones stack them. */
+@media (max-width: 599px) {
+  .ovm-cs-page__body .grid.grid-cols-2:has(input:not([type="checkbox"], [type="radio"])) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The preset editor inside a Chat settings page: drop the nested frames so
+   section names get the width. */
+.ov-cs.ov-cs .ovm-cs-page__body div:has(> div > .mari-quick-preset-editor) {
+  border: 0;
+  margin-top: 0.25rem;
+}
+.ov-cs.ov-cs .ovm-cs-page__body div:has(> .mari-quick-preset-editor) {
+  border-top: 0;
+  padding-inline: 0;
+}
+.ov-cs.ov-cs .ovm-cs-page__body [data-touch-reorder-item="preset-section"] > div:first-child {
+  gap: 0.25rem;
+  padding-inline: 0.375rem;
+}
+.ov-cs.ov-cs .ovm-cs-page__body .ov-po-tools {
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  padding-inline: 0;
+}
+.ov-cs.ov-cs .ovm-cs-page__body .ov-po-tools .mari-editor-action {
+  padding-inline: 0.5rem;
+  white-space: nowrap;
+}
+.ov-cs.ov-cs .ovm-cs-page__body .ov-po-tools [data-preset-touch-edit] {
+  margin-left: auto;
+}
+.ov-cs.ov-cs .ovm-cs-page__body .ov-po-tools svg {
+  flex-shrink: 0;
 }

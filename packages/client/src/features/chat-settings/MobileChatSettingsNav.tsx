@@ -69,10 +69,15 @@ export function MobileChatSettingsBack({ order }: { order: number }) {
   const showQuick = useMobileChatSettingsNav((state) => state.showQuick);
   return (
     <div className="ovm-cs-listback" data-ovm-list="true" style={{ order }}>
-      <button type="button" className="ovm-cs-page__back" onClick={showQuick}>
-        <ChevronLeft size={22} aria-hidden="true" />
-        {t("chat.settings.quickSettings", { defaultValue: "Quick settings" })}
+      <button
+        type="button"
+        className="ovm-cs-page__back"
+        onClick={showQuick}
+        aria-label={t("chat.settings.backToQuickSettings", { defaultValue: "Back to Quick settings" })}
+      >
+        <ChevronLeft size={26} aria-hidden="true" />
       </button>
+      <span className="ovm-cs-listback__title">{t("chat.settings.allSettings", { defaultValue: "All settings" })}</span>
     </div>
   );
 }

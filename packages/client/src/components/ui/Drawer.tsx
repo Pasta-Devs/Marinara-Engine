@@ -187,9 +187,13 @@ export function Drawer({
           style={style}
         >
           <div className="ovm-cs-page__head">
-            <button type="button" className="ovm-cs-page__back" onClick={nav.showAll}>
-              <ChevronLeft size={22} aria-hidden="true" />
-              {t("chat.settings.allSettings", { defaultValue: "All settings" })}
+            <button
+              type="button"
+              className="ovm-cs-page__back"
+              onClick={nav.showAll}
+              aria-label={t("chat.settings.backToAllSettings", { defaultValue: "Back to All settings" })}
+            >
+              <ChevronLeft size={26} aria-hidden="true" />
             </button>
             <span className="ovm-cs-page__title">{title}</span>
             {help ? (
