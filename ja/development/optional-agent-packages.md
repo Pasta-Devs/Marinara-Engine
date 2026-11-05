@@ -1093,6 +1093,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 古いEngineはこのオプションを無視するため、パッケージはいつでも渡せます。このオプションに依存するパッケージは、1.815を宣言してください。
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816: アニメーションGIF画像
+
+`images.generate`はリクエストで`animation: { frameCount?, frameDurationMs? }`を受け取り、ループするGIFを1つ返します。結果は`mimeType: "image/gif"`、`ext: "gif"`で、`images.save`はこれを`.gif`ファイルとして保存します。`{}`を渡すと、Engineのデフォルトである200 msのフレーム9枚を使います。Engineは`frameCount`を2から12の範囲に、`frameDurationMs`を20から2000の範囲で10刻みに収め、フレームサイズは自分で決めます。選ばれるのは`width`と`height`の形に合う有効なフレームのうち最小のもので、たとえば正方形なら816x816、9:16なら608x1088です。このサイズのフレーム12枚は、OpenAIがドキュメントに記載している8,294,400ピクセルに収まります。
+
+GIFを作れるのは、OpenAIの接続で使うGPT Image 2.6 FlareまたはSunburst(`gpt-image-2.6-flare`、`gpt-image-2.6-sunburst`)だけです。GIFはプロンプトだけから描かれます。OpenAIがGIFを作るのは`/v1/images/generations`だけで、このエンドポイントは画像を受け取らないためです。Engineは次の場合、キューの枠を取ったり料金のかかる呼び出しをしたりする前にリクエストを拒否し、`code`が`"animation-unsupported"`のエラーを返します。
+
+- GIFを作れない接続(ChatGPT (Codex login)、OpenRouter、NanoGPT、ToAPIs、その他のサービスやモデル): 「This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection.」
+- 画像(空でない`referenceImage`または`referenceImages`の項目、あるいは`referenceIsCanvas: true`): 「A GIF is drawn from the prompt alone, so it can't start from a picture.」
+
+空の`referenceImages`配列や空文字列は、画像として扱いません。`POST /api/characters/avatar-generation`はリクエスト本文で同じ`animation`を受け取り、これらの拒否には400で`{ error, code: "animation-unsupported" }`を返します。それ以外の場合、応答の`image`は`data:image/gif;base64,…`のURLです。
+
+GIFのリクエストにサービスが静止画を返すと、リクエストは「The image service sent back a still picture instead of a GIF.」で失敗します。その応答にはすでに料金がかかっているため、失敗した試行として数えます。リクエストのフォールバック接続は、GIFを作れる場合に1回だけ試します。GIFを作れないフォールバック接続はスキップします。接続のカスタムパラメーターでは、静止画と同じように`complexity`などのオプションを追加したり、`quality`を設定したりできます。ただし、モデル、サイズ、フレームは変更できず、`background`、`output_compression`、`stream`、`partial_images`、`response_format`、`prompt_rewriter`も追加できません。GIFのリクエストが`quality`を送るのは、値が`low`、`medium`、`high`、`xhigh`、`max`のいずれかの場合だけです。デフォルト(Auto)ではこのフィールドを省くため、OpenAIのデフォルトが適用されます。
+
+これはソフトなインターフェースです。古いEngineは`animation`を無視して静止画を生成するため、画像1枚分の料金がかかります。古いEngineで求めていない静止画に料金がかからないよう、リクエストする前にEngineを確認してください。
+
+- クライアントバンドルは`__MARINARA_HOST__.capabilityApi`を読みます。
+- サーバーパッケージは、1.816で追加された`api.runtime.capabilityApi`を読みます。古いEngineはこの値を省くため、値がなければ古いEngineです。
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+1.816のEngineでは、`code === "animation-unsupported"`を捕捉し、代わりに静止画を生成してください。1.816を宣言するのは、GIFなしではパッケージが動作しない場合だけにしてください。権限は不要です。
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Advanced Memoryのシーン要約と記憶ブロック
@@ -1349,7 +1383,7 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 - `llm.createProvider(...)`はカスタム要求パラメーターやヘッダーを含め、Engineのプロバイダーファクトリーと同じ接続設定を受け付けます。返すプロバイダーは`chat`、`chatComplete`、`embed`、`maxContextValue`、`maxTokensOverrideValue`をサポートし、認証情報のプロパティは公開しません。
 - `llm.localSidecar()`は同じファサードでホストのローカルサイドカープロバイダーを返します。
 - `llm.withFallback(...)`は同じパッケージホストで作ったプロバイダーを包み、Engineの受付制御、フォールバック通知、プロバイダー選択動作を維持します。
-- `images.generate(...)`と`videos.generate(...)`はキャンセル、要求ログ、ネットワーク検査、メディアキューを含むEngineの実装を使います。呼び出し元の`signal`とUIの`debugMode`があれば転送してください。
+- `images.generate(...)`と`videos.generate(...)`はキャンセル、要求ログ、ネットワーク検査、メディアキューを含むEngineの実装を使います。呼び出し元の`signal`とUIの`debugMode`があれば転送してください。1.816以降では、画像リクエストの`animation`でループするGIFを要求します([Capability API 1.816](#capability-api-1816-animated-gif-images)を参照してください)。
 - `images.save`、`images.remove`、`images.stage`、`images.sweepStaged`はギャラリーの安全な書き込みと一時ファイルのライフサイクルを再利用します。`videos.save`と`videos.remove`は動画の保存経路を再利用します。`images.resolveNovelAiRequestSize`はホストのNovelAIサイズ正規化を使います。動画時間と公開参照アップロードの正規化も、`videos.resolveDuration`と`videos.resolveReferenceUpload`で利用できます。
 - `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections → Speech to Text**(接続 → 音声認識)で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
 

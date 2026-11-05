@@ -650,3 +650,17 @@ Coined here: **Test embedding**(埋め込みをテスト), after **Test Video**(
 New anchors: `<a id="the-per-chat-scoped-regex-scripts-setting">` above `### チャットごとのScoped Regex Scripts設定` and `<a id="choosing-the-default-profile">` above `## デフォルトのプロファイルを決める`, because new English links in `chats/chat-settings.md` and `extending/regex-scripts.md` target those fragments. The new `TROUBLESHOOTING.md` heading is `### Termux: 「CANNOT LINK EXECUTABLE "node"」と表示される`, a plain-form symptom clause like the 「Ignored build scripts: @google/genai」 heading; the error text keeps its ASCII quotes inside 「」. Nothing links to it, so it has no `<a id>`. **Could not verify that this Marinara Android build can safely read your stored data** is a status string and stays unglossed. **Install / Start Marinara**(Marinaraのインストール/起動) is glossed once in the new section.
 
 Two glosses now differ from older pack glosses; align them in a consistency pass, not in a mirror commit: **Scoped regex default** is (スコープ付き正規表現のデフォルト) in `prompts/presets.md`, and **Scoped Regex Scripts** stays (範囲を限定した正規表現スクリプト) in `extending/regex-scripts.md` against the shipped 範囲限定の正規表現スクリプト. These are translation choices, not a new native-reader review.
+
+## GPT Image 2.6 and animated GIFs (2026-11-05, #8872)
+
+Choices from the #8872 sync (`media/image-providers.md`, `development/optional-agent-packages.md`) against Engine `21da93b590`. **Image quality**(画質) and its option **Max**(最大) follow the shipped `ui.connections.connectioneditor.gptImageQuality` and `imageQualityMax`; `prompts/generation-parameters.md` leaves its **Max**/**Maximum** option lists unglossed, so align them in a consistency pass, not in a mirror commit.
+
+| English | Translation |
+| --- | --- |
+| still / still picture (as opposed to a GIF) | 静止画, the same still-vs-motion term as §3 |
+| looping GIF / animated GIF | ループするGIF, ループGIF (after `media/animated-expressions.md`); heading アニメーションGIF画像 |
+| frame / frame count / frame length / frame size | フレーム / フレーム数 / フレームの長さ / フレームサイズ |
+| fallback connection | フォールバック接続 |
+| queue slot / paid call | キューの枠 / 料金のかかる呼び出し |
+
+The three GIF refusal and failure messages are app strings and stay byte-exact English in 「」. These are translation choices, not a new native-reader review.

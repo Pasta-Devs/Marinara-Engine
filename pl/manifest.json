@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "ca930374ac0006c6a8654f16ef2d3215f4e2206b72d86cc07470f811051b5ad1",
-      "bytes": 172700
+      "sha256": "acc4121f1ef9024f39c90fe98f68b82aee6f7fa8934ea978003606c765a8753e",
+      "bytes": 176903
     },
     {
       "path": "development/personal-extensions.md",
@@ -649,8 +649,8 @@
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "1763a6bd8b495b622513e890d2084d2fe1ea2fca853b80b8fefe0e5971de3737",
-      "bytes": 18852
+      "sha256": "a185c6ed86ad3dff43e0d4e1331b69a12da6a1f0e3ab8564d039f0587a5868c7",
+      "bytes": 21226
     },
     {
       "path": "media/music.md",

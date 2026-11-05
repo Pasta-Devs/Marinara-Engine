@@ -61,7 +61,7 @@ Roleplayのチャットでは、`/illustrate`コマンドも使えます。[ス�
 
 設定の簡単なサービスについての補足です。
 
-- **OpenAI (DALL-E)**: DALL-EとGPT Imageのモデルを利用できます。
+- **OpenAI (DALL-E)**: DALL-EとGPT Imageのモデルを利用できます。ループするGIFを作れるのはGPT Image 2.6だけです。[GPT Image 2.6](#gpt-image-26)を参照してください。
 - **Stability AI**: Stable DiffusionとStable Imageのモデルを利用できます。
 - **Together AI**: FLUXをはじめとするオープンな画像モデルを利用できます。
 - **OpenRouter Images**: OpenRouterのチャット用インターフェイスを経由して画像モデルを利用するため、使えるモデルはアカウントによって変わります。
@@ -74,6 +74,30 @@ Roleplayのチャットでは、`/illustrate`コマンドも使えます。[ス�
 
 ## 特別な設定が必要なサービス
 
+### GPT Image 2.6
+
+GPT Image 2.6は**OpenAI (DALL-E)**のアカウントで動きます。**GPT Image 2.6 Flare**は速いほうのモデルです。**GPT Image 2.6 Sunburst**は品質がより高く、編集を重ねてもより安定します。どちらもGPT Image 2.5と同じサイズと透過背景に対応し、**Image quality**(画質)は**Max**(最大)まで上げられます。
+
+このモデルは、描く前に画像ごとに計画を立てます。計画を減らすには、画像モデルの**Custom Parameters**(カスタムパラメーター)に`{"complexity": "low"}`または`{"complexity": "medium"}`を追加してください。デフォルトは`high`です。complexityが高いほど時間がかかることがあり、編集では頼んだ以上に変更されることがあります。
+
+GPT Image 2.6は、短いループGIFも作れます。MarinaraがGIFを依頼するのは、機能やダウンロードしたエージェントがGIFを提供している場合だけです。
+
+| 制限 | 値 |
+| --- | --- |
+| アカウント | APIキーを使う**OpenAI (DALL-E)** |
+| モデル | GPT Image 2.6 FlareまたはSunburst |
+| フレーム数 | 2から12枚、デフォルトは9枚 |
+| フレームの長さ | 20から2000 ms、デフォルトは200 ms |
+| フレームサイズ | 約0.66 MP: 正方形なら816x816、縦長なら608x1088 |
+| 送る画像 | なし。GIFはプロンプトだけから描かれます |
+| 透過背景 | 非対応 |
+
+OpenAIはもっと多くのフレームを認めていますが、1つのGIFに使えるピクセル数を公開していないため、Marinaraは小さなフレーム12枚までにとどめます。**ChatGPT (Codex login)**、**OpenRouter Images**、**NanoGPT**、ToAPIs、その他のサービスはGIFを作れません。Marinaraはこうしたリクエストを何も送らないうちに拒否するので、料金はかかりません。**OpenAI-compatible**(OpenAI互換)のアカウントは、OpenAIと同じように試します。
+
+失敗したGIFが静止画に置き換えられることはありません。サービスが静止画を返した場合、リクエストは失敗します。**Images**(画像)の役割の**If it fails**(失敗したとき)のモデルは、GIFを作れる場合にだけ試されます。
+
+> **Warning:** OpenAIはGIFの料金を公開していません。GIF 1つで画像数枚分の料金がかかるものと考えてください。代わりに静止画が返ってきた場合も、その分の料金がかかります。
+
 ### ChatGPT (Codex login)
 
 このサービスはAPIキーの代わりにChatGPTのプランを使うので、画像生成にOpenAIのAPIクレジットは要りません。
@@ -81,7 +105,7 @@ Roleplayのチャットでは、`/illustrate`コマンドも使えます。[ス�
 1. Marinaraが動いているコンピューターにCodex CLIをインストールし、`codex login`を一度だけ実行します。ChatGPTのチャット用アカウントが使うのと同じサインインです。[Claude、ChatGPT、Grokのサブスクリプション接続](../connections/subscription-clis.md#openai-chatgpt)を参照してください。
 2. サービスを選びます。キーやアドレスを入力する必要はありません。モデルには、Codexが画像に使う`gpt-image-2`をMarinaraが自動で入力します。
 
-**Test provider**(プロバイダーをテスト)は、MarinaraがCodexのログイン情報を読み取れるかどうかだけを確認します。**Test image**(画像をテスト)は実際に画像を作るので、ChatGPTの画像生成の利用上限にカウントされます。参照画像がある場合、Marinaraは最大16枚の参照画像を付けて編集リクエストを送ります。ChatGPTは異なるピクセルサイズで画像を返すことがあるため、Marinaraは希望するアスペクト比をプロンプトにも明記します。このサービスはOpenAIの公開APIではなく、Codexが使うChatGPTの画像エンドポイントを使うため、OpenAIによって予告なく変更される可能性があります。
+**Test provider**(プロバイダーをテスト)は、MarinaraがCodexのログイン情報を読み取れるかどうかだけを確認します。**Test image**(画像をテスト)は実際に画像を作るので、ChatGPTの画像生成の利用上限にカウントされます。GPT Image 2.6のモデルIDを指定しても、このサービスではGIFを作れません。参照画像がある場合、Marinaraは最大16枚の参照画像を付けて編集リクエストを送ります。ChatGPTは異なるピクセルサイズで画像を返すことがあるため、Marinaraは希望するアスペクト比をプロンプトにも明記します。このサービスはOpenAIの公開APIではなく、Codexが使うChatGPTの画像エンドポイントを使うため、OpenAIによって予告なく変更される可能性があります。
 
 ### Arli AI
 
@@ -179,7 +203,7 @@ Marinaraに値を入れてほしい位置に、ワークフロー内で次のテ
 
 | サービス | 参照画像 |
 | --- | --- |
-| OpenAI (DALL-E) | 最大16枚、GPT Imageのモデルのみ |
+| OpenAI (DALL-E) | 最大16枚、GPT Imageのモデルのみ。GIFの場合はなし |
 | ChatGPT (Codex login) | 最大16枚 |
 | NovelAI | 最大16枚、V4.5のモデルのみ |
 | xAI / Grok Imagine | 最大3枚 |

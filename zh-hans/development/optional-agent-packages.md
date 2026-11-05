@@ -1064,6 +1064,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 旧版 Engine 会忽略此选项，因此包始终可以传入它。包依赖此选项时，请声明 1.815。
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816：动态 GIF 图像
+
+`images.generate` 的请求可以带上 `animation: { frameCount?, frameDurationMs? }`，这时它会返回一个循环播放的 GIF：`mimeType: "image/gif"`、`ext: "gif"`，`images.save` 会把它存成 `.gif` 文件。`{}` 使用 Engine 的默认值，即 9 帧、每帧 200 ms。Engine 会把 `frameCount` 限制在 2 到 12 之间，把 `frameDurationMs` 限制在 20 到 2000 之间、步长为 10，并自行选择帧尺寸：取与 `width` 和 `height` 宽高比一致的最小有效帧，例如正方形是 816x816，9:16 是 608x1088。这种尺寸的 12 帧合计仍低于 OpenAI 文档写明的 8,294,400 像素。
+
+只有 OpenAI 连接上的 GPT Image 2.6 Flare 或 Sunburst(`gpt-image-2.6-flare`、`gpt-image-2.6-sunburst`) 能生成 GIF。GIF 只根据提示词绘制：OpenAI 只在 `/v1/images/generations` 上生成 GIF，而这个端点不接受图片。下面这些请求，Engine 会在占用任何队列位置、发出任何付费调用之前就拒绝，并返回一个 `code` 为 `"animation-unsupported"` 的错误：
+
+- 不能生成 GIF 的连接（ChatGPT (Codex login)、OpenRouter、NanoGPT、ToAPIs，或其他任何服务或模型）：“This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection.”
+- 附带图片，即非空的 `referenceImage` 或 `referenceImages` 项，或者 `referenceIsCanvas: true`：“A GIF is drawn from the prompt alone, so it can't start from a picture.”
+
+空的 `referenceImages` 数组或空字符串不算图片。`POST /api/characters/avatar-generation` 的请求体接受同样的 `animation`，遇到上述拒绝时返回 400 `{ error, code: "animation-unsupported" }`。否则，它返回的 `image` 是一个 `data:image/gif;base64,…` URL。
+
+服务对 GIF 请求返回静态图时，请求会失败，并报“The image service sent back a still picture instead of a GIF.”这次回复已经计费，所以算作一次失败的尝试；如果请求的备用连接能生成 GIF，就改用它尝试一次。不能生成 GIF 的备用连接会被跳过。和生成静态图时一样，连接的自定义参数可以添加 `complexity` 等选项，也可以设置 `quality`，但不能更改模型、尺寸或帧，也不能添加 `background`、`output_compression`、`stream`、`partial_images`、`response_format` 或 `prompt_rewriter`。GIF 请求只有在 `quality` 为 `low`、`medium`、`high`、`xhigh` 或 `max` 时才会发送它；使用默认值（Auto）时不发送这个字段，因此以 OpenAI 的默认值为准。
+
+这是软接口：旧版 Engine 会忽略 `animation`，改为画一张静态图，这会花掉一张图片的费用。请求之前先检查 Engine，免得旧版 Engine 为一张你并不想要的静态图收费：
+
+- 客户端包读取 `__MARINARA_HOST__.capabilityApi`。
+- 服务端包读取 1.816 新增的 `api.runtime.capabilityApi`。旧版 Engine 不提供这个值，所以值缺失就表示是旧版 Engine。
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+在 1.816 Engine 上，捕获 `code === "animation-unsupported"` 后改画一张静态图。只有包离开 GIF 就无法工作时才声明 1.816。无需权限。
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391：Advanced Memory(高级记忆) 场景摘要与记忆块
@@ -1320,7 +1354,7 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 - `llm.createProvider(...)` 接受与 Engine 服务商工厂相同的连接设置，包括自定义请求参数和请求头。返回的服务商支持 `chat`、`chatComplete`、`embed`、`maxContextValue` 和 `maxTokensOverrideValue`，不公开凭据属性。
 - `llm.localSidecar()` 通过同一门面返回宿主本地侧车服务商。
 - `llm.withFallback(...)` 包装同一包宿主创建的服务商，保留 Engine 的准入、回退通知和服务商选择行为。
-- `images.generate(...)` 和 `videos.generate(...)` 使用当前 Engine 实现，包括取消、请求日志、网络检查和媒体队列。调用方提供 `signal` 和 UI `debugMode` 时，请转发。
+- `images.generate(...)` 和 `videos.generate(...)` 使用当前 Engine 实现，包括取消、请求日志、网络检查和媒体队列。调用方提供 `signal` 和 UI `debugMode` 时，请转发。从 1.816 起，图像请求的 `animation` 会请求生成循环播放的 GIF(见 [Capability API 1.816](#capability-api-1816-animated-gif-images))。
 - `images.save`、`images.remove`、`images.stage` 和 `images.sweepStaged` 复用图库安全写入和暂存文件生命周期。`videos.save` 与 `videos.remove` 复用视频存储路径。`images.resolveNovelAiRequestSize` 复用宿主的 NovelAI 尺寸规范化。视频时长和公开参考上传规范化也可通过 `videos.resolveDuration` 与 `videos.resolveReferenceUpload` 使用。
 - `speech.transcribe(audio, { filename, mimeType, signal })` 把录制的音频发送到用户在 **Connections → Speech to Text**(连接 → 语音识别) 中设置的语音识别服务器，并返回转写文本；该服务器关闭时返回 `null`，包据此继续使用自己的转写。它应用宿主的 URL 策略（`STT_LOCAL_URLS_ENABLED`）以及大小和时间限制，且从不暴露已保存的密钥。`speech` 是可选的，不需要更高版本的能力 API：检查 `typeof api.runtime.integrations?.speech?.transcribe === "function"`，在旧 Engine 上回退。
 

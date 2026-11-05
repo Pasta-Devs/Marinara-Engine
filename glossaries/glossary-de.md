@@ -998,3 +998,20 @@ Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7`
 - Residual (R4, not swept): `installation/android-termux.md` calls the launcher **Starter**
   (7× `Starter`/`Starters` from step 4 of the manual install on; the file also has 2×
   `Launcher`), against §4's `der Launcher`.
+
+## GPT Image 2.6 GIFs (2026-11-05, #8872)
+
+Precedents from the #8872 sync against Engine `21da93b590` (`media/image-providers.md`,
+`development/optional-agent-packages.md`):
+
+- A *still* / *still picture* (not animated, as against a GIF) is **das Standbild**, as in
+  `media/animated-expressions.md`. A GIF *frame* is **der Frame**, pl. **Frames**, as in
+  `media/animated-expressions.md` and `media/scene-video.md`; compounds hyphenate (§6):
+  **Frame-Größe**; *frame length* is „Dauer pro Frame“. The `Einzelbild` already in
+  `agents/avatars.md` and `development/ltx-director-storyboard.md` stays. A *looping GIF* is „ein
+  GIF in Endlosschleife“.
+- **Image quality** is glossed *(Bildqualität)*, the `ui/de.json` value of
+  `ui.connections.connectioneditor.gptImageQuality`. Its option **Max** stays bare, like the level
+  options in `prompts/generation-parameters.md`; the `ui/de.json` „Max.“ is not copied.
+- **Custom Parameters** *(eigene Parameter)* now first appears in „### GPT Image 2.6“, so the gloss
+  moved there and the fal.ai mention is bare (rule of 2026-10-11).

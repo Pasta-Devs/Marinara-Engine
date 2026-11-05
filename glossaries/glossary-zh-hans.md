@@ -759,3 +759,13 @@ Cycle precedent for the #8681 catch-up against Engine `staging` `db2d6ead7` (`lo
 | keep a configuration file | 询问是否保留某个配置文件，按 Enter 保留当前的那份 | 配置文件 is a literal configuration file, as at `TROUBLESHOOTING.md:46`; the §3 ban on 配置文件 covers the preset and profile senses only. |
 
 New anchors let the new English fragment links resolve against translated headings: `<a id="the-per-chat-scoped-regex-scripts-setting"></a>` above `### 按聊天生效的 Scoped Regex Scripts 设置` and `<a id="choosing-the-default-profile"></a>` above `## 指定默认方案`. The new heading `### Termux：报错 CANNOT LINK EXECUTABLE "node"` (`TROUBLESHOOTING.md:30`) keeps the straight quotes Termux prints (§4.5.3), so the §4.5.3 prose count grows by one. **Could not verify that this Marinara Android build can safely read your stored data** stays bare (§5.2.d); **Install / Start Marinara** runs bare as elsewhere in `TROUBLESHOOTING.md`; the updated launcher is Termux 启动脚本 (§3). These are translation choices, not a new native-reader review.
+
+## GPT Image 2.6 and animated GIFs (2026-11-05, #8872)
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Image quality (GPT Image field on the image model) | **Image quality**(图像质量) | Matches `ui.connections.connectioneditor.gptImageQuality` in `ui/zh-Hans.json`. |
+| Max (its top option) | **Max**(最高) | Matches `imageQualityMax`; written 可以一直调到 **Max**(最高) 档. The Reasoning Effort levels in `prompts/generation-parameters.md` stay bare. |
+| still / still picture | 静态图 | Reuses `game/storyboard.md` and `media/animated-expressions.md`; a GIF frame is 帧 (9 帧、每帧 200 ms). |
+
+The Engine's GIF refusal strings stay English inside “ ” (§4.5.2). **Custom Parameters**(自定义参数) moved to its new first use in `media/image-providers.md` (§5.2.a). These are translation choices, not a new native-reader review.

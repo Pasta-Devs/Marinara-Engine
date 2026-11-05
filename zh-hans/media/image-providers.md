@@ -61,7 +61,7 @@ API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账�
 
 简单服务的说明：
 
-- **OpenAI (DALL-E)**：提供 DALL-E 和 GPT Image 系列模型。
+- **OpenAI (DALL-E)**：提供 DALL-E 和 GPT Image 系列模型。只有 GPT Image 2.6 能生成循环播放的 GIF。见 [GPT Image 2.6](#gpt-image-26)。
 - **Stability AI**：Stable Diffusion 和 Stable Image 系列模型。
 - **Together AI**：FLUX 以及其他开源图像模型。
 - **OpenRouter Images**：通过 OpenRouter 的聊天接口调用图像模型，所以具体能用哪些模型因账号而异。
@@ -74,6 +74,30 @@ API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账�
 
 ## 需要特别设置的服务
 
+### GPT Image 2.6
+
+GPT Image 2.6 要通过 **OpenAI (DALL-E)** 账号使用。**GPT Image 2.6 Flare** 是速度更快的模型。**GPT Image 2.6 Sunburst** 画质更高，多次编辑时也更稳定。两者支持的尺寸和透明背景都与 GPT Image 2.5 相同，**Image quality**(图像质量) 可以一直调到 **Max**(最高) 档。
+
+这个模型在作画之前会先规划每张图片。想让它少规划一些，就在图像模型的 **Custom Parameters**(自定义参数) 里加上 `{"complexity": "low"}` 或 `{"complexity": "medium"}`。默认值是 `high`。复杂度越高，耗时可能越长，编辑时也可能改动超出你要求的范围。
+
+GPT Image 2.6 还能生成一小段循环播放的 GIF。只有在某个功能或下载的智能体提供 GIF 时，Marinara 才会请求生成：
+
+| 限制 | 值 |
+| --- | --- |
+| 账号 | **OpenAI (DALL-E)**，使用 API 密钥 |
+| 模型 | GPT Image 2.6 Flare 或 Sunburst |
+| 帧数 | 2 到 12，默认 9 |
+| 每帧时长 | 20 到 2000 ms，默认 200 ms |
+| 帧尺寸 | 约 0.66 MP：正方形 816x816，竖图 608x1088 |
+| 发送的图片 | 无。GIF 只根据提示词绘制 |
+| 透明背景 | 不支持 |
+
+OpenAI 允许更多帧，但没有公布一个 GIF 最多可以有多少像素，所以 Marinara 把 GIF 控制在最多 12 帧，每帧尺寸也较小。**ChatGPT (Codex login)**、**OpenRouter Images**、**NanoGPT**、ToAPIs 和其他服务都不能生成 GIF。Marinara 会在发出任何内容之前就拒绝这些请求，所以你不用付任何费用。**OpenAI-compatible**(OpenAI 兼容) 账号则按 OpenAI 的方式尝试。
+
+生成失败的 GIF 绝不会换成静态图。如果服务返回的是静态图，这次请求就失败。只有当 **Images** 这项工作的 **If it fails**(失败时) 模型能生成 GIF 时，才会转而尝试它。
+
+> **警告：** OpenAI 没有公布 GIF 的价格。预计一个 GIF 的费用相当于好几张图片，而服务改为返回的静态图同样会计费。
+
 ### ChatGPT (Codex login)
 
 这个服务用 ChatGPT 套餐代替 API 密钥，所以生成图像不需要 OpenAI API 额度。
@@ -81,7 +105,7 @@ API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账�
 1. 在运行 Marinara 的那台电脑上安装 Codex CLI，然后运行一次 `codex login`。这和 ChatGPT 聊天账号用的是同一套登录。见 [Claude、ChatGPT 和 Grok 订阅连接](../connections/subscription-clis.md#openai-chatgpt)。
 2. 选择这个服务。不需要填写密钥或地址。Marinara 会自动填入模型 `gpt-image-2`，也就是 Codex 生成图像所用的模型。
 
-**Test provider** 只检查 Marinara 能否读到你的 Codex 登录信息。**Test image** 会实际生成一张图像，并计入 ChatGPT 的图像用量上限。带参考图时，Marinara 会发送图像编辑请求，最多附带 16 张参考图。ChatGPT 返回的像素尺寸可能不一样，所以 Marinara 还会在提示词里写明想要的宽高比。这个服务调用的是 Codex 所用的 ChatGPT 图像端点，而不是公开的 OpenAI API，所以 OpenAI 可能随时改动它，不会提前通知。
+**Test provider** 只检查 Marinara 能否读到你的 Codex 登录信息。**Test image** 会实际生成一张图像，并计入 ChatGPT 的图像用量上限。即使填的是 GPT Image 2.6 的模型 ID，这个服务也不能生成 GIF。带参考图时，Marinara 会发送图像编辑请求，最多附带 16 张参考图。ChatGPT 返回的像素尺寸可能不一样，所以 Marinara 还会在提示词里写明想要的宽高比。这个服务调用的是 Codex 所用的 ChatGPT 图像端点，而不是公开的 OpenAI API，所以 OpenAI 可能随时改动它，不会提前通知。
 
 ### Arli AI
 
@@ -107,7 +131,7 @@ Marinara 会加载 Atlas Cloud 当前的文生图和图生图模型目录。加�
 
 在 [fal.ai](https://fal.ai/dashboard/keys) 创建 API 密钥。初始列表提供 `fal-ai/flux/schnell` 和 `fal-ai/flux/dev`。也可以输入其他文生图端点 ID，只要输入和输出兼容就行。**Test provider** 只检查配置。**Test image** 会发送真实请求，消耗 fal.ai 额度。
 
-Marinara 发送提示词和尺寸，然后下载返回的第一张图像。负面提示词会以文字形式追加。模型选项（例如 `seed`、`num_inference_steps` 或 `image_size`）用 **Custom Parameters**(自定义参数) 设置。它使用同步的文生图请求，不发送参考图，也不会恢复中断的任务。见该模型的 [API 参考](https://fal.ai/models/fal-ai/flux/schnell/api)。
+Marinara 发送提示词和尺寸，然后下载返回的第一张图像。负面提示词会以文字形式追加。模型选项（例如 `seed`、`num_inference_steps` 或 `image_size`）用 **Custom Parameters** 设置。它使用同步的文生图请求，不发送参考图，也不会恢复中断的任务。见该模型的 [API 参考](https://fal.ai/models/fal-ai/flux/schnell/api)。
 
 ### SpicyAPI
 
@@ -179,7 +203,7 @@ SwarmUI 可以把 ComfyUI 任务分配到自己的队列中处理。没有账号
 
 | 服务 | 参考图 |
 | --- | --- |
-| OpenAI (DALL-E) | 最多 16 张，仅限 GPT Image 模型 |
+| OpenAI (DALL-E) | 最多 16 张，仅限 GPT Image 模型。GIF 不能带参考图 |
 | ChatGPT (Codex login) | 最多 16 张 |
 | NovelAI | 最多 16 张，仅限 V4.5 模型 |
 | xAI / Grok Imagine | 最多 3 张 |

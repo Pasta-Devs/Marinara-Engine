@@ -61,7 +61,7 @@ Marinara remplit pour toi l'adresse de chaque service. Les services cloud demand
 
 Remarques sur les services simples :
 
-- **OpenAI (DALL-E)** : propose les modèles DALL-E et GPT Image.
+- **OpenAI (DALL-E)** : propose les modèles DALL-E et GPT Image. Seul GPT Image 2.6 génère des GIF en boucle. Voir [GPT Image 2.6](#gpt-image-26).
 - **Stability AI** : modèles Stable Diffusion et Stable Image.
 - **Together AI** : FLUX et d'autres modèles d'image ouverts.
 - **OpenRouter Images** : atteint les modèles d'image via l'interface de chat d'OpenRouter ; les modèles varient donc d'un compte à l'autre.
@@ -74,6 +74,30 @@ Remarques sur les services simples :
 
 ## Services à configuration particulière
 
+### GPT Image 2.6
+
+GPT Image 2.6 fonctionne avec un compte **OpenAI (DALL-E)**. **GPT Image 2.6 Flare** est le modèle le plus rapide. **GPT Image 2.6 Sunburst** offre une meilleure qualité et reste plus stable d'une édition à l'autre. Les deux acceptent les mêmes tailles et les mêmes arrière-plans transparents que GPT Image 2.5, et **Image quality** (qualité d'image) monte jusqu'à **Max**.
+
+Le modèle planifie chaque image avant de la dessiner. Pour qu'il planifie moins, ajoute `{"complexity": "low"}` ou `{"complexity": "medium"}` dans les **Custom Parameters** (paramètres personnalisés) du modèle d'images. La valeur par défaut est `high`. Une complexité plus élevée peut prendre plus de temps et, lors d'une édition, changer davantage que ce que tu as demandé.
+
+GPT Image 2.6 peut aussi générer un court GIF en boucle. Marinara n'en demande un que là où une fonctionnalité ou un agent téléchargé propose des GIF :
+
+| Limite | Valeur |
+| --- | --- |
+| Compte | **OpenAI (DALL-E)** avec une clé API |
+| Modèles | GPT Image 2.6 Flare ou Sunburst |
+| Images du GIF | De 2 à 12, 9 par défaut |
+| Durée d'une image | De 20 à 2 000 ms, 200 ms par défaut |
+| Taille d'une image | Environ 0,66 mégapixel : 816x816 en carré, 608x1088 en portrait |
+| Images envoyées | Aucune. Un GIF est dessiné à partir du seul prompt |
+| Arrière-plan transparent | Non |
+
+OpenAI autorise davantage d'images, mais ne publie pas le nombre de pixels qu'un GIF peut contenir : Marinara s'en tient donc à 12 petites images. **ChatGPT (Codex login)**, **OpenRouter Images**, **NanoGPT**, ToAPIs et les autres services ne peuvent pas générer de GIF. Marinara refuse ces requêtes avant d'envoyer quoi que ce soit : tu ne paies donc rien. Un compte **OpenAI-compatible** (compatible OpenAI) est essayé comme un compte OpenAI.
+
+Un GIF qui échoue n'est jamais remplacé par une image fixe. Si le service répond avec une image fixe, la requête échoue. Le modèle **If it fails** (en cas d'échec) de la tâche **Images** n'est essayé que s'il peut générer des GIF.
+
+> **Avertissement :** OpenAI ne publie pas le prix d'un GIF. Attends-toi à ce qu'un GIF coûte le prix de plusieurs images, et une image fixe renvoyée à la place est facturée elle aussi.
+
 ### ChatGPT (Codex login)
 
 Ce service utilise ton forfait ChatGPT au lieu d'une clé API : les images ne demandent donc aucun crédit de l'API OpenAI.
@@ -81,7 +105,7 @@ Ce service utilise ton forfait ChatGPT au lieu d'une clé API : les images ne de
 1. Sur l'ordinateur qui fait tourner Marinara, installe le CLI Codex et lance `codex login` une fois. C'est la même identification que celle du compte de chat ChatGPT. Voir [Connexions par abonnement Claude, ChatGPT et Grok](../connections/subscription-clis.md#openai-chatgpt).
 2. Choisis le service. Il n'y a ni clé ni adresse à remplir. Marinara remplit le modèle `gpt-image-2`, celui que Codex utilise pour les images.
 
-**Test provider** vérifie seulement que Marinara peut lire ton identification Codex. **Test image** génère une vraie image, qui compte dans tes limites d'images ChatGPT. Avec des images de référence, Marinara envoie une requête d'édition qui en contient jusqu'à 16. ChatGPT peut renvoyer une taille en pixels différente : Marinara indique donc aussi le rapport d'aspect voulu dans le prompt. Ce service passe par le point d'accès image de ChatGPT qu'utilise Codex, et non par l'API publique d'OpenAI : OpenAI peut donc le modifier sans prévenir.
+**Test provider** vérifie seulement que Marinara peut lire ton identification Codex. **Test image** génère une vraie image, qui compte dans tes limites d'images ChatGPT. Ce service ne peut pas générer de GIF, même avec un identifiant de modèle GPT Image 2.6. Avec des images de référence, Marinara envoie une requête d'édition qui en contient jusqu'à 16. ChatGPT peut renvoyer une taille en pixels différente : Marinara indique donc aussi le rapport d'aspect voulu dans le prompt. Ce service passe par le point d'accès image de ChatGPT qu'utilise Codex, et non par l'API publique d'OpenAI : OpenAI peut donc le modifier sans prévenir.
 
 ### Arli AI
 
@@ -107,7 +131,7 @@ Marinara charge le catalogue actuel des modèles texte-vers-image et image-vers-
 
 Crée une clé API sur [fal.ai](https://fal.ai/dashboard/keys). La liste de départ propose `fal-ai/flux/schnell` et `fal-ai/flux/dev`. Tu peux saisir l'identifiant d'un autre point d'accès texte-vers-image dont l'entrée et la sortie sont compatibles. **Test provider** vérifie uniquement la configuration. **Test image** envoie une vraie requête et consomme du crédit fal.ai.
 
-Marinara envoie le prompt et les dimensions, puis télécharge la première image renvoyée. Les prompts négatifs sont ajoutés sous forme de texte. Utilise **Custom Parameters** (paramètres personnalisés) pour les options du modèle, comme `seed`, `num_inference_steps` ou `image_size`. Ce service utilise des requêtes synchrones texte-vers-image, n'envoie pas d'images de référence et ne reprend pas les tâches interrompues. Voir la [référence API](https://fal.ai/models/fal-ai/flux/schnell/api) du modèle.
+Marinara envoie le prompt et les dimensions, puis télécharge la première image renvoyée. Les prompts négatifs sont ajoutés sous forme de texte. Utilise **Custom Parameters** pour les options du modèle, comme `seed`, `num_inference_steps` ou `image_size`. Ce service utilise des requêtes synchrones texte-vers-image, n'envoie pas d'images de référence et ne reprend pas les tâches interrompues. Voir la [référence API](https://fal.ai/models/fal-ai/flux/schnell/api) du modèle.
 
 ### SpicyAPI
 
@@ -179,7 +203,7 @@ Une image de référence est une image existante que tu envoies avec ton prompt,
 
 | Service | Images de référence |
 | --- | --- |
-| OpenAI (DALL-E) | Jusqu'à 16, modèles GPT Image uniquement |
+| OpenAI (DALL-E) | Jusqu'à 16, modèles GPT Image uniquement. Aucune pour un GIF |
 | ChatGPT (Codex login) | Jusqu'à 16 |
 | NovelAI | Jusqu'à 16, modèle V4.5 uniquement |
 | xAI / Grok Imagine | Jusqu'à 3 |

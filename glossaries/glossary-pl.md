@@ -1303,3 +1303,22 @@ Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7`:
 
 These are documented choices for this catch-up, not a claim of independent
 native-reader review.
+
+## GPT Image 2.6 and animated GIFs (2026-11-05, #8872)
+
+Precedents from the #8872 mirror against Engine `21da93b590` (`media/image-providers.md`,
+`development/optional-agent-packages.md`):
+
+- **Image quality** is glossed once as *(jakość obrazu)*, the shipped `ui/pl.json` value of
+  `ui.connections.connectioneditor.gptImageQuality`. Its option **Max** is *(maksymalny)*:
+  the shipped options are masculine (`Niski`, `Średni`, `Wysoki`, `Maks.`), as is the reasoning
+  level **Maximum** (maksymalny) (2026-10-11).
+- A *still* is **nieruchomy obraz**, after *nieruchome sprite'y*
+  (`media/animated-expressions.md`) and *obrazy nieruchome* (`game/storyboard.md`); a GIF
+  frame is **klatka**. GIF declines with a hyphen, like the attested *GIF-y* / *GIF-ów*:
+  *GIF-a*, *GIF-ie*.
+- **Custom Parameters** now first appears in `### GPT Image 2.6`, so its one-time gloss
+  *(parametry niestandardowe)* moved there byte-identical (R-113) and the fal.ai mention is
+  bare.
+- Numbers follow the English grouping: `8,294,400` is **8 294 400** (R-103), while an
+  ungrouped English `2000` stays `2000`, as at `development/optional-agent-packages.md:647`.

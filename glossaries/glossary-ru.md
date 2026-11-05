@@ -791,3 +791,14 @@ Precedent from the #8681 catch-up (`lorebooks/semantic-search.md`, `chats/chat-s
 - The new troubleshooting heading is `### Termux: ошибка CANNOT LINK EXECUTABLE "node"` (`TROUBLESHOOTING.md:30`), after `### Windows: ошибка EPERM …`, keeping the literal error for search. **Could not verify that this Marinara Android build can safely read your stored data** is a status string (§5 Pattern B, no gloss), and **Install / Start Marinara** runs bare as elsewhere in that file. Newer app releases are **новые выпуски приложения для Android**; the launcher stays **скрипт запуска**.
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## GPT Image 2.6 and animated GIF images (2026-11-05, #8872)
+
+Precedent from the #8872 mirror (`media/image-providers.md`, `development/optional-agent-packages.md`) against `staging` `21da93b590`:
+
+- A still (picture) is **статичное изображение**, as **статичная картинка** / **статичные спрайты** in `media/animated-expressions.md:3`, `:26`; looping is **зацикленный**. A GIF frame is **кадр**, frame length **длительность кадра**. "Soft seam" keeps the pack's **мягкий интерфейс**.
+- **Image quality** (качество изображения) matches the shipped `ui/ru.json` value of `ui.connections.connectioneditor.gptImageQuality`. Its option **Max** runs bare, as level values do at `prompts/generation-parameters.md:40`.
+- `0.66 MP` is **0,66 мегапикселя** (decimal comma; `мегапикселей` at `characters/galleries.md:91`). Latin `MP` stays the Game stat (§2). `8 294 400` takes the prose separator; frame limits such as `2000` stay bare.
+- The **Custom Parameters** (свои параметры) gloss moves to the new GPT Image 2.6 section; the fal.ai mention now runs bare. The quoted Engine errors stay English (§5 Pattern C).
+
+These are documented translation choices from this sync, not an independent native-reader review.

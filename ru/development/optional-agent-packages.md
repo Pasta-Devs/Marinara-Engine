@@ -1104,6 +1104,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Старые версии Engine игнорируют этот параметр, поэтому пакет может передавать его всегда. Объявите 1.815, если пакет на него полагается.
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816: анимированные изображения GIF
+
+`images.generate` принимает в запросе `animation: { frameCount?, frameDurationMs? }` и тогда возвращает один зацикленный GIF: `mimeType: "image/gif"`, `ext: "gif"`, который `images.save` сохраняет как файл `.gif`. `{}` использует значения Engine по умолчанию: 9 кадров по 200 мс. Engine ограничивает `frameCount` диапазоном от 2 до 12, а `frameDurationMs` – диапазоном от 20 до 2000 с шагом 10 и сам выбирает размер кадра: наименьший допустимый кадр с пропорциями, заданными `width` и `height`, например 816x816 для квадрата или 608x1088 для 9:16. Двенадцать кадров такого размера дают меньше 8 294 400 пикселей, указанных в документации OpenAI.
+
+GIF создают только GPT Image 2.6 Flare или Sunburst (`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`) на подключении OpenAI. GIF рисуется только по промпту: OpenAI создает GIF лишь на `/v1/images/generations`, а этот эндпоинт не принимает изображений. Engine отклоняет такие запросы с ошибкой, у которой `code` равен `"animation-unsupported"`, еще до того, как они займут место в очереди или приведут к платному вызову:
+
+- Подключение, которое не умеет создавать GIF (ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs или любой другой сервис или модель): "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection."
+- Изображение, то есть непустое значение `referenceImage` или непустой элемент `referenceImages`, либо `referenceIsCanvas: true`: "A GIF is drawn from the prompt alone, so it can't start from a picture."
+
+Пустой массив `referenceImages` или пустая строка изображением не считаются. `POST /api/characters/avatar-generation` принимает то же поле `animation` в теле запроса и отвечает на эти отказы кодом 400 `{ error, code: "animation-unsupported" }`. В остальных случаях его `image` – это URL `data:image/gif;base64,…`.
+
+Если сервис отвечает на запрос GIF статичным изображением, запрос завершается ошибкой "The image service sent back a still picture instead of a GIF." Этот ответ уже оплачен, поэтому он считается неудачной попыткой, и резервное подключение запроса пробуется один раз, если оно умеет создавать GIF. Резервное подключение, которое не умеет создавать GIF, пропускается. Собственные параметры подключения могут добавлять настройки вроде `complexity` и задавать `quality`, как для статичных изображений, но не могут менять модель, размер или кадры либо добавлять `background`, `output_compression`, `stream`, `partial_images`, `response_format` или `prompt_rewriter`. Запрос GIF отправляет `quality`, только если это `low`, `medium`, `high`, `xhigh` или `max`; при значении по умолчанию (Auto) поле не передается, поэтому действует значение OpenAI по умолчанию.
+
+Это мягкий интерфейс: более старый Engine игнорирует `animation` и рисует статичное изображение, которое оплачивается как обычное изображение. Проверяйте Engine перед запросом, чтобы на более старом Engine не платить за статичное изображение, которое вам не нужно:
+
+- Клиентский пакет читает `__MARINARA_HOST__.capabilityApi`.
+- Серверный пакет читает свойство `api.runtime.capabilityApi`, новое в версии 1.816. Старые версии Engine его не передают, поэтому отсутствие значения означает более старый Engine.
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+В Engine 1.816 перехватывайте `code === "animation-unsupported"`, чтобы вместо GIF нарисовать статичное изображение. Объявляйте 1.816, только если пакет не может работать без GIF. Разрешений не нужно.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: сводки сцен Advanced Memory и блок памяти
@@ -1382,7 +1416,7 @@ Engine монтирует клиентский элемент с `view="widget"`
 - `llm.createProvider(...)` принимает настройки подключения фабрики Engine, включая собственные параметры запросов и заголовки. Полученный провайдер предоставляет `chat`, `chatComplete`, `embed`, `maxContextValue` и `maxTokensOverrideValue`, без свойств с учетными данными.
 - `llm.localSidecar()` возвращает локального провайдера sidecar хоста через тот же фасад.
 - `llm.withFallback(...)` оборачивает провайдера, созданного тем же хостом пакета, сохраняя допуск, уведомления о резервном варианте и выбор провайдера Engine.
-- `images.generate(...)` и `videos.generate(...)` используют текущие реализации Engine, отмену, журналирование запросов, сетевые проверки и очереди медиа. Передавайте `signal` вызывающего кода и `debugMode` интерфейса, если они доступны.
+- `images.generate(...)` и `videos.generate(...)` используют текущие реализации Engine, отмену, журналирование запросов, сетевые проверки и очереди медиа. Передавайте `signal` вызывающего кода и `debugMode` интерфейса, если они доступны. С версии 1.816 поле `animation` запроса изображения просит вернуть зацикленный GIF (см. [Capability API 1.816](#capability-api-1816-animated-gif-images)).
 - `images.save`, `images.remove`, `images.stage` и `images.sweepStaged` используют безопасное сохранение галереи и жизненный цикл временных файлов. `videos.save` и `videos.remove` используют путь хранения видео. `images.resolveNovelAiRequestSize` использует нормализацию размеров NovelAI хоста. Нормализация длительности видео и публичной загрузки референсов доступна через `videos.resolveDuration` и `videos.resolveReferenceUpload`.
 - `speech.transcribe(audio, { filename, mimeType, signal })` отправляет записанный звук на сервер распознавания речи, который пользователь указал в **Connections → Speech to Text**, и возвращает расшифровку либо `null`, пока этот сервер выключен, чтобы пакет продолжал использовать собственную расшифровку. Метод применяет политику адресов хоста (`STT_LOCAL_URLS_ENABLED`), ограничения размера и времени и никогда не раскрывает сохраненный ключ. `speech` необязателен и не требует более новой версии API возможностей: проверьте `typeof api.runtime.integrations?.speech?.transcribe === "function"` и в старых Engine возвращайтесь к своей расшифровке.
 

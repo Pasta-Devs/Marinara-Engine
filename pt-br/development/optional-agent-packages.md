@@ -1102,6 +1102,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Engines mais antigos ignoram a opção, então um pacote sempre pode passá-la. Declare 1.815 quando o pacote depender dela.
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816: imagens GIF animadas
+
+`images.generate` aceita `animation: { frameCount?, frameDurationMs? }` na requisição e então retorna um único GIF em loop: `mimeType: "image/gif"`, `ext: "gif"`, que `images.save` guarda como um arquivo `.gif`. `{}` usa os padrões do Engine, 9 quadros de 200 ms. O Engine limita `frameCount` ao intervalo de 2 a 12 e `frameDurationMs` ao intervalo de 20 a 2000, em passos de 10, e escolhe ele mesmo o tamanho do quadro: o menor quadro válido com a proporção de `width` e `height`, como 816x816 para um quadrado ou 608x1088 para 9:16. Doze quadros desse tamanho ficam abaixo dos 8.294.400 pixels documentados pela OpenAI.
+
+Só o GPT Image 2.6 Flare ou o Sunburst (`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`) em uma conexão OpenAI gera GIFs. Um GIF é desenhado só a partir do prompt: a OpenAI só gera GIFs em `/v1/images/generations`, que não recebe imagem. O Engine recusa estas requisições antes de ocupar qualquer lugar na fila ou de fazer qualquer chamada paga, com um erro cujo `code` é `"animation-unsupported"`:
+
+- Uma conexão que não consegue gerar GIFs (ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs ou qualquer outro serviço ou modelo): "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection."
+- Uma imagem, ou seja, um `referenceImage` não vazio, uma entrada não vazia em `referenceImages` ou `referenceIsCanvas: true`: "A GIF is drawn from the prompt alone, so it can't start from a picture."
+
+Um array `referenceImages` vazio ou uma string vazia não conta como imagem. `POST /api/characters/avatar-generation` aceita o mesmo `animation` no corpo e responde a essas recusas com 400 `{ error, code: "animation-unsupported" }`. Caso contrário, o `image` da resposta é uma URL `data:image/gif;base64,…`.
+
+Um serviço que responde a uma requisição de GIF com uma imagem estática falha com "The image service sent back a still picture instead of a GIF." Essa resposta já foi paga, então conta como uma tentativa que falhou, e a conexão de reserva da requisição é tentada uma vez quando consegue gerar GIFs. Uma conexão de reserva que não consegue gerar GIFs é pulada. Os parâmetros personalizados da conexão podem acrescentar opções como `complexity` e definir `quality`, como nas imagens estáticas, mas não podem mudar o modelo, o tamanho nem os quadros, nem acrescentar `background`, `output_compression`, `stream`, `partial_images`, `response_format` ou `prompt_rewriter`. Uma requisição de GIF só envia `quality` quando o valor é `low`, `medium`, `high`, `xhigh` ou `max`; com o padrão (Auto), ela deixa o campo de fora, então vale o padrão da OpenAI.
+
+Esta é uma integração opcional: um Engine mais antigo ignora `animation` e desenha uma imagem estática, que custa o preço de uma imagem. Verifique o Engine antes de pedir, para que um Engine mais antigo não cobre por uma imagem estática que você não queria:
+
+- Um pacote do cliente lê `__MARINARA_HOST__.capabilityApi`.
+- Um pacote do servidor lê `api.runtime.capabilityApi`, novo na 1.816. Engines mais antigos o deixam de fora, então um valor ausente significa um Engine mais antigo.
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+Em um Engine 1.816, capture `code === "animation-unsupported"` para desenhar uma imagem estática no lugar. Declare 1.816 só quando o pacote não puder funcionar sem GIFs. Não exige nenhuma permissão.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: resumos de cena do Advanced Memory e o bloco de memória
@@ -1358,7 +1392,7 @@ Pacotes do servidor podem usar `api.runtime.integrations` para acessar os servi�
 - `llm.createProvider(...)` aceita as configurações de conexão da fábrica do motor, incluindo parâmetros de solicitação e cabeçalhos personalizados. O provedor tem suporte a `chat`, `chatComplete`, `embed`, `maxContextValue` e `maxTokensOverrideValue`. Não expõe propriedades de credenciais.
 - `llm.localSidecar()` retorna o provedor sidecar local do host pela mesma fachada.
 - `llm.withFallback(...)` envolve um provedor criado pelo mesmo host do pacote. Preserva a admissão, as notificações de fallback e a seleção de provedor do motor.
-- `images.generate(...)` e `videos.generate(...)` usam as implementações ativas do motor, incluindo cancelamento, registro de solicitações, verificações de rede e filas de mídia. Encaminhe o `signal` e o `debugMode` da interface do chamador quando existirem.
+- `images.generate(...)` e `videos.generate(...)` usam as implementações ativas do motor, incluindo cancelamento, registro de solicitações, verificações de rede e filas de mídia. Encaminhe o `signal` e o `debugMode` da interface do chamador quando existirem. A partir da 1.816, o `animation` de uma requisição de imagem pede um GIF em loop (veja [Capability API 1.816](#capability-api-1816-animated-gif-images)).
 - `images.save`, `images.remove`, `images.stage` e `images.sweepStaged` reutilizam as escritas seguras e o ciclo de arquivos preparados da galeria. `videos.save` e `videos.remove` reutilizam o caminho de armazenamento de vídeo. `images.resolveNovelAiRequestSize` reutiliza a normalização de tamanho NovelAI do host. Duração de vídeo e normalização de envio público de referências estão disponíveis em `videos.resolveDuration` e `videos.resolveReferenceUpload`.
 - `speech.transcribe(audio, { filename, mimeType, signal })` envia o áudio gravado para o servidor de conversão de fala em texto que o usuário definiu em **Connections → Speech to Text** (Conexões → Speech to Text) e resolve com a transcrição, ou com `null` enquanto esse servidor estiver desligado, para que o pacote mantenha a própria transcrição. Aplica a política de URLs do host (`STT_LOCAL_URLS_ENABLED`) e os limites de tamanho e de tempo, e nunca expõe a chave salva. `speech` é opcional e não exige uma API de capacidades mais nova: verifique `typeof api.runtime.integrations?.speech?.transcribe === "function"` e, em motores antigos, recorra à transcrição do próprio pacote.
 

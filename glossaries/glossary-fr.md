@@ -528,3 +528,12 @@ Precedent from the #8681 catch-up against Engine `staging` `db2d6ead7` (`loreboo
 - `TROUBLESHOOTING.md`: the new heading keeps the error string, `### Termux : CANNOT LINK EXECUTABLE "node"` (`:30`). **Could not verify that this Marinara Android build can safely read your stored data** is a status string without a gloss (§5.8). **Install / Start Marinara** takes the `installation/android-termux.md:19` gloss (installer / démarrer Marinara) at its new first use (`:40`). The file's later uses stay bare.
 - Anchors: the new English links target headings this pack translates. `<a id="the-per-chat-scoped-regex-scripts-setting"></a>` now precedes `### Le réglage Scoped Regex Scripts, chat par chat` (`extending/regex-scripts.md:142`), and `<a id="choosing-the-default-profile"></a>` precedes `## Choisir le profil par défaut` (`chats/settings-profiles.md:102`). No link targets the new TROUBLESHOOTING heading by fragment, so it has no anchor.
 - Found but not fixed, because the English source of that line did not change: `installation/android-termux.md:82` links `../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503`, but the translated heading `### Android localhost ouvre la page de connexion ou renvoie 401/503` (`TROUBLESHOOTING.md:415`) has no `<a id>`. Add one in a later sweep.
+
+## GPT Image 2.6 and animated GIFs (2026-11-05)
+
+Precedent from the #8872 mirror (`media/image-providers.md`, `development/optional-agent-packages.md`):
+
+- **Image quality** is glossed *(qualité d'image)*, the `ui/fr.json` value of `ui.connections.connectioneditor.gptImageQuality`. Its option value **Max** stays bare, as in `prompts/generation-parameters.md:40`.
+- A GIF frame is **une image** (*9 images de 200 ms*, *Durée d'une image*), after *première image* and *Images par seconde*; the frames table row is *Images du GIF*, so it does not read as *Images envoyées*. A still is **une image fixe**, as in **Still images** (images fixes).
+- `0.66 MP` becomes *0,66 mégapixel*: comma per §4.9, unit spelled out as in `characters/galleries.md:91`, singular below 2. It also avoids `MP`, which the pack uses for magic points.
+- Engine error strings stay English in straight quotes without a gloss (§5.9). "Soft seam" keeps *interface souple*.
