@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useId,
@@ -32,7 +34,6 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
-import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
 import { YouTubePlayer } from "../chat/YouTubePlayer";
 import { LocalMusicPlayer } from "../chat/LocalMusicPlayer";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
@@ -54,6 +55,9 @@ import {
   PersonalExtensionTopbarButtons,
 } from "./PersonalExtensionContributionsMenu";
 
+const SpotifyMiniPlayer = lazy(() =>
+  import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMiniPlayer })),
+);
 // English source text for `localize()` - the lookup matches on the literal string, not the key.
 const MARI_EDGE_GLOW_LABEL: Record<Exclude<MariEdgeGlow, null>, string> = {
   working: "Professor Mari is working",
@@ -484,7 +488,11 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         </div>
         {musicDjInstalled ? (
           <>
-            {spotifyDesktopViewport && <SpotifyMiniPlayer forceFloating={spotifyUseFloatingFallback} />}
+            {spotifyDesktopViewport && (
+              <Suspense fallback={null}>
+                <SpotifyMiniPlayer forceFloating={spotifyUseFloatingFallback} />
+              </Suspense>
+            )}
             <YouTubePlayer />
             <LocalMusicPlayer />
           </>

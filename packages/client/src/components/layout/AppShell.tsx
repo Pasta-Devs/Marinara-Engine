@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { GlobalOmnibar } from "./GlobalOmnibarHost";
-import { SpotifyMobileWidget } from "../spotify/SpotifyMiniPlayer";
 import { YouTubeMobileWidget } from "../chat/YouTubePlayer";
 import { LocalMusicMobileWidget } from "../chat/LocalMusicPlayer";
 import { ChatResourceMobileDropDock } from "../chat/ChatResourceMobileDropDock";
@@ -72,6 +71,9 @@ import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
+const SpotifyMobileWidget = lazy(() =>
+  import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMobileWidget })),
+);
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
 const CharacterEditor = lazy(() =>
   import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
@@ -1844,7 +1846,9 @@ export function AppShell({
       <div data-component="MobileMusicWidgetLayer" className="contents">
         {isMobile && musicDjInstalled ? (
           <>
-            <SpotifyMobileWidget />
+            <Suspense fallback={null}>
+              <SpotifyMobileWidget />
+            </Suspense>
             <YouTubeMobileWidget />
             <LocalMusicMobileWidget />
           </>
