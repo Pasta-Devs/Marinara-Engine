@@ -57,7 +57,8 @@ async function waitForPid(previous?: number): Promise<number> {
   const timeoutMs = previous === undefined ? 60_000 : 20_000;
   let lastError: unknown;
   while (Date.now() - started < timeoutMs) {
-    if (child.exitCode !== null) assert.fail(`Supervisor exited: ${output}`);
+    if (child.exitCode !== null || child.signalCode !== null)
+      assert.fail(`Supervisor exited (code ${child.exitCode}, signal ${child.signalCode}): ${output}`);
     let body: { pid: number; parent: number } | undefined;
     try {
       const response = await fetch(`${base}/__restart-pid`, { signal: AbortSignal.timeout(500) });

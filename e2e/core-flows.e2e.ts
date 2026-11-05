@@ -4677,6 +4677,97 @@ test("Character and Persona avatar actions stay separated and visually balanced"
   }
 });
 
+test("Sprite image selection uses a regular file picker and Engine confirmation", async ({
+  page,
+  request,
+}, testInfo) => {
+  const response = await request.post("/api/characters", { data: { data: { name: "Image import confirmation" } } });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+  const browserDialogs: string[] = [];
+  page.on("dialog", async (dialog) => {
+    browserDialogs.push(dialog.type());
+    await dialog.dismiss();
+  });
+  const uploads: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes(`/api/sprites/${character.id}`))
+      uploads.push(request.url());
+  });
+  const images = ["happy.png", "sad.png"].map((name) => ({
+    name,
+    mimeType: "image/png",
+    buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+  }));
+  try {
+    await page.goto("/");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openCharacterDetail(id);
+    }, character.id);
+    const editor = page.locator(".mari-editor-shell");
+    await openEditorSection(editor, "Sprites");
+    await editor.getByRole("button", { name: "Manage", exact: true }).last().click();
+    await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
+    const section = editor.locator('[data-editor-section="sprites"]');
+    await expect(section.locator("input[webkitdirectory]")).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "Import folder", exact: true })).toHaveCount(0);
+    const confirmation = page.getByRole("dialog", { name: "Import images", exact: true });
+    async function chooseImages(files = images) {
+      const opened = page.waitForEvent("filechooser");
+      await section.getByRole("button", { name: "Upload images", exact: true }).click();
+      const chooser = await opened;
+      expect(chooser.isMultiple()).toBe(true);
+      expect(await chooser.element().getAttribute("webkitdirectory")).toBeNull();
+      expect(await chooser.element().getAttribute("accept")).toBe("image/*");
+      await chooser.setFiles(files);
+    }
+    await chooseImages([...images, { name: "unsupported.bmp", mimeType: "image/bmp", buffer: Buffer.from("ignored") }]);
+    await expect(confirmation.getByText("Import 2 images?", { exact: true })).toBeVisible();
+    expect(uploads).toEqual([]);
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setTheme(theme);
+      }, theme);
+      await expect(confirmation.getByRole("button", { name: "Import", exact: true })).toBeInViewport();
+      await testInfo.attach(`sprite-image-confirmation-${theme}`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+    }
+    await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(uploads).toEqual([]);
+    await chooseImages([{ name: "unsupported.bmp", mimeType: "image/bmp", buffer: Buffer.from("ignored") }]);
+    await expect(page.getByText("No supported sprite images were found.", { exact: true })).toBeVisible();
+    await expect(confirmation).toHaveCount(0);
+    expect(uploads).toEqual([]);
+    await chooseImages();
+    await confirmation.getByRole("button", { name: "Import", exact: true }).click();
+    await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(2);
+    const sprites = (await (await request.get(`/api/sprites/${character.id}`)).json()) as Array<{
+      label: string;
+      folderId: string | null;
+    }>;
+    expect(sprites.map((sprite) => sprite.label)).toEqual(["happy", "sad"]);
+    expect(sprites.every((sprite) => sprite.folderId === null)).toBe(true);
+    expect((await (await request.get(`/api/sprites/${character.id}/catalog`)).json()).folders).toEqual([]);
+    await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await chooseImages([{ ...images[0]!, name: "neutral.png" }]);
+    await expect(confirmation.getByText("Import 1 image?", { exact: true })).toBeVisible();
+    await confirmation.getByRole("button", { name: "Import", exact: true }).click();
+    await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(3);
+    expect(
+      (await (await request.get(`/api/sprites/${character.id}`)).json()).some(
+        (sprite: { label: string }) => sprite.label === "full_neutral",
+      ),
+    ).toBe(true);
+    expect(browserDialogs).toEqual([]);
+  } finally {
+    await bestEffortDelete(request, `/api/characters/${character.id}`);
+  }
+});
+
 test("Character-sheet generation offers the saved neutral full-body sprite as an optional reference", async ({
   page,
   request,
