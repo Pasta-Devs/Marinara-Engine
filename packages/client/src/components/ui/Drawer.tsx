@@ -148,6 +148,7 @@ export function Drawer({
   const overhaulMobile = useOverhaulMobile();
   const navView = useMobileChatSettingsNav((state) => state.view);
   const navPage = useMobileChatSettingsNav((state) => state.page);
+  const navBack = useMobileChatSettingsNav((state) => state.back);
   // Connection stays its one-line selector everywhere.
   const pagedNav =
     overhaulMobile && !!id && id !== "connection" && host?.id === CHAT_SETTINGS_WINDOW_ID && navView !== "off";
@@ -190,8 +191,12 @@ export function Drawer({
             <button
               type="button"
               className="ovm-cs-page__back"
-              onClick={nav.showAll}
-              aria-label={t("chat.settings.backToAllSettings", { defaultValue: "Back to All settings" })}
+              onClick={nav.goBack}
+              aria-label={
+                navBack === "quick"
+                  ? t("chat.settings.backToQuickSettings", { defaultValue: "Back to Quick settings" })
+                  : t("chat.settings.backToAllSettings", { defaultValue: "Back to All settings" })
+              }
             >
               <ChevronLeft size={26} aria-hidden="true" />
             </button>
