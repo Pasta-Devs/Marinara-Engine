@@ -18,7 +18,7 @@ import {
   type Lorebook,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
@@ -95,6 +95,7 @@ function ListPage<T extends { id: string }>({
   chip,
   onChip,
   toolsEnd,
+  view,
   rows,
   columns,
   onOpen,
@@ -111,6 +112,8 @@ function ListPage<T extends { id: string }>({
   chip?: string;
   onChip?: (id: string) => void;
   toolsEnd?: ReactNode;
+  /** The List / Gallery switch; on phones it moves up beside + New. */
+  view?: ReactNode;
   rows: T[];
   columns: Column<T>[];
   onOpen: (row: T) => void;
@@ -119,18 +122,36 @@ function ListPage<T extends { id: string }>({
   empty: string;
 }) {
   const localize = useLocalizedUiText();
+  // New layout on phones: the filter chips become one dropdown beside + New, the view switch
+  // sits at the end of that line, and the sort shares the search bar's line.
+  const mobile = useOverhaulMobile();
   return (
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
         <h1>{title}</h1>
         {actions}
+        {mobile && chips?.length ? (
+          <select
+            className="ov-select ovm-lp-filter"
+            value={chip}
+            onChange={(event) => onChip?.(event.target.value)}
+            aria-label={localize("Filter")}
+          >
+            {chips.map((item) => (
+              <option key={item.id} value={item.id}>
+                {localize(item.label)}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {mobile ? view : null}
       </header>
       <div className="ov-gallery__tools">
         <label className="ov-search">
           <Search size={14} aria-hidden="true" />
           <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
         </label>
-        {chips?.map((item) => (
+        {(mobile ? [] : (chips ?? [])).map((item) => (
           <button
             key={item.id}
             type="button"
@@ -142,6 +163,7 @@ function ListPage<T extends { id: string }>({
           </button>
         ))}
         <span className="ov-gallery__spacer" />
+        {mobile ? null : view}
         {toolsEnd}
       </div>
       {rows.length === 0 ? (
@@ -189,6 +211,32 @@ function ListPage<T extends { id: string }>({
 
 function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (gallery: boolean) => void }) {
   const localize = useLocalizedUiText();
+  const mobile = useOverhaulMobile();
+  if (mobile) {
+    // Phones: two icon buttons, like the composer's toggles.
+    return (
+      <div className="ovm-lp-view" role="group" aria-label={localize("View")}>
+        <button
+          type="button"
+          className={cn(!gallery && "is-on")}
+          aria-pressed={!gallery}
+          aria-label={localize("List")}
+          onClick={() => onChange(false)}
+        >
+          <List size={18} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={cn(gallery && "is-on")}
+          aria-pressed={gallery}
+          aria-label={localize("Gallery")}
+          onClick={() => onChange(true)}
+        >
+          <LayoutGrid size={18} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="ov-seg" role="group" aria-label={localize("View")}>
       <button type="button" className={cn(!gallery && "is-on")} onClick={() => onChange(false)}>
@@ -362,12 +410,8 @@ export function LorebooksLanding() {
       ]}
       chip={chip}
       onChip={setChip}
-      toolsEnd={
-        <>
-          <ViewSwitch gallery={gallery} onChange={setGallery} />
-          <SortSelect value={sort} onChange={setSort} options={SORTS} />
-        </>
-      }
+      view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
       rows={rows}
       onOpen={(book) => openLorebookDetail(book.id)}
       leading={(book) => (
@@ -464,12 +508,8 @@ export function PresetsLanding() {
       ]}
       chip={chip}
       onChip={setChip}
-      toolsEnd={
-        <>
-          <ViewSwitch gallery={gallery} onChange={setGallery} />
-          <SortSelect value={sort} onChange={setSort} options={SORTS} />
-        </>
-      }
+      view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
       rows={rows}
       onOpen={(preset) => openPresetDetail(preset.id)}
       columns={[

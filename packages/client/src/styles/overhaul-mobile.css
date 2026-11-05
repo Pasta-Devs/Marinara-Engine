@@ -2853,3 +2853,95 @@
   padding-left: 0.125rem;
   font-size: 0.875rem;
 }
+
+/* Library landing pages on phones: title and Import on top; + New, the filter dropdown and the
+   List / Gallery switch on the next line; search and sort share one line; galleries show at
+   least two per row. */
+:root[data-overhaul="mobile"] .ov-gallery__head:not(#ovm-x) {
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
+  column-gap: 0.375rem;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > h1 {
+  order: 0;
+  min-width: 0;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn:not(.ov-btn--primary) {
+  order: 1;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head::after {
+  content: "";
+  order: 2;
+  flex-basis: 100%;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary {
+  order: 3;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: max-content;
+  justify-content: flex-start;
+  padding-inline: 0.875rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary > svg {
+  flex-shrink: 0;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter {
+  order: 4;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 4.25rem;
+  max-width: 4.5rem;
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-view {
+  order: 5;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > :is(.ovm-lp-filter, .ov-btn) {
+  height: 2.5rem;
+}
+.ovm-lp-view {
+  display: inline-flex;
+  padding: 0.1875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+}
+.ovm-lp-view > button {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5625rem;
+  color: var(--ov-muted);
+}
+.ovm-lp-view > button.is-on {
+  background: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  color: var(--ov-text);
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools:not(#ovm-x) {
+  flex-wrap: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-search:not(#ovm-x) {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 0;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__spacer {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-select {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 8.25rem;
+  height: 2.75rem;
+  font-size: 0.875rem;
+}
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"] .ov-gallery__grid:not(#ovm-x) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
