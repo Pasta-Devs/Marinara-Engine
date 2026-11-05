@@ -13,9 +13,10 @@
 //    window (943,718 for a 1M Kimi K3.1 Pro), and Mari used it as her per-reply budget.
 //    OpenRouter reserves credits for every requested output token, so the call failed with
 //    402 "can only afford N" before she could act (Gemini 4 Argon managed one step before
-//    the growing prompt pushed it over). Mari now holds the budget to the model's known max
-//    output, caps it at MARI_MAX_OUTPUT_TOKENS on OpenRouter only, and retries a 402 or
-//    context-overflow rejection with limits learned from the error for the rest of the run.
+//    the growing prompt pushed it over). Mari now holds a budget copied from the model's window
+//    to the model's known max output, caps it at MARI_MAX_OUTPUT_TOKENS on OpenRouter only, and
+//    retries a 402 or context-overflow rejection with limits learned from the error for the rest
+//    of the run, sent even when the connection's send map switches Max Tokens off.
 //
 // The loop checks run the real classic and pi loops and the real chatCompleteWorkspace over a
 // scripted fake provider: no network, no real model.
@@ -40,6 +41,7 @@ try {
     MARI_MAX_OUTPUT_TOKENS,
     MARI_WITHHELD_REPLY_NOTICE,
     mariMaxOutputTokens,
+    withWithheldNotice,
     nextOptionsAfterLimitError,
     parseAffordableMaxTokens,
     parseContextOverflowError,
@@ -150,12 +152,33 @@ try {
       mariMaxOutputTokens(connection({ provider: "custom", model: "local-model", maxTokensOverride: 65_536 })),
       65_536,
     );
+    // A value well under the window is kept even above the catalog's max output, which lags some models.
+    assert.equal(
+      mariMaxOutputTokens(connection({ provider: "anthropic", model: "claude-opus-4-6", maxTokensOverride: 128_000 })),
+      128_000,
+      "the provider-reported 128k limit is kept",
+    );
+    assert.equal(
+      mariMaxOutputTokens(
+        connection({
+          provider: "custom",
+          model: "zai-org/GLM-4.5-Air",
+          defaultParameters: JSON.stringify({ maxTokens: 16_384 }),
+        }),
+      ),
+      16_384,
+      "a custom GLM 4.5 Air keeps its Max Tokens",
+    );
   }
 
   // ── Withheld-reply guidance in both runtime prompts ──
   {
     assert.match(MARI_WITHHELD_REPLY_NOTICE, /did NOT see/u);
     assert.match(MARI_WITHHELD_REPLY_NOTICE, /original plan is still there/u);
+    assert.doesNotMatch(MARI_WITHHELD_REPLY_NOTICE, /\bsay\b/u, "the notice reaches pi, which has no say field");
+    // Only a turn with words withheld anything.
+    assert.equal(withWithheldNotice("p", "  "), "p");
+    assert.equal(withWithheldNotice("p", "x"), `p\n\n${MARI_WITHHELD_REPLY_NOTICE}`);
 
     const protocol = workspaceCommandProtocolPrompt();
     assert.match(protocol, /hidden reasoning\/thinking is NEVER shown/u);
@@ -313,6 +336,26 @@ try {
     assert.match(lastUser(seen[2]), /^Nothing is held/u);
     assert.ok(lastUser(seen[2]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "pi: the held-claim steer carries the notice");
   }
+  // pi: words written before a call the output limit cut (often the plan) are withheld too.
+  {
+    const seen = await run("pi", [
+      {
+        content: "Here is my plan: entry A, entry B, entry C. Creating the lorebook now.",
+        toolCalls: [
+          {
+            id: "pi-cut",
+            type: "function",
+            function: { name: "write", arguments: '{"path":"big.txt","content":"aaaa' },
+          },
+        ],
+        finishReason: "length",
+      },
+      reply("Done in smaller steps."),
+    ]);
+    assert.equal(seen.length, 2);
+    assert.match(lastUser(seen[1]), /You were writing `write`/u);
+    assert.ok(lastUser(seen[1]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "pi: a cut call's words carry the notice");
+  }
 
   // pi: after a 402 the run keeps the learned limit, and the output-limit repair quotes it.
   {
@@ -330,6 +373,8 @@ try {
     );
     assert.match(lastUser(seen[2]), /output limit \(about 2700 tokens\)/u, "pi: the repair quotes the learned limit");
     assert.match(lastUser(seen[2]), /at most 4050 characters/u);
+    // A cut answer is written again shorter: the notice's "write out again everything" would fight that.
+    assert.ok(!lastUser(seen[2]).includes(MARI_WITHHELD_REPLY_NOTICE), "pi: a prose cut gets no notice");
   }
 
   // ── chatCompleteWorkspace's limit retry, called directly ──
@@ -359,14 +404,37 @@ try {
     await callDirect({ ...base, signal: new AbortController().signal });
     assert.deepEqual(sent(), [32_768], "another run starts fresh");
 
+    // With Max Tokens switched off in the send map, the lowered limit is sent anyway, on the retry and after it.
+    const unsent = { ...base, signal: new AbortController().signal, enabledParameters: { maxTokens: false } };
+    const sends = () => requests.map((request) => request.options.enabledParameters?.maxTokens);
+    script = [credit(20_000), reply("ok")];
+    requests = [];
+    await callDirect(unsent);
+    assert.deepEqual(sent(), [32_768, 18_000]);
+    assert.deepEqual(sends(), [false, true], "the retry sends the lowered limit");
+    script = [reply("ok")];
+    requests = [];
+    await callDirect({ ...unsent });
+    assert.deepEqual([sent(), sends()], [[18_000], [true]], "so does the next call of the run");
+
     // A context overflow with a stated window, on a connection with no Max Context, is retried under it.
+    const ctxSignal = new AbortController().signal;
+    const maxContexts = () => requests.map((request) => request.options.maxContext);
     script = [new Error("OpenRouter error 400: This endpoint's maximum context length is 16384 tokens."), reply("ok")];
     requests = [];
-    await callDirect({ model: "m", maxTokens: 4_096, signal: new AbortController().signal });
-    assert.deepEqual(
-      requests.map((request) => request.options.maxContext),
+    await callDirect({ model: "m", maxTokens: 4_096, signal: ctxSignal });
+    assert.deepEqual(maxContexts(), [undefined, 16_384]);
+    // Later calls of the run start under the learned window, never above a smaller configured one.
+    for (const [maxContext, expected] of [
       [undefined, 16_384],
-    );
+      [100_000, 16_384],
+      [8_192, 8_192],
+    ] as const) {
+      script = [reply("ok")];
+      requests = [];
+      await callDirect({ model: "m", maxTokens: 4_096, maxContext, signal: ctxSignal });
+      assert.deepEqual(maxContexts(), [expected], `the learned window applies to the next call (${maxContext})`);
+    }
 
     // Bounded: two retries (MAX_LIMIT_RETRIES), then the last rejection surfaces.
     const last = credit(10_000);

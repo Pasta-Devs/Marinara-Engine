@@ -423,6 +423,11 @@ export const SKIPPED_DIRS = new Set([
 export const MARI_WITHHELD_REPLY_NOTICE =
   "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
 
+/** A repair for a withheld turn, with the notice only when that turn had words: a silent turn withheld nothing. */
+export function withWithheldNotice(prompt: string, text: string) {
+  return text.trim() ? `${prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : prompt;
+}
+
 /**
  * Detect a provider "prompt + output budget exceeds the context window" error
  * and extract the window size when the message states it. OpenRouter phrases
@@ -1559,15 +1564,17 @@ export function mariMaxOutputTokens(connection: WorkspaceConnection) {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
-  // A Max Tokens copied from the model's whole window (~1M for some models) is
-  // more than the model can return: hold it to the model's known max output.
-  const limit = clampGenerationMaxOutputTokens({
-    provider: normalizeCatalogProvider(connection.provider),
-    model: connection.model,
-    maxTokens:
-      (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ??
-      resolveMariMaxOutputTokens(connection),
-  });
+  const configured =
+    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
+  const provider = normalizeCatalogProvider(connection.provider);
+  const known = provider ? findKnownModel(provider, connection.model.trim()) : undefined;
+  // A Max Tokens that is most of the model's window (~1M for some models) was copied from it: hold it to the model's
+  // known max output. The catalog's max output lags some models (GLM 4.5/4.6, Claude 4.5/4.6), so a smaller value,
+  // the user's or the provider's own, is kept as set.
+  const limit =
+    known?.context && configured * 2 >= known.context
+      ? clampGenerationMaxOutputTokens({ provider, model: connection.model, maxTokens: configured })
+      : configured;
   // OpenRouter reserves credits for every requested output token, so a large
   // budget fails with 402 before she can act. Direct providers keep their
   // limit: hidden reasoning shares it there.
@@ -4731,9 +4738,7 @@ export class ProfessorMariWorkspaceService {
             role: "user",
             // The rejected frame's say never reached the user (the review runs
             // before its words are emitted), so the model must restate it.
-            content: action.visibleText
-              ? `${claimDecision.prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}`
-              : claimDecision.prompt,
+            content: withWithheldNotice(claimDecision.prompt, action.visibleText),
             contextKind: "history",
           });
           continue;
@@ -4782,7 +4787,7 @@ export class ProfessorMariWorkspaceService {
             role: "user",
             // A frame with neither commands nor stop is never emitted to the
             // user, so any say it carried (often the whole answer) was lost.
-            content: action.visibleText ? `${continueCoaching}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : continueCoaching,
+            content: withWithheldNotice(continueCoaching, action.visibleText),
             contextKind: "history",
           });
           continue;
@@ -5571,8 +5576,13 @@ export class ProfessorMariWorkspaceService {
       ...(runLimits?.maxContext !== undefined
         ? { maxContext: Math.min(baseOptions.maxContext || Infinity, runLimits.maxContext) }
         : {}),
+      // A limit the provider asked for is sent even when the send map switches Max Tokens off: unsent, the provider
+      // reserves its own default and rejects the call again.
       ...(runLimits?.maxTokens !== undefined
-        ? { maxTokens: runMaxOutputTokens(baseOptions.signal, baseOptions.maxTokens) }
+        ? {
+            maxTokens: runMaxOutputTokens(baseOptions.signal, baseOptions.maxTokens),
+            enabledParameters: { ...baseOptions.enabledParameters, maxTokens: true },
+          }
         : {}),
     };
     logger.debug(
@@ -5609,7 +5619,9 @@ export class ProfessorMariWorkspaceService {
         }
         options = {
           ...options,
-          ...(next.maxTokens !== undefined ? { maxTokens: next.maxTokens } : {}),
+          ...(next.maxTokens !== undefined
+            ? { maxTokens: next.maxTokens, enabledParameters: { ...options.enabledParameters, maxTokens: true } }
+            : {}),
           ...(next.maxContext !== undefined ? { maxContext: next.maxContext } : {}),
         };
       }
