@@ -13,7 +13,8 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { ChevronRight, Plus, X, type LucideIcon, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, type LucideIcon, Upload } from "lucide-react";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 
@@ -26,7 +27,28 @@ export type RailSection = {
 
 export type RailCrumb = { label: string; onClick?: () => void };
 
+/** Phones: a bare ‹ that goes back to the Library section, in place of the breadcrumb trail. */
+export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () => void }) {
+  const localize = useLocalizedUiText();
+  return (
+    <nav className="ovm-crumb-back" aria-label="Breadcrumb">
+      <button
+        type="button"
+        className="ovm-drill-page__back"
+        aria-label={`${localize("Back to")} ${label}`}
+        title={label}
+        onClick={onBack}
+      >
+        <ChevronLeft size={26} aria-hidden="true" />
+      </button>
+    </nav>
+  );
+}
+
 export function EditorCrumbs({ items }: { items: RailCrumb[] }) {
+  const mobile = useOverhaulMobile();
+  const back = [...items].reverse().find((item) => item.onClick);
+  if (mobile && back?.onClick) return <MobileBackCrumb label={back.label} onBack={back.onClick} />;
   return (
     <nav className="ov-crumbs" aria-label="Breadcrumb">
       {items.map((item, index) => (

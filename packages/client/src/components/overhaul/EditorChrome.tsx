@@ -9,7 +9,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { openLibrarySection } from "./library-navigation";
-import type { LibrarySection } from "../../stores/overhaul.store";
+import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.store";
+import { MobileBackCrumb } from "./EditorRail";
 
 export function OvEditorHead({
   section,
@@ -33,6 +34,7 @@ export function OvEditorHead({
   /** Items for the ⋯ menu. */
   menu?: Array<{ label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }>;
 }) {
+  const mobile = useOverhaulMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -45,17 +47,21 @@ export function OvEditorHead({
   }, [menuOpen]);
   return (
     <header className="ov-edhead">
-      <nav className="ov-edhead__crumbs" aria-label="Breadcrumb">
-        <button type="button" onClick={() => openLibrarySection(section)}>
-          Library
-        </button>
-        <ChevronRight size={12} aria-hidden="true" />
-        <button type="button" onClick={() => openLibrarySection(section)}>
-          {sectionLabel}
-        </button>
-        <ChevronRight size={12} aria-hidden="true" />
-        <span>{title || titlePlaceholder}</span>
-      </nav>
+      {mobile ? (
+        <MobileBackCrumb label={sectionLabel} onBack={() => openLibrarySection(section)} />
+      ) : (
+        <nav className="ov-edhead__crumbs" aria-label="Breadcrumb">
+          <button type="button" onClick={() => openLibrarySection(section)}>
+            Library
+          </button>
+          <ChevronRight size={12} aria-hidden="true" />
+          <button type="button" onClick={() => openLibrarySection(section)}>
+            {sectionLabel}
+          </button>
+          <ChevronRight size={12} aria-hidden="true" />
+          <span>{title || titlePlaceholder}</span>
+        </nav>
+      )}
       <div className="ov-edhead__row">
         {onTitleChange ? (
           <input
