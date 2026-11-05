@@ -2552,3 +2552,7 @@
     display: block;
   }
 }
+
+.ov-vw__tools[hidden] {
+  display: none !important;
+}
