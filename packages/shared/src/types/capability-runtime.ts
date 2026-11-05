@@ -584,6 +584,8 @@ export interface CapabilityDecisionHost {
 }
 
 export interface CapabilityRuntimeHost {
+  /** Capability API 1.816. The Engine's supportedCapabilityApi; absent on older Engines. */
+  capabilityApi?: { readonly major: number; readonly minor: number };
   /** Read and unlock the package's own achievements. Requires the `achievements`
    *  permission and capability API 1.36. */
   achievements: CapabilityAchievementHost;

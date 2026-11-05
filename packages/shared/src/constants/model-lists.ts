@@ -1116,6 +1116,8 @@ export const ATLAS_CLOUD_VIDEO_MODELS: KnownModel[] = [
 
 const IMAGE_GEN_MODELS: KnownModel[] = [
   // OpenAI
+  { id: "gpt-image-2.6-flare", name: "GPT Image 2.6 Flare", context: 0, maxOutput: 0 },
+  { id: "gpt-image-2.6-sunburst", name: "GPT Image 2.6 Sunburst", context: 0, maxOutput: 0 },
   { id: "gpt-image-2.5-flare", name: "GPT Image 2.5 Flare", context: 0, maxOutput: 0 },
   { id: "gpt-image-2.5-sunburst", name: "GPT Image 2.5 Sunburst", context: 0, maxOutput: 0 },
   { id: "gpt-image-2", name: "GPT Image 2", context: 0, maxOutput: 0 },
@@ -1320,6 +1322,77 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (m.includes("imagen")) return "gemini_image";
   // OpenAI-compatible fallback (works for most proxies)
   return "openai";
+}
+
+const EXPLICIT_IMAGE_SOURCES = new Set([
+  "openai",
+  "codex_chatgpt",
+  "arli",
+  "nanogpt",
+  "openrouter",
+  "pollinations",
+  "stability",
+  "togetherai",
+  "novelai",
+  "horde",
+  "xai",
+  "venice",
+  "zai",
+  "fal",
+  "spicyapi",
+  "atlas",
+  "comfyui",
+  "swarmui",
+  "automatic1111",
+  "runpod_comfyui",
+  "gemini_image",
+]);
+
+function normalizeExplicitImageSource(serviceHint: string): string {
+  const normalized = serviceHint.trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "drawthings") return "automatic1111";
+  return EXPLICIT_IMAGE_SOURCES.has(normalized) ? normalized : "";
+}
+
+/** The image backend the server's generateImage calls for these arguments: the explicit service, else the inferred one. */
+export function resolveImageBackend(
+  source: string,
+  baseUrl: string,
+  serviceHint: string,
+  requestModel?: string,
+): string {
+  const inferredSource = inferImageSource(requestModel || source, baseUrl);
+  const explicitSource = normalizeExplicitImageSource(serviceHint);
+
+  if (!explicitSource) return inferredSource;
+
+  // Gemini image models exposed through OpenAI-compatible proxies (for example LinkAPI)
+  // must use the chat-completions path even if an older connection still says "openai".
+  if (explicitSource === "openai" && inferredSource === "gemini_image") {
+    return inferredSource;
+  }
+
+  return explicitSource;
+}
+
+/** Whether a base URL is ToAPIs, which an "OpenAI (DALL-E)" or Seedance connection reaches as asynchronous media tasks. */
+export function isToAPIsMediaUrl(baseUrl: string): boolean {
+  try {
+    const u = new URL(baseUrl);
+    return (
+      u.protocol === "https:" &&
+      ["toapis.com", "toapis.cn"].includes(u.hostname) &&
+      !u.username &&
+      !u.password &&
+      !u.port &&
+      !u.search &&
+      !u.hash &&
+      /^\/(?:v1\/?)?$/.test(u.pathname)
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ── Provider → Model map ──
