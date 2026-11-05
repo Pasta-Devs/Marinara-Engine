@@ -8,7 +8,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 <!--
 Still open: add these before the release merges.
-- #8837 (#8820): continuity compaction halves summaries with only the combine prompt.
 - #8843: the rest of the full browser matrix fixes (batch 2 and 3); app fixes in them may need entries.
 - The docs-i18n translation PR for this release.
 Remove this comment before tagging: the release body includes everything under the heading.
@@ -384,6 +383,8 @@ Remove this comment before tagging: the release body includes everything under t
 - With **Hide summarised messages** on, the **Recent message tail** is now a strict limit in Roleplay: a summarized message older than the tail is left out of the prompt right away, instead of staying until the next summary hid it. Older messages that no summary covers yet are still sent, and Chat Summary shows how many under **Recent message tail**, so **Backfill Summary** can summarize them. A swipe or regeneration still sends the messages that the replaced reply's summary covered (#8831, #8841).
 
 - **Peek Prompt** on a reply shows the exact request sent for it, captured before any later summary or hiding, and says so. **Show current context** switches to what the next request would send now, and **Show sent request** goes back (#8831, #8841).
+
+- Advanced Memory's **Updating continuity** now combines the summaries one character reads into one about half their size, and halves it again on the next update if it is still over that character's share. Each request holds only your **Combine prompt**, one line asking for about half the length, and the summary text, instead of the much larger scene-summary request, so compaction no longer produces repeated oversized replies or long waits. Private parts are shortened separately and stay readable only by the characters who knew them. A reply that comes back cut off, empty or no shorter leaves the summaries as they were, and the same summaries are not sent again until one of them, the helper model or the **Combine prompt** changes (#8820, #8837).
 
 ### Voice and Calls
 
