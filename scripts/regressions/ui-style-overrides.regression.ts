@@ -6,12 +6,27 @@ import {
   normalizeUiStyleOverrides,
   resolveUiStyleTarget,
   serializeUiStyleOverride,
+  UI_STYLE_TARGETS,
   type UiStyleProbe,
 } from "../../packages/client/src/lib/ui-style-overrides.js";
 
 const css = buildUiStyleOverridesCss({ "top-bar": { background: "#123", borderRadius: 8, opacity: 90 } });
-assert.equal(css, ':root [data-component="TopBar"]{background:#123;border-radius:8px;opacity:0.9}');
+assert.equal(css, ':root [data-component="TopBar"]{background:#123!important;border-radius:8px!important;opacity:0.9!important}');
 assert.equal(sanitizeAppCss(css), css, "generated CSS passes the theme sanitizer unchanged");
+
+// Text color and size reach descendants that set their own; inner layers take the background; a border
+// shows even where the region has none.
+const chatCss = buildUiStyleOverridesCss({
+  "roleplay-surface": { background: "#000", color: "#fff", borderColor: "red", fontSize: 18 },
+});
+assert.deepEqual(chatCss.split("\n"), [
+  ':root [data-component="ChatArea.Roleplay"]{background:#000!important;color:#fff!important;border-color:red!important;font-size:18px!important}',
+  ':root [data-component="ChatArea.Roleplay"] :is(.mari-chat-area, .rpg-overlay){background:#000!important}',
+  ':where(:root [data-component="ChatArea.Roleplay"] *){color:inherit!important;font-size:inherit!important}',
+  ':root [data-component="ChatArea.Roleplay"]:not(:focus-visible){outline:1px solid red!important;outline-offset:-1px!important}',
+]);
+assert.equal(sanitizeAppCss(chatCss), chatCss, "every rule shape passes the theme sanitizer unchanged");
+assert.equal(new Set(UI_STYLE_TARGETS.map((target) => target.id)).size, UI_STYLE_TARGETS.length, "region ids are unique");
 assert.equal(buildUiStyleOverridesCss({}), "");
 assert.equal(
   buildUiStyleOverridesCss({ bogus: { color: "red" } } as never),
@@ -49,7 +64,8 @@ function node(tokens: string[], parent: UiStyleProbe | null): UiStyleProbe {
     matches(selector) {
       const parts = selector.split(" ");
       const last = parts[parts.length - 1]!;
-      if (!tokens.includes(last)) return false;
+      const alternatives = last.startsWith(":is(") ? last.slice(4, -1).split(",") : [last];
+      if (!alternatives.some((token) => tokens.includes(token))) return false;
       let cursor = parent;
       for (let i = parts.length - 2; i >= 0; i--) {
         while (cursor && !(cursor as unknown as { tokens: string[] }).tokens.includes(parts[i]!)) {
@@ -67,6 +83,8 @@ const row = node(['[data-message-role="user"]'], node(['[data-component="ChatAre
 const bubble = node([".mari-message-bubble"], row);
 const inner = node([".text"], bubble);
 assert.equal(resolveUiStyleTarget(inner), "user-message");
+const lineBody = node([".mari-message-line-body"], node(['[data-message-role="assistant"]'], null));
+assert.equal(resolveUiStyleTarget(node([".text"], lineBody)), "assistant-message", "plain layout messages resolve too");
 assert.equal(resolveUiStyleTarget(node([".x"], null)), null);
 
 console.info("UI style override regressions passed.");
