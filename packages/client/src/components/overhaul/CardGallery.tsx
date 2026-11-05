@@ -111,9 +111,14 @@ export function CardGallery({
           <Download size={14} aria-hidden="true" />
           {localize("Import")}
         </button>
-        <button type="button" className="ov-btn ov-btn--primary" onClick={onNew}>
+        <button
+          type="button"
+          className="ov-btn ov-btn--primary"
+          onClick={onNew}
+          aria-label={localize(kind === "characters" ? "New character" : "New persona")}
+        >
           <Plus size={14} aria-hidden="true" />
-          {localize(kind === "characters" ? "New character" : "New persona")}
+          {mobile ? localize("New") : localize(kind === "characters" ? "New character" : "New persona")}
         </button>
         {mobile ? (
           <select

@@ -292,10 +292,13 @@ function sortRows<T extends { name: string; updatedAt?: string }>(rows: T[], sor
 }
 
 function NewButton({ label, onClick }: { label: string; onClick: () => void }) {
+  // Phones show just "+ New": the page title already names the kind of item.
+  const mobile = useOverhaulMobile();
+  const localize = useLocalizedUiText();
   return (
-    <button type="button" className="ov-btn ov-btn--primary" onClick={onClick}>
+    <button type="button" className="ov-btn ov-btn--primary" onClick={onClick} aria-label={label}>
       <Plus size={14} aria-hidden="true" />
-      {label}
+      {mobile ? localize("New") : label}
     </button>
   );
 }
