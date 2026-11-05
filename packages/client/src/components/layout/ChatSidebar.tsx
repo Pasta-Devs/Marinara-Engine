@@ -1658,7 +1658,7 @@ export function ChatSidebar() {
         ref={chatListRef}
         data-chat-root-drop-zone
         className={cn(
-          "flex-1 overflow-y-auto px-2 pb-1 pt-0 transition-colors",
+          "flex-1 overflow-y-auto px-2 pb-1 pt-0.5 transition-colors",
           isRootDropTarget && "bg-[var(--marinara-chat-chrome-highlight-bg)]",
         )}
         onDragEnter={(event) => {

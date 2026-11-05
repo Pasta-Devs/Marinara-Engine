@@ -6,7 +6,7 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -415,9 +415,44 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
   else goHome();
 }
 
+/**
+ * True while the window is fullscreen (F11 / the browser's fullscreen, or the page's own fullscreen).
+ * Then the top bar slides away and comes back when the pointer reaches the top edge, like a browser.
+ */
+function useWindowFullscreen() {
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(display-mode: fullscreen)");
+    const check = () =>
+      setFullscreen(
+        Boolean(document.fullscreenElement) ||
+          media.matches ||
+          // Browser fullscreen (F11): no toolbars, so the page is the whole window and the whole screen.
+          (Math.abs(window.outerHeight - window.innerHeight) <= 1 &&
+            Math.abs(window.outerWidth - window.innerWidth) <= 1 &&
+            window.innerHeight >= window.screen.height - 1),
+      );
+    check();
+    window.addEventListener("resize", check);
+    document.addEventListener("fullscreenchange", check);
+    media.addEventListener("change", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      document.removeEventListener("fullscreenchange", check);
+      media.removeEventListener("change", check);
+    };
+  }, []);
+  return fullscreen;
+}
+
 export function OverhaulTopBar() {
   const localize = useLocalizedUiText();
   const mariEdgeGlow = useMariEdgeGlow();
+  const autoHide = useWindowFullscreen();
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-topbar-autohide", autoHide);
+    return () => document.documentElement.removeAttribute("data-ov-topbar-autohide");
+  }, [autoHide]);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -457,80 +492,87 @@ export function OverhaulTopBar() {
     : "";
 
   return (
-    <header data-component="TopBar" data-overhaul-topbar="true" className="ov-topbar">
-      {mariEdgeGlow ? <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" /> : null}
-      <button
-        type="button"
-        className={cn("ov-icon-btn", sidebarOpen && "is-on")}
-        aria-pressed={sidebarOpen}
-        onClick={toggleSidebar}
-        title={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-        aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-        data-tour="sidebar-toggle"
+    <>
+      {autoHide ? <div className="ov-topbar-hotzone" aria-hidden="true" /> : null}
+      <header
+        data-component="TopBar"
+        data-overhaul-topbar="true"
+        className={cn("ov-topbar", autoHide && "is-autohide")}
       >
-        <MessageCircle size={16} />
-      </button>
-      <img
-        className="ov-mark"
-        src="/favicon.png"
-        srcSet="/favicon.png 1x, /icon-192.png 3x"
-        alt=""
-        aria-hidden="true"
-      />
-      <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
-      <button
-        type="button"
-        className="ov-icon-btn ov-icon-btn--sm"
-        onClick={() => setOmnibarOpen(true)}
-        title={localize("Search or open anything")}
-        aria-label={localize("Search or open anything")}
-      >
-        <Plus size={15} />
-      </button>
-      <div className="ov-topbar__right">
-        <MariTopbarStatus state={mariEdgeGlow} />
-        {chatOnScreen && activeChat ? (
+        {mariEdgeGlow ? <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" /> : null}
+        <button
+          type="button"
+          className={cn("ov-icon-btn", sidebarOpen && "is-on")}
+          aria-pressed={sidebarOpen}
+          onClick={toggleSidebar}
+          title={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
+          aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
+          data-tour="sidebar-toggle"
+        >
+          <MessageCircle size={16} />
+        </button>
+        <img
+          className="ov-mark"
+          src="/favicon.png"
+          srcSet="/favicon.png 1x, /icon-192.png 3x"
+          alt=""
+          aria-hidden="true"
+        />
+        <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
+        <button
+          type="button"
+          className="ov-icon-btn ov-icon-btn--sm"
+          onClick={() => setOmnibarOpen(true)}
+          title={localize("Search or open anything")}
+          aria-label={localize("Search or open anything")}
+        >
+          <Plus size={15} />
+        </button>
+        <div className="ov-topbar__right">
+          <MariTopbarStatus state={mariEdgeGlow} />
+          {chatOnScreen && activeChat ? (
+            <button
+              type="button"
+              className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
+              aria-pressed={chatSettingsOpen}
+              data-window-opener={CHAT_SETTINGS_WINDOW_ID}
+              onClick={(event) => toggleChatSettings(event.currentTarget)}
+            >
+              <Settings2 size={15} aria-hidden="true" />
+              <span>{localize("Chat settings")}</span>
+              <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
+            </button>
+          ) : null}
+          {chatOnScreen && activeChat?.mode === "game" ? <GamePaneToggle /> : null}
+          <span className="ov-vsep" aria-hidden="true" />
+          <PersonalExtensionTopbarButtons />
+          <PersonalExtensionContributionsMenu />
           <button
             type="button"
-            className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
-            aria-pressed={chatSettingsOpen}
-            data-window-opener={CHAT_SETTINGS_WINDOW_ID}
-            onClick={(event) => toggleChatSettings(event.currentTarget)}
+            className="ov-text-btn"
+            onClick={() => useUIStore.getState().openModal("docs-viewer")}
+            title={localize("Docs")}
           >
-            <Settings2 size={15} aria-hidden="true" />
-            <span>{localize("Chat settings")}</span>
-            <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
+            <span aria-hidden="true">📖</span>
+            <span>{localize("Docs")}</span>
           </button>
-        ) : null}
-        {chatOnScreen && activeChat?.mode === "game" ? <GamePaneToggle /> : null}
-        <span className="ov-vsep" aria-hidden="true" />
-        <PersonalExtensionTopbarButtons />
-        <PersonalExtensionContributionsMenu />
-        <button
-          type="button"
-          className="ov-text-btn"
-          onClick={() => useUIStore.getState().openModal("docs-viewer")}
-          title={localize("Docs")}
-        >
-          <span aria-hidden="true">📖</span>
-          <span>{localize("Docs")}</span>
-        </button>
-        <button
-          type="button"
-          className={cn("ov-text-btn ov-text-btn--library", libraryOpen && "is-on")}
-          aria-pressed={libraryOpen}
-          onClick={() => {
-            const ui = useUIStore.getState();
-            if (ui.rightPanelOpen) ui.closeRightPanel();
-            else ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
-          }}
-          title={localize(libraryOpen ? "Hide Library pane" : "Show Library pane")}
-          data-tour="panel-buttons"
-        >
-          <Layers size={15} aria-hidden="true" />
-          <span>{localize("Library")}</span>
-        </button>
-      </div>
-    </header>
+          <button
+            type="button"
+            className={cn("ov-text-btn ov-text-btn--library", libraryOpen && "is-on")}
+            aria-pressed={libraryOpen}
+            onClick={() => {
+              const ui = useUIStore.getState();
+              if (ui.rightPanelOpen) ui.closeRightPanel();
+              else ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
+            }}
+            title={localize(libraryOpen ? "Hide Library pane" : "Show Library pane")}
+            data-tour="panel-buttons"
+          >
+            <Layers size={15} aria-hidden="true" />
+            <span>{localize("Library")}</span>
+          </button>
+        </div>
+      </header>
+    </>
   );
 }

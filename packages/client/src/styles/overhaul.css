@@ -7354,3 +7354,52 @@ input.ov-edhead__title:focus {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* Segmented switches (Convo / Roleplay / Game and friends): the selected segment sits inside the track with a
+   small gap, so its outline never runs into the track's border (playtester polish, 2026-11-05). */
+:root[data-overhaul] .mari-chrome-segmented {
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  min-height: 0;
+}
+:root[data-overhaul] .mari-chrome-segmented__button,
+:root[data-overhaul] .mari-chrome-segmented__button:first-child,
+:root[data-overhaul] .mari-chrome-segmented__button:last-child {
+  min-height: 2.125rem;
+  border-left: 0;
+  border-radius: calc(0.75rem - 0.25rem);
+}
+
+/* Fullscreen (F11): the top bar slides up out of view and comes back when the pointer reaches the top edge. */
+:root[data-ov-topbar-autohide] {
+  --ov-topbar-height: 0px;
+}
+.ov-topbar.is-autohide {
+  position: fixed;
+  z-index: 60;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  min-height: 2.625rem;
+  padding-block: 0.375rem;
+  background: color-mix(in srgb, var(--background) 97%, transparent);
+  box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.8);
+  transform: translateY(calc(-100% - 2px));
+  transition: transform 180ms ease 350ms;
+}
+.ov-topbar-hotzone {
+  position: fixed;
+  z-index: 61;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+}
+.ov-topbar-hotzone:hover + .ov-topbar.is-autohide,
+.ov-topbar.is-autohide:hover,
+.ov-topbar.is-autohide:focus-within,
+.ov-topbar.is-autohide:has([aria-expanded="true"]) {
+  transform: none;
+  transition-delay: 0ms;
+}
