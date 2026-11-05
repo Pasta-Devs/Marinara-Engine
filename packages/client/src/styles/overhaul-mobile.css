@@ -2560,3 +2560,40 @@
 .ov-vw__tools[hidden] {
   display: none !important;
 }
+
+/* Phone chat list: Sort, Select, New folder, Import and message search in one ⋯ sheet. */
+.ovm-chats-more {
+  position: relative;
+  flex-shrink: 0;
+}
+.ovm-chats-more__btn:not(#ovm-x) {
+  width: 2.5rem;
+  height: 2.5rem;
+  justify-content: center;
+  padding: 0;
+}
+.ovm-chats-menu {
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+.ovm-chats-menu__label {
+  margin: 0;
+  padding: 0.5rem 0.875rem 0.25rem;
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ovm-chats-menu__text {
+  flex: 1;
+}
+.ovm-chats-menu__check {
+  color: var(--ov-accent, var(--primary));
+}
+.ovm-chats-menu__rule {
+  margin: 0.25rem 0.5rem;
+  border: 0;
+  border-top: 1px solid var(--ovm-line, var(--ov-line));
+}
+.ovm-chats-menu button:disabled {
+  opacity: 0.4;
+}
