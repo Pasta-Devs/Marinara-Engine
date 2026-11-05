@@ -2597,3 +2597,222 @@
 .ovm-chats-menu button:disabled {
   opacity: 0.4;
 }
+
+/* Bookmark, pin or note on phones: its own bottom sheet over the message's actions, with
+   rows at least 44px tall and 16px text. ‹ goes back to the actions. */
+.marinara-chat-popover.ovm-marks-sheet:not(#ovm-x) {
+  position: fixed;
+  z-index: 10001;
+  inset: auto 0 0 0;
+  width: auto;
+  max-height: 88dvh;
+  padding: 0.25rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  border-width: 1px 0 0;
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: var(--ovm-surface, var(--marinara-chat-chrome-panel-bg));
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.5);
+  font-size: 1rem;
+}
+.ovm-marks-sheet__head {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  min-height: 3rem;
+  margin-bottom: 0.25rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-align: center;
+}
+.ovm-marks-sheet__back {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-left: -0.5rem;
+  color: var(--ov-accent, var(--primary));
+}
+.ovm-marks-sheet .mari-chat-style-control:not(#ovm-x) {
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+}
+.ovm-marks-sheet .mari-chat-style-control span span:last-child {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+.ovm-marks-sheet svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ovm-marks-sheet__back svg {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+.ovm-marks-sheet label {
+  font-size: 0.875rem;
+}
+.ovm-marks-sheet :is(input, textarea, select):not(#ovm-x) {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+}
+.ovm-marks-sheet .mari-chrome-control--small:not(#ovm-x) {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 1rem;
+}
+
+/* Action sheets on phones (Delete message): grouped rows along the bottom, Cancel on its own. */
+.ovm-action-sheet-scrim {
+  z-index: 10000;
+}
+.ovm-action-sheet {
+  position: fixed;
+  z-index: 10001;
+  right: 0.5rem;
+  bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  left: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+  animation: ovm-sheet-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 600px) {
+  .ovm-action-sheet {
+    left: 50%;
+    width: 26rem;
+    transform: translateX(-50%);
+  }
+}
+.ovm-action-sheet__group {
+  display: grid;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  background: var(--ovm-raised);
+}
+.ovm-action-sheet__head {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.875rem 1rem;
+  text-align: center;
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.875rem;
+}
+.ovm-action-sheet__head strong {
+  color: var(--ov-text, var(--foreground));
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ovm-action-sheet__group > button {
+  min-height: 3.375rem;
+  border-top: 1px solid var(--ovm-line);
+  color: var(--ov-text, var(--foreground));
+  font-size: 1.0625rem;
+}
+.ovm-action-sheet__group > button:first-child {
+  border-top: 0;
+}
+.ovm-action-sheet__group > button.is-danger {
+  color: var(--destructive);
+  font-weight: 600;
+}
+.ovm-action-sheet__group > button.is-cancel {
+  font-weight: 600;
+}
+
+/* Quick Switcher on phones: a bottom sheet with big tabs, a connection search and the Random
+   dice right beside it. */
+[data-quick-switcher-mobile-menu].ovm-qs-sheet {
+  top: auto !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: auto !important;
+  max-height: 80dvh !important;
+  padding: 1.25rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+  border-width: 1px 0 0;
+  border-radius: 1.375rem 1.375rem 0 0;
+  background: var(--ovm-raised);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.5);
+  font-size: 1rem;
+  animation: ovm-sheet-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-quick-switcher-mobile-menu].ovm-qs-sheet::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  width: 2.25rem;
+  height: 0.3125rem;
+  border-radius: 999px;
+  background: var(--ovm-line);
+  transform: translateX(-50%);
+}
+.ovm-qs-sheet > div:first-child {
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border: 0 !important;
+  border-radius: 0.75rem;
+  background: var(--ovm-surface);
+}
+.ovm-qs-sheet > div:first-child > button {
+  min-height: 2.5rem;
+  border: 0 !important;
+  border-radius: 0.5625rem;
+  font-size: 0.9375rem !important;
+}
+.ovm-qs-sheet > div:first-child > button svg {
+  width: 1rem;
+  height: 1rem;
+}
+.ovm-qs-sheet :is(button, label, span) {
+  font-size: inherit;
+}
+.ovm-qs-sheet [data-connection-option] {
+  min-height: 3rem;
+  font-size: 1rem;
+}
+.ovm-qs-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0.25rem 0.375rem;
+}
+.ovm-qs-search__field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--ovm-surface);
+  color: var(--ov-muted, var(--muted-foreground));
+}
+.ovm-qs-search__field input {
+  min-width: 0;
+  flex: 1;
+  background: none;
+  color: var(--ov-text, var(--foreground));
+  font-size: 1rem;
+  outline: none;
+}
+.ovm-qs-dice {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: var(--ovm-surface);
+  color: var(--ov-muted, var(--muted-foreground));
+}
+.ovm-qs-dice[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}

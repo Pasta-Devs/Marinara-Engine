@@ -14,7 +14,8 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
-import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { createPortal } from "react-dom";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -86,6 +87,57 @@ function DeleteConfirmationDialog({
   onClose,
 }: DeleteDialogProps) {
   const { t } = useTranslation();
+  const sheet = useOverhaulMobile();
+
+  // New layout on phones: an action sheet along the bottom, with Cancel on its own.
+  if (sheet) {
+    if (!messageId) return null;
+    return createPortal(
+      <>
+        <div className="ovm-sheet-scrim ovm-action-sheet-scrim" aria-hidden="true" onClick={onClose} />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("chat.delete.dialog.title")}
+          className="ovm-action-sheet"
+          data-chat-floating-panel
+          data-component="MessageDeleteActions"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onClose();
+          }}
+        >
+          <div className="ovm-action-sheet__group">
+            <div className="ovm-action-sheet__head">
+              <strong>{t("chat.delete.dialog.title")}</strong>
+              <span>{t("chat.delete.dialog.description")}</span>
+            </div>
+            <button type="button" className="is-danger" onClick={onConfirm}>
+              {t("chat.delete.dialog.message")}
+            </button>
+            {canDeleteSwipe ? (
+              <button type="button" className="is-danger" onClick={onDeleteSwipe}>
+                {t("chat.delete.dialog.swipe", { current: activeSwipeIndex + 1, total: swipeCount })}
+              </button>
+            ) : null}
+            {canDeleteOtherSwipes ? (
+              <button type="button" className="is-danger" onClick={onDeleteOtherSwipes}>
+                {t("chat.delete.dialog.otherSwipes")}
+              </button>
+            ) : null}
+            <button type="button" onClick={onDeleteMore}>
+              {t("chat.delete.dialog.more")}
+            </button>
+          </div>
+          <div className="ovm-action-sheet__group">
+            <button type="button" className="is-cancel" onClick={onClose} autoFocus>
+              {t("chat.delete.dialog.cancel")}
+            </button>
+          </div>
+        </div>
+      </>,
+      document.body,
+    );
+  }
 
   return (
     <Modal
