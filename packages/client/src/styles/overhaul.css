@@ -7066,3 +7066,33 @@ input.ov-edhead__title:focus {
   align-self: stretch;
   width: 100%;
 }
+
+/* Schedule editor: Import and Export are two quiet text buttons on one row, under the draft note. */
+[data-overhaul] [data-schedule-io] {
+  flex-wrap: wrap;
+  column-gap: 0.25rem;
+}
+[data-overhaul] [data-schedule-io] > span {
+  flex: 1 1 100%;
+}
+[data-overhaul] [data-schedule-io] .ov-sched-io__btn {
+  min-height: 2rem;
+  padding: 0 0.625rem;
+  border-radius: 0.4375rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ov-accent);
+  white-space: nowrap;
+}
+[data-overhaul] [data-schedule-io] .ov-sched-io__btn:first-of-type {
+  margin-left: -0.625rem;
+}
+[data-overhaul] [data-schedule-io] .ov-sched-io__btn:hover {
+  background: var(--ov-hover);
+}
+/* Save and Cancel/Discard share one row, Save last. */
+[data-overhaul] [data-schedule-actions] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}

@@ -86,7 +86,11 @@ interface OverhaulState {
   openApp: (id: string) => void;
   /** The Character schedules page is on screen (its tab). */
   activeSchedules: boolean;
-  openSchedules: () => void;
+  /** Open the schedules page; with an id, on that character's schedule. */
+  openSchedules: (characterId?: string) => void;
+  /** The character the schedules page should show next (set by openSchedules, read once by the page). */
+  schedulesCharacterId: string | null;
+  setSchedulesCharacterId: (id: string | null) => void;
   setLibraryPage: (section: LibrarySection | null) => void;
   /** Docs tabs: tab id -> open guide path (null = guide index). */
   docsTabs: Record<string, string | null>;
@@ -163,8 +167,17 @@ export const useOverhaulStore = create<OverhaulState>()(
       openApp: (activeApp) =>
         set({ activeApp, activeMari: false, activeSchedules: false, activeDocsTab: null, libraryPage: null }),
       activeSchedules: false,
-      openSchedules: () =>
-        set({ activeSchedules: true, activeMari: false, activeDocsTab: null, libraryPage: null, activeApp: null }),
+      openSchedules: (characterId) =>
+        set({
+          activeSchedules: true,
+          schedulesCharacterId: characterId ?? null,
+          activeMari: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          activeApp: null,
+        }),
+      schedulesCharacterId: null,
+      setSchedulesCharacterId: (schedulesCharacterId) => set({ schedulesCharacterId }),
       setLibraryPage: (libraryPage) =>
         set(
           libraryPage

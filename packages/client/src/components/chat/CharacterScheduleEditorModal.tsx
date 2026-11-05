@@ -1470,7 +1470,7 @@ export function CharacterScheduleEditorModal({
       </fieldset>
 
       <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" data-schedule-io>
           <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
           </span>
@@ -1485,7 +1485,7 @@ export function CharacterScheduleEditorModal({
             type="button"
             onClick={() => scheduleFileInputRef.current?.click()}
             disabled={generationBusy}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="ov-sched-io__btn inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Upload size="0.75rem" />
             {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
@@ -1494,13 +1494,13 @@ export function CharacterScheduleEditorModal({
             type="button"
             onClick={exportSchedule}
             disabled={generationBusy}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="ov-sched-io__btn inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Download size="0.75rem" />
             {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
           </button>
         </div>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end" data-schedule-actions>
           <button
             type="button"
             onClick={embedded ? () => setDraft(createDraft(schedule)) : handleClose}
@@ -1526,7 +1526,8 @@ export function CharacterScheduleEditorModal({
       open={open}
       onClose={handleClose}
       title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
-      width="max-w-5xl"
+      // ov-sched-modal: the mobile overhaul shows this full screen, as a page.
+      width="max-w-5xl ov-sched-modal"
       chatFloatingPanel
     >
       {body}

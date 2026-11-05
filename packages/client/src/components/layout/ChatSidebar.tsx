@@ -1,5 +1,11 @@
 import { insertLibraryItems } from "../../lib/library-order";
-import { isOverhaulActive, useOverhaulActive, useOverhaulStore, useOverhaulMobile } from "../../stores/overhaul.store";
+import {
+  isOverhaulLook,
+  isOverhaulMobile,
+  useOverhaulActive,
+  useOverhaulStore,
+  useOverhaulMobile,
+} from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
@@ -1801,9 +1807,10 @@ export function ChatSidebar() {
         showScheduleManager={activeTab === "conversation"}
         onOpenScheduleManager={() => {
           // Overhaul: the schedules are a page with its own tab, not a dialog.
-          if (isOverhaulActive()) {
+          if (isOverhaulLook()) {
             useUIStore.getState().closeAllDetails();
             useOverhaulStore.getState().openSchedules();
+            if (isOverhaulMobile()) setSidebarOpen(false);
           } else setScheduleManagerOpen(true);
         }}
       />
