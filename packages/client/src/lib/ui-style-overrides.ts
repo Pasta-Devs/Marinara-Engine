@@ -226,6 +226,44 @@ export function normalizeUiStyleOverrides(value: unknown): UiStyleOverrides {
   return out;
 }
 
+export interface UiStylePreset {
+  id: string;
+  name: string;
+  /** A snapshot of every region's saved style. */
+  overrides: UiStyleOverrides;
+}
+
+export const UI_STYLE_PRESET_LIMITS = { count: 30, nameLength: 40 } as const;
+const PRESET_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+
+/** Control characters stripped, trimmed, capped; null when nothing is left. */
+export function normalizeUiStylePresetName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const name = value
+    .replace(/\p{Cc}/gu, "")
+    .trim()
+    .slice(0, UI_STYLE_PRESET_LIMITS.nameLength)
+    .trim();
+  return name || null;
+}
+
+/** Keeps the valid presets (unique ids, at most 30) of a synced or persisted blob; anything else yields `[]`. */
+export function normalizeUiStylePresets(value: unknown): UiStylePreset[] {
+  if (!Array.isArray(value)) return [];
+  const out: UiStylePreset[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (out.length >= UI_STYLE_PRESET_LIMITS.count) break;
+    if (!isRecord(entry) || typeof entry.id !== "string" || !PRESET_ID.test(entry.id) || seen.has(entry.id)) continue;
+    const name = normalizeUiStylePresetName(entry.name);
+    const overrides = normalizeUiStyleOverrides(entry.overrides);
+    if (!name || Object.keys(overrides).length === 0) continue;
+    seen.add(entry.id);
+    out.push({ id: entry.id, name, overrides });
+  }
+  return out;
+}
+
 /** Fixed key order, so equal overrides always compare equal (the editor's dirty check). */
 export function serializeUiStyleOverride(value: UiStyleOverride | null | undefined): string {
   const clean = normalizeUiStyleOverride(value);

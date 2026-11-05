@@ -31,6 +31,8 @@ interface ColorPickerProps {
   headerAction?: ReactNode;
   /** Prevent editing while still showing the current preview. */
   disabled?: boolean;
+  /** Show only the label row and the always-open picker panel; the caller supplies its own trigger. */
+  panelOnly?: boolean;
 }
 
 /** Preset palette colors */
@@ -338,6 +340,7 @@ export function ColorPicker({
   clearValue = "",
   headerAction,
   disabled = false,
+  panelOnly = false,
 }: ColorPickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const previewValue = value || emptyPreviewValue;
@@ -347,7 +350,8 @@ export function ColorPicker({
     isGradient ? parseGradientStops(previewValue) : ["#ff6b6b", "#ffd93d"],
   );
   const [gradientAngle, setGradientAngle] = useState(90);
-  const [expanded, setExpanded] = useState(false);
+  const [expandedState, setExpanded] = useState(false);
+  const expanded = panelOnly || expandedState;
   const [activeStop, setActiveStop] = useState(0);
   const onChangeRef = useRef(onChange);
   const pendingChangeRef = useRef<string | null>(null);
@@ -519,32 +523,34 @@ export function ColorPicker({
       {helpText && <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">{helpText}</p>}
 
       {/* Preview + trigger */}
-      <button
-        type="button"
-        onClick={() => {
-          if (!disabled) setExpanded(!expanded);
-        }}
-        disabled={disabled}
-        className={cn(
-          "flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] transition-all hover:border-[var(--primary)]/30",
-          compact ? "gap-2 rounded-lg p-1.5" : "gap-3 p-2.5",
-          expanded && "border-[var(--primary)]/40 ring-1 ring-[var(--primary)]/20",
-          disabled && "cursor-not-allowed opacity-60 hover:border-[var(--border)]",
-        )}
-      >
-        <div
-          className={cn("shrink-0 rounded-lg ring-1 ring-[var(--border)]", compact ? "h-6 w-6" : "h-8 w-8")}
-          style={{
-            ...displayStyle,
-            ...(!previewValue && {
-              backgroundImage: "repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%)",
-              backgroundSize: "0.5rem 0.5rem",
-            }),
+      {!panelOnly && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!disabled) setExpanded(!expanded);
           }}
-        />
-        <span className="flex-1 text-left text-xs text-[var(--muted-foreground)] truncate">{value || emptyText}</span>
-        <Pipette size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
-      </button>
+          disabled={disabled}
+          className={cn(
+            "flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] transition-all hover:border-[var(--primary)]/30",
+            compact ? "gap-2 rounded-lg p-1.5" : "gap-3 p-2.5",
+            expanded && "border-[var(--primary)]/40 ring-1 ring-[var(--primary)]/20",
+            disabled && "cursor-not-allowed opacity-60 hover:border-[var(--border)]",
+          )}
+        >
+          <div
+            className={cn("shrink-0 rounded-lg ring-1 ring-[var(--border)]", compact ? "h-6 w-6" : "h-8 w-8")}
+            style={{
+              ...displayStyle,
+              ...(!previewValue && {
+                backgroundImage: "repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%)",
+                backgroundSize: "0.5rem 0.5rem",
+              }),
+            }}
+          />
+          <span className="flex-1 text-left text-xs text-[var(--muted-foreground)] truncate">{value || emptyText}</span>
+          <Pipette size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
+        </button>
+      )}
 
       {/* Expanded picker */}
       {expanded && (

@@ -1,22 +1,19 @@
 // ──────────────────────────────────────────────
-// UiStyleSettings: pick a curated interface region and restyle it.
-// Draft/Save/Revert like TrackerCardColorSettings: edits preview live and only
-// persist on Save.
+// UiStyleSettings: launcher for the floating UI style editor. Pick an element
+// (or choose a region), then restyle it in the card; chips reopen saved regions.
 // ──────────────────────────────────────────────
-import { useEffect, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import { MousePointerClick, Pipette, RotateCcw, Save, X } from "lucide-react";
-import { useUIStore } from "../../../stores/ui.store";
+import { MousePointerClick, Pipette, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { cn } from "../../../lib/utils";
+import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import {
-  UI_STYLE_LIMITS,
+  UI_STYLE_PRESET_LIMITS,
   UI_STYLE_TARGETS,
-  normalizeUiStyleOverride,
-  serializeUiStyleOverride,
-  type UiStyleOverride,
+  type UiStylePreset,
   type UiStyleTargetId,
 } from "../../../lib/ui-style-overrides";
-import { ColorPicker } from "../../ui/ColorPicker";
 import {
   SETTINGS_BUTTON_CLASS,
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
@@ -24,86 +21,85 @@ import {
   SettingsSection,
 } from "./SettingControls";
 
-type ColorKey = "background" | "color" | "borderColor";
-type NumberKey = "borderRadius" | "opacity" | "fontSize";
-
-const COLOR_FIELDS: { key: ColorKey; labelKey: string; gradient?: boolean }[] = [
-  { key: "background", labelKey: "settings.appearance.uiStyles.background", gradient: true },
-  { key: "color", labelKey: "settings.appearance.uiStyles.textColor" },
-  { key: "borderColor", labelKey: "settings.appearance.uiStyles.borderColor" },
-];
-
-/** `fallback` is only where the slider rests while the property is unset ("Default"). */
-const NUMBER_FIELDS: { key: NumberKey; labelKey: string; unit: string; fallback: number }[] = [
-  { key: "borderRadius", labelKey: "settings.appearance.uiStyles.borderRadius", unit: "px", fallback: 8 },
-  { key: "opacity", labelKey: "settings.appearance.uiStyles.opacity", unit: "%", fallback: 100 },
-  { key: "fontSize", labelKey: "settings.appearance.uiStyles.fontSize", unit: "px", fallback: 14 },
-];
-
 const SELECT_CLASS =
-  "min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
+  "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
+
+const PREVIEW_SWATCHES = 4;
+
+/** A few of the preset's regions as small swatches: their background, with the text color as a dot. */
+function PresetPreview({ preset }: { preset: UiStylePreset }) {
+  return (
+    <span aria-hidden="true" className="flex shrink-0 -space-x-1">
+      {Object.values(preset.overrides)
+        .slice(0, PREVIEW_SWATCHES)
+        .map((style, index) => (
+          <span
+            key={index}
+            className="grid h-4 w-4 place-items-center rounded-full ring-1 ring-[var(--border)]"
+            style={{ background: style?.background ?? "var(--secondary)" }}
+          >
+            {style?.color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: style.color }} />}
+          </span>
+        ))}
+    </span>
+  );
+}
 
 export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
   const { t } = useTranslation();
-  const { saved, selectedTarget } = useUIStore(
+  const { saved, presets, selectedTarget, unsaved } = useUIStore(
     useShallow((s) => ({
       saved: s.uiStyleOverrides,
+      presets: s.uiStylePresets,
       selectedTarget: s.uiStyleSelectedTarget,
+      unsaved: s.uiStylePreview != null,
     })),
   );
-  const saveOverride = useUIStore((s) => s.saveUiStyleOverride);
   const resetAll = useUIStore((s) => s.resetUiStyleOverrides);
   const setPickMode = useUIStore((s) => s.setUiStylePickMode);
   const setSelectedTarget = useUIStore((s) => s.setUiStyleSelectedTarget);
-  const setPreview = useUIStore((s) => s.setUiStylePreview);
+  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+  const savePreset = useUIStore((s) => s.saveUiStylePreset);
+  const applyPreset = useUIStore((s) => s.applyUiStylePreset);
+  const deletePreset = useUIStore((s) => s.deleteUiStylePreset);
+  const [naming, setNaming] = useState<string | null>(null);
 
-  const savedOverride = selectedTarget ? (saved[selectedTarget] ?? null) : null;
-  // The edit belongs to the region it was made on; any other region reads straight from storage.
-  const [edit, setEdit] = useState<{ target: UiStyleTargetId; override: UiStyleOverride } | null>(null);
-  const draft: UiStyleOverride = edit && edit.target === selectedTarget ? edit.override : (savedOverride ?? {});
-  const dirty = !!selectedTarget && serializeUiStyleOverride(draft) !== serializeUiStyleOverride(savedOverride);
-  const hasSavedOverrides = Object.keys(saved).length > 0;
+  const savedTargets = UI_STYLE_TARGETS.filter((target) => saved[target.id]);
+  const lockedTitle = unsaved ? t("settings.appearance.uiStyles.saveOrRevertFirst") : undefined;
 
-  // The live preview mirrors the draft; neither it nor pick mode outlives the editor.
-  useEffect(() => {
-    setPreview(selectedTarget && dirty ? { target: selectedTarget, override: draft } : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `draft` changes only with `edit`, `selectedTarget` or `saved`
-  }, [selectedTarget, dirty, edit, saved, setPreview]);
-  useEffect(
-    () => () => {
-      setPreview(null);
-      setPickMode(false);
-    },
-    [setPreview, setPickMode],
-  );
-
-  const setDraft = (override: UiStyleOverride) => {
-    if (selectedTarget) setEdit({ target: selectedTarget, override });
+  // On a phone the settings panel covers the whole app, so step aside to let the user see it.
+  const stepAside = () => {
+    if (isMobileShellViewport()) closeRightPanel();
   };
-  const updateField = (key: keyof UiStyleOverride, value: string | number | undefined) => {
-    const next = { ...draft };
-    if (value === undefined || value === "") delete next[key];
-    else (next as Record<string, string | number>)[key] = value;
-    setDraft(next);
+  const openEditor = (id: UiStyleTargetId | null) => {
+    if (id) stepAside();
+    setSelectedTarget(id);
   };
-
-  const handleSave = () => {
-    if (!selectedTarget) return;
-    saveOverride(selectedTarget, draft);
-    setEdit(null);
-    setPreview(null);
-  };
-  const handleRevert = () => setEdit(null);
-  const handleResetRegion = () => {
-    if (!selectedTarget) return;
-    saveOverride(selectedTarget, null);
-    setEdit(null);
-    setPreview(null);
+  const startPick = () => {
+    stepAside();
+    setSelectedTarget(null);
+    setPickMode(true);
   };
   const handleResetAll = () => {
     if (!window.confirm(t("settings.appearance.uiStyles.resetAllConfirm"))) return;
     resetAll();
-    setEdit(null);
+    setSelectedTarget(null);
+  };
+
+  const handleSavePreset = (event: FormEvent) => {
+    event.preventDefault();
+    if (naming?.trim()) savePreset(naming);
+    setNaming(null);
+  };
+  const handleApplyPreset = (preset: UiStylePreset) => {
+    if (savedTargets.length > 0 && !window.confirm(t("settings.appearance.uiStyles.applyPresetConfirm"))) return;
+    applyPreset(preset.id);
+    setSelectedTarget(null);
+  };
+  const handleDeletePreset = (preset: UiStylePreset) => {
+    if (window.confirm(t("settings.appearance.uiStyles.deletePresetConfirm", { name: preset.name }))) {
+      deletePreset(preset.id);
+    }
   };
 
   return (
@@ -118,34 +114,20 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setPickMode(true)}
-            disabled={dirty}
-            title={dirty ? t("settings.appearance.uiStyles.saveOrRevertFirst") : undefined}
+            onClick={startPick}
+            disabled={unsaved}
+            title={lockedTitle}
             className={SETTINGS_BUTTON_CLASS}
           >
             <MousePointerClick size="0.75rem" />
             {t("settings.appearance.uiStyles.pickElement")}
           </button>
-          <button
-            type="button"
-            onClick={handleResetAll}
-            disabled={!hasSavedOverrides}
-            className={SETTINGS_BUTTON_CLASS}
-          >
-            <RotateCcw size="0.75rem" />
-            {t("settings.appearance.uiStyles.resetAll")}
-          </button>
-        </div>
-
-        <label className="grid min-w-0 gap-1">
-          <span className="px-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-            {t("settings.appearance.uiStyles.region")}
-          </span>
           <select
             value={selectedTarget ?? ""}
-            onChange={(event) => setSelectedTarget((event.target.value || null) as UiStyleTargetId | null)}
-            disabled={dirty}
-            title={dirty ? t("settings.appearance.uiStyles.saveOrRevertFirst") : undefined}
+            onChange={(event) => openEditor((event.target.value || null) as UiStyleTargetId | null)}
+            disabled={unsaved}
+            title={lockedTitle}
+            aria-label={t("settings.appearance.uiStyles.region")}
             className={SELECT_CLASS}
           >
             <option value="">{t("settings.appearance.uiStyles.noneSelected")}</option>
@@ -155,97 +137,131 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
               </option>
             ))}
           </select>
-        </label>
+          <button
+            type="button"
+            onClick={handleResetAll}
+            disabled={savedTargets.length === 0}
+            className={SETTINGS_BUTTON_CLASS}
+          >
+            <RotateCcw size="0.75rem" />
+            {t("settings.appearance.uiStyles.resetAll")}
+          </button>
+        </div>
 
-        {selectedTarget && (
-          <>
-            {COLOR_FIELDS.map((field) => (
-              <ColorPicker
-                key={field.key}
-                compact
-                gradient={field.gradient}
-                label={t(field.labelKey)}
-                value={draft[field.key] ?? ""}
-                onChange={(value) => updateField(field.key, value)}
-                helpText={
-                  draft[field.key] && !normalizeUiStyleOverride({ [field.key]: draft[field.key] })
-                    ? t("settings.appearance.uiStyles.invalidColor")
-                    : undefined
-                }
-                emptyText={t("settings.appearance.uiStyles.themeDefault")}
-                clearLabel={t("settings.appearance.uiStyles.useDefault")}
-              />
-            ))}
+        {savedTargets.length > 0 && (
+          <div
+            role="group"
+            aria-label={t("settings.appearance.uiStyles.styledRegions")}
+            className="flex flex-wrap gap-1.5"
+          >
+            {savedTargets.map((target) => {
+              const style = saved[target.id];
+              return (
+                <button
+                  key={target.id}
+                  type="button"
+                  onClick={() => openEditor(target.id)}
+                  disabled={unsaved}
+                  title={lockedTitle}
+                  aria-pressed={selectedTarget === target.id}
+                  className={SETTINGS_BUTTON_CLASS}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-[var(--border)]"
+                    style={{
+                      background: style?.background ?? "var(--secondary)",
+                      ...(style?.borderColor && { boxShadow: `inset 0 0 0 1px ${style.borderColor}` }),
+                    }}
+                  />
+                  {t(target.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-            <div className="grid min-w-0 gap-1">
-              {NUMBER_FIELDS.map((field) => {
-                const value = draft[field.key];
-                const [min, max] = UI_STYLE_LIMITS[field.key];
-                const label = t(field.labelKey);
-                const valueText =
-                  value === undefined ? t("settings.appearance.uiStyles.themeDefault") : String(value) + field.unit;
-                return (
-                  <div
-                    key={field.key}
-                    className="grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)_3.5rem_1.5rem] items-center gap-1.5 rounded-md bg-[var(--background)]/24 px-1.5 py-1 ring-1 ring-[var(--border)]/25"
-                  >
-                    <span className="truncate text-[0.5625rem] font-semibold text-[var(--foreground)]/80">{label}</span>
-                    <input
-                      type="range"
-                      aria-label={label}
-                      min={min}
-                      max={max}
-                      value={value ?? field.fallback}
-                      onChange={(event) => updateField(field.key, Number(event.target.value))}
-                      className="h-1.5 w-full min-w-0 cursor-pointer accent-[var(--primary)]"
-                    />
-                    <span className="justify-self-end font-mono text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]">
-                      {valueText}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={t("settings.appearance.uiStyles.useDefault")}
-                      title={t("settings.appearance.uiStyles.useDefault")}
-                      onClick={() => updateField(field.key, undefined)}
-                      disabled={value === undefined}
-                      className={SETTINGS_ICON_BUTTON_CLASS}
-                    >
-                      <X size="0.75rem" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 px-0.5">
-              {dirty && (
-                <span className="mr-auto text-[0.625rem] text-[var(--muted-foreground)]">
-                  {t("settings.appearance.uiStyles.unsavedPreview")}
-                </span>
-              )}
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <span className="text-[0.6875rem] font-semibold">{t("settings.appearance.uiStyles.presets")}</span>
+            {naming === null && (
               <button
                 type="button"
-                onClick={handleResetRegion}
-                disabled={!savedOverride && !dirty}
+                onClick={() => setNaming("")}
+                disabled={unsaved || savedTargets.length === 0 || presets.length >= UI_STYLE_PRESET_LIMITS.count}
+                title={
+                  presets.length >= UI_STYLE_PRESET_LIMITS.count
+                    ? t("settings.appearance.uiStyles.presetsFull")
+                    : lockedTitle
+                }
                 className={SETTINGS_BUTTON_CLASS}
               >
-                {t("settings.appearance.uiStyles.resetRegion")}
+                <Plus size="0.75rem" />
+                {t("settings.appearance.uiStyles.savePreset")}
               </button>
-              <button type="button" onClick={handleRevert} disabled={!dirty} className={SETTINGS_BUTTON_CLASS}>
-                {t("settings.appearance.uiStyles.revert")}
+            )}
+          </div>
+          {naming !== null && (
+            <form onSubmit={handleSavePreset} className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={naming}
+                maxLength={UI_STYLE_PRESET_LIMITS.nameLength}
+                aria-label={t("settings.appearance.uiStyles.presetName")}
+                onChange={(event) => setNaming(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setNaming(null);
+                }}
+                className={cn(SELECT_CLASS, "min-w-0")}
+              />
+              <button type="submit" disabled={!naming.trim()} className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}>
+                {t("settings.appearance.uiStyles.save")}
               </button>
               <button
                 type="button"
-                onClick={handleSave}
-                disabled={!dirty}
-                className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
+                onClick={() => setNaming(null)}
+                aria-label={t("settings.appearance.uiStyles.cancelPick")}
+                title={t("settings.appearance.uiStyles.cancelPick")}
+                className={SETTINGS_ICON_BUTTON_CLASS}
               >
-                <Save size="0.75rem" />
-                {t("settings.appearance.uiStyles.save")}
+                <X size="0.75rem" />
               </button>
-            </div>
-          </>
-        )}
+            </form>
+          )}
+          {presets.length === 0 ? (
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {t("settings.appearance.uiStyles.presetsEmpty")}
+            </p>
+          ) : (
+            presets.map((preset) => (
+              <div key={preset.id} className="flex min-w-0 items-center gap-2">
+                <PresetPreview preset={preset} />
+                <span className="min-w-0 flex-1 truncate text-[0.6875rem]">{preset.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  disabled={unsaved}
+                  title={lockedTitle}
+                  className={SETTINGS_BUTTON_CLASS}
+                >
+                  {t("settings.appearance.uiStyles.applyPreset")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePreset(preset)}
+                  aria-label={t("settings.appearance.uiStyles.deletePreset")}
+                  title={t("settings.appearance.uiStyles.deletePreset")}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger shrink-0")}
+                >
+                  <Trash2 size="0.75rem" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </SettingsSection>
   );

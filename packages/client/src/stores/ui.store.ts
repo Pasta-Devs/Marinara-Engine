@@ -37,8 +37,10 @@ import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
   normalizeUiStyleOverride,
   normalizeUiStyleOverrides,
+  normalizeUiStylePresets,
   type UiStyleOverride,
   type UiStyleOverrides,
+  type UiStylePreset,
   type UiStyleTargetId,
 } from "../lib/ui-style-overrides";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
@@ -744,6 +746,8 @@ interface UIState {
   reduceAmbientEffects: boolean;
   /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
   uiStyleOverrides: UiStyleOverrides;
+  /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
+  uiStylePresets: UiStylePreset[];
   /** Transient: the full-screen element picker is open. */
   uiStylePickMode: boolean;
   /** Transient: the region the style editor is editing. */
@@ -1329,6 +1333,9 @@ interface UIState {
   setAppBackgroundColor: (color: string) => void;
   saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
   resetUiStyleOverrides: () => void;
+  saveUiStylePreset: (name: string) => void;
+  applyUiStylePreset: (id: string) => void;
+  deleteUiStylePreset: (id: string) => void;
   setUiStylePickMode: (enabled: boolean) => void;
   setUiStyleSelectedTarget: (target: UiStyleTargetId | null) => void;
   setUiStylePreview: (preview: UIState["uiStylePreview"]) => void;
@@ -1708,6 +1715,7 @@ export function pickSyncedSettings(state: UIState) {
     appAccentColor: state.appAccentColor,
     reduceAmbientEffects: state.reduceAmbientEffects,
     uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1959,6 +1967,7 @@ export function pickPersistedUIState(state: UIState) {
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
     uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
@@ -2234,6 +2243,7 @@ export const useUIStore = create<UIState>()(
         customCursorEnabled: true,
         reduceAmbientEffects: false,
         uiStyleOverrides: {},
+        uiStylePresets: [],
         uiStylePickMode: false,
         uiStyleSelectedTarget: null,
         uiStylePreview: null,
@@ -2642,6 +2652,29 @@ export const useUIStore = create<UIState>()(
             return { uiStyleOverrides: next };
           }),
         resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null }),
+        saveUiStylePreset: (name) =>
+          set((state) => {
+            const [fresh] = normalizeUiStylePresets([{ id: "new", name, overrides: state.uiStyleOverrides }]);
+            if (!fresh) return {};
+            const same = state.uiStylePresets.find((preset) => preset.name.toLowerCase() === fresh.name.toLowerCase());
+            if (same) {
+              return {
+                uiStylePresets: state.uiStylePresets.map((preset) =>
+                  preset === same ? { ...preset, overrides: fresh.overrides } : preset,
+                ),
+              };
+            }
+            const id =
+              globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            return { uiStylePresets: normalizeUiStylePresets([...state.uiStylePresets, { ...fresh, id }]) };
+          }),
+        applyUiStylePreset: (id) =>
+          set((state) => {
+            const preset = state.uiStylePresets.find((candidate) => candidate.id === id);
+            return preset ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null } : {};
+          }),
+        deleteUiStylePreset: (id) =>
+          set((state) => ({ uiStylePresets: state.uiStylePresets.filter((preset) => preset.id !== id) })),
         setUiStylePickMode: (uiStylePickMode) => set({ uiStylePickMode }),
         setUiStyleSelectedTarget: (uiStyleSelectedTarget) => set({ uiStyleSelectedTarget }),
         setUiStylePreview: (uiStylePreview) => set({ uiStylePreview }),
@@ -4365,6 +4398,7 @@ export const useUIStore = create<UIState>()(
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
           uiStyleOverrides: normalizeUiStyleOverrides(persisted.uiStyleOverrides),
+          uiStylePresets: normalizeUiStylePresets(persisted.uiStylePresets),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

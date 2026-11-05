@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { useUIStore } from "../../stores/ui.store";
 import { sanitizeAppCss } from "../../lib/theme-css";
+import { UiStyleEditorCard } from "./UiStyleEditorCard";
 import {
   UI_STYLE_TARGETS,
   buildUiStyleOverridesCss,
@@ -86,9 +87,8 @@ function UiStylePickOverlay() {
 
   const label = hit ? t(UI_STYLE_TARGETS.find((target) => target.id === hit.id)?.labelKey ?? "") : "";
 
-  // ponytail: the overlay probes the main document only, so detached/pop-out windows are not pickable,
-  // and on mobile the full-screen settings sheet covers everything else (the region dropdown is the
-  // path there); upgrade path is a per-window overlay host.
+  // ponytail: the overlay probes the main document only, so detached/pop-out windows are not pickable
+  // (the region dropdown is the path there); upgrade path is a per-window overlay host.
   return createPortal(
     <div
       ref={rootRef}
@@ -146,13 +146,15 @@ function UiStylePickOverlay() {
 }
 
 export function UiStyleOverridesInjector() {
-  const { saved, preview, pickMode } = useUIStore(
+  const { saved, preview, pickMode, selectedTarget } = useUIStore(
     useShallow((s) => ({
       saved: s.uiStyleOverrides,
       preview: s.uiStylePreview,
       pickMode: s.uiStylePickMode,
+      selectedTarget: s.uiStyleSelectedTarget,
     })),
   );
+  const editedTarget = UI_STYLE_TARGETS.find((target) => target.id === selectedTarget);
 
   const css = useMemo(() => {
     const effective: UiStyleOverrides = preview ? { ...saved, [preview.target]: preview.override ?? undefined } : saved;
@@ -177,5 +179,6 @@ export function UiStyleOverridesInjector() {
 
   useEffect(() => () => document.getElementById(STYLE_ELEMENT_ID)?.remove(), []);
 
-  return pickMode ? <UiStylePickOverlay /> : null;
+  if (pickMode) return <UiStylePickOverlay />;
+  return editedTarget ? <UiStyleEditorCard key={editedTarget.id} target={editedTarget} /> : null;
 }

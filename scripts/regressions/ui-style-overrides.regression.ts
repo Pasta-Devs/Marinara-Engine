@@ -4,6 +4,7 @@ import {
   buildUiStyleOverridesCss,
   normalizeUiStyleOverride,
   normalizeUiStyleOverrides,
+  normalizeUiStylePresets,
   resolveUiStyleTarget,
   serializeUiStyleOverride,
   UI_STYLE_TARGETS,
@@ -91,5 +92,39 @@ assert.equal(resolveUiStyleTarget(inner), "user-message");
 const lineBody = node([".mari-message-line-body"], node(['[data-message-role="assistant"]'], null));
 assert.equal(resolveUiStyleTarget(node([".text"], lineBody)), "assistant-message", "plain layout messages resolve too");
 assert.equal(resolveUiStyleTarget(node([".x"], null)), null);
+
+// Presets: a synced library of whole-interface snapshots, so everything is re-validated on the way in.
+const goodPreset = { id: "a_1-B", name: "  Night\u0007 mode ", overrides: { sidebar: { background: "#000", bogus: 1 }, nope: { background: "#fff" } } };
+assert.deepEqual(normalizeUiStylePresets([goodPreset]), [
+  { id: "a_1-B", name: "Night mode", overrides: { sidebar: { background: "#000" } } },
+]);
+assert.deepEqual(normalizeUiStylePresets({ 0: goodPreset }), [], "non-arrays yield no presets");
+assert.deepEqual(normalizeUiStylePresets("x"), []);
+assert.deepEqual(
+  normalizeUiStylePresets([{ ...goodPreset, overrides: { sidebar: { background: "#000", color: "red;} body{display:none" } } }])[0]?.overrides,
+  { sidebar: { background: "#000" } },
+  "hostile override values are dropped",
+);
+assert.deepEqual(
+  normalizeUiStylePresets([
+    { ...goodPreset, overrides: { sidebar: { background: "red;} body{display:none" } } },
+    { ...goodPreset, id: "b", overrides: { nope: { background: "#fff" } } },
+    { ...goodPreset, id: "c", overrides: [] },
+  ]),
+  [],
+  "presets with nothing valid left are dropped",
+);
+assert.deepEqual(normalizeUiStylePresets([{ ...goodPreset, name: "   " }, { ...goodPreset, name: "\u0001" }, { ...goodPreset, name: 5 }]), []);
+assert.equal(normalizeUiStylePresets([{ ...goodPreset, name: "n".repeat(100) }])[0]?.name.length, 40, "names are capped at 40");
+for (const id of ["", "a b", "a/b", "x".repeat(65), 7, null]) {
+  assert.deepEqual(normalizeUiStylePresets([{ ...goodPreset, id }]), [], `rejects id ${JSON.stringify(id)}`);
+}
+assert.deepEqual(
+  normalizeUiStylePresets([goodPreset, { ...goodPreset, name: "Other" }, null, "x"]).map((preset) => preset.name),
+  ["Night mode"],
+  "duplicate ids keep the first",
+);
+const many = Array.from({ length: 45 }, (_, index) => ({ id: `p${index}`, name: `Preset ${index}`, overrides: { sidebar: { opacity: 80 } } }));
+assert.equal(normalizeUiStylePresets(many).length, 30, "at most 30 presets");
 
 console.info("UI style override regressions passed.");
