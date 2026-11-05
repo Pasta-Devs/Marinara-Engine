@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { AvatarConfig, AvatarOwnerRef } from "@marinara-engine/shared";
 import { mmdPmx, mmdVmd } from "../scripts/regressions/fixtures/avatar-mmd-fixtures.js";
 import { paintPng, solid, zipFiles } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
+import { chooseCharacter } from "./character-picker.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
@@ -413,11 +414,7 @@ test("MMD setup imports, maps and removes model-specific motion for character an
     await expect(setup).toBeVisible();
     // The owner field opens the shared Personas picker (#8763), which lists characters too.
     const chooseOwner = async (name: string) => {
-      await setup.getByLabel("Character or persona").click();
-      const picker = page.getByRole("dialog", { name: "Personas", exact: true });
-      await picker.getByRole("searchbox").fill(name);
-      await picker.getByTitle(name, { exact: true }).click();
-      await expect(picker).toHaveCount(0);
+      await chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", name);
       await expect(setup.getByLabel("Character or persona")).toContainText(name);
     };
     for (const [ownerType, ownerId, ownerName] of [

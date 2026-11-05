@@ -374,8 +374,9 @@ test("a stalled setup save releases cancellation and a later attempt retries saf
   }
 });
 
-test("a stalled discard request releases the wizard for a safe retry", async ({ page }) => {
+test("a stalled discard request releases the wizard for a safe retry", async ({ page }, testInfo) => {
   const connection = await seedConnection(page);
+  const webkit = testInfo.project.name.includes("webkit");
   let chatId = "";
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -389,9 +390,10 @@ test("a stalled discard request releases the wizard for a safe retry", async ({ 
     await page.route(`**/api/chats/${chatId}/discard-empty-setup`, async (route) => {
       attempts += 1;
       if (attempts === 1) {
-        // This controlled failure is held before it reaches the server. Playwright's WebKit can keep a held request
-        // pending after the client's 10 s AbortSignal fires, so it also fails just after that limit on every engine.
-        await Promise.race([gate, new Promise((resolve) => setTimeout(resolve, 10_500))]);
+        // This controlled failure is held before it reaches the server, so only the client's 10 s AbortSignal can end
+        // it. Playwright's WebKit can keep a held request pending after that signal fires, so there alone the route
+        // also fails itself just after the limit.
+        await (webkit ? Promise.race([gate, new Promise((resolve) => setTimeout(resolve, 10_500))]) : gate);
         await route.abort().catch(() => {});
       } else {
         await route.continue();

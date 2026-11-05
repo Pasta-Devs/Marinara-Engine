@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { MultiplayerHostState } from "@marinara-engine/shared";
+import { chooseCharacter } from "./character-picker.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies";
 import { seedUIState } from "./ui-state-fixture";
 
@@ -199,18 +200,6 @@ async function mountControls(
 
 async function noHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-}
-
-/**
- * The persona and library pickers are CharacterSelect buttons since #8763: the trigger opens a window titled
- * `title` (a popover, or a sheet on a phone) with a search box and [data-pick-row] rows; a single pick closes it.
- */
-async function chooseCharacter(page: Page, trigger: Locator, title: string, name: string) {
-  await trigger.click();
-  const picker = page.getByRole("dialog", { name: title, exact: true });
-  await picker.getByRole("searchbox").fill(name);
-  await picker.locator("[data-pick-row]").filter({ hasText: name }).first().click();
-  await expect(picker).toHaveCount(0);
 }
 
 test("multiplayer requires separate consent and reviews only selected persona text before joining", async ({
