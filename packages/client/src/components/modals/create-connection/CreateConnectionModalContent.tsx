@@ -31,6 +31,7 @@ import {
   useUpdateConnectionAccount,
 } from "../../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../../hooks/use-chats";
+import { useDecisionOptions, useSelectDecisionModel } from "../../../hooks/use-decision-model";
 import { useChatStore } from "../../../stores/chat.store";
 import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
@@ -118,6 +119,7 @@ export function CreateConnectionModalContent({
   const countModels = useCountConnectionModels();
   const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const builtInMain = useSidecarStore((state) => state.config.useAsMainDefault);
+  const selectDecision = useSelectDecisionModel();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
@@ -162,6 +164,8 @@ export function CreateConnectionModalContent({
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
   const jobFor = forJob ?? null;
   const job = jobFor?.job ?? null;
+  // What Undo puts back after Done makes the new model the Decision model.
+  const decisionOptions = useDecisionOptions(job === "decision");
   // The kind chip in step 1; step 3 starts on the same kind.
   const kindFilter: ChipKind | null = forJob
     ? forJob.job
@@ -271,6 +275,28 @@ export function CreateConnectionModalContent({
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
   const applyChoices = async (includeMain = true) => {
+    // Added for the Decision job ("Use this key for decisions", a feature with no Decision model): the model that
+    // passed its test becomes the Decision model, with Undo, as a pick in "Model for Decision" does.
+    const decisionPick = job === "decision" ? picks.find((pick) => pick.kind === "decision") : undefined;
+    const previousDecision = decisionOptions.data?.selected ?? null;
+    if (decisionPick && decisionPick.connectionId !== previousDecision) {
+      try {
+        await selectDecision.mutateAsync(decisionPick.connectionId);
+      } catch (error) {
+        toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
+        return false;
+      }
+      toast.success(
+        t("connections.picker.nowUses", {
+          job: t("connections.picker.job.decision"),
+          model: modelName(decisionPick.modelId),
+        }),
+        {
+          duration: 8000,
+          action: { label: t("connections.switcher.undo"), onClick: () => selectDecision.mutate(previousDecision) },
+        },
+      );
+    }
     if (!firstPick) return true;
     if (includeMain && offerMain && makeMainOn) {
       try {

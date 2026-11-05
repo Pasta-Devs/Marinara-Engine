@@ -412,9 +412,48 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
   const source = await response.json();
   const accountId: string = source.accountId;
   const rows = async () => (await (await request.get("/api/connections")).json()) as Array<Record<string, any>>;
+  const status = async (path: string) => (await request.get(path)).status();
+  const accountName = async (id: string) =>
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<Record<string, any>>).find(
+      (account) => account.id === id,
+    )!.name as string;
+  // Done makes the new row the Decision model; the finally block puts back what earlier specs chose.
+  const previousDecision = ((await (await request.get("/api/decision/options")).json()) as { selected: string | null })
+    .selected;
   let linkedId = "";
+  let lender: { id: string; accountId?: string | null } | null = null;
+  let borrowerId = "";
   try {
     expect(accountId).toBeTruthy();
+    // A Decision Model that borrows another Model's key, for the last part; made before the page loads, so the
+    // page's lists have both. The lender has OpenRouter's own address, so the link holds until the deletion. Nothing
+    // here sends it a request.
+    const lenderName = `Lent key ${testInfo.project.name}`;
+    const lent = await request.post("/api/connections", {
+      data: {
+        name: lenderName,
+        provider: "openrouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        // A key per project: the mobile projects share one server, and one key would share one Connection.
+        apiKey: `fixture-lent-${testInfo.project.name}`,
+        model: "fixture",
+      },
+    });
+    expect(lent.ok()).toBeTruthy();
+    lender = await lent.json();
+    const lenderId = lender!.id;
+    const borrowerName = `Borrowed decisions ${testInfo.project.name}`;
+    const borrowed = await request.post("/api/connections", {
+      data: {
+        name: borrowerName,
+        provider: "decision",
+        decisionSource: "openrouter",
+        model: "jev-latest",
+        credentialsFromConnectionId: lenderId,
+      },
+    });
+    expect(borrowed.ok()).toBeTruthy();
+    borrowerId = (await borrowed.json()).id;
     await page.goto("/");
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -427,13 +466,13 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
     // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
     // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the
-    // credentialsFromConnectionId link no longer exist, and it is not made the Decision model on the spot
-    // (defaultForAgents stays off until the Decision picker chooses it).
+    // credentialsFromConnectionId link are not used by this Model.
     const dialog = page.getByRole("dialog", { name: "Add models to OpenRouter", exact: true });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Test decision", exact: true }).click();
     await expect(dialog.getByText(/^Probability of yes: 0\.800/u)).toBeVisible();
     const linked = (await rows()).find((row) => row.provider === "decision" && row.accountId === accountId);
+    // Kept, but not the Decision model until Done.
     expect(linked).toMatchObject({ decisionSource: "openai_compatible", model: "fixture", defaultForAgents: "false" });
     expect(linked?.credentialsFromConnectionId ?? null).toBeNull();
     linkedId = linked!.id;
@@ -442,39 +481,81 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     expect(new Set(keys)).toEqual(new Set(["Bearer fixture-only"]));
     await dialog.getByRole("button", { name: "Done", exact: true }).click();
     await expect(dialog).toBeHidden();
+    // Done sets the window's job (AddFor in lib/add-connection.ts): the row becomes the Decision model, with an Undo
+    // toast like a pick in "Model for Decision".
+    await expect(page.getByText("Decision now uses Fixture", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await rows()).find((row) => row.id === linkedId)?.defaultForAgents).toBe("true");
     expect(
       (await rows())
         .filter((row) => row.accountId === accountId)
         .map((row) => row.id)
         .sort(),
     ).toEqual([source.id, linkedId].sort());
-    // Deleting the key's Connection warns that its Decision Model goes too. Deleting only the source Model no longer
-    // warns (#8456): the key stays on the Connection, so the Decision Model keeps working, and the old "This key is
-    // used for decisions" dialog and the "missing or incompatible" repair after it cannot happen to this Model.
-    const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<Record<string, any>>;
-    const accountName = accounts.find((account) => account.id === accountId)!.name;
+    // Deleting the key's Connection warns that its Decision Model goes too.
+    const sourceAccountName = await accountName(accountId);
     // The Decision Model is named after its Connection; the card's own menu comes before its Models' menus.
     const accountActions = page
       .locator(`[data-connection-account-id="${accountId}"]`)
-      .getByRole("button", { name: `Actions for ${accountName}`, exact: true })
+      .getByRole("button", { name: `Actions for ${sourceAccountName}`, exact: true })
       .first();
     await accountActions.scrollIntoViewIfNeeded();
     await accountActions.click();
     await page.getByRole("menuitem", { name: "Delete account", exact: true }).click();
     const warning = page.getByRole("dialog", { name: "Delete account", exact: true });
-    await expect(warning).toContainText(`Delete ${accountName}? Its 2 models go too.`);
+    await expect(warning).toContainText(`Delete ${sourceAccountName}? Its 2 models go too.`);
     await expect(warning).toContainText(name);
     await warning.getByRole("button", { name: "Delete with its 2 models", exact: true }).click();
     // The window deletes the Models one after another, then the Connection.
-    const status = async (path: string) => (await request.get(path)).status();
     await expect
       .poll(async () => [await status(`/api/connections/${linkedId}`), await status(`/api/connections/${source.id}`)])
       .toEqual([404, 404]);
+
+    // A Decision Model can still borrow another Model's key ("API key source" in its editor). Deleting that Model
+    // warns first, and the Decision Model then asks to be relinked.
+    const openEditor = async (id: string) => {
+      await page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().closeAllDetails();
+        useUIStore.getState().openConnectionDetail(id);
+      }, id);
+    };
+    const keySource = page.getByLabel("API key source", { exact: true });
+    await openEditor(borrowerId);
+    await expect(keySource).toHaveValue(lenderId);
+    await expect(keySource.locator("option:checked")).toHaveText(
+      `Use key from “${await accountName(lender!.accountId!)}”`,
+    );
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeAllDetails();
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const lenderActions = page.getByRole("button", { name: `Actions for ${lenderName}`, exact: true });
+    await lenderActions.scrollIntoViewIfNeeded();
+    await lenderActions.click();
+    await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
+    const removeModel = page.getByRole("dialog", { name: "Delete model", exact: true });
+    await expect(removeModel).toContainText(borrowerName);
+    await removeModel.getByRole("button", { name: "Delete", exact: true }).click();
+    const keyWarning = page.getByRole("dialog", { name: "This key is used for decisions", exact: true });
+    await expect(keyWarning).toContainText(`${borrowerName} will need another linked account or a separate key.`);
+    await keyWarning.getByRole("button", { name: "Delete account", exact: true }).click();
+    await expect.poll(() => status(`/api/connections/${lenderId}`)).toBe(404);
+    await openEditor(borrowerId);
+    await expect(keySource).toHaveValue(lenderId);
+    const relink = "Linked account is missing or incompatible. Choose another or enter a key.";
+    await expect(keySource.locator("option:checked")).toHaveText(relink);
+    await page.getByRole("button", { name: "Test provider", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: `Decision test failed: ${relink}` })).toBeVisible();
   } finally {
     if (linkedId) await request.delete(`/api/connections/${linkedId}`);
     await request.delete(`/api/connections/${source.id}`);
     // The Model's account outlives its last Model (#8456).
     if (accountId) await request.delete(`/api/connection-accounts/${accountId}`);
+    if (borrowerId) await request.delete(`/api/connections/${borrowerId}`);
+    if (lender) await request.delete(`/api/connections/${lender.id}`);
+    if (lender?.accountId) await request.delete(`/api/connection-accounts/${lender.accountId}`);
+    await request.post("/api/decision/select", { data: { id: previousDecision } });
     server.closeAllConnections();
     await new Promise<void>((resolve, rejectClose) =>
       server.close((error) => (error ? rejectClose(error) : resolve())),
