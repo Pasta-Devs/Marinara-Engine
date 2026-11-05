@@ -12,9 +12,10 @@ const CHAT_SURFACES = [".mari-chat-area", ".rpg-overlay"] as const;
 /**
  * Curated regions. Every selector targets a marker that already exists in the app. When one element
  * matches several selectors, the picker takes the first in this order and the more specific selector
- * wins in CSS, so keep the broad "buttons" target after the specific ones. `surfaces` are descendant
- * layers that paint over the root and so take the region's background too. Messages match the bubble
- * in bubble layouts and the line body in the plain conversation layout.
+ * wins in CSS, so keep the broad "text-fields" and "buttons" targets last. Inner regions come after
+ * the regions that contain them, so their inherited text color and size win. `surfaces` are
+ * descendant layers that paint over the root and so take the region's background too. Messages match
+ * the bubble in bubble layouts and the line body in the plain conversation layout.
  */
 export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
   { id: "top-bar", labelKey: "settings.appearance.uiStyles.regions.topBar", selector: '[data-component="TopBar"]' },
@@ -26,6 +27,20 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
     surfaces: [".mari-app-background-paint", ...CHAT_SURFACES],
   },
   { id: "right-panel", labelKey: "settings.appearance.uiStyles.regions.rightPanel", selector: ".mari-right-panel" },
+  { id: "floating-window", labelKey: "settings.appearance.uiStyles.regions.floatingWindow", selector: ".mari-window" },
+  { id: "modal", labelKey: "settings.appearance.uiStyles.regions.modal", selector: ".mari-modal-panel" },
+  {
+    id: "home",
+    labelKey: "settings.appearance.uiStyles.regions.home",
+    selector: '[data-component="HomeBrowserHub"]',
+    surfaces: [".mari-home-page", ".mari-home-browser-chrome", ".mari-home-browser-address-row"],
+  },
+  {
+    id: "professor-mari",
+    labelKey: "settings.appearance.uiStyles.regions.professorMari",
+    selector: '[data-component="HomeProfessorMariChat.Window"]',
+  },
+  { id: "editors", labelKey: "settings.appearance.uiStyles.regions.editors", selector: ".mari-editor-shell" },
   {
     id: "tracker-panel",
     labelKey: "settings.appearance.uiStyles.regions.trackerPanel",
@@ -43,6 +58,13 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
     selector: '[data-component="ChatArea.Roleplay"]',
     surfaces: CHAT_SURFACES,
   },
+  {
+    id: "game-narration",
+    labelKey: "settings.appearance.uiStyles.regions.gameNarration",
+    selector: ".mari-game-narration-surface",
+  },
+  // Choices, inventory, journal, combat and the other game panels share this class.
+  { id: "game-panels", labelKey: "settings.appearance.uiStyles.regions.gamePanels", selector: ".mari-game-section" },
   {
     id: "message-name",
     labelKey: "settings.appearance.uiStyles.regions.messageName",
@@ -64,12 +86,23 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
     labelKey: "settings.appearance.uiStyles.regions.toolbarButton",
     selector: ".marinara-chat-toolbar-button",
   },
-  { id: "floating-window", labelKey: "settings.appearance.uiStyles.regions.floatingWindow", selector: ".mari-window" },
-  { id: "modal", labelKey: "settings.appearance.uiStyles.regions.modal", selector: ".mari-modal-panel" },
+  {
+    id: "menus",
+    labelKey: "settings.appearance.uiStyles.regions.menus",
+    selector: ':is(.mari-context-menu, .mari-chat-input-popup, [data-component="TopbarMoreMenu"])',
+  },
   {
     id: "omnibar",
     labelKey: "settings.appearance.uiStyles.regions.omnibar",
     selector: '[data-component="GlobalOmnibar.Panel"]',
+  },
+  { id: "toasts", labelKey: "settings.appearance.uiStyles.regions.toasts", selector: "[data-sonner-toast]" },
+  {
+    // Zero specificity beyond `:root`, like "buttons". The composer's own text box belongs to the composer.
+    id: "text-fields",
+    labelKey: "settings.appearance.uiStyles.regions.textFields",
+    selector:
+      ':where(:is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"], [type="hidden"]), textarea, select):not(.marinara-chat-input-shell *))',
   },
   {
     // Zero specificity beyond `:root`, so every specific region above wins on the same element.
@@ -85,17 +118,25 @@ const UI_STYLE_TARGET_IDS = [
   "sidebar",
   "center",
   "right-panel",
+  "floating-window",
+  "modal",
+  "home",
+  "professor-mari",
+  "editors",
   "tracker-panel",
   "conversation-surface",
   "roleplay-surface",
+  "game-narration",
+  "game-panels",
   "message-name",
   "user-message",
   "assistant-message",
   "composer",
   "toolbar-button",
-  "floating-window",
-  "modal",
+  "menus",
   "omnibar",
+  "toasts",
+  "text-fields",
   "buttons",
 ] as const;
 

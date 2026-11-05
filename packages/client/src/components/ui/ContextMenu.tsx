@@ -172,7 +172,7 @@ export function ContextMenu({
       role="menu"
       // Above a modal (z 10000), so a menu opened inside a dialog shows.
       style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }}
-      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
+      className="mari-context-menu max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((item, i) => (

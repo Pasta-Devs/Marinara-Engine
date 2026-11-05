@@ -27,6 +27,11 @@ assert.deepEqual(chatCss.split("\n"), [
 ]);
 assert.equal(sanitizeAppCss(chatCss), chatCss, "every rule shape passes the theme sanitizer unchanged");
 assert.equal(new Set(UI_STYLE_TARGETS.map((target) => target.id)).size, UI_STYLE_TARGETS.length, "region ids are unique");
+const everyCss = buildUiStyleOverridesCss(
+  Object.fromEntries(UI_STYLE_TARGETS.map((target) => [target.id, { background: "#000", color: "#fff", borderColor: "red" }])),
+);
+assert.equal(everyCss.split("\n").length >= UI_STYLE_TARGETS.length * 3, true, "every region emits its rules");
+assert.equal(sanitizeAppCss(everyCss), everyCss, "every region's selector passes the theme sanitizer unchanged");
 assert.equal(buildUiStyleOverridesCss({}), "");
 assert.equal(
   buildUiStyleOverridesCss({ bogus: { color: "red" } } as never),
