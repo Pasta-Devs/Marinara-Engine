@@ -84,7 +84,14 @@ export function OvEditorHead({
                 <MoreHorizontal size={15} />
               </button>
               {menuOpen ? (
-                <div className="ov-menu" role="menu">
+                <div
+                  className="ov-menu"
+                  role="menu"
+                  onClick={(event) => {
+                    // Phones show the menu as a sheet; a tap on its backdrop closes it.
+                    if (event.target === event.currentTarget) setMenuOpen(false);
+                  }}
+                >
                   {menu.map((item) => (
                     <button
                       key={item.label}

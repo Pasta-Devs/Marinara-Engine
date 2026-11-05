@@ -1950,8 +1950,12 @@
 .ovm-drill-page__body > * {
   min-width: 0;
 }
-:root[data-overhaul="mobile"] .ov-ed.ov-agented {
-  padding: 0 0.75rem 1.5rem !important;
+/* Agent pages keep the editors' shared padding (same as Connections);
+   an open page's header spans the full width under the top bar. */
+.ov-ed.ov-agented .ovm-drill-page__head {
+  top: -1rem;
+  margin: -1rem -1.75rem 0.5rem;
+  padding: 0 1.25rem;
 }
 :root[data-overhaul="mobile"] .ov-agented .ov-row {
   grid-template-columns: minmax(0, 1fr) !important;
@@ -2035,4 +2039,75 @@
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
+}
+/* Variables in Edit mode: arrows and delete as full touch targets. */
+[data-variable-touch-tools] [data-variable-row-tool] {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  border-radius: 0.75rem;
+}
+[data-variable-touch-tools] [data-variable-row-tool] svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+[data-variable-touch-tools] > div:first-child {
+  padding-block: 0.25rem;
+}
+/* Phones: the name opens a variable, so the small chevron goes; the row stays inside the card. */
+[data-variable-touch-tools] [data-variable-chevron] {
+  display: none;
+}
+[data-variable-touch-tools] > div:first-child {
+  gap: 0.375rem;
+  padding-inline: 0.5rem 0.25rem;
+}
+[data-variable-touch-tools] > div:first-child > span.flex-1 {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] [data-preset-variables-header] {
+  flex-wrap: wrap;
+}
+:root[data-overhaul="mobile"] [data-preset-variables-header] > button {
+  min-height: 2.75rem;
+  white-space: nowrap;
+}
+
+/* ⋯ menus on phones: an action sheet along the bottom, never clipped by the screen edge.
+   Tapping the dimmed area closes it. */
+:root[data-overhaul="mobile"] .ov-menu {
+  position: fixed;
+  z-index: 90;
+  top: auto;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  left: 0.75rem;
+  min-width: 0;
+  padding: 0.375rem;
+  border-color: var(--ovm-line, var(--ov-line));
+  border-radius: 1rem;
+  background: var(--ovm-surface, var(--card));
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
+}
+:root[data-overhaul="mobile"] .ov-menu::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: -100vmax;
+}
+:root[data-overhaul="mobile"] .ov-menu button {
+  min-height: 3rem;
+  padding: 0 0.875rem;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-menu button svg {
+  width: 1.125rem;
+  height: 1.125rem;
 }

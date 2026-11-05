@@ -519,7 +519,14 @@ export function AgentCatalogView() {
                 <MoreHorizontal size={15} aria-hidden="true" />
               </button>
               {ovMenuOpen ? (
-                <div className="ov-menu" role="menu">
+                <div
+                  className="ov-menu"
+                  role="menu"
+                  onClick={(event) => {
+                    // Phones show the menu as a sheet; a tap on its backdrop closes it.
+                    if (event.target === event.currentTarget) setOvMenuOpen(false);
+                  }}
+                >
                   <button
                     type="button"
                     role="menuitem"
