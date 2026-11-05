@@ -2111,3 +2111,197 @@
   width: 1.125rem;
   height: 1.125rem;
 }
+
+/* Every text box with Preview / Expand / Macro buttons (Lorebook entries, Character and
+   Persona pages, editors): on phones the buttons leave the box and sit in a row just above
+   it on the right, at full touch size, so they're easy to hit and never cover the text. */
+:root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col):not(#ovm-x) {
+  display: flex;
+  flex-direction: column;
+}
+:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col:not(#ovm-x) {
+  position: static;
+  order: -1;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  opacity: 1;
+}
+:root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col) > textarea:not(#ovm-x) {
+  padding-right: 0.75rem !important;
+}
+:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col > :is(button, a):not(#ovm-x) {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col > :is(button, a) svg {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+}
+
+/* Choice pills (Service Tier, Reasoning Effort, Verbosity and other on/off picks in a
+   wrapping row): full touch height on phones. */
+:root[data-overhaul="mobile"] .flex-wrap > button[aria-pressed]:not(#ovm-x) {
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* ─── Library pages on phones (Lorebook, Preset, Agent, Character, Persona, Connection,
+   Settings): every control big enough for a thumb, like Chat settings pages. ─── */
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery)
+  :is(button, [role="button"], summary):not(
+    .cursor-help,
+    .ov-crumbs__item,
+    .ovm-drill-row,
+    .sr-only,
+    [role="switch"],
+    [data-variable-chevron]
+  ):not(#ovm-x) {
+  min-height: 2.5rem;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery)
+  :is(button, [role="button"]):is([aria-label], [title]):has(> svg:only-child):not(.cursor-help, .hidden):not(#ovm-x) {
+  display: inline-flex;
+  min-width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery)
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]), select):not(
+    .sr-only
+  ):not(#ovm-x) {
+  min-height: 2.5rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery)
+  :is(input[type="checkbox"], input[type="radio"]):not(.sr-only):not(#ovm-x) {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+/* Switches: a bit larger, with a thumb-sized hit area. */
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  label.relative.inline-flex:has(> .sr-only) {
+  transform: scale(1.2);
+  transform-origin: right center;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  label.relative.inline-flex:has(> .sr-only)::after {
+  content: "";
+  position: absolute;
+  inset: -0.625rem;
+}
+/* Help icons and breadcrumbs stay small to look at but get a thumb-sized hit area. */
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  :is(.cursor-help, .ov-crumbs__item, .ov-ed__link) {
+  position: relative;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  :is(.cursor-help, .ov-crumbs__item, .ov-ed__link)::after {
+  content: "";
+  position: absolute;
+  inset: -0.625rem -0.375rem;
+}
+/* Segmented pickers and the lorebook's on/off chips. */
+:root[data-overhaul="mobile"] .ov-seg > button:not(#ovm-x),
+:root[data-overhaul="mobile"] .ov-ltoggle:not(#ovm-x) {
+  min-height: 2.5rem;
+  padding-inline: 0.75rem;
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-lentry__switches {
+  gap: 0.375rem 1rem;
+}
+:root[data-overhaul="mobile"] .ov-lentry__add:not(#ovm-x),
+:root[data-overhaul="mobile"] .ov-lentry__foot > button:not(#ovm-x) {
+  min-height: 2.5rem;
+  font-size: 0.9375rem;
+}
+/* Small app buttons (mari-chrome-control--small) in Settings sections. */
+:root[data-overhaul="mobile"] .mari-chrome-control--small:not(#ovm-x) {
+  min-height: 2.5rem !important;
+  font-size: 0.875rem !important;
+}
+/* Editor headers (Agent, Character, Connection, Lorebook): full-size buttons. */
+:root[data-overhaul="mobile"] :is(.ov-edbtn, .ov-btn):not(#ovm-x) {
+  min-height: 2.5rem;
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] :is(.ov-edbtn--icon, .ov-btn--icon):not(#ovm-x) {
+  min-width: 2.5rem;
+}
+:root[data-overhaul="mobile"] .ov-idline__copy:not(#ovm-x) {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+:root[data-overhaul="mobile"] .ov-pill:not(#ovm-x),
+:root[data-overhaul="mobile"] .ov-addchip:not(#ovm-x) {
+  min-height: 2.5rem;
+}
+.ovm-drill-page__body .ov-cf__control {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ovm-drill-page__body .ov-cf__control > * {
+  min-width: 0;
+}
+/* Preset page: the Prompt order toolbar and section rows match Chat settings. */
+:root[data-overhaul="mobile"] .ovm-preset .mari-editor-action:not(#ovm-x) {
+  min-height: 2.5rem !important;
+  padding-inline: 0.75rem !important;
+  font-size: 0.9375rem !important;
+}
+:root[data-overhaul="mobile"] .ovm-preset [data-touch-reorder-item="preset-section"] > div:first-child {
+  gap: 0.25rem;
+  padding-block: 0.125rem;
+  padding-inline: 0.375rem;
+}
+:root[data-overhaul="mobile"] .ovm-preset [data-touch-reorder-item="preset-section"] > div:first-child span.flex-1 {
+  font-size: 0.9375rem !important;
+}
+:root[data-overhaul="mobile"] .ovm-preset .ov-po-tools {
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  padding-inline: 0;
+}
+:root[data-overhaul="mobile"] .ovm-preset .ov-po-tools .mari-editor-action:not(#ovm-x) {
+  padding-inline: 0.5rem !important;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ovm-preset .ov-po-tools [data-preset-touch-edit] {
+  margin-left: auto;
+}
+:root[data-overhaul="mobile"] .ovm-settings .mari-chrome-control:not(#ovm-x) {
+  min-height: 2.5rem !important;
+  font-size: 0.875rem !important;
+}
+:root[data-overhaul="mobile"] .ovm-preset [data-preset-section-toggle]:not(#ovm-x),
+:root[data-overhaul="mobile"]
+  .ovm-preset
+  [data-touch-reorder-item="preset-section"]
+  button:has(> svg:only-child):not(#ovm-x) {
+  display: inline-flex;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+}
+:root[data-overhaul="mobile"] .ov-lv-tools__sort:not(#ovm-x) {
+  height: 2.5rem;
+}
