@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ExternalLink, Eye, EyeOff, GripVertical, Pencil } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/overhaul.store";
 import { OvSeg } from "./LoreEntryParts";
 
 const MODE_LABELS: Record<string, string> = {
@@ -156,6 +156,7 @@ export function OvChatSettingsEditor({
   const floating = useOverhaulStore((state) => state.chatSettingsFloating);
   const setFloating = useOverhaulStore((state) => state.setChatSettingsFloating);
   const setWidth = useOverhaulStore((state) => state.setChatSettingsWidth);
+  const overhaulMobile = useOverhaulMobile();
   const [sections, setSections] = useState<SectionInfo[]>(() => readSections(container));
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -202,28 +203,32 @@ export function OvChatSettingsEditor({
           Reset
         </button>
       </div>
-      <div className="ov-cs-edit__panel">
-        <span>Panel</span>
-        <OvSeg
-          label="Panel placement"
-          value={floating ? "float" : "dock"}
-          options={[
-            { value: "dock", label: "Docked" },
-            { value: "float", label: "Floating" },
-          ]}
-          onChange={(next) => setFloating(next === "float")}
-        />
-        <small>
-          {floating
-            ? "Drag the title bar to move it and any edge to resize it."
-            : "Drag the left edge to make it wider or narrower."}
-        </small>
-        {!floating ? (
-          <button type="button" className="ov-ed__link" onClick={() => setWidth(0)}>
-            Default width
-          </button>
-        ) : null}
-      </div>
+      {/* On phones and tablets the drawer is always a bottom sheet, so docking,
+          floating and width don't apply. */}
+      {overhaulMobile ? null : (
+        <div className="ov-cs-edit__panel">
+          <span>Panel</span>
+          <OvSeg
+            label="Panel placement"
+            value={floating ? "float" : "dock"}
+            options={[
+              { value: "dock", label: "Docked" },
+              { value: "float", label: "Floating" },
+            ]}
+            onChange={(next) => setFloating(next === "float")}
+          />
+          <small>
+            {floating
+              ? "Drag the title bar to move it and any edge to resize it."
+              : "Drag the left edge to make it wider or narrower."}
+          </small>
+          {!floating ? (
+            <button type="button" className="ov-ed__link" onClick={() => setWidth(0)}>
+              Default width
+            </button>
+          ) : null}
+        </div>
+      )}
       {onProfileSlot ? (
         <div className="ov-cs-edit__profile">
           <span>Settings profile</span>
