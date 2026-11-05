@@ -2,12 +2,16 @@
  * GPT Image 2.6 and animated GIF output (capability API 1.816):
  *   - 2.6 stills behave like 2.5: listed models, custom sizes with the 1024x1536-pixel floor, xhigh/max quality, alpha;
  *   - `animation` on a native OpenAI 2.6 connection sends one /images/generations request with output_format "gif",
- *     2..12 frames of 20..2000 ms, the smallest frame size in the requested shape, and none of the fields OpenAI
- *     refuses with a GIF, even when the connection's custom parameters set them, its size or its quality;
- *   - ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs, a 2.5 model and any picture are refused before a request;
- *   - a fallback that can't make GIFs is skipped, and a still answer is a failed attempt, never a quiet still;
+ *     2..12 frames of 20..2000 ms, the smallest frame size in the requested shape, a quality only when it is a level
+ *     2.6 lists (never "auto"), and none of the fields OpenAI refuses with a GIF, even when the connection's custom
+ *     parameters set them or its size;
+ *   - ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs, a 2.5 model and any picture are refused before a request,
+ *     and the shared imageConnectionMakesAnimatedGif gives generateImage's answer for each connection row;
+ *   - a fallback that can't make GIFs is skipped, and a still answer (typed by its bytes, even from a URL with a wrong
+ *     content type) is a failed attempt, never a quiet still;
  *   - the GIF is saved as .gif (WebP conversion leaves it alone), a chat record of it names no references, and the
- *     avatar-generation route answers 400 code "animation-unsupported" for a refusal and a GIF data URL otherwise.
+ *     avatar-generation route answers 400 code "animation-unsupported" for a refusal and a GIF data URL otherwise,
+ *     logging the final GIF request in debug mode.
  * Every provider is a local fake server, so nothing is paid for.
  */
 import assert from "node:assert/strict";
@@ -158,16 +162,30 @@ const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwA
 const requests: Array<{ path: string; contentType: string; body: Buffer }> = [];
 // It answers in the format asked for, unless the test sets a base path to answer with a PNG or to fail.
 const answers = new Map<string, "png" | "fail">();
+// A base path set here answers with `data[0].url` instead, a file of these bytes served with this content type.
+const urlAnswers = new Map<string, { bytes: string; contentType: string; file: string }>();
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const path = request.url ?? "";
+  const served = [...urlAnswers.values()].find(({ file }) => path === `/files/${file}`);
+  if (served) {
+    response.setHeader("content-type", served.contentType);
+    response.end(Buffer.from(served.bytes, "base64"));
+    return;
+  }
   const body = Buffer.concat(chunks);
   requests.push({ path, contentType: request.headers["content-type"] ?? "", body });
   const asksForGif =
     request.headers["content-type"] === "application/json" && /"output_format":"gif"/.test(body.toString());
-  const answer = answers.get(path.split("/")[1] ?? "") ?? (asksForGif ? "gif" : "png");
+  const base = path.split("/")[1] ?? "";
+  const answer = answers.get(base) ?? (asksForGif ? "gif" : "png");
   response.setHeader("content-type", "application/json");
+  const byUrl = urlAnswers.get(base);
+  if (byUrl) {
+    response.end(JSON.stringify({ data: [{ url: `http://${request.headers.host}/files/${byUrl.file}` }] }));
+    return;
+  }
   if (answer === "fail") {
     response.statusCode = 503;
     response.end(JSON.stringify({ error: { message: "fixture unavailable" } }));
@@ -264,7 +282,14 @@ try {
   assert.equal(result.ext, "gif");
   assert.equal(result.base64, gif);
 
-  // The connection's custom parameters can't add what a GIF refuses or change its model, size, frames or quality.
+  // The connection's default quality, "auto", isn't a level 2.6 lists, so the field is left off and the API default applies.
+  await generate({ animation: {}, quality: "auto" });
+  assert.equal("quality" in json(takeOne()), false, "quality auto sends no quality");
+  await generate({ animation: {}, quality: undefined });
+  assert.equal("quality" in json(takeOne()), false);
+
+  // The connection's custom parameters can't add what a GIF refuses or change its model, size or frames. A custom
+  // quality wins over the connection's, as on stills.
   await generate({
     model: models[1],
     animation: { frameCount: 99, frameDurationMs: 333 },
@@ -302,8 +327,24 @@ try {
     output_format: "gif",
     frame_count: 12,
     frame_duration_ms: 330,
+    quality: "low",
     complexity: "low",
   });
+  // A custom quality is checked like the connection's: one 2.6 doesn't list is left off.
+  for (const customQuality of ["auto", "ultra", 3]) {
+    await generate({
+      animation: {},
+      quality: "xhigh",
+      imageDefaults: { version: 1, service: "api", seed: -1, customParameters: { quality: customQuality } },
+    });
+    assert.equal("quality" in json(takeOne()), false, String(customQuality));
+  }
+  await generate({
+    animation: {},
+    quality: "low",
+    imageDefaults: { version: 1, service: "api", seed: -1, customParameters: { quality: "max" } },
+  });
+  assert.equal(json(takeOne()).quality, "max");
   await generate({ animation: { frameCount: 1, frameDurationMs: 15 } });
   captured = takeOne();
   assert.equal(json(captured).frame_count, 2);
@@ -338,6 +379,22 @@ try {
   } finally {
     applyGeneratedImageFormatUiSettingsValue(null);
   }
+
+  // ── Answers as a URL: the bytes decide, not the content type or the URL's text ──
+  urlAnswers.set("url-still", { bytes: png, contentType: "image/gif", file: "still.gif" });
+  await assert.rejects(generate({ animation: {} }, local("url-still")), { message: IMAGE_ANIMATION_STILL_MESSAGE });
+  takeOne();
+  const stillFromUrl = await generate({}, local("url-still"));
+  takeOne();
+  assert.equal(stillFromUrl.mimeType, "image/png", "a still labelled as a GIF is typed by its bytes");
+  urlAnswers.set("url-gif", { bytes: gif, contentType: "image/jpeg", file: "loop.jpg" });
+  const gifFromUrl = await generate({ animation: {} }, local("url-gif"));
+  takeOne();
+  assert.equal(gifFromUrl.mimeType, "image/gif", "a GIF labelled as a JPEG is kept as a GIF");
+  assert.equal(gifFromUrl.ext, "gif");
+  assert.equal(gifFromUrl.base64, gif);
+  assert.match(saveImageToDisk("gif-chat", gifFromUrl.base64, gifFromUrl.ext), /^gif-chat\/[^/]+\.gif$/);
+  urlAnswers.clear();
 
   // ── Refusals, before any request ──
   const refuses = async (
@@ -388,6 +445,41 @@ try {
   assert.equal(rule("https://nano-gpt.com/api/v1", ""), false);
   assert.equal(rule("https://toapis.com/v1", "openai"), false);
   assert.equal(rule("", "codex_chatgpt"), false);
+  // The shared rule, which client gates ask with a connection row mapped as the routes map it, gives generateImage's
+  // answer: it refuses exactly the rows the rule says can't make GIFs.
+  const rows: Array<{ row: Record<string, string>; makesGifs: boolean }> = [
+    { row: { imageGenerationSource: "openai", baseUrl: local("rows"), model: models[0] }, makesGifs: true },
+    { row: { imageService: "openai", baseUrl: local("rows"), model: models[1] }, makesGifs: true },
+    { row: { baseUrl: local("rows"), model: models[0] }, makesGifs: true },
+    { row: { imageGenerationSource: "openai", baseUrl: local("rows"), model: "gpt-image-2.5-flare" }, makesGifs: false },
+    { row: { imageGenerationSource: "codex_chatgpt", baseUrl: "", model: models[0] }, makesGifs: false },
+    { row: { imageGenerationSource: "openai", baseUrl: "https://toapis.com/v1", model: models[0] }, makesGifs: false },
+    { row: { baseUrl: "https://toapis.cn", model: models[1] }, makesGifs: false },
+    { row: { imageGenerationSource: "nanogpt", baseUrl: local("rows"), model: models[0] }, makesGifs: false },
+    { row: { baseUrl: "https://nano-gpt.com/api/v1", model: models[0] }, makesGifs: false },
+    { row: { imageGenerationSource: "openrouter", baseUrl: local("rows"), model: models[0] }, makesGifs: false },
+    { row: { baseUrl: "https://openrouter.ai/api/v1", model: "openai/gpt-image-2.6-flare" }, makesGifs: false },
+  ];
+  for (const { row, makesGifs } of rows) {
+    const source = row.imageGenerationSource || row.model!;
+    const connection = { source, baseUrl: row.baseUrl!, serviceHint: row.imageService || source, model: row.model };
+    const label = JSON.stringify(row);
+    assert.equal(openAIImage.imageConnectionMakesAnimatedGif(connection), makesGifs, label);
+    const allowed = await generateImage(source, connection.baseUrl, "fixture-key", connection.serviceHint, {
+      model: row.model,
+      prompt: "a moonlit laboratory",
+      animation: {},
+      allowLocalUrls: true,
+    }).then(
+      () => true,
+      (error: unknown) => {
+        if (error instanceof ImageAnimationUnsupportedError) return false;
+        throw error;
+      },
+    );
+    assert.equal(allowed, makesGifs, `generateImage agrees with the shared rule for ${label}`);
+    assert.equal(requests.splice(0).length, makesGifs ? 1 : 0, label);
+  }
 
   // ── Fallbacks and still answers ──
   const fallbackTo = (name: string, model: string) => ({
@@ -502,13 +594,29 @@ try {
   assert.equal(response.statusCode, 400, response.body);
   assert.deepEqual(response.json(), { error: IMAGE_ANIMATION_REFERENCE_MESSAGE, code: "animation-unsupported" });
   assert.equal(requests.length, 0, "the route's refusals send nothing");
-  response = await avatar({ connectionId: gif26, animation: { frameCount: 4 } });
+  // The route forwards the UI's debug mode, so the final GIF request is logged.
+  const routeLogs: string[] = [];
+  logger.warn = ((message: unknown, ...args: unknown[]) => {
+    routeLogs.push([message, ...args].map(String).join(" "));
+  }) as typeof logger.warn;
+  try {
+    response = await avatar({ connectionId: gif26, animation: { frameCount: 4 }, debugMode: true });
+  } finally {
+    logger.warn = priorWarn;
+  }
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().image, `data:image/gif;base64,${gif}`);
+  assert.ok(
+    routeLogs.some(
+      (line) => line.includes("[debug/image/openai] GIF request payload") && line.includes('"frame_count": 4'),
+    ),
+    "the route's debug mode logs the final GIF request",
+  );
   const avatarBody = json(takeOne());
   assert.equal(avatarBody.output_format, "gif");
   assert.equal(avatarBody.frame_count, 4);
   assert.equal(avatarBody.size, "816x816");
+  assert.equal("quality" in avatarBody, false, "a connection without an Image quality sends none");
   response = await avatar({ connectionId: gif26 });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().image, `data:image/png;base64,${png}`, "without animation the avatar stays a still");

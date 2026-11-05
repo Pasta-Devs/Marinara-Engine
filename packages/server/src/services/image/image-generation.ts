@@ -21,13 +21,13 @@ import {
   DEFAULT_NOVELAI_DEFAULTS,
   mergeNegativePrompt,
   mergePromptPrefix,
-  inferImageSource,
+  imageConnectionMakesAnimatedGif,
   isOpenAIGptImageModel,
   isOpenAIGptImage2Model,
   isOpenAIGptImage25Model,
   OPENAI_GIF_MAX_FRAMES,
+  resolveImageBackend,
   resolveOpenAIGifAnimation,
-  supportsOpenAIAnimatedGif,
   supportsOpenAITransparentBackground,
   resolveOpenAIImageQuality,
   type Automatic1111Defaults,
@@ -148,52 +148,6 @@ function sanitizeErrorText(text: string): string {
 import type { ImageGenRequest, ImageGenResult } from "@marinara-engine/shared";
 export type { ImageGenRequest, ImageGenResult } from "@marinara-engine/shared";
 
-const EXPLICIT_IMAGE_SOURCES = new Set([
-  "openai",
-  "codex_chatgpt",
-  "arli",
-  "nanogpt",
-  "openrouter",
-  "pollinations",
-  "stability",
-  "togetherai",
-  "novelai",
-  "horde",
-  "xai",
-  "venice",
-  "zai",
-  "fal",
-  "spicyapi",
-  "atlas",
-  "comfyui",
-  "swarmui",
-  "automatic1111",
-  "runpod_comfyui",
-  "gemini_image",
-]);
-
-function normalizeExplicitImageSource(serviceHint: string): string {
-  const normalized = serviceHint.trim().toLowerCase();
-  if (!normalized) return "";
-  if (normalized === "drawthings") return "automatic1111";
-  return EXPLICIT_IMAGE_SOURCES.has(normalized) ? normalized : "";
-}
-
-function resolveImageBackend(source: string, baseUrl: string, serviceHint: string, requestModel?: string): string {
-  const inferredSource = inferImageSource(requestModel || source, baseUrl);
-  const explicitSource = normalizeExplicitImageSource(serviceHint);
-
-  if (!explicitSource) return inferredSource;
-
-  // Gemini image models exposed through OpenAI-compatible proxies (for example LinkAPI)
-  // must use the chat-completions path even if an older connection still says "openai".
-  if (explicitSource === "openai" && inferredSource === "gemini_image") {
-    return inferredSource;
-  }
-
-  return explicitSource;
-}
-
 type ReferencePictureTarget = { model: string; baseUrl: string; comfyWorkflow: string };
 
 /** A ComfyUI file-name slot, which SwarmUI workflows can't fill. */
@@ -293,22 +247,8 @@ export class ImageAnimationUnsupportedError extends Error {
   readonly code = "animation-unsupported";
 }
 
-/**
- * Whether an image connection, given as generateImage receives it, returns a looping GIF for `animation`:
- * GPT Image 2.6 on the OpenAI backend, not ChatGPT (Codex login), OpenRouter, NanoGPT or ToAPIs.
- */
-export function imageConnectionMakesAnimatedGif(connection: {
-  source: string;
-  baseUrl: string;
-  serviceHint: string;
-  model?: string;
-}): boolean {
-  return (
-    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) === "openai" &&
-    !isToAPIsMediaUrl(connection.baseUrl) &&
-    supportsOpenAIAnimatedGif(connection.model)
-  );
-}
+// The connection rule lives in shared so client gates ask the same question.
+export { imageConnectionMakesAnimatedGif };
 
 /** Default 30-minute timeout for image generation API calls (overridable via env). */
 const IMAGE_GEN_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS ?? 1_800_000);
@@ -496,7 +436,10 @@ export async function generateImage(
         }),
     });
     // A still is never saved as a GIF. It was paid for, so the attempt failed and a fallback that makes GIFs may run.
-    if (request.animation && primaryResult.mimeType !== "image/gif") throw new Error(IMAGE_ANIMATION_STILL_MESSAGE);
+    // The bytes decide: a provider's label can be wrong either way.
+    if (request.animation && detectImageMimeType(primaryResult.base64) !== "image/gif") {
+      throw new Error(IMAGE_ANIMATION_STILL_MESSAGE);
+    }
     outcome = "completed";
     const storedResult = request.preserveProviderOutput
       ? primaryResult
@@ -1251,18 +1194,22 @@ async function downloadImageUrl(
   const arrayBuffer = await imgResp.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
 
-  const contentType = imgResp.headers.get("content-type") ?? "";
-  let mimeType = detectImageMimeType(base64) ?? normalizeImageMimeType(contentType) ?? "image/png";
-  if (contentType.includes("jpeg") || contentType.includes("jpg") || normalizedImageUrl.match(/\.jpe?g/i)) {
-    mimeType = "image/jpeg";
-  } else if (contentType.includes("webp") || normalizedImageUrl.match(/\.webp/i)) {
-    mimeType = "image/webp";
-  } else if (contentType.includes("gif") || normalizedImageUrl.match(/\.gif/i)) {
-    mimeType = "image/gif";
-  } else if (contentType.includes("avif") || normalizedImageUrl.match(/\.avif/i)) {
-    mimeType = "image/avif";
-  } else if (contentType.includes("bmp") || normalizedImageUrl.match(/\.bmp/i)) {
-    mimeType = "image/bmp";
+  // The bytes decide, as for data URLs; the header and the URL's text only type bytes that match no known format.
+  let mimeType = detectImageMimeType(base64);
+  if (!mimeType) {
+    const contentType = imgResp.headers.get("content-type") ?? "";
+    mimeType = normalizeImageMimeType(contentType) ?? "image/png";
+    if (contentType.includes("jpeg") || contentType.includes("jpg") || normalizedImageUrl.match(/\.jpe?g/i)) {
+      mimeType = "image/jpeg";
+    } else if (contentType.includes("webp") || normalizedImageUrl.match(/\.webp/i)) {
+      mimeType = "image/webp";
+    } else if (contentType.includes("gif") || normalizedImageUrl.match(/\.gif/i)) {
+      mimeType = "image/gif";
+    } else if (contentType.includes("avif") || normalizedImageUrl.match(/\.avif/i)) {
+      mimeType = "image/avif";
+    } else if (contentType.includes("bmp") || normalizedImageUrl.match(/\.bmp/i)) {
+      mimeType = "image/bmp";
+    }
   }
 
   return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
@@ -1456,7 +1403,8 @@ async function generateOpenAI(
   // generateImage lets only GPT Image 2.6 without a picture through. GIFs come from /generations only.
   if (request.animation) {
     const { frameCount, frameDurationMs } = resolveOpenAIGifAnimation(request.animation);
-    // Set again over the connection's custom parameters, so they can't change the model, the frame budget or the cost.
+    const custom = request.imageDefaults?.customParameters;
+    // Set again over the connection's custom parameters, so they can't change the model or the frame budget.
     const fixed: Record<string, unknown> = {
       model: request.model,
       n: 1,
@@ -1465,12 +1413,16 @@ async function generateOpenAI(
       frame_count: frameCount,
       frame_duration_ms: frameDurationMs,
     };
-    if (request.quality) fixed.quality = resolveOpenAIImageQuality(request.quality, request.model);
+    // A custom quality wins, as on stills, but only a level 2.6 lists goes out. "auto" (the connection's default)
+    // and anything else leave the field off, so the API default applies.
+    const quality = resolveOpenAIImageQuality(custom?.quality ?? request.quality, request.model);
+    if (quality !== "auto") fixed.quality = quality;
     // Complexity and other custom parameters pass through.
     const body: Record<string, unknown> = {
       prompt: `${prompt}\n\n${OPENAI_GIF_LOOP_PROMPT}`,
-      ...request.imageDefaults?.customParameters,
+      ...custom,
     };
+    // A raw custom quality is replaced by the checked one above, or dropped with it.
     for (const key of [...OPENAI_GIF_UNSUPPORTED_FIELDS, "quality"]) delete body[key];
     Object.assign(body, fixed);
     logDebugOverride(

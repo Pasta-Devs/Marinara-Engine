@@ -1,3 +1,4 @@
+import { isToAPIsMediaUrl, resolveImageBackend } from "../constants/model-lists.js";
 import type { ImageGenerationQuality } from "../types/connection.js";
 import type { ImageAnimation } from "../types/generation-integration.js";
 
@@ -9,6 +10,25 @@ export function isOpenAIGptImage25Model(model?: string | null): boolean {
 /** Whether the model returns a looping GIF for `output_format: "gif"`. An `openai/` (OpenRouter) id does not. */
 export function supportsOpenAIAnimatedGif(model?: string | null): boolean {
   return /^gpt-image-2\.6-(?:flare|sunburst)(?:$|-)/i.test(model?.trim() ?? "");
+}
+
+/**
+ * Whether an image connection, given as the server's generateImage receives it, returns a looping GIF for `animation`:
+ * GPT Image 2.6 on the OpenAI backend, not ChatGPT (Codex login), OpenRouter, NanoGPT or ToAPIs. generateImage refuses
+ * every other GIF request, so a client gate asks this too, with a connection row mapped as the routes map it:
+ * `source = row.imageGenerationSource || row.model`, `serviceHint = row.imageService || source`.
+ */
+export function imageConnectionMakesAnimatedGif(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+}): boolean {
+  return (
+    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) === "openai" &&
+    !isToAPIsMediaUrl(connection.baseUrl) &&
+    supportsOpenAIAnimatedGif(connection.model)
+  );
 }
 
 // OpenAI takes 2 to 64 frames but doesn't publish a GIF request's pixel budget. At most 12 frames of the

@@ -1324,6 +1324,77 @@ export function inferImageSource(model: string, baseUrl: string): string {
   return "openai";
 }
 
+const EXPLICIT_IMAGE_SOURCES = new Set([
+  "openai",
+  "codex_chatgpt",
+  "arli",
+  "nanogpt",
+  "openrouter",
+  "pollinations",
+  "stability",
+  "togetherai",
+  "novelai",
+  "horde",
+  "xai",
+  "venice",
+  "zai",
+  "fal",
+  "spicyapi",
+  "atlas",
+  "comfyui",
+  "swarmui",
+  "automatic1111",
+  "runpod_comfyui",
+  "gemini_image",
+]);
+
+function normalizeExplicitImageSource(serviceHint: string): string {
+  const normalized = serviceHint.trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "drawthings") return "automatic1111";
+  return EXPLICIT_IMAGE_SOURCES.has(normalized) ? normalized : "";
+}
+
+/** The image backend the server's generateImage calls for these arguments: the explicit service, else the inferred one. */
+export function resolveImageBackend(
+  source: string,
+  baseUrl: string,
+  serviceHint: string,
+  requestModel?: string,
+): string {
+  const inferredSource = inferImageSource(requestModel || source, baseUrl);
+  const explicitSource = normalizeExplicitImageSource(serviceHint);
+
+  if (!explicitSource) return inferredSource;
+
+  // Gemini image models exposed through OpenAI-compatible proxies (for example LinkAPI)
+  // must use the chat-completions path even if an older connection still says "openai".
+  if (explicitSource === "openai" && inferredSource === "gemini_image") {
+    return inferredSource;
+  }
+
+  return explicitSource;
+}
+
+/** Whether a base URL is ToAPIs, which an "OpenAI (DALL-E)" or Seedance connection reaches as asynchronous media tasks. */
+export function isToAPIsMediaUrl(baseUrl: string): boolean {
+  try {
+    const u = new URL(baseUrl);
+    return (
+      u.protocol === "https:" &&
+      ["toapis.com", "toapis.cn"].includes(u.hostname) &&
+      !u.username &&
+      !u.password &&
+      !u.port &&
+      !u.search &&
+      !u.hash &&
+      /^\/(?:v1\/?)?$/.test(u.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ── Provider → Model map ──
 
 export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
