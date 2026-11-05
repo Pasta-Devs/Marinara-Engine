@@ -39,6 +39,7 @@ import {
   CalendarClock,
   TextSearch,
   Activity,
+  MoreHorizontal,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
 import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
@@ -329,6 +330,8 @@ export function ChatSidebar() {
 
   // Multi-select state
   const [multiSelectMode, setMultiSelectMode] = useState(false);
+  // New layout on phones: sort, select, new folder, import and message search live in one ⋯ menu.
+  const [ovmListMenuOpen, setOvmListMenuOpen] = useState(false);
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [isImportingChat, setIsImportingChat] = useState(false);
 
@@ -1482,7 +1485,7 @@ export function ChatSidebar() {
         </div>
       </div>
 
-      <div className={cn("flex gap-2 px-3 pt-2", overhaulDesktop && "hidden", overhaulMobile && "ovm-chats-tools")}>
+      <div className={cn("flex gap-2 px-3 pt-2", (overhaulDesktop || overhaulMobile) && "hidden")}>
         <input
           ref={chatImportInputRef}
           type="file"
@@ -1558,7 +1561,7 @@ export function ChatSidebar() {
               className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
             />
           </div>
-          <div className="relative">
+          <div className={cn("relative", overhaulMobile && "hidden")}>
             <select
               value={manualOrderActive ? "manual" : sort}
               onChange={(e) => {
@@ -1586,12 +1589,117 @@ export function ChatSidebar() {
           <button
             type="button"
             onClick={() => openGlobalSearch(searchQuery.trim())}
-            className="mari-chrome-control mari-chrome-control--small h-10 w-10 shrink-0 justify-center p-0! md:h-9 md:w-9"
+            className={cn(
+              "mari-chrome-control mari-chrome-control--small h-10 w-10 shrink-0 justify-center p-0! md:h-9 md:w-9",
+              overhaulMobile && "!hidden",
+            )}
             title={localizeUi("chatInsights.search.open")}
             aria-label={localizeUi("chatInsights.search.open")}
           >
             <TextSearch size="0.875rem" />
           </button>
+          {overhaulMobile ? (
+            <div className="ov-menu-wrap ovm-chats-more">
+              <button
+                type="button"
+                className="mari-chrome-control ovm-chats-more__btn"
+                aria-label={localize("More chat list options")}
+                aria-expanded={ovmListMenuOpen}
+                onClick={() => setOvmListMenuOpen((open) => !open)}
+              >
+                <MoreHorizontal size={20} />
+              </button>
+              {ovmListMenuOpen ? (
+                <div
+                  className="ov-menu ovm-chats-menu"
+                  role="menu"
+                  aria-label={localize("Chat list options")}
+                  onClick={(event) => {
+                    if (event.target === event.currentTarget) setOvmListMenuOpen(false);
+                  }}
+                >
+                  <p className="ovm-chats-menu__label">{localize("Sort")}</p>
+                  {(
+                    [
+                      ["custom", localizeUi("ui.layout.chatsidebar.customOrder")],
+                      ["manual", localizeUi("dragDrop.manualOrder")],
+                      ["recent", localizeUi("ui.layout.chatsidebar.recent")],
+                      ["newest", localize("Newest")],
+                      ["oldest", localize("Oldest")],
+                      ["name-asc", localizeUi("ui.panels.backgroundpicker.aZ")],
+                      ["name-desc", localizeUi("ui.panels.backgroundpicker.zA")],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const checked = (manualOrderActive ? "manual" : sort) === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={checked}
+                        onClick={() => {
+                          manualOrder.setActive(value === "manual");
+                          if (value !== "manual") setSort(value as ChatSortOption);
+                          setOvmListMenuOpen(false);
+                        }}
+                      >
+                        <span className="ovm-chats-menu__text">{label}</span>
+                        {checked ? <Check size={18} className="ovm-chats-menu__check" /> : null}
+                      </button>
+                    );
+                  })}
+                  <hr className="ovm-chats-menu__rule" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={displayChats.length === 0}
+                    onClick={() => {
+                      setOvmListMenuOpen(false);
+                      if (multiSelectMode) exitMultiSelect();
+                      else setMultiSelectMode(true);
+                    }}
+                  >
+                    <CheckSquare size={18} />
+                    {localize(multiSelectMode ? "Cancel selection" : "Select chats")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOvmListMenuOpen(false);
+                      handleCreateFolder();
+                    }}
+                  >
+                    <FolderPlus size={18} />
+                    {localize("New Folder")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={isImportingChat}
+                    onClick={() => {
+                      setOvmListMenuOpen(false);
+                      chatImportInputRef.current?.click();
+                    }}
+                  >
+                    <Download size={18} />
+                    {localize("Import chat")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOvmListMenuOpen(false);
+                      openGlobalSearch(searchQuery.trim());
+                    }}
+                  >
+                    <TextSearch size={18} />
+                    {localizeUi("chatInsights.search.open")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {allTags.length > 0 && (
