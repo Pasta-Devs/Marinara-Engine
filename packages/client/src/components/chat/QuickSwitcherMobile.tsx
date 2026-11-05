@@ -61,7 +61,9 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"connections" | "personas">("connections");
   // New layout: the Random dice lives in the Connections tab instead of a row of its own.
+  // New layout on phones: a bottom sheet, with a connection search and the Random dice beside it.
   const diceInTab = useOverhaulMobile();
+  const [connectionSearch, setConnectionSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showCharacterGroups, setShowCharacterGroups] = useState(false);
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
@@ -405,6 +407,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             data-chat-floating-panel
             data-quick-switcher-mobile-menu
             className={cn(
+              diceInTab && "ovm-qs-sheet",
               "mari-chat-style-surface fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
               chatMode === "roleplay"
                 ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
@@ -422,71 +425,22 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             }
           >
             <div className="flex border-b border-foreground/10">
-              {diceInTab ? (
-                // New layout: the Random dice sits inside the Connections tab, after its label.
-                <div
-                  onClick={() => {
-                    setTab("connections");
-                    setModelsStep(null);
-                  }}
-                  className={cn(
-                    "flex flex-1 cursor-pointer items-center justify-center gap-1 px-2 transition-colors",
-                    tab === "connections"
-                      ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
-                      : "text-foreground/50 hover:text-foreground/80",
-                  )}
-                >
-                  <button type="button" className="flex items-center gap-1.5 py-2.5 text-[0.6875rem] font-semibold">
-                    <Link size="0.75rem" />
-                    {localizeUi("navigation.topbar.connections")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setTab("connections");
-                      setModelsStep(null);
-                      handleToggleRandom();
-                    }}
-                    data-random-on={isRandom ? "" : undefined}
-                    aria-pressed={isRandom}
-                    aria-label={
-                      isRandom
-                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                    }
-                    title={
-                      isRandom
-                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                    }
-                    className={cn(
-                      "-my-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all active:scale-90",
-                      isRandom
-                        ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-                        : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
-                    )}
-                  >
-                    <Dices size="1rem" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setTab("connections");
-                    setModelsStep(null);
-                  }}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
-                    tab === "connections"
-                      ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
-                      : "text-foreground/50 hover:text-foreground/80",
-                  )}
-                >
-                  <Link size="0.75rem" />
-                  {localizeUi("navigation.topbar.connections")}
-                </button>
-              )}
+              {/* tab */}
+              <button
+                onClick={() => {
+                  setTab("connections");
+                  setModelsStep(null);
+                }}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  tab === "connections"
+                    ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
+                    : "text-foreground/50 hover:text-foreground/80",
+                )}
+              >
+                <Link size="0.75rem" />
+                {localizeUi("navigation.topbar.connections")}
+              </button>
               <button
                 onClick={() => setTab("personas")}
                 className={cn(
@@ -550,7 +504,39 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                       <SubscriptionUsageWidget connectionId={usageConnection.id} variant="inline" />
                     </div>
                   )}
-                  {diceInTab ? null : (
+                  {diceInTab ? (
+                    <div className="ovm-qs-search">
+                      <label className="ovm-qs-search__field">
+                        <Search size={16} className="shrink-0" aria-hidden="true" />
+                        <span className="sr-only">{localizeUi("Search connections")}</span>
+                        <input
+                          type="search"
+                          value={connectionSearch}
+                          onChange={(event) => setConnectionSearch(event.target.value)}
+                          placeholder={localizeUi("Search connections")}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleToggleRandom}
+                        data-random-on={isRandom ? "" : undefined}
+                        aria-pressed={isRandom}
+                        aria-label={
+                          isRandom
+                            ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                            : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                        }
+                        title={
+                          isRandom
+                            ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                            : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                        }
+                        className="ovm-qs-dice"
+                      >
+                        <Dices size={20} />
+                      </button>
+                    </div>
+                  ) : (
                     <>
                       {/* Same as the desktop menu: a Connections header with the Random dice on the right. */}
                       <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-1.5">
@@ -585,92 +571,99 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                       <div className="mx-2 my-1 h-px bg-foreground/10" />
                     </>
                   )}
-                  {sortedConnections.map((conn) => {
-                    const inPool = conn.useForRandom === "true";
-                    const isActive = activeConnectionId === conn.id;
-                    if (isRandom) {
-                      return (
-                        <button
-                          key={conn.id}
-                          onClick={() => handleTogglePool(conn.id, inPool)}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
-                          title={
-                            inPool
-                              ? localizeUi("ui.chat.quickconnectionswitcher.inRandomPoolClickToRemove")
-                              : localizeUi("ui.chat.quickconnectionswitcher.clickToAddToRandomPool")
-                          }
-                        >
-                          <span className="flex-1 truncate">{conn.name || conn.id}</span>
-                          <span
-                            className={cn(
-                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                  {sortedConnections
+                    .filter(
+                      (conn) =>
+                        !diceInTab ||
+                        !connectionSearch.trim() ||
+                        (conn.name || conn.id).toLowerCase().includes(connectionSearch.trim().toLowerCase()),
+                    )
+                    .map((conn) => {
+                      const inPool = conn.useForRandom === "true";
+                      const isActive = activeConnectionId === conn.id;
+                      if (isRandom) {
+                        return (
+                          <button
+                            key={conn.id}
+                            onClick={() => handleTogglePool(conn.id, inPool)}
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
+                            title={
                               inPool
-                                ? "border-foreground/35 bg-foreground/10 text-foreground/75"
-                                : "border-foreground/20 bg-transparent",
-                            )}
+                                ? localizeUi("ui.chat.quickconnectionswitcher.inRandomPoolClickToRemove")
+                                : localizeUi("ui.chat.quickconnectionswitcher.clickToAddToRandomPool")
+                            }
                           >
-                            {inPool && <Check size="0.625rem" strokeWidth={3} />}
-                          </span>
-                        </button>
-                      );
-                    }
-                    const hasModels = !isLocalSidecarConnectionOption(conn);
-                    return (
-                      <div
-                        key={conn.id}
-                        className={cn(
-                          "relative flex min-h-11 w-full items-stretch rounded-lg text-xs",
-                          isActive && "bg-foreground/[0.07] text-foreground font-semibold",
-                        )}
-                      >
-                        {isActive && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
-                          />
-                        )}
-                        <button
-                          type="button"
-                          data-connection-option={conn.id}
-                          aria-current={isActive ? "true" : undefined}
-                          onClick={() => handleSwitchConnection(conn.id)}
+                            <span className="flex-1 truncate">{conn.name || conn.id}</span>
+                            <span
+                              className={cn(
+                                "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                                inPool
+                                  ? "border-foreground/35 bg-foreground/10 text-foreground/75"
+                                  : "border-foreground/20 bg-transparent",
+                              )}
+                            >
+                              {inPool && <Check size="0.625rem" strokeWidth={3} />}
+                            </span>
+                          </button>
+                        );
+                      }
+                      const hasModels = !isLocalSidecarConnectionOption(conn);
+                      return (
+                        <div
+                          key={conn.id}
                           className={cn(
-                            "flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-foreground/10",
-                            hasModels ? "rounded-l-lg" : "rounded-lg",
+                            "relative flex min-h-11 w-full items-stretch rounded-lg text-xs",
+                            isActive && "bg-foreground/[0.07] text-foreground font-semibold",
                           )}
                         >
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate">{conn.name || conn.id}</span>
-                            {isActive && conn.model && (
-                              <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-                                {conn.model}
-                              </span>
-                            )}
-                          </span>
                           {isActive && (
-                            <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
+                            />
                           )}
-                        </button>
-                        {hasModels && (
                           <button
                             type="button"
-                            data-connection-models={conn.id}
-                            onClick={() => setModelsStep(conn.id)}
-                            aria-label={localizeUi("connections.modelPicker.showModels", {
-                              connection: conn.name || conn.id,
-                            })}
-                            title={localizeUi("connections.modelPicker.showModels", {
-                              connection: conn.name || conn.id,
-                            })}
-                            className="relative flex w-12 shrink-0 items-center justify-center rounded-r-lg text-foreground/40 transition-colors hover:bg-foreground/10 hover:text-foreground/70"
+                            data-connection-option={conn.id}
+                            aria-current={isActive ? "true" : undefined}
+                            onClick={() => handleSwitchConnection(conn.id)}
+                            className={cn(
+                              "flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-foreground/10",
+                              hasModels ? "rounded-l-lg" : "rounded-lg",
+                            )}
                           >
-                            <span aria-hidden className="absolute inset-y-2.5 left-0 border-l border-foreground/15" />
-                            <ChevronRight size="0.875rem" aria-hidden />
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="truncate">{conn.name || conn.id}</span>
+                              {isActive && conn.model && (
+                                <span className="truncate text-[0.625rem] font-normal text-foreground/50">
+                                  {conn.model}
+                                </span>
+                              )}
+                            </span>
+                            {isActive && (
+                              <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
+                            )}
                           </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {hasModels && (
+                            <button
+                              type="button"
+                              data-connection-models={conn.id}
+                              onClick={() => setModelsStep(conn.id)}
+                              aria-label={localizeUi("connections.modelPicker.showModels", {
+                                connection: conn.name || conn.id,
+                              })}
+                              title={localizeUi("connections.modelPicker.showModels", {
+                                connection: conn.name || conn.id,
+                              })}
+                              className="relative flex w-12 shrink-0 items-center justify-center rounded-r-lg text-foreground/40 transition-colors hover:bg-foreground/10 hover:text-foreground/70"
+                            >
+                              <span aria-hidden className="absolute inset-y-2.5 left-0 border-l border-foreground/15" />
+                              <ChevronRight size="0.875rem" aria-hidden />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   {sortedConnections.length === 0 && (
                     <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
                       {localizeUi("ui.chat.quickconnectionswitcher.noConnectionsFound")}

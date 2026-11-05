@@ -11,7 +11,7 @@ import {
   readMessagePrivateNoteRecipientId,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Pin, StickyNote } from "lucide-react";
+import { Bookmark, ChevronLeft, Pin, StickyNote } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { ApiError } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton, useMessageActionMenu } from "./MessageActionButton";
 
@@ -85,6 +86,8 @@ export function MessageMarksAction({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
+  // New layout on phones: a bottom sheet of its own, with a ‹ back to the message's actions.
+  const sheet = useOverhaulMobile();
   const marks = readMessageMarks(message);
   const save = useSaveMessageMarks(message);
   const [label, setLabel] = useState(marks.bookmark?.label ?? "");
@@ -125,12 +128,26 @@ export function MessageMarksAction({
           <div
             ref={menuRef}
             data-chat-floating-panel
-            style={position}
+            style={sheet ? undefined : position}
             role="dialog"
             aria-label={localizeUi("ui.chat.messagemarks.menuTitle")}
-            className={POPOVER_CLASS}
+            className={cn(POPOVER_CLASS, sheet && "ovm-marks-sheet")}
             onClick={(event) => event.stopPropagation()}
           >
+            {sheet ? (
+              <div className="ovm-marks-sheet__head">
+                <button
+                  type="button"
+                  className="ovm-marks-sheet__back"
+                  aria-label={localizeUi("common.back", "Back")}
+                  onClick={() => setOpen(false)}
+                >
+                  <ChevronLeft size={26} aria-hidden="true" />
+                </button>
+                <span>{localizeUi("ui.chat.messagemarks.menuTitle")}</span>
+                <span aria-hidden="true" />
+              </div>
+            ) : null}
             <button
               type="button"
               className={MENU_ROW_CLASS}
