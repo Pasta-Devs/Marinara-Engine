@@ -3972,22 +3972,38 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("accent-pulse")}
                 label={localizeUi("settings.controls.accentPulse.label")}
-                checked={appAccentPulseMode}
+                checked={appAccentPulseMode && !overhaulLayoutEnabled}
                 onChange={handleAppAccentPulseModeChange}
-                help={localizeUi("settings.controls.accentPulse.help")}
+                disabled={overhaulLayoutEnabled}
+                help={
+                  overhaulLayoutEnabled
+                    ? "Off in the new layout: animating the accent restyles every element twice a second and freezes large pages."
+                    : localizeUi("settings.controls.accentPulse.help")
+                }
               />
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("rgb-mode")}
                 label={
-                  <span className={cn(appAccentRgbMode && "mari-logo-gradient-text mari-logo-gradient-text--active")}>
+                  <span
+                    className={cn(
+                      appAccentRgbMode &&
+                        !overhaulLayoutEnabled &&
+                        "mari-logo-gradient-text mari-logo-gradient-text--active",
+                    )}
+                  >
                     {localizeUi("ui.panels.appearancesettings.rgbMode")}
                   </span>
                 }
-                checked={appAccentRgbMode}
+                checked={appAccentRgbMode && !overhaulLayoutEnabled}
                 onChange={handleAppAccentRgbModeChange}
-                switchClassName={appAccentRgbMode ? "mari-rgb-toggle-track" : undefined}
-                help={localizeUi("settings.controls.rainbowAccent.help")}
+                disabled={overhaulLayoutEnabled}
+                switchClassName={appAccentRgbMode && !overhaulLayoutEnabled ? "mari-rgb-toggle-track" : undefined}
+                help={
+                  overhaulLayoutEnabled
+                    ? "Off in the new layout: animating the accent restyles every element twice a second and freezes large pages."
+                    : localizeUi("settings.controls.rainbowAccent.help")
+                }
               />
 
               <fieldset
