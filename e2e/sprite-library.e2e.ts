@@ -1,5 +1,6 @@
-import { expect, test, request as createRequest, type CDPSession } from "@playwright/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { expect, test, request as createRequest, type CDPSession, type Page, type Locator } from "@playwright/test";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { isSpriteImageFile } from "../packages/client/src/lib/sprite-folder-import.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 async function dispatchTouch(
@@ -16,6 +17,20 @@ const png = Buffer.from(
   "base64",
 );
 
+async function importCharacterImages(page: Page, library: Locator, directory: string) {
+  const upload = library.getByRole("button", { name: "Upload images", exact: true });
+  if (!(await upload.count())) await library.getByRole("button", { name: "Add sprites", exact: true }).click();
+  const opened = page.waitForEvent("filechooser");
+  await upload.click();
+  const files = readdirSync(directory);
+  await (await opened).setFiles(files.map((name) => `${directory}/${name}`));
+  if (files.some((name) => isSpriteImageFile({ name })))
+    await page
+      .getByRole("dialog", { name: "Import images", exact: true })
+      .getByRole("button", { name: "Import", exact: true })
+      .click();
+}
+
 test("sprite metadata stays optional and folder moves work without dragging", async ({ page, request }, info) => {
   test.setTimeout(90_000);
   await isolateSyncedUISettings(page);
@@ -26,10 +41,14 @@ test("sprite metadata stays optional and folder moves work without dragging", as
   );
   const rejectedDirectory = info.outputPath("rejected-import");
   const emptyDirectory = info.outputPath("empty-import");
+  const brokenCatalogDirectory = info.outputPath("broken-catalog-import");
   mkdirSync(rejectedDirectory, { recursive: true });
   mkdirSync(emptyDirectory, { recursive: true });
+  mkdirSync(brokenCatalogDirectory, { recursive: true });
   writeFileSync(`${rejectedDirectory}/rejected.png`, png);
   writeFileSync(`${emptyDirectory}/notes.txt`, "No images");
+  writeFileSync(`${brokenCatalogDirectory}/grin.png`, png);
+  writeFileSync(`${brokenCatalogDirectory}/catalog.json`, "{broken");
   for (const persona of [false, true]) {
     const ownersPath = persona ? "/api/characters/personas" : "/api/characters";
     const created = await request.post(ownersPath, {
@@ -137,16 +156,34 @@ test("sprite metadata stays optional and folder moves work without dragging", as
           ? route.fulfill({ status: 409, json: { error: "The label already exists" } })
           : route.continue(),
       );
-      await library.locator("input[webkitdirectory]").setInputFiles(rejectedDirectory);
+      if (persona) await library.locator("input[webkitdirectory]").setInputFiles(rejectedDirectory);
+      else await importCharacterImages(page, library, rejectedDirectory);
       await expect(
         page.locator('[data-sonner-toast][data-type="error"]').filter({ hasText: "The label already exists" }),
       ).toBeVisible();
-      await library.locator("input[webkitdirectory]").setInputFiles(emptyDirectory);
+      if (persona) await library.locator("input[webkitdirectory]").setInputFiles(emptyDirectory);
+      else await importCharacterImages(page, library, emptyDirectory);
       await expect(
-        page
-          .locator('[data-sonner-toast][data-type="warning"]')
-          .filter({ hasText: "No supported sprite images were found." }),
+        page.locator(`[data-sonner-toast][data-type="${persona ? "warning" : "error"}"]`).filter({
+          hasText: persona ? "No supported sprite images were found." : "Drop image files to upload",
+        }),
       ).toBeVisible();
+      if (persona) {
+        await page.unroute(`**${path}`);
+        await library.locator("input[webkitdirectory]").setInputFiles(brokenCatalogDirectory);
+        await expect(
+          page
+            .locator('[data-sonner-toast][data-type="warning"]')
+            .filter({ hasText: "Folder information could not be read." }),
+        ).toBeVisible();
+        await expect
+          .poll(async () =>
+            (await (await request.get(path)).json()).some(
+              (sprite: { expression: string }) => sprite.expression === "grin",
+            ),
+          )
+          .toBe(true);
+      }
     } finally {
       await page.unroute(`**${path}/catalog`).catch(() => undefined);
       await page.unroute(`**${path}`).catch(() => undefined);
@@ -192,6 +229,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   const errors: string[] = [];
   let releaseFrameSave = () => {};
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("dialog", async (dialog) => {
+    errors.push(`Unexpected browser ${dialog.type()}: ${dialog.message()}`);
+    await dialog.dismiss();
+  });
   try {
     for (const name of ["Front", "Alternate"])
       expect((await request.post(`${path}/folders`, { data: { name, category: "full-body" } })).ok()).toBeTruthy();
@@ -409,15 +450,12 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
     const addPanel = library.getByRole("region", { name: "Add sprites", exact: true });
     const upload = (await addPanel.getByRole("button", { name: "Upload images", exact: true }).boundingBox())!;
-    const importFolder = (await addPanel.getByRole("button", { name: "Import folder", exact: true }).boundingBox())!;
     const generate = (await addPanel.getByRole("button", { name: "Generate Sprite", exact: true }).boundingBox())!;
     if (desktop) {
-      expect(Math.abs(upload.y + upload.height / 2 - (importFolder.y + importFolder.height / 2))).toBeLessThan(2);
-      expect(Math.abs(generate.y - importFolder.y)).toBeLessThan(2);
+      expect(Math.abs(upload.y + upload.height / 2 - (generate.y + generate.height / 2))).toBeLessThan(2);
     } else {
-      expect(upload.y + upload.height).toBeLessThanOrEqual(importFolder.y);
-      expect(Math.abs(importFolder.y - generate.y)).toBeLessThan(2);
-      expect(Math.abs(importFolder.width - generate.width)).toBeLessThan(2);
+      expect(upload.y + upload.height).toBeLessThanOrEqual(generate.y);
+      expect(Math.abs(upload.width - generate.width)).toBeLessThan(2);
     }
 
     await addPanel.getByRole("button", { name: "Generate Sprite", exact: true }).click();
@@ -922,6 +960,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       { name: "smile.png", mimeType: "image/png", buffer: png },
       { name: "sad.png", mimeType: "image/png", buffer: png },
     ]);
+    await page
+      .getByRole("dialog", { name: "Import images", exact: true })
+      .getByRole("button", { name: "Import", exact: true })
+      .click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
     const saved = await catalog();
     expect(
@@ -964,15 +1006,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     mkdirSync(importDirectory, { recursive: true });
     writeFileSync(`${importDirectory}/grin.png`, png);
     writeFileSync(`${importDirectory}/reject.png`, png);
-    writeFileSync(`${importDirectory}/catalog.json`, "{broken");
     await page.route(`**${path}`, (route) =>
       route.request().method() === "POST" && route.request().postDataJSON().expression === "reject"
         ? route.fulfill({ status: 409, json: { error: "Fixture import failure" } })
         : route.continue(),
     );
-    await library.locator("input[webkitdirectory]").setInputFiles(importDirectory);
+    await importCharacterImages(page, library, importDirectory);
     await expect(
-      page.getByText("1 sprite could not be imported. Fixture import failure Folder information could not be read.", {
+      page.getByText("1 sprite could not be imported. Fixture import failure", {
         exact: true,
       }),
     ).toBeVisible();
