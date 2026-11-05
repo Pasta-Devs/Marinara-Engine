@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "0313889a4a2f3b7de9536e0a77fe39f9f7d1939e",
+  "sourceCommit": "e40b31999e7e5748d728a5d0c5e22cc0e1efc60a",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "d2ed20db5adab9e6645a85d3e6f0f5a2650f59e9a1e7743b306195721bacc8a4",
-      "bytes": 45522
+      "sha256": "4946d34322c12c8a64b487a65ef062917ce563bc43ad52dcf8d505a9a1d44cbc",
+      "bytes": 45479
     },
     {
       "path": "agents/built-in-agents.md",
@@ -154,8 +154,8 @@
     },
     {
       "path": "characters/sprites.md",
-      "sha256": "15c16652869d4659161b4d3d452ea646188333255758455c13f314ab3177fd06",
-      "bytes": 16253
+      "sha256": "cf21d8fdc33a2743d62bb0d043a7203100658049a5878b3239ebf2b9950b83e3",
+      "bytes": 16577
     },
     {
       "path": "chats/branches.md",

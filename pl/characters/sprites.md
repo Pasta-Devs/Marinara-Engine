@@ -19,6 +19,8 @@ Sprite'y widać na ekranie w trybie Roleplay Mode i Game Mode, ale nie w czatach
 
 Poniższe sekcje opisują kategorie **Facial Expressions** i **Full-body**. Kategoria **Clips** (klipy) należy do funkcji rozmów. Zobacz [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
 
+<a id="upload-your-own-sprites"></a>
+
 ## Wgrywanie własnych sprite'ów
 
 Można wgrać obrazy PNG, JPEG, GIF, WebP, AVIF i SVG. Najlepiej wyglądają pliki PNG z przezroczystością, bo puste miejsce wokół postaci pozostaje przezroczyste. Nieprawidłowy obraz podany jako zamiennik zostaje odrzucony, a zapisany sprite zostaje bez zmian.
@@ -27,15 +29,19 @@ Można wgrać obrazy PNG, JPEG, GIF, WebP, AVIF i SVG. Najlepiej wyglądają pli
 
 1. Otwórz zakładkę **Sprites** i wybierz **Facial Expressions** albo **Full-body**.
 2. Kliknij **Add sprites** (dodawanie sprite'ów).
-3. Kliknij **Upload images** (wgrywanie obrazów) i wybierz pliki. Można zaznaczyć kilka naraz.
-4. Nazwa każdego pliku staje się nazwą sprite'a (jego etykietą). Żeby później zmienić nazwę, otwórz sprite'a.
+3. Kliknij **Upload images** (wgrywanie obrazów), przejdź do swojego folderu i zaznacz znajdujące się w nim obrazy. Można zaznaczyć kilka naraz.
+4. W oknie **Import images** (import obrazów) kliknij **Import** (import). **Cancel** (anulowanie) niczego nie dodaje.
 
-Nowe sprite'y pojawiają się w siatce, poza folderami. W edytorze persony pojedynczy sprite wgrywa się przez pole nazwy w sekcji **Add Sprite** (dodawanie sprite'a) i przycisk **Upload** (wgranie).
+Nazwa każdego pliku staje się nazwą sprite'a (jego etykietą). Żeby później zmienić nazwę, otwórz sprite'a. Nowe sprite'y pojawiają się w siatce, poza folderami. Podfoldery nie są skanowane. Żeby uporządkować zaimportowane sprite'y, użyj przycisku **New folder** (nowy folder).
+
+W edytorze persony pojedynczy sprite wgrywa się przez pole nazwy w sekcji **Add Sprite** (dodawanie sprite'a) i przycisk **Upload** (wgranie).
 
 ### Wgrywanie całego folderu
 
-1. Nazwij pliki graficzne tak jak wyraz twarzy albo pozę, na przykład `admiration.png` dla wyrazu twarzy o nazwie admiration.
-2. Otwórz **Add sprites** i kliknij **Import folder** (import folderu). W edytorze persony kliknij **Upload Folder** (wgranie folderu) w sekcji **Add Sprite**.
+Wgrywanie całego folderu jest dostępne w edytorze persony. W przypadku postaci użyj opisanego wyżej przycisku **Upload images** i zaznacz obrazy w swoim folderze.
+
+1. Otwórz zakładkę **Sprites** persony.
+2. W sekcji **Add Sprite** kliknij **Upload Folder** (wgranie folderu).
 3. Wskaż folder z obrazami.
 
 Nazwa każdego pliku bez rozszerzenia staje się nazwą sprite'a. Wiersz postępu pokazuje "Uploading X/Y sprites". Podfoldery stają się opcjonalnymi folderami sprite'ów. Plik `catalog.json` z eksportu przywraca też foldery i zmienione etykiety. Nieprawidłowy wpis folderu zostaje zgłoszony, a nadające się obrazy i tak się importują.

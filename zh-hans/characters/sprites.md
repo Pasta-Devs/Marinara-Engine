@@ -19,6 +19,8 @@
 
 下面几节讲 **Facial Expressions** 和 **Full-body**。**Clips** 属于通话功能，参见 [Conversation 音频和视频通话](../conversation/calls.md)。
 
+<a id="upload-your-own-sprites"></a>
+
 ## 上传自己的立绘
 
 可以上传 PNG、JPEG、GIF、WebP、AVIF 和 SVG 图片。透明背景的 PNG 文件效果最好，因为角色周围的空白区域会保持透明。无效的替换图片会被拒绝，已保存的立绘保持不变。
@@ -27,15 +29,19 @@
 
 1. 打开 **Sprites** 选项卡，选择 **Facial Expressions** 或 **Full-body**。
 2. 点击 **Add sprites**(添加立绘)。
-3. 点击 **Upload images**(上传图片)，选择文件。可以一次选多个。
-4. 每个文件名会成为立绘的名称（也就是它的标签）。之后想改名，打开那张立绘即可。
+3. 点击 **Upload images**(上传图片)，进入你的文件夹，选中里面的图片。可以一次选多个。
+4. 在 **Import images**(导入图片) 确认框里点击 **Import**(导入)。点击 **Cancel**(取消) 则什么都不会添加。
 
-新立绘会出现在网格里，不属于任何文件夹。在用户角色编辑器里，用 **Add Sprite**(添加立绘) 的名称输入框和 **Upload**(上传) 按钮上传单张立绘。
+每个文件名会成为立绘的名称（也就是它的标签）。之后想改名，打开那张立绘即可。新立绘会出现在网格里，不属于任何文件夹。不会扫描子文件夹。想整理导入的立绘，可以用 **New folder**(新建文件夹)。
+
+在用户角色编辑器里，用 **Add Sprite**(添加立绘) 的名称输入框和 **Upload**(上传) 按钮上传单张立绘。
 
 ### 上传整个文件夹
 
-1. 把图片文件按表情或姿势命名，比如一个叫 admiration 的表情就用 `admiration.png`。
-2. 打开 **Add sprites**，点击 **Import folder**(导入文件夹)。在用户角色编辑器里，点击 **Add Sprite** 里的 **Upload Folder**(上传文件夹)。
+用户角色编辑器可以上传整个文件夹。角色则用上面的 **Upload images**，选中文件夹里的图片。
+
+1. 打开用户角色的 **Sprites** 选项卡。
+2. 在 **Add Sprite** 框里点击 **Upload Folder**(上传文件夹)。
 3. 选择存放图片的那个文件夹。
 
 每个文件名去掉后缀就是立绘名。进度行显示“Uploading X/Y sprites”。子文件夹会变成可选的立绘文件夹。导出时生成的 `catalog.json` 还能恢复文件夹和改过的标签。文件夹里有坏条目时会单独报告，能用的图片照样导入。

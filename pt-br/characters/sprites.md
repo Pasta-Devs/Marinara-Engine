@@ -19,6 +19,8 @@ Os sprites aparecem na tela no Roleplay Mode e no Game Mode, não nos chats de C
 
 As seções abaixo explicam **Facial Expressions** e **Full-body**. **Clips** faz parte do recurso de chamadas. Veja [Chamadas de áudio e vídeo no Conversation](../conversation/calls.md).
 
+<a id="upload-your-own-sprites"></a>
+
 ## Faça upload dos seus próprios sprites
 
 Você pode fazer upload de imagens PNG, JPEG, GIF, WebP, AVIF e SVG. Arquivos PNG com transparência ficam melhores, porque a área vazia em volta do personagem continua transparente. Uma imagem de substituição inválida é recusada, e o sprite salvo continua.
@@ -27,15 +29,19 @@ Você pode fazer upload de imagens PNG, JPEG, GIF, WebP, AVIF e SVG. Arquivos PN
 
 1. Abra a aba **Sprites** e escolha **Facial Expressions** ou **Full-body**.
 2. Clique em **Add sprites** (adicionar sprites).
-3. Clique em **Upload images** (fazer upload de imagens) e escolha os arquivos. Você pode selecionar vários juntos.
-4. O nome de cada arquivo vira o nome do sprite (o rótulo dele). Abra um sprite para renomeá-lo depois.
+3. Clique em **Upload images** (fazer upload de imagens), entre na sua pasta e selecione as imagens dela. Você pode selecionar várias juntas.
+4. Na janela **Import images** (importar imagens), clique em **Import** (importar). **Cancel** (cancelar) não adiciona nada.
 
-Os novos sprites aparecem na grade, fora de qualquer pasta. No editor de persona, use o campo de nome e o botão **Upload** de **Add Sprite** (adicionar sprite) para um único sprite.
+O nome de cada arquivo vira o nome do sprite (o rótulo dele). Abra um sprite para renomeá-lo depois. Os novos sprites aparecem na grade, fora de qualquer pasta. Subpastas não são analisadas. Use **New folder** (nova pasta) para organizar os sprites importados.
+
+No editor de persona, use o campo de nome e o botão **Upload** de **Add Sprite** (adicionar sprite) para um único sprite.
 
 ### Faça upload de uma pasta inteira
 
-1. Dê aos arquivos de imagem o nome da expressão ou da pose, como `admiration.png` para uma expressão chamada admiration.
-2. Abra **Add sprites** e clique em **Import folder** (importar pasta). No editor de persona, clique em **Upload Folder** em **Add Sprite**.
+O upload de uma pasta inteira está disponível no editor de persona. Para personagens, use **Upload images**, como acima, e selecione as imagens dentro da sua pasta.
+
+1. Abra a aba **Sprites** da persona.
+2. Na caixa **Add Sprite**, clique em **Upload Folder** (enviar pasta).
 3. Escolha a pasta que contém as imagens.
 
 O nome de cada arquivo, sem a extensão, vira o nome do sprite. Uma linha de progresso mostra "Uploading X/Y sprites". Subpastas viram pastas de sprites opcionais. Um `catalog.json` de uma exportação também restaura as pastas e os rótulos editados. Uma entrada de pasta inválida é informada, e as imagens utilizáveis são importadas mesmo assim.
@@ -146,11 +152,11 @@ Abra um sprite de personagem para ver a prévia e as ações dele. Sprites de pe
 
 ### Pastas e seleção
 
-Clique em **New folder** (nova pasta) para criar uma pasta recolhida chamada **unnamed**. Dê dois cliques ou dois toques no nome para renomeá-la e use a seta para expandi-la. Expressões e sprites de corpo inteiro têm pastas separadas. As pastas ficam acima dos sprites soltos e podem ser arrastadas para mudar a ordem.
+Clique em **New folder** para criar uma pasta recolhida chamada **unnamed**. Dê dois cliques ou dois toques no nome para renomeá-la e use a seta para expandi-la. Expressões e sprites de corpo inteiro têm pastas separadas. As pastas ficam acima dos sprites soltos e podem ser arrastadas para mudar a ordem.
 
 Arraste sprites para uma pasta, ou arraste um sprite que está numa pasta para a área solta para tirá-lo da pasta. No celular, mantenha um bloco pressionado para começar a arrastar. Deslizar o dedo normalmente continua rolando a tela. As pastas só organizam: nunca escolhem um conjunto ativo nem escondem imagens dos chats ou agentes. Excluir uma pasta deixa os sprites dela soltos.
 
-Clique em **Select** para mostrar as caixas de seleção e **Select all sprites** (selecionar todos os sprites). Depois, arraste juntos os sprites selecionados ou use a limpeza e a exclusão. **Cancel** (cancelar) sai do modo de seleção. A busca filtra os sprites visíveis. Uma busca sem resultados não significa que a biblioteca está vazia.
+Clique em **Select** para mostrar as caixas de seleção e **Select all sprites** (selecionar todos os sprites). Depois, arraste juntos os sprites selecionados ou use a limpeza e a exclusão. **Cancel** sai do modo de seleção. A busca filtra os sprites visíveis. Uma busca sem resultados não significa que a biblioteca está vazia.
 
 ### Character Sheet
 

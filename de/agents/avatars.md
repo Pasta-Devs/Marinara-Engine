@@ -277,7 +277,7 @@ Ein Charakter oder eine Persona kann die eigenen Ausdrucks-Sprites ganz ohne Zei
 
 1. Zeichne ein Bild pro Gefühl, alle gleich groß und mit dem Charakter an derselben Stelle. Benenne jedes nach seinem Gefühl: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. Namen, die ein Gefühlswort enthalten, funktionieren auch, etwa `smile`, `cry`, `calm` oder `shock`. Für die optionalen [weiteren Gefühle](#pngtuber-sprites) benenne Bilder etwa `amusement`, `fear` oder `gratitude`.
 2. Für einen beweglichen Mund zeichne dasselbe Bild mit offenem Mund und häng `_talk` an, zum Beispiel `happy_talk`. Fürs Blinzeln schließ die Augen und häng `_blink` an. Für beides häng `_blink_talk` an.
-3. Füge die Bilder im Tab **Sprites** des Charakters oder der Persona unter **Facial Expressions** (Gesichtsausdrücke) hinzu. **Upload Folder** (Ordner hochladen) fügt einen Ordner hinzu und benennt jedes Sprite nach seiner Datei. Siehe [Charakter-Sprites](../characters/sprites.md).
+3. Füge die Bilder im Tab **Sprites** unter **Facial Expressions** (Gesichtsausdrücke) hinzu. Jeder Dateiname wird zum Namen seines Sprites. Siehe [Charakter-Sprites](../characters/sprites.md#upload-your-own-sprites).
 4. Öffne **2D Avatars** unter **Agents**, wähle den Charakter oder die Persona und schalte **Show this avatar in chats** ein.
 
 ### PNGTuber Plus
