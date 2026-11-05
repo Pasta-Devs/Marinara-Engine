@@ -95,6 +95,15 @@ try {
     });
     // Too few credits for a usable reply: surface the 402 instead of looping.
     assert.equal(nextOptionsAfterLimitError(new Error("402: can only afford 900"), { maxTokens: 32_768 }), null);
+    // With Max Tokens switched off nothing was sent and the provider reserved its own maximum, so the issue's balance
+    // is retried under the unsent fallback rather than compared with it (Dottore #8865).
+    assert.deepEqual(
+      nextOptionsAfterLimitError(new Error("402: You requested up to 929637 tokens, but can only afford 176108."), {
+        maxTokens: 32_768,
+        enabledParameters: { maxTokens: false },
+      }),
+      { reason: "Credit limit", maxTokens: 32_768 },
+    );
     // Context overflow: use the stated window, or tighten the configured one.
     const stated = new Error("maximum context length is 262144 tokens");
     assert.deepEqual(nextOptionsAfterLimitError(stated, { maxContext: 1_048_576 }), {
@@ -416,6 +425,18 @@ try {
     requests = [];
     await callDirect({ ...unsent });
     assert.deepEqual([sent(), sends()], [[18_000], [true]], "so does the next call of the run");
+    // A balance above the unsent fallback is still retried, with the fallback sent.
+    script = [credit(176_108), reply("ok")];
+    requests = [];
+    await callDirect({ ...base, signal: new AbortController().signal, enabledParameters: { maxTokens: false } });
+    assert.deepEqual(
+      [sent(), sends()],
+      [
+        [32_768, 32_768],
+        [false, true],
+      ],
+      "a large balance is retried, not rethrown",
+    );
 
     // A context overflow with a stated window, on a connection with no Max Context, is retried under it.
     const ctxSignal = new AbortController().signal;

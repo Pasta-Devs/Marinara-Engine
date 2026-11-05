@@ -484,13 +484,18 @@ function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number |
  */
 export function nextOptionsAfterLimitError(
   error: unknown,
-  options: Pick<ChatOptions, "maxTokens" | "maxContext">,
+  options: Pick<ChatOptions, "maxTokens" | "maxContext" | "enabledParameters">,
 ): { reason: string; maxTokens?: number; maxContext?: number } | null {
   const affordable = parseAffordableMaxTokens(error);
   if (affordable !== null) {
     // Leave headroom: the prompt's own cost grows with every retry's estimate drift.
     const maxTokens = Math.floor(affordable * 0.9);
     if (maxTokens < MIN_AFFORDABLE_OUTPUT_TOKENS) return null;
+    // With Max Tokens switched off nothing was sent, so the provider reserved its own maximum: any limit that fits the
+    // balance is a retry worth making, never compared with the unsent fallback.
+    if (options.enabledParameters?.maxTokens === false) {
+      return { reason: "Credit limit", maxTokens: Math.min(maxTokens, options.maxTokens ?? maxTokens) };
+    }
     if (options.maxTokens !== undefined && maxTokens >= options.maxTokens) return null;
     return { reason: "Credit limit", maxTokens };
   }
