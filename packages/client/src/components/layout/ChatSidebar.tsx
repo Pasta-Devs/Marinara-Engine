@@ -13,7 +13,7 @@ import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import {
-  PanelLeft,
+  MessageCircle,
   MessageSquareText,
   Search,
   Trash2,
@@ -1341,7 +1341,7 @@ export function ChatSidebar() {
               title={localize("Chats")}
               onClick={() => setSidebarOpen(false)}
             >
-              <PanelLeft size={22} />
+              <MessageCircle size={22} />
             </button>
           ) : (
             <ChatSidebarTitleIcon />

@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Check, Home, Layers, PanelLeft, Plus, Search, Settings, Settings2, X } from "lucide-react";
+import { ArrowUp, Check, Home, Layers, MessageCircle, Plus, Search, Settings, Settings2, X } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -354,7 +354,7 @@ export function OverhaulMobileTopBar() {
           onClick={toggleChats}
           data-tour="sidebar-toggle"
         >
-          <PanelLeft size={22} />
+          <MessageCircle size={22} />
         </button>
         <button
           type="button"
