@@ -951,7 +951,7 @@ const EditTextarea = memo(function EditTextarea({
         className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem,var(--mari-message-editor-fit-height,100dvh))]"
         style={{ fontSize, lineHeight: 1.5 }}
       />
-      <div className="pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
+      <div className="ov-edit-actions pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
         <button
           type="button"
           onClick={onCancel}
@@ -961,6 +961,7 @@ const EditTextarea = memo(function EditTextarea({
           title={localizeUi("ui.chat.edittextarea.cancelEsc")}
         >
           <X size="0.8125rem" />
+          <span className="ov-edit-actions__label">{localizeUi("ui.chat.edittextarea.cancel")}</span>
         </button>
         <button
           type="button"
@@ -971,6 +972,7 @@ const EditTextarea = memo(function EditTextarea({
           title={localizeUi("ui.chat.edittextarea.saveCmdEnter")}
         >
           <Check size="0.8125rem" />
+          <span className="ov-edit-actions__label">{localizeUi("ui.chat.edittextarea.save")}</span>
         </button>
       </div>
     </div>
