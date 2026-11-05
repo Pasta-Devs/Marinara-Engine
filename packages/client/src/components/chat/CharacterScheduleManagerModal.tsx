@@ -1,6 +1,7 @@
 import {
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Folder,
   FolderOpen,
@@ -25,6 +26,7 @@ import { useCharacterGroups } from "../../hooks/use-characters";
 import { useChatStore } from "../../stores/chat.store";
 import { useChats } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { Modal } from "../ui/Modal";
@@ -175,11 +177,20 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
     [groups],
   );
   const editingCharacter = characters.find((character) => character.id === editingCharacterId);
-  // The page always shows someone: the first character with a schedule, else the first one.
+  const overhaulMobile = useOverhaulMobile();
+  // Opened for one character (its "Edit schedule" button): show that one.
+  const requestedCharacterId = useOverhaulStore((state) => state.schedulesCharacterId);
   useEffect(() => {
-    if (!page || editingCharacterId || !characters.length) return;
+    if (!page || !requestedCharacterId) return;
+    setEditingCharacterId(requestedCharacterId);
+    useOverhaulStore.getState().setSchedulesCharacterId(null);
+  }, [page, requestedCharacterId]);
+  // The desktop page always shows someone: the first character with a schedule, else the first one.
+  // Phones show the list first and one character's editor after a tap, with a way back.
+  useEffect(() => {
+    if (!page || overhaulMobile || editingCharacterId || !characters.length) return;
     setEditingCharacterId((characters.find((character) => character.schedule) ?? characters[0])!.id);
-  }, [characters, editingCharacterId, page]);
+  }, [characters, editingCharacterId, overhaulMobile, page]);
 
   const toggle = (id: string) => {
     setSelected((current) => {
@@ -321,7 +332,11 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
 
   if (page) {
     return (
-      <div className="ov-sched" data-component="CharacterSchedulesPage">
+      <div
+        className="ov-sched"
+        data-component="CharacterSchedulesPage"
+        data-editing={overhaulMobile && editingCharacter ? "true" : undefined}
+      >
         <aside className="ov-sched__list" aria-label={localizeUi("ui.characters.schedulemanager.title")}>
           <div className="ov-sched__lh">
             <h1>Character schedules</h1>
@@ -396,6 +411,12 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
           )}
         </aside>
         <section className="ov-sched__main">
+          {overhaulMobile && editingCharacter ? (
+            <button type="button" className="ov-docs__back ov-sched__back" onClick={() => setEditingCharacterId(null)}>
+              <ChevronLeft size={18} aria-hidden="true" />
+              Character schedules
+            </button>
+          ) : null}
           {editingCharacter ? (
             <CharacterScheduleEditorModal
               key={editingCharacter.id}

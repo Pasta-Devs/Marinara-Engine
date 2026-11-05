@@ -205,7 +205,7 @@ import {
 } from "../../lib/stat-icon-assignments";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
-import { isOverhaulLook, useOverhaulLook } from "../../stores/overhaul.store";
+import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
@@ -2779,7 +2779,13 @@ function ConvoTab({
         imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
         onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
         schedule={schedule}
-        onEditSchedule={kind === "character" && characterId ? () => setScheduleOpen(true) : undefined}
+        onEditSchedule={
+          kind === "character" && characterId
+            ? () =>
+                // New layout: the schedule editor is the Character schedules page, opened on this character.
+                isOverhaulLook() ? useOverhaulStore.getState().openSchedules(characterId) : setScheduleOpen(true)
+            : undefined
+        }
       />
       {/* No chatId: the schedule belongs to the character, so the editor works
         without a chat open. The draft routes fall back to the default connection. */}
