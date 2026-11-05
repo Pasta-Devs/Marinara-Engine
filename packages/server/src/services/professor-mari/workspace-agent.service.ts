@@ -408,6 +408,39 @@ export const SKIPPED_DIRS = new Set([
   ".gradle",
 ]);
 
+/**
+ * Appended to every repair prompt whose rejected reply was NOT shown to the
+ * user. Without it the model assumes its rejected `say` (often the complete
+ * answer or plan) reached the user, runs the requested checks, and then ends
+ * with "the original plan I made is still there" - referencing text the user
+ * never saw.
+ */
+export const MARI_WITHHELD_REPLY_NOTICE =
+  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write everything the user needs (the full plan, list, or explanation) in say again. Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+
+/**
+ * Detect a provider "prompt + output budget exceeds the context window" error
+ * and extract the window size when the message states it. OpenRouter phrases
+ * it as "This endpoint's maximum context length is N tokens. However, you
+ * requested about M tokens ..."; other OpenAI-compatible gateways use similar
+ * wording. Returns null when the error is not a context overflow.
+ */
+export function parseContextOverflowError(error: unknown): { limit: number | null } | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (!message) return null;
+  const isOverflow =
+    /maximum context length|context(?:[ _]window|[ _]length)?[^.]{0,40}(?:too long|exceed|overflow)|(?:prompt|input|request(?:ed)?)[^.]{0,40}too long|context_length_exceeded|too many tokens/iu.test(
+      message,
+    );
+  if (!isOverflow) return null;
+  const match =
+    message.match(/maximum context length (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/context (?:window|length|limit) (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/(?:limit|maximum) (?:is|of) ([\d,]+) tokens/iu);
+  const parsed = match ? Number(match[1]!.replace(/,/gu, "")) : NaN;
+  return { limit: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null };
+}
+
 export function professorMariWorkspaceResponseFormat(provider: string): ChatOptions["responseFormat"] | undefined {
   return ["openrouter", "google", "google_vertex"].includes(provider) ? { type: "json_object" } : undefined;
 }
@@ -1044,7 +1077,7 @@ Required schema:
 }
 
 Field rules:
-- \`say\` is the only text Marinara may show to the user.
+- \`say\` is the only text Marinara may show to the user. Your hidden reasoning/thinking is NEVER shown, and Marinara may withhold a reply it could not accept (it will tell you when it does). Never refer to a plan, list, draft, or answer as already shown ("the plan above", "the original plan is still there") unless it reached the user in a \`say\`; if it did not, write it out in full in your final \`say\`. Only your final \`say\` (the response that sets \`stop\` to \`true\`) is kept as your answer; \`say\` text from earlier rounds collapses into the step timeline. So when checks follow an answer or plan you already wrote, repeat that whole answer or plan in the final \`say\` - never end with only "it is still there" or "as above".
 - Set \`awaitingAuthorization\` to \`true\` only when \`say\` asks the user to approve the mutating commands in this response. Marinara will pause those commands and show an Accept action.
 - \`understoodRequest\`: when a response carries mutating commands, copy the exact words you are treating as the request or permission for them - from the user's message, or from the saved memory or instruction that directs the change. It is shown to the user for transparency and NEVER validated: a missing or imperfect quote never blocks a command. Keep it short (one sentence or phrase).
 - \`commands\` is the command list to execute now. Use \`[]\` only when no command is needed.
@@ -4532,7 +4565,7 @@ export class ProfessorMariWorkspaceService {
         if (isEmptyCompletedAction(action)) {
           protocolRepairRounds += 1;
           if (protocolRepairRounds <= maxProtocolRepairRounds) {
-            messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
             messages.push({
               role: "user",
               content:
@@ -4612,7 +4645,7 @@ export class ProfessorMariWorkspaceService {
           runEndedWithDeferral = false;
           runHeldChanges = [];
           runHeldCalls = [];
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
             messages.push({
               role: "user",
@@ -4620,7 +4653,15 @@ export class ProfessorMariWorkspaceService {
               contextKind: "history",
             });
           }
-          messages.push({ role: "user", content: claimDecision.prompt, contextKind: "history" });
+          messages.push({
+            role: "user",
+            // The rejected frame's say never reached the user (the review runs
+            // before its words are emitted), so the model must restate it.
+            content: action.visibleText
+              ? `${claimDecision.prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}`
+              : claimDecision.prompt,
+            contextKind: "history",
+          });
           continue;
         }
         if (claimDecision.kind === "stop") {
@@ -4659,12 +4700,15 @@ export class ProfessorMariWorkspaceService {
           } else {
             protocolRepairRounds = 0;
           }
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
+          const continueCoaching = action.protocolValid
+            ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
+            : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.";
           messages.push({
             role: "user",
-            content: action.protocolValid
-              ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
-              : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
+            // A frame with neither commands nor stop is never emitted to the
+            // user, so any say it carried (often the whole answer) was lost.
+            content: action.visibleText ? `${continueCoaching}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : continueCoaching,
             contextKind: "history",
           });
           continue;
@@ -4701,7 +4745,7 @@ export class ProfessorMariWorkspaceService {
           args.onEvent({ type: "suggestions", data: action.suggestions });
         }
 
-        messages.push({ role: "assistant", content: action.assistantHistoryContent });
+        messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
 
         if (isLengthFinishReason(result.finishReason)) {
           if (action.commands.some(isMutatingWorkspaceCommand)) {
@@ -5459,7 +5503,38 @@ export class ProfessorMariWorkspaceService {
       Object.keys(options.customParameters ?? {}).join(",") || "none",
     );
     debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", debugJson(messages));
-    return provider.chatComplete(messages, options);
+    try {
+      return await provider.chatComplete(messages, options);
+    } catch (err) {
+      // Mari's prompt grows every round (command output is appended), and an
+      // OpenRouter model missing from the catalog with no Max Context set on
+      // the connection gets no client-side trimming at all - the gateway then
+      // rejects round N with "maximum context length is X tokens". Learn the
+      // real window from the error, keep it for the rest of the run (baseOptions
+      // is shared across rounds), and retry once so the provider's context
+      // fitter trims old history and shrinks max_tokens to fit.
+      if (baseOptions.signal?.aborted) throw err;
+      const overflow = parseContextOverflowError(err);
+      if (!overflow) throw err;
+      const current = baseOptions.maxContext && baseOptions.maxContext > 0 ? baseOptions.maxContext : null;
+      // Prefer the window the provider stated. If it is no smaller than what we
+      // already sent (the token estimate ran low), or unstated, tighten instead.
+      const nextMaxContext =
+        overflow.limit !== null && (current === null || overflow.limit < current)
+          ? overflow.limit
+          : current !== null
+            ? Math.floor(current * 0.75)
+            : null;
+      if (nextMaxContext === null) throw err;
+      logger.warn(
+        "[Professor Mari] Context overflow from %s (limit %s); retrying with maxContext=%d",
+        options.model,
+        overflow.limit ?? "unknown",
+        nextMaxContext,
+      );
+      baseOptions.maxContext = nextMaxContext;
+      return provider.chatComplete(messages, { ...options, maxContext: nextMaxContext });
+    }
   }
 
   private executeWorkspaceCommandBatch(...args: Parameters<WorkspaceCommands["executeWorkspaceCommandBatch"]>) {
