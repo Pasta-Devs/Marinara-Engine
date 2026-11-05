@@ -1506,6 +1506,16 @@ export function ChatSidebar() {
         >
           <Download size="0.8125rem" />
         </button>
+        {overhaulMobile && activeModeHasChats ? (
+          <button
+            onClick={handleCreateFolder}
+            className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+            title={localize("New Folder")}
+            aria-label={localize("New Folder")}
+          >
+            <FolderPlus size="0.8125rem" />
+          </button>
+        ) : null}
         <button
           onClick={() => (multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true))}
           disabled={displayChats.length === 0}
@@ -1714,7 +1724,7 @@ export function ChatSidebar() {
         )}
 
         <div className="stagger-children flex flex-col gap-0.5 px-1">
-          {activeModeHasChats && !overhaulDesktop && (
+          {activeModeHasChats && !overhaulActive && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCreateFolder}
