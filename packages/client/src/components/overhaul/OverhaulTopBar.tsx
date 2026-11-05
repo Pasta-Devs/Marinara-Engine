@@ -16,7 +16,7 @@ import {
   Home,
   Layers,
   Link,
-  PanelLeft,
+  MessageCircle,
   PanelRight,
   Plus,
   Regex,
@@ -437,7 +437,6 @@ export function OverhaulTopBar() {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-
   // Keep the active tab in view when the strip overflows.
   useEffect(() => {
     const strip = stripRef.current;
@@ -487,7 +486,7 @@ export function OverhaulTopBar() {
         aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
         data-tour="sidebar-toggle"
       >
-        <PanelLeft size={16} />
+        <MessageCircle size={16} />
       </button>
       <img
         className="ov-mark"
