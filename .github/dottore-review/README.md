@@ -346,7 +346,10 @@ its progress is visible even on models that omit thinking text by default. A rol
 read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
 `medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. A reply that stops
 at the cap with no output tokens did not spend it: the gateway cut it off, so it is resent at the same effort after
-the transient-error waits, like an overloaded or dropped call; its prompt tokens still count toward the cost limit.
+the transient-error waits (15 and 45 s), like an overloaded or dropped call, and then, because these come in bursts,
+after 90 and 120 s while each wait ends before the call's deadline and the review is under its cost limit
+(`EMPTY_REPLY_DELAYS`); its prompt tokens still count toward the cost limit. Each wait is up to a third longer, by an
+amount fixed by the request, so calls that failed together do not resend together.
 On Claude, thinking counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room
 for both thinking and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 

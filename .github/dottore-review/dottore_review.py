@@ -177,6 +177,12 @@ EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 MODEL_MAX_RETRIES = 1
 # Waits before resending a call that hit a transient gateway error (unavailable, overloaded, cut stream).
 RETRY_DELAYS = (15, 45)
+# A reply the gateway ends at max_tokens before the model writes anything (#8817) fails within a minute and bills
+# only its prompt, but it comes in bursts: one review got 15, and a finder that got three in a row failed it. So it
+# is also resent after these longer waits, which give the gateway time to recover, while they fit before the call's
+# deadline and under the review's cost limit (see chat); a finder's five attempts fit in its 10-minute box even when
+# each empty reply takes the 50 s seen in the log. Other errors keep RETRY_DELAYS, so a dead endpoint still fails fast.
+EMPTY_REPLY_DELAYS = (*RETRY_DELAYS, 90, 120)
 # The scout gathers the code the bundle builder could not follow, the finder proposes claims at changed lines from the
 # bundle alone, and the checker ("verify") judges each claim against the code. Reading takes the small model and
 # judging the large one, each set by its DOTTORE_SMALL_* or DOTTORE_LARGE_* settings (README.md).
@@ -1755,7 +1761,7 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
     # give up MAX_ROLE_FAILURES times in a row stops: a dead endpoint costs no more. Attempts are not counted, so a
     # rate-limit burst across parallel calls does not trip the breaker before any of them retries.
     stalls = 0
-    for attempt in range(len(RETRY_DELAYS) + 1):
+    for attempt in itertools.count():
         if readiness := getattr(ctx, "readiness", None):
             readiness(fresh=True)
         started = time.monotonic()
@@ -1776,17 +1782,33 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         except ReviewWithheld:
             raise
         except Exception as exc:
-            if isinstance(exc, ResponseFailed) and exc.usage:
-                # A reply cut short before any output still billed its prompt, so the cost limit counts it.
+            # A reply cut short before any output still billed its prompt, so the cost limit counts it.
+            empty = isinstance(exc, ResponseFailed) and bool(exc.usage)
+            if empty:
                 charge(ctx, role, settings, exc.usage)
             stalled = isinstance(exc, StreamStalled)
             stalls += stalled
-            retry = stalls <= MODEL_MAX_RETRIES if stalled else transient_error(exc)
-            if not retry or attempt == len(RETRY_DELAYS):
+            delays = EMPTY_REPLY_DELAYS if empty else RETRY_DELAYS
+            retry = attempt < len(delays) and (stalls <= MODEL_MAX_RETRIES if stalled else transient_error(exc))
+            wait = 0
+            if retry and not stalled:
+                # Calls that fail together, such as the finders on each packet or a packet's scouts, would resend
+                # together. Each waits up to a third longer, by an amount its request fixes, so they spread out and a
+                # rerun waits the same.
+                # ponytail: a packet's finder copies send the same request, so they share a spread; they already start
+                # CACHE_STAGGER_SECONDS apart. Pass the copy's number into the seed if they still resend together.
+                seed = int(hashlib.sha1(f"{role}\n{cache_key}\n{messages[-1:]}".encode()).hexdigest()[:8], 16)
+                wait = delays[attempt] + seed % (delays[attempt] // 3 + 1)
+            if retry and attempt >= len(RETRY_DELAYS):
+                # Every transient error gets the RETRY_DELAYS resends, even a submission forced after its deadline.
+                # The longer ones are patience the review must afford: none sleeps past the call's deadline, or bills
+                # another prompt once the review has reached its cost limit.
+                fits = until is None or time.monotonic() + wait <= until
+                retry = fits and not (ctx.cost_limit and ctx.spent_usd >= ctx.cost_limit)
+            if not retry:
                 with ctx.lock:
                     ctx.failures[role] = ctx.failures.get(role, 0) + 1
                 raise
-            wait = 0 if stalled else RETRY_DELAYS[attempt]
             print(
                 f"Dottore call retry: role={role}; attempt={attempt + 1}; after_s={time.monotonic() - started:.1f}; "
                 f"wait_s={wait}; {error_text(exc)}",
