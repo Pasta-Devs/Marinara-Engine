@@ -1178,8 +1178,9 @@
 }
 .ovm-cs-row__title {
   min-width: 0;
-  flex: 1 0 auto;
-  max-width: 70%;
+  /* The value gives way first when space runs out. */
+  flex: 0 0 auto;
+  max-width: 75%;
   overflow: hidden;
   font-size: 1rem;
   text-overflow: ellipsis;
@@ -1187,8 +1188,7 @@
 }
 .ovm-cs-row__value {
   min-width: 0;
-  flex: 0 1 auto;
-  margin-left: auto;
+  flex: 0 100 auto;
   overflow: hidden;
   color: var(--ov-muted);
   font-size: 0.9375rem;
@@ -1206,6 +1206,11 @@
   color: var(--ov-accent);
   font-size: 0.75rem;
   font-weight: 600;
+}
+/* Whatever follows the title (value, count or chevron) is pushed to the
+   right, so every chevron ends at the same spot. */
+.ovm-cs-row__title + * {
+  margin-left: auto;
 }
 .ovm-cs-row__chev {
   flex: none;
@@ -1560,4 +1565,33 @@
 }
 .ov-cs.ov-cs .ovm-cs-page__body .cursor-help {
   margin-inline-start: 0.25rem;
+}
+
+/* Every row in the list is its own rounded tile with a small gap; no divider
+   lines (they ran past the rounded corners). Connection matches the others. */
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer.ovm-cs-row,
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"],
+.ov-cs.ov-cs [data-ovm-cs-view] [data-ovm-quick] > .mari-drawer {
+  border: 0 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer.ovm-cs-row {
+  margin-top: 0.25rem;
+  background: transparent !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+  margin-top: 0.25rem;
+  overflow: hidden;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] [data-drawer-toggle] {
+  gap: 0.875rem !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] .mari-drawer__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] .mari-drawer__title {
+  font-size: 1rem !important;
+  font-weight: 400 !important;
 }
