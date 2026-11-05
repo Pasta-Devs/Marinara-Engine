@@ -14,6 +14,7 @@ import type {
   LLMUsage,
 } from "../llm/base-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
@@ -374,9 +375,9 @@ export const RUNTIME_API_KEY = "local-marinara-runtime";
 // Every review belongs to the Mari chat that made it (runSessionId()); slice 71 (F3) moved sensitive file
 // and install reviews there too. The status without a chat id (the omnibar's pending list) still lists all.
 const MAX_COMMAND_ROUNDS = 12;
-// Ceiling on Mari's per-reply output budget, whatever the connection allows.
-// Large enough for a whole lorebook or extension in one command plus hidden
-// reasoning on models that cannot turn it off.
+// Ceiling on Mari's per-reply output budget on OpenRouter, which reserves credits
+// for every requested output token. Large enough for a whole lorebook or
+// extension in one command plus hidden reasoning on models that cannot turn it off.
 export const MARI_MAX_OUTPUT_TOKENS = 32_768;
 /** The saved words of a reply that Send now reached after steps but before she said anything. */
 const MARI_CHECKPOINT_FILLER = "Still working";
@@ -420,7 +421,7 @@ export const SKIPPED_DIRS = new Set([
  * never saw.
  */
 export const MARI_WITHHELD_REPLY_NOTICE =
-  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write everything the user needs (the full plan, list, or explanation) in say again. Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
 
 /**
  * Detect a provider "prompt + output budget exceeds the context window" error
@@ -465,6 +466,12 @@ const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
 /** Each call retries at most this many times on a credit or context-window rejection. */
 const MAX_LIMIT_RETRIES = 2;
 const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+
+/** The output budget a run's requests use now: the run-start one, lowered by any limit learned from a rejection. */
+function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number | undefined) {
+  const learned = signal ? learnedRunLimits.get(signal)?.maxTokens : undefined;
+  return learned === undefined ? maxTokens : Math.min(maxTokens ?? Infinity, learned);
+}
 
 /**
  * Turn a provider limit rejection into smaller request limits, or null when
@@ -1097,6 +1104,7 @@ Keep the answer itself in plain assistant text.
 - Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. Calling \`ask\` ends your turn: changes beside it do not run, and the answer arrives as the user's next message. Say in a sentence what you are asking and why, then call it. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
 - Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
+- Your hidden reasoning/thinking is NEVER shown to the user, and Marinara may withhold a turn's text it could not accept (it will tell you when it does). Only your final turn's text is kept as your answer; text from a turn followed by more steps collapses into the step timeline. So when checks follow an answer or plan you already wrote, restate that whole answer or plan in your final text - never refer to it as already shown ("the plan above", "the original plan is still there").
 - Finish with your answer, including a suggestions call when you offer next steps.${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
@@ -1551,13 +1559,19 @@ export function mariMaxOutputTokens(connection: WorkspaceConnection) {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
-  const limit =
-    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
-  // Connection limits are sized for roleplay and often copied from the model's
-  // whole window (OpenRouter lists ~1M for some models). Mari's replies are
-  // short command frames, and OpenRouter reserves credits for every requested
-  // output token, so an uncapped limit fails with 402 before she can act.
-  return Math.min(limit, MARI_MAX_OUTPUT_TOKENS);
+  // A Max Tokens copied from the model's whole window (~1M for some models) is
+  // more than the model can return: hold it to the model's known max output.
+  const limit = clampGenerationMaxOutputTokens({
+    provider: normalizeCatalogProvider(connection.provider),
+    model: connection.model,
+    maxTokens:
+      (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ??
+      resolveMariMaxOutputTokens(connection),
+  });
+  // OpenRouter reserves credits for every requested output token, so a large
+  // budget fails with 402 before she can act. Direct providers keep their
+  // limit: hidden reasoning shares it there.
+  return connection.provider === "openrouter" ? Math.min(limit, MARI_MAX_OUTPUT_TOKENS) : limit;
 }
 
 function resolveMariMaxOutputTokens(connection: WorkspaceConnection) {
@@ -4429,7 +4443,8 @@ export class ProfessorMariWorkspaceService {
             actionResults: workspaceActionResults,
             commandResults: commandResultsForContinuity,
             onEvent: args.onEvent,
-            maxOutputTokens: baseOptions.maxTokens,
+            // Read when a repair quotes it, so a limit learned from a 402 mid-run is the one she is told.
+            maxOutputTokens: () => runMaxOutputTokens(controller.signal, baseOptions.maxTokens),
             steers: {
               waiting: () => {
                 syncFromPi();
@@ -5557,7 +5572,7 @@ export class ProfessorMariWorkspaceService {
         ? { maxContext: Math.min(baseOptions.maxContext || Infinity, runLimits.maxContext) }
         : {}),
       ...(runLimits?.maxTokens !== undefined
-        ? { maxTokens: Math.min(baseOptions.maxTokens ?? Infinity, runLimits.maxTokens) }
+        ? { maxTokens: runMaxOutputTokens(baseOptions.signal, baseOptions.maxTokens) }
         : {}),
     };
     logger.debug(

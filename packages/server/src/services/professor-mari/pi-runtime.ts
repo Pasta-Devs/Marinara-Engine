@@ -45,6 +45,7 @@ import {
   isLocalSidecarConnection,
   isMutatingWorkspaceCommand,
   isStagedSensitiveMutation,
+  MARI_WITHHELD_REPLY_NOTICE,
   MAX_PROTOCOL_REPAIR_ROUNDS,
   MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR,
   sanitizeSuggestionChips,
@@ -138,8 +139,8 @@ export type PiRunInput = {
   setRoundFlags: (flags: { manualSilentMutationBlocked: boolean; askLatchSilentMutationBlocked: boolean }) => void;
   /** Tool rounds allowed in one run; defaults to MAX_PI_TOOL_ROUNDS. Injected only by the regression. */
   maxToolRounds?: number;
-  /** The connection's output token limit, when known; the output-limit recovery quotes it. */
-  maxOutputTokens?: number;
+  /** The output token limit the run's requests use now, when known; the output-limit recovery quotes it. */
+  maxOutputTokens?: () => number | undefined;
   /** Called once the session exists, with the tools it really has active. The regression inspects the boundary here. */
   /** #5740: the understood-request record. `record` runs once per round with mutating calls; `settle` after they ran. */
   understood?: {
@@ -761,7 +762,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         onEvent({ type: "status", data: { content: OUTPUT_LIMIT_RETRY, kind: "output_limit", level: "info" } });
         return {
           kind: "repair" as const,
-          prompt: outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens),
+          prompt: outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens?.()),
         };
       }
       if (current.text.trim()) {
@@ -850,7 +851,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
     });
-    if (decision.kind === "repair") return decision;
+    // A repaired turn's words are never shown, yet they stay in pi's history: tell her, so she restates them.
+    const withheld = (prompt: string) => (current.text.trim() ? `${prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : prompt);
+    if (decision.kind === "repair") return { ...decision, prompt: withheld(decision.prompt) };
     if (decision.kind === "stop") {
       addNote(decision.content, "retry", "warning");
       stopRequested = true;
@@ -875,8 +878,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         heldClaimRepaired = true;
         return {
           kind: "repair" as const,
-          prompt:
+          prompt: withheld(
             "Nothing is held and no change card exists. Either make the change now with the tools, or say plainly that it was not made.",
+          ),
         };
       }
       state.assistantText = NOTHING_HELD;
