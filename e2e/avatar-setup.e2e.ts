@@ -1,4 +1,4 @@
-import { chooseCharacter } from "./character-picker.js";
+import { chooseCharacter, runName } from "./character-picker.js";
 import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -100,11 +100,7 @@ async function preparePage(page: Page, characterId: string, ui: Record<string, u
   );
 }
 
-/**
- * The owner field is the shared CharacterSelect (#8763): a persona picker that lists characters too. It finds owners
- * by name, so each test names its owners per run, keeping another run's owners on the same server out of the pick.
- */
-const runName = (name: string) => `${name} ${Date.now().toString(36)}`;
+// The owner field is the shared CharacterSelect (#8763): a persona picker that lists characters too.
 const pickOwner = (page: Page, setup: Locator, name: string) =>
   chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", name);
 

@@ -14,3 +14,9 @@ export async function chooseCharacter(page: Page, trigger: Locator, title: strin
   if (await done.isVisible()) await done.click();
   await expect(picker).toHaveCount(0);
 }
+
+/**
+ * The picker finds characters by name, so a test names its characters per run, keeping another run's characters on
+ * the same server out of the pick.
+ */
+export const runName = (name: string) => `${name} ${Date.now().toString(36)}`;

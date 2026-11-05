@@ -23,6 +23,7 @@ import { downloadExport } from "./export-save.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
+import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import {
   chatSettingsDrawer,
@@ -18727,7 +18728,9 @@ function respondWithProfessorMariAction(response: import("node:http").ServerResp
 test("Professor Mari creates a character when its own authorization quote omits the intent verb", async ({
   request,
 }) => {
-  // This scripted provider exercises the Classic JSON-frame protocol.
+  // This scripted provider exercises the Classic JSON-frame protocol. The runtime is shared server state, so the
+  // switch happens under the lock every runtime-switching Mari spec takes.
+  await acquireMariThreadLock();
   expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
     true,
   );
@@ -18847,6 +18850,8 @@ test("Professor Mari creates a character when its own authorization quote omits 
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
     if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    // After its Mari thread is gone: a locked spec that starts next finds none of this test's state.
+    releaseMariThreadLock();
     await new Promise<void>((resolve, reject) => {
       providerServer.close((error) => (error ? reject(error) : resolve()));
     });
@@ -18860,7 +18865,9 @@ test("Professor Mari creates a character when its own authorization quote omits 
 test("Professor Mari creates a character from a German instruction and a card with quoted denial-like dialogue", async ({
   request,
 }) => {
-  // This scripted provider exercises the Classic JSON-frame protocol.
+  // This scripted provider exercises the Classic JSON-frame protocol. The runtime is shared server state, so the
+  // switch happens under the lock every runtime-switching Mari spec takes.
+  await acquireMariThreadLock();
   expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
     true,
   );
@@ -19000,6 +19007,8 @@ Her expression hardens slightly.
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
     if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    // After its Mari thread is gone: a locked spec that starts next finds none of this test's state.
+    releaseMariThreadLock();
     await new Promise<void>((resolve, reject) => {
       providerServer.close((error) => (error ? reject(error) : resolve()));
     });

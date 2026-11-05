@@ -211,7 +211,18 @@ test("package and Engine share typed selection without changing chats or default
     await expect(
       dialog.getByRole("button", { name: `Turn on Picker studio ${info.project.name}`, exact: true }).first(),
     ).toBeVisible();
-    await page.keyboard.press("Escape");
+    // Clicking the Off row turns its account on and picks nothing: the picker stays open with no result.
+    await offRow.first().click();
+    const accountEnabled = async () =>
+      ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string; enabled: boolean }>).find(
+        (row) => row.id === account.account.id,
+      )?.enabled;
+    await expect.poll(accountEnabled).toBe(true);
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => (window as any).pickerResult)).toBeUndefined();
+    // A phone's pane goes back to the account list, so focus leaves the window and Escape would not reach it.
+    await dialog.getByRole("button", { name: "Close Image model", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).pickerResult)).toEqual({ status: "cancelled" });
     await request.patch(`/api/connection-accounts/${account.account.id}`, { data: { enabled: true } });
     const afterChat = await (await request.get(`/api/chats/${chatId}`)).json();
     expect(afterChat.connectionId).toBe(account.connectionId);
@@ -251,7 +262,7 @@ test("package and Engine share typed selection without changing chats or default
   }
 });
 
-test("picker waits for account state", async ({ page }, info) => {
+test("picker waits for account state", async ({ page, isMobile }, info) => {
   const { prepareViteFixtureDependencies } = await import("./vite-fixture-dependencies.js");
   let releaseAccounts!: () => void;
   const accountGate = new Promise<void>((resolve) => (releaseAccounts = resolve));
@@ -333,6 +344,8 @@ test("picker waits for account state", async ({ page }, info) => {
     // An Off account's rows say so and lead to its Turn on instead of being disabled (#8456).
     await expect(row.filter({ visible: true })).toHaveAttribute("aria-label", /^State fixture, .*\bOff\b/);
     await expect(dialog.getByRole("button", { name: "Turn on State account", exact: true }).first()).toBeVisible();
+    // Its search box only shows once both lists are in; a fine pointer then still gets it focused.
+    if (!isMobile) await expect(dialog.getByRole("searchbox")).toBeFocused();
     await expect(dialog.locator("strong", { hasText: "State account" }).first()).toHaveAttribute(
       "title",
       "OpenAI · State account",

@@ -7,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { AvatarConfig } from "@marinara-engine/shared";
 import { plainGlb, unnamedRigGlb } from "../scripts/regressions/fixtures/avatar-glb-fbx-fixtures.js";
-import { chooseCharacter } from "./character-picker.js";
+import { chooseCharacter, runName } from "./character-picker.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -69,12 +69,6 @@ declare global {
     __cspViolations?: string[];
   }
 }
-
-/**
- * The owner field is the shared character picker since #8763, which finds owners by name, so each test names its
- * character per run, keeping another run's characters on the same server out of the pick.
- */
-const runName = (name: string) => `${name} ${Date.now().toString(36)}`;
 
 async function openSetup(page: Page, owner: { id: string; name: string }) {
   await page.route("**/api/app-settings/ui", (route) =>

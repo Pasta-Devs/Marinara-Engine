@@ -275,11 +275,19 @@ for (const theme of ["dark", "light"] as const) {
     const { id } = await created.json();
     const stored = async () => (await request.get(`/api/connections/${id}`)).json();
     const before = await stored();
-    // Since #8456 the editor's model list asks the Engine for the Model's models. A Music & Sound Effects
-    // Model gets none from it on any service (an empty list, or a refusal while it has no key), so every
-    // choice below is the built-in Eleven Music one or a typed ID.
-    const engineModels = async () =>
-      ((await (await request.get(`/api/connections/${id}/models`)).json()) as { models?: unknown[] }).models ?? [];
+    // Since #8456 the editor's model list asks the Engine for the Model's models. A Music & Sound Effects Model
+    // gets none from it: an empty list, or a refusal while its account has no key and no address of its own
+    // (ElevenLabs here, and the custom server, whose address the account sets). So every choice below is the
+    // built-in Eleven Music one or a typed ID.
+    const engineModels = async () => {
+      const res = await request.get(`/api/connections/${id}/models`);
+      return { status: res.status(), body: await res.json() };
+    };
+    const noModels = { status: 200, body: { models: [] } };
+    const keylessAccount = {
+      status: 400,
+      body: { error: "This connection is off, under review, or needs an API key." },
+    };
     try {
       await prepare(page, theme);
       let editor = await openConnection(page, id);
@@ -291,7 +299,7 @@ for (const theme of ["dark", "light"] as const) {
       await capture(page, info, `elevenlabs-music-option-${theme}`, option());
       await option().click();
       await expect(currentModel(editor)).toHaveAttribute("data-model-id", "music_v2_5");
-      expect(await engineModels()).toEqual([]);
+      expect(await engineModels()).toEqual(keylessAccount);
       await expect(editor.getByText("Context:", { exact: true })).toHaveCount(0);
       await expect(editor.getByText("Max Output:", { exact: true })).toHaveCount(0);
       await editor.getByRole("button", { name: "Save", exact: true }).click();
@@ -309,7 +317,7 @@ for (const theme of ["dark", "light"] as const) {
       await typeModel(editor, "saved-suno-model");
       await editor.getByRole("button", { name: "Save", exact: true }).click();
       await expect.poll(stored).toMatchObject({ audioGenerationSource: "sunoapi", model: "saved-suno-model" });
-      expect(await engineModels()).toEqual([]);
+      expect(await engineModels()).toEqual(noModels);
       await page.reload();
       editor = await openConnection(page, id);
       await expect(currentModel(editor)).toHaveAttribute("data-model-id", "saved-suno-model");
@@ -325,7 +333,7 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       editor = await openConnection(page, id);
       await expect(currentModel(editor)).toHaveAttribute("data-model-id", "saved-custom-model");
-      expect(await engineModels()).toEqual([]);
+      expect(await engineModels()).toEqual(keylessAccount);
     } finally {
       await request.delete(`/api/connections/${id}`);
     }

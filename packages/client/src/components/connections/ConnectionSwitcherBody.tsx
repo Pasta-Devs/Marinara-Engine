@@ -592,11 +592,12 @@ export function ConnectionSwitcherBody({
     [nowRow?.id, rows],
   );
 
+  // The search box shows once both lists are in, so it is focused then, not on the first frame.
   useEffect(() => {
-    if (!autoFocusSearch || !window.matchMedia?.("(pointer: fine)").matches) return;
+    if (!listsReady || !autoFocusSearch || !window.matchMedia?.("(pointer: fine)").matches) return;
     const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [autoFocusSearch]);
+  }, [autoFocusSearch, listsReady]);
 
   const apply = async (entry: Entry) => {
     if (busy) return;

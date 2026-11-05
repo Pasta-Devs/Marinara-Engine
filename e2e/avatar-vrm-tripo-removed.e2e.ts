@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { tripoMadeVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
-import { chooseCharacter } from "./character-picker.js";
+import { chooseCharacter, runName } from "./character-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 // One-click Tripo models were withdrawn (maintainer decision, 2026-10-19): Tripo models have no face rig, so
@@ -60,12 +60,6 @@ function watchTripoRequests(page: Page): string[] {
   });
   return seen;
 }
-
-/**
- * The owner field is the shared character picker since #8763, which finds owners by name, so each test names its
- * character per run, keeping another run's characters on the same server out of the pick.
- */
-const runName = (name: string) => `${name} ${Date.now().toString(36)}`;
 
 async function openSetup(page: Page, owner: { id: string; name: string } | null) {
   await page.route("**/api/app-settings/ui", (route) =>
