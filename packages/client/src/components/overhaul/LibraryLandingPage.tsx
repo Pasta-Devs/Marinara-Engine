@@ -11,15 +11,53 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { LIBRARY_SECTIONS } from "./library-navigation";
 
-const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType>>> = {
-  lorebooks: lazy(() => import("./LibraryTables").then((m) => ({ default: m.LorebooksLanding }))),
-  presets: lazy(() => import("./LibraryTables").then((m) => ({ default: m.PresetsLanding }))),
-  regex: lazy(() => import("./LibraryTables").then((m) => ({ default: m.RegexLanding }))),
-  connections: lazy(() => import("./LibraryTables").then((m) => ({ default: m.ConnectionsLanding }))),
-  agents: lazy(() => import("./LibraryTables").then((m) => ({ default: m.AgentsLanding }))),
-  settings: lazy(() => import("./SettingsPage").then((m) => ({ default: m.OverhaulSettingsPage }))),
-  extensions: lazy(() => import("./SettingsPage").then((m) => ({ default: m.OverhaulExtensionsPage }))),
+// One lazy wrapper per module (not per section): once a module has loaded, switching between
+// its sections renders straight away instead of flashing "Loading…" again. Both modules are also
+// fetched in the background shortly after start, so the first open is normally instant too.
+const loadTables = () => import("./LibraryTables");
+const loadSettings = () => import("./SettingsPage");
+type PageProps = { section: LibrarySection };
+const TablesPage = lazy(() =>
+  loadTables().then((m) => ({
+    default: ({ section }: PageProps) => {
+      const Page =
+        section === "lorebooks"
+          ? m.LorebooksLanding
+          : section === "presets"
+            ? m.PresetsLanding
+            : section === "regex"
+              ? m.RegexLanding
+              : section === "connections"
+                ? m.ConnectionsLanding
+                : m.AgentsLanding;
+      return <Page />;
+    },
+  })),
+);
+const SettingsModulePage = lazy(() =>
+  loadSettings().then((m) => ({
+    default: ({ section }: PageProps) =>
+      section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />,
+  })),
+);
+const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<PageProps>>>> = {
+  lorebooks: TablesPage,
+  presets: TablesPage,
+  regex: TablesPage,
+  connections: TablesPage,
+  agents: TablesPage,
+  settings: SettingsModulePage,
+  extensions: SettingsModulePage,
 };
+if (typeof window !== "undefined") {
+  const preload = () => {
+    void loadTables().catch(() => undefined);
+    void loadSettings().catch(() => undefined);
+  };
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+  if (idle) idle(preload);
+  else window.setTimeout(preload, 1500);
+}
 
 const SURFACES = {
   lorebooks: "lorebooks",
@@ -49,7 +87,7 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   if (Page && SELF_HEADED.has(section)) {
     return (
       <Suspense fallback={<div className="ov-libpage__loading">{localize("Loading…")}</div>}>
-        <Page />
+        <Page section={section} />
       </Suspense>
     );
   }
@@ -72,7 +110,7 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
         style={{ maxWidth: width, "--mari-right-panel-width": `${width}px` } as CSSProperties}
       >
         <Suspense fallback={<div className="ov-libpage__loading">{localize("Loading…")}</div>}>
-          {Page ? <Page /> : null}
+          {Page ? <Page section={section} /> : null}
         </Suspense>
       </div>
     </section>
