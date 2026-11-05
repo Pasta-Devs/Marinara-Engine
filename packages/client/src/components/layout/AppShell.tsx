@@ -67,6 +67,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
+import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
@@ -556,7 +557,24 @@ export function AppShell({
       if (state.activeChatId) useOverhaulStore.getState().setLibraryPage(null);
     });
   }, []);
-  const mobileNavigationPanel = shellOverlayMode ? (rightPanelOpen ? "right" : sidebarOpen ? "chats" : null) : null;
+  // New layout on phones: the old right panel (Connections, Presets... lists) never shows. Anything
+  // that opens it, including a desktop Library pane left open when the window shrinks, lands on
+  // that section's Library page instead.
+  useEffect(() => {
+    if (!overhaulMobile || !rightPanelOpen) return;
+    const panel = useUIStore.getState().rightPanel;
+    useUIStore.getState().closeRightPanel();
+    if (LIBRARY_SECTIONS.some((section) => section.id === panel)) {
+      openLibrarySection(panel as (typeof LIBRARY_SECTIONS)[number]["id"]);
+    }
+  }, [overhaulMobile, rightPanelOpen]);
+  const mobileNavigationPanel = shellOverlayMode
+    ? rightPanelOpen && !overhaulMobile
+      ? "right"
+      : sidebarOpen
+        ? "chats"
+        : null
+    : null;
   const [rightPanelEverOpened, setRightPanelEverOpened] = useState(rightPanelOpen);
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
