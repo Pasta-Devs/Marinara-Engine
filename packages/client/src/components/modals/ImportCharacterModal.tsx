@@ -15,7 +15,7 @@ import {
   type EmbeddedLorebookImportPreview,
 } from "../../lib/character-import";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { cn } from "../../lib/utils";
 
 interface Props {
@@ -99,7 +99,8 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
   const qc = useQueryClient();
-  const overhaulActive = useOverhaulActive();
+  // The compact layout is used by the new layout at every size; phones stack it (overhaul-mobile.css).
+  const overhaulActive = useOverhaulLook();
 
   const isZipFile = async (file: File): Promise<boolean> => {
     if (file.size < 4) return false;

@@ -2816,3 +2816,40 @@
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);
 }
+
+/* Import Character on phones: the drop row becomes a Browse row, and each picker stacks its
+   label, a full-width segmented choice and the chosen option's description. */
+:root[data-overhaul="mobile"] .ov-imp__drop {
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-imp__drop .ov-btn {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-imp__pick {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.375rem;
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-imp__label {
+  padding-top: 0;
+}
+:root[data-overhaul="mobile"] .ov-imp__choice {
+  justify-items: stretch;
+}
+:root[data-overhaul="mobile"] .ov-imp__choice .ov-seg {
+  display: flex;
+  width: 100%;
+}
+:root[data-overhaul="mobile"] .ov-imp__choice .ov-seg > button {
+  flex: 1;
+  min-height: 2.5rem;
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-imp__desc {
+  padding-left: 0.125rem;
+  font-size: 0.875rem;
+}
