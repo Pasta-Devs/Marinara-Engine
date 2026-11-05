@@ -40,12 +40,14 @@ Marinara следит за файлом `.env` во время работы. Б�
 Следующие настройки читаются только при запуске. Изменение любой из них требует перезапуска, и журнал вас об этом предупреждает:
 
 - `PORT`, `HOST`, `SSL_CERT` и `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` и `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` и `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` и `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` и `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` и `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` и `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` и `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Тайм-ауты и настройки опроса для изображений, видео, спрайтов и ComfyUI: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` и четыре настройки `*_VIDEO_POLL_INTERVAL_MS`
+
+Скрипты запуска читают `AUTO_UPDATE_ENABLED` до старта сервера, поэтому изменение применяется со следующего запуска, и журнал о нем не предупреждает.
 
 Настройкам управления доступом и секретам (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) перезапуск не нужен.
 

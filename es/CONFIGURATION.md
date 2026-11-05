@@ -40,12 +40,14 @@ Si no se detectan tus cambios, por ejemplo cuando editas desde otra máquina o d
 Estos ajustes solo se leen al arrancar. Cambiar uno necesita un reinicio, y el registro te lo advierte:
 
 - `PORT`, `HOST`, `SSL_CERT` y `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` y `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` y `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` y `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` y `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` y `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` y `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` y `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Los tiempos de espera y los ajustes de sondeo de imagen, video, sprite y ComfyUI: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` y los cuatro ajustes `*_VIDEO_POLL_INTERVAL_MS`
+
+Los lanzadores leen `AUTO_UPDATE_ENABLED` antes de que arranque el servidor, así que un cambio se aplica a partir del próximo arranque y el registro no lo advierte.
 
 Los ajustes de control de acceso y los secretos (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) no necesitan reinicio.
 

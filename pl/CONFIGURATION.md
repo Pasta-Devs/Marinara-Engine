@@ -40,12 +40,14 @@ Jeśli twoje zmiany nie są wykrywane, na przykład przy edycji z innego kompute
 Te ustawienia są odczytywane tylko przy starcie. Zmiana któregokolwiek z nich wymaga restartu, a log cię o tym ostrzega:
 
 - `PORT`, `HOST`, `SSL_CERT` i `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` i `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` i `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` i `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` i `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` i `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` i `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` i `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Limity czasu i ustawienia odpytywania dla obrazów, wideo, sprite'ów i ComfyUI: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` oraz cztery ustawienia `*_VIDEO_POLL_INTERVAL_MS`
+
+Programy uruchamiające odczytują `AUTO_UPDATE_ENABLED` przed startem serwera, więc zmiana działa od następnego uruchomienia, a log o niej nie ostrzega.
 
 Ustawienia kontroli dostępu i sekrety (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) nie wymagają restartu.
 

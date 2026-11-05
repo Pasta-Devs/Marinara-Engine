@@ -1,11 +1,11 @@
 {
   "language": "hi",
-  "sourceCommit": "e40b31999e7e5748d728a5d0c5e22cc0e1efc60a",
+  "sourceCommit": "21da93b5902462277b2a01a39de6605d251cf292",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "91b73a6c064931167dff668d7c585d73c3c3575644da91d0c1f27b24f59fc297",
-      "bytes": 93717
+      "sha256": "aea7e48114224e2a39f93abb25b05430a1424ae74670e982289fce7caf6f25cd",
+      "bytes": 94060
     },
     {
       "path": "FAQ.md",

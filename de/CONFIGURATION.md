@@ -40,12 +40,14 @@ Werden deine Änderungen nicht übernommen, etwa weil du von einem anderen Rechn
 Die folgenden Einstellungen liest der Server nur beim Start. Eine Änderung braucht einen Neustart, und das Log weist dich darauf hin:
 
 - `PORT`, `HOST`, `SSL_CERT` und `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` und `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` und `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` und `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` und `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` und `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` und `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` und `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Zeitlimits und Abfrage-Einstellungen für Bild, Video, Sprite und ComfyUI: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` und die vier `*_VIDEO_POLL_INTERVAL_MS`-Einstellungen
+
+Die Launcher lesen `AUTO_UPDATE_ENABLED`, bevor der Server startet. Eine Änderung gilt daher ab dem nächsten Start, und das Log weist nicht darauf hin.
 
 Einstellungen zur Zugriffskontrolle und Geheimnisse (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) kommen ohne Neustart aus.
 

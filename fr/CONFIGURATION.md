@@ -40,12 +40,14 @@ Si tes modifications ne sont pas prises en compte, par exemple quand tu modifies
 Ces réglages ne sont lus qu'au démarrage. En changer un demande un redémarrage, et le log te prévient :
 
 - `PORT`, `HOST`, `SSL_CERT` et `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` et `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` et `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` et `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` et `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` et `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` et `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` et `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Les délais d'expiration et les réglages d'interrogation pour l'image, la vidéo, les sprites et ComfyUI : `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` et les quatre réglages `*_VIDEO_POLL_INTERVAL_MS`
+
+Les lanceurs lisent `AUTO_UPDATE_ENABLED` avant le démarrage du serveur. Une modification s'applique donc à partir du lancement suivant, et le log ne te prévient pas.
 
 Les réglages de contrôle d'accès et les secrets (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) n'ont pas besoin de redémarrage.
 
