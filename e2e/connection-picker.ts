@@ -16,6 +16,8 @@ export async function chooseConnection(page: Page, trigger: Locator, id: string)
     if (await row.count()) return;
     for (let index = 0; index < (await panes.count()); index += 1) {
       if (await back.count()) await back.first().click();
+      // A Model with no account is listed beside the panes, which a narrow picker shows only after Back.
+      if (await row.count()) return;
       await panes.nth(index).click();
       if (await row.count()) return;
     }
