@@ -158,13 +158,15 @@ export function AgentCatalogView() {
               shown.name,
               shown.description,
               taglineOf({ manifest, ...entry }),
+              // A section's name ("Apps") finds the packages in it.
+              localizeUi(sectionLabelKey(sectionOf({ manifest, ...entry }))),
             ]
               .join(" ")
               .toLowerCase()
               .includes(needle);
           })
         : null,
-    [entries, needle, shownLanguage],
+    [entries, needle, shownLanguage, localizeUi],
   );
   const updates = useMemo(
     () => all.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id))),
