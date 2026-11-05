@@ -120,6 +120,7 @@ import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { MARI_WINDOW_HEIGHT_MIN_REM, useUIStore } from "../../stores/ui.store";
 import { InlineGhostText } from "../ui/InlineGhostText";
 import {
@@ -148,6 +149,7 @@ import { OmnibarResultList } from "./omnibar/OmnibarResultList";
 import {
   OmnibarMariDoor,
   OmnibarScopeChips,
+  OmnibarMobileCategories,
   OmnibarFilterStrip,
   OmnibarEmpty,
   OmnibarFooter,
@@ -188,6 +190,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overhaulMobile = useOverhaulMobile();
   const mariWindowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
   const mariWindowViewportHeight = Math.min(88, (80 * mariWindowHeightRem) / MARI_WINDOW_HEIGHT_MIN_REM);
   const mariWindowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
@@ -974,6 +977,26 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // Quick and Mari both own the whole dialog. Leaving the search input mounted
   // under them let one keystroke re-enter `results` and abort a running answer.
   const mariSurface = pane === "mari";
+  // New layout on phones: Safari-style search, with the field and category tabs at the bottom.
+  const ovmFind = overhaulMobile && !mariSurface;
+  // The bottom search field rides above the phone keyboard.
+  useEffect(() => {
+    const panel = dialogRef.current;
+    const viewport = window.visualViewport;
+    if (!ovmFind || !panel || !viewport) return;
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      panel.style.setProperty("--ovm-kb", `${Math.round(inset)}px`);
+    };
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      panel.style.removeProperty("--ovm-kb");
+    };
+  }, [ovmFind]);
   // K6: fire once per open, the first time the results pane actually paints
   // (opening straight into Mari's pane has no results list to time).
   useLayoutEffect(() => {
@@ -1963,6 +1986,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       data-over-dialog={overDialog ? "true" : undefined}
       data-pane={pane}
       data-mode={pane === "mari" ? "work" : "find"}
+      data-ovm-omni={ovmFind ? "" : undefined}
       className="fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-black/55 backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:px-6 sm:pt-[var(--omnibar-top)]"
       // An empty bar sits lower, near the middle, so the hint field below it has
       // room; it rides back up as soon as results need the space.
@@ -2016,127 +2040,136 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 : "h-16 gap-3 border-b border-[var(--border)] px-3 sm:h-14 sm:px-4",
             )}
           >
-            {pane !== "results" ? (
-              <button
-                ref={backButtonRef}
-                type="button"
-                onClick={leaveDetail}
-                aria-label={
-                  mariSurface
-                    ? t("commandCenter.backToFind", "Back to search")
-                    : t("commandCenter.backToResults", "Back to results")
-                }
-                // M18: ⌘J goes back to the search from Mari, so the button says so.
-                title={
-                  mariSurface
-                    ? t("commandCenter.keyboard.backToSearch", "Back to search ({{mod}}+J)", {
-                        mod: formatShortcutKey("Mod"),
-                      })
-                    : undefined
-                }
-                aria-keyshortcuts={mariSurface ? (isApplePlatform() ? "Meta+J" : "Control+J") : undefined}
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
-              >
-                <ChevronLeft size={18} />
-              </button>
-            ) : (
-              <Search
-                size={19}
-                aria-hidden="true"
-                data-mari-pull-target="search"
-                className="shrink-0 text-[var(--primary)]"
-              />
-            )}
-            <AnimatePresence initial={false} mode="wait">
-              {mariSurface ? (
-                <motion.div
-                  key="omnibar-mari-header"
-                  initial={reduceMotion ? false : { opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, x: -10 }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: "easeOut" }}
-                  className="flex min-w-0 flex-1 flex-col justify-center px-1"
+            <div className={ovmFind ? "ovm-omni-field" : "contents"}>
+              {pane !== "results" ? (
+                <button
+                  ref={backButtonRef}
+                  type="button"
+                  onClick={leaveDetail}
+                  aria-label={
+                    mariSurface
+                      ? t("commandCenter.backToFind", "Back to search")
+                      : t("commandCenter.backToResults", "Back to results")
+                  }
+                  // M18: ⌘J goes back to the search from Mari, so the button says so.
+                  title={
+                    mariSurface
+                      ? t("commandCenter.keyboard.backToSearch", "Back to search ({{mod}}+J)", {
+                          mod: formatShortcutKey("Mod"),
+                        })
+                      : undefined
+                  }
+                  aria-keyshortcuts={mariSurface ? (isApplePlatform() ? "Meta+J" : "Control+J") : undefined}
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
                 >
-                  {/* Row 1: her name and live status, no portrait (she is in the transcript). The status text
-                      comes from her chat through `mariStatusSlot`; row 2 below holds the destinations. */}
-                  <span className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
-                    {t("omnibar.categories.professor", "Professor Mari")}
-                  </span>
-                  <span
-                    ref={setMariStatusSlot}
-                    className="mari-omnibar-header-status truncate text-[0.6875rem] font-medium leading-tight text-[var(--muted-foreground)]"
-                  />
-                </motion.div>
+                  <ChevronLeft size={18} />
+                </button>
               ) : (
-                <motion.div
-                  key="omnibar-search-header"
-                  initial={reduceMotion ? false : { opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? undefined : inputTravel ? { opacity: 0, y: inputTravel } : { opacity: 0, x: 10 }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: inputTravel ? 0.28 : 0.16, ease: "easeOut" }}
-                  className="relative z-20 flex min-w-0 flex-1"
-                >
-                  <InlineGhostText
-                    value={query}
-                    suffix={inlineSuffix}
-                    className="text-base font-medium leading-normal"
-                    onAccept={() => setQuery(query + inlineSuffix)}
-                  />
-                  <input
-                    ref={inputRef}
-                    value={query}
-                    onChange={(event) => {
-                      handedOffQueryRef.current = false;
-                      setQuery(event.target.value);
-                      setFilter("all");
-                      setPane("results");
-                    }}
-                    type="search"
-                    // The browser's own suggestion popup steals ArrowUp/ArrowDown
-                    // from the result list, so every native assist is off here.
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    aria-label={t("omnibar.inputLabel", "Search Marinara")}
-                    // Focus stays in the field while the arrows move the selection,
-                    // so point screen readers at the selected row.
-                    aria-controls={listVisible ? "global-omnibar-results" : undefined}
-                    aria-activedescendant={listVisible && activeResult ? `omnibar-${activeResult.id}` : undefined}
-                    onKeyDown={onInputKeyDown}
-                    placeholder={
-                      idle
-                        ? // Slice 78: the greeting is cut off at 390 px ("Type to search,"), so a phone gets the short form.
-                          window.matchMedia("(min-width: 640px)").matches
-                          ? idleGreeting
-                          : t("commandCenter.placeholderIdleShort", "Search or ask Prof. Mari")
-                        : // ponytail: read once per open (the dialog remounts each time); a resize
-                          // while open keeps the old text. Use a shared media hook if one lands.
-                          window.matchMedia("(min-width: 640px)").matches
-                          ? t("commandCenter.placeholder", "Search everything, or narrow with faq:, docs:, msg:, char:")
-                          : t("commandCenter.placeholderShort", "Search everything")
-                    }
-                    className="min-w-0 flex-1 bg-transparent text-base font-medium text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted-foreground)] [&::-webkit-search-cancel-button]:hidden"
-                  />
-                </motion.div>
+                <Search
+                  size={19}
+                  aria-hidden="true"
+                  data-mari-pull-target="search"
+                  className="shrink-0 text-[var(--primary)]"
+                />
               )}
-            </AnimatePresence>
-            {query && !mariSurface ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setFilter("all");
-                  setActiveResultId(null);
-                  requestAnimationFrame(() => inputRef.current?.focus());
-                }}
-                aria-label={t("commandCenter.clearSearch", "Clear search")}
-                title={t("commandCenter.clearSearch", "Clear search")}
-                className="inline-flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-[color-mix(in_srgb,var(--foreground)_12%,var(--card))] text-[var(--muted-foreground)] transition-colors hover:bg-[color-mix(in_srgb,var(--foreground)_20%,var(--card))] hover:text-[var(--foreground)]"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            ) : null}
+              <AnimatePresence initial={false} mode="wait">
+                {mariSurface ? (
+                  <motion.div
+                    key="omnibar-mari-header"
+                    initial={reduceMotion ? false : { opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reduceMotion ? undefined : { opacity: 0, x: -10 }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: "easeOut" }}
+                    className="flex min-w-0 flex-1 flex-col justify-center px-1"
+                  >
+                    {/* Row 1: her name and live status, no portrait (she is in the transcript). The status text
+                      comes from her chat through `mariStatusSlot`; row 2 below holds the destinations. */}
+                    <span className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
+                      {t("omnibar.categories.professor", "Professor Mari")}
+                    </span>
+                    <span
+                      ref={setMariStatusSlot}
+                      className="mari-omnibar-header-status truncate text-[0.6875rem] font-medium leading-tight text-[var(--muted-foreground)]"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="omnibar-search-header"
+                    initial={reduceMotion ? false : { opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={
+                      reduceMotion ? undefined : inputTravel ? { opacity: 0, y: inputTravel } : { opacity: 0, x: 10 }
+                    }
+                    transition={
+                      reduceMotion ? { duration: 0 } : { duration: inputTravel ? 0.28 : 0.16, ease: "easeOut" }
+                    }
+                    className="relative z-20 flex min-w-0 flex-1"
+                  >
+                    <InlineGhostText
+                      value={query}
+                      suffix={inlineSuffix}
+                      className="text-base font-medium leading-normal"
+                      onAccept={() => setQuery(query + inlineSuffix)}
+                    />
+                    <input
+                      ref={inputRef}
+                      value={query}
+                      onChange={(event) => {
+                        handedOffQueryRef.current = false;
+                        setQuery(event.target.value);
+                        setFilter("all");
+                        setPane("results");
+                      }}
+                      type="search"
+                      // The browser's own suggestion popup steals ArrowUp/ArrowDown
+                      // from the result list, so every native assist is off here.
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      aria-label={t("omnibar.inputLabel", "Search Marinara")}
+                      // Focus stays in the field while the arrows move the selection,
+                      // so point screen readers at the selected row.
+                      aria-controls={listVisible ? "global-omnibar-results" : undefined}
+                      aria-activedescendant={listVisible && activeResult ? `omnibar-${activeResult.id}` : undefined}
+                      onKeyDown={onInputKeyDown}
+                      placeholder={
+                        idle
+                          ? // Slice 78: the greeting is cut off at 390 px ("Type to search,"), so a phone gets the short form.
+                            window.matchMedia("(min-width: 640px)").matches
+                            ? idleGreeting
+                            : t("commandCenter.placeholderIdleShort", "Search or ask Prof. Mari")
+                          : // ponytail: read once per open (the dialog remounts each time); a resize
+                            // while open keeps the old text. Use a shared media hook if one lands.
+                            window.matchMedia("(min-width: 640px)").matches
+                            ? t(
+                                "commandCenter.placeholder",
+                                "Search everything, or narrow with faq:, docs:, msg:, char:",
+                              )
+                            : t("commandCenter.placeholderShort", "Search everything")
+                      }
+                      className="min-w-0 flex-1 bg-transparent text-base font-medium text-[var(--foreground)] outline-none placeholder:font-normal placeholder:text-[var(--muted-foreground)] [&::-webkit-search-cancel-button]:hidden"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {query && !mariSurface ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    setFilter("all");
+                    setActiveResultId(null);
+                    requestAnimationFrame(() => inputRef.current?.focus());
+                  }}
+                  aria-label={t("commandCenter.clearSearch", "Clear search")}
+                  title={t("commandCenter.clearSearch", "Clear search")}
+                  className="inline-flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-[color-mix(in_srgb,var(--foreground)_12%,var(--card))] text-[var(--muted-foreground)] transition-colors hover:bg-[color-mix(in_srgb,var(--foreground)_20%,var(--card))] hover:text-[var(--foreground)]"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
+              ) : null}
+            </div>
             {!mariSurface && mariEnabled ? (
               <OmnibarMariDoor
                 onClick={() => askMariAbout(null)}
@@ -2149,14 +2182,20 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             {/* R11: while a phone keyboard is open her destinations fold into a menu here (one-line header). */}
             {mariSurface ? <span ref={setMariMenuSlot} className="mari-omnibar-header-compact-menu" /> : null}
             {mariSurface ? <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} /> : null}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("common.close", "Close")}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
-            >
-              <X size={18} />
-            </button>
+            {ovmFind ? (
+              <button type="button" onClick={onClose} className="ovm-omni-cancel">
+                {localize("Cancel")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("common.close", "Close")}
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
           {mariSurface ? (
             <div ref={setMariHeaderSlot} className="mari-omnibar-header-slot mari-omnibar-header-row" />
@@ -2164,7 +2203,21 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           {!mariSurface ? (
             <OmnibarUnderstoodLine line={query.trim() ? understoodLine : null} context={rowVisualContext} />
           ) : null}
-          {!query.trim() && !mariSurface ? (
+          {ovmFind ? (
+            <OmnibarMobileCategories
+              typed={Boolean(query.trim())}
+              filter={filter}
+              queryScope={queryScope}
+              availability={tabAvailability}
+              filterLabels={filterLabels}
+              setQuery={setQuery}
+              setFilter={setFilter}
+              setCategoryFilter={setCategoryFilter}
+              inputRef={inputRef}
+              settings={<OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} />}
+            />
+          ) : null}
+          {!query.trim() && !mariSurface && !ovmFind ? (
             <OmnibarScopeChips
               filterLabels={filterLabels}
               setQuery={setQuery}
@@ -2172,7 +2225,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
               inputRef={inputRef}
             />
           ) : null}
-          {query.trim() && !mariSurface ? (
+          {query.trim() && !mariSurface && !ovmFind ? (
             <OmnibarFilterStrip
               reduceMotion={reduceMotion}
               availableFilters={availableFilters}
@@ -2256,7 +2309,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {!mariSurface ? (
+        {!mariSurface && !ovmFind ? (
           <OmnibarFooter
             inlineSuffix={inlineSuffix}
             mariEnabled={mariEnabled}
