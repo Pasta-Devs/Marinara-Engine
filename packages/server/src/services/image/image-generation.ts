@@ -2789,6 +2789,7 @@ export function getNovelAiDisplayPrompt(body: Record<string, unknown>): string {
     .join(" | ");
 }
 
+/** A whitespace run holding a line break becomes one "\n"; `\s*\n\s*` backtracked quadratically on long runs. */
 function sanitizeNovelAiV4Prompt(value: string, allowUnicode = false): string {
   return value
     .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
@@ -2801,7 +2802,7 @@ function sanitizeNovelAiV4Prompt(value: string, allowUnicode = false): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, allowUnicode ? "$&" : " ")
     .replace(/[ \t]+/g, " ")
-    .replace(/\s*\n\s*/g, "\n")
+    .replace(/\s+/g, (run) => (run.includes("\n") ? "\n" : run))
     .trim();
 }
 

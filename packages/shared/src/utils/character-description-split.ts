@@ -652,7 +652,7 @@ function splitWpp(s: string, ctx: Ctx): string[] {
     }
     i = close + 1;
   }
-  if (cuts.length < 2 || !/^[\s\]})\].,;]*$/.test(s.slice(i))) return [s];
+  if (cuts.length < 2 || !/^[\s\]}).,;]*$/.test(s.slice(i))) return [s];
   return cuts.map((start, k) => s.slice(k === 0 ? 0 : start, k + 1 < cuts.length ? cuts[k + 1] : s.length));
 }
 
@@ -1078,7 +1078,7 @@ interface Item {
 /** A short, title-like line between paragraphs ("Under the Clothes", "Sample Dialogue"). */
 function isProseHeading(items: Item[], index: number, ctx: Ctx): boolean {
   const t = items[index]!.text.trim();
-  if (!isShortTitle(t) || !/^(\p{Lu}|\{\{)/u.test(t) || /^[-*•+–>[{<"“*]/.test(t)) return false;
+  if (!isShortTitle(t) || !/^(\p{Lu}|\{\{)/u.test(t) || /^[-*•+–>[{<"“]/.test(t)) return false;
   const norm = normLabel(t, ctx.names);
   if (!norm || looksLikeSentence(norm)) return false;
   const neighbour = (step: number) => {

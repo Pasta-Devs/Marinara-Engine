@@ -283,7 +283,11 @@ async function readCallVideoClipUploadBuffer(data: UploadedMultipartFile) {
 }
 
 async function ensureCharacterGalleryDir(characterId: string) {
-  const dir = join(CHARACTER_GALLERY_ROOT, characterId);
+  // Stored ids are not always app-made: a profile import or Mari can store any id.
+  if (isUnsafePathSegment(characterId)) {
+    throw new Error("Invalid character id");
+  }
+  const dir = assertInsideDir(CHARACTER_GALLERY_ROOT, join(CHARACTER_GALLERY_ROOT, characterId));
   await mkdir(dir, { recursive: true });
   return dir;
 }

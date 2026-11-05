@@ -5,6 +5,8 @@ Screenshots and recordings for the in-app What's New. All of them were captured 
 - **Stills:** captured at 1440×900 CSS px with device scale factor 2, then downscaled to 1600 px wide as JPEG (quality 85).
 - **Recordings:** captured with a Chrome DevTools screencast at 1440×900 and encoded to H.264 MP4 at 1280 px, 30 fps, with no audio. The visible cursor is a page overlay added for the recording.
 
+The capture scripts, including the mock model server and the seeding scripts, are kept outside the repository in the agent's scratch folder. They are not needed to use these files.
+
 ## Demo art
 
 - **Images:** every picture of a person or place in the Otome Hearth and Saucelings captures was made for these captures with Codex's built-in image generation from prompts written for them. Every character and place is original, and none is a real person or comes from a game, anime or book. The Saucelings pets are the package's own sprites and were not redrawn. No image was fetched from anyone's Marinara instance, and no image connection in the capture instances was called.
@@ -81,5 +83,3 @@ These were captured from the production build of `release/v2.5.2` (`2.5.2+45aad5
 | File               | What it shows                                                                                                                                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `story-writer.jpg` | Home → **Story Writer**: the open antique book on the wooden desk at chapter 2, "The Room Beneath the Stairs", page 6 of 15. A sticky **Author's note** sits at the top right, and the bar below has **Write next chapter** and 1,094 of 18,000 words. |
-
-The capture scripts, including the mock model server and the seeding scripts, are kept outside the repository in the agent's scratch folder. They are not needed to use these files.

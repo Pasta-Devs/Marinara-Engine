@@ -2,9 +2,14 @@ const WINDOWS_FILENAME_UNSAFE_RE = /[<>:"/\\|?*\u0000-\u001f]+/gu;
 const SEPARATOR_RE = /[\s,;]+/gu;
 const SPRITE_LABEL_UNSAFE_RE = /[^\p{L}\p{N}._-]+/gu;
 const MULTI_UNDERSCORE_RE = /_+/g;
-const TRIM_SPRITE_LABEL_RE = /^[.\s_-]+|[.\s_-]+$/gu;
+const SPRITE_LABEL_EDGE_RUN_RE = /[.\s_-]+/gu;
 const FULL_BODY_PREFIX_RE = /^full[_\s-]+/iu;
 const COMBINING_MARK_RE = /\p{M}+/gu;
+
+/** Drops a separator run at either end and keeps inner ones; `^…|…$` backtracks quadratically on a long inner run. */
+function dropEdgeRun(run: string, offset: number, label: string): string {
+  return offset === 0 || offset + run.length === label.length ? "" : run;
+}
 
 function normalizeForSpriteLabel(value: string): string {
   return value.normalize("NFKC").trim().toLocaleLowerCase();
@@ -16,7 +21,7 @@ export function normalizeSpriteExpressionLabel(raw: string, options?: { fullBody
     .replace(SEPARATOR_RE, "_")
     .replace(SPRITE_LABEL_UNSAFE_RE, "_")
     .replace(MULTI_UNDERSCORE_RE, "_")
-    .replace(TRIM_SPRITE_LABEL_RE, "");
+    .replace(SPRITE_LABEL_EDGE_RUN_RE, dropEdgeRun);
 
   if (!label) return "";
 
@@ -24,7 +29,7 @@ export function normalizeSpriteExpressionLabel(raw: string, options?: { fullBody
     return FULL_BODY_PREFIX_RE.test(label) ? label : `full_${label}`;
   }
 
-  label = label.replace(FULL_BODY_PREFIX_RE, "").replace(TRIM_SPRITE_LABEL_RE, "");
+  label = label.replace(FULL_BODY_PREFIX_RE, "").replace(SPRITE_LABEL_EDGE_RUN_RE, dropEdgeRun);
   return label;
 }
 
@@ -38,7 +43,7 @@ export function normalizeSpriteExpressionKey(raw: string): string {
     .replace(SPRITE_LABEL_UNSAFE_RE, "_")
     .replace(/[._-]+/gu, "_")
     .replace(MULTI_UNDERSCORE_RE, "_")
-    .replace(TRIM_SPRITE_LABEL_RE, "");
+    .replace(SPRITE_LABEL_EDGE_RUN_RE, dropEdgeRun);
 }
 
 export function normalizeSpriteLookupToken(raw: string): string {
