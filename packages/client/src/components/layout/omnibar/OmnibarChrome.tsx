@@ -1,8 +1,8 @@
 // The search dialog's chrome around the result list: Mari's head door, the scope and filter strips,
 // the bare empty state and the footer.
-import { Search } from "lucide-react";
+import { BookOpen, Layers, MessageCircle, Search, Settings, Users, VenetianMask } from "lucide-react";
 import { motion } from "framer-motion";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { MariHold } from "../../chat/mari/MariHold";
 import { OmnibarSettingsButton } from "./OmnibarSettingsMenu";
@@ -16,6 +16,7 @@ import {
 import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { omnibarScopePrefix } from "../../../lib/omnibar-scope";
 import { isApplePlatform, type CommandCenterCategoryFilter } from "../../../lib/command-center";
+import type { OmnibarScopeId } from "../../../lib/omnibar-scope";
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 // UX-16: chips are drawn at 34px; on touch the hit area grows into the strip's padding to 44px.
@@ -113,6 +114,99 @@ export function OmnibarScopeChips({
           {filterLabels[chip]}
         </button>
       ))}
+    </div>
+  );
+}
+
+const MOBILE_CATEGORY_ICON = {
+  chats: MessageCircle,
+  characters: Users,
+  personas: VenetianMask,
+  lorebooks: BookOpen,
+  presets: Layers,
+  settings: Settings,
+} as const;
+const MOBILE_CATEGORY_SHORT: Partial<Record<CommandCenterCategoryFilter, string>> = {
+  characters: "Chars",
+  lorebooks: "Lore",
+};
+
+/**
+ * New layout on phones: one row of category tabs just above the search field, Safari style.
+ * Every category is always on screen (nothing to swipe). With nothing typed, a tab starts a
+ * search in that category; once something is typed, it filters the results to that category,
+ * and categories with no results dim.
+ */
+export function OmnibarMobileCategories({
+  typed,
+  filter,
+  queryScope,
+  availability,
+  filterLabels,
+  setQuery,
+  setFilter,
+  setCategoryFilter,
+  inputRef,
+  settings,
+}: {
+  typed: boolean;
+  filter: CommandCenterCategoryFilter;
+  queryScope: OmnibarScopeId | null;
+  availability: Partial<Record<CommandCenterCategoryFilter, number>>;
+  filterLabels: Record<CommandCenterCategoryFilter, string>;
+  setQuery: (query: string) => void;
+  setFilter: (filter: CommandCenterCategoryFilter) => void;
+  setCategoryFilter: (filter: CommandCenterCategoryFilter) => void;
+  inputRef: RefObject<HTMLInputElement | null>;
+  settings: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="toolbar"
+      aria-label={t("commandCenter.scopeChips.label", "Search a category")}
+      data-component="GlobalOmnibar.MobileCategories"
+      className="ovm-omni-cats"
+    >
+      {OMNIBAR_SCOPE_CHIP_FILTERS.map((chip) => {
+        const Icon = MOBILE_CATEGORY_ICON[chip as keyof typeof MOBILE_CATEGORY_ICON] ?? Search;
+        const scope = FILTER_CATEGORY[chip];
+        const active = typed ? filter === chip || (filter === "all" && !!scope && scope === queryScope) : false;
+        const empty = typed && !active && !((availability[chip] ?? 0) > 0);
+        return (
+          <button
+            key={chip}
+            type="button"
+            data-omnibar-scope-chip={chip}
+            aria-pressed={active}
+            aria-label={filterLabels[chip]}
+            data-empty={empty || undefined}
+            onClick={() => {
+              if (!typed) {
+                if (!scope) return;
+                setQuery(omnibarScopePrefix(scope));
+                setFilter("all");
+                requestAnimationFrame(() => inputRef.current?.focus());
+                return;
+              }
+              if (empty) return;
+              setCategoryFilter(filter === chip ? "all" : chip);
+            }}
+            className="ovm-omni-cat"
+          >
+            <Icon size={18} aria-hidden="true" />
+            {MOBILE_CATEGORY_SHORT[chip] ? (
+              <>
+                <span className="ovm-omni-cat__short">{MOBILE_CATEGORY_SHORT[chip]}</span>
+                <span className="ovm-omni-cat__long">{filterLabels[chip]}</span>
+              </>
+            ) : (
+              <span>{filterLabels[chip]}</span>
+            )}
+          </button>
+        );
+      })}
+      <span className="ovm-omni-cat ovm-omni-cat--settings">{settings}</span>
     </div>
   );
 }

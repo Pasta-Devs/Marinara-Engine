@@ -2445,3 +2445,110 @@
 :root[data-overhaul="mobile"] :is(.ov-lv, .ov-ed, .ov-gallery, .marinara-chat-popover__scroll) {
   scrollbar-gutter: stable both-edges;
 }
+
+/* ─── Omnibar on phones: Safari-style search (2026-11-05) ───
+   Results fill the sheet; the category tabs and the search field sit at the bottom, within thumb
+   reach, and ride above the keyboard. Professor Mari stays between the field and Cancel. */
+[data-component="GlobalOmnibar"][data-ovm-omni]:not(#ovm-x) {
+  padding: 0;
+  align-items: stretch;
+}
+[data-component="GlobalOmnibar"][data-ovm-omni] > [data-component="GlobalOmnibar.Panel"]:not(#ovm-x) {
+  height: 100dvh;
+  max-height: none;
+  max-width: none;
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: var(--ovm-kb, 0px);
+}
+[data-ovm-omni] [data-component="GlobalOmnibar.Panel"] > header {
+  order: 10;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  border-top: 1px solid var(--ovm-line);
+  background: var(--ovm-surface);
+}
+[data-ovm-omni] [data-component="GlobalOmnibar.Panel"] > header > div:first-child:not(#ovm-x) {
+  order: 5;
+  height: auto;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  border-bottom: 0;
+}
+.ovm-omni-field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.625rem 0 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+.ovm-omni-field > div {
+  min-width: 0;
+  flex: 1;
+}
+.ovm-omni-cancel {
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  padding: 0 0.125rem;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ovm-omni-cats {
+  order: 4;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) 2.5rem;
+  gap: 0.125rem;
+  padding: 0.5rem 0.5rem 0.25rem;
+}
+.ovm-omni-cat {
+  display: grid;
+  min-width: 0;
+  min-height: 2.75rem;
+  justify-items: center;
+  align-content: center;
+  gap: 0.1875rem;
+  border-radius: 0.625rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.ovm-omni-cat > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-omni-cat[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.ovm-omni-cat[data-empty] {
+  opacity: 0.35;
+}
+.ovm-omni-cat--settings .omnibar-settings-menu__trigger {
+  width: 2.5rem;
+  height: 2.75rem;
+  border-radius: 0.625rem;
+}
+.ovm-omni-cat--settings .omnibar-settings-menu__trigger svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ovm-omni-cat__long {
+  display: none;
+}
+@media (min-width: 30rem) {
+  .ovm-omni-cat__short {
+    display: none;
+  }
+  .ovm-omni-cat__long {
+    display: block;
+  }
+}
