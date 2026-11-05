@@ -5,10 +5,10 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
-import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { openLibrarySection } from "./library-navigation";
@@ -158,6 +158,189 @@ const ELSEWHERE: { id: SettingsSectionId; page: "extensions"; label: string }[] 
 ];
 
 export function OverhaulSettingsPage() {
+  const mobile = useOverhaulMobile();
+  return mobile ? <OverhaulSettingsMobile /> : <OverhaulSettingsDesktop />;
+}
+
+function useSettingsSearch(query: string) {
+  return useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return OVERHAUL_SETTINGS_TABS.flatMap((item) =>
+      item.sections
+        .filter((id) => {
+          const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
+          const haystack = [sectionLabel(id), meta?.label, meta?.description, ...(meta?.aliases ?? [])]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(needle);
+        })
+        .map((id) => ({ tab: item, id })),
+    )
+      .concat(
+        ELSEWHERE.filter((item) => {
+          const meta = SETTINGS_SECTIONS.find((section) => section.id === item.id);
+          return [meta?.label, meta?.description, ...(meta?.aliases ?? [])]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(needle);
+        }).map((item) => ({
+          tab: { id: item.page, label: item.label } as unknown as (typeof OVERHAUL_SETTINGS_TABS)[number],
+          id: item.id,
+          page: item.page,
+        })),
+      )
+      .slice(0, 12) as { tab: (typeof OVERHAUL_SETTINGS_TABS)[number]; id: SettingsSectionId; page?: "extensions" }[];
+  }, [query]);
+}
+
+/**
+ * Phones: Settings is three levels of pages. The seven tabs are rows; a tab
+ * opens a page of its sections; a section opens a page of its settings.
+ * Search jumps straight to a section's page. Back returns to where you were.
+ */
+function OverhaulSettingsMobile() {
+  const localize = useLocalizedUiText();
+  const tabId = useOverhaulStore((s) => s.settingsTab);
+  const setTab = useOverhaulStore((s) => s.setSettingsTab);
+  const [level, setLevel] = useState<"root" | "tab" | "section">("root");
+  const [sectionId, setSectionId] = useState<SettingsSectionId | null>(null);
+  const [query, setQuery] = useState("");
+  const results = useSettingsSearch(query);
+  const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
+  const rootRef = useRef<HTMLElement>(null);
+  const scrolls = useRef<Record<string, number>>({});
+  const restore = useRef<number | null>(null);
+  // Section titles exactly as the sections print them, read from an off-screen copy of the tab.
+  const [probeEl, setProbeEl] = useState<HTMLDivElement | null>(null);
+  const chips = useSectionChips(probeEl, tab.sections);
+
+  const go = (next: "root" | "tab" | "section", back = false) => {
+    const el = rootRef.current;
+    if (el && !back) scrolls.current[level] = el.scrollTop;
+    restore.current = back ? (scrolls.current[next] ?? 0) : 0;
+    setLevel(next);
+  };
+  useLayoutEffect(() => {
+    if (restore.current === null) return;
+    const top = restore.current;
+    restore.current = null;
+    rootRef.current?.scrollTo({ top });
+  }, [level, sectionId, tab.id]);
+
+  const row = (key: string, label: string, value: string | null, onClick: () => void) => (
+    <button key={key} type="button" className="ovm-drill-row" onClick={onClick}>
+      <span className="ovm-drill-row__title">{label}</span>
+      {value ? <span className="ovm-drill-row__value">{value}</span> : null}
+      <ChevronRight size={16} className="ovm-drill-row__chev" aria-hidden="true" />
+    </button>
+  );
+  const head = (title: string, onBack: () => void) => (
+    <div className="ovm-drill-page__head">
+      <button type="button" className="ovm-drill-page__back" aria-label={localize("Back")} onClick={onBack}>
+        <ChevronLeft size={26} aria-hidden="true" />
+      </button>
+      <span className="ovm-drill-page__title">{title}</span>
+      <span aria-hidden="true" />
+    </div>
+  );
+  const sectionTitle = sectionId ? (chips.find((chip) => chip.id === sectionId)?.label ?? sectionLabel(sectionId)) : "";
+
+  return (
+    <section
+      ref={rootRef}
+      className="ov-settings ovm-settings"
+      data-component="OverhaulSettingsPage"
+      data-ovm-level={level}
+    >
+      {level === "root" ? (
+        <>
+          <header className="ov-settings__head">
+            <h1>{localize("Settings")}</h1>
+            <div className="ov-settings__search">
+              <label className="ov-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={localize("Search all settings")}
+                />
+              </label>
+            </div>
+          </header>
+          <div className="ovm-settings__rows">
+            {query.trim()
+              ? results.length
+                ? results.map((result) =>
+                    row(
+                      `${result.tab.id}:${result.id}`,
+                      localize(sectionLabel(result.id)),
+                      localize(result.tab.label),
+                      () => {
+                        setQuery("");
+                        if (result.page) {
+                          openLibrarySection(result.page);
+                          return;
+                        }
+                        scrolls.current.tab = 0;
+                        setTab(result.tab.id);
+                        setSectionId(result.id);
+                        go("section");
+                      },
+                    ),
+                  )
+                : [
+                    <p key="none" className="ovm-drill-help">
+                      {localize("No settings match.")}
+                    </p>,
+                  ]
+              : OVERHAUL_SETTINGS_TABS.map((item) =>
+                  row(item.id, localize(item.label), localize(item.blurb), () => {
+                    scrolls.current.tab = 0;
+                    setTab(item.id);
+                    go("tab");
+                  }),
+                )}
+          </div>
+        </>
+      ) : null}
+      {level === "tab" ? (
+        <>
+          {head(localize(tab.label), () => go("root", true))}
+          <div className="ovm-settings__rows">
+            {chips.map((chip) =>
+              row(chip.id, chip.label, null, () => {
+                setSectionId(chip.id);
+                go("section");
+              }),
+            )}
+          </div>
+        </>
+      ) : null}
+      {level === "section" && sectionId ? (
+        <>
+          {head(sectionTitle, () => go("tab", true))}
+          <div className="ov-settings__scroll ovm-settings__section">
+            <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+              <OverhaulSettingsSections key={sectionId} sectionIds={[sectionId]} />
+            </Suspense>
+          </div>
+        </>
+      ) : null}
+      {level === "tab" ? (
+        <div className="ovm-settings__probe" ref={setProbeEl} aria-hidden="true">
+          <Suspense fallback={null}>
+            <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
+          </Suspense>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function OverhaulSettingsDesktop() {
   const localize = useLocalizedUiText();
   const tabId = useOverhaulStore((s) => s.settingsTab);
   const setTab = useOverhaulStore((s) => s.setSettingsTab);
