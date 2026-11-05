@@ -179,9 +179,10 @@ MODEL_MAX_RETRIES = 1
 RETRY_DELAYS = (15, 45)
 # A reply the gateway ends at max_tokens before the model writes anything (#8817) fails within a minute and bills
 # only its prompt, but it comes in bursts: one review got 15, and a finder that got three in a row failed it. So it
-# is also resent after these longer waits, which give the gateway time to recover, while they fit before the call's
-# deadline and under the review's cost limit (see chat); a finder's five attempts fit in its 10-minute box even when
-# each empty reply takes the 50 s seen in the log. Other errors keep RETRY_DELAYS, so a dead endpoint still fails fast.
+# is also resent after these longer waits, which give the gateway time to recover, while the resent reply still has
+# its role's whole time box before the role's deadline and the review is under its cost limit (see chat). The time
+# the failures take does not count against the box (see run_agent), so a resent finder may still step down a level.
+# Other errors keep RETRY_DELAYS, so a dead endpoint still fails fast.
 EMPTY_REPLY_DELAYS = (*RETRY_DELAYS, 90, 120)
 # The scout gathers the code the bundle builder could not follow, the finder proposes claims at changed lines from the
 # bundle alone, and the checker ("verify") judges each claim against the code. Reading takes the small model and
@@ -1765,6 +1766,8 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         if readiness := getattr(ctx, "readiness", None):
             readiness(fresh=True)
         started = time.monotonic()
+        if not attempt:
+            first = started
         timing = {}
         if len(tools) == 1 and (settings.get("minutes") or until):
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
@@ -1801,9 +1804,11 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
                 wait = delays[attempt] + seed % (delays[attempt] // 3 + 1)
             if retry and attempt >= len(RETRY_DELAYS):
                 # Every transient error gets the RETRY_DELAYS resends, even a submission forced after its deadline.
-                # The longer ones are patience the review must afford: none sleeps past the call's deadline, or bills
-                # another prompt once the review has reached its cost limit.
-                fits = until is None or time.monotonic() + wait <= until
+                # The longer ones are patience the review must afford: one is sent only when the resent reply still
+                # has its role's whole time box before the role's deadline (`until`), since a reply offered only its
+                # submit tool may stay silent that long, and never once the review has reached its cost limit.
+                room = (settings.get("minutes") or 0) * 60
+                fits = until is None or time.monotonic() + wait + room <= until
                 retry = fits and not (ctx.cost_limit and ctx.spent_usd >= ctx.cost_limit)
             if not retry:
                 with ctx.lock:
@@ -1815,6 +1820,8 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
                 flush=True,
             )
             time.sleep(wait)
+    # The failed attempts and the waits after them, which run_agent does not count against the role's time box.
+    message.lost = started - first
     with ctx.lock:
         ctx.failures[role] = 0
     charge(ctx, role, settings, usage)
@@ -1872,8 +1879,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     The role's reads count read-tool calls and its chars their characters (budget and output_budget override them);
     a repeated call is answered from the earlier result for free. A role without reads is offered only its submit
     tool. Once either budget is spent, or the deadline (the review's by default, and no later than the role's
-    minutes from now) has passed, the model is made to call the submit tool, and a few malformed submissions are
-    tolerated. The role's stats record which limit, if any, ended the run.
+    minutes from now, not counting the time chat loses to failed attempts) has passed, the model is made to call
+    the submit tool, and a few malformed submissions are tolerated. The role's stats record which limit, if any,
+    ended the run.
 
     With keep, the name of the submit tool's list argument, the submit tool does not end the run: each call adds its
     items, and the first turn that makes no read, or the turn after a limit, ends it with every item kept. No final
@@ -1919,7 +1927,7 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             # Claude cannot be made to submit, so it is told; its reads stay offered so the cached prefix holds.
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
         try:
-            message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
+            message = chat(ctx, role, messages, tools, choice, cache_key, until=deadline, settings=settings)
         except ReviewWithheld:
             raise
         except Exception as exc:
@@ -1931,6 +1939,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             with ctx.lock:
                 ctx.stats["roles"][role]["stop_error"] += 1
             return {keep: kept}
+        # The box is the role's time to work, so the gateway's failures and chat's waits after them push it back:
+        # a finder resent after empty replies keeps its whole box for a reply that may still step down (#8817).
+        box += message.lost
         calls = list(message.tool_calls or [])
         # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):
