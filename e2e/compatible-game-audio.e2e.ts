@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
+import { chooseConnection } from "./connection-picker.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -21,6 +22,8 @@ async function prepare(page: Page, theme: "dark" | "light") {
 }
 
 async function openConnection(page: Page, id: string) {
+  // As `prepare` does: after a reload the editor is only opened once the app shell is up.
+  await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
   await page.evaluate(async (connectionId) => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.getState().openConnectionDetail(connectionId);
@@ -29,6 +32,30 @@ async function openConnection(page: Page, id: string) {
   await expect(editor).toBeVisible();
   return editor;
 }
+
+/** The Model's own model list (#8456): its search takes a model ID, which its "Use …" row then picks. */
+async function typeModel(editor: Locator, id: string) {
+  await editor.getByRole("searchbox", { name: "Search models or type a model ID", exact: true }).fill(id);
+  await editor.locator("[data-model-use-typed]").click();
+}
+
+/**
+ * Saves a change the stored row already shows, and waits for the save and the editor's reload from it: until
+ * then a later click can be undone by that reload, and a poll of the row proves nothing.
+ */
+async function saveUnchanged(page: Page, editor: Locator, id: string) {
+  const save = editor.getByRole("button", { name: "Save", exact: true });
+  const patched = page.waitForResponse(
+    (answer) => answer.request().method() === "PATCH" && new URL(answer.url()).pathname === `/api/connections/${id}`,
+  );
+  await save.click();
+  expect((await patched).ok()).toBe(true);
+  await expect(save).toBeEnabled();
+}
+
+/** The model the list marks as the Model's current one. */
+const currentModel = (editor: Locator) =>
+  editor.locator('[data-model-row]:has([data-model-option][aria-current="true"])');
 
 async function capture(page: Page, info: TestInfo, label: string, anchor: Locator) {
   const updateToast = page.locator("[data-sonner-toast]").filter({ hasText: "A Marinara update is ready." });
@@ -143,10 +170,13 @@ for (const theme of ["dark", "light"] as const) {
       const editor = await openConnection(page, id);
       const generate = editor.getByRole("button", { name: "Generate test music", exact: true });
       await expect(generate).toBeDisabled();
-      await expect(editor.getByText(/uses provider credits/u)).toBeVisible();
+      // Its provider-credits help went in #8456; the section now says why the test is off.
+      await expect(
+        editor.getByText("Enable Music generation above to test this account.", { exact: true }),
+      ).toBeVisible();
       expect(sent).toHaveLength(0);
       await editor.getByText("Music generation", { exact: true }).click();
-      await editor.getByPlaceholder("Or type model ID directly…", { exact: true }).fill("music_v2");
+      await typeModel(editor, "music_v2");
       expect(sent).toHaveLength(0);
       await generate.click();
       const player = editor.getByLabel("Test music playback", { exact: true });
@@ -178,8 +208,9 @@ for (const theme of ["dark", "light"] as const) {
       await capture(page, info, `music-test-error-${theme}`, generate);
       mode = "invalid-audio";
       await generate.click();
+      // Reworded for providers and accounts in #8456.
       await expect(editor.getByRole("alert")).toHaveText(
-        "The test track could not be played. Check the connection’s audio response format.",
+        "The test track could not be played. Check the provider’s audio response format.",
       );
       expect(sent).toHaveLength(3);
       for (const code of ["invalid_api_key", "unauthorized"] as const) {
@@ -200,7 +231,7 @@ for (const theme of ["dark", "light"] as const) {
       mode = "input";
       await generate.click();
       await expect(editor.getByRole("alert")).toHaveText(
-        "The test input or connection configuration is invalid. Check the track length, selected model, and endpoint settings.",
+        "The test input or account settings are invalid. Check the track length, selected model, and endpoint settings.",
       );
       expect(sent).toHaveLength(7);
       await capture(page, info, `music-test-input-error-${theme}`, editor.getByRole("alert"));
@@ -208,7 +239,7 @@ for (const theme of ["dark", "light"] as const) {
       await generate.click();
       await expect.poll(() => !!release).toBe(true);
       await expect(editor.getByRole("button", { name: "Generating test music…", exact: true })).toBeDisabled();
-      await editor.getByPlaceholder("Or type model ID directly…", { exact: true }).fill("new-manual-model");
+      await typeModel(editor, "new-manual-model");
       await expect(generate).toBeEnabled();
       release!();
       await expect.poll(() => heldSettled).toBe(true);
@@ -244,21 +275,23 @@ for (const theme of ["dark", "light"] as const) {
     const { id } = await created.json();
     const stored = async () => (await request.get(`/api/connections/${id}`)).json();
     const before = await stored();
-    const modelFetches: string[] = [];
-    page.on("request", (sent) => {
-      if (new URL(sent.url()).pathname === `/api/connections/${id}/models`) modelFetches.push(sent.url());
-    });
+    // Since #8456 the editor's model list asks the Engine for the Model's models. A Music & Sound Effects
+    // Model gets none from it on any service (an empty list, or a refusal while it has no key), so every
+    // choice below is the built-in Eleven Music one or a typed ID.
+    const engineModels = async () =>
+      ((await (await request.get(`/api/connections/${id}/models`)).json()) as { models?: unknown[] }).models ?? [];
     try {
       await prepare(page, theme);
       let editor = await openConnection(page, id);
-      let manual = editor.getByPlaceholder("Or type model ID directly…", { exact: true });
-      await expect(manual).toHaveValue("music_v2");
-      await editor.getByText("music_v2", { exact: true }).click();
-      const option = () => editor.getByRole("button", { name: "Eleven Music v2.5 music_v2_5", exact: true });
+      // The model list (#8456) replaced the typed field and its dropdown: the current model is the marked row.
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "music_v2");
+      const option = () => editor.locator('[data-model-row][data-model-id="music_v2_5"] [data-model-option]');
       await expect(option()).toBeVisible();
+      await expect(option()).toContainText("Eleven Music v2.5");
       await capture(page, info, `elevenlabs-music-option-${theme}`, option());
       await option().click();
-      await expect(manual).toHaveValue("music_v2_5");
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "music_v2_5");
+      expect(await engineModels()).toEqual([]);
       await expect(editor.getByText("Context:", { exact: true })).toHaveCount(0);
       await expect(editor.getByText("Max Output:", { exact: true })).toHaveCount(0);
       await editor.getByRole("button", { name: "Save", exact: true }).click();
@@ -269,35 +302,30 @@ for (const theme of ["dark", "light"] as const) {
       });
       await page.reload();
       editor = await openConnection(page, id);
-      manual = editor.getByPlaceholder("Or type model ID directly…", { exact: true });
-      await expect(manual).toHaveValue("music_v2_5");
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "music_v2_5");
       await editor.getByRole("button", { name: /^SunoAPI Generate audio/u }).click();
-      await expect(manual).toHaveValue("V6");
-      await editor.getByText("V6", { exact: true }).click();
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "V6");
       await expect(option()).toHaveCount(0);
-      await manual.fill("saved-suno-model");
+      await typeModel(editor, "saved-suno-model");
       await editor.getByRole("button", { name: "Save", exact: true }).click();
       await expect.poll(stored).toMatchObject({ audioGenerationSource: "sunoapi", model: "saved-suno-model" });
+      expect(await engineModels()).toEqual([]);
       await page.reload();
       editor = await openConnection(page, id);
-      manual = editor.getByPlaceholder("Or type model ID directly…", { exact: true });
-      await expect(manual).toHaveValue("saved-suno-model");
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "saved-suno-model");
       await editor.getByRole("button", { name: /^ElevenLabs/u }).click();
-      await expect(manual).toHaveValue("saved-suno-model");
-      await editor.getByText("saved-suno-model", { exact: true }).click();
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "saved-suno-model");
       await expect(option()).toBeVisible();
+      // The server address of a Model of a Connection is the Connection's to set since #8456, not this editor's.
       await editor.getByRole("button", { name: /^Custom compatible server/u }).click();
-      await editor.getByPlaceholder("https://api.elevenlabs.io", { exact: true }).fill("https://audio.example.test/v1");
-      await manual.fill("saved-custom-model");
-      await editor.getByText("saved-custom-model", { exact: true }).click();
+      await typeModel(editor, "saved-custom-model");
       await expect(option()).toHaveCount(0);
       await editor.getByRole("button", { name: "Save", exact: true }).click();
       await expect.poll(stored).toMatchObject({ audioGenerationSource: "custom", model: "saved-custom-model" });
       await page.reload();
       editor = await openConnection(page, id);
-      manual = editor.getByPlaceholder("Or type model ID directly…", { exact: true });
-      await expect(manual).toHaveValue("saved-custom-model");
-      expect(modelFetches).toEqual([]);
+      await expect(currentModel(editor)).toHaveAttribute("data-model-id", "saved-custom-model");
+      expect(await engineModels()).toEqual([]);
     } finally {
       await request.delete(`/api/connections/${id}`);
     }
@@ -327,7 +355,7 @@ for (const theme of ["dark", "light"] as const) {
       await prepare(page, theme);
       let editor = await openConnection(page, id);
       await editor.getByRole("button", { name: /^Custom compatible server/u }).click();
-      await editor.getByRole("button", { name: "Save", exact: true }).click();
+      await saveUnchanged(page, editor, id);
       await expect.poll(stored).toMatchObject({ ...custom, apiKeyEncrypted: "••••••••" });
       await editor.getByRole("button", { name: /^ElevenLabs/u }).click();
       await editor.getByRole("button", { name: "Save", exact: true }).click();
@@ -371,29 +399,17 @@ for (const theme of ["dark", "light"] as const) {
       await clickTopbarPanel(page, "connections");
       const row = page.locator(`[data-connection-id="${id}"]`);
       await expect(row).toBeVisible();
-      const icon = row.getByRole("button", { name: "Upload connection picture", exact: true }).locator("span").first();
-      const colors = await icon.evaluate((element) => {
-        const probe = document.createElement("span");
-        element.append(probe);
-        probe.style.color = "var(--color-sky-400)";
-        const from = getComputedStyle(probe).color;
-        probe.style.color = "var(--color-blue-500)";
-        const to = getComputedStyle(probe).color;
-        probe.remove();
-        const computed = getComputedStyle(element);
-        return { from, to, gradient: computed.backgroundImage, color: computed.color };
-      });
-      expect(colors.gradient).toContain(colors.from);
-      expect(colors.gradient).toContain(colors.to);
-      expect(colors.color).toBe("rgb(255, 255, 255)");
+      // #8456 drew every Model tile as its provider's icon: the shared music one replaced the blue gradient.
+      await expect(row.locator(".mari-provider-icon svg.lucide-music")).toBeVisible();
       await capture(page, info, `audio-category-theme-${theme}`, row);
       let editor = await openConnection(page, id);
       await expect(editor.getByRole("button", { name: "Test Connection", exact: true })).not.toBeVisible();
       await expect(editor.getByRole("button", { name: "Send Test Message", exact: true })).not.toBeVisible();
-      await expect(editor.getByText(/Generate an instrumental sample using this connection/u)).toBeVisible();
+      // Its help text went in #8456; the music test itself is what this Model offers instead.
+      await expect(editor.getByRole("button", { name: "Generate test music", exact: true })).toBeVisible();
       await editor.getByRole("button", { name: /^SunoAPI Generate audio/u }).click();
       await editor.getByRole("button", { name: /^ElevenLabs/u }).click();
-      await editor.getByRole("button", { name: "Save", exact: true }).click();
+      await saveUnchanged(page, editor, id);
       await expect.poll(async () => (await stored()).apiKeyEncrypted).toBe("••••••••");
       await editor.getByRole("button", { name: /^Custom compatible server/u }).click();
       const format = editor.getByRole("combobox", { name: "Generation API format", exact: true });
@@ -420,7 +436,7 @@ for (const theme of ["dark", "light"] as const) {
           contentType: "application/json",
         });
       }
-      await expect(editor.getByText(/Only enable capabilities your server supports\./u)).toBeVisible();
+      // #8456 removed the compatible server's help text; its format and endpoint fields are checked above.
       await format.selectOption("chat_completions");
       await musicPath.fill("chat/completions");
       await sfxPath.fill("audio/generations");
@@ -710,22 +726,32 @@ test("Game setup enables only the configured compatible audio capabilities", asy
     await wizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(wizard.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   }
-  const connection = wizard.locator("select").filter({ has: page.locator('option[value="audio-sfx"]') });
-  await expect(connection.locator('option[value="speech-only"]')).toHaveCount(0);
-  await expect(connection.locator('option[value="needs-review"]')).toHaveCount(0);
+  // The account <select> became a ConnectionSelect and its "Model for Game audio" picker in #8456.
+  const connection = wizard.getByLabel("Music & Sound Effects account", { exact: true });
+  await connection.click();
+  const picker = page.locator(".connection-picker-dialog");
+  await expect(picker.getByRole("searchbox")).toBeVisible();
+  // It offers the Music & Sound Effects Models, never a speech-only one or an import awaiting review.
+  for (const offered of ["audio-sfx", "audio-music", "audio-unconfigured", "audio-legacy"]) {
+    await expect(picker.locator(`[data-switcher-entry="${offered}"]`).first()).toBeAttached();
+  }
+  await expect(picker.locator('[data-switcher-entry="speech-only"]')).toHaveCount(0);
+  await expect(picker.locator('[data-switcher-entry="needs-review"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(picker).toHaveCount(0);
   const sfx = wizard.getByRole("button", { name: /^Sound effects Generate short scene sound effects/u });
   const music = wizard.getByRole("button", { name: /^Music Generate background music/u });
-  await connection.selectOption("audio-sfx");
+  await chooseConnection(page, connection, "audio-sfx");
   await expect(sfx).toBeEnabled();
   await expect(music).toBeDisabled();
   await capture(page, info, "compatible-audio-wizard-sfx-only", connection);
-  await connection.selectOption("audio-music");
+  await chooseConnection(page, connection, "audio-music");
   await expect(sfx).toBeDisabled();
   await expect(music).toBeEnabled();
-  await connection.selectOption("audio-unconfigured");
+  await chooseConnection(page, connection, "audio-unconfigured");
   await expect(sfx).toBeDisabled();
   await expect(music).toBeDisabled();
-  await connection.selectOption("audio-legacy");
+  await chooseConnection(page, connection, "audio-legacy");
   await expect(sfx).toBeEnabled();
   await expect(music).toBeEnabled();
 });
