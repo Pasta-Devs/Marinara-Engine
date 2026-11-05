@@ -23,7 +23,7 @@
     "framer-motion": "14.5.0",
     "framer-motion-v13": "npm:framer-motion@13.5.1",
     "i18next": "^26.5.11",
-    "lucide-react": "^1.61.0",
+    "lucide-react": "^1.66.0",
     "mesh-avatar": "0.2.1",
     "mmd-parser": "1.1.4",
     "postcss": "8.5.31",
