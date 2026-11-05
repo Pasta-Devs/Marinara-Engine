@@ -130,6 +130,12 @@ try {
       ],
       ["unknown key", { questions: [] }, /Unknown onboarding key\(s\): questions/],
       [
+        "block nested one level too deep",
+        { onboarding: { variables: [{ variableName: "player", question: "Name?" }] } },
+        /Unknown onboarding key\(s\): onboarding\..*nested one level too deep/,
+      ],
+      ["wrapper key holding a string is not nesting", { data: "x" }, /Unknown onboarding key\(s\): data\.(?!.*nested)/],
+      [
         "misspelled question key",
         { variables: [{ variableName: "player", question: "Name?", allowcustom: true }] },
         /variables\[0\] \(player\) has unknown key\(s\): allowcustom/,

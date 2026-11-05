@@ -18,6 +18,7 @@ import {
   type OnboardingIssue,
 } from "@marinara-engine/shared";
 import { newId } from "../../utils/id-generator.js";
+import { assertOnboardingMacros } from "./macro-lint.js";
 
 type Row = Record<string, unknown>;
 
@@ -158,6 +159,8 @@ export function describeCharacterOnboarding(data: Row) {
   return { onboarding, errors, warnings, samplePersona: samplePersona(onboarding) };
 }
 
+const WRAPPER_KEYS = ["onboarding", "patch", "data"];
+
 /**
  * `character.onboarding.update`: keys in `patch` replace, omitted keys stay, and
  * a question list sent replaces the whole list. Throws with every problem when
@@ -170,10 +173,25 @@ export function buildOnboardingUpdate(
   if (!isRecord(patch)) throw new Error("character.onboarding.update needs an onboarding object.");
   const unknownKeys = Object.keys(patch).filter((key) => !ONBOARDING_KEYS.includes(key));
   if (unknownKeys.length > 0) {
+    // A model that escapes a closing quote turns the rest of its string into keys ("}}",backstory").
+    // Say that out loud, or the model keeps "fixing" the field names it never got wrong.
+    const cut = unknownKeys.some(
+      (key) => key.includes('"') || key.includes("{") || key.includes("}") || key.includes("\\"),
+    );
+    // A wrapper key holding an object means the whole block went one level too deep.
+    const wrapped = unknownKeys.some((key) => WRAPPER_KEYS.includes(key) && isRecord(patch[key]));
+    const hint =
+      (cut
+        ? ' A key containing a quote or a brace usually means a string value was cut by an unescaped " — resend each value as one plain JSON string, with no escaped quotes.'
+        : "") +
+      (wrapped
+        ? " The block is nested one level too deep: send its fields directly as the `onboarding` argument."
+        : "");
     throw new Error(
-      `Unknown onboarding key(s): ${unknownKeys.join(", ")}. Use ${ONBOARDING_KEYS.join(", ")} (variables = persona questions, cardVariables = character questions).`,
+      `Unknown onboarding key(s): ${unknownKeys.join(", ")}. Use ${ONBOARDING_KEYS.join(", ")} (variables = persona questions, cardVariables = character questions).${hint}`,
     );
   }
+  assertOnboardingMacros(patch);
   const nested = unknownNestedKeys(patch);
   if (nested.length > 0) {
     throw new Error(

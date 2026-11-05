@@ -32,10 +32,12 @@ import {
   isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
+  shouldTypeOutLiveStream,
   takeTypewriterCharacters,
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import {
+  notifyTTSUserMessageReady,
   TTS_AUTOPLAY_MESSAGE_READY_EVENT,
   type TTSAutoplayMessage,
   type TTSAutoplayMessageReadyDetail,
@@ -88,6 +90,10 @@ type RetryAgentsOptions = {
     negativePrompt?: string;
   };
   illustratorRetryTargets?: IllustratorRetryTarget[];
+  /** Draw the picture only, never a clip: the caller animates it. A run paused for prompt review returns false. */
+  illustratorStillOnly?: boolean;
+  /** Told the Gallery id of each picture the Illustrator draws in this run. */
+  onIllustration?: (galleryImageId: string) => void;
   illustratorMessageRange?: [string, string];
   /** Force image generation for the retried custom image agents' results (snapshot button, #4682). */
   forceImageGeneration?: boolean;
@@ -149,20 +155,20 @@ function setAgentFailureError(failures: AgentFailure[], force = false) {
   });
 }
 
-function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) {
+function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void, code?: unknown) {
   const hasIllustratorFailure = failures.some((failure) => failure.agentType === "illustrator");
   setAgentFailureError(failures);
-  showError(
-    formatAgentFailuresToast(failures),
-    hasIllustratorFailure && onRetry
+  // A missing image Model fails again on retry, so the toast opens the Connections sidebar, whose Jobs box sets Images.
+  const action =
+    code === "image_connection_missing"
       ? {
-          action: {
-            label: "Try again",
-            onClick: () => onRetry(),
-          },
+          label: translate("connections.defaults.setUp"),
+          onClick: () => useUIStore.getState().openRightPanel("connections"),
         }
-      : undefined,
-  );
+      : hasIllustratorFailure && onRetry
+        ? { label: "Try again", onClick: () => onRetry() }
+        : null;
+  showError(formatAgentFailuresToast(failures), action ? { action } : undefined);
 }
 
 const shownAgentWarnings = new Set<string>();
@@ -1064,6 +1070,9 @@ function shouldRefreshGameStateAfterGeneration(qc: QueryClient, chatId: string) 
 const pendingVisibleGameStateRefreshes = new Map<string, Promise<void>>();
 const PASSIVE_STREAM_SETTLE_POLL_MS = 1_500;
 const PASSIVE_STREAM_SETTLE_MAX_WAIT_MS = 30 * 60_000;
+/** How long a stream may go without an event before the server is asked whether it is still working on the turn. */
+const STREAM_STALL_CHECK_MS = 60_000;
+const STREAM_STALL_POLL_MS = 10_000;
 const STREAM_TYPEWRITER_PREBUFFER_MS = 320;
 
 function wait(ms: number, signal?: AbortSignal) {
@@ -1503,6 +1512,11 @@ export function useGenerate() {
         expectedPersistedRole === "assistant"
           ? assistantMessagesBeforeGeneration
           : snapshotMessagesByRole(qc, params.chatId, expectedPersistedRole);
+      /** The reply this run left in the refetched chat: a new or changed assistant row, or the impersonated turn. */
+      const recoveredReply = () =>
+        expectedPersistedRole === "assistant"
+          ? latestChangedAssistantMessage(qc, params.chatId, assistantMessagesBeforeGeneration)
+          : latestNewMessageByRole(qc, params.chatId, expectedPersistedRole, expectedMessagesBeforeGeneration);
       if (params.regenerateMessageId) {
         forgetRecentMessageContentEdit(params.chatId, params.regenerateMessageId);
       }
@@ -1551,6 +1565,8 @@ export function useGenerate() {
       let agentFailuresThisRun: AgentFailure[] = [];
       let illustrationQueued = false;
       let illustrationSettled = false;
+      // Clips this stream is still waiting for (video_started until video, video_error or video_skipped).
+      let videosPending = 0;
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let committedSpatialTravel: ResolvedSpatialTravel | undefined;
@@ -1758,6 +1774,11 @@ export function useGenerate() {
       };
 
       const startTypewriter = () => {
+        // Nobody watches a Game reply's stream, so its text goes straight through and never holds the reveal.
+        if (!shouldTypeOutLiveStream({ isGameGeneration })) {
+          flushTypewriterBuffer();
+          return;
+        }
         if (typingActive) return;
         typingActive = true;
         const tick = (now = performance.now()) => {
@@ -1900,6 +1921,42 @@ export function useGenerate() {
         );
       };
 
+      // The server can finish or fail without this stream hearing about it (a proxy holding the socket open, a failure
+      // after the last event). Keepalives hide that from the socket watchdog, so after a quiet spell ask the server
+      // whether it is still working on the turn, and stop waiting when it is not. Only the stream is cancelled, through
+      // its own controller, so the server-side run is never aborted from here.
+      const streamController = new AbortController();
+      const forwardStreamAbort = () => streamController.abort(abortController.signal.reason);
+      if (abortController.signal.aborted) forwardStreamAbort();
+      else abortController.signal.addEventListener("abort", forwardStreamAbort, { once: true });
+      let lastStreamEventAt = Date.now();
+      let streamStalled = false;
+      let stallCheckPending = false;
+      const stallWatchdog = setInterval(() => {
+        if (sawDoneEvent || replyErrorSeen || streamController.signal.aborted || stallCheckPending) return;
+        if (Date.now() - lastStreamEventAt < STREAM_STALL_CHECK_MS) return;
+        stallCheckPending = true;
+        api
+          .get<{ active: boolean }>(`/generate/status/${encodeURIComponent(params.chatId)}`, {
+            signal: requestTimeoutSignal(15_000),
+          })
+          .then((status) => {
+            if (sawDoneEvent || streamController.signal.aborted) return;
+            if (status.active) {
+              lastStreamEventAt = Date.now();
+              return;
+            }
+            streamStalled = true;
+            streamController.abort();
+          })
+          .catch(() => {
+            // Unreachable server: the socket watchdog and the next check decide.
+          })
+          .finally(() => {
+            stallCheckPending = false;
+          });
+      }, STREAM_STALL_POLL_MS);
+
       try {
         const {
           userStatus,
@@ -1935,12 +1992,13 @@ export function useGenerate() {
             musicPlayerSource,
             streaming: transportStreaming,
           },
-          abortController.signal,
+          streamController.signal,
           // Backgrounded tabs can leave the stream socket half-open; treat a
           // resume as a disconnect so the passive-recovery path refetches the
           // reply the server finished while we were away instead of hanging.
           { disconnectOnResume: true },
         )) {
+          lastStreamEventAt = Date.now();
           switch (event.type) {
             case "advanced_memory_status": {
               const data = event.data as { chatId?: string; job?: AdvancedMemoryJob } | undefined;
@@ -2675,6 +2733,14 @@ export function useGenerate() {
               break;
             }
 
+            case "reply_trimmed": {
+              // "Trim incomplete sentences" shortened the reply; the content_replace that follows shows it (#8643).
+              if (!params.autonomous) {
+                toast.info(translate("chat.reply.trimmedIncompleteEnding"), { id: "reply-trimmed-incomplete-ending" });
+              }
+              break;
+            }
+
             case "generation_discarded": {
               const discarded = event.data as { characterId?: unknown } | null;
               const discardedCharacterId =
@@ -2709,6 +2775,7 @@ export function useGenerate() {
             case "message_saved": {
               flushLeadingSpeakerPrefix();
               const savedMessage = event.data as Message;
+              if (params.userMessage?.trim()) notifyTTSUserMessageReady(params.chatId, savedMessage);
               // An earlier part of a reply split at a scene break (#7481). It joins the chat above the live
               // reply, which goes on with the rest and keeps the stream, so nothing shows twice.
               const remainingContent = typeof event.remainingContent === "string" ? event.remainingContent : null;
@@ -2894,6 +2961,45 @@ export function useGenerate() {
               break;
             }
 
+            case "video_started": {
+              videosPending += 1;
+              // A clip that starts after the reply is done (one following its picture) frees the next message too.
+              if (sawDoneEvent && useChatStore.getState().abortControllers.get(params.chatId) === abortController) {
+                useChatStore.getState().setBackgroundIllustration(params.chatId, true);
+              }
+              break;
+            }
+
+            case "video_skipped": {
+              videosPending = Math.max(0, videosPending - 1);
+              break;
+            }
+
+            case "video": {
+              videosPending = Math.max(0, videosPending - 1);
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              // A clip that was saved but couldn't join its message is still made; it waits in the Gallery.
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", params.chatId] });
+              // A clip usually lands after "done"; one that beats the streamed reply waits for the final refresh.
+              if (sawDoneEvent || (!streamingEnabled && !isGameGeneration)) {
+                await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
+              }
+              break;
+            }
+
+            case "video_error": {
+              videosPending = Math.max(0, videosPending - 1);
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              toast.error(translate("generation.video.failed", { error: errData.error }));
+              break;
+            }
+
             case "conversation_call_ringing": {
               const data = event.data as {
                 session?: {
@@ -2970,6 +3076,10 @@ export function useGenerate() {
               }
               break;
             }
+            case "roleplay_artifact": {
+              qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+              break;
+            }
             case "spotify_command": {
               const spotifyData = event.data as {
                 track?: { name?: string; artist?: string };
@@ -3032,6 +3142,7 @@ export function useGenerate() {
                 agentName?: string | null;
                 error: string;
                 retryTarget?: unknown;
+                code?: unknown;
               };
               if (errData.agentType === "illustrator" && errData.retryTarget !== "background") {
                 illustrationSettled = true;
@@ -3048,13 +3159,17 @@ export function useGenerate() {
               // this" error it just set (L2) — tracked apart from replyErrorSeen so a
               // successful completion can replace a stale "Generate reply" row with this.
               agentFailuresThisRun = mergeAgentFailures(agentFailuresThisRun, [failure]);
-              showAgentFailuresError([failure], () => {
-                void retryAgentsRef.current?.(
-                  params.chatId,
-                  [failure.agentType],
-                  withIllustratorFailureTargets(undefined, [failure]),
-                );
-              });
+              showAgentFailuresError(
+                [failure],
+                () => {
+                  void retryAgentsRef.current?.(
+                    params.chatId,
+                    [failure.agentType],
+                    withIllustratorFailureTargets(undefined, [failure]),
+                  );
+                },
+                errData.code,
+              );
               break;
             }
 
@@ -3175,9 +3290,9 @@ export function useGenerate() {
 
             case "done": {
               sawDoneEvent = true;
+              // Only media (a picture or a clip that takes minutes) is left: the next message may start meanwhile.
               if (
-                illustrationQueued &&
-                !illustrationSettled &&
+                ((illustrationQueued && !illustrationSettled) || videosPending > 0) &&
                 useChatStore.getState().abortControllers.get(params.chatId) === abortController
               ) {
                 useChatStore.getState().setBackgroundIllustration(params.chatId, true);
@@ -3314,8 +3429,24 @@ export function useGenerate() {
         // Flush everything instantly on error so user sees what arrived
         flushLeadingSpeakerPrefix();
         flushTypewriterBuffer();
+        // A run the server already left without a word to this stream: read what it saved. A saved reply means only
+        // the final events were lost; without one the turn failed and falls through to the error path below, so the
+        // generating state ends and Retry shows.
+        if (streamStalled && !abortController.signal.aborted) {
+          const refreshed = await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
+            fetchEvenIfInactive: true,
+          });
+          const saved = refreshed ? recoveredReply() : null;
+          if (saved) {
+            persistedMessages.set(saved.id, saved);
+            passiveStreamRecovered = true;
+            passiveStreamSettled = true;
+            passiveRecoveryDurableMessage = saved;
+            return true;
+          }
+        }
         // Abort is intentional — don't log or toast
-        if (isAbortError(error)) {
+        if (isAbortError(error) && !streamStalled) {
           const recovered = await recoverSpatialTransitionByCommand();
           if (recovered) {
             const stepwiseRouteRemainsQueued = shouldKeepPendingSpatialTransition(recovered.travel);
@@ -3360,6 +3491,19 @@ export function useGenerate() {
               toast.info(
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
               );
+            } else if (
+              isGameGeneration &&
+              !params.impersonate &&
+              assistantMessagesBeforeGeneration.cacheWasLoaded &&
+              recoveryRefetchSucceeded &&
+              !recoveredReply()
+            ) {
+              // A game turn always ends in a Game Master message, so a run that settled without one failed: say so
+              // and offer Retry rather than leave the player with nothing, and hand an unsaved turn back to the input.
+              replyErrorSeen = true;
+              setGenerateReplyError(showError(translate("generation.stoppedWithoutReply")), params.chatId, qc);
+              window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
+              return await confirmDurableSubmittedUserTurn();
             }
           }
           return abortController.signal.aborted
@@ -3415,7 +3559,11 @@ export function useGenerate() {
             }
           }
         }
-        const msg = error instanceof Error ? error.message : "Generation failed";
+        const msg = streamStalled
+          ? translate("generation.stoppedWithoutReply")
+          : error instanceof Error
+            ? error.message
+            : "Generation failed";
         replyErrorSeen = true;
         setGenerateReplyError(
           showError(msg, chatModeForGeneration === "game" ? undefined : { duration: 6000 }),
@@ -3425,6 +3573,8 @@ export function useGenerate() {
         window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
         return await confirmDurableSubmittedUserTurn();
       } finally {
+        clearInterval(stallWatchdog);
+        abortController.signal.removeEventListener("abort", forwardStreamAbort);
         // Stream has terminated (done, error, abort, or unexpected throw) —
         // guarantee the Mari indicator clears even if the end SSE never arrived.
         clearMariPhaseForThisChat();
@@ -3550,6 +3700,9 @@ export function useGenerate() {
           receivedContent &&
           persistedMessages.size === 0 &&
           partialContent &&
+          // A failed game turn has its own retry; saving what streamed before the failure left a half-turn
+          // (often the GM's lead-in to a tool call) in the story, and a second reply right after it.
+          !(replyErrorSeen && isGameGeneration) &&
           !params.regenerateMessageId &&
           !params.continueMessageId &&
           !(params.impersonate && params.pendingSpatialTransition)
@@ -3807,6 +3960,7 @@ export function useGenerate() {
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
+            ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
@@ -4093,7 +4247,13 @@ export function useGenerate() {
             }
             case "illustration": {
               recordClientRuntimeEvent("image-arrived");
-              const illData = event.data as { messageId: string; imageUrl: string; reason?: string };
+              const illData = event.data as {
+                messageId: string;
+                imageUrl: string;
+                reason?: string;
+                galleryId?: unknown;
+              };
+              if (typeof illData.galleryId === "string") options?.onIllustration?.(illData.galleryId);
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
               // Refresh messages so the illustration attachment appears
               if (isActiveChat()) {
@@ -4108,6 +4268,27 @@ export function useGenerate() {
               }
               break;
             }
+            // A re-run Illustrator in Pictures and clips or Clips only makes a clip, as a fresh reply does.
+            case "video": {
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", chatId] });
+              // Also when the user moved to another chat meanwhile: an inactive query is only marked stale.
+              void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+              break;
+            }
+            case "video_error": {
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              // The retry made no clip, so it must not end with a success notice.
+              hasError = true;
+              toast.error(translate("generation.video.failed", { error: errData.error }));
+              break;
+            }
             case "image_prompt_review": {
               imagePromptReviewRequested = true;
               window.dispatchEvent(
@@ -4115,6 +4296,7 @@ export function useGenerate() {
                   detail: {
                     ...(event.data as Record<string, unknown>),
                     illustratorMessageRange: options?.illustratorMessageRange,
+                    ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
                   },
                 }),
               );
@@ -4126,19 +4308,24 @@ export function useGenerate() {
                 agentName?: string | null;
                 error: string;
                 retryTarget?: unknown;
+                code?: unknown;
               };
               hasError = true;
               const failure = toAgentFailure(errData);
               const mergedFailures = mergeAgentFailures(failedRetryFailures, [failure]);
               failedRetryFailures.splice(0, failedRetryFailures.length, ...mergedFailures);
               setFailedAgentFailures(failedRetryFailures, chatId);
-              showAgentFailuresError([failure], () => {
-                void retryAgentsRef.current?.(
-                  chatId,
-                  [failure.agentType],
-                  withIllustratorFailureTargets(options, [failure]),
-                );
-              });
+              showAgentFailuresError(
+                [failure],
+                () => {
+                  void retryAgentsRef.current?.(
+                    chatId,
+                    [failure.agentType],
+                    withIllustratorFailureTargets(options, [failure]),
+                  );
+                },
+                errData.code,
+              );
               break;
             }
             case "error": {
@@ -4203,7 +4390,8 @@ export function useGenerate() {
           void refreshVisibleGameStateAfterGeneration(chatId);
         }
       }
-      return !hasError;
+      // A still-only picture waiting for prompt review isn't drawn yet; the review's Continue animates it.
+      return !hasError && !(options?.illustratorStillOnly && imagePromptReviewRequested);
     },
     [
       addResult,

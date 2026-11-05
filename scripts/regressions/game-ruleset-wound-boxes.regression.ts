@@ -138,7 +138,7 @@ try {
     refuses(
       emberText,
       (doc) => (strainOf(doc).boxes.penalty.table = [[0, 1]]),
-      /boxes\.penalty\.table\.0\.1: Number must be less than or equal to 0/,
+      /boxes\.penalty\.table\.0\.1: Too big: expected number to be <=0/,
       "a penalty that helps",
     );
     refuses(

@@ -8,12 +8,13 @@ import {
   type MariWorkspaceStatus,
   type Message,
   type ProfessorMariAskContext,
+  type ProfessorMariContextResource,
 } from "@marinara-engine/shared";
 import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { api, ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { isPersistentProfessorMariContext } from "../../../lib/professor-mari-presentation";
-import { type MariPermissionsMode } from "@marinara-engine/shared";
+import { type MariComposerReference, type MariPermissionsMode } from "@marinara-engine/shared";
 
 export const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";
 export const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
@@ -312,6 +313,7 @@ export function createLocalUserMessage(
   content: string,
   attachments: ProfessorMariAttachment[] = [],
   context: ProfessorMariAskContext | null = null,
+  references: readonly MariComposerReference[] = [],
 ): Message {
   return {
     id: `${LOCAL_MESSAGE_ID_PREFIX}${Date.now()}`,
@@ -327,6 +329,8 @@ export function createLocalUserMessage(
       tokenCount: null,
       generationInfo: null,
       ...(attachments.length > 0 ? { attachments } : {}),
+      // The bubble marks what you linked before the server's copy replaces it.
+      ...(references.length > 0 ? { references: [...references] } : {}),
       professorMariContext: context,
     },
   };
@@ -382,6 +386,56 @@ export function resolveContextLorebook(
   );
 }
 
+/**
+ * The editor beside Prof. Mari changed (companion mode). Context that pointed at the old editor
+ * follows it: its resource becomes the new editor (or goes when the editor closed), and the old
+ * editor's field is dropped. Anything else the user attached stays.
+ */
+export function retargetEditorContext(
+  context: ProfessorMariAskContext | null,
+  previous: ProfessorMariContextResource | null,
+  next: ProfessorMariContextResource | null,
+): ProfessorMariAskContext | null {
+  if (!context || !previous) return context;
+  const onOldEditor = context.resource?.kind === previous.kind && context.resource.id === previous.id;
+  const pickedOldEditor = context.commandCenterResultId === `${previous.kind}:${previous.id}`;
+  if (!onOldEditor && !pickedOldEditor && context.field === undefined && context.fieldId === undefined) return context;
+  // Fields only ever come from the open editor, so a field here belonged to the old one; the
+  // pick of the old editor's row ("Selected ...: Editing X") goes with it.
+  const { field: _field, fieldId: _fieldId, fieldDraft: _fieldDraft, resource, ...rest } = context;
+  if (pickedOldEditor) {
+    delete rest.commandCenterResultId;
+    delete rest.action;
+  }
+  if (!onOldEditor) return { ...rest, ...(resource ? { resource } : {}) };
+  return next ? { ...rest, resource: next } : rest;
+}
+
+/**
+ * An `@` field pick beside the editor: that field replaces the one she had (and its captured text),
+ * and the context's resource becomes the open editor.
+ */
+export function withEditorField(
+  context: ProfessorMariAskContext | null,
+  editor: ProfessorMariContextResource | null,
+  field: { id: string; label: string; draft?: { value: string; selection?: string } },
+): ProfessorMariAskContext {
+  const { fieldDraft: _fieldDraft, ...rest } = context ?? { source: "character-editor", capability: "edit" };
+  // Fields only come from the open editor, so a context on another record moves to it, and a pick of
+  // that other record goes with it (as retargetEditorContext does).
+  if (editor && rest.resource && (rest.resource.kind !== editor.kind || rest.resource.id !== editor.id)) {
+    delete rest.commandCenterResultId;
+    delete rest.action;
+  }
+  return {
+    ...rest,
+    ...(editor ? { resource: editor } : {}),
+    field: field.label,
+    fieldId: field.id,
+    ...(field.draft ? { fieldDraft: field.draft } : {}),
+  };
+}
+
 export function persistentResourceContext(
   context: ProfessorMariAskContext | null | undefined,
 ): ProfessorMariAskContext | null {
@@ -403,6 +457,8 @@ export type ProfessorMariRecovery = {
   text: string;
   attachments: ProfessorMariAttachment[];
   context: ProfessorMariAskContext | null;
+  /** What the message linked with `@`; a retry links it again. */
+  references?: MariComposerReference[];
   kind: "provider" | "tool" | "context" | "general";
   /** What the provider or server said, shown under the error. */
   detail?: string;
@@ -410,6 +466,8 @@ export type ProfessorMariRecovery = {
   localMessageId?: string;
   /** The server never saved the message, so it went back to the composer: Retry sends the composer. */
   inComposer?: boolean;
+  /** The server put this queued message back in the queue, so a retry takes it from there. */
+  pendingMessageId?: string;
 };
 
 export function classifyProfessorMariFailure(error: unknown): ProfessorMariRecovery["kind"] {
@@ -436,5 +494,6 @@ export function retryOf(message: Message | undefined) {
     text: message?.content ?? "",
     attachments: message ? getProfessorMariAttachments(message) : [],
     context: (message && getProfessorMariMessageContext(message)) ?? null,
+    references: (message && toMessageExtra(message)?.references) || undefined,
   };
 }

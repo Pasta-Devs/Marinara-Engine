@@ -3,14 +3,15 @@
 // ──────────────────────────────────────────────
 // CRUD for the saved chat-settings bundles applied to new chats.
 // One profile per mode is marked active and used as the starting state.
-import { eq, and, ne, asc } from "../../db/file-query.js";
+import { eq, and, ne, asc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { chats, chatPresets } from "../../db/schema/index.js";
+import { chats, chatPresets, lorebooks, personas } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./chats.storage.js";
 import { summaryHidingPatch } from "../../routes/generate/generate-route-utils.js";
 import {
+  CHAT_FOLLOWS_MAIN_KEY,
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
   CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS,
   CHAT_PROFILE_FOLLOWER_SYNC_KEYS,
@@ -57,6 +58,11 @@ function isPresetExcludedMetadataKey(key: string) {
     (key.startsWith("scene") && !PROFILE_SCENE_SETTING_KEYS.has(key)) ||
     key.startsWith("multiplayer")
   );
+}
+
+function readStringIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((id): id is string => typeof id === "string" && !!id.trim()).map((id) => id.trim()))];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -196,11 +202,15 @@ function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): C
   const out: ChatPresetSettings = {};
   if ("connectionId" in input) out.connectionId = input.connectionId ?? null;
   if ("promptPresetId" in input) out.promptPresetId = input.promptPresetId ?? null;
+  if (typeof input.personaId === "string" && input.personaId.trim()) out.personaId = input.personaId.trim();
+  const lorebookIds = readStringIds(input.lorebookIds);
+  if (lorebookIds.length) out.lorebookIds = lorebookIds;
   if (input.metadata) out.metadata = sanitizePresetMetadata(input.metadata as Record<string, unknown>);
   return out;
 }
 
 export function createChatPresetsStorage(db: DB) {
+  const personaExists = async (id: string) => (await db.select().from(personas).where(eq(personas.id, id))).length > 0;
   const storage = {
     async list() {
       const rows = (await db
@@ -364,7 +374,8 @@ export function createChatPresetsStorage(db: DB) {
     async applyToChat(
       presetId: string,
       chatId: string,
-      options: { connectionId?: string | null; asFollower?: boolean } = {},
+      /** `keepPersona`: the user already picked who they play in this chat, so the profile's persona is skipped. */
+      options: { connectionId?: string | null; asFollower?: boolean; keepPersona?: boolean } = {},
     ) {
       return withChatMetadataPatchQueue(chatId, async () => {
         const preset = await storage.getById(presetId);
@@ -410,7 +421,8 @@ export function createChatPresetsStorage(db: DB) {
           preserved.advancedMemory = { ...pickAdvancedMemoryKeys(presetMetadata.advancedMemory, false), ...ownMemory };
         }
         // Profiles saved before they held window layouts or the video settings leave the chat's own.
-        for (const key of ["windowLayout", ...PROFILE_SCENE_SETTING_KEYS]) {
+        // A background is a starting pick like the persona: a profile without one keeps the chat's own.
+        for (const key of ["windowLayout", "background", ...PROFILE_SCENE_SETTING_KEYS]) {
           if (
             !Object.prototype.hasOwnProperty.call(presetMetadata, key) &&
             Object.prototype.hasOwnProperty.call(currentMetadata, key)
@@ -435,6 +447,14 @@ export function createChatPresetsStorage(db: DB) {
           ...preserved,
           appliedChatPresetId: preset.id,
         };
+        // Starting picks are copied, never linked: a hand apply adds the profile's lorebooks.
+        if (!options.asFollower && preset.settings.lorebookIds?.length) {
+          const existing = await db.select().from(lorebooks).where(inArray(lorebooks.id, preset.settings.lorebookIds));
+          const picks = preset.settings.lorebookIds.filter((id) => existing.some((row) => row.id === id));
+          appliedMetadata.activeLorebookIds = [
+            ...new Set([...readStringIds(currentMetadata.activeLorebookIds), ...picks]),
+          ];
+        }
         const newMetadata = options.asFollower
           ? syncFollowerMetadata(
               currentMetadata,
@@ -449,6 +469,8 @@ export function createChatPresetsStorage(db: DB) {
         );
         const nextConnectionId =
           options.connectionId !== undefined ? options.connectionId : (preset.settings.connectionId ?? null);
+        // A profile without a Model puts the chat on Main by choice; without the flag generation reports a deleted Model.
+        if (!options.asFollower) newMetadata[CHAT_FOLLOWS_MAIN_KEY] = !nextConnectionId;
 
         await db
           .update(chats)
@@ -456,6 +478,9 @@ export function createChatPresetsStorage(db: DB) {
             ...(!options.asFollower && {
               connectionId: nextConnectionId,
               promptPresetId: preset.settings.promptPresetId ?? null,
+              ...(!options.keepPersona && preset.settings.personaId && (await personaExists(preset.settings.personaId))
+                ? { personaId: preset.settings.personaId, personaCharacterId: null }
+                : {}),
               updatedAt: now(),
             }),
             metadata: JSON.stringify(newMetadata),

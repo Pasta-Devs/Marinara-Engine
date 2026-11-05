@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { cssLangSelectorGuard } from "./css-lang-selectors.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -13,7 +14,7 @@ export async function buildMultiplayerGuest(outDir = resolve(packageRoot, "dist/
   await build({
     configFile: false,
     root: packageRoot,
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), cssLangSelectorGuard()],
     define: { "process.env.NODE_ENV": JSON.stringify("production") },
     build: {
       outDir,
@@ -28,7 +29,7 @@ export async function buildMultiplayerGuest(outDir = resolve(packageRoot, "dist/
         fileName: () => "guest.js",
         cssFileName: "guest",
       },
-      rollupOptions: { output: { inlineDynamicImports: true } },
+      rolldownOptions: { output: { codeSplitting: false } },
     },
   });
 }

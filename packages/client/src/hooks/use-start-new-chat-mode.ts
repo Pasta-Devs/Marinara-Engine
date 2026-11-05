@@ -64,9 +64,11 @@ export function useStartNewChatMode() {
       store.setShouldOpenSettings(true);
       store.setShouldOpenWizard(true);
       if (starred) {
-        void applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id }).catch(() => {
-          /* Non-fatal: the setup wizard still opens with system defaults. */
-        });
+        void applyChatPreset
+          .mutateAsync({ presetId: starred.id, chatId: chat.id, initialSetupProfile: starred })
+          .catch(() => {
+            /* Non-fatal: the setup wizard still opens with system defaults. */
+          });
       }
     } finally {
       launchInFlight.current = false;

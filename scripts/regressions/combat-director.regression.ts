@@ -113,6 +113,13 @@ assert.deepEqual(
 );
 commandCombatDirector(s, { type: "choose", candidateId: "pass" }, "gm");
 assert.equal(s.window?.kind, "ordinary");
+{
+  // The Game Master is shown the Engine's own top picks, best first, each with why.
+  const suggested = s.window!.options.filter((c) => c.suggested).sort((a, b) => a.suggested!.rank - b.suggested!.rank);
+  assert.ok(suggested.length > 0 && suggested[0]!.suggested!.rank === 1, JSON.stringify(s.window!.options));
+  const lines = JSON.parse(buildCombatBossPrompt(s)[1]!.content).engineSuggestions as string[];
+  assert.match(lines[0]!, /^1\. CANDIDATE: \S+ ACTION: .+ REASON: .+$/);
+}
 const attack = s.window!.options.find((c) => c.kind === "attack")!;
 commandCombatDirector(s, { type: "choose", candidateId: attack.id }, "gm");
 assert.equal(s.round, 2);

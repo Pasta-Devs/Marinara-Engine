@@ -508,7 +508,7 @@ tool(
   {
     character: z.string(),
     reason: z.string().min(5).describe("Why; shown in the card's version history and the activity log"),
-    set: z.record(z.string()).optional().describe(`Whole-field values. Allowed: ${[...EDITABLE, ...EXT_EDITABLE].join(", ")}`),
+    set: z.record(z.string(), z.string()).optional().describe(`Whole-field values. Allowed: ${[...EDITABLE, ...EXT_EDITABLE].join(", ")}`),
     replace: z
       .array(z.object({ field: z.string(), find: z.string().min(1), with: z.string() }))
       .optional()
@@ -568,7 +568,7 @@ tool(
   {
     chat: chatRef,
     reason: z.string().min(5),
-    set: z.record(z.any()).optional(),
+    set: z.record(z.string(), z.any()).optional(),
     replace: z.object({ key: z.string(), find: z.string().min(1), with: z.string() }).optional(),
     dryRun: z.boolean().default(false),
   },

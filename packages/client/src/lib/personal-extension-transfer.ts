@@ -1,7 +1,7 @@
 import { sanitizeFolderSegment, type PersonalExtension } from "@marinara-engine/shared";
 import type { ZipFileInput } from "./download-zip";
 
-export function createPersonalExtensionPackageFiles(extension: PersonalExtension): ZipFileInput[] {
+export function createPersonalExtensionPackageFiles(extension: Omit<PersonalExtension, "revisions">): ZipFileInput[] {
   const folder = `Personal Extensions/${sanitizeFolderSegment(extension.name, "personal-extension")}`;
   const runtime = extension.runtime;
   const config = {

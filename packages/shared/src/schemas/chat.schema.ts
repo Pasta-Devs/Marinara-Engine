@@ -2,9 +2,52 @@
 // Chat Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import { pendingSpatialTransitionSchema } from "./spatial-context.schema.js";
 
 export const chatModeSchema = z.enum(["conversation", "roleplay", "game"]);
+
+const agentLorebookAttachmentSchema = z
+  .object({ enabled: z.boolean(), lorebookId: z.string().trim().min(1).max(200).nullable() })
+  .strict();
+const agentAttachmentKeySchema = z.string().min(1).max(200);
+export const agentLorebookAttachmentsSchema = z.record(agentAttachmentKeySchema, agentLorebookAttachmentSchema);
+export const agentLorebookAttachmentPatchesSchema = z.record(
+  agentAttachmentKeySchema,
+  partialInput(agentLorebookAttachmentSchema).refine(
+    (entry) => entry.enabled !== undefined || entry.lorebookId !== undefined,
+  ),
+);
+
+/** Merge only the fields a control changed, retaining complete stored entries. */
+export function mergeAgentLorebookAttachments(
+  current: unknown,
+  patches: z.infer<typeof agentLorebookAttachmentPatchesSchema>,
+): Record<string, unknown> {
+  const base = current && typeof current === "object" && !Array.isArray(current) ? current : {};
+  return {
+    ...base,
+    ...Object.fromEntries(
+      Object.entries(patches).map(([id, patch]) => {
+        const previous = Object.hasOwn(base, id)
+          ? (base as Record<string, Partial<z.infer<typeof agentLorebookAttachmentSchema>> | null>)[id]
+          : undefined;
+        return [
+          id,
+          {
+            enabled: patch.enabled ?? previous?.enabled === true,
+            lorebookId:
+              patch.lorebookId !== undefined
+                ? patch.lorebookId
+                : typeof previous?.lorebookId === "string"
+                  ? previous.lorebookId
+                  : null,
+          },
+        ];
+      }),
+    ),
+  };
+}
 
 export const messageRoleSchema = z.enum(["user", "assistant", "system", "narrator"]);
 

@@ -140,7 +140,13 @@ function getCharacterSummary(char: ParsedCharacterRow) {
 }
 
 function getPersonaSummary(persona: Persona) {
-  return getCardLibrarySummary([persona.creatorNotes, persona.description, persona.personality, persona.backstory]);
+  return getCardLibrarySummary([
+    persona.summary,
+    persona.creatorNotes,
+    persona.description,
+    persona.personality,
+    persona.backstory,
+  ]);
 }
 
 function truncateText(content: string, maxLength: number) {
@@ -151,10 +157,10 @@ function truncateText(content: string, maxLength: number) {
 function getCharacterSections(char: ParsedCharacterRow): LibrarySection[] {
   // card://self gallery images, such as greeting images saved locally (#7221), show from this character's gallery.
   return [
-    { title: "Description", content: getText(char.parsed.description) },
-    { title: "Personality", content: getText(char.parsed.personality) },
-    { title: "Scenario", content: getText(char.parsed.scenario) },
-    { title: "Opening Message", content: getText(char.parsed.first_mes) },
+    { title: "chat.settings.inlineEditor.fields.description", content: getText(char.parsed.description) },
+    { title: "chat.settings.inlineEditor.fields.personality", content: getText(char.parsed.personality) },
+    { title: "chat.settings.inlineEditor.fields.scenario", content: getText(char.parsed.scenario) },
+    { title: "ui.cardLibrary.sections.openingMessage", content: getText(char.parsed.first_mes) },
   ]
     .map((section) => ({ ...section, content: resolveSelfCardAssets(section.content, char.id) }))
     .filter((section) => section.content);
@@ -162,17 +168,25 @@ function getCharacterSections(char: ParsedCharacterRow): LibrarySection[] {
 
 function getPersonaSections(persona: Persona): LibrarySection[] {
   return [
-    { title: "Description", content: getText(persona.description) },
-    { title: "Personality", content: getText(persona.personality) },
-    { title: "Scenario", content: getText(persona.scenario) },
-    { title: "Backstory", content: getText(persona.backstory) },
-    { title: "Appearance", content: getText(persona.appearance) },
+    { title: "chat.settings.inlineEditor.fields.description", content: getText(persona.description) },
+    { title: "chat.settings.inlineEditor.fields.personality", content: getText(persona.personality) },
+    { title: "chat.settings.inlineEditor.fields.scenario", content: getText(persona.scenario) },
+    { title: "chat.settings.inlineEditor.fields.backstory", content: getText(persona.backstory) },
+    { title: "chat.settings.inlineEditor.fields.appearance", content: getText(persona.appearance) },
+    { title: "chat.settings.inlineEditor.fields.exampleDialogue", content: getText(persona.mes_example) },
   ].filter((section) => section.content);
 }
 
 function estimatePersonaTokens(persona: Persona) {
   return estimateTextTokens(
-    [persona.description, persona.personality, persona.scenario, persona.backstory, persona.appearance]
+    [
+      persona.description,
+      persona.personality,
+      persona.scenario,
+      persona.backstory,
+      persona.appearance,
+      persona.mes_example,
+    ]
       .map(getText)
       .join(""),
   );
@@ -214,7 +228,7 @@ function toPersonaLibraryCard(persona: Persona): LibraryCard {
     tokenEstimate: estimatePersonaTokens(persona),
     favorite: false,
     creatorNotes: getText(persona.creatorNotes),
-    hasExplicitSummary: false,
+    hasExplicitSummary: Boolean(getText(persona.summary)),
     sections: getPersonaSections(persona),
   };
 }
@@ -346,11 +360,11 @@ function CardLibraryDetailCard({
               className="rounded-[1.5rem] border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)]/65 p-4"
             >
               <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--marinara-chat-chrome-panel-muted)]">
-                {section.title}
+                {localizeUi(section.title)}
               </h3>
               <div className="mari-message-content mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--marinara-chat-chrome-panel-text)]">
                 {renderMarkdownBlocks(
-                  truncateText(section.content, section.title === "Opening Message" ? 420 : 620),
+                  truncateText(section.content, section.title === "ui.cardLibrary.sections.openingMessage" ? 420 : 620),
                   applyInlineMarkdown,
                   `card-${card.id}-${section.title}`,
                 )}

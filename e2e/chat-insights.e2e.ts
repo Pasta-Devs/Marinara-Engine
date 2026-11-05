@@ -226,3 +226,116 @@ test("chat search, stats and story exports work with private content filtered", 
     if (cleanupFailure && !testFailure) throw cleanupFailure;
   }
 });
+
+test("exporting a range of messages downloads only that span and leaves the chat as it was", async ({
+  page,
+  request,
+  playwright,
+  baseURL,
+}, testInfo) => {
+  const chatName = `Range export ${testInfo.workerIndex} ${Date.now()}`;
+  const cleanupRequest = await playwright.request.newContext({ baseURL });
+  let chatId: string | null = null;
+  let testFailure: unknown;
+  let cleanupFailure: unknown;
+
+  try {
+    const created = await request.post("/api/chats", {
+      data: { name: chatName, mode: "roleplay", characterIds: [] },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    chatId = ((await created.json()) as { id: string }).id;
+    const ids: string[] = [];
+    for (let row = 1; row <= 5; row++) {
+      const response = await request.post(`/api/chats/${chatId}/messages`, {
+        data: { role: row % 2 ? "user" : "assistant", content: `Range row ${row} line.` },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      ids.push(((await response.json()) as { id: string }).id);
+    }
+
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+    await seedUIState(
+      page,
+      {
+        hasCompletedOnboarding: true,
+        sidebarOpen: false,
+        rightPanelOpen: false,
+        chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      },
+      "if-missing",
+    );
+    await page.addInitScript(
+      ({ id, version: appVersion }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+      },
+      { id: chatId, version },
+    );
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "showSaveFilePicker", { configurable: true, value: undefined });
+    });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("Range row 5 line.", { exact: true })).toBeVisible();
+
+    const branches = await openChatSettingsTool(page, "chat-branches");
+    await branches.getByRole("button", { name: "Export a range", exact: true }).click();
+    const selectionBar = page.locator('[data-component="MessageMultiSelectBar"]');
+    await expect(selectionBar).toBeVisible();
+    await expect(selectionBar).toContainText("Select the first and last message to export.");
+    await expect(selectionBar.getByRole("button", { name: "Delete selected" })).toHaveCount(0);
+    const exportSelected = selectionBar.getByRole("button", { name: "Export selected", exact: true });
+    await expect(exportSelected).toBeDisabled();
+
+    // Only the two boundaries are picked; the export covers everything between them.
+    for (const index of [3, 1]) {
+      await page.locator(`[data-message-id="${ids[index]}"]`).getByRole("checkbox", { name: "Select message" }).click();
+    }
+    await expect(selectionBar).toContainText("2 selected");
+    await exportSelected.click();
+    const dialog = page.getByRole("dialog", { name: "Export messages" });
+    await expect(dialog).toContainText("3 messages");
+    await expect(dialog).toContainText("Range row 2 line.");
+    await expect(dialog).toContainText("Range row 4 line.");
+    await page.screenshot({ path: testInfo.outputPath("range-export-dialog.png") });
+
+    const download = await downloadExport(page, () =>
+      dialog.getByRole("button", { name: "Text", exact: true }).click(),
+    );
+    expect(download.suggestedFilename()).toMatch(/excerpt\.txt$/u);
+    const exported = (await readFile((await download.path())!)).toString("utf8");
+    const positions = [2, 3, 4].map((row) => exported.indexOf(`Range row ${row} line.`));
+    expect(
+      positions.every((position) => position >= 0),
+      exported,
+    ).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(exported).not.toContain("Range row 1 line.");
+    expect(exported).not.toContain("Range row 5 line.");
+    await expect(selectionBar).toBeHidden();
+
+    const count = await request.get(`/api/chats/${chatId}/message-count`);
+    expect(count.ok(), await count.text()).toBeTruthy();
+    expect(((await count.json()) as { count: number }).count).toBe(5);
+  } catch (error) {
+    testFailure = error;
+    throw error;
+  } finally {
+    try {
+      if (chatId) {
+        const deleted = await cleanupRequest.delete(`/api/chats/${chatId}?force=true`);
+        if (!deleted.ok()) cleanupFailure = new Error(`Could not clean up chat ${chatId}: ${await deleted.text()}`);
+      }
+    } catch (error) {
+      cleanupFailure = error;
+    }
+    try {
+      await cleanupRequest.dispose();
+    } catch (error) {
+      cleanupFailure ??= error;
+    }
+  }
+  // Cleanup never hides the test's own failure.
+  if (testFailure) throw testFailure;
+  if (cleanupFailure) throw cleanupFailure;
+});

@@ -17,6 +17,13 @@ for (const width of [390, 768, 1440]) {
     );
     test.setTimeout(120_000);
     await acquireMariThreadLock();
+    // Start on a new thread: an earlier spec's held queue would hold these messages too.
+    const existing = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as { id: string }[];
+    await Promise.all(
+      existing.map((chat) =>
+        request.delete(`/api/chats/internal/professor-mari/chats/${chat.id}`).catch(() => undefined),
+      ),
+    );
     const provider = createServer((_req, res) => {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: { message: "Fixture provider unavailable" } }));
@@ -43,11 +50,21 @@ for (const width of [390, 768, 1440]) {
       await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } });
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
       await page.setViewportSize({ width, height: 900 });
+      // Her connection is a server setting now.
+      await page.route("**/api/app-settings/feature-model-connections", (route) =>
+        route.fulfill({
+          json: {
+            mariConnectionId: connectionId,
+            omnibarAsideConnectionId: null,
+            impersonateConnectionId: null,
+            visionConnectionId: null,
+          },
+        }),
+      );
       await seedUIState(page, {
         hasCompletedOnboarding: true,
         sidebarOpen: false,
         rightPanelOpen: false,
-        mariConnectionId: connectionId,
         theme: "dark",
       });
       await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
@@ -55,17 +72,22 @@ for (const width of [390, 768, 1440]) {
       await page.getByRole("button", { name: "Home", exact: true }).first().click();
       await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
       const window = page.locator('[data-component="GlobalOmnibar.Mari"]');
-      const composer = window.getByPlaceholder("Ask Professor Mari to check or change something");
+      // #8415 changed her composer placeholder.
+      const composer = window.getByPlaceholder("Ask Professor Mari… @ to link, / for commands");
       const classic = window.getByRole("button", { name: "Switch to Classic", exact: true });
       for (let n = 1; n <= 3; n++) {
         await composer.fill(`Hello ${n}`);
         await composer.press("Control+Enter");
+        // Her failed run must also end, on the server and in her window: a message sent while she still works is
+        // queued (83a7c2de56), and a run that ends in failure holds the queue instead of sending it. The failure
+        // card shows only once her window is no longer busy with the run.
         await expect
           .poll(async () => {
             const status = await (await request.get("/api/professor-mari/workspace/status")).json();
-            return status.piConsecutiveFailures;
+            return { failures: status.piConsecutiveFailures, active: status.active };
           })
-          .toBe(n);
+          .toEqual({ failures: n, active: false });
+        await expect(window.locator('[data-component="HomeProfessorMariChat.RunError"]')).toBeVisible();
         if (n < 3) await expect(classic).toBeHidden();
       }
       await expect(classic).toBeEnabled();

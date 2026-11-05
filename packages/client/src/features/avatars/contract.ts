@@ -22,8 +22,6 @@ import type {
 /** Hard limits for every renderer and the stage. "Phone" is a coarse pointer or a viewport below the md
  *  breakpoint. The stage owns the single frame loop: renderers never run their own requestAnimationFrame. */
 export const AVATAR_RENDER_BUDGET = Object.freeze({
-  /** Avatars drawn at once; the rest show their still sprite or nothing. */
-  maxVisible: Object.freeze({ phone: 2, desktop: 4 }),
   /** Canvas device-pixel-ratio cap. */
   maxDevicePixelRatio: Object.freeze({ phone: 1.5, desktop: 2 }),
   /** Frame rates. Hidden tab, offscreen canvas, or paused effects mean 0 fps (setPaused(true)). Reduced
@@ -77,6 +75,8 @@ const AVATAR_RENDERER_MODULES: Readonly<Record<AvatarKind, () => Promise<AvatarR
   pngtuber: () => import("./renderers/pngtuber/pngtuber-renderer"),
   "mesh-avatar": () => import("./renderers/mesh-avatar/mesh-avatar-renderer"),
   vrm: () => import("./renderers/vrm/vrm-renderer"),
+  mmd: () => import("./renderers/mmd/mmd-renderer"),
+  "glb-fbx": () => import("./renderers/glb-fbx/glb-fbx-renderer"),
 };
 
 /** Loads a kind's renderer chunk on first use and creates a renderer. */
@@ -186,6 +186,8 @@ export const AVATAR_KIND_SETUP_PANELS: Readonly<
     import("./renderers/mesh-avatar/MeshAvatarSetupPanel").then((m) => ({ default: m.MeshAvatarSetupPanel })),
   ),
   vrm: lazy(() => import("./renderers/vrm/VrmSetupPanel").then((m) => ({ default: m.VrmSetupPanel }))),
+  mmd: lazy(() => import("./renderers/mmd/MmdSetupPanel").then((m) => ({ default: m.MmdSetupPanel }))),
+  "glb-fbx": lazy(() => import("./renderers/glb-fbx/GlbFbxSetupPanel").then((m) => ({ default: m.GlbFbxSetupPanel }))),
 };
 
 /** One-click generation from a sprite (2D agent page only). */

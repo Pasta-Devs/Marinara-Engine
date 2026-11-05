@@ -1,131 +1,121 @@
 # Managing Your Chat List
 
-This guide covers the chat list in Marinara Engine. It explains the three mode tabs and how to create, import, rename, delete, organize, search, and bulk-manage your chats. It also covers the recent chats widget on the Home screen.
+The **Chats** panel on the left holds every chat you have. Use it to start, find, sort, organize and delete chats.
 
 ## The chat list and mode tabs
 
-Your chats live in the **Chats** panel, the sidebar on the left. At the top of the panel are three mode tabs:
+At the top of the panel are three mode tabs. Each tab lists only the chats of that mode.
 
-- **CONVO** for Conversation, a plain messaging-style chat.
-- **RP** for Roleplay, an immersive scene with characters and world tracking.
-- **GM** for Game, an AI-run single-player RPG.
+| Tab | Mode |
+| --- | --- |
+| **CONVO** | Conversation: a messaging-style chat. |
+| **RP** | Roleplay: a scene with characters and world tracking. |
+| **GM** | Game: a single-player RPG run by the AI. |
 
-Each tab shows only the chats of that mode. Clicking a tab switches the list.
+Each row shows the chat name and the avatars of its characters. In Conversation chats, a colored dot on an avatar shows that character's status. A red badge is the count of unread messages. A row with a small branch icon and a number is a chat with several branches, grouped into one row. See [Chat Branches](branches.md).
 
-Each row in the list shows the chat name and the avatar of its character or characters. In Conversation chats, a small colored dot on the avatar shows each character's status. If a red badge appears on a row, that is the count of unread messages.
+## Start a chat
 
-Some rows show a small branch icon with a number. This means the chat has more than one branch, and the branches are grouped into a single row. To learn what branches are, see [Chat Branches](branches.md).
+Before you start: add at least one account in **Connections**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-## Creating a new chat
+1. Click the tab for the mode you want.
+2. Tap the **+** button at the top of the panel. Its label is **New Conversation**, **New Roleplay** or **New Game**, to match the tab.
 
-1. Pick the mode tab you want (**CONVO**, **RP**, or **GM**).
-2. Click the **+** button near the top of the panel. Its tooltip reads **New Conversation**, **New Roleplay**, or **New Game**, matching the active tab.
-3. The app creates the chat, opens it, and opens the **Chat Settings** panel plus a setup wizard so you can finish setup.
+Marinara creates and opens the chat. **Chat Settings** and a setup wizard open beside it. The chat starts with the name **New Conversation**, **New Roleplay** or **New Game**. If you saved a starred default settings profile for Conversation or Roleplay, Marinara applies it to the new chat. See [Settings Profiles](settings-profiles.md).
 
-The new chat is named **New Conversation**, **New Roleplay**, or **New Game**. You can rename it later (see Renaming a chat below).
+If it did not work: with no account saved, the **Add account** window opens instead of a chat. Pick a service, click **Connect**, then choose a model. The full steps are in [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-You need at least one connection before a chat will open. A connection links Marinara to an AI provider. If you have no connection yet, a **Set Up** window appears instead of the chat. It asks you to choose a connection first. If you have none at all, it shows **No connections found** with an **Open Connections** button. To set one up, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+## Import a chat
 
-If you saved a starred default settings profile for that mode, Marinara applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
+You can import a `.jsonl` chat log from SillyTavern or Marinara.
 
-## Importing a chat
-
-You can import a chat log saved as a `.jsonl` file, from SillyTavern or from Marinara.
-
-1. Pick the mode tab you want the imported chat to land in.
-2. Click the **Import** button near the top of the panel. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**.
+1. Click the tab for the mode the chat should land in.
+2. Tap the **Import** button at the top of the panel. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 
-Marinara creates a new chat in the current tab's mode and opens it. You should see a message that reads **Imported N messages**, where N is the message count.
+Marinara creates the chat, opens it, and shows **Imported N messages**. For export formats and bulk export, see [Exporting and Importing Chats](export-import.md).
 
-For all the ways to import and export chats, including bulk import and export formats, see [Exporting and Importing Chats](export-import.md).
+If it did not work: a small message at the bottom of the screen reads **Import failed** with the reason. Only `.jsonl` files are accepted.
 
-## Renaming a chat
+## Rename a chat
 
-The chat name is only visible to you. It is not sent to the AI and does not change the conversation.
+The chat name is for you only. It is not sent to the model.
 
-1. Open the chat.
-2. Open **Chat Settings** from its button in the chat.
-3. In the **Chat Name** section, click the current name to turn it into a text box.
-4. Type the new name, then press Enter or click the checkmark button.
+1. Open the chat, then open **Chat Settings**.
+2. In **Chat Name**, click the current name.
+3. Type the new name, then press <kbd>Enter</kbd> or click the checkmark.
 
-For more on the Chat Settings panel, see [Chat Settings Overview](chat-settings.md).
+See [Chat Settings](chat-settings.md) for how to open the panel.
 
-## Deleting a chat
+## Delete a chat
 
-To delete a single chat, hover over its row and click the trash button. On mobile, the trash button is always shown. A dialog titled **Delete Chat** asks "Delete this chat?". Click **Delete** to confirm.
+1. Tap the trash button on the chat row. On a computer, it shows when you point at the row.
+2. In the **Delete Chat** dialog, click **Delete**.
 
-Deleting a chat is permanent. It also stops any reply that is still being generated for that chat.
+Deleting is permanent. It also stops any reply still being written for that chat.
 
-### The branch choice dialog
+If the chat has several branches, the dialog says how many and gives two choices:
 
-If the chat you delete has more than one branch, a different window opens instead. It is titled **Delete Chat** and says the conversation has several branches. It gives you two choices:
+- **Delete This Branch Only** removes the branch you clicked.
+- **Delete All N branches** removes every branch in the group.
 
-- **Delete This Branch Only** removes just the branch you clicked.
-- **Delete All N Branches** removes every branch in the group, where N is the branch count.
+To manage branches without deleting the chat, see [Chat Branches](branches.md).
 
-To manage branches without deleting the whole chat, see [Chat Branches](branches.md).
-
-### Turning delete confirmations on or off
-
-An app-wide setting called **Confirm before deleting** controls whether these confirmation dialogs appear. It is on by default and is found in **Settings** under the **General** tab. Its own help text recommends keeping it on.
+The app-wide setting **Confirm before deleting** controls these dialogs. It is on by default. Find it in **Settings → General**.
 
 ## Chat folders
 
-You can group chats into folders inside each mode tab.
+Folders group chats inside one mode tab.
 
-1. Make sure the current tab has at least one chat. The **New Folder** button appears above the list only then.
-2. Click **New Folder**. The folder is created with the name **unnamed** (or **unnamed 2**, **unnamed 3**, and so on if that name is taken).
+1. Open a tab that has at least one chat. **New Folder** appears under the tabs only then.
+2. Click **New Folder**. The folder is named **unnamed** (then **unnamed 2**, **unnamed 3**).
 
-To rename a folder, double-click it, double-tap it, or focus it and press F2. Renaming to an empty name is ignored.
+| To do this | Do this |
+| --- | --- |
+| Rename a folder | Double-click or double-tap it, or focus it and press <kbd>F2</kbd>. An empty name is ignored. |
+| Delete a folder | Click the trash button on the folder row. A **Delete Folder** dialog appears when the folder holds chats. The chats move to the top level and are not deleted. |
+| Reorder folders | Drag a folder up or down. The sort menu switches to **Custom**. |
+| Move a chat into a folder | Drag the chat row onto the folder. On a touch screen, press and hold the chat for about half a second first. |
+| Take a chat out of a folder | Drag it onto the empty area below the folders. |
 
-To delete a folder, click the trash button on the folder row. A dialog titled **Delete Folder** confirms it. Deleting a folder never deletes the chats inside it. Those chats move back to the top level.
+With several chats selected, dragging one moves the whole selection. Chats outside folders are listed below the folders.
 
-To reorder folders, drag a folder row up or down. A gap opens where it will land. The sort menu then switches to **Custom**, which keeps your folder order.
+## Search, sort and filter
 
-To move a chat into a folder, drag its row onto the folder. To take a chat out of every folder, drag it onto the empty area below the folders. On a touch screen, press and hold a chat for about half a second to start dragging. If you have several chats selected, dragging one of them moves the whole selection.
+### Find a chat by name
 
-Chats that are not in any folder appear in a plain list below the folders.
+Each tab has a search box. Its placeholder is **Search conversations**, **Search roleplays** or **Search games**. Type a word. It matches chat names, tags and character names, not message text.
 
-## Searching, sorting, and filtering by tag
+### Find a message in all chats
 
-Each mode tab has its own search box at the top of the list. The placeholder text changes per tab: **Search conversations...**, **Search roleplays...**, or **Search games...**. The search matches the chat name, its tags, and the names of its characters. It does not search inside message text.
+1. Tap **Search all chats**, the button beside the sort menu.
+2. Type your words.
 
-Next to the search box is a sort menu with the tooltip **Sort chats**. It has these options:
+It searches every chat and can filter by mode, character, sender and date.
 
-- **Custom** keeps your folders in the order you dragged them into.
-- **Manual order** lets you drag chats into your own order. With a keyboard, focus a chat and press Alt+Up or Alt+Down.
-- **Recent**, the default, shows the most recently active chats first.
-- **Newest** shows the most recently created chats first.
-- **Oldest** shows the oldest chats first.
-- **A-Z** sorts by name from A to Z.
-- **Z-A** sorts by name from Z to A.
+The sort menu (**Sort chats**) has these options:
 
-If any chat in the tab has tags, a tag filter row appears. Click the **Tags** chip to expand the tag list. Then click a tag to show only chats that carry it. Click **Clear** to remove the filter. When there are many tags, a **+N more** chip reveals the rest.
+| Option | Order |
+| --- | --- |
+| **Custom** | Your folder order. |
+| **Manual order** | Chats in the order you drag them. With a keyboard, focus a chat and press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd>. |
+| **Recent** | Most recently active first. This is the default. |
+| **Newest** | Most recently created first. |
+| **Oldest** | Oldest first. |
+| **A-Z** and **Z-A** | By name. |
 
-Note: this screen only filters by tags a chat already has. There is no button here to add a tag to a chat.
+When any chat in the tab has a tag, a **Tags (N)** chip appears. Click it to expand the tags, then click a tag to show only chats with it. Click **Clear** to remove the filter. This panel cannot add tags to a chat.
 
-The list shows up to 100 chats at a time. If you have more, a **Load more** button appears at the bottom to reveal the next batch.
+The list shows 100 chats at a time. Click **Load more** to see the next batch.
 
 ## Selecting multiple chats
 
-You can act on several chats at once.
+1. Click the checkmark button (**Select chats**) at the top of the panel.
+2. Click each chat you want. Rows show a checkbox instead of opening.
+3. Use the bar at the bottom, which shows how many chats are selected.
 
-1. Click the **Select chats** button near the top of the panel (the checkmark icon).
-2. Click each chat you want. A checkbox toggles on each selected row instead of opening the chat.
-3. A bar at the bottom shows how many chats are selected, with two buttons.
+**Export** downloads the selected chats as one `.zip` file of `.jsonl` files. **Delete** asks you to confirm in a **Delete Chats** dialog, then removes them. Click the checkmark button again to leave selection mode. Switching tabs also clears the selection.
 
-The **Export** button downloads all selected chats together as a single `.zip` file. The **Delete** button removes them. Delete shows a confirmation titled **Delete Chats** first.
+## Recent chats on the Home screen
 
-To leave selection mode without acting, click the select button again. Switching tabs also clears the selection.
-
-## Recent Chats on the Home screen
-
-The Home screen has a **Recent chats** widget with your most recently active chats. Each chat shows its name, a mode badge and its last message. Click a chat to open it, or click an empty part of the widget to open the chat list. If you have no chats yet, the widget reads **Your chats will show here**. See [Home widgets](../home/welcome.md#home-widgets).
-
-## Related guides
-
-- [Chat Branches](branches.md)
-- [Exporting and Importing Chats](export-import.md)
-- [Chat Settings Overview](chat-settings.md)
-- [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
+The Home screen has a **Recent chats** widget with your latest chats. Each shows its name, a mode badge and its last message. Click a chat to open it. With no chats, it reads **Your chats will show here**. See [Home widgets](../home/welcome.md#home-widgets).

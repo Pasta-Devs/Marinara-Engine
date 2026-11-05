@@ -59,6 +59,16 @@ export class MultiplayerSnapshotTooLargeError extends Error {
 }
 
 /** The only shared transcript projection. No metadata, debug fields, assets or provider events cross this boundary. */
+/** A player's message as the room shows it: a fight's result keeps its words to the story and drops
+ *  the recap written for the Game Master, rewards instruction and board counts included (laptop room
+ *  playtest 2026-10-30). */
+export function roomUserText(content: string): string {
+  return content
+    .replace(/\[combat_result\][\s\S]*?(?:\[\/combat_result\]|$)/giu, "")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 export function projectRoomSnapshot(input: {
   room: MultiplayerStoredRoom;
   chat: { name: string; mode: string };
@@ -66,6 +76,8 @@ export function projectRoomSnapshot(input: {
   connected: ReadonlySet<string>;
   messages: readonly MessageRow[];
   game?: import("@marinara-engine/shared").MultiplayerGameState | null;
+  /** The room's fight as this player sees it (2026-10-27). */
+  fight?: import("@marinara-engine/shared").MultiplayerFight | null;
   /** Trusted local management must remain available to reduce an oversized shared update. */
   forLocalHost?: boolean;
 }): MultiplayerSnapshot {
@@ -100,7 +112,7 @@ export function projectRoomSnapshot(input: {
     const name = row.role === "user" && typeof persona.name === "string" ? persona.name : (actor?.name ?? "GM");
     let text =
       row.role === "user"
-        ? row.content.slice(0, MULTIPLAYER_LIMITS.text)
+        ? roomUserText(row.content).slice(0, MULTIPLAYER_LIMITS.text)
         : roomVisibleText(row.content, chat.mode, room, selfId, extra.multiplayerGameAudience);
     if (row.role !== "user") {
       const whispers = getRoleplayWhispers(extra).filter(
@@ -166,6 +178,7 @@ export function projectRoomSnapshot(input: {
     characters: room.characters,
     messages,
     game: input.game ?? null,
+    ...(input.fight ? { fight: input.fight } : {}),
     round: round
       ? {
           id: round.id,

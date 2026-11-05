@@ -1,4 +1,10 @@
-import type { Message, AvatarCrop, ReplyCheckupFinding, ReplyCheckupLink } from "@marinara-engine/shared";
+import type {
+  Message,
+  AvatarCrop,
+  CombatIconChoice,
+  ReplyCheckupFinding,
+  ReplyCheckupLink,
+} from "@marinara-engine/shared";
 
 export type CharacterMap = Map<
   string,
@@ -39,6 +45,8 @@ export type PersonaInfo = {
   scenario?: string;
   avatarUrl?: string;
   avatarCrop?: AvatarCrop | null;
+  /** The card's Game Mode Icon choice; missing means the avatar. */
+  combatIcon?: CombatIconChoice | null;
   nameColor?: string;
   dialogueColor?: string;
   boxColor?: string;

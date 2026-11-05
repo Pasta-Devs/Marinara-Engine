@@ -86,9 +86,7 @@ export function useMarkMariRunSeen(chatId: string | null, latestRun: MariWorkspa
 /** Her state for the top-bar edge line and pill, once the user has seen the result in her pane. */
 export function useMariEdgeGlow(): MariEdgeGlow {
   const presence = useMariPresence();
-  const mariEnabled = useUIStore((state) => state.commandCenterMariEnabled);
   const seenRunId = useMariRunSeenId(presence.latestRun?.chatId ?? null);
-  if (!mariEnabled) return null;
   return resolveMariEdgeGlow({
     working: presence.working,
     pendingApprovals: presence.pendingCount,

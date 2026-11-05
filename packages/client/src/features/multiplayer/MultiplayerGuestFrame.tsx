@@ -13,6 +13,17 @@ interface Props {
 }
 
 /** Presentation only: this component cannot make requests or load a peer URL. */
+// Set as the tab closes, before the guest view goes with it (room playtest 2026-10-27).
+let pageClosing = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    pageClosing = true;
+  });
+  window.addEventListener("pageshow", () => {
+    pageClosing = false;
+  });
+}
+
 export function MultiplayerGuestFrame({ state, labels, theme, title, onAction, onProtocolError }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const connection = useRef<ReturnType<typeof connectMultiplayerGuestFrame> | null>(null);
@@ -40,7 +51,10 @@ export function MultiplayerGuestFrame({ state, labels, theme, title, onAction, o
           connection.current = connectMultiplayerGuestFrame(frame.current, {
             initial: { state: latest.current.state, labels: latest.current.labels, theme: latest.current.theme },
             onAction: (action) => latest.current.onAction(action),
-            onError: () => latest.current.onProtocolError(),
+            // Nothing the page does while it closes is a broken view, so it never leaves the room.
+            onError: () => {
+              if (!pageClosing) latest.current.onProtocolError();
+            },
           });
         } catch {
           latest.current.onProtocolError();

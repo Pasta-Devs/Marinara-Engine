@@ -7,6 +7,7 @@ import {
   createClientNotFoundHandler,
   createClientStaticOptions,
 } from "../../packages/server/src/config/client-static-config.js";
+import { securityHeadersHook } from "../../packages/server/src/middleware/security-headers.js";
 
 const requireFromServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const fastifyStatic = requireFromServer("@fastify/static");
@@ -24,6 +25,7 @@ writeFileSync(join(clientDist, "assets", "index-AbCdEf12.js"), "export {};");
 const app = Fastify({ logger: false });
 
 try {
+  app.addHook("onRequest", securityHeadersHook);
   await app.register(fastifyStatic, createClientStaticOptions(clientDist));
   app.setNotFoundHandler(createClientNotFoundHandler(join(clientDist, "index.html")));
   await app.ready();
@@ -106,7 +108,9 @@ try {
     assert.equal(navigation.statusCode, 200);
     assert.match(navigation.headers["content-type"], /html/);
     assert.equal(navigation.headers["cache-control"], "no-cache, must-revalidate");
+    assert.equal(navigation.headers["x-robots-tag"], "noindex, nofollow");
   }
+  assert.equal(fingerprintedAsset.headers["x-robots-tag"], "noindex, nofollow");
 
   console.info("Static client cache-header regression passed.");
 } finally {

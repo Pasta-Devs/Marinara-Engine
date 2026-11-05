@@ -22,7 +22,7 @@ import {
   type DecisionDebugRequest,
 } from "@marinara-engine/shared";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import type { DecisionConnection } from "./decision-connection.js";
 import {
   getAnswerStyle,
@@ -33,7 +33,7 @@ import {
 import { whenDecisionServerFree } from "./decision-server-queue.js";
 import { type ResolvedDecisionSlot } from "./decision-slots.js";
 import { isDirectAnswer, readLogprobAnswer, readWordAnswer, type TopLogprob } from "./logprob-answer.js";
-import { postDecisionRequest, type NoulQuestion } from "./system-one.client.js";
+import { isRefusedFetch, postDecisionRequest, type NoulQuestion } from "./system-one.client.js";
 
 const SYSTEM_PROMPT =
   "You answer one question about the conversation below. Reply with exactly one word: yes or no. Do not explain, and do not write anything else.";
@@ -150,7 +150,7 @@ async function askOnce(
   }
   const debug = diagnostics.debugMode === true || process.env.DEBUG_AGENTS === "true";
   const source = connection ? "Chat connection" : "Local";
-  logDebugOverride(debug, "[decision] %s request: %s", source, JSON.stringify(body));
+  logDebugOverride(debug, "[decision] %s request:\n%s", source, debugJson(body));
   const finish = (answer: SidecarAnswer | null, error?: string) => {
     const result = {
       id: question.id,
@@ -185,8 +185,11 @@ async function askOnce(
           body: JSON.stringify(body),
           signal: combined,
         });
-  } catch {
-    return finish(null, signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : "network");
+  } catch (err) {
+    return finish(
+      null,
+      signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : isRefusedFetch(err) ? "private_address" : "network",
+    );
   }
   if (!response.ok) return finish(null, `http_${response.status}`);
   let payload: ChatCompletionResponse;

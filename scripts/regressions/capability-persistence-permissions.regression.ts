@@ -24,6 +24,7 @@ const { capabilityModuleRuntime } =
   await import("../../packages/server/src/services/capability-packages/capability-module-runtime.service.js");
 const { getCapabilityService } =
   await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
+const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
 const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
@@ -93,6 +94,7 @@ try {
     (h) => h.getChat(chat.id),
     (h) => h.listMessages(chat.id),
     (h) => h.getGameState!(chat.id),
+    (h) => h.listChatSummaries!(chat.id),
     (h) => h.spatialSnapshots.getById(snapshot.id),
     (h) => h.spatialSnapshots.getByAnchor(chat.id, "", 0),
     (h) => h.spatialSnapshots.getByCommand(chat.id, "command"),
@@ -136,6 +138,154 @@ try {
     (h) => h.spatialSnapshots.replaceBootstrap(snapshot),
     (h) => h.spatialSnapshots.replaceAtAnchor(snapshot),
   ];
+  // listChatSummaries hands back a chat's stored summaries (the permission gate is in `reads` above).
+  assert.deepEqual(await trusted.listChatSummaries!(chat.id), {
+    day: {},
+    week: {},
+    rolling: [],
+    gameSessions: [],
+    advancedMemory: [],
+  });
+  const rolling = {
+    id: "summary-1",
+    kind: "rolling",
+    origin: "manual",
+    title: "Manual summary",
+    content: "They met at the harbor.",
+    enabled: false,
+    sourceMode: "last",
+    tokenEstimate: 6,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  const session = {
+    sessionNumber: 1,
+    summary: "The party left town.",
+    resumePoint: "At the gate.",
+    partyDynamics: "",
+    partyState: "",
+    keyDiscoveries: ["A map"],
+    characterMoments: [],
+    littleDetails: [],
+    statsSnapshot: {},
+    npcUpdates: [],
+    timestamp,
+  };
+  const summarized = (await createChatsStorage(db).create({
+    name: "Summaries proof",
+    mode: "conversation",
+    characterIds: [],
+    promptPresetId: null,
+  }))!;
+  await createChatsStorage(db).patchMetadata(summarized.id, {
+    daySummaries: { "01.02.2026": { summary: "A quiet day.", keyDetails: ["Tea"] }, "02.02.2026": "malformed" },
+    weekSummaries: { "26.01.2026": { summary: "A week of rain.", keyDetails: [] } },
+    summaryEntries: [rolling],
+    gamePreviousSessionSummaries: [session],
+  });
+  // Advanced Memory (1.391): enabled scene recaps with Long-Term Memory's block as stored; nothing else.
+  const record = (id: string, values: Record<string, unknown>) => ({
+    id,
+    chatId: summarized.id,
+    sceneId: "scene-m1",
+    kind: "scene",
+    status: "closed",
+    startMessageId: "m1",
+    endMessageId: "m2",
+    messageIds: '["m1","m2"]',
+    audienceCharacterIds: '["maukie"]',
+    content: "They crossed the river.",
+    title: "River",
+    timeline: null,
+    sourceFingerprint: "fingerprint",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    ...values,
+  });
+  const block = '{"facts":["the compass"]}';
+  for (const row of [
+    record("scene-2", { content: "Later.", createdAt: "2999-01-01T00:00:00.000Z", structuredMemory: null }),
+    record("scene-1", { structuredMemory: block }),
+    record("scene-off", { enabled: 0, structuredMemory: block }),
+    record("scene-m1", { content: "" }),
+    record("scene-work-preparation", { content: "", status: "open" }),
+    record("continuity-1", { kind: "continuity", structuredMemory: block }),
+  ])
+    await db.insert(advancedMemoryRecords).values(row as typeof advancedMemoryRecords.$inferInsert);
+  const advancedMemory = [
+    {
+      id: "scene-1",
+      sceneId: "scene-m1",
+      kind: "scene",
+      title: "River",
+      content: "They crossed the river.",
+      timeline: null,
+      startMessageId: "m1",
+      endMessageId: "m2",
+      audienceCharacterIds: ["maukie"],
+      sourceFingerprint: "fingerprint",
+      updatedAt: timestamp,
+      memory: block,
+    },
+    {
+      id: "scene-2",
+      sceneId: "scene-m1",
+      kind: "scene",
+      title: "River",
+      content: "Later.",
+      timeline: null,
+      startMessageId: "m1",
+      endMessageId: "m2",
+      audienceCharacterIds: ["maukie"],
+      sourceFingerprint: "fingerprint",
+      updatedAt: timestamp,
+      memory: null,
+    },
+  ];
+  assert.deepEqual(await trusted.listChatSummaries!(summarized.id), {
+    day: { "01.02.2026": { summary: "A quiet day.", keyDetails: ["Tea"] } },
+    week: { "26.01.2026": { summary: "A week of rain.", keyDetails: [] } },
+    rolling: [rolling],
+    gameSessions: [session],
+    advancedMemory,
+  });
+  // The older single summary reads as a legacy entry dated with the chat's own update time, not the read time.
+  await createChatsStorage(db).patchMetadata(summarized.id, { summaryEntries: [], summary: "They met at the harbor." });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const [legacy] = (await trusted.listChatSummaries!(summarized.id)).rolling;
+  assert.equal(legacy?.origin, "legacy");
+  assert.equal(legacy?.createdAt, (await createChatsStorage(db).getById(summarized.id))?.updatedAt);
+  // Stored game sessions can lack fields (older ones hold `revelations`); each one reads back complete and stable.
+  await createChatsStorage(db).patchMetadata(summarized.id, {
+    gamePreviousSessionSummaries: [
+      { sessionNumber: 3, summary: "Partial.", revelations: ["A rumor"] },
+      { summary: "Unnumbered.", keyDiscoveries: ["Map"], revelations: ["Map", "Gate"], statsSnapshot: "bad" },
+    ],
+  });
+  const stamp = (await createChatsStorage(db).getById(summarized.id))?.updatedAt;
+  const complete = { resumePoint: "", partyDynamics: "", partyState: "", characterMoments: [], littleDetails: [] };
+  const sessions = (await trusted.listChatSummaries!(summarized.id)).gameSessions;
+  assert.deepEqual(sessions, [
+    {
+      ...complete,
+      sessionNumber: 3,
+      summary: "Partial.",
+      keyDiscoveries: ["A rumor"],
+      statsSnapshot: {},
+      npcUpdates: [],
+      timestamp: stamp,
+    },
+    {
+      ...complete,
+      sessionNumber: 2,
+      summary: "Unnumbered.",
+      keyDiscoveries: ["Map", "Gate"],
+      statsSnapshot: {},
+      npcUpdates: [],
+      timestamp: stamp,
+    },
+  ]);
+  assert.deepEqual((await trusted.listChatSummaries!(summarized.id)).gameSessions, sessions);
   for (const item of packages) {
     // Actual registry read, digest verification, runtime snapshot, module import,
     // activation and service registration; no runtime or persistence mocks.
@@ -156,6 +306,7 @@ try {
         await assert.rejects(() => host.transaction(write), /requires chat-write permission/);
       }
     if (canRead) assert.equal((await host.getChat(chat.id))?.id, chat.id);
+    if (canRead) assert.deepEqual((await host.listChatSummaries!(summarized.id)).advancedMemory, advancedMemory);
     if (canWrite) {
       await host.transaction((session) => session.updateChatMetadata(metadata(item.id)));
       assert.equal(JSON.parse((await trusted.getChat(chat.id))!.metadata as string).proof, item.id);

@@ -29,6 +29,7 @@ import {
   addToGameInventory,
   addToGameInventoryNamed,
   applyGameInventoryOps,
+  applyGameInventoryTags,
   gameInventoryBearerStatus,
   gameInventoryLoad,
   placeGameInventoryAddition,
@@ -781,6 +782,26 @@ const apples = (): GameInventoryStack[] => [
   const ringOn = wearGameInventoryStack(ring.stacks, "ring", "equip", next, rules());
   assert.ok(ringOn && !("refused" in ringOn));
   assert.deepEqual(wearGameInventoryStack(ringOn.stacks, "ring", "unequip", next, rules()), { refused: "cursed" });
+  // Worn by a tag and not bound, an item that works only bound says so, so the Game Master binds it;
+  // once bound, or for an item that never binds, nothing is said.
+  const hint = "It does nothing until it is bound too";
+  const party = { members: ["Bram"] };
+  const wornRing = applyGameInventoryTags(`[inventory: action="equip" item="Ring"]`, trinkets, party, next, rules());
+  assert.ok(wornRing.content.includes(hint), wornRing.content);
+  assert.ok(
+    !applyGameInventoryTags(
+      `[inventory: action="equip" item="Ring"]`,
+      ring.stacks,
+      party,
+      next,
+      rules(),
+    ).content.includes(hint),
+  );
+  assert.ok(
+    !applyGameInventoryTags(`[inventory: action="equip" item="Coat"]`, coat, party, next, rules()).content.includes(
+      hint,
+    ),
+  );
   const lifted = wearGameInventoryStack(ring.stacks, "ring", "unbind", next, rules("game-master"));
   assert.ok(lifted && !("refused" in lifted));
   assert.deepEqual(worn(lifted.stacks), ["Ring 1 player", "Bell 1 player", "Axe 1 player"]);

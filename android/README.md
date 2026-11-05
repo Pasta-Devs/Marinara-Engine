@@ -48,7 +48,7 @@ The current native wrapper cannot join multiplayer rooms. Its JavaScript bridge 
 
 - **Java 17+** — `brew install openjdk@17` (macOS) or `pkg install openjdk-17` (Termux)
 - **Android SDK** — Set the `ANDROID_HOME` environment variable
-- **Gradle 9.6+** — required by Android Gradle Plugin 9.4; CI uses the pinned Gradle 9.8.1 distribution. Install with `brew install gradle` (macOS) or `pkg install gradle` (Termux).
+- **Gradle 9.6+** — the minimum for Android Gradle Plugin 9.5, the plugin version set in `android/build.gradle`; CI uses the pinned Gradle 9.8.2 distribution. Install with `brew install gradle` (macOS) or `pkg install gradle` (Termux).
 
 ### Build
 
@@ -117,7 +117,7 @@ cd android
 On a fresh Termux install, paste this command first:
 
 ```bash
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 After Marinara has been installed once, start it again in Termux:
@@ -132,6 +132,8 @@ APK-managed setup authenticates automatically in either the app or a browser. Se
 Older APKs retain the manual `/android-login` fallback, using `cat ~/.marinara-engine/android-secret` in Termux. It is not needed with the launcher's browser action.
 
 The `mari` CLI continues to work automatically because the Termux launcher passes the same secret to it; direct local CLI runs also fall back to this private secret file. LAN access and manual installations remain governed by the normal Marinara authentication settings.
+
+If the APK cannot open the local server after an update, install the latest APK and tap **Install / Start Marinara** again. This restores its private localhost credential; do not reset the remote login to fix a local 401 or 503. If another device cannot sign in to this Termux server, open Termux and run `cd "$HOME/Marinara-Engine" && pnpm reset-login`. This removes the app's remote login and signs out browsers, but does not change the APK's private credential. If the command fails, remove `.remote-login.json` and `.remote-sessions.json` from `packages/server/data` (or your configured `DATA_DIR`). Change a login set with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in the project `.env` there instead. See [Remote Access](../docs/REMOTE_ACCESS.md#locked-out-after-updating).
 
 To skip the update check and start the already-installed local copy, run `./start-termux.sh --skip-update`.
 To skip automatic Engine updates on every launch, add `AUTO_UPDATE_ENABLED=false` to the project `.env`; the launcher still checks for a newer published release and prints its download link when one is available, while manual update controls remain available.

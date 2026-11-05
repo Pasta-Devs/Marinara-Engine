@@ -5,7 +5,7 @@
 // this file exists. Ordered outermost → innermost — `back-navigation.ts` closes
 // the last entry.
 // ──────────────────────────────────────────────
-import { isMobileShellViewport, useUIStore } from "../stores/ui.store";
+import { isMobileShellViewport, selectSidebarShown, useUIStore } from "../stores/ui.store";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../stores/floating-window.store";
 import { closeTrackerPanel } from "./tracker-panel-surface";
 import { useDialogStore } from "../stores/dialog.store";
@@ -56,6 +56,8 @@ async function requestCloseDetails() {
   // A regex editor opened from a character's scoped-regex manager has a real
   // one-step return path; `closeRegexDetail` walks it back to that character.
   if (current.regexDetailId && current.regexDetailReturn) current.closeRegexDetail();
+  // A connection editor a Home package opened (capability API 1.386) closes back to that package's tab.
+  else if (current.connectionDetailId && current.connectionDetailReturnTab) current.closeConnectionDetail();
   else current.closeAllDetails();
 }
 
@@ -65,7 +67,8 @@ export function getStoreBackLayers(): BackLayer[] {
   const layers: BackLayer[] = [];
 
   if (isShellOverlayMode()) {
-    if (ui.sidebarOpen) layers.push({ id: "sidebar", close: () => useUIStore.getState().setSidebarOpen(false) });
+    if (selectSidebarShown(ui))
+      layers.push({ id: "sidebar", close: () => useUIStore.getState().setSidebarOpen(false) });
     if (ui.rightPanelOpen) layers.push({ id: "right-panel", close: () => useUIStore.getState().closeRightPanel() });
     // The chat's panel preference leaves a button on screen; only the open panel is a layer.
     const trackerPanelShowing =

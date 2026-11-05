@@ -19,7 +19,9 @@ for (const path of ["start-termux.sh", ".npmrc", "pnpm-workspace.yaml", "package
 
 // Every native loader Termux runs picks its binary by process.platform ("android"), so the
 // default target must keep an android/arm64 build of each one. Linux builds are never loaded.
-const lock = read("pnpm-lock.yaml");
+const lock = read("pnpm-lock.yaml")
+  .split(/^---[ \t]*$/mu)
+  .at(-1);
 const [packagesSection, snapshotsSection] = lock.split("\npackages:\n")[1].split("\nsnapshots:\n");
 // Each entry starts at a two-space-indented key; blank lines between entries are optional in YAML.
 const blocks = (section) => {

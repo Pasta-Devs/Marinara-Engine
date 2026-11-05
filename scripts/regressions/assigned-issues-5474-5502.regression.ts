@@ -8,6 +8,7 @@ function readSource(path: string) {
 
 const homeBrowser = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
 const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
+const organizerLists = readSource("packages/client/src/components/agents/organizer/OrganizerLists.tsx");
 const agentModeFilter = readSource("packages/client/src/components/agents/AgentModeFilter.tsx");
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const widgetEditor = readSource("packages/client/src/components/game/GameWidgetSetupEditor.tsx");
@@ -22,9 +23,12 @@ assert.match(
 );
 assert.match(uiStore, /agentCatalogInitialPackageId: packageId \?\? null/u);
 assert.match(agentModeFilter, /export type AgentModeFilterValue = "all" \| ChatMode/u);
-assert.match(agentCatalog, /<AgentModeFilter className="mt-2" value=\{modeFilter\} onChange=\{setModeFilter\} \/>/u);
-assert.match(agentCatalog, /modeFilter === "all" \|\| packageModes\(manifest\.id\)\.includes\(modeFilter\)/u);
-assert.match(agentCatalog, /const hasActiveFilters = Boolean\(query\.trim\(\)\) \|\| modeFilter !== "all";/u);
+assert.match(agentCatalog, /<AgentModeFilter value=\{modeFilter\} onChange=\{setModeFilter\} \/>/u);
+assert.match(
+  agentCatalog,
+  /modeFilter === "all" \? all : all\.filter\(\(entry\) => packageModes\(entry\.manifest\.id\)\.includes\(modeFilter\)\)/u,
+);
+assert.match(organizerLists, /ui\.agents\.agentcatalogview\.noMatchingAgents/u);
 
 assert.match(widgetEditor, /ui\.game\.gamewidgetsetupeditor\.id/u);
 assert.match(

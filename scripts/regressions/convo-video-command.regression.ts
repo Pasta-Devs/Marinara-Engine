@@ -23,12 +23,13 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 const { agentsRoutes } = await import("../../packages/server/src/routes/agents.routes.js");
+const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createGalleryStorage } = await import("../../packages/server/src/services/storage/gallery.storage.js");
 const { formatRecentVideoContext } = await import("../../packages/server/src/services/video/prompt-context.js");
-const { formatSentVideoNotes } =
+const { appendSentMediaNotes, formatSentVideoNotes } =
   await import("../../packages/server/src/routes/generate/conversation-prompt-formatting.js");
 const { characterDataSchema, LOCAL_SIDECAR_CONNECTION_ID } = await import("../../packages/shared/dist/index.js");
 const sharp = requireServer("sharp") as typeof import("sharp").default;
@@ -117,6 +118,7 @@ app.decorate("db", db);
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
 await app.register(chatsRoutes, { prefix: "/api/chats" });
 await app.register(agentsRoutes, { prefix: "/api/agents" });
+await app.register(generateRoutes, { prefix: "/api/generate" });
 
 try {
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
@@ -383,7 +385,7 @@ try {
   assert.equal(newestExtra.attachments.at(-1)?.characterName, undefined, "no sent-video note for an animation");
 
   // A reasoning model gets room to think: the writer asks for the same budget as the selfie writer.
-  assert.equal(Math.max(...writerMaxTokens), 8196);
+  assert.equal(Math.max(...writerMaxTokens), 8192);
   // Inline reasoning is not part of the prompt.
   await setFirstFrame("prompt_only", null);
   writerMode = "inline-thinking";
@@ -453,6 +455,220 @@ try {
     `\n[Aster sent a video message: ${VIDEO_PROMPT}]`,
   );
   assert.equal(formatSentVideoNotes([{ type: "video", prompt: "scene" }]), "");
+  // A prompt in a technical format reaches the history as its words only, so characters don't copy the format.
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: '{"integrated_multimodal_description": "[Shot 1] Ana waves.", "overall_soundscape": "Birdsong."}',
+      },
+    ]),
+    "\n[Ana sent a video message: Ana waves. Birdsong.]",
+  );
+  assert.equal(
+    formatSentVideoNotes([
+      { type: "video", characterName: "Ana", prompt: "integrated_multimodal_description: [Shot 1] Ana waves." },
+    ]),
+    "\n[Ana sent a video message: Ana waves.]",
+  );
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: '{"shots":[{"description":"Ana waves."},{"description":"She laughs."}]}',
+      },
+    ]),
+    "\n[Ana sent a video message: Ana waves. She laughs.]",
+  );
+  // Every bracketed cue goes, and an unclosed bracket too, so the note holds exactly one pair of brackets.
+  const cueNote = formatSentVideoNotes([
+    {
+      type: "video",
+      characterName: "Ana",
+      prompt: JSON.stringify({ shots: [{ description: "[Shot 1: close-up] Ana waves. [cut to window] Rain falls." }] }),
+    },
+  ]);
+  assert.equal(cueNote, "\n[Ana sent a video message: Ana waves. Rain falls.]");
+  const longNote = formatSentVideoNotes([
+    { type: "video", characterName: "Ana", prompt: `${"Ana waves. ".repeat(60)}[unfinished cue that runs on` },
+  ]);
+  assert.equal(longNote.split("[").length - 1, 1, "one opening bracket");
+  assert.equal(longNote.split("]").length - 1, 1, "one closing bracket");
+  assert.doesNotMatch(longNote, /unfinished cue/u, "an unclosed cue's words go with it");
+  assert.equal(
+    formatSentVideoNotes([{ type: "video", characterName: "Ana", prompt: "Ana waves. [cut to window" }]),
+    "\n[Ana sent a video message: Ana waves.]",
+  );
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: JSON.stringify({ description: "Ana waves. [unfinished", style: "cinematic" }),
+      },
+    ]),
+    "\n[Ana sent a video message: Ana waves. cinematic]",
+    "an unclosed cue ends with its own field",
+  );
+  // Single-word and numbered labels start their lines too; a name or a link at a line's start is not a label.
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: "camera: slow dolly\nlighting: warm\nshot_1: wide\nAna: hi there\nhttps://example.com/clip",
+      },
+    ]),
+    "\n[Ana sent a video message: slow dolly warm wide Ana: hi there https://example.com/clip]",
+  );
+  // Labels go in any case; a capitalised name, prose and a link stay.
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt:
+          "Camera: slow dolly\nCAMERA: static\nShot_1: close-up\nAction: Ana waves\nShot2: wide\nAna: I am home.\n" +
+          "Director: slow pan\nTitle: dusk over the pier\nText: on-screen caption\n" +
+          "Continuity: her coat stays red\nOverall Soundscape: wind, gulls\nAna Lee: see you.\n" +
+          "Negative prompt: blurry, extra fingers\n" +
+          "She smiles: it is late.\nhttps://example.com/clip",
+      },
+    ]),
+    "\n[Ana sent a video message: slow dolly static close-up Ana waves wide Ana: I am home. slow pan dusk over the pier " +
+      "on-screen caption her coat stays red wind, gulls Ana Lee: see you. She smiles: it is late. " +
+      "https://example.com/clip]",
+  );
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: JSON.stringify({ description: "Camera: slow dolly\nAction: Ana waves", note: "Ana: I am home." }),
+      },
+    ]),
+    "\n[Ana sent a video message: slow dolly Ana waves Ana: I am home.]",
+    "labels inside JSON string values go too",
+  );
+  // A label is judged by its shape, so words outside any list go too; prose and the chat's speakers stay.
+  const shapedPrompt =
+    "Overall: wind rising\nAspect Ratio: 16:9\nWatermark: none\nCamera Shot_2: wide\n" +
+    'Dialogue: "I\'m leaving."\nCamera: "slow pan"\nAspect Ratio: "16:9"\n' +
+    'The camera: pans left.\nHer tone: flat\nMara to lens: "We have to go."\nAna smiles: late\n' +
+    'ALICE: I am home.\nAna Lee: bye\nAna: "Wait."\n' +
+    'Guard: "Stop!"\nOld Guard: "Halt."\nVoiceover: "It was late."\nVoice_Over: "Go."\nLighting: "warm"\n' +
+    'Guard: "Wait"\nOld Guard: "No entry"\nScene: "A rainy street at night."\nCamera: "Slow pan left."\n' +
+    'Action: "She turns."\nshot_1: "Close-up."\noverall_soundscape: "Rain and distant thunder."\nFrame Rate: "24 fps"\n' +
+    "Shot 1: close-up\nShot 2: wide\nCamera angle: low, 35mm\nShot description: slow pan\nAna: hi\n" +
+    "https://example.com/clip\n" +
+    'Guard 1: "Stop!"\nShot 3: "Close-up."';
+  const shapedNote =
+    '\n[Ana sent a video message: wind rising 16:9 none wide "I\'m leaving." "slow pan" "16:9" The camera: pans left. ' +
+    'Her tone: flat Mara to lens: "We have to go." Ana smiles: late ALICE: I am home. Ana Lee: bye Ana: "Wait." Guard: "Stop!" ' +
+    'Old Guard: "Halt." "It was late." "Go." "warm" Guard: "Wait" Old Guard: "No entry" "A rainy street at night." ' +
+    '"Slow pan left." "She turns." "Close-up." "Rain and distant thunder." "24 fps" close-up wide low, 35mm slow pan ' +
+    'Ana: hi https://example.com/clip Guard 1: "Stop!" "Close-up."]';
+  assert.equal(
+    formatSentVideoNotes([{ type: "video", characterName: "Ana", prompt: shapedPrompt }], ["Alice"]),
+    shapedNote,
+  );
+  assert.equal(
+    formatSentVideoNotes(
+      [{ type: "video", characterName: "Ana", prompt: JSON.stringify({ shots: [{ description: shapedPrompt }] }) }],
+      ["Alice"],
+    ),
+    shapedNote,
+    "the same inside a JSON value",
+  );
+  assert.equal(
+    formatSentVideoNotes([{ type: "video", characterName: "Ana", prompt: "Alice: hello" }], ["Alice, the Bold"]),
+    "\n[Ana sent a video message: Alice: hello]",
+    "a name with punctuation still names its speaker",
+  );
+  // The speakers are the chat's characters and persona.
+  const { resolveChatSpeakerNames } = await import("../../packages/server/src/routes/generate/generate-route-utils.js");
+  const speakerStore = createCharactersStorage(db);
+  const alice = await speakerStore.create(characterDataSchema.parse({ name: "Alice" }));
+  const speakerPersona = await speakerStore.createPersona("Bram", "");
+  assert.ok(alice && speakerPersona);
+  const speakerChat = await chats.create({
+    name: "Speakers",
+    mode: "conversation",
+    characterIds: [aster.id, alice.id],
+    connectionId: text.id,
+    personaId: speakerPersona.id,
+  });
+  assert.ok(speakerChat);
+  assert.deepEqual(await resolveChatSpeakerNames(speakerStore, speakerChat), ["Aster", "Alice", "Bram"]);
+  assert.deepEqual(
+    await resolveChatSpeakerNames(speakerStore, { ...speakerChat, characterIds: "not json" }),
+    ["Bram"],
+    "unreadable character ids give no character names",
+  );
+  // Peek Prompt passes the chat's names, so the history note keeps who spoke.
+  await chats.createMessage({ chatId: speakerChat.id, role: "user", characterId: null, content: "Show me" });
+  await chats.createMessage({
+    chatId: speakerChat.id,
+    role: "assistant",
+    characterId: aster.id,
+    content: "Here!",
+    extra: {
+      attachments: [
+        { type: "video", characterName: "Aster", prompt: 'ALICE: hi\nBRAM: hey\nWatermark: none\nGuard: "Stop!"' },
+      ],
+    },
+  });
+  const peek = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: { chatId: speakerChat.id, returnPrompt: true },
+  });
+  assert.equal(peek.statusCode, 200, peek.body);
+  assert.match(
+    JSON.stringify(peek.json().prompt),
+    /\[Aster sent a video message: ALICE: hi BRAM: hey none Guard: \\"Stop!\\"\]/u,
+    "the preview's video note keeps the chat's speakers and quoted dialogue",
+  );
+  // Nested cues go whole, and a long run of brackets is handled in one pass.
+  assert.equal(
+    formatSentVideoNotes([{ type: "video", characterName: "Ana", prompt: "Ana waves [wide [slow] pan] and smiles." }]),
+    "\n[Ana sent a video message: Ana waves and smiles.]",
+  );
+  const bracketRunStarted = performance.now();
+  formatSentVideoNotes([{ type: "video", characterName: "Ana", prompt: `Ana waves ${"[".repeat(100_000)}` }]);
+  assert.ok(performance.now() - bracketRunStarted < 1_000, "a run of brackets is quick");
+  // A word_word: inside a sentence isn't a field label, so the prose stays as written.
+  assert.equal(
+    formatSentVideoNotes([
+      { type: "video", characterName: "Ana", prompt: "Ana opens the file named my_notes: it is empty." },
+    ]),
+    "\n[Ana sent a video message: Ana opens the file named my_notes: it is empty.]",
+  );
+  // A negative prompt is what the clip must not show, and JSON kept inside a string is read as JSON too.
+  assert.equal(
+    formatSentVideoNotes([
+      {
+        type: "video",
+        characterName: "Ana",
+        prompt: JSON.stringify({
+          prompt: JSON.stringify({ shots: [{ description: "Ana waves." }] }),
+          negative_prompt: "blurry, extra fingers",
+        }),
+      },
+    ]),
+    "\n[Ana sent a video message: Ana waves.]",
+  );
+  // Generation and Peek Prompt add the same notes to an assistant message, so the preview shows what the model reads.
+  assert.equal(
+    appendSentMediaNotes("", [{ type: "video", characterName: "Aster", prompt: VIDEO_PROMPT }]),
+    `[Aster sent a video message: ${VIDEO_PROMPT}]`,
+  );
+  assert.equal(
+    appendSentMediaNotes("Look!", [{ type: "image", filename: "selfie_aster_1.png", prompt: "Aster grins" }]),
+    "Look!\n[Sent a selfie: Aster grins]",
+  );
 
   // Attaching reports whether the clip landed: a message deleted meanwhile gets nothing and reports false.
   const { attachVideoToMessage, buildChatVideoAttachment } =

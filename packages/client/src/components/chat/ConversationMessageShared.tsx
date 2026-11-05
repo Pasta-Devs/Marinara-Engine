@@ -727,7 +727,7 @@ export function ConversationMessageLightbox({
       </div>
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:bg-black/70 hover:text-white"
+        className="absolute right-[max(1rem,var(--mari-safe-area-inset-right))] top-4 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:bg-black/70 hover:text-white"
         aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
       >
         <X size="1.125rem" />

@@ -1,181 +1,186 @@
 # Regex Scripts
 
-This guide explains regex scripts in Marinara Engine. A regex script is a find and replace rule that rewrites chat text automatically. This guide covers what regex scripts do, how to create one, where they run, and how to scope them to a single character.
+A regex script is a find-and-replace rule that rewrites chat text automatically. Use one to clean up an AI reply, reshape your own message, or change the text the model receives. You do not need to know how to code to use one.
 
-## What a regex script is
+Regex is short for "regular expression", a search pattern that finds text matching a rule. You set the pattern once, and it runs on every matching message.
 
-Regex is short for "regular expression". A regular expression is a search pattern. It finds text that matches a rule, and a regex script replaces that text with something else. You do not need to know how to code to use one.
+Example: some models wrap actions in asterisks.
 
-A regex script runs on its own every time a message passes through a chat. It can clean up an AI reply before you see it. It can change your own message before it is sent. It can also change the text the model receives. You set the pattern once, and it keeps working in every matching message.
-
-Here is a simple before and after example. Some models wrap actions in asterisks, like this:
-
-```
+```text
 *She smiles* Hello there.
 ```
 
-If you find the pattern `\*([^*]+)\*` and replace it with `$1`, the asterisks are removed and the text inside them is kept:
+Copy this pattern exactly: `\*([^*]+)\*`. Replace it with `$1`, and the asterisks go away while the text inside stays:
 
-```
+```text
 She smiles Hello there.
 ```
 
-The `$1` in the replacement means "the text that the pattern captured in the first pair of parentheses". You will use `$1`, `$2`, and similar tokens often.
+`$1` means "the text captured by the first pair of parentheses". Other common uses are deleting out-of-character notes in parentheses, censoring a word, and fixing one character's formatting quirks.
 
-Common uses include removing asterisks, deleting out of character notes in parentheses, censoring a word, and fixing repeated formatting quirks from one character.
+## Create a regex script
 
-## Where to find your regex scripts
+Your global scripts live in the **Presets** panel, in the **Regexes** section. Open it with the **Presets** button in the top bar.
 
-Your global regex scripts live in the **Presets** panel. Open it with the **Presets** button in the top bar, then find the section titled **Regexes**. The section note reads "Find/replace patterns applied to AI output or user input".
+### Creating a regex script
 
-Each row in the list shows:
+1. Open **Presets** and find **Regexes**.
+2. Click **Create regex**. The full editor opens.
+3. Type a name at the top. A new script is named "New Regex Script".
+4. In **Find Pattern (Regex)**, type `\*([^*]+)\*` (see [Editor fields](#editor-fields)).
+5. In **Replace With**, type `$1`.
+6. In **Apply To**, leave **AI Output** selected. The default **Only Display** apply mode is the safe choice (see [Choose where a script runs](#choose-where-a-script-runs)).
+7. Paste `*She smiles* Hello there.` into **Live Test**. **Result:** should read `She smiles Hello there.`
+8. Click **Save**. A green **Saved** note appears for a moment.
+9. Check it in a chat: when an AI reply has text between asterisks, the asterisks no longer show.
 
-- The script name.
-- A small **AI** or **User** tag that shows where the script runs.
-- The pattern, shown as `/pattern/flags`.
-- A toggle to turn the script on or off. This takes effect right away, with no need to open the editor.
-- An **Edit regex** button (pencil icon).
-- A **Delete regex** button (trash icon).
+If it did not work: a red error under **Find Pattern (Regex)** blocks saving. The pattern is invalid or unsafe; see [Safety and performance](#safety-and-performance).
 
-If you have no scripts yet, the list shows "No regexes yet". You can drag a row by its handle to change the run order. This list shows only your global scripts. Scripts tied to a single character are kept separate. See "Character-scoped regex scripts" below.
+### Manage your scripts
 
-The section header also has three icon buttons:
+Each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
 
-- **Create regex**: opens a new blank script.
-- **Import regexes from JSON**: reads scripts from a file.
-- **Export regexes to JSON**: saves all your global scripts to one file.
+The section header has three icon buttons: **Create regex**, **Import regexes from JSON** and **Export regexes to JSON** (saves all your global scripts to one file). Scripts tied to a single character are kept separately; see [Limit a script to one character](#limit-a-script-to-one-character).
 
-## Creating a regex script
-
-To make a new global script:
-
-1. Open the **Presets** panel and find the **Regexes** section.
-2. Click **Create regex**. The full regex script editor opens.
-3. Type a name in the box at the top. A new script starts with the name "New Regex Script".
-4. Fill in the fields described below.
-5. Click **Save**. A green **Saved** note appears for a moment.
-
-The editor has these fields.
+## Editor fields
 
 ### Find Pattern (Regex)
 
-**Find Pattern (Regex)** is the search pattern. Write it without slash delimiters. The placeholder shows an example: `\*([^*]+)\*`. If the pattern is invalid or unsafe, a red error appears under the box and blocks saving. See "Safety and performance" below.
+The search pattern. Write only the pattern, without a slash at the start or end. The placeholder shows an example: `\*([^*]+)\*`.
 
 ### Replace With
 
-**Replace With** is the text that replaces each match. Leave it empty to delete the matched text. You can reuse captured text with `$1`, `$2`, and so on. Case transforms before a capture change its letter case:
+The text that replaces each match. Leave it empty to delete the match. Reuse captured text with `$1`, `$2` and so on. These case changes work before a capture:
 
-- `\u$1` capitalizes the first letter of the capture.
-- `\U$1\E` makes the whole capture uppercase.
-- `\l$1` lowercases the first letter of the capture.
-- `\L$1\E` makes the whole capture lowercase.
+| Write | Result |
+| --- | --- |
+| `\u$1` | Capitalizes the first letter of the capture |
+| `\U$1\E` | Makes the whole capture uppercase |
+| `\l$1` | Lowercases the first letter of the capture |
+| `\L$1\E` | Makes the whole capture lowercase |
 
 Literal backslash text, such as a Windows path like `C:\Users`, is kept as written.
 
 ### Regex Flags
 
-**Regex Flags** are toggle buttons that change how the pattern matches. A new script starts with `g` and `i` on:
+Toggle buttons that change how the pattern matches. A new script starts with `g` and `i` on.
 
-- `g` (global): replace every match, not just the first.
-- `i` (case-insensitive): match whether letters are uppercase or lowercase.
-- `m` (multiline): let `^` and `$` match at line breaks.
-- `s` (dotAll): let `.` match newline characters too.
-- `u` (unicode), `y` (sticky), and `d` (match indices) are advanced flags for special cases.
+| Flag | Meaning |
+| --- | --- |
+| `g` | Global: replace every match, not only the first |
+| `i` | Case-insensitive |
+| `m` | Multiline: `^` and `$` match at line breaks |
+| `s` | dotAll: `.` also matches newline characters |
+| `u`, `y`, `d` | Unicode, sticky and match indices, for special cases |
 
 ### Trim Strings
 
-**Trim Strings** is an optional list of plain strings to strip out after the replacement runs. Click **Add trim string** to add a row, and the **X** button to remove one. This is handy for deleting a fixed piece of text that is easier to type than to match with a pattern.
+An optional list of plain strings removed after the replacement runs. Click **Add trim string** to add a row and the **X** button to remove one. Use it for a fixed piece of text that is easier to type than to match with a pattern.
 
 ### Live Test
 
-**Live Test** lets you check your pattern before you save. Paste sample text into the box, and the result appears below under **Result:**. Live Test only proves the find, replace, and trim logic. It does not check placement, on or off state, character scope, or depth. The note under the box says so: "Pattern preview only: placement, enabled state, character scope, and depth are evaluated at runtime".
+Paste sample text, and the result appears under **Result:**. Live Test checks only the find, replace and trim logic. Placement, on/off state, character scope and depth are evaluated in a real chat. You can use macros such as `{{user}}` and `{{char}}` in the pattern, replacement and trim strings. In Live Test they use sample values. See [Macros](../prompts/macros.md).
 
-You can use macros like `{{user}}` and `{{char}}` in the pattern, the replacement, and the trim strings. In Live Test they resolve to sample values. In a real chat they resolve to the real names and text. To learn more about macros, see [Macros](../prompts/macros.md).
+## Choose where a script runs
 
-## Placement: AI Output or User Input
+### Apply To
 
-The **Apply To** field decides which side of the chat a script watches. At least one option must stay selected. You can pick both.
+**Apply To** decides which side of the chat a script watches. Keep at least one selected. You can pick both.
 
-- **AI Output**: the script runs on AI responses before they are displayed.
-- **User Input**: the script runs on your messages before they are sent.
+- **AI Output**: runs on AI replies before they are displayed.
+- **User Input**: runs on your messages before they are sent.
 
-Use **AI Output** to clean up what the model writes. Use **User Input** to fix or reshape your own text.
+### Apply Mode
 
-For **Only Prompt** and **Both** in a **Roleplay** chat with **Individual** group mode, placement follows the character receiving the prompt: your messages and other characters' messages use **User Input**, while the responding character's own replies use **AI Output**. This also applies to replies earlier in the same group turn. Character restrictions still select who receives the rewritten prompt, so a narrator excluded from a thought-hiding script keeps the original thoughts. Use **Only Prompt** to keep the saved chat text intact.
+**Apply Mode** is inside **Advanced Options**. It decides what the rewrite changes. A new script starts on **Only Display**.
 
-## Apply Mode: Only Display, Only Prompt, or Both
+- **Only Display**: changes what you see in chat. The saved message and the model's later context stay the same. Safest for tidying how a reply looks.
+- **Only Prompt**: changes what the model receives, also shown in the prompt preview. The display and the saved message stay the same. Use it to strip something the model keeps copying.
+- **Both**: changes the display and the prompt text.
 
-The **Apply Mode** selector lives inside **Advanced Options**. It decides when the rewrite takes effect. This is separate from placement. A new script starts on **Only Display**.
+For your own messages, a **User Input** script set to **Only Display** or **Both** rewrites the message just before it is sent. The saved and sent message changes, not only how it looks. There is no display-only mode for outgoing messages.
 
-- **Only Display**: change only what you see in the chat. The saved message and the text the model gets in later turns do not change.
-- **Only Prompt**: change only what the model receives. The chat display and the saved message do not change. This is also what you see in the app's prompt preview.
-- **Both**: change the display and the prompt text.
+### Execution Order and Depth Range
 
-### Which apply mode do I want
+Both are in **Advanced Options**.
 
-Use this quick guide:
+- **Execution Order** is a number. Lower numbers run first, which matters when several scripts can match the same text. A new script starts at 0, and the app assigns the next free number when you save. You can also drag rows in the **Regexes** list.
+- **Depth Range** limits how far back a script runs, with **Min** and **Max**. The newest message is depth 0, the one before it is depth 1, and so on. Leave both empty to run at any depth. Saving is blocked if **Min** is larger than **Max**.
 
-- You only want to tidy how a reply looks on screen: choose **Only Display**. This is the safest choice for cosmetic fixes.
-- You want to change what the model reads, for example to strip a tag the model keeps copying: choose **Only Prompt**.
-- You want the change to apply on screen and in the model's context: choose **Both**.
+### Group chats
 
-One thing to know about your own messages. When a **User Input** script is set to **Only Display** or **Both**, the rewrite happens right before your message is sent. So it changes the message that is actually saved and sent, not just how it looks afterward. There is no display-only mode for your own outgoing messages.
+This applies to **Only Prompt** and **Both** in a **Roleplay** chat with **Individual** group mode.
 
-## Execution Order and Depth
+- Placement follows the character receiving the prompt.
+- Your messages and other characters' messages count as **User Input**.
+- The responding character's own replies count as **AI Output**, including earlier replies in the same group turn.
+- Character limits still decide who receives the rewritten prompt. A narrator left out of a thought-hiding script keeps the original thoughts.
 
-Both settings sit in **Advanced Options**.
+## Limit a script to one character
 
-**Execution Order** is a number. Lower numbers run first. This matters when more than one script can match the same text. A new script starts at 0, and the app assigns the next free number when you save, so brand new scripts do not collide. You can also drag rows in the **Regexes** list to reorder them.
+A script can belong to specific characters instead of running everywhere. There are two ways.
 
-**Depth Range** limits how far back in the chat a script runs, using two number fields, **Min** and **Max**. Depth counts backward from the newest message. The newest message is depth 0, the one before it is depth 1, and so on. Leave both fields empty to run at any depth. If the minimum is larger than the maximum, saving is blocked.
+- In the editor, turn on **Specific Characters** in the **Apply To** card and pick one or more characters. With the toggle off, the script "Applies to all characters". Pick at least one character when it is on.
+- On the character: open the character, go to the **Advanced** tab and find the **Regex Scripts** card. It lists only that character's scripts and has its own **Create regex**, import and export buttons. Save the character first, or the card says it cannot add scripts yet.
 
-## Character-scoped regex scripts
-
-A regex script can belong to one or more specific characters instead of running everywhere. There are two ways to scope a script to a character.
-
-The first way is inside the editor. Turn on the **Specific Characters** toggle in the **Apply To** card, then pick one or more characters from the grid. When the toggle is off, the script "Applies to all characters". You must pick at least one character if the toggle is on.
-
-The second way is per character. Open a character, go to the **Advanced** tab, and find the card titled **Regex Scripts**. This card lists only the scripts tied to that character, and it has its own **Create regex**, import, and export buttons. You must save the character first before you can add scoped scripts. If the character is unsaved, the card says so.
-
-Opening the full editor from this card leaves the Character Editor. If the character has unsaved changes, the app warns you first so you do not lose them.
+Opening the full editor from this card leaves the Character Editor. If the character has unsaved changes, the app warns you first.
 
 ### The per-chat Scoped Regex Scripts setting
 
-Character-scoped scripts do not automatically run in every chat. A per-chat setting controls them. Open the **Chat Settings** panel for a chat. A section titled **Scoped Regex Scripts** appears only when at least one character in that chat has scoped scripts. It offers three modes:
+Character-scoped scripts do not run in every chat on their own. A per-chat setting controls them. Open **Chat Settings**. The **Scoped Regex Scripts** section appears only when at least one character in that chat has scoped scripts.
 
-- **Disabled** (the default): character-scoped scripts are off, and only global scripts run.
-- **Exclusive**: each scoped script only changes messages from the character it belongs to.
-- **Chat**: every scoped script changes every message in the chat.
+| Mode | What happens |
+| --- | --- |
+| **Disabled** (default) | Scoped scripts are off. Only global scripts run. |
+| **Exclusive** | Each scoped script changes only messages from its own character. |
+| **Chat** | Every scoped script changes every message in the chat. |
 
-Below the mode buttons, the panel lists each character with scoped scripts and lets you switch each script on or off for that chat. This setting controls display-side scripts. Prompt scripts always follow the character that is actually generating the reply.
+**Use preset default** follows the prompt preset's **Scoped regex default**. Choosing a mode overrides it for this chat. To start new chats with a mode, use one of these:
 
-## Importing regex scripts from SillyTavern
+- Set it as the preset default.
+- Save it in your [default settings profile](../chats/settings-profiles.md#choosing-the-default-profile).
+- Choose it, then click the favorite layout star beside **Reset View** (see [Choosing a layout for new chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
 
-Marinara can read regex scripts that come bundled inside a SillyTavern character card. When you import a card, a section titled **Imported regex scripts** appears with two choices:
+Below the modes, the panel lists each character's scoped scripts with a switch for each. That switch belongs to the script itself, so it changes the script in every chat. The mode controls display-side scripts. Prompt scripts always follow the character that is generating the reply.
 
-- **Character only** (the default): the scripts stay scoped to that one character.
+## Import and replace scripts
+
+### Import from SillyTavern
+
+Marinara reads regex scripts bundled in a SillyTavern character card. When you import a card, an **Imported regex scripts** section offers two choices:
+
+- **Character only** (default): the scripts stay scoped to that character.
 - **Global**: the scripts are added to **Presets** and run in every chat.
 
-This choice appears both in the single-character import dialog and in the bulk **Import from SillyTavern Folder** flow. Bundled scripts with an empty pattern, or a pattern that fails the safety check, are skipped during import. You can also import a plain JSON file of scripts with the **Import regexes from JSON** button in the **Regexes** section. For the full import walkthrough, see [Importing from SillyTavern](../data/importing-from-sillytavern.md).
+The choice appears in the single-character import dialog and in the bulk **Import from SillyTavern Folder** flow. Scripts with an empty pattern or one that fails the safety check are skipped. To import a plain JSON file of scripts, use **Import regexes from JSON** in **Regexes**. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
-## Replacing a regex pack
+### Replace a regex pack
 
-In the **Presets → Regexes** section, choose **Select regex scripts**, then check the old pack's entries or use **Select all regex scripts**. The existing action bar lets you **Export** or **Delete** the selection. Deletion asks once for confirmation; it cannot be undone. Failed deletions stay selected so you can retry, and unselected scripts stay in place. Import the updated pack after removing the old one. Folders are not needed for this workflow; preset assignments remain available in the regex editor.
+1. In **Presets → Regexes**, choose **Select regex scripts**.
+2. Check the old pack's entries, or choose **Select all regex scripts**.
+3. Use **Export** or **Delete** in the action bar. Deletion asks once and cannot be undone.
+4. Import the updated pack.
+
+Failed deletions stay selected so you can retry. Unselected scripts stay in place. Preset assignments remain available in the regex editor.
 
 ## Safety and performance
 
-Every pattern is checked before it can be saved or run. Marinara blocks patterns that are very likely to run slowly and hang the app. A blocked pattern shows this message: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Saving is blocked until you fix it.
+Every pattern is checked before it can be saved or run. A pattern likely to run slowly and hang the app is blocked with this message, and saving stops until you fix it:
 
-In plain terms, avoid these shapes:
+```text
+Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.
+```
+
+If you see this message, make the pattern shorter and simpler. Avoid these shapes:
 
 - Patterns longer than 1000 characters.
-- A repeating group placed inside another repeating group, such as `(a+)+`.
-- Two broad wildcards in a row, such as `.*.*` or `\s*\w*`. A broad wildcard is a token like `.*`, `\s*`, or `\w+` that can match an unlimited amount of text.
+- A repeating group inside another repeating group, such as `(a+)+`.
+- Two broad wildcards in a row, such as `.*.*` or `\s*\w*`. A broad wildcard is a token like `.*`, `\s*` or `\w+` that can match unlimited text.
 - Three or more broad wildcards anywhere in one pattern, even with other text between them.
 
-A single repeat like `a+` or `(a+)` is fine. One broad wildcard on its own, such as a single `.*`, is also fine.
+A single repeat like `a+` or `(a+)`, or one broad wildcard such as a single `.*`, is fine.
 
-Even with a safe pattern, the app also limits how long a single replacement may take on a longer message. If one script takes too long on one message, the app skips that script for that message only and keeps going. The script is not turned off, and it will try again on the next message. To be safe, always test a new pattern in **Live Test** on short sample text before you turn it on.
+Even a safe pattern has a time limit per replacement on a long message. If a script takes too long on one message, the app skips that script for that message only. The script stays on and tries again on the next message. Test a new pattern in **Live Test** on short sample text first.
 
 ## Related guides
 

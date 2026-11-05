@@ -40,10 +40,12 @@ const WALK_LONGEST_MS = 3000;
 const PLAIN = { floor: "#4a443d", wall: "#837767", liquid: "#245a78", prop: "#c9a86a" };
 const centreOf = (cell: Point): Point => ({ x: cell.x * T + T / 2, y: cell.y * T + T / 2 });
 
-/** The set's own tile pack, when the player's library has one by the set's name. */
-function useDungeonPack(set: string | undefined): TilePack | null | "loading" {
+/** The set's own tile pack: the Experience's dungeon look by that id (1.357), else the player's library's
+ *  pack by the set's name. */
+function useDungeonPack(set: string | undefined, looks?: readonly TilePack[]): TilePack | null | "loading" {
   const { data: library, isPending } = useTilePackLibrary();
-  const entry = set ? library?.packs.find((pack) => pack.id === set) : undefined;
+  const look = set ? looks?.find((pack) => pack.id === set) : undefined;
+  const entry = set && !look ? library?.packs.find((pack) => pack.id === set) : undefined;
   const { data, isPending: packPending } = useQuery({
     queryKey: ["game", "tile-packs", "dungeon", set, entry?.version ?? null],
     queryFn: async () =>
@@ -51,6 +53,7 @@ function useDungeonPack(set: string | undefined): TilePack | null | "loading" {
     enabled: Boolean(entry),
     staleTime: Infinity,
   });
+  if (look) return look;
   if (isPending || (entry && packPending)) return "loading";
   return entry ? (data ?? null) : null;
 }
@@ -61,6 +64,7 @@ export function DungeonMapView({
   canWalk,
   onLeft,
   hour,
+  dungeonLooks,
 }: {
   chatId: string;
   turnKey: string | null;
@@ -70,6 +74,8 @@ export function DungeonMapView({
   onLeft: () => void;
   /** The game's hour, for who stands on a hand-made map's spots. */
   hour?: number;
+  /** The Experience's own looks for maps made by hand (1.357), named by a map's pack. */
+  dungeonLooks?: readonly TilePack[];
 }) {
   const { t } = useTranslation();
   const { data } = useDungeonMap(chatId, turnKey, true);
@@ -92,7 +98,7 @@ export function DungeonMapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for every field the cells read
   const cells = useMemo(() => (kept ? dungeonFromGameDungeonMap(kept) : null), [layoutKey]);
   const set = kept ? DUNGEON_SETS.find((each) => each.id === kept.set) : undefined;
-  const pack = useDungeonPack(kept?.pack ?? kept?.set);
+  const pack = useDungeonPack(kept?.pack ?? kept?.set, dungeonLooks);
   // A pack of the set's own: "dungeon" names no family the library chooses for, so only `own` draws.
   const drawTile = useOverworldAtlas("dungeon", pack === null ? undefined : pack);
   const walkMutation = useDungeonWalk();

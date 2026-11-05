@@ -106,6 +106,12 @@ test("desktop command result navigates directly to Appearance settings", async (
 test("Professor Mari header action opens her pane with the typed draft", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Professor Mari command behavior is covered on desktop.");
 
+  // Without a model her door keeps instruction-shaped text as a draft; with one it sends it. A model another spec
+  // left on this server must not decide which, so this page sees none.
+  await page.route("**/api/connections", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: [] }) : route.continue(),
+  );
+  await page.reload();
   const draft = "Help me choose a character for a mystery scene";
   await openOmnibar(page);
   const omnibar = page.locator('[data-component="GlobalOmnibar"]');

@@ -44,6 +44,8 @@ export function securityHeadersHook(_request: FastifyRequest, reply: FastifyRepl
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     reply.header(name, value);
   }
+  // Raw SSE responses call reply.raw.writeHead and skip reply.header; Node merges setHeader values into writeHead.
+  reply.raw.setHeader("X-Robots-Tag", "noindex, nofollow");
   reply.header("Permissions-Policy", PERMISSIONS_POLICY);
   reply.header("Content-Security-Policy", CONTENT_SECURITY_POLICY);
   done();

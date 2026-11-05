@@ -196,6 +196,22 @@ try {
     assert.deepEqual(withoutWindows, plain.events, "declining preserves the original event stream");
   }
 
+  // ── A Ring of Feather Falling (1.477): worn, no fall harms; carried, it does nothing ──
+  {
+    for (const worn of [true, false]) {
+      const state = fight();
+      who(state, "corwin").actions = [];
+      who(state).sheet!.items = [
+        { name: "Ring of Feather Falling", quantity: 1, worn, item: { category: "gear", worn: { fallsSafely: true } } },
+      ];
+      const step = shove(state);
+      assert.equal(step.state.window, undefined);
+      assert.deepEqual(eventsOf(step.events, "fell"), [{ type: "fell", targetId: "brenna", levels: 4 }]);
+      assert.equal(rulesetCombatHealth(definition, definition.combat!, who(step.state)).value, worn ? 40 : 33);
+      assert.equal(rulesetCombatConditions(definition, who(step.state)).includes("prone"), !worn);
+    }
+  }
+
   // ── Eligibility, its side and its range ──
   {
     for (const change of [
@@ -524,7 +540,7 @@ try {
       }
       if (node.type === "object" && node.properties?.noDamageFrom) {
         conditions++;
-        assert.equal(node.properties.fallsSafely.const, true);
+        assert.ok(JSON.stringify(node.properties.fallsSafely).includes('"const":true'));
       }
       Object.values(node).forEach(visit);
     };

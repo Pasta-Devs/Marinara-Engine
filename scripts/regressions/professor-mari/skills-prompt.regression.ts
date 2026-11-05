@@ -11,6 +11,7 @@ const skill = (id: string, contentLength: number, enabled = true) => ({
   updatedAt: "2026-01-01T00:00:00.000Z",
   size: contentLength,
   filePath: `/skills/${id}/SKILL.md`,
+  origin: "user" as const,
   content: "x".repeat(contentLength),
 });
 

@@ -15,7 +15,7 @@
  * `show-message-timestamps`, `show-model-name` and `show-token-usage` are
  * also skipped here: they already flip via the hand-built rows in
  * `omnibar-results.ts` (`toggleRows`), and binding them again would show the
- * same setting as two rows. `omnibar-suggestions` and `ask-mari` are bound
+ * same setting as two rows. `omnibar-suggestions` is bound
  * here instead, and `toggleRows` must not hand-build rows for them.
  *
  * Also excluded on purpose, per the K5 rule against anything that deletes,
@@ -42,10 +42,6 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
   "omnibar-suggestions": {
     get: (state) => state.omnibarSuggestionsEnabled,
     set: (value) => useUIStore.getState().setOmnibarSuggestionsEnabled(value),
-  },
-  "ask-mari": {
-    get: (state) => state.commandCenterMariEnabled,
-    set: (value) => useUIStore.getState().setCommandCenterMariEnabled(value),
   },
   "hide-chat-help-button": {
     get: (state) => state.chatHelpButtonHidden,
@@ -107,10 +103,6 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.convertLatexSymbols,
     set: (value) => useUIStore.getState().setConvertLatexSymbols(value),
   },
-  "color-inline-names": {
-    get: (state) => state.colorInlineNames ?? false,
-    set: (value) => useUIStore.getState().setColorInlineNames(value),
-  },
   "disable-inline-name-gradients": {
     get: (state) => state.disableInlineNameGradients ?? false,
     set: (value) => useUIStore.getState().setDisableInlineNameGradients(value),
@@ -126,6 +118,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
   "queue-media-generation": {
     get: (state) => state.queueImageGenerationRequests,
     set: (value) => useUIStore.getState().setQueueImageGenerationRequests(value),
+  },
+  "generated-image-webp": {
+    get: (state) => state.saveGeneratedImagesAsWebp,
+    set: (value) => useUIStore.getState().setSaveGeneratedImagesAsWebp(value),
   },
   "custom-cursor": {
     get: (state) => state.customCursorEnabled,
@@ -199,6 +195,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
   "narrator-cycling-avatars": {
     get: (state) => state.roleplayNarratorAvatarCycling,
     set: (value) => useUIStore.getState().setRoleplayNarratorAvatarCycling(value),
+  },
+  "narrator-avatar-borders": {
+    get: (state) => state.roleplayNarratorAvatarBorders,
+    set: (value) => useUIStore.getState().setRoleplayNarratorAvatarBorders(value),
   },
   "game-text-effects": {
     get: (state) => state.gameTextEffectsEnabled,

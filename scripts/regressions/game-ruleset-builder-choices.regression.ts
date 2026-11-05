@@ -674,7 +674,10 @@ try {
   for (const [edit, message] of [
     [(doc: any) => (doc.sheet.builder.steps[3].choose[0].max = undefined), /declares its maximum/],
     [(doc: any) => (doc.sheet.builder.steps[3].choose[0].countFrom = { field: "race" }), /number/],
-    [(doc: any) => (doc.sheet.builder.steps[3].choose[0].only = "sometimes"), /Invalid enum/],
+    [
+      (doc: any) => (doc.sheet.builder.steps[3].choose[0].only = "sometimes"),
+      /choose\.0\.only: Invalid option: expected one of "any"\|"trained"\|"untrained"/,
+    ],
     [(doc: any) => (doc.sheet.builder.steps[3].choose[0].tier = "missing"), /offered tier/],
     [(doc: any) => (doc.sheet.builder.steps[3].choose[0].excludeChoices = ["human/noncareer"]), /No earlier choice/],
     [(doc: any) => (doc.sheet.builder.steps[2].choose[0].excludeChoices = ["human/noncareer"]), /No earlier choice/],

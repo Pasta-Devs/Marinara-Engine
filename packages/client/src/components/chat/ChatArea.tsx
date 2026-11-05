@@ -30,7 +30,9 @@ import {
   useUpdateChatMetadata,
   useBranchChat,
   useChats,
+  useExportChat,
   chatKeys,
+  type ChatExportFormat,
 } from "../../hooks/use-chats";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
@@ -60,7 +62,7 @@ import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } fr
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";
 import {
@@ -75,6 +77,7 @@ import { Check, X } from "lucide-react";
 import {
   PROFESSOR_MARI_ID,
   buildGuidedGenerationInstructionMessage,
+  getDrawerWindowId,
   normalizeAvatarCrop,
   normalizeAdvancedMemorySettings,
   normalizeGroupChatMode,
@@ -90,16 +93,25 @@ import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { isBuiltInTrackerAgentType, resolveTrackerRerunTypes } from "../../lib/tracker-agents";
 import { Modal } from "../ui/Modal";
 import { useEncounter } from "../../hooks/use-encounter";
+import { useRoleplayHtmlArtifact } from "../../hooks/use-roleplay-commands";
 import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
-import { getChatTranslationConfig, type ChatMode, type ReplyCheckupLink } from "@marinara-engine/shared";
+import {
+  getChatTranslationConfig,
+  parseCombatIconChoice,
+  type ChatMode,
+  type ReplyCheckupLink,
+} from "@marinara-engine/shared";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
   filterTTSText,
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
+  getTTSPersonaVoice,
+  resolveTTSMessagePersona,
   withTTSVoiceRequestCacheKeys,
 } from "../../lib/tts-dialogue";
 import {
@@ -110,6 +122,7 @@ import {
   findLatestTTSAutoplayMessage,
   findSplitReplyEarlierParts,
   getTTSAutoplayRevision,
+  isTTSUserMessageReady,
   nextTTSAutoplayReadingId,
   shouldAutoplayGeneratedTTS,
   TTS_AUTOPLAY_MESSAGE_READY_EVENT,
@@ -124,6 +137,7 @@ import {
   blurActiveChatFloatingUiControl,
   CHAT_FLOATING_UI_DISMISS_EVENT,
   CHAT_LOREBOOK_ENTRIES_OPEN_REQUEST_EVENT,
+  CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT,
   CHAT_PEEK_PROMPT_REQUEST_EVENT,
   CHAT_REGENERATE_REQUEST_EVENT,
   CHAT_REPLY_CHECKUP_REQUEST_EVENT,
@@ -180,6 +194,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
 import { ChatHelpOverlay } from "./ChatHelpOverlay";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
 
 export type { CharacterMap };
@@ -369,6 +384,8 @@ type IllustratorPromptReviewRequest = {
   chatId: string;
   illustratorMessageRange?: [string, string];
   subjectOnly?: boolean;
+  /** Roleplay /video's first frame: drawn without a clip, then animated once. */
+  illustratorStillOnly?: boolean;
   item: ImagePromptReviewItem;
   resultData: Record<string, unknown>;
 };
@@ -588,6 +605,10 @@ export const ChatArea = memo(function ChatArea({
   }, [hostsChatSettings]);
   // The Chat Settings button shows while a chat that hosts Chat Settings is open.
   const chatSettingsHosted = useFloatingWindowStore((state) => (state.hosts[CHAT_SETTINGS_WINDOW_ID] ?? 0) > 0);
+  // A fight on a board takes the whole chat area, so the settings bubble steps aside while the combat
+  // pane holds the corner it sits in, and comes back when the pane is put away. The fight's top-bar
+  // controls open Chat Settings either way.
+  const combatPaneOnScreen = useCombatScreenStore((state) => state.round !== null && state.paneOpen);
   // Windows and popped-out drawers follow the open chat's saved layout.
   useChatWindowLayout(activeChatId ? (chat?.id === activeChatId ? chat : undefined) : null);
   useEffect(() => {
@@ -600,7 +621,7 @@ export const ChatArea = memo(function ChatArea({
       <ChatOpeningState error={error} onRetry={refetch} onBack={() => useChatStore.getState().setActiveChatId(null)} />
     );
   const chatSettingsButton =
-    chat && chatSettingsHosted ? (
+    chat && chatSettingsHosted && !combatPaneOnScreen ? (
       <ChatSettingsBubble
         chatId={chat.id}
         mode={readChatMode(chat)}
@@ -610,7 +631,16 @@ export const ChatArea = memo(function ChatArea({
   if (chat && (metadata.multiplayerSetup === true || metadata.multiplayer)) {
     return (
       <Suspense fallback={null}>
-        <MultiplayerChat key={chat.id} chat={chat} />
+        <MultiplayerChat
+          key={chat.id}
+          chat={chat}
+          renderGame={() => (
+            <LocalChatArea
+              chatWindowIntroAllowed={chatWindowIntroAllowed}
+              onChatWindowIntroOpenChange={onChatWindowIntroOpenChange}
+            />
+          )}
+        />
         {chatSettingsButton}
       </Suspense>
     );
@@ -652,6 +682,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const isPageActive = usePageActivity();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
+  const pendingNewChatSetupId = useChatStore((s) => s.pendingNewChatSetups[activeChatId ?? ""]?.id ?? null);
   const chatWindowIntroDismissed = useUIStore((s) => s.chatWindowIntroDismissed);
   const gameSetupActive = useGameModeStore((state) => state.isSetupActive);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
@@ -679,8 +710,14 @@ const LocalChatArea = memo(function LocalChatArea({
   const settingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
+  const advancedMemoryRequest = useUIStore((state) => state.advancedMemoryRequest);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  // Held in the store: desktop editors (model settings, characters, agents) unmount ChatArea mid-setup.
+  const wizardOpen = useChatStore((s) => s.setupWizardChatId !== null && s.setupWizardChatId === activeChatId);
+  const setWizardOpen = useCallback((open: boolean) => {
+    const store = useChatStore.getState();
+    store.setSetupWizardChatId(open ? store.activeChatId : null);
+  }, []);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
   const [agentInjectionReview, setAgentInjectionReview] = useState<AgentInjectionReviewRequest | null>(null);
   const [agentInjectionDrafts, setAgentInjectionDrafts] = useState<Record<string, string>>({});
@@ -707,8 +744,17 @@ const LocalChatArea = memo(function LocalChatArea({
   // Delete dialog & multi-select state
   const [deleteDialogMessageId, setDeleteDialogMessageId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
-  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [selectedMessageIds, setSelectedMessageIdsState] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
+  // A selection started from "Export a range" (#8547): it offers export only, never delete.
+  const [exportSelection, setExportSelection] = useState(false);
+  // The selection an export was submitted for, so its result clears only that one and not a newer selection.
+  const submittedSelectionRef = useRef<Set<string> | null>(null);
+  // Every change to the selection, whatever sets it, ends the run an in-flight export was submitted for.
+  const setSelectedMessageIds = useCallback<typeof setSelectedMessageIdsState>((update) => {
+    submittedSelectionRef.current = null;
+    setSelectedMessageIdsState(update);
+  }, []);
 
   const {
     data: chatDetail,
@@ -776,12 +822,34 @@ const LocalChatArea = memo(function LocalChatArea({
   useEffect(() => {
     const openMemorySettings = (event: Event) => {
       const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
-      if (chatId !== useChatStore.getState().activeChatId) return;
-      handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });
+      if (!chatId || chatId !== useChatStore.getState().activeChatId) return;
+      const ui = useUIStore.getState();
+      const request = ui.advancedMemoryRequest;
+      ui.setAdvancedMemoryRequest(request?.chatId === chatId ? { ...request } : { chatId });
     };
     window.addEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
     return () => window.removeEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
-  }, [handleOpenSettingsPanel]);
+  }, []);
+  useEffect(() => {
+    // A notice can return to another chat. Its layout must hydrate before choosing the window owner.
+    if (!advancedMemoryRequest || advancedMemoryRequest.chatId !== chatDetail?.id || chatDetail.id !== activeChatId)
+      return;
+    const ui = useUIStore.getState();
+    ui.setChatSettingsSectionExpanded("roleplay-memory-recall", true);
+    const windows = useFloatingWindowStore.getState();
+    const memoryWindowId = getDrawerWindowId(CHAT_SETTINGS_WINDOW_ID, "roleplay-memory-recall");
+    if (windows.detached[memoryWindowId]) {
+      void preloadChatSettingsDrawer();
+      windows.openWindow(memoryWindowId);
+    } else handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });
+    // Fix and scene requests belong to their existing consumers; plain navigation is complete here.
+    if (
+      !advancedMemoryRequest.fix &&
+      !advancedMemoryRequest.sceneId &&
+      ui.advancedMemoryRequest === advancedMemoryRequest
+    )
+      ui.setAdvancedMemoryRequest(null);
+  }, [activeChatId, advancedMemoryRequest, chatDetail?.id, handleOpenSettingsPanel]);
 
   // The Chat Summary agent's "open summaries" link and the omnibar's chat tool rows land on their Chat Settings drawer.
   useEffect(() => {
@@ -805,14 +873,39 @@ const LocalChatArea = memo(function LocalChatArea({
   // UX-13: an omnibar row that names a setting inside Chat Settings opens the drawer at that section.
   useEffect(() => {
     const openSection = (event: Event) => {
-      const detail = (event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" }>)
-        .detail;
+      const detail = (
+        event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" | `agent:${string}` }>
+      ).detail;
       if (detail?.chatId !== useChatStore.getState().activeChatId || !detail.section) return;
-      handleOpenSettingsPanel(undefined, { initialSection: detail.section });
+      const section = detail.section;
+      // Drawer already open: a repeat request for the same section must still scroll,
+      // so reset the section and set it again on the next frame.
+      if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+        setSettingsInitialSection(null);
+        window.requestAnimationFrame(() => setSettingsInitialSection(section));
+        return;
+      }
+      handleOpenSettingsPanel(undefined, { initialSection: section });
     };
     window.addEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
     return () => window.removeEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
   }, [handleOpenSettingsPanel]);
+
+  // "Export a range" in Chat Branches: close Chat Settings (unless pinned) so the messages can be picked.
+  useEffect(() => {
+    const startRangeExport = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (!chatId || chatId !== useChatStore.getState().activeChatId) return;
+      handleCloseSettingsPanel();
+      setDeleteDialogMessageId(null);
+      setSelectedMessageIds(new Set());
+      setSelectionAnchorIndex(null);
+      setExportSelection(true);
+      setMultiSelectMode(true);
+    };
+    window.addEventListener(CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT, startRangeExport);
+    return () => window.removeEventListener(CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT, startRangeExport);
+  }, [handleCloseSettingsPanel]);
 
   useEffect(() => {
     window.addEventListener(CHAT_TOOLBAR_ACTION_EVENT, closeFloatingChatDrawers);
@@ -889,6 +982,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const identityCharacterRow = identityCharacterQueries[0]?.data ?? null;
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
+  const { mutate: exportChat } = useExportChat();
   const deleteSwipe = useDeleteSwipe(activeChatId);
   const deleteOtherSwipes = useDeleteOtherSwipes(activeChatId);
   const { mutate: updateMessage, mutateAsync: updateMessageAsync } = useUpdateMessage(activeChatId);
@@ -999,6 +1093,7 @@ const LocalChatArea = memo(function LocalChatArea({
       const override = overrides.find((entry) => entry.id === illustratorPromptReview.item.id);
       if (!override?.prompt.trim()) return;
       setIllustratorPromptReviewSubmitting(true);
+      let drawnGalleryImageId: string | null = null;
       const success = await retryAgents(illustratorPromptReview.chatId, ["illustrator"], {
         illustratorMessageRange: illustratorPromptReview.illustratorMessageRange,
         illustratorPromptReviewOverride: {
@@ -1008,9 +1103,26 @@ const LocalChatArea = memo(function LocalChatArea({
           ...(override.negativePrompt ? { negativePrompt: override.negativePrompt } : {}),
         },
         illustratorRetryTargets: [illustratorPromptReview.item.kind === "background" ? "background" : "illustration"],
+        ...(illustratorPromptReview.illustratorStillOnly
+          ? {
+              illustratorStillOnly: true,
+              onIllustration: (galleryImageId: string) => {
+                drawnGalleryImageId ??= galleryImageId;
+              },
+            }
+          : {}),
       });
       setIllustratorPromptReviewSubmitting(false);
       if (success) setIllustratorPromptReview(null);
+      // The animate call works on the open chat, so a picture drawn after the user moved to another chat stays a
+      // picture.
+      if (
+        success &&
+        illustratorPromptReview.illustratorStillOnly &&
+        useChatStore.getState().activeChatId === illustratorPromptReview.chatId
+      ) {
+        await animateDrawnPictureRef.current?.(drawnGalleryImageId);
+      }
     },
     [illustratorPromptReview, illustratorPromptReviewSubmitting, retryAgents],
   );
@@ -1019,6 +1131,20 @@ const LocalChatArea = memo(function LocalChatArea({
     if (illustratorPromptReviewSubmitting) return;
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
+
+  const makeHtmlArtifact = useRoleplayHtmlArtifact().mutateAsync;
+  const handleHtml = useCallback(
+    async (prompt?: string) => {
+      if (!activeChatId || !prompt) return;
+      const toastId = toast.loading(localizeUi("ui.chat.chatarea.makingHtmlArtifact"));
+      try {
+        await makeHtmlArtifact({ chatId: activeChatId, prompt });
+      } finally {
+        toast.dismiss(toastId);
+      }
+    },
+    [activeChatId, makeHtmlArtifact, localizeUi],
+  );
 
   const handleIllustrateWithAgent = useCallback(
     async (agentType: string) => {
@@ -1220,6 +1346,7 @@ const LocalChatArea = memo(function LocalChatArea({
             comment: display.comment,
             avatarUrl: c.avatarPath ?? undefined,
             avatarCrop: display.avatarCrop ?? null,
+            combatIcon: parseCombatIconChoice(parsed.extensions?.combatIcon),
             nameColor: parsed.extensions?.nameColor || undefined,
             dialogueColor: parsed.extensions?.dialogueColor || undefined,
             description: parsed.description ?? "",
@@ -1264,6 +1391,7 @@ const LocalChatArea = memo(function LocalChatArea({
             appearance: typeof extensions.appearance === "string" ? extensions.appearance : undefined,
             avatarUrl: row.avatarPath || undefined,
             avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
+            combatIcon: parseCombatIconChoice(extensions.combatIcon),
             nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
             dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
             boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
@@ -1292,6 +1420,7 @@ const LocalChatArea = memo(function LocalChatArea({
       appearance: persona.appearance || undefined,
       avatarUrl: persona.avatarPath || undefined,
       avatarCrop: persona.avatarCrop ?? null,
+      combatIcon: parseCombatIconChoice(persona.personaStats?.combatIcon),
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
@@ -1481,6 +1610,9 @@ const LocalChatArea = memo(function LocalChatArea({
   const [conversationSelfieReviewSubmitting, setConversationSelfieReviewSubmitting] = useState(false);
   const roleplaySceneVideoGeneratingRef = useRef(false);
   const conversationVideoGeneratingRef = useRef(false);
+  const roleplayVideoGeneratingRef = useRef(false);
+  // Roleplay /video animates the first frame it drew (after its review, too); the handler is declared further down.
+  const animateDrawnPictureRef = useRef<((galleryImageId: string | null) => Promise<void>) | null>(null);
   const roleplayVideoReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
   const conversationSelfieReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
 
@@ -1645,6 +1777,118 @@ const LocalChatArea = memo(function LocalChatArea({
       openRoleplayVideoPromptReview,
       queryClient,
       localizeUi,
+    ],
+  );
+
+  // The picture the retry drew, by its Gallery id: "the latest" could be another reply's picture.
+  const animateDrawnPicture = useCallback(
+    async (galleryImageId: string | null) => {
+      if (galleryImageId) await handleGenerateRoleplaySceneVideo({ galleryImageId });
+      else toast.error(localizeUi("ui.chat.chatarea.roleplayVideoNoFirstFrame"));
+    },
+    [handleGenerateRoleplaySceneVideo, localizeUi],
+  );
+  useEffect(() => {
+    animateDrawnPictureRef.current = animateDrawnPicture;
+  }, [animateDrawnPicture]);
+
+  // Roleplay /video: the server makes a clip of the latest reply (or the description) from the avatar or no
+  // picture. With a picture first frame, /illustrate draws it first and the Gallery animates the newest picture.
+  const handleRoleplayVideo = useCallback(
+    async (description?: string) => {
+      if (!activeChatId || chatMode !== "roleplay") return;
+      // One at a time, through drawing a picture first: a second request would pay for a second clip.
+      if (roleplayVideoGeneratingRef.current) throw new Error(localizeUi("ui.chat.slash.video.alreadyRunning"));
+      try {
+        roleplayVideoGeneratingRef.current = true;
+        const payload: Record<string, unknown> = {
+          ...(description ? { description } : {}),
+          debugMode: useUIStore.getState().debugMode,
+        };
+        const url = `/gallery/${activeChatId}/roleplay-video`;
+        type RoleplayVideoReply = { needsPicture?: boolean } & Partial<RoleplaySceneVideoPromptPreview>;
+        let needsPicture = false;
+        if (useUIStore.getState().reviewImagePromptsBeforeSend) {
+          let preview: RoleplayVideoReply | undefined;
+          try {
+            preview = await api.post<RoleplayVideoReply>(
+              url,
+              { ...payload, previewOnly: true },
+              { signal: AbortSignal.timeout(MEDIA_PROMPT_PREVIEW_TIMEOUT_MS) },
+            );
+          } catch (error) {
+            if (!isMediaPromptPreviewTimeout(error)) throw error;
+            toast.error(localizeUi("ui.chat.chatarea.videoPromptPreviewTimedOutContinuingWithTheDefault"));
+          }
+          needsPicture = preview?.needsPicture === true;
+          if (preview?.prompt && !needsPicture) {
+            const details = [`${preview.durationSeconds}s`, preview.aspectRatio, preview.resolution].filter(
+              (value): value is string => Boolean(value),
+            );
+            // Close only the review this call opened (another chat's request may hold the window), and close it as
+            // soon as its prompt is read, not after the minutes-long clip, when a newer review may be showing.
+            const reviewOpened = !roleplayVideoReviewResolveRef.current;
+            const overrides = await openRoleplayVideoPromptReview([
+              {
+                id: "roleplay-video",
+                kind: "video",
+                title: localizeUi("ui.chat.chatarea.roleplayVideo"),
+                prompt: preview.prompt,
+                details: details.join(" | "),
+                maxLength: preview.maxPromptLength ?? undefined,
+              },
+            ]);
+            if (reviewOpened) closeRoleplayVideoPromptReview(null);
+            const reviewedPrompt = overrides?.[0]?.prompt.trim();
+            if (!reviewedPrompt) return;
+            payload.promptOverride = reviewedPrompt;
+          }
+        }
+        if (!needsPicture) {
+          const result = await api.post<RoleplayVideoReply>(url, payload, {
+            signal: AbortSignal.timeout(SCENE_VIDEO_GENERATION_TIMEOUT_MS),
+          });
+          needsPicture = result?.needsPicture === true;
+        }
+        if (needsPicture) {
+          // Still only: the retry must not make a clip of its own (Clips only, or Pictures and clips choosing one),
+          // or this one action would pay for two.
+          let drawnGalleryImageId: string | null = null;
+          const drawn = await retryAgents(activeChatId, ["illustrator"], {
+            illustratorRetryTargets: ["illustration"],
+            illustratorStillOnly: true,
+            onIllustration: (galleryImageId) => {
+              drawnGalleryImageId ??= galleryImageId;
+            },
+            ...(description
+              ? {
+                  illustratorPromptReviewOverride: {
+                    prompt: description,
+                    subjectOnly: true,
+                    resultData: { prompt: description, characters: [] },
+                  },
+                }
+              : {}),
+          });
+          if (drawn) await animateDrawnPicture(drawnGalleryImageId);
+          return;
+        }
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
+        void queryClient.invalidateQueries({ queryKey: ["gallery", "scene-videos", activeChatId] });
+        toast.success(localizeUi("ui.chat.chatarea.sceneVideoGenerated"), { duration: 1800 });
+      } finally {
+        roleplayVideoGeneratingRef.current = false;
+      }
+    },
+    [
+      activeChatId,
+      chatMode,
+      closeRoleplayVideoPromptReview,
+      animateDrawnPicture,
+      localizeUi,
+      openRoleplayVideoPromptReview,
+      queryClient,
+      retryAgents,
     ],
   );
 
@@ -1873,16 +2117,22 @@ const LocalChatArea = memo(function LocalChatArea({
   // only set on truthy values, leaving the global chatBackground stale when
   // switching to a chat whose metadata has been cleared, which made a removed
   // background re-appear after a chat switch round-trip.
-  const restoredChatBackgroundRef = useRef<{ chatId: string | null; url: string | null; isSyncing: boolean }>({
+  const restoredChatBackgroundRef = useRef<{
+    chatId: string | null;
+    url: string | null;
+    isSyncing: boolean;
+    changed: boolean;
+  }>({
     chatId: null,
     url: null,
     isSyncing: false,
+    changed: false,
   });
   useEffect(() => {
     if (!chat?.id) return;
     const savedUrl = chatBackgroundMetadataToUrl(chatMeta.background);
     const restoredUrl = savedUrl ?? (chat.mode === "roleplay" ? useUIStore.getState().defaultRoleplayBackground : null);
-    restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: true };
+    restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: true, changed: false };
     useUIStore.getState().setChatBackground(restoredUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat?.id]);
@@ -1910,12 +2160,16 @@ const LocalChatArea = memo(function LocalChatArea({
     }
 
     const nextBackground = chatBackgroundUrlToMetadata(chatBackground);
+    // Merely showing the default backdrop is not a user edit to an untouched new draft.
+    // Once changed, returning to the entry background is a real reset and must also persist.
+    if (chatBackground !== restoredBackground.url) restoredBackground.changed = true;
+    if (pendingNewChatSetupId === chat.id && !restoredBackground.changed) return;
     if (nextBackground === savedBackground) return;
     // A selection is a discrete action, not typing: save immediately so leaving
     // the chat cannot cancel a pending background change.
     updateMeta.mutate({ id: chat.id, background: nextBackground });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatBackground, chat?.id]);
+  }, [chatBackground, chat?.id, pendingNewChatSetupId]);
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
@@ -2358,6 +2612,7 @@ const LocalChatArea = memo(function LocalChatArea({
       }
     }
     setDeleteDialogMessageId(null);
+    setExportSelection(false);
     setMultiSelectMode(true);
   }, [deleteDialogMessageId, messages]);
 
@@ -2393,18 +2648,95 @@ const LocalChatArea = memo(function LocalChatArea({
       deleteMessages.mutate([...selectedMessageIds]);
     }
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, [selectedMessageIds, deleteMessages]);
 
   const handleCancelMultiSelect = useCallback(() => {
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, []);
 
+  // Exports every message from the first to the last selected one, after a summary of the range and a format pick.
+  // The count is the span between the picked boundaries, which is what the server exports.
+  const handleExportSelection = useCallback(async () => {
+    if (!activeChatId || !messages) return;
+    const first = messages.findIndex((message) => selectedMessageIds.has(message.id));
+    const last = messages.findLastIndex((message) => selectedMessageIds.has(message.id));
+    if (first < 0 || last < 0) return;
+    const speaker = (message: MessageWithSwipes) => {
+      if (message.role === "user") {
+        const snapshotName = getPersonaSnapshotName(parseMessageExtraRecord(message.extra));
+        return snapshotName || personaInfo?.name || localizeUi("ui.chat.messagemarks.you");
+      }
+      if (message.role === "narrator") return localizeUi("ui.chat.chatmessage.narrator");
+      if (message.role === "system") return localizeUi("ui.chat.messagemarks.system");
+      return (
+        (message.characterId && characterMap.get(message.characterId)?.name) ||
+        chat?.name ||
+        localizeUi("ui.chat.messagemarks.character")
+      );
+    };
+    const snippet = (content: string) => {
+      const text = content.replace(/\s+/gu, " ").trim();
+      return text.length <= 60 ? text : `${text.slice(0, 60).trim()}…`;
+    };
+    const start = messages[first]!;
+    const end = messages[last]!;
+    const summary = localizeUi("chat.rangeExport.summary", {
+      count: last - first + 1,
+      startName: speaker(start),
+      startText: snippet(start.content),
+      endName: speaker(end),
+      endText: snippet(end.content),
+    });
+    const submitted = selectedMessageIds;
+    const format = await showChoiceDialog({
+      title: localizeUi("chat.rangeExport.title"),
+      message: `${summary}\n\n${localizeUi("chat.rangeExport.storyFilterNote")}`,
+      choices: [
+        { key: "text", label: localizeUi("ui.chat.chatbranchselector.text") },
+        { key: "markdown", label: localizeUi("chatInsights.export.markdown") },
+        { key: "jsonl", label: localizeUi("ui.chat.chatbranchselector.jsonl") },
+        { key: "html", label: localizeUi("chatInsights.export.html") },
+      ],
+      cancelLabel: localizeUi("chat.delete.selection.cancel"),
+    });
+    if (!format) return;
+    submittedSelectionRef.current = submitted;
+    exportChat(
+      {
+        chatId: activeChatId,
+        format: format as ChatExportFormat,
+        range: { startMessageId: start.id, endMessageId: end.id },
+      },
+      // A slow export must not clear a selection the user started since submitting it, in this chat or another.
+      {
+        onSuccess: () => {
+          if (useChatStore.getState().activeChatId === activeChatId && submittedSelectionRef.current === submitted) {
+            handleCancelMultiSelect();
+          }
+        },
+      },
+    );
+  }, [
+    activeChatId,
+    characterMap,
+    chat?.name,
+    exportChat,
+    handleCancelMultiSelect,
+    localizeUi,
+    messages,
+    personaInfo?.name,
+    selectedMessageIds,
+  ]);
+
   useEffect(() => {
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
     setScheduleModalCharacterId(null);
@@ -3023,7 +3355,9 @@ const LocalChatArea = memo(function LocalChatArea({
   // Reset stagger animation flag when switching chats
   useEffect(() => {
     hasAnimatedRef.current = false;
-  }, [activeChatId]);
+    // A remount on the same chat keeps its open wizard; switching chats closes it.
+    if (useChatStore.getState().setupWizardChatId !== activeChatId) setWizardOpen(false);
+  }, [activeChatId, setWizardOpen]);
 
   // Auto-open settings drawer for newly created chats
   const shouldOpenSettings = useChatStore((s) => s.shouldOpenSettings);
@@ -3038,7 +3372,7 @@ const LocalChatArea = memo(function LocalChatArea({
       }
       useChatStore.getState().setShouldOpenSettings(false);
     }
-  }, [shouldOpenSettings, shouldOpenWizard, activeChatId, handleOpenSettingsPanel]);
+  }, [shouldOpenSettings, shouldOpenWizard, activeChatId, handleOpenSettingsPanel, setWizardOpen]);
 
   // Auto-scroll on new messages / streaming (but not on "load more")
   // Only scroll if user is already near the bottom (within 150px).
@@ -3209,6 +3543,18 @@ const LocalChatArea = memo(function LocalChatArea({
   const prevIsStreamingRef = useRef(false);
   const ttsGenerationRef = useRef<TTSGenerationSnapshot | null>(null);
   const startedTTSAutoplayRevisionsRef = useRef(new Set<string>());
+  const ttsAutoplayTailRef = useRef<Promise<void>>(Promise.resolve());
+  const ttsAutoplayEpochRef = useRef(0);
+  const personaTTSControllersRef = useRef(new Set<AbortController>());
+  useEffect(() => {
+    const controllers = personaTTSControllersRef.current;
+    return () => {
+      ttsAutoplayEpochRef.current += 1;
+      for (const controller of controllers) controller.abort();
+      controllers.clear();
+      ttsAutoplayTailRef.current = Promise.resolve();
+    };
+  }, [activeChatId, chatMode, ttsConfig]);
   useEffect(() => {
     const handleGenerationError = (event: Event) => {
       const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
@@ -3218,25 +3564,25 @@ const LocalChatArea = memo(function LocalChatArea({
     window.addEventListener("marinara:generation-error", handleGenerationError);
     return () => window.removeEventListener("marinara:generation-error", handleGenerationError);
   }, []);
-  const resolveTTSCharacterId = useCallback(
-    (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap),
-    [characterMap],
-  );
-  const speakTTSAutoplayMessage = useCallback(
+  const runTTSAutoplayMessage = useCallback(
     async (
       lastMsg: TTSAutoplayMessage,
       targetChatId: string,
       generationAtStart: TTSGenerationSnapshot | null,
       earlierMessages: readonly TTSAutoplayMessage[] = [],
+      signal?: AbortSignal,
     ) => {
-      if (useChatStore.getState().activeChatId !== targetChatId) return;
+      if (signal?.aborted || useChatStore.getState().activeChatId !== targetChatId) return;
 
       const cfg = ttsConfigRef.current;
       if (!cfg?.enabled) return;
 
+      const userMessage = lastMsg.role === "user";
       const mode = chatModeRef.current;
-      const shouldAutoplay = mode === "roleplay" ? cfg.autoplayRP : mode === "game" ? false : cfg.autoplayConvo;
+      const shouldAutoplay =
+        mode === "roleplay" ? cfg.autoplayRP : mode === "game" ? userMessage && cfg.autoplayGame : cfg.autoplayConvo;
       if (!shouldAutoplay) return;
+      if (userMessage && !getTTSPersonaVoice(cfg, resolveTTSMessagePersona(lastMsg, personaInfo))) return;
 
       const targetRevision = getTTSAutoplayRevision(lastMsg);
       if (!targetRevision) return;
@@ -3252,6 +3598,7 @@ const LocalChatArea = memo(function LocalChatArea({
       // Avatars hold their talking and moods for the voice until this reading ends, however it ends.
       const readingId = nextTTSAutoplayReadingId();
       const announceVoice = (pending: boolean) =>
+        !userMessage &&
         window.dispatchEvent(
           new CustomEvent<TTSAutoplayVoiceDetail>(TTS_AUTOPLAY_VOICE_EVENT, {
             detail: { chatId: targetChatId, messageId: lastMsg.id, readingId, pending },
@@ -3263,14 +3610,21 @@ const LocalChatArea = memo(function LocalChatArea({
           mode === "roleplay" &&
           (chatMeta.roleplayDisplayStyle ?? useUIStore.getState().roleplayDisplayStyle) === "visual-novel";
         const requestsFor = async (message: TTSAutoplayMessage) => {
-          const fallbackSpeaker =
-            message.role === "narrator"
+          const persona = resolveTTSMessagePersona(message, personaInfo);
+          const ownUserMessage = message.role === "user";
+          const fallbackSpeaker = ownUserMessage
+            ? persona?.name || "User"
+            : message.role === "narrator"
               ? "Narrator"
               : message.characterId
                 ? characterMap.get(message.characterId)?.name
                 : undefined;
+          const fallbackId = ownUserMessage ? persona?.id : message.characterId;
+          const resolveSpeakerId = (speaker?: string | null) =>
+            findTTSCharacterIdBySpeakerName(speaker, characterMap, persona);
+          const ambiguousSpeaker = (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap, persona);
           let requests;
-          if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled) {
+          if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled && !ownUserMessage) {
             try {
               const extracted = await extractRoleplayTTSSpeakers({
                 message: filterTTSText(message.content, cfg),
@@ -3284,8 +3638,10 @@ const LocalChatArea = memo(function LocalChatArea({
                 extracted.segments,
                 cfg,
                 fallbackSpeaker,
-                message.characterId,
-                resolveTTSCharacterId,
+                fallbackId,
+                resolveSpeakerId,
+                persona,
+                ambiguousSpeaker,
               );
             } catch (error) {
               console.warn("[TTS] Roleplay speaker extractor failed; using standard autoplay.", error);
@@ -3293,8 +3649,10 @@ const LocalChatArea = memo(function LocalChatArea({
                 message.content,
                 cfg,
                 fallbackSpeaker,
-                message.characterId,
-                resolveTTSCharacterId,
+                fallbackId,
+                resolveSpeakerId,
+                persona,
+                ambiguousSpeaker,
               );
             }
           } else {
@@ -3302,8 +3660,10 @@ const LocalChatArea = memo(function LocalChatArea({
               message.content,
               cfg,
               fallbackSpeaker,
-              message.characterId,
-              resolveTTSCharacterId,
+              fallbackId,
+              resolveSpeakerId,
+              persona,
+              ambiguousSpeaker,
             );
           }
           return visualNovel ? withRoleplayTTSParagraphs(requests, message.content, cfg) : requests;
@@ -3317,8 +3677,10 @@ const LocalChatArea = memo(function LocalChatArea({
         const currentGeneration = ttsGenerationRef.current;
         const currentMessage = findLatestTTSAutoplayMessage(messagesRef.current ?? []);
         if (
+          signal?.aborted ||
+          cfg !== ttsConfigRef.current ||
           useChatStore.getState().activeChatId !== targetChatId ||
-          (currentGeneration !== null && currentGeneration !== generationAtStart) ||
+          (!userMessage && currentGeneration !== null && currentGeneration !== generationAtStart) ||
           (currentMessage?.id === lastMsg.id && getTTSAutoplayRevision(currentMessage) !== targetRevision)
         )
           return;
@@ -3332,6 +3694,7 @@ const LocalChatArea = memo(function LocalChatArea({
           lastMsg.id,
           {
             chatId: targetChatId,
+            signal,
             progressive: cfg.progressivePlayback,
             volume: ttsLineVolume / 100,
             onChunkStart: (_request, index) => {
@@ -3344,15 +3707,62 @@ const LocalChatArea = memo(function LocalChatArea({
         announceVoice(false);
       }
     },
-    [
-      characterMap,
-      characterNames,
-      chat,
-      chatMeta.roleplayDisplayStyle,
-      personaInfo?.name,
-      resolveTTSCharacterId,
-      ttsLineVolume,
-    ],
+    [characterMap, characterNames, chat, chatMeta.roleplayDisplayStyle, personaInfo, ttsLineVolume],
+  );
+  const speakTTSAutoplayMessage = useCallback(
+    (
+      message: TTSAutoplayMessage,
+      chatId: string,
+      generation: TTSGenerationSnapshot | null,
+      earlierMessages: readonly TTSAutoplayMessage[] = [],
+    ) => {
+      const epoch = ttsAutoplayEpochRef.current;
+      const cfg = ttsConfigRef.current;
+      const userMessage = message.role === "user";
+      const mode = chatModeRef.current;
+      if (
+        useChatStore.getState().activeChatId !== chatId ||
+        (userMessage &&
+          (!isTTSUserMessageReady(message, mode) ||
+            !cfg?.enabled ||
+            !(mode === "game" ? cfg.autoplayGame : mode === "roleplay" ? cfg.autoplayRP : cfg.autoplayConvo) ||
+            !getTTSPersonaVoice(cfg, resolveTTSMessagePersona(message, personaInfo))))
+      )
+        return Promise.resolve();
+      const controller = userMessage ? new AbortController() : null;
+      const readingId = controller ? nextTTSAutoplayReadingId() : "";
+      let finished = false;
+      const finish = () => {
+        if (!controller || finished) return;
+        finished = true;
+        personaTTSControllersRef.current.delete(controller);
+        window.dispatchEvent(
+          new CustomEvent<TTSAutoplayVoiceDetail>(TTS_AUTOPLAY_VOICE_EVENT, {
+            detail: { chatId, messageId: message.id, readingId, pending: false },
+          }),
+        );
+      };
+      if (controller) {
+        personaTTSControllersRef.current.add(controller);
+        controller.signal.addEventListener("abort", finish, { once: true });
+        window.dispatchEvent(
+          new CustomEvent<TTSAutoplayVoiceDetail>(TTS_AUTOPLAY_VOICE_EVENT, {
+            detail: { chatId, messageId: message.id, readingId, pending: true },
+          }),
+        );
+      }
+      const queued = ttsAutoplayTailRef.current.then(async () => {
+        try {
+          if (epoch !== ttsAutoplayEpochRef.current || controller?.signal.aborted) return;
+          await runTTSAutoplayMessage(message, chatId, generation, earlierMessages, controller?.signal);
+        } finally {
+          finish();
+        }
+      });
+      ttsAutoplayTailRef.current = queued.catch((error) => console.warn("[TTS] Autoplay failed.", error));
+      return ttsAutoplayTailRef.current;
+    },
+    [personaInfo, runTTSAutoplayMessage],
   );
   useEffect(() => {
     const handleMessageReady = (event: Event) => {
@@ -3761,9 +4171,9 @@ const LocalChatArea = memo(function LocalChatArea({
             }}
             onCloseSettings={handleCloseSettingsPanel}
             onOpenScheduleEditor={handleOpenScheduleEditor}
-            onWizardFinish={() => {
+            onWizardFinish={(discarded) => {
               setWizardOpen(false);
-              handleOpenSettingsPanel();
+              if (!discarded) handleOpenSettingsPanel();
             }}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onDeleteConfirm={handleDeleteConfirm}
@@ -3771,7 +4181,9 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+            onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
+            multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
             onSelectAllAboveSelection={handleSelectAllAboveSelection}
@@ -3848,9 +4260,9 @@ const LocalChatArea = memo(function LocalChatArea({
             onGenerateSelfie={handleGenerateConversationSelfie}
             onGenerateVideo={handleConversationGalleryVideo}
             onAnimateImage={handleConversationAnimateImage}
-            onWizardFinish={() => {
+            onWizardFinish={(discarded) => {
               setWizardOpen(false);
-              handleOpenSettingsPanel();
+              if (!discarded) handleOpenSettingsPanel();
             }}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onResetSpritePlacements={handleResetSpritePlacements}
@@ -3861,7 +4273,9 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+            onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
+            multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
             onSelectAllAboveSelection={handleSelectAllAboveSelection}
@@ -4000,12 +4414,16 @@ const LocalChatArea = memo(function LocalChatArea({
           onOpenScheduleEditor={handleOpenScheduleEditor}
           onIllustrate={handleIllustrate}
           onIllustrateWithAgent={handleIllustrateWithAgent}
+          onHtml={handleHtml}
           onGenerateBackground={handleGenerateRoleplayBackground}
-          onGenerateVideo={() => handleGenerateRoleplaySceneVideo()}
+          // The Gallery's Video button makes a clip of the latest reply, like /video. The Gallery waits for it (its
+          // busy state blocks a second click) and shows any error.
+          onGenerateVideo={() => handleRoleplayVideo()}
+          onRoleplayVideo={handleRoleplayVideo}
           onAnimateImage={(image) => handleGenerateRoleplaySceneVideo({ galleryImageId: image.id })}
-          onWizardFinish={() => {
+          onWizardFinish={(discarded) => {
             setWizardOpen(false);
-            handleOpenSettingsPanel();
+            if (!discarded) handleOpenSettingsPanel();
           }}
           onClosePeekPrompt={() => setPeekPromptData(null)}
           onResetSpritePlacements={handleResetSpritePlacements}
@@ -4024,7 +4442,9 @@ const LocalChatArea = memo(function LocalChatArea({
           onDeleteOtherSwipes={handleDeleteOtherSwipes}
           onDeleteMore={handleDeleteMore}
           onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-          onBulkDelete={handleBulkDelete}
+          onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+          onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
+          multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
           onCancelMultiSelect={handleCancelMultiSelect}
           onUnselectAllMessages={handleUnselectAllMessages}
           onSelectAllAboveSelection={handleSelectAllAboveSelection}

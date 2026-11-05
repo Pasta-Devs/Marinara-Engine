@@ -88,8 +88,16 @@ test("each party member carries their own bag, and stacks are given between them
     await expect(page.getByRole("button", { name: /^Rope/ })).toHaveCount(0);
     await page.getByRole("button", { name: "All", exact: true }).click();
 
-    // Give two of the three ropes to Bram.
+    // Escape in the give's own fields drops the give and leaves the inventory open.
+    const inventory = page.getByRole("dialog", { name: "Inventory", exact: true });
     await slot("Rope x3, carried by Player").click();
+    await page.getByRole("button", { name: "Give Rope to someone", exact: true }).click();
+    await page.getByLabel("Give to").focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Give to")).toHaveCount(0);
+    await expect(inventory).toBeVisible();
+
+    // Give two of the three ropes to Bram.
     await page.getByRole("button", { name: "Give Rope to someone", exact: true }).click();
     await page.getByLabel("Give to").selectOption({ label: "Bram" });
     await page.getByLabel("How many to give (1 to 3)").fill("2");

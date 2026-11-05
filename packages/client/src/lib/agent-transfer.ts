@@ -1,4 +1,8 @@
 import {
+  BUILT_IN_AGENTS,
+  DEFAULT_AGENT_TOOLS,
+  getDefaultAgentPrompt,
+  mergeBuiltInAgentSettings,
   CUSTOM_AGENT_IMPORT_SOURCE_SETTING,
   CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
   agentResultTypeSchema,
@@ -10,6 +14,7 @@ import {
   sanitizeFolderSegment,
   type CustomAgentCapability,
 } from "@marinara-engine/shared";
+import type { AgentConfigRow } from "../hooks/use-agents";
 import type { ZipFileInput } from "./download-zip";
 import {
   getPackagePathBasename,
@@ -78,6 +83,37 @@ export function sanitizeAgentSettingsForTransfer(settings: Record<string, unknow
   }
 
   return sanitized;
+}
+
+/** Snapshot package defaults before a copy receives its independent custom-agent type. */
+export function createDuplicateAgentInput(agent: AgentConfigRow) {
+  const builtIn = BUILT_IN_AGENTS.find((entry) => entry.id === agent.type);
+  const effectiveSettings = mergeBuiltInAgentSettings(agent.type, agent.settings);
+  if (builtIn && effectiveSettings.enabledTools === undefined && DEFAULT_AGENT_TOOLS[agent.type]?.length) {
+    effectiveSettings.enabledTools = [...DEFAULT_AGENT_TOOLS[agent.type]];
+  }
+  const settings = sanitizeAgentSettingsForTransfer(effectiveSettings);
+  if (typeof settings.author !== "string" || !settings.author.trim()) settings.author = "Unknown";
+  const provider = settings.musicProvider ?? settings.musicPlayerSource;
+  const promptType =
+    agent.type === "spotify" && (provider === "youtube" || provider === "custom")
+      ? provider === "youtube"
+        ? "youtube"
+        : "local-music"
+      : agent.type;
+  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
+  return {
+    type: `${agent.type}-copy`,
+    name: `${builtIn?.name ?? agent.name} (Copy)`,
+    description: agent.description,
+    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
+    enabled: true,
+    connectionId: agent.connectionId,
+    imagePath: agent.imagePath,
+    promptTemplate: agent.promptTemplate.trim() ? agent.promptTemplate : getDefaultAgentPrompt(promptType),
+    settings,
+    ...(resultType ? { resultType } : {}),
+  };
 }
 
 /** Imported agents never receive tool access from the file they came from. */

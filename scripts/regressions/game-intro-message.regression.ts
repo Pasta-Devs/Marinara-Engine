@@ -5,6 +5,8 @@
  *   - Guided: the Game Master writes the first message, told the guidance; only on the opening reply.
  *   - An Experience's story may set one; locked, the player's setup cannot change it; unlocked, the
  *     player's own (or `{ mode: "none" }`) wins.
+ *   - An Experience package's own GM setup values (1.372), its intro among them, kept with the game as
+ *     `gameExperienceIntro` and read before its story's.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -18,6 +20,8 @@ import {
   gameIntroGuidanceText,
   gameIntroSchema,
   readGameIntroChoice,
+  experienceSetupDefaultsSchema,
+  storyCapabilityMinor,
   storyScriptSchema,
 } from "../../packages/shared/src/index.js";
 
@@ -28,6 +32,11 @@ assert.ok(!gameIntroSchema.safeParse({ mode: "guided", text: "{{user}} wakes" })
 assert.ok(!gameIntroSchema.safeParse({ mode: "defined", text: "   " }).success, "nor nothing");
 assert.ok(gameIntroChoiceSchema.safeParse({ mode: "none" }).success);
 assert.equal(readGameIntroChoice({ mode: "sideways" }), null);
+// An Experience's GM setup values (1.372): any of the wizard's fields, the intro the only one that locks.
+assert.ok(experienceSetupDefaultsSchema.safeParse({ setting: "Sallowmarch", tone: ["Dark"], rating: "sfw" }).success);
+assert.ok(!experienceSetupDefaultsSchema.safeParse({ genre: ["Fantasy, Horror"] }).success, "one genre each");
+assert.ok(!experienceSetupDefaultsSchema.safeParse({ difficulty: "Nightmare" }).success);
+assert.ok(!experienceSetupDefaultsSchema.safeParse({ setting: "x", locked: true }).success, "only the intro locks");
 
 // ── Whose intro the game opens with ──
 const creator = { mode: "defined" as const, text: "The bells have stopped." };
@@ -87,7 +96,7 @@ try {
     apiKey: "synthetic",
     maxContext: 32768,
   });
-  const game = async (gameIntro?: unknown) => {
+  const game = async (gameIntro?: unknown, gameExperienceIntro?: unknown) => {
     const chat = await chats.create({
       name: "intro",
       mode: "game",
@@ -100,6 +109,7 @@ try {
       enableTools: false,
       gameSessionStatus: "active",
       ...(gameIntro ? { gameIntro } : {}),
+      ...(gameExperienceIntro ? { gameExperienceIntro } : {}),
     });
     return chat.id;
   };
@@ -141,6 +151,21 @@ try {
   await generate(none, opening);
   assert.equal(prompts.length, 4);
   assert.doesNotMatch(prompts[3]!, /opening message/);
+
+  // An Experience package's own intro (1.372), kept with the game: locked, it wins over the setup's.
+  const packaged = await game(
+    { mode: "guided", text: "Open somewhere else." },
+    { mode: "defined", text: DEFINED, locked: true },
+  );
+  assert.equal((await generate(packaged, opening)).content.trim(), DEFINED);
+  assert.equal(prompts.length, 4, "a locked defined intro asks no model");
+  // Unlocked, it stands only while the setup chose nothing.
+  const unlocked = await game(undefined, { mode: "guided", text: "Open at the Year-Wheel." });
+  await generate(unlocked, opening);
+  assert.match(prompts[4]!, /opening message[\s\S]*Open at the Year-Wheel\./);
+  const overridden = await game({ mode: "none" }, { mode: "guided", text: "Open at the Year-Wheel." });
+  await generate(overridden, opening);
+  assert.doesNotMatch(prompts[5]!, /Year-Wheel/);
 } finally {
   ClaudeSubscriptionProvider.prototype.chat = original;
   await app.close();

@@ -1,14 +1,12 @@
 # Prompt Macros
 
-This guide explains prompt macros in Marinara Engine. A macro is a short `{{tag}}` that Marinara replaces with a live value. The value is filled in when a prompt is built, such as your name or the current date. You will learn every built-in macro, where you can type them, and the mistakes to avoid.
+A macro is a short `{{tag}}` that Marinara replaces with a live value, such as your name or the current date, when it builds a prompt. This guide lists every built-in macro, where you can type them and the mistakes to avoid.
 
-## What macros are and where they work
+## Where macros work
 
-A macro is literal text wrapped in double braces, like `{{user}}` or `{{char}}`. When Marinara builds the text it sends to the AI, it scans for these tags and swaps each one for its current value. There is no switch to turn macros on. Any field that supports them always resolves them.
+When Marinara builds the text it sends to the AI, it swaps each `{{tag}}` for its current value. There is no switch to turn macros on. Any field that supports them always resolves them. Names of built-in macros are not case sensitive, so `{{user}}` and `{{USER}}` both work. A macro value can contain another macro, and Marinara resolves that one too.
 
-Macro names are not case sensitive for built-in tags. So `{{user}}` and `{{USER}}` both work.
-
-You can type macros in many places across the app:
+You can type macros in these places:
 
 - Character fields in the **Character Editor**: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, and the **Depth Prompt**.
 - Persona fields in the **Persona Editor** (the same card fields).
@@ -18,13 +16,7 @@ You can type macros in many places across the app:
 - Agent prompt templates.
 - The chat message box. Type `{{roll:1d20}}` in a message and it resolves before the message is sent.
 
-A macro value can contain another macro, and Marinara resolves that one too.
-
-## Before you start
-
-You do not need to set anything up. The built-in macros work right away, with no API key and no extra connection. An API key is the secret code that lets Marinara talk to an AI provider, but macros run inside Marinara on their own.
-
-Two macro features do depend on other parts of the app:
+Macros run inside Marinara and need no setup or API key. Two features depend on other parts of the app:
 
 - Preset variables (the `{{NAME}}` catch-all) need a prompt preset that defines them. See [Preset Variables](preset-variables.md).
 - The agent macro `{{agent::TYPE}}` only shows text once the matching agent has run and produced output.
@@ -41,7 +33,7 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{21-character-card-ID}}` | Name of another character. Replace the placeholder text with that card's exact 21-character ID to pull the card into context. |
 | `{{persona-21-character-card-ID}}` | Name of another persona. Replace the placeholder text after `persona-` with that card's exact 21-character ID to pull the card into context. |
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
-| `{{characters}}` | Every character in the chat, joined by commas. |
+| `{{characters}}` | Every character in the chat, including inactive characters, joined by commas. This macro adds names only; it does not add inactive character cards to the prompt. |
 | `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
 | `{{persona}}` | Your persona's Description, Personality, Backstory, Appearance, and Scenario, joined by new lines. |
 | `{{personaDescription}}` | Your persona's Description field. |
@@ -116,7 +108,7 @@ These macros describe the current chat and the current request.
 | `{{gameStoryboardKeyframeCount}}` | Game Mode's current **Keyframes per Turn** target, from 1 to 6. It defaults to `3`. |
 | `{{agent::TYPE}}` | The saved output of an agent of the given type. |
 
-`{{reasoning}}` names the level the model is actually sent, after your preset, connection, and chat settings are layered. **Maximum** shows as the highest level the model takes, so it can read `max`, `xhigh`, or `high`. Because `off` reads as false, `{{#if reasoning}}` keeps a block only while the model thinks. If your preset or chat already has its own variable named `reasoning`, that variable keeps the name.
+`{{reasoning}}` names the level the model is sent, after your preset, account and chat settings are layered. **Maximum** shows as the highest level the model takes, so it can read `max`, `xhigh`, or `high`. Because `off` reads as false, `{{#if reasoning}}` keeps a block only while the model thinks. If your preset or chat already has its own variable named `reasoning`, that variable keeps the name.
 
 The value of `{{lastGenerationType}}` is a plain label. Example values seen in the app include `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, and `retry_agents`. This list can grow, so treat it as examples, not a fixed set.
 
@@ -134,7 +126,7 @@ Use Outlet macros in prompt sections in Conversation, Roleplay, or Game mode. Th
 
 ## Lorebook size macro
 
-`{{lorebooksize::ID}}` resolves to the total number of entries in the lorebook with the given ID. Replace `ID` with the lorebook's actual ID — copy it from the Lorebooks panel. For example, if a lorebook has the ID `V1StGXR8_Z5jdHi6B-myT` and contains 151 entries, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resolves to `151`.
+`{{lorebooksize::ID}}` resolves to the total number of entries in the lorebook with the given ID. Replace `ID` with the lorebook's ID, which you can copy from the **Lorebooks** panel. For example, if a lorebook has the ID `V1StGXR8_Z5jdHi6B-myT` and contains 151 entries, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resolves to `151`.
 
 Unknown lorebook IDs resolve to `0`. The count includes all entries regardless of whether they are enabled, disabled, or in folders.
 
@@ -161,7 +153,7 @@ Write names and IDs as plain text. Macros inside them, such as `{{include::{{cha
 
 ## Time macros
 
-All time macros read one shared moment per resolution, so they always agree with each other. The timezone comes from your browser.
+The real-world time macros read one shared moment per resolution, so they always agree with each other. The timezone comes from your browser.
 
 | Macro | Resolves to |
 | --- | --- |
@@ -170,6 +162,13 @@ All time macros read one shared moment per resolution, so they always agree with
 | `{{datetime}}` / `{{isotime}}` | A full timestamp with the timezone offset. The two names mean the same thing. |
 | `{{weekday}}` | The weekday name, such as `Monday`. |
 | `{{timezone}}` | The timezone name, such as `Europe/Warsaw`. |
+| `{{date.world_state}}` | The current in-world date tracked by World State, kept in its original format. |
+| `{{time.world_state}}` | The current in-world time tracked by World State, kept in its original format. |
+| `{{weekday.world_state}}` | A custom world field named Weekday or Day of Week, a weekday written in the tracked date, or the weekday of a valid `YYYY-MM-DD` tracked date. |
+
+The `.world_state` macros work in prompts and agent templates. They read the world date and time shown for the current story turn. Switching swipes changes which turn's values they use; regenerating uses the story state that the replacement reply starts from. A missing value becomes empty; it never falls back to today's real-world clock. Fictional calendars keep their own date and time text. For a fictional weekday, add a World State custom field named Weekday or Day of Week.
+
+For example, `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` reads the tracked weekday instead of the real one.
 
 ## Random and dice macros
 
@@ -181,7 +180,7 @@ These macros add chance to your prompts. Use the random macro (`{{random}}`) for
 | `{{random:X:Y}}` | A random whole number between X and Y, both included. |
 | `{{random::A::B::C}}` | Picks one option at random, then resolves macros only inside the chosen option. |
 | `{{random::A@2::B@0.5}}` | A weighted random choice. See the weighting rules below. |
-| `{{roll:XdY}}` | A dice roll total. For example, `{{roll:2d6}}` rolls two six-sided dice and adds them. |
+| `{{roll:XdY}}` | A dice roll total. For example, `{{roll:2d6}}` rolls two six-sided dice and adds them. `{{roll:d20}}` rolls one die, and `{{roll:1d8+3}}` adds 3 to the roll. |
 
 Here is a simple random choice you can copy:
 
@@ -233,7 +232,7 @@ Any `{{NAME}}` that is not a built-in macro is looked up by name: first among th
 
 You do not have to use `{{setvar}}` to create a variable. The **Chat Variables** section of the **Chat Settings** panel lets you type a name and a value directly, then use the name anywhere macros work, including your own messages. Add `char1` with the value `Mary`, type `{{char1}} walks in.` and the AI reads "Mary walks in."
 
-Rules worth knowing:
+Rules for chat variables:
 
 - Names use letters, numbers, and underscores, and must start with a letter or underscore. Names with exactly 21 characters are reserved for character references. A name with a dot or a dash can still be set and read with `{{setvar}}` and `{{getvar}}`, but it will not resolve as a bare `{{name}}`.
 - A built-in macro name cannot be used. `{{char}}` always means the character.
@@ -273,19 +272,26 @@ These fields also finish macro names for you. Type `{{ch` at the end of a line a
 
 You can also type `/macros` in the chat box (the short form `/macro` works too). It prints the full macro list right in the chat as a quick reminder.
 
-Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and parentheses. Equality lists may use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples, and the full operator list.
+## Conditions with macros
 
-A condition can also ask your Decision model about the scene: `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model). Add `sticky:3 cooldown:5` after a statement to keep a yes for three turns and then rest it for five; see [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown). Add `until:"..."` or `while:"..."` to keep a yes for as long as a second statement allows; see [Until and while](conditional-prompts.md#until-and-while). `every:3` asks a statement only every three turns, and `priority:high` or `priority:low` chooses which statements fit within a prompt plan; see [Checking every few turns](conditional-prompts.md#checking-every-few-turns), [Priority](conditional-prompts.md#priority), and [Limits and cost](conditional-prompts.md#limits-and-cost).
+Conditional blocks (`{{#if ...}}`) can combine comparisons with `||` (OR), `&&` (AND) and parentheses. Equality lists can use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples and the full operator list.
+
+A condition can also ask your Decision model about the scene, for example `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model). Options you can add after a statement:
+
+- `sticky:3 cooldown:5` keeps a yes for three turns, then rests it for five. See [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown).
+- `until:"..."` or `while:"..."` keeps a yes for as long as a second statement allows. See [Until and while](conditional-prompts.md#until-and-while).
+- `every:3` asks a statement only every three turns. See [Checking every few turns](conditional-prompts.md#checking-every-few-turns).
+- `priority:high` or `priority:low` chooses which statements fit within a prompt plan. See [Priority](conditional-prompts.md#priority) and [Limits and cost](conditional-prompts.md#limits-and-cost).
 
 ## Common mistakes
 
-- Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not just the chosen one.
+- Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not only the chosen one.
 - Do not use a local variable as global state. It persists only inside the chat where it was set.
 - A prompt section or lorebook entry that runs `{{setvar}}` overwrites a chat variable of the same name, because both use one storage per chat. Give them different names if you want both.
 - `{{prompt}}` is not a macro. If your whole message is `{{prompt}}`, Marinara opens the **Peek Prompt** viewer instead of sending it. See [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools do not use `{{macro}}` text. Do not paste `{{roll:1d20}}` into a tool field expecting it to resolve.
 - The **Impersonate** prompt template accepts only a few placeholders, not the full macro list. Its names differ too, so a macro that works in a card may not work there.
-- Very large or deeply nested macro output is cut off silently. There is no error, so keep macro expansions reasonable.
+- Large or deeply nested macro output is cut off silently. There is no error, so keep macro expansions reasonable.
 
 ## Related guides
 

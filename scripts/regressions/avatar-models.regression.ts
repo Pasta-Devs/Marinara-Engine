@@ -104,6 +104,9 @@ try {
   );
   assert.equal(existsSync(join(dir, "avatar-models", "character", "missing-id")), false);
   assert.equal((await app.inject({ method: "PUT", url: base, payload: { extra: 1 } })).statusCode, 400, "strict body");
+  const invalidFeature = await app.inject({ method: "PUT", url: base, payload: { features: { blink: "yes" } } });
+  assert.equal(invalidFeature.statusCode, 400, invalidFeature.body);
+  assert.deepEqual(invalidFeature.json(), { error: "Invalid input: expected boolean, received string" });
 
   const created = await app.inject({
     method: "PUT",
@@ -245,7 +248,10 @@ try {
     ...multipartBody({}, { name: "notes.txt", bytes: Buffer.from("hi") }),
   });
   assert.equal(unknown.statusCode, 415);
-  assert.match(unknown.json().error, /^Choose a \.save, \.mavatar, \.vrm, \.vrma file\.$/u);
+  assert.match(
+    unknown.json().error,
+    /^Choose a \.save, \.mavatar, \.vrm, \.vrma, \.pmx, \.vmd, \.zip, \.glb, \.fbx file\.$/u,
+  );
   const badKind = await app.inject({
     method: "POST",
     url: `${base}/import`,

@@ -212,7 +212,7 @@ export function GameDataEditorModal({ open, onClose, chatId }: GameDataEditorMod
         const refusal = error instanceof ApiError ? (error.payload as Partial<GameDataEditRefusal> | undefined) : null;
         if (!refusal?.issues?.length) throw error;
         if (error instanceof ApiError && error.status === 409) setNotice("stale");
-        throw new Error(refusal.issues.map(serverIssueMessage).join(" "));
+        throw new Error(refusal.issues.map(serverIssueMessage).join(" "), { cause: error });
       }
     },
     [chatId, serverIssueMessage],
@@ -236,7 +236,9 @@ export function GameDataEditorModal({ open, onClose, chatId }: GameDataEditorMod
         setNotice("stale");
         const ids = new Set((error.payload as { stacks?: string[] } | undefined)?.stacks ?? []);
         const names = opened.filter((stack) => ids.has(stack.id)).map((stack) => stack.nickname || stack.name);
-        throw new Error(localizeUi("ui.stateEditor.gameData.inventory.stale", { names: names.join(", ") }));
+        throw new Error(localizeUi("ui.stateEditor.gameData.inventory.stale", { names: names.join(", ") }), {
+          cause: error,
+        });
       }
       return response.results.flatMap((outcome, index) => {
         if (outcome.ok) return [];
@@ -298,11 +300,13 @@ export function GameDataEditorModal({ open, onClose, chatId }: GameDataEditorMod
       } catch (error) {
         if (stalePartySheet(error) || (error instanceof ApiError && error.status === 409)) {
           setNotice("stale");
-          throw new Error(localizeUi("ui.stateEditor.gameData.routeStale", { section: label }));
+          throw new Error(localizeUi("ui.stateEditor.gameData.routeStale", { section: label }), { cause: error });
         }
         const refusal = error instanceof ApiError ? (error.payload as { error?: string } | undefined) : null;
         if (!refusal?.error) throw error;
-        throw new Error(localizeUi("ui.stateEditor.gameData.routeRefused", { section: label, error: refusal.error }));
+        throw new Error(localizeUi("ui.stateEditor.gameData.routeRefused", { section: label, error: refusal.error }), {
+          cause: error,
+        });
       }
     },
     [chatId, localizeUi, metadata, savePartySheet, sections, updateWidgets],
@@ -386,7 +390,7 @@ export function GameDataEditorModal({ open, onClose, chatId }: GameDataEditorMod
         }
         void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         const message = error instanceof Error ? error.message : String(error);
-        throw new Error(localizeUi("ui.stateEditor.gameData.partlySaved", { error: message }));
+        throw new Error(localizeUi("ui.stateEditor.gameData.partlySaved", { error: message }), { cause: error });
       }
 
       // A save that landed answers any earlier stale refusal; a failed read-back below sets its own notice.

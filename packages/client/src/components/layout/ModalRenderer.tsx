@@ -3,13 +3,15 @@
 // ──────────────────────────────────────────────
 import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import type { ServiceId } from "../modals/CreateConnectionModal";
+import type { AddFor, ModelsFor } from "../../lib/add-connection";
 import {
   normalizeAvatarCrop,
-  type APIProvider,
   type LorebookCategory,
   type LorebookScope,
   type ScenePromptPreferences,
 } from "@marinara-engine/shared";
+import type { GameCheckpoint } from "@marinara-engine/shared";
 
 const CreateCharacterModal = lazy(() =>
   import("../modals/CreateCharacterModal").then((module) => ({ default: module.CreateCharacterModal })),
@@ -37,6 +39,9 @@ const ImportPersonaModal = lazy(() =>
 );
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
+);
+const ConnectionAccountEditor = lazy(() =>
+  import("../connections/ConnectionAccountEditor").then((module) => ({ default: module.ConnectionAccountEditor })),
 );
 const ImportConnectionModal = lazy(() =>
   import("../modals/ImportConnectionModal").then((module) => ({ default: module.ImportConnectionModal })),
@@ -104,7 +109,7 @@ export function ModalRenderer() {
   const type = modal?.type ?? null;
   if (!type) return null;
 
-  let content = null;
+  let content: React.ReactNode;
   switch (type) {
     case "create-character":
       content = (
@@ -154,12 +159,23 @@ export function ModalRenderer() {
         <CreateConnectionModal
           open
           onClose={closeModal}
-          initialProvider={(modal?.props?.provider as APIProvider | undefined) ?? undefined}
+          initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
+          modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
+          forJob={modal?.props?.forJob as AddFor | undefined}
         />
       );
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "connection-account":
+      content = (
+        <ConnectionAccountEditor
+          accountId={(modal?.props?.accountId as string) ?? ""}
+          replaceKey={modal?.props?.replaceKey === true}
+          onClose={closeModal}
+        />
+      );
       break;
     case "create-persona":
       content = (
@@ -286,7 +302,14 @@ export function ModalRenderer() {
       content = <GameDataEditorModal open onClose={closeModal} chatId={(modal?.props?.chatId as string) ?? ""} />;
       break;
     case "game-checkpoints":
-      content = <GameCheckpointsModal open onClose={closeModal} chatId={(modal?.props?.chatId as string) ?? ""} />;
+      content = (
+        <GameCheckpointsModal
+          open
+          onClose={closeModal}
+          chatId={(modal?.props?.chatId as string) ?? ""}
+          highlight={modal?.props?.highlight as GameCheckpoint["triggerType"] | undefined}
+        />
+      );
       break;
     case "activity-overview":
       content = <ActivityOverviewModal open onClose={closeModal} />;

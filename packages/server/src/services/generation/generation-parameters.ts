@@ -1,7 +1,10 @@
+import { partialInput } from "@marinara-engine/shared";
 import {
   DEFAULT_AGENT_MAX_TOKENS,
   MIN_AGENT_MAX_TOKENS,
   generationParametersSchema,
+  isClaudeStrictRequestModel,
+  isGeminiStrictRequestModel,
   resolveProviderReasoningEffort,
 } from "@marinara-engine/shared";
 import type { BaseLLMProvider, ChatOptions } from "../llm/base-provider.js";
@@ -56,7 +59,7 @@ export function resolveStoredChatOptions(
       return {};
     }
   }
-  const result = generationParametersSchema.partial().safeParse(parsed);
+  const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (!result.success) return {};
   const parameters = result.data;
   const reasoningEffort = resolveProviderReasoningEffort({
@@ -263,6 +266,16 @@ export function appendRoundGeminiParts(
  */
 export function supportsAssistantReasoningPrefill(provider: string): boolean {
   return ["openai", "openrouter", "nanogpt", "xai", "cohere", "arli", "zai", "custom"].includes(provider);
+}
+
+/**
+ * Connections that refuse a request ending on an assistant message (a prefill): Claude (Subscription) with any model,
+ * since its Agent SDK prompt is user-only, and by any provider Claude Opus 5.5 and Sonnet 5.5, and Gemini 4 Argon,
+ * 3.5 Flash-Lite and 3.6 to 3.8 Flash. Their providers turn such a request into a continuation, so the Assistant
+ * Prefill goes into the chat history for them instead (endPromptOnAssistantPrefill).
+ */
+export function rejectsFinalAssistantMessage(provider: string, model: string): boolean {
+  return provider === "claude_subscription" || isClaudeStrictRequestModel(model) || isGeminiStrictRequestModel(model);
 }
 
 /**

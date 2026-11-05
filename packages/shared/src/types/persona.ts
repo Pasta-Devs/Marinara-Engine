@@ -1,11 +1,13 @@
 // ──────────────────────────────────────────────
 // User Persona Types
 // ──────────────────────────────────────────────
-import type { ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
+import type { CardFieldAlternative } from "../schemas/card-field-alternative.schema.js";
+import type { CombatIconChoice, ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
 import type { AvatarCrop } from "./avatar-crop.js";
 
 /** A user persona (the player's character/identity). */
 export interface Persona {
+  cardFieldAlternatives?: CardFieldAlternative[];
   id: string;
   name: string;
   /** Short comment shown under the name (for disambiguation) */
@@ -20,6 +22,10 @@ export interface Persona {
   creatorNotes: string;
   /** Optional pronunciation override used when this persona name is sent to TTS. */
   phoneticName?: string;
+  /** Metadata synopsis for library previews. Not sent to the model. */
+  summary?: string;
+  /** Sample exchanges teaching the persona's voice. */
+  mes_example?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -125,6 +131,8 @@ export interface PersonaStatsConfig {
   bars: PersonaStatBar[];
   /** Optional Game mode RPG stats stored alongside the persona status bars. */
   rpgStats?: RPGStatsConfig;
+  /** The picture on the persona's fight token. Missing means the avatar. */
+  combatIcon?: CombatIconChoice;
   /** Starting builds for Game Mode rulesets, keyed by ruleset id. A game copies the one it needs. */
   rulesetSheets?: Record<string, unknown>;
 }

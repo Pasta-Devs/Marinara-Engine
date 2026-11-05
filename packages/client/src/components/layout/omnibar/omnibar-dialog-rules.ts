@@ -26,6 +26,7 @@ export const IDLE_RECENT_CHATS = 4;
 // recently; "controls"/"chatControls" rows (settings toggles) all set `control`.
 const NAVIGATION_OMNIBAR_ACTION_KINDS = new Set<OmnibarAction["kind"]>([
   "open-mari-chat",
+  "add-connection",
   "goto-message",
   "open-docs",
   "open-faq",

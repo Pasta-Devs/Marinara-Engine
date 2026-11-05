@@ -36,7 +36,7 @@ The context follows everything started inside the request, including timers, lis
 
 `LOG_DISABLE_REQUEST_LOGGING` works as before and also turns off the abort line.
 
-In `pnpm dev`, pino-pretty hides `hostname` (its default) and `bootId`. The JSON output used in production keeps both.
+A terminal gets pino-pretty lines: `pnpm dev`, and a production server whose stdout is a terminal (the launchers). Production output that goes elsewhere is JSON, one object per line. `LOG_FORMAT=pretty|json` overrides the choice, and the Termux launcher sets `pretty` because its output reaches the terminal through `tee`. pino-pretty hides `hostname` (its default) and `bootId`; JSON output keeps both.
 
 ## Startup timeline
 
@@ -94,6 +94,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 ```
 
 The UI debug toggle keeps working through `logDebugOverride`. That is the intended way to see prompts when `LOG_LEVEL` hides debug.
+
+Print prompt text as it is, with `%s`. For a structured value (a message array, a provider request body, a parsed reply), pass `debugJson(value)` to `%s`, not `%j` or `JSON.stringify(value)`. It prints indented JSON whose line breaks inside strings are real line breaks, so a multi-line prompt stays readable, and it renders only when the line is printed. A redacting replacer goes in its second argument, as with `JSON.stringify`. An in-app debug view prints the same text with `readableJson` from `@marinara-engine/shared`. The `debug-log-line-breaks` regression covers this and the format choice.
 
 ## Checks
 

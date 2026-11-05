@@ -35,7 +35,7 @@ try {
   const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
   const ember = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
   // Test the guide's actual six narrative dice and symbols, including its strict schema shape.
-  const guide = read("../../docs/extending/writing-rulesets.md").split("#### `symbol-pool`")[1]!;
+  const guide = read("../../docs/extending/ruleset-checks.md").split("### `symbol-pool`")[1]!;
   const example = JSON.parse(`{${guide.split("```json\n")[1]!.split("```")[0]}}`).resolution;
   const doc = (edit?: (document: any) => void) => {
     const document = structuredClone(ember);
@@ -82,11 +82,11 @@ try {
   refuses((d) => (d.resolution.boost.die = "missing"), /Unknown die/);
   refuses((d) => (d.resolution.success.symbol = "missing"), /Unknown success symbol/);
   refuses((d) => (d.resolution.criticalFailure = "missing"), /Unknown critical symbol/);
-  refuses((d) => (d.resolution.pool.max = 13), /less than or equal to 12/);
-  refuses((d) => (d.resolution.dice[0].faces[0] = ["s", "s", "s", "s"]), /at most 3/);
+  refuses((d) => (d.resolution.pool.max = 13), /resolution\.pool\.max: Too big: expected number to be <=12/);
+  refuses((d) => (d.resolution.dice[0].faces[0] = ["s", "s", "s", "s"]), /Too big: expected array to have <=3 items/);
   refuses((d) => (d.resolution.difficultyLadder[0].dc = -1), /Difficulty dice/);
   refuses((d) => (d.resolution.difficultyLadder[0].dc = 6), /Difficulty dice/);
-  refuses((d) => (d.combat = ember.combat), /no fight of its own/);
+  refuses((d) => (d.combat = ember.combat), /fights as a "symbol-pool" fight/);
   refuses((d) => (d.resolution.spend = [{ pool: "luck", amount: 1, successes: 1, perCheck: 1 }]), /buys only dice/);
   for (const key of ["symbols", "dice"]) {
     refuses(

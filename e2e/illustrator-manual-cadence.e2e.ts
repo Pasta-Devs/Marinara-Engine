@@ -204,7 +204,7 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
     await openEditor();
-    const interval = page.locator('.mari-editor-shell input[type="number"][placeholder="5"][max="100"]');
+    const interval = page.locator(".mari-editor-shell").getByRole("spinbutton", { name: "Image Run Interval" });
     await expect(interval).toHaveValue("5");
     await expect(interval).toHaveAttribute("min", "0");
     await interval.fill("0");

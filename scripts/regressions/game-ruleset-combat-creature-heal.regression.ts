@@ -166,6 +166,7 @@ try {
       {
         type: "heal",
         sourceId: "deva",
+        label: "Healing Touch",
         targetId: "ally",
         rolls: [1, 2, 3, 4],
         flat: 2,
@@ -330,7 +331,7 @@ try {
     );
     refused(
       fiveE((doc) => withTouch(doc, { ...touch, heal: { flat: 1.5 } })),
-      /integer/,
+      /heal\.flat: Invalid input: expected int, received number/,
       "fractional heal",
     );
     refused(
@@ -340,7 +341,7 @@ try {
     );
     refused(
       fiveE((doc) => withTouch(doc, { ...touch, targets: "enemy" })),
-      /enemy/,
+      /targets: Invalid option: expected one of "ally"\|"any"/,
       "unknown target side",
     );
     parsedOrThrow(

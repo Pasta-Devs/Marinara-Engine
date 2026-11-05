@@ -34,6 +34,8 @@ import {
   type TilePack,
   type WorldPlace,
   worldSeason,
+  worldSeasonCells,
+  type WorldSeason,
 } from "@marinara-engine/shared";
 import { useDungeonEnter, useOverworld, useOverworldWalk } from "../../hooks/use-game";
 import {
@@ -166,6 +168,12 @@ export function WorldOverworld({
   // ── The family's tiles: drawn plain until (and unless) they load ──
   // Drawn in the season of the game's day (seasonal tiles, where the pack has them).
   const drawTile = useOverworldAtlas(family, tilePack, time ? worldSeason(time.day) : undefined);
+  // The places the story holds at a season of their own (1.351): each cell drawn in its nearest place's.
+  const seasonsKey = JSON.stringify(overworld?.seasons ?? {});
+  const heldCells = useMemo(
+    () => worldSeasonCells(game, JSON.parse(seasonsKey) as Record<string, WorldSeason>),
+    [game, seasonsKey],
+  );
 
   // ── What is drawn once: the ground and its ways, then the settlements ──
   // In world units (16 a cell) at `resolution` canvas pixels a unit (an image pack's detail, as far as
@@ -194,6 +202,12 @@ export function WorldOverworld({
     const wet = (x: number, y: number) =>
       x < 0 || y < 0 || x >= world.width || y >= world.height ? true : water[cells[y * world.width + x]!]!;
     const { width, height } = world;
+    /** What follows is drawn in the season the story holds the cell at (x, y) in, or the day's. */
+    const inSeason = (x: number, y: number) => {
+      if (!heldCells) return;
+      const at = Math.min(height - 1, Math.max(0, y)) * width + Math.min(width - 1, Math.max(0, x));
+      drawTile.setCellSeason(heldCells[at] ?? undefined);
+    };
     // With water edge tiles, a water cell is under-painted with the land most of its neighbours are, and
     // the water itself is drawn by the edge pieces (so a rounded shore shows land under it).
     const waterEdges = drawTile.hasEdges("water");
@@ -216,6 +230,7 @@ export function WorldOverworld({
         const cell = waterEdges && water[own] ? (landUnder(x, y) ?? own) : own;
         drawnLook[y * width + x] = looks[cell]!;
         const noise = cellNoise(x, y);
+        inSeason(x, y);
         if (!drawTile(ctx, looks[cell]!, x * OVERWORLD_TILE, y * OVERWORLD_TILE, noise(99))) {
           paintGround(ctx, looks[cell]!, x * OVERWORLD_TILE, y * OVERWORLD_TILE, noise);
         }
@@ -238,6 +253,7 @@ export function WorldOverworld({
         for (let x = 0; x <= width; x++) {
           const mask = worldEdgeMask(isLook, x, y, width, height);
           if (mask === 0 || mask === 15) continue;
+          inSeason(x, y);
           drawTile.fringe(
             ctx,
             look,
@@ -255,15 +271,16 @@ export function WorldOverworld({
       for (let y = 0; y <= height; y++)
         for (let x = 0; x <= width; x++) {
           const piece = worldEdgePiece(filled, x, y, width, height, rows);
-          if (piece >= 0)
-            drawTile.edge(
-              ctx,
-              terrain,
-              piece,
-              x * OVERWORLD_TILE,
-              y * OVERWORLD_TILE,
-              cellNoise(x, y)(terrain === "water" ? 71 : 73),
-            );
+          if (piece < 0) continue;
+          inSeason(x, y);
+          drawTile.edge(
+            ctx,
+            terrain,
+            piece,
+            x * OVERWORLD_TILE,
+            y * OVERWORLD_TILE,
+            cellNoise(x, y)(terrain === "water" ? 71 : 73),
+          );
         }
     };
     if (waterEdges) edgePass("water", (x, y) => water[cells[y * width + x]!]!);
@@ -288,8 +305,9 @@ export function WorldOverworld({
       paintWay(ctx, from.at, to.at, crosses);
     }
     if (roads.size) edgePass("road", (x, y) => roads.has(y * width + x));
+    drawTile.setCellSeason(undefined);
     return canvas;
-  }, [byId, drawTile, game, kit.travel, resolution, world]);
+  }, [byId, drawTile, game, heldCells, kit.travel, resolution, world]);
   const markers = useMemo(() => {
     const canvas = document.createElement("canvas");
     if (drawTile.loading) return canvas;

@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
-import { customTools } from "../../../packages/server/src/db/schema/index.js";
+import {
+  apiConnections,
+  appSettings,
+  chatPresets,
+  chats,
+  connectionAccounts,
+  customTools,
+} from "../../../packages/server/src/db/schema/index.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 import { runMariTransformSandbox } from "../../../packages/server/src/services/mari-db/mari-transform-sandbox.js";
 import { createMariWherePredicate } from "../../../packages/server/src/services/mari-db/mari-where-expression.js";
@@ -350,6 +357,261 @@ try {
       (await db.select().from(customTools)).some((entry) => entry.name === "invalid_webhook"),
       false,
       "a failed validation cannot persist an invalid tool",
+    );
+
+    // #8516: Mari keeps the editor's own limits, so a tool it writes can still be saved from the Tool editor.
+    const longDescription = await mari.executeCli({
+      argv: [
+        "db",
+        "insert",
+        "custom_tools",
+        "--json",
+        JSON.stringify({ name: "long_description", description: "punch -> strength ".repeat(40), sortOrder: 21 }),
+        "--apply",
+      ],
+    });
+    assert.equal(longDescription.ok, false, "a description over 500 characters is refused");
+    assert.match(JSON.stringify(longDescription), /Tool description must be at most 500 characters/u);
+    assert.equal(
+      (await db.select().from(customTools)).some((entry) => entry.name === "long_description"),
+      false,
+      "the over-long tool is not stored",
+    );
+
+    // A description already past the limit (an import, an older write) blocks only a change that sets it, never an
+    // unrelated edit, which the Tool editor saves too.
+    const storedLong = await mari.executeCli({
+      argv: [
+        "db",
+        "insert",
+        "custom_tools",
+        "--json",
+        JSON.stringify({ name: "stored_long", description: "Short", sortOrder: 22 }),
+        "--apply",
+      ],
+    });
+    assert.equal(storedLong.ok, true, `a valid tool is stored: ${JSON.stringify(storedLong)}`);
+    const storedLongId = (await db.select().from(customTools)).find((entry) => entry.name === "stored_long")!.id;
+    await db
+      .update(customTools)
+      .set({ description: "punch -> strength ".repeat(40) })
+      .where(eq(customTools.id, storedLongId));
+    const untouched = await mari.executeCli({
+      argv: ["db", "patch", "custom_tools", storedLongId, "--json", JSON.stringify({ sortOrder: 23 }), "--apply"],
+    });
+    assert.equal(
+      untouched.ok,
+      true,
+      `an edit that leaves the long description alone applies: ${JSON.stringify(untouched)}`,
+    );
+    const longer = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "custom_tools",
+        storedLongId,
+        "--json",
+        JSON.stringify({ description: "kick -> agility ".repeat(40) }),
+        "--apply",
+      ],
+    });
+    assert.equal(longer.ok, false, "setting a new over-long description is still refused");
+    assert.match(JSON.stringify(longer), /Tool description must be at most 500 characters/u);
+
+    // Models, Connections and the speech server settings keep a stored key next to the address it is sent to. Raw
+    // Mari DB writes apply before the user's Keep/Restore review, so they cannot change those rows at all.
+    const stamp = new Date().toISOString();
+    const storedHost = "https://api.openai.com/v1";
+    await db.insert(apiConnections).values({
+      id: "stored-model",
+      name: "Stored model",
+      provider: "openai",
+      baseUrl: storedHost,
+      apiKeyEncrypted: "stored-ciphertext",
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    await db.insert(connectionAccounts).values({
+      id: "stored-account",
+      name: "Stored account",
+      provider: "openai",
+      baseUrl: storedHost,
+      apiKeyEncrypted: "stored-ciphertext",
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const ttsValue = JSON.stringify({ baseUrl: storedHost, apiKey: "stored-ciphertext" });
+    await db.insert(appSettings).values({ key: "tts", value: ttsValue, updatedAt: stamp });
+    const elsewhereHost = "https://elsewhere.example.test/v1";
+    const elsewhere = JSON.stringify({ baseUrl: elsewhereHost });
+    const credentialWrites = [
+      ["db", "patch", "api_connections", "stored-model", "--json", elsewhere, "--apply"],
+      ["db", "patch", "connection_accounts", "stored-account", "--json", elsewhere, "--apply"],
+      [
+        "db",
+        "insert",
+        "api_connections",
+        "--json",
+        JSON.stringify({
+          name: "Copy",
+          provider: "openai",
+          baseUrl: elsewhereHost,
+          apiKeyEncrypted: "stored-ciphertext",
+          isDefault: "true",
+        }),
+        "--apply",
+      ],
+      ["db", "delete", "api_connections", "stored-model", "--apply"],
+      [
+        "db",
+        "patch",
+        "app_settings",
+        "tts",
+        "--json",
+        JSON.stringify({
+          value: JSON.stringify({ baseUrl: elsewhereHost, apiKey: "stored-ciphertext" }),
+        }),
+        "--apply",
+      ],
+      ["db", "insert", "app_settings", "--json", JSON.stringify({ key: "speech-to-text", value: "{}" }), "--apply"],
+    ];
+    for (const argv of credentialWrites) {
+      const result = await mari.executeCli({ argv });
+      assert.equal(result.ok, false, `${argv.join(" ")} is refused: ${JSON.stringify(result)}`);
+      assert.match(
+        JSON.stringify(result.validation),
+        /cannot change Models, Connections or the speech server settings/u,
+      );
+    }
+    assert.deepEqual(
+      (await db.select().from(apiConnections)).map((row) => [row.id, row.baseUrl, row.apiKeyEncrypted]),
+      [["stored-model", storedHost, "stored-ciphertext"]],
+      "the stored Model keeps its address and no copy of its key is made",
+    );
+    assert.equal(
+      (await db.select().from(connectionAccounts))[0]?.baseUrl,
+      storedHost,
+      "the Connection keeps its address",
+    );
+    assert.deepEqual(
+      (await db.select().from(appSettings))
+        .filter((row) => row.key === "tts" || row.key === "speech-to-text")
+        .map((row) => row.value),
+      [ttsValue],
+      "the speech settings are unchanged",
+    );
+
+    // The chat settings that send chat text to an outside address, or hold its key, cannot be set by raw Mari DB
+    // writes either. The check is per key, so her other chat-settings edits still apply.
+    const chatMetadata = JSON.stringify({ translationDeeplxUrl: storedHost, autoTranslate: false });
+    await db.insert(chats).values({
+      id: "stored-chat",
+      name: "Stored chat",
+      mode: "roleplay",
+      metadata: chatMetadata,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const profileSettings = JSON.stringify({ metadata: { autoTranslate: false } });
+    await db.insert(chatPresets).values({
+      id: "stored-profile",
+      name: "Stored profile",
+      mode: "roleplay",
+      settings: profileSettings,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const translatorDefaults = JSON.stringify({ translationProvider: "deeplx" });
+    await db.insert(appSettings).values({ key: "translator-defaults", value: translatorDefaults, updatedAt: stamp });
+    const destinationWrites = [
+      [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { translationDeeplxUrl: elsewhereHost } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { discordWebhookUrl: elsewhereHost } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "insert",
+        "chats",
+        "--json",
+        JSON.stringify({
+          name: "Copy",
+          mode: "roleplay",
+          characterIds: [],
+          sortOrder: 0,
+          metadata: { hapticIntifaceUrl: elsewhereHost },
+        }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "chat_presets",
+        "stored-profile",
+        "--json",
+        JSON.stringify({ settings: { metadata: { translationDeeplApiKey: "other-key" } } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "app_settings",
+        "translator-defaults",
+        "--json",
+        JSON.stringify({
+          value: JSON.stringify({ translationProvider: "deeplx", translationDeeplxUrl: elsewhereHost }),
+        }),
+        "--apply",
+      ],
+    ];
+    for (const argv of destinationWrites) {
+      const result = await mari.executeCli({ argv });
+      assert.equal(result.ok, false, `${argv.join(" ")} is refused: ${JSON.stringify(result)}`);
+      assert.match(
+        JSON.stringify(result.validation),
+        /cannot set the Discord mirror, translator or haptics addresses and keys/u,
+      );
+    }
+    const otherSetting = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { autoTranslate: true } }),
+        "--apply",
+      ],
+    });
+    assert.equal(otherSetting.ok, true, `another chat setting still applies: ${JSON.stringify(otherSetting)}`);
+    const storedChats = await db.select().from(chats);
+    assert.deepEqual(
+      storedChats.map((row) => [
+        row.id,
+        JSON.parse(row.metadata).translationDeeplxUrl,
+        JSON.parse(row.metadata).discordWebhookUrl,
+      ]),
+      [["stored-chat", storedHost, undefined]],
+      "the chat keeps its translator address, gains no Discord mirror and no copy is made",
+    );
+    assert.equal((await db.select().from(chatPresets))[0]?.settings, profileSettings, "the profile is unchanged");
+    assert.equal(
+      (await db.select().from(appSettings)).find((row) => row.key === "translator-defaults")?.value,
+      translatorDefaults,
+      "the translator defaults are unchanged",
     );
   } finally {
     await db._fileStore.close();

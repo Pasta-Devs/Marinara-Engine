@@ -120,6 +120,40 @@ export function useDraggablePanel(scopeId: string, panelId: string) {
   return { locked, toggleLocked, resetPosition, x, y, handleDragEnd };
 }
 
+/**
+ * A panel's open or folded state, kept per chat beside its position so a reload brings it back as
+ * the player left it (playtest 2026-10-23: the map re-opened over the fight board after every
+ * reload). `fallback` is what it starts as before the player has chosen.
+ */
+export function usePersistedPanelFlag(scopeId: string, flagId: string, fallback: boolean) {
+  const key = storageKey(scopeId, flagId);
+  const read = useCallback((): boolean => {
+    if (typeof window === "undefined") return fallback;
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw === "1" ? true : raw === "0" ? false : fallback;
+    } catch {
+      return fallback;
+    }
+  }, [key, fallback]);
+  const [value, setValue] = useState(read);
+  // Another chat, or the same chat in another state (in a fight or out of one), has its own.
+  useEffect(() => setValue(read()), [read]);
+  const set = useCallback(
+    (next: boolean) => {
+      setValue(next);
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(key, next ? "1" : "0");
+      } catch {
+        // quota / unavailable — best-effort only
+      }
+    },
+    [key],
+  );
+  return [value, set] as const;
+}
+
 interface PanelLockButtonProps {
   locked: boolean;
   onToggle: () => void;

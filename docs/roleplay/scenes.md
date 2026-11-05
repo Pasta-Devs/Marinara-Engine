@@ -1,92 +1,73 @@
 # Scenes: Branching a Roleplay
 
-This guide explains scenes in Marinara Engine. A scene is a short, self-contained roleplay that branches off from a Conversation chat. This guide covers how to start one, play it, and how to end, discard, fork, or convert it.
+A scene is a short roleplay that branches off a Conversation chat. Use one for a flashback, a date or a fight, without losing the main thread.
 
-## What a scene is
+Each scene is its own Roleplay chat with its own background, characters and opening message. While it is open, the original Conversation chat shows a card that reads **A scene is in progress**, with a **Go to Scene** button.
 
-A scene is a side roleplay that grows out of a Conversation chat. A Conversation chat is the messenger-style, direct-message mode. A scene lets you and a character step out of that chat into a focused roleplay moment. That moment can be a flashback, a date, or a fight. The main thread is not lost.
+While a scene runs, its characters do not reply in the Conversation chat, and a notice says they are in an active scene. To let them answer you there anyway, turn on **Allow replies here** on the card. It starts off. With it on, scene characters reply when you message them, but they still do not message on their own.
 
-Each scene is its own roleplay chat. It has its own background, its own characters on stage, and its own opening message. The character or the story writes the setup for you when the scene begins.
+## Start a scene
 
-A scene is temporary by design. While it is open, the original Conversation chat shows a small card that reads **A scene is in progress**. That card has a **Go to Scene** button that jumps you into the active scene.
+Before you start: open a Conversation chat that already has some messages. See [Conversation Mode: Getting Started](../conversation/getting-started.md).
 
-While the scene runs, its characters do not reply in the original Conversation chat, and a notice says they are in an active Scene. To let them answer you there anyway, turn on **Allow replies here** on the card. It starts off. With it on, scene characters reply when you message them, but they still do not send messages there on their own.
+1. In the message box, type `/scene` and a short description. `/rp` does the same. For example: `/scene we sneak into the old library at midnight`
+2. Press <kbd>Enter</kbd>. **Scene Prompt Setup** opens.
+3. If you see **Scene persona**, choose who plays you. **Use the Conversation persona** keeps the persona of the Conversation.
+4. If you see **Scene characters**, leave **Let the scene planner choose characters** on to let Marinara pick. Or turn it off and choose at least one character.
+5. Choose a **Prompt preset**. Leave it on **None** to use the preset of your default Roleplay [settings profile](../chats/settings-profiles.md#choosing-the-default-profile). Marinara remembers your choice for the next scene.
+6. Under **POV**, pick **First Person**, **Second Person** or **Third Person**.
+7. Under **Tense**, pick **Past**, **Present** or **Future**.
+8. Optional: type notes in **Extra instructions** to steer the scene.
+9. Click **Plan Scene**.
 
-When you finish, you choose what happens to the scene. You can save a summary back to the conversation, throw the scene away, or keep it as a permanent roleplay of its own. Those choices are explained below.
+The scene opens as a new Roleplay chat in your chat list, with an opening message that sets the situation. Click **Cancel** in the setup window to stop without creating a scene.
 
-## Starting a scene
+`/scene` alone also works when the conversation has enough history. If the conversation has no messages yet, Marinara asks you to add a description or chat first.
 
-You start a scene from inside a Conversation chat with the `/scene` command. The command has an alias, `/rp`, that does the same thing.
+A character can also ask to start a scene. A **Set up scene** invitation appears beside their reply. Click it to open **Scene Prompt Setup**, then continue from step 3. **Cancel** closes setup, and the invitation stays available, even after a reload.
 
-Follow these steps:
+How the scene opens:
 
-1. Open a Conversation chat that already has some messages.
-2. In the message box, type the scene command. You can add a short description of what you want after it.
+- It starts from your default Roleplay settings profile, like any new Roleplay chat. A [settings profile](../chats/settings-profiles.md) is a saved set of chat settings.
+- When the scene plan has them, a short note on how to play the scene is posted first as a narrator message, then the scene's description as a second narrator message. A plan without one skips it.
+- With one character, the opening is in that character's voice, with spoken words in double quotes unless your writing instructions set another style.
+- In a group scene, the opening follows the profile's group mode. **Merged (Narrator)** is the default: one reply voices every character. In **Individual** mode, the character who opens the scene writes it. See [Group Chats](../chats/group-chats.md#choose-who-speaks).
 
-```
-/scene we sneak into the old library at midnight
-```
+## Use the scene bar
 
-3. Press Enter. The **Scene Prompt Setup** window opens.
-4. Choose a **Prompt preset** for the new scene, or leave it at **None**. Marinara remembers this choice for the next scene. The scene's own setup instructions still apply alongside the selected preset.
-5. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
-6. Under **Tense**, pick **Past**, **Present**, or **Future**.
-7. Optionally, type notes in the **Extra instructions** box to steer the scene.
-8. Click **Plan Scene**.
+Inside a scene, a bar above the message box decides what happens to it. Which buttons show depends on whether the scene has an origin conversation.
 
-Marinara plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
+| Button | What it does |
+| --- | --- |
+| **Back to conversation** | Returns to the Conversation chat that started the scene. The scene stays open. Shown only when there is an origin conversation. |
+| **End Scene** | Saves a summary and finishes the scene. Click **Yes** at **End and save summary?**. |
+| **Discard** | Deletes the scene and saves nothing. Click **Yes** at **Discard scene?**. |
+| **Convert** | Turns the scene into its own standalone Roleplay. See below. |
 
-You can also start a scene without a description. Type just the command on its own if the conversation already has enough history to build from.
+**End Scene** shows **Saving...**, writes a short summary into the conversation as a memory, and returns you there. **Discard** keeps nothing. Both remove the scene from your conversation.
 
-```
-/scene
-```
+## Clone a scene from a message
 
-If the conversation has no messages yet, Marinara asks you to add a description or chat first before it can plan a scene.
-
-A character can also ask to start a scene. An invitation with **Set up scene** appears beside their reply, leaving the conversation readable. Click it when ready to open **Scene Prompt Setup**, then pick **Prompt preset**, **POV**, and **Tense** and click **Plan Scene**. **Cancel** closes setup without creating a scene; the invitation remains available after cancelling or reloading.
-
-## The scene bar: End Scene, Discard, Convert, and Back to conversation
-
-While you are inside an active scene, a bar sits just above the message box. It holds the controls that decide what happens to the scene. The exact buttons you see depend on whether the scene has a linked conversation.
-
-- **Back to conversation** returns you to the Conversation chat that started the scene. It leaves the scene open and running, so you can come back to it later. This button appears only when the scene has an origin conversation.
-- **End Scene** finishes the scene and saves a summary. When you click it, the bar asks **End and save summary?** with a **Yes** and a **No** button. Click **Yes** to confirm. The button shows a **Saving...** state while it works. Marinara writes a short summary of the scene back to the origin conversation as a memory, then returns you to where that conversation left off.
-- **Discard** throws the scene away without saving anything. When you click it, the bar asks **Discard scene?** with **Yes** and **No** buttons. Click **Yes** to delete the scene and go back to the conversation. Nothing is written back.
-- **Convert** turns the scene into a standalone roleplay chat of its own. It is explained in its own section below, because it changes the scene permanently.
-
-Take your time before you click **End Scene** or **Discard**, because both remove the scene from your conversation. **End Scene** keeps a memory of what happened. **Discard** keeps nothing.
-
-## Cloning a scene from a message
-
-Inside a scene chat, each message has a small action button whose tooltip reads **Clone from here**. This lets you fork scene content into a brand new roleplay chat, copied up to and including that message.
-
-To use it:
+To copy a scene up to one message and continue it separately, while the original stays open:
 
 1. Hover over the message you want to branch from.
-2. Click the **Clone from here** action.
+2. Click its **Clone from here** action.
 
-Marinara creates a fresh standalone roleplay from the scene, copying the messages up to that point. Your original scene stays open and active, so this is a safe way to explore a different path. You should see a confirmation that the scene was cloned as a roleplay, and the new chat opens.
+Marinara makes a new standalone Roleplay with the messages up to and including that one, shows a confirmation, and opens it.
 
-Cloning keeps the original scene. Converting, described next, does not.
+## Convert a scene into a Roleplay
 
-## Converting a scene into a standalone roleplay
+Use **Convert** when a scene has grown into a story you want to keep as a normal Roleplay.
 
-The **Convert** button in the scene bar detaches the scene and makes it a permanent roleplay chat on its own. When you click **Convert**, a confirmation window opens titled **Convert this scene into a standalone roleplay?**
+1. Click **Convert** in the scene bar.
+2. Read **Convert this scene into a standalone roleplay?** It makes a new Roleplay chat from the scene and detaches the original scene from its conversation. No scene summary or character memory is written back.
+3. Click **Convert**, or **Cancel** to change nothing.
 
-The window explains what will happen. It creates a new roleplay chat from the current scene and detaches the original scene from its conversation. No scene summary and no character memory are written back to the original conversation. Click **Convert** to go ahead, or **Cancel** to keep things as they are.
+Clone keeps the original scene open. Convert does not.
 
-Use **Convert** when a scene has grown into a story you want to keep and continue as a normal roleplay. Use **Clone from here** instead when you want a copy but also want the original scene to stay put.
+## Scenes and connected chats
 
-To keep the two fork paths clear: **Clone from here** lets you fork scene branches while the original stays active. **Convert** lets you convert scene branches into a standalone roleplay, and it removes the original from its conversation.
-
-## Why scenes do not inherit connected chat context
-
-A Conversation chat can be connected to a roleplay so that context flows between them. Scenes work differently on purpose. A scene is self-contained.
-
-A scene does not automatically pull in the back-and-forth context from a connected conversation, even when the parent chat does. A connected conversation can quietly pass short steering notes into a linked roleplay to nudge its story, but a scene ignores those notes. This keeps a scene focused on its own moment instead of dragging in the whole conversation.
-
-This is why a scene reads cleanly as its own little story. If you want the ongoing two-way link between a conversation and a roleplay, use a connected chat rather than a scene. See the connected chats guide linked below for that feature.
+A scene is self-contained. It does not pull in context from a connected Conversation, even when the parent chat does, and it ignores the short steering notes a connected conversation can send to a linked Roleplay. For an ongoing two-way link between a conversation and a roleplay, use a connected chat. See [Connecting a Conversation to a Roleplay or Game](../chats/connected-chats.md).
 
 ## Related guides
 

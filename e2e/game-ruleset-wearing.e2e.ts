@@ -385,7 +385,10 @@ test("an item that sets an ability changes the sheet, and an item's details say 
     await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
     if (await members.isVisible()) await members.click();
     await portrait.first().click();
-    await expect(page.getByTitle("Brawn", { exact: true }).locator("span").nth(1)).toHaveText("+2");
+    // The tile shows the score, then what it adds to a roll.
+    const brawn = page.getByTitle("Brawn", { exact: true }).locator("span");
+    await expect(brawn.nth(1)).toHaveText("2");
+    await expect(brawn.nth(2)).toHaveText("+2");
     await page.screenshot({ path: testInfo.outputPath("ruleset-sheet-ability-from-item.png") });
     await page.getByRole("button", { name: "Close character sheet", exact: true }).click();
     await inventoryButton(page).click({ timeout: 30000 });
@@ -493,7 +496,7 @@ test("a rolled list column is filled by the Engine's dice from the sheet editor"
     await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
     if (await members.isVisible()) await members.click();
     await portrait.first().click();
-    await page.getByRole("button", { name: "Edit sheet", exact: true }).last().click();
+    await page.getByRole("button", { name: "Edit ruleset sheet", exact: true }).last().click();
     await page.getByRole("button", { name: "Add", exact: true }).last().click();
     const roll = page.getByRole("button", { name: /^Roll 1d6 for Hit point rolls 1: Roll$/ });
     await expect(roll).toBeEnabled();

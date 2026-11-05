@@ -30,6 +30,7 @@ import {
   type VisualTheme,
 } from "../../stores/ui.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
+import { LanguagePicker } from "../ui/LanguagePicker";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -76,6 +77,8 @@ import {
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   DEFAULT_IMAGE_STYLE_PROFILES,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+  VIDEO_PER_REPLY_MAX,
+  VIDEO_PER_REPLY_MIN,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
   VIDEO_CALL_CLIP_DURATION_MAX,
   VIDEO_CALL_CLIP_DURATION_MIN,
@@ -195,10 +198,15 @@ import {
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
+import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
 import { FEATURE_SWITCHES_CONTROL_ID, FeatureSwitchesSettings } from "./settings/FeatureSwitchesSettings";
 import { CustomGenerationParametersSettings } from "./settings/CustomGenerationParametersSettings";
-import { ExternalExtensionsSettings, PersonalExtensionsSettings } from "./settings/PersonalExtensionsSettings";
+import {
+  ExternalExtensionsSettings,
+  ExtensionRevisionHistorySettings,
+  PersonalExtensionsSettings,
+} from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
 import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use-agents";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -712,6 +720,7 @@ const GAME_ASSET_CATEGORIES = [
 const VIDEO_PROMPT_TEMPLATE_KEYS = [
   "game.video",
   "roleplay.galleryVideoDirector",
+  "roleplay.clipDirector",
   "conversation.video",
   "conversation.callVideo.idle",
   "conversation.callVideo.talking",
@@ -2143,24 +2152,18 @@ function DocsLanguageSetting() {
 
   return (
     <div id={getSettingsControlAnchorId("docs-language")} className="flex scroll-mt-3 flex-col gap-1">
-      <label className="flex flex-col gap-1">
-        <span className="inline-flex items-center gap-1 text-xs font-medium">
-          {localizeUi("settings.application.docsLanguage.label")}
-          <HelpTooltip text={localizeUi("settings.application.docsLanguage.help")} />
-        </span>
-        <select
-          value={selection}
-          onChange={(event) => setPickedLanguage(event.target.value)}
-          disabled={statusLoading || setDocsLanguage.isPending}
-          className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-        >
-          {(options.length > 0 ? options : [{ code: "en", label: "English" }]).map((option) => (
-            <option key={option.code} value={option.code}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="inline-flex items-center gap-1 text-xs font-medium">
+        <label htmlFor="settings-docs-language-select">{localizeUi("settings.application.docsLanguage.label")}</label>
+        <HelpTooltip text={localizeUi("settings.application.docsLanguage.help")} />
+      </div>
+      <LanguagePicker
+        id="settings-docs-language-select"
+        label={localizeUi("settings.application.docsLanguage.label")}
+        value={selection}
+        onChange={setPickedLanguage}
+        disabled={statusLoading || setDocsLanguage.isPending}
+        options={options.length > 0 ? options : [{ code: "en", label: "English" }]}
+      />
       {activeInfo && active !== "en" ? (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("settings.application.docsLanguage.active", {
@@ -2285,8 +2288,6 @@ function GeneralSettings() {
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
   const setBoldDialogue = useUIStore((s) => s.setBoldDialogue);
-  const colorInlineNames = useUIStore((s) => s.colorInlineNames);
-  const setColorInlineNames = useUIStore((s) => s.setColorInlineNames);
   const disableInlineNameGradients = useUIStore((s) => s.disableInlineNameGradients);
   const setDisableInlineNameGradients = useUIStore((s) => s.setDisableInlineNameGradients);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
@@ -2623,21 +2624,12 @@ function GeneralSettings() {
             help={localizeUi("settings.controls.loadRemoteMessageImages.help")}
           />
           <ToggleSetting
-            anchorId={getSettingsControlAnchorId("color-inline-names")}
-            label={localizeUi("settings.controls.colorInlineNames.label")}
-            checked={colorInlineNames ?? false}
-            onChange={setColorInlineNames}
-            help={localizeUi("settings.controls.colorInlineNames.help")}
+            anchorId={getSettingsControlAnchorId("disable-inline-name-gradients")}
+            label={localizeUi("settings.controls.disableInlineNameGradients.label")}
+            checked={disableInlineNameGradients ?? false}
+            onChange={setDisableInlineNameGradients}
+            help={localizeUi("settings.controls.disableInlineNameGradients.help")}
           />
-          {colorInlineNames && (
-            <ToggleSetting
-              anchorId={getSettingsControlAnchorId("disable-inline-name-gradients")}
-              label={localizeUi("settings.controls.disableInlineNameGradients.label")}
-              checked={disableInlineNameGradients ?? false}
-              onChange={setDisableInlineNameGradients}
-              help={localizeUi("settings.controls.disableInlineNameGradients.help")}
-            />
-          )}
           <div
             id={getSettingsControlAnchorId("quote-style")}
             className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--accent)]/50"
@@ -2769,6 +2761,10 @@ function OverallGenerationSettings() {
   const setQueueImageGenerationRequests = useUIStore((s) => s.setQueueImageGenerationRequests);
   const reviewImagePromptsBeforeSend = useUIStore((s) => s.reviewImagePromptsBeforeSend);
   const setReviewImagePromptsBeforeSend = useUIStore((s) => s.setReviewImagePromptsBeforeSend);
+  const saveGeneratedImagesAsWebp = useUIStore((s) => s.saveGeneratedImagesAsWebp);
+  const setSaveGeneratedImagesAsWebp = useUIStore((s) => s.setSaveGeneratedImagesAsWebp);
+  const generatedImageWebpQuality = useUIStore((s) => s.generatedImageWebpQuality);
+  const setGeneratedImageWebpQuality = useUIStore((s) => s.setGeneratedImageWebpQuality);
 
   return (
     <SettingsSection
@@ -2792,6 +2788,35 @@ function OverallGenerationSettings() {
           onChange={setReviewImagePromptsBeforeSend}
           help={localizeUi("settings.controls.reviewMediaPrompts.help")}
         />
+        <ToggleSetting
+          anchorId={getSettingsControlAnchorId("generated-image-webp")}
+          label={localizeUi("settings.controls.generatedImageWebp.label")}
+          checked={saveGeneratedImagesAsWebp}
+          onChange={setSaveGeneratedImagesAsWebp}
+          help={localizeUi("settings.controls.generatedImageWebp.help")}
+        />
+        {saveGeneratedImagesAsWebp && (
+          <label
+            id={getSettingsControlAnchorId("generated-image-webp-quality")}
+            className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs">{localizeUi("settings.controls.generatedImageWebpQuality.label")}</span>
+              <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{generatedImageWebpQuality}</span>
+              <HelpTooltip text={localizeUi("settings.controls.generatedImageWebpQuality.help")} />
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={100}
+              step={1}
+              aria-label={localizeUi("settings.controls.generatedImageWebpQuality.label")}
+              value={generatedImageWebpQuality}
+              onChange={(event) => setGeneratedImageWebpQuality(Number(event.target.value))}
+              className="w-full accent-[var(--primary)]"
+            />
+          </label>
+        )}
       </div>
     </SettingsSection>
   );
@@ -2970,6 +2995,10 @@ function VideoGenerationSettings() {
     commitSettings({ ...draft, animatedExpressionClipDurationSeconds: duration });
   };
 
+  const handleVideosPerReplyChange = (count: number) => {
+    commitSettings({ ...draft, maxCharacterVideosPerReply: count });
+  };
+
   return (
     <SettingsSection
       title={localizeUi("settings.sections.videoGeneration.title")}
@@ -3116,6 +3145,34 @@ function VideoGenerationSettings() {
               <span className="text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.noodle.stageprofileview.s")}
               </span>
+            </div>
+          </div>
+
+          <div
+            id={getSettingsControlAnchorId("video-per-reply")}
+            className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+                <HelpTooltip text={localizeUi("ui.panels.videogenerationsettings.videosPerReplyHelp")} />
+              </div>
+              <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReplyRange", {
+                  min: VIDEO_PER_REPLY_MIN,
+                  max: VIDEO_PER_REPLY_MAX,
+                })}
+              </div>
+            </div>
+            <div className="sm:w-28">
+              <DraftNumberInput
+                value={draft.maxCharacterVideosPerReply}
+                min={VIDEO_PER_REPLY_MIN}
+                max={VIDEO_PER_REPLY_MAX}
+                onCommit={handleVideosPerReplyChange}
+                className="w-16 min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
+                ariaLabel={localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+              />
             </div>
           </div>
         </div>
@@ -3656,11 +3713,15 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setRoleplayAvatarsScrollable = useUIStore((s) => s.setRoleplayAvatarsScrollable);
   const roleplayNarratorAvatarCycling = useUIStore((s) => s.roleplayNarratorAvatarCycling);
   const setRoleplayNarratorAvatarCycling = useUIStore((s) => s.setRoleplayNarratorAvatarCycling);
+  const roleplayNarratorAvatarBorders = useUIStore((s) => s.roleplayNarratorAvatarBorders);
+  const setRoleplayNarratorAvatarBorders = useUIStore((s) => s.setRoleplayNarratorAvatarBorders);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
   const setRoleplaySpriteScale = useUIStore((s) => s.setRoleplaySpriteScale);
   const roleplayDisplayStyle = useUIStore((s) => s.roleplayDisplayStyle);
   const setRoleplayDisplayStyle = useUIStore((s) => s.setRoleplayDisplayStyle);
   const roleplayChatPosition = useUIStore((s) => s.roleplayChatPosition);
+  const roleplayChatWidthPercent = useUIStore((s) => s.roleplayChatWidthPercent);
+  const setRoleplayChatWidthPercent = useUIStore((s) => s.setRoleplayChatWidthPercent);
   const setRoleplayChatPosition = useUIStore((s) => s.setRoleplayChatPosition);
   const roleplayVnPortraitScale = useUIStore((s) => s.roleplayVnPortraitScale);
   const setRoleplayVnPortraitScale = useUIStore((s) => s.setRoleplayVnPortraitScale);
@@ -4841,6 +4902,39 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   })}
                 </div>
               </div>
+              <div id={getSettingsControlAnchorId("roleplay-chat-width")} className="grid scroll-mt-3 gap-2">
+                <ToggleSetting
+                  label={localizeUi("settings.controls.roleplayChatWidth.enabled")}
+                  help={localizeUi("settings.controls.roleplayChatWidth.help")}
+                  checked={roleplayChatWidthPercent !== null}
+                  onChange={(enabled) => setRoleplayChatWidthPercent(enabled ? 75 : null)}
+                />
+                {roleplayChatWidthPercent !== null && (
+                  <div className="grid gap-1 text-xs">
+                    <label htmlFor="roleplay-chat-width-percent">
+                      {localizeUi("settings.controls.roleplayChatWidth.label")}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="roleplay-chat-width-percent"
+                        type="range"
+                        min={40}
+                        max={100}
+                        step={1}
+                        value={roleplayChatWidthPercent}
+                        onChange={(event) => setRoleplayChatWidthPercent(Number(event.target.value))}
+                        className="min-w-0 flex-1 accent-[var(--primary)]"
+                      />
+                      <output
+                        htmlFor="roleplay-chat-width-percent"
+                        className="w-12 text-right tabular-nums text-[var(--muted-foreground)]"
+                      >
+                        {roleplayChatWidthPercent}%
+                      </output>
+                    </div>
+                  </div>
+                )}
+              </div>
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("roleplay-vn-display")}
                 label={localizeUi("settings.roleplayVn.enabled")}
@@ -4947,6 +5041,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 >
                   {localizeUi("ui.panels.appearancesettings.resetOpacityToDefault")}
                 </button>
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("settings.controls.roleplayMessageOpacity.help")}
+                </span>
               </label>
 
               <ToggleSetting
@@ -5003,6 +5100,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   checked={roleplayNarratorAvatarCycling}
                   onChange={setRoleplayNarratorAvatarCycling}
                   help={localizeUi("settings.controls.narratorCyclingAvatars.help")}
+                />
+                <ToggleSetting
+                  anchorId={getSettingsControlAnchorId("narrator-avatar-borders")}
+                  label={localizeUi("settings.controls.narratorAvatarBorders.label")}
+                  checked={roleplayNarratorAvatarBorders}
+                  onChange={setRoleplayNarratorAvatarBorders}
+                  help={localizeUi("settings.controls.narratorAvatarBorders.help")}
                 />
                 <div
                   id={getSettingsControlAnchorId("roleplay-avatar-style")}
@@ -5369,6 +5473,7 @@ function AddonsSettings() {
       <SettingsIntro>
         {localizeUi("ui.panels.addonssettings.privateCustomBehaviorAndAppearanceSyncedByThisMarinara")}
       </SettingsIntro>
+      <ExtensionRevisionHistorySettings />
       <PersonalExtensionsSettings showIntro={false} />
       {extensionPolicy?.externalExtensionsEnabled && <ExternalExtensionsSettings />}
       <ThemesSettings showIntro={false} />
@@ -7435,6 +7540,8 @@ function AdvancedSettings() {
       </SettingsIntro>
       <MultiplayerSettings />
 
+      <AccessStatusSettings {...getSettingsSectionAnchorProps("access-status")} />
+
       <SettingsSection
         title={localizeUi("settings.sections.adminAccess.title")}
         description={localizeUi("settings.sections.adminAccess.componentDescription")}
@@ -7457,6 +7564,13 @@ function AdvancedSettings() {
             <Save size="0.8125rem" />
             {localizeUi("ui.noodle.noodlehome.save")}
           </button>
+          <AdminSecretMaker
+            onSaved={(secret) => {
+              setAdminSecret(secret);
+              if (secret) localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, secret);
+              else localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
+            }}
+          />
           <SearchableSettingTarget controlId="restart-server" className="flex flex-col gap-1.5">
             <button
               type="button"

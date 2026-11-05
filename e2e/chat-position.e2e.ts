@@ -178,9 +178,10 @@ async function setPosition(page: Page, position: Position) {
 }
 
 async function expectConnectionsMenuOnScreen(page: Page) {
-  const switcher = page.getByRole("button", { name: "Quick Connection Switcher", exact: true });
+  // The composer's model chip is named for its model; its picker is the chat's model picker.
+  const switcher = page.getByRole("button", { name: /^Model: / });
   await switcher.click();
-  const menu = page.getByRole("dialog", { name: "Connections", exact: true });
+  const menu = page.getByRole("dialog", { name: "Model for this chat", exact: true });
   await expect(menu).toBeVisible();
   await expect(async () => {
     const box = (await menu.boundingBox())!;

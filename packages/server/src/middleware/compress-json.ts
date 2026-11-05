@@ -1,5 +1,6 @@
 import { IncomingMessage } from "node:http";
-import { brotliCompressSync, constants, gzipSync } from "node:zlib";
+import { promisify } from "node:util";
+import { brotliCompress, brotliCompressSync, constants, gzip, gzipSync } from "node:zlib";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { isApiRequest } from "../utils/api-request.js";
 
@@ -7,9 +8,11 @@ import { isApiRequest } from "../utils/api-request.js";
 const MIN_BYTES = 1024;
 // ponytail: bodies above this go out uncompressed, as before compression existed. Compressing them on the
 // main thread would stall every other request (measured ~7 ms/MB for brotli q4 and ~12 ms/MB for gzip 6 on
-// an Apple M4, slower on phones). Upgrade path: return every reply.send in async handlers, then compress
-// large bodies on the threadpool again.
+// an Apple M4, slower on phones). Routes that return their response can use prepareJsonResponse before
+// sending to compress large bodies on the threadpool without making this hook asynchronous.
 const MAX_BYTES = 4 * 1024 * 1024;
+const compressBrotli = promisify(brotliCompress);
+const compressGzip = promisify(gzip);
 
 function acceptedEncoding(header: string | string[] | undefined): "br" | "gzip" | null {
   const offered = new Set<string>();
@@ -22,6 +25,31 @@ function acceptedEncoding(header: string | string[] | undefined): "br" | "gzip" 
   if (offered.has("br")) return "br";
   if (offered.has("gzip")) return "gzip";
   return null;
+}
+
+/** Await before returning from a JSON route; do not call after reply.send(). */
+export async function prepareJsonResponse(req: FastifyRequest, reply: FastifyReply, value: object) {
+  if (!(req.raw instanceof IncomingMessage) || !isApiRequest(req) || reply.hasHeader("content-encoding")) {
+    return value;
+  }
+  const payload = JSON.stringify(value);
+  reply.type("application/json; charset=utf-8");
+  if (Buffer.byteLength(payload) <= MAX_BYTES) return payload;
+  varyByEncoding(reply);
+  const encoding = acceptedEncoding(req.headers["accept-encoding"]);
+  if (!encoding) return payload;
+  const body =
+    encoding === "br"
+      ? await compressBrotli(payload, { params: { [constants.BROTLI_PARAM_QUALITY]: 4 } })
+      : await compressGzip(payload, { level: 6 });
+  reply.header("content-encoding", encoding);
+  reply.removeHeader("content-length");
+  return body;
+}
+
+function varyByEncoding(reply: FastifyReply) {
+  const vary = String(reply.getHeader("vary") ?? "");
+  if (!/accept-encoding/i.test(vary)) reply.header("vary", vary ? `${vary}, Accept-Encoding` : "Accept-Encoding");
 }
 
 /**
@@ -49,8 +77,7 @@ function compressJson(req: FastifyRequest, reply: FastifyReply, payload: unknown
   if (!String(reply.getHeader("content-type") ?? "").includes("application/json")) return payload;
   const bytes = Buffer.byteLength(payload);
   if (bytes < MIN_BYTES || bytes > MAX_BYTES) return payload;
-  const vary = String(reply.getHeader("vary") ?? "");
-  if (!/accept-encoding/i.test(vary)) reply.header("vary", vary ? `${vary}, Accept-Encoding` : "Accept-Encoding");
+  varyByEncoding(reply);
   const encoding = acceptedEncoding(req.headers["accept-encoding"]);
   if (!encoding) return payload;
   // Quality 4 / level 6: most of the saving at a few ms for a 300 KB body; brotli's default 11 is far slower.

@@ -5,6 +5,8 @@ const nonEmptyIdSchema = z.string().min(1);
 const createFolderNameSchema = z.string().trim().min(1);
 const updateFolderNameSchema = z.string().trim().min(1, "Name is required");
 const folderColorSchema = z.string();
+/** Connection folders only: the icon's name; chat folders ignore it. */
+const folderIconSchema = z.string().trim().max(40).nullable();
 
 const uniqueIdsSchema = z.array(nonEmptyIdSchema).superRefine((ids, ctx) => {
   if (new Set(ids).size !== ids.length) {
@@ -22,6 +24,7 @@ export const folderIdParamsSchema = z.object({
 export const createConnectionFolderSchema = z.object({
   name: createFolderNameSchema,
   color: folderColorSchema.optional(),
+  icon: folderIconSchema.optional(),
 });
 
 export const createChatFolderSchema = createConnectionFolderSchema.extend({
@@ -31,6 +34,7 @@ export const createChatFolderSchema = createConnectionFolderSchema.extend({
 export const updateFolderSchema = z.object({
   name: updateFolderNameSchema.optional(),
   color: folderColorSchema.optional(),
+  icon: folderIconSchema.optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   collapsed: z.boolean().optional(),
 });

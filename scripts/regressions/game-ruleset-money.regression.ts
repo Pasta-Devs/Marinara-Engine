@@ -305,7 +305,52 @@ const withoutMarket = (doc: Record<string, any>) => {
   const salted = coins([["cakes", "cake", 5]]);
   const coinFamily = emberBook.coinNamed!("bit")!.family;
   assert.equal(payGameInventoryCoins(salted, undefined, coinFamily, 1).ok, false, "salt never pays in coin");
+  // Change comes back in the coins prices are written in, where they make it (laptop pass 6,
+  // 2026-10-26: an inn's 5 silver out of a gold piece came back as an electrum piece).
+  const srdCoins = [
+    { item: "coin:gp", name: "gold pieces", value: 100 },
+    { item: "coin:ep", name: "electrum pieces", value: 50 },
+    { item: "coin:sp", name: "silver pieces", value: 10 },
+    { item: "coin:cp", name: "copper pieces", value: 1 },
+  ];
+  const oneGold = [{ id: "g", name: "gold pieces", item: "coin:gp", quantity: 1 }];
+  const back = (changeIn?: string[]) => {
+    const paid = payGameInventoryCoins(oneGold, undefined, srdCoins, 50, changeIn);
+    return paid.ok ? paid.change : paid.reason;
+  };
+  assert.deepEqual(back(), [{ name: "electrum pieces", count: 1 }]);
+  assert.deepEqual(back(["coin:gp", "coin:sp", "coin:cp"]), [{ name: "silver pieces", count: 5 }]);
+  // Where the usual coins cannot make it, any coin does.
+  assert.deepEqual(back(["coin:gp", "coin:sp"]), [{ name: "silver pieces", count: 5 }]);
+  assert.deepEqual(back(["coin:gp"]), [{ name: "electrum pieces", count: 1 }]);
   assert.equal(pay([], 0 + 1), "cannot-afford");
+}
+
+// ── who="party" pays out of every purse, the player's first (laptop playtest 2026-10-25: "the
+//    party's coin" charged only one purse) ──
+{
+  const party = { members: ["Bram"] };
+  const both = coins([
+    ["shillings", "shilling", 1],
+    ["shillings", "shilling", 2, "Bram"],
+  ]);
+  const together = applyGameInventoryTags(
+    '[inventory: action="pay" amount="3 shillings" who="party"]',
+    both,
+    party,
+    undefined,
+    graveBook,
+  );
+  assert.match(together.content, /action="pay" item="shillings" count="3" who="party" result="ok"/, together.content);
+  assert.deepEqual(held(together.stacks), []);
+  const alone = applyGameInventoryTags(
+    '[inventory: action="pay" amount="3 shillings"]',
+    both,
+    party,
+    undefined,
+    graveBook,
+  );
+  assert.match(alone.content, /reason="cannot-afford"/, "the player alone cannot");
 }
 
 // ── The Game Master's pay and earn ──
@@ -348,6 +393,33 @@ const withoutMarket = (doc: Record<string, any>) => {
     { item: "pennies", action: "acquired", quantity: 12 },
     { item: "pennies", action: "used", quantity: 4 },
   ]);
+  // What a bag adds after its payment was refused is refused too, unless it says where it came from
+  // (laptop room playtest 2026-10-30: tools came into the bag after "cannot-afford").
+  const unpaid = answered(
+    '[inventory: action="pay" amount="9 crowns"] [inventory: action="add" item="Rope"] ' +
+      '[inventory: action="add" item="Torch" source="story"] [inventory: action="add" item="Lamp" who="Bram"]',
+    start,
+  );
+  assert.match(unpaid.content, /item="Rope" count="1" result="refused" reason="unpaid"/, unpaid.content);
+  assert.match(unpaid.content, /item="Torch" count="1" result="ok"/, unpaid.content);
+  assert.match(unpaid.content, /item="Lamp" count="1" who="Bram" result="ok"/, "another bag's add is its own");
+  // What a bag adds after a check it failed, in the same reply, it made or found on a roll it lost
+  // (laptop room playtest 2026-10-30: a pouch out of a failed leatherworking check).
+  const lost = answered(
+    '[inventory: action="add" item="Lamp" who="Bram"] ' +
+      '[skill_check: skill="Leatherworker\'s tools" dc="12" who="Bram" rolls="7" modifier="0" total="7" result="failure"] ' +
+      '[inventory: action="add" item="Rope" who="Bram"] [inventory: action="add" item="Torch"] ' +
+      '[inventory: action="add" item="Lantern" who="Bram" source="story"]',
+  );
+  assert.match(lost.content, /item="Lamp" count="1" who="Bram" result="ok"/, "an add before the roll stands");
+  assert.match(lost.content, /item="Rope" count="1" who="Bram" result="refused" reason="check-failed"/, lost.content);
+  assert.match(lost.content, /item="Torch" count="1" result="ok"/, "another bag's add is its own");
+  assert.match(lost.content, /item="Lantern" count="1" who="Bram" result="ok"/, "a source stands");
+  const won = answered(
+    '[skill_check: skill="Leatherworker\'s tools" dc="12" who="Bram" rolls="17" modifier="0" total="17" result="success"] ' +
+      '[inventory: action="add" item="Rope" who="Bram"]',
+  );
+  assert.match(won.content, /item="Rope" count="1" who="Bram" result="ok"/, won.content);
   assert.equal(
     answered('[inventory: action="pay" amount="2 florins"]').content,
     '[inventory: action="pay" item="florins" count="2" result="refused" reason="unknown-coin"]',
@@ -459,6 +531,48 @@ const withoutMarket = (doc: Record<string, any>) => {
   const lampOnly = reminder(coinless, { playerInventory: [{ name: "Lamp", quantity: 1 }], partyInventory: [] });
   assert.match(lampOnly, /\nPLAYER INVENTORY: Lamp\n/);
   assert.doesNotMatch(lampOnly, /Party members not listed/, "nor of anyone else's coins");
+  // With a party and one bag, the bag is the whole party's: nobody has a pack of their own to pull a
+  // torch out of, an item the pack does not list is not there, and its purse is the only money.
+  const potions = { playerInventory: [{ name: "Potion of Healing", quantity: 2 }], partyInventory: [] };
+  const directed = reminder(gravewatch, {
+    ...potions,
+    partyNames: ["Kesh", "Mara"],
+    playerIsParty: true,
+    inventoryPurses: { "": "Coin worth 60 pennies" },
+  });
+  assert.match(
+    directed,
+    /\nPARTY PACK \(Coin worth 60 pennies\) - the party's one shared pack, everything the party carries: Potion of Healing ×2\nNo member has a bag, pouch or gear of their own beyond this pack and what their sheet says they wear\. Its purse is the party's only money\. An item the pack does not list does not exist: if the player reaches for one, say in the story that it isn't there, and write no tag for it\./,
+  );
+  assert.doesNotMatch(directed, /PLAYER INVENTORY|Party members not listed/);
+  const ownCharacter = reminder(coinless, { ...potions, playerName: "Ada", partyNames: ["Kesh"] });
+  assert.match(
+    ownCharacter,
+    /\nAda's PACK - the only bag in the party, everything the party carries: Potion of Healing ×2\nNobody else in the party has a bag, pouch or gear of their own beyond this pack and what their sheet says they wear\. An item/,
+  );
+  assert.doesNotMatch(ownCharacter, /only money/, "no money, no purse to speak of");
+  assert.match(
+    reminder(coinless, potions),
+    /\nPLAYER INVENTORY: Potion of Healing ×2\n/,
+    "alone, the bag is as it was",
+  );
+  // With sheets shown, nobody makes light, fire or an item out of an ability the sheet does not give them.
+  const abilities =
+    /Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one \(a power with uses per day\) is spent with its \[sheet:\] tag\./;
+  assert.doesNotMatch(ownCharacter, abilities, "no sheets, nothing to hold an ability to");
+  const sheeted = { rulesetSheetBlocks: ["Kesh: HP 38/38"] };
+  assert.match(reminder(coinless, { ...potions, ...sheeted, playerName: "Ada", partyNames: ["Kesh"] }), abilities);
+  assert.match(
+    reminder(gravewatch, {
+      ...sheeted,
+      playerName: "Ada",
+      partyNames: ["Bram"],
+      playerInventory: [],
+      partyInventory: [{ holder: "Bram", items: [{ name: "cakes", quantity: 2 }] }],
+      inventoryPurses: { "": "no coins", [gameInventoryBagKey("Bram")]: "no coins" },
+    }),
+    /coins included\.\nNor can anyone do what their sheet doesn't list/,
+  );
 }
 
 // ── Layers hide coins, never rewrite them ──

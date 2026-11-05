@@ -39,11 +39,13 @@ import { useWorldLibrary } from "../../hooks/use-world-library";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
 
 export interface WorldKitWriteRequest {
-  connectionId: string;
+  connectionId?: string;
   genre: string;
   setting: string;
   tone: string;
   language?: string;
+  /** The game's own generation settings (its reasoning effort), sent over the connection's. */
+  generationParameters?: unknown;
 }
 
 // A lighter label than the wizard's own, since these fields sit inside one choice of the World step.

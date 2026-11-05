@@ -1,6 +1,10 @@
-import { ArrowLeft, Box, MessageSquare, Settings2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Box, MessageSquare, Settings2 } from "lucide-react";
 import type { BuiltInAgentManifest, InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
+import { CommandCenterToggle } from "../command-center/CommandCenterToggle";
+import { useCapabilityCatalog } from "../../hooks/use-capability-packages";
+import { AgentDetailHeader } from "./AgentDetailHeader";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ActiveFeatureChat {
@@ -43,8 +47,58 @@ export function FeatureAgentDetailHost({
   const hasDetailContribution =
     Boolean(installedPackage?.manifest.entrypoints.client) && contributedAgentIds.includes(agent.id);
 
+  const catalog = useCapabilityCatalog();
+  const storeEntry = catalog.data?.packages.find(
+    (entry) => entry.manifest.id === (installedPackage?.id ?? agent.packageId),
+  );
+  // Capability API 1.390: a package can let the Engine draw this header and put its own buttons in it.
+  const engineHeader =
+    hasDetailContribution && installedPackage?.manifest.contributions?.agentDetail?.header === "engine";
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  const meta = [agent.author, installedPackage && `v${installedPackage.version}`].filter(Boolean).join(" · ");
+  const showActiveToggle = Boolean(activeChatSupported && onEnabledForChatChange);
+  const header = (compact: boolean) => (
+    <AgentDetailHeader
+      storeEntry={storeEntry}
+      compact={compact}
+      onBack={onClose}
+      title={
+        <h1 id="feature-agent-detail-title" className="mari-editor-title truncate">
+          {agent.name}
+        </h1>
+      }
+      meta={meta || undefined}
+      actions={
+        showActiveToggle || engineHeader || installedPackage ? (
+          <>
+            {showActiveToggle && (
+              <CommandCenterToggle
+                checked={enabledForChat}
+                label={localizeUi("ui.agents.featureagentdetailhost.activeToggle")}
+                onCheckedChange={(enabled) => void onEnabledForChatChange?.(enabled)}
+              />
+            )}
+            {/* The package's own header buttons render here (portal target). */}
+            {engineHeader && <div ref={setHeaderSlot} className="contents" />}
+            {installedPackage && (
+              <button
+                type="button"
+                onClick={onManagePackage}
+                aria-label={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
+                title={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
+                className="mari-editor-action inline-flex"
+              >
+                <Settings2 size="1rem" />
+              </button>
+            )}
+          </>
+        ) : undefined
+      }
+    />
+  );
+
   if (installedPackage && hasDetailContribution) {
-    return (
+    const detail = (
       <CapabilityElement
         packageId={installedPackage.id}
         view="detail"
@@ -74,10 +128,23 @@ export function FeatureAgentDetailHost({
           onEnabledForChatChange: activeChatSupported ? onEnabledForChatChange : undefined,
           onClose,
           onManagePackage,
+          // The package skips its own header and portals its buttons into `headerSlot`.
+          ...(engineHeader ? { engineHeader: true, headerSlot } : {}),
           ...capabilityProps,
         }}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       />
+    );
+    if (!engineHeader) return detail;
+    return (
+      <section
+        data-component="FeatureAgentDetailHost"
+        className="mari-editor-shell mari-editor-legacy-bridge flex min-h-0 flex-1 flex-col overflow-hidden"
+        aria-labelledby="feature-agent-detail-title"
+      >
+        {header(true)}
+        {detail}
+      </section>
     );
   }
 
@@ -96,22 +163,7 @@ export function FeatureAgentDetailHost({
       className="mari-editor-shell mari-editor-legacy-bridge flex min-h-0 flex-1 flex-col overflow-hidden"
       aria-labelledby="feature-agent-detail-title"
     >
-      <header className="mari-editor-header">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={localizeUi("capabilities.actions.backToAgents")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <Sparkles size="1.125rem" className="max-md:h-[0.875rem]! max-md:w-[0.875rem]!" />
-        </div>
-        <h1 id="feature-agent-detail-title" className="mari-editor-title min-w-0 flex-1 truncate">
-          {agent.name}
-        </h1>
-      </header>
+      {header(false)}
 
       <div className="mari-editor-content max-md:p-4">
         <div className="mari-editor-content-inner mari-editor-content-inner--wide flex flex-col gap-4">

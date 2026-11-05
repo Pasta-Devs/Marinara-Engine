@@ -15,15 +15,10 @@ async function findRunningMarinara() {
     });
     if (!response.ok) return null;
     const health = await response.json();
-    if (
-      !health ||
-      typeof health !== "object" ||
-      health.status !== "ok" ||
-      typeof health.version !== "string" ||
-      typeof health.build !== "string"
-    ) {
-      return null;
-    }
+    if (!health || typeof health !== "object" || health.status !== "ok") return null;
+    // A Marinara that requires sign-in tells this unauthenticated probe only `{ status: "ok" }`.
+    if (Object.keys(health).length === 1) return health;
+    if (typeof health.version !== "string" || typeof health.build !== "string") return null;
     return health;
   } catch {
     return null;
@@ -53,7 +48,11 @@ if (!Number.isFinite(port) || port <= 0 || port > 65_535) {
 
 const runningMarinara = await findRunningMarinara();
 if (runningMarinara) {
-  console.log(`  [OK] Marinara Engine ${runningMarinara.build} is already running at ${browserUrl}`);
+  console.log(
+    runningMarinara.build
+      ? `  [OK] Marinara Engine ${runningMarinara.build} is already running at ${browserUrl}`
+      : `  [OK] Marinara Engine is already running at ${browserUrl} (sign-in required)`,
+  );
   process.exit(2);
 }
 

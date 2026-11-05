@@ -194,7 +194,10 @@ const KEEPS_ESCAPE_SELECTOR =
   "textarea, [contenteditable='true'], input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit'], [type='reset'], [type='color'], [type='file'])";
 
 const CENTER_CONTENT_SELECTOR = '[data-component="CenterContent"]';
-const CHAT_WINDOW_TOP_OBSTACLE_SELECTOR = "[data-chat-mode] [data-chat-window-top-obstacle]";
+// A shared room's header sits above the host's Game screen, outside its chat mode, and keeps its
+// buttons clear of the bubbles too (room playtest 2026-10-27).
+const CHAT_WINDOW_TOP_OBSTACLE_SELECTOR =
+  "[data-chat-mode] [data-chat-window-top-obstacle], [data-multiplayer-room-header][data-chat-window-top-obstacle]";
 
 /** A closed host may no longer have an opener; keep keyboard users in the active chat. */
 export function focusWindowOpener(id: FloatingWindowId) {
@@ -268,8 +271,8 @@ function readSafeAreaInsets() {
     safeAreaProbe.setAttribute("aria-hidden", "true");
     safeAreaProbe.style.cssText =
       "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
-      "padding:env(safe-area-inset-top) env(safe-area-inset-right) " +
-      "var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)) env(safe-area-inset-left)";
+      "padding:env(safe-area-inset-top) var(--mari-safe-area-inset-right) " +
+      "var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)) var(--mari-safe-area-inset-left)";
     document.body.appendChild(safeAreaProbe);
   }
   const style = window.getComputedStyle(safeAreaProbe);

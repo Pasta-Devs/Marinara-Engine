@@ -80,19 +80,37 @@ export function filterLanguageGenerationConnections<T extends ConnectionProvider
  * The loose structural constraint lets both typed rows and raw `/connections`
  * records flow through without casts.
  */
+export function filterTTSConnections<T extends { provider?: unknown; profileImportReviewRequired?: unknown }>(
+  connections: readonly T[] | null | undefined,
+): T[] {
+  return (connections ?? []).filter(
+    (connection) => connection.provider === "audio" && !isConnectionFlagTrue(connection.profileImportReviewRequired),
+  );
+}
+
+/** Dedicated music/SFX connections; speech rows never enter generation selectors. */
 export function filterAudioGenerationConnections<
   T extends { provider?: unknown; profileImportReviewRequired?: unknown },
 >(connections: readonly T[] | null | undefined): T[] {
   return (connections ?? []).filter(
-    (connection) => connection.provider === "audio" && !isConnectionFlagTrue(connection.profileImportReviewRequired),
+    (connection) =>
+      connection.provider === "audio_generation" && !isConnectionFlagTrue(connection.profileImportReviewRequired),
   );
+}
+
+/** A migrated legacy Game pick still names the original speech row. */
+export function matchesAudioGenerationConnectionId(
+  connection: { id?: unknown; audioGenerationLegacyConnectionId?: unknown },
+  id: string | null | undefined,
+): boolean {
+  return !!id && (connection.id === id || connection.audioGenerationLegacyConnectionId === id);
 }
 
 export function createLocalSidecarConnectionOption(modelDisplayName?: string | null): LocalSidecarConnectionOption {
   const model = modelDisplayName?.trim() || "local-sidecar";
   return {
     id: LOCAL_SIDECAR_CONNECTION_ID,
-    name: modelDisplayName?.trim() ? `Local Model (${modelDisplayName.trim()})` : "Local Model (sidecar)",
+    name: modelDisplayName?.trim() ? `Built-in model (${modelDisplayName.trim()})` : "Built-in model",
     model,
     provider: "local_sidecar",
     isLocalSidecar: true,

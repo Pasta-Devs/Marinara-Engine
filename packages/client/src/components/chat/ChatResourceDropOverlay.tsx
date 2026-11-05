@@ -31,13 +31,20 @@ import {
 } from "../../lib/chat-resource-drop-capabilities";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { parseChatMetadata } from "../../lib/chat-display";
+import { mayAskCardQuestions } from "../../lib/onboarding-add-card";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { ChatCharacterDropOptions } from "./ChatCharacterDropOptions";
 
-type CharacterDropOptions = { chatId: string; characterId: string; characterName: string; askGreeting: boolean };
+type CharacterDropOptions = {
+  chatId: string;
+  characterId: string;
+  characterName: string;
+  askGreeting: boolean;
+  askQuestions: boolean;
+};
 
 type OverlayState = {
   payload: ChatResourceDragPayload;
@@ -407,6 +414,7 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
               characterId: latestAction.ids[0]!,
               characterName: latestAction.label,
               askGreeting: currentChat.mode !== "conversation",
+              askQuestions: mayAskCardQuestions(currentChat),
             });
           }
           toast.success(t("ui.chat.chatresourcedropoverlay.addedToChat", { name: latestAction.label }), {

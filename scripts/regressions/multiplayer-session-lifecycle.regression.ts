@@ -255,9 +255,10 @@ try {
     expectCode("identity-conflict"),
     "a departed seat goes back only to its player",
   );
-  const impostorRequest = (await host.hostState())!.pendingRequests.find((item) => item.displayName === "Rose");
-  assert.ok(impostorRequest, "the refused request stays for the host to decline");
-  await host.hostAction({ type: "decline", requestId: impostorRequest.id });
+  assert.ok(
+    !(await host.hostState())!.pendingRequests.some((item) => item.displayName === "Rose"),
+    "the refused request ends, its asker told the name is in use",
+  );
   assert.deepEqual((await host.hostState())!.snapshot.players.map((player) => player.displayName).sort(), [
     "Alex",
     "Mari",
@@ -286,9 +287,7 @@ try {
   });
   assert.equal(intruder.type, "admission");
   await assert.rejects(approve("Intruder"), expectCode("identity-conflict"));
-  const intruderRequest = (await host.hostState())!.pendingRequests.find((item) => item.displayName === "Intruder");
-  assert.ok(intruderRequest, "the refused request stays for the host to decline");
-  await host.hostAction({ type: "decline", requestId: intruderRequest.id });
+  assert.ok(!(await host.hostState())!.pendingRequests.some((item) => item.displayName === "Intruder"));
 
   // An Engine restart drops the guest's token without telling the host. Once that session is silent,
   // the player can come back as the same persona.

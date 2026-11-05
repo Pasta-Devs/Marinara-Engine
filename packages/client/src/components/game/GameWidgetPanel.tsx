@@ -828,36 +828,32 @@ export function GameWidgetSessionPrepModal({
     () =>
       mode === "initial"
         ? {
-            title: "Review Starting Widgets",
-            description:
-              "Review the custom HUD widgets generated for this game before the first turn. You can rename stat-block fields, add or remove them, and drop widgets that do not fit the intended gameplay loop.",
-            empty: "No custom widgets will be used for the starting session.",
-            removeConfirm: "Remove {label} from the starting session?",
-            savingError: "Failed to save starting widget changes.",
-            cancelLabel: "Back",
-            startLabel: "Start Game",
-            startingLabel: "Starting Game...",
-            editorDescription:
-              "Adjust the starting values, or reshape stat blocks before the first game turn uses them.",
-            numericValueLabel: "Starting value",
+            title: localizeUi("ui.game.gamewidgetsessionprepmodal.initialTitle"),
+            description: localizeUi("ui.game.gamewidgetsessionprepmodal.initialDescription"),
+            empty: localizeUi("ui.game.gamewidgetsessionprepmodal.initialEmpty"),
+            removeConfirm: "ui.game.gamewidgetsessionprepmodal.initialRemoveConfirm",
+            savingError: localizeUi("ui.game.gamewidgetsessionprepmodal.initialSavingError"),
+            cancelLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.initialCancelLabel"),
+            startLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.initialStartLabel"),
+            startingLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.initialStartingLabel"),
+            editorDescription: localizeUi("ui.game.gamewidgetsessionprepmodal.initialEditorDescription"),
+            numericValueLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.initialNumericValueLabel"),
             syncStartingValue: true,
           }
         : {
-            title: "Prepare Next Session Widgets",
-            description:
-              "Review which custom widgets should carry into the next session. You can rename stat-block fields, add or remove them, and drop widgets you no longer want before the next session starts.",
-            empty: "No custom widgets will be carried into the next session.",
-            removeConfirm: "Remove {label} from the next session?",
-            savingError: "Failed to save widget carry-over changes.",
-            cancelLabel: "Cancel",
-            startLabel: "Start Next Session",
-            startingLabel: "Starting Session...",
-            editorDescription:
-              "Adjust the values that should carry forward, or reshape stat blocks for the next session.",
-            numericValueLabel: "Current value",
+            title: localizeUi("ui.game.gamewidgetsessionprepmodal.nextTitle"),
+            description: localizeUi("ui.game.gamewidgetsessionprepmodal.nextDescription"),
+            empty: localizeUi("ui.game.gamewidgetsessionprepmodal.nextEmpty"),
+            removeConfirm: "ui.game.gamewidgetsessionprepmodal.nextRemoveConfirm",
+            savingError: localizeUi("ui.game.gamewidgetsessionprepmodal.nextSavingError"),
+            cancelLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.nextCancelLabel"),
+            startLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.nextStartLabel"),
+            startingLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.nextStartingLabel"),
+            editorDescription: localizeUi("ui.game.gamewidgetsessionprepmodal.nextEditorDescription"),
+            numericValueLabel: localizeUi("ui.game.gamewidgetsessionprepmodal.nextNumericValueLabel"),
             syncStartingValue: false,
           },
-    [mode],
+    [localizeUi, mode],
   );
 
   const handleRemoveWidget = useCallback(
@@ -866,7 +862,7 @@ export function GameWidgetSessionPrepModal({
       if (!target) return;
       const confirmed = await showConfirmDialog({
         title: localizeUi("ui.game.gamewidgetsessionprepmodal.removeWidget"),
-        message: copy.removeConfirm.replace("{label}", target.label),
+        message: localizeUi(copy.removeConfirm, { label: target.label }),
         confirmLabel: localizeUi("settings.notifications.customSound.actions.remove"),
         cancelLabel: localizeUi("chat.delete.dialog.cancel"),
         tone: "destructive",

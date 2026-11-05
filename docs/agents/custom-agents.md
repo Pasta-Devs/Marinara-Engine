@@ -1,164 +1,203 @@
 # Creating Custom Agents
 
-This guide shows you how to build your own agent in Marinara Engine. An agent is a small AI helper that runs automatically alongside your chat. You will learn how to set its phase, powers, output type, activation keywords and questions, tools, and prompt, with one full worked example.
+A custom agent is a helper you write yourself: your own instructions, when it runs, and what it may change. Build one when no [downloadable agent](built-in-agents.md) does what you want. If an installed agent is close, hover its card in the **Agents** panel and click **Copy agent** to get an editable copy.
 
-New to agents? Read [Agents: AI Helpers for Your Chats](agents-overview.md) first for the basics, then come back here.
-
-## When to build a custom agent
-
-Marinara Engine offers many official downloadable agents. See the [Downloadable Agents Reference](built-in-agents.md) and the public [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) package repository before you build your own. A catalog agent may already do what you want, and the official manifests provide working package examples.
-
-Build a custom agent when you need something the built-ins do not cover. Good reasons include:
-
-- You want a helper with your own instructions and voice.
-- You want to inject a specific note into every prompt.
-- You want to rewrite each reply in a certain style.
-- You want an agent to call your own custom tool.
-
-If an installed first-party agent is close, copy it instead. In the **Agents** panel, hover its card and click **Copy agent**. This makes an editable custom copy.
-
-## Before you start
-
-Two facts matter before you build:
-
-1. Agents are set per chat, not per character. Building an agent in the library does not run it. You must add it to a chat and turn on **Enable Agents** in **Chat Settings**.
-2. Custom agents work in every chat mode: Roleplay, Game Mode, and Conversation. Official packages appear only in their supported modes, while your own custom agents remain available everywhere.
+Before you start: read [Agents: AI Helpers for Your Chats](agents-overview.md). Building an agent does not run it. You add it to a chat afterward. Custom agents work in every chat mode.
 
 ## Creating a custom agent
 
-Follow these steps to create a new custom agent from scratch.
-
 1. Open the **Agents** panel.
-2. Click the **New** button (the plus icon) near the top.
-3. The full-page agent editor opens with a blank custom agent.
-4. Type a name in the title field at the top, for example `Weather Reporter`.
-5. Fill in the **Description** and **Author** fields so you remember what it does.
-6. Choose a **Pipeline Phase** (see below).
-7. Turn on the powers you need under **Custom Agent Abilities**.
-8. Pick a **Result Type** that matches what the agent should produce.
-9. Write the agent instructions under **Prompt Template**.
-10. Click **Save** in the top bar. You should see a green **Saved** badge.
+2. Click **New** (the plus icon) near the top. The full-page agent editor opens.
+3. Type a name in the title field, for example `Weather Reporter`.
+4. Fill in **Description** and **Author**.
+5. Choose a **Pipeline Phase** (see [Pipeline Phase](#pipeline-phase)).
+6. Turn on the powers it needs under **Custom Agent Abilities**.
+7. Pick a **Result Type** that matches what the agent produces. If you are unsure, pick **Context Injection**. It needs no ability and no strict output format.
+8. Write its instructions under **Prompt Template**.
+9. Click **Save** in the top bar. A green **Saved** badge appears.
 
-Your new agent now appears in the **Custom Agents** section of the **Agents** panel. To use it, open a chat, go to **Chat Settings**, turn on **Enable Agents**, and add your agent from the **Custom Agents** section there.
+The agent now appears in the **Custom Agents** section of the **Agents** panel. To use it, open a chat, go to **Chat Settings**, turn on **Enable Agents** and add the agent from **Custom Agents**.
 
 ## Pipeline Phase
 
-The **Pipeline Phase** sets when your agent runs. Pick one of three buttons:
+**Pipeline Phase** sets when the agent runs.
 
-- **Pre-Generation**: runs before the AI replies. It can add context or change the prompt.
-- **Parallel**: runs at the same time as the reply. It cannot see the finished reply.
-- **Post-Processing**: runs after the reply is complete. It can read and, for some result types, edit the reply.
+- **Pre-Generation**: before the reply. It can add context or change the prompt.
+- **Parallel**: at the same time as the reply. It cannot see the finished reply.
+- **Post-Processing**: after the reply. It can read the reply and, for some result types, edit it.
 
-Some result types force a phase. If you pick **Text Rewrite**, the phase switches to **Post-Processing**. If you pick **Prompt Patch**, the phase switches to **Pre-Generation**. This happens because those jobs only make sense in that phase.
+Some result types force a phase. **Text Rewrite** switches to **Post-Processing**. **Prompt Patch** and **Character Activity** switch to **Pre-Generation**.
 
-Post-Processing custom agents also get a **Turn Data Access** section. It has two optional toggles: **Pre-generation injections** and **Parallel agent results**. Turn these on to let your agent read what other agents produced during the same turn. Leave them off to keep your agent isolated.
+Post-Processing agents also get a **Turn Data Access** section with two toggles, **Pre-generation injections** and **Parallel agent results**. Turn them on to let the agent read what other agents produced in the same turn.
 
 ## Custom Agent Abilities
 
-**Custom Agent Abilities** are opt-in powers. A power stays blocked until you turn its toggle on. This keeps a custom agent safe by default. The available abilities are:
+Abilities are opt-in powers. Each stays blocked until you turn on its toggle.
 
-| Ability | What it lets the agent do |
-|---|---|
-| **Create lorebooks** | Create a new agent-made lorebook when its lore output has no target. |
-| **Edit lorebooks** | Write lorebook entries or make lorebook update results. |
-| **Edit messages** | Replace the generated message text with rewritten text, or add continuation choices to it. |
-| **Edit trackers** | Update game, character, persona, or custom tracker state. |
-| **Frontend styling** | Apply a temporary visual style effect during generation. |
-| **Change chat backgrounds** | Change and persist the background selected for a chat. |
-| **Change character sprites** | Change character and Persona expressions shown in chat. |
-| **Control media playback** | Control Spotify, YouTube, or local music playback. |
-| **Control haptic devices** | Send bounded commands to a connected haptic device. |
-| **Edit About Me details** | Change chat-specific About Me text. Public card changes still require separate approval. |
-| **Image generation** | Trigger the image generator with an image prompt. |
-| **Vectors/embeddings** | Use vector or embedding context. Vectors are a way to search text by meaning. |
-| **Main prompt edits** | Edit the prompt sent to the main AI model. |
+- **Create lorebooks**: create a new agent-made lorebook when its lore output has no target.
+- **Edit lorebooks**: write lorebook entries or return lorebook update results.
+- **Edit messages**: replace the generated message text, or add continuation choices to it.
+- **Edit trackers**: update game, character, persona or custom tracker state.
+- **Frontend styling**: apply a temporary visual style during generation.
+- **Change chat backgrounds**: change and save the background for a chat.
+- **Change character sprites**: change character and persona expressions shown in chat.
+- **Control media playback**: control Spotify, YouTube or local music.
+- **Control haptic devices**: send bounded commands to a connected haptic device.
+- **Edit About Me details**: change chat-specific About Me text. Public card changes still need your approval.
+- **Image generation**: send an image prompt to the image generator.
+- **Vectors/embeddings**: use vector context. Vectors let Marinara search text by meaning.
+- **Main prompt edits**: edit the prompt sent to the main model.
+- **Create character cards**: propose a new character card. It is saved only after you review and accept it.
+- **Choose active chat characters**: choose which attached characters are enabled for the current Conversation or Roleplay reply.
 
-A lorebook is a set of background notes the AI can pull into a scene. A tracker is a live panel that stores facts like stats, mood, or location.
-
-If you turn on **Edit lorebooks**, a **Lorebook Writer** section appears. Turn on **Allow lorebook entry writes** and pick one lorebook in the **Target lorebook** dropdown. The agent can only write to that one lorebook.
+If you turn on **Edit lorebooks**, a **Lorebook Writer** section appears. Turn on **Allow lorebook entry writes** and pick one lorebook in **Target lorebook**. The agent can write only to that lorebook.
 
 ## Result Type
 
-The **Result Type** tells Marinara how to read your agent's output. Most result types expect the agent to return JSON. JSON is a simple text format written with braces and quotation marks. Each result type needs the matching ability from the table above.
+**Result Type** tells Marinara how to read the agent's answer. Most types expect JSON, a text format written with braces and quotation marks. A type stays greyed out until you turn on the ability it needs.
 
-| Result Type | What it does | Ability needed |
-|---|---|---|
-| **Context Injection** | Adds text before generation, or records a note after generation. | None |
-| **Text Rewrite** | Runs after the reply and replaces the message text. | Edit messages |
-| **Lorebook Update** | Creates or updates lorebook entries. | Edit lorebooks |
-| **Character Tracker** | Updates the character tracker (present characters). | Edit trackers |
-| **Persona Stats** | Updates persona stats, status, and inventory. | Edit trackers |
-| **Custom Tracker** | Replaces your own custom tracker fields. | Edit trackers |
-| **Game State** | Updates world-state style game data. | Edit trackers |
-| **Image Prompt** | Asks the image generator to draw a scene. | Image generation |
-| **Prompt Patch** | Adds, prepends, or replaces prompt sections. | Main prompt edits |
-| **Frontend Style** | Applies a temporary styling effect. | Frontend styling |
-| **Background Change** | Selects and persists an available chat background. | Change chat backgrounds |
-| **Sprite Change** | Changes character and Persona expressions shown in chat. | Change character sprites |
-| **Spotify Control** | Controls Spotify playback. | Control media playback |
-| **YouTube Control** | Controls YouTube playback. | Control media playback |
-| **Local Music Control** | Controls playback from your local music collection. | Control media playback |
-| **Haptic Command** | Sends a bounded command to a connected haptic device. | Control haptic devices |
-| **About Me Update** | Updates chat-specific About Me text and proposes public edits. | Edit About Me details |
-| **Interactive Choices** | Adds continuation choices to the generated message. | Edit messages |
+Types that need no ability:
 
-**Context Injection** is the friendliest starting point. It needs no ability toggle and no strict output format. Use it when you just want the agent to add a short note to the prompt or record a summary.
+- **Context Injection**: adds text before generation, or records a note after it. The easiest start.
 
-If a result type is greyed out, you have not turned on its ability yet. Turn on the matching toggle under **Custom Agent Abilities**, then the result type becomes clickable.
+Types that need **Edit messages**:
 
-### Per-chat controls for image agents
+- **Text Rewrite**: replaces the message text after the reply.
+- **Interactive Choices**: adds continuation choices to the message.
 
-An agent with the **Image generation** ability gets two extra controls on its card in **Chat Settings → Agents → Custom Agents**, alongside the prompt template picker every custom agent has:
+Types that need **Edit trackers**:
 
-- **Image Connection** — overrides which image connection this agent uses in this chat only. Leave it on **Agent default** to keep the connection from the agent's own settings. The chat-level **Image Style** select applies to custom-agent images too, so one agent can render differently per chat without duplicating it.
-- **Camera button** — generates an image with that agent right now, without waiting for its activation keywords. The agent still writes the prompt itself; if its template declines to produce one, you get an error toast instead of an image.
+- **Character Tracker**: updates the present characters.
+- **Persona Stats**: updates persona stats, status and inventory.
+- **Custom Tracker**: replaces your custom tracker fields.
+- **Game State**: updates world-state style game data.
+
+Other types, each with its own ability:
+
+- **Lorebook Update** (Edit lorebooks): creates or updates lorebook entries.
+- **Image Prompt** (Image generation): asks the image generator to draw a scene.
+- **Prompt Patch** (Main prompt edits): adds, prepends or replaces prompt sections.
+- **Frontend Style** (Frontend styling): applies a temporary styling effect.
+- **Background Change** (Change chat backgrounds): picks and saves an available background.
+- **Sprite Change** (Change character sprites): changes expressions shown in chat.
+- **Spotify Control**, **YouTube Control**, **Local Music Control** (Control media playback): control playback.
+- **Haptic Command** (Control haptic devices): sends a bounded command to a haptic device.
+- **About Me Update** (Edit About Me details): updates chat-specific About Me text and proposes public edits.
+- **Character Card Creation** (Create character cards): proposes one editable character card for your approval.
+- **Character Activity** (Choose active chat characters): selects the character cards used for the current reply. It runs before the reply and must select at least one attached character.
+
+### Controls for image agents in a chat
+
+An agent with the **Image generation** ability gets two extra controls in **Chat Settings → Agents → Custom Agents**.
+
+- **Image model**: overrides the image connection for this agent in this chat only. Leave it on **Agent default** to keep the agent's own setting. The chat's **Image Style** also applies to custom-agent images.
+- **Camera button**: makes an image now, without waiting for activation keywords. If the agent's template declines to write a prompt, you get an error toast instead of an image.
 
 ## Activation Keywords
 
-By default a custom agent runs on its normal cadence. **Activation Keywords** let you skip the agent unless the scene is relevant. This saves tokens and cost. A token is a small chunk of text that the AI counts.
+By default an agent runs on its normal cadence (how often it runs). **Activation Keywords** skip the agent unless the scene is relevant, which saves tokens.
 
-To set this up:
+1. In **Activation Keywords**, type one keyword or phrase per line, such as `tavern` or `secret door`.
+2. Set **Scan Depth** to the number of recent messages to search. The default is 5 and the maximum is 200.
 
-1. In the **Activation Keywords** section, type one keyword or phrase per line. For example:
+The agent then runs only when a keyword appears in those messages. Leave the box empty to turn the filter off. Cadence and any activation question still apply.
 
+## Attach tools
+
+An agent can call tools: functions the AI runs to fetch or change something, then reads back. This is also called function calling.
+
+1. In the agent editor, open **Tools / Function Calling** and switch on each tool you want. The list has built-in tools and your own. To build one, see [Custom Tools](../extending/custom-tools.md).
+2. In **Chat Settings**, open **Function Calling** and turn on **Enable Tool Use**. Without it, agent tools stay off.
+
+Imported agents never get tool access. Review an imported agent, then select its tools yourself.
+
+An agent gets at most 16 rounds of tool calls per run (fewer if the server's `MAX_TOOL_ROUNDS` is lower), then answers with what it has. A model that calls one tool at a time spends a round per call, so an agent that saves many entries should make several calls in one response. A lorebook backfill run gets up to 64 rounds.
+
+## Named prompt options
+
+An agent can hold several prompt variants, so each chat can pick one without editing the agent.
+
+1. Under **Prompt Template**, find **Named prompt options**.
+2. Click **Add option**.
+3. Give it a name and a short description, then write its full prompt.
+
+When someone adds the agent to a chat, a **Prompt Mode** dropdown lists your options. With none, only the default prompt shows.
+
+## Other settings
+
+- **Model override**: use a different model for this agent, for example a cheaper one. Leave it empty to use the chat's model. The agent sends the generation parameters saved on that connection. See [Parameters for agents](../prompts/generation-parameters.md#parameters-for-agents).
+- **Agent Budget**: **Context Size** is how many recent messages the agent reads (default 5). **Max Output Tokens** is the output room reserved (default 4096, from 128 to 32768).
+- **Add as Prompt Section**: exposes the agent's latest output as a section you can place in a prompt preset.
+
+Macros such as `{{user}}` and `{{char}}` work in the **Prompt Template**. See [Macros](../prompts/macros.md).
+
+## Worked example
+
+This agent rewrites every reply into British English.
+
+1. Name it `British English Editor`.
+2. Under **Custom Agent Abilities**, turn on **Edit messages**.
+3. Under **Result Type**, pick **Text Rewrite**. The phase switches to **Post-Processing**.
+4. Paste this into **Prompt Template**:
+
+   ```text
+   You are a copy editor. Rewrite the latest reply into British English.
+   Change spelling and vocabulary only. Do not change the meaning, tone, or events.
+   Return JSON with an "editedText" field holding the full rewritten reply,
+   and a "changes" array of short notes describing what you changed.
+   ```
+
+5. Click **Save**.
+6. Open a Roleplay chat, turn on **Enable Agents** in **Chat Settings** and add the agent from **Custom Agents**.
+
+After each reply the agent returns JSON like this:
+
+```json
+{"editedText":"The colour of the harbour caught her eye.","changes":[{"description":"color to colour, harbor to harbour"}]}
 ```
-tavern
-secret door
-moonlit ritual
-```
 
-2. Set **Scan Depth** to the number of recent messages to search. The default is 5. The maximum is 200.
-3. The agent now runs only when at least one keyword appears in that many recent messages.
+Marinara swaps `editedText` into the reply. The `changes` notes show as a short summary.
 
-Leave the keyword box empty to disable the keyword filter. Cadence and any activation question still apply.
+## Import and export agents
+
+To export one agent, click **Export agent** (the upload icon) in the editor's top bar. The file holds the agent's prompt and settings, never custom-tool definitions. To export several, use **Select agents** in the **Agents** panel, pick them and export.
+
+External imports are locked by default.
+
+1. Open **Settings → Advanced → Danger Zone** and turn on **Allow custom Agent imports**. No `.env` change is needed.
+2. In the **Agents** panel, click **Import agents** and choose agent files or a folder.
+3. Review the permission list Marinara shows. Approve only what the agent needs. Unchecked capabilities stay blocked.
+
+This lock affects only agents from files, folders or custom repositories. Agents you create and official agents from **Agent Organizer** work normally. Each imported file gets a new custom identity, so it cannot replace an official agent.
+
+For safety, Marinara ignores bundled functions, clears tool selections, cleans temporary CSS and checks approved capabilities before an imported agent can change messages, trackers, lorebooks, backgrounds, sprites, media, haptics, About Me data, prompts or images. Import trusted functions separately, review them, and attach them to the agent yourself. Turning the **Danger Zone** toggle off stops imported agents from running.
 
 ## Activation questions
 
-An **Activation question** asks whether the recent scene needs your custom agent, for example `In the latest message, the characters move to a different location.` It can recognize paraphrases that keywords miss. Leave it empty to keep the existing behavior.
+An activation question asks whether the recent scene needs your agent. It catches paraphrases that keywords miss. It needs a **Decision model**, a small model that answers yes-or-no questions. Pick one in the Connections panel. See [Decision Models](../connections/decision-models.md). With **Decision model** set to **None**, the default, the question fields stay disabled, and an agent with a question runs as if it had none.
 
-A **Decision model** answers it. Pick one under **Decision model** in the Connections panel: the local model you already run, a hosted Decision connection, or a decision model Marinara installs for you. [Decision Models](../connections/decision-models.md) explains each one, which to pick, and how to set it up. With **Decision model** set to **None**, the default, the question fields in the agent editor stay disabled, and an agent with a question runs as if it had none.
+1. Open the custom agent.
+2. Type a **Question** of up to 500 characters. The macros `{{user}}` and `{{char}}` work in it.
+3. Set **Run when probability is at least** to the threshold for this agent. The agent runs when the chance of "yes" meets it, so higher values skip more runs. The editor shows a recommended value for your model: 0.5 for local chat models and Decision accounts, or 0.1 for the built-in Open-Jev models. Check it against your own chats after you switch models. See [Thresholds](../connections/decision-models.md#thresholds).
+4. Optional: set **Bypass the question after this many messages without a successful run**. After that many messages, the question is skipped, so a model that keeps answering "no" cannot silence the agent for good. Keywords and cadence still apply.
 
-### Set up your agent
+Write the question as a statement about the latest message, such as `The latest message moves the scene to a new place.` A small model answered this more reliably than `Did the scene change?` See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
-People who import an agent with an activation question or decision statements in its prompt see a notice linking to the Decision Models guide. Without a selected Decision model, it explains that activation questions let the agent run whenever its keywords and **Trigger Cadence** allow, while prompt statements read as no and use their `{{else}}` branch. Set a cadence too if your agent should not run every turn without a Decision model. The same notice appears when installing a package from the Agent catalog.
+How it runs:
 
-With a Decision model selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
+- Keywords and cadence are checked first, so a skipped agent costs no decision request. Questions with the same scan depth are batched per phase.
+- **Scan Depth** sets the messages used by both keywords and the question.
+- Pre-generation and parallel agents use the chat before the reply. Post-processing agents also see the finished reply.
+- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit depends on the model type and on whether the model has to think first. See [Time limits](../connections/decision-models.md#time-limits).
+- Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
-Despite the field's name, write it as a statement of fact about the latest message, not as a question. In our tests a small decision model answered `Did the scene change?` less reliably than `The latest message moves the scene to a new place.` The same advice applies here as to decision statements in prompts; see [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+Activation questions apply to custom agents only.
 
-- **Run when probability is at least** sets this agent's threshold. The agent runs when the probability of “yes” meets or exceeds it; higher values skip more runs. The editor recommends 0.5 for local chat models and Decision connections, or the managed sidecar's manifest value (0.1 for the built-in Open-Jev models). A custom endpoint does not get model-specific calibration automatically. Check the threshold against your own chats, especially after switching models. Changing it affects this activation question, not statements inside the agent's prompt. See [Thresholds](../connections/decision-models.md#thresholds).
-- **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run. Consider setting it for an agent that matters: any model sometimes answers wrongly, and this stops one that keeps answering "no" from silencing the agent for good.
-- Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
+## Decision statements in the agent's prompt
 
-Keywords and cadence are checked first, so an already-skipped agent does not make a paid decision request. Questions sharing a scan depth are batched for each phase. A timeout, unavailable model, or invalid answer lets the affected agent run normally. The budget is the Decision connection's **Time limit** (1.5 seconds by default, 4 for an OpenAI-compatible chat model connection) and 4 seconds for a local model, or 20 seconds when that model has to think first. Decision requests follow generation cancellation. Ordinary logs omit chat content; debug prompt logging includes the evaluated messages and questions.
+An activation question decides whether the agent runs. A decision statement in the **Prompt Template** decides what a running agent is told. The syntax is in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
 
-This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior.
-
-### Decision statements in the agent's prompt
-
-An activation question decides whether the agent runs. A decision statement in the agent's **Prompt Template** decides what a running agent is told. Both use the same Decision model, and the syntax is the one in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
-
-```
+```text
 {{#if decision:"In the latest message, the characters move to a different location"}}
 Update the location field.
 {{else}}
@@ -166,99 +205,14 @@ Leave the location as it is.
 {{/if}}
 ```
 
-Together, an agent can skip quiet turns entirely and send a smaller prompt on the turns it does run. Some ideas:
+Use them to send a smaller prompt on quiet turns. A tracker can update the location only when it changed. An image agent can describe a new picture only when the scene changed. A music agent can change tracks only when the mood shifted. To pick one of several instruction sets, use `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, then `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, and so on. See [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model).
 
-- A tracker includes its "update the location" instructions only when the location changed, instead of re-deriving it every turn.
-- An image agent describes a new picture only when the scene looks different.
-- A music agent is told to change tracks only when the mood shifted.
-- A choice picks one of several instruction sets: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, and so on.
+- Pre-generation and parallel agents read the chat before the reply and share answers with the main prompt. Post-processing agents read the finished reply, and their statements are asked again with it.
+- Re-running an agent reuses successful answers still cached for the same turn, model and statements. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse).
+- In an agent prompt, `{{char}}` names every character in the chat, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
+- With no answer, a statement reads as no. Make the `{{else}}` branch sensible, because many users have no Decision model.
 
-How it runs:
-
-- Pre-generation and parallel agents read the chat before the reply, the same turn the main prompt reads, and share its answers. Post-processing agents read the finished reply as the latest message, and their statements are asked again with it.
-- Re-running an agent, for example with a tracker's refresh button, by retrying a failed agent, or with **Re-run** on an injection, reuses successful answers still cached for the same turn, model and statements. Failed answers can be retried; a server restart, cache eviction or changed inputs can also cause new requests. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse).
-- In an agent prompt, `{{char}}` names every character in the chat at once, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
-- With no answer, a statement reads as no. The agent must still do something sensible with its `{{else}}` branch, because many users will not have a Decision model.
-
-Agents installed from Marinara-Agents render their prompt templates the same way, so they can use decision statements too.
-
-## Attaching tools (Function Calling)
-
-Your agent can call tools. A tool is a function the AI can run to fetch or change something, then read the result back. This is also called function calling.
-
-To attach tools, open the **Tools / Function Calling** section and toggle each tool on or off. The list includes built-in tools and any custom tools you have made. To learn how to build your own, read [Custom Tools](../extending/custom-tools.md).
-
-Tools only work if the chat itself allows them. In **Chat Settings**, open the **Function Calling** section and turn on **Enable Tool Use**. Without that chat setting, the agent's tools stay off even when you toggle them here.
-
-Imported agent files do not grant tool access. After importing an agent, inspect its prompt and settings, then select any tools you want it to use yourself.
-
-An agent gets at most 16 rounds of tool calls in one run (fewer if the server's `MAX_TOOL_ROUNDS` is lower), then gives its answer with what it has. A model that calls one tool at a time spends a round on each call, so an agent that saves many entries should make several calls in one response where the model supports parallel tool calls. A lorebook backfill run, which only saves entries, gets up to 64 rounds.
-
-## Named prompt options
-
-A single agent can hold several prompt variants. This is the **Named prompt options** feature. A chat can then pick one variant without you editing the agent globally.
-
-To add a variant:
-
-1. Under **Prompt Template**, find **Named prompt options**.
-2. Click **Add option**.
-3. Give the option a name and a short description.
-4. Write the full prompt body for that option.
-
-When someone adds your agent to a chat, they see a **Prompt Mode** dropdown listing your named options. If you add none, the chat menu shows only the default prompt.
-
-## Other settings you can adjust
-
-Custom agents share some settings with built-in agents:
-
-- **Connection Override**: pick a different AI connection for this agent. For example, use a cheaper model for background work. Leave it empty to use the chat's connection. The agent sends the generation parameters saved on that connection; see [Parameters for agents](../prompts/generation-parameters.md#parameters-for-agents).
-- **Agent Budget**: set **Context Size** (how many recent messages the agent reads, default 5). Also set **Max Output Tokens** (the output room reserved, default 4096, from 128 to 32768).
-- **Add as Prompt Section**: turn this on to expose the agent's latest output as a section you can inject in a prompt preset.
-
-Macros like `{{user}}` and `{{char}}` work inside the **Prompt Template**. See [Macros](../prompts/macros.md) for the full list.
-
-## A worked example
-
-Here is a complete custom agent that rewrites every reply into British English.
-
-Setup in the editor:
-
-1. Name it `British English Editor`.
-2. Under **Custom Agent Abilities**, turn on **Edit messages**.
-3. Under **Result Type**, pick **Text Rewrite**. The phase switches to **Post-Processing** on its own.
-4. Paste this into the **Prompt Template**:
-
-```
-You are a copy editor. Rewrite the latest reply into British English.
-Change spelling and vocabulary only. Do not change the meaning, tone, or events.
-Return JSON with an "editedText" field holding the full rewritten reply,
-and a "changes" array of short notes describing what you changed.
-```
-
-5. Click **Save**.
-6. Open a Roleplay chat, go to **Chat Settings**, turn on **Enable Agents**, and add `British English Editor` from the **Custom Agents** section.
-
-The agent returns JSON like this after each reply:
-
-```
-{"editedText":"The colour of the harbour caught her eye.","changes":[{"description":"color to colour, harbor to harbour"}]}
-```
-
-Marinara reads `editedText` and swaps it into the reply. You see the message in British English. The `changes` notes appear as a short summary of what the agent adjusted.
-
-## Importing and exporting agents
-
-You can share a custom agent as a file.
-
-To export from the editor, click the **Export agent** button (the upload icon) in the top bar. This saves the agent's prompt and configuration as a package. Agent packages never include custom-tool definitions.
-
-To export several agents at once, use **Select agents** in the **Agents** panel, pick the agents you want, and export the group.
-
-External Agent imports are locked by default. Open **Settings → Advanced → Danger Zone** and enable **Allow custom Agent imports** first. This toggle does not need an `.env` change. It affects only Agents supplied through files, folders, or custom repositories: Agents you create in Marinara and official Agents installed through **Download Agents** remain available normally.
-
-To import, open the **Agents** panel and click **Import agents** for a single file, or **Import agent folder** to pick a whole folder. Marinara shows a permission review before anything is stored. Approve only the capabilities the Agent needs; unchecked capabilities stay blocked. Each file import receives a new custom identity, so it cannot replace a curated Agent with the same internal type.
-
-For safety, Marinara ignores bundled functions, clears tool selections from imported settings, sanitizes temporary CSS before applying it, and checks approved capabilities before an imported Agent can change messages, trackers, lorebooks, backgrounds, sprites, media, haptics, About Me data, prompts, or generated images. Import trusted functions separately from **Function Calls**, review them, and explicitly attach them to the Agent afterward. Turning the Danger Zone toggle off again prevents externally imported Agents from running; locally authored and official Agents are not affected.
+Agents installed from Marinara-Agents render prompts the same way.
 
 ## Related guides
 

@@ -3,8 +3,12 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
+import { partialInput } from "@marinara-engine/shared";
+import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
+import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
+import { deletePendingForChat } from "../services/professor-mari/workspace-pending-store.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
@@ -62,10 +66,25 @@ import {
   MESSAGE_MARK_EXTRA_KEYS,
   MAX_PINNED_CONTEXT_MESSAGES,
   semanticSummaryRetrievalSettingsSchema,
+  agentLorebookAttachmentPatchesSchema,
+  mergeAgentLorebookAttachments,
   DEFAULT_GENERATION_PARAMS,
+  CHAT_MODEL_OVERRIDE_KEY,
+  CHAT_RECENT_MODELS_KEY,
+  CHAT_RECENT_MODELS_LIMIT,
+  CHAT_FOLLOWS_MAIN_KEY,
+  LOCAL_SIDECAR_CONNECTION_ID,
+  chatModelChoiceSchema,
+  chatModelPickSchema,
+  isChatProvider,
+  type ChatModelChoice,
+  isStockMarinaraUniversalPreset,
   omitChatMetadataLocalDestinations,
+  rulesetAllowsCombatStyle,
+  rulesetCombatStyles,
 } from "@marinara-engine/shared";
 import type {
+  Chat,
   CharacterData,
   CharacterOnboarding,
   ChatMemoryChunk,
@@ -99,8 +118,11 @@ import { createMessageTrashStorage, MessageTrashPinnedLimitError } from "../serv
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
+import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
 import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
+import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import {
@@ -138,6 +160,8 @@ import { createSpatialContextStorage } from "../services/storage/spatial-context
 import { restoreBranchHudLists, trimJournalForBranch } from "../services/game/branch-state.js";
 import { removeGameInventoryTelling, switchGameInventoryTelling } from "../services/game/game-inventory.service.js";
 import { applyAllSegmentEdits, applyMessageSegmentEdits } from "../services/game/segment-edits.js";
+import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
+import { addGamePartyCards, syncGamePartyIds } from "../services/game/game-party-cards.js";
 import type { Journal } from "../services/game/journal.service.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
@@ -155,6 +179,8 @@ import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { newId } from "../utils/id-generator.js";
+import { runHtmlArtifactCommand } from "../services/generation/html-artifact.js";
+import { readChatBranchGraph } from "../services/chat-branch-graph.js";
 import {
   isStoryTranscriptMessage,
   renderTranscriptHtml,
@@ -171,6 +197,7 @@ import { singleChunk, streamExportZip } from "../utils/export-stream.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import {
   appendNonLeadingSystemMessagesToLastUser,
+  capSummarizedHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectSummaryRangeMessages,
@@ -532,7 +559,7 @@ function toPeekPromptMessages(
 
 async function buildPersonaSnapshotForChat(
   app: FastifyInstance,
-  chat: { personaId?: string | null; personaCharacterId?: string | null; mode?: string | null } | null,
+  chat: { id?: string; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null } | null,
 ) {
   const charactersStore = createCharactersStorage(app.db);
   if (!chat) return null;
@@ -553,6 +580,55 @@ async function buildPersonaSnapshotForChat(
     nameColor: identity.nameColor,
     dialogueColor: identity.dialogueColor,
     boxColor: identity.boxColor,
+  };
+}
+
+type ChatIdentityFields = { personaId?: string | null; personaCharacterId?: string | null; mode?: string | null };
+
+/**
+ * Before a chat's persona is saved as `target` (Chat Settings or a settings profile): user messages sent so far keep
+ * the identity they were sent as. Runs before the write, so a request that fails part way leaves the previous persona
+ * saved and its retry back-fills the rest. Returns null when the identity stays, otherwise the call to make once the
+ * write is saved: a started chat gets a "You are now playing as" turn so the model knows.
+ */
+export async function prepareChatIdentityChange(
+  app: FastifyInstance,
+  before: ChatIdentityFields & { id: string },
+  target: ChatIdentityFields,
+) {
+  const charactersStore = createCharactersStorage(app.db);
+  const identityBefore = await resolveChatUserIdentity(charactersStore, before);
+  const identityAfter = await resolveChatUserIdentity(charactersStore, { ...before, ...target });
+  if (identityBefore?.id === identityAfter?.id && identityBefore?.source === identityAfter?.source) return null;
+  const storage = createChatsStorage(app.db);
+  // Keep the file protected until every backfilled reference is saved, not just until
+  // the avatar URL is read: cleanup may otherwise delete it during an awaited write.
+  await withAvatarFileLifecycleLock(async () => {
+    const previousSnapshot =
+      (await buildPersonaSnapshotForChat(app, before)) ??
+      ({ personaId: "default-user", source: "persona", name: "You" } as const);
+    for (const message of await storage.listMessages(before.id)) {
+      if (message.role !== "user" || parseExtra(message.extra).personaSnapshot) continue;
+      await storage.updateMessageExtra(message.id, { personaSnapshot: previousSnapshot });
+    }
+  });
+  return async () => {
+    const messages = await storage.listMessages(before.id);
+    const hasStartedChat = messages.some((message) => message.role === "user" || message.role === "assistant");
+    if (!hasStartedChat || !identityAfter) return;
+    await storage.createMessage({
+      chatId: before.id,
+      role: "system",
+      characterId: null,
+      content: `You are now playing as ${identityAfter.name}.`,
+      extra: {
+        identityTransitionEvent: {
+          from: identityBefore?.name ?? null,
+          to: identityAfter.name,
+          source: identityAfter.source,
+        },
+      },
+    });
   };
 }
 
@@ -887,6 +963,8 @@ type ProfessorMariRestartQuery = {
   name?: string;
 };
 
+type PeekPromptBody = { messageId?: unknown; current?: unknown };
+
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
   const messageTrashStore = createMessageTrashStorage(app.db);
@@ -986,10 +1064,34 @@ export async function chatsRoutes(app: FastifyInstance) {
   };
 
   // List all chats
-  app.get("/", async () => {
+  app.get("/", async (req, reply) => {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
+    const response = chats
+      .filter((chat) => !shouldHideProfessorMariChat(chat))
+      .map((chat) => {
+        // List only public fields; stored embeddings and write counters belong to the database/export.
+        const normalized = normalizeChatForResponse(chat);
+        return {
+          id: normalized.id,
+          name: normalized.name,
+          mode: normalized.mode,
+          characterIds: normalized.characterIds,
+          groupId: normalized.groupId,
+          personaId: normalized.personaId,
+          personaCharacterId: normalized.personaCharacterId,
+          promptPresetId: normalized.promptPresetId,
+          connectionId: normalized.connectionId,
+          connectedChatId: normalized.connectedChatId,
+          folderId: normalized.folderId,
+          sortOrder: normalized.sortOrder,
+          lastMessageAt: normalized.lastMessageAt,
+          createdAt: normalized.createdAt,
+          updatedAt: normalized.updatedAt,
+          metadata: normalized.metadata,
+        } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
+      });
+    return prepareJsonResponse(req, reply, response);
   });
 
   // Bounded Home data. This deliberately returns one short visible-message
@@ -1311,6 +1413,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     await storage.remove(target.id);
     // #6842: the chat's Keep/Restore cards go with it. Its changes stay applied.
     await getMariDbService(app.db).keepReviewsForChat(target.id);
+    // Messages queued for her in this chat go too. Best effort: a leftover file never fails the delete.
+    await deletePendingForChat(target.id).catch((err) =>
+      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", target.id),
+    );
     if (wasActive) {
       const remaining = sortProfessorMariChats((await storage.list()).filter(isHomeProfessorMariChat));
       const next = remaining[0];
@@ -1329,6 +1435,17 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get<{ Params: { groupId: string } }>("/group/:groupId", async (req) => {
     const chats = await storage.listByGroup(req.params.groupId);
     return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
+  });
+
+  // The branch graph (#8157): where each chat in the group forked and the roles of its own messages.
+  app.get<{ Params: { groupId: string } }>("/group/:groupId/branch-graph", async (req) => {
+    const chats = await storage.listByGroup(req.params.groupId);
+    return readChatBranchGraph(
+      storage,
+      chats
+        .filter((chat) => !shouldHideProfessorMariChat(chat))
+        .map((chat) => ({ id: chat.id, metadata: parseChatMetadata(chat.metadata) })),
+    );
   });
 
   // Get single chat
@@ -1353,7 +1470,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Create chat
-  app.post("/", async (req, reply) => {
+  app.post("/", chatResourceRequestOptions, async (req, reply) => {
     const input = createChatSchema.parse(req.body);
     if (input.characterIds.includes(PROFESSOR_MARI_ID)) {
       return reply.status(400).send({ error: "Professor Mari is only available from the Home screen." });
@@ -1365,13 +1482,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
     }
     const body = req.body as Record<string, unknown>;
-    // No connection picked (no starred preset): seed the user's default so the
-    // setup wizard shows what generation would fall back to anyway.
-    if (!input.connectionId) {
-      const defaultConnectionId = (await createConnectionsStorage(app.db).getDefault())?.id;
-      if (defaultConnectionId) input.connectionId = defaultConnectionId;
-    }
-    const chat = await storage.create(
+    let chat = await storage.create(
       input,
       normalizeTimestampOverrides({
         createdAt: body.createdAt,
@@ -1379,6 +1490,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       }),
     );
     if (!chat) return chat;
+    // No Model picked: the chat follows Main. Without this flag generation treats the empty id as a deleted Model.
+    if (!input.connectionId) {
+      await storage.patchMetadata(chat.id, { [CHAT_FOLLOWS_MAIN_KEY]: true });
+      chat = (await storage.getById(chat.id)) ?? chat;
+    }
 
     try {
       await seedNewRoleplayChatTrackerDefaults(app, chat, input.characterIds);
@@ -1397,8 +1513,8 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Update chat
-  app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
-    const data = createChatSchema.partial().parse(req.body);
+  app.patch<{ Params: { id: string } }>("/:id", chatResourceRequestOptions, async (req, reply) => {
+    const data = partialInput(createChatSchema).parse(req.body);
     const existing = await storage.getById(req.params.id);
     if (!existing || isHomeProfessorMariChat(existing)) {
       return reply.status(404).send({ error: "Chat not found" });
@@ -1428,34 +1544,6 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (data.personaCharacterId) {
       if (!(await isValidCharacterIdentity(app.db, data.personaCharacterId))) {
         return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
-      }
-    }
-    const identityBefore =
-      data.personaId !== undefined || data.personaCharacterId !== undefined
-        ? await resolveChatUserIdentity(createCharactersStorage(app.db), existing)
-        : null;
-    const nextIdentity =
-      data.personaId !== undefined || data.personaCharacterId !== undefined
-        ? {
-            personaId: data.personaCharacterId ? null : (data.personaId ?? null),
-            personaCharacterId: data.personaCharacterId || null,
-          }
-        : null;
-    const identityAfter = nextIdentity
-      ? await resolveChatUserIdentity(createCharactersStorage(app.db), { ...existing, ...nextIdentity })
-      : null;
-    const identityChanged =
-      identityBefore?.id !== identityAfter?.id || identityBefore?.source !== identityAfter?.source;
-    if (identityChanged) {
-      const previousSnapshot =
-        (await buildPersonaSnapshotForChat(app, existing)) ??
-        ({ personaId: "default-user", source: "persona", name: "You" } as const);
-      const messages = await storage.listMessages(req.params.id);
-      for (const message of messages) {
-        if (message.role !== "user") continue;
-        const extra = parseExtra(message.extra);
-        if (extra.personaSnapshot) continue;
-        await storage.updateMessageExtra(message.id, { personaSnapshot: previousSnapshot });
       }
     }
     let roleplayTrackerCharacterIdsToSeed: string[] = [];
@@ -1551,7 +1639,24 @@ export async function chatsRoutes(app: FastifyInstance) {
         }
       }
     }
+    const announceIdentityChange =
+      data.personaId !== undefined || data.personaCharacterId !== undefined
+        ? await prepareChatIdentityChange(app, existing, {
+            personaId: data.personaCharacterId ? null : (data.personaId ?? null),
+            personaCharacterId: data.personaCharacterId || null,
+          })
+        : null;
     let updated = await storage.update(req.params.id, data);
+    // Setting the Model this way picks the saved Model itself, so a per-chat catalog pick on it ends.
+    if (updated && data.connectionId !== undefined && readChatModelOverride(existing)) {
+      updated = (await storage.patchMetadata(req.params.id, { [CHAT_MODEL_OVERRIDE_KEY]: null })) ?? updated;
+    }
+    // Changing the Model to none ("Use default", Random off) follows Main by choice, so generation reports no deleted
+    // Model; a PATCH that keeps the id (a stale form after the delete already cleared it) leaves the flag as it is.
+    if (updated && data.connectionId !== undefined && (data.connectionId ?? null) !== (existing.connectionId ?? null)) {
+      updated =
+        (await storage.patchMetadata(req.params.id, { [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId })) ?? updated;
+    }
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {
         await seedNewRoleplayChatTrackerDefaults(app, updated, roleplayTrackerCharacterIdsToSeed);
@@ -1580,28 +1685,104 @@ export async function chatsRoutes(app: FastifyInstance) {
         logger.warn(err, "Failed to drop onboarding card variables for removed chat characters");
       }
     }
-    if (updated && identityChanged) {
-      const existingMessages = await storage.listMessages(req.params.id);
-      const hasStartedChat = existingMessages.some(
-        (message) => message.role === "user" || message.role === "assistant",
-      );
-      if (hasStartedChat && identityAfter) {
-        await storage.createMessage({
-          chatId: req.params.id,
-          role: "system",
-          characterId: null,
-          content: `You are now playing as ${identityAfter.name}.`,
-          extra: {
-            identityTransitionEvent: {
-              from: identityBefore?.name ?? null,
-              to: identityAfter.name,
-              source: identityAfter.source,
-            },
-          },
-        });
+    // A character joining a game on a ruleset from here joins with their card's sheet, as one the
+    // Game Master recruits does (laptop playtest 2026-10-24).
+    if (updated && existing.mode === "game" && cardVariableCharacterIdsToSeed.length > 0) {
+      try {
+        if (await addGamePartyCards(app.db, req.params.id, cardVariableCharacterIdsToSeed))
+          updated = (await storage.getById(req.params.id)) ?? updated;
+      } catch (err) {
+        logger.warn(err, "Failed to add game cards for characters added to a game");
       }
     }
+    if (
+      updated &&
+      existing.mode === "game" &&
+      (cardVariableCharacterIdsToSeed.length > 0 || cardVariableCharacterIdsToDrop.length > 0)
+    ) {
+      try {
+        if (
+          await syncGamePartyIds(app.db, req.params.id, cardVariableCharacterIdsToSeed, cardVariableCharacterIdsToDrop)
+        )
+          updated = (await storage.getById(req.params.id)) ?? updated;
+      } catch (err) {
+        logger.warn(err, "Failed to update the game party for characters added or removed");
+      }
+    }
+    if (updated) await announceIdentityChange?.();
     return updated ? normalizeChatForResponse(updated) : updated;
+  });
+
+  // The quick switch and Chat Settings pick (decision 26): it applies to this chat only. A catalog model is stored
+  // as an override on one of the Connection's Models (its key and endpoint); a model the library already holds
+  // points the chat at that saved Model instead. The previous choices are kept for "Recent" and Undo.
+  app.put<{ Params: { id: string } }>("/:id/model", async (req, reply) => {
+    const pick = chatModelPickSchema.parse(req.body);
+    const existing = await storage.getById(req.params.id);
+    if (!existing || isHomeProfessorMariChat(existing)) return reply.status(404).send({ error: "Chat not found" });
+    // "Use default" (decision 27): no Model of its own, so the chat answers through Main (as an unset chat did).
+    let choice: ChatModelChoice | null = pick.connectionId === null ? null : (pick as ChatModelChoice);
+    const special =
+      !!choice && (choice.connectionId === "random" || choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID);
+    const row = special || !choice ? null : await createConnectionsStorage(app.db).getById(choice.connectionId);
+    if (choice && !special && !row) return reply.status(404).send({ error: "Model not found" });
+    if (row ? !isChatProvider(row.provider) : choice?.model) {
+      return reply.status(400).send({ error: "A chat needs a chat Model to run on." });
+    }
+    if (choice?.model && row) {
+      if (row.model === choice.model) choice = { connectionId: row.id };
+      else if (row.accountId) {
+        const found = await createConnectionAccountsStorage(app.db).findChatModel(row.accountId, choice.model);
+        if (typeof found === "object") {
+          choice = found.existing
+            ? { connectionId: found.existing.id }
+            : {
+                connectionId: row.id,
+                model: choice.model,
+                ...((choice.name ?? found.catalog.name) ? { name: choice.name ?? found.catalog.name } : {}),
+                ...pickLimits(choice, found.catalog),
+              };
+        }
+      }
+    }
+
+    const sameChoice = (a: ChatModelChoice, b: ChatModelChoice) =>
+      a.connectionId === b.connectionId && (a.model ?? "") === (b.model ?? "");
+    // One queue per chat holds the Model and the override together, so two quick picks cannot mix.
+    const updated = await withChatMetadataPatchQueue(req.params.id, async () => {
+      const latest = await storage.getById(req.params.id);
+      if (!latest) return null;
+      const previous: ChatModelChoice | null =
+        latest.connectionId && latest.connectionId !== "random"
+          ? (readChatModelOverride(latest) ?? { connectionId: latest.connectionId })
+          : null;
+      await storage.update(req.params.id, { connectionId: choice?.connectionId ?? null });
+      return storage.patchMetadata(
+        req.params.id,
+        (current) => {
+          const stored = Array.isArray(current[CHAT_RECENT_MODELS_KEY]) ? current[CHAT_RECENT_MODELS_KEY] : [];
+          const recent: ChatModelChoice[] = [];
+          for (const candidate of [previous, ...stored]) {
+            const parsed = chatModelChoiceSchema.safeParse(candidate);
+            if (
+              !parsed.success ||
+              (choice && sameChoice(parsed.data, choice)) ||
+              recent.some((r) => sameChoice(r, parsed.data))
+            ) {
+              continue;
+            }
+            recent.push(parsed.data);
+          }
+          return {
+            [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
+            [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
+            [CHAT_FOLLOWS_MAIN_KEY]: !choice,
+          };
+        },
+        { metadataQueueHeld: true },
+      );
+    });
+    return updated ? normalizeChatForResponse(updated) : reply.status(404).send({ error: "Chat not found" });
   });
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
@@ -1618,6 +1799,13 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const incoming = req.body as Record<string, unknown>;
+    let attachmentPatch: Parameters<typeof mergeAgentLorebookAttachments>[1] | undefined;
+    if (Object.prototype.hasOwnProperty.call(incoming, "agentLorebookAttachments")) {
+      const parsed = agentLorebookAttachmentPatchesSchema.safeParse(incoming.agentLorebookAttachments);
+      if (!parsed.success) return reply.status(400).send({ error: "Invalid agent lorebook attachments" });
+      incoming.agentLorebookAttachments = parsed.data;
+      attachmentPatch = parsed.data;
+    }
     const summaryRetrievalFieldSchemas = {
       semanticSummaryRecentCount: semanticSummaryRetrievalSettingsSchema.shape.semanticSummaryRecentCount,
       semanticSummaryOlderCount: semanticSummaryRetrievalSettingsSchema.shape.semanticSummaryOlderCount,
@@ -1749,6 +1937,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       // Numbers clamp to 0-100; anything else returns the chat to the agent's Run Interval.
       incoming.illustratorRunInterval = normalizeIllustratorRunInterval(incoming.illustratorRunInterval);
     }
+    if (Object.prototype.hasOwnProperty.call(incoming, "illustratorVideoRunInterval")) {
+      // Same 0-100 range; anything else returns the chat to the agent's Video Run Interval.
+      incoming.illustratorVideoRunInterval = normalizeIllustratorRunInterval(incoming.illustratorVideoRunInterval);
+    }
     if (
       Object.prototype.hasOwnProperty.call(incoming, "noodleTimelineContextEnabled") &&
       typeof incoming.noodleTimelineContextEnabled !== "boolean"
@@ -1761,39 +1953,73 @@ export async function chatsRoutes(app: FastifyInstance) {
     ) {
       return reply.status(400).send({ error: "slurp2ActivityContextEnabled must be a boolean" });
     }
-    const cancelReplacedAdvancedMemory = (previous: Record<string, unknown>, saved: Record<string, unknown>) => {
-      if (
-        incoming.enableMemoryRecall === true &&
-        !normalizeAdvancedMemorySettings(saved.advancedMemory).enabled &&
-        normalizeAdvancedMemorySettings(previous.advancedMemory).enabled
-      ) {
-        createAdvancedMemoryService(app.db).cancelActiveOperation(req.params.id);
+    return withChatMetadataPatchQueue(req.params.id, async () => {
+      // Check the pair this patch will actually save, after earlier queued changes have landed.
+      // A ruleset-only change must also agree with the saved style (classic when unspecified).
+      if (Object.hasOwn(incoming, "gameRuleset") || Object.hasOwn(incoming, "gameCombatStyle")) {
+        const freshChat = await storage.getById(req.params.id);
+        if (!freshChat) return reply.status(404).send({ error: "Chat not found" });
+        const next = { ...parseChatMetadata(freshChat.metadata), ...incoming };
+        const resolved = resolveGameRuleset(next, await loadRulesetRegistry(app.db));
+        if (
+          resolved.status === "ok" &&
+          !rulesetAllowsCombatStyle(resolved.definition, next.gameCombatStyle as string | null | undefined)
+        ) {
+          return reply.status(400).send({
+            error: `This game's ruleset plays battles only as ${rulesetCombatStyles(resolved.definition)!.join(", ")}.`,
+            code: "combat_style_not_allowed",
+          });
+        }
       }
-    };
-    if (
-      Object.prototype.hasOwnProperty.call(incoming, "hideSummarisedMessages") &&
-      typeof incoming.hideSummarisedMessages === "boolean"
-    ) {
-      const updated = await storage.patchMetadata(
-        req.params.id,
-        async (freshMeta) => ({
-          ...incoming,
-          ...(await summaryHidingPatch(storage, req.params.id, freshMeta, { ...freshMeta, ...incoming })),
-        }),
-        { afterWrite: cancelReplacedAdvancedMemory },
-      );
+      const cancelReplacedAdvancedMemory = (previous: Record<string, unknown>, saved: Record<string, unknown>) => {
+        if (
+          incoming.enableMemoryRecall === true &&
+          !normalizeAdvancedMemorySettings(saved.advancedMemory).enabled &&
+          normalizeAdvancedMemorySettings(previous.advancedMemory).enabled
+        ) {
+          createAdvancedMemoryService(app.db).cancelActiveOperation(req.params.id);
+        }
+      };
+      const mergeIncoming = (freshMeta: Record<string, unknown>) => ({
+        ...incoming,
+        ...(attachmentPatch
+          ? {
+              agentLorebookAttachments: mergeAgentLorebookAttachments(
+                freshMeta.agentLorebookAttachments,
+                attachmentPatch,
+              ),
+            }
+          : {}),
+      });
+      if (
+        Object.prototype.hasOwnProperty.call(incoming, "hideSummarisedMessages") &&
+        typeof incoming.hideSummarisedMessages === "boolean"
+      ) {
+        const updated = await storage.patchMetadata(
+          req.params.id,
+          async (freshMeta) => ({
+            ...mergeIncoming(freshMeta),
+            ...(await summaryHidingPatch(storage, req.params.id, freshMeta, {
+              ...freshMeta,
+              ...mergeIncoming(freshMeta),
+            })),
+          }),
+          { metadataQueueHeld: true, afterWrite: cancelReplacedAdvancedMemory },
+        );
+        return updated ? normalizeChatForResponse(updated) : updated;
+      }
+      // Rearranging windows or dismissing their hint is a view preference, not new chat activity.
+      const changedKeys = Object.keys(incoming);
+      const viewOnly =
+        changedKeys.length > 0 &&
+        changedKeys.every((key) => key === "windowLayout" || key === "chatSettingsHintDismissed");
+      const updated = await storage.patchMetadata(req.params.id, mergeIncoming, {
+        metadataQueueHeld: true,
+        touchUpdatedAt: !viewOnly,
+        afterWrite: cancelReplacedAdvancedMemory,
+      });
       return updated ? normalizeChatForResponse(updated) : updated;
-    }
-    // Rearranging windows or dismissing their hint is a view preference, not new chat activity.
-    const changedKeys = Object.keys(incoming);
-    const viewOnly =
-      changedKeys.length > 0 &&
-      changedKeys.every((key) => key === "windowLayout" || key === "chatSettingsHintDismissed");
-    const updated = await storage.patchMetadata(req.params.id, incoming, {
-      touchUpdatedAt: !viewOnly,
-      afterWrite: cancelReplacedAdvancedMemory,
     });
-    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Mark a chat as having autonomous messages the user has not viewed yet.
@@ -2370,6 +2596,24 @@ export async function chatsRoutes(app: FastifyInstance) {
     },
   );
 
+  // Setup cancellation is deliberately separate from the unconditional user-confirmed delete route.
+  app.post<{ Params: { id: string } }>("/:id/discard-empty-setup", async (req) => {
+    const { initialChat } = z
+      .object({
+        initialChat: z.object({
+          id: z.string(),
+          createdAt: z.string(),
+          name: z.string(),
+          mode: z.enum(["conversation", "roleplay", "game"]),
+          connectionId: z.string().nullable(),
+          promptPresetId: z.string().nullable(),
+          metadata: z.record(z.string(), z.unknown()),
+        }),
+      })
+      .parse(req.body);
+    return { deleted: await storage.removeEmptySetupChat(req.params.id, initialChat) };
+  });
+
   // Delete chat
   app.delete<{ Params: { id: string }; Querystring: { force?: string } }>("/:id", async (req, reply) => {
     const force = req.query.force === "true" || req.query.force === "1";
@@ -2410,6 +2654,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     // Disconnect from partner chat before deleting
     await storage.disconnectChat(req.params.id);
     await storage.remove(req.params.id);
+    // A Mari chat can be deleted here too (the chat list). Best effort, like her own delete route.
+    await deletePendingForChat(req.params.id).catch((err) =>
+      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", req.params.id),
+    );
     if (scenePackageOrigin)
       await releaseScenePackageOrigin(scenePackageOrigin, {
         kind: "deleted",
@@ -2448,6 +2696,21 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Total message count for a chat (lightweight, for absolute numbering)
   app.get<{ Params: { id: string } }>("/:id/message-count", async (req) => {
     return { count: await storage.countMessages(req.params.id) };
+  });
+
+  // Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail (#8831).
+  app.get<{ Params: { id: string } }>("/:id/summary-backlog", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
+    if (chat.mode !== "roleplay" || normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled) {
+      return { backlog: 0 };
+    }
+    const messages = await storage.listMessages(req.params.id);
+    let start = messages.length - 1;
+    while (start > 0 && parseExtra(messages[start]!.extra).isConversationStart !== true) start--;
+    const history = messages.slice(Math.max(0, start)).filter((message) => !isMessageHiddenFromAI(message));
+    return { backlog: capSummarizedHistory(history, chatMeta).backlog };
   });
 
   // List memory-recall chunks for this chat only.
@@ -2705,11 +2968,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       }),
     );
     if (created?.id && input.role === "user") {
-      const chat = await storage.getById(req.params.id);
-      const personaSnapshot = await buildPersonaSnapshotForChat(app, chat);
-      const saved = personaSnapshot
-        ? ((await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created)
-        : created;
+      const { chat, saved } = await withAvatarFileLifecycleLock(async () => {
+        const chat = await storage.getById(req.params.id);
+        const personaSnapshot = await buildPersonaSnapshotForChat(app, chat);
+        const saved = personaSnapshot
+          ? ((await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created)
+          : created;
+        return { chat, saved };
+      });
       const memory = normalizeAdvancedMemorySettings(parseExtra(chat?.metadata).advancedMemory);
       if (chat?.mode !== "roleplay" || !memory.enabled || !memory.autoMessageVisibility) return saved;
       // Your message is decided once, when you post it, even if no reply follows (#7349).
@@ -2827,6 +3093,54 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  // /html: make one artifact on the latest reply, through the same path as the narrator's [html] command.
+  app.post<{ Params: { chatId: string } }>("/:chatId/roleplay-html", async (req, reply) => {
+    const body = z.object({ prompt: z.string().trim().min(1).max(2_000) }).safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: "Say what the artifact should be." });
+    const chat = await storage.getById(req.params.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "roleplay") return reply.status(400).send({ error: "This command is for Roleplay chats." });
+    const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
+    if (active?.has(chat.id))
+      return reply.status(409).send({ error: "Wait for the current generation to finish before making an artifact." });
+    const target = (await storage.listMessages(chat.id)).filter((message) => message.role === "assistant").at(-1);
+    if (!target) return reply.status(400).send({ error: "Send a message before making an artifact." });
+    const { prompt } = body.data;
+    const swipeIndex = target.activeSwipeIndex ?? 0;
+    const controller = new AbortController();
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
+    let activityIndex = -1;
+    const saved = await storage.patchRoleplayCommandActivity(target.id, swipeIndex, (activity) => {
+      activityIndex = activity.length;
+      return [
+        ...activity,
+        {
+          command: { type: "html", prompt },
+          raw: `[html: prompt="${prompt}"]`,
+          contentOffset: target.content.length,
+          contentAnchor: target.content.slice(-80),
+        },
+      ];
+    });
+    if (!saved) return reply.status(404).send({ error: "Message not found" });
+    const summary = parseExtra(chat.metadata).summary;
+    const error = await runHtmlArtifactCommand({
+      db: app.db,
+      messageId: target.id,
+      swipeIndex,
+      activityIndex,
+      request: prompt,
+      chatConnectionId: typeof chat.connectionId === "string" ? chat.connectionId : null,
+      referenceContext:
+        typeof summary === "string" && summary.trim() ? `<chat_summary>\n${summary}\n</chat_summary>` : "",
+      signal: controller.signal,
+    });
+    if (error) return reply.status(502).send({ error });
+    return { messageId: target.id };
+  });
 
   // Update message extra (partial merge) — also syncs to the active swipe
   app.patch<{ Params: { chatId: string; messageId: string }; Querystring: { swipeIndex?: string } }>(
@@ -2997,22 +3311,24 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (chat.personaCharacterId && !(await isValidCharacterIdentity(app.db, chat.personaCharacterId))) {
       return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
     }
-    const targetSnapshot = await buildPersonaSnapshotForChat(app, chat);
-    if (!targetSnapshot) {
-      return reply.status(400).send({ error: "Select a persona before updating historical messages." });
-    }
+    return withAvatarFileLifecycleLock(async () => {
+      const targetSnapshot = await buildPersonaSnapshotForChat(app, chat);
+      if (!targetSnapshot) {
+        return reply.status(400).send({ error: "Select a persona before updating historical messages." });
+      }
 
-    const result = await storage.reassignMessagePersonaSnapshots(
-      req.params.chatId,
-      {
-        scope,
-        sourcePersonaId,
-        sourcePersonaSource,
-      },
-      targetSnapshot,
-    );
+      const result = await storage.reassignMessagePersonaSnapshots(
+        req.params.chatId,
+        {
+          scope,
+          sourcePersonaId,
+          sourcePersonaSource,
+        },
+        targetSnapshot,
+      );
 
-    return { success: true, updatedCount: result.updatedCount };
+      return { success: true, updatedCount: result.updatedCount };
+    });
   });
 
   // Get game state for a specific message + swipe (does not fall back to latest)
@@ -3277,7 +3593,25 @@ export async function chatsRoutes(app: FastifyInstance) {
     // assistant message's active swipe — so edits persist to the row the user
     // actually sees. Falls back to updateLatest when no messages exist yet.
     let updated: Awaited<ReturnType<typeof gameStateStore.updateLatest>> = null;
-    if (hasExplicitTarget) {
+    // Live sheet state is the game's, not one telling's, so it goes to the row GET reads, whatever
+    // row the screen last loaded. A screen holding an older row wrote its long rest there while the
+    // newer row kept the spent slot, which came back on the next reload (laptop playtest 2026-10-27).
+    let liveRow: Awaited<ReturnType<typeof gameStateStore.updateLatest>> = null;
+    if (hasExplicitTarget && fields.rulesetLive !== undefined) {
+      const visible = resolveVisibleGameStateAnchor(await storage.listMessages(req.params.id));
+      if (visible && (visible.messageId !== targetMessageId || visible.swipeIndex !== targetSwipeIndex)) {
+        liveRow = await gameStateStore.updateByMessage(
+          visible.messageId,
+          visible.swipeIndex,
+          req.params.id,
+          { rulesetLive: fields.rulesetLive },
+          false,
+          gameStateUpdateOptions,
+        );
+        delete fields.rulesetLive;
+      }
+    }
+    if (hasExplicitTarget && (!liveRow || Object.keys(fields).length > 0)) {
       const targetMessage = await storage.getMessage(targetMessageId);
       const targetSnapshot = await gameStateStore.getByChatAndMessage(req.params.id, targetMessageId, targetSwipeIndex);
       if (targetMessage?.chatId === req.params.id || targetSnapshot !== null) {
@@ -3311,6 +3645,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!updated && !hasExplicitTarget) {
       updated = await gameStateStore.updateLatest(req.params.id, fields, manual);
     }
+    // Whatever row answers, its live state is the one the sheet now reads.
+    if (liveRow) updated = updated ? { ...updated, rulesetLive: liveRow.rulesetLive } : liveRow;
     // Wipe all manual overrides when explicitly requested. Every row's, because a regeneration
     // starts from the edits on any swipe of the reply it replaces.
     if (clearOverrides && updated) {
@@ -3375,13 +3711,19 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Peek prompt — return an exact saved turn prompt when available, otherwise
-  // assemble the prompt for this chat as if generating right now.
-  app.post<{ Params: { id: string }; Body: { messageId?: unknown } }>("/:id/peek-prompt", async (req, reply) => {
+  // assemble the prompt for this chat as if generating right now. `current`
+  // skips the saved prompt: it was sent before that turn's summary ran (#8831).
+  app.post<{ Params: { id: string }; Body: PeekPromptBody }>("/:id/peek-prompt", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
     const chatMessages = await storage.listMessages(req.params.id);
-    const requestedMessageId = typeof req.body?.messageId === "string" ? req.body.messageId.trim() : "";
+    const current = req.body?.current === true;
+    // A preview asked for on purpose has a saved request beside it; the client's own hint explains it then.
+    const livePreviewNote = current
+      ? undefined
+      : "No saved model request was available, so this is a live best-effort preview assembled without sending.";
+    const requestedMessageId = !current && typeof req.body?.messageId === "string" ? req.body.messageId.trim() : "";
     const requestedMessage = requestedMessageId
       ? (chatMessages.find((message) => message.id === requestedMessageId) ?? null)
       : null;
@@ -3394,6 +3736,9 @@ export async function chatsRoutes(app: FastifyInstance) {
       chatMode === "roleplay" && normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled;
     const chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
     const visibleGameStateAnchor = resolveVisibleGameStateAnchor(chatMessages);
+    let gameSnapshot: ReturnType<typeof loadLatestChatGameSnapshot> | undefined;
+    const readGameSnapshot = () =>
+      (gameSnapshot ??= loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor));
     const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay";
 
     const readCachedPrompt = async (
@@ -3485,7 +3830,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     })();
     const promptSourceMessage = requestedMessage ?? latestVisibleMessage;
 
-    if (promptSourceMessage?.role === "assistant") {
+    if (promptSourceMessage?.role === "assistant" && !current) {
       const extra = parseExtra(promptSourceMessage.extra) as Record<string, unknown>;
       let cached = await readCachedPrompt(extra, Boolean(requestedMessage));
 
@@ -3584,6 +3929,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           let filteredMessages = supportsHiddenFromAI
             ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
             : scopedMessages;
+          if (chatMode === "roleplay") filteredMessages = capSummarizedHistory(filteredMessages, chatMeta).messages;
           const promptIdleDuration = resolvePromptIdleDuration(filteredMessages);
 
           // Apply context message limit
@@ -3636,6 +3982,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             personaDescription = cardPromptText(identity.description);
 
             personaFields = {
+              example: cardPromptText(identity.mesExample),
               personality: cardPromptText(identity.personality),
               scenario: cardPromptText(identity.scenario),
               backstory: cardPromptText(identity.backstory),
@@ -3655,9 +4002,10 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const chatChoices = (chatMeta.presetChoices ?? {}) as Record<string, string | string[]>;
           const connections = createConnectionsStorage(app.db);
-          const connection = chat.connectionId
+          const stored = chat.connectionId
             ? await connections.getById(chat.connectionId)
             : await connections.getDefault();
+          const connection = stored ? applyChatModelOverride(stored, readChatModelOverride(chat)) : null;
           // Generation counts the preset's level only where the preset assembles the prompt.
           const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
           const promptReasoning = connection
@@ -3667,13 +4015,17 @@ export async function chatsRoutes(app: FastifyInstance) {
                 isSceneChat: chatMeta.sceneStatus === "active",
                 chatParameters: chatMeta.chatParameters,
                 baseReasoningEffort:
-                  preset && chatMode !== "conversation" && chatMode !== "game"
+                  preset &&
+                  !isStockMarinaraUniversalPreset(preset) &&
+                  chatMode !== "conversation" &&
+                  chatMode !== "game"
                     ? (parsePresetParameters(preset.parameters).reasoningEffort ?? null)
                     : DEFAULT_GENERATION_PARAMS.reasoningEffort,
               })
             : undefined;
           const promptMacroContext = await buildPromptMacroContext({
             db: app.db,
+            worldState: await readGameSnapshot(),
             model: connection?.model,
             reasoning: promptReasoning,
             // Chat variables win over built-in macros of the same name, as in generation.
@@ -3867,8 +4219,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (chatMode === "game") {
@@ -3889,10 +4240,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               },
               ...mappedMessages,
             ];
-            const latestGameState = projectGameSnapshotLocation(
-              await loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor),
-              ownerSpatialProjection,
-            );
+            const latestGameState = projectGameSnapshotLocation(await readGameSnapshot(), ownerSpatialProjection);
             const lorebookResult = await processLorebooks(
               app.db,
               mappedMessages,
@@ -3933,8 +4281,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (!preset && chatMode === "roleplay") {
@@ -3979,8 +4326,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (!preset) throw new Error(`Prompt preset ${presetId ?? "(none)"} is unavailable`);
@@ -3992,6 +4338,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const assembled = await assemblePrompt({
             db: app.db,
+            worldState: promptMacroContext.worldState,
             model: connection?.model,
             reasoning: promptReasoning,
             localVariables: chatMacroVariables,
@@ -4020,7 +4367,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                   individual: normalizeGroupChatMode(chatMeta.groupChatMode) === "individual",
                   impersonate: false,
                   narratorCharacterId: normalizeAdvancedMemorySettings(chatMeta.advancedMemory).narratorCharacterId,
-                  ...(await resolveCharacterMacroData(app.db, assistantCharacterIds)),
+                  ...(await resolveCharacterMacroData(app.db, assistantCharacterIds, chat.id)),
                 })
               : undefined,
             enableAgents: chatMeta.enableAgents === true,
@@ -4094,7 +4441,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           // Character info fallback
           for (const cid of assistantCharacterIds) {
-            const charRow = await charStore.getById(cid);
+            const charRow = await charStore.getById(cid, chat.id);
             if (!charRow) continue;
             const charData = JSON.parse(charRow.data as string);
             const charName = charData.name ?? "Unknown";
@@ -4214,6 +4561,40 @@ export async function chatsRoutes(app: FastifyInstance) {
                 fieldParts.push(
                   wrapContent(resolvePromptMacros(personaFields.appearance), "appearance", wrapFormat, 2),
                 );
+              // Use actual resolved leaves, not raw preset references: disabled or
+              // unselected branches must still receive the fallback.
+              // ponytail: whitespace/case matching covers wrappers and case macros;
+              // other content transforms would need emitted-field provenance.
+              const normalizedContent = allContent
+                .split("\n")
+                .map((line) => line.trim())
+                .join("\n")
+                .normalize("NFC")
+                .toLowerCase()
+                .toUpperCase()
+                .normalize("NFC");
+              const exampleAlreadyInPrompt = (example: string) => {
+                const normalizedExample = example
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .join("\n")
+                  .trim()
+                  .normalize("NFC")
+                  .toLowerCase()
+                  .toUpperCase()
+                  .normalize("NFC");
+                return !!normalizedExample && normalizedContent.includes(normalizedExample);
+              };
+              const hasEmittedPersonaExample = assembled.resolvedPersonaExamples.some(exampleAlreadyInPrompt);
+              if (!hasEmittedPersonaExample) {
+                const resolvedPersonaExample = resolveMacros(personaFields.example ?? "", {
+                  ...promptMacroContext,
+                  variables: assembled.macroVariables,
+                  agentData: assembled.macroAgentData,
+                });
+                if (resolvedPersonaExample && !exampleAlreadyInPrompt(resolvedPersonaExample))
+                  fieldParts.push(wrapContent(resolvedPersonaExample, "example_dialogue", wrapFormat, 2));
+              }
               if (personaFields.scenario && !alreadyInPrompt(personaFields.scenario))
                 fieldParts.push(wrapContent(resolvePromptMacros(personaFields.scenario), "scenario", wrapFormat, 2));
               // Include enabled RPG attributes
@@ -4245,7 +4626,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           });
           if (chatEnableAgents && activeAgentIds.length > 0) {
             const [gameSnapshot, beholderRun] = await Promise.all([
-              loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor),
+              readGameSnapshot(),
               activeAgentIds.includes("beholder")
                 ? createAgentsStorage(app.db).getLastSuccessfulRunByType("beholder", req.params.id)
                 : Promise.resolve(null),
@@ -4277,8 +4658,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             exact: false,
             generationInfo: null,
             ...decisionReport(),
-            agentNote:
-              "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+            agentNote: livePreviewNote,
           };
         }
       } catch (e) {
@@ -4563,6 +4943,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     "geminiParts",
     "generationInfo",
     "generationReplay",
+    "lorebookGenerationTriggers",
     "lorebookScan",
   ]);
 
@@ -4694,17 +5075,38 @@ export async function chatsRoutes(app: FastifyInstance) {
   const serializeChatTranscript = async (
     chat: ChatRow,
     format: ExportFormat,
-    options: { includeReasoning?: boolean; includeAvatars?: boolean; includePrivateNotes?: boolean } = {},
+    options: {
+      includeReasoning?: boolean;
+      includeAvatars?: boolean;
+      includePrivateNotes?: boolean;
+      /** Export only the messages from one boundary to the other, inclusive, in chat order (#8547). */
+      range?: { startMessageId: string; endMessageId: string };
+    } = {},
   ) => {
     const includeReasoning = options.includeReasoning === true;
     const includePrivateNotes = options.includePrivateNotes === true;
+    const { range } = options;
     const exportNoteExtra = (extra: Record<string, unknown>) =>
       includePrivateNotes ? extra : stripPrivateMessageNote(extra);
+    // ponytail: a range still reads the whole chat once, like a full export; a ranged storage read is the
+    // upgrade path if excerpts of very long chats get slow.
     const rawMessages = await storage.listMessages(chat.id);
     const charIds = parseExportCharacterIds(chat.characterIds);
     const metadata = parseExportMetadata(chat.metadata);
-    const msgs = rawMessages.map((message) => ({ ...message }));
-    if (chat.mode === "game") applyAllSegmentEdits(msgs, metadata, rawMessages);
+    const allMsgs = rawMessages.map((message) => ({ ...message }));
+    if (chat.mode === "game") applyAllSegmentEdits(allMsgs, metadata, rawMessages);
+    // Boundaries are found in the stored order, since segment edits can drop messages from the copy.
+    const rangeIds = new Set<string>();
+    if (range) {
+      const start = rawMessages.findIndex((message) => message.id === range.startMessageId);
+      const end = rawMessages.findIndex((message) => message.id === range.endMessageId);
+      if (start >= 0 && end >= 0) {
+        for (const message of rawMessages.slice(Math.min(start, end), Math.max(start, end) + 1)) {
+          rangeIds.add(message.id);
+        }
+      }
+    }
+    const msgs = range ? allMsgs.filter((message) => rangeIds.has(message.id)) : allMsgs;
     const messageIndexById = new Map(msgs.map((message, index) => [message.id, index]));
     const spatialContextHistory = (await createSpatialContextStorage().listForChat(chat.id))
       .map((snapshot) => ({
@@ -4780,6 +5182,8 @@ export async function chatsRoutes(app: FastifyInstance) {
         typeof metadata.groupScenarioText === "string" && metadata.groupScenarioText.trim()
           ? metadata.groupScenarioText.trim()
           : null,
+      // From the exported messages, so a message with {{input}} in an excerpt never resolves to an
+      // unexported one. A whole-chat export passes every message, so its result is unchanged.
       lastInput: [...msgs].reverse().find((msg) => msg.role === "user")?.content,
       chatId: chat.id,
       // Without the chat's own variables an exported transcript would print a
@@ -4879,8 +5283,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
 
     const exportedMessages = msgs.map((message) => ({ ...message, content: resolveExportMessageContent(message) }));
+    // A range is an excerpt: its header leaves out the chat's summaries, memory, locations and world, which
+    // cover the rest of the story, and each message carries only its selected swipe.
     const advancedMemoryTransfer =
-      chat.mode === "roleplay"
+      chat.mode === "roleplay" && !range
         ? await createAdvancedMemoryService(app.db).exportTransferRecords(chat.id, exportedMessages)
         : [];
     const lines: string[] = [
@@ -4888,22 +5294,24 @@ export async function chatsRoutes(app: FastifyInstance) {
         user_name: persona?.name ?? "User",
         character_name: primaryCharName,
         create_date: chat.createdAt,
-        chat_metadata: {
-          mode: chat.mode,
-          ...jsonlMetadata,
-          branchName,
-          marinara_metadata: {
-            ...jsonlMetadata,
-            mode: chat.mode,
-            spatialContextHistory,
-            ...(advancedMemoryTransfer.length ? { advancedMemoryTransfer } : {}),
-            ...(worldSnapshot !== undefined ? { gameWorldSnapshot: worldSnapshot } : {}),
-          },
-        },
+        chat_metadata: range
+          ? { mode: chat.mode, branchName, marinara_metadata: { mode: chat.mode } }
+          : {
+              mode: chat.mode,
+              ...jsonlMetadata,
+              branchName,
+              marinara_metadata: {
+                ...jsonlMetadata,
+                mode: chat.mode,
+                spatialContextHistory,
+                ...(advancedMemoryTransfer.length ? { advancedMemoryTransfer } : {}),
+                ...(worldSnapshot !== undefined ? { gameWorldSnapshot: worldSnapshot } : {}),
+              },
+            },
       }),
     ];
 
-    const swipesByMessageId = await storage.getSwipesByMessageId(exportedMessages.map((msg) => msg.id));
+    const swipesByMessageId = range ? null : await storage.getSwipesByMessageId(exportedMessages.map((msg) => msg.id));
     for (const msg of exportedMessages) {
       const rawMessageExtra = parseExportMetadata(msg.extra);
       const normalizeInterruptionExtra = (extra: Record<string, unknown>) =>
@@ -4914,7 +5322,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         exportNoteExtra(sanitizeJsonlMessageExtra(rawMessageExtra)),
       );
       const thinking = includeReasoning ? getExportThinking(rawMessageExtra) : null;
-      const swipes = swipesByMessageId.get(msg.id) ?? [];
+      const swipes = swipesByMessageId?.get(msg.id) ?? [];
       const activeContent = msg.content;
       const exportSwipes =
         swipes.length > 0
@@ -4963,7 +5371,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               }
             : {}),
           swipes: exportSwipes.map((swipe) => swipe.content),
-          swipe_id: msg.activeSwipeIndex,
+          swipe_id: range ? 0 : msg.activeSwipeIndex,
           send_date: msg.createdAt,
           extra: {
             ...messageExtra,
@@ -5088,13 +5496,34 @@ export async function chatsRoutes(app: FastifyInstance) {
       .send(streamExportZip(files));
   });
 
-  // Export chat — supports JSONL (default, SillyTavern-compatible), plain text, Markdown and a standalone HTML story
+  // Export chat — supports JSONL (default, SillyTavern-compatible), plain text, Markdown and a standalone HTML story.
+  // `startMessageId` and `endMessageId` together export only that range of messages (#8547).
   app.get<{
     Params: { id: string };
-    Querystring: { format?: string; includeReasoning?: string; includeAvatars?: string; includePrivateNotes?: string };
+    Querystring: {
+      format?: string;
+      includeReasoning?: string;
+      includeAvatars?: string;
+      includePrivateNotes?: string;
+      startMessageId?: string;
+      endMessageId?: string;
+    };
   }>("/:id/export", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const { startMessageId, endMessageId } = req.query;
+    let range: { startMessageId: string; endMessageId: string } | undefined;
+    if (startMessageId !== undefined || endMessageId !== undefined) {
+      if (typeof startMessageId !== "string" || typeof endMessageId !== "string") {
+        return reply.status(400).send({ error: "A range needs both startMessageId and endMessageId" });
+      }
+      const boundaries = await Promise.all([storage.getMessage(startMessageId), storage.getMessage(endMessageId)]);
+      if (boundaries.some((message) => message?.chatId !== chat.id)) {
+        return reply.status(404).send({ error: "Range message not found in this chat" });
+      }
+      range = { startMessageId, endMessageId };
+    }
 
     const format = normalizeExportFormat(req.query.format);
     const includeReasoning = normalizeExportBoolean(req.query.includeReasoning);
@@ -5103,11 +5532,13 @@ export async function chatsRoutes(app: FastifyInstance) {
       includeReasoning,
       includeAvatars: req.query.includeAvatars !== "false",
       includePrivateNotes,
+      range,
     });
+    const filename = `${chat.name}${range ? " excerpt" : ""}.${serialized.extension}`;
 
     return reply
       .header("Content-Type", serialized.contentType)
-      .header("Content-Disposition", `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`)
+      .header("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`)
       .send(serialized.content);
   });
 
@@ -5209,10 +5640,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     const inheritedHiddenIds = new Set(
       inheritedSourceEntries.flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
     );
+    // Like deleting an entry, a dropped entry shows only what it hid itself, so a covered
+    // message hidden by hand stays hidden in the branch.
     const droppedHiddenIds = new Set(
       sourceSummaryEntries
         .filter((entry) => !inheritedSourceEntries.some((inherited) => inherited.id === entry.id))
-        .flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
+        .flatMap((entry) => entry.hiddenMessageIds ?? []),
     );
 
     // Copy messages from source chat, preserving every swipe and the active index.

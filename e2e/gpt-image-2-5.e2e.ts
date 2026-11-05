@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string })
@@ -10,7 +11,7 @@ async function openConnection(page: Page, id: string) {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.getState().openConnectionDetail(connectionId);
   }, id);
-  await expect(page.getByPlaceholder("Connection name")).toBeVisible();
+  await expect(page.getByPlaceholder("Model name", { exact: true })).toBeVisible();
 }
 
 test("GPT Image 2.5 quality persists and sprite previews retain transparent expression sheets", async ({
@@ -24,6 +25,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
     (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
     version,
   );
+  await trackPageFetches(page);
   const created = await request.post("/api/connections", {
     data: {
       name: `GPT Image 2.5 ${testInfo.project.name}`,
@@ -36,21 +38,18 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
   });
   expect(created.ok()).toBeTruthy();
   const { id } = (await created.json()) as { id: string };
-  const editor = page.locator(".mari-editor-shell").filter({ has: page.getByPlaceholder("Connection name") });
-  const qualityPanel = editor
-    .locator(".mari-editor-panel")
-    .filter({ has: page.getByRole("heading", { name: "Image quality", exact: true }) });
-  const quality = qualityPanel.getByRole("combobox");
-  const modelPanel = editor
-    .locator(".mari-editor-panel")
-    .filter({ has: page.getByRole("heading", { name: "Model", exact: true }) });
+  const editor = page
+    .locator(".mari-editor-shell")
+    .filter({ has: page.getByPlaceholder("Model name", { exact: true }) });
+  // #8456 dropped the editor's panel wrappers: a field is its heading's group, and the models list inline.
+  const quality = editor
+    .getByRole("heading", { name: "Image quality", exact: true })
+    .locator("../..")
+    .getByRole("combobox");
+  const modelPicker = editor.locator("[data-connection-model-picker]");
   const selectModel = async (model: string) => {
-    await modelPanel.locator(".cursor-pointer").first().click();
-    await modelPanel.getByPlaceholder("Search models…").fill(model);
-    await modelPanel
-      .getByRole("button")
-      .filter({ has: page.getByText(model, { exact: true }) })
-      .click();
+    await modelPicker.locator("[data-model-search]").fill(model);
+    await modelPicker.locator(`[data-model-section="all"] [data-model-id="${model}"] [data-model-option]`).click();
   };
   const save = async (model: string, value: string) => {
     await editor.getByRole("button", { name: "Save", exact: true }).click();
@@ -60,6 +59,12 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
         return { model: connection.model, quality: connection.imageGenerationQuality };
       })
       .toEqual({ model, quality: value });
+  };
+  const reload = async () => {
+    // A save refetches the connection, its list, models and accounts; WebKit reports each one a reload
+    // cuts off as an "access control checks" page error (#6677).
+    await waitForPageFetchesToSettle(page);
+    await page.reload();
   };
   const screenshot = async (name: string) => {
     await quality.scrollIntoViewIfNeeded();
@@ -81,7 +86,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       await expect(quality.locator("option")).toHaveCount(6);
       await quality.selectOption({ label });
       await save(model, value);
-      await page.reload();
+      await reload();
       await openConnection(page, id);
       await expect(quality).toHaveValue(value);
       await screenshot(`${model}-dark`);
@@ -120,9 +125,9 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       const response = await route.fetch();
       await route.fulfill({ response, json: { ...(await response.json()), model: 42, imageGenerationQuality: "max" } });
     });
-    await page.reload();
+    await reload();
     await openConnection(page, id);
-    await expect(modelPanel).toBeVisible();
+    await expect(modelPicker).toBeVisible();
     await expect(quality).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {

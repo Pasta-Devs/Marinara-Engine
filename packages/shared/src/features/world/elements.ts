@@ -83,7 +83,7 @@ export const worldElementSetSchema = z
           .strict(),
       )
       .max(64),
-    beats: z.record(z.array(z.string().max(80)).max(12)),
+    beats: z.record(z.string(), z.array(z.string().max(80)).max(12)),
   })
   .strict();
 

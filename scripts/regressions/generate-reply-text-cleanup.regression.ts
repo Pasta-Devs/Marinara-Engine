@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { cleanGeneratedReply } from "../../packages/server/src/routes/generate/reply-text-cleanup.js";
 
 // Pins the reply text cleanup moved out of generate.routes.ts (#7573).
@@ -25,13 +26,68 @@ const rows: Array<{
   name: string;
   text: string;
   o: typeof base;
-  expected: { text: string; changed: boolean; oocMessages?: string[] } | { dropped: "wrong_speaker" };
+  expected:
+    { text: string; changed: boolean; trimmedEnding?: boolean; oocMessages?: string[] } | { dropped: "wrong_speaker" };
 }> = [
   {
     name: "OOC tags go to the connected conversation",
     text: "She nods.\n\n<ooc>Brb, dinner.</ooc>\n\n\nThe rain falls.",
     o: { ...roleplay, connectedChatId: "conv-1" },
     expected: { text: "She nods.\n\nThe rain falls.", changed: true, oocMessages: ["Brb, dinner."] },
+  },
+  {
+    name: "an OOC-only reply stays visible instead of being discarded (#8382)",
+    text: "<ooc>The next beat should reveal the letter.</ooc>",
+    o: { ...roleplay, connectedChatId: "conv-1" },
+    expected: { text: "The next beat should reveal the letter.", changed: true },
+  },
+  {
+    name: "case-insensitive OOC-only blocks preserve their order without duplicate forwarding",
+    text: "  <OOC>First thought.</OOC>\n\n<oOc>Second thought.</oOc>  ",
+    o: { ...roleplay, connectedChatId: "conv-1" },
+    expected: { text: "First thought.\n\nSecond thought.", changed: true },
+  },
+  {
+    name: "empty OOC blocks do not hide a real OOC-only reply",
+    text: "<ooc> </ooc> <OOC>Keep the answer.</OOC>",
+    o: { ...roleplay, connectedChatId: "conv-1" },
+    expected: { text: "Keep the answer.", changed: true },
+  },
+  {
+    name: "OOC-only individual group replies survive a stripped speaker prefix",
+    text: "Alice: <OOC>Keep Alice's answer.</OOC>",
+    o: { ...individual, chatMode: "roleplay", connectedChatId: "conv-1" },
+    expected: { text: "Keep Alice's answer.", changed: true },
+  },
+  {
+    name: "OOC fallback does not revive a wrong-speaker-only group reply",
+    text: "Bob: Not Alice's turn. <OOC>Keep the speaker gate.</OOC>",
+    o: { ...individual, chatMode: "roleplay", connectedChatId: "conv-1" },
+    expected: { dropped: "wrong_speaker" },
+  },
+  {
+    name: "restored OOC text cannot bypass the individual wrong-speaker gate",
+    text: "<OOC>Bob: Not Alice's turn.</OOC>",
+    o: { ...individual, chatMode: "roleplay", connectedChatId: "conv-1" },
+    expected: { dropped: "wrong_speaker" },
+  },
+  {
+    name: "restored OOC text strips the target's individual speaker prefix",
+    text: "<OOC>Alice: Keep this answer.</OOC>",
+    o: { ...individual, chatMode: "roleplay", connectedChatId: "conv-1" },
+    expected: { text: "Keep this answer.", changed: true },
+  },
+  {
+    name: "restored OOC text honors incomplete-ending cleanup",
+    text: "<OOC>First sentence. Second sentence is cut</OOC>",
+    o: { ...roleplay, connectedChatId: "conv-1", trimIncompleteEnding: true },
+    expected: { text: "First sentence.", changed: true, trimmedEnding: true },
+  },
+  {
+    name: "an unclosed OOC block remains visible",
+    text: "<OOC>Keep this unfinished block.",
+    o: { ...roleplay, connectedChatId: "conv-1" },
+    expected: { text: "<OOC>Keep this unfinished block.", changed: false },
   },
   {
     name: "OOC tags stay without a connected conversation",
@@ -92,7 +148,54 @@ const rows: Array<{
     name: "incomplete ending is trimmed when on",
     text: "First sentence. Second sentence is cut",
     o: { ...base, trimIncompleteEnding: true },
-    expected: { text: "First sentence.", changed: true },
+    expected: { text: "First sentence.", changed: true, trimmedEnding: true },
+  },
+  // #8643: a finished roleplay reply that ends in an italic action or bold line is complete. The emphasis marks after
+  // the full stop made the trim drop the whole last paragraph, leaving an exact prefix of what had streamed.
+  {
+    name: "a reply ending in an italic action is complete (#8643)",
+    text: 'She looked up. "Hello there."\n\n*She smiles softly, leaning closer.*',
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: 'She looked up. "Hello there."\n\n*She smiles softly, leaning closer.*', changed: false },
+  },
+  {
+    name: "a quoted line inside a closing italic action is not cut at its question mark (#8643)",
+    text: 'He nods. "Fine."\n\n*"Really?" she asks, grinning wide.*',
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: 'He nods. "Fine."\n\n*"Really?" she asks, grinning wide.*', changed: false },
+  },
+  {
+    name: "bold, underscore and struck endings are complete (#8643)",
+    text: "The rain fell.\n\n**The end.** _Fin._ ~~Or is it?~~",
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: "The rain fell.\n\n**The end.** _Fin._ ~~Or is it?~~", changed: false },
+  },
+  {
+    name: "a line closed by HTML tags is complete (#8643)",
+    text: 'She waves.\n\n<font color="#c9f">"See you tomorrow."</font>\n\n<i>Finally home.</I>',
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: {
+      text: 'She waves.\n\n<font color="#c9f">"See you tomorrow."</font>\n\n<i>Finally home.</I>',
+      changed: false,
+    },
+  },
+  {
+    name: "a line closed by CJK quote brackets is complete (#8643)",
+    text: "彼女は笑った。\n「また明日ね。」\n『本当に？』\n（そうだ。）",
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: "彼女は笑った。\n「また明日ね。」\n『本当に？』\n（そうだ。）", changed: false },
+  },
+  {
+    name: "an italic action that was really cut off is still trimmed",
+    text: "She waits.\n\n*She turns toward the door and",
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: "She waits.", changed: true, trimmedEnding: true },
+  },
+  {
+    name: "an HTML line that was really cut off is still trimmed",
+    text: "She waits.\n\n<i>She turns toward the door and</i>",
+    o: { ...roleplay, trimIncompleteEnding: true },
+    expected: { text: "She waits.", changed: true, trimmedEnding: true },
   },
   {
     name: "incomplete ending is kept when off",
@@ -116,8 +219,26 @@ const rows: Array<{
 
 for (const row of rows) {
   const result = cleanGeneratedReply(row.text, row.o);
-  const expected = "dropped" in row.expected ? row.expected : { oocMessages: [], ...row.expected };
+  const expected =
+    "dropped" in row.expected ? row.expected : { oocMessages: [], trimmedEnding: false, ...row.expected };
   assert.deepEqual(result, expected, row.name);
 }
+
+// A trim is announced, never silent (#8643): the route sends reply_trimmed and the chat shows a notice.
+const routeSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  routeSource,
+  /if \(cleanedReply\.trimmedEnding\) sendSseEvent\(reply, \{ type: "reply_trimmed" \}\);/u,
+  "the generate route announces a trimmed ending",
+);
+const clientSource = readFileSync(new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url), "utf8");
+assert.match(
+  clientSource,
+  /case "reply_trimmed": \{[\s\S]{0,300}toast\.info\(translate\("chat\.reply\.trimmedIncompleteEnding"\)/u,
+  "the chat shows a notice when the reply's ending was trimmed",
+);
 
 console.log("generate reply text cleanup regression passed");

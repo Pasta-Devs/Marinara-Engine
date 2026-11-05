@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { tripoMadeVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
+import { chooseCharacter, runName } from "./character-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 // One-click Tripo models were withdrawn (maintainer decision, 2026-10-19): Tripo models have no face rig, so
@@ -60,7 +61,7 @@ function watchTripoRequests(page: Page): string[] {
   return seen;
 }
 
-async function openSetup(page: Page, characterId: string | null) {
+async function openSetup(page: Page, owner: { id: string; name: string } | null) {
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
   );
@@ -69,7 +70,7 @@ async function openSetup(page: Page, characterId: string | null) {
   await page.route("**/api/avatar-models", async (route) => {
     const response = await route.fetch();
     const owners = (await response.json()) as Array<{ owner: { ownerId: string } }>;
-    await route.fulfill({ response, json: owners.filter((summary) => summary.owner.ownerId === characterId) });
+    await route.fulfill({ response, json: owners.filter((summary) => summary.owner.ownerId === owner?.id) });
   });
   await seedUIState(page, {
     hasCompletedOnboarding: true,
@@ -86,17 +87,18 @@ async function openSetup(page: Page, characterId: string | null) {
   await page.goto("/");
   const setup = page.locator('[data-avatar-setup="3d-avatars"]');
   await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-  if (characterId) await setup.getByLabel("Character or persona").selectOption(`character:${characterId}`);
+  if (owner) await chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", owner.name);
   return setup;
 }
 
 test("3D Avatars points to VRoid Studio and Import VRM, with no Tripo maker", async ({ page, request }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "VRoid fixture" } } });
+  const name = runName("VRoid fixture");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   try {
     const tripoRequests = watchTripoRequests(page);
-    const setup = await openSetup(page, character.id);
+    const setup = await openSetup(page, { id: character.id, name });
     await expect(setup.getByRole("button", { name: "Import VRM", exact: true })).toBeVisible({
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
@@ -124,7 +126,8 @@ test("3D Avatars points to VRoid Studio and Import VRM, with no Tripo maker", as
 });
 
 test("Import VRM explains a VRoid Studio project file and never uploads it", async ({ page, request }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "VRoid project" } } });
+  const name = runName("VRoid project");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   try {
@@ -132,7 +135,7 @@ test("Import VRM explains a VRoid Studio project file and never uploads it", asy
     page.on("request", (sent) => {
       if (sent.method() === "POST" && new URL(sent.url()).pathname.endsWith("/import")) uploads.push(sent.url());
     });
-    const setup = await openSetup(page, character.id);
+    const setup = await openSetup(page, { id: character.id, name });
     const importButton = setup.getByRole("button", { name: "Import VRM", exact: true });
     await expect(importButton).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     const [chooser] = await Promise.all([page.waitForEvent("filechooser"), importButton.click()]);
@@ -164,7 +167,8 @@ test("dropping a VRoid project anywhere in 3D Avatars explains it before choosin
     if (sent.method() === "POST" && new URL(sent.url()).pathname.endsWith("/import")) uploads.push(sent.url());
   });
   const setup = await openSetup(page, null);
-  await expect(setup.getByLabel("Character or persona")).toHaveValue("");
+  // No owner is chosen: the picker (#8763) shows its placeholder.
+  await expect(setup.getByLabel("Character or persona")).toHaveText("Choose who gets an avatar");
   const result = await setup.evaluate((element) => {
     const other = new DataTransfer();
     other.setData("text/plain", "an unrelated resource");
@@ -200,7 +204,8 @@ test("dropping a VRoid project anywhere in 3D Avatars explains it before choosin
 });
 
 test("A model made earlier with Tripo still loads in setup as body only", async ({ page, request }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "Maukie fixture" } } });
+  const name = runName("Maukie fixture");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   try {
@@ -210,7 +215,7 @@ test("A model made earlier with Tripo still loads in setup as body only", async 
     expect(imported.ok(), await imported.text()).toBeTruthy();
 
     const tripoRequests = watchTripoRequests(page);
-    const setup = await openSetup(page, character.id);
+    const setup = await openSetup(page, { id: character.id, name });
     await expect(setup.getByText("Maukie", { exact: true })).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await expect(setup.getByText("VRM 1.0 by Tripo AI", { exact: true })).toBeVisible();
     await expect(setup.locator("[data-vrm-body-only]")).toHaveText("Body only, the face doesn't move.");
@@ -269,6 +274,7 @@ test("Connections no longer offers Tripo", async ({ page, request }) => {
     useUIStore.getState().openModal("create-connection");
   });
   const dialog = page.getByRole("dialog");
+  // The Add window lists every service tile since #8456, with no "Show all".
   await expect(dialog.getByRole("button", { name: "OpenAI", exact: true })).toBeVisible({
     timeout: FIRST_LOAD_TIMEOUT_MS,
   });

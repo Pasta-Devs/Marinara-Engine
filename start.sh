@@ -434,13 +434,14 @@ echo "    Press Ctrl+C to stop"
 echo "  ══════════════════════════════════════════"
 echo ""
 
-# Open browser after a short delay
+# The supervisor opens the browser once this server reports that its listener is ready.
+BROWSER_ARGS=()
 if [ "$AUTO_OPEN_BROWSER_ENABLED" = "1" ]; then
-  (sleep 3 && open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null || xdg-open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null) &
+  BROWSER_ARGS=(--open-browser "${PROTOCOL}://${BROWSER_HOST}:$PORT")
 else
   echo "  [OK] Auto-open disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
 fi
 
 # Start server
 cd packages/server
-exec node ../../scripts/run-server.mjs dist/index.js
+exec node ../../scripts/run-server.mjs dist/index.js "${BROWSER_ARGS[@]}"

@@ -205,21 +205,24 @@ try {
   const copycatPoll = peerPoll((copycat as { session: string }).session);
   copycatPoll.catch(() => undefined); // A failed assertion below must not be hidden by this poll's cleanup.
   await assert.rejects(approve("Alex"), expectCode("identity-conflict"), "copied names do not take Lyra's seat");
+  const refusedAt = Date.now();
   assert.ok(
     [...hostSessions().values()].some((session) => session.participant.id === lyra && session.status === "approved"),
     "the refused request never revokes the real player's session",
   );
-  await decline("Alex");
+  // The refusal ends the request, and the one waiting is told why instead of waiting on.
+  assert.equal((await host.hostState())!.pendingRequests.filter((item) => item.displayName === "Alex").length, 0);
   const copycatView = await copycatPoll;
+  assert.ok(Date.now() - refusedAt < 5_000, "the refusal wakes the waiting poll instead of leaving it to time out");
   assert.equal(copycatView.type, "state");
   assert.equal(copycatView.state.phase, "ended");
+  assert.equal(copycatView.state.error, "identity-conflict");
   assert.equal(copycatView.state.snapshot, null, "no history or whispers without the seat");
 
   // A made-up key is refused the same way.
   const guessed = await peerJoin("Alex", "Lyra", randomBytes(32).toString("base64url"));
   assert.equal(guessed.type, "admission");
   await assert.rejects(approve("Alex"), expectCode("identity-conflict"), "a wrong key does not take the seat");
-  await decline("Alex");
 
   // The real player leaves and comes back from the same Engine: same seat, same whispers.
   await guest.leaveGuest();

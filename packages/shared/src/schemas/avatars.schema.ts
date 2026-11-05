@@ -5,6 +5,7 @@
 // schemas. File paths are checked with isAvatarFilePath here, which keeps every stored reference
 // inside the owner's own avatar folder.
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import {
   AVATAR_CLASSIFIER_TIERS,
   AVATAR_CLASSIFY_LIMITS,
@@ -13,6 +14,7 @@ import {
   AVATAR_EXPRESSION_SLOTS,
   AVATAR_EXTRA_FEELINGS,
   AVATAR_KINDS,
+  AVATAR_MMD_METADATA_LIMITS,
   AVATAR_OWNER_ID_PATTERN,
   AVATAR_OWNER_TYPES,
   AVATAR_PNGTUBER_VARIANTS,
@@ -26,6 +28,7 @@ import {
   type AvatarMeshRigRequest,
   type AvatarPngtuberVariantsRequest,
 } from "../types/avatars.js";
+import { AVATAR_BONE_NAME_MAX_LENGTH, AVATAR_HUMANOID_BONES } from "../utils/avatar-humanoid-bones.js";
 
 /** Most layer sets one PNGTuber setup may hold; well above the 17 suggested sprite labels. */
 const MAX_PNGTUBER_LAYER_SETS = 64;
@@ -164,6 +167,41 @@ export const avatarKindDataSchema = z
     pngtuber: pngtuberAvatarDataSchema.optional(),
     "mesh-avatar": meshAvatarDataSchema.optional(),
     vrm: vrmAvatarDataSchema.optional(),
+    mmd: z
+      .object({
+        file: avatarFilePathSchema.refine((path) => path.startsWith("mmd/"), "An MMD model lives in mmd/."),
+        texturePaths: z
+          .record(
+            z.string().min(1).max(AVATAR_MMD_METADATA_LIMITS.textureReferenceChars),
+            avatarFilePathSchema.refine((path) => path.startsWith("mmd/"), "An MMD texture lives in mmd/."),
+          )
+          .refine(
+            (paths) => Object.keys(paths).length <= AVATAR_MMD_METADATA_LIMITS.textures,
+            "This MMD model has too many textures.",
+          ),
+        expressionMap: avatarExpressionMapSchema,
+        expressionNames: z.array(z.string().min(1).max(128)).max(AVATAR_MMD_METADATA_LIMITS.expressionNames).optional(),
+        idleAnimation: avatarFilePathSchema
+          .refine((path) => path.startsWith("mmd/"), "An MMD motion lives in mmd/.")
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    "glb-fbx": z
+      .object({
+        file: avatarFilePathSchema.refine(
+          (path) => /^glb-fbx\/.+\.(?:glb|fbx)$/u.test(path),
+          "A GLB or FBX model lives in glb-fbx/.",
+        ),
+        format: z.enum(["glb", "fbx"]),
+        bones: z.partialRecord(z.enum(AVATAR_HUMANOID_BONES), z.string().min(1).max(AVATAR_BONE_NAME_MAX_LENGTH)),
+        expressionMap: avatarExpressionMapSchema,
+        expressionNames: z.array(z.string().min(1).max(128)).max(MAX_VRM_EXPRESSION_NAMES).optional(),
+      })
+      .strict()
+      .refine((data) => data.file.endsWith(`.${data.format}`), "The model file must match its format.")
+      .optional(),
   })
   .strict();
 
@@ -196,7 +234,7 @@ export const avatarConfigUpdateSchema = z
   .object({
     enabled: z.boolean().optional(),
     activeKind: z.enum(AVATAR_KINDS).nullable().optional(),
-    features: avatarFeatureFlagsSchema.partial().optional(),
+    features: partialInput(avatarFeatureFlagsSchema).optional(),
     kinds: avatarKindDataSchema.optional(),
   })
   .strict() satisfies z.ZodType<AvatarConfigUpdate>;

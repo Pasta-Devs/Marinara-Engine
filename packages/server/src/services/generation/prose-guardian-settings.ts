@@ -205,6 +205,9 @@ export function mergePairedBuiltInRewriteAgents(agents: ResolvedAgent[]): Resolv
     promptTemplate: buildMergedRewritePrompt(builtInRewriteAgents),
     settings: {
       ...baseAgent.settings,
+      _mergedLorebookAttachmentAgentIds: builtInRewriteAgents
+        .filter((agent) => agent.settings.chatLorebookAttachmentEnabled === true)
+        .map((agent) => agent.id),
       resultType: "text_rewrite",
       holdForRewrite: builtInRewriteAgents.some((agent) => agent.settings.holdForRewrite !== false),
       includePreGenInjections: builtInRewriteAgents.some((agent) => agent.settings.includePreGenInjections === true),

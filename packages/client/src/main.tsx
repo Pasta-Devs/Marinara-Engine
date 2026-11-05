@@ -12,7 +12,7 @@ import { shownMariAppearancePack, useUIStore } from "./stores/ui.store";
 import { mariAssetUrls } from "./lib/mari-work-animations";
 import { queryClient } from "./lib/query-client";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { formatRuntimeBuild } from "./lib/runtime-build";
+import { formatRuntimeBuild, runningBuildIsServed } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
 import "./styles/globals.css";
 
@@ -64,10 +64,20 @@ function registerServiceWorker() {
         const updateSW = registerSW({
           immediate: true,
           onNeedRefresh() {
-            showAppUpdatePrompt(() => {
-              recordClientReload("service-worker-update");
-              return updateSW(true);
-            });
+            // The page already runs what the server serves (loaded after a restart): the new worker
+            // takes over quietly, with nothing to refresh.
+            void runningBuildIsServed(APP_VERSION, formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__)).then(
+              (served) => {
+                if (served) {
+                  void updateSW(false);
+                  return;
+                }
+                showAppUpdatePrompt(() => {
+                  recordClientReload("service-worker-update");
+                  return updateSW(true);
+                });
+              },
+            );
           },
           onRegisteredSW(_swUrl: string, registration?: ServiceWorkerRegistration) {
             if (!registration) {

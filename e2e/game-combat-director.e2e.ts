@@ -779,6 +779,9 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
       expect(result.ok(), await result.text()).toBeTruthy();
       s = (await result.json()).session;
     };
+    // The party is set down before the first turn (2026-10-24); this fight begins where it was laid.
+    expect(s.stage).toBe("deploy");
+    await command({ type: "deployed" });
 
     const patch = await request.patch(`/api/chats/${chatId}/metadata`, {
       data: {
@@ -818,8 +821,17 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
     );
     await page.goto("/");
 
+    // A phone shows the board and the turn's options as two tabs; a wider screen shows both at once.
+    const fight = page.getByRole("region", { name: "Combat decisions" });
+    await expect(fight).toBeVisible({ timeout: 45000 });
+    const showTab = async (name: string) => {
+      const tab = page.getByRole("tab", { name, exact: true });
+      if (await tab.isVisible()) await tab.click();
+    };
+
     // The board itself, one focusable square per cell, with the ruleset's own allowance beside it.
     const board = page.getByRole("group", { name: "Battlefield" });
+    await showTab("Board");
     await expect(board).toBeVisible({ timeout: 45000 });
     const token = page.locator('[data-combatant="juno"]');
     await expect(token).toBeVisible();
@@ -828,6 +840,8 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
 
     // Walking: the menu offers it, the squares carry their cost in paces, and one of them is taken.
     const move = page.getByRole("button", { name: /^Move/ });
+    // A phone's "Turn and options" tab is "Actions", beside Board, Turn order and Log, since #8138.
+    await showTab("Actions");
     await expect(move).toBeVisible({ timeout: 45000 });
     await move.click();
     const reachable = board.locator('button[aria-label*="Can be walked to"]');
@@ -837,14 +851,18 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
       (r) =>
         r.url().endsWith("/api/game/combat/director/command") && r.request().postDataJSON().command.type === "ruleset",
     );
-    // The square furthest along the list, so the walk is a real one rather than a single step.
-    await reachable.last().click();
+    // The square furthest along the list, so the walk is a real one rather than a single step. A touch
+    // screen walks on a second tap on the square the first one picked (#8138).
+    const destination = reachable.last();
+    const cell = await destination.getAttribute("data-cell");
+    await destination.click();
+    if (testInfo.project.use.hasTouch) await board.locator(`button[data-cell="${cell}"]`).click();
     const walkResponse = await walked;
     expect(walkResponse.ok(), await walkResponse.text()).toBeTruthy();
     await expect(token).not.toHaveAttribute("data-cell", from!);
 
-    // And the log says it in the ruleset's own distance, never in cells.
-    const fight = page.getByRole("region", { name: "Combat decisions" });
+    // And the log says it in the ruleset's own distance, never in cells. A phone shows it on its Log tab.
+    await showTab("Log");
     await expect(fight.getByText(/^Juno moves to \d+, \d+ for \d+ paces and has \d+ paces left\.$/u)).toBeVisible();
 
     // Walk until the axe has somebody to swing at, then swing by clicking the square they stand on.
@@ -890,11 +908,14 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
       if (end) await command({ type: "ruleset", optionId: end.id, targetIds: [] });
     }
     await page.reload();
+    await expect(fight).toBeVisible({ timeout: 45000 });
+    await showTab("Board");
     await expect(board).toBeVisible({ timeout: 45000 });
     // Eight paces a turn on a board this size does not always close the distance inside the guard,
     // and a fight that ended while walking has nobody left to swing at. Either way the walk above is
     // what this case is for, and the swing is asked for only when the rules really offer it.
     if (inReach && !s.outcome) {
+      await showTab("Actions");
       await expect(axe).toBeVisible({ timeout: 45000 });
       await axe.click();
       const target = board.locator('button[aria-label*="Can be chosen as a target"]');
@@ -907,6 +928,7 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
       await target.first().click();
       const swung = await swing;
       expect(swung.ok(), await swung.text()).toBeTruthy();
+      await showTab("Log");
       // Two six-sided dice plus the stat the axe swings with, against a Guard. Never who acts first
       // and never what a die showed: the server draws its own seed.
       await expect(

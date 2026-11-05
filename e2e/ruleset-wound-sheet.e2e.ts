@@ -39,6 +39,7 @@ for (const theme of ["light", "dark"] as const) {
             const dependencyUrl = window.__viteFixtureDependencyUrl;
             const { default: React } = await import(dependencyUrl("react"));
             const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
+            const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));
             const { GameRulesetSheet } = await import("/src/components/game/GameRulesetSheet.tsx" as string);
             const { api } = await import("/src/lib/api-client.ts" as string);
             const state = await api.get(`/chats/${chatId}/game-state`);
@@ -66,7 +67,10 @@ for (const theme of ["light", "dark"] as const) {
                 },
               });
             }
-            ReactDOM.createRoot(container).render(React.createElement(Fixture));
+            // The sheet reads its catalogs through the app's queries, so it is mounted inside a client.
+            ReactDOM.createRoot(container).render(
+              React.createElement(QueryClientProvider, { client: new QueryClient() }, React.createElement(Fixture)),
+            );
           },
           { definition, chatId: chat.id, readOnly },
         );
@@ -151,6 +155,7 @@ test("Ruleset box track marks the box clicked, clears the highest, and refuses w
         const dependencyUrl = window.__viteFixtureDependencyUrl;
         const { default: React } = await import(dependencyUrl("react"));
         const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
+        const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));
         const { GameRulesetSheet } = await import("/src/components/game/GameRulesetSheet.tsx" as string);
         const { api } = await import("/src/lib/api-client.ts" as string);
         const container = document.createElement("div");
@@ -181,7 +186,10 @@ test("Ruleset box track marks the box clicked, clears the highest, and refuses w
             },
           });
         }
-        ReactDOM.createRoot(container).render(React.createElement(Fixture));
+        // The sheet reads its catalogs through the app's queries, so it is mounted inside a client.
+        ReactDOM.createRoot(container).render(
+          React.createElement(QueryClientProvider, { client: new QueryClient() }, React.createElement(Fixture)),
+        );
       },
       { definition: ember, chatId: chat.id },
     );

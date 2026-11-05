@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer, type ServerResponse } from "node:http";
 import { seedUIState } from "./ui-state-fixture.js";
 import { ttsConfigSchema } from "../packages/shared/src/types/tts.js";
 
@@ -86,6 +87,62 @@ async function fixture(request: APIRequestContext, art = false) {
     await cleanup().catch(() => undefined);
     throw error;
   }
+}
+
+/** A streaming provider the test answers by hand, so a reply arrives a paragraph at a time. */
+async function streamingProvider(request: APIRequestContext, chatId: string) {
+  const open: ServerResponse[] = [];
+  const server = createServer((incoming, response) => {
+    incoming.resume();
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" }).end("{}");
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+      response.flushHeaders();
+      open.push(response);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The VN provider did not bind");
+  const connection = await request.post("/api/connections", {
+    data: {
+      name: "Visual Novel stream",
+      provider: "custom",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      apiKey: "e2e-visual-novel",
+      model: "visual-novel-model",
+      maxContext: 32_768,
+    },
+  });
+  expect(connection.ok(), await connection.text()).toBeTruthy();
+  const connectionId = ((await connection.json()) as { id: string }).id;
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { connectionId } })).ok()).toBeTruthy();
+  /** The oldest unanswered request: the reply first, then any agent that reads it. */
+  const pending = async () => {
+    await expect.poll(() => open.length).toBeGreaterThan(0);
+    return open[0]!;
+  };
+  return {
+    async write(content: string) {
+      (await pending()).write(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`,
+      );
+    },
+    async finish() {
+      (await pending()).end(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      );
+      open.shift();
+    },
+    async close() {
+      for (const response of open.splice(0)) response.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await request.delete(`/api/connections/${connectionId}`);
+    },
+  };
 }
 
 async function open(page: Page, chatId: string, theme: "dark" | "light" = "dark", state = {}) {
@@ -273,25 +330,29 @@ test("Roleplay VN waits for complete streaming paragraphs and discards old swipe
     );
     await expect(paragraph).not.toContainText("A small light");
     await expect(paragraph).not.toContainText("An unfinished");
-    for (const [text, visible] of [
-      ["First complete.\n\nPartial second", "First complete."],
-      ["First complete.\n\nSecond complete.\n\nPartial third", "Second complete."],
-    ]) {
-      await page.evaluate(
+    const stream = (text: string) =>
+      page.evaluate(
         async ({ chatId, text }) => {
           const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
-          useChatStore.getState().setStreamBuffer(text!, chatId);
+          useChatStore.getState().setStreamBuffer(text, chatId);
         },
         { chatId: data.chat.id, text },
       );
-      await expect(paragraph).toHaveText(visible!);
-    }
+    // A completed paragraph shows at once; later ones wait for the reader (#8635).
+    await stream("First complete.\n\nPartial second");
+    await expect(paragraph).toHaveText("First complete.");
+    await stream("First complete.\n\nSecond complete.\n\nPartial third");
+    await expect(page.locator("[data-roleplay-vn-navigation] > span")).toHaveText("1 / 2+");
+    await expect(paragraph).toHaveText("First complete.");
+    await page.getByRole("button", { name: "Next paragraph" }).click();
+    await expect(paragraph).toHaveText("Second complete.");
     await page.evaluate(async () => {
       const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
       useChatStore.getState().setStreaming(false);
       useChatStore.getState().setRegenerateMessageId(null);
     });
-    await expect(paragraph).toContainText("A small light flickers across the desk.");
+    // Nothing was saved, so the old swipe returns where the reader was.
+    await expect(paragraph).toContainText("We have a new experiment");
     await page.evaluate(async () => {
       const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
       useUIStore.getState().setEditLastMessageOnArrowUp(true);
@@ -446,6 +507,180 @@ test("Roleplay VN starts an inactive chat's completed regenerated swipe at its f
   } finally {
     releaseGeneration?.();
     if (inactiveChatId) await request.delete(`/api/chats/${inactiveChatId}`);
+    await data.cleanup();
+  }
+});
+
+test("Roleplay VN stays on the paragraph being read while a reply streams in", async ({ page, request }) => {
+  const data = await fixture(request);
+  const provider = await streamingProvider(request, data.chat.id);
+  try {
+    await open(page, data.chat.id, "dark", { streamingSpeed: 100 });
+    const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    const counter = page.locator("[data-roleplay-vn-navigation] > span");
+    await page.locator("textarea.mari-chat-input-textarea").fill("Continue the story.");
+    await page.locator("button.mari-chat-send-btn").click();
+    await provider.write("The first streamed paragraph.\n\nThe second streamed paragraph.\n\n");
+    await expect(paragraph).toHaveText("The first streamed paragraph.");
+    await expect(counter).toHaveText("1 / 2+");
+    await provider.write("The third streamed paragraph.\n\n");
+    await expect(counter).toHaveText("1 / 3+");
+    await expect(paragraph).toHaveText("The first streamed paragraph.");
+    await page.getByRole("button", { name: "Next paragraph" }).click();
+    await expect(paragraph).toHaveText("The second streamed paragraph.");
+    await expect(counter).toHaveText("2 / 3+");
+    await provider.write("The final streamed paragraph.");
+    await provider.finish();
+    await expect(page.locator("button.mari-chat-send-btn svg.lucide-circle-stop")).toHaveCount(0);
+    await expect(counter).toHaveText("2 / 4");
+    await expect(paragraph).toHaveText("The second streamed paragraph.");
+  } finally {
+    await provider.close();
+    await data.cleanup();
+  }
+});
+
+test("Roleplay VN starts each group turn at its first paragraph and keeps the counter in range", async ({
+  page,
+  request,
+}) => {
+  const data = await fixture(request);
+  try {
+    await open(page, data.chat.id);
+    const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    const counter = page.locator("[data-roleplay-vn-navigation] > span");
+    const next = page.getByRole("button", { name: "Next paragraph" });
+    const stream = (text: string, characterId?: string) =>
+      page.evaluate(
+        async ({ chatId, text, characterId }) => {
+          const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+          const store = useChatStore.getState();
+          if (characterId) {
+            // A group turn clears the buffer, then names the next speaker.
+            store.setStreamBuffer("", chatId);
+            store.setStreamingCharacterId(characterId);
+          }
+          store.setStreamBuffer(text, chatId);
+          if (!store.isStreaming) store.setStreaming(true, chatId);
+        },
+        { chatId: data.chat.id, text, characterId },
+      );
+    await stream("One.\n\nTwo.\n\nThree.\n\nFour.\n\nPartial", data.character.id);
+    await expect(paragraph).toHaveText("One.");
+    for (let step = 0; step < 3; step++) await next.click();
+    await expect(paragraph).toHaveText("Four.");
+    // The next speaker's reply starts at its own first paragraph.
+    await stream("Turn two one.\n\nTurn two two.\n\nPartial", "vn-second-speaker");
+    await expect(paragraph).toHaveText("Turn two one.");
+    await expect(counter).toHaveText("1 / 2+");
+    await stream("Turn two one.\n\nTurn two two.\n\nTurn two three.\n\nTurn two four.\n\nPartial");
+    for (let step = 0; step < 3; step++) await next.click();
+    await expect(paragraph).toHaveText("Turn two four.");
+    await page.evaluate(async (chatId) => {
+      const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+      useChatStore.getState().setStreaming(false);
+      useChatStore.getState().setStreamingCharacterId(null);
+      useChatStore.getState().setStreamBuffer("", chatId);
+    }, data.chat.id);
+    // Nothing was saved: the shorter reply shows its last paragraph and counts within itself.
+    await expect(paragraph).toContainText("A small light flickers across the desk.");
+    await expect(counter).toHaveText("3 / 3");
+    await page.getByRole("button", { name: "Previous paragraph" }).click();
+    await expect(paragraph).toContainText("We have a new experiment");
+  } finally {
+    await data.cleanup();
+  }
+});
+
+test("Roleplay VN opens a continuation on the paragraph its new text extends", async ({ page, request }) => {
+  const data = await fixture(request);
+  try {
+    await open(page, data.chat.id);
+    const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    await page.evaluate(
+      async ({ chatId, messageId, content }) => {
+        const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+        const store = useChatStore.getState();
+        store.setContinuationStream(chatId, { messageId, content, addNewline: true });
+        store.setStreaming(true, chatId);
+        store.setStreamBuffer("An added paragraph.\n\nPartial", chatId);
+      },
+      { chatId: data.chat.id, messageId: data.message.id, content: data.message.content },
+    );
+    await expect(page.locator("[data-roleplay-vn-navigation] > span")).toHaveText("3 / 4+");
+    await expect(paragraph).toHaveText("A small light flickers across the desk.");
+    await page.getByRole("button", { name: "Next paragraph" }).click();
+    await expect(paragraph).toHaveText("An added paragraph.");
+  } finally {
+    await data.cleanup();
+  }
+});
+
+test("Roleplay VN keeps each swipe's own text when a held rewrite finishes", async ({ page, request }) => {
+  const data = await fixture(request);
+  const provider = await streamingProvider(request, data.chat.id);
+  // A text rewrite keeps the reply live until it saves, into whichever swipe is active then.
+  const agentResponse = await request.post("/api/agents", {
+    data: {
+      type: "vn-swipe-rewriter",
+      name: "VN swipe rewriter",
+      phase: "post_processing",
+      resultType: "text_rewrite",
+      promptTemplate: "Polish the reply.",
+    },
+  });
+  expect(agentResponse.ok(), await agentResponse.text()).toBeTruthy();
+  const agent = (await agentResponse.json()) as { id: string; type: string };
+  try {
+    expect(
+      (
+        await request.patch(`/api/chats/${data.chat.id}/metadata`, {
+          data: { enableAgents: true, activeAgentIds: [agent.type] },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await open(page, data.chat.id, "dark", { streamingSpeed: 100 });
+    const vn = page.locator("[data-roleplay-vn]");
+    const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    await vn.getByRole("button", { name: "Show chat history" }).click();
+    const message = page.locator(`[data-chat-scroll] [data-message-id="${data.message.id}"]`).first();
+    const previousSwipe = message.getByRole("button", { name: "Previous swipe", exact: true });
+    await page.getByRole("button", { name: "Regenerate", exact: true }).last().click();
+    const confirmRegenerate = page.getByRole("dialog").getByRole("button", { name: "Regenerate", exact: true });
+    if (await confirmRegenerate.isVisible().catch(() => false)) await confirmRegenerate.click();
+    await provider.write("A rewritten opening.\n\nThe rewritten ending.");
+    await provider.finish();
+    await expect(message).toContainText("The rewritten ending.");
+    await message.click();
+    await expect(page.locator("button.mari-chat-send-btn svg.lucide-circle-stop")).toBeVisible();
+    // Going back now would show the live text on both swipes and let the rewrite save into the first.
+    if (await previousSwipe.isVisible()) await previousSwipe.click();
+    await provider.write(JSON.stringify({ editedText: "A rewritten opening.\n\nThe polished ending." }));
+    await provider.finish();
+    await expect(page.locator("button.mari-chat-send-btn svg.lucide-circle-stop")).toHaveCount(0);
+    // The rewrite belongs to the new swipe; the first keeps its own text.
+    await expect
+      .poll(async () => {
+        const swipes = await request.get(`/api/chats/${data.chat.id}/messages/${data.message.id}/swipes`);
+        return ((await swipes.json()) as Array<{ content: string }>).map(({ content }) => content);
+      })
+      .toEqual([
+        'The archive falls quiet.\n\n"We have a new experiment," Mari says.\n\nA small light flickers across the desk.',
+        "A rewritten opening.\n\nThe polished ending.",
+      ]);
+    await expect(message).toContainText("The polished ending.");
+    await message.click();
+    await previousSwipe.click();
+    await expect(message).toContainText("A small light flickers across the desk.");
+    await expect(message).not.toContainText("The polished ending.");
+    await vn.getByRole("button", { name: "Return to Visual Novel" }).click();
+    await expect(paragraph).toContainText("The archive falls quiet.");
+    await page.getByRole("button", { name: "Next paragraph" }).click();
+    await page.getByRole("button", { name: "Next paragraph" }).click();
+    await expect(paragraph).toContainText("A small light flickers across the desk.");
+  } finally {
+    await provider.close();
+    await request.delete(`/api/agents/${agent.id}`);
     await data.cleanup();
   }
 });

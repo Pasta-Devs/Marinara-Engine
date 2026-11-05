@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import {
@@ -160,11 +161,7 @@ test("an Experience's map pack sets the kit and offers only its maps, and lets g
 }, testInfo) => {
   test.setTimeout(120_000);
   const wizard = await mountWizard(page, testInfo);
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   await wizard.getByRole("button", { name: "Show", exact: true }).click();
   await wizard.getByRole("switch", { name: "River Experience", exact: true }).click();
   const heading = wizard.getByRole("heading", { level: 4 }).first();
@@ -204,7 +201,7 @@ test("an Experience's map pack sets the kit and offers only its maps, and lets g
   await expect(wizard.getByRole("radio", { name: "Downriver", exact: true })).toBeChecked();
 
   // Started: the game is made with the pack's kit and the map picked.
-  const start = wizard.getByRole("button", { name: "Start Game", exact: true });
+  const start = wizard.getByRole("button", { name: "Create world", exact: true });
   for (let step = 0; step < 6 && !(await start.isVisible()); step++) await go("Next");
   await start.click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}") as {
@@ -217,18 +214,16 @@ test("an Experience's map pack sets the kit and offers only its maps, and lets g
   expect(result.config.story).toEqual(downriverStory.story);
 });
 
-test("an Experience whose map pack Marinara cannot read cannot start a game, and says why", async ({ page }, testInfo) => {
+test("an Experience whose map pack Marinara cannot read cannot start a game, and says why", async ({
+  page,
+}, testInfo) => {
   test.setTimeout(120_000);
   const wizard = await mountWizard(page, testInfo);
   // Registered last, so it answers instead of the good pack.
   await page.route("**/api/game/experience-map-pack/mapfixture", (route) =>
     route.fulfill({ status: 400, json: { error: "upriver.world.json was made with another kit" } }),
   );
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   await wizard.getByRole("button", { name: "Show", exact: true }).click();
   await wizard.getByRole("switch", { name: "River Experience", exact: true }).click();
   const heading = wizard.getByRole("heading", { level: 4 }).first();
@@ -245,10 +240,12 @@ test("an Experience whose map pack Marinara cannot read cannot start a game, and
   // Neither the pack's maps nor the player's own kit chooser: nothing to start with.
   await expect(wizard.getByRole("radio", { name: "Upriver", exact: true })).toHaveCount(0);
   await expect(wizard.getByRole("button", { name: "Import a world file", exact: true })).toHaveCount(0);
-  const start = wizard.getByRole("button", { name: "Start Game", exact: true });
+  const start = wizard.getByRole("button", { name: "Create world", exact: true });
   for (let step = 0; step < 6 && !(await start.isVisible()); step++) await next();
   await expect(start).toBeDisabled();
-  await expect(wizard.getByText("Marinara could not read this Experience's map pack, so the Experience cannot start a game.")).toBeVisible();
+  await expect(
+    wizard.getByText("Marinara could not read this Experience's map pack, so the Experience cannot start a game."),
+  ).toBeVisible();
 });
 
 test("a game started with a map pack draws its overworld with the pack's tiles", async ({ page, request }) => {

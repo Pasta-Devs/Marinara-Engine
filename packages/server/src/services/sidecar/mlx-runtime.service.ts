@@ -324,12 +324,15 @@ class MlxRuntimeService {
 
     await this.ensureUvInstalled(onProgress);
     const mlxArchivePath = join(MLX_RUNTIME_DIR, MLX_RUNTIME_MANIFEST.mlxLm.archive.name);
+    let version: string | null = null;
 
     try {
       verifyRequirementsLock();
       await this.downloadVerifiedAsset(MLX_RUNTIME_MANIFEST.mlxLm.archive, mlxArchivePath, "mlx-lm source", onProgress);
+      // A failed dependency sync must not leave the previous environment approved.
+      rmSync(MLX_LM_PACKAGE_STAMP_PATH, { force: true });
       this.emitProgress(onProgress, "downloading", `Python ${PYTHON_VERSION} runtime`);
-      await this.runCommand(UV_BIN, ["venv", MLX_VENV_DIR, "--python", PYTHON_VERSION], {
+      await this.runCommand(UV_BIN, ["venv", MLX_VENV_DIR, "--python", PYTHON_VERSION, "--allow-existing"], {
         cwd: MLX_RUNTIME_DIR,
         env: this.getUvEnv(),
       });
@@ -350,8 +353,13 @@ class MlxRuntimeService {
           env: this.getUvEnv(),
         },
       );
-      writeInstalledPackageSpec();
       this.emitProgress(onProgress, "downloading", "Verifying MLX runtime");
+      version = readInstalledVersion();
+      if (!version) {
+        throw new Error("The MLX runtime environment was created, but mlx-lm could not be verified.");
+      }
+      if (this.cancelRequested) throw new Error("Install aborted");
+      writeInstalledPackageSpec();
     } catch (error) {
       this.emitProgress(
         onProgress,
@@ -362,11 +370,6 @@ class MlxRuntimeService {
       throw error;
     } finally {
       rmSync(mlxArchivePath, { force: true });
-    }
-
-    const version = readInstalledVersion();
-    if (!version) {
-      throw new Error("The MLX runtime environment was created, but mlx-lm could not be verified.");
     }
 
     this.emitProgress(onProgress, "complete", "mlx-lm runtime");

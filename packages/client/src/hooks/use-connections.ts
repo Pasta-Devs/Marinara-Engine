@@ -5,23 +5,30 @@ import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
+  connectionSavesModelList,
+  isChatProvider,
+  modelReadsImages,
   MAX_PINNED_MODELS,
   parsePinnedModels,
+  type ConnectionBilling,
   type ModelParameterCapabilities,
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useIsMutating, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
-import { useChatStore } from "../stores/chat.store";
-import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
+import { translate } from "../localization/i18n";
+import { useDebouncedValue } from "./use-debounced-value";
+import { chatKeys } from "./use-chats";
+import { connectionAccountKeys } from "./use-connection-accounts";
 import type {
   APIProvider,
-  Chat,
   ConnectionTestResult,
   DecisionSource,
+  GenerativeAudioSource,
   ImageGenerationQuality,
 } from "@marinara-engine/shared";
 
@@ -125,6 +132,9 @@ export type CreateConnectionPayload = {
   videoService?: string | null;
   videoPromptInstructions?: string | null;
   audioSource?: string | null;
+  audioGenerationSource?: GenerativeAudioSource | null;
+  audioGenerationCallbackUrl?: string | null;
+  audioSoundEffectsModel?: string | null;
   decisionSource?: DecisionSource | null;
   credentialsFromConnectionId?: string | null;
   maxStateTokens?: number | null;
@@ -133,25 +143,45 @@ export type CreateConnectionPayload = {
   audioTimeoutMs?: number | null;
   audioSoundEffects?: boolean;
   audioMusic?: boolean;
+  audioMusicEndpoint?: string | null;
+  audioSoundEffectsEndpoint?: string | null;
+  audioGenerationFormat?: "binary" | "chat_completions";
   promptPresetId?: string | null;
   maxTokensOverride?: number | null;
+  imageInput?: "reads" | "text" | null;
   maxParallelJobs?: number;
   maxRequestsPerMinute?: number | null;
   treatAsLocalEndpoint?: boolean;
   claudeFastMode?: boolean;
+  /** Join this Connection: the Model takes its credentials (server-side). */
+  accountId?: string | null;
 };
 
 export function useCreateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateConnectionPayload) => api.post("/connections", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    // The server links a new Model to its Connection, so the account list changes too.
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+      ]),
   });
+}
+
+/** Model saves and pins share this prefix, so a window can tell that a pick is still being saved. */
+const CONNECTION_SAVE_MUTATION_KEY = [...connectionKeys.all, "save"] as const;
+
+/** True while a Model save or pin, including its refetches, is still running anywhere in the app. */
+export function useIsConnectionSaving() {
+  return useIsMutating({ mutationKey: CONNECTION_SAVE_MUTATION_KEY }) > 0;
 }
 
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "update"],
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
     // Auto-save before testing must finish refreshing the editor before a fast
     // test response arrives, otherwise hydration clears the new result.
@@ -160,6 +190,7 @@ export function useUpdateConnection() {
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
         qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
       ]),
   });
 }
@@ -180,7 +211,31 @@ export function useDuplicateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post(`/connections/${id}/duplicate`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+      ]),
+  });
+}
+
+/** "Move to connection…": the Model keeps its id and takes the target Connection's key and catalog. */
+export function useMoveConnection() {
+  const qc = useQueryClient();
+  return useMutation({
+    // `model` is the target catalog's id on a move to another service.
+    mutationFn: ({ id, accountId, model }: { id: string; accountId: string; model?: string }) =>
+      api.post(`/connections/${id}/move`, { accountId, ...(model ? { model } : {}) }),
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+        // A move to another service changes the model id that chats show for this Model.
+        qc.invalidateQueries({ queryKey: chatKeys.list() }),
+        qc.invalidateQueries({ queryKey: [...chatKeys.all, "detail"] }),
+      ]),
   });
 }
 
@@ -203,22 +258,15 @@ export function useDeleteConnection() {
         throw new Error(t("connections.decision.deleteCancelled"));
       return api.delete(`/connections/${id}`);
     },
-    onSuccess: async (_data, id) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
+      qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
       // Deleting the default embedding connection clears that default on the server.
       qc.invalidateQueries({ queryKey: connectionKeys.defaultEmbedding() });
-      const activeChatId = useChatStore.getState().activeChatId;
-      if (!activeChatId) return;
-      const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));
-      if (activeChat?.connectionId !== id) return;
-      try {
-        const metadataVersion = captureChatMetadataVersion(activeChatId);
-        const updated = await api.patch<Chat>(`/chats/${activeChatId}`, { connectionId: null });
-        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), guardServerChatSnapshot(qc, updated, metadataVersion));
-        qc.invalidateQueries({ queryKey: chatKeys.list() });
-      } catch {
-        qc.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
-      }
+      // The delete already cleared the chats' Model, or moved a catalog pick onto another Model of the
+      // Connection: refetch rather than clear the cached Model, which would drop that pick.
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: [...chatKeys.all, "detail"] });
     },
   });
 }
@@ -232,16 +280,107 @@ function recordConnectionFailure(id: string, action: string, error: unknown) {
   });
 }
 
-export function useTestConnection() {
+/** A Model id, or one with a key or address typed in an editor but not saved yet. */
+type TestInput = string | { id: string; apiKey?: string; baseUrl?: string };
+const testId = (input: TestInput) => (typeof input === "string" ? input : input.id);
+
+export type AccessCheck =
+  | { supported: false }
+  | {
+      supported: true;
+      reachable: boolean;
+      /** The server's own policy refused the address. */
+      blocked?: boolean;
+      /** The provider answered 429 or 5xx: busy, not a wrong address. */
+      transient?: boolean;
+      keyOk: boolean | null;
+      modelCount: number | null;
+      status: number | null;
+      error: string | null;
+    };
+
+/** Live address and key check for the account forms: runs 0.6 s after the user stops typing. */
+export function useAccessCheck(input: {
+  provider: string | null;
+  baseUrl: string;
+  apiKey: string;
+  accountId?: string;
+}) {
+  const typedUrl = input.baseUrl.trim();
+  const typedKey = input.apiKey.trim();
+  const baseUrl = useDebouncedValue(typedUrl, 600);
+  const apiKey = useDebouncedValue(typedKey, 600);
+  const query = useQuery({
+    queryKey: ["connection-access-check", input.provider, baseUrl, apiKey, input.accountId ?? null],
+    queryFn: ({ signal }) =>
+      api.post<AccessCheck>(
+        "/connections/check",
+        {
+          provider: input.provider,
+          baseUrl: baseUrl || undefined,
+          apiKey: apiKey || undefined,
+          accountId: input.accountId,
+        },
+        { signal },
+      ),
+    // Only send what the form still holds: after Back and a new service, the debounced values are stale.
+    enabled: !!input.provider && typedUrl === baseUrl && typedKey === apiKey,
+    staleTime: 30_000,
+    gcTime: 60_000,
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+  // Typing, or waiting for the answer: the last answer is for other input.
+  const checking = typedUrl !== baseUrl || typedKey !== apiKey || query.isFetching;
+  return {
+    result: checking ? undefined : query.data,
+    // A provider without live checks shows no spinner.
+    checking: !!input.provider && checking && query.data?.supported !== false,
+    supported: query.isError ? false : query.data?.supported,
+    recheck: query.refetch,
+  };
+}
+
+export function useTestConnection(accountId?: string) {
+  const qc = useQueryClient();
+  const recordTest = (input: TestInput, message: string | null, errorCode: "AUTH_REJECTED" | null = null) => {
+    if (typeof input !== "string" && (input.apiKey !== undefined || input.baseUrl !== undefined)) return;
+    const id = testId(input);
+    const row = qc
+      .getQueryData<Array<{ id: string; accountId?: string | null }>>(connectionKeys.list())
+      ?.find((row) => row.id === id);
+    const target = row?.accountId ?? accountId;
+    if (target) {
+      const ui = useUIStore.getState();
+      ui.setConnectionTestFailure(
+        target,
+        message === null ? null : message.trim() || translate("connections.accounts.testFailed"),
+      );
+      ui.setConnectionTestErrorCode(target, errorCode);
+    }
+  };
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post<ConnectionTestResult>(`/connections/${id}/test`, { debugMode: useUIStore.getState().debugMode }),
-    onError: (error, id) => recordConnectionFailure(id, "Test connection", error),
+    mutationFn: (input: TestInput) => {
+      const { id, ...draft } = typeof input === "string" ? { id: input } : input;
+      return api.post<ConnectionTestResult>(`/connections/${id}/test`, {
+        debugMode: useUIStore.getState().debugMode,
+        ...draft,
+      });
+    },
+    onError: (error, input) => {
+      recordTest(input, error instanceof Error ? error.message : String(error));
+      recordConnectionFailure(testId(input), "Test connection", error);
+    },
     // A failed check still answers 200 with `success: false`.
-    onSuccess: (result, id) =>
-      result.success
-        ? useUIStore.getState().setLastAppError(null)
-        : recordConnectionFailure(id, "Test connection", result.message),
+    onSuccess: (result, input) => {
+      recordTest(
+        input,
+        result.success ? null : result.message,
+        !result.success && result.errorCode === "AUTH_REJECTED" ? result.errorCode : null,
+      );
+      if (result.success) useUIStore.getState().setLastAppError(null);
+      else recordConnectionFailure(testId(input), "Test connection", result.message);
+    },
   });
 }
 
@@ -293,6 +432,21 @@ export function useTestImageGeneration() {
   });
 }
 
+/** One short text through the source semantic search uses; `dimensions` is the vector size it returned. */
+export function useTestEmbedding() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<{
+        success: boolean;
+        message: string;
+        latencyMs: number;
+        dimensions?: number;
+        model?: string;
+        endpoint?: string;
+      }>(`/connections/${id}/test-embedding`, {}),
+  });
+}
+
 export function useTestVideoGeneration() {
   return useMutation({
     mutationFn: (id: string) =>
@@ -314,7 +468,195 @@ export type ConnectionModelList = {
   models: RemoteConnectionModel[];
   loras?: RemoteConnectionModel[];
   fetchedAt?: string;
+  /** "plan" or "free" when one word says how the whole Connection is paid for. */
+  billing?: ConnectionBilling;
 };
+
+/** What the cached catalogs say about one model: its cost badge and price, whether it is retiring, what it reads. */
+export type CachedModelFacts = Pick<
+  RemoteConnectionModel,
+  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities" | "capabilities"
+>;
+
+export type CachedCatalogFacts = {
+  of: (modelId: string | null | undefined) => CachedModelFacts | undefined;
+  /** The catalog mixes models in the plan with paid ones (NanoGPT), so "Paid" says something. */
+  showPaid: boolean;
+  /** Models in the cached catalogs; undefined while none is cached. */
+  count?: number;
+  /** The cached catalogs' model ids, one set per catalog (the Add window's model search reads them). */
+  idSets: ReadonlyArray<ReadonlySet<string>>;
+  /** The provider's own name for a model, when it differs from the id. */
+  nameOf: (modelId: string | null | undefined) => string | undefined;
+  /** The cached catalogs' facts, one map per catalog. */
+  factSets: ReadonlyArray<ReadonlyMap<string, CachedModelFacts>>;
+};
+
+type CatalogIndex = {
+  byId: Map<string, CachedModelFacts>;
+  ids: Set<string>;
+  names: Map<string, string>;
+  showPaid: boolean;
+};
+const catalogIndexes = new WeakMap<ConnectionModelList, CatalogIndex>();
+
+/** One catalog's facts, indexed once per fetched list. */
+function indexCatalog(list: ConnectionModelList): CatalogIndex {
+  let index = catalogIndexes.get(list);
+  if (index) return index;
+  index = { byId: new Map(), ids: new Set(), names: new Map(), showPaid: false };
+  for (const model of list.models ?? []) {
+    index.ids.add(model.id);
+    if (model.name && model.name !== model.id) index.names.set(model.id, model.name);
+    if (model.cost === "included" || model.cost?.startsWith("multiplier:")) index.showPaid = true;
+    if (
+      model.cost ||
+      model.deprecated ||
+      model.retiresAt ||
+      model.inputModalities?.length ||
+      model.capabilities?.logprobs
+    ) {
+      index.byId.set(model.id, {
+        cost: model.cost,
+        pricing: model.pricing,
+        deprecated: model.deprecated,
+        retiresAt: model.retiresAt,
+        inputModalities: model.inputModalities,
+        capabilities: model.capabilities,
+      });
+    }
+  }
+  catalogIndexes.set(list, index);
+  return index;
+}
+
+/**
+ * Cost and retirement facts from the model catalogs, one result per group of Connection ids (a card's Models).
+ * It shares the pickers' query keys. Each group loads one saved list (its first Model whose provider keeps one;
+ * a Connection's Models share it), which the server answers without asking the provider; the rest read the cache.
+ */
+export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>): CachedCatalogFacts[] {
+  const ids = [...new Set(groups.flat())];
+  const { data: connections } = useConnections();
+  const providerOf = new Map(
+    ((connections ?? []) as Array<{ id: string; provider: string }>).map((row) => [row.id, row.provider]),
+  );
+  const loaded = new Set(
+    groups.flatMap((group) => {
+      const id = group.find((entry) => connectionSavesModelList(providerOf.get(entry) ?? "image_generation"));
+      return id ? [id] : [];
+    }),
+  );
+  const results = useQueries({
+    queries: ids.map((id) =>
+      loaded.has(id)
+        ? {
+            queryKey: connectionKeys.models(id),
+            queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+            staleTime: MODEL_LIST_TTL,
+            gcTime: MODEL_LIST_TTL,
+            retry: false,
+            retryOnMount: false,
+          }
+        : // Disabled, not skipToken: a refetch of this shared key (Refresh, invalidate) may read this observer's queryFn.
+          {
+            queryKey: connectionKeys.models(id),
+            queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+            enabled: false,
+          },
+    ),
+  });
+  const indexById = new Map(
+    ids.flatMap((id, i) => {
+      const data = results[i]?.data as ConnectionModelList | undefined;
+      return data ? [[id, indexCatalog(data)] as const] : [];
+    }),
+  );
+  return groups.map((group) => {
+    const indexes = group.flatMap((id) => indexById.get(id) ?? []);
+    return {
+      of: (modelId) => {
+        if (!modelId) return undefined;
+        for (const index of indexes) {
+          const facts = index.byId.get(modelId);
+          if (facts) return facts;
+        }
+        return undefined;
+      },
+      showPaid: indexes.some((index) => index.showPaid),
+      count: indexes.length ? new Set(indexes.flatMap((index) => [...index.ids])).size : undefined,
+      idSets: indexes.map((index) => index.ids),
+      nameOf: (modelId) => {
+        if (!modelId) return undefined;
+        for (const index of indexes) {
+          const name = index.names.get(modelId);
+          if (name) return name;
+        }
+        return undefined;
+      },
+      factSets: indexes.map((index) => index.byId),
+    };
+  });
+}
+
+/** The rule for a Model that reads images or may (its catalog does not say it cannot). */
+export function useMayReadImages() {
+  const rows = (useConnections().data ?? []) as Array<{
+    id: string;
+    provider?: string | null;
+    accountId?: string | null;
+    imageInput?: string | null;
+  }>;
+  const chatRows = rows.filter((row) => isChatProvider(row.provider ?? ""));
+  const catalogs = useCachedCatalogFacts(
+    chatRows.map((row) =>
+      row.accountId ? chatRows.filter((peer) => peer.accountId === row.accountId).map((peer) => peer.id) : [row.id],
+    ),
+  );
+  return (row: { id: string; model?: string | null }) => {
+    const index = chatRows.findIndex((entry) => entry.id === row.id);
+    const chatRow = chatRows[index];
+    return !chatRow || modelReadsImages(chatRow, catalogs[index]?.of(row.model)) !== false;
+  };
+}
+
+/**
+ * The one yes for outside reads on Connections: NanoGPT plan badges, public price lists and balance reads.
+ * "on", "off", or null while the user has not chosen (null reads as off). Asking names every site the server
+ * reads; a choice reloads the model lists and the balances.
+ */
+export function useOutsideReads() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const path = `/app-settings/${OUTSIDE_READS_SETTINGS_KEY}`;
+  const queryKey = [...connectionKeys.all, "setting", OUTSIDE_READS_SETTINGS_KEY];
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => (await api.get<{ value: string | null }>(path)).value,
+    staleTime: Infinity,
+  });
+  const save = useMutation({
+    mutationFn: (value: "on" | "off") => api.put(path, { value }),
+    onSuccess: (_data, value) => {
+      qc.setQueryData(queryKey, value);
+      void qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models"] });
+      void qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
+    },
+  });
+  const ask = async () => {
+    const allowed = await showConfirmDialog({
+      title: t("connections.outsideReads.title"),
+      message: t("connections.outsideReads.message"),
+      confirmLabel: t("connections.outsideReads.allow"),
+      cancelLabel: t("connections.outsideReads.notNow"),
+    });
+    save.mutate(allowed ? "on" : "off");
+  };
+  return { value: query.isSuccess ? (query.data ?? null) : undefined, ask, turnOff: () => save.mutate("off") };
+}
+
+/** A model list stays fresh for six hours; Refresh asks sooner. */
+const MODEL_LIST_TTL = 6 * 60 * 60_000;
 
 const connectionModelsPath = (id: string, refresh = false) =>
   `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
@@ -332,12 +674,26 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
     queryKey: connectionKeys.models(id ?? ""),
     queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id ?? "")),
     enabled: enabled && !!id && id !== "random",
-    staleTime: 6 * 60 * 60_000,
-    gcTime: 6 * 60 * 60_000,
+    staleTime: MODEL_LIST_TTL,
+    gcTime: MODEL_LIST_TTL,
     // A list that went stale while loading is asked for again once; other failures wait for Refresh.
     retry: (failureCount, error) => isStaleModelList(error) && failureCount < 1,
     retryOnMount: false,
   });
+}
+
+/** How many models a provider offers, read once right after it is added. */
+export function useCountConnectionModels() {
+  const qc = useQueryClient();
+  return (id: string) =>
+    qc
+      .fetchQuery({
+        queryKey: connectionKeys.models(id),
+        queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+        staleTime: MODEL_LIST_TTL,
+      })
+      .then((list) => list.models.length)
+      .catch(() => null);
 }
 
 /** Fetch the provider's list again and replace the saved one. */
@@ -357,6 +713,7 @@ export function useRefreshConnectionModels() {
 export function useSetConnectionModelPinned() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "pin"],
     mutationFn: ({ id, model, pinned }: { id: string; model: string; pinned: boolean }) =>
       api.post<{ pinnedModels: string[] }>(`/connections/${encodeURIComponent(id)}/pinned-models`, { model, pinned }),
     onMutate: async ({ id, model, pinned }) => {
@@ -442,6 +799,13 @@ export type NanoGptSubscriptionUsage = {
 
 export type SubscriptionUsage = NanoGptSubscriptionUsage | PlanUsage;
 
+/** Whether a plan window is used up. On NanoGPT only the models in the plan stop; paid ones still run. */
+export function usageAtLimit(usage: SubscriptionUsage | undefined): boolean {
+  if (!usage) return false;
+  const windows = "windows" in usage ? usage.windows : [usage.dailyInputTokens, usage.weeklyInputTokens];
+  return windows.some((window) => (window?.percentUsed ?? 0) >= 1);
+}
+
 /** Read a connection's subscription usage for the usage widget. */
 export function useSubscriptionUsage(connectionId: string | null, enabled: boolean) {
   return useQuery({
@@ -467,5 +831,15 @@ export function useSaveConnectionDefaults() {
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
       ]),
+  });
+}
+
+/** Upload a Connection's (account's) picture. Its icon and reset go through `useUpdateConnectionAccount` (`icon`). */
+export function useUploadConnectionAccountImage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, image }: { id: string; image: string }) =>
+      api.post<Record<string, unknown>>(`/connection-accounts/${id}/image`, { image }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
   });
 }

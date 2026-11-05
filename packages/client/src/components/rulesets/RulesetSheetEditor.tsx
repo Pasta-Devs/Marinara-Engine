@@ -8,6 +8,8 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheetLive,
+  rulesetFieldMax,
+  rulesetSheetTotalsOver,
   isRulesetItemHidden,
   migrateRulesetSheetBuild,
   recomputeScaledRows,
@@ -24,8 +26,8 @@ import {
   rulesetBuilderCatalogIds,
   rulesetBuilderUsesChoiceConstraints,
   type RulesetBuilderState,
-  type DiceRollResult,
   type RulesetCatalogEntriesById,
+  type RulesetLiveState,
   type RulesetCatalogPayload,
   type RulesetDefinition,
   type RulesetLayerOptions,
@@ -34,17 +36,20 @@ import {
   type RulesetSheetItem,
   rulesetItemAccess,
   workOutRulesetListRow,
+  listRulesetLivePools,
 } from "@marinara-engine/shared";
 import { RulesetCatalogPicker } from "./RulesetCatalogPicker";
 import { RulesetSheetBuilder } from "./RulesetSheetBuilder";
 import { RulesetCatalogRefreshModal } from "./RulesetCatalogRefreshModal";
 import { rulesetCatalogQuery } from "../../hooks/use-capability-packages";
 import { applyCatalogRefresh, planCatalogRefresh, type CatalogRefreshRow } from "../../lib/ruleset-catalog";
-import { rulesetRowSpellcastingText } from "../../lib/ruleset-sheet-view";
+import { rulesetPoolLevels, rulesetRowSpellcastingText, rulesetSheetAttacks } from "../../lib/ruleset-sheet-view";
 import { rulesetCheckValueText } from "../../lib/ruleset-resolution";
+import { RulesetTextContext, useRulesetText } from "../../lib/ruleset-text";
+import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
-import { api } from "../../lib/api-client";
-import { clamp, inputClass, labelClass, TypedInput, type Scalar } from "./RulesetTypedInput";
+import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput, type Scalar } from "./RulesetTypedInput";
+import { RollCellButton } from "./RulesetRollCellButton";
 
 type ListRow = Record<string, Scalar>;
 
@@ -99,13 +104,14 @@ function SectionedEntries<T extends { id: string; section?: string }>({
   entries: readonly T[];
   render: (entries: T[]) => React.ReactNode;
 }) {
+  const rt = useRulesetText();
   const groups = rulesetSectionGroups(definition, entries);
   if (groups.length === 1 && !groups[0]!.section) return <>{render(groups[0]!.entries)}</>;
   return (
     <>
       {groups.map((group) => (
         <div key={group.section ? `section:${group.section.id}` : "none"} className="space-y-1">
-          {group.section && <p className={labelClass}>{group.section.label}</p>}
+          {group.section && <p className={labelClass}>{rt(group.section.label)}</p>}
           {render(group.entries)}
         </div>
       ))}
@@ -137,11 +143,12 @@ function TrainedRows({
   onBonus: (id: string, bonus: number) => void;
 }) {
   const { t } = useUiTranslation();
+  const rt = useRulesetText();
   if (entries.length === 0) return null;
   const untrainedTier = definition.resolution.proficiencyTiers[0]!.id;
   const abilityShort = (id: string | undefined) => {
     const ability = definition.sheet.abilities.find((entry) => entry.id === id);
-    return ability ? (ability.short ?? ability.label) : "";
+    return ability ? rt(ability.short ?? ability.label) : "";
   };
   return (
     <div className="space-y-2">
@@ -156,8 +163,8 @@ function TrainedRows({
                 key={entry.id}
                 className="grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
               >
-                <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={entry.label}>
-                  {entry.label}
+                <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={rt(entry.label)}>
+                  {rt(entry.label)}
                   {entry.ability ? (
                     <span className="ml-1 text-[var(--muted-foreground)]">{abilityShort(entry.ability)}</span>
                   ) : null}
@@ -165,7 +172,7 @@ function TrainedRows({
                 <select
                   value={chosen[entry.id] ?? tiers[0]!.id}
                   onChange={(event) => onTier(entry.id, event.target.value)}
-                  aria-label={t("ui.rulesets.sheet.trainingFor", { name: entry.label })}
+                  aria-label={t("ui.rulesets.sheet.trainingFor", { name: rt(entry.label) })}
                   className={inputClass}
                 >
                   {[
@@ -177,7 +184,7 @@ function TrainedRows({
                     ),
                   ].map((tier) => (
                     <option key={tier.id} value={tier.id}>
-                      {tier.label}
+                      {rt(tier.label)}
                     </option>
                   ))}
                 </select>
@@ -187,7 +194,7 @@ function TrainedRows({
                   min={bonusRange.min}
                   max={bonusRange.max}
                   integer
-                  ariaLabel={t("ui.rulesets.sheet.bonusFor", { name: entry.label })}
+                  ariaLabel={t("ui.rulesets.sheet.bonusFor", { name: rt(entry.label) })}
                   title={t("ui.rulesets.sheet.bonusHint")}
                   className={`${inputClass} text-center`}
                 />
@@ -198,7 +205,7 @@ function TrainedRows({
                   <span
                     className="text-right text-xs font-semibold text-[var(--muted-foreground)]"
                     title={t("ui.rulesets.sheet.untrainedRefused")}
-                    aria-label={t("ui.rulesets.sheet.untrainedRefusedFor", { name: entry.label })}
+                    aria-label={t("ui.rulesets.sheet.untrainedRefusedFor", { name: rt(entry.label) })}
                   >
                     —
                   </span>
@@ -216,66 +223,7 @@ function TrainedRows({
   );
 }
 
-/** A rolled list cell's button (Capability API 1.85): the Engine's own dice, so the number is thrown,
- *  not typed. Disabled while the row does not say what to throw (its die is not picked yet). */
-function RollCellButton({
-  notation,
-  ariaLabel,
-  onRolled,
-}: {
-  notation: string | null;
-  /** The cell it fills, which its accessible name says. */
-  ariaLabel: string;
-  onRolled: (total: number) => void;
-}) {
-  const { t } = useUiTranslation();
-  const [rolling, setRolling] = useState(false);
-  const [failed, setFailed] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        disabled={!notation || rolling}
-        onClick={async () => {
-          if (!notation) return;
-          setRolling(true);
-          setFailed(false);
-          try {
-            const { result } = await api.post<{ result: DiceRollResult }>("/game/dice/roll", { notation });
-            onRolled(result.total);
-          } catch {
-            // Nothing is written when the roll did not happen, and the button says so.
-            setFailed(true);
-          } finally {
-            setRolling(false);
-          }
-        }}
-        aria-label={
-          notation
-            ? t("ui.rulesets.sheet.rollCell", { cell: ariaLabel, notation })
-            : t("ui.rulesets.sheet.rollNeedsDieFor", { cell: ariaLabel })
-        }
-        className="self-start rounded-lg border border-[var(--border)] px-2 py-0.5 text-[0.6875rem] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
-      >
-        {notation ? t("ui.rulesets.sheet.roll", { notation }) : t("ui.rulesets.sheet.rollNeedsDie")}
-      </button>
-      {failed && (
-        <span role="status" className="text-[0.625rem] text-[var(--marinara-app-accent-static)]">
-          {t("ui.rulesets.sheet.rollFailed")}
-        </span>
-      )}
-    </>
-  );
-}
-
-export function RulesetSheetEditor({
-  definition,
-  layerOptions,
-  envelope,
-  onChange,
-  live,
-  items,
-}: {
+type RulesetSheetEditorProps = {
   definition: RulesetDefinition;
   /** The pinned game's layer choices, which the catalog picker leaves hidden entries out by. The
    *  character and persona editors edit a sheet outside any game, so they pass nothing and the
@@ -289,13 +237,32 @@ export function RulesetSheetEditor({
   /** What the character holds in the game, so a value that reads their items shows it. The
    *  character and persona editors have none, and show it as with nothing held. */
   items?: ReadonlyArray<RulesetSheetItem>;
-}) {
+};
+
+/** A ruleset sheet to fill in, in the player's language where the ruleset has a translation (1.811):
+ *  its words are shown translated, and every value written to the sheet stays the ruleset's own. */
+export function RulesetSheetEditor(props: RulesetSheetEditorProps) {
+  const text = useRulesetDefinitionText(props.definition);
+  return (
+    <RulesetTextContext.Provider value={text}>
+      <SheetEditor {...props} />
+    </RulesetTextContext.Provider>
+  );
+}
+
+function SheetEditor({ definition, layerOptions, envelope, onChange, live, items }: RulesetSheetEditorProps) {
   const { t } = useUiTranslation();
+  const rt = useRulesetText();
   const { sheet, resolution } = definition;
   const build = useMemo(() => readBuild(definition, envelope), [definition, envelope]);
   const evaluated = useMemo(
     () => evaluateRulesetSheetLive(definition, build, live, items),
     [definition, build, live, items],
+  );
+  // The sheet's pools at their most, shown where no game's live state is.
+  const restingPools = useMemo(
+    () => (live === undefined ? listRulesetLivePools(definition, build) : []),
+    [definition, build, live],
   );
   // Which catalog's picker is open. A ruleset that ships none, and a listing that carries none
   // (an older Engine, a stubbed response), simply never offers the button.
@@ -326,6 +293,11 @@ export function RulesetSheetEditor({
     queries: catalogIds.map((catalogId) => rulesetCatalogQuery(definition.id, catalogId, definition.version)),
     combine: combineCatalogs,
   });
+  const poolLevels = useMemo(() => rulesetPoolLevels(definition, build, evaluated), [definition, build, evaluated]);
+  const attacks = useMemo(
+    () => rulesetSheetAttacks(definition, build, live as RulesetLiveState | undefined, items, loadedCatalogs),
+    [definition, build, live, items, loadedCatalogs],
+  );
 
   // Whether the user has changed anything in THIS editor. Opening a sheet must never write to it,
   // so the late recompute below is only for a sheet that is already being edited.
@@ -573,6 +545,8 @@ export function RulesetSheetEditor({
             state={builderState}
             evaluated={evaluated}
             onApply={commitBuilder}
+            outsideGame={live === undefined}
+            gearNote={items === undefined && (definition.items?.startingGear?.length ?? 0) > 0}
           />
         </div>
       </div>
@@ -599,14 +573,14 @@ export function RulesetSheetEditor({
                     key={ability.id}
                     className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
                   >
-                    <span className={`${labelClass} max-w-full truncate`} title={ability.label}>
-                      {ability.short ?? ability.label}
+                    <span className={`${labelClass} max-w-full truncate`} title={rt(ability.label)}>
+                      {rt(ability.short ?? ability.label)}
                     </span>
                     {ability.value ? (
                       // Worked out from the sheet (1.156): shown, never typed over.
                       <span
                         className={`${inputClass} text-center tabular-nums`}
-                        aria-label={ability.label}
+                        aria-label={rt(ability.label)}
                         title={t("ui.rulesets.sheet.workedOut")}
                       >
                         {evaluated.abilityScores[ability.id] ?? ability.default}
@@ -622,7 +596,7 @@ export function RulesetSheetEditor({
                         min={ability.min}
                         max={ability.max}
                         integer
-                        ariaLabel={ability.label}
+                        ariaLabel={rt(ability.label)}
                         className={`${inputClass} text-center`}
                       />
                     )}
@@ -636,15 +610,80 @@ export function RulesetSheetEditor({
           />
         )}
 
+        {/* Fields held to a combined most and over it (1.672): an imported sheet, or one from before. */}
+        {rulesetSheetTotalsOver(definition, build).map((over) => (
+          <p key={over.label} role="alert" className="text-xs text-[var(--destructive)]">
+            {t("ui.rulesets.sheet.totalOver", over)}
+          </p>
+        ))}
+
+        {/* What the sheet has to spend (spell slots, ki), at their most: outside a game nothing is
+            spent yet, and a game's own sheet shows where each stands. */}
+        {live === undefined && restingPools.length > 0 && (
+          <div className="space-y-1">
+            <h4 className="text-xs font-semibold text-[var(--foreground)]">{t("ui.rulesets.sheet.pools")}</h4>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {restingPools.map((pool) => (
+                <div key={pool.key} className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass}>
+                    {rt(pool.label)}
+                    {poolLevels[pool.key] !== undefined && (
+                      <span className="ml-1 font-normal normal-case tracking-normal">
+                        {t("game.ruleset.sheet.poolLevel", { level: poolLevels[pool.key]! })}
+                      </span>
+                    )}
+                  </span>
+                  <span className="rounded-lg border border-dashed border-[var(--border)] px-2 py-1 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                    {pool.start === "empty" ? t("ui.rulesets.sheet.poolStartsEmpty", { max: pool.max }) : pool.max}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Its attacks as a fight works them out (laptop class builds 2026-10-24): Unarmed Strike, and
+            what its features do to them, such as Martial Arts' Dexterity. */}
+        {attacks.length > 0 && (
+          <div className="space-y-1">
+            <h4 className="text-xs font-semibold text-[var(--foreground)]">{t("game.ruleset.sheet.attacks")}</h4>
+            <div className="space-y-1">
+              {attacks.map((attack) => (
+                <div
+                  key={attack.id}
+                  className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-[var(--border)] px-2 py-1"
+                >
+                  <span className="min-w-0 flex-1 basis-24 break-words text-xs font-semibold text-[var(--foreground)]">
+                    {rt(attack.label)}
+                  </span>
+                  {attack.toHit !== undefined && (
+                    <span className="shrink-0 text-xs tabular-nums text-[var(--foreground)]">
+                      {t("game.ruleset.sheet.toHit", { value: `${attack.toHit >= 0 ? "+" : ""}${attack.toHit}` })}
+                    </span>
+                  )}
+                  {attack.damage && (
+                    <span className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]">
+                      {attack.damage}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Armor and weapons are a game's items: outside one, armor class counts none worn. */}
+        {items === undefined && (definition.items?.startingGear?.length ?? 0) > 0 && (
+          <p className="text-xs text-[var(--muted-foreground)]">{t("ui.rulesets.sheet.gearInGame")}</p>
+        )}
+
         {itemAccess.length > 0 && (
           <p className="text-xs text-[var(--muted-foreground)]">
-            {t("ui.rulesets.sheet.itemAccess", { items: itemAccess.join(", ") })}
+            {t("ui.rulesets.sheet.itemAccess", { items: itemAccess.map((name) => rt(name)).join(", ") })}
           </p>
         )}
 
         {sectionGroups.map(({ section, fields, derived, lists }) => (
           <div key={section.id || "other"} className="space-y-2">
-            <h4 className="text-xs font-semibold text-[var(--foreground)]">{section.label}</h4>
+            <h4 className="text-xs font-semibold text-[var(--foreground)]">{rt(section.label)}</h4>
             {(fields.length > 0 || derived.length > 0) && (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {fields.map((field) => (
@@ -652,18 +691,23 @@ export function RulesetSheetEditor({
                     key={field.id}
                     className={`flex min-w-0 flex-col gap-1 ${field.type === "longtext" ? "col-span-full" : ""}`}
                   >
-                    <span className={labelClass}>{field.label}</span>
+                    <span className={labelClass}>{rt(field.label)}</span>
                     <TypedInput
-                      spec={field}
+                      spec={
+                        field.type === "number" && definition.sheet.totals?.some((one) => one.fields.includes(field.id))
+                          ? { ...field, max: rulesetFieldMax(definition, build, field.id) }
+                          : field
+                      }
                       value={build.fields[field.id]}
                       onChange={(value) => commit({ fields: { ...build.fields, [field.id]: value } })}
-                      ariaLabel={field.label}
+                      ariaLabel={rt(field.label)}
+                      pick={rulesetPickCount(definition, build, field)}
                     />
                   </label>
                 ))}
                 {derived.map((entry) => (
                   <div key={entry.id} className="flex min-w-0 flex-col gap-1">
-                    <span className={labelClass}>{entry.label}</span>
+                    <span className={labelClass}>{rt(entry.label)}</span>
                     <span className="rounded-lg border border-dashed border-[var(--border)] px-2 py-1 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
                       {evaluated.derived[entry.id] ?? 0}
                     </span>
@@ -682,7 +726,7 @@ export function RulesetSheetEditor({
                 <div key={list.id} className="space-y-1.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className={labelClass}>
-                      {list.label} ({rows.length}/{list.maxItems})
+                      {rt(list.label)} ({rows.length}/{list.maxItems})
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {/* One button per catalog that feeds this list, named when there is more than one. */}
@@ -693,7 +737,7 @@ export function RulesetSheetEditor({
                           disabled={atLimit}
                           title={
                             atLimit
-                              ? t("game.ruleset.catalog.listFull", { list: list.label, max: list.maxItems })
+                              ? t("game.ruleset.catalog.listFull", { list: rt(list.label), max: list.maxItems })
                               : undefined
                           }
                           onClick={() => setPickerId(catalog.id)}
@@ -701,7 +745,7 @@ export function RulesetSheetEditor({
                         >
                           <BookOpen size={12} aria-hidden="true" />
                           {feeding.length > 1
-                            ? t("game.ruleset.catalog.addFromNamed", { name: catalog.label })
+                            ? t("game.ruleset.catalog.addFromNamed", { name: rt(catalog.label) })
                             : t("game.ruleset.catalog.addFrom")}
                         </button>
                       ))}
@@ -740,7 +784,7 @@ export function RulesetSheetEditor({
                       <button
                         type="button"
                         onClick={() => setRefreshListId(list.id)}
-                        aria-label={t("ui.rulesets.sheet.refreshReviewFor", { list: list.label })}
+                        aria-label={t("ui.rulesets.sheet.refreshReviewFor", { list: rt(list.label) })}
                         className="rounded-lg border border-[var(--border)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] hover:bg-[var(--accent)]"
                       >
                         {t("ui.rulesets.sheet.refreshReview")}
@@ -768,12 +812,12 @@ export function RulesetSheetEditor({
                                 key={column.id}
                                 className={`flex min-w-0 flex-col gap-0.5 ${column.type === "longtext" ? "col-span-full" : ""}`}
                               >
-                                <span className={labelClass}>{column.label}</span>
+                                <span className={labelClass}>{rt(column.label)}</span>
                                 <TypedInput
                                   spec={column}
                                   value={row[column.id]}
                                   onChange={(value) => updateRow(list.id, rows, index, column.id, value)}
-                                  ariaLabel={`${list.label} ${index + 1}: ${column.label}`}
+                                  ariaLabel={`${rt(list.label)} ${index + 1}: ${rt(column.label)}`}
                                   disabled={setByRuleset}
                                   title={setByRuleset ? t("ui.rulesets.sheet.scaledHint") : undefined}
                                   describedBy={hintId}
@@ -781,7 +825,7 @@ export function RulesetSheetEditor({
                                 {column.type === "number" && column.roll && !setByRuleset && (
                                   <RollCellButton
                                     notation={rulesetListRollNotation(definition, build, column, row, evaluated)}
-                                    ariaLabel={`${list.label} ${index + 1}: ${column.label}`}
+                                    ariaLabel={`${rt(list.label)} ${index + 1}: ${rt(column.label)}`}
                                     onRolled={(total) =>
                                       writeRolled(list.id, index, column.id, clamp(total, column.min, column.max))
                                     }
@@ -804,7 +848,7 @@ export function RulesetSheetEditor({
                           onClick={() =>
                             commit({ lists: { ...build.lists, [list.id]: rows.filter((_, i) => i !== index) } })
                           }
-                          aria-label={t("ui.rulesets.sheet.removeRow", { list: list.label, index: index + 1 })}
+                          aria-label={t("ui.rulesets.sheet.removeRow", { list: rt(list.label), index: index + 1 })}
                           className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--destructive)]"
                         >
                           <Trash2 size={14} aria-hidden="true" />
@@ -862,7 +906,7 @@ export function RulesetSheetEditor({
         <RulesetCatalogRefreshModal
           open
           onClose={() => setRefreshListId(null)}
-          listLabel={refreshList.label}
+          listLabel={rt(refreshList.label)}
           rows={refreshRows}
           // Every chosen row moves in ONE envelope change, and only the columns that differ are
           // written: everything else the row holds, the catalog mark included, is kept.

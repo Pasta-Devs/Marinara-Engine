@@ -162,24 +162,37 @@ export function buildMessageMacroContext({
   persona,
   primaryCharacter,
   characters = [],
+  inactiveCharacterIds,
   userName,
   variables = {},
+  chatVariables,
   lastInput,
 }: {
   persona?: MacroPersonaData | null;
   primaryCharacter?: MacroCharacterData | null;
   characters?: MacroCharacterData[];
+  inactiveCharacterIds?: unknown;
   userName?: string;
   variables?: Record<string, string>;
+  /** The chat's own variables (`metadata.macroVariables`). Preset `variables` win over them, as in the prompt. */
+  chatVariables?: Record<string, string>;
   lastInput?: string;
 }): MacroContext {
   const fallbackCharacter = primaryCharacter ?? characters[0] ?? null;
+  const inactiveIds = new Set(Array.isArray(inactiveCharacterIds) ? inactiveCharacterIds : []);
 
   return {
     user: userName ?? persona?.name ?? "User",
     char: fallbackCharacter?.name ?? "Character",
     characters: characters.map((character) => character.name).filter((name) => name.trim().length > 0),
+    groupCharacters: characters
+      .filter((character) => !character.id || !inactiveIds.has(character.id))
+      .map((character) => character.name)
+      .filter((name) => name.trim().length > 0),
     variables,
+    // A copy per context: {{setvar}} writes into localVariables, and showing a
+    // message must never change the chat's variables or leak into another message.
+    ...(chatVariables ? { localVariables: { ...chatVariables } } : {}),
     lastInput,
     characterFields: fallbackCharacter
       ? {
@@ -255,9 +268,78 @@ export function isPromptPreviewMacro(input: string): boolean {
   return /^\{\{\s*(?:prompt|prompt_preview|preview_prompt)\s*\}\}$/i.test(input.trim());
 }
 
+/** The persona a chat speaks as: a character acting as the persona, else the chosen persona. */
+function selectChatPersona(
+  chat: { personaId?: string | null; personaCharacterId?: string | null; mode?: string | null } | null | undefined,
+  characters: Array<{ id: string; data: unknown }> | undefined,
+  personas: Persona[] | undefined,
+): MacroPersonaData | undefined {
+  if (!chat?.personaCharacterId) return selectActivePersona(chat, personas);
+  const characterPersona = parseCharacterMacroData(
+    characters?.find((character) => character.id === chat.personaCharacterId),
+  );
+  return characterPersona ? toMacroPersonaDataFromCharacter(characterPersona) : undefined;
+}
+
+/** How much of a greeting a choice list shows. */
+const GREETING_PREVIEW_MAX_LENGTH = 500;
+
+/**
+ * A greeting as the add-character preview shows it: resolved like a displayed
+ * message (the chat's variables, `{{user}}` for the chat's persona, `{{char}}`
+ * for this card), THEN cut. Cutting first could leave half a `{{tag}}` that no
+ * longer resolves. The message the player adds still stores the raw text; it
+ * resolves when displayed.
+ */
+export function resolveGreetingPreview(
+  template: string,
+  {
+    character,
+    chat,
+    characters,
+    personas,
+    chatVariables,
+  }: {
+    /** The card the greeting belongs to. */
+    character: { id: string; data: unknown };
+    chat: Parameters<typeof createInputMacroResolverForChat>[0];
+    characters: Array<{ id: string; data: unknown }> | undefined;
+    personas: Persona[] | undefined;
+    chatVariables: Record<string, string>;
+  },
+): { text: string; cut: boolean } {
+  const card = parseCharacterMacroData(character);
+  const chatCharacters = selectChatCharacters(chat, characters);
+  const resolved = resolveMessageMacros(
+    template,
+    {
+      persona: selectChatPersona(chat, characters, personas),
+      primaryCharacter: card,
+      characters: chatCharacters.some((entry) => entry.id === character.id)
+        ? chatCharacters
+        : card
+          ? [...chatCharacters, card]
+          : chatCharacters,
+      inactiveCharacterIds: chat?.mode === "game" ? undefined : parseChatMetadata(chat?.metadata).inactiveCharacterIds,
+      chatVariables,
+    },
+    // Fixed per card, so a {{random}} in the preview doesn't re-roll on every render.
+    { randomSeed: `greeting:${character.id}` },
+  );
+  return resolved.length > GREETING_PREVIEW_MAX_LENGTH
+    ? { text: resolved.slice(0, GREETING_PREVIEW_MAX_LENGTH), cut: true }
+    : { text: resolved, cut: false };
+}
+
 export function createInputMacroResolverForChat(
   chat:
-    | { characterIds?: unknown; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null }
+    | {
+        characterIds?: unknown;
+        personaId?: string | null;
+        personaCharacterId?: string | null;
+        mode?: string | null;
+        metadata?: unknown;
+      }
     | null
     | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
@@ -266,18 +348,11 @@ export function createInputMacroResolverForChat(
   variables?: Record<string, string>,
 ) {
   const chatCharacters = selectChatCharacters(chat, characters);
-  const characterPersona = chat?.personaCharacterId
-    ? parseCharacterMacroData(characters?.find((character) => character.id === chat.personaCharacterId))
-    : null;
-  const activePersona: MacroPersonaData | undefined = chat?.personaCharacterId
-    ? characterPersona
-      ? toMacroPersonaDataFromCharacter(characterPersona)
-      : undefined
-    : selectActivePersona(chat, personas);
   return createMessageMacroResolver({
-    persona: activePersona,
+    persona: selectChatPersona(chat, characters, personas),
     primaryCharacter: chatCharacters[0] ?? null,
     characters: chatCharacters,
+    inactiveCharacterIds: chat?.mode === "game" ? undefined : parseChatMetadata(chat?.metadata).inactiveCharacterIds,
     lastInput,
     variables,
   });

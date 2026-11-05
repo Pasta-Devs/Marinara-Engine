@@ -39,8 +39,14 @@ export type ResolvedGameRulesetClient =
        *  never by the pin's own record, so a skipped layer hides nothing. */
       layerOptions: RulesetRef["options"];
     }
-  /** The pin cannot be honoured here: unreadable, not installed, another package's, or older. */
-  | { status: "unavailable"; ref: RulesetRef | null };
+  /** The pin cannot be honoured here: unreadable, not installed, another package's, or older.
+   *  `reason` says which, where it is known, and `name` is the installed ruleset's own name. */
+  | {
+      status: "unavailable";
+      ref: RulesetRef | null;
+      reason?: "unreadable" | "missing" | "older";
+      name?: string;
+    };
 
 /** Resolve `chat.metadata.gameRuleset`. The installed list is only queried when a pin exists. */
 export function useGameRuleset(chatMeta: Record<string, unknown> | null | undefined): ResolvedGameRulesetClient {
@@ -100,18 +106,20 @@ export function useGameRuleset(chatMeta: Record<string, unknown> | null | undefi
     // A failed lookup says nothing about what is installed, but the consequence for this game is
     // the same one `unavailable` describes: nothing here can read the ruleset, so the sheet stays
     // read-only rather than pretending the game has no rules.
-    if (isError) return { status: "unavailable", ref };
+    if (isError) return { status: "unavailable", ref, reason: "unreadable" };
     if (!isSuccess) return { status: "loading", ref };
-    if (!match) return { status: "unavailable", ref };
+    if (!match) return { status: "unavailable", ref, reason: "missing" };
+    const name = match.definition.name;
     if (match.versions) {
       // Imported: the exact pinned version or nothing, like the server.
       if (match.definition.version === ref.version) return resolved(match.definition);
-      if (!match.versions.includes(ref.version) || exactFailed) return { status: "unavailable", ref };
+      if (exactFailed) return { status: "unavailable", ref, reason: "unreadable", name };
+      if (!match.versions.includes(ref.version)) return { status: "unavailable", ref, reason: "missing", name };
       return exactDefinition ? resolved(exactDefinition) : { status: "loading", ref };
     }
     // A NEWER installed package definition is fine — sheets are read tolerantly against the current
     // schema. An OLDER one is not: the game may depend on something it does not declare.
-    if (match.definition.version < ref.version) return { status: "unavailable", ref };
+    if (match.definition.version < ref.version) return { status: "unavailable", ref, reason: "older", name };
     return resolved(match.definition);
   }, [exactDefinition, exactFailed, hasPin, isError, isSuccess, match, ref]);
 }

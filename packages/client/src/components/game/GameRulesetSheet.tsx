@@ -9,8 +9,9 @@
 // Nothing here knows a system by name. Every pool, track, note, condition and rest is read out of
 // the definition, so a ruleset whose only resource is an empty-start "stress" track renders as
 // completely as one with spell slots.
-import { useMemo, useState } from "react";
-import { Minus, Pencil, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { Check, Minus, Pencil, Plus, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import {
   rulesetConditionIcons,
   rulesetItemEffectFacts,
   applyRulesetSheetOp,
+  rulesetRestDiceEntries,
   rulesetPartyDefinition,
   readRulesetPartySheet,
   readResolvedSheetCommandTags,
@@ -25,26 +27,47 @@ import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
   readRulesetLive,
+  rulesetKeptCalls,
+  rulesetKeptForm,
+  rulesetCheckEffects,
   rulesetCheckSources,
   rulesetHideLines,
   rulesetSectionGroups,
+  isRulesetItemHidden,
+  isRulesetTextHidden,
+  rulesetCatalogIdsForBuild,
   type EvaluatedRulesetSheet,
+  type RulesetCatalogEntriesById,
+  type RulesetCatalogPayload,
   type ResolvedRulesetLive,
   type RulesetDefinition,
   type RulesetField,
   type RulesetLayerOptions,
+  type RulesetList,
   type RulesetLiveState,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
   type RulesetSheetOp,
   type RulesetSheetItem,
+  type RulesetRestRecovery,
+  type RulesetUseRecover,
 } from "@marinara-engine/shared";
 import { ArtIcon } from "./ArtIcon";
 import { rulesetEffectPhrase } from "./RulesetItemPicker";
 import { RulesetSheetEditor } from "../rulesets/RulesetSheetEditor";
 import { stalePartySheet, useSavePartySheet } from "../../hooks/use-party-sheet";
 import { rulesetCheckValueText } from "../../lib/ruleset-resolution";
-import { rulesetPoolGroupLabel, rulesetSheetSummaryShown } from "../../lib/ruleset-sheet-view";
+import {
+  rulesetListRowsShown,
+  rulesetPoolLevels,
+  rulesetPoolGroupLabel,
+  rulesetSheetAttacks,
+  rulesetSheetSummaryShown,
+} from "../../lib/ruleset-sheet-view";
+import { rulesetCatalogQuery } from "../../hooks/use-capability-packages";
+import { RulesetTextContext, useRulesetText, type RulesetText } from "../../lib/ruleset-text";
+import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 
@@ -80,11 +103,22 @@ const SHEET_REFUSAL_KEYS: Readonly<Record<string, string>> = Object.freeze({
   "ambiguous-entry": "game.ruleset.sheet.refusal.ambiguousEntry",
   "bad-pool": "game.ruleset.sheet.refusal.badPool",
   "cannot-heal": "game.ruleset.sheet.refusal.cannotHeal",
+  "dying-saves-rolled": "game.ruleset.sheet.refusal.dyingSavesRolled",
+  "rested-already": "game.ruleset.sheet.refusal.restedAlready",
+  "not-prepared": "game.ruleset.sheet.refusal.notPrepared",
+  "too-many-prepared": "game.ruleset.sheet.refusal.tooManyPrepared",
   malformed: "game.ruleset.sheet.refusal.malformed",
   "unknown-character": "game.ruleset.sheet.refusal.unknownCharacter",
   "ambiguous-character": "game.ruleset.sheet.refusal.ambiguousCharacter",
   "too-many": "game.ruleset.sheet.refusal.tooMany",
 });
+
+/** The phrase for a reason, by the code before any detail after its colon ("not-prepared: ..."). */
+function refusalKey(reason: string): string {
+  return (
+    SHEET_REFUSAL_KEYS[reason] ?? SHEET_REFUSAL_KEYS[reason.split(":")[0]!.trim()] ?? "game.ruleset.sheet.refusal.other"
+  );
+}
 
 /** One line naming every sheet change the Engine refused in a turn, or null when it refused none.
  *  The narration may well claim the spend happened, so the player is told it did not. */
@@ -98,7 +132,7 @@ export function describeRefusedSheetCommands(content: string, t: TFunction): str
           entry.sheet === "party"
             ? t("game.ruleset.party.title")
             : entry.who || t("game.ruleset.sheet.refusal.someone"),
-        reason: t(SHEET_REFUSAL_KEYS[entry.reason ?? ""] ?? "game.ruleset.sheet.refusal.other"),
+        reason: t(refusalKey(entry.reason ?? "")),
       }),
     )
     .join(" ");
@@ -112,6 +146,7 @@ function summaryFieldValue(
   evaluated: EvaluatedRulesetSheet,
   yes: string,
   no: string,
+  text: RulesetText,
 ): string {
   if (field.type === "number") return String(evaluated.numbers[field.id] ?? 0);
   const stored = build.fields?.[field.id];
@@ -119,7 +154,205 @@ function summaryFieldValue(
   if (typeof value === "boolean") return value ? yes : no;
   if (typeof value === "number") return String(value);
   if (typeof value !== "string") return "";
-  return field.type === "enum" ? (field.valueLabels?.[value] ?? value) : value;
+  // A choice's label is the ruleset's own word. A written value reads any of the ruleset's words in it
+  // ("Common, Elvish" for Languages, name by name); what a player typed in of their own stays as written.
+  return text(field.type === "enum" ? (field.valueLabels?.[value] ?? value) : value);
+}
+
+/** A number with its sign where it is a bonus: "+7", "-1", "0". */
+function signedText(value: number, signed: boolean | undefined): string {
+  return signed && value > 0 ? `+${value}` : String(value);
+}
+
+/**
+ * The ruleset's own words in the player's language (1.806), as the fight screen reads them
+ * (`DirectedCombatUI`): its translation for the language on screen, or every word as written. Only
+ * what is shown goes through it; ids, and what goes back to the rules, stay the ruleset's own.
+ */
+function useSheetRulesetText(definition: RulesetDefinition): RulesetText {
+  return useRulesetDefinitionText(definition);
+}
+
+/** How many conditions the "Add condition" search offers at once: it narrows as more is typed. */
+const CONDITION_MATCHES_SHOWN = 12;
+
+/**
+ * The conditions on the character, as chips, and the rest behind a search. A ruleset may name
+ * hundreds (every spell's and item's own state), so only what is on is drawn; a condition the
+ * ruleset keeps out of the picker (`pickable: false`) still shows while play has put it on.
+ */
+function RulesetSheetConditions({
+  definition,
+  conditions,
+  editable,
+  cardName,
+  onToggle,
+}: {
+  definition: RulesetDefinition;
+  conditions: ResolvedRulesetLive["conditions"];
+  editable: boolean;
+  cardName: string;
+  onToggle: (condition: string, active: boolean) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const text = useRulesetText();
+  const [query, setQuery] = useState("");
+  const active = conditions.filter((condition) => condition.active);
+  const pickable = useMemo(() => {
+    const kept = new Set(
+      definition.sheet.live.conditions.filter((entry) => entry.pickable === false).map((entry) => entry.id),
+    );
+    return conditions.filter((condition) => !condition.active && !kept.has(condition.id));
+  }, [conditions, definition]);
+  const needle = query.trim().toLowerCase();
+  const matches = needle
+    ? pickable
+        .filter((condition) => text(condition.label).toLowerCase().includes(needle))
+        .slice(0, CONDITION_MATCHES_SHOWN)
+    : [];
+  if (!active.length && (!editable || !pickable.length)) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className={labelClass}>{localizeUi("game.ruleset.sheet.conditions")}</p>
+      {active.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {active.map((condition) => (
+            <span
+              key={condition.id}
+              className={`${chipClass} inline-flex items-center gap-1 border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]`}
+            >
+              <ArtIcon ids={rulesetConditionIcons(definition, condition.id)} className="h-4 w-4" />
+              {text(condition.label)}
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => onToggle(condition.id, false)}
+                  aria-label={localizeUi("game.ruleset.sheet.removeConditionAria", {
+                    name: text(condition.label),
+                    who: cardName,
+                  })}
+                  className="-mr-1 rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                >
+                  <X size={10} aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          {localizeUi("game.ruleset.sheet.noConditions")}
+        </p>
+      )}
+      {editable && pickable.length > 0 && (
+        <div className="space-y-1">
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={localizeUi("game.ruleset.sheet.addCondition")}
+            aria-label={localizeUi("game.ruleset.sheet.addConditionAria", { who: cardName })}
+            className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+          />
+          {matches.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {matches.map((condition) => (
+                <button
+                  key={condition.id}
+                  type="button"
+                  onClick={() => {
+                    onToggle(condition.id, true);
+                    setQuery("");
+                  }}
+                  className={`${chipClass} border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]`}
+                >
+                  <ArtIcon
+                    ids={rulesetConditionIcons(definition, condition.id)}
+                    className="mr-1 h-4 w-4 align-[-0.2em]"
+                  />
+                  {text(condition.label)}
+                </button>
+              ))}
+            </div>
+          )}
+          {needle && matches.length === 0 && (
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("game.ruleset.sheet.noConditionMatch")}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A list the ruleset gives a tab of its own (1.378): its rows by name, under a heading for each
+ *  place a number column puts them in ("Cantrips", "1st level"), with a tick for a yes-or-no column. */
+function RulesetSheetListView({
+  definition,
+  list,
+  rows,
+  yes,
+}: {
+  definition: RulesetDefinition;
+  list: RulesetList;
+  rows: unknown;
+  yes: string;
+}) {
+  const text = useRulesetText();
+  const display = list.display;
+  const nameColumn =
+    definition.gm.sheetSummary.lists.find((entry) => entry.list === list.id)?.nameColumn ??
+    list.pools?.nameColumn ??
+    list.columns.find((column) => column.type === "text")?.id;
+  const entries = (Array.isArray(rows) ? rows : []).flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as Record<string, unknown>;
+    const name = nameColumn ? row[nameColumn] : undefined;
+    if (typeof name !== "string" || !name.trim()) return [];
+    const place = display?.by ? row[display.by.column] : undefined;
+    return [
+      {
+        key: `${index}`,
+        name: name.trim(),
+        place: typeof place === "number" && Number.isInteger(place) ? place : undefined,
+        marked: display?.mark ? row[display.mark] === true : false,
+      },
+    ];
+  });
+  const groups = new Map<number | undefined, typeof entries>();
+  for (const entry of entries) groups.set(entry.place, [...(groups.get(entry.place) ?? []), entry]);
+  const ordered = [...groups.entries()].sort(([left], [right]) => (left ?? -1) - (right ?? -1));
+  return (
+    <div className="space-y-1.5">
+      <p className={labelClass}>{text(list.label)}</p>
+      {entries.length === 0 && <p className="text-[0.6875rem] text-[var(--muted-foreground)]">—</p>}
+      {ordered.map(([place, group]) => (
+        <div key={place ?? "none"} className="space-y-1">
+          {place !== undefined && display?.by && (
+            <p className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
+              {text(display.by.labels[place] ?? String(place))}
+            </p>
+          )}
+          <ul className="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
+            {group.map((entry) => (
+              <li key={entry.key} className={`flex items-center gap-1.5 ${cardClass}`}>
+                {display?.mark && (
+                  <span
+                    className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center"
+                    title={entry.marked ? yes : undefined}
+                  >
+                    {entry.marked && <Check size={12} aria-label={yes} className="text-[var(--primary)]" />}
+                  </span>
+                )}
+                <span className="min-w-0 break-words text-xs text-[var(--foreground)]">{text(entry.name)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -146,15 +379,17 @@ function WoundTrack({
   onMark: (kind: string, amount: number, box?: number) => void;
   localizeUi: TFunction;
 }) {
+  const text = useRulesetText();
+  const name = text(track.label);
   // The kind a click marks with. The lightest is the default, because that is what most harm is.
   const kinds = [...wound.kinds].sort((a, b) => a.severity - b.severity);
   const [kindId, setKindId] = useState(kinds[0]?.id ?? "");
   const chosen = kinds.find((kind) => kind.id === kindId) ?? kinds[0];
-  const markLabel = (id: string | undefined) => wound.kinds.find((kind) => kind.id === id)?.label ?? "";
+  const markLabel = (id: string | undefined) => text(wound.kinds.find((kind) => kind.id === id)?.label ?? "");
   const levelName = (index: number) =>
     wound.numbered
       ? localizeUi("game.ruleset.sheet.wound.box", { number: index + 1 })
-      : (wound.levels[index]?.label ?? "");
+      : text(wound.levels[index]?.label ?? "");
   // The box one heal clears, by the Engine's own rule: the lightest mark, the highest box among
   // equally light ones. On a sequential track that is always the last marked box.
   const severityOf = (id: string | undefined) => wound.kinds.find((kind) => kind.id === id)?.severity;
@@ -170,8 +405,8 @@ function WoundTrack({
   return (
     <div className={`space-y-1.5 ${cardClass}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]" title={track.label}>
-          {track.label}
+        <span className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]" title={name}>
+          {name}
         </span>
         {kinds.length > 1 && (
           <div className="flex shrink-0 flex-wrap gap-1">
@@ -182,14 +417,14 @@ function WoundTrack({
                 aria-pressed={kind.id === chosen?.id}
                 disabled={readOnly}
                 onClick={() => setKindId(kind.id)}
-                aria-label={localizeUi("game.ruleset.sheet.wound.kindAria", { kind: kind.label, name: track.label })}
+                aria-label={localizeUi("game.ruleset.sheet.wound.kindAria", { kind: text(kind.label), name })}
                 className={`${chipClass} ${
                   kind.id === chosen?.id
                     ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]"
                     : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
                 }`}
               >
-                {kind.label}
+                {text(kind.label)}
               </button>
             ))}
           </div>
@@ -243,7 +478,7 @@ function WoundTrack({
                 state: mark
                   ? localizeUi("game.ruleset.sheet.wound.marked", { kind: markLabel(mark) })
                   : localizeUi("game.ruleset.sheet.wound.clear"),
-                name: track.label,
+                name,
                 who: cardName,
               })}
               title={localizeUi("game.ruleset.sheet.wound.levelTitle", {
@@ -274,16 +509,16 @@ function WoundTrack({
           ? localizeUi(
               wound.penalty === 0 ? "game.ruleset.sheet.wound.boxesNoPenalty" : "game.ruleset.sheet.wound.penaltyBoxes",
               {
-                name: track.label,
+                name,
                 filled: wound.filled,
                 count: wound.levels.length,
                 penalty: wound.penalty,
               },
             )
           : wound.penalty === 0
-            ? localizeUi("game.ruleset.sheet.wound.noPenalty", { name: track.label })
+            ? localizeUi("game.ruleset.sheet.wound.noPenalty", { name })
             : localizeUi("game.ruleset.sheet.wound.penalty", {
-                name: track.label,
+                name,
                 level: levelName(wound.lowest),
                 penalty: wound.penalty,
               })}
@@ -317,9 +552,17 @@ export interface GameRulesetSheetProps {
   onDraftStart?: () => void;
   /** What the character holds, which a value reading their items (`itemStat`) shows. */
   items?: ReadonlyArray<RulesetSheetItem>;
+  /** Whether what they carry encumbers them, or is past the most they can carry: a chip on the sheet. */
+  carrying?: { encumbered: boolean; over: boolean };
   /** A rest taken by the game rather than here: the sheet and what the character carries change
    *  together, and it answers with the rest's own words, or null when it was not taken. */
-  onRest?: (rest: string) => Promise<string | null>;
+  onRest?: (
+    rest: string,
+    diceFrom?: Record<string, number>,
+    recover?: Array<{ name: string; recover: RulesetUseRecover[] }>,
+  ) => Promise<string | null>;
+  /** The features a rest offers to use as it ends (1.789): Arcane Recovery on a Short rest. */
+  onRestOffers?: (rest: string) => Promise<RulesetRestRecovery[]>;
 }
 
 export function GameRulesetSheet({
@@ -336,26 +579,46 @@ export function GameRulesetSheet({
   draftNotice,
   onDraftStart,
   items,
+  carrying,
   onRest,
+  onRestOffers,
 }: GameRulesetSheetProps) {
   const readOnly = locked || buildOnly;
+  // In a fight on screen the sheet is read as it stands: only what play spends (points, slots,
+  // wounds) is still moved here, and the rest waits for the fight to end.
+  const inFight = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
+  const settled = readOnly || inFight;
   const { t: localizeUi } = useUiTranslation();
+  const text = useSheetRulesetText(definition);
+  const [tab, setTab] = useState<string | null>(null);
   const [draft, setDraft] = useState<RulesetSheetEnvelope | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [restNotice, setRestNotice] = useState<string | null>(null);
   // A rest the Engine takes is one at a time: a second click would rest (and roll recharges) again.
   const [resting, setResting] = useState(false);
+  // The dice a rest spends to heal first (a Short rest's hit dice), picked pool by pool before it.
+  const [restDice, setRestDice] = useState<Record<string, number>>({});
+  // What each rest offers to use as it ends (1.789), by rest, and what the player picked of it: on or
+  // off, and how many of each spent pool, keyed "rest/feature".
+  const [restOffers, setRestOffers] = useState<Record<string, RulesetRestRecovery[]>>({});
+  const [restRecover, setRestRecover] = useState<Record<string, { on: boolean; counts: Record<string, number> }>>({});
 
-  const layerNames = layers?.map((layer) => layer.label).join(", ") || null;
+  const layerNames = layers?.map((layer) => text(layer.label)).join(", ") || null;
 
   const build = useMemo(() => envelope?.build ?? defaultRulesetSheetBuild(definition), [definition, envelope]);
-  const resolved = useMemo(() => readRulesetLive(definition, build, live), [definition, build, live]);
+  const resolved = useMemo(() => readRulesetLive(definition, build, live, items), [definition, build, live, items]);
+  // What a use outside a fight called and keeps (1.798): a familiar, until it is dismissed or killed.
+  const keptCalls = useMemo(() => rulesetKeptCalls(live), [live]);
+  const keptForm = useMemo(() => rulesetKeptForm(live), [live]);
   // Against the live state as it stands, so a value that reads a track or a pool shows what it is now,
   // and against what the character holds, so one that reads their items does too.
   const evaluated = useMemo(
     () => evaluateRulesetSheet(definition, build, items ? { ...resolved, items } : resolved),
     [definition, build, items, resolved],
   );
+
+  // The level a pool's slots are cast at, for one that names its own (5e's pact slots).
+  const poolLevels = useMemo(() => rulesetPoolLevels(definition, build, evaluated), [definition, build, evaluated]);
 
   const checkSources = useMemo(
     () => rulesetCheckSources(definition, build, live, items),
@@ -364,6 +627,53 @@ export function GameRulesetSheet({
   const hideLines = useMemo(
     () => rulesetHideLines(definition, checkSources, localizeUi),
     [definition, checkSources, localizeUi],
+  );
+  const tabs = useMemo(
+    () => [
+      ...new Set(
+        definition.sheet.lists.flatMap((list) =>
+          list.display?.tab && !isRulesetItemHidden(list, build, definition) ? [list.display.tab] : [],
+        ),
+      ),
+    ],
+    [definition, build],
+  );
+  // A tab whose lists are all hidden now (a class changed) falls back to the Overview.
+  const shownTab = tab !== null && tabs.includes(tab) ? tab : null;
+  // A track the ruleset shows only once moved (1.378), and a note hidden by the sheet's own values.
+  const shownTracks = resolved.tracks.filter(
+    (track) =>
+      !(
+        definition.sheet.live.tracks.find((entry) => entry.id === track.id)?.showWhenSet &&
+        track.value === (track.start ?? track.min)
+      ),
+  );
+  const shownText = resolved.text.filter((entry) => {
+    const declared = definition.sheet.live.text.find((one) => one.id === entry.id);
+    return !declared || !isRulesetTextHidden(declared, build, definition, evaluated.derived);
+  });
+  // The catalogs this sheet's rows point at, so its attacks are read with what its features do to
+  // them, as a fight reads them: Martial Arts's Dexterity on a quarterstaff (laptop class builds
+  // 2026-10-24). The same queries the editor and the battle prefetch share.
+  const catalogIds = useMemo(() => rulesetCatalogIdsForBuild(definition, build), [definition, build]);
+  const combineCatalogs = useCallback(
+    (results: readonly { data: RulesetCatalogPayload | undefined }[]): RulesetCatalogEntriesById => {
+      const loaded: RulesetCatalogEntriesById = {};
+      results.forEach((result, index) => {
+        const catalogId = catalogIds[index];
+        if (catalogId && result.data) loaded[catalogId] = result.data.entries;
+      });
+      return loaded;
+    },
+    [catalogIds],
+  );
+  const catalogs = useQueries({
+    queries: catalogIds.map((catalogId) => rulesetCatalogQuery(definition.id, catalogId, definition.version)),
+    combine: combineCatalogs,
+  });
+  const attacks = useMemo(
+    () => rulesetSheetAttacks(definition, build, live, items, catalogs),
+    [definition, build, live, items, catalogs],
   );
   const saveModifiers = checkSources.flatMap((source) =>
     rulesetItemEffectFacts(definition, {
@@ -375,7 +685,8 @@ export function GameRulesetSheet({
   /** Every change a player makes takes the same route a Game Master command does. */
   const apply = (op: RulesetSheetOp) => {
     if (readOnly) return;
-    const result = applyRulesetSheetOp(definition, build, live, op);
+    // What they hold counts, as a Game Master's command's does: an Amulet of Health's hit points.
+    const result = applyRulesetSheetOp(definition, build, live, op, undefined, items);
     if (!result.ok) return;
     setRestNotice(op.op === "rest" ? result.now : null);
     onLiveChange(result.live);
@@ -389,6 +700,70 @@ export function GameRulesetSheet({
     const amount = Math.abs(target - pool.value);
     apply(target > pool.value ? { op: "restore", pool: pool.key, amount } : { op: "spend", pool: pool.key, amount });
   };
+
+  // Every pool a rest may spend dice from to heal first that has any left, in the rests' own order.
+  const restDicePools = useMemo(() => {
+    const keys = [
+      ...new Set(definition.rests.flatMap((rest) => rulesetRestDiceEntries(rest.dice).map((entry) => entry.pool))),
+    ];
+    return keys.flatMap((key) => {
+      const pool = resolved.pools.find((one) => one.key === key);
+      return pool && pool.value > 0 ? [pool] : [];
+    });
+  }, [definition.rests, resolved.pools]);
+
+  // Read again whenever the sheet changes, since a spent slot or a used counter changes the offer.
+  const settledForOffers = readOnly || inFight;
+  useEffect(() => {
+    if (!onRestOffers || settledForOffers || definition.rests.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      definition.rests.map((rest) =>
+        onRestOffers(rest.id)
+          .then((offers) => [rest.id, offers] as const)
+          .catch(() => [rest.id, [] as RulesetRestRecovery[]] as const),
+      ),
+    ).then((pairs) => {
+      if (cancelled) return;
+      setRestOffers(Object.fromEntries(pairs.filter(([, offers]) => offers.length > 0)));
+      setRestRecover((current) => {
+        const next: typeof current = {};
+        for (const [rest, offers] of pairs) {
+          for (const offer of offers) {
+            const key = `${rest}/${offer.name}`;
+            // A count the player set stays, no more than is spent now; the Engine's pick fills the rest.
+            // A new pick joins only while it fits what the feature gives back (`upTo` levels, `count`
+            // pools); counts that no longer fit fall back to the Engine's own pick.
+            const before = current[key]?.counts ?? {};
+            const levelOf = new Map(offer.pools.map((pool) => [pool.key, pool.level]));
+            let counts: Record<string, number> = {};
+            for (const pool of offer.pools)
+              if (before[pool.key] !== undefined) counts[pool.key] = Math.min(before[pool.key]!, pool.spent);
+            const levels = (of: Record<string, number>) =>
+              Object.entries(of).reduce((sum, [pool, n]) => sum + (levelOf.get(pool) ?? 0) * n, 0);
+            const pools = (of: Record<string, number>) => Object.values(of).reduce((sum, n) => sum + n, 0);
+            const fits = (of: Record<string, number>) =>
+              levels(of) <= offer.upTo && (offer.count === undefined || pools(of) <= offer.count);
+            if (!fits(counts)) counts = Object.fromEntries(offer.picks.map((pick) => [pick.pool, pick.count]));
+            else
+              for (const pick of offer.picks) {
+                if (counts[pick.pool] !== undefined) continue;
+                for (let n = pick.count; n > 0; n--)
+                  if (fits({ ...counts, [pick.pool]: n })) {
+                    counts[pick.pool] = n;
+                    break;
+                  }
+              }
+            next[key] = { on: current[key]?.on ?? false, counts };
+          }
+        }
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onRestOffers, settledForOffers, definition.rests, live]);
 
   const poolGroups = useMemo(() => {
     const groups: Array<{ id: string; pools: ResolvedRulesetLive["pools"] }> = [];
@@ -416,7 +791,17 @@ export function GameRulesetSheet({
       label: save.label,
       section: save.section,
       tier: evaluated.saveTiers[save.id],
-      modifier: evaluated.saveMods[save.id] ?? 0,
+      // What is worn counts as it does on the roll: a Cloak of Protection's +1 to every save. Only a
+      // number that always applies; dice, and a bonus against something named, wait for the roll.
+      modifier:
+        (evaluated.saveMods[save.id] ?? 0) +
+        rulesetCheckEffects(checkSources, { type: "save", id: save.id, label: save.label }).modifiers.reduce(
+          (sum, { modifier }) =>
+            modifier.against || modifier.dice !== undefined || modifier.add !== undefined
+              ? sum
+              : sum + (modifier.flat ?? 0),
+          0,
+        ),
     })),
   ].filter((entry) => entry.tier !== undefined && entry.tier !== untrainedTier);
 
@@ -441,7 +826,7 @@ export function GameRulesetSheet({
     }
   };
 
-  return (
+  const sheet = (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
@@ -452,11 +837,23 @@ export function GameRulesetSheet({
               reading the sheet can tell a Hard winter game from an ordinary one. */}
           <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
             {layerNames
-              ? localizeUi("game.ruleset.sheet.nameWithLayers", { name: definition.name, layers: layerNames })
-              : definition.name}
+              ? localizeUi("game.ruleset.sheet.nameWithLayers", { name: text(definition.name), layers: layerNames })
+              : text(definition.name)}
           </p>
+          {/* Past the most they can carry, or encumbered: what the bag does to them, on the sheet too. */}
+          {carrying && (carrying.over || carrying.encumbered) && (
+            <span
+              className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[0.625rem] font-medium ${
+                carrying.over
+                  ? "bg-[var(--destructive)]/15 text-[var(--destructive)]"
+                  : "bg-amber-500/15 text-amber-600 dark:text-amber-300"
+              }`}
+            >
+              {localizeUi(carrying.over ? "ui.game.gameinventory.overLimit" : "ui.game.gameinventory.encumbered")}
+            </span>
+          )}
         </div>
-        {!locked && !draft && (
+        {!locked && !draft && !inFight && (
           <button
             type="button"
             onClick={startEditing}
@@ -507,336 +904,598 @@ export function GameRulesetSheet({
         </div>
       ) : (
         <>
-          {poolGroups.map((group) => (
-            <div key={group.id || "ungrouped"} className="space-y-1.5">
-              {group.id && <p className={labelClass}>{rulesetPoolGroupLabel(group.id)}</p>}
-              {group.pools.map((pool) => (
-                <div key={pool.key} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
-                  <span
-                    className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
-                    title={pool.label}
-                  >
-                    {pool.label}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => apply({ op: "spend", pool: pool.key, amount: 1 })}
-                      disabled={readOnly || pool.value <= 0}
-                      aria-label={localizeUi("game.ruleset.sheet.spendAria", { name: pool.label, who: cardName })}
-                      className={stepButtonClass}
-                    >
-                      <Minus size={12} aria-hidden="true" />
-                    </button>
-                    <DraftNumberInput
-                      value={pool.value}
-                      onCommit={(next) => setPoolValue(pool, next)}
-                      min={0}
-                      max={pool.max}
-                      integer
-                      disabled={readOnly}
-                      selectOnFocus
-                      ariaLabel={localizeUi("game.ruleset.sheet.valueAria", { name: pool.label, who: cardName })}
-                      className={numberInputClass}
-                    />
-                    <span className="text-xs tabular-nums text-[var(--muted-foreground)]">/{pool.max}</span>
-                    <button
-                      type="button"
-                      onClick={() => apply({ op: "restore", pool: pool.key, amount: 1 })}
-                      disabled={readOnly || pool.value >= pool.max}
-                      aria-label={localizeUi("game.ruleset.sheet.restoreAria", { name: pool.label, who: cardName })}
-                      className={stepButtonClass}
-                    >
-                      <Plus size={12} aria-hidden="true" />
-                    </button>
-                  </div>
-                  {pool.allowTemp && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                        {localizeUi("game.ruleset.sheet.temp")}
-                      </span>
-                      <DraftNumberInput
-                        value={pool.temp}
-                        onCommit={(next) =>
-                          apply({ op: "temp", pool: pool.key, amount: Math.max(0, Math.round(next)) })
-                        }
-                        min={0}
-                        integer
-                        disabled={readOnly}
-                        selectOnFocus
-                        ariaLabel={localizeUi("game.ruleset.sheet.tempAria", { name: pool.label, who: cardName })}
-                        className={numberInputClass}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-
-          {resolved.tracks.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.tracks.map((track) =>
-                track.wound ? (
-                  <WoundTrack
-                    key={track.id}
-                    track={track}
-                    wound={track.wound}
-                    cardName={cardName}
-                    readOnly={readOnly}
-                    onMark={(kind, amount, box) =>
-                      apply({ op: "damage", track: track.id, kind, amount, ...(box !== undefined ? { box } : {}) })
-                    }
-                    localizeUi={localizeUi}
-                  />
-                ) : (
-                  <div key={track.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
-                    <span
-                      className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
-                      title={track.label}
-                    >
-                      {track.label}
-                    </span>
-                    <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
-                      {localizeUi("game.ruleset.sheet.range", { min: track.min, max: track.max })}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => apply({ op: "track", track: track.id, by: -1 })}
-                        disabled={readOnly || track.value <= track.min}
-                        aria-label={localizeUi("game.ruleset.sheet.trackDownAria", {
-                          name: track.label,
-                          who: cardName,
-                        })}
-                        className={stepButtonClass}
-                      >
-                        <Minus size={12} aria-hidden="true" />
-                      </button>
-                      <span className="min-w-6 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                        {track.value}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => apply({ op: "track", track: track.id, by: 1 })}
-                        disabled={readOnly || track.value >= track.max}
-                        aria-label={localizeUi("game.ruleset.sheet.trackUpAria", { name: track.label, who: cardName })}
-                        className={stepButtonClass}
-                      >
-                        <Plus size={12} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-
-          {resolved.text.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.text.map((entry) => (
-                <label key={entry.id} className="flex min-w-0 flex-col gap-0.5">
-                  <span className={labelClass}>{entry.label}</span>
-                  <DraftTextarea
-                    value={entry.value}
-                    onCommit={(next) => apply({ op: "note", field: entry.id, value: next })}
-                    maxLength={entry.maxLength}
-                    rows={1}
-                    disabled={readOnly}
-                    aria-label={localizeUi("game.ruleset.sheet.noteAria", { name: entry.label, who: cardName })}
-                    className="w-full min-w-0 resize-y rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-
-          {resolved.states.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.states.map((state) => (
-                <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
-                  <span className={labelClass}>{state.label}</span>
-                  <select
-                    value={state.value}
-                    onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
-                    disabled={readOnly}
-                    aria-label={localizeUi("game.ruleset.sheet.stateAria", { name: state.label, who: cardName })}
-                    className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
-                  >
-                    {state.values.map((value) => (
-                      <option key={value} value={value}>
-                        {state.valueLabels?.[value] ?? value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-          )}
-
-          {hideLines.map((line) => (
-            <p key={line} className="break-words text-xs text-[var(--muted-foreground)]">
-              {line}
-            </p>
-          ))}
-          {saveModifiers.length > 0 && (
-            <div className="space-y-1 text-xs text-[var(--muted-foreground)]">
-              {saveModifiers.map((fact, index) => (
-                <p key={index}>{rulesetEffectPhrase(fact, localizeUi)}</p>
-              ))}
-            </div>
-          )}
-          {resolved.conditions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {resolved.conditions.map((condition) => (
+          {tabs.length > 0 && (
+            <div role="tablist" className="flex flex-wrap gap-1.5">
+              {[null, ...tabs].map((one) => (
                 <button
-                  key={condition.id}
+                  key={one ?? "overview"}
                   type="button"
-                  aria-pressed={condition.active}
-                  disabled={readOnly}
-                  onClick={() => apply({ op: "condition", condition: condition.id, active: !condition.active })}
+                  role="tab"
+                  aria-selected={shownTab === one}
+                  onClick={() => setTab(one)}
                   className={`${chipClass} ${
-                    condition.active
+                    shownTab === one
                       ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]"
                       : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
                   }`}
                 >
-                  <ArtIcon
-                    ids={rulesetConditionIcons(definition, condition.id)}
-                    className="mr-1 h-4 w-4 align-[-0.2em]"
-                  />
-                  {condition.label}
+                  {one === null ? localizeUi("game.ruleset.sheet.overview") : text(one)}
                 </button>
               ))}
             </div>
           )}
-
-          {checkSources.flatMap((source, index) => {
-            const modifiers = source.modifiers?.filter((one) => one.to === "damage");
-            return modifiers?.length ? (
-              <p key={`damage-${index}`} className="text-xs text-[var(--muted-foreground)]">
-                {source.name}:{" "}
-                {rulesetItemEffectFacts(definition, { modifiers })
-                  .map((fact) => rulesetEffectPhrase(fact, localizeUi))
-                  .join("; ")}
-              </p>
-            ) : (
-              []
-            );
-          })}
-          {definition.rests.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-1.5">
-                {definition.rests.map((rest) => (
-                  <button
-                    key={rest.id}
-                    type="button"
-                    disabled={readOnly || resting}
-                    onClick={() => {
-                      if (readOnly || resting) return;
-                      if (!onRest) return apply({ op: "rest", rest: rest.id });
-                      setResting(true);
-                      void onRest(rest.id)
-                        .then((now) => {
-                          if (now !== null) setRestNotice(now);
-                        })
-                        .catch(() => undefined)
-                        .finally(() => setResting(false));
-                    }}
-                    aria-label={localizeUi("game.ruleset.sheet.restAria", { name: rest.label, who: cardName })}
-                    className={`${chipClass} border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]`}
-                  >
-                    {rest.label}
-                  </button>
-                ))}
-              </div>
-              {restNotice && (
-                <p role="status" className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                  {restNotice}
-                </p>
+          {shownTab !== null &&
+            definition.sheet.lists
+              .filter((list) => list.display?.tab === shownTab && !isRulesetItemHidden(list, build, definition))
+              .map((list) => (
+                <RulesetSheetListView
+                  key={list.id}
+                  definition={definition}
+                  list={list}
+                  rows={rulesetListRowsShown(definition, list.id, build.lists?.[list.id])}
+                  yes={localizeUi("game.ruleset.sheet.yes")}
+                />
+              ))}
+          {shownTab === null && (
+            <>
+              {(summaryFields.length > 0 || summaryDerived.length > 0) && (
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {summaryFields.map((field) => (
+                    <div key={field.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                      <span className={`${labelClass} truncate`} title={text(field.label)}>
+                        {text(field.label)}
+                      </span>
+                      <span className="truncate text-xs text-[var(--foreground)]">
+                        {summaryFieldValue(
+                          field,
+                          build,
+                          evaluated,
+                          localizeUi("game.ruleset.sheet.yes"),
+                          localizeUi("game.ruleset.sheet.no"),
+                          text,
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                  {summaryDerived.map((entry) => (
+                    <div key={entry.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                      <span className={`${labelClass} truncate`} title={text(entry.label)}>
+                        {text(entry.label)}
+                      </span>
+                      <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                        {signedText(evaluated.derived[entry.id] ?? 0, entry.signed)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Under their section headings where the ruleset gives them some; otherwise one grid, as always. */}
-          {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
-            <div
-              key={group.section ? `section:${group.section.id}` : "none"}
-              className={group.section ? "space-y-1" : undefined}
-            >
-              {group.section && <p className={labelClass}>{group.section.label}</p>}
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-                {group.entries.map((ability) => (
-                  <div
-                    key={ability.id}
-                    className={`flex min-w-0 flex-col items-center ${cardClass}`}
-                    title={ability.label}
-                  >
-                    <span className={`${labelClass} max-w-full truncate`}>{ability.short ?? ability.label}</span>
-                    <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                      {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {trained.length > 0 && (
-            <div className="space-y-1">
-              <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
-              {rulesetSectionGroups(definition, trained).map((group) => (
+              {/* Under their section headings where the ruleset gives them some; otherwise one grid, as always. */}
+              {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
                 <div
                   key={group.section ? `section:${group.section.id}` : "none"}
-                  className="flex flex-wrap items-center gap-1.5"
+                  className={group.section ? "space-y-1" : undefined}
                 >
-                  {group.section && <span className={labelClass}>{group.section.label}</span>}
-                  {group.entries.map((entry) => (
-                    <span
-                      key={`${entry.id}-${entry.label}`}
-                      className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
-                    >
-                      {entry.label}{" "}
-                      <span className="tabular-nums">
-                        {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                  {group.section && <p className={labelClass}>{text(group.section.label)}</p>}
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                    {group.entries.map((ability) => (
+                      <div
+                        key={ability.id}
+                        className={`flex min-w-0 flex-col items-center ${cardClass}`}
+                        title={text(ability.label)}
+                      >
+                        <span className={`${labelClass} max-w-full truncate`}>
+                          {text(ability.short ?? ability.label)}
+                        </span>
+                        {/* The score a player reads off a printed sheet, and what it adds to a roll. */}
+                        <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                          {evaluated.abilityScores[ability.id] ?? ability.default}
+                        </span>
+                        <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                          {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {poolGroups.map((group) => (
+                <div key={group.id || "ungrouped"} className="space-y-1.5">
+                  {group.id && <p className={labelClass}>{text(rulesetPoolGroupLabel(group.id))}</p>}
+                  {group.pools.map((pool) => (
+                    <div key={pool.key} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                      <span
+                        className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
+                        title={text(pool.label)}
+                      >
+                        {text(pool.label)}
+                        {/* What its slots are cast at, where the pool says (laptop builder 2026-10-24:
+                            a warlock's pact slots read no level). */}
+                        {poolLevels[pool.key] !== undefined && (
+                          <span className="ml-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                            {localizeUi("game.ruleset.sheet.poolLevel", { level: poolLevels[pool.key]! })}
+                          </span>
+                        )}
                       </span>
-                    </span>
+                      {/* A tally counts the times it was used (1.801): nothing to spend, only read,
+                          and its recharge starts it over. */}
+                      {pool.tally ? (
+                        <span className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]">
+                          {localizeUi("game.ruleset.sheet.tallyUsed", { count: pool.max - pool.value })}
+                        </span>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "spend", pool: pool.key, amount: 1 })}
+                            disabled={readOnly || pool.value <= 0}
+                            aria-label={localizeUi("game.ruleset.sheet.spendAria", {
+                              name: text(pool.label),
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Minus size={12} aria-hidden="true" />
+                          </button>
+                          <DraftNumberInput
+                            value={pool.value}
+                            onCommit={(next) => setPoolValue(pool, next)}
+                            min={0}
+                            max={pool.max}
+                            integer
+                            disabled={readOnly}
+                            selectOnFocus
+                            ariaLabel={localizeUi("game.ruleset.sheet.valueAria", {
+                              name: text(pool.label),
+                              who: cardName,
+                            })}
+                            className={numberInputClass}
+                          />
+                          <span className="text-xs tabular-nums text-[var(--muted-foreground)]">/{pool.max}</span>
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "restore", pool: pool.key, amount: 1 })}
+                            disabled={readOnly || pool.value >= pool.max}
+                            aria-label={localizeUi("game.ruleset.sheet.restoreAria", {
+                              name: text(pool.label),
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Plus size={12} aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
+                      {pool.allowTemp && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                            {localizeUi("game.ruleset.sheet.temp")}
+                          </span>
+                          <DraftNumberInput
+                            value={pool.temp}
+                            onCommit={(next) =>
+                              apply({ op: "temp", pool: pool.key, amount: Math.max(0, Math.round(next)) })
+                            }
+                            min={0}
+                            integer
+                            disabled={readOnly}
+                            selectOnFocus
+                            ariaLabel={localizeUi("game.ruleset.sheet.tempAria", {
+                              name: text(pool.label),
+                              who: cardName,
+                            })}
+                            className={numberInputClass}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               ))}
-            </div>
-          )}
 
-          {(summaryFields.length > 0 || summaryDerived.length > 0) && (
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {summaryFields.map((field) => (
-                <div key={field.id} className={`flex min-w-0 flex-col ${cardClass}`}>
-                  <span className={`${labelClass} truncate`}>{field.label}</span>
-                  <span className="truncate text-xs text-[var(--foreground)]">
-                    {summaryFieldValue(
-                      field,
-                      build,
-                      evaluated,
-                      localizeUi("game.ruleset.sheet.yes"),
-                      localizeUi("game.ruleset.sheet.no"),
+              {shownTracks.length > 0 && (
+                <div className="space-y-1.5">
+                  {shownTracks.map((track) =>
+                    track.wound ? (
+                      <WoundTrack
+                        key={track.id}
+                        track={track}
+                        wound={track.wound}
+                        cardName={cardName}
+                        readOnly={readOnly}
+                        onMark={(kind, amount, box) =>
+                          apply({
+                            op: "damage",
+                            track: track.id,
+                            kind,
+                            amount,
+                            ...(box !== undefined ? { box } : {}),
+                          })
+                        }
+                        localizeUi={localizeUi}
+                      />
+                    ) : (
+                      <div key={track.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                        <span
+                          className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
+                          title={text(track.label)}
+                        >
+                          {text(track.label)}
+                        </span>
+                        <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                          {localizeUi("game.ruleset.sheet.range", { min: track.min, max: track.max })}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "track", track: track.id, by: -1 })}
+                            disabled={settled || track.value <= track.min}
+                            aria-label={localizeUi("game.ruleset.sheet.trackDownAria", {
+                              name: text(track.label),
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Minus size={12} aria-hidden="true" />
+                          </button>
+                          <span className="min-w-6 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                            {track.value}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "track", track: track.id, by: 1 })}
+                            disabled={settled || track.value >= track.max}
+                            aria-label={localizeUi("game.ruleset.sheet.trackUpAria", {
+                              name: text(track.label),
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Plus size={12} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+
+              {attacks.length > 0 && (
+                <div className="space-y-1">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.attacks")}</p>
+                  {attacks.map((attack) => (
+                    <div key={attack.id} className={`flex flex-wrap items-baseline gap-x-2 ${cardClass}`}>
+                      <span className="min-w-0 flex-1 basis-24 break-words text-xs font-semibold text-[var(--foreground)]">
+                        {text(attack.label)}
+                      </span>
+                      {attack.toHit !== undefined && (
+                        <span className="shrink-0 text-xs tabular-nums text-[var(--foreground)]">
+                          {localizeUi("game.ruleset.sheet.toHit", { value: signedText(attack.toHit, true) })}
+                        </span>
+                      )}
+                      {attack.damage && (
+                        <span className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]">
+                          {attack.damage}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <RulesetSheetConditions
+                definition={definition}
+                conditions={resolved.conditions}
+                editable={!settled}
+                cardName={cardName}
+                onToggle={(condition, active) => apply({ op: "condition", condition, active })}
+              />
+
+              {keptCalls.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.keptCalls")}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {keptCalls.map((call) => (
+                      <span
+                        key={call.entry}
+                        title={call.entry}
+                        className={`${chipClass} inline-flex items-center gap-1 border-[var(--border)] text-[var(--foreground)]`}
+                      >
+                        {text(call.as || call.entry)}
+                        {!settled && !readOnly && (
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "dismiss", name: call.entry })}
+                            aria-label={localizeUi("game.ruleset.sheet.dismissKeptAria", {
+                              name: text(call.as || call.entry),
+                              who: cardName,
+                            })}
+                            className="-mr-1 rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                          >
+                            <X size={10} aria-hidden="true" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {keptForm && (
+                <div className="space-y-1.5">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.keptForm")}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span
+                      title={keptForm.entry}
+                      className={`${chipClass} inline-flex items-center gap-1 border-[var(--border)] text-[var(--foreground)]`}
+                    >
+                      {text(keptForm.as)}
+                      {!settled && !readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => apply({ op: "dismiss", name: keptForm.entry })}
+                          aria-label={localizeUi("game.ruleset.sheet.endKeptFormAria", {
+                            name: text(keptForm.as),
+                            who: cardName,
+                          })}
+                          className="-mr-1 rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                        >
+                          <X size={10} aria-hidden="true" />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {hideLines.map((line) => (
+                <p key={line} className="break-words text-xs text-[var(--muted-foreground)]">
+                  {line}
+                </p>
+              ))}
+              {saveModifiers.length > 0 && (
+                <div className="space-y-1 text-xs text-[var(--muted-foreground)]">
+                  {saveModifiers.map((fact, index) => (
+                    <p key={index}>{rulesetEffectPhrase(fact, localizeUi)}</p>
+                  ))}
+                </div>
+              )}
+              {checkSources.flatMap((source, index) => {
+                const modifiers = source.modifiers?.filter((one) => one.to === "damage");
+                // One with nothing it can say (a critical's extra dice, which only a fight reads) is
+                // left out rather than shown as its name alone (class pass 2026-10-25).
+                const said = modifiers?.length
+                  ? rulesetItemEffectFacts(definition, { modifiers })
+                      .map((fact) => rulesetEffectPhrase(fact, localizeUi))
+                      .filter(Boolean)
+                  : [];
+                return said.length ? (
+                  <p key={`damage-${index}`} className="text-xs text-[var(--muted-foreground)]">
+                    {text(source.name)}: {said.join("; ")}
+                  </p>
+                ) : (
+                  []
+                );
+              })}
+
+              {shownText.length > 0 && (
+                <div className="space-y-1.5">
+                  {shownText.map((entry) => (
+                    <label key={entry.id} className="flex min-w-0 flex-col gap-0.5">
+                      <span className={labelClass}>{text(entry.label)}</span>
+                      <DraftTextarea
+                        value={entry.value}
+                        onCommit={(next) => apply({ op: "note", field: entry.id, value: next })}
+                        maxLength={entry.maxLength}
+                        rows={1}
+                        disabled={settled}
+                        aria-label={localizeUi("game.ruleset.sheet.noteAria", {
+                          name: text(entry.label),
+                          who: cardName,
+                        })}
+                        className="w-full min-w-0 resize-y rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {resolved.states.length > 0 && (
+                <div className="space-y-1.5">
+                  {resolved.states.map((state) => (
+                    <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
+                      <span className={labelClass}>{text(state.label)}</span>
+                      <select
+                        value={state.value}
+                        onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
+                        disabled={settled}
+                        aria-label={localizeUi("game.ruleset.sheet.stateAria", {
+                          name: text(state.label),
+                          who: cardName,
+                        })}
+                        className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+                      >
+                        {state.values.map((value) => (
+                          <option key={value} value={value}>
+                            {text(state.valueLabels?.[value] ?? value)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {definition.rests.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {definition.rests.map((rest) => (
+                      <button
+                        key={rest.id}
+                        type="button"
+                        disabled={settled || resting}
+                        onClick={() => {
+                          if (settled || resting) return;
+                          const owns = new Set(rulesetRestDiceEntries(rest.dice).map((entry) => entry.pool));
+                          const picked = Object.fromEntries(
+                            Object.entries(restDice).filter(([pool, count]) => owns.has(pool) && count > 0),
+                          );
+                          const diceFrom = Object.keys(picked).length > 0 ? picked : undefined;
+                          setRestDice({});
+                          if (!onRest) return apply({ op: "rest", rest: rest.id, ...(diceFrom ? { diceFrom } : {}) });
+                          // The features ticked for this rest, with the spent pools picked for each.
+                          const recover = (restOffers[rest.id] ?? []).flatMap((offer) => {
+                            const chosen = restRecover[`${rest.id}/${offer.name}`];
+                            const pools = Object.entries(chosen?.counts ?? {})
+                              .filter(([, count]) => count > 0)
+                              .map(([pool, count]) => ({ pool, count }));
+                            return chosen?.on && pools.length > 0 ? [{ name: offer.name, recover: pools }] : [];
+                          });
+                          setResting(true);
+                          void onRest(rest.id, diceFrom, recover.length > 0 ? recover : undefined)
+                            .then((now) => {
+                              if (now !== null) setRestNotice(now);
+                            })
+                            .catch(() => undefined)
+                            .finally(() => setResting(false));
+                        }}
+                        aria-label={localizeUi("game.ruleset.sheet.restAria", {
+                          name: text(rest.label),
+                          who: cardName,
+                        })}
+                        className={`${chipClass} border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]`}
+                      >
+                        {text(rest.label)}
+                      </button>
+                    ))}
+                  </div>
+                  {restDicePools.length > 0 && !settled && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={labelClass}>{localizeUi("game.ruleset.sheet.restDice")}</span>
+                      {restDicePools.map((pool) => (
+                        <label key={pool.key} className="flex items-center gap-1 text-[0.6875rem]">
+                          <span>{text(pool.label)}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={pool.value}
+                            value={restDice[pool.key] ?? 0}
+                            onChange={(event) => {
+                              const count = Math.min(
+                                Math.max(Math.trunc(Number(event.target.value) || 0), 0),
+                                pool.value,
+                              );
+                              setRestDice((current) => ({ ...current, [pool.key]: count }));
+                            }}
+                            aria-label={localizeUi("game.ruleset.sheet.restDiceAria", {
+                              name: text(pool.label),
+                              who: cardName,
+                            })}
+                            className="w-12 rounded border border-[var(--border)] bg-transparent px-1 py-0.5 text-center"
+                          />
+                          <span className="text-[var(--muted-foreground)]">/ {pool.value}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {!settled &&
+                    definition.rests.flatMap((rest) =>
+                      (restOffers[rest.id] ?? []).map((offer) => {
+                        const key = `${rest.id}/${offer.name}`;
+                        const chosen = restRecover[key] ?? { on: false, counts: {} };
+                        const set = (next: Partial<typeof chosen>) =>
+                          setRestRecover((current) => ({ ...current, [key]: { ...chosen, ...next } }));
+                        return (
+                          <div key={key} className="space-y-1 text-[0.6875rem]">
+                            <label className="flex items-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={chosen.on}
+                                onChange={(event) => set({ on: event.target.checked })}
+                              />
+                              <span>
+                                {localizeUi("game.ruleset.sheet.restRecover", {
+                                  name: text(offer.name),
+                                  rest: text(rest.label),
+                                  levels: offer.upTo,
+                                })}
+                              </span>
+                            </label>
+                            {chosen.on && (
+                              <div className="flex flex-wrap items-center gap-2 pl-5">
+                                {offer.pools.map((pool) => (
+                                  <label key={pool.key} className="flex items-center gap-1">
+                                    <span>{text(pool.label)}</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={pool.spent}
+                                      value={chosen.counts[pool.key] ?? 0}
+                                      onChange={(event) => {
+                                        const count = Math.min(
+                                          Math.max(Math.trunc(Number(event.target.value) || 0), 0),
+                                          pool.spent,
+                                        );
+                                        set({ counts: { ...chosen.counts, [pool.key]: count } });
+                                      }}
+                                      aria-label={localizeUi("game.ruleset.sheet.restRecoverAria", {
+                                        name: text(pool.label),
+                                        feature: text(offer.name),
+                                        who: cardName,
+                                      })}
+                                      className="w-12 rounded border border-[var(--border)] bg-transparent px-1 py-0.5 text-center"
+                                    />
+                                    <span className="text-[var(--muted-foreground)]">/ {pool.spent}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }),
                     )}
-                  </span>
+                  {restNotice && (
+                    <p role="status" className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {restNotice}
+                    </p>
+                  )}
                 </div>
-              ))}
-              {summaryDerived.map((entry) => (
-                <div key={entry.id} className={`flex min-w-0 flex-col ${cardClass}`}>
-                  <span className={`${labelClass} truncate`}>{entry.label}</span>
-                  <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                    {evaluated.derived[entry.id] ?? 0}
-                  </span>
+              )}
+
+              {trained.length > 0 && (
+                <div className="space-y-1">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
+                  {rulesetSectionGroups(definition, trained).map((group) => (
+                    <div
+                      key={group.section ? `section:${group.section.id}` : "none"}
+                      className="flex flex-wrap items-center gap-1.5"
+                    >
+                      {group.section && <span className={labelClass}>{text(group.section.label)}</span>}
+                      {group.entries.map((entry) => (
+                        <span
+                          key={`${entry.id}-${entry.label}`}
+                          className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
+                        >
+                          {text(entry.label)}{" "}
+                          <span className="tabular-nums">
+                            {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </>
       )}
     </div>
   );
+
+  // What the sheet's parts draw (conditions, lists, wound tracks) reads the same words.
+  return <RulesetTextContext.Provider value={text}>{sheet}</RulesetTextContext.Provider>;
 }
 
 /** The shared sheet sits beside the party portraits. A ruleset that sets the party up through a
@@ -859,6 +1518,7 @@ export function GameRulesetPartySheet({
   memberBuilds?: readonly RulesetSheetBuild[];
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const text = useSheetRulesetText(definition);
   const [conflict, setConflict] = useState(false);
   const savePartySheet = useSavePartySheet();
   const party = useMemo(() => rulesetPartyDefinition(definition), [definition]);
@@ -882,13 +1542,13 @@ export function GameRulesetPartySheet({
   return (
     <details className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
       <summary className="cursor-pointer break-words text-xs font-semibold text-[var(--foreground)]">
-        {definition.party.label}
+        {text(definition.party.label)}
       </summary>
       <div className="mt-3 max-h-80 overflow-y-auto">
         {envelope ? (
           <GameRulesetSheet
             definition={party}
-            cardName={definition.party.label}
+            cardName={text(definition.party.label)}
             envelope={envelope}
             live={live}
             readOnly={!editable}

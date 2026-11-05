@@ -69,7 +69,7 @@ test("character library restores New Folder and bulk tags persist across reload"
     await page.getByRole("button", { name: "Select", exact: true }).click();
     for (const [index, id] of createdIds.entries()) {
       if (index === 1) {
-        await page.getByPlaceholder("Search characters", { exact: true }).fill(`${name} (copy)`);
+        await page.getByPlaceholder("Search characters/tags", { exact: true }).fill(`${name} (copy)`);
         await expect(page.locator(`[data-character-id="${createdIds[0]}"]`)).toBeHidden();
       }
       await page
@@ -107,7 +107,7 @@ test("character library restores New Folder and bulk tags persist across reload"
     await retryDialog.getByRole("button", { name: "Apply to 1 character", exact: true }).click();
     expect((await retryRequest).postDataJSON().ids).toEqual([createdIds[1]]);
     await expect(retryDialog).toBeHidden();
-    await page.getByPlaceholder("Search characters", { exact: true }).fill("");
+    await page.getByPlaceholder("Search characters/tags", { exact: true }).fill("");
 
     for (const id of createdIds) {
       await expect

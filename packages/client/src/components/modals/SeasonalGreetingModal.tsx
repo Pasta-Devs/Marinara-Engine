@@ -13,6 +13,20 @@ const GREETINGS: Record<SeasonalThemeId, { title: string; intro: string; details
       art: "/seasonal/halloween/pumpkin.webp",
       bat: "/seasonal/halloween/bat.webp",
     },
+    newyearseve: {
+      title: "seasonalThemes.newyearseve.greetingTitle",
+      intro: "seasonalThemes.newyearseve.greetingIntro",
+      details: "seasonalThemes.newyearseve.greetingDetails",
+      art: "/seasonal/newyearseve/greeting.webp",
+      bat: "/seasonal/newyearseve/sky.webp",
+    },
+    newyearsday: {
+      title: "seasonalThemes.newyearsday.greetingTitle",
+      intro: "seasonalThemes.newyearsday.greetingIntro",
+      details: "seasonalThemes.newyearsday.greetingDetails",
+      art: "/seasonal/newyearsday/greeting.webp",
+      bat: "/seasonal/newyearsday/sky.webp",
+    },
   };
 
 /** Says hello once a year when a seasonal theme switches on, after every other startup notice. */
@@ -37,18 +51,21 @@ export function SeasonalGreetingModal({
   const settingsSyncReady = useUIStore((state) => state.settingsSyncReady);
   const [open, setOpen] = useState(false);
   const keepRef = useRef<HTMLButtonElement>(null);
+  const openedFor = useRef<SeasonalThemeId | null>(null);
   const greeting = themeId ? GREETINGS[themeId] : null;
 
   useEffect(() => {
     if (!themeId || !pending || open || !presentationAllowed || !hasCompletedOnboarding || !settingsSyncReady) return;
     // Recorded on presentation, so closing the app without a choice cannot bring it back this year.
     onShown();
+    openedFor.current = themeId;
     setOpen(true);
   }, [hasCompletedOnboarding, onShown, open, pending, presentationAllowed, settingsSyncReady, themeId]);
 
-  // Turning seasonal themes off in Settings while this is open closes it too.
+  // Turning seasonal themes off in Settings, or the next theme starting (the party ends at 04:00), closes it too,
+  // so it never shows or turns off a theme it did not open for. A new theme then gets its own greeting.
   useEffect(() => {
-    if (!themeId) setOpen(false);
+    if (themeId !== openedFor.current) setOpen(false);
   }, [themeId]);
 
   useEffect(() => {

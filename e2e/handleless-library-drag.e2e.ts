@@ -63,16 +63,20 @@ for (const kind of ["agent", "lorebook", "connection", "preset"] as const) {
       await page.goto("/");
       await clickTopbarPanel(page, `${kind}s`);
       const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
-      const source = panel.locator(`[data-touch-drag-card="${kind}"]`).filter({ hasText: resource.name }).first();
+      // #8456: a saved Model is a row under its account card; the row itself is the drag source.
+      const card = kind === "connection" ? '[data-drag-kind="connection-model"]' : `[data-touch-drag-card="${kind}"]`;
+      const source = panel.locator(card).filter({ hasText: resource.name }).first();
       await expect(source).toBeVisible();
       await expect(source.locator("[data-folder-drag-handle]")).toHaveCount(0);
       // The agent's primary content is a button; it must be draggable while remaining keyboard accessible.
-      const body = kind === "agent" ? source.locator("[data-drag-surface]") : source;
+      const body = kind === "agent" || kind === "connection" ? source.locator("[data-drag-surface]") : source;
+      // The Connections panel opens on its Defaults box, so a Model row can start below the fold.
+      await body.scrollIntoViewIfNeeded();
       const box = await body.boundingBox();
       expect(box).not.toBeNull();
       const x = box!.x + box!.width * 0.4;
       const y = box!.y + box!.height / 2;
-      const preview = page.locator(`body > [data-touch-drag-card="${kind}"][aria-hidden="true"]`);
+      const preview = page.locator(`body > ${card}[aria-hidden="true"]`);
       if (mobile) {
         await sendTouch(body, "touchstart", x, y);
         expect(await sendTouch(body, "touchmove", x, y - 60)).toBe(false);

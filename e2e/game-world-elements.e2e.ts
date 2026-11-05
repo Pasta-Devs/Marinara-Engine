@@ -346,8 +346,15 @@ test("a ruleset board in a megablock corridor wears the corridor's dungeon colou
     chatId = fight.chatId;
     expect(fight.session.ruleset?.grid).toBeTruthy();
     await openGame(page, chatId);
+    await expect(page.getByRole("region", { name: "Combat decisions" })).toBeVisible({ timeout: 45_000 });
+    // A phone shows the board on a tab of its own beside the turn's options.
+    const boardTab = page.getByRole("tab", { name: "Board", exact: true });
     const board = page.getByRole("group", { name: "Battlefield" });
-    await expect(board).toBeVisible({ timeout: 45_000 });
+    // The phone picks its tab again when the first turn arrives, so ask until the board stays.
+    await expect(async () => {
+      if (await boardTab.isVisible()) await boardTab.click();
+      await expect(board).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 45_000 });
     // Every square is coloured from the dungeon palette the corridor is laid out like, never the plain one.
     const dungeon = ["#3d3a42", "#34413a", "#4a4550", "#4c4652", "#274a5c", "#1a1820"].map((hex) =>
       [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(","),

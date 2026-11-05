@@ -1,10 +1,12 @@
+import { chooseCharacter, runName } from "./character-picker.js";
+import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS } from "@marinara-engine/shared";
+import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS, PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
 
-// #7537 (base lane): a character with expression sprites already has a PNGTuber avatar in a Roleplay chat
-// with 2D Avatars on, before anything is saved. The 2D Avatars agent page shows one set of controls (the
+// #7537 and #7915: expression sprites preview in setup, but chats require a saved, enabled avatar.
+// The 2D Avatars agent page shows one set of controls (the
 // base switches above the 2D lane's PNGTuber panel), saves the sprites with `_talk` sprites as open mouths,
 // and the faces can be changed by hand. On phones the chat stays mounted under the agent's page, and its
 // avatars stop drawing while covered. Making an avatar from a sprite never offers a talk picture as the
@@ -98,6 +100,10 @@ async function preparePage(page: Page, characterId: string, ui: Record<string, u
   );
 }
 
+// The owner field is the shared CharacterSelect (#8763): a persona picker that lists characters too.
+const pickOwner = (page: Page, setup: Locator, name: string) =>
+  chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", name);
+
 /** Requests for an avatar that the browser logged as failed. Picking an owner without an avatar must log none. */
 function collectFailedAvatarLoads(page: Page) {
   const failed: string[] = [];
@@ -109,11 +115,12 @@ function collectFailedAvatarLoads(page: Page) {
   return failed;
 }
 
-test("2D Avatars shows a character's sprites as its avatar and saves them as a PNGTuber", async ({
+test("2D Avatars previews sprites with chats off by default and saves a PNGTuber when enabled", async ({
   page,
   request,
 }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "Avatar fixture" } } });
+  const characterName = runName("Avatar fixture");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name: characterName } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   const chatResponse = await request.post("/api/chats", {
@@ -130,28 +137,28 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
   ).toBeTruthy();
 
   try {
-    // ── With nothing saved, the chat already shows the character's sprites as its avatar ──
-    const chatPage = await page.context().newPage();
-    await preparePage(chatPage, character.id, {}, chat.id);
-    await chatPage.goto("/");
-    const avatar = chatPage.locator(`[data-avatar-stage] [data-avatar-owner="${character.id}"]`);
-    await expect(avatar).toHaveAttribute("data-avatar-kind", "pngtuber", { timeout: FIRST_LOAD_TIMEOUT_MS });
-    await expect(avatar.getByRole("img", { name: "Avatar fixture's avatar" })).toBeVisible();
-    await expect(chatPage.locator("[data-avatar-stage]")).not.toHaveAttribute("data-avatar-paused", "true");
+    // The group-stage cases prove sprite-only owners stay hidden after configured peers render.
+    // This setup case checks that previewing and opting in saves real layer data.
     const nothingSaved = await request.get(`/api/avatar-models/character/${character.id}`);
     expect(nothingSaved.status()).toBe(200);
     expect(await nothingSaved.json()).toBeNull();
-    await chatPage.close();
 
     // ── The setup on the agent's page (on phones it covers the chat, which stays mounted under it) ──
-    await preparePage(page, character.id, { agentDetailId: "2d-avatars" }, chat.id);
+    await preparePage(page, character.id, {}, chat.id);
     const failedAvatarLoads = collectFailedAvatarLoads(page);
     await page.goto("/");
+    await expect(page.locator("[data-chat-settings-button]").filter({ visible: true }).first()).toBeVisible({
+      timeout: FIRST_LOAD_TIMEOUT_MS,
+    });
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openAgentDetail("2d-avatars");
+    });
     const setup = page.locator('[data-avatar-setup="2d-avatars"]');
     // The first load also compiles the lazy setup chunk on the dev server.
     await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await expect(setup.getByText("Choose a character or persona to set up its avatar.")).toBeVisible();
-    await setup.getByLabel("Character or persona").selectOption(`character:${character.id}`);
+    await pickOwner(page, setup, characterName);
     // Wait for the lazy PNGTuber panel, then check the page has one set of controls.
     await expect(setup.locator("[data-avatar-pngtuber-status]")).toHaveText(
       "Shows your expression sprites until you change something here.",
@@ -160,10 +167,17 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
     await expect(setup.getByRole("button", { name: "Use my sprites", exact: true })).toHaveCount(1);
     await expect(setup.getByRole("button", { name: "Import PNGTuber Plus save", exact: true })).toHaveCount(1);
     await expect(setup.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
-    await expect(setup.getByText("Shown in chats")).toBeVisible();
+    await expect(setup.getByText("Shown in chats")).toHaveCount(0);
     await expect(setup.getByText("An example avatar. Set one up to see yours.")).toHaveCount(0);
     await expect(setup.getByRole("img", { name: "Preview" })).toBeVisible();
-    await expect(setup.getByRole("checkbox", { name: /Show this avatar in chats/u })).toBeChecked();
+    const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
+    await expect(showInChats).not.toBeChecked();
+    await expect(showInChats).toBeEnabled();
+    await setup.getByRole("radio", { name: /Mesh avatar/u }).check();
+    await expect(showInChats).not.toBeChecked();
+    await expect(showInChats).toBeDisabled();
+    await setup.getByRole("radio", { name: /PNGTuber sprites/u }).check();
+    await expect(showInChats).toBeEnabled();
     expect(failedAvatarLoads, "an owner without an avatar loads without an error").toEqual([]);
     // Making an avatar from a sprite offers faces only, never their talk pictures: blink and talk pictures are
     // made for the talking head's faces, and a face's own talk sprite shows as its open mouth.
@@ -186,8 +200,14 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
       "full idle",
     ]);
     await page.screenshot({ path: info.outputPath("avatar-setup-sprites.png"), animations: "disabled" });
+    // Opting in saves the preview's real layer data together with enabled, so a reload can show it.
+    await showInChats.focus();
+    await showInChats.press("Space");
+    await expect
+      .poll(async () => await (await request.get(`/api/avatar-models/character/${character.id}`)).json())
+      .toMatchObject({ enabled: true, activeKind: "pngtuber", kinds: { pngtuber: { source: "sprites" } } });
+    await expect(showInChats).toBeChecked();
     if (info.project.name.startsWith("mobile")) {
-      // Only the preview draws: the covered chat's avatars stop.
       await expect(page.locator(`[data-avatar-stage]:has([data-avatar-owner="${character.id}"])`)).toHaveAttribute(
         "data-avatar-paused",
         "true",
@@ -195,7 +215,6 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
       );
     }
 
-    await setup.getByRole("button", { name: "Use my sprites", exact: true }).click();
     await expect(setup.locator("[data-avatar-pngtuber-status]")).not.toHaveText(
       "Shows your expression sprites until you change something here.",
     );
@@ -230,7 +249,7 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
     await savedChatPage.goto("/");
     const savedAvatar = savedChatPage.locator(`[data-avatar-stage] [data-avatar-owner="${character.id}"]`);
     await expect(savedAvatar).toHaveAttribute("data-avatar-kind", "pngtuber", { timeout: FIRST_LOAD_TIMEOUT_MS });
-    await expect(savedAvatar.getByRole("img", { name: "Avatar fixture's avatar" })).toBeVisible();
+    await expect(savedAvatar.getByRole("img", { name: `${characterName}'s avatar` })).toBeVisible();
     await savedChatPage.bringToFront();
     await expect(savedChatPage.locator("[data-avatar-stage]")).not.toHaveAttribute("data-avatar-paused", "true");
     await savedChatPage.close();
@@ -269,6 +288,21 @@ test("Arrange mode drags full-body sprites and avatars with the same gesture", a
   ).toBeTruthy();
 
   try {
+    const saved = await request.put(`/api/avatar-models/character/${character.id}`, {
+      data: {
+        enabled: true,
+        activeKind: "pngtuber",
+        kinds: {
+          pngtuber: {
+            layers: { neutral: { base: { source: "sprite", label: "neutral" } } },
+            expressionMap: {},
+            motion: PNGTUBER_DEFAULT_MOTION,
+            source: "sprites",
+          },
+        },
+      },
+    });
+    expect(saved.ok(), await saved.text()).toBeTruthy();
     await preparePage(page, character.id, { chatSettingsExpandedSections: { "roleplay-agents": true } }, chat.id);
     await page.goto("/");
     // Each item's positioned box is a direct child of its stage.
@@ -358,10 +392,13 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
   const OVERRIDDEN = "Plain appearance that the Image Appearance Override replaces.";
   // Card fields other than the look, and chat text, must never reach a prompt meant for an outside tool.
   const PRIVATE = ["DESCRIPTION-SECRET", "PERSONALITY-SECRET", "SCENARIO-SECRET", "GREETING-SECRET", "CHAT-SECRET"];
+  const characterName = runName("Model guide fixture");
+  const personaName = runName("Guide persona");
+  const overrideName = runName("Override persona");
   const characterResponse = await request.post("/api/characters", {
     data: {
       data: {
-        name: "Model guide fixture",
+        name: characterName,
         description: "DESCRIPTION-SECRET",
         personality: "PERSONALITY-SECRET",
         scenario: "SCENARIO-SECRET",
@@ -375,7 +412,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
   const character = (await characterResponse.json()) as { id: string };
   const personaResponse = await request.post("/api/characters/personas", {
     data: {
-      name: "Guide persona",
+      name: personaName,
       // A blank appearance counts as none.
       appearance: "   ",
       description: `${PERSONA_LOOK} Often seen with {{char}}.`,
@@ -386,7 +423,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
   const persona = (await personaResponse.json()) as { id: string };
   const overridePersonaResponse = await request.post("/api/characters/personas", {
     data: {
-      name: "Override persona",
+      name: overrideName,
       appearance: OVERRIDDEN,
       imageAppearanceEnabled: true,
       imageAppearance: OVERRIDE_LOOK,
@@ -428,7 +465,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
     await page.goto("/");
     const setup = page.locator('[data-avatar-setup="3d-avatars"]');
     await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-    await setup.getByLabel("Character or persona").selectOption(`character:${character.id}`);
+    await pickOwner(page, setup, characterName);
     await expect(setup.getByRole("button", { name: "Import VRM", exact: true })).toBeVisible({
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
@@ -441,7 +478,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
 
     // ── Copy prompt: the character's name and look, posed for 3D ──
     await guide.getByRole("button", { name: "Copy prompt", exact: true }).click();
-    await expect.poll(copied).toContain("Model guide fixture has long silver hair in a braid");
+    await expect.poll(copied).toContain(`${characterName} has long silver hair in a braid`);
     const prompt = await copied();
     expect(prompt).toContain(LOOK);
     expect(prompt).toMatch(/full-body/iu);
@@ -452,18 +489,18 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Prompt copied." })).toBeVisible();
 
     // ── A persona with a blank appearance uses its description ──
-    await setup.getByLabel("Character or persona").selectOption(`persona:${persona.id}`);
+    await pickOwner(page, setup, personaName);
     await guide.getByRole("button", { name: "Copy prompt", exact: true }).click();
-    await expect.poll(copied).toContain("Guide persona");
+    await expect.poll(copied).toContain(personaName);
     const personaPrompt = await copied();
     expect(personaPrompt).toContain(PERSONA_LOOK);
     expect(personaPrompt).not.toContain("{{");
     for (const secret of PRIVATE) expect(personaPrompt, secret).not.toContain(secret);
 
     // ── An Image Appearance Override that is on replaces the appearance ──
-    await setup.getByLabel("Character or persona").selectOption(`persona:${overridePersona.id}`);
+    await pickOwner(page, setup, overrideName);
     await guide.getByRole("button", { name: "Copy prompt", exact: true }).click();
-    await expect.poll(copied).toContain("Override persona");
+    await expect.poll(copied).toContain(overrideName);
     const overridePrompt = await copied();
     expect(overridePrompt).toContain(OVERRIDE_LOOK);
     expect(overridePrompt).not.toContain(OVERRIDDEN);
@@ -493,13 +530,18 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
   page,
   request,
 }, info) => {
+  // Three full sprite-generation passes, each through the model picker, run close to the 60 s default.
+  test.setTimeout(120_000);
   const picture = readFileSync(new URL("../packages/client/public/sprites/avatar-demo/base.png", import.meta.url));
   const avatar = { avatar: `data:image/png;base64,${picture.toString("base64")}`, filename: "faces.png" };
   const OVERRIDE_LOOK = "1girl, short red hair, green eyes, black coat";
+  const characterName = runName("Faces fixture");
+  const personaName = runName("Faces persona");
+  const noAvatarName = runName("Faceless persona");
   const characterResponse = await request.post("/api/characters", {
     data: {
       data: {
-        name: "Faces fixture",
+        name: characterName,
         description: "A description the image appearance replaces.",
         extensions: {
           appearance: "An appearance the image appearance replaces.",
@@ -512,12 +554,12 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   const personaResponse = await request.post("/api/characters/personas", {
-    data: { name: "Faces persona", appearance: "Tall, silver hair, grey coat." },
+    data: { name: personaName, appearance: "Tall, silver hair, grey coat." },
   });
   expect(personaResponse.ok(), await personaResponse.text()).toBeTruthy();
   const persona = (await personaResponse.json()) as { id: string };
   const noAvatarResponse = await request.post("/api/characters/personas", {
-    data: { name: "Faceless persona", appearance: "Short, brown hair." },
+    data: { name: noAvatarName, appearance: "Short, brown hair." },
   });
   expect(noAvatarResponse.ok(), await noAvatarResponse.text()).toBeTruthy();
   const noAvatar = (await noAvatarResponse.json()) as { id: string };
@@ -569,11 +611,11 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     const dialog = page.getByRole("dialog", { name: "Generate Sprites" });
     const reference = dialog.getByRole("checkbox", { name: "Use current avatar as a reference image" });
     const makeFaces = setup.getByRole("button", { name: "Make faces from the avatar", exact: true });
-    const useConnection = (id: string) => dialog.locator("select").first().selectOption(id);
+    const useConnection = (id: string) => chooseConnection(page, dialog.locator("[data-connection-value]").first(), id);
     const face = (name: string) => dialog.getByRole("button", { name, exact: true });
 
     // ── A character without sprites ──
-    await setup.getByLabel("Character or persona").selectOption(`character:${character.id}`);
+    await pickOwner(page, setup, characterName);
     await expect(setup.getByText("Make faces from the avatar first, then add blinking and talking.")).toBeVisible({
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
@@ -709,7 +751,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     await expect(dialog).toBeHidden();
 
     // ── A persona with sprites ──
-    await setup.getByLabel("Character or persona").selectOption(`persona:${persona.id}`);
+    await pickOwner(page, setup, personaName);
     await expect(setup.getByRole("group", { name: "neutral: Face", exact: true })).toBeVisible({
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
@@ -724,7 +766,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     await expect(dialog).toBeHidden();
 
     // ── Without an avatar there is nothing to draw the faces from ──
-    await setup.getByLabel("Character or persona").selectOption(`persona:${noAvatar.id}`);
+    await pickOwner(page, setup, noAvatarName);
     await expect(setup.getByText("Add an avatar to this character or persona first.")).toBeVisible({
       timeout: FIRST_LOAD_TIMEOUT_MS,
     });
@@ -733,7 +775,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     // ── With prompt review on, every picture's prompt is reviewed once, before the first is sent ──
     await seedUIState(page, { reviewImagePromptsBeforeSend: true }, "merge");
     await page.reload();
-    await setup.getByLabel("Character or persona").selectOption(`character:${character.id}`);
+    await pickOwner(page, setup, characterName);
     await makeFaces.click();
     await useConnection(connection.id);
     await dialog.getByRole("button", { name: "1 (1×1)", exact: true }).click();
@@ -817,12 +859,13 @@ test("The avatar agents' pages leave out the agent pipeline's settings, which ot
       await expect(section("Description")).toBeVisible();
       for (const name of PIPELINE_SECTIONS) await expect(section(name), `${id}: ${name}`).toHaveCount(0);
       for (const name of PIPELINE_CONTROLS) await expect(control(name), `${id}: ${name}`).toHaveCount(0);
-      // The Mesh Avatar Layout reads the 2D agent's connection; the 3D agent never uses one.
-      await expect(section("Connection Override"), id).toHaveCount(id === "2d-avatars" ? 1 : 0);
+      // The Mesh Avatar Layout reads the 2D agent's connection; the 3D agent never uses one. #8456 renamed the
+      // agent editor's Connection Override section to Model override.
+      await expect(section("Model override"), id).toHaveCount(id === "2d-avatars" ? 1 : 0);
     }
 
     await open(agent.id);
-    for (const name of [...PIPELINE_SECTIONS, "Connection Override"]) await expect(section(name), name).toBeVisible();
+    for (const name of [...PIPELINE_SECTIONS, "Model override"]) await expect(section(name), name).toBeVisible();
     for (const name of PIPELINE_CONTROLS) await expect(control(name), name).toBeVisible();
   } finally {
     await request.delete(`/api/agents/${agent.id}`).catch(() => undefined);

@@ -4,7 +4,7 @@
 // Renders VN-style clickable choice cards when the
 // GM emits [choices: "A" | "B" | "C"] tags.
 // ──────────────────────────────────────────────
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
@@ -39,16 +39,27 @@ function choiceStateClassName(
   return "border-white/10 bg-white/5 text-white/90 hover:border-[var(--primary)]/30 hover:bg-[var(--primary)]/10 hover:text-white";
 }
 
+/**
+ * The cards open where the narration's Next button just was, so a click meant for Next can land on a card
+ * and send it as a whole turn. Clicks are taken only once the cards have been on screen this long.
+ */
+export const CHOICE_CARDS_ARM_DELAY_MS = 700;
+
 export function GameChoiceCards({ choices, onSelect, onDismiss, disabled, replayChoice }: GameChoiceCardsProps) {
   const { t: localizeUi } = useUiTranslation();
   const [selected, setSelected] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setArmed(true), CHOICE_CARDS_ARM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
   const replayMode = replayChoice !== undefined;
   const normalizedReplayChoice = replayChoice ? normalizeChoiceText(replayChoice) : null;
 
   const handleSelect = (choice: string, index: number) => {
     const isRecordedChoice = !replayMode || normalizeChoiceText(choice) === normalizedReplayChoice;
-    if (disabled || selected !== null || !isRecordedChoice) return;
+    if (!armed || disabled || selected !== null || !isRecordedChoice) return;
     setSelected(index);
     // Brief animation before sending
     setTimeout(() => {

@@ -108,9 +108,10 @@ test("with no connections at all, a new roleplay still asks for one first", asyn
   await roleplay.click();
   list.release();
 
-  const gate = page.locator('[data-new-chat-connection-gate="roleplay"]');
-  await expect(gate).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-  await expect(gate.locator("[data-new-chat-connection-empty]")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Add account", exact: true })).toBeVisible({
+    timeout: FIRST_LOAD_TIMEOUT_MS,
+  });
+  await expect(page.locator("[data-add-connection-start]")).toHaveCount(0);
   expect(chatCreated, "no chat is made without a connection").toBe(false);
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
@@ -196,9 +197,10 @@ for (const cachedEmpty of [true, false]) {
         await expect(page.locator("[data-new-chat-connection-gate]")).toHaveCount(0);
         expect(posts, "the two taps create one chat after the current list loads").toBe(1);
       } else {
-        const gate = page.locator('[data-new-chat-connection-gate="roleplay"]');
-        await expect(gate).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-        await expect(gate.locator("[data-new-chat-connection-empty]")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Add account", exact: true })).toBeVisible({
+          timeout: FIRST_LOAD_TIMEOUT_MS,
+        });
+        await expect(page.locator("[data-add-connection-start]")).toHaveCount(0);
         expect(posts, "the removed connection must not allow a chat to be created").toBe(0);
       }
       expect(list.held(), "the launch joins the observer's existing request").toBe(1);

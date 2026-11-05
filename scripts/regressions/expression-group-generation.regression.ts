@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 
 const dir = mkdtempSync(join(tmpdir(), "marinara-expression-group-"));
 process.env.DATA_DIR = dir;
@@ -144,6 +145,12 @@ try {
         expectedIds.includes(character.id),
         `${JSON.parse(character.data).name} sprite availability matches this turn`,
       );
+    for (const id of expectedIds.filter((id) => roster.some((character) => character.id === id))) {
+      const line = available.split(/\\n|\n/u).find((line) => line.includes(`(${id})`));
+      assert(line, "eligible owner is listed");
+      for (const expression of ["happy", "sad", "neutral"])
+        assert(line.includes(expression), "loose and both folder expressions remain in the model choices");
+    }
     const message = retryMessageId
       ? await chats.getMessage(retryMessageId)
       : (await chats.listMessages(chat.id)).at(-1)!;
@@ -158,6 +165,25 @@ try {
     return message;
   };
   const merged = await run([alice.id, bob.id]);
+  // Organizational folders must not change the real generation/retry availability or persisted choices.
+  for (const character of roster) {
+    const happyFolder = randomUUID();
+    const sadFolder = randomUUID();
+    writeFileSync(
+      join(dir, "sprites", character.id, "catalog.json"),
+      JSON.stringify({
+        version: 1,
+        folders: [
+          { id: happyFolder, name: "Front", category: "expressions" },
+          { id: sadFolder, name: "Side", category: "expressions" },
+        ],
+        sprites: {
+          happy: { label: "happy", folderId: happyFolder },
+          sad: { label: "sad", folderId: sadFolder },
+        },
+      }),
+    );
+  }
   await run([alice.id, bob.id], {}, merged.id);
   await run([alice.id, bob.id], { regenerateMessageId: merged.id });
   await chats.patchMetadata(chat.id, { spriteCharacterIds: [bob.id] });
@@ -348,6 +374,70 @@ try {
     assert(!response.body.includes('"type":"error"'), response.body);
     assert.equal(spritePrompts.length, before, `${mode} keeps its existing Expression Engine exclusion`);
   }
+  // A label is resolved before SSE, then the concrete handle is checked again
+  // before persistence. The second pass must not reinterpret that handle as a label.
+  const familyOwner = await characters.create(characterDataSchema.parse({ name: "Family selection" }));
+  const familyDirectory = join(dir, "sprites", familyOwner.id);
+  mkdirSync(familyDirectory, { recursive: true });
+  for (const handle of ["happy", "full_happy", "full_cheer"])
+    writeFileSync(join(familyDirectory, `${handle}.png`), "fixture");
+  writeFileSync(
+    join(familyDirectory, "catalog.json"),
+    JSON.stringify({
+      version: 1,
+      folders: [],
+      sprites: {
+        happy: { label: "pleased", folderId: null },
+        full_happy: { label: "full_furious", folderId: null },
+        full_cheer: { label: "full_happy", folderId: null },
+      },
+    }),
+  );
+  const familyChat = await chats.create({
+    name: "Renamed family generation",
+    mode: "roleplay",
+    characterIds: [familyOwner.id],
+    connectionId: connection.id,
+    promptPresetId: null,
+  });
+  await chats.patchMetadata(familyChat.id, {
+    enableAgents: true,
+    activeAgentIds: ["expression"],
+    enableTools: false,
+    enableMemoryRecall: false,
+    spriteCharacterIds: [familyOwner.id],
+    spriteDisplayModes: ["expressions", "full-body"],
+    groupChatMode: "merged",
+  });
+  await chats.createMessage({ chatId: familyChat.id, role: "user", content: "Continue the scene." });
+  expressionOutput = [{ characterId: familyOwner.id, expression: "pleased" }];
+  const familyResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: familyChat.id },
+  });
+  assert.equal(familyResponse.statusCode, 200, familyResponse.body);
+  assert(!familyResponse.body.includes('"type":"error"'), familyResponse.body);
+  const familyReply = (await chats.listMessages(familyChat.id)).at(-1)!;
+  assert.equal(
+    JSON.parse(familyReply.extra).spriteExpressions[familyOwner.id],
+    "happy",
+    "an already resolved portrait handle is never mistaken for another sprite's current label",
+  );
+  assert(spritePrompts.at(-1)!.includes("pleased") && spritePrompts.at(-1)!.includes("furious"));
+  expressionOutput = [{ characterId: familyOwner.id, expression: "furious" }];
+  const familyRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: familyChat.id, agentTypes: ["expression"], forMessageId: familyReply.id },
+  });
+  assert.equal(familyRetry.statusCode, 200, familyRetry.body);
+  assert(!familyRetry.body.includes('"type":"error"'), familyRetry.body);
+  assert.equal(
+    JSON.parse((await chats.getMessage(familyReply.id))!.extra).spriteExpressions[familyOwner.id],
+    "full_happy",
+  );
+
   console.log(
     "Expression group generation passed: merged active/selected cast, retry, regeneration, fallback completion, individual, single, persona/impersonation and Conversation/Game controls.",
   );

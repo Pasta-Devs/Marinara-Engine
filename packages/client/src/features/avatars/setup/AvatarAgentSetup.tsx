@@ -21,6 +21,7 @@ import {
   type AvatarOwnerRef,
   type AvatarOwnerType,
 } from "@marinara-engine/shared";
+import { CharacterSelect, type PersonaChoice } from "../../../components/characters/CharacterSelect";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useAvatarModel, useAvatarModelActions, useAvatarModelList } from "../../../hooks/use-avatar-models";
 import { useCharacterSprites, useCharacters, usePersonas } from "../../../hooks/use-characters";
@@ -37,6 +38,8 @@ const KIND_LABEL_KEYS: Record<AvatarKind, { name: string; help: string }> = {
   pngtuber: { name: "avatars.setup.kind.pngtuber", help: "avatars.setup.kind.pngtuberHelp" },
   "mesh-avatar": { name: "avatars.setup.kind.meshAvatar", help: "avatars.setup.kind.meshAvatarHelp" },
   vrm: { name: "avatars.setup.kind.vrm", help: "avatars.setup.kind.vrmHelp" },
+  mmd: { name: "avatars.setup.kind.mmd", help: "avatars.setup.kind.mmdHelp" },
+  "glb-fbx": { name: "avatars.setup.kind.glbFbx", help: "avatars.setup.kind.glbFbxHelp" },
 };
 
 const FEATURE_KEYS: ReadonlyArray<readonly [keyof AvatarFeatureFlags, string, string]> = [
@@ -45,8 +48,6 @@ const FEATURE_KEYS: ReadonlyArray<readonly [keyof AvatarFeatureFlags, string, st
   ["idleMotion", "avatars.setup.features.idleMotion", "avatars.setup.features.idleMotionHelp"],
 ];
 
-const SELECT_CLASS =
-  "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
 const CARD_CLASS = "rounded-xl bg-[var(--secondary)]/55 ring-1 ring-[var(--border)]";
 
 function ownerValue(owner: AvatarOwnerRef): string {
@@ -120,31 +121,29 @@ export function AvatarAgentSetup({ agentId }: AvatarAgentSetupProps) {
       <AvatarModelStatus />
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-[var(--foreground)]">{t("avatars.setup.owner.label")}</span>
-        <select
-          value={selectedOwner}
-          onChange={(event) => setSelectedOwner(event.target.value)}
-          className={SELECT_CLASS}
-        >
-          <option value="">{t("avatars.setup.owner.placeholder")}</option>
-          {(
-            [
-              ["avatars.setup.owner.characters", owners.characters],
-              ["avatars.setup.owner.personas", owners.personas],
-            ] as const
-          ).map(([groupKey, options]) =>
-            options.length > 0 ? (
-              <optgroup key={groupKey} label={t(groupKey)}>
-                {options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {owners.avatarOwners.has(option.value)
-                      ? t("avatars.setup.owner.hasAvatar", { name: option.name })
-                      : option.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null,
-          )}
-        </select>
+        <CharacterSelect
+          kind="persona"
+          withCharacters
+          variant="picker"
+          placeholder={t("avatars.setup.owner.placeholder")}
+          value={owner ? ({ [owner.ownerType]: owner.ownerId } as PersonaChoice) : null}
+          badge={(id) =>
+            owners.avatarOwners.has(`persona:${id}`) || owners.avatarOwners.has(`character:${id}`) ? (
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {t("avatars.setup.owner.hasAvatar")}
+              </span>
+            ) : null
+          }
+          onChange={(choice) =>
+            setSelectedOwner(
+              choice && "character" in choice
+                ? `character:${choice.character}`
+                : choice?.persona
+                  ? `persona:${choice.persona}`
+                  : "",
+            )
+          }
+        />
       </label>
       {owner ? (
         <OwnerAvatarSetup key={selectedOwner} agentId={agentId} kinds={kinds} owner={owner} />
@@ -174,7 +173,7 @@ function OwnerAvatarSetup({
   const [chosenKind, setChosenKind] = useState<AvatarKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // On the 2D page, expression sprites are a PNGTuber avatar until one is saved, as they are in chats.
+  // Expression sprites preview a PNGTuber setup; showing it in chats requires saving it first.
   const spriteList = spritesQuery.data;
   const fromSprites = useMemo(
     () => (kinds.includes("pngtuber") && spriteList ? buildPngtuberLayersFromSprites(spriteList) : null),
@@ -182,9 +181,9 @@ function OwnerAvatarSetup({
   );
   const avatar = useMemo(() => withSpriteAvatar(owner, config, fromSprites), [config, fromSprites, owner]);
   // The kind chats show when every avatar agent is on.
-  const shownKind = avatar
+  const shownKind = config
     ? pickAvatarKind(
-        { activeKind: avatar.activeKind, kinds: AVATAR_KINDS.filter((kind) => avatar.kinds[kind]) },
+        { activeKind: config.activeKind, kinds: AVATAR_KINDS.filter((kind) => config.kinds[kind]) },
         AVATAR_AGENT_IDS,
       )
     : null;
@@ -214,7 +213,9 @@ function OwnerAvatarSetup({
   }
 
   const busy = update.isPending;
+  const enabledInChats = !!config?.enabled && kinds.some((kind) => config.kinds[kind]);
   const focusedData = avatar?.kinds[focusedKind];
+  const hasSetup = kinds.some((kind) => config?.kinds[kind]) || !!focusedData;
   const KindPanel = AVATAR_KIND_SETUP_PANELS[focusedKind];
   const GenerationPanel = AVATAR_GENERATION_PANEL;
   const onChanged = () => setError(null);
@@ -222,17 +223,22 @@ function OwnerAvatarSetup({
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_13rem]">
       <div className="min-w-0 space-y-4">
-        {avatar ? (
-          <SettingsSwitch
-            label={t("avatars.setup.enabled.label")}
-            description={t("avatars.setup.enabled.description")}
-            checked={avatar.enabled}
-            disabled={busy}
-            onChange={(enabled) => void save({ enabled })}
-            labelPosition="start"
-            className={cn("w-full justify-between p-3", CARD_CLASS)}
-          />
-        ) : null}
+        <SettingsSwitch
+          label={t("avatars.setup.enabled.label")}
+          description={t("avatars.setup.enabled.description")}
+          checked={enabledInChats}
+          disabled={busy || !hasSetup}
+          onChange={(enabled) =>
+            void save({
+              enabled,
+              ...(enabled && !config?.kinds[focusedKind] && focusedData
+                ? { kinds: { [focusedKind]: focusedData }, activeKind: focusedKind }
+                : {}),
+            })
+          }
+          labelPosition="start"
+          className={cn("w-full justify-between p-3", CARD_CLASS)}
+        />
 
         <fieldset className="space-y-2">
           <legend className="mb-1.5 text-xs font-semibold text-[var(--foreground)]">
@@ -265,9 +271,9 @@ function OwnerAvatarSetup({
                 </span>
               </span>
               <span className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                {shownKind === kind
+                {enabledInChats && shownKind === kind
                   ? t("avatars.setup.kind.shown")
-                  : avatar?.kinds[kind]
+                  : config?.kinds[kind]
                     ? t("avatars.setup.kind.setUp")
                     : t("avatars.setup.kind.notSetUp")}
               </span>

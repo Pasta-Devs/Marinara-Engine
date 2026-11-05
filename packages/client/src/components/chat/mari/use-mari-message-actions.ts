@@ -1,4 +1,10 @@
-import { MessageExtra, MessageRole, ProfessorMariAskContext, Chat } from "@marinara-engine/shared";
+import {
+  MariComposerReference,
+  MessageExtra,
+  MessageRole,
+  ProfessorMariAskContext,
+  Chat,
+} from "@marinara-engine/shared";
 import type { Message } from "@marinara-engine/shared";
 import { RefObject, Dispatch, SetStateAction, useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,7 +29,7 @@ type MariMessageActionsInput = {
   effectiveConnectionId: string;
   failRun: (
     error: unknown,
-    retry: Pick<ProfessorMariRecovery, "text" | "attachments" | "context" | "localMessageId">,
+    retry: Pick<ProfessorMariRecovery, "text" | "attachments" | "context" | "localMessageId" | "references">,
     runChatId?: string | null,
   ) => void;
   isBusy: boolean;
@@ -56,6 +62,7 @@ type MariMessageActionsInput = {
     attachments?: ProfessorMariAttachment[],
     existingUserMessageId?: string,
     context?: ProfessorMariAskContext | null,
+    references?: readonly MariComposerReference[],
   ) => Promise<{ received: boolean; runId: number; hiddenDuringStream: boolean }>;
   setConnectionMenuOpen: Dispatch<SetStateAction<boolean>>;
   setMessages: Dispatch<SetStateAction<Message[]>>;

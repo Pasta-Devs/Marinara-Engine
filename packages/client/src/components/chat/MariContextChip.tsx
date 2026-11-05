@@ -44,7 +44,9 @@ export function MariContextChip({
   );
 
   const genericLabel = t("mari.contextChip.generic", "Ask Professor Mari");
-  const effectiveLabel = suggestion ? t(suggestion.labelKey, suggestion.label, suggestion.labelValues) : genericLabel;
+  const effectiveLabel = suggestion
+    ? t(suggestion.labelKey, suggestion.label, suggestion.labelValues ?? {})
+    : genericLabel;
 
   const handleOpen = () => {
     const context: ProfessorMariAskContext = {

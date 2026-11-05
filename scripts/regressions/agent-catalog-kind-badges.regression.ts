@@ -12,7 +12,7 @@ assert.equal(isAgentCatalogKindBadgeVisible("maps"), false);
 assert.equal(isAgentCatalogKindBadgeVisible("turn-game"), false);
 
 const catalogViewSource = readFileSync(
-  join(repositoryRoot, "packages/client/src/components/agents/AgentCatalogView.tsx"),
+  join(repositoryRoot, "packages/client/src/components/agents/organizer/organizer-model.ts"),
   "utf8",
 );
 const appShellSource = readFileSync(join(repositoryRoot, "packages/client/src/components/layout/AppShell.tsx"), "utf8");
@@ -32,9 +32,9 @@ for (const avatarPackageId of ["2d-avatars", "3d-avatars"]) {
   );
 }
 assert.match(
-  catalogViewSource,
-  /const modes = packageModes\(entry\.manifest\.id\);[\s\S]*?data-agent-catalog-mode-badges[\s\S]*?modes\.map/u,
-  "Catalog rows must show their supported chat modes without opening the detail view",
+  readFileSync(join(repositoryRoot, "packages/client/src/components/agents/organizer/AgentPage.tsx"), "utf8"),
+  /const modes = packageModes\(manifest\.id\);[\s\S]*?MODE_BADGES\[mode\]/u,
+  "Store pages must show the supported chat modes",
 );
 assert.match(
   appShellSource,

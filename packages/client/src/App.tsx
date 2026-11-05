@@ -1,4 +1,5 @@
 import { useRefreshLocalContext } from "./hooks/use-connections";
+import { useMigrateFeatureModels } from "./hooks/use-connection-accounts";
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
@@ -27,9 +28,11 @@ import { StorageMigrationNoticeModal } from "./components/modals/StorageMigratio
 import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
-import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
+import { AppBannerHost } from "./components/layout/AppBannerHost";
+import { APP_BANNER_BOTTOM_VARIABLE } from "./components/ui/AppBanner";
 import { AgentUpdatePrompter } from "./components/agents/AgentUpdatePrompter";
 import { Toaster, toast } from "sonner";
+import { i18n } from "./localization/i18n";
 import {
   getDefaultAppAccentColor,
   getDefaultAppBackgroundColor,
@@ -70,6 +73,7 @@ import { getStoreBackLayers } from "./lib/back-layers";
 import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 import { PHONE_TOAST_TOP_VARIABLE, watchPhoneToastTop } from "./lib/phone-toast-top";
+import { useCombatScreenStore } from "./stores/combat-screen.store";
 
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
 // Against a frozen host the connection opens but is never answered; without a
@@ -86,8 +90,8 @@ const LazyAppShell = lazy(() =>
 
 type HealthResponse = {
   status: string;
-  timestamp: string;
-  version: string;
+  timestamp?: string;
+  version?: string;
   build?: string | null;
 };
 
@@ -501,12 +505,16 @@ export function App() {
   const chatWidgetApplyFont = useUIStore((s) => s.chatWidgetApplyFont);
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
+  const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
   const reduceAmbientEffects = useReducedAmbientEffects();
+  // In a fight on a board colour is information (whose turn, what may be aimed at), so the accent
+  // holds still while one is on screen rather than drifting as if something changed.
+  const fightOnScreen = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -522,6 +530,7 @@ export function App() {
   );
   useLegacyThemeMigration();
   useSettingsSync();
+  useMigrateFeatureModels();
   const showDownloadModal = useSidecarStore((s) => s.showDownloadModal);
   const setShowDownloadModal = useSidecarStore((s) => s.setShowDownloadModal);
   const fetchSidecarStatus = useSidecarStore((s) => s.fetchStatus);
@@ -550,6 +559,21 @@ export function App() {
     installLongTaskWarner();
   }, []);
 
+  // The lockdown page's setup form lands here with ?loginSet=1 after the first login is set.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("loginSet")) return;
+    url.searchParams.delete("loginSet");
+    window.history.replaceState(window.history.state, "", url);
+    // The URL alone proves nothing: announce only when the server says this browser is signed in.
+    void api
+      .get<{ sessions: { current: boolean }[] }>("/access/sessions")
+      .then(({ sessions }) => {
+        if (sessions.some((session) => session.current)) toast.success(i18n.t("ui.app.loginSet"));
+      })
+      .catch(() => undefined);
+  }, []);
+
   // While the omnibar is open the toast moves to bottom-right on desktop and to the top, under the
   // omnibar header, on the mobile shell (N3, slice 46), so it covers neither the search field nor Mari's
   // composer; same viewport check AppShell uses for layout decisions.
@@ -567,9 +591,11 @@ export function App() {
   // A phone toast sits below the header rows at the top, never over their controls (lib/phone-toast-top).
   const toasterHostRef = useRef<HTMLDivElement>(null);
   const phoneToastsAtTop = isMobileShell && (omnibarOpen || notificationPosition !== "bottom");
+  // Top toasts, such as the lasting update notice, stack under an app banner instead of over it.
+  const belowAppBanner = `calc(var(${APP_BANNER_BOTTOM_VARIABLE}, 0px) + 8px)`;
   const phoneToastOffsetTop = omnibarOpen
     ? "calc(env(safe-area-inset-top) + 5rem)"
-    : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px))`;
+    : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`;
   useLayoutEffect(() => {
     if (!phoneToastsAtTop || !toasterHostRef.current) return;
     return watchPhoneToastTop(toasterHostRef.current);
@@ -901,7 +927,10 @@ export function App() {
 
       accentAnimationTimer = window.setTimeout(() => {
         accentAnimationTimer = null;
-        if (!accentAnimationEnabled || !canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects)) {
+        if (
+          !accentAnimationEnabled ||
+          !canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects || fightOnScreen)
+        ) {
           stopAccentAnimation();
           return;
         }
@@ -920,7 +949,7 @@ export function App() {
     };
 
     const syncAccentAnimationState = () => {
-      if (accentAnimationEnabled && canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects)) {
+      if (accentAnimationEnabled && canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects || fightOnScreen)) {
         if (isTextEntryFocused()) {
           // Root accent ticks invalidate styles across the entire Roleplay
           // surface in Firefox. Freeze the current accent while the user is
@@ -986,6 +1015,7 @@ export function App() {
     appAccentRgbMode,
     customCursorEnabled,
     reduceAmbientEffects,
+    fightOnScreen,
     theme,
     themeAccentPulseConfig.enabled,
     themeAccentPulseConfig.source,
@@ -1049,11 +1079,13 @@ export function App() {
           return;
         }
 
-        const health = (await res.json()) as HealthResponse;
-        if (cancelled) {
+        const { version, build } = (await res.json()) as HealthResponse;
+        // An untrusted caller gets only `{ status: "ok" }`, which says nothing about the build.
+        if (cancelled || !version) {
           return;
         }
 
+        const health = { version, build };
         const serverBuild = getServerRuntimeBuild(health);
         if (isRuntimeBuildCurrent(APP_VERSION, CLIENT_BUILD, health)) {
           return;
@@ -1134,6 +1166,8 @@ export function App() {
   }, [chatWidgetButtonSize]);
 
   useEffect(() => {
+    // Root-authored gradient variables resolve their alpha here before inheritance.
+    document.documentElement.style.setProperty("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
     const colors = getChatWidgetColorStyle({
       border: chatWidgetBorderColor,
       background: chatWidgetBackgroundColor,
@@ -1147,7 +1181,7 @@ export function App() {
       if (value) document.documentElement.style.setProperty(property, value);
       else document.documentElement.style.removeProperty(property);
     }
-  }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor]);
+  }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor, chatFontOpacity]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -1280,7 +1314,7 @@ export function App() {
         </Suspense>
       )}
       <AppDialogRenderer />
-      <CsrfOriginWarningBanner />
+      <AppBannerHost />
       <div
         ref={toasterHostRef}
         // Sonner slides top toasts upward and extends their hover area above the visible box.
@@ -1320,7 +1354,7 @@ export function App() {
           // Sonner's mobileOffset applies only up to 600px; wider touch shells and phone landscape
           // need the same clearance without changing desktop placement or bottom notifications.
           offset={{
-            top: phoneToastsAtTop ? phoneToastOffsetTop : "4rem",
+            top: phoneToastsAtTop ? phoneToastOffsetTop : `max(4rem, ${belowAppBanner})`,
             bottom: "4rem",
             left: "4rem",
             right: "4rem",
@@ -1340,6 +1374,7 @@ export function App() {
           visibleToasts={TOAST_VISIBLE_LIMIT}
           toastOptions={{
             style: {
+              fontFamily: "var(--font-y2k)",
               background: "var(--card)",
               border: "1px solid var(--marinara-chat-chrome-panel-border)",
               color: "var(--foreground)",

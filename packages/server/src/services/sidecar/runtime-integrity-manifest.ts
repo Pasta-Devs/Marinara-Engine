@@ -168,23 +168,27 @@ export const LLAMA_CPP_RUNTIME_MANIFEST = {
 
 export const MLX_RUNTIME_MANIFEST = {
   mlxLm: {
-    revision: "e5baded8c1d286754edb479ffbde4655a68e2758",
-    packageSpec: "mlx-lm @ https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
-    requirementsLockSha256: "e77db61b3f9fac368bd654b1625789c7ee59acee5ea1508fb3b61f52014caecc",
+    // The immutable release sdist matches all 208 runtime files at this source revision;
+    // it also carries the generated version metadata needed for a build without Git.
+    revision: "93e6d4a6447b3080861985947f0820e76fcb957d",
+    packageSpec:
+      "mlx-lm @ https://files.pythonhosted.org/packages/e1/46/eff1c17019b82912020d4d716527e6fcf4ac392b55cddef03eeb60566ab4/mlx_lm-0.32.2.tar.gz",
+    requirementsLockSha256: "6bbbfd48fc62edae1132d2e9b5089fe724ff9ab415f575f1de1f9caa12a4071d",
     archive: {
-      name: "mlx-lm-e5baded8c1d286754edb479ffbde4655a68e2758.zip",
-      browser_download_url: "https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
-      size: 516_242,
-      sha256: "0ceac44ed08546e5ce7cb786ac438b3377936d9ddaf06c7555070fd9c7ea630e",
+      name: "mlx_lm-0.32.2.tar.gz",
+      browser_download_url:
+        "https://files.pythonhosted.org/packages/e1/46/eff1c17019b82912020d4d716527e6fcf4ac392b55cddef03eeb60566ab4/mlx_lm-0.32.2.tar.gz",
+      size: 449_827,
+      sha256: "1af8a92f6a141c3e2bf5b0369ac4464203a8e2189c47b9e40d3e921e5b3a1fe9",
     },
   },
   uv: {
-    version: "0.12.0",
+    version: "0.13.5",
     archive: {
       name: "uv-aarch64-apple-darwin.tar.gz",
-      browser_download_url: "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-aarch64-apple-darwin.tar.gz",
-      size: 17_387_877,
-      sha256: "2b9e582af54f84fa50c115427451a6c13e80f43b52f8282b8af5791077317bbf",
+      browser_download_url: "https://github.com/astral-sh/uv/releases/download/0.13.5/uv-aarch64-apple-darwin.tar.gz",
+      size: 14_365_303,
+      sha256: "743f85035a1996ecb350659e01cd9faea9709829be09b1b4b03c73eaf3c9cd73",
     },
   },
 } as const;
@@ -210,13 +214,13 @@ export const DECISION_RUNTIME_MANIFEST = {
     },
   },
   uv: {
-    version: "0.12.0",
+    version: "0.13.5",
     archive: {
       name: "uv-x86_64-unknown-linux-gnu.tar.gz",
       browser_download_url:
-        "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-x86_64-unknown-linux-gnu.tar.gz",
-      size: 21_373_358,
-      sha256: "eaf842262aa1c418d8ecc5605f02ee1ebfd369124fa48548e85f9481a47831a9",
+        "https://github.com/astral-sh/uv/releases/download/0.13.5/uv-x86_64-unknown-linux-gnu.tar.gz",
+      size: 16_682_639,
+      sha256: "f68d291c75783122dad58ab77def0e13f3233f358731db5d6d7e8715603b928f",
     },
   },
 } as const;

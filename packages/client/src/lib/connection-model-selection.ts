@@ -1,6 +1,13 @@
 // What picking a model changes on a connection, and the merged model list a picker shows. The full
 // connection editor and the quick model pickers share these, so a pick has the same effect everywhere.
-import type { APIProvider, KnownModel, ModelParameterCapabilities } from "@marinara-engine/shared";
+import {
+  rankModelMatch,
+  type APIProvider,
+  type ConnectionModelCost,
+  type KnownModel,
+  type ModelCatalogPricing,
+  type ModelParameterCapabilities,
+} from "@marinara-engine/shared";
 
 /** A model as a provider's model list reports it (see GET /connections/:id/models). */
 export type RemoteConnectionModel = {
@@ -13,6 +20,15 @@ export type RemoteConnectionModel = {
   subscriptionIncluded?: boolean;
   /** NanoGPT: input tokens charged per token of subscription quota (2 = 2x). */
   inputTokenMultiplier?: number;
+  /** The cost badge the server worked out; left out when unknown. */
+  cost?: Exclude<ConnectionModelCost, null>;
+  /** USD per million tokens, when the provider lists prices. */
+  pricing?: ModelCatalogPricing;
+  deprecated?: true;
+  /** When the provider retires the model (ISO date). */
+  retiresAt?: string;
+  /** What the model accepts ("text", "image", ...), when the provider says. */
+  inputModalities?: string[];
 };
 
 export type ConnectionModelOption = {
@@ -23,6 +39,10 @@ export type ConnectionModelOption = {
   capabilities?: ModelParameterCapabilities;
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
+  cost?: Exclude<ConnectionModelCost, null>;
+  pricing?: ModelCatalogPricing;
+  deprecated?: true;
+  retiresAt?: string;
   /** Came from the provider's own list rather than Marinara's built-in one. */
   isRemote: boolean;
 };
@@ -50,11 +70,17 @@ export function connectionFieldsForModelPick(
   };
 }
 
-/** The provider's list first, then Marinara's built-in models it did not report, each ID once. */
+/**
+ * The provider's list first, then Marinara's built-in models it did not report, each ID once. A provider entry
+ * that leaves out its context window takes the built-in model's, so picking it still sets the context. With
+ * `listKnown` off, the built-in models only fill those gaps and are not listed themselves.
+ */
 export function mergeConnectionModelOptions(
   remoteModels: readonly RemoteConnectionModel[],
   knownModels: readonly KnownModel[],
+  listKnown = true,
 ): ConnectionModelOption[] {
+  const known = new Map(knownModels.map((model) => [model.id, model]));
   const seen = new Set<string>();
   const options: ConnectionModelOption[] = [];
   for (const model of remoteModels) {
@@ -63,15 +89,19 @@ export function mergeConnectionModelOptions(
     options.push({
       id: model.id,
       name: model.name || model.id,
-      context: model.context ?? 0,
+      context: model.context || known.get(model.id)?.context || 0,
       maxOutput: model.maxOutput ?? 0,
       capabilities: model.capabilities,
       subscriptionIncluded: model.subscriptionIncluded,
       inputTokenMultiplier: model.inputTokenMultiplier,
+      cost: model.cost,
+      pricing: model.pricing,
+      deprecated: model.deprecated,
+      retiresAt: model.retiresAt,
       isRemote: true,
     });
   }
-  for (const model of knownModels) {
+  for (const model of listKnown ? knownModels : []) {
     if (seen.has(model.id)) continue;
     seen.add(model.id);
     options.push({ ...model, subscriptionIncluded: undefined, inputTokenMultiplier: undefined, isRemote: false });
@@ -79,12 +109,15 @@ export function mergeConnectionModelOptions(
   return options;
 }
 
-/** Models whose ID or name contains the search text, ignoring case. */
+/** Models whose ID or name contains the search text, ignoring case; prefix matches first (decision 27). */
 export function filterConnectionModelOptions<T extends { id: string; name: string }>(
   options: readonly T[],
   search: string,
 ): readonly T[] {
-  const query = search.trim().toLowerCase();
-  if (!query) return options;
-  return options.filter((model) => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query));
+  if (!search.trim()) return options;
+  return options
+    .map((model) => ({ model, rank: rankModelMatch(search, model) }))
+    .filter((entry) => entry.rank >= 0)
+    .sort((a, b) => a.rank - b.rank)
+    .map((entry) => entry.model);
 }

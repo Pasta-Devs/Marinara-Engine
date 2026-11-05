@@ -8,7 +8,12 @@ import {
   getEmbeddingRequestTimeoutMs,
   isProviderLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
-import { requestHeadersWithIdentityEncoding, safeFetch, type SafeFetchOptions } from "../../utils/security.js";
+import {
+  requestHeadersWithDefaultUserAgent,
+  requestHeadersWithIdentityEncoding,
+  safeFetch,
+  type SafeFetchOptions,
+} from "../../utils/security.js";
 import { estimateTextTokens, sliceTextToTokenBudget, type GenerationParameterSendKey } from "@marinara-engine/shared";
 
 /** For models that reject assistant prefill but can continue an existing reply from history. */
@@ -27,11 +32,80 @@ const llmAgentOptions = () => {
   const timeoutMs = getChatGenerationTimeoutMs();
   return { bodyTimeout: timeoutMs, headersTimeout: timeoutMs };
 };
-const llmRequestTimeout = new AsyncLocalStorage<number>();
+interface LlmRequestTimeoutScope {
+  timeoutMs: number;
+  onActivity?: () => boolean | void;
+}
+const llmRequestTimeout = new AsyncLocalStorage<LlmRequestTimeoutScope>();
 
 /** Scope a provider request timeout without changing background/agent generation behavior. */
-export function withLlmRequestTimeout<T>(timeoutMs: number, operation: () => Promise<T>): Promise<T> {
-  return llmRequestTimeout.run(timeoutMs, operation);
+export function withLlmRequestTimeout<T>(
+  timeoutMs: number,
+  operation: () => Promise<T>,
+  onActivity?: () => boolean | void,
+): Promise<T> {
+  const parentActivity = llmRequestTimeout.getStore()?.onActivity;
+  const activity = onActivity
+    ? () => {
+        if (onActivity() === false) return false;
+        return parentActivity?.();
+      }
+    : parentActivity;
+  return llmRequestTimeout.run({ timeoutMs, onActivity: activity }, operation);
+}
+
+/** Real provider data, including subprocess events and text from non-HTTP providers. */
+export function markLlmRequestActivity(): void {
+  llmRequestTimeout.getStore()?.onActivity?.();
+}
+
+/** Bound silence before and during a generation, while preserving the caller's cancellation. */
+export async function withLlmInactivityTimeout<T>(
+  timeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+  parentSignal?: AbortSignal,
+): Promise<T> {
+  parentSignal?.throwIfAborted();
+  const controller = new AbortController();
+  const signal = parentSignal ? AbortSignal.any([parentSignal, controller.signal]) : controller.signal;
+  let finished = false;
+  const timer = setTimeout(() => {
+    controller.abort(
+      new DOMException(`LLM request timed out after ${timeoutMs} ms without provider activity.`, "TimeoutError"),
+    );
+  }, timeoutMs);
+  timer.unref();
+  const activity = () => {
+    if (finished || signal.aborted) return false;
+    timer.refresh();
+    return true;
+  };
+  let abort: () => void;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+  try {
+    const result = await withLlmRequestTimeout(
+      timeoutMs,
+      () =>
+        Promise.race([
+          Promise.resolve().then(() => {
+            signal.throwIfAborted();
+            return operation(signal);
+          }),
+          aborted,
+        ]),
+      activity,
+    );
+    // Some providers return partial content after aborting. Structured callers must still see the timeout.
+    signal.throwIfAborted();
+    return result;
+  } finally {
+    finished = true;
+    clearTimeout(timer);
+    signal.removeEventListener("abort", abort!);
+  }
 }
 
 /**
@@ -43,10 +117,11 @@ export function llmFetch(
   init?: RequestInit & Pick<SafeFetchOptions, "agentOptions" | "bufferResponse" | "decodeCompressedResponse">,
 ): Promise<Response> {
   const bufferResponse = init?.bufferResponse ?? false;
-  const requestTimeoutMs = llmRequestTimeout.getStore();
+  const requestScope = llmRequestTimeout.getStore();
+  const requestTimeoutMs = requestScope?.timeoutMs;
   return safeFetch(url, {
     ...(init ?? {}),
-    headers: requestHeadersWithIdentityEncoding(init?.headers),
+    headers: requestHeadersWithIdentityEncoding(requestHeadersWithDefaultUserAgent(init?.headers)),
     policy: {
       allowLocal: isProviderLocalUrlsEnabled(),
       allowLoopback: true,
@@ -60,7 +135,17 @@ export function llmFetch(
       (requestTimeoutMs ? { bodyTimeout: requestTimeoutMs, headersTimeout: requestTimeoutMs } : llmAgentOptions()),
     bufferResponse,
     decodeCompressedResponse: init?.decodeCompressedResponse ?? bufferResponse,
+    onResponseData: requestScope?.onActivity,
   });
+}
+
+/**
+ * A reply with tool calls reports "tool_calls", except one cut at the output limit: its last call's
+ * arguments may be cut off mid-JSON, so callers must still see "length".
+ */
+export function toolCallFinishReason(toolCallCount: number, finishReason: string): string {
+  const cut = ["length", "max_tokens", "max_output_tokens"].includes(finishReason.toLowerCase());
+  return toolCallCount > 0 && !cut ? "tool_calls" : finishReason;
 }
 
 export function yieldToEventLoop(): Promise<void> {
@@ -720,6 +805,7 @@ export abstract class BaseLLMProvider {
         return returnPartialOnStreamFailure(error);
       }
       while (!result.done) {
+        if (result.value) markLlmRequestActivity();
         content += result.value;
         if (options.onToken) {
           await options.onToken(result.value);

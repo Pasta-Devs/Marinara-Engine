@@ -341,6 +341,8 @@ function changeCell(grid: TacticalGrid, cell: RulesetCombatCell, change: Ruleset
   const { x, y } = cell;
   if (typeof x !== "number" || typeof y !== "number" || !Number.isInteger(x) || !Number.isInteger(y)) return;
   if (x < 0 || y < 0 || x >= grid.width || y >= grid.height) return;
+  // Off the map is off the map (2026-10-24): nothing there changes.
+  if (grid.outside?.[y]?.[x]) return;
   if (change.terrain && grid.tiles[y]) grid.tiles[y]![x] = change.terrain;
   if (change.height !== undefined) {
     grid.elevation ??= Array.from({ length: grid.height }, () => Array(grid.width).fill(0));

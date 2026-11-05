@@ -73,3 +73,34 @@ export function rollRulesetLootTable(
   }
   return [...drops.values()];
 }
+
+/**
+ * What a creature has on it as a fight begins (1.795): each line of its `inventory` rolled for once,
+ * `chance` in a hundred, then its `count` of its item or its loot table's picks. Picks of one item
+ * are added together; an item a layer took out is not had.
+ */
+export function rollRulesetCreatureInventory(
+  definition: RulesetDefinition,
+  book: Pick<RulesetItemBook, "entries" | "coins">,
+  lines: ReadonlyArray<{ item?: string; table?: string; chance?: number; count?: number | string }>,
+  roll: (sides: number) => number,
+): RulesetLootDrop[] {
+  const had = new Map<string, RulesetLootDrop>();
+  const add = (drop: RulesetLootDrop) => {
+    const before = had.get(drop.item)?.count ?? 0;
+    had.set(drop.item, { ...drop, count: Math.min(GAME_INVENTORY_MAX_QUANTITY, before + drop.count) });
+  };
+  for (const line of lines) {
+    if (roll(100) > (line.chance ?? 100)) continue;
+    const count = rulesetRolledAmount(line.count ?? 1, roll);
+    if (line.table) {
+      // The table rolled `count` times over.
+      for (let time = 0; time < count; time++)
+        for (const drop of rollRulesetLootTable(definition, book, line.table, roll) ?? []) add(drop);
+      continue;
+    }
+    const found = line.item ? book.entries.find((entry) => entry.item === line.item) : undefined;
+    if (found && count >= 1) add({ item: found.item, name: found.name, count });
+  }
+  return [...had.values()];
+}

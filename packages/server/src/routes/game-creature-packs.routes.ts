@@ -104,7 +104,7 @@ export async function gameCreaturePacksRoutes(app: FastifyInstance) {
   // ── POST /api/game-tile-packs/creatures ── a pack saved from the maker.
   app.post("/", { bodyLimit: SAVE_BODY_LIMIT, config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Creature pack save" })) return;
-    const read = parseCreaturePack(z.object({ pack: z.unknown() }).parse(req.body).pack);
+    const read = parseCreaturePack(z.object({ pack: z.unknown().optional() }).parse(req.body).pack);
     return read.ok ? save(reply, read.pack, read.notes) : refuse(reply, read.issues);
   });
 

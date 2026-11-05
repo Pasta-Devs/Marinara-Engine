@@ -1,114 +1,122 @@
 # Message Actions: Edit, Delete, Swipe, Regenerate
 
-This guide covers what you can do with a single message in a chat. It explains the message toolbar, how to edit and delete a message, and how swipes and regeneration work. It also covers the display toggles that show token counts and message numbers.
+Every message, yours or the AI's, has a toolbar. Use it to edit, delete, regenerate, hide or branch from one message.
 
-Every message in Marinara Engine, whether you wrote it or the AI did, has a small toolbar. The toolbar appears when you hover over the message on a computer, or when you tap the message on a phone or tablet.
+The toolbar appears when you tap a message on a phone or tablet, or point at it on a computer.
 
 ## The message toolbar
 
-The buttons below appear on messages. Some only show up in certain situations, which the table notes. Each button has a tooltip that matches the label shown here.
+Most used:
 
-| Button | What it does | When it appears |
-| --- | --- | --- |
-| **Copy** | Copies the message text. The icon turns into a checkmark for a moment. | Always |
-| **Add reaction** | Opens an emoji picker and toggles your reaction on the message. | Conversation mode only |
-| **Translate** / **Hide translation** | Translates the message into your language, then hides the translation again. | Always |
-| **Edit** | Opens the message for editing. See below. | Always |
-| **Regenerate** | Creates a new alternate reply (a swipe). See below. | AI messages. In Roleplay mode, also on your messages. In Conversation mode, also on your messages made by Impersonate |
-| **Show original before rewrite** / **Show rewritten version** | Switches between the original and rewritten text. Both versions remain available so you can compare them or keep the one you prefer. | Only after an agent rewrote the message |
-| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the AI on later turns. In a Roleplay group chat, opens a character chooser. | Always |
-| **Peek prompt** | Shows the exact prompt the AI received for this reply. | Only on the latest AI message |
-| **Stored guidance** | Shows the direction that steered this reply. | Only if the reply used a guided direction or was made by Impersonate |
-| **Branch from here** | Copies the chat up to this message into a new branch. | Always |
-| **View model thoughts** | Opens the model's hidden reasoning text. | Only if the model returned reasoning |
-| **Delete** | Deletes the message. See below. | Always |
-| **Pause speaking** / **Resume speaking** / **Restart speaking** | Controls the spoken audio of a message. | Only when Text to Speech is on and speaking |
+- **Edit** changes the message text.
+- **Regenerate** asks the model for a new version of an AI reply. Each version is called a swipe.
+- **Delete** removes the message.
 
-For the **Peek prompt** viewer, see [Peek Prompt](peek-prompt.md). For **Branch from here**, see [Chat Branches](branches.md). For **Translate**, see [Message Translation](../integrations/message-translation.md). For the speaking controls, see [Text to Speech (TTS) Setup](../media/tts-setup.md). For guided directions, **Stored guidance**, and Impersonate, see [Guided Generation and Impersonate](guided-and-impersonate.md).
+The buttons are icons. Their labels are below. Some appear only in certain situations.
 
-## Editing a message
+| Button | What it does |
+| --- | --- |
+| **Copy** | Copies the message text. |
+| **Edit** | Opens the message for editing. |
+| **Regenerate** | Creates a new swipe (another version of the reply). AI messages only. Also on your messages in Roleplay, and on your Impersonate messages in Conversation. |
+| **Delete** | Deletes the message. |
+| **Translate** / **Hide translation** | Translates the message into your language, then hides the translation. |
+| **Add reaction** | Opens an emoji picker. Conversation only. |
+| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the model. In a Roleplay group chat, opens a character chooser. |
+| **Bookmark, pin or note** | Bookmarks the message, pins it so it stays in the prompt past the history limit (up to 10 per chat), or adds a **Private note**. The model never sees a note unless you turn on **Show the note to the narrator character**, which works in one-character chats and in group chats with individual replies. |
+| **Branch from here** | Copies the chat up to this message into a new branch. Not in scene chats. |
+| **Clone from here** | Copies a scene chat up to this message into a new Roleplay. Scene chats only. |
+| **Peek prompt** | Shows the exact prompt for this reply. Latest AI message only. |
+| **Stored guidance** | Shows the direction that steered this reply. Only for replies made with guidance or Impersonate. |
+| **View model thoughts** | Opens the model's hidden reasoning. Only if the model returned reasoning. |
+| **Show original before rewrite** / **Show rewritten version** | Switches between the original and rewritten text when an agent (a helper that runs alongside replies) rewrote the message. |
+| **Mark as new start** | Roleplay only. Starts the model's memory of the chat at this message, when Advanced Memory (Marinara's long-term memory feature) is on. See [Advanced Memory](../agents/memory.md). |
+| **Pause speaking** / **Resume speaking** / **Restart speaking** | Controls spoken audio when Text to Speech (a voice reads messages aloud) is on and speaking. |
 
-You can edit message text for any message, yours or the AI's.
+More: [Peek Prompt](peek-prompt.md), [Chat Branches](branches.md), [Scenes](../roleplay/scenes.md) (a scene chat is a short Roleplay branched off a chat), [Message Translation](../integrations/message-translation.md), [Text to Speech (TTS) Setup](../media/tts-setup.md), [Guided Generation and Impersonate](guided-and-impersonate.md), [private notes](../roleplay/getting-started.md#your-private-notes).
 
-1. Click **Edit** on the message. The text turns into an editable box.
+## Edit a message
+
+1. Click **Edit** on the message. The text becomes an editable box.
 2. Change the text.
-3. Click **Save**, or press Ctrl and Enter together (Cmd and Enter on a Mac). The button tooltip reads **Save (Cmd+Enter)**.
-4. To stop without saving, click **Cancel** or press the Escape key. The button tooltip reads **Cancel (Esc)**.
+3. Click **Save**, or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on a Mac).
+4. To stop without saving, click **Cancel** or press <kbd>Esc</kbd>.
 
-Two settings give you faster ways to start editing. Both live in **Settings**, then the **General** tab, under **Input & Editing**.
+Two settings in **Settings → General → Input & Editing** start an edit faster. Both are on by default.
 
-- **Up Arrow edits last message** (default on): press the Up Arrow key while the input box is empty. This opens the most recent message for editing.
-- **Double-click edits messages** (default on): double-click or double-tap a Roleplay message to open it for editing.
+- **Up Arrow edits last message**: press <kbd>Up</kbd> while the input box is empty.
+- **Double-click edits messages**: double-click or double-tap a Roleplay message.
 
-## Deleting a message
+## Delete a message
 
-When you delete a message, a dialog titled **How to proceed?** appears. The delete message options are:
+1. Click **Delete** on the message. The **Delete message** dialog opens.
+2. Choose one option.
 
-- **Delete only this swipe (1/3)**: removes just the alternate reply you are viewing. This option only appears when the message has more than one swipe. The numbers show which swipe is active and how many there are.
-- **Delete this message**: removes the whole message and all of its swipes.
-- **Delete more**: selects this message and every message below it, then turns on message multi-select so you can adjust the selection before deleting.
-- **Cancel**: closes the dialog and deletes nothing.
+| Option | What it does |
+| --- | --- |
+| **Delete only this swipe (1/3)** | Removes the swipe you are viewing. Shown only with more than one swipe. |
+| **Delete all other swipes** | Keeps the swipe you are viewing and removes the rest. Shown only with more than one swipe. |
+| **Delete this message** | Removes the message and all its swipes. |
+| **Delete more** | Selects this message and every message below it and opens the selection bar. |
+| **Cancel** | Closes the dialog. |
 
-System messages, such as a "joined the chat" line, have a simple delete button with no dialog.
+In the selection bar, click messages to add them. **Select all messages above** and **Select all messages below** extend the selection, **Unselect all** clears it, and **Delete selected** removes the rest. The bar shows how many are selected.
+
+System messages, such as a "joined the chat" line, delete with one click and no dialog.
 
 ## Swipes: alternate replies
 
-A swipe is one version of an AI reply. A single message can hold several swipes, so you can compare different answers to the same turn and pick the one you like.
+A swipe is one version of an AI reply. One message can hold several, so you can compare answers and keep the one you like. A swipe control appears once a message has two or more. It shows the active swipe and the total, such as "2/4".
 
-A swipe control appears on the message once it has two or more swipes. It shows the active swipe and the total, for example "2/4", with these controls:
+- **Previous swipe** and **Next swipe** step through the swipes.
+- The number box jumps to a swipe. Type a number and press <kbd>Enter</kbd>. Its label is **Jump to swipe 1-N**.
+- On the newest swipe, the forward button becomes **Generate next swipe** and creates a new swipe.
 
-- **Previous swipe** and **Next swipe**: step backward or forward through the swipes.
-- A number box: type a swipe number and press Enter to jump straight to it. Its tooltip reads **Jump to swipe 1-N**, where N is the total.
-- **Generate next swipe**: when you are on the newest swipe, the forward button changes to this and creates a brand-new swipe.
+You cannot delete the last swipe. The app says "Cannot delete the last remaining swipe". Use **Delete this message** instead.
 
-You cannot delete the last swipe of a message. If you try, the app reports "Cannot delete the last remaining swipe". Use **Delete this message** instead to remove the whole message.
+## Regenerate, continue and retry
 
-## Regenerate, continue, and retry
+These three look alike and do different things.
 
-These three actions look similar but do different things. Choose the one that matches what you want.
+| Action | Result |
+| --- | --- |
+| **Regenerate** | A new swipe. The original is kept. On a touch screen the app first asks "Regenerate this message as a new swipe?". With guidance armed, the button reads **Regenerate (guided)**. |
+| `/continue` | More text on the same message, with no new swipe. |
+| Empty **Send** | A fresh reply. |
 
-**Regenerate** makes a new swipe. Click **Regenerate** on an AI message to generate another version of that reply. The original swipe is kept. On a touch screen, the app first asks "Regenerate this message as a new swipe?" so you do not trigger it by accident. When a guided direction is armed, the button reads **Regenerate (guided)**.
+### Continue a reply
 
-The **/continue** command extends the same message. Type `/continue` (or its short form `/cont`) in the input box and send it. The AI picks up where its last reply stopped and adds more text to that same message, instead of making a new swipe.
+Type `/continue` (or `/cont`) in the input box and send it. The model picks up where its last reply stopped.
 
-By default, Marinara inserts a blank line before the added text. To make continuations attach directly to the final character of the previous response, turn off **Settings → General → Responses → Add a new line before /continue text**. Marinara then tells the model to continue exactly from the cutoff without a separator.
-
-```
+```text
 /continue
 ```
 
-Empty-Send retry starts a fresh reply. If the last message in the chat is yours and the input box is empty, the same **Send** button retries instead of sending. It does not change its look. Click it, or press Enter, to get a reply without retyping your message. In Roleplay mode, an empty **Send** can also nudge the AI to continue the scene with a new turn. This is not the same as **/continue**: empty-Send always makes a new reply, while **/continue** adds onto the existing one.
+Marinara adds a blank line before the new text. To attach it directly to the last character, turn off **Settings → General → Responses → Add a new line before /continue text**.
 
-## Hiding a message from the AI
+### Retry with an empty Send
 
-The AI context is the set of messages the app sends to the AI on each turn. Click **Hide from AI** to keep a message out of that context on future turns. The message stays visible to you and shows a **Hidden from AI** label. Click **Unhide from AI** to send it again.
+If the last message is yours and the input box is empty, **Send** retries instead of sending. In Roleplay, an empty **Send** also starts a new turn after the AI already answered. It never adds to the previous reply. See [Sending and Streaming](sending-and-streaming.md#retry-without-retyping).
 
-In a Roleplay group chat with more than one character, **Hide from AI** opens a compact avatar chooser. Select the group avatar to hide the message from everyone, or select one or more character avatars to hide it only from those characters. Selecting everyone clears individual selections, while selecting an individual character turns off the everyone option. The crossed-eye marker on the message shows the avatars of the characters who cannot see it. In a one-character chat, the button continues to hide or unhide the message directly.
+## Hide a message from the AI
 
-A whisper inside a message still reaches its recipient when you hide the message only from that character. They get the whisper, but none of the rest of the message. Hiding the message from everyone removes its whispers too. See [Whispers and secrets](../roleplay/getting-started.md#whispers-and-secrets).
+Click **Hide from AI** to keep a message out of the prompt on later turns. The message stays visible to you with a **Hidden from AI** label. Click **Unhide from AI** to send it again.
 
-You can also hide messages with `/hide [range] [name (optional)]`, for example `/hide 3-8`. In Roleplay, `/hide 3-8 Maukie` hides them only from Maukie; omitting the name hides them from everyone. `/unhide [range]` restores globally hidden messages. To undo character-specific hiding, use the avatar chooser in a group Roleplay chat, or the message's **Unhide from AI** action in a one-character Roleplay chat. Message numbers start at 1, counting from the first message in the chat. See [Slash Commands Reference](slash-commands.md) for formats and examples.
+In a Roleplay group chat, **Hide from AI** opens an avatar chooser. Pick the group avatar to hide the message from everyone, or pick one or more characters to hide it only from them. A crossed-eye marker on the message shows who cannot see it. In a one-character chat, the button hides or unhides directly.
 
-When Advanced Memory's **Decide who sees new messages** is on, new messages in a group chat where characters reply one by one are hidden from absent characters automatically, with the same marker. Changing a message's choice yourself always wins; see [Deciding who sees new messages](../agents/memory.md#deciding-who-sees-new-messages).
+If you hide a message from one character, they still receive a whisper in it, but none of the rest. Hiding from everyone removes the whispers too. See [Whispers and secrets](../roleplay/getting-started.md#whispers-and-secrets).
+
+To hide a range, use `/hide` and `/unhide`. See [Slash Commands](slash-commands.md). Message numbers start at 1 at the first message.
+
+When Advanced Memory's **Decide who sees new messages** is on, new messages in a one-by-one group chat are hidden from absent characters automatically. Your own choice always wins. See [Deciding who sees new messages](../agents/memory.md#deciding-who-sees-new-messages).
 
 ## Message display toggles
 
-Two toggles change what extra detail shows on messages. Both live in **Settings**, then the **Advanced** tab, in the **Message Tools** section. Both are off by default.
+These are in **Settings → Advanced → Message Tools**.
 
-- **Show message numbers**: shows a number on each message. The numbers start at 1 from the first message in the chat. These are the same numbers used by the `/goto`, `/hide`, and `/unhide` commands. Turn this on when you need to find a message number.
-- **Show token usage on messages**: adds a per-message token count to AI replies. A token is a small piece of text the AI reads and writes. The count shows the prompt tokens and completion tokens for that reply. When available, it also shows cache hits and how long the reply took.
-
-A related toggle in the same **Message Tools** section, **Show model name on messages**, adds the name of the AI model that wrote each reply. It is also off by default.
-
-When older messages had to be left out of the prompt to make it fit, a short note under the reply says how many, for example "1109 older messages not sent". To hide this note under the reply, turn off **Show "older messages not sent" note** in the same section. Opening Checkup can still show it. It is on by default. Notes about a reply that was cut off or came back empty still show.
-
-## Related guides
-
-- [Sending and Streaming Messages](sending-and-streaming.md)
-- [Guided Generation and Impersonate](guided-and-impersonate.md)
-- [Peek Prompt](peek-prompt.md)
-- [Chat Branches](branches.md)
-- [Text to Speech (TTS) Setup](../media/tts-setup.md)
-- [Message Translation](../integrations/message-translation.md)
-- [Settings Overview](../settings/settings-overview.md)
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+| Toggle | Default | What it shows |
+| --- | --- | --- |
+| **Show message numbers** | Off | A number on each message, the same numbers `/goto`, `/hide` and `/unhide` use. |
+| **Show token usage on messages** | Off | Prompt and completion tokens for each AI reply (tokens are small pieces of text the model counts), plus cache hits and reply time when available. |
+| **Show model name on messages** | Off | The model that wrote each reply. |
+| **Show "older messages not sent" note** | On | A note under a reply, such as "1109 older messages not sent", when older messages did not fit in the prompt. Notes about a cut-off or empty reply always show. |

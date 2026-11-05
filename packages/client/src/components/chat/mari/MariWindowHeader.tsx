@@ -1,9 +1,4 @@
-import {
-  ProfessorMariAskContext,
-  MariInstructionDetail,
-  MariWorkspaceSkillDetail,
-  MariWorkspacePendingApproval,
-} from "@marinara-engine/shared";
+import { ProfessorMariAskContext, MariInstructionDetail, MariWorkspacePendingApproval } from "@marinara-engine/shared";
 import { Sparkles, BookOpen, ArrowDown, Brain, ShieldAlert, Plus, X } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,7 +32,6 @@ type MariWindowHeaderProps = {
   runRestart: () => Promise<void>;
   setConnectionMenuOpen: Dispatch<SetStateAction<boolean>>;
   setHandoffContext: Dispatch<SetStateAction<ProfessorMariAskContext | null>>;
-  skills: MariWorkspaceSkillDetail[];
   skillsMenuOpen: boolean;
   toggleChatHistory: () => void;
   toggleMemoriesMenu: () => void;
@@ -66,7 +60,6 @@ export function MariWindowHeader({
   runRestart,
   setConnectionMenuOpen,
   setHandoffContext,
-  skills,
   skillsMenuOpen,
   toggleChatHistory,
   toggleMemoriesMenu,
@@ -147,7 +140,7 @@ export function MariWindowHeader({
         >
           <ArrowDown size="0.75rem" />
           <span>{localizeUi("ui.chat.homeprofessormarichat.skills")}</span>
-          {skills.length > 0 && (
+          {activeSkillCount > 0 && (
             <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">{activeSkillCount}</span>
           )}
         </button>

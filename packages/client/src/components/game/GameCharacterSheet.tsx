@@ -24,8 +24,10 @@ import type {
   RulesetDefinition,
   RulesetLayerOptions,
   RulesetLiveState,
+  RulesetRestRecovery,
   RulesetSheetEnvelope,
   RulesetSheetItem,
+  RulesetUseRecover,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
@@ -92,8 +94,15 @@ export type GameCharacterSheetRuleset =
       readOnly?: boolean;
       /** What the character holds, which a value reading their items shows. */
       items?: ReadonlyArray<RulesetSheetItem>;
+      /** Whether what they carry encumbers them, or is past the most they can carry. */
+      carrying?: { encumbered: boolean; over: boolean };
       /** A rest the game takes, with the charges it brings back to what the character carries. */
-      onRest?: (rest: string) => Promise<string | null>;
+      onRest?: (
+        rest: string,
+        diceFrom?: Record<string, number>,
+        recover?: Array<{ name: string; recover: RulesetUseRecover[] }>,
+      ) => Promise<string | null>;
+      onRestOffers?: (rest: string) => Promise<RulesetRestRecovery[]>;
     };
 
 interface GameCharacterSheetProps {
@@ -364,6 +373,18 @@ export function GameCharacterSheet({
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<GameCardDraft>(() => createDraft(card.gameCard));
   const savedGameCardRef = useRef(JSON.stringify(card.gameCard));
+  // Escape closes the sheet as a backdrop click does, unless an edit is open: that is not thrown
+  // away by a key.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (isEditing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) closeRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isEditing]);
 
   useEffect(() => {
     // Layout and other metadata saves rebuild the card without changing its saved sheet.
@@ -586,7 +607,9 @@ export function GameCharacterSheet({
                 </button>
               </>
             ) : (
-              onSave && (
+              // Not mid-fight: the card is the fight's then, the same as the sheet below it.
+              onSave &&
+              !(ruleset?.status === "ok" && ruleset.readOnly) && (
                 <button
                   onClick={() => {
                     // Reseed on entry: the parked draft can hold residue from
@@ -716,7 +739,9 @@ export function GameCharacterSheet({
                   onEnvelopeSave={ruleset.onEnvelopeSave}
                   readOnly={ruleset.readOnly}
                   items={ruleset.items}
+                  carrying={ruleset.carrying}
                   onRest={ruleset.onRest}
+                  onRestOffers={ruleset.onRestOffers}
                 />
               ) : (
                 <p className="text-xs text-[var(--muted-foreground)]">

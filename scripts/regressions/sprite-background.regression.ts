@@ -4,11 +4,13 @@ import {
   applySpriteBackgroundInstruction,
   removeUniformSpriteBackgroundPng,
   selectSpriteChromaMatte,
+  SPRITE_CLEANUP_REVISION,
 } from "../../packages/server/src/services/image/sprite-background.service.js";
 import {
   buildFullBodyReferenceContract,
   resolveSpriteNativeTransparency,
   resolveSpriteSheetCanvas,
+  spritesRoutes,
 } from "../../packages/server/src/routes/sprites.routes.js";
 import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
 
@@ -112,6 +114,7 @@ for (let yPos = 16; yPos < 24; yPos++) {
   for (let xPos = 16; xPos < 24; xPos++) setPixel(chromaPixels, width, xPos, yPos, [0, 255, 0, 255]);
 }
 setPixel(chromaPixels, width, 5, 5, [0, 80, 0, 255]);
+// The wide halo leaves the left red edge without original key-matte neighbors within three pixels.
 for (let yPos = 14; yPos < 27; yPos++) {
   for (let xPos = 2; xPos < 10; xPos++) setPixel(chromaPixels, width, xPos, yPos, [0, 72, 0, 255]);
 }
@@ -202,6 +205,188 @@ assert.equal(transparentCleanup.alreadyTransparent, true);
 const transparentOutput = await decodeRaw(transparentCleanup.buffer);
 assert.equal(pixelAt(transparentOutput.data, width, 0, 0).alpha, 0);
 assert.equal(pixelAt(transparentOutput.data, width, 20, 20).blue, 220);
+
+// Opaque costume ribbons are foreground even when green exceeds the average of red and blue.
+const detailWidth = 96;
+const detailHeight = 96;
+const detailPixels = solidImage(detailWidth, detailHeight, [0, 255, 0, 255]);
+for (let yPos = 12; yPos < 84; yPos++) {
+  for (let xPos = 58; xPos < 80; xPos++) setPixel(detailPixels, detailWidth, xPos, yPos, [42, 48, 65, 255]);
+}
+const ribbonColors: Array<[number, number, number, number]> = [
+  [120, 200, 230, 255],
+  [220, 180, 80, 255],
+  [80, 150, 220, 255],
+  [224, 212, 160, 255],
+];
+for (const [row, color] of ribbonColors.entries()) {
+  for (let xPos = 10; xPos < 59; xPos++) {
+    const yPos = 18 + row * 17 + Math.floor((58 - xPos) / 7);
+    setPixel(detailPixels, detailWidth, xPos, yPos, color);
+    if (row % 2) setPixel(detailPixels, detailWidth, xPos, yPos + 1, color);
+  }
+}
+setPixel(detailPixels, detailWidth, 66, 40, [120, 200, 230, 255]);
+setPixel(detailPixels, detailWidth, 66, 50, [220, 180, 80, 255]);
+setPixel(detailPixels, detailWidth, 66, 60, [40, 180, 175, 255]);
+const detailCleanup = await removeUniformSpriteBackgroundPng(
+  await encodeRaw(detailPixels, detailWidth, detailHeight),
+  35,
+);
+const detailOutput = await decodeRaw(detailCleanup.buffer);
+for (let yPos = 0; yPos < detailHeight; yPos++) {
+  for (let xPos = 0; xPos < detailWidth; xPos++) {
+    const original = pixelAt(detailPixels, detailWidth, xPos, yPos);
+    const actual = pixelAt(detailOutput.data, detailWidth, xPos, yPos);
+    if (original.red === 0 && original.green === 255 && original.blue === 0) {
+      assert.ok(actual.alpha <= 4, `the matte around ribbons must be removed at ${xPos},${yPos}`);
+    } else {
+      assert.deepEqual(actual, original, `opaque ribbon/body color must remain intact at ${xPos},${yPos}`);
+    }
+  }
+}
+
+// Textured opaque gold stays intact beyond the three-pixel matte-neighbor band.
+const textureWidth = 64;
+const texturePixels = solidImage(textureWidth, textureWidth, [0, 255, 0, 255]);
+for (let yPos = 8; yPos < 56; yPos++) {
+  for (let xPos = 8; xPos < 56; xPos++) {
+    const color: [number, number, number, number] = (xPos + yPos) % 2 ? [210, 172, 76, 255] : [220, 180, 80, 255];
+    setPixel(texturePixels, textureWidth, xPos, yPos, color);
+  }
+}
+const textureOutput = await decodeRaw(
+  (await removeUniformSpriteBackgroundPng(await encodeRaw(texturePixels, textureWidth, textureWidth), 35)).buffer,
+);
+for (let yPos = 11; yPos < 53; yPos++) {
+  for (let xPos = 11; xPos < 53; xPos++) {
+    const matteDistance = Math.min(xPos - 7, 56 - xPos, yPos - 7, 56 - yPos);
+    if (matteDistance > 16) continue;
+    assert.deepEqual(
+      pixelAt(textureOutput.data, textureWidth, xPos, yPos),
+      pixelAt(texturePixels, textureWidth, xPos, yPos),
+      `opaque textured gold ${matteDistance}px from the matte must retain RGBA at ${xPos},${yPos}`,
+    );
+  }
+}
+
+// A real four-pixel half-red/half-green band stays connected to the matte during cleanup.
+const wideBlendPixels = solidImage(width, height, [0, 255, 0, 255]);
+for (let yPos = 8; yPos < 32; yPos++) {
+  for (let xPos = 8; xPos < 30; xPos++) {
+    setPixel(wideBlendPixels, width, xPos, yPos, xPos < 12 ? [128, 127, 0, 255] : [255, 0, 0, 255]);
+  }
+}
+const wideBlendOutput = await decodeRaw(
+  (await removeUniformSpriteBackgroundPng(await encodeRaw(wideBlendPixels, width, height), 35)).buffer,
+);
+const wideBlendEdge = pixelAt(wideBlendOutput.data, width, 11, 20);
+assert.ok(
+  wideBlendEdge.alpha >= 120 && wideBlendEdge.alpha <= 136,
+  `wide true blends must keep half coverage, got ${wideBlendEdge.alpha}`,
+);
+assert.deepEqual(
+  { red: wideBlendEdge.red, green: wideBlendEdge.green, blue: wideBlendEdge.blue },
+  { red: 255, green: 0, blue: 0 },
+  "wide true blends must lose their green matte color",
+);
+
+// A nearby opaque shade is not necessarily a noisy mixture of another shade and the key color.
+const shadePixels = solidImage(width, height, [0, 255, 0, 255]);
+for (let yPos = 8; yPos < 32; yPos++) {
+  for (let xPos = 10; xPos < 30; xPos++) setPixel(shadePixels, width, xPos, yPos, [130, 150, 250, 255]);
+  setPixel(shadePixels, width, 9, yPos, [100, 150, 210, 255]);
+}
+// This pixel really is an 80% foreground / 20% green matte mixture and still needs decontamination.
+setPixel(shadePixels, width, 8, 20, [104, 171, 200, 255]);
+setPixel(shadePixels, width, 8, 22, [116, 171, 200, 255]);
+const shadeCleanup = await removeUniformSpriteBackgroundPng(await encodeRaw(shadePixels, width, height), 35);
+const shadeOutput = await decodeRaw(shadeCleanup.buffer);
+assert.deepEqual(
+  pixelAt(shadeOutput.data, width, 9, 20),
+  pixelAt(shadePixels, width, 9, 20),
+  "an opaque blue edge shade must not be recolored or faded to a neighboring shade",
+);
+const realBlueFringe = pixelAt(shadeOutput.data, width, 8, 20);
+assert.ok(realBlueFringe.alpha >= 195 && realBlueFringe.alpha <= 215, "a true blue/green fringe keeps its coverage");
+assert.deepEqual(
+  { red: realBlueFringe.red, green: realBlueFringe.green, blue: realBlueFringe.blue },
+  { red: 130, green: 150, blue: 250 },
+  "a true blue/green fringe must still lose its green matte color",
+);
+const noisyBlueFringe = pixelAt(shadeOutput.data, width, 8, 22);
+assert.ok(
+  noisyBlueFringe.alpha >= 195 && noisyBlueFringe.alpha <= 215,
+  "a slightly noisy true blue fringe keeps partial coverage",
+);
+assert.deepEqual(
+  { red: noisyBlueFringe.red, green: noisyBlueFringe.green, blue: noisyBlueFringe.blue },
+  { red: 130, green: 150, blue: 250 },
+  "a slightly noisy true blue fringe must still lose its green matte color",
+);
+
+for (const [matte, subject] of [
+  [
+    [255, 0, 255],
+    [0, 255, 0],
+  ],
+  [
+    [0, 255, 255],
+    [255, 0, 0],
+  ],
+]) {
+  const pixels = solidImage(width, height, [...matte!, 255] as [number, number, number, number]);
+  for (let yPos = 10; yPos < 30; yPos++) {
+    for (let xPos = 10; xPos < 30; xPos++) {
+      const edge = xPos === 10 || xPos === 29 || yPos === 10 || yPos === 29;
+      const rgb = edge ? subject!.map((value, index) => Math.round((value + matte![index]!) / 2)) : subject!;
+      setPixel(pixels, width, xPos, yPos, [...rgb, 255] as [number, number, number, number]);
+    }
+  }
+  if (matte![0] === 255) setPixel(pixels, width, 10, 20, [132, 125, 128, 255]);
+  const output = await decodeRaw(
+    (await removeUniformSpriteBackgroundPng(await encodeRaw(pixels, width, height), 35)).buffer,
+  );
+  assert.ok(pixelAt(output.data, width, 0, 0).alpha <= 4, "other supported chroma mattes must still be removed");
+  assert.deepEqual(pixelAt(output.data, width, 15, 15), pixelAt(pixels, width, 15, 15));
+  const edge = pixelAt(output.data, width, 10, 20);
+  assert.ok(edge.alpha >= 120 && edge.alpha <= 136, "other chroma mattes retain true half-coverage edges");
+  assert.deepEqual([edge.red, edge.green, edge.blue], subject, "other chroma mattes still despill true edges");
+}
+
+// Optional metadata is additive: existing cleanup requests/cells still work and advertise the corrected host.
+const cleanupApp = requireFromServer("fastify")();
+await cleanupApp.register(spritesRoutes);
+try {
+  const status = await cleanupApp.inject({ method: "GET", url: "/cleanup/status" });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.json().cleanupRevision, SPRITE_CLEANUP_REVISION);
+  const response = await cleanupApp.inject({
+    method: "POST",
+    url: "/cleanup",
+    payload: {
+      engine: "builtin",
+      cleanupStrength: 35,
+      cells: [
+        {
+          expression: "feathers",
+          base64: (await encodeRaw(detailPixels, detailWidth, detailHeight)).toString("base64"),
+        },
+      ],
+    },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  const result = response.json();
+  assert.equal(result.cleanupRevision, SPRITE_CLEANUP_REVISION);
+  assert.equal(result.engine, "builtin");
+  assert.equal(result.builtinProcessed, 1);
+  assert.equal(result.backgroundRemoverProcessed, 0);
+  assert.equal(result.cells[0].expression, "feathers");
+  const cleaned = await decodeRaw(Buffer.from(result.cells[0].base64, "base64"));
+  assert.equal(pixelAt(cleaned.data, detailWidth, 20, 23).alpha, 255);
+} finally {
+  await cleanupApp.close();
+}
 
 console.info("Sprite background regression passed.");
 

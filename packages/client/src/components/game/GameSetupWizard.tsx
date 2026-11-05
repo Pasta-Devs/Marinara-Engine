@@ -1,5 +1,7 @@
 import {
+  audioConnectionSupportsGeneration,
   compileGameWorld,
+  LOCAL_SIDECAR_CONNECTION_ID,
   gameWorldFromSnapshot,
   normalizeGameDifficulty,
   parseWorldKit,
@@ -57,19 +59,19 @@ import {
   type GameSpotifySourceType,
   normalizeSpotifySourceType,
   resolveGameSpatialMapDraftOptions,
+  rulesetCombatStyle,
+  rulesetCombatStyles,
   type GenerationParameters,
   type SpatialMapGroundingMode,
   type SpatialMapDraftSize,
   type GameCombatStyle,
-  type TacticalBattlefieldSize,
-  type Persona,
   type AvatarCrop,
   type MultiplayerPlayer,
+  type InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
-import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
-import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import {
   GenerationParametersFields,
   getEditableGenerationParameters,
@@ -91,9 +93,14 @@ import {
   normalizeGameHudWidgets,
 } from "./GameWidgetSetupEditor";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { CharacterSelect } from "../characters/CharacterSelect";
 import { useDefaultPreset, usePresets } from "../../hooks/use-presets";
 import { useCharacterGroups, usePersonas } from "../../hooks/use-characters";
+import { GameRulesetUpdate } from "./GameRulesetUpdate";
 import { GameSetupRulesChooser, GameSetupRulesetSheetStatus } from "./GameSetupRulesChooser";
+import { getCombatStyle, isBuiltInCombatStyle, listCombatStyles, resolveCombatStyle } from "./combat-styles";
 import { GameSetupWorldKitChooser, MapPackLock } from "./GameSetupWorldKitChooser";
 import { useExperienceMapPack } from "../../hooks/use-map-pack";
 import { useOverworldGamesEnabled } from "../../hooks/use-world-library";
@@ -125,6 +132,9 @@ import { useAgentImportPolicy } from "../../hooks/use-agents";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useUIStore } from "../../stores/ui.store";
 import {
+  GAME_SETUP_SHARE_FORMAT,
+  GAME_SETUP_SHARE_VERSION,
+  type GameSetupShareFile,
   buildGameSetupShareFile,
   parseGameSetupShareFileJson,
   resolveGameSetupImport,
@@ -132,6 +142,7 @@ import {
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import {
   filterAudioGenerationConnections,
+  matchesAudioGenerationConnectionId,
   filterLanguageGenerationConnections,
   isConnectionFlagTrue,
 } from "../../lib/connection-filters";
@@ -175,6 +186,8 @@ export interface GameSetupWizardProps {
   activeChatId: string;
   isNewGame: boolean;
   chatMetadata?: Record<string, unknown>;
+  /** The game's current name, restored with its saved setup when setup is reopened. */
+  savedGameName?: string;
   onSetupError: (error: unknown) => boolean;
   onComplete: (
     config: GameSetupConfig,
@@ -197,6 +210,8 @@ export interface GameSetupWizardProps {
         },
   ) => void;
   onCancel: () => void;
+  /** Stops the world being generated, while it is. Absent when nothing can be stopped. */
+  onStopGeneration?: () => void;
   isLoading: boolean;
   isDraftingMap: boolean;
   isLinkingSharedWorld: boolean;
@@ -221,49 +236,17 @@ interface WizardConnection {
   imageService?: string | null;
   videoService?: string | null;
   audioSource?: string | null;
+  audioGenerationSource?: string | null;
+  audioGenerationLegacyConnectionId?: string | null;
   audioSoundEffects?: boolean | string;
   audioMusic?: boolean | string;
+  audioMusicEndpoint?: string | null;
+  audioSoundEffectsEndpoint?: string | null;
   defaultParameters?: string | null;
   isDefault?: boolean | string;
   defaultForAgents?: boolean | string;
   fallbackForAgents?: boolean | string;
   profileImportReviewRequired?: boolean | string;
-}
-
-function CharacterAvatar({
-  character,
-  className = "h-6 w-6 rounded-full",
-}: {
-  character: {
-    name: string;
-    avatarUrl?: string | null;
-    avatarCrop?: AvatarCrop | null;
-  };
-  className?: string;
-}) {
-  if (!character.avatarUrl) {
-    return (
-      <div className={cn("flex items-center justify-center bg-[var(--accent)] text-[0.5625rem] font-bold", className)}>
-        {character.name[0]}
-      </div>
-    );
-  }
-  return (
-    <span className={cn("relative block shrink-0 overflow-hidden", className)}>
-      <img
-        src={character.avatarUrl}
-        alt={character.name}
-        loading="lazy"
-        className="h-full w-full object-cover"
-        style={getAvatarCropStyle(character.avatarCrop)}
-      />
-    </span>
-  );
-}
-
-function getPersonaTitle(persona: Persona): string | null {
-  const title = persona.comment.trim();
-  return title ? title : null;
 }
 
 const GENRES = [
@@ -300,16 +283,6 @@ const SPATIAL_MAP_DRAFT_SIZE_OPTIONS: Array<{
   { value: "large", targetLocationCount: 28, label: "Large", detail: "About 28 places" },
 ];
 const SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT = 40;
-const TACTICAL_BATTLEFIELD_SIZE_OPTIONS: Array<{
-  value: "auto" | TacticalBattlefieldSize;
-  labelKey: string;
-}> = [
-  { value: "auto", labelKey: "ui.game.gamesetupwizard.auto" },
-  { value: "small", labelKey: "ui.game.gamesetupwizard.small" },
-  { value: "medium", labelKey: "ui.game.gamesetupwizard.medium" },
-  { value: "large", labelKey: "ui.game.gamesetupwizard.large" },
-];
-
 function normalizeSpatialMapTargetLocationCount(value: string): number | null {
   const parsed = Number(value);
   if (!value.trim() || !Number.isInteger(parsed) || !Number.isFinite(parsed)) return null;
@@ -410,6 +383,26 @@ function filterLearnedOptions(options: string[] | undefined, excluded: string[])
 function filterCustomLearnedValues(values: string[], builtIns: string[]) {
   const excluded = new Set([...builtIns, "Surprise me, go wild!"].map(optionKey));
   return values.map((value) => value.trim()).filter((value) => value && !excluded.has(optionKey(value)));
+}
+
+/** Says a field still holds the text kept from the last game set up, with a way to empty it. */
+function RememberedTextNote({ onClear }: { onClear: () => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  return (
+    <div className="mt-1 flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+      <span>{localizeUi("ui.game.gamesetupwizard.fromYourLastGame")}</span>
+      {/* A button that reads as one, under each field it empties (laptop pass 5 2026-10-26: the
+          second, a bare underlined word, was easy to miss). */}
+      <button
+        type="button"
+        onClick={onClear}
+        className="flex items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-0.5 font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--primary)]/10 hover:text-[var(--primary)]"
+      >
+        <X size={10} />
+        {localizeUi("ui.game.gamesetupwizard.clearRememberedText")}
+      </button>
+    </div>
+  );
 }
 
 function LearnedOptionChips({
@@ -525,9 +518,11 @@ export function GameSetupWizard({
   activeChatId,
   isNewGame,
   chatMetadata,
+  savedGameName,
   onSetupError,
   onComplete,
   onCancel,
+  onStopGeneration,
   isLoading,
   isDraftingMap,
   isLinkingSharedWorld,
@@ -621,31 +616,53 @@ export function GameSetupWizard({
   const [tones, setTones] = useState<string[]>(["Heroic"]);
   const [customTone, setCustomTone] = useState("");
   const [difficulty, setDifficulty] = useState("Normal");
-  const [combatStyle, setCombatStyle] = useState<GameCombatStyle>("classic");
+  const [pickedCombatStyle, setCombatStyle] = useState<GameCombatStyle>("classic");
+  // The chosen ruleset may name the styles its games play (1.379): only those are offered, and a pick it
+  // leaves out is shown and sent as the first it lists. The pick itself is kept for another ruleset.
+  const combatStyles = rulesetCombatStyles(activeRuleset?.definition);
+  const combatStyle = rulesetCombatStyle(activeRuleset?.definition, pickedCombatStyle, listCombatStyles());
   const [gmBossControl, setGmBossControl] = useState(true);
-  const [tacticalBattlefieldSize, setTacticalBattlefieldSize] = useState<"auto" | TacticalBattlefieldSize>("auto");
+  // The named and the brilliant opponents too (combat AI P9).
+  const [gmNamedControl, setGmNamedControl] = useState(true);
+  // A cruel opponent may strike the fallen (combat AI T3): off unless asked for.
+  const [cruelOpponents, setCruelOpponents] = useState(false);
+  // Companions fight on their own unless the player plays them (Alyssa 2026-10-26): on unless asked.
+  const [companionsOnTheirOwn, setCompanionsOnTheirOwn] = useState(true);
   const [gmMode, setGmMode] = useState<GameGmMode>("standalone");
   // The GM intro message (1.339): null follows the Experience's own.
   const [gameIntro, setGameIntro] = useState<GameIntroChoice | null>(null);
+  // The picked Experience's art style (1.372); a setup file's own art style settings come first.
+  const [experienceArtStylePrompt, setExperienceArtStylePrompt] = useState<string | null>(null);
   const [gmCharacterId, setGmCharacterId] = useState<string | null>(null);
   const [partyCharacterIds, setPartyCharacterIds] = useState<string[]>(() =>
     Array.from(new Set(initialPartyCharacterIds.filter((id) => characters.some((character) => character.id === id)))),
   );
-  const [playerGoals, setPlayerGoals] = useState(
-    () => useUIStore.getState().rememberedGameSetupText?.playerGoals ?? "",
-  );
-  const [preferences, setPreferences] = useState(
-    () => useUIStore.getState().rememberedGameSetupText?.preferences ?? "",
-  );
-  const [gmSearch, setGmSearch] = useState("");
-  const [partySearch, setPartySearch] = useState("");
+  // Somebody added to the chat while the wizard is open (from Characters) joins the party it starts
+  // with (laptop re-test 2026-10-24: a member added mid-setup was left out of the game).
+  const seenPartyIds = useRef(new Set(partyCharacterIds));
+  const offeredPartyIds = initialPartyCharacterIds.join("\n");
+  useEffect(() => {
+    const added = initialPartyCharacterIds.filter(
+      (id) => !seenPartyIds.current.has(id) && characters.some((character) => character.id === id),
+    );
+    if (added.length === 0) return;
+    for (const id of added) seenPartyIds.current.add(id);
+    setPartyCharacterIds((ids) => Array.from(new Set([...ids, ...added])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the ids, not the array's identity
+  }, [offeredPartyIds, characters]);
+  // Goals and preferences start as the last game's; a note says so while the text is unchanged.
+  const [rememberedSetupText] = useState(() => ({
+    playerGoals: useUIStore.getState().rememberedGameSetupText?.playerGoals ?? "",
+    preferences: useUIStore.getState().rememberedGameSetupText?.preferences ?? "",
+  }));
+  const [playerGoals, setPlayerGoals] = useState(rememberedSetupText.playerGoals);
+  const [preferences, setPreferences] = useState(rememberedSetupText.preferences);
   const [partyFolderId, setPartyFolderId] = useState("");
   const [personaId, setPersonaId] = useState<string | null>(null);
   const [gmConnectionId, setGmConnectionId] = useState<string | null>(null);
   const [customizeParameters, setCustomizeParameters] = useState(false);
   const [generationParameters, setGenerationParameters] =
     useState<EditableGenerationParameters>(ROLEPLAY_PARAMETER_DEFAULTS);
-  const [personaSearch, setPersonaSearch] = useState("");
   const [rating, setRating] = useState<"sfw" | "nsfw">("sfw");
   const [useLocalScene, setUseLocalScene] = useState(true);
   const [enableSpriteGeneration, setEnableSpriteGeneration] = useState(false);
@@ -859,18 +876,15 @@ export function GameSetupWizard({
   const preferredAudioConnectionId = audioCategoryDefaultId ?? audioConnections[0]?.id ?? null;
   const resolvedAudioConnection = useMemo(
     () =>
-      audioConnections.find((connection) => connection.id === (audioConnectionId ?? preferredAudioConnectionId)) ??
-      null,
+      audioConnections.find((connection) =>
+        matchesAudioGenerationConnectionId(connection, audioConnectionId ?? preferredAudioConnectionId),
+      ) ?? null,
     [audioConnections, audioConnectionId, preferredAudioConnectionId],
   );
   const audioConnectionSupportsSfx =
-    resolvedAudioConnection != null &&
-    (resolvedAudioConnection.audioSource ?? "elevenlabs") === "elevenlabs" &&
-    isConnectionFlagTrue(resolvedAudioConnection.audioSoundEffects);
+    resolvedAudioConnection != null && audioConnectionSupportsGeneration(resolvedAudioConnection, "sfx");
   const audioConnectionSupportsMusic =
-    resolvedAudioConnection != null &&
-    (resolvedAudioConnection.audioSource ?? "elevenlabs") === "elevenlabs" &&
-    isConnectionFlagTrue(resolvedAudioConnection.audioMusic);
+    resolvedAudioConnection != null && audioConnectionSupportsGeneration(resolvedAudioConnection, "music");
   const promptPresets = useMemo(
     () =>
       (promptPresetsList as Array<{
@@ -936,16 +950,6 @@ export function GameSetupWizard({
     if (activeLorebookIds.length > 0 || spatialMapGroundingMode === "setup") return;
     setSpatialMapGroundingMode("setup");
   }, [activeLorebookIds.length, spatialMapGroundingMode]);
-
-  const filteredPersonas = useMemo(
-    () =>
-      personas.filter((p) => {
-        const query = personaSearch.toLowerCase();
-        const title = getPersonaTitle(p)?.toLowerCase() ?? "";
-        return p.name.toLowerCase().includes(query) || title.includes(query);
-      }),
-    [personas, personaSearch],
-  );
 
   const steps = GAME_SETUP_STEPS;
   const currentStep = steps[step] ?? steps[0]!;
@@ -1038,10 +1042,6 @@ export function GameSetupWizard({
     setCustomTone("");
   };
 
-  const togglePartyMember = (id: string) => {
-    setPartyCharacterIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
-  };
-
   const addPartyMembersFromFolder = useCallback(
     (folderId: string) => {
       const folder = characterFolders.find((entry) => entry.id === folderId);
@@ -1057,27 +1057,6 @@ export function GameSetupWizard({
       setPartyFolderId("");
     },
     [characterFolders, gmCharacterId, validCharacterIds],
-  );
-
-  const filteredGmCharacters = useMemo(
-    () =>
-      characters.filter((c) => {
-        const query = gmSearch.toLowerCase();
-        const title = getCharacterTitle(c)?.toLowerCase() ?? "";
-        return c.name.toLowerCase().includes(query) || title.includes(query);
-      }),
-    [characters, gmSearch],
-  );
-
-  const filteredPartyCharacters = useMemo(
-    () =>
-      characters.filter((c) => {
-        if (c.id === gmCharacterId) return false;
-        const query = partySearch.toLowerCase();
-        const title = getCharacterTitle(c)?.toLowerCase() ?? "";
-        return c.name.toLowerCase().includes(query) || title.includes(query);
-      }),
-    [characters, gmCharacterId, partySearch],
   );
 
   const applySuggestion = useCallback((setter: (v: string) => void, value: string) => {
@@ -1234,6 +1213,11 @@ export function GameSetupWizard({
         setting: setting || `A ${(genres[0] ?? "fantasy").toLowerCase()} world`,
         tone: tones.join(", ") || "Heroic",
         language: normalizedLanguage || undefined,
+        // The world is written with the reasoning effort chosen here, as the game is (cheap-GM playtest
+        // 2026-10-26: Medium was chosen and the world was still asked for at the connection's maximum).
+        ...(customizeParameters
+          ? { generationParameters: { ...(importedGenerationParametersRef.current ?? {}), ...generationParameters } }
+          : {}),
       }
     : null;
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
@@ -1269,206 +1253,8 @@ export function GameSetupWizard({
       }
 
       const shareFile = parseGameSetupShareFileJson(await file.text());
-      const imported = resolveGameSetupImport(shareFile, {
-        characters,
-        connections,
-        lorebooks,
-        personas,
-        promptPresets,
-        experiencePackages: experiences,
-        installedRulesets: rulesets,
-        isNewGame,
-      });
-      const config = imported.config;
-      setRulesetId(config.ruleset?.id ?? null);
-      // A file with a kit is an Overworld game's; one without is Classic unless it says otherwise.
-      setGameStyle(config.worldKit ? "overworld" : (config.gameStyle ?? "classic"));
-      kitChosenRef.current = Boolean(config.worldKit);
-      setWorldKit(config.worldKit ?? null);
-      setWorldDraft(config.world ? worldDraftFromWorld(config.world, config.story, config.worldSnapshot) : null);
-      // The layers the file chose, against the definition installed HERE: an id this version of the
-      // ruleset no longer has is dropped rather than sent to a create call that would refuse it.
-      const importedRuleset = rulesets.find((entry) => entry.definition.id === config.ruleset?.id);
-      setRulesetLayerIds(
-        importedRuleset ? restoredRulesetLayers(importedRuleset.definition, config.ruleset?.options) : [],
-      );
-      const sharedRuleset = shareFile.setup.config.ruleset;
-      // Installed but left off the list means the import switch hid it, which needs a different
-      // fix from the user than installing something. Only an answer that says "off" counts as off:
-      // a policy that could not be read gets its own notice, not a wrong diagnosis.
-      const hiddenFromList =
-        sharedRuleset &&
-        !rulesets.some((entry) => entry.definition.id === sharedRuleset.id) &&
-        (installedRulesets ?? []).some((entry) => entry.definition.id === sharedRuleset.id);
-      const droppedRulesetNotice = !hiddenFromList
-        ? "game.ruleset.setup.unavailableImport"
-        : agentImportPolicy?.enabled === false
-          ? "game.ruleset.setup.importsOffImport"
-          : "game.ruleset.setup.importPolicyUnknownImport";
-      setRulesetImportNotice(
-        sharedRuleset && !config.ruleset
-          ? !isNewGame
-            ? localizeUi("game.ruleset.setup.existingImport")
-            : localizeUi(droppedRulesetNotice, { name: shareFile.setup.labels?.rulesetName ?? sharedRuleset.id })
-          : null,
-      );
-      const importedExperience = experiences.find((item) => item.id === config.gameExperienceId);
-      const importedSetup = importedExperience?.manifest.contributions?.gameSurface?.setup;
-      const importedSeed = importedSetup?.seed
-        ? parseExperienceSeed(config.experienceConfig?.[importedSetup.seed.key])
-        : null;
-      setExperienceId(isNewGame && importedExperience ? importedExperience.id : null);
-      // A setup file without a usable Experience seed leaves the prefilled seed alone instead of blanking it.
-      if (importedSeed !== null) setExperienceSeed(String(importedSeed));
-      setExperienceImportNotice(
-        shareFile.setup.config.gameExperienceId
-          ? !isNewGame
-            ? localizeUi("game.experienceSetup.existingImport")
-            : !importedExperience
-              ? localizeUi("game.experienceSetup.unavailableImport")
-              : null
-          : null,
-      );
-      const importedGenres = config.genre
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const importedTones = config.tone
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const importedStoryboardGamePrompt = config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID;
-      const importedPromptPreset = promptPresets.find((preset) => preset.id === config.promptPresetId) ?? null;
-      const importedCustomPrompt = config.gameSystemPrompt?.trim() ?? "";
-      const importedBasePrompt = importedStoryboardGamePrompt
-        ? ANIME_GAME_SYSTEM_PROMPT
-        : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
-      const importedWidgets = normalizeGameHudWidgets(config.customHudWidgets ?? []);
-      const importedGenerationParameters =
-        imported.effectiveGenerationParameters ?? config.generationParameters ?? null;
-      const importedParameterOverrides = parseEditableGenerationParameters(importedGenerationParameters);
-      const hasImportedGenerationParameters =
-        importedGenerationParameters !== null && Object.keys(importedGenerationParameters).length > 0;
-      const importedGmConnection = connections.find((connection) => connection.id === imported.gmConnectionId) ?? null;
-      const importedGmDefaults = getEditableGenerationParameters(
-        ROLEPLAY_PARAMETER_DEFAULTS,
-        importedGmConnection?.defaultParameters,
-        importedGmConnection?.provider,
-      );
-
-      setStep(0);
-      setGameName(imported.gameName);
-      genresChosenRef.current = true;
-      setGenres(importedGenres.length > 0 ? importedGenres : ["Fantasy"]);
-      setCustomGenre("");
-      setSetting(config.setting);
-      setTones(importedTones.length > 0 ? importedTones : ["Heroic"]);
-      setCustomTone("");
-      setDifficulty(
-        DIFFICULTIES.find((d) => normalizeGameDifficulty(d) === normalizeGameDifficulty(config.difficulty)) ?? "Normal",
-      );
-      setCombatStyle(config.combatStyle === "tactical" ? "tactical" : "classic");
-      setGmBossControl(config.gmBossControl ?? true);
-      setTacticalBattlefieldSize(config.tacticalBattlefield?.size ?? "auto");
-      setRating(config.rating);
-      setLanguage(config.language?.trim() || "English");
-      setAutoTranslate(config.autoTranslate === true);
-      setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
-      setGmMode(config.gmMode);
-      setGameIntro(config.gameIntro ?? null);
-      setGmCharacterId(config.gmCharacterId ?? null);
-      setPartyCharacterIds(config.partyCharacterIds);
-      setPersonaId(config.personaId ?? null);
-      setPlayerGoals(config.playerGoals);
-      setPreferences(imported.preferences);
-      setGmSearch("");
-      setPartySearch("");
-      setPartyFolderId("");
-      setPersonaSearch("");
-      setGmConnectionId(imported.gmConnectionId);
-      setCustomizeParameters(hasImportedGenerationParameters);
-      setGenerationParameters(getEditableGenerationParameters(importedGmDefaults, importedParameterOverrides));
-      importedGenerationParametersRef.current = importedGenerationParameters;
-      pendingImportedGenerationParametersRef.current =
-        importedParameterOverrides && (imported.gmConnectionId === null || imported.gmConnectionId !== gmConnectionId)
-          ? importedParameterOverrides
-          : null;
-      importedArtStyleSettingsRef.current = {
-        artStylePrompt: config.artStylePrompt,
-        generatedArtStylePrompt: config.generatedArtStylePrompt,
-        useCampaignArtStyle: config.useCampaignArtStyle,
-        imageStyleProfileId: config.imageStyleProfileId,
-      };
-      setUseLocalScene(
-        sidecarAvailable && !config.sceneConnectionId && shareFile.setup.connections?.scene?.provider === "local",
-      );
-      setSceneConnectionId(config.sceneConnectionId ?? null);
-
-      const visualGenerationEnabled =
-        config.enableSpriteGeneration === true ||
-        config.gameStoryboardAutoIllustrationsEnabled === true ||
-        config.gameStoryboardAutoGenerationEnabled === true;
-      setEnableAgents(
-        config.enableAgents === true ||
-          visualGenerationEnabled ||
-          config.enableSpotifyDj === true ||
-          config.enableLorebookKeeper === true ||
-          config.gameWorldMapMode === "hierarchical" ||
-          Boolean(config.spatialMapInstructions?.trim()),
-      );
-      setEnableQuickTimeEvents(config.enableQuickTimeEvents !== false);
-      setEnableSpriteGeneration(visualGenerationEnabled);
-      setGameImageDynamicPromptEnabled(config.gameImageDynamicPromptEnabled === true);
-      setImageConnectionId(config.imageConnectionId ?? null);
-      setVideoConnectionId(config.videoConnectionId ?? null);
-      setAudioConnectionId(config.audioConnectionId ?? null);
-      setEnableGameSoundEffects(config.enableGameSoundEffects !== false);
-      setEnableGameMusic(config.enableGameMusic !== false);
-      setActiveLorebookIds(config.activeLorebookIds ?? []);
-      setActiveLorebookEntryIds(config.activeLorebookEntryIds ?? []);
-      setImportedLorebookEntryIds(config.activeLorebookEntryIds?.length ? config.activeLorebookEntryIds : null);
-      setLbSearch("");
-      setEnableCustomWidgets(config.enableCustomWidgets !== false);
-      setManualWidgetSetupEnabled(importedWidgets.length > 0);
-      setCustomHudWidgets(
-        importedWidgets.length > 0
-          ? importedWidgets
-          : normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
-      );
-      setEnableSpotifyDj(config.enableSpotifyDj === true);
-      setGameSpotifySourceType(normalizeSpotifySourceType(config.spotifySourceType));
-      setGameSpotifyPlaylistId(config.spotifyPlaylistId?.trim() || "");
-      setGameSpotifyPlaylistName(config.spotifyPlaylistName?.trim() || "");
-      setGameSpotifyArtist(config.spotifyArtist?.trim() || "");
-      setEnableLorebookKeeper(config.enableLorebookKeeper === true);
-      setPromptPresetTouched(true);
-      setPromptPresetId(config.promptPresetId ?? null);
-      setGamePresentation(importedStoryboardGamePrompt ? "anime" : "standard");
-      setCustomGamePromptEnabled(Boolean(importedCustomPrompt));
-      setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
-      setGameSystemPromptEdited(Boolean(importedCustomPrompt));
-      setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
-      const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
-      const importedSpatialMapDraftOptions = resolveGameSpatialMapDraftOptions(
-        config.spatialMapDraftSize,
-        config.spatialMapTargetLocationCount,
-      );
-      setDraftSpatialMap(
-        hierarchicalMapsInstalled &&
-          (config.gameWorldMapMode === "hierarchical" || Boolean(importedSpatialMapInstructions)),
-      );
-      setManualSpatialMap(false);
-      setTemplateSpatialMap(false);
-      setWorldSpatialMap(false);
-      setSpatialTemplateSelection(null);
-      setSpatialTemplatePickerOpen(false);
-      setSpatialMapDraftSize(importedSpatialMapDraftOptions.size);
-      setSpatialMapTargetLocationCount(importedSpatialMapDraftOptions.targetLocationCount);
-      setSpatialMapTargetLocationCountInput(String(importedSpatialMapDraftOptions.targetLocationCount));
-      setSpatialMapGroundingMode(config.spatialMapGroundingMode ?? "setup");
-      setSpatialMapInstructions(importedSpatialMapInstructions);
-
-      const warningCount = imported.warnings.length;
+      const warnings = applySetupShareFile(shareFile);
+      const warningCount = warnings.length;
       setImportedSetupNotice(
         warningCount > 0
           ? `${file.name} loaded. ${warningCount} local ${warningCount === 1 ? "selection needs" : "selections need"} review.`
@@ -1477,7 +1263,7 @@ export function GameSetupWizard({
       toast.success(localizeUi("ui.game.gamesetupwizard.gameModeSetupImported"));
       if (warningCount > 0) {
         toast.warning(localizeUi("ui.game.gamesetupwizard.someLocalSelectionsCouldNotBeRestored"), {
-          description: imported.warnings.join(" "),
+          description: warnings.join(" "),
         });
       }
     } catch (error) {
@@ -1490,6 +1276,241 @@ export function GameSetupWizard({
     }
   };
 
+  /** Fills every step from a setup snapshot (a shared file, or this game's own saved setup) and
+   *  returns the selections this install could not restore. */
+  const applySetupShareFile = (shareFile: GameSetupShareFile) => {
+    const imported = resolveGameSetupImport(shareFile, {
+      characters,
+      connections,
+      lorebooks,
+      personas,
+      promptPresets,
+      experiencePackages: experiences,
+      installedRulesets: rulesets,
+      isNewGame,
+    });
+    const config = imported.config;
+    setRulesetId(config.ruleset?.id ?? null);
+    // A file with a kit is an Overworld game's; one without is Classic unless it says otherwise.
+    setGameStyle(config.worldKit ? "overworld" : (config.gameStyle ?? "classic"));
+    kitChosenRef.current = Boolean(config.worldKit);
+    setWorldKit(config.worldKit ?? null);
+    setWorldDraft(config.world ? worldDraftFromWorld(config.world, config.story, config.worldSnapshot) : null);
+    // The layers the file chose, against the definition installed HERE: an id this version of the
+    // ruleset no longer has is dropped rather than sent to a create call that would refuse it.
+    const importedRuleset = rulesets.find((entry) => entry.definition.id === config.ruleset?.id);
+    setRulesetLayerIds(
+      importedRuleset ? restoredRulesetLayers(importedRuleset.definition, config.ruleset?.options) : [],
+    );
+    const sharedRuleset = shareFile.setup.config.ruleset;
+    // Installed but left off the list means the import switch hid it, which needs a different
+    // fix from the user than installing something. Only an answer that says "off" counts as off:
+    // a policy that could not be read gets its own notice, not a wrong diagnosis.
+    const hiddenFromList =
+      sharedRuleset &&
+      !rulesets.some((entry) => entry.definition.id === sharedRuleset.id) &&
+      (installedRulesets ?? []).some((entry) => entry.definition.id === sharedRuleset.id);
+    const droppedRulesetNotice = !hiddenFromList
+      ? "game.ruleset.setup.unavailableImport"
+      : agentImportPolicy?.enabled === false
+        ? "game.ruleset.setup.importsOffImport"
+        : "game.ruleset.setup.importPolicyUnknownImport";
+    setRulesetImportNotice(
+      sharedRuleset && !config.ruleset
+        ? !isNewGame
+          ? localizeUi("game.ruleset.setup.existingImport")
+          : localizeUi(droppedRulesetNotice, { name: shareFile.setup.labels?.rulesetName ?? sharedRuleset.id })
+        : null,
+    );
+    const importedExperience = experiences.find((item) => item.id === config.gameExperienceId);
+    const importedSetup = importedExperience?.manifest.contributions?.gameSurface?.setup;
+    const importedSeed = importedSetup?.seed
+      ? parseExperienceSeed(config.experienceConfig?.[importedSetup.seed.key])
+      : null;
+    setExperienceId(isNewGame && importedExperience ? importedExperience.id : null);
+    // A setup file without a usable Experience seed leaves the prefilled seed alone instead of blanking it.
+    if (importedSeed !== null) setExperienceSeed(String(importedSeed));
+    setExperienceImportNotice(
+      shareFile.setup.config.gameExperienceId
+        ? !isNewGame
+          ? localizeUi("game.experienceSetup.existingImport")
+          : !importedExperience
+            ? localizeUi("game.experienceSetup.unavailableImport")
+            : null
+        : null,
+    );
+    const importedGenres = config.genre
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const importedTones = config.tone
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const importedStoryboardGamePrompt = config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID;
+    const importedPromptPreset = promptPresets.find((preset) => preset.id === config.promptPresetId) ?? null;
+    const importedCustomPrompt = config.gameSystemPrompt?.trim() ?? "";
+    const importedBasePrompt = importedStoryboardGamePrompt
+      ? ANIME_GAME_SYSTEM_PROMPT
+      : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
+    const importedWidgets = normalizeGameHudWidgets(config.customHudWidgets ?? []);
+    const importedGenerationParameters = imported.effectiveGenerationParameters ?? config.generationParameters ?? null;
+    const importedParameterOverrides = parseEditableGenerationParameters(importedGenerationParameters);
+    const hasImportedGenerationParameters =
+      importedGenerationParameters !== null && Object.keys(importedGenerationParameters).length > 0;
+    const importedGmConnection = connections.find((connection) => connection.id === imported.gmConnectionId) ?? null;
+    const importedGmDefaults = getEditableGenerationParameters(
+      ROLEPLAY_PARAMETER_DEFAULTS,
+      importedGmConnection?.defaultParameters,
+      importedGmConnection?.provider,
+    );
+
+    setStep(0);
+    setGameName(imported.gameName);
+    genresChosenRef.current = true;
+    setGenres(importedGenres.length > 0 ? importedGenres : ["Fantasy"]);
+    setCustomGenre("");
+    setSetting(config.setting);
+    setTones(importedTones.length > 0 ? importedTones : ["Heroic"]);
+    setCustomTone("");
+    setDifficulty(
+      DIFFICULTIES.find((d) => normalizeGameDifficulty(d) === normalizeGameDifficulty(config.difficulty)) ?? "Normal",
+    );
+    setCombatStyle(resolveCombatStyle(config.combatStyle));
+    setGmBossControl(config.gmBossControl ?? true);
+    setGmNamedControl(config.gmNamedControl ?? false);
+    setCruelOpponents(config.cruelOpponents === true);
+    setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
+    setRating(config.rating);
+    setLanguage(config.language?.trim() || "English");
+    setAutoTranslate(config.autoTranslate === true);
+    setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
+    setGmMode(config.gmMode);
+    setGameIntro(config.gameIntro ?? null);
+    setGmCharacterId(config.gmCharacterId ?? null);
+    setPartyCharacterIds(config.partyCharacterIds);
+    setPersonaId(config.personaId ?? null);
+    setPlayerGoals(config.playerGoals);
+    setPreferences(imported.preferences);
+    setPartyFolderId("");
+    setGmConnectionId(imported.gmConnectionId);
+    setCustomizeParameters(hasImportedGenerationParameters);
+    setGenerationParameters(getEditableGenerationParameters(importedGmDefaults, importedParameterOverrides));
+    importedGenerationParametersRef.current = importedGenerationParameters;
+    pendingImportedGenerationParametersRef.current =
+      importedParameterOverrides && (imported.gmConnectionId === null || imported.gmConnectionId !== gmConnectionId)
+        ? importedParameterOverrides
+        : null;
+    importedArtStyleSettingsRef.current = {
+      artStylePrompt: config.artStylePrompt,
+      generatedArtStylePrompt: config.generatedArtStylePrompt,
+      useCampaignArtStyle: config.useCampaignArtStyle,
+      imageStyleProfileId: config.imageStyleProfileId,
+    };
+    setUseLocalScene(
+      sidecarAvailable && !config.sceneConnectionId && shareFile.setup.connections?.scene?.provider === "local",
+    );
+    setSceneConnectionId(config.sceneConnectionId ?? null);
+
+    const visualGenerationEnabled =
+      config.enableSpriteGeneration === true ||
+      config.gameStoryboardAutoIllustrationsEnabled === true ||
+      config.gameStoryboardAutoGenerationEnabled === true;
+    setEnableAgents(
+      config.enableAgents === true ||
+        visualGenerationEnabled ||
+        config.enableSpotifyDj === true ||
+        config.enableLorebookKeeper === true ||
+        config.gameWorldMapMode === "hierarchical" ||
+        Boolean(config.spatialMapInstructions?.trim()),
+    );
+    setEnableQuickTimeEvents(config.enableQuickTimeEvents !== false);
+    setEnableSpriteGeneration(visualGenerationEnabled);
+    setGameImageDynamicPromptEnabled(config.gameImageDynamicPromptEnabled === true);
+    setImageConnectionId(config.imageConnectionId ?? null);
+    setVideoConnectionId(config.videoConnectionId ?? null);
+    setAudioConnectionId(config.audioConnectionId ?? null);
+    setEnableGameSoundEffects(config.enableGameSoundEffects !== false);
+    setEnableGameMusic(config.enableGameMusic !== false);
+    setActiveLorebookIds(config.activeLorebookIds ?? []);
+    setActiveLorebookEntryIds(config.activeLorebookEntryIds ?? []);
+    setImportedLorebookEntryIds(config.activeLorebookEntryIds?.length ? config.activeLorebookEntryIds : null);
+    setLbSearch("");
+    setEnableCustomWidgets(config.enableCustomWidgets !== false);
+    setManualWidgetSetupEnabled(importedWidgets.length > 0);
+    setCustomHudWidgets(
+      importedWidgets.length > 0
+        ? importedWidgets
+        : normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
+    );
+    setEnableSpotifyDj(config.enableSpotifyDj === true);
+    setGameSpotifySourceType(normalizeSpotifySourceType(config.spotifySourceType));
+    setGameSpotifyPlaylistId(config.spotifyPlaylistId?.trim() || "");
+    setGameSpotifyPlaylistName(config.spotifyPlaylistName?.trim() || "");
+    setGameSpotifyArtist(config.spotifyArtist?.trim() || "");
+    setEnableLorebookKeeper(config.enableLorebookKeeper === true);
+    setPromptPresetTouched(true);
+    setPromptPresetId(config.promptPresetId ?? null);
+    setGamePresentation(importedStoryboardGamePrompt ? "anime" : "standard");
+    setCustomGamePromptEnabled(Boolean(importedCustomPrompt));
+    setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
+    setGameSystemPromptEdited(Boolean(importedCustomPrompt));
+    setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
+    const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
+    const importedSpatialMapDraftOptions = resolveGameSpatialMapDraftOptions(
+      config.spatialMapDraftSize,
+      config.spatialMapTargetLocationCount,
+    );
+    setDraftSpatialMap(
+      hierarchicalMapsInstalled &&
+        (config.gameWorldMapMode === "hierarchical" || Boolean(importedSpatialMapInstructions)),
+    );
+    setManualSpatialMap(false);
+    setTemplateSpatialMap(false);
+    setWorldSpatialMap(false);
+    setSpatialTemplateSelection(null);
+    setSpatialTemplatePickerOpen(false);
+    setSpatialMapDraftSize(importedSpatialMapDraftOptions.size);
+    setSpatialMapTargetLocationCount(importedSpatialMapDraftOptions.targetLocationCount);
+    setSpatialMapTargetLocationCountInput(String(importedSpatialMapDraftOptions.targetLocationCount));
+    setSpatialMapGroundingMode(config.spatialMapGroundingMode ?? "setup");
+    setSpatialMapInstructions(importedSpatialMapInstructions);
+    return imported.warnings;
+  };
+
+  // Reopening setup on a game whose setup never finished starts from what was chosen last time,
+  // not a blank wizard. Once per open, after the lists the snapshot resolves against have loaded.
+  const savedSetupRestoredRef = useRef(false);
+  useEffect(() => {
+    if (isNewGame || savedSetupRestoredRef.current || !setupImportResourcesReady) return;
+    const saved = chatMetadata?.gameInitialSetup;
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return;
+    savedSetupRestoredRef.current = true;
+    try {
+      const shareFile = parseGameSetupShareFileJson(
+        JSON.stringify({
+          format: GAME_SETUP_SHARE_FORMAT,
+          version: GAME_SETUP_SHARE_VERSION,
+          exportedAt: new Date().toISOString(),
+          gameName: (savedGameName ?? "").trim().slice(0, 200) || "Game",
+          setup: saved,
+        }),
+      );
+      const warnings = applySetupShareFile(shareFile);
+      // This game's own ruleset and Experience are already fixed: no notice about importing them.
+      setRulesetImportNotice(null);
+      setExperienceImportNotice(null);
+      setImportedSetupNotice(
+        warnings.length > 0
+          ? localizeUi("ui.game.gamesetupwizard.savedSetupRestoredReview", { count: warnings.length })
+          : localizeUi("ui.game.gamesetupwizard.savedSetupRestored"),
+      );
+    } catch {
+      /* an unreadable snapshot leaves the wizard as it was */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the lists are ready
+  }, [isNewGame, setupImportResourcesReady]);
+
   const buildSetupConfig = (): GameSetupConfig => {
     const trimmedGameSystemPrompt = gameSystemPromptDraft.trim();
     const customGameSystemPrompt =
@@ -1497,12 +1518,6 @@ export function GameSetupWizard({
         ? trimmedGameSystemPrompt
         : null;
     const trimmedGameSpecialInstructions = gameSpecialInstructions.trim();
-    const tacticalBattlefield =
-      combatStyle === "tactical"
-        ? {
-            ...(tacticalBattlefieldSize !== "auto" ? { size: tacticalBattlefieldSize } : {}),
-          }
-        : {};
 
     return {
       ...buildExperienceSetup(activeExperience, experienceSeed, isNewGame),
@@ -1533,7 +1548,10 @@ export function GameSetupWizard({
       // keeps the party's phase then the enemies', as it always has.
       ...(overworldChosen ? { tacticalTurnOrder: "initiative" as const } : {}),
       gmBossControl,
-      ...(Object.keys(tacticalBattlefield).length > 0 ? { tacticalBattlefield } : {}),
+      ...(gmBossControl ? { gmNamedControl } : {}),
+      ...(cruelOpponents ? { cruelOpponents } : {}),
+      ...(companionsOnTheirOwn ? {} : { playerRunsCompanions: true }),
+      // The board's size is the Game Master's to choose, by the place (2026-10-24, Alyssa).
       spatialMapInstructions:
         enableAgents && hierarchicalMapsInstalled && draftSpatialMap
           ? spatialMapInstructions.trim() || undefined
@@ -1574,6 +1592,9 @@ export function GameSetupWizard({
       enableGameSoundEffects: enableGameSoundEffects && audioConnectionSupportsSfx ? undefined : false,
       enableGameMusic: enableGameMusic && audioConnectionSupportsMusic ? undefined : false,
       ...(importedArtStyleSettingsRef.current ?? {}),
+      ...(experienceArtStylePrompt && !importedArtStyleSettingsRef.current?.artStylePrompt
+        ? { artStylePrompt: experienceArtStylePrompt }
+        : {}),
       activeLorebookIds: activeLorebookIds.length > 0 ? activeLorebookIds : undefined,
       ...(selectedEntryIds.length ? { activeLorebookEntryIds: selectedEntryIds } : {}),
       enableCustomWidgets,
@@ -1623,7 +1644,11 @@ export function GameSetupWizard({
 
   const snapshotConnection = (id: string | null | undefined, service: "image" | "video" | "audio" | null = null) => {
     if (!id) return null;
-    const connection = connections.find((candidate) => candidate.id === id);
+    const connection = connections.find((candidate) =>
+      service === "audio"
+        ? candidate.provider === "audio_generation" && matchesAudioGenerationConnectionId(candidate, id)
+        : candidate.id === id,
+    );
     if (!connection) return null;
     return {
       name: connection.name,
@@ -1635,7 +1660,7 @@ export function GameSetupWizard({
           : service === "video"
             ? connection.videoService
             : service === "audio"
-              ? (connection.audioSource ?? null)
+              ? (connection.audioGenerationSource ?? null)
               : null,
     };
   };
@@ -1729,6 +1754,38 @@ export function GameSetupWizard({
     );
   };
 
+  // Picking an Experience fills in its GM setup values (1.372); the player may still change any of them
+  // but a locked intro, which the intro field shows read-only. Turning it off leaves them as they are.
+  // A just-imported Experience comes with its package, since the list has not refetched it yet.
+  const selectExperience = (id: string | null, picked?: InstalledCapabilityPackage) => {
+    setExperienceId(id);
+    const experience = picked?.id === id ? picked : experiences.find((item) => item.id === id);
+    const defaults = experience?.manifest.contributions?.gameSurface?.setup?.defaults;
+    setExperienceArtStylePrompt(defaults?.artStylePrompt ?? null);
+    if (!defaults) return;
+    if (defaults.name) setGameName(defaults.name);
+    if (defaults.genre) {
+      genresChosenRef.current = true;
+      setGenres(defaults.genre);
+      setCustomGenre("");
+    }
+    if (defaults.setting) setSetting(defaults.setting);
+    if (defaults.tone) {
+      setTones(defaults.tone);
+      setCustomTone("");
+    }
+    if (defaults.difficulty) setDifficulty(defaults.difficulty);
+    if (defaults.rating) setRating(defaults.rating);
+    if (defaults.language) setLanguage(defaults.language);
+    if (defaults.combatStyle) setCombatStyle(defaults.combatStyle);
+    if (defaults.playerGoals) setPlayerGoals(defaults.playerGoals);
+    if (defaults.preferences) setPreferences(defaults.preferences);
+    if (defaults.gameSpecialInstructions) setGameSpecialInstructions(defaults.gameSpecialInstructions);
+    // The intro field then shows the Experience's own.
+    if (defaults.intro) setGameIntro(null);
+  };
+  const experienceIntro = experienceSetup?.defaults?.intro ?? worldDraft?.story?.intro;
+
   if (activeExperience && !experienceSetup) {
     return (
       <LegacyExperienceSetupDialog
@@ -1773,11 +1830,13 @@ export function GameSetupWizard({
 
   return (
     <>
+      {/* Just under the body-level pickers it opens (Modal, z-[10000]). On iPhone WebKit the app shell is no
+          stacking context, so a higher layer here would cover the "Model for …" and character pickers. */}
       <div
-        className="fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]"
         onClick={isLoading ? undefined : onCancel}
       />
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
@@ -1883,7 +1942,7 @@ export function GameSetupWizard({
                       <NewGameExperienceChooser
                         experiences={experiences}
                         activeId={activeExperience?.id ?? null}
-                        onSelect={setExperienceId}
+                        onSelect={selectExperience}
                         seed={experienceSeed}
                         onSeedChange={setExperienceSeed}
                         onRandomize={() => setExperienceSeed(String(crypto.getRandomValues(new Uint32Array(1))[0]))}
@@ -1918,19 +1977,16 @@ export function GameSetupWizard({
                         <Plug size={12} className="mr-1 inline" />
                         {localizeUi("ui.game.gamesetupwizard.connection")}
                       </label>
-                      <select
-                        value={gmConnectionId ?? ""}
-                        onChange={(e) => setGmConnectionId(e.target.value || null)}
+                      {/* `required`: an empty GM Model means "not picked yet" (Start stays off), never
+                          "follow Main", so picking the Main Model must set it rather than count as "Now". */}
+                      <ConnectionSelect
+                        required
+                        job={localizeUi("connections.picker.job.gameMaster")}
+                        value={gmConnectionId}
+                        onChange={setGmConnectionId}
+                        defaultLabel={localizeUi("ui.game.gamesetupwizard.selectAConnection")}
                         className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="">{localizeUi("ui.game.gamesetupwizard.selectAConnection")}</option>
-                        {languageConnections.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                          </option>
-                        ))}
-                      </select>
+                      />
                       <p className="mt-2 rounded-lg border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
                         {localizeUi("ui.game.gamesetupwizard.useAStrongModelForTheInitialWorldGeneration")}
                       </p>
@@ -1976,11 +2032,7 @@ export function GameSetupWizard({
                           </div>
                         )}
                       </div>
-                      {languageConnections.length === 0 && (
-                        <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("ui.game.gamesetupwizard.noConnectionsConfiguredAddOneInSettingsConnections")}
-                        </p>
-                      )}
+                      {languageConnections.length === 0 && <NeedsModelChip kind="chat" className="mt-1" />}
                     </div>
 
                     <div>
@@ -1990,31 +2042,22 @@ export function GameSetupWizard({
                           {localizeUi("ui.game.gamesetupwizard.optional")}
                         </span>
                       </label>
-                      <select
-                        value={sceneModelValue ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "local") {
+                      <ConnectionSelect
+                        job={localizeUi("connections.picker.job.sceneEffects")}
+                        value={sceneModelValue === "local" ? LOCAL_SIDECAR_CONNECTION_ID : sceneConnectionId}
+                        onChange={(id) => {
+                          if (id === LOCAL_SIDECAR_CONNECTION_ID) {
                             setUseLocalScene(true);
                             setSceneConnectionId(null);
                           } else {
                             setUseLocalScene(false);
-                            setSceneConnectionId(v || null);
+                            setSceneConnectionId(id);
                           }
                         }}
+                        defaultLabel={localizeUi("ui.game.gamesetupwizard.skipUseInlineTagsFromGm")}
+                        includeLocalSidecar={sidecarAvailable}
                         className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="">{localizeUi("ui.game.gamesetupwizard.skipUseInlineTagsFromGm")}</option>
-                        {sidecarAvailable && (
-                          <option value="local">{localizeUi("ui.game.gamesetupwizard.localModelGemma")}</option>
-                        )}
-                        {languageConnections.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                          </option>
-                        ))}
-                      </select>
+                      />
                       <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
                         {localizeUi(
                           "ui.game.gamesetupwizard.handlesBackgroundsMusicWeatherAndCinematicEffectsAfterEach",
@@ -2216,42 +2259,73 @@ export function GameSetupWizard({
                       <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("ui.game.gamesetupwizard.combatPreference")}
                       </label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setCombatStyle("classic")}
-                          aria-pressed={combatStyle === "classic"}
-                          className={cn(
-                            "flex-1 rounded-lg p-3 text-left text-xs transition-colors ring-1",
-                            combatStyle === "classic"
-                              ? "bg-[var(--primary)]/10 ring-[var(--primary)]/40"
-                              : "bg-[var(--secondary)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
-                          )}
-                        >
-                          <div className="font-medium text-[var(--foreground)]">
-                            {localizeUi("ui.game.gamesetupwizard.classic")}
-                          </div>
-                          <div className="mt-1 text-[var(--muted-foreground)]">
-                            {localizeUi("game.combat.preference.classicDescription")}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => setCombatStyle("tactical")}
-                          aria-pressed={combatStyle === "tactical"}
-                          className={cn(
-                            "flex-1 rounded-lg p-3 text-left text-xs transition-colors ring-1",
-                            combatStyle === "tactical"
-                              ? "bg-[var(--primary)]/10 ring-[var(--primary)]/40"
-                              : "bg-[var(--secondary)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
-                          )}
-                        >
-                          <div className="font-medium text-[var(--foreground)]">
-                            {localizeUi("ui.game.gamesetupwizard.tactical")}
-                          </div>
-                          <div className="mt-1 text-[var(--muted-foreground)]">
-                            {localizeUi("game.combat.preference.tacticalDescription")}
-                          </div>
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        {(!combatStyles || combatStyles.includes("classic")) && (
+                          <button
+                            onClick={() => setCombatStyle("classic")}
+                            aria-pressed={combatStyle === "classic"}
+                            className={cn(
+                              "min-w-0 flex-1 basis-36 rounded-lg p-3 text-left text-xs break-words transition-colors ring-1",
+                              combatStyle === "classic"
+                                ? "bg-[var(--primary)]/10 ring-[var(--primary)]/40"
+                                : "bg-[var(--secondary)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
+                            )}
+                          >
+                            <div className="font-medium text-[var(--foreground)]">
+                              {localizeUi("ui.game.gamesetupwizard.classic")}
+                            </div>
+                            <div className="mt-1 text-[var(--muted-foreground)]">
+                              {localizeUi("game.combat.preference.classicDescription")}
+                            </div>
+                          </button>
+                        )}
+                        {(!combatStyles || combatStyles.includes("tactical")) && (
+                          <button
+                            onClick={() => setCombatStyle("tactical")}
+                            aria-pressed={combatStyle === "tactical"}
+                            className={cn(
+                              "min-w-0 flex-1 basis-36 rounded-lg p-3 text-left text-xs break-words transition-colors ring-1",
+                              combatStyle === "tactical"
+                                ? "bg-[var(--primary)]/10 ring-[var(--primary)]/40"
+                                : "bg-[var(--secondary)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
+                            )}
+                          >
+                            <div className="font-medium text-[var(--foreground)]">
+                              {localizeUi("ui.game.gamesetupwizard.tactical")}
+                            </div>
+                            <div className="mt-1 text-[var(--muted-foreground)]">
+                              {localizeUi("game.combat.preference.tacticalDescription")}
+                            </div>
+                          </button>
+                        )}
+                        {listCombatStyles()
+                          .filter((id) => !isBuiltInCombatStyle(id) && (!combatStyles || combatStyles.includes(id)))
+                          .map((id) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setCombatStyle(id)}
+                              aria-pressed={combatStyle === id}
+                              className={cn(
+                                "min-w-0 flex-1 basis-36 rounded-lg p-3 text-left text-xs break-words transition-colors ring-1",
+                                combatStyle === id
+                                  ? "bg-[var(--primary)]/10 ring-[var(--primary)]/40"
+                                  : "bg-[var(--secondary)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
+                              )}
+                            >
+                              <span className="font-medium text-[var(--foreground)]">
+                                {getCombatStyle(id).label ?? id}
+                              </span>
+                            </button>
+                          ))}
                       </div>
+                      {combatStyles && activeRuleset && (
+                        <p className="mt-1.5 text-xs text-[var(--muted-foreground)]">
+                          {localizeUi("game.ruleset.setup.combatStylesLimited", {
+                            name: activeRuleset.definition.name,
+                          })}
+                        </p>
+                      )}
                       <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
                         <input
                           type="checkbox"
@@ -2266,33 +2340,55 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </label>
-                      {combatStyle === "tactical" && (
-                        <div className="mt-3 space-y-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-3">
-                          <div>
-                            <div>
-                              <label htmlFor="game-setup-battlefield-size" className={GAME_SETUP_FIELD_LABEL}>
-                                {localizeUi("ui.game.gamesetupwizard.battlefieldSize")}
-                              </label>
-                              <select
-                                id="game-setup-battlefield-size"
-                                value={tacticalBattlefieldSize}
-                                onChange={(event) =>
-                                  setTacticalBattlefieldSize(event.target.value as "auto" | TacticalBattlefieldSize)
-                                }
-                                className={GAME_SETUP_INPUT_CLASS}
-                              >
-                                {TACTICAL_BATTLEFIELD_SIZE_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {localizeUi(option.labelKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
+                      {gmBossControl && (
+                        <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                          <input
+                            type="checkbox"
+                            checked={gmNamedControl}
+                            onChange={(e) => setGmNamedControl(e.target.checked)}
+                            className="mt-1 size-4 accent-[var(--primary)]"
+                          />
+                          <span>
+                            {localizeUi("game.combat.director.namedLabel")}
+                            <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                              {localizeUi("game.combat.director.namedHelp")}
+                            </span>
+                          </span>
+                        </label>
                       )}
+                      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                        <input
+                          type="checkbox"
+                          checked={companionsOnTheirOwn}
+                          onChange={(e) => setCompanionsOnTheirOwn(e.target.checked)}
+                          className="mt-1 size-4 accent-[var(--primary)]"
+                        />
+                        <span>
+                          {localizeUi("game.combat.director.companionsLabel")}
+                          <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("game.combat.director.companionsHelp")}
+                          </span>
+                        </span>
+                      </label>
+                      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                        <input
+                          type="checkbox"
+                          checked={cruelOpponents}
+                          onChange={(e) => setCruelOpponents(e.target.checked)}
+                          className="mt-1 size-4 accent-[var(--primary)]"
+                        />
+                        <span>
+                          {localizeUi("game.combat.director.cruelLabel")}
+                          <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("game.combat.director.cruelHelp")}
+                          </span>
+                        </span>
+                      </label>
                     </div>
 
+                    {!isNewGame && chatMetadata?.gameRuleset != null && (
+                      <GameRulesetUpdate chatId={activeChatId} pin={chatMetadata.gameRuleset} variant="wizard" />
+                    )}
                     {rulesets.length > 0 && (
                       <GameSetupRulesChooser
                         rulesets={rulesets}
@@ -2498,7 +2594,7 @@ export function GameSetupWizard({
                     <GameSetupGmIntro
                       value={gameIntro}
                       onChange={setGameIntro}
-                      {...(effectiveWorldDraft?.story?.intro ? { experience: effectiveWorldDraft.story.intro } : {})}
+                      {...(experienceIntro ? { experience: experienceIntro } : {})}
                     />
 
                     {/* GM Character selector */}
@@ -2507,71 +2603,7 @@ export function GameSetupWizard({
                         <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
                           {localizeUi("ui.game.gamesetupwizard.gmCharacter")}
                         </label>
-                        {/* Selected GM */}
-                        {gmCharacterId &&
-                          (() => {
-                            const c = characters.find((ch) => ch.id === gmCharacterId);
-                            if (!c) return null;
-                            return (
-                              <div className="mb-2 flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                                <CharacterAvatar character={c} />
-                                <span className="flex-1 truncate text-xs">{c.name}</span>
-                                <button
-                                  onClick={() => setGmCharacterId(null)}
-                                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                  title={localizeUi("settings.notifications.customSound.actions.remove")}
-                                >
-                                  <X size="0.6875rem" />
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        {/* Search + list */}
-                        <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
-                          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-                            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                            <input
-                              value={gmSearch}
-                              onChange={(e) => setGmSearch(e.target.value)}
-                              placeholder={localizeUi("ui.game.gamesetupwizard.searchCharacters")}
-                              className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                            />
-                          </div>
-                          <div className="max-h-32 overflow-y-auto">
-                            {filteredGmCharacters.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => setGmCharacterId(c.id === gmCharacterId ? null : c.id)}
-                                className={cn(
-                                  "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                                  c.id === gmCharacterId && "bg-[var(--primary)]/5",
-                                )}
-                              >
-                                <CharacterAvatar character={c} />
-                                <div className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs">{c.name}</span>
-                                  {getCharacterTitle(c) && (
-                                    <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                      {getCharacterTitle(c)}
-                                    </span>
-                                  )}
-                                </div>
-                                {c.id === gmCharacterId && (
-                                  <span className="text-[0.625rem] text-[var(--primary)]">
-                                    {localizeUi("ui.game.gamesetupwizard.selected_9a976fc")}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                            {filteredGmCharacters.length === 0 && (
-                              <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                                {characters.length === 0
-                                  ? localizeUi("ui.agents.regexscripteditor.noCharactersFound")
-                                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        <CharacterSelect kind="character" allowNone value={gmCharacterId} onChange={setGmCharacterId} />
                       </div>
                     )}
 
@@ -2587,51 +2619,16 @@ export function GameSetupWizard({
                           </>
                         )}
                       </label>
-                      {/* Selected party members */}
-                      {partyCharacterIds.length > 0 && (
-                        <div className="mb-2 flex flex-col gap-1">
-                          {partyCharacterIds.map((cid) => {
-                            const c = characters.find((ch) => ch.id === cid);
-                            if (!c) return null;
-                            return (
-                              <div
-                                key={cid}
-                                className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                              >
-                                <CharacterAvatar character={c} />
-                                <div className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs">{c.name}</span>
-                                  {getCharacterTitle(c) && (
-                                    <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                      {getCharacterTitle(c)}
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => togglePartyMember(cid)}
-                                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                  title={localizeUi("settings.notifications.customSound.actions.remove")}
-                                >
-                                  <X size="0.6875rem" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {/* Search + list */}
-                      <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-                          <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                          <input
-                            value={partySearch}
-                            onChange={(e) => setPartySearch(e.target.value)}
-                            placeholder={localizeUi("ui.game.gamesetupwizard.searchCharacters")}
-                            className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                          />
-                        </div>
-                        {characterFolders.length > 0 && (
-                          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+                      <CharacterSelect
+                        kind="character"
+                        multiple
+                        value={partyCharacterIds}
+                        onChange={setPartyCharacterIds}
+                        exclude={gmCharacterId ? [gmCharacterId] : undefined}
+                      />
+                      {characterFolders.length > 0 && (
+                        <div className="mt-1.5 overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-[var(--border)]">
+                          <div className="flex items-center gap-2 px-3 py-2">
                             <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                             <select
                               value={partyFolderId}
@@ -2667,47 +2664,8 @@ export function GameSetupWizard({
                               {localizeUi("ui.characters.metadatatab.add")}
                             </button>
                           </div>
-                        )}
-                        <div className="max-h-36 overflow-y-auto">
-                          {filteredPartyCharacters.map((c) => {
-                            const isSelected = partyCharacterIds.includes(c.id);
-                            return (
-                              <button
-                                key={c.id}
-                                onClick={() => togglePartyMember(c.id)}
-                                className={cn(
-                                  "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                                  isSelected && "bg-[var(--primary)]/5",
-                                )}
-                              >
-                                <CharacterAvatar character={c} />
-                                <div className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs">{c.name}</span>
-                                  {getCharacterTitle(c) && (
-                                    <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                      {getCharacterTitle(c)}
-                                    </span>
-                                  )}
-                                </div>
-                                {isSelected ? (
-                                  <span className="text-[0.625rem] text-[var(--primary)]">
-                                    {localizeUi("ui.game.gamesetupwizard.added")}
-                                  </span>
-                                ) : (
-                                  <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                                )}
-                              </button>
-                            );
-                          })}
-                          {filteredPartyCharacters.length === 0 && (
-                            <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                              {characters.length === 0
-                                ? localizeUi("ui.game.gamesetupwizard.noCharactersFoundCreateCharactersFirst")
-                                : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                            </p>
-                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Persona */}
@@ -2717,92 +2675,13 @@ export function GameSetupWizard({
                           <User size={12} className="mr-1 inline" />
                           {localizeUi("ui.game.gamesetupwizard.playerSPersona")}
                         </label>
-                        {personaId &&
-                          (() => {
-                            const p = personas.find((x) => x.id === personaId);
-                            if (!p) return null;
-                            const title = getPersonaTitle(p);
-                            return (
-                              <div className="mb-2 flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                                <CharacterAvatar
-                                  character={{
-                                    name: p.name,
-                                    avatarUrl: p.avatarPath ?? null,
-                                    avatarCrop: p.avatarCrop,
-                                  }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs">{p.name}</span>
-                                  {title && (
-                                    <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                      {title}
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => setPersonaId(null)}
-                                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                  title={localizeUi("settings.notifications.customSound.actions.remove")}
-                                >
-                                  <X size="0.6875rem" />
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        <div className="overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-[var(--border)]">
-                          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-                            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                            <input
-                              value={personaSearch}
-                              onChange={(e) => setPersonaSearch(e.target.value)}
-                              placeholder={localizeUi("ui.game.gamesetupwizard.searchPersonasOrTitles")}
-                              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                            />
-                          </div>
-                          <div className="max-h-32 overflow-y-auto">
-                            {filteredPersonas.map((p) => {
-                              const title = getPersonaTitle(p);
-                              return (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setPersonaId(p.id === personaId ? null : p.id)}
-                                  className={cn(
-                                    "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                                    p.id === personaId && "bg-[var(--primary)]/5",
-                                  )}
-                                >
-                                  <CharacterAvatar
-                                    character={{
-                                      name: p.name,
-                                      avatarUrl: p.avatarPath ?? null,
-                                      avatarCrop: p.avatarCrop,
-                                    }}
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <span className="block truncate text-xs">{p.name}</span>
-                                    {title && (
-                                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                        {title}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {p.id === personaId && (
-                                    <span className="text-[0.625rem] text-[var(--primary)]">
-                                      {localizeUi("ui.game.gamesetupwizard.selected_9a976fc")}
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                            {filteredPersonas.length === 0 && (
-                              <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                                {personas.length === 0
-                                  ? localizeUi("ui.game.gamesetupwizard.noPersonasFoundCreateOneInThePersonasPanel")
-                                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        <CharacterSelect
+                          kind="persona"
+                          allowNone
+                          withCharacters={false}
+                          value={personaId ? { persona: personaId } : null}
+                          onChange={(next) => setPersonaId(next && "persona" in next ? next.persona : null)}
+                        />
                       </div>
                     )}
 
@@ -3123,30 +3002,15 @@ export function GameSetupWizard({
                                 <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                                   {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                                 </label>
-                                <select
-                                  value={imageConnectionId ?? ""}
-                                  onChange={(e) => setImageConnectionId(e.target.value || null)}
-                                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                >
-                                  <option value="">
-                                    {localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
-                                  </option>
-                                  {imageConnections.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                      {c.model
-                                        ? localizeUi("ui.game.gamesetupwizard.value1_4cb807e", { value1: c.model })
-                                        : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                {imageConnections.length === 0 && (
-                                  <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                    {localizeUi(
-                                      "ui.game.gamesetupwizard.noImageGenerationConnectionsFoundAddOneInSettings",
-                                    )}
-                                  </p>
-                                )}
+                                <ConnectionSelect
+                                  job={localizeUi("connections.picker.job.gameImages")}
+                                  kind="image"
+                                  value={imageConnectionId}
+                                  onChange={setImageConnectionId}
+                                  defaultLabel={localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
+                                  inherits="main"
+                                />
+                                {imageConnections.length === 0 && <NeedsModelChip kind="image" className="mt-1" />}
                                 <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                   {localizeUi(
                                     "ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsAndSceneIllustrations",
@@ -3177,30 +3041,15 @@ export function GameSetupWizard({
                                     <Film size={11} />
                                     {localizeUi("ui.game.gamesetupwizard.videoGenerationConnection")}
                                   </label>
-                                  <select
-                                    value={videoConnectionId ?? ""}
-                                    onChange={(e) => setVideoConnectionId(e.target.value || null)}
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                  >
-                                    <option value="">
-                                      {localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
-                                    </option>
-                                    {videoConnections.map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                        {c.model
-                                          ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model })
-                                          : ""}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {videoConnections.length === 0 && (
-                                    <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                      {localizeUi(
-                                        "ui.game.gamesetupwizard.noVideoGenerationConnectionsFoundAddOneInSettings",
-                                      )}
-                                    </p>
-                                  )}
+                                  <ConnectionSelect
+                                    job={localizeUi("connections.picker.job.gameVideo")}
+                                    kind="video"
+                                    value={videoConnectionId}
+                                    onChange={setVideoConnectionId}
+                                    defaultLabel={localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
+                                    inherits="main"
+                                  />
+                                  {videoConnections.length === 0 && <NeedsModelChip kind="video" className="mt-1" />}
                                   <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                     {localizeUi("ui.game.gamesetupwizard.usedForManualSceneVideos")}
                                   </p>
@@ -3221,30 +3070,31 @@ export function GameSetupWizard({
                             {localizeUi("ui.game.gamesetupwizard.gameAudio")}
                           </span>
                           <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
-                            {localizeUi("ui.game.gamesetupwizard.generateSoundEffectsAndMusicForScenesUsingAn")}
+                            {localizeUi("connections.audioGeneration.setupHelp")}
                           </span>
                         </div>
                       </div>
                       <div className="mt-2">
-                        <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                          {localizeUi("ui.game.gamesetupwizard.audioConnection")}
-                        </label>
-                        <select
-                          value={audioConnectionId ?? ""}
-                          onChange={(e) => setAudioConnectionId(e.target.value || null)}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
+                        <label
+                          htmlFor={`${activeChatId}:game-audio-connection`}
+                          className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]"
                         >
-                          <option value="">{localizeUi("ui.game.gamesetupwizard.useTheDefaultAudioConnection")}</option>
-                          {audioConnections.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                              {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                            </option>
-                          ))}
-                        </select>
+                          {localizeUi("connections.audioGeneration.connection")}
+                        </label>
+                        <ConnectionSelect
+                          job={localizeUi("connections.picker.job.gameAudio")}
+                          id={`${activeChatId}:game-audio-connection`}
+                          value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : null}
+                          onChange={setAudioConnectionId}
+                          // Music & Sound Effects Models: kind "audio" lists the speech (TTS) ones.
+                          kind="all"
+                          rowFilter={(row) => audioConnections.some((connection) => connection.id === row.id)}
+                          defaultLabel={localizeUi("connections.audioGeneration.defaultChoice")}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
+                        />
                         {audioConnections.length === 0 && (
                           <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                            {localizeUi("ui.game.gamesetupwizard.noAudioConnectionsFoundAddOneInSettings")}
+                            {localizeUi("connections.audioGeneration.setupEmpty")}
                           </p>
                         )}
                       </div>
@@ -3291,9 +3141,7 @@ export function GameSetupWizard({
                       {resolvedAudioConnection != null &&
                         (!audioConnectionSupportsSfx || !audioConnectionSupportsMusic) && (
                           <p className="mt-2 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                            {localizeUi(
-                              "ui.game.gamesetupwizard.soundEffectAndMusicGenerationRequiresAnElevenlabsAudio",
-                            )}
+                            {localizeUi("connections.gameAudio.unavailable")}
                           </p>
                         )}
                     </div>
@@ -3400,6 +3248,9 @@ export function GameSetupWizard({
                         rows={3}
                         className="w-full resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                       />
+                      {rememberedSetupText.playerGoals && playerGoals === rememberedSetupText.playerGoals && (
+                        <RememberedTextNote onClear={() => setPlayerGoals("")} />
+                      )}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {goalSuggestions.map((s) => (
                           <button
@@ -3433,6 +3284,9 @@ export function GameSetupWizard({
                         rows={3}
                         className="w-full resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                       />
+                      {rememberedSetupText.preferences && preferences === rememberedSetupText.preferences && (
+                        <RememberedTextNote onClear={() => setPreferences("")} />
+                      )}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {PREFERENCE_SUGGESTIONS.map((s) => (
                           <button
@@ -3516,11 +3370,13 @@ export function GameSetupWizard({
                               <Plus size={12} className="text-[var(--muted-foreground)]" />
                             </button>
                           ))}
-                          {availableLorebooks.length === 0 && (
+                          {availableLorebooks.length === 0 && lorebooksList !== undefined && (
                             <p className="px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                              {lorebooks.filter((lb) => !activeLorebookIds.includes(lb.id)).length === 0
-                                ? localizeUi("ui.game.gamesetupwizard.allLorebooksAlreadyAdded")
-                                : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
+                              {lorebooks.length === 0
+                                ? localizeUi("ui.panels.lorebookspanel.noLorebooksYet")
+                                : lorebooks.filter((lb) => !activeLorebookIds.includes(lb.id)).length === 0
+                                  ? localizeUi("ui.game.gamesetupwizard.allLorebooksAlreadyAdded")
+                                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
                             </p>
                           )}
                         </div>
@@ -4171,11 +4027,28 @@ export function GameSetupWizard({
                           ? localizeUi("ui.game.gamesetupwizard.theGameIsReadyNowLinkingItsSharedWorld")
                           : localizeUi("ui.game.gamesetupwizard.holdOnTightTheGameIsBeingGeneratedRight")}
                     </span>
-                    <span aria-hidden="true" className="shrink-0 tabular-nums text-[var(--muted-foreground)]">
-                      {generationElapsedSeconds}
-                      {localizeUi("ui.noodle.stageprofileview.s")}
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span aria-hidden="true" className="tabular-nums text-[var(--muted-foreground)]">
+                        {generationElapsedSeconds}
+                        {localizeUi("ui.noodle.stageprofileview.s")}
+                      </span>
+                      {onStopGeneration && (
+                        <button
+                          type="button"
+                          onClick={onStopGeneration}
+                          className="rounded-md border border-[var(--border)] px-2 py-0.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                        >
+                          {localizeUi("game.setup.stopGeneration")}
+                        </button>
+                      )}
                     </span>
                   </div>
+                  {/* A reasoning model can think for many minutes with nothing to show: say it is still waiting. */}
+                  {generationElapsedSeconds >= 60 && !isDraftingMap && !isLinkingSharedWorld && (
+                    <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {localizeUi("game.setup.stillWaiting")}
+                    </p>
+                  )}
                   <div
                     className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--muted)]/60"
                     role="progressbar"
@@ -4276,7 +4149,7 @@ export function GameSetupWizard({
                         <>
                           <Wand2 size={14} />
                           {localizeUi(
-                            multiplayerPlayers ? "multiplayer.game.review" : "ui.game.gamesurfacecomponent.startGame",
+                            multiplayerPlayers ? "multiplayer.game.review" : "ui.game.gamesetupwizard.createWorld",
                           )}
                         </>
                       )}

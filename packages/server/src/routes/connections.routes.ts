@@ -1,4 +1,14 @@
-import { resolveDecisionConnection } from "../services/decision/decision-connection.js";
+import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
+import {
+  fetchProviderModels,
+  resolveAudioConfig,
+  TTS_CONNECTION_UNAVAILABLE,
+  ttsCatalogHeaders,
+} from "./tts.routes.js";
+import { z } from "zod";
+import { partialInput, PROVIDERS } from "@marinara-engine/shared";
+import { migrateGenerativeAudioConnections } from "../services/connections/generative-audio-connection-migration.js";
+import { validateSunoMusicCallback } from "../services/audio/generative-audio-providers.js";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { connectionChatTarget, probeDecisionSlot } from "../services/decision/sidecar-decision.backend.js";
 import {
@@ -11,10 +21,14 @@ import {
 // Routes: Connections
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { randomUUID } from "node:crypto";
+import { CONNECTION_TEST_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { validationDetails } from "../middleware/error-handler.js";
 import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
+  APP_VERSION,
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   CODEX_IMAGE_MODEL,
@@ -24,7 +38,9 @@ import {
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
   connectionImageCaptioningDefaultsSchema,
+  connectionBilling,
   connectionModelPinSchema,
+  connectionMoveSchema,
   createConnectionSchema,
   MAX_PINNED_MODELS,
   createDefaultVideoGenerationProfile,
@@ -36,26 +52,44 @@ import {
   inferVideoSource,
   hasPlanUsageWindows,
   isLocalAuthProvider,
+  isChatProvider,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
+  LOCAL_SIDECAR_CONNECTION_ID,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
+  modelCost,
+  OUTSIDE_READS_SETTINGS_KEY,
+  rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
+  updateConnectionAccountSchema,
+  speaksOpenAIChat,
   type AtlasCloudVideoModelSchemaResponse,
+  type ConnectionTestAuthErrorCode,
 } from "@marinara-engine/shared";
 import {
   connectionSavesModelList,
   createConnectionsStorage,
-  readSavedModelList,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
+import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
+import {
+  readCatalogModelMetadata,
+  registerModelCatalogRefresher,
+  type CatalogModelMetadata,
+} from "../services/connections/model-catalog.js";
+import { withCatalogPrices } from "../services/connections/price-catalog.js";
+import { cachedLinkApiGroup } from "../services/connections/balance.js";
 import {
   allowsDefaultChatModel,
   canRefreshLocalContext,
   fetchLocalContextLimit,
 } from "../services/llm/local-context-limit.js";
-import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
+import {
+  resetMemoryRecallVectorizerCache,
+  resolveConnectionTestEmbeddingSource,
+} from "../services/memory-recall-embedding.js";
 import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -83,6 +117,7 @@ import {
   extensionFromImageMime,
   isAllowedImageBuffer,
   normalizeLoopbackUrl,
+  requestHeadersWithDefaultUserAgent,
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -90,9 +125,14 @@ import { decryptApiKey } from "../utils/crypto.js";
 import {
   fetchNanoGptSubscriptionUsage,
   readNanoGptModelSubscriptionMetadata,
+  cachedPlanActive,
+  readNanoGptPlan,
+  withNanoGptPlan,
 } from "../services/nanogpt/subscription-usage.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { fetchClaudePlanUsage } from "../services/llm/providers/claude-subscription/plan-usage.js";
 import { fetchOpenAIChatGPTPlanUsage } from "../services/llm/openai-chatgpt-usage.js";
+import { modelUsage } from "../services/connections/model-stars.js";
 import {
   buildAtlasCloudModelSchemaUrl,
   buildAtlasCloudTestReferenceImage,
@@ -109,6 +149,26 @@ import {
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
+
+/** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
+export async function saveConnectionImage(
+  _id: string,
+  body: unknown,
+): Promise<{ imagePath: string } | { error: string }> {
+  const image = (body as { image?: unknown } | null)?.image;
+  if (typeof image !== "string" || !image) return { error: "No image data provided" };
+
+  const { buffer, hintedExt } = parseImageUpload(image);
+  const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
+  if (!imageInfo) return { error: "Unsupported or invalid connection image" };
+
+  const ext = extensionFromImageMime(imageInfo.mimeType);
+  await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
+  const filename = `connection-${randomUUID()}.${ext}`;
+  const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
+  await writeFile(filepath, buffer);
+  return { imagePath: `/api/connections/images/file/${filename}` };
+}
 const SWARMUI_CONTROL_REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_COMFYUI_VIDEO_BASE_URL = "http://127.0.0.1:8188";
 const DEFAULT_SWARMUI_VIDEO_BASE_URL = "http://127.0.0.1:7801";
@@ -126,12 +186,48 @@ const DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL = "https://api.atlascloud.ai/api/v1";
 const DEFAULT_SEEDANCE_VIDEO_MODEL = "seedance-2-0";
 const DEFAULT_SEEDANCE_VIDEO_BASE_URL = "https://api.seedance2.ai";
 
+async function generativeAudioConnectionError(connection: {
+  provider: string;
+  audioGenerationSource?: string | null;
+  audioGenerationCallbackUrl?: string | null;
+  audioMusic?: boolean | string;
+}): Promise<string | null> {
+  if (
+    connection.provider !== "audio_generation" ||
+    connection.audioGenerationSource !== "sunoapi" ||
+    (connection.audioMusic !== true && connection.audioMusic !== "true")
+  )
+    return null;
+  try {
+    await validateSunoMusicCallback(connection.audioGenerationCallbackUrl);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readDebugMode(body: unknown): boolean {
   return isRecord(body) && body.debugMode === true;
+}
+
+/** A key or address typed in the editor but not saved yet, checked like a save; never logged or returned. */
+const testDraftSchema = updateConnectionAccountSchema.pick({ apiKey: true, baseUrl: true });
+function readTestDraft(body: unknown) {
+  if (!isRecord(body)) return {};
+  const parsed = testDraftSchema.safeParse({ apiKey: body.apiKey, baseUrl: body.baseUrl });
+  if (!parsed.success) return null;
+  const draft: { apiKey?: string; baseUrl?: string } = {};
+  if (parsed.data.apiKey) draft.apiKey = parsed.data.apiKey.trim();
+  if (parsed.data.baseUrl !== undefined) draft.baseUrl = parsed.data.baseUrl.trim();
+  return draft;
+}
+
+function connectionTestAuthError(status: number): ConnectionTestAuthErrorCode | undefined {
+  return status === 401 || status === 403 ? "AUTH_REJECTED" : undefined;
 }
 
 function trimProviderError(value: string, maxLen = CONNECTION_TEST_ERROR_PREVIEW_CHARS): string {
@@ -358,6 +454,47 @@ export function buildConnectionTestCatalogUrl(
   return `${normalizedBaseUrl}${modelsEndpoint}`;
 }
 
+/** These catalogs are public, so `/models` accepts any key; the key is checked on an endpoint that needs it. */
+export function buildKeyCheck(provider: string, baseUrl: string): { url: string; method: string } | null {
+  const base = baseUrl.replace(/\/+$/, "");
+  if (provider === "openrouter") return { url: `${base}/key`, method: "GET" };
+  if (provider === "nanogpt") return { url: `${new URL(base).origin}/api/check-balance`, method: "POST" };
+  return null;
+}
+
+/** The headers a provider expects with its key: Test and the live access check send the same ones. */
+async function providerKeyHeaders(providerId: string, apiKey: string): Promise<Record<string, string>> {
+  const provider = PROVIDERS[providerId as keyof typeof PROVIDERS];
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+  };
+  if (provider?.usesAuthHeader) headers["Authorization"] = `Bearer ${apiKey}`;
+  if (provider?.apiKeyHeader) headers[provider.apiKeyHeader] = apiKey;
+  if (providerId === "google_vertex") Object.assign(headers, await googleAuthHeadersForVertex(apiKey));
+  if (providerId === "anthropic") headers["anthropic-version"] = "2023-06-01";
+  return headers;
+}
+
+/** Providers the live access check skips: they sign in another way or have no model list to ask. */
+const UNCHECKED_ACCESS_PROVIDERS = new Set([
+  "audio",
+  "audio_generation",
+  "image_generation",
+  "video_generation",
+  "decision",
+  "claude_subscription",
+  "openai_chatgpt",
+  "grok_subscription",
+]);
+
+const accessCheckSchema = z.object({
+  provider: z.string().min(1).max(64),
+  baseUrl: z.string().max(2048).optional(),
+  apiKey: z.string().max(8192).optional(),
+  accountId: z.string().min(1).max(200).optional(),
+});
+
 function normalizeConnectionTestBaseUrl(baseUrl: string, provider: string): string {
   if (provider === "google") return normalizeGoogleGenerativeLanguageBaseUrl(baseUrl);
   if (provider !== "image_generation") return baseUrl.replace(/\/+$/, "");
@@ -467,8 +604,28 @@ function knownStabilityImageModels() {
     .map((model) => ({ id: model.id, name: model.name }));
 }
 
+function knownNovelAiImageModels() {
+  return MODEL_LISTS.image_generation
+    .filter((model) => model.id.startsWith("nai-"))
+    .map((model) => ({ id: model.id, name: model.name }));
+}
+
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
+  const appSettings = createAppSettingsStorage(app.db);
+  // `getWithKey` is null for a missing Model and for a blocked one; only the first is "not found".
+  const unusableConnection = async (id: string, reply: FastifyReply) =>
+    (await storage.getById(id))
+      ? reply.status(400).send({ error: "This connection is off, under review, or needs an API key." })
+      : reply.status(404).send({ error: "Connection not found" });
+  const migrateLegacyAudio = async (provider?: string) => {
+    if (provider !== "audio") return;
+    try {
+      await migrateGenerativeAudioConnections(app.db);
+    } catch (error) {
+      logger.warn(error, "[migration] Connection saved; deferring its optional music and sound-effect split");
+    }
+  };
   const maskConnection = <T extends { apiKeyEncrypted?: unknown; managementTokenEncrypted?: unknown } | null>(
     conn: T,
   ): T =>
@@ -528,26 +685,39 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   app.post("/", async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    // Chat rows need a usable explicit model ID; container providers and setup placeholders can omit it.
+    if (
+      body &&
+      isChatProvider(body.provider) &&
+      Object.hasOwn(body, "model") &&
+      (typeof body.model !== "string" || !body.model.trim())
+    ) {
+      return reply.status(400).send({ error: "A connection record must include a non-empty model ID." });
+    }
     const input = createConnectionSchema.parse(req.body);
-    const validationError = nanoGptVideoConnectionError(input);
+    const validationError = nanoGptVideoConnectionError(input) || (await generativeAudioConnectionError(input));
     if (validationError) return reply.status(400).send({ error: validationError });
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       const created = await storage.create(input);
+      await migrateLegacyAudio(created?.provider);
       resetMemoryRecallVectorizerCache();
-      return maskConnection(created);
+      return maskConnection(created ? await storage.getById(created.id) : null);
     });
   });
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
-    const data = createConnectionSchema.partial().parse(req.body);
+    const data = partialInput(createConnectionSchema).parse(req.body);
     const current = await storage.getById(req.params.id);
     if (!current) return reply.status(404).send({ error: "Connection not found" });
-    const validationError = nanoGptVideoConnectionError({ ...current, ...data });
+    const merged = { ...current, ...data };
+    const validationError = nanoGptVideoConnectionError(merged) || (await generativeAudioConnectionError(merged));
     if (validationError) return reply.status(400).send({ error: validationError });
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       const updated = await storage.update(req.params.id, data);
+      await migrateLegacyAudio(updated?.provider);
       resetMemoryRecallVectorizerCache();
-      return maskConnection(updated);
+      return maskConnection(updated ? await storage.getById(updated.id) : null);
     });
   });
 
@@ -555,22 +725,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const connection = await storage.getById(req.params.id);
     if (!connection) return reply.status(404).send({ error: "Connection not found" });
 
-    const body = req.body as { image?: string };
-    if (!body.image) return reply.status(400).send({ error: "No image data provided" });
+    const saved = await saveConnectionImage(req.params.id, req.body);
+    if ("error" in saved) return reply.status(400).send(saved);
 
-    const { buffer, hintedExt } = parseImageUpload(body.image);
-    const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
-    if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid connection image" });
-
-    const ext = extensionFromImageMime(imageInfo.mimeType);
-    await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
-    const filename = `connection-${req.params.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
-    await writeFile(filepath, buffer);
-
-    const updated = await storage.update(req.params.id, { imagePath: `/api/connections/images/file/${filename}` });
+    const updated = await storage.update(req.params.id, { imagePath: saved.imagePath, icon: null });
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
     return maskConnection(updated);
   });
@@ -585,14 +743,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
     let params: Record<string, unknown> | null = null;
     if (raw !== null) {
-      const parsed = generationParametersSchema.partial().safeParse(raw);
+      const parsed = partialInput(generationParametersSchema).safeParse(raw);
       if (!parsed.success) {
         return reply.status(400).send({
           error: "Invalid generation parameters",
-          issues: parsed.error.issues.map((issue) => ({
-            path: issue.path.join("."),
-            message: issue.message,
-          })),
+          issues: [...validationDetails(parsed.error.issues)],
         });
       }
       params = { ...parsed.data };
@@ -622,6 +777,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
     });
   });
 
+  // What uses a Model, so the delete dialog can say what changes.
+  app.get<{ Params: { id: string } }>("/:id/usage", async (req, reply) => {
+    const row = await storage.getById(req.params.id);
+    if (!row) return reply.status(404).send({ error: "Connection not found" });
+    return modelUsage(app.db, row);
+  });
+
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     await withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       await storage.remove(req.params.id);
@@ -638,306 +800,321 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   // Test connection (sends a tiny ping to the API)
-  app.post<{ Params: { id: string } }>("/:id/test", async (req, reply) => {
-    const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+  app.post<{ Params: { id: string } }>(
+    "/:id/test",
+    { config: { rateLimit: CONNECTION_TEST_RATE_LIMIT } },
+    async (req, reply) => {
+      const stored = await storage.getWithKey(req.params.id);
+      if (!stored) return unusableConnection(req.params.id, reply);
+      const draft = readTestDraft(req.body);
+      if (!draft) return reply.status(400).send({ error: "Invalid key or address" });
+      const conn = { ...stored, ...draft };
+      if (conn.provider === "audio_generation") {
+        return reply.status(400).send({
+          error: "Test this connection by generating audio in a mode. No chat or model-list test is supported.",
+        });
+      }
 
-    const requestDebug = readDebugMode(req.body);
-    const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
-    const start = Date.now();
-    try {
-      if (conn.provider === "decision") {
-        const resolved = await resolveDecisionConnection(conn, (id) => storage.getWithKey(id));
-        if (!resolved.connection)
+      const requestDebug = readDebugMode(req.body);
+      const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
+      const start = Date.now();
+      try {
+        if (conn.provider === "decision") {
+          const resolved = await resolveDecisionConnection(conn, (id) => storage.getWithKey(id));
+          if (!resolved.connection)
+            return {
+              success: false,
+              message: resolved.error,
+              errorCode: resolved.error,
+              latencyMs: Date.now() - start,
+              modelName: null,
+            };
+          // Waits past the connection's own limit so a slow answer comes back with its
+          // real time. The client compares that time with `timeLimitMs`, the limit chats use.
+          const timeLimitMs = resolved.connection.timeoutMs;
+          const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
+          if (resolved.connection.protocol === "chat_logprobs") {
+            // The same probe as a local model's Test, so it also reports whether the
+            // server returned log-probabilities and whether the model had to think.
+            const probe = await probeDecisionSlot(
+              connectionChatTarget(conn.id, conn.name, { ...resolved.connection, timeoutMs: testTimeoutMs }),
+            );
+            return {
+              success: probe.probability !== null,
+              message: probe.error ?? "Decision model answered.",
+              errorCode:
+                probe.probability === null
+                  ? probe.error === "http_401" || probe.error === "http_403"
+                    ? "AUTH_REJECTED"
+                    : (probe.error ?? "no_answer")
+                  : undefined,
+              decisionProbability: probe.probability ?? undefined,
+              latencyMs: probe.latencyMs,
+              timeLimitMs,
+              testTimeoutMs,
+              logprobs: probe.logprobs,
+              answersDirectly: probe.answersDirectly,
+              modelName: resolved.connection.model,
+            };
+          }
+          const result = await askNoulQuestions({
+            connection: resolved.connection,
+            state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
+            questions: [{ id: "test", instructions: "The door is open." }],
+            timeoutMs: testTimeoutMs,
+            debugMode: requestDebug,
+          });
+          const probability = result.answers.get("test");
           return {
-            success: false,
-            message: resolved.error,
-            errorCode: resolved.error,
-            latencyMs: Date.now() - start,
-            modelName: null,
-          };
-        // Waits past the connection's own limit so a slow answer comes back with its
-        // real time. The client compares that time with `timeLimitMs`, the limit chats use.
-        const timeLimitMs = resolved.connection.timeoutMs;
-        const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
-        if (resolved.connection.protocol === "chat_logprobs") {
-          // The same probe as a local model's Test, so it also reports whether the
-          // server returned log-probabilities and whether the model had to think.
-          const probe = await probeDecisionSlot(
-            connectionChatTarget(conn.id, conn.name, { ...resolved.connection, timeoutMs: testTimeoutMs }),
-          );
-          return {
-            success: probe.probability !== null,
-            message: probe.error ?? "Decision model answered.",
-            errorCode: probe.probability === null ? (probe.error ?? "no_answer") : undefined,
-            decisionProbability: probe.probability ?? undefined,
-            latencyMs: probe.latencyMs,
+            success: probability !== undefined,
+            message: result.error ?? "Decision model answered.",
+            errorCode: result.error === "http_401" || result.error === "http_403" ? "AUTH_REJECTED" : result.error,
+            decisionProbability: probability,
+            latencyMs: result.latencyMs,
             timeLimitMs,
             testTimeoutMs,
-            logprobs: probe.logprobs,
-            answersDirectly: probe.answersDirectly,
             modelName: resolved.connection.model,
           };
         }
-        const result = await askNoulQuestions({
-          connection: resolved.connection,
-          state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
-          questions: [{ id: "test", instructions: "The door is open." }],
-          timeoutMs: testTimeoutMs,
-          debugMode: requestDebug,
-        });
-        const probability = result.answers.get("test");
-        return {
-          success: probability !== undefined,
-          message: result.error ?? "Decision model answered.",
-          errorCode: result.error,
-          decisionProbability: probability,
-          latencyMs: result.latencyMs,
-          timeLimitMs,
-          testTimeoutMs,
-          modelName: resolved.connection.model,
-        };
-      }
-      if (conn.provider === "claude_subscription") {
-        if (!conn.model) {
+        if (conn.provider === "claude_subscription") {
+          if (!conn.model) {
+            return {
+              success: false,
+              message: "No model configured. Set a Claude subscription model first.",
+              latencyMs: Date.now() - start,
+              modelName: null,
+            };
+          }
+          const provider = createLLMProvider(
+            conn.provider,
+            "",
+            conn.apiKey,
+            conn.maxContext,
+            conn.openrouterProvider,
+            conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
+            conn.id,
+          );
+          let responseText = "";
+          for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+            model: conn.model,
+            maxTokens: 32,
+            stream: false,
+          })) {
+            responseText += chunk;
+          }
+          return {
+            success: true,
+            message: `Claude Agent SDK completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        }
+
+        if (conn.provider === "openai_chatgpt") {
+          const auth = await getOpenAIChatGPTAuth();
+          const detail = auth.planType ? ` (${auth.planType})` : "";
+          return {
+            success: true,
+            message: `ChatGPT login found via Codex auth${detail}. Requests will use the local ChatGPT session.`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        }
+
+        if (conn.provider === "grok_subscription") {
+          const provider = createLLMProvider(
+            conn.provider,
+            // Grok CLI subscription auth is local-only: the CLI reads the
+            // cached `grok login` session, so API key/base URL are intentionally
+            // unused here and in normal generation.
+            "",
+            "",
+            conn.maxContext,
+            conn.openrouterProvider,
+            conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
+            conn.id,
+          );
+          let responseText = "";
+          for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+            model: conn.model ?? "",
+            maxTokens: 32,
+            stream: false,
+          })) {
+            responseText += chunk;
+          }
+          return {
+            success: true,
+            message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model || "Grok CLI default",
+          };
+        }
+
+        // Simple models list fetch to verify the key works
+        const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
+        let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
+
+        if (!baseUrl) {
           return {
             success: false,
-            message: "No model configured. Set a Claude subscription model first.",
-            latencyMs: Date.now() - start,
+            message: "No base URL configured for this provider",
+            latencyMs: 0,
             modelName: null,
           };
         }
-        const provider = createLLMProvider(
-          conn.provider,
-          "",
-          conn.apiKey,
-          conn.maxContext,
-          conn.openrouterProvider,
-          conn.maxTokensOverride,
-          conn.claudeFastMode === "true",
-          conn.treatAsLocalEndpoint === "true",
-          conn.defaultParameters,
-          conn.id,
-        );
-        let responseText = "";
-        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model,
-          maxTokens: 32,
-          stream: false,
-        })) {
-          responseText += chunk;
+        const headers = await providerKeyHeaders(conn.provider, conn.apiKey);
+
+        const imageSource =
+          conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
+        if (conn.provider === "video_generation") {
+          return {
+            success: true,
+            message: "Video generation connection configured. Use Test Video to verify MP4 generation.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
         }
-        return {
-          success: true,
-          message: `Claude Agent SDK completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-
-      if (conn.provider === "openai_chatgpt") {
-        const auth = await getOpenAIChatGPTAuth();
-        const detail = auth.planType ? ` (${auth.planType})` : "";
-        return {
-          success: true,
-          message: `ChatGPT login found via Codex auth${detail}. Requests will use the local ChatGPT session.`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-
-      if (conn.provider === "grok_subscription") {
-        const provider = createLLMProvider(
-          conn.provider,
-          // Grok CLI subscription auth is local-only: the CLI reads the
-          // cached `grok login` session, so API key/base URL are intentionally
-          // unused here and in normal generation.
-          "",
-          "",
-          conn.maxContext,
-          conn.openrouterProvider,
-          conn.maxTokensOverride,
-          conn.claudeFastMode === "true",
-          conn.treatAsLocalEndpoint === "true",
-          conn.defaultParameters,
-          conn.id,
-        );
-        let responseText = "";
-        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model ?? "",
-          maxTokens: 32,
-          stream: false,
-        })) {
-          responseText += chunk;
+        baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
+        // image_generation has no standard modelsEndpoint — use provider-specific checks
+        let testUrl: string;
+        if (conn.provider === "image_generation" && imageSource === "novelai") {
+          return {
+            success: true,
+            message: "NovelAI connection configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "zai") {
+          return {
+            success: true,
+            message: "Z.AI connection configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "fal") {
+          if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
+          buildFalImageUrl(baseUrl, conn.model);
+          return {
+            success: true,
+            message:
+              "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "codex_chatgpt") {
+          // Only reads the local login, so checking never uses the ChatGPT image allowance.
+          const auth = await getOpenAIChatGPTAuth();
+          const detail = auth.planType ? ` (${auth.planType})` : "";
+          return {
+            success: true,
+            message: `ChatGPT login found via Codex auth${detail}. Use Test Image to generate one image with your ChatGPT plan.`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "horde") {
+          // Horde: heartbeat is the lightweight health endpoint for the public API.
+          testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
+        } else if (conn.provider === "image_generation" && imageSource === "spicyapi") {
+          // Listing image models checks the key without starting a paid task.
+          testUrl = buildSpicyApiUrl(baseUrl, "models", { modality: "image" });
+        } else if (conn.provider === "image_generation" && imageSource === "stability") {
+          // Stability's generation endpoints live under v2beta, but account/key checks are v1.
+          testUrl = buildStabilityUrl(baseUrl, "v1/user/account");
+        } else if (conn.provider === "image_generation" && imageSource === "comfyui") {
+          // ComfyUI: ping the system stats endpoint
+          testUrl = `${baseUrl}/system_stats`;
+        } else if (conn.provider === "image_generation" && imageSource === "swarmui") {
+          await createSwarmUiSession(baseUrl, conn.apiKey || "");
+          return {
+            success: true,
+            message: "Connection successful",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "automatic1111") {
+          // AUTOMATIC1111 / SD Web UI: ping the internal ping endpoint
+          testUrl = `${baseUrl}/sdapi/v1/options`;
+        } else if (conn.provider === "image_generation" && imageSource === "runpod_comfyui") {
+          // RunPod: use Test Image to verify — no cheap endpoint test available
+          return {
+            success: true,
+            message: "RunPod endpoint configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "google_vertex") {
+          testUrl = buildGoogleVertexModelUrl(baseUrl, conn.model, "models");
+        } else {
+          testUrl = buildConnectionTestCatalogUrl(
+            baseUrl,
+            conn.provider,
+            provider?.modelsEndpoint || "/models",
+            conn.audioSource,
+          );
         }
-        return {
-          success: true,
-          message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model || "Grok CLI default",
-        };
-      }
 
-      // Simple models list fetch to verify the key works
-      const { PROVIDERS } = await import("@marinara-engine/shared");
-      const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
-      let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
+        const testHeaders =
+          conn.provider === "image_generation" && imageSource === "horde"
+            ? hordeHeaders(conn.apiKey)
+            : conn.provider === "audio"
+              ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
+              : headers;
+        debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
+        const keyCheck = buildKeyCheck(conn.provider, baseUrl);
+        const res = await safeFetch(keyCheck?.url ?? testUrl, {
+          method: keyCheck?.method,
+          headers: requestHeadersWithDefaultUserAgent(
+            keyCheck ? { ...testHeaders, "x-api-key": conn.apiKey ?? "" } : testHeaders,
+          ),
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 2 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        const latencyMs = Date.now() - start;
 
-      if (!baseUrl) {
-        return {
-          success: false,
-          message: "No base URL configured for this provider",
-          latencyMs: 0,
-          modelName: null,
-        };
-      }
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (provider?.usesAuthHeader) {
-        headers["Authorization"] = `Bearer ${conn.apiKey}`;
-      }
-      if (provider?.apiKeyHeader) {
-        headers[provider.apiKeyHeader] = conn.apiKey;
-      }
-      if (conn.provider === "google_vertex") {
-        Object.assign(headers, await googleAuthHeadersForVertex(conn.apiKey));
-      }
-      if (conn.provider === "anthropic") {
-        headers["anthropic-version"] = "2023-06-01";
-      }
-
-      const imageSource =
-        conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
-      if (conn.provider === "video_generation") {
-        return {
-          success: true,
-          message: "Video generation connection configured. Use Test Video to verify MP4 generation.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-      baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
-      // image_generation has no standard modelsEndpoint — use provider-specific checks
-      let testUrl: string;
-      if (conn.provider === "image_generation" && imageSource === "novelai") {
-        return {
-          success: true,
-          message: "NovelAI connection configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "zai") {
-        return {
-          success: true,
-          message: "Z.AI connection configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "fal") {
-        if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
-        buildFalImageUrl(baseUrl, conn.model);
-        return {
-          success: true,
-          message:
-            "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "codex_chatgpt") {
-        // Only reads the local login, so checking never uses the ChatGPT image allowance.
-        const auth = await getOpenAIChatGPTAuth();
-        const detail = auth.planType ? ` (${auth.planType})` : "";
-        return {
-          success: true,
-          message: `ChatGPT login found via Codex auth${detail}. Use Test Image to generate one image with your ChatGPT plan.`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "horde") {
-        // Horde: heartbeat is the lightweight health endpoint for the public API.
-        testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
-      } else if (conn.provider === "image_generation" && imageSource === "spicyapi") {
-        // Listing image models checks the key without starting a paid task.
-        testUrl = buildSpicyApiUrl(baseUrl, "models", { modality: "image" });
-      } else if (conn.provider === "image_generation" && imageSource === "stability") {
-        // Stability's generation endpoints live under v2beta, but account/key checks are v1.
-        testUrl = buildStabilityUrl(baseUrl, "v1/user/account");
-      } else if (conn.provider === "image_generation" && imageSource === "comfyui") {
-        // ComfyUI: ping the system stats endpoint
-        testUrl = `${baseUrl}/system_stats`;
-      } else if (conn.provider === "image_generation" && imageSource === "swarmui") {
-        await createSwarmUiSession(baseUrl, conn.apiKey || "");
-        return {
-          success: true,
-          message: "Connection successful",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "automatic1111") {
-        // AUTOMATIC1111 / SD Web UI: ping the internal ping endpoint
-        testUrl = `${baseUrl}/sdapi/v1/options`;
-      } else if (conn.provider === "image_generation" && imageSource === "runpod_comfyui") {
-        // RunPod: use Test Image to verify — no cheap endpoint test available
-        return {
-          success: true,
-          message: "RunPod endpoint configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "google_vertex") {
-        testUrl = buildGoogleVertexModelUrl(baseUrl, conn.model, "models");
-      } else {
-        testUrl = buildConnectionTestCatalogUrl(
-          baseUrl,
-          conn.provider,
-          provider?.modelsEndpoint || "/models",
-          conn.audioSource,
-        );
-      }
-
-      const testHeaders =
-        conn.provider === "image_generation" && imageSource === "horde" ? hordeHeaders(conn.apiKey) : headers;
-      debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
-      const res = await safeFetch(testUrl, {
-        headers: testHeaders,
-        policy: localUrlPolicyForProvider(conn.provider, imageSource),
-        maxResponseBytes: 2 * 1024 * 1024,
-        decodeCompressedResponse: true,
-      });
-      const latencyMs = Date.now() - start;
-
-      if (res.ok) {
-        return { success: true, message: "Connection successful", latencyMs, modelName: conn.model };
-      } else {
-        const body = await res.text();
-        const detail = formatProviderErrorBody(body);
+        if (res.ok) {
+          return { success: true, message: "Connection successful", latencyMs, modelName: conn.model };
+        } else {
+          const body = await res.text();
+          const detail = formatProviderErrorBody(body);
+          debugLog(
+            "[connections/test] provider=%s catalogUrl=%s returned %d: %s",
+            conn.provider,
+            testUrl,
+            res.status,
+            detail,
+          );
+          return {
+            success: false,
+            message: `API returned ${res.status}: ${detail}`,
+            errorCode: connectionTestAuthError(res.status),
+            latencyMs,
+            modelName: null,
+          };
+        }
+      } catch (err) {
         debugLog(
-          "[connections/test] provider=%s catalogUrl=%s returned %d: %s",
+          "[connections/test] provider=%s failed: %s",
           conn.provider,
-          testUrl,
-          res.status,
-          detail,
+          err instanceof Error ? err.message : "Unknown error",
         );
         return {
           success: false,
-          message: `API returned ${res.status}: ${detail}`,
-          latencyMs,
+          message: `Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          // Provider SDK errors carry the HTTP status; transport and local errors do not.
+          errorCode: isRecord(err) && typeof err.status === "number" ? connectionTestAuthError(err.status) : undefined,
+          latencyMs: Date.now() - start,
           modelName: null,
         };
       }
-    } catch (err) {
-      debugLog(
-        "[connections/test] provider=%s failed: %s",
-        conn.provider,
-        err instanceof Error ? err.message : "Unknown error",
-      );
-      return {
-        success: false,
-        message: `Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        latencyMs: Date.now() - start,
-        modelName: null,
-      };
-    }
-  });
+    },
+  );
 
   // ── Atlas Cloud: the selected video model's own inputs, for the connection editor ──
   app.get<{ Querystring: { model?: string } }>("/atlas-cloud/video-model-schema", async (req, reply) => {
@@ -1024,7 +1201,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
     conn: NonNullable<Awaited<ReturnType<typeof storage.getWithKey>>>,
     reply: FastifyReply,
   ): Promise<{ models: Array<{ id: string; name: string }>; loras?: unknown[]; builtIn?: true } | FastifyReply> => {
-    if (conn.provider === "decision") {
+    // A decision Model under a chat service's Connection picks from that service's list.
+    const decisionVendor = (conn as { account?: DecisionConnectionRow["account"] }).account?.provider;
+    if (conn.provider === "decision" && !speaksOpenAIChat(decisionVendor)) {
       // Jev is only the default of the System One sources; a chat server needs the
       // model name the user entered.
       const model = conn.model || (conn.decisionSource === "openai_compatible" ? "" : "jev-latest");
@@ -1091,15 +1270,26 @@ export async function connectionsRoutes(app: FastifyInstance) {
         }
       }
 
+      // NovelAI serves no model list, and the image provider has no default base URL to ask one from.
+      if (
+        conn.provider === "image_generation" &&
+        resolveImageGenerationSource(conn as any, conn.baseUrl || "") === "novelai"
+      ) {
+        return { models: knownNovelAiImageModels(), builtIn: true };
+      }
+
       const { PROVIDERS } = await import("@marinara-engine/shared");
-      const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
+      const provider = PROVIDERS[(decisionVendor ?? conn.provider) as keyof typeof PROVIDERS];
       let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
 
       if (!baseUrl) {
         return reply.status(400).send({ error: "No base URL configured" });
       }
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
       }
@@ -1266,6 +1456,29 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return {
           models: names.map((name: string) => ({ id: name, name })),
           loras: loras.map((name: string) => ({ id: name, name })),
+        };
+      }
+
+      // Arli AI lists its image checkpoints at the host root, not under the /v1 chat API its base URL points at
+      // (the documented /v1/models/image-models answers 404). Caption models are not image generators.
+      if (conn.provider === "image_generation" && imageSource === "arli") {
+        const res = await safeFetch(`${new URL(baseUrl).origin}/sdapi/v1/sd-models`, {
+          headers: { ...headers, Authorization: `Bearer ${conn.apiKey}` },
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 5 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        if (!res.ok) {
+          return reply.status(502).send({
+            error: `Arli AI returned ${res.status}: ${sanitizeProviderBody(await res.text())}`,
+          });
+        }
+        const arliModels = (await res.json()) as Array<{ title?: string; model_name?: string; modelType?: string }>;
+        return {
+          models: arliModels
+            .filter((m) => m.modelType !== "caption")
+            .map((m) => ({ id: m.model_name ?? m.title ?? "", name: m.title ?? m.model_name ?? "" }))
+            .filter((m) => m.id),
         };
       }
 
@@ -1475,7 +1688,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           : `${baseUrl}${provider?.modelsEndpoint || "/models"}`;
 
       const res = await safeFetch(modelsUrl, {
-        headers,
+        headers: requestHeadersWithDefaultUserAgent(headers),
         policy: {
           allowLocal: isProviderLocalUrlsEnabled(),
           allowLoopback: true,
@@ -1488,7 +1701,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       });
       if (!res.ok) {
         const body = await res.text();
-        return reply.status(502).send({
+        return reply.status(res.status === 401 || res.status === 403 ? res.status : 502).send({
           error: `Provider returned ${res.status}: ${sanitizeProviderBody(body)}`,
         });
       }
@@ -1507,7 +1720,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const models = normalizeModelsResponse(conn.provider, json);
       return { models };
     } catch (err) {
-      logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      if (conn.id) logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      else logger.debug(err, "Live check: model discovery failed");
       // Node's fetch hides socket/DNS failures in Error.cause. Keep the code
       // visible without exposing provider headers, credentials or response bodies.
       const cause = err instanceof Error ? err.cause : undefined;
@@ -1515,31 +1729,325 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const detail = err instanceof Error ? err.message : "Unknown error";
       return reply.status(502).send({
         error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
+        // Nothing answered: the live check reads this instead of guessing from the text.
+        // A policy refusal ("Refused to fetch ...") never left the server, so it is not "no answer".
+        ...(detail.startsWith("Refused to fetch") ? { blocked: true } : { unreachable: true }),
       });
     }
   };
 
-  // A chat connection keeps the list it fetched, so later looks answer from it without asking the
-  // provider again. `refresh=true` (the Refresh and Fetch Models buttons) fetches and replaces it.
+  /**
+   * Each model gets its cost badge (left out when unknown), and the list the Connection's billing word. A proxy's
+   * `nanogpt/<id>` models take NanoGPT's plan facts, and models without a price one from the price catalog, once
+   * the user allowed outside reads.
+   */
+  /** Whether a direct NanoGPT account has an active plan; null when unknown (other provider, no key, failed read). */
+  const readPlanActive = (provider: string, accountId?: string | null): Promise<boolean | null> => {
+    if (provider !== "nanogpt" || !accountId) return Promise.resolve(null);
+    return cachedPlanActive(accountId, async () => {
+      try {
+        const row = await storage.getById(accountId);
+        const usage = await fetchNanoGptSubscriptionUsage({
+          managementToken: await storage.getManagementToken(accountId),
+          apiKey: row?.apiKeyEncrypted ? decryptApiKey(row.apiKeyEncrypted) : "",
+          timeoutMs: 3_000,
+        });
+        return usage ? usage.active : null;
+      } catch {
+        return null;
+      }
+    });
+  };
+
+  const withCosts = async <T extends { models: Array<Record<string, unknown>> }>(
+    conn: Parameters<typeof connectionBilling>[0] & { accountId?: string | null },
+    list: T,
+  ) => {
+    const billing = connectionBilling(conn);
+    const planActivePending = readPlanActive(conn.provider, conn.accountId);
+    const allowed = (await appSettings.get(OUTSIDE_READS_SETTINGS_KEY)) === "on";
+    const planned =
+      conn.provider !== "nanogpt" &&
+      list.models.some((model) => typeof model.id === "string" && model.id.startsWith("nanogpt/")) &&
+      allowed
+        ? withNanoGptPlan(list.models, await readNanoGptPlan())
+        : list.models;
+    // Prices from public price lists for models the provider's own list leaves without one, once allowed.
+    const priced =
+      billing === null && allowed
+        ? await withCatalogPrices(conn, planned, cachedLinkApiGroup(conn.accountId))
+        : planned;
+    const planActive = await planActivePending;
+    const models = priced.map((model) => {
+      const cost = modelCost(model, billing, planActive);
+      return cost ? { ...model, cost } : model;
+    });
+    return { ...list, billing, models };
+  };
+
+  // A chat connection keeps the list it fetched (one copy per Connection), so later looks answer from it without
+  // asking the provider again; a background job keeps it fresh. `refresh=true` (the Refresh and Fetch Models
+  // buttons) fetches and replaces it. A saved list carries `fetchedAt`.
   app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
+    if (conn.provider === "audio_generation") return { models: [] };
+    // Voice catalogs are not at `${baseUrl}/models` (ElevenLabs answers 404), so reuse the TTS lookup.
+    if (conn.provider === "audio") {
+      const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
+      if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
+      if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
+    }
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {
-      const saved = readSavedModelList(conn);
-      if (saved) return saved;
+      const saved = await storage.readCatalog(conn);
+      if (saved) return withCosts(conn, saved);
     }
     const discovered = await discoverConnectionModels(conn, reply);
-    if ((discovered as unknown) === reply) return reply;
+    // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.
+    if (reply.sent || !discovered) return reply;
     const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
-    if (!savesList || builtIn) return result;
+    if (!savesList || builtIn) return withCosts(conn, result);
     const saved = await storage.saveModelListIfUnchanged(conn, result.models);
     // The provider, address or key changed while the list loaded, so it may belong to the old settings.
     // Don't hand it out as current; the client asks again.
     if (!saved) {
       return reply.status(409).send({ error: "The connection changed while its models were loading." });
     }
-    return saved;
+    return withCosts(conn, saved);
+  });
+
+  /** The same fetch with the error reply captured instead of sent (background refresh, move catalogs). */
+  // A live check must not hang while the user types.
+  const CHECK_TIMEOUT_MS = 10_000;
+
+  const discoverQuietly = async (conn: Parameters<typeof discoverConnectionModels>[0]) => {
+    const sink = {
+      code: 0,
+      body: undefined as unknown,
+      status(code: number) {
+        this.code = code;
+        return this;
+      },
+      send(body: unknown) {
+        this.body = body;
+        return this;
+      },
+    };
+    const discovered = await discoverConnectionModels(conn, sink as unknown as FastifyReply);
+    if ((discovered as unknown) === sink) {
+      const body = sink.body as { error?: unknown; unreachable?: boolean; blocked?: boolean } | undefined;
+      const error = String(body?.error ?? "Model list request failed");
+      const unreachable = body?.unreachable === true;
+      const blocked = body?.blocked === true;
+      // The provider's own status is inside the message ("Provider returned 429: ..."); a network failure has none.
+      const providerStatus = Number(/returned (\d{3})/.exec(error)?.[1]) || undefined;
+      const status = providerStatus ?? (Number(unreachable || blocked ? 0 : sink.code) || undefined);
+      const transient = providerStatus === 429 || (providerStatus ?? 0) >= 500;
+      return { ok: false as const, status, error, unreachable, blocked, transient };
+    }
+    return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
+  };
+
+  // Live check while the user types an address or pastes a key, before anything is saved: does the
+  // server answer, and does the key work. Edit sends `accountId` so the saved key is used when no new one is typed.
+  const accounts = createConnectionAccountsStorage(app.db);
+  app.post("/check", { config: { rateLimit: CONNECTION_TEST_RATE_LIMIT } }, async (req, reply) => {
+    const parsed = accessCheckSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid check" });
+    const account = parsed.data.accountId ? await accounts.getById(parsed.data.accountId) : null;
+    if (parsed.data.accountId && !account) return reply.status(404).send({ error: "Connection not found" });
+    const provider = account?.provider ?? parsed.data.provider;
+    if (!Object.hasOwn(PROVIDERS, provider) || UNCHECKED_ACCESS_PROVIDERS.has(provider)) return { supported: false };
+    const typedKey = parsed.data.apiKey?.trim();
+    const baseUrl =
+      parsed.data.baseUrl?.trim() ||
+      account?.baseUrl ||
+      PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl ||
+      "";
+    // The saved key only goes to the saved address, never to one that is half typed.
+    const savedUrl = (account?.baseUrl || PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl || "").replace(
+      /\/+$/,
+      "",
+    );
+    const useSavedKey = !!account && baseUrl.replace(/\/+$/, "") === savedUrl;
+    const apiKey = typedKey || (account && useSavedKey ? decryptApiKey(account.apiKeyEncrypted ?? "") : "");
+    if (!baseUrl)
+      return { supported: true, reachable: false, keyOk: null, modelCount: null, status: null, error: null };
+
+    // ponytail: this only stops waiting; the fetch runs on until the OS gives up. Pass a signal into discovery if that matters.
+    const timedOut = {
+      ok: false as const,
+      status: undefined,
+      error: "No answer in time",
+      unreachable: true,
+      blocked: false,
+      transient: false,
+    };
+    const discovered = await Promise.race([
+      new Promise<typeof timedOut>((resolve) => setTimeout(() => resolve(timedOut), CHECK_TIMEOUT_MS).unref()),
+      discoverQuietly({
+        provider,
+        baseUrl,
+        apiKey,
+        model: "",
+        treatAsLocalEndpoint: account?.treatAsLocalEndpoint ?? "false",
+      } as Parameters<typeof discoverQuietly>[0]),
+    ]);
+    if (!discovered.ok) {
+      const status = discovered.status ?? null;
+      const rejected = status === 401 || status === 403;
+      return {
+        supported: true,
+        // Any HTTP answer means the address is right; no answer means nothing listens there.
+        reachable: !discovered.unreachable,
+        blocked: discovered.blocked || undefined,
+        transient: discovered.transient || undefined,
+        keyOk: apiKey && rejected ? false : null,
+        modelCount: null,
+        status,
+        error: discovered.error,
+      };
+    }
+
+    // OpenRouter and NanoGPT list models for any key, so their key has its own check.
+    // A model list only proves the key at the provider's own address; a proxy or custom server may ignore keys.
+    const defaultUrl = (PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl || "").replace(/\/+$/, "");
+    let keyOk: boolean | null = apiKey && defaultUrl && baseUrl.replace(/\/+$/, "") === defaultUrl ? true : null;
+    let status: number | null = null;
+    const keyCheck = apiKey ? buildKeyCheck(provider, normalizeConnectionTestBaseUrl(baseUrl, provider)) : null;
+    if (keyCheck) {
+      try {
+        const res = await safeFetch(keyCheck.url, {
+          method: keyCheck.method,
+          headers: requestHeadersWithDefaultUserAgent({
+            ...(await providerKeyHeaders(provider, apiKey)),
+            "x-api-key": apiKey,
+          }),
+          policy: localUrlPolicyForProvider(provider, ""),
+          maxResponseBytes: 256 * 1024,
+          decodeCompressedResponse: true,
+          signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+        });
+        // Only a refusal means a bad key; a busy or failing provider says nothing about it.
+        keyOk = res.ok ? true : res.status === 401 || res.status === 403 ? false : null;
+        status = res.status;
+      } catch (err) {
+        logger.debug(err, "[connections/check] key check for %s failed", provider);
+        keyOk = null;
+      }
+    }
+    return {
+      supported: true,
+      reachable: true,
+      keyOk,
+      modelCount: discovered.models.length,
+      status,
+      error: keyOk === false ? `API returned ${status}` : null,
+    };
+  });
+
+  // The background refresh uses the same fetch and save.
+  registerModelCatalogRefresher(async (id) => {
+    const conn = await storage.getWithKey(id);
+    if (!conn) return { ok: false, error: "The connection is off, under review, or needs an API key." };
+    const discovered = await discoverQuietly(conn);
+    if (!discovered.ok) return discovered;
+    if (discovered.builtIn) return { ok: true };
+    return (await storage.saveModelListIfUnchanged(conn, discovered.models))
+      ? { ok: true }
+      : { ok: false, error: "The connection changed while its models were loading." };
+  });
+
+  /**
+   * A move to another service reads the target's catalog for its own provider. Without one (no linked Model of that
+   * provider yet, or a key change cleared it) it is fetched with the target's key and saved, like a Refresh.
+   */
+  const ensureMoveCatalog = async (plan: Exclude<Awaited<ReturnType<typeof storage.planMove>>, string>) => {
+    // A custom endpoint takes any id, so a missing list never blocks it (and often has no list to fetch).
+    if (plan.kind !== "cross" || plan.catalog || plan.account.provider === "custom") return { catalog: plan.catalog };
+    const { account, row } = plan;
+    if (accountBlocksRows(account))
+      return { catalog: null, error: "The connection is off, under review, or needs an API key." };
+    const discovered = await discoverQuietly({
+      ...row,
+      provider: account.provider as typeof row.provider,
+      baseUrl: account.baseUrl,
+      model: "",
+      accountId: account.id,
+      apiKeyEncrypted: account.apiKeyEncrypted,
+      apiKey: decryptApiKey(account.apiKeyEncrypted),
+      treatAsLocalEndpoint: account.treatAsLocalEndpoint,
+    });
+    if (!discovered.ok) return { catalog: null, error: discovered.error };
+    const catalog = await storage.saveAccountCatalogIfUnchanged(account, discovered.models);
+    return catalog ? { catalog } : { catalog: null, error: "The connection changed while its models were loading." };
+  };
+
+  // "Move to connection…" to another service: the target catalog models that serve this Model's model, best first.
+  // `variant` matches (`:thinking`, `:free`) are never auto-picked. Empty when the target does not offer it; a custom
+  // endpoint (`manualModelAllowed`) takes any id. `kind: "same"` needs no model; "mismatch" cannot move.
+  app.get<{ Params: { id: string }; Querystring: { accountId?: string } }>(
+    "/:id/move-candidates",
+    async (req, reply) => {
+      const accountId = typeof req.query.accountId === "string" ? req.query.accountId.trim() : "";
+      if (!accountId) return reply.status(400).send({ error: "Send the Connection to move the Model to." });
+      const plan = await storage.planMove(req.params.id, accountId);
+      if (plan === "not_found") return reply.status(404).send({ error: "Model not found" });
+      if (plan === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
+      const billing = connectionBilling(plan.account);
+      const planActive = await readPlanActive(plan.account.provider, plan.account.id);
+      const { catalog, error: catalogError } = await ensureMoveCatalog(plan);
+      const candidates =
+        plan.kind === "cross"
+          ? rankModelMoveCandidates(plan.row.model, catalog?.models ?? []).map(({ model, match, variant }) => {
+              const cost = modelCost(model as Parameters<typeof modelCost>[0], billing, planActive);
+              return {
+                id: model.id,
+                name: model.name,
+                ...(typeof model.context === "number" ? { context: model.context } : {}),
+                ...(cost ? { cost } : {}),
+                match,
+                variant,
+              };
+            })
+          : [];
+      return {
+        kind: plan.kind,
+        provider: plan.account.provider,
+        manualModelAllowed: plan.kind === "cross" && plan.account.provider === "custom",
+        catalogFetchedAt: catalog?.fetchedAt ?? null,
+        ...(catalogError ? { catalogError } : {}),
+        candidates,
+      };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>("/:id/move", async (req, reply) => {
+    const parsed = connectionMoveSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Send the Connection to move the Model to." });
+    const plan = await storage.planMove(req.params.id, parsed.data.accountId);
+    if (typeof plan !== "string" && parsed.data.model) {
+      const { error } = await ensureMoveCatalog(plan);
+      if (error) return reply.status(502).send({ error: `Couldn't load that Connection's models: ${error}` });
+    }
+    const result = await storage.moveToAccount(req.params.id, parsed.data.accountId, parsed.data.model);
+    if (result === "not_found") return reply.status(404).send({ error: "Model not found" });
+    if (result === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
+    if (result === "review") {
+      return reply.status(409).send({ error: "Review this imported Model before you move it." });
+    }
+    if (result === "mismatch") {
+      return reply.status(400).send({ error: "This Model cannot move to that Connection." });
+    }
+    if (result === "model_required") {
+      return reply.status(400).send({ error: "Choose the model this Connection should run." });
+    }
+    if (result === "model_not_offered") {
+      return reply.status(400).send({ error: "That Connection does not offer this model." });
+    }
+    resetMemoryRecallVectorizerCache();
+    return maskConnection(result);
   });
 
   app.post<{ Params: { id: string } }>("/:id/pinned-models", async (req, reply) => {
@@ -1556,7 +2064,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // ── Test image generation — uses a broadly supported 1K square canvas ──
   app.post<{ Params: { id: string } }>("/:id/test-image", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "image_generation") {
       return reply.status(400).send({ error: "Not an image generation connection" });
     }
@@ -1606,10 +2114,49 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   });
 
+  // One tiny embedding call through the source semantic search uses (Embedding Connection, endpoint URL, model):
+  // the editor's Test embedding runs it, and the Embeddings picker runs it before it assigns a model.
+  app.post<{ Params: { id: string } }>("/:id/test-embedding", async (req, reply) => {
+    const conn = await storage.getWithKey(req.params.id);
+    if (!conn) return unusableConnection(req.params.id, reply);
+    const source = await resolveConnectionTestEmbeddingSource(app.db, conn);
+    if (!source) {
+      const via = conn.embeddingConnectionId;
+      const lender = via && via !== LOCAL_SIDECAR_CONNECTION_ID ? await storage.getWithKey(via) : null;
+      // A model with no address to send it to is a missing endpoint, not a missing model.
+      const hasModel = !!(conn.embeddingModel?.trim() || lender?.embeddingModel?.trim());
+      const message =
+        via === LOCAL_SIDECAR_CONNECTION_ID
+          ? "The built-in model makes embeddings only with an enabled llama.cpp model."
+          : hasModel
+            ? "No embedding endpoint set. Add an Embedding endpoint URL or a Base URL."
+            : "No embedding model set.";
+      return { success: false, message, latencyMs: 0 };
+    }
+    const { model, endpoint } = source;
+    const start = Date.now();
+    try {
+      const dimensions = (await source.embed(["Marinara embedding test"]))?.[0]?.length ?? 0;
+      const latencyMs = Date.now() - start;
+      if (dimensions === 0)
+        return { success: false, message: "The model returned no vector.", latencyMs, model, endpoint };
+      return { success: true, message: `${dimensions} dimensions`, latencyMs, dimensions, model, endpoint };
+    } catch (err) {
+      logger.warn(err, "[connections/test-embedding] %s failed for %s", source.label, conn.id);
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : "Unknown error",
+        latencyMs: Date.now() - start,
+        model,
+        endpoint,
+      };
+    }
+  });
+
   // ── Test video generation — generates a short fixed MP4 ──
   app.post<{ Params: { id: string } }>("/:id/test-video", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "video_generation") {
       return reply.status(400).send({ error: "Not a video generation connection" });
     }
@@ -1759,7 +2306,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   //    SDK billed Y." ──
   app.post<{ Params: { id: string } }>("/:id/diagnose-claude-subscription", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "claude_subscription") {
       return reply.status(400).send({ error: "Not a Claude (Subscription) connection" });
     }
@@ -1858,9 +2405,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // ── Test message — sends "hi" to the model and returns the response ──
   app.post<{ Params: { id: string } }>("/:id/test-message", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
 
-    if (conn.provider === "image_generation" || conn.provider === "video_generation") {
+    if (
+      conn.provider === "image_generation" ||
+      conn.provider === "video_generation" ||
+      conn.provider === "audio_generation"
+    ) {
       return reply.status(400).send({ error: "This provider does not support chat test messages." });
     }
 
@@ -1959,7 +2510,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
 // ──────────────────────────────────────────────
 // Normalize models response from different providers
 // ──────────────────────────────────────────────
-interface RemoteModel {
+interface RemoteModel extends CatalogModelMetadata {
   id: string;
   name: string;
   context?: number;
@@ -1995,7 +2546,9 @@ export function readOpenRouterModelCapabilities(
     if (key) keys.add(key);
   }
   // An empty or missing list says nothing; it must not hide every control.
-  return keys.size > 0 ? { supportedParameters: [...keys] } : undefined;
+  // `logprobs` is no generation setting, so it is read from the same list on its own.
+  const logprobs = fields.includes("logprobs");
+  return keys.size > 0 || logprobs ? { supportedParameters: [...keys], ...(logprobs ? { logprobs } : {}) } : undefined;
 }
 
 /**
@@ -2106,6 +2659,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
           id: m.id ?? "",
           name: m.display_name ?? m.id ?? "",
           ...readOpenAICompatibleModelLimits(m as Record<string, unknown>),
+          ...readCatalogModelMetadata(provider, m as Record<string, unknown>),
         }))
         .filter((m) => m.id);
     }
@@ -2159,6 +2713,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
             name: m.name ?? m.id ?? "",
             ...readOpenAICompatibleModelLimits(m),
             ...readSubscriptionMetadata(m),
+            ...readCatalogModelMetadata(provider, m),
             ...(capabilities ? { capabilities } : {}),
           };
         })

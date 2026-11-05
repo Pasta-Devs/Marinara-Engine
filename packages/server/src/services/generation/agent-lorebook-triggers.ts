@@ -12,11 +12,34 @@ import { logger } from "../../lib/logger.js";
 type LorebookSource = "manual" | "chat_active" | "none";
 type TriggeredEntriesByAgentId = NonNullable<AgentContext["triggeredLorebookEntriesByAgentId"]>;
 
+/** Apply only this chat's attachment, leaving the saved agent configuration untouched. */
+export function applyAgentLorebookChatSettings(
+  agentType: string,
+  settings: Record<string, unknown>,
+  chatMetadata: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const attachments = chatMetadata?.agentLorebookAttachments;
+  if (!attachments || typeof attachments !== "object" || Array.isArray(attachments)) return settings;
+  const attachment = (attachments as Record<string, unknown>)[agentType];
+  if (!attachment || typeof attachment !== "object" || Array.isArray(attachment)) return settings;
+  const value = attachment as Record<string, unknown>;
+  if (value.enabled !== true) return settings;
+  const lorebookId = typeof value.lorebookId === "string" ? value.lorebookId.trim() : "";
+  if (!lorebookId) return settings;
+  return {
+    ...settings,
+    chatLorebookAttachmentEnabled: true,
+    chatAttachedLorebookId: lorebookId,
+  };
+}
+
 export interface AgentLorebookTriggerSource {
   id: string;
   contextSize: number;
   sourceLorebookIds: string[];
   source: LorebookSource;
+  /** Chat attachments supplement the configured source using manual-selection policy. */
+  additionalManualLorebookIds?: string[];
 }
 
 interface PreparedAgentLorebookSource {
@@ -33,6 +56,8 @@ export interface AgentLorebookTriggerResolverOptions {
   filterSourceLorebookIds: (sourceIds: string[], source: LorebookSource) => Promise<string[]>;
   gameState: GameStateForScanning | null;
   generationTriggers: string[];
+  /** Current generation instructions supplement history without consuming its message-depth slots. */
+  supplementalScanMessages?: AgentContext["recentMessages"];
   listEntriesByLorebookIds: (sourceIds: string[]) => Promise<LorebookEntry[]>;
   listLorebooks: () => Promise<Lorebook[]>;
   resolveContent: (value: string) => string;
@@ -74,13 +99,13 @@ export function createAgentLorebookTriggerResolver(
 
     const prepared = (async () => {
       const enabledLorebooksById = await getEnabledLorebooksById();
-      const sourceIds = Array.from(
-        new Set(
-          (await options.filterSourceLorebookIds(agent.sourceLorebookIds, agent.source)).filter((id) =>
-            enabledLorebooksById.has(id),
-          ),
-        ),
-      ).sort();
+      const filteredSources = await Promise.all([
+        options.filterSourceLorebookIds(agent.sourceLorebookIds, agent.source),
+        agent.additionalManualLorebookIds?.length
+          ? options.filterSourceLorebookIds(agent.additionalManualLorebookIds, "manual")
+          : [],
+      ]);
+      const sourceIds = [...new Set(filteredSources.flat().filter((id) => enabledLorebooksById.has(id)))].sort();
       if (sourceIds.length === 0) return { entries: [], lorebooks: [] };
 
       const sourceKey = sourceIds.join("\u0000");
@@ -89,7 +114,11 @@ export function createAgentLorebookTriggerResolver(
         const sourceIdSet = new Set(sourceIds);
         entriesPromise = options
           .listEntriesByLorebookIds(sourceIds)
-          .then((entries) => entries.filter((entry) => sourceIdSet.has(entry.lorebookId)));
+          .then((entries) => [
+            ...new Map(
+              entries.filter((entry) => sourceIdSet.has(entry.lorebookId)).map((entry) => [entry.id, entry]),
+            ).values(),
+          ]);
         entriesBySourceKey.set(sourceKey, entriesPromise);
       }
 
@@ -134,6 +163,16 @@ export function createAgentLorebookTriggerResolver(
           role: message.role,
           content: message.content,
         }));
+        const supplemental = options.supplementalScanMessages ?? [];
+        // Embeddings retain the guide's user role; keyword depth still counts only historical messages.
+        const semanticScanMessages = supplemental.length ? [...scanMessages, ...supplemental] : scanMessages;
+        const supplementalText = supplemental.map((message) => message.content).join("\n");
+        if (supplementalText) {
+          const latest = scanMessages.at(-1);
+          if (latest)
+            scanMessages[scanMessages.length - 1] = { ...latest, content: `${latest.content}\n${supplementalText}` };
+          else scanMessages.push({ role: "user", content: supplementalText });
+        }
         let chatEmbedding: number[] | null = null;
         let semanticEmbeddingsByLorebookId: Map<string, number[] | number[][] | null> | undefined;
         let semanticSimilarityBaseline = 0;
@@ -146,7 +185,7 @@ export function createAgentLorebookTriggerResolver(
             const semanticEmbeddings = await buildLorebookSemanticEmbeddingsById({
               lorebooks: source.lorebooks,
               entries: source.entries,
-              scanMessages,
+              scanMessages: semanticScanMessages,
               embeddingSource: options.embeddingSource,
               signal: options.signal,
             });

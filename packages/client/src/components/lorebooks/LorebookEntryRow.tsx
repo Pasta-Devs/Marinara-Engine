@@ -7,7 +7,9 @@ import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 // Inspired by SillyTavern's World Info card layout.
 // ──────────────────────────────────────────────
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -70,6 +72,21 @@ import {
   estimateTokens,
 } from "./LorebookFormFields";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MariFieldReview } from "../characters/MariFieldReview";
+
+/** The open entry drawer's unsaved form, for Professor Mari's in-field review in the lorebook editor. */
+export interface LorebookEntryDraft {
+  entryId: string;
+  form: () => Partial<LorebookEntry>;
+  /** Fields edited since the last save. */
+  changed: () => Partial<LorebookEntry>;
+  update: (patch: Partial<LorebookEntry>) => void;
+  /** Takes the saved entry as the base and keeps the unsaved edits. */
+  rebase: (fresh: LorebookEntry) => void;
+  /** Saves pending edits now; false when they are still unsaved. */
+  flush: () => Promise<boolean>;
+}
+export const LorebookEntryDraftContext = createContext<{ current: LorebookEntryDraft | null } | null>(null);
 
 interface Props {
   entry: LorebookEntry;
@@ -800,20 +817,27 @@ export function LorebookEntryRow({
               : localizeUi("ui.lorebooks.lorebookentryrow.alwaysActive")}
           </span>
         )}
-        <input
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onBlur={handleNameCommit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.currentTarget as HTMLInputElement).blur();
-            }
-          }}
+        <div
+          className="min-w-0 flex-1 sm:min-w-[7rem]"
+          data-mari-field={`entries.${entry.id}.name`}
           onClick={(e) => e.stopPropagation()}
-          placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
-          className="min-w-0 flex-1 truncate rounded bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] sm:min-w-[7rem]"
-        />
+        >
+          <MariFieldReview field={`entries.${entry.id}.name`}>
+            <input
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={handleNameCommit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+              }}
+              placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
+              className="w-full truncate rounded bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)]"
+            />
+          </MariFieldReview>
+        </div>
 
         {activationStat && activationStat.count > 0 && (
           <span
@@ -1314,8 +1338,10 @@ function toggleStringValue(values: string[] | undefined, value: string) {
   return current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
 }
 
+// Saves send only the fields the user changed (`changedFieldsRef`), so an unsaved form cannot write a
+// refetched server change (an approved Professor Mari edit) back.
 function buildEntrySavePayload(form: Partial<LorebookEntry>) {
-  return {
+  const payload = {
     content: form.content,
     description: form.description,
     keys: form.keys,
@@ -1346,6 +1372,7 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
     decisionStatement: form.decisionStatement,
     decisionMode: form.decisionMode,
   };
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)) as typeof payload;
 }
 
 function FilterModeSelect({
@@ -1457,6 +1484,7 @@ function ExpandedDrawer({
   const dirtyRef = useRef(false);
   const changedFieldsRef = useRef<Partial<LorebookEntry>>({});
   const savingRef = useRef(false);
+  const inFlightSaveRef = useRef<Promise<void> | null>(null);
   const changeVersionRef = useRef(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -1485,16 +1513,17 @@ function ExpandedDrawer({
 
     const versionAtStart = changeVersionRef.current;
     const entryIdAtStart = loadedEntryIdRef.current;
-    const snapshot = formRef.current;
     const changedFieldsAtStart = { ...changedFieldsRef.current };
     savingRef.current = true;
+    let settle = () => {};
+    inFlightSaveRef.current = new Promise((resolve) => (settle = resolve));
     if (mountedRef.current) {
       setSaving(true);
       setSaveError(false);
     }
 
     try {
-      const sourceChanges = buildEntrySavePayload(snapshot);
+      const sourceChanges = buildEntrySavePayload(changedFieldsAtStart);
       if (onUpdateEntry) {
         await onUpdateEntry(entryIdAtStart, sourceChanges, changedFieldsAtStart);
       } else {
@@ -1525,6 +1554,8 @@ function ExpandedDrawer({
       setSaveError(true);
     } finally {
       savingRef.current = false;
+      inFlightSaveRef.current = null;
+      settle();
       if (mountedRef.current) setSaving(false);
     }
   }, [clearAutosaveTimer, lorebookId, mutateEntryAsync, onUpdateEntry, queueAutosave]);
@@ -1539,7 +1570,7 @@ function ExpandedDrawer({
       mountedRef.current = false;
       clearAutosaveTimer();
       if (dirtyRef.current) {
-        const sourceChanges = buildEntrySavePayload(formRef.current);
+        const sourceChanges = buildEntrySavePayload(changedFieldsRef.current);
         if (onUpdateEntry) {
           void onUpdateEntry(loadedEntryIdRef.current, sourceChanges, changedFieldsRef.current).catch(() => undefined);
         } else {
@@ -1558,7 +1589,7 @@ function ExpandedDrawer({
   useEffect(() => {
     const switched = loadedEntryIdRef.current !== entry.id;
     if (switched && dirtyRef.current) {
-      const sourceChanges = buildEntrySavePayload(formRef.current);
+      const sourceChanges = buildEntrySavePayload(changedFieldsRef.current);
       if (onUpdateEntry) {
         void onUpdateEntry(loadedEntryIdRef.current, sourceChanges, changedFieldsRef.current).catch(() => undefined);
       } else {
@@ -1603,6 +1634,31 @@ function ExpandedDrawer({
     void saveNowRef.current();
   }, []);
 
+  const draftSlot = useContext(LorebookEntryDraftContext);
+  useEffect(() => {
+    if (!draftSlot) return;
+    const draft: LorebookEntryDraft = {
+      entryId: entry.id,
+      form: () => formRef.current,
+      changed: () => changedFieldsRef.current,
+      update,
+      rebase: (fresh) => {
+        const next = { ...fresh, ...changedFieldsRef.current };
+        formRef.current = next;
+        setForm(next);
+      },
+      flush: async () => {
+        await inFlightSaveRef.current;
+        await saveNow();
+        return !dirtyRef.current;
+      },
+    };
+    draftSlot.current = draft;
+    return () => {
+      if (draftSlot.current === draft) draftSlot.current = null;
+    };
+  }, [draftSlot, entry.id, update, saveNow]);
+
   return (
     <div
       className="space-y-3 border-t border-[var(--marinara-editor-divider)] px-3 py-3 sm:px-4"
@@ -1646,17 +1702,20 @@ function ExpandedDrawer({
           label={localizeUi("chat.settings.inlineEditor.fields.description")}
           icon={FileText}
           help={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryOfWhatThisEntryIsAboutUsed")}
+          mariField={`entries.${entry.id}.description`}
         >
-          <MacroTextarea
-            value={form.description ?? ""}
-            onChange={(value) => update({ description: value })}
-            onBlur={flushAutosave}
-            rows={3}
-            className="mari-editor-field w-full resize-y px-2.5 py-2 text-xs leading-5"
-            placeholder={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryForRouting")}
-            title={localizeUi("ui.lorebooks.expandeddrawer.editDescription")}
-            showMarkdownPreview
-          />
+          <MariFieldReview field={`entries.${entry.id}.description`}>
+            <MacroTextarea
+              value={form.description ?? ""}
+              onChange={(value) => update({ description: value })}
+              onBlur={flushAutosave}
+              rows={3}
+              className="mari-editor-field w-full resize-y px-2.5 py-2 text-xs leading-5"
+              placeholder={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryForRouting")}
+              title={localizeUi("ui.lorebooks.expandeddrawer.editDescription")}
+              showMarkdownPreview
+            />
+          </MariFieldReview>
         </FieldGroup>
 
         {/* Keys */}
@@ -1664,6 +1723,7 @@ function ExpandedDrawer({
           label={localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}
           icon={Key}
           help={localizeUi("ui.lorebooks.expandeddrawer.keywordsThatTriggerThisEntryWhenAnyOfThese")}
+          mariField={`entries.${entry.id}.keys`}
         >
           <KeysEditor keys={form.keys ?? []} onChange={(keys) => update({ keys })} />
         </FieldGroup>
@@ -1673,6 +1733,7 @@ function ExpandedDrawer({
           label={localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}
           icon={Key}
           help={localizeUi("ui.lorebooks.expandeddrawer.additionalKeywordsUsedWithSillytavernStyleSelectiveLogicAny")}
+          mariField={`entries.${entry.id}.secondaryKeys`}
         >
           <KeysEditor keys={form.secondaryKeys ?? []} onChange={(keys) => update({ secondaryKeys: keys })} />
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -1857,17 +1918,20 @@ function ExpandedDrawer({
         label={localizeUi("ui.lorebooks.expandeddrawer.content")}
         icon={FileText}
         help={localizeUi("ui.lorebooks.expandeddrawer.theTextThatGetsInjectedIntoTheAiS")}
+        mariField={`entries.${entry.id}.content`}
       >
-        <ExpandableTextarea
-          value={form.content ?? ""}
-          onChange={(v) => update({ content: v })}
-          onBlur={flushAutosave}
-          onCommit={flushAutosave}
-          rows={5}
-          placeholder={localizeUi("ui.lorebooks.expandeddrawer.theContentThatWillBeInjectedIntoThePrompt")}
-          title={localizeUi("ui.lorebooks.expandeddrawer.editContent")}
-          showMacroReference
-        />
+        <MariFieldReview field={`entries.${entry.id}.content`}>
+          <ExpandableTextarea
+            value={form.content ?? ""}
+            onChange={(v) => update({ content: v })}
+            onBlur={flushAutosave}
+            onCommit={flushAutosave}
+            rows={5}
+            placeholder={localizeUi("ui.lorebooks.expandeddrawer.theContentThatWillBeInjectedIntoThePrompt")}
+            title={localizeUi("ui.lorebooks.expandeddrawer.editContent")}
+            showMacroReference
+          />
+        </MariFieldReview>
         <LorebookEntryImages
           key={entry.id}
           lorebookId={lorebookId}

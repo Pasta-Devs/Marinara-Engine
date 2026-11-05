@@ -27,7 +27,7 @@ import {
   type WorldTownBuilding,
   worldSeason,
 } from "@marinara-engine/shared";
-import { useDungeonEnter, useTown, useTownVisit } from "../../hooks/use-game";
+import { useDungeonEnter, useOverworld, useTown, useTownVisit } from "../../hooks/use-game";
 import {
   overworldBaseResolution,
   overworldCamera,
@@ -98,7 +98,14 @@ export function TownView({
   const { data: town } = useTown(chatId, turnKey, true);
   const visitMutation = useTownVisit();
   const enterMutation = useDungeonEnter();
-  const drawTile = useOverworldAtlas(family, tilePack, time ? worldSeason(time.day) : undefined);
+  // In the season the story holds the town at (1.351), else the day's.
+  const { data: overworld } = useOverworld(chatId, turnKey, true);
+  const held = overworld?.seasons;
+  const drawTile = useOverworldAtlas(
+    family,
+    tilePack,
+    (town && held?.[town.settlementId]) || held?.["*"] || (time ? worldSeason(time.day) : undefined),
+  );
   const walkingRef = useRef(false);
   const [walking, setWalking] = useState(false);
   const { pendingMinutes, flush } = useOverworldClock(chatId, clockRunning, () => walkingRef.current, handleRef);

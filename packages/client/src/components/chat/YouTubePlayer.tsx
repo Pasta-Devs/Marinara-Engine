@@ -522,7 +522,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
         "fixed top-14 z-40 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
         MUSIC_NEUTRAL_SHELL_BORDER_CLASS,
         MUSIC_NEUTRAL_SHELL_BG_CLASS,
-        active && hasPlayerContent && showVideo ? "left-2 opacity-100" : "pointer-events-none -left-[9999px] opacity-0",
+        active && hasPlayerContent && showVideo
+          ? "left-[max(0.5rem,var(--mari-safe-area-inset-left))] opacity-100"
+          : "pointer-events-none -left-[9999px] opacity-0",
       )}
     >
       {/* The IFrame player lives here; YT injects the iframe into this host. */}

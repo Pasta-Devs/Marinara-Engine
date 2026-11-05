@@ -21,6 +21,12 @@ export type FileCondition =
     }
   | { readonly kind: "file-string-nonblank"; readonly value: QueryValue }
   | { readonly kind: "file-json-flags-not-true"; readonly value: QueryValue; readonly flags: string[] }
+  | {
+      readonly kind: "file-json-string-array-contains-all";
+      readonly value: QueryValue;
+      readonly terms: readonly string[];
+      readonly property?: string;
+    }
   | { readonly kind: "file-logical"; readonly operator: "and" | "or"; conditions: FileCondition[] };
 
 export type FileOrdering = {
@@ -76,6 +82,14 @@ export function jsonFlagsNotTrue(value: QueryValue, flags: string[]): FileCondit
   return { kind: "file-json-flags-not-true", value, flags };
 }
 
+export function jsonStringArrayContainsAll(
+  value: QueryValue,
+  terms: readonly string[],
+  property?: string,
+): FileCondition {
+  return { kind: "file-json-string-array-contains-all", value, terms, property };
+}
+
 function logical(operator: "and" | "or", conditions: Array<FileCondition | undefined>): FileCondition {
   return {
     kind: "file-logical",
@@ -99,6 +113,7 @@ export function isFileCondition(value: unknown): value is FileCondition {
     "file-pattern",
     "file-string-nonblank",
     "file-json-flags-not-true",
+    "file-json-string-array-contains-all",
     "file-logical",
   ].includes(String((value as { kind?: unknown }).kind));
 }

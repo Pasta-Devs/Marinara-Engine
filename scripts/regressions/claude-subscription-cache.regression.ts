@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { logger } from "../../packages/server/src/lib/logger.js";
-import type { ChatMessage } from "../../packages/server/src/services/llm/base-provider.js";
 import {
   __setSdkForTesting,
   ClaudeSubscriptionProvider,
 } from "../../packages/server/src/services/llm/providers/claude-subscription.provider.js";
+import { splitHistoryForResume } from "../../packages/server/src/services/llm/providers/claude-subscription/jsonl-entries.js";
 
 const originalDebug = logger.debug;
 let logged: Record<string, unknown> | undefined;
@@ -61,72 +61,36 @@ try {
   await provider.chatComplete([{ role: "user", content: "Hello" }], { model: "claude-opus-5" });
   assert.deepEqual(sdkOptions.settings, { fastMode: false }, "off preserves Claude's account-dependent default TTL");
 
-  // With the 1-hour cache on, the resumed history carries one cache marker, on the newest reply
-  // that isn't the last history entry: that entry holds the moving </chat_history> close.
-  const history: ChatMessage[] = [
-    { role: "system" as const, content: "System" },
-    { role: "user" as const, content: "<chat_history>\nOne" },
-    { role: "assistant" as const, content: "Reply one" },
-    { role: "user" as const, content: "Two" },
-    { role: "assistant" as const, content: "Reply two" },
-    { role: "user" as const, content: "Three" },
-    { role: "assistant" as const, content: "Reply three\n</chat_history>" },
-    { role: "user" as const, content: "<context>per turn</context>\n<last_message>\nFour\n</last_message>" },
-  ];
-  const markedBlocks = async (messages: typeof history, extended: boolean) => {
-    await provider.chatComplete(messages, { model: "claude-opus-5", anthropicExtendedCacheTtl: extended });
-    const store = sdkOptions.sessionStore as { load(key: { sessionId: string }): Promise<unknown[] | null> };
-    const entries = (await store.load({ sessionId: sdkOptions.resume as string })) as {
-      message: { content: string | { text?: string; name?: string; cache_control?: unknown }[] };
-    }[];
-    return entries.flatMap((entry) =>
-      Array.isArray(entry.message.content)
-        ? entry.message.content
-            .filter((block) => block.cache_control)
-            .map((block) => [block.text ?? block.name, block.cache_control])
-        : [],
-    );
-  };
-  assert.deepEqual(
-    await markedBlocks(history, true),
-    [["Reply two", { type: "ephemeral", ttl: "1h" }]],
-    "one 1h history marker, before the moving wrapper close",
+  // The xml </chat_history> close moves from the last history entry (which Claude Code marks for
+  // caching) to the start of the current turn, so that entry is identical next turn.
+  const split = splitHistoryForResume([
+    { role: "system", content: "System" },
+    { role: "user", content: "<chat_history>\nOne" },
+    { role: "assistant", content: "Reply one\n</chat_history>" },
+    { role: "user", content: "<last_message>\nTwo\n</last_message>" },
+  ]);
+  assert.equal(split.history.at(-1)?.content, "Reply one");
+  assert.equal(split.current.content, "</chat_history>\n<last_message>\nTwo\n</last_message>");
+  const continued = splitHistoryForResume([
+    { role: "user", content: "One" },
+    { role: "assistant", content: "Reply one" },
+    { role: "user", content: "Two" },
+  ]);
+  assert.equal(continued.history.at(-1)?.content, "Reply one", "unwrapped history is left alone");
+  assert.equal(continued.current.content, "Two");
+  // No cache_control of Marinara's own: Claude Code already uses all four markers.
+  await provider.chatComplete(
+    [
+      { role: "user", content: "<chat_history>\nOne" },
+      { role: "assistant", content: "Reply one\n</chat_history>" },
+      { role: "user", content: "Two" },
+    ],
+    { model: "claude-opus-5", anthropicExtendedCacheTtl: true },
   );
-  assert.deepEqual(await markedBlocks(history, false), [], "no history marker without the 1-hour cache");
-  // A reply made only of tool calls is marked on its last tool call.
-  const toolOnly: typeof history = [
-    ...history.slice(0, 4),
-    {
-      role: "assistant",
-      content: "",
-      tool_calls: [{ id: "call_1", type: "function", function: { name: "roll_dice", arguments: "{}" } }],
-    },
-    { role: "tool", content: "4", tool_call_id: "call_1" },
-    ...history.slice(6),
-  ];
-  assert.deepEqual(
-    await markedBlocks(toolOnly, true),
-    [["roll_dice", { type: "ephemeral", ttl: "1h" }]],
-    "a tool-only reply keeps the history marker",
-  );
-  const replyWith = (reply: ChatMessage): ChatMessage[] => [...history.slice(0, 4), reply, ...history.slice(5)];
-  assert.deepEqual(
-    await markedBlocks(
-      replyWith({
-        role: "assistant",
-        content: "I'll roll.",
-        tool_calls: [{ id: "call_2", type: "function", function: { name: "roll_dice", arguments: "{}" } }],
-      }),
-      true,
-    ),
-    [["roll_dice", { type: "ephemeral", ttl: "1h" }]],
-    "a text-and-tool reply is marked on its final tool call",
-  );
-  assert.deepEqual(
-    await markedBlocks(replyWith({ role: "assistant", content: "" }), true),
-    [["Reply one", { type: "ephemeral", ttl: "1h" }]],
-    "an empty reply passes the marker to the reply before it",
-  );
+  const store = sdkOptions.sessionStore as { load(key: { sessionId: string }): Promise<unknown[] | null> };
+  const entries = await store.load({ sessionId: sdkOptions.resume as string });
+  assert.ok(entries?.length);
+  assert.ok(!JSON.stringify(entries).includes("cache_control"), "the resumed history carries no cache markers");
 } finally {
   logger.debug = originalDebug;
   __setSdkForTesting(null);

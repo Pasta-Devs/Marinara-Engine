@@ -5,19 +5,17 @@ import {
   GENERATION_PARAMETER_SEND_KEYS,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   parseManagedGenerationParameterDefinitions,
+  withoutPresetTokenLimits,
+  isStockMarinaraUniversalPreset,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
-import { parsePresetParameters } from "../../services/prompt/assembler.js";
+import { getPresetGenerationParameters } from "../../services/prompt/assembler.js";
 import { resolveGenerationProviderRuntime } from "../../services/generation/provider-generation-runtime.js";
 import { keepsCodexDefaultEffort } from "../../services/generation/generation-parameters.js";
-import {
-  resolveModelAccessPolicy,
-  mergeModelContextLimit,
-  resolveStoredModelContextLimit,
-} from "../../services/generation/model-access-policy.js";
+import { resolveModelAccessPolicy } from "../../services/generation/model-access-policy.js";
 import { sentOutputBudget } from "../../services/generation/empty-response-reason.js";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection.js";
 import { resolveBaseUrl, parseExtra, parseStoredGenerationParameters } from "./generate-route-utils.js";
@@ -44,8 +42,11 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
       preset = await presets.getById(candidate.id);
       if (preset) break;
     }
-    const presetParams = preset ? parsePresetParameters(preset.parameters) : { ...DEFAULT_GENERATION_PARAMS };
-    const storedPresetParams = parseStoredGenerationParameters(preset?.parameters);
+    const presetParams = getPresetGenerationParameters(preset);
+    const storedPresetParams =
+      preset && isStockMarinaraUniversalPreset(preset)
+        ? {}
+        : withoutPresetTokenLimits(parseStoredGenerationParameters(preset?.parameters) ?? {});
     const policy = resolveModelAccessPolicy(connection);
     const definitions = parseManagedGenerationParameterDefinitions(
       await createAppSettingsStorage(app.db).get(CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY),
@@ -61,13 +62,11 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
       modelAccessPolicy: policy,
       initialSources: Object.fromEntries(Object.keys(storedPresetParams ?? {}).map((key) => [key, "preset"])),
       initial: {
+        ...DEFAULT_GENERATION_PARAMS,
+        maxTokens: 4096,
         ...presetParams,
         enabledParameters: presetParams.enabledParameters,
-        effectiveMaxContext: mergeModelContextLimit(
-          policy,
-          policy.effectiveMaxContext,
-          preset ? resolveStoredModelContextLimit(policy, presetParams) : undefined,
-        ),
+        effectiveMaxContext: policy.effectiveMaxContext,
       },
     });
     const cappedOutput = sentOutputBudget(runtime.maxTokens, connection.maxTokensOverride);
@@ -115,6 +114,7 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
     return {
       chatName: chat?.name ?? null,
       inheritedParameters: {
+        maxTokens: 4096,
         ...presetParams,
         ...runtime.connectionParams,
         ...(keepsCodexDefaultEffort(connection.provider, runtime.connectionParams) ? { reasoningEffort: null } : {}),

@@ -392,6 +392,11 @@ export interface AgentContext {
   /** Current game state (if any) */
   gameState: import("./game-state.js").GameState | null;
   /**
+   * The Roleplay Maps location the story is in: breadcrumb path and public description.
+   * Image agents read it under the "Tracker data" Context Source (#8251).
+   */
+  currentLocation?: { path: string; description: string } | null;
+  /**
    * Active characters in the chat. The base shape (id/name/description) is
    * always populated. Richer card fields are optional — they're present in
    * practice, but agents should not rely on them unless needed. The Card
@@ -405,7 +410,6 @@ export interface AgentContext {
     description: string;
     personality?: string;
     scenario?: string;
-    creatorNotes?: string;
     systemPrompt?: string;
     backstory?: string;
     appearance?: string;
@@ -416,7 +420,7 @@ export interface AgentContext {
     avatarCrop?: unknown;
     rpgStats?: import("./character.js").RPGStatsConfig;
   }>;
-  /** Every character attached to the chat, with only the data needed for activity routing. */
+  /** Full names-only chat roster for macros and activity routing; card fields stay in active characters. */
   chatCharacters?: Array<{
     id: string;
     name: string;
@@ -569,6 +573,7 @@ export interface BuiltInAgentMeta {
   modeAllowlist?: readonly ChatMode[];
   promptTemplates?: AgentPromptTemplateOption[];
   execution?: "pipeline" | "feature" | "host";
+  requiresConnection?: BuiltInAgentManifest["requiresConnection"];
 }
 
 function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
@@ -586,6 +591,7 @@ function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
     ...(agent.modeAllowlist !== undefined ? { modeAllowlist: [...agent.modeAllowlist] } : {}),
     ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
     ...(agent.execution !== undefined ? { execution: agent.execution } : {}),
+    ...(agent.requiresConnection !== undefined ? { requiresConnection: agent.requiresConnection } : {}),
   };
 }
 
@@ -768,6 +774,22 @@ export function customAgentHasCapability(
   return normalizeCustomAgentCapabilities(settings)[capability] === true;
 }
 
+/**
+ * The kind of Model an agent cannot run without, or null. A package manifest declares it; agents
+ * that predate the field are inferred: Illustrator and custom agents allowed to trigger image generation draw.
+ */
+export function agentRequiredConnection(
+  agentType: string,
+  settings?: Record<string, unknown> | null,
+): BuiltInAgentManifest["requiresConnection"] | null {
+  const declared = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType)?.requiresConnection;
+  if (declared) return declared;
+  // ponytail: Illustrator is named here until its package manifest declares requiresConnection: "image"
+  // (Pasta-Devs/Marinara-Agents); then this line goes.
+  if (agentType === "illustrator") return "image";
+  return customAgentHasCapability(settings, "trigger_image_generation") ? "image" : null;
+}
+
 export function getCustomAgentResultCapability(resultType: AgentResultType): CustomAgentCapability | null {
   return CUSTOM_AGENT_RESULT_CAPABILITY[resultType] ?? null;
 }
@@ -940,7 +962,6 @@ export const EDITABLE_CHARACTER_CARD_FIELDS = [
   "scenario",
   "first_mes",
   "mes_example",
-  "creator_notes",
   "system_prompt",
   "post_history_instructions",
   "backstory",

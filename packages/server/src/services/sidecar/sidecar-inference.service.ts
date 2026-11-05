@@ -431,10 +431,10 @@ Line 2: one short sentence confirming that the local sidecar test succeeded.`,
         max_tokens: 48,
         temperature: 0.2,
         top_p: 0.9,
+        chat_template_kwargs: { enable_thinking: false },
       };
       if (backend !== "mlx") {
         body.reasoning_format = "none";
-        body.chat_template_kwargs = { enable_thinking: false };
       }
 
       const response = await fetch(`${baseUrl}/v1/chat/completions`, {

@@ -76,6 +76,21 @@ try {
     });
     assert.equal(unrelatedUpdate.ok, true);
     await drainKeep(mari);
+    const snakeUpdate = await mari.executeAction({
+      action: "preset.update",
+      presetId,
+      conversation_prompt: "Talk like a harbor pilot.",
+      game_prompt: "Run the harbor game.",
+      apply: true,
+    });
+    assert.equal(snakeUpdate.ok, true);
+    await drainKeep(mari);
+    const afterSnake = (await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as Record<
+      string,
+      unknown
+    >;
+    assert.equal(afterSnake.conversationPrompt, "Talk like a harbor pilot.", "top-level conversation_prompt applies");
+    assert.equal(afterSnake.gamePrompt, "Run the harbor game.", "top-level game_prompt applies");
     for (const scopedRegexMode of ["invalid", null]) {
       const invalidMode = await mari.executeAction({
         action: "preset.update",
@@ -486,7 +501,7 @@ try {
       apply: true,
     });
     assert.equal(badRoleAdd.ok, false, "addSection rejects an unsupported role instead of coercing it to system");
-    assert.match(String(badRoleAdd.error ?? ""), /role must be one of/iu);
+    assert.match(String(badRoleAdd.error ?? ""), /"role" must be one of/u);
 
     // Choice-block get / add / update (empty-options guard) / delete.
     assert.equal(

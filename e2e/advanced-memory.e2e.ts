@@ -1295,7 +1295,8 @@ for (const work of ["scene-check", "summary"] as const)
       for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString());
       providerRequests.push(body);
-      if (!body.stream) {
+      // Since #8249 helper calls stream too, so the memory call is the one after the chat reply.
+      if (pending) {
         pendingMemory = response;
         return;
       }
@@ -1375,10 +1376,13 @@ for (const work of ["scene-check", "summary"] as const)
       });
       await openChat(page, fixture.chat.id, false);
       // Agent activity, the Chat Settings section below Agents, shows Advanced Recall progress.
-      const activity = (await openChatSettingsTool(page, "agent-activity")).locator(
-        '[data-component="AdvancedRecallActivity"]',
-      );
+      const activitySection = await openChatSettingsTool(page, "agent-activity");
+      const activity = activitySection.locator('[data-component="AdvancedRecallActivity"]');
+      // The baseline waits for every reader of the status: the Agent activity section can mount after the first
+      // status answer, and then refetches it once because it is over a second old. That is not polling.
+      await expect(activitySection.locator('[data-component="AgentActivitySection"]')).toHaveCount(1);
       await expect.poll(() => polls).toBeGreaterThan(0);
+      await expect.poll(() => statusRequests.size).toBe(0);
       const idlePolls = polls;
       // Observe beyond the former five-second interval: an idle archive must stay idle.
       await page.waitForTimeout(5500);
@@ -1751,6 +1755,8 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
     const toggle = settings.getByRole("checkbox", { name: /^Use Decision model/ });
     await expect(toggle).not.toBeChecked();
+    // The Memory Decision picker stays a native select: it also lists local Decision models, which the
+    // ConnectionSelect #8456 expected here does not offer.
     await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
     await captureThemes(page, info, "memory-decision-off");
     await settings.getByText("Use Decision model", { exact: true }).click();

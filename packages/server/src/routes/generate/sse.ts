@@ -85,14 +85,23 @@ export function startSseKeepalive(reply: GenerationOutput, intervalMs = 15_000):
   return () => clearInterval(timer);
 }
 
+/** Outputs that have told their client how the generation ended, with a "done" or an "error" event. */
+const settledOutputs = new WeakSet<GenerationOutput>();
+
 export function sendSseEvent(reply: GenerationOutput, payload: SsePayload): boolean {
   if (!isSseReplyWritable(reply)) return false;
+  if (payload.type === "done" || payload.type === "error") settledOutputs.add(reply);
   try {
     if (isEventSink(reply)) return reply.emit(payload);
     return reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
   } catch {
     return false;
   }
+}
+
+/** True once the output has carried a "done" or an "error" event. */
+export function generationOutputSettled(reply: GenerationOutput): boolean {
+  return settledOutputs.has(reply);
 }
 
 export function endGenerationOutput(reply: GenerationOutput): void {

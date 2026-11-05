@@ -1,0 +1,31 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "hungover",
+  "notes": "Dated Jan 1 pack. Concept 6's morning-after figure and the finished party portrait are the costume and identity references; Basic Mari supplies only framing, scale, baseline, and pixel style. Each story was generated as its own four-beat transparent strip, then normalized into four 128 x 192 cells.",
+  "prompts": [
+    {
+      "asset": "portrait-idle gate",
+      "prompt": "Match the right figure from concept 6 as the same Mari the next morning: messy orange-blonde bed hair, glasses askew, dark under-eye rings, pale slightly greenish face, squinting, the same rumpled navy star sweater, grey jeans and sneakers, crushed sideways blue party hat, holding a large glass of water with one hand on her head. Crisp Basic-Mari-family pixel art, full body, transparent background."
+    },
+    {
+      "asset": "thinking, research, planning, editing",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: press the cold water glass to her forehead, wince and get a faint idea; dig through couch cushions, find her phone, squint at the bright screen and dim it; line up aspirin, water and dry toast and nod slowly; scroll last night's photos and delete them in horror. Exact concept-6 morning-after outfit and identity throughout."
+    },
+    {
+      "asset": "debugging, images, waiting, approval",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: try to remember last night, show a fuzzy party-hat thought bubble with a question mark, then groan; find an embarrassing party photo, cringe and hide behind the phone; lie on a couch with an ice pack, twitch one foot and half-open one eye; weakly offer water toward the viewer with a pleading face. Exact concept-6 morning-after outfit and identity throughout."
+    },
+    {
+      "asset": "success, retry, cancelled, idle",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: drop a fizzing tablet into water, watch it foam, drink and give a weak thumbs-up; brace to stand, wobble, sit back down and try again; fall face-first into a pillow and sleep with one tiny z; sway with water, slow-blink, touch forehead and sip. Exact concept-6 morning-after outfit and identity throughout."
+    },
+    {
+      "asset": "portrait-idle, portrait-blink, portrait-shrug, portrait-hover, portrait-drag, pull-heads",
+      "prompt": "Production pixel-art portraits and interaction sprites of concept-6 hungover Mari. Hold water and squint; heavy blink; limp shrug with ice pack; wince at light; dragged limp like a sack while holding the glass; six crushed-hat bed-hair head angles: neutral, down, down-left, down-right, peering and relieved. Transparent background, Basic Mari framing only."
+    },
+    {
+      "asset": "pose-wave, pose-greet, pose-point-up, pose-point-middle, pose-point-down, pose-explaining, pose-thinking, pose-profile, pose-chibi",
+      "prompt": "Nine transparent pixel-art poses of concept-6 hungover Mari: weak wave with ice pack, raise the water glass, point with the ice pack in three directions, explain while holding her temple, think with glass on forehead, shuffling profile, and tiny curled-up sleeping chibi. Preserve outfit and identity exactly."
+    }
+  ]
+}

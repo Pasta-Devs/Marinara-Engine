@@ -23,6 +23,8 @@ export const advancedMemoryRecords = fileTable("advanced_memory_records", {
   dependencies: text("dependencies").notNull().default("[]"),
   // Internal resumable split/combine responses; omitted from public records and transfers.
   summaryWork: text("summary_work"),
+  // Long-Term Memory's block from a scene summary reply, stored untouched (#8589); internal like summaryWork.
+  structuredMemory: text("structured_memory"),
   embedding: vectorText("embedding"),
   embeddingSpaceId: text("embedding_space_id"),
   createdAt: text("created_at").notNull(),

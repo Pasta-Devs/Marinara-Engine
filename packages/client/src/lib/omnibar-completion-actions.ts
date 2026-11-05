@@ -13,6 +13,8 @@ export interface OmnibarCompletionAction {
   /** Present for resource/field actions so the caller can open the right thing. */
   resource?: ProfessorMariAskContext["resource"];
   field?: string;
+  /** The editor field id behind `field`, when the editor reported one. */
+  fieldId?: string;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface OmnibarCompletionAction {
  * never more than three. "Return" is always available as the last option.
  */
 export function omnibarCompletionActions(
-  context: Pick<ProfessorMariAskContext, "capability" | "resource" | "field"> | null | undefined,
+  context: Pick<ProfessorMariAskContext, "capability" | "resource" | "field" | "fieldId"> | null | undefined,
 ): OmnibarCompletionAction[] {
   if (!context) return [{ kind: "return" }];
   const capability = context.capability as ProfessorMariCapability | undefined;
@@ -35,7 +37,7 @@ export function omnibarCompletionActions(
     if (resource) actions.push({ kind: "open-resource", resource });
   };
   const addField = () => {
-    if (resource && field) actions.push({ kind: "open-field", resource, field });
+    if (resource && field) actions.push({ kind: "open-field", resource, field, fieldId: context.fieldId });
   };
 
   switch (completion) {

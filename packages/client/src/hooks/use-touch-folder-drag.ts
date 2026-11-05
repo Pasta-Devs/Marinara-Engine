@@ -90,7 +90,7 @@ const DEFAULT_AUTO_SCROLL_MAX_SPEED_PX = 18;
 const WEBKIT_TOUCH_CALLOUT_PROPERTY = "-webkit-touch-callout";
 const WEBKIT_USER_DRAG_PROPERTY = "-webkit-user-drag";
 const TOUCH_DRAG_ACTIVE_TOUCH_ACTION = "none";
-const TOUCH_DRAG_PREVIEW_Z_INDEX = "100000";
+export const TOUCH_DRAG_PREVIEW_Z_INDEX = "100000";
 
 function restoreStyleProperty(style: CSSStyleDeclaration, property: string, value: string) {
   if (value) {
@@ -137,6 +137,11 @@ function createPreviewElement(drag: TouchFolderDragState) {
   clone.style.zIndex = TOUCH_DRAG_PREVIEW_Z_INDEX;
   clone.style.opacity = "0.96";
   clone.style.backgroundColor = "var(--sidebar)";
+  // Keep the card's own translucent fill, and the panel tint the clone loses outside its panel.
+  clone.style.backgroundImage = `linear-gradient(${computedStyle.backgroundColor}, ${computedStyle.backgroundColor})`;
+  for (const name of ["--mari-panel-gradient-start", "--mari-panel-gradient-end", "--mari-panel-gradient-text"]) {
+    clone.style.setProperty(name, computedStyle.getPropertyValue(name));
+  }
   clone.style.borderRadius = computedStyle.borderRadius;
   clone.style.boxShadow = "0 18px 44px rgba(0, 0, 0, 0.34)";
   clone.style.transformOrigin = "top left";

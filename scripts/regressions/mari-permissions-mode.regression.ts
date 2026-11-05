@@ -115,7 +115,7 @@ assert.equal(
 // (CodeRabbit round 1: the substring check never armed, deadlocking Manual).
 assert.match(
   workspaceAgent,
-  /const manualApprovalArmed = lastExtra\.mariDeferredMutations === true;/u,
+  /const manualApprovalArmed = lastExtra\.mariDeferredMutations === true && history\.at\(-1\)\?\.role === "user";/u,
 );
 assert.match(workspaceAgent, /if \(run\.endedWithDeferral\) extraUpdate\.mariDeferredMutations = true;/u);
 // The deferral marker is retryable: the row is retained across a failed extra

@@ -2,12 +2,14 @@
 // Macro Engine — {{user}}, {{char}}, {{date}}, etc.
 // ──────────────────────────────────────────────
 
+import { rollParsedDice } from "./dice-notation.js";
+
 export interface MacroContext {
   user: string;
   userPhonetic?: string;
   char: string;
   charPhonetic?: string;
-  /** Character names in the current prompt scope (used by {{characters}}) */
+  /** Full chat character roster, including inactive members (used by {{characters}}). */
   characters: string[];
   /** Full active chat character roster (used by {{group}} when the prompt is scoped to one responder) */
   groupCharacters?: string[];
@@ -55,6 +57,8 @@ export interface MacroContext {
   idleDuration?: string;
   /** IANA timezone name from the active browser/session, used by time macros */
   timeZone?: string;
+  /** Scene clock tracked by World State; values may use a fictional calendar. */
+  worldState?: { date?: unknown; time?: unknown; worldCustomFields?: unknown } | null;
   /** Agent data keyed by agent type (for {{agent::TYPE}}) */
   agentData?: Record<string, string>;
   /** Referenced character names keyed by exact card ID (for {{CHARACTER_ID}}) */
@@ -88,6 +92,7 @@ export interface MacroContext {
   };
   /** Active persona card fields used by {{persona}} */
   personaFields?: {
+    example?: string;
     phoneticName?: string;
     description?: string;
     personality?: string;
@@ -134,6 +139,8 @@ export interface MacroDecisionAnswers {
 
 export interface ResolveMacroOptions {
   trimResult?: boolean;
+  /** Observe resolved Persona example leaves without changing macro evaluation. */
+  onPersonaExampleResolved?: (text: string) => void;
   /**
    * Preserve character macros as internal tokens for a later known-speaker pass.
    * "names" delays {{char}}/{{charName}} and {{group}}; "all" also delays character field macros.
@@ -169,6 +176,7 @@ export interface SupportedMacroDefinition {
   category: string;
   syntax: string;
   description: string;
+  descriptionKey?: string;
 }
 
 export const CHARACTER_REFERENCE_ID_PATTERN = /\{\{([A-Za-z0-9_-]{21})\}\}/g;
@@ -331,6 +339,37 @@ function readMacroVariable(map: Record<string, string> | undefined, name: string
   if (!map || !Object.prototype.hasOwnProperty.call(map, name)) return undefined;
   const value = map[name];
   return typeof value === "string" ? value : undefined;
+}
+
+function worldStateWeekday(state: MacroContext["worldState"]): string {
+  let customFields = state?.worldCustomFields;
+  if (typeof customFields === "string") {
+    try {
+      customFields = JSON.parse(customFields);
+    } catch {
+      customFields = [];
+    }
+  }
+  if (Array.isArray(customFields)) {
+    const weekday = customFields.find(
+      (field) =>
+        field &&
+        typeof field.name === "string" &&
+        ["weekday", "dayofweek"].includes(field.name.toLowerCase().replace(/[\s_-]/gu, "")),
+    );
+    if (typeof weekday?.value === "string" && weekday.value.trim()) return weekday.value;
+  }
+  if (typeof state?.date !== "string") return "";
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const named = state.date.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/iu);
+  if (named) return weekdays.find((day) => day.toLowerCase() === named[1]!.toLowerCase())!;
+  const date = state.date.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return "";
+  const parsed = new Date(`${date}T00:00:00Z`);
+  // A fictional or invalid date has no Gregorian weekday. Never borrow the real clock.
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+    ? weekdays[parsed.getUTCDay()]!
+    : "";
 }
 
 /**
@@ -557,6 +596,24 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Time", syntax: "{{datetime}} / {{isotime}}", description: "Current timestamp in the user's timezone" },
   { category: "Time", syntax: "{{weekday}}", description: "Current weekday name in the user's timezone" },
   { category: "Time", syntax: "{{timezone}}", description: "Current user/browser timezone" },
+  {
+    category: "Time",
+    syntax: "{{date.world_state}}",
+    description: "Current date tracked by World State",
+    descriptionKey: "macros.worldState.date",
+  },
+  {
+    category: "Time",
+    syntax: "{{time.world_state}}",
+    description: "Current time tracked by World State",
+    descriptionKey: "macros.worldState.time",
+  },
+  {
+    category: "Time",
+    syntax: "{{weekday.world_state}}",
+    description: "Weekday of the tracked world date, when known",
+    descriptionKey: "macros.worldState.weekday",
+  },
   { category: "Random", syntax: "{{random}}", description: "Random number from 0 to 100" },
   { category: "Random", syntax: "{{random:X:Y}}", description: "Random number between X and Y" },
   { category: "Random", syntax: "{{random::A::B::C}}", description: "Randomly choose one of the provided options" },
@@ -565,7 +622,7 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: "{{random::A@2::B@0.5}}",
     description: "Weighted random choice; weights are relative and may be decimals",
   },
-  { category: "Random", syntax: "{{roll:XdY}}", description: "Dice roll total such as 2d6" },
+  { category: "Random", syntax: "{{roll:XdY}}", description: "Dice roll total such as 2d6, d20 or 1d8+3" },
   { category: "Variables", syntax: "{{getvar::name}}", description: "Read a dynamic variable" },
   { category: "Variables", syntax: "{{setvar::name::value}}", description: "Set a dynamic variable" },
   { category: "Variables", syntax: "{{addvar::name::value}}", description: "Append to a dynamic variable" },
@@ -757,30 +814,21 @@ export function resolveDeferredCharacterMacros(
   result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.char).join(profile.name);
   result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.charPhonetic).join(profile.phoneticName ?? profile.name);
   result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.group).join(resolveGroupCharacters(scopedContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.description)
-    .join(resolveCharacterFieldValue(profile, "description", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.personality)
-    .join(resolveCharacterFieldValue(profile, "personality", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.backstory)
-    .join(resolveCharacterFieldValue(profile, "backstory", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.appearance)
-    .join(resolveCharacterFieldValue(profile, "appearance", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.scenario)
-    .join(resolveCharacterFieldValue(profile, "scenario", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.example)
-    .join(resolveCharacterFieldValue(profile, "example", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.systemPrompt)
-    .join(resolveCharacterFieldValue(profile, "systemPrompt", 0, baseContext));
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.postHistoryInstructions)
-    .join(resolveCharacterFieldValue(profile, "postHistoryInstructions", 0, baseContext));
+  for (const field of [
+    "description",
+    "personality",
+    "backstory",
+    "appearance",
+    "scenario",
+    "example",
+    "systemPrompt",
+    "postHistoryInstructions",
+  ] as const) {
+    const token = DEFERRED_CHARACTER_MACRO_TOKENS[field];
+    // Unused fields can contain random rolls and variable writes; never evaluate them.
+    if (result.includes(token))
+      result = result.split(token).join(resolveCharacterFieldValue(profile, field, 0, baseContext));
+  }
   result = result
     .split(DEFERRED_CHARACTER_MACRO_TOKENS.convoDisplay)
     .join(scopedContext.convoFields?.charDisplayName ?? "");
@@ -1345,6 +1393,7 @@ function resolvePersonaText(ctx: MacroContext): string {
     ctx.personaFields?.backstory,
     ctx.personaFields?.appearance,
     ctx.personaFields?.scenario,
+    ctx.personaFields?.example,
   ]
     .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
     .join("\n");
@@ -2284,7 +2333,7 @@ function planConditionOperand(
   if (/^-?\d+(?:\.\d+)?$/u.test(token)) return token;
   const key = normalizeConditionKey(token);
   if (!PLAN_FIXED_OPERAND_NAMES.has(key)) return null;
-  const group = (ctx.characterProfiles?.length ?? 0) > 1 || ctx.characters.length > 1;
+  const group = (ctx.characterProfiles?.length ?? ctx.characters.length) > 1;
   if (group && PLAN_PER_CHARACTER_OPERAND_NAMES.has(key)) return null;
   return resolveConditionalOperand(raw, ctx, options);
 }
@@ -3227,7 +3276,7 @@ export function expandLorebookIncludes(
  *  - {{random:X:Y}} — random number X-Y
  *  - {{random::A::B::C}} — random choice from A, B, C
  *  - {{random::A@2::B@0.5}} — weighted random choice; weights are relative
- *  - {{roll:XdY}} — dice roll (e.g. {{roll:2d6}})
+ *  - {{roll:XdY}} — dice roll (e.g. {{roll:2d6}}, {{roll:d20}}, {{roll:1d8+3}})
  *  - {{getvar::name}} — read a dynamic variable
  *  - {{setvar::name::value}} — set a variable
  *  - {{addvar::name::value}} — append to a variable
@@ -3317,17 +3366,19 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   // position, before the conditional/variable-op passes, so persona-field side
   // effects such as {{setvar::…}} still land before conditions that read them.
   let personaText: string | null = null;
-  const buildPersonaText = (): string =>
-    [
+  const buildPersonaText = (): string => {
+    const parts = [
       ctx.personaFields?.description,
       ctx.personaFields?.personality,
       ctx.personaFields?.backstory,
       ctx.personaFields?.appearance,
       ctx.personaFields?.scenario,
-    ]
-      .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
-      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-      .join("\n");
+      ctx.personaFields?.example,
+    ].map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part));
+    const example = parts[5];
+    if (typeof example === "string") options.onPersonaExampleResolved?.(example);
+    return parts.filter((part): part is string => typeof part === "string" && part.trim().length > 0).join("\n");
+  };
   if (/\{\{persona\}\}/i.test(result)) personaText = buildPersonaText();
 
   // ── Multi-character bracket blocks — expand before global substitutions ──
@@ -3453,15 +3504,20 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     return String(randomInteger(options, original, lo, hi));
   });
 
-  // ── Dice rolls: {{roll:2d6}} ──
-  result = result.replace(/\{\{roll:(\d+)d(\d+)\}\}/gi, (original, count, sides) => {
+  // ── Dice rolls: {{roll:2d6}}, {{roll:d20}}, {{roll:1d8+3}}: the shared NdM grammar, the macro's own (looser) limits ──
+  result = result.replace(/\{\{roll:(\d*)d(\d+)([+-]\d+)?\}\}/gi, (original, count, sides, modifierText) => {
     if (!consumeMacroExpansion(options)) return original;
-    const n = Math.min(parseInt(count, 10), MAX_DICE_COUNT);
+    const n = Math.min(parseInt(count || "1", 10), MAX_DICE_COUNT);
     const s = Math.min(parseInt(sides, 10), MAX_DICE_SIDES);
     if (n < 1 || s < 1) return "0";
-    let total = 0;
-    for (let i = 0; i < n; i++) total += randomInteger(options, `${original}:${i}`, 1, s);
-    return String(total);
+    const modifier = modifierText ? parseInt(modifierText, 10) : 0;
+    // Printed only when every total the dice can make is exact, as parseDiceNotation holds them;
+    // dice only add, so the high end is the one that can leave the safe integers.
+    if (!Number.isSafeInteger(modifier) || !Number.isSafeInteger(modifier + n * s)) return original;
+    // Each die keeps its own seed key, so a seeded chat rolls the same faces it always did.
+    let die = 0;
+    const roll = (faces: number) => randomInteger(options, `${original}:${die++}`, 1, faces);
+    return String(rollParsedDice({ notation: original, dice: `${n}d${s}`, count: n, sides: s, modifier }, roll).total);
   });
 
   // ── Variable operations — resolve left-to-right so lorebook entries can set values for later entries. ──
@@ -3532,6 +3588,13 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{lorebooksize::([\w-]+)\}\}/gi, (_, id) => {
     const counts = ctx.lorebookEntryCounts;
     return counts && Object.prototype.hasOwnProperty.call(counts, id) ? String(counts[id]) : "0";
+  });
+
+  // Tracked values are model-authored data, not another macro template, including late read macros.
+  result = result.replace(/\{\{(date|time|weekday)\.world_state\}\}/gi, (_, field: string) => {
+    if (field.toLowerCase() === "weekday") return worldStateWeekday(ctx.worldState);
+    const value = ctx.worldState?.[field.toLowerCase() as "date" | "time"];
+    return typeof value === "string" ? value : "";
   });
 
   if (options.trimResult !== false) {

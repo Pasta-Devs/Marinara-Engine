@@ -534,7 +534,8 @@ try {
       .join("\n");
     assert.match(
       prompt,
-      /PLAYER INVENTORY \(Body 0 of 1, Hands 0 of 2; no coins\): Road rations ×10 \[Provisions, Common; Bulk 1; costs 5 bits\]; Arrows ×4; Lamp; Arrows ×2 \[Ammunition, Common, Arrow; Bulk 1; costs 1 marks\]/,
+      // An item with no rules of its own carries its description too.
+      /PLAYER INVENTORY \(Body 0 of 1, Hands 0 of 2; no coins\): Road rations ×10 \[Provisions, Common; Bulk 1; costs 5 bits; A day of hard bread and harder cheese\.\]; Arrows ×4; Lamp; Arrows ×2 \[Ammunition, Common, Arrow; Bulk 1; costs 1 marks; Goose-feathered and iron-tipped, twenty to a quiver\.\]/,
     );
     assert.match(prompt, /an item named exactly as one of them becomes that item/);
     // A ruleset with coins says an empty purse through the route, the bag empty or holding only items
@@ -753,7 +754,7 @@ try {
     const block = text.slice(at, text.indexOf("\n\n", at));
     assert.match(
       block,
-      /- User \(load 12 of 6, most 12, encumbered; Body 1 of 1, Hands 2 of 2; no coins\): Leather coat \(1 worn\) \[[^\]]*\]; Arrows ×5 \[[^\]]*\]; Hunting bow ×2 \(1 worn\)/,
+      /- Ada \(load 12 of 6, most 12, encumbered; Body 1 of 1, Hands 2 of 2; no coins\): Leather coat \(1 worn\) \[[^\]]*\]; Arrows ×5 \[[^\]]*\]; Hunting bow ×2 \(1 worn\)/,
     );
     assert.match(block, /- Bram \(load 12 of 9, most 12, encumbered; Body 0 of 1, Hands 0 of 2; no coins\): /);
     // Through the route too: with money in the game an empty purse is said, and so is anyone left out.
