@@ -1607,8 +1607,9 @@ export function ConnectionSwitcherBody({
       aria-label={nowLabel}
       className={cn(
         "mx-2 mt-1.5 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] px-1 py-0.5",
-        // In Shuffle the pool list has no Back, so the strip with the dice stays the way out.
-        drilled && !searching && !shuffle?.active && "@max-xl:hidden",
+        // In Shuffle the pool list has no Back, so the strip with the dice stays the way out; with no models there
+        // are no panes and no Back either, so it keeps the way to the default.
+        drilled && !searching && !shuffle?.active && !nothing && "@max-xl:hidden",
       )}
     >
       <div className="flex items-center gap-1">
@@ -1718,8 +1719,10 @@ export function ConnectionSwitcherBody({
           {poolList}
         </ListFrame>
       ) : nothing ? (
-        // With no models there are no panes, so the add row goes under the empty message.
+        // With no models there are no panes, so the add row goes under the empty message. Values that are not
+        // models, such as a Decision connection, stay pickable above it.
         <>
+          {extraRows.length > 0 && <div className="shrink-0 border-t border-foreground/10 p-1.5">{extraRows}</div>}
           {empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>}
           {addRow}
         </>

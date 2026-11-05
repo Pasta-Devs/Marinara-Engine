@@ -20,6 +20,9 @@ for (const testCase of [
     page,
     request,
   }, info) => {
+    // Six full-page screenshots at the phone's 3x scale, up to 1440 wide, take 2-8 s each on CI WebKit, so the
+    // steps alone came to about 67 s there (run 42029653525); the screenshot sweeps beside it use the same budget.
+    test.setTimeout(120_000);
     await isolateSyncedUISettings(page);
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "{}" } }));
     const createAccount = async (name: string) => {

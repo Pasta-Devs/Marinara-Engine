@@ -5,6 +5,9 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 test("the connection editor protects unsaved changes and tests the connection", async ({ page, request }) => {
+  // Six screenshots at the phone's 3x scale, up to 1440 wide, take 4-10 s each on CI WebKit, so the steps alone
+  // came to about 65 s there (run 42029653525); the screenshot sweeps beside it use the same budget.
+  test.setTimeout(120_000);
   const response = await request.post("/api/connection-accounts", {
     data: {
       name: "Studio proxy",

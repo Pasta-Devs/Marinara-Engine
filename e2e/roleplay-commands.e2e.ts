@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { chooseConnection } from "./connection-picker.js";
 import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { TONE_ACCENT } from "../packages/client/src/components/dice/dice-tone.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const extra = (value: unknown): Record<string, any> => (typeof value === "string" ? JSON.parse(value) : (value ?? {}));
@@ -1972,14 +1973,17 @@ for (const [native, targetKind, modifier, dc] of [
       await expect(formatted).toContainText("the attempt is resolved.");
       await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       await page.screenshot({ path: testInfo.outputPath("roleplay-inline-dice.png"), animations: "disabled" });
-      const accent = await inlineDice.evaluate((element) => {
+      // Since #8258 a roll with a DC takes the server's verdict as its tone (the per-chat setting defaults to
+      // success and failure); a roll without a DC keeps the app accent.
+      const tone = dc === undefined ? "var(--primary)" : TONE_ACCENT[resolved.success ? "success" : "failure"];
+      const accent = await inlineDice.evaluate((element, color) => {
         const probe = document.createElement("span");
-        probe.style.color = "var(--primary)";
+        probe.style.color = color;
         element.append(probe);
-        const color = getComputedStyle(probe).color;
+        const computed = getComputedStyle(probe).color;
         probe.remove();
-        return color;
-      });
+        return computed;
+      }, tone);
       await expect(inlineDice.locator(".dice-roll-breakdown")).toHaveCSS("color", accent);
       await expect(inlineDice.locator(".dice-roll-total")).toHaveCSS("color", accent);
       if (native) {
