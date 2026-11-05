@@ -866,3 +866,13 @@ Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7` (`lorebo
 - Found but not fixed, because the EN source of that line did not change: `installation/android-termux.md:82` links `../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503`, but the translated heading `### Android localhost लॉगिन पेज खोलता है या 401/503 लौटाता है` (`TROUBLESHOOTING.md:415`) has no `<a id>`. Add one in a later sweep.
 
 These are translation choices, not a new native-reader review.
+
+## GPT Image 2.6 and animated GIFs (2026-11-05)
+
+Precedents from the #8872 sync (`media/image-providers.md`, `development/optional-agent-packages.md`):
+
+- **Image quality** (इमेज की गुणवत्ता) and its option **Max** (अधिकतम) take the shipped `ui/hi.json` strings (`ui.connections.connectioneditor.gptImageQuality`, `.imageQualityMax`), so Hindi-UI readers can match the screen, as **Preview** (सुनें) did. Prose "quality" stays **क्वालिटी**.
+- A still picture is **स्टिल तस्वीर**, after the pack's स्टिल इमेज / स्टिल कीफ़्रेम. A looping GIF is **लूप होने वाला GIF** (`characters/sprites.md`). Engine error strings stay English in straight quotes (Pattern C).
+- **Custom Parameters** (कस्टम पैरामीटर) is now glossed in the new GPT Image 2.6 section, its first mention in `media/image-providers.md`; the fal.ai and SpicyAPI mentions run bare.
+
+These are translation choices, not a new native-reader review.

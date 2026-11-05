@@ -1096,6 +1096,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 पुराने Engine इस विकल्प को अनदेखा करते हैं, इसलिए पैकेज इसे हमेशा दे सकता है। जब पैकेज इस पर निर्भर हो, तब 1.815 घोषित करें।
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816: एनिमेटेड GIF इमेज
+
+`images.generate` रिक्वेस्ट में `animation: { frameCount?, frameDurationMs? }` लेता है और तब लूप होने वाला एक GIF लौटाता है: `mimeType: "image/gif"`, `ext: "gif"`, जिसे `images.save` एक `.gif` फ़ाइल के रूप में सेव करता है। `{}` Engine के डिफ़ॉल्ट इस्तेमाल करता है, यानी 200 ms वाले 9 फ़्रेम। Engine `frameCount` को 2 से 12 तक और `frameDurationMs` को 10-10 के स्टेप में 20 से 2000 तक सीमित रखता है, और फ़्रेम का साइज़ खुद चुनता है: `width` और `height` के आकार वाला सबसे छोटा मान्य फ़्रेम, जैसे चौकोर के लिए 816x816 या 9:16 के लिए 608x1088। उस साइज़ के बारह फ़्रेम OpenAI के दस्तावेज़ों में बताए गए 8,294,400 पिक्सेल से कम रहते हैं।
+
+GIF सिर्फ़ OpenAI कनेक्शन पर चलने वाले GPT Image 2.6 Flare या Sunburst (`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`) बनाते हैं। GIF सिर्फ़ प्रॉम्प्ट से बनता है: OpenAI सिर्फ़ `/v1/images/generations` पर GIF बनाता है, जो कोई तस्वीर नहीं लेता। Engine ये रिक्वेस्ट कतार का कोई स्लॉट लेने या पैसे लगने वाली कोई कॉल करने से पहले ही ठुकरा देता है, और ऐसी एरर देता है जिसका `code` `"animation-unsupported"` है:
+
+- ऐसा कनेक्शन जो GIF नहीं बना सकता (ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs, या कोई भी दूसरी सेवा या मॉडल): "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection."
+- कोई तस्वीर, यानी ऐसी `referenceImage` या `referenceImages` एंट्री जो खाली न हो, या `referenceIsCanvas: true`: "A GIF is drawn from the prompt alone, so it can't start from a picture."
+
+खाली `referenceImages` ऐरे या खाली स्ट्रिंग को तस्वीर नहीं माना जाता। `POST /api/characters/avatar-generation` अपनी बॉडी में यही `animation` लेता है और इन इनकारों का जवाब 400 `{ error, code: "animation-unsupported" }` से देता है। बाकी मामलों में उसका `image` एक `data:image/gif;base64,…` URL होता है।
+
+जो सेवा GIF रिक्वेस्ट का जवाब स्टिल तस्वीर से देती है, वह "The image service sent back a still picture instead of a GIF." एरर के साथ फ़ेल होती है। उस जवाब के पैसे पहले ही लग चुके हैं, इसलिए उसे फ़ेल हुई कोशिश माना जाता है, और रिक्वेस्ट का फ़ॉलबैक कनेक्शन एक बार आज़माया जाता है, अगर वह GIF बना सकता हो। जो फ़ॉलबैक कनेक्शन GIF नहीं बना सकता, उसे छोड़ दिया जाता है। कनेक्शन के कस्टम पैरामीटर `complexity` जैसे विकल्प जोड़ सकते हैं और `quality` सेट कर सकते हैं, जैसा स्टिल तस्वीरों पर होता है, लेकिन वे मॉडल, साइज़ या फ़्रेम नहीं बदल सकते, और `background`, `output_compression`, `stream`, `partial_images`, `response_format` या `prompt_rewriter` नहीं जोड़ सकते। GIF रिक्वेस्ट `quality` तभी भेजती है, जब वह `low`, `medium`, `high`, `xhigh` या `max` हो; डिफ़ॉल्ट (Auto) पर वह यह फ़ील्ड छोड़ देती है, इसलिए OpenAI का डिफ़ॉल्ट लागू होता है।
+
+यह सॉफ़्ट इंटरफ़ेस है: पुराना Engine `animation` को अनदेखा करता है और स्टिल तस्वीर बना देता है, जिसमें एक तस्वीर का खर्च आता है। माँगने से पहले Engine जाँचें, ताकि पुराने Engine पर ऐसी स्टिल तस्वीर के पैसे न लगें जो आपको चाहिए ही नहीं थी:
+
+- क्लाइंट बंडल `__MARINARA_HOST__.capabilityApi` पढ़ता है।
+- सर्वर पैकेज `api.runtime.capabilityApi` पढ़ता है, जो 1.816 में नया है। पुराने Engine में यह नहीं होता, इसलिए वैल्यू न होने का मतलब है कि Engine पुराना है।
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+1.816 वाले Engine पर उसकी जगह स्टिल तस्वीर बनाने के लिए `code === "animation-unsupported"` पकड़ें। 1.816 तभी घोषित करें, जब पैकेज GIF के बिना काम न कर सके। इसके लिए परमिशन नहीं चाहिए।
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Advanced Memory के सीन सारांश और याद का ब्लॉक
@@ -1359,7 +1393,7 @@ Engine पैकेज के क्लाइंट एलिमेंट को
 - `llm.createProvider(...)` Engine फ़ैक्टरी की कनेक्शन सेटिंग लेता है, जिनमें कस्टम अनुरोध पैरामीटर और हेडर शामिल हैं। लौटे प्रोवाइडर में `chat`, `chatComplete`, `embed`, `maxContextValue` और `maxTokensOverrideValue` होते हैं, लेकिन क्रेडेंशियल प्रॉपर्टी नहीं होतीं।
 - `llm.localSidecar()` उसी फ़साड से होस्ट का स्थानीय sidecar प्रोवाइडर देता है।
 - `llm.withFallback(...)` उसी पैकेज होस्ट से बने प्रोवाइडर को लपेटता है और Engine का प्रवेश नियंत्रण, फ़ॉलबैक सूचनाएँ और प्रोवाइडर चयन बचाता है।
-- `images.generate(...)` और `videos.generate(...)` Engine के वर्तमान कार्यान्वयन, रद्द करने, अनुरोध लॉग, नेटवर्क जाँच और मीडिया कतारें इस्तेमाल करते हैं। उपलब्ध होने पर कॉल करने वाले का `signal` और UI का `debugMode` आगे दें।
+- `images.generate(...)` और `videos.generate(...)` Engine के वर्तमान कार्यान्वयन, रद्द करने, अनुरोध लॉग, नेटवर्क जाँच और मीडिया कतारें इस्तेमाल करते हैं। उपलब्ध होने पर कॉल करने वाले का `signal` और UI का `debugMode` आगे दें। 1.816 से इमेज रिक्वेस्ट का `animation` लूप होने वाला GIF माँगता है (देखें [Capability API 1.816](#capability-api-1816-animated-gif-images))।
 - `images.save`, `images.remove`, `images.stage` और `images.sweepStaged` सुरक्षित गैलरी सेव और अस्थायी फ़ाइल जीवनचक्र इस्तेमाल करते हैं। `videos.save` और `videos.remove` वीडियो स्टोरेज रास्ता इस्तेमाल करते हैं। `images.resolveNovelAiRequestSize` होस्ट का NovelAI आकार सामान्यीकरण इस्तेमाल करता है। वीडियो अवधि और सार्वजनिक रेफ़रेंस अपलोड का सामान्यीकरण `videos.resolveDuration` और `videos.resolveReferenceUpload` से उपलब्ध है।
 - `speech.transcribe(audio, { filename, mimeType, signal })` रिकॉर्ड किया गया ऑडियो उस स्पीच-टू-टेक्स्ट सर्वर को भेजता है जिसे यूज़र ने **Connections → Speech to Text** (कनेक्शन → स्पीच-टू-टेक्स्ट) में सेट किया है, और ट्रांसक्रिप्ट लौटाता है। वह सर्वर बंद हो तो यह `null` लौटाता है, ताकि पैकेज अपना खुद का ट्रांसक्रिप्शन इस्तेमाल करता रहे। यह होस्ट की URL नीति (`STT_LOCAL_URLS_ENABLED`) और आकार व समय की सीमाएँ लागू करता है, और सेव की गई कुंजी कभी उजागर नहीं करता। `speech` वैकल्पिक है और इसके लिए किसी नए capability API वर्ज़न की ज़रूरत नहीं: `typeof api.runtime.integrations?.speech?.transcribe === "function"` जाँचें और पुराने Engine पर अपना फ़ॉलबैक इस्तेमाल करें।
 

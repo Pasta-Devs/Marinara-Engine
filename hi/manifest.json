@@ -1,11 +1,11 @@
 {
   "language": "hi",
-  "sourceCommit": "e40b31999e7e5748d728a5d0c5e22cc0e1efc60a",
+  "sourceCommit": "21da93b5902462277b2a01a39de6605d251cf292",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "91b73a6c064931167dff668d7c585d73c3c3575644da91d0c1f27b24f59fc297",
-      "bytes": 93717
+      "sha256": "aea7e48114224e2a39f93abb25b05430a1424ae74670e982289fce7caf6f25cd",
+      "bytes": 94060
     },
     {
       "path": "FAQ.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "884b8c531be43b1de6f03d5af54f195bb2640545ad60dffc10011828e80faa53",
-      "bytes": 338648
+      "sha256": "613228898ada721990afd4de07e67ec05487cb352090f91c5d2e47f1c53afeb0",
+      "bytes": 345546
     },
     {
       "path": "development/personal-extensions.md",
@@ -649,8 +649,8 @@
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "889221dabb103f65d8ec994b5b96eb2fa8003fe9ce7c1d582961fe332c355494",
-      "bytes": 35750
+      "sha256": "3e946e584792da8805d20ec69da1e78f0ac6af8832077cf5ad860b9b317ee901",
+      "bytes": 40437
     },
     {
       "path": "media/music.md",

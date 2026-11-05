@@ -40,12 +40,14 @@ BASIC_AUTH_PASS=correct-horse-battery-staple
 ये सेटिंग्स सिर्फ़ स्टार्टअप पर पढ़ी जाती हैं। इनमें से किसी को बदलने पर रीस्टार्ट ज़रूरी है, और लॉग में इसकी चेतावनी आती है:
 
 - `PORT`, `HOST`, `SSL_CERT` और `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` और `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` और `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` और `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` और `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` और `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` और `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` और `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - इमेज, वीडियो, स्प्राइट और ComfyUI के टाइमआउट और पोल वाली सेटिंग्स: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` और चारों `*_VIDEO_POLL_INTERVAL_MS` सेटिंग्स
+
+लॉन्चर सर्वर शुरू होने से पहले `AUTO_UPDATE_ENABLED` पढ़ते हैं, इसलिए बदलाव अगली बार शुरू करने पर लागू होता है और लॉग में इसकी चेतावनी नहीं आती।
 
 एक्सेस कंट्रोल की सेटिंग्स और सीक्रेट (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) के लिए रीस्टार्ट की ज़रूरत नहीं होती।
 

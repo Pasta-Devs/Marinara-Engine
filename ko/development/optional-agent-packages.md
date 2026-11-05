@@ -1094,6 +1094,40 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 이전 Engine은 이 옵션을 무시하므로 패키지는 언제든 이 옵션을 넘길 수 있습니다. 패키지가 이 옵션에 의존한다면 1.815를 선언하세요.
 
+<a id="capability-api-1816-animated-gif-images"></a>
+
+### Capability API 1.816: 애니메이션 GIF 이미지
+
+`images.generate`는 요청에서 `animation: { frameCount?, frameDurationMs? }`를 받으며, 그러면 반복 재생되는 GIF 하나를 반환합니다. 반환값은 `mimeType: "image/gif"`, `ext: "gif"`이고, `images.save`는 이를 `.gif` 파일로 저장합니다. `{}`는 Engine 기본값인 200 ms 프레임 9개를 씁니다. Engine은 `frameCount`를 2~12로, `frameDurationMs`를 20~2000 사이의 10 단위 값으로 제한하며, 프레임 크기는 직접 정합니다. `width`와 `height`의 비율을 따르는 유효한 프레임 가운데 가장 작은 크기로, 예를 들어 정사각형이면 816x816, 9:16이면 608x1088입니다. 이 크기의 프레임 12개는 OpenAI가 문서에 밝힌 8,294,400픽셀을 넘지 않습니다.
+
+GIF를 만드는 것은 OpenAI 연결의 GPT Image 2.6 Flare 또는 Sunburst(`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`)뿐입니다. GIF는 프롬프트만으로 그립니다. OpenAI는 그림을 받지 않는 `/v1/images/generations`에서만 GIF를 만들기 때문입니다. Engine은 큐 슬롯을 차지하거나 비용이 드는 호출을 보내기 전에 다음 요청을 거부하며, `code`가 `"animation-unsupported"`인 오류를 반환합니다.
+
+- GIF를 만들 수 없는 연결(ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs 또는 그 밖의 서비스나 모델): "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection."
+- 그림(비어 있지 않은 `referenceImage`나 `referenceImages` 항목, 또는 `referenceIsCanvas: true`): "A GIF is drawn from the prompt alone, so it can't start from a picture."
+
+빈 `referenceImages` 배열이나 빈 문자열은 그림으로 보지 않습니다. `POST /api/characters/avatar-generation`은 요청 본문에서 같은 `animation`을 받으며, 이런 거부에는 400 `{ error, code: "animation-unsupported" }`로 응답합니다. 그 밖의 경우 응답의 `image`는 `data:image/gif;base64,…` URL입니다.
+
+서비스가 GIF 요청에 정지 이미지로 응답하면 요청은 "The image service sent back a still picture instead of a GIF."라는 오류로 실패합니다. 그 응답에는 이미 비용이 청구되었으므로 실패한 시도로 계산되며, 요청의 대체 연결이 GIF를 만들 수 있으면 그 연결을 한 번 시도합니다. GIF를 만들 수 없는 대체 연결은 건너뜁니다. 연결의 사용자 지정 매개변수로는 정지 이미지에서처럼 `complexity` 같은 옵션을 추가하고 `quality`를 설정할 수 있지만, 모델, 크기, 프레임을 바꾸거나 `background`, `output_compression`, `stream`, `partial_images`, `response_format`, `prompt_rewriter`를 추가할 수는 없습니다. GIF 요청은 `quality`가 `low`, `medium`, `high`, `xhigh`, `max` 중 하나일 때만 이 값을 보냅니다. 기본값(Auto)이면 이 필드를 빼므로 OpenAI의 기본값이 적용됩니다.
+
+소프트 인터페이스입니다. 이전 Engine은 `animation`을 무시하고 정지 이미지를 그리므로 그림 한 장 값의 비용이 듭니다. 이전 Engine에서 원하지 않은 정지 이미지에 비용이 들지 않도록, 요청하기 전에 Engine을 확인하세요.
+
+- 클라이언트 번들은 `__MARINARA_HOST__.capabilityApi`를 읽습니다.
+- 서버 패키지는 1.816에서 새로 추가된 `api.runtime.capabilityApi`를 읽습니다. 이전 Engine에는 이 값이 없으므로, 값이 없으면 이전 Engine입니다.
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+1.816 Engine에서는 `code === "animation-unsupported"`인 오류를 잡아 대신 정지 이미지를 그리세요. 패키지가 GIF 없이 작동할 수 없을 때만 1.816을 선언하세요. 권한은 필요 없습니다.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Advanced Memory 장면 요약과 기억 블록
@@ -1350,7 +1384,7 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `llm.createProvider(...)`는 사용자 지정 요청 매개변수와 헤더를 포함해 Engine 제공자 팩터리와 같은 연결 설정을 받습니다. 반환 제공자는 `chat`, `chatComplete`, `embed`, `maxContextValue`, `maxTokensOverrideValue`를 지원하며 인증 정보 속성은 공개하지 않습니다.
 - `llm.localSidecar()`는 같은 파사드로 호스트의 로컬 사이드카 제공자를 반환합니다.
 - `llm.withFallback(...)`는 같은 패키지 호스트가 만든 제공자를 감싸며 Engine의 요청 수용, 대체 알림, 제공자 선택 동작을 유지합니다.
-- `images.generate(...)`와 `videos.generate(...)`는 취소, 요청 로그, 네트워크 검사, 미디어 큐를 포함한 현재 Engine 구현을 사용합니다. 호출자의 `signal`과 UI `debugMode`가 있으면 전달하세요.
+- `images.generate(...)`와 `videos.generate(...)`는 취소, 요청 로그, 네트워크 검사, 미디어 큐를 포함한 현재 Engine 구현을 사용합니다. 호출자의 `signal`과 UI `debugMode`가 있으면 전달하세요. 1.816부터 이미지 요청의 `animation`은 반복 재생되는 GIF를 요청합니다([Capability API 1.816](#capability-api-1816-animated-gif-images) 참고).
 - `images.save`, `images.remove`, `images.stage`, `images.sweepStaged`는 갤러리의 안전한 쓰기와 임시 파일 수명 주기를 재사용합니다. `videos.save`와 `videos.remove`는 영상 저장 경로를 재사용합니다. `images.resolveNovelAiRequestSize`는 호스트의 NovelAI 크기 정규화를 재사용합니다. 영상 길이와 공개 참조 업로드 정규화도 `videos.resolveDuration`, `videos.resolveReferenceUpload`로 사용할 수 있습니다.
 - `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections → Speech to Text**(연결 → 음성 인식)에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
 

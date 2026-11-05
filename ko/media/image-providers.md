@@ -61,7 +61,7 @@ Roleplay 채팅에서는 `/illustrate` 명령어를 써도 됩니다. [슬래시
 
 설정이 간단한 서비스에 대한 참고 사항은 다음과 같습니다.
 
-- **OpenAI (DALL-E)**: DALL-E와 GPT Image 모델을 제공합니다.
+- **OpenAI (DALL-E)**: DALL-E와 GPT Image 모델을 제공합니다. 반복 재생되는 GIF를 만드는 모델은 GPT Image 2.6뿐입니다. [GPT Image 2.6](#gpt-image-26)을 참고하세요.
 - **Stability AI**: Stable Diffusion과 Stable Image 모델을 제공합니다.
 - **Together AI**: FLUX를 비롯한 공개 이미지 모델을 제공합니다.
 - **OpenRouter Images**: OpenRouter의 채팅 인터페이스를 통해 이미지 모델에 접근하므로, 쓸 수 있는 모델은 계정마다 다릅니다.
@@ -74,6 +74,30 @@ Roleplay 채팅에서는 `/illustrate` 명령어를 써도 됩니다. [슬래시
 
 ## 별도 설정이 필요한 서비스
 
+### GPT Image 2.6
+
+GPT Image 2.6은 **OpenAI (DALL-E)** 계정에서 실행됩니다. **GPT Image 2.6 Flare**는 더 빠른 모델입니다. **GPT Image 2.6 Sunburst**는 품질이 더 높고 여러 번 편집해도 더 안정적으로 유지됩니다. 두 모델 모두 GPT Image 2.5와 같은 크기와 투명 배경을 지원하며, **Image quality**(이미지 품질)는 **Max**(최대)까지 올릴 수 있습니다.
+
+모델은 그림을 그리기 전에 그림마다 계획을 세웁니다. 계획을 덜 세우게 하려면 이미지 모델의 **Custom Parameters**(사용자 지정 매개변수)에 `{"complexity": "low"}`나 `{"complexity": "medium"}`을 추가하세요. 기본값은 `high`입니다. 복잡도가 높을수록 시간이 더 걸릴 수 있고, 편집할 때 요청한 것보다 더 많이 바뀔 수 있습니다.
+
+GPT Image 2.6은 짧게 반복 재생되는 GIF도 만들 수 있습니다. Marinara는 기능이나 다운로드한 에이전트가 GIF를 제공하는 곳에서만 GIF를 요청합니다.
+
+| 제한 | 값 |
+| --- | --- |
+| 계정 | API 키를 사용하는 **OpenAI (DALL-E)** |
+| 모델 | GPT Image 2.6 Flare 또는 Sunburst |
+| 프레임 | 2~12개, 기본값 9개 |
+| 프레임 길이 | 20~2000 ms, 기본값 200 ms |
+| 프레임 크기 | 약 0.66 MP: 정사각형 816x816, 세로형 608x1088 |
+| 보내는 그림 | 없음. GIF는 프롬프트만으로 그립니다 |
+| 투명 배경 | 지원하지 않음 |
+
+OpenAI는 더 많은 프레임을 허용하지만 GIF 하나에 허용되는 픽셀 수는 공개하지 않으므로, Marinara는 작은 프레임 12개까지만 씁니다. **ChatGPT (Codex login)**, **OpenRouter Images**, **NanoGPT**, ToAPIs와 그 밖의 서비스는 GIF를 만들 수 없습니다. Marinara는 아무것도 보내기 전에 이런 요청을 거부하므로 비용이 전혀 들지 않습니다. **OpenAI-compatible**(OpenAI 호환) 계정에는 OpenAI와 같은 방식으로 요청을 보내 봅니다.
+
+실패한 GIF를 정지 이미지로 대신하는 일은 없습니다. 서비스가 정지 이미지로 응답하면 요청은 실패합니다. **Images** 작업의 **If it fails**(실패하면) 모델은 GIF를 만들 수 있을 때만 시도합니다.
+
+> **경고:** OpenAI는 GIF 가격을 공개하지 않습니다. GIF 하나에 그림 여러 장 값이 든다고 예상하세요. GIF 대신 돌아온 정지 이미지에도 비용이 청구됩니다.
+
 ### ChatGPT (Codex login)
 
 이 서비스는 API 키 대신 ChatGPT 요금제를 사용하므로, 이미지를 만들 때 OpenAI API 크레딧이 들지 않습니다.
@@ -81,7 +105,7 @@ Roleplay 채팅에서는 `/illustrate` 명령어를 써도 됩니다. [슬래시
 1. Marinara를 실행하는 컴퓨터에 Codex CLI를 설치하고 `codex login`을 한 번 실행하세요. ChatGPT 채팅 계정이 쓰는 것과 같은 로그인입니다. [Claude, ChatGPT, Grok 구독 연결](../connections/subscription-clis.md#openai-chatgpt)을 참고하세요.
 2. 서비스를 고르세요. 입력할 키나 주소는 없습니다. Marinara는 Codex가 이미지 생성에 쓰는 모델인 `gpt-image-2`를 채웁니다.
 
-**Test provider**는 Marinara가 Codex 로그인 정보를 읽을 수 있는지만 확인합니다. **Test image**는 실제 이미지를 만들며, ChatGPT 이미지 사용량 한도에서 차감됩니다. 참조 이미지가 있으면 Marinara는 최대 16장까지 담아 편집 요청을 보냅니다. ChatGPT가 다른 픽셀 크기로 이미지를 돌려줄 수 있으므로, Marinara는 원하는 화면비를 프롬프트에도 적어 보냅니다. 이 서비스는 공개 OpenAI API가 아니라 Codex가 쓰는 ChatGPT 이미지 엔드포인트를 사용하므로, OpenAI가 예고 없이 바꿀 수 있습니다.
+**Test provider**는 Marinara가 Codex 로그인 정보를 읽을 수 있는지만 확인합니다. **Test image**는 실제 이미지를 만들며, ChatGPT 이미지 사용량 한도에서 차감됩니다. GPT Image 2.6 모델 ID를 써도 이 서비스는 GIF를 만들 수 없습니다. 참조 이미지가 있으면 Marinara는 최대 16장까지 담아 편집 요청을 보냅니다. ChatGPT가 다른 픽셀 크기로 이미지를 돌려줄 수 있으므로, Marinara는 원하는 화면비를 프롬프트에도 적어 보냅니다. 이 서비스는 공개 OpenAI API가 아니라 Codex가 쓰는 ChatGPT 이미지 엔드포인트를 사용하므로, OpenAI가 예고 없이 바꿀 수 있습니다.
 
 ### Arli AI
 
@@ -107,7 +131,7 @@ Marinara는 Atlas Cloud의 최신 텍스트-이미지 및 이미지-이미지 �
 
 [fal.ai](https://fal.ai/dashboard/keys)에서 API 키를 만드세요. 기본 목록에는 `fal-ai/flux/schnell`과 `fal-ai/flux/dev`가 있습니다. 입력과 출력이 호환되는 다른 텍스트-이미지 엔드포인트 ID도 입력할 수 있습니다. **Test provider**는 설정만 확인합니다. **Test image**는 실제 요청을 보내므로 fal.ai 크레딧을 사용합니다.
 
-Marinara는 프롬프트와 크기를 보내고, 처음 반환된 이미지를 다운로드합니다. 네거티브 프롬프트는 텍스트로 덧붙입니다. `seed`, `num_inference_steps`, `image_size` 같은 모델 옵션에는 **Custom Parameters**(사용자 지정 매개변수)를 사용하세요. 동기식 텍스트-이미지 요청을 사용하며, 참조 이미지를 보내지 않고 중단된 작업을 재개하지도 않습니다. 모델의 [API 참조](https://fal.ai/models/fal-ai/flux/schnell/api)를 참고하세요.
+Marinara는 프롬프트와 크기를 보내고, 처음 반환된 이미지를 다운로드합니다. 네거티브 프롬프트는 텍스트로 덧붙입니다. `seed`, `num_inference_steps`, `image_size` 같은 모델 옵션에는 **Custom Parameters**를 사용하세요. 동기식 텍스트-이미지 요청을 사용하며, 참조 이미지를 보내지 않고 중단된 작업을 재개하지도 않습니다. 모델의 [API 참조](https://fal.ai/models/fal-ai/flux/schnell/api)를 참고하세요.
 
 ### SpicyAPI
 
@@ -179,7 +203,7 @@ Marinara가 값을 채워 넣을 자리마다 워크플로에 다음 문자열�
 
 | 서비스 | 참조 이미지 |
 | --- | --- |
-| OpenAI (DALL-E) | 최대 16장, GPT Image 모델에서만 |
+| OpenAI (DALL-E) | 최대 16장, GPT Image 모델에서만. GIF에는 보내지 않음 |
 | ChatGPT (Codex login) | 최대 16장 |
 | NovelAI | 최대 16장, V4.5 모델에서만 |
 | xAI / Grok Imagine | 최대 3장 |

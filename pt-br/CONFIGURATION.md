@@ -40,12 +40,14 @@ Se as suas edições não forem detectadas, por exemplo quando você edita o arq
 Estas configurações só são lidas na inicialização. Mudar uma delas exige reinício, e o log avisa você:
 
 - `PORT`, `HOST`, `SSL_CERT` e `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR` e `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY` e `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH` e `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED` e `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER` e `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING` e `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` e `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - As configurações de tempo limite e de consulta de imagem, vídeo, sprite e ComfyUI: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` e as quatro configurações `*_VIDEO_POLL_INTERVAL_MS`
+
+Os inicializadores leem `AUTO_UPDATE_ENABLED` antes de o servidor iniciar, então uma mudança vale a partir do próximo início e o log não avisa sobre ela.
 
 As configurações de controle de acesso e os segredos (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) não exigem reinício.
 
