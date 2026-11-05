@@ -17,16 +17,16 @@
     "@pixiv/three-vrm": "3.5.5",
     "@pixiv/three-vrm-animation": "3.5.5",
     "@takahirox/three-mmd": "0.1.2",
-    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-query": "^5.105.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
     "framer-motion": "14.5.0",
     "framer-motion-v13": "npm:framer-motion@13.5.1",
     "i18next": "^26.5.11",
-    "lucide-react": "^1.61.0",
+    "lucide-react": "^1.66.0",
     "mesh-avatar": "0.2.1",
     "mmd-parser": "1.1.4",
-    "postcss": "8.5.31",
+    "postcss": "8.5.32",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-i18next": "^17.1.0",
@@ -36,7 +36,7 @@
     "workbox-window": "^7.4.1",
     "zod": "^4.6.7",
     "zod-v3": "npm:zod@3.25.76",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -50,7 +50,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0"
   }
