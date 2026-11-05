@@ -4,6 +4,7 @@
 // and a pick saves right away instead of waiting for the editor's Save.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { openConnectionsPage } from "../overhaul/library-navigation";
 import { toast } from "sonner";
 import { Loader2, Play, RefreshCw, Settings2, Square, Volume2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +13,6 @@ import { useTTSConfig, useTTSVoices, useUpdateTTSVoiceAssignment, useUpdateTTSVo
 import { getCharacterNameVoice, getCharacterVoiceAssignment, resolveTTSVoiceForSpeaker } from "../../lib/tts-dialogue";
 import { ttsService } from "../../lib/tts-service";
 import { cn } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
 import { buildTTSVoiceOptions, CustomizableVoiceInput, VoiceSelect } from "../panels/settings/TTSConfigCard";
 
 const SAVE_DELAY_MS = 600;
@@ -178,11 +178,7 @@ export function CharacterVoicePicker({
               {t("ui.characters.voice.usePerCharacter")}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => useUIStore.getState().openRightPanel("connections")}
-            className={ACTION_CLS}
-          >
+          <button type="button" onClick={() => openConnectionsPage()} className={ACTION_CLS}>
             <Settings2 size="0.8rem" />
             {t("ui.characters.voice.openSettings")}
           </button>

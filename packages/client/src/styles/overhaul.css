@@ -2804,11 +2804,16 @@
   color: var(--ov-muted);
   font-size: 0.75rem;
 }
-.ov-lentry__foot > span:first-child {
-  display: inline-flex;
-  flex: 1;
-  align-items: center;
-  gap: 0.5rem;
+.ov-lentry__foot {
+  justify-content: flex-end;
+}
+/* Entry ID sits in the lorebook header, next to Export (playtester feedback, 2026-11-05). */
+.ov-bk-head .ov-idline {
+  max-width: 22rem;
+  margin-right: 0.5rem;
+}
+.ov-bk-head .ov-idline__value {
+  color: var(--ov-text);
 }
 .ov-lentry__foot code {
   color: var(--ov-text);
@@ -7126,4 +7131,72 @@ input.ov-edhead__title:focus {
 }
 [data-overhaul] .ov-edit-actions__label {
   display: inline;
+}
+
+/* Editor header (title, Save, Test…) stays pinned while the editor scrolls, so Save is always in
+   reach (playtester feedback, 2026-11-05). */
+.ov-edhead {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  background: var(--background);
+}
+/* Cover the editor's 1rem top padding too, so text never peeks above the pinned header. */
+.ov-ed .ov-edhead {
+  top: -1rem;
+  margin-top: -1rem;
+  padding-top: 1rem;
+}
+
+/* Settings > Tracker Panel: live preview of the real panel beside its settings (playtester feedback, 2026-11-05). */
+[data-overhaul="on"] .ov-trk-settings {
+  display: grid;
+  column-span: all;
+  grid-template-columns: minmax(18rem, 32rem) auto;
+  justify-content: start;
+  align-items: start;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+.ov-trk-preview {
+  position: sticky;
+  top: 0.75rem;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.ov-trk-preview__label {
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ov-trk-preview__label span {
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.ov-trk-preview__empty {
+  max-width: 17.5rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-trk-preview__frame {
+  display: flex;
+  max-height: calc(100vh - 9rem);
+  min-height: 12rem;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px var(--ov-line);
+}
+@media (max-width: 1100px) {
+  [data-overhaul="on"] .ov-trk-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ov-trk-preview {
+    position: static;
+  }
 }
