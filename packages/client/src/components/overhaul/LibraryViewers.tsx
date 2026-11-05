@@ -7,7 +7,7 @@
 // right in its usual editor. One Library tab per section, not one per item.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Download, Plus, Search, Upload } from "lucide-react";
+import { ChevronDown, Download, Plus, Search } from "lucide-react";
 import { PROVIDERS, type APIConnection, type APIProvider } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -87,8 +87,9 @@ function OvViewer({
         <h1>{title}</h1>
         <small>{meta}</small>
         <div className="ov-vw__actions">
-          {tools.map(({ label, onClick }) => (
+          {tools.map(({ label, icon: Icon, onClick }) => (
             <button key={label} type="button" className="ov-btn" onClick={onClick}>
+              {Icon ? <Icon size={14} aria-hidden="true" /> : null}
               {label}
             </button>
           ))}
@@ -238,7 +239,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     <OvViewer
       title={localize("Regex scripts")}
       meta={`${scripts.length} ${localize(scripts.length === 1 ? "script" : "scripts")} · ${enabledCount} ${localize("enabled")}`}
-      tools={[{ label: localize("Import"), icon: Upload, onClick: () => fileRef.current?.click() }]}
+      tools={[{ label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() }]}
       listLabel={localize("Scripts")}
       listNote={localize("in run order")}
       search={search}
@@ -319,7 +320,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
     <OvViewer
       title={localize("Connections")}
       meta={`${connections.length} ${localize(connections.length === 1 ? "connection" : "connections")}`}
-      tools={[{ label: localize("Import"), icon: Upload, onClick: () => openModal("import-connection") }]}
+      tools={[{ label: localize("Import"), icon: Download, onClick: () => openModal("import-connection") }]}
       listLabel={localize("Connections")}
       search={search}
       onSearch={setSearch}

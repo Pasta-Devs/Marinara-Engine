@@ -159,6 +159,8 @@ import {
   SlidersHorizontal,
   ToggleRight,
   Wrench,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 import {
   useChat,
@@ -8166,6 +8168,11 @@ function AdvancedSettings() {
               disabled={isClearing}
               className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
             >
+              {isAllScopesSelected ? (
+                <Square size="0.875rem" aria-hidden="true" />
+              ) : (
+                <CheckSquare size="0.875rem" aria-hidden="true" />
+              )}
               {isAllScopesSelected
                 ? localizeUi("ui.panels.advancedsettings.clearSelection")
                 : localizeUi("ui.panels.advancedsettings.selectAll")}

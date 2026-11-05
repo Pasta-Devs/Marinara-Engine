@@ -6,7 +6,7 @@
 // portrait opens its editor; the Library pane's tags filter the list.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { MessageCircle, Plus, Search, User, VenetianMask } from "lucide-react";
+import { MessageCircle, Plus, Search, User, VenetianMask, Download } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { AvatarImage } from "../characters/AvatarImage";
@@ -96,6 +96,7 @@ export function CardGallery({
         <h1>{title}</h1>
         {extraHeader}
         <button type="button" className="ov-btn" onClick={onImport}>
+          <Download size={14} aria-hidden="true" />
           {localize("Import")}
         </button>
         <button type="button" className="ov-btn ov-btn--primary" onClick={onNew}>

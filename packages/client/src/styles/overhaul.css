@@ -1110,6 +1110,9 @@
   border-radius: 999px;
 }
 .ov-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
   height: 1.5rem;
   padding: 0 0.75rem;
   border-radius: 999px;
@@ -7402,4 +7405,13 @@ input.ov-edhead__title:focus {
 .ov-topbar.is-autohide:has([aria-expanded="true"]) {
   transform: none;
   transition-delay: 0ms;
+}
+
+/* Small text buttons that carry an icon line it up with the label (button icon pass, 2026-11-05). */
+.ov-chip-btn,
+.ov-ed__link,
+.ov-lentry__foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
 }

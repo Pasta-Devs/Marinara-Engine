@@ -72,6 +72,7 @@ import {
   ExternalLink,
   Regex,
   Pencil,
+  Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
@@ -641,6 +642,7 @@ export function PresetEditor() {
               <ExternalLink size={13} aria-hidden="true" />
             </button>
             <button type="button" className="ov-btn" onClick={handleExportPreset}>
+              <Upload size={13} aria-hidden="true" />
               {localizeUi("Export")}
             </button>
             <button
@@ -1398,6 +1400,7 @@ function PresetPictureField({ preset, compact = false }: { preset: PromptPreset;
           {artwork ? <img src={artwork} alt="" draggable={false} /> : <FileText size={14} />}
         </button>
         <button type="button" className="ov-ed__link" onClick={pick} disabled={uploadPresetImage.isPending}>
+          <Upload size={12} aria-hidden="true" />
           {artwork ? "Replace" : "Upload"}
         </button>
       </div>

@@ -84,6 +84,7 @@ import {
   FileSpreadsheet,
   ListChecks,
   SlidersHorizontal,
+  Upload,
 } from "lucide-react";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -2091,6 +2092,7 @@ export function LorebookEditor() {
           />
         ) : null}
         <button type="button" className="ov-btn" onClick={() => setExportDialogOpen(true)}>
+          <Upload size={13} aria-hidden="true" />
           {localizeUi("Export")}
         </button>
         <button
