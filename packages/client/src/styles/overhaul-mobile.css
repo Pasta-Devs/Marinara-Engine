@@ -2961,19 +2961,55 @@
 /* Line the ‹ up with each header's first line and its content edge. */
 .ov-edhead > .ovm-crumb-back {
   top: 1.25rem;
-  left: 1.25rem;
+  left: 0.0625rem;
 }
 .ov-rail > .ovm-crumb-back {
-  top: 1rem;
-  left: 1.25rem;
+  top: 0;
+  left: 0.0625rem;
+}
+/* The portrait leaves the top-left corner free for the ‹ at every phone and tablet width. */
+:root[data-overhaul="mobile"] .ov-rail:has(> .ovm-crumb-back) .ov-rail__portrait:not(#ovm-x) {
+  width: min(calc(100% - 5.5rem), 15rem);
+  margin-inline: auto;
 }
 .ov-preset__head > .ovm-crumb-back {
   top: 1.875rem;
+  left: -0.6875rem;
 }
 .ov-bk-head > .ovm-crumb-back {
   top: 0.9375rem;
+  left: -0.6875rem;
+}
+/* The edhead's content sits 2rem in, so its title needs less room to clear the ‹. */
+:root[data-overhaul="mobile"] .ovm-crumb-back + .ov-edhead__row > :first-child:not(#ovm-x) {
+  margin-left: 1rem;
 }
 :root[data-overhaul="mobile"] .ovm-crumb-back + .ovm-preset__id,
 :root[data-overhaul="mobile"] .ovm-crumb-back + :is(.ov-edhead__row, .ov-bk-head__row) > :first-child {
   margin-left: 2rem;
+}
+
+/* Library editor titles on phones and tablets: one size everywhere (like Presets, Regex and
+   Connections), and the meta line follows the title instead of waiting past a minimum width. */
+:root[data-overhaul="mobile"] .ov-bk-head__row h1:not(#ovm-x) {
+  min-width: 0;
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+:root[data-overhaul="mobile"] .ov-edhead__title:not(#ovm-x) {
+  min-width: 2rem;
+}
+/* The borderless Enabled toggle lines up with the row's left edge like the other first buttons. */
+:root[data-overhaul="mobile"] .ov-edhead__actions > .ov-ltoggle:not(#ovm-x) {
+  padding-left: 0;
+}
+/* Lorebook header on phones and tablets: title and counts, then the entry ID, then the buttons,
+   each on its own line, so the buttons never split across two rows. */
+:root[data-overhaul="mobile"] .ov-bk-head__row > .ov-bk-head__spacer,
+:root[data-overhaul="mobile"] .ov-bk-head__row > .ov-bk-head__spacer + :not(.ov-btn):not(#ovm-x) {
+  flex: 0 0 100%;
+  max-width: none;
+}
+:root[data-overhaul="mobile"] .ov-bk-head__row > .ov-bk-head__spacer {
+  height: 0;
 }
