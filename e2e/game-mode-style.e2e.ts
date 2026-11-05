@@ -52,6 +52,10 @@ async function mountWizard(page: Page, testInfo: TestInfo): Promise<Locator> {
     const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
     const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));
     const container = document.createElement("div");
+    // In the app the wizard's z-[10001] layers stay inside the shell, under the body-level pickers
+    // (z-[10000]). Mounted straight on <body> they would cover the "Model for …" picker, so the
+    // container holds them just under it and over the Home page.
+    container.style.cssText = "position: fixed; inset: 0; z-index: 9999";
     document.body.append(container);
     ReactDOM.createRoot(container).render(
       React.createElement(

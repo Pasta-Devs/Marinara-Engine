@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
@@ -77,11 +78,8 @@ async function mountWizard(page: Page, testInfo: TestInfo, lorebooksAnswered: Pr
   });
   const wizard = page.locator('[data-component="GameSetupWizard"]');
   await expect(wizard).toBeVisible();
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  // The GM model <select> became a ConnectionSelect and its picker in #8456.
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   return wizard;
 }
 

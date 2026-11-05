@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page, type Route } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { PROVIDERS } from "../packages/shared/src/constants/providers.js";
+import { hideExistingItems } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
@@ -141,7 +142,7 @@ test("guided ComfyUI setup adds distinct image and video models without changing
 
     // Browse the existing account directly. The current Add account flow has no account picker.
     await openAddModels(page, accountId);
-    let dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    let dialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(dialog.locator('[data-add-connection-capability="image"]')).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.locator('[data-add-connection-capability="video"]')).toBeVisible();
     await expect(dialog.locator("[data-model-search]")).toBeVisible();
@@ -164,7 +165,7 @@ test("guided ComfyUI setup adds distinct image and video models without changing
     };
     await page.route("**/api/connections", rejectCreate);
     await openAddModels(page, accountId);
-    dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    dialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(page.getByText(refusedMessage, { exact: true })).toBeVisible();
     await expect(dialog.locator('[data-add-connection-capability="image"]')).toBeVisible();
     await expect(dialog.locator('[data-add-connection-capability="video"]')).toBeVisible();
@@ -211,7 +212,7 @@ test("guided ComfyUI setup adds distinct image and video models without changing
         new URL(response.url()).pathname === "/api/connections",
     );
     await openAddModels(page, accountId, "video");
-    dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    dialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(dialog.locator('[data-add-connection-capability="video"]')).toHaveAttribute("aria-pressed", "true");
     const videoCreated = (await (await videoCreatedResponse).json()) as { id: string };
     createdIds.add(videoCreated.id);
@@ -257,11 +258,11 @@ test("guided ComfyUI setup adds distinct image and video models without changing
         new URL(response.url()).pathname === "/api/connections",
     );
     await openAddModels(page, accountId, "image");
-    dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    dialog = page.getByRole("dialog", { name: /^Add models to /u });
     const cancelledId = ((await (await cancelledResponse).json()) as { id: string }).id;
     createdIds.add(cancelledId);
     await expect(dialog.locator("[data-model-search]")).toBeVisible();
-    const close = dialog.getByRole("button", { name: "Close Add model", exact: true });
+    const close = dialog.getByRole("button", { name: /^Close Add models to /u });
     await expect(close).toBeEnabled();
     await close.click();
     await expect(dialog).toHaveCount(0);
@@ -353,7 +354,7 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
     // Connect closes the Add window; open the models screen only after it is gone.
     await expect(dialog).toHaveCount(0);
     await openAddModels(page, accountId!, "video");
-    const modelsDialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    const modelsDialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(modelsDialog.locator('[data-add-connection-capability="video"]')).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -438,9 +439,9 @@ test("opening an empty connection initializes once while the account refresh is 
     await page.waitForTimeout(350);
     expect(creations).toBe(1);
     release();
-    const dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    const dialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
-    await dialog.getByRole("button", { name: "Close Add model", exact: true }).click();
+    await dialog.getByRole("button", { name: /^Close Add models to /u }).click();
     await expect(dialog).toHaveCount(0);
     await expect.poll(async () => (await rows(request)).filter((row) => row.accountId === account.id).length).toBe(0);
   } finally {
@@ -462,6 +463,8 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
     await page.route("**/api/connections/*/models*", (route) =>
       route.fulfill({ json: { models: [{ id: "gpt-fixture", name: "Fixture chat" }] } }),
     );
+    // A Main model left by an earlier spec would make Connect close the window instead.
+    await hideExistingItems(page, request, "/api/connections");
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
     await page.addInitScript(
       (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
@@ -484,10 +487,9 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
     );
     await setupDialog.locator("[data-add-connection-connect]").click();
     accountId = ((await (await createdAccount).json()) as { account: { id: string } }).account.id;
-    await expect(setupDialog).toHaveCount(0);
 
-    await openAddModels(page, accountId, "chat");
-    const dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    // With no Main model yet, a passing Connect opens the account's models in the same window (#8456).
+    const dialog = setupDialog;
     await expect(dialog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
     await dialog.locator('[data-add-connection-capability="image"]').click();
@@ -496,7 +498,7 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
       .toEqual(expect.arrayContaining(["openai", "image_generation"]));
     await dialog.locator('[data-add-connection-capability="chat"]').click();
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    await dialog.getByRole("button", { name: "Close Add model", exact: true }).click();
+    await dialog.getByRole("button", { name: "Close Add account", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     // The account stays; only the image row made by the chip switch is thrown away.
     await expect
@@ -561,7 +563,7 @@ test("a vendor connection set up for images can open its chat catalog without re
     );
     await page.goto("/");
     await openAddModels(page, image.accountId!, "chat");
-    const dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+    const dialog = page.getByRole("dialog", { name: /^Add models to /u });
     await expect(dialog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
     await dialog.locator('[data-model-id="gpt-fixture"] [data-model-option]').click();
@@ -587,7 +589,7 @@ test("a vendor connection set up for images can open its chat catalog without re
       provider: "image_generation",
       model: "gpt-image-fixture",
     });
-    await dialog.getByRole("button", { name: "Close Add model", exact: true }).click();
+    await dialog.getByRole("button", { name: /^Close Add models to /u }).click();
     await expect(dialog).toHaveCount(0);
     await expect
       .poll(async () => (await rows(request)).filter((row) => row.accountId === image.accountId).length)

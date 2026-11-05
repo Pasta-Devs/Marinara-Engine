@@ -49,7 +49,7 @@ for (const theme of ["dark", "light"] as const) {
       await openConnection(page, id);
       const editor = page.locator(".mari-editor-shell");
       const upload = editor.getByRole("checkbox", { name: /^Upload Seedance reference frames temporarily/u });
-      const duration = editor.getByRole("spinbutton", { name: "Duration Seconds", exact: true });
+      const duration = editor.getByRole("spinbutton", { name: "Duration (seconds)", exact: true });
       const expiry = editor.getByText("Temporary link lifetime", { exact: true }).locator("..").getByRole("combobox");
       const save = async () => {
         await editor.getByRole("button", { name: "Save", exact: true }).click();

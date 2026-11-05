@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { hideExistingItems } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -33,6 +34,10 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     version,
   );
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  // The shared server keeps earlier specs' accounts (#8456: deleting a Model leaves its account), so this page
+  // sees none of them and shows the empty state it starts from.
+  await hideExistingItems(page, request, "/api/connections");
+  await hideExistingItems(page, request, "/api/connection-accounts");
   await page.goto("/");
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);

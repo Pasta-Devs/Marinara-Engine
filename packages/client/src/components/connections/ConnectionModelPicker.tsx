@@ -747,7 +747,8 @@ export function ConnectionModelPicker({
                 {modelList.isError && !refresh.isPending && (
                   <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
                     <p>{t("connections.modelPicker.loadFailed")}</p>
-                    <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">
+                    {/* The provider's error in the Connections accent, like the editor's other errors. */}
+                    <p className="mt-0.5 break-words text-[0.625rem] text-[var(--marinara-editor-accent)]">
                       {modelListErrorMessage(modelList.error, t)}
                     </p>
                   </div>

@@ -235,7 +235,8 @@ test("Personas are chosen per chat and Conversation names match that choice", as
     const openPersonas = async (currentName: string) => {
       if (info.project.name === "desktop-chromium") {
         await page.getByTitle(currentName, { exact: true }).click();
-        return page.getByRole("menu", { name: "Personas", exact: true });
+        // The Quick Persona Switcher opens the shared CharacterSelect window (#8763), a dialog.
+        return page.getByRole("dialog", { name: "Personas", exact: true });
       }
       await page.getByTitle("Quick Switcher", { exact: true }).click();
       const picker = page.locator(".fixed[data-chat-floating-panel]");
@@ -696,7 +697,10 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     await openSettings(origin.id);
     await forget.click();
     await expect.poll(async () => (await (await request.get(settingsPath)).json()).value).toBe("");
-    for (const id of inheritedChatIds) expect(await readMetadata(id)).toMatchObject(expected);
+    // Leaving an unstarted game's setup drops that chat (#8600), so the chats that remain keep their settings.
+    await expect.poll(async () => (await request.get(`/api/chats/${gameChatId}`)).status()).toBe(404);
+    for (const id of inheritedChatIds.filter((id) => id !== gameChatId))
+      expect(await readMetadata(id)).toMatchObject(expected);
     expect(await readMetadata(existing.id)).toEqual(existingMetadata);
     for (const mode of ["conversation", "roleplay", "game"] as const) {
       const chat = await createChat(mode, `Forgotten translator ${mode}`);

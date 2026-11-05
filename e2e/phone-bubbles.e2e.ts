@@ -158,10 +158,11 @@ async function expectComposerClearAndNoSideScroll(page: Page) {
       };
     };
     // A message box that mounts late, or a screen change, moves the open Chat tools menu, and Framer glides its
-    // rows there with inline transforms (no Web Animation to await). Measure after a few still frames.
+    // rows there with inline transforms (no Web Animation to await). Measure after a few still frames. The cap only
+    // ends a menu that never settles: slow CI WebKit draws few frames a second, so its glide outlasted 3 s.
     let latest = measure();
     let still = 0;
-    for (const start = performance.now(); still < 3 && performance.now() - start < 3_000;) {
+    for (const start = performance.now(); still < 3 && performance.now() - start < 10_000;) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const next = measure();
       still = JSON.stringify(next) === JSON.stringify(latest) ? still + 1 : 0;
