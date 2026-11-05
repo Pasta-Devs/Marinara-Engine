@@ -12,6 +12,7 @@ import {
   useMemo,
   useCallback,
   useId,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
@@ -1062,6 +1063,28 @@ export function ChatSettingsDrawer({
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
   // New layout on phones and tablets: the sheet opens on its quick page; Edit mode keeps the classic sections.
   const mobileNavView = useMobileChatSettingsNav((state) => state.view);
+  const confirmMobileResourceRemoval = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const button = (event.target as Element | null)?.closest<HTMLElement>("[data-chat-settings-remove-resource]");
+    if (!button) return;
+    if (button.dataset.ovmConfirmed === "true") {
+      delete button.dataset.ovmConfirmed;
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void showConfirmDialog({
+      title: localizeUi("chat.settings.removeConfirm.title", { defaultValue: "Remove from this chat?" }),
+      message: localizeUi("chat.settings.removeConfirm.message", {
+        defaultValue: "It stays in your Library. You can add it back any time.",
+      }),
+      confirmLabel: localizeUi("chat.settings.removeConfirm.confirm", { defaultValue: "Remove" }),
+      tone: "destructive",
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      button.dataset.ovmConfirmed = "true";
+      button.click();
+    });
+  };
   useEffect(() => {
     const nav = useMobileChatSettingsNav.getState();
     if (!overhaulMobile || ovEditing) nav.turnOff();
@@ -5648,6 +5671,9 @@ export function ChatSettingsDrawer({
             overhaulActive && "ov-cs__scroll",
           )}
           data-ovm-cs-view={overhaulMobile && mobileNavView !== "off" ? mobileNavView : undefined}
+          // Phones and tablets: removing a character, persona or lorebook from the chat asks first,
+          // since its small button is easy to hit by accident.
+          onClickCapture={overhaulMobile ? confirmMobileResourceRemoval : undefined}
         >
           {/* Settings profile bar — hidden in Game Mode. Scene chats keep it, but scene instructions stay chat-owned. */}
           <div ref={setControlDockHost} data-chat-control-dock style={{ order: CHAT_SETTINGS_ORDER.search + 1 }} />
