@@ -17,7 +17,6 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { readFileSync } from "node:fs";
 import os, { networkInterfaces } from "node:os";
 import {
-  getAdminSecret,
   getDockerBypassMode,
   getIpAllowlist,
   getTailscaleBypassMode,
@@ -30,7 +29,7 @@ import {
   isUnauthenticatedRemoteAllowed,
 } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
-import { getLoginConfig, setProxyLogsVisitorsIn } from "../config/login-credential.js";
+import { getAdminSecretSource, getLoginConfig, setProxyLogsVisitorsIn } from "../config/login-credential.js";
 import { evaluateAccessPolicy, isForwardedLoopbackPeer, type AccessFacts, type AccessPolicy } from "./access-policy.js";
 import { firstHeader, parseRequestHostname } from "./host-validation.js";
 import { recordRefusal } from "./refused-devices.js";
@@ -688,7 +687,7 @@ function getAccessConfig(): AccessFacts["config"] {
     basicAuthConfigured: getLoginConfig() !== null,
     ipAllowlistConfigured: getIpAllowlist() !== null,
     trustedAuthProxyConfigured: getTrustedAuthProxies().length > 0,
-    adminSecretConfigured: Boolean(getAdminSecret()),
+    adminSecretConfigured: getAdminSecretSource() !== null,
     loopbackProxyAuthRequired: isLoopbackProxyAuthRequired(),
     dockerProxyAuthRequired: isDockerProxyAuthRequired(),
     tailscaleMode: getTailscaleBypassMode(),

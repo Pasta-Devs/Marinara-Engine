@@ -1067,6 +1067,8 @@ export interface MessageExtra {
   spriteExpressions?: Record<string, string> | null;
   /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */
   referencedCharacterIds?: string[];
+  /** Presentation-only: the active chat characters this merged Roleplay reply was generated with, so its narrator avatars outlast later roster changes. */
+  mergedRosterCharacterIds?: string[];
   /** All sprite owners in the completed expression result, including the persona. Empty means none. */
   expressionSpriteIds?: string[];
   /** An earlier Individual group reply: its `spriteExpressions` hold only its own character, not the whole turn. */

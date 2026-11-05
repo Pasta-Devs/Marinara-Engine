@@ -197,6 +197,7 @@ import { singleChunk, streamExportZip } from "../utils/export-stream.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import {
   appendNonLeadingSystemMessagesToLastUser,
+  capSummarizedHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectSummaryRangeMessages,
@@ -961,6 +962,8 @@ type ProfessorMariRestartQuery = {
   contextLabel?: string;
   name?: string;
 };
+
+type PeekPromptBody = { messageId?: unknown; current?: unknown };
 
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
@@ -2695,6 +2698,21 @@ export async function chatsRoutes(app: FastifyInstance) {
     return { count: await storage.countMessages(req.params.id) };
   });
 
+  // Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail (#8831).
+  app.get<{ Params: { id: string } }>("/:id/summary-backlog", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
+    if (chat.mode !== "roleplay" || normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled) {
+      return { backlog: 0 };
+    }
+    const messages = await storage.listMessages(req.params.id);
+    let start = messages.length - 1;
+    while (start > 0 && parseExtra(messages[start]!.extra).isConversationStart !== true) start--;
+    const history = messages.slice(Math.max(0, start)).filter((message) => !isMessageHiddenFromAI(message));
+    return { backlog: capSummarizedHistory(history, chatMeta).backlog };
+  });
+
   // List memory-recall chunks for this chat only.
   app.get<{ Params: { id: string } }>("/:id/memories", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
@@ -3693,13 +3711,19 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Peek prompt — return an exact saved turn prompt when available, otherwise
-  // assemble the prompt for this chat as if generating right now.
-  app.post<{ Params: { id: string }; Body: { messageId?: unknown } }>("/:id/peek-prompt", async (req, reply) => {
+  // assemble the prompt for this chat as if generating right now. `current`
+  // skips the saved prompt: it was sent before that turn's summary ran (#8831).
+  app.post<{ Params: { id: string }; Body: PeekPromptBody }>("/:id/peek-prompt", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
     const chatMessages = await storage.listMessages(req.params.id);
-    const requestedMessageId = typeof req.body?.messageId === "string" ? req.body.messageId.trim() : "";
+    const current = req.body?.current === true;
+    // A preview asked for on purpose has a saved request beside it; the client's own hint explains it then.
+    const livePreviewNote = current
+      ? undefined
+      : "No saved model request was available, so this is a live best-effort preview assembled without sending.";
+    const requestedMessageId = !current && typeof req.body?.messageId === "string" ? req.body.messageId.trim() : "";
     const requestedMessage = requestedMessageId
       ? (chatMessages.find((message) => message.id === requestedMessageId) ?? null)
       : null;
@@ -3806,7 +3830,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     })();
     const promptSourceMessage = requestedMessage ?? latestVisibleMessage;
 
-    if (promptSourceMessage?.role === "assistant") {
+    if (promptSourceMessage?.role === "assistant" && !current) {
       const extra = parseExtra(promptSourceMessage.extra) as Record<string, unknown>;
       let cached = await readCachedPrompt(extra, Boolean(requestedMessage));
 
@@ -3905,6 +3929,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           let filteredMessages = supportsHiddenFromAI
             ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
             : scopedMessages;
+          if (chatMode === "roleplay") filteredMessages = capSummarizedHistory(filteredMessages, chatMeta).messages;
           const promptIdleDuration = resolvePromptIdleDuration(filteredMessages);
 
           // Apply context message limit
@@ -4194,8 +4219,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (chatMode === "game") {
@@ -4257,8 +4281,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (!preset && chatMode === "roleplay") {
@@ -4303,8 +4326,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               exact: false,
               generationInfo: null,
               ...decisionReport(),
-              agentNote:
-                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              agentNote: livePreviewNote,
             };
           }
           if (!preset) throw new Error(`Prompt preset ${presetId ?? "(none)"} is unavailable`);
@@ -4636,8 +4658,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             exact: false,
             generationInfo: null,
             ...decisionReport(),
-            agentNote:
-              "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+            agentNote: livePreviewNote,
           };
         }
       } catch (e) {

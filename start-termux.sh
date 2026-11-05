@@ -289,7 +289,10 @@ prune_pnpm_store() {
     # The pinned pnpm 12 never reads the pnpm 10 store and its prune cannot see it. Drop it before the
     # install so both stores never have to fit at once (the install relinks node_modules anyway).
     # ponytail: only the v10 layout; delete once no supported update starts from a pnpm 10 install.
-    rm -rf .pnpm-store/v10
+    # Under set -e a bare rm that fails (read-only file, busy mount) would end startup; it only costs space.
+    if ! rm -rf .pnpm-store/v10; then
+        echo "  [WARN] Could not remove the pnpm 10 dependency cache (.pnpm-store/v10); continuing with it in place."
+    fi
     if ! run_pnpm store prune >/dev/null 2>&1; then
         echo "  [WARN] Could not prune the pnpm store; continuing without removing cached packages."
     fi

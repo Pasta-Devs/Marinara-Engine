@@ -13,11 +13,18 @@ const APP_VERSION = (
  * that changes the stack's height. Each case scrolls the transcript to its end and compares the lowest
  * transcript content with the top of the stack. A positive gap means content sits under the composer.
  */
-test.beforeEach(async () => {
+test.beforeEach(async ({ request }) => {
   await acquireMariThreadLock();
+  // The fixture model answers in Classic JSON frames. Set the runtime here rather than inherit whatever an
+  // earlier spec on this server left behind (#8843).
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
 });
 
-test.afterEach(() => {
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-runtime-recovery does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
   releaseMariThreadLock();
 });
 
@@ -273,7 +280,12 @@ async function openWindowAndSend(page: Page, text: string) {
     .locator("main")
     .first()
     .click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("Control+j");
+  // The app's own rule: Cmd+J on Apple platforms (WebKit on a Mac reports one for the iPhone too), Ctrl+J elsewhere.
+  const shortcut = await page.evaluate(async () => {
+    const { isApplePlatform } = await import("/src/lib/command-center.ts" as string);
+    return isApplePlatform() ? "Meta+j" : "Control+j";
+  });
+  await page.keyboard.press(shortcut);
   const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
   const composer = pane.locator("textarea:visible");
   await expect(composer).toBeVisible();
@@ -332,7 +344,11 @@ test("a change card ends above the composer", async ({ page, request }) => {
       delayMs: 0,
       action: {
         say: "Created it.",
-        commands: [tool("character.create", { apply: true, data: { name: `Stack Probe ${Date.now().toString(36)}` } })],
+        // She reads the characters skill before her first character write, as the skill gate (#7949) requires.
+        commands: [
+          tool("skill.get", { id: "builtin-characters" }),
+          tool("character.create", { apply: true, data: { name: `Stack Probe ${Date.now().toString(36)}` } }),
+        ],
         stop: true,
       },
     },

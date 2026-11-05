@@ -156,3 +156,13 @@ export function useModelStar() {
     pending: pickModel.isPending || setPinned.isPending || unstarModel.isPending,
   };
 }
+
+/** The star list with `model` moved one place up (-1) or down (1); null when it cannot move. */
+export function reorderStars(stars: readonly string[], model: string, by: -1 | 1): string[] | null {
+  const at = stars.indexOf(model);
+  const to = at + by;
+  if (at < 0 || to < 0 || to >= stars.length) return null;
+  const next = [...stars];
+  [next[at], next[to]] = [next[to]!, next[at]!];
+  return next;
+}

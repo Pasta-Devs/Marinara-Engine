@@ -11,6 +11,8 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import {
   Check,
   ChevronLeft,
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   Dices,
   House,
@@ -78,7 +80,7 @@ import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
+import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
 type SwitcherRow = {
@@ -659,6 +661,53 @@ export function ConnectionSwitcherBody({
     }
   };
   const starsOf = (group: SwitcherGroup) => starsOfRows(group.rows);
+  // Edit order: the Starred order is the anchor's pinnedModels order, so a move rewrites that list.
+  const [editOrder, setEditOrder] = useState(false);
+  const moveStar = (group: SwitcherGroup, model: string, by: -1 | 1) => {
+    const next = reorderStars([...starsOf(group)], model, by);
+    if (next) updateConnection.mutate({ id: anchorOf(group).id, pinnedModels: next });
+  };
+  const iconButtonClass =
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/50 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-30 disabled:hover:bg-transparent";
+  const orderButtons = (group: SwitcherGroup, model: string, title: string) => {
+    const stars = [...starsOf(group)];
+    const at = stars.indexOf(model);
+    return (
+      <>
+        <button
+          type="button"
+          className={iconButtonClass}
+          disabled={at <= 0 || updateConnection.isPending}
+          aria-label={t("connections.switcher.moveUp", { model: title })}
+          title={t("connections.switcher.moveUp", { model: title })}
+          onClick={() => moveStar(group, model, -1)}
+        >
+          <ArrowUp size="0.875rem" aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={iconButtonClass}
+          disabled={at < 0 || at >= stars.length - 1 || updateConnection.isPending}
+          aria-label={t("connections.switcher.moveDown", { model: title })}
+          title={t("connections.switcher.moveDown", { model: title })}
+          onClick={() => moveStar(group, model, 1)}
+        >
+          <ArrowDown size="0.875rem" aria-hidden />
+        </button>
+      </>
+    );
+  };
+  const orderToggle = (
+    <button
+      type="button"
+      data-switcher-edit-order
+      aria-pressed={editOrder}
+      className="mb-1 ml-auto flex min-h-11 items-center rounded-lg px-3 text-xs text-foreground/50 outline-none hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
+      onClick={() => setEditOrder((on) => !on)}
+    >
+      {t(editOrder ? "connections.switcher.doneOrder" : "connections.switcher.editOrder")}
+    </button>
+  );
   const starButton = (group: SwitcherGroup, model: string, title: string, starred: boolean) =>
     group.account ? (
       <button
@@ -726,7 +775,9 @@ export function ConnectionSwitcherBody({
 
   // Starred models of every provider: the left pane's first item.
   const starredEntries = listed.flatMap((item) =>
-    item.group.account ? item.entries.filter((entry) => !!entry.model && starsOf(item.group).has(entry.model)) : [],
+    item.group.account
+      ? [...starsOf(item.group)].flatMap((model) => item.entries.find((entry) => entry.model === model) ?? [])
+      : [],
   );
   // The picker opens on Starred when it has something for this job, else on the current pick's account.
   const paneKey =
@@ -735,6 +786,8 @@ export function ConnectionSwitcherBody({
       ? "starred"
       : ((currentGroup?.account ? currentGroup : groups.find((group) => group.account))?.key ?? "starred"));
   const paneGroup = groups.find((group) => group.key === paneKey);
+  // Edit order belongs to the pane it was turned on in.
+  useEffect(() => setEditOrder(false), [paneKey]);
   // A selected account scopes the search to its own models.
   const scopeGroup = paneGroup;
   // The open account's list: shares the cache loadCatalog fills, and tells the pane when it failed.
@@ -921,8 +974,14 @@ export function ConnectionSwitcherBody({
       now = false,
       star = "unstarred",
       away = false,
+      order = false,
+      pane = false,
     }: {
       index?: number;
+      /** A row in the left pane: its tile takes the panes' 2rem column so it lines up with Starred and accounts. */
+      pane?: boolean;
+      /** Only the Starred lists that show the Edit order toggle pass this. */
+      order?: boolean;
       now?: boolean;
       star?: "all" | "unstarred" | "none";
       /** Shown outside its provider's list (Now, Starred, Recent): line 2 names the provider, and the upstream it goes via. */
@@ -930,6 +989,7 @@ export function ConnectionSwitcherBody({
     } = {},
   ) => {
     // The provider's own name when it has one; the id is the second line only when two rows would look the same.
+    const ordering = editOrder && order;
     const catalogFacts = rawEntry.group ? catalogOf(rawEntry.group) : undefined;
     const niceName =
       rawEntry.model && rawEntry.title === rawEntry.model ? catalogFacts?.nameOf(rawEntry.model) : undefined;
@@ -967,7 +1027,7 @@ export function ConnectionSwitcherBody({
         key={entry.key}
         rowProps={{
           "data-switcher-row": true,
-          className: cn("rounded-lg", now ? "bg-transparent" : isCurrent && ACCENT_BAR),
+          className: cn("rounded-lg", now ? "bg-transparent pe-0" : isCurrent && ACCENT_BAR),
         }}
         data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
         data-switcher-model={entry.model}
@@ -987,20 +1047,35 @@ export function ConnectionSwitcherBody({
           void apply(entry);
         }}
         onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
-        className={cn("rounded-lg disabled:cursor-wait", highlighted && "bg-foreground/10")}
+        className={cn(
+          "rounded-lg disabled:cursor-wait",
+          highlighted && "bg-foreground/10",
+          // Now and pane rows put the tile in the shared 2rem column; text then starts where Starred and accounts start.
+          now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
+          pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
+        )}
         tile={
-          typed ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
-              <Search size="0.875rem" aria-hidden />
-            </span>
-          ) : local ? (
-            <ProviderIcon provider="local_model" size="model" dim={!!unavailable} />
-          ) : (
-            <ModelTile row={entry.row} account={group?.account} model={entry.model} dim={!!unavailable} />
-          )
+          <span className={cn("flex shrink-0 justify-center", (now || pane) && "w-8")}>
+            {typed ? (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
+                <Search size="0.875rem" aria-hidden />
+              </span>
+            ) : local ? (
+              <ProviderIcon provider="local_model" size={now || pane ? "sm" : "model"} dim={!!unavailable} />
+            ) : (
+              <ModelTile
+                row={entry.row}
+                account={group?.account}
+                model={entry.model}
+                dim={!!unavailable}
+                size={now || pane ? "sm" : undefined}
+              />
+            )}
+          </span>
         }
         title={entry.title}
-        subtitle={entry.subtitle}
+        // The Now strip folds its heading into line 2 to stay one compact row.
+        subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
         roles={roleLabels}
         status={
           rowStateOf
@@ -1026,7 +1101,8 @@ export function ConnectionSwitcherBody({
         end={
           <>
             {now && unavailable && group && fixButton(group)}
-            {starred && entry.row && (
+            {ordering && starred && group && orderButtons(group, entry.model!, entry.title)}
+            {starred && entry.row && !ordering && (
               <button
                 type="button"
                 data-switcher-settings={entry.model}
@@ -1046,7 +1122,7 @@ export function ConnectionSwitcherBody({
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>
             )}
-            {showStar && starButton(group!, entry.model!, entry.title, starred)}
+            {showStar && !ordering && starButton(group!, entry.model!, entry.title, starred)}
           </>
         }
       />
@@ -1102,10 +1178,12 @@ export function ConnectionSwitcherBody({
     </button>
   ));
   const addRow = onAdd && (
-    <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
-      <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
-      <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
-    </button>
+    <div className="shrink-0 border-t border-foreground/10 px-1 py-1">
+      <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
+        <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
+        <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
+      </button>
+    </div>
   );
 
   // Shuffle on: the list becomes the pool, as before.
@@ -1315,10 +1393,12 @@ export function ConnectionSwitcherBody({
             )}
           </section>
         )}
-        {standaloneGroups.flatMap((group) => group.rows.map((row) => renderEntry(entryOfRow(row, group))))}
-        {showLocalModel && renderEntry(localEntry)}
+        {standaloneGroups.flatMap((group) =>
+          group.rows.map((row) => renderEntry(entryOfRow(row, group), { pane: true })),
+        )}
+        {showLocalModel && renderEntry(localEntry, { pane: true })}
       </ListFrame>
-      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
+      {addRow}
     </div>
   );
 
@@ -1416,7 +1496,10 @@ export function ConnectionSwitcherBody({
             {shownEntries.starred.length > 0 && (
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
                 {heading(t("connections.switcher.starred"), shownEntries.starred.length)}
-                {shownEntries.starred.map((entry) => renderEntry(entry, { star: "all" }))}
+                {shownEntries.starred.length > 1 && orderToggle}
+                {shownEntries.starred.map((entry) =>
+                  renderEntry(entry, { star: "all", order: shownEntries.starred.length > 1 }),
+                )}
               </section>
             )}
             {shownEntries.rest.length > 0 && (
@@ -1444,7 +1527,10 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-              {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+              {starredEntries.length > 1 && orderToggle}
+              {starredEntries.map((entry) =>
+                renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
+              )}
             </section>
             {starredEntries.length === 0 && knownEntries.length === 0 && (
               <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
@@ -1501,25 +1587,27 @@ export function ConnectionSwitcherBody({
       data-switcher-section="now"
       aria-label={nowLabel}
       className={cn(
-        "mx-2 mt-2 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] p-1",
+        "mx-2 mt-1.5 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] px-1 py-0.5",
         // In Shuffle the pool list has no Back, so the strip with the dice stays the way out.
         drilled && !searching && !shuffle?.active && "@max-xl:hidden",
       )}
     >
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
-          <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
           {nowEntry && !shuffle?.active ? (
             renderEntry(nowEntry, { now: true, away: true })
           ) : (
-            <p className="truncate px-3 py-2 text-xs font-medium">
-              {shuffle?.active
-                ? t("connections.switcher.shuffle")
-                : (activeExtra?.label ??
-                  (followDefault?.active
-                    ? (followDefault.label ?? t("connections.switcher.followMain"))
-                    : t("connections.switcher.chooseModel")))}
-            </p>
+            <>
+              <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
+              <p className="truncate px-3 py-2 text-xs font-medium">
+                {shuffle?.active
+                  ? t("connections.switcher.shuffle")
+                  : (activeExtra?.label ??
+                    (followDefault?.active
+                      ? (followDefault.label ?? t("connections.switcher.followMain"))
+                      : t("connections.switcher.chooseModel")))}
+              </p>
+            </>
           )}
         </div>
         {followDefault && !followDefault.active && (
@@ -1536,7 +1624,7 @@ export function ConnectionSwitcherBody({
                 .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
                 .finally(() => setBusy(false));
             }}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
+            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
           >
             <House size="0.8125rem" className="shrink-0" aria-hidden />
             <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
@@ -1555,7 +1643,7 @@ export function ConnectionSwitcherBody({
             )}
             onClick={shuffle.onToggle}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25",
               shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
             )}
           >
@@ -1593,7 +1681,11 @@ export function ConnectionSwitcherBody({
           {poolList}
         </ListFrame>
       ) : nothing ? (
-        (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
+        // With no models there are no panes, so the add row goes under the empty message.
+        <>
+          {empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>}
+          {addRow}
+        </>
       ) : searching ? (
         results
       ) : (

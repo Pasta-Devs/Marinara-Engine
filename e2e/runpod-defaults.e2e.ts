@@ -38,7 +38,7 @@ test("RunPod exposes and saves the shared ComfyUI controls", async ({ page, requ
     await editor.getByRole("button", { name: /ComfyUI generation setup/ }).click();
     await editor.getByRole("spinbutton", { name: "Steps", exact: true }).fill("17");
     await editor.getByRole("spinbutton", { name: "Steps", exact: true }).press("Tab");
-    await editor.getByRole("textbox", { name: "Prompt Prefix", exact: true }).fill("A watercolor painting");
+    await editor.getByRole("textbox", { name: "Prompt prefix", exact: true }).fill("A watercolor painting");
     await editor.getByLabel("LoRA 1", { exact: true }).fill("style.safetensors");
     await editor.getByRole("button", { name: "Save", exact: true }).click();
     const profile = async () => {

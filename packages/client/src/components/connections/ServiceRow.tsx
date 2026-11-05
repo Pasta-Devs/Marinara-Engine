@@ -94,7 +94,8 @@ export function ServiceRow({
   );
   const body = (
     <>
-      {!onPictureClick && tileNode}
+      {/* sm: the tile sits centred in a 2rem column, the same column the switcher's Starred and folder tiles use. */}
+      {!onPictureClick && (md ? tileNode : <span className="-me-2 flex w-8 shrink-0 justify-center">{tileNode}</span>)}
       <ConnectionHeading
         title={identity.title}
         tooltip={[...new Set([identity.name, identity.accountLabel])].filter(Boolean).join(" · ")}
@@ -122,7 +123,7 @@ export function ServiceRow({
       {trailing}
     </>
   );
-  // Text starts 3.25rem in at both densities: md tile 2.5rem + 0.75rem gap, sm 0.75rem + 1.5rem + 1rem.
+  // Text starts 3.25rem in at both densities: md tile 2.5rem + 0.75rem gap, sm 0.75rem + 1.5rem + 1rem (the 2rem tile column pulls the gap back 0.5rem).
   const rowClass = cn(
     "flex min-w-0 flex-1 items-center text-left",
     md ? "min-h-11 gap-3 py-1 pe-1" : "min-h-9 gap-4 py-1 ps-3 pe-1",

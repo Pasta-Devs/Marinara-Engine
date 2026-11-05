@@ -138,11 +138,22 @@ for (const theme of ["dark", "light"] as const) {
       await dialog.getByRole("button", { name: "Apply to draft", exact: true }).click();
       await expect(repair).toBeHidden();
       expect((await storedSchedule()).days.Monday?.[0]?.activity).toBe("Original routine");
-      const picker = dialog.getByRole("combobox", { name: "Generation connection", exact: true });
-      await expect(picker).toHaveValue("default-schedule-fixture");
-      await expect(picker.locator('option[value="image-fixture"]')).toHaveCount(0);
-      await expect(picker.locator('option[value="quarantined-fixture"]')).toHaveCount(0);
-      await picker.selectOption("chosen-schedule-fixture");
+      // The field opens the shared model picker; only language models that are not quarantined are listed.
+      const picker = dialog.getByRole("button", { name: "Generation model", exact: true });
+      await expect(picker).toHaveAttribute("data-connection-value", "default-schedule-fixture");
+      await picker.click();
+      const models = page.getByRole("dialog", { name: "Model for Schedule", exact: true });
+      const chosen = models.locator('[data-switcher-entry="chosen-schedule-fixture"]');
+      // A narrow picker opens on one pane; its back button returns to the list of every Model.
+      const back = models.locator("[data-switcher-back]");
+      await expect(chosen.or(back).filter({ visible: true }).first()).toBeVisible();
+      if (await back.isVisible()) await back.click();
+      await expect(chosen).toBeVisible();
+      await expect(models.locator('[data-switcher-entry="image-fixture"]')).toHaveCount(0);
+      await expect(models.locator('[data-switcher-entry="quarantined-fixture"]')).toHaveCount(0);
+      await chosen.click();
+      await expect(models).toBeHidden();
+      await expect(picker).toHaveAttribute("data-connection-value", "chosen-schedule-fixture");
       await expect(dialog.getByText("custom · chosen-model", { exact: true })).toBeVisible();
       const mondayToggle = dialog
         .locator("section")
@@ -312,11 +323,18 @@ test("Character card schedules explain missing connections and allow manual edit
     const library = page.locator('[data-component="CharacterLibraryView"]');
     await library.getByPlaceholder("Search characters").fill(name);
     await library.getByRole("button", { name: "Edit Character", exact: true }).click();
+    // The editor holds its opening section in place while lazy sections grow, until the user touches it
+    // (use-editor-sections.ts). A click's own scroll is no touch, so on WebKit each grown section scrolled the
+    // form back to the top before the click landed; touch it first, as a user scrolling down does.
+    await page.locator(".mari-editor-content").filter({ visible: true }).dispatchEvent("pointerdown");
     await page.getByRole("button", { name: "Create schedule", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: `Edit ${name} Schedule`, exact: true });
-    await expect(dialog.getByRole("combobox", { name: "Generation connection", exact: true })).toHaveValue("");
+    await expect(dialog.getByRole("button", { name: "Generation model", exact: true })).toHaveAttribute(
+      "data-connection-value",
+      "",
+    );
     await expect(
-      dialog.getByText("Choose a language connection for schedule generation. You can add one in Connections.", {
+      dialog.getByText("Choose a language provider for schedule generation. You can add one in Connections.", {
         exact: true,
       }),
     ).toBeVisible();

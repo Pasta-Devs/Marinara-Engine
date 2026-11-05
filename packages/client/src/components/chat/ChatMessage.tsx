@@ -46,6 +46,7 @@ import { useCharacterSummaries, useChatGalleryFilenameIndex } from "../../hooks/
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { ChatImagePreview } from "./ChatImagePreview";
+import { resolveMergedAvatarRoster } from "./merged-avatar-roster";
 import { ChatVideoAttachment, isAttachmentHiddenByImageText, isVideoAttachment } from "./ChatVideoAttachment";
 import { recordClientRuntimeEvent } from "../../lib/client-runtime-diagnostics";
 import { isDiceRollResult, readRoleplayDiceRolls } from "../../lib/dice-roll-result";
@@ -1035,8 +1036,12 @@ interface ChatMessageProps {
   /** This chat's Card Theming switch; undefined falls back to the retired global setting. */
   colorInlineNames?: boolean;
   chatCharacterIds?: string[];
-  /** Active character IDs used for merged Narrator avatar presentation. */
+  /** The chat's live active characters: a streaming merged Narrator reply shows them; a saved one keeps its own. */
   mergedGroupCharacterIds?: string[];
+  /** Chat members an expression result cannot name, kept on a merged reply saved before its roster was. */
+  noExpressionCharacterIds?: string[];
+  /** For an earlier part of a reply split at scene breaks: its last part's extra, whose saved data its avatars use. */
+  splitReplyLastPartExtra?: Record<string, unknown>;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   /** Distance from the latest message (0 = newest). Used for depth-range regex filtering. */
   messageDepth?: number;
@@ -2016,6 +2021,8 @@ export const ChatMessage = memo(function ChatMessage({
   colorInlineNames: chatColorInlineNames,
   chatCharacterIds,
   mergedGroupCharacterIds,
+  noExpressionCharacterIds,
+  splitReplyLastPartExtra,
   expressionAvatarResolver,
   messageDepth,
   messageIndex,
@@ -3008,8 +3015,26 @@ export const ChatMessage = memo(function ChatMessage({
   }, [isRoleplay, isMergedGroup, extra.referencedCharacterIds, chatCharacterIds]);
   const { data: referencedAvatarCharacters } = useCharacterSummaries(referencedAvatarIds);
   const mergedCharacterIds = useMemo(
-    () => [...(mergedGroupCharacterIds ?? chatCharacterIds ?? []), ...referencedAvatarIds],
-    [chatCharacterIds, mergedGroupCharacterIds, referencedAvatarIds],
+    () => [
+      ...resolveMergedAvatarRoster({
+        extra,
+        chatCharacterIds: chatCharacterIds ?? [],
+        liveRoster: mergedGroupCharacterIds,
+        isLive: !!isStreaming,
+        noExpressionCharacterIds,
+        splitReplyLastPartExtra,
+      }),
+      ...referencedAvatarIds,
+    ],
+    [
+      chatCharacterIds,
+      extra,
+      isStreaming,
+      mergedGroupCharacterIds,
+      noExpressionCharacterIds,
+      referencedAvatarIds,
+      splitReplyLastPartExtra,
+    ],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
   const reduceAmbientEffects = useReducedAmbientEffects();

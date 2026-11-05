@@ -29,13 +29,15 @@ import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
-import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { jobLabelKey, rowJobs } from "../../lib/connection-jobs";
-import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
+import type { ComponentProps } from "react";
 import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { useVoiceRowId } from "../../hooks/use-tts";
+
+type ModelRowProps = ComponentProps<typeof ModelRow>["rowProps"];
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -110,9 +112,11 @@ export function ConnectionRow({
   onToggleStar,
   onUseInChat,
   moveTargets,
+  moveBlocked,
   onMove,
   folderName,
   onChooseFolder,
+  dragProps,
   onPictureClick,
   catalog,
 }: {
@@ -131,9 +135,13 @@ export function ConnectionRow({
   /** Names of the Connections the Model can move to (the menu hint); `onMove` opens the move dialog. */
   moveTargets?: string[];
   onMove?: () => void;
+  /** Why Move is unavailable; shows it greyed out with this reason. */
+  moveBlocked?: string;
   /** The Model's folder (the menu hint); `onChooseFolder` asks for another. */
   folderName?: string;
   onChooseFolder?: () => void;
+  /** Mouse/touch drag bindings from the panel (chat drop and moving between Connections). */
+  dragProps?: ModelRowProps;
   /** The tile, and "Change picture" in ⋯, open the picture menu. */
   onPictureClick?: (at: MenuAt) => void;
   /** Cost and retirement from the Connection's cached catalogs. */
@@ -232,7 +240,17 @@ export function ConnectionRow({
             onSelect: onMove,
           },
         ]
-      : []),
+      : moveBlocked
+        ? [
+            {
+              label: t("connections.accounts.row.moveTo"),
+              hint: moveBlocked,
+              icon: <MoveRight size="0.75rem" />,
+              onSelect: () => {},
+              disabled: true,
+            },
+          ]
+        : []),
     ...(onChooseFolder
       ? [
           {
@@ -287,19 +305,7 @@ export function ConnectionRow({
     <ModelRow
       rowProps={{
         "data-connection-id": row.id,
-        // Desktop only: drag the Model onto a chat to use it there.
-        draggable: true,
-        onDragStart: (event) => {
-          event.dataTransfer.effectAllowed = "copy";
-          writeChatResourceDragPayload(event.dataTransfer, {
-            version: 1,
-            kind: "connection",
-            ids: [row.id],
-            label: row.name,
-            ...(isLanguageGenerationConnection(row) ? {} : { unsupported: "connection-kind" as const }),
-          });
-        },
-        onDragEnd: clearActiveChatResourceDrag,
+        ...dragProps,
       }}
       onClick={openEditor}
       aria-current={current ? "true" : undefined}
@@ -424,8 +430,15 @@ export async function deleteAccountModels(models: Array<{ id: string }>) {
   for (const row of models) await api.delete(`/connections/${row.id}`);
 }
 
+/** Read the server's ownership before confirming deletion; the visible group can omit or relocate rows. */
+export async function loadAccountDeletionRows(accountId: string) {
+  const rows =
+    await api.get<Array<{ id: string; name: string; model: string; accountId?: string | null }>>("/connections");
+  return rows.filter((row) => row.accountId === accountId);
+}
+
 /**
- * The delete question for a Connection, asked before anything is deleted: it names its model count and what uses them.
+ * The delete question for a Connection, asked before anything is deleted: it names its rows and what uses them.
  * True means: delete the Models, then the Connection.
  */
 export async function confirmAccountDelete(
@@ -441,6 +454,9 @@ export async function confirmAccountDelete(
           t("connections.accounts.editor.deleteWithModels", {
             name,
             count: models.length,
+          }),
+          t("connections.accounts.editor.deleteModelsList", {
+            names: models.map((row) => row.name?.trim() || row.model || row.id).join(", "),
           }),
           ...(await usageLines(ids, new Set(ids), t)),
         ].join("\n")

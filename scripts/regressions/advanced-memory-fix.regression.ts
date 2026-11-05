@@ -61,12 +61,12 @@ const provider = createServer(async (request, response) => {
         .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
         .map((message: { messageId: string }) => ({ messageId: message.messageId })),
     });
-  } else if (system.content.includes("Aim for approximately")) {
-    // Combining constant Chat Summaries always runs out of room here.
+  } else if (system.content.includes("about half its current length")) {
+    // Shortening constant Chat Summaries always fails here, so Resume retries it.
     compactionCalls++;
     response.end(
       JSON.stringify({
-        choices: [{ message: { role: "assistant", content: '{"summary":"Cut off' }, finish_reason: "length" }],
+        choices: [{ message: { role: "assistant", content: '{"summary":"Failed' }, finish_reason: "error" }],
       }),
     );
     return;
@@ -377,7 +377,7 @@ try {
   ]);
   const stopped = { status: "error", stage: "compacting", completed: 0, total: 1, error: "Earlier failure" };
   await chats.patchMetadata(compact.id, { advancedMemoryState: stopped });
-  await assert.rejects(memory.initialize(compact.id), /output limit/, "Resume still reports the failed update");
+  await assert.rejects(memory.initialize(compact.id), /did not complete/, "Resume still reports the failed update");
   await chats.patchMetadata(compact.id, { advancedMemoryState: stopped });
   const compactionsBefore = compactionCalls;
   await memory.initialize(compact.id, { fixAll: true });

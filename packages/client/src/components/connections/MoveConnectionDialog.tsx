@@ -43,6 +43,7 @@ export function MoveConnectionDialog({
   other,
   rowsOf,
   splitFrom,
+  initialTarget,
   onClose,
 }: {
   row: ConnectionRowData;
@@ -50,6 +51,8 @@ export function MoveConnectionDialog({
   other: ConnectionAccountListItem[];
   /** The Model's own Connection when a copy of it may take the Model ("Move to a new connection"). */
   splitFrom?: ConnectionAccountListItem | null;
+  /** A Connection chosen by dropping the Model on its card: opens on step 2. */
+  initialTarget?: ConnectionAccountListItem;
   rowsOf: (accountId: string) => ConnectionRowData[];
   onClose: () => void;
 }) {
@@ -57,7 +60,7 @@ export function MoveConnectionDialog({
   const move = useMoveConnection();
   const split = useSplitModel();
   const busy = move.isPending || split.isPending;
-  const [target, setTarget] = useState<ConnectionAccountListItem | null>(null);
+  const [target, setTarget] = useState<ConnectionAccountListItem | null>(initialTarget ?? null);
   const title = row.name?.trim() || row.model;
 
   const splitOff = (from: ConnectionAccountListItem) => {

@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
 import { readdir, readFile, stat, unlink } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import type { DB } from "../../db/connection.js";
 import { inArray } from "../../db/file-query.js";
 import { encodeShardKey, isLazyUnitTable, isShardDataFileName } from "../../db/file-backed-store.js";
@@ -12,6 +12,7 @@ import {
   personas,
 } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { assertInsideDir } from "../../utils/security.js";
 
@@ -80,14 +81,28 @@ export function resolveStoredAvatarFile(
   }
 }
 
+// The avatar folder is reachable by Professor Mari's shell when the data dir sits inside her workspace. A file is removed
+// by its name in the real avatar folder: a link at the name is removed, never followed, and a folder that is a link
+// (or sits behind one) keeps its files, orphans at worst.
+function realAvatarFile(avatarRoot: string, filePath: string): string | null {
+  try {
+    return join(realPathInAppFolder(avatarRoot, dirname(filePath)), basename(filePath));
+  } catch (error) {
+    logger.warn(error, "Kept avatar file %s: its folder's real path is outside the avatar folder", filePath);
+    return null;
+  }
+}
+
 /** Remove an avatar file created before its database reference could be saved. */
 export async function removeUnattachedAvatarFile(
   target: { filePath: string } | { avatarPath: string | null | undefined },
 ): Promise<void> {
   const filePath = "filePath" in target ? target.filePath : resolveStoredAvatarFile(target.avatarPath);
   if (!filePath) return;
+  const realPath = realAvatarFile(join(DATA_DIR, "avatars"), filePath);
+  if (!realPath) return;
   try {
-    await unlink(filePath);
+    await unlink(realPath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       logger.warn(error, "Could not remove unattached avatar file %s", filePath);
@@ -283,9 +298,17 @@ async function abandonedAvatarFilesUnlocked(input: {
   minimumAgeMs: number;
   nowMs: number;
 }): Promise<AbandonedAvatarFile[]> {
+  // Listed in the real avatar folder, so a linked avatar folder offers no candidates at all.
+  let realRoot: string;
   let entries: Dirent[];
   try {
-    entries = await readdir(input.avatarRoot, { withFileTypes: true });
+    realRoot = realPathInAppFolder(input.avatarRoot, input.avatarRoot);
+  } catch (error) {
+    logger.warn(error, "Skipped the abandoned avatar scan: the avatar folder's real path is outside the data dir");
+    return [];
+  }
+  try {
+    entries = await readdir(realRoot, { withFileTypes: true });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
@@ -296,7 +319,7 @@ async function abandonedAvatarFilesUnlocked(input: {
     if (!entry.isFile() || !STORED_AVATAR_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue;
     const filePath = assertInsideDir(input.avatarRoot, join(input.avatarRoot, entry.name));
     try {
-      const fileStat = await stat(filePath);
+      const fileStat = await stat(join(realRoot, entry.name));
       if (!fileStat.isFile() || input.nowMs - fileStat.mtimeMs < input.minimumAgeMs) continue;
       abandoned.push({ filePath, bytes: fileStat.size });
     } catch (error) {
@@ -362,8 +385,10 @@ export async function deleteAbandonedAvatarFiles(input: {
       const deleted: AbandonedAvatarFile[] = [];
       for (const file of await excludeFrozenAvatarFiles(input.db, avatarRoot, abandoned, frozen)) {
         if (!frozenIdentityHistoryUnchanged(input.db, frozen)) break;
+        const realPath = realAvatarFile(avatarRoot, file.filePath);
+        if (!realPath) continue;
         try {
-          await unlink(file.filePath);
+          await unlink(realPath);
           deleted.push(file);
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -398,8 +423,10 @@ export async function unlinkAvatarFilesIfUnreferenced(input: {
       let deleted = 0;
       for (const { filePath } of await excludeFrozenAvatarFiles(input.db, avatarRoot, files, frozen)) {
         if (!frozenIdentityHistoryUnchanged(input.db, frozen)) break;
+        const realPath = realAvatarFile(avatarRoot, filePath);
+        if (!realPath) continue;
         try {
-          await unlink(filePath);
+          await unlink(realPath);
           deleted++;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") {

@@ -1,4 +1,4 @@
-import { rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
+import { gamePartyRoster, rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
 import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Service: Skill Check Resolution (chat-scoped)
@@ -78,6 +78,7 @@ import {
   type RulesetCheckTarget,
   type RulesetSheetItem,
   rulesetCheckStance,
+  rulesetSheetDead,
 } from "@marinara-engine/shared";
 import { loadGameInventoryItemBook } from "./game-inventory.service.js";
 import type { DB } from "../../db/connection.js";
@@ -190,6 +191,9 @@ export interface SkillCheckRulesetContext {
   /** True when no card is the player's own and `playerKey` is only the first card. A check that
    *  names nobody then picks its roller from the narration instead (laptop 2026-10-26). */
   playerByPosition?: boolean;
+  /** Normalized names of the cards whose member was taken out of the party: a card stays when its
+   *  member leaves. Nobody is away in a game whose party list cannot be read in full. */
+  away?: Set<string>;
 }
 
 export interface SkillCheckRequest {
@@ -295,6 +299,62 @@ async function findPlayerCharacterCard(
   chatId: string,
 ): Promise<Record<string, unknown> | undefined> {
   return (await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId)).card;
+}
+
+/**
+ * The player's own card as a party roster is seeded with it (`gamePartyRoster`): the player is never
+ * on the party list, so this is what keeps them in it. The checks, the sheet commands and the fight
+ * brief all seed it here, so they count the same members away.
+ */
+export async function gamePlayerCardName(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown>,
+  chatPersonaId: unknown,
+): Promise<string | null> {
+  const cards = Array.isArray(meta.gameCharacterCards)
+    ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
+    : [];
+  return playerRosterCard(meta, await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId));
+}
+
+/**
+ * The name `gamePlayerCardName` seeds a roster with, from the card a check finds: a persona called by
+ * a shorter name than its card still names that card. Where nothing said whose card is whose, the first
+ * card is the player's only where the game's setup put it first (`setupPutsPlayerCardFirst`). Otherwise
+ * the first card is a companion's, and one taken out of the party must not be kept in it: null.
+ */
+function playerRosterCard(
+  meta: Record<string, unknown>,
+  { card, byPosition }: { card: Record<string, unknown> | undefined; byPosition: boolean },
+): string | null {
+  if (byPosition && !setupPutsPlayerCardFirst(meta)) return null;
+  return readTrimmedString(card?.name) || null;
+}
+
+/**
+ * Whether the game's setup made the player's card its first, read off the setup the game keeps
+ * (`gameInitialSetup`), so a companion recruited or a persona changed since never changes it. A setup
+ * with a persona asks for the player's card before the party's (gm-prompts' characterCardTargets), so
+ * the first card stays the player's when the persona is later renamed or deleted, or the card renamed.
+ * A setup with no party makes a card for nobody but the player (character_card_scope).
+ */
+function setupPutsPlayerCardFirst(meta: Record<string, unknown>): boolean {
+  type KeptSetup = { config?: { partyCharacterIds?: unknown; personaId?: unknown } } | null | undefined;
+  const kept = (meta.gameInitialSetup as KeptSetup)?.config;
+  const setupConfig = meta.gameSetupConfig as { personaId?: unknown } | null | undefined;
+  if (readTrimmedString(kept?.personaId ?? setupConfig?.personaId)) return true;
+  // ponytail: no card is marked as the player's, so this reads the setup, with three known misses. Where
+  // the model put a companion's card first despite the persona, and the persona no longer names a card,
+  // that companion is kept in the party after leaving it. The party list stands in for the setup only
+  // for metadata the setup did not write, if any (a ruleset pinned by a hand-made metadata PATCH): the
+  // Engine pins a ruleset (`gameRuleset`) only at setup, in the same update that keeps the setup, and
+  // setups were kept (2026-07) before a ruleset could be chosen at creation (2026-09). There, once a
+  // companion is recruited, the first card is only a stand-in again and the player is counted away. And
+  // a setup that made no card leaves a later recruit first, kept in the party after leaving it. The
+  // upgrade is to mark the player's own card as setup makes it, and seed the roster with that.
+  const ids = Array.isArray(kept?.partyCharacterIds) ? kept.partyCharacterIds : meta.gamePartyCharacterIds;
+  return Array.isArray(ids) && ids.length === 0;
 }
 
 /** The player's card, and whether it is only the first card because nothing said whose it is. */
@@ -429,22 +489,28 @@ export async function loadSkillCheckModifierContext(
             playerCard ? readTrimmedString(playerCard.name) : null,
           )
         : undefined;
+      const ruleset = buildSkillCheckRulesetContext(
+        pinned.definition,
+        cards,
+        playerCard,
+        // The live state of this chat's sheets: it is where a wound track's marks live, and a
+        // check cannot know what a wound costs without them. The turn's own starting state when
+        // the caller handed one over, and otherwise the snapshot read above.
+        turnStartLive === undefined ? parseStoredRulesetLive(snapshot?.rulesetLive) : turnStartLive,
+        undefined,
+        itemsOf,
+      );
+      // Who left the party, off the same roster and the same seed for the player's own card as the
+      // sheet commands and the fight brief count it (`gamePlayerCardName`).
+      const present = await gamePartyRoster(db, chatId, meta, playerRosterCard(meta, { card: playerCard, byPosition }));
+      const away = present ? new Set([...ruleset.sheets.keys()].filter((key) => !present.has(key))) : undefined;
       return {
         skills: null,
         attributes: null,
         sheetAttributes: {},
-        // The live state of this chat's sheets: it is where a wound track's marks live, and a
-        // check cannot know what a wound costs without them. The turn's own starting state when
-        // the caller handed one over, and otherwise the snapshot read above.
         ruleset: {
-          ...buildSkillCheckRulesetContext(
-            pinned.definition,
-            cards,
-            playerCard,
-            turnStartLive === undefined ? parseStoredRulesetLive(snapshot?.rulesetLive) : turnStartLive,
-            undefined,
-            itemsOf,
-          ),
+          ...ruleset,
+          ...(away?.size ? { away } : {}),
           // Nothing said which card is the player's, so the first card is only a stand-in for a check
           // that names nobody (laptop 2026-10-26: Dorra's Stealth was rolled for Pip's sneak).
           // Nor in a shared room, where the chat's persona is the host's and a check that names nobody
@@ -1599,10 +1665,23 @@ export function rulesetCheckRollerRefused(ruleset: SkillCheckRulesetContext, who
 const GROUP_CHECK_WORDS: ReadonlySet<string> = new Set([...WHOLE_PARTY_WORDS, "whole", "all", "entire", "group", "us"]);
 
 /**
+ * Whether a card's member is with the party and alive, by its normalized name: what the whole party
+ * does (a group check, a story's exposure) is never done by one taken out of it or dead on their
+ * sheet, as a whole-party sheet command passes them by.
+ */
+export function rulesetPartyMemberActive(ruleset: SkillCheckRulesetContext, key: string): boolean {
+  const build = ruleset.builds.get(key);
+  return (
+    !ruleset.away?.has(key) &&
+    !(build && rulesetSheetDead(ruleset.definition, build, ruleset.live[key], ruleset.items.get(key)))
+  );
+}
+
+/**
  * The party members a group check rolls for (Alyssa 2026-10-30), in party order. A ruleset check
  * whose `who=` names the whole party ("party", "everyone", "the whole party") is everyone's, each
- * on their own sheet, and the party succeeds when at least half of them do. Undefined for any other
- * `who=`, and in a game with no party cards.
+ * on their own sheet, and the party succeeds when at least half of them do. Nobody who left the
+ * party or is dead rolls or counts. Undefined for any other `who=`, and in a game with no party cards.
  */
 export function rulesetGroupCheckRollers(ruleset: SkillCheckRulesetContext, who?: string): string[] | undefined {
   if (ruleset.sheets.size === 0 || !who?.trim()) return undefined;
@@ -1612,7 +1691,11 @@ export function rulesetGroupCheckRollers(ruleset: SkillCheckRulesetContext, who?
   if (!words.some((word) => WHOLE_PARTY_WORDS.has(word)) || !words.every((word) => GROUP_CHECK_WORDS.has(word))) {
     return undefined;
   }
-  return [...ruleset.sheets.keys()].map((key) => ruleset.names?.get(key) ?? key);
+  const rollers = [...ruleset.sheets.keys()]
+    .filter((key) => rulesetPartyMemberActive(ruleset, key))
+    .map((key) => ruleset.names?.get(key) ?? key);
+  // A party with nobody left to roll is no group: the check is refused for want of a roller, never "0 of 0 passed".
+  return rollers.length > 0 ? rollers : undefined;
 }
 
 /** A group check rolled: each member's own result, who could not attempt it, and the party's outcome. */

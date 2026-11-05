@@ -144,13 +144,13 @@ Values are in milliseconds unless the name says otherwise. Invalid, zero, negati
 
 ## Privileged APIs (ADMIN_SECRET)
 
-Destructive or risky actions, such as backups, clearing data, applying updates and installing themes, need an extra secret on top of the normal access checks. Set a long random value on the server:
+Destructive or risky actions, such as backups, clearing data, applying updates and installing themes, need an extra secret on top of the normal access checks. You can make one in **Settings → Advanced → Admin Access** on the server's own computer (see [Admin Access](REMOTE_ACCESS.md#admin-access-and-privileged-actions)), or set a long random value on the server:
 
 ```text
 ADMIN_SECRET=replace-this-with-a-long-random-secret
 ```
 
-On the server's own computer, these actions usually work without the secret. A request forwarded by a proxy or tunnel on that computer counts as remote unless `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`. Direct requests from another device need the secret. Paste the same value into **Settings → Advanced → Admin Access**, and the app sends it for you. With no `ADMIN_SECRET` on the server, privileged actions fail from every device except the server's own computer, and the error tells you to set it.
+On the server's own computer, these actions usually work without the secret. A request forwarded by a proxy or tunnel on that computer counts as remote unless `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`. Direct requests from another device need the secret. Paste the same value into **Settings → Advanced → Admin Access**, and the app sends it for you. `ADMIN_SECRET` in `.env` wins over a secret made in the app. With no admin secret, privileged actions fail from every device except the server's own computer, and the error tells you to set one. Installed agents work from any device that signed in with the login; installing, updating and removing them need the secret.
 
 | Variable | Default | What it does |
 | --- | --- | --- |

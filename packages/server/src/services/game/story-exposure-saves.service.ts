@@ -18,20 +18,22 @@ import { logger } from "../../lib/logger.js";
 import {
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
+  rulesetPartyMemberActive,
   type SkillCheckModifierContext,
 } from "./skill-check-resolution.service.js";
 
-/** Each member of the party with a sheet to roll on, by the name on their card, each name once. */
+/** Each member of the party with a sheet to roll on, by the name on their card, each name once: never
+ *  one taken out of the party or dead on their sheet. */
 export function storyPartyMembers(meta: Record<string, unknown>, context: SkillCheckModifierContext): string[] {
-  const sheets = context.ruleset?.sheets;
-  if (!sheets) return [];
+  const ruleset = context.ruleset;
+  if (!ruleset) return [];
   const cards = Array.isArray(meta.gameCharacterCards) ? (meta.gameCharacterCards as Array<{ name?: unknown }>) : [];
   const seen = new Set<string>();
   const names: string[] = [];
   for (const card of cards) {
     const name = typeof card?.name === "string" ? card.name.trim() : "";
     const key = normalizeCharacterLookupName(name);
-    if (!key || seen.has(key) || !sheets.has(key)) continue;
+    if (!key || seen.has(key) || !ruleset.sheets.has(key) || !rulesetPartyMemberActive(ruleset, key)) continue;
     seen.add(key);
     names.push(name);
   }
@@ -54,9 +56,14 @@ export async function loadStoryExposureSheets(
   }
 }
 
-/** Whether any of the party carries a shade lit (1.365): a Lantern of Dusk keeps an exposure off. */
+/** Whether any of the party carries a shade lit (1.365): a Lantern of Dusk keeps an exposure off. Never
+ *  one held by a member taken out of the party or dead on their sheet, as a fight's light passes them by. */
 export function storyPartyCarriesShade(context: SkillCheckModifierContext | null): boolean {
-  return [...(context?.ruleset?.items.values() ?? [])].some((items) => rulesetItemsShedShade(items));
+  const ruleset = context?.ruleset;
+  return (
+    !!ruleset &&
+    [...ruleset.items].some(([key, items]) => rulesetPartyMemberActive(ruleset, key) && rulesetItemsShedShade(items))
+  );
 }
 
 /** Roll the saves a story turn owes, on the party's sheets, and fold what they cost into it. A turn that

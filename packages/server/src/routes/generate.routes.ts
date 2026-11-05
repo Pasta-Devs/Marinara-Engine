@@ -5,6 +5,7 @@ import {
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
   isStockMarinaraUniversalPreset,
+  mergedReplyRoster,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
 } from "@marinara-engine/shared";
@@ -624,6 +625,7 @@ import {
   extractImageAttachmentDataUrls,
   postProcessMessages,
   appendSeparateAgentInjectionMessage,
+  capSummarizedHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectRollingSummaryMessages,
@@ -2171,6 +2173,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const timelineIds = new Set(roleplayTimeline.map((message) => message.id));
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
         lorebookKeeperMessages = lorebookKeeperMessages.filter((message) => timelineIds.has(message.id));
+      }
+      if (isRoleplaySummaryMode(chatMode) && !advancedMemoryEnabled) {
+        chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
+          excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+        }).messages;
       }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
@@ -5903,7 +5910,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             input.chatId,
                             pinnedGameRuleset.definition,
                             turnSheetMetadata as Record<string, unknown>,
-                            personaName || null,
+                            chat.personaId,
                           ),
                         ),
                       }
@@ -11642,8 +11649,23 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ...referencedCharacterIds,
                 ]),
               ];
+              // The roster this reply was written with, so its narrator avatars outlast later roster changes (#8762).
+              // Continuing keeps the reply's own as saved, even members who have left the chat since; only a reply
+              // without one derives it from its expression result.
+              const previousRosterIds = input.continueMessageId
+                ? mergedReplyRoster(parseExtra(savedMsg.extra), allCharacterIds)
+                : [];
+              extraUpdate.mergedRosterCharacterIds = [...new Set([...previousRosterIds, ...characterIds])];
             } else {
               extraUpdate.referencedCharacterIds = [];
+              // Continuing keeps the reply's saved roster even when the chat is down to one member, so the others
+              // come back if they rejoin; a new or regenerated reply here saves none, so no swipe inherits one.
+              const savedRosterIds = input.continueMessageId
+                ? parseExtra(savedMsg.extra).mergedRosterCharacterIds
+                : null;
+              extraUpdate.mergedRosterCharacterIds = Array.isArray(savedRosterIds)
+                ? savedRosterIds.filter((id): id is string => typeof id === "string")
+                : [];
             }
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
@@ -11809,6 +11831,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 "generationReplay",
                 "lorebookGenerationTriggers",
                 "referencedCharacterIds",
+                "mergedRosterCharacterIds",
               ]);
               // Every fallback-written part keeps its identity, without duplicating the turn's usage.
               if (generationProviderOrigin.fallback) everyPart.generationInfo = generationProviderOrigin;

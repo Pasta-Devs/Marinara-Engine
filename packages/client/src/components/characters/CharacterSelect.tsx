@@ -21,7 +21,7 @@ export type PersonaChoice = { persona: string } | { character: string } | null;
 
 type CommonProps = Pick<
   CharacterPickerListProps,
-  "exclude" | "nonePicked" | "unavailable" | "badge" | "onCreate" | "withCharacters" | "busy"
+  "exclude" | "nonePicked" | "unavailable" | "badge" | "onCreate" | "withCharacters" | "busy" | "onPickGroup"
 > & {
   /** `picker` (default): a field. `menu`: a Settings label/value row. `controlled`: no trigger. */
   variant?: "picker" | "menu" | "controlled";
@@ -33,6 +33,8 @@ type CommonProps = Pick<
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Extra classes for the desktop window, such as the chat surface it opens over. */
+  windowClassName?: string;
   id?: string;
   "aria-label"?: string;
   /** Extra rows above the list, such as onboarding templates. */
@@ -113,13 +115,21 @@ function TriggerAvatars({
     <span className="flex shrink-0">
       {items.slice(0, 3).map((item, index) =>
         item.src ? (
-          <img
+          // A crop positions the image absolutely and wider than the circle, so the span clips it.
+          <span
             key={item.id}
-            src={item.src}
-            alt=""
-            className={cn("h-6 w-6 rounded-full object-cover ring-2 ring-[var(--background)]", index > 0 && "-ml-2")}
-            style={getAvatarCropStyle(item.crop as Parameters<typeof getAvatarCropStyle>[0])}
-          />
+            className={cn(
+              "relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-[var(--background)]",
+              index > 0 && "-ml-2",
+            )}
+          >
+            <img
+              src={item.src}
+              alt=""
+              className="h-full w-full object-cover"
+              style={getAvatarCropStyle(item.crop as Parameters<typeof getAvatarCropStyle>[0])}
+            />
+          </span>
         ) : (
           <span
             key={item.id}
@@ -246,6 +256,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
       onPickPersona={pickPersona}
       onPickCharacter={pickCharacter}
       onPickNone={pickNone}
+      onPickGroup={props.onPickGroup}
       withCharacters={props.withCharacters}
       busy={props.busy}
       exclude={props.exclude}
@@ -327,7 +338,13 @@ export function CharacterSelect(props: CharacterSelectProps) {
         </button>
       ) : null}
       {open && (
-        <CharacterSelectWindow title={windowTitle} anchorRef={anchorRef ?? triggerRef} onClose={close} footer={footer}>
+        <CharacterSelectWindow
+          title={windowTitle}
+          anchorRef={anchorRef ?? triggerRef}
+          onClose={close}
+          footer={footer}
+          className={props.windowClassName}
+        >
           {props.header}
           {list}
         </CharacterSelectWindow>
@@ -341,12 +358,14 @@ function CharacterSelectWindow({
   anchorRef,
   onClose,
   footer,
+  className,
   children,
 }: {
   title: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   footer: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   const { t } = useUiTranslation();
@@ -420,7 +439,10 @@ function CharacterSelectWindow({
         event.stopPropagation();
         onClose();
       }}
-      className="fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
+      className={cn(
+        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl",
+        className,
+      )}
       style={
         pos
           ? {

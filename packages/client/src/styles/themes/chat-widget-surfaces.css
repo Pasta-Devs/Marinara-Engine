@@ -102,6 +102,27 @@
   --mari-rp-preset-bg: transparent;
 }
 
+/* A solid chooser keeps the preset or custom color, gradient and alpha included, on the opaque
+   page background (#8833). Custom-theme hooks keep their own paint and priority, as above.
+   ponytail: a hook may be a color or a gradient, so it cannot be laid on the background and paints
+   as written. Upgrade: split each hook into registered <color> and <image> properties. */
+:root[data-chat-widget-apply-colors="true"] .mari-chat-solid-surface {
+  --mari-rp-preset-bg: var(
+    --mari-chat-bg,
+    var(
+      --mari-window-bg,
+      var(
+        --mari-widget-custom-background-image,
+        linear-gradient(
+          var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)),
+          var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg))
+        )
+      ),
+      var(--background)
+    )
+  );
+}
+
 /* Action windows and Game sections use the same chat palette inside their own shell.
    Resolve these aliases on the shell before remapping descendant chrome tokens:
    Default has no widget palette, so remapping on the shell would create cycles.
@@ -491,6 +512,15 @@
 }
 .mari-chat-input-popup[data-chat-input-popup="address"] {
   --mari-chat-existing-bg: color-mix(in oklab, var(--card) 95%, transparent);
+}
+/* A chooser floating over the chat background, such as the composer's model menu (#8833).
+   Its paint lies on the opaque page background, like the phone chooser's opaque window, so a
+   busy background never shows through its text. The owner sets --mari-chat-solid-paint. */
+.mari-chat-solid-surface {
+  --mari-chat-existing-bg:
+    linear-gradient(var(--mari-chat-solid-paint, var(--card)), var(--mari-chat-solid-paint, var(--card))),
+    var(--background);
+  background: var(--mari-chat-existing-bg);
 }
 .mari-chat-input-box {
   --mari-chat-existing-bg: var(--mari-chat-owner-bg, var(--marinara-chat-chrome-input-bg));

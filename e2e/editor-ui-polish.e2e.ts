@@ -266,12 +266,15 @@ for (const kind of ["character", "persona"] as const) {
       expect(Math.abs(centers.outer - centers.text)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: info.outputPath(`${kind}-alternative.png`), animations: "disabled" });
       if (kind === "character") {
-        const add = editor.getByRole("button", { name: "+ Add", exact: true });
+        const add = editor.getByRole("button", { name: "Add Alternate Greeting", exact: true });
         await add.scrollIntoViewIfNeeded();
         await expect(add).toHaveClass(/mari-editor-action/u);
         const deleteGreeting = editor.getByRole("button", { name: "Remove alternate greeting 1", exact: true });
         await deleteGreeting.scrollIntoViewIfNeeded();
-        await expectAccent(deleteGreeting);
+        await expect(deleteGreeting).toBeVisible();
+        // The greeting trash is a plain editor action, like the alternative fields' trash (1f618db2bb).
+        await expect(deleteGreeting).toHaveClass(/mari-editor-action/u);
+        await expect(deleteGreeting).not.toHaveClass(/mari-editor-action--accent/u);
         await page.screenshot({ path: info.outputPath("character-greetings.png"), animations: "disabled" });
       }
     } finally {
@@ -547,12 +550,12 @@ for (const peer of ["privateNetwork", "internet"] as const) {
     );
     await page.reload();
     const banner = page
-      .locator(".fixed.inset-x-0.top-0")
+      .locator("div.fixed.z-\\[9999\\]")
       .filter({ has: page.getByText("Others can open Marinara without a password", { exact: true }) });
     await expect(banner).toBeVisible();
     const icon = banner.locator("svg").first();
     await expect(icon).toHaveCSS("color", "rgb(54, 205, 222)");
-    const tint = banner.locator(".border-b");
+    const tint = banner.locator(".rounded-xl.border");
     await expectAccentBorder(tint);
     await page.screenshot({ path: info.outputPath(`access-${peer}-banner.png`), animations: "disabled" });
     await banner.getByRole("button", { name: "Review access", exact: true }).click();

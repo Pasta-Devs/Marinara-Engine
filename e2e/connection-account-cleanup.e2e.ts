@@ -61,6 +61,9 @@ test("fresh connection retry restores its deleted placeholder under the retained
     }
     await route.fallback();
   });
+  // Hold the live key check, which would ask api.openai.com: when its answer (a rejected key, or no network) beats
+  // the click, Connect turns into "Continue anyway", which skips the test call this spec drives.
+  await page.route("**/api/connections/check", () => undefined);
 
   try {
     await page.goto("/");
