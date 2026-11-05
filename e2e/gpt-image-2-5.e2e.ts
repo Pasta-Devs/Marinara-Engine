@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string })
@@ -24,6 +25,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
     (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
     version,
   );
+  await trackPageFetches(page);
   const created = await request.post("/api/connections", {
     data: {
       name: `GPT Image 2.5 ${testInfo.project.name}`,
@@ -58,6 +60,12 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       })
       .toEqual({ model, quality: value });
   };
+  const reload = async () => {
+    // A save refetches the connection, its list, models and accounts; WebKit reports each one a reload
+    // cuts off as an "access control checks" page error (#6677).
+    await waitForPageFetchesToSettle(page);
+    await page.reload();
+  };
   const screenshot = async (name: string) => {
     await quality.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), animations: "disabled" });
@@ -78,7 +86,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       await expect(quality.locator("option")).toHaveCount(6);
       await quality.selectOption({ label });
       await save(model, value);
-      await page.reload();
+      await reload();
       await openConnection(page, id);
       await expect(quality).toHaveValue(value);
       await screenshot(`${model}-dark`);
@@ -117,7 +125,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       const response = await route.fetch();
       await route.fulfill({ response, json: { ...(await response.json()), model: 42, imageGenerationQuality: "max" } });
     });
-    await page.reload();
+    await reload();
     await openConnection(page, id);
     await expect(modelPicker).toBeVisible();
     await expect(quality).toHaveCount(0);
