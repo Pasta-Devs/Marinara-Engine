@@ -1933,3 +1933,42 @@
 .ovm-preset .ov-povw__title {
   display: none;
 }
+
+/* ── Agents on phones: each settings group is a drill-in row ─────── */
+.ov-agented .ovm-drill-row__icon svg {
+  color: var(--ov-muted) !important;
+}
+.ovm-drill-help {
+  margin: 0;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.ovm-drill-page__body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ovm-drill-page__body > * {
+  min-width: 0;
+}
+:root[data-overhaul="mobile"] .ov-ed.ov-agented {
+  padding: 0 0.75rem 1.5rem !important;
+}
+:root[data-overhaul="mobile"] .ov-agented .ov-row {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0.375rem;
+}
+:root[data-overhaul="mobile"]
+  .ov-agented
+  .ov-cf__control
+  input:not([type="checkbox"]):not([type="range"]):not([type="color"]),
+:root[data-overhaul="mobile"] .ov-agented .ov-cf__control select {
+  height: 2.5rem !important;
+  font-size: 1rem !important;
+}
+:root[data-overhaul="mobile"] .ov-agented .ov-cf__control textarea {
+  font-size: 0.9375rem !important;
+}
+/* Description keeps its own field labels; drop the repeated group label. */
+:root[data-overhaul="mobile"] .ov-agented__flow > .ov-cf > .ov-row__label {
+  display: none;
+}

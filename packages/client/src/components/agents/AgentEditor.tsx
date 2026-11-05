@@ -7,7 +7,8 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useOverhaulLook } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { OvmDrill } from "../overhaul/MobileDrill";
 import { OvEditorHead, OvSaveState } from "../overhaul/EditorChrome";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -683,6 +684,7 @@ function isCustomSecretPlotPrompt(value: string): boolean {
 
 export function AgentEditor() {
   const overhaulActive = useOverhaulLook();
+  const overhaulMobile = useOverhaulMobile();
   const { t: localizeUi } = useUiTranslation();
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
@@ -2217,7 +2219,9 @@ export function AgentEditor() {
       {/* ── Body ── */}
       <div
         className={
-          overhaulActive ? "ov-ed ov-agented" : "mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
+          overhaulActive
+            ? cn("ov-ed ov-agented", overhaulMobile && "ovm-drill-scope")
+            : "mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
         }
       >
         {overhaulActive && (
@@ -2266,6 +2270,7 @@ export function AgentEditor() {
         >
           {/* ── Description ── */}
           <FieldGroup
+            inline
             label={localizeUi("chat.settings.inlineEditor.fields.description")}
             icon={<Info size="0.875rem" className="text-[var(--primary)]" />}
             help={localizeUi("ui.agents.agenteditor.aShortSummaryOfWhatThisAgentDoesPlus")}
@@ -4694,6 +4699,7 @@ function FieldGroup({
   onExpandedChange,
   summary,
   children,
+  inline = false,
 }: {
   label: string;
   icon?: React.ReactNode;
@@ -4703,9 +4709,20 @@ function FieldGroup({
   onExpandedChange?: (expanded: boolean) => void;
   summary?: React.ReactNode;
   children: React.ReactNode;
+  /** Phones: keep this group on the main page instead of a drill-in row. */
+  inline?: boolean;
 }) {
   const contentVisible = !collapsible || expanded;
   const overhaulActive = useOverhaulLook();
+  const overhaulMobile = useOverhaulMobile();
+  if (overhaulActive && overhaulMobile && !inline) {
+    return (
+      <OvmDrill title={label} summary={summary} icon={icon}>
+        {help ? <p className="ovm-drill-help">{help}</p> : null}
+        <div className="ov-cf__control">{children}</div>
+      </OvmDrill>
+    );
+  }
   if (overhaulActive) {
     return (
       <div className="ov-row is-top ov-cf">
