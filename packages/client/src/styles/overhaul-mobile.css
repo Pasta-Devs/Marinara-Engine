@@ -1972,3 +1972,67 @@
 :root[data-overhaul="mobile"] .ov-agented__flow > .ov-cf > .ov-row__label {
   display: none;
 }
+
+/* ── Settings on phones: tabs, then sections, then settings ─────── */
+:root[data-overhaul="mobile"] .ovm-settings {
+  padding-top: 0 !important;
+}
+:root[data-overhaul="mobile"] .ovm-settings[data-ovm-level="root"] {
+  padding-top: 1rem !important;
+}
+.ovm-settings .ovm-drill-page__head {
+  margin: 0 -1rem 0.5rem;
+}
+.ovm-settings__rows {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+}
+.ovm-settings__rows > .ovm-drill-row {
+  margin-top: 0;
+}
+.ovm-settings__probe {
+  position: absolute;
+  left: -200vw;
+  top: 0;
+  width: 100vw;
+  height: 1px;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.ovm-settings {
+  position: relative;
+}
+.ovm-settings__rows {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* Tab rows: name, with what's inside on a second line. */
+.ovm-settings[data-ovm-level="root"] .ovm-drill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title chev" "value chev";
+  row-gap: 0.125rem;
+  padding-block: 0.625rem;
+}
+.ovm-settings[data-ovm-level="root"] .ovm-drill-row__title {
+  grid-area: title;
+  max-width: none;
+}
+.ovm-settings[data-ovm-level="root"] .ovm-drill-row__value {
+  grid-area: value;
+  margin-left: 0;
+  font-size: 0.8125rem;
+}
+.ovm-settings[data-ovm-level="root"] .ovm-drill-row__chev {
+  grid-area: chev;
+}
+/* The section's own heading: the page title already names it, so just its description, wrapped. */
+.ovm-settings__section [data-ov-settings-sections] [id^="settings-section-"] > div:first-child {
+  flex-wrap: wrap;
+}
+.ovm-settings__section [data-ov-settings-sections] [id^="settings-section-"] > div:first-child * {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
