@@ -9,6 +9,7 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { MessageCircle, Plus, Search, User, VenetianMask, Download } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { AvatarImage } from "../characters/AvatarImage";
 
 export type GalleryCard = {
@@ -62,6 +63,16 @@ export function CardGallery({
   const localize = useLocalizedUiText();
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
+  // Phones: Favourites, Recently edited and the tags are one dropdown beside + New.
+  const mobile = useOverhaulMobile();
+  const [tag, setTag] = useState<string | null>(null);
+  const allTags = useMemo(
+    () =>
+      [...new Set(cards.flatMap((card) => card.tags.map((t) => t.trim()).filter(Boolean)))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [cards],
+  );
   const [sort, setSort] = useState<SortKey>("name-asc");
   const singular = kind === "characters" ? "character" : "persona";
 
@@ -70,6 +81,7 @@ export function CardGallery({
     const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     let list = cards.filter((card) => {
       if (quick === "favorites" && !card.favorite) return false;
+      if (tag && !card.tags.some((t) => t.trim().toLowerCase() === tag.toLowerCase())) return false;
       if (!needle) return true;
       if (tagQuery !== null) return card.tags.some((tag) => tag.toLowerCase().includes(tagQuery));
       return card.name.toLowerCase().includes(needle) || card.tags.some((tag) => tag.toLowerCase().includes(needle));
@@ -86,7 +98,7 @@ export function CardGallery({
       default:
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [cards, quick, search, sort]);
+  }, [cards, quick, search, sort, tag]);
 
   const Placeholder = kind === "characters" ? User : VenetianMask;
 
@@ -103,6 +115,36 @@ export function CardGallery({
           <Plus size={14} aria-hidden="true" />
           {localize(kind === "characters" ? "New character" : "New persona")}
         </button>
+        {mobile ? (
+          <select
+            className="ov-select ovm-lp-filter"
+            value={tag ? `tag:${tag}` : (quick ?? "all")}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value.startsWith("tag:")) {
+                setTag(value.slice(4));
+                setQuick(null);
+              } else {
+                setTag(null);
+                setQuick(value === "all" ? null : (value as QuickFilter));
+              }
+            }}
+            aria-label={localize("Filter")}
+          >
+            <option value="all">{localize("All")}</option>
+            {kind === "characters" ? <option value="favorites">{localize("Favourites")}</option> : null}
+            <option value="recent">{localize("Recently edited")}</option>
+            {allTags.length ? (
+              <optgroup label={localize("Tags")}>
+                {allTags.map((name) => (
+                  <option key={name} value={`tag:${name}`}>
+                    {name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+        ) : null}
       </header>
       <div className="ov-gallery__tools">
         <label className="ov-search">
@@ -113,7 +155,7 @@ export function CardGallery({
             placeholder={localize(kind === "characters" ? "Search characters or tag:name" : "Search personas")}
           />
         </label>
-        {kind === "characters" ? (
+        {kind === "characters" && !mobile ? (
           <button
             type="button"
             className={cn("ov-btn", quick === "favorites" && "is-on")}
@@ -123,14 +165,16 @@ export function CardGallery({
             {localize("Favourites")}
           </button>
         ) : null}
-        <button
-          type="button"
-          className={cn("ov-btn", quick === "recent" && "is-on")}
-          aria-pressed={quick === "recent"}
-          onClick={() => setQuick((value) => (value === "recent" ? null : "recent"))}
-        >
-          {localize("Recently edited")}
-        </button>
+        {mobile ? null : (
+          <button
+            type="button"
+            className={cn("ov-btn", quick === "recent" && "is-on")}
+            aria-pressed={quick === "recent"}
+            onClick={() => setQuick((value) => (value === "recent" ? null : "recent"))}
+          >
+            {localize("Recently edited")}
+          </button>
+        )}
         <span className="ov-gallery__spacer" />
         <select
           className="ov-select"
