@@ -22,7 +22,7 @@ export async function hideExistingItems(page: Page, request: APIRequestContext, 
 
 /** Variant D: a Model shows on its Connection's page; the panel search lists every Model first. */
 export async function openConnectionsPanelModel(panel: Locator, name: string) {
-  await panel.getByRole("searchbox", { name: "Search models and connections" }).fill(name);
+  await panel.getByRole("searchbox", { name: "Search models and accounts" }).fill(name);
   await panel.locator("[data-connection-id]").filter({ hasText: name }).first().click();
 }
 

@@ -73,6 +73,7 @@ import {
   shouldFillGreetingFromPersona,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
+  CHAT_FOLLOWS_MAIN_KEY,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -901,7 +902,12 @@ function SavedChatSetupWizard({
         personaCharacterId,
         characterIds,
       });
-      advance(configured, ["connectionId", "promptPresetId", "personaId", "personaCharacterId", "characterIds"]);
+      // Changing the Model also writes the chat's follows-Main flag, so the untouched baseline adopts it too.
+      advance(
+        configured,
+        ["connectionId", "promptPresetId", "personaId", "personaCharacterId", "characterIds"],
+        [CHAT_FOLLOWS_MAIN_KEY],
+      );
       const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
       const configuredMetadata = await updateMeta.mutateAsync({
         id: chat.id,

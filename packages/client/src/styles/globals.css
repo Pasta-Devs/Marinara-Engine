@@ -3134,6 +3134,17 @@ html[data-mari-ios-webkit] .mari-modal .mari-modal-panel {
   background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
 }
 
+/* Cut corners move a chat-styled panel's fill onto ::after (chat-widget-surfaces.css), which would drop
+   the opaque backing above. Without Colors that fill is the same translucent chrome, so it is backed too. */
+html[data-mari-ios-webkit]:not(
+    [data-chat-widget-apply-colors="true"]
+  )[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
+  .mari-modal
+  .mari-modal-panel.mari-chat-style-surface::after {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+}
+
 /* Opt-in solid window (Connections): the chrome panel colour is translucent, so back it with the app background. */
 .mari-modal--opaque {
   --mari-modal-opaque-bg: var(--background);
@@ -3753,17 +3764,18 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     padding-inline: 0.5rem;
   }
 
-  .mari-editor-header--dense .mari-editor-navigation {
-    flex-basis: 4rem;
-  }
-
   .mari-editor-header--dense .mari-editor-actions {
     gap: 0.25rem;
   }
 
-  /* Seven 2.75rem-wide actions beside the menu need about 425px; a 390px phone has 373px. The tap height
-     stays 2.75rem, only the width is narrower. */
-  .mari-editor-header--dense .mari-editor-actions .mari-editor-action {
+  /* Character and persona cards: their 2.75rem-wide actions do not fit beside the section menu. A character's
+     seven need about 425px and a persona's six about 370px, where a 390px phone has about 365px. The menu gives
+     way first, and the tap height stays 2.75rem, only the width is narrower. */
+  .mari-editor-header--card .mari-editor-navigation {
+    flex-basis: 4rem;
+  }
+
+  .mari-editor-header--card .mari-editor-actions .mari-editor-action {
     min-width: 2.25rem;
   }
 }
@@ -7389,9 +7401,11 @@ strong {
     max-height: none !important;
   }
 
-  /* Chat Settings' rows above its sections (Tracker Panel, Reset View, the drag-and-drop hint) step
-     aside while you type, so a phone turned sideways still shows the field. */
-  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-settings-top-row] {
+  /* Chat Settings' rows above its sections (Tracker Panel, Reset View, the drag-and-drop hint, and the
+     wide-screen Chat button layout row) step aside while you type, so a phone turned sideways still
+     shows the field. */
+  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-settings-top-row],
+  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-button-layout] {
     display: none;
   }
 
