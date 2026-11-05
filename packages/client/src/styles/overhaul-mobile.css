@@ -2945,3 +2945,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Library editors on phones: a bare ‹ back to the section replaces the breadcrumb trail. */
+.ovm-crumb-back {
+  display: flex;
+  margin: -0.5rem 0 0 -0.75rem;
+}
