@@ -960,6 +960,8 @@ export function QuickPresetSectionsEditor({
   onEditableCopyCreated: (presetId: string) => void;
 }) {
   const { t } = useTranslation();
+  // On phones, preset variables are edited only in the full preset editor.
+  const overhaulMobile = useOverhaulMobile();
   const { data, isLoading } = usePresetFull(presetId);
   const { mutateAsync: duplicatePreset } = useDuplicatePreset();
   const createSection = useCreateSection();
@@ -1098,6 +1100,7 @@ export function QuickPresetSectionsEditor({
         hasLorebookMarker={hasLorebookMarker}
         parentChatHasLorebook={parentChatHasLorebook}
         compact
+        variablesTarget={overhaulMobile ? null : undefined}
       />
     </div>
   );

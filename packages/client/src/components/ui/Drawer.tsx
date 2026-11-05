@@ -195,12 +195,14 @@ export function Drawer({
             >
               <ChevronLeft size={26} aria-hidden="true" />
             </button>
-            <span className="ovm-cs-page__title">{title}</span>
-            {help ? (
-              <span className="mari-drawer__help ovm-cs-page__help">
-                <HelpTooltip text={help} side="left" />
-              </span>
-            ) : null}
+            <span className="ovm-cs-page__name">
+              <span className="ovm-cs-page__title">{title}</span>
+              {help ? (
+                <span className="mari-drawer__help ovm-cs-page__help">
+                  <HelpTooltip text={help} side="bottom" />
+                </span>
+              ) : null}
+            </span>
           </div>
           {actions ? <div className="ovm-cs-page__actions">{actions}</div> : null}
           <div id={bodyId} className={cn("mari-drawer__body ovm-cs-page__body", bodyClassName ?? "pt-3")}>
