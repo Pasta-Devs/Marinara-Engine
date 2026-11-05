@@ -6,7 +6,7 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -59,7 +59,8 @@ import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-lo
 import { useTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
-import { DesktopTabStrip } from "./DesktopTabStrip";
+// Its own chunk, so the app shell stays under the bundle budget.
+const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
 const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, LucideIcon> = {
   character: Users,
@@ -518,7 +519,9 @@ export function OverhaulTopBar() {
           alt=""
           aria-hidden="true"
         />
-        <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
+        <Suspense fallback={<nav className="ov-tabs" aria-label={localize("Open tabs")} />}>
+          <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
+        </Suspense>
         <button
           type="button"
           className="ov-icon-btn ov-icon-btn--sm"
