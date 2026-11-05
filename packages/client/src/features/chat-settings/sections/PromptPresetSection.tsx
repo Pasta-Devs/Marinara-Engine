@@ -46,6 +46,7 @@ export function PromptPresetSection({
       id="prompt-preset"
       label={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
       icon={<Sliders size="0.875rem" />}
+      summary={presets.find((preset) => preset.id === promptPresetId)?.name}
       help={localizeUi("ui.chatSettings.promptpresetsection.presetsControlHowTheSystemPromptIsStructuredAnd")}
     >
       <div className="flex items-center gap-1.5">
