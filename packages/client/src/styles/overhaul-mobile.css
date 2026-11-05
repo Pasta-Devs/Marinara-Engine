@@ -2105,7 +2105,7 @@
   opacity: 1;
 }
 :root[data-overhaul="mobile"]
-  span.inline-flex
+  :is(span.inline-flex, .ov-lf > span)
   + :is([data-macro-field], .relative)
   > :is([data-macro-tools], textarea + .absolute.flex-col):not(#ovm-x):not(#ovm-y) {
   position: absolute;
@@ -2114,7 +2114,9 @@
   right: 0;
   margin: 0;
 }
-:root[data-overhaul="mobile"] span.inline-flex + :is([data-macro-field], .relative):not(#ovm-x):not(#ovm-y) {
+:root[data-overhaul="mobile"]
+  :is(span.inline-flex, .ov-lf > span)
+  + :is([data-macro-field], .relative):not(#ovm-x):not(#ovm-y) {
   position: relative;
   margin-top: 0.25rem;
 }
@@ -2436,4 +2438,10 @@
   order: -1;
   flex-basis: 100%;
   height: 0;
+}
+
+/* Page scrollers keep the same space on both sides when a browser shows a scrollbar
+   (laptops at phone width), so pages stay centred. Phones overlay their scrollbar. */
+:root[data-overhaul="mobile"] :is(.ov-lv, .ov-ed, .ov-gallery, .marinara-chat-popover__scroll) {
+  scrollbar-gutter: stable both-edges;
 }
