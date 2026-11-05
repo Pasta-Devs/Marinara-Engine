@@ -121,6 +121,7 @@ export function EditorRail({
   onAdd: (id: string) => void;
 }) {
   const localize = useLocalizedUiText();
+  const mobile = useOverhaulMobile();
   const [tagDraft, setTagDraft] = useState("");
   const [tagOpen, setTagOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -225,8 +226,14 @@ export function EditorRail({
         </div>
       ) : null}
 
-      {actions ? <div className="ov-rail__actions">{actions}</div> : null}
-      {assist ? <div className="ov-rail__assist">{assist}</div> : null}
+      {/* Phones and tablets: the helper joins the action buttons as one row. */}
+      {actions ? (
+        <div className="ov-rail__actions">
+          {actions}
+          {mobile ? assist : null}
+        </div>
+      ) : null}
+      {assist && !(mobile && actions) ? <div className="ov-rail__assist">{assist}</div> : null}
 
       <div className="ov-rail__rule" />
       <p className="ov-rail__eyebrow">{sectionsTitle}</p>
