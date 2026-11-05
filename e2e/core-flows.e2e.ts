@@ -24835,6 +24835,11 @@ test("Roleplay displays a selected background when its file route is GET-only", 
 });
 
 test("Background library organization works with desktop drag and touch drag", async ({ page }, testInfo) => {
+  // ponytail: Linux WebKit r2370 (Playwright 1.64.x) composites backdrop-filter slowly (microsoft/playwright#43426).
+  // From Settings > Appearance on, CI draws about one frame per 1.2 s. Each of the 30 or so clicks waits two frames
+  // for a stable box, so the test needs about 95 s; with r2359 it passed in 24-31 s. 180 s holds up to about 2.3 s
+  // per frame. Drop this once Playwright's WebKit has the fix for https://bugs.webkit.org/show_bug.cgi?id=327701.
+  if (testInfo.project.name.includes("webkit")) test.setTimeout(180_000);
   const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   const originalFilename = `background-folder-${suffix}.gif`;
   const uploadResponse = await page.request.post("/api/backgrounds/upload", {
