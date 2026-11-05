@@ -413,6 +413,7 @@ export function ConnectionSwitcherBody({
   modelFilter,
   knownGood,
   rowState,
+  confirmCurrent = false,
 }: {
   /** The job this picker sets ("Agents"): rows leave that role pill out, since the title names it. */
   ownRole?: string;
@@ -455,6 +456,11 @@ export function ConnectionSwitcherBody({
     label: string;
     test: (accountId: string, model: string, facts: CachedModelFacts | undefined) => boolean;
   };
+  /**
+   * A pick of what the host uses now still goes to the host (onApply, or followDefault.onSelect while it follows the
+   * default), so a package's pickConnection can tell it from a close (CONNECTION_PICKER.md).
+   */
+  confirmCurrent?: boolean;
   /** A pick that is being tried or was turned down, shown on its row. */
   rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
   /** Lists only the catalog models this accepts (Embeddings); a provider with none is left out. */
@@ -475,8 +481,14 @@ export function ConnectionSwitcherBody({
 }) {
   const { t } = useTranslation();
   const voiceRowId = useVoiceRowId();
-  const { data: connectionsRaw } = useConnections();
-  const { data: accounts } = useConnectionAccounts();
+  const connectionsQuery = useConnections();
+  const accountsQuery = useConnectionAccounts();
+  const connectionsRaw = connectionsQuery.data;
+  const accounts = accountsQuery.data;
+  // A saved Model is listed under its account, so nothing is offered until both lists are in. Read without its
+  // account, a Model would show as a pickable line of its own, whatever its account's state.
+  const listsReady = connectionsRaw !== undefined && accounts !== undefined;
+  const listsFailed = !listsReady && (connectionsQuery.isError || accountsQuery.isError);
   const openModal = useUIStore((state) => state.openModal);
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
   // The Connections panel's "Group by" choice applies here too.
@@ -500,13 +512,14 @@ export function ConnectionSwitcherBody({
   const rootRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
-    const all = (connectionsRaw ?? []) as SwitcherRow[];
+    if (!listsReady) return [];
+    const all = connectionsRaw as SwitcherRow[];
     const ofKind =
       kind === "chat" ? filterLanguageGenerationConnections(all) : all.filter((row) => matchesKind(row, kind));
     return ofKind.filter(
       (row) => !hiddenIds.has(row.id) && (!rowFilter || row.id === current?.connectionId || rowFilter(row)),
     );
-  }, [connectionsRaw, hiddenIds, kind, rowFilter, current?.connectionId]);
+  }, [listsReady, connectionsRaw, hiddenIds, kind, rowFilter, current?.connectionId]);
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
     // The panel orders accounts by all their Models; the language filter only trims the rows shown.
@@ -590,7 +603,12 @@ export function ConnectionSwitcherBody({
     if (entry.group && unavailableOf(entry.group)) return fix(entry.group);
     setBusy(true);
     try {
-      if (!isNow(entry) && !sameChoice(entry.choice, current) && (await onApply(entry.choice)) === false) return;
+      const keeps = isNow(entry) || sameChoice(entry.choice, current);
+      let applied: void | false = undefined;
+      if (!keeps || (confirmCurrent && current)) applied = await onApply(entry.choice);
+      // While the host follows its default, the current value is that default.
+      else if (confirmCurrent) await followDefault?.onSelect();
+      if (applied === false) return;
       if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
         openAddConnection({ category: "device", item: "local-model" });
       }
@@ -1043,7 +1061,7 @@ export function ConnectionSwitcherBody({
         disabled={busy}
         onClick={() => {
           if (unavailable && group) return fix(group);
-          if (now) return onDone();
+          if (now && !confirmCurrent) return onDone();
           void apply(entry);
         }}
         onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
@@ -1610,7 +1628,7 @@ export function ConnectionSwitcherBody({
             </>
           )}
         </div>
-        {followDefault && !followDefault.active && (
+        {followDefault && (!followDefault.active || confirmCurrent) && (
           <button
             type="button"
             data-switcher-default
@@ -1671,8 +1689,26 @@ export function ConnectionSwitcherBody({
       className={cn("mari-connection-scope @container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
     >
       {nowStrip}
-      {!shuffle?.active && !nothing && searchBox}
-      {shuffle?.active ? (
+      {listsReady && !shuffle?.active && !nothing && searchBox}
+      {!listsReady ? (
+        listsFailed ? (
+          <div role="alert" className="flex flex-col items-center gap-2 border-t border-foreground/10 px-3 py-3">
+            <p className="text-center text-[0.6875rem] text-foreground/60">{t("connections.picker.loadFailed")}</p>
+            <button
+              type="button"
+              onClick={() => {
+                void connectionsQuery.refetch();
+                void accountsQuery.refetch();
+              }}
+              className="mari-chrome-control mari-chrome-control--small text-xs"
+            >
+              {t("connections.picker.retry")}
+            </button>
+          </div>
+        ) : (
+          <ListStatus className="border-t border-foreground/10">{t("connections.modelPicker.loading")}</ListStatus>
+        )
+      ) : shuffle?.active ? (
         <ListFrame
           data-connection-switcher-scroll
           className="min-h-0 flex-1 border-t border-foreground/10"

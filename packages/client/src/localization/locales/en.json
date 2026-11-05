@@ -2526,6 +2526,7 @@
   "connections.picker.job.translation": "Translation",
   "connections.picker.job.video": "Video",
   "connections.picker.jobMari": "Prof. Mari",
+  "connections.picker.loadFailed": "Couldn't load your models.",
   "connections.picker.model": "Model",
   "connections.picker.modelFor": "Model for {{job}}",
   "connections.picker.noFallback": "Nothing",
