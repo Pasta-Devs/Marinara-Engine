@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "4a5ccd461261d2b0a85ee8146dde169c689779b7",
+  "sourceCommit": "0313889a4a2f3b7de9536e0a77fe39f9f7d1939e",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "b72bf989b4fbb3116737500f54ebe479142a100fab9006568050582bcaa9d307",
-      "bytes": 53181
+      "sha256": "4cc886f6152f7a100bbe924c765883f37da170ba3ed6d24fa2155308568ff1d8",
+      "bytes": 55050
     },
     {
       "path": "agents/noodle-settings.md",
@@ -199,8 +199,8 @@
     },
     {
       "path": "chats/peek-prompt.md",
-      "sha256": "d15ff85cc2ea1b9d9e95317c23b6be9f7fea0a29a2511444a026bae73da54d33",
-      "bytes": 10488
+      "sha256": "e05d55cba5957db19691cb4c8859734b60c1eeec66b5a36dccd9273051ccc370",
+      "bytes": 11012
     },
     {
       "path": "chats/sending-and-streaming.md",

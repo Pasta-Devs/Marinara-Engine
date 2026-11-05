@@ -38,6 +38,8 @@ Debajo, un panel de información puede mostrar el servicio y el modelo, un recue
 
 El resto es el prompt en secciones plegables, cada una con su propia estimación aproximada de tokens. Los mensajes del chat se agrupan bajo **Chat History** (Historial del chat). En una petición exacta guardada, el servicio puede haber combinado varios turnos del chat en un solo bloque, así que expande cada bloque para ver todo el texto. Haz clic en el encabezado de una sección para abrirla o cerrarla.
 
+Una **Exact Text Model Request** es la petición tal como se envió para esa respuesta. Se guardó antes de todo lo que se ejecutó después de la respuesta, como un resumen automático o la ocultación de mensajes, así que puede contener mensajes que la siguiente respuesta no recibirá. Haz clic en **Show current context** (Mostrar el contexto actual) para armar el prompt a partir del chat tal como está ahora, sin enviarlo. Haz clic en **Show sent request** (Mostrar la petición enviada) para volver.
+
 ### Copiar el prompt
 
 Haz clic en el botón de copiar que está junto al botón de cerrar. Copia todas las secciones y todos los mensajes como texto sin formato, en el orden en que se enviaron, incluidas las secciones cerradas. Cada mensaje empieza con una línea que nombra su rol, como `[system]`, `[user]` o `[assistant]`. En una petición exacta guardada, copia la petición tal como se envió. Copiar no envía nada.

@@ -38,6 +38,8 @@ Darunter kann ein Info-Panel den Dienst und das Modell zeigen, eine geschätzte 
 
 Der Rest ist der Prompt in ausklappbaren Abschnitten, jeder mit seiner eigenen groben Token-Schätzung. Chat-Nachrichten stehen gesammelt unter **Chat History**. Bei einer exakt gespeicherten Anfrage kann der Dienst mehrere Chat-Züge zu einem Block zusammengefasst haben; klapp also jeden Block auf, um den ganzen Text zu sehen. Ein Klick auf eine Abschnittsüberschrift öffnet oder schließt den Abschnitt.
 
+Eine **Exact Text Model Request** ist die Anfrage, so wie sie für diese Antwort gesendet wurde. Sie wurde gespeichert, bevor irgendetwas lief, was nach der Antwort kam, etwa eine automatische Zusammenfassung oder das Ausblenden von Nachrichten. Deshalb kann sie Nachrichten enthalten, die die nächste Antwort nicht bekommt. Klick auf **Show current context** (aktuellen Kontext anzeigen), um den Prompt aus dem Chat in seinem jetzigen Stand zusammenzustellen, ohne ihn zu senden. Klick auf **Show sent request** (gesendete Anfrage anzeigen), um zurückzukehren.
+
 ### Den Prompt kopieren
 
 Klick auf die Kopier-Schaltfläche neben der Schaltfläche zum Schließen. Sie kopiert jeden Abschnitt und jede Nachricht als reinen Text in der gesendeten Reihenfolge, auch zugeklappte Abschnitte. Jede Nachricht beginnt mit einer Zeile, die ihre Rolle nennt, etwa `[system]`, `[user]` oder `[assistant]`. Bei einer exakt gespeicherten Anfrage kopiert sie die Anfrage so, wie sie gesendet wurde. Das Kopieren sendet nichts.

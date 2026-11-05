@@ -38,6 +38,8 @@ Pod nią panel informacji może pokazać usługę i model, szacowaną liczbę to
 
 Resztę okna zajmuje prompt podzielony na zwijane sekcje, każda z własnym zgrubnym oszacowaniem liczby tokenów. Wiadomości czatu są zgrupowane w sekcji **Chat History** (historia czatu). W zapisanym dosłownym zapytaniu usługa mogła połączyć kilka tur czatu w jeden blok, więc rozwiń każdy blok, żeby zobaczyć cały tekst. Kliknij nagłówek sekcji, aby ją otworzyć lub zamknąć.
 
+**Exact Text Model Request** to zapytanie w takiej postaci, w jakiej wysłano je po tę odpowiedź. Zostało zapisane przed wszystkim, co uruchomiło się po odpowiedzi, na przykład przed automatycznym podsumowaniem albo ukryciem wiadomości, więc może zawierać wiadomości, których następna odpowiedź nie dostanie. Kliknij **Show current context** (pokazanie bieżącego kontekstu), żeby złożyć prompt z czatu w jego obecnym stanie, bez wysyłania go. Kliknij **Show sent request** (pokazanie wysłanego zapytania), żeby wrócić.
+
 ### Kopiowanie promptu
 
 Kliknij przycisk kopiowania obok przycisku zamykania. Kopiuje on każdą sekcję i wiadomość jako zwykły tekst, w kolejności wysłania, łącznie z zamkniętymi sekcjami. Każda wiadomość zaczyna się od linii z nazwą jej roli, na przykład `[system]`, `[user]` albo `[assistant]`. Przy zapisanym dosłownym zapytaniu kopiowane jest zapytanie w takiej postaci, w jakiej je wysłano. Kopiowanie niczego nie wysyła.

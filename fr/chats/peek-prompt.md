@@ -38,6 +38,8 @@ En dessous, un panneau d'informations peut afficher le service et le modèle, un
 
 Le reste, c'est le prompt découpé en sections repliables, chacune avec sa propre estimation approximative de tokens. Les messages du chat sont regroupés sous **Chat History** (historique du chat). Pour une requête exacte enregistrée, le service a pu fusionner plusieurs tours du chat en un seul bloc : déplie chaque bloc pour voir tout le texte. Clique sur l'en-tête d'une section pour l'ouvrir ou la fermer.
 
+Avec le badge **Exact Text Model Request**, tu lis la requête telle qu'elle a été envoyée pour cette réponse. Elle a été enregistrée avant tout ce qui s'est exécuté après la réponse, comme un résumé automatique ou le masquage de messages : elle peut donc contenir des messages que la prochaine réponse ne recevra pas. Clique sur **Show current context** (afficher le contexte actuel) pour construire le prompt à partir du chat tel qu'il est maintenant, sans l'envoyer. Clique sur **Show sent request** (afficher la requête envoyée) pour revenir en arrière.
+
 ### Copier le prompt
 
 Clique sur le bouton de copie à côté du bouton de fermeture. Il copie chaque section et chaque message en texte brut, dans l'ordre d'envoi, y compris les sections fermées. Chaque message commence par une ligne qui nomme son rôle, comme `[system]`, `[user]` ou `[assistant]`. Pour une requête exacte enregistrée, il copie la requête telle qu'elle a été envoyée. La copie n'envoie rien.

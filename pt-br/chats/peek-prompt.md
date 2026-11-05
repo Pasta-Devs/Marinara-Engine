@@ -38,6 +38,8 @@ Abaixo dele, um painel de informações pode mostrar o serviço e o modelo, uma 
 
 O resto é o prompt, em seções que abrem e fecham, cada uma com a sua própria estimativa aproximada de tokens. As mensagens do chat ficam agrupadas em **Chat History**. Em uma requisição salva exata, o serviço pode ter juntado vários turnos do chat em um só bloco, então abra cada bloco para ver todo o texto. Clique no cabeçalho de uma seção para abri-la ou fechá-la.
 
+Uma **Exact Text Model Request** é a requisição do jeito que foi enviada para aquela resposta. Ela foi salva antes de tudo o que foi executado depois da resposta, como um resumo automático ou a ocultação de mensagens, então pode conter mensagens que a próxima resposta não vai receber. Clique em **Show current context** (mostrar o contexto atual) para montar o prompt a partir do chat como ele está agora, sem enviá-lo. Clique em **Show sent request** (mostrar a requisição enviada) para voltar.
+
 ### Copiar o prompt
 
 Clique no botão de copiar ao lado do botão de fechar. Ele copia todas as seções e mensagens como texto simples, na ordem em que foram enviadas, inclusive as seções fechadas. Cada mensagem começa com uma linha que indica o papel dela, como `[system]`, `[user]` ou `[assistant]`. Em uma requisição salva exata, ele copia a requisição do jeito que foi enviada. Copiar não envia nada.
