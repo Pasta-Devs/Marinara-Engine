@@ -1935,8 +1935,9 @@ export function ConnectionEditor({
     <div className="space-y-3 border-t border-[var(--border)] pt-4">
       <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
       <div className="flex gap-2">
-        {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. */}
-        {(!accountLinked || hasOwnEndpoint) && (
+        {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. A
+            Decision Model always does: only this Test reports an answer slower than its time limit. */}
+        {(!accountLinked || hasOwnEndpoint || isDecisionProvider) && (
           <button
             onClick={handleTestConnection}
             disabled={testConnection.isPending}
@@ -2666,6 +2667,13 @@ export function ConnectionEditor({
                   }}
                   className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                 />
+                <p id="decision-time-limit-help" className="text-xs text-[var(--muted-foreground)]">
+                  {t("connections.decision.timeLimitHelp", {
+                    min: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.min / 1000,
+                    max: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max / 1000,
+                    default: defaultDecisionTimeoutMs(localDecisionSource) / 1000,
+                  })}
+                </p>
               </section>
             )}
 
@@ -3529,7 +3537,12 @@ export function ConnectionEditor({
                   markDirty();
                 }}
                 onReset={() => {
-                  setLocalVideoDefaults(createDefaultVideoGenerationProfile(selectedVideoDefaultsService));
+                  // Reset keeps the picked OpenRouter model's own defaults, as the model-change effect above does.
+                  const defaults = createDefaultVideoGenerationProfile(selectedVideoDefaultsService);
+                  if (selectedVideoDefaultsService === "openrouter" && effectiveVideoGenerationSource !== "nanogpt") {
+                    defaults.openrouter = resolveOpenRouterVideoModelDefaults(localModel, defaults.openrouter);
+                  }
+                  setLocalVideoDefaults(defaults);
                   markDirty();
                 }}
               />
