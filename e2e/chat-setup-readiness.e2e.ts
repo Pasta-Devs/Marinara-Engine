@@ -61,8 +61,7 @@ test("Conversation setup explains missing requirements and Main sidecar satisfie
     });
     const wizard = page.locator('[data-component="ChatSetupWizard"]');
     await expect(wizard).toBeVisible();
-    for (let step = 0; step < 3; step += 1)
-      await wizard.getByRole("button", { name: "Next", exact: true }).click();
+    for (let step = 0; step < 3; step += 1) await wizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(wizard.getByRole("button", { name: "Start Chatting", exact: true })).toBeDisabled();
     await expect(wizard.getByText("Complete the required setup before you start this chat.")).toBeVisible();
     const modelLink = wizard.getByRole("button", { name: "Set up a model", exact: true });
@@ -71,7 +70,11 @@ test("Conversation setup explains missing requirements and Main sidecar satisfie
     await expect(wizard.getByRole("heading", { name: "Persona & Characters", exact: true })).toBeVisible();
     await page.evaluate(async () => {
       const { useSidecarStore } = await import("/src/stores/sidecar.store.ts" as string);
-      useSidecarStore.setState({ config: { ...useSidecarStore.getState().config, useAsMainDefault: true } });
+      // #8456: the built-in model satisfies Main only once it is downloaded.
+      useSidecarStore.setState({
+        config: { ...useSidecarStore.getState().config, useAsMainDefault: true },
+        modelDownloaded: true,
+      });
     });
     await wizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(wizard.getByRole("button", { name: "Start Chatting", exact: true })).toBeDisabled();

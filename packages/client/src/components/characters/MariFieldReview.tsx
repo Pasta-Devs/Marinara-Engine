@@ -260,7 +260,9 @@ export function MariFieldReview({ field, children }: { field: string; children: 
       className="contents"
       onFocusCapture={() => setFocus((prev) => (prev === "none" ? "focused" : prev))}
       onBlurCapture={() => setFocus("none")}
-      onInputCapture={() => {
+      // Bubble, not capture: an update in the capture phase renders before the field's own onChange, and that
+      // render can put the controlled field's old value back, dropping what was just typed.
+      onInput={() => {
         setFocus("typing");
         if (kept) review?.dismissKept(field);
       }}

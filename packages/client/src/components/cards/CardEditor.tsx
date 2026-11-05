@@ -102,7 +102,7 @@ export function CardEditor<T extends string>({
     <>
       <div
         className={cn(
-          "mari-editor-header mari-editor-header--with-nav",
+          "mari-editor-header mari-editor-header--with-nav mari-editor-header--card",
           variant === "character" && "mari-editor-header--dense",
         )}
       >

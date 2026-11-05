@@ -1565,7 +1565,14 @@ const capabilityPackageManifestBaseSchema = z
 // 1.815: a language model call's `cacheTtl` ("5m" or "1h"): how long its marked prefix stays cached on Anthropic,
 //        whatever the connection's cache time says; left out, the connection's applies. A soft seam: older Engines
 //        ignore the option. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 815 } as const);
+// 1.816: an image request's `animation` ({ frameCount?, frameDurationMs? }): one looping GIF, drawn from the
+//        prompt alone, from GPT Image 2.6 on an OpenAI connection; refused before any paid call when the
+//        connection can't make one or a picture is sent (the avatar-generation route answers 400 code
+//        "animation-unsupported"), and an error when the service answers with a still. And the server
+//        runtime host's `capabilityApi`. A soft seam: older Engines ignore `animation` and paint a still,
+//        so a package checks `__MARINARA_HOST__.capabilityApi` (client) or `api.runtime.capabilityApi`
+//        (server, absent on older Engines) before asking. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

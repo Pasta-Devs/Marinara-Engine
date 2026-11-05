@@ -4,6 +4,7 @@ import { readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
+import { chooseConnection } from "./connection-picker.js";
 import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -1698,13 +1699,23 @@ test("Roleplay sound commands reuse cached audio and play the attachment URL", a
         provider: "audio",
         audioSource: "elevenlabs",
         apiKey: "synthetic-test-key",
-        baseUrl: "https://audio-fixture.invalid",
+        // Since #8167 only the canonical ElevenLabs address reuses the prompt-only cache that the hash above
+        // names; the cached file answers, so nothing is sent there.
+        baseUrl: "https://api.elevenlabs.io",
         audioSoundEffects: true,
       },
     });
     expect(audio.ok()).toBeTruthy();
     const audioId = (await audio.json()).id;
     fixture.resources.unshift(`/api/connections/${audioId}`);
+    // Saving a speech row with sound effects on splits them into their own Music & Sound Effects Model.
+    const connections = (await (await request.get("/api/connections")).json()) as Array<{
+      id: string;
+      audioGenerationLegacyConnectionId?: string | null;
+    }>;
+    const soundId = connections.find((row) => row.audioGenerationLegacyConnectionId === audioId)?.id;
+    if (!soundId) throw new Error("The speech row was not split into a Music & Sound Effects Model");
+    fixture.resources.unshift(`/api/connections/${soundId}`);
     await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
       data: {
         roleplayCommandsEnabled: true,
@@ -1734,9 +1745,19 @@ test("Roleplay sound commands reuse cached audio and play the attachment URL", a
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
     const commands = page.locator("[data-roleplay-commands]");
     await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
-    const soundConnection = commands.getByRole("combobox", { name: /^Sound effects connection/u });
-    await expect(soundConnection).toHaveValue(audioId);
-    await expect(soundConnection.locator(`option[value="${audioId}"]`)).toHaveText("Cached sound fixture");
+    // The <select> became a ConnectionSelect in #8456. The old speech pick shows as its Music & Sound Effects Model.
+    const soundConnection = commands.getByRole("button", { name: /^Sound effects connection/u });
+    await expect(soundConnection).toHaveAttribute("data-connection-value", soundId);
+    await soundConnection.click();
+    const picker = page.locator(".connection-picker-dialog");
+    await expect(picker.getByRole("searchbox")).toBeVisible();
+    // It offers the Music & Sound Effects Model, never the speech (TTS) row it came from.
+    await expect(picker.locator(`[data-switcher-entry="${soundId}"]`).first()).toBeAttached();
+    await expect(picker.locator(`[data-switcher-entry="${audioId}"]`)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await chooseConnection(page, soundConnection, soundId);
+    await expect(soundConnection).toHaveAttribute("data-connection-value", soundId);
   } finally {
     await fixture.cleanup();
     provider.closeAllConnections();
