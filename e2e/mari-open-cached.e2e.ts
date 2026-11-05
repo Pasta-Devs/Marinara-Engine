@@ -33,12 +33,17 @@ test.afterEach(() => {
   releaseMariThreadLock();
 });
 
+/**
+ * Escape first leaves her pane for the results, then closes. Focus comes back to the omnibar only once the search
+ * header has returned after her header's exit, and the results pane ignores an Escape that lands on the page in
+ * between. CI WebKit took longer than four Escapes 200 ms apart (run 42029653525), so wait for the focus instead.
+ */
 async function closeOmnibar(page: Page) {
   const omnibar = page.locator('[data-component="GlobalOmnibar"]');
-  for (let i = 0; i < 4 && (await omnibar.count()) > 0; i += 1) {
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(200);
-  }
+  await page.keyboard.press("Escape");
+  await expect(omnibar).toHaveAttribute("data-pane", "results");
+  await expect(omnibar.locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
   await expect(omnibar).toHaveCount(0);
 }
 

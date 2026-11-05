@@ -14344,7 +14344,11 @@ test("UI language selection downloads packs on demand and persists across reload
     await expect(page.locator(`[role="option"][id="settings-control-language-select-list-${locale}"]`)).toHaveCount(1);
   }
 
+  // The open picker moves focus to its search box on the next frame, and only the picker handles Escape. A slow
+  // page (CI run 42029653525) took the key on the trigger instead, so the next trigger click closed the picker.
+  await expect(page.getByRole("combobox", { name: "Search languages", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");
+  await expect(languageSelect).toHaveAttribute("aria-expanded", "false");
   await selectUILanguage(page, "pl");
   await expect(page.getByText("Działanie aplikacji", { exact: true })).toBeVisible();
   await expect(page.getByPlaceholder("Szukaj w ustawieniach")).toBeVisible();
@@ -24949,6 +24953,10 @@ test("Background library organization works with desktop drag and touch drag", a
     await expect(folder).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
       const dragHandle = backgroundRow.locator("[data-drag-surface]");
+      // Hold the card where a finger can: its centre sat below the visible list, inside the auto-scroll edge, so the
+      // held drag scrolled the library until it reached the end. At CI WebKit's frame rate that outlasted the test
+      // and the folder chip never held still (run 42029653525).
+      await dragHandle.evaluate((handle) => handle.scrollIntoView({ block: "center" }));
       const startRect = await dragHandle.boundingBox();
       expect(startRect).not.toBeNull();
       const start = {

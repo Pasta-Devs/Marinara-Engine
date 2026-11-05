@@ -507,19 +507,31 @@ test.describe("phone bubbles", () => {
           await page.mouse.move(start.x, start.y);
           await page.mouse.down();
         }
+        const moveTo = async (point: { x: number; y: number }) => {
+          if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+          else await page.mouse.move(point.x, point.y);
+        };
         try {
           // Keep the pointer down before moving to exercise the reported held-drag path.
           await page.waitForTimeout(600);
           for (let step = 1; step <= 16; step++) {
-            const point = {
+            await moveTo({
               x: start.x + ((end.x - start.x) * step) / 16,
               y: start.y + ((end.y - start.y) * step) / 16,
-            };
-            if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
-            else await page.mouse.move(point.x, point.y);
+            });
             await page.waitForTimeout(16);
           }
-          await expect.poll(order).toEqual(expected);
+          // Framer's Reorder moves a tool one place per pointer move and ignores moves that arrive before its last
+          // move has rendered, so a slow page (CI run 42029653525 painted no frame for 2.5s mid-drag) is left short
+          // once the sweep stops. Keep the finger sliding a pixel at a time, as a real one does, until it catches up.
+          let y = end.y;
+          await expect
+            .poll(async () => {
+              const current = await order();
+              if (current.join() !== expected.join()) await moveTo({ x: end.x, y: (y += Math.sign(end.y - start.y)) });
+              return current;
+            })
+            .toEqual(expected);
         } finally {
           if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
           else await page.mouse.up();
