@@ -73,6 +73,11 @@ import {
   Regex,
   Pencil,
   Upload,
+  ChevronLeft,
+  ListOrdered,
+  MessagesSquare,
+  Variable,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
@@ -172,6 +177,11 @@ function readMarkerConfig(value: unknown) {
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
   const overhaulActive = useOverhaulLook();
+  const overhaulMobileShell = useOverhaulMobile();
+  // Phones: the preset is a page of rows; each row opens as its own page.
+  const [ovmPage, setOvmPage] = useState<
+    null | "order" | "overview" | "prompts" | "variables" | "parameters" | "regex"
+  >(null);
   const [ovPage, setOvPage] = useState<"overview" | "prompts" | "variables" | "parameters" | "regex">("overview");
   const [ovSelected, setOvSelected] = useState<string | null>(null);
   const [ovResetKey, setOvResetKey] = useState(0);
@@ -506,7 +516,7 @@ export function PresetEditor() {
         setLocalScopedRegexMode(mode);
         markDirty();
       }}
-      onOpenRegex={() => setOvPage("regex")}
+      onOpenRegex={() => (overhaulMobileShell ? setOvmPage("regex") : setOvPage("regex"))}
       sectionCount={orderedSections.length}
       groupCount={data.groups?.length ?? 0}
     />
@@ -611,6 +621,126 @@ export function PresetEditor() {
       (sum: number, section: any) => sum + Math.ceil(String(section.content ?? "").length / 4),
       0,
     );
+    if (overhaulMobileShell) {
+      const ovmTitles = {
+        order: "Prompt order",
+        overview: "Details",
+        prompts: "Mode prompts",
+        variables: "Variables",
+        parameters: "Parameters",
+        regex: "Regex",
+      } as const;
+      const hubRow = (id: keyof typeof ovmTitles, icon: ReactNode, value?: ReactNode) => (
+        <button type="button" className="ovm-drill-row" onClick={() => setOvmPage(id)}>
+          <span className="ovm-drill-row__icon">{icon}</span>
+          <span className="ovm-drill-row__title">{localizeUi(ovmTitles[id])}</span>
+          {value ? <span className="ovm-drill-row__value">{value}</span> : null}
+          <ChevronRight size={16} className="ovm-drill-row__chev" aria-hidden="true" />
+        </button>
+      );
+      const actionRow = (label: string, icon: ReactNode, onClick: () => void, danger = false) => (
+        <button type="button" className={cn("ovm-drill-row", danger && "is-danger")} onClick={onClick}>
+          <span className="ovm-drill-row__icon">{icon}</span>
+          <span className="ovm-drill-row__title">{label}</span>
+        </button>
+      );
+      const saveButton = dirty ? (
+        <button type="button" className="ovm-preset__save" onClick={handleSave} disabled={updatePreset.isPending}>
+          {localizeUi("ui.noodle.noodlehome.save")}
+        </button>
+      ) : (
+        <span aria-hidden="true" />
+      );
+      return (
+        <div
+          className="mari-editor-shell ov-preset ovm-preset flex flex-1 flex-col"
+          data-component="OverhaulPresetEditor"
+          data-ovm-preset={ovmPage ?? "hub"}
+        >
+          {ovmPage ? (
+            <div className="ovm-drill-page__head">
+              <button
+                type="button"
+                className="ovm-drill-page__back"
+                aria-label={localizeUi("Back")}
+                onClick={() => setOvmPage(null)}
+              >
+                <ChevronLeft size={26} aria-hidden="true" />
+              </button>
+              <span className="ovm-drill-page__title">{localizeUi(ovmTitles[ovmPage])}</span>
+              {saveButton}
+            </div>
+          ) : (
+            <header className="ov-preset__head">
+              <EditorCrumbs
+                items={[
+                  { label: localizeUi("Library"), onClick: () => openLibrarySection("characters") },
+                  { label: localizeUi("Presets"), onClick: handleClose },
+                  { label: data.preset.name },
+                ]}
+              />
+              <div className="ovm-preset__id">
+                <span className="ovm-preset__art">
+                  {presetArtwork ? (
+                    <img src={presetArtwork} alt="" draggable={false} />
+                  ) : (
+                    <FileText size={22} aria-hidden="true" />
+                  )}
+                </span>
+                <span className="ovm-preset__name">
+                  <strong>{localName || data.preset.name}</strong>
+                  <small>
+                    <span className={cn("ov-dot", dirty ? "is-dirty" : "is-saved")} />
+                    {dirty ? localizeUi("Unsaved changes") : localizeUi("ui.presets.preseteditor.changesSaved")}
+                  </small>
+                </span>
+                {saveButton}
+              </div>
+            </header>
+          )}
+          <div className="ovm-preset__body">
+            {!ovmPage ? (
+              <>
+                {hubRow("order", <ListOrdered />, `${orderedSections.length} · ~${totalTokens.toLocaleString()} tk`)}
+                {hubRow("prompts", <MessagesSquare />)}
+                {hubRow("variables", <Variable />, choiceBlocks.length ? String(choiceBlocks.length) : undefined)}
+                {hubRow("parameters", <SlidersHorizontal />)}
+                {hubRow("regex", <Regex />)}
+                {hubRow("overview", <FileText />, localAuthor || undefined)}
+                <p className="ovm-drill-group">{localizeUi("More")}</p>
+                {actionRow(localizeUi("Macro Reference"), <ExternalLink />, () =>
+                  useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md", newTab: true }),
+                )}
+                {actionRow(localizeUi("Export"), <Upload />, handleExportPreset)}
+                {actionRow(localizeUi("professorMari.handoff.ask"), <MessageCircleQuestion />, () =>
+                  requestProfessorMariOpen({
+                    destination: "omnibar",
+                    draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+                    context: {
+                      source: "preset-editor",
+                      capability: "explain",
+                      resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
+                    },
+                  }),
+                )}
+                {actionRow(localizeUi("Delete preset"), <Trash2 />, handleDelete, true)}
+              </>
+            ) : null}
+            {ovmPage === "order" ? renderSections({ compact: true, variablesTarget: null }) : null}
+            {ovmPage === "variables" ? (
+              <>
+                <div ref={setOvVarsEl} />
+                <div hidden>{renderSections({ variablesTarget: ovVarsEl })}</div>
+              </>
+            ) : null}
+            {ovmPage === "overview" ? ov_overview : null}
+            {ovmPage === "prompts" ? ov_prompts : null}
+            {ovmPage === "parameters" ? <div className="space-y-3">{ov_parameters}</div> : null}
+            {ovmPage === "regex" ? ov_regex : null}
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         className="mari-editor-shell ov-preset flex flex-1 flex-col overflow-hidden"
