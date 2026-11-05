@@ -773,7 +773,7 @@ def tests_on_disk(focus):
 
 def repository_variables(files):
     """Dottore's own Actions variables (DOTTORE_*, the only ones the workflows read), never secrets, for a PR that
-    changes the workflows reading them. The workflow passes toJSON(vars), every repository and organization variable,
+    changes any file under .github/. The workflow passes toJSON(vars), every repository and organization variable,
     so other names are left out here."""
     if not any(path.startswith(".github/") for path in files):
         return ""
