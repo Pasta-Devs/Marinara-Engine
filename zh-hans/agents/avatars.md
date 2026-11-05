@@ -281,7 +281,7 @@ PNGTuber 虚拟形象如果有[更多情绪](#pngtuber-sprites)的表情，就�
 
 1. 每种情绪画一张图，所有图尺寸相同，角色也在同一位置。每张图按它的情绪命名：`neutral`、`happy`、`angry`、`sad`、`relaxed`、`surprised`。包含情绪词的名字也可以，比如 `smile`、`cry`、`calm` 或 `shock`。对于可选的[更多情绪](#pngtuber-sprites)，图片可以命名为 `amusement`、`fear` 或 `gratitude` 这样的名字。
 2. 想让嘴巴动，就画一张嘴巴张开、其余都一样的图，在名字后加 `_talk`，例如 `happy_talk`。想要眨眼，就闭上眼睛，加 `_blink`。两者都有时加 `_blink_talk`。
-3. 在角色或用户角色的 **Sprites** 选项卡里，到 **Facial Expressions**(面部表情) 下添加这些图片。**Upload Folder**(上传文件夹) 可以添加一个文件夹，并按文件名给每张立绘命名。见[角色立绘](../characters/sprites.md)。
+3. 在 **Sprites** 选项卡的 **Facial Expressions**(面部表情) 下添加这些图片。每个文件名会成为对应立绘的名称。见[角色立绘](../characters/sprites.md#upload-your-own-sprites)。
 4. 在 **Agents** 里打开 **2D Avatars**，选择角色或用户角色，再开启 **Show this avatar in chats**。
 
 ### PNGTuber Plus

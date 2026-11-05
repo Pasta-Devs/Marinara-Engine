@@ -19,6 +19,8 @@ Auf dem Bildschirm erscheinen Sprites im Roleplay Mode und im Game Mode, nicht i
 
 Die Abschnitte unten behandeln **Facial Expressions** und **Full-body**. **Clips** gehört zur Anruffunktion. Siehe [Audio- und Videoanrufe in Conversation](../conversation/calls.md).
 
+<a id="upload-your-own-sprites"></a>
+
 ## Eigene Sprites hochladen
 
 Du kannst PNG-, JPEG-, GIF-, WebP-, AVIF- und SVG-Bilder hochladen. Transparente PNG-Dateien sehen am besten aus, weil die leere Fläche rund um den Charakter durchsichtig bleibt. Ein ungültiges Ersatzbild wird abgelehnt, und das gespeicherte Sprite bleibt erhalten.
@@ -27,15 +29,19 @@ Du kannst PNG-, JPEG-, GIF-, WebP-, AVIF- und SVG-Bilder hochladen. Transparente
 
 1. Öffne den Tab **Sprites** und wähl **Facial Expressions** oder **Full-body**.
 2. Klick auf **Add sprites** (Sprites hinzufügen).
-3. Klick auf **Upload images** (Bilder hochladen) und wähl deine Dateien aus. Du kannst mehrere auf einmal auswählen.
-4. Jeder Dateiname wird zum Namen des Sprites (seiner Bezeichnung). Umbenennen kannst du ein Sprite später, indem du es öffnest.
+3. Klick auf **Upload images** (Bilder hochladen), öffne deinen Ordner und wähl die Bilder darin aus. Du kannst mehrere auf einmal auswählen.
+4. Klick im Dialogfenster **Import images** (Bilder importieren) auf **Import** (Importieren). Mit **Cancel** (Abbrechen) wird nichts hinzugefügt.
 
-Die neuen Sprites erscheinen im Raster, außerhalb aller Ordner. Im Persona-Editor nutzt du für ein einzelnes Sprite das Namensfeld unter **Add Sprite** (Sprite hinzufügen) und die Schaltfläche **Upload** (Hochladen).
+Jeder Dateiname wird zum Namen des Sprites (seiner Bezeichnung). Umbenennen kannst du ein Sprite später, indem du es öffnest. Die neuen Sprites erscheinen im Raster, außerhalb aller Ordner. Unterordner werden nicht durchsucht. Mit **New folder** (Neuer Ordner) sortierst du die importierten Sprites in Ordner.
+
+Im Persona-Editor nutzt du für ein einzelnes Sprite das Namensfeld unter **Add Sprite** (Sprite hinzufügen) und die Schaltfläche **Upload** (Hochladen).
 
 ### Einen ganzen Ordner hochladen
 
-1. Benenne deine Bilddateien nach dem Gesichtsausdruck oder der Pose, etwa `admiration.png` für einen Gesichtsausdruck namens admiration.
-2. Öffne **Add sprites** und klick auf **Import folder** (Ordner importieren). Im Persona-Editor klickst du unter **Add Sprite** auf **Upload Folder** (Ordner hochladen).
+Einen ganzen Ordner hochladen kannst du im Persona-Editor. Für Charaktere nutzt du oben **Upload images** und wählst die Bilder in deinem Ordner aus.
+
+1. Öffne den Tab **Sprites** der Persona.
+2. Klick im Bereich **Add Sprite** auf **Upload Folder** (Ordner hochladen).
 3. Wähl den Ordner mit deinen Bildern aus.
 
 Jeder Dateiname wird ohne Endung zum Sprite-Namen. Eine Fortschrittszeile meldet „Uploading X/Y sprites“. Unterordner werden zu optionalen Sprite-Ordnern. Eine `catalog.json` aus einem Export stellt außerdem Ordner und bearbeitete Namen wieder her. Ein fehlerhafter Ordnereintrag wird gemeldet, während verwendbare Bilder trotzdem importiert werden.
@@ -146,11 +152,11 @@ Die automatische Bereinigung analysiert zuerst das Bild. Die schnelle eingebaute
 
 ### Ordner und Auswahl
 
-Klick auf **New folder** (Neuer Ordner), um einen eingeklappten Ordner namens **unnamed** anzulegen. Mit Doppelklick oder Doppeltippen auf den Namen benennst du ihn um, über den Pfeil klappst du ihn auf. Gesichtsausdrücke und Ganzkörper-Sprites haben getrennte Ordner. Ordner stehen über den Sprites ohne Ordner und lassen sich durch Ziehen umsortieren.
+Klick auf **New folder**, um einen eingeklappten Ordner namens **unnamed** anzulegen. Mit Doppelklick oder Doppeltippen auf den Namen benennst du ihn um, über den Pfeil klappst du ihn auf. Gesichtsausdrücke und Ganzkörper-Sprites haben getrennte Ordner. Ordner stehen über den Sprites ohne Ordner und lassen sich durch Ziehen umsortieren.
 
 Zieh Sprites in einen Ordner, oder zieh ein einsortiertes Sprite in den Bereich ohne Ordner, um es aus seinem Ordner zu nehmen. Auf dem Smartphone hältst du eine Kachel gedrückt, um das Ziehen zu beginnen. Normales Wischen scrollt weiterhin. Ordner dienen nur der Ordnung: Sie legen nie einen aktiven Satz fest und verbergen keine Bilder vor Chats oder Agenten. Wird ein Ordner gelöscht, bleiben seine Sprites ohne Ordner erhalten.
 
-Klick auf **Select**, um Kontrollkästchen und **Select all sprites** (alle Sprites auswählen) einzublenden. Danach ziehst du die ausgewählten Sprites gemeinsam oder nutzt Bereinigen und Löschen. **Cancel** (Abbrechen) beendet den Auswahlmodus. Die Suche filtert die sichtbaren Sprites. Eine Suche ohne Treffer bedeutet nicht, dass die Sammlung leer ist.
+Klick auf **Select**, um Kontrollkästchen und **Select all sprites** (alle Sprites auswählen) einzublenden. Danach ziehst du die ausgewählten Sprites gemeinsam oder nutzt Bereinigen und Löschen. **Cancel** beendet den Auswahlmodus. Die Suche filtert die sichtbaren Sprites. Eine Suche ohne Treffer bedeutet nicht, dass die Sammlung leer ist.
 
 ### Character Sheet
 

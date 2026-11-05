@@ -19,6 +19,8 @@ Les sprites s'affichent à l'écran en mode Roleplay et en Game Mode, pas dans l
 
 Les sections ci-dessous traitent de **Facial Expressions** et de **Full-body**. **Clips** relève de la fonctionnalité d'appel. Voir [Appels audio et vidéo en Conversation](../conversation/calls.md).
 
+<a id="upload-your-own-sprites"></a>
+
 ## Téléverser tes propres sprites
 
 Tu peux téléverser des images PNG, JPEG, GIF, WebP, AVIF et SVG. Les fichiers PNG transparents donnent le meilleur résultat, car la zone vide autour du personnage reste transparente. Une image de remplacement invalide est refusée, et le sprite enregistré reste en place.
@@ -27,15 +29,19 @@ Tu peux téléverser des images PNG, JPEG, GIF, WebP, AVIF et SVG. Les fichiers 
 
 1. Ouvre l'onglet **Sprites** et choisis **Facial Expressions** ou **Full-body**.
 2. Clique sur **Add sprites** (ajouter des sprites).
-3. Clique sur **Upload images** (téléverser des images) et choisis tes fichiers. Tu peux en sélectionner plusieurs à la fois.
-4. Chaque nom de fichier devient le nom du sprite (son libellé). Ouvre un sprite pour le renommer plus tard.
+3. Clique sur **Upload images** (téléverser des images), ouvre ton dossier et sélectionne ses images. Tu peux en sélectionner plusieurs à la fois.
+4. Dans la boîte de dialogue **Import images** (importer des images), clique sur **Import** (importer). **Cancel** (annuler) n'ajoute rien.
 
-Les nouveaux sprites apparaissent dans la grille, hors de tout dossier. Dans l'éditeur de persona, utilise le champ de nom **Add Sprite** (ajouter un sprite) et le bouton **Upload** (téléverser) pour un seul sprite.
+Chaque nom de fichier devient le nom du sprite (son libellé). Ouvre un sprite pour le renommer plus tard. Les nouveaux sprites apparaissent dans la grille, hors de tout dossier. Les sous-dossiers ne sont pas parcourus. Utilise **New folder** (nouveau dossier) pour organiser les sprites importés.
+
+Dans l'éditeur de persona, utilise le champ de nom **Add Sprite** (ajouter un sprite) et le bouton **Upload** (téléverser) pour un seul sprite.
 
 ### Téléverser un dossier entier
 
-1. Nomme tes fichiers image d'après l'expression ou la pose, par exemple `admiration.png` pour une expression appelée admiration.
-2. Ouvre **Add sprites** et clique sur **Import folder** (importer un dossier). Dans l'éditeur de persona, clique sur **Upload Folder** (téléverser un dossier) dans **Add Sprite**.
+Le téléversement d'un dossier entier est disponible dans l'éditeur de persona. Pour les personnages, utilise **Upload images** ci-dessus et sélectionne les images qui se trouvent dans ton dossier.
+
+1. Ouvre l'onglet **Sprites** du persona.
+2. Dans l'encadré **Add Sprite**, clique sur **Upload Folder** (téléverser un dossier).
 3. Choisis le dossier qui contient tes images.
 
 Chaque nom de fichier, extension mise à part, devient le nom du sprite. Une ligne de progression indique "Uploading X/Y sprites". Les sous-dossiers deviennent des dossiers de sprites facultatifs. Un `catalog.json` issu d'un export restaure aussi les dossiers et les libellés modifiés. Une entrée de dossier défectueuse est signalée, et les images utilisables sont tout de même importées.
@@ -146,11 +152,11 @@ Ouvre un sprite de personnage pour l'afficher en aperçu et voir ses actions. Le
 
 ### Dossiers et sélection
 
-Clique sur **New folder** (nouveau dossier) pour créer un dossier replié nommé **unnamed**. Double-clique ou touche deux fois son nom pour le renommer, et utilise le chevron pour le déplier. Les expressions et les sprites en pied ont des dossiers séparés. Les dossiers apparaissent au-dessus des sprites hors dossier et se réordonnent par glisser-déposer.
+Clique sur **New folder** pour créer un dossier replié nommé **unnamed**. Double-clique ou touche deux fois son nom pour le renommer, et utilise le chevron pour le déplier. Les expressions et les sprites en pied ont des dossiers séparés. Les dossiers apparaissent au-dessus des sprites hors dossier et se réordonnent par glisser-déposer.
 
 Glisse des sprites dans un dossier, ou glisse un sprite rangé vers la zone hors dossier pour le retirer de son dossier. Sur téléphone, maintiens le doigt sur une vignette pour commencer à la glisser. Un balayage normal fait toujours défiler la page. Les dossiers servent seulement à ranger : ils ne choisissent jamais un ensemble actif et ne cachent aucune image aux chats ni aux agents. Supprimer un dossier laisse ses sprites hors dossier.
 
-Clique sur **Select** pour afficher les cases à cocher et **Select all sprites** (sélectionner tous les sprites), puis glisse ensemble les sprites sélectionnés ou utilise le nettoyage et la suppression. **Cancel** (annuler) quitte le mode sélection. La recherche filtre les sprites visibles. Une recherche sans résultat ne signifie pas que la bibliothèque est vide.
+Clique sur **Select** pour afficher les cases à cocher et **Select all sprites** (sélectionner tous les sprites), puis glisse ensemble les sprites sélectionnés ou utilise le nettoyage et la suppression. **Cancel** quitte le mode sélection. La recherche filtre les sprites visibles. Une recherche sans résultat ne signifie pas que la bibliothèque est vide.
 
 ### Character Sheet
 

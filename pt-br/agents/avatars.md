@@ -281,7 +281,7 @@ Um personagem ou uma persona pode usar os seus sprites de expressão como avatar
 
 1. Desenhe uma imagem para cada sentimento, todas do mesmo tamanho e com o personagem no mesmo lugar. Dê a cada imagem o nome do sentimento dela: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. Nomes que contêm uma palavra de sentimento também funcionam, como `smile`, `cry`, `calm` ou `shock`. Para os [sentimentos extras](#pngtuber-sprites) opcionais, dê às imagens nomes como `amusement`, `fear` ou `gratitude`.
 2. Para a boca se mexer, desenhe a mesma imagem com a boca aberta e acrescente `_talk`, por exemplo `happy_talk`. Para piscar, feche os olhos e acrescente `_blink`. Com os dois, acrescente `_blink_talk`.
-3. Na aba **Sprites** do personagem ou da persona, em **Facial Expressions** (expressões faciais), adicione as imagens. **Upload Folder** (enviar pasta) adiciona uma pasta e dá a cada sprite o nome do arquivo dele. Veja [Sprites de personagem](../characters/sprites.md).
+3. Adicione as imagens na aba **Sprites**, em **Facial Expressions** (expressões faciais). O nome de cada arquivo vira o nome do sprite correspondente. Veja [Sprites de personagem](../characters/sprites.md#upload-your-own-sprites).
 4. Abra **2D Avatars** em **Agents**, escolha o personagem ou a persona e ligue **Show this avatar in chats**.
 
 ### PNGTuber Plus

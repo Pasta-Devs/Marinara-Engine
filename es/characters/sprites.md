@@ -19,6 +19,8 @@ Los sprites aparecen en pantalla en Roleplay Mode y Game Mode, no en los chats d
 
 Las secciones de abajo cubren **Facial Expressions** y **Full-body**. **Clips** forma parte de la función de llamadas. Consulta [Llamadas de audio y video de Conversation](../conversation/calls.md).
 
+<a id="upload-your-own-sprites"></a>
+
 ## Subir tus propios sprites
 
 Puedes subir imágenes PNG, JPEG, GIF, WebP, AVIF y SVG. Los archivos PNG transparentes dan el mejor resultado, porque el área vacía alrededor del personaje sigue siendo transparente. Una imagen de reemplazo no válida se rechaza y el sprite guardado se queda.
@@ -27,15 +29,19 @@ Puedes subir imágenes PNG, JPEG, GIF, WebP, AVIF y SVG. Los archivos PNG transp
 
 1. Abre la pestaña **Sprites** y elige **Facial Expressions** o **Full-body**.
 2. Haz clic en **Add sprites** (añadir sprites).
-3. Haz clic en **Upload images** (subir imágenes) y elige tus archivos. Puedes seleccionar varios a la vez.
-4. El nombre de cada archivo se convierte en el nombre del sprite (su etiqueta). Abre un sprite para cambiarle el nombre más tarde.
+3. Haz clic en **Upload images** (subir imágenes), entra en tu carpeta y selecciona sus imágenes. Puedes seleccionar varias a la vez.
+4. En el cuadro de diálogo **Import images** (importar imágenes), haz clic en **Import** (importar). **Cancel** (cancelar) no añade nada.
 
-Los sprites nuevos aparecen en la cuadrícula, fuera de cualquier carpeta. En el editor de personas, usa el campo de nombre y el botón **Upload** (subir) de **Add Sprite** (añadir sprite) para un solo sprite.
+El nombre de cada archivo se convierte en el nombre del sprite (su etiqueta). Abre un sprite para cambiarle el nombre más tarde. Los sprites nuevos aparecen en la cuadrícula, fuera de cualquier carpeta. Las subcarpetas no se escanean. Usa **New folder** (nueva carpeta) para organizar los sprites importados.
+
+En el editor de personas, usa el campo de nombre y el botón **Upload** (subir) de **Add Sprite** (añadir sprite) para un solo sprite.
 
 ### Subir una carpeta entera
 
-1. Nombra tus archivos de imagen según la expresión o la pose, como `admiration.png` para una expresión llamada admiration.
-2. Abre **Add sprites** y haz clic en **Import folder** (importar carpeta). En el editor de personas, haz clic en **Upload Folder** (subir carpeta) en **Add Sprite**.
+La subida de una carpeta entera está disponible en el editor de personas. Para los personajes, usa **Upload images** como se explica arriba y selecciona las imágenes que hay dentro de tu carpeta.
+
+1. Abre la pestaña **Sprites** de la persona.
+2. En el cuadro **Add Sprite**, haz clic en **Upload Folder** (subir carpeta).
 3. Elige la carpeta que contiene tus imágenes.
 
 El nombre de cada archivo sin su sufijo se convierte en el nombre del sprite. Una línea de progreso indica "Uploading X/Y sprites". Las subcarpetas se convierten en carpetas de sprites opcionales. Un `catalog.json` de una exportación también restaura las carpetas y las etiquetas editadas. Una entrada de carpeta no válida se informa mientras las imágenes utilizables se importan igualmente.
