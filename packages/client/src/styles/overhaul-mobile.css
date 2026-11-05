@@ -790,6 +790,8 @@
 @media (max-width: 767px) {
   :root[data-overhaul="mobile"] .ov-ed {
     flex-direction: column;
+    /* A centred column taller than the screen pushes its top out of reach. */
+    justify-content: flex-start !important;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
