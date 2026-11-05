@@ -520,6 +520,8 @@ export function LorebookEditor() {
   );
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const newlyCreatedEntryRef = useRef<string | null>(null);
+  // The entry just added stays open while the list catches up with it.
+  const pendingNewEntryIdRef = useRef<string | null>(null);
   const { contentRef, scrollToSection, scrollToElement } = useEditorSections(
     lorebookId,
     !isLoading,
@@ -1110,7 +1112,11 @@ export function LorebookEditor() {
   // Overhaul viewer: with no entry open, show the first one, like the mockup.
   useEffect(() => {
     if (!overhaulActive || !entries.length) return;
-    if (expandedEntryId && entries.some((entry) => entry.id === expandedEntryId)) return;
+    if (expandedEntryId && entries.some((entry) => entry.id === expandedEntryId)) {
+      if (pendingNewEntryIdRef.current === expandedEntryId) pendingNewEntryIdRef.current = null;
+      return;
+    }
+    if (expandedEntryId && expandedEntryId === pendingNewEntryIdRef.current) return;
     setExpandedEntryId(entries[0]!.id);
   }, [entries, expandedEntryId, overhaulActive]);
 
@@ -1778,6 +1784,7 @@ export function LorebookEditor() {
     if (result && typeof result === "object" && "id" in result) {
       // Auto-expand the new entry's drawer so the user can fill it in.
       newlyCreatedEntryRef.current = (result as LorebookEntry).id;
+      pendingNewEntryIdRef.current = (result as LorebookEntry).id;
       setEntrySearch("");
       setExpandedEntryId((result as LorebookEntry).id);
       setOvmDetail(true);
