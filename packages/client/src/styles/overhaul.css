@@ -6971,8 +6971,9 @@ input.ov-edhead__title:focus {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-/* Random connection mode is on: the dice lights up in the accent color so it can't be missed. */
-[data-overhaul] [data-quick-connection-menu] button[data-random-on] {
+/* Random connection mode is on: the dice lights up in the accent color so it can't be missed
+   (desktop Connections picker and the mobile composer menu). */
+[data-overhaul] button[data-random-on] {
   background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
   color: var(--ov-accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ov-accent) 45%, transparent);

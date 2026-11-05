@@ -17,6 +17,7 @@ import {
   Folder,
   Check,
   Search,
+  Dices,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useConnections, useUpdateConnection } from "../../hooks/use-connections";
@@ -496,27 +497,36 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                       <SubscriptionUsageWidget connectionId={usageConnection.id} variant="inline" />
                     </div>
                   )}
-                  <button
-                    onClick={handleToggleRandom}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors",
-                      isRandom
-                        ? "bg-foreground/10 font-semibold text-foreground/85 ring-1 ring-foreground/15"
-                        : "hover:bg-foreground/10",
-                    )}
-                    title={
-                      isRandom
-                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                    }
-                  >
-                    <span>{localizeUi("ui.chat.quickswitchermobile.random")}</span>
-                    {isRandom && (
-                      <span className="ml-auto text-[0.6875rem]">
-                        {localizeUi("ui.chat.quickswitchermobile.active")}
-                      </span>
-                    )}
-                  </button>
+                  {/* Same as the desktop menu: a Connections header with the Random dice on the right. */}
+                  <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-1.5">
+                    <span className="text-[0.6875rem] font-semibold text-foreground/70">
+                      {localizeUi("navigation.topbar.connections")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleRandom}
+                      data-random-on={isRandom ? "" : undefined}
+                      aria-pressed={isRandom}
+                      aria-label={
+                        isRandom
+                          ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                          : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                      }
+                      title={
+                        isRandom
+                          ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                          : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                      }
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg transition-all active:scale-90",
+                        isRandom
+                          ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                          : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
+                      )}
+                    >
+                      <Dices size="1rem" />
+                    </button>
+                  </div>
                   <div className="mx-2 my-1 h-px bg-foreground/10" />
                   {sortedConnections.map((conn) => {
                     const inPool = conn.useForRandom === "true";
