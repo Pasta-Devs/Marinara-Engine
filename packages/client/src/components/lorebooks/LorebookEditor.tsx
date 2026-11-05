@@ -653,6 +653,13 @@ export function LorebookEditor() {
   const [ovBookOpen, setOvBookOpen] = useState(true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
   const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
+  const openOvPanel = (id: "book" | "check" | "keyword") => {
+    const next = overhaulMobile ? id : ovPanel === id ? null : id;
+    setOvPanel(next);
+    if (overhaulMobile) setOvmDetail(true);
+    if (next === "book") setOvBookOpen(true);
+    if (next === "keyword") setKeywordPreviewOpen(true);
+  };
   const [ovDetailEl, setOvDetailEl] = useState<HTMLDivElement | null>(null);
   const [ovMoreOpen, setOvMoreOpen] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -2110,6 +2117,17 @@ export function LorebookEditor() {
           <Upload size={13} aria-hidden="true" />
           {localizeUi("Export")}
         </button>
+        {overhaulMobile ? (
+          <button
+            type="button"
+            className="ov-btn ov-btn--icon"
+            aria-label={localizeUi("Book settings")}
+            title={localizeUi("Book settings")}
+            onClick={() => openOvPanel("book")}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+          </button>
+        ) : null}
         <button
           type="button"
           className="ov-btn ov-btn--primary"
@@ -2135,6 +2153,17 @@ export function LorebookEditor() {
           </button>
           {ovMoreOpen ? (
             <div className="ov-menu" role="menu" onClick={() => setOvMoreOpen(false)}>
+              {overhaulMobile ? (
+                <>
+                  <button type="button" role="menuitem" onClick={() => openOvPanel("check")}>
+                    <ListChecks size={13} aria-hidden="true" /> {localizeUi("Check lorebook")}
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => openOvPanel("keyword")}>
+                    <FlaskConical size={13} aria-hidden="true" />{" "}
+                    {localizeUi("ui.lorebooks.lorebookeditor.keywordTest")}
+                  </button>
+                </>
+              ) : null}
               <button type="button" role="menuitem" onClick={() => setTextImportOpen(true)}>
                 <FileUp size={13} aria-hidden="true" /> {t("lorebook.textImport.open")}
               </button>
@@ -3140,8 +3169,8 @@ export function LorebookEditor() {
                 {overhaulHeader}
                 <div className="ov-lv__body">
                   <aside className="ov-lv__left" aria-label={localizeUi("Entries")}>
-                    <p className="ov-vw__label">{localizeUi("Lorebook")}</p>
-                    <div className="ov-vw__tools">
+                    {overhaulMobile ? null : <p className="ov-vw__label">{localizeUi("Lorebook")}</p>}
+                    <div className="ov-vw__tools" hidden={overhaulMobile}>
                       {(
                         [
                           ["book", localizeUi("Book settings"), SlidersHorizontal],
@@ -3154,13 +3183,7 @@ export function LorebookEditor() {
                           type="button"
                           className={cn(ovPanel === id && "is-on")}
                           aria-pressed={ovPanel === id}
-                          onClick={() => {
-                            const next = overhaulMobile ? id : ovPanel === id ? null : id;
-                            setOvPanel(next);
-                            if (overhaulMobile) setOvmDetail(true);
-                            if (next === "book") setOvBookOpen(true);
-                            if (next === "keyword") setKeywordPreviewOpen(true);
-                          }}
+                          onClick={() => openOvPanel(id)}
                         >
                           <Icon size={14} aria-hidden="true" />
                           {label}
