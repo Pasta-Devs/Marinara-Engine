@@ -374,6 +374,10 @@ export const RUNTIME_API_KEY = "local-marinara-runtime";
 // Every review belongs to the Mari chat that made it (runSessionId()); slice 71 (F3) moved sensitive file
 // and install reviews there too. The status without a chat id (the omnibar's pending list) still lists all.
 const MAX_COMMAND_ROUNDS = 12;
+// Ceiling on Mari's per-reply output budget, whatever the connection allows.
+// Large enough for a whole lorebook or extension in one command plus hidden
+// reasoning on models that cannot turn it off.
+export const MARI_MAX_OUTPUT_TOKENS = 32_768;
 /** The saved words of a reply that Send now reached after steps but before she said anything. */
 const MARI_CHECKPOINT_FILLER = "Still working";
 export const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
@@ -439,6 +443,57 @@ export function parseContextOverflowError(error: unknown): { limit: number | nul
     message.match(/(?:limit|maximum) (?:is|of) ([\d,]+) tokens/iu);
   const parsed = match ? Number(match[1]!.replace(/,/gu, "")) : NaN;
   return { limit: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null };
+}
+
+/**
+ * OpenRouter reserves credits for the worst case - the full prompt plus every
+ * requested output token - and rejects the call with 402 "This request
+ * requires more credits, or fewer max_tokens. You requested up to N tokens,
+ * but can only afford M." before the model runs. Returns M, or null when the
+ * error is something else.
+ */
+export function parseAffordableMaxTokens(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const match = message.match(/can only afford ([\d,]+)/iu);
+  if (!match) return null;
+  const parsed = Number(match[1]!.replace(/,/gu, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
+/** Below this, a credit-limited reply cannot hold a useful command frame; surface the 402 instead. */
+const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
+/** Each call retries at most this many times on a credit or context-window rejection. */
+const MAX_LIMIT_RETRIES = 2;
+const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+
+/**
+ * Turn a provider limit rejection into smaller request limits, or null when
+ * the error is not one or nothing smaller would help.
+ */
+export function nextOptionsAfterLimitError(
+  error: unknown,
+  options: Pick<ChatOptions, "maxTokens" | "maxContext">,
+): { reason: string; maxTokens?: number; maxContext?: number } | null {
+  const affordable = parseAffordableMaxTokens(error);
+  if (affordable !== null) {
+    // Leave headroom: the prompt's own cost grows with every retry's estimate drift.
+    const maxTokens = Math.floor(affordable * 0.9);
+    if (maxTokens < MIN_AFFORDABLE_OUTPUT_TOKENS) return null;
+    if (options.maxTokens !== undefined && maxTokens >= options.maxTokens) return null;
+    return { reason: "Credit limit", maxTokens };
+  }
+  const overflow = parseContextOverflowError(error);
+  if (!overflow) return null;
+  const current = options.maxContext && options.maxContext > 0 ? options.maxContext : null;
+  // Prefer the window the provider stated. If it is no smaller than what we
+  // already sent (the token estimate ran low), or unstated, tighten instead.
+  const maxContext =
+    overflow.limit !== null && (current === null || overflow.limit < current)
+      ? overflow.limit
+      : current !== null
+        ? Math.floor(current * 0.75)
+        : null;
+  return maxContext === null ? null : { reason: "Context overflow", maxContext };
 }
 
 export function professorMariWorkspaceResponseFormat(provider: string): ChatOptions["responseFormat"] | undefined {
@@ -1496,9 +1551,13 @@ export function mariMaxOutputTokens(connection: WorkspaceConnection) {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
-  return (
-    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection)
-  );
+  const limit =
+    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
+  // Connection limits are sized for roleplay and often copied from the model's
+  // whole window (OpenRouter lists ~1M for some models). Mari's replies are
+  // short command frames, and OpenRouter reserves credits for every requested
+  // output token, so an uncapped limit fails with 402 before she can act.
+  return Math.min(limit, MARI_MAX_OUTPUT_TOKENS);
 }
 
 function resolveMariMaxOutputTokens(connection: WorkspaceConnection) {
@@ -5485,12 +5544,22 @@ export class ProfessorMariWorkspaceService {
         : []),
       ...messages.filter((message) => message.role !== "system"),
     ];
-    const options: ChatOptions = onToken
-      ? {
-          ...baseOptions,
-          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame),
-        }
-      : { ...baseOptions };
+    // Limits learned from earlier provider rejections in this run. Keyed by the
+    // run's abort signal, which every caller passes through unchanged (the pi
+    // runtime spreads a copy of baseOptions, so mutating it would not stick).
+    const runLimits = baseOptions.signal ? learnedRunLimits.get(baseOptions.signal) : undefined;
+    let options: ChatOptions = {
+      ...baseOptions,
+      ...(onToken
+        ? { onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame) }
+        : {}),
+      ...(runLimits?.maxContext !== undefined
+        ? { maxContext: Math.min(baseOptions.maxContext || Infinity, runLimits.maxContext) }
+        : {}),
+      ...(runLimits?.maxTokens !== undefined
+        ? { maxTokens: Math.min(baseOptions.maxTokens ?? Infinity, runLimits.maxTokens) }
+        : {}),
+    };
     logger.debug(
       "\n[debug/professor-mari] Prompt sent to model (%d messages):\n  Model: %s  Temp: %s  MaxTokens: %s  MaxContext: %s  Effort: %s  Verbosity: %s  CustomParameterKeys: %s",
       messages.length,
@@ -5503,37 +5572,32 @@ export class ProfessorMariWorkspaceService {
       Object.keys(options.customParameters ?? {}).join(",") || "none",
     );
     debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", debugJson(messages));
-    try {
-      return await provider.chatComplete(messages, options);
-    } catch (err) {
-      // Mari's prompt grows every round (command output is appended), and an
-      // OpenRouter model missing from the catalog with no Max Context set on
-      // the connection gets no client-side trimming at all - the gateway then
-      // rejects round N with "maximum context length is X tokens". Learn the
-      // real window from the error, keep it for the rest of the run (baseOptions
-      // is shared across rounds), and retry once so the provider's context
-      // fitter trims old history and shrinks max_tokens to fit.
-      if (baseOptions.signal?.aborted) throw err;
-      const overflow = parseContextOverflowError(err);
-      if (!overflow) throw err;
-      const current = baseOptions.maxContext && baseOptions.maxContext > 0 ? baseOptions.maxContext : null;
-      // Prefer the window the provider stated. If it is no smaller than what we
-      // already sent (the token estimate ran low), or unstated, tighten instead.
-      const nextMaxContext =
-        overflow.limit !== null && (current === null || overflow.limit < current)
-          ? overflow.limit
-          : current !== null
-            ? Math.floor(current * 0.75)
-            : null;
-      if (nextMaxContext === null) throw err;
-      logger.warn(
-        "[Professor Mari] Context overflow from %s (limit %s); retrying with maxContext=%d",
-        options.model,
-        overflow.limit ?? "unknown",
-        nextMaxContext,
-      );
-      baseOptions.maxContext = nextMaxContext;
-      return provider.chatComplete(messages, { ...options, maxContext: nextMaxContext });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await provider.chatComplete(messages, options);
+      } catch (err) {
+        if (attempt >= MAX_LIMIT_RETRIES || baseOptions.signal?.aborted) throw err;
+        const next = nextOptionsAfterLimitError(err, options);
+        if (!next) throw err;
+        logger.warn(
+          "[Professor Mari] %s from %s; retrying with maxTokens=%s maxContext=%s",
+          next.reason,
+          options.model,
+          next.maxTokens ?? options.maxTokens ?? "default",
+          next.maxContext ?? options.maxContext ?? "default",
+        );
+        if (baseOptions.signal) {
+          const learned = learnedRunLimits.get(baseOptions.signal) ?? {};
+          if (next.maxTokens !== undefined) learned.maxTokens = next.maxTokens;
+          if (next.maxContext !== undefined) learned.maxContext = next.maxContext;
+          learnedRunLimits.set(baseOptions.signal, learned);
+        }
+        options = {
+          ...options,
+          ...(next.maxTokens !== undefined ? { maxTokens: next.maxTokens } : {}),
+          ...(next.maxContext !== undefined ? { maxContext: next.maxContext } : {}),
+        };
+      }
     }
   }
 
