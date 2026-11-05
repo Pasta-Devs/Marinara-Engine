@@ -1516,46 +1516,16 @@
   flex-shrink: 0;
 }
 
-/* Text boxes with Expand and Macro buttons: the buttons always sit just above
-   the box on the right, so the box is only as tall as its text. Under a plain
-   label they share the label's line; elsewhere they get that short row. */
-.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) .relative:has(> textarea + .absolute.flex-col) {
-  display: flex;
-  flex-direction: column;
-}
+/* Text boxes in Chat settings pages are only as tall as their text (the Expand / Macro
+   row above them is shared with every page; see "Every text box" below). */
 .ov-cs.ov-cs
   .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
-  span.inline-flex
-  + .relative:has(> textarea + .absolute.flex-col) {
-  margin-top: 0.25rem;
-}
-.ov-cs.ov-cs
-  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
-  .relative:has(> textarea + .absolute.flex-col)
+  :is([data-macro-field], .relative):has(> [data-macro-tools], > textarea + .absolute.flex-col)
   > textarea {
   field-sizing: content;
   min-height: 2.75rem !important;
   max-height: 16rem !important;
   margin-top: 0;
-  padding-right: 0.75rem !important;
-}
-.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) .relative > textarea + .absolute.flex-col {
-  position: static;
-  order: -1;
-  flex-direction: row;
-  justify-content: flex-end;
-  gap: 0.25rem;
-}
-.ov-cs.ov-cs
-  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
-  span.inline-flex
-  + .relative
-  > textarea
-  + .absolute.flex-col {
-  position: absolute;
-  top: auto;
-  bottom: 100%;
-  right: 0;
 }
 /* Icons in buttons keep their size, and wrapped button labels read from the
    left next to their icon instead of floating centred. */
@@ -2112,37 +2082,49 @@
   height: 1.125rem;
 }
 
-/* Every text box with Preview / Expand / Macro buttons (Lorebook entries, Character and
-   Persona pages, editors): on phones the buttons leave the box and sit in a row just above
-   it on the right, at full touch size, so they're easy to hit and never cover the text. */
-:root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col):not(#ovm-x) {
+/* Every text box with Preview / Expand / Macro buttons (Chat settings, Lorebook entries,
+   Character and Persona pages, editors): on phones the buttons leave the box and always sit
+   in their own row just above it on the right, at touch size, in edit and preview alike. */
+:root[data-overhaul="mobile"]
+  :is([data-macro-field], .relative):has(> [data-macro-tools], > textarea + .absolute.flex-col):not(#ovm-x):not(
+    #ovm-y
+  ) {
   display: flex;
   flex-direction: column;
 }
-:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col:not(#ovm-x) {
+:root[data-overhaul="mobile"]
+  :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col):not(#ovm-x):not(#ovm-y) {
   position: static;
   order: -1;
   flex-direction: row;
   justify-content: flex-end;
   gap: 0.25rem;
-  margin-bottom: 0.25rem;
+  margin: 0 0 0.25rem;
   padding: 0;
   opacity: 1;
 }
-:root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col) > textarea:not(#ovm-x) {
+:root[data-overhaul="mobile"] [data-macro-field] > :is(textarea, [role="region"]):not(#ovm-x):not(#ovm-y),
+:root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col) > textarea:not(#ovm-x):not(#ovm-y) {
   padding-right: 0.75rem !important;
 }
-:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col > :is(button, a):not(#ovm-x) {
+:root[data-overhaul="mobile"]
+  :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col)
+  > :is(button, a):not(#ovm-x):not(#ovm-y) {
   display: inline-flex;
   width: 2.75rem;
+  min-width: 2.75rem;
   height: 2.5rem;
+  min-height: 2.5rem !important;
   align-items: center;
   justify-content: center;
   padding: 0;
   border-radius: 0.75rem;
   background: var(--ovm-raised);
 }
-:root[data-overhaul="mobile"] .relative > textarea + .absolute.flex-col > :is(button, a) svg {
+:root[data-overhaul="mobile"]
+  :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col)
+  > :is(button, a)
+  svg {
   width: 1.125rem !important;
   height: 1.125rem !important;
 }
@@ -2304,4 +2286,153 @@
 }
 :root[data-overhaul="mobile"] .ov-lv-tools__sort:not(#ovm-x) {
   height: 2.5rem;
+}
+
+/* ─── Editor pages on phones (Connection, Agent, Regex, Character, Persona): nothing wider
+   than the screen, labels above their fields, and the pinned header edge to edge. ─── */
+:root[data-overhaul="mobile"] .ov-ed {
+  overflow-x: hidden;
+}
+:root[data-overhaul="mobile"] .ov-ed > .ov-edhead {
+  margin-inline: -1.75rem;
+  padding-inline: 1.75rem;
+}
+:root[data-overhaul="mobile"] .ov-ed .ov-row:not(#ovm-x) {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0.375rem;
+}
+:root[data-overhaul="mobile"] .ov-ed .ov-row > * {
+  min-width: 0;
+}
+/* Segmented pickers fill the width and share it evenly, so four options fit a phone. */
+:root[data-overhaul="mobile"] .ov-seg:not(#ovm-x) {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+}
+:root[data-overhaul="mobile"] .ov-seg > button:not(#ovm-x) {
+  min-width: 0;
+  flex: 1 1 0;
+  padding-inline: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-seg > button {
+  justify-content: center;
+}
+/* Chip remove (×) buttons stay chip-sized, with a larger invisible hit area. */
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery)
+  span
+  > button:not(#ovm-x):not(#ovm-y) {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+:root[data-overhaul="mobile"] :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings, .ov-gallery) span > button::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+}
+
+/* ─── Readable text on Library pages (phones). The desktop sizes (9–11px) are too small
+   to read at arm's length; Chat settings already scales its pages up. ─── */
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  :is(.text-\[0\.5rem\], .text-\[0\.5625rem\], .text-\[0\.625rem\]):not(#ovm-x) {
+  font-size: 0.75rem !important;
+  line-height: 1.45;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+  :is(.text-\[0\.6875rem\], .text-\[0\.7rem\], .text-xs):not(#ovm-x) {
+  font-size: 0.875rem !important;
+  line-height: 1.45;
+}
+
+/* Lorebook tools opened as a page: the page header names them, so the panel's own
+   fold header goes and the panel sits flat. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__right > .mari-editor-panel:not(#ovm-x) {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+:root[data-overhaul="mobile"]
+  .ov-lv[data-ovm-lv]
+  .ov-lv__right
+  > .mari-editor-panel
+  > button[aria-expanded]:first-child {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__right > .mari-editor-panel > div {
+  padding-inline: 0 !important;
+  border-top: 0 !important;
+}
+
+/* Agent option tiles (Result Type, Pipeline Phase): one full-width row each, name over
+   description, instead of squeezed pills. */
+:root[data-overhaul="mobile"]
+  :is(.ov-agented, .ov-coned)
+  .ov-cf__control
+  .grid:has(> button[class*="rounded-xl"]):not(#ovm-x) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.375rem !important;
+}
+:root[data-overhaul="mobile"]
+  :is(.ov-agented, .ov-coned)
+  .ov-cf__control
+  .grid
+  > button[class*="rounded-xl"]:not(#ovm-x):not(#ovm-y) {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.5rem 0.875rem !important;
+  border-radius: 0.75rem !important;
+  text-align: left;
+}
+:root[data-overhaul="mobile"] :is(.ov-agented, .ov-coned) .ov-cf__control .grid > button[class*="rounded-xl"] > span {
+  white-space: normal;
+}
+/* Tiles that lead with an icon (Pipeline Phase) keep icon and name on one line. */
+:root[data-overhaul="mobile"]
+  :is(.ov-agented, .ov-coned)
+  .ov-cf__control
+  .grid
+  > button[class*="rounded-xl"]:has(> svg:first-child):not(#ovm-x):not(#ovm-y) {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start;
+  gap: 0.625rem !important;
+}
+
+/* Editor headers: save state and ⋯ share the first line; the action buttons wrap below. */
+:root[data-overhaul="mobile"] .ov-edhead__actions {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-edhead__actions > .ov-savestate {
+  order: -2;
+}
+:root[data-overhaul="mobile"] .ov-edhead__actions > .ov-menu-wrap {
+  order: -1;
+  margin-left: auto;
+}
+:root[data-overhaul="mobile"] .ov-edhead__actions > .ov-savestate + * {
+  flex-basis: auto;
+}
+:root[data-overhaul="mobile"] .ov-edhead__actions:has(> .ov-savestate):has(> .ov-menu-wrap) {
+  width: 100%;
+  margin-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-edhead__actions:has(> .ov-savestate):has(> .ov-menu-wrap)::after {
+  content: "";
+  order: -1;
+  flex-basis: 100%;
+  height: 0;
 }

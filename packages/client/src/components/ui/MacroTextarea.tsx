@@ -584,7 +584,7 @@ export function MacroTextarea({
 
   return (
     <>
-      <div className={cn("relative", wrapperClassName)}>
+      <div className={cn("relative", wrapperClassName)} data-macro-field>
         {showMarkdownPreview && showPreview ? (
           <div
             role="region"
@@ -628,7 +628,7 @@ export function MacroTextarea({
         )}
         <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
         {(showExpand || showMacroReference || showMarkdownPreview || toolbarExtra) && (
-          <div className={cn("absolute right-1.5 top-1.5 flex flex-col gap-0.5", toolbarClassName)}>
+          <div className={cn("absolute right-1.5 top-1.5 flex flex-col gap-0.5", toolbarClassName)} data-macro-tools>
             {showMarkdownPreview ? (
               <button
                 type="button"
