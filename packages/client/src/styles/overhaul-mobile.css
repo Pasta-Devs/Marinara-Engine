@@ -1509,8 +1509,13 @@
   flex-shrink: 0;
 }
 
-/* Text boxes with Expand and Macro buttons: the buttons sit side by side on
-   the label line above the box, so the box is only as tall as its text. */
+/* Text boxes with Expand and Macro buttons: the buttons always sit just above
+   the box on the right, so the box is only as tall as its text. Under a plain
+   label they share the label's line; elsewhere they get that short row. */
+.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) .relative:has(> textarea + .absolute.flex-col) {
+  display: flex;
+  flex-direction: column;
+}
 .ov-cs.ov-cs
   .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
   span.inline-flex
@@ -1529,12 +1534,11 @@
 }
 .ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) .relative > textarea + .absolute.flex-col {
   position: static;
+  order: -1;
   flex-direction: row;
   justify-content: flex-end;
   gap: 0.25rem;
 }
-/* Under a plain label (Advanced Parameters) the buttons share the label's
-   line; elsewhere the line above is taken, so they get a short row below. */
 .ov-cs.ov-cs
   .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
   span.inline-flex
