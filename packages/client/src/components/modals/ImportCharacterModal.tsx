@@ -15,6 +15,8 @@ import {
   type EmbeddedLorebookImportPreview,
 } from "../../lib/character-import";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { cn } from "../../lib/utils";
 
 interface Props {
   open: boolean;
@@ -29,18 +31,60 @@ type ImportResultRow = {
 
 type TagImportMode = "all" | "none" | "existing";
 
-const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; description: string }> = [
-  { value: "all", label: "All tags", description: "Keep source tags." },
-  { value: "none", label: "No tags", description: "Skip source tags." },
-  { value: "existing", label: "Existing only", description: "Keep tags already in Marinara." },
+const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; short: string; description: string }> = [
+  { value: "all", label: "All tags", short: "All", description: "Keep source tags." },
+  { value: "none", label: "No tags", short: "None", description: "Skip source tags." },
+  { value: "existing", label: "Existing only", short: "Existing only", description: "Keep tags already in Marinara." },
 ];
 
 type RegexScriptScope = "character" | "global";
 
-const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; description: string }> = [
-  { value: "character", label: "Character only", description: "Scripts apply only to this bot." },
-  { value: "global", label: "Global", description: "Add to Presets → Regexes for every chat." },
+const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; short: string; description: string }> = [
+  {
+    value: "character",
+    label: "Character only",
+    short: "This character",
+    description: "Scripts apply only to this bot.",
+  },
+  { value: "global", label: "Global", short: "Global", description: "Add to Presets → Regexes for every chat." },
 ];
+
+/** New layout: a label-left segmented picker with the chosen option's description underneath. */
+function OvImportPicker<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ value: T; short: string; description: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const current = options.find((option) => option.value === value);
+  return (
+    <div className="ov-imp__pick">
+      <span className="ov-imp__label">{label}</span>
+      <div className="ov-imp__choice">
+        <div className="ov-seg" role="radiogroup" aria-label={label}>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={option.value === value}
+              className={cn(option.value === value && "is-on")}
+              onClick={() => onChange(option.value)}
+            >
+              {option.short}
+            </button>
+          ))}
+        </div>
+        {current ? <p className="ov-imp__desc">{current.description}</p> : null}
+      </div>
+    </div>
+  );
+}
 
 export function ImportCharacterModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
@@ -55,6 +99,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
   const qc = useQueryClient();
+  const overhaulActive = useOverhaulActive();
 
   const isZipFile = async (file: File): Promise<boolean> => {
     if (file.size < 4) return false;
@@ -315,122 +360,159 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           </div>
         )}
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold text-[var(--foreground)]">
-                {localizeUi("ui.modals.importcharactermodal.importedCardTags")}
-              </p>
-              <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {localizeUi("ui.modals.importcharactermodal.chooseHowSourceSiteTagsAreAppliedToCharacter")}
-              </p>
+        {overhaulActive ? (
+          <>
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              className={cn("ov-imp__drop", dragOver && "is-over")}
+            >
+              <Download size={16} aria-hidden="true" className="ov-imp__dropicon" />
+              <span className="ov-imp__droptext">
+                {localizeUi("ui.modals.importcharactermodal.ovDropFiles")}
+                <span className="ov-imp__types"> · .json .png .charx .marinara</span>
+              </span>
+              <button type="button" className="ov-btn" onClick={() => fileRef.current?.click()}>
+                {localizeUi("ui.modals.importcharactermodal.ovBrowse")}
+              </button>
             </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {TAG_IMPORT_OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
-                  tagImportMode === option.value
-                    ? "border-[var(--primary)] bg-[var(--primary)]/10"
-                    : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="tagImportMode"
-                  value={option.value}
-                  checked={tagImportMode === option.value}
-                  onChange={() => setTagImportMode(option.value)}
-                  className="sr-only"
-                />
-                <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                  {option.description}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
+            <OvImportPicker
+              label={localizeUi("ui.modals.importcharactermodal.ovCardTags")}
+              options={TAG_IMPORT_OPTIONS}
+              value={tagImportMode}
+              onChange={setTagImportMode}
+            />
+            <OvImportPicker
+              label={localizeUi("ui.modals.importcharactermodal.ovRegexScripts")}
+              options={REGEX_SCOPE_OPTIONS}
+              value={regexScriptScope}
+              onChange={setRegexScriptScope}
+            />
+          </>
+        ) : (
+          <>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-[var(--foreground)]">
+                    {localizeUi("ui.modals.importcharactermodal.importedCardTags")}
+                  </p>
+                  <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.importcharactermodal.chooseHowSourceSiteTagsAreAppliedToCharacter")}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {TAG_IMPORT_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                      tagImportMode === option.value
+                        ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                        : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="tagImportMode"
+                      value={option.value}
+                      checked={tagImportMode === option.value}
+                      onChange={() => setTagImportMode(option.value)}
+                      className="sr-only"
+                    />
+                    <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                    <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      {option.description}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
-          <div className="mb-2">
-            <p className="text-xs font-semibold text-[var(--foreground)]">
-              {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
-            </p>
-            <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.modals.importcharactermodal.keepABotSEmbeddedFindReplaceScriptsScoped")}
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {REGEX_SCOPE_OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
-                  regexScriptScope === option.value
-                    ? "border-[var(--primary)] bg-[var(--primary)]/10"
-                    : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="regexScriptScope"
-                  value={option.value}
-                  checked={regexScriptScope === option.value}
-                  onChange={() => setRegexScriptScope(option.value)}
-                  className="sr-only"
-                />
-                <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                  {option.description}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+              <div className="mb-2">
+                <p className="text-xs font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
+                </p>
+                <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.modals.importcharactermodal.keepABotSEmbeddedFindReplaceScriptsScoped")}
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {REGEX_SCOPE_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                      regexScriptScope === option.value
+                        ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                        : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="regexScriptScope"
+                      value={option.value}
+                      checked={regexScriptScope === option.value}
+                      onChange={() => setRegexScriptScope(option.value)}
+                      className="sr-only"
+                    />
+                    <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                    <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      {option.description}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        {/* Drop zone */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onClick={() => fileRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
-            dragOver
-              ? "border-[var(--primary)] bg-[var(--primary)]/10"
-              : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
-          }`}
-        >
-          <Download
-            size="2rem"
-            className={`transition-colors ${dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}
-          />
-          <div className="text-center">
-            <p className="text-sm font-medium">
-              {localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}
-            </p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.modals.importcharactermodal.supportsJsonPngCharacterCardsCharxAndMarinaraExports")}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
-            </span>
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <Image size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.png")}
-            </span>
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.charx")}
-            </span>
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}
-            </span>
-          </div>
-        </div>
+            {/* Drop zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onClick={() => fileRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
+                dragOver
+                  ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                  : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
+              }`}
+            >
+              <Download
+                size="2rem"
+                className={`transition-colors ${dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}
+              />
+              <div className="text-center">
+                <p className="text-sm font-medium">
+                  {localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("ui.modals.importcharactermodal.supportsJsonPngCharacterCardsCharxAndMarinaraExports")}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                  <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
+                </span>
+                <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                  <Image size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.png")}
+                </span>
+                <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                  <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.charx")}
+                </span>
+                <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                  <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
 
         <input
           ref={fileRef}

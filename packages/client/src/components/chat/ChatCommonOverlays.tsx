@@ -1,7 +1,18 @@
-import { Suspense, lazy, type ComponentProps } from "react";
+import { Suspense, lazy, useEffect, useState, type ComponentProps } from "react";
+import { createPortal } from "react-dom";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ChevronUp,
+  ChevronDown,
+  Layers,
+  ListChecks,
+  Loader2,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { PeekPromptData } from "./chat-area.types";
 import type { LocalSpriteVisualSettings } from "./local-sprite-visual-settings";
 import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
@@ -15,7 +26,6 @@ import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
-import { createPortal } from "react-dom";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -196,6 +206,69 @@ type MultiSelectBarProps = {
   onSelectAllBelow: () => void;
 };
 
+/**
+ * New layout (desktop): the selection bar takes the composer's place. Finds the chat's composer and returns its
+ * parent so the bar can render there; CSS hides the composer while `data-ov-selecting` is set.
+ */
+function useComposerSlot(active: boolean) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!active) {
+      setSlot(null);
+      return;
+    }
+    const composer =
+      document.querySelector<HTMLElement>('[data-component^="ChatArea"] .mari-chat-input') ??
+      document.querySelector<HTMLElement>(".mari-chat-input");
+    setSlot(composer?.parentElement ?? null);
+    if (!composer) return;
+    document.documentElement.setAttribute("data-ov-selecting", "");
+    return () => document.documentElement.removeAttribute("data-ov-selecting");
+  }, [active]);
+  return slot;
+}
+
+function OvSelectionBar({
+  selectedCount,
+  onDelete,
+  onCancel,
+  onUnselectAll,
+  onSelectAllAbove,
+  onSelectAllBelow,
+}: Omit<MultiSelectBarProps, "open">) {
+  const { t } = useTranslation();
+  const none = selectedCount === 0;
+  return (
+    <div
+      data-component="MessageMultiSelectBar"
+      className="ov-selbar"
+      role="toolbar"
+      aria-label={t("chat.delete.selection.count", { count: selectedCount })}
+    >
+      <span className="ov-selbar__count">{t("chat.delete.selection.count", { count: selectedCount })}</span>
+      <button type="button" className="ov-selbar__link" onClick={onSelectAllAbove} disabled={none}>
+        <ArrowUpToLine size={13} aria-hidden="true" />
+        {t("chat.delete.selection.ovAbove")}
+      </button>
+      <button type="button" className="ov-selbar__link" onClick={onSelectAllBelow} disabled={none}>
+        <ArrowDownToLine size={13} aria-hidden="true" />
+        {t("chat.delete.selection.ovBelow")}
+      </button>
+      <button type="button" className="ov-selbar__link" onClick={onUnselectAll} disabled={none}>
+        {t("chat.delete.selection.unselectAll")}
+      </button>
+      <span className="ov-selbar__grow" />
+      <button type="button" className="ov-btn" onClick={onCancel}>
+        {t("chat.delete.selection.cancel")}
+      </button>
+      <button type="button" className="ov-btn ov-btn--primary" onClick={onDelete} disabled={none}>
+        <Trash2 size={13} aria-hidden="true" />
+        {t("chat.delete.selection.ovDelete", { count: selectedCount })}
+      </button>
+    </div>
+  );
+}
+
 function MultiSelectBar({
   open,
   selectedCount,
@@ -206,7 +279,22 @@ function MultiSelectBar({
   onSelectAllBelow,
 }: MultiSelectBarProps) {
   const { t } = useTranslation();
+  const overhaulActive = useOverhaulActive();
+  const ovSlot = useComposerSlot(open && overhaulActive);
   if (!open) return null;
+  if (overhaulActive && ovSlot) {
+    return createPortal(
+      <OvSelectionBar
+        selectedCount={selectedCount}
+        onDelete={onDelete}
+        onCancel={onCancel}
+        onUnselectAll={onUnselectAll}
+        onSelectAllAbove={onSelectAllAbove}
+        onSelectAllBelow={onSelectAllBelow}
+      />,
+      ovSlot,
+    );
+  }
 
   return (
     <div

@@ -26,7 +26,8 @@ import { cn } from "../../lib/utils";
 import { MsgAction } from "./ConversationMessageShared";
 import { MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 import { ReactionAddButton } from "./ReactionAddButton";
-import { MessageMarksAction } from "./MessageMarks";
+import { MessageMarksAction, OvMessageMarksPanel } from "./MessageMarks";
+import { OvMarksMenuContext } from "../overhaul/marks-menu-context";
 
 export interface ConversationMessageActionsProps {
   message: Pick<Message, "id" | "chatId" | "content"> & { extra?: unknown };
@@ -142,6 +143,7 @@ export function ConversationMessageActions({
   const visible = showActions || forceShowActions || messageFocused;
   const overhaulActive = useOverhaulActive();
   const overhaulMobile = useOverhaulMobile();
+  const [marksOpen, setMarksOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
     null,
   );
@@ -284,12 +286,31 @@ export function ConversationMessageActions({
           icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
           title="More actions"
           onClick={() => {
+            setMarksOpen(false);
             if (moreAnchor) return setMoreAnchor(null);
             const rect = barRef.current?.getBoundingClientRect();
             if (rect) setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
           }}
         />
-        {moreAnchor ? (
+        {moreAnchor && marksOpen ? (
+          <FooterPopover
+            anchor={moreAnchor}
+            onClose={() => {
+              setMarksOpen(false);
+              setMoreAnchor(null);
+            }}
+            className="ov-rpf-menu ov-marks-pop"
+          >
+            <OvMessageMarksPanel
+              message={message}
+              onBack={() => setMarksOpen(false)}
+              onDone={() => {
+                setMarksOpen(false);
+                setMoreAnchor(null);
+              }}
+            />
+          </FooterPopover>
+        ) : moreAnchor ? (
           <FooterPopover anchor={moreAnchor} onClose={() => setMoreAnchor(null)} className="ov-rpf-menu">
             <p className="ov-rpf-pop__label">Message actions</p>
             <div className="mari-message-actions" onClickCapture={closeAfterAction(() => setMoreAnchor(null))}>
@@ -298,7 +319,9 @@ export function ConversationMessageActions({
                 onClick={onCopy}
                 title={localizeUi("lorebook.editor.batch.copy")}
               />
-              <MessageMarksAction message={message} align="right" stopPropagation />
+              <OvMarksMenuContext.Provider value={() => setMarksOpen(true)}>
+                <MessageMarksAction message={message} align="right" stopPropagation />
+              </OvMarksMenuContext.Provider>
               <MsgAction
                 icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={onTranslate}

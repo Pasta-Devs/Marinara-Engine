@@ -11,8 +11,8 @@ import {
   readMessagePrivateNoteRecipientId,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, ChevronLeft, Pin, StickyNote } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { Bookmark, ChevronLeft, Pin, Save, StickyNote } from "lucide-react";
+import { useContext, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -20,7 +20,9 @@ import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { ApiError } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { SettingsSwitch, SettingsSwitchTrack } from "../panels/settings/SettingControls";
+import { HelpTooltip } from "../ui/HelpTooltip";
+import { OvMarksMenuContext } from "../overhaul/marks-menu-context";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton, useMessageActionMenu } from "./MessageActionButton";
 
 type MarkableMessage = { id: string; chatId: string; extra?: unknown };
@@ -111,6 +113,24 @@ export function MessageMarksAction({
     save({ bookmark: { label: label.trim(), createdAt: marks.bookmark.createdAt } });
   };
   const noteChanged = note.trim() !== (marks.note ?? "");
+  const openInMenu = useContext(OvMarksMenuContext);
+
+  if (openInMenu) {
+    return (
+      <button
+        type="button"
+        title={localizeUi("ui.chat.messagemarks.menuTitle")}
+        data-ovm-keep-open
+        className={cn("ov-marks-row", marks.any && "is-on")}
+        onClick={(event) => {
+          event.stopPropagation();
+          openInMenu();
+        }}
+      >
+        <Bookmark size={MESSAGE_ACTION_ICON_SIZE} fill={marks.bookmark ? "currentColor" : "none"} />
+      </button>
+    );
+  }
 
   return (
     <>
@@ -298,6 +318,177 @@ export function MessageMarksAction({
           document.body,
         )}
     </>
+  );
+}
+
+function OvMarkSwitch({
+  label,
+  checked,
+  onChange,
+  help,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  help?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="ov-marks__row">
+      <span className="ov-marks__label">
+        {label}
+        {help ? <HelpTooltip text={help} ariaLabel={label} size="0.6875rem" /> : null}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        data-ovm-keep-open
+        onClick={() => onChange(!checked)}
+        className="ov-marks__switch"
+      >
+        <SettingsSwitchTrack checked={checked} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * New layout (desktop): bookmark, pin and note as one small form that replaces the message's More menu.
+ * Nothing is saved until Save; Back returns to the menu without saving.
+ */
+export function OvMessageMarksPanel({
+  message,
+  noteSharing,
+  onBack,
+  onDone,
+}: {
+  message: MarkableMessage;
+  noteSharing?: MessageNoteSharing;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const marks = readMessageMarks(message);
+  const save = useSaveMessageMarks(message);
+  const savedRecipient = noteSharing ? readMessagePrivateNoteRecipientId(message.extra) : null;
+  const [bookmarked, setBookmarked] = useState(!!marks.bookmark);
+  const [label, setLabel] = useState(marks.bookmark?.label ?? "");
+  const [pinned, setPinned] = useState(marks.pinned);
+  const [note, setNote] = useState(marks.note ?? "");
+  const [recipientId, setRecipientId] = useState<string | null>(savedRecipient);
+  const noteId = useId();
+  const canShare = !!noteSharing && noteSharing.characters.length > 0;
+  const recipientListed = !!recipientId && !!noteSharing?.characters.some((character) => character.id === recipientId);
+
+  const handleSave = () => {
+    const extra: Record<string, unknown> = {};
+    const trimmedLabel = label.trim() || null;
+    if (bookmarked !== !!marks.bookmark || (bookmarked && trimmedLabel !== (marks.bookmark?.label ?? null))) {
+      extra.bookmark = bookmarked ? { label: trimmedLabel, createdAt: marks.bookmark?.createdAt } : null;
+    }
+    if (pinned !== marks.pinned) extra.pinnedToContext = pinned;
+    const trimmedNote = note.trim() || null;
+    if (trimmedNote !== (marks.note ?? null)) extra.privateNote = trimmedNote;
+    const nextRecipient = trimmedNote ? recipientId : null;
+    if (canShare && nextRecipient !== savedRecipient) extra.privateNoteRecipientId = nextRecipient;
+    if (Object.keys(extra).length > 0) save(extra);
+    onDone();
+  };
+
+  return (
+    <div className="ov-marks" role="dialog" aria-label={localizeUi("ui.chat.messagemarks.menuTitle")}>
+      <div className="ov-marks__head">
+        <button
+          type="button"
+          className="ov-marks__back"
+          onClick={onBack}
+          aria-label={localizeUi("multiplayer.back")}
+          data-ovm-keep-open
+        >
+          <ChevronLeft size={14} aria-hidden="true" />
+        </button>
+        <p className="ov-rpf-pop__label">{localizeUi("ui.chat.messagemarks.menuTitle")}</p>
+      </div>
+      <OvMarkSwitch
+        label={localizeUi("ui.chat.messagemarks.ovBookmark")}
+        checked={bookmarked}
+        onChange={setBookmarked}
+      />
+      {bookmarked ? (
+        <input
+          value={label}
+          maxLength={MAX_BOOKMARK_LABEL_LENGTH}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder={localizeUi("ui.chat.messagemarks.bookmarkLabelPlaceholder")}
+          aria-label={localizeUi("ui.chat.messagemarks.bookmarkLabel")}
+          className="ov-marks__field"
+        />
+      ) : null}
+      <OvMarkSwitch
+        label={localizeUi("ui.chat.messagemarks.pinToContext")}
+        checked={pinned}
+        onChange={setPinned}
+        help={localizeUi("ui.chat.messagemarks.ovPinHelp", { count: MAX_PINNED_CONTEXT_MESSAGES })}
+      />
+      <label htmlFor={noteId} className="ov-marks__label ov-marks__notelabel">
+        {localizeUi("ui.chat.messagemarks.privateNote")}
+      </label>
+      <textarea
+        id={noteId}
+        value={note}
+        rows={3}
+        maxLength={MAX_PRIVATE_NOTE_LENGTH}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder={localizeUi("ui.chat.messagemarks.ovNotePlaceholder")}
+        className="ov-marks__field ov-marks__note"
+      />
+      {canShare ? (
+        <>
+          <OvMarkSwitch
+            label={localizeUi("ui.chat.messagemarks.ovNarratorSees")}
+            checked={!!recipientId}
+            disabled={!recipientId && !noteSharing!.available}
+            onChange={(shared) =>
+              setRecipientId(shared ? (noteSharing!.narratorId ?? noteSharing!.characters[0]!.id) : null)
+            }
+            help={localizeUi(
+              noteSharing!.available
+                ? "ui.chat.messagemarks.ovNarratorHelp"
+                : "ui.chat.messagemarks.noteSharingUnavailable",
+            )}
+          />
+          {recipientId && noteSharing!.characters.length > 1 ? (
+            <select
+              value={recipientListed ? recipientId : ""}
+              onChange={(event) => setRecipientId(event.target.value || null)}
+              aria-label={localizeUi("ui.chat.messagemarks.noteRecipient")}
+              className="ov-marks__field"
+            >
+              {!recipientListed && (
+                <option value="" disabled>
+                  {localizeUi("ui.chat.messagemarks.chooseNoteRecipient")}
+                </option>
+              )}
+              {noteSharing!.characters.map((character) => (
+                <option key={character.id} value={character.id}>
+                  {character.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </>
+      ) : null}
+      <div className="ov-marks__foot">
+        <button type="button" className="ov-btn ov-btn--primary" onClick={handleSave}>
+          <Save size={13} aria-hidden="true" />
+          {localizeUi("ui.chat.messagemarks.ovSave")}
+        </button>
+      </div>
+    </div>
   );
 }
 

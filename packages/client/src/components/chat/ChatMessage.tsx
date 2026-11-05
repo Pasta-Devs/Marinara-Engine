@@ -67,6 +67,7 @@ import {
   Pause,
   Play,
   ChevronRight,
+  Clock,
   EyeOff,
   Shield,
 } from "lucide-react";
@@ -136,7 +137,12 @@ import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
 import { MessageThinkingModal } from "./MessageThinkingModal";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
-import { MessageMarkIndicators, MessageMarksAction, type MessageNoteSharing } from "./MessageMarks";
+import {
+  MessageMarkIndicators,
+  MessageMarksAction,
+  OvMessageMarksPanel,
+  type MessageNoteSharing,
+} from "./MessageMarks";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
@@ -1044,23 +1050,15 @@ const SPEAKER_TAG_RE = /<speaker="([^"]*)">([\s\S]*?)<\/speaker>/g;
 const INLINE_MARKDOWN_CONTAINER_RE =
   /\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|(?<!\*)\*(?!\*)[\s\S]+?(?<!\*)\*(?!\*)|==[\s\S]+?==|~~[\s\S]+?~~|(?<![_\w])_[^_]+?_(?![_\w])/g;
 
-function RoleplayThinkingDisclosure({
-  thinking,
-  summaryUnavailable,
-  isStreaming,
-  outputStarted,
-  keepExpanded,
-  durationMs,
-}: {
-  thinking: string | null;
-  summaryUnavailable: boolean;
-  isStreaming: boolean;
-  outputStarted: boolean;
-  keepExpanded: boolean;
-  durationMs: number | null;
-}) {
+/** Shared timer + open state for the reasoning ("Thought for Ns") toggle. */
+function useThinkingToggle(
+  isStreaming: boolean,
+  outputStarted: boolean,
+  keepExpanded: boolean,
+  durationMs: number | null,
+  short = false,
+) {
   const { t } = useTranslation();
-  const contentId = useId();
   const startedAtRef = useRef(Date.now());
   const [expanded, setExpanded] = useState(isStreaming || keepExpanded);
   const [liveDurationMs, setLiveDurationMs] = useState(0);
@@ -1088,9 +1086,94 @@ function RoleplayThinkingDisclosure({
   const durationLabel =
     displayedDurationMs === null
       ? t("chat.message.thoughts.durationUnknown")
-      : t("chat.message.thoughts.duration", {
+      : t(short ? "chat.message.thoughts.ovDuration" : "chat.message.thoughts.duration", {
           count: Math.max(1, Math.round(displayedDurationMs / 1_000)),
         });
+  return { expanded, setExpanded, durationLabel };
+}
+
+/** New layout: small "Thought for Ns ›" toggle that sits next to the name and time. */
+function OvThinkingToggle({
+  label,
+  expanded,
+  pulsing,
+  controls,
+  onToggle,
+}: {
+  label: string;
+  expanded: boolean;
+  pulsing: boolean;
+  controls: string;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className={cn("ov-thought-btn", expanded && "is-on", pulsing && "is-live")}
+      aria-expanded={expanded}
+      aria-controls={expanded ? controls : undefined}
+      title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+    >
+      <Clock size={11} aria-hidden="true" />
+      <span>{label}</span>
+      <ChevronRight size={11} aria-hidden="true" className="ov-thought-btn__chev" />
+    </button>
+  );
+}
+
+/** New layout: the reasoning text itself, grey italic with no box. */
+function OvThinkingText({
+  id,
+  thinking,
+  summaryUnavailable,
+}: {
+  id: string;
+  thinking: string | null;
+  summaryUnavailable: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div id={id} data-message-thinking-inline className="ov-thought-text">
+      {summaryUnavailable ? (
+        <>
+          <p>{t("chat.message.thoughts.unavailable.title")}</p>
+          <p>{t("chat.message.thoughts.unavailable.description")}</p>
+        </>
+      ) : (
+        <pre>{thinking}</pre>
+      )}
+    </div>
+  );
+}
+
+function RoleplayThinkingDisclosure({
+  thinking,
+  summaryUnavailable,
+  isStreaming,
+  outputStarted,
+  keepExpanded,
+  durationMs,
+}: {
+  thinking: string | null;
+  summaryUnavailable: boolean;
+  isStreaming: boolean;
+  outputStarted: boolean;
+  keepExpanded: boolean;
+  durationMs: number | null;
+}) {
+  const { t } = useTranslation();
+  const contentId = useId();
+  const { expanded, setExpanded, durationLabel } = useThinkingToggle(
+    isStreaming,
+    outputStarted,
+    keepExpanded,
+    durationMs,
+  );
 
   return (
     <div
@@ -2410,6 +2493,24 @@ export const ChatMessage = memo(function ChatMessage({
   } = resolveMessageReasoningDisplay(extra);
   const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning && !isUser;
   const showThinkingAction = hasReasoning && !isUser && !showInlineThinking;
+  const ovThinkingInHeader = overhaulActive && showInlineThinking;
+  const ovThinkingId = useId();
+  const ovThinking = useThinkingToggle(
+    !!isStreaming && ovThinkingInHeader,
+    streamingOutputStarted,
+    keepRoleplayThinkingExpanded,
+    readPositiveNumber(extra.generationInfo?.reasoningDurationMs),
+    true,
+  );
+  const ovThinkingButton = ovThinkingInHeader ? (
+    <OvThinkingToggle
+      label={ovThinking.durationLabel}
+      expanded={ovThinking.expanded}
+      pulsing={!!isStreaming && !streamingOutputStarted}
+      controls={ovThinkingId}
+      onToggle={() => ovThinking.setExpanded((value) => !value)}
+    />
+  ) : null;
   const showStreamingThinkingAction = !!isStreaming && showThinkingAction;
   const reasoningDurationMs = readPositiveNumber(extra.generationInfo?.reasoningDurationMs);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
@@ -3529,7 +3630,11 @@ export const ChatMessage = memo(function ChatMessage({
     />
   ) : (
     <>
-      {showInlineThinking && (
+      {ovThinkingInHeader && isGrouped ? ovThinkingButton : null}
+      {ovThinkingInHeader && ovThinking.expanded ? (
+        <OvThinkingText id={ovThinkingId} thinking={thinking} summaryUnavailable={reasoningSummaryUnavailable} />
+      ) : null}
+      {showInlineThinking && !ovThinkingInHeader && (
         <RoleplayThinkingDisclosure
           thinking={thinking}
           summaryUnavailable={reasoningSummaryUnavailable}
@@ -4054,6 +4159,7 @@ export const ChatMessage = memo(function ChatMessage({
           {isMergedGroup ? mergedNameElement : <NameColorText color={msgNameColor}>{displayName}</NameColorText>}
         </span>
         <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
+        {isGrouped ? null : ovThinkingButton}
         {genLabel && (
           <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
             {genLabel}
@@ -4087,6 +4193,9 @@ export const ChatMessage = memo(function ChatMessage({
           onCopy={handleCopy}
           onBranch={onBranch ? () => onBranch(message.id) : undefined}
           more={rpActionsRow}
+          marksPanel={({ back, done }) => (
+            <OvMessageMarksPanel message={message} noteSharing={noteSharing} onBack={back} onDone={done} />
+          )}
         />
       ) : null;
     const rpGenerateActions = rpActions("generate");

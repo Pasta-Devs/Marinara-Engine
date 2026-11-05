@@ -26,6 +26,7 @@ import type { MessageSwipe } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
+import { OvMarksMenuContext } from "./marks-menu-context";
 
 type Anchor = { left: number; top: number; bottom: number; right: number };
 
@@ -88,12 +89,16 @@ export function FooterPopover({
   );
 }
 
-/** Click handler (capture) for a menu of actions: a plain action closes the menu; a toggle that opens its own popover (marks) keeps it. */
+/**
+ * Click handler (capture) for a menu of actions: a plain action closes the menu; a toggle that opens its own
+ * popover (marks) keeps it. The close waits a tick: React 19 commits a capture-phase update before the bubble
+ * phase runs, so closing right away unmounted the menu and a real mouse click never reached the item's onClick.
+ */
 export function closeAfterAction(close: () => void) {
   return (event: React.MouseEvent) => {
     const button = (event.target as HTMLElement).closest("button");
     if (button && !button.hasAttribute("aria-pressed") && !button.disabled && !button.closest("[data-ovm-keep-open]"))
-      close();
+      window.setTimeout(close, 0);
   };
 }
 
@@ -174,6 +179,7 @@ export function OvRpMessageFooter({
   onCopy,
   onBranch,
   more,
+  marksPanel,
   placement = "footer",
   part = "all",
 }: {
@@ -193,6 +199,8 @@ export function OvRpMessageFooter({
   onBranch?: () => void;
   /** Every other action, rendered inside the More menu. */
   more: ReactNode;
+  /** The bookmark / pin / note form, shown in place of the More menu when its row is picked. */
+  marksPanel?: (controls: { back: () => void; done: () => void }) => ReactNode;
   /** "below" hangs the bar under the message as an overlay, so showing it moves nothing. */
   placement?: "footer" | "below";
   /**
@@ -201,9 +209,9 @@ export function OvRpMessageFooter({
    */
   part?: "all" | "tools" | "generate";
 }) {
-  const [open, setOpen] = useState<null | { kind: "more" | "swipes"; anchor: Anchor }>(null);
+  const [open, setOpen] = useState<null | { kind: "more" | "swipes" | "marks"; anchor: Anchor }>(null);
   const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
-    if (open?.kind === kind) return setOpen(null);
+    if (open?.kind === kind || (kind === "more" && open?.kind === "marks")) return setOpen(null);
     const r = el.getBoundingClientRect();
     setOpen({
       kind,
@@ -299,10 +307,10 @@ export function OvRpMessageFooter({
           ) : null}
           <button
             type="button"
-            className={cn("ov-rpf__btn", open?.kind === "more" && "is-on")}
+            className={cn("ov-rpf__btn", (open?.kind === "more" || open?.kind === "marks") && "is-on")}
             title="More actions"
             aria-label="More actions"
-            aria-expanded={open?.kind === "more"}
+            aria-expanded={open?.kind === "more" || open?.kind === "marks"}
             onClick={(event) => openAt("more", event.currentTarget)}
           >
             <MoreHorizontal size={15} />
@@ -313,8 +321,20 @@ export function OvRpMessageFooter({
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
           <p className="ov-rpf-pop__label">Message actions</p>
           <div className="contents" onClickCapture={closeAfterAction(() => setOpen(null))}>
-            {more}
+            <OvMarksMenuContext.Provider
+              value={marksPanel ? () => setOpen({ kind: "marks", anchor: { ...open.anchor } }) : null}
+            >
+              {more}
+            </OvMarksMenuContext.Provider>
           </div>
+        </FooterPopover>
+      ) : null}
+      {open?.kind === "marks" && marksPanel ? (
+        <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu ov-marks-pop">
+          {marksPanel({
+            back: () => setOpen({ kind: "more", anchor: { ...open.anchor } }),
+            done: () => setOpen(null),
+          })}
         </FooterPopover>
       ) : null}
       {open?.kind === "swipes" ? (
