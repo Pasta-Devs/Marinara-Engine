@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -1244,6 +1245,7 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />
       <Suspense fallback={null}>

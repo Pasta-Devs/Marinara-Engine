@@ -34,6 +34,13 @@ import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
+import {
+  normalizeUiStyleOverride,
+  normalizeUiStyleOverrides,
+  type UiStyleOverride,
+  type UiStyleOverrides,
+  type UiStyleTargetId,
+} from "../lib/ui-style-overrides";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
@@ -735,6 +742,14 @@ interface UIState {
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
+  uiStyleOverrides: UiStyleOverrides;
+  /** Transient: the full-screen element picker is open. */
+  uiStylePickMode: boolean;
+  /** Transient: the region the style editor is editing. */
+  uiStyleSelectedTarget: UiStyleTargetId | null;
+  /** Transient: the unsaved draft layered over `uiStyleOverrides` while editing. */
+  uiStylePreview: { target: UiStyleTargetId; override: UiStyleOverride | null } | null;
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
@@ -1312,6 +1327,11 @@ interface UIState {
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
   setAppBackgroundColor: (color: string) => void;
+  saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
+  resetUiStyleOverrides: () => void;
+  setUiStylePickMode: (enabled: boolean) => void;
+  setUiStyleSelectedTarget: (target: UiStyleTargetId | null) => void;
+  setUiStylePreview: (preview: UIState["uiStylePreview"]) => void;
   setAppAccentColor: (color: string) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
@@ -1687,6 +1707,7 @@ export function pickSyncedSettings(state: UIState) {
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1937,6 +1958,7 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
@@ -2211,6 +2233,10 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        uiStyleOverrides: {},
+        uiStylePickMode: false,
+        uiStyleSelectedTarget: null,
+        uiStylePreview: null,
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
@@ -2607,6 +2633,18 @@ export const useUIStore = create<UIState>()(
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
         setTheme: (theme) => set({ theme }),
         setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
+        saveUiStyleOverride: (target, override) =>
+          set((state) => {
+            const next = { ...state.uiStyleOverrides };
+            const clean = normalizeUiStyleOverride(override);
+            if (clean) next[target] = clean;
+            else delete next[target];
+            return { uiStyleOverrides: next };
+          }),
+        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null }),
+        setUiStylePickMode: (uiStylePickMode) => set({ uiStylePickMode }),
+        setUiStyleSelectedTarget: (uiStyleSelectedTarget) => set({ uiStyleSelectedTarget }),
+        setUiStylePreview: (uiStylePreview) => set({ uiStylePreview }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
@@ -3435,6 +3473,10 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            uiStyleOverrides: {},
+            uiStylePreview: null,
+            uiStyleSelectedTarget: null,
+            uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
             mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
@@ -4322,6 +4364,7 @@ export const useUIStore = create<UIState>()(
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
+          uiStyleOverrides: normalizeUiStyleOverrides(persisted.uiStyleOverrides),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

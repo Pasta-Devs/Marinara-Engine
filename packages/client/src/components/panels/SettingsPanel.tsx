@@ -196,6 +196,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
@@ -4240,6 +4241,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               </fieldset>
             </div>
           </SettingsSection>
+
+          <UiStyleSettings {...getSettingsSectionAnchorProps("ui-element-styles")} />
 
           <SettingsSection
             title={localizeUi("settings.sections.textScale.title")}

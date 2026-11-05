@@ -21,6 +21,7 @@ export type SettingsSectionId =
   | "video-generation"
   | "game-assets"
   | "app-style"
+  | "ui-element-styles"
   | "text-scale"
   | "chat-display"
   | "roleplay-tracker"
@@ -204,6 +205,22 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "App Style",
     description: "Theme family, color scheme, accent, and app chrome controls.",
     aliases: ["theme", "accent", "rgb", "cursor", "background", "style", "color scheme"],
+  },
+  {
+    id: "ui-element-styles",
+    tab: "appearance",
+    label: "UI Element Styles",
+    description: "Pick a part of the interface and restyle its colors, corners, opacity and text size.",
+    aliases: [
+      "pick element",
+      "element picker",
+      "ui styles",
+      "bubble color",
+      "top bar color",
+      "sidebar color",
+      "border radius",
+      "opacity",
+    ],
   },
   {
     id: "text-scale",

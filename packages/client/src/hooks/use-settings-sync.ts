@@ -25,6 +25,7 @@ import { api } from "../lib/api-client";
 import { translate } from "../localization/i18n";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import { normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
+import { normalizeUiStyleOverrides } from "../lib/ui-style-overrides";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
   normalizeChatWidgetColor,
@@ -99,6 +100,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   }
   if ("omnibarWindowHeightRem" in sanitized) {
     sanitized.omnibarWindowHeightRem = normalizeOmnibarWindowHeightRem(sanitized.omnibarWindowHeightRem);
+  }
+  if ("uiStyleOverrides" in sanitized) {
+    sanitized.uiStyleOverrides = normalizeUiStyleOverrides(sanitized.uiStyleOverrides);
   }
   return sanitized;
 }
