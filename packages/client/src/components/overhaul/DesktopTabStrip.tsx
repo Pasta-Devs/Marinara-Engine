@@ -1,0 +1,570 @@
+// ──────────────────────────────────────────────
+// UI overhaul (desktop): the tab strip
+//
+// Tabs that don't fit stay open in the overflow menu at the end of the strip
+// (nothing is closed for lack of room). Tabs can be grouped Vivaldi-style:
+// a group shows as one tab with a count, and when you're on one of its tabs
+// a second row lists the group's tabs. Drag a tab onto the middle of another
+// to group them; drag to either side to reorder. Right-click for group options.
+// ──────────────────────────────────────────────
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, Home, Layers, X } from "lucide-react";
+import type { Chat } from "@marinara-engine/shared";
+import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores/overhaul.store";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { cn } from "../../lib/utils";
+import { TabIcon, TabLabel, TabPresence, activateTab, closeTabAndMove, goHome } from "./OverhaulTopBar";
+
+type Placed = { tab: OverhaulTab; key: string; index: number };
+type StripItem =
+  | { type: "tab"; itemKey: string; entry: Placed }
+  | { type: "group"; itemKey: string; id: string; name: string; entries: Placed[] };
+
+type Drag = { kind: "tab"; key: string } | { kind: "group"; id: string };
+type DropSpot = { itemKey: string; where: "before" | "after" | "stack" };
+type MenuTarget = { kind: "tab"; entry: Placed } | { kind: "group"; id: string };
+type Menu = MenuTarget & { x: number; y: number };
+
+const DRAG_MIME = "application/x-marinara-tab";
+
+function placeIndex(spot: DropSpot, items: StripItem[]) {
+  const item = items.find((entry) => entry.itemKey === spot.itemKey);
+  if (!item) return null;
+  const first = item.type === "tab" ? item.entry.index : item.entries[0]!.index;
+  const last = item.type === "tab" ? item.entry.index : item.entries[item.entries.length - 1]!.index;
+  return spot.where === "before" ? first : last + 1;
+}
+
+export function DesktopTabStrip({
+  chats,
+  current,
+  currentKey,
+}: {
+  chats: Chat[];
+  current: OverhaulTab | null;
+  currentKey: string | null;
+}) {
+  const localize = useLocalizedUiText();
+  const tabs = useOverhaulStore((s) => s.tabs);
+  const tabGroups = useOverhaulStore((s) => s.tabGroups);
+  const store = useOverhaulStore.getState;
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const [clipped, setClipped] = useState<Set<string>>(() => new Set());
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [drop, setDrop] = useState<DropSpot | null>(null);
+  const [menu, setMenu] = useState<Menu | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
+
+  const items = useMemo<StripItem[]>(() => {
+    const out: StripItem[] = [];
+    const seen = new Set<string>();
+    tabs.forEach((tab, index) => {
+      const entry = { tab, key: overhaulTabKey(tab), index };
+      if (!tab.group || !tabGroups[tab.group]) {
+        out.push({ type: "tab", itemKey: entry.key, entry });
+        return;
+      }
+      if (seen.has(tab.group)) {
+        const group = out.find((item) => item.type === "group" && item.id === tab.group);
+        if (group?.type === "group") group.entries.push(entry);
+        return;
+      }
+      seen.add(tab.group);
+      out.push({
+        type: "group",
+        itemKey: `group:${tab.group}`,
+        id: tab.group,
+        name: tabGroups[tab.group]!.name,
+        entries: [entry],
+      });
+    });
+    return out;
+  }, [tabGroups, tabs]);
+
+  const currentGroupId = current ? (tabs.find((tab) => overhaulTabKey(tab) === currentKey)?.group ?? null) : null;
+  const currentGroup = items.find((item) => item.type === "group" && item.id === currentGroupId) as
+    Extract<StripItem, { type: "group" }> | undefined;
+  const currentItemKey = currentGroup ? currentGroup.itemKey : currentKey;
+
+  // Remember the tab you were on inside a group, so clicking the group returns to it.
+  useEffect(() => {
+    if (currentGroupId && currentKey) store().setTabGroupLastKey(currentGroupId, currentKey);
+  }, [currentGroupId, currentKey, store]);
+
+  // Which strip items are cut off by the strip's edge (they move to the overflow menu).
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const measure = () => {
+      const edge = strip.getBoundingClientRect().right + 0.5;
+      const next = new Set<string>();
+      strip.querySelectorAll<HTMLElement>("[data-item-key]").forEach((element) => {
+        if (element.getBoundingClientRect().right > edge) next.add(element.dataset.itemKey!);
+      });
+      setClipped((before) => (before.size === next.size && [...next].every((key) => before.has(key)) ? before : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    strip.querySelectorAll("[data-item-key]").forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [items]);
+
+  // The tab on screen is always in the strip: if it's in the overflow, it takes the last visible place.
+  useEffect(() => {
+    if (!currentItemKey || !clipped.has(currentItemKey)) return;
+    const visible = items.filter((item) => !clipped.has(item.itemKey));
+    const lastVisible = visible[visible.length - 1];
+    const at = lastVisible ? placeIndex({ itemKey: lastVisible.itemKey, where: "before" }, items) : 0;
+    if (at === null) return;
+    if (currentGroup) store().moveTabGroup(currentGroup.id, at);
+    else if (currentKey) store().moveTab(currentKey, at);
+  }, [clipped, currentGroup, currentItemKey, currentKey, items, store]);
+
+  useEffect(() => {
+    if (!menu && !overflowOpen) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      if (event.type === "pointerdown" && (event.target as HTMLElement).closest?.("[data-ov-tabmenu]")) return;
+      setMenu(null);
+      setOverflowOpen(false);
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [menu, overflowOpen]);
+
+  const activateGroup = (id: string) => {
+    const group = items.find((item) => item.type === "group" && item.id === id);
+    if (group?.type !== "group") return;
+    const last = tabGroups[id]?.lastKey;
+    const target = group.entries.find((entry) => entry.key === last) ?? group.entries[0]!;
+    activateTab(target.tab);
+  };
+
+  const closeTab = (tab: OverhaulTab) => closeTabAndMove(tab, store().tabs, currentKey);
+  const closeGroup = (id: string) => {
+    const all = store().tabs;
+    const members = all.filter((tab) => tab.group === id);
+    const remaining = all.filter((tab) => tab.group !== id);
+    const firstIndex = all.findIndex((tab) => tab.group === id);
+    for (const tab of members) store().closeTab(tab);
+    if (currentGroupId === id) {
+      const next = remaining[Math.min(firstIndex, remaining.length - 1)];
+      if (next) activateTab(next);
+      else goHome();
+    }
+  };
+
+  // ── Drag and drop ──
+  const startDrag = (event: DragEvent, value: Drag) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(DRAG_MIME, "1");
+    event.dataTransfer.setData("text/plain", value.kind === "tab" ? value.key : value.id);
+    setDrag(value);
+  };
+  const endDrag = () => {
+    setDrag(null);
+    setDrop(null);
+  };
+  /** Over a strip item: the outer thirds reorder, the middle groups (tabs only). */
+  const overStripItem = (event: DragEvent, item: StripItem) => {
+    if (!drag) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const self = drag.kind === "tab" ? drag.key === item.itemKey : item.itemKey === `group:${drag.id}`;
+    const box = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - box.left) / box.width;
+    const where =
+      x < 0.3 ? "before" : x > 0.7 ? "after" : drag.kind === "tab" && !self ? "stack" : x < 0.5 ? "before" : "after";
+    setDrop({ itemKey: item.itemKey, where });
+  };
+  /** Over a group-row tab or an overflow row: before/after along `axis`. */
+  const overEntry = (event: DragEvent, entry: Placed, axis: "x" | "y") => {
+    if (!drag) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const box = event.currentTarget.getBoundingClientRect();
+    const before = axis === "x" ? event.clientX < box.left + box.width / 2 : event.clientY < box.top + box.height / 2;
+    setDrop({ itemKey: `entry:${entry.key}`, where: before ? "before" : "after" });
+  };
+  const dropOnStripItem = (event: DragEvent, item: StripItem) => {
+    event.preventDefault();
+    const spot = drop;
+    endDrag();
+    if (!drag || !spot || spot.itemKey !== item.itemKey) return;
+    if (spot.where === "stack" && drag.kind === "tab") {
+      if (item.type === "group") store().setTabGroup(drag.key, item.id);
+      else {
+        const draggedGroup = store().tabs.find((tab) => overhaulTabKey(tab) === drag.key)?.group;
+        if (draggedGroup) store().setTabGroup(drag.key, null);
+        store().createTabGroup([item.entry.key, drag.key]);
+      }
+      return;
+    }
+    const at = placeIndex(spot, items);
+    if (at === null) return;
+    if (drag.kind === "group") store().moveTabGroup(drag.id, at);
+    else store().setTabGroup(drag.key, null, at);
+  };
+  const dropOnEntry = (event: DragEvent, entry: Placed) => {
+    event.preventDefault();
+    const spot = drop;
+    endDrag();
+    if (!drag || !spot || spot.itemKey !== `entry:${entry.key}`) return;
+    const at = spot.where === "before" ? entry.index : entry.index + 1;
+    if (drag.kind === "group") {
+      if (!entry.tab.group) store().moveTabGroup(drag.id, at);
+      return;
+    }
+    store().setTabGroup(drag.key, entry.tab.group ?? null, at);
+  };
+
+  const dropClass = (itemKey: string) =>
+    drag && drop?.itemKey === itemKey
+      ? drop.where === "stack"
+        ? "is-drop-stack"
+        : drop.where === "before"
+          ? "is-drop-before"
+          : "is-drop-after"
+      : null;
+
+  const tabButton = (entry: Placed, extra?: { compact?: boolean }) => (
+    <>
+      <button
+        type="button"
+        className="ov-tab__main"
+        aria-current={entry.key === currentKey ? "page" : undefined}
+        onClick={() => {
+          activateTab(entry.tab);
+          setOverflowOpen(false);
+        }}
+        onAuxClick={(event) => {
+          if (event.button === 1) closeTab(entry.tab);
+        }}
+      >
+        <TabIcon tab={entry.tab} chats={chats} />
+        <TabLabel tab={entry.tab} chats={chats} />
+        {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} />}
+      </button>
+      <button
+        type="button"
+        className="ov-tab__close"
+        aria-label={localize("Close tab")}
+        title={localize("Close tab")}
+        onClick={() => closeTab(entry.tab)}
+      >
+        <X size={12} />
+      </button>
+    </>
+  );
+
+  const openMenu = (event: React.MouseEvent, value: MenuTarget) => {
+    event.preventDefault();
+    setOverflowOpen(false);
+    setMenu({ ...value, x: event.clientX, y: event.clientY });
+  };
+
+  const overflowItems = items.filter((item) => clipped.has(item.itemKey));
+  const overflowCount = overflowItems.reduce((sum, item) => sum + (item.type === "tab" ? 1 : item.entries.length), 0);
+
+  // Second row: the tabs of the group you're on.
+  const row = currentGroup ? (
+    <div className="ov-tabrow2" role="group" aria-label={currentGroup.name}>
+      <span className="ov-tabrow2__name">
+        <Layers size={12} aria-hidden="true" />
+        {currentGroup.name}
+      </span>
+      {currentGroup.entries.map((entry) => (
+        <div
+          key={entry.key}
+          className={cn(
+            "ov-tab",
+            entry.key === currentKey && "is-on",
+            drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
+            dropClass(`entry:${entry.key}`),
+          )}
+          draggable
+          onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+          onDragOver={(event) => overEntry(event, entry, "x")}
+          onDrop={(event) => dropOnEntry(event, entry)}
+          onDragEnd={endDrag}
+          onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
+        >
+          {tabButton(entry)}
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-tabrow", Boolean(currentGroup));
+    return () => document.documentElement.removeAttribute("data-ov-tabrow");
+  }, [currentGroup]);
+
+  const groupList = Object.entries(tabGroups);
+
+  return (
+    <>
+      <nav className="ov-tabs" aria-label={localize("Open tabs")} ref={stripRef} onDragLeave={() => setDrop(null)}>
+        <button
+          type="button"
+          className={cn("ov-tab ov-tab--home", current === null && "is-on")}
+          aria-current={current === null ? "page" : undefined}
+          onClick={goHome}
+        >
+          <Home size={14} aria-hidden="true" className="ov-tab__icon" />
+          <span className="ov-tab__label">{localize("Home")}</span>
+        </button>
+        {items.map((item) => {
+          const hidden = clipped.has(item.itemKey);
+          if (item.type === "tab") {
+            const entry = item.entry;
+            return (
+              <div
+                key={item.itemKey}
+                data-item-key={item.itemKey}
+                data-tab-key={entry.key}
+                className={cn(
+                  "ov-tab",
+                  entry.key === currentKey && "is-on",
+                  hidden && "is-clipped",
+                  drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
+                  dropClass(item.itemKey),
+                )}
+                draggable
+                onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+                onDragOver={(event) => overStripItem(event, item)}
+                onDrop={(event) => dropOnStripItem(event, item)}
+                onDragEnd={endDrag}
+                onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
+              >
+                {tabButton(entry)}
+              </div>
+            );
+          }
+          const on = item.id === currentGroupId;
+          return (
+            <div
+              key={item.itemKey}
+              data-item-key={item.itemKey}
+              className={cn(
+                "ov-tab ov-tab--group",
+                on && "is-on",
+                hidden && "is-clipped",
+                drag?.kind === "group" && drag.id === item.id && "is-dragging",
+                dropClass(item.itemKey),
+              )}
+              draggable={renaming !== item.id}
+              onDragStart={(event) => startDrag(event, { kind: "group", id: item.id })}
+              onDragOver={(event) => overStripItem(event, item)}
+              onDrop={(event) => dropOnStripItem(event, item)}
+              onDragEnd={endDrag}
+              onContextMenu={(event) => openMenu(event, { kind: "group", id: item.id })}
+            >
+              {renaming === item.id ? (
+                <input
+                  className="ov-tab__rename"
+                  autoFocus
+                  defaultValue={item.name}
+                  aria-label={localize("Group name")}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onBlur={(event) => {
+                    store().renameTabGroup(item.id, event.currentTarget.value);
+                    setRenaming(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") setRenaming(null);
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="ov-tab__main"
+                  title={localize("Double-click to rename")}
+                  onClick={() => activateGroup(item.id)}
+                  onDoubleClick={() => setRenaming(item.id)}
+                >
+                  <Layers size={14} aria-hidden="true" className="ov-tab__icon" />
+                  <span className="ov-tab__label" data-short={item.name.length <= 10 ? "true" : undefined}>
+                    {item.name}
+                  </span>
+                  <span className="ov-tab__count">{item.entries.length}</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+      {overflowCount > 0 ? (
+        <div className="ov-tabs-more" data-ov-tabmenu>
+          <button
+            type="button"
+            className={cn("ov-icon-btn ov-tabs-more__btn", overflowOpen && "is-on")}
+            aria-expanded={overflowOpen}
+            title={localize("More tabs")}
+            aria-label={localize("More tabs")}
+            onClick={() => {
+              setMenu(null);
+              setOverflowOpen((open) => !open);
+            }}
+          >
+            <ChevronDown size={14} />
+            <span>{overflowCount}</span>
+          </button>
+          {overflowOpen ? (
+            <div className="ov-menu ov-tabs-more__menu" role="menu">
+              {overflowItems.map((item) =>
+                item.type === "tab" ? (
+                  <OverflowRow
+                    key={item.itemKey}
+                    entry={item.entry}
+                    on={item.entry.key === currentKey}
+                    dragging={drag?.kind === "tab" && drag.key === item.entry.key}
+                    dropClass={dropClass(`entry:${item.entry.key}`)}
+                    onDragStart={(event) => startDrag(event, { kind: "tab", key: item.entry.key })}
+                    onDragOver={(event) => overEntry(event, item.entry, "y")}
+                    onDrop={(event) => dropOnEntry(event, item.entry)}
+                    onDragEnd={endDrag}
+                  >
+                    {tabButton(item.entry, { compact: true })}
+                  </OverflowRow>
+                ) : (
+                  <div key={item.itemKey} className="ov-tabs-more__group">
+                    <button
+                      type="button"
+                      className="ov-tabs-more__grouphead"
+                      draggable
+                      onDragStart={(event) => startDrag(event, { kind: "group", id: item.id })}
+                      onDragEnd={endDrag}
+                      onClick={() => {
+                        activateGroup(item.id);
+                        setOverflowOpen(false);
+                      }}
+                    >
+                      <Layers size={13} aria-hidden="true" />
+                      {item.name}
+                      <span className="ov-tab__count">{item.entries.length}</span>
+                    </button>
+                    {item.entries.map((entry) => (
+                      <OverflowRow
+                        key={entry.key}
+                        entry={entry}
+                        on={entry.key === currentKey}
+                        dragging={drag?.kind === "tab" && drag.key === entry.key}
+                        dropClass={dropClass(`entry:${entry.key}`)}
+                        onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+                        onDragOver={(event) => overEntry(event, entry, "y")}
+                        onDrop={(event) => dropOnEntry(event, entry)}
+                        onDragEnd={endDrag}
+                      >
+                        {tabButton(entry, { compact: true })}
+                      </OverflowRow>
+                    ))}
+                  </div>
+                ),
+              )}
+              <p className="ov-tabs-more__hint">{localize("Drag a tab onto the tab bar to move it there.")}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {row}
+      {menu
+        ? createPortal(
+            <div
+              className="ov-menu ov-tabctx"
+              role="menu"
+              data-ov-tabmenu
+              style={{ left: menu.x, top: menu.y }}
+              onClick={() => setMenu(null)}
+            >
+              {menu.kind === "tab" ? (
+                <>
+                  <button type="button" role="menuitem" onClick={() => store().createTabGroup([menu.entry.key])}>
+                    {localize("Add to new group")}
+                  </button>
+                  {groupList
+                    .filter(([id]) => id !== menu.entry.tab.group)
+                    .map(([id, group]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => store().setTabGroup(menu.entry.key, id)}
+                      >
+                        {localize("Add to")} “{group.name}”
+                      </button>
+                    ))}
+                  {menu.entry.tab.group ? (
+                    <button type="button" role="menuitem" onClick={() => store().setTabGroup(menu.entry.key, null)}>
+                      {localize("Remove from group")}
+                    </button>
+                  ) : null}
+                  <button type="button" role="menuitem" className="is-danger" onClick={() => closeTab(menu.entry.tab)}>
+                    {localize("Close tab")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" role="menuitem" onClick={() => setRenaming(menu.id)}>
+                    {localize("Rename group")}
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => store().ungroupTabs(menu.id)}>
+                    {localize("Ungroup tabs")}
+                  </button>
+                  <button type="button" role="menuitem" className="is-danger" onClick={() => closeGroup(menu.id)}>
+                    {localize("Close group")}
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function OverflowRow({
+  children,
+  on,
+  dragging,
+  dropClass,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: {
+  entry: Placed;
+  children: ReactNode;
+  on: boolean;
+  dragging: boolean;
+  dropClass: string | null;
+  onDragStart: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent) => void;
+  onDrop: (event: DragEvent) => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <div
+      role="menuitem"
+      className={cn("ov-tab ov-tabs-more__row", on && "is-on", dragging && "is-dragging", dropClass)}
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      {children}
+    </div>
+  );
+}

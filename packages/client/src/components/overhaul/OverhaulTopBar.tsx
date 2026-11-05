@@ -6,14 +6,13 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   BookOpen,
   CalendarDays,
   CircleHelp,
   FileText,
   GraduationCap,
-  Home,
   Layers,
   Link,
   MessageCircle,
@@ -24,7 +23,6 @@ import {
   Sparkles,
   Users,
   VenetianMask,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
@@ -61,6 +59,7 @@ import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-lo
 import { useTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
+import { DesktopTabStrip } from "./DesktopTabStrip";
 
 const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, LucideIcon> = {
   character: Users,
@@ -419,7 +418,6 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
 export function OverhaulTopBar() {
   const localize = useLocalizedUiText();
   const mariEdgeGlow = useMariEdgeGlow();
-  const tabs = useOverhaulStore((s) => s.tabs);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -431,21 +429,6 @@ export function OverhaulTopBar() {
   const currentKey = current ? overhaulTabKey(current) : null;
   // Tabs keep their scroll place. Chats are left out: they manage their own scroll (stick to the newest message).
   useTabScrollMemory(current && current.kind !== "chat" ? currentKey : null);
-  const stripRef = useRef<HTMLDivElement | null>(null);
-  const moveTab = useOverhaulStore((s) => s.moveTab);
-  // Drag to reorder: the dragged tab's key, and where it would land (index in `tabs`).
-  const [dragKey, setDragKey] = useState<string | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
-
-  // Keep the active tab in view when the strip overflows.
-  useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip || !currentKey) return;
-    strip.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(currentKey)}"]`)?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }, [currentKey, tabs.length]);
 
   // The docked Chat settings pane and the Library pane share the right edge: opening one closes the other.
   const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
@@ -459,7 +442,6 @@ export function OverhaulTopBar() {
   }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   useTabBookkeeping(current, chats);
-  const handleClose = (tab: OverhaulTab) => closeTabAndMove(tab, tabs, currentKey);
 
   const activeChat = activeChatId ? chats.find((chat) => chat.id === activeChatId) : undefined;
   const chatOnScreen = current?.kind === "chat";
@@ -495,89 +477,16 @@ export function OverhaulTopBar() {
         alt=""
         aria-hidden="true"
       />
-      <nav className="ov-tabs" aria-label={localize("Open tabs")} ref={stripRef}>
-        <button
-          type="button"
-          className={cn("ov-tab ov-tab--home", current === null && "is-on")}
-          aria-current={current === null ? "page" : undefined}
-          onClick={goHome}
-        >
-          <Home size={14} aria-hidden="true" className="ov-tab__icon" />
-          <span className="ov-tab__label">{localize("Home")}</span>
-        </button>
-        {tabs.map((tab, index) => {
-          const key = overhaulTabKey(tab);
-          const on = key === currentKey;
-          return (
-            <div
-              key={key}
-              className={cn(
-                "ov-tab",
-                on && "is-on",
-                dragKey === key && "is-dragging",
-                dragKey && dropIndex === index && "is-drop-before",
-                dragKey && dropIndex === tabs.length && index === tabs.length - 1 && "is-drop-after",
-              )}
-              data-tab-key={key}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", key);
-                setDragKey(key);
-              }}
-              onDragOver={(event) => {
-                if (!dragKey) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                const box = event.currentTarget.getBoundingClientRect();
-                setDropIndex(event.clientX < box.left + box.width / 2 ? index : index + 1);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragKey && dropIndex !== null) moveTab(dragKey, dropIndex);
-                setDragKey(null);
-                setDropIndex(null);
-              }}
-              onDragEnd={() => {
-                setDragKey(null);
-                setDropIndex(null);
-              }}
-            >
-              <button
-                type="button"
-                className="ov-tab__main"
-                aria-current={on ? "page" : undefined}
-                onClick={() => activateTab(tab)}
-                onAuxClick={(event) => {
-                  if (event.button === 1) handleClose(tab);
-                }}
-              >
-                <TabIcon tab={tab} chats={chats} />
-                <TabLabel tab={tab} chats={chats} />
-                <TabPresence tab={tab} chats={chats} />
-              </button>
-              <button
-                type="button"
-                className="ov-tab__close"
-                aria-label={localize("Close tab")}
-                title={localize("Close tab")}
-                onClick={() => handleClose(tab)}
-              >
-                <X size={12} />
-              </button>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          className="ov-icon-btn ov-icon-btn--sm"
-          onClick={() => setOmnibarOpen(true)}
-          title={localize("Search or open anything")}
-          aria-label={localize("Search or open anything")}
-        >
-          <Plus size={15} />
-        </button>
-      </nav>
+      <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
+      <button
+        type="button"
+        className="ov-icon-btn ov-icon-btn--sm"
+        onClick={() => setOmnibarOpen(true)}
+        title={localize("Search or open anything")}
+        aria-label={localize("Search or open anything")}
+      >
+        <Plus size={15} />
+      </button>
       <div className="ov-topbar__right">
         <MariTopbarStatus state={mariEdgeGlow} />
         {chatOnScreen && activeChat ? (

@@ -25,7 +25,11 @@ export type OverhaulTabKind =
   | "schedules"
   | "app";
 
-export type OverhaulTab = { kind: OverhaulTabKind; id: string };
+/** `group` is the tab group (Vivaldi-style stack) the tab belongs to, if any. */
+export type OverhaulTab = { kind: OverhaulTabKind; id: string; group?: string };
+
+/** A tab group: its name, and the tab you were last on inside it (clicking the group opens that one). */
+export type OverhaulTabGroup = { name: string; lastKey?: string };
 
 /** Library sections shown in the right-hand Library pane. */
 export type LibrarySection =
@@ -39,8 +43,6 @@ export type LibrarySection =
   | "settings"
   | "extensions"
   | "bot-browser";
-
-export const MAX_OVERHAUL_TABS = 8;
 
 export type OverhaulSettingsTab = "general" | "chatting" | "appearance" | "chat-modes" | "media" | "data" | "advanced";
 
@@ -78,6 +80,18 @@ interface OverhaulState {
   closeTab: (tab: OverhaulTab) => void;
   /** Drag-to-reorder: put the tab with `key` at `index` in the strip. */
   moveTab: (key: string, index: number) => void;
+  /** Tab groups by id. A group's tabs always sit next to each other in `tabs`. */
+  tabGroups: Record<string, OverhaulTabGroup>;
+  /** Put tabs in a new group (at the first tab's place); returns the group id. */
+  createTabGroup: (keys: string[], name?: string) => string;
+  /** Move a tab into a group (null = out of its group). `index` places it; by default it goes to the group's end. */
+  setTabGroup: (key: string, groupId: string | null, index?: number) => void;
+  /** Move a whole group so it starts at `index` in `tabs`. */
+  moveTabGroup: (groupId: string, index: number) => void;
+  renameTabGroup: (groupId: string, name: string) => void;
+  /** Dissolve a group; its tabs stay open. */
+  ungroupTabs: (groupId: string) => void;
+  setTabGroupLastKey: (groupId: string, key: string) => void;
   /** Professor Mari's chat is the page on screen (her tab). */
   activeMari: boolean;
   openMari: () => void;
@@ -124,6 +138,28 @@ interface OverhaulState {
   setAllTabsOpen: (open: boolean) => void;
 }
 
+/** A group's tabs stay side by side: each group gathers at its first tab's place. */
+function keepGroupsTogether(tabs: OverhaulTab[]): OverhaulTab[] {
+  const out: OverhaulTab[] = [];
+  const placed = new Set<string>();
+  for (const tab of tabs) {
+    if (!tab.group) out.push(tab);
+    else if (!placed.has(tab.group)) {
+      placed.add(tab.group);
+      out.push(...tabs.filter((entry) => entry.group === tab.group));
+    }
+  }
+  return out;
+}
+
+/** Drop groups that no longer have tabs, and group marks that point at a missing group. */
+function withoutEmptyGroups(state: { tabs: OverhaulTab[]; tabGroups: Record<string, OverhaulTabGroup> }) {
+  const used = new Set(state.tabs.map((tab) => tab.group).filter(Boolean) as string[]);
+  const tabGroups = Object.fromEntries(Object.entries(state.tabGroups).filter(([id]) => used.has(id)));
+  const tabs = state.tabs.map((tab) => (tab.group && !tabGroups[tab.group] ? { kind: tab.kind, id: tab.id } : tab));
+  return { tabs, tabGroups };
+}
+
 export const useOverhaulStore = create<OverhaulState>()(
   persist(
     (set) => ({
@@ -145,12 +181,16 @@ export const useOverhaulStore = create<OverhaulState>()(
         set((state) => {
           const key = overhaulTabKey(tab);
           if (state.tabs.some((existing) => overhaulTabKey(existing) === key)) return state;
-          const tabs = [...state.tabs, tab];
-          // Oldest tabs fall off the front once the strip is full.
-          return { tabs: tabs.slice(Math.max(0, tabs.length - MAX_OVERHAUL_TABS)) };
+          // No limit: tabs that don't fit the strip go to its overflow menu instead of being closed.
+          return { tabs: [...state.tabs, { kind: tab.kind, id: tab.id }] };
         }),
       closeTab: (tab) =>
-        set((state) => ({ tabs: state.tabs.filter((existing) => overhaulTabKey(existing) !== overhaulTabKey(tab)) })),
+        set((state) =>
+          withoutEmptyGroups({
+            tabs: state.tabs.filter((existing) => overhaulTabKey(existing) !== overhaulTabKey(tab)),
+            tabGroups: state.tabGroups,
+          }),
+        ),
       moveTab: (key, index) =>
         set((state) => {
           const from = state.tabs.findIndex((tab) => overhaulTabKey(tab) === key);
@@ -160,6 +200,81 @@ export const useOverhaulStore = create<OverhaulState>()(
           tabs.splice(Math.max(0, Math.min(index > from ? index - 1 : index, tabs.length)), 0, moved!);
           return { tabs };
         }),
+      tabGroups: {},
+      createTabGroup: (keys, name) => {
+        const id = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        set((state) => {
+          const wanted = new Set(keys);
+          const members = state.tabs.filter((tab) => wanted.has(overhaulTabKey(tab)));
+          if (!members.length) return state;
+          const at = state.tabs.findIndex((tab) => wanted.has(overhaulTabKey(tab)));
+          const rest = state.tabs.filter((tab) => !wanted.has(overhaulTabKey(tab)));
+          const before = state.tabs.slice(0, at).filter((tab) => !wanted.has(overhaulTabKey(tab))).length;
+          rest.splice(before, 0, ...members.map((tab) => ({ ...tab, group: id })));
+          const count = Object.keys(state.tabGroups).length + 1;
+          return withoutEmptyGroups({
+            tabs: rest,
+            tabGroups: { ...state.tabGroups, [id]: { name: name?.trim() || `Group ${count}` } },
+          });
+        });
+        return id;
+      },
+      setTabGroup: (key, groupId, index) =>
+        set((state) => {
+          const from = state.tabs.findIndex((tab) => overhaulTabKey(tab) === key);
+          if (from < 0) return state;
+          const moved: OverhaulTab = { ...state.tabs[from]!, group: groupId ?? undefined };
+          if (!groupId) delete moved.group;
+          const tabs = state.tabs.filter((_, i) => i !== from);
+          let at: number;
+          if (index !== undefined) at = index > from ? index - 1 : index;
+          else if (groupId) {
+            const last = tabs.map((tab) => tab.group).lastIndexOf(groupId);
+            at = last >= 0 ? last + 1 : tabs.length;
+          } else {
+            // Leaving a group: land just after it.
+            const oldGroup = state.tabs[from]!.group;
+            const last = oldGroup ? tabs.map((tab) => tab.group).lastIndexOf(oldGroup) : -1;
+            at = last >= 0 ? last + 1 : from;
+          }
+          tabs.splice(Math.max(0, Math.min(at, tabs.length)), 0, moved);
+          return withoutEmptyGroups({ tabs: keepGroupsTogether(tabs), tabGroups: state.tabGroups });
+        }),
+      moveTabGroup: (groupId, index) =>
+        set((state) => {
+          const first = state.tabs.findIndex((tab) => tab.group === groupId);
+          if (first < 0) return state;
+          const members = state.tabs.filter((tab) => tab.group === groupId);
+          const before = state.tabs.slice(0, index).filter((tab) => tab.group !== groupId).length;
+          const rest = state.tabs.filter((tab) => tab.group !== groupId);
+          rest.splice(before, 0, ...members);
+          return { tabs: rest };
+        }),
+      renameTabGroup: (groupId, name) =>
+        set((state) =>
+          state.tabGroups[groupId]
+            ? {
+                tabGroups: {
+                  ...state.tabGroups,
+                  [groupId]: { ...state.tabGroups[groupId]!, name: name.trim() || state.tabGroups[groupId]!.name },
+                },
+              }
+            : state,
+        ),
+      ungroupTabs: (groupId) =>
+        set((state) => {
+          const { [groupId]: _removed, ...tabGroups } = state.tabGroups;
+          return {
+            tabGroups,
+            tabs: state.tabs.map((tab) => (tab.group === groupId ? { kind: tab.kind, id: tab.id } : tab)),
+          };
+        }),
+      setTabGroupLastKey: (groupId, key) =>
+        set((state) =>
+          state.tabGroups[groupId] && state.tabGroups[groupId]!.lastKey !== key
+            ? { tabGroups: { ...state.tabGroups, [groupId]: { ...state.tabGroups[groupId]!, lastKey: key } } }
+            : state,
+        ),
       activeMari: false,
       openMari: () =>
         set({ activeMari: true, activeSchedules: false, activeDocsTab: null, libraryPage: null, activeApp: null }),
@@ -238,6 +353,7 @@ export const useOverhaulStore = create<OverhaulState>()(
       partialize: (state) => ({
         enabled: state.enabled,
         tabs: state.tabs,
+        tabGroups: state.tabGroups,
         libraryPage: state.libraryPage,
         settingsTab: state.settingsTab,
         docsTabs: state.docsTabs,
