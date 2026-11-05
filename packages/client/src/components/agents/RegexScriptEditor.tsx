@@ -28,6 +28,7 @@ import {
   Users,
   FileText,
   Upload,
+  Copy,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
@@ -645,6 +646,7 @@ export function RegexScriptEditor() {
                   }}
                 />
                 <button type="button" className="ov-edbtn" onClick={handleExport}>
+                  <Upload size={13} aria-hidden="true" />
                   Export
                 </button>
                 <button
@@ -653,6 +655,7 @@ export function RegexScriptEditor() {
                   disabled={!dirty || isPending}
                   onClick={() => void handleSave()}
                 >
+                  <Save size={13} aria-hidden="true" />
                   {savedFlash ? "Saved" : "Save"}
                 </button>
               </>
@@ -679,6 +682,7 @@ export function RegexScriptEditor() {
                   closeRegexDetail();
                 }}
               >
+                <Save size={13} aria-hidden="true" />
                 Save and close
               </button>
             </div>
@@ -890,6 +894,7 @@ export function RegexScriptEditor() {
                 <div className="ov-ed__id">
                   ID <code>{dbRow.id}</code>
                   <button type="button" className="ov-ed__link" onClick={copyId}>
+                    <Copy size={12} aria-hidden="true" />
                     Copy
                   </button>
                 </div>

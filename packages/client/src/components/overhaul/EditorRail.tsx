@@ -13,7 +13,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { ChevronRight, Plus, X, type LucideIcon } from "lucide-react";
+import { ChevronRight, Plus, X, type LucideIcon, Upload } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 
@@ -132,6 +132,7 @@ export function EditorRail({
         <div className="ov-rail__portrait-actions">
           {avatarActions}
           <button type="button" className="ov-chip-btn" onClick={onReplaceAvatar}>
+            <Upload size={12} aria-hidden="true" />
             {localize(avatarUrl ? "Replace" : "Upload")}
           </button>
         </div>

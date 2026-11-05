@@ -6,7 +6,7 @@
 // items have pictures, sort) and a dense table. Clicking a row opens its editor.
 // ──────────────────────────────────────────────
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Download, List, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import {
   BUILT_IN_AGENTS,
@@ -192,9 +192,11 @@ function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (galler
   return (
     <div className="ov-seg" role="group" aria-label={localize("View")}>
       <button type="button" className={cn(!gallery && "is-on")} onClick={() => onChange(false)}>
+        <List size={13} aria-hidden="true" />
         {localize("List")}
       </button>
       <button type="button" className={cn(gallery && "is-on")} onClick={() => onChange(true)}>
+        <LayoutGrid size={13} aria-hidden="true" />
         {localize("Gallery")}
       </button>
     </div>
@@ -341,6 +343,7 @@ export function LorebooksLanding() {
       actions={
         <>
           <button type="button" className="ov-btn" onClick={() => openModal("import-lorebook")}>
+            <Download size={14} aria-hidden="true" />
             {localize("Import")}
           </button>
           <NewButton label={localize("New lorebook")} onClick={() => openModal("create-lorebook")} />
@@ -446,6 +449,7 @@ export function PresetsLanding() {
       actions={
         <>
           <button type="button" className="ov-btn" onClick={() => openModal("import-preset")}>
+            <Download size={14} aria-hidden="true" />
             {localize("Import")}
           </button>
           <NewButton label={localize("New preset")} onClick={() => openModal("create-preset")} />
@@ -611,6 +615,7 @@ export function RegexLanding() {
             }}
           />
           <button type="button" className="ov-btn" onClick={() => fileRef.current?.click()}>
+            <Download size={14} aria-hidden="true" />
             {localize("Import")}
           </button>
           <NewButton label={localize("New script")} onClick={() => openRegexDetail("__new__")} />
@@ -751,6 +756,7 @@ export function ConnectionsLanding() {
       actions={
         <>
           <button type="button" className="ov-btn" onClick={() => openModal("import-connection")}>
+            <Download size={14} aria-hidden="true" />
             {localize("Import")}
           </button>
           <NewButton label={localize("New connection")} onClick={() => openModal("create-connection")} />

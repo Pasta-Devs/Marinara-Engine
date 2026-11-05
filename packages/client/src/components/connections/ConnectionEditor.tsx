@@ -1837,6 +1837,11 @@ export function ConnectionEditor() {
                     onClick={handleTestMessage}
                     disabled={testMessage.isPending || !canSendTestMessage}
                   >
+                    {testMessage.isPending ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <MessageSquare size={13} />
+                    )}
                     Send test message
                   </button>
                 )}
@@ -1848,6 +1853,7 @@ export function ConnectionEditor() {
                     !dirty || updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError
                   }
                 >
+                  <Save size={13} aria-hidden="true" />
                   {savedFlash && !dirty ? "Saved" : "Save"}
                 </button>
               </>

@@ -2351,9 +2351,11 @@ function ExpandedDrawer({
                   : localizeUi("ui.lorebooks.expandeddrawer.savedAutomatically")}
           </span>
           <button type="button" disabled={ov.duplicateDisabled} onClick={ov.onDuplicate}>
+            <Copy size={12} aria-hidden="true" />
             {localizeUi("ui.lorebooks.lorebookentryrow.duplicateEntry")}
           </button>
           <button type="button" className="is-danger" onClick={ov.onDelete}>
+            <Trash2 size={12} aria-hidden="true" />
             {localizeUi("lorebook.editor.batch.delete")}
           </button>
         </div>

@@ -2235,6 +2235,7 @@ export function AgentEditor() {
             actions={
               <>
                 <button type="button" className="ov-edbtn" onClick={handleExportAgent}>
+                  <Upload size={13} aria-hidden="true" />
                   Export
                 </button>
                 <button
@@ -2243,6 +2244,7 @@ export function AgentEditor() {
                   onClick={handleSave}
                   disabled={!dirty || isPending}
                 >
+                  <Save size={13} aria-hidden="true" />
                   {savedFlash && !dirty ? "Saved" : "Save"}
                 </button>
               </>
