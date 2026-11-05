@@ -175,6 +175,35 @@ export function InstalledPage({ entries }: { entries: readonly OrganizerEntry[] 
   );
 }
 
+export function NotInstalledPage({ entries }: { entries: readonly OrganizerEntry[] }) {
+  const { installedById } = useOrganizer();
+  const { t: localizeUi } = useUiTranslation();
+  const [sort, setSort] = useState<SortKey>("store");
+  const rows = sortEntries(
+    entries.filter((entry) => !installedById.has(entry.manifest.id)),
+    sort,
+  );
+  return (
+    <div>
+      <PageHeader title={localizeUi("ui.agents.organizer.notInstalledTitle")}>
+        <SortSelect value={sort} keys={["store", "name-asc", "name-desc", "size"]} onChange={setSort} />
+        <span className="text-xs text-[var(--muted-foreground)]">
+          {localizeUi("ui.agents.organizer.agentCount", { count: rows.length })}
+        </span>
+      </PageHeader>
+      {rows.length === 0 ? (
+        <EmptyLine>{localizeUi("ui.agents.organizer.emptyNotInstalled")}</EmptyLine>
+      ) : (
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-x-6 xl:grid-cols-2">
+          {rows.map((entry) => (
+            <AgentRow key={entry.manifest.id} entry={entry} withMenu />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** Notes for the versions newer than the installed one; fetched only once opened. */
 function UpdateNotes({ entry, installedVersion }: { entry: OrganizerEntry; installedVersion: string }) {
   const { t: localizeUi } = useUiTranslation();
