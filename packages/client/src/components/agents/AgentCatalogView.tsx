@@ -615,7 +615,7 @@ export function AgentCatalogView() {
   } else if (page.kind === "installed") {
     content = <InstalledPage entries={all} />;
   } else if (page.kind === "notInstalled") {
-    content = <NotInstalledPage entries={entries} />;
+    content = <NotInstalledPage entries={entries} modeFiltered={modeFilter !== "all"} />;
   } else if (page.kind === "section") {
     content = <SectionPage section={page.id} entries={entries.filter((entry) => sectionOf(entry) === page.id)} />;
   } else {

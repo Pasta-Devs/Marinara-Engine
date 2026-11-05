@@ -7899,6 +7899,7 @@
   "ui.agents.organizer.details": "Details",
   "ui.agents.organizer.emptyInstalled": "No agents installed yet. Pick one on Home to start.",
   "ui.agents.organizer.emptyNotInstalled": "You have every agent installed.",
+  "ui.agents.organizer.emptyNotInstalledForMode": "No agents to install for the chosen mode.",
   "ui.agents.organizer.emptySection": "No agents in this section for the chosen mode.",
   "ui.agents.organizer.emptyUpdates": "All your agents are up to date.",
   "ui.agents.organizer.eyebrow": "Download and manage",

@@ -175,7 +175,13 @@ export function InstalledPage({ entries }: { entries: readonly OrganizerEntry[] 
   );
 }
 
-export function NotInstalledPage({ entries }: { entries: readonly OrganizerEntry[] }) {
+export function NotInstalledPage({
+  entries,
+  modeFiltered,
+}: {
+  entries: readonly OrganizerEntry[];
+  modeFiltered: boolean;
+}) {
   const { installedById } = useOrganizer();
   const { t: localizeUi } = useUiTranslation();
   const [sort, setSort] = useState<SortKey>("store");
@@ -192,7 +198,11 @@ export function NotInstalledPage({ entries }: { entries: readonly OrganizerEntry
         </span>
       </PageHeader>
       {rows.length === 0 ? (
-        <EmptyLine>{localizeUi("ui.agents.organizer.emptyNotInstalled")}</EmptyLine>
+        <EmptyLine>
+          {localizeUi(
+            modeFiltered ? "ui.agents.organizer.emptyNotInstalledForMode" : "ui.agents.organizer.emptyNotInstalled",
+          )}
+        </EmptyLine>
       ) : (
         <ul className="grid grid-cols-[minmax(0,1fr)] gap-x-6 xl:grid-cols-2">
           {rows.map((entry) => (
