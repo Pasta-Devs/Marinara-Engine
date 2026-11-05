@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ExternalLink, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import {
@@ -41,6 +41,9 @@ import {
 } from "./FloatingWindow";
 import { HelpTooltip } from "./HelpTooltip";
 import { useDrawerHost, type DrawerHost } from "./drawer-host";
+import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useMobileChatSettingsNav } from "../../features/chat-settings/mobile-nav";
 
 export interface DrawerProps {
   /** Stable id, exposed as `data-drawer` for themes and tests. Inside a drawer host it also enables pop-out. */
@@ -51,6 +54,8 @@ export interface DrawerProps {
   help?: string;
   /** Shown beside the title while the drawer is closed (a tracker's miniature display). */
   summary?: ReactNode;
+  /** New layout on phones: the current value shown on this section's row in Chat settings' list. */
+  rowValue?: string;
   /** Shown on the bubble of its popped-out window, instead of its icon, while that window is minimized. */
   banner?: ReactNode;
   /** Extra controls between the help tip and the arrow, before the pop-out button. */
@@ -113,6 +118,7 @@ export function Drawer({
   count,
   help,
   summary,
+  rowValue,
   banner,
   actions,
   detachedHeaderControls,
@@ -138,6 +144,13 @@ export function Drawer({
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; offsetX: number; active: boolean }>(null);
   const suppressClickRef = useRef(false);
   const [ghost, setGhost] = useState<{ x: number; y: number; outside: boolean; container: Element } | null>(null);
+  // New layout on phones: Chat settings shows each section as a row, and a row opens it as a page.
+  const overhaulMobile = useOverhaulMobile();
+  const navView = useMobileChatSettingsNav((state) => state.view);
+  const navPage = useMobileChatSettingsNav((state) => state.page);
+  // Connection stays its one-line selector everywhere.
+  const pagedNav =
+    overhaulMobile && !!id && id !== "connection" && host?.id === CHAT_SETTINGS_WINDOW_ID && navView !== "off";
 
   if (poppedOut && host && windowId && id) {
     return (
@@ -160,6 +173,61 @@ export function Drawer({
     );
   }
 
+  if (pagedNav && id) {
+    const nav = useMobileChatSettingsNav.getState();
+    if (navView === "page" && navPage === id) {
+      return (
+        <div
+          ref={rootRef}
+          data-drawer={id}
+          data-detached="false"
+          data-ovm-cs-current="true"
+          {...rootAttributes}
+          className={cn("mari-drawer ovm-cs-page", className)}
+          style={style}
+        >
+          <div className="ovm-cs-page__head">
+            <button type="button" className="ovm-cs-page__back" onClick={nav.showAll}>
+              <ChevronLeft size={22} aria-hidden="true" />
+              {t("chat.settings.allSettings", { defaultValue: "All settings" })}
+            </button>
+            <span className="ovm-cs-page__title">{title}</span>
+            {help ? (
+              <span className="mari-drawer__help ovm-cs-page__help">
+                <HelpTooltip text={help} side="left" />
+              </span>
+            ) : null}
+          </div>
+          {actions ? <div className="ovm-cs-page__actions">{actions}</div> : null}
+          <div id={bodyId} className={cn("mari-drawer__body ovm-cs-page__body", bodyClassName ?? "pt-3")}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div
+        ref={rootRef}
+        data-drawer={id}
+        data-detached="false"
+        {...rootAttributes}
+        className={cn("mari-drawer ovm-cs-row", className)}
+        style={style}
+      >
+        <button type="button" className="ovm-cs-row__btn" onClick={() => nav.showPage(id)}>
+          {icon && <span className="ovm-cs-row__icon">{icon}</span>}
+          <span className="ovm-cs-row__title">{title}</span>
+          {rowValue ? <span className="ovm-cs-row__value">{rowValue}</span> : null}
+          {count != null && count > 0 ? <span className="ovm-cs-row__count">{count}</span> : null}
+          <ChevronRight size={16} className="ovm-cs-row__chev" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  // On those pages Connection's selector is always showing, like on desktop.
+  const bodyOpen =
+    open || (overhaulMobile && id === "connection" && host?.id === CHAT_SETTINGS_WINDOW_ID && navView !== "off");
   const titleText = typeof title === "string" ? title : t("drawer.popOut.section");
   const readHostWindow = () => rootRef.current?.closest<HTMLElement>(".mari-window") ?? null;
   const isOutsideHost = (x: number, y: number) => {
@@ -340,7 +408,7 @@ export function Drawer({
         )}
         <ChevronDown size="0.75rem" className={cn("mari-drawer__arrow transition-transform", open && "rotate-180")} />
       </div>
-      {open && (
+      {bodyOpen && (
         <div id={bodyId} className={cn("mari-drawer__body", bodyClassName ?? "pt-3")}>
           {children}
         </div>

@@ -1115,3 +1115,265 @@
   color: inherit;
   opacity: 0.75;
 }
+
+/* ─── Chat settings pages: quick page, All settings list, one section per page ─── */
+[data-ovm-cs-view="quick"]
+  > :not([data-ovm-quick]):not([data-chat-settings-section$="-persona"]):not(
+    :has([data-chat-settings-section$="-persona"])
+  ),
+[data-ovm-cs-view="all"] > .ovm-csq,
+[data-ovm-cs-view="page"] > :not([data-ovm-cs-current]):not(:has([data-ovm-cs-current])),
+[data-ovm-cs-view]:not([data-ovm-cs-view="all"]) > [data-ovm-list] {
+  display: none !important;
+}
+[data-ovm-cs-view] {
+  gap: 0;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
+}
+/* The quick page is a bottom sheet as tall as its content; the list and pages fill the screen. */
+:root[data-overhaul="mobile"] .mari-window.ov-cs:has([data-ovm-cs-view="quick"]) {
+  top: auto !important;
+  bottom: calc(0.5rem + env(safe-area-inset-bottom)) !important;
+  height: auto !important;
+  max-height: 80dvh !important;
+}
+:root[data-overhaul="mobile"] .mari-window.ov-cs:has([data-ovm-cs-view="quick"]) [data-ovm-cs-view] {
+  flex: 0 1 auto;
+}
+[data-ovm-cs-view="quick"] > [data-ovm-quick]:not(.ovm-csq),
+[data-ovm-cs-view="quick"]
+  > :is([data-chat-settings-section$="-persona"], :has([data-chat-settings-section$="-persona"])) {
+  margin-top: 0.5rem;
+}
+
+/* A section as a row: 52px, icon, name, current value, chevron. */
+.ovm-cs-row {
+  margin-top: 1px;
+}
+.ovm-cs-row__btn {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+  color: var(--ov-text);
+  text-align: left;
+}
+.ovm-cs-row__btn:active {
+  background: color-mix(in srgb, var(--foreground) 10%, var(--ovm-surface));
+}
+.ovm-cs-row__icon {
+  display: grid;
+  flex: none;
+  color: var(--ov-muted);
+}
+.ovm-cs-row__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ovm-cs-row__title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-cs-row__value {
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.9375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-cs-row__count {
+  display: grid;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  place-items: center;
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
+  color: var(--ov-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ovm-cs-row__chev {
+  flex: none;
+  color: var(--ov-dim);
+}
+[data-ovm-cs-view="all"] > [data-ovm-quick] {
+  margin-top: 1px;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+.ovm-cs-group {
+  padding: 1rem 0.375rem 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ovm-cs-listback {
+  padding-top: 0.25rem;
+}
+
+/* A section opened as its own page. */
+.ovm-cs-page__head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 3rem;
+  margin: 0 -0.75rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--ovm-line);
+  background: var(--ovm-surface);
+}
+.ovm-cs-page__back {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.125rem;
+  justify-self: start;
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--ov-accent);
+  font-size: 1rem;
+}
+.ovm-cs-page__title {
+  overflow: hidden;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-cs-page__help {
+  justify-self: end;
+}
+.ovm-cs-page__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+.ovm-cs-page__body {
+  padding-bottom: 1rem;
+  /* The sections keep their desktop density; scale the page up for touch as a whole. */
+  zoom: 1.1;
+}
+[data-ovm-cs-view] .ovm-cs-row {
+  display: block;
+  width: 100%;
+}
+/* Connection keeps its one-line selector, on a row like the others. */
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 3.25rem;
+  padding: 0.375rem 0.625rem 0.375rem 0.875rem !important;
+  border: 0 !important;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised) !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__header {
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] select {
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.625rem;
+}
+[data-ovm-cs-view] [data-chat-settings-section="connection"] .mari-drawer__icon {
+  display: grid !important;
+  color: var(--ov-muted);
+}
+[data-ovm-cs-view] [data-chat-settings-section="connection"] .mari-drawer__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+[data-ovm-cs-view] [data-chat-settings-section="connection"] .mari-drawer__title {
+  font-size: 1rem !important;
+  font-weight: 400 !important;
+}
+
+/* Quick page: switches and the All settings row. */
+.ovm-csq {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-top: 0.625rem;
+}
+.ovm-csq__switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 0.5rem;
+}
+.ovm-csq__switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 0.25rem;
+  border: 0;
+  border-radius: 0.875rem;
+  background: var(--ovm-raised);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ovm-csq__switch:disabled {
+  opacity: 0.6;
+}
+.ovm-csq__track {
+  position: relative;
+  width: 3.125rem;
+  height: 1.875rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 20%, var(--ovm-surface));
+  transition: background 160ms ease;
+}
+.ovm-csq__thumb {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+.ovm-csq__switch.is-on .ovm-csq__track {
+  background: var(--ov-accent);
+}
+.ovm-csq__switch.is-on .ovm-csq__thumb {
+  transform: translateX(1.25rem);
+}
+.ovm-csq__all {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0.875rem;
+  background: var(--ovm-raised);
+  color: var(--ov-text);
+  font-size: 1rem;
+}
+.ovm-csq__all-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+}

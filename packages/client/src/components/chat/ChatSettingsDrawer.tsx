@@ -99,6 +99,12 @@ import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
 import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sections/PersonaHistoryReassignDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
+import { useMobileChatSettingsNav } from "../../features/chat-settings/mobile-nav";
+import {
+  MobileChatSettingsBack,
+  MobileChatSettingsGroup,
+  MobileChatSettingsQuick,
+} from "../../features/chat-settings/MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
@@ -1054,6 +1060,13 @@ export function ChatSettingsDrawer({
   const overhaulActive = overhaulDesktop || overhaulMobile;
   const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
+  // New layout on phones and tablets: the sheet opens on its quick page; Edit mode keeps the classic sections.
+  const mobileNavView = useMobileChatSettingsNav((state) => state.view);
+  useEffect(() => {
+    const nav = useMobileChatSettingsNav.getState();
+    if (!overhaulMobile || ovEditing) nav.turnOff();
+    else if (windowOpen) nav.showQuick();
+  }, [overhaulMobile, ovEditing, windowOpen]);
   const ovDocked = overhaulDesktop && !ovFloating;
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
   const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
@@ -5634,6 +5647,7 @@ export function ChatSettingsDrawer({
             "@container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]",
             overhaulActive && "ov-cs__scroll",
           )}
+          data-ovm-cs-view={overhaulMobile && mobileNavView !== "off" ? mobileNavView : undefined}
         >
           {/* Settings profile bar — hidden in Game Mode. Scene chats keep it, but scene instructions stay chat-owned. */}
           <div ref={setControlDockHost} data-chat-control-dock style={{ order: CHAT_SETTINGS_ORDER.search + 1 }} />
@@ -5653,6 +5667,58 @@ export function ChatSettingsDrawer({
                 : null)}
           {/* Overhaul Game Mode: the game's own tools (session, volume, game tools) are portaled in here. */}
           {overhaulActive && isGame && <div ref={setOvGameSettingsSlot} data-ov-contents className="contents" />}
+          {overhaulMobile && mobileNavView !== "off" && (
+            <>
+              <MobileChatSettingsQuick
+                order={CHAT_SETTINGS_ORDER.persona + 10}
+                sectionCount={0}
+                switches={[
+                  {
+                    id: "agents",
+                    label: localizeUi("chat.settings.quick.agents", { defaultValue: "Agents" }),
+                    on: metadata.enableAgents === true,
+                    disabled: updateMeta.isPending,
+                    onToggle: () => updateMeta.mutate({ id: chat.id, enableAgents: metadata.enableAgents !== true }),
+                  },
+                  ...(trackerPanelToggleAvailable
+                    ? [
+                        {
+                          id: "trackers",
+                          label: localizeUi("chat.settings.quick.trackers", { defaultValue: "Trackers" }),
+                          on: trackerPanelShown,
+                          onToggle: toggleTrackerPanel,
+                        },
+                      ]
+                    : []),
+                  {
+                    id: "translate",
+                    label: localizeUi("chat.settings.quick.translate", { defaultValue: "Translate" }),
+                    on: metadata.autoTranslate === true,
+                    disabled: updateTranslationMeta.isPending,
+                    onToggle: () =>
+                      updateTranslationMeta.mutate({ id: chat.id, autoTranslate: metadata.autoTranslate !== true }),
+                  },
+                ]}
+              />
+              <MobileChatSettingsBack order={CHAT_SETTINGS_ORDER.settingsPresets - 100} />
+              <MobileChatSettingsGroup
+                order={CHAT_SETTINGS_ORDER.connection - 1}
+                label={localizeUi("chat.settings.groups.model", { defaultValue: "Model" })}
+              />
+              <MobileChatSettingsGroup
+                order={CHAT_SETTINGS_ORDER.persona - 1}
+                label={localizeUi("chat.settings.groups.people", { defaultValue: "People" })}
+              />
+              <MobileChatSettingsGroup
+                order={CHAT_SETTINGS_ORDER.scopedRegex - 1}
+                label={localizeUi("chat.settings.groups.memory", { defaultValue: "Memory" })}
+              />
+              <MobileChatSettingsGroup
+                order={CHAT_SETTINGS_ORDER.agents - 1}
+                label={localizeUi("chat.settings.groups.more", { defaultValue: "Agents and tools" })}
+              />
+            </>
+          )}
 
           {chatTools && !isGame && (
             <Section
@@ -5698,7 +5764,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.connection }}>
+          <div data-ovm-quick="true" style={{ order: CHAT_SETTINGS_ORDER.connection }}>
             <ConnectionSection
               connectionId={chat.connectionId ?? null}
               connections={chatGenerationConnectionsList}
@@ -5710,7 +5776,7 @@ export function ChatSettingsDrawer({
 
           {/* Roleplay prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "roleplay" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div data-ovm-quick="true" style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
               <PromptPresetSection
                 promptPresetId={chat.promptPresetId ?? null}
                 presets={promptPresetOptions}
@@ -6105,6 +6171,14 @@ export function ChatSettingsDrawer({
             <Section
               id={`${chatMode}-persona`}
               style={{ order: CHAT_SETTINGS_ORDER.persona }}
+              summary={
+                (chat.personaCharacterId
+                  ? (() => {
+                      const character = characters.find((candidate) => candidate.id === chat.personaCharacterId);
+                      return character ? charName(character) : undefined;
+                    })()
+                  : personas.find((persona) => persona.id === chat.personaId)?.name) ?? undefined
+              }
               label={localizeUi("ui.characters.cardlibrarydetailcard.persona")}
               icon={<VenetianMask size="0.875rem" />}
               help={localizeUi("ui.chat.chatsettingsdrawer.yourPersonaDefinesWhoYouAreInThisChat")}

@@ -9,6 +9,8 @@ interface ChatSettingsSectionProps {
   label: string;
   icon?: ReactNode;
   count?: number;
+  /** Short current value (a persona's name), shown on the section's row in the phone list. */
+  summary?: string;
   help?: string;
   style?: CSSProperties;
   initialOpen?: boolean;
@@ -24,6 +26,7 @@ export function ChatSettingsSection({
   label,
   icon,
   count,
+  summary,
   help,
   style,
   initialOpen = false,
@@ -59,6 +62,7 @@ export function ChatSettingsSection({
       title={label}
       icon={icon}
       count={count}
+      rowValue={summary}
       help={help}
       open={open}
       onOpenChange={setOpenRemembered}
