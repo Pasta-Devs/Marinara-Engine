@@ -2083,8 +2083,9 @@
 }
 
 /* Every text box with Preview / Expand / Macro buttons (Chat settings, Lorebook entries,
-   Character and Persona pages, editors): on phones the buttons leave the box and always sit
-   in their own row just above it on the right, at touch size, in edit and preview alike. */
+   Character and Persona pages, editors): on phones the buttons leave the box and sit in a
+   short row just above it on the right, at their original small size, in edit and preview
+   alike. Under a plain label they share the label's line instead. */
 :root[data-overhaul="mobile"]
   :is([data-macro-field], .relative):has(> [data-macro-tools], > textarea + .absolute.flex-col):not(#ovm-x):not(
     #ovm-y
@@ -2099,34 +2100,34 @@
   flex-direction: row;
   justify-content: flex-end;
   gap: 0.25rem;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.125rem;
   padding: 0;
   opacity: 1;
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex
+  + :is([data-macro-field], .relative)
+  > :is([data-macro-tools], textarea + .absolute.flex-col):not(#ovm-x):not(#ovm-y) {
+  position: absolute;
+  top: auto;
+  bottom: 100%;
+  right: 0;
+  margin: 0;
+}
+:root[data-overhaul="mobile"] span.inline-flex + :is([data-macro-field], .relative):not(#ovm-x):not(#ovm-y) {
+  position: relative;
+  margin-top: 0.25rem;
 }
 :root[data-overhaul="mobile"] [data-macro-field] > :is(textarea, [role="region"]):not(#ovm-x):not(#ovm-y),
 :root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col) > textarea:not(#ovm-x):not(#ovm-y) {
   padding-right: 0.75rem !important;
 }
+/* The buttons keep their original small size (the thumb-size rules skip them). */
 :root[data-overhaul="mobile"]
   :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col)
   > :is(button, a):not(#ovm-x):not(#ovm-y) {
-  display: inline-flex;
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.5rem;
-  min-height: 2.5rem !important;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-radius: 0.75rem;
-  background: var(--ovm-raised);
-}
-:root[data-overhaul="mobile"]
-  :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col)
-  > :is(button, a)
-  svg {
-  width: 1.125rem !important;
-  height: 1.125rem !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
 }
 
 /* Choice pills (Service Tier, Reasoning Effort, Verbosity and other on/off picks in a
