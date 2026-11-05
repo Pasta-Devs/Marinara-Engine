@@ -38,6 +38,7 @@ import {
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
 } from "./stores/ui.store";
+import { useOverhaulLook } from "./stores/overhaul.store";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
@@ -490,6 +491,7 @@ export function App() {
   const fontSize = useUIStore((s) => s.fontSize);
   const language = useUIStore((s) => s.language);
   const visualTheme = useUIStore((s) => s.visualTheme);
+  const overhaulLook = useOverhaulLook();
   const fontFamily = useUIStore((s) => s.fontFamily);
   const chatWidgetPreset = useUIStore((s) => s.chatWidgetPreset);
   const chatWidgetFont = useUIStore((s) => s.chatWidgetFont);
@@ -769,8 +771,11 @@ export function App() {
     const animatedGradientStops = animatedAccentIsGradient
       ? getCssGradientColorStops(animatedAccentSource, animatedSolidAccent)
       : [animatedSolidAccent];
+    // The new layout keeps the accent steady: each pulse tick rewrites root tokens, which restyles
+    // every element and restarts their color transitions, so big pages never get an idle frame.
     const accentAnimationEnabled =
-      appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled;
+      !overhaulLook &&
+      (appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled);
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
 
     root.style.setProperty("--marinara-app-accent-static", solidAccent);
@@ -988,6 +993,7 @@ export function App() {
     appAccentPulseMode,
     appAccentRgbMode,
     customCursorEnabled,
+    overhaulLook,
     reduceAmbientEffects,
     theme,
     themeAccentPulseConfig.enabled,
