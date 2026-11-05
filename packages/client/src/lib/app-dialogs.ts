@@ -71,7 +71,12 @@ export function confirmNonEmptyFolderDelete(
   itemCount: number,
   options: Omit<ConfirmDialogState, "kind">,
 ): Promise<boolean> {
-  if (itemCount <= 0) return Promise.resolve(true);
+  // Every folder deletion asks first, even an empty one (a stray tap on Delete is easy on phones).
+  // An empty folder keeps only the "Delete "name"?" question, not the line about moving items.
+  if (itemCount <= 0 && typeof options.message === "string") {
+    const question = options.message.match(/^(.*[”"]\?)\s/)?.[1];
+    return showConfirmDialog(question ? { ...options, message: question } : options);
+  }
   return showConfirmDialog(options);
 }
 
