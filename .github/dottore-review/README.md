@@ -298,8 +298,9 @@ These are all of Dottore's repository variables, beside the model settings above
 | `DOTTORE_CONCURRENCY` | Scout and checker calls run at once, up to 16; the finders always run all at once, up to 16 | `4` | the review job |
 | `DOTTORE_FINDERS` | Finder copies per packet, `1` or `2`; a second one starts a few seconds later and reuses the cache | `1` | the review job |
 
-The review job also passes every repository variable to the reviewer, which shows them in the bundle only for a pull
-request that changes a file under `.github/`. Do not keep a value in a variable that a model provider must not see.
+The review job also passes every repository and organization variable to the reviewer. It shows only the `DOTTORE_*`
+ones in the bundle, and only for a pull request that changes a file under `.github/`; other variables never reach the
+model. Do not keep a value in a `DOTTORE_*` variable that a model provider must not see.
 
 Everything else the reviewer reads from its environment, the workflow sets itself: the pull request number, head and
 base, the mode, the paths of the prompt and rules it copied out of the pinned checkout, and that checkout's repository

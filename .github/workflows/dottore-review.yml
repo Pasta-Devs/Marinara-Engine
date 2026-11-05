@@ -191,20 +191,21 @@ jobs:
           DOTTORE_CONCURRENCY: ${{ vars.DOTTORE_CONCURRENCY }}
           DOTTORE_FINDERS: ${{ vars.DOTTORE_FINDERS }}
           DOTTORE_COST_LIMIT_USD: ${{ vars.DOTTORE_COST_LIMIT_USD }}
-          # Shown to the reviewer only when the PR changes a file under .github/; secrets are never passed.
+          # Every repository and organization variable; the reviewer shows only the DOTTORE_* ones, and only when the PR
+          # changes a file under .github/. Secrets are never passed.
           DOTTORE_VARS_JSON: ${{ toJSON(vars) }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py produce
 
       - name: Render review
-        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && steps.post.outputs.ready != 'false' && inputs.review_mode != 'autofix'
+        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && inputs.review_mode != 'autofix'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py render
 
       - name: Post the review
         id: post
-        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && steps.post.outputs.ready != 'false' && inputs.review_mode != 'autofix'
+        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && inputs.review_mode != 'autofix'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py post
