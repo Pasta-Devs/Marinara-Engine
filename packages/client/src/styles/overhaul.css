@@ -7713,3 +7713,11 @@ input.ov-edhead__title:focus {
   justify-content: flex-end;
   margin-top: 0.625rem;
 }
+
+/* Settings: a ? sits right after the control or text it explains, never pushed to the row's far end. */
+:root[data-overhaul] .ov-help-row > .flex-1 {
+  flex: 0 1 auto;
+}
+:root[data-overhaul] .ov-help-row > :last-child:not(:has(> button[aria-label^="Show help"])) {
+  margin-left: auto;
+}

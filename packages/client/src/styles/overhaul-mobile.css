@@ -3163,3 +3163,8 @@
   grid-column: auto;
   grid-row: auto;
 }
+
+/* A Settings page on phones/tablets shows one section: one column, so tablets don't leave the right half empty. */
+:root[data-overhaul="mobile"] .ovm-settings__section .ov-settings__sections {
+  columns: auto;
+}
