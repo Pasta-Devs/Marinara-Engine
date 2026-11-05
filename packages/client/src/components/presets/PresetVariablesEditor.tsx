@@ -4,7 +4,7 @@
 // Moved verbatim out of PresetEditor.tsx so other editors can reuse it.
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
-import { isOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
 import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -280,6 +280,11 @@ export function PresetVariablesEditor({
     },
   });
 
+  // Phones: reorder arrows and delete sit behind Edit, so they can't be hit by accident.
+  const touchLayout = useOverhaulMobile();
+  const [touchEditing, setTouchEditing] = useState(false);
+  const showRowTools = !touchLayout || touchEditing;
+
   return (
     <div className={cn("mari-editor-panel space-y-3", compact ? "mt-3 p-2" : "mt-6 p-3")}>
       <div
@@ -303,6 +308,26 @@ export function PresetVariablesEditor({
             {variables.length}
           </span>
         </div>
+        {touchLayout && variables.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setTouchEditing((editing) => !editing)}
+            aria-pressed={touchEditing}
+            data-preset-touch-edit
+            className={cn(
+              "mari-editor-action mari-editor-action--primary ml-auto inline-flex",
+              touchEditing && "mari-chrome-accent-surface mari-accent-animated",
+            )}
+          >
+            {touchEditing ? (
+              localizeUi("ui.presets.sectionstab.doneEditing", { defaultValue: "Done" })
+            ) : (
+              <>
+                <span aria-hidden="true">✏️</span> {localizeUi("ui.presets.sectionstab.edit", { defaultValue: "Edit" })}
+              </>
+            )}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onCreate}
@@ -407,6 +432,8 @@ export function PresetVariablesEditor({
                     canMoveUp={idx > 0}
                     canMoveDown={idx < variables.length - 1}
                     isReordering={isReordering}
+                    showTools={showRowTools}
+                    touchTools={touchLayout}
                   />
                 </div>
                 {showDropAfter && (
@@ -440,6 +467,8 @@ function VariableCard({
   canMoveUp,
   canMoveDown,
   isReordering,
+  showTools = true,
+  touchTools = false,
 }: {
   variable: any;
   variant: VariablesEditorVariant;
@@ -457,6 +486,8 @@ function VariableCard({
   canMoveUp: boolean;
   canMoveDown: boolean;
   isReordering: boolean;
+  showTools?: boolean;
+  touchTools?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   // Parse options
@@ -582,7 +613,10 @@ function VariableCard({
   });
 
   return (
-    <div className="mari-editor-panel mari-editor-panel--soft transition-all">
+    <div
+      className="mari-editor-panel mari-editor-panel--soft transition-all"
+      data-variable-touch-tools={touchTools || undefined}
+    >
       {/* Header */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
         <div className="flex shrink-0 items-center gap-0.5">
@@ -595,32 +629,38 @@ function VariableCard({
           >
             <GripVertical size="0.875rem" className="text-[var(--muted-foreground)]" />
           </div>
-          <button
-            type="button"
-            onClick={onMoveUp}
-            disabled={!canMoveUp || isReordering}
-            className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
-            title={localizeUi("ui.presets.sectionstab.moveUp")}
-            aria-label={localizeUi("ui.presets.sectionstab.moveValue1Up", {
-              value1: varName || localizeUi("ui.presets.variablecard.variable"),
-            })}
-          >
-            <ArrowUp size="0.75rem" />
-          </button>
-          <button
-            type="button"
-            onClick={onMoveDown}
-            disabled={!canMoveDown || isReordering}
-            className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
-            title={localizeUi("ui.presets.sectionstab.moveDown")}
-            aria-label={localizeUi("ui.presets.sectionstab.moveValue1Down", {
-              value1: varName || localizeUi("ui.presets.variablecard.variable"),
-            })}
-          >
-            <ArrowDown size="0.75rem" />
-          </button>
+          {showTools ? (
+            <>
+              <button
+                type="button"
+                onClick={onMoveUp}
+                disabled={!canMoveUp || isReordering}
+                data-variable-row-tool
+                className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                title={localizeUi("ui.presets.sectionstab.moveUp")}
+                aria-label={localizeUi("ui.presets.sectionstab.moveValue1Up", {
+                  value1: varName || localizeUi("ui.presets.variablecard.variable"),
+                })}
+              >
+                <ArrowUp size="0.75rem" />
+              </button>
+              <button
+                type="button"
+                onClick={onMoveDown}
+                disabled={!canMoveDown || isReordering}
+                data-variable-row-tool
+                className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                title={localizeUi("ui.presets.sectionstab.moveDown")}
+                aria-label={localizeUi("ui.presets.sectionstab.moveValue1Down", {
+                  value1: varName || localizeUi("ui.presets.variablecard.variable"),
+                })}
+              >
+                <ArrowDown size="0.75rem" />
+              </button>
+            </>
+          ) : null}
         </div>
-        <button onClick={onToggle} className="shrink-0 rounded p-0.5 hover:bg-[var(--accent)]">
+        <button onClick={onToggle} data-variable-chevron className="shrink-0 rounded p-0.5 hover:bg-[var(--accent)]">
           {isExpanded ? (
             <ChevronDown size="0.875rem" className="text-[var(--muted-foreground)]" />
           ) : (
@@ -664,24 +704,27 @@ function VariableCard({
           </span>
         )}
         <code className="hidden shrink-0 text-[0.625rem] text-[var(--muted-foreground)] sm:inline">{`{{${varName}}}`}</code>
-        <button
-          onClick={async () => {
-            if (
-              await showConfirmDialog({
-                title: localizeUi("ui.presets.variablecard.deleteVariable_8ceffd4"),
-                message: localizeUi("ui.presets.variablecard.deleteVariableValue1", { value1: varName }),
-                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                tone: "destructive",
-              })
-            ) {
-              onDelete();
-            }
-          }}
-          className="shrink-0 rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          title={localizeUi("ui.presets.variablecard.deleteVariable")}
-        >
-          <Trash2 size="0.75rem" />
-        </button>
+        {showTools ? (
+          <button
+            data-variable-row-tool
+            onClick={async () => {
+              if (
+                await showConfirmDialog({
+                  title: localizeUi("ui.presets.variablecard.deleteVariable_8ceffd4"),
+                  message: localizeUi("ui.presets.variablecard.deleteVariableValue1", { value1: varName }),
+                  confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                  tone: "destructive",
+                })
+              ) {
+                onDelete();
+              }
+            }}
+            className="shrink-0 rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title={localizeUi("ui.presets.variablecard.deleteVariable")}
+          >
+            <Trash2 size="0.75rem" />
+          </button>
+        ) : null}
       </div>
 
       {/* Expanded content */}
