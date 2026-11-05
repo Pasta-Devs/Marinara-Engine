@@ -856,11 +856,15 @@ export function ConnectionEditor({
       : baseApiKeyLink;
 
   useEffect(() => {
-    if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
+    if (localProvider !== "image_generation") {
       localImageDefaultsRef.current = null;
       setLocalImageDefaults(null);
       return;
     }
+    // A cached connection mounts with its provider but not yet its image source, so the service is unknown for one
+    // render while the populate effect loads the saved defaults; clearing them here would reset them. Saving and the
+    // panel both skip defaults without a service.
+    if (!selectedImageDefaultsService) return;
     setLocalImageDefaults((current) => {
       const next =
         current?.service === selectedImageDefaultsService

@@ -3672,9 +3672,10 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     flex: 1 0 100%;
   }
 
+  /* The menu grows to 8rem when there is room and gives way to the actions when there is not. */
   .mari-editor-header--with-nav .mari-editor-navigation {
     width: min(8rem, 100%);
-    flex: 1 1 6rem;
+    flex: 1 1 4rem;
     max-width: 8rem;
   }
 
@@ -3684,6 +3685,13 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     justify-content: flex-end;
     border-top: 0;
     padding-top: 0;
+  }
+
+  /* The phone's 2.75rem-wide actions do not fit beside the section menu: a character's seven need about 425px
+     and a persona's six about 370px, where a 390px phone has about 365px. The tap height stays 2.75rem, only the
+     width is narrower. */
+  .mari-editor-header--with-nav .mari-editor-actions .mari-editor-action {
+    min-width: 2.25rem;
   }
 
   .mari-editor-header--with-nav .mari-editor-action--primary {
@@ -3753,18 +3761,8 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     padding-inline: 0.5rem;
   }
 
-  .mari-editor-header--dense .mari-editor-navigation {
-    flex-basis: 4rem;
-  }
-
   .mari-editor-header--dense .mari-editor-actions {
     gap: 0.25rem;
-  }
-
-  /* Seven 2.75rem-wide actions beside the menu need about 425px; a 390px phone has 373px. The tap height
-     stays 2.75rem, only the width is narrower. */
-  .mari-editor-header--dense .mari-editor-actions .mari-editor-action {
-    min-width: 2.25rem;
   }
 }
 

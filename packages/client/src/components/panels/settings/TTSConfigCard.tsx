@@ -576,16 +576,18 @@ function TtsSearchableSelect({
         closePanel(false);
       }
     };
+    // Escape closes only the open list. Heard first (capture) and stopped, it never reaches the Escape of a dialog
+    // this card sits in, such as the Add window, which would close with it.
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closePanel();
-      }
+      if (event.key !== "Escape" || event.isComposing) return;
+      event.stopPropagation();
+      closePanel();
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape, true);
     return () => {
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", closeOnEscape, true);
     };
   }, [closePanel, open]);
 
