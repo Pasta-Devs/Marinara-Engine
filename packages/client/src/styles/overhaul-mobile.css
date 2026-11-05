@@ -2300,6 +2300,10 @@
   margin-inline: -1.75rem;
   padding-inline: 1.75rem;
 }
+/* On phones the header scrolls away with the page; a pinned one took half the screen. */
+:root[data-overhaul="mobile"] .ov-edhead:not(#ovm-x) {
+  position: static;
+}
 :root[data-overhaul="mobile"] .ov-ed .ov-row:not(#ovm-x) {
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 0.375rem;
