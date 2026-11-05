@@ -18,7 +18,7 @@ const provider = createServer(async (request, response) => {
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString());
   const prompt = JSON.stringify(body.messages);
-  assert.match(prompt, /Aim for approximately/u, "Resume must call the real constant-summary compaction path");
+  assert.match(prompt, /about half its current length/u, "Resume must call the real constant-summary compaction path");
   summaryRequests.push(prompt);
   const mutate = beforeSummaryResponse;
   beforeSummaryResponse = undefined;

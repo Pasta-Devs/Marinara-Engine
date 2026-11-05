@@ -18,6 +18,7 @@ export type OrganizerPage =
   | { kind: "home" }
   | { kind: "updates" }
   | { kind: "installed" }
+  | { kind: "notInstalled" }
   | { kind: "section"; id: OrganizerSectionId }
   | { kind: "agent"; id: string };
 
