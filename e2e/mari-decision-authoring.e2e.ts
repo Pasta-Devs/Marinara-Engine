@@ -8,6 +8,11 @@ test.beforeEach(async ({ request }) => {
   );
 });
 
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-runtime-recovery does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
+});
+
 // Scripted responses exercise the real workspace loop and storage, not an LLM quality benchmark.
 test("Mari Decision authoring waits for the setup answer and preserves it across turns", async ({ request }) => {
   const suffix = Date.now().toString(36);

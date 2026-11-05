@@ -8,6 +8,11 @@ test.beforeEach(async ({ request }) => {
   );
 });
 
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-runtime-recovery does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
+});
+
 // R3 (slice 62): proves the prompt wiring, not just that `chat.diagnose` exists in isolation.
 // A scripted fake model exercises the real workspace loop and real storage: a chat is seeded with
 // a genuinely cut-off reply, Mari is asked why it got worse, and the test checks the SERVER really
