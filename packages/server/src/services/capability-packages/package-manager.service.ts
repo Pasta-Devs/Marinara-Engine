@@ -14627,6 +14627,25 @@ async function installCatalogPackage(
   }
 }
 
+/** A startup migration's unattended install. False when this Engine refuses the entry before downloading it
+ *  (a newer capability API, an Engine range without this version, or an install issue): no retry of this Engine
+ *  can install it, so it must not fail the migration. Any other failure, a download one included, still throws. */
+async function installCatalogPackageDuringStartup(entry: CapabilityCatalogPackage): Promise<boolean> {
+  try {
+    await installCatalogPackage(entry, true);
+    return true;
+  } catch (error) {
+    if (!(error instanceof CapabilityPackageCompatibilityError)) throw error;
+    logger.warn(
+      error,
+      "[capability] Startup migration skipped %s %s, which this Engine cannot install",
+      entry.manifest.id,
+      entry.manifest.version,
+    );
+    return false;
+  }
+}
+
 /** Moves a package's verified files, written to `temporary`, into place and records it installed. */
 async function commitPackageInstall(
   manifest: CapabilityPackageManifest,
@@ -15798,7 +15817,9 @@ export const capabilityPackageManager = {
       if (isCatalogExperience(entry)) continue;
       // A ruleset still published as a zip is refused, and must not stop the rest from installing.
       if (entry.manifest.kind.includes("ruleset") && !isRulesetFileArtifact(entry)) continue;
-      await installCatalogPackage(entry, true);
+      // Nor may one this Engine cannot install. The migration still completes, so a later startup never
+      // reinstalls what the player removed; the player installs a skipped one after updating the Engine.
+      await installCatalogPackageDuringStartup(entry);
     }
     // Existing-install completion also depends on per-chat selections becoming
     // durable. The startup orchestrator writes the marker only after that work.
@@ -15830,7 +15851,10 @@ export const capabilityPackageManager = {
         // complete: a later startup must still install Noodle once it appears.
         return { migrated: false, legacy: true, pending: true as const };
       }
-      await installCatalogPackage(entry, true);
+      // One this Engine cannot install is not here yet either: an updated Engine installs it then.
+      if (!(await installCatalogPackageDuringStartup(entry))) {
+        return { migrated: false, legacy: true, pending: true as const };
+      }
     }
     // This marker also records the user's right to uninstall without the next
     // startup treating that choice as an incomplete upgrade.
