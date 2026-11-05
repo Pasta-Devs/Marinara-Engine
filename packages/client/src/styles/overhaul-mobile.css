@@ -2854,7 +2854,7 @@
   font-size: 0.875rem;
 }
 
-/* Library landing pages on phones: title and Import on top; + New, the filter dropdown and the
+/* Library landing pages on phones: title and + New (just "New": the title names the item) on top; Import, the filter dropdown and the
    List / Gallery switch on the next line; search and sort share one line; galleries show at
    least two per row. */
 :root[data-overhaul="mobile"] .ov-gallery__head:not(#ovm-x) {
@@ -2864,10 +2864,14 @@
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > h1 {
   order: 0;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn:not(.ov-btn--primary) {
-  order: 1;
+  order: 3;
 }
 :root[data-overhaul="mobile"] .ov-gallery__head::after {
   content: "";
@@ -2875,13 +2879,9 @@
   flex-basis: 100%;
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary {
-  order: 3;
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: max-content;
-  justify-content: flex-start;
+  order: 1;
+  flex: 0 0 auto;
   padding-inline: 0.875rem;
-  overflow: hidden;
   white-space: nowrap;
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary > svg {
@@ -2889,10 +2889,10 @@
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter {
   order: 4;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   width: auto;
   min-width: 4.25rem;
-  max-width: 4.5rem;
+  max-width: 6.5rem;
   font-size: 0.875rem;
 }
 :root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-view {
