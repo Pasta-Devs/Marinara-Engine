@@ -5,11 +5,12 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type {
-  ImageGenRequest,
-  ImageGenResult,
-  VideoGenerationRequest,
-  VideoGenerationResult,
+import {
+  isToAPIsMediaUrl,
+  type ImageGenRequest,
+  type ImageGenResult,
+  type VideoGenerationRequest,
+  type VideoGenerationResult,
 } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -18,23 +19,8 @@ import { logger, logDebugOverride, privateErrorLogFields } from "../../lib/logge
 import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { sanitizeApiError } from "../llm/base-provider.js";
 
-export function isToAPIsMediaUrl(baseUrl: string): boolean {
-  try {
-    const u = new URL(baseUrl);
-    return (
-      u.protocol === "https:" &&
-      ["toapis.com", "toapis.cn"].includes(u.hostname) &&
-      !u.username &&
-      !u.password &&
-      !u.port &&
-      !u.search &&
-      !u.hash &&
-      /^\/(?:v1\/?)?$/.test(u.pathname)
-    );
-  } catch {
-    return false;
-  }
-}
+// Shared, so the client can tell a ToAPIs connection apart (see imageConnectionMakesAnimatedGif).
+export { isToAPIsMediaUrl };
 
 function apiUrl(base: string, path: string): string {
   if (!isToAPIsMediaUrl(base)) throw new Error("Use an HTTPS ToAPIs origin or /v1 base URL");
