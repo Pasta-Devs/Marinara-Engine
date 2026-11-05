@@ -39,20 +39,15 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
   const editor = page
     .locator(".mari-editor-shell")
     .filter({ has: page.getByPlaceholder("Model name", { exact: true }) });
-  const qualityPanel = editor
-    .locator(".mari-editor-panel")
-    .filter({ has: page.getByRole("heading", { name: "Image quality", exact: true }) });
-  const quality = qualityPanel.getByRole("combobox");
-  const modelPanel = editor
-    .locator(".mari-editor-panel")
-    .filter({ has: page.getByRole("heading", { name: "Model", exact: true }) });
+  // #8456 dropped the editor's panel wrappers: a field is its heading's group, and the models list inline.
+  const quality = editor
+    .getByRole("heading", { name: "Image quality", exact: true })
+    .locator("../..")
+    .getByRole("combobox");
+  const modelPicker = editor.locator("[data-connection-model-picker]");
   const selectModel = async (model: string) => {
-    await modelPanel.locator(".cursor-pointer").first().click();
-    await modelPanel.getByPlaceholder("Search models…").fill(model);
-    await modelPanel
-      .getByRole("button")
-      .filter({ has: page.getByText(model, { exact: true }) })
-      .click();
+    await modelPicker.locator("[data-model-search]").fill(model);
+    await modelPicker.locator(`[data-model-section="all"] [data-model-id="${model}"] [data-model-option]`).click();
   };
   const save = async (model: string, value: string) => {
     await editor.getByRole("button", { name: "Save", exact: true }).click();
@@ -124,7 +119,7 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
     });
     await page.reload();
     await openConnection(page, id);
-    await expect(modelPanel).toBeVisible();
+    await expect(modelPicker).toBeVisible();
     await expect(quality).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {

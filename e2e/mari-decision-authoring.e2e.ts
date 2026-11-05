@@ -45,7 +45,12 @@ test("Mari Decision authoring waits for the setup answer and preserves it across
   let characterId = "";
   const options = await request.get("/api/decision/options");
   const previousSelected = ((await options.json()) as { selected: string | null }).selected;
+  // The handbook gate (d2d9f01ede) refuses a turn's first Decision write until skill builtin-decisions is read.
+  // This script exercises the Decision authorization guard instead, so it turns the gate off for its run.
+  const gate = "/api/professor-mari/workspace/skill-gate";
+  const previousGate = ((await (await request.get(gate)).json()) as { enabled: boolean }).enabled;
   try {
+    expect((await request.put(gate, { data: { enabled: false } })).ok()).toBe(true);
     expect((await request.post("/api/decision/select", { data: { id: null } })).ok()).toBeTruthy();
     const address = provider.address();
     if (!address || typeof address === "string") throw new Error("Missing fixture provider address");
@@ -89,7 +94,8 @@ test("Mari Decision authoring waits for the setup answer and preserves it across
     expect(first.filter((event) => event.type === "tool_end").every((event) => !event.data.isError)).toBeTruthy();
     const firstPrompt = JSON.parse(prompts[0]!) as { messages: Array<{ content: string }> };
     const promptText = firstPrompt.messages.map((message) => message.content).join("\n");
-    expect(promptText).toContain("Decision authoring");
+    // The authoring rules moved into the builtin-decisions skill (d2d9f01ede); the prompt keeps their state.
+    expect(promptText).toContain("decisionAuthoring: ");
     expect(promptText).toContain('"state":"none"');
 
     actions = [
@@ -147,6 +153,7 @@ test("Mari Decision authoring waits for the setup answer and preserves it across
     if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`);
     await request.post("/api/decision/select", { data: { id: previousSelected } });
+    await request.put(gate, { data: { enabled: previousGate } });
     await new Promise<void>((resolve, reject) => provider.close((err) => (err ? reject(err) : resolve())));
   }
 });

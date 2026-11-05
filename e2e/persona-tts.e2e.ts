@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 const silentAudio = Buffer.from(
@@ -61,12 +61,9 @@ test("personas share the existing voice selector and assignment shape", async ({
     );
     await preparePage(page);
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const card = page
-      .locator('[data-component="RightPanel"]')
-      .getByText("Text to Speech", { exact: true })
-      .locator("xpath=../../..");
-    await card.getByTitle("Expand").click();
+    // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
+    await openDefaultsTile(page, "voice");
+    const card = ttsConfigCard(page);
     await card.getByRole("button", { name: "Add voice", exact: true }).click();
     await card.getByRole("button", { name: "Select character or persona", exact: true }).click();
     const choices = page.getByTestId("tts-character-options");
@@ -78,8 +75,7 @@ test("personas share the existing voice selector and assignment shape", async ({
       .poll(() => config.voiceAssignments)
       .toEqual([{ characterId: persona.id, characterName: name, voice: "persona-voice" }]);
     await page.reload();
-    await clickTopbarPanel(page, "connections");
-    await card.getByTitle("Expand").click();
+    await openDefaultsTile(page, "voice");
     await expect(voice).toHaveValue("persona-voice");
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate(async (theme) => {
