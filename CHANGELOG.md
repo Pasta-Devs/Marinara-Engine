@@ -9,7 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 <!--
 Still open: add these before the release merges.
 - #8843: the rest of the full browser matrix fixes (batch 2 and 3); app fixes in them may need entries.
-- The docs-i18n translation PR for this release.
+- #8848: the docs-i18n translation PR for this release (all ten packs at staging 0313889a4a). Merge it with the release.
 Remove this comment before tagging: the release body includes everything under the heading.
 -->
 
