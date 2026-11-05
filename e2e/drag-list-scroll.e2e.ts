@@ -75,6 +75,14 @@ for (const kind of ["chat", "character", "persona"] as const) {
         .locator(kind === "chat" ? `[data-chat-id="${item.id}"]` : `[data-touch-drag-card="${kind}"]`)
         .filter({ hasText: item.name });
       await expect(source).toBeVisible();
+      if (kind === "chat") {
+        // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it
+        // loads. Let that finish first, or it scrolls the list away from the row centred below.
+        const activeRow = panel.locator(`[data-chat-id="${chat.id}"]`);
+        await expect(activeRow).toBeInViewport();
+        // Waits until the row stops moving.
+        await activeRow.scrollIntoViewIfNeeded();
+      }
       const scroller = await source.evaluateHandle((element) => {
         let parent = element.parentElement;
         while (
@@ -277,7 +285,9 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await page.mouse.up();
         await expect(source).toHaveAttribute("draggable", originalDraggable!);
         // Wait for the row to settle after removing the root drop zone before sampling coordinates.
-        await handle.hover();
+        // Not with hover(): when the closing insertion gap still moves the row, hover's retry scrolls it
+        // to the list's bottom edge, and the next drag then auto-scrolls against the wheel below.
+        await handle.scrollIntoViewIfNeeded();
         const restart = await handle.boundingBox();
         expect(restart).not.toBeNull();
         primary = {
