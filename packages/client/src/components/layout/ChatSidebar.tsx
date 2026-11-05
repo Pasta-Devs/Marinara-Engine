@@ -7,6 +7,7 @@ import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import {
+  PanelLeft,
   MessageSquareText,
   Search,
   Trash2,
@@ -1324,7 +1325,21 @@ export function ChatSidebar() {
       <div className="mari-sidebar-header relative flex h-12 items-center justify-between px-4">
         <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]/30" />
         <div className="flex min-w-0 items-center gap-2.5">
-          {overhaulMobile ? <img className="ovm-chats-logo" src="/icon-192.png" alt="" /> : <ChatSidebarTitleIcon />}
+          {overhaulMobile ? (
+            // Same spot as the top bar's left button, so the same tap closes the list.
+            <button
+              type="button"
+              className="ovm-icon-btn is-on"
+              aria-pressed="true"
+              aria-label={localize("Hide chat list")}
+              title={localize("Chats")}
+              onClick={() => setSidebarOpen(false)}
+            >
+              <PanelLeft size={22} />
+            </button>
+          ) : (
+            <ChatSidebarTitleIcon />
+          )}
           <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize("Chats")}</h2>
           {overhaulMobile ? null : (
             <HelpTooltip

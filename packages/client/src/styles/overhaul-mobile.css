@@ -405,9 +405,14 @@
 
 /* ─── Chats list (left button) ─── */
 :root[data-overhaul="mobile"] [data-component="ChatSidebar"] .mari-sidebar-header {
-  height: 3.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  height: 3rem;
   gap: 0.25rem;
-  padding: 0 0.25rem 0 0.875rem;
+  padding: 0 0.375rem;
+}
+:root[data-overhaul="mobile"] [data-component="ChatSidebar"] .mari-sidebar-header > :last-child {
+  justify-content: flex-end;
 }
 .ovm-chats-logo {
   width: 1.75rem;
@@ -422,7 +427,6 @@
   height: 2.5rem;
   align-items: center;
   gap: 0.375rem;
-  margin: 0 auto;
   padding: 0 0.875rem;
   border: 1px solid var(--ov-line);
   border-radius: 999px;
@@ -619,7 +623,13 @@
   background: none !important;
 }
 
-/* The Chats list opens under the top bar, so its left button stays put and closes it again. */
+/* The Chats list covers the whole view, top bar included. Its own top line puts the same left
+   button in the same spot (tap again to close), Home in the centre and + on the right. */
+:root[data-overhaul="mobile"] [data-component="ChatSidebarPanel"] {
+  top: 0 !important;
+  z-index: 60;
+  padding-top: env(safe-area-inset-top);
+}
 
 /* Convo: quick reactions above the big buttons */
 .ovm-sheet__top {
