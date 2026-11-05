@@ -41,10 +41,14 @@ test("sprite metadata stays optional and folder moves work without dragging", as
   );
   const rejectedDirectory = info.outputPath("rejected-import");
   const emptyDirectory = info.outputPath("empty-import");
+  const brokenCatalogDirectory = info.outputPath("broken-catalog-import");
   mkdirSync(rejectedDirectory, { recursive: true });
   mkdirSync(emptyDirectory, { recursive: true });
+  mkdirSync(brokenCatalogDirectory, { recursive: true });
   writeFileSync(`${rejectedDirectory}/rejected.png`, png);
   writeFileSync(`${emptyDirectory}/notes.txt`, "No images");
+  writeFileSync(`${brokenCatalogDirectory}/grin.png`, png);
+  writeFileSync(`${brokenCatalogDirectory}/catalog.json`, "{broken");
   for (const persona of [false, true]) {
     const ownersPath = persona ? "/api/characters/personas" : "/api/characters";
     const created = await request.post(ownersPath, {
@@ -164,6 +168,22 @@ test("sprite metadata stays optional and folder moves work without dragging", as
           hasText: persona ? "No supported sprite images were found." : "Drop image files to upload",
         }),
       ).toBeVisible();
+      if (persona) {
+        await page.unroute(`**${path}`);
+        await library.locator("input[webkitdirectory]").setInputFiles(brokenCatalogDirectory);
+        await expect(
+          page
+            .locator('[data-sonner-toast][data-type="warning"]')
+            .filter({ hasText: "Folder information could not be read." }),
+        ).toBeVisible();
+        await expect
+          .poll(async () =>
+            (await (await request.get(path)).json()).some(
+              (sprite: { expression: string }) => sprite.expression === "grin",
+            ),
+          )
+          .toBe(true);
+      }
     } finally {
       await page.unroute(`**${path}/catalog`).catch(() => undefined);
       await page.unroute(`**${path}`).catch(() => undefined);
@@ -986,7 +1006,6 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     mkdirSync(importDirectory, { recursive: true });
     writeFileSync(`${importDirectory}/grin.png`, png);
     writeFileSync(`${importDirectory}/reject.png`, png);
-    writeFileSync(`${importDirectory}/catalog.json`, "{broken");
     await page.route(`**${path}`, (route) =>
       route.request().method() === "POST" && route.request().postDataJSON().expression === "reject"
         ? route.fulfill({ status: 409, json: { error: "Fixture import failure" } })

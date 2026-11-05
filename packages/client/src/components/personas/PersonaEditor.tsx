@@ -3750,7 +3750,7 @@ function PersonaCharacterSheetSection({
                 : localizeUi("ui.characters.charactersheet.upload")
             }
             pending={upload.isPending}
-            pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+            pendingLabel={localizeUi("ui.ui.imageuploaddropzone.uploadingImages")}
             dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
             onFilesSelected={(files) => void handleUpload(files)}
             icon={<Upload size="1rem" />}

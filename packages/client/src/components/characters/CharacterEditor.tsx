@@ -4003,7 +4003,7 @@ function CharacterSheetSection({
                   : localizeUi("ui.characters.charactersheet.upload")
               }
               pending={pending}
-              pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+              pendingLabel={localizeUi("ui.ui.imageuploaddropzone.uploadingImages")}
               dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
               onFilesSelected={(files) => void handleUpload(files)}
               icon={<Upload size="1rem" />}
@@ -5552,7 +5552,7 @@ function SpritesTab({
           ? result.failed
             ? toast.error
             : toast.warning
-          : result.failed || result.catalogIgnored
+          : result.failed
             ? toast.warning
             : toast.success;
       notify(
@@ -5571,7 +5571,6 @@ function SpritesTab({
                 result.failed > 0 &&
                 localizeUi("sprites.library.importFailed", { count: result.failed }),
               result.firstError,
-              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
             ]
               .filter(Boolean)
               .join(" ") || undefined,

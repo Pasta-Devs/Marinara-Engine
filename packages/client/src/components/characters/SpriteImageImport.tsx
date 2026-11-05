@@ -55,7 +55,7 @@ export function SpriteImageImport({
       disabled={disabled || confirming}
       label={t("sprites.library.uploadImages")}
       pending={pending}
-      pendingLabel={t("ui.characters.charactersheet.uploading")}
+      pendingLabel={t("ui.ui.imageuploaddropzone.uploadingImages")}
       dragLabel={t("sprites.library.dropImages")}
       onFilesSelected={(files) => void selectImages(files)}
       icon={<Upload size={16} />}
