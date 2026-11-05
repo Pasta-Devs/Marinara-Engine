@@ -22,6 +22,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+import { useOverhaulLook } from "../../../stores/overhaul.store";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -479,6 +480,45 @@ function CustomNotificationSoundSetting() {
   );
 }
 
+/** Label text with its ? glued to the last word, so a wrapped label never leaves the ? alone on a line. */
+function LabelWithHelp({
+  label,
+  help,
+  wrap,
+}: {
+  label: ReactNode;
+  help: ReactNode;
+  wrap: (text: ReactNode) => ReactNode;
+}) {
+  const text = typeof label === "string" ? label.trimEnd() : null;
+  const cut = text ? text.lastIndexOf(" ") : -1;
+  if (text === null) {
+    return (
+      <>
+        {wrap(label)}
+        {help}
+      </>
+    );
+  }
+  if (cut < 0) {
+    return (
+      <span className="whitespace-nowrap">
+        {wrap(text)}
+        {help}
+      </span>
+    );
+  }
+  return (
+    <>
+      {wrap(text.slice(0, cut + 1))}
+      <span className="whitespace-nowrap">
+        {wrap(text.slice(cut + 1))}
+        {help}
+      </span>
+    </>
+  );
+}
+
 export function ToggleSetting({
   label,
   checked,
@@ -541,6 +581,8 @@ export function SettingsCheckbox({
   labelClassName?: string;
 }) {
   const localize = useLocalizedUiText();
+  const overhaulLook = useOverhaulLook();
+  const helpAfterLabel = align !== "between" || overhaulLook;
   const localizedLabel = localizeStringNode(label, localize);
   const localizedDescription = localizeStringNode(description, localize);
   const input = (
@@ -558,12 +600,19 @@ export function SettingsCheckbox({
   );
   const text = (
     <span className={cn("min-w-0 text-xs", labelClassName)}>
-      <span className="inline-flex min-w-0 items-center gap-1.5">
-        <span className="min-w-0">{localizedLabel}</span>
-        {align !== "between" && help && (
-          <span onClick={(e) => e.preventDefault()}>
-            <HelpTooltip text={localize(help)} />
-          </span>
+      <span className="min-w-0">
+        {helpAfterLabel && help ? (
+          <LabelWithHelp
+            label={localizedLabel}
+            wrap={(text) => <span className="min-w-0">{text}</span>}
+            help={
+              <span onClick={(e) => e.preventDefault()} className="ml-1.5 inline-flex align-[-0.125em]">
+                <HelpTooltip text={localize(help)} />
+              </span>
+            }
+          />
+        ) : (
+          <span className="min-w-0">{localizedLabel}</span>
         )}
       </span>
       {localizedDescription && (
@@ -575,7 +624,7 @@ export function SettingsCheckbox({
   );
   const inputCluster = (
     <span className="inline-flex shrink-0 items-center gap-1.5">
-      {align === "between" && help && (
+      {!helpAfterLabel && help && (
         <span onClick={(e) => e.preventDefault()}>
           <HelpTooltip text={localize(help)} />
         </span>
@@ -658,7 +707,7 @@ export function SettingsSwitch({
   title,
   description,
   help,
-  helpPosition = "control",
+  helpPosition: helpPositionProp,
   endAction,
   disabled = false,
   labelPosition = "end",
@@ -669,6 +718,9 @@ export function SettingsSwitch({
 }: SettingsSwitchProps) {
   const inputId = useId();
   const localize = useLocalizedUiText();
+  // New layout: the ? sits right after the text it explains, not beside the switch.
+  const overhaulLook = useOverhaulLook();
+  const helpPosition = helpPositionProp ?? (overhaulLook && label ? "label" : "control");
   const localizedLabel = localizeStringNode(label, localize);
   const localizedDescription = localizeStringNode(description, localize);
   const localizedTitle = title ? localize(title) : undefined;
@@ -702,11 +754,23 @@ export function SettingsSwitch({
   );
   const text = localizedLabel ? (
     <span className={cn("min-w-0 text-sm", labelClassName)}>
-      <span className="inline-flex min-w-0 items-center gap-1.5">
-        <label htmlFor={inputId} className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
-          {localizedLabel}
-        </label>
-        {help && helpPosition === "label" && <HelpTooltip text={localize(help)} />}
+      {/* Inline flow so a wrapped label keeps its ? right after the last word. */}
+      <span className="min-w-0">
+        {help && helpPosition === "label" ? (
+          <LabelWithHelp
+            label={localizedLabel}
+            wrap={(text) => (
+              <label htmlFor={inputId} className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
+                {text}
+              </label>
+            )}
+            help={<HelpTooltip text={localize(help)} className="ml-1.5 align-[-0.125em]" />}
+          />
+        ) : (
+          <label htmlFor={inputId} className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
+            {localizedLabel}
+          </label>
+        )}
       </span>
       {localizedDescription && (
         <label

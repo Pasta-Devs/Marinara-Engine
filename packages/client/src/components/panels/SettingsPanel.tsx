@@ -1148,7 +1148,7 @@ function TrackerPanelCardOrderSetting() {
 
   return (
     <div className="mt-1.5 flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/36 p-1.5 ring-1 ring-[var(--border)]">
-      <div className="flex min-h-5 items-center justify-between gap-2 px-0.5">
+      <div className="ov-help-row flex min-h-5 items-center justify-between gap-2 px-0.5">
         <button
           type="button"
           onClick={() => setOrderOpen((open) => !open)}
@@ -4536,9 +4536,12 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   </div>
                 </label>
                 <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
-                  <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+                  <span className="text-[0.6875rem] font-medium">
                     {localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}
-                    <HelpTooltip text={localizeUi("settings.controls.conversationBackgroundImageOpacity.help")} />
+                    <HelpTooltip
+                      text={localizeUi("settings.controls.conversationBackgroundImageOpacity.help")}
+                      className="ml-1 whitespace-nowrap align-[-0.125em]"
+                    />
                   </span>
                   <div className="flex items-center gap-3">
                     <input
@@ -7769,7 +7772,7 @@ function AdvancedSettings() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="ov-help-row flex items-center gap-2">
             <button
               type="button"
               onClick={() => void handleForceRefreshSpa()}
@@ -7919,7 +7922,7 @@ function AdvancedSettings() {
             onChange={setDebugMode}
             help={localizeUi("settings.controls.debugMode.help")}
           />
-          <div className="flex items-center gap-2">
+          <div className="ov-help-row flex items-center gap-2">
             <div className="min-w-0 flex-1" title={nativeConsoleHelp}>
               <button
                 type="button"
