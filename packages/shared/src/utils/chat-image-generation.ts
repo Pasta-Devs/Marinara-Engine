@@ -32,7 +32,10 @@ export interface ChatImageGenerationRecord {
     /** Maps location reference id (chat gallery id or `global-gallery:<id>`). */
     locationImageId: string | null;
   };
-  /** Set for a looping GIF (`ImageGenRequest.animation`). A GIF is drawn from the prompt alone, so it names no references. */
+  /**
+   * Set for a looping GIF (`ImageGenRequest.animation`). A GIF is drawn from the prompt alone, so it names no references.
+   * Nothing writes it yet: the first feature that saves a GIF to a chat also makes Regenerate forward it (#8870).
+   */
   animation?: ImageAnimation;
 }
 
