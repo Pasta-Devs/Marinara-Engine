@@ -2946,8 +2946,34 @@
   }
 }
 
-/* Library editors on phones: a bare ‹ back to the section replaces the breadcrumb trail. */
+/* Library editors on phones: a bare ‹ back to the section replaces the breadcrumb trail. It sits
+   on the first line of the header (beside the title, or beside the portrait), not on its own. */
+:root[data-overhaul="mobile"] :has(> .ovm-crumb-back) {
+  position: relative;
+}
 .ovm-crumb-back {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: -0.75rem;
   display: flex;
-  margin: -0.5rem 0 0 -0.75rem;
+}
+/* Line the ‹ up with each header's first line and its content edge. */
+.ov-edhead > .ovm-crumb-back {
+  top: 1.25rem;
+  left: 1.25rem;
+}
+.ov-rail > .ovm-crumb-back {
+  top: 1rem;
+  left: 1.25rem;
+}
+.ov-preset__head > .ovm-crumb-back {
+  top: 1.875rem;
+}
+.ov-bk-head > .ovm-crumb-back {
+  top: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ovm-crumb-back + .ovm-preset__id,
+:root[data-overhaul="mobile"] .ovm-crumb-back + :is(.ov-edhead__row, .ov-bk-head__row) > :first-child {
+  margin-left: 2rem;
 }
