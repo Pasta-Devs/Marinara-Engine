@@ -8652,7 +8652,7 @@
   "ui.characters.charactersheet.title": "Character Sheet",
   "ui.characters.charactersheet.upload": "Upload Character Sheet",
   "ui.characters.charactersheet.uploadFailed": "Failed to upload the character sheet.",
-  "ui.characters.charactersheet.uploading": "Uploading character sheet…",
+  "ui.characters.charactersheet.uploading": "Uploading Images...",
   "ui.characters.charactersheet.useAsReference": "Use character sheet",
   "ui.characters.charactersheet.useAsReferenceDescription": "Prefer this character sheet wherever Marinara Engine sends character likeness references.",
   "ui.characters.charactersubject.removeValue1": "Remove {{value1}}",
