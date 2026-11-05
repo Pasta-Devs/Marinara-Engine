@@ -7,6 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { AvatarConfig } from "@marinara-engine/shared";
 import { plainGlb, unnamedRigGlb } from "../scripts/regressions/fixtures/avatar-glb-fbx-fixtures.js";
+import { chooseCharacter } from "./character-picker.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -69,7 +70,13 @@ declare global {
   }
 }
 
-async function openSetup(page: Page, characterId: string) {
+/**
+ * The owner field is the shared character picker since #8763, which finds owners by name, so each test names its
+ * character per run, keeping another run's characters on the same server out of the pick.
+ */
+const runName = (name: string) => `${name} ${Date.now().toString(36)}`;
+
+async function openSetup(page: Page, owner: { id: string; name: string }) {
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
   );
@@ -78,7 +85,7 @@ async function openSetup(page: Page, characterId: string) {
   await page.route("**/api/avatar-models", async (route) => {
     const response = await route.fetch();
     const owners = (await response.json()) as Array<{ owner: { ownerId: string } }>;
-    await route.fulfill({ response, json: owners.filter((summary) => summary.owner.ownerId === characterId) });
+    await route.fulfill({ response, json: owners.filter((summary) => summary.owner.ownerId === owner.id) });
   });
   await page.addInitScript((appVersion) => {
     const violations: string[] = [];
@@ -102,7 +109,7 @@ async function openSetup(page: Page, characterId: string) {
   await page.goto("/");
   const setup = page.locator('[data-avatar-setup="3d-avatars"]');
   await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-  await setup.getByLabel("Character or persona").selectOption(`character:${characterId}`);
+  await chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", owner.name);
   return setup;
 }
 
@@ -110,7 +117,8 @@ test("a plain GLB rig imports, maps its bones and faces, and draws, moves and ta
   page,
   request,
 }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "Rigged GLB" } } });
+  const name = runName("Rigged GLB");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   try {
@@ -125,7 +133,7 @@ test("a plain GLB rig imports, maps its bones and faces, and draws, moves and ta
     expect(config.activeKind).toBe("glb-fbx");
 
     // Setup shows what the import matched.
-    const setup = await openSetup(page, character.id);
+    const setup = await openSetup(page, { id: character.id, name });
     const panel = setup.locator("[data-avatar-glb-fbx-setup]");
     await expect(panel.locator("[data-glb-fbx-bones]")).toHaveText("GLB model: 22 of 22 body bones matched.", {
       timeout: FIRST_LOAD_TIMEOUT_MS,
@@ -243,11 +251,12 @@ test("a plain GLB rig imports, maps its bones and faces, and draws, moves and ta
 });
 
 test("a rig whose bones can't be matched is refused in setup, in plain words", async ({ page, request }, info) => {
-  const characterResponse = await request.post("/api/characters", { data: { data: { name: "Unrigged GLB" } } });
+  const name = runName("Unrigged GLB");
+  const characterResponse = await request.post("/api/characters", { data: { data: { name } } });
   expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
   try {
-    const setup = await openSetup(page, character.id);
+    const setup = await openSetup(page, { id: character.id, name });
     await setup.getByRole("radio", { name: /GLB or FBX model/u }).check();
     const importButton = setup.getByRole("button", { name: "Import GLB or FBX", exact: true });
     await expect(importButton).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
