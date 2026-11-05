@@ -45,6 +45,7 @@ import {
   isLocalSidecarConnection,
   isMutatingWorkspaceCommand,
   isStagedSensitiveMutation,
+  withWithheldNotice,
   MAX_PROTOCOL_REPAIR_ROUNDS,
   MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR,
   sanitizeSuggestionChips,
@@ -138,8 +139,8 @@ export type PiRunInput = {
   setRoundFlags: (flags: { manualSilentMutationBlocked: boolean; askLatchSilentMutationBlocked: boolean }) => void;
   /** Tool rounds allowed in one run; defaults to MAX_PI_TOOL_ROUNDS. Injected only by the regression. */
   maxToolRounds?: number;
-  /** The connection's output token limit, when known; the output-limit recovery quotes it. */
-  maxOutputTokens?: number;
+  /** The output token limit the run's requests use now, when known; the output-limit recovery quotes it. */
+  maxOutputTokens?: () => number | undefined;
   /** Called once the session exists, with the tools it really has active. The regression inspects the boundary here. */
   /** #5740: the understood-request record. `record` runs once per round with mutating calls; `settle` after they ran. */
   understood?: {
@@ -751,6 +752,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     emptyRepairs = 0;
+    // A repaired turn's words are never shown, yet they stay in pi's history: tell her, so she restates them.
+    const withheld = (prompt: string) => withWithheldNotice(prompt, current.text);
     // A turn cut at the output limit ran nothing, so no claim audit spends a repair on its half-written words: it is
     // redone smaller, and its words are not kept. Once that budget is spent the run stops with a note. A failed stream
     // is not a limit cut: it is audited like any turn and stops further down.
@@ -759,10 +762,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         outputLimitRepairs += 1;
         appendTraceStatus(trace, OUTPUT_LIMIT_RETRY);
         onEvent({ type: "status", data: { content: OUTPUT_LIMIT_RETRY, kind: "output_limit", level: "info" } });
-        return {
-          kind: "repair" as const,
-          prompt: outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens),
-        };
+        const repair = outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens?.());
+        // Words before a cut call (often the plan) are withheld too. A cut answer's repair already says to write it
+        // again shorter, and the notice's "write out again everything" would fight that limit.
+        return { kind: "repair" as const, prompt: current.cut.kind === "prose" ? repair : withheld(repair) };
       }
       if (current.text.trim()) {
         state.assistantText = current.text.trim();
@@ -850,7 +853,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
     });
-    if (decision.kind === "repair") return decision;
+    if (decision.kind === "repair") return { ...decision, prompt: withheld(decision.prompt) };
     if (decision.kind === "stop") {
       addNote(decision.content, "retry", "warning");
       stopRequested = true;
@@ -875,8 +878,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         heldClaimRepaired = true;
         return {
           kind: "repair" as const,
-          prompt:
+          prompt: withheld(
             "Nothing is held and no change card exists. Either make the change now with the tools, or say plainly that it was not made.",
+          ),
         };
       }
       state.assistantText = NOTHING_HELD;

@@ -413,6 +413,7 @@ export function ConnectionSwitcherBody({
   modelFilter,
   knownGood,
   rowState,
+  confirmCurrent = false,
 }: {
   /** The job this picker sets ("Agents"): rows leave that role pill out, since the title names it. */
   ownRole?: string;
@@ -455,6 +456,11 @@ export function ConnectionSwitcherBody({
     label: string;
     test: (accountId: string, model: string, facts: CachedModelFacts | undefined) => boolean;
   };
+  /**
+   * A pick of what the host uses now still goes to the host (onApply, or followDefault.onSelect while it follows the
+   * default), so a package's pickConnection can tell it from a close (CONNECTION_PICKER.md).
+   */
+  confirmCurrent?: boolean;
   /** A pick that is being tried or was turned down, shown on its row. */
   rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
   /** Lists only the catalog models this accepts (Embeddings); a provider with none is left out. */
@@ -475,8 +481,14 @@ export function ConnectionSwitcherBody({
 }) {
   const { t } = useTranslation();
   const voiceRowId = useVoiceRowId();
-  const { data: connectionsRaw } = useConnections();
-  const { data: accounts } = useConnectionAccounts();
+  const connectionsQuery = useConnections();
+  const accountsQuery = useConnectionAccounts();
+  const connectionsRaw = connectionsQuery.data;
+  const accounts = accountsQuery.data;
+  // A saved Model is listed under its account, so nothing is offered until both lists are in. Read without its
+  // account, a Model would show as a pickable line of its own, whatever its account's state.
+  const listsReady = connectionsRaw !== undefined && accounts !== undefined;
+  const listsFailed = !listsReady && (connectionsQuery.isError || accountsQuery.isError);
   const openModal = useUIStore((state) => state.openModal);
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
   // The Connections panel's "Group by" choice applies here too.
@@ -500,13 +512,14 @@ export function ConnectionSwitcherBody({
   const rootRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
-    const all = (connectionsRaw ?? []) as SwitcherRow[];
+    if (!listsReady) return [];
+    const all = connectionsRaw as SwitcherRow[];
     const ofKind =
       kind === "chat" ? filterLanguageGenerationConnections(all) : all.filter((row) => matchesKind(row, kind));
     return ofKind.filter(
       (row) => !hiddenIds.has(row.id) && (!rowFilter || row.id === current?.connectionId || rowFilter(row)),
     );
-  }, [connectionsRaw, hiddenIds, kind, rowFilter, current?.connectionId]);
+  }, [listsReady, connectionsRaw, hiddenIds, kind, rowFilter, current?.connectionId]);
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
     // The panel orders accounts by all their Models; the language filter only trims the rows shown.
@@ -579,18 +592,24 @@ export function ConnectionSwitcherBody({
     [nowRow?.id, rows],
   );
 
+  // The search box shows once both lists are in, so it is focused then, not on the first frame.
   useEffect(() => {
-    if (!autoFocusSearch || !window.matchMedia?.("(pointer: fine)").matches) return;
+    if (!listsReady || !autoFocusSearch || !window.matchMedia?.("(pointer: fine)").matches) return;
     const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [autoFocusSearch]);
+  }, [autoFocusSearch, listsReady]);
 
   const apply = async (entry: Entry) => {
     if (busy) return;
     if (entry.group && unavailableOf(entry.group)) return fix(entry.group);
     setBusy(true);
     try {
-      if (!isNow(entry) && !sameChoice(entry.choice, current) && (await onApply(entry.choice)) === false) return;
+      const keeps = isNow(entry) || sameChoice(entry.choice, current);
+      let applied: void | false = undefined;
+      if (!keeps || (confirmCurrent && current)) applied = await onApply(entry.choice);
+      // While the host follows its default, the current value is that default.
+      else if (confirmCurrent) await followDefault?.onSelect();
+      if (applied === false) return;
       if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
         openAddConnection({ category: "device", item: "local-model" });
       }
@@ -975,8 +994,11 @@ export function ConnectionSwitcherBody({
       star = "unstarred",
       away = false,
       order = false,
+      pane = false,
     }: {
       index?: number;
+      /** A row in the left pane: its tile takes the panes' 2rem column so it lines up with Starred and accounts. */
+      pane?: boolean;
       /** Only the Starred lists that show the Edit order toggle pass this. */
       order?: boolean;
       now?: boolean;
@@ -1024,7 +1046,7 @@ export function ConnectionSwitcherBody({
         key={entry.key}
         rowProps={{
           "data-switcher-row": true,
-          className: cn("rounded-lg", now ? "bg-transparent" : isCurrent && ACCENT_BAR),
+          className: cn("rounded-lg", now ? "bg-transparent pe-0" : isCurrent && ACCENT_BAR),
         }}
         data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
         data-switcher-model={entry.model}
@@ -1040,24 +1062,39 @@ export function ConnectionSwitcherBody({
         disabled={busy}
         onClick={() => {
           if (unavailable && group) return fix(group);
-          if (now) return onDone();
+          if (now && !confirmCurrent) return onDone();
           void apply(entry);
         }}
         onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
-        className={cn("rounded-lg disabled:cursor-wait", highlighted && "bg-foreground/10")}
+        className={cn(
+          "rounded-lg disabled:cursor-wait",
+          highlighted && "bg-foreground/10",
+          // Now and pane rows put the tile in the shared 2rem column; text then starts where Starred and accounts start.
+          now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
+          pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
+        )}
         tile={
-          typed ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
-              <Search size="0.875rem" aria-hidden />
-            </span>
-          ) : local ? (
-            <ProviderIcon provider="local_model" size="model" dim={!!unavailable} />
-          ) : (
-            <ModelTile row={entry.row} account={group?.account} model={entry.model} dim={!!unavailable} />
-          )
+          <span className={cn("flex shrink-0 justify-center", (now || pane) && "w-8")}>
+            {typed ? (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
+                <Search size="0.875rem" aria-hidden />
+              </span>
+            ) : local ? (
+              <ProviderIcon provider="local_model" size={now || pane ? "sm" : "model"} dim={!!unavailable} />
+            ) : (
+              <ModelTile
+                row={entry.row}
+                account={group?.account}
+                model={entry.model}
+                dim={!!unavailable}
+                size={now || pane ? "sm" : undefined}
+              />
+            )}
+          </span>
         }
         title={entry.title}
-        subtitle={entry.subtitle}
+        // The Now strip folds its heading into line 2 to stay one compact row.
+        subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
         roles={roleLabels}
         status={
           rowStateOf
@@ -1160,10 +1197,12 @@ export function ConnectionSwitcherBody({
     </button>
   ));
   const addRow = onAdd && (
-    <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
-      <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
-      <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
-    </button>
+    <div className="shrink-0 border-t border-foreground/10 px-1 py-1">
+      <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
+        <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
+        <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
+      </button>
+    </div>
   );
 
   // Shuffle on: the list becomes the pool, as before.
@@ -1373,10 +1412,12 @@ export function ConnectionSwitcherBody({
             )}
           </section>
         )}
-        {standaloneGroups.flatMap((group) => group.rows.map((row) => renderEntry(entryOfRow(row, group))))}
-        {showLocalModel && renderEntry(localEntry)}
+        {standaloneGroups.flatMap((group) =>
+          group.rows.map((row) => renderEntry(entryOfRow(row, group), { pane: true })),
+        )}
+        {showLocalModel && renderEntry(localEntry, { pane: true })}
       </ListFrame>
-      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
+      {addRow}
     </div>
   );
 
@@ -1565,28 +1606,31 @@ export function ConnectionSwitcherBody({
       data-switcher-section="now"
       aria-label={nowLabel}
       className={cn(
-        "mx-2 mt-2 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] p-1",
-        // In Shuffle the pool list has no Back, so the strip with the dice stays the way out.
-        drilled && !searching && !shuffle?.active && "@max-xl:hidden",
+        "mx-2 mt-1.5 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] px-1 py-0.5",
+        // In Shuffle the pool list has no Back, so the strip with the dice stays the way out; with no models there
+        // are no panes and no Back either, so it keeps the way to the default.
+        drilled && !searching && !shuffle?.active && !nothing && "@max-xl:hidden",
       )}
     >
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
-          <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
           {nowEntry && !shuffle?.active ? (
             renderEntry(nowEntry, { now: true, away: true })
           ) : (
-            <p className="truncate px-3 py-2 text-xs font-medium">
-              {shuffle?.active
-                ? t("connections.switcher.shuffle")
-                : (activeExtra?.label ??
-                  (followDefault?.active
-                    ? (followDefault.label ?? t("connections.switcher.followMain"))
-                    : t("connections.switcher.chooseModel")))}
-            </p>
+            <>
+              <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
+              <p className="truncate px-3 py-2 text-xs font-medium">
+                {shuffle?.active
+                  ? t("connections.switcher.shuffle")
+                  : (activeExtra?.label ??
+                    (followDefault?.active
+                      ? (followDefault.label ?? t("connections.switcher.followMain"))
+                      : t("connections.switcher.chooseModel")))}
+              </p>
+            </>
           )}
         </div>
-        {followDefault && !followDefault.active && (
+        {followDefault && (!followDefault.active || confirmCurrent) && (
           <button
             type="button"
             data-switcher-default
@@ -1600,7 +1644,7 @@ export function ConnectionSwitcherBody({
                 .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
                 .finally(() => setBusy(false));
             }}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
+            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
           >
             <House size="0.8125rem" className="shrink-0" aria-hidden />
             <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
@@ -1619,7 +1663,7 @@ export function ConnectionSwitcherBody({
             )}
             onClick={shuffle.onToggle}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25",
               shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
             )}
           >
@@ -1647,8 +1691,26 @@ export function ConnectionSwitcherBody({
       className={cn("mari-connection-scope @container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
     >
       {nowStrip}
-      {!shuffle?.active && !nothing && searchBox}
-      {shuffle?.active ? (
+      {listsReady && !shuffle?.active && !nothing && searchBox}
+      {!listsReady ? (
+        listsFailed ? (
+          <div role="alert" className="flex flex-col items-center gap-2 border-t border-foreground/10 px-3 py-3">
+            <p className="text-center text-[0.6875rem] text-foreground/60">{t("connections.picker.loadFailed")}</p>
+            <button
+              type="button"
+              onClick={() => {
+                void connectionsQuery.refetch();
+                void accountsQuery.refetch();
+              }}
+              className="mari-chrome-control mari-chrome-control--small text-xs"
+            >
+              {t("connections.picker.retry")}
+            </button>
+          </div>
+        ) : (
+          <ListStatus className="border-t border-foreground/10">{t("connections.modelPicker.loading")}</ListStatus>
+        )
+      ) : shuffle?.active ? (
         <ListFrame
           data-connection-switcher-scroll
           className="min-h-0 flex-1 border-t border-foreground/10"
@@ -1657,7 +1719,13 @@ export function ConnectionSwitcherBody({
           {poolList}
         </ListFrame>
       ) : nothing ? (
-        (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
+        // With no models there are no panes, so the add row goes under the empty message. Values that are not
+        // models, such as a Decision connection, stay pickable above it.
+        <>
+          {extraRows.length > 0 && <div className="shrink-0 border-t border-foreground/10 p-1.5">{extraRows}</div>}
+          {empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>}
+          {addRow}
+        </>
       ) : searching ? (
         results
       ) : (

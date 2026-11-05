@@ -14,6 +14,7 @@ import type {
   LLMUsage,
 } from "../llm/base-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
@@ -374,6 +375,10 @@ export const RUNTIME_API_KEY = "local-marinara-runtime";
 // Every review belongs to the Mari chat that made it (runSessionId()); slice 71 (F3) moved sensitive file
 // and install reviews there too. The status without a chat id (the omnibar's pending list) still lists all.
 const MAX_COMMAND_ROUNDS = 12;
+// Ceiling on Mari's per-reply output budget on OpenRouter, which reserves credits
+// for every requested output token. Large enough for a whole lorebook or
+// extension in one command plus hidden reasoning on models that cannot turn it off.
+export const MARI_MAX_OUTPUT_TOKENS = 32_768;
 /** The saved words of a reply that Send now reached after steps but before she said anything. */
 const MARI_CHECKPOINT_FILLER = "Still working";
 export const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
@@ -407,6 +412,106 @@ export const SKIPPED_DIRS = new Set([
   "coverage",
   ".gradle",
 ]);
+
+/**
+ * Appended to every repair prompt whose rejected reply was NOT shown to the
+ * user. Without it the model assumes its rejected `say` (often the complete
+ * answer or plan) reached the user, runs the requested checks, and then ends
+ * with "the original plan I made is still there" - referencing text the user
+ * never saw.
+ */
+export const MARI_WITHHELD_REPLY_NOTICE =
+  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+
+/** A repair for a withheld turn, with the notice only when that turn had words: a silent turn withheld nothing. */
+export function withWithheldNotice(prompt: string, text: string) {
+  return text.trim() ? `${prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : prompt;
+}
+
+/**
+ * Detect a provider "prompt + output budget exceeds the context window" error
+ * and extract the window size when the message states it. OpenRouter phrases
+ * it as "This endpoint's maximum context length is N tokens. However, you
+ * requested about M tokens ..."; other OpenAI-compatible gateways use similar
+ * wording. Returns null when the error is not a context overflow.
+ */
+export function parseContextOverflowError(error: unknown): { limit: number | null } | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (!message) return null;
+  const isOverflow =
+    /maximum context length|context(?:[ _]window|[ _]length)?[^.]{0,40}(?:too long|exceed|overflow)|(?:prompt|input|request(?:ed)?)[^.]{0,40}too long|context_length_exceeded|too many tokens/iu.test(
+      message,
+    );
+  if (!isOverflow) return null;
+  const match =
+    message.match(/maximum context length (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/context (?:window|length|limit) (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/(?:limit|maximum) (?:is|of) ([\d,]+) tokens/iu);
+  const parsed = match ? Number(match[1]!.replace(/,/gu, "")) : NaN;
+  return { limit: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null };
+}
+
+/**
+ * OpenRouter reserves credits for the worst case - the full prompt plus every
+ * requested output token - and rejects the call with 402 "This request
+ * requires more credits, or fewer max_tokens. You requested up to N tokens,
+ * but can only afford M." before the model runs. Returns M, or null when the
+ * error is something else.
+ */
+export function parseAffordableMaxTokens(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const match = message.match(/can only afford ([\d,]+)/iu);
+  if (!match) return null;
+  const parsed = Number(match[1]!.replace(/,/gu, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
+/** Below this, a credit-limited reply cannot hold a useful command frame; surface the 402 instead. */
+const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
+/** Each call retries at most this many times on a credit or context-window rejection. */
+const MAX_LIMIT_RETRIES = 2;
+const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+
+/** The output budget a run's requests use now: the run-start one, lowered by any limit learned from a rejection. */
+function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number | undefined) {
+  const learned = signal ? learnedRunLimits.get(signal)?.maxTokens : undefined;
+  return learned === undefined ? maxTokens : Math.min(maxTokens ?? Infinity, learned);
+}
+
+/**
+ * Turn a provider limit rejection into smaller request limits, or null when
+ * the error is not one or nothing smaller would help.
+ */
+export function nextOptionsAfterLimitError(
+  error: unknown,
+  options: Pick<ChatOptions, "maxTokens" | "maxContext" | "enabledParameters">,
+): { reason: string; maxTokens?: number; maxContext?: number } | null {
+  const affordable = parseAffordableMaxTokens(error);
+  if (affordable !== null) {
+    // Leave headroom: the prompt's own cost grows with every retry's estimate drift.
+    const maxTokens = Math.floor(affordable * 0.9);
+    if (maxTokens < MIN_AFFORDABLE_OUTPUT_TOKENS) return null;
+    // With Max Tokens switched off nothing was sent, so the provider reserved its own maximum: any limit that fits the
+    // balance is a retry worth making, never compared with the unsent fallback.
+    if (options.enabledParameters?.maxTokens === false) {
+      return { reason: "Credit limit", maxTokens: Math.min(maxTokens, options.maxTokens ?? maxTokens) };
+    }
+    if (options.maxTokens !== undefined && maxTokens >= options.maxTokens) return null;
+    return { reason: "Credit limit", maxTokens };
+  }
+  const overflow = parseContextOverflowError(error);
+  if (!overflow) return null;
+  const current = options.maxContext && options.maxContext > 0 ? options.maxContext : null;
+  // Prefer the window the provider stated. If it is no smaller than what we
+  // already sent (the token estimate ran low), or unstated, tighten instead.
+  const maxContext =
+    overflow.limit !== null && (current === null || overflow.limit < current)
+      ? overflow.limit
+      : current !== null
+        ? Math.floor(current * 0.75)
+        : null;
+  return maxContext === null ? null : { reason: "Context overflow", maxContext };
+}
 
 export function professorMariWorkspaceResponseFormat(provider: string): ChatOptions["responseFormat"] | undefined {
   return ["openrouter", "google", "google_vertex"].includes(provider) ? { type: "json_object" } : undefined;
@@ -1009,6 +1114,7 @@ Keep the answer itself in plain assistant text.
 - Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. Calling \`ask\` ends your turn: changes beside it do not run, and the answer arrives as the user's next message. Say in a sentence what you are asking and why, then call it. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
 - Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
+- Your hidden reasoning/thinking is NEVER shown to the user, and Marinara may withhold a turn's text it could not accept (it will tell you when it does). Only your final turn's text is kept as your answer; text from a turn followed by more steps collapses into the step timeline. So when checks follow an answer or plan you already wrote, restate that whole answer or plan in your final text - never refer to it as already shown ("the plan above", "the original plan is still there").
 - Finish with your answer, including a suggestions call when you offer next steps.${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
@@ -1044,7 +1150,7 @@ Required schema:
 }
 
 Field rules:
-- \`say\` is the only text Marinara may show to the user.
+- \`say\` is the only text Marinara may show to the user. Your hidden reasoning/thinking is NEVER shown, and Marinara may withhold a reply it could not accept (it will tell you when it does). Never refer to a plan, list, draft, or answer as already shown ("the plan above", "the original plan is still there") unless it reached the user in a \`say\`; if it did not, write it out in full in your final \`say\`. Only your final \`say\` (the response that sets \`stop\` to \`true\`) is kept as your answer; \`say\` text from earlier rounds collapses into the step timeline. So when checks follow an answer or plan you already wrote, repeat that whole answer or plan in the final \`say\` - never end with only "it is still there" or "as above".
 - Set \`awaitingAuthorization\` to \`true\` only when \`say\` asks the user to approve the mutating commands in this response. Marinara will pause those commands and show an Accept action.
 - \`understoodRequest\`: when a response carries mutating commands, copy the exact words you are treating as the request or permission for them - from the user's message, or from the saved memory or instruction that directs the change. It is shown to the user for transparency and NEVER validated: a missing or imperfect quote never blocks a command. Keep it short (one sentence or phrase).
 - \`commands\` is the command list to execute now. Use \`[]\` only when no command is needed.
@@ -1463,9 +1569,21 @@ export function mariMaxOutputTokens(connection: WorkspaceConnection) {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
-  return (
-    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection)
-  );
+  const configured =
+    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
+  const provider = normalizeCatalogProvider(connection.provider);
+  const known = provider ? findKnownModel(provider, connection.model.trim()) : undefined;
+  // A Max Tokens that is most of the model's window (~1M for some models) was copied from it: hold it to the model's
+  // known max output. The catalog's max output lags some models (GLM 4.5/4.6, Claude 4.5/4.6), so a smaller value,
+  // the user's or the provider's own, is kept as set.
+  const limit =
+    known?.context && configured * 2 >= known.context
+      ? clampGenerationMaxOutputTokens({ provider, model: connection.model, maxTokens: configured })
+      : configured;
+  // OpenRouter reserves credits for every requested output token, so a large
+  // budget fails with 402 before she can act. Direct providers keep their
+  // limit: hidden reasoning shares it there.
+  return connection.provider === "openrouter" ? Math.min(limit, MARI_MAX_OUTPUT_TOKENS) : limit;
 }
 
 function resolveMariMaxOutputTokens(connection: WorkspaceConnection) {
@@ -4337,7 +4455,8 @@ export class ProfessorMariWorkspaceService {
             actionResults: workspaceActionResults,
             commandResults: commandResultsForContinuity,
             onEvent: args.onEvent,
-            maxOutputTokens: baseOptions.maxTokens,
+            // Read when a repair quotes it, so a limit learned from a 402 mid-run is the one she is told.
+            maxOutputTokens: () => runMaxOutputTokens(controller.signal, baseOptions.maxTokens),
             steers: {
               waiting: () => {
                 syncFromPi();
@@ -4532,7 +4651,7 @@ export class ProfessorMariWorkspaceService {
         if (isEmptyCompletedAction(action)) {
           protocolRepairRounds += 1;
           if (protocolRepairRounds <= maxProtocolRepairRounds) {
-            messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
             messages.push({
               role: "user",
               content:
@@ -4612,7 +4731,7 @@ export class ProfessorMariWorkspaceService {
           runEndedWithDeferral = false;
           runHeldChanges = [];
           runHeldCalls = [];
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
             messages.push({
               role: "user",
@@ -4620,7 +4739,13 @@ export class ProfessorMariWorkspaceService {
               contextKind: "history",
             });
           }
-          messages.push({ role: "user", content: claimDecision.prompt, contextKind: "history" });
+          messages.push({
+            role: "user",
+            // The rejected frame's say never reached the user (the review runs
+            // before its words are emitted), so the model must restate it.
+            content: withWithheldNotice(claimDecision.prompt, action.visibleText),
+            contextKind: "history",
+          });
           continue;
         }
         if (claimDecision.kind === "stop") {
@@ -4659,12 +4784,15 @@ export class ProfessorMariWorkspaceService {
           } else {
             protocolRepairRounds = 0;
           }
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
+          const continueCoaching = action.protocolValid
+            ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
+            : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.";
           messages.push({
             role: "user",
-            content: action.protocolValid
-              ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
-              : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
+            // A frame with neither commands nor stop is never emitted to the
+            // user, so any say it carried (often the whole answer) was lost.
+            content: withWithheldNotice(continueCoaching, action.visibleText),
             contextKind: "history",
           });
           continue;
@@ -4701,7 +4829,7 @@ export class ProfessorMariWorkspaceService {
           args.onEvent({ type: "suggestions", data: action.suggestions });
         }
 
-        messages.push({ role: "assistant", content: action.assistantHistoryContent });
+        messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
 
         if (isLengthFinishReason(result.finishReason)) {
           if (action.commands.some(isMutatingWorkspaceCommand)) {
@@ -5441,12 +5569,27 @@ export class ProfessorMariWorkspaceService {
         : []),
       ...messages.filter((message) => message.role !== "system"),
     ];
-    const options: ChatOptions = onToken
-      ? {
-          ...baseOptions,
-          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame),
-        }
-      : { ...baseOptions };
+    // Limits learned from earlier provider rejections in this run. Keyed by the
+    // run's abort signal, which every caller passes through unchanged (the pi
+    // runtime spreads a copy of baseOptions, so mutating it would not stick).
+    const runLimits = baseOptions.signal ? learnedRunLimits.get(baseOptions.signal) : undefined;
+    let options: ChatOptions = {
+      ...baseOptions,
+      ...(onToken
+        ? { onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame) }
+        : {}),
+      ...(runLimits?.maxContext !== undefined
+        ? { maxContext: Math.min(baseOptions.maxContext || Infinity, runLimits.maxContext) }
+        : {}),
+      // A limit the provider asked for is sent even when the send map switches Max Tokens off: unsent, the provider
+      // reserves its own default and rejects the call again.
+      ...(runLimits?.maxTokens !== undefined
+        ? {
+            maxTokens: runMaxOutputTokens(baseOptions.signal, baseOptions.maxTokens),
+            enabledParameters: { ...baseOptions.enabledParameters, maxTokens: true },
+          }
+        : {}),
+    };
     logger.debug(
       "\n[debug/professor-mari] Prompt sent to model (%d messages):\n  Model: %s  Temp: %s  MaxTokens: %s  MaxContext: %s  Effort: %s  Verbosity: %s  CustomParameterKeys: %s",
       messages.length,
@@ -5459,7 +5602,35 @@ export class ProfessorMariWorkspaceService {
       Object.keys(options.customParameters ?? {}).join(",") || "none",
     );
     debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", debugJson(messages));
-    return provider.chatComplete(messages, options);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await provider.chatComplete(messages, options);
+      } catch (err) {
+        if (attempt >= MAX_LIMIT_RETRIES || baseOptions.signal?.aborted) throw err;
+        const next = nextOptionsAfterLimitError(err, options);
+        if (!next) throw err;
+        logger.warn(
+          "[Professor Mari] %s from %s; retrying with maxTokens=%s maxContext=%s",
+          next.reason,
+          options.model,
+          next.maxTokens ?? options.maxTokens ?? "default",
+          next.maxContext ?? options.maxContext ?? "default",
+        );
+        if (baseOptions.signal) {
+          const learned = learnedRunLimits.get(baseOptions.signal) ?? {};
+          if (next.maxTokens !== undefined) learned.maxTokens = next.maxTokens;
+          if (next.maxContext !== undefined) learned.maxContext = next.maxContext;
+          learnedRunLimits.set(baseOptions.signal, learned);
+        }
+        options = {
+          ...options,
+          ...(next.maxTokens !== undefined
+            ? { maxTokens: next.maxTokens, enabledParameters: { ...options.enabledParameters, maxTokens: true } }
+            : {}),
+          ...(next.maxContext !== undefined ? { maxContext: next.maxContext } : {}),
+        };
+      }
+    }
   }
 
   private executeWorkspaceCommandBatch(...args: Parameters<WorkspaceCommands["executeWorkspaceCommandBatch"]>) {

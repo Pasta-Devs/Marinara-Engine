@@ -406,7 +406,7 @@ test("TTS playback filters keep compatible defaults and save independent choices
     if (route.request().method() === "PUT") config = route.request().postDataJSON();
     await route.fulfill({ json: config });
   });
-  // Variant D: Text to Speech is off here, so its Defaults tile opens the settings in the Add window.
+  // Text to Speech is off here; its settings open in the Add window.
   const open = async () => {
     await openDefaultsTile(page, "voice");
     return ttsConfigCard(page);

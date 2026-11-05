@@ -149,6 +149,14 @@ class ReviewContext(unittest.TestCase):
         with patch.dict(os.environ, {"DOTTORE_VARS_JSON": "{}"}):
             self.assertEqual(reviewer.repository_variables([".github/a.yml"]), "None set.")
 
+    def test_only_dottore_variables_reach_the_bundle(self):
+        passed = json.dumps({"DOTTORE_FINDERS": "2", "DOTTORE_BASE_REFS": "staging", "ORG_DEPLOY_HOST": "10.0.0.5"})
+        with patch.dict(os.environ, {"DOTTORE_VARS_JSON": passed}):
+            self.assertEqual(reviewer.repository_variables([".github/a.yml"]), "DOTTORE_BASE_REFS=staging\nDOTTORE_FINDERS=2")
+            self.assertEqual(reviewer.repository_variables(["src/a.ts"]), "")
+        with patch.dict(os.environ, {"DOTTORE_VARS_JSON": json.dumps({"ORG_DEPLOY_HOST": "10.0.0.5"})}):
+            self.assertEqual(reviewer.repository_variables([".github/a.yml"]), "None set.")
+
     def test_unmatched_confirmation_is_counted_not_published(self):
         finding = reviewer.Finding("medium", "src/a.ts", 3, "Title", "Body", "Fix")
         with patch.object(reviewer, "evidence_grounded", lambda ctx, evidence: False):

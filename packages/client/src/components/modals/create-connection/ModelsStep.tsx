@@ -183,9 +183,13 @@ export function ModelsStep(props: ModelsStepProps) {
         if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
         id = created.id;
         // Connect left one empty image or video row; the new row replaces it instead of sitting next to it.
+        // Empty means no model, workflow or parameters: a saved ComfyUI Connection whose workflow names its own
+        // checkpoint has no model and is the user's, not a leftover.
         const leftover = linked.find(
           (row) =>
             !row.model?.trim() &&
+            !row.comfyuiWorkflow?.trim() &&
+            !row.defaultParameters?.trim() &&
             row.provider !== rowProvider &&
             (row.provider === "image_generation" || row.provider === "video_generation"),
         );

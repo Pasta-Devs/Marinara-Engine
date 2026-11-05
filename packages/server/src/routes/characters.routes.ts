@@ -29,8 +29,14 @@ import {
   isEmptyCharacterTagEdit,
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
+  resolveOpenAIGifAnimation,
 } from "@marinara-engine/shared";
-import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
+import type {
+  CharacterData,
+  ConversationCallCharacterVideoClipKind,
+  ExportEnvelope,
+  ImageAnimation,
+} from "@marinara-engine/shared";
 import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
 import { createCharacterCatalog } from "../services/storage/character-catalog.js";
 import { encodePersonaCreate, encodePersonaUpdate, projectPersona } from "../services/personas/persona-projector.js";
@@ -46,7 +52,7 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { createNoodleStorage } from "../services/storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { CHARACTERS_REFERENCE_SHEET, loadPrompt } from "../services/prompt-overrides/index.js";
-import { generateImage } from "../services/image/image-generation.js";
+import { generateImage, ImageAnimationUnsupportedError } from "../services/image/image-generation.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
@@ -277,7 +283,11 @@ async function readCallVideoClipUploadBuffer(data: UploadedMultipartFile) {
 }
 
 async function ensureCharacterGalleryDir(characterId: string) {
-  const dir = join(CHARACTER_GALLERY_ROOT, characterId);
+  // Stored ids are not always app-made: a profile import or Mari can store any id.
+  if (isUnsafePathSegment(characterId)) {
+    throw new Error("Invalid character id");
+  }
+  const dir = assertInsideDir(CHARACTER_GALLERY_ROOT, join(CHARACTER_GALLERY_ROOT, characterId));
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -491,6 +501,8 @@ type AvatarGenerationBody = {
   styleProfileId?: string | null;
   debugMode?: boolean;
   promptOverrides?: AvatarGenerationPromptOverride[];
+  /** One looping GIF drawn from the prompt alone; refused with 400 code "animation-unsupported" (see generateImage). */
+  animation?: ImageAnimation;
 };
 
 const AVATAR_GENERATION_MAX_DIMENSION = 4096;
@@ -1554,6 +1566,9 @@ export async function charactersRoutes(app: FastifyInstance) {
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         imageDefaults,
         quality: resolveConnectionImageQuality(conn),
+        animation:
+          body.animation && typeof body.animation === "object" ? resolveOpenAIGifAnimation(body.animation) : undefined,
+        debugMode: debugOverrideEnabled,
         fallback: imageFallback,
         onFallback: createReplyFallbackNotifier(reply),
       });
@@ -1562,6 +1577,9 @@ export async function charactersRoutes(app: FastifyInstance) {
         prompt: compiled.prompt,
       };
     } catch (err) {
+      if (err instanceof ImageAnimationUnsupportedError) {
+        return reply.status(400).send({ error: err.message, code: err.code });
+      }
       logger.error(err, "%s generation failed", isCharacterSheet ? "Character sheet" : "Avatar");
       return reply.status(500).send({
         error:

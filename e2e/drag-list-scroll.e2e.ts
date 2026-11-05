@@ -2,6 +2,7 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { hideExistingItems } from "./connections-panel.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 type Finger = { identifier: number; clientX: number; clientY: number };
@@ -74,6 +75,14 @@ for (const kind of ["chat", "character", "persona"] as const) {
         .locator(kind === "chat" ? `[data-chat-id="${item.id}"]` : `[data-touch-drag-card="${kind}"]`)
         .filter({ hasText: item.name });
       await expect(source).toBeVisible();
+      if (kind === "chat") {
+        // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it
+        // loads. Let that finish first, or it scrolls the list away from the row centred below.
+        const activeRow = panel.locator(`[data-chat-id="${chat.id}"]`);
+        await expect(activeRow).toBeInViewport();
+        // Waits until the row stops moving.
+        await activeRow.scrollIntoViewIfNeeded();
+      }
       const scroller = await source.evaluateHandle((element) => {
         let parent = element.parentElement;
         while (
@@ -276,7 +285,9 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await page.mouse.up();
         await expect(source).toHaveAttribute("draggable", originalDraggable!);
         // Wait for the row to settle after removing the root drop zone before sampling coordinates.
-        await handle.hover();
+        // Not with hover(): when the closing insertion gap still moves the row, hover's retry scrolls it
+        // to the list's bottom edge, and the next drag then auto-scrolls against the wheel below.
+        await handle.scrollIntoViewIfNeeded();
         const restart = await handle.boundingBox();
         expect(restart).not.toBeNull();
         primary = {
@@ -463,6 +474,9 @@ test("connection cards sort and move, and folders keep their saved drag order", 
   const connectionIds: string[] = [];
   const folderIds: string[] = [];
   try {
+    // Earlier specs leave Connections and folders on the shared server; the panel shows only this test's.
+    for (const path of ["/api/connections", "/api/connection-accounts", "/api/connection-folders"])
+      await hideExistingItems(page, request, path);
     for (const name of ["Sort Alpha", "Sort Beta", "Sort Gamma"]) {
       const response = await request.post("/api/connection-accounts", {
         data: {
@@ -492,8 +506,11 @@ test("connection cards sort and move, and folders keep their saved drag order", 
       connectionPanelSort: "name-asc",
     });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
-    await page.goto("/");
     const mobile = testInfo.project.name.includes("mobile");
+    // Both ends of each drag must be on screen together. Safari's 659px viewport leaves the drop point under the
+    // last card, and a folder above the cards, off screen; give every phone the 844px Pixel 7 height.
+    if (mobile) await page.setViewportSize({ width: page.viewportSize()!.width, height: 844 });
+    await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
     // A narrow panel keeps the search full width, so the sort choice lives in the more-actions menu there.

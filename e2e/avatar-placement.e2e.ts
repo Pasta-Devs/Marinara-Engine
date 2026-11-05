@@ -177,17 +177,10 @@ for (const mode of ["roleplay", "game"] as const) {
       test.setTimeout(180_000);
       const characters: Array<{ id: string }> = [];
       let chatId: string | undefined;
+      // The owner picker finds this card by its name, so a card left by an earlier run cannot be picked instead.
+      const profileOnly = `Profile only ${Date.now().toString(36)}`;
       try {
-        for (const name of [
-          "Maukie",
-          "Pantalone",
-          "Dottore",
-          "Mari",
-          "Pip",
-          "Disabled",
-          "Profile only",
-          "Sprites only",
-        ]) {
+        for (const name of ["Maukie", "Pantalone", "Dottore", "Mari", "Pip", "Disabled", profileOnly, "Sprites only"]) {
           const response = await request.post("/api/characters", { data: { data: { name } } });
           expect(response.ok(), await response.text()).toBeTruthy();
           characters.push((await response.json()) as { id: string });
@@ -323,7 +316,13 @@ for (const mode of ["roleplay", "game"] as const) {
           });
           const setup = page.locator('[data-avatar-setup="2d-avatars"]');
           await expect(setup).toBeVisible({ timeout: 30_000 });
-          await setup.getByLabel("Character or persona").selectOption(`character:${characters[6]!.id}`);
+          // The owner field opens the shared Personas picker (#8763).
+          await setup.getByLabel("Character or persona").click();
+          const ownerPicker = page.getByRole("dialog", { name: "Personas", exact: true });
+          await ownerPicker.getByRole("searchbox").fill(profileOnly);
+          await ownerPicker.getByTitle(profileOnly, { exact: true }).click();
+          await expect(ownerPicker).toHaveCount(0);
+          await expect(setup.getByLabel("Character or persona")).toContainText(profileOnly);
           const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
           await expect(showInChats).not.toBeChecked();
           await expect(showInChats).toBeDisabled();

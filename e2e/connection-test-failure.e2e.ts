@@ -20,6 +20,9 @@ for (const testCase of [
     page,
     request,
   }, info) => {
+    // Six full-page screenshots at the phone's 3x scale, up to 1440 wide, take 2-8 s each on CI WebKit, so the
+    // steps alone came to about 67 s there (run 42029653525); the screenshot sweeps beside it use the same budget.
+    test.setTimeout(120_000);
     await isolateSyncedUISettings(page);
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "{}" } }));
     const createAccount = async (name: string) => {
@@ -43,7 +46,14 @@ for (const testCase of [
       await route.fulfill({
         json:
           tests === 1
-            ? { success: false, message: testCase.apiFailure, latencyMs: 2, modelName: null }
+            ? // The card offers Replace key only for the server's typed key rejection (#8456).
+              {
+                success: false,
+                message: testCase.apiFailure,
+                errorCode: "AUTH_REJECTED",
+                latencyMs: 2,
+                modelName: null,
+              }
             : { success: true, message: "Connection successful", latencyMs: 2, modelName: "Alpha" },
       });
     });
@@ -103,18 +113,13 @@ for (const testCase of [
       await page.reload();
       const reloadedPanel = page.locator("[data-connections-panel]").filter({ visible: true });
       const reloadedRow = reloadedPanel.locator(`[data-connection-account-id="${account.account.id}"]`);
-      await expect(reloadedRow).toContainText("Key not accepted");
+      // The typed reason is not kept across a reload (#8456), so the card says "Test failed" and offers a new test.
+      // The Edit account window has no manual Test for a provider with live checks (#8764).
+      await expect(reloadedRow).toContainText("Test failed");
       await expect(reloadedRow).toContainText(`Last test failed: ${testCase.expectedFailure}`);
-      await reloadedRow.getByRole("button", { name: `Actions for ${account.account.name}`, exact: true }).click();
-      await page.getByRole("menuitem", { name: "Edit connection", exact: true }).click();
-      const editor = page.getByRole("dialog", { name: "Edit connection", exact: true });
-      await expect(editor.locator("[data-account-test-result]")).toContainText(
-        `Last test failed: ${testCase.expectedFailure}`,
-      );
-      await editor.getByRole("button", { name: "Test connection", exact: true }).click();
-      await expect(editor.locator("[data-account-test-result]")).toHaveText("Ready · key works · 2 ms");
-      await page.keyboard.press("Escape");
-      await expect(reloadedRow).not.toContainText("Key not accepted");
+      await reloadedRow.getByRole("button", { name: `Test ${account.account.name} again`, exact: true }).click();
+      await expect(page.getByText("Works (2 ms)", { exact: true })).toBeVisible();
+      await expect(reloadedRow).not.toContainText("Test failed");
       await expect(reloadedRow).not.toContainText(`Last test failed: ${testCase.expectedFailure}`);
     } finally {
       await request.delete(`/api/connections/${account.connectionId}`);

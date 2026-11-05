@@ -1945,8 +1945,9 @@ export async function spritesRoutes(app: FastifyInstance) {
     { config: { rateLimit: SPRITE_RENAME_RATE_LIMIT } },
     async (req, reply) => {
       if (!ownerParams.safeParse(req.params).success) return reply.status(400).send({ error: "Invalid character ID" });
-      return withSpriteCatalogLock(req.params.characterId, async () => {
-        const { characterId, expression } = req.params;
+      const characterId = basename(req.params.characterId);
+      return withSpriteCatalogLock(characterId, async () => {
+        const { expression } = req.params;
 
         const body = req.body;
         const nextExpression =
@@ -1962,7 +1963,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (nextExpression.length > 160)
           return reply.code(400).send({ error: "Expression label must be at most 160 characters" });
 
-        const dir = join(SPRITES_ROOT, characterId);
+        const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
         if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
 
         const files = readdirSync(dir);

@@ -68,11 +68,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
           return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
         })
         .toEqual([character.id]);
-      if (mode === "conversation") {
-        await expect(wizard.getByTitle("Selected from the library", { exact: true })).toBeVisible();
-      } else {
-        await expect(wizard.getByRole("button", { name: "Remove", exact: true })).toHaveCount(1);
-      }
+      // Both modes pick participants with CharacterSelect now (#8763); its field's title lists every pick, so an
+      // exact match means this character and no other.
+      await expect(wizard.getByTitle("Selected from the library", { exact: true })).toBeVisible();
       await testInfo.attach("selected-character", {
         body: await page.screenshot({ path: testInfo.outputPath("selected-character.png") }),
         contentType: "image/png",

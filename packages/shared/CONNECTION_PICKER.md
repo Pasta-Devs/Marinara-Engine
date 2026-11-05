@@ -37,13 +37,13 @@ async function chooseModel(props, current) {
 
 ## Options
 
-| Option                   | Meaning                                                                                                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`                   | `chat` (default), `image`, `video`, `audio` (audio generation), `decision`, or `all` (every kind). An unknown kind rejects with `TypeError`; it never falls back to `all`. |
-| `value`                  | Saved Model row id. Null or an empty string means the inherited/default choice. Non-string values and ids over 200 characters reject with `TypeError`.                     |
-| `title` / `defaultLabel` | Package-translated text, trimmed, max 240 / 500 characters.                                                                                                                |
-| `includeDefault`         | Boolean, default `true`. Offers `null` as "default/inherited".                                                                                                             |
-| `includeLocalSidecar`    | `true` only works with `kind: "chat"`. Set it only if you handle the local sidecar id.                                                                                     |
+| Option                   | Meaning                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`                   | `chat` (default), `image`, `video`, `audio` (Text to Speech Models), `decision`, or `all` (every kind). An unknown kind rejects with `TypeError`; it never falls back to `all`. |
+| `value`                  | Saved Model row id. Null or an empty string means the inherited/default choice. Non-string values and ids over 200 characters reject with `TypeError`.                          |
+| `title` / `defaultLabel` | Package-translated text, trimmed, max 240 / 500 characters.                                                                                                                     |
+| `includeDefault`         | Boolean, default `true`. Offers `null` as "default/inherited".                                                                                                                  |
+| `includeLocalSidecar`    | `true` only works with `kind: "chat"`. Set it only if you handle the local sidecar id.                                                                                          |
 
 ## Result
 

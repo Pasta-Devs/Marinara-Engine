@@ -576,16 +576,18 @@ function TtsSearchableSelect({
         closePanel(false);
       }
     };
+    // Escape closes only the open list. Heard first (capture) and stopped, it never reaches the Escape of a dialog
+    // this card sits in, such as the Add window, which would close with it.
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closePanel();
-      }
+      if (event.key !== "Escape" || event.isComposing) return;
+      event.stopPropagation();
+      closePanel();
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape, true);
     return () => {
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", closeOnEscape, true);
     };
   }, [closePanel, open]);
 
@@ -1060,6 +1062,8 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The edit waiting for the debounce; closing the card (or the Add window around it) still saves it.
   const pendingSaveRef = useRef<TTSConfig | null>(null);
+  // Saves not answered yet. A refetch that lands meanwhile can be older than the draft.
+  const savesInFlightRef = useRef(0);
   const { mutateAsync: putConfig } = updateConfig;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceProfilesRef = useRef<TTSSourceProfiles>({});
@@ -1103,9 +1107,10 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     savedConnectionId,
   );
 
-  // Populate draft from server on load
+  // Populate draft from server on load. The refetch after an earlier save must not take back a newer edit that
+  // is still waiting or being saved, such as the speaker picked right after "Add voice" saved its new row.
   useEffect(() => {
-    if (!savedConfig) return;
+    if (!savedConfig || pendingSaveRef.current || savesInFlightRef.current > 0) return;
     setEnabled(savedConfig.enabled);
     setSource(savedConfig.source ?? "openai");
     setConnectionId(savedConfig.connectionId ?? "");
@@ -1251,7 +1256,12 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     }
     pendingSaveRef.current = null;
     setSaveStatus("saving");
-    await updateConfig.mutateAsync(payload);
+    savesInFlightRef.current += 1;
+    try {
+      await updateConfig.mutateAsync(payload);
+    } finally {
+      savesInFlightRef.current -= 1;
+    }
     setSaveStatus("saved");
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     statusTimerRef.current = setTimeout(() => {

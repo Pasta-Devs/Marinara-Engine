@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -69,10 +70,23 @@ for (const theme of ["dark", "light"] as const) {
       let section = await openTools();
       const tools = () => section.getByLabel("Enable Tool Use", { exact: true });
       const lore = () => section.getByLabel("Let the GM search lore", { exact: true });
+      // The Game tool model is a ConnectionSelect and its "Model for …" picker since #8456, not a <select>.
+      const toolModel = () => section.locator("[data-connection-value]");
+      /** Picks the picker's "Same as the chat" row; a phone opens on the Model's account, so back out first. */
+      const followChatModel = async () => {
+        await toolModel().click();
+        const picker = page.getByRole("dialog").filter({ has: page.locator("[data-switcher-accounts]") });
+        const back = picker.locator("[data-switcher-back]").filter({ visible: true });
+        const sameAsChat = picker.locator("[data-switcher-default]").filter({ visible: true });
+        await expect(back.or(sameAsChat).first()).toBeVisible();
+        if (await back.count()) await back.click();
+        await sameAsChat.click();
+        await expect(picker).toHaveCount(0);
+      };
       await expect(tools()).toBeDisabled();
       await expect(lore()).toBeDisabled();
       await expect(section.getByRole("status")).toContainText("Claude and Grok subscriptions");
-      await section.getByRole("combobox", { name: "Game tool connection", exact: true }).selectOption(planner.id);
+      await chooseConnection(page, toolModel(), planner.id);
       await expect(tools()).toBeEnabled();
       await expect(lore()).toBeEnabled();
       await section
@@ -86,9 +100,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(section).toContainText("Vectorize books first");
       await page.reload();
       section = await openTools();
-      await expect(section.getByRole("combobox", { name: "Game tool connection", exact: true })).toHaveValue(
-        planner.id,
-      );
+      await expect(toolModel()).toHaveAttribute("data-connection-value", planner.id);
       await expect(lore()).toBeChecked();
       await expect(tools()).not.toBeChecked();
       await section.evaluate((element) => element.scrollIntoView({ block: "start" }));
@@ -135,15 +147,13 @@ for (const theme of ["dark", "light"] as const) {
       section = await openTools();
       await agents.locator('[role="button"][aria-expanded]').click();
       await expect(sequential).toBeChecked();
-      await section.getByRole("combobox", { name: "Game tool connection", exact: true }).selectOption("");
+      await followChatModel();
       await expect(tools()).toBeDisabled();
       await expect.poll(async () => (await metadata()).gameGmToolConnectionId).toBeNull();
       await request.patch(`/api/chats/${chat.id}/metadata`, { data: { gameGmToolConnectionId: "deleted-connection" } });
       await page.reload();
       section = await openTools();
-      await expect(section.getByRole("combobox", { name: "Game tool connection", exact: true })).toHaveValue(
-        "deleted-connection",
-      );
+      await expect(toolModel()).toHaveAttribute("data-connection-value", "deleted-connection");
       await expect(tools()).toBeDisabled();
       // A non-chat default in an imported connection list must not mask the
       // language default used by the narrator controls.

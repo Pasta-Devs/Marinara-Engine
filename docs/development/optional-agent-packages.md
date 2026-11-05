@@ -1857,6 +1857,38 @@ connection's cache time applies.
 
 Older Engines ignore the option, so a package can always pass it. Declare 1.815 when the package relies on it.
 
+### Capability API 1.816: animated GIF images
+
+`images.generate` takes `animation: { frameCount?, frameDurationMs? }` on the request and then returns one looping GIF: `mimeType: "image/gif"`, `ext: "gif"`, which `images.save` stores as a `.gif` file. `{}` uses the Engine defaults, 9 frames of 200 ms. The Engine clamps `frameCount` to 2 to 12 and `frameDurationMs` to 20 to 2000 in steps of 10, and chooses the frame size itself: the smallest valid frame in the shape of `width` and `height`, such as 816x816 for a square or 608x1088 for 9:16. Twelve frames of that size stay under OpenAI's documented 8,294,400 pixels.
+
+Only GPT Image 2.6 Flare or Sunburst (`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`) on an OpenAI connection makes GIFs. A GIF is drawn from the prompt alone: OpenAI makes GIFs on `/v1/images/generations` only, which takes no picture. The Engine refuses these requests before any queue slot or paid call, with an error whose `code` is `"animation-unsupported"`:
+
+- A connection that can't make GIFs (ChatGPT (Codex login), OpenRouter, NanoGPT, ToAPIs, or any other service or model): "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection."
+- A picture, meaning a non-empty `referenceImage` or `referenceImages` entry, or `referenceIsCanvas: true`: "A GIF is drawn from the prompt alone, so it can't start from a picture."
+
+An empty `referenceImages` array or an empty string is no picture. `POST /api/characters/avatar-generation` takes the same `animation` in its body and answers these refusals with 400 `{ error, code: "animation-unsupported" }`. Otherwise its `image` is a `data:image/gif;base64,…` URL.
+
+A service that answers a GIF request with a still fails with "The image service sent back a still picture instead of a GIF." That answer was already paid for, so it counts as a failed attempt, and the request's fallback connection is tried once when it can make GIFs. A fallback connection that can't make GIFs is skipped. The connection's custom parameters can add options such as `complexity` and set `quality`, as on stills, but they can't change the model, size or frames, or add `background`, `output_compression`, `stream`, `partial_images`, `response_format` or `prompt_rewriter`. A GIF request sends `quality` only when it is `low`, `medium`, `high`, `xhigh` or `max`; with the default (Auto) it leaves the field out, so OpenAI's default applies.
+
+This is a soft seam: an older Engine ignores `animation` and paints a still, which costs a picture. Check the Engine before asking, so an older Engine doesn't charge for a still you didn't want:
+
+- A client bundle reads `__MARINARA_HOST__.capabilityApi`.
+- A server package reads `api.runtime.capabilityApi`, new in 1.816. Older Engines leave it out, so a missing value means an older Engine.
+
+```ts
+const host = context.api.runtime.capabilityApi;
+const makesGifs = !!host && (host.major > 1 || (host.major === 1 && host.minor >= 816));
+const result = await context.api.runtime.integrations!.images.generate(source, baseUrl, apiKey, serviceHint, {
+  prompt,
+  width: 1024,
+  height: 1024,
+  ...(makesGifs ? { animation: {} } : {}),
+});
+const isGif = result.mimeType === "image/gif";
+```
+
+On a 1.816 Engine, catch `code === "animation-unsupported"` to paint a still instead. Declare 1.816 only when the package can't work without GIFs. No permission is needed.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
@@ -2225,7 +2257,7 @@ Server packages can call `api.runtime.integrations` to use the current Engine's 
 - `llm.createProvider(...)` accepts the same connection settings as Engine's provider factory, including custom request parameters and headers. The returned provider supports `chat`, `chatComplete`, `embed`, `maxContextValue` and `maxTokensOverrideValue`. It exposes no credential properties.
 - `llm.localSidecar()` returns the host's local sidecar provider through the same facade.
 - `llm.withFallback(...)` wraps a provider created by the same package host. It preserves Engine's admission, fallback notifications and provider selection behavior.
-- `images.generate(...)` and `videos.generate(...)` use the live Engine implementations, including cancellation, request logging, network checks and media queues. Forward the caller's `signal` and UI `debugMode` when present.
+- `images.generate(...)` and `videos.generate(...)` use the live Engine implementations, including cancellation, request logging, network checks and media queues. Forward the caller's `signal` and UI `debugMode` when present. From 1.816, an image request's `animation` asks for a looping GIF (see [Capability API 1.816](#capability-api-1816-animated-gif-images)).
 - `images.save`, `images.remove`, `images.stage` and `images.sweepStaged` reuse the gallery's safe writes and staged-file lifecycle. `videos.save` and `videos.remove` reuse the video storage path. `images.resolveNovelAiRequestSize` reuses the host's NovelAI size normalization. Video duration and public reference-upload normalization are also available through `videos.resolveDuration` and `videos.resolveReferenceUpload`.
 - `speech.transcribe(audio, { filename, mimeType, signal })` sends recorded audio to the speech-to-text server the user set in **Connections → Speech to Text** and resolves the transcript, or `null` while that server is off, so the package keeps its own transcription. It applies the host's URL policy (`STT_LOCAL_URLS_ENABLED`), size and time limits, and never exposes the saved key. `speech` is optional and needs no newer capability API: check `typeof api.runtime.integrations?.speech?.transcribe === "function"` and fall back on older Engines.
 
