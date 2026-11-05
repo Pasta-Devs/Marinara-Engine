@@ -8,6 +8,7 @@
 // persona editors): it draws them from the avatar on a plain colour, removes it and saves them as sprites. A saved
 // talking head then shows each new face for its feeling.
 import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
+import { openConnectionsPage } from "../../../components/overhaul/library-navigation";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
@@ -30,7 +31,6 @@ import {
   usePersona,
   useSpriteCapabilities,
 } from "../../../hooks/use-characters";
-import { useUIStore } from "../../../stores/ui.store";
 import {
   ImagePromptReviewModal,
   type ImagePromptOverride,
@@ -215,11 +215,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
           ) : (
             <p className="text-xs text-[var(--muted-foreground)]">
               {t("avatars.generation.noImageConnection")}{" "}
-              <button
-                type="button"
-                className="text-[var(--primary)] underline"
-                onClick={() => useUIStore.getState().openRightPanel("connections")}
-              >
+              <button type="button" className="text-[var(--primary)] underline" onClick={() => openConnectionsPage()}>
                 {t("avatars.generation.openConnections")}
               </button>
             </p>

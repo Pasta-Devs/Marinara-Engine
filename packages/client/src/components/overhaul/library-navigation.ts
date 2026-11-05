@@ -4,7 +4,7 @@
 import { BookOpen, FileText, Link, Puzzle, Regex, Settings, Sparkles, Users, VenetianMask } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useUIStore, type Panel } from "../../stores/ui.store";
-import { useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
+import { isOverhaulActive, useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
 
 export type LibrarySectionEntry = {
   id: LibrarySection;
@@ -45,4 +45,13 @@ export function openLibrarySection(section: LibrarySection) {
   }
   // Keep the pane's highlight in step without reopening a closed pane.
   if (section !== "regex") useUIStore.setState({ rightPanel: section as Panel });
+}
+
+/**
+ * "Open Connections" buttons (connection gates, setup wizards). In the new
+ * layout this lands on the Connections page itself, not just the Library pane.
+ */
+export function openConnectionsPage() {
+  if (isOverhaulActive()) openLibrarySection("connections");
+  else useUIStore.getState().openRightPanel("connections");
 }
