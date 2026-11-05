@@ -138,6 +138,12 @@ const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
       {
         id: "storyWriter",
         copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.storyWriter",
+        media: [
+          {
+            url: "/releases/2.5.2/story-writer.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.storyWriter",
+          },
+        ],
       },
       {
         id: "agentOrganizer",
