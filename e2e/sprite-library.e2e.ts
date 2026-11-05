@@ -106,6 +106,8 @@ test("sprite metadata stays optional and folder moves work without dragging", as
         metadata = unavailable;
         await openSprites();
         await expect(library.locator("[data-sprite-expression]")).toHaveCount(2);
+        // The catalog retries once before failing; its error alert must not push the buttons down mid-click.
+        await expect(library).toHaveAttribute("aria-busy", "false");
         await library.getByRole("button", { name: "Select", exact: true }).click();
         await library.getByRole("button", { name: "Select all sprites", exact: true }).click();
         await expect(library.getByRole("checkbox", { checked: true })).toHaveCount(2);

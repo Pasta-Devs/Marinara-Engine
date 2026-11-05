@@ -77,6 +77,8 @@ test("soup/language picker searches native names and English names with keyboard
   await expect(trigger).toBeFocused();
 
   await trigger.click();
+  // The search takes focus on the next frame; a Shift+Tab before that starts from the trigger and never reaches the picker.
+  await expect(search).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(popup).toHaveCount(0);
   await expect(page.locator("#settings-control-language").getByRole("button").first()).toBeFocused();
@@ -152,6 +154,7 @@ test("soup/onboarding language picker closes on Escape without ending the tutori
   await expect(tour).toBeVisible();
   await expect(trigger).toBeFocused();
   await trigger.click();
+  await expect(search).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
   await expect(tour.getByRole("button", { name: "Documentation", exact: true })).toBeFocused();

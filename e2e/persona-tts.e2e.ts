@@ -51,9 +51,11 @@ test("personas share the existing voice selector and assignment shape", async ({
   const character = await create(request, "/characters", { data: { name } });
   const original = await (await request.get("/api/tts/config")).json();
   let config = { ...original, enabled: true, source: "openai", voiceMode: "per-character", voiceAssignments: [] };
+  let refetchHeld: Promise<void> | undefined;
   try {
     await page.route("**/api/tts/config", async (route) => {
       if (route.request().method() === "PUT") config = { ...config, ...route.request().postDataJSON() };
+      else await refetchHeld;
       await route.fulfill({ json: config });
     });
     await page.route("**/api/tts/voices", (route) =>
@@ -64,11 +66,20 @@ test("personas share the existing voice selector and assignment shape", async ({
     // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
     await openDefaultsTile(page, "voice");
     const card = ttsConfigCard(page);
-    await card.getByRole("button", { name: "Add voice", exact: true }).click();
+    const addVoice = card.getByRole("button", { name: "Add voice", exact: true });
+    await expect(addVoice).toBeVisible();
+    // As on a slow runner, the row "Add voice" makes is saved before the persona is picked, and that save's
+    // refetch answers only after the pick. It must not take the pick back.
+    let releaseRefetch = () => {};
+    refetchHeld = new Promise((resolve) => (releaseRefetch = resolve));
+    const rowSaved = page.waitForRequest((r) => r.method() === "PUT" && r.url().endsWith("/api/tts/config"));
+    await addVoice.click();
+    await rowSaved;
     await card.getByRole("button", { name: "Select character or persona", exact: true }).click();
     const choices = page.getByTestId("tts-character-options");
     await expect(choices.getByRole("option", { name, exact: true })).toBeVisible();
     await choices.getByRole("option", { name: `${name} (Persona)`, exact: true }).click();
+    releaseRefetch();
     const voice = card.getByTestId(`tts-custom-voice-input-character-${persona.id}`);
     await voice.fill("persona-voice");
     await expect
