@@ -105,6 +105,7 @@ import {
   type BulkUpdateLorebookEntriesInput,
 } from "@marinara-engine/shared";
 import { LorebookEntryRow, OvLoreDetailTarget } from "./LorebookEntryRow";
+import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
@@ -2077,6 +2078,18 @@ export function LorebookEditor() {
           {entries.length} {entries.length === 1 ? "entry" : "entries"} · ~{ovTotalTokens.toLocaleString()} tk
         </span>
         <span className="ov-bk-head__spacer" />
+        {expandedEntryId ? (
+          <CopyIdLine
+            label={localizeUi("ui.lorebooks.lorebookentryrow.entryId")}
+            id={expandedEntryId}
+            copyLabel={localizeUi("ui.lorebooks.lorebookentryrow.copyEntryId")}
+            onCopy={async () => {
+              const copied = await copyToClipboard(expandedEntryId);
+              if (copied) toast.success(localizeUi("ui.lorebooks.lorebookentryrow.entryIdCopied"));
+              else toast.error(localizeUi("ui.lorebooks.lorebookentryrow.couldNotCopyEntryId"));
+            }}
+          />
+        ) : null}
         <button type="button" className="ov-btn" onClick={() => setExportDialogOpen(true)}>
           {localizeUi("Export")}
         </button>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { openConnectionsPage } from "../overhaul/library-navigation";
 import { Loader2, Plug, X } from "lucide-react";
 import { useConnections } from "../../hooks/use-connections";
 import { useCreateChat } from "../../hooks/use-chats";
@@ -30,7 +31,6 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   const createChat = useCreateChat();
   const { data: chatPresetsData } = useChatPresets();
   const applyChatPreset = useApplyChatPreset();
-  const openRightPanel = useUIStore((s) => s.openRightPanel);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const pendingNewChatOrigin = useChatStore((s) => s.pendingNewChatOrigin);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
@@ -99,7 +99,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   const handleOpenConnections = () => {
     onClose();
-    openRightPanel("connections");
+    openConnectionsPage();
   };
 
   return (

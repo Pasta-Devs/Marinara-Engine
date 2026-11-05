@@ -2341,19 +2341,6 @@ function ExpandedDrawer({
         </div>
 
         <div className="ov-lentry__foot">
-          <span>
-            {localizeUi("ui.lorebooks.lorebookentryrow.entryId")} <code>{entry.id}</code>
-            <button
-              type="button"
-              onClick={async () => {
-                const copied = await copyToClipboard(entry.id);
-                if (copied) toast.success(localizeUi("ui.lorebooks.lorebookentryrow.entryIdCopied"));
-                else toast.error(localizeUi("ui.lorebooks.lorebookentryrow.couldNotCopyEntryId"));
-              }}
-            >
-              {localizeUi("lorebook.editor.batch.copy")}
-            </button>
-          </span>
           <span className={cn("ov-lentry__saved", saveError && "is-error")}>
             {saveError
               ? localizeUi("ui.lorebooks.expandeddrawer.autosaveFailedYourEditsAreStillHereAndWill")

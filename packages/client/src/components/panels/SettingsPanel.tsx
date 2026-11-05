@@ -29,7 +29,7 @@ import {
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
 } from "../../stores/ui.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -194,6 +194,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
@@ -3436,6 +3437,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const visualTheme = useUIStore((s) => s.visualTheme);
   const setVisualTheme = useUIStore((s) => s.setVisualTheme);
   const localize = useLocalizedUiText();
+  const overhaulDesktop = useOverhaulActive();
   const overhaulLayoutEnabled = useOverhaulStore((s) => s.enabled);
   const setOverhaulLayoutEnabled = useOverhaulStore((s) => s.setEnabled);
   const chatWidgetPreset = useUIStore((s) => s.chatWidgetPreset);
@@ -4830,8 +4832,12 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           <h2 className="text-sm font-semibold" data-appearance-group="roleplay">
             {localizeUi("settings.appearance.groups.roleplay")}
           </h2>
-          <div id={getSettingsSectionAnchorId("roleplay-tracker")} className="flex scroll-mt-3 flex-col gap-3">
+          <div
+            id={getSettingsSectionAnchorId("roleplay-tracker")}
+            className="ov-trk-settings flex scroll-mt-3 flex-col gap-3"
+          >
             <TrackerPanelAppearanceDrawer />
+            {overhaulDesktop ? <TrackerPanelPreview /> : null}
           </div>
 
           <SettingsSection

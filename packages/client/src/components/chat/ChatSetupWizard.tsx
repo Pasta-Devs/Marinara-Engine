@@ -2,6 +2,7 @@
 // Chat Setup Wizard — step-by-step new chat configuration
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useEffect, useId, useRef } from "react";
+import { openConnectionsPage } from "../overhaul/library-navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -1571,7 +1572,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
         {connectionOptions.length === 0 && (
           <button
             onClick={() => {
-              openRightPanel("connections");
+              openConnectionsPage();
               onFinish();
             }}
             className={WIZARD_SECONDARY_BUTTON_CLASS}
@@ -2998,7 +2999,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         {connectionOptions.length === 0 && (
           <button
             onClick={() => {
-              openRightPanel("connections");
+              openConnectionsPage();
               onFinish();
             }}
             className={WIZARD_SECONDARY_BUTTON_CLASS}
