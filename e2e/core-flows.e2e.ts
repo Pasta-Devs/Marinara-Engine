@@ -18842,6 +18842,8 @@ test("Professor Mari creates a character when its own authorization quote omits 
     await request
       .put("/api/professor-mari/workspace/skill-gate", { data: { enabled: skillGate.enabled } })
       .catch(() => undefined);
+    // Put back the default runtime, so later specs on this server get Pi.
+    await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
     if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
@@ -18993,6 +18995,8 @@ Her expression hardens slightly.
     await request
       .put("/api/professor-mari/workspace/skill-gate", { data: { enabled: skillGate.enabled } })
       .catch(() => undefined);
+    // Put back the default runtime, so later specs on this server get Pi.
+    await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
     if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);

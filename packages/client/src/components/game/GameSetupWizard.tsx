@@ -1830,11 +1830,13 @@ export function GameSetupWizard({
 
   return (
     <>
+      {/* Below the z-[10000] body-portal Modal that the model and character pickers open in: on iOS WebKit the
+          app shell is no stacking context, so a higher wizard covered its own pickers. */}
       <div
-        className="fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]"
         onClick={isLoading ? undefined : onCancel}
       />
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
