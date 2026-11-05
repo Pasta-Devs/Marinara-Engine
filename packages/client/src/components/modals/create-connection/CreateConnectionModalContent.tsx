@@ -18,6 +18,7 @@ import {
   useConnectionModels,
   useCountConnectionModels,
   useConnections,
+  useIsConnectionSaving,
   useDeleteConnection,
   useTestConnection,
   useUpdateConnection,
@@ -112,6 +113,9 @@ export function CreateConnectionModalContent({
   const deleteAccount = useDeleteConnectionAccount();
   const deleteRow = useDeleteConnection();
   const updateRow = useUpdateConnection();
+  // The model picker saves with its own copy of these hooks. Closing before that save recorded the pick threw the
+  // new Model away, so closing and Done wait for it.
+  const pickSaving = useIsConnectionSaving();
   const testConnection = useTestConnection();
   const createRow = useCreateConnection();
   const setChatModel = useSetChatModel();
@@ -212,6 +216,7 @@ export function CreateConnectionModalContent({
     mediaCreating ||
     createRow.isPending ||
     updateRow.isPending ||
+    pickSaving ||
     deleteRow.isPending ||
     deleteAccount.isPending;
   const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
@@ -940,7 +945,7 @@ export function CreateConnectionModalContent({
           // Done applies the choices above the footer and closes; the panel then shows the new card.
           onClick={finishModels}
           // A new Connection needs one model; without it the window throws the Connection away.
-          disabled={finishing || (target?.fresh && picks.length === 0)}
+          disabled={finishing || pickSaving || (target?.fresh && picks.length === 0)}
           className={PRIMARY_CLASS}
         >
           {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}

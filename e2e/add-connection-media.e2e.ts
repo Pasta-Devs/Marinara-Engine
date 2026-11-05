@@ -600,3 +600,89 @@ test("a vendor connection set up for images can open its chat catalog without re
     await request.delete(`/api/connection-accounts/${image.accountId}`);
   }
 });
+
+test("Add models keeps a model picked just before Done, and never deletes a saved media connection without a model", async ({
+  page,
+  request,
+}, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "One browser owns the shared endpoint.");
+
+  const initialAccounts = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map(
+      (account) => account.id,
+    ),
+  );
+  let accountId: string | null = null;
+  const createdIds = new Set<string>();
+  try {
+    // A saved ComfyUI image connection whose checkpoint lives in its workflow, so it has no model.
+    const savedResponse = await request.post("/api/connections", {
+      data: {
+        name: `Workflow-only Comfy ${info.workerIndex}`,
+        provider: "image_generation",
+        imageGenerationSource: "comfyui",
+        imageService: "comfyui",
+        baseUrl: ENDPOINT,
+        apiKey: "",
+        comfyuiWorkflow: JSON.stringify({ "9": { class_type: "SaveImage", inputs: { filename_prefix: "mine" } } }),
+      },
+    });
+    expect(savedResponse.ok()).toBeTruthy();
+    const saved = (await savedResponse.json()) as MediaRow;
+    createdIds.add(saved.id);
+    expect(saved.model ?? "").toBe("");
+    accountId = saved.accountId!;
+    expect(accountId).toBeTruthy();
+
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
+    await page.goto("/");
+
+    // The list answers at once; the reload after a pick answers late, as a busy or remote ComfyUI does.
+    let modelLists = 0;
+    await page.route("**/api/connections/*/models*", async (route) => {
+      modelLists += 1;
+      if (modelLists > 1) await new Promise((resolve) => setTimeout(resolve, 2_500));
+      await route.fulfill({ json: { models: [{ id: "late-checkpoint.safetensors", name: "Late checkpoint" }] } });
+    });
+
+    // Video setup on that account must not take the saved image connection for a leftover placeholder.
+    const videoCreatedResponse = page.waitForResponse(
+      (response) =>
+        response.ok() &&
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/connections",
+    );
+    await openAddModels(page, accountId, "video");
+    const dialog = page.getByRole("dialog", { name: /^Add models to /u });
+    await expect(dialog.locator('[data-add-connection-capability="video"]')).toHaveAttribute("aria-pressed", "true");
+    const videoCreated = (await (await videoCreatedResponse).json()) as { id: string };
+    createdIds.add(videoCreated.id);
+    expect((await rows(request)).some((row) => row.id === saved.id)).toBe(true);
+
+    // Tap a model, then Done straight away, while its save is still reloading the list.
+    const checkpoint = dialog.locator('[data-model-id="late-checkpoint.safetensors"] [data-model-option]');
+    await expect(checkpoint).toBeVisible();
+    await checkpoint.click();
+    await expect
+      .poll(async () => (await rows(request)).find((row) => row.id === videoCreated.id)?.model)
+      .toBe("late-checkpoint.safetensors");
+    await dialog.locator("[data-add-connection-done]").click();
+    await expect(dialog).toHaveCount(0);
+
+    const after = await rows(request);
+    expect(after.find((row) => row.id === videoCreated.id)?.model).toBe("late-checkpoint.safetensors");
+    expect(after.find((row) => row.id === saved.id)).toBeTruthy();
+  } finally {
+    for (const id of createdIds) {
+      await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    }
+    if (accountId && !initialAccounts.has(accountId)) {
+      await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
+    }
+  }
+});
