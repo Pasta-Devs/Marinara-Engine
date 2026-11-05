@@ -815,7 +815,12 @@
     overflow: visible;
     padding: 0.5rem 1rem 3rem;
   }
-  :root[data-overhaul="mobile"] .ov-ed .mari-editor-content h2 {
+  /* Section titles only; the small pink field labels (DESCRIPTION...) keep their size. */
+  :root[data-overhaul="mobile"] .ov-ed .mari-editor-content h2:not(.mari-editor-panel > .mb-4 h2) {
+    font-size: 1.5rem !important;
+  }
+  /* Persona section titles are h3s styled like the character's: same size. */
+  :root[data-overhaul="mobile"] .ov-ed .mari-editor-content .mb-4 > h3:not(.mari-editor-panel > .mb-4 h3) {
     font-size: 1.5rem !important;
   }
 }
@@ -2105,7 +2110,7 @@
   opacity: 1;
 }
 :root[data-overhaul="mobile"]
-  :is(span.inline-flex, .ov-lf > span)
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
   + :is([data-macro-field], .relative)
   > :is([data-macro-tools], textarea + .absolute.flex-col):not(#ovm-x):not(#ovm-y) {
   position: absolute;
@@ -2115,10 +2120,19 @@
   margin: 0;
 }
 :root[data-overhaul="mobile"]
-  :is(span.inline-flex, .ov-lf > span)
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
   + :is([data-macro-field], .relative):not(#ovm-x):not(#ovm-y) {
   position: relative;
   margin-top: 0.25rem;
+}
+/* Character / Persona field labels (DESCRIPTION...) sit right on the box so the buttons share
+   their line. */
+:root[data-overhaul="mobile"]
+  .mari-editor-panel
+  > .mb-4:has(+ :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)):not(
+    #ovm-x
+  ) {
+  margin-bottom: 0;
 }
 :root[data-overhaul="mobile"] [data-macro-field] > :is(textarea, [role="region"]):not(#ovm-x):not(#ovm-y),
 :root[data-overhaul="mobile"] .relative:has(> textarea + .absolute.flex-col) > textarea:not(#ovm-x):not(#ovm-y) {
@@ -2969,8 +2983,9 @@
 }
 /* The portrait leaves the top-left corner free for the ‹ at every phone and tablet width. */
 :root[data-overhaul="mobile"] .ov-rail:has(> .ovm-crumb-back) .ov-rail__portrait:not(#ovm-x) {
-  width: min(calc(100% - 5.5rem), 15rem);
-  margin-inline: auto;
+  width: min(calc(100% - 2.75rem), 15rem);
+  margin-right: auto;
+  margin-left: max(2.75rem, calc((100% - min(calc(100% - 2.75rem), 15rem)) / 2));
 }
 .ov-preset__head > .ovm-crumb-back {
   top: 1.175rem;
@@ -3019,4 +3034,82 @@
 }
 :root[data-overhaul="mobile"] .ovm-crumb-back + .ovm-preset__id:not(#ovm-x) {
   margin-top: 0;
+}
+
+/* Character and Persona rail on phones and tablets: one row of same-height buttons
+   (Chat and Save share the width, then Professor Mari's helper as a sparkle, then ⋯), and tags
+   with "+ tag" as matching chips. */
+:root[data-overhaul="mobile"] .ov-rail__actions:not(#ovm-x) {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > :is(.ov-btn, .ov-mari-assist):not(#ovm-x) {
+  height: 2.75rem;
+  min-height: 0;
+  margin: 0;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > .ov-btn:not(.ov-btn--icon):not(#ovm-x) {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 10rem;
+  justify-content: center;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > :is(.ov-btn--icon, .ov-mari-assist):not(#ovm-x) {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  padding: 0;
+  justify-content: center;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > .ov-mari-assist {
+  order: 1;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > [data-ov-more-trigger] {
+  order: 2;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > .ov-mari-assist > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-rail__actions > .ov-mari-assist > svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+:root[data-overhaul="mobile"] .ov-rail__tags:not(#ovm-x) {
+  align-items: center;
+  gap: 0.375rem;
+}
+:root[data-overhaul="mobile"] .ov-rail__tags > .ov-tag:not(#ovm-x) {
+  height: 2rem;
+  min-height: 0 !important;
+  padding-block: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Small editor buttons inside Character / Persona sections (+ New, Assign Lorebook...) use the
+   same pill shape and height as the rest of the page's buttons. */
+:root[data-overhaul="mobile"] .ov-ed .mari-editor-action:not(#ovm-x) {
+  height: 2.5rem;
+  min-height: 0;
+  padding: 0 0.875rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-ed .mari-editor-action:not(.mari-editor-action--accent):not(#ovm-x) {
+  border: 1px solid var(--ov-line);
+  background: transparent;
+  color: var(--ov-text);
+}
+/* Header-row buttons (Version history's Reset) stay small, matching the badge beside them. */
+:root[data-overhaul="mobile"] .ov-ed .mari-editor-action.h-7:not(#ovm-x) {
+  height: 1.75rem;
+  min-height: 0 !important;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
 }
