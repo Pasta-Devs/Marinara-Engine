@@ -541,6 +541,15 @@ export function AppShell({
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
   }, [isMobile]);
+  // New layout: fetch the Library pages in the background once the app is idle, so opening one
+  // from the Stack or a tab shows it straight away instead of "Loading…".
+  useEffect(() => {
+    if (!overhaulEnabled) return;
+    const preload = () => void import("../overhaul/LibraryLandingPage").catch(() => undefined);
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (idle) idle(preload);
+    else window.setTimeout(preload, 1500);
+  }, [overhaulEnabled]);
   useEffect(() => {
     if (!overhaulActive && !overhaulMobile) return;
     document.documentElement.dataset.overhaul = overhaulActive ? "on" : "mobile";
