@@ -1051,6 +1051,12 @@ export function ChatSidebar() {
             }
             closeAllDetails();
           }
+          // New layout: picking a chat (even the open one) leaves any Library, Docs or app page for it.
+          if (isOverhaulLook()) {
+            const overhaul = useOverhaulStore.getState();
+            overhaul.leaveDocs();
+            overhaul.setLibraryPage(null);
+          }
           internalNavRef.current = true;
           setActiveChatId(chat.id);
           if (isMobileShellViewport()) setSidebarOpen(false);

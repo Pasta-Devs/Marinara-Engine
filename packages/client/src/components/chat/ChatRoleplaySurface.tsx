@@ -72,6 +72,7 @@ import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { CHAT_CONTROL_WINDOW_IDS, ChatConnectedChatWindow, ChatControlWindow } from "./ChatControlWindow";
 import { TrackerPanelBubble } from "./TrackerPanelBubble";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { PHONE_BUBBLE_SIZE_PX, WINDOW_BUBBLE_SIZE_PX, WINDOW_MARGIN_PX } from "../../lib/floating-window-layout";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_TOOLBAR_ICON_GAP_CLASS, getChatToolbarButtonClass } from "./ChatToolbarControls";
@@ -988,13 +989,14 @@ export function ChatRoleplaySurface({
   };
   // Panel-enabled chats use the Trackers button to reopen their selected surface.
   const phoneLayout = useMatchMedia("(max-width: 767px)");
+  const overhaulMobile = useOverhaulMobile();
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const showTrackerPanelBubble =
     trackerPanelEnabled &&
     trackerPanelOpen &&
     (chatMeta.enableAgents === true || chatMeta.advancedMemory?.enabled === true);
-  const phoneSlotOffset = phoneLayout && showTrackerPanelBubble ? 1 : 0;
+  const phoneSlotOffset = phoneLayout && showTrackerPanelBubble && !overhaulMobile ? 1 : 0;
   useRenderTimer("rp-surface"); // [#3104 diagnostic]
   const isMobileToolbarViewport = useIsMobileToolbarViewport();
   const streamedMessageId = useChatStore((s) => s.streamedMessageIds.get(activeChatId) ?? null);
@@ -2256,7 +2258,8 @@ export function ChatRoleplaySurface({
       </div>
 
       {/* Package toolbars, Beholder and the connected chat are windows that minimize to bubbles. */}
-      {showTrackerPanelBubble && <TrackerPanelBubble chatId={activeChatId} />}
+      {/* New layout on phones: the scene strip under the top bar opens the tracker instead. */}
+      {showTrackerPanelBubble && !overhaulMobile && <TrackerPanelBubble chatId={activeChatId} />}
       {conversationToolbarPackages.map((item, index) => (
         <ChatControlWindow
           key={`${item.id}-toolbar-window`}

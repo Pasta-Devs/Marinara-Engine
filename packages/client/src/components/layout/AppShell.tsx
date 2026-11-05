@@ -69,6 +69,7 @@ import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/fl
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
+import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
@@ -588,6 +589,8 @@ export function AppShell({
   // compact chat layout before toolbar controls begin colliding.
   const mainRef = useRef<HTMLElement>(null);
   const overlayTrackerPanelRef = useRef<HTMLElement>(null);
+  // New layout on phones: the Tracker sheet opens at part height and can be pulled to full height.
+  const [trackerSheetFull, setTrackerSheetFull] = useState(false);
   const compactWidthRef = useRef(0); // width when we last switched to compact
   const centerCompact = useUIStore((s) => s.centerCompact);
   const setCenterCompact = useUIStore((s) => s.setCenterCompact);
@@ -1011,6 +1014,15 @@ export function AppShell({
     trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
   // The chat preference chooses the surface; its Trackers button controls visibility.
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable && !trackerPanelDetached;
+  useEffect(() => {
+    if (!trackerPanelVisible) setTrackerSheetFull(false);
+  }, [trackerPanelVisible]);
+  const mobileTrackerStripVisible =
+    overhaulMobile &&
+    trackerPanelEnabled &&
+    trackerPanelOpen &&
+    trackerPanelSurfaceAvailable &&
+    (activeChatMetadata.enableAgents === true || activeChatMetadata.advancedMemory?.enabled === true);
   const chatSurfaceActive =
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
@@ -1536,7 +1548,10 @@ export function AppShell({
           )}
         >
           {overhaulMobile ? (
-            <OverhaulMobileTopBar />
+            <>
+              <OverhaulMobileTopBar />
+              {mobileTrackerStripVisible && activeChatId ? <OverhaulMobileTrackerStrip chatId={activeChatId} /> : null}
+            </>
           ) : (
             !overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />
           )}
@@ -1639,7 +1654,48 @@ export function AppShell({
         {/* Overlay tracker panel */}
         {shellOverlayMode && (
           <AnimatePresence mode="wait">
-            {trackerPanelVisible && (
+            {trackerPanelVisible && overhaulMobile && (
+              <motion.aside
+                ref={overlayTrackerPanelRef}
+                tabIndex={-1}
+                key="mobile-tracker-sheet"
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 340 }}
+                data-component="TrackerDataSidebarMobile"
+                data-sheet-full={trackerSheetFull ? "true" : undefined}
+                aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
+                className="mari-tracker-panel ovm-trk-sheet outline-none"
+                style={trackerPanelBackgroundStyle}
+              >
+                <motion.div
+                  className="ovm-trk-sheet__grab"
+                  drag="y"
+                  dragConstraints={{ top: 0, bottom: 0 }}
+                  dragElastic={0.25}
+                  dragMomentum={false}
+                  onDragEnd={(_event, info) => {
+                    if (info.offset.y < -40) setTrackerSheetFull(true);
+                    else if (info.offset.y > 60) {
+                      if (trackerSheetFull) setTrackerSheetFull(false);
+                      else closeTrackerPanel();
+                    }
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="ovm-trk-sheet__handle"
+                    aria-label={localizeUi(trackerSheetFull ? "Show less of the tracker" : "Show all of the tracker")}
+                    onClick={() => setTrackerSheetFull((full) => !full)}
+                  />
+                </motion.div>
+                <div className="ovm-trk-sheet__body">
+                  <TrackerPanelHostSlot host={trackerPanelHost} />
+                </div>
+              </motion.aside>
+            )}
+            {trackerPanelVisible && !overhaulMobile && (
               <motion.aside
                 ref={overlayTrackerPanelRef}
                 tabIndex={-1}

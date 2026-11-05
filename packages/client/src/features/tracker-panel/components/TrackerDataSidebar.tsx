@@ -1,4 +1,4 @@
-import { Component, useCallback, useState, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
+import { Component, useCallback, useMemo, useState, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import type { PresentCharacter } from "@marinara-engine/shared";
 import {
   normalizeTrackerFieldLocksForState,
@@ -14,12 +14,13 @@ import { getCssBackgroundStyle, getCssColorFallback, isCssGradient } from "../..
 import { useRenderTimer } from "../../../lib/perf-diagnostics";
 import { cn } from "../../../lib/utils";
 import { closeTrackerPanel } from "../../../lib/tracker-panel-surface";
+import { useOverhaulMobile } from "../../../stores/overhaul.store";
 import { useTrackerGameState } from "../hooks/use-tracker-game-state";
 import { useTrackerFieldLockUpdater } from "../hooks/use-tracker-field-lock-updater";
 import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
 import { useStatIcons } from "../hooks/use-stat-icons";
 import type { PersonaPortraitSaveSnapshot } from "../hooks/use-persona-portrait-save";
-import type { TrackerEditMode } from "../tracker-panel.types";
+import type { TrackerEditMode, TrackerPanelSection } from "../tracker-panel.types";
 import { EmptySection, TRACKER_SECTION_SHELL_CLASS } from "./controls/SectionControls";
 import { TrackerReadabilityVeil } from "./controls/TrackerProfileChrome";
 import { TrackerSectionList } from "./TrackerSectionList";
@@ -67,6 +68,16 @@ class TrackerPanelErrorBoundary extends Component<{ children: ReactNode; resetKe
     return this.props.children;
   }
 }
+
+// New layout on phones: the panel is a sheet with one tab per kind of tracker.
+type TrackerSheetTab = "scene" | "people" | "you" | "quests" | "items";
+const TRACKER_SHEET_TABS: { id: TrackerSheetTab; label: string; sections: TrackerPanelSection[] }[] = [
+  { id: "scene", label: "Scene", sections: ["world", "custom"] },
+  { id: "people", label: "People", sections: ["characters"] },
+  { id: "you", label: "You", sections: ["persona"] },
+  { id: "quests", label: "Quests", sections: ["quests"] },
+  { id: "items", label: "Items", sections: ["inventory"] },
+];
 
 export function TrackerDataSidebar({
   detached = false,
@@ -125,6 +136,20 @@ export function TrackerDataSidebar({
     trackerPanelSectionOrder,
     trackerPanelUseExpressionSprites,
   });
+  const overhaulMobile = useOverhaulMobile();
+  const sheetMode = overhaulMobile && !detached;
+  const sheetTabs = useMemo(
+    () => TRACKER_SHEET_TABS.filter((tab) => tab.sections.some((section) => orderedTrackerSections.includes(section))),
+    [orderedTrackerSections],
+  );
+  const [chosenSheetTab, setSheetTab] = useState<TrackerSheetTab>("scene");
+  const sheetTab = sheetTabs.find((tab) => tab.id === chosenSheetTab) ?? sheetTabs[0] ?? null;
+  // Package sections and agent activity sit with the scene, the sheet's first tab.
+  const showSceneExtras = !sheetMode || !sheetTab || sheetTab.id === sheetTabs[0]?.id;
+  const visibleTrackerSections =
+    sheetMode && sheetTab
+      ? orderedTrackerSections.filter((section) => sheetTab.sections.includes(section))
+      : orderedTrackerSections;
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const capabilityTrackerPackages = installedCapabilities.filter(
     (item) =>
@@ -227,6 +252,7 @@ export function TrackerDataSidebar({
     <section
       data-component="TrackerDataSidebar"
       data-tracker-size-profile={trackerPanelSizeProfile}
+      data-tracker-sheet={sheetMode ? "true" : undefined}
       className={cn(
         "@container relative flex flex-col bg-zinc-950 text-zinc-100 backdrop-blur-sm",
         TRACKER_PANEL_NEUTRAL_VARS,
@@ -276,6 +302,31 @@ export function TrackerDataSidebar({
           }
         />
 
+        {sheetMode && sheetTabs.length > 1 ? (
+          <div
+            role="tablist"
+            aria-label={localizeUi("ui.trackerPanel.sheet.sections", { defaultValue: "Tracker sections" })}
+            className="ovm-trk-tabs"
+          >
+            {sheetTabs.map((tab) => {
+              const count = tab.id === "people" ? presentCharacters.length : 0;
+              const selected = tab.id === sheetTab?.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className={cn("ovm-trk-tab", selected && "is-on")}
+                  onClick={() => setSheetTab(tab.id)}
+                >
+                  {localizeUi(`ui.trackerPanel.sheet.${tab.id}`, { defaultValue: tab.label })}
+                  {count > 0 ? <small>{count}</small> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
           {displayedGameState && (orderedTrackerSections.length > 0 || capabilityTrackerPackages.length > 0) ? (
             <TrackerPanelErrorBoundary
@@ -293,7 +344,7 @@ export function TrackerDataSidebar({
                 featuredCharacterCardKeys={featuredCharacterCardKeys}
                 flushPatch={flushPatch}
                 gameStateRefreshing={gameStateRefreshing}
-                orderedTrackerSections={orderedTrackerSections}
+                orderedTrackerSections={visibleTrackerSections}
                 patchField={patchField}
                 patchPlayerStats={patchPlayerStats}
                 patchPlayerStatsMany={patchPlayerStatsMany}
@@ -313,10 +364,10 @@ export function TrackerDataSidebar({
                 queuePersonaPortraitSave={queuePersonaPortraitSave}
                 flushPersonaPortraitSave={flushPersonaPortraitSave}
                 beforeCustomSections={
-                  activeChatId ? memoryNagTrackerPackages.map(renderCapabilityTrackerPackage) : null
+                  activeChatId && showSceneExtras ? memoryNagTrackerPackages.map(renderCapabilityTrackerPackage) : null
                 }
                 afterCustomSections={
-                  activeChatId
+                  activeChatId && showSceneExtras
                     ? [...otherCapabilityTrackerPackages, ...beholderTrackerPackages].map(
                         renderCapabilityTrackerPackage,
                       )
@@ -353,7 +404,7 @@ export function TrackerDataSidebar({
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.noEnabledTrackerPanels")}</EmptySection>
           ) : null}
 
-          {activeChatId ? <TrackerAgentActivitySection chatId={activeChatId} /> : null}
+          {activeChatId && showSceneExtras ? <TrackerAgentActivitySection chatId={activeChatId} /> : null}
         </div>
       </TrackerLockProvider>
     </section>
