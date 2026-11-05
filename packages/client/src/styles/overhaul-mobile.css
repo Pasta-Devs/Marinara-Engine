@@ -2960,11 +2960,11 @@
 }
 /* Line the ‹ up with each header's first line and its content edge. */
 .ov-edhead > .ovm-crumb-back {
-  top: 1.25rem;
+  top: 1.125rem;
   left: 0.0625rem;
 }
 .ov-rail > .ovm-crumb-back {
-  top: 0;
+  top: 1.175rem;
   left: 0.0625rem;
 }
 /* The portrait leaves the top-left corner free for the ‹ at every phone and tablet width. */
@@ -2973,11 +2973,11 @@
   margin-inline: auto;
 }
 .ov-preset__head > .ovm-crumb-back {
-  top: 1.875rem;
+  top: 1.175rem;
   left: -0.6875rem;
 }
 .ov-bk-head > .ovm-crumb-back {
-  top: 0.9375rem;
+  top: 1.1875rem;
   left: -0.6875rem;
 }
 /* The edhead's content sits 2rem in, so its title needs less room to clear the ‹. */
@@ -3012,4 +3012,11 @@
 }
 :root[data-overhaul="mobile"] .ov-bk-head__row > .ov-bk-head__spacer {
   height: 0;
+}
+/* Every editor's first line (title, or preset icon and name) centres on the same ‹ height. */
+:root[data-overhaul="mobile"] .ovm-crumb-back + .ov-bk-head__row:not(#ovm-x) {
+  margin-top: 1.125rem;
+}
+:root[data-overhaul="mobile"] .ovm-crumb-back + .ovm-preset__id:not(#ovm-x) {
+  margin-top: 0;
 }
