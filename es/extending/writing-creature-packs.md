@@ -1,14 +1,18 @@
 # Escribir paquetes de criaturas
 
-Un **paquete de criaturas** es el arte de las criaturas contra las que se lucha en Game Mode. Cuando se elige un
-paquete, un enemigo para el que tiene arte se dibuja con ese arte en el tablero de batalla en lugar de con una ficha
-redonda. El arte mira hacia donde se movió el enemigo por última vez y se dibuja al tamaño propio de la criatura. Un
-enemigo para el que el paquete no tiene arte conserva su ficha. Consulta
-[Batallas tácticas y terreno](../game/combat.md#tactical-battles-and-terrain) para ver cómo se ve durante el juego.
+Un **paquete de criaturas** es el arte de las criaturas contra las que se lucha en Game Mode. Cuando se elige un paquete, un enemigo para el que tiene arte se dibuja con ese arte en el tablero de batalla en lugar de con una ficha redonda. El arte mira hacia donde se movió el enemigo por última vez y se dibuja al tamaño propio de la criatura. Un enemigo para el que el paquete no tiene arte conserva su ficha. Consulta [Batallas tácticas y terreno](../game/combat.md#tactical-battles-and-terrain) para ver cómo se ve durante el juego.
 
-Un paquete es un solo archivo JSON (`.creatures.json`). La forma más fácil de crear uno es la pestaña
-**Creatures** (Criaturas) de Pixelforge, que construye el archivo a partir de una imagen por criatura. Esta página
-describe el archivo en sí, para quien construya paquetes de otra forma.
+Un paquete es un solo archivo JSON (`.creatures.json`). La forma más fácil de crear uno es la pestaña **Creatures** (Criaturas) de Pixelforge, una herramienta externa que construye el archivo a partir de una imagen por criatura. Esta guía describe el archivo en sí, para quien construya paquetes de otra forma.
+
+## Usar un paquete
+
+Antes de empezar, crea o descarga un archivo `.creatures.json`. Pixelforge es una app de creación aparte y no forma parte de Marinara.
+
+1. Abre la pestaña **Creatures** de Pixelforge.
+2. Para cargar un archivo, elige **Import a creature pack file** (Importar un archivo de paquete de criaturas). Para un paquete que creaste en Pixelforge, elige **Save to the library** (Guardar en la biblioteca).
+3. Elige **Use for fights** (Usar en las peleas).
+
+Un solo paquete dibuja todas las peleas. Para volver a las fichas, quita el paquete elegido o elige **Use tokens instead** (Usar fichas en su lugar).
 
 ## El archivo
 
@@ -47,13 +51,11 @@ describe el archivo en sí, para quien construya paquetes de otra forma.
 | `tileSize` | Una celda en píxeles, un múltiplo de 16 entre 16 y 96. La cuadrícula de Game Mode es de 48. |
 | `sheets` | Hasta 64 imágenes, cada una de 8192 píxeles por lado como máximo. |
 | `creatures` | Hasta 2000 criaturas. |
+| Tamaño del archivo | Como máximo 32 MB. |
 
 ## Hojas
 
-El `png` de una hoja debe ser una **data URL** de PNG: `data:image/png;base64,` seguido de base64 y nada
-más. Se rechaza un enlace a una imagen alojada en otro sitio, y también cualquier cosa después del base64. Así, un
-paquete solo puede mostrar sus propias imágenes. `width` y `height` deben ser el tamaño real del PNG; el motor los
-lee de la cabecera de la imagen y rechaza un paquete cuyas hojas indiquen otra cosa.
+El `png` de una hoja debe ser una **data URL** de PNG: `data:image/png;base64,` seguido de base64 y nada más. Se rechaza un enlace a una imagen alojada en otro sitio, y también cualquier cosa después del base64. Así, un paquete solo puede mostrar sus propias imágenes. `width` y `height` deben ser el tamaño real del PNG; el motor los lee de la cabecera de la imagen y rechaza un paquete cuyas hojas indiquen otra cosa.
 
 ## Una criatura
 
@@ -64,33 +66,32 @@ lee de la cabecera de la imagen y rechaza un paquete cuyas hojas indiquen otra c
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` o `gargantuan`. Solo afecta a cómo se ve; cada unidad sigue ocupando una casilla. |
 | `w`, `h` | El tamaño de un fotograma en celdas, de 1 a 6 cada uno. |
 | `frames` | `1` para una criatura quieta, `3` para una que camina (paso, de pie, paso). |
-| `variants` | Sus **aspectos**, de 1 a 8, cada uno con el lugar de la hoja donde empieza su bloque: `sheet` y la celda superior izquierda `x`, `y`. |
-| `fly` | Opcional, necesita `creaturePackVersion` 2: sus bloques de **vuelo**, con la estructura de un bloque de caminata (tres fotogramas de ancho y las cuatro orientaciones hacia abajo), colocados como `variants`. Uno para todos los aspectos, o uno por aspecto en el mismo orden. |
+| `variants` | Sus aspectos, de 1 a 8, cada uno con el lugar de la hoja donde empieza su bloque: `sheet` y la celda superior izquierda `x`, `y`. |
+| `fly` | Opcional, necesita `creaturePackVersion` 2: sus bloques de vuelo, con la estructura de un bloque de caminata (tres fotogramas de ancho y las cuatro orientaciones hacia abajo), colocados como `variants`. Uno para todos los aspectos, o uno por aspecto en el mismo orden. |
 
 ### Vuelo
 
-Una criatura con `fly` se dibuja desde su bloque de vuelo, reproduciendo los fotogramas 0, 1, 2, 1,
-mientras se muestra en el aire en una pelea: tiene velocidad de vuelo pero no de caminata, flota, está
-elevada sobre el suelo o voló en este turno (un paso que solo permite su vuelo, como sobre el agua).
-En los demás casos se dibuja desde su aspecto como antes. Un paquete de mapas de Experience cuyos
-paquetes de criaturas tengan imágenes de vuelo necesita Capability API 1.352.
+Una criatura con `fly` se dibuja desde su bloque de vuelo, con sus fotogramas reproducidos en el orden 0, 1, 2, 1, mientras se muestra en el aire en una pelea. Eso significa que cumple cualquiera de estas condiciones:
+
+- tiene velocidad de vuelo y no tiene velocidad de caminata
+- está flotando
+- está en una posición por encima del suelo
+- hizo un vuelo en este turno (un paso que solo permite su vuelo, como sobre el agua)
+
+En los demás casos se dibuja desde su aspecto, como antes.
+
+Un paquete de mapas de Experience cuyos paquetes de criaturas tengan imágenes de vuelo necesita Capability API 1.352.
 
 ### Qué nombra `match`
 
-- **Una criatura de un conjunto de reglas:** `<catalog>/<entry>` (por ejemplo `creatures/goblin`) coincide con esa
-  entrada del bestiario en cualquier conjunto de reglas. `<ruleset>/<catalog>/<entry>` (por ejemplo
-  `5e-2014/creatures/goblin`) solo coincide con ella en ese conjunto de reglas.
-- **Un nombre:** coincide con un enemigo por su nombre. Se ignoran las mayúsculas y la puntuación, y también un
-  número final, así que "Goblin 2" es un goblin.
+- **Una criatura de un conjunto de reglas:** `<catalog>/<entry>` (por ejemplo `creatures/goblin`) coincide con esa entrada del bestiario en cualquier conjunto de reglas. `<ruleset>/<catalog>/<entry>` (por ejemplo `5e-2014/creatures/goblin`) solo coincide con ella en ese conjunto de reglas.
+- **Un nombre:** coincide con un enemigo por su nombre. Se ignoran las mayúsculas y la puntuación, y también un número final, así que "Goblin 2" es un goblin.
 
-Un combatiente del bestiario de un conjunto de reglas se busca primero por su entrada y luego por su nombre. Si dos
-criaturas coinciden con lo mismo, tiene prioridad la que aparece primero en el paquete; el motor lo indica al
-importar el paquete.
+Un combatiente del bestiario de un conjunto de reglas se busca primero por su entrada y luego por su nombre. Si dos criaturas coinciden con lo mismo, tiene prioridad la que aparece primero en el paquete; el motor lo indica al importar el paquete.
 
 ### Tamaños
 
-Los fotogramas se miden en celdas, y una criatura se dibuja de pie sobre el borde inferior de su casilla, centrada,
-así que una grande se extiende sobre las casillas de alrededor. Estos tamaños se ven bien en la cuadrícula de 48 píxeles:
+Los fotogramas se miden en celdas, y una criatura se dibuja de pie sobre el borde inferior de su casilla, centrada, así que una grande se extiende sobre las casillas de alrededor. Estos tamaños se ven bien en la cuadrícula de 48 píxeles:
 
 | Criatura | Fotograma (`w` por `h`) |
 | --- | --- |
@@ -102,29 +103,17 @@ así que una grande se extiende sobre las casillas de alrededor. Estos tamaños 
 
 ### El bloque: filas y fotogramas
 
-Cada aspecto es un **bloque** en su hoja. Un bloque tiene `frames` fotogramas de ancho y 4 filas de alto, y cada
-fotograma mide `w` por `h` celdas. Las filas son las orientaciones, en este orden:
+Cada aspecto es un **bloque** en su hoja. Un bloque tiene `frames` fotogramas de ancho y 4 filas de alto, y cada fotograma mide `w` por `h` celdas. Las filas son las orientaciones, en este orden:
 
 1. abajo (hacia quien mira)
 2. izquierda
 3. derecha
 4. arriba (vista de espaldas)
 
-Una criatura quieta (`frames: 1`) es una columna con las cuatro orientaciones. Una que camina (`frames: 3`) tiene
-paso, de pie y paso a lo largo de cada fila, como un personaje que camina en RPG Maker. Cada bloque debe quedar por
-completo dentro de su hoja; el motor nombra cualquiera que sobrepase el borde.
+Una criatura quieta (`frames: 1`) es una columna con las cuatro orientaciones. Una que camina (`frames: 3`) tiene paso, de pie y paso a lo largo de cada fila, como en una hoja de sprites de caminata típica. Cada bloque debe quedar por completo dentro de su hoja; el motor nombra cualquiera que sobrepase el borde.
 
 ### Aspectos
 
-Una criatura con varios aspectos (otra ropa, otros colores u otras armas) le da uno a cada uno de sus combatientes.
-Un combatiente conserva el mismo aspecto cada vez que se dibuja, y dos goblins de una misma pelea pueden verse
-distintos. Todos los aspectos de una criatura tienen el mismo tamaño.
+Una criatura con varios aspectos (otra ropa, otros colores u otras armas) le da uno a cada uno de sus combatientes. Un combatiente conserva el mismo aspecto cada vez que se dibuja, y dos goblins de una misma pelea pueden verse distintos. Todos los aspectos de una criatura tienen el mismo tamaño.
 
-En la pestaña **Creatures** de Pixelforge, **Add looks** (Añadir aspectos), junto a una criatura, añade más imágenes
-del mismo tamaño que la primera, hasta ocho en total.
-
-## Usar un paquete
-
-En la pestaña **Creatures** de Pixelforge, elige **Import a creature pack file** (Importar un archivo de paquete de criaturas),
-o **Save to the library** (Guardar en la biblioteca) si lo creaste allí, y después **Use for fights** (Usar en las peleas).
-Un solo paquete dibuja todas las peleas. Si quitas el paquete elegido o usas **Use tokens instead** (Usar fichas en su lugar), se vuelve a las fichas.
+En la pestaña **Creatures** de Pixelforge, **Add looks** (Añadir aspectos), junto a una criatura, añade más imágenes del mismo tamaño que la primera, hasta ocho en total.

@@ -1,114 +1,124 @@
 # Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie
 
-Z tego przewodnika dowiesz się, co da się zrobić z pojedynczą wiadomością w czacie. Opisuje pasek narzędzi wiadomości, edycję i usuwanie wiadomości oraz działanie swipe'ów i ponownego generowania. Wyjaśnia też przełączniki, które pokazują liczbę tokenów i numery wiadomości.
+Każda wiadomość, twoja albo napisana przez AI, ma pasek narzędzi. Służy on do edycji, usuwania, ponownego generowania i ukrywania pojedynczej wiadomości oraz do tworzenia od niej gałęzi.
 
-Każda wiadomość w aplikacji Marinara Engine – twoja albo napisana przez AI – ma mały pasek narzędzi. Pasek pojawia się, kiedy na komputerze najedziesz kursorem na wiadomość, a na telefonie lub tablecie – kiedy ją dotkniesz.
+Pasek pojawia się, gdy na telefonie lub tablecie dotkniesz wiadomości, a na komputerze najedziesz na nią kursorem.
 
 ## Pasek narzędzi wiadomości
 
-Poniższe przyciski pojawiają się na wiadomościach. Część z nich widać tylko w określonych sytuacjach, co opisuje tabela. Każdy przycisk ma podpowiedź zgodną z nazwą podaną tutaj.
+Najczęściej używane:
 
-| Przycisk | Do czego służy | Kiedy się pojawia |
-| --- | --- | --- |
-| **Copy** (kopiowanie) | Kopiuje tekst wiadomości. Ikona na moment zmienia się w znak zaznaczenia. | Zawsze |
-| **Add reaction** (dodanie reakcji) | Otwiera wybór emoji i włącza lub wyłącza twoją reakcję na wiadomości. | Tylko w trybie Conversation |
-| **Translate** (tłumaczenie) / **Hide translation** (ukrycie tłumaczenia) | Tłumaczy wiadomość na twój język, a potem znów chowa tłumaczenie. | Zawsze |
-| **Edit** (edycja) | Otwiera wiadomość do edycji. Szczegóły poniżej. | Zawsze |
-| **Regenerate** (ponowne generowanie) | Tworzy nową, alternatywną odpowiedź, czyli swipe. Szczegóły poniżej. | Na wiadomościach AI. W trybie Roleplay także na twoich wiadomościach. W trybie Conversation także na twoich wiadomościach utworzonych przez Impersonate |
-| **Show original before rewrite** (pokazanie oryginału) / **Show rewritten version** (pokazanie wersji przepisanej) | Przełącza między tekstem oryginalnym a przepisanym. Obie wersje zostają dostępne, więc da się je porównać i zostawić tę, która bardziej odpowiada. | Tylko wtedy, gdy agent przepisał wiadomość |
-| **Hide from AI** (ukrycie przed AI) / **Unhide from AI** (odkrycie przed AI) | Wstrzymuje lub wznawia wysyłanie tej wiadomości do AI w kolejnych turach. W czacie grupowym w trybie Roleplay otwiera wybór postaci. | Zawsze |
-| **Peek prompt** (podejrzenie promptu) | Pokazuje dokładny prompt, czyli tekst, który AI dostało na potrzeby tej odpowiedzi. | Tylko na najnowszej wiadomości AI |
-| **Stored guidance** (zapisana wskazówka) | Pokazuje wskazówkę, która pokierowała tą odpowiedzią. | Tylko wtedy, gdy odpowiedź powstała na podstawie wskazówki albo przez Impersonate |
-| **Branch from here** (utworzenie gałęzi stąd) | Kopiuje czat aż do tej wiadomości i zakłada z niego nową gałąź. | Zawsze |
-| **View model thoughts** (podgląd myśli modelu) | Otwiera ukryty tekst rozumowania modelu. | Tylko wtedy, gdy model zwrócił rozumowanie |
-| **Delete** (usunięcie) | Usuwa wiadomość. Szczegóły poniżej. | Zawsze |
-| **Pause speaking** (wstrzymanie mowy) / **Resume speaking** (wznowienie mowy) / **Restart speaking** (odtworzenie mowy od nowa) | Steruje odczytem wiadomości na głos. | Tylko gdy Text to Speech jest włączone i trwa odczyt |
+- **Edit** (edycja) zmienia tekst wiadomości.
+- **Regenerate** (ponowne generowanie) prosi model o nową wersję odpowiedzi AI. Każda taka wersja to swipe.
+- **Delete** (usunięcie) usuwa wiadomość.
 
-Podgląd **Peek prompt** opisuje przewodnik [Peek Prompt](peek-prompt.md). Przycisk **Branch from here** opisują [Gałęzie czatu](branches.md). O przycisku **Translate** mówi [Tłumaczenie wiadomości](../integrations/message-translation.md). Sterowanie mową opisuje [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). Wskazówki kierujące odpowiedzią, **Stored guidance** i Impersonate opisuje [Sterowane generowanie i Impersonate](guided-and-impersonate.md).
+Przyciski są ikonami. Ich etykiety podaje tabela poniżej. Niektóre pojawiają się tylko w określonych sytuacjach.
+
+| Przycisk | Do czego służy |
+| --- | --- |
+| **Copy** (kopiowanie) | Kopiuje tekst wiadomości. |
+| **Edit** | Otwiera wiadomość do edycji. |
+| **Regenerate** | Tworzy nowy swipe (kolejną wersję odpowiedzi). Tylko na wiadomościach AI. Także na twoich wiadomościach w trybie Roleplay i na twoich wiadomościach utworzonych przez Impersonate w trybie Conversation. |
+| **Delete** | Usuwa wiadomość. |
+| **Translate** (tłumaczenie) / **Hide translation** (ukrycie tłumaczenia) | Tłumaczy wiadomość na twój język, a potem chowa tłumaczenie. |
+| **Add reaction** (dodanie reakcji) | Otwiera wybór emoji. Tylko w trybie Conversation. |
+| **Hide from AI** (ukrycie przed AI) / **Unhide from AI** (odkrycie przed AI) | Wstrzymuje lub wznawia wysyłanie tej wiadomości do modelu. W czacie grupowym w trybie Roleplay otwiera wybór postaci. |
+| **Bookmark, pin or note** (dodaj zakładkę, przypnij lub dodaj notatkę) | Dodaje wiadomość do zakładek, przypina ją, żeby zostawała w prompcie także poza limitem historii (do 10 na czat), albo dodaje **Private note** (prywatną notatkę). Model nigdy nie widzi notatki, chyba że włączysz **Show the note to the narrator character** (pokaż notatkę postaci narratora). Działa to w czatach z jedną postacią i w czatach grupowych, w których postacie odpowiadają osobno. |
+| **Branch from here** (utworzenie gałęzi stąd) | Kopiuje czat aż do tej wiadomości do nowej gałęzi. Niedostępne w czatach sceny. |
+| **Clone from here** (klonowanie od tego miejsca) | Kopiuje czat sceny aż do tej wiadomości do nowego czatu w trybie Roleplay. Tylko w czatach sceny. |
+| **Peek prompt** (podejrzenie promptu) | Pokazuje dokładny prompt tej odpowiedzi. Tylko na najnowszej wiadomości AI. |
+| **Stored guidance** (zapisana wskazówka) | Pokazuje wskazówkę, która pokierowała tą odpowiedzią. Tylko przy odpowiedziach powstałych na podstawie wskazówki albo przez Impersonate. |
+| **View model thoughts** (podgląd myśli modelu) | Otwiera ukryte rozumowanie modelu. Tylko wtedy, gdy model zwrócił rozumowanie. |
+| **Show original before rewrite** (pokazanie oryginału) / **Show rewritten version** (pokazanie wersji przepisanej) | Przełącza między tekstem oryginalnym a przepisanym, gdy agent (pomocnik działający obok odpowiedzi) przepisał wiadomość. |
+| **Mark as new start** (oznacz jako nowy początek) | Tylko w trybie Roleplay. Gdy włączona jest funkcja Advanced Memory (pamięć długoterminowa aplikacji Marinara Engine), pamięć modelu o czacie zaczyna się od tej wiadomości. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md). |
+| **Pause speaking** (wstrzymanie mowy) / **Resume speaking** (wznowienie mowy) / **Restart speaking** (odtworzenie mowy od nowa) | Steruje odczytem na głos, gdy włączona jest funkcja Text to Speech (synteza mowy, czyli głos czytający wiadomości) i trwa odczyt. |
+
+Więcej: [Peek Prompt](peek-prompt.md), [Gałęzie czatu](branches.md), [Sceny](../roleplay/scenes.md) (czat sceny to krótki czat w trybie Roleplay odgałęziony od innego czatu), [Tłumaczenie wiadomości](../integrations/message-translation.md), [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md), [Sterowane generowanie i Impersonate](guided-and-impersonate.md), [prywatne notatki](../roleplay/getting-started.md#your-private-notes).
 
 ## Edytowanie wiadomości
 
-Edytować da się tekst każdej wiadomości – twojej i tej od AI.
-
-1. Kliknij przycisk **Edit** na wiadomości. Tekst zmienia się w pole edycji.
+1. Kliknij **Edit** na wiadomości. Tekst zmienia się w pole edycji.
 2. Zmień tekst.
-3. Kliknij przycisk **Save** (zapisanie) albo naciśnij Ctrl i Enter razem (na komputerze Mac Cmd i Enter). Podpowiedź przycisku brzmi **Save (Cmd+Enter)**.
-4. Aby przerwać bez zapisywania, kliknij przycisk **Cancel** (anulowanie) albo naciśnij klawisz Esc. Podpowiedź przycisku brzmi **Cancel (Esc)**.
+3. Kliknij **Save** (zapisanie) albo naciśnij <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (na komputerze Mac <kbd>Cmd</kbd>+<kbd>Enter</kbd>).
+4. Aby przerwać bez zapisywania, kliknij **Cancel** (anulowanie) albo naciśnij <kbd>Esc</kbd>.
 
-Edycję da się uruchomić szybciej – służą do tego dwa ustawienia. Oba znajdują się w panelu **Settings** (Ustawienia), na zakładce **General**, w sekcji **Input & Editing**.
+Dwa ustawienia w **Settings → General → Input & Editing** (ustawienia, ogólne, wprowadzanie i edycja) pozwalają szybciej zacząć edycję. Oba są domyślnie włączone.
 
-- **Up Arrow edits last message** (domyślnie włączone): naciśnij klawisz Up Arrow przy pustym polu wpisywania. Otwiera to najnowszą wiadomość do edycji.
-- **Double-click edits messages** (domyślnie włączone): kliknij dwukrotnie albo dotknij dwukrotnie wiadomości w trybie Roleplay, żeby otworzyć ją do edycji.
+- **Up Arrow edits last message** (edycja ostatniej wiadomości strzałką w górę): naciśnij <kbd>Up</kbd>, gdy pole wpisywania jest puste.
+- **Double-click edits messages** (edycja wiadomości dwukrotnym kliknięciem): kliknij dwukrotnie albo dotknij dwukrotnie wiadomości w trybie Roleplay.
 
 ## Usuwanie wiadomości
 
-Przy usuwaniu wiadomości pojawia się okno o tytule **How to proceed?**. Dostępne opcje usunięcia to:
+1. Kliknij **Delete** na wiadomości. Otwiera się okno **Delete message** (usunięcie wiadomości).
+2. Wybierz jedną z opcji.
 
-- **Delete only this swipe (1/3)**: usuwa tylko tę alternatywną odpowiedź, którą właśnie widać. Ta opcja pojawia się wyłącznie wtedy, gdy wiadomość ma więcej niż jeden swipe. Liczby pokazują, który swipe jest aktywny i ile ich w sumie jest.
-- **Delete this message**: usuwa całą wiadomość razem ze wszystkimi swipe'ami.
-- **Delete more**: zaznacza tę wiadomość i wszystkie poniżej, a następnie włącza zaznaczanie wielu wiadomości, żeby dało się poprawić wybór przed usunięciem.
-- **Cancel**: zamyka okno i nic nie usuwa.
+| Opcja | Do czego służy |
+| --- | --- |
+| **Delete only this swipe (1/3)** (usunięcie tylko tego swipe'a) | Usuwa swipe, który właśnie widzisz. Pojawia się tylko wtedy, gdy wiadomość ma więcej niż jeden swipe. |
+| **Delete all other swipes** (usunięcie wszystkich pozostałych swipe'ów) | Zachowuje oglądany swipe i usuwa resztę. Pojawia się tylko wtedy, gdy wiadomość ma więcej niż jeden swipe. |
+| **Delete this message** (usunięcie tej wiadomości) | Usuwa wiadomość razem ze wszystkimi jej swipe'ami. |
+| **Delete more** (usunięcie kolejnych) | Zaznacza tę wiadomość i każdą poniżej, a potem otwiera pasek zaznaczania. |
+| **Cancel** | Zamyka okno. |
 
-Wiadomości systemowe, na przykład wpis "joined the chat", mają zwykły przycisk usuwania bez żadnego okna.
+Na pasku zaznaczania klikaj wiadomości, żeby dodać je do zaznaczenia. **Select all messages above** (zaznaczenie wszystkich wiadomości powyżej) i **Select all messages below** (zaznaczenie wszystkich wiadomości poniżej) rozszerzają zaznaczenie, **Unselect all** (odznaczenie wszystkich) je czyści, a **Delete selected** (usunięcie zaznaczonych) usuwa zaznaczone wiadomości. Pasek pokazuje, ile wiadomości jest zaznaczonych.
+
+Wiadomości systemowe, na przykład wiersz "joined the chat", usuwa się jednym kliknięciem, bez żadnego okna.
 
 ## Swipe'y: alternatywne odpowiedzi
 
-Swipe to jedna wersja odpowiedzi AI. Pojedyncza wiadomość może mieścić kilka swipe'ów, więc da się porównać różne odpowiedzi na tę samą turę i wybrać tę, która bardziej się podoba.
+Swipe to jedna wersja odpowiedzi AI. Jedna wiadomość może mieścić kilka swipe'ów, więc da się porównać odpowiedzi i zostawić tę, która ci się podoba. Sterowanie swipe'ami pojawia się, gdy wiadomość ma co najmniej dwa swipe'y. Pokazuje aktywny swipe i łączną liczbę, na przykład "2/4".
 
-Gdy wiadomość ma dwa swipe'y lub więcej, pojawia się na niej sterowanie swipe'ami. Pokazuje aktywny swipe i łączną liczbę, na przykład "2/4", a w jego skład wchodzą:
+- **Previous swipe** (poprzedni swipe) i **Next swipe** (następny swipe) przechodzą po kolejnych swipe'ach.
+- Pole liczbowe przenosi do wybranego swipe'a. Wpisz numer i naciśnij <kbd>Enter</kbd>. Etykieta pola to **Jump to swipe 1-N**.
+- Gdy widzisz najnowszy swipe, przycisk do przodu zmienia się w **Generate next swipe** (wygenerowanie kolejnego swipe'a) i tworzy nowy swipe.
 
-- **Previous swipe** (poprzedni swipe) i **Next swipe** (następny swipe): przechodzą wstecz albo do przodu po kolejnych swipe'ach.
-- Pole liczbowe: wpisz numer swipe'a i naciśnij Enter, żeby przejść od razu do niego. Podpowiedź brzmi **Jump to swipe 1-N**, gdzie N to łączna liczba swipe'ów.
-- **Generate next swipe** (wygenerowanie kolejnego swipe'a): gdy widoczny jest najnowszy swipe, przycisk do przodu zmienia się właśnie w ten i tworzy całkiem nowy swipe.
-
-Ostatniego swipe'a w wiadomości nie da się usunąć. Przy takiej próbie aplikacja zgłasza "Cannot delete the last remaining swipe". Żeby usunąć całą wiadomość, użyj opcji **Delete this message**.
+Ostatniego swipe'a nie da się usunąć. Aplikacja zgłasza wtedy "Cannot delete the last remaining swipe". Użyj zamiast tego opcji **Delete this message**.
 
 ## Ponowne generowanie, kontynuacja i ponowna próba
 
-Te trzy działania wyglądają podobnie, ale robią co innego. Wybierz to, które odpowiada twojemu celowi.
+Te trzy działania wyglądają podobnie, ale robią co innego.
 
-**Regenerate** tworzy nowy swipe. Kliknij przycisk **Regenerate** na wiadomości AI, żeby wygenerować kolejną wersję tej odpowiedzi. Pierwotny swipe zostaje zachowany. Na ekranie dotykowym aplikacja najpierw pyta "Regenerate this message as a new swipe?", żeby nic nie uruchomiło się przypadkiem. Kiedy wskazówka kierująca jest przygotowana, przycisk nosi nazwę **Regenerate (guided)**.
+| Działanie | Wynik |
+| --- | --- |
+| **Regenerate** | Nowy swipe. Oryginał zostaje zachowany. Na ekranie dotykowym aplikacja najpierw pyta "Regenerate this message as a new swipe?". Gdy wskazówka jest przygotowana, przycisk nosi nazwę **Regenerate (guided)**. |
+| `/continue` | Dalszy tekst w tej samej wiadomości, bez nowego swipe'a. |
+| **Send** (wysłanie) przy pustym polu | Świeża odpowiedź. |
 
-Komenda **/continue** rozbudowuje tę samą wiadomość. Wpisz `/continue` (albo skróconą postać `/cont`) w polu wpisywania i wyślij. AI podejmuje wątek tam, gdzie poprzednia odpowiedź się urwała, i dopisuje dalszy tekst do tej samej wiadomości, zamiast tworzyć nowy swipe.
+### Kontynuowanie odpowiedzi
 
-Domyślnie Marinara wstawia pustą linię przed dopisanym tekstem. Aby kontynuacja doklejała się wprost do ostatniego znaku poprzedniej odpowiedzi, wyłącz opcję **Settings → General → Responses → Add a new line before /continue text**. Marinara każe wtedy modelowi kontynuować dokładnie od miejsca przerwania, bez żadnego separatora.
+Wpisz `/continue` (albo `/cont`) w polu wpisywania i wyślij. Model podejmuje wątek tam, gdzie urwała się jego ostatnia odpowiedź.
 
-```
+```text
 /continue
 ```
 
-Puste wysłanie uruchamia całkiem nową odpowiedź. Jeśli ostatnia wiadomość w czacie jest twoja, a pole wpisywania jest puste, ten sam przycisk **Send** (wysłanie) zamiast wysyłać, ponawia próbę. Wygląd przycisku się nie zmienia. Kliknij go albo naciśnij Enter, żeby dostać odpowiedź bez przepisywania wiadomości. W trybie Roleplay puste wysłanie może też skłonić AI do poprowadzenia sceny w kolejnej turze. To co innego niż **/continue**: puste wysłanie zawsze tworzy nową odpowiedź, a **/continue** dopisuje do istniejącej.
+Marinara wstawia pustą linię przed nowym tekstem. Aby doklejać go wprost do ostatniego znaku, wyłącz **Settings → General → Responses → Add a new line before /continue text** (ustawienia, ogólne, odpowiedzi, nowa linia przed tekstem z /continue).
+
+### Ponowna próba przy pustym polu
+
+Jeśli ostatnia wiadomość jest twoja, a pole wpisywania jest puste, przycisk **Send** zamiast wysyłać, ponawia próbę. W trybie Roleplay **Send** przy pustym polu rozpoczyna też nową turę już po odpowiedzi AI. Nigdy nie dopisuje niczego do poprzedniej odpowiedzi. Zobacz [Wysyłanie wiadomości i streaming](sending-and-streaming.md#retry-without-retyping).
 
 ## Ukrywanie wiadomości przed AI
 
-Kontekst AI to zestaw wiadomości, które aplikacja wysyła do AI w każdej turze. Kliknij przycisk **Hide from AI**, żeby trzymać wiadomość poza tym kontekstem w kolejnych turach. Wiadomość nadal widać na ekranie, z etykietą **Hidden from AI**. Kliknij przycisk **Unhide from AI**, żeby wysyłać ją ponownie.
+Kliknij **Hide from AI**, żeby w kolejnych turach wiadomość nie trafiała do promptu. Nadal ją widzisz, z etykietą **Hidden from AI** (ukryte przed AI). Kliknij **Unhide from AI**, żeby znów ją wysyłać.
 
-W czacie grupowym w trybie Roleplay, w którym jest więcej niż jedna postać, przycisk **Hide from AI** otwiera niewielki wybór awatarów. Wybierz awatar grupy, żeby ukryć wiadomość przed wszystkimi, albo wskaż jeden lub kilka awatarów postaci, żeby ukryć ją tylko przed nimi. Wybór wszystkich czyści pojedyncze zaznaczenia, a wskazanie pojedynczej postaci wyłącza opcję obejmującą wszystkich. Znacznik z przekreślonym okiem na wiadomości pokazuje awatary postaci, które jej nie widzą. W czacie z jedną postacią przycisk po prostu ukrywa wiadomość albo ją odkrywa.
+W czacie grupowym w trybie Roleplay przycisk **Hide from AI** otwiera wybór awatarów. Wybierz awatar grupy, żeby ukryć wiadomość przed wszystkimi, albo jedną lub kilka postaci, żeby ukryć ją tylko przed nimi. Znacznik z przekreślonym okiem na wiadomości pokazuje, kto jej nie widzi. W czacie z jedną postacią przycisk od razu ukrywa albo odkrywa wiadomość.
 
-Szept w wiadomości nadal dociera do odbiorcy, gdy ukryjesz wiadomość tylko przed tą postacią. Odbiorca dostaje szept, ale nic z reszty wiadomości. Ukrycie wiadomości przed wszystkimi ukrywa również jej szepty. Zobacz [Szepty i sekrety](../roleplay/getting-started.md#whispers-and-secrets).
+Jeśli ukryjesz wiadomość przed jedną postacią, ta postać nadal dostaje zawarty w niej szept, ale nic z reszty wiadomości. Ukrycie przed wszystkimi usuwa też szepty. Zobacz [Szepty i sekrety](../roleplay/getting-started.md#whispers-and-secrets).
 
-Wiadomości można też ukrywać komendą `/hide [range] [name (optional)]`, na przykład `/hide 3-8`. W trybie Roleplay `/hide 3-8 Maukie` ukrywa je tylko przed Maukie; bez imienia zostają ukryte przed wszystkimi. `/unhide [range]` przywraca wiadomości ukryte globalnie. Żeby cofnąć ukrycie przed konkretną postacią, użyj wyboru awatarów w grupowym czacie Roleplay albo przycisku **Unhide from AI** na wiadomości w czacie Roleplay z jedną postacią. Numery wiadomości zaczynają się od 1, licząc od pierwszej wiadomości w czacie. Formaty i przykłady opisuje przewodnik [Lista komend slash](slash-commands.md).
+Aby ukryć zakres wiadomości, użyj komend `/hide` i `/unhide`. Zobacz [Lista komend slash](slash-commands.md). Numery wiadomości zaczynają się od 1 przy pierwszej wiadomości.
 
-Gdy w Advanced Memory włączona jest opcja **Decide who sees new messages** (decydowanie, kto widzi nowe wiadomości), nowe wiadomości w czacie grupowym, w którym postacie odpowiadają po kolei, są automatycznie ukrywane przed nieobecnymi postaciami, z tym samym znacznikiem. Samodzielna zmiana wyboru dla wiadomości zawsze ma pierwszeństwo; zobacz [Decydowanie, kto widzi nowe wiadomości](../agents/memory.md#deciding-who-sees-new-messages).
+Gdy w funkcji Advanced Memory włączona jest opcja **Decide who sees new messages** (decydowanie, kto widzi nowe wiadomości), nowe wiadomości w czacie grupowym, w którym postacie odpowiadają po kolei, są automatycznie ukrywane przed nieobecnymi postaciami. Twój własny wybór zawsze ma pierwszeństwo. Zobacz [Decydowanie, kto widzi nowe wiadomości](../agents/memory.md#deciding-who-sees-new-messages).
+
+<a id="message-display-toggles"></a>
 
 ## Przełączniki wyświetlania wiadomości
 
-Dwa przełączniki decydują o tym, jakie dodatkowe szczegóły widać na wiadomościach. Oba znajdują się w panelu **Settings**, na zakładce **Advanced**, w sekcji **Message Tools**. Oba są domyślnie wyłączone.
+Znajdują się w **Settings → Advanced → Message Tools** (ustawienia, zaawansowane, narzędzia wiadomości).
 
-- **Show message numbers**: pokazuje numer na każdej wiadomości. Numery zaczynają się od 1 przy pierwszej wiadomości w czacie. Tych samych numerów używają komendy `/goto`, `/hide` i `/unhide`. Włącz ten przełącznik, kiedy potrzebujesz numeru wiadomości.
-- **Show token usage on messages**: dodaje do odpowiedzi AI licznik tokenów dla każdej wiadomości. Token to mały kawałek tekstu, który AI czyta i pisze. Licznik pokazuje tokeny promptu i tokeny odpowiedzi dla danej wiadomości. Jeśli dane są dostępne, pokazuje też trafienia w pamięci podręcznej i czas powstawania odpowiedzi.
-
-Pokrewny przełącznik w tej samej sekcji **Message Tools**, **Show model name on messages**, dodaje nazwę modelu AI, który napisał daną odpowiedź. On również jest domyślnie wyłączony.
-
-Gdy starsze wiadomości trzeba było pominąć w prompcie, żeby się zmieścił, krótka informacja pod odpowiedzią podaje ich liczbę, na przykład "1109 older messages not sent". Żeby ukryć tę informację pod odpowiedzią, wyłącz **Show "older messages not sent" note** (pokazanie informacji o niewysłanych starszych wiadomościach) w tej samej sekcji. Po otwarciu funkcji Checkup informacja nadal może się pokazać. Ten przełącznik jest domyślnie włączony. Informacje o odpowiedzi, która została ucięta albo wróciła pusta, nadal się pokazują.
-
-## Powiązane przewodniki
-
-- [Wysyłanie wiadomości i streaming](sending-and-streaming.md)
-- [Sterowane generowanie i Impersonate](guided-and-impersonate.md)
-- [Peek Prompt](peek-prompt.md)
-- [Gałęzie czatu](branches.md)
-- [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md)
-- [Tłumaczenie wiadomości](../integrations/message-translation.md)
-- [Przegląd ustawień](../settings/settings-overview.md)
-- [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md)
+| Przełącznik | Domyślnie | Co pokazuje |
+| --- | --- | --- |
+| **Show message numbers** (pokazywanie numerów wiadomości) | Wyłączony | Numer na każdej wiadomości – te same numery, których używają `/goto`, `/hide` i `/unhide`. |
+| **Show token usage on messages** (pokazywanie zużycia tokenów na wiadomościach) | Wyłączony | Tokeny promptu i odpowiedzi dla każdej odpowiedzi AI (token to mały kawałek tekstu, który liczy model), a jeśli dane są dostępne, także trafienia w pamięci podręcznej i czas odpowiedzi. |
+| **Show model name on messages** (pokazywanie nazwy modelu na wiadomościach) | Wyłączony | Model, który napisał każdą odpowiedź. |
+| **Show "older messages not sent" note** (pokazanie informacji o niewysłanych starszych wiadomościach) | Włączony | Informację pod odpowiedzią, na przykład "1109 older messages not sent", gdy starsze wiadomości nie zmieściły się w prompcie. Informacje o uciętej albo pustej odpowiedzi pokazują się zawsze. |

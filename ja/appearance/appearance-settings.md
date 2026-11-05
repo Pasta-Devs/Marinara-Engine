@@ -1,141 +1,147 @@
 # 外観の設定
 
-このガイドでは、Marinara Engineの**Settings -> Appearance**(外観)タブをセクションごとに順番に説明します。色、文字サイズ、チャットのレイアウト、モードごとのメッセージの見た目、そしてすべてをデフォルトに戻す方法を扱います。
+**Appearance**(外観)タブでは、Marinaraの見た目を変えられます。対象は、色、文字サイズ、チャットのレイアウト、チャットモードごとのメッセージの見た目です。
 
-フォント、背景、カスタムCSSテーマには、それぞれ専用のガイドがあります。このページでは該当する箇所からリンクします。
+ほかのものをお探しですか?
+
+- 別のフォント: [カスタムフォントとGoogle Fonts](fonts.md)
+- チャットの背景画像: [チャットの背景](chat-backgrounds.md)
+- **Settings → Addons → Theme Library**(設定 → アドオン → テーマライブラリー)のカスタムテーマ: [カスタムCSSテーマ](custom-css-themes.md)
+- チャットでのキャラクター独自の見た目: [カードCSSテーマ設定ガイド](card-css-theming.md)
 
 ## 外観の設定を開く
 
 1. **Settings**(設定)を開きます。
 2. **Appearance**タブを選びます。
+3. 上部のボタンから、**App**(アプリ)、**Conversation**、**Roleplay**、**Game**のいずれかを選びます。
 
-タブはスクロールして見ていく複数のセクションに分かれています。**App Style**、**Text & Scale**、**Conversation Display**、**Tracker Panel**、**Roleplay Messages**、**Game Presentation**、**Atmosphere**、**Conversation Theme**、**Backgrounds**です。
+ボタンはチャットモードごとに設定をまとめたもので、タブには選んだグループだけが表示されます。
 
-## Color Scheme(ダークまたはライト)
+| ボタン | セクション |
+| --- | --- |
+| **App** | **App Style**、**Text & Scale**、**Atmosphere**、**Backgrounds** |
+| **Conversation** | **Conversation Display**、**Conversation Theme** |
+| **Roleplay** | **Tracker Panel**、**Roleplay Presentation** |
+| **Game** | **Game Presentation** |
 
-**Color Scheme**(配色)ドロップダウンは**App Style**セクションにあります。選択肢は2つです。
+最初からやり直すには、**App Style**(アプリのスタイル)の先頭にある**Reset Appearance**(外観のリセット)をクリックします。タブ全体がMarinaraのデフォルトに戻り、現在のチャットの背景が消え、Theme Libraryで適用中のテーマもオフになります。
 
-- **Dark**(デフォルト)。暗い部屋でも目が疲れにくい配色です。
-- **Light**。
+## Appボタン
 
-以下で説明する色のいくつかは、ダークとライトで別々のデフォルト値を持っています。自分で色を指定するまでは、選んでいるColor Schemeに自動で合わせて切り替わります。
+### Color SchemeとVisual Style
 
-## Visual Style
+**App Style**(アプリのスタイル)の**Color Scheme**(配色)ドロップダウンには、**Dark**(デフォルト)と**Light**があります。アプリはすぐに切り替わります。ダークとライトで別々のデフォルトを持つ色は、自分で色を指定するまでこの設定に従います。
 
-**Visual Style**(見た目のスタイル)はアプリ全体の雰囲気を決めます。2つのカードから選びます。
+**Visual Style**(見た目のスタイル)には2つのカードがあります。**Default (Marinara)**(デフォルト)は、発光効果のあるレトロなY2K風の見た目です。**SillyTavern**は、すっきりとしたミニマルな見た目です。変わるのは見た目だけで、SillyTavernからのインポートとは関係ありません。
 
-- **Default (Marinara)**(デフォルト)。発光効果のあるレトロなY2K風の見た目です。
-- **SillyTavern**。オリジナルのSillyTavernを参考にした、すっきりとしたミニマルな見た目です。
+### Background ColorとAccent Color
 
-これは見た目だけの設定です。SillyTavernからのデータのインポートとは関係ありません。データのインポートは別の機能です。
+どちらも単色かグラデーションを指定できます。グラデーションとは、2色以上をなめらかに混ぜた塗り方です。**Reset to default**(デフォルトに戻す)で欄を空にすると、デフォルトに戻ります。
 
-## Background ColorとAccent Color
+| 設定 | 色を付ける対象 | デフォルト |
+| --- | --- | --- |
+| **Background Color**(背景色) | アプリ全体の土台となる画面。 | Darkでは`#050312`、Lightでは`#faf8ff` |
+| **Accent Color**(アクセントカラー) | ボタン、選択中のアイコン、フォーカスリング、ハイライト、パネルの枠線、チャットの周りの操作部品。 | ピンク、オレンジ、シアンを混ぜた**Marinara Gradient** |
 
-この2つはどちらも**App Style**セクションにあります。単色でもグラデーションでも指定できます。グラデーションとは、2色以上をなめらかに混ぜた塗り方です。
+`#050312`のような値は16進カラーコードで、色を短く書き表す記法です。
 
-- **Background Color**(背景色)はアプリ全体の土台となる背景を塗ります。デフォルトはDarkモードが`#050312`、Lightモードが`#faf8ff`です。
-- **Accent Color**(アクセントカラー)はボタン、選択中のアイコン、フォーカスリング、ハイライト、パネルの枠線の色になります。デフォルトはどちらの配色でも`#d4acfb`です。
+アクセントの動きを変えるスイッチが2つあります。同時にオンにできるのは1つだけです。
 
-`#d4acfb`のような値は16進カラーコードで、色を短く書き表す記法です。配色のデフォルトに戻すときは、**Reset to default**で欄を空にします。
+- **Accent Pulse**はアクセントカラーを動かします。単色なら明るさが変化し、グラデーションなら色が順に巡ります。デフォルトでは、デスクトップではオン、スマートフォンではオフです。
+- **RGB Mode**はアクセントの色を虹色に巡回させます。保存した**Accent Color**は変わりません。デフォルトはオフです。
 
-Accent Colorの見え方を変えるトグルが2つあります。
+デバイス側で視覚効果を減らす設定にしている場合は、どちらのアニメーションも再生しません。
 
-- **Accent Pulse**(デフォルトはオフ)はAccent Colorをゆっくり動かします。単色なら明るさが変化し、グラデーションなら色が順に巡ります。
-- **RGB Mode**(デフォルトはオフ)はオンの間、アクセントの色を虹色に巡回させます。保存したAccent Color自体は変わりません。
+### App Styleのその他の設定
 
-この2つは同時には使えません。**RGB Mode**をオンにすると**Accent Pulse**がオフになり、**Accent Pulse**をオンにすると**RGB Mode**がオフになります。Accent PulseはAppearanceタブを開いている間、その場でプレビューできます。デバイス側で視覚効果を減らす設定にしている場合は、どちらのアニメーションも再生しません。
+- **Custom Mouse Pointer**(カスタムマウスポインター、デフォルトはオン)は、Marinaraのアクセントカラーのカーソルを使います。システム標準のカーソルを使うときや、カスタムテーマにカーソルを任せるときはオフにします。
+- **Reduce Ambient Animations & Effects**(周囲のアニメーションと効果を減らす)は、装飾用のアニメーション、周囲の粒子、回転するプレビュー、文字が少しずつ現れる表示を止めます。デバイス側で視覚効果を減らす設定にしている場合も、Marinaraは同じようにします。
+- **Desktop sidebar width**(デスクトップのサイドバーの幅)は、デスクトップで両側のサイドバーの幅を決めます。**Reset width**(幅をリセット)で元に戻ります。スマートフォンのレイアウトは変わりません。
 
-## Chat widget style
+### Chat widget style
 
-**App Style**の下部で、移動できるチャットのボタン、ウィンドウ、セクションに使うスタイルを**Default**(デフォルト)、**Dottore**、**Prof. Mari**から選びます。フォント、枠の形、3つの主な色は個別に変更できます。カラーピッカーはグラデーションにも対応しています。
+**App Style**の下部で、移動できるチャットのボタン、ウィンドウ、セクションに使うスタイルを**Default**(デフォルト)、**Dottore**、**Prof. Mari**から選びます。フォント、形、3つの主な色は個別に変更できます。3つの**Apply preset**(プリセットを適用)スイッチを使うと、そのスタイルがメッセージ、入力欄、チャットの操作部品にも及びます。**Button size (px)**(ボタンのサイズ、px)は、**Display Size**を変えずに、移動できるチャットボタンとそのアイコンのサイズを変えます。32から96の値を入力するか、欄を空にしてデフォルトにします。すべての操作については[カスタムCSSテーマ](custom-css-themes.md#ready-made-chat-window-styles)を参照してください。
 
-**Button size (px)**(ボタンのサイズ、px)は、Display Sizeを変えずに、移動できるチャットボタンとそのアイコンのサイズを変えます。32から96ピクセルの値を入力してください。欄を空にするか、リセットボタンを使うと、現在のデフォルトを維持できます。サイズは外観の設定と一緒に保存され、別のプリセットを選んでも変わりません。
+### Display SizeとChat Font Size
 
-カラーピッカーの下にある**Apply preset font**(プリセットのフォントを適用)、**Apply preset shape**(プリセットの形を適用)、**Apply preset colors**(プリセットの色を適用)で、チャットのほかの部分もそろえられます。3つとも最初はオフで、それぞれ独立して動作します。メッセージ、入力欄、チャットの操作部品が対象です。Game Modeでは、HUDウィジェット、マップパネル、補足の発言、キャラクターシート、ログ、インベントリー、戦闘画面のパネル、ダイアログも対象になります。Conversationメッセージには選んだフォントと色が適用されますが、元の形は保たれます。独自に選んだフォント、形、色も適用されます。**Apply preset colors**をオンにしても、引用符で囲まれたセリフにはキャラクターやペルソナごとのDialogue Highlight Colorが使われます。例やカスタムテーマについては[カスタムCSSテーマ](custom-css-themes.md#ready-made-chat-window-styles)を参照してください。
+**Text & Scale**セクションには、次の設定があります。
 
-## Custom Mouse Pointer
+- **Display Size**(表示サイズ)は、このデバイスでのアプリ全体の基準となる文字サイズを決めます。変更はすぐに反映されます。次のいずれかを選びます。
 
-**Custom Mouse Pointer**(カスタムマウスポインター、デフォルトはオン)は、アプリ全体でMarinaraのアクセントカラーのカーソルを使います。システム標準のカーソルに戻したいときや、カスタムCSSテーマにカーソルを任せたいときはオフにします。
+| 選択肢 | サイズ |
+| --- | --- |
+| **Tiny** | 12 px |
+| **Small** | 14 px |
+| **Medium** | 16 px |
+| **Default** | 17 px |
+| **Large** | 19 px |
+| **Huge** | 22 px |
+| **Extra large** | 26 px |
+| **Extra extra large** | 30 px |
+| **Maximum** | 34 px |
 
-## Display SizeとChat Font Size
+- **Chat Font Size**(チャットの文字サイズ)は、チャットメッセージの文字サイズを決めるスライダーです。範囲は12 pxから72 pxまでで、デフォルトは16 pxです。
 
-この2つは**Text & Scale**セクションにあります。
+**Font**(フォント)ドロップダウンも同じセクションにあります。[カスタムフォントとGoogle Fonts](fonts.md)を参照してください。
 
-- **Display Size**(表示サイズ)は、このデバイスでのアプリ全体の基準となる文字サイズを決めます。選択肢は**Tiny**、**Small**、**Medium**、**Default**(17px)、**Large**、**Huge**です。
-- **Chat Font Size**(チャットの文字サイズ)はスライダーで、チャットメッセージの文字サイズを決めます。範囲は12pxから48pxまで、デフォルトは16pxです。
+### チャットの文字色と縁取り
 
-**Font**ドロップダウンも同じセクションにあります。自分のフォントを追加したり、Google Fontsからダウンロードしたりする方法は[カスタムフォントとGoogle Fonts](fonts.md)を参照してください。
+同じ**Text & Scale**セクションには、次の設定もあります。
 
-## チャットの文字色と縁取り
+- **Chat Text Color**(チャットの文字色)は、メッセージの基本の文字色です。デフォルトはDarkでは`#d4d4d4`、Lightでは`#1a1025`です。
+- **Default Dialogue Color**(セリフのデフォルト色)は、キャラクターやペルソナが独自のDialogue Highlight Colorを持たないときに、引用符で囲まれたセリフを着色します。カード側の色が優先されます。**Apply preset colors**(プリセットの色を適用)がオンの間は、セリフにチャットのスタイルの文字色を使います。
+- **Chat Chrome Text Color**は、チャットの周りの操作部品の文字色を決めます。対象は、トラッカーのウィジェット、フォルダーのラベル、設定の説明文です。デフォルトは**Chat Text Color**と同じです。
+- **Text Outline / Stroke**(文字の縁取り)は、文字に縁取りを付け、模様の多い背景の上でも読みやすくします。縁取りの色と、0から5 pxまでの**Width**(太さ)を指定します。デフォルトは0.5 pxで、0にするとオフになります。
 
-同じ**Text & Scale**セクションには、背景の上でチャットの文字がどう見えるかを調整する4つの設定があります。
+色の欄を空にすると、その配色のデフォルトに戻ります。
 
-- **Chat Text Color**はチャットメッセージの基本の文字色を決めます。デフォルトはDarkモードが`#d4d4d4`、Lightモードが`#1a1025`です。
-- **Default Dialogue Color**は、キャラクターカードやペルソナのカードが独自のDialogue Highlight Colorを指定していないときに、引用符で囲まれたセリフを着色します。カード側の色指定があればそちらが優先されます。**Apply preset colors**がオンの間は、このセリフにDefault Dialogue Colorではなくチャットウィジェットのスタイルの文字色を使います。
-- **Chat Chrome Text Color**は、トラッカーのウィジェット、フォルダーのラベル、設定の説明文といった通常のテキストの色を決めます。デフォルトは**Chat Text Color**と同じです。
-- **Text Outline / Stroke**はチャットの文字に縁取りを付け、模様の多い背景の上でも読みやすくします。縁取りの色と、0pxから5pxまでの**Width**を指定します。デフォルトの太さは0.5pxです。太さを0にすると縁取りがオフになります。
+### Atmosphere
 
-どの色も、自分で指定するまではColor Schemeのデフォルトに従います。色の欄を空にすると、空白のままにはならず、その配色のデフォルトに戻ります。
+**Dynamic weather effects (rain, snow, fog, etc.)**(動的な天候エフェクト)はデフォルトでオンです。物語の中の天候と時刻に合わせて、天候の粒子を表示します。何かが表示されるのは、そのチャットで**World State**エージェントがオンのときだけです。[エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)を参照してください。
 
-## チャットのレイアウト(Conversation Display)
+### Backgrounds
 
-**Conversation Display**セクションには**Chat Layout**(チャットのレイアウト)という設定が1つだけあり、Conversationモードのメッセージの見た目を変えられます。選ぶとその場でプレビューが更新されます。
+**Backgrounds**(背景)セクションには、**Chat Background**(チャットの背景)ピッカーと**Background Blur**(背景のぼかし)があります。ほかに2つの設定もここにあります。**Conversation background image opacity**(Conversationの背景画像の不透明度)は、グラデーションを残したまま、Conversationモードでチャットの背景をどのくらい強く表示するかを決めます。**Chat List Backgrounds**(チャット一覧の背景)は、チャット一覧の各行の後ろに、そのチャットの背景を控えめなバナーとして表示します。**Active & Hovered**、**Every Row**、**Off**から選びます。[チャットの背景](chat-backgrounds.md)を参照してください。
 
-- **Linear**(デフォルト)。チャット風に行が並ぶ表示です。
-- **Bubbles**。メッセンジャー風の吹き出し表示です。
+## Conversationボタン
 
-## Tracker Panel
+- **Conversation Display**の**Chat Layout**(チャットのレイアウト)は、Conversationのメッセージの見た目を変えます。その場でプレビューが表示されます。**Linear**(デフォルト)はチャット風に行を並べます。**Bubbles**はメッセンジャー風の吹き出しで表示します。
+- **Avatar Shape**(アバターの形)は**Circular**(円形)か**Square**(四角形)です。アバターの大きさは変わりません。
+- **Always display swipe menu**(スワイプメニューを常に表示)は、最初の返信からスワイプの矢印とカウンターを表示します。オフにすると、再生成した後にだけ表示されます。
+- **Conversation Theme**(Conversationのテーマ)は、すべてのConversationチャットの後ろに2色のグラデーションを設定します。**Dark**と**Light**のタブは、それぞれ別のグラデーションを保持します。これはデバイス単位のデフォルトで、チャットごとの設定ではありません。
 
-**Tracker Panel**セクションでは、Roleplayのトラッカー用サイドパネルの見た目を設定します。このパネル自体は独立した機能で、専用のガイドがあります。[Roleplay HUDとトラッカー](../roleplay/hud-and-trackers.md)を参照してください。
+## Roleplayボタン
 
-## Roleplayのメッセージの見た目
+**Tracker Panel**(トラッカーパネル)では、Roleplayのトラッカー用サイドパネルの見た目を設定します。[Roleplay HUDとトラッカー](../roleplay/hud-and-trackers.md)を参照してください。
 
-**Roleplay Messages**セクションでは、Roleplayチャットのメッセージの見た目を設定します。
+**Roleplay Presentation**(Roleplayの表示)では、Roleplayのメッセージの見た目を設定します。
 
-- **Chat position**は、画面が広い場合にメッセージと入力欄をどこに置くかを選びます。選択肢は**Left**、**Center**(デフォルト)、**Right**の3つです。メッセージと入力欄は一緒に動き、同じ側でサイドバーやTracker Panelが開いているときは、チャットがその下に隠れないように位置がずれます。スマートフォンや幅の狭いウィンドウではチャットは画面幅いっぱいのままで、Game Modeのセリフ欄は中央に表示されたままです。
-- **Roleplay Messages Background Opacity**は0%から100%までのスライダーです。デフォルトは90%です。値を下げると、メッセージの吹き出しから背景が透けて見えます。
-- **Roleplay Avatars**は、各メッセージの横に表示するアバターのスタイルを選びます。選択肢は**None**、**Small Circles**(デフォルト)、**Small Rectangles**、**Glued Side Panel**の4つです。
-- **Scrollable Avatars**(デフォルトはオフ)は、長いメッセージをスクロールしている間もアバターを表示し続けます。
-- **Message avatar scale**は75%から250%までのスライダーです。デフォルトは100%です。
-- **Default sprite scale**は50%から175%までのスライダーです。デフォルトは100%です。チャットごとにスプライトのサイズを指定した場合は、そちらがこのデフォルトより優先されます。
+| 設定 | 内容 | デフォルト |
+| --- | --- | --- |
+| **Chat position** | 広い画面でメッセージと入力欄を置く位置です。**Left**、**Center**、**Right**から選びます。同じ側でサイドバーやTracker Panelが開いていると、それに合わせて位置がずれます。スマートフォンでは画面幅いっぱいのままです。 | **Center** |
+| **Visual Novel display** | セリフ用のポートレートとスプライトを添えて、完成した段落を1つずつ表示します。変更は、現在のRoleplayチャットと、スタイルを保存していないチャットのデフォルトに適用されます。 | オフ |
+| **Roleplay Messages Background Opacity** | 0%から100%までのスライダーです。値を下げると、メッセージの吹き出しから背景が透けて見えます。 | 90% |
+| **Roleplay Avatars** | 各メッセージの横に表示するアバターのスタイルです。**None**、**Small Circles**、**Small Rectangles**、**Glued Side Panel**から選びます。 | **Small Circles** |
+| **Scrollable Avatars** | 長いメッセージをスクロールしている間もアバターを表示し続けます。 | オフ |
+| **Message avatar scale** | 75%から250%までのスライダーです。 | 100% |
+| **Default sprite scale** | 50%から175%までのスライダーです。チャットごとのスプライトのサイズのほうが優先されます。 | 100% |
 
-## Game Presentation
+このセクションには、**Custom chat width**(チャットの幅を指定)、**Always display swipe menu**(スワイプメニューを常に表示)、**Reduced paint effects**(描画効果を減らす。負荷の大きい透過と影を平らにして、画面の移動をなめらかに保ちます)、**Show Thinking In Messages**(メッセージ内に思考を表示)、**Don't Collapse Thinking**(思考を折りたたまない)、**Narrator's Cycling Avatars**(ナレーターのアバターを切り替える)もあります。**Visual Novel display**をオンにすると、**Paragraph delay**(段落の間隔)付きの**Auto-play VN paragraphs**(VNの段落を自動再生)、**Dialogue portrait scale**、**Full-body sprite scale**も表示されます。
 
-**Game Presentation**セクションでは、Game Modeの画像の大きさを調整します。Game Modeではセリフ用のポートレートと全身のスプライトの両方を表示できます。この2つのスライダーでそれぞれの大きさを決めます。
+## Gameボタン
 
-- **Dialogue portrait scale**は75%から175%までのスライダーです。デフォルトは100%です。
-- **Full-body sprite scale**は75%から275%までのスライダーです。デフォルトは135%です。
+**Game Presentation**(Gameの表示)の**Game VN Art**には、2つのスライダーがあります。**Dialogue portrait scale**(セリフ用ポートレートの拡大率、75%から175%、デフォルトは100%)と**Full-body sprite scale**(全身スプライトの拡大率、75%から275%、デフォルトは135%)です。
 
 **Game Dialogue Display**では、セリフ欄の動き方を選びます。
 
-- **Classic VN**(デフォルト)。セリフ欄には進行中の1区切りだけを表示します。過去のセリフは**Logs**ボタンから読めます。
-- **History Above VN**。それまでのセリフをセリフ欄の上に表示します。そのセッション全体をスクロールして読み返せます。
+- **Classic Dialogue Box**(デフォルト)は、進行中の1区切りだけを表示します。過去のセリフは**Logs**ボタンから読めます。
+- **History Above Dialogue Box**は、それまでの区切りをセリフ欄の上に表示します。そこではセッション全体をスクロールして読み返せます。
 
-## Atmosphereの天候エフェクト
-
-**Atmosphere**セクションには**Dynamic weather effects (rain, snow, fog, etc.)**というトグルが1つあり、デフォルトでオンです。物語の中の天候と時刻に合わせて、天候の粒子アニメーションを表示します。
-
-このトグルが効果を発揮するのは、そのチャットで**World State**エージェントをオンにしている場合だけです。天候を物語から読み取るのはこのエージェントです。オンにしていないと、トグルを切り替えても見た目は変わりません。[エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)を参照してください。
-
-## Conversation Theme
-
-**Conversation Theme**セクションでは、すべてのConversationモードのチャットに使う2色のグラデーション背景を設定します。**Dark**と**Light**のタブが分かれているので、配色ごとに別々のグラデーションを保存できます。これはConversationチャット全体に適用されるデバイス単位のデフォルトで、チャットごとの設定ではありません。
-
-## Backgrounds
-
-**Backgrounds**セクションでは、チャットの背景画像をインポートして選んだり、**Background Blur**を設定したりできます。独自のライブラリーを持つ独立した機能なので、専用のガイドがあります。[チャットの背景](chat-backgrounds.md)を参照してください。
-
-## Reset Appearance
-
-**Reset Appearance**(外観のリセット)ボタンは**App Style**セクションの先頭にあります。**Appearance**タブ全体をMarinaraのデフォルトに戻します。色、文字サイズ、レイアウト、アバターとスプライトの拡大率、グラデーションがすべて対象です。
-
-リセットすると、現在のチャットの背景も消え、Theme Libraryで適用中のカスタムテーマもオフになります。設定をいじりすぎて収拾がつかなくなったときに、まっさらな状態から始め直せます。
+**Game text effects**(Gameの文字エフェクト、デフォルトはオン)は、劇的な言葉、すべて大文字の強調、括弧書きの補足、文字エフェクト用のタグをアニメーションで表示します。オフにすると、普通の文字で表示されます。
 
 ## このデバイスにだけ残る設定
 
-Appearanceの設定はほとんどが他のデバイスにも同期されます。同期されないのは2つ、**Display Size**と**Chat Font Size**です。この2つは使っているブラウザーに保存され、同期されることはありません。
-
-どの設定がデバイス間で同期され、どの設定が手元に残るのかは、[設定の概要](../settings/settings-overview.md)にまとめてあります。
+Appearanceの設定はほとんどが他のデバイスにも同期されます。**Display Size**と**Chat Font Size**は同期されません。この2つは使っているブラウザーに保存されます。何が同期されるかは[設定の概要](../settings/settings-overview.md)を参照してください。
 
 ## 関連ガイド
 

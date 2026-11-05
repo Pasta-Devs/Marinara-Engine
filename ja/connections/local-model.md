@@ -1,208 +1,179 @@
-# Local Modelのセットアップ
+# 内蔵モデルのセットアップ
 
-このガイドでは、Marinara Engineがダウンロードして手元のコンピューターで動かす小さなAIモデル、**Local Model**(ローカルモデル)について説明します。APIキーもオンラインのアカウントも必要ありません。セットアップの手順、**Runtime Settings**(ランタイム設定)、そしてトラッカーエージェント、Game Modeのシーン効果、オフラインでの通話の文字起こしといった補助機能をLocal Modelがどう支えているのかがわかります。
+**Built-in model**(内蔵モデル)は、Marinaraがダウンロードして自分のコンピューターで動かす小さなAIモデルです。APIキーもオンラインのアカウントも必要なく、何もコンピューターの外に出ません。
 
-## Local Modelとは
+小さいモデルなので、裏方の補助作業に向いています。トラッカーエージェント(ストーリーの細部を追い続ける補助役)、Game Modeのシーン効果、ロアブックの埋め込み、判定のチェックなどです。良いロールプレイやProfessor Mariによる編集には力不足です。そうした用途には、より高性能なアカウントを使ってください。[AIプロバイダーへの接続](connecting-to-a-provider.md)を参照してください。
 
-**Local Model**は、コンピューターの中だけで完結して動く小型の言語モデル(Gemma)です。APIキーとは、Marinaraがオンラインのサービスと通信するための秘密の文字列です。Local Modelは何もコンピューターの外に送らないため、APIキーは必要ありません。
+**Built-in model**のカードが見当たらない場合は、「Lite」版をインストールしています。Lite版は、ローカルランタイムを含めずに軽量化したビルドです。
 
-Local Modelは意図的に小さく作られています。用途は裏方の補助作業で、メインのチャットやロールプレイ用ではありません。Marinaraは次の仕事にLocal Modelを使います。
+## 内蔵モデルをダウンロードする
 
-- Roleplayモードのトラッカーエージェント。
-- Game Modeのシーン効果(背景、音楽、天候など)。
-- セマンティック検索のためのロアブックの埋め込み生成。
-- Conversationの通話でのマイク入力の文字起こし(別の音声モデルを使用)。
-- Decisionモデルに選ぶと、起動質問と判定文に回答します。[Decisionモデル](decision-models.md)を参照してください。
+始める前に、モデルを置ける空きディスク容量とメモリー(RAM)があることを確認してください。サイズは下の表にあります。
 
+1. 上部バーの**Connections**(接続)をクリックします。
+2. **Jobs**(役割)ボックスの下にある**Built-in model**(内蔵モデル)のカードを探します。カードには**Not downloaded**と表示されています。
+3. カードか、その**Download**(ダウンロード)ボタンをクリックします。**Built-in model**というタイトルのウィンドウが開きます。
+4. **Which model?**(どのモデル?)でモデルを選びます。**Gemma 4 E2B — Q8 (Best Quality)**には**Recommended**(おすすめ)のタグが付いています。コンピューターのメモリーが少ない場合は、**Q4_K_M**を選んでください。RAMが5.4 GBではなく、約3.4 GBで済みます。
+5. 下部の**Download**ボタンをクリックします。ボタンには、**Download 5.0 GB**のようにモデルのサイズが表示されています。
+6. 待ちます。ウィンドウには、**Install runtime**(ランタイムをインストール)、**Download model**(モデルをダウンロード)、**Start and test**(起動とテスト)の3つのステップが表示されます。ランタイムとは、モデルを動かすプログラムのことです。ランタイムがない場合、Marinaraは先にそれをインストールします。
+7. ウィンドウに、緑の点と一緒にモデル名が表示されたら、**Test**(テスト)をクリックします。**Local test message**(ローカルのテストメッセージ)というタイトルのボックスに、**Succeeded**と、返信にかかった時間が表示されます。
+8. **Done**(完了)をクリックします。
 
-設定ウィンドウではこの機能を**Local AI Model**と呼び、接続のドロップダウンでは**Local Model (sidecar)**と表示します。どちらも同じ機能です。
+カードには、**Ready**と、モデルのサイズ、担当する役割が表示されるようになります。
 
-メインのチャット、ロールプレイ、ゲームマスター(GM)の語り、Professor Mariによる編集にLocal Modelを使うのはおすすめしません。これらの用途には小さすぎて、良い結果になりません。より高性能な接続を使ってください。[AIプロバイダーへの接続](connecting-to-a-provider.md)を参照してください。
+うまくいかなかった場合:
 
-## Local Modelのカードを開く
+- **Sidecar runtime install is disabled**(エラーメッセージ)。ランタイムのインストールは保護された操作です。[ランタイムのインストールを許可する](#allow-runtime-installs)を参照してください。
+- **Local runtime failed to start**と表示される。[トラブルシューティング](#troubleshooting)を参照してください。
+- **Download failed**と表示される。ウィンドウにエラーが表示されます。インターネット接続と空きディスク容量を確認してから、もう一度ダウンロードボタンをクリックしてください。
 
-Local Modelは**Connections**(接続)パネルにあります。
-
-1. **Connections**パネルを開きます。
-2. **Local Model**というタイトルのカードを探します。
-3. カードをクリックするか、**Open local model settings**という説明の付いた歯車ボタンをクリックします。
-
-歯車ボタンを押すと、**Local AI Model**という完全な設定ウィンドウが開きます。モデルをまだダウンロードしていない場合は、カードに**Download now**ボタンと**Choose model options**ボタンも表示されます。どちらを押しても同じ設定ウィンドウが開きます。
-
-設定ウィンドウの中には、**Local Model is for helpers, not main roleplay**というタイトルの警告ボックスがあります。このモデルが補助作業専用であることを、あらためて伝えるものです。
-
-## ハードウェアとオペレーティングシステムの対応
-
-Local Modelは、ランタイム(モデルを動かすプログラム)とモデルファイルをダウンロードします。この両方を置ける空きディスク容量とメモリー(RAM)が必要です。
-
-対応状況はオペレーティングシステムによって異なります。
-
-- **Windows (64-bit)とLinux (64-bit)**: **Runtime Target**の選択肢がすべて使えます。グラフィックスカード(GPU)の系統を選ぶことも、プロセッサー(CPU)だけで動かすこともできます。
-- **Windows on ARMとLinux on ARM**: 選択肢は少なくなり、ほとんどがCPU向けです。
-- **macOS on Apple Silicon**: MarinaraはApple製チップに最適化されたMLXランタイムを使います。独自モデルは単一のファイルではなく、HuggingFaceのリポジトリーを指定します。
-- **macOS on IntelとAndroid**: 実質的にCPUのみです。
-
-Local Modelは「Lite」版のインストールでは利用できません。Lite版は、容量を節約するためにローカルランタイムを含めずに軽量化したビルドです。Lite版ではLocal Modelのカード自体が表示されません。
-
-## 初回のセットアップ
-
-先にランタイムを用意し、そのあとでモデルを選びます。
-
-1. **Local AI Model**の設定ウィンドウを開きます。
-2. **Install Runtime**をクリックします。Apple Siliconではこのボタンが**Install MLX Runtime**になります。
-3. ランタイムのインストールが終わるまで待ちます。ダウンロードの進み具合はプログレスバーに表示します。
-4. 後述の「モデルのダウンロード」の手順でモデルを選びます。
-5. モデルのダウンロードが終わるまで待ちます。
-6. 状態が**Ready**になったら**Done**をクリックします。
-
-途中でやめたいときは**Skip for Now**をクリックします。モデルが1つでも入っている場合、このボタンは**Close**に変わります。
-
-ランタイムのインストールと再インストールは保護された操作です。Windowsのワンクリックインストール版では自動的に許可されています。macOS、Linux、Dockerでは、自分で許可する必要がある場合があります。後述の「トラブルシューティング」を参照してください。
-
-Marinaraがダウンロードするのは、使用中のEngineのリリースで承認されたllama.cpp、MLX、uvのバージョンだけです。展開や実行の前に、ファイルサイズとSHA-256チェックサムが完全に一致するか検証します。MLXのPython依存関係もバージョンを固定してハッシュを検証したうえで、審査済みのmlx-lmのソースを追加パッケージの解決なしにインストールします。そのためランタイムの更新は、上流の「latest」ビルドに黙って追従するのではなく、審査を経たMarinaraのアップデートとして届きます。
-
-## モデルのダウンロード
-
-設定ウィンドウには、モデルを入手する方法が2つあります。
+**Connections**パネルの**Add**(追加)からも、このウィンドウを開けます。**Add account**(アカウントの追加)ウィンドウの**Built-in model**の下にあります。
 
 ### 厳選済みプリセット
 
-**Curated Gemma 4 Presets**では、あらかじめ用意された2つの選択肢から選びます。Apple製以外のハードウェアではGGUF形式を使います。
+ウィンドウには、Googleの小さなモデルであるGemma 4 E2Bの、あらかじめ用意された2つのプリセットがあります。Apple Siliconのコンピューターでは、GGUFファイルの代わりにMLX版が使われます。GGUFとMLXは、ローカルモデルの2つのファイル形式です。下のサイズは、ウィンドウに表示される値です(単位はGBで、1 GBは1024 × 1024 × 1024バイトです)。
 
-| プリセット | ダウンロードサイズ | 実行時のRAM |
+| プリセット | ダウンロード | 実行時のRAM |
 | --- | --- | --- |
-| Q8 (Best Quality) | 約5.4 GB | 約5.8 GB |
-| Q4_K_M (Smaller, Faster) | 約3.2 GB | 約3.6 GB |
+| Q8 (Best Quality) | 5.0 GB | 5.4 GB |
+| Q4_K_M (Smaller, Faster) | 3.0 GB | 3.4 GB |
 
-Q8には**Recommended**のタグが付いており、品質がいちばん高くなります。Q4_K_Mはサイズが小さくて動作が速く、メモリーの使用量も少なくて済みます。
+Apple Siliconでは、代わりに2つのMLXプリセットが表示されます。
 
-Apple Siliconでは、この2つがMLXのプリセットに変わります。8-bitのMLXプリセットはダウンロードが約5.9 GB、RAMが約7.5 GB必要です。4-bitのMLXプリセットはダウンロードが約3.6 GB、RAMが約4.8 GB必要です。
+| プリセット | ダウンロード | 実行時のRAM |
+| --- | --- | --- |
+| 8-bit MLX (Best Quality) | 5.5 GB | 7.0 GB |
+| 4-bit MLX (Smaller, Faster) | 3.4 GB | 4.5 GB |
 
-プリセットをダウンロードする手順は次のとおりです。
+Marinaraがディスク上に保持する内蔵モデルは、常に1つだけです。別のモデルを選ぶと、最初のモデルと置き換わります。あとで切り替えるには、カードを開き、**Built-in model**ウィンドウで**Change model**(モデルを変更)をクリックします。カードのページでは、**Model**(モデル)の横にあるボタンでプリセットを切り替えられます。その際、先にダウンロードサイズの確認を求められます。
 
-1. 使いたいプリセットを選びます。
-2. **Use Curated Preset**をクリックします。すでにモデルが入っている場合、このボタンは**Switch to Curated Preset**になります。
+### 自分のモデルを使う
 
-### 自分で選んだモデルを使う
+**Your own model**(自分のモデル)では、Hugging Face(公開のモデル共有サイト)のGGUFモデルか、Marinaraを動かしているコンピューター上のファイルを使えます。
 
-**Use Your Own Model From HuggingFace**では、モデル共有サイトHuggingFaceから好きなモデルを指定できます。
+1. **Your own model**をクリックし、**Hugging Face**か**File on the server**(サーバー上のファイル)のタブを選びます。
+2. **Hugging Face**では、リポジトリー名を`owner/repo`の形式で入力し、**Find files**(ファイルを探す)をクリックします。一覧からファイルを1つ選びます。
+3. **File on the server**では、`.gguf`ファイルのフルパスを入力します。Marinaraはファイルをその場所のまま使い、コピーはしません。
+4. 下部のボタンをクリックします。ボタンは**Download**です。サーバー上のファイルの場合は**Use this file**(このファイルを使う)です。
 
-1. 欄にリポジトリー名を入力します。形式は`owner/repo`です。
-2. **List Models**をクリックします。Apple Siliconではこのボタンが**Validate Repo**になります。
-3. Apple製以外のハードウェアでは、ドロップダウンから使いたいファイルを選び、**Download Selected GGUF**をクリックします。
-4. Apple Siliconでは、リポジトリーの検証が終わったら**Use Validated MLX Repo**をクリックします。
+Apple Siliconでは、**Find files**が**Validate repo**(リポジトリーを検証)になり、リポジトリーはMLXネイティブである必要があります。サーバー上のGGUFファイルはApple Siliconでも使えます。その場合はMLXではなくllama.cppを使います。
 
-Marinaraがディスク上に保持するLocal Modelのファイルは常に1つだけです。新しいモデルをダウンロードすると、先に古いモデルを削除します。メインのLocal Modelには専用の削除ボタンがありません。取り除きたいときは、別のモデルをダウンロードして上書きします。
+## 内蔵モデルを補助の役割に使う
 
-## Runtime Settingsのリファレンス
+ダウンロードしたあとで、**Built-in model**(内蔵モデル)のカードを開きます。そのページには、状態、メモリー使用量、**Used by**(使用先)が表示され、次の操作があります。
 
-モデルの動かし方を調整するには、設定ウィンドウ内の**Runtime Settings**セクションを開きます。項目によって保存の仕方が異なります。
+| 操作 | 内容 |
+| --- | --- |
+| **Use for tracker agents (roleplay)**(ロールプレイのトラッカーエージェントに使う) | トラッカーエージェントのためにモデルを動かし続けます。デフォルトはオフです。 |
+| **Use for game scene analysis**(ゲームのシーン解析に使う) | 背景、音楽、天候などのGame Modeのシーン効果のためにモデルを動かし続けます。デフォルトはオンです。 |
+| **Use the built-in model for all tracker agents**(すべてのトラッカーエージェントに内蔵モデルを使う) | 標準搭載のトラッカーエージェントすべてを、このモデルに向けます。エージェント自体はオンになりません。 |
+| **Change in Defaults**(デフォルトで変更) | **Jobs**(役割)ボックスを開きます。そこで、ほかの役割を割り当てられます。 |
 
-- ドロップダウンと**Native Tool Calls**スイッチは、変更した時点で保存します。
-- **Context Window**、**Max Response Tokens**、**Temperature**、**Top P**、**Top K**は、**Apply Settings**をクリックしたときにだけ反映します。
-- **Physical Batch Size**には専用の**Apply**ボタンがあります。**GPU Offload**を**Custom GPU layers**にしたときに現れるレイヤー数の欄も同じです。
+両方のスイッチがオフの場合、モデルは自動では起動しません。どちらかをオンにしたとき、またはチャットや役割がモデルを使うときに起動します。エージェントを有効にする方法は、[Memory Recallとチャットの要約](../agents/memory.md)を参照してください。
+
+Game Modeのセットアップでは、**Scene effects model**(シーン効果のモデル)に内蔵モデルを使えます。[Game Mode: はじめに](../game/getting-started.md)を参照してください。
+
+### ロアブックの埋め込み
+
+埋め込みとは、ロアブックを意味で検索できるようにするための数値です。埋め込みに内蔵モデルを使うには、ロアブックのベクトル化のモデルとして**Built-in model (on this device)**(このデバイス上の内蔵モデル)を選びます。先に**Use for tracker agents (roleplay)**(ロールプレイのトラッカーエージェントに使う)か**Use for game scene analysis**(ゲームのシーン解析に使う)をオンにしてください。オフのままだとリクエストは失敗します。この方法にはGGUFランタイムが必要なため、Apple SiliconのMLXでは動きません。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+
+### Decisionモデル
+
+内蔵モデルをDecisionモデルとして選ぶこともできます。[Decisionモデル](decision-models.md)を参照してください。
+
+### チャットモデル
+
+内蔵モデルとチャットするには、次のようにします。
+
+1. チャットを開き、チャット入力欄のモデルボタン(リンクのアイコン)をクリックします。
+2. **Model for this chat**(このチャットのモデル)で、**Built-in model (on this device)**(このデバイス上の内蔵モデル)を選びます。一覧のいちばん下にあり、モデルをダウンロードすると表示されます。
+3. メッセージを送ります。モデルが小さいため、返信が遅い、短い、品質が低いといったことがある、という警告が表示されます。
+
+## ランタイムの設定
+
+開くには、カードのページで**Runtime settings**(ランタイムの設定)をクリックするか、**Built-in model**(内蔵モデル)ウィンドウで**Settings**(設定)をクリックします。設定は4つのグループに分かれています。ドロップダウンとスイッチは、すぐに保存されます。数値の欄は、**Apply settings**(設定を適用)をクリックしたときに保存されます。**Physical batch size**(物理バッチサイズ)と**Custom GPU layers**(GPUレイヤー数を指定)には、それぞれ専用の**Apply**(適用)があります。
+
+**Speed**(速度)
 
 | 設定 | デフォルト | 内容 |
 | --- | --- | --- |
-| Runtime Target | Auto detect | どのGPU系統向けにインストールするか |
-| GPU Offload | Auto offload | どれだけの処理をGPUに任せるか |
-| Native Tool Calls | On | モデルにツールと関数呼び出しを使わせる |
-| Pooling Type | None | ロアブック検索のための埋め込み計算 |
-| Physical Batch Size | 512 | ロアブックの埋め込み要求のバッチサイズ |
-| Context Window | 8192 | モデルが一度に読み取れる文章の量 |
-| Max Response Tokens | 4096 | モデルが書ける返信の最大の長さ |
-| Temperature | 0.3 | 返信のランダムさ |
-| Top P | 0.95 | 単語選択の絞り込みの基準 |
-| Top K | 64 | 単語選択の絞り込みの基準 |
+| **Runtime target**(ランタイムの対象) | Auto detect | Marinaraがどのグラフィックスカードの系統向けにインストールするか。 |
+| **GPU offload**(GPUオフロード) | Auto offload | どれだけの処理をグラフィックスカードに任せるか。**Auto offload**、**CPU only**、**Custom GPU layers**(1から1024)から選びます。 |
 
-分かりにくい項目についての補足です。
+**Memory**(メモリー)
 
-- **Runtime Target**と**GPU Offload**はGGUFランタイムでのみ表示します。Apple SiliconではMLXがアクセラレーターを自動で選びます。
-- **Pooling Type**と**Physical Batch Size**もGGUFランタイム限定で、**Embedding Endpoint**の見出しの下にあります。調整の対象はロアブックの埋め込みだけで、通常のチャットの返信は変わりません。
-- **Pooling Type**のデフォルトは**None**です。Local Modelをロアブックの埋め込みに使うときは**Mean**に切り替えます。
-- **Physical Batch Size**は、埋め込みのエンドポイントが一度に処理する文章の量を決めます。長いロアブックのエントリーのベクトル化が失敗するときは値を上げてください。Gemmaでは1024が推奨として表示されます。
-- ツールを動かすには**Native Tool Calls**をオンにする必要があります。警告には、ローカルモデルでツールを実行するにはProfessor Mariとカスタムエージェントのためにこの設定を有効にする必要がある、と書かれています。この項目はMLXランタイムでは使えません。
-- **Max Response Tokens**は、通常のチャットとエージェントの返信に上限を設けます。Game Modeのシーン解析には適用されません。こちらは内部で独自の上限を持っています。
+| 設定 | デフォルト | 内容 |
+| --- | --- | --- |
+| **Context window**(コンテキストウィンドウ) | 8192 | モデルが一度に読む文章の量(トークン数)。512以上。 |
+| **KV cache type**(KVキャッシュの種類) | f16 | モデルが読んだ内容をどう保存するか。f16、q8_0、q4_0から選びます。後の2つはメモリーの使用量が少なく、Flash Attentionへの対応が必要です。 |
 
-## Send Test Message
+**Replies**(返信)
 
-ランタイムが正しく動くかどうかは**Send Test Message**で確認します。このボタンはRuntimeのセクションにあります。モデルのダウンロードとランタイムのインストールが終わるまでは押せません。
+| 設定 | デフォルト | 内容 |
+| --- | --- | --- |
+| **Max response tokens**(返信の最大トークン数) | 4096 | モデルが書ける返信の最大の長さ。64以上。 |
+| **Temperature** | 0.3 | 返信のランダムさ。0から2。 |
+| **Top P** | 0.95 | 単語選択の制限。0より大きく、1以下。 |
+| **Top K** | 64 | 単語選択の制限。0から500。 |
 
-1. **Send Test Message**をクリックします。
-2. 結果のボックスが出るまで待ちます。
-3. 成功すると**Local Test Message Succeeded**と往復にかかった時間を表示します。
-4. 失敗すると**Local Test Message Failed**とエラー内容を表示します。
+**Expert**(上級者向け)
 
-テストには固定のプロンプトを使います。Temperatureやトークン数の設定は無視するため、モデルが応答するかどうかだけを素直に確かめられます。
+| 設定 | デフォルト | 内容 |
+| --- | --- | --- |
+| **Native tool calls**(ネイティブのツール呼び出し) | On | モデルにツールを使わせます。Professor Mariとカスタムエージェントには、これをオンにする必要があります。 |
+| **Max parallel agent jobs**(エージェントの最大並列ジョブ数) | 2 | 同時に実行するジョブの数。1から16。 |
+| **Pooling type**(プーリングの種類) | None | ロアブック検索のために、モデルがテキストを数値に変える方法。ロアブックの埋め込みには**Mean**を選びます。 |
+| **Physical batch size** | 512 | ロアブックの埋め込みの1バッチあたりのテキスト量。128から32768。長いエントリーが失敗するときは値を上げてください。Gemmaでは、多くの場合1024で動きます。 |
 
-## Local Modelを補助機能に使う
+システムによって異なる設定もあります。
 
-モデルをダウンロードすると、Local Modelのカードに2つのスイッチが現れます。
+- WindowsとLinux (x64)の**Runtime target**では、Auto detect、NVIDIA GPU、AMD GPU、Intel GPU、Vulkan GPU、CPU only、System llama-serverを選べます。ほかのシステムでは選択肢が少なくなります。
+- Apple Siliconでは、MLXがアクセラレーターを自動で選びます。**Runtime target**、**GPU offload**、**KV cache type**、**Native tool calls**、**Pooling type**、**Physical batch size**は表示されません。
+- **Max response tokens**は、Game Modeのシーン解析には上限を設けません。シーン解析には独自の上限があります。
+- **Expert**の**Diagnostics**(診断)には、ランタイムのビルド、検出されたグラフィックスカード、最後の起動コマンドが表示されます。
 
-- **Use for tracker agents (roleplay)**。デフォルトはオフです。
-- **Use for game scene analysis**。デフォルトはオンです。
+<a id="allow-runtime-installs"></a>
 
-この2つのスイッチが、MarinaraがLocal Modelをバックグラウンドで動かし続けるかどうかを決めます。両方ともオフなら、ランタイムは自動では起動しません。どちらか一方でもオンにすると、Marinaraはローカルサーバーを自動的に起動します。オンにした直後の最初の起動には少し時間がかかることがあります。
+### ランタイムのインストールを許可する
 
-カードには**Use local model for all tracker agents**ボタンもあります。標準搭載のトラッカーエージェントすべてを、ワンクリックでLocal Modelに向けられます。すぐ下の行には、いくつのトラッカーエージェントがローカルモデルを指しているかを「3/7 built-in tracker agents currently point at the local model.」のように表示します。これで変わるのはエージェントが使うモデルだけで、エージェント自体はオンになりません。エージェントを有効にする方法は[Memory Recallとチャットの要約](../agents/memory.md)と、使っているモードのガイドを参照してください。
+ランタイムのインストールと再インストールは、保護された操作です。Windowsのワンクリックインストール版では、自動的に許可されます。macOS、Linux、Dockerでは、次のどちらかを行ってから、もう一度試してください。
 
-Game Modeでは、シーンの処理をLocal Modelに任せることもできます。Gameのセットアップにある**Scene Effects Connection**ドロップダウンで**Local Model (Gemma)**を選べます。これを選ぶと**Use for game scene analysis**スイッチがオンになります。[Game Mode: はじめに](../game/getting-started.md)を参照してください。
+- **Settings → Advanced → Admin Access**(設定 → 詳細設定 → 管理者アクセス)で管理者用シークレットを入力します。管理者用シークレットとは、リスクのある操作に使う2つ目のパスワードです。サーバーのコンピューター上の**Admin Access**で作成するか、サーバーの`.env`ファイルに`ADMIN_SECRET`として設定します。[Admin Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions)を参照してください。
+- サーバーの`.env`ファイルに`SIDECAR_RUNTIME_INSTALL_ENABLED=true`を追加し、Marinaraを再起動します。`.env`ファイルは、Marinaraのフォルダーにあるテキストファイルです。[.envファイルの編集](../CONFIGURATION.md#edit-the-env-file)を参照してください。
 
-### ロアブックの埋め込みにLocal Modelを使う
+Marinaraがダウンロードするのは、使っているリリースで承認されたllama.cpp、MLX、uvのバージョンだけです。何かを実行する前に、各ファイルのサイズとSHA-256チェックサムを確認します。
 
-ロアブックのセマンティック検索をLocal Modelで動かすこともできます。ロアブックのベクトル化の設定で、接続として**Local Model (sidecar)**を選びます。これには**Use for tracker agents (roleplay)**か**Use for game scene analysis**が先にオンになっている必要があります。両方ともオフの場合は、トラッカーかゲームのシーン解析のためにローカルモデルを有効にするよう促すメッセージが出て、処理は失敗します。この機能はGGUFランタイムを使うため、Apple SiliconのMLXでは利用できません。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+## ローカル音声モデル
 
-## Local Modelをチャットの接続として使う
+**Local speech model**(ローカル音声モデル)は、Conversationの通話のために、自分のコンピューター上で声をテキストに変換します。これはWhisperモデル、つまり音声をテキストに変換するモデルです。**Agents → Agent Organizer**でインストールする**Calls**エージェントパッケージが必要です。
 
-モデルをダウンロードすると、ほとんどの接続の選択欄の末尾にLocal Modelが並びます。表示は**Local Model (sidecar)**で、モデル名が判明している場合は**Local Model**の後ろに括弧付きでモデル名が入ります。
+1. **Connections**(接続)パネルを開き、**On this device**(このデバイス上)の下にある**Speech to text**(音声認識)の項目をクリックします。
+2. **Local speech model**の下のドロップダウンからモデルを選びます。
+3. **Download Whisper**(Whisperをダウンロード)をクリックします。
+4. **Ready**になるまで待ちます。Callsを使う前に、Marinaraを完全に再起動してください。
 
-通常のチャットにこれを選ぶと警告が出ます。Local Modelは非常に小さく補助作業向けであること、そしてメインのチャットやロールプレイの返信が遅い、短い、品質が低いといった結果になりうることを伝える内容です。この項目は実際に保存された接続ではないため、接続のデフォルト値を保存することはできません。
+| モデル | ダウンロード | 実行時のRAM |
+| --- | --- | --- |
+| Whisper Tiny (Multilingual) | 約180 MB | 約350 MB |
+| Whisper Base (Multilingual) | 約320 MB | 約650 MB |
 
-チャットに選んだ場合は、補助機能のスイッチが両方ともオフでも、必要に応じてローカルサーバーが起動します。Game Modeのメインモデルのドロップダウンには表示しません。Game ModeがLocal Modelを使うのは**Scene Effects Connection**経由だけです。
+スマートフォンや古いコンピューターでは、まずTinyがおすすめです。Baseは聞き取りにくい音声でも精度が上がりますが、起動は遅くなります。ダウンロードしたモデルを削除するには、ゴミ箱のボタン(**Delete Local Whisper**)をクリックします。Callsをアンインストールしても削除されます。
 
-## 通話のためのLocal Speech Model
+音声はコンピューターの外に出ません。チャットモデルに送られるのはテキストだけです。通話で使うには、通話の音声入力をLocal Whisperに設定します。[Conversationの音声通話とビデオ通話](../conversation/calls.md)を参照してください。代わりに**Speech to text**サーバーをオンにすると、通話では音声がそのサーバーに送られます。[自分の音声認識サーバーを使う](../conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
 
-**Local Speech Model**は、オフラインでマイクの音声を文字起こしするための、Calls用の追加ダウンロードです。Conversationの通話で、自分の声を手元のコンピューターで文字起こしすると決めたときに動きます。中身はWhisperモデル、つまり話した言葉をテキストに変換する音声認識モデルです。
-
-まず**Agents > Agent Organizer (エージェント管理)**から**Calls**をインストールします。その後、Connectionsの**Local Model**カードにある**Local Speech Model**の見出しからWhisperを管理できます。Callsが入っていない間は、この見出しとダウンロードの操作は表示しません。
-
-選択肢は2つです。
-
-- **Whisper Tiny (Multilingual)**: ダウンロード約180 MB、RAM約350 MB。スマートフォンや古いコンピューターでは、まずこちらが向いています。
-- **Whisper Base (Multilingual)**: ダウンロード約320 MB、RAM約650 MB。聞き取りにくい音声でも精度は上がりますが、起動は遅くなります。
-
-セットアップの手順は次のとおりです。
-
-1. **Local Model**カードを開いて展開します。
-2. **Local Speech Model**の下のドロップダウンからモデルを選びます。
-3. **Download Whisper**をクリックします。
-4. **Ready**と表示されればセットアップは完了です。
-
-選択中のモデルだけを削除するには、**Delete Local Whisper**という説明の付いたゴミ箱ボタンをクリックします。Callsをアンインストールすると、ダウンロード済みのWhisperと選択内容をすべて自動的に削除し、ディスク容量を解放します。あとでCallsを入れ直せば、Local Speech Modelの操作も戻り、Whisperを再びダウンロードできます。
-
-録音した音声がコンピューターの外に出ることはありません。送信されるのは、文字起こしされたテキストだけで、宛先は選んだチャットの接続です。通話で使うには、通話の音声入力モードをLocal Whisperの選択肢に設定します。[Conversationの音声通話とビデオ通話](../conversation/calls.md)を参照してください。
-
-Connectionsで**Speech to Text**(音声認識)カードをオンにすると、この通話モードでは、Local Whisperの代わりにそこで入力したサーバーに音声が送られます。[自分の音声認識サーバーを使う](../conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
+<a id="troubleshooting"></a>
 
 ## トラブルシューティング
 
-**「Sidecar runtime install is disabled.」** ランタイムのインストールと再インストールは保護された操作です。Windowsのワンクリックインストール版では自動的に許可されます。macOS、Linux、Dockerでは方法が2つあります。1つは、サーバーの`.env`ファイルに`SIDECAR_RUNTIME_INSTALL_ENABLED=true`を設定する方法です。次のように書きます。
+| 症状 | 対処 |
+| --- | --- |
+| **Sidecar runtime install is disabled**(エラーメッセージ)。 | [ランタイムのインストールを許可する](#allow-runtime-installs)を参照してください。 |
+| **Local runtime failed to start**と表示される。ウィンドウにエラーとログファイルのパスが表示されます。カードには**Local runtime unavailable**と表示されます。 | **Retry startup**(起動を再試行)をクリックします。それでも失敗する場合は、**Reinstall runtime**(ランタイムを再インストール)をクリックするか、別の**Runtime target**(ランタイムの対象)を選びます。**Continue without local AI**(ローカルAIなしで続ける)をクリックすると、補助用のスイッチがオフになり、モデルなしでMarinaraを使い続けられます。 |
+| ランタイムのダウンロードで、サイズかSHA-256の不一致が報告される。 | Marinaraはそのファイルを破棄しています。Marinaraをアップデートしてから、もう一度試してください。それでも失敗する場合は、そのファイルを自分で開かないでください。ランタイムの対象とエラーを報告してください。 |
+| ロアブックの検索で、ローカルモデルが有効になっていないと表示される。 | **Use for tracker agents (roleplay)**(ロールプレイのトラッカーエージェントに使う)か**Use for game scene analysis**(ゲームのシーン解析に使う)をオンにしてから、もう一度ベクトル化してください。 |
+| Game Modeのバナーに**Local scene helper failed to start**と表示される。 | バナーの**Open Local AI Model**(ローカルAIモデルを開く)をクリックすると、再試行、モデルの切り替え、ローカルのシーン解析のオフができます。 |
 
-```
-SIDECAR_RUNTIME_INSTALL_ENABLED=true
-```
-
-もう1つは、**Settings -> Advanced -> Admin Access**でAdmin Accessのシークレットを一度入力してから、もう一度試す方法です。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
-
-**ランタイムが起動しない。** 設定ウィンドウに**Local runtime failed to start**というタイトルのボックスが出て、エラー内容とログファイルのパスを表示します。**Retry Startup**をクリックしてください。それでも駄目なら**Reinstall Runtime**をクリックするか、別の**Runtime Target**を試します。**Continue Without Local AI**をクリックすれば、Local ModelなしでそのままMarinaraを使い続けられます。Connectionsのカードには同じ問題が**Local runtime unavailable**として表示されます。
-
-**ランタイムのダウンロードでサイズかSHA-256の不一致が報告される。** Marinaraは展開する前にそのダウンロードを破棄しています。まずMarinaraをアップデートし、承認済みのランタイムのマニフェストとダウンロード内容が一致する状態にしてから試し直してください。同じリリースでなお失敗する場合は、アーカイブを手動で展開したり実行したりせず、Runtime Targetとエラー内容をメンテナーに報告してください。
-
-**ロアブックの検索でローカルモデルが有効になっていないと表示される。** Local Modelのカードで**Use for tracker agents (roleplay)**か**Use for game scene analysis**をオンにしてから、ベクトル化をやり直してください。
-
-**Game Modeのバナーに「Local scene helper failed to start.」と表示される。** バナー内の**Open Local AI Model**をクリックすると、再試行、モデルの切り替え、ローカルのシーン解析のオフができます。
-
-さらに詳しい情報は[Marinara Engineのトラブルシューティング](../TROUBLESHOOTING.md)を参照してください。
+さらに詳しい情報は、[Marinara Engineのトラブルシューティング](../TROUBLESHOOTING.md)を参照してください。
 
 ## 関連ガイド
 

@@ -1,225 +1,195 @@
 # Własne narzędzia i wywoływanie funkcji
 
-Ten przewodnik wyjaśnia, czym są własne narzędzia, nazywane też funkcjami, w aplikacji Marinara Engine. Własne narzędzie uczy AI wykonywania drobnej akcji w trakcie czatu. Może zwrócić stały fragment tekstu, odpytać zewnętrzny adres internetowy albo uruchomić krótki skrypt na serwerze. Zobaczysz, jak zbudować takie narzędzie, jak włączyć korzystanie z narzędzi w czacie i jak bezpiecznie obchodzić się z narzędziami skryptowymi.
+Własne narzędzie (nazywane też funkcją) pozwala AI wykonać drobną akcję w trakcie czatu. Akcja może zwrócić stały fragment tekstu, odpytać adres internetowy albo uruchomić krótki skrypt na serwerze. Użyj go, gdy chcesz, żeby AI coś sprawdziło albo obliczyło, zamiast zgadywać.
 
-## Czym jest wywoływanie funkcji
+Wywoływanie funkcji oznacza, że AI prosi aplikację o wykonanie akcji, a potem wykorzystuje wynik w odpowiedzi. Aplikacja Marinara Engine ma już wbudowane narzędzia, takie jak rzuty kością, wyszukiwanie w lorebookach i aktualizacje stanu gry. Twoje własne narzędzia działają obok nich. Własne narzędzie nie jest przypięte do karty postaci. Włączasz je dla czatu albo przypinasz do agenta (pomocnika, który działa obok czatu).
 
-Dzięki wywoływaniu funkcji AI może poprosić aplikację o wykonanie akcji, a potem wykorzystać wynik w odpowiedzi. Aplikacja ma już wbudowane narzędzia: rzuty kością, wyszukiwanie w lorebookach czy aktualizacje stanu gry. Własne narzędzia stoją obok tych wbudowanych, w tym samym systemie **Function Calling** (wywoływanie funkcji).
-
-Własne narzędzie przydaje się na przykład do tego:
-
-- Zwracania stałego faktu, na przykład godzin otwarcia sklepu albo zestawu zasad domowych.
-- Pytania zewnętrznej usługi o dane na żywo, na przykład o pogodę albo o urządzenie w inteligentnym domu.
-- Wykonania szybkiego obliczenia, na przykład dodania liczb albo wylosowania własnego wyniku.
-
-Własne narzędzie nie jest przypięte do karty postaci. Zamiast tego włącza się je dla czatu albo przypina do agenta. Agent to pomocnik działający obok czatu. Poniżej opisane są obie drogi.
-
-Natywne wywoływanie funkcji wymaga połączenia obsługującego narzędzia. Transporty subskrypcyjne Claude i Grok ignorują natywne definicje narzędzi, dlatego panel **Chat Settings** (ustawienia czatu) pokazuje informację o dostępności i wyłącza dla nich kontrolki narzędzi. Ich polecenia tekstowe i znaczniki kości pozostają dostępne. Czaty Game mogą wybrać osobne połączenie do planowania narzędzi; koszt i działanie opisuje sekcja [Opcjonalne planowanie narzędzi i wyszukiwanie w lorebookach](../game/getting-started.md#optional-tool-planning-and-lore-searches).
-
-Wyszukiwanie w lorebookach korzysta z rankingu semantycznego, gdy włączone wpisy mają zgodne wektory. Tryby Conversation i Roleplay zachowują dopasowanie tekstowe, gdy wyszukiwanie semantyczne jest niedostępne. Wyszukiwanie lore w Game wymaga osobnego włączenia i zgłasza brakujące lub niezgodne wektory; nigdy nie wektoryzuje książki automatycznie.
-
-## Sekcja **Functions**
-
-Własne narzędzia tworzy się i porządkuje w panelu **Presets** (presety).
-
-1. Otwórz górny pasek i kliknij przycisk **Presets**.
-2. Znajdź sekcję **Functions** (funkcje) – jej ikoną jest klucz.
-3. Pod nagłówkiem widać podpis **Custom function calls available from Chat Settings**.
-
-Nagłówek sekcji ma trzy przyciski z ikonami:
-
-- **Create function** (utworzenie funkcji, ikona plusa) otwiera pusty edytor narzędzia.
-- **Import functions from ZIP or JSON** (import funkcji z pliku ZIP lub JSON, ikona pobierania) otwiera okno wyboru pliku.
-- **Export functions to ZIP** (eksport funkcji do pliku ZIP, ikona wysyłania) zapisuje wszystkie narzędzia do jednego pliku. Przycisk jest wyszarzony, dopóki nie ma żadnego narzędzia.
-
-Każde narzędzie na liście pokazuje nazwę i dwa małe kafelki: typ oraz liczbę parametrów. Widać przy nim też krótki opis, przełącznik włącz/wyłącz, przycisk **Edit function** (edycja funkcji) i przycisk **Delete function** (usunięcie funkcji). Narzędzie typu **Script** dostaje dodatkowo bursztynowy kafelek **Script disabled**, gdy narzędzia skryptowe są wyłączone na serwerze. Sekcja Typ wykonania: Script poniżej wyjaśnia, jak je włączyć. Narzędzia da się przeciągać za uchwyt, żeby zmienić kolejność listy. Kolejność jest tylko wizualna i nie zmienia działania. Dopóki nie ma żadnych narzędzi, lista pokazuje napis **No functions yet**.
-
-Zarządzanie narzędziami, czyli tworzenie, edycja, usuwanie, zmiana kolejności i przełącznik włącz/wyłącz, korzysta z chronionej części aplikacji. Jeśli zarządzasz narzędziami z innego urządzenia niż komputer z serwerem, trzeba najpierw zapisać sekret administratora. Zajrzyj do przewodnika [Konfiguracja serwera](../CONFIGURATION.md) oraz do uwagi w sekcji Bezpieczeństwo skryptów poniżej.
+> **Uwaga:** Narzędzia wymagają połączenia, które je obsługuje. Połączenia subskrypcyjne Claude i Grok ignorują definicje narzędzi, dlatego panel **Chat Settings** (ustawienia czatu) pokazuje dla nich informację i wyłącza kontrolki narzędzi. Polecenia tekstowe i znaczniki kości nadal działają.
 
 ## Tworzenie narzędzia
 
-Wykonaj kolejno te kroki, żeby zbudować narzędzie.
+Zanim zaczniesz, otwórz panel **Presets** (presety) z górnego paska. Narzędzia znajdują się w jego sekcji **Functions** (funkcje, ikona klucza). Jeśli otwierasz aplikację Marinara z innego urządzenia, najpierw zapisz sekret administratora w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny). Musi on być zgodny z `ADMIN_SECRET` serwera; zobacz przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
 
-1. W sekcji **Functions** kliknij przycisk **Create function**. Otwiera się pełny edytor narzędzia.
-2. W polu nazwy na górze wpisz nazwę zapisaną małymi literami w formacie snake_case. Dokładnie tej nazwy AI używa do wywołania narzędzia. Poprawna nazwa zaczyna się od małej litery, a dalej zawiera tylko małe litery, cyfry i podkreślenia. Przykład: `check_weather`.
-3. Wypełnij pole **Description** (opis). Napisz je jak instrukcję dla AI, bo to na jego podstawie AI decyduje, kiedy wywołać narzędzie. Przykład: `Get the current weather for a city the user names.`
-4. Dodaj wszystkie **Parameters** (parametry), których narzędzie potrzebuje (patrz następna sekcja).
-5. Wybierz **Execution Type** (typ wykonania): **Static Result**, **Webhook** albo **Script**.
-6. Wypełnij pole właściwe dla wybranego typu.
-7. Kliknij przycisk **Save** (zapis). Obok przycisku powinien mignąć zielony napis **Saved**.
+Na pierwszą próbę wybierz **Static Result** (stały wynik): nie potrzebuje niczego więcej.
 
-Kilka zasad, o których warto wiedzieć:
+### Jak utworzyć narzędzie
 
-- Nazwa musi mieć od 1 do 100 znaków. Opis musi mieć od 1 do 500 znaków.
-- Dwa narzędzia nie mogą mieć tej samej nazwy. Nie da się też użyć nazwy narzędzia wbudowanego (patrz sekcja Nazwy zastrzeżone poniżej).
-- Przy wyjściu z edytora z niezapisanymi zmianami pojawia się pasek z opcjami **Keep editing**, **Discard** i **Save & close**.
+1. Otwórz **Presets** i znajdź **Functions**.
+2. Kliknij **Create function** (utworzenie funkcji, ikona plusa). Otwiera się pusty edytor narzędzia.
+3. Wpisz nazwę małymi literami w formacie snake_case, np. `check_weather`. Dokładnie tej nazwy AI używa do wywołania narzędzia. Nazwa zaczyna się od małej litery, a dalej zawiera małe litery, cyfry i podkreślenia.
+4. Wypełnij pole **Description** (opis). Napisz je jak instrukcję dla AI, bo AI czyta je, żeby zdecydować, kiedy wywołać narzędzie. Przykład: `Get the current weather for a city the user names.`
+5. Dodaj parametry, których narzędzie potrzebuje (zobacz [Dodawanie parametrów](#add-parameters)).
+6. Wybierz **Execution Type** (typ wykonania): **Static Result**, **Webhook** albo **Script** (skrypt).
+7. Wypełnij pole właściwe dla tego typu (zobacz [Wybór typu wykonania](#choose-an-execution-type)).
+8. Kliknij **Save** (zapis). Obok przycisku mignie zielony napis **Saved**.
 
-## Budowanie parametrów
+Zasady dotyczące nazw i opisów:
 
-Parametry to dane wejściowe, które AI przekazuje przy wywołaniu narzędzia. Każdy parametr ma nazwę, typ, znacznik wymagalności i opis.
+- Nazwa ma od 1 do 100 znaków. Opis ma od 1 do 500 znaków.
+- Dwa narzędzia nie mogą mieć tej samej nazwy, a narzędzie nie może używać nazwy wbudowanej, takiej jak `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` czy `update_about_me`. Przy kolizji pojawia się komunikat, np. `"your_name" is a reserved built-in tool name.`
+- Jeśli wychodzisz z edytora z niezapisanymi zmianami, pasek oferuje **Keep editing** (dalsza edycja), **Discard** (odrzucenie) i **Save & close** (zapisanie i zamknięcie).
 
-1. W grupie **Parameters** kliknij przycisk **Add Parameter** (dodanie parametru).
-2. Wpisz nazwę parametru, na przykład `city`.
-3. Wybierz typ z listy rozwijanej: `string`, `number`, `boolean`, `array` albo `object`.
-4. Włącz przełącznik **Required** (wymagany), jeśli AI zawsze musi przesłać tę wartość.
-5. Napisz opis, który mówi AI, co ta wartość oznacza. Przykład: `The city name to look up, such as Tokyo.`
+Nagłówek sekcji **Functions** ma trzy przyciski z ikonami:
 
-Kolejne wiersze dodaje przycisk **Add Parameter**, a wiersz usuwa przycisk z minusem obok niego. Wiersz z pustą nazwą znika przy zapisie. Dobre opisy parametrów mają duże znaczenie, bo to z nich AI dowiaduje się, co ma przesłać.
+- **Create function** (ikona plusa)
+- **Import functions from ZIP or JSON** (import funkcji z pliku ZIP lub JSON)
+- **Export functions to ZIP** (eksport funkcji do pliku ZIP), wyszarzony, gdy nie masz żadnych narzędzi
 
-Jeśli narzędzie nigdy nie zostaje wywołane, częstą przyczyną jest zepsuta konfiguracja parametrów. Zwykle zdarza się to po zaimportowaniu narzędzia z ręcznie edytowanego pliku z niepoprawnymi parametrami. W takiej sytuacji aplikacja po cichu pomija narzędzie podczas generowania i zapisuje tylko wzmiankę w logu serwera.
+Każde narzędzie na liście pokazuje:
 
-## Typ wykonania: Static Result
+- nazwę, typ, liczbę parametrów i opis;
+- przełącznik włącz/wyłącz;
+- **Edit function** (edycja funkcji) i **Delete Function** (usunięcie funkcji).
 
-Narzędzie typu **Static Result** przy każdym wywołaniu zwraca ten sam, stały fragment tekstu. Nie potrzebuje żadnej zewnętrznej usługi i działa od razu u każdego. Opis tego typu brzmi **Returns a fixed string when called.**
+Przeciągnij narzędzie za uchwyt, żeby zmienić kolejność listy. Kolejność służy tylko do wyświetlania. Gdy nie ma żadnych narzędzi, lista pokazuje napis **No functions yet**.
 
-Jedyne pole to **Static Result** – wieloliniowe okienko tekstowe. To, co w nim wpiszesz, wraca do AI przy każdym wywołaniu narzędzia. Puste pole oznacza, że narzędzie zwraca `OK`.
+<a id="add-parameters"></a>
 
-Przykład z życia. Utwórz narzędzie o nazwie `store_hours` z pustą listą parametrów. W polu **Static Result** wpisz to:
+## Dodawanie parametrów
 
-```
+Parametry to dane wejściowe, które AI przesyła przy wywołaniu narzędzia. Każdy ma nazwę, typ, znacznik wymagalności i opis.
+
+1. W grupie **Parameters** (parametry) kliknij **Add Parameter** (dodanie parametru).
+2. Wpisz nazwę, np. `city`.
+3. Wybierz typ: `string`, `number`, `boolean`, `array` albo `object`.
+4. Włącz **Required** (wymagany), jeśli AI zawsze musi przesłać tę wartość.
+5. Napisz opis, który mówi AI, co ta wartość oznacza, np. `The city name to look up, such as Tokyo.`
+
+Kolejne wiersze dodaje przycisk **Add Parameter**, a wiersz usuwa jego przycisk z minusem. Wiersz z pustą nazwą znika przy zapisie.
+
+Jeśli AI nigdy nie wywołuje zaimportowanego narzędzia, jego parametry mogą być niepoprawne, a wtedy aplikacja pomija narzędzie bez informowania cię o tym. Usuń parametry i dodaj je ponownie ręcznie.
+
+<a id="choose-an-execution-type"></a>
+
+## Wybór typu wykonania
+
+### Static Result
+
+Narzędzie typu **Static Result** za każdym razem zwraca ten sam tekst. Nie potrzebuje żadnej zewnętrznej usługi. Na jego kafelku widnieje napis **Returns a fixed string when called.**
+
+Jedyne pole to **Static Result**, wieloliniowe pole tekstowe. Jeśli zostawisz je puste, narzędzie zwraca `OK`.
+
+Przykład: narzędzie o nazwie `store_hours` bez parametrów, z takim polem **Static Result**:
+
+```text
 We are open Monday to Friday, 9am to 5pm. We are closed on weekends.
 ```
 
-Teraz, gdy AI wywoła `store_hours`, dostaje ten tekst z powrotem i może podać użytkownikowi godziny otwarcia. AI widzi ten tekst razem z nazwą narzędzia i przesłanymi argumentami, a nie samą linię w oderwaniu.
+Gdy AI wywoła `store_hours`, otrzymuje ten tekst razem z nazwą narzędzia i przesłanymi argumentami i może podać użytkownikowi twoje godziny otwarcia.
 
-## Typ wykonania: Webhook
+### Webhook
 
-Narzędzie typu **Webhook** wysyła wywołanie na zewnętrzny adres internetowy i zwraca AI odpowiedź tej usługi. Webhook to adres internetowy, który przyjmuje dane i odsyła dane z powrotem. Opis tego typu brzmi **Sends a POST request to an external URL.**
+Narzędzie typu **Webhook** wysyła wywołanie pod adres internetowy i zwraca AI odpowiedź tej usługi. Webhook to adres, który przyjmuje dane i odsyła dane z powrotem. Na jego kafelku widnieje napis **Sends a POST request to an external URL.**
 
-Jedyne pole to **Webhook URL** (adres webhooka). Aplikacja wysyła pod ten adres żądanie POST. Żądanie POST to sposób przesyłania danych do usługi internetowej. Treść żądania to JSON, czyli prosty tekstowy format zapisu danych, o takim kształcie:
+Jedyne pole to **Webhook URL** (adres webhooka). Aplikacja wysyła żądanie POST, czyli przesyła dane do usługi internetowej. Treść żądania to JSON, prosty tekstowy format zapisu uporządkowanych danych, o takim kształcie:
 
-```
+```json
 { "tool": "your_tool_name", "arguments": { ... } }
 ```
 
-Usługa powinna odpowiedzieć w formacie JSON albo zwykłym tekstem. Ta odpowiedź trafia do AI.
+Jeśli włączysz **Include hidden chat context** (dołączenie ukrytego kontekstu czatu), treść żądania zawiera też wartość `context`. Usługa odpowiada w formacie JSON albo zwykłym tekstem, a ta odpowiedź wraca do AI.
 
-Przykład z życia. Utwórz narzędzie o nazwie `check_weather` z jednym wymaganym parametrem tekstowym o nazwie `city`. W polu **Webhook URL** wpisz adres własnej usługi:
+Przykład: narzędzie o nazwie `check_weather` z jednym wymaganym parametrem tekstowym `city` i takim polem **Webhook URL**:
 
-```
+```text
 https://api.example.com/weather
 ```
 
-Kiedy AI wywoła `check_weather` z parametrem `city` ustawionym na Tokyo, usługa odbiera żądanie, sprawdza pogodę i odpowiada. AI wykorzystuje potem tę odpowiedź w swojej wiadomości.
+Gdy AI wywoła je z `city` ustawionym na Tokyo, twoja usługa sprawdza pogodę i odpowiada, a AI wykorzystuje tę odpowiedź w swojej wiadomości.
 
-Co warto wiedzieć o webhookach:
+Limity:
 
 - Odpowiedź ma limit 512 KB.
-- Każde wywołanie ma limit czasu ustawiony na serwerze. Domyślnie to 60 sekund.
-- Domyślnie dozwolone są tylko adresy `https://`. Adresy prywatne i lokalne, takie jak `localhost` czy adres w sieci domowej, są blokowane. Administrator serwera musi włączyć osobne ustawienie, żeby zezwolić na adresy lokalne. Zajrzyj do przewodnika [Konfiguracja serwera](../CONFIGURATION.md).
-- Jeśli wywołanie się nie powiedzie albo przekroczy limit czasu, AI dostaje wynik z błędem, a czat działa dalej.
+- Każde wywołanie ma limit czasu. Domyślnie to 60 sekund (`CUSTOM_TOOL_TIMEOUT_MS`).
+- Domyślnie dozwolone są tylko adresy `https://`. Adresy prywatne i lokalne, takie jak `localhost` czy adres w sieci domowej, są blokowane, dopóki administrator serwera na nie nie zezwoli. Zobacz przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
+- Jeśli wywołanie się nie powiedzie albo przekroczy limit czasu, AI otrzymuje wynik z błędem, a czat toczy się dalej.
 
-## Typ wykonania: Script
+Jeśli to nie zadziałało: sprawdź, czy adres zaczyna się od `https://` i czy jest osiągalny. Adres lokalny pozostaje zablokowany, dopóki administrator na niego nie zezwoli. Wolna usługa może przekroczyć limit 60 sekund.
 
-Narzędzie typu **Script** uruchamia krótki fragment kodu JavaScript na serwerze i zwraca wynik. JavaScript to popularny język programowania. Opis tego typu brzmi **Runs a JavaScript expression server-side.**
+### Script
 
-Narzędzia skryptowe są domyślnie wyłączone ze względów bezpieczeństwa. Jeśli serwer ich nie włączył, opcja **Script** jest wyszarzona i pojawia się ostrzeżenie. Żeby włączyć skrypty, administrator serwera dopisuje tę linię do pliku `.env` serwera i uruchamia aplikację ponownie:
+Narzędzie typu **Script** uruchamia krótki fragment kodu JavaScript na serwerze i zwraca wynik. JavaScript to popularny język programowania. Na jego kafelku widnieje napis **Runs a JavaScript expression server-side.**
 
-```
+Narzędzia skryptowe są domyślnie wyłączone. Jeśli serwer ich nie włączył, kafelek **Script** jest wyszarzony i pojawia się bursztynowa plakietka **Script disabled**. Żeby je włączyć, administrator serwera dopisuje tę linię do pliku `.env` serwera i uruchamia ponownie aplikację Marinara:
+
+```text
 CUSTOM_TOOL_SCRIPT_ENABLED=true
 ```
 
-Jedyne pole to **Script Body** (treść skryptu). Skrypt może czytać `args`, czyli wartości przesłane przez AI, i musi zwrócić wynik instrukcją `return`. Dostępne są też `JSON`, `Math` i `Date`.
+Jedyne pole to **Script Body** (treść skryptu). Skrypt czyta `args` (wartości przesłane przez AI) i musi zwrócić wynik instrukcją `return`. Dostępne są `JSON`, `Math` i `Date`.
 
-Przykład z życia. Utwórz narzędzie o nazwie `add_numbers` z dwoma wymaganymi parametrami liczbowymi o nazwach `x` i `y`. W polu **Script Body** wpisz to:
+Przykład: narzędzie o nazwie `add_numbers` z dwoma wymaganymi parametrami liczbowymi `x` i `y` oraz takim polem **Script Body**:
 
-```
+```js
 const result = args.x + args.y;
 return { sum: result };
 ```
 
-Kiedy AI wywoła `add_numbers` z `x` równym 2 i `y` równym 3, narzędzie zwraca sumę 5. Jeśli skrypt zgłosi błąd, AI dostaje wynik z błędem zamiast awarii. Zanim włączysz skrypty, przeczytaj sekcję Bezpieczeństwo skryptów poniżej.
+Gdy AI wywoła je z `x` równym 2 i `y` równym 3, narzędzie zwraca sumę 5. Jeśli skrypt zgłosi błąd, AI otrzymuje wynik z błędem.
 
-## Dołączanie ukrytego kontekstu czatu
+Skrypt uruchamia prawdziwy kod na twoim serwerze, wewnątrz piaskownicy (odgrodzonego obszaru, który ogranicza możliwości kodu):
 
-Narzędzia typu **Webhook** i **Script** mogą dostawać ukryty obiekt kontekstu. To dodatkowe dane czatu, których AI nie widzi jako danych wejściowych narzędzia. Włącz przełącznik **Include hidden chat context** (dołączenie ukrytego kontekstu czatu) w edytorze narzędzia. Domyślnie jest wyłączony.
+- Brak dostępu do sieci i do plików.
+- Brak dostępu do zmiennych środowiskowych i sekretów serwera.
+- Limit czasu. Domyślnie to 60 sekund.
 
-Po włączeniu webhook albo skrypt dostaje obok argumentów wartość `context`. Może ona zawierać tryb czatu, nazwę aktywnej persony oraz nazwy postaci biorących udział w czacie. Mogą się w niej znaleźć także zapisane zmienne czatu, a w trybie Game Mode również stan gry. Dzięki temu narzędzie dopasowuje wynik bez przesyłania tych wszystkich danych przez samo AI.
+Piaskownica nie jest pełną izolacją na poziomie systemu operacyjnego. Ktoś, kto może tworzyć narzędzia, nadal może napisać skrypt marnujący procesor albo pamięć. Włączaj narzędzia skryptowe tylko na serwerach, którym ufasz, i zachowaj ostrożność przy skryptach napisanych przez inne osoby.
+
+Jeśli to nie zadziałało: gdy kafelek **Script** jest wyszarzony, poproś administratora o ustawienie `CUSTOM_TOOL_SCRIPT_ENABLED=true` i ponowne uruchomienie.
+
+### Dołączanie ukrytego kontekstu czatu
+
+Narzędzia typu **Webhook** i **Script** mogą otrzymywać dodatkowe dane czatu, których AI nie widzi jako danych wejściowych narzędzia. Włącz **Include hidden chat context** w edytorze narzędzia (domyślnie wyłączone). Twoje narzędzie otrzymuje wtedy wartość `context`, która może zawierać:
+
+- tryb czatu;
+- nazwę aktywnej persony i nazwy postaci;
+- zapisane zmienne czatu;
+- w trybie Game Mode stan gry.
+
+Dzięki temu narzędzie może dopasować wynik, a AI nie musi przesyłać wszystkich tych danych.
 
 ## Włączanie narzędzi w czacie
 
-Samo utworzenie narzędzia nie sprawia, że AI z niego korzysta. Trzeba jeszcze włączyć korzystanie z narzędzi w danym czacie.
+Samo utworzenie narzędzia nie sprawia, że AI z niego korzysta. Trzeba jeszcze włączyć korzystanie z narzędzi w czacie.
 
-1. Otwórz czat i przejdź do **Chat Settings** (ustawienia czatu).
-2. Rozwiń sekcję **Function Calling** – jej ikoną jest klucz.
-3. Włącz przełącznik **Enable Tool Use** (zezwolenie na korzystanie z narzędzi). Jego opis brzmi **Allow AI to call functions (dice rolls, game state, etc.)**. W nowym czacie jest domyślnie wyłączony.
+1. Otwórz czat, a potem **Chat Settings**.
+2. Otwórz sekcję **Function Calling** (wywoływanie funkcji, ikona klucza).
+3. Włącz **Enable Tool Use** (zezwolenie na korzystanie z narzędzi). Jego opis brzmi **Allow AI to call functions (dice rolls, game state, etc.)**. W nowym czacie jest domyślnie wyłączony.
+4. Sprawdź, czy działa: zadaj AI pytanie, na które odpowiada twoje narzędzie, np. "Jakie są godziny otwarcia sklepu?" w przypadku przykładu `store_hours`. Odpowiedź powinna wykorzystać tekst narzędzia.
 
-Gdy **Enable Tool Use** jest włączone, a poniżej nie dodano narzędzi, czat może korzystać ze wszystkich globalnie włączonych narzędzi obsługiwanych w tym czacie. Obejmuje to narzędzia wbudowane i wszystkie własne narzędzia włączone w sekcji **Functions**. W czatach Game użycie `search_lorebook` wymaga także **Let the GM search lore** (zezwól GM na przeszukiwanie lore); samo włączenie Tool Use nie uruchamia wyszukiwania w lorebookach. Aby ograniczyć czat do wybranego zestawu, dodaj konkretne narzędzia:
+Gdy **Enable Tool Use** jest włączone, a poniżej nic nie dodano, czat może korzystać ze wszystkich globalnie włączonych narzędzi, które obsługuje: z narzędzi wbudowanych oraz z każdego własnego narzędzia, którego przełącznik w sekcji **Functions** jest włączony. Czaty Game wymagają też **Let the GM search lore** (pozwól postaci GM przeszukiwać lorebooki) dla `search_lorebook`.
 
-1. Kliknij przycisk **Add Functions** (dodanie funkcji). Otwiera się okno wyboru z polem wyszukiwania.
-2. Zaznacz narzędzia, które mają być dostępne. Lista miesza narzędzia wbudowane z własnymi.
-3. Kliknij przycisk **Add Selected**, żeby je dodać.
+Aby ograniczyć czat do wybranego zestawu:
 
-Po dodaniu choćby jednego narzędzia w tym czacie działają wyłącznie narzędzia z listy. W oknie wyboru jest też przycisk **New Custom Function**, który przenosi prosto do edytora narzędzia. Pole wyszukiwania w tym oknie dopasowuje tylko nazwy narzędzi, nie opisy.
+1. Kliknij **Add Functions** (dodanie funkcji). Otwiera się okno wyboru z polem wyszukiwania, które dopasowuje tylko nazwy narzędzi.
+2. Zaznacz narzędzia, które chcesz. Lista łączy narzędzia wbudowane i własne.
+3. Kliknij **Add Selected** (dodanie zaznaczonych).
+
+Po dodaniu choćby jednego narzędzia w tym czacie działają tylko dodane narzędzia. Przycisk **New Custom Function** (nowa własna funkcja) w oknie wyboru przenosi do edytora narzędzia.
+
+Czaty Game mogą używać osobnego połączenia do planowania narzędzi. Jego koszt i działanie opisuje sekcja [Opcjonalne planowanie narzędzi i wyszukiwanie w lorebookach](../game/getting-started.md#optional-tool-planning-and-lore-searches).
+
+Jeśli to nie zadziałało: upewnij się, że **Enable Tool Use** jest włączone, że narzędzie jest na liście czatu (jeśli dodano konkretne narzędzia) i że przełącznik narzędzia w sekcji **Functions** jest włączony. Jaśniejszy opis w polu **Description** i jaśniejsze opisy parametrów pomagają AI zdecydować, kiedy je wywołać.
 
 ## Przypinanie narzędzi do agenta
 
-Narzędzie można też dać agentowi zamiast czatowi. Agent to półautonomiczny pomocnik – na przykład opiekun lorebooków albo dobierający muzykę – który działa w trakcie generowania.
+Narzędzie można też dać agentowi zamiast czatowi.
 
-1. Otwórz panel **Agents** i wejdź w agenta.
-2. Rozwiń grupę **Tools / Function Calling** (narzędzia i wywoływanie funkcji).
-3. Włącz narzędzia, z których ten agent ma korzystać.
+1. Otwórz panel **Agents** (agenci) i otwórz agenta.
+2. Otwórz jego grupę **Tools / Function Calling** (narzędzia i wywoływanie funkcji).
+3. Włącz narzędzia, z których ten agent może korzystać.
 
-Nawet przy skonfigurowanym agencie trzeba włączyć przełącznik **Enable Tool Use** w sekcji **Function Calling** czatu. Jedna uwaga o nazewnictwie. Tekst na dole edytora agenta każe włączyć "Enable Function Calling". Przełącznik, który faktycznie się klika, nosi nazwę **Enable Tool Use**. To ta sama kontrolka. Dokładniejszy opis agentów znajdziesz w przewodniku [Tworzenie własnych agentów](../agents/custom-agents.md).
+Nadal trzeba włączyć **Enable Tool Use** w sekcji **Function Calling** czatu. Przypomina o tym stopka edytora agenta. Agentów ogólnie opisuje przewodnik [Tworzenie własnych agentów](../agents/custom-agents.md).
 
-## Bezpieczeństwo skryptów
+## Eksport i import narzędzi
 
-Narzędzie typu **Script** uruchamia prawdziwy kod na serwerze, więc wymaga ostrożności. Aplikacja uruchamia każdy skrypt w piaskownicy. Piaskownica to odgrodzony obszar, który ogranicza możliwości kodu. Ograniczenia są takie:
+- Żeby wyeksportować jedno narzędzie, otwórz je i kliknij **Export function** (eksport funkcji). Zapisuje się plik `.json`.
+- Żeby wyeksportować wszystkie narzędzia, kliknij **Export functions to ZIP**.
+- Żeby zaimportować, kliknij **Import functions from ZIP or JSON** i wskaż plik `.json` albo `.zip`. Komunikat podaje, ile narzędzi zaimportowano.
 
-- Brak dostępu do sieci. Skrypt nie odezwie się do internetu ani do żadnego adresu internetowego.
-- Brak dostępu do plików. Skrypt nie odczyta ani nie zapisze plików na serwerze.
-- Brak dostępu do zmiennych środowiskowych i sekretów serwera.
-- Limit czasu. Zbyt długo działający skrypt zostaje zatrzymany. Domyślny limit to 60 sekund.
+Zaimportowane narzędzia typu Webhook i Script zapisują się zawsze wyłączone, z wyłączonym **Include hidden chat context**, nawet jeśli plik prosi o którekolwiek z tych ustawień. Marinara pokazuje wtedy typ, adres webhooka i uprawnienia, o które prosił plik. Otwórz każde zaimportowane narzędzie, sprawdź je i włącz tylko wtedy, gdy mu ufasz. Narzędzia statyczne zachowują stan włączenia zapisany w pliku importu.
 
-To chroni przed wypadkami i odcina dostęp do sieci oraz do plików. Nie jest to jednak pełna izolacja na poziomie systemu operacyjnego. Ktoś, kto może tworzyć narzędzia, wciąż napisze skrypt marnujący procesor albo pamięć serwera. Włączaj narzędzia skryptowe tylko na serwerach, którym ufasz. Zachowaj ostrożność przy imporcie narzędzi skryptowych napisanych przez inne osoby.
-
-Zarządzanie narzędziami z innego urządzenia też jest chronione. Poza komputerem, na którym działa serwer, trzeba zapisać sekret administratora w **Settings** (Ustawienia), dalej **Advanced**, dalej **Admin Access**. Ten sekret musi być zgodny z ustawieniem serwera. Stronę serwera opisuje przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
-
-## Eksport i import
-
-Narzędzia da się przenosić między instalacjami.
-
-- Żeby wyeksportować jedno narzędzie, otwórz je i kliknij przycisk **Export function** (eksport funkcji). Zapisuje się plik `.json`.
-- Żeby wyeksportować wszystkie narzędzia, kliknij przycisk **Export functions to ZIP** w sekcji **Functions**.
-- Żeby zaimportować, kliknij przycisk **Import functions from ZIP or JSON** i wskaż plik `.json` albo `.zip`. Komunikat pokazuje, ile narzędzi udało się zaimportować.
-
-Zaimportowane narzędzia typu **Webhook** i **Script** zapisują się zawsze wyłączone i z wyłączonym przełącznikiem **Include hidden chat context**, nawet jeśli plik prosi o którekolwiek z tych uprawnień. Po imporcie Marinara pokazuje typ wykonania, miejsce docelowe webhooka (jeśli dotyczy) oraz uprawnienia, o które prosił plik. Otwórz każde zaimportowane narzędzie typu Webhook lub Script, sprawdź je, a potem włącz tylko wtedy, gdy mu ufasz. Narzędzia typu **Static** zachowują stan włączenia zapisany w pliku importu.
-
-Import pomija każde narzędzie, którego nazwa koliduje z istniejącym narzędziem albo z nazwą narzędzia wbudowanego. Pakiety agentów nie zawierają własnych narzędzi ani ich nie importują: zaufane funkcje eksportuj osobno, przejrzyj je w sekcji **Function Calls**, a po zaimportowaniu agenta przypnij je do niego ręcznie.
-
-## Nazwy zastrzeżone
-
-Nazwa własnego narzędzia nie może pokrywać się z nazwą narzędzia wbudowanego. Wbudowane nazwy to między innymi `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` i `update_about_me`. Przy próbie zapisania takiej nazwy pojawia się komunikat:
-
-```
-"your_name" is a reserved built-in tool name.
-```
-
-Dwa własne narzędzia również nie mogą mieć tej samej nazwy. Powtórzona nazwa daje komunikat, że narzędzie o takiej nazwie już istnieje.
-
-## Rozwiązywanie problemów
-
-AI nigdy nie wywołuje mojego narzędzia.
-
-- Sprawdź, czy przełącznik **Enable Tool Use** jest włączony w sekcji **Function Calling** czatu.
-- Jeśli do czatu dodano konkretne narzędzia, sprawdź, czy jest wśród nich to twoje.
-- Sprawdź, czy przełącznik włącz/wyłącz przy narzędziu w sekcji **Functions** jest włączony.
-- Doprecyzuj pole **Description** i opisy parametrów, żeby AI wiedziało, kiedy sięgnąć po narzędzie.
-- Jeśli narzędzie pochodzi z importu, zepsuta konfiguracja parametrów może sprawić, że aplikacja je pomija. Zbuduj parametry ponownie ręcznie.
-
-Opcja **Script** jest wyszarzona.
-
-- Skrypty są na tym serwerze wyłączone. Poproś administratora o ustawienie `CUSTOM_TOOL_SCRIPT_ENABLED=true` i ponowne uruchomienie. Zajrzyj do przewodnika [Konfiguracja serwera](../CONFIGURATION.md).
-
-Webhook zawodzi albo przekracza limit czasu.
-
-- Sprawdź, czy adres zaczyna się od `https://` i czy jest osiągalny.
-- Adres lokalny jest blokowany, dopóki administrator nie zezwoli na adresy lokalne. Zajrzyj do przewodnika [Konfiguracja serwera](../CONFIGURATION.md).
-- Wolne usługi potrafią przekroczyć limit 60 sekund.
-
-Nie mogę tworzyć ani edytować narzędzi z telefonu lub innego urządzenia.
-
-- Zapisz zgodny sekret administratora w **Settings**, dalej **Advanced**, dalej **Admin Access**.
+Import pomija każde narzędzie, którego nazwa koliduje z istniejącym lub wbudowanym narzędziem. Pakiety agentów nie zawierają własnych narzędzi: wyeksportuj je i przejrzyj osobno, a potem przypnij je po zaimportowaniu agenta.
 
 ## Powiązane przewodniki
 

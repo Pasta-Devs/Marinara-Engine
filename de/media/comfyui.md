@@ -1,25 +1,26 @@
 # ComfyUI-Workflow einrichten
 
-Marinara Engine schickt Anfragen zur Bild- und Videogenerierung an einen lokalen ComfyUI-Server, Bildanfragen außerdem an einen RunPod-Serverless-Endpunkt, auf dem ComfyUI läuft. Eine lokale Bildverbindung kommt mit dem eingebauten Basis-Workflow von Marinara aus. Videoverbindungen und anspruchsvollere Bild-Setups brauchen dagegen einen eigenen Workflow im API-Format.
+Marinara Engine kann Bild- und Videoanfragen an einen lokalen ComfyUI-Server schicken, Bildanfragen außerdem an einen RunPod-Serverless-Endpunkt, auf dem ComfyUI läuft. Ein lokales Bildmodell kann den eingebauten Basis-Workflow von Marinara nutzen. Video und anspruchsvollere Bild-Setups nutzen deinen eigenen Workflow im API-Format, also einen Workflow, den du aus ComfyUI als JSON exportiert hast.
 
-Das Workflow-JSON, das du in Marinara einfügst, ist nur eine Momentaufnahme. Eine lebende Verbindung zum Workflow in ComfyUI gibt es nicht. Sobald du den Workflow in ComfyUI änderst, teste ihn erneut, exportiere ihn erneut und ersetze das JSON, das in der Marinara-Verbindung gespeichert ist.
+Das JSON, das du in Marinara einfügst, ist eine Momentaufnahme. Eine lebende Verbindung zum Workflow, der in ComfyUI offen ist, hält Marinara nicht. Änderst du den Workflow in ComfyUI, teste ihn, exportiere ihn erneut und ersetze das in Marinara gespeicherte JSON.
 
 ## Bevor du loslegst
 
 Installiere ComfyUI, ergänze die Checkpoints und Custom Nodes, die der Workflow braucht, und starte den Server. Die übliche lokale Adresse lautet `http://127.0.0.1:8188`.
 
-Läuft ComfyUI auf einem anderen Rechner im Heimnetzwerk, muss dessen Server auf einer Adresse lauschen, die Marinara erreichen kann. Bildverbindungen brauchen zusätzlich `IMAGE_LOCAL_URLS_ENABLED=true` in der `.env` von Marinara; Details dazu in der [Referenz zur Server-Konfiguration](../CONFIGURATION.md). Klappt die Verbindung weiterhin nicht, prüf die Firewall des anderen Rechners.
+Läuft ComfyUI auf einem anderen Rechner im Heimnetzwerk, muss dessen Server auf einer Adresse lauschen, die Marinara erreichen kann. Bildkonten brauchen zusätzlich `IMAGE_LOCAL_URLS_ENABLED=true` in der `.env` von Marinara; siehe die [Referenz zur Server-Konfiguration](../CONFIGURATION.md). Klappt die Verbindung weiterhin nicht, prüf die Firewall des anderen Rechners.
 
-Ein lokales Sprachmodell und ein Bildmodell passen unter Umständen nicht gleichzeitig in den GPU-Speicher, vor allem auf einer 8-GB-Karte. Die Bild-Warteschlange von Marinara verhindert zwar, dass mehrere Bildaufträge parallel laufen, aber zwei geladene Modelle passen dadurch nicht in denselben VRAM. Wenn der Speicher knapp wird, nimm ein Sprachmodell aus der Cloud oder von einem separaten Host, betreib ComfyUI auf einem anderen Gerät oder entlade das eine Modell, bevor du das andere nutzt.
+Ein lokales Sprachmodell und ein Bildmodell passen unter Umständen nicht gleichzeitig in den GPU-Speicher, vor allem auf einer 8-GB-Karte. Die Bild-Warteschlange von Marinara verhindert zwar, dass Bildaufträge gleichzeitig laufen, aber zwei geladene Modelle passen dadurch nicht in denselben VRAM. Wenn der Speicher knapp wird, nimm ein Sprachmodell aus der Cloud, betreib ComfyUI auf einem anderen Gerät oder entlade das eine Modell, bevor du das andere nutzt.
 
 ## Die Marinara-Verbindung anlegen
 
-1. Öffne **Connections** (Verbindungen) und leg eine neue Verbindung vom Typ **Image Generation** (Bildgenerierung) an.
-2. Wähl **ComfyUI** für einen lokalen Server oder **RunPod Serverless (ComfyUI)** für einen RunPod-Endpunkt.
-3. Für lokales ComfyUI trägst du die Base URL ein. Ein API-Key ist nicht nötig. Bleibt das Feld **ComfyUI Workflow** leer, nutzt Marinara einen eingebauten Basis-Workflow für Text-zu-Bild.
-4. Für RunPod trägst du den API-Key (geheimer Zugangscode, ähnlich einem Passwort) und die Endpoint ID ein. Hier ist ein eigener Workflow Pflicht.
-5. Richte die **Local Image Defaults** (Standardwerte für lokale Bilder) ein. Diese Werte ersetzen die passenden Platzhalter im Workflow.
-6. Speicher die Verbindung und nutz **Test Image** (Bild testen), sobald der Workflow eingetragen ist.
+1. Klick auf **Connections** (Verbindungen) und dann auf **Add** (Hinzufügen). Wähle im Fenster **Add account** (Konto hinzufügen) unter **Images & video** (Bilder und Video) **ComfyUI** für einen lokalen Server oder **RunPod Serverless (ComfyUI)** für einen RunPod-Endpunkt.
+2. Für lokales ComfyUI trägst du seine Adresse ein (`http://127.0.0.1:8188`). Ein API-Key ist nicht nötig. Bleibt das Feld **ComfyUI workflow (optional)** leer, nutzt Marinara einen eingebauten Basis-Workflow für Text-zu-Bild.
+3. Für RunPod trägst du deinen API-Key und die **RunPod endpoint ID** ein. Ein eigener Workflow ist Pflicht.
+4. Richte am Bildmodell die **Local image defaults** (lokale Bild-Standardwerte) ein. Diese Werte ersetzen die passenden Platzhalter in deinem Workflow.
+5. Füge den Workflow ein, speichere und klick auf **Test image** (Bild testen).
+
+Wenn es nicht funktioniert hat, sieh unter [Fehlerbehebung](#troubleshooting) nach.
 
 ## Workflow bauen und exportieren
 
@@ -35,9 +36,9 @@ Ein Workflow im API-Format unterscheidet sich vom normalen Workflow aus dem visu
 
 ## ComfyUI-Video-Workflows
 
-Leg eine Verbindung vom Typ **Video Generation** (Videogenerierung) an, wähl **ComfyUI** und füg einen Workflow im API-Format in das Pflichtfeld **ComfyUI Workflow** ein. WAN 2.2 und andere lokale Video-Graphen funktionieren, solange derselbe Workflow in ComfyUI durchläuft und über eine Ausgabe wie den Core-Node **SaveVideo** eine MP4-Datei speichert.
+Füge unter **Images & video** ein Konto für **ComfyUI** hinzu und öffne sein Videomodell. Füge einen Workflow im API-Format in das Pflichtfeld **ComfyUI workflow (optional)** ein. WAN 2.2 und andere lokale Video-Graphen funktionieren, solange derselbe Workflow in ComfyUI durchläuft und über eine Ausgabe wie den Core-Node **SaveVideo** eine MP4-Datei speichert.
 
-In Video-Workflows stehen diese Platzhalter in Anführungszeichen zur Verfügung:
+Video-Workflows können diese Platzhalter nutzen, jeweils in Anführungszeichen:
 
 | Platzhalter              | Wert, den Marinara liefert                                          |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -98,14 +99,14 @@ Die relevanten Teile eines einfachen **lokalen** API-Workflows sehen etwa so aus
 }
 ```
 
-Das ist nur ein Ausschnitt: Die Node-Verknüpfungen und die übrigen Eingaben aus dem exportierten Workflow bleiben erhalten. Prompt-Platzhalter darfst du in einen längeren Text einbetten, um feste Tags (Schlagwörter) davor oder dahinter zu setzen. Ein numerischer Platzhalter sollte dagegen normalerweise der komplette Wert sein. In der RunPod-Fassung des Workflows entfernst du die Anführungszeichen um diese numerischen Tokens. Und jede Einstellung, die Marinaras Verbindungs-Standardwerte nicht anfassen sollen, lässt du einfach fest im Workflow stehen.
+Das ist nur ein Ausschnitt: Die Node-Verknüpfungen und die übrigen Eingaben aus dem exportierten Workflow bleiben erhalten. Prompt-Platzhalter darfst du in einen längeren Text einbetten, um feste Tags davor oder dahinter zu setzen. Ein numerischer Platzhalter sollte dagegen normalerweise der komplette Wert sein. In der RunPod-Fassung des Workflows entfernst du die Anführungszeichen um diese numerischen Tokens. Und jede Einstellung, die Marinaras Verbindungs-Standardwerte nicht ändern sollen, lässt du einfach fest im Workflow stehen.
 
 | Platzhalter           | Wert, den Marinara liefert                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------- |
 | `%prompt%`            | Positiver Bild-Prompt. Fehlt er, warnt der Verbindungs-Editor.                              |
 | `%negative_prompt%`   | Negativer Bild-Prompt.                                                                      |
 | `%width%`, `%height%` | Gewünschte Bildmaße.                                                                        |
-| `%seed%`              | Seed aus der Verbindung; `-1` erzeugt jedes Mal einen neuen Zufalls-Seed.                   |
+| `%seed%`              | Seed aus der Verbindung; `-1` erzeugt einen neuen Zufalls-Seed.                             |
 | `%model%`             | Das in der Verbindung gespeicherte Modell. Nimm genau den Checkpoint-Wert, den der Loader-Node erwartet. |
 | `%steps%`             | Sampling-Schritte.                                                                          |
 | `%cfg%`               | CFG-Scale. `%cfg_scale%` und `%scale%` funktionieren ebenfalls.                             |
@@ -114,7 +115,7 @@ Das ist nur ein Ausschnitt: Die Node-Verknüpfungen und die übrigen Eingaben au
 | `%denoise%`           | Denoising-Stärke. `%denoising_strength%` funktioniert ebenfalls.                            |
 | `%clip_skip%`         | Clip-Skip-Wert für einen kompatiblen Node.                                                  |
 
-Speicher das JSON nach dem Bearbeiten, kopier die komplette Datei, füg sie unter **ComfyUI Workflow** in der Bildverbindung ein, speicher die Verbindung und klick auf **Test Image**.
+Speicher das JSON nach dem Bearbeiten, kopier die komplette Datei, füg sie am Bildmodell unter **ComfyUI workflow (optional)** ein, speichere und klick auf **Test image**.
 
 ## Referenzbilder nutzen
 
@@ -138,7 +139,7 @@ Für einen normalen ComfyUI-**LoadImage**-Node nimmst du einen Dateinamen-Platzh
 
 Marinara lädt das Referenzbild in das Input-Verzeichnis von ComfyUI hoch und ersetzt den Platzhalter durch den Dateinamen, den ComfyUI zurückmeldet. `%reference_image_name%` steht für das erste Bild. Workflows mit mehreren Referenz-Eingängen nutzen `%reference_image_name_01%` bis `%reference_image_name_04%`.
 
-Verlangt der Workflow zwingend ein Bild, aktivier **Upload a 1x1 placeholder when no reference image is provided** (1×1-Platzhalter hochladen, wenn kein Referenzbild vorliegt) unter **Local Image Defaults**. Marinara schiebt dann ein winziges Platzhalterbild nach, wenn die Anfrage keine echte Referenz enthält.
+Verlangt der Workflow zwingend einen Bildeingang, schalte unter **Local image defaults** die Option zum Hochladen eines 1x1-Platzhalters ein. Marinara schiebt dann ein winziges Platzhalterbild nach, wenn die Anfrage keine echte Referenz enthält.
 
 ### Rohe Base64-Bilddaten
 
@@ -148,9 +149,11 @@ RunPod-Workflows unterstützen die rohen Base64-Platzhalter. Die Platzhalter fü
 
 ## Workflows pro Charakter pflegen
 
-Für jeden Charakter, der einen bestimmten Checkpoint, LoRA-Stapel, ControlNet-Aufbau oder ein eigenes Referenzbild-Layout braucht, kannst du einen separaten exportierten Workflow samt eigener Marinara-Bildverbindung anlegen. Wähl die passende Bildverbindung überall dort aus, wo dieser Charakter oder die jeweilige Bildfunktion die Auswahl anbietet.
+Für jeden Charakter, der einen bestimmten Checkpoint, LoRA-Stapel, ControlNet-Aufbau oder ein eigenes Referenzbild-Layout braucht, kannst du einen separaten exportierten Workflow samt eigener Marinara-Bildverbindung anlegen. Wähl das passende Bildmodell überall dort aus, wo dieser Charakter oder die jeweilige Bildfunktion die Auswahl anbietet.
 
-Das liefert oft gleichmäßigere Ergebnisse als ein einziger Allzweck-Workflow, allerdings hält jede Verbindung weiterhin ihre eigene JSON-Kopie. Nach jeder Änderung am Workflow eines Charakters in ComfyUI wiederholst du für diese Verbindung also Export, Bearbeitung, Kopieren und Einfügen.
+Das kann gleichmäßigere Ergebnisse liefern als ein einziger Allzweck-Workflow, allerdings hält jedes Modell weiterhin seine eigene Kopie des JSON. Nach jeder Änderung am Workflow eines Charakters in ComfyUI wiederholst du für diese Verbindung also Export, Bearbeitung, Kopieren und Einfügen.
+
+<a id="troubleshooting"></a>
 
 ## Fehlerbehebung
 
@@ -171,10 +174,10 @@ Das liefert oft gleichmäßigere Ergebnisse als ein einziger Allzweck-Workflow, 
 
 ## Verwandte Anleitungen
 
-- [Anbieter und Einrichtung für die Bildgenerierung](image-providers.md) behandelt alle unterstützten Bilddienste und die gemeinsamen Bildeinstellungen.
-- [Szenen-Videogenerierung](scene-video.md) behandelt Videoverbindungen und alle Oberflächen für Szenenvideos.
+- [Anbieter für Bildgenerierung und Einrichtung](image-providers.md) behandelt alle unterstützten Bilddienste und die gemeinsamen Bildeinstellungen.
+- [Szenenvideos generieren](scene-video.md) behandelt Videoverbindungen und alle Oberflächen für Szenenvideos.
 - [LTX-2.3-Storyboards im Game Mode](../game/ltx-2-3-storyboards.md) behandelt einen LTX-Director-API-Workflow, die Platzhalter und die empfohlenen Game-Einstellungen.
-- [Bildstil-Profile](style-profiles.md) erklärt die wiederverwendbaren Prompt-Stile von Marinara.
+- [Bild-Stilprofile](style-profiles.md) erklärt die wiederverwendbaren Prompt-Stile von Marinara.
 - [Illustrator-Agent](illustrator-agent.md) behandelt die automatische Szenenillustration.
 - [Referenz zur Server-Konfiguration](../CONFIGURATION.md) dokumentiert den Zugriff im lokalen Netzwerk und die ComfyUI-Zeitlimits.
 - [ComfyUI-Workflow-Konzepte](https://docs.comfy.org/development/core-concepts/workflow) erklärt Workflows in der offiziellen ComfyUI-Dokumentation.

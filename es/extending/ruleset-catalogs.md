@@ -1,8 +1,8 @@
 # Catálogos de conjuntos de reglas
 
-Esta página forma parte de [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md). Entradas ya preparadas que el editor de fichas ofrece en un selector: la cabecera del catálogo, las entradas, los valores que mantiene el conjunto de reglas, los comandos de ficha y el comando de uso.
+Usa esta página para distribuir entradas ya preparadas (conjuros, equipo, rasgos de clase) que el editor de fichas ofrece en un selector, para que los jugadores no escriban listas largas a mano. Trata la cabecera del catálogo, las entradas, los valores que mantiene el conjunto de reglas, los comandos de ficha y el comando de uso. Es para quienes escriben conjuntos de reglas. Antes de empezar, lee [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md).
 
-Escribir una lista de conjuros, una tabla de equipo o una página de rasgos fila por fila es tedioso. Un catálogo es una colección con nombre de entradas preparadas que distribuyes con el conjunto. El editor las ofrece en un selector de cada lista que alimenta el catálogo; elegir una rellena la fila.
+Escribir fila por fila una lista larga de conjuros o una tabla de equipo es lento. Un catálogo es una colección con nombre de entradas preparadas que distribuyes con el conjunto. El editor las ofrece en un selector de cada lista que alimenta el catálogo; elegir una rellena la fila.
 
 Los catálogos son opcionales. Puede haber hasta doce por conjunto; el motor no conoce su temática: todos los IDs, columnas, filtros y palabras proceden del archivo.
 

@@ -47,6 +47,8 @@ coverage and the validation for all ten documentation packs and eleven UI packs.
 
 [v2.5.1 release-guide top-up](audits/2026-10-20-v251-release-topup.md) records the release-branch avatar guides, late staging API changes, Pi / Classic UI recovery translations and Professor Mari's 2.5.1 What's New following the merged initial catch-up.
 
+[2.5.2 guide rewrites catch-up](audits/2026-11-05-guide-rewrites-catchup.md) records the rewritten user guides, the Noodle guides' move to `agents/`, the #8829 admin-secret edits and the checks for all ten packs.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.

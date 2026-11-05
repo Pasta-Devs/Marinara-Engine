@@ -1,8 +1,28 @@
 # Przedmioty zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Co nosi drużyna: kategorie, broń, pancerz, amunicja, łupy, pieniądze, początkowy sprzęt i targi.
+Ta strona pomoże ci opisać, co nosi drużyna: kategorie, broń, pancerz, amunicja, łupy, pieniądze, początkowy sprzęt i targi. Jest przeznaczona dla osób piszących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
+
+Sekcje na tej stronie:
+
+- [Blok przedmiotów](#the-items-block)
+- [Przedmiot](#an-item)
+- [Co odczytuje przedmioty](#what-reads-items)
+- [Przedmioty w arkuszu](#items-on-the-sheet)
+- [Testy poza walką](#checks-outside-a-fight)
+- [Typowane obrony ze stanów, poziomów, przedmiotów i wierszy arkusza](#typed-defenses-from-conditions-levels-items-and-sheet-rows)
+- [Broń w walce](#weapons-in-a-fight)
+- [Pancerz i efekty założonych przedmiotów w walce](#armor-and-worn-effects-in-a-fight)
+- [Używanie przedmiotów w walce](#using-items-in-a-fight)
+- [Przedmioty w bitwach Classic i Tactical](#items-in-classic-and-tactical-battles)
+- [Łupy](#loot)
+- [Pieniądze](#money)
+- [Początkowy sprzęt](#starting-gear)
+- [Targi](#markets)
+- [Używanie przedmiotów poza walką](#using-items-outside-a-fight)
 
 Pancerz, broń, mikstury, wyposażenie, amunicja i pieniądze to przedmioty. Opcjonalny blok `items` deklaruje słowa, którymi opisuje się każdy przedmiot twojego zestawu zasad, a katalog z `holds: "items"` wymienia same przedmioty. Oba wymagają Capability API 1.49; `rarityCaps` i `propose` bloku, które dotyczą przedmiotów wymyślanych przez Mistrza Gry, wymagają 1.51, wartość odczytująca przedmioty posiadane przez postać (`itemStat`) – 1.52, działanie przedmiotu na testy, gdy jest założony lub niesiony, wraz z limitami `bonus` bloku – 1.53, wymagania przedmiotu wobec noszącego i zmieniane przez niego atrybuty – 1.54, `attack` broni – 1.55, działanie przedmiotu w walce – 1.56, to, czym broń strzela i ile ma załadowane – 1.57, tryby broni, atak drugą ręką, minimum obrażeń i stany przy trafieniu – 1.58, działanie użycia przedmiotu w walce wraz z jego ładunkami – 1.59, użycie przywracające pulę – 1.60, ładunki odzyskiwane przy odpoczynku lub przedmiot niszczący się po opróżnieniu – 1.61, użycie wymagające najpierw testu (`gate`) – 1.62, tabele łupów i łupy stworzenia – 1.63, pozycja łupów dająca monety lub warstwa usuwająca monety – 1.64, targ, miejscowość `sold` przedmiotu i `service` – 1.65, dzień targowy (sakiewka, `buyBack`, `stock` sprzedawcy, liczba `limited` albo `sold` bez wskazanej miejscowości) – 1.69, efekt dodatkowy działający przy trzymanej broni (`weapons`) – 1.70, początkowy sprzęt (`startingGear`) – 1.78, ryzykowny przedmiot, podróbka lub nieuczciwy sprzedawca – 1.79, a `unsold` targu (lub `items` warstwy) – 1.813.
+
+<a id="the-items-block"></a>
 
 ## Blok przedmiotów
 
@@ -85,6 +105,8 @@ Blok trafia do `items` na najwyższym poziomie pliku. Oto blok Ember Roads, niec
 - `freeform`: czym staje się przedmiot wpisany przez gracza. `"plain"` (domyślnie) zachowuje go jako przedmiot bez zasad, jak dotąd. `"refuse"` dopuszcza tylko przedmioty twojego zestawu zasad.
 - `lootTables` (Capability API 1.63): opcjonalne, do 24. Co zostawiają stworzenia z wygranej walki i co daje `[loot:]` Mistrza Gry (zobacz niżej Łupy).
 
+<a id="an-item"></a>
+
 ## Przedmiot
 
 Katalog przedmiotów nie deklaruje `feeds`:
@@ -128,6 +150,8 @@ Każdy wpis zawiera `item` zamiast `rows` lub `creature`:
 
 Przedmiot nie ma `mechanics`: jego działanie zapisuje się w bloku `item`.
 
+<a id="what-reads-items"></a>
+
 ## Co odczytuje przedmioty
 
 Wszystko powyższe jest sprawdzane przy imporcie zestawu zasad, a twoje katalogi przedmiotów są dostarczane razem z nim. W grze odczytuje je ekwipunek trybu Game Mode:
@@ -142,7 +166,7 @@ Wszystko powyższe jest sprawdzane przy imporcie zestawu zasad, a twoje katalogi
 - **`slots`**: przedmiot zajmujący miejsca może założyć ten, kto go niesie, jeśli ma te miejsca wolne, a jedna sztuka z większego stosu trafia do osobnego stosu, aby można ją było założyć. Ekwipunek pokazuje zajęte miejsca każdej postaci.
 - **`binding`**: przedmiot z `binds` można powiązać, do `binding.max` odczytanego z arkusza jego posiadacza (postać bez arkusza odczytuje pusty arkusz). Przedmiot `cursed` po powiązaniu pozostaje powiązany: gracz nie może zerwać powiązania, zdjąć go, oddać ani usunąć, a klątwę może zakończyć tylko Mistrz Gry.
 - **`carry`**: przedmiot waży tyle, ile wynosi jego `carry.stat` (przedmiot bez tej statystyki nic nie waży), a obciążenie postaci to waga jej torby, porównywana z `encumberedAbove` i `limit` odczytanymi z jej arkusza. Przedmiot dodany do wspólnego widoku ekwipunku, przez gracza lub przez Mistrza Gry bez `who=`, trafia do tego, kto może go nieść bez przeciążenia (najpierw gracz, potem drużyna po kolei), a gdy nikt nie może wziąć całości, jest dzielony według wolnego miejsca każdego. Nic nie przekracza niczyjego `limit`: to, czego nikt nie uniesie, zostaje na miejscu, a Mistrz Gry jest o tym informowany. Nadaj statystyce wagi `"integer": false` dla wag takich jak ćwierć funta.
-- **Mistrz Gry wymyśla przedmioty twoimi słowami.** Jeśli nie ustawisz `propose: false`, jego `[inventory: action="add"]` może opisać nowy przedmiot: `like=` jeden z twoich przedmiotów jako punkt wyjścia, a następnie dowolne z `category=`, `rarity=`, `tags=`, `stats=` (pary `id=value`), `slots=` (`id=count`), `binds=` (`yes`, `cursed` lub `no`), `worn=` i `carried=` (zmiany rozdzielone `;`, każda to `+N`, `-N`, `advantage`, `disadvantage` lub `fails` dla rzutów obronnych, na umiejętnościach lub rzutach obronnych wskazanych nazwą albo na `checks` lub `saves` dla wszystkich, `+N` lub `-N` na nazwie atrybutu, aby go podnieść lub obniżyć, a tam, gdzie masz walki, `+N`, `-N`, ułatwienie lub utrudnienie na atakach oraz `+N` lub `-N` na obronie lub twoim słowie na nią: `worn="+1 Sneak; disadvantage on Sway checks"`, `carried="+1 Brawn"`, `worn="+1 Guard"` albo `none`) i `summary=`, każdą część przez identyfikator lub etykietę. Statystyka przedmiotu, którą twoja obrona już liczy (Guard w Ember Roads sumuje `guard` założonych rzeczy), to sposób, w jaki pancerz ją podnosi, więc zmiana obrony przy założeniu obok takiej statystyki jest pomijana, a odpowiedź o tym informuje: mały model pisze `guard=1` i `+1 Guard` dla jednego +1. Engine odczytuje też to, co mały model zwykle pisze zamiast tego: liczbę po nazwie (`Brawn +1`), "bonus" po atakach lub obronie (`+1 attack roll bonus`), `none` dla pustej listy tagów, statystyk lub miejsc oraz `worn=`, `carried=` lub `summary=` wewnątrz `stats=`, gdy nie masz statystyki o takiej nazwie. Engine zachowuje tylko to, co jest w twoim bloku: nieznana kategoria, tag, statystyka, miejsce, umiejętność lub rzut obronny są pomijane, rzadkość, której nie masz, staje się twoją najniższą, liczba jest dopasowywana do zakresu statystyki, a potem do `rarityCaps` swojej rzadkości, premia przy założeniu lub niesieniu – do `bonus` swojej rzadkości (także część przejęta przez `like`), a nazwa będąca jednym z twoich przedmiotów oznacza po prostu ten przedmiot. Odpowiedź mówi Mistrzowi Gry, co zmieniono (nigdy w odniesieniu do statystyki, której mu nie pokazujesz), a szczegóły przedmiotu pokazują graczowi każdą zmianę. Gra przechowuje przedmiot, więc ta sama nazwa oznacza go do końca gry, a nowa sesja zachowuje go, dopóki ktoś go jeszcze ma.
+- **Mistrz Gry wymyśla przedmioty twoimi słowami.** Jeśli nie ustawisz `propose: false`, jego `[inventory: action="add"]` może opisać nowy przedmiot: `like=` jeden z twoich przedmiotów jako punkt wyjścia, a następnie dowolne z `category=`, `rarity=`, `tags=`, `stats=` (pary `id=value`), `slots=` (`id=count`), `binds=` (`yes`, `cursed` lub `no`), `worn=` i `carried=` (zmiany rozdzielone `;`, każda to `+N`, `-N`, `advantage`, `disadvantage` lub `fails` dla rzutów obronnych, na umiejętnościach lub rzutach obronnych wskazanych nazwą albo na `checks` lub `saves` dla wszystkich, `+N` lub `-N` na nazwie atrybutu, aby go podnieść lub obniżyć, a tam, gdzie masz walki, `+N`, `-N`, ułatwienie lub utrudnienie na atakach oraz `+N` lub `-N` na obronie lub twoim słowie na nią: `worn="+1 Sneak; disadvantage on Sway checks"`, `carried="+1 Brawn"`, `worn="+1 Guard"` albo `none`) i `summary=`, każdą część przez identyfikator lub etykietę. Statystyka przedmiotu, którą twoja obrona już liczy (Guard w Ember Roads sumuje `guard` założonych rzeczy), to sposób, w jaki pancerz ją podnosi, więc zmiana obrony przy założeniu obok takiej statystyki jest pomijana, a odpowiedź o tym informuje: mały model pisze `guard=1` i `+1 Guard` dla jednego +1. Engine odczytuje też to, co mały model zwykle pisze zamiast tego: liczbę po nazwie (`Brawn +1`), "bonus" po atakach lub obronie (`+1 attack roll bonus`), `none` dla pustej listy tagów, statystyk lub miejsc oraz `worn=`, `carried=` lub `summary=` wewnątrz `stats=`, gdy nie masz statystyki o takiej nazwie. Engine zachowuje tylko to, co jest w twoim bloku: nieznana kategoria, tag, statystyka, miejsce, umiejętność lub rzut obronny są pomijane, rzadkość, której nie masz, staje się twoją najniższą, liczba jest dopasowywana do zakresu statystyki, a potem do `rarityCaps` swojej rzadkości, premia przy założeniu lub niesieniu – do `bonus` swojej rzadkości (także część przejęta przez `like`), a nazwa będąca jednym z twoich przedmiotów oznacza ten przedmiot. Odpowiedź mówi Mistrzowi Gry, co zmieniono (nigdy w odniesieniu do statystyki, której mu nie pokazujesz), a szczegóły przedmiotu pokazują graczowi każdą zmianę. Gra przechowuje przedmiot, więc ta sama nazwa oznacza go do końca gry, a nowa sesja zachowuje go, dopóki ktoś go jeszcze ma.
 - Mistrz Gry może zakładać i zdejmować twoje przedmioty (`equip` i `unequip`) swoją komendą ekwipunku, gdy masz `slots`, oraz wiązać je i zrywać powiązanie (`bind` i `unbind`), gdy masz `binding`: dowiaduje się tylko o tych, które ma twój zestaw zasad. Widzi obciążenie każdej postaci, powiązane przedmioty i miejsca oraz to, co jest założone lub powiązane.
 
 - **Działanie przedmiotu założonego lub niesionego** widać na wybranym stosie i w selektorze ("While worn: -1 on checks (Sneak)"), a Mistrz Gry widzi je obok przedmiotu (`worn: -1 on checks (Sneak)`). Testy poza walką je uwzględniają (zobacz niżej Testy poza walką).
@@ -230,6 +254,8 @@ W teście:
 - Zapis podaje, co go zmieniło: `effects="-1"` dla liczby, `from="Leather coat"` dla źródła zmiany i `automatic="true"` dla rzutu obronnego nieudanego bez rzutu. Karta rzutu pokazuje to samo, a Mistrz Gry odczytuje to w następnej turze. Wie, że Engine stosuje te zmiany, więc nie dodaje ich ponownie.
 
 Gravewatch pokazuje to samo w puli: powiązany Dawn bell (dzwonek świtu) dodaje kość do Ward, a Rattled odejmuje jedną od Soothe i Barter.
+
+<a id="typed-defenses-from-conditions-levels-items-and-sheet-rows"></a>
 
 ## Typowane obrony ze stanów, poziomów, przedmiotów i wierszy arkusza
 
@@ -361,7 +387,7 @@ Przeklęty pierścień wdowy z Gravewatch kosztuje jedną kość przy każdym at
 "carried": { "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }], "resist": ["burn"] }
 ```
 
-Walka odczytuje każdy przedmiot raz, pod nazwą stosu ("Widow's ring" obok rzutu w dzienniku i przy obronie), tak jak test; `otherwise` niespełnionego wymagania liczy się także w walce, więc pancerz zbyt ciężki dla noszącego może kosztować szybkość. Szczegóły przedmiotu i wiersz dla Mistrza Gry podają to wszystko ("While worn: -1 on attacks", "worn: +1 on checks (Ward), immune to Rattled"). Pancerz, który po prostu dodaje do obrony lub pochłaniania, to statystyka przedmiotu odczytywana przez `itemStat` (zobacz Przedmioty w arkuszu), tak jak Guard w Ember Roads odczytuje założony płaszcz.
+Walka odczytuje każdy przedmiot raz, pod nazwą stosu ("Widow's ring" obok rzutu w dzienniku i przy obronie), tak jak test; `otherwise` niespełnionego wymagania liczy się także w walce, więc pancerz zbyt ciężki dla noszącego może kosztować szybkość. Szczegóły przedmiotu i wiersz dla Mistrza Gry podają to wszystko ("While worn: -1 on attacks", "worn: +1 on checks (Ward), immune to Rattled"). Pancerz, który dodaje do obrony lub pochłaniania, to statystyka przedmiotu odczytywana przez `itemStat` (zobacz Przedmioty w arkuszu), tak jak Guard w Ember Roads odczytuje założony płaszcz.
 
 **Twardość.** Gdy inicjatywa jest liczbą przesuwaną atakami, `combat.pool.hardness` to twardość walczącego, odczytywana z jego arkusza na początku walki (twardość jego pancerza, przez `itemStat`), a stworzenie podaje własne `hardness`. Cios wydający, którego kości są poniżej tej wartości, trafia i nic nie robi: liczba wykonawcy i tak wraca do wartości bazowej, dziennik to odnotowuje ("Ada's Grave spade lands on the warden with 5 dice, below a hardness of 6, and does nothing."), a menu nie prognozuje dla niego obrażeń. Może ją mieć tylko zestaw zasad ze stylem wydającym, a stworzenie zapisane jako arkusz bierze ją z arkusza.
 
@@ -416,6 +442,8 @@ Przedmiotu można użyć w walce (Capability API 1.59): okład przyłożony do r
 
 To, co walka zużywa, i pozostawione ładunki są zapisywane w ekwipunku przy każdym kroku, tak jak strzały broni, a dziennik przygody podaje, co zużyto. Dziennik walki podaje każde użycie ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Członek drużyny prowadzony przez Engine leczy tylko kogoś rannego, a nikt nie używa przedmiotu do uderzenia w odchodzącego. Szczegóły przedmiotu i wiersz dla Mistrza Gry podają działanie użycia: "Use (Action): heals 1d4 + 1, range 0 paces, used up" i `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, a szczegóły pokazują pozostałe ładunki. Przedmiot wymyślony przez Mistrza Gry przez `like=` na wzór jednego z twoich jest używany tak jak tamten, łącznie z ładunkami.
 
+<a id="items-in-classic-and-tactical-battles"></a>
+
 ## Przedmioty w bitwach Classic i Tactical
 
 Zestaw zasad, który nie rozstrzyga własnych walk, zostawia je bitwom Classic i Tactical trybu Game Mode, w których na początku walki model jest pytany, co robią przedmioty z ekwipunku. Działanie twoich przedmiotów nie jest zgadywane: każdy z `use` robi to, co tam zapisano, na liczbach samego Engine, a Mistrza Gry pyta się tylko o przedmioty, które nie są twoje (i o żadne przy `native: false`).
@@ -463,6 +491,8 @@ Wymienia je `lootTables` w bloku `items` (Capability API 1.63), tak jak dary gro
 - Łupy trafiają do wspólnego widoku tak jak dodanie przedmiotu, najpierw do torby gracza, a to, czego nikt nie uniesie, zostaje na miejscu. Podsumowanie otrzymywane przez Mistrza Gry podaje, co wypadło i że jest już w torbach; dziennik przygody to odnotowuje, a powiadomienie to pokazuje.
 - Mistrz Gry losuje z tabeli w opowieści przez `[loot: table="grave_goods" who="Ada"]` (`who=` dla torby jednej postaci), mierzone od początku tury jak jego znaczniki ekwipunku, więc ponownie wygenerowana odpowiedź daje łupy raz. Każdy wypadający przedmiot otrzymuje odpowiedź jak przy dodaniu, a instrukcje tej komendy wymieniają twoje tabele.
 
+<a id="money"></a>
+
 ## Pieniądze
 
 Twoje `currencies` to pieniądze drużyny. Moneta jest przedmiotem w torbach, stosem każdej monety jak każdy inny, nazwanym jej `label`:
@@ -472,6 +502,8 @@ Twoje `currencies` to pieniądze drużyny. Moneta jest przedmiotem w torbach, st
 - Wiersz nad stosami ekwipunku pokazuje widoczne monety każdej rodziny i ich wartość w najmniejszej monecie rodziny. Mistrz Gry widzi tę wartość obok każdej torby (`Coin worth 432 pennies` albo `no coins` dla pustej sakiewki, przy czym torba gracza jest wymieniana nawet wtedy, gdy nic nie zawiera), a `cost` przedmiotu obok przedmiotu (`costs 3 shillings`).
 - Mistrz Gry płaci przez `[inventory: action="pay" amount="3 shillings" who="Ada"]` i otrzymuje zapłatę przez `action="earn"`. `amount` to liczba i moneta, przez identyfikator lub etykietę, w liczbie pojedynczej lub mnogiej, bez względu na wielkość liter (`1 penny`, `12 pennies`). Płatność pochodzi z jednej torby (gracza, bez `who=`) i tylko z rodziny danej monety: najpierw idą największe pasujące monety, potem rozmieniana jest najmniejsza pozostała moneta pokrywająca resztę należności, a reszta wraca w mniejszych monetach rodziny, od największych. Odpowiedź podaje, co zapłacono i co wróciło: 3 szylingi z sakiewki z jedną koroną to `Paid with crowns ×1; shillings ×2 back.` Płatność, której torba nie pokryje, jest odrzucana (`cannot-afford`), tak samo moneta, której nie masz (`unknown-coin`), i każda płatność w zestawie bez walut (`no-currencies`). Zarobek to dodanie tej monety do torby `who` albo rozdzielenie jej według reguły noszenia. Dziennik przygody wymienia wydatki i zarobki, a powiadomienie je pokazuje. Instrukcje tych komend wymieniają twoje monety i dostaje je tylko zestaw zasad, który jakieś ma.
 - Zakup to płatność, a potem dodanie przedmiotu albo, w zestawie z targiem, `buy` (niżej). Nie ma ekranu sklepu.
+
+<a id="starting-gear"></a>
 
 ## Początkowy sprzęt
 
@@ -510,6 +542,8 @@ Twoje `currencies` to pieniądze drużyny. Moneta jest przedmiotem w torbach, st
 - `fits` odczytuje arkusz bez stanu bieżącego, tak jak noszenie. Wpływa tylko na kolejność listy.
 - Wzięcie jest typu wszystko albo nic: sprzęt zbyt ciężki dla niosącego jest odrzucany w całości, a okno dialogowe podaje jego wagę w porównaniu z tym, co niosący może jeszcze unieść. Przedmiot usunięty z gry przez warstwę jest pomijany i wymieniany z nazwy, podobnie jak lista, której wszystkie przedmioty warstwa usuwa; monety rodzaju usuniętego przez warstwę są wypłacane w największej pozostałej monecie o tej samej wartości, a okno dialogowe tak je pokazuje. Sprzęt, z którego nic nie zostało, jest odrzucany, więc nigdy nie jest oznaczany jako wzięty na próżno. Usługa nigdy nie jest oferowana z listy.
 - Import sprawdza każdy przedmiot (w katalogu wewnątrz definicji; katalog we własnym pliku jest sprawdzany przy wzięciu sprzętu), monetę, zwykły przedmiot i odwołanie `fits`, odrzuca usługę i odrzuca liczbę, która wymagałaby więcej stosów, niż torba mieści naraz.
+
+<a id="markets"></a>
 
 ## Targi
 
@@ -601,7 +635,7 @@ Capability API 1.79 pozwala, by przedmiot był ryzykowny lub był podróbką, a 
 - **`risky`** w przedmiocie: przed czym uczciwy sprzedawca ostrzega przed sprzedażą. Blok MARKET wymienia to z "(warn the buyer first: ...)" obok towaru uczciwego sprzedawcy; nieuczciwy sprzedawca nic nie mówi.
 - **`passesFor`** w przedmiocie czyni go podróbką innego przedmiotu (`<catalog>/<entry>`): prawdziwego przedmiotu tej samej kategorii, który można sprzedać, zakładanego w tych samych miejscach i wiążącego się, jeśli wiąże się podróbka. Jest sprawdzane przy imporcie, gdy oba są czytelne, przy instalacji dla każdego pliku katalogu i ponownie, gdy targ ją oferuje, więc podróbka, której przedmiot docelowy nie istnieje lub jest ukryty przez warstwę, nigdy nie jest sprzedawana. Przeklęty przedmiot (`binds.cursed`) ani podróbka nigdy nie są wśród niczyich towarów ani w zapasie uczciwego sprzedawcy.
 - **`honest: false`** u sprzedawcy: podróbka wylosowana przez jego tabelę `stock` jest oferowana jako przedmiot, który udaje, po cenie tego przedmiotu, a blok MARKET pokazuje obok niej prawdę Mistrzowi Gry. Zakup wskazujący tego sprzedawcę i ten przedmiot daje podróbkę; zakup bez wskazania sprzedawcy nigdy jej nie daje.
-- **Podróbka w torbie** wygląda jak przedmiot, który udaje, wszędzie tam, gdzie patrzy gracz (torba, dziennik przygody, powiadomienia, walki), i zachowuje to, czym naprawdę jest. Blok ekwipunku dla Mistrza Gry oznacza ją `[FAKE: really ...]` i prosi, aby nadal nazywał ją tak, jak jest pokazywana.
+- **Podróbka w torbie** wygląda jak przedmiot, który udaje, wszędzie tam, gdzie patrzy gracz (torba, dziennik przygody, powiadomienia, walki), i zachowuje to, czym naprawdę jest. Blok ekwipunku dla Mistrza Gry oznacza ją `(FAKE: really <name>)` i prosi, aby nadal nazywał ją tak, jak jest pokazywana.
 - **Wykrycie**: `[inventory: action="reveal" item="Bag of Holding" who="Ada"]`, związanie (dostrojenie ujawnia klątwę), użycie (dzieje się to, co naprawdę robi; gdy według zasad nic się nie dzieje, mówi o tym Mistrz Gry) albo sprzedaż uczciwemu kupcowi, który mówi, czym przedmiot naprawdę jest, i płaci tyle, ile jest wart (jego własne `cost`), albo odmawia, gdy przedmiot go nie ma. Nieuczciwy kupiec bierze podróbkę za to, czym się wydaje. Od tej chwili jest swoim prawdziwym przedmiotem.
 - **Założona lub niesiona**: podróbka robi na arkuszu postaci to, co naprawdę robi (jej efekty `worn` lub `carried` i statystyki). Pierwsza zmiana ekwipunku, po której arkusz pokazuje liczbę lub dodatek do testu, jakich nie dałby udawany przedmiot, ujawnia ją, a dziennik przygody i ekran podają, czym była. Różnica odczytywana tylko w walce (odporność) jej nie ujawnia, podobnie jak sama zmiana arkusza aż do następnej zmiany ekwipunku. W walce założona podrobiona broń nadal atakuje jak broń, którą udaje.
 - W trybie zaufania dla jednego gracza Peek Prompt pokazuje widok Mistrza Gry, łącznie z prawdą.
@@ -662,4 +696,4 @@ To samo `use` działa poza walką (Capability API 1.60 dla `restore`; reszta nie
 - Odejmuje jedną sztukę ze stosu lub wydaje ładunki dokładnie tak jak walka, a przedmiot bez pozostałych ładunków albo zajmujący miejsce lub wymagający powiązania i niezałożony jest odrzucany i niczego nie zmienia. Arkusz i torba są zapisywane razem.
 - Najpierw rzuca się `gate`, tak jak test: kośćmi zestawu zasad, z wartością z arkusza, karą za rany użytkownika i działaniem jego stanów oraz przedmiotów założonych lub niesionych na ten test. Nieudany zużywa przedmiot na nic, a wiersz to odnotowuje ("Ada uses Page of the vigil litany: Ward check 1 against 2, failed; it is used up for nothing. 1 left.").
 
-To, co się stało, podaje jeden wiersz: "Juno uses Poultice: heals 4 (Grit 6/11). 1 left." Przycisk Use wysyła go Mistrzowi Gry w bloku `[item_used]` po "I use my Poultice.", który czat pokazuje jako plakietkę; na własny znacznik Mistrza Gry odpowiada się tym wierszem, mierzonym od początku tury jak jego inne znaczniki, więc ponownie wygenerowana odpowiedź nigdy nie użyje przedmiotu dwa razy. Przedmiot bez `use` albo w grze bez zestawu zasad jest nadal po prostu opisywany: "I use my rope."
+To, co się stało, podaje jeden wiersz: "Juno uses Poultice: heals 4 (Grit 6/11). 1 left." Przycisk Use wysyła go Mistrzowi Gry w bloku `[item_used]` po "I use my Poultice.", który czat pokazuje jako plakietkę; na własny znacznik Mistrza Gry odpowiada się tym wierszem, mierzonym od początku tury jak jego inne znaczniki, więc ponownie wygenerowana odpowiedź nigdy nie użyje przedmiotu dwa razy. Przedmiot bez `use` albo w grze bez zestawu zasad jest nadal opisywany: "I use my rope."

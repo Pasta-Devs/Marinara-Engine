@@ -1,88 +1,66 @@
 # Rencontres de combat (Roleplay)
 
-Ce guide explique les rencontres de combat en mode Roleplay. Au programme : activer l'agent **Combat**, lancer un affrontement et le jouer dans la fenêtre de rencontre. Tu verras aussi en quoi cette fonctionnalité diffère du combat de Game Mode.
+Une rencontre de combat ajoute à une scène Roleplay un écran de bataille tour par tour, avec des barres de vie, la liste des ennemis et de l'équipe, et un journal de combat. Elle est facultative. Un chat sans elle fonctionne comme avant. Game Mode a son propre combat, distinct : voir [Le combat en Game Mode](../game/combat.md).
 
-Les rencontres de combat sont une option du mode Roleplay. Elles ajoutent à la scène un écran de bataille structuré, tour par tour, avec des barres de vie, la liste des ennemis et de l'équipe, et un journal de combat. Tant que tu n'actives pas l'option, tes chats de roleplay fonctionnent exactement comme avant.
+## Activer le combat
 
-## Activer l'agent Combat
+Un agent est un assistant qui travaille en parallèle des réponses. L'agent **Combat** ajoute la fonctionnalité de bataille. Il est désactivé par défaut : tu l'actives donc chat par chat.
 
-Un agent est un assistant qui s'exécute automatiquement pendant la génération des messages. L'agent **Combat** ajoute la fonctionnalité de bataille à un chat de roleplay. Il est désactivé par défaut : à toi de l'activer, chat par chat.
+1. Ouvre le chat. Ouvre **Chat Settings** (réglages du chat) avec le bouton de curseurs dans le chat.
+2. Va dans **Agents**.
+3. Active **Enable Agents** (activer les agents) s'il est désactivé.
+4. Ajoute l'agent **Combat** depuis les listes sous l'interrupteur.
 
-1. Ouvre le chat auquel tu veux ajouter le combat.
-2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
-3. Ouvre la section **Agents**.
-4. Active l'interrupteur **Enable Agents** (activer les agents) s'il ne l'est pas déjà.
-5. Ajoute l'agent **Combat** au chat.
+Un bouton **Encounter** (rencontre) apparaît alors au-dessus de la zone de saisie, avec une icône d'épées croisées. Son infobulle indique **Start Combat Encounter**.
 
-Un bouton **Encounter** (rencontre), avec une icône d'épées croisées, apparaît alors dans la rangée d'actions au-dessus de la zone de saisie. Son infobulle indique **Start Combat Encounter**. Si ce bouton reste absent, c'est que l'agent **Combat** n'est pas actif pour ce chat.
-
-Pour tout savoir sur le panneau **Agents** et le fonctionnement des agents, consulte [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
+Si ça n'a pas marché : sans ce bouton, l'agent **Combat** n'est pas actif dans ce chat. Pour le fonctionnement des agents, voir [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
 
 ## Lancer une rencontre
 
-Clique sur le bouton **Encounter** pour ouvrir la fenêtre de configuration, intitulée **Configure Combat Narrative**. Elle règle le style d'écriture que l'IA emploie pendant et après l'affrontement.
+1. Clique sur **Encounter**. La fenêtre **Configure Combat Narrative** s'ouvre. Elle règle le style d'écriture que l'IA emploie.
+2. Choisis le style de **Combat Narration** (pendant l'affrontement) et de **Summary Narration** (le résumé écrit dans le chat à la fin). Les deux groupes ont les quatre mêmes réglages, listés ci-dessous. Les valeurs par défaut conviennent : tu peux donc cliquer tout de suite sur **Begin Combat** (commencer le combat).
+3. Facultatif : choisis un **Spellbook** (grimoire). Un grimoire est un lorebook (un recueil enregistré de faits sur ton univers) qui liste les sorts et les capacités disponibles pendant l'affrontement. Laisse le réglage sur **None** (aucun) si tu n'en utilises pas.
+4. Clique sur **Begin Combat**. Clique sur **Cancel** (annuler) pour fermer la fenêtre sans affrontement.
 
-Cette fenêtre contient deux groupes de style :
+Tu vois "Initializing combat encounter..." pendant que l'IA construit les ennemis, ton équipe, ainsi que leurs attaques et leurs objets. Cela peut prendre quelques secondes.
 
-- **Combat Narration** : le style d'écriture utilisé pendant l'affrontement.
-- **Summary Narration** : le style d'écriture du résumé écrit dans le chat à la fin de l'affrontement.
+| Réglage de style | Choix |
+| --- | --- |
+| Temps | **Present Tense**, **Past Tense** |
+| Personne | **First Person**, **Second Person**, **Third Person** |
+| Narration | **Omniscient** : le narrateur sait tout. **Limited** : il sait ce que sait un seul personnage. |
+| Point de vue | Un champ de texte pour indiquer par les yeux de qui la scène est racontée. Laisse-le vide pour un narrateur neutre. |
 
-Chaque groupe propose les quatre mêmes réglages :
+## Jouer ton tour
 
-- Le temps : **Present Tense** ou **Past Tense**.
-- La personne : **First Person**, **Second Person** ou **Third Person**.
-- La narration : **Omniscient** (le narrateur sait tout) ou **Limited** (le narrateur ne sait que ce que sait un seul personnage).
-- Un champ de point de vue : indique par les yeux de qui la scène est racontée. Laisse-le vide pour garder une voix de narrateur neutre.
+L'écran **Combat Encounter** comporte quatre parties :
 
-Sous ces deux groupes se trouve le menu déroulant facultatif **Spellbook** (grimoire). Un grimoire est un lorebook particulier – un recueil enregistré de faits sur ton univers – qui liste les sorts et les capacités disponibles pendant l'affrontement. Attaches-en un pour que l'IA sache ce que tes personnages peuvent lancer. Laisse le réglage sur **None** si tu n'utilises pas de grimoires.
-
-Quand tout est prêt, clique sur **Begin Combat**. Clique sur **Cancel** pour fermer la configuration sans lancer d'affrontement.
-
-Après un clic sur **Begin Combat**, l'application affiche "Initializing combat encounter..." pendant que l'IA construit l'affrontement. Elle crée les ennemis, ton équipe, leurs attaques et leurs objets. Cela prend quelques secondes.
-
-## Mener la rencontre (la fenêtre Encounter)
-
-L'écran de bataille complet, la fenêtre **Combat Encounter**, se compose des parties suivantes :
-
-- **Enemies** (ennemis) : une grille de cartes d'ennemis. Chaque carte affiche une barre de vie et les effets d'état en cours.
+- **Enemies** (ennemis) : des cartes avec une barre de vie et les effets d'état.
 - **Party** (équipe) : ton camp. Ton propre personnage porte la mention **(You)**.
-- **Combat Log** (journal de combat) : le compte rendu de ce qui se passe à chaque tour.
-- **Your Actions** (tes actions) : les boutons dont tu te sers pendant ton tour.
+- **Combat Log** (journal de combat) : le compte rendu de chaque tour.
+- **Your Actions** (tes actions) : tes boutons.
 
-Sous **Your Actions**, tu peux :
+Pendant ton tour, choisis une attaque sous **Attacks** (attaques), utilise un objet sous **Items** (objets), ou saisis une action libre dans **Custom Action** (action personnalisée) et envoie-la, par exemple "I kick sand into the guard's eyes".
 
-- Choisir l'une de tes **Attacks** (attaques).
-- Utiliser l'un de tes **Items** (objets).
-- Saisir une action libre dans le champ **Custom Action** (action personnalisée), puis l'envoyer. Sers-t'en pour tout ce que les boutons ne couvrent pas, par exemple "I kick sand into the guard's eyes".
+Quand une action a besoin d'une cible, la fenêtre **Select Target** (choisir une cible) s'ouvre. Choisis un ennemi ou un allié, ou **All Enemies** (tous les ennemis) pour une attaque de zone. Les actions qui ne visent qu'une zone sautent cette étape.
 
-Quand une attaque ou un objet réclame une cible, la fenêtre **Select Target** (choisir une cible) s'ouvre. Choisis un seul ennemi ou allié, ou bien **All Enemies** pour une attaque de zone qui touche tous les ennemis d'un coup. Certaines actions ne visent que des zones et sautent le choix d'une cible unique.
+Pendant que l'IA calcule le tour, tu vois "Processing action..." et tes boutons sont verrouillés. Ils se déverrouillent à la fin du tour.
 
-Pendant que l'IA calcule un tour, l'écran affiche "Processing action..." et tes boutons restent verrouillés. Ils se débloquent à la fin du tour.
-
-Si l'IA renvoie des données illisibles pour l'application, un écran **Combat Error** s'affiche au lieu d'une application cassée. Clique sur **Close Encounter** dans cet écran pour quitter l'affrontement sans casse.
+Si ça n'a pas marché : si l'IA renvoie des données que l'application ne peut pas lire, un écran **Combat Error** s'affiche. Clique sur **Close Encounter** (fermer la rencontre) pour quitter l'affrontement sans risque, puis lances-en un nouveau.
 
 ## Terminer une rencontre
 
-Il existe deux façons d'interrompre un affrontement, en plus de la fin naturelle quand un camp l'emporte.
+- Le bouton **Conclude** (conclure), dans la barre supérieure, met fin à l'affrontement avant son terme. Une fenêtre demande confirmation, puis un résumé de combat est écrit dans le chat.
+- Le **X** de la barre supérieure ferme et abandonne l'affrontement, après une fenêtre de confirmation intitulée **End Combat**. Aucun résumé n'est écrit.
+- Quand un camp l'emporte, une bannière affiche **VICTORY**, **DEFEAT**, **FLED** ou **INTERRUPTED**. Un résumé est écrit dans le chat dans ton style **Summary Narration**. Quand il est prêt, clique sur **Close Combat Window** (fermer la fenêtre de combat).
 
-- Clique sur **Conclude** dans la barre supérieure pour arrêter l'affrontement en cours de route. Une fenêtre de confirmation s'affiche d'abord. L'application écrit ensuite un résumé de combat dans le chat.
-- Clique sur le bouton **X** de la barre supérieure pour fermer l'affrontement et l'abandonner. Une fenêtre de confirmation intitulée **End Combat** s'affiche d'abord. Aucun résumé n'est écrit.
-
-Quand un affrontement se termine naturellement, une bannière de résultat apparaît : **VICTORY**, **DEFEAT**, **FLED** ou **INTERRUPTED**. L'application écrit alors un message de résumé de combat dans ton chat, dans le style **Summary Narration** que tu as choisi. Une fois le résumé prêt, clique sur **Close Combat Window** pour revenir à ta scène.
-
-Si le résumé ne se génère pas, le bouton affiche **Close Anyway** à la place. Clique dessus pour revenir à ta scène sans résumé.
+Si le résumé échoue, le bouton affiche **Close Anyway** (fermer quand même). Clique dessus pour revenir à la scène sans résumé.
 
 ## Les différences avec le combat de Game Mode
 
-Les rencontres de combat forment une couche de combat légère et distincte, réservée au mode Roleplay. Game Mode possède son propre système de combat intégré.
-
-Les différences principales :
-
-- En roleplay, c'est toi qui lances une rencontre avec le bouton **Encounter**. Dans Game Mode, c'est le Game Master (le maître du jeu) piloté par l'IA qui déclenche le combat quand l'histoire l'exige.
-- Le combat en roleplay exige l'agent **Combat** activé. Le combat de Game Mode n'utilise pas l'agent **Combat** et fonctionne sans lui.
-- Les deux systèmes emploient des écrans de bataille différents, sans rien partager.
-
-Pour le système de bataille de Game Mode, consulte [Le combat en Game Mode](../game/combat.md).
+- En Roleplay, c'est toi qui lances une rencontre avec **Encounter**. En Game Mode, c'est le Game Master (le maître du jeu) qui déclenche le combat quand l'histoire l'exige.
+- Le combat en Roleplay a besoin de l'agent **Combat**. Le combat de Game Mode, non.
+- Les deux systèmes utilisent des écrans de bataille différents.
 
 ## Guides associés
 

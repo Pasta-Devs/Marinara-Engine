@@ -1,120 +1,129 @@
 # Couleurs des personnages et caractéristiques RPG
 
-Ce guide explique l'onglet **Colors** (couleurs) et l'onglet **Stats** (caractéristiques) de Marinara Engine. Les deux onglets se trouvent dans l'éditeur de personnage et dans l'éditeur de persona (le personnage que tu incarnes). Les couleurs changent l'apparence d'un personnage ou du persona dans le chat. Les caractéristiques servent à suivre des valeurs comme la santé ou la faim.
+Les onglets **Colors** (couleurs) et **Stats** (caractéristiques) se trouvent à la fois dans le Character Editor (éditeur de personnage) et dans le Persona Editor (éditeur de persona). Les couleurs changent l'apparence d'un personnage ou d'un persona dans le chat. Les caractéristiques permettent de suivre des valeurs comme la santé ou la faim.
 
 ## L'onglet Colors
 
-Chaque personnage et chaque persona possède un onglet **Colors** dans son éditeur. Il règle trois couleurs : celle du nom, celle des dialogues et celle de la bulle de message. Laisse un champ vide et Marinara applique la couleur du thème par défaut à cet élément.
+L'onglet **Colors** règle trois couleurs : celle du nom, celle des dialogues et celle de la bulle de message. Laisse un champ vide pour utiliser la couleur du thème de l'application pour cet élément.
 
-Pour ouvrir l'onglet Colors :
-
-1. Ouvre un personnage dans l'éditeur de personnage, ou un persona dans l'éditeur de persona.
-2. Clique sur l'onglet **Colors** dans la liste des onglets.
-3. Une carte **Preview** (aperçu) en direct apparaît, avec les trois champs de couleur en dessous.
-
-La carte **Preview** montre un exemple de nom et un exemple de bulle de message. Elle se met à jour à chaque changement de couleur : tu vois donc le résultat avant d'enregistrer.
+1. Ouvre un personnage ou un persona dans son éditeur.
+2. Clique sur l'onglet **Colors**.
+3. Une carte **Preview** (aperçu) en direct montre un exemple de nom et de bulle de message, avec les champs de couleur en dessous. L'aperçu se met à jour à chaque changement de couleur, avant que tu enregistres.
 
 ### Extract Colors from Avatar
 
-Le bouton **Extract Colors from Avatar** (extraire les couleurs de l'avatar) choisit automatiquement une couleur de nom, une couleur de dialogue et une couleur de bulle à partir de l'image de l'avatar. Le bouton ne devient actif qu'une fois un avatar en place. Tant qu'aucun avatar n'est téléversé, le bouton est désactivé et affiche **Upload an avatar first**. Après l'extraction, tu peux encore modifier chacune des trois couleurs à la main.
+**Extract Colors from Avatar** (extraire les couleurs de l'avatar) choisit les trois couleurs à partir de l'image de l'avatar. Tant qu'aucun avatar n'existe, le bouton est désactivé et affiche **Upload an avatar first**. Tu peux ensuite encore modifier chaque couleur à la main.
 
 ### Les trois couleurs
 
 Règle chaque couleur avec le champ de couleur, ou saisis une valeur :
 
-- **Name Display Color** : la couleur du nom. Ce champ accepte aussi un dégradé CSS. Un dégradé est un fondu progressif entre plusieurs couleurs. Exemple de valeur : `linear-gradient(90deg, #f59e0b, #ef4444)`.
-- **Dialogue Highlight Color** : la couleur du texte placé entre guillemets de dialogue. Exemple de valeur : `#ffd700`.
-- **Message Box Color** : la couleur de fond de la bulle de message dans le chat Roleplay. Exemple de valeur : `#123456`.
+| Champ | Ce qu'il colore | Exemple de valeur |
+| --- | --- | --- |
+| **Name Display Color** (couleur d'affichage du nom) | Le nom. Il accepte aussi un dégradé, voir plus bas. | `#f59e0b` |
+| **Dialogue Highlight Color** (couleur de surbrillance des dialogues) | Le texte placé entre guillemets de dialogue. | `#ffd700` |
+| **Message Box Color** (couleur de la bulle de message) | Le fond de la bulle de message en Roleplay. | `#123456` |
 
-Règle la transparence dans **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Paramètres → Apparence → Roleplay → Opacité de l'arrière-plan des messages Roleplay). Ce curseur remplace la transparence enregistrée dans les couleurs de fond des personnages, des personas et des presets appliqués, y compris les couleurs extraites des avatars. Tes valeurs de couleur enregistrées restent inchangées. Les couleurs du nom et des dialogues ne sont pas affectées.
+**Name Display Color** accepte aussi un dégradé CSS, un fondu progressif entre plusieurs couleurs :
 
-Les points d'accroche explicites de l'arrière-plan des thèmes personnalisés et le CSS de fiche peuvent toujours prendre le pas sur le style natif des bulles de l'application.
+```text
+linear-gradient(90deg, #f59e0b, #ef4444)
+```
+
+L'onglet **Colors** d'un personnage contient aussi **Name Aliases** (alias du nom). Saisis d'autres noms ou surnoms, séparés par des virgules, par exemple `Kate, Kitty, Katherine`. Ils prennent la couleur du nom du personnage quand ils apparaissent dans les messages du chat. Le nom principal est toujours inclus. Active cette option chat par chat dans **Chat Settings → Characters** (réglages du chat → personnages).
+
+Pour changer la transparence, utilise **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Paramètres → Apparence → Présentation Roleplay → Opacité de l'arrière-plan des messages Roleplay).
+
+Ce curseur remplace la transparence enregistrée dans les couleurs de fond des personnages, des personas et des presets, y compris les couleurs extraites. Tes valeurs de couleur enregistrées restent telles quelles. Les couleurs du nom et des dialogues ne sont pas affectées.
+
+Les points d'accroche d'arrière-plan des thèmes personnalisés et le CSS de fiche peuvent toujours prendre le pas sur le style des bulles de l'application.
 
 <a id="where-your-colors-show"></a>
 
-## Où les couleurs apparaissent
+### Où tes couleurs apparaissent
 
-Chaque couleur agit sur une partie différente du chat :
-
-- La couleur du nom s'applique au nom affiché dans les messages du chat. Pour un personnage, elle colore aussi le nom dans les onglets de la barre latérale. Pour un persona, elle colore aussi le nom dans les sélecteurs de persona.
-- La couleur des dialogues s'applique au texte placé entre guillemets de dialogue. Elle fonctionne avec les guillemets droits comme avec les autres styles de guillemets. Ce texte peut aussi être mis en gras depuis **Settings** (Paramètres). Les chats Conversation ne l'utilisent pas.
+- La couleur du nom colore le nom affiché dans les messages du chat. Pour un personnage, elle colore aussi le nom dans les onglets de la barre latérale. Pour un persona, elle colore aussi le nom dans les sélecteurs de persona.
+- La couleur des dialogues colore le texte placé entre guillemets de dialogue, avec les guillemets droits comme avec les autres styles de guillemets. Tu peux aussi mettre ce texte en gras dans **Settings** (Paramètres). Les chats Conversation ne l'utilisent pas.
 - La couleur de la bulle définit l'arrière-plan des bulles de message de ce personnage ou de ce persona dans les chats Roleplay. Les chats Conversation et Game ne l'utilisent pas.
 
 ## L'onglet Stats
 
-Chaque personnage et chaque persona possède également un onglet **Stats**. Les caractéristiques sont des nombres comme les HP (points de vie), la STR (force) ou une barre de faim. Quand tu les actives, Marinara ajoute les valeurs au prompt – le texte que Marinara envoie à l'IA – pour que l'IA connaisse l'état actuel. Les valeurs définies ici sont les valeurs de départ par défaut des nouveaux chats. Les agents peuvent ensuite les faire évoluer en cours de partie. Voir la section sur les agents plus bas.
+L'onglet **Stats** définit des nombres comme les HP (points de vie), la STR (force) ou une barre de faim. Quand tu actives les caractéristiques, Marinara ajoute les valeurs au prompt – le texte que Marinara envoie à l'IA – pour que l'IA connaisse l'état actuel. Les valeurs que tu définis sont les valeurs de départ par défaut des nouveaux chats. Les agents peuvent ensuite en modifier certaines en cours de partie (voir [Comment les agents mettent à jour tes caractéristiques](#how-agents-update-your-stats)).
 
-L'onglet **Stats** d'un personnage et l'onglet **Stats** d'un persona sont organisés différemment : chacun est donc décrit à part ci-dessous.
+Les onglets **Stats** d'un personnage et d'un persona sont organisés différemment.
 
-### Caractéristiques d'un personnage : Enable RPG Stats
+### Caractéristiques d'un personnage
 
-Un personnage a un seul interrupteur : **Enable RPG Stats** (activer les caractéristiques RPG). Désactivé, rien de ce qui suit n'est affiché ni envoyé. Activé, deux sections apparaissent :
+Un personnage a un seul interrupteur, **Enable RPG Stats** (activer les caractéristiques RPG). Désactivé, rien de ce qui suit n'est affiché ni envoyé. Activé, deux sections apparaissent :
 
-- **Pools** : des barres nommées avec une valeur actuelle, un maximum et une couleur. Les nouveaux personnages démarrent avec une réserve HP et une réserve MP, chacune à 100 sur 100. Clique sur **Add** (ajouter) pour créer une autre réserve. Clique sur le X d'une ligne pour la supprimer.
-- **Attributes** : des valeurs numériques nommées. Les nouveaux personnages démarrent avec STR, DEX, CON, INT, WIS et CHA, chacune à 10. Clique sur **Add** pour créer un autre attribut. Clique sur le X d'une ligne pour le supprimer.
+- Les **Pools** sont des barres nommées avec une valeur actuelle, un maximum et une couleur. Les nouveaux personnages démarrent avec HP et MP, chacune à 100 sur 100.
+- Les **Attributes** sont des nombres nommés. Les nouveaux personnages démarrent avec STR, DEX, CON, INT, WIS et CHA, chacun à 10.
 
-### Caractéristiques d'un persona : deux sections
+Clique sur **Add** (ajouter) pour créer une réserve ou un attribut, et sur le X d'une ligne pour le supprimer.
+
+### Caractéristiques d'un persona
 
 L'onglet **Stats** d'un persona contient deux blocs distincts, chacun avec son propre interrupteur.
 
-Le premier bloc, **Persona Status Bars** (barres d'état du persona), s'active avec **Enable Persona Stats**. Ces barres suivent les besoins physiques et mentaux. À l'activation, les barres de départ sont Satiety, Energy, Hygiene et Mood, chacune à 100 sur 100. La liste se gère sous **Status Bars**. Chaque barre a un nom, une valeur actuelle, un maximum et une couleur. Clique sur **Add** pour créer une barre et sur le X pour en supprimer une.
-
-Le second bloc, **RPG Attributes**, s'active avec **Enable RPG Attributes**. Il fonctionne comme sur une fiche de personnage. Il donne au persona des **Pools** (HP et MP à 100 sur 100 au départ) et des **Attributes** (STR, DEX, CON, INT, WIS et CHA à 10 au départ).
+- Les **Persona Status Bars** (barres d'état du persona), activées avec **Enable Persona Stats** (activer les caractéristiques du persona), suivent les besoins physiques et mentaux. Les barres de départ sont Satiety, Energy, Hygiene et Mood, chacune à 100 sur 100. Sous **Status Bars** (barres d'état), chaque barre a un nom, une valeur actuelle, un maximum et une couleur. Clique sur **Add** pour en créer une et sur le X pour en supprimer une.
+- **Enable RPG Attributes** (activer les attributs RPG) fonctionne comme sur une fiche de personnage. Il donne à ton persona des **Pools** (au départ HP et MP à 100 sur 100) et des **Attributes** (au départ STR, DEX, CON, INT, WIS et CHA à 10).
 
 <a id="game-mode-icon"></a>
 
 ### Icône de Game Mode
 
-Les deux onglets **Stats** ont un bloc **Game Mode Icon** (icône de Game Mode). Il définit l'image du pion rond de ce personnage ou de ce persona sur le plateau lors d'un combat en Game Mode. Le petit pion à côté des options montre ce qui sera affiché sur le plateau.
+Les deux onglets **Stats** ont un bloc **Game Mode Icon** (icône de Game Mode). Il définit l'image du pion rond de ce personnage ou de ce persona sur le plateau lors d'un combat en Game Mode. Un petit pion à côté des choix montre ce que le plateau affichera.
 
-- **Avatar** : l'option par défaut utilise l'avatar. Sans avatar, le pion affiche les initiales.
-- **Custom image** : utilise une image de la galerie de la fiche elle-même. Choisis l'une des images de galerie affichées ou téléverse une nouvelle image, qui sera ajoutée à la galerie. La fiche doit avoir été enregistrée une fois avant de pouvoir utiliser cette option.
-- **Initials** : affiche toujours les initiales, même quand il y a un avatar.
+- **Avatar** : c'est l'option par défaut. Elle utilise l'avatar, ou les initiales quand il n'y a pas d'avatar.
+- **Custom image** : utilise une image de la galerie de la fiche elle-même. Choisis l'une de celles qui y sont affichées, ou téléverses-en une nouvelle, qui est ajoutée à la galerie. Enregistre la fiche une fois avant d'utiliser cette option.
+- **Initials** : affiche toujours les initiales, même avec un avatar.
 
-La même image s'affiche aussi pour ce personnage dans les autres styles de combat. Si tu supprimes l'image choisie de la galerie, le bloc le signale ; choisis-en une autre ou reviens à **Avatar**.
+La même image s'affiche pour ce personnage dans les autres styles de combat. Si tu supprimes l'image choisie de la galerie, le bloc le signale. Choisis-en une autre ou reviens à **Avatar**.
 
 <a id="ruleset-sheets"></a>
 
 ### Fiches d'ensembles de règles
 
-Quand un ensemble de règles de Game Mode est installé, comme 5e (SRD 5.1), les deux onglets **Stats** gagnent un bloc **Ruleset sheets** (fiches d'ensembles de règles) sous les sections ci-dessus. Il contient une entrée dépliable par ensemble de règles installé. Le bloc apparaît aussi quand une fiche de personnage contient encore une fiche pour un ensemble de règles que tu n'as plus.
+Quand un ensemble de règles de Game Mode est installé, comme 5e (SRD 5.1), les deux onglets **Stats** gagnent un bloc **Ruleset sheets** (fiches d'ensembles de règles) sous les sections ci-dessus. Il contient une entrée dépliable par ensemble de règles installé. Il apparaît aussi quand une fiche de personnage contient encore une fiche pour un ensemble de règles que tu n'as plus.
+
+Une fiche d'ensemble de règles est la configuration de départ de ce personnage pour cet ensemble. Une nouvelle partie sur cet ensemble de règles en prend une copie. Les changements faits pendant une partie restent dans cette partie et ne reviennent jamais sur la fiche de personnage.
 
 1. Déplie l'entrée et clique sur **Add a sheet** (ajouter une fiche). Tu obtiens une fiche vierge dont chaque valeur est celle par défaut de l'ensemble de règles.
-2. Remplis-la. La disposition vient de l'ensemble de règles lui-même : les valeurs de caractéristiques avec leurs modificateurs, les champs regroupés par section, les listes comme les attaques et les sorts, et les compétences et sauvegardes, chacune avec un niveau d'entraînement et un bonus supplémentaire. Les valeurs calculées, comme un bonus de maîtrise ou la Perception passive, se mettent à jour pendant la saisie et ne sont pas modifiables.
+2. Remplis-la. La disposition vient de l'ensemble de règles : les valeurs de caractéristiques avec leurs modificateurs, les champs regroupés par section, les listes comme les attaques et les sorts, et les compétences et sauvegardes avec un niveau d'entraînement et un bonus supplémentaire. Les valeurs calculées, comme un bonus de maîtrise ou la Perception passive, se mettent à jour pendant la saisie et ne sont pas modifiables.
 3. Enregistre le personnage ou le persona comme d'habitude.
 
-Tu peux aussi demander à Professor Mari de remplir ou de modifier une fiche, par exemple "donne à Rook une valeur de Brawn de 2 et ajoute un pied-de-biche à son équipement". Elle écrit uniquement la fiche de cet ensemble de règles, respecte ses limites pour chaque valeur et affiche la modification dans un encart de modification.
+Tu peux aussi demander à Professor Mari de remplir ou de modifier une fiche, par exemple "donne à Rook une valeur de Brawn de 2 et ajoute un pied-de-biche à l'équipement de Rook". Elle écrit uniquement la fiche de cet ensemble de règles, garde chaque valeur dans les limites de l'ensemble de règles et affiche la modification dans un encart de modification.
 
-Une fiche ici est la **configuration de départ** de ce personnage pour cet ensemble de règles. Une nouvelle partie sur cet ensemble de règles en prend une copie. Les changements faits pendant une partie restent dans cette partie et ne reviennent jamais sur la fiche de personnage.
+Certains ensembles de règles fournissent des sorts, des attaques et des capacités tout prêts. Les listes qu'ils remplissent ont un bouton **Add from catalog** (ajouter depuis le catalogue) qui ouvre un sélecteur avec recherche. Les lignes qu'il ajoute sont des copies que tu peux modifier comme les autres.
 
-Certains ensembles de règles fournissent des sorts, des attaques et des capacités tout prêts. Les listes qu'ils remplissent ont un bouton **Add from catalog** (ajouter depuis le catalogue) qui ouvre un sélecteur avec recherche, et les lignes ajoutées sont des copies que tu peux modifier comme les autres. Il en découle deux choses :
+- Une cellule que l'ensemble de règles gère pour toi, comme des utilisations qui suivent une valeur de caractéristique ou une ressource de classe qui augmente avec le niveau, s'affiche à sa place mais ne peut pas être saisie. Elle porte la note "Set by the ruleset" et est recalculée chaque fois que tu modifies la fiche.
+- Quand le texte propre à l'ensemble de règles pour l'une de ces lignes a changé depuis que tu l'as choisie, une ligne sous la liste indique combien de lignes ont un texte plus récent, avec un bouton **Review** (examiner). L'examen montre chaque ligne avec ton texte à côté de celui de l'ensemble de règles, et une case à cocher par ligne. **Update selected** (mettre à jour la sélection) écrit uniquement les lignes cochées. Seul le texte est comparé. Les nombres, les interrupteurs et tout ce que tu as saisi dans une autre colonne restent intacts.
 
-- Une cellule que l'ensemble de règles gère pour toi, comme des utilisations qui suivent une valeur de caractéristique ou une ressource de classe qui augmente avec ton niveau, s'affiche à sa place mais ne peut pas être saisie, avec la note "Set by the ruleset". Elle est recalculée à partir du reste de la fiche à chaque modification.
-- Quand le texte propre à l'ensemble de règles pour l'une de ces lignes a changé depuis que tu l'as choisie, une ligne sous la liste indique combien de lignes ont un texte plus récent, avec un bouton **Review** (examiner). L'examen montre chaque ligne avec ce que contient ta fiche à côté de ce que dit l'ensemble de règles, et une case à cocher par ligne. **Update selected** (mettre à jour la sélection) écrit les lignes cochées et rien d'autre. Seul le texte est comparé : les nombres, les interrupteurs et tout ce que tu as saisi dans une autre colonne restent intacts, tout comme chaque ligne que tu décoches.
+Une fiche pour un ensemble de règles que tu n'as pas installé est conservée. Elle s'affiche sur une seule ligne avec un bouton **Remove** (retirer), n'est jamais envoyée à l'IA, redevient modifiable quand tu installes cet ensemble de règles et accompagne la fiche de personnage quand tu l'exportes. Une fiche pour un ensemble de règles installé que cette version ne sait pas lire, par exemple une fiche enregistrée par une version plus récente, est elle aussi conservée telle quelle. Son entrée ne propose que **Remove this sheet** (retirer cette fiche) : une nouvelle fiche ne peut donc jamais l'écraser par accident. Chaque fiche est limitée à 64 Ko.
 
-Une fiche pour un ensemble de règles que tu n'as pas installé est conservée, pas supprimée. Elle s'affiche sur une seule ligne avec un bouton **Remove** (retirer), elle n'est jamais envoyée à l'IA, et elle redevient modifiable quand tu installes cet ensemble de règles. Elle accompagne aussi la fiche de personnage quand tu l'exportes. Chaque fiche est limitée à 64 KB.
+Les fiches d'ensembles de règles sont indépendantes de **Enable RPG Stats** et de **Enable RPG Attributes**. Une partie sur les règles propres à Marinara les ignore. Une partie sur un ensemble de règles utilise la fiche à la place des Attributes ci-dessus pour ses tests.
 
-Une fiche pour un ensemble de règles installé que cette version de Marinara ne sait pas lire, par exemple une fiche enregistrée par une version plus récente, est elle aussi conservée telle quelle. Son entrée ne propose que **Remove this sheet** (retirer cette fiche) : ajouter une nouvelle fiche ne peut donc jamais l'écraser par accident.
+<a id="how-agents-update-your-stats"></a>
 
-Les fiches d'ensembles de règles sont indépendantes de **Enable RPG Stats** et de **Enable RPG Attributes**. Une partie qui utilise les règles propres à Marinara les ignore, et une partie sur un ensemble de règles les utilise à la place des Attributes ci-dessus pour ses tests.
+## Comment les agents mettent à jour tes caractéristiques
 
-## Comment les agents mettent à jour les caractéristiques
+L'onglet **Stats** définit l'état de départ du chat. Les agents ne mettent à jour que les valeurs gérées par les trackers.
 
-Les valeurs de l'onglet **Stats** deviennent l'état de départ du chat. Les agents peuvent mettre à jour les valeurs gérées par les trackers, décrites ci-dessous. Les **RPG Attributes** comme STR et DEX servent de contexte de fiche, et ne sont pas des valeurs de tracker gérées par les agents. Un agent est une IA qui travaille en parallèle du chat.
+| Valeur | Qui la modifie |
+| --- | --- |
+| Les **Pools** des personnages, comme les HP | L'agent **Character Tracker**, selon les combats, les soins et les événements de l'histoire. Il ne suit pas le persona du joueur. |
+| **Persona Status Bars** | L'agent **Persona Stats**, après chaque message. |
+| Les **RPG Attributes**, comme STR et DEX | Aucun agent. Ils sont envoyés avec la fiche pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. |
 
-- L'agent **Character Tracker** ajuste les caractéristiques suivies des personnages, y compris les Pools comme les HP, selon les combats, les soins et les événements de l'histoire. Il ne suit pas le persona du joueur.
-- L'agent **Persona Stats** ajuste tes **Persona Status Bars** après chaque message, selon ce qui se passe dans l'histoire.
-- Les **RPG Attributes** des personnages et du persona sont envoyés avec leur fiche pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. Les agents ne mettent pas à jour ces Attributes.
-
-Si tu n'actives pas l'agent tracker correspondant, les valeurs gérées par les trackers restent celles que tu as définies par défaut. À lui seul, l'onglet **Stats** ne met rien à jour. Voir le guide des agents intégrés pour activer ces agents.
+Si tu n'actives pas l'agent correspondant, les valeurs gérées par les trackers restent aux valeurs par défaut que tu as définies. À lui seul, l'onglet **Stats** ne met rien à jour en cours de partie. Pour activer ces agents, voir [Référence des agents téléchargeables](../agents/built-in-agents.md).
 
 ## Affichage des caractéristiques dans le HUD
 
-Quand les caractéristiques sont activées, elles apparaissent dans le widget HUD pendant le chat. HUD signifie heads-up display : un petit panneau qui affiche les valeurs en direct. Les barres s'affichent sous forme de dégradés colorés, lisibles d'un coup d'œil. Le guide du HUD détaille l'affichage complet, ainsi que la façon de le déplacer ou de le masquer.
+Les caractéristiques activées apparaissent dans le HUD pendant un chat. Le HUD est le petit panneau qui affiche tes valeurs en direct. Les barres s'affichent sous forme de dégradés à code couleur. Voir [HUD et trackers](../roleplay/hud-and-trackers.md) pour savoir comment le déplacer ou le masquer.
 
 ## Guides associés
 
 - [Créer et modifier des personnages](creating-and-editing-characters.md)
-- [Personas : création et modification](personas.md)
+- [Personas](personas.md)
 - [HUD et trackers](../roleplay/hud-and-trackers.md)
 - [Référence des agents téléchargeables](../agents/built-in-agents.md)

@@ -856,6 +856,8 @@ Experienceの手作業のマップは、ライブラリーの洞窟、地下墓�
 
 `props`は小道具スロット0から7ごとのエントリーで、説明しないスロットは`null`です。Game Masterには、単に手作業で作られたと伝える代わりに、「手作業で作られた場所(刈り株の残る地面、立ったトウモロコシの壁)で、雨水のたまる溝があり、中にはかかし(2)、トウモロコシ人形の祠がある」と伝えます。どちらも1.357を宣言するExperienceが必要です。
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359: ストーリーの数値を消費するアイテム
 
 オーバーレイは、使用時にExperienceのストーリーの数値フラグの1つを消費(または加算)するアイテムを指定できます。
@@ -1056,6 +1058,40 @@ export async function activate({ api }) {
 - `enterLabel`と`exitLabel`: 切り替えボタン用のローカライズされたアクセシブルなラベル。
 
 これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814: パッケージのプロンプトのうち変わらない部分をキャッシュする
+
+`api.runtime.languageModels`で文章を生成するパッケージは、プロンプトのうち毎回の呼び出しで同じになる部分がどこで終わるかを示せます。`chatComplete`に渡すメッセージに`cacheBreakpoint: true`を設定してください。そのメッセージまで(そのメッセージを含む)のプロンプトがキャッシュされるため、同じテキストで始まる以降の呼び出しでは、その部分の料金が安くなります。指示、キャラクターシート、これまでの物語を先頭に置いて呼び出しごとにバイト単位で同一に保ち、変化する内容は印を付けたメッセージの後に置いてください。
+
+- Anthropic: 接続のプロンプトキャッシュがオフでも、Engineは印を付けた各メッセージ(システムメッセージを含む)にキャッシュのブレークポイントを置き、独自のブレークポイントは追加しません。キャッシュは5分間、接続がより長いキャッシュ時間を求めている場合は1時間保持されます。キャッシュの書き込みには一度だけ入力料金より高い料金がかかり、読み取りはその数分の一の料金です。正確な料金はモデルによって異なるため、Anthropicのモデル料金を参照してください。Anthropicが受け付けるブレークポイントは最大4つです。印を付けたメッセージがそれより多い場合は、最後の4つが有効になります。テキストのないメッセージに印を付けると、代わりにその前のメッセージに印が付きます。モデルの最小長より短いプレフィックスはキャッシュされず、通常どおりの料金がかかります。
+- OpenAI、Gemini、xAI、DeepSeekは同一のプレフィックスを独自にキャッシュするため、印を付けても何も変わりません。
+- OpenRouterとカスタムのOpenAI互換エンドポイントは、まだこの印に対応していません。呼び出しは印がない場合と同じように送られるため、その経路で使うClaudeモデルはキャッシュされません。
+- Claude (Subscription): Agent SDKが独自にキャッシュし、印は送られません。接続のキャッシュ時間が適用されます。
+
+プロバイダーが報告する場合、`usage`は`cachedPromptTokens`(キャッシュから読み取った分)と`cacheWritePromptTokens`(キャッシュに書き込んだ分)を報告します。`promptTokens`は引き続きプロバイダーの方式で数えます。AnthropicとClaude (Subscription)では、これはキャッシュから読み取りも書き込みもされなかった入力だけです。そのためプロンプト全体は`promptTokens + cachedPromptTokens + cacheWritePromptTokens`となり、パッケージがプレフィックスに印を付けると、`promptTokens`はキャッシュされない末尾部分だけに減ります。OpenAI互換の経路(OpenRouterを含む)とGeminiは、キャッシュされたトークンをすでに`promptTokens`に含めているため、それらをさらに加えると二重に数えることになります。印を付けたメッセージのない呼び出しは変わりません。
+
+古いEngineはこのフィールドを無視するため、パッケージはいつでも設定できます。キャッシュやキャッシュの使用量に依存するパッケージは、1.814を宣言してください。
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815: 印を付けたプロンプトをキャッシュに残す時間を選ぶ
+
+`chatComplete`は`cacheTtl: "5m" | "1h"`を受け取ります。これは、その呼び出しの`cacheBreakpoint`メッセージ(1.814)までのプロンプトが、Anthropicでキャッシュに残る時間です。省略すると、これまでどおり接続自身のキャッシュ時間が適用されます。同じプレフィックスが5分を超える間隔を空けて再び使われる場合、たとえばプレイヤーが読んでいる間に各シーンが再利用する物語のコンテキストでは、`"1h"`を指定してください。1時間のキャッシュの書き込みは5分のものより高いため、その1時間のうちにプレフィックスが再び読まれる場合にだけ元が取れます。印を付けたメッセージのない呼び出しは、このオプションを無視します。独自にキャッシュするプロバイダー(OpenAI、Gemini、xAI、DeepSeek)と、接続のキャッシュ時間が適用されるClaude (Subscription)も同様です。
+
+古いEngineはこのオプションを無視するため、パッケージはいつでも渡せます。このオプションに依存するパッケージは、1.815を宣言してください。
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

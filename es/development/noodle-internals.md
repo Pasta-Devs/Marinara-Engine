@@ -1,6 +1,6 @@
 # Interioridades de los prompts de Noodle (para desarrolladores)
 
-Referencia para desarrolladores sobre dónde viven en el código los prompts de generación de Noodle, cómo personalizarlos y cómo depurar los prompts finales. Los usuarios finales configuran Noodle desde su panel de Settings (Configuración); consulta las guías de Noodle en `docs/noodle/`.
+Referencia para desarrolladores sobre dónde viven en el código los prompts de generación de Noodle, cómo personalizarlos y cómo depurar los prompts finales. Los usuarios finales configuran Noodle desde su panel de Settings (Configuración); consulta las guías de Noodle `docs/agents/noodle.md` y `docs/agents/noodle-settings.md`.
 
 Noodle es un paquete descargable. Sus rutas (`/api/noodle`, registradas cuando el paquete se activa) y su código de generación viven en el paquete Noodle de [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), en `packages/noodle/src/engine/packages/server/src/`. En la tabla de abajo, un origen marcado como **package** es relativo a esa carpeta. Engine conserva el esquema y los tipos compartidos de Noodle, el almacenamiento de Noodle, los overrides de prompt registrados que lista Settings y el texto predeterminado del prompt del timeline en `packages/server/src/services/noodle/noodle-prompt.ts`. El paquete conserva sus propias copias de `services/prompt-overrides/registry/noodle.ts` y `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ Los cambios en el código que pertenece al paquete se hacen y se validan en Mari
 
 ## Guías relacionadas
 
-- [Noodle: el timeline social dentro de la app](../noodle/overview.md)
-- [Ajustes de Noodle y traspaso del chat](../noodle/settings.md)
+- [Noodle: el timeline social dentro de la app](../agents/noodle.md)
+- [Ajustes de Noodle y traspaso del chat](../agents/noodle-settings.md)
 - [Paquetes opcionales de agentes y capacidades](optional-agent-packages.md)
 - [Mapa de arquitectura (para desarrolladores)](architecture-map.md)

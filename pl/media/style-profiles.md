@@ -1,35 +1,26 @@
 # Profile stylu obrazów
 
-Z tego przewodnika dowiesz się, jak działają profile stylu obrazów w aplikacji Marinara Engine. Profil stylu to wielokrotnego użytku "styl firmowy", który kształtuje każdy prompt obrazu, zanim Marinara wyśle go do dostawcy obrazów. Dzięki niemu awatary, portrety, selfie, tła, ilustracje i sprite'y wyglądają spójnie.
+Profil stylu to wielokrotnego użytku "styl firmowy", który kształtuje każdy prompt obrazu, zanim Marinara wyśle go do usługi generowania obrazów. Dzięki niemu awatary, portrety, selfie, tła, ilustracje i sprite'y wyglądają spójnie. Z tego przewodnika dowiesz się, jak wybrać, edytować i przetestować profil.
 
 ## Czym jest profil stylu
 
-Marinara Engine generuje wiele rodzajów obrazów: awatary postaci i persony, portrety, selfie w trybie Conversation, tła scen, ilustracje w scenie oraz sprite'y postaci. Każdy z tych obrazów zaczyna się od promptu, czyli tekstu, który Marinara wysyła do AI.
+Każdy wygenerowany obraz zaczyna się od promptu tekstowego: awatary, portrety, selfie w trybie Conversation, tła scen, ilustracje i sprite'y. Profil stylu to zapisany zestaw reguł, które Marinara dokłada do tego promptu. Może dodać słowa pozytywne (czego oczekujesz), słowa negatywne (czego chcesz uniknąć) oraz preferowany styl zapisu promptu. Jeden profil wybierasz jako domyślny dla całej aplikacji. Da się go nadpisać dla jednego czatu albo jednego modelu obrazów.
 
-Profil stylu to zapisany zestaw reguł, które Marinara dokłada do tego tekstu. Może dodać słowa pozytywne (czego oczekujesz), słowa negatywne (czego chcesz uniknąć) oraz preferowany styl zapisu promptu. W ten sposób wszystkie obrazy trzymają jeden wygląd i nie trzeba za każdym razem wpisywać tych samych słów opisujących styl.
-
-Jeden profil wybierasz jako domyślny dla całej aplikacji. Da się go nadpisać dla pojedynczego czatu albo pojedynczego połączenia obrazowego. Wszystko to opisujemy poniżej.
-
-Edytor znajdziesz w kilku krokach.
-
-1. Otwórz **Settings** (Ustawienia).
-2. Przejdź do zakładki **Generations**.
-3. Znajdź sekcję **Image Generation**.
-4. Przewiń do sekcji **Style Profiles**.
+Żeby znaleźć edytor, otwórz **Settings → Generations → Image Generation** (ustawienia, generowanie, generowanie obrazów) i przewiń do sekcji **Style Profiles** (profile stylu).
 
 ## Profile wbudowane
 
-Marinara Engine ma 10 wbudowanych profili stylu. Domyślny jest profil **Auto**. Każdy z nich można edytować, a profil wbudowany da się w każdej chwili przywrócić do pierwotnych wartości.
+Marinara ma 10 wbudowanych profili stylu. Domyślny jest profil **Auto**. Każdy z nich można edytować, a profil wbudowany da się w każdej chwili przywrócić do pierwotnych wartości.
 
-Kilka pojęć, które pojawiają się niżej:
+Pojęcia używane niżej:
 
-- SDXL to skrót od Stable Diffusion XL. To popularny otwarty model obrazów, który można uruchomić na własnym komputerze albo w chmurze.
-- Checkpoint to jeden plik wytrenowanego modelu obrazów. Ludzie pobierają różne checkpointy do różnych stylów graficznych. W tych profilach wymieniamy Illustrious, Pony i NovelAI.
-- Danbooru to duży serwis z obrazami anime. Jego krótkie tagi rozdzielone przecinkami (na przykład "1girl, long hair, smile") stały się popularnym sposobem promptowania modeli obrazów anime.
+- SDXL to Stable Diffusion XL, popularny otwarty model obrazów, który można uruchomić na własnym komputerze albo przez usługę w chmurze.
+- Checkpoint to jeden plik wytrenowanego modelu obrazów. Wymienione tu przykłady to Illustrious, Pony i NovelAI.
+- Danbooru to duży serwis z obrazami anime. Jego krótkie tagi rozdzielone przecinkami, na przykład "1girl, long hair, smile", stały się popularnym sposobem promptowania modeli obrazów anime.
 
 Oto profile wbudowane:
 
-- **Off**: nie dokłada żadnego stylu. Prompt jedzie do dostawcy niemal dokładnie tak, jak został wpisany.
+- **Off**: nie dokłada żadnego stylu. Prompt trafia do usługi niemal dokładnie tak, jak został wpisany.
 - **Auto**: wnioskuje spójny wygląd z postaci, gry, sceny i wybranego modelu obrazów. To profil domyślny.
 - **Anime**: ogólne tagi w stylu anime do czystej grafiki postaci.
 - **Danbooru / Illustrious**: tagi w stylu Danbooru pod checkpointy anime SDXL, takie jak Illustrious, Pony i NovelAI.
@@ -42,17 +33,17 @@ Oto profile wbudowane:
 
 ## Zmiana stylu globalnego
 
-Domyślny profil globalny obowiązuje dla każdego generowanego obrazu, chyba że nadpisze go czat albo połączenie. Zmienisz go w kilku krokach.
+Profil domyślny obowiązuje dla każdego obrazu, chyba że nadpisze go czat albo model obrazów.
 
-1. Otwórz **Settings**, potem zakładkę **Generations**, dalej sekcję **Image Generation** i sekcję **Style Profiles**.
-2. Rozwiń listę rozwijaną **Default style**.
-3. Wskaż profil, który ma obowiązywać w całej aplikacji.
+1. Otwórz **Settings → Generations → Image Generation → Style Profiles**.
+2. Rozwiń listę **Default style** (styl domyślny).
+3. Wybierz profil.
 
-Wybór zapisuje się od razu. Nowe obrazy korzystają już ze wskazanego profilu.
+Wybór zapisuje się od razu, a nowe obrazy już z niego korzystają.
 
 ## Kopiowanie i dostosowywanie profilu
 
-Profil wbudowany da się edytować na miejscu, ale przycisk **Clone** pozwala zachować oryginał i zbudować własną wersję. Oto, co trzeba zrobić, żeby stworzyć i dostosować profil.
+Profil wbudowany da się edytować na miejscu albo użyć przycisku **Clone**, żeby zachować oryginał i zbudować własny.
 
 1. Rozwiń listę rozwijaną **Editing** i wskaż profil najbliższy temu, o co ci chodzi.
 2. Kliknij przycisk **Clone**. Marinara tworzy kopię, otwiera ją do edycji i od razu ustawia ją jako domyślny styl całej aplikacji.
@@ -70,7 +61,7 @@ W zarządzaniu profilami pomagają dwa przyciski:
 
 ## Tryby zapisu promptu
 
-Lista rozwijana **Prompt grammar** mówi aplikacji Marinara Engine, w jakiej formie model obrazów najlepiej czyta prompt. Wybierz tryb pasujący do twojego modelu obrazów. Tryby są cztery.
+**Prompt grammar** mówi aplikacji Marinara Engine, w jakiej formie model obrazów najlepiej czyta prompt. Wybierz tryb pasujący do twojego modelu.
 
 - **Hybrid**: mieszanka zdań i tagów. Bezpieczny wybór ogólny.
 - **Danbooru tags**: krótkie tagi w stylu Danbooru, rozdzielone przecinkami. Najlepsze do checkpointów anime SDXL, takich jak Illustrious, Pony i NovelAI.
@@ -79,7 +70,7 @@ Lista rozwijana **Prompt grammar** mówi aplikacji Marinara Engine, w jakiej for
 
 ## Sekcja Test bench
 
-Sekcja **Test bench** (stół testowy) pokazuje dokładnie to, co wysłałaby Marinara, bez generowania prawdziwego obrazu. Otwórz ją w edytorze Style Profiles. Oto, jak z niej korzystać.
+Sekcja **Test bench** (stół testowy) w edytorze Style Profiles pokazuje dokładnie to, co wysłałaby Marinara, bez tworzenia prawdziwego obrazu.
 
 1. Wybierz opcję w polu **Image kind** (na przykład portret albo tło).
 2. Wpisz zgrubny prompt w polu **Sample input**.
@@ -89,12 +80,12 @@ Sekcja Test bench pokazuje też krótką notatkę o czyszczeniu. Kiedy nic się 
 
 ## Jak Marinara czyści prompt
 
-Zanim jakiekolwiek żądanie obrazu opuści aplikację, Marinara składa prompt razem z aktywnym profilem. Kompilator robi kilka rzeczy:
+Zanim jakiekolwiek żądanie obrazu opuści aplikację, Marinara składa prompt razem z aktywnym profilem. Kompilator:
 
-- Usuwa tagi bliskie duplikatom, na przykład powtórzony tag jakości.
-- Przenosi proste zwroty przeczące (jak "avoid text" czy "no watermark") do promptu negatywnego.
-- Zachowuje twoje własne sformułowania w obrazach typu tło, ilustracja i selfie. W portretach, awatarach i sprite'ach skraca je do krótkich tagów wizualnych, które rozpoznaje.
-- Dokłada tagi profilu przypisane do danego rodzaju obrazu.
+- usuwa tagi bliskie duplikatom, na przykład powtórzony tag jakości;
+- przenosi proste zwroty przeczące, takie jak "avoid text" czy "no watermark", do promptu negatywnego;
+- zachowuje twoje własne sformułowania w obrazach typu tło, ilustracja i selfie, ale w portretach, awatarach i sprite'ach skraca twoje słowa do krótkich tagów wizualnych, które rozpoznaje;
+- oraz dokłada tagi profilu przypisane do rodzaju tworzonego obrazu.
 
 ## Przykład przed i po
 
@@ -120,13 +111,13 @@ Jeśli w portretach, awatarach albo sprite'ach znikają słowa opisujące temat 
 
 ## Kolejność ważności: czat, połączenie, potem ustawienie globalne
 
-Marinara może wziąć profil stylu z trzech miejsc. Wygrywa wybór najbardziej szczegółowy. Kolejność jest taka:
+Marinara może wziąć profil stylu z trzech miejsc. Wygrywa wybór najbardziej szczegółowy.
 
-1. Profil wskazany wprost dla bieżącego czatu albo bieżącej gry.
-2. Profil ustawiony w polu **Style Profile** na połączeniu obrazowym (w sekcji **Local Image Defaults** w edytorze połączenia).
-3. Globalny profil z listy **Default style** ustawionej w sekcji **Settings**.
+1. Profil wybrany dla bieżącego czatu albo bieżącej gry.
+2. Profil stylu ustawiony w modelu obrazów, w sekcji **Local image defaults** (domyślne ustawienia obrazów lokalnych) jego edytora.
+3. Globalne ustawienie **Default style** w **Settings**.
 
-Sekcja **Local Image Defaults** pojawia się wyłącznie przy lokalnych połączeniach Stable Diffusion (AUTOMATIC1111 / SD Web UI, ComfyUI i NovelAI). U każdego innego dostawcy wybór spada od razu do globalnego ustawienia **Default style**. Żeby ustawić profil dla konkretnego połączenia, otwórz to połączenie, rozwiń sekcję **Local Image Defaults** i wskaż profil na liście rozwijanej **Style Profile**. Zostaw ją na **Use global default**, żeby trzymać się wyboru globalnego. Kiedy Marinara potrafi zgadnąć dobry profil na podstawie nazwy modelu z połączenia, pokazuje przycisk **Use ...**, który stosuje ten profil jednym kliknięciem.
+Sekcja **Local image defaults** pojawia się wyłącznie przy usługach AUTOMATIC1111 / SD Web UI, ComfyUI i NovelAI. Przy każdej innej usłudze wybór spada do globalnego ustawienia **Default style**. Żeby ustawić profil dla konkretnego modelu, otwórz model obrazów, rozwiń sekcję **Local image defaults** i wybierz profil na liście profili stylu. Zostaw na niej **Use global default** (użyj ustawienia globalnego), żeby trzymać się wyboru globalnego. Kiedy Marinara potrafi zgadnąć dobry profil na podstawie nazwy modelu, pokazuje przycisk "Use ...", który stosuje go jednym kliknięciem.
 
 ## Powiązane przewodniki
 

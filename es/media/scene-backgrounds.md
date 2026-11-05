@@ -1,6 +1,6 @@
 # Fondos de escena y la galería
 
-Esta guía cubre los fondos de escena generados por IA, las imágenes de fondo que Marinara Engine crea para ti desde la **Gallery** (Galería), y la propia galería. Existen dos guías relacionadas: [Fondos de chat](../appearance/chat-backgrounds.md) cubre la biblioteca de subidas elegidas a mano, y [Fondos de roleplay](../roleplay/backgrounds.md) cubre el agente que elige un fondo automáticamente en cada turno.
+Los fondos de escena generados por IA son imágenes de fondo que Marinara Engine crea desde la **Gallery** (Galería). Esta guía muestra cómo crear uno, qué guarda la galería y cómo volver a dibujar o revisar una imagen. Para la biblioteca de subidas elegidas a mano, consulta [Fondos de chat](../appearance/chat-backgrounds.md). Para el agente que elige un fondo en cada turno, consulta [Fondos de roleplay](../roleplay/backgrounds.md).
 
 ## Dónde funcionan los fondos de escena
 
@@ -10,11 +10,11 @@ Los fondos de escena funcionan en los modos Roleplay y Game. No están disponibl
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-Para generar un fondo necesitas una conexión de **Image Generation** (Generación de imágenes). Configura una primero si aún no lo has hecho. Consulta [Proveedores de generación de imágenes y configuración](image-providers.md).
+Antes de empezar: necesitas un modelo de imagen. Configura uno primero si aún no lo has hecho. Consulta [Proveedores de generación de imágenes y configuración](image-providers.md).
 
 ## Generar y aplicar un fondo desde la galería
 
-La **Gallery** guarda las imágenes y los videos del chat. Es una sección de **Chat Settings**: abre Chat Settings y despliega Gallery. En una computadora puedes sacarla a su propia ventana; consulta [Vista general de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window). El botón **Background** (Fondo) genera el fondo de la escena actual.
+La **Gallery** guarda las imágenes y los videos del chat. Es una sección de **Chat Settings** (Ajustes del chat). En una computadora puedes sacarla a su propia ventana (consulta [Vista general de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Su botón **Background** (Fondo) crea el fondo de la escena actual.
 
 En Roleplay, el botón **Background** aparece en cuanto el agente **Illustrator** está instalado. No necesitas añadirlo al chat ni activar los agentes. Igual que **Illustrate** (Ilustrar), se ejecuta una vez y no inicia ejecuciones automáticas.
 
@@ -23,20 +23,18 @@ Para generar un fondo:
 1. Abre la sección **Gallery** de **Chat Settings**.
 2. Haz clic en el botón **Background**.
 3. La etiqueta del botón cambia a **Generating...** mientras se crea la imagen.
-4. Deberías ver este mensaje de estado: "AI background generation is running. The new background will be applied when it finishes."
-5. Cuando termina, la nueva imagen se aplica a la escena actual de inmediato. Un mensaje "Background generated." lo confirma.
+4. Un mensaje de estado dice "AI background generation is running. The new background will be applied when it finishes."
+5. Cuando termina, la nueva imagen se aplica a la escena actual de inmediato, y "Background generated." lo confirma.
 
 El fondo se construye a partir de tu escena actual. En un juego, esto incluye el género, el escenario, la ubicación, el clima y la hora del día. Los fondos generados usan el tamaño de lienzo **Backgrounds**, que es de 1280 por 720 píxeles de forma predeterminada. Puedes cambiar ese tamaño en **Settings** (Configuración), luego **Generations**, luego **Image Generation**.
 
-### Si no hay ninguna conexión de imagen configurada
-
-Si Marinara no puede encontrar una conexión de imagen para usar, el paso de generación falla con este mensaje:
+Si no funcionó: si Marinara no encuentra ningún modelo de imagen para usar, el paso falla con este mensaje:
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-Para solucionarlo, abre el panel **Connections** (Conexiones), expande **Defaults**, y elige una conexión de imagen en **Images**, o define una conexión de imagen personalizada en el agente **Illustrator**.
+Para solucionarlo, establece la tarea **Images** (Imágenes) en **Defaults** (Valores predeterminados) del panel **Connections** (Conexiones), o dale al agente **Illustrator** su propio modelo de imagen.
 
 ## La sección Gallery
 
@@ -56,7 +54,7 @@ Debajo de los botones está la zona de arrastre **Upload Images** (Subir imágen
 
 ### Acciones por imagen
 
-Mueve el cursor sobre cualquier imagen en la pestaña **Images**, o tócala en el teléfono o la tableta, para revelar sus acciones:
+Mueve el cursor sobre una imagen en la pestaña **Images**, o tócala en el teléfono, para ver sus acciones:
 
 - Abre la imagen a tamaño completo (**Open gallery image**).
 - **Pin to chat**: fija la imagen al chat como una imagen flotante. Arrástrala para moverla y usa el tirador de su esquina para cambiar su tamaño. Conserva su lugar y su tamaño cuando recargas la página en este navegador. El botón de candado junto al botón de descartar impide que se mueva o cambie de tamaño hasta que la desbloquees.
@@ -73,14 +71,14 @@ Puedes volver a crear una imagen generada sin regenerar la respuesta a la que pe
 
 1. Abre la imagen a tamaño completo, desde la Gallery o desde el mensaje en el que está.
 2. Haz clic en **Regenerate image** (Regenerar imagen; el botón de flecha circular en la parte superior derecha de la imagen).
-3. Cambia lo que quieras en los cuadros debajo de la imagen: **Prompt**, **Negative prompt** (Prompt negativo), un cuadro para cada personaje en **Character prompts** (Prompts de personajes) cuando la imagen los tenía, y la **Image connection** (Conexión de imagen).
+3. Cambia lo que quieras en los cuadros debajo de la imagen: **Prompt**, **Negative prompt** (Prompt negativo), un cuadro para cada personaje en **Character prompts** (Prompts de personajes) cuando la imagen los tenía, y el modelo de imagen.
 4. Haz clic en **Generate image** (Generar imagen), o en **Cancel** (Cancelar) para dejar la imagen como está.
 
 La imagen nueva reemplaza a la anterior en el mensaje. La anterior se queda en la Gallery, así que puedes volver a fijarla. Las imágenes de referencia se vuelven a enviar a partir de los avatares actuales de los personajes. Algunas imágenes antiguas no guardaron su prompt negativo ni sus prompts de personaje; el editor lo indica cuando es así.
 
 ## Revisar un prompt antes de enviarlo
 
-Puedes comprobar y editar el prompt antes de que Marinara envíe una petición de fondo a tu proveedor de imágenes.
+Puedes comprobar y editar el prompt antes de que Marinara envíe una petición de fondo a tu servicio de imágenes.
 
 1. Abre **Settings**, luego **Generations**, luego **Overall Generations** (Generaciones generales).
 2. Activa **Expose media prompts before sending**.
@@ -108,5 +106,5 @@ Gestionas esta biblioteca y defines un fondo por chat o predeterminado desde los
 - [Fondos de chat](../appearance/chat-backgrounds.md): la biblioteca de subidas de la que eliges a mano.
 - [Fondos de roleplay](../roleplay/backgrounds.md): el agente que elige un fondo automáticamente en cada turno.
 - [Agente Illustrator](illustrator-agent.md): ilustraciones de escena para los modos Roleplay y Game.
-- [Proveedores de generación de imágenes y configuración](image-providers.md): configura una conexión de imagen.
+- [Proveedores de generación de imágenes y configuración](image-providers.md): configura un modelo de imagen.
 - [Generación de videos de escena](scene-video.md): convierte una imagen de la galería en un video.

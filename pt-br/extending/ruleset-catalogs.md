@@ -1,8 +1,8 @@
 # Catálogos de conjuntos de regras
 
-Esta página faz parte de [Escrever conjuntos de regras de Game Mode](writing-rulesets.md). Entradas prontas que o editor de fichas oferece num seletor: o cabeçalho do catálogo, entradas, valores que o conjunto de regras mantém, comandos de ficha e o comando de uso.
+Use esta página para distribuir entradas prontas (magias, equipamento, características de classe) que o editor de fichas oferece num seletor, para que os jogadores não precisem digitar listas longas à mão. Ela cobre o cabeçalho do catálogo, entradas, valores que o conjunto de regras mantém, comandos de ficha e o comando de uso. Ela é para autores de conjuntos de regras. Antes de começar, leia [Escrever conjuntos de regras de Game Mode](writing-rulesets.md).
 
-Digitar uma lista de magias, tabela de equipamento ou página de características linha por linha é cansativo. Um catálogo é uma coleção nomeada de entradas prontas distribuída com o conjunto. O editor as oferece num seletor em cada lista alimentada pelo catálogo; escolher uma preenche a linha.
+Digitar uma lista longa de magias ou uma tabela de equipamento linha por linha é lento. Um catálogo é uma coleção nomeada de entradas prontas distribuída com o conjunto. O editor as oferece num seletor em cada lista alimentada pelo catálogo; escolher uma preenche a linha.
 
 Catálogos são opcionais. Um conjunto pode ter até doze; o Engine não conhece o assunto deles: cada ID, coluna, filtro e palavra vem do arquivo.
 
@@ -106,11 +106,11 @@ A cópia pertence ao personagem. O jogador pode editá-la, a ficha continua func
 
 ## Atualizar a partir do conjunto
 
-Graças à marca, o editor pode avisar quando seu texto novo difere da linha. Uma mensagem curta sob a lista informa quantas linhas têm texto novo; **Review** (Revisar) mostra o conteúdo da ficha ao lado do conjunto, com uma caixa por linha. Nada é escrito antes de **Update selected** (Atualizar selecionadas); só as colunas diferentes das linhas marcadas mudam. Todo o restante é preservado, inclusive a marca.
+Graças à marca, o editor pode avisar quando seu texto novo difere da linha. Uma mensagem curta sob a lista informa quantas linhas têm texto novo; **Review** (revisar) mostra o conteúdo da ficha ao lado do conjunto, com uma caixa por linha. Nada é escrito antes de **Update selected** (atualizar as selecionadas); só as colunas diferentes das linhas marcadas mudam. Todo o restante é preservado, inclusive a marca.
 
 A comparação é deliberadamente restrita:
 
-- Valores existentes só são comparados em colunas `text`, `longtext`, `dice` e `enum`. Valores `number` e `boolean` pertencem ao jogador e são preservados, inclusive 0 e false. Uma coluna ainda ausente pode ser oferecida com seu valor tipado, incluindo números e interruptores. Uma coluna escalada é excluída porque já acompanha a ficha.
+- Valores existentes só são comparados em colunas `text`, `longtext`, `dice` e `enum`. Valores `number` e `boolean` pertencem ao jogador e são preservados, inclusive 0 e false. Uma coluna ainda ausente pode ser oferecida com seu valor tipado, incluindo números e botões liga/desliga. Uma coluna escalada é excluída porque já acompanha a ficha.
 - Só as colunas definidas pela entrada são comparadas. Uma coluna omitida nunca é tocada, qualquer que seja seu conteúdo.
 - Um valor recusado pela própria coluna, como um `enum` retirado ou texto acima de `maxLength`, é ignorado em vez de escrito.
 - A linha corresponde à de origem pela posição entre as linhas com a mesma marca naquela lista, enquanto a ficha mantiver tantas linhas quanto a entrada escreve. Caso contrário, só funciona se a entrada escrever uma única linha nessa lista. Se o jogador excluir uma de duas linhas, a entrada fica intacta em vez de ser adivinhada.
@@ -205,4 +205,4 @@ O caminho sempre é `catalogs/<the catalog's id>.json`. O arquivo tem este forma
 
 Arquivos de catálogo separados vêm num pacote: um publicado pelo catálogo oficial ou um arquivo de pacote de conjunto que você mesmo importa (veja [Compartilhar seu conjunto de regras](writing-rulesets.md#sharing-your-ruleset)). O pacote os lista em `contributions.assets.paths` junto a `ruleset.json` e precisa de Capability API 1.21. Um catálogo de criaturas, incluído ou separado, precisa de Capability API 1.27, e um catálogo de itens precisa de 1.49. **Um conjunto importado como arquivo único ou compartilhado pelo GitHub contém os catálogos dentro do arquivo**, então precisam caber no limite total de 512 KB. Isso comporta algumas centenas de entradas curtas.
 
-Os limites são doze catálogos por conjunto, 2000 entradas por catálogo em ambos os formatos e 2 MB por arquivo de catálogo. Um pacote cujo `ruleset.json` passa de 256 KB, ou com um arquivo de catálogo acima de 1 MB, precisa de Capability API 1.340, que aumentou os dois limites.
+Os limites são 12 catálogos por conjunto, 2000 entradas por catálogo em ambos os formatos e 2 MB por arquivo de catálogo. Um pacote cujo `ruleset.json` passa de 256 KB, ou com um arquivo de catálogo acima de 1 MB, precisa de Capability API 1.340, que aumentou os dois limites.

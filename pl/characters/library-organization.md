@@ -1,131 +1,110 @@
 # Porządkowanie biblioteki postaci
 
-Ten przewodnik opisuje panel **Characters** (Postacie) – pasek boczny, w którym mieszkają wszystkie postacie. Zobaczysz, jak szukać, sortować, grupować postacie w foldery, oznaczać ulubione, filtrować po tagach oraz eksportować i usuwać wiele postaci naraz.
+Panel **Characters** (postacie) to lista na pasku bocznym ze wszystkimi postaciami, które utworzono lub zaimportowano. Służy do wyszukiwania, sortowania, grupowania postaci w foldery, oznaczania ulubionych, filtrowania po tagach oraz eksportowania i usuwania wielu postaci naraz.
 
 ## Panel Characters
 
-Panel **Characters** to lista postaci w panelu bocznym. Trzyma każdą postać utworzoną lub zaimportowaną w aplikacji Marinara Engine. Z górnej części panelu da się:
+Z górnej części panelu możesz:
 
-- Kliknąć przycisk **Download** (pobranie), żeby otworzyć [Card Browser](bot-browser.md) i znaleźć postacie w publicznych serwisach.
-- Kliknąć przycisk **Open Library** (otwarcie biblioteki), żeby zobaczyć te same postacie w większym widoku siatki na całą stronę.
-- Kliknąć przycisk **New** (ikona plusa), żeby otworzyć okno **Create Character** (tworzenie postaci).
-- Kliknąć przycisk **Import** (ikona pobierania), żeby zaimportować plik postaci.
-- Kliknąć przycisk **Select** (zaznaczanie), czyli ikonę ptaszka, żeby włączyć tryb wielokrotnego zaznaczania i działać na wielu postaciach naraz.
+- Kliknąć **Download** (pobranie), żeby otworzyć [Card Browser](bot-browser.md) i znaleźć postacie w publicznych serwisach.
+- Kliknąć **Open Library** (otwarcie biblioteki), żeby otworzyć większą, pełnoekranową siatkę tych samych postaci.
+- Kliknąć **New** (nowa, ikona plusa), żeby otworzyć okno **Create Character** (tworzenie postaci).
+- Kliknąć **Import** (import, ikona pobierania), żeby zaimportować plik postaci. Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+- Kliknąć **Select** (zaznaczanie, ikona ptaszka), żeby włączyć tryb zaznaczania do działań zbiorczych.
 
-Pełna biblioteka używa koloru tekstu chroma wybranego w sekcji **Settings** (Ustawienia). Zapamiętuje też zaznaczoną kartę postaci, kolejność sortowania i pozycję przewijania, więc po otwarciu postaci do edycji i powrocie wszystko jest na swoim miejscu.
+Pełna biblioteka zapamiętuje zaznaczoną kartę, kolejność sortowania i pozycję przewijania, gdy otwierasz postać do edycji i wracasz.
 
-Każdy wiersz postaci pokazuje awatar, nazwę, opcjonalną linię z tytułem, autora i wersję, do 3 tagów oraz przybliżoną liczbę tokenów. Mała gwiazdka oznacza ulubioną postać. Po najechaniu na wiersz pojawiają się przyciski **Duplicate** (duplikowanie) i **Delete** (usuwanie).
+Każdy wiersz pokazuje awatar, nazwę, opcjonalną linię z tytułem, autora i wersję, do 3 tagów oraz przybliżoną liczbę tokenów. Mała plakietka z gwiazdką oznacza ulubioną postać. Po najechaniu na wiersz pojawiają się **Duplicate** (duplikowanie) i **Delete** (usuwanie). Przy dużej liczbie postaci kliknij **Load more** (wczytanie kolejnych) na dole, żeby wczytać następną stronę.
 
-Przy dużej liczbie postaci na dole pojawia się przycisk **Load more** (wczytanie kolejnych). Kliknij go, żeby wczytać następną stronę postaci.
+<a id="search"></a>
 
 ## Wyszukiwanie
 
-Wpisz tekst w pole wyszukiwania na górze panelu, żeby przefiltrować listę. Tekst zastępczy brzmi **Search characters/tags** (szukaj postaci/tagów).
+Wpisz tekst w pole wyszukiwania na górze. Tekst zastępczy brzmi **Search characters/tags** (szukaj postaci/tagów). Zwykły tekst jest porównywany z nazwą postaci, tytułem, opisem i tagami, bez rozróżniania wielkości liter. Po wpisaniu `knight` zobaczysz każdą postać, która ma "knight" w którymkolwiek z tych miejsc.
 
-Zwykły tekst porównywany jest z nazwą postaci, tytułem, opisem i tagami. Po wpisaniu `knight` zobaczysz każdą postać, która ma "knight" w którymkolwiek z tych pól.
+| Zapytanie | Co znajduje |
+| --- | --- |
+| `male genshin` albo `male,genshin` | Karty, które mają oba dokładne tagi. |
+| `male "Modern AU"` | Tag ze spacjami lub przecinkami ujmij w cudzysłów. |
+| `-tag:"slow burn"` | Ukrywa każdą kartę z tym tagiem, nawet jeśli reszta zapytania do niej pasuje. |
+| `-vampire` | To samo dla tagu jednowyrazowego. Cudzysłowy można pominąć. |
+| `mage -tag:"villain"` | Karty pasujące do "mage", bez tych z tagiem "villain". |
 
-Aby wyszukać kilka tagów naraz, rozdziel je spacjami lub przecinkami: `male genshin` albo `male,genshin` znajduje karty z oboma dokładnymi tagami. Tag zawierający spacje lub przecinki ujmij w cudzysłów, na przykład `male "Modern AU"`. Wyszukiwanie nie rozróżnia wielkości liter. Zwykłe wyszukiwanie fraz nadal działa, więc karta może też pasować dzięki pełnej frazie w nazwie lub tekście. Ten sam sposób wyszukiwania działa w **Character Library** (bibliotece postaci) otwieranej na całej stronie i dla person.
-
-Da się też ukryć postacie z określonym tagiem. Postaw przed tagiem znak minus:
-
-```
--tag:"tag name"
-```
-
-O wykluczaniu tagów warto wiedzieć kilka rzeczy:
-
-- Gdy tag zawiera spację, użyj cudzysłowów, na przykład `-tag:"slow burn"`.
-- Przy tagu jednowyrazowym cudzysłowy można pominąć, na przykład `-vampire`.
-- Wykluczenie tagu ukrywa każdą postać z tym tagiem, nawet jeśli reszta wpisanego tekstu do niej pasuje.
-
-Zwykły tekst i wykluczenie można łączyć w jednym polu. Zapytanie `mage -tag:"villain"` znajduje postacie pasujące do "mage" i jednocześnie ukrywa te z tagiem "villain".
+Zwykłe wyszukiwanie fraz nadal działa. Ten sam sposób wyszukiwania działa w pełnoekranowej bibliotece Character Library i dla person.
 
 ## Sortowanie
 
-Obok pola wyszukiwania jest lista rozwijana sortowania. Wybierz jedną z kolejności:
+Wybierz kolejność na liście rozwijanej sortowania obok pola wyszukiwania.
 
-| Opcja         | Działanie                              |
-| ------------- | -------------------------------------- |
-| **Manual order** | Kolejność ustawiona przez ciebie.   |
-| **A-Z**       | Nazwy od A do Z.                       |
-| **Z-A**       | Nazwy od Z do A.                       |
-| **Newest**    | Najpierw ostatnio utworzone.           |
-| **Oldest**    | Najpierw najstarsze.                   |
-| **Favorites** | Najpierw ulubione, potem cała reszta.  |
+| Opcja | Działanie |
+| --- | --- |
+| **Manual order** | Kolejność ustawiona przez ciebie. |
+| **A-Z** | Nazwy od A do Z. |
+| **Z-A** | Nazwy od Z do A. |
+| **Newest** | Najpierw ostatnio utworzone. |
+| **Oldest** | Najpierw najstarsze. |
+| **Favorites** | Najpierw ulubione, potem cała reszta. |
 
-Żeby ustawić własną kolejność, przeciągnij wiersz postaci w górę lub w dół. Możesz też nacisnąć Alt+strzałka w górę albo Alt+strzałka w dół na wierszu, który ma fokus. Każdy z tych sposobów przełącza sortowanie na **Manual order** (kolejność ręczna).
+Żeby ustawić własną kolejność, przeciągnij wiersz w górę lub w dół albo naciśnij <kbd>Alt</kbd>+<kbd>Up</kbd> lub <kbd>Alt</kbd>+<kbd>Down</kbd> na wierszu, który ma fokus. Każdy z tych sposobów przełącza sortowanie na **Manual order** (kolejność ręczna).
 
 ## Foldery
 
-Dzięki folderom pokrewne postacie da się zgrupować wewnątrz panelu. Foldery są opcjonalne. Wszystkie postacie mogą też cały czas leżeć na jednej płaskiej liście.
+Foldery grupują pokrewne postacie, na przykład według historii albo serii, dzięki czemu długą listę łatwiej przejrzeć. Są opcjonalne.
 
-Tworzenie folderu:
+1. Kliknij **New Folder** (nowy folder). Pojawia się folder o nazwie **unnamed**.
+2. Zmień jego nazwę: kliknij go dwukrotnie, dotknij go dwukrotnie albo zaznacz go i naciśnij <kbd>F2</kbd>. Wpisz nową nazwę i naciśnij <kbd>Enter</kbd>.
+3. Przeciągnij wiersz postaci na folder, żeby umieścić ją w środku. Gdy masz już folder, wyświetla się wskazówka **Drag and drop characters to folders, double-click or double-tap to rename**.
 
-1. Kliknij przycisk **New Folder** (nowy folder).
-2. Pojawia się nowy folder o domyślnej nazwie **unnamed**.
-3. Zmień jego nazwę od razu albo później (patrz niżej).
+Żeby wyjąć postać z folderu, najedź na jej wiersz wewnątrz folderu i kliknij przycisk usuwania z folderu albo przeciągnij ją na zewnątrz. Kliknięcie folderu rozwija go lub zwija. Liczba obok jego nazwy mówi, ile postaci jest w środku.
 
-Żeby zmienić nazwę folderu, kliknij go dwukrotnie, dotknij go dwukrotnie albo zaznacz go i naciśnij klawisz F2. Wpisz nową nazwę i naciśnij Enter.
+Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść, a potem przeciągnij. Zwykłe przesunięcie palcem nadal przewija listę.
 
-Żeby umieścić postać w folderze, przeciągnij wiersz postaci i upuść go na folderze. Gdy istnieje przynajmniej jeden folder, wyświetla się podpowiedź **Drag and drop characters to folders, double-click or double-tap to rename**. Żeby wyjąć postać z folderu, najedź na jej wiersz wewnątrz folderu i kliknij przycisk usuwania z folderu albo po prostu przeciągnij ją na zewnątrz.
+Żeby przenieść kilka postaci naraz, przytrzymaj jeden wiersz i stuknij drugim palcem inne wiersze, żeby zabrać je razem jako stos. Potem upuść stos na folder.
 
-Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść, a potem go przeciągnij. Zwykłe przesunięcie palcem nadal przewija listę. Trzymając jeden wiersz, stuknij drugim palcem inne wiersze, żeby zabrać je razem jako stos, a potem upuść stos na folder.
+Żeby usunąć folder, najedź na niego i kliknij jego przycisk kosza. Folder z postaciami prosi o potwierdzenie: **Delete "name"? Its N characters will stay in the library and move out of the folder.** Pusty folder znika od razu. Usunięcie folderu nigdy nie usuwa postaci, które są w środku.
 
-Kliknięcie folderu rozwija go lub zwija. Liczba obok nazwy folderu mówi, ile postaci jest w środku.
+### Folder jako skład czatu grupowego
 
-Żeby usunąć folder, najedź na niego i kliknij przycisk kosza. Jeśli w folderze są postacie, pojawia się prośba o potwierdzenie: **Delete "name"? Its N characters will stay in the library and move out of the folder.** Pusty folder znika od razu, bez pytania. Usunięcie folderu nigdy nie usuwa postaci ze środka. Wracają one po prostu na główną listę.
+Każdy folder jest też zapisanym składem postaci do czatów grupowych. Podczas przygotowywania czatu z więcej niż jedną postacią **Add from Folder** (dodanie z folderu) dodaje wszystkie postacie z folderu w jednym kroku. Zobacz [Czaty grupowe w trybach Conversation i Roleplay](../chats/group-chats.md).
 
-## Ulubione i kafelki tagów
+## Ulubione i tagi
 
 ### Ulubione
 
-Oznaczenie postaci jako ulubionej ułatwia późniejsze jej odnalezienie. Gwiazdkę ulubionych ustawia się wewnątrz samej postaci, a nie z poziomu listy w panelu. Otwórz postać i kliknij jej gwiazdkę **Favorite** (ulubione), żeby włączyć lub wyłączyć oznaczenie. Ulubione postacie mają w panelu małą gwiazdkę na awatarze.
-
-Pod obszarem wyszukiwania są trzy przyciski filtrowania:
+Otwórz postać i kliknij jej gwiazdkę **Favorite** (ulubione), żeby włączyć lub wyłączyć oznaczenie. Nie da się go ustawić z listy w panelu. Ulubione postacie mają małą plakietkę z gwiazdką. Pod polem wyszukiwania są trzy przyciski filtrujące listę:
 
 - **All** pokazuje wszystkie postacie.
 - **Favs** pokazuje tylko ulubione.
 - **Non-favs** pokazuje tylko postacie, które nie są ulubione.
 
-Inna opcja: wybierz **Favorites** na liście rozwijanej sortowania, żeby wypchnąć wszystkie ulubione na górę listy.
+Możesz też wybrać **Favorites** na liście rozwijanej sortowania, żeby przenieść ulubione na górę.
 
 ### Tagi
 
-Tagi to etykiety dodawane do postaci, żeby ją opisać – na przykład `fantasy` albo `slow burn`. Tagi postaci dodaje się i edytuje w edytorze postaci.
+Tagi to etykiety takie jak `fantasy` albo `slow burn`. Dodaje się je w edytorze postaci. Zobacz [Tworzenie i edycja postaci](creating-and-editing-characters.md#metadata-tab). W panelu kliknij kafelek tagu w dowolnym wierszu, żeby zawęzić listę do postaci z tym samym tagiem.
 
-W panelu każdy wiersz postaci pokazuje do 3 jej tagów. Kliknij kafelek tagu w dowolnym wierszu, żeby zawęzić listę do postaci z tym samym tagiem.
+Gdy postacie mają tagi, pojawia się przycisk **Tags** (tagi) z liczbą, na przykład **Tags (12)**. Kliknij go, żeby rozwinąć pełną listę:
 
-Kiedy postacie mają tagi, w wierszu filtrów pojawia się przycisk **Tags** (tagi) z łączną liczbą tagów w nawiasie, na przykład **Tags (12)**. Kliknij go, żeby rozwinąć pełną listę tagów:
+- Kliknij tag, żeby dodać go do filtrów. Przy kilku zaznaczonych tagach pasuje postać, która ma którykolwiek z nich.
+- Kliknij X przy tagu, żeby usunąć ten tag ze wszystkich postaci, które go mają. Pojawia się prośba o potwierdzenie: **Remove tag "name" from all characters?**
+- **Clear** (wyczyszczenie) pojawia się, gdy filtr tagów jest aktywny. Kliknij go, żeby wyczyścić filtry tagów.
 
-- Kliknij tag na rozwiniętej liście, żeby dodać go do filtrów. Po kliknięciu więcej niż jednego tagu pasują postacie, które mają dowolny z zaznaczonych tagów.
-- Każdy tag na rozwiniętej liście ma mały znak X. Jego kliknięcie usuwa ten tag ze wszystkich postaci, które go mają. Marinara prosi wtedy o potwierdzenie: **Remove tag "name" from all characters?**
-- Gdy filtr tagów jest aktywny, pojawia się przycisk **Clear** (wyczyszczenie). Kliknij go, żeby usunąć filtry tagów.
+Żeby zamiast tego wykluczyć tag, użyj `-tag:` w polu wyszukiwania, jak pokazano w sekcji [Wyszukiwanie](#search).
 
-Żeby tag wykluczyć, a nie dodać do filtrów, użyj składni `-tag:` opisanej wyżej w sekcji Wyszukiwanie.
+<a id="export-or-delete-many-characters"></a>
 
-## Zaznaczanie, eksport i usuwanie wielu postaci
+## Eksport i usuwanie wielu postaci
 
-Kiedy trzeba zadziałać na kilku postaciach naraz, użyj trybu zaznaczania.
-
-1. Kliknij przycisk **Select** na górze panelu.
-2. W każdym wierszu postaci pojawia się pole wyboru.
-3. Kliknij postacie, które mają wejść do zaznaczenia. Nagłówek panelu pokazuje, ile jest zaznaczonych.
-4. Skorzystaj z paska akcji na dole panelu.
+1. Kliknij **Select** na górze panelu. W każdym wierszu pojawia się pole wyboru.
+2. Kliknij postacie, które chcesz zaznaczyć. Nagłówek panelu pokazuje, ile jest zaznaczonych.
+3. Skorzystaj z paska akcji na dole.
 
 Pasek akcji ma dwa przyciski:
 
-- **Export** pobiera wszystkie zaznaczone postacie razem, jako jeden plik zip o nazwie `marinara-characters.zip`. To eksport zbiorczy we własnym formacie aplikacji Marinara Engine.
-- **Delete** usuwa wszystkie zaznaczone postacie. Najpierw pojawia się prośba o potwierdzenie: **Delete N characters?**
+- **Export** (eksport) pobiera zaznaczone postacie jako jeden plik zip o nazwie `marinara-characters.zip`, w natywnym formacie aplikacji Marinara Engine.
+- **Delete** usuwa zaznaczone postacie. Najpierw pojawia się pytanie: **Delete N characters?**
 
-W trybie zaznaczania da się też przeciągnąć wszystkie zaznaczone postacie do folderu za jednym razem, zamiast przenosić je pojedynczo.
-
-Pełną listę formatów plików importu i eksportu znajdziesz w przewodniku o importowaniu i eksportowaniu, podlinkowanym niżej.
-
-## Foldery to jednocześnie składy czatów grupowych
-
-Tworzone tu foldery mają drugie zastosowanie. Każdy folder jest też zapisanym składem postaci, który da się wrzucić do czatu grupowego.
-
-Podczas przygotowywania czatu z więcej niż jedną postacią poszukaj opcji **Add from Folder** (dodanie z folderu). Dodaje ona wszystkie postacie z wybranego folderu w jednym kroku. To najszybszy sposób na rozpoczęcie czatu grupowego ze stałym zestawem postaci. O tym, jak działają czaty grupowe, mówi podlinkowany niżej przewodnik.
+W trybie zaznaczania da się też przeciągnąć zaznaczone postacie razem do folderu. Formaty plików opisuje przewodnik [Importowanie i eksportowanie kart postaci](import-export.md).
 
 ## Powiązane przewodniki
 

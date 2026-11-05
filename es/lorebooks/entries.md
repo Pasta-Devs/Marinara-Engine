@@ -1,442 +1,245 @@
 # Entradas de lorebook: palabras clave, posición y tiempos
 
-Esta guía explica cómo construir las entradas dentro de un lorebook (libro de trasfondo). Cubre la pestaña **Entries** (Entradas), las palabras clave disparadoras y los tres tipos de entrada. También explica dónde va cada entrada en el prompt (las instrucciones enviadas a la IA) y los controles de tiempos que deciden cuándo se activa una entrada. Si eres nuevo con los lorebooks, lee primero la [Visión general de los lorebooks](overview.md).
+Una entrada es un dato de un lorebook (libro de trasfondo), más las reglas que deciden cuándo Marinara lo agrega al prompt (las instrucciones enviadas a la IA). Esta guía explica cómo agregar entradas, elegir las palabras clave y el tipo de entrada, decidir dónde cae una entrada y configurar los tiempos.
 
-Una entrada es un bloque de texto más las reglas que deciden cuándo Marinara Engine agrega ese texto al prompt de la IA. Cuando una entrada se activa, su contenido se inyecta para que la IA "recuerde" un dato que tú nunca escribiste en el chat.
+Antes de empezar: crea un lorebook y ábrelo. Consulta [Visión general de los lorebooks](overview.md).
 
 ## La pestaña Entries
 
-Abre un lorebook desde el panel **Lorebooks** para llegar a su editor de página completa. El editor tiene dos pestañas laterales: **Overview** (Visión general) y **Entries**. Haz clic en **Entries** para ver la lista de entradas. La insignia de la pestaña muestra cuántas entradas tiene el lorebook.
+Abre un lorebook desde el panel **Lorebooks**. El editor tiene dos pestañas, **Overview** (Visión general) y **Entries** (Entradas). Haz clic en **Entries** para ver la lista. La insignia de la pestaña muestra cuántas entradas tienes.
 
-La barra de herramientas en la parte superior de la pestaña **Entries** tiene estos controles:
+La barra de herramientas tiene estos controles.
 
-- Cuadro **Search entries…** (Buscar entradas): filtra la lista por nombre de entrada, palabras clave o contenido.
-- Un menú desplegable de orden con **Order**, **Entries**, **Name A→Z**, **Name Z→A**, **Tokens ↓**, **Keys ↓**, **Newest** y **Oldest**. Las opciones ↓ ordenan de mayor a menor.
-- **Select** (Seleccionar): activa la selección múltiple para que puedas copiar, mover o eliminar varias entradas a la vez.
-- **Add Folder** (Agregar carpeta): crea una carpeta para agrupar entradas (ver la sección Carpetas de entradas más abajo).
-- **Add Entry** (Agregar entrada): crea una nueva entrada en blanco en la parte superior de la lista.
+- **Search entries…** (Buscar entradas…) filtra por nombre, palabras clave o contenido.
+- El menú de orden ofrece **Order**, **Entries**, **Name A→Z**, **Name Z→A**, **Tokens ↓**, **Keys ↓**, **Fired ↓**, **Newest** y **Oldest**. Las opciones ↓ ordenan de mayor a menor.
+- **Select** (Seleccionar) activa la selección múltiple, para que puedas copiar, mover o eliminar varias entradas.
+- **Add Folder** (Agregar carpeta) crea una carpeta (consulta [Carpetas de entradas](#entry-folders)).
+- **Add Entry** (Agregar entrada) agrega una entrada en blanco en la parte superior.
 
-Debajo de la barra de herramientas, una línea de resumen muestra el número de entradas, el número de carpetas y el tamaño total estimado en tokens de todo el contenido de las entradas.
+Una línea debajo de la barra de herramientas muestra el número de entradas, el número de carpetas y el total estimado de tokens (fragmentos de texto) de todo el contenido de las entradas.
 
 ## Agregar y editar una entrada
 
-Para crear una entrada, sigue estos pasos.
+1. Haz clic en **Add Entry**. Aparece una fila nueva.
+2. Escribe un nombre en la fila. Cada entrada necesita uno. El nombre es para ti y para la búsqueda, no para la IA.
+3. Haz clic en la fila, o en su flecha. Se abre un panel debajo de la fila con todos los campos.
+4. Escribe una palabra clave en **Primary Keys** (Palabras clave principales) y pulsa <kbd>Enter</kbd>. Después escribe el texto para la IA en **Content** (Contenido). Consulta [Contenido y palabras clave](#content-and-keys).
 
-1. Abre tu lorebook y haz clic en la pestaña **Entries**.
-2. Haz clic en **Add Entry**. Aparece una nueva fila en la lista.
-3. Escribe un nombre en el campo de nombre de la fila. Cada entrada necesita un nombre.
-4. Haz clic en la fila (o en su flecha en forma de chevron) para expandir el panel lateral del editor completo.
-5. Rellena las palabras clave y el contenido, descritos en las secciones de abajo.
+Los cambios se guardan solos. El panel muestra **Autosaving…** (Guardando automáticamente…), luego **Saving…** (Guardando…) y luego **Saved automatically** (Guardado automáticamente). Si un guardado falla, tu texto se queda y Marinara lo reintenta en tu siguiente edición.
 
-Tus cambios se guardan automáticamente. Mientras escribes, el panel lateral muestra **Autosaving…** (Guardando automáticamente), luego **Saving…** (Guardando) y luego **Saved automatically** (Guardado automáticamente). Si un guardado falla, tu texto se queda en su lugar y Marinara lo reintenta en tu siguiente edición. No necesitas un botón de guardar aparte para las entradas.
+Para copiar una entrada, haz clic en **Duplicate entry** (Duplicar entrada) en su fila. Para quitarla, haz clic en **Delete entry** (Eliminar entrada) y confirma. En una computadora, estos botones aparecen cuando pasas el cursor sobre la fila.
 
-Cada entrada aparece como una fila compacta de una sola línea. La fila contiene los controles más usados. Expande la fila para llegar al resto.
+<a id="content-and-keys"></a>
 
-Para duplicar una entrada, pasa el cursor sobre la fila y haz clic en el botón **Duplicate** (Duplicar). Para quitar una, haz clic en el botón **Delete** (Eliminar). Marinara te pide confirmar con el aviso **Delete this lorebook entry?** (¿Eliminar esta entrada del lorebook?).
+### Contenido y palabras clave
 
-## Contenido y palabras clave de la entrada
+| Campo | Qué es |
+| --- | --- |
+| **Primary Keys** | Las palabras que disparan la entrada. Escribe una palabra clave y pulsa <kbd>Enter</kbd> para agregarla. Basta con una coincidencia para activar una entrada **Normal**. |
+| **Content** | El texto que se envía a la IA. Escribe un dato simple. Puede usar [macros](../prompts/macros.md), y debajo del cuadro se muestra una estimación de tokens. |
+| **Secondary Keys** (Palabras clave secundarias) | Palabras clave adicionales, que solo usan las entradas **Selective**. |
+| **Description** (Descripción) | Un resumen corto que solo lee el agente **Knowledge Router**. Nunca se envía al modelo principal. Consulta [Fuentes de conocimiento](../agents/knowledge-sources.md). |
 
-Expande una entrada para editar sus campos principales.
+Una lista de más de 10 palabras clave muestra las 10 primeras. Haz clic en **Show N more** (Mostrar N más) para ver el resto y en **Collapse** (Contraer) para ocultarlas. Las palabras clave ocultas siguen coincidiendo.
 
-- **Primary Keys** (Palabras clave principales): las palabras clave que disparan esta entrada. Cuando cualquiera de estas palabras aparece en el chat reciente, la entrada se activa. Escribe una palabra clave y pulsa Enter para agregarla como un chip.
-- **Content** (Contenido): el texto que se inyecta en el prompt de la IA cuando la entrada se activa. Escríbelo como un dato simple que quieres que la IA sepa. El contenido admite macros de prompt, y debajo del cuadro se muestra una estimación de tokens en vivo.
-- **Secondary Keys** (Palabras clave secundarias): palabras clave adicionales que solo se usan cuando el tipo de entrada es **Selective**. Ver la sección de tipos de entrada más abajo.
-- **Description** (Descripción): un resumen corto de la entrada. Solo el agente **Knowledge Router** la lee, para decidir si inyecta la entrada. Nunca se envía a la IA principal como contenido. Ver [Fuentes de conocimiento](../agents/knowledge-sources.md).
+Por ejemplo, una entrada llamada `Silverhaven` con las palabras clave `Silverhaven` y `the capital` y el contenido `Silverhaven is the mountain capital. Its people mine blue crystal and distrust outsiders.` llega a la IA siempre que cualquiera de las dos palabras clave aparezca en el chat reciente.
 
-Una lista de claves con más de 10 claves muestra solo las 10 primeras. Haz clic en **Show N more** (Mostrar N más), por ejemplo **Show 5 more**, para ver el resto, y en **Collapse** (Contraer) para volver a ocultarlas. Añadir una clave abre la lista completa. Las claves ocultas siguen coincidiendo como de costumbre.
+### Reglas de coincidencia
 
-Aquí tienes un ejemplo simple.
+De forma predeterminada, una palabra clave coincide cuando aparece en cualquier parte del chat reciente, sin distinguir mayúsculas de minúsculas. Tres controles cambian eso.
 
-- Nombre: `Silverhaven`
-- Primary Keys: `Silverhaven`, `the capital`
-- Contenido: `Silverhaven is the mountain capital. Its people mine blue crystal and distrust outsiders.`
+- **Whole Words** (Palabras completas; en el panel de la entrada, desactivado de forma predeterminada): la palabra clave debe ser una palabra completa. `Ash` coincide con "Ash", pero no con "cash".
+- **Case Sensitive** (Distinguir mayúsculas; en el panel de la entrada, desactivado de forma predeterminada): las mayúsculas y minúsculas deben coincidir. `IT` coincide con "IT", pero no con "it".
+- **Regex** (un icono en la fila cuyo tooltip dice **Enable regex key matching**; desactivado de forma predeterminada): trata cada palabra clave como una expresión regular, un patrón para buscar coincidencias en el texto. El icono se vuelve naranja cuando está activado.
 
-Cuando tú o la IA mencionan `Silverhaven` o `the capital` en el chat, la IA recibe ese dato automáticamente.
+Usa **Regex** solo si sabes usar expresiones regulares. Cada patrón se ejecuta con un límite de tiempo corto, y un patrón que tarda demasiado no coincide, así que mantén los patrones simples. Por ejemplo, `\bVlad(?:'s)?\b` coincide con "Vlad" y con "Vlad's".
 
-Esa es la entrada más simple posible: un nombre, un par de palabras clave y un dato. Las secciones **Estrategia de redacción** y **Ejemplo práctico** de más abajo explican cuándo recurrir a los demás controles y construyen una ambientación pequeña desde cero.
+## Elegir un tipo de entrada
 
-## Reglas de coincidencia de palabras clave
+Haz clic en el punto de color de la fila para abrir el menú de tipos.
 
-De forma predeterminada, una palabra clave principal coincide si la palabra aparece en cualquier parte del texto del chat reciente, sin distinguir mayúsculas ni minúsculas. Tres controles cambian cómo funciona la coincidencia. **Whole Words** (Palabras completas) y **Case Sensitive** (Distinguir mayúsculas) están en el panel lateral expandido. El interruptor **Regex** es el icono pequeño en la fila compacta, y se vuelve naranja cuando está activado.
+- **Normal** (punto verde, el predeterminado): se activa cuando coincide una palabra clave principal. Úsalo para la mayoría de las entradas: personajes, lugares, objetos. Dale a cada una entre tres y ocho palabras clave específicas.
+- **Constant** (punto amarillo): se activa cada vez que el lorebook está activo, sin palabra clave. Úsalo para los pocos datos que siempre deben estar presentes, como el año o el tono. Los tiempos, la probabilidad y los filtros se siguen aplicando.
+- **Selective** (punto rojo): se activa cuando coincide una palabra clave principal y se cumple la lógica de las palabras clave secundarias. Úsalo cuando una palabra clave común se dispararía en la escena equivocada.
 
-| Control | Dónde | Predeterminado | Qué hace |
-|---|---|---|---|
-| **Whole Words** | Panel de la entrada | Off | La palabra clave debe coincidir con una palabra completa, no con parte de una palabra más larga. |
-| **Case Sensitive** | Panel de la entrada | Off | Las mayúsculas y minúsculas deben coincidir exactamente. |
-| **Regex** | Fila compacta | Off | Trata cada palabra clave como un patrón de expresión regular en lugar de texto simple. |
+Cada entrada **Constant** gasta tokens en cada mensaje, así que no uses muchas.
 
-Una expresión regular (regex) es un lenguaje de coincidencia de patrones para texto. Úsalo solo si sabes regex. Marinara ejecuta cada palabra clave de regex con un tiempo de espera de seguridad corto. Un patrón que tarda demasiado no coincide en ese escaneo, así que mantén los patrones simples.
+Para una entrada **Selective**, agrega **Secondary Keys** y elige un botón de **Logic** (Lógica).
 
-## Tipos de entrada: Normal, Constant, Selective
+| Lógica | La entrada se dispara cuando |
+| --- | --- |
+| **AND Any** | También aparece al menos una palabra clave secundaria. |
+| **AND All** | También aparecen todas las palabras clave secundarias. |
+| **NOT Any** | No aparece ninguna palabra clave secundaria. |
+| **NOT All** | No aparecen juntas todas las palabras clave secundarias. |
 
-Cada entrada tiene un tipo. Haz clic en el pequeño punto de color de la fila de la entrada para abrir el menú de tipos y elegir uno.
+Por ejemplo, la palabra clave principal `king` con la palabra clave secundaria `Silverhaven` y **AND Any** solo se dispara cuando el chat menciona ambas.
 
-- **Normal** (punto verde): se dispara cuando una palabra clave principal coincide con el texto escaneado. Este es el predeterminado.
-- **Constant** (punto amarillo): se inyecta cada vez que el lorebook está activo, sin necesidad de palabra clave. Usa esto para datos que siempre deben estar presentes.
-- **Selective** (punto rojo): las palabras clave principales deben coincidir, y la lógica de las palabras clave secundarias también debe cumplirse.
-
-Una entrada **Constant** sigue obedeciendo los tiempos, la probabilidad y cualquier filtro que configures. Solo que no necesita una palabra clave.
-
-Cuando una entrada es **Selective**, agrega una o más **Secondary Keys** y elige un botón de **Logic** (Lógica) en el panel lateral:
-
-- **AND Any**: al menos una palabra clave secundaria también debe aparecer.
-- **AND All**: cada palabra clave secundaria también debe aparecer.
-- **NOT Any**: la entrada se bloquea si aparece cualquier palabra clave secundaria.
-- **NOT All**: la entrada se bloquea solo si aparecen todas las palabras clave secundarias.
-
-Por ejemplo, toma una entrada **Selective** con la palabra clave principal `king` y la palabra clave secundaria `Silverhaven`, configurada como **AND Any**. Solo se dispara cuando el chat menciona tanto al rey como a Silverhaven. Esto evita que una palabra compartida como `king` se dispare en la escena equivocada.
+Si no funcionó: una entrada **Normal** sin palabras clave no tiene nada con qué coincidir. Agrega palabras clave o hazla **Constant**. Una entrada sin palabras clave todavía puede encontrarse por su significado, pero solo cuando la [búsqueda semántica](semantic-search.md) está configurada del todo.
 
 ## Position, Depth y Order
 
-Estos controles deciden dónde cae en el prompt una entrada activada. Se ubican en la fila compacta en una pantalla ancha. En una pantalla estrecha, toca el botón de controles rápidos de la fila para llegar a ellos.
+Estos controles deciden dónde cae en el prompt una entrada activada. En una pantalla ancha están en la fila compacta. En una pantalla estrecha, toca el botón **Entry quick controls** (Controles rápidos de la entrada) de la fila.
 
-- **Position** (Posición): elige **Before chat**, **After chat**, **@ Depth** u **Outlet**. Before chat y After chat colocan la entrada alrededor del historial del chat. **@ Depth** inyecta la entrada dentro del historial del chat. **Outlet** no inyecta la entrada automáticamente; pone el contenido activado a disposición de una macro `{{outlet::name}}` con nombre. En una pantalla ancha, la fila muestra las tres primeras posiciones como las etiquetas cortas **↑Char**, **↓Char** y **@Depth**.
-- **Depth** (Profundidad): aparece solo cuando **Position** es **@ Depth**. Establece cuántos mensajes hacia atrás desde el último mensaje se inserta la entrada. El predeterminado es 4.
-- **Order** (Orden): el orden de inserción cuando varias entradas se activan a la vez. Un número más bajo va antes en el prompt. El predeterminado es 100.
+| Control | Qué hace |
+| --- | --- |
+| **Position** (Posición) | Dónde va la entrada. El valor predeterminado es **Before character definitions**. |
+| **Before character definitions** (Antes de las definiciones del personaje) | Antes de la tarjeta de personaje en el prompt. Etiqueta en la fila: **↑Char**. |
+| **After character definitions** (Después de las definiciones del personaje) | Después de la tarjeta de personaje. Etiqueta en la fila: **↓Char**. |
+| **@ Depth** | Dentro del historial del chat. Etiqueta en la fila: **@Depth**. |
+| **Outlet** | En ningún sitio de forma automática (consulta más abajo). |
+| **Depth** (Profundidad) | Solo aparece con **@ Depth**. Cuántos mensajes hacia atrás desde el último se sitúa la entrada. Predeterminado: 4. |
+| **Order** (Orden) | La secuencia cuando se activan varias entradas. Un número más bajo va primero y sobrevive al recorte cuando el presupuesto va justo. Predeterminado: 100. |
 
-Usa **@ Depth** con moderación y solo cuando tengas un motivo claro. Como inyecta la entrada *dentro* de los mensajes recientes, y no alrededor de ellos, el texto se lee como una interrupción soltada en mitad de la conversación:
+**Role** (Rol) está en el panel expandido de la entrada, no en los controles rápidos. Etiqueta el texto inyectado como **System**, **User** o **Assistant**, solo importa con **@ Depth** y su valor predeterminado es **System**.
 
-> **John:** Vamos a visitar el castillo de Vlad.
-> **Bob:** Hecho.
-> *La debilidad del conde es el ajo —una alergia extrema que oculta a toda costa.*
-> **John:** Genial, ¿vamos mañana? Tengo el día libre.
+Deja estos controles en sus valores predeterminados salvo que una entrada necesite más. Usa **@ Depth** con moderación. El texto cae entre los mensajes recientes como una interrupción, así que resérvalo para una regla que el modelo sigue olvidando o para un dato que cambió hace un momento. Por ejemplo, "The tavern is now on fire." en **@ Depth** 1.
 
-Recurre a esta posición solo cuando una nota de verdad necesite quedar junto al último turno: una regla que el modelo sigue olvidando, o un dato que acaba de cambiar. El trasfondo corriente se queda en **Before chat** o **After chat**.
+### Outlet
 
-Cuando eliges **Outlet**, aparece un campo **Outlet name**. Escribe un nombre exacto que distingue mayúsculas y minúsculas, como `character_rules`, y después pon `{{outlet::character_rules}}` en una sección del prompt. Cada entrada asignada a ese Outlet sigue sus reglas normales de palabras clave, modo Constant, probabilidad, filtros, tiempos, límite de entradas y presupuesto de tokens. Solo se recopilan las entradas activadas para la generación actual. Las entradas que comparten el mismo nombre de Outlet se unen según su Order, separadas por saltos de línea.
+Una entrada **Outlet** solo aparece donde colocas una macro.
 
-Una macro Outlet que no tenga entradas coincidentes activas se resuelve como texto vacío. El contenido de un Outlet no puede llamar a otra macro Outlet, lo que evita bucles recursivos. Las macros Outlet funcionan en secciones de prompt de los modos Conversation, Roleplay y Game.
+1. Establece **Position** en **Outlet**. Aparece un campo **Outlet name** (Nombre del Outlet).
+2. Escribe un nombre exacto, que distingue mayúsculas de minúsculas, como `character_rules`.
+3. Pon `{{outlet::character_rules}}` en una sección del prompt de tu [preset](../prompts/presets.md) (ajuste guardado).
 
-## Probabilidad de disparo
+Las entradas que comparten un nombre se unen según su **Order**, separadas por saltos de línea. Las macros Outlet funcionan en las secciones de prompt de los chats de Conversation, Roleplay y Game. Solo aparecen las entradas que se activaron para esta respuesta. Siguen obedeciendo las palabras clave, la probabilidad, los filtros, los tiempos, el **Entry Limit** (Límite de entradas) y el **Token Budget** (Presupuesto de tokens). Sin entradas activas, la macro no agrega nada. Una entrada Outlet no puede llamar a otra macro Outlet. Consulta [macros](../prompts/macros.md) para ver la macro.
 
-Cada entrada tiene un valor de **Probability** (Probabilidad), mostrado como un porcentaje en la fila. El predeterminado es 100%, lo que significa que la entrada siempre se dispara cuando sus palabras clave coinciden. Bájalo para que una entrada se dispare solo algunas veces. Por ejemplo, 25% significa que la entrada tiene una probabilidad de uno entre cuatro de activarse cada vez que sus palabras clave coinciden.
+## Probabilidad y tiempos
 
-## Tiempos: Sticky, Cooldown, Delay, Ephemeral
+**Probability** (Probabilidad) es la probabilidad de que una entrada se dispare cuando sus palabras clave coinciden. El valor predeterminado es 100%. Pon 25% para una probabilidad de uno entre cuatro cada vez.
 
-Los campos de **Timing** (Tiempos) del panel lateral controlan el comportamiento de una entrada a lo largo de varios mensajes. **Sticky**, **Cooldown** y **Delay** se cuentan en mensajes. **Ephemeral** cuenta activaciones. Los cuatro empiezan sin configurar (0, que significa desactivado).
+Los campos de **Timing** (Tiempos) controlan el comportamiento a lo largo de varios mensajes. Los cuatro empiezan sin configurar, lo que significa desactivados.
 
-- **Sticky** (Persistente): después de que la entrada se dispara, permanece activa durante esta cantidad de mensajes más, incluso sin una nueva coincidencia de palabra clave.
-- **Cooldown** (Enfriamiento): después de que la entrada se dispara, espera esta cantidad de mensajes antes de poder dispararse de nuevo.
-- **Delay** (Retraso): la entrada espera esta cantidad de mensajes dentro del chat antes de poder activarse por primera vez.
-- **Ephemeral** (Efímero): la entrada se desactiva a sí misma después de esta cantidad de activaciones. Un valor de 0 significa ilimitado.
+| Campo | Qué hace | Ejemplo |
+| --- | --- | --- |
+| **Sticky** (Persistente) | Después de que la entrada se dispara, permanece activa durante esta cantidad de mensajes más, incluso sin una coincidencia de palabra clave. | Un secreto revelado con 3 se queda durante tres mensajes. |
+| **Cooldown** (Enfriamiento) | Después de dispararse, espera esta cantidad de mensajes antes de poder dispararse de nuevo. | Un presagio con 5 se dispara como mucho una vez cada cinco mensajes. |
+| **Delay** (Retraso) | No puede dispararse hasta que el chat lleve esta cantidad de mensajes. | Un giro con 20 permanece oculto al principio. |
+| **Ephemeral** (Efímero) | Se desactiva a sí misma después de esta cantidad de activaciones. 0 significa sin límite. | Una nota de introducción con 1 se dispara una vez. |
 
-Por ejemplo, configura **Sticky** en 3 para mantener un dato en el prompt durante algunos turnos después de que surge. Así la IA no lo olvida a mitad de la escena.
+**Sticky**, **Cooldown** y **Delay** cuentan mensajes. **Ephemeral** cuenta activaciones.
 
 <a id="decision-activation"></a>
 
 ## Activación por Decision
 
-El campo **Decision** (decisión) del panel permite que tu **Decision model** (modelo de decisión) decida si una entrada corresponde. Escribe una declaración sobre el chat reciente, como `In the latest message, a dragon is physically present`, y elige cómo actúa:
+El campo **Decision** (decisión) permite que tu modelo de decisión, un modelo pequeño que responde preguntas de sí o no, decida si una entrada corresponde. Escribe una declaración sobre el chat reciente, como `In the latest message, a dragon is physically present`, y elige un modo.
 
-- **Off** (desactivado), el predeterminado: la entrada se activa como siempre.
-- **Require** (requerir): la entrada se activa de la manera normal (palabras clave, **Constant**, coincidencia semántica) y solo si la declaración también es verdadera. Esto filtra menciones pasajeras: una entrada con la clave `dragon` queda fuera si solo hablan de dragones. En una entrada **Constant**, la vuelve situacional, por ejemplo reglas de combate con `A fight is happening in the latest message`.
-- **Trigger** (activar): la declaración añade una vía de activación incluso si no aparece ninguna palabra clave. Detecta paráfrasis y situaciones, por ejemplo `The latest message takes place in the Blackwood Forest`. Las vías ordinarias, incluidas palabras clave, **Constant**, coincidencias semánticas y ubicaciones de mapa adjuntas, siguen disponibles.
+| Modo | Efecto |
+| --- | --- |
+| **Off** (Desactivado) | La entrada se activa como siempre. Este es el valor predeterminado. |
+| **Require** (Requerir) | La entrada se activa como siempre, y solo cuando la declaración también es verdadera. Filtra las menciones pasajeras. |
+| **Trigger** (Activar) | La declaración es otra forma de activar la entrada, incluso sin ninguna palabra clave presente. Detecta paráfrasis y situaciones. |
 
-Macros como `{{user}}` y `{{char}}` funcionan en la declaración. Para redactar con claridad y probarla con tus chats, consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
+Puedes usar macros como `{{user}}` y `{{char}}` en la declaración.
 
-Cómo se ejecuta:
+Antes de empezar: elige un modelo de decisión en **Decision model** (Modelo de decisión) del panel **Connections** (Conexiones). Sin modelo de decisión, o sin respuesta, la declaración cuenta como no. El editor te avisa cuando no hay ninguno configurado.
 
-- **Require** comprueba una entrada que ya cumpliría los requisitos mediante palabras clave, coincidencia semántica, **Constant** o una ubicación de mapa adjunta, sujeta a sus filtros, tiempos y tirada de probabilidad. No analiza cada entrada sin usar solo porque el lorebook esté activo.
-- **Trigger** puede comprobarse cuando la activación ordinaria por palabras clave no admite una entrada apta. No se pregunta necesariamente cada turno: una entrada Constant, una coincidencia de palabra clave o una retención Sticky existente puede admitirla sin respuesta de Trigger. Usa entradas Trigger con un propósito claro; aún pueden añadir solicitudes alojadas.
-- Las declaraciones se agrupan cuando es posible. Activación, declaraciones en el contenido y coincidencias recursivas pueden necesitar varios lotes, así que un turno puede producir múltiples solicitudes alojadas. Usan la parte del lorebook de **Decision statements per turn** (declaraciones de decisión por turno); consulta [Límites y costo](../prompts/conditional-prompts.md#limits-and-cost).
-- Las respuestas correctas normalmente se reutilizan para el mismo turno y modelo mientras estén en caché. Las fallidas se pueden reintentar, y reiniciar, descartar caché o cambiar entradas puede causar solicitudes nuevas. Una regeneración no garantiza activar entradas idénticas. Consulta [Reutilización de respuestas](../prompts/conditional-prompts.md#answer-reuse). Una entrada **Sticky** no se pregunta de nuevo mientras dure su retención.
-- La lista de lorebooks activos muestra **decision** para una entrada activada por una declaración Trigger.
-- **Peek Prompt** nunca pregunta. Usa las respuestas que ya tiene el turno y enumera las declaraciones sin respuesta.
+- En ese caso, **Require** nunca admite una entrada nueva, aunque una retención **Sticky** existente puede mantener una activa.
+- **Trigger** no agrega ninguna vía, y la entrada todavía puede activarse por sus palabras clave.
 
-**Sin respuesta no hay nueva activación por decisión.** Sin Decision model, o si no responde, **Require** no puede admitir una entrada nueva, aunque una retención Sticky existente puede mantenerla activa. **Trigger** no añade una vía; la entrada aún puede activarse por su comportamiento ordinario de palabras clave, Constant, semántica o ubicación de mapa, sujeto a sus reglas habituales. El editor advierte cuando no hay Decision model. Da también una vía ordinaria a las entradas Trigger importantes. Usa Require para filtrar trasfondo opcional, nunca para condicionar algo indispensable para la historia. Consulta [Modelos de decisión](../connections/decision-models.md).
+Dales también una vía ordinaria a las entradas importantes, y usa **Require** solo para filtrar trasfondo opcional.
 
-La activación por decisión se aplica a turnos de chat. La configuración de Game, la generación de experiencias y los análisis de lorebooks que ejecutan los agentes para sí mismos interpretan las entradas de decisión como no.
+**Require** solo comprueba una entrada que ya cumple los requisitos mediante palabras clave, coincidencia semántica, **Constant** o una ubicación de mapa, y entonces solo la deja pasar si la declaración también es verdadera. En una entrada **Constant**, la vuelve situacional, por ejemplo unas reglas de combate con `A fight is happening in the latest message`. No analiza cada entrada sin usar.
 
-Los propios **Sticky** y **Cooldown** de la entrada funcionan con su campo Decision. Mientras es sticky, permanece sin volver a preguntar; mientras está en cooldown, no se pregunta su declaración. Así, una declaración Trigger con Sticky 3 y Cooldown 5 introduce la entrada unos turnos y después la deja descansar, sin gastar declaraciones mientras tanto.
+Las declaraciones de decisión agregan solicitudes al modelo y comparten el límite **Decision statements per turn** (Declaraciones de decisión por turno). Para consejos de redacción, límites, costo y reutilización de respuestas, consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements), [Límites y costo](../prompts/conditional-prompts.md#limits-and-cost) y [Reutilización de respuestas](../prompts/conditional-prompts.md#answer-reuse). Para configurar el modelo, consulta [Modelos de decisión](../connections/decision-models.md).
 
-Una condición `{{#if decision:"..."}}` dentro del contenido de la entrada es distinta: recorta el texto de una entrada que ya se activó y que todavía usa su presupuesto de tokens e inicia sus temporizadores. Solo se pregunta en turnos donde se activa, así que el resto del lorebook nunca consume **Decision statements per turn**. Usa el campo **Decision** para decidir si la entrada se activa en absoluto.
+Más detalles:
 
-## Más opciones de entrada
+- A una entrada **sticky** no se le vuelve a preguntar mientras dura su retención, y a una entrada en enfriamiento no se le pregunta en absoluto.
+- La lista de lorebooks activos muestra **decision** para una entrada que activó una declaración **Trigger**.
+- **Peek Prompt** nunca pregunta. Muestra las respuestas que ya tiene el turno.
+- La activación por decisión solo se aplica a los turnos de chat. La configuración de Game y los análisis que los agentes ejecutan para sí mismos interpretan las entradas de decisión como no.
+- Un `{{#if decision:"..."}}` dentro del contenido de la entrada es distinto. Recorta el texto de una entrada que ya se activó.
 
-El panel lateral expandido contiene algunos campos más.
+## Grupos, filtros y otras opciones
 
-- **Role** (Rol): establece si el texto inyectado se etiqueta como **System**, **User** o **Assistant**. Esto solo importa cuando **Position** es **@ Depth**. El predeterminado es **System**.
-- **Group** y **Tag**: pon entradas en el mismo **Group** (Grupo) para que solo una de ellas se active a la vez. La **Tag** (Etiqueta) es una etiqueta de texto libre para tu propia clasificación.
-- **Locked** (Bloqueado): impide que el agente **Lorebook Keeper** cambie esta entrada. Ver [Referencia de agentes descargables](../agents/built-in-agents.md).
-- **No Vector** y la insignia de estado del vector se relacionan con la búsqueda semántica. Ver [Búsqueda semántica para lorebooks](semantic-search.md).
+El panel expandido contiene más campos.
 
-El panel lateral también tiene una sección **Context filters & matching sources** (Filtros de contexto y fuentes de coincidencia). Allí puedes limitar una entrada a ciertos personajes, etiquetas de personaje o tipos de generación. También puedes escanear campos adicionales de la tarjeta (como la descripción del personaje) en busca de las palabras clave de la entrada.
+| Campo | Qué hace |
+| --- | --- |
+| **Group** (Grupo) | Las entradas del mismo grupo son mutuamente excluyentes. Solo se activa una por respuesta. Úsalo para alternativas, como tres entradas de "el clima de hoy". Combínalo con una **Probability** baja para que los rumores salgan solo de vez en cuando. |
+| **Tag** (Etiqueta) | Una etiqueta de texto libre para tu propia clasificación. No afecta a la activación. |
+| **Locked** (Bloqueado) | Impide que el agente **Lorebook Keeper** cambie esta entrada. Consulta [Referencia de agentes descargables](../agents/built-in-agents.md). |
+| **No Vector** | Deja la entrada fuera de la búsqueda semántica. Consulta [Búsqueda semántica para lorebooks](semantic-search.md). |
+| **Recursion** (Recursión) | Permite que el contenido de esta entrada dispare más entradas. Desactivado de forma predeterminada. Consulta [Presupuestos de tokens y recursión de los lorebooks](token-budgets.md). |
 
-<a id="authoring-strategy-choosing-the-right-entry"></a>
+La sección **Context filters & matching sources** (Filtros de contexto y fuentes de coincidencia) limita una entrada a ciertos personajes, etiquetas de personaje o tipos de generación. También te permite escanear campos adicionales de la tarjeta, como la descripción del personaje, en busca de las palabras clave de la entrada. En un chat grupal en modo **Individual**, cada respuesta solo cuenta al personaje que la escribe, así que un filtro de personaje mantiene la entrada fuera de las respuestas de los demás personajes. En una respuesta **Merged (Narrator)** (Fusionado: narrador), cuenta cada personaje del chat, así que la entrada se mantiene si cualquier personaje filtrado está en el chat. Úsalo para secretos que solo conoce un personaje.
 
-## Estrategia de redacción: elegir la entrada adecuada
+## Elegir los ajustes para un dato
 
-Las secciones de arriba describen qué hace cada control. Esta sección los conecta con las decisiones que tomas al escribir un lorebook: qué tipo elegir, cuándo afinar una palabra clave y cómo mantener el prompt ligero. Parte de una sola pregunta: *¿cuándo debería ver la IA este dato?*
+Pregúntate cuándo debería ver la IA el dato y luego usa esta tabla.
 
-- **Siempre tiene que ser cierto** — la premisa de la ambientación, el año, el tono, una regla que tiñe cada escena. Hazla **Constant**: se inyecta cada vez que el lorebook está activo, sin necesidad de palabra clave. Que sean pocas: cada entrada Constant gasta tokens en cada mensaje, así que una página de ellas acaba desplazando el chat en sí.
-- **Solo importa cuando surge** — una persona, un lugar, una facción o un objeto. Usa el tipo **Normal** predeterminado con entre tres y ocho **Primary Keys** específicas: el nombre más las formas en que los personajes se refieren a él de verdad (`Castle Dracul`, `the castle`, `the fortress`). Este es el tipo de uso diario; la mayoría de las entradas son Normal.
-- **Su palabra clave es una palabra común** que se dispararía en la escena equivocada (`king`, `home`, `hunter`) — activa **Whole Words** para que `art` deje de coincidir con `start`, o haz la entrada **Selective** y agrega **Secondary Keys** que la fijen al contexto correcto.
-- **Varias entradas ocupan el mismo hueco y nunca deben aparecer juntas** — tres versiones de un mismo castillo, dos historias previas alternativas. Dales el mismo **Group** para que solo se cargue una a la vez.
-- **Es importante, pero rara vez se nombra de forma directa** — un tema, una relación, una regla que nadie dice en voz alta. Déjala en **Normal** y activa la coincidencia semántica para que se recupere por significado (ver [Búsqueda semántica](semantic-search.md)). La coincidencia semántica necesita un modelo de embedding (representación numérica del texto); sin él, recurre a **Constant** (cuando de verdad deba estar siempre presente) o a palabras clave más amplias.
+| El dato | Configuración |
+| --- | --- |
+| Siempre es cierto | **Constant**. Que sean pocas. |
+| Solo importa cuando se nombra | **Normal** con palabras clave específicas, como `Castle Dracul`, `the castle`, `the fortress`. |
+| Su palabra clave es una palabra común, como `king` o `home` | **Whole Words**, o **Selective** con palabras clave secundarias. |
+| Es importante, pero rara vez se nombra | **Normal** con [búsqueda semántica](semantic-search.md), o palabras clave más amplias. |
+| Varias versiones que no deben aparecer juntas | El mismo **Group**. |
+| Una regla que el modelo olvida a mitad de escena | **@ Depth** de alrededor de 1 a 4. |
 
-Algunos hábitos mantienen sanos los lorebooks:
+Hábitos que mantienen pequeño un lorebook:
 
-- **Dale a cada entrada una forma de dispararse.** Una entrada **Normal** sin palabras clave no tiene nada que la coincidencia por palabra clave pueda atrapar: solo se activa si la búsqueda semántica la recupera por significado, lo que necesita un lorebook vectorizado y un modelo de embedding (ver [Búsqueda semántica](semantic-search.md)). Si un dato siempre debe estar presente, hazlo **Constant**; si no, dale palabras clave para que se dispare sin depender de la búsqueda semántica.
-- **Prefiere palabras clave específicas.** Una palabra clave como `he`, `it` o `the city` coincide con casi cada mensaje y desperdicia presupuesto. Recurre a nombres exactos, a **Whole Words** o a palabras clave secundarias **Selective** cuando una palabra clave sea demasiado genérica.
-- **Rellena la Description** en cualquier entrada que esperes que enrute el agente **Knowledge Router**: el agente lee la descripción, no el contenido, para decidir la relevancia (ver [Fuentes de conocimiento](../agents/knowledge-sources.md)).
-- **Deja Position, Depth, Order y Role en sus valores predeterminados** salvo que tengas un motivo. Recurre a **Order** cuando varias entradas se disparan y el presupuesto va justo (un número más bajo se carga primero y sobrevive al recorte); usa **@ Depth** solo para el recordatorio excepcional que debe quedar junto al último mensaje, como se advirtió arriba. Vigila el **Token Budget** (Presupuesto de tokens) y el **Entry Limit** (Límite de entradas) del lorebook (ver [Presupuestos de tokens y recursión](token-budgets.md)).
+- Usa palabras clave específicas. Una palabra clave como `he` o `the city` coincide con casi cada mensaje y desperdicia presupuesto.
+- Rellena la **Description** en cualquier entrada que esperes que enrute el **Knowledge Router**. Lee la descripción, no el contenido.
+- Construye las ambientaciones grandes como un árbol. Agrega una entrada eje para un grupo, como una para El Imperio que liste a sus miembros, junto a una entrada para cada miembro.
+- Deja **Recursion** desactivado en los ejes. Si no, nombrar al grupo mete de golpe en el prompt la entrada completa de cada miembro.
 
-### Estructura el trasfondo como un árbol
+Por ejemplo, toma la regla de cómo se puede matar al villano, que la IA tiende a olvidar. Hazla **Selective** con **AND Any**, **Whole Words** activado y **Order** 10. Usa las palabras clave principales `weakness`, `kill`, `destroy`, `stake` y las palabras clave secundarias `Vlad`, `the count`. Las palabras clave secundarias la mantienen callada cuando el grupo mata a un lobo. **Whole Words** impide que `stake` coincida con "mistake". El orden bajo evita que se recorte en una escena concurrida.
 
-Las ambientaciones grandes se manejan mejor como un árbol que como un montón plano de entradas. Junto a una entrada por cada personaje, lugar u objeto, agrega **entradas eje** para los grupos a los que pertenecen: una entrada sobre *El Imperio* que lo describa y liste a sus miembros destacados, o una entrada de un reino que liste sus ciudades importantes. Un eje le da a la IA un mapa: cuando sale el Imperio, el modelo ve qué es y quién pertenece a él, sin que la entrada completa de cada miembro llene el prompt.
+Dónde vive un lorebook decide qué chats lo ven. Consulta [Visión general de los lorebooks](overview.md) y [Vincular lorebooks a personajes y personas](linking-to-characters.md) para los lorebooks globales, vinculados e incrustados.
 
-Deja la recursión desactivada en los ejes. El interruptor **Recursive** (Recursivo) del lorebook y el interruptor **Recursion** (Recursión) de una entrada están desactivados de forma predeterminada, lo cual es justo lo que quiere un eje: le entrega al modelo su visión general y deja que la entrada propia de cada miembro aparezca solo cuando ese miembro se nombra explícitamente. Si activas la recursión en otro sitio para encadenar trasfondo relacionado, mantenla desactivada en las entradas eje. Si no, nombrar al grupo mete de golpe en el prompt la entrada completa de cada miembro: miles de tokens de detalle que todavía no vienen al caso.
+## Macros en el contenido de la entrada
 
-### Reutilizar el trasfondo entre personajes y chats
+El **Content** se expande como cualquier otro texto del prompt antes de enviarse. Macros útiles:
 
-Dónde vive un lorebook decide qué chats pueden verlo, así que ajusta el contenedor al tipo de trasfondo:
+- `{{char}}` y `{{user}}` dan los nombres, para que una entrada compartida se lea bien en cualquier chat.
+- `{{roll:1d6}}` tira un dado. `{{setvar::mood::angry}}` guarda un valor para este chat, y `{{getvar::mood}}` lo vuelve a leer.
+- `{{random::a::b::c}}` elige una opción. Agrega pesos, como en `{{random::common@3::rare@1}}`. Combínalo con una **Probability** baja para meter toda una tabla de encuentros en una sola entrada.
+- `{{include::Entry name}}` inserta el texto de otra entrada del mismo lorebook, incluso una desactivada. Consulta [Macro de inclusión de lorebook](../prompts/macros.md#lorebook-include-macro).
+- `{{// note}}` es un comentario. Se elimina antes de que la IA lo vea y antes de los escaneos de recursión, así que nunca puede disparar nada.
 
-- **Reglas de mundo compartido** —la ambientación a la que pertenece todo lo de tu biblioteca— van en un lorebook **Global**, que está activo en cada chat (activa el interruptor **Global** en la pestaña **Overview** del lorebook).
-- **El trasfondo propio de un personaje** —historia previa, secretos, relaciones— va en un lorebook **vinculado** a ese personaje, así se activa solo en sus chats y en ningún otro. Cuando varios personajes comparten un mismo libro, agrega un **filtro** de personaje a las entradas que pertenecen a uno solo de ellos.
-- **Una tarjeta que planeas compartir** — **incrusta** el lorebook en la tarjeta de personaje para que su World Info viaje con la exportación. La incrustación es solo para personajes, y una tarjeta tiene un lorebook incrustado a la vez.
-- **Trasfondo para una sola historia** — fija un lorebook solo a ese chat desde sus ajustes.
+Para ver la lista completa, consulta [Macros de prompt](../prompts/macros.md).
 
-Ver [Visión general de los lorebooks](overview.md) para saber cómo funciona la activación, y [Vincular lorebooks a personajes y personas](linking-to-characters.md) para los controles de asignación, alcance e incrustación.
-
-<a id="worked-example-a-small-setting"></a>
-
-## Ejemplo práctico: una ambientación pequeña
-
-Supón que llevas un roleplay de terror gótico ambientado en la Valaquia de la década de 1890. Un lorebook mínimo sería un montón de entradas de nombre y contenido; uno bien construido usa los controles de arriba para que cada dato aparezca justo cuando debe. Así es como podría configurarse un puñado de entradas, y por qué.
-
-Empieza por los cimientos: un dato siempre activo y un par de detalles con palabras clave.
-
-**La premisa** — *Constant.*
-
-- Contenido: `The year is 1890. Vampires are real and hunt the Carpathian nights; the living bar their windows after dark.`
-- Por qué **Constant**: las reglas básicas tiñen cada respuesta, así que esta entrada siempre está presente, sin necesidad de palabra clave. Esta es la única entrada que puedes justificar tener siempre activa; resiste la tentación de convertir más entradas en Constant.
-
-**Castle Dracul** — *Normal.*
-
-- Primary Keys: `Castle Dracul`, `the castle`, `the fortress`
-- Contenido: `A black-stone fortress on the ridge above the village, the seat of the vampire count.`
-- Por qué **Normal** con esas palabras clave: el castillo solo importa cuando está en juego, así que espera a una palabra clave. Las palabras clave cubren su nombre y las formas en que los personajes se refieren a él.
-
-**Count Vlad** — *Normal, con Whole Words activado.*
-
-- Primary Keys: `Vlad`
-- Description: `The setting's central vampire.`
-- Contenido: `The immortal count who rules Wallachia after dark — charming, patient, and without mercy.`
-- Por qué **Whole Words**: `Vlad` es corto y podría quedar dentro de otra palabra, así que la coincidencia por palabra completa evita que se dispare por error. La **Description** está rellenada para que el Knowledge Router pueda enrutar la entrada si usas ese agente.
-
-### Combinar varios controles en una sola entrada
-
-La mayoría de las entradas necesitan uno o dos controles; unas pocas se ganan varios a la vez. Toma la regla de cómo se puede matar de verdad al villano, un dato que la IA tiende a olvidar en el peor momento:
-
-**La debilidad del conde** — *Selective (AND Any), Whole Words activado, Order 10 y con Description.*
-
-- Primary Keys: `weakness`, `kill`, `destroy`, `stake`
-- Secondary Keys: `Vlad`, `the count`
-- Description: `How Count Vlad can actually be destroyed.`
-- Contenido: `Vlad can only be destroyed by a blackthorn stake through the heart, driven at dawn. Sunlight alone merely weakens him.`
-
-Por qué esta única entrada se gana varios controles avanzados:
-
-- **Selective** con esas palabras clave secundarias: `weakness`, `kill` y `destroy` son palabras genéricas de combate que salen cada vez que el grupo pelea con algo. Las palabras clave secundarias fijan la entrada al conde, así que se queda callada cuando matan a un lobo o traman contra un rival, y solo se dispara cuando lo que está en juego es *su* muerte.
-- **Whole Words**: sin esto, `stake` coincidiría con `mistake`, y `kill` con `skill`. Las palabras clave cortas y comunes casi siempre quieren coincidencia por palabra completa.
-- **Order 10**: una escena de clímax activa muchas entradas a la vez y puede reventar el presupuesto de tokens. Un orden bajo carga esta entrada primero, así que si se recorta la cola, sobrevive el único dato del que depende la escena.
-- **Description**: el agente Knowledge Router la lee para enrutar la entrada por significado, así que la regla puede salir a flote incluso cuando las palabras clave exactas no están en el último mensaje.
-
-### Versiones alternativas que no deben acumularse
-
-Quieres que los chismes del pueblo sobre el conde suenen inconsistentes, pero nunca quieres dos rumores contradictorios en la misma respuesta. Pon los dos en un mismo **Group** y deja que la probabilidad haga que salgan pocas veces:
-
-**Rumor: el pacto** y **Rumor: el linaje** — *ambos en Group `count-rumor`, Probability 40%.*
-
-- Ambos con las palabras clave: `rumor`, `they say`, `the count`
-- Contenidos: `They say the count was once a crusader who bargained with something in the dark.` y `They say the count is not one man but a line of them, each wearing the last one's face.`
-- Por qué **Group** `count-rumor`: las entradas del mismo grupo son mutuamente excluyentes (solo una se activa por generación), así que los dos rumores nunca se contradicen en el mismo mensaje. Por qué **Probability 40%**: un rumor que sale cada vez que se toca el tema deja de parecer un rumor; bajar las probabilidades lo mantiene como un comentario ocasional que da color a la escena.
-
-En todo el lorebook, solo la premisa es Constant, una entrada combina lógica selectiva con un orden bajo, y todo lo demás simplemente espera a sus palabras clave. Eso es lo que mantiene el prompt ligero y a la vez pone el dato adecuado delante de la IA en el momento adecuado.
-
-## Casos de uso por parámetro
-
-La estrategia y el ejemplo práctico de arriba muestran estos controles en combinación. Esta sección es una referencia rápida: *para qué* sirve cada control, y un ejemplo de cada uno.
-
-### Coincidencia
-
-**Whole Words** — impide que una palabra clave coincida dentro de una palabra más larga.
-
-- Úsalo para: palabras clave cortas o de una sola sílaba, siglas, o una palabra clave que sea un fragmento de otras palabras.
-- *Ejemplo:* la palabra clave `Ash` (un personaje) coincide con "Ash", pero no con "ashes" ni con "cash".
-
-**Case Sensitive** — la palabra clave debe coincidir exactamente en mayúsculas y minúsculas.
-
-- Úsalo para: una palabra clave que también es una palabra común en minúsculas; siglas y acrónimos; códigos donde las mayúsculas tienen significado.
-- *Ejemplo:* `IT` (el departamento técnico) coincide con "IT", pero no con la palabra "it".
-
-**Regex** — trata la palabra clave como un patrón de expresión regular.
-
-- Úsalo para: varias grafías o formas a la vez, sufijos opcionales, o números y códigos con un patrón. Mantén los patrones simples: cada uno se ejecuta con un tiempo de espera de seguridad corto.
-- *Ejemplo:* `\bVlad(?:'s)?\b` coincide tanto con "Vlad" como con "Vlad's" en forma de palabras completas.
-
-### Tipo de entrada
-
-**Constant** — se inyecta en cada turno, sin palabra clave.
-
-- Úsalo para: la premisa y las reglas básicas de la ambientación, una directriz de tono o de estilo, o un dato tan central que la IA nunca debería quedarse sin él.
-- *Ejemplo:* una entrada Constant sin palabras clave, "Todos hablan el inglés de la época de 1800.", está presente en cada respuesta.
-
-**Selective (palabras clave secundarias + lógica)** — agrega una segunda condición de palabra clave encima de las palabras clave principales.
-
-- Úsalo para: una palabra clave principal común que se dispara en la escena equivocada, trasfondo que solo debe aparecer en una combinación concreta de temas, o bloquear una entrada cuando cierto término está presente.
-- *Ejemplo (AND Any):* principal `king`, secundaria `Silverhaven`: la entrada del rey se dispara solo cuando también se menciona Silverhaven.
-- *Ejemplo (NOT Any):* principal `the prophecy`, secundaria `fulfilled`: la entrada de la profecía sin cumplir se bloquea en cuanto la profecía se cumple.
-
-### Ubicación
-
-**Before chat / After chat** — dónde se sitúa la entrada respecto a la conversación.
-
-- Úsalo para: la mayor parte del trasfondo (Before chat, el predeterminado); un empujón que quieres lo más cerca posible de la siguiente respuesta del modelo (After chat).
-- *Ejemplo:* un resumen de facción en Before chat; un recordatorio corto de "no te salgas del personaje" en After chat.
-
-**@ Depth (con Depth y Role)** — inyecta la entrada *dentro* de los mensajes recientes. Úsalo con moderación; ver la advertencia en **Position, Depth y Order** más arriba.
-
-- Úsalo para: una regla que el modelo sigue olvidando a mitad de escena, o un dato que acaba de cambiar y debe caer junto al último turno. **Role** etiqueta la línea inyectada como **System**, **User** o **Assistant**.
-- *Ejemplo:* "La taberna está ardiendo." en @ Depth 1, Role System.
-
-**Order** — la secuencia en la que se cargan las entradas activadas.
-
-- Úsalo para: hacer que una entrada gane cuando varias se disparan y el presupuesto va justo, o controlar el orden de entradas relacionadas.
-- *Ejemplo:* una regla crítica para la trama en Order 10 se carga antes que las entradas de ambientación en el 100 predeterminado, y sobrevive al recorte por presupuesto.
-
-**Outlet** — recoge las entradas activadas en una macro con nombre en lugar de inyectarlas directamente.
-
-- Úsalo para: reunir varias entradas en un solo punto de tu prompt, o construir un bloque dinámico que colocas tú.
-- *Ejemplo:* tres entradas con Position Outlet y el nombre `house_rules`; pon `{{outlet::house_rules}}` en una sección del prompt y ahí aparecen solo las que se activaron este turno, unidas según su Order.
-
-### Cuándo y con qué frecuencia se dispara una entrada
-
-**Probability** — el porcentaje de probabilidad de que la entrada se dispare cuando sus palabras clave coinciden.
-
-- Úsalo para: detalles de ambientación ocasionales, eventos aleatorios, o una manía que solo debe salir algunas veces.
-- *Ejemplo:* "hoy el posadero está de mal humor" con Probability 30%.
-
-**Sticky** — mantiene la entrada activa durante un número fijo de mensajes después de que se dispara.
-
-- Úsalo para: retener un dato en el prompt durante algunos turnos, para que el modelo no lo olvide a mitad de escena.
-- *Ejemplo:* un secreto revelado con Sticky 3 sigue activo durante tres mensajes después de que sale.
-
-**Cooldown** — impide que la entrada vuelva a dispararse durante un número fijo de mensajes después de que se dispara.
-
-- Úsalo para: evitar que una entrada dramática o pesada se repita en cada mensaje, o marcar el ritmo de un evento recurrente.
-- *Ejemplo:* un presagio de "la tierra tiembla" con Cooldown 5 se dispara como mucho una vez cada cinco mensajes.
-
-**Delay** — la entrada no puede dispararse hasta que el chat lleve un número determinado de mensajes.
-
-- Úsalo para: trasfondo que no debe aparecer al principio del todo; un giro o un dato de un arco posterior que se guarda hasta que la historia avanza.
-- *Ejemplo:* una entrada de "el mentor era el traidor desde el principio" con Delay 20.
-
-**Ephemeral** — la entrada se desactiva a sí misma después de un número fijo de activaciones.
-
-- Úsalo para: contenido de una sola vez, o de pocas veces: una introducción, una nota de primer encuentro, una pista de tutorial.
-- *Ejemplo:* "Despiertas sin recordar cómo llegaste aquí." con Ephemeral 1 se dispara una vez y luego se apaga sola.
-
-### Organización y control
-
-**Group** — hace que las entradas sean mutuamente excluyentes; solo una del grupo se activa por respuesta.
-
-- Úsalo para: alternativas (uno de varios rumores, estados de ánimo o versiones), o un conjunto para elegir al azar.
-- *Ejemplo:* tres entradas de "el clima de hoy" en el Group `weather`: se elige exactamente una por respuesta.
-
-**Tag** — una etiqueta de texto libre para tu propia clasificación. No afecta a la activación.
-
-- Úsalo para: organizar y filtrar entradas en el editor.
-- *Ejemplo:* etiqueta las entradas como `npc`, `location` o `wip` para encontrarlas y manejarlas rápido.
-
-**Description** — un resumen que el agente Knowledge Router lee para enrutar la entrada; nunca se envía a la IA como contenido.
-
-- Úsalo para: darle a una entrada densa o llena de macros un resumen en lenguaje sencillo que el enrutador pueda emparejar por significado, o una nota para ti.
-- *Ejemplo:* una entrada llena de macros de formato recibe la Description "las reglas de la arena de duelos".
-
-**Recursion (por entrada)** — permite que el contenido de esta entrada dispare más entradas. Desactivada de forma predeterminada.
-
-- Úsalo para: una entrada desde la que *quieres* encadenar hacia un conjunto acotado de trasfondo relacionado. Mantenla desactivada en las entradas eje (ver **Estructura el trasfondo como un árbol** más arriba).
-- *Ejemplo:* "El grupo entra en el Bosque Espinoso." con Recursion activada y un contenido que nombra los puntos de referencia del bosque, para que esas entradas se activen también.
-
-**No Vector** — excluye la entrada de la búsqueda semántica.
-
-- Úsalo para: evitar que una entrada genérica o de plantilla ensucie las coincidencias por significado, o una entrada que solo quieres que se dispare por sus palabras clave exactas.
-- *Ejemplo:* marca una entrada con instrucciones de formato como No Vector para que nunca salga como un resultado semántico de "trasfondo relacionado".
-
-**Locked** — protege la entrada del agente Lorebook Keeper.
-
-- Úsalo para: una entrada afinada a mano que un paso automático no debería reescribir.
-- *Ejemplo:* bloquea tu premisa cuidadosamente redactada para que el Keeper no pueda editarla.
-
-**Context filters** — limitan una entrada a ciertos personajes, etiquetas de personaje o tipos de generación.
-
-- Úsalo para: trasfondo que se aplica solo a algunos personajes, o solo a algunos tipos de generación.
-- Filtrar a un personaje hace más que ocultar la entrada en los demás chats: en un chat grupal también mantiene la entrada fuera de las respuestas de *otros personajes*, y se activa solo cuando el personaje filtrado es el que responde. Eso la hace ideal para historias previas privadas, secretos y conocimiento que un personaje tiene y los demás no deberían tener.
-- *Ejemplo:* filtra a la espía la entrada sobre su lealtad secreta, para que influya en sus propias respuestas pero nunca se cuele en las respuestas de los personajes a los que engaña.
-
-## Usar macros en el contenido de la entrada
-
-El **Content** de una entrada se expande como cualquier otro texto del prompt: las macros de prompt se resuelven antes de que el contenido se inyecte. Estas son algunas que resultan útiles dentro de las entradas de lorebook:
-
-- `{{char}}` y `{{user}}`: los nombres del personaje actual y del usuario o de su persona, para que una entrada compartida se lea con naturalidad en cualquier chat.
-- `{{random::a::b::c}}` y `{{roll:1d6}}`: eligen una opción al azar o tiran dados, para dar un sabor que varía cada vez que la entrada se dispara. Agrega pesos con `@`, como en `{{random::common@3::rare@1}}`, para que unas opciones sean más probables que otras.
-- `{{#if ...}}...{{else}}...{{/if}}`: cambia el texto según quién habla, según una variable o según el personaje activo.
-- `{{getvar::name}}` y `{{setvar::name::value}}`: leen o escriben una variable persistente local del chat, para que una entrada reaccione al estado o lo modifique en turnos posteriores sin filtrarlo a otros chats.
-- `{{include::Entry name}}`: inserta el texto de otra entrada del mismo lorebook, incluso si está desactivada, para que el texto compartido esté en un solo lugar. Consulta [Macro de inclusión de lorebook](../prompts/macros.md#lorebook-include-macro).
-
-El azar con pesos combina bien con **Probability** para meter una tabla entera en una sola entrada. En lugar de un grupo de veinte entradas de monstruos, dale a una sola entrada de "encuentro aleatorio" una **Probability** baja (para que el encuentro sea solo ocasional) y una lista con pesos de lo que aparece:
-
-`{{random::a lone wolf@5::a bandit scout@3::a wounded traveler@2::a displacer beast@1}}`
-
-La entrada se dispara solo a veces, y cuando lo hace elige un encuentro, con pesos para que los enemigos comunes salgan más que los raros, y sin ningún compendio de entradas sueltas que mantener.
-
-Usa la **macro de comentario** para dejar una nota que nunca llega a la IA:
-
-- `{{// draft wording, revisit later}}`: todo lo que está dentro de `{{// ... }}` se elimina de la salida.
-
-**Una nota sobre la recursión.** Cuando el escaneo **Recursive** está activado para el lorebook (ver [Presupuestos de tokens y recursión](token-budgets.md)), Marinara vuelve a escanear el contenido *ya expandido* de las entradas activadas en busca de más palabras clave. Como las macros se resuelven primero, el texto que produce una macro puede disparar otras entradas: por ejemplo, un contenido que se expande a un nombre puede activar una entrada con esa palabra clave. Un `{{// comment}}` es la excepción: se elimina por completo antes del nuevo escaneo, así que su texto nunca puede disparar nada. Los comentarios son solo para notas; si quieres que un texto alimente la recursión, escríbelo de forma normal.
-
-## Problemas frecuentes
-
-- **Una entrada nunca se dispara.** Una entrada **Normal** sin palabras clave no tiene nada que la coincidencia por palabra clave pueda atrapar: dale palabras clave o hazla **Constant**. (Una entrada sin palabras clave todavía puede recuperarse por significado, pero solo con la búsqueda semántica configurada del todo: **Vectors** (Vectores) activado, un modelo de embedding configurado y la entrada vectorizada; ver [Búsqueda semántica](semantic-search.md).) Comprueba también que el lorebook esté habilitado y activo en el chat.
-- **Una palabra clave dejó de funcionar.** Las palabras clave solo se buscan en los últimos mensajes: el **Scan Depth** (Profundidad de escaneo) del lorebook, que es 2 de forma predeterminada. En cuanto la palabra disparadora sale de esa ventana, la entrada se calla. Sube el **Scan Depth**, agrega **Sticky** para que un dato permanezca una vez que se dispara, o haz la entrada **Constant**.
-- **Una entrada se dispara en las escenas equivocadas.** Una palabra clave amplia como `home` o `king` coincide con demasiado. Ajústala con **Whole Words**, contrólala con palabras clave secundarias **Selective**, o filtra la entrada al personaje correcto.
-- **El trasfondo importante se pierde una y otra vez.** Cuando coinciden más entradas de las que permite el presupuesto, se recorta la cola. Dale un **Order** más bajo a las entradas que importan, sube el **Token Budget**, o mueve el trasfondo de consulta más voluminoso detrás del agente Knowledge Router. La sección **Active Context** de **Chat Settings** (Contexto activo) muestra exactamente qué se saltó y por qué (ver [Presupuestos de tokens y recursión](token-budgets.md)).
-- **La IA ignora tu trasfondo.** Confirma en **Active Context** que la entrada se activó de verdad. Y recuerda que compite con el resto del prompt: un dato enterrado lejos del último turno tiene menos peso que uno en **After chat** o, con moderación, en **@ Depth**.
-
-## Lista de comprobación para escribir entradas
-
-Un repaso rápido para cada entrada que escribas:
-
-1. **Ponle un nombre** claro: el nombre es para ti y para la búsqueda, no para la IA.
-2. **Decide cómo se dispara:** un dato siempre cierto → **Constant**; cualquier otra cosa → **Normal** con entre tres y ocho **palabras clave** específicas.
-3. **Doma las palabras clave demasiado generales** con **Whole Words**, o repártelas en palabras clave secundarias **Selective**.
-4. **Escribe el contenido** como un dato simple, con los menos tokens posibles.
-5. **Rellena la Description** si usas el agente Knowledge Router.
-6. **Deja la ubicación en sus valores predeterminados** salvo que la entrada de verdad necesite un **Position**, un **Depth** o un **Order** propios.
-7. Ponles un mismo **Group** a las alternativas mutuamente excluyentes; **filtra** al personaje que corresponda el trasfondo específico de un personaje.
-8. **Pruébala** en el panel **Keyword test**, y luego vigila **Active Context** en un chat real para confirmar que se dispara y que cabe en el presupuesto.
+Con **Recursive** (Recursivo) activado, Marinara vuelve a escanear el contenido expandido de las entradas activadas. El texto que produce una macro puede disparar más entradas.
 
 ## La herramienta Keyword test
 
-El panel **Keyword test** (Prueba de palabras clave) en la parte superior de la pestaña **Entries** te permite comprobar tus palabras clave sin iniciar un chat. Expándelo y pega un párrafo de muestra o unos cuantos mensajes en el cuadro.
+El panel **Keyword test** (Prueba de palabras clave), en la parte superior de la pestaña **Entries**, comprueba tus palabras clave sin un chat.
 
-Las entradas cuyas palabras clave coincidirían obtienen un acento verde y un chip **Would activate** (Se activaría). Las entradas **Constant** obtienen un chip **Always active** (Siempre activa), porque se disparan sin importar lo que diga el texto. Una línea de conteo muestra cuántas de tus entradas habilitadas se activarían.
+1. Expande **Keyword test**.
+2. Pega un párrafo de muestra o unos cuantos mensajes en el cuadro.
 
-Esta prueba comprueba solo las reglas de palabras clave. Ignora los tiempos, la probabilidad, los filtros de personaje y la coincidencia semántica, así que un chat en vivo aún puede diferir de la vista previa.
+Las entradas que coincidirían reciben un acento verde y un chip **Would activate** (Se activaría). Las entradas **Constant** reciben un chip **Always active** (Siempre activa). Una línea de conteo muestra cuántas entradas habilitadas se activarían. El interruptor **Include other lorebooks** (Incluir otros lorebooks) también comprueba las entradas habilitadas de tus otros lorebooks.
+
+La prueba ignora los tiempos, la probabilidad, los filtros de personaje y de persona, y la coincidencia por significado, así que un chat real todavía puede diferir.
+
+<a id="entry-folders"></a>
 
 ## Carpetas de entradas
 
-Las carpetas agrupan entradas dentro de un mismo lorebook. Son distintas de las carpetas de biblioteca en el panel principal **Lorebooks**.
+Las carpetas agrupan entradas dentro de un mismo lorebook. Son distintas de las carpetas de biblioteca del panel **Lorebooks**.
 
-- Haz clic en **Add Folder** para crear una, luego cámbiale el nombre en línea.
-- Arrastra una entrada sobre una carpeta para archivarla, o usa el selector **Folder** de la entrada.
-- Arrastra una carpeta sobre otra carpeta para anidarla, o arrástrala a la franja superior para desanidarla.
-- Cada carpeta tiene un interruptor **Enabled** (Activada). Cuando desactivas una carpeta, cada entrada dentro de ella deja de activarse, incluso si el interruptor propio de esa entrada está encendido.
-- El encabezado de una carpeta también tiene **Clone** (Clonar) y **Delete**. **Clone** hace una copia profunda de la carpeta con todas sus entradas y subcarpetas. **Delete** quita solo la carpeta en sí. Sus entradas y subcarpetas suben al nivel superior.
+- Haz clic en **Add Folder** y luego cámbiale el nombre a la carpeta ahí mismo.
+- Arrastra una entrada sobre una carpeta, o usa el selector **Folder** (Carpeta) de la entrada (funciona con un toque).
+- Arrastra una carpeta sobre otra para anidarla, o sobre la franja superior para desanidarla.
+- Cada carpeta tiene un interruptor de activación (su tooltip dice "Folder enabled"). Cuando está desactivado, cada entrada que contiene deja de activarse.
+- **Clone folder** (Clonar carpeta) copia la carpeta con todas sus entradas y subcarpetas.
+- **Delete folder** (Eliminar carpeta) quita solo la carpeta. Su contenido sube al nivel superior.
 
-Las carpetas solo se muestran como grupos cuando ordenas por **Order** sin una búsqueda activa. Cualquier otro orden, o una búsqueda, cambia a una lista plana y muestra la nota **Folder view paused (clear search and sort by Order)** (Vista de carpetas en pausa; borra la búsqueda y ordena por Order).
+Las carpetas solo se muestran como grupos cuando ordenas por **Order** sin búsqueda. Si no, ves una lista plana y la nota **Folder view paused (clear search and sort by Order)** (Vista de carpetas en pausa: borra la búsqueda y ordena por Order).
+
+## Solución de problemas
+
+| Síntoma | Solución |
+| --- | --- |
+| Una entrada nunca se dispara. | Dale palabras clave o hazla **Constant**. Comprueba que el lorebook esté habilitado y activo en el chat. |
+| Una palabra clave funcionaba y dejó de funcionar. | Marinara solo escanea los últimos mensajes (**Scan Depth**, Profundidad de escaneo; 2 de forma predeterminada). Sube **Scan Depth**, agrega **Sticky** o haz la entrada **Constant**. |
+| Una entrada se dispara en las escenas equivocadas. | Usa **Whole Words**, palabras clave secundarias **Selective** o un filtro de personaje. |
+| El trasfondo importante se pierde. | Dale un **Order** más bajo o sube el **Token Budget**. **Active Context** (Contexto activo) en **Chat Settings** (Ajustes del chat) muestra qué se omitió y por qué. Consulta [Presupuestos de tokens y recursión de los lorebooks](token-budgets.md). |
+| La IA ignora una entrada. | Revisa **Active Context** para confirmar que se activó. Un dato lejos del último mensaje tiene menos peso que uno colocado cerca del último mensaje con **@ Depth**. |
 
 ## Guías relacionadas
 

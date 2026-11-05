@@ -1,218 +1,230 @@
 # Criando e editando personagens
 
-Neste guia você aprende a criar um personagem no Marinara Engine. Ele também mostra como usar o Character Editor (editor de personagens) para escrever, salvar e controlar as versões do card. O texto cobre as abas **Metadata**, **Card**, **Voice** e **Advanced**, os avatares e o histórico de versões salvas.
+O card de personagem é o arquivo que define um personagem de IA: quem ele é, como fala, qual é a aparência dele e como começa um chat com ele. Você escreve o card no Character Editor (editor de personagem). A IA lê os campos do card a cada resposta, então um texto claro e específico deixa o personagem mais coerente.
 
-## O que é um card de personagem
+## Crie um personagem
 
-O card de personagem é o arquivo que define um personagem de IA. Ele guarda quem o personagem é, como fala, qual é a aparência dele e como começa um chat com ele. Esses detalhes são escritos no Character Editor. Monte um card do zero, importe um card de outro aplicativo ou exporte o seu para compartilhar.
-
-Quase tudo o que você escreve vai parar em alguns poucos campos de texto. A IA lê esses campos a cada resposta, então um texto claro e específico deixa o personagem mais coerente.
-
-## Criando um personagem
-
-1. Abra o painel **Characters** (personagens) na barra lateral.
-2. Clique no botão **New** (o ícone de mais). A janela **Create Character** abre.
-3. Clique no círculo redondo do avatar para fazer upload de uma imagem. Essa etapa é opcional.
-4. Digite um nome no campo **Name \***. O nome é obrigatório.
+1. Clique em **Characters** (personagens) na barra de navegação superior. Se não encontrar esse item, abra **More** (mais) primeiro.
+2. Clique em **New** (o ícone de mais). A janela **Create Character** abre.
+3. Digite um nome em **Name \***. O nome é obrigatório.
+4. Clique no círculo redondo do avatar para adicionar uma imagem. Essa etapa é opcional.
 5. Clique em **Create**.
 
-Marinara salva o novo card com os campos vazios. Em seguida, o Character Editor completo abre para você preencher o resto. Se já tiver um arquivo de card, comece pelo botão **Import** em vez do botão **New**. Veja [Importar e exportar cards de personagem](import-export.md).
+O card é salvo com os campos vazios, e o Character Editor abre.
+
+6. Abra a aba **Card** e escreva a **Description**: quem o personagem é. Adicione uma **First Message** em **Dialogue & Greetings**. É com ela que um chat de Roleplay começa.
+7. Clique em **Save** no cabeçalho.
+
+Se você já tem um arquivo de card, clique em **Import** em vez disso. Veja [Importar e exportar cards de personagem](import-export.md).
+
+### Comece um chat com o seu personagem
+
+Escolha o personagem quando começar um chat. Veja [Roleplay Mode: primeiros passos](../roleplay/getting-started.md) ou [Conversation Mode: primeiros passos](../conversation/getting-started.md).
 
 ## O Character Editor de relance
 
-O Character Editor substitui a área do chat por um espaço de trabalho que ocupa a página inteira. O cabeçalho atravessa o topo e reúne as partes que você mais usa.
+O Character Editor substitui a área do chat por um espaço de trabalho que ocupa a página inteira. Em tela larga, as abas descem pelo lado esquerdo. Em tela estreita, elas viram uma faixa rolável no topo. As abas, na ordem, são **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** e **Advanced**. Cada aba leva à sua seção de um único formulário longo, então você também pode rolar a página.
 
-No canto superior esquerdo ficam a seta **Back**, o quadro do avatar, um campo de nome e um campo de título ou comentário. O campo de comentário serve para uma etiqueta curta, como `Modern AU version`. Logo abaixo, uma linha pequena mostra o criador e a versão.
+O cabeçalho reúne as partes que você mais usa:
 
-No canto superior direito ficam estes botões:
+- A seta **Back**, o quadro do avatar, um campo de nome e um campo de título ou comentário para uma etiqueta curta, como `Modern AU version`. Uma linha logo abaixo mostra o criador e a versão.
+- **Save**. O botão fica desligado até você mudar alguma coisa. Enquanto trabalha, ele mostra **Uploading…** (um avatar está sendo enviado), **Embedding…** (um lorebook está sendo adicionado ao card) ou **Saving…**.
+- A estrela **Favorite**.
+- **Export character**. Veja [Importar e exportar cards de personagem](import-export.md).
+- **Import character as persona**, que copia este card para uma nova persona. Veja [Personas](personas.md).
+- **Duplicate character**.
+- **Delete character**.
 
-- O botão **Save**. Ele fica desligado até você mudar alguma coisa. O texto dele mostra o estado atual: **Uploading…**, **Embedding…** ou **Saving…**.
-- A estrela **Favorite**, que marca o card como favorito.
-- O botão **Export character**.
-- O botão **Import character as persona**, que copia este card para uma nova persona (o personagem que você interpreta).
-- O botão **Duplicate character**.
-- O botão **Delete character**.
+Ao sair do editor, as suas mudanças são salvas antes. Se o salvamento falhar, o editor continua aberto com o seu rascunho para você tentar de novo.
 
-Ao sair do editor, o card alterado é salvo antes de continuar. Se o salvamento falhar, o editor permanece aberto com seu rascunho para você tentar novamente.
+Abas que têm guia próprio:
 
-O editor é dividido em abas. Em tela larga, as abas descem pelo lado esquerdo. Em tela estreita, elas viram uma faixa rolável no topo. As abas, na ordem, são **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** e **Advanced**.
+| Aba | Guia |
+| --- | --- |
+| **Onboarding** | [Onboarding interativo](interactive-onboarding.md) |
+| **Convo** | [Perfis do Conversation Mode](../conversation/profiles.md) |
+| **Lorebook** | [Vincular lorebooks a personagens](../lorebooks/linking-to-characters.md) |
+| **Sprites** | [Sprites de personagem](sprites.md) |
+| **Gallery** | [Galerias de personagem e de persona](galleries.md) |
+| **Colors** e **Stats** | [Cores do personagem e status de RPG](colors-and-stats.md) |
 
-Este guia explica as abas **Metadata**, **Card**, **Voice** e **Advanced**, além dos avatares e do histórico de versões. As outras abas têm guias próprios:
+As seções abaixo explicam **Metadata**, **Card**, **Voice** e **Advanced**, além dos avatares e do histórico de versões.
 
-- **Onboarding**: [Onboarding interativo](interactive-onboarding.md).
-- **Convo**: [Perfis do Conversation Mode](../conversation/profiles.md).
-- **Lorebook**: [Vincular lorebooks a personagens e personas](../lorebooks/linking-to-characters.md).
-- **Sprites**: [Sprites de personagem](sprites.md).
-- **Gallery**: [Galerias de personagem e de persona](galleries.md).
-- **Colors** e **Stats**: [Cores do personagem e status de RPG](colors-and-stats.md).
+<a id="metadata-tab"></a>
 
 ## A aba Metadata
 
-A aba **Metadata** guarda os dados de identidade e organização. Eles ajudam a ordenar, compartilhar e acompanhar um card, mas quase nenhum deles vai para a IA.
+A aba **Metadata** guarda os dados de identidade e organização. Eles ajudam a ordenar, compartilhar e acompanhar um card. A maioria deles não é enviada para a IA.
 
-- **Character ID**. Um valor somente leitura, exibido só depois que o card é salvo. Clique em **Copy** para copiá-lo.
-- **Name**. O nome exibido. Ele é usado como `{{char}}` nos prompts, isto é, no texto que Marinara envia para a IA.
+- **Character ID**. Somente leitura. Aparece depois que o card é salvo. Clique em **Copy** para copiá-lo.
+- **Name**. O nome exibido. Nos prompts, ele é `{{char}}`, um marcador que Marinara substitui pelo nome do personagem.
 - **Creator**. Quem fez o card, para dar os créditos quando você compartilhar.
-- **Version**. Um número de versão definido por você, como `1.0`.
+- **Version**. Um número de versão definido por você, como `1.0`. O botão liga/desliga **Automatic versioning** (versionamento automático), ao lado, guarda as versões anteriores e aumenta esse número quando o card muda. O histórico de versões só salva instantâneos enquanto esse botão liga/desliga estiver ativado.
 - **Talkativeness**. Um controle deslizante de 0 a 100 por cento. Ele define com que frequência este personagem fala nos chats em grupo. O padrão é 50 por cento.
-- **Tags**. Digite uma ou mais tags no campo de adicionar tag e pressione Enter ou clique em **Add**. É possível adicionar várias de uma vez, separadas por vírgula. O campo também sugere as tags que a sua biblioteca já usa, das mais usadas para as menos usadas, com quantos personagens têm cada uma. Digitar filtra a lista. Clique em uma sugestão ou escolha-a com as setas e Enter. Remova uma tag pelo X dela ou limpe todas com o botão **Remove All**.
-- **Creator Notes**. Anotações privadas que nunca são enviadas para a IA. Mesmo assim, elas aparecem como resumo na sua biblioteca.
+- **Tags**. Digite as tags no campo de adicionar tag e pressione <kbd>Enter</kbd> ou clique em **Add**. Separe várias tags com vírgulas. O campo sugere as tags que a sua biblioteca já usa, das mais usadas para as menos usadas. Remova uma tag pelo X dela, ou todas com **Remove All**.
+- **Creator Notes**. Anotações privadas que nunca são enviadas para a IA.
 
-O painel **Version history** também fica nesta aba. Ele é explicado na seção sobre salvamento e histórico de versões, mais abaixo.
+**Split description into fields** (dividir a descrição em campos) é um botão abaixo de **Version**. Ele tira de **Description** o texto marcado com rótulos (personalidade, aparência, história, cenário, regras, diálogo de exemplo) e o coloca nos campos próprios. Primeiro você vê um resumo curto, e aplicar a divisão salva o card como uma nova versão. O botão fica desligado enquanto **Description** estiver vazio.
+
+O painel **Version history** também fica nesta aba. Veja [Histórico de versões](#version-history).
+
+<a id="card-tab"></a>
 
 ## A aba Card
 
-A aba **Card** é o espaço principal de escrita. Os links no topo permitem pular para qualquer seção. Cada campo tem um contador de caracteres atualizado em tempo real.
+A aba **Card** é o espaço principal de escrita. Os links no topo levam a qualquer seção, e cada campo tem um contador de caracteres atualizado em tempo real.
 
-- **Summary** (resumo). Uma visão geral para a biblioteca e as prévias do card. São metadados e não são enviados ao modelo nos prompts do chat.
-- **Description**. A identidade geral e o papel do personagem. Este texto vai em todo prompt.
-- **Personality**. Um resumo curto do temperamento, dos hábitos de fala e dos padrões de comportamento.
-- **Backstory**. História, origem e relações importantes.
-- **Appearance**. Descrição física, roupas e detalhes visuais. Marinara também usa este texto como base para o prompt de avatar gerado por IA.
-- **Image Appearance Override** (aparência alternativa para imagens). Um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo para tags curtas de imagem que descrevem o personagem, como a palavra-gatilho de uma LoRA. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto; o campo também serve de base para o prompt de avatar gerado por IA. O narrador sempre recebe o texto completo de **Appearance**. Se a opção estiver desativada ou o campo vazio, **Appearance** continua sendo usado como antes.
-- **Scenario**. O cenário padrão dos chats novos com este personagem.
+| Campo | O que escrever | Enviado para a IA |
+| --- | --- | --- |
+| **Summary** | Uma visão geral curta para a sua biblioteca e para a prévia do card. | Não |
+| **Description** | A identidade geral e o papel do personagem. | Em todo prompt |
+| **Personality** | Temperamento, hábitos de fala, padrões de comportamento. | Sim |
+| **Backstory** | História, origem, relações importantes. | Sim |
+| **Appearance** | Aparência física, roupas, detalhes visuais. Também serve de base para o prompt de avatar gerado por IA. | Sim |
+| **Scenario** | O cenário padrão dos chats novos com este personagem. | Sim |
 
-A seção **Dialogue & Greetings** define como o chat começa e como o personagem soa:
+A opção **Image Appearance Override** (aparência alternativa para imagens) fica abaixo de **Appearance** e vem desativada por padrão. Ative-a para mostrar uma segunda caixa para tags curtas de imagem, como a palavra-gatilho de uma LoRA (uma palavra-chave que ativa um estilo de imagem personalizado). Enquanto a opção estiver ativada e a caixa estiver preenchida, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto. O prompt de avatar gerado por IA também parte dessas tags. O narrador sempre vê o texto completo de **Appearance**.
 
-- **First Message**. A mensagem de abertura mostrada quando um chat novo de Roleplay começa. Os chats de Conversation e Game não começam com uma saudação.
-- **Alternate Greetings**. Mensagens de abertura extras. Ao começar um chat de Roleplay, você escolhe qual delas usar. Use os controles de subir e descer para reordená-las e o X para remover uma.
-- **Example Dialogue**. Trocas de exemplo que ensinam a voz do personagem. Use `<START>` para separar as trocas. Use `{{user}}` e `{{char}}` como marcadores.
+A seção **Dialogue & Greetings** define como um chat começa e como o personagem soa:
 
-As saudações e mensagens de exemplo também podem mostrar imagens da Gallery do personagem; veja [Galerias de personagens → Reutilizar uma imagem da galeria em mensagens e saudações](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
+- **First Message**. A mensagem de abertura de um chat novo de Roleplay. Os chats de Conversation e de Game não começam com uma saudação.
+- **Alternate Greetings**. Mensagens de abertura extras. Quando você começa um chat de Roleplay, pode escolher qual delas usar. Use os controles de subir e descer para reordená-las e o X para remover uma.
+- **Example Dialogue**. Trocas de exemplo que ensinam a voz do personagem. Use `<START>` para separar as trocas, e `{{user}}` e `{{char}}` como marcadores.
 
-Quando as saudações mostram imagens de outros sites, **Save images locally** (salvar imagens localmente) guarda uma cópia delas na Gallery do personagem; veja [Galerias de personagens → Salvar imagens da web das saudações](galleries.md#save-web-images-from-greetings).
-
-Uma entrada curta de Example Dialogue fica assim:
-
-```
+```text
 <START>
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
 
-### Gerar um campo do card com a varinha
+As saudações e as mensagens de exemplo podem mostrar imagens da Gallery do personagem. Veja [Reutilizar uma imagem da galeria em mensagens e saudações](galleries.md#reuse-a-gallery-image-in-messages-and-greetings). Quando as saudações mostram imagens de outros sites, **Save images locally** (salvar imagens localmente) guarda uma cópia delas na Gallery. Veja [Salvar imagens da web das saudações](galleries.md#save-web-images-from-greetings).
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica e o nome acessível identificam o campo gerado.
+<a id="write-a-card-field-with-the-wand"></a>
+
+### Escreva um campo do card com a varinha
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica do botão mostra o nome do campo que ele escreve.
+
+Antes de começar: configure uma conexão de texto que funcione. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
 1. Escreva no campo as ideias que deseja manter, como `smart, scientist, handsome`, ou deixe-o vazio.
-2. Preencha os outros campos do card que a IA deve usar como referência. Você não precisa salvar essas alterações antes.
-3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para a seção, usando o texto atual como ponto de partida e os outros campos como referência. **Example Dialogue** pede trocas de mensagens de exemplo. **First Message** e **Alternate Greeting** pedem, cada um, uma mensagem de abertura de roleplay que deixa sua resposta a seu critério.
-4. Revise e edite o resultado e clique em **Save** para mantê-lo.
+2. Preencha os outros campos do card que a IA deve usar como referência. Você não precisa salvar antes.
+3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para esse campo, usando o seu texto como ponto de partida. Example Dialogue pede trocas de exemplo. **First Message** e cada **Alternate Greeting** pedem uma mensagem de abertura que deixa a sua resposta em aberto.
+4. Edite o resultado e clique em **Save**.
 
-A varinha escolhe a conexão como o gerador de resumos original: sua conexão de texto padrão para agentes, recorrendo à conexão de texto padrão quando necessário. A conexão de reserva de agentes configurada continua valendo. Configure uma conexão de texto funcionando antes de gerar; veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+A varinha usa a sua conexão de texto padrão para agentes ou, se não houver uma, a sua conexão de texto padrão. Uma conexão de reserva de agentes configurada continua valendo.
 
-A geração substitui apenas o campo escolhido no rascunho não salvo. A varinha não salva o card nem altera outros campos; o salvamento normal ao sair do editor continua valendo. Se a geração falhar, seu texto fica intacto. Se você editar o campo de destino enquanto espera ou abrir outro card, um resultado atrasado não sobrescreve suas alterações mais recentes. Ao mover uma saudação alternativa, a geração continua vinculada àquela saudação; excluí-la descarta o resultado pendente. Você pode usar a varinha sem abrir a Professor Mari.
+A varinha substitui apenas o campo escolhido no seu rascunho não salvo. Se a geração falhar, o seu texto continua lá. Se você editar esse campo enquanto espera, ou mudar para outro card, um resultado atrasado não sobrescreve o seu trabalho. Você não precisa da Professor Mari para usar a varinha.
 
-### Usar campos alternativos em chats selecionados
+## Adicione um avatar
 
-Cada um dos sete campos tem **+ Add Alternative Field** (adicionar campo alternativo) abaixo dele. Use isso para dar ao mesmo personagem outra descrição, aparência, história ou outro detalhe em certos chats, mantendo o card original nos demais.
+O avatar é a imagem exibida para o personagem no chat e na sua biblioteca.
 
-1. Clique em **+ Add Alternative Field** abaixo do campo que deseja variar. Marinara copia o texto atual para uma nova alternativa.
-2. Edite a alternativa ou use a própria varinha dela. Essa varinha usa o texto da alternativa como ponto de partida e os outros campos como referência; não substitui o campo original.
-3. Abra **Active in 0 chats** (ativo em 0 chats) e selecione quantos nomes de chat quiser. Só aparecem chats que incluem esse personagem. Abra o seletor novamente para atualizar a lista depois de adicionar ou remover o personagem em outro chat.
-4. Clique em **Save** para aplicar a alternativa. O salvamento normal ao sair do editor também vale.
-
-Você pode adicionar quantas alternativas precisar. Sem chats selecionados, uma alternativa fica inativa para depois. Uma alternativa vazia limpa intencionalmente esse campo nos chats selecionados. Cada chat só pode usar uma alternativa do mesmo campo: selecionar um chat em outra alternativa move a atribuição dele para lá. Os outros campos e chats mantêm os valores originais. As substituições existentes de cenário e aparência para imagens específicas do chat continuam tendo prioridade.
-
-Alternativas de **Summary** continuam sendo metadados. Elas não acrescentam o resumo ao prompt do chat enviado ao modelo.
-
-A contagem **Active in** inclui apenas chats que usam esse personagem no momento. As atribuições salvas ficam suspensas se o personagem for removido de um chat e voltam a valer quando ele é adicionado novamente. Uma lista de chats carregando ou indisponível não remove atribuições; abra o seletor de novo para atualizar as opções.
-
-Exportar, importar, duplicar cards e converter entre personagens e personas mantém o texto alternativo, mas limpa a seleção de chats. Backups do perfil completo preservam essas seleções.
-
-Para excluir uma alternativa, use a lixeira dela e confirme com **Delete**. Cancelar a mantém. Salve o card para aplicar a exclusão; os chats selecionados voltam ao campo original, respeitando as substituições existentes do chat. Excluir uma alternativa nunca exclui o campo original.
-
-## Adicionando um avatar
-
-O avatar é a imagem exibida para o personagem no chat e na sua biblioteca. Você pode fazer upload de uma imagem, ajustar o enquadramento dela ou gerar uma com IA.
-
-### Fazer upload de uma imagem
+### Faça upload de uma imagem
 
 1. Clique no quadro do avatar, no cabeçalho do editor.
 2. Escolha um arquivo de imagem. A nova imagem aparece na hora.
 
-Assim que o personagem tem um avatar, uma ferramenta de recorte aparece na aba **Metadata**. Use essa ferramenta para reposicionar ou ampliar a imagem dentro do círculo, sem precisar enviar o arquivo de novo. A ferramenta de recorte também tem um controle para remover o avatar.
+Assim que o personagem tem um avatar, uma ferramenta de recorte do avatar aparece na aba **Metadata**. Use-a para mover ou ampliar a imagem dentro do círculo, ou para remover o avatar.
 
-### Gerar um avatar com IA
+### Gere um avatar com IA
 
-A opção de avatar por IA só aparece quando existe pelo menos uma conexão de geração de imagens configurada. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+Antes de começar: adicione uma conexão de geração de imagens. O botão de avatar por IA só aparece quando você tem uma. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
-1. Passe o mouse sobre o quadro do avatar e clique no pequeno botão de varinha **Generate avatar**.
-2. A janela **Generate Character Avatar** abre.
-3. Escolha uma conexão em **Image Generation Connection**.
-4. Revise ou edite o campo **Avatar Prompt**. Ele vem preenchido com o texto de **Image Appearance Override** quando a opção está ativada e o campo contém texto. Caso contrário, usa **Appearance**; se estiver vazio, usa **Description** e depois **Personality**.
-5. Se o card já tiver um avatar, marque a caixa de seleção **Use current avatar as a reference**.
-6. Clique em **Generate**. Para tentar de novo, clique em **Regenerate**.
-7. Quando gostar do resultado, clique em **Use Avatar**.
+1. Passe o mouse sobre o quadro do avatar e clique no botão de varinha. A janela **Generate Character Avatar** abre.
+2. Escolha uma **Image Generation Connection** (conexão de geração de imagens).
+3. Confira ou edite o **Avatar Prompt**. Ele parte de **Image Appearance Override** quando essa opção está ativada e preenchida. Caso contrário, usa **Appearance**, depois **Description** e depois **Personality**, o primeiro que tiver texto.
+4. Se o card já tiver um avatar, você pode marcar **Use current avatar as a reference**.
+5. Clique em **Generate**. Para tentar de novo, clique em **Regenerate**.
+6. Clique em **Use Avatar** quando gostar do resultado.
 
-O tamanho da imagem vem da configuração de tamanho **Portraits**, nas configurações de geração de imagens, cujo padrão é 1024 por 1024. Se a opção **Expose media prompts before sending** estiver ativada, uma etapa de revisão do prompt aparece antes de cada pedido.
+O tamanho da imagem vem do tamanho de imagem **Portraits**, nas configurações de geração de imagens. O padrão é 1024 por 1024. Se **Expose media prompts before sending** estiver ativado, uma etapa de revisão do prompt aparece antes de cada pedido.
 
 ## A aba Voice
 
-A aba **Voice** define como o personagem soa quando o Text to Speech (conversão de texto em voz) lê as mensagens dele em voz alta.
+A aba **Voice** define como o personagem soa quando o Text to Speech lê as falas dele em voz alta.
 
-- **Voice**. A voz que o Text to Speech usa para este personagem. Cada mudança é salva na hora, sem precisar clicar em **Save**. É a mesma configuração da linha deste personagem em **Connections → Text to Speech** (Conexões → Text to Speech), então os dois lugares sempre ficam iguais. Deixe em branco para usar a voz padrão. Se um card com nome correspondente tiver uma voz, como o original de uma cópia AU, o campo vazio mostra o nome dessa voz, porque este card também a usa.
-- **Preview** (ouvir). Toca uma frase curta com essa voz. A frase diz o nome do personagem, ou o Phonetic name, quando houver um definido, para você ouvir como ele soa.
-- **Phonetic name**. Uma grafia opcional, usada apenas para corrigir a pronúncia no text-to-speech. Deixe em branco para usar o nome normal. Ao contrário da voz, ele faz parte do card, então clique em **Save** para mantê-lo.
+- **Voice**. A voz deste personagem. Uma mudança é salva na hora, sem **Save**. É a mesma configuração da linha deste personagem em **Connections → Text to Speech** (Conexões → Text to Speech). Deixe em branco para usar a voz padrão. Quando um card com nome correspondente tem uma voz, como o original de uma cópia AU, o campo vazio mostra o nome dessa voz, porque este card também a usa.
+- **Preview** (ouvir). Toca uma frase curta com essa voz. A frase diz o nome do personagem, ou o **Phonetic name**, quando houver um definido.
+- **Phonetic name**. Uma grafia opcional, usada apenas para corrigir a pronúncia. Ele faz parte do card, então clique em **Save** para mantê-lo.
 
-Se o Text to Speech estiver desligado, ou se todos os personagens compartilharem uma única voz, uma observação curta substitui o campo **Voice**. Com uma única voz compartilhada, a observação oferece o botão **Use a voice per character** (usar uma voz por personagem). O botão **Open Text to Speech settings** (abrir as configurações de Text to Speech) abre o painel Connections, onde o card **Text to Speech** reúne todas as configurações. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md).
+Se o Text to Speech estiver desligado, ou se todos os personagens compartilharem uma única voz, uma observação curta substitui o campo **Voice**. Com uma única voz compartilhada, a observação oferece **Use a voice per character** (usar uma voz por personagem). **Open Text to Speech settings** (abrir as configurações de Text to Speech) abre Connections. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md).
 
 ## A aba Advanced
 
-A aba **Advanced** reúne controles de prompt para usuários avançados. Em um personagem comum, todos esses campos podem ficar vazios.
+A aba **Advanced** reúne controles de prompt. Deixe-os vazios em um personagem comum. Eles valem nos modos Conversation, Roleplay e Game. Um preset de Conversation ou de Game muda o prompt ao redor, mas não desativa o Post-History Instructions nem o Depth Prompt do personagem.
 
-Esses controles de prompt escritos no personagem valem nos modos Conversation, Roleplay e Game. Um preset de Conversation ou de Game selecionado muda o prompt ao redor, mas não desativa o Post-History Instructions nem o Depth Prompt do personagem.
+- **System Prompt**. Instruções específicas do personagem, acrescentadas pelo bloco de personagem do preset ativo, pelo contexto de personagem de Conversation ou pelo card de personagem de Game. Isso não substitui o prompt de sistema principal do chat.
+- **Post-History Instructions**. Texto colocado depois do histórico do chat, logo antes de a IA escrever, como "Stay in character".
+- **Depth Prompt**. Texto inserido no histórico do chat. **Depth** é quantas mensagens para trás: 0 fica logo depois da mensagem mais recente. O padrão é 4. **Role** é **System**, **User** ou **Assistant**. O padrão é System.
 
-- **System Prompt**. Instruções específicas do personagem, acrescentadas pelo bloco de personagem do preset ativo, pelo contexto de personagem de Conversation ou pelo card de personagem/GM de Game, conforme o caso. Isso não substitui o prompt de sistema principal do chat.
-- **Post-History Instructions**. Texto colocado perto do fim do prompt, próximo da geração. Um uso comum é um lembrete curto, como "Stay in character".
-- **Depth Prompt**. Texto inserido em um ponto escolhido do histórico do chat. O campo **Depth** define quantas mensagens atrás ele entra. A profundidade 0 fica logo depois da mensagem mais recente, e a profundidade 4 fica quatro mensagens atrás. A profundidade padrão é 4. O campo **Role** define se o texto entra como **System**, **User** ou **Assistant**. O papel padrão é System.
+A seção **Regex Scripts** guarda scripts de busca e substituição só deste personagem. Veja [Scripts de regex](../extending/regex-scripts.md).
 
-A seção **Regex Scripts** desta aba guarda os scripts de busca e substituição limitados a este personagem. Eles usam o mesmo motor de regex compartilhado. Veja [Scripts de regex](../extending/regex-scripts.md) para entender como funcionam.
+<a id="use-an-alternative-field-in-selected-chats"></a>
 
-## Salvamento e histórico de versões
+## Use um campo alternativo em chats selecionados
 
-Clique no botão **Save**, no cabeçalho, para salvar as mudanças. O botão fica desligado até você editar algo e então liga.
+Um campo alternativo dá ao mesmo personagem outra descrição, aparência, história ou outro detalhe nos chats escolhidos, enquanto todos os outros mantêm o original. Cada um dos sete campos do card tem **Add Alternative Field** (adicionar campo alternativo) abaixo dele.
 
-Cada salvamento pode acrescentar um instantâneo ao painel **Version history**, na aba **Metadata**. Antes da sua primeira edição extra, o painel mostra `Previous card states will appear here after the next edit.` Um contador indica quantos instantâneos você já salvou.
+1. Clique em **Add Alternative Field** abaixo do campo que deseja variar. Marinara copia o texto do campo para uma nova alternativa.
+2. Edite a alternativa. Ela tem a própria varinha, que usa o texto da alternativa como ponto de partida e não muda o campo original.
+3. Abra **Active in 0 chats** (ativo em 0 chats) e marque os chats que devem usá-la. Só aparecem os chats que incluem este personagem.
+4. Clique em **Save**.
+
+Regras:
+
+- Um chat só pode usar uma alternativa por campo. Marcar um chat em outra alternativa move o chat para lá.
+- Sem chats marcados, a alternativa fica inativa para depois.
+- Uma alternativa vazia limpa esse campo nos chats dela.
+- As substituições de cenário e de aparência para imagens específicas do chat continuam tendo prioridade.
+- Alternativas de **Summary** continuam sendo metadados e não são enviadas para a IA.
+- Se o personagem sair de um chat, a atribuição naquele chat fica suspensa e volta a valer quando você adicionar o personagem de novo.
+- Exportar, importar e duplicar cards e converter entre personagens e personas mantém o texto alternativo, mas limpa as marcações de chats. Backups do perfil completo mantêm as marcações.
+
+Para remover uma alternativa, clique no botão de lixeira dela, confirme com **Delete** e depois clique em **Save**. Os chats dela voltam ao campo original. O campo original nunca é excluído junto com uma alternativa.
+
+<a id="version-history"></a>
+
+## Histórico de versões
+
+Enquanto **Automatic versioning** estiver ativado, cada salvamento pode acrescentar um instantâneo ao painel **Version history** da aba **Metadata**. Até lá, o painel mostra `Previous card states will appear here after the next edit.` Um contador mostra quantos instantâneos estão salvos.
 
 Para comparar uma versão salva com o card atual:
 
 1. Abra a aba **Metadata**.
-2. Em **Version history**, clique em uma versão salva.
-3. A janela **Compare** abre. Ela lista lado a lado campos como Name, Description, Personality, Scenario, First Message e Example Dialogue. Cada campo alterado fica marcado.
+2. Em **Version history**, clique em uma versão salva. Uma janela de comparação lista os campos do card lado a lado e marca cada um que mudou.
 
 Para voltar a uma versão mais antiga:
 
-1. Abra a janela **Compare** da versão desejada ou clique no ícone de restauração dela na lista.
+1. Abra a janela de comparação dessa versão ou clique no ícone de restauração dela na lista.
 2. Clique em **Restore this version** e confirme.
 
-A restauração substitui o card atual por aquele instantâneo. Ela não cria uma nova entrada no histórico. Use o ícone de lápis para corrigir a etiqueta de versão de um instantâneo salvo sem restaurá-lo. Também é possível excluir um instantâneo salvo da lista; isso não altera o card atual.
+Marinara salva primeiro o seu card atual no histórico de versões (a não ser que ele já seja igual àquela versão), para você poder voltar a ele depois.
 
-Use o botão **Reset**, no cabeçalho do painel **Version history**, quando quiser recomeçar o versionamento do card. Depois da confirmação, Marinara exclui todos os instantâneos salvos e define a versão atual do card como `0.0`. Essa ação não tem volta.
+Outros controles do painel:
 
-## Revisando as atualizações de card propostas por um agente
+- O ícone de lápis muda o número de versão do card em um instantâneo, sem restaurá-lo.
+- O ícone de lixeira exclui um instantâneo. O seu card atual não muda.
+- **Reset** exclui todos os instantâneos salvos e define a versão do card como 1.0. Marinara pede confirmação, e não é possível desfazer. **Reset** fica desligado enquanto houver edições não salvas.
 
-Durante um chat de Roleplay, um agente opcional pode sugerir pequenas edições nos campos do card, com base no que aconteceu na cena. Quando isso acontece, a janela **Review Character Card Updates** aparece para que o controle continue com você. Você decide o que fica.
+## Revise as atualizações de card propostas por um agente
 
-Para cada edição proposta, as opções são:
+Em um chat de Roleplay, um agente opcional pode sugerir pequenas edições nos campos do card com base na cena. A janela **Review Character Card Updates** abre para você decidir o que fica. Para cada edição proposta:
 
-- **Approve**. Aplica a mudança. Isso também aumenta o número de versão e cria uma entrada no histórico de versões.
-- **Regenerate**. Pede ao agente que tente de novo.
-- **Reject**. Descarta a proposta.
+- **Approve** aplica a edição, aumenta o número de versão e acrescenta uma entrada ao histórico de versões.
+- **Regenerate** pede ao agente que tente de novo.
+- **Reject** descarta a edição.
 
-Se o texto original mudou depois que a proposta foi criada, o aplicativo avisa antes de deixar você forçar a edição. Para saber como ativar ou desativar esses agentes, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
+Se o texto mudou depois que a proposta foi feita, o aplicativo avisa antes de deixar você forçar a edição. Para ativar ou desativar esses agentes, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 
-## Uma observação sobre a Professor Mari
+## Se não funcionou
 
-**Professor Mari** é um personagem assistente embutido, que já vem com Marinara. Ela não pode ser excluída. Se você tentar, o aplicativo bloqueia a ação e avisa que ela é um personagem embutido. Para saber o que ela faz, veja [Professor Mari, a assistente dentro do aplicativo](../home/professor-mari.md).
+- **A varinha não faz nada ou falha.** Confira se você tem uma conexão de texto que funcione. O seu rascunho nunca é sobrescrito quando há falha.
+- **Não aparece o botão de avatar por IA.** Adicione primeiro uma conexão de geração de imagens.
+- **A Professor Mari não pode ser excluída.** Ela é uma personagem embutida que Marinara restaura a cada inicialização. Veja [Professor Mari, a assistente dentro do aplicativo](../home/professor-mari.md).
 
 ## Guias relacionados
 
-- [Personas do usuário: criar e editar](personas.md)
-- [Onboarding interativo](interactive-onboarding.md)
-- [Sprites de personagem](sprites.md)
-- [Galerias de personagem e de persona](galleries.md)
+- [Personas](personas.md)
 - [Importar e exportar cards de personagem](import-export.md)
-- [Cores do personagem e status de RPG](colors-and-stats.md)
-- [Perfis do Conversation Mode](../conversation/profiles.md)
-- [Vincular lorebooks a personagens e personas](../lorebooks/linking-to-characters.md)
+- [Organizando a biblioteca de personagens](library-organization.md)

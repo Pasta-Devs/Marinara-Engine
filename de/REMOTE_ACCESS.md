@@ -8,6 +8,24 @@ Ein paar Begriffe, die durchgehend vorkommen:
 - Loopback: der Rechner, auf dem der Server tatsächlich läuft. Seine Adresse lautet `127.0.0.1` oder `localhost`.
 - Fernzugriff: Marinara von einem Gerät aus öffnen, das NICHT der Rechner mit dem Server ist.
 
+<a id="connect-from-anywhere-with-tailscale"></a>
+
+## Mit Tailscale von überall aus verbinden
+
+[Tailscale](https://tailscale.com) ist ein privates Netzwerk für deine eigenen Geräte. Damit öffnest du Marinara auf dem Handy oder Laptop, zu Hause oder unterwegs, ohne Ports in deinem Router zu öffnen oder Marinara ins öffentliche Internet zu stellen. Marinara vertraut Geräten, die sich direkt über Tailscale verbinden, du musst also keine Anmeldung festlegen.
+
+1. Installiere Tailscale auf dem Computer, auf dem Marinara läuft, und auf deinem anderen Gerät. Du bekommst es unter [tailscale.com/download](https://tailscale.com/download).
+2. Melde dich auf beiden Geräten mit demselben Konto bei Tailscale an.
+3. Starte Marinara mit `start.sh`, `start.bat`, `start-termux.sh` oder dem Windows-Installer. Damit können sich andere Geräte verbinden. Startest du stattdessen mit `pnpm start`, füge zuerst `HOST=0.0.0.0` in deine `.env`-Datei ein (siehe [Wo die .env-Datei liegt](#where-the-env-file-lives)).
+4. Ermittle die Tailscale-Adresse des Marinara-Computers. Öffne dort die Tailscale-App oder führe `tailscale ip -4` aus. Die Adresse beginnt mit `100.`, zum Beispiel `100.101.102.103`.
+5. Schalte auf deinem anderen Gerät Tailscale ein und öffne `http://100.101.102.103:7860` im Browser. Nimm deine eigene Adresse und deinen `PORT`, falls du ihn geändert hast. Marinara öffnet sich ohne Anmeldeseite.
+
+Lädt die Seite nicht, prüfe, ob Tailscale auf beiden Geräten eingeschaltet ist und ob der Server auf `HOST=0.0.0.0` lauscht.
+
+> **Hinweis:** Bei Docker-Installationen funktioniert das nicht. Tailscale-Verkehr erreicht den Container über das Docker-Gateway, deshalb kann Marinara nicht erkennen, dass er über Tailscale kam. Lege zuerst eine Anmeldung fest ([Option 1](#option-1-login-recommended)) und veröffentliche den Port erst dann über `127.0.0.1` hinaus.
+
+Backups, Importe, Updates und andere heikle Aktionen brauchen von einem entfernten Gerät aus weiterhin das Admin-Secret. Siehe [Admin Access und heikle Aktionen](#admin-access-and-privileged-actions).
+
 ## Was Marinara standardmäßig blockiert
 
 Zum Schutz der Daten lehnt eine frische Marinara-Installation Verbindungen von anderen Geräten ab, solange keine Zugriffskontrolle eingerichtet ist. Standardmäßig gelten nur drei Arten von Clients als vertrauenswürdig:
@@ -19,6 +37,8 @@ Zum Schutz der Daten lehnt eine frische Marinara-Installation Verbindungen von a
 Alles andere, etwa dein Handy im selben WLAN oder ein Client aus dem öffentlichen Internet, ist blockiert, bis du eine Anmeldung einrichtest. Öffnet ein blockiertes Gerät Marinara im Browser, erscheint eine dunkle Einrichtungsseite. Ihr Titel lautet **This Marinara Engine install needs a login before remote devices can connect.** Die Seite hat ein Formular für den einmaligen Einrichtungscode aus dem Server-Log, sodass du die Anmeldung von diesem Gerät aus einrichten kannst.
 
 Wenn du nichts tust und nie ein Passwort setzt, bleibt Marinara auf diese drei vertrauenswürdigen Quellen beschränkt. Das ist der sichere Standard.
+
+<a id="where-the-env-file-lives"></a>
 
 ## Wo die .env-Datei liegt
 
@@ -35,6 +55,8 @@ Manchmal erreichen andere Geräte den Server überhaupt nicht: Statt eines 403 l
 ```env
 HOST=0.0.0.0
 ```
+
+Die Shell-Launcher (`start.bat`, `start.sh`) setzen `HOST=0.0.0.0` für dich. Wenn du `pnpm start` direkt aufrufst, passiert das nicht.
 
 Standard-Bind-Adresse je nach Startweg:
 
@@ -87,7 +109,7 @@ Folge dann diesen Schritten vom entfernten Gerät aus.
 
 Um ein weiteres Gerät ohne Passworteingabe anzumelden, nutze einen Kopplungscode. Öffne auf einem angemeldeten Gerät **Settings → Advanced → Access** und wähle **Add a device**. Gib den Code dann auf der Anmeldeseite des neuen Geräts ein. Der Code gilt einmal und nur wenige Minuten. Ein abgelaufener Code erhält eine eigene Meldung; erzeuge dann einen neuen. Unter **Signed-in devices** siehst du jedes Gerät mit seiner Anmeldeart und dem Datum der ersten Anmeldung. Du kannst jedes Gerät abmelden, auch das, an dem du gerade sitzt. Du kannst auch das Passwort ändern oder entfernen. Dafür fragt Marinara nach dem aktuellen Passwort, außer du arbeitest auf dem Computer, auf dem Marinara läuft, oder hast `ADMIN_SECRET` gesetzt.
 
-Wenn du das Passwort vergisst, führe `pnpm reset-login` auf dem Computer aus, auf dem Marinara läuft. Unter Docker führst du `docker exec <container> node scripts/reset-login.mjs` aus. Das entfernt die in der App eingerichtete Anmeldung und meldet jeden Browser ab. Lauscht der Server über Loopback hinaus, gibt er danach einen neuen Einrichtungscode aus. Nur wenn dieser Befehl nicht funktioniert, lösche stattdessen `.remote-login.json` und `.remote-sessions.json` aus dem Datenordner. Mit dem Standardordner `/app/data` führst du `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json` aus; hast du `DATA_DIR` geändert, nutze diesen Ordner. Eine Anmeldung in `.env` änderst du in `.env`.
+Wenn du das Passwort vergisst, führe `node scripts/reset-login.mjs` im Marinara-Ordner auf dem Computer aus, auf dem Marinara läuft. Unter Docker führst du `docker exec <container> node scripts/reset-login.mjs` aus. Das entfernt die in der App eingerichtete Anmeldung und meldet jeden Browser ab. Lauscht der Server über Loopback hinaus, gibt er danach einen neuen Einrichtungscode aus. Nur wenn dieser Befehl nicht funktioniert, lösche stattdessen `.remote-login.json` und `.remote-sessions.json` aus dem Datenordner. Mit dem Standardordner `/app/data` führst du `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json` aus; hast du `DATA_DIR` geändert, nutze diesen Ordner. Eine Anmeldung in `.env` änderst du in `.env`.
 
 **Headless-Server ohne Browser?** Eine native Installation auf einem Headless-Server lauscht nur auf Loopback und gibt keinen Einrichtungscode aus. Führe auf deinem eigenen Computer `ssh -L 7860:127.0.0.1:7860 user@server` aus. Öffne dann dort `http://localhost:7860` und nutze **Settings**.
 
@@ -222,6 +244,8 @@ marinara.example.com {
 
 Für Traefik und nginx folge der Forward-Auth-Anleitung deines Proxys. Marinara braucht nicht mehr als die Adresse des Proxys.
 
+<a id="serving-over-https"></a>
+
 ## Betrieb über HTTPS
 
 HTTPS verschlüsselt die Verbindung mit TLS. TLS ist die Verschlüsselung, die aus einer einfachen `http`-Adresse eine sichere `https`-Adresse macht. Nutze HTTPS immer dann, wenn die Installation außerhalb eines vollständig vertrauenswürdigen privaten Netzwerks erreichbar ist – erst recht zusammen mit Basic Auth.
@@ -239,11 +263,29 @@ SSL_KEY=/path/to/key.pem
 
 Zertifikat und Schlüssel müssen vorliegen, bevor du `SSL_CERT` und `SSL_KEY` setzt. Erzeugen lassen sie sich für den lokalen Einsatz etwa mit `mkcert`, für eine öffentliche Domain mit `certbot`. Fehlen die Dateien oder sind sie nicht lesbar, bricht der Server beim Start ab und nennt die genauen Pfade, die er versucht hat.
 
+<a id="admin-access-and-privileged-actions"></a>
+
 ## Admin Access und heikle Aktionen
 
-Manche Aktionen sind besonders heikel: Daten löschen, Backups erstellen oder herunterladen, Profile importieren und exportieren, Themes installieren und die Local-Model-Laufzeitumgebung installieren. Sie brauchen zusätzlich zur gewählten Zugriffsoption ein eigenes gemeinsames Geheimnis, das Admin-Secret.
+Manche Aktionen sind besonders heikel: Daten löschen, Backups erstellen oder herunterladen, Profile importieren und exportieren, Themes und Agenten installieren und die Local-Model-Laufzeitumgebung installieren. Sie brauchen zusätzlich zur gewählten Zugriffsoption ein eigenes gemeinsames Geheimnis, das Admin-Secret.
 
-Auf dem Loopback-Rechner funktionieren diese Aktionen meist ohne Admin-Secret. Von einem entfernten Gerät aus musst du es einrichten. So geht's:
+Auf dem Loopback-Rechner funktionieren diese Aktionen meist ohne Admin-Secret. Von einem entfernten Gerät aus musst du es einrichten. Du kannst es in der App erstellen oder in der `.env` setzen.
+
+Installierte Agenten, etwa die auf dem Home-Bildschirm, brauchen das Admin-Secret nicht. Jedes Gerät, das mit der Anmeldung angemeldet ist, kann sie nutzen. Zum Installieren, Aktualisieren und Entfernen eines Agenten brauchst du es weiterhin.
+
+### Das Admin-Secret in der App erstellen
+
+1. Öffne auf dem Computer, auf dem Marinara läuft, **Settings** (Einstellungen), dann den Tab **Advanced** (Erweitert) und dort den Abschnitt **Admin Access**.
+2. Klick auf **Make admin secret** (Admin-Secret erstellen). Marinara zeigt das neue Geheimnis einmal an und speichert es in diesem Browser.
+3. Öffne auf jedem entfernten Gerät **Settings** → **Advanced** → **Admin Access**, tipp das Geheimnis in das Feld und klick auf **Save** (Speichern). Großbuchstaben, Leerzeichen und Bindestriche spielen keine Rolle.
+
+Auch ein Gerät, das das Geheimnis schon hat, kann es erstellen. Ein Gerät, das nur mit der Anmeldung angemeldet ist, kann das nicht. So kann niemand mit einer gestohlenen Anmeldung die heiklen Aktionen übernehmen.
+
+Unter Docker erreicht dein Browser Marinara über das Docker-Netzwerk, deshalb behandelt Marinara ihn nicht als denselben Computer. Setz das erste Geheimnis stattdessen in der `.env` (siehe unten).
+
+Um das Geheimnis zu ändern, klick auf **Replace admin secret** (Admin-Secret ersetzen). Das alte Geheimnis funktioniert dann auf keinem Gerät mehr. Zum Abschalten klick auf **Remove admin secret** (Admin-Secret entfernen). Marinara bewahrt nur einen Fingerabdruck des Geheimnisses auf, in `.admin-secret.json` im Datenordner. Löschst du diese Datei, ist das Geheimnis ebenfalls entfernt.
+
+### Das Admin-Secret in der .env setzen
 
 1. Setze in der `.env` einen starken Zufallswert und speichere. Er greift innerhalb weniger Sekunden, ohne Neustart.
 
@@ -251,18 +293,20 @@ Auf dem Loopback-Rechner funktionieren diese Aktionen meist ohne Admin-Secret. V
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. Öffne Marinara auf dem entfernten Gerät und geh zu **Settings** (Einstellungen), dann zum Tab **Advanced** (Erweitert) und dort zum Abschnitt **Admin Access**.
-3. Füge denselben Wert in das Feld ein (sein Platzhalter lautet **ADMIN_SECRET**) und klick auf **Save** (Speichern).
+2. Öffne auf dem entfernten Gerät **Settings** → **Advanced** → **Admin Access**.
+3. Füge denselben Wert in das Feld ein (sein Platzhalter lautet **ADMIN_SECRET**) und klick auf **Save**.
 4. Es sollte die Meldung **Admin secret saved for this browser** erscheinen.
 
-Ein paar Dinge zum Admin-Secret:
+`ADMIN_SECRET` in der `.env` hat Vorrang vor einem in der App erstellten Geheimnis. Solange es gesetzt ist, weist **Admin Access** darauf hin, und du änderst das Geheimnis nur in der `.env`.
 
-- Es liegt nur in genau diesem Browser und wird nicht zwischen Geräten synchronisiert. Jeder Browser, der heikle Aktionen ausführen soll, braucht seine eigene Eingabe.
+### Gut zu wissen
+
+- Jeder Browser hat seine eigene Kopie. Sie wird nicht zwischen Geräten synchronisiert.
 - Ein Klick auf **Save** bei leerem Feld löscht den Wert und zeigt **Admin secret cleared**.
-- Setzt der Serverbetreiber `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, braucht sogar der Loopback-Rechner das Geheimnis.
-- Es ist unabhängig von Basic Auth, beides lässt sich kombinieren. Basic Auth sichert die gesamte App ab, das Admin-Secret die gefährlichen Aktionen.
+- Setzt der Serverbetreiber `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, braucht sogar der Loopback-Rechner das Geheimnis. Dann brauchst du das aktuelle Geheimnis, um es in der App zu erstellen, zu ersetzen oder zu entfernen. Setz das erste deshalb in der `.env`.
+- Das Admin-Secret ist unabhängig von Basic Auth, beides lässt sich kombinieren. Basic Auth sichert die gesamte App ab, das Admin-Secret die gefährlichen Aktionen.
 
-Schlägt eine heikle Aktion auf einem entfernten Gerät fehl, zeigt Marinara eine Fehlermeldung mit zwei Lösungswegen. Entweder du öffnest die App über localhost. Oder du setzt `ADMIN_SECRET` in der `.env` des Servers und fügst denselben Wert unter **Settings** > **Advanced** > **Admin Access** ein.
+Schlägt eine heikle Aktion auf einem entfernten Gerät fehl, zeigt Marinara eine Fehlermeldung mit zwei Lösungswegen. Entweder du öffnest die App über localhost. Oder du richtest das Admin-Secret wie oben beschrieben ein.
 
 <a id="why-is-my-save-blocked-csrf"></a>
 
@@ -293,7 +337,7 @@ Loopback, normale LAN-Adressen, Tailscale (`100.64.0.0/10`) und die Docker-Bridg
 
 ## Hinweis zu blockierten lokalen Anbietern
 
-Angenommen, du verbindest Marinara mit einem lokalen KI-Anbieter, der etwa auf dem eigenen Rechner läuft. Dann wird die Anfrage womöglich abgelehnt, mit einem Hinweis auf einen „private, loopback, metadata, or reserved IP range“. Dahinter steckt eine andere Sicherheitsprüfung namens SSRF-Schutz. SSRF steht für Server-Side Request Forgery und verhindert, dass der Server private Adressen aufruft, solange du es nicht erlaubst. Die Fehlermeldung nennt die genaue `.env`-Variable, die du setzen musst, zum Beispiel `PROVIDER_LOCAL_URLS_ENABLED`. Die vollständige Liste findest du in der [Referenz der Server-Konfiguration](CONFIGURATION.md).
+Angenommen, du verbindest Marinara mit einem lokalen KI-Anbieter, der etwa auf dem eigenen Rechner läuft. Dann wird die Anfrage womöglich abgelehnt, mit einem Hinweis auf einen „private, loopback, metadata, or reserved IP range“. Dahinter steckt eine andere Sicherheitsprüfung namens SSRF-Schutz. SSRF steht für Server-Side Request Forgery und verhindert, dass der Server private Adressen aufruft, solange du es nicht erlaubst. Die Fehlermeldung nennt die genaue `.env`-Variable, die du setzen musst, zum Beispiel `PROVIDER_LOCAL_URLS_ENABLED`. Die vollständige Liste findest du in der [Referenz zur Server-Konfiguration](CONFIGURATION.md).
 
 ## Zugriff vom Handy oder Tablet
 
@@ -327,6 +371,6 @@ Marinara bittet Suchmaschinen, seine Seiten nicht zu indexieren (`X-Robots-Tag: 
 
 ## Verwandte Anleitungen
 
-- [Referenz der Server-Konfiguration](CONFIGURATION.md) für die vollständige Liste der `.env`-Einstellungen und Sonderfälle.
+- [Referenz zur Server-Konfiguration](CONFIGURATION.md) für die vollständige Liste der `.env`-Einstellungen und Sonderfälle.
 - [Fehlerbehebung in Marinara Engine](TROUBLESHOOTING.md) für Verbindungsfehler, mobilen Zugriff und mehr.
 - [Häufige Fragen](FAQ.md) für eine kurze Schritt-für-Schritt-Anleitung zum Zugriff von einem anderen Gerät.

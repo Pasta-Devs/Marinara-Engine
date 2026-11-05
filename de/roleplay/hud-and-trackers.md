@@ -1,170 +1,192 @@
 # Roleplay-HUD und Tracker
 
-Diese Anleitung erklärt die Roleplay-Tracker: die verschiebbaren Schaltflächen und Panels am Telefon sowie das **Trackers**-Fenster und das Tracker Panel am Computer. Du lernst, wie du ihre Werte bearbeitest und sperrst. Sie gilt für den Roleplay Mode in Marinara Engine.
+Das HUD (Heads-up-Display) zeigt in einem Roleplay-Chat aktuelle Details zur Geschichte: die Uhrzeit, das Wetter, wer anwesend ist, deine Werte, deine Gegenstände und deine Quests. Du kannst jeden Wert von Hand korrigieren, einen Wert sperren, damit die KI ihn nicht mehr ändert, und einen Tracker bei Bedarf erneut laufen lassen.
 
-## Was das HUD ist
+Die Werte stammen von Tracker-Agenten. Ein Agent ist ein Helfer, der neben den Antworten mitläuft. Ein Tracker-Agent verfolgt die Geschichte und aktualisiert nach jeder Nachricht einen Teil des HUD. Ein Widget erscheint nur, wenn sein Agent für den Chat eingeschaltet ist.
 
-Am Telefon bietet dir das HUD (heads-up display) die Schaltflächen **World State** und **Player & Tracker**. Du kannst sie im Chat verschieben. Tippe auf eine davon, um aktuelle Angaben zur Geschichte zu sehen, etwa die Uhrzeit, deine Werte oder die anwesenden Charaktere. Marinara hält diese Angaben aktuell, während die Geschichte weiterläuft.
+## Das HUD einschalten
 
-Sobald World State Angaben anzeigen kann, wird seine Schaltfläche zu einem kleinen Banner, das sie auf einen Blick zeigt: eine Ortsmarkierung, ein Kalender mit dem Tag, eine Uhr, das Wetter und die Temperatur.
+1. Öffne **Chat Settings** (Chat-Einstellungen) über die Schieberegler-Schaltfläche im Chat.
+2. Geh zu **Agents** und schalte **Enable Agents** (Agenten aktivieren) ein.
+3. Füg die Agenten aus den Listen unter dem Schalter hinzu. Für ein einfaches HUD fügst du zuerst **World State** hinzu. Für mehr kommen **Persona Stats**, **Character Tracker** oder **Quest Tracker** dazu.
+4. Schick eine Nachricht ab.
 
-Diese Tracker-Schaltflächen bleiben getrennt vom Drei-Punkte-Menü **Chat tools** (Chat-Tools), das die Abschnitte enthält, die du aus Chat Settings herausgelöst hast.
+Nach der Antwort erscheint der Tracker. Am Telefon siehst du die Schaltfläche **World State**. Am Computer siehst du das **Tracker Panel** oder das Fenster **Trackers** (siehe unten). Welcher Agent welches Widget füllt, steht in der Widget-Tabelle.
 
-Am Computer liegen die Tracker nicht in der HUD-Zeile. Sie erscheinen im **Tracker Panel**, solange es sichtbar ist, und sonst im unten beschriebenen Fenster **Trackers**.
+Wenn es nicht funktioniert hat: Ist kein Tracker-Agent eingeschaltet, zeigt das HUD keine Widgets. Prüf, ob **Enable Agents** an ist.
 
-Die Werte stammen von Tracker-Agenten. Ein Agent ist ein kleiner KI-Helfer, der im Hintergrund läuft. Jeder Tracker-Agent verfolgt die Geschichte und aktualisiert nach jeder Nachricht einen Teil des HUD. Du musst nichts anstoßen.
+## Wo das HUD erscheint
 
-Ein Widget erscheint nur, wenn sein Tracker-Agent für den Chat aktiviert ist. Agenten schaltest du in **Chat Settings** (Chat-Einstellungen) im Bereich **Agents** ein und aus. Ist kein Tracker-Agent aktiv, zeigt das HUD keine Widgets.
+Am Telefon sind die Tracker die verschiebbaren Schaltflächen **World State** und **Player & Tracker**. Tippe auf eine, um ihr Panel zu öffnen, und auf **X**, um es zu schließen. Sobald World State Angaben hat, zeigt seine Schaltfläche ein kleines Banner mit Ort, Tag, Uhrzeit, Wetter und Temperatur. Zieh die Schaltflächen an eine beliebige Stelle. Dein Chat merkt sich, wo du sie abgelegt hast. Sie folgen deinem **Chat widget style** (Chat-Widget-Stil) unter **Settings → Appearance → App** (Einstellungen → Darstellung → App).
+
+Am Computer erscheinen dieselben Tracker an einer von zwei Stellen:
+
+- Das **Tracker Panel**: ein Seitenpanel neben deinen Nachrichten. Es ist standardmäßig an. Die Würfel-Schaltfläche in der Titelleiste von **Chat Settings** schaltet es ein und aus.
+- Das Fenster **Trackers**: ein verschiebbares Fenster, das die Tracker aufnimmt, wenn das Tracker Panel aus ist.
+
+Du nutzt immer nur eines von beiden. Siehe [Das Tracker Panel](#the-tracker-panel) und [Das Trackers-Fenster](#the-trackers-window).
 
 ## Die HUD-Widgets
 
-Es gibt sieben Tracker-Widgets. Jedes braucht seinen eigenen aktivierten Agenten, um zu erscheinen.
+| Widget | Braucht diesen Agenten | Zeigt |
+| --- | --- | --- |
+| **World State** | World State | Ort, Datum, Uhrzeit, Wetter, Temperatur und deine eigenen Weltfelder |
+| **Persona Stats** | Persona Stats | Die Statusbalken deiner Persona und eine Statuszeile |
+| **Present Characters** | Character Tracker | Wer in der Szene ist, mit Stimmung, Aussehen und eigenen Feldern |
+| **Inventory** | Persona Stats | Gegenstände, die du mitführst, mit Stückzahl |
+| **Inventory Tracker** | Inventory Tracker | Getrennte Listen für Währungen, angelegte Ausrüstung und mitgeführte Gegenstände |
+| **Active Quests** | Quest Tracker | Dein aktuelles Ziel |
+| **Custom Tracker** | Custom Tracker | Deine eigenen benannten Felder, etwa Zähler oder eine Währung |
 
-| Widget                 | Braucht diesen Agenten | Zeigt                                                                                     |
-| ---------------------- | ----------------- | -------------------------------------------------------------------------------- |
-| **World State**        | World State       | Ort, Datum, Uhrzeit, Wetter, Temperatur und deine eigenen Weltzustand-Felder      |
-| **Persona Stats**      | Persona Stats     | Die Statusbalken deiner Persona sowie eine Statuszeile                            |
-| **Present Characters** | Character Tracker | Wer in der Szene ist – samt Stimmung, Aussehen und charakterspezifischen Feldern  |
-| **Inventory**          | Persona Stats     | Gegenstände, die du bei dir trägst, mit Stückzahl                                 |
-| **Inventory Tracker**  | Inventory Tracker | Getrennte Listen für Währungen, angelegte Ausrüstung und getragene Gegenstände   |
-| **Active Quests**      | Quest Tracker     | Dein aktuelles Ziel                                                               |
-| **Custom Tracker**     | Custom Tracker    | Selbst benannte Felder, etwa Zähler oder eine Währung                             |
+Das Widget **Inventory** stammt vom Agenten **Persona Stats**; schalte ihn also ein, um beide zu bekommen. Der **Inventory Tracker** ist davon getrennt. Er führt Einträge in drei Gruppen, **Currencies**, **Equipped** und **Inventory**, und listet angelegte Ausrüstung nie doppelt auf.
 
-Beachte: Das Widget **Inventory** wird von demselben Agenten **Persona Stats** gespeist, der auch das Widget **Persona Stats** füllt. Aktiviere **Persona Stats**, und du bekommst beide.
+Jeder Eintrag ist eine kleine Pille. Eine Stückzahl erscheint nur, wenn sie größer als eins ist, und zwar als `×4`. Um eine Stückzahl von eins zu ändern, schalte den Hinzufügen-Modus oder den Sperrmodus ein: Beide blenden bei jedem Eintrag das Feld für die Stückzahl ein. Der Hinzufügen-Modus ist die Schaltfläche **+** in der Kopfzeile des Tracker Panels. Der [Sperrmodus](#lock-mode) ist weiter unten erklärt.
 
-Der eigenständige **Inventory Tracker** ist unabhängig vom Inventar der Persona Stats. Er führt kompakte Einträge aus Name und Stückzahl in drei Gruppen – **Currencies**, **Equipped** und **Inventory** – und verhindert, dass angelegte Ausrüstung zusätzlich im getragenen Inventar auftaucht.
+**Present Characters** zeigt bis zu drei Charakter-Emoji und dazu eine Zahl „+N“. **Inventory** und **Custom Tracker** zeigen ihre Einträge nacheinander.
 
-Jeder Eintrag ist eine kleine Pille. Die Pillen laufen über die Breite des Panels und brechen in die nächste Zeile um, sodass eine lange Inventarliste lesbar bleibt, statt sich zu einer hohen Spalte zu strecken. Eine Stückzahl steht nur dabei, wenn sie größer als eins ist, und zwar als `×4` hinter dem Namen; bei einem einzelnen Gegenstand steht nur der Name. In einem schmalen Panel stehen die Pillen einzeln untereinander.
+## Einen Tracker-Wert bearbeiten
 
-Um eine Stückzahl zu ändern, die gerade eins ist, schalte **add mode** (Hinzufügen-Modus) oder **lock mode** (Sperrmodus) ein – beide blenden bei jedem Eintrag das Feld für die Stückzahl ein.
+Jedes Feld lässt sich bearbeiten, sodass du einen Wert korrigieren kannst, den die KI falsch erfasst hat. Deine Änderung wird sofort gespeichert. Die nächste Antwort geht von deinem korrigierten Wert aus, auch wenn du die korrigierte Antwort neu generierst oder per Swipe eine alternative Antwort wählst.
 
-Das Widget **Present Characters** zeigt bis zu drei Charakter-Emoji und dahinter ein „+N“ für alle weiteren. Die Widgets **Inventory** und **Custom Tracker** blättern ihre Einträge nacheinander durch.
+1. Öffne den Tracker: Tippe am Telefon auf seine Schaltfläche, oder öffne am Computer seinen Abschnitt im Tracker Panel oder im Trackers-Fenster.
+2. Klick auf den Wert und gib den neuen ein.
+
+- **World State**: **Location**, **Date**, **Time**, **Weather**, **Temperature** und eigene Weltfelder.
+- **Persona Stats**: eine Zeile **Status** und benannte Balken mit aktuellem Wert und Maximalwert. Balken lassen sich hinzufügen und entfernen.
+- **Present Characters**: Charaktere hinzufügen oder entfernen. Emoji, Name, **Mood**, **Look**, **Outfit**, **Thinks** (private Gedanken) und eigene Felder jedes Charakters bearbeiten. Für jeden lässt sich ein Avatar hochladen. Die Schaltfläche **Auto** schaltet „Auto-generate avatars“ ein oder aus.
+- **Inventory**: Gegenstände hinzufügen oder entfernen. Namen und Stückzahlen bearbeiten.
+- **Inventory Tracker**: Einträge unter **Currencies**, **Equipped** und **Inventory** hinzufügen oder entfernen. Um einen Gegenstand in eine andere Gruppe zu verschieben, entferne ihn und füge ihn dort hinzu.
+- **Active Quests**: Quests hinzufügen oder entfernen. Jede Quest hat Ziele mit Kontrollkästchen.
+- **Custom Tracker**: Felder mit Name und Wert hinzufügen, entfernen oder bearbeiten.
+
+Um viele Werte auf einmal zu korrigieren, nutze den [State Editor](#the-state-editor).
+
+<a id="lock-mode"></a>
+
+## Der Sperrmodus
+
+Tracker-Agenten überschreiben die HUD-Werte nach jedem Zug. Mit dem Sperrmodus hältst du einen Wert fest. Ist ein Feld gesperrt, lässt der nächste automatische Durchlauf es unangetastet. Nutze ihn, wenn ein Wert immer wieder in die falsche Richtung driftet.
+
+1. Öffne den Tracker.
+2. Klick auf den Schalter mit dem Schloss oben im Tracker (Tooltip **Enter lock mode**). Neben jedem bearbeitbaren Wert erscheint eine kleine Schloss-Schaltfläche.
+3. Klick auf die Schloss-Schaltfläche neben dem Wert (Tooltip **Lock field**). Gesperrte Felder sind markiert.
+
+Zum Entsperren klickst du dieselbe Schaltfläche erneut (**Unlock field**). Um den Sperrmodus zu verlassen, klick erneut auf den Schalter oben (**Exit lock mode**). Der Sperrmodus gilt für das gesamte HUD: Schaltest du ihn in einem Tracker ein, erscheinen die Schloss-Schaltflächen überall.
+
+## Einen Tracker erneut laufen lassen
+
+Um einen Tracker sofort zu aktualisieren, statt auf die nächste Nachricht zu warten, klick auf die Schaltfläche mit dem Pfeil im Kreis darin. Sie lässt nur diesen Tracker für den letzten Zug erneut laufen. Der Tooltip nennt den Tracker, zum Beispiel **Re-run world state tracker only**.
+
+Damit ein Tracker nur auf deine Anforderung läuft, öffne **Chat Settings → Agents → Trackers Control** (Chat-Einstellungen → Agenten → Tracker-Steuerung) und schalte den Tracker unter **Individual tracker schedule** (Zeitplan pro Tracker) ein. Ein manueller Tracker läuft nicht nach jeder Antwort. War in einem Chat der alte Schalter **Manual Trackers** an, sind dort alle Tracker eingeschaltet.
+
+Solange mindestens ein Tracker manuell läuft, erscheint eine Schaltfläche zum Aktualisieren: am Telefon in der HUD-Zeile, am Computer neben dem Titel des Trackers-Fensters. Klick darauf, um die manuellen Tracker für den aktuellen Zug laufen zu lassen.
+
+In **Agent activity** lässt du alle Tracker erneut laufen, wiederholst fehlgeschlagene Agenten und nutzt **Clear Trackers** (Tracker leeren). Siehe [Agent activity](getting-started.md#agent-activity).
+
+> **Warnung:** **Clear Trackers** löscht den gesamten erfassten Weltzustand des Chats und lässt sich nicht rückgängig machen.
 
 <a id="the-trackers-window"></a>
 
 ## Das Trackers-Fenster
 
-Am Computer nutzen die Tracker eines Roleplay-Chats das Fenster **Trackers**, wenn **Tracker Panel** ausgeblendet ist. Ist neben den Nachrichten Platz, öffnet es sich links. Andernfalls startet es als kleine **Trackers**-Schaltfläche oben links im Chat. Klick darauf, um das Fenster zu öffnen. Ein Chat mit gespeicherter Anordnung behält deine Auswahl.
+Am Computer nutzen die Tracker das Fenster **Trackers**, wenn das Tracker Panel aus ist. Ist neben deinen Nachrichten Platz, öffnet es sich links. Andernfalls startet es als kleine **Trackers**-Schaltfläche oben links im Chat. Klick auf die Schaltfläche, um es zu öffnen. Ein Chat mit gespeichertem Layout behält deine Anordnung.
 
-Nach einem Update werden die bisherigen Tracker-Widgets älterer Chats am Computer in diesem Fenster zusammengefasst. Die anderen Chat-Tools behalten ihre Symbole als verschiebbare Schaltflächen.
+Verschieb das Fenster an seiner Titelleiste und ändere seine Größe an den Kanten. Oben rechts hat es diese Schaltflächen:
 
-Du kannst das Fenster an der Titelleiste verschieben, an den Kanten seine Größe ändern und die Schaltflächen oben rechts nutzen:
+- **Pin** (anheften): hält es offen, wenn du woanders klickst. Anfangs ist es angeheftet.
+- **Lock** (sperren): verhindert Verschieben und Größenänderungen und hält auch seine Schaltfläche fest. Die Schaltfläche öffnet das Fenster weiterhin.
+- **Close** (schließen): verkleinert es zur verschiebbaren **Trackers**-Schaltfläche.
 
-- **Pin** (anheften) hält es offen, wenn du woanders klickst. Anfangs ist es angeheftet.
-- **Lock** (sperren) verhindert Verschieben und Größenänderungen und hält auch seine Schaltfläche fest. Sie öffnet weiterhin das Fenster, in dem du es wieder entsperren kannst.
-- **Close** (schließen) verkleinert es zur verschiebbaren **Trackers**-Schaltfläche. Ein Klick darauf öffnet es wieder an der letzten Position.
+**Reset View** (Ansicht zurücksetzen) in Chat Settings löscht die gespeicherte Anordnung und wählt je nach verfügbarem Platz das ursprüngliche Fenster oder die Schaltfläche.
 
-Um stattdessen das Tracker Panel zu nutzen, klick auf den Würfel in der Titelleiste von Chat Settings. Solange das Panel ausgeblendet ist, bleiben die Tracker über ihr Fenster oder ihre Schaltfläche erreichbar. **Reset View** in Chat Settings löscht die gespeicherte Anordnung und wählt je nach verfügbarem Platz das ursprüngliche Fenster oder die Schaltfläche.
+Jeder Tracker hat einen aufklappbaren Abschnitt. Klick auf seine Überschrift, um ihn zu einer kleinen Vorschau zuzuklappen, und erneut, um ihn zu öffnen. Marinara merkt sich, welche du zugeklappt hast.
 
-Während Agenten für den Chat arbeiten, erscheint ein kleiner Punkt neben dem Fenstertitel und auf der **Chat Settings**-Schaltfläche.
+Um einem Tracker ein eigenes Fenster zu geben, klick auf die Schaltfläche zum Herauslösen neben seinem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist zunächst nicht angeheftet. Hefte es an, damit es offen bleibt. **X** verkleinert es zu einer kleinen Schaltfläche mit dem Symbol des Trackers. **World State** schrumpft stattdessen zu einem Banner mit denselben Angaben zu Ort, Datum, Uhrzeit und Wetter wie am Telefon, das du an eine beliebige Stelle ziehen kannst, etwa oben in die Mitte des Chats. Um den Tracker zurückzulegen, klick auf **Put back in Trackers** (in Trackers zurücklegen; der gebogene Pfeil links von **X**) oder zieh ihn auf das Trackers-Fenster. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
 
-Jeder Tracker hat einen aufklappbaren Abschnitt, einen sogenannten Drawer. Klick auf die Überschrift, um ihn zur kleinen Widget-Vorschau zuzuklappen. Ein weiterer Klick zeigt den gesamten Tracker. Marinara merkt sich, welche Abschnitte zugeklappt sind.
-
-Ein Tracker kann auch ein eigenes Fenster bekommen: Klick auf die Schaltfläche zum Herauslösen neben dem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist zunächst nicht angeheftet. Hefte es an, damit es offen bleibt, wenn du außerhalb klickst oder das Trackers-Fenster schließt. Sein **X** verkleinert es zu einer kleinen Schaltfläche mit dem Tracker-Symbol; sie öffnet es wieder an der letzten Position. **World State** schrumpft stattdessen zu einem Banner mit denselben Angaben wie die Schaltfläche am Telefon – Ortsmarkierung, Kalender, Uhr, Wetter und Temperatur –, sodass Datum und Uhrzeit der Geschichte im Blick bleiben. Zieh es an eine beliebige Stelle, etwa oben in die Mitte des Chats. Mit **Put back in Trackers** (dem gebogenen Pfeil direkt links von **X**) oder durch Ziehen auf das Trackers-Fenster legst du es zurück. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
-
-Unten zeigt **Agent activity**, was die Agenten des Chats getan haben. Hier kannst du Tracker neu ausführen, fehlgeschlagene Agenten erneut starten, laufende Agenten stoppen und **Clear Trackers** nutzen. Derselbe Abschnitt steht unten im Tracker Panel.
-
-## Tracker-Werte bearbeiten
-
-Am Telefon kannst du die Schaltflächen **World State** und **Player & Tracker** an beliebige Stellen im Chat ziehen. Tippe auf eine Schaltfläche, um ihr Panel zu öffnen, und auf **X**, um es zu schließen. Schaltflächen und Panels übernehmen deinen **Chat widget style** unter **Settings → Appearance → App**. Dein Chat merkt sich die Position jeder Schaltfläche. Am Computer stehen dieselben Bearbeitungsfelder in den Abschnitten des Trackers-Fensters. Jedes Feld lässt sich bearbeiten, sodass du einen falsch geratenen Wert der KI korrigieren kannst. Änderungen werden sofort gespeichert. Die nächste Antwort geht von deinen korrigierten Werten aus, auch wenn du die korrigierte Antwort neu generierst oder swipst.
-
-Diese Angaben lassen sich in den einzelnen Trackern bearbeiten:
-
-- **World State**: **Location**, **Date**, **Time**, **Weather**, **Temperature** sowie die Zeilen eigener Weltzustand-Felder.
-- **Persona Stats**: eine **Status**-Zeile und benannte Statusbalken mit aktuellem Wert und Maximalwert. Balken lassen sich hinzufügen und entfernen.
-- **Present Characters**: Charaktere hinzufügen oder entfernen und je Charakter Emoji, Name, **Mood**, **Look**, **Outfit**, **Thinks** (private Gedanken) und eigene Feldwerte bearbeiten. Pro Charakter lässt sich ein Avatar hochladen. Die Schaltfläche **Auto** schaltet zwischen „Auto-generate avatars: ON“ und „Auto-generate avatars: OFF“ um.
-- **Inventory**: Gegenstände hinzufügen oder entfernen und Name sowie Stückzahl bearbeiten.
-- **Inventory Tracker**: Einträge unter **Currencies**, **Equipped** und **Inventory** hinzufügen oder entfernen und jeweils Name oder Stückzahl bearbeiten. Einen Gegenstand zwischen zwei Gruppen zu verschieben, geht noch nicht in einem Schritt – entferne ihn aus der einen Gruppe und füge ihn der anderen hinzu.
-- **Active Quests**: Quests hinzufügen oder entfernen. Jede Quest hat benannte Ziele mit Kontrollkästchen zum Abhaken.
-- **Custom Tracker**: Name-Wert-Felder hinzufügen, entfernen oder bearbeiten.
-
-## Der Sperrmodus
-
-Die Tracker-Agenten überschreiben die HUD-Werte nach jedem Zug. Das ist meistens praktisch. Manchmal driftet ein Wert aber immer wieder in die falsche Richtung, und du willst ihn von Hand festnageln. Genau dafür gibt es den Sperrmodus.
-
-Ein gesperrtes Feld bleibt beim nächsten automatischen Tracker-Durchlauf unangetastet. Gesperrte Felder sind markiert, du erkennst sie also auf einen Blick.
-
-So sperrst du ein Feld:
-
-1. Öffne den Tracker, den du bearbeiten möchtest.
-2. Klick auf den Schalter mit dem Schloss oben im Tracker. Sein Tooltip (Kurzhinweis beim Draufzeigen) lautet **Enter lock mode**.
-3. Neben jedem bearbeitbaren Wert erscheint nun eine kleine Schloss-Schaltfläche.
-4. Klick auf das Schloss neben dem Wert, den du festhalten willst. Der Tooltip dazu lautet **Lock field**.
-
-Zum Entsperren klickst du dieselbe Schaltfläche erneut an (Tooltip **Unlock field**). Den Sperrmodus verlässt du über den Schalter oben (Tooltip **Exit lock mode**). Der Sperrmodus gilt für das gesamte HUD: Schaltest du ihn in einem Tracker ein, tauchen die Schloss-Schaltflächen überall auf.
-
-## Einen Tracker erneut laufen lassen
-
-Du kannst einen Tracker sofort aktualisieren, statt auf die nächste Nachricht zu warten.
-
-In jedem Tracker sitzt eine kleine Schaltfläche zum Aktualisieren (Pfeil im Kreis). Ein Klick darauf lässt genau diesen einen Tracker für den letzten Zug erneut laufen. Die Tooltips nennen den jeweiligen Tracker beim Namen, etwa **Re-run world state tracker only** oder **Re-run quest tracker only**.
-
-Um einen Tracker auf manuell zu stellen, öffne unter **Chat Settings → Agents** die Karte **Trackers Control** (Tracker-Steuerung) und schalte ihn unter **Individual tracker schedule** (Zeitplan pro Tracker) ein. Ein manueller Tracker läuft nicht nach jeder Antwort. War in einem Chat der alte Schalter **Manual Trackers** aktiv, sind dort unter **Individual tracker schedule** alle Tracker eingeschaltet. Sobald mindestens ein Tracker manuell läuft, erscheint eine Schaltfläche zum Aktualisieren: am Telefon in der HUD-Zeile, am Computer neben dem Titel des Trackers-Fensters; ein Klick darauf startet alle manuellen Tracker für den aktuellen Zug. Die Schaltfläche im jeweiligen Tracker startet weiterhin nur diesen einen Tracker.
-
-**Agent activity** hat einen eigenen Abschnitt direkt unter **Agents** in **Chat Settings**, unten im Tracker Panel und am Computer unten im Trackers-Fenster. Von dort lässt du alle Tracker erneut laufen, wiederholst fehlgeschlagene Agenten oder löschst mit **Clear Trackers** den kompletten getrackten Weltzustand des Chats. **Clear Trackers** lässt sich nicht rückgängig machen – sei damit vorsichtig.
+<a id="the-tracker-panel"></a>
 
 ## Das Tracker Panel
 
-Das **Tracker Panel** ist ein größeres Panel an der Seite und zeigt dieselben Tracker-Daten wie die kompakten HUD-Widgets. Die Tracker-Karten bekommen darin mehr Platz, dazu kommen Porträts und Gedanken. Eingerichtet wird es unter **Settings** (Einstellungen) im Tab **Appearance** im Abschnitt **Tracker Panel**.
+Das **Tracker Panel** ist ein größeres Seitenpanel mit denselben Daten. Es zeigt außerdem Porträts und Gedanken der Charaktere.
 
-Um das Panel im Roleplay-Chat einzuschalten, öffne **Chat Settings** und klick auf **Tracker Panel** (den Würfel) in der Titelleiste neben Anheften und Sperren. Die Schaltfläche bleibt hervorgehoben, solange das Panel an ist; das Panel erscheint neben dem Chat. Ein weiterer Klick schaltet es aus und blendet es aus. Am Computer erscheinen die Tracker dann im Trackers-Fenster.
+1. Öffne **Chat Settings**.
+2. Klick in der Titelleiste auf die Schaltfläche **Tracker Panel** (den Würfel) neben Anheften und Sperren. Sie bleibt hervorgehoben, solange das Panel an ist.
+3. Klick erneut darauf, um das Panel auszublenden. Am Computer erscheinen die Tracker dann im Trackers-Fenster.
 
-Am Computer fügt sich das Panel in den Platz neben deinen Nachrichten ein, höchstens bis zu der Breite, die du unter **Desktop size** (Desktop-Größe) wählst. Ist das Fenster für beides zu schmal, etwa bei geöffneter Chat-Seitenleiste, werden deine Nachrichten und das Nachrichtenfeld etwas schmaler, damit das Panel Platz für seine eigenen Schaltflächen behält.
+Am Computer fügt sich das Panel neben deinen Nachrichten ein, höchstens bis zu der Breite, die **Desktop size** (Desktop-Größe) festlegt. Ist das Fenster für beides zu schmal, etwa bei geöffneter Chat-Seitenleiste, werden deine Nachrichten und das Nachrichtenfeld etwas schmaler. Am Telefon oder Tablet fügt das Einschalten eine verschiebbare Tracker-Panel-Schaltfläche hinzu. Tippe darauf, um das Panel zu öffnen, und erneut, um es zu schließen. Solange das Panel oder ein anderer Bildschirm den Chat verdeckt, sind die verschiebbaren Schaltflächen des Chats ausgeblendet und kommen danach an denselben Stellen zurück.
 
-Am Telefon oder Tablet fügt das Einschalten eine Tracker-Panel-Schaltfläche zum Chat hinzu, die du frei verschieben kannst. Tippe darauf, um das Panel zu öffnen, und tippe erneut darauf, um es zu schließen. Solange das Panel oder ein anderer Bildschirm den Chat verdeckt, sind die verschiebbaren Schaltflächen des Chats ausgeblendet; kehrst du zum Chat zurück, erscheinen sie wieder an denselben Stellen. Ist das Panel aus, nutze die separaten Schaltflächen **World State** und **Player & Tracker**.
+### Tracker-Felder anpassen
 
-Über die Bedienelemente in der Panel-Kopfzeile passt du außerdem den Aufbau der Tracker an:
+Die Schaltflächen in der Kopfzeile des Panels ändern den Aufbau des Trackers:
 
-- Klick auf **+**, um in den Hinzufügen-Modus zu wechseln. Der Bereich World bekommt dann **Add world field**, jede Karte eines anwesenden Charakters **Add custom field**. Die Feldnamen bleiben auch im normalen Modus sichtbar, damit die Werte immer verständlich sind.
-- Klick auf das Papierkorb-Symbol, um in den Lösch-Modus zu wechseln, und entferne dort eigene Welt- oder Charakterfelder. Mit dem Feld verschwinden auch die dafür gespeicherten Feldsperren.
-- Klick auf das Schloss-Symbol, um in den Sperrmodus zu wechseln. Für eigene Feldwerte gelten dieselben Sperrregeln wie für die eingebauten Tracker-Werte.
-- Klick auf das durchgestrichene Augen-Symbol, um in den Ausblenden-Modus zu wechseln, und wähle auf einer Charakterkarte **Mood**, **Look**, **Outfit** oder **Thoughts**. Ausgeblendete Felder verschwinden aus dem Tracker Panel und dem Roleplay-HUD, werden geleert und bleiben gesperrt, damit die Tracker-Agenten sie nicht wieder befüllen. Ein erneuter Wechsel in den Ausblenden-Modus holt ein verstecktes Feld als leeres Feld zurück.
+- **+** wechselt in den Hinzufügen-Modus. Der Bereich World bekommt **Add world field** (Weltfeld hinzufügen), jede Karte eines anwesenden Charakters **Add custom field** (eigenes Feld hinzufügen). Die Feldnamen bleiben auch im normalen Modus sichtbar.
+- Das Papierkorb-Symbol wechselt in den Lösch-Modus, in dem du eigene Welt- oder Charakterfelder entfernst. Mit einem Feld verschwinden auch seine Sperren.
+- Das Schloss-Symbol wechselt in den Sperrmodus. Für eigene Felder gelten dieselben Sperrregeln wie für die eingebauten.
+- Das durchgestrichene Augen-Symbol wechselt in den Ausblenden-Modus. Wähle auf einer Charakterkarte **Mood**, **Look**, **Outfit** oder **Thoughts**. Ein ausgeblendetes Feld verschwindet aus dem Tracker Panel und dem HUD, wird geleert und bleibt gesperrt, damit Agenten es nicht wieder befüllen. Wechsle erneut in den Ausblenden-Modus, um es als leeres Feld wieder anzuzeigen.
 
-Die Namen eigener Felder legen den Aufbau fest und bleiben über alle Tracker-Durchläufe hinweg stabil. Die Tracker-Agenten aktualisieren die Werte, sobald die Geschichte sie verändert; lässt ein Agent ein Feld in seiner Ausgabe weg, bleibt dein Feld trotzdem erhalten.
+Agenten aktualisieren die Werte deiner eigenen Felder. Ein Feld, das du angelegt hast, löschen sie nie.
 
-Sobald der Character Tracker eine Bildverbindung hat, kann die große Karte eines Charakters ein neues Porträt erstellen. Bei einer kompakten Karte klickst du auf **Feature character card** (Charakterkarte hervorheben), um die große Karte zu öffnen. Das Trackers-Fenster am Computer zeigt immer große Karten. Fahr mit der Maus über das Porträt und klick auf die Schaltfläche mit dem Auge, um ein neues Porträt aus dem Feld **Look** zu erstellen, oder auf die Schaltfläche mit dem Hemd, um eines aus den Feldern **Look** und **Outfit** zu erstellen. Die Schaltfläche mit dem Hemd erscheint nur, wenn der Charakter ein Outfit hat. Das alte Porträt bleibt, bis das neue fertig ist – und auch dann, wenn das Erstellen fehlschlägt. Charaktere, die mit dem Avatar ihrer Karte oder einem Ausdrucks-Sprite angezeigt werden, haben diese Schaltflächen nicht.
+### Ein neues Porträt erstellen
 
-Diese Einstellungen steuern das Panel:
+Sobald der Character Tracker eine Bildverbindung hat, kann die große Karte eines Charakters ein neues Porträt erstellen. Bei einer kompakten Karte klickst du auf **Feature character card** (Charakterkarte hervorheben), um die große zu öffnen. Das Trackers-Fenster zeigt immer große Karten. Fahr mit der Maus über das Porträt und klick auf die Schaltfläche mit dem Auge, um eines aus **Look** zu erstellen, oder auf die Schaltfläche mit dem Hemd für **Look** und **Outfit**. Die Schaltfläche mit dem Hemd erscheint nur, wenn der Charakter ein Outfit hat. Das alte Porträt bleibt, bis das neue fertig ist. Schlägt das Erstellen fehl, behältst du das alte. Charaktere, die mit dem Avatar ihrer Karte oder einem Ausdrucks-Sprite angezeigt werden, haben diese Schaltflächen nicht.
 
-- **Tracker Panel**: der Hauptschalter, den auch der Würfel in Chat Settings bedient. Er ist standardmäßig an. Ist er an, lautet die Beschriftung „Shown in the Roleplay HUD“. Ist er aus, erscheinen die Tracker am Computer im Trackers-Fenster.
-- **Replace tracker HUD icons**: blendet die separaten Tracker-Schaltflächen am Telefon aus und lässt stattdessen das Panel am Bildschirmrand andocken.
-- **Use expression sprites for tracker portraits**: lässt die Tracker-Porträts das Ausdrucks-Sprite eines Charakters verwenden – also sein Porträt zur aktuellen Stimmung – statt des schlichten Avatars, sofern eines vorhanden ist. Ausdrucks-Sprites erklärt der Artikel [Charakter-Sprites](../characters/sprites.md).
-- **Panel background**: eine Auswahl an Farben und Verläufen für den Hintergrund des Panels.
-- **Desktop size**: legt die Breite des Panels fest. Zur Wahl stehen **Compact**, **Standard** und **Expanded**.
-- **Thought display mode**: legt fest, wie die Gedanken eines Charakters erscheinen. **Docked** öffnet sie in der Charakterkarte. **Floating** zeigt sie als Blase neben dem Porträt.
-- **Always show Docked thoughts**: hält bei **Thought display mode** auf **Docked** den Gedanken jedes hervorgehobenen Charakters dauerhaft sichtbar, statt ihn hinter einer Schaltfläche zu verstecken.
-- **Temperature unit**: legt fest, ob Temperaturen in **°C** (Celsius) oder **°F** (Fahrenheit) angezeigt werden. Standard ist °C. Das ändert nur die Anzeige, nicht den gespeicherten Weltzustand-Wert.
+### Einstellungen des Tracker Panels
+
+Öffne **Settings → Appearance**, klapp die Gruppe **Roleplay** auf und such den Abschnitt **Tracker Panel**.
+
+| Einstellung | Was sie bewirkt |
+| --- | --- |
+| **Tracker Panel** | Der Ein-/Aus-Schalter, derselbe, den der Würfel bedient. Standardmäßig an. Ist er an, lautet die Beschriftung „Shown in the Roleplay HUD“. |
+| **Dock Tracker Panel to edge** | Setzt das Panel an den Bildschirmrand und hält Chat-Steuerelemente in der Nähe davon frei. |
+| **Use expression sprites for tracker portraits** | Verwendet das aktuelle Ausdrucks-Sprite eines Charakters statt des schlichten Avatars, sofern eines vorhanden ist. Siehe [Charakter-Sprites](../characters/sprites.md). |
+| **Panel background** | Eine Farbe oder ein Verlauf für das Panel. |
+| **Desktop size** | Breite des Panels: **Compact**, **Standard** oder **Expanded**. |
+| **Thought display mode** | **Docked** öffnet Gedanken in der Charakterkarte. **Floating** öffnet sie als Blase neben dem Porträt. |
+| **Always show Docked thoughts** | Hält bei **Docked** den Gedanken jedes hervorgehobenen Charakters sichtbar, statt ihn hinter einer Schaltfläche zu verstecken. |
+| **Stat display mode** | Zeigt Werte als Balken oder als runde Anzeigen. |
+| **Temperature unit** | **°C** (Standard) oder **°F**. Das ändert nur die Anzeige, nicht den gespeicherten Wert. |
 
 <a id="the-state-editor"></a>
 
 ## Der State Editor
 
-Der **State Editor** zeigt alle Tracker der aktuellen Runde in einem einzigen Fenster, sodass du einen Wert finden und korrigieren kannst, ohne jeden Tracker einzeln zu öffnen. Er funktioniert auch am Telefon.
+Der **State Editor** zeigt alle Tracker des aktuellen Zugs in einem einzigen Fenster, sodass du einen Wert finden und korrigieren kannst, ohne jeden Tracker einzeln zu öffnen. Er funktioniert auch am Telefon.
 
-Klick zum Öffnen im Kopf des Tracker Panels auf das Zahnrad (**Tracker panel settings**) und dann auf die Schaltfläche **{ }** (**Open in State Editor**). Die Schaltfläche **{ }** sitzt außerdem in der Titelleiste des Fensters **Trackers**. Du findest sie auch in jedem Tracker, den du in ein eigenes Fenster herausgelöst hast. Am Telefon steckt sie in den Panels **World State** und **Player & Tracker**. Gehört ein Bedienelement zu einem einzelnen Tracker, öffnet sich der Editor im eigenen Abschnitt dieses Trackers: World State öffnet sich bei **Scene**, Present Characters bei **Present Characters** und so weiter. In der **Agent Suite** hat auch die Kopfzeile von **Tracker Data** einen Link **Open in State Editor**. Er öffnet den Abschnitt des Agenten, den du ausgewählt hast.
+Du öffnest ihn auf jedem dieser Wege:
 
-- **Welche Runde du bearbeitest:** Die Zeile unter dem Suchfeld nennt, zu welcher Nachricht und welchem Swipe der Zustand gehört, zum Beispiel „Editing message #12 · swipe 2 of 3“. **Latest** (neueste) kennzeichnet die jüngste Runde, und ein kurzer Auszug der Nachricht hilft dir, sie dem Chat zuzuordnen. Jeder Swipe hat seinen eigenen Zustand; wische also zuerst, wenn du einen anderen korrigieren willst.
-- **Abschnitte:** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** und **Active Quests**. Am Telefon stehen sie als Reihe von Chips über dem Editor. Ein Punkt markiert einen Abschnitt, den du geändert hast.
-- **Suche:** Gib etwas in das Suchfeld ein, um einen Schlüssel oder einen Wert in allen Abschnitten gleichzeitig zu finden, zum Beispiel `mood`. Jedes Ergebnis zeigt, wo es steht, etwa „Present Characters › Gwendolyn“. Klick auf ein Ergebnis, um direkt dorthin zu springen.
-- **Fields:** Jeder Abschnitt öffnet sich als **Fields** (Felder). Text, Zahlen und An/Aus-Werte erscheinen als Eingabefelder, und jeder Charakter, jeder Gegenstand und jede Quest bekommt eine eigene Karte.
-- **Leere Werte:** Ein Feld, das die Tracker leer gelassen haben, zeigt **No value** und eine Auswahl aus **Text**, **Number** (Zahl) und **On/off** (an/aus), damit du es ohne JSON ausfüllen kannst. Eine Karte, die die Tracker nur halb ausgefüllt haben, zeigt die Zeilen, die ihr fehlen, damit du sie auf dieselbe Weise vervollständigen kannst.
-- **Hinzufügen und Entfernen:** **Add item** (Eintrag hinzufügen) fügt einen Eintrag hinzu. Er kopiert den Eintrag darüber oder startet mit den Feldern, die diese Art von Eintrag hat – ein eigenes Feld bekommt einen Namen, einen Wert und ein Symbol. Das **×** neben einem Eintrag entfernt ihn. **Add field** (Feld hinzufügen) ergänzt einen Abschnitt oder eine noch leere Karte um ein Feld mit Name und Wert, und das **×** neben einem Wert setzt diesen Wert wieder auf „kein Wert“ zurück. Charaktere und Quests gehören zur Geschichte, deshalb lassen sich ihre Karten hier nicht hinzufügen; Listen darin, etwa die Werte eines Charakters, dagegen schon.
-- **JSON:** Wechsle zu **JSON**, um die Rohdaten zu bearbeiten. Dort färbt die Syntaxhervorhebung Schlüssel, Zeichenketten, Zahlen und Werte ein, die `true`, `false` oder `null` sind, und **Format** (formatieren) ordnet das JSON.
-- **Revert und Fehler:** **Revert** (zurücksetzen) macht deine Änderungen an einem Abschnitt rückgängig. Lässt sich das JSON nicht parsen, wird der Abschnitt markiert und kann erst gespeichert werden, wenn du den Fehler behoben hast.
-- **Speichern:** **Review changes** (Änderungen prüfen) zeigt Zeile für Zeile, was sich in jedem Abschnitt ändert. **Save changes** (Änderungen speichern) schreibt alles auf einmal in die Runde, die du bearbeitet hast. Bis dahin bleiben deine Entwürfe im Fenster, und beim Schließen wirst du gefragt, bevor sie verworfen werden.
+- Über das Zahnrad (**Tracker panel settings**) in der Kopfzeile des Tracker Panels und dann die Schaltfläche **{ }** (**Open in State Editor**).
+- Über die Schaltfläche **{ }** in der Titelleiste des Fensters **Trackers** oder eines Trackers, den du herausgelöst hast.
+- Am Telefon über die Schaltfläche **{ }** in den Panels **World State** und **Player & Tracker**.
+- Über den Link **Open in State Editor** unter **Tracker Data** in der **Agent Suite**.
 
-Wenn die Geschichte weiterläuft, während du bearbeitest, überschreibt der Editor sie nicht. Eine neue Antwort oder ein neuer Swipe macht eine andere Runde zur aktuellen, und das Speichern wird mit einer Schaltfläche **Reload** (neu laden) abgelehnt. Dasselbe passiert, wenn ein Tracker-Agent einen Abschnitt aktualisiert, den du nach dem Öffnen des Editors geändert hast. **Reload** zeigt den neuesten Zustand und verwirft deine Entwürfe.
+Er öffnet sich im Abschnitt des Trackers, von dem du kommst. World State öffnet sich zum Beispiel bei **Scene**.
 
-## Welche Agenten das HUD füllen
+- **Zeile zum Zug**: unter dem Suchfeld. Sie nennt die Nachricht und den Swipe, die du bearbeitest, zum Beispiel „Editing message #12 · swipe 2 of 3“. **Latest** kennzeichnet den neuesten Zug. Jeder Swipe hat seinen eigenen Zustand; wische also zuerst, um einen anderen zu bearbeiten.
+- **Abschnitte**: **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** und **Active Quests**. Am Telefon stehen sie als Chips über dem Editor. Ein Punkt markiert einen geänderten Abschnitt.
+- **Suche**: Gib einen Schlüssel oder Wert ein, etwa `mood`. Klick auf ein Ergebnis, um dorthin zu springen.
+- **Fields** (Felder): Jeder Abschnitt öffnet sich als **Fields**, mit Eingabefeldern für Text, Zahlen und An/Aus-Werte.
+- **No value**: Ein leeres Feld zeigt eine Auswahl aus **Text**, **Number** (Zahl) und **On/off** (an/aus).
+- **Add item** (Eintrag hinzufügen): fügt einen Eintrag hinzu und kopiert dabei den darüber.
+- **Add** (Hinzufügen): ergänzt einen Abschnitt oder eine leere Karte um ein benanntes Feld.
+- **×**: entfernt einen Eintrag oder leert einen Wert.
+- **JSON**: Hier bearbeitest du die Rohdaten. **Format** (formatieren) räumt sie auf. Ein Abschnitt mit fehlerhaftem JSON lässt sich erst speichern, wenn du den Fehler behoben hast.
+- **Revert** (zurücksetzen): macht deine Änderungen an einem Abschnitt rückgängig.
 
-Hinter jedem HUD-Widget steckt ein Tracker-Agent, der nach jedem Zug läuft. Welcher Agent welches Widget speist, steht in der Widget-Tabelle am Anfang dieser Anleitung.
+Charaktere und Quests gehören zur Geschichte, deshalb kannst du ihre Karten hier nicht hinzufügen. Listen darin, etwa die Werte eines Charakters, kannst du bearbeiten.
 
-Welche Statusbalken und RPG-Attribute eine Persona oder ein Charakter zu Beginn mitbringt, legst du im Tab **Stats** im Charakter- oder Persona-Editor fest. Die Tracker-Agenten passen diese Werte dann im Lauf der Geschichte an.
+So speicherst du:
+
+1. Klick auf **Review changes** (Änderungen prüfen), um jede Änderung Zeile für Zeile zu sehen.
+2. Klick auf **Save changes** (Änderungen speichern). Das schreibt alle Abschnitte auf einmal in den Zug, den du bearbeitet hast.
+
+Bis dahin bleiben deine Entwürfe im Fenster, und beim Schließen wirst du gefragt, bevor sie verworfen werden.
+
+Wenn es nicht funktioniert hat: Ist die Geschichte weitergelaufen, während du bearbeitet hast, überschreibt der Editor sie nicht. Nach einer neuen Antwort, einem neuen Swipe oder einer Tracker-Aktualisierung an einem Abschnitt, den du geändert hast, wird das Speichern mit einer Schaltfläche **Reload** (neu laden) abgelehnt. **Reload** zeigt den neuesten Zustand und verwirft deine Entwürfe.
 
 ## Verwandte Anleitungen
 
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
 - [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md)
-- [Charakterfarben und RPG-Werte](../characters/colors-and-stats.md)
+- [Charakterfarben und RPG-Werte](../characters/colors-and-stats.md): Der Tab **Stats** legt fest, mit welchen Balken und Attributen eine Persona oder ein Charakter startet.
 - [Roleplay Mode: Erste Schritte](getting-started.md)
 - [Game Mode: HUD-Widgets](../game/hud-widgets.md)

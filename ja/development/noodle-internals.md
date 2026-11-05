@@ -1,6 +1,6 @@
 # Noodleプロンプトの内部構造(開発者向け)
 
-Noodleの生成プロンプトがコードのどこにあるか、どうカスタマイズするか、最終的なプロンプトをどう調べるかをまとめた開発者向けの資料です。エンドユーザーはNoodleの**Settings**(設定)パネルから設定します。使い方は`docs/noodle/`のNoodleガイドを参照してください。
+Noodleの生成プロンプトがコードのどこにあるか、どうカスタマイズするか、最終的なプロンプトをどう調べるかをまとめた開発者向けの資料です。エンドユーザーはNoodleのSettingsパネルから設定します。使い方はNoodleのガイド`docs/agents/noodle.md`と`docs/agents/noodle-settings.md`を参照してください。
 
 Noodleはダウンロードして追加するパッケージです。そのルート(パッケージの有効化時に登録される`/api/noodle`)と生成のコードは、[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)のNoodleパッケージ内の`packages/noodle/src/engine/packages/server/src/`にあります。下の表で**package**と記した所在は、そのフォルダーからの相対パスです。Engine側には、共有のNoodleのスキーマと型、Noodleのストレージ、Settingsに表示される登録済みのプロンプトの上書き、`packages/server/src/services/noodle/noodle-prompt.ts`にあるタイムラインのデフォルトのプロンプト文が残っています。パッケージは、`services/prompt-overrides/registry/noodle.ts`と`services/noodle/noodle-prompt.ts`の独自のコピーを持っています。
 
@@ -28,7 +28,7 @@ Noodleには、組み立てられるタイムラインのプロンプトが1つ�
 
 ## 最終的なプロンプトを調べる
 
-**Debug Mode**(デバッグモード)をオンにして手動で更新すると、モデルへ送られた最終的なプロフィールとタイムラインのメッセージが共有のサーバーロガーに記録されます。次の行を探してください。
+Debug Modeをオンにして手動で更新すると、モデルへ送られた最終的なプロフィールとタイムラインのメッセージが共有のサーバーロガーに記録されます。次の行を探してください。
 
 ```text
 [debug/noodle] Profile prompt sent to model
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## 関連ガイド
 
-- [Noodle: アプリ内のソーシャルタイムライン](../noodle/overview.md)
-- [Noodleの設定とチャットへの引き継ぎ](../noodle/settings.md)
+- [Noodle: アプリ内のソーシャルタイムライン](../agents/noodle.md)
+- [Noodleの設定とチャットへの引き継ぎ](../agents/noodle-settings.md)
 - [任意のエージェントパッケージと機能パッケージ](optional-agent-packages.md)
 - [アーキテクチャマップ(開発者向け)](architecture-map.md)

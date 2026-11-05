@@ -1,25 +1,26 @@
 # Configuración del flujo de trabajo de ComfyUI
 
-Marinara Engine puede enviar solicitudes de generación de imágenes y de video a un servidor local de ComfyUI, y solicitudes de imágenes a un endpoint de RunPod Serverless que ejecuta ComfyUI. Una conexión de imagen local puede usar el flujo de trabajo básico integrado de Marinara, mientras que las conexiones de video y las configuraciones avanzadas de imágenes usan un flujo de trabajo personalizado en formato API.
+Marinara Engine puede enviar solicitudes de imágenes y de video a un servidor local de ComfyUI, y solicitudes de imágenes a un endpoint de RunPod Serverless que ejecuta ComfyUI. Un modelo de imagen local puede usar el flujo de trabajo básico integrado de Marinara. El video y las configuraciones avanzadas de imágenes usan tu propio flujo de trabajo en formato API, que es un flujo de trabajo exportado desde ComfyUI como JSON.
 
-El JSON del flujo de trabajo que pegas en Marinara es una instantánea. Marinara no mantiene un enlace en vivo con el flujo de trabajo abierto en ComfyUI. Cada vez que cambies el flujo de trabajo en ComfyUI, pruébalo de nuevo, expórtalo de nuevo y reemplaza el JSON guardado en la conexión de Marinara.
+El JSON que pegas en Marinara es una instantánea. Marinara no mantiene ningún enlace en vivo con el flujo de trabajo abierto en ComfyUI. Cuando cambies el flujo de trabajo en ComfyUI, pruébalo, expórtalo de nuevo y reemplaza el JSON guardado en Marinara.
 
 ## Antes de empezar
 
 Instala ComfyUI, agrega los checkpoints y los nodos personalizados que tu flujo de trabajo necesite, e inicia su servidor. La dirección local habitual es `http://127.0.0.1:8188`.
 
-Si ComfyUI se ejecuta en otra computadora de tu red doméstica, su servidor debe escuchar en una dirección que Marinara pueda alcanzar. Las conexiones de imagen también requieren `IMAGE_LOCAL_URLS_ENABLED=true` en el `.env` de Marinara; consulta la [Referencia de configuración del servidor](../CONFIGURATION.md). Revisa el firewall de la otra computadora si la conexión sigue fallando.
+Si ComfyUI se ejecuta en otra computadora de tu red doméstica, su servidor debe escuchar en una dirección que Marinara pueda alcanzar. Las cuentas de imagen también requieren `IMAGE_LOCAL_URLS_ENABLED=true` en el `.env` de Marinara; consulta la [Referencia de configuración del servidor](../CONFIGURATION.md). Revisa el firewall de la otra computadora si la conexión sigue fallando.
 
-Puede que un modelo de lenguaje local y un modelo de imagen no quepan al mismo tiempo en la memoria de la GPU, sobre todo en una tarjeta de 8 GB. La cola de imágenes de Marinara evita que varios trabajos de imagen se ejecuten juntos, pero no puede hacer que dos modelos cargados quepan en la misma VRAM. Si te quedas sin memoria, usa un modelo de lenguaje en la nube o alojado por separado, ejecuta ComfyUI en otro dispositivo, o descarga un modelo antes de usar el otro.
+Puede que un modelo de lenguaje local y un modelo de imagen no quepan al mismo tiempo en la memoria de la GPU, sobre todo en una tarjeta de 8 GB. La cola de imágenes de Marinara impide que los trabajos de imagen se ejecuten juntos, pero no puede hacer que dos modelos cargados quepan en la misma VRAM. Si te quedas sin memoria, usa un modelo de lenguaje en la nube, ejecuta ComfyUI en otro dispositivo, o descarga un modelo antes de usar el otro.
 
 ## Crear la conexión de Marinara
 
-1. Abre **Connections** (Conexiones) y crea una nueva conexión de **Image Generation** (Generación de imágenes).
-2. Elige **ComfyUI** para un servidor local o **RunPod Serverless (ComfyUI)** para un endpoint de RunPod.
-3. Para ComfyUI local, ingresa su Base URL. No se requiere API key (clave de API). Si el campo **ComfyUI Workflow** (Flujo de trabajo de ComfyUI) está vacío, Marinara usa un flujo de trabajo básico integrado de texto a imagen.
-4. Para RunPod, ingresa tu API key y tu Endpoint ID. Se requiere un flujo de trabajo personalizado.
-5. Configura **Local Image Defaults** (Valores predeterminados de imagen local). Estos valores reemplazan los marcadores de posición correspondientes en tu flujo de trabajo.
-6. Guarda la conexión y usa **Test Image** (Probar imagen) después de agregar el flujo de trabajo.
+1. Haz clic en **Connections** (Conexiones) y luego en **Add** (Añadir). En la ventana **Add account** (Añadir cuenta), elige **ComfyUI** para un servidor local o **RunPod Serverless (ComfyUI)** para un endpoint de RunPod, en **Images & video** (Imágenes y video).
+2. Para ComfyUI local, ingresa su dirección (`http://127.0.0.1:8188`). No se necesita API key (clave de API). Con el campo **ComfyUI workflow (optional)** (Flujo de trabajo de ComfyUI: opcional) vacío, Marinara usa un flujo de trabajo básico integrado de texto a imagen.
+3. Para RunPod, ingresa tu API key y el **RunPod endpoint ID** (ID del endpoint de RunPod). Se requiere un flujo de trabajo personalizado.
+4. Configura **Local image defaults** (Valores predeterminados de imagen local) en el modelo de imagen. Estos valores reemplazan los marcadores de posición correspondientes en tu flujo de trabajo.
+5. Pega el flujo de trabajo, guarda y haz clic en **Test image** (Probar imagen).
+
+Si no funcionó, consulta [Solución de problemas](#troubleshooting).
 
 ## Construir y exportar un flujo de trabajo
 
@@ -37,9 +38,9 @@ Un flujo de trabajo en formato API es diferente del flujo de trabajo normal del 
 
 ## Flujos de trabajo de video de ComfyUI
 
-Crea una conexión de **Video Generation** (Generación de video), elige **ComfyUI** y pega un flujo de trabajo en formato API en el campo obligatorio **ComfyUI Workflow**. WAN 2.2 y otros grafos de video locales son compatibles siempre que el mismo flujo de trabajo se ejecute en ComfyUI y guarde un MP4 mediante una salida como el nodo central **SaveVideo**.
+Añade una cuenta de **ComfyUI** en **Images & video** y abre su modelo de video. Pega un flujo de trabajo en formato API en el campo obligatorio **ComfyUI workflow (optional)**. WAN 2.2 y otros grafos de video locales son compatibles siempre que el mismo flujo de trabajo se ejecute en ComfyUI y guarde un MP4 mediante una salida como el nodo central **SaveVideo**.
 
-Los flujos de trabajo de video pueden usar estos marcadores de posición entre comillas:
+Los flujos de trabajo de video pueden usar estos marcadores de posición, que se mantienen entre comillas:
 
 | Marcador de posición     | Valor proporcionado por Marinara                                    |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -52,7 +53,7 @@ Los flujos de trabajo de video pueden usar estos marcadores de posición entre c
 
 Marinara encola el flujo de trabajo mediante `/prompt`, consulta `/history` y descarga el MP4 nombrado en una salida `gifs` o `images`. Las acciones de imagen a video proporcionan `%reference_image_name%`; las pruebas de conexión solo de texto no lo hacen, así que mantén esa entrada opcional cuando el mismo flujo de trabajo deba admitir ambas.
 
-Los renderizados locales de WAN pueden superar los 30 minutos en GPUs de gama media. Los trabajos de video de ComfyUI usan `VIDEO_GEN_TIMEOUT_MS`, no el `COMFYUI_GEN_TIMEOUT` que es solo para imágenes; aumenta el tiempo de espera de video y reinicia Marinara si un flujo de trabajo válido se corta antes de tiempo.
+Los renderizados locales de WAN pueden superar los 30 minutos en GPUs de gama media. Los trabajos de video de ComfyUI usan `VIDEO_GEN_TIMEOUT_MS`, no el `COMFYUI_GEN_TIMEOUT` que es solo para imágenes. Si un flujo de trabajo válido se corta antes de tiempo, aumenta el tiempo de espera de video y reinicia Marinara.
 
 ## Agregar marcadores de posición de Marinara
 
@@ -116,7 +117,7 @@ Esto es solo un fragmento: conserva los enlaces de nodo y las demás entradas de
 | `%denoise%`           | Fuerza de eliminación de ruido. También se acepta `%denoising_strength%`.                   |
 | `%clip_skip%`         | Valor de Clip Skip para un nodo compatible.                                                 |
 
-Después de editar, guarda el JSON, copia todo el archivo, pégalo en **ComfyUI Workflow** en la conexión de imagen, guarda la conexión y haz clic en **Test Image**.
+Después de editar, guarda el JSON, copia todo el archivo, pégalo en **ComfyUI workflow (optional)** en el modelo de imagen, guarda y haz clic en **Test image**.
 
 ## Usar imágenes de referencia
 
@@ -140,7 +141,7 @@ Para un nodo **LoadImage** estándar de ComfyUI, usa un marcador de posición de
 
 Marinara sube la referencia al directorio de entrada de ComfyUI y reemplaza el marcador de posición con el nombre de archivo que devuelve ComfyUI. `%reference_image_name%` significa la primera imagen. Los flujos de trabajo con varias entradas de referencia pueden usar desde `%reference_image_name_01%` hasta `%reference_image_name_04%`.
 
-Si el flujo de trabajo siempre requiere una entrada de imagen, activa **Upload a 1x1 placeholder when no reference image is provided** (Subir un marcador de posición de 1x1 cuando no se proporciona ninguna imagen de referencia) en **Local Image Defaults**. Marinara entonces proporciona una imagen de marcador de posición diminuta cuando la solicitud no tiene una referencia real.
+Si el flujo de trabajo siempre requiere una entrada de imagen, activa la opción de subir un marcador de posición de 1x1 en **Local image defaults**. Marinara entonces proporciona una imagen de marcador de posición diminuta cuando la solicitud no tiene una referencia real.
 
 ### Datos de imagen en base64 sin procesar
 
@@ -150,9 +151,11 @@ Los flujos de trabajo de RunPod admiten los marcadores de posición de base64 si
 
 ## Mantener flujos de trabajo específicos por personaje
 
-Puedes crear un flujo de trabajo exportado aparte y una conexión de imagen de Marinara para cada personaje que necesite un checkpoint concreto, una pila de LoRA, una configuración de ControlNet o un diseño de imagen de referencia particular. Selecciona la conexión de imagen adecuada donde ese personaje o función de imagen te permita elegir una.
+Puedes crear un flujo de trabajo exportado aparte y una conexión de imagen de Marinara para cada personaje que necesite un checkpoint concreto, una pila de LoRA, una configuración de ControlNet o un diseño de imagen de referencia particular. Selecciona el modelo de imagen correspondiente donde ese personaje o función de imagen te permita elegir uno.
 
-Esto puede producir resultados más consistentes que un solo flujo de trabajo genérico, pero cada conexión sigue teniendo su propio JSON copiado. Después de cambiar el flujo de trabajo de un personaje en ComfyUI, repite los pasos de exportar, editar, copiar y pegar para esa conexión.
+Esto puede dar resultados más consistentes que un solo flujo de trabajo genérico, pero cada modelo sigue teniendo su propia copia del JSON. Después de cambiar el flujo de trabajo de un personaje en ComfyUI, repite los pasos de exportar, editar, copiar y pegar para esa conexión.
+
+<a id="troubleshooting"></a>
 
 ## Solución de problemas
 
@@ -177,6 +180,6 @@ Esto puede producir resultados más consistentes que un solo flujo de trabajo ge
 - [Generación de video de escena](scene-video.md) cubre las conexiones de video y todas las superficies de video de escena.
 - [Storyboards de LTX 2.3 en Game Mode](../game/ltx-2-3-storyboards.md) cubre un flujo de trabajo de la API de LTX Director, los marcadores de posición y los ajustes de Game recomendados.
 - [Perfiles de estilo de imagen](style-profiles.md) explica los estilos de prompt reutilizables de Marinara.
-- [Illustrator Agent](illustrator-agent.md) cubre la ilustración automática de escenas.
+- [Agente Illustrator](illustrator-agent.md) cubre la ilustración automática de escenas.
 - [Referencia de configuración del servidor](../CONFIGURATION.md) documenta el acceso a la red local y los tiempos de espera de ComfyUI.
 - [Conceptos de flujos de trabajo de ComfyUI](https://docs.comfy.org/development/core-concepts/workflow) explica los flujos de trabajo en la documentación oficial de ComfyUI.

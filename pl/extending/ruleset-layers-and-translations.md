@@ -1,6 +1,6 @@
 # Warstwy, tłumaczenia i migracje zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Omawia warianty, które gracz włącza dla jednej gry, tłumaczenia tekstu zestawu zasad oraz przenoszenie wartości do nowych identyfikatorów przy zmianach arkusza postaci.
+Z tej strony dowiesz się, jak oferować warianty, które gracz włącza dla jednej gry, jak przetłumaczyć tekst zestawu zasad i jak przenieść zapisane wartości do nowych identyfikatorów, gdy zmienia się arkusz postaci. Jest przeznaczona dla osób tworzących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
 
 ## Warstwy: warianty twojego zestawu zasad
 
@@ -49,7 +49,7 @@ Warstwa to nazwany wariant zestawu zasad, włączany przez gracza przy tworzeniu
 
 **Konflikty.** `conflicts` wskazuje warstwy, których nie można włączyć razem. Wystarczy zadeklarować jedną stronę pary. Kreator wyłącza drugi przełącznik; jeśli zapisany wybór mimo to zawiera obie warstwy, odrzuca zadeklarowaną **później**, więc te same dwa wybory zawsze dają te same zasady.
 
-**Karta już zawierająca usuniętą wartość zachowuje ją.** Nic nie przepisuje postaci. Edytor przestaje jedynie oferować wartość, a postać, która już ją miała, nadal ją pokazuje. Wyłącz warstwę w nowej grze, a wartość znów będzie oferowana. Tak samo działa ukryty wpis katalogu: znika z selektora, a wcześniej wybrany wiersz pozostaje na karcie. Monety usunięte przez warstwę, które ktoś już niesie, zostają w jego torbie.
+**Karta już zawierająca usuniętą wartość zachowuje ją.** Nic nie przepisuje postaci. Edytor przestaje oferować wartość, a postać, która już ją miała, nadal ją pokazuje. Wyłącz warstwę w nowej grze, a wartość znów będzie oferowana. Tak samo działa ukryty wpis katalogu: znika z selektora, a wcześniej wybrany wiersz pozostaje na karcie. Monety usunięte przez warstwę, które ktoś już niesie, zostają w jego torbie.
 
 **Limity.** 12 warstw na zestaw zasad i 4000 znaków instrukcji na warstwę, łącznie dla obu tekstów. Pakiet zestawu zasad deklarujący `layers` lub bazowe `gm.worldGuidance` wymaga Capability API 1.25, taki, którego warstwy usuwają monety – 1.64, a taki, którego warstwy zmieniają jego `items` – 1.813. Importowany zestaw zasad weryfikuje odczytujący go Engine, więc niczego takiego nie potrzebuje.
 

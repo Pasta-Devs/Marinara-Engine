@@ -1,171 +1,144 @@
 # Lista komend slash
 
-Ten przewodnik zbiera komendy slash, które można wpisać w czacie aplikacji Marinara Engine. Komenda slash to skrót wpisywany w polu wiadomości, zaczynający się od ukośnika, dzięki któremu coś dzieje się od razu. Część komend działa wyłącznie na ekranie, a część prosi AI o napisanie tekstu.
+Komenda slash to skrót wpisywany w polu wiadomości, zaczynający się od `/`, dzięki któremu coś dzieje się szybko. Część komend od razu zmienia ekran. Inne proszą model o napisanie tekstu.
 
 ## Jak działają komendy slash
 
-Komendę slash uruchamia się tak: wpisz ją w polu wiadomości na dole czatu i naciśnij przycisk **Send** (wyślij). Klawisz Enter też ją wysyła, o ile dla danego trybu czatu włączona jest opcja **Send on Enter** (wysyłanie Enterem) w sekcji **Settings** (Ustawienia). Domyślnie Enter wysyła wiadomość w czatach Conversation, a w czatach Roleplay przechodzi do nowej linii. Pole wiadomości samo przypomina o komendach slash. W czacie Roleplay tekst zastępczy brzmi **Write your response, / for commands**. W czacie Conversation widać tam imię postaci, na przykład "Message @Alice, / for commands". Jeśli w czacie jest więcej niż jedna postać, pojawia się nazwa czatu.
+1. Wpisz komendę w polu wiadomości na dole czatu.
+2. Kliknij **Send** (wyślij) albo naciśnij <kbd>Enter</kbd>, jeśli dla twojego trybu czatu włączona jest opcja **Send on Enter** (wysyłanie klawiszem Enter). Zobacz [Wysyłanie wiadomości i streaming](sending-and-streaming.md#send-on-enter).
 
-Zaraz po wpisaniu ukośnika nad polem wyskakuje małe menu z pasującymi komendami. Każdy wiersz pokazuje format komendy wraz z argumentami i krótki opis. Kliknij lub dotknij wiersz, żeby wstawić komendę do pola, dopisz resztę tekstu i wyślij.
+Zaraz po wpisaniu `/` nad polem pojawia się menu pasujących komend. Każdy wiersz pokazuje format komendy i krótki opis. Kliknij wiersz, aby wstawić komendę do pola, dopisz resztę tekstu i wyślij. Tekst zastępczy pola też przypomina o komendach: **Write your response, / for commands** w trybie Roleplay i "Message @Alice, / for commands" w trybie Conversation.
 
-Zastąp etykiety w nawiasach kwadratowych, takie jak `[name]` lub `[range]`, własnymi wartościami; nie wpisuj samych nawiasów. Argumenty oznaczone `(optional)` można pominąć. Znak `|` rozdziela alternatywy: wartości, takie jak `prompt|reset`, albo całe formaty komend.
+W tabelach format każdej komendy podano w jej wierszu. Zastąp etykiety w nawiasach kwadratowych, takie jak `[name]` lub `[range]`, własnymi wartościami i nie wpisuj samych nawiasów. Argumenty oznaczone `(optional)` można pominąć. Znak `|` rozdziela alternatywy. Wiele komend ma krótsze aliasy, na przykład `/cont` zamiast `/continue`. Aby zobaczyć wszystkie komendy w aplikacji, wpisz:
 
-Wiele komend ma krótsze odpowiedniki. Można na przykład wpisać `/continue` albo alias `/cont` – efekt jest ten sam. Pełną listę wyświetlisz w aplikacji w każdej chwili tą komendą:
-
-```
+```text
 /help
 ```
 
-Część komend działa w przeglądarce i zmienia czat natychmiast, zupełnie za darmo. Inne proszą AI o wygenerowanie tekstu, więc korzystają z podłączonego dostawcy i mogą zużywać tokeny. Token to jednostka, którą większość dostawców AI mierzy i rozlicza tekst. W tabelach poniżej opisane jest działanie każdej komendy.
+Część komend działa w przeglądarce i nic nie kosztuje. Inne proszą model o napisanie tekstu, co korzysta z twojego konta i może zużywać tokeny (jednostki, które usługi liczą i rozliczają).
 
-Komendy slash działają w polach wiadomości trybów **Conversation** i **Roleplay**. W trybie **Game** jako komenda slash działa tylko `/illustrate`. Cała reszta zaczynająca się od ukośnika idzie jako zwykły tekst.
+Komendy slash działają w polach wiadomości trybów Conversation i Roleplay. W trybie Game działa tylko samo `/illustrate` (lub `/ill`) bez zakresu i promptu, i to tylko wtedy, gdy ilustracje Game są skonfigurowane z kontem do generowania obrazów. Wszystko inne, co zaczyna się od ukośnika, zostaje wysłane jako zwykły tekst. W trybach Roleplay i Conversation komendy `/illustrate`, `/selfie` i `/video` wymagają agenta Illustrator i pojawiają się tylko wtedy, gdy jest zainstalowany.
 
-Kilka komend odwołuje się do numerów wiadomości. Marinara liczy wiadomości od pierwszej w czacie: 1, potem 2, potem 3 i tak dalej. Z tych numerów korzystają komendy `/goto`, `/hide` i `/unhide`.
+Kilka komend korzysta z numerów wiadomości. Marinara liczy od pierwszej wiadomości w czacie jako numeru 1. Z tych numerów korzystają `/goto`, `/hide` i `/unhide`. Opcja **Show message numbers** (pokazywanie numerów wiadomości) je wyświetla. Zobacz [Działania na wiadomości](messages.md#message-display-toggles).
 
 ## Komendy czatu i wiadomości
 
-Te komendy pomagają zarządzać czatem i jego wiadomościami. Działają w czatach **Conversation** i **Roleplay**.
+Te komendy działają w trybach Conversation i Roleplay.
 
-| Komenda | Działa też jako | Co robi |
-|---|---|---|
-| `/help` | | Wypisuje wszystkie komendy slash. |
-| `/send [message]` | | Wysyła wiadomość w imieniu twojej persony bez uruchamiania generowania. Zapisuje się ona tak samo jak po kliknięciu **Send**, z wypełnionymi makrami. |
-| `/continue` | `/cont` | Dopisuje tekst do ostatniej odpowiedzi AI, bez wysyłania nowej wiadomości. Opcja **Add a new line before /continue text** w **Settings → General → Responses** decyduje o tym, czy ten tekst zacznie się po pustej linii, czy dokładnie w miejscu przerwania. |
-| `/goto [number]` | `/jump`, `/scroll` | Przewija czat do wiadomości o podanym numerze. |
-| `/hide [range] [name (optional)]` | | Ukrywa jedną wiadomość lub więcej przed AI w kolejnych turach. |
-| `/unhide [range]` | | Przywraca ukryte wiadomości do widoku AI. |
-| `/sys [message]` | `/system` | Dodaje wiadomość systemową. Taka notatka widnieje w czacie i steruje AI, ale nie wypowiada jej żadna postać. |
-| `/macros` | `/macro` | Wypisuje obsługiwane makra promptu, na przykład `{{user}}` i `{{char}}`. |
-| `/remind [time] [message]` | `/reminder`, `/timer` | Ustawia minutnik, a po jego upływie wysyła w czacie przypomnienie. |
+| Komenda | Co robi |
+| --- | --- |
+| `/help` | Wypisuje wszystkie komendy slash. |
+| `/send` | Wysyła wiadomość w imieniu twojej persony, nie prosząc o odpowiedź. Makra zostają wypełnione, tak jak przy **Send**. Format: `/send [message]`. |
+| `/continue` | Dopisuje tekst do ostatniej odpowiedzi AI, bez nowej wiadomości. Także `/cont`. Opcja **Settings → General → Responses → Add a new line before /continue text** (ustawienia, ogólne, odpowiedzi, nowa linia przed tekstem z /continue) decyduje o tym, czy tekst zaczyna się po pustej linii, czy w miejscu przerwania. |
+| `/goto` | Przewija czat do wiadomości o podanym numerze. Także `/jump`, `/scroll`. Format: `/goto [number]`. |
+| `/hide` | Ukrywa wiadomości przed modelem w kolejnych turach. Format: `/hide [range] [name (optional)]`. |
+| `/unhide` | Przywraca wiadomości ukryte globalnie. Format: `/unhide [range]`. |
+| `/sys` | Dodaje wiadomość systemową. Widać ją w czacie i steruje modelem, ale nie wypowiada jej żadna postać. Także `/system`. Format: `/sys [message]`. |
+| `/macros` | Wypisuje makra promptu, takie jak `{{user}}` i `{{char}}`. Także `/macro`. |
+| `/remind` | Ustawia minutnik, a potem wysyła w czacie przypomnienie. Także `/reminder`, `/timer`. Format: `/remind [time] [message]`. |
 
-Żeby przeskoczyć do wiadomości 27, wpisz to:
+Przykłady:
 
-```
+```text
 /goto 27
-```
-
-Komendy `/hide` i `/unhide` przyjmują pojedynczy numer, zakres albo jedno i drugie naraz. Ten przykład ukrywa wiadomości od 3 do 8:
-
-```
 /hide 3-8
+/remind 30m check the oven
 ```
 
-Da się też napisać `/hide 5` dla jednej wiadomości albo `/hide 2-5,9,12` dla kilku. Bez imienia postaci wiadomości zostają ukryte przed wszystkimi. Ukryte wiadomości zostają w czacie, ale AI nie czyta ich w następnej turze. Żeby przywrócić wiadomości ukryte globalnie, użyj `/unhide` z taką samą listą numerów.
+Komendy `/hide` i `/unhide` przyjmują jeden numer, zakres albo ich połączenie: `/hide 5`, `/hide 3-8`, `/hide 2-5,9,12`. Ukryte wiadomości zostają w czacie, ale model ich nie czyta.
 
-W trybie **Roleplay** dopisz imię postaci po zakresie, żeby ukryć te wiadomości tylko przed nią:
+W trybie Roleplay dopisz imię postaci po zakresie, aby ukryć wiadomości tylko przed tą postacią. Pozostałe postacie zachowują do nich dostęp.
 
-```
+```text
 /hide 3-8 Maukie
 /hide 2-5,9 "Powers That Be"
 ```
 
-Dostęp pozostałych postaci się nie zmienia. Jeśli podajesz imię przed zakresem, ujmij je w cudzysłów, gdy zawiera spacje: starsze formy `/hide Maukie 3-8` i `/hide "Powers That Be" 2-5,9` nadal działają. Jeśli imię pasuje do kilku postaci, podaj je w całości. Imiona złożone z cyfr ujmij w cudzysłów, żeby odróżnić je od numerów wiadomości, na przykład `/hide 1 "123"`. W grupowym czacie Roleplay użyj wyboru awatarów przy przycisku **Hide from AI** (ukrycie przed AI), żeby sprawdzić lub cofnąć ukrycie przed konkretnymi postaciami. W czacie Roleplay z jedną postacią użyj zamiast tego przycisku **Unhide from AI** (odkrycie przed AI) na wiadomości. `/unhide` cofa tylko ukrycie globalne.
+Imiona zawierające spacje ujmij w cudzysłów. Starsze formy z imieniem na początku, takie jak `/hide Maukie 3-8`, nadal działają. Jeśli imię pasuje do kilku postaci, podaj je w całości. Imiona złożone z cyfr ujmij w cudzysłów, aby odróżnić je od numerów wiadomości, na przykład `/hide 1 "123"`. Aby sprawdzić lub cofnąć ukrycie przed konkretnymi postaciami, użyj na wiadomości wyboru awatarów **Hide from AI** (ukrycie przed AI) w grupowym czacie Roleplay albo przycisku **Unhide from AI** (odkrycie przed AI) w czacie z jedną postacią. `/unhide` cofa tylko ukrycie globalne.
 
-Komenda `/remind` przyjmuje najpierw czas, potem treść. W czasie `h` oznacza godziny, `m` minuty, a `s` sekundy. Ten przykład przypomni o czymś za 30 minut:
-
-```
-/remind 30m check the oven
-```
-
-Przypomnienie żyje w sesji przeglądarki, więc trzymaj zakładkę otwartą, aż się odezwie.
+Komenda `/remind` przyjmuje czas z jednostką `h` (godziny), `m` (minuty) lub `s` (sekundy), a potem treść. Przypomnienie żyje w sesji przeglądarki, więc trzymaj kartę przeglądarki otwartą, aż się odezwie.
 
 ## Komendy fabuły i roleplayu
 
-Te komendy pomagają prowadzić fabułę, wcielać się w postać i dodawać grafiki. Większość z nich sprawdza się najlepiej w czacie **Roleplay**. Wyjątkiem jest `/scene`, którą uruchamia się z czatu **Conversation**.
+| Komenda | Co robi |
+| --- | --- |
+| `/guided` | Kieruje następną odpowiedzią. Także `/narrator`, `/narrate`, `/nar`. Format: `/guided [direction]`. |
+| `/as` | Wysyła wiadomość w imieniu postaci albo prosi tę postać o odpowiedź. Także `/respond`. Format: `/as [name] [message (optional)]`. |
+| `/emote` | Wypisuje wyrazy twarzy sprite'ów albo przełącza wyraz twarzy. Także `/emotion`, `/sprite`. Format: `/emote [expression]`. |
+| `/roll` | Rzuca kośćmi i wysyła wynik. Także `/r`, `/dice`. Format: `/roll [dice (optional)]`. |
+| `/random` | Prosi model o dodanie niespodziewanego wydarzenia. Także `/rand`, `/event`. |
+| `/scene` | Zaczyna scenę Roleplay, która odgałęzia się od rozmowy. Także `/rp`. Format: `/scene [description (optional)]`. |
+| `/illustrate` | Tylko Roleplay. Generuje obraz do galerii. Wymaga agenta Illustrator. Także `/ill`. Format: `/illustrate [range=N-M] [prompt]`. |
+| `/html` | Tylko Roleplay. Tworzy jeden artefakt ze świata opowieści, na przykład `a spellbook page`, na końcu najnowszej odpowiedzi. Format: `/html [what you want]`. |
+| `/video` | Tylko Roleplay. Tworzy krótki klip z najnowszej odpowiedzi lub na podstawie twojego opisu i umieszcza go pod tą odpowiedzią. Korzysta z ustawienia **First frame** (pierwsza klatka) agenta Illustrator. Wymaga agenta Illustrator. Format: `/video [description]`. |
+| `/impersonate` | Pisze odpowiedź w imieniu twojej persony. Także `/imp`. Format: `/impersonate [direction (optional)]`. |
+| `/impersonate_prompt` | Ustawia instrukcję, z której `/impersonate` korzysta w tym czacie. Także `/imp_prompt`. Format: `/impersonate_prompt [prompt or reset]`. |
 
-| Komenda | Działa też jako | Co robi |
-|---|---|---|
-| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Nadaje kolejnej odpowiedzi AI kierunek, który opiszesz. |
-| `/as [name] [message (optional)]` | `/respond` | Wysyła wiadomość w imieniu postaci albo prosi postać o odpowiedź. |
-| `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Wypisuje wyrazy twarzy sprite'ów postaci albo przełącza między nimi. |
-| `/roll [dice (optional)]` | `/r`, `/dice` | Rzuca kością i wysyła wynik. |
-| `/random` | `/rand`, `/event` | Prosi AI o dorzucenie do fabuły niespodziewanego wydarzenia. |
-| `/scene [description (optional)]` | `/rp` | Uruchamiana z czatu Conversation. Zaczyna nową scenę Roleplay, która odgałęzia się od tego czatu. |
-| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generuje obraz do galerii bieżącego czatu. |
-| `/html [what you want]` | | Roleplay: tworzy jeden artefakt ze świata opowieści na końcu najnowszej odpowiedzi, na przykład `a spellbook page`. |
-| `/video [description (optional)]` | | Roleplay: tworzy krótki klip z najnowszej odpowiedzi lub na podstawie twojego opisu i umieszcza go pod tą odpowiedzią. Korzysta z ustawienia **First frame** (pierwsza klatka) agenta Illustrator. W trybie Conversation `/video` wysyła zamiast tego wiadomość wideo (zobacz niżej). |
-| `/impersonate [direction (optional)]` | `/imp` | Pisze odpowiedź w imieniu twojej persony. |
-| `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Ustawia instrukcję, z której `/impersonate` korzysta w tym czacie. |
+Większość z nich sprawdza się najlepiej w trybie Roleplay. `/scene` uruchamia się z czatu Conversation. `/impersonate` i `/impersonate_prompt` nie są dostępne w trybie Conversation.
 
-W trybie **Roleplay** komenda `/illustrate range=12` ilustruje wiadomość 12, a `/illustrate range=12-18` wysyła do Illustrator wiadomości od 12 do 18. Używaj numerów takich jak w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości pozostają pominięte. Obraz jest dołączany do ostatniej widocznej wiadomości w wybranym zakresie; przegląd promptu zachowuje wybór także po pojawieniu się nowszych wiadomości. Starsze wiadomości są dostępne również przy włączonym Advanced Memory. Bez `range=` komenda działa jak dotychczas dla bieżącej sceny. Opcjonalny wpisany prompt jest używany bezpośrednio, tak jak wcześniej.
+### Kierowanie odpowiedzią
 
-`/html a terminal readout` tworzy jeden artefakt na końcu najnowszej odpowiedzi. Nie wymaga agenta i działa niezależnie od tego, czy opcja **HTML Artifacts** (artefakty HTML) jest włączona. Narrator może sam zgłosić tę samą prośbę komendą `[html: prompt="..."]`, gdy opcja **HTML Artifacts** jest włączona w sekcji **Roleplay Commands** (komendy Roleplay). Zobacz [Artefakty na żądanie](../roleplay/getting-started.md#artifacts-on-demand).
-
-Żeby pokierować kolejną odpowiedzią, dopisz wskazówkę po `/guided`:
-
-```
+```text
 /guided make him confess he is lying
-```
-
-W grupowym czacie Roleplay użyj `/guided respond as [name] [direction (optional)]`, żeby wybrać odpowiadającą postać. Działają też `reply as` i `respond for`. Na przykład:
-
-```
 /guided respond as "Powers That Be" describe the approaching storm
 ```
 
-Użyj `/as [name] [message (optional)]`, żeby wysłać tekst w imieniu postaci. Jeśli pominiesz wiadomość, model wygeneruje kolejną odpowiedź tej postaci:
+Zamiast `respond as` działają też `reply as` i `respond for`. Zobacz [Sterowane generowanie i Impersonate](guided-and-impersonate.md).
 
-```
+### Wysyłanie wiadomości w imieniu postaci
+
+Pomiń wiadomość, a model napisze kolejną odpowiedź tej postaci.
+
+```text
 /as Dottore "The experiment begins."
 /as Dottore
 ```
 
-Komenda `/roll` rozumie notację kostkową. Ten zapis rzuca dwiema sześciościennymi kośćmi:
+### Rzut kośćmi
 
-```
-/roll 2d6
-```
+Komenda `/roll 2d6` rzuca dwiema sześciościennymi kośćmi. Można dodać modyfikator, jak w `/roll 1d20+5`. Samo `/roll` bez niczego dalej rzuca `1d20`. Aby zachować tylko część kości, dopisz `kh` (zachowaj najwyższe) albo `kl` (zachowaj najniższe) i liczbę: `/roll 4d6kh3` sumuje trzy najwyższe wyniki, a `/roll 2d20kl1` zachowuje niższy z dwóch. `dl` i `dh` zamiast tego odrzucają najniższe lub najwyższe wyniki, jak w `/roll 4d6dl1`. Kości, które się nie liczą, nadal są widoczne, ale przyciemnione.
 
-Można dodać modyfikator, na przykład `/roll 1d20+5`. Samo `/roll` bez niczego dalej oznacza dla aplikacji rzut `1d20`.
+### Przełączanie sprite'a
 
-Żeby zachować tylko część kości, dopisz `kh` (zachowaj najwyższe) albo `kl` (zachowaj najniższe) i liczbę: `/roll 4d6kh3` rzuca czterema kośćmi i dodaje trzy najwyższe wyniki, a `/roll 2d20kl1` zachowuje niższy z dwóch. `dl` i `dh` zamiast tego odrzucają odpowiednio najniższe lub najwyższe wyniki, jak w `/roll 4d6dl1`. Kości, które się nie liczą, nadal są widoczne, ale przyciemnione.
+Sprite to obrazek postaci pokazujący wyraz twarzy. Wpisz samo `/emote`, aby zobaczyć dostępne wyrazy twarzy, albo podaj nazwę jednego z nich:
 
-Sprite to obrazek postaci pokazujący wyraz twarzy. Komenda `/emote` przełącza, który z nich jest widoczny. Wpisz samo `/emote`, żeby zobaczyć dostępne wyrazy twarzy, albo podaj nazwę jednego z nich, żeby go włączyć:
-
-```
+```text
 /emote joy
+/emote "Powers That Be" joy
 ```
 
-Żeby wskazać jedną postać, użyj `/emote "[name]" [expression (optional)]`, na przykład `/emote "Powers That Be" joy`. Pomiń wyraz twarzy, żeby wyświetlić listę dostępnych wyrazów twarzy tej postaci.
+Z imieniem, ale bez wyrazu twarzy, komenda wypisuje wyrazy twarzy tej postaci. Wymaga czatu Roleplay z wgranymi sprite'ami. Zobacz [Sprite'y postaci](../characters/sprites.md).
 
-Przełączanie sprite'ów wymaga czatu Roleplay z wgranymi sprite'ami. Sposób ich dodawania opisuje przewodnik [Sprite'y postaci](../characters/sprites.md).
+### Ilustracje i artefakty
 
-Persona to postać, w którą się wcielasz w czacie – w promptach zapisuje ją makro `{{user}}`. Komenda `/impersonate` pisze odpowiedź za ciebie. Można dopisać po niej wskazówkę:
+Komenda `/illustrate range=12` ilustruje wiadomość 12. `/illustrate range=12-18` wysyła do agenta Illustrator wiadomości od 12 do 18. Używaj tych samych numerów wiadomości co w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości są pomijane. Obraz zostaje dołączony do ostatniej widocznej wiadomości w zakresie. Wcześniejsze wiadomości pozostają dostępne przy włączonej funkcji Advanced Memory. Bez `range=` komenda działa na bieżącej scenie. Wpisany prompt jest używany dosłownie.
 
-```
-/impersonate ask about the weather
-```
+`/html a terminal readout` nie wymaga agenta i działa niezależnie od tego, czy opcja **HTML Artifacts** (artefakty HTML) jest włączona. Narrator może poprosić o to samo znacznikiem `[html: prompt="..."]`, gdy opcja **HTML Artifacts** jest włączona w sekcji **Roleplay Commands** (komendy Roleplay). Zobacz [Artefakty na żądanie](../roleplay/getting-started.md#artifacts-on-demand).
 
-Komendy `/impersonate` i `/impersonate_prompt` nie działają w czatach **Conversation**. Pełne omówienie generowania z podpowiedzią i wcielania się w personę znajdziesz w przewodniku [Sterowane generowanie i Impersonate](guided-and-impersonate.md).
+### Pisanie własnej odpowiedzi
+
+`/impersonate ask about the weather` pisze odpowiedź głosem twojej persony. Persona to postać, która reprezentuje ciebie, w promptach zapisywana jako `{{user}}`. Te dwie komendy nie są dostępne w trybie Conversation.
 
 ## Komendy trybu Conversation
 
-Te komendy działają wyłącznie w czacie **Conversation**.
+Te komendy działają wyłącznie w czacie Conversation.
 
 | Komenda | Co robi |
-|---|---|
-| `/games` | Otwiera wybór zainstalowanych gier dla trybu Conversation. `/game` i `/play` robią to samo. |
-| `/selfie [name (optional)]` | Generuje selfie za pomocą zainstalowanego agenta Illustrator. Dopisz imię, żeby wybrać postać. |
-| `/video [name (optional)]` | Sprawia, że postać wysyła ci krótką wiadomość wideo, zgodnie z ustawieniami **Video messages** (wiadomości wideo) tego czatu. Dopisz imię, żeby wybrać postać. Zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages). |
+| --- | --- |
+| `/games` | Otwiera wybór zainstalowanych gier. `/game` i `/play` robią to samo. |
+| `/selfie` | Generuje selfie za pomocą agenta Illustrator. Dopisz imię, aby wybrać postać. Format: `/selfie [name (optional)]`. |
+| `/video` | Sprawia, że postać wysyła krótką wiadomość wideo, zgodnie z ustawieniami **Video messages** (wiadomości wideo) czatu. Zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages). Format: `/video [name (optional)]`. |
 | `/uno` | Zaczyna partię UNO z postaciami z czatu. |
 | `/chess` | Zaczyna partię szachów jeden na jednego z postacią. |
 | `/poker` | Zaczyna partię pokera Texas Hold'em z postaciami. |
 | `/8ball` | Zaczyna partię bilarda 8-ball jeden na jednego z postacią. `/pool` robi to samo. |
-| `/status [online\|idle\|dnd\|offline\|clear] [name (optional)]` | Ustawia lub czyści status obecności postaci. |
+| `/status` | Ustawia lub czyści status obecności postaci. Format: `/status [online, idle, dnd, offline or clear] [name]`. |
 
-Komendy `/uno`, `/chess`, `/poker` i `/8ball` otwierają ekran przygotowania danej gry. W jednym czacie da się prowadzić jedną grę naraz. Zasady i opcje opisuje przewodnik [Gry stołowe](../conversation/table-games.md).
+Komendy gier otwierają ekran przygotowania danej gry, a każda pojawia się tylko wtedy, gdy zainstalowany jest agent tej gry. W jednym czacie można prowadzić jedną grę naraz. Zobacz [Gry stołowe](../conversation/table-games.md).
 
-Komenda `/status` nadpisuje obecność postaci. Status może mieć wartość `online`, `idle`, `dnd` (nie przeszkadzać) albo `offline`. Wpisz `clear`, żeby usunąć nadpisanie. Ten przykład ustawia postać jako bezczynną:
+Komenda `/status` nadpisuje obecność postaci. Status może mieć wartość `online`, `idle`, `dnd` (nie przeszkadzać) albo `offline`. `clear` usuwa nadpisanie. W czacie z kilkoma postaciami dopisz na końcu imię.
 
-```
+```text
 /status idle
+/status online Alice
 ```
-
-W czacie z więcej niż jedną postacią dopisz na końcu jej imię, na przykład `/status online Alice`.
-
-## Powiązane przewodniki
-
-- [Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie](messages.md)
-- [Sterowane generowanie i Impersonate](guided-and-impersonate.md)
-- [Gry stołowe](../conversation/table-games.md)
-- [Makra](../prompts/macros.md)

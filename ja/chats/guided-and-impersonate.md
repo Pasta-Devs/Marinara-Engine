@@ -1,140 +1,101 @@
 # ガイド付き生成とImpersonate
 
-このガイドでは、Marinara Engineでチャットの流れを操作する2つの方法を説明します。ガイド付き生成は、目に見えるメッセージを投稿せずにAIの返信の方向だけを指示する機能です。Impersonateは、自分の返信をAIに書いてもらう機能です。あわせて、この2つの操作を**Send**(送信)ボタンの隣に並べるQuick repliesメニューについても取り上げます。
+チャットの流れを操作する方法は2つあります。ガイド付き生成は、目に見えるメッセージを投稿せずに、次の返信の方向を指示します。Impersonateは、自分の返信をモデルに書かせます。Quick repliesメニューを使うと、この2つを**Send**(送信)の隣に置けます。
 
-## ガイド付き生成
+## /guidedで返信を導く
 
-ガイド付き生成は、次の返信をどの方向へ進めてほしいかをAIに伝える機能です。指示はキャラクターの外側からのもので、返信の内容を動かしますが、通常のチャットメッセージとしては表示されません。
+指示はキャラクターの外側からのものです。返信の内容を方向づけますが、チャットのメッセージとしては表示されません。
 
-### /guidedで返信を導く
+1. メッセージ入力欄に、`/guided`と指示を入力します。
+2. <kbd>Enter</kbd>を押すか、**Send**をクリックします。
 
-返信を導く基本の方法は、`/guided`スラッシュコマンドです。
+モデルは、指示した方向に沿って次の返信を書きます。たとえば次のとおりです。
 
-1. メッセージ入力欄に`/guided`と入力し、続けて指示を書きます。
-2. Enterを押すか、**Send**をクリックします。
-3. 指示した方向に沿って、AIが次の返信を生成します。
-
-たとえば次の指示は、次の返信を告白へ向かわせます。
-
-```
+```text
 /guided make him admit he is lying
 ```
 
-このコマンドには短い別名があります。`/guided`の代わりに`/narrator`、`/narrate`、`/nar`と入力できます。
+`/guided`の代わりに、`/narrator`、`/narrate`、`/nar`と入力することもできます。グループチャットでは、`respond as`、`reply as`、`respond for`を使って、指示を1人のキャラクターに向けられます。
 
-グループチャットでは、指示を特定のキャラクターに向けられます。`/guided respond as <character> <direction>`の形で入力し、`<character>`をキャラクター名に、`<direction>`を指示に置き換えます。`reply as` と `respond for` も使えます。たとえば次のように書きます。
-
-```
+```text
 /guided respond as Alice make her admit she is lying
 ```
 
-### ガイド付きの再生成
+## ガイド付きの再生成
 
-返信を再生成するときにも、方向を指示できます。この場合、メッセージ入力欄に入力してある文章が、その一度だけの指示として使われます。
+メッセージ入力欄の文章を、再生成のための一度だけの指示として使います。
 
-1. **Settings**(設定)を開き、**Advanced**(詳細設定)、**Message Tools**(メッセージツール)の順に進みます。
-2. **Guide swipes/regens with chat input**をオンにします。この設定はデフォルトではオフです。
-3. チャットに戻り、メッセージ入力欄に指示を入力します。送信はしません。
-4. AIのメッセージで**Regenerate**(再生成)をクリックします。
+1. **Settings → Advanced → Message Tools**(設定 → 詳細設定 → メッセージツール)を開き、**Guide swipes/regens with chat input**(チャットの入力でスワイプと再生成を導く)をオンにします。デフォルトではオフです。
+2. チャットで、メッセージ入力欄に指示を入力します。送信はしません。
+3. AIのメッセージで**Regenerate**(再生成)をクリックします。入力欄に文章があるときは、ボタンのラベルが**Regenerate (guided)**になります。
 
-設定がオンで入力欄に文章があるとき、**Regenerate**ボタンのツールチップは**Regenerate (guided)**に変わります。AIは入力した文章を指示として、返信の新しい版を作ります。
+再生成の後も指示は入力欄に残るので、手直ししてもう一度再生成できます。指示を消したい場合は、**Settings → General → Input & Editing**(設定 → 一般 → 入力と編集)で**Keep guidance after regenerating**(再生成後も指示を残す)をオフにします。
 
-再生成の後も指示はメッセージ入力欄に残るので、手直ししてもう一度再生成できます。指示を消したい場合は、**Settings** > **General** > **Input & Editing**で**Keep guidance after regenerating**をオフにしてください。
+うまくいかなかった場合: ボタンのラベルが**Regenerate (guided)**になっている必要があります。**Regenerate**としか表示されない場合は、設定がオフか、入力欄が空です。
 
-### Stored guidanceを読む
+<a id="read-stored-guidance"></a>
 
-指示付きで作られた返信については、その指示をMarinaraが保存するので、後から確認できます。メッセージには**Stored guidance**(保存された指示)の操作(巻物のアイコン)が表示されます。
+## Stored guidanceを読む
 
-1. AIのメッセージにある**Stored guidance**のアイコンをクリックします。
-2. **Stored guidance**というタイトルのウィンドウが開き、その返信のもとになった指示が表示されます。
+Marinaraは、返信を方向づけた指示を保存します。
 
-ウィンドウでは、指示の出どころに応じてラベルが付きます。
+1. AIのメッセージにある、巻物の形をした**Stored guidance**(保存された指示)のアイコンをクリックします。
+2. **Stored guidance**というタイトルのウィンドウに、指示が表示されます。
 
-- **/guided**: `/guided`コマンドで与えた指示です。
-- **Guided regenerate**: ガイド付きの**Regenerate**で与えた指示です。
-- **Game start**: Game Modeの設定時に与えた指示です。
+ウィンドウには、指示の出どころを示すラベルが付きます。**/guided**、**Guided regenerate**、**Game start**(Game Modeの設定)のいずれかです。`/guided`とガイド付き再生成の指示では、**Copy /guided**で、そのまま使える`/guided`コマンドをコピーできます。別のチャットに貼り付けて使えます。
 
-`/guided`とガイド付き再生成の指示には、**Copy /guided**ボタンが付きます。指示をそのまま使える`/guided`コマンドの形でコピーできるので、別のチャットに貼り付けて同じ方向付けを再利用できます。
+## Impersonateで自分の返信を書かせる
 
-## Impersonate
+Impersonateは、次の自分のメッセージを、ペルソナの口調でモデルに書かせます。ペルソナとは自分が演じるキャラクターのことで、`{{user}}`と表されます。[ペルソナ](../characters/personas.md)を参照してください。
 
-Impersonateは、次の自分のメッセージをペルソナの口調でAIに書いてもらう機能です。ペルソナとは自分が演じるキャラクターのことで、チャットには`{{user}}`として書き込まれます。設定方法は[ペルソナの作成と編集](../characters/personas.md)を参照してください。
+始める前に: ImpersonateはRoleplayのチャットでのみ動作します。Conversationでは「Impersonate is not available in Conversation mode.」と表示されます。Gameでも使えません。
 
-ImpersonateはRoleplayのチャットでのみ動作します。ConversationとGameのチャットでは使えません。Conversationのチャットで実行すると、「Impersonate is not available in Conversation mode.」というメッセージが表示されます。
+1. メッセージ入力欄に`/impersonate`と入力します。必要なら、続けて指示を書きます。
+2. <kbd>Enter</kbd>を押すか、**Send**をクリックします。
 
-### /impersonateの使い方
+モデルが、ペルソナとして自分のメッセージを投稿します。たとえば次のように書くと、天気をたずねるメッセージが書かれます。
 
-1. メッセージ入力欄に`/impersonate`と入力します。続けて指示を書くこともできます。
-2. Enterを押すか、**Send**をクリックします。
-3. AIがペルソナとして自分のメッセージを書き、チャットに投稿します。
-
-たとえば次のように書くと、天気をたずねるメッセージを自分の口調でAIが書きます。
-
-```
+```text
 /impersonate ask about the weather
 ```
 
-このコマンドには短い別名があります。`/impersonate`の代わりに`/imp`と入力できます。
-
-Impersonateが書いたメッセージはやり直せます。Impersonateで作られた自分のメッセージにも**Regenerate**の操作が使えるので、別の版を作れます。
+短い別名は`/imp`です。Impersonateが書いたメッセージにも**Regenerate**が使えるので、別の版を作れます。
 
 ### Impersonateの設定
 
-Impersonateには専用の設定欄があり、ここでの設定はすべてのチャットで実行する`/impersonate`に適用されます。設定はチャットごとの設定画面から開きます。
+これらの設定は、すべてのチャットのすべての`/impersonate`に適用されます。Roleplayのチャットで**Chat Settings**(チャット設定)を開き、**Impersonate**のセクションを探してください。パネルの開き方は[Chat Settings](chat-settings.md)を参照してください。
 
-1. Roleplayのチャットで**Chat Settings**(チャット設定)パネルを開きます。
-2. **Impersonate**のセクションを探します。
+| 項目 | 動作 |
+| --- | --- |
+| **Prompt Template**(プロンプトテンプレート) | impersonateのたびに送る任意の指示です。空のままにすると、チャット自身のプロンプト、または組み込みのデフォルトが使われます。`{{user}}`、`{{persona_description}}`、`{{impersonate_direction}}`を使えます。これらは、Marinaraが実際の文章に置き換えるプレースホルダーです。**Built-in default**を選ぶとデフォルトを読めます。**Copy built-in default to edit**でコピーを作って編集を始め、**Save as**で名前を付けてテンプレートを保存し、**Delete template**でテンプレートを削除します。 |
+| **Preset** | impersonateの返信にだけ使うプロンプトプリセットです。デフォルトは**Use chat default**です。[プリセット](../prompts/presets.md)を参照してください。 |
+| **Connection** | impersonateの返信に使うモデルです。より安価なモデルや速いモデルなどを選べます。デフォルトは**Use chat default**です。**Random**も選べます。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。 |
+| **Skip agents** | impersonateの実行中は、エージェント(トラッカー、ロアブックの振り分けなどの補助機能)を省略します。impersonateが速くなり、世界の状態も変わりません。デフォルトではオフです。[エージェント](../agents/agents-overview.md)を参照してください。 |
+| **Use CYOA as direction** | CYOA(choose your own adventure、選択肢で進む形式)の選択肢をクリックしたときに、それを投稿する代わりに、impersonateの指示として使います。デフォルトではオフです。**Settings → General → Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずメッセージ入力欄に追加する)がオンの場合、クリックしても文章がメッセージ欄に追加されるだけで、この設定は効果がありません。 |
 
-このセクションには次の項目があります。
-
-- **Prompt Template**(プロンプトテンプレート): impersonateのたびにモデルへ送る指示です。任意で設定します。空のままにすると、そのチャット自身のプロンプトが使われ、チャットにプロンプトがない場合は組み込みのデフォルトが使われます。マクロ`{{user}}`、`{{persona_description}}`、`{{impersonate_direction}}`を使えます。マクロとは、送信前にMarinaraが実際の文章へ置き換えるプレースホルダーです。デフォルトの文面は**Built-in default**をクリックすると読めます。**Reset**ボタンを押すと、カスタムのテンプレートが消えて空に戻ります。
-- **Preset**: impersonateの返信にだけ特定のプロンプトプリセットを使います。プリセットとは、保存したプロンプト設定のひとまとまりです。[Preset Editorとプロンプトの管理](../prompts/presets.md)を参照してください。デフォルトは**Use chat default**です。プリセットが効くのはRoleplayだけです。
-- **Connection**: impersonateの返信を、より安価なモデルや高速なモデルなど、特定の接続に振り分けます。接続とは、AIプロバイダーへの接続情報を保存したものです。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。デフォルトは**Use chat default**です。**Random**を選ぶこともできます。
-- **Skip agents**: オンにすると、impersonateの実行中はエージェントの処理(トラッカー、ロアブックの振り分け、そのほかの補助機能)をMarinaraが省略します。impersonateが速くなり、世界の状態も変化しません。デフォルトではオフです。[エージェント](../agents/agents-overview.md)を参照してください。
-- **Use CYOA as direction**: オンにすると、CYOAの選択肢をクリックしたときに、それが通常のメッセージとして投稿される代わりにimpersonateの指示として使われます。CYOAはchoose your own adventureの略で、返信の後に表示されるクリック可能な選択肢のことです。この設定はデフォルトではオフです。**Settings** > **General** > **Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずにメッセージ欄に追加する)がオンの場合、選択肢をクリックしてもその文章がメッセージ欄に追加されるだけで、この設定は効果がありません。
-
-### impersonateのプロンプトを個別に設定する
-
-スラッシュコマンドを使えば、1つのチャットにだけ有効なimpersonateのプロンプトも設定できます。
+### 1つのチャットにプロンプトを設定する
 
 1. `/impersonate_prompt`と入力し、続けてプロンプトを引用符で囲んで書きます。
-2. Enterを押します。
+2. <kbd>Enter</kbd>を押します。
 
-たとえば次のように書きます。
-
-```
+```text
 /impersonate_prompt "You will now play as my OC:"
 ```
 
-チャットごとのプロンプトを消してデフォルトに戻すには、次のように入力します。
+デフォルトに戻すには、`/impersonate_prompt reset`と入力します。別名は`/imp_prompt`です。
 
-```
-/impersonate_prompt reset
-```
+## Sendの隣にQuick repliesを追加する
 
-このコマンドには`/imp_prompt`という短い別名があります。
+Quick repliesは、ワンクリックで使える、**Send**の代わりの操作を追加します。スラッシュコマンドを入力する必要はありません。
 
-## Quick repliesメニュー
-
-Quick repliesメニューは、通常の**Send**ボタンの隣に送信系の操作を追加します。スラッシュコマンドを打たなくても、ガイド付き生成とImpersonateをワンクリックで使えます。
-
-どの操作を表示するかは設定で選びます。
-
-1. **Settings**を開き、**Advanced**、**Message Tools**の順に進みます。
+1. **Settings → General → Input & Editing**(設定 → 一般 → 入力と編集)を開きます。
 2. **Quick replies**をオンにします。デフォルトではオフです。
-3. 項目を展開して、表示する操作を選びます。メニューを有効にすると、3つの操作はデフォルトですべてオンです。
+3. 展開して、表示する操作を選びます。オンにすると、3つの操作はデフォルトですべてオンです。
 
-3つの操作は次のとおりです。
+| 操作 | 動作 |
+| --- | --- |
+| **Post only** | 入力したメッセージを、返信なしでチャットに追加します。コマンド`/send <message>`でも同じことができます。 |
+| **Guide reply** | 入力した文章を、`/guided`の指示として送ります。 |
+| **Impersonate** | 入力した文章を指示として、ペルソナ側の返信を生成します。Conversationのチャットでは表示されません。 |
 
-- **Post only**: 入力したメッセージをチャットに追加するだけで、AIの返信は生成しません。スラッシュコマンド`/send <message>`でも実行できます。
-- **Guide reply**: 入力した文章を通常のメッセージではなく`/guided`の指示として送ります。
-- **Impersonate**: 入力した文章を指示として、ペルソナとしての返信を生成します。この操作はConversationのチャットでは表示されません。Impersonateが動作しないためです。
-
-オンの操作が1つだけのときは、そのボタンが**Send**の隣に直接表示されます。2つ以上オンのときは、小さなメニューにまとまります。開くには点が3つ並んだボタン(ラベルは**Quick replies**)をクリックします。
-
-## 関連ガイド
-
-- [メッセージの操作: 編集、削除、スワイプ、再生成](messages.md)
-- [Peek Prompt: AIが受け取った内容を確認する](peek-prompt.md)
-- [ペルソナの作成と編集](../characters/personas.md)
-- [Preset Editorとプロンプトの管理](../prompts/presets.md)
+オンの操作が1つだけのときは、そのボタンが**Send**の隣に表示されます。2つ以上のときは、点が3つ並んだボタン(**Quick replies**)にまとまり、押すとメニューが開きます。

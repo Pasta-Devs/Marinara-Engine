@@ -1,31 +1,22 @@
 # Perfiles de estilo de imagen
 
-Esta guía explica los perfiles de estilo de imagen en Marinara Engine. Un perfil de estilo es un "estilo de la casa" reutilizable que da forma a cada prompt (instrucciones enviadas a la IA) de imagen antes de que Marinara lo envíe a tu proveedor de imágenes. Úsalo para que avatares, retratos, selfies, fondos, ilustraciones y sprites (imágenes del personaje) tengan un aspecto consistente.
+Un perfil de estilo es un "estilo de la casa" reutilizable que da forma a cada prompt (instrucciones enviadas a la IA) de imagen antes de que Marinara lo envíe a tu servicio de imágenes. Úsalo para que avatares, retratos, selfies, fondos, ilustraciones y sprites (imágenes del personaje) tengan un aspecto consistente. Esta guía muestra cómo elegir, editar y probar uno.
 
 ## Qué es un perfil de estilo
 
-Marinara Engine puede generar muchos tipos de imágenes: avatares de personaje y de persona, retratos, selfies del modo Conversation, fondos de escena, ilustraciones dentro de la escena y sprites de personaje. Cada una de esas imágenes empieza como un prompt de texto.
+Cada imagen generada empieza como un prompt de texto: avatares, retratos, selfies de Conversation, fondos de escena, ilustraciones y sprites. Un perfil de estilo es un conjunto guardado de reglas que Marinara añade a ese prompt. Puede añadir palabras positivas (lo que quieres), palabras negativas (lo que quieres evitar) y un estilo de prompt preferido. Eliges un perfil como predeterminado para toda la app. Puedes anularlo para un solo chat o un solo modelo de imagen.
 
-Un perfil de estilo es un conjunto guardado de reglas que Marinara añade a ese prompt de texto. Puede añadir palabras positivas (lo que quieres), palabras negativas (lo que quieres evitar) y un estilo de prompt preferido. Esto mantiene un mismo aspecto en cada imagen, así no tienes que volver a escribir las mismas palabras de estilo cada vez.
-
-Eliges un perfil como predeterminado para toda la app. Puedes anularlo para un solo chat o una sola conexión de imagen. Todo eso se explica más abajo.
-
-Para encontrar el editor, sigue estos pasos.
-
-1. Abre **Settings** (Configuración).
-2. Abre la pestaña **Generations**.
-3. Busca la sección **Image Generation**.
-4. Desplázate hasta **Style Profiles**.
+Para encontrar el editor, abre **Settings → Generations → Image Generation** (Configuración → Generaciones → Generación de imágenes) y desplázate hasta **Style Profiles**.
 
 ## Los perfiles integrados
 
-Marinara viene con 10 perfiles de estilo integrados. **Auto** es el predeterminado. Puedes editar cualquiera de ellos, y puedes restablecer un perfil integrado a sus valores originales en cualquier momento.
+Marinara tiene 10 perfiles de estilo integrados. **Auto** es el predeterminado. Puedes editar cualquiera de ellos y restablecer un perfil integrado a sus valores originales en cualquier momento.
 
-Algunos términos que se usan más abajo:
+Términos que se usan más abajo:
 
-- SDXL significa Stable Diffusion XL. Es un modelo de imagen abierto y popular que puedes ejecutar en tu propia computadora o a través de un servicio en la nube.
-- Un checkpoint es un archivo de modelo de imagen ya entrenado. La gente descarga distintos checkpoints para distintos estilos de arte. Los ejemplos nombrados en estos perfiles son Illustrious, Pony y NovelAI.
-- Danbooru es un gran sitio web de imágenes de anime. Sus etiquetas cortas separadas por comas (como "1girl, long hair, smile") se convirtieron en una forma común de escribir prompts para modelos de imagen de anime.
+- SDXL es Stable Diffusion XL, un modelo de imagen abierto y popular que puedes ejecutar en tu computadora o a través de un servicio en la nube.
+- Un checkpoint es un archivo de modelo de imagen ya entrenado. Illustrious, Pony y NovelAI son ejemplos que se nombran aquí.
+- Danbooru es un gran sitio web de imágenes de anime. Sus etiquetas cortas separadas por comas, como "1girl, long hair, smile", se convirtieron en una forma común de escribir prompts para modelos de imagen de anime.
 
 Los perfiles integrados son:
 
@@ -42,17 +33,17 @@ Los perfiles integrados son:
 
 ## Cambiar el estilo global
 
-El perfil predeterminado global se aplica a cada imagen generada, a menos que un chat o una conexión lo anulen. Para cambiarlo, sigue estos pasos.
+El perfil predeterminado se aplica a cada imagen, a menos que un chat o un modelo de imagen lo anulen.
 
-1. Abre **Settings**, luego la pestaña **Generations**, luego **Image Generation**, luego **Style Profiles**.
-2. Abre el menú desplegable **Default style**.
-3. Elige el perfil que quieres usar en toda la app.
+1. Abre **Settings → Generations → Image Generation → Style Profiles**.
+2. Abre la lista **Default style** (Estilo predeterminado).
+3. Elige un perfil.
 
-Tu elección se guarda de inmediato. Las imágenes nuevas usan el perfil que elegiste.
+Tu elección se guarda de inmediato, y las imágenes nuevas la usan.
 
 ## Clonar y personalizar un perfil
 
-Puedes editar un perfil integrado en el sitio, pero el botón **Clone** te permite conservar el original y crear tu propia versión. Para crear y personalizar un perfil, sigue estos pasos.
+Puedes editar un perfil integrado en el sitio, o usar **Clone** para conservar el original y crear el tuyo.
 
 1. Abre el menú desplegable **Editing** y elige el perfil más parecido a lo que quieres.
 2. Haz clic en **Clone**. Marinara hace una copia, la selecciona para editar e inmediatamente convierte la copia en tu estilo predeterminado de toda la app.
@@ -70,7 +61,7 @@ Dos botones te ayudan a gestionar los perfiles:
 
 ## Modos de gramática de prompt
 
-El menú desplegable **Prompt grammar** le dice a Marinara cómo prefiere el modelo de imagen leer un prompt. Elige el modo que coincida con tu modelo de imagen. Hay cuatro modos.
+**Prompt grammar** le dice a Marinara cómo prefiere el modelo de imagen leer un prompt. Elige el modo que coincida con tu modelo.
 
 - **Hybrid**: una mezcla de frases y etiquetas. Una opción general segura.
 - **Danbooru tags**: etiquetas cortas separadas por comas al estilo Danbooru. Lo mejor para checkpoints de anime SDXL como Illustrious, Pony y NovelAI.
@@ -79,7 +70,7 @@ El menú desplegable **Prompt grammar** le dice a Marinara cómo prefiere el mod
 
 ## El Test bench
 
-La sección **Test bench** (banco de pruebas) te deja previsualizar exactamente lo que Marinara enviaría, sin generar una imagen real. Ábrela dentro del editor de Style Profiles. Para usarla, sigue estos pasos.
+El **Test bench** (banco de pruebas), dentro del editor de Style Profiles, previsualiza exactamente lo que Marinara enviaría, sin crear una imagen real.
 
 1. Elige un **Image kind** (por ejemplo, retrato o fondo).
 2. Escribe un prompt aproximado en **Sample input**.
@@ -89,12 +80,12 @@ El Test bench también muestra una nota corta sobre la limpieza. Cuando no cambi
 
 ## Cómo limpia Marinara el prompt
 
-Antes de que cualquier solicitud de imagen salga de Marinara, este compila tu prompt con el perfil activo. El compilador hace algunas cosas:
+Antes de que cualquier solicitud de imagen salga de Marinara, la app compila tu prompt con el perfil activo. El compilador:
 
-- Elimina etiquetas casi duplicadas, como una etiqueta de calidad repetida.
-- Mueve frases negativas simples (como "avoid text" o "no watermark") al prompt negativo.
-- Mantiene tus propias palabras en las imágenes de fondo, ilustración y selfie. Para las imágenes de retrato, avatar y sprite, destila tus palabras hasta dejar etiquetas visuales cortas que reconoce.
-- Añade las etiquetas por imagen del perfil para el tipo de imagen que se está creando.
+- elimina etiquetas casi duplicadas, como una etiqueta de calidad repetida;
+- mueve frases negativas simples como "avoid text" o "no watermark" al prompt negativo;
+- mantiene tus propias palabras en las imágenes de fondo, ilustración y selfie, pero destila tus palabras hasta dejar etiquetas visuales cortas que reconoce en las imágenes de retrato, avatar y sprite; y
+- añade las etiquetas por imagen del perfil para el tipo de imagen que se está creando.
 
 ## Ejemplo de antes y después
 
@@ -120,16 +111,16 @@ Si tus palabras del sujeto desaparecen en un retrato, avatar o sprite, prueba el
 
 ## Orden de prioridad: chat, conexión y luego global
 
-Marinara puede tomar un perfil de estilo de tres lugares. Gana la elección más específica. El orden es:
+Marinara puede tomar un perfil de estilo de tres lugares. Gana la elección más específica.
 
-1. Un perfil explícito elegido para el chat o el juego actual.
-2. El **Style Profile** definido en la conexión de imagen (bajo **Local Image Defaults** en el editor de la conexión).
-3. El **Default style** global que definiste en **Settings**.
+1. Un perfil elegido para el chat o el juego actual.
+2. El perfil de estilo definido en el modelo de imagen, bajo **Local image defaults** (Valores predeterminados de imagen local) en su editor.
+3. El **Default style** global en **Settings**.
 
-La sección **Local Image Defaults** aparece solo para las conexiones locales de Stable Diffusion (AUTOMATIC1111 / SD Web UI, ComfyUI y NovelAI). Para cualquier otro proveedor, la elección pasa directamente al **Default style** global. Para definir un perfil por conexión, abre la conexión, despliega **Local Image Defaults** y elige un perfil en el menú desplegable **Style Profile**. Déjalo en **Use global default** para seguir la elección global. Cuando Marinara puede adivinar un buen perfil a partir del nombre del modelo de la conexión, muestra un botón "Use ..." que aplica ese perfil con un solo clic.
+La sección **Local image defaults** aparece solo para AUTOMATIC1111 / SD Web UI, ComfyUI y NovelAI. Para cualquier otro servicio, la elección pasa al **Default style** global. Para definir un perfil por modelo, abre el modelo de imagen, despliega **Local image defaults** y elige un perfil en la lista de perfiles de estilo. Déjalo en **Use global default** (Usar el predeterminado global) para seguir la elección global. Cuando Marinara puede adivinar un buen perfil a partir del nombre del modelo, muestra un botón "Use ..." que lo aplica con un solo clic.
 
 ## Guías relacionadas
 
 - [Proveedores de generación de imágenes y configuración](image-providers.md)
-- [Illustrator Agent](illustrator-agent.md)
+- [Agente Illustrator](illustrator-agent.md)
 - [Selfies](../conversation/selfies.md)

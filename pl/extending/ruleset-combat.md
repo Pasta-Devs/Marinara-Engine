@@ -1,6 +1,29 @@
 # Walka według zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Jak zestaw zasad uczestniczy w walce: blok `battle`, który udostępnia arkusz postaci systemowi walki aplikacji Marinara Engine, oraz blok `combat`, który rozstrzyga całą walkę według własnych reguł zestawu zasad, z jego bestiariuszem, planszą, reakcjami i testami przeciwstawnymi.
+Ta strona pomoże ci zdecydować, jak twój zestaw zasad uczestniczy w walce: blok `battle` udostępnia arkusz postaci systemowi walki aplikacji Marinara Engine, a blok `combat` rozstrzyga całą walkę według własnych reguł zestawu zasad, z jego bestiariuszem, planszą, reakcjami i testami przeciwstawnymi. Jest przeznaczona dla osób piszących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
+
+Sekcje na tej stronie:
+
+- [Bitwy: udostępnienie karty systemowi walki Marinara](#battles-lending-the-sheet-to-marinaras-combat)
+  - [Co trafia do walki i co wraca na kartę](#what-is-carried-in-and-what-is-carried-out)
+  - [Jak wpis staje się umiejętnością](#how-an-entry-becomes-a-skill)
+- [Walka: starcie rozstrzygane przez twoje własne zasady](#combat-a-fight-your-own-rules-resolve)
+  - [Wszystkie klucze](#every-key)
+  - [Rzuty obronne przeciw stanom, obrażeniom lub magii](#saves-against-conditions-damage-or-magic)
+  - [Walka rzucana pulami: dice-pool](#a-fight-thrown-in-pools-dice-pool)
+  - [Walka rzucana kośćmi symbolicznymi: symbol-pool](#a-fight-thrown-in-symbol-dice-symbol-pool)
+  - [Minimalne kości obrażeń](#minimum-damage-dice)
+  - [Trafienie, które oszałamia](#a-hit-that-dazes)
+  - [Cel wybiera rodzaj rany](#the-target-chooses-the-wound-kind)
+  - [Inicjatywa przesuwana atakami](#initiative-that-attacks-move)
+  - [Co walka odczytuje z mechanics](#what-a-fight-reads-from-mechanics)
+  - [Stworzenia: bestiariusz odczytywany przez walkę](#creatures-a-bestiary-a-fight-reads)
+  - [Pozycje: walka na planszy](#positions-a-fight-on-a-board)
+  - [Co walka robi z twoim blokiem na serwerze](#what-a-fight-does-with-your-block-on-the-server)
+  - [Na ekranie](#on-screen)
+  - [Testy przeciwstawne: chwytanie, pchanie, uwalnianie się](#contests-grabbing-shoving-breaking-free)
+  - [Okna: wstrzymywanie walki](#windows-holding-the-fight-open)
+  - [Jeszcze niedostępne](#not-yet)
 
 <a id="battles-lending-the-sheet-to-marinaras-combat"></a>
 
@@ -8,7 +31,7 @@ Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writin
 
 Domyślnie bitwa nic nie wie o karcie. Tworzy walczących tak jak dotychczas, a postać może wyjść z walki z niezmienionymi punktami wytrzymałości na karcie.
 
-Opcjonalny blok `battle` zmienia to tylko w jednym kierunku: udostępnia walce liczby z karty i zapisuje jej wynik z powrotem. **Nie sprawia, że walka stosuje twoje zasady.** Matematyka kości nadal należy do Marinara, podobnie jak ustalanie, kto kogo trafia i za ile. Dlatego zdrowie jest przenoszone jako ułamek maksimum, a nie twoja własna liczba: postać z połową zdrowia na karcie zaczyna walkę z połową paska zdrowia utworzonego dla niej przez Marinara. Twoja 9-punktowa pula zdrowia nigdy nie trafia bezpośrednio do walki, w której jeden cios zadaje 12.
+Opcjonalny blok `battle` zmienia to tylko w jednym kierunku: udostępnia walce liczby z karty i zapisuje jej wynik z powrotem. **Nie sprawia, że walka stosuje twoje zasady.** Matematyka kości nadal należy do aplikacji Marinara Engine, podobnie jak ustalanie, kto kogo trafia i za ile. Dlatego zdrowie jest przenoszone jako ułamek maksimum, a nie twoja własna liczba: postać z połową zdrowia na karcie zaczyna walkę z połową paska zdrowia utworzonego dla niej przez aplikację Marinara Engine. Twoja 9-punktowa pula zdrowia nigdy nie trafia bezpośrednio do walki, w której jeden cios zadaje 12.
 
 ```json
 "battle": {
@@ -23,6 +46,8 @@ Opcjonalny blok `battle` zmienia to tylko w jednym kierunku: udostępnia walce l
 - `slots`: opcjonalne. Bieżące pule zużywane przez walkę po jednym punkcie, każda z `level` od 1 do 9: `[{ "pool": "slots_1", "level": 1 }]`. Każdy poziom i każda pula mogą wystąpić tylko raz.
 - `skills`: opcjonalne, do ośmiu. Listy karty, których wiersze stają się umiejętnościami bojowymi postaci. Liczą się tylko wiersze z twoich katalogów i tylko wtedy, gdy ich wpis źródłowy ma blok `mechanics`: wiersz wpisany ręcznie nie opisuje działania liczbowego. `onlyWhen` wskazuje kolumnę logiczną, która musi być włączona w wierszu, np. przygotowane zaklęcie. `alwaysWhen` wskazuje kolumnę i wartość przepuszczającą wiersz mimo tego warunku, np. zaklęcia rzucane bez przygotowania. Jest wyjątkiem od `onlyWhen`, więc bez niego jest odrzucane.
 
+<a id="what-is-carried-in-and-what-is-carried-out"></a>
+
 ### Co trafia do walki i co wraca na kartę
 
 **Do walki**, dla każdego członka drużyny, którego kartę ma gra: udział puli zdrowia w jej maksimum ustala początkowy stan własnego paska zdrowia Marinara, pula energii staje się MP, każda pula komórek staje się komórkami danego poziomu, a oznaczone wiersze stają się umiejętnościami. Maksymalne punkty wytrzymałości, atak, obrona, szybkość i poziom pozostają własnymi liczbami Marinara. Postać z zerem w puli zdrowia zaczyna walkę powalona, ponieważ tak mówi karta, a postać z wartością dodatnią nigdy nie zaczyna poniżej jednego punktu wytrzymałości, więc zaokrąglenie małego ułamka nie może nikogo znokautować.
@@ -32,6 +57,8 @@ Opcjonalny blok `battle` zmienia to tylko w jednym kierunku: udostępnia walce l
 **W żadną stronę**: rzuty ataku, rzuty obronne, koncentracja i dodatkowe efekty wyższego kosztu. Są w bloku `mechanics`, by kiedyś odczytał je właściwy system walki; ten pomost ich nie stosuje i zestaw zasad nie powinien twierdzić inaczej.
 
 Porzucona bitwa niczego nie zapisuje. Jeżeli usuniesz wiadomość rozpoczynającą walkę lub walka nie dojdzie do końca, karta pozostaje dokładnie taka jak wcześniej: walka nie miała miejsca.
+
+<a id="how-an-entry-becomes-a-skill"></a>
 
 ### Jak wpis staje się umiejętnością
 
@@ -44,7 +71,7 @@ Blok `mechanics` wpisu katalogu jest odczytywany następująco:
 - `cost` puli energii staje się kosztem MP, a kilka kosztów energii jest sumowanych. `cost` dokładnie jednej komórki zużywa jedną komórkę tego poziomu. System walki Marinara pobiera jedną ilość energii albo jedną komórkę, nigdy oba naraz, więc wpis kosztujący dwie komórki, komórki dwóch poziomów lub komórkę i energię nie trafia do walki. Tak samo koszt z dowolnej innej puli, np. punktów wytrzymałości lub zasobu klasowego, ponieważ inaczej Engine udostępniałby go za darmo.
 - `buff` lub `debuff` staje się własnym wzmocnieniem lub osłabieniem Marinara. Inne obietnice tekstu wpisu, np. usunięcie stanu z karty, nie są wykonywane w walce. Nie dodawaj `mechanics` do wpisu, którego efekt ma sens wyłącznie poza bitwą.
 
-`coverage.combat` jest osobne i nadal oznacza to samo: ustawiaj je tylko wtedy, gdy bitwy rzeczywiście stosują zasady twojego systemu.
+`coverage.combat` jest osobne i nadal oznacza to samo: ustawiaj je tylko wtedy, gdy bitwy stosują zasady twojego systemu.
 
 <a id="combat-a-fight-your-own-rules-resolve"></a>
 
@@ -172,7 +199,7 @@ To cały blok Ember Roads, według którego walczy gra używająca Ember Roads. 
 
   **Obrażenia zmieniane przez stan (Capability API 1.133).** `damage` zmienia to, co zadaje posiadacz; `damage-taken` zmienia to, co otrzymuje. Oba przyjmują `flat`, `dice` (i `minus`) albo `times: 0.5 | 2`. Dodatki działają raz na trafienie atakiem, nawet gdy trafienie ma kilka klauzul obrażeń; trafienia krytyczne podwajają dodane kości tak, jak zestaw podwaja inne kości. Rzuty obronne i automatyczne trafienia ich nie dostają. `times` zmienia całe trafienie po dodatkach i przed odpornością, zaokrąglając sumę w dół raz dla wszystkich jego klauzul. Dodane wielkości są redukowane przez odporność według własnego `damageType`, a po jego pominięciu według typu trafienia. Dodatki tego samego typu łączą się z tą wielkością przed odpornością.
 
-  `attacks` to `weapon`, `spell` lub `any` (domyślnie). Wiersze listy ataków i ataki założonych przedmiotów to broń, podobnie jak jednocelowe rzuty ataku z bloku statystyk; zdolności z katalogu (łącznie z rzucaniem zaklęć przez stworzenia) i użycia przedmiotów to ataki zaklęciami lub inne. `blow: "melee" | "ranged"` działa zgodnie z 1.118, więc broń do rzucania użyta w zasięgu wręcz to atak wręcz. `ability` wskazuje atrybut faktycznie wybrany do rzutu ataku: atrybut wiersza albo pierwszy najlepszy atrybut oferowany przez przedmiot (łącznie z finezją). Zwykłe akcje z bloku statystyk go nie mają i nigdy nie pasują do ograniczenia atrybutu. Te klucze i `damageType` są odrzucane przy innych celach modyfikatorów. `fromSource: true` dotyczy tylko `damage-taken`: trafienie musi pochodzić od tego, kto nałożył śledzony stan. Nieśledzony stan, poziom lub przedmiot nie ma nakładającego źródła i nie może do niego pasować.
+  `attacks` to `weapon`, `spell` lub `any` (domyślnie). Wiersze listy ataków i ataki założonych przedmiotów to broń, podobnie jak jednocelowe rzuty ataku z bloku statystyk; zdolności z katalogu (łącznie z rzucaniem zaklęć przez stworzenia) i użycia przedmiotów to ataki zaklęciami lub inne. `blow: "melee" | "ranged"` działa zgodnie z 1.118, więc broń do rzucania użyta w zasięgu wręcz to atak wręcz. `ability` wskazuje atrybut wybrany do rzutu ataku: atrybut wiersza albo pierwszy najlepszy atrybut oferowany przez przedmiot (łącznie z finezją). Zwykłe akcje z bloku statystyk go nie mają i nigdy nie pasują do ograniczenia atrybutu. Te klucze i `damageType` są odrzucane przy innych celach modyfikatorów. `fromSource: true` dotyczy tylko `damage-taken`: trafienie musi pochodzić od tego, kto nałożył śledzony stan. Nieśledzony stan, poziom lub przedmiot nie ma nakładającego źródła i nie może do niego pasować.
 
   W 5e zadeklaruj te identyfikatory stanów na karcie, a potem umieść te wpisy w `combat.conditions`:
 
@@ -257,7 +284,7 @@ To cały blok Ember Roads, według którego walczy gra używająca Ember Roads. 
 
 - `checks` i `contests`: opcjonalne. Co odczytuje test przeciwstawny i jakie testy przeciwstawne może rozpocząć każdy uczestnik walki: chwytanie, pchnięcie, uwolnienie się. Zobacz niżej Testy przeciwstawne. Capability API 1.43.
 - `concentration`: opcjonalne. Bieżące pole `text` zapisujące podtrzymywany efekt, `save` wymuszany obrażeniami, dolna granica trudności `floor` i `fromDamage`, czyli część otrzymanych obrażeń wyznaczająca trudność, gdy jest wyższa. Uruchomienie drugiej zdolności wymagającej koncentracji kończy pierwszą; nieudany rzut obronny kończy ją wraz z podtrzymywanymi stanami.
-- `dying`: opcjonalne, `kind: "saves"`. Dwa tory liczące rzuty (wymaganą liczbę określa maksimum każdego toru), `dice`, `succeedAt`, działanie skrajnych wyników (`naturals.max`: `revive-1` lub `success`; `naturals.min`: `one-failure` lub `two-failures`), koszt obrażeń po powaleniu (`damageWhileDown`, `criticalWhileDown`) oraz `condition` powalonej postaci. Bez tego bloku postać z zerem jest po prostu powalona, a leczenie przywraca ją do walki.
+- `dying`: opcjonalne, `kind: "saves"`. Dwa tory liczące rzuty (wymaganą liczbę określa maksimum każdego toru), `dice`, `succeedAt`, działanie skrajnych wyników (`naturals.max`: `revive-1` lub `success`; `naturals.min`: `one-failure` lub `two-failures`), koszt obrażeń po powaleniu (`damageWhileDown`, `criticalWhileDown`) oraz `condition` powalonej postaci. Bez tego bloku postać z zerem jest powalona, a leczenie przywraca ją do walki.
 - `damageTypes`: opcjonalne. Typy twojego systemu, dopasowywane bez uwzględniania wielkości liter.
 - `damageKinds`: wymagane, gdy `health` wskazuje tor ran, a odrzucane, gdy wskazuje pulę, ponieważ tylko znacznik przechowuje rodzaj, a pula punktów nie ma na niego miejsca (zob. [Tory ran](ruleset-sheets.md#wound-tracks-health-that-is-a-track-not-a-number)). Określa, który z `kinds` toru zaznacza cios i ile pól wypełnia. `default` jest rodzajem dla wszystkiego bez mapowania, w tym ciosu bez typu, a `byType` mapuje twoje `damageTypes` na rodzaje; klucze, jak same typy, są dopasowywane bez wielkości liter, więc `"Fire"` i `"fire"` są jednym kluczem i podanie obu jest odrzucane. `marks` nie ma wartości domyślnej, ponieważ dwie odpowiedzi są przeciwne: `"per-point"`, gdy rzut obrażeń liczy poziomy zdrowia, więc cios za trzy zaznacza trzy pola i warto złagodzić go o jeden; oraz `"per-blow"`, gdy cios albo trafia, albo nie, więc zaznacza jedno pole niezależnie od siły. Cios z kilkoma składnikami obrażeń nadal zaznacza jedno pole, używając najcięższego rodzaju, który trafił. Wskaż, jak działa twój system. `{ "default": "bashing", "byType": { "fire": "aggravated" }, "marks": "per-point" }`.
 - `pool`: wymagane przy `dice-pool`, odrzucane przy `attack-vs-defense`. Zobacz Walka rzucana pulami.
@@ -270,6 +297,8 @@ To cały blok Ember Roads, według którego walczy gra używająca Ember Roads. 
   - `forGame`: opcjonalne, krok, na którym rozgrywana jest walka na każdym poziomie trudności gry (`casual`, `normal`, `hard`, `brutal`). Jeśli go nie podasz, poziomy trudności korzystają z kolejnych kroków, a każdy poziom wykraczający poza ostatni krok korzysta z ostatniego.
 
   Mistrz gry otrzymuje wartość każdego poziomu i budżet drużyny przed napisaniem walki. Wymyślona przez niego walka o wyższej wartości zostaje osłabiona: wymyślony przeciwnik o największej wartości spada o poziom, i tak wielokrotnie, aż walka zmieści się w budżecie; walka z bossem może sięgać następnego kroku trudności. Stworzenie z bestiariusza i stworzenie powracające z wcześniejszej walki są liczone bez zmian, a walka w historii pozostaje w gestii jej autora. Informacja o tym, co osłabiono, pojawia się w korektach walki.
+
+<a id="saves-against-conditions-damage-or-magic"></a>
 
 ### Rzuty obronne przeciw stanom, obrażeniom lub magii
 
@@ -295,6 +324,8 @@ Modyfikator z `to: "saves"` może zawierać `against`. Wymaga co najmniej jedneg
 ```
 
 Brave używa `conditions: ["frightened"]`. Magic Resistance używa `magic: true` bez `saves`, na poziomie wywiedzionym z karty stworzenia lub na poziomie toru. `applies` akcji liczy się, nawet jeśli rzut obronny zapobiega stanowi; jej obrażenia obejmują każdą klauzulę `plus`. Nazwy obrażeń są dopasowywane bez względu na wielkość liter. Magia oznacza cechę `"magical"` z 1.101: `mechanics.qualities` katalogu (nawet bez obrażeń), `damage.qualities` akcji stworzenia albo tagi przedmiotu będącego bronią. Zaklęcie musi mieć tę cechę; sama jego nazwa lub katalog nie czyni go magicznym. Rzut obronny kończący stan, łącznie z `saveWhenDamaged` i `saveEnds.at: "damaged"`, jest rzutem tylko przeciw temu stanowi. Rzuty obronne koncentracji i przeciw śmierci nie są przeciw niczemu. Poza walką żądania rzutów obronnych od Mistrza Gry nie zawierają uporządkowanego źródła ani stanu; `against` nigdy do nich nie pasuje. Karta, szczegóły przedmiotu, szczegóły bitwy i podsumowanie karty dla Mistrza Gry pokazują te ograniczenia. Wymaga schemaVersion 2 i capabilityApi 1.134 lub nowszego.
+
+<a id="a-fight-thrown-in-pools-dice-pool"></a>
 
 ### Walka rzucana pulami: `dice-pool`
 
@@ -369,6 +400,8 @@ Engine kupuje dla każdej strony efekty warte najwięcej za posiadane przez nią
 
 **Co pozostaje Mistrzowi Gry.** Koszt efektu kupowanego za symbole należy do zestawu zasad, a nie do poszczególnej broni, więc broń z własnym progiem trafienia krytycznego zapisuje się jako efekt wspólny dla zestawu; rzut w tabeli trafień krytycznych wykonuje Mistrz Gry. Przewaga w rzucie obronnym, teście lub teście przeciwstawnym niczego nie kupuje: wydaje się tylko symbole z rzutu ataku. Ulepszanie kości trudności w walce nie jest zaimplementowane.
 
+<a id="minimum-damage-dice"></a>
+
 ### Minimalne kości obrażeń
 
 Walka pulami może zachować kości nawet przeciw silnemu pochłanianiu, tak jak **Overwhelming** z Exalted:
@@ -380,6 +413,8 @@ Walka pulami może zachować kości nawet przeciw silnemu pochłanianiu, tak jak
 To jest `combat.damage.minimum`, odwołanie do wartości odczytywane z bieżącej karty **atakującego**. Gdy statyczne pochłanianie odejmie kości od pierwszej puli obrażeń trafienia, pula jest podnoszona co najmniej do tej liczby. To pełne kości, zaokrąglone w dół i ograniczone przez zero i `resolution.pool.max`, a nie automatyczne sukcesy: każda pozostała kość może zawieść. Rzucane pochłanianie nadal odejmuje sukcesy po rzucie obrażeń; nie zmniejsza puli kości, więc minimum nie chroni przed nim sukcesów. Odporność i niewrażliwość nadal działają. Ciosy wydające inicjatywę ignorują minimum, tak jak ignorują obrażenia broni i pochłanianie; ciosy zabierające inicjatywę go używają.
 
 Broń może zastąpić wspólne minimum przez `item.attack.damage.minimum`. Przyjmuje te same odwołania do wartości na posiadaczu albo `{ "stat": "overwhelming" }` dla jednej z własnych liczbowych statystyk przedmiotu. Zadeklarowane zero także zastępuje wspólne minimum. Różni się to od istniejącego `floor` broni, który gwarantuje określone obrażenia po pochłonięciu. Dodatkowe klauzule obrażeń i efekty dodatkowe nie otrzymują kolejnego minimum. Zapis walki i dziennik pokazują rozstrzygnięte minimum obok kości. Zarówno klucz walki, jak i klucz broni wymagają w pakiecie **Capability API 1.146**, także dla broni w zewnętrznych plikach katalogów.
+
+<a id="a-hit-that-dazes"></a>
 
 ### Trafienie, które oszałamia
 
@@ -395,6 +430,8 @@ Broń może zastąpić wspólne minimum przez `item.attack.damage.minimum`. Przy
 `combat.daze` jest przeznaczone dla walk pulami. `over` odczytuje bieżącą kartę **celu** bezpośrednio przed trafieniem. Jedno trafienie musi zadać **ściśle więcej** obrażeń niż ta liczba, po pochłanianiu, rzutach obronnych i odporności. Jego klauzule obrażeń liczą się razem; osobne trafienia nigdy nie sumują się na potrzeby oszołomienia. Na torze zaznaczanym za cios trafienie zadające obrażenia liczy się jako jeden poziom. Cios zabierający inicjatywę zamiast zdrowia nie może oszołomić. `measure` to obecnie tylko `"damage"`.
 
 Cel pomija dokładnie swoją następną turę. Kolejne oszałamiające trafienia przed tą turą nie dodają kolejnych pominięć. Pominięta tura nadal przesuwa zegary stanów i inne rozliczenia tury, łącznie ze zmianami rund i ponownym rzutem inicjatywy. Zapisanie i ponowne wczytanie walki zachowuje oczekujące pominięcie. `condition`, jeśli występuje, wskazuje zadeklarowany stan karty. Walka oznacza nim cel, dopóki pominięta tura nie minie albo walka się nie skończy. Stan już obecny pozostaje na miejscu; niewrażliwość na stan zapobiega oznaczeniu, ale nie pominięciu. `text` to opcjonalna narracja, a nie kolejny efekt. Dziennik i kontekst walki dla Mistrza Gry zapisują trafienie i pominięcie. Klucz wymaga **Capability API 1.147**.
+
+<a id="the-target-chooses-the-wound-kind"></a>
 
 ### Cel wybiera rodzaj rany
 
@@ -414,6 +451,8 @@ Dodaj `remap` do istniejącego mapowania `combat.damageKinds`; zachowaj jego `de
 Walka pulami najpierw wybiera rodzaj ataku według jego zwykłego mapowania, a potem odczytuje `when` każdego przemapowania na **celu**. Liczba różna od zera włącza regułę. `from` i `to` muszą być rodzajami na torze ran zdrowia. Wygrywa pierwsza pasująca reguła; przemapowania nie łączą się w łańcuchy. Można ich podać najwyżej 12. Z `tags` co najmniej jeden musi pasować do ataku: broń już ma `item.tags`, a mechanika katalogu i obrażenia stworzeń już mają `qualities`. Te nazwy pochodzą z `items.tags`. Bez `tags` może pasować każdy atak tego rodzaju. Nie potrzeba nowego pola tagów ataku.
 
 Wynikowy rodzaj decyduje zarówno o **pochłanianiu**, jak i o znacznikach ran. Śmiertelne trafienie z broni palnej może więc wobec wampira stać się obuchowym i używać pochłaniania obuchowego; ta sama broń palna wobec kogoś innego albo ostrze wobec tego wampira zachowuje swój zwykły rodzaj. Pierwotny _typ_ obrażeń ataku nie zmienia się na potrzeby odporności i niewrażliwości. Każda klauzula obrażeń używa własnego rodzaju i tagów ataku. Zapis walki i dziennik pokazują pierwotne i przemapowane rodzaje, a prognoza obrażeń odczytuje tę samą regułę. Zwykłe stworzenie bez karty może spełnić stałe odwołanie, ale nie może dostarczyć wartości z karty dla tych reguł; daj mu w tym celu kartę stworzenia. Tylko nowy klucz `remap` wymaga **Capability API 1.148**; starsze mapowania rodzajów obrażeń zachowują dotychczasową zgodność.
+
+<a id="initiative-that-attacks-move"></a>
 
 ### Inicjatywa przesuwana atakami
 
@@ -446,7 +485,7 @@ Menu pokazuje osobną prognozę każdego stylu: szansę trafienia oraz to, co za
 
 ### Co walka odczytuje z `mechanics`
 
-`kind` określa, czy `amount` to obrażenia czy leczenie; wszystko oznaczone `reaction` jest pomijane w menu, podobnie jak wpis `utility`, chyba że zmienia możliwości samej tury (zob. niżej). `attackRoll` wymusza rzut przeciw obronie celu z `toHit` listy; `autoHit` całkowicie go pomija. `save` wykonuje własny rzut obronny celu przeciw `saveDifficulty` listy, a `onSuccess` określa, czy sukces pozostawia połowę, czy nic. `targetCount` określa dozwoloną liczbę celów. Zdolność bez rzutu ataku (obszar, przeciw któremu wszyscy się bronią, lub coś trafiającego automatycznie) rzuca kośćmi RAZ dla wszystkich, a zdolność rzucająca na trafienie każdego celu rzuca obrażenia ponownie przy każdym trafieniu. `applies` nakłada stany na objęte cele, każdy z `duration`: `instant` (bez własnego zegara: trwa, dopóki coś go nie zdejmie), `until-save` (wymaga obok `saveEnds`) lub `{ "rounds": n }`, oraz opcjonalnym `saveEnds` wskazującym rzut obronny i powtarzanie przy `turn-end` lub `turn-start`. Rundy odliczają własne tury posiadacza w chwili zakończenia każdej z nich; `{ "rounds": 1, "at": "turn-start" }` odlicza je na początku każdej, co wyraża "do początku twojej następnej tury". `"of": "source"` (Capability API 1.119) odlicza zamiast tego tury tego, kto nałożył stan, zaczynając od jego następnej, co wyraża "do końca twojej następnej tury" w odniesieniu do kogoś innego. `{ "duration": { "rounds": 1, "of": "source" }, "endsAfter": "attacked" }` z Guiding Bolt daje ułatwienie następnemu rzutowi ataku przeciw celowi przed końcem następnej tury rzucającego. Jeśli źródło opuści walkę, rundy liczą się we własnych turach posiadacza. `delays` stanu bojowego (Capability API 1.120) wstrzymuje to, czego używa posiadacz: akcja z jednego z jego `catalogs`, opłacona jego `budget`, rzuca kością o `chance.sides` ściankach, a przy wyniku `chance.atLeast` lub wyższym jeszcze nie następuje. Na początku następnej tury posiadacza zostaje dokończona z tym samym budżetem i przebiega tak, jak by przebiegła, łącznie z odpowiedziami, a jeśli posiadacz nie może działać lub nie ma nic z tego budżetu, przepada. Koszt i tak pozostaje zużyty. Slow z 5e to `"delays": { "catalogs": ["spells"], "budget": "action", "chance": { "sides": 20, "atLeast": 11 } }`. `endsAfter` zdejmuje stan po pierwszym `own-attack` (następnym rzucie ataku posiadacza), `attacked` (następnym rzucie ataku wykonanym przeciw posiadaczowi) lub `own-save` (następnym rzucie obronnym posiadacza), niezależnie od jego zegara, więc `{ "duration": { "rounds": 1 }, "endsAfter": "own-attack" }` oznacza "przy jego następnym ataku przed końcem jego następnej tury". Stan trwający jeden atak trwa przez cały atak, łącznie z obrażeniami, a nowy stan nałożony przez ten sam cios zostaje. Oba wymagają Capability API 1.45. `temporary` przyznaje tymczasowe punkty puli zdrowia; nie kumulują się – pozostaje większy bufor. `scales` zwiększa wielkość o dodatkowe KOŚCI z tabeli dla odczytanej wartości. `cost` jest płacony przez własne polecenie `use` karty, a `budget` zastępuje domyślną część ekonomii akcji.
+`kind` określa, czy `amount` to obrażenia czy leczenie; wszystko oznaczone `reaction` jest pomijane w menu, podobnie jak wpis `utility`, chyba że zmienia możliwości samej tury (zob. niżej). `attackRoll` wymusza rzut przeciw obronie celu z `toHit` listy; `autoHit` całkowicie go pomija. `save` wykonuje własny rzut obronny celu przeciw `saveDifficulty` listy, a `onSuccess` określa, czy sukces pozostawia połowę, czy nic. `targetCount` określa dozwoloną liczbę celów. Zdolność bez rzutu ataku (obszar, przeciw któremu wszyscy się bronią, lub coś, co trafia) rzuca kośćmi RAZ dla wszystkich, a zdolność rzucająca na trafienie każdego celu rzuca obrażenia ponownie przy każdym trafieniu. `applies` nakłada stany na objęte cele, każdy z `duration`: `instant` (bez własnego zegara: trwa, dopóki coś go nie zdejmie), `until-save` (wymaga obok `saveEnds`) lub `{ "rounds": n }`, oraz opcjonalnym `saveEnds` wskazującym rzut obronny i powtarzanie przy `turn-end` lub `turn-start`. Rundy odliczają własne tury posiadacza w chwili zakończenia każdej z nich; `{ "rounds": 1, "at": "turn-start" }` odlicza je na początku każdej, co wyraża "do początku twojej następnej tury". `"of": "source"` (Capability API 1.119) odlicza zamiast tego tury tego, kto nałożył stan, zaczynając od jego następnej, co wyraża "do końca twojej następnej tury" w odniesieniu do kogoś innego. `{ "duration": { "rounds": 1, "of": "source" }, "endsAfter": "attacked" }` z Guiding Bolt daje ułatwienie następnemu rzutowi ataku przeciw celowi przed końcem następnej tury rzucającego. Jeśli źródło opuści walkę, rundy liczą się we własnych turach posiadacza. `delays` stanu bojowego (Capability API 1.120) wstrzymuje to, czego używa posiadacz: akcja z jednego z jego `catalogs`, opłacona jego `budget`, rzuca kością o `chance.sides` ściankach, a przy wyniku `chance.atLeast` lub wyższym jeszcze nie następuje. Na początku następnej tury posiadacza zostaje dokończona z tym samym budżetem i przebiega tak, jak by przebiegła, łącznie z odpowiedziami, a jeśli posiadacz nie może działać lub nie ma nic z tego budżetu, przepada. Koszt i tak pozostaje zużyty. Slow z 5e to `"delays": { "catalogs": ["spells"], "budget": "action", "chance": { "sides": 20, "atLeast": 11 } }`. `endsAfter` zdejmuje stan po pierwszym `own-attack` (następnym rzucie ataku posiadacza), `attacked` (następnym rzucie ataku wykonanym przeciw posiadaczowi) lub `own-save` (następnym rzucie obronnym posiadacza), niezależnie od jego zegara, więc `{ "duration": { "rounds": 1 }, "endsAfter": "own-attack" }` oznacza "przy jego następnym ataku przed końcem jego następnej tury". Stan trwający jeden atak trwa przez cały atak, łącznie z obrażeniami, a nowy stan nałożony przez ten sam cios zostaje. Oba wymagają Capability API 1.45. `temporary` przyznaje tymczasowe punkty puli zdrowia; nie kumulują się – pozostaje większy bufor. `scales` zwiększa wielkość o dodatkowe KOŚCI z tabeli dla odczytanej wartości. `cost` jest płacony przez własne polecenie `use` karty, a `budget` zastępuje domyślną część ekonomii akcji.
 
 `plus` to do trzech DODATKOWYCH wielkości tego samego ciosu, obok `amount`, każda z osobnym rzutem i typem ("and 2d6 fire"). Składnik ma postać `{ "dice": "2d6", "flat": 1, "type": "fire" }` i może mieć własny `save`, `{ "save": "con_save", "difficulty": 13, "onSuccess": "none" | "half" }`, który CEL wykonuje niezależnie od pozostałych wymagań akcji: `none` usuwa cały ten składnik przy sukcesie, `half` pozostawia połowę, a reszta ciosu pozostaje niezmieniona. Bez `difficulty` używa liczby własnego rzutu obronnego akcji, a następnie `saveDifficulty` listy. Trafienie krytyczne podwaja kości każdego składnika według tej samej zasady co pierwszą wielkość; składnik bez `type` ma własny rodzaj obrażeń ciosu, a cały cios nadal oznacza JEDEN test koncentracji z sumą obrażeń i jeden test powalenia. Składnik wymaga bazowego `amount`; `heal` nie może mieć takich składników.
 
@@ -650,7 +689,7 @@ Nie musisz zapisywać stworzenia zwykłymi liczbami. Nadaj mu zamiast tego `shee
 - **Każda część jest opcjonalna**: `abilities`, `skills`, `saves`, `bonuses`, `fields` i `lists`, z kluczami będącymi identyfikatorami zadeklarowanymi na karcie. Wszystko pominięte przyjmuje własną wartość domyślną karty, dokładnie jak na pustej karcie postaci. Grit strażnika wynosi 9, ponieważ `grit_max` dodaje 4, jego Toughness i Brawn; Guard wynosi 7 z podobnego powodu.
 - **Każda liczba ma jedno źródło.** Stworzenie z kartą nie podaje jednocześnie `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves` ani `checks`; jeśli to zrobi, Engine odrzuca plik. Może nie mieć żadnych własnych `actions`, ponieważ jego działania wynikają z list. Stworzenie bez karty nadal podaje pierwsze trzy wartości i co najmniej jedną akcję.
 - **Jest sprawdzane jak autorskie dane, którymi jest.** Każdy identyfikator musi być zadeklarowany na karcie, umiejętność lub rzut obronny musi należeć do oferowanych dla niego poziomów biegłości, pole, wynik, premia lub kolumna muszą zawierać deklarowany typ wartości (liczbę całkowitą w zakresie, jedną z dopuszczalnych wartości itd.), a lista nie może przekraczać limitu wierszy. Nie ma części `live`, ponieważ wydatki stworzenia przechowuje walka.
-- **Wiersz może pochodzić z katalogu.** `_catalog: "<catalog>/<entry>"` wskazuje wpis, z którego wybrano wiersz, tak jak na karcie postaci; tam walka odczytuje koszt i działanie wiersza. Katalog musi zasilać tę listę. Jeśli jest zapisany wewnątrz definicji, musi zawierać wpis; jeśli ma osobny plik, wiersz wskazujący nieobecny w nim wpis po prostu niczego stworzeniu nie daje. Katalogi wskazywane przez karty bestiariusza są ładowane do walki razem z bestiariuszem.
+- **Wiersz może pochodzić z katalogu.** `_catalog: "<catalog>/<entry>"` wskazuje wpis, z którego wybrano wiersz, tak jak na karcie postaci; tam walka odczytuje koszt i działanie wiersza. Katalog musi zasilać tę listę. Jeśli jest zapisany wewnątrz definicji, musi zawierać wpis; jeśli ma osobny plik, wiersz wskazujący nieobecny w nim wpis niczego stworzeniu nie daje. Katalogi wskazywane przez karty bestiariusza są ładowane do walki razem z bestiariuszem.
 - **Informacje wpisu obok karty nadal się liczą**: `tier`, `traits`, `actions`, `signaturePoints`, `riders`, `resist`, `vulnerable`, `immune` i `conditionImmunities`.
 - **Płaci z własnych pul.** Zaczynają pełne, wydaje je na działania z list i otrzymuje droższe warianty płacenia (zaklęcie z wyższej komórki) dokładnie jak członek drużyny, niezależnie od tego, czy decyduje Engine czy Mistrz Gry. Hold the Line strażnika kosztuje go Luck.
 - **Przy torze ran jego zdrowiem jest tor.** Cios zaznacza własny tor stworzenia według `damageKinds`, po uwzględnieniu jego `resist`, `vulnerable` i `immune`, więc stworzenie niewrażliwe na dany rodzaj obrażeń nie otrzymuje od niego znacznika.
@@ -678,6 +717,8 @@ Następnie oba warianty są ograniczane do swojego poziomu:
 - Po utworzeniu stworzenia obrona, premia trafienia i trudności rzutów obronnych są ograniczane do wartości poziomu plus dwa, a obrażenia zmniejszane, aż najlepsza runda mieści się w `damagePerRound` poziomu, z uwzględnieniem największej możliwej do opłacenia ceny. Najpierw ustępuje to, co kupuje droższy wariant, potem kości, stały składnik, uderzenie i dopiero na końcu rozmiar kości.
 
 Twój własny bestiariusz nigdy nie jest ograniczany. To napisane przez ciebie dane, więc Engine przyjmuje je w zapisanej postaci.
+
+<a id="positions-a-fight-on-a-board"></a>
 
 ### Pozycje: walka na planszy
 
@@ -778,7 +819,7 @@ Wybuch obejmuje każde pole w odległości jego rozmiaru od wskazanego pola. Sto
 
 Linia w `mechanics.area` wpisu lub w `area` akcji stworzenia może zawierać `width` w tej samej jednostce co `size`, zaokrąglane do pól z minimum jednego pola (Capability API 1.128), np. `{ "shape": "line", "size": 60, "width": 10 }` dla linii o długości 60 stóp i szerokości 10 stóp; pomiń je dla szerokości jednego pola, a parzysta szerokość w polach umieszcza dodatkową kolumnę po lewej stronie rzucającego.
 
-**Linia widzenia i osłona.** Prosta linia pól między uczestnikami: ściana lub góra na niej blokuje strzał i rozchodzenie się obszaru za nią, a celu po prostu nie ma w menu. Przez wodę widać: strzał przelatuje nad rzeką, a obszar w kształcie linii biegnie nad nią dalej. Własne walki Engine używają tego samego testu widoczności.
+**Linia widzenia i osłona.** Prosta linia pól między uczestnikami: ściana lub góra na niej blokuje strzał i rozchodzenie się obszaru za nią, a celu nie ma w menu. Przez wodę widać: strzał przelatuje nad rzeką, a obszar w kształcie linii biegnie nad nią dalej. Własne walki Engine używają tego samego testu widoczności.
 
 Osłonę odczytuje się z miejsca atakującego, według linii narożnikowych z opcjonalnej reguły siatki z DMG: z najlepszego narożnika atakującego jedna linia do każdego narożnika pola celu. Trzy lub cztery linie przechodzące przez ścianę lub górę to osłona trzech czwartych; dowolna linia przechodząca przez nie albo przez teren stanowiący osłonę (las, ruiny) to połowiczna osłona; sam niski teren nigdy nie daje więcej niż połowę. Cel, którego atakujący w ogóle nie widzi, ma pełną osłonę i nie ma go w menu. Przeciw atakowi cel stojący na terenie stanowiącym osłonę ma co najmniej połowiczną osłonę, jak zawsze; rzutowi obronnemu pomaga tylko to, co leży między celem a efektem.
 
@@ -804,13 +845,15 @@ Osłonę odczytuje się z miejsca atakującego, według linii narożnikowych z o
 - `rangeBonus` to liczba pól, o którą dalej sięga strzał z wyższego terenu.
 - `falling` to skutek upadku: ktoś zepchnięty ze stopnia o dwa poziomy lub więcej ląduje niżej i otrzymuje `dice` za każde `per` wysokości upadku (poziomy razy `levelHeight`), najwyżej `max` kości, typu `type`, a potem stan `prone`, jeśli taki istnieje. Kośćmi rzuca się tak, jak system rzuca obrażenia: sumuje się je albo przy `dice-pool` liczy jako sukcesy pomniejszone o pochłanianie. Upadek jest ciosem jak każdy inny, więc może kogoś powalić lub przerwać jego koncentrację. Dziennik podaje, z jakiej wysokości ktoś spadł. Bez `falling` upadek jest odnotowywany i nic nie robi.
 
-**Uderzenia w odchodzących.** Zadeklaruj `opportunity.budget`; gdy walczący wychodzi z zasięgu stojącego wroga, który może działać, ma ten budżet i coś do uderzenia wręcz, ruch ZATRZYMUJE SIĘ w bieżącym miejscu, a wróg otrzymuje pytanie o uderzenie. Przyjęcie zużywa budżet i rozstrzyga ten sam atak dokładnie jak we własnej turze; przepuszczenie nic nie kosztuje. Potem ruch wznawia się z miejsca zatrzymania, płacąc za każde rzeczywiście przebyte pole, a uderzenie powalające poruszającego się kończy ruch tam, gdzie upadł. Każdy ma jedną okazję na cały ruch, niezależnie od liczby wyjść trasy z tego samego zasięgu. `disengage` zapobiega temu przez resztę tury; zestaw zasad bez `opportunity` nie ma żadnej z tych mechanik.
+**Uderzenia w odchodzących.** Zadeklaruj `opportunity.budget`; gdy walczący wychodzi z zasięgu stojącego wroga, który może działać, ma ten budżet i coś do uderzenia wręcz, ruch ZATRZYMUJE SIĘ w bieżącym miejscu, a wróg otrzymuje pytanie o uderzenie. Przyjęcie zużywa budżet i rozstrzyga ten sam atak dokładnie jak we własnej turze; przepuszczenie nic nie kosztuje. Potem ruch wznawia się z miejsca zatrzymania, płacąc za każde przebyte pole, a uderzenie powalające poruszającego się kończy ruch tam, gdzie upadł. Każdy ma jedną okazję na cały ruch, niezależnie od liczby wyjść trasy z tego samego zasięgu. `disengage` zapobiega temu przez resztę tury; zestaw zasad bez `opportunity` nie ma żadnej z tych mechanik.
 
 Pytanie jest OKNEM i zatrzymuje całą walkę: nic nie rusza, dopóki wszyscy pytani nie odpowiedzą. Za członka drużyny odpowiada gracz, wybierając uderzenie lub sąsiednie Pass; za pozostałych odpowiada ich prowadzący, a za bossa Mistrza Gry – jego własna decyzja. Zob. Okna poniżej.
 
 **Co przeciwnik robi z planszą.** Przeciwnik nieprowadzony przez nikogo ocenia każde osiągalne pole względem każdej dostępnej z niego opcji, odejmuje wartość za każde uderzenie wywołane ruchem i woli pozostać w miejscu, jeśli już może wykonać najlepszą akcję. Gdy nic nie jest w zasięgu, skraca dystans; najpierw sprintem, jeśli lista `standard` zawiera `dash`.
 
 **Możliwe odmowy.** `out-of-reach` (poza zasięgiem), `no-line-of-sight` (stała przeszkoda na drodze), `unreachable` (pole, którego ruch nie może opłacić lub na którym nie może się zakończyć) i `bad-cell` (obszar skierowany w niedozwolone miejsce).
+
+<a id="what-a-fight-does-with-your-block-on-the-server"></a>
 
 ### Co walka robi z twoim blokiem na serwerze
 
@@ -822,11 +865,15 @@ Gra, której zestaw zasad deklaruje `combat`, otrzymuje walkę rozstrzyganą prz
 - **Menu określa jedyne dozwolone działania.** Każdy działający, gracz lub przeciwnik, wybiera identyfikator z tego samego menu generowanego przez blok. Przeciwnik prowadzony przez Engine wybiera z niego według własnej taktyki Engine, a przeciwnik prowadzony przez Mistrza Gry otrzymuje prośbę o wybór jednego identyfikatora z tego samego menu, z twoimi liczbami i bez ujawniania wyników kości.
 - **Twoje kości.** Walka przechowuje własne ziarno i kursor, więc po odczycie z dysku kontynuuje z kośćmi, którymi i tak by rzuciła.
 
+<a id="on-screen"></a>
+
 ### Na ekranie
 
 Walka odbywa się na ekranie bitwy w twoich słowach. Menu zawiera twoje ataki, zdolności, testy przeciwstawne i wymienione akcje standardowe; każda wskazuje koszt z twoich budżetów i pul. Widać kolejność tur, rundę, każdy nazwany stan z pozostałymi rundami, punkty tymczasowe, koncentrację i dwa liczniki zasad umierania. Dziennik pokazuje rzeczywiste obliczenia w twoich pojęciach: "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard 6, a hit." Każda zaakceptowana akcja jest natychmiast zapisywana na karcie, więc ponowne wczytanie w trakcie walki jest dokładne, a Mistrz Gry otrzymuje później informację, by nie zmieniać tych liczb ponownie.
 
 Walka z pozycjami jest rysowana na planszy zamiast na scenie z portretami; działania gracza opisuje sekcja Pozycje. Każda odległość na planszy, w menu i dzienniku jest podawana w TWOJEJ jednostce: "Juno moves to 4, 6 for 6 paces and has 2 paces left."
+
+<a id="contests-grabbing-shoving-breaking-free"></a>
 
 ### Testy przeciwstawne: chwytanie, pchanie, uwalnianie się
 
@@ -906,7 +953,7 @@ Działanie okna, niezależnie od przyczyny otwarcia:
 
 - **Gdy jest otwarte, nic innego nie rusza.** Ani wykonawca bieżącej tury, ani jej zakończenie, ani inne okno. Walka czeka. Upadek wstrzymuje lądowanie, dopóki nie zakończy się krok akcji, który go spowodował; o kolejne upadki pyta się potem.
 - **Pyta po jednej osobie**, w kolejności tur, każdą raz. Pasowanie zawsze jest odpowiedzią i nic nie kosztuje. Osoba bez dostępnego działania jest pomijana zamiast pytana.
-- **Wznawia dokładnie od miejsca zatrzymania.** Ruch kończy się na pozostałych polach, płacąc za każde rzeczywiście przebyte.
+- **Wznawia dokładnie od miejsca zatrzymania.** Ruch kończy się na pozostałych polach, płacąc za każde przebyte.
 - **Odpowiada ten, kto prowadzi.** Okno własnego członka drużyny należy do ciebie, z opcją i sąsiednim Pass w menu; za przeciwnika odpowiada prowadzący, a o bossa Mistrza Gry pytany jest Mistrz Gry, z możliwością przepuszczenia chwili jako jedną z odpowiedzi.
 - **Jest zapisywane razem z walką.** Gra zamknięta w trakcie ruchu wraca z tymi samymi osobami do zapytania i polami do przejścia.
 
@@ -951,7 +998,7 @@ Kontrę zapisuje się tak; na planszy odpowiada ona tylko komuś w obrębie wła
 }
 ```
 
-Poziom wszystkiego, co opłacono, to poziom puli, z której pochodzi: własny `level` puli, wartość odczytywana z karty posiadacza, jeśli go podaje (komórki paktu z 5e, rzucane na poziomie komórki czarnoksiężnika), a w przeciwnym razie jej miejsce w grupie, przy czym pierwsza pula ma poziom 1. Coś, co nic nie kosztowało albo pochodzi z puli spoza grupy, ma poziom 0, więc każda taka kontra to zatrzymuje. Test używa własnych kości walki ze stanami odpowiadającego dotyczącymi testów; walka `dice-pool` nie ma trudności do osiągnięcia i odrzuca `above`. Stworzenie bez karty zapisuje swój test jako `{ "const": n }`. Dziennik podaje poziom i rzut zawsze, gdy odpowiedź sięga ponad siebie, a gdy zatrzymuje akcję, następuje zwykły wiersz. Bez `above` coś wyższego po prostu nie zostaje zatrzymane, a koszt odpowiedzi i tak zostaje poniesiony.
+Poziom wszystkiego, co opłacono, to poziom puli, z której pochodzi: własny `level` puli, wartość odczytywana z karty posiadacza, jeśli go podaje (komórki paktu z 5e, rzucane na poziomie komórki czarnoksiężnika), a w przeciwnym razie jej miejsce w grupie, przy czym pierwsza pula ma poziom 1. Coś, co nic nie kosztowało albo pochodzi z puli spoza grupy, ma poziom 0, więc każda taka kontra to zatrzymuje. Test używa własnych kości walki ze stanami odpowiadającego dotyczącymi testów; walka `dice-pool` nie ma trudności do osiągnięcia i odrzuca `above`. Stworzenie bez karty zapisuje swój test jako `{ "const": n }`. Dziennik podaje poziom i rzut zawsze, gdy odpowiedź sięga ponad siebie, a gdy zatrzymuje akcję, następuje zwykły wiersz. Bez `above` coś wyższego nie zostaje zatrzymane, a koszt odpowiedzi i tak zostaje poniesiony.
 
 **Chwila po trafieniu.** Wpis z `hit` to sposób zapisania Shield, Parry i Uncanny Dodge. Atak zostaje wstrzymany po rzucie, a trafiony jest pytany, zanim zostaną zadane jakiekolwiek obrażenia. To, co wykona, liczy się dla tego ataku: jego rzut nie jest powtarzany, lecz ponownie sprawdzany względem obecnej obrony trafionego, więc stan dodający do obrony może zamienić trafienie w chybienie, a naturalny wynik, który zawsze trafia, nadal trafia. Stan trwający jeden atak (`endsAfter: "attacked"`) nałożony w odpowiedzi obejmuje ten atak, łącznie z obrażeniami, i zostaje przez niego zużyty; tak wyraża się "zmniejsz obrażenia tego ataku o połowę": `resist-all` na jeden atak.
 
@@ -986,7 +1033,7 @@ Pakiet wskazujący chwilę wymaga Capability API 1.33, a używający `used` lub 
 }
 ```
 
-Anulować może tylko pierwsza chwila, więc reakcja anulująca nie ma `also`. Katalog wskazany przez wpis musi istnieć w zestawie. Wpis, którego w nim nie ma, po prostu nigdy nie otwiera chwili. Cios zatrzymany w ten sposób jest pokazywany w dzienniku jako taki, na który cel jest niewrażliwy.
+Anulować może tylko pierwsza chwila, więc reakcja anulująca nie ma `also`. Katalog wskazany przez wpis musi istnieć w zestawie. Wpis, którego w nim nie ma, nigdy nie otwiera chwili. Cios zatrzymany w ten sposób jest pokazywany w dzienniku jako taki, na który cel jest niewrażliwy.
 
 **Odpowiedź tylko na niektóre ciosy** (Capability API 1.118). Chwila `hit` może zawierać `"blow": "melee"` lub `"blow": "ranged"`. Cios jest ciosem wręcz, dopóki cel stoi w zasięgu wręcz broni, więc sztylet rzucony z daleka to cios dystansowy, a ten sam sztylet użyty obok celu to cios wręcz. Broń z zasięgiem wręcz i bez zasięgu dystansowego jest zawsze bronią do walki wręcz, a broń z zasięgiem dystansowym i bez zasięgu wręcz zawsze dystansową. W walce bez planszy broń z zasięgiem wręcz traktuje się jak trzymaną w ręce. `"seesSource": true`, w dowolnej chwili poza `falls`, otwiera ją tylko wtedy, gdy posiadacz widzi sprawcę. Oznacza to linię wzroku między nimi na planszy (bez planszy wszyscy widzą wszystkich), a nigdy kogoś, kto wykonał akcję standardową Hide, dopóki jej działanie nie minie na początku jego następnej tury. Parry z 5e używa obu:
 
@@ -1076,6 +1123,8 @@ Jego wpis `combat.conditions` to `{ "condition": "feather_falling", "fallsSafely
 }
 ```
 
+<a id="not-yet"></a>
+
 ### Jeszcze niedostępne
 
 Wprost, ponieważ zestaw zasad nie powinien przypisywać Engine nieistniejących możliwości:
@@ -1084,7 +1133,7 @@ Wprost, ponieważ zestaw zasad nie powinien przypisywać Engine nieistniejących
 - **Test przeciwstawny jest prosty.** Jego rzut nie otwiera okna, ale na spowodowany przez niego upadek można odpowiedzieć.
 - **Wpis może oczekiwać tylko sześciu chwil**, `used`, `aimed`, `hit`, `harmed`, `falls` i `turn-start` (zob. Okna powyżej). Te chwile Engine obserwuje w imieniu wpisu; dwa pozostałe okna, odejście i pauza między turami, otwiera sama walka, więc wpis nie może o nie prosić. Nie ma chwili rzutu obronnego ani śmierci.
 - **Bez łańcucha okien.** Walka przechowuje jedno okno zamiast stosu, więc nic wewnątrz okna nie otwiera kolejnego: kontry nie można skontrować, obrażenia reakcji nie otwierają następnej chwili, a atak wykonany wewnątrz okna nie jest wstrzymywany, gdy trafia. Upadek, na który można odpowiedzieć, spowodowany w trakcie okna jest wstrzymywany do jego zamknięcia, a potem pyta się o niego po kolei.
-- **Trafieniem jest tylko rzut ataku.** Coś, co trafia bez niego (pociski, które po prostu trafiają, obszar, przeciw któremu wszyscy wykonują rzut obronny), nie otwiera chwili `hit`.
+- **Trafieniem jest tylko rzut ataku.** Coś, co trafia bez niego (pociski, które trafiają, obszar, przeciw któremu wszyscy wykonują rzut obronny), nie otwiera chwili `hit`.
 - **Modyfikatory obrażeń dotyczą trafień atakiem.** Odpowiedź może nałożyć modyfikator obrażeń na posiadacza albo zmniejszyć o połowę przychodzące obrażenia przez `resist-all`; modyfikatory obrażeń nigdy nie zmieniają efektu opartego wyłącznie na rzucie obronnym.
 - **Nie ma zwrotów.** Koszt anulowanej akcji pozostaje wydany.
 - **To, co zmienia stan, jest zamkniętą listą.** Obrona, rzuty ataku, rzuty obronne, testy przeciwstawne, szybkość, maksimum zdrowia, zadawane obrażenia i otrzymywane obrażenia (także dla poziomów i efektów przedmiotów). Modyfikatory obrażeń zmieniają tylko trafienia atakiem; nigdy nie dodają się do obrażeń opartych na rzutach obronnych ani do automatycznych trafień.

@@ -1,143 +1,139 @@
 # Illustrator 智能体
 
-本指南介绍 **Illustrator**(插画师)，它是内置的帮手，能在聊天过程中把场景画出来。下面会讲它做什么、怎么开启、可以用哪些画风，以及它需要的两个连接。
+**Illustrator**(插画师) 是一个可下载的智能体，能在聊天过程中把场景画出来。本指南介绍怎么开启它、怎么选画风和图像模型，以及怎么制作短片。智能体是一个小型 AI 帮手，只在一个聊天里自动运行。
 
-## Illustrator 智能体做什么
+## Illustrator 做什么
 
-智能体是一个小型 AI 帮手，只在一场聊天里自动运行。**Illustrator** 属于后处理智能体，也就是说，AI 每写完一条回复之后它才动手。它会读最新的这条回复，判断这一刻值不值得配一张图。值得的话，Illustrator 就写一段图像提示词，发给图像服务商。提示词就是告诉图像模型该画什么的那段文字描述。
+Illustrator 是一个后处理智能体，所以它在 AI 写完每条回复之后运行。它会读最新的回复，判断这一刻值不值得配一张图。值得的话，它会写一段图像提示词（告诉图像模型该画什么的文字），发给你的图像服务。它画出的每张图都会保存到聊天的 **Gallery**(图库)。
 
-Illustrator 不会每条消息都画。默认情况下，画完一张图之后，要再经过 5 条被采纳的用户消息和 AI 回复，它才会画下一张。每个 Roleplay 聊天都可以改这个数字。对同一条回复滑动切换备选回复或者重新生成，都不会推进这个间隔。如果它判断某一刻不值得配图，就直接跳过，不出图。它画出来的每张图都会保存到聊天的 **Gallery**(图库) 里。
+它不会每条消息都画。默认情况下，画完一张图之后，要再经过 5 条被采纳的用户消息和 AI 回复，它才能画下一张。每个 Roleplay 聊天都可以改这个数字。切换备选回复或重新生成回复，都不会推进这个计数。如果它判断某一刻不值得配图，就直接跳过。
 
-Illustrator 可以用在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里，装上它之后，Conversation(对话模式) 的自拍和[视频消息](../conversation/selfies.md#video-messages)功能也会一并解锁。应用里给它的简介是“Responsible for image and video generations.”本指南的设置步骤和选项针对的是 Roleplay 聊天。Game Mode 换成了一个简单开关，见下面的 Game Mode 一节。
+它可以用在 Roleplay(角色扮演) 和 Game Mode(游戏模式) 聊天里。装上它还会一并加入 Conversation(对话模式) 的自拍和[视频消息](../conversation/selfies.md#video-messages)。本指南的设置针对 Roleplay。Game Mode 只用一个开关（见 [Game Mode](#game-mode-the-game-illustrator-toggle)）。
 
 ## 开始之前
 
-Illustrator 只负责写图像提示词，真正画出图还需要另外一个图像连接。图像连接就是保存下来的一套图像服务商接入信息，比如 OpenAI，或者本地的 Stable Diffusion 服务器。
+Illustrator 负责写提示词，但画图的是另一个图像模型。你需要一个图像模型。见[图像生成服务商与设置](image-providers.md)。
 
-先配好一个图像连接。给 Illustrator 指定图像连接有两种办法：
+有两种方式给它指定图像模型。
 
-1. 把某个图像连接设为默认。打开 **Connections**(连接) 面板，展开 **Defaults**(默认)，在 **Images**(图像) 下面选中它。
-2. 或者在 Illustrator 的完整设置界面里单独给它一个图像连接（见下文的 **Open Setup**(打开设置)）。
+1. 在 **Connections**(连接) 面板的 **Defaults**(默认) 下设置 **Images**(图像) 这项工作。
+2. 或者在 Illustrator 的 **Open Setup**(打开设置) 界面里给它单独指定一个图像模型。
 
-一个图像连接都找不到时，出图会失败，应用会让你选一个。添加服务商的方法见[图像生成服务商与设置](image-providers.md)。
+找不到任何图像模型时，出图会失败，应用会让你选一个。
 
 ## 开启 Illustrator
 
-Illustrator 默认是关闭的。在 **Roleplay** 聊天里这样添加：
+开始之前：从 **Agent Organizer**(智能体管理器) 安装 **Illustrator**。见[智能体概览](../agents/agents-overview.md)。
 
-1. 打开想配图的那场聊天。
-2. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
-3. 找到 **Agents**(智能体) 区域，打开 **Enable Agents**(启用智能体)。
+1. 打开想配图的 Roleplay 聊天。
+2. 打开 **Chat Settings**(聊天设置)，找到 **Agents**(智能体)。
+3. 开启 **Enable Agents**(启用智能体)。
 4. 在 **Misc Agents**(其他智能体) 分组里找到 **Illustrator**，点加号按钮添加。
 
-这时应该能看到一张**Illustrator**设置卡片，上面是它自己的选项。添加智能体会额外消耗Token，也可能增加每轮的AI调用次数。Token估算只包含智能体指令，并不是实时费用估算。
+这时会出现一张 **Illustrator** 卡片，上面是它自己的选项。智能体会额外消耗 Token，也可能让每轮多出几次模型调用。Token 估算只包含智能体指令。
+
+<a id="game-mode-the-game-illustrator-toggle"></a>
 
 ### Game Mode：Game Illustrator 开关
 
-Game Mode 不走上面这套步骤，也不会显示 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词模型) 选项。在游戏的 **Chat Settings** 里打开 **Game Illustrator**(游戏插图生成) 这一个开关就行。它的说明写着：“Auto-generate scene illustrations, NPC portraits, and location backgrounds during gameplay.”
+Game Mode 没有 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词模型) 选项。打开游戏的 **Chat Settings**，开启 **Game Illustrator**(游戏插图生成)（“Auto-generate scene illustrations, NPC portraits, and location backgrounds during gameplay”）。
 
-## 提示词模式
+## 选择画风
 
-**Prompt Mode** 选择器决定 Illustrator 写每一段提示词时采用的画风。在智能体卡片上，这个选择器的标签是 **Prompt**。下面有一行小字：“Prompt mode controls how Illustrator writes image prompts for this chat.”
+**Prompt Mode** 选择器（卡片上的标签是 **Prompt**）决定 Illustrator 写每段提示词时采用的画风。新的 Illustrator 默认用 **Background**(背景)。
 
-选择器提供这几种画风：
+| 画风 | 画什么 |
+|---|---|
+| **Illustration**(插图) | 一张精修完整的场景图，属于通用画风。 |
+| **Comic Page**(漫画页) | 带分格、对话气泡、旁白框和音效字的漫画页。 |
+| **Colored Manga**(彩色漫画) | 彩色日式漫画场景，气泡和音效字都经过风格化处理。 |
+| **B&W Manga**(黑白漫画) | 黑白日式漫画页，勾线加网点阴影。 |
+| **Background** | 场景图或定场镜头，画面里没有角色。 |
+| **Selfie**(自拍) | 符合角色设定的自拍，或随意一些的人像。 |
 
-- **Illustration**(插图)：一张精修完整的场景图，属于通用画风。
-- **Comic Page**(漫画页)：带分格、对话气泡、旁白框和音效字的漫画页。
-- **Colored Manga**(彩色漫画)：彩色日式漫画场景，气泡和音效字都经过风格化处理。
-- **B&W Manga**(黑白漫画)：黑白日式漫画页，勾线加网点阴影。
-- **Background**(背景)：场景图或者定场镜头，画面里不出现角色。
-- **Selfie**(自拍)：符合角色设定的自拍，或者随意一些的人像。
+成图的最终观感还取决于你的风格方案。见[图像风格方案](style-profiles.md)。
 
-新添加的 Illustrator 智能体默认用 **Background** 画风。画风随时可以在选择器里改。成图的整体观感还取决于图像风格方案，设置方法见[图像风格方案](style-profiles.md)。
+## 选择提示词模型
 
-## Prompt Model 与图像连接
+**Prompt Model** 是负责写图像提示词的文本模型，它不画图。在卡片上的 **Prompt Model** 列表里选。默认是 **Main chat model**(聊天主模型)，也就是沿用聊天的模型。想让另一个模型来写提示词，就另选一个文本模型。
 
-Illustrator 会用到两个不同的连接，分清这两者很有必要。
+真正画图的图像模型，就是你在**开始之前**一节里设置的那个。
 
-**Prompt Model** 是负责写图像提示词的那个文本模型，不是负责画图的模型。在 Illustrator 卡片的 **Prompt Model** 下拉菜单里选。默认是 **Main chat model**，也就是沿用这场聊天已经在用的连接。想换一个模型来写提示词，就另选一个文本连接。
+## 保持角色形象一致
 
-图像连接才是真正画出成图的图像服务商。按**开始之前**一节里说的方式指定：要么在 **Defaults → Images** 下面选，要么在智能体自己的设置界面里选。
+卡片上有两项设置，能让角色在不同图片里看起来一样。两项一开始都是关闭的。
 
-## Attach Card Appearance 与 Send Avatar References
-
-Illustrator 卡片上有两项设置，能让角色形象保持一致。两项默认都是关闭的。
-
-对于图片，**Attach Card Appearance**(附带角色卡外貌) 会把每个出场角色保存好的外貌描述加进图像提示词。视频提示词只有在你选择包含视频时才会加上它，详见下文。它的帮助文字是：“Append matched character appearance lines to image prompts, using only visible/generated names.”想让画面贴合角色卡上写的样子，就打开它。
-
-在 Roleplay 聊天的 **Chat Settings**(聊天设置) 里，**Attach Card Appearance** 是一个下拉菜单，有四个选项：
+**Attach Card Appearance**(附带角色卡外貌) 会把每个可见角色保存好的外貌描述加进图像提示词。在 Roleplay 聊天里，它是一个有四个选项的列表。
 
 - **Off**(关闭)
 - **Images only**(仅图片)，即通常的行为。
-- **Videos only**(仅视频)。短片会加上其中出场角色的外貌描述。对 **Prompt only** 短片尤其重要，因为它没有图片来呈现这些角色。
-- **Images and videos**(图片和视频) 两者都做。
+- **Videos only**(仅视频)：短片会加上其中出场角色的外貌描述。这对 **Prompt only**(仅提示词) 短片最重要，因为它没有图片。
+- **Images and videos**(图片和视频)：两者都加。
 
-打开 **Attach Card Appearance** 后，如果角色卡或用户角色还打开了 **Image Appearance Override**(图像专用外貌)，并填写了内容，发送的就是这段文字，而不是 **Appearance** 的内容。当 **Appearance** 是为旁白写的，图像模型却不容易理解时，可以把完整描述留在 **Appearance**，再在图像专用输入框里填写简短的标签式描述。这个开关关闭或输入框留空时，图像提示词仍会使用 **Appearance**。无论哪种情况，负责写旁白的模型始终会收到 **Appearance** 的完整内容。这个开关就在角色和用户角色编辑器的 **Appearance** 下方。
+开启后，如果角色卡或用户角色打开了 **Image Appearance Override**(图像专用外貌)，发送的就是这段覆盖文字，而不是它的 **Appearance**(外观) 文字。当 **Appearance** 是为旁白写的、图像模型却读不顺时，就用它：把完整描述留在 **Appearance** 里，再在覆盖里填一段更短的标签式描述。覆盖关闭或留空时，图像提示词使用 **Appearance**。旁白始终能看到完整的 **Appearance**。这个开关在角色编辑器和用户角色编辑器的 **Appearance** 下方。
 
-**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像，或者他们的立绘，作为参考图发给图像服务商。它的帮助文字是：“Send matching character and persona avatars or sprites as reference images when the provider supports them.”这样图像模型更容易照着画出同一张脸或同一身衣服。并不是所有服务商都接受参考图，实际效果取决于选的那家服务商。在 Roleplay 聊天中，它和 **Attach Card Appearance** 一样是下拉菜单。包含视频时，**First frame** 为 **Prompt only** 的短片会从角色的头像或立绘开始，而不再完全没有图片，这个选项也会显示为 **Prompt only (avatar from Send Avatar References)**。如果只想根据提示词制作短片，就不要包含视频。
+**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像或立绘作为参考图发给图像服务，让模型照着画出同一张脸或同一身衣服。不是每个服务都接受参考图。在 Roleplay 聊天里，它和 **Attach Card Appearance** 一样是一个列表。包含视频时，**First frame**(首帧) 为 **Prompt only** 的短片会从角色的头像或立绘开始，这个选项也会显示为 **Prompt only (avatar from Send Avatar References)**。
 
-<a id="generated-videos"></a>
+## 控制出图频率
 
-## 自动视频
+Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是完整的设置界面。你可以在那里设置默认的运行间隔，并给它单独指定图像模型。
 
-在 Roleplay 聊天的 **Chat Settings**、**Agents**、**Illustrator** 中，有一个 **Illustrator makes**(Illustrator 生成内容) 设置：
+每个 Roleplay 聊天在 **Chat Settings** 的卡片上都有自己的 **Image Run Interval**(图像运行间隔)（“Messages between automatic images in this chat. 0 means only when you ask.”）。没有单独设置的聊天会使用设置界面里的值，默认是 **5**。卡片会显示 **Using agent default** 或 **Chat override**。按 **Use agent default**(改用智能体默认值) 就能回到默认值。把 Illustrator 加进聊天时，添加窗口里也有同一个字段，只保存到那个聊天。
 
-- **Pictures**(默认)：和以前一样，只生成图片。
-- **Pictures and clips**：当动作是场景重点时，例如打斗、暴力、追逐或物体破碎，Illustrator 还可以为刚生成的图片添加一段短片。这也包括旁白通过 `[illustrate]` 请求的图片。它会按照视频连接的 **Video Prompting Instructions** 自行编写动作。图片先显示，短片完成后会加入同一条消息。
-- **Clips only**：每当 Illustrator 原本要显示图片时，改为显示短片。如果为短片绘制了图片，这张图片会成为起始帧，存入 Gallery，而不出现在回复中。这种情况下，如果短片失败，就改为显示这张图片。
+把 **Image Run Interval** 设为 **0** 就是仅手动模式。它会停止自动运行，包括自动场景背景，但智能体仍可用于 Gallery 操作。设为正数即可恢复。
 
-短片使用 **Scene Videos** 下的 **Video Connection**，每段短片都是一次视频请求。没有可用的视频连接时，即使选择 **Clips only**，Illustrator 也会改为生成图片。生成图片的自定义智能体也遵循同一个设置。
+要立刻出一张图，打开 **Chat Settings**，展开 **Gallery**，点击 **Illustrate**(生成插图)。Illustrator 会立即运行一次，按钮上会显示 **Generating...**。
 
-**Video Run Interval** 在 Illustrator 生成短片时显示，用来设置一段此类短片之后，必须经过多少条用户消息和 AI 回复才能生成下一段。它与 **Image Run Interval** 分开，后者仍然决定 Illustrator 生成图片的频率。
+## 制作短片
 
-- **Clips only**：Illustrator 每次运行都生成短片。Video Run Interval 决定运行频率，Image Run Interval 则隐藏。
-- **默认值**：聊天没有单独设置时，使用 Illustrator 卡片 **Open Setup** 页面中的 **Video Run Interval**。那里也没设置时，使用 5。
-- **0**：Illustrator 不主动生成短片。叙述者用 `[illustrate]` 请求的图片所附带的短片也受此限制，此时只显示图片。
-- **上限**：一条回复最多生成 **Videos per reply** 段短片（位于 **Settings**、**Generations**、**Video Generation**）。
-- **手动短片**：仍然可以从 Gallery 把图片制作成动画。选择 **Clips only** 时，消息上的 **Illustrate** 按钮会生成短片。
-- **滑动候选**：为带有短片的回复切换候选会算作新回复。新候选可以有自己的短片，之前的候选保留原短片。
+在 Roleplay 聊天里，**Chat Settings → Agents → Illustrator**(聊天设置 → 智能体 → Illustrator) 中有一个 **Illustrator makes**(Illustrator 生成内容) 设置。
 
-**First frame** 位于同一区域，决定每段 Roleplay 短片从什么开始，包括 Illustrator 自己生成的短片、`/video` 和 Gallery 的 **Video** 按钮。选项有新的 Illustrator 图片、被点名角色的头像或立绘、优先图片并用头像作为后备，或完全没有图片。它与 Conversation 聊天视频消息使用的是同一个设置。
+- **Pictures**(图片)（默认）：只生成图片。
+- **Pictures and clips**(图片和短片)：当动作是重点时，例如打斗、追逐或物体破碎，Illustrator 还可以把一张新图片做成一段短片。这也包括负责讲故事的模型用 `[illustrate]` 请求的图片。它会按照视频模型的 **Video prompting instructions**(视频提示词指令) 自己编写动作。图片先显示，短片好了之后会加入同一条消息。
+- **Clips only**(仅短片)：凡是 Illustrator 原本要显示图片的地方，都改为显示一段短片。它画出的图片会成为短片的起始帧，存进 Gallery，而不出现在回复里。短片失败时，会显示这张图片。
 
-- **Clips only** 搭配头像或无图片：完全不画图片，直接根据 Illustrator 描述的场景和动作制作短片。
-- **Pictures and clips**：图片仍然显示，只是短片从头像开始或不使用图片。
-- 未选择起始帧：短片不会专门为自己生成一张图片。**Pictures and clips** 把 Illustrator 刚生成的图片制作成动画，而 **Clips only**、`/video` 和 Gallery 的 **Video** 按钮仅根据场景制作短片。
+短片使用 **Scene Videos**(场景视频) 下的视频模型，每段短片都是一次视频请求。没有可用的视频模型时，即使选了 **Clips only**，Illustrator 也会生成图片。生成图像的自定义智能体也遵循同一个设置。见[场景视频生成](scene-video.md)。
 
-没有自身图片的短片会描述它点名的所有人，包括用户角色。头像起始帧使用最先被点名的人。
+让 Illustrator 生成短片后，会出现 **Video Run Interval**(视频运行间隔)。它表示一段短片之后，必须经过多少条用户消息和 AI 回复才能生成下一段，并且与 **Image Run Interval** 分开。
 
-从消息重新运行 Illustrator（使用 **Illustrate** 按钮）也遵循 **Illustrator makes** 和 **First frame**：**Clips only** 会生成短片而不是图片；**Pictures and clips** 则可能在动作是场景重点时添加短片。
+- 选 **Clips only** 时，每次运行都是短片，**Video Run Interval** 决定 Illustrator 多久运行一次，**Image Run Interval** 则隐藏。
+- 没有设置值的聊天会使用 **Open Setup** 界面里的 **Video Run Interval**，或者 5。
+- **0**：不自行生成短片，`[illustrate]` 请求的图片也不例外，只会得到图片。
+- 一条回复最多生成 **Videos per reply**(每条回复的视频数) 段短片（**Settings → Generations → Video Generation**(设置 → 生成 → 视频生成)）。
+- 你仍然可以从 Gallery 把图片做成动画。选 **Clips only** 时，消息上的 **Illustrate** 按钮会生成短片。
+- 为一条已有短片的回复生成的备选回复算作一条新回复，可以有自己的短片。原来那条备选回复保留它的短片。
 
-## NovelAI 中的多角色场景
+**First frame** 在同一区域，决定每段 Roleplay 短片从什么开始：Illustrator 的短片、`/video` 和 Gallery 的 **Video**(视频) 按钮都受它影响。选项有：一张新的 Illustrator 图片、被点名角色的头像或立绘、优先用图片并以头像作为后备，或者不用图片。Conversation 的视频消息使用同一个设置。
 
-当 Illustrator 的图像连接使用 NovelAI 的 V4、V4.5 或 V5 模型时，负责编写提示词的模型会收到要求，为每个可见角色额外编写一段描述。每段描述包含该角色自己的外观、表情、姿势，以及在画面中的大致位置。Marinara 会将描述与场景中的角色列表核对，丢弃无法匹配的描述，再将其余描述作为 NovelAI 原生角色提示词，与场景的主提示词一起发送。这样可以避免群像场景中不同角色的发型、服装和其他特征相互混淆。通过 **Illustrate**(插图) 按钮生成的图片，以及角色用 `[illustrate]` 命令生成的图片，也会得到同样的描述。
+- **Clips only** 搭配头像或不用图片：不画图片。短片根据 Illustrator 描述的场景和动作生成。
+- **Pictures and clips**：图片仍然显示，只有短片从头像开始或不用图片。
+- 没有选择首帧：短片从不专门为自己画一张图片。**Pictures and clips** 会把 Illustrator 刚画的图片做成动画。**Clips only**、`/video` 和 **Video** 只根据场景生成短片。
 
-描述数量取决于模型。V5 最多接受 22 个角色，V4 和 V4.5 最多接受 6 个。场景中的可见角色更多时，会保留最重要的角色，其余角色作为没有名字的背景人物处理。
+没有自身图片的短片会描述它点名的每个人，包括你的用户角色。头像首帧从最先被点名的人开始。
 
-负责编写提示词的模型也会收到说明，知道每段描述的细节应从哪里获取。固定特征来自角色或用户角色的 **Appearance**(外观) 字段：如果字段已经使用 Danbooru 标签，就原样复制；如果是普通文本，就转换成标签。服装来自角色追踪器运行时记录的当前穿着，也会转换成标签。
+从消息的 **Illustrate** 按钮重新运行 Illustrator，同样遵循 **Illustrator makes** 和 **First frame**。
 
-开启 **Attach Card Appearance**(附加卡片外观) 后，模型还会收到聊天中每张角色卡和每个用户角色的完整 Appearance 文本作为参考，因此较长的角色卡或多人角色卡不会被截断。在同一个 Appearance 字段中以 `[NAME] tags | [NAME] tags` 格式描述多个角色的卡片，会按角色分别列出。模型会决定使用哪些内容：把固定特征复制到对应角色的描述中，将卡片中的服装标签视为可由追踪器或场景覆盖的默认值，并忽略不在场景中的角色。模型返回角色描述后，Marinara 不会再向提示词追加内容。如果没有返回角色描述，例如只有一个角色的场景，仍会像以前一样把常规外观描述行追加到主提示词中。
+## NovelAI 上的多角色场景
 
-不需要额外设置。角色描述只会用于连接 NovelAI 自有服务器的情况，代理或其他服务商不受影响。开启 **Expose media prompts before sending**(发送前显示媒体提示词) 后，检查窗口会在主提示词下方列出角色描述，让你看到即将发送的内容。这里的角色描述只读；主提示词仍可照常编辑。
+当 Illustrator 的图像模型是 NovelAI 的 V4、V4.5 或 V5 模型时，写提示词的模型会为每个可见角色加一段角色描述。每段描述包含该角色的外观、表情、姿势，以及在画面中的大致位置。Marinara 会把这些描述与场景的角色列表核对，丢掉无法匹配的，再把其余描述作为 NovelAI 原生角色提示词，和主提示词一起发送。这样可以避免不同角色的发型、服装和其他特征混在一起。通过 **Illustrate** 生成的图片，以及角色用 `[illustrate]` 命令生成的图片，也会得到同样的描述。
 
-## 更多设置和手动运行
+V5 最多接受 22 个角色，V4 和 V4.5 最多接受 6 个。可见角色更多时，保留最重要的角色，其余的变成没有名字的背景人物。
 
-Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是这个智能体的完整设置界面，在那里可以设置它默认的运行频率，也可以单独给它指定图像连接。
+固定特征来自 **Appearance** 字段。如果它已经是 Danbooru 标签，就原样复制；如果是普通文字，写提示词的模型会把它转成标签。服装来自角色追踪器运行时记录的当前穿着，同样转成标签。
 
-每个 Roleplay 聊天都有自己的 **Image Run Interval**(运行间隔)，就在 **Chat Settings** 里的 Illustrator 卡片上。它的帮助文字是：“Messages between automatic images in this chat. 0 means only when you ask.”没有单独设置过的聊天会使用设置界面里的 **Image Run Interval**，没改过的话就是 **5**。卡片上会显示 **Using agent default** 或 **Chat override**。按 **Use agent default**(改用智能体默认值) 就能回到设置界面里的值。把 Illustrator 加入聊天时，添加窗口里也有同一个字段，你的选择只会保存到那个聊天。
+开启 **Attach Card Appearance** 后，写提示词的模型还会收到聊天里每张角色卡和每个用户角色的完整 Appearance 文本，所以较长的角色卡或多人角色卡不会被截断。以 `[NAME] tags | [NAME] tags` 格式描述多个角色的多人卡会按角色分别列出。模型会把固定特征复制到对应的描述里，把卡片里的服装标签当作可被追踪器或场景覆盖的默认值，并忽略不在场景里的角色。描述返回后，Marinara 不再追加任何内容。没有描述时，也就是只有一个角色的情况，会像以前一样把常规外观描述行加进主提示词。
 
-把 **Image Run Interval** 设为 **0**，即可仅手动生成图片。这会停止 Illustrator 的自动图片生成，包括场景背景。使用 **Clips only** 时，要停止自动短片，应改为把 **Video Run Interval** 设为 **0**。智能体仍保持安装，也仍可用于 Gallery 操作。把图片间隔设为正数即可恢复自动图片生成。
-
-也可以不等它自己动手，随时手动出一张图。打开 **Chat Settings**，展开 **Gallery**，点 **Illustrate**(生成插图) 按钮，Illustrator 会立刻运行一次，出图期间按钮会显示 **Generating...**。想给眼下这一刻配张图、而智能体还没画的时候，这个按钮很好用。
+不需要任何设置。只有直接连 NovelAI 自有服务器时才会生成角色描述，代理或其他服务不受影响。开启 **Expose media prompts before sending**(发送前显示媒体提示词) 后，检查窗口会在主提示词下方列出这些描述，只读。主提示词照常编辑。
 
 ## 图库保存与提示词查看
 
-**Settings → Generations → Image Generation**(设置 → 生成 → 图像生成) 中的 **Automatically save generated images to character galleries**(自动将生成的图片保存到角色图库) 默认开启。关闭后，聊天插图和自拍将不再自动加入图片中角色和用户角色的图库。图片仍会显示在对话和聊天图库中，也仍可手动保存到图库。已有条目不会改变。各图库共享图片文件，因此该选项只控制图片所属的图库，不会删除聊天中的图片文件。
+在 **Settings → Generations → Image Generation**(设置 → 生成 → 图像生成) 中，**Automatically save generated images to character galleries**(自动将生成的图片保存到角色图库) 默认开启。关闭后，聊天插图和自拍就不会再加入图中角色和用户角色的图库。图片仍会显示在聊天记录和聊天 Gallery 里，手动保存到图库也照常可用。已有条目不变。各图库共享图片文件，所以这个选项控制的是图片属于哪些图库，而不是删除。
 
-对于 Illustrator 使用 NovelAI 新生成的插图，检查器会先显示场景或风格提示词，再显示以 ` | ` 分隔的各角色正向描述。图库保存的提示词也包含这些内容。
+对于新的 NovelAI 插图，图片检查器会先显示场景和风格提示词，再显示各角色的正向描述，用 ` | ` 分隔。保存到图库的提示词也一样。
 
-要用修改过的提示词重新画一张插图，而不重新生成回复，打开这张插图并使用 **Regenerate image**(重新生成图片)。参见[重新生成图片](scene-backgrounds.md#regenerating-an-image)。
+要用修改过的提示词重画一张插图，而不重新生成回复，打开它并使用 **Regenerate image**(重新生成图片)。见[重新生成图片](scene-backgrounds.md#regenerating-an-image)。
 
-要为 Roleplay 中较早的消息或消息范围生成插图，请使用 `/illustrate range=12` 或 `/illustrate range=12-18`。编号方式与限制请参阅[斜杠命令](../chats/slash-commands.md)。
+要为较早的 Roleplay 消息或消息范围生成插图，使用 `/illustrate range=12` 或 `/illustrate range=12-18`。见[斜杠命令](../chats/slash-commands.md)。
 
 ## 相关指南
 

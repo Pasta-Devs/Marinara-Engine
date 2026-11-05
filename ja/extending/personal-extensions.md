@@ -1,254 +1,86 @@
 # 個人用拡張機能
 
-個人用拡張機能は、Professor Mariが作る非公開のコード草案です。**Settings**(設定) > **Addons**(アドオン) > **Personal Extensions**(個人用拡張機能)を開きます。
+個人用拡張機能は、Marinaraにボタン、パネル、補助機能を追加する小さなコードです。Professor Mariに書いてもらうことができ、そもそも実行するかどうかは自分で決めます。このガイドでは、拡張機能の確認、有効化、エクスポート、復旧について説明します。自分で書く場合は、[Personal Extensionsの作成](writing-personal-extensions.md)を参照してください。
 
-最初は次のメッセージが表示されます(有効にしてコードのハッシュをそのまま承認するまで何も実行されない、という内容です)。
+## 拡張機能の種類
 
-> Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.
+| 名前 | 内容 |
+| --- | --- |
+| Personal Extension(個人用拡張機能) | Professor Mariが書いてくれた拡張機能です。**Settings → Addons**(設定 → アドオン)の下に下書きとして表示されます。 |
+| External Extension(外部拡張機能) | 他の人が作った拡張機能、または自分で書いた拡張機能です。[サードパーティー製拡張機能のインポートを許可する](#allow-third-party-imports)の追加手順が必要です。 |
+| Browser Extension(ブラウザー拡張機能) | ブラウザーの中のサンドボックスで動きます。デフォルトのままで安全です。 |
+| Server Extension(サーバー拡張機能) | Marinaraを動かしているコンピューター上の、OSのサンドボックスの中で動きます。対応するプラットフォームが必要です。 |
+| Full page access(ページ全体へのアクセス) | サンドボックスを外す権限です。完全に信頼できるコードにだけ使ってください。 |
 
-このセクションには新しい草案を作る操作も、インポートの操作もありません。草案の作成や修正はProfessor Mariに頼みます。Professor Mariはコードを保存できますが、承認したり有効にしたりはできません。
+## 共有された拡張機能をインストールする
 
-自分でパッケージを作成してインポートする場合は、[個人用拡張機能の作成ガイド](writing-personal-extensions.md)を参照してください。自作パッケージは、個別に許可を求めるExternal Extensionsのフローを使用します。
+始める前に、[サードパーティー製拡張機能のインポートを許可する](#allow-third-party-imports)の2つの手順を済ませてください。済ませていないと、インポートのボタンは表示されません。
 
-## テキストのトークン数を推定する
+1. **Settings → Addons**(設定 → アドオン)を開きます。**External Extensions**(外部拡張機能)の下で、`.zip`、`.json`、`.css`、`.js`のファイルなら**Import Extension File**(拡張機能のファイルをインポート)を、フォルダーなら**Import Extension Folder**(拡張機能のフォルダーをインポート)を選びます。
+2. 新しい下書きを開きます。下書きは無効の状態で、コードとハッシュが表示されます。ハッシュとは、そのコードそのものを表す短いフィンガープリントです(MarinaraはSHA-256を使います)。
+3. コードと**Requested access**(要求されている権限)の一覧を読みます。
+4. そのバージョンをそのまま受け入れられる場合にだけ、**Review and Run**(確認して実行)を選びます。すると、拡張機能は有効と表示されます。
 
-Browser、Full page access、Serverの個人用拡張機能では、Marinaraに組み込まれたテキストのトークン数推定機能を使えます。
+うまくいかなかった場合: インポートのボタンが見当たらないときは、2つの手順のどちらかが済んでいません。`.env`を変更したあとは、忘れずにMarinaraを再起動してください。
 
-```js
-const tokens = marinara.estimateTextTokens(text);
-```
+## Professor Mariが作った拡張機能を確認する
 
-シグネチャは`estimateTextTokens(text: string): number`です。`@marinara-engine/shared`からエクスポートされる`PersonalExtensionTokenApi`型にも定義されています。呼び出しは同期的に処理され、追加の権限は必要ありません。返される値はモデルに依存しないMarinaraの推定トークン数で、トークナイザーによる正確な計数ではありません。古いEngineでは、呼び出す前に`typeof marinara.estimateTextTokens === "function"`を確認してください。
+始める前に、[Professor Mari](../home/professor-mari.md)に拡張機能の作成を頼んでください。Professor Mariはコードを保存できますが、承認したり有効にしたりはできません。このセクションには、New Draftボタンも、インポートの操作もありません。
 
-## コードの確認と有効化
+1. **Settings → Addons → Personal Extensions**(設定 → アドオン → 個人用拡張機能)を開きます。下書きがない場合は、「Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.」と表示されます。
+2. 下書きを開いてコードを読みます。ハッシュと**Requested access**(要求されている権限)の一覧を確認します。
+3. そのバージョンをそのまま受け入れられる場合にだけ、**Review and Run**(確認して実行)を選びます。
 
-草案は必ず無効の状態から始まります。Marinaraは実行されるコードそのものをSHA-256でフィンガープリント化します。草案を開いてコードを読み、表示されているハッシュを照合したうえで、そのバージョンを受け入れられる場合にだけ**Review and Run**(確認して実行)を選びます。実行されるコードを編集したり、以前のリビジョンを復元したりすると、拡張機能は無効に戻り、あらためて承認が必要になります。
+下書きはすべて無効の状態から始まります。コードの編集、権限の変更、リビジョンの復元のいずれかを行うと、拡張機能は無効になり、あらためて承認が必要になります。
 
-サンドボックスは権限を狭めますが、任意のコードを信頼できるものに変えるわけではありません。悪意のある拡張機能でも、ウォッチドッグが止めるまでCPUを浪費する、制限の範囲内で自分のストレージを埋め尽くす、ログで欺くといったことはできます。全ページアクセスの拡張機能は、この分離を意図的に手放したものです。有効にする前に、必ずコードを確認してください。
+> **Warning:** サンドボックスはコードにできることを制限しますが、コードを信頼できるものにするわけではありません。有害な拡張機能でも、ウォッチドッグ(暴走したコードを止めるタイマー)が止めるまでプロセッサーの時間を浪費する、上限まで自分のストレージを埋める、ログを使って欺く、といったことはできます。ページ全体へのアクセスを持つ拡張機能は、意図的にサンドボックスを手放しています。有効にする前にコードを読み、サードパーティー製のコードは1行残らず確認してください。
 
-## 実行環境の分離
+うまくいかなかった場合: Professor Mariによる編集や、リビジョンの復元を行うと、下書きは無効に戻ります。もう一度確認し、ダイアログに表示されたハッシュが、自分が読んだコードのものであることを確かめてください。
 
-ブラウザー拡張機能は、opaque originのサンドボックス化されたiframeの中で、専用のWorkerとして動きます。MarinaraのページやDOM、Cookie、ブラウザーのストレージ、オリジンのAPI、ネットワークにはアクセスできません。使えるのは、拡張機能専用の非公開ストレージ、ログ出力、管理されたタイマー、クリーンアップの登録、制限付きのウィンドウ、安全なホスト側のコントリビューション枠、そして現在のチャットとキャラクターIDの読み取り専用スナップショットだけです。現在のキャラクターカードや選択中のペルソナの一部の項目を受け取れるのは、対応する権限が宣言され、承認されている場合だけです。
+## 拡張機能にできること
 
-拡張機能は`marinara.ui.registerContribution(...)`で、上部バーやサイドパネルの操作、**Extensions**メニューの項目、右側に常駐するパネルを追加できます。Marinaraはこうした表示面を、現在のテーマと決められたコントロール一式で描画します。使えるのは、見出し、テキスト、整形済みの出力、ボタン、テキスト入力、セレクト、トグル、スライダー、色のコントロール、スペーサーです。拡張機能が渡せるのは内容と状態だけで、HTML、CSS、URL、Reactコンポーネント、ホスト側のイベントハンドラーは渡せません。
+ブラウザー拡張機能は、ブラウザーの中のサンドボックス(外から隔離された領域)で動きます。Marinaraのページ、Cookie、ブラウザーのストレージ、ネットワークには届きません。できることは次のとおりです。
 
-これらのUIの機能と規則は、配布元にかかわらず、サンドボックス化されたブラウザー拡張機能すべてで共通です。インポートしたサードパーティー製の外部拡張機能も、パッケージが明示的に**Full page access**(全ページアクセス)を要求するか、後述するサンドボックス導入前の`marinara.extension`形式を使っていないかぎり、この安全な実行環境で動きます。
+- 非公開のストレージを持ち、ログを書く
+- Marinaraが使用中のテーマで描画するボタン、メニュー項目、パネルを追加する
+- 開いているチャットのIDを読み取る
+- 現在のキャラクターまたはペルソナの一部の項目を読み取る(該当する権限を承認した場合だけ)
 
-<a id="add-a-marinara-rendered-panel"></a>
+全体の一覧は[Personal Extensionsの作成](writing-personal-extensions.md#what-a-browser-extension-can-do)にあります。
 
-### Marinaraが描画するパネルの追加
-
-```js
-const panel = marinara.ui.registerContribution({
-  id: "weather-settings",
-  kind: "panel",
-  label: "Weather controls",
-  description: "Tune a weather scene without leaving Marinara.",
-  icon: "sparkles",
-  elements: [
-    { kind: "heading", text: "Atmosphere" },
-    {
-      kind: "select",
-      id: "weather",
-      label: "Weather",
-      value: "rain",
-      options: [
-        { value: "rain", label: "Rain" },
-        { value: "snow", label: "Snow" },
-        { value: "aurora", label: "Aurora" },
-      ],
-    },
-    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
-    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
-    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
-    { kind: "button", id: "apply", label: "Apply" },
-  ],
-  onActivate: async () => {
-    const settings = await marinara.storage.get();
-    // Update the panel when stored state should be reflected in the controls.
-  },
-  onEvent: async ({ elementId, values }) => {
-    if (elementId !== "apply") return;
-    await marinara.storage.patch(values);
-  },
-});
-
-marinara.onCleanup(() => panel.remove());
-```
-
-簡潔な操作には`kind: "button"`を、Extensionsメニューの操作には`kind: "menu-item"`を使います。同じ拡張機能のリビジョンにある既存のコントリビューションを起動するCommand Centerの項目には、`kind: "command"`を使います。コマンドには`targetContributionId`が必須で、`onActivate`や`onEvent`は使えません。
-
-```js
-marinara.ui.registerContribution({
-  id: "open-weather",
-  kind: "command",
-  label: "Open weather controls",
-  targetContributionId: "weather-settings",
-});
-```
-
-ホストがコマンドを解決するのは、対象の拡張IDとコンテンツハッシュが同じ場合だけです。対象が見つからない場合、別の拡張機能の対象の場合、古いリビジョンの対象の場合は、いずれもフェイルクローズします。ボタンの既定値は`surface: "top-bar"`です。代わりに`chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents`、`settings`を対象とし、`position`を`header`、`before-content`、`after-content`に設定できます。`icon`にはMarinaraが対応するkebab-caseのLucideアイコン名を指定できます。どちらの操作も`onActivate`を呼び出します。`panel`は開かれたときに`onActivate`を呼び出し、そのボタンは全コントロールの現在値を添えて`onEvent`を呼び出します。ハンドルは種類別の更新に対応し、`button`は`label`、`description`、`icon`、`surface`、`position`、`menu-item`は`label`、`description`、`icon`、`panel`は`label`、`description`、`icon`、`elements`を受け取ります。すべて`remove()`に対応します。IDには英字、数字、`.`、`_`、`-`を使えます。
-
-次の例では、Presetsパネルの内容より上にネイティブ操作を配置します。
-
-```js
-marinara.ui.registerContribution({
-  id: "preset-helper",
-  kind: "button",
-  label: "Preset helper",
-  description: "Run the preset helper",
-  icon: "list-sparkles",
-  surface: "presets",
-  position: "before-content",
-  onActivate: () => {
-    // Run extension behavior here.
-  },
-});
-```
-
-複雑なツールでは、イベントのあとにパネルの要素を更新して、複数ステップの画面を組み立てられます。アプリの状態は`marinara.storage`に持たせ、マークアップに埋め込まないでください。
-
-<a id="use-active-chat-context"></a>
-
-### 現在のチャットのコンテキストの利用
-
-ブラウザー拡張機能APIのバージョン5では、Marinaraがいま表示しているチャットの識別子を、中身のわからない値として取得できます。
-
-```js
-const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
-  if (!chatId) return; // Home, a library, or another surface without an active chat.
-
-  const storage = await marinara.storage.get();
-  const tab = storage.tabsByChat?.[chatId];
-
-  // characterId is available only for a single-Character chat.
-  // Use characterIds for group chats.
-  marinara.log.debug("Loaded Notepad tab", {
-    chatId,
-    characterId,
-    characterIds,
-    personaId,
-    characterNames: characters.map((character) => character.name),
-    personaName: persona?.name ?? null,
-    tab,
-  });
-};
-
-const unsubscribe = marinara.context.subscribe(renderForContext);
-marinara.onCleanup(unsubscribe);
-```
-
-`marinara.context.get()`は、購読せずに同じ最新のスナップショットを返します。開いているチャットがないときは、`chatId`が`null`になり、`characterIds`は空になります。`characterId`に値が入るのは、参加しているキャラクターがちょうど1人のときだけです。グループチャットでは参加者全員が`characterIds`に入り、`characterId`は`null`のままです。`personaId`に値が入るのは、`read_active_persona`が承認されている場合だけです。
-
-チャットとキャラクターのIDは常に取得でき、拡張機能が自分の非公開ストレージを名前空間で分けるのに使えます。レコードの項目を受け取るには、拡張機能のマニフェストで次のオプション権限の片方、または両方が必要です。
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["read_active_characters", "read_active_persona"]
-}
-```
-
-- `read_active_characters`があると、現在のチャットに参加しているカードの情報が`characters`に入ります。
-- `read_active_persona`があると、現在のチャットで選ばれているペルソナの情報が`persona`に入ります。
-
-権限がなければ、値は`[]`または`null`のままです。Marinaraは要求されたすべての権限を**Requested access**(要求されている権限)に表示し、ハッシュを承認するウィンドウでも再度表示します。権限を追加したり削除したりすると実行コードのハッシュが変わるため、拡張機能は無効になり、あらためて承認が必要になります。
-
-キャラクターのスナップショットに含まれるのは、`id`、`name`、`description`、`personality`、`scenario`、`firstMessage`、`exampleDialogue`、`creator`、`characterVersion`、`tags`、`backstory`、`appearance`、`aboutMe`、`conversationDisplayName`だけです。ペルソナのスナップショットに含まれるのは、`id`、`name`、`description`、`personality`、`scenario`、`backstory`、`appearance`、`tags`、`aboutMe`、`conversationDisplayName`だけです。テキストはサンドボックスの境界を越える前に長さを制限します。
-
-Marinaraは、メッセージ、作成者ノート、システムプロンプト、履歴の後ろに置く指示、コメント、アバターの画像パス、キャラクターやペルソナのライブラリー全体、宣言されていない項目、チャットのメタデータ、データベースのハンドル、ネットワークアクセス、書き換えの操作を、いっさい渡しません。コンテキストの更新は承認済みのコードハッシュに結び付いたままで、現在のチャット、参加キャラクターの一覧、選択中のペルソナが変わったときに届きます。
-
-<a id="add-a-dice-format"></a>
-
-### ダイス形式の追加
-
-ブラウザー拡張機能APIのバージョン6では、ナラティブダイスのプールなど、独自の記法を`/roll`に追加できます。拡張機能が記法を読み取り、振るダイスを指定すると、Marinaraが自身の安全なダイスローラーで振り、出目を返します。拡張機能が決められるのはロールの意味であって、出目そのものではありません。
-
-```js
-const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
-
-const format = marinara.dice.registerFormat({
-  id: "narrative",
-  label: "Narrative dice",
-  // Return null for notation this format does not read.
-  parse(notation) {
-    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
-    if (!terms.length) return null;
-    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
-    return { dice: kinds.map(() => 6), kinds };
-  },
-  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
-  read({ notation, dice, rolls, plan }) {
-    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
-    return { total: net, text: net > 0 ? `${net} success` : "failure" };
-  },
-});
-marinara.onCleanup(() => format.remove());
-```
-
-これで`/roll 2 boost 1 setback`を使うと、出目、合計、拡張機能のテキストが、その形式の名前を添えて投稿されます。`2d6`や`4d6kh3`などの通常の記法は、常にこれまでどおりに振られ、拡張機能には渡されません。それ以外の記法は登録された各形式に順番に渡され、`parse`が最初にダイスを返した形式で振ります。
-
-- `parse(notation)`は`null`、または2～1000面のダイス1～100個を指定する`{ dice: [sides, ...] }`を返します。オブジェクトのそれ以外の内容はサンドボックス内にとどまり、`plan`として`read`に渡されます。
-- `read(...)`は`{ total, text?, kept? }`を返します。有限の数値、最大200文字のプレーンテキスト、任意で採用したダイスの位置を昇順に指定します。`/roll`は、それ以外のダイスに取り消し線を引きます。
-- 拡張機能ごとに4つの形式を登録できます。記法は最大100文字です。`parse`と`read`は非同期でもかまいませんが、それぞれ2秒以内に応答する必要があります。
-- テキストはプレーンテキストとして表示され、リンク、画像、書式、HTMLはエスケープされます。
-
-ダイス形式が対応するのは、ブラウザーの`/roll`です。ゲームマスターの`roll_dice`ツールと、それ以外のサーバー側のロールでは、引き続き組み込みの記法とルールセットのダイスを使います。古いEngineで呼び出す前に、`typeof marinara.dice?.registerFormat === "function"`を確認してください。
-
-### 旧形式と全ページアクセスの拡張機能
-
-天気を操作するツール、プロンプトのエディター、その他の本格的なワークフローは、コントリビューションの用途として妥当です。安全な形に移植する場合は、メニューや上部バーのランチャーに、順次更新していくパネルを組み合わせられます。DOMのオーバーレイを挿入する、MarinaraのCSSセレクターを参照する、Reactの内部構造をたどる、同一オリジンの`/api`ルートを呼び出す、といった既存のパッケージは、そのままでは安全な実行環境にインポートできません。
-
-UIのコントリビューションが提供するのは画面であって、暗黙の権限ではありません。コンテキストAPIが常に公開するのは現在のチャットとキャラクターのIDだけで、それ以外は上に挙げた、宣言済みで現在有効なレコードの項目にかぎられます。メッセージ、プリセット、ロアブック、宣言されていないキャラクターやペルソナのデータ、画面の演出が必要な機能には、Marinaraが用意する用途を絞った別の仲介機能が必要です。拡張機能が、ホストのDOMアクセスや無制限のネットワーク通信でそれを代用してはいけません。
-
-外部拡張機能がホストのDOMアクセスをどうしても必要とする場合は、次のように要求できます。
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["full_page_access"]
-}
-```
-
-**Full page accessはサンドボックスの機能ではありません。** 承認されたJavaScriptとCSSは、Marinaraのページの中で動きます。そのコードは、いま開いているブラウザーのセッションから見えるものをすべて読み取ったり書き換えたりでき、チャットやカードを調べ、ブラウザーのストレージを使い、ネットワーク通信を行い、同一オリジンのMarinaraのAPIを呼び出せます。実質的な権限は、ブラウザーのコンソールに貼り付けたコードと変わりません。Professor Mariの草案がこれを要求することはできません。
-
-ページへのフルアクセスを持つ拡張機能では、ネットワークリクエストに`marinara.fetch(...)`を使ってください。シグネチャーと戻り値は`window.fetch`と同じですが、**Settings > Addons > External Extensions**(設定 > アドオン > 外部拡張機能)に、その拡張機能のセッション中のリクエスト数、レスポンスが報告する転送バイト数、直近のリクエスト頻度、トラフィックが多い状態が続いた場合の警告を表示できます。フルアクセスのコードは信頼されたページコードとして動くため、`window.fetch`の直接呼び出しも引き続き利用できます。ただし、そのリクエストを拡張機能に紐付けることはできません。
-
-Marinaraは、`capabilities`項目を明示していない古い`kind: "marinara.extension"`のv1形式を、サンドボックス導入前のパッケージとみなし、インポート時に**Full page access**を割り当てます。これにより、WeatherTweakerのような旧来のパッケージが、Workerの中で黙って失敗する代わりに、正しい確認の流れに進みます。この形式を使いながら安全な実行環境で動かしたい最近のパッケージは、`"capabilities": []`を明記してください。
-
-外部拡張機能の2つのゲートと、ハッシュどおりの承認は引き続き必要です。コード、CSS、権限のいずれかが変わると拡張機能は無効になり、あらためて承認が必要になります。無効にすると、Marinaraはスクリプトとスタイルシートのノードを取り除き、互換API経由で作られたタイマーを取り消し、`marinara.onCleanup(...)`で登録されたコールバックを実行します。ページ側のコードは、登録されていないリスナー、タイマー、グローバル変数、DOMの変更を作れるため、後片付けは可能な範囲にとどまります。無効にしたあとに何か残っているようなら、ページを再読み込みしてください。
-
-古い`marinara.ui.showWindow(...)`APIも引き続き使えます。opaque originのiframeの中に一時的なウィンドウを開くためのものです。使えるコントロールは同じで、`update(...)`と`close()`のハンドルを返します。Marinaraの通常の画面移動からツールに行き着くようにしたい場合は、コントリビューションのほうを選んでください。
-
-サーバー拡張機能は、macOSのSeatbeltまたはLinuxのBubblewrapの中で、権限を制限した別のNodeプロセスとして動きます。Marinaraのファイル、利用者のファイル、引き継がれたサーバーの秘密情報、ネットワーク、子プロセス、ワーカー、ネイティブアドオンにはアクセスできません。対応するOSのサンドボックスを用意できない場合、サーバー拡張機能は無効のままです。
+サーバー拡張機能は、OSのサンドボックスの中で、別のNodeプロセス(サーバーのコンピューター上で動くプログラム)として動きます。Marinaraのファイル、自分のファイル、サーバーの秘密情報、ネットワーク、子プロセス、ワーカー、ネイティブアドオンには届きません。
 
 <a id="platform-support"></a>
 
 ### 対応プラットフォーム
 
-ブラウザー拡張機能はブラウザー自身がサンドボックス化するため、どの環境でも動きます。サーバー拡張機能には対応するOSのサンドボックスが必要で、それがない環境では無効のままとなり、有効にできません。Marinaraがサンドボックスなしで実行に切り替えることは絶対にありません。
+ブラウザー拡張機能はブラウザーがサンドボックス化するため、どの環境でも動きます。サーバー拡張機能には、対応するOSのサンドボックスが必要です。サンドボックスがない環境では無効のままで、Marinaraがサンドボックスなしでサーバー拡張機能を実行することはありません。
 
-| プラットフォーム | サンドボックス化されたブラウザー拡張機能 | 全ページアクセスの外部拡張機能 | サーバー拡張機能 |
-| ----------------------- | ---------------------------- | ----------------------------- | ------------------------------------- |
-| macOS | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ✅ サンドボックス化(Seatbelt) |
-| Linux(Bubblewrapあり) | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ✅ サンドボックス化(Bubblewrap) |
-| Linux(`bwrap`なし) | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ⛔ 無効(`bwrap`をインストール) |
-| Docker(既定) | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ⛔ 無効(コンテナーの権限による制限) |
-| Windows | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ⛔ 無効(ブラウザー拡張機能を使用) |
-| Android | ✅ サンドボックス化 | ⚠️ 明示的な信頼が必要 | ⛔ 無効(ブラウザー拡張機能を使用) |
+| プラットフォーム | サーバー拡張機能 |
+| --- | --- |
+| macOS | macOSのサンドボックスであるSeatbeltでサンドボックス化 |
+| Linux(Bubblewrapあり) | LinuxのサンドボックスツールであるBubblewrapでサンドボックス化 |
+| Linux(`bwrap`なし) | 無効: `bwrap`をインストール |
+| Docker(デフォルト) | 無効: コンテナーの権限による制限 |
+| Windows | 無効: ブラウザー拡張機能を使用 |
+| Android | 無効: ブラウザー拡張機能を使用 |
 
-公式DockerイメージにはBubblewrapが含まれていますが、最小限の権限で動く既定のコンテナーでは、Bubblewrapに必要な入れ子の名前空間やマウントを作成できません。Marinaraは実行時にサンドボックスを検証し、コンテナーが許可しない場合はサーバー拡張機能を無効のままにします。Dockerの権限を明示的に変更する方法と、そのセキュリティ上のトレードオフは[トラブルシューティング](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)を参照してください。
+ブラウザー拡張機能は、どのプラットフォームでもサンドボックス化されます。ページ全体へのアクセスを持つ外部拡張機能は、どの環境でもサンドボックス化されず、常に明示的な信頼が必要です。
 
-WindowsとAndroidには対応するOSのプロセスサンドボックスがないため、サーバー拡張機能は仕様として使えません。代わりにブラウザー拡張機能を使うか、サーバー拡張機能が必要な場合はMarinaraのサーバーをmacOSかLinux(`bwrap`あり)で動かしてください。
+公式DockerイメージにはBubblewrapが含まれていますが、デフォルトのコンテナーでは、Bubblewrapに必要な入れ子の名前空間やマウントを作成できません。Marinaraは実行時にサンドボックスを検証し、コンテナーが許可しない場合はサーバー拡張機能を無効のままにします。Dockerの権限を上書きする方法と、そのセキュリティ上のトレードオフについては、[トラブルシューティング](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available)を参照してください。
 
-## 外部拡張機能
+WindowsとAndroidには対応するプロセスサンドボックスがないため、サーバー拡張機能は使えません。ブラウザー拡張機能を使うか、Marinaraのサーバーを、macOS、または`bwrap`のあるLinuxで動かしてください。
 
-サードパーティー製のインポートは、デフォルトでロックされ、表示もされません。使うには2つの手順が必要です。
+<a id="allow-third-party-imports"></a>
 
-1. Marinaraを動かしているホストで、`.env`に`ENABLE_EXTERNAL_EXTENSIONS=true`を設定します。
-2. **Settings** > **Advanced** > **Danger Zone**を開き、データ削除の操作より下までスクロールして、警告を読んだうえで**Allow third-party extension imports**(サードパーティー製拡張機能のインポートを許可)を有効にします。
+## サードパーティー製拡張機能のインポートを許可する
 
-ここまで済むと、**Settings** > **Addons**に**External Extensions**が現れ、ファイルとフォルダーのインポート操作が使えるようになります。対応形式は常に展開して表示されます。
+サードパーティー製拡張機能のインポートは、他の人が書いたコードを実行するため、デフォルトではロックされ、表示もされません。次の2つの手順で使えるようになります。
+
+1. Marinaraを動かしているコンピューターで、`.env`ファイルに`ENABLE_EXTERNAL_EXTENSIONS=true`を設定し、Marinaraを再起動します。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
+2. **Settings → Advanced → Danger Zone**(設定 → 詳細設定 → 危険な操作)を開き、データ削除の操作より下までスクロールして、警告を読んでから**Allow third-party extension imports**(サードパーティー製拡張機能のインポートを許可)をオンにします。
+
+すると、**Settings → Addons**(設定 → アドオン)に**External Extensions**(外部拡張機能)が表示され、ファイルとフォルダーのインポート操作が使えるようになります。対応形式は次のとおりです。
 
 - `.personal-extension.zip`と、互換性のある`.zip`パッケージ
 - `.json`のマニフェスト
@@ -256,25 +88,30 @@ WindowsとAndroidには対応するOSのプロセスサンドボックスがな�
 - `.js`、`.mjs`、`.cjs`
 - `.server.js`、`.server.mjs`、`.server.cjs`
 
-インポートしただけでは承認されず、拡張機能が自分自身を有効にすることもできません。旧形式のもの、プロファイルからインポートされたもの、手作業で保存されたもの、出所が不明なレコードも外部として扱います。これらは隠されたままで承認できず、2つのゲートが両方とも開くまで、どちらの実行環境からも除外されます。
+インポートしたものに承認が付いてくることはなく、拡張機能が自分自身を有効にすることもできません。ほとんどのブラウザー拡張機能は、安全なサンドボックスの中に置いたままにしてください。**Full page access**(ページ全体へのアクセス)と表示されたパッケージは別です。
 
-ハッシュを承認する前に、**Requested access**の一覧を確認してください。ほとんどのブラウザー拡張機能は、安全なサンドボックスの中に置いたままにするべきです。**Full page access**と表示されたパッケージは意図的に分離されていないので、そのバージョンのコードを自分で読み、信頼できると判断したときにだけ有効にしてください。
+- コードはMarinaraのページの中で、サンドボックスなしで動きます。
+- チャットやカードを読み取り、ブラウザーのストレージを使い、ネットワーク通信を行い、Marinara自身のAPIを呼び出せます。
+- 有効にするのは、そのバージョンのコードを確認し、信頼できると判断したあとだけにしてください。
+- Professor Mariの下書きがこれを要求することはできません。
 
-どちらかのゲートをオフにすると、動作中の外部サーバープロセスが止まり、ブラウザーのワーカーと全ページ実行環境のノードが取り除かれ、保存済みの外部レコードが無効になります。ゲートを開き直しても、自動的に再び実行されることはありません。全ページアクセスの拡張機能が、クリーンアップに登録していない変更を残した場合は、ページを再読み込みしてください。
+旧形式のもの、プロファイルからインポートされたもの、手作業で保存されたもの、出所が不明なレコードも、外部として扱われます。これらは2つの手順が両方とも済むまで、表示されず、承認できず、実行もされません。
 
-サードパーティー製の拡張機能には、悪意のあるコードや危険なコードが含まれている可能性があります。ダウンロード、インポート、有効化のいずれの前にも、必ず全行に目を通してください。実行の責任はすべて実行する側にあります。
+どちらかの設定をオフにすると、インポートしたすべての拡張機能が無効になります。もう一度オンにしても、再び実行されることはありません。ページ全体へのアクセスを持つ拡張機能が変更を残した場合は、ページを再読み込みしてください。
+
+うまくいかなかった場合: インポートの操作が表示されないときは、2つの手順が両方とも済んでいることを確認してください。あわせて、サーバーのコンピューターで操作しているか、**Settings → Advanced → Admin Access**(設定 → 詳細設定 → 管理者アクセス)に管理者用のシークレットを保存していることも確認してください。
 
 ## エクスポート、リビジョン、トラブル時の対処
 
-拡張機能のエクスポート操作を使うと、持ち運べるパッケージをダウンロードできます。エクスポートしたパッケージも、復元したパッケージも無効のままです。リビジョンを復元した場合も、無効の草案に戻ります。
+拡張機能のエクスポート操作を使うと、持ち運べるパッケージをダウンロードできます。エクスポートしたパッケージも、復元したパッケージも無効のままです。リビジョンを復元した場合も、無効の下書きに戻ります。
 
-**Settings → Addons → Extension revision history**(設定 → アドオン → 拡張機能のリビジョン履歴)では、すべての個人用拡張機能と外部拡張機能について、以前のコードを何版保持するかを指定します。デフォルトは**10**です。**0–10**から選べ、**0**にすると履歴を残しません。上限を下げると、古いリビジョンを完全に削除する前に確認が表示されます。現在の拡張機能のコード、承認、有効状態、保存済みの拡張機能データは保持されます。その後の編集やロールバックにも同じ上限が適用され、Professor Mariによる編集も対象です。
+**Settings → Addons → Extension revision history**(設定 → アドオン → 拡張機能のリビジョン履歴)では、すべての個人用拡張機能と外部拡張機能について、以前のコードを何版保持するかを指定します。デフォルトは**10**です。**0**から**10**までを選べ、**0**にすると履歴を残しません。上限を下げると、古いリビジョンを完全に削除する前に確認が表示されます。現在のコード、承認、有効状態、保存済みの拡張機能データは保持されます。Professor Mariを通じた編集にも同じ上限が適用されます。
 
-拡張機能の動作がおかしいときは**Disable**(無効化)を選びます。画面を操作できない場合は、Marinaraを停止し、該当する`installed_extensions`レコードの`enabled`の値を`"false"`にします。`approvedHash`を手作業で書き換えては絶対にいけません。
+拡張機能の動作がおかしいときは、**Disable**(無効にする)を選びます。画面を操作できない場合は、Marinaraを停止し、該当する`installed_extensions`レコードの`enabled`の値を`"false"`にします。`approvedHash`は絶対に手作業で設定しないでください。
 
 ## 関連ガイド
 
-- [個人用拡張機能を作成する](writing-personal-extensions.md)
+- [Personal Extensionsの作成](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [サーバー設定リファレンス](../CONFIGURATION.md)
 - [バックアップと復元](../data/backup-and-restore.md)

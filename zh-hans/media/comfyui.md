@@ -1,25 +1,26 @@
 # ComfyUI 工作流设置
 
-Marinara Engine 可以把图像生成和视频生成的请求发给本地的 ComfyUI 服务器，也可以把图像请求发给运行着 ComfyUI 的 RunPod Serverless 端点。本地图像连接可以直接用 Marinara 内置的基础工作流，视频连接和进阶的图像配置则要用自定义的 API 格式工作流。
+Marinara Engine 可以把图像和视频请求发给本地的 ComfyUI 服务器，也可以把图像请求发给运行着 ComfyUI 的 RunPod Serverless 端点。本地图像模型可以直接用 Marinara 内置的基础工作流。视频和进阶的图像配置则要用你自己的 API 格式工作流，也就是从 ComfyUI 导出成 JSON 的工作流。
 
-粘贴进 Marinara 的工作流 JSON 只是一份快照，Marinara 不会和 ComfyUI 里打开的工作流保持实时联动。每次在 ComfyUI 里改完工作流，都要重新测试、重新导出，再替换掉保存在 Marinara 连接上的 JSON。
+粘贴进 Marinara 的 JSON 只是一份快照，Marinara 不会和 ComfyUI 里打开的工作流保持实时联动。在 ComfyUI 里改了工作流之后，要测试一遍、重新导出，再替换掉保存在 Marinara 里的 JSON。
 
 ## 开始之前
 
 装好 ComfyUI，把工作流需要的 checkpoint 和自定义节点都加上，然后启动它的服务器。本地地址通常是 `http://127.0.0.1:8188`。
 
-如果 ComfyUI 跑在家庭网络里的另一台电脑上，它的服务器必须监听 Marinara 能访问到的地址。图像连接还需要在 Marinara 的 `.env` 里设置 `IMAGE_LOCAL_URLS_ENABLED=true`，见[服务器配置参考](../CONFIGURATION.md)。连接还是失败的话，检查另一台电脑的防火墙。
+如果 ComfyUI 跑在家庭网络里的另一台电脑上，它的服务器必须监听 Marinara 能访问到的地址。图像账号还需要在 Marinara 的 `.env` 里设置 `IMAGE_LOCAL_URLS_ENABLED=true`，见[服务器配置参考](../CONFIGURATION.md)。连接还是失败的话，检查另一台电脑的防火墙。
 
-本地语言模型和图像模型可能没办法同时装进显存，8 GB 显卡尤其如此。Marinara 的图像队列会避免多个图像任务同时运行，但没法让两个已加载的模型挤进同一块显存。显存不够时，可以改用云端或单独部署的语言模型，把 ComfyUI 挪到另一台设备上跑，或者在使用其中一个模型之前先卸载另一个。
+本地语言模型和图像模型可能没办法同时装进显存，8 GB 显卡尤其如此。Marinara 的图像队列会阻止多个图像任务同时运行，但没法让两个已加载的模型挤进同一块显存。显存不够时，可以改用云端语言模型，把 ComfyUI 挪到另一台设备上跑，或者在使用其中一个模型之前先卸载另一个。
 
 ## 创建 Marinara 连接
 
-1. 打开 **Connections**(连接)，新建一个 **Image Generation**(图像生成) 连接。
-2. 本地服务器选 **ComfyUI**，RunPod 端点选 **RunPod Serverless (ComfyUI)**。
-3. 本地 ComfyUI 填它的 Base URL，不需要 API 密钥。**ComfyUI Workflow**(ComfyUI 工作流) 输入框留空时，Marinara 会使用内置的基础文生图工作流。
-4. RunPod 则填 API 密钥和 Endpoint ID，必须提供自定义工作流。
-5. 配置 **Local Image Defaults**(本地图像默认值)。这些值会替换掉工作流里对应的占位符。
-6. 保存连接，加好工作流之后用 **Test Image**(测试图像) 试一下。
+1. 点击 **Connections**(连接)，再点击 **Add**(添加)。在 **Add account**(添加账号) 窗口的 **Images & video**(图像与视频) 下，本地服务器选 **ComfyUI**，RunPod 端点选 **RunPod Serverless (ComfyUI)**。
+2. 本地 ComfyUI 填它的地址（`http://127.0.0.1:8188`），不需要 API 密钥。**ComfyUI workflow (optional)**(ComfyUI 工作流，可选) 输入框留空时，Marinara 会使用内置的基础文生图工作流。
+3. RunPod 则填 API 密钥和 **RunPod endpoint ID**(RunPod 端点 ID)，必须提供自定义工作流。
+4. 在图像模型上设置 **Local image defaults**(本地图像默认值)。这些值会替换掉工作流里对应的占位符。
+5. 粘贴工作流，保存，然后点击 **Test image**(测试图像)。
+
+如果没有成功，见[故障排查](#troubleshooting)。
 
 ## 构建并导出工作流
 
@@ -37,9 +38,9 @@ API 格式的工作流和可视化编辑器里的普通工作流不是一回事�
 
 ## ComfyUI 视频工作流
 
-新建一个 **Video Generation**(视频生成) 连接，选 **ComfyUI**，把 API 格式的工作流粘进必填的 **ComfyUI Workflow** 输入框。只要同一个工作流能在 ComfyUI 里跑通，并且通过核心的 **SaveVideo** 这类输出节点保存出 MP4，WAN 2.2 和其他本地视频图都可以用。
+在 **Images & video** 下添加一个 **ComfyUI** 账号，打开它的视频模型。把 API 格式的工作流粘进必填的 **ComfyUI workflow (optional)** 输入框。只要同一个工作流能在 ComfyUI 里跑通，并且通过核心的 **SaveVideo** 这类输出节点保存出 MP4，WAN 2.2 和其他本地视频图都可以用。
 
-视频工作流可以用这些带引号的占位符：
+视频工作流可以用下面这些占位符，要放在引号里：
 
 | 占位符 | Marinara 提供的值 |
 | --- | --- |
@@ -52,7 +53,7 @@ API 格式的工作流和可视化编辑器里的普通工作流不是一回事�
 
 Marinara 通过 `/prompt` 把工作流排进队列，轮询 `/history`，再下载 `gifs` 或 `images` 输出里指定的 MP4。图生视频的操作会提供 `%reference_image_name%`，纯文本的连接测试不会，所以同一个工作流要同时应付两种情况时，把这个输入设成可选。
 
-本地 WAN 渲染在中端显卡上可能超过 30 分钟。ComfyUI 视频任务用的是 `VIDEO_GEN_TIMEOUT_MS`，不是只管图像的 `COMFYUI_GEN_TIMEOUT`。有效的工作流被提前中断时，调高视频超时时间并重启 Marinara。
+本地 WAN 渲染在中端显卡上可能超过 30 分钟。ComfyUI 视频任务用的是 `VIDEO_GEN_TIMEOUT_MS`，不是只管图像的 `COMFYUI_GEN_TIMEOUT`。如果有效的工作流被提前中断，调高视频超时时间并重启 Marinara。
 
 ## 添加 Marinara 占位符
 
@@ -116,7 +117,7 @@ Marinara 通过 `/prompt` 把工作流排进队列，轮询 `/history`，再下�
 | `%denoise%` | 重绘强度。也接受 `%denoising_strength%`。 |
 | `%clip_skip%` | 兼容节点使用的 Clip Skip 值。 |
 
-改完保存 JSON，把整个文件复制下来，粘贴到图像连接的 **ComfyUI Workflow** 里，保存连接，然后点击 **Test Image**。
+改完保存 JSON，把整个文件复制下来，粘贴到图像模型的 **ComfyUI workflow (optional)** 里，保存，然后点击 **Test image**。
 
 ## 使用参考图
 
@@ -140,7 +141,7 @@ Marinara 通过 `/prompt` 把工作流排进队列，轮询 `/history`，再下�
 
 Marinara 会把参考图上传到 ComfyUI 的 input 文件夹，并把占位符替换成 ComfyUI 返回的文件名。`%reference_image_name%` 指第一张图。有多个参考图输入的工作流可以用 `%reference_image_name_01%` 到 `%reference_image_name_04%`。
 
-如果工作流必须有图像输入，就在 **Local Image Defaults** 里开启 **Upload a 1x1 placeholder when no reference image is provided**。这样一来，请求里没有真实参考图时，Marinara 会传一张极小的占位图过去。
+如果工作流必须有图像输入，就在 **Local image defaults** 里开启 1x1 占位图上传选项。这样一来，请求里没有真实参考图时，Marinara 会传一张极小的占位图过去。
 
 ### 原始 base64 图像数据
 
@@ -150,9 +151,11 @@ RunPod 工作流支持原始 base64 占位符。文件名上传类的占位符�
 
 ## 为特定角色保留专属工作流
 
-某个角色需要特定的 checkpoint、LoRA 组合、ControlNet 配置或参考图布局时，可以为它单独导出一个工作流，并单独建一个 Marinara 图像连接。凡是那个角色或图像功能允许选连接的地方，选对应的图像连接就行。
+某个角色需要特定的 checkpoint、LoRA 组合、ControlNet 配置或参考图布局时，可以为它单独导出一个工作流，并单独建一个 Marinara 图像连接。凡是那个角色或图像功能允许选择的地方，选对应的图像模型就行。
 
-这样出来的效果通常比一个通用工作流更稳定，但每个连接保存的都是自己那份复制过来的 JSON。在 ComfyUI 里改过某个角色的工作流之后，导出、编辑、复制、粘贴这几步要对那个连接重做一遍。
+这样出来的效果可能比一个通用工作流更稳定，但每个模型保存的仍是它自己那份 JSON 副本。在 ComfyUI 里改过某个角色的工作流之后，导出、编辑、复制、粘贴这几步要对那个连接重做一遍。
+
+<a id="troubleshooting"></a>
 
 ## 故障排查
 

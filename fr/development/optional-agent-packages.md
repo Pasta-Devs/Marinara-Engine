@@ -943,6 +943,8 @@ description). Le Game Master reçoit alors une description de la carte comme "A 
 in it: a scarecrow (2), a corn-dolly shrine", au lieu de seulement savoir qu'elle a été faite à la main. Les deux
 nécessitent une Experience qui déclare 1.357.
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359 : objets qui coûtent un nombre d'histoire
 
 Une surcouche peut nommer des objets dont l'utilisation dépense (ou augmente) un drapeau numérique
@@ -1228,6 +1230,67 @@ Une vue `home-browser-tab` reçoit `capabilityProps.browserFullscreen` :
 - `enterLabel` et `exitLabel` : libellés accessibles localisés du bouton.
 
 Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse et les favoris de Home sont masqués, tandis que la barre supérieure d'Engine reste disponible. Il n'appelle pas l'API Fullscreen du navigateur et ne nécessite pas sa prise en charge. Cet état est temporaire et se réinitialise quand on quitte le paquet ou Home. Garde un bouton de sortie sur chaque écran du paquet et utilise `aria-pressed` pour refléter `active`. Les mises à jour des propriétés doivent actualiser le bouton sans remplacer les formulaires inachevés. Les paquets qui dépendent de cette commande déclarent Capability API 1.376 ou une version ultérieure ; les anciens peuvent garder leurs dispositions actuelles.
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814 : mettre en cache la partie stable du prompt d'un package
+
+Un package qui écrit avec `api.runtime.languageModels` peut marquer l'endroit où se termine la partie de son prompt
+qui reste identique à chaque appel : définis `cacheBreakpoint: true` sur un message passé à `chatComplete`. Le
+prompt jusqu'à ce message inclus est mis en cache, si bien que les appels suivants qui commencent par le même texte
+le paient moins cher. Place d'abord les instructions, les fiches de personnage et l'histoire jusqu'ici, garde-les
+identiques octet pour octet d'un appel à l'autre, et place ce qui change après le message marqué.
+
+- Anthropic : le moteur place un point d'arrêt de cache sur chaque message marqué, messages système compris, même
+  quand la mise en cache des prompts de la connexion est désactivée, et n'en ajoute aucun de lui-même. Le cache dure
+  5 minutes, ou 1 heure quand la connexion demande la durée de cache la plus longue. Une écriture dans le cache coûte
+  plus que le tarif d'entrée, une seule fois, et une lecture n'en coûte qu'une fraction ; les tarifs exacts dépendent
+  du modèle, consulte donc la tarification des modèles d'Anthropic. Anthropic accepte au plus quatre points d'arrêt :
+  s'il y a plus de messages marqués, ce sont les quatre derniers qui comptent. Un message marqué sans texte marque à
+  la place le message qui le précède. Un préfixe plus court que le minimum du modèle n'est pas mis en cache et coûte
+  le prix habituel.
+- OpenAI, Gemini, xAI et DeepSeek mettent d'eux-mêmes en cache les préfixes identiques : le marqueur ne change rien.
+- OpenRouter et les endpoints personnalisés compatibles OpenAI ne prennent pas encore le marqueur en compte : l'appel
+  part comme s'il n'y en avait pas, si bien qu'un modèle Claude atteint par cette voie n'est pas mis en cache.
+- Claude (Subscription) : l'Agent SDK met en cache de lui-même et le marqueur n'est pas envoyé ; la durée de cache de
+  la connexion s'applique.
+
+`usage` indique `cachedPromptTokens` (lus depuis le cache) et `cacheWritePromptTokens` (écrits dans le cache)
+quand le fournisseur les communique. `promptTokens` reste compté à la manière du fournisseur. Sur Anthropic et Claude
+(Subscription), il ne compte que l'entrée qui n'a été ni lue depuis le cache ni écrite dans celui-ci : le prompt entier
+vaut donc `promptTokens + cachedPromptTokens + cacheWritePromptTokens`, et `promptTokens` se réduit à la fin non mise
+en cache dès qu'un package marque un préfixe. Les routes compatibles OpenAI (OpenRouter compris) et Gemini comptent
+déjà les tokens mis en cache dans `promptTokens` : les ajouter de nouveau les compterait deux fois. Un appel sans
+message marqué reste inchangé.
+
+Les anciens moteurs ignorent ce champ : un package peut donc toujours le définir. Déclare 1.814 quand le package
+dépend de la mise en cache ou des compteurs d'utilisation du cache.
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815 : choisir combien de temps un prompt marqué reste en cache
+
+`chatComplete` accepte `cacheTtl: "5m" | "1h"` : la durée pendant laquelle le prompt, jusqu'aux messages
+`cacheBreakpoint` de l'appel (1.814), reste en cache sur Anthropic. Sans cette option, la durée de cache propre à la
+connexion s'applique, comme avant. Demande `"1h"` quand le même préfixe revient à plus de cinq minutes d'intervalle,
+par exemple le contexte d'une histoire que chaque scène réutilise pendant que le joueur lit. Une écriture dans un cache
+d'une heure coûte plus qu'une écriture dans un cache de 5 minutes : elle n'est donc rentable que si le préfixe est relu
+dans l'heure. Un appel sans message marqué ignore l'option, tout comme les fournisseurs qui mettent en cache d'eux-mêmes
+(OpenAI, Gemini, xAI, DeepSeek) et Claude (Subscription), où la durée de cache de la connexion s'applique.
+
+Les anciens moteurs ignorent l'option : un package peut donc toujours la transmettre. Déclare 1.815 quand le package en
+dépend.
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

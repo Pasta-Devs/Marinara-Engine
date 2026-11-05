@@ -1,276 +1,150 @@
 # Windows 설치 가이드
 
-이 가이드에서는 Windows에 Marinara Engine을 설치하는 방법을 설명합니다. 원클릭 설치 프로그램을 쓰는 쉬운 방법과 소스에서 직접 설치하는 방법이 있습니다. 시스템 요구 사항, 선택 기능, 나중에 업데이트하는 방법도 함께 다룹니다.
+이 가이드에서는 설치 프로그램(가장 단계가 적은 방법)이나 소스로 Windows PC에 Marinara Engine을 설치하는 방법을 설명합니다. 설치하고 나면 Marinara는 내 PC에서 실행됩니다.
 
-## 시스템 요구 사항
+## 시작하기 전에
 
-Marinara Engine은 사용 중인 Windows 컴퓨터에서 실행됩니다. 다음이 필요합니다.
+Windows 10 또는 Windows 11(64비트), 몇 기가바이트의 여유 디스크 공간, 설치하는 동안 사용할 인터넷 연결이 필요합니다. 설치 프로그램은 약 2.5GB의 여유 공간을 권장합니다.
 
-- Windows 10 또는 Windows 11(64비트).
-- 앱과 의존성 패키지를 넣을 여유 디스크 공간 몇 기가바이트.
-- 설치하는 동안 사용할 인터넷 연결(코드와 패키지를 다운로드합니다).
+도구 2가지도 필요합니다.
 
-두 설치 방법 모두 도구 2가지가 필요합니다. 설치 프로그램은 이 도구를 대신 받아 줍니다. 소스에서 설치할 때는 직접 설치해야 합니다.
+- **Node.js** 24, 25, 26 중 하나. Node.js가 앱을 실행합니다. 권장 버전은 LTS(Long Term Support, 장기 지원) 릴리스인 24입니다.
+- **Git**. Git이 코드를 다운로드하고, Marinara가 스스로 업데이트할 수 있게 해 줍니다.
 
-- **Node.js** 버전 24, 25, 26 중 하나. Node.js가 앱을 실행합니다. 권장 버전은 LTS 릴리스인 24입니다. LTS는 Long Term Support의 약자로, 오랫동안 지원되는 안정 버전을 뜻합니다.
-- **Git**. Git이 코드를 다운로드하고, 나중에 앱이 스스로 업데이트할 수 있게 해 줍니다.
+설치 프로그램을 쓴다면 두 도구를 따로 설치하지 않아도 됩니다. 설치 프로그램이 둘 다 받아 줍니다. 소스에서 설치한다면 직접 설치해야 합니다. pnpm(앱의 구성 요소를 설치하는 도구)은 설치하지 않아도 됩니다. 설치 프로그램과 `start.bat`이 알아서 준비합니다.
 
-pnpm은 앱의 구성 요소를 설치하는 패키지 관리자입니다. 설치 프로그램이나 **start.bat** 런처를 쓴다면 pnpm을 따로 설치하지 않아도 됩니다. 둘 다 Node.js에 들어 있는 pnpm 보조 도구인 Corepack을 통해, 또는 임시 다운로드로 알맞은 pnpm 버전을 알아서 준비합니다. `pnpm` 명령이 시스템에 있어야 하는 경우는 런처 없이 직접 설치할 때뿐입니다. 그 방법을 설명하는 항목에 설치 단계가 들어 있습니다.
+## Windows 설치 프로그램으로 설치하기
 
-## 방법 1: Windows 설치 프로그램(권장)
+1. [Marinara Engine 릴리스 페이지](https://github.com/Pasta-Devs/Marinara-Engine/releases)를 여세요.
+2. 최신 Windows 설치 프로그램을 다운로드하세요. 파일 이름은 `Marinara-Engine-Installer-` 뒤에 버전이 붙은 형태입니다.
+3. 설치 프로그램을 실행하세요. Windows에 "Windows protected your PC"(Windows의 PC 보호)가 표시되면 **More info**(추가 정보)를 고른 뒤 **Run anyway**(실행)를 고르세요. 단, 릴리스 페이지에서 받은 파일에만 이렇게 하세요.
+4. 화면의 안내를 따르세요. Node.js나 Git이 없으면 설치 프로그램이 설치하도록 두세요.
+5. 설치 폴더를 고르거나 기본값(`%LOCALAPPDATA%\Marinara-Engine`)을 그대로 쓰세요.
+6. 설치 프로그램이 앱을 다운로드하고 빌드하는 동안 기다리세요. 진행 목록에 각 단계가 표시됩니다. 몇 분 정도 걸립니다.
+7. 설치가 완료되었다고 표시되면 바탕 화면의 **Marinara Engine** 바로 가기를 두 번 클릭하세요.
 
-설치 프로그램이 가장 쉬운 시작 방법입니다. Node.js와 Git이 있는지 확인하고, 없으면 설치를 도와주며, 앱을 다운로드해 빌드하고 바로 가기까지 만들어 줍니다.
+콘솔 창(검은색 텍스트 창)이 열리고 진행 상황이 표시됩니다. 그다음 브라우저가 Marinara를 엽니다. 열리지 않으면 `http://127.0.0.1:7860`으로 이동하세요.
 
-다음 순서대로 진행하세요.
+설치 프로그램은 최신 안정 릴리스를 Git 사본으로 설치하므로, Marinara는 실행할 때마다 스스로 업데이트할 수 있습니다.
 
-1. 브라우저에서 Marinara Engine 릴리스 페이지를 여세요.
+> **팁:** 설치 프로그램이 Node.js와 Git을 다운로드하기 때문에 일부 백신 프로그램이 설치 프로그램을 위험 항목으로 표시합니다. 위의 릴리스 페이지에서 받은 설치 프로그램만 실행하세요.
 
-```text
-https://github.com/Pasta-Devs/Marinara-Engine/releases
-```
+## Marinara 시작하고 중지하기
 
-2. 그 페이지에서 최신 Windows 설치 프로그램 파일을 다운로드하세요.
-3. 설치 프로그램을 실행하고 화면의 안내를 따르세요. Node.js나 Git이 없으면 설치 프로그램이 설치하도록 두세요.
-4. 설치 폴더를 물으면 원하는 위치를 고르거나 기본값을 그대로 쓰세요.
-5. 설치 프로그램이 앱을 다운로드하고 빌드할 때까지 기다리세요. 몇 분 걸릴 수 있습니다.
-6. 끝나면 바탕 화면에 새로 생긴 바로 가기를 두 번 클릭해 Marinara Engine을 실행하세요.
+- **시작:** 바탕 화면 바로 가기나 시작 메뉴 항목을 두 번 클릭하세요. 소스로 설치했다면 Marinara 폴더에서 `start.bat`을 실행하세요.
+- **중지:** 바로 가기를 실행하면 콘솔 창이 열립니다. 그 창에서 <kbd>Ctrl</kbd>+<kbd>C</kbd>를 누르세요.
 
-잠시 뒤 브라우저가 열리면서 앱이 표시됩니다. 저절로 열리지 않으면 브라우저를 열고 다음 주소로 이동하세요.
+Marinara가 이미 실행 중이라면 바로 가기는 브라우저에서 Marinara를 다시 엽니다.
 
-```text
-http://127.0.0.1:7860
-```
+## 소스에서 설치하기
 
-설치 프로그램은 Git 기반 사본으로 앱을 설치합니다. 즉, 다음에 실행할 때 앱이 스스로 업데이트할 수 있습니다. 아래 Marinara Engine 업데이트 항목을 참고하세요.
+명령을 직접 실행하고 싶거나 staging(테스터용) 버전을 쓰고 싶다면 이 방법을 사용하세요.
 
-백신 프로그램이 설치 프로그램을 경고하더라도 이는 알려진 오탐입니다. 설치 프로그램이 Node.js와 Git을 다운로드하는데, 일부 백신 프로그램이 그 동작을 문제로 표시합니다. 설치 프로그램은 위에 링크한 공식 릴리스 페이지에서 받은 것만 실행하세요.
+1. [Node.js](https://nodejs.org/en/download)와 [Git for Windows](https://git-scm.com/download/win)를 설치하세요.
+2. 새 Command Prompt 창(명령을 입력하는 텍스트 창)을 여세요.
+3. 두 도구를 확인하세요. `node -v`는 버전 24, 25, 26 중 하나를 표시해야 합니다.
 
-## 방법 2: 소스에서 설치하기
+   ```bat
+   node -v
+   git --version
+   ```
 
-명령을 직접 실행하고 싶거나 테스터(staging) 버전을 쓰고 싶다면 이 방법을 사용하세요.
+   명령을 찾을 수 없다고 나오면 Command Prompt를 닫았다가 다시 열거나, 빠진 도구를 다시 설치하세요.
 
-### 1단계: Node.js와 Git 설치
+4. 코드를 다운로드하세요.
 
-1. 공식 사이트에서 Node.js 설치 프로그램을 다운로드해 실행하세요.
+   ```bat
+   git clone https://github.com/Pasta-Devs/Marinara-Engine.git
+   ```
 
-```text
-https://nodejs.org/en/download
-```
+5. 그 폴더로 이동하세요.
 
-2. 공식 사이트에서 Git 설치 프로그램을 다운로드해 실행하세요.
+   ```bat
+   cd Marinara-Engine
+   ```
 
-```text
-https://git-scm.com/download/win
-```
+6. 선택 사항: 처음 실행하기 전에 staging 버전으로 전환하세요. 안정 버전을 쓰려면 이 단계를 건너뛰세요. staging을 쓰기 전에는 데이터를 백업하세요.
 
-3. 새 Command Prompt 창을 여세요. Node.js 버전이 24, 25, 26 중 하나인지 확인하세요.
+   ```bat
+   git checkout staging
+   ```
 
-```bat
-node -v
-```
+   그러면 런처가 업데이트할 때도 staging을 유지합니다.
 
-4. Git이 설치되어 있는지 확인하세요.
+7. 런처(Marinara를 준비하고 시작하는 스크립트)를 실행하세요.
 
-```bat
-git --version
-```
+   ```bat
+   start.bat
+   ```
 
-두 명령 모두 버전 번호가 나와야 합니다. 명령을 찾을 수 없다고 나오면 Command Prompt를 닫았다가 다시 열거나, 빠진 도구를 다시 설치하세요.
+처음 실행할 때는 모든 것을 설치하고 빌드하므로 몇 분 걸립니다. 콘솔 창에 진행 상황이 표시됩니다. 준비가 끝나면 브라우저가 Marinara를 엽니다. 나중에 다시 시작하려면 같은 폴더에서 `start.bat`을 실행하세요.
 
-### 2단계: 코드 다운로드와 실행
-
-**start.bat** 런처 스크립트가 설치 과정을 대신 처리합니다. 알맞은 pnpm 버전을 고르고, 의존성 패키지를 설치하고, 앱을 빌드한 뒤 브라우저를 엽니다.
-
-1. Git으로 코드를 다운로드하세요.
-
-```bat
-git clone https://github.com/Pasta-Devs/Marinara-Engine.git
-```
-
-2. 새로 만들어진 폴더로 이동하세요.
-
-```bat
-cd Marinara-Engine
-```
-
-3. 선택 사항: 테스터 버전으로 전환합니다. 다운로드한 코드는 안정 버전에서 시작합니다. 테스터(staging) 버전을 쓰려면 처음 실행하기 전에 다음 명령을 실행하세요. 안정 버전을 쓸 거라면 이 단계는 건너뛰세요. 테스터 빌드를 쓰기 전에는 데이터를 백업하세요.
-
-```bat
-git checkout staging
-```
-
-전환하고 나면 런처가 업데이트할 때도 계속 테스터 버전을 유지합니다.
-
-4. 런처를 실행하세요.
-
-```bat
-start.bat
-```
-
-처음 실행할 때는 모든 것을 설치하고 빌드하므로 몇 분 걸립니다. 준비가 끝나면 브라우저가 열리면서 `http://127.0.0.1:7860` 주소의 앱이 표시됩니다. 다음에 앱을 다시 시작할 때는 같은 폴더에서 **start.bat** 파일을 실행하세요.
-
-런처는 기본적으로 앱을 로컬 네트워크에 열어 두므로, 같은 네트워크의 다른 기기에서도 접근할 수 있습니다. 아래 다른 기기에서 접근하기 항목을 참고하세요.
+작동하지 않는 경우: `[ERROR] Node.js 24 LTS or newer is required`는 Node.js가 너무 오래되었다는 뜻입니다. [nodejs.org](https://nodejs.org)에서 Node.js 24 이상을 설치한 뒤 `start.bat`을 다시 실행하세요.
 
 ### 런처 없이 직접 설치하기
 
-**start.bat** 대신 명령을 하나씩 직접 실행하고 싶다면 `Marinara-Engine` 폴더 안에서 다음을 진행하세요.
+이 방법에는 `pnpm` 명령이 필요합니다. 다음 명령은 `Marinara-Engine` 폴더 안에서 실행하세요.
 
-1. pnpm을 설치하세요. 이 방법은 런처를 쓰지 않으므로 `pnpm` 명령이 시스템에 있어야 합니다. `npm` 명령은 Node.js에 함께 들어 있습니다. 다음 명령을 한 번만 실행하세요.
+1. pnpm을 한 번 설치하세요.
 
-```bat
-npm install -g pnpm
-```
+   ```bat
+   npm install -g pnpm
+   ```
 
-2. 의존성 패키지를 설치하세요.
+2. 의존성(앱에 필요한 구성 요소)을 설치하고, 앱을 빌드한 뒤 서버를 시작하세요.
 
-```bat
-pnpm install --force
-```
+   ```bat
+   pnpm install --force
+   pnpm build
+   pnpm start
+   ```
 
-3. 앱을 빌드하세요.
+3. `http://127.0.0.1:7860`을 여세요.
 
-```bat
-pnpm build
-```
-
-4. 서버를 시작하세요.
-
-```bat
-pnpm start
-```
-
-5. 브라우저에서 앱을 여세요.
-
-```text
-http://127.0.0.1:7860
-```
-
-모든 처리는 사용 중인 컴퓨터 안에서 이루어집니다. 직접 설치한 경우 앱은 `127.0.0.1`에서 요청을 기다립니다. 즉, 이 컴퓨터에서만 접근할 수 있습니다. 같은 네트워크의 다른 기기에서도 접근할 수 있게 하려면 `Marinara-Engine` 폴더에 `.env` 파일을 만드세요. 그 파일에 다음 줄을 추가한 뒤 서버를 다시 시작하세요.
+`pnpm start`로 실행하면 이 PC에서만 Marinara에 접속할 수 있습니다. 다른 기기도 접속할 수 있게 하려면 `Marinara-Engine` 폴더에 `.env`라는 파일을 만들고, 다음 줄을 추가한 뒤 서버를 다시 시작하세요.
 
 ```env
 HOST=0.0.0.0
 ```
 
+## 다른 기기에서 Marinara 열기
+
+설치 프로그램과 그 바로 가기, `start.bat`은 네트워크의 다른 기기가 Marinara에 접속할 수 있게 하지만, Marinara는 로그인을 설정하기 전까지 그 기기들을 막습니다. 설정 단계는 [원격 접근](../REMOTE_ACCESS.md)과 [자주 묻는 질문](../FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device)을 참고하세요.
+
+## Marinara 업데이트하기
+
+바로 가기나 `start.bat`으로 Marinara를 시작할 때마다 런처가 업데이트를 확인해 설치하고, 다시 빌드한 뒤 시작합니다. 채팅, 캐릭터, 설정은 그대로 남습니다. 코드를 직접 수정했다면 런처가 수정 내용을 따로 보관해 두었다가 업데이트가 끝난 뒤 되돌려 놓습니다. 그럴 수 없으면 지금 버전을 그대로 유지하고 안내 메시지를 출력합니다. 앱 안의 **Apply Update**(업데이트 적용) 버튼, 업데이트 건너뛰기, 수동 명령은 [Marinara Engine 업데이트](../UPGRADING.md#windows)를 참고하세요.
+
+## 데이터 찾기와 제거하기
+
+데이터는 Marinara 폴더 안의 `packages\server\data` 폴더에 있습니다. 제거하려면 시작 메뉴 항목 **Uninstall Marinara Engine**을 여세요. 제거 프로그램이 데이터도 삭제할지 묻습니다. 나중에 다시 설치할 때 쓰도록 데이터를 남기려면 **No**를 고르세요. [Marinara 백업과 복원](../data/backup-and-restore.md)을 참고하세요.
+
 ## 선택 사항: AI 스프라이트 배경 제거
 
-Marinara Engine은 정지 스프라이트를 생성할 때 배경이 투명한 이미지를 요청하고, 단색 크로마 배경이나 예전 흰색 배경을 정리하는 적응형 매트 기능을 자체적으로 갖추고 있습니다. 여기에 더해 `backgroundremover`라는 도구를 선택 설치하면, 배경이 복잡한 풍경처럼 단색이 아닌 경우에 보완 수단으로 쓸 수 있습니다. 이 도구는 용량이 큰 머신러닝 파일을 다운로드하므로 선택 사항입니다.
+Marinara는 스프라이트를 생성할 때 투명한 배경을 요청하고, 단색 배경은 스스로 정리합니다. 배경이 복잡한 풍경일 때를 위한 보완 수단으로 선택 도구인 `backgroundremover`를 설치할 수 있습니다. 이 도구는 용량이 큰 머신러닝 파일을 다운로드하므로 기본적으로 꺼져 있습니다.
 
-이 도구를 쓰려면 먼저 Python이 필요합니다. 공식 사이트에서 Python 3.11을 설치한 뒤 `Marinara-Engine` 폴더에서 설치 명령을 실행하세요.
+1. [python.org](https://www.python.org/downloads/windows/)에서 Python 3.11을 설치하세요. Python 3.9부터 3.11까지 동작합니다.
+2. `Marinara-Engine` 폴더에서 다음 명령을 실행하세요.
 
-```text
-https://www.python.org/downloads/windows/
-```
+   ```bat
+   pnpm backgroundremover:install
+   ```
 
-설치 단계를 실행하세요.
+이 명령은 데이터 폴더 아래에 전용 Python 폴더(venv)를 만듭니다. Marinara는 이 폴더를 자동으로 사용합니다.
 
-```bat
-pnpm backgroundremover:install
-```
-
-이 명령은 데이터 폴더 아래에 전용 Python 폴더(venv)를 만듭니다. 그다음부터는 Marinara Engine이 스프라이트 정리에 이 폴더를 자동으로 사용합니다. venv는 독립적으로 동작하는 Python 환경이라 시스템의 다른 부분에는 영향을 주지 않습니다.
-
-다음에 실행할 때 **start.bat** 스크립트가 이 도구를 대신 설치하게 할 수도 있습니다. `.env` 파일에 다음 줄을 추가하세요.
+다음에 실행할 때 `start.bat`이 이 도구를 설치하게 하려면 `.env` 파일에 다음 줄을 추가하세요.
 
 ```env
 BACKGROUNDREMOVER_AUTO_INSTALL=true
 ```
 
-## 다른 기기에서 접근하기
-
-같은 네트워크에 있는 휴대폰, 태블릿, 다른 컴퓨터에서도 Marinara Engine을 열 수 있습니다. 설정 방법과 보안 옵션은 [자주 묻는 질문](../FAQ.md) 가이드를 참고하세요.
-
-## Marinara Engine 업데이트
-
-업데이트해도 채팅, 캐릭터, 설정은 그대로 남습니다. Windows에서 업데이트하는 방법은 3가지입니다.
-
-### 런처를 이용한 자동 업데이트
-
-Git 기반 사본에서 바탕 화면 바로 가기나 **start.bat** 파일로 앱을 실행하면 런처가 먼저 업데이트를 확인합니다. 새 버전이 있으면 변경 사항을 다운로드하고, 의존성 패키지를 다시 설치하고, 앱을 다시 빌드한 다음 시작합니다. 설치 프로그램으로 설치한 경우와 직접 복제한 경우 모두 이렇게 동작합니다.
-
-이번 한 번만 확인을 건너뛰려면 `start.bat --skip-update`를 실행하세요. 실행할 때마다 설치된 Engine 버전을 그대로 유지하려면 `.env`에 `AUTO_UPDATE_ENABLED=false`를 추가하세요. 수동 확인, 앱 안에서 적용하기, Git을 이용한 수동 업데이트는 그대로 쓸 수 있습니다.
-
-코드에 저장하지 않은 로컬 변경 사항이 있으면 런처가 그 내용을 안전하게 따로 보관하려고 시도합니다. 업데이트가 끝나면 다시 되돌려 놓습니다. 보관할 수 없으면 현재 버전을 그대로 두고 안내 메시지를 표시합니다.
-
-### 앱 내 업데이트
-
-앱 안에서 업데이트를 확인할 수도 있습니다.
-
-1. **Settings**(설정)를 여세요.
-2. **Advanced**(고급) 탭으로 이동하세요.
-3. **Updates**(업데이트) 항목을 찾으세요.
-4. **Release Channel**(릴리스 채널)에서 채널을 고르세요. 일반 버전은 **Latest Stable**, 미리 써 보는 테스터 빌드는 **Staging/UAT**를 선택하세요. 테스터 빌드를 쓰기 전에는 데이터를 백업하세요.
-5. **Check for Updates**(업데이트 확인)를 클릭하세요. 새 버전이 있으면 앱이 알려 줍니다.
-
-**Apply Update**(업데이트 적용) 버튼은 안전을 위해 기본적으로 꺼져 있습니다. 앱 안에서 업데이트를 적용하려면 설정이 조금 더 필요합니다. `.env` 파일에 다음 값을 설정하세요.
-
-```env
-UPDATES_APPLY_ENABLED=true
-ADMIN_SECRET=your-own-secret-value
-```
-
-그다음 **Settings**를 열고 **Advanced** 탭에서 **Admin Access**(관리자 접근)를 찾아 같은 시크릿을 붙여넣으세요. 그러면 **Apply Update** 버튼을 쓸 수 있습니다.
-
-이 Windows 컴퓨터에 연결한 iPhone이나 iPad에서 앱을 열었다면, **Apply Update**는 이 Windows 서버를 업데이트합니다. 원격으로 적용하려면 `.env`에 값이 하나 더 필요합니다.
-
-```env
-UPDATES_ALLOW_REMOTE_APPLY=true
-```
-
-앱 안에서 적용하는 기능을 활성화하지 않는다면, 바로 가기나 **start.bat** 파일로 앱을 다시 실행하기만 해도 업데이트됩니다.
-
-### 수동 업데이트
-
-런처 없이 Git 사본을 쓰고 있다면 직접 업데이트할 수 있습니다. 다음 명령은 `Marinara-Engine` 폴더에서 실행하세요.
-
-1. 최신 안정 버전 코드를 가져오세요.
-
-```bat
-git fetch origin +refs/heads/main:refs/remotes/origin/main
-```
-
-2. 최신 안정 버전으로 이동하세요.
-
-```bat
-git merge --ff-only origin/main || git checkout --detach origin/main
-```
-
-3. 의존성 패키지를 다시 설치하세요.
-
-```bat
-pnpm install --force
-```
-
-4. 앱을 다시 빌드하세요.
-
-```bat
-pnpm build
-```
-
-5. 서버를 다시 시작하세요.
-
-```bat
-pnpm start
-```
-
-테스터 빌드를 쓸 때는 staging 브랜치를 사용하세요. 위 1번과 2번 대신 다음 두 명령을 실행하세요. 그런 다음 설치와 빌드 단계를 이어서 진행하면 됩니다.
-
-```bat
-git fetch origin +refs/heads/staging:refs/remotes/origin/staging
-```
-
-```bat
-git checkout -B staging origin/staging
-```
-
 ## 문제가 생겼을 때
 
-설치나 실행에 실패하면 먼저 Node.js 버전이 24, 25, 26 중 하나인지, Git이 설치되어 있는지 확인하세요. 백신 프로그램이 설치 프로그램이나 다운로드를 막는다면 위에서 설명한 알려진 오탐입니다.
-
-더 많은 해결 방법은 [Marinara Engine 문제 해결](../TROUBLESHOOTING.md) 가이드를 참고하세요.
+Node.js 버전이 24, 25, 26 중 하나인지, Git이 설치되어 있는지 확인하세요. 더 많은 해결 방법은 [Marinara Engine 문제 해결](../TROUBLESHOOTING.md)을 참고하세요.
 
 ## 관련 가이드
 
-- [Marinara Engine 설치](../INSTALLATION.md): 기기에 맞는 설치 방법을 고를 수 있습니다.
-- [Marinara Engine 업데이트](../UPGRADING.md): 앱을 최신 상태로 유지하는 방법을 더 자세히 설명합니다.
-- [Marinara Engine 문제 해결](../TROUBLESHOOTING.md): 자주 생기는 문제의 해결 방법입니다.
-- [자주 묻는 질문](../FAQ.md): 네트워크 접근을 비롯한 궁금증에 빠르게 답합니다.
+- [Marinara Engine 설치](../INSTALLATION.md)
+- [Marinara Engine 업데이트](../UPGRADING.md)
+- [Marinara Engine 문제 해결](../TROUBLESHOOTING.md)
+- [자주 묻는 질문](../FAQ.md)

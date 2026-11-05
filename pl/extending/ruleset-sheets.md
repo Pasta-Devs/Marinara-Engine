@@ -1,6 +1,6 @@
 # Arkusze zestawu zasad
 
-Ta strona jest częścią przewodnika [Pisanie zestawów zasad Game Mode](writing-rulesets.md). Co znajduje się w arkuszu postaci zestawu zasad: atrybuty, umiejętności, pola i listy, stany bieżące, tory ran, kary, odpoczynki i tekst mistrza gry, a także arkusz drużyny i zegary postępu.
+Ta strona pomoże ci zaprojektować arkusz postaci zestawu zasad: atrybuty, umiejętności, pola i listy, stany bieżące, tory ran, kary, odpoczynki i tekst mistrza gry, a także arkusz drużyny i zegary postępu. Jest przeznaczona dla osób piszących zestawy zasad. Zanim zaczniesz, przeczytaj przewodnik [Pisanie zestawów zasad Game Mode](writing-rulesets.md).
 
 ## Arkusz
 
@@ -86,7 +86,7 @@ Pole wyliczeniowe wybiera się przy tworzeniu postaci i ten wybór zostaje, a st
 - `from` wskazuje dokładnie jedno z: `field` (pole wyliczeniowe) lub `liveState`. Każdy wiersz `table` to wartość możliwa w tym źródle, od jednej do czterdziestu. Wartość pominięta w tabeli i stan ukryty przez arkusz dają `default` (0 po pominięciu).
 - Pole jest ustalane przy tworzeniu postaci, więc tabela oparta na nim może zasilać maksimum: Gravewatch daje strażnikowi na porannej warcie jeden dodatkowy punkt Resolve. Stan bieżący zmienia się podczas gry, więc tabela oparta na nim jest odczytem bieżącym, jak `liveTrack`: nic, co oblicza się, zanim powstanie bieżący stan, nie może jej odczytywać, bezpośrednio ani przez inną wartość pochodną. Dlatego klucz to `liveState`, a nie `state`: każdy odczyt bieżącego stanu ma w nazwie `live`, dzięki czemu zarówno ty, jak i import rozpoznajecie, czego maksimum nie może używać.
 - Aby dodać tę liczbę do kości, wskaż ją w `resolution.adjust` (zobacz Modyfikatory z arkusza). Ember Roads dodaje swoją postawę (Stance) do każdego rzutu Brawn; Gravewatch odejmuje karę za zasłoniętą lub zgaszoną latarnię od każdego rzutu Nerve.
-- Warstwa może usunąć z pola wartość, dla której tabela ma wiersz. Ten wiersz po prostu nie jest odczytywany, gdy warstwa jest włączona.
+- Warstwa może usunąć z pola wartość, dla której tabela ma wiersz. Ten wiersz nie jest odczytywany, gdy warstwa jest włączona.
 
 Stany bieżące, `enumTable` i krok odpoczynku wskazujący `state` wymagają Capability API 1.42 w zestawie dostarczanym jako pakiet.
 
@@ -208,6 +208,8 @@ Wynik podaje, co dodał arkusz (`adjust="-2"` w zapisie i wiersz na karcie rzutu
 ## Odpoczynki
 
 Odpoczynek jest listą kroków odnowienia i rzeczy do wyczyszczenia. Każdy wskazuje jeden cel (`pool`, `poolGroup`, `listPools`, `track` lub `state`) i ustawia go (`"to": "max"`, `"to": "min"` albo liczba) lub zmienia (`"by": { "const": 1 }` albo `"by": { "fractionOfMax": 0.5 }`). Krok wskazujący tor ran może go tylko leczyć, więc jego `by` jest ujemne; zobacz wyżej. Krok wskazujący stan bieżący tylko go ustawia, na `"default"` albo jedną z jego wartości. Krok `poolGroup` z `fractionOfMax` zmienia każdą pulę grupy o jej własny ułamek; dodaj `"shared": true` (Capability API 1.77), aby zamiast tego obliczyć ułamek od maksimum całej grupy i rozdzielić wynik między pule grupy w kolejności, w jakiej wymienia je arkusz, każdej najwyżej tyle, ile jej brakuje. Długi odpoczynek z 5e, "połowa całkowitej liczby" kości wytrzymałości postaci przechowywanych w osobnej puli dla każdego rodzaju kości, to `{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`.
+
+<a id="game-master-text"></a>
 
 ## Tekst Game Master
 

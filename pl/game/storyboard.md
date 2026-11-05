@@ -1,352 +1,266 @@
 # Przewodnik po agencie Storyboard
 
-Agent **Storyboard** do pobrania zamienia gotowy tekst fabularny w uporządkowane obrazy klatek kluczowych, a opcjonalnie także w krótkie klipy image-to-video. Obsługuje tryby **Roleplay** i **Game Mode**. Czaty Conversation nie korzystają z agenta Storyboard.
+Agent **Storyboard** do pobrania zamienia gotowy tekst fabularny w uporządkowane obrazy klatek kluczowych, a opcjonalnie także w krótkie klipy image-to-video. Działa w trybach Game Mode i Roleplay. Czaty Conversation z niego nie korzystają.
 
-To jest aktualny sposób pracy oparty na agencie. Pakiet Storyboard dostarcza prompty planujące (prompt to tekst, który Marinara wysyła do AI), wartości domyślne i kontrolki osobne dla każdego czatu. Marinara Engine odpowiada za integrację, która generuje materiały, zapisuje je w panelu Gallery (Galeria) i pokazuje w czacie albo w podglądzie gry.
+Pakiet Storyboard dostarcza prompty planujące (prompt to tekst, który Marinara wysyła do AI), wartości domyślne i kontrolki osobne dla każdego czatu. Marinara generuje materiały, zapisuje wyniki w panelu Gallery (galeria) i pokazuje je w czacie albo w podglądzie gry. Ten przewodnik zaczyna od trybu Game Mode. Sposób pracy w trybie Roleplay opisuje dalej sekcja [Storyboardy w trybie Roleplay](#roleplay-storyboards). Pozostałe funkcje trybu Roleplay opisuje przewodnik [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md).
 
-## Roleplay i Game Mode w skrócie
+- **Game Mode** korzysta z jednej zakończonej tury narracji GM (Game Master, czyli mistrz gry). Ma osobne przełączniki **Automatic Storyboard Illustrations** (automatyczne ilustracje storyboardu) i **Automatic Storyboard Animations** (automatyczne animacje storyboardu) oraz działanie **Gallery → Create storyboard** (galeria, utworzenie storyboardu) dla ostatniej tury GM. Storyboard wyświetla się w pływającym podglądzie albo jako tło gry, zsynchronizowany z narracją, a do planowania służą osobne planery obrazów nieruchomych i animacji.
+- **Roleplay** korzysta z zakończonych wiadomości od ostatniego udanego odcinka. Do wyboru automatyzacji są opcje **Manual only** (tylko ręcznie), **Still images** (obrazy statyczne) albo **Animations** (animacje), a **Gallery → Create storyboard** działa na ostatniej zakończonej odpowiedzi AI. Storyboard wyświetla się w czacie, pod odpowiedzią kończącą odcinek, a do planowania służą episode contract, visual style, opcjonalny animation addon i output contract.
 
-| | Roleplay | Game Mode |
-| --- | --- | --- |
-| Źródło fabuły | Zakończone wiadomości użytkownika i AI od poprzedniego udanego odcinka | Jedna zakończona tura narracji GM (Game Master, czyli mistrz gry) |
-| Wybór automatyzacji | **Manual only**, **Still images** albo **Animations** | Osobne przełączniki **Automatic Storyboard Illustrations** i **Automatic Storyboard Animations** |
-| Działanie ręczne | **Gallery > Create storyboard** dla ostatniej zakończonej odpowiedzi AI | **Gallery > Create storyboard** dla ostatniej zakończonej tury GM |
-| Wyświetlanie | W czacie, pod odpowiedzią AI kończącą odcinek | Pływający podgląd albo tło gry, zsynchronizowane z narracją |
-| Prompty planujące | Episode contract, visual style, opcjonalny animation addon i output contract | Osobne planery obrazów nieruchomych i animacji |
-| Wspólne prompty końcowe | Prompt obrazu ilustracji i prompt wideo animacji | Prompt obrazu ilustracji i prompt wideo animacji |
-
-Oba tryby zapisują obrazy klatek kluczowych w zakładce **Images** (Obrazy) panelu Gallery, a klipy w zakładce **Videos** (Wideo).
+Oba tryby zapisują obrazy klatek kluczowych w zakładce **Images** (obrazy) panelu Gallery, a klipy w zakładce **Videos** (filmy).
 
 ## Instalacja agenta
 
-1. Kliknij ikonę Sparkles, żeby otworzyć panel **Agents** (Agenci).
-2. Wybierz zakładkę **Agent Organizer (organizowanie agentów)**.
-3. Otwórz pakiet **Storyboard** i kliknij przycisk **Install**.
-4. Otwórz czat w trybie Roleplay albo Game Mode, a potem panel ustawień czatu: **Chat Settings > Agents**.
-5. Włącz opcję **Enable Agents**, a potem opcję **Enable Storyboards** na karcie agenta Storyboard.
+1. Kliknij ikonę Sparkles, żeby otworzyć panel **Agents** (agenci).
+2. Wybierz **Agent Organizer** (organizowanie agentów).
+3. Otwórz pakiet **Storyboard** i kliknij **Install** (instalacja).
+4. Otwórz czat w trybie Game Mode albo Roleplay, a potem **Chat Settings → Agents** (ustawienia czatu, agenci).
+5. Włącz **Enable Agents** (włączenie agentów), a potem **Enable Storyboards** (włączenie storyboardów) na karcie agenta Storyboard.
 
-Instalacja pakietu udostępnia go zgodnym czatom, ale nie włącza go po cichu w każdym z nich. Obecna wersja pakietu nie wymaga ponownego uruchomienia aplikacji Marinara Engine.
+Instalacja udostępnia agenta, ale nie włącza go w każdym czacie. Ponowne uruchomienie aplikacji Marinara Engine nie jest potrzebne.
 
-Jeśli agent Storyboard nie pojawia się w panelu Chat Settings, sprawdź, czy pakiet jest zainstalowany i czy czat działa w trybie Roleplay albo Game Mode.
-
-## Ustawienia agenta Storyboard
-
-Otwórz panel **Agents**, wybierz pakiet **Storyboard** i przejdź do jego konfiguracji. Te wartości obowiązują domyślnie w czatach, które nie mają własnych ustawień.
-
-### Domyślne ustawienia generowania i multimediów
-
-| Ustawienie | Domyślnie | Do czego służy |
-| --- | --- | --- |
-| Agent connection | Wybrane połączenie agenta | Planuje storyboard za pomocą modelu językowego LLM |
-| **Image connection** | Use the Game image connection | Generuje każdą klatkę kluczową; gdzieś w łańcuchu zapasowym musi być ustawione połączenie obrazowe |
-| **Video connection** | Use the Game video connection | Generuje klipy, gdy animacje są włączone |
-| **Automatic generation** | Still images | Ustala początkowe zachowanie automatyczne dla nowo aktywowanych czatów |
-| **Keyframes per turn** | 3, zakres 1-6 | Określa docelową liczbę uporządkowanych klatek |
-| **Clip seconds** | 5, zakres 1-15 | Określa żądaną długość każdego klipu |
-| **Viewer display** | Floating viewer | Ustala domyślny podgląd w trybie Game Mode; w trybie Roleplay storyboardy zawsze wyświetlają się w czacie |
-| **Default Roleplay episode interval** | 1, zakres 1-100 | Określa, ile nowego materiału z trybu Roleplay zbiera się między odcinkami automatycznymi |
-| **Attach Card Appearance** | On | Dodaje do promptów obrazu szczegóły wyglądu dopasowanych postaci; karta lub persona z włączonym **Image Appearance Override** (osobny opis wyglądu do obrazów) i wypełnionym polem przekazuje ten tekst zamiast pola **Appearance** |
-| **Send Avatar References** | On | Wysyła awatary dopasowanych postaci i person, jeśli dostawca obrazów obsługuje referencje |
-| **Use the final image template** | On | Formatuje zaplanowaną klatkę, zanim trafi do dostawcy obrazów |
-| **Use NovelAI character prompts** | On | Korzysta z natywnych promptów dla poszczególnych postaci na obsługiwanych oficjalnych połączeniach NovelAI V4/V4.5 |
-
-### Sekcja Game prompt library
-
-Ta biblioteka udostępnia dwie różne ścieżki planowania. O tym, która jest aktywna, decyduje to, czy gra tworzy obrazy nieruchome, czy klipy.
-
-| Ustawienie | Domyślnie | Do czego służy |
-| --- | --- | --- |
-| **Still planner** | Still Keyframes | Dzieli jedną zakończoną turę GM na gotowe momenty do zilustrowania |
-| **Animation planner** | Comic Page Animation | Tworzy pierwsze klatki gotowe do animacji oraz wskazówki ruchu dopasowane do długości klipu |
-
-Pakiet zawiera też planery NovelAI, komiksowe, mangowe (kolorowe i czarno-białe), anime oraz nastawione na LTX. Treść promptu planera da się edytować w globalnej konfiguracji agenta. Czat w trybie Game Mode wybiera spośród opcji nieruchomych i animowanych w **Chat Settings > Agents > Storyboards**.
-
-### Sekcja Roleplay prompt library
-
-Tryb Roleplay składa cztery wybrane prompty w jedno żądanie do planera.
-
-| Ustawienie | Domyślnie | Do czego służy |
-| --- | --- | --- |
-| **Episode contract** | Completed Roleplay Episode | Wybiera zakończone momenty fabularne potwierdzone w źródle i zachowuje kolejność wiadomości |
-| **Visual style** | Normal / Anime | Określa oprawę wizualną każdej klatki kluczowej |
-| **Animation addon** | Simple Storyboard Motion | Dokłada ruch, pracę kamery, dialog i dźwięk ze źródła, tło dźwiękowe oraz zatrzymanie kadru na końcu, ale tylko w klipach |
-| **Output contract** | Roleplay Keyframe JSON | Określa ustrukturyzowane pola klatki kluczowej, które zwraca planer |
-
-Otwórz zwiniętą **Prompt library** (bibliotekę promptów) w Stage 1, aby edytować całe te zbiory. Kliknij przycisk **Add option**, żeby dodać własny prompt, zmień jego nazwę, dopisz krótki opis i popraw treść. Wbudowane opcje da się przywrócić do wartości domyślnych z pakietu.
-
-### Sekcja Shared provider formatters
-
-Kiedy któryś z trybów zaplanuje już klatki, wspólne formatery budują końcowe żądania do dostawców.
-
-| Ustawienie | Domyślnie | Do czego służy |
-| --- | --- | --- |
-| **Default image prompt** | Game Scene Illustration | Formatuje każdą zaplanowaną klatkę kluczową pod dostawcę obrazów |
-| **Default video prompt** | Cinematic Scene Video | Formatuje obraz pierwszej klatki i plan ruchu pod dostawcę wideo |
-
-Każdy numerowany etap ma własną zwiniętą **Prompt library**: Stage 2 zawiera formatery obrazu, Stage 3 planery ruchu uwzględniające obraz, a Stage 4 formatery przekazujące prompt wideo. Wśród wbudowanych opcji obrazu są też **Storyboard Illustration** i **Storyboard First Frame**. Wśród opcji wideo są **Anime Game Video**, **Comic Page Video** i **Narration Passthrough**. Czaty w trybie Game Mode i Roleplay mogą wybrać różne formatery, nie ruszając przy tym wspólnego zbioru promptów.
-
-Opcja **Image-aware shot planning** (planowanie ujęć z uwzględnieniem obrazu) w Stage 3 trzyma się też pola **Video Prompting Instructions** (instrukcje do promptów wideo) z połączenia wideo. Wpisz w tym polu w edytorze połączenia, czego oczekuje twój model wideo, na przykład sposób opisywania pracy kamery, długość promptu albo wskazówki dotyczące dźwięku.
-
-### Globalne wartości domyślne i własne ustawienia czatu
-
-Każdy czat może nadpisać ustawienia domyślne agenta. Panel Chat Settings oznacza wartości odziedziczone jako **Using agent default**, a po ustawieniu własnej wartości pokazuje przycisk przywracania.
-
-Pierwszeństwo połączeń wygląda w każdym trybie nieco inaczej:
-
-- Tryb Roleplay daje osobne listy rozwijane promptu, obrazu i wideo dla każdego czatu. Opcja **Use global default** dziedziczy konfigurację agenta Storyboard.
-- Tryb Game Mode korzysta z własnych połączeń planowania, obrazu i wideo, jeśli są ustawione, a w przeciwnym razie sięga po wartości domyślne agenta Storyboard.
-
-Obrazy nieruchome wymagają połączenia obrazowego. Animacje potrzebują zarówno udanego obrazu klatki kluczowej, jak i połączenia wideo.
-
-## Storyboardy w trybie Roleplay
-
-Storyboardy w trybie Roleplay łączą zakończone wymiany wiadomości w odcinek wizualny i pokazują go pod odpowiedzią AI, która ten odcinek zamyka.
-
-### Szybki start
-
-1. Zainstaluj agenta Storyboard i włącz go w czacie w trybie Roleplay.
-2. W **Chat Settings > Agents > Storyboards** wskaż połączenia w polach **Prompt connection** i **Image connection** albo zostaw w nich **Use global default**, jeśli globalna konfiguracja jest kompletna.
-3. Wybierz tryb w polu **Automatic mode**:
-   - **Manual only**: bez odcinków automatycznych; przycisk **Create storyboard** tworzy na żądanie odcinek z samych obrazów nieruchomych.
-   - **Still images**: automatycznie tworzy odcinek ilustrowany.
-   - **Animations**: automatycznie tworzy obrazy klatek kluczowych i klip do każdej z nich; wymaga połączenia wideo.
-4. Ustaw pola **Messages per episode** i **Keyframes per episode**.
-5. Doprowadź do końca nową odpowiedź AI albo otwórz **Chat Settings > Gallery** i kliknij przycisk **Create storyboard** (utworzenie storyboardu).
-
-Strzałkami przełączaj kadry storyboardu złożonego z kilku klatek kluczowych. Klatka animowana pokazuje gotowy do odtworzenia klip na miejscu, a w czasie oczekiwania na klip albo przy jego braku wraca do obrazu.
-
-### Jak działa odstęp między odcinkami
-
-Odstęp decyduje o tym, ile nowych wiadomości użytkownika i AI zbiera się między udanymi storyboardami automatycznymi. Licznik przesuwają obie role, a odcinek obejmuje nowe wiadomości w kolejności chronologicznej.
-
-Domyślna wartość to 1, więc kolejna nowo zakończona odpowiedź AI może od razu dać odcinek. Większa wartość zostawia miejsce na dialog i akcję. Materiał źródłowy ogranicza się do 20 ostatnich wiadomości i 12 000 znaków, żeby stary albo bardzo długi czat nie stworzył żądania planowania bez żadnych granic.
-
-Punkt odniesienia przesuwa się dopiero po zapisaniu pełnego albo częściowego storyboardu. Nieudany odcinek nie zużywa materiału źródłowego. Otwarcie istniejącego czatu nie uzupełnia starych odpowiedzi wstecz, a generowanie automatyczne czeka na nowo zakończoną odpowiedź AI.
-
-### Łańcuch promptów w trybie Roleplay
-
-Tryb Roleplay korzysta z czterech warstw planowania, zanim do gry wejdą wspólne formatery dostawców:
-
-1. **Episode contract** wybiera zakończone momenty fabularne potwierdzone w źródle i przypina je do przekazanych wiadomości.
-2. **Visual style** decyduje o oprawie: Normal/Anime, NovelAI, Comic, Colored Manga albo B&W Manga.
-3. **Animation addon** dokłada się tylko do storyboardów animowanych. Opisuje jedną wykonalną akcję, zachowanie kamery, dialog i dźwięk potwierdzone w źródle, tło dźwiękowe oraz zatrzymanie kadru na końcu.
-4. **Output contract** określa ustrukturyzowany wynik z klatkami kluczowymi, który zwraca planer.
-
-Potem ustawienie **Storyboard Illustration Prompt** formatuje każdą zaplanowaną pierwszą klatkę pod dostawcę obrazów. Przy włączonych klipach ustawienie **Storyboard Video Prompt** formatuje plan ruchu pod dostawcę wideo.
-
-Biblioteka promptów trybu Roleplay jest niezależna od biblioteki planerów trybu Game Mode. Zmiana stylu wizualnego w trybie Roleplay nie zmienia planerów obrazów nieruchomych ani planerów animacji w trybie Game Mode.
-
-### Storyboard i Illustrator razem
-
-Storyboard to inny agent niż Illustrator. Ręczne działania agenta Illustrator oraz pozostałe tworzone przez niego materiały nadal są dostępne. Kiedy w trybie Roleplay ustawiona jest opcja **Still images** albo **Animations**, Marinara wstrzymuje dla tej zakończonej odpowiedzi zwykły automatyczny obraz pierwszoplanowy agenta Illustrator. Dzięki temu obaj agenci nie tworzą konkurencyjnych materiałów. Opcja **Manual only** zostawia zwykłą ścieżkę agenta Illustrator bez zmian.
+Jeśli to nie zadziałało i agenta Storyboard nie ma w Chat Settings, sprawdź, czy pakiet jest zainstalowany, czy czat działa w trybie Game Mode albo Roleplay i czy wersja pakietu działa z twoją wersją aplikacji Marinara Engine.
 
 ## Storyboardy w trybie Game Mode
 
 Storyboard w trybie Game Mode bierze za źródło fabuły dokładnie jedną zakończoną turę narracji GM. Usuwa ukryte znaczniki poleceń GM, planuje uporządkowane klatki i przypina każdą z nich do zakresu czytelnych fragmentów tury. Podgląd zmienia klatki w miarę przesuwania się czytelnika przez te fragmenty.
 
-### Szybki start
+### Tworzenie storyboardu w grze
 
-1. Zainstaluj agenta Storyboard.
-2. Utwórz albo otwórz czat w trybie Game Mode.
-3. Otwórz **Chat Settings > Agents**, włącz opcję **Enable Agents**, a potem opcję **Enable Storyboards**.
-4. Sprawdź, czy gra ma połączenie obrazowe albo czy dostarcza je globalna konfiguracja agenta Storyboard.
-5. Doprowadź do końca turę narracji GM.
-6. Otwórz **Chat Settings > Gallery** i kliknij przycisk **Create storyboard**.
+**Zanim zaczniesz:** gra potrzebuje konta do generowania obrazów (własnego konta gry albo konta z globalnej konfiguracji agenta Storyboard). Zobacz [Dostawcy generowania obrazów i konfiguracja](../media/image-providers.md).
 
-Zamknięty podgląd gry otwiera się ponownie przyciskiem **View storyboard** w panelu Gallery. Generowanie ręczne korzysta z bieżącego ustawienia animacji: przy włączonej opcji **Automatic Storyboard Animations** ręczny storyboard prosi też o klipy.
+1. Zainstaluj agenta Storyboard i otwórz czat w trybie Game Mode.
+2. Otwórz **Chat Settings → Agents**, włącz **Enable Agents**, a potem **Enable Storyboards**.
+3. Doprowadź do końca turę narracji GM.
+4. Otwórz **Chat Settings → Gallery** i kliknij **Create storyboard**.
 
-### Automatyczne storyboardy w trybie Game Mode
+Zamknięty podgląd otworzysz ponownie przyciskiem **View storyboard** (wyświetlenie storyboardu) w panelu Gallery. Generowanie ręczne korzysta z bieżącego ustawienia animacji: przy włączonej opcji **Automatic Storyboard Animations** ręczny storyboard prosi też o klipy.
 
-Karta agenta Storyboard ma dwa przełączniki automatyzacji:
+Jeśli to nie zadziałało, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
-- Opcja **Automatic Storyboard Illustrations** tworzy nieruchome klatki kluczowe po zakończonej turze GM.
-- Opcja **Automatic Storyboard Animations** dokłada do każdej klatki kluczowej klip. Włączenie animacji włącza też ilustracje, a wyłączenie ilustracji wyłącza animacje.
+### Automatyczne storyboardy w grze
 
-Generowanie automatyczne rusza tylko wtedy, gdy agent Storyboard jest aktywny w danej grze. Nie tworzy też drugi raz storyboardu dla tury, która już go ma. Jeśli celowo potrzebny jest kolejny storyboard dla ostatniej tury, użyj ręcznego przycisku w panelu Gallery.
+Karta agenta Storyboard ma dwa przełączniki:
 
-Ręczny storyboard w grze może pokazać gotowe prompty obrazów do sprawdzenia, jeśli w ustawieniach generowania włączona jest opcja **Expose image prompts before sending**. Storyboardy automatyczne idą dalej bez okna podglądu, więc nie zatrzymują rozgrywki.
+- **Automatic Storyboard Illustrations** tworzy nieruchome klatki kluczowe po zakończonej turze GM.
+- **Automatic Storyboard Animations** tworzy dodatkowo klip do każdej klatki kluczowej. Włączenie animacji włącza też ilustracje, a wyłączenie ilustracji wyłącza animacje.
 
-### Ustawienia w trybie Game Mode
+Generowanie automatyczne działa tylko wtedy, gdy agent jest aktywny w danej grze, i nie tworzy ponownie storyboardu dla tury, która już go ma. Jeśli chcesz kolejny storyboard dla ostatniej tury, użyj ręcznego działania w panelu Gallery.
 
-Otwórz **Chat Settings > Agents > Storyboards**.
+Jeśli w ustawieniach generowania włączona jest opcja **Expose media prompts before sending** (pokazywanie promptów mediów przed wysłaniem), ręczny storyboard w grze może pokazać gotowe prompty obrazów do sprawdzenia. Storyboardy automatyczne pomijają to sprawdzenie, żeby rozgrywka się nie zatrzymywała.
+
+### Ustawienia gry
+
+Otwórz **Chat Settings → Agents → Storyboards** (ustawienia czatu, agenci, storyboardy).
 
 | Ustawienie | Domyślnie w agencie | Za co odpowiada |
 | --- | --- | --- |
-| **Enable Storyboards** | Off w każdym czacie | Włącza zainstalowanego agenta w tej grze |
-| **Automatic Storyboard Illustrations** | Wynika z ustawienia Automatic generation | Nieruchome klatki kluczowe po każdej zakończonej turze GM |
-| **Automatic Storyboard Animations** | Wynika z ustawienia Automatic generation | Klipy MP4 do każdej klatki kluczowej |
-| **Keyframes per Turn** | 3, zakres 1-6 | Docelowa liczba klatek; krótka tura może dać ich mniej |
-| **Animation Clip Duration** | 5 sekund, zakres 1-15 | Żądana długość każdego klipu; dostawca może ją przyciąć |
-| **Viewer Display** | Floating | Przeciągany podgląd albo pełne tło gry |
-| **Still Planner** | Still Keyframes | Planuje gotowe ilustracje nieruchome |
-| **Animation Planner** | Comic Page Animation | Planuje pierwsze klatki gotowe do animacji oraz wskazówki ruchu |
-| **Use Storyboard Template** | On | Stosuje wybrany końcowy formater ilustracji |
-| **Storyboard Illustration Prompt** | Game Scene Illustration | Formatuje zaplanowaną klatkę pod dostawcę obrazów |
-| **Storyboard Video Prompt** | Cinematic Scene Video | Formatuje pierwszą klatkę i plan ruchu pod dostawcę wideo |
+| **Enable Storyboards** | Off w każdym czacie | Włącza zainstalowanego agenta w tej grze. |
+| **Automatic Storyboard Illustrations** | Wynika z ustawienia Automatic generation | Nieruchome klatki kluczowe po każdej turze GM. |
+| **Automatic Storyboard Animations** | Wynika z ustawienia Automatic generation | Klipy MP4 do każdej klatki kluczowej. |
+| **Keyframes per Turn** | 3, zakres 1-200 | Docelowa liczba klatek. Krótkie tury mogą dać ich mniej. |
+| **Animation Clip Duration** | 5 sekund, zakres 1-15 | Żądana długość każdego klipu. Usługa może ją przyciąć. |
+| **Viewer Display** | Floating | Przeciągany podgląd albo pełne tło gry. |
+| **Illustration Planner** | Still Keyframes | Planuje gotowe ilustracje nieruchome. |
+| **Animation Planner** | Comic Page Animation | Planuje pierwsze klatki gotowe do animacji oraz wskazówki ruchu. |
+| **Use Storyboard Template** | On | Stosuje wybrany końcowy formater ilustracji. |
+| **Storyboard Illustration Prompt** | Game Scene Illustration | Formatuje zaplanowaną klatkę pod usługę obrazów. |
+| **Storyboard Video Prompt** | Cinematic Scene Video | Formatuje pierwszą klatkę i plan ruchu pod usługę wideo. |
 
-Pakiet dostarcza też planery NovelAI, komiksowe, mangowe, anime oraz nastawione na LTX. Sam wybór planera animacji nie włącza jeszcze generowania wideo; nadal potrzebna jest opcja **Automatic Storyboard Animations** i połączenie wideo.
+Pakiet dostarcza też planery NovelAI, komiksowe, mangowe, anime oraz nastawione na LTX. Sam wybór planera animacji nie włącza generowania wideo. Nadal potrzebne są opcja **Automatic Storyboard Animations** i konto wideo.
 
-### Łańcuch promptów w trybie Game Mode
+Każdy czat może nadpisać ustawienia domyślne agenta. Panel Chat Settings oznacza wartości odziedziczone jako **Using agent default** (używana wartość domyślna agenta), a po nadpisaniu wartości pokazuje przycisk przywracania.
 
-Tryb Game Mode ma osobne planery dla wyników nieruchomych i animowanych:
+### Jak powstaje storyboard w grze
+
+Tryb Game Mode ma osobne planery dla obrazów nieruchomych i animacji.
 
 ```text
 completed GM narration
-  -> Still Planner or Animation Planner
+  -> still or animation planner
   -> Storyboard Illustration Prompt
-  -> image connection
+  -> image account
   -> optional Storyboard Video Prompt
-  -> video connection
+  -> video account
 ```
 
-Planer wybiera momenty fabularne i układa je w kolejności. Prompt ilustracji to formater przygotowujący żądanie pod dostawcę, a nie kolejny planer fabuły. Przy włączonych animacjach planer animacji tworzy zarówno dokładny opis pierwszej klatki, jak i wskazówkę ruchu; prompt wideo zamienia tę wskazówkę w końcowe żądanie.
+Planer wybiera momenty fabularne i układa je w kolejności. Prompt ilustracji to formater pod usługę, a nie kolejny planer. Przy włączonych animacjach planer animacji tworzy dokładny opis pierwszej klatki i wskazówkę ruchu, a prompt wideo zamienia tę wskazówkę w końcowe żądanie.
 
-### Zaktualizowane przepisy dla trybu Game Mode
+### Podgląd w grze
 
-Te przepisy zestawiają łańcuch agenta Storyboard ustawiony przez pakiet z pozostałymi ustawieniami gry i dostawcy. Zastosuj nazwany łańcuch, jeśli pakiet go udostępnia, albo odtwórz wypisane wybory ręcznie.
+- **Floating viewer** (pływający podgląd) to przeciągany panel o zmiennym rozmiarze, wyświetlany nad grą. Podąża za miejscem czytania w narracji i pokazuje odpowiadającą mu klatkę. Wideo odtwarza się, gdy jest gotowe, a w przeciwnym razie widać obraz klatki. Zamknięcie podglądu ukrywa go na czas bieżącej tury. Do ponownego otwarcia służy **Gallery → View storyboard**.
+- **Game background** (tło gry) umieszcza aktywną klatkę za resztą ekranu. Gdy jest włączone, zastępuje generowane tło sceny, więc przycisk **Generate background** (generowanie tła) jest niedostępny. Klipy w tle odtwarzają się raz i zostają na ostatniej klatce.
+
+Żeby odtworzyć klip ponownie, odtworzyć go lub wstrzymać albo wyciszyć, otwórz **Game controls** (sterowanie grą), czyli przycisk z kontrolerem do gier blisko prawego górnego rogu czatu. Na komputerze otwiera się w oknie, a na telefonie jako panel. Jeśli przeniesiono go do Chat Settings, otwórz tam sekcję **Game controls**.
+
+### Prezentacja Storyboard Optimized to nie przełącznik agenta
+
+Prezentacja **Storyboard Optimized** z kreatora zmienia prompt narracji GM tak, żeby tury zawierały wyraźniejsze punkty zaczepienia dla obrazu, nadające się do sfilmowania. Nie instaluje ani nie włącza agenta Storyboard, nie włącza automatycznych materiałów i nie wybiera kont obrazów ani wideo. Agenta można używać zarówno z prezentacją **Standard**, jak i **Storyboard Optimized**. Zainstaluj i włącz agenta osobno.
+
+### Przepisy dla trybu Game Mode
+
+Każdy przepis łączy łańcuch agenta Storyboard z pozostałymi ustawieniami gry i usługi. Zastosuj nazwany łańcuch, jeśli twój pakiet go oferuje, albo wybierz wymienione opcje ręcznie.
 
 #### Google Comic Storyboards
 
-Łańcuch ustawiony przez pakiet:
-
-- **Illustration Planner**: Still Keyframes
-- **Animation Planner**: Comic Page Animation
-- **Storyboard Illustration Prompt**: Game Scene Illustration
-- **Storyboard Video Prompt**: Comic Page Video
-- **Use Storyboard Template**: On
+Łańcuch: **Illustration Planner** Still Keyframes, **Animation Planner** Comic Page Animation, **Storyboard Illustration Prompt** Game Scene Illustration, **Storyboard Video Prompt** Comic Page Video, **Use Storyboard Template** On.
 
 Lista kontrolna gry:
 
-- **Visual Generation**: On
-- **Image Connection**: Google/Nano Banana
-- **Image Style**: Default
-- Zostaw styl artystyczny wygenerowany przez kreator.
+- **Illustrator**: On (krok Features kreatora)
+- Konto obrazów: Google/Nano Banana, **Image Style**: Default; zostaw styl artystyczny wygenerowany przy konfiguracji
 - **Automatic Storyboard Illustrations**: On
 - **Automatic Storyboard Animations**: Off
 - **Keyframes per Turn**: 3
-- **Video Connection**: None
+- Konto wideo: None
 
-Powstają wtedy zwykłe storyboardy złożone z obrazów nieruchomych. Zapisany łańcuch animacji Comic Page włącza się dopiero po wskazaniu połączenia wideo i włączeniu opcji **Automatic Storyboard Animations**.
+Powstają wtedy zwykłe storyboardy z obrazów nieruchomych. Zapisany łańcuch animacji Comic Page zaczyna działać dopiero wtedy, gdy później wybierzesz konto wideo i włączysz **Automatic Storyboard Animations**.
 
 #### NovelAI Direct Tags
 
-Łańcuch ustawiony przez pakiet:
+Łańcuch: **Illustration Planner** NovelAI Keyframes. W polu **Storyboard Illustration Prompt** utwórz własną opcję, której prompt zawiera wyłącznie poniższy tekst. Ustaw **Use Storyboard Template** na On. Ustawienia Animation Planner i Video Prompt zostaw bez zmian.
 
-- **Illustration Planner**: NovelAI Keyframes
-- **Storyboard Illustration Prompt**: utwórz własną opcję, której prompt zawiera wyłącznie:
-
-  ```text
-  ${scenePrompt}
-  ```
-
-- **Use Storyboard Template**: On
-- Zostaw ustawienia Animation Planner i Storyboard Video Prompt bez zmian.
+```text
+${scenePrompt}
+```
 
 Lista kontrolna gry:
 
-- **Image Style**: Danbooru
+- **Image Style**: Danbooru; usuń opisowy tekst z pola **Style text** w profilu Danbooru
 - **Use Campaign Art Style**: Off
 - **Attach Card Appearance**: Off
 - **Send Avatar References**: Off
 - **Use NovelAI Character Prompts**: Off
 - **Queue media generation requests**: On
-- Usuń opisowy tekst z pola **Style Text** w profilu Danbooru.
-- Dostrój tagi pozytywne, negatywne i ilustracyjne według potrzeb.
+- Dostrój tagi pozytywne, negatywne i ilustracyjne według potrzeb
 
-Własny szablon przepuszczający wysyła zwięzłe tagi NovelAI z planera i nie opakowuje ich w zwykły opisowy formater ilustracji.
+Szablon przepuszczający wysyła zwięzłe tagi NovelAI z planera i nie opakowuje ich w zwykły opisowy formater.
 
 #### Local Krea 2 + LTX 2.3
 
-Łańcuch ustawiony przez pakiet:
+Łańcuch: **Illustration Planner** Still Keyframes jako rozwiązanie zapasowe dla samych obrazów nieruchomych, **Animation Planner** LTX Simple Image-to-Video, **Storyboard Illustration Prompt** Storyboard First Frame, **Storyboard Video Prompt** Narration Passthrough, **Use Storyboard Template** On.
 
-- **Illustration Planner**: Still Keyframes jako rozwiązanie zapasowe dla samych obrazów nieruchomych
-- **Animation Planner**: LTX Simple Image-to-Video
-- **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: Narration Passthrough
-- **Use Storyboard Template**: On
+Na karcie GPU z 8 GB pamięci VRAM zacznij od jednej klatki kluczowej w 480p. Gdy to zadziała, przechodź stopniowo do trzech klatek kluczowych i większych rozmiarów. Konto ComfyUI, symbole zastępcze i pełny test opisuje przewodnik [Storyboardy LTX 2.3 w Game Mode](ltx-2-3-storyboards.md).
 
-Przy karcie GPU z 8 GB pamięci VRAM zacznij od jednej klatki kluczowej w 480p. Kiedy taka próba się powiedzie, przejdź do trzech klatek kluczowych i wyższych rozdzielczości. Połączenie z aplikacją ComfyUI, symbole zastępcze i pełną procedurę testową opisuje przewodnik [Storyboardy LTX 2.3 w Game Mode](ltx-2-3-storyboards.md).
+<a id="roleplay-storyboards"></a>
 
-### Prezentacja Storyboard Optimized to nie przełącznik agenta
+## Storyboardy w trybie Roleplay
 
-Prezentacja **Storyboard Optimized** z kreatora konfiguracji gry zmienia prompt narracji GM tak, żeby tury zawierały wyraźniejsze punkty zaczepienia dla obrazu. Nie instaluje ani nie włącza agenta Storyboard, nie uruchamia automatycznych materiałów i nie wybiera połączeń obrazowych ani wideo.
+Storyboardy w trybie Roleplay łączą zakończone wymiany wiadomości w odcinek wizualny, wyświetlany pod odpowiedzią AI, która go kończy.
 
-Agent Storyboard działa i z prezentacją Standard, i ze Storyboard Optimized. Instalacja oraz włączenie agenta to osobne kroki.
+### Tworzenie storyboardu w trybie Roleplay
 
-### Podgląd w trybie Game Mode
+1. Zainstaluj agenta Storyboard i włącz go w czacie w trybie Roleplay.
+2. W **Chat Settings → Agents → Storyboards** wybierz **Prompt connection** (połączenie promptu) i **Image model** (model obrazów) albo zostaw w nich **Use global default** (użycie globalnej wartości domyślnej), jeśli globalna konfiguracja jest kompletna.
+3. Wybierz **Automatic mode** (tryb automatyczny):
+   - **Manual only**: bez odcinków automatycznych. **Create storyboard** tworzy na żądanie odcinek z obrazów nieruchomych.
+   - **Still images**: automatycznie tworzy odcinek z ilustracjami.
+   - **Animations**: automatycznie tworzy obrazy klatek kluczowych i klip do każdej klatki. Wymaga konta wideo.
+4. Ustaw **Messages per episode** (wiadomości na odcinek) i **Keyframes per episode** (klatki kluczowe na odcinek).
+5. Doprowadź do końca nową odpowiedź AI albo otwórz **Chat Settings → Gallery** i kliknij **Create storyboard**.
 
-Opcja **Floating viewer** to przeciągany panel o zmiennym rozmiarze, wyświetlany nad grą. Podąża za miejscem czytania w narracji GM i pokazuje odpowiadającą mu klatkę. Wideo odtwarza się, gdy jest gotowe, a w przeciwnym razie widać obraz klatki.
+W storyboardzie z kilkoma klatkami kluczowymi przechodź między klatkami strzałkami. Klatka animowana pokazuje swój klip bezpośrednio w czacie, a gdy klip jest w przygotowaniu albo niedostępny, pokazuje swój obraz.
 
-Opcja **Game background** umieszcza aktywną klatkę za pozostałą zawartością ekranu gry. Zastępuje wtedy zwykłe generowane tło sceny, więc przycisk **Generate background** jest nieaktywny. Klipy w tle odtwarzają się raz i zostają na ostatniej klatce. Żeby odtworzyć klip ponownie, wstrzymać go, wznowić lub wyciszyć, kliknij lub dotknij **Game controls** (przycisk z okrągłą strzałką, domyślnie blisko prawego górnego rogu czatu). Otwiera się w oknie na komputerze lub panelu na telefonie. Jeśli jest przeniesiony do Chat Settings, otwórz tam sekcję **Game controls**.
+### Jak działa odstęp między odcinkami
 
-Zamknięcie pływającego podglądu ukrywa go na czas bieżącej tury. Do ponownego otwarcia służy **Gallery > View storyboard**.
+Odstęp to liczba nowych wiadomości użytkownika i AI, które muszą się zebrać między udanymi storyboardami automatycznymi. Liczą się obie role, a odcinek obejmuje nowe wiadomości w kolejności. Domyślna wartość to 1, więc kolejna zakończona odpowiedź AI może od razu dać odcinek. Większa wartość pozwala zebrać więcej dialogu i akcji. Materiał źródłowy ogranicza się do 20 ostatnich wiadomości i 12 000 znaków, więc długi czat nie stworzy żądania planowania bez granic.
+
+Licznik przesuwa się dopiero po zapisaniu pełnego albo częściowego storyboardu, więc nieudany odcinek nie zużywa materiału źródłowego. Otwarcie istniejącego czatu nie uzupełnia wstecz starych odpowiedzi. Generowanie automatyczne czeka na nowo zakończoną odpowiedź AI.
+
+### Biblioteka promptów w trybie Roleplay
+
+Tryb Roleplay składa jedno żądanie do planera z czterech wybranych promptów:
+
+| Ustawienie | Domyślnie | Do czego służy |
+| --- | --- | --- |
+| **Episode contract** | Completed Roleplay Episode | Wybiera momenty fabularne potwierdzone w źródle i zachowuje ich kolejność z wiadomości. |
+| **Visual style** | Normal / Anime | Oprawa wizualna każdej klatki kluczowej. Inne: NovelAI, Comic, Colored Manga, B&W Manga. |
+| **Animation addon** | Simple Storyboard Motion | Używany tylko w klipach. Dodaje jedną wykonalną akcję, zachowanie kamery, dialog i dźwięk ze źródła, tło dźwiękowe oraz zatrzymanie kadru na końcu. |
+| **Output contract** | Roleplay Keyframe JSON | Ustrukturyzowane pola klatek kluczowych, które zwraca planer. |
+
+Potem **Storyboard Illustration Prompt** formatuje każdą pierwszą klatkę pod usługę obrazów, a przy włączonych klipach **Storyboard Video Prompt** formatuje plan ruchu. Żeby je edytować, otwórz zwiniętą **Prompt library** (biblioteka promptów) w Stage 1. Przyciskiem **Add option** (dodanie opcji) dodasz własny prompt. Potem zmień jego nazwę, dopisz krótki opis i popraw treść. Wbudowane opcje da się przywrócić do wartości domyślnych. Edycja stylu wizualnego w trybie Roleplay nie zmienia planerów trybu Game Mode.
+
+### Storyboard i Illustrator razem
+
+Storyboard to agent osobny od agenta Illustrator, a ręczne działania agenta Illustrator pozostają dostępne. Gdy storyboard w trybie Roleplay ma ustawione **Still images** albo **Animations**, Marinara pomija dla tej odpowiedzi zwykły automatyczny obraz agenta Illustrator, żeby obaj agenci nie tworzyli konkurencyjnych materiałów. **Manual only** zostawia ścieżkę agenta Illustrator bez zmian.
+
+## Ustawienia agenta Storyboard
+
+Otwórz panel **Agents**, wybierz **Storyboard** i otwórz jego konfigurację. Te wartości są domyślne dla czatów, które nie mają własnych ustawień.
+
+| Ustawienie | Domyślnie | Do czego służy |
+| --- | --- | --- |
+| Agent connection | Wybrane przez ciebie konto agenta | Planuje storyboard za pomocą modelu. |
+| **Image model** | **Use the chat image connection** | Tworzy każdą klatkę kluczową. Gdzieś w łańcuchu zapasowym musi być konto do generowania obrazów. |
+| **Video connection** | **Use the chat video connection** | Tworzy klipy, gdy animacje są włączone. |
+| **Automatic generation** | Still images | Początkowe zachowanie automatyczne w nowo aktywowanych czatach. |
+| **Keyframes per turn** | 3, zakres 1-200 | Docelowa liczba uporządkowanych klatek. |
+| **Clip seconds** | 5, zakres 1-15 | Żądana długość każdego klipu. |
+| **Viewer display** | Floating viewer | Domyślny podgląd w trybie Game Mode. W trybie Roleplay storyboardy zawsze wyświetlają się w czacie. |
+| **Default Roleplay episode interval** | 1, zakres 1-100 | Ilość nowego materiału z trybu Roleplay potrzebna między odcinkami automatycznymi. |
+| **Attach Card Appearance** | On | Dodaje do promptów obrazu wygląd dopasowanych postaci. Karta lub persona z włączonym **Image Appearance Override** (osobny opis wyglądu do obrazów) przekazuje ten tekst zamiast pola **Appearance** (wygląd). |
+| **Send Avatar References** | On | Wysyła awatary dopasowanych postaci i person, gdy usługa obrazów przyjmuje referencje. |
+| **Use the final image template** | On | Formatuje zaplanowaną klatkę, zanim trafi do usługi obrazów. W czacie gry to opcja **Use Storyboard Template**. |
+| **Use NovelAI character prompts** | On | Natywne prompty dla poszczególnych postaci, tylko na obsługiwanych oficjalnych kontach NovelAI V4 i V4.5. Inne usługi korzystają ze wspólnej ścieżki promptu. |
+
+W trybie Game Mode biblioteka ma dwie ścieżki planowania, wybierane zależnie od tego, czy gra tworzy obrazy nieruchome, czy klipy: **Still planner** (planer obrazów nieruchomych, domyślnie Still Keyframes) i **Animation planner** (planer animacji, domyślnie Comic Page Animation). Treść planerów da się edytować w globalnej konfiguracji agenta, a każdy czat gry wybiera spośród opcji we własnych ustawieniach.
+
+Po planowaniu wspólne formatery tworzą końcowe żądania: **Default image prompt** (domyślnie Game Scene Illustration) i **Default video prompt** (domyślnie Cinematic Scene Video). Każdy numerowany etap ma własną zwiniętą **Prompt library**: Stage 2 zawiera formatery obrazu, Stage 3 planery ruchu uwzględniające obraz, a Stage 4 formatery przekazujące prompt wideo. Wśród opcji obrazu są też **Storyboard Illustration** i **Storyboard First Frame**. Wśród opcji wideo są **Anime Game Video**, **Comic Page Video** i **Narration Passthrough**. Czaty gry i czaty Roleplay mogą wybrać różne formatery.
+
+Opcja **Image-aware shot planning** (planowanie ujęć z uwzględnieniem obrazu) w Stage 3 uwzględnia też pole **Video prompting instructions** (instrukcje do promptów wideo) konta wideo. Wpisz w tym polu w edytorze konta, czego oczekuje twój model wideo, na przykład sposób opisywania pracy kamery, długość promptu albo wskazówki dotyczące dźwięku.
+
+Konta wybiera się w każdym trybie nieco inaczej. Tryb Roleplay ma dla każdego czatu osobne selektory promptu, obrazu i wideo, a **Use global default** dziedziczy konfigurację agenta Storyboard. Tryb Game Mode korzysta z własnych kont planowania, obrazu i wideo, jeśli są ustawione, a w przeciwnym razie sięga po wartości domyślne agenta. Obrazy nieruchome wymagają konta do generowania obrazów. Animacje wymagają udanego obrazu klatki kluczowej i konta wideo.
 
 ## Prompty obrazów i spójność postaci
 
-Wybrany planer i końcowy prompt obrazu robią co innego:
+Planer decyduje, które momenty pokazać, i opisuje zawartość wizualną każdej klatki. Końcowy szablon obrazu dokłada strukturę pod usługę, wygląd dopasowanych postaci, obsługę referencji, kontekst lokacji, kierunek artystyczny kampanii oraz instrukcje dotyczące obrazu.
 
-- Planer decyduje, które momenty pokazać, i opisuje zawartość wizualną każdej klatki.
-- Końcowy szablon obrazu dokłada strukturę pod dostawcę, wygląd dopasowanych postaci, obsługę referencji, kontekst lokacji, kierunek artystyczny kampanii oraz instrukcje dotyczące obrazu.
+Jeśli planer zwraca już dokładnie taką składnię, jaką ma otrzymać usługa obrazów, użyj szablonu przepuszczającego, na przykład `${scenePrompt}`. Opcję **Use the final image template** wyłącz tylko wtedy, gdy celowo chcesz pominąć formater. Wymagane instrukcje dotyczące obrazu nadal obowiązują.
 
-Jeśli planer zwraca już dokładnie taką składnię promptu, jakiej oczekuje dostawca obrazów, użyj szablonu przepuszczającego, na przykład `${scenePrompt}`. Opcję **Use the final image template** wyłącz tylko wtedy, gdy chodzi o celowe pominięcie wybranego formatera. Wymagane instrukcje dotyczące obrazu obowiązują nadal.
-
-Dla większej spójności postaci:
+Dla bardziej spójnych postaci:
 
 - Dbaj o to, żeby pola Appearance na kartach postaci były konkretne i aktualne.
-- Zostaw opcję **Attach Card Appearance** włączoną, chyba że wybrany planer sam powtarza wszystkie potrzebne szczegóły wyglądu.
-- Zostaw opcję **Send Avatar References** włączoną, jeśli dostawca przyjmuje referencje, a awatary odpowiadają zamierzonemu wyglądowi.
-- Trzymaj w kadrze niewielką, wyraźnie widoczną obsadę. Storyboard dołącza tylko referencje dopasowanych, widocznych postaci i person, a nie wszystkich postaci z czatu.
-
-Opcja **Use NovelAI character prompts** zmienia tylko żądania wysyłane przez obsługiwane oficjalne połączenia NovelAI V4/V4.5. Pozostali dostawcy korzystają ze wspólnej ścieżki promptu nawet przy włączonym przełączniku.
+- Zostaw **Attach Card Appearance** włączone, chyba że planer sam powtarza potrzebne szczegóły.
+- Zostaw **Send Avatar References** włączone, gdy usługa przyjmuje referencje, a awatary odpowiadają zamierzonemu wyglądowi.
+- Wybieraj niewielką, wyraźnie widoczną obsadę w każdej klatce. Storyboard uwzględnia tylko dopasowane, widoczne postacie i persony, a nie wszystkich uczestników czatu.
 
 ## Koszty i wydajność
 
-Każda klatka kluczowa to osobne zadanie generowania obrazu. Storyboardy animowane dokładają jedno zadanie wideo do każdej udanej klatki kluczowej. Animowany storyboard z trzema klatkami może więc wysłać trzy żądania obrazów i trzy żądania wideo.
+Każda klatka kluczowa to osobne zadanie generowania obrazu. Storyboardy animowane dokładają jedno zadanie wideo do każdej udanej klatki kluczowej, więc animowany storyboard z trzema klatkami może wysłać trzy żądania obrazów i trzy żądania wideo. Przy testowaniu nowej usługi albo lokalnej konfiguracji zacznij od obrazów nieruchomych i jednej klatki kluczowej. Liczbę klatek, długość klipu i odstęp generowania automatycznego zwiększaj dopiero wtedy, gdy podstawowa ścieżka działa.
 
-Przy sprawdzaniu nowego dostawcy albo lokalnego przepływu pracy zacznij od obrazów nieruchomych i jednej klatki kluczowej. Liczbę klatek, długość klipu i częstotliwość generowania automatycznego zwiększaj dopiero wtedy, gdy podstawowa ścieżka działa stabilnie.
+## Gry ze starszego systemu storyboardów
 
-## Starsze gry z poprzedniego systemu storyboardów
+Istniejące czaty gry mogą mieć ustawienia zapisane przez starszy, wbudowany interfejs storyboardów. Po instalacji pakietu Marinara zachowuje je jako własne ustawienia czatu, więc starsza gra może działać inaczej, niż wynika z bieżących wartości domyślnych agenta. Otwórz **Chat Settings → Agents → Storyboards** i użyj przycisku przywracania przy każdym polu, które ma znowu dziedziczyć wartość domyślną agenta. Te ustawienia to wyłącznie dane z migracji. Generowanie nadal wymaga, żeby pakiet był zainstalowany i włączony w danej grze.
 
-Storyboard jest teraz agentem do pobrania, ale istniejące czaty w trybie Game Mode mogą wciąż mieć ustawienia zapisane przez dawny, wbudowany interfejs storyboardów. Po instalacji pakietu Marinara zachowuje te wartości jako własne ustawienia czatu i nie kasuje działającej konfiguracji gry.
-
-Dlatego starsza gra może działać inaczej, niż wynika to z aktualnych ustawień domyślnych agenta. Otwórz **Chat Settings > Agents > Storyboards** i użyj przycisku przywracania przy każdym polu, które ma znowu dziedziczyć wartość domyślną agenta Storyboard.
-
-Stare ustawienia to dane z migracji, a nie druga implementacja storyboardów. Bieżące generowanie nadal wymaga, żeby pakiet Storyboard był zainstalowany i aktywny w danej grze.
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
-### Brak agenta Storyboard w panelu Chat Settings
-
-- Zainstaluj pakiet **Storyboard** w **Agents > Agent Organizer (organizowanie agentów)**.
-- Użyj czatu w trybie Roleplay albo Game Mode; tryb Conversation nie jest obsługiwany.
-- Sprawdź, czy wersja pakietu pasuje do zainstalowanej wersji aplikacji Marinara Engine.
-
 ### Przycisk Create storyboard jest dostępny, ale generowanie się nie udaje
 
-- Włącz w czacie opcje **Enable Agents** i **Enable Storyboards**.
-- Wskaż poprawne połączenie do generowania obrazów: na karcie Storyboard w trybie Roleplay, w ustawieniach gry albo w globalnej konfiguracji agenta Storyboard.
-- Poczekaj na koniec odpowiedzi AI albo tury GM, zanim spróbujesz ponownie.
+- Włącz w czacie **Enable Agents** i **Enable Storyboards**.
+- Wybierz poprawne konto do generowania obrazów na karcie Storyboard w trybie Roleplay, w ustawieniach gry albo w globalnej konfiguracji agenta Storyboard.
+- Poczekaj, aż odpowiedź AI albo GM się zakończy, i spróbuj ponownie.
 
 ### Tryb Roleplay nie utworzył odcinka automatycznego
 
-- Wybierz **Still images** albo **Animations** zamiast **Manual only**.
-- Poczekaj na nowo zakończoną odpowiedź AI. Otwarcie czatu nie uzupełnia starych wiadomości wstecz.
-- Sprawdź pole **Messages per episode**. Od ostatniego udanego storyboardu musi się uzbierać dość nowych wiadomości użytkownika i AI.
-- Nieudane uruchomienie nie przesuwa punktu odniesienia, więc poszukaj pierwotnego błędu dostawcy albo błędu parsowania w logu serwera (dzienniku serwera).
+- Wybierz **Still images** albo **Animations**, a nie **Manual only**.
+- Poczekaj na nowo zakończoną odpowiedź AI. Otwarcie czatu nie uzupełnia wstecz starych wiadomości.
+- Sprawdź **Messages per episode**. Musi się zebrać dość nowych wiadomości użytkownika i AI.
+- Nieudane uruchomienie nie przesuwa licznika, więc poszukaj w logu serwera pierwotnego błędu usługi albo błędu parsowania.
 
 ### Obrazy się pojawiają, ale wideo nie
 
-- W trybie Roleplay wybierz **Animations**. W trybie Game Mode włącz opcję **Automatic Storyboard Animations**.
-- Wskaż połączenie typu Video Generation.
-- Sprawdź, czy połączenie wideo obsługuje wejście image-to-video.
-- Zajrzyj do zakładki **Videos** w panelu Gallery. Klip może być gotowy później niż obraz jego klatki kluczowej.
-- Jeśli po błędzie modelu LLM planowanie przeszło na ścieżkę zapasową, Marinara może zachować obrazy zapasowe i pominąć wideo w tym uruchomieniu.
+- W trybie Roleplay wybierz **Animations**. W trybie Game Mode włącz **Automatic Storyboard Animations**.
+- Wybierz konto typu Video Generation, które obsługuje wejście image-to-video.
+- Sprawdź zakładkę **Videos** w panelu Gallery. Klip może być gotowy później niż obraz jego klatki kluczowej.
+- Jeśli po błędzie modelu planowanie przeszło na ścieżkę zapasową, Marinara może zachować obrazy zapasowe i pominąć wideo w tym uruchomieniu.
 
 ### Storyboard jest niepełny albo stoi w miejscu
 
-Jedno lub więcej zadań u dostawcy mogło się nie powieść, przekroczyć limit czasu albo trafić na limit zapytań lub treści. Jeśli dostawca działa poprawnie, ale powoli, zwiększ wartość `IMAGE_GEN_TIMEOUT_MS` albo `VIDEO_GEN_TIMEOUT_MS` w pliku `.env`, a potem uruchom ponownie aplikację Marinara Engine, bo te wartości odczytują się przy starcie.
+Zadanie w usłudze mogło się nie powieść, przekroczyć limit czasu albo trafić na limit zapytań lub treści. Jeśli usługa działa poprawnie, ale powoli, zwiększ `IMAGE_GEN_TIMEOUT_MS` albo `VIDEO_GEN_TIMEOUT_MS` w pliku `.env`, a potem uruchom aplikację Marinara Engine ponownie, bo te wartości są odczytywane przy starcie. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 
-Włącz tryb Debug i poszukaj w logu serwera hasła `storyboard`, żeby przejrzeć planer, gotowy prompt obrazu, wybór referencji i prompt wideo. Logi w trybie Debug mogą zawierać prywatny tekst czatu i prompty; wyczyść je przed udostępnieniem.
+Włącz tryb Debug i poszukaj w logu serwera hasła `storyboard`, żeby zobaczyć planer, gotowy prompt obrazu, wybór referencji i prompt wideo. Logi w trybie Debug mogą zawierać prywatny tekst czatu, więc wyczyść je przed udostępnieniem.
 
 ## Powiązane przewodniki
 
@@ -354,6 +268,6 @@ Włącz tryb Debug i poszukaj w logu serwera hasła `storyboard`, żeby przejrze
 - [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md)
 - [Game Mode: pierwsze kroki](getting-started.md)
 - [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md)
-- [Dostawcy generowania obrazów](../media/image-providers.md)
+- [Dostawcy generowania obrazów i konfiguracja](../media/image-providers.md)
 - [Generowanie wideo sceny](../media/scene-video.md)
 - [Storyboardy LTX 2.3 w Game Mode](ltx-2-3-storyboards.md)

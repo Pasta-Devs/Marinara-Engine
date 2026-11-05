@@ -1,215 +1,173 @@
 # 聊天设置总览
 
-用 **Chat Settings**(聊天设置) 为当前聊天选择连接、角色、智能体和其他设置。聊天搜索、摘要、分支和图库也在这里。
-
-这里的大多数设置只属于当前聊天。窗口位置也按聊天分别保存。**Tracker Panel** 的开关还会影响其他 Roleplay 聊天。
-
-更新后第一次进入聊天时，会播放一段短视频，介绍如何排列按钮和窗口。电脑和手机上都会显示，老用户也会看到。看完选择 **Got it**，之后切换聊天或刷新页面都不会再出现。
+**Chat Settings**(聊天设置) 是当前打开的聊天的选项面板：模型、角色、智能体、搜索、摘要、分支和图库都在这里。大多数设置只属于这个聊天。
 
 ## 打开 Chat Settings
 
 1. 打开一个聊天。
-2. 点击 **Chat Settings** 按钮（滑块图标）。它最初位于聊天右上角、应用顶栏下方。在电脑上，如果右侧显示着 Tracker Panel，它最初会改为紧挨在面板左边。
-3. 点击区域标题展开。这些区域也叫 **drawers**(抽屉)：再点一次标题就会收起。
+2. 点击 **Chat Settings** 按钮（滑块图标），面板随即打开。手机上，**Help**(帮助，即 **?**) 会显示图标说明。
+3. 点击某个区域的标题即可展开，再点一次标题就会收起。
 
-新建聊天时，Chat Settings 会自动打开。点击它的 **X**，或者再点一次滑块按钮即可关闭。
+新建聊天时，Chat Settings 会自动打开。要关闭它，点击它的 **X**，或者再点一次滑块按钮。
 
-更新前已有的聊天会把熟悉的工具保留在 Chat Settings 外：电脑上是可移动按钮，手机上则放在三点 **Chat tools**(聊天工具) 菜单中。升级现有安装时，除非已经选择过收藏布局，否则这套熟悉的排列也会成为各模式新聊天的收藏布局。打开工具后，如果想把它留在 Chat Settings 里，选择 **Put back in Chat Settings**(放回聊天设置)。电脑上的 Roleplay 追踪器会集中在 **Trackers** 窗口中，已保存的窗口和按钮位置会保留。
+电脑上，滑块按钮最初位于聊天右上角。如果右侧显示着 Tracker Panel(追踪器面板)，它最初会改在那个面板的左边。Tracker Panel 是 Roleplay(角色扮演) 里的侧边面板，显示智能体（随回复一起运行的帮手）追踪的内容，比如场景中的角色。
 
-滑块按钮可以拖到顺手的位置。拖动时，它会与附近的聊天按钮对齐；电脑上按住 Alt 可以自由放置。每个聊天都会记住位置。按钮上的小圆点表示智能体正在工作。在启用了 Advanced Memory Recall 的 Roleplay 聊天里，按钮另一角的常亮圆点表示有些场景记忆需要处理，见[修复记忆问题](../agents/memory.md#fixing-memory-problems)。
+滑块按钮可以拖到更顺手的位置，拖动时它会与附近的聊天按钮对齐。电脑上按住 <kbd>Alt</kbd> 可以自由放置。每个聊天都会记住按钮位置。按钮上的小圆点表示智能体正在工作。在启用了 Advanced Memory Recall 的 Roleplay 聊天里，按钮另一角的常亮圆点表示有些场景记忆需要处理，见[修复记忆问题](../agents/memory.md#fixing-memory-problems)。
 
-Roleplay 中滑块按钮旁的小提示只需关闭一次。点击它的 **X** 后，切换聊天或刷新页面都会保持隐藏。
+第一次打开聊天时，会播放一段短视频，介绍如何排列按钮和窗口。点击 **Got it**(知道了)。之后在其他聊天里或刷新页面后，它都不会再出现。要在某个聊天里一直隐藏布局提示，点击提示旁的 **X**，也就是 **Hide these tips for this chat**(在此聊天中隐藏这些提示)。
 
-电脑上，点击布局提示旁的 **X**(**Hide these tips for this chat**)，就能在当前聊天中隐藏这些提示，刷新页面或使用 Reset View 后也不会再显示。也可以通过收藏布局星标或设置方案，把这个选择保存给新聊天。
+## 各区域一览
 
-## 改变聊天窗口的外观
+能看到哪些区域取决于聊天模式。**Impersonate**(代写) 区域的说明见[引导生成与 Impersonate](guided-and-impersonate.md)。
 
-打开 **Settings > Appearance > App**(设置 → 外观 → 应用)，滚动到 **App Style**(应用样式) 底部的 **Chat widget style**(聊天组件样式)。**Default**(默认) 保留 Marinara 原本的外观。**Dottore** 将冰蓝色和浅金属色与技术感字体、切角组合起来；**Prof. Mari** 将宝石蓝和暖金色与故事书式字体、拱形边框组合起来。两者都会适应浅色和深色模式，并同时改变三种聊天模式中的可移动按钮、窗口和可展开区域。
+- 设置方案栏：套用或保存一组聊天设置。见[设置方案](settings-profiles.md)。（Conversation(对话模式) 和 Roleplay）
+- **Search messages**(搜索消息)：按文字查找消息，或用 `#` 加消息编号查找。它的 **Bookmarks**(书签) 和 **Trash**(回收站) 选项卡分别列出加了书签和已删除的消息。（Game(游戏模式) 中没有）
+- **Chat Name**(聊天名称)：聊天列表里显示的名字。点击即可改名。它永远不会发给模型。
+- **Chat Branches**(聊天分支)：切换、改名、导出和导入分支。见[聊天分支](branches.md)。
+- **Connection**(连接)：这个聊天由哪个模型回复。见下文。
+- **Prompt Preset**(提示词预设)：这个聊天保存的提示词结构。
+- **Advanced Parameters**(高级参数)：为这个聊天覆盖温度之类的生成设置。见[生成参数](../prompts/generation-parameters.md)。
+- **Persona**(用户角色)：你扮演谁。见[在聊天里选择用户角色](../characters/choosing-your-persona.md)。（Conversation 和 Roleplay）
+- **Characters**(角色)：聊天里的角色。（Conversation 和 Roleplay）
+- **Party**(队伍)：取代 **Persona** 和 **Characters**，把两者合并在一处。（Game）
+- **Group Chat**(群聊)：群聊里谁来发言。见[群聊](group-chats.md)。（有多个角色的聊天）
+- **Scoped Regex Scripts**(限定正则脚本)：按聊天控制属于某个角色的正则脚本。见[正则脚本](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting)。（只有聊天中的角色带有限定脚本时才显示）
+- **Chat Variables**(聊天变量)：用 `{{name}}` 重复使用的命名文本。见下文。
+- **Connected Chats**(关联聊天)：把一个聊天和另一个聊天关联起来。见[关联聊天](connected-chats.md)。
+- **Lorebooks**(世界书)：挂上世界设定。见[世界书总览](../lorebooks/overview.md)。
+- **Chat Summary**(聊天摘要)：查看和生成摘要。见[记忆功能与聊天摘要](../agents/memory.md#chat-summary-roleplay)。（适用摘要的聊天）
+- **Active Context**(活动上下文)：显示这个聊天里启用的世界书和上下文。见 [Token 预算与递归](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context)。
+- **Agents**(智能体)：开启帮手。见[智能体：聊天里的 AI 帮手](../agents/agents-overview.md)。
+- **Agent activity**(智能体活动)：显示智能体做了什么。可以重新运行追踪器、重试或停止智能体，以及清空追踪器。见[智能体活动](../roleplay/getting-started.md#agent-activity)。（Roleplay，开启了智能体或 Advanced Memory 时）
+- **Author's Notes**(作者注释)：模型每轮都会读取的一段笔记。见 [Author's Notes](../roleplay/getting-started.md#authors-notes)。（Roleplay）
+- **Background**(背景)：聊天的背景图片。（Roleplay 和 Game）
+- **Gallery**(图库)：聊天的图片和视频。见[场景背景与图库](../media/scene-backgrounds.md)。
+- **Widgets**(小组件)：游戏中显示哪些 HUD 小组件。（Game）
+- **Impersonate**：`/impersonate` 命令的设置。（Roleplay）
+- **Memory Recall**(记忆功能)：记住聊天中较早的内容。见[记忆功能与聊天摘要](../agents/memory.md)。（Lite 版没有）
+- **Function Calling**(函数调用)：让模型在这个聊天里使用工具（函数）。
+- **Translation**(翻译)：消息自动翻译。见[消息翻译](../integrations/message-translation.md)。
 
-用预设下方的 **Font**(字体)、**Shape**(形状) 和三个颜色选择器，可以自由搭配外观。安装到 Marinara 的字体也会出现在字体列表中。重新选择预设会重置字体、形状和自定义颜色。这些选择不会移动窗口，也不会改变已保存的聊天布局。它们保存在应用偏好中，并同步到连接同一服务器的浏览器。
+Conversation 聊天还有 Autonomous Messaging(自主消息，角色会先给你发消息)、Commands(命令，角色自己采取的行动) 和笔记几个区域，见 [Conversation 模式：入门](../conversation/getting-started.md)。
 
-**Button size (px)**(按钮大小，px) 可以改变可移动聊天按钮及其图标的大小，而不改变 Display Size。输入 32 到 96 像素之间的值。留空或使用重置按钮，会保留当前默认值。大小会和外观偏好一起保存，选择其他预设也不会改变。
+## 为聊天选择模型
 
-想让聊天其他区域保持同样的风格，可以开启 **Apply preset font**(应用预设字体)、**Apply preset shape**(应用预设形状) 或 **Apply preset colors**(应用预设颜色)。每个开关独立生效，也会应用上方的自定义选择。它们作用于消息、输入框和聊天控件；Conversation 消息可以使用所选字体和颜色，但保留自己的形状。开启 **Apply preset colors** 时，引号内的对白仍保留每个角色或用户角色自己的 Dialogue Highlight Color。三个开关初始都是关闭的。关闭某个开关，就会恢复聊天对应部分原本的样式。详情见[自定义 CSS 主题](../appearance/custom-css-themes.md#ready-made-chat-window-styles)。
+**Connection** 区域决定这个聊天由哪个模型回复。所选模型只改变这个聊天。
 
-## 移动、固定和锁定窗口
+1. 打开 **Chat Settings** 和其中的 **Connection** 区域。
+2. 点击 **Model**(模型) 字段，它显示当前模型。
+3. 看看它是否显示这个聊天跟随 **Main**(主模型)。Main 是你在 **Connections**(连接) 里设置的默认模型。
+4. 选择一个模型。这个选择器和聊天输入框里的模型按钮相同。当前模型固定在最上方，下面是最近用过和加了星标的模型，按账号分组。可以跨模型和账号搜索，也可以用 **Browse**(浏览) 打开某一个账号的模型目录。
 
-电脑上，Chat Settings 浮在聊天上方，内容会随窗口大小重新排列。第一次用按钮打开窗口时，它会出现在按钮下方，并调整到聊天区域内。如果已经保存过位置，就在那里打开。
+**Follow Main**(跟随主模型) 会清除这个聊天自己的选择，这样你更换 Main 时，这个聊天也会跟着变。**Shuffle**(随机轮换) 每条回复都从你的池子里换一个模型，见 [Shuffle](../connections/organizing-connections.md#shuffle)。如果某个账号缺密钥或已关闭，点它的模型会引向修复操作。要添加账号，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
-- **移动**：拖动标题栏。也可以用键盘聚焦标题栏后按方向键；按住 Shift 可以加大移动步幅。
-- **调整大小**：拖动边缘或角落。也可以聚焦右下角的调整手柄后按方向键。
-- **Pin**(固定) 让窗口在点击别处时保持打开。固定的窗口会在刷新页面后重新打开；如果先关闭或最小化，就保持该状态。未固定的窗口在点击外部或按 Escape 时会关闭，但正在文本框里输入或使用已打开的菜单时除外。
-- **Lock**(锁定) 阻止窗口移动或调整大小，也固定它的按钮位置。按钮仍能打开窗口。解锁窗口后，两者才能再次移动。
-- **Close**(关闭)，也就是 **X**，会隐藏窗口。
+## 使用聊天变量
 
-调整浏览器大小或打开侧边栏时，窗口仍会留在聊天区域内。在电脑上，窗口或按钮可以放在消息框旁边的空间里，一直到聊天区域的最底部，但永远不会盖住消息框本身。
+聊天变量就是给一段文本起的名字。例如，添加名为 `char1`、值为 `Mary` 的变量，然后在消息里写 `{{char1}} walks in.`，模型读到的就是“Mary walks in.”
 
-手机上，Chat Settings 是全宽面板，输入时会调整到键盘上方。
+1. 打开 **Chat Settings** 和其中的 **Chat Variables** 区域。
+2. 点击 **Add variable**(添加变量)，然后填写这一行的 **name**(名称) 和 **value**(值)。
+3. 按 <kbd>Enter</kbd> 或点击输入框外部即可保存。垃圾桶按钮会删除变量。
 
-## 帮助、追踪器和 Reset View
+名字只能包含字母、数字和下划线，必须以字母或下划线开头，最长 64 个字符。正好 21 个字符的名字保留给角色引用。`char`、`user` 这类内置宏的名字会被拒绝。
 
-标题栏还有几个实用按钮：
+- 你的消息仍显示你输入的标签，只有模型会看到值。之后修改这个值，之前所有用过这个标签的回合也会随之改变。
+- 变量只属于这个聊天，重启后仍会保留。
+- 它和 `{{setvar}}` 使用同一份存储。提示词章节或世界书条目设置同名变量时，会覆盖你填的值。
 
-- **Help**(标题旁的 **?**) 显示解释聊天控件的标签。手机上会先关闭 Chat Settings，让聊天露出来。点击高亮的 **Chat Settings** 按钮，可以查看图标说明：Reset View、收藏布局、Roleplay Tracker Panel、锁定/解锁、关闭，以及把区域移到外面。说明内部可以滚动，方便看完全部内容。可以在 **Settings → General → App Behavior → Hide chat Help button** 隐藏 Help 按钮。
-- **Reset View**(圆形箭头) 先要求确认，再恢复当前聊天的初始布局。它会把弹出的区域放回去，恢复默认窗口大小、位置、固定和锁定状态。
-- **Favorite layout**(Reset View 旁的星标) 把这套排列保存给当前模式的新聊天。见[为新聊天选择布局](#choosing-a-layout-for-new-chats)。
-- **Tracker Panel**(骰子) 在使用智能体或 Advanced Memory 的 Roleplay 聊天中开关追踪面板。电脑上显示在聊天旁，手机或平板上通过可移动按钮打开和关闭。这也会改变 **Settings → Appearance** 中的 Tracker Panel 偏好。
-
-Tracker Panel 隐藏时，电脑上的追踪器改用 [Trackers 窗口](../roleplay/hud-and-trackers.md#the-trackers-window)。消息旁空间不足时，最初会显示一个小小的 **Trackers** 按钮。关闭窗口后会恢复为按钮。用 Chat Settings 标题栏的骰子可以重新显示 Tracker Panel。
-
-<a id="popping-a-section-out-into-its-own-window"></a>
-
-## 把区域弹出为独立窗口
-
-想把一个区域放在手边，点击它的 **Pop out** 按钮（**?** 旁边带箭头的方框）。它会变成独立窗口，在放回之前不再出现在 Chat Settings 中。
-
-电脑上也可以把区域标题直接拖出 Chat Settings。新窗口默认不固定，因此点击别处会缩成按钮。如果希望使用聊天时保持打开，请固定窗口。和 Chat Settings 一样，可以移动、调整大小或锁定。
-
-- **Close**(**X**) 把区域缩成带图标的小按钮。按钮可以拖到任意位置，点击后会在之前的位置重新打开窗口。
-- **Put back in Chat Settings**(**X** 旁的弯箭头) 把区域放回 Chat Settings。也可以把窗口拖到 Chat Settings 上。
-- 未固定的区域在点击别处或按 Escape 时会缩成按钮，但正在文本框里输入或使用已打开的菜单时除外。
-
-手机上，弹出区域会关闭 Chat Settings，并把它加入三点 **Chat tools** 菜单。先点击三点按钮，再点击该区域的圆形图标按钮，就能打开面板。关闭面板后可以再次使用菜单；点击 **Put back in Chat Settings** 则把区域放回。
-
-追踪器也能以同样方式从 Trackers 窗口弹出，它们的返回按钮叫 **Put back in Trackers**。
-
-<a id="the-phones-chat-tools-menu"></a>
-
-## 手机上的 Chat tools 菜单
-
-可移动的三点按钮会把从 Chat Settings 移出的工具集中在一处。点击后会展开一列圆形图标按钮，再点击工具即可打开。再次点击三点按钮，会收起这些按钮。追踪器按钮、Game 的 Map 按钮和 Character Profiles 仍单独显示，方便直接打开。
-
-拖动三点按钮可以移动整个菜单。打开菜单后，使用顶部的锁可以固定位置。未锁定时，上下拖动工具按钮即可调整它在按钮列中的顺序。使用键盘时，让按钮获得焦点，再按向上或向下箭头键。锁定菜单后，既不能移动，也不能调整顺序，但仍可打开工具。
-
-每个聊天都会保存菜单的位置、锁定状态和顺序。收藏布局和设置方案也包含这些信息。菜单与它打开的窗口一样，沿用聊天组件样式。
-
-<a id="control-windows-and-their-buttons"></a>
-
-## 控制窗口及其按钮
-
-有些工具有自己的小窗口：游戏的 **Game controls**、**Session**、**Volume** 和 **Game Assets**，还有 **Connected chat**，以及已安装资源包提供的控件。
-
-电脑上，这些按钮最初位于聊天右上角附近。点击即可打开窗口，关闭后会恢复为按钮。手机上，可以在三点 **Chat tools** 菜单中找到这些工具，它们会显示为全宽面板。
-
-想把工具放进 Chat Settings，就打开它的窗口，选择 **Put back in Chat Settings**。它会成为一个可展开区域。用区域的弹出按钮可以再变成独立窗口；电脑上也可以把标题拖出来。**Reset View** 会恢复初始排列：电脑上是独立按钮，手机上是 Chat tools 菜单中的条目。
-
-电脑上，拖动按钮可以移动位置，附近的按钮会自动对齐。按住 Alt 可以自由放置；按钮获得焦点时也能用方向键移动。Conversation 的 **Calls** 仍是普通按钮。Game 的 **Character Profiles**(角色资料) 在电脑和手机上都有独立的可移动按钮。手机上的 **Map**(地图) 按钮也独立显示，并且可以移动。打开其中任一控件并锁定后，对应的窗口和按钮就不能移动；每个游戏都会记住它们的位置。
-
-## 每个聊天单独保存窗口布局
-
-每个聊天都会记住窗口大小和位置、固定与锁定状态、弹出的区域以及按钮位置。手机上的位置、Chat tools 菜单的顺序和锁定状态与电脑位置分别保存。切换聊天时，会恢复那个聊天的布局。
-
-[设置方案](#settings-profiles) 可以保存布局，供其他聊天使用。**Reset View** 会恢复当前聊天的初始布局。
-
-<a id="choosing-a-layout-for-new-chats"></a>
-
-## 为新聊天选择布局
-
-用 **Reset View** 旁的星标，把当前排列设为同一模式新聊天的初始布局。Conversation、Roleplay 和 Game 各有自己的收藏布局。
-
-更新后，三种模式都会先收藏熟悉的工具按钮布局。新聊天会继续使用它，直到替换或清除收藏。全新安装则把聊天工具放在 Chat Settings 中，不设置收藏。以后导入旧聊天时，会保留那个聊天的工具入口，但不会改变新聊天的默认布局。
-
-1. 按需要排列窗口和按钮，把工具放进 Chat Settings 或弹出来。
-2. 如果希望新聊天也不显示布局提示，先隐藏提示。
-3. 点击 **Reset View** 旁的星标。当前布局、提示选择和 Scoped Regex Scripts(限定正则脚本) 模式都与收藏一致时，星标会填满。
-
-收藏会保存窗口和按钮的位置、大小、固定与锁定状态、弹出或收进设置的工具、布局提示的选择，以及这个聊天的 [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) 模式。聊天选的是 **Use preset default**(使用预设默认值) 时不保存模式，新聊天会沿用各自的提示词预设。角色、连接、AI 设置和消息仍属于原聊天。
-
-要替换收藏，改变排列后再点星标。要停用收藏，点击填满的星标，新聊天就会使用标准布局。保存、替换或清除收藏只影响之后新建的聊天，现有聊天保持原布局。
-
-套用自带已保存布局的设置方案时，方案布局优先于收藏。没有保存布局的方案会保留收藏布局，但仍会套用自己的布局提示设置和 Scoped Regex Scripts 模式；没有设定模式的方案使用提示词预设的默认值。
-
-## Chat Name
-
-**Chat Name**(聊天名称) 这一节放的是聊天列表里显示的名字。这个名字只有自己看得到，不会发给 AI，也不会对聊天内容产生任何影响。
-
-1. 在 **Chat Name** 这一节点击当前名字。
-2. 名字变成输入框。
-3. 输入新名字。
-4. 按 Enter，或者点击对勾按钮确认。
-
-## Connection
-
-**Connection**(连接) 这一节决定这个聊天由哪个 AI 模型来回复。连接就是某个 AI 服务的一个 API 密钥、账号或端点，保存的模型都归在它下面。API 密钥是一串秘密字符，Marinara Engine 靠它来使用你在那个服务的账号。
-
-**Model**(模型) 字段显示实际生效的模型，以及这个聊天是跟随 **Main**(主模型)，还是用自己单独的选择。点击它会打开和聊天输入框里模型按钮一样的选择器。当前模型固定在最上方，下面是最近用过和加了星标的模型，按账号分组。可以跨模型和账号搜索，也可以用 **Browse**(浏览) 打开某一个账号的模型目录。选中的模型只改变这个聊天。
-
-**Follow Main**(跟随主模型) 会清除这个聊天自己的选择。**Shuffle**(随机轮换) 每条回复都从你的池子里换一个模型。如果某个连接缺密钥或已关闭，点它的模型会引向修复操作。星标只把模型存进你的列表，不会改变当前聊天。详见 [Shuffle](../connections/organizing-connections.md#shuffle)。
-
-连接本身怎么创建，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
+变量很多时，点击 **Search and edit all in the State Editor**(在 State Editor 中搜索并编辑全部)。它会列出所有变量，你可以搜索、编辑、以 JSON 一次粘贴许多变量，并在保存前查看改动。见 [State Editor](../roleplay/hud-and-trackers.md#the-state-editor)。其他双大括号宏见[提示词宏](../prompts/macros.md)。
 
 <a id="settings-profiles"></a>
 
 ## 设置方案
 
-面板最上方是 **Profile**(设置方案) 控件。设置方案就是一组保存下来的聊天设置，可以套用到别的聊天上。从下拉菜单里选一个方案，就会应用到当前聊天。
+设置方案就是一组保存下来的聊天设置，可以套用到别的聊天上。方案栏位于面板最上方，Game 中不显示。保存、套用、导入、导出和指定默认方案，见[设置方案](settings-profiles.md)。
 
-一个方案打包的是当前聊天的连接、提示词预设、智能体、工具、翻译、记忆功能、高级参数、窗口布局等设置。它不会动角色、用户角色、世界书、立绘、摘要、标签和场景提示词，这些始终跟着聊天本身走。窗口布局功能出现以前保存的方案，比如 **Default**，会保留聊天当前的布局。
+## 移动、固定和锁定窗口
 
-这一栏还有一排只有图标、没有文字的小按钮，鼠标悬停时会显示各自的名称：
+电脑上，Chat Settings 浮在聊天上方，内容会随窗口大小重新排列。窗口第一次会在它的按钮下方打开，保存过位置的则在那个位置打开。
 
-- 磁盘图标（**Save current chat settings into this profile**）把当前聊天的设置写入选中的方案。如果还有其他聊天使用这个方案，它会询问是否一并更新那些聊天。
-- 铅笔图标（**Rename profile**）给选中的方案改名。
-- 文件加号图标（**Save current chat settings as a new profile**）把当前聊天的设置存成一个新方案。
-- 向下箭头图标（**Import settings profile (.json)**）从 `.json` 文件载入方案。
-- 向上箭头图标（**Export settings profile (.json)**）把选中的方案存成 `.json` 文件。
-- 垃圾桶图标（**Delete profile**）删除选中的方案。
+- 移动：拖动标题栏。也可以聚焦标题栏后按方向键，按住 <kbd>Shift</kbd> 可以加大步幅。
+- 调整大小：拖动边缘或角落。也可以聚焦右下角的手柄后按方向键。
+- 固定：点击 **Pin**(固定)。固定的窗口在点击别处时保持打开，刷新页面后也会重新打开。未固定的窗口在点击外部或按 <kbd>Esc</kbd> 时会关闭，但正在输入或使用已打开的菜单时除外。
+- 锁定：点击 **Lock**(锁定)。窗口不能移动或调整大小，它的按钮也固定在原位。仍然可以打开它。
+- 关闭：点击 **X**。
 
-下拉菜单旁边是一个星标按钮。点它可以把某个方案设为当前模式下新建聊天的默认方案。以后在这个模式里新建聊天，Marinara 就会自动套用加星的方案。每个模式只能有一个默认方案。
+窗口始终留在聊天区域内。窗口或按钮可以放在消息框旁边，但永远不会盖住它。手机上，Chat Settings 以全宽面板打开，并调整到键盘上方。
 
-支持这项功能的模式都自带一个 **Default**(默认) 方案。**Default** 方案不能改名、不能写入、也不能删除。套用它会把受方案控制的那些设置恢复成应用的默认值。
+## 帮助、追踪器和 Reset View
 
-Game Mode 里没有方案控件。
+这些按钮在标题栏里。
 
-在 Marinara 里，**预设**一词专指提示词预设。提示词预设决定系统提示词的结构和生成参数；设置方案打包的则是上面列出的那些可复用的聊天配置。完整规则见[设置方案](settings-profiles.md)。
+- **Help**(即 **?**) 显示解释聊天控件的标签。手机上会先关闭 Chat Settings。要隐藏它，开启 **Settings → General → App Behavior → Hide chat Help button**(设置 → 常规 → 应用行为 → 隐藏聊天帮助按钮)。
+- **Reset View**(重置视图，圆形箭头) 先要求确认，然后恢复这个聊天的初始布局：弹出的区域会放回去，窗口大小、位置、固定和锁定状态都会重置。
+- **Favorite layout**(收藏布局，星标) 把这套排列保存给新聊天使用。见[为新聊天选择布局](#choosing-a-layout-for-new-chats)。
+- **Tracker Panel**(骰子) 在使用智能体或 Advanced Memory 的 Roleplay 聊天中开关这个面板。电脑上它显示在聊天旁边；手机或平板上，由一个可移动按钮打开。它也会改变 **Settings → Appearance**(设置 → 外观) 里的 Tracker Panel 偏好。
 
-## 聊天变量
+Tracker Panel 没有显示时，电脑上的追踪器改用 [Trackers 窗口](../roleplay/hud-and-trackers.md#the-trackers-window)。消息旁空间不足时，它最初会显示为一个小小的 **Trackers**(追踪器) 按钮。用骰子按钮可以重新显示 Tracker Panel。
 
-**Chat Variables**(聊天变量)部分可以让你为一段文本命名，再把这个名字放进双大括号里重复使用。添加一个名为 `char1`、值为 `Mary` 的变量，然后在消息里输入 `{{char1}} walks in.`，AI 读到的就是 "Mary walks in."。
+<a id="popping-a-section-out-into-its-own-window"></a>
 
-每一行都有 **name**(名称)和 **value**(值)。名字可以包含字母、数字和下划线，而且必须以字母或下划线开头。正好 21 个字符的名字保留给角色引用。`char` 或 `user` 这样的内置宏名称会被拒绝，因为内置宏始终优先。按 Enter 或点击输入框外部即可保存。垃圾桶按钮会删除变量。
+## 把区域弹出为独立窗口
 
-有三点需要知道。
+把一个区域弹出，就能让它拥有自己的窗口。
 
-- 你的消息仍然显示输入的标签，只有 AI 会看到值。因此，以后修改这个值时，之前所有用过这个标签的回合也会随之改变。
-- 变量只属于当前聊天。其他聊天有各自的列表，当前列表会在重启后保留。
-- 它和 `{{setvar}}` 使用同一份存储。提示词章节或世界书条目设置的值也会在这里显示为可编辑的行。如果条目使用同一个名字，就会覆盖你手动输入的值。
+1. 点击区域上的 **Pop out**(弹出) 按钮（**?** 旁边带箭头的方框）。电脑上也可以把区域标题直接拖出 Chat Settings。
+2. 新窗口可以像 Chat Settings 一样移动、调整大小、固定或锁定。它默认不固定，所以点击别处会缩成按钮。
+3. 要放回去，点击 **Put back in Chat Settings**(放回聊天设置，**X** 旁的弯箭头)，或者把窗口拖到 Chat Settings 上。
 
-变量很多时，点击该部分顶部的 **Search and edit all in the State Editor**(在 State Editor 中搜索并编辑全部)。它会把所有变量放进同一个列表，你可以在里面搜索、把值当作字段编辑，或把许多变量一次性以 JSON 粘贴进去，并在保存前查看改动。保存只会改动你编辑过的名称，所以 `{{setvar}}` 期间以其他名称保存的值会被保留。参见 [State Editor](../roleplay/hud-and-trackers.md#the-state-editor)。
+**X** 会把区域缩成带图标的小按钮。把按钮拖到想要的位置，点击它就能重新打开窗口。追踪器也能以同样方式从 Trackers 窗口弹出，它们的返回按钮是 **Put back in Trackers**(放回追踪器)。
 
-双大括号的其他用法见[提示词宏](../prompts/macros.md)。
+手机上，弹出区域会关闭 Chat Settings，并把它加入三点 **Chat tools**(聊天工具) 菜单。先点击三点按钮，再点击该区域的圆形图标。点击 **Put back in Chat Settings** 可以把它放回。
 
-## Chat Settings 里的聊天工具
+<a id="the-phones-chat-tools-menu"></a>
 
-聊天工具也以区域的形式放在 Chat Settings 里。能看到哪些工具，取决于聊天模式。
+## 手机上的 Chat tools 菜单
 
-- **Search messages** 是靠近顶部、位于设置方案下方的可展开区域。输入文字，或 `#` 加消息编号，就能查找消息。**Bookmarks** 和 **Trash** 选项卡分别列出书签和已删除的消息。和其他区域一样，它也能弹出为独立窗口。Game 聊天没有这一项。
-- **Chat Branches** 在 **Chat Name** 下方，用来切换、改名、导出和导入聊天分支。见[聊天分支](branches.md)。
-- **Chat Summary** 在 **Lorebooks** 下方，用来查看和生成 Roleplay 聊天摘要。见[记忆功能与聊天摘要](../agents/memory.md#chat-summary-roleplay)。
-- **Active Context** 在 **Chat Summary** 下方，显示当前聊天启用的世界书和上下文。见 [Token 预算与递归](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context)。
-- **Agent activity** 紧挨着 **Agents** 下方，在使用智能体或 Advanced Memory 的 Roleplay 聊天中显示智能体做了什么。也可以重新运行追踪器、重试或停止智能体，以及清空追踪器。见[智能体活动](../roleplay/getting-started.md#agent-activity)。
-- **Author's Notes** 在 **Agents** 下方，保存 AI 在 Roleplay 每轮都会读取的笔记。把它弹出为独立窗口时，文本框会随窗口一起变大；在手机上则会占满屏幕。见[作者笔记](../roleplay/getting-started.md#authors-notes)。
-- **Gallery** 保存聊天的图片和视频。见[场景背景与图库](../media/scene-backgrounds.md)。
+可移动的三点按钮收纳着你从 Chat Settings 移出的工具。点击它会展开一列圆形图标按钮，再点击某个工具即可打开。再次点击三点按钮就会收起。追踪器按钮、Game 的 Map(地图) 按钮和 Character Profiles(角色资料) 仍单独显示。
 
-## 面板中的其他部分
+拖动三点按钮可以移动整个菜单。打开菜单后，用顶部的锁可以把它固定在原位。未锁定时，上下拖动工具即可调整顺序，也可以让它获得焦点后按方向键。锁定后既不能移动，也不能调整顺序。菜单会沿用你的聊天组件样式。
 
-**Chat Settings** 面板同时也是许多单聊天功能的入口，每一项都有自己的指南：
+<a id="control-windows-and-their-buttons"></a>
 
-- **Persona**(用户角色) 决定你在这个聊天里扮演谁，出现在 Conversation(对话模式) 和 Roleplay(角色扮演) 聊天中。见[在聊天里选择用户角色](../characters/choosing-your-persona.md)。
-- **Characters**(角色) 管理 Conversation 和 Roleplay 聊天里的角色。两个及以上角色的聊天见[群聊与 Conversation 模式群聊](group-chats.md)。
-- **Party**(队伍) 只出现在 Game Mode(游戏模式) 聊天里，它取代 **Persona** 和 **Characters** 两节，把两者合并在一处。
-- **Lorebooks**(世界书) 给这个聊天挂上世界设定。见[世界书总览](../lorebooks/overview.md)。
-- **Agents**(智能体) 为这个聊天开启 AI 帮手。见[智能体：聊天里的 AI 帮手](../agents/agents-overview.md)。
-- **Translation**(翻译) 配置消息自动翻译。见[消息翻译](../integrations/message-translation.md)。
-- **Advanced Parameters**(高级参数) 为这个聊天单独覆盖温度、最大 Token 数之类的生成设置。见[生成参数](../prompts/generation-parameters.md)。
+## 控制窗口及其按钮
 
-具体能看到哪几节取决于聊天模式，有些只在 Roleplay、Conversation 或 Game Mode 聊天里出现。
+有些工具会打开自己的小窗口：游戏的 **Game controls**(游戏控制)、**Session**(会话)、**Volume**(音量) 和 **Game Assets**(游戏素材)，还有 **Connected chat**(所连聊天)，以及已安装资源包提供的控件。
 
-## 相关指南
+电脑上，这些按钮最初位于聊天右上角附近。点击按钮会打开它的窗口，关闭窗口后按钮会重新出现。手机上，它们在 **Chat tools** 菜单里，打开后是全宽面板。
 
-- [管理聊天列表](managing-chats.md)
-- [在聊天里选择用户角色](../characters/choosing-your-persona.md)
-- [世界书总览](../lorebooks/overview.md)
-- [智能体：聊天里的 AI 帮手](../agents/agents-overview.md)
-- [设置方案](settings-profiles.md)
-- [生成参数](../prompts/generation-parameters.md)
+想把某个工具留在 Chat Settings 里，打开它的窗口，选择 **Put back in Chat Settings**。用区域的弹出按钮可以再次把它分离出来。**Reset View** 会恢复初始排列。
+
+拖动按钮可以移动它，拖动时附近的按钮会对齐。按住 <kbd>Alt</kbd> 可以自由放置，按钮获得焦点时也能用方向键移动。Conversation 的 **Calls**(通话) 仍是普通按钮。在 Game 中，**Character Profiles** 和手机上的 **Map** 按钮都可以移动，锁定后会为每个游戏保留它们的位置。
+
+## 每个聊天单独保存窗口布局
+
+每个聊天都会记住窗口大小和位置、固定与锁定状态、弹出的区域以及按钮位置。手机上的位置，以及 Chat tools 菜单的顺序和锁定状态，与电脑上的位置分开保存。[设置方案](settings-profiles.md)可以保存布局，供其他聊天使用。
+
+<a id="choosing-a-layout-for-new-chats"></a>
+
+## 为新聊天选择布局
+
+**Reset View** 旁的星标会把当前排列设为同一模式新聊天的初始布局。Conversation、Roleplay 和 Game 各有自己的收藏布局。
+
+1. 按需要排列窗口和按钮，把工具放进 Chat Settings 或弹出来。
+2. 如果希望新聊天也隐藏布局提示，先把提示隐藏。
+3. 点击星标。当前布局、提示选择和 Scoped Regex Scripts 模式都与已保存的收藏一致时，星标会填满。
+
+收藏会保存位置、大小、固定、锁定、弹出或收进设置的工具、布局提示的选择，以及这个聊天的 [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) 模式。聊天选的是 **Use preset default**(使用预设默认值) 时不保存模式，新聊天会沿用各自的提示词预设。角色、模型、AI 设置和消息仍属于原聊天。
+
+要替换收藏，改变排列后再点一次星标。要停用收藏，点击填满的星标。这只影响之后新建的聊天。
+
+套用自带已保存布局的设置方案时，方案布局优先于收藏。没有保存布局的方案会保留收藏的排列。方案仍会套用自己的布局提示设置和 Scoped Regex Scripts 模式。见[设置方案](settings-profiles.md#favorite-window-layouts)。
+
+从旧版本升级后，你原来的工具按钮排列已经被三种模式收藏，直到你替换或清除它。全新安装则把工具放在 Chat Settings 里，不设收藏。
+
+## 改变聊天窗口的外观
+
+打开 **Settings → Appearance → App**(设置 → 外观 → 应用)，滚动到 **App Style**(应用样式) 底部的 **Chat widget style**(聊天组件样式)。**Default**(默认) 保留 Marinara 原本的外观。**Dottore** 使用冰蓝色、浅金属色和切角。**Prof. Mari** 使用宝石蓝、暖金色和拱形边框。两者都会适应浅色和深色模式，并改变三种聊天模式中可移动按钮、窗口和区域的样式。
+
+- 预设下方的 **Font**(字体)、**Shape**(形状) 和三个颜色选择器可以自由搭配外观。安装到 Marinara 的字体会出现在字体列表中。重新选择预设会重置字体、形状和自定义颜色。
+- **Button size (px)**(按钮大小，px) 设置可移动聊天按钮的大小，范围是 32 到 96。留空则保留默认值。
+- **Apply preset font**(应用预设字体)、**Apply preset shape**(应用预设形状) 和 **Apply preset colors**(应用预设颜色) 把这套样式扩展到消息、输入框和聊天控件。每个开关独立生效，初始都是关闭的。Conversation 消息会使用所选字体和颜色，但保留自己的形状。开启 **Apply preset colors** 时，引号内的对白仍保留每个角色或用户角色自己的 Dialogue Highlight Color。
+
+这些选择不会移动你的窗口。它们和应用偏好一起保存，并同步到连接同一服务器的浏览器。见[自定义 CSS 主题](../appearance/custom-css-themes.md#ready-made-chat-window-styles)。

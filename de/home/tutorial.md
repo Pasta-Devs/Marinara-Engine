@@ -1,55 +1,56 @@
 # Das Tutorial beim ersten Start
 
-In dieser Anleitung erfährst du, wie die geführte Tour beim ersten Start von Marinara Engine abläuft. Sie beschreibt jeden Schritt der Reihe nach, das Überspringen der Tour, das spätere erneute Ansehen und die Unterschiede auf dem Handy.
+Das Tutorial ist eine geführte Tour, die startet, wenn du Marinara Engine zum ersten Mal öffnest. Professor Mari, die eingebaute Assistentin, führt dich durch die wichtigsten Bereiche der App. In dieser Anleitung erfährst du, wie du die Tour überspringst, sie erneut ansiehst und was jeder Schritt zeigt.
 
-## Was das Tutorial ist
+## Das Tutorial erneut ansehen
 
-Beim ersten Start von Marinara Engine läuft die geführte Tour von allein los. Manche nennen sie auch Onboarding-Tour oder Onboarding-Tutorial. Professor Mari, die eingebaute Assistentin, führt dich durch die wichtigsten Bereiche der App.
+1. Geh zum Home-Bildschirm.
+2. Klick auf das Lesezeichen **Tutorial** oder im Widget **Learn the engine** (die Engine kennenlernen) auf **Replay tutorial** (Tutorial wiederholen).
 
-Die Tour zeigt immer nur eine Karte auf einmal. Auf einem normalen Desktop-Bildschirm hebt ein pulsierender Ring die Schaltfläche hervor, um die es auf der Karte gerade geht. Jede Karte hat einen kurzen Titel, eine kurze Erklärung und eine Reihe kleiner Fortschrittspunkte, die deinen Stand anzeigen.
+Die Tour beginnt dann wieder beim ersten Schritt. Auf dem Handy tippst du links neben den Tabs auf die Lesezeichen-Schaltfläche, um die Lesezeichen zu sehen.
 
-Die Tour erklärt aber nicht nur. Beim Weiterklicken öffnen manche Schritte im Hintergrund gleich das passende Panel oder den passenden Tab. Der Schritt **Connections** (Verbindungen) öffnet zum Beispiel das Panel **Connections**, und der Schritt **Settings** (Einstellungen) öffnet **Settings** auf dem Tab **General** (Allgemein). Die Tour zeigt dir also auch, wo alles liegt, statt es nur zu beschreiben.
+## Das Tutorial überspringen
 
-## Die Schritte der geführten Tour in der Reihenfolge
+Jede Karte hat eine Schaltfläche zum Überspringen. Auf der ersten Karte heißt sie **Skip Tutorial** (Tutorial überspringen), auf den späteren Karten **Skip** (Überspringen). Klick darauf, um die Tour sofort zu beenden.
 
-Die Tour hat 18 Schritte. Hier stehen sie der Reihe nach, mit dem genauen Titel jeder Karte und dem, worauf sie zeigt.
+- **Skip**, **Skip Tutorial** und **Get Started** (Los geht’s) markieren die Tour alle als erledigt, sodass sie nicht mehr von allein startet. Außerdem können sie die Errungenschaft **Diligent Student** freischalten.
+- Nur **Get Started** speichert die Anleitungssprache, die du auf der letzten Karte gewählt hast (die Sprache der Anleitungen in der App). **Skip** lässt sie, wie sie war. Ändern kannst du sie später unter **Settings → General** (Einstellungen → Allgemein).
 
-1. **Welcome to Marinara Engine!** Eine mittig platzierte Willkommenskarte. Professor Mari winkt und bietet dir eine kleine Führung an.
-2. **Characters** Hebt die Panel-Schaltfläche **Characters** (Charaktere) hervor. Hier liegen deine Charaktere.
-3. **Personas** Hebt die Panel-Schaltfläche **Personas** hervor. Dort legst du fest, wer du im Chat bist.
-4. **Lorebooks** Hebt die Panel-Schaltfläche **Lorebooks** hervor. Lorebooks sind Sammlungen von Weltwissen und enthalten zusätzliche Details zur Welt und zu den Charakteren.
-5. **Presets** Hebt die Panel-Schaltfläche **Presets** hervor. Presets sind gespeicherte Prompt-Vorlagen und steuern, wie der Prompt aufgebaut wird – also der Text, den Marinara an die KI schickt.
-6. **Connections** Hebt die Panel-Schaltfläche **Connections** hervor. Laut Karte ist eine Verbindung das Erste, was vor dem Chatten eingerichtet werden muss.
-7. **Agents** Hebt die Panel-Schaltfläche **Agents** (Agenten) hervor. Agenten kommen als zusätzliche Unterstützung zu deinen Chats dazu. Die Karte verweist dich auf **Agent Organizer** (Agentenverwaltung), um sie zu installieren.
-8. **Settings** Hebt die Panel-Schaltfläche **Settings** hervor und öffnet **Settings** auf dem Tab **General**.
-9. **Chats** Hebt den Schalter für die Seitenleiste hervor und öffnet die Chat-Seitenleiste mit deinen Chats.
-10. **Conversation Mode** Hebt den Conversation-Tab in der Chat-Seitenleiste hervor. Der Tab selbst heißt **CONVO**.
-11. **Roleplay Mode** Hebt den Roleplay-Tab in der Chat-Seitenleiste hervor. Der Tab selbst heißt **RP**.
-12. **Game Mode** Hebt den Game-Tab in der Chat-Seitenleiste hervor. Der Tab selbst heißt **GM**.
-13. **Home: Your Story Hub** Kehrt zum Home-Bildschirm zurück und hebt seinen oberen Teil mit den Schaltflächen hervor, die einen neuen Chat starten. Die Karte erklärt, dass du auf Home einen letzten Chat fortsetzt, einen neuen startest und deine Widgets anordnest.
-14. **Ask Me Where Things Are** Hebt die Suchleiste oben auf Home hervor. Auf dem Handy sagt dir die Karte, dass du stattdessen von der oberen Leiste nach unten ziehst.
-15. **Guides and Home Controls** Hebt die Lesezeichen **Documentation** (Dokumentation), **Tutorial**, **FAQ** und **Widgets** auf Home hervor.
-16. **Migrating from SillyTavern?** Hebt erneut die Schaltfläche **Settings** hervor und öffnet **Settings** auf dem Tab **Imports**.
-17. **You're All Set!** Hebt ein letztes Mal die Panel-Schaltfläche **Connections** hervor.
-18. **One Last Thing: Guide Language** Hebt das Lesezeichen **Documentation** hervor. Diese Abschlusskarte hat eine Schaltfläche **Documentation** und eine Liste **Documentation Language** (Sprache der Dokumentation). Wähl die Sprache, in der du die Anleitungen in der App lesen willst. Noch nicht übersetzte Anleitungen erscheinen auf Englisch.
+## So funktioniert die Tour
 
-Zur nächsten Karte kommst du mit der Schaltfläche **Next** (Weiter). Im letzten Schritt heißt sie stattdessen **Get Started** (Los geht’s).
+Die Tour zeigt immer nur eine Karte auf einmal. Jede Karte hat einen Titel, eine kurze Erklärung und Fortschrittspunkte. Auf einem normalen Desktop-Bildschirm hebt ein pulsierender Ring die Schaltfläche hervor, um die es auf der Karte geht.
 
-## Überspringen und erneut ansehen
+Manche Schritte öffnen außerdem gleich das passende Panel oder den passenden Tab für dich. Der Schritt **Connections** (Verbindungen) öffnet zum Beispiel das Panel **Connections**.
 
-Die Tour muss nicht bis zum Ende laufen. Jede Karte hat eine Schaltfläche zum Überspringen. Auf der ersten Karte heißt sie **Skip Tutorial** (Tutorial überspringen), auf allen weiteren nur **Skip** (Überspringen).
+Klick auf **Next** (Weiter), um zur nächsten Karte zu kommen. Im letzten Schritt heißt die Schaltfläche **Get Started**.
 
-Ein Klick auf **Skip** oder **Skip Tutorial** beendet die Tour sofort. **Get Started** auf der letzten Karte beendet sie ebenfalls. Beides markiert die Tour als erledigt, sodass sie nicht mehr von allein startet. Nur **Get Started** speichert die Sprache der Anleitungen, die du auf der letzten Karte gewählt hast; **Skip** lässt sie, wie sie war. Ändern kannst du sie später unter **Settings** bei **General**. Wer die Tour abschließt oder überspringt, schaltet außerdem unter Umständen eine Errungenschaft frei.
+Auf dem Handy oder einem anderen schmalen Bildschirm erscheint jede Karte mittig unter der oberen Leiste. Einen pulsierenden Ring gibt es dort nicht. Panels öffnen sich trotzdem und legen sich dann bildschirmfüllend über die Oberfläche.
 
-Ansehen lässt sich die Tour jederzeit wieder. Klick auf dem Home-Bildschirm auf das Lesezeichen **Tutorial** oder im Widget **Learn the engine** (die Engine kennenlernen) auf **Replay tutorial** (Tutorial wiederholen). Die geführte Tour startet dann erneut beim ersten Schritt. Praktisch, wenn du früh übersprungen hast und die vollständige Führung nachholen willst.
+## Referenz: die 18 Schritte
 
-## Unterschiede auf dem Handy
-
-Auf schmalen Bildschirmen (unter 640 Pixel Breite) sieht die Tour etwas anders aus. Jede Karte erscheint mittig unter der oberen Leiste, statt auf eine einzelne Schaltfläche zu zeigen. Der pulsierende Ring fehlt auf diesen schmalen Bildschirmen.
-
-Darunter funktionieren die Schritte weiterhin genauso. Beim Weiterklicken öffnet sich nach wie vor das passende Panel oder der passende Tab. Auf dem Handy legen sich diese Panels bildschirmfüllend über die Oberfläche. Eine mittige Karte liest sich leichter als eine Karte, die unter einem bildschirmfüllenden Panel auf eine Schaltfläche zeigt.
+| # | Kartentitel | Worum es geht |
+| --- | --- | --- |
+| 1 | **Welcome to Marinara Engine!** | Eine mittig platzierte Willkommenskarte. Professor Mari bietet dir eine kleine Führung an. |
+| 2 | **Characters** | Die Panel-Schaltfläche **Characters** (Charaktere). Dort liegen deine Charaktere. |
+| 3 | **Personas** | Die Panel-Schaltfläche **Personas**. Dort legst du fest, wer du im Chat bist. |
+| 4 | **Lorebooks** | Die Panel-Schaltfläche **Lorebooks**. Lorebooks enthalten zusätzliche Details zur Welt und zu den Charakteren. |
+| 5 | **Presets** | Die Panel-Schaltfläche **Presets**. Presets steuern, wie der Prompt aufgebaut wird. |
+| 6 | **Connections** | Die Panel-Schaltfläche **Connections**. Verbindungen sind das Erste, was du vor dem Chatten einrichtest. |
+| 7 | **Agents** | Die Panel-Schaltfläche **Agents** (Agenten). Die Karte verweist dich auf **Agent Organizer** (Agentenverwaltung), um Agenten zu installieren. |
+| 8 | **Settings** | Die Panel-Schaltfläche **Settings**. Öffnet **Settings** auf dem Tab **General**. |
+| 9 | **Chats** | Der Schalter für die Seitenleiste. Öffnet die Chat-Seitenleiste. |
+| 10 | **Conversation Mode** | Der Conversation-Tab mit der Beschriftung **CONVO**. |
+| 11 | **Roleplay Mode** | Der Roleplay-Tab mit der Beschriftung **RP**. |
+| 12 | **Game Mode** | Der Game-Tab mit der Beschriftung **GM**. |
+| 13 | **Home: Your Story Hub** | Kehrt zu Home zurück. Auf Home setzt du einen Chat fort, startest einen neuen und ordnest Widgets an. |
+| 14 | **Ask Me Where Things Are** | Die Suchleiste oben auf Home. Auf dem Handy sagt dir die Karte, dass du von der oberen Leiste der App nach unten ziehst. |
+| 15 | **Guides and Home Controls** | Die Lesezeichen **Documentation** (Dokumentation), **Tutorial**, **FAQ** und **Widgets**. |
+| 16 | **Migrating from SillyTavern?** | Wieder die Schaltfläche **Settings**. Öffnet **Settings** auf dem Tab **Imports**. |
+| 17 | **You're All Set!** | Noch einmal die Panel-Schaltfläche **Connections**. |
+| 18 | **One Last Thing: Guide Language** | Das Lesezeichen **Documentation**. Eine Liste **Documentation Language** (Sprache der Dokumentation) legt die Sprache der Anleitungen in der App fest. Noch nicht übersetzte Anleitungen erscheinen auf Englisch. |
 
 ## Verwandte Anleitungen
 
 - [Erste Schritte mit Marinara Engine](welcome.md)
 - [Professor Mari, deine Assistentin in der App](professor-mari.md)
+- [Errungenschaften](achievements.md)

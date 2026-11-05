@@ -1,73 +1,71 @@
 # Zmienne presetu
 
-Ten przewodnik wyjaśnia, czym są **Preset Variables** (zmienne presetu) – małe, formularzowe wybory, które da się wbudować w preset promptu. Autor presetu definiuje je raz, a każdy, kto z tego presetu korzysta, wybiera opcje w momencie przypisania presetu do czatu. Zmienne presetu bywają nazywane blokami wyboru.
+Zmienna presetu to opisany wybór wbudowany w preset promptu. Autor presetu definiuje ją raz, a każdy, kto z presetu korzysta, wybiera opcje w momencie przypisania presetu do czatu. Dzięki niej jeden preset może działać na różne sposoby bez zmieniania tekstu promptu.
 
-## Do czego służą zmienne presetu
+Nadajesz zmiennej nazwę, piszesz pytanie i wypisujesz opcje. Potem wpisujesz nazwę w podwójnych klamrach, na przykład `{{tone}}`, w dowolnej sekcji promptu. Kiedy AI generuje odpowiedź, Marinara podmienia `{{tone}}` na wartość opcji wybranej przez użytkownika.
 
-Preset promptu to szablon tekstu wysyłanego do AI, którego można używać wielokrotnie. Zmienna presetu dodaje do tego szablonu opisany wybór. Nadajesz mu nazwę, piszesz pytanie i wypisujesz kilka opcji.
+Zmienne presetu wymagają presetu promptu, więc działają w czatach w trybie Roleplay. Nie działają w czatach w trybie Conversation ani Game Mode, które zamiast sekcji używają jednego tekstu promptu. Same presety opisuje przewodnik [Edytor presetów i menedżer promptów](presets.md).
 
-W treści dowolnej sekcji promptu wpisujesz nazwę zmiennej w podwójnych klamrach, na przykład `{{tone}}`. Kiedy AI generuje odpowiedź, Marinara Engine podmienia `{{tone}}` na wartość wybranej opcji. Dzięki temu jeden preset daje różne zachowania i nie trzeba przy tym ruszać treści promptu.
+## Rodzaje zmiennej presetu
 
-Zmienne presetu żyją wewnątrz presetu promptu, więc działają w tych trybach czatu, które z presetów promptu korzystają. W trybie Conversation nie działają. Ten tryb zamiast presetu podzielonego na sekcje używa jednego nadpisanego tekstu promptu, więc zmienne nie mają czego wypełnić. Same presety opisuje przewodnik [Edytor presetów i menedżer promptów](presets.md).
+Zmienna z kilkoma opcjami to domyślnie pojedynczy wybór. Użytkownik wskazuje jedną opcję, pokazaną jako przyciski radiowe. Zmieniają to trzy ustawienia.
 
-## Trzy rodzaje zmiennej presetu
-
-Zachowanie zmiennej zależy od jej opcji i od dwóch przełączników. Domyślnie zmienna z kilkoma opcjami to pojedynczy wybór: użytkownik wskazuje dokładnie jedną opcję, pokazaną jako przyciski radiowe. Na tej podstawie zbudowano trzy nazwane rodzaje.
-
-**Boolean Toggle** (przełącznik dwustanowy). Zmienna z dokładnie jedną opcją zamienia się w przełącznik włącz/wyłącz. Po włączeniu wstawiana jest wartość opcji. Po wyłączeniu nie wstawia się nic. Edytor oznacza takie zmienne etykietą **Boolean Toggle**.
-
-**Multi-Select** (wybór wielokrotny). Włącz przełącznik **Multi-Select**, żeby użytkownik mógł wskazać więcej niż jedną opcję. Domyślnie zaznaczone wartości łączą się w jeden tekst za pomocą separatora. Separator to krótkie pole tekstowe, a domyślnie jest to przecinek ze spacją. Na przykład opcje Romance, Fantasy i Action połączone przez `, ` dają tekst "Romance, Fantasy, Action".
-
-**Random Pick** (losowy wybór). Dla zmiennej z pojedynczym wyborem aplikacja Marinara Engine losowo zaznacza opcję przy każdym nowym czacie. Możesz ją zmienić przed potwierdzeniem, a zapisany wybór pozostaje stały do następnej edycji. Przy włączonym **Multi-Select** aplikacja losuje jedną z zaznaczonych opcji przy każdym generowaniu. Przydaje się to dla urozmaicenia: użytkownik wybiera pulę opcji, a każda odpowiedź losuje z niej jedną.
+| Rodzaj | Jak go uzyskać | Działanie |
+| --- | --- | --- |
+| **Boolean Toggle** (przełącznik dwustanowy) | Daj zmiennej dokładnie jedną opcję. | Przełącznik włącz/wyłącz. Po włączeniu wstawiana jest wartość opcji. Po wyłączeniu nie wstawia się nic. |
+| **Multi-Select** (wybór wielokrotny) | Włącz **Multi-Select**. | Użytkownik wskazuje kilka opcji. Wartości łączą się za pomocą separatora, domyślnie `, `. Romance, Fantasy i Action dają "Romance, Fantasy, Action". |
+| **Random Pick** (losowy wybór) | Włącz **Random Pick**. | Przy zmiennej z pojedynczym wyborem Marinara losowo zaznacza opcję przy każdym nowym czacie, a wybór pozostaje stały, dopóki go nie zmienisz. Przy włączonym **Multi-Select** użytkownik wybiera pulę, a każda odpowiedź losuje z niej jedną opcję. |
 
 ## Dodawanie zmiennej presetu
 
-Zmienne dodaje się podczas edycji presetu. Wykonaj kolejno te kroki.
-
 1. Otwórz panel **Presets** (Presety) i kliknij preset, żeby otworzyć okno **Preset Editor** (edytor presetów).
-2. Przejdź do zakładki **Sections** (Sekcje) i przewiń na sam dół, do panelu **Preset Variables**.
-3. Kliknij przycisk **Add Variable** (dodanie zmiennej). Pojawia się nowa karta zmiennej. Kliknij ją, żeby rozwinąć edytor.
-4. Wypełnij pole **Variable Name** (nazwa zmiennej). Wolno użyć wyłącznie liter, cyfr i podkreśleń. To właśnie tę nazwę wpisujesz w klamrach, na przykład `{{variable_name}}`.
-5. Wypełnij pole **Question (shown to user)** (pytanie widoczne dla użytkownika). To tekst, który użytkownik czyta przy wybieraniu wartości.
-6. Uzupełnij listę **Options** (Opcje). Każda opcja ma pole **Label** (to, co widzi użytkownik) oraz **Value** (tekst wstawiany do promptu). Pusta wartość nie wstawia niczego.
-7. W sekcji **Presentation** (sposób wyświetlania) wybierz styl: **Auto**, styl przyciskowy (**Radios** lub **Checkboxes**) albo styl kompaktowy (**Dropdown** lub **Listbox**). Włącz opcję **Alphabetical option display**, żeby posortować opcje według etykiet.
-8. Zmiany zapisują się same. Na dole edytora widnieje napis "Changes auto-save. Press Escape to close." Na koniec naciśnij Escape albo kliknij przycisk **Done**.
+2. Przejdź do zakładki **Sections** (Sekcje) i przewiń na dół, do panelu **Preset Variables** (zmienne presetu).
+3. Kliknij **Add Variable** (dodanie zmiennej). Pojawia się nowa karta zmiennej. Kliknij ją, żeby ją rozwinąć.
+4. Wypełnij pole **Variable Name** (nazwa zmiennej). Pole zachowuje tylko litery, cyfry i podkreślenia. To tę nazwę wpisujesz w klamrach.
+5. Wypełnij pole **Question (shown to user)** (pytanie widoczne dla użytkownika). Użytkownik czyta je przy wybieraniu.
+6. Uzupełnij listę **Options** (opcje). Każda opcja ma pole **Label** (etykieta), które widzi użytkownik, oraz **Value** (tekst wstawiany do promptu). Pusta wartość nie wstawia niczego.
+7. W sekcji **Presentation** (sposób wyświetlania) wybierz **Auto**, styl przyciskowy (**Radios** lub **Checkboxes**) albo styl kompaktowy (**Dropdown** lub **Listbox**). Włącz **Alphabetical option display**, żeby posortować opcje według etykiet.
+8. Naciśnij <kbd>Escape</kbd> albo kliknij **Done**. Zmiany zapisują się same, a na dole widnieje napis "Changes auto-save. Press Escape to close."
 
-Żeby użyć zmiennej, wpisz jej nazwę w klamrach w treści dowolnej sekcji promptu. Na przykład: umieść `{{tone}}` w sekcji, a potem utwórz zmienną o nazwie `tone` z opcją **Gentle** i opcją **Harsh**. Kiedy użytkownik wskaże Harsh, sekcja dostaje wartość spod tej opcji.
+Teraz wpisz nazwę w klamrach w sekcji promptu. Na przykład umieść `{{tone}}` w sekcji i utwórz zmienną o nazwie `tone` z opcją **Gentle** i opcją **Harsh**. Kiedy użytkownik wybierze **Harsh**, sekcja dostaje jej wartość.
 
-Zmienna musi zawsze zachować co najmniej jedną opcję. Przy próbie usunięcia ostatniej opcji Marinara ją zostawia.
+Zmienna zawsze zachowuje co najmniej jedną opcję. Przy próbie usunięcia ostatniej Marinara ją zostawia.
 
-## Okno Configure Preset Variables
+## Odpowiadanie na zmienne
 
-Kiedy przypisujesz do czatu preset ze zmiennymi, samo otwiera się okno **Configure Preset Variables** (konfiguracja zmiennych presetu). We wstępie widnieje napis: "This preset has configurable variables. Select option(s) for each to customize your experience."
+Kiedy przypisujesz do czatu preset ze zmiennymi, otwiera się okno **Configure Preset Variables** (konfiguracja zmiennych presetu). Widnieje w nim napis: "This preset has configurable variables. Select option(s) for each to customize your experience."
 
-Przy każdej zmiennej widać jej pytanie, symbol zastępczy, który zostanie podmieniony (na przykład `{{tone}}`), oraz – tam, gdzie ma to zastosowanie – mały kafelek z napisem **Boolean toggle**, **Multi-select** albo **Random pick**. Wskaż wartość dla każdej zmiennej.
+Przy każdej zmiennej widać jej pytanie, jej symbol, na przykład `{{tone}}`, oraz plakietkę (**Boolean toggle**, **Multi-select** albo **Random pick**) tam, gdzie ma to zastosowanie.
 
-- Przycisk **Save as default** zapisuje wybory z powrotem w presecie, więc następnym razem są już wypełnione.
-- Przycisk **Skip** zamyka okno bez zapisywania wyborów.
-- Przycisk **Confirm Choices** zapisuje wybory. Pozostaje nieaktywny, dopóki każda zmienna pojedynczego wyboru nie ma wartości. Zmienne **Boolean toggle** i **Multi-select** go nie blokują, nawet gdy nic nie jest wskazane.
+1. Wskaż wartość dla każdej zmiennej.
+2. Kliknij **Confirm Choices** (potwierdzenie wyborów).
 
-Przełączenie na inny preset kasuje wszystkie wybory zmiennych zrobione dla poprzedniego presetu.
+Pozostałe przyciski:
+
+- **Save as default** (zapisanie jako domyślne) zapisuje wybory w presecie, więc następnym razem są już wypełnione.
+- **Skip** (pominięcie) zamyka okno bez zapisywania.
+
+**Confirm Choices** pozostaje nieaktywny, dopóki każda zmienna pojedynczego wyboru nie ma wartości. Zmienne **Boolean toggle** i **Multi-select** go nie blokują, nawet gdy nic nie jest wskazane. Przełączenie na inny preset kasuje wybory dla poprzedniego.
 
 ## Późniejsza zmiana odpowiedzi
 
-Nie trzeba otwierać presetu od zera, żeby zmienić odpowiedzi. W panelu bocznym ustawień czatu, w sekcji **Prompt Preset**, przy każdym presecie ze zmiennymi widoczny jest przycisk z ołówkiem opisany jako **Edit preset variables**. Kliknij go, a okno **Configure Preset Variables** otworzy się ponownie z aktualnymi wyborami.
+W panelu **Chat Settings** (ustawienia czatu) sekcja **Prompt Preset** pokazuje przycisk z ołówkiem, **Edit preset variables** (edycja zmiennych presetu), gdy wybrany preset ma zmienne. Kliknij go, żeby ponownie otworzyć okno z aktualnymi wyborami.
 
-## Zapasowa obsługa {{NAME}}
+## Nazwy, które nie są zmiennymi
 
-Marinara rozwiązuje wiele wbudowanych makr, na przykład `{{user}}` i `{{char}}`. Potem każdy pozostały symbol zastępczy w postaci `{{NAME}}` (tylko litery, cyfry i podkreślenia) jest porównywany ze zmiennymi presetu.
-
-Jeśli zmienna o dokładnie takiej nazwie istnieje, symbol zastępczy zmienia się w wybraną wartość. Jeśli żadna nie pasuje, aplikacja Marinara Engine sprawdza następnie zmienne czatu, widoczne w sekcji **Chat Variables** (zmienne czatu) panelu **Chat Settings**. Zmienna presetu ma pierwszeństwo, gdy obie grupy używają tej samej nazwy. Jeśli nazwy nie ma w żadnej z nich, tekst `{{NAME}}` zostaje dokładnie taki, jak został wpisany. Dlatego nieznany symbol zastępczy trafia do wyniku bez zmian, zamiast wywołać błąd. Pełną listę makr zawiera przewodnik [Makra promptów](macros.md).
+Marinara najpierw rozwiązuje wbudowane makra, takie jak `{{user}}` i `{{char}}`. Potem porównuje każdy inny zapis `{{NAME}}` (litery, cyfry i podkreślenia) ze zmiennymi presetu. Jeśli żadna nie pasuje, sprawdza zmienne samego czatu z sekcji **Chat Variables** (zmienne czatu) panelu **Chat Settings**. Zmienna presetu ma pierwszeństwo, gdy obie używają tej samej nazwy. Jeśli nazwy nie ma w żadnej z nich, tekst zostaje dokładnie taki, jak został wpisany, bez błędu. Zobacz [Makra promptów](macros.md).
 
 ## Bloki decyzyjne w opcjach
 
-Wartość opcji może zawierać `{{#if decision:"..."}}` jak każdy tekst promptu. Pytane są tylko opcje wybrane na czacie i liczą się do **Decision statements per turn** (stwierdzenia decyzyjne na turę). Dla zmiennej **Random Pick** pytane są wszystkie opcje wybranej puli, bo każda może zostać wylosowana. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model).
+Wartość opcji może zawierać blok decyzyjny, `{{#if decision:"..."}}`, jak każdy tekst promptu. Pytane są tylko opcje wybrane w czacie i liczą się do **Decision statements per turn** (stwierdzenia decyzyjne na turę). Dla zmiennej **Random Pick** pytane są wszystkie opcje z puli, bo każda może zostać wylosowana. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model).
 
-Wartość zmiennej trafia tam, gdzie jest jej `{{name}}`. Jeśli decyzja zmienia ją blisko początku presetu, może stracić dużą część ponownego użycia pamięci podręcznej dostawcy, choć wcześniejszy niezmieniony początek nadal może się kwalifikować. Często zmienianą treść umieszczaj później, gdy to możliwe. Zobacz [Bloki decyzyjne i pamięć podręczna promptu](presets.md#decision-blocks-and-prompt-caching).
+Wartość zmiennej trafia tam, gdzie stoi jej `{{name}}`. Jeśli decyzja zmienia tę wartość blisko początku presetu, możesz stracić dużą część ponownego użycia pamięci podręcznej promptu w usłudze. Często zmienianą treść umieszczaj dalej. Zobacz [Bloki decyzyjne i pamięć podręczna promptu](presets.md#decision-blocks-and-prompt-caching).
+
+## Powitania
+
+Zmienne presetu są rozwijane także w powitaniach postaci, również dla wyborów potwierdzonych już po utworzeniu powitania. Oryginalne powitanie pozostaje edytowalne i zachowuje swoje makra.
 
 ## Powiązane przewodniki
 
 - [Edytor presetów i menedżer promptów](presets.md)
 - [Makra promptów](macros.md)
-
-Zmienne presetu są rozwijane także w powitaniach postaci, również dla wyborów potwierdzonych już po utworzeniu powitania. Oryginalne powitanie pozostaje edytowalne i zachowuje swoje makra.

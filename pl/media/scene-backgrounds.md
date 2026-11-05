@@ -1,6 +1,6 @@
 # Tła scen i galeria
 
-Ten przewodnik opisuje tła scen generowane przez AI, czyli obrazy, które aplikacja Marinara Engine tworzy z poziomu **Gallery** (galeria), oraz samą galerię. Są też dwa pokrewne przewodniki: [Tła czatu](../appearance/chat-backgrounds.md) opisuje bibliotekę wgranych obrazów wybieranych ręcznie, a [Tła w trybie Roleplay](../roleplay/backgrounds.md) – agenta, który sam dobiera tło w każdej turze.
+Tła scen generowane przez AI to obrazy tła, które aplikacja Marinara Engine tworzy z poziomu sekcji **Gallery** (galeria). Z tego przewodnika dowiesz się, jak utworzyć tło, co zawiera galeria i jak narysować obraz od nowa albo go sprawdzić. Bibliotekę wgranych obrazów wybieranych ręcznie opisuje przewodnik [Tła czatu](../appearance/chat-backgrounds.md). Agenta, który dobiera tło w każdej turze, opisuje przewodnik [Tła w trybie Roleplay](../roleplay/backgrounds.md).
 
 ## Gdzie działają tła scen
 
@@ -10,11 +10,11 @@ Tła scen działają w trybie Roleplay i w trybie Game Mode. W trybie Conversati
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-Do wygenerowania tła potrzebne jest połączenie **Image Generation** (generowanie obrazów). Jeśli takiego jeszcze nie ma, skonfiguruj je najpierw. Zobacz [Dostawcy generowania obrazów i konfiguracja](image-providers.md).
+Zanim zaczniesz: potrzebny jest model obrazów. Jeśli jeszcze go nie masz, najpierw go skonfiguruj. Zobacz [Dostawcy generowania obrazów i konfiguracja](image-providers.md).
 
 ## Generowanie i ustawianie tła z poziomu sekcji Gallery
 
-**Gallery** zbiera obrazy i wideo z danego czatu. Jest sekcją w **Chat Settings**: otwórz Chat Settings i rozwiń **Gallery**. Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Przycisk **Background** (tło) generuje grafikę tła dla bieżącej sceny.
+**Gallery** zbiera obrazy i wideo z danego czatu. Jest sekcją w **Chat Settings** (ustawienia czatu). Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Jej przycisk **Background** (tło) tworzy grafikę tła dla bieżącej sceny.
 
 W trybie Roleplay przycisk **Background** pojawia się od razu po zainstalowaniu agenta **Illustrator**. Nie trzeba dodawać tego agenta do czatu ani włączać agentów. Podobnie jak przycisk **Illustrate** (zilustruj), przycisk **Background** uruchamia generowanie jednorazowo i nie włącza automatycznych uruchomień.
 
@@ -23,20 +23,18 @@ Jak wygenerować tło:
 1. Otwórz sekcję **Gallery** w **Chat Settings**.
 2. Kliknij przycisk **Background**.
 3. Na czas tworzenia obrazu napis na przycisku zmienia się na **Generating...**.
-4. Powinien pojawić się taki komunikat o stanie: "AI background generation is running. The new background will be applied when it finishes."
-5. Po zakończeniu nowy obraz od razu trafia do bieżącej sceny. Potwierdza to komunikat "Background generated.".
+4. Komunikat o stanie brzmi: "AI background generation is running. The new background will be applied when it finishes."
+5. Po zakończeniu nowy obraz od razu trafia do bieżącej sceny, a potwierdza to komunikat "Background generated.".
 
 Tło powstaje na podstawie bieżącej sceny. W grze liczą się też gatunek, świat, lokalizacja, pogoda i pora dnia. Wygenerowane tła mają rozmiar obszaru roboczego **Backgrounds**, domyślnie 1280 na 720 pikseli. Rozmiar da się zmienić w sekcji **Settings** (ustawienia), dalej **Generations**, dalej **Image Generation**.
 
-### Gdy nie ma ustawionego połączenia do obrazów
-
-Jeśli Marinara nie znajdzie połączenia do obrazów, generowanie kończy się takim komunikatem:
+Jeśli się nie udało: gdy Marinara nie znajdzie modelu obrazów, którego mogłaby użyć, ten krok kończy się takim komunikatem:
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-Aby to naprawić, otwórz panel **Connections** (połączenia), rozwiń sekcję **Defaults** i wybierz połączenie do obrazów w sekcji **Images**. Druga opcja: ustaw osobne połączenie do obrazów bezpośrednio w agencie **Illustrator**.
+Aby to naprawić, ustaw zadanie **Images** (obrazy) w sekcji **Defaults** (ustawienia domyślne) panelu **Connections** (Połączenia) albo przypisz agentowi **Illustrator** jego własny model obrazów.
 
 ## Sekcja Gallery
 
@@ -56,7 +54,7 @@ Pod przyciskami znajduje się pole **Upload Images** (wgrywanie obrazów). Przec
 
 ### Akcje dla pojedynczego obrazu
 
-Najedź kursorem na dowolny obraz w zakładce **Images** – albo dotknij go na telefonie – żeby pokazać dostępne akcje:
+Najedź kursorem na obraz w zakładce **Images** – albo dotknij go na telefonie – żeby zobaczyć jego akcje:
 
 - Otwarcie obrazu w pełnym rozmiarze (**Open gallery image**).
 - **Pin to chat**: przypina obraz do czatu jako pływający obrazek. Przeciągnij go, żeby go przesunąć, a uchwytem w rogu zmień jego rozmiar. Po ponownym wczytaniu strony w tej przeglądarce zachowuje swoje miejsce i rozmiar. Przycisk kłódki obok przycisku zamykania blokuje przesuwanie i zmianę rozmiaru, dopóki go nie odblokujesz.
@@ -73,14 +71,14 @@ Wygenerowany obraz da się utworzyć jeszcze raz bez ponownego generowania odpow
 
 1. Otwórz obraz w pełnym rozmiarze – z galerii albo z wiadomości, w której się znajduje.
 2. Kliknij **Regenerate image** (ponowne wygenerowanie obrazu, przycisk z okrągłą strzałką w prawym górnym rogu obrazu).
-3. Zmień, co chcesz, w polach pod obrazem: **Prompt**, **Negative prompt** (prompt negatywny), osobne pole dla każdej postaci w sekcji **Character prompts** (prompty postaci), jeśli obraz je miał, oraz **Image connection** (połączenie do generowania obrazów).
+3. Zmień, co chcesz, w polach pod obrazem: **Prompt**, **Negative prompt** (prompt negatywny), osobne pole dla każdej postaci w sekcji **Character prompts** (prompty postaci), jeśli obraz je miał, oraz model obrazów.
 4. Kliknij **Generate image** (wygenerowanie obrazu) albo **Cancel** (anuluj), żeby zostawić obraz bez zmian.
 
 Nowy obraz zastępuje stary w wiadomości. Stary zostaje w galerii, więc możesz go ponownie przypiąć. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
 
 ## Sprawdzanie promptu przed wysłaniem
 
-Prompt da się sprawdzić i poprawić, zanim Marinara wyśle żądanie tła do dostawcy obrazów.
+Prompt da się sprawdzić i poprawić, zanim Marinara wyśle żądanie tła do usługi generowania obrazów.
 
 1. Otwórz **Settings**, dalej **Generations**, dalej **Overall Generations**.
 2. Włącz opcję **Expose media prompts before sending**.
@@ -108,5 +106,5 @@ Biblioteką zarządza się w ustawieniach wyglądu – tam też ustawisz tło dl
 - [Tła czatu](../appearance/chat-backgrounds.md): biblioteka wgranych obrazów, z której wybierasz ręcznie.
 - [Tła w trybie Roleplay](../roleplay/backgrounds.md): agent, który sam dobiera tło w każdej turze.
 - [Agent Illustrator](illustrator-agent.md): ilustracje scen w trybie Roleplay i w trybie Game Mode.
-- [Dostawcy generowania obrazów i konfiguracja](image-providers.md): konfiguracja połączenia do obrazów.
+- [Dostawcy generowania obrazów i konfiguracja](image-providers.md): konfiguracja modelu obrazów.
 - [Generowanie wideo sceny](scene-video.md): zamiana obrazu z galerii w wideo.

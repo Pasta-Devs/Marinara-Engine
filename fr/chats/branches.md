@@ -1,113 +1,90 @@
 # Branches de chat
 
-Ce guide explique les branches de chat dans Marinara Engine : ce qu'est une branche et comment en créer une. Il montre aussi comment changer de branche, afficher le graphe des branches, la renommer, la supprimer, l'exporter et l'importer. Une branche permet d'essayer un autre chemin dans un chat (une conversation enregistrée) sans perdre l'original.
+Une branche est une copie d'un chat jusqu'à un message donné. Sers-t'en pour essayer un autre chemin pendant que l'original reste intact. Ce guide explique comment créer des branches, passer de l'une à l'autre, les afficher, les renommer, les supprimer, les exporter et les importer.
 
-## Ce qu'est une branche
+Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, le chat garde une seule ligne et affiche un compteur de branches. Quand au moins une branche du groupe enregistre le chat dont elle provient, clique sur le compteur pour ouvrir l'arbre ; une branche sans cette information se place directement sous le chat. Si aucune branche du groupe n'a cette information (branches anciennes ou importées), le groupe reste sur une seule ligne ; ouvre alors ses branches depuis **Chat Branches** (branches du chat). Une branche créée à partir d'une branche s'imbrique sous elle : tu vois donc un arbre. Chaque branche a un nom d'affichage et une date de dernière activité : tu peux ainsi les étiqueter "fin amicale" et "fin sombre". Le nom d'affichage est indépendant du nom du chat. Un groupe Game garde une seule ligne, car les sessions Game sont des sessions numérotées, pas des branches.
 
-Une branche est une copie d'un chat qui partage l'historique jusqu'à un point que tu choisis. Les branches servent à explorer une autre direction sans toucher au chat d'origine.
+## Créer une branche avec Branch from here
 
-Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, le chat garde sa ligne et affiche un compteur de branches. Dès qu'au moins une branche du groupe enregistre le chat dont elle provient, cliquer sur ce compteur déplie les branches en dessous. Dans cet arbre, une branche dont la source est inconnue se place directement sous le chat. Il en va de même quand le chat source a été supprimé depuis. Les sessions Game sont des sessions numérotées plutôt que des branches : un groupe Game garde donc toujours une seule ligne. Chaque branche affiche son nom et la date de sa dernière activité. Une branche créée à partir d'une autre s'imbrique sous celle-ci : les branches de branches forment ainsi un arbre plutôt qu'une liste à plat. Tu peux passer directement à une branche depuis la liste, ou utiliser la section **Chat Branches** (branches du chat) de **Chat Settings** (voir plus bas) pour les renommer, les supprimer, les exporter ou les importer.
+1. Touche le message (sur un ordinateur, passe le pointeur dessus) pour afficher la barre d'actions du message.
+2. Clique sur **Branch from here** (créer une branche ici), la petite icône de branche.
 
-Chaque branche peut avoir son propre nom d'affichage : tu peux ainsi les étiqueter "fin amicale" et "fin sombre". Ce nom d'affichage est indépendant du nom du chat sous-jacent.
+Marinara copie le chat jusqu'à ce message inclus dans une nouvelle branche nommée **New Branch**. Tu peux la renommer plus tard.
 
-La filiation d'une branche enregistre le chat source immédiat et le message où la branche a été créée. L'identifiant du message source et celui de sa copie sont conservés ; les intégrations peuvent ainsi identifier la limite de la branche, même si les messages copiés reçoivent de nouveaux identifiants. Créer une branche d'une branche enregistre cette dernière comme parent immédiat, et non la racine d'origine. Les anciennes branches et les branches sœurs importées conservent leur nom d'affichage, mais leur filiation est inconnue : un groupe sans filiation connue garde une seule ligne dans la liste des chats, et ses branches restent accessibles depuis la section **Chat Branches**.
+La branche :
 
-## Créer une branche avec **Branch from here**
+- Garde le même mode, les mêmes personnages, le même persona, le même preset de prompt et la même connexion.
+- Copie chaque message avec tous ses swipes, et retient quel swipe était actif. Voir [Actions sur un message](messages.md).
+- Copie l'état des trackers et du jeu lié aux messages copiés.
+- Conserve le travail d'Advanced Memory dans un chat Roleplay. Les souvenirs des scènes antérieures, déjà terminées, restent prêts à être rappelés. La scène à partir de laquelle tu crées la branche redevient la scène en cours, et ses anciens souvenirs sont supprimés. Voir [Mémoire et résumés de chat](../agents/memory.md).
+- Reste dans le même dossier de chats que la source.
 
-Une branche se crée depuis n'importe quel message du chat.
+Les résumés du jour et de la semaine ne sont pas repris. Les résumés glissants entièrement compris dans les messages copiés sont repris. Les résumés qui traversent le point de branchement, ainsi que les anciens résumés sans données de messages, sont laissés de côté, et la branche recommence ces résumés à zéro.
 
-1. Survole un message (ou appuie dessus sur téléphone) pour faire apparaître la barre d'actions du message.
-2. Clique sur le bouton **Branch from here** (créer une branche ici). Il porte une petite icône de branche.
-
-Marinara copie le chat jusqu'à ce message inclus dans une nouvelle branche. Cette nouvelle branche :
-
-- Conserve le même mode, les mêmes personnages, le même persona (le personnage que tu incarnes), le même preset de prompt (modèle de prompt enregistré) et la même connexion que le chat d'origine.
-- Copie tous les messages, y compris tous les swipes (les réponses alternatives) et celui qui était actif. Le [guide des actions sur les messages](messages.md) explique le fonctionnement des swipes.
-- Copie les instantanés des trackers (agents de suivi) et de l'état du jeu liés aux messages copiés : les chats en mode Roleplay et Game Mode gardent ainsi leur état.
-- Conserve le travail d'Advanced Memory dans un chat Roleplay : tu n'as pas à préparer de nouveau l'historique copié. Les souvenirs des scènes antérieures, déjà terminées, restent prêts à être rappelés. La scène à partir de laquelle tu crées la branche redevient la scène en cours, et ses anciens souvenirs sont supprimés. Consulte [Mémoire et résumés de chat](../agents/memory.md).
-- Porte au départ le nom d'affichage **New Branch**. Tu peux la renommer, voir plus bas.
-- Reste dans le même dossier de chats que le chat d'origine.
-
-Un chat vide a des points d'ancrage de message nuls. Supprimer un chat parent ne change pas la filiation historique de ses enfants. Supprimer tout le groupe de branches supprime toujours tous les chats du groupe.
-
-Les résumés du jour et de la semaine ne sont pas repris. Les résumés glissants dont les plages de messages enregistrées sont entièrement comprises dans la branche copiée sont repris et réattribués aux nouveaux identifiants de messages de la branche. Les résumés dont la plage source traverse le point de branchement, ainsi que les anciens résumés sans métadonnées de messages, sont ignorés. La nouvelle branche recommence ces résumés à zéro.
-
-Impossible de créer une branche dans un chat de scène. Dans ce type de chat, le bouton **Branch from here** n'apparaît pas : une action distincte, **Clone from here** (cloner à partir d'ici), prend le relais. Le guide [Scènes : créer une branche d'un roleplay](../roleplay/scenes.md) explique son fonctionnement.
+Si ça n'a pas marché : **Branch from here** n'apparaît pas dans un chat de scène. Les chats de scène ont **Clone from here** (cloner à partir d'ici) à la place. Voir [Scènes : créer une branche d'un roleplay](../roleplay/scenes.md).
 
 ## La section Chat Branches
 
-Ouvre **Chat Settings** et déplie **Chat Branches**, sous **Chat Name**. L'en-tête indique le nombre actuel de branches. Sur ordinateur, tu peux en faire une fenêtre séparée ; consulte [Présentation de Chat Settings](chat-settings.md#popping-a-section-out-into-its-own-window).
+Ouvre **Chat Settings** (réglages du chat) et déplie **Chat Branches**, sous **Chat Name** (nom du chat). Son en-tête indique le nombre de branches. Sur un ordinateur, tu peux en faire une fenêtre séparée. Voir [Vue d'ensemble des Chat Settings](chat-settings.md#popping-a-section-out-into-its-own-window).
 
-La section liste toutes les branches du chat actuel, en affichant d'abord celle que tu consultes. Chaque ligne indique le nom de la branche et la date de sa dernière modification.
+La section liste toutes les branches du chat, en commençant par celle que tu consultes. Chaque ligne indique le nom d'affichage et l'heure de la dernière modification. Clique sur une ligne pour passer à cette branche.
 
-### Passer à une autre branche
+Boutons au-dessus de la liste :
 
-Clique sur la ligne d'une branche pour l'ouvrir. La vue du chat passe à la branche choisie.
+| Bouton | Ce qu'il fait |
+| --- | --- |
+| **Branch graph** (graphe des branches) | Ouvre la fenêtre du graphe. Voir plus bas. |
+| **JSONL**, **Text**, **Markdown**, **Story** | Exportent la branche que tu consultes. Voir [Exporter et importer des chats](export-import.md). |
+| **Export a range** (exporter une plage) | Exporte une partie du chat. Non disponible en Game Mode. Voir [Exporter et importer des chats](export-import.md#export-part-of-a-chat). |
+| **Import** (importer) | Ajoute un fichier `.jsonl` comme nouvelle branche. Voir plus bas. |
+| **Stats** (statistiques) | Ouvre les statistiques du chat pour la branche que tu consultes. |
 
 ### Voir le graphe des branches
 
-Le graphe des branches montre où chaque branche s'est séparée, ce que la liste ne peut pas montrer.
+Le graphe montre où chaque branche s'est séparée, ce que la liste ne peut pas montrer.
 
-1. Ouvre la section **Chat Branches**.
-2. Clique sur le bouton **Branch graph** (graphe des branches), le long bouton au-dessus des boutons d'export. Clique de nouveau dessus pour fermer le graphe.
+1. Ouvre **Chat Branches** et clique sur **Branch graph**. Clique de nouveau dessus pour fermer le graphe.
 
-Le graphe s'ouvre dans sa propre fenêtre, que tu peux déplacer et redimensionner. Sur téléphone, il s'ouvre dans un panneau. Le graphe remplit la fenêtre : une fenêtre plus grande replie moins de portions, et un graphe qui a de la place zoome et s'étale. Un graphe un peu trop large se réduit pour tenir, jusqu'aux trois quarts de sa taille, puis défile horizontalement au-delà. Les lignes se partagent la hauteur de la fenêtre et défilent quand les chats sont trop nombreux pour tenir.
+Le graphe s'ouvre dans sa propre fenêtre, que tu peux déplacer et redimensionner. Sur un téléphone, il s'ouvre dans un panneau. Chaque chat du groupe a une ligne, dans le même ordre que la liste des chats. Les messages vont de gauche à droite, un point par message.
 
-- Chaque chat du groupe a une ligne, dans le même ordre arborescent que la liste des chats. Les messages vont de gauche à droite, un point par message. Les points gris sont tes messages, les points de la couleur d'accent sont les réponses des personnages, et les cercles vides sont les messages du narrateur ou du système.
-- Une branche n'affiche que ses propres messages. Une ligne la relie au message dont elle est issue : tu vois donc exactement où elle s'est séparée.
-- Les anciennes branches et celles dont le chat source a été supprimé n'ont pas de point de séparation enregistré. Elles sont reliées au chat du haut par une ligne en pointillés, et la légende affiche **Fork not recorded**.
-- Les longues portions sans séparation à proximité se replient en un marqueur **··· N ···**, où N est le nombre de messages masqués. Clique dessus pour afficher ces messages, ou utilise **Expand all** (tout déplier) pour déplier toutes les portions. **Collapse long runs** (replier les longues portions) les replie de nouveau.
-- Les points de séparation et le dernier message de chaque branche portent un anneau. Survole un anneau, touche-le ou sélectionne-le au clavier pour voir le numéro du message, son auteur et le début de son texte.
-- Clique sur le nom ou la ligne d'une branche pour y passer. La branche que tu consultes est mise en évidence, et le graphe s'ouvre en affichant son dernier message.
+- Les points gris sont tes messages, les points de la couleur d'accent sont les réponses des personnages, et les cercles vides sont les messages du narrateur ou du système.
+- Une branche n'affiche que ses propres messages. Une ligne la relie au message dont elle est issue.
+- Une branche sans point de séparation enregistré est reliée au chat du haut par une ligne en pointillés, et la légende affiche **Fork not recorded**. C'est le cas des anciennes branches et des branches dont le chat source a été supprimé.
+- Les longues portions sans séparation se replient en un marqueur **··· N ···**, où N est le nombre de messages masqués. Clique dessus pour les afficher. **Expand all** (tout déplier) déplie toutes les portions et **Collapse long runs** (replier les longues portions) les replie de nouveau.
+- Les points de séparation et le dernier message de chaque branche portent un anneau. Touche-le, passe le pointeur dessus ou sélectionne-le au clavier pour voir le numéro du message, son auteur et le début de son texte.
+- Clique sur le nom ou la ligne d'une branche pour y passer. La branche que tu consultes est mise en évidence.
 
-Le graphe s'actualise quand tu crées, renommes ou supprimes un chat, et peu après l'arrivée de nouveaux messages.
+Le graphe s'actualise quand tu crées une branche, renommes ou supprimes un chat, et peu après l'arrivée de nouveaux messages.
 
 ### Renommer une branche
 
-1. Ouvre la section **Chat Branches** de **Chat Settings**.
-2. Clique sur le bouton en forme de crayon (renommer) sur la ligne de la branche concernée.
-3. Une fenêtre intitulée **Rename Branch** s'ouvre avec le message "Set a display name for this chat branch."
-4. Saisis un nouveau nom et valide avec le bouton **Rename**.
+1. Dans **Chat Branches**, clique sur le bouton en forme de crayon sur la ligne de la branche.
+2. Dans la boîte de dialogue **Rename Branch** ("Set a display name for this chat branch."), saisis un nouveau nom.
+3. Clique sur **Rename** (renommer).
 
-Un nom vide, ou un nom que tu n'as pas modifié, est ignoré.
+Un nom vide ou inchangé est ignoré.
 
 ### Supprimer une branche
 
-1. Ouvre la section **Chat Branches** de **Chat Settings**.
-2. Clique sur le bouton en forme de corbeille (supprimer) sur la ligne de la branche.
-3. Une fenêtre intitulée **Delete Branch** demande "Delete this branch? Messages will be lost."
-4. Valide avec le bouton **Delete**.
+1. Dans **Chat Branches**, clique sur le bouton en forme de corbeille sur la ligne de la branche.
+2. Dans la boîte de dialogue **Delete Branch** ("Delete this branch? Messages will be lost."), clique sur **Delete** (supprimer).
 
-Supprimer une branche efface uniquement cette branche et ses messages. Les autres branches restent en place.
+Cela retire uniquement cette branche et ses messages. Les autres branches restent en place.
 
-### Supprimer toutes les branches
+Avec deux branches ou plus, **Delete All Branches** (supprimer toutes les branches) apparaît en bas de la section. Il demande "Delete all N branches? This cannot be undone." Confirme avec **Delete All** (tout supprimer). Tu peux aussi partir de la liste des chats : supprimer un chat qui a des branches propose **Delete This Branch Only** (supprimer seulement cette branche) et **Delete All N branches** (supprimer les N branches). Voir [Gérer la liste des chats](managing-chats.md#delete-a-chat).
 
-Dès qu'un chat compte au moins deux branches, un bouton **Delete All Branches** (tout supprimer) apparaît en bas de la section. Il demande "Delete all N branches? This cannot be undone." Valide avec le bouton **Delete All** pour supprimer d'un coup toutes les branches du groupe.
+### Importer un fichier comme nouvelle branche
 
-Autre point de départ : la liste des chats. Supprime un chat qui a des branches via son icône de corbeille. Une fenêtre intitulée **Delete Chat** demande alors ce que tu veux supprimer. Elle propose un bouton **Delete This Branch Only** et un bouton **Delete All N Branches**. Le guide [Gérer la liste des chats](managing-chats.md) donne plus de détails sur la suppression depuis la liste.
+1. Dans **Chat Branches**, clique sur **Import**.
+2. Choisis un fichier `.jsonl` exporté depuis SillyTavern ou Marinara.
 
-## Exporter une branche
+Marinara l'ajoute comme nouvelle branche dans le groupe du chat en cours, affiche "Imported N messages as a new branch", puis bascule dessus.
 
-La section **Chat Branches** propose des boutons d'export en haut. Ils exportent la branche que tu consultes.
+## Comment les branches sont liées
 
-- **JSONL** : télécharge la branche dans un fichier JSONL. JSONL signifie un message par ligne de texte, et ce format est compatible avec SillyTavern.
-- **Text** : télécharge la branche sous forme de transcription en texte brut.
-- **Markdown** et **Story** : télécharge la branche sous forme de fichier Markdown lisible ou de page web mise en forme. Consulte [Les formats de fichier que tu vas croiser](export-import.md#file-formats-you-will-see).
+Cette section s'adresse aux personnes qui développent à partir des données des branches.
 
-Pour exporter plusieurs chats d'un coup, consulte [Exporter et importer des chats](export-import.md). Ce guide décrit aussi l'option qui inclut le raisonnement du modèle dans les exports.
-
-## Importer un fichier JSONL comme nouvelle branche
-
-Un historique de chat enregistré s'importe comme nouvelle branche du chat ouvert.
-
-1. Ouvre la section **Chat Branches** de **Chat Settings**.
-2. Clique sur le bouton **Import**.
-3. Choisis un fichier JSONL (`.jsonl`) exporté depuis SillyTavern ou depuis Marinara.
-
-Marinara ajoute le fichier comme nouvelle branche dans le groupe du chat en cours. Un message du type "Imported N messages as a new branch" s'affiche. L'application bascule ensuite sur la nouvelle branche.
-
-## Guides associés
-
-- [Actions sur les messages : modifier, supprimer, swiper, régénérer](messages.md)
-- [Exporter et importer des chats](export-import.md)
-- [Gérer la liste des chats](managing-chats.md)
+- Chaque branche enregistre son chat source immédiat et le message où la branche a été créée. L'identifiant du message source et celui de sa copie sont tous deux conservés : les intégrations peuvent ainsi retrouver la limite de la branche, même si les messages copiés reçoivent de nouveaux identifiants.
+- Créer une branche d'une branche enregistre cette dernière comme parent, et non la racine d'origine.
+- Dès qu'au moins une branche d'un groupe enregistre sa source, cliquer sur le compteur dans la liste des chats ouvre l'arbre. Une branche dont la source est inconnue se place directement sous le chat. Un groupe sans source connue garde une seule ligne, et ses branches s'ouvrent depuis **Chat Branches**.
+- Supprimer un chat parent ne change pas la source enregistrée de ses enfants. Supprimer tout le groupe supprime tous les chats qu'il contient.

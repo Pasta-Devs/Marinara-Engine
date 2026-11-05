@@ -1,135 +1,141 @@
 # Chat-Hintergründe
 
-In dieser Anleitung geht es um die Hintergrund-Bibliothek von Marinara Engine. Darin liegen Bilder, die du selbst hochlädst und von Hand hinter den Chat legst. Der **Background**-Agent (Hintergrund) sucht dagegen bei jedem Zug selbst einen Szenen-Hintergrund aus – dazu mehr unter [Roleplay-Hintergründe](../roleplay/backgrounds.md). Wie du Szenen-Hintergründe per KI aus der Galerie erzeugst, steht unter [Szenen-Hintergründe und die Galerie](../media/scene-backgrounds.md).
+In der Hintergrund-Bibliothek liegen Bilder, die du hochlädst und von Hand hinter deinen Chat legst. Der **Background**-Agent (Hintergrund), der dir in jedem Zug einen Szenen-Hintergrund aussucht, steht unter [Roleplay-Hintergründe](../roleplay/backgrounds.md). Wie du Hintergründe per KI aus der Gallery erzeugst, steht unter [Szenen-Hintergründe und die Gallery](../media/scene-backgrounds.md).
+
+Ein Chat-Hintergrund erscheint in allen Chat-Modi. In Conversation-Chats bleibt der Farbverlauf aus **Conversation Theme** über dem Bild, und **Conversation background image opacity** (Deckkraft des Hintergrundbilds in Conversation) legt fest, wie stark das Bild durchscheint. Siehe [Darstellungseinstellungen](appearance-settings.md).
+
+## Den Hintergrund eines Chats ändern
+
+Bevor du anfängst: Öffne den Chat, den du ändern willst. Der Hintergrund, den du wählst, gilt für diesen Chat.
+
+1. Öffne **Settings** (Einstellungen), dann **Appearance** (Darstellung), dann die Schaltfläche **App**.
+2. Tippe in **Backgrounds** (Hintergründe) auf **Browse library** (Bibliothek durchsuchen).
+3. Tippe auf ein Bild. Es wird zum Hintergrund dieses Chats, und das Fenster schließt sich.
+
+Um ein eigenes Bild zu nutzen, importiere es zuerst (siehe [Einen Hintergrund importieren](#import-a-background)).
 
 ## Wo die Hintergründe liegen
 
-Alle Hintergründe verwaltest du an einer einzigen Stelle: **Settings** (Einstellungen), dann der Tab **Appearance** (Darstellung), dann der Abschnitt **Backgrounds** (Hintergründe).
+1. Öffne **Settings**.
+2. Wähle den Tab **Appearance** und dann die Schaltfläche **App**.
+3. Suche den Abschnitt **Backgrounds**.
 
-Der Abschnitt **Backgrounds** besteht aus drei Teilen:
+Er enthält die Auswahl **Chat Background** (Chat-Hintergrund), den Schieberegler **Background Blur** (Hintergrundunschärfe) sowie die Bedienelemente **Conversation background image opacity** und **Chat List Backgrounds** (Hintergründe in der Chat-Liste). Mehr dazu unter [Darstellungseinstellungen](appearance-settings.md).
 
-1. Die Auswahl **Chat Background** (Chat-Hintergrund) für das Bild im aktuellen Chat.
-2. Der Schieberegler **Background Blur** (Hintergrund-Unschärfe).
-3. Die Hintergrund-Bibliothek zum Importieren, Sortieren, Filtern, Taggen, Umbenennen, Herunterladen und Löschen von Bildern.
-
-Ein Chat-Hintergrund erscheint nur in Roleplay- und Game-Mode-Chats. Conversation nutzt stattdessen einen Farbverlauf, den du im Abschnitt **Conversation Theme** (Conversation-Design) festlegst. Näheres dazu unter [Darstellungs-Einstellungen](appearance-settings.md).
+Die Auswahl zeigt eine Vorschau des aktuellen Hintergrunds oder **Default background**, wenn keiner gewählt ist. Darunter liegen unter **Recent** (zuletzt genutzt) bis zu drei Hintergründe, die du mit einem Tipp wählst. Klick auf **Browse library**, um das Fenster **Background Library** (Hintergrund-Bibliothek) zu öffnen.
 
 ## Die Hintergrund-Bibliothek
 
-In der Bibliothek liegt jedes Bild, das zur Auswahl steht. Deine eigenen Uploads stehen dort neben den mitgelieferten Bildern von Marinara. Eine kleine Beschriftung an jedem Bild zeigt, woher es stammt:
+Die Bibliothek zeigt Bilder, die du hochgeladen hast, zusammen mit Bildern, die Marinara mitbringt. Jedes Bild trägt eine Beschriftung.
 
-- **Library**: ein Bild, das du selbst hochgeladen hast. Solche Bilder lassen sich umbenennen, taggen und löschen.
-- **Game asset**: ein mitgeliefertes Bild von Marinara. Diese Bilder sind schreibgeschützt und lassen sich weder umbenennen noch taggen oder löschen.
+| Beschriftung | Bedeutung |
+| --- | --- |
+| **My upload** | Ein Bild, das du hochgeladen hast. Du kannst es umbenennen, taggen und löschen. |
+| **Game asset** | Ein mitgeliefertes Bild. Es ist schreibgeschützt: kein Umbenennen, keine Tags, kein Löschen. |
+
+Die Schaltflächen unter **Filter by source** (nach Herkunft filtern) – **All sources**, **My uploads** und **Game assets** – zeigen, wie viele Bilder jeweils dazugehören.
+
+<a id="import-a-background"></a>
 
 ### Einen Hintergrund importieren
 
-1. Suche das Feld **Import Backgrounds** (Hintergründe importieren) oben in der Bibliothek.
-2. Zieh eine oder mehrere Bilddateien auf das Feld, oder klick darauf und wähle Dateien aus.
-3. Warte, bis der Upload durch ist. Währenddessen zeigt das Feld **Importing...** an.
-4. Die neuen Bilder erscheinen im Raster darunter mit der Beschriftung **Library**.
+1. Suche im Fenster **Background Library** neben dem Suchfeld **Import Backgrounds** (Hintergründe importieren).
+2. Tippe oder klick darauf und wähle Bilddateien aus. Du kannst mehrere auf einmal wählen. Am Computer kannst du Dateien auch darauf ziehen.
+3. Warte. Solange der Import läuft, zeigt das Feld **Importing…** an.
 
-Mehrere Dateien auf einmal sind kein Problem. Jede Datei muss ein Bild in einem dieser Formate sein: JPG, PNG, GIF, WebP oder AVIF. Pro Datei sind bis zu 20 MB erlaubt.
+Die neuen Bilder erscheinen im Raster mit der Beschriftung **My upload**.
 
-Marinara prüft den echten Inhalt jeder Datei, nicht nur den Namen. Benennst du eine Datei, die kein Bild ist, auf `.png` um, lehnt Marinara den Upload ab.
+Jede Datei muss JPG, PNG, GIF, WebP oder AVIF sein und darf bis zu 20 MB groß sein. Marinara prüft, was in der Datei steckt, nicht ihren Namen. Eine Datei, die kein Bild ist und auf `.png` umbenannt wurde, wird abgelehnt.
 
 ### Einen Hintergrund für den aktuellen Chat wählen
 
-1. Öffne **Settings**, dann **Appearance**, dann **Backgrounds**.
-2. Klick im Raster auf das gewünschte Vorschaubild.
-3. Auf dem gewählten Bild erscheint ein Häkchen. Es wird zum Hintergrund des geöffneten Chats.
-4. Zurück zum Standard geht es mit einem erneuten Klick auf das gewählte Vorschaubild oder über die Schaltfläche **Remove** (Entfernen) neben **Chat Background**.
+1. Öffne **Browse library**.
+2. Klick auf ein Vorschaubild. Ein Häkchen erscheint, das Bild wird zum Hintergrund dieses Chats, und das Fenster schließt sich.
+3. Zurück zum Standard geht es mit einem erneuten Klick auf das gewählte Vorschaubild oder mit dem X (**Clear selection**, Auswahl aufheben) auf der Vorschau.
 
-### Die Bibliothek durchsuchen
+### Suchen und filtern
 
-Über dem Raster filterst du mit dem Feld **Search backgrounds** (Hintergründe suchen) nach Name, Tag oder Herkunft. Die Zählzeile zeigt die Zahl der Treffer, etwa „3 of 20 backgrounds“. Ein Klick auf das kleine X im Suchfeld leert die Suche.
+- **Search backgrounds** (Hintergründe suchen) filtert nach Name, Tag oder Herkunft. Eine Zählzeile zeigt, wie viele Treffer es gibt, etwa „3 of 20 backgrounds“. Ein Klick auf das X im Feld leert die Suche.
+- **Sort backgrounds** (Hintergründe sortieren) bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest** und **Oldest**. Bei **Manual order** ziehst du die Bilder in die gewünschte Reihenfolge oder drückst auf einem fokussierten Bild <kbd>Alt</kbd>+<kbd>Pfeil nach oben</kbd> oder <kbd>Alt</kbd>+<kbd>Pfeil nach unten</kbd>.
+- Die Ordner-Chips **All folders** (alle Ordner), **Favorites** (Favoriten) und **Unfiled** (ohne Ordner) sowie je ein Chip pro Ordner filtern nach Ordner.
+- Unter den Tags hebt **All** alle Tag-Filter auf. Klapp **Tags** auf und wähle ein oder mehrere Tags (Schlagwörter). Ein Bild passt, wenn es eines der gewählten Tags hat.
 
-Mit der Auswahl neben der Suche sortierst du die Hintergründe nach **A-Z**, **Z-A**, **Newest** oder **Oldest**. **All** hebt alle Tag-Filter auf; unter **Tags** wählst du ein Tag (Schlagwort) oder mehrere aus. Bei mehreren gewählten Tags genügt ein einziger Treffer, damit ein Hintergrund angezeigt wird.
+Klick auf den Stern an einem Bild, um es deinen Favoriten hinzuzufügen. Am Standard-Hintergrund ändert das nichts.
 
 ### Hintergründe in Ordnern sortieren
 
-Ordner sortieren die Bibliothek, ohne die dahinterliegenden Bilddateien zu verschieben oder auszublenden.
+Ordner sortieren die Bibliothek, ohne die Bilddateien zu verschieben oder auszublenden.
 
-1. Klick auf **New Folder** (Neuer Ordner). Marinara legt einen Ordner mit eindeutigem Namen an.
-2. Ein Doppelklick oder Doppeltipp auf den Ordnernamen benennt ihn um. Alternativ fokussierst du ihn und drückst F2.
-3. Am Rechner ziehst du eine Hintergrund-Zeile in einen Ordner. Auf Handy oder Tablet hältst du die Zeile gedrückt und ziehst sie dann.
-4. Zieh einen Hintergrund zurück in den Bereich ohne Ordner, um ihn aus seinem Ordner zu nehmen.
+1. Klick auf **New Folder** (Neuer Ordner), gib einen Namen ein und klick auf **Add** (Hinzufügen).
+2. Tippe bei einem Bild auf die Schaltfläche **Move to folder** (in Ordner verschieben) und wähle den Ordner. Oder zieh das Bild auf einen Ordner-Chip. Auf Handy oder Tablet hältst du das Bild gedrückt und ziehst es dann.
+3. Um ein Bild zurückzuholen, zieh es auf **Unfiled**.
+4. Wähle einen Ordner-Chip, um die Schaltflächen Stift (**Rename folder**, Ordner umbenennen) und Papierkorb (**Delete folder**, Ordner löschen) einzublenden.
 
-Marinara speichert Ordner und Zuordnungen auf dem Server und nimmt sie in Backups mit auf. Löschst du einen Ordner, wandern seine Hintergründe zurück in die Liste ohne Ordner – die Bilder selbst bleiben erhalten. Such- und Tag-Filter zeigen passende Einträge automatisch auch innerhalb der Ordner an.
-
-Der **Background**-Agent sieht weiterhin jeden verfügbaren Hintergrund, auch die in Ordnern. Ordner wirken sich nur auf die Sortierung in **Settings** aus.
+Löschst du einen Ordner, wandern seine Bilder zurück nach **Unfiled**; gelöscht werden sie nicht. Ordner werden auf dem Server gespeichert und in Backups aufgenommen. Der **Background**-Agent sieht weiterhin jeden Hintergrund, auch die in Ordnern.
 
 ### Einen Hintergrund umbenennen
 
-Umbenennen lassen sich nur Bilder mit der Beschriftung **Library**.
+Umbenennen lassen sich nur Bilder mit der Beschriftung **My upload**.
 
-1. Zeig auf die Bildzeile und klick auf das Stift-Symbol (**Rename**, umbenennen).
-2. Gib den neuen Namen ein. Die Dateiendung brauchst du nicht mitzutippen.
+1. Klick auf dem Bild auf den Stift (**Rename background**, Hintergrund umbenennen).
+2. Gib den neuen Namen ein. Die Dateiendung brauchst du nicht.
 3. Klick auf **Save** (Speichern).
 
 ### Einen Hintergrund taggen
 
-Tags helfen beim Gruppieren und Suchen der eigenen Uploads. Taggen lassen sich nur Bilder mit der Beschriftung **Library**.
+Taggen lassen sich nur Bilder mit der Beschriftung **My upload**.
 
-1. Klick in der Bildzeile auf das Tag-Symbol (**Edit tags**, Tags bearbeiten).
-2. Gib im Feld **Add tag...** ein Tag ein. Beim Tippen schlägt Marinara bereits verwendete Tags vor.
-3. Drück Enter oder klick auf **Add** (Hinzufügen).
-4. Um ein Tag zu entfernen, klick darauf. Solange die Tag-Bearbeitung geöffnet ist, erscheint jedes Tag als Schaltfläche mit einem X.
+1. Klick auf dem Bild auf das Tag-Symbol (**Edit tags**, Tags bearbeiten).
+2. Gib in **Add tag…** ein Tag ein. Marinara schlägt Tags vor, die du schon verwendet hast.
+3. Drück <kbd>Enter</kbd> oder klick auf **Add**.
+
+Um ein Tag zu entfernen, klick bei geöffneter Tag-Bearbeitung darauf.
 
 <a id="download-a-background"></a>
 
 ### Einen Hintergrund herunterladen
 
-Herunterladen lassen sich alle Hintergründe, auch die mitgelieferten. Zeig auf die Bildzeile und klick auf das Download-Symbol (**Download background**, Hintergrund herunterladen). Das Bild wird unter seinem Dateinamen gespeichert. Auf iPhone oder iPad öffnet sich das Teilen-Menü, über das du es sichern kannst. Öffnet es sich nicht, tippe in der eingeblendeten Meldung auf **Save file** (Datei speichern).
+Klick an einem beliebigen Bild auf das Download-Symbol (**Download background**, Hintergrund herunterladen), auch bei mitgelieferten Bildern. Auf iPhone oder iPad öffnet sich das Teilen-Menü. Öffnet es sich nicht, tippe in der eingeblendeten Meldung auf **Save file** (Datei speichern).
 
 ### Einen Hintergrund löschen
 
-Löschen lassen sich nur Bilder mit der Beschriftung **Library**. Zeig auf die Bildzeile, klick auf das Papierkorb-Symbol und bestätige das Löschen. War das Bild der aktuelle Chat-Hintergrund oder der Standard-Hintergrund für Roleplay, wechselt Marinara automatisch zurück zum mitgelieferten Standard.
+Löschen lassen sich nur Bilder mit der Beschriftung **My upload**.
+
+1. Klick auf dem Bild auf das Papierkorb-Symbol (**Delete background**, Hintergrund löschen).
+2. Bestätige das Löschen.
+
+War es der aktuelle Chat-Hintergrund oder der Standard-Hintergrund für Roleplay, wechselt Marinara zurück zum mitgelieferten Standard.
 
 ## Einen Standard-Hintergrund für Roleplay festlegen
 
-Der Standard-Hintergrund für Roleplay ist das Bild, mit dem jeder neue Roleplay-Chat startet, bevor er sich ein eigenes sucht. Einmal festgelegt, gilt er für alle neuen Roleplay-Chats.
+Der Standard-Hintergrund für Roleplay ist das Bild, mit dem jeder neue Roleplay-Chat startet.
 
-1. Suche im Abschnitt **Backgrounds** das gewünschte Bild im Raster.
-2. Klick in dessen Bildzeile auf das Stecknadel-Symbol (**Set as default for new Roleplay chats**, als Standard für neue Roleplay-Chats festlegen).
-3. Die Stecknadel-Schaltfläche bleibt hervorgehoben, und auf dem Vorschaubild erscheint die Beschriftung **Default**. Neue Roleplay-Chats starten ab jetzt mit diesem Bild.
+1. Suche das Bild im Fenster **Background Library**.
+2. Klick auf sein Stecknadel-Symbol (**Set as default for new Roleplay chats**, als Standard für neue Roleplay-Chats festlegen).
 
-Der Stern oben links im Bild fügt es deinen Favoriten hinzu. Am Standard ändert er nichts.
-
-Zurück geht es mit einem Klick auf die Stecknadel des aktuellen Standardbilds. Genauso funktioniert die Schaltfläche **Reset Roleplay default** (Roleplay-Standard zurücksetzen) oben am Raster. Diese Schaltfläche erscheint nur, wenn dein Standard-Hintergrund vom mitgelieferten abweicht.
+Auf dem Vorschaubild erscheint die Beschriftung **Default**. Um das rückgängig zu machen, klick erneut auf die Stecknadel dieses Bilds oder auf **Reset Roleplay default** (Roleplay-Standard zurücksetzen) über dem Raster. Diese Schaltfläche erscheint nur, wenn dein Standard vom mitgelieferten abweicht.
 
 ## Background Blur
 
-**Background Blur** zeichnet das Hintergrundbild hinter dem Chat weich, damit der Text besser lesbar bleibt. Die Einstellung wirkt auf Roleplay- und Game-Mode-Hintergründe.
+**Background Blur** zeichnet den Hintergrund hinter dem Chat weich, damit der Text besser lesbar ist. Die Einstellung gilt für Hintergründe in allen Chat-Modi.
 
 1. Suche im Abschnitt **Backgrounds** den Schieberegler **Background Blur**.
 2. Zieh ihn auf einen Wert von 0 bis 24. Je höher der Wert, desto stärker die Unschärfe.
-3. Bei 0 bleiben die Hintergründe scharf. Der Wert 0 wird als **Off** angezeigt.
 
-Der Standard ist 0 (**Off**).
-
-## Wie eigene Uploads und mitgelieferte Hintergründe zusammenspielen
-
-Die Bibliothek zeigt deine Uploads und die mitgelieferten **Game asset**-Bilder gemeinsam in einem Raster. Ausgewählt wird bei beiden gleich. Der Unterschied: **Game asset**-Bilder sind schreibgeschützt, deshalb fehlen dort die Bedienelemente zum Umbenennen, Taggen und Löschen.
-
-Auch KI-generierte Szenen-Hintergründe aus der Galerie landen in derselben Bibliothek und lassen sich später wiederverwenden. Näheres unter [Szenen-Hintergründe und die Galerie](../media/scene-backgrounds.md).
+Bei 0 zeigt er **Off**, und die Hintergründe bleiben scharf. Der Standard ist 0.
 
 ## Wo die Hintergrund-Auswahl gespeichert wird
 
-Drei verschiedene Einstellungen bestimmen den Hintergrund eines Chats – und alle drei werden unterschiedlich gespeichert:
+| Einstellung | Gespeichert |
+| --- | --- |
+| Der **Chat Background** eines Chats | Mit diesem Chat auf dem Server. Er begleitet den Chat auf jedes Gerät. |
+| Ordner und ihre Zuordnungen | Auf dem Server, zusammen mit der Bibliothek. |
+| Der Standard-Hintergrund für Roleplay und **Background Blur** | Pro Gerät. Sie werden nicht zwischen Browsern oder Geräten synchronisiert. |
 
-- Den **Chat Background** eines Chats speichert Marinara zusammen mit dem Chat auf dem Server. Er begleitet den Chat auf jedes Gerät, auf dem du ihn öffnest.
-- Hintergrund-Ordner samt Zuordnungen liegen auf dem Server und begleiten die Bibliothek auf andere Geräte.
-- Der Standard-Hintergrund für Roleplay und **Background Blur** werden pro Gerät gespeichert. Sie werden nicht zwischen Browsern oder Geräten synchronisiert. Das vollständige Sync-Modell steht unter [Darstellungs-Einstellungen](appearance-settings.md).
-
-## Automatische und KI-generierte Hintergründe
-
-In dieser Anleitung geht es um die Bibliothek, aus der du von Hand auswählst. Zwei verwandte Funktionen übernehmen die Auswahl für dich:
-
-- Der **Background**-Agent sucht in Roleplay-Chats Zug für Zug selbstständig einen Szenen-Hintergrund aus der Bibliothek aus. Siehe [Roleplay-Hintergründe](../roleplay/backgrounds.md).
-- Die Galerie erzeugt aus der aktuellen Szene per KI einen komplett neuen Szenen-Hintergrund. Siehe [Szenen-Hintergründe und die Galerie](../media/scene-backgrounds.md).
+Das vollständige Sync-Modell steht unter [Darstellungseinstellungen](appearance-settings.md).
 
 ## Verwandte Anleitungen
 
-- [Roleplay-Hintergründe](../roleplay/backgrounds.md): der Background-Agent, der Zug für Zug automatisch einen Hintergrund aussucht.
-- [Szenen-Hintergründe und die Galerie](../media/scene-backgrounds.md): KI-generierte Szenen-Hintergründe aus der Galerie.
-- [Darstellungs-Einstellungen](appearance-settings.md): der komplette Tab **Appearance**, inklusive der Frage, welche Einstellungen synchronisiert werden und welche auf einem Gerät bleiben.
+- [Roleplay-Hintergründe](../roleplay/backgrounds.md): der Background-Agent, der in jedem Zug einen Szenen-Hintergrund aussucht.
+- [Szenen-Hintergründe und die Gallery](../media/scene-backgrounds.md): KI-generierte Szenen-Hintergründe aus der Gallery. Sie landen auch in dieser Bibliothek.
+- [Darstellungseinstellungen](appearance-settings.md): der komplette Tab **Appearance**.

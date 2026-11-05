@@ -1,92 +1,70 @@
 # Kampfbegegnungen (Roleplay)
 
-In dieser Anleitung erfährst du, wie Kampfbegegnungen im Roleplay Mode funktionieren. Du lernst, wie du den **Combat**-Agenten einschaltest, einen Kampf startest und ihn im Encounter-Fenster spielst. Außerdem erfährst du, worin sich diese Funktion vom Kampfsystem im Game Mode unterscheidet.
+Eine Kampfbegegnung gibt einer Roleplay-Szene einen zugbasierten Kampfbildschirm mit Lebensbalken, Gegner- und Party-Listen und einem Kampfprotokoll. Sie ist optional. Ein Chat ohne sie läuft wie bisher. Game Mode hat ein eigenes, davon getrenntes Kampfsystem: siehe [Game Mode: Kampf](../game/combat.md).
 
-Kampfbegegnungen sind eine optionale Roleplay-Funktion. Sie geben der Szene einen strukturierten, zugbasierten Kampfbildschirm mit Lebensbalken, Gegner- und Party-Listen sowie einem Kampflog. Bleibt die Funktion aus, laufen Roleplay-Chats genau wie bisher.
+## Kämpfe einschalten
 
-## Den Combat-Agenten aktivieren
+Ein Agent ist ein Helfer, der neben den Antworten mitläuft. Der Agent **Combat** (Kampf) bringt die Kampffunktion mit. Standardmäßig ist er aus, du schaltest ihn also pro Chat ein.
 
-Ein Agent ist ein Helfer, der während der Generierung einer Nachricht automatisch mitläuft. Der **Combat**-Agent (Kampf) bringt die Kampffunktion in einen Roleplay-Chat. Standardmäßig ist er aus – du aktivierst ihn also pro Chat.
+1. Öffne den Chat. Öffne **Chat Settings** (Chat-Einstellungen) über die Schieberegler-Schaltfläche im Chat.
+2. Wechsle zu **Agents** (Agenten).
+3. Schalte **Enable Agents** (Agenten aktivieren) ein, falls es aus ist.
+4. Füge den Agenten **Combat** aus den Listen unter dem Schalter hinzu.
 
-1. Öffne den Chat, den du um Kämpfe erweitern willst.
-2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
-3. Öffne den Bereich **Agents** (Agenten).
-4. Aktiviere **Enable Agents** (Agenten einschalten), falls noch nicht geschehen.
-5. Füge dem Chat den **Combat**-Agenten hinzu.
+Über dem Nachrichtenfeld erscheint jetzt die Schaltfläche **Encounter** (Begegnung) mit den gekreuzten Schwertern. Ihr Tooltip lautet **Start Combat Encounter**.
 
-In der Aktionsleiste über dem Nachrichtenfeld erscheint daraufhin die Schaltfläche **Encounter** (Begegnung) mit gekreuzten Schwertern. Ihr Tooltip – der Kurzhinweis beim Draufzeigen – lautet **Start Combat Encounter**. Fehlt die Schaltfläche, ist der **Combat**-Agent in diesem Chat nicht aktiv.
-
-Wie das Agents-Panel im Detail funktioniert, liest du unter [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md).
+Wenn es nicht funktioniert hat: Fehlt die Schaltfläche, ist der Agent **Combat** in diesem Chat nicht aktiv. Wie Agenten funktionieren, liest du unter [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md).
 
 ## Eine Begegnung starten
 
-Klick auf **Encounter**, um das Einrichtungsfenster zu öffnen. Es trägt den Titel **Configure Combat Narrative** und bestimmt den Schreibstil, den die KI während und nach dem Kampf verwendet.
+1. Klick auf **Encounter**. Das Fenster **Configure Combat Narrative** öffnet sich. Es legt den Schreibstil fest, den die KI verwendet.
+2. Wähl den Stil für **Combat Narration** (während der Kampf läuft) und für **Summary Narration** (die Zusammenfassung, die am Ende in den Chat geschrieben wird). Beide Gruppen haben dieselben vier Einstellungen, die unten aufgeführt sind. Die Standardwerte funktionieren, du kannst also auch gleich auf **Begin Combat** klicken.
+3. Optional: Wähl ein **Spellbook** (Zauberbuch). Ein Spellbook ist ein Lorebook (eine gespeicherte Sammlung von Weltwissen), das die Zauber und Fähigkeiten auflistet, die im Kampf zur Verfügung stehen. Nutzt du keins, lass die Auswahl auf **None**.
+4. Klick auf **Begin Combat**. Mit **Cancel** (Abbrechen) schließt du das Fenster, ohne einen Kampf zu starten.
 
-Das Einrichtungsfenster hat zwei Stilgruppen:
+Während die KI die Gegner, deine Party sowie deren Angriffe und Gegenstände aufbaut, siehst du „Initializing combat encounter...“. Das kann ein paar Sekunden dauern.
 
-- **Combat Narration**: der Schreibstil während des Kampfes.
-- **Summary Narration**: der Schreibstil der Zusammenfassung, die am Ende des Kampfes in den Chat geschrieben wird.
+| Stileinstellung | Auswahl |
+| --- | --- |
+| Zeitform | **Present Tense** (Präsens), **Past Tense** (Präteritum) |
+| Person | **First Person**, **Second Person**, **Third Person** (erste, zweite oder dritte Person) |
+| Erzählweise | **Omniscient**: Die Erzählstimme weiß alles. **Limited**: Sie weiß, was ein einzelner Charakter weiß. |
+| Perspektive | Ein Textfeld dafür, durch wessen Augen die Szene erzählt wird. Lass es leer, damit eine neutrale Stimme erzählt. |
 
-Jede Gruppe hat dieselben vier Einstellungen:
+## Deinen Zug spielen
 
-- Zeitform: **Present Tense** (Präsens) oder **Past Tense** (Präteritum).
-- Person: **First Person**, **Second Person** oder **Third Person** – also erste, zweite oder dritte Person.
-- Erzählung: **Omniscient** (die Erzählstimme weiß alles) oder **Limited** (die Erzählstimme weiß nur, was ein einzelner Charakter weiß).
-- Ein Textfeld für die Perspektive: Trag ein, durch wessen Augen die Szene erzählt wird. Bleibt das Feld leer, erzählt eine neutrale Stimme.
+Der Bildschirm **Combat Encounter** besteht aus vier Teilen:
 
-Unter den Stilgruppen sitzt das optionale Dropdown-Menü **Spellbook** (Zauberbuch). Ein Spellbook ist ein besonderes Lorebook – eine Sammlung von Weltwissen-Einträgen – und listet die Zauber und Fähigkeiten auf, die im Kampf zur Verfügung stehen. Häng eines an, damit die KI weiß, was die Charaktere wirken können. Ohne Spellbooks bleibt die Einstellung auf **None**.
+- **Enemies** (Gegner): Karten mit Lebensbalken und Statuseffekten.
+- **Party**: deine Seite. Dein eigener Charakter ist mit **(You)** markiert.
+- **Combat Log**: ein Protokoll jedes Zuges.
+- **Your Actions** (deine Aktionen): deine Schaltflächen.
 
-Klick zum Schluss auf **Begin Combat**. Mit **Cancel** schließt du die Einrichtung, ohne einen Kampf zu starten.
+In deinem Zug wählst du unter **Attacks** (Angriffe) einen Angriff, setzt unter **Items** (Gegenstände) einen Gegenstand ein oder tippst eine freie Aktion in **Custom Action** (eigene Aktion) und schickst sie ab, zum Beispiel „I kick sand into the guard's eyes“.
 
-Nach dem Klick auf **Begin Combat** zeigt die App "Initializing combat encounter...", während die KI den Kampf aufbaut. Sie erzeugt die Gegner, die Party, deren Angriffe und deren Gegenstände. Das dauert ein paar Sekunden.
+Braucht eine Aktion ein Ziel, öffnet sich **Select Target** (Ziel wählen). Wähl einen Gegner oder Verbündeten oder **All Enemies** für einen Flächenangriff. Aktionen, die nur flächig wirken, überspringen diesen Schritt.
 
-## Die Begegnung spielen (das Encounter-Fenster)
+Während die KI den Zug berechnet, siehst du „Processing action...“, und deine Schaltflächen sind gesperrt. Sobald der Zug fertig ist, werden sie wieder freigegeben.
 
-Der komplette Kampfbildschirm – das Encounter-Fenster – trägt den Titel **Combat Encounter** und besteht aus diesen Teilen:
-
-- **Enemies** (Gegner): ein Raster aus Gegnerkarten. Jede Karte zeigt einen Lebensbalken und aktive Statuseffekte.
-- **Party**: deine Seite des Kampfes, also deine Abenteuergruppe. Dein eigener Charakter ist mit **(You)** markiert.
-- **Combat Log**: ein laufendes Protokoll dessen, was in jedem Zug passiert.
-- **Your Actions** (deine Aktionen): die Schaltflächen für deinen Zug.
-
-Unter **Your Actions** hast du drei Möglichkeiten:
-
-- Wähl einen deiner **Attacks** (Angriffe).
-- Setz einen deiner **Items** (Gegenstände) ein.
-- Tipp eine freie Aktion in das Feld **Custom Action** (eigene Aktion) und schick sie ab. Das deckt alles ab, wofür es keine Schaltfläche gibt, zum Beispiel "I kick sand into the guard's eyes".
-
-Braucht ein Angriff oder Gegenstand ein Ziel, öffnet sich das Fenster **Select Target** (Ziel wählen). Wähl einen einzelnen Gegner oder Verbündeten – oder **All Enemies** für einen Flächenangriff, der alle Gegner gleichzeitig trifft. Manche Aktionen wirken ausschließlich flächig und überspringen die Einzelziel-Auswahl.
-
-Während die KI einen Zug berechnet, zeigt der Bildschirm "Processing action..." und die Schaltflächen sind gesperrt. Sobald der Zug fertig ist, geben sie wieder nach.
-
-Liefert die KI Daten, die die App nicht lesen kann, erscheint statt einer kaputten Oberfläche der Bildschirm **Combat Error**. Über **Close Encounter** verlässt du den Kampf von dort aus gefahrlos.
+Wenn es nicht funktioniert hat: Liefert die KI Daten, die die App nicht lesen kann, erscheint der Bildschirm **Combat Error**. Klick auf **Close Encounter** (Begegnung schließen), um den Kampf gefahrlos zu verlassen, und starte dann einen neuen.
 
 ## Eine Begegnung beenden
 
-Ein Kampf lässt sich auf zwei Arten vorzeitig beenden – dazu kommt das natürliche Ende, sobald eine Seite gewinnt.
+- **Conclude** (abschließen) in der Kopfleiste beendet den Kampf vorzeitig. Ein Fenster fragt nach einer Bestätigung, danach wird eine Kampfzusammenfassung in den Chat geschrieben.
+- Das **X** in der Kopfleiste schließt und verwirft den Kampf, nach einer Rückfrage im Fenster **End Combat**. Eine Zusammenfassung wird nicht geschrieben.
+- Gewinnt eine Seite, zeigt ein Banner **VICTORY**, **DEFEAT**, **FLED** oder **INTERRUPTED**. Eine Zusammenfassung wird in deinem Stil aus **Summary Narration** in den Chat geschrieben. Sobald sie fertig ist, klick auf **Close Combat Window** (Kampffenster schließen).
 
-- Klick in der Kopfleiste auf **Conclude** (abschließen), um den Kampf vorzeitig zu beenden. Erst kommt eine Rückfrage. Danach schreibt die App eine Kampfzusammenfassung in den Chat.
-- Klick in der Kopfleiste auf **X**, um den Kampf zu schließen und zu verwerfen. Erst kommt eine Rückfrage im Fenster **End Combat**. Eine Zusammenfassung entsteht dabei nicht.
-
-Endet ein Kampf von allein, erscheint ein Ergebnisbanner: **VICTORY**, **DEFEAT**, **FLED** oder **INTERRUPTED**. Anschließend schreibt die App eine Kampfzusammenfassung in den Chat, und zwar im gewählten Stil aus **Summary Narration**. Sobald sie fertig ist, bringt dich **Close Combat Window** zurück in die Szene.
-
-Scheitert die Generierung der Zusammenfassung, heißt die Schaltfläche stattdessen **Close Anyway**. Ein Klick darauf bringt dich ohne Zusammenfassung zurück in die Szene.
+Schlägt die Zusammenfassung fehl, heißt die Schaltfläche **Close Anyway**. Klick darauf, um ohne Zusammenfassung in die Szene zurückzukehren.
 
 ## Unterschiede zum Kampf im Game Mode
 
-Kampfbegegnungen sind eine leichtgewichtige, eigenständige Kampfebene für den Roleplay Mode. Der Game Mode bringt sein eigenes Kampfsystem mit.
-
-Die wichtigsten Unterschiede:
-
-- Eine Roleplay-Begegnung startest du selbst über **Encounter**. Im Game Mode startet der Game Master (GM) – die KI, die das Spiel leitet – den Kampf, sobald die Geschichte es verlangt.
-- Der Roleplay-Kampf braucht den eingeschalteten **Combat**-Agenten. Der Game-Mode-Kampf nutzt den **Combat**-Agenten nicht und läuft auch ohne ihn.
-- Beide Systeme nutzen unterschiedliche Kampfbildschirme und teilen sich nichts.
-
-Das Kampfsystem des Game Mode beschreibt [Game-Mode-Kampf](../game/combat.md).
+- Eine Roleplay-Begegnung startest du selbst über **Encounter**. Im Game Mode startet der Game Master den Kampf, sobald die Geschichte es verlangt.
+- Der Roleplay-Kampf braucht den Agenten **Combat**. Der Kampf im Game Mode braucht ihn nicht.
+- Die beiden Systeme nutzen unterschiedliche Kampfbildschirme.
 
 ## Verwandte Anleitungen
 
-- [Roleplay Mode: erste Schritte](getting-started.md)
+- [Roleplay Mode: Erste Schritte](getting-started.md)
 - [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md)
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
-- [Game-Mode-Kampf](../game/combat.md)
+- [Game Mode: Kampf](../game/combat.md)

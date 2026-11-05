@@ -1,95 +1,63 @@
 # Conectar una Conversation a un Roleplay o un Game
 
-Esta guía explica cómo enlazar un chat de Conversation con un chat de Roleplay o de Game para que ambos compartan el contexto. También cubre **Cross-Chat Awareness** (conciencia entre chats), las etiquetas especiales que pasan información a través de un enlace y cómo saltar entre chats enlazados.
+Enlaza un chat de Conversation con un chat de Roleplay o de Game para que ambos compartan el contexto. Un uso común: llevas una historia en un chat y hablas de ella fuera de personaje (OOC) en una Conversation que se mantiene al tanto de la historia.
 
-Marinara Engine (llamado Marinara a partir de aquí) tiene dos funciones distintas que permiten que los chats se conozcan entre sí. Una es automática. La otra es un enlace explícito de uno a uno que tú mismo configuras. Esta guía las mantiene separadas, porque funcionan de maneras diferentes.
+La sección **Connected Chats** (Chats conectados) de **Chat Settings** (Ajustes del chat) contiene dos funciones distintas. Un enlace de **Connected Chats** es de uno a uno y lo configuras a mano. **Cross-Chat Awareness** (Conciencia entre chats) es un interruptor que funciona por sí solo y permite que un personaje recuerde sus otros chats de Conversation.
 
-## Qué hacen los Connected Chats
+## Cómo funciona un enlace
 
-**Connected Chats** (chats conectados) une un chat de Conversation con un chat de Roleplay o de Game. El enlace es de uno a uno. Cada chat puede estar conectado con un solo chat a la vez.
+Un enlace une una Conversation con un chat de Roleplay o de Game. Cada chat puede tener un solo enlace a la vez.
 
-Una vez enlazado, el lado de Conversation lee automáticamente los mensajes recientes del chat de historia enlazado. Los incorpora a su propio contexto en cada turno. Esta es la dirección automática del enlace.
-
-El chat de historia (el Roleplay o el Game) no lee automáticamente los mensajes de la Conversation de vuelta. Para enviar información en el otro sentido, un personaje usa etiquetas especiales. Esas etiquetas se describen más abajo.
-
-Un uso común: ejecutas un Roleplay o Game inmersivo en un chat, y un chat casual de mensajes directos fuera de personaje (OOC) en una Conversation. El chat OOC se mantiene al tanto de la historia, así puedes hablar de ella mientras ocurre.
-
-## Cross-Chat Awareness no es lo mismo que un enlace
-
-Dos funciones se confunden con facilidad. Lee esta sección antes de configurar nada.
-
-**Cross-Chat Awareness** es automática. Es un ajuste del modo Conversation. Cuando un personaje está presente en más de un chat de Conversation, puede recordar y hacer referencia a lo que ocurrió en esos otros chats. No enlazas nada a mano. El ajuste está activado de forma predeterminada.
-
-Lo encuentras en la sección **Cross-Chat Awareness** de **Chat Settings** (Ajustes del chat). Su texto de ayuda dice: "Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context." Marinara empareja estos chats hermanos por personaje compartido, no por usuario compartido.
-
-Un enlace de **Connected Chats** es diferente. Es algo que creas a propósito. Une exactamente una Conversation con un chat de Roleplay o de Game. Lleva contexto de la historia y las etiquetas especiales que se describen abajo.
-
-En resumen: **Cross-Chat Awareness** enlaza un personaje entre sus propios chats de Conversation de forma automática. Un enlace de **Connected Chats** une una Conversation con un chat de historia a mano.
+- La Conversation lee automáticamente los mensajes recientes del chat de historia enlazado, en cada turno.
+- El chat de historia no lee la Conversation de vuelta. Los personajes pasan información en el otro sentido con etiquetas, que se describen más abajo.
 
 ## Enlazar una Conversation con un chat de Roleplay o de Game
 
-Empiezas el enlace desde el chat de Conversation, o desde un chat de Game. Sigue estos pasos para empezar desde el lado de Conversation.
+Antes de empezar: ten listos los dos chats. Consulta [Gestionar tu lista de chats](managing-chats.md).
 
-1. Abre el chat de Conversation que quieres enlazar.
-2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
-3. Busca la sección **Connected Chats**.
-4. Haz clic en **Link to Roleplay or Game**.
-5. Busca el chat de Roleplay o de Game en el selector y haz clic en él.
+1. Abre el chat de Conversation y abre **Chat Settings**. Consulta [Descripción general de Chat Settings](chat-settings.md).
+2. Abre la sección **Connected Chats**.
+3. Haz clic en **Link to Roleplay or Game**.
+4. Busca el chat en el selector y haz clic en él.
 
-Ahora deberías ver el nombre del chat enlazado y su modo dentro de la sección **Connected Chats**. Junto a él aparece un pequeño botón para desenlazar.
+La sección ahora muestra el nombre y el modo del chat enlazado, con un pequeño botón para desenlazar.
 
-Para empezar el enlace desde un chat de Game en su lugar, abre las **Chat Settings** de ese chat, busca **Connected Chats** y haz clic en **Link to Conversation**. Luego elige la Conversation.
+Si no funcionó: en el selector solo aparecen los chats que aún no están enlazados. Desenlaza primero el otro chat.
 
-Un chat de Roleplay no tiene su propio botón de enlace. Muestra el enlace una vez que existe, pero debes crear el enlace desde el lado de Conversation.
-
-En el selector solo aparecen los chats que aún no están enlazados. Un chat puede tener un enlace a la vez.
+Para empezar desde un chat de Game, abre **Chat Settings → Connected Chats** en ese chat, haz clic en **Link to Conversation** y elige la Conversation. Un chat de Roleplay no tiene botón de enlace. Muestra el enlace una vez que existe, así que créalo desde el lado de Conversation.
 
 ### Quitar un enlace
 
-Para quitar un enlace, abre **Chat Settings**, busca **Connected Chats** y haz clic en el botón de desenlazar (su tooltip, o texto de ayuda, dice **Disconnect**). Desconectar también borra cualquier influencia pendiente y las notas guardadas ligadas a ese enlace.
+Abre **Chat Settings → Connected Chats** y haz clic en el botón de desenlazar (su etiqueta es **Disconnect**). Esto también borra las influencias pendientes y las notas guardadas ligadas al enlace. Eliminar un chat también lo desconecta.
 
-Eliminar un chat también lo desconecta de su chat enlazado.
+## Cross-Chat Awareness
+
+**Cross-Chat Awareness** es un interruptor de la sección **Connected Chats** de una Conversation. Su descripción dice "Characters know what happens in their other chats". Cuando un personaje está en más de un chat de Conversation, puede recordar y mencionar lo que ocurrió en los otros. Marinara empareja esos chats por personaje compartido, no por usuario compartido. Está activado de forma predeterminada y no necesita ningún enlace.
 
 ## Pasar información a través del enlace
 
-La Conversation lee el chat de historia automáticamente. Las otras direcciones usan etiquetas. Estas etiquetas aparecen dentro de los mensajes de un personaje. La IA las escribe. Normalmente no las escribes tú, pero saber qué hacen te ayuda a entender el puente.
+Los personajes escriben estas etiquetas dentro de sus mensajes. No necesitas hacer nada. Así es como los dos chats se comunican entre sí.
 
-Escribe estas etiquetas como texto literal si alguna vez necesitas referirte a ellas. Cada una se muestra aquí en código para que se vea exactamente.
+| Etiqueta | Qué hace |
+| --- | --- |
+| `<influence>` | Un empujón único desde la Conversation hacia el chat de historia enlazado. Afecta al siguiente turno enlazado y luego se consume. |
+| `<note>` | Guarda un dato duradero de la Conversation en el chat de historia. Permanece en el prompt (las instrucciones enviadas a la IA) del chat de historia en cada turno hasta que lo borras. |
+| `<ooc>` | Permite que un personaje de Roleplay salga de la historia y responda a la Conversation enlazada. Marinara publica el texto allí. |
 
-- `<influence>` envía un empujón único desde la Conversation hacia el chat de historia enlazado. Afecta al siguiente turno enlazado y luego se consume.
-- `<note>` guarda un dato duradero de la Conversation en el chat de historia enlazado. Permanece en el prompt (las instrucciones enviadas a la IA) del chat de historia en cada turno hasta que lo borras.
-- `<ooc>` permite que un personaje de Roleplay salga de la historia y responda directamente a la Conversation enlazada. Marinara publica ese texto en el chat de mensajes directos enlazado.
+### Conversation Notes
 
-Así, un personaje de Conversation puede moldear o informar la historia con discreción usando `<influence>` y `<note>`. Un personaje de Roleplay puede responder a la Conversation con `<ooc>`.
-
-## Conversation Notes
-
-Cuando un personaje de Conversation guarda una `<note>` duradera, esta aparece en el lado de la historia. El chat de Roleplay o de Game obtiene una sección **Conversation Notes** (notas de la conversación) en sus **Chat Settings**.
-
-Esta sección lista cada nota guardada. Cada nota tiene un botón de eliminar. Para quitarlas todas de una vez, usa el botón **Clear all notes**. Marinara te pide que confirmes antes de borrarlas, y esto no se puede deshacer.
-
-Si ningún personaje ha guardado aún una nota, la sección explica que las notas envueltas en una etiqueta `<note>` aparecerán aquí una vez guardadas.
+Los datos `<note>` guardados aparecen en una sección **Conversation Notes** (Notas de la conversación) en **Chat Settings** del chat de historia. Cada nota tiene un botón de eliminar. **Clear all notes** (Borrar todas las notas) las quita todas después de que confirmes, y esto no se puede deshacer. Si no hay notas, la sección dice que las notas envueltas en una etiqueta `<note>` aparecerán allí.
 
 <a id="switching-between-connected-chats"></a>
 
 ## Cambiar entre chats conectados
 
-Cuando un chat tiene otro enlazado, aparece un pequeño botón **Connected chat** con un icono de doble flecha, inicialmente arriba a la derecha en una computadora. Puedes arrastrarlo a otro lugar. En un teléfono, busca **Connected chat** en el menú de tres puntos **Chat tools** (Herramientas del chat). Abre el control y luego elige **Switch to** seguido del nombre del otro chat.
+Cuando hay un enlace, aparece un botón **Connected chat** (un icono de doble flecha) en los dos chats. En una computadora empieza arriba a la derecha, y puedes arrastrarlo. En un teléfono, abre el menú de tres puntos **Chat tools** (Herramientas del chat), abre **Connected chat** y elige **Switch to** y el nombre del otro chat.
 
-La acción te lleva directamente al chat conectado, sin tener que buscarlo en la lista. El botón aparece tanto en el lado de Conversation como en el de Roleplay de un enlace.
-
-Si prefieres tenerlo dentro de Chat Settings, elige **Put back in Chat Settings** en la ventana. Pasa a ser la sección **Connected chat**. Su botón para sacar la sección vuelve a darle una ventana propia.
+Para mantener el control dentro de Chat Settings, elige **Put back in Chat Settings**. Entonces aparece como su propia sección **Connected chat**. Usa el botón para sacar esa sección y volver a convertirla en una ventana aparte.
 
 ## Otros controles en esta sección
 
-La sección **Connected Chats** también contiene dos controles adicionales que pertenecen a otras funciones. Se muestran aquí por comodidad.
-
-- Un cuadro **Discord webhook URL**. No tiene una etiqueta visible, solo un marcador de posición que empieza por `https://discord.com/api/webhooks/`. Pegar aquí una URL de webhook de Discord refleja los mensajes del chat en un canal de Discord. Esto es parte de la función de reflejo de mensajes en Discord, que tiene su propia guía.
-- Un interruptor **Allow Noodle references** (desactivado de forma predeterminada). Permite que la línea de tiempo de Noodle dentro de la app extraiga mensajes recientes de este chat. Noodle tiene su propia guía.
-
-En el lado de Roleplay, también verás un interruptor **Allow character DMs** (desactivado de forma predeterminada). Cuando está activado, permite que un personaje de Roleplay abra un nuevo mensaje directo de Conversation contigo desde dentro de la historia. Esto funciona incluso cuando aún no hay ninguna Conversation enlazada.
-
-## Guías relacionadas
-
-- [Conversation Mode: primeros pasos](../conversation/getting-started.md)
-- [Roleplay Mode: primeros pasos](../roleplay/getting-started.md)
+- **Discord webhook URL**: un cuadro sin etiqueta, solo con un marcador de posición que empieza por `https://discord.com/api/webhooks/`. Pega una URL de webhook para reflejar los mensajes del chat en un canal de Discord. Tiene su propia guía.
+- **Allow Noodle references** (Permitir referencias de Noodle): permite que la línea de tiempo de Noodle extraiga mensajes recientes de este chat. Está desactivado de forma predeterminada y solo aparece cuando Noodle está instalado.
+- **Allow character DMs** (Permitir mensajes directos de personajes), en Roleplay: permite que un personaje de Roleplay abra un nuevo mensaje directo de Conversation contigo desde dentro de la historia. Está desactivado de forma predeterminada y funciona incluso sin enlace.

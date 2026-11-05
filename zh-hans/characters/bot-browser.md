@@ -1,205 +1,143 @@
 # Card Browser：查找并导入角色
 
-本指南介绍 Marinara Engine 的 **Card Browser**(角色卡浏览器)，它是内置的角色卡查找工具，可以在公开网站上找角色卡，并直接导入到自己的角色库。内容包括各个来源站点、搜索和筛选的方法，以及各来源对成人内容的处理方式，另外还有导入角色和把角色存成文件的做法。旧版本里这个选项卡叫 **Bot Browser** 或 **Browser**。
+**Card Browser**(角色卡浏览器) 可以在公开网站上查找角色卡，并在 Marinara 里直接把它们导入角色库，不用手动下载再上传文件。旧版本里它叫 **Bot Browser** 或 **Browser**。
 
-角色卡是一个文件，里面存着一个角色的名字、性格、开场白和其他细节。通常的做法是先从网站下载角色卡，再上传到 Marinara。**Card Browser** 把这两步合并到了一处。
-
-## Card Browser 是什么
-
-**Card Browser** 可以在 Marinara 内部搜索多个公开的角色卡网站，支持六个网站：**ChubAI**、**JannyAI**、**Pygmalion**、**Wyvern**、**DataCat** 和 **PlotLight**。PlotLight 有两个来源，一个用于角色，一个用于用户角色（见 [PlotLight](#plotlight)）。**CharacterTavern** 仍在列表里，但暂时无法浏览（见 [CharacterTavern](#charactertavern)）。选定来源后可以搜索、筛选结果，并预览角色的完整信息，然后把角色导入角色库，或者存成 PNG 文件。默认设置下，浏览和导入角色卡都不需要账号，也不需要 API 密钥（类似密码的一串秘密字符）。
+角色卡是一个文件，里面存着一个角色的名字、性格、开场白和其他细节。在默认设置下，浏览和导入都不需要账号，也不需要 API 密钥。
 
 ## 打开 Card Browser
 
-打开 **Card Browser** 有两种方式。
+1. 点击顶部导航栏里的 **Characters**(角色) 或 **Personas**(用户角色)。如果看不到它们，先打开 **More**(更多)。
+2. 点击顶部的 **Download**(下载) 按钮。它的悬停提示写着 **Download character cards**(下载角色卡)。
 
-1. 打开 **Characters**(角色) 面板，点击顶部的 **Download**(下载) 按钮。它的悬停提示写着 **Download character cards**(下载角色卡)。
-2. 或者点击 **Personas**(用户角色) 面板顶部的同一个 **Download** 按钮。
+Card Browser 会占满整个内容区，标题是 **Browse character cards online**(在线浏览角色卡)。想离开，点击左上角的返回箭头。
 
-无论用哪种方式，整个内容区都会切换成完整的 **Card Browser** 视图。这个视图会取代聊天区域，不是一个小的弹出窗口。
-
-想离开，点击 **Card Browser** 顶部左上角的返回箭头按钮，就会回到进来之前的画面。
-
-应用开着的时候，**Card Browser** 会一直驻留着。关掉再打开，上次的搜索词、筛选条件和选中的角色都还在。重新加载整个应用才会清空。
+关掉再打开，上次的搜索、筛选条件和选中的角色都还在。重新加载应用会把它们清空。
 
 ## 选择来源
 
-点击顶部的来源按钮，它上面显示当前来源名和一个小箭头。菜单会按这个顺序列出各个来源：**ChubAI**、**JannyAI**、**CharacterTavern**、**Pygmalion**、**Wyvern**、**DataCat**、**PlotLight** 和 **PlotLight Personas**(PlotLight 用户角色)。**CharacterTavern** 会标为 **Unavailable**(不可用)。
+点击标题栏里的来源按钮。菜单按这个顺序列出：**ChubAI**、**JannyAI**、**CharacterTavern**、**Pygmalion**、**Wyvern**、**DataCat**、**PlotLight** 和 **PlotLight Personas**(PlotLight 用户角色)。第一次默认选中 **ChubAI**。切换来源会清空搜索词、标签和筛选条件。每个来源的成人内容设置和登录状态各自独立。
 
-第一次打开 **Card Browser** 时默认选中 **ChubAI**。切换来源会清空搜索词、标签和筛选条件。每个来源的成人内容设置和登录状态各自独立保存，改动其中一个不会影响其他来源。
+| 来源 | 成人内容（NSFW） |
+| --- | --- |
+| **ChubAI** | **NSFW** 复选框直接生效。默认关闭。 |
+| **JannyAI** | **NSFW** 复选框直接生效。默认关闭。 |
+| **Pygmalion** | [登录](#log-in-to-pygmalion)之前是灰的。登录之后跟随你的 Pygmalion 账号设置。 |
+| **Wyvern** | 始终是灰的。改选 **🔞 Popular NSFW** 排序。 |
+| **DataCat** | 每张卡都带成人标记，所以复选框被锁定为开启。 |
+| **PlotLight** 和 **PlotLight Personas** | 始终是灰的。PlotLight 有自己的规则。带成人标记的结果会显示 **NSFW** 角标。 |
 
-名称上有一处要注意：菜单里写的是 **ChubAI**，但在角色详情页上，跳转到站外的链接写的是 **View on Chub**。这是那个网站自己的叫法。其他来源在两处用的是同一个名字。
+不知道从哪里开始？就用第一个来源 **ChubAI**。每个来源都有自己的初始排序，可以在排序下拉菜单里更改。
 
-## CharacterTavern
+成人角色卡的缩略图上有一个红色的 **NSFW** 小角标。菜单里写的是 **ChubAI**，但角色卡的站外链接写的是 **View on Chub**，这是那个网站自己的名字。
 
-CharacterTavern 重建了网站，不再提供 Marinara 原先用来搜索和下载角色卡的连接。选择 **CharacterTavern** 时，**Card Browser** 会显示一段简短的说明，而不是搜索结果。如果 CharacterTavern 日后开放 API 访问，浏览功能可能会恢复。
+### DataCat
 
-在那之前，仍然可以手动把 CharacterTavern 的角色带进 Marinara：
+第一次选择 **DataCat** 时，会弹出一个标题为 **DataCat is NSFW only** 的对话框。点击 **Continue to DataCat** 继续浏览，或点击 **Don't continue to DataCat** 返回。它的 **Fresh** 排序只有在没有标签筛选、也没有搜索词时才会显示最新结果。
 
-1. 点击说明里的 **Open CharacterTavern**(打开 CharacterTavern)，网站会在新选项卡里打开。
+### CharacterTavern
+
+CharacterTavern 重建了网站，不再提供 Marinara 原先使用的连接。选择它时，结果区域会换成一段说明。如果 CharacterTavern 日后开放 API 访问，浏览功能可能会恢复。在那之前，手动导入它的角色卡：
+
+1. 点击说明里的 **Open CharacterTavern**(打开 CharacterTavern)。网站会在新选项卡里打开。
 2. 从 character-tavern.com 下载角色卡文件。
-3. 点击说明里的 **Import Character**(导入角色)，选择下载好的文件。导入方法见[导入和导出角色卡](import-export.md)。
+3. 点击说明里的 **Import Character**(导入角色)，选择这个文件。参见[导入和导出角色卡](import-export.md)。
 
-之前从 CharacterTavern 导入的角色仍然留在角色库里。
+之前从它导入的角色仍然留在角色库里。
 
-## PlotLight
+### PlotLight
 
-PlotLight 会把公开的角色和用户角色分享给 Marinara 这类应用。它在菜单里有两个来源：
+PlotLight 分享公开的角色和用户角色。**PlotLight** 列出角色卡。**PlotLight Personas** 列出用户角色，也就是在聊天里代表你的那些角色。不需要 PlotLight 账号。详情视图里有一个 **View on PlotLight** 链接，指向原始页面。
 
-- **PlotLight** 列出角色卡。
-- **PlotLight Personas** 列出用户角色。用户角色就是在聊天里代表你的那个角色。
+Marinara 会下载 PlotLight 提供的文件。角色卡通常是一个 PNG，里面带着角色的肖像，以及作者允许附带的世界书。用户角色是一个文本文件，Marinara 会另外复制它的图片。两种都可以导入为角色，也可以导入为用户角色。
 
-不需要 PlotLight 账号。每条结果都保留作者的名字，详情视图里有一个 **View on PlotLight** 链接，指向原始页面。
+PlotLight 会限制应用向它发请求的速度。太快的话，Marinara 会提示 **PlotLight is busy** 和一个秒数，并等待这么久。搜索和导入的限制分开计算。
 
-从 PlotLight 导入时，Marinara 会下载 PlotLight 为它提供的文件。角色卡通常是一个 PNG，里面带着角色的肖像，以及作者允许附带的世界书。用户角色是一个文本文件，Marinara 会另外复制它的图片。两种都可以导入为角色，也可以导入为用户角色。
-
-PlotLight 会限制应用向它发请求的频率。搜索或导入太快时，Marinara 会提示 **PlotLight is busy**，并说明要等几秒。它会等够这段时间再发请求。搜索和导入的限制分开计算，所以一个不会拖慢另一个。
-
-有些角色卡和用户角色无法下载，比如作者不允许下载时。这时 Marinara 会提示 **PlotLight doesn't offer this for download.** 这一项无法导入，也看不到完整信息，但它的图片、作者和 **View on PlotLight** 链接仍会留在屏幕上。
+有些角色卡无法下载，比如作者不允许时。这时 Marinara 会提示 **PlotLight doesn't offer this for download.** 这一张无法导入，也看不到详情，但它的图片、作者和 **View on PlotLight** 链接仍会保留。
 
 ## 搜索、排序与翻页
 
-在 **Search characters...** 输入框里输入内容就能搜索，不用按 Enter。停止输入大约半秒后，Marinara 会自动开始搜索。清空输入框或者改动筛选条件，同样会重新搜索一次。
+在 **Search characters**(搜索角色) 里输入内容，不用按 <kbd>Enter</kbd>。停止输入片刻后，Marinara 就会搜索；清空输入框或改动筛选条件时也会重新搜索。每个来源都有自己的排序下拉菜单。点击 **Refresh**(刷新) 按钮（圆形箭头）可以再搜索一次。
 
-搜索框旁边是排序下拉菜单。各来源的选项不一样，默认排序也各不相同：
-
-| 来源                           | 默认排序        |
-| ------------------------------ | --------------- |
-| ChubAI                         | Most Downloaded |
-| JannyAI                        | Newest          |
-| Pygmalion                      | Downloads       |
-| Wyvern                         | Popular         |
-| DataCat                        | Relevance       |
-| PlotLight / PlotLight Personas | Popular         |
-
-点击 **Refresh**(刷新) 按钮（圆形箭头图标）可以重新执行当前的搜索。
-
-结果下方是 **Previous**(上一页) 和 **Next**(下一页) 按钮，中间是形如 **Page 2** 的页码。当来源报不出确切的结果总数时，这里只显示当前页码。**PlotLight** 从不报告总数，所以顶部显示的是 **Browsing PlotLight**，到最后一页时 **Next** 会变为不可用。PlotLight 的某一页可能比平常少几张卡，甚至一张都没有，但后面仍可能还有更多页。这时 **Next** 会保持可用，可以继续往下翻。
-
-**DataCat** 有一点要注意：它的 **Fresh** 排序只有在既没有标签筛选、也没有搜索词的时候才真正给出最新结果。一旦输入搜索词或选中标签，**DataCat** 就退回到普通的相关度结果。
+结果下方是 **Previous**(上一页) 和 **Next**(下一页)，以及形如 **Page 2** 的页码。来源报不出总数时，只显示当前页。**PlotLight** 从不报告总数，所以标题栏显示 **Browsing PlotLight**。PlotLight 的某一页可能只有几张卡，甚至一张都没有，但后面仍可能还有更多页。**Next** 会保持可用，可以继续往下翻。
 
 ## 按标签筛选
 
-点击工具栏的 **Tags**(标签) 按钮打开标签面板。
+1. 点击工具栏里的 **Tags**(标签)。
+2. 在 **Search tags**(搜索标签) 里输入内容，缩小列表。
+3. 点击标签旁边的绿色对勾把它加进筛选，或者点击红色减号排除它。同一个标签不能两者都选。
+4. 点击某个小标移除那个标签，或者点击 **Clear**(清除) 全部移除。
 
-- 在 **Search tags...** 输入框里输入内容可以缩小标签列表。
-- 点击标签旁边的绿色对勾把它加进筛选，点击红色减号把它排除。同一个标签只能二选一。
-- 加进筛选的标签显示为绿色小标，被排除的显示为红色小标。点击任意小标即可移除。
-- **Clear**(清除) 按钮会一次清掉所有生效的标签。
-
-大多数来源的标签列表是根据最近几次搜索出来的角色生成的。第一次搜索之前，面板上写着 **Tags will appear after searching**。想要的标签没列出来时，直接输入名字，会出现两个按钮，分别用来把它加进筛选或者从结果里屏蔽掉。
-
-**DataCat** 的做法不同。它的标签库非常庞大，所以一打开就直接加载最热门的标签。其他标签仍然可以手动输入。
-
-在 **PlotLight** 上，可以从列表里挑标签，也可以手动输入，例如 **Elf**。Marinara 会在 PlotLight 自己的标签列表里查找每个标签。手动输入的标签如果 PlotLight 没有，就什么也匹配不到。
+大多数来源的列表是根据最近几次搜索出来的角色生成的。第一次搜索之前，面板上写着 **Tags will appear after searching**。想要的标签没列出来时，直接输入它的名字，会出现两个按钮：一个把它加为筛选，一个屏蔽它。**DataCat** 会直接加载最热门的标签，其他标签仍然可以手动输入。在 **PlotLight** 上，Marinara 会在 PlotLight 自己的列表里查找你输入的标签，PlotLight 没有的标签什么也匹配不到。
 
 ## 更多筛选项
 
-部分来源会在工具栏多出一个 **Filters**(筛选) 按钮。只有当该来源确实提供筛选项时它才出现，所以 **DataCat** 和 **PlotLight** 上看不到。按钮上的小角标显示当前生效了几项筛选。
+大多数来源多一个 **Filters**(筛选) 按钮，上面的角标显示生效的筛选项数量。**DataCat** 和 **PlotLight** 上没有这个按钮。面板里可能有：
 
-筛选面板里可能有：
+- 内容复选框，例如 **Lorebook** 或 **Alt Greetings**，只保留带这项内容的角色。世界书是角色随身携带的一组额外背景信息。
+- **Sort Direction**(排序方向)，可选 **Descending**(降序) 或 **Ascending**(升序)，只在 **ChubAI** 和 **Pygmalion** 上提供。
+- **Min Tokens** 和 **Max Output Tokens** 输入框，按体量限制结果。留空则使用来源的默认值。
+- **JannyAI** 上的 **Show Low Quality** 开关。它默认关闭，会隐藏 JannyAI 标记为低质量的角色卡。
 
-- 内容复选框，例如 **Lorebook** 或 **Alt Greetings**，勾上之后只保留带这项内容的角色。世界书是角色可以随身携带的一组额外背景设定。
-- **Sort Direction**(排序方向)，可选 **Descending** 或 **Ascending**，只在 **ChubAI** 和 **Pygmalion** 上提供。
-- **Min Tokens** 和 **Max Output Tokens** 两个数字输入框，按体量限制结果。留空则使用来源自己的默认值。
-- **JannyAI** 多一个 **Show Low Quality** 开关，默认关闭，会隐藏被 **JannyAI** 标记为低质量的角色。开启后这些角色也会出现在结果里。
+在 **Wyvern** 上，**Lorebook** 和 **Alt Greetings** 复选框以及 Token 输入框都会显示，但不会改变结果。改用排序下拉菜单和标签。
 
-**Wyvern** 要注意：它的 **Lorebook** 和 **Alt Greetings** 复选框会显示，**Min Tokens** 和 **Max Output Tokens** 输入框也在，但它们都不会改变 **Wyvern** 的结果。想缩小 **Wyvern** 的结果范围，改用排序下拉菜单和标签。
+## 查看角色
 
-## 各来源的成人内容（NSFW）
+点击一条结果，打开它的详情视图。**Back to results**(返回结果) 回到列表。
 
-应用里把成人内容标记为 **NSFW**。工具栏上只有一个 **NSFW** 复选框，但每个来源对它的处理都不一样。这是最常被问到的地方，看仔细一点。
+详情视图显示头像、名字、作者、一句简短的介绍语、最多二十个标签小标，以及一个指向原始页面的 **View on** 链接。再往下是来源提供的完整信息，标题包括 **Creator's Notes**、**Personality**、**Scenario**、**First Message** 和 **Alternate Greetings**。角色卡带有世界书时，会显示一个琥珀色的 **Has embedded lorebook** 角标。如果来源没有返回任何详情，视图里会说明仍然可以按基本信息导入。
 
-- **ChubAI** 和 **JannyAI**：**NSFW** 复选框直接生效，不需要登录，默认关闭。
-- **Pygmalion**：登录之前 **NSFW** 复选框是灰的，鼠标悬停的提示会让你先登录。登录之后，应用会跟随你在 Pygmalion 上的账号设置，复选框的文字随之变成 **NSFW depends on your account settings**。登录后就没有单独的开关了。
-- **Wyvern**：**NSFW** 复选框始终是灰的，旁边有一条说明 **Use "🔞 Popular NSFW" sort for NSFW content**。想在 **Wyvern** 上看成人内容，要在排序下拉菜单里选 **🔞 Popular NSFW**。
-- **DataCat**：站上每个角色都带成人标记，所以复选框被锁定为开启。第一次选择 **DataCat** 时会弹出一个标题为 **DataCat is NSFW only** 的窗口，点击 **Continue to DataCat** 继续浏览，点击 **Don't continue to DataCat** 返回。
-- **PlotLight** 和 **PlotLight Personas**：**NSFW** 复选框始终是灰的。它的悬停提示写着 **PlotLight decides what you can see without an account, and adult-tagged results are marked NSFW.** PlotLight 对没有账号的访客有自己的一套规则。它分享的部分结果仍带有成人内容标记，这些结果会显示 **NSFW** 角标。
+## 导入角色
 
-成人角色的缩略图角上会有一个红色的 **NSFW** 小角标。
+开始之前：要和这个角色聊天，需要一个可用的文本连接。参见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
-## 登录 Pygmalion
+1. 打开一个角色的详情视图。
+2. 在头像旁边选择一个 **Imported tags**(导入的标签) 选项。默认是 **All tags**(全部标签)。参见[导入选项](import-export.md#import-options)。
+3. 点击 **Import**(导入)。**Import Card**(导入角色卡) 窗口会打开，并询问 **Where should this card live?**
+4. 可以勾选 **Split description into fields**(把描述拆分到各字段)。参见[导入选项](import-export.md#import-options)。
+5. 点击 **Import as Character**(导入为角色) 把它加入 **Characters**，或者点击 **Import as Persona**(导入为用户角色) 把它加入 **Personas**。
+6. 如果角色卡内嵌了世界书，**Embedded lorebook found**(发现内嵌世界书) 面板会显示它有多少条目。点击 **Import Lorebook**(导入世界书) 另外创建一本独立的世界书，或者点击 **No Import**(不导入) 只把它留在角色卡里。**Back**(返回) 回到第 5 步。
+7. 按钮显示 **Importing...** 时稍等。随后会出现一条消息：`Imported "Name" successfully!`
+8. 打开 **Characters** 或 **Personas** 找到它。
 
-**Pygmalion** 把成人内容藏在登录之后。普通的公开角色不用登录，登录只是为了解锁成人内容。
-
-登录时点击工具栏的 **Log In**(登录) 按钮，会打开一个登录窗口，需要粘贴一段从你的 Pygmalion 账号里复制出来的值。Marinara 不会索要密码。
-
-**Pygmalion** 的窗口标题是 **Pygmalion Authentication**，要填的是 **Auth Token**：
-
-1. 打开 pygmalion.chat 并登录账号。
-2. 打开浏览器的开发者工具，大多数浏览器按 F12 键即可。开发者工具是浏览器内置的一个面板，面向进阶用户。
-3. 切换到 **Application** 选项卡，再进入 **Local Storage**。
-4. 找到名为 `authn` 的条目，复制它的值。
-5. 把这个值粘贴到 Marinara 的 **Auth Token** 输入框里。输入框会隐藏粘贴进去的内容。
-6. 点击 **Save & Connect**。接着应该会看到一条提示，说明 NSFW 内容已启用。
-
-窗口里有一段帮助说明，把这些步骤重复了一遍，还有一个打开 pygmalion.chat 的 **Website** 链接。
-
-这是你的 Pygmalion 账号登录信息。Marinara 会把它保留在内存里，直到重启或点击 **Log Out** 为止。想退出登录，重新打开登录窗口并点击 **Log Out**。要彻底退出，还得在 pygmalion.chat 上也退出登录。
-
-Marinara 会先向 Pygmalion 核实这个 Token，确认有效才会保留。如果 Pygmalion 不接受，就什么都不会保存，并会有一条消息说明原因。如果之后 Pygmalion 不再接受这个 Token，Marinara 会自动退出登录，并提示你重新登录。
-
-重要提示：这个登录信息只保存在服务器的内存里，绝不会写进文件。重启 Marinara 服务器之后就会退出登录，必须重新粘贴一次 Token。发生这种情况时，Marinara 会提示重新登录。
-
-## 导入前先查看角色
-
-点击任意一张结果卡片就能打开它的详情视图，用 **Back to results**(返回结果) 回到列表。
-
-详情视图里有角色的头像、名字、作者、一句简短的介绍语，以及最多二十个标签小标。另外还有一个 **View on** 链接，会在新选项卡里打开角色在原站点的页面。
-
-再往下是角色的完整信息，只有来源提供时才显示。这些板块的标题包括 **Creator's Notes**、**Personality**、**Scenario**、**First Message** 和 **Alternate Greetings**。角色自带世界书时，会出现一个琥珀色的 **Has embedded lorebook** 角标。
-
-有些来源不一定每次都返回完整信息。如果什么都没加载出来，视图里会说明仍然可以按基本信息导入这个角色。
-
-## 导入或下载角色
-
-详情视图里有两个按钮。**Import**(导入) 把角色加入 Marinara 角色库。**Download as PNG**(下载为 PNG) 把角色存成设备上的一个文件，不加入角色库。
-
-把角色卡导入角色库的步骤：
-
-1. 打开某个角色的详情视图。
-2. 选择一个 **Imported tags**(导入的标签) 选项，见下面的表格。
-3. 点击 **Import**。处理过程中按钮显示 **Importing...**。
-4. 等待成功提示。应该会看到一条消息，说明角色已导入。
-5. 开始聊天之前，打开 **Characters** 面板找到刚导入的角色。
-
-导入后的角色和其他角色没有区别。想真正和它聊天，还需要一个可用的服务商连接，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
-
-### Imported tags
-
-头像旁边的 **Imported tags** 面板决定哪些标签会跟着角色一起导入，默认是 **All tags**。
-
-| 选项          | 作用                                 |
-| ------------- | ------------------------------------ |
-| All tags      | 保留来源的标签。                     |
-| No tags       | 不保留来源的标签。                   |
-| Existing only | 只保留 Marinara 里已经在用的标签。   |
-
-### 内嵌世界书的确认框
-
-角色自带内嵌世界书时，导入过程中浏览器会弹出一个小的确认框，问要不要同时把这个世界书另存为一份独立的 Marinara 世界书。点击 **OK** 会在角色自带的那份副本之外，再建一份独立的世界书。点击 **Cancel** 则只保留角色自带的那份。
+如果没有成功：看看提示消息里的错误信息。对 **JannyAI** 来说，最常见的原因是 Cloudflare 拦截（见下面的故障排查）。
 
 ### Download as PNG
 
-点击 **Download as PNG** 把角色存成标准的 PNG 角色卡文件。处理过程中按钮显示 **Building PNG...**。所有来源都支持这个操作。保存下来的文件以角色名命名，例如 `Some_Character.png`。这个文件可以分享给别人，也可以以后导入到别的应用里。
-
-JSON 和 PNG 是同一份角色数据的两种常见格式。JSON 是纯文本格式，PNG 角色卡则是一张图片文件，角色数据存在图片内部。两者都包含完整的角色。
+在详情视图里点击 **Download as PNG**(下载为 PNG)，就能把角色卡存成设备上的一张标准 PNG 角色卡，而不加入角色库。处理过程中按钮显示 **Building PNG...**。所有来源都支持，文件以角色名命名，例如 `Some_Character.png`。PNG 角色卡是一张把角色数据存在内部的图片。你可以分享它，也可以把它导入其他应用。
 
 ## 故障排查
 
-**JannyAI 的搜索或详情加载失败，报 Cloudflare 错误。** 有些网站会拦截自动化请求。用同一个浏览器访问一次 jannyai.com，通过它出示的验证，然后回到 Marinara 重新搜索。
+| 问题 | 解决办法 |
+| --- | --- |
+| **JannyAI** 的搜索或详情失败，错误信息提到 Cloudflare(一种会拦截自动请求的安全检查)，或者角色卡的完整定义被拦截。 | 用同一个浏览器访问一次 jannyai.com，通过它出示的验证，然后重新搜索。如果角色卡仍被拦截，到 JannyAI 上打开它，下载它的 PNG，再导入这个文件。 |
+| 我的 Pygmalion 登录失效了。 | 重启服务器会清掉登录。用一个新的 Token 重新登录。 |
+| **CharacterTavern** 只显示一段说明。 | 这是正常的。参见 [CharacterTavern](#charactertavern)。 |
+| **PlotLight is busy.** | 等消息里写的秒数过去，再重试。 |
+| **PlotLight doesn't offer this for download.** | 可能是作者不允许下载，也可能这张卡已经不再公开。用 **View on PlotLight** 查看一下。 |
+| 搜索失败，或者某个来源用不了了。 | 公开网站随时可能改版或封锁访问。过一阵再试，或者从网站上下载角色卡，走常规的导入流程。参见[导入和导出角色卡](import-export.md)。 |
 
-**Pygmalion 的登录突然失效了。** 重启 Marinara 服务器会清掉这个登录信息。重新打开 **Log In** 窗口，再粘贴一次 Token。
+<a id="log-in-to-pygmalion"></a>
 
-**CharacterTavern 只显示一条说明。** 这是正常现象。想把它的角色卡作为文件导入，见 [CharacterTavern](#charactertavern)。
+## 登录 Pygmalion
 
-**PlotLight 提示正忙。** PlotLight 会限制应用向它发请求的频率。等提示里写的秒数过去，再试一次。
+Pygmalion 把成人内容藏在登录之后。公开角色不需要登录。Marinara 从不索要你的密码，你粘贴的是从自己账号里复制出来的一段值。
 
-**PlotLight 不提供某张角色卡或某个用户角色的下载。** 可能是作者不允许下载，也可能它已经不再公开。用 **View on PlotLight** 到网站上查看一下。
+1. 点击工具栏里的 **Log In**(登录)。**Pygmalion Authentication** 窗口会打开。
+2. 在浏览器里打开 pygmalion.chat 并登录。
+3. 打开浏览器的开发者工具，这是浏览器内置的一个面板，面向进阶用户。大多数电脑浏览器按 <kbd>F12</kbd> 即可。手机浏览器通常没有它，所以这一步请用电脑完成。
+4. 打开 **Application** 选项卡，再打开 **Local Storage**。
+5. 找到名为 `authn` 的条目，复制它的值。
+6. 把它粘贴到 Marinara 的 **Auth Token** 里。输入框会隐藏粘贴的内容。
+7. 点击 **Save & Connect**。会出现一条消息，说明 NSFW 内容已启用。
 
-**搜索失败，或者某个来源用不了了。** 公开网站随时可能改版或者封锁访问，过一阵再试。某个来源一直失败的话，直接到该网站上打开角色，自己下载角色卡，再走常规的导入流程带进来，见[导入和导出角色卡](import-export.md)。
+窗口里有一段帮助说明，重复了这些步骤，还有一个指向 pygmalion.chat 的 **Website** 链接。
+
+Marinara 会先向 Pygmalion 核实这个 Token。如果 Pygmalion 不接受，就什么都不会保存，并会有一条消息说明原因。如果之后 Pygmalion 不再接受它，Marinara 会自动把你登出，并请你重新登录。
+
+登录信息只保存在服务器的内存里，绝不会写进文件，所以重启 Marinara 服务器就会把你登出。想自己退出，重新打开这个窗口并点击 **Log Out**(退出登录)。要彻底退出，还要在 pygmalion.chat 上也退出登录。
 
 ## 相关指南
 
 - [导入和导出角色卡](import-export.md)
 - [连接 AI 服务商](../connections/connecting-to-a-provider.md)
-- [Marinara Engine 故障排查](../TROUBLESHOOTING.md)
+- [故障排查](../TROUBLESHOOTING.md)

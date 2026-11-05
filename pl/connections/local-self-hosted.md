@@ -1,95 +1,87 @@
 # Podłączanie modelu lokalnego lub samodzielnie hostowanego
 
-Z tego przewodnika dowiesz się, jak połączyć aplikację Marinara Engine z modelem AI, który działa na twoim komputerze albo na twoim serwerze. Opisuje popularne lokalne serwery modeli, takie jak Ollama, LM Studio i KoboldCpp, oraz ustawienia potrzebne do ich uruchomienia.
-
-## Co znaczy "samodzielnie hostowany"
-
-Model samodzielnie hostowany to model AI działający na sprzęcie, nad którym masz kontrolę. Instalujesz lokalny serwer modeli, ten serwer wczytuje model i odpowiada na zapytania pod adresem internetowym na twojej maszynie. Marinara Engine rozmawia wtedy z tym adresem zamiast z płatną usługą w chmurze.
-
-Do popularnych lokalnych serwerów modeli należą Ollama, LM Studio i KoboldCpp. Każdy z nich działa na twoim komputerze i udostępnia prywatny endpoint. Endpoint to adres internetowy, pod którym serwer nasłuchuje zapytań.
-
-Ten przewodnik dotyczy zewnętrznych serwerów lokalnych, które instalujesz i uruchamiasz samodzielnie. Marinara ma też własny, niewielki wbudowany model, który nie wymaga osobnego serwera. Jeśli wolisz to rozwiązanie, zajrzyj do przewodnika [Konfiguracja modelu Local Model](local-model.md).
-
-Zanim zaczniesz, sprawdź, czy lokalny serwer modeli jest zainstalowany, uruchomiony i ma wczytany model. Marinara nie uruchamia tego serwera za ciebie. Tylko się z nim łączy.
+Ten przewodnik pokazuje, jak połączyć aplikację Marinara Engine z modelem AI, który działa na twoim komputerze albo serwerze, przez program taki jak Ollama, LM Studio, KoboldCpp czy llama.cpp. Mały model, który Marinara uruchamia sama, bez osobnego serwera, opisuje przewodnik [Konfiguracja modelu wbudowanego](local-model.md).
 
 ## Konfiguracja połączenia Custom
 
-Marinara łączy się z serwerami lokalnymi przez dostawcę **Custom (OAI-Compatible)**. Zgodność z OAI oznacza, że serwer mówi tym samym formatem zapytań co API OpenAI Chat Completions. Ollama, LM Studio i KoboldCpp obsługują ten format.
+W aplikacji ten rodzaj konta nazywa się **OpenAI-compatible** (zgodny z OpenAI). Oznacza to, że serwer przyjmuje ten sam format żądań co API czatu OpenAI. Ollama, LM Studio, KoboldCpp i llama.cpp go obsługują.
 
-Wykonaj kolejno te kroki, aby utworzyć połączenie.
+Zanim zaczniesz, zainstaluj serwer modeli, uruchom go i wczytaj w nim model. Na przykład pobierz program Ollama ze strony `ollama.com` i wykonaj jego instrukcje, żeby pobrać model. Marinara łączy się z serwerem, ale go za ciebie nie uruchamia. Serwer odpowiada na żądania pod adresem internetowym na twoim komputerze, nazywanym endpointem.
 
-1. Otwórz panel **Connections** (Połączenia) z prawej strony aplikacji.
-2. Kliknij przycisk **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
-3. W kroku 1 wybierz **Custom (OAI-Compatible)**. Ta opcja znajduje się w grupie **On your computer** (na twoim komputerze).
-4. W kroku 2 wpisz adres lokalnego serwera (patrz tabela poniżej) w polu **Address** (adres).
-5. Zostaw puste pole **API key** (klucz API). Większość serwerów lokalnych nie potrzebuje klucza. Aby nadać połączeniu nazwę, na przykład `Ollama Local`, otwórz **More options** (więcej opcji) i wpisz ją w polu **Name (optional)** (nazwa, opcjonalnie).
-6. Kliknij przycisk **Connect** (połącz).
-7. W kroku 3 wybierz model z listy zgłaszanej przez serwer. Identyfikator modelu da się też wpisać ręcznie. Kliknij **Done** (gotowe).
+1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
+2. W sekcji **Chat** (czat) kliknij swój serwer: **Ollama**, **LM Studio**, **KoboldCpp** albo **llama.cpp**. Te kafelki mają etykietę **Self-hosted** (samodzielnie hostowany). Dla każdego innego serwera kliknij **OpenAI-compatible address** (adres zgodny z OpenAI).
+3. Sprawdź pole **Server address** (adres serwera). Dla czterech wymienionych serwerów jest już wypełnione. Dla innego serwera wpisz jego adres. Zobacz tabelę poniżej.
+4. Zostaw puste pole **API key (optional)** (klucz API, opcjonalnie). Większość serwerów lokalnych nie potrzebuje klucza. Żeby nazwać konto, wpisz nazwę w polu **Name (optional)** (nazwa, opcjonalnie).
+5. Kliknij **Connect** (połącz). Marinara testuje adres. **Connected** oznacza, że udało się połączyć z serwerem.
+6. Dalszy przebieg zależy od tego, czy masz już model Main. Jeśli go nie masz albo okno Add otwarto z nowego czatu, okno pokazuje modele zgłaszane przez serwer. Wybierz jeden albo wpisz identyfikator modelu w polu **Search or enter model ID…** (wyszukiwanie lub wpisanie identyfikatora modelu), a potem kliknij **Done** (gotowe). Jeśli model Main już masz, okno się zamyka, a komunikat informuje, że konto zostało dodane. Wtedy kliknij **⋯** na koncie i wybierz **Add model** (dodanie modelu).
 
-Połączenie widać teraz w panelu **Connections**, a jego model jest zgrupowany pod nim. Przetestuj je, zanim użyjesz go w czacie. Zajrzyj do sekcji "Testowanie połączenia" poniżej.
+Panel pokazuje teraz konto. Przetestuj je, zanim zaczniesz na nim polegać (zobacz [Testowanie połączenia](#test-the-connection)).
 
-Pole **API Key** jest opcjonalne przy serwerach lokalnych. W przypadku dostawcy **Custom (OAI-Compatible)** edytor wyświetla pod tym polem przypomnienie. Mówi ono, że przy modelach lokalnych, takich jak Ollama, LM Studio i KoboldCpp, klucz może zostać pusty. Zamiast tego wystarczy ustawić pole **Address**.
+Jeśli to nie zadziałało:
 
-## Adresy Base URL popularnych serwerów lokalnych
+- Komunikat **Marinara could not reach** oznacza, że nie udało się połączyć z adresem. Sprawdź, czy serwer działa i czy adres oraz port się zgadzają. **Continue anyway** (kontynuuj mimo to) zapisuje konto bez zaliczonego testu.
+- Adres jest na innym komputerze. Zobacz [Dostęp do serwera na innym komputerze](#reach-a-server-on-another-computer).
 
-Pole **Address** (nazywane też Base URL) wskazuje aplikacji Marinara, gdzie nasłuchuje lokalny serwer. Każdy serwer ma domyślny adres i port. Port to numerowany kanał, z którego serwer korzysta na twojej maszynie. Użyj adresu tego serwera, który uruchamiasz.
+## Adresy popularnych serwerów lokalnych
 
-| Serwer lokalny | Endpoint |
-|---|---|
+Port to numerowany kanał, z którego serwer korzysta na twoim komputerze. `localhost` oznacza ten sam komputer, więc te adresy działają w podanej postaci, gdy Marinara i serwer działają na jednym komputerze.
+
+| Serwer | Adres |
+| --- | --- |
 | Ollama | `http://localhost:11434/v1` |
 | LM Studio | `http://localhost:1234/v1` |
 | KoboldCpp | `http://localhost:5001/v1` |
+| llama.cpp | `http://localhost:8080/v1` |
 
-Nazwa `localhost` oznacza tutaj "ten sam komputer". Jeśli Marinara działa na tym samym komputerze co serwer modeli, te adresy zadziałają dokładnie w takiej postaci.
+W oknie **Edit model** (edycja modelu) pole adresu ostrzega: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Wpisuj wyłącznie adres skonfigurowany samodzielnie albo taki, któremu w pełni ufasz.
 
-Przy polu **Address** widać ostrzeżenie o bezpieczeństwie: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Wpisuj wyłącznie adres skonfigurowany samodzielnie albo taki, któremu w pełni ufasz.
+W systemie Windows działający serwer nadal może być blokowany. Jeśli Marinara go nie wykrywa, może go blokować Zapora Windows Defender. Otwórz **Windows Security → Firewall & network protection → Allow an app through firewall** (Zabezpieczenia Windows, Zapora i ochrona sieci, Zezwalaj aplikacji na dostęp przez zaporę) i dodaj Node.js albo program swojego serwera.
 
-### Uwaga o zaporze systemu Windows
+<a id="test-the-connection"></a>
 
-W systemie Windows lokalny serwer bywa blokowany, mimo że działa. Edytor pokazuje taką uwagę dla dostawcy **Custom (OAI-Compatible)**: jeśli twój serwer proxy lub lokalny serwer nie zostaje wykryty, połączenie może blokować Zapora Windows Defender. Aby to naprawić, otwórz Zabezpieczenia Windows, następnie Zapora i ochrona sieci, potem Zezwalaj aplikacji na dostęp przez zaporę i dodaj Node.js albo swoją aplikację serwera.
+## Testowanie połączenia
 
-## Przełącznik Treat as local/custom endpoint
+Przycisk **Connect** już sprawdził adres. Edytor modelu ma kartę **Provider tests** (testy dostawcy) do ponownego sprawdzenia.
 
-W edytorze połączenia jest sekcja **Local / Custom Endpoint** z przełącznikiem **Treat as local/custom endpoint** (traktuj jako endpoint lokalny lub własny). Domyślnie jest wyłączony. Włącz go dla endpointów samodzielnie hostowanych lub działających przez proxy, zwłaszcza dla własnego adresu internetowego wskazującego serwer modeli w sieci lokalnej.
+1. Kliknij swój model w panelu **Connections**. Otwiera się edytor modelu.
+2. Kliknij **Test provider** (test dostawcy). Ten test sprawdza, czy adres jest osiągalny, i pokazuje, ile to trwało.
+3. Jeśli model nie jest jeszcze wybrany, wybierz go, a potem kliknij **Send test message** (Wyślij wiadomość testową). Ten test wysyła krótką wiadomość i pokazuje odpowiedź.
 
-Kiedy ten przełącznik jest wyłączony, Marinara ostrożnie podchodzi do wywołań narzędzi przy modelach, których nie rozpoznaje. Włączenie przełącznika każe aplikacji Marinara zawsze próbować wywołań narzędzi. Każe też asystentce Professor Mari korzystać z zapasowej metody narzędziowej (protokołu narzędzi w formacie JSON) zamiast wyłącznie z natywnych wywołań. Professor Mari to asystentka wbudowana w aplikację.
+Gdy oba testy się powiodą, otwórz czat i wybierz konto w oknie **Model for this chat** (model dla tego czatu). Zobacz [Wybór modelu dla jednego czatu](connecting-to-a-provider.md#choosing-a-model-for-one-chat).
 
-Włącz ten przełącznik, jeśli Professor Mari zatrzymuje się po użyciu narzędzia. Włącz go również wtedy, gdy twój endpoint deklaruje zgodność z OpenAI, ale nie obsługuje wywołań narzędzi w sposób niezawodny. Jeśli model lokalny działa dobrze bez tego, przełącznik może zostać wyłączony.
+Jeśli test się nie powiedzie, sprawdź, czy serwer działa z wczytanym modelem i czy adres oraz port dokładnie się zgadzają. Przy serwerze na innym komputerze sprawdź kroki poniżej.
+
+<a id="reach-a-server-on-another-computer"></a>
 
 ## Dostęp do serwera na innym komputerze
 
-Marinara zawsze zezwala na połączenia z twoim własnym komputerem. Adresy takie jak `localhost` i `127.0.0.1` to adresy pętli zwrotnej, czyli "ta sama maszyna". Zawsze działają w połączeniu i nie wymagają dodatkowej konfiguracji.
+Adresy takie jak `localhost` i `127.0.0.1` zawsze działają. Jeśli serwer modeli jest na innym komputerze w twojej sieci, Marinara domyślnie blokuje ten prywatny adres. Osoba prowadząca serwer Marinara może na niego zezwolić zmienną środowiskową, czyli ustawieniem, które serwer odczytuje przy starcie.
 
-Jeśli serwer modeli działa na innym komputerze w twojej sieci domowej lub firmowej, jest to adres sieci prywatnej. Marinara domyślnie blokuje adresy sieci prywatnych ze względów bezpieczeństwa. Aby na nie zezwolić, osoba prowadząca serwer Marinara musi ustawić zmienną środowiskową. Zmienna środowiskowa to ustawienie, które serwer odczytuje przy starcie.
-
-Dodaj tę linię do pliku `.env` serwera:
+1. Otwórz plik `.env` serwera. W zwykłej instalacji leży w folderze projektu aplikacji Marinara Engine. Instrukcje dla kontenerów Docker i Podman znajdziesz w przewodniku [Konfiguracja serwera](../CONFIGURATION.md#edit-the-env-file).
+2. Dodaj tę linię:
 
 ```
 PROVIDER_LOCAL_URLS_ENABLED=true
 ```
 
-Zapisz plik i uruchom ponownie serwer Marinara, żeby zmiana zaczęła obowiązywać. Potem da się użyć adresu Base URL wskazującego inną maszynę w sieci, na przykład `http://192.168.1.50:11434/v1`.
+3. Zapisz plik i uruchom ponownie serwer Marinara.
+4. Użyj adresu drugiego komputera, na przykład `http://192.168.1.50:11434/v1`.
 
-W systemie Android to ustawienie jest włączone domyślnie, kiedy nie zostanie ustawione ręcznie. Więcej o pliku `.env` i ustawieniach serwera znajdziesz w dokumentacji [Konfiguracja serwera](../CONFIGURATION.md).
+W systemie Android to ustawienie jest domyślnie włączone, gdy go nie ustawisz.
 
-## Testowanie połączenia
+## Używanie modelu do decyzji
 
-Przycisk **Connect** w oknie dodawania konta już sprawdził połączenie. Na dole edytora modelu jest karta **Connection Tests** (testy połączenia) do ponownego sprawdzenia. Skorzystaj z niej, zanim zaczniesz polegać na połączeniu w czacie.
+Ten sam model może odpowiadać na pytania decyzyjne, na przykład przy sprawdzaniu aktywacji agentów, bez wczytywania drugiej kopii. Kliknij **⋯** na modelu w panelu i wybierz **Use this model for decisions** (używaj tego modelu do decyzji). Ta opcja pojawia się przy modelu OpenAI-compatible, który ma nazwę modelu. Zobacz [Modele decyzyjne](decision-models.md#on-a-server-you-already-run).
 
-1. Kliknij swój model w panelu **Connections**. Otwiera się edytor modelu.
-2. Kliknij przycisk **Test Connection**. Sprawdza on, czy Base URL i konfiguracja są osiągalne, a także pokazuje czas odpowiedzi.
-3. Wybierz model, jeśli nie jest jeszcze wybrany.
-4. Kliknij przycisk **Send Test Message**. Wysyła on słowo "hi" do wybranego modelu i pokazuje odpowiedź.
+## Przełącznik Treat as local/custom endpoint
 
-Kiedy oba testy się powiodą, model lokalny jest gotowy do użycia w czacie. Otwórz czat, otwórz jego ustawienia i wskaż to połączenie albo użyj menu **Connections** w polu wiadomości.
+W oknie **Edit model** przełącznik **Treat as local/custom endpoint** (traktuj jako endpoint lokalny lub własny) znajduje się w sekcji **Local / custom endpoint**. Domyślnie jest wyłączony. Pojawia się tylko przy starszych modelach, które nie są powiązane z kontem. Modele dodawane teraz nigdy go nie pokazują.
 
-Ten sam model może też odpowiadać na decyzje, na przykład pytania aktywacyjne agentów, bez ładowania drugiej kopii przez aplikację Marinara. Kliknij **Use this model for decisions** (używaj tego modelu do decyzji) w ustawieniach połączenia; zobacz [Modele decyzyjne](decision-models.md#on-a-server-you-already-run).
-
-Jeśli test się nie powiedzie, sprawdź najpierw, czy lokalny serwer nadal działa i czy model jest wczytany. Potem sprawdź, czy pole **Address** dokładnie odpowiada adresowi i portowi serwera. Przy serwerze na innym komputerze upewnij się, że zmienna `PROVIDER_LOCAL_URLS_ENABLED` jest ustawiona, a serwer Marinara został ponownie uruchomiony.
+Włącz go dla serwera proxy albo serwera samodzielnie hostowanego, który nie jest znaną usługą. Sprawia, że Marinara zawsze próbuje wywołań narzędzi, i pozwala asystentce Professor Mari korzystać z zapasowej metody narzędziowej (protokołu narzędzi w formacie JSON) zamiast wyłącznie z natywnych wywołań narzędzi. Włącz go, jeśli Professor Mari zatrzymuje się po użyciu narzędzia albo jeśli twój serwer deklaruje zgodność z OpenAI, ale słabo obsługuje wywołania narzędzi. Jeśli model działa bez tego przełącznika, zostaw go wyłączony.
 
 ## Powiązane przewodniki
 
 - [Łączenie z dostawcą AI](connecting-to-a-provider.md)
-- [Konfiguracja modelu Local Model](local-model.md)
+- [Konfiguracja modelu wbudowanego](local-model.md)
 - [Modele decyzyjne](decision-models.md)
 - [Konfiguracja serwera](../CONFIGURATION.md)

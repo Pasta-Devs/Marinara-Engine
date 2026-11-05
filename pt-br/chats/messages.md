@@ -1,114 +1,124 @@
 # Ações de mensagem: editar, excluir, swipe e regenerar
 
-Neste guia você aprende o que é possível fazer com uma única mensagem dentro de um chat. Ele explica a barra de ferramentas da mensagem, como editar e excluir uma mensagem e como funcionam os swipes (respostas alternativas) e a regeneração. Também mostra os botões liga/desliga que exibem a contagem de tokens e o número das mensagens.
+Toda mensagem, sua ou da IA, tem uma barra de ferramentas. Use-a para editar, excluir, regenerar ou ocultar uma mensagem, ou para criar uma ramificação a partir dela.
 
-Toda mensagem no Marinara Engine, escrita por você ou pela IA, tem uma pequena barra de ferramentas. Ela aparece quando você passa o mouse sobre a mensagem no computador, ou quando toca na mensagem no celular ou no tablet.
+A barra de ferramentas aparece quando você toca em uma mensagem no celular ou no tablet, ou quando aponta o mouse para ela no computador.
 
 ## A barra de ferramentas da mensagem
 
-Os botões abaixo aparecem nas mensagens. Alguns só surgem em situações específicas, indicadas na tabela. Cada botão tem uma dica (o texto que aparece ao passar o mouse) igual ao nome mostrado aqui.
+Os mais usados:
 
-| Botão | O que faz | Quando aparece |
-| --- | --- | --- |
-| **Copy** (copiar) | Copia o texto da mensagem. O ícone vira um sinal de confirmação por um instante. | Sempre |
-| **Add reaction** (adicionar reação) | Abre um seletor de emoji e ativa ou desativa a sua reação na mensagem. | Só no Conversation Mode |
-| **Translate** / **Hide translation** (traduzir / ocultar a tradução) | Traduz a mensagem para o seu idioma e depois esconde a tradução de novo. | Sempre |
-| **Edit** (editar) | Abre a mensagem para edição. Veja abaixo. | Sempre |
-| **Regenerate** (regenerar) | Cria uma nova resposta alternativa, ou seja, um swipe. Veja abaixo. | Mensagens da IA. No Roleplay Mode, também nas suas mensagens. No Conversation Mode, também nas suas mensagens criadas pelo Impersonate |
-| **Show original before rewrite** / **Show rewritten version** (mostrar o original antes da reescrita / mostrar a versão reescrita) | Alterna entre o texto original e o reescrito. As duas versões continuam disponíveis, então você pode compará-las ou ficar com a que preferir. | Só depois que um agente reescreve a mensagem |
-| **Hide from AI** / **Unhide from AI** (ocultar da IA / mostrar para a IA) | Interrompe ou retoma o envio desta mensagem para a IA nos turnos seguintes. Em um chat em grupo de Roleplay, abre um seletor de personagens. | Sempre |
-| **Peek prompt** (espiar o prompt) | Mostra o prompt exato que a IA recebeu para esta resposta. | Só na mensagem mais recente da IA |
-| **Stored guidance** (orientação salva) | Mostra a direção que guiou esta resposta. | Só se a resposta usou uma direção guiada ou veio do Impersonate |
-| **Branch from here** (ramificar a partir daqui) | Copia o chat até esta mensagem para uma nova ramificação. | Sempre |
-| **View model thoughts** (ver o raciocínio do modelo) | Abre o texto de raciocínio oculto do modelo. | Só se o modelo devolveu o raciocínio |
-| **Delete** (excluir) | Exclui a mensagem. Veja abaixo. | Sempre |
-| **Pause speaking** / **Resume speaking** / **Restart speaking** (pausar / retomar / reiniciar a fala) | Controla o áudio falado de uma mensagem. | Só quando Text to Speech está ativado e falando |
+- **Edit** (editar) muda o texto da mensagem.
+- **Regenerate** (regenerar) pede ao modelo uma nova versão de uma resposta da IA. Cada versão se chama swipe.
+- **Delete** (excluir) remove a mensagem.
 
-Sobre o visualizador do **Peek prompt**, veja [Peek Prompt](peek-prompt.md). Sobre **Branch from here**, veja [Ramificações de chat](branches.md). Sobre **Translate**, veja [Tradução de mensagens](../integrations/message-translation.md). Sobre os controles de fala, veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md). Sobre direções guiadas, **Stored guidance** e Impersonate, veja [Geração guiada e Impersonate](guided-and-impersonate.md).
+Os botões são ícones. Os nomes deles estão abaixo. Alguns só aparecem em certas situações.
 
-## Como editar uma mensagem
+| Botão | O que faz |
+| --- | --- |
+| **Copy** (copiar) | Copia o texto da mensagem. |
+| **Edit** | Abre a mensagem para edição. |
+| **Regenerate** | Cria um novo swipe (outra versão da resposta). Só em mensagens da IA. Também nas suas mensagens no Roleplay e nas suas mensagens do Impersonate no Conversation. |
+| **Delete** | Exclui a mensagem. |
+| **Translate** / **Hide translation** (traduzir / ocultar a tradução) | Traduz a mensagem para o seu idioma e depois esconde a tradução. |
+| **Add reaction** (adicionar reação) | Abre um seletor de emoji. Só no Conversation. |
+| **Hide from AI** / **Unhide from AI** (ocultar da IA / mostrar para a IA) | Interrompe ou retoma o envio desta mensagem para o modelo. Em um chat em grupo de Roleplay, abre um seletor de personagens. |
+| **Bookmark, pin or note** (marcar, fixar ou adicionar nota) | Marca a mensagem como favorita, fixa a mensagem para que ela continue no prompt além do limite do histórico (até 10 por chat) ou adiciona uma **Private note** (nota privada). O modelo nunca vê uma nota, a menos que você ative **Show the note to the narrator character** (mostrar a nota ao personagem narrador), que funciona em chats com um só personagem e em chats em grupo com respostas individuais. |
+| **Branch from here** (ramificar a partir daqui) | Copia o chat até esta mensagem para uma nova ramificação. Não aparece em chats de cena. |
+| **Clone from here** (clonar a partir daqui) | Copia um chat de cena até esta mensagem para um novo Roleplay. Só em chats de cena. |
+| **Peek prompt** (espiar o prompt) | Mostra o prompt exato desta resposta. Só na mensagem mais recente da IA. |
+| **Stored guidance** (orientação salva) | Mostra a direção que guiou esta resposta. Só em respostas feitas com orientação ou com o Impersonate. |
+| **View model thoughts** (ver o raciocínio do modelo) | Abre o raciocínio oculto do modelo. Só se o modelo devolveu o raciocínio. |
+| **Show original before rewrite** / **Show rewritten version** (mostrar o original antes da reescrita / mostrar a versão reescrita) | Alterna entre o texto original e o reescrito quando um agente (um ajudante que roda junto com as respostas) reescreveu a mensagem. |
+| **Mark as new start** (marcar como novo início) | Só no Roleplay. Faz a memória do modelo sobre o chat começar nesta mensagem, quando o Advanced Memory (o recurso de memória de longo prazo do Marinara) está ativado. Veja [Advanced Memory](../agents/memory.md). |
+| **Pause speaking** / **Resume speaking** / **Restart speaking** (pausar / retomar / reiniciar a fala) | Controla o áudio falado quando o Text to Speech (uma voz lê as mensagens em voz alta) está ativado e falando. |
 
-O texto de qualquer mensagem pode ser editado, seja ela sua ou da IA.
+Saiba mais: [Peek Prompt](peek-prompt.md), [Ramificações de chat](branches.md), [Cenas](../roleplay/scenes.md) (um chat de cena é um Roleplay curto ramificado a partir de um chat), [Tradução de mensagens](../integrations/message-translation.md), [Configuração de Text to Speech (TTS)](../media/tts-setup.md), [Geração guiada e Impersonate](guided-and-impersonate.md), [notas privadas](../roleplay/getting-started.md#your-private-notes).
+
+## Editar uma mensagem
 
 1. Clique em **Edit** na mensagem. O texto vira uma caixa editável.
 2. Altere o texto.
-3. Clique em **Save** (salvar) ou pressione Ctrl e Enter juntos (Cmd e Enter no Mac). A dica do botão diz **Save (Cmd+Enter)**.
-4. Para sair sem salvar, clique em **Cancel** (cancelar) ou pressione a tecla Esc. A dica do botão diz **Cancel (Esc)**.
+3. Clique em **Save** (salvar) ou pressione <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> no Mac).
+4. Para sair sem salvar, clique em **Cancel** (cancelar) ou pressione <kbd>Esc</kbd>.
 
-Duas configurações abrem a edição mais rápido. As duas ficam em **Settings** (Configurações), na aba **General**, dentro de **Input & Editing**.
+Duas configurações em **Settings → General → Input & Editing** (Configurações → Geral → Entrada e edição) abrem a edição mais rápido. As duas vêm ativadas por padrão.
 
-- **Up Arrow edits last message** (ativado por padrão): pressione a tecla Up Arrow com a caixa de entrada vazia. Isso abre a mensagem mais recente para edição.
-- **Double-click edits messages** (ativado por padrão): dê um clique duplo ou um toque duplo em uma mensagem de Roleplay para abri-la para edição.
+- **Up Arrow edits last message** (seta para cima edita a última mensagem): pressione <kbd>Up</kbd> com a caixa de entrada vazia.
+- **Double-click edits messages** (clique duplo edita as mensagens): dê um clique duplo ou um toque duplo em uma mensagem de Roleplay.
 
-## Como excluir uma mensagem
+## Excluir uma mensagem
 
-Ao excluir uma mensagem, aparece uma caixa de diálogo chamada **How to proceed?**. As opções de exclusão são:
+1. Clique em **Delete** na mensagem. A caixa de diálogo **Delete message** (excluir mensagem) abre.
+2. Escolha uma opção.
 
-- **Delete only this swipe (1/3)**: remove apenas a resposta alternativa que você está vendo. Essa opção só aparece quando a mensagem tem mais de um swipe. Os números mostram qual swipe está ativo e quantos existem.
-- **Delete this message**: remove a mensagem inteira e todos os swipes dela.
-- **Delete more**: seleciona esta mensagem e todas as que estão abaixo, e ativa a seleção múltipla de mensagens para você ajustar a seleção antes de excluir.
-- **Cancel**: fecha a caixa de diálogo sem excluir nada.
+| Opção | O que faz |
+| --- | --- |
+| **Delete only this swipe (1/3)** | Remove o swipe que você está vendo. Só aparece quando há mais de um swipe. |
+| **Delete all other swipes** | Mantém o swipe que você está vendo e remove os outros. Só aparece quando há mais de um swipe. |
+| **Delete this message** | Remove a mensagem e todos os swipes dela. |
+| **Delete more** | Seleciona esta mensagem e todas as que estão abaixo dela e abre a barra de seleção. |
+| **Cancel** | Fecha a caixa de diálogo. |
 
-Mensagens do sistema, como a linha "joined the chat", têm um botão de exclusão simples, sem caixa de diálogo.
+Na barra de seleção, clique nas mensagens para adicioná-las. **Select all messages above** (selecionar todas as mensagens acima) e **Select all messages below** (selecionar todas as mensagens abaixo) ampliam a seleção. **Unselect all** (desmarcar todas) limpa a seleção, e **Delete selected** (excluir selecionadas) remove as que restam selecionadas. A barra mostra quantas estão selecionadas.
+
+Mensagens do sistema, como uma linha "joined the chat", são excluídas com um clique, sem caixa de diálogo.
 
 ## Swipes: respostas alternativas
 
-Um swipe é uma versão de uma resposta da IA. Uma mesma mensagem guarda vários swipes, então você compara respostas diferentes para o mesmo turno e escolhe a que preferir.
+Um swipe é uma versão de uma resposta da IA. Uma mensagem pode guardar vários, então você compara as respostas e fica com a que preferir. Um controle de swipe aparece assim que a mensagem tem dois ou mais. Ele mostra o swipe ativo e o total, por exemplo "2/4".
 
-O controle de swipe aparece na mensagem assim que ela tem dois ou mais swipes. Ele mostra o swipe ativo e o total, por exemplo "2/4", com estes controles:
+- **Previous swipe** (swipe anterior) e **Next swipe** (próximo swipe) passam de um swipe para outro.
+- A caixa numérica vai direto até um swipe. Digite um número e pressione <kbd>Enter</kbd>. O rótulo dela é **Jump to swipe 1-N**.
+- No swipe mais novo, o botão de avançar vira **Generate next swipe** (gerar o próximo swipe) e cria um novo swipe.
 
-- **Previous swipe** (swipe anterior) e **Next swipe** (próximo swipe): voltam ou avançam entre os swipes.
-- Uma caixa numérica: digite o número de um swipe e pressione Enter para ir direto até ele. A dica diz **Jump to swipe 1-N**, em que N é o total.
-- **Generate next swipe** (gerar o próximo swipe): quando você está no swipe mais novo, o botão de avançar muda para este e cria um swipe inédito.
-
-O último swipe de uma mensagem não pode ser excluído. Se você tentar, o aplicativo avisa "Cannot delete the last remaining swipe". Use **Delete this message** para remover a mensagem inteira.
+Não é possível excluir o último swipe. O aplicativo avisa "Cannot delete the last remaining swipe". Use **Delete this message** no lugar.
 
 ## Regenerar, continuar e tentar de novo
 
-Estas três ações parecem iguais, mas fazem coisas diferentes. Escolha a que corresponde ao que você quer.
+Estas três ações parecem iguais, mas fazem coisas diferentes.
 
-**Regenerate** cria um novo swipe. Clique em **Regenerate** em uma mensagem da IA para gerar outra versão daquela resposta. O swipe original é mantido. Em tela sensível ao toque, o aplicativo primeiro pergunta "Regenerate this message as a new swipe?", assim você não aciona a opção sem querer. Quando há uma direção guiada preparada, o botão passa a dizer **Regenerate (guided)**.
+| Ação | Resultado |
+| --- | --- |
+| **Regenerate** | Um novo swipe. O original é mantido. Em tela sensível ao toque, o aplicativo primeiro pergunta "Regenerate this message as a new swipe?". Com uma orientação preparada, o botão passa a dizer **Regenerate (guided)**. |
+| `/continue` | Mais texto na mesma mensagem, sem um novo swipe. |
+| **Send** (enviar) com a caixa vazia | Uma resposta nova. |
 
-O comando **/continue** estende a mesma mensagem. Digite `/continue` (ou a forma curta `/cont`) na caixa de entrada e envie. A IA retoma de onde a última resposta parou e acrescenta mais texto naquela mesma mensagem, em vez de criar um novo swipe.
+### Continuar uma resposta
 
-Por padrão, Marinara insere uma linha em branco antes do texto acrescentado. Para que a continuação comece grudada no último caractere da resposta anterior, desative a opção **Settings → General → Responses → Add a new line before /continue text**. Marinara então instrui o modelo a continuar exatamente do ponto de corte, sem separador.
+Digite `/continue` (ou `/cont`) na caixa de entrada e envie. O modelo retoma de onde a última resposta parou.
 
-```
+```text
 /continue
 ```
 
-O reenvio com a caixa vazia começa uma resposta nova. Se a última mensagem do chat for sua e a caixa de entrada estiver vazia, o mesmo botão **Send** (enviar) tenta de novo em vez de enviar. A aparência dele não muda. Clique nele, ou pressione Enter, para receber uma resposta sem redigitar a mensagem. No Roleplay Mode, um **Send** com a caixa vazia também estimula a IA a continuar a cena com um novo turno. Isso não é a mesma coisa que **/continue**: o envio vazio sempre cria uma resposta nova, enquanto **/continue** acrescenta texto à resposta que já existe.
+Marinara insere uma linha em branco antes do texto novo. Para que ele fique grudado no último caractere, desative **Settings → General → Responses → Add a new line before /continue text** (Configurações → Geral → Respostas → Adicionar uma nova linha antes do texto de /continue).
 
-## Como ocultar uma mensagem da IA
+### Tentar de novo com um Send vazio
 
-O contexto da IA é o conjunto de mensagens que o aplicativo envia para a IA a cada turno. Clique em **Hide from AI** para deixar uma mensagem fora desse contexto nos turnos seguintes. A mensagem continua visível para você e ganha a etiqueta **Hidden from AI**. Clique em **Unhide from AI** para voltar a enviá-la.
+Se a última mensagem for sua e a caixa de entrada estiver vazia, **Send** tenta de novo em vez de enviar. No Roleplay, um **Send** com a caixa vazia também começa um novo turno depois que a IA já respondeu. Ele nunca acrescenta texto à resposta anterior. Veja [Enviar mensagens e streaming](sending-and-streaming.md#retry-without-retyping).
 
-Em um chat em grupo de Roleplay com mais de um personagem, **Hide from AI** abre um seletor compacto de avatares. Selecione o avatar do grupo para ocultar a mensagem de todo mundo, ou selecione um ou mais avatares de personagem para ocultá-la só desses personagens. Selecionar todos limpa as seleções individuais; selecionar um personagem específico desativa a opção de todos. O marcador de olho riscado na mensagem mostra os avatares dos personagens que não conseguem vê-la. Em um chat com um só personagem, o botão continua ocultando ou mostrando a mensagem diretamente.
+## Ocultar uma mensagem da IA
 
-Um sussurro dentro de uma mensagem ainda chega ao destinatário quando você oculta a mensagem só desse personagem. Ele recebe o sussurro, mas nada do restante da mensagem. Ocultar a mensagem de todo mundo também remove os sussurros dela. Veja [Sussurros e segredos](../roleplay/getting-started.md#whispers-and-secrets).
+Clique em **Hide from AI** para deixar uma mensagem fora do prompt nos turnos seguintes. A mensagem continua visível para você, com a etiqueta **Hidden from AI** (oculto da IA). Clique em **Unhide from AI** para voltar a enviá-la.
 
-Você também pode ocultar mensagens com `/hide [range] [name (optional)]`, por exemplo `/hide 3-8`. No Roleplay, `/hide 3-8 Maukie` as oculta apenas de Maukie; sem o nome, elas ficam ocultas para todos. `/unhide [range]` restaura as mensagens ocultas globalmente. Para desfazer a ocultação por personagem, use o seletor de avatares em um chat de grupo Roleplay ou a ação **Unhide from AI** da mensagem em um chat Roleplay com apenas um personagem. A numeração começa em 1, a partir da primeira mensagem do chat. Consulte a [Referência de comandos de barra](slash-commands.md) para ver formatos e exemplos.
+Em um chat em grupo de Roleplay, **Hide from AI** abre um seletor de avatares. Escolha o avatar do grupo para ocultar a mensagem de todo mundo, ou escolha um ou mais personagens para ocultá-la só deles. Um marcador de olho riscado na mensagem mostra quem não consegue vê-la. Em um chat com um só personagem, o botão oculta ou mostra a mensagem diretamente.
 
-Quando a opção **Decide who sees new messages** (decidir quem vê as novas mensagens) do Advanced Memory está ativada, as novas mensagens de um chat em grupo em que os personagens respondem um de cada vez ficam ocultas automaticamente para os personagens ausentes, com o mesmo marcador. Se você mesmo mudar a escolha de uma mensagem, a sua escolha sempre prevalece; veja [Decidir quem vê as novas mensagens](../agents/memory.md#deciding-who-sees-new-messages).
+Se você ocultar uma mensagem de um personagem, ele ainda recebe um sussurro que estiver nela, mas nada do restante. Ocultar de todo mundo também remove os sussurros. Veja [Sussurros e segredos](../roleplay/getting-started.md#whispers-and-secrets).
+
+Para ocultar um intervalo de mensagens, use `/hide` e `/unhide`. Veja [Referência de comandos de barra](slash-commands.md). A numeração das mensagens começa em 1, na primeira mensagem.
+
+Quando a opção **Decide who sees new messages** (decidir quem vê as novas mensagens) do Advanced Memory está ativada, as novas mensagens de um chat em grupo em que os personagens respondem um de cada vez ficam ocultas automaticamente dos personagens ausentes. A sua própria escolha sempre prevalece. Veja [Decidir quem vê as novas mensagens](../agents/memory.md#deciding-who-sees-new-messages).
+
+<a id="message-display-toggles"></a>
 
 ## Botões de exibição das mensagens
 
-Dois botões liga/desliga mudam os detalhes extras exibidos nas mensagens. Os dois ficam em **Settings**, na aba **Advanced**, dentro da seção **Message Tools**. Ambos vêm desativados por padrão.
+Eles ficam em **Settings → Advanced → Message Tools** (Configurações → Avançado → Ferramentas de mensagem).
 
-- **Show message numbers**: mostra um número em cada mensagem. A numeração começa em 1, a partir da primeira mensagem do chat. São os mesmos números usados pelos comandos `/goto`, `/hide` e `/unhide`. Ative essa opção quando precisar descobrir o número de uma mensagem.
-- **Show token usage on messages**: acrescenta a contagem de tokens de cada resposta da IA. Um token é um pedacinho de texto que a IA lê e escreve. A contagem mostra os tokens do prompt e os tokens da resposta. Quando a informação existe, ela também mostra os acertos de cache e quanto tempo a resposta levou.
-
-Há ainda um botão liga/desliga relacionado na mesma seção **Message Tools**, o **Show model name on messages**, que acrescenta o nome do modelo de IA que escreveu cada resposta. Ele também vem desativado por padrão.
-
-Quando foi preciso deixar mensagens antigas fora do prompt para ele caber, um aviso curto abaixo da resposta diz quantas, por exemplo "1109 older messages not sent". Para esconder esse aviso abaixo da resposta, desligue **Show "older messages not sent" note** (mostrar o aviso de mensagens antigas não enviadas) na mesma seção. O Checkup ainda pode mostrá-lo quando é aberto. A opção vem ligada por padrão. Os avisos sobre uma resposta que foi cortada ou que voltou vazia continuam aparecendo.
-
-## Guias relacionados
-
-- [Enviar mensagens e streaming](sending-and-streaming.md)
-- [Geração guiada e Impersonate](guided-and-impersonate.md)
-- [Peek Prompt](peek-prompt.md)
-- [Ramificações de chat](branches.md)
-- [Configuração de Text to Speech (TTS)](../media/tts-setup.md)
-- [Tradução de mensagens](../integrations/message-translation.md)
-- [Visão geral das configurações](../settings/settings-overview.md)
-- [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md)
+| Botão liga/desliga | Padrão | O que mostra |
+| --- | --- | --- |
+| **Show message numbers** | Desligado | Um número em cada mensagem, os mesmos números que `/goto`, `/hide` e `/unhide` usam. |
+| **Show token usage on messages** | Desligado | Os tokens do prompt e os da resposta, em cada resposta da IA (tokens são pedacinhos de texto que o modelo conta), além dos acertos de cache e do tempo da resposta quando disponíveis. |
+| **Show model name on messages** | Desligado | O modelo que escreveu cada resposta. |
+| **Show "older messages not sent" note** | Ligado | Um aviso abaixo da resposta, por exemplo "1109 older messages not sent", quando as mensagens mais antigas não couberam no prompt. Os avisos sobre uma resposta cortada ou vazia sempre aparecem. |

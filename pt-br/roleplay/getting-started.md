@@ -1,205 +1,203 @@
 # Roleplay Mode: primeiros passos
 
-Neste guia você aprende o que é o Roleplay Mode, como começar um roleplay e o que aparece na tela. Ele também explica os controles de sprite, as ferramentas do chat, as **Author's Notes** (notas do autor) e onde ler sobre os recursos mais avançados.
+O Roleplay é o modo de chat para histórias. Ele acrescenta um palco atrás das suas mensagens (um plano de fundo e sprites de personagem) e um HUD (heads-up display) com os detalhes da história. Um agente é um ajudante que roda junto com as respostas, por exemplo um que acompanha o clima ou escolhe um sprite.
 
-## O que é o Roleplay Mode
+Escolha o Roleplay para uma cena de história. Escolha o [Conversation](../conversation/getting-started.md) para mensagens simples, ou o [Game Mode](../game/getting-started.md) para um jogo estruturado, com equipe, combate e dados. Sem geração de imagens, o Roleplay funciona como chat só de texto: os espaços de sprite ficam vazios, o plano de fundo é uma cor sólida e o HUD continua acompanhando a história.
 
-Roleplay Mode é um dos modos de chat do Marinara Engine. Os outros são Conversation e Game. O Roleplay traz uma visão de cena imersiva montada em volta de uma história.
+## Começar um roleplay
 
-Uma cena de roleplay pode mostrar um plano de fundo, sprites de personagens e um HUD do estado do mundo. Um sprite é uma imagem do personagem que muda conforme a emoção. O HUD mostra esse estado: os botões **World State** e **Player & Tracker**, que você pode mover no celular, e Tracker Panel ou a janela Trackers no computador.
+Antes de começar: adicione uma conta no painel **Connections** (Conexões), no lado direito do aplicativo. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
-O Roleplay também usa ajudantes chamados agentes. Um agente é uma pequena tarefa automática que roda junto com a resposta da IA. Os agentes acompanham o estado do mundo, escolhem sprites, escolhem planos de fundo e muito mais.
+1. Na barra lateral de chats, clique na aba **RP**.
+2. Clique no botão **+** perto do topo da barra lateral. A dica dele diz **New Roleplay** (novo roleplay).
 
-A geração de imagens não é obrigatória para usar o Roleplay Mode. Sem ela, o modo continua funcionando como chat só de texto. Os espaços de sprite ficam vazios, o plano de fundo mostra uma cor sólida e o HUD continua acompanhando tudo. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md) para configurar uma conexão.
+O chat abre com **Chat Settings** (configurações do chat) e um assistente de configuração de cinco etapas. Só a conta é obrigatória. Você pode mudar tudo depois.
 
-Escolha o Roleplay Mode quando quiser uma cena imersiva. Escolha o [Conversation Mode](../conversation/getting-started.md) para um chat de mensagens simples. Escolha o [Game Mode](../game/getting-started.md) para um RPG estruturado, com equipe, combate e dados.
+1. **Name & Connection** (nome e conexão). Dê um nome ao roleplay (opcional) e escolha qual conexão responde.
+2. **Pick a Preset** (escolher um preset). O preset define a estrutura do prompt e os valores de geração. O padrão funciona na maioria dos chats.
+3. **Persona & Characters** (persona e personagens). Escolha a sua persona e os personagens da cena. Nesta etapa, um botão chamado **Create your persona** (criar a sua persona) pode montar uma persona para você a partir de algumas perguntas. Veja [Onboarding interativo](../characters/interactive-onboarding.md).
+4. **Attach Lorebooks** (anexar lorebooks). O lorebook é um conjunto de fatos do mundo que a IA lê quando as palavras-chave deles aparecem. Opcional.
+5. **Enable Agents** (ativar agentes). Escolha quais agentes rodam neste chat. Você pode mudar isso depois em **Chat Settings → Agents**.
 
-## Como começar um roleplay
-
-Crie um chat de Roleplay para abrir o assistente de configuração. O assistente tem cinco etapas. Só a conexão de IA é obrigatória. Todas as outras etapas são opcionais e podem ser alteradas depois.
-
-1. **Name & Connection** (nome e conexão). Dê um nome ao roleplay e escolha qual conexão de IA responde. O nome pode ficar em branco.
-2. **Pick a Preset** (escolher um preset). O preset controla a estrutura do prompt e as configurações de geração. O preset padrão funciona bem na maioria dos chats.
-3. **Persona & Characters** (persona e personagens). Escolha a persona que você interpreta e quais personagens entram na cena. Alguns cards de personagem conseguem montar uma persona para você a partir de algumas perguntas: escolha **Create your persona** (criar a sua persona) e responda. Veja [Onboarding interativo](../characters/interactive-onboarding.md).
-4. **Attach Lorebooks** (anexar lorebooks). O lorebook é um conjunto de fatos do seu mundo que a IA lê quando as palavras-chave aparecem. Esta etapa é opcional.
-5. **Enable Agents** (ativar agentes). Escolha quais agentes rodam neste chat. Os agentes podem ser adicionados ou removidos depois na seção **Chat Settings** (configurações do chat), em **Agents**.
-
-Depois de terminar o assistente de configuração, a cena abre e você já pode enviar a primeira mensagem.
+Ao terminar, você vê o chat com uma caixa de mensagem. Digite a primeira mensagem e envie.
 
 ## O palco: plano de fundo, sprites e HUD
 
-O palco do Roleplay é a área da cena atrás e ao redor das mensagens. Ele tem três partes principais.
-
-O **plano de fundo** é uma imagem de cena inteira atrás da coluna de mensagens. A troca acontece com uma transição suave. O agente **Background** pode escolher um a cada turno, tirado da sua biblioteca de planos de fundo. Também é possível fixar um plano de fundo por chat. Veja [Planos de fundo do Roleplay](backgrounds.md) para conhecer o sistema completo.
-
-Os **sprites** são as imagens de personagem colocadas no palco. Não existe limite fixo. Todo personagem do chat com sprites ativados pode aparecer. Os sprites dependem de uma biblioteca de sprites enviada no card de personagem. Sem ela, o espaço do sprite não mostra nada. Veja [Sprites de personagem](../characters/sprites.md) para adicionar sprites a um personagem.
-
-O **HUD** mostra os trackers. No celular, você abre os trackers pelos botões **World State** e **Player & Tracker**, que podem ser movidos. No computador, eles aparecem em **Tracker Panel**, ou na janela **Trackers** quando Tracker Panel está desativado em Settings. Cada tracker pertence a um agente e só aparece quando esse agente está ativo. Eles podem mostrar data, hora, clima, local, personagens presentes, inventário, missões e atributos, e você pode editar os valores. Veja [HUD e trackers do Roleplay](hud-and-trackers.md) para cada widget e modo de bloqueio.
+- **Background** (plano de fundo): uma imagem de cena inteira atrás das suas mensagens, que faz uma transição suave quando muda. O agente **Background** pode escolher um a cada turno, ou você pode fixar um por chat. Veja [Planos de fundo do Roleplay](backgrounds.md).
+- **Sprites**: as imagens dos personagens no palco. Todo personagem com sprites ativados pode aparecer. O personagem precisa de uma biblioteca de sprites no card, senão o espaço dele fica vazio. Veja [Sprites de personagem](../characters/sprites.md).
+- **HUD**: os seus trackers (data, hora, clima, local, quem está presente, inventário, missões, atributos). Ative-os em **Chat Settings → Agents**. Veja [HUD e trackers do Roleplay](hud-and-trackers.md).
 
 ### Controles de exibição dos sprites
 
-Os controles de sprite ficam na seção **Chat Settings**, em **Agents**, no card **Expression Engine**. Eles aparecem assim que pelo menos um personagem tem sprites ativados.
+Abra **Chat Settings** (o botão de controles deslizantes no chat), vá até **Agents** e encontre o cartão **Expression Engine**. Esse é o agente que escolhe as expressões dos sprites. Estes controles aparecem assim que pelo menos um personagem tem sprites ativados.
 
-- **Sprite Source** (origem do sprite). Um botão liga/desliga com **Expressions** e **Full-body**. Escolha um ou os dois. Pelo menos um precisa continuar ativado.
-- **Expression Size**, **Full-body Size**, **Expression Opacity** e **Full-body Opacity**. Quatro controles deslizantes que definem o tamanho do sprite e o nível de transparência. Essas configurações ficam guardadas neste navegador e não são sincronizadas com outros dispositivos.
-- **Default Side** (lado padrão). Um botão liga/desliga entre **Left** e **Right** que define de que lado os novos sprites começam.
-- **Expression Avatars**. Quando ativado, os avatares das mensagens na transcrição usam o sprite de expressão atual do personagem.
+| Controle | O que faz |
+| --- | --- |
+| **Sprite Source** (origem do sprite) | Escolha **Expressions** (expressões), **Full-body** ou os dois. Um deles precisa continuar ativado. |
+| **Expression Size**, **Full-body Size** | Definem o tamanho de cada tipo de sprite. |
+| **Expression Opacity**, **Full-body Opacity** | Definem o quanto cada tipo é transparente. |
+| **Default Side** (lado padrão) | **Left** (esquerda) ou **Right**: o lado em que os novos sprites começam. |
+| **Expression Avatars** | Quando ativado, os avatares das mensagens usam o sprite de expressão atual do personagem. |
 
-Para mover os sprites na mão, clique no botão **Arrange** no palco. Enquanto está ativo, ele vira **Done**. Arraste um sprite e depois clique no pequeno visto acima dele para confirmar. Clique em **Done** para terminar. O botão **Reset** limpa todas as posições personalizadas.
+Os quatro controles deslizantes de tamanho e opacidade ficam salvos só neste navegador. Eles não são sincronizados com outros dispositivos.
 
-Outra opção para definir uma expressão: digite o comando **/emote** na caixa de mensagem. Duas formas funcionam:
+Para mover os sprites na mão:
 
-```
-/emote happy
-```
+1. Clique em **Arrange** (organizar), o botão na cena. Ele vira **Done** (concluir).
+2. Arraste um sprite e depois clique no pequeno visto acima dele para confirmar.
+3. Clique em **Done** para terminar. **Reset** (redefinir) limpa todas as posições personalizadas.
 
-```
-/emote "Aria" angry
-```
+Para definir uma expressão digitando, envie `/emote happy` para a cena, ou `/emote "Aria" angry` para um personagem. Envie só `/emote` para listar as expressões de cada personagem.
 
-A primeira forma define a expressão para a cena. A segunda mira em um personagem específico, pelo nome. Digite **/emote** sem nenhuma palavra para listar as expressões disponíveis de cada personagem da cena.
+Se não funcionou: os sprites precisam de uma biblioteca de sprites enviada no personagem. Sem ela, o agente de expressão roda, mas não tem nada para mostrar.
 
 ## As ferramentas do chat
 
-As ferramentas são seções de **Chat Settings**. Abra pelo botão de controles deslizantes dentro do chat: ele começa no canto superior direito e pode ser arrastado para outro lugar. No Roleplay, você encontra:
-
-- **Search messages**, uma seção expansível perto do topo. Busca mensagens pelas palavras ou pelo número, com abas para mensagens marcadas e excluídas.
-- **Chat Branches**. Troca, renomeia, exporta e importa ramificações do chat. Veja [Ramificações de chat](../chats/branches.md).
-- **Chat Summary** (resumo do chat). Mostra e edita o resumo contínuo do chat.
-- **Active Context** (contexto ativo). Lista os personagens vinculados, as entradas de lorebook e o preset usados na última resposta. Mostra quais entradas foram acionadas e inseridas.
-- **Agent activity**, logo abaixo de **Agents**. Veja abaixo.
-- **Author's Notes**. Uma nota livre acrescentada ao prompt a cada turno. Veja abaixo.
-- **Gallery** (galeria). As imagens e os vídeos do chat, onde você pode gerar uma ilustração ou um plano de fundo.
-
-Você pode destacar qualquer uma dessas seções, inclusive Search, para mantê-la em uma janela própria. No celular, abra as seções destacadas pelo menu de três pontos **Chat tools** (ferramentas do chat); os botões dos trackers continuam separados. Chats antigos mantêm as ferramentas habituais fora de Chat Settings. Abra uma delas e escolha **Put back in Chat Settings** para guardá-la dentro. Veja [Visão geral de Chat Settings](../chats/chat-settings.md).
+As ferramentas do chat (busca, ramificações, resumo, contexto ativo, Agent activity, Author's Notes, Gallery) são seções de **Chat Settings**. Abra pelo botão de controles deslizantes no chat. Veja [Visão geral do painel Chat Settings](../chats/chat-settings.md) para saber o que cada uma faz, e [Destacar uma seção em uma janela própria](../chats/chat-settings.md#popping-a-section-out-into-its-own-window).
 
 ### Author's Notes
 
-**Author's Notes** é uma nota escrita por você que a IA lê em toda geração. Use para um lembrete permanente, como uma regra de tom ou um fato escondido. Abra **Chat Settings** e expanda **Author's Notes**, abaixo de **Agents**.
+**Author's Notes** (notas do autor) é uma nota que a IA lê em toda resposta. Use para um lembrete permanente, como uma regra de tom ou um fato escondido.
 
-Digite a nota na caixa. Por exemplo: "Keep the tone dark and suspenseful. The villain is secretly an ally."
+1. Abra **Chat Settings** e expanda **Author's Notes**, abaixo de **Agents**.
+2. Digite a nota, por exemplo: "Keep the tone dark and suspenseful."
+3. Se estiver em dúvida, deixe **Injection Depth** (profundidade de inserção) como está. Ele define onde a nota fica no chat: 0 é depois da mensagem mais recente, e 4 é quatro mensagens antes do fim.
 
-Para uma nota mais longa, aumente a caixa. No computador, arraste o canto inferior dela. Se você destacar **Author's Notes** em uma janela própria, a caixa cresce junto com a janela.
-
-Abaixo da nota fica o campo numérico **Injection Depth** (profundidade de inserção). Ele define a que altura do histórico do chat a nota é colocada. A ajuda dentro do aplicativo diz: "Depth 0 = after the latest message, 4 = four messages from the end." A profundidade 0 mantém a nota o mais perto possível da resposta mais recente.
-
-As **Author's Notes** funcionam do mesmo jeito no Game Mode e no Conversation Mode. Este guia é a referência principal do recurso.
+Para uma nota mais longa, arraste o canto inferior da caixa no computador. As Author's Notes funcionam do mesmo jeito no Game Mode e no Conversation Mode.
 
 <a id="agent-activity"></a>
 
 ## Agent activity
 
-**Agent activity** mostra o que os agentes do chat fizeram. Ela aparece quando o chat usa agentes ou Advanced Memory. Tem sua própria seção logo abaixo de **Agents** em **Chat Settings**. Também fica no fim de **Tracker Panel** e, no computador, da janela **Trackers**.
+**Agent activity** (atividade dos agentes) mostra o que os agentes do chat fizeram. Ela aparece assim que o chat usa agentes ou Advanced Memory. Você a encontra como seção própria logo abaixo de **Agents** em **Chat Settings**, no fim do Tracker Panel e, no computador, no fim da janela Trackers.
 
-A aba **Activity** lista as saídas dos agentes, chamadas de balões de pensamento. Você pode dispensar cada uma ou usar **Clear all**. As saídas de agentes personalizados também aparecem aqui.
+- Aba **Activity** (atividade): as saídas que os agentes salvaram, chamadas de balões de pensamento. Dispense uma ou use **Clear all** (limpar tudo). As saídas de agentes personalizados também aparecem aqui.
+- Enquanto os agentes trabalham, o ícone dela vira um indicador giratório. Se um agente falha, um pontinho aparece no ícone até você abri-la.
+- Os agentes que falharam aparecem em uma lista com um botão para tentar novamente. Você também pode parar os agentes em execução, executar os trackers de novo e usar **Clear Trackers** (limpar os trackers).
+- Aba **Injections**: só aparece quando o **Debug mode** (modo de depuração) está ativado em **Settings → Advanced** (Configurações → Avançado). Ela lista os trechos de prompt que os agentes do tipo escritor salvaram antes da última resposta. Entre esses agentes estão o **Prose Guardian**, que reescreve as respostas para seguir as suas regras de estilo, e o **Narrative Director**, que conduz o enredo. Você pode ver, editar e rodar de novo um trecho. A edição muda só o que é usado quando você regenera aquela mesma resposta, então a regeneração continua repetível. Ela não altera a resposta que está na tela.
 
-Enquanto os agentes trabalham, o ícone de **Agent activity** vira um indicador de carregamento giratório. Quando um agente falha, um pontinho aparece no ícone até você abrir **Agent activity**.
+Para conhecer todos os agentes, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md). Para o agente que conduz a história, veja [Narrative Director e Secret Plot](narrative-director.md).
 
-Se um agente falhou no último turno, aparece uma lista de falhas com um botão para tentar novamente. Por aqui você também pode parar agentes em execução, executar todos os trackers novamente e usar **Clear Trackers**. Para conhecer o sistema em linguagem simples, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
+## Combate e cenas
 
-A aba **Injections** só aparece quando o **Debug mode** (modo de depuração) está ativado. Ative na seção **Settings** (Configurações), em **Advanced**. Essa aba mostra os trechos de prompt que os agentes do tipo escritor salvaram antes da última resposta. Entre esses agentes estão o **Prose Guardian**, que reescreve as respostas para seguir as suas regras de estilo, e o **Narrative Director**, que conduz o enredo.
+- O Roleplay tem uma camada leve de combate. Adicione o agente Combat e clique em **Encounter** (encontro) acima da caixa do chat. Veja [Encontros de combate (Roleplay)](combat-encounters.md).
+- Uma cena é uma ramificação paralela para um flashback ou um local secundário. Veja [Cenas: criando uma ramificação do roleplay](scenes.md).
+- Para conduzir o enredo, veja [Narrative Director e Secret Plot](narrative-director.md).
 
-Você pode ver, editar e rodar de novo um trecho salvo. A edição muda só o que é usado quando você regenera aquela mesma resposta. Ela não altera a resposta que já está na tela. Assim a regeneração continua estável e repetível.
+## Como escolher os modelos
 
-O Narrative Director tem um botão **Push Story** acima da caixa de mensagem. Ele prepara o Director para a próxima resposta, e só para ela. O Narrative Director também pode guardar um arco de longo prazo escondido, chamado **Secret Plot**. Veja [Narrative Director e Secret Plot](narrative-director.md) para conhecer os dois.
+A conexão do chat escreve a prosa dos personagens. Um modelo mais forte mantém a voz do personagem estável em cenas longas. As conexões dos agentes rodam tarefas pequenas e estruturadas, como ler o estado ou escolher uma expressão, e modelos pequenos podem errar nelas. Muita gente roda o chat em um modelo forte e os agentes em um modelo rápido e barato. Se os valores do HUD ou os sprites continuarem saindo errados, passe os agentes para um modelo mais forte. Para as configurações de amostragem, veja [Parâmetros de geração](../prompts/generation-parameters.md).
 
-## Ilustrações na mensagem
+## Comandos
 
-Em **Chat Settings → Agents → Roleplay Commands**, ative **Illustrations** (ilustrações) para permitir que os personagens peçam uma imagem com `[illustrate: subject="..." characters="..."]`. A imagem usa as configurações do Illustrator do chat e aparece abaixo da mensagem.
+Estes recursos são opcionais. Os comandos são ações que um personagem pode realizar por conta própria, escritas dentro da resposta como um texto curto entre colchetes, por exemplo `[illustrate: ...]`. Marinara lê os colchetes, realiza a ação e esconde os colchetes da mensagem.
 
-Ative **Render in-line** (exibir no meio do texto) em **Illustrations** para mostrar cada imagem dentro da mensagem, no ponto em que o personagem escreveu o comando, por exemplo entre dois parágrafos. A imagem mantém os controles: selecione-a para ver o prompt dela ou use o **X** para removê-la. O personagem é avisado de que pode colocar o comando onde a imagem fizer sentido. A configuração vale para imagens novas, então as imagens que já estão no chat continuam onde estão. As imagens automáticas do Illustrator e o layout Visual Novel continuam mostrando as imagens como antes.
+### Ativar um comando
+
+1. Abra **Chat Settings → Agents** e expanda **Commands** (comandos).
+2. Ative o botão liga/desliga **Commands** no topo. Todos os comandos dentro dele começam desativados.
+3. Ative os comandos que você quer. Um comando acinzentado mostra o que ainda falta para ele.
+
+- **Illustrations** (ilustrações), **Video clips** (clipes de vídeo): adicione o agente Illustrator a este chat.
+- **Combat** (combate): adicione o agente Combat a este chat.
+- **Soundtrack** (trilha sonora): adicione o agente Music DJ e ative os agentes.
+- **Personal Notes** (notas pessoais), **Reminders** (lembretes), **Whisper**: use um chat solo ou um chat em grupo com geração **Individual**.
+- **Sound Cues** (sinais sonoros): escolha uma conexão de Music & Sound Effects com os efeitos sonoros ativados.
+- **Documents** (documentos), **HTML Artifacts**, **Rolls** (rolagens), **Direct Messages**, **Interruptions**: não precisam de mais nada.
+
+**Rolls**, **Combat**, **Documents** e **Whisper** também perguntam quem pode usá-los: **All** (todos) os personagens ou só o **Narrator** (narrador). O narrador é o personagem que você escolhe em **Narrator character** (personagem narrador). Ele pode usar os comandos exclusivos do narrador e ler as notas, os lembretes e os sussurros de todos.
+
+Se não funcionou: falta o agente ou o tipo de chat de um comando acinzentado. Leia a linha abaixo do botão liga/desliga dele.
+
+### Ilustrações
+
+Antes de começar: adicione o agente Illustrator ao chat e ative **Illustrations**.
+
+Agora um personagem pode pedir uma imagem com `[illustrate: subject="..." characters="..."]`. A imagem usa as configurações do Illustrator do chat e aparece abaixo da mensagem.
+
+Ative **Render in-line** (exibir no meio do texto) para mostrar cada imagem dentro da mensagem, no ponto em que o personagem escreveu o comando. Selecione uma imagem para ver o prompt dela, ou use o **X** para removê-la. A configuração vale só para imagens novas. As imagens que o agente Illustrator cria por conta própria e o layout Visual Novel não mudam.
+
+Você também pode criar uma ilustração por conta própria com `/illustrate`. No Roleplay, isso precisa do agente Illustrator.
 
 <a id="artifacts-on-demand"></a>
 
-## Artefatos sob demanda
+### Artefatos sob demanda
 
-Em **Chat Settings → Agents → Roleplay Commands**, ative **HTML Artifacts** (artefatos HTML) para permitir que o narrador crie um artefato específico do mundo da história com `[html: prompt="..."]`: uma página de grimório, uma placa, um esboço em uma carta, a leitura de um terminal. Começa desativado e não precisa de agente. Você também pode pedir um por conta própria com `/html <what you want>`.
+Ative **HTML Artifacts** (artefatos HTML) para deixar o narrador criar um objeto do mundo da história, como uma página de grimório, uma placa, um esboço em uma carta ou a leitura de um terminal. O comando é `[html: prompt="..."]`. Ele não precisa de agente. Você também pode pedir um por conta própria com `/html <what you want>`.
 
-O artefato aparece no ponto em que o narrador colocou o comando, depois que a resposta termina. No layout Visual Novel, você vê só o marcador. O texto da própria mensagem continua como foi escrito.
-
-Cada artefato é uma requisição separada, com no máximo 3 por resposta. Ele usa a conexão do agente **Immersive HTML**, se esse agente tiver uma; senão, a sua conexão padrão de agentes; senão, a conexão do chat. O **Max Parallel Agent Jobs** (máximo de tarefas de agente em paralelo) dessa conexão define quantos rodam ao mesmo tempo. A requisição inclui a descrição do personagem que está falando e as últimas mensagens. Ela segue as próprias instruções, então editar o prompt do agente Immersive HTML não a altera. Para uma página estilizada simples, os seis tipos prontos de **Documents** (documentos) são gratuitos e instantâneos.
+O artefato aparece no ponto em que o narrador colocou o comando, depois que a resposta termina. No layout Visual Novel, você vê só um marcador. Uma resposta pode criar no máximo 3 artefatos, e cada um é uma requisição separada ao modelo. A requisição usa a conexão do agente **Immersive HTML**, se ele tiver uma; senão, a sua conexão padrão de agentes; senão, a conexão do chat. A configuração **Parallel requests** (requisições em paralelo) dessa conexão, no editor da conta, define quantas rodam ao mesmo tempo. Para uma página estilizada simples, os tipos prontos de **Documents** são gratuitos e instantâneos.
 
 O narrador não vê o HTML do artefato. Nos turnos seguintes, ele vê uma versão curta em texto simples: o texto legível do artefato e uma linha sobre a aparência dele. Abra o marcador "used html command" abaixo da mensagem para ler ou editar esse texto, ou para excluir o artefato, o que também o remove da memória do narrador. Se uma execução falhar, o marcador diz por quê.
 
 <a id="whispers-and-secrets"></a>
 
-## Sussurros e segredos
+### Sussurros e segredos
 
-Em **Chat Settings → Agents → Roleplay Commands**, ative **Whisper** (sussurro) para permitir comentários privados, segredos ou visões dentro de uma resposta. Começa desativado. Escolha se **All** (todos) os personagens ou somente o **Narrator** (narrador) designado podem usar. Como Personal Notes, exige chat solo ou geração de grupo **Individual**.
+Ative **Whisper** (sussurro) para comentários privados, segredos e visões dentro de uma resposta. O comando é `[whisper: character="name" text="the secret"]`. Nomeie exatamente um personagem do chat, ou a sua persona. Só esse personagem e o narrador recebem o texto nos prompts. Um nome desconhecido ou ambíguo é ignorado, então o segredo não vaza.
 
-O comando é `[whisper: character="name" text="the secret"]`. Nomeie exatamente um personagem do chat ou sua persona selecionada. Entre os personagens, apenas esse destinatário e o narrador designado recebem o texto nos prompts. Um nome desconhecido ou ambíguo é ignorado sem expor o segredo.
+- **Reveal a secret** (revelar um segredo) mostra um sussurro na sua tela. Isso muda só o que você vê, não o que os personagens sabem. Os sussurros para a sua persona ficam visíveis imediatamente.
+- **Edit whisper** (editar sussurro) permite mudar o texto; depois, use **Save** (salvar). Para remover um sussurro, apague o texto e use **Save**. **Cancel** (cancelar) deixa tudo como estava.
+- Você pode escrever um sussurro na sua própria mensagem para sussurrar a um personagem. Os mesmos colchetes funcionam quando você edita a mensagem de um personagem ou do narrador. O texto pode ocupar várias linhas e manter as aspas, por exemplo `text=""I love you.""`.
+- Uma mensagem que contém só um sussurro fica oculta para os personagens que ele não alcança.
+- Se você usar **Hide from AI** (ocultar da IA) em uma mensagem para alguns personagens, o destinatário do sussurro ainda recebe o sussurro, mas nada do restante da mensagem.
 
-Os agentes também leem sussurros, entre eles o Echo Chamber, os trackers, o Lorebook Keeper, o Long-Term Memory e, nos chats em grupo, a ordem de resposta **Smart**, então um sussurro para um personagem pode fazer desse personagem quem responde. Cada sussurro é marcado como privado e indica o destinatário. Mesmo assim, o que um agente escreve, como uma entrada de lorebook, uma nota de tracker ou uma resposta reescrita, pode chegar a personagens a quem o sussurro não se destinava. Em uma sala multijogador hospedada, os agentes e a ordem de resposta **Smart** não recebem sussurros, porque todos na sala veem o que os agentes escrevem. O Relationship Tracker e o Memory Nag leem o chat por conta própria e ainda não veem sussurros.
+Os agentes também podem ler sussurros:
 
-O sussurro permanece no seu lugar na mensagem. Os dirigidos à persona ficam visíveis imediatamente; nos demais, escolha **Reveal a secret** (revelar um segredo) para ler. Revelar muda apenas sua tela, não o conhecimento dos personagens. Segredos acompanham a mensagem e o swipe ativo e saem do prompt quando a mensagem é ocultada de todo mundo ou fica fora do histórico selecionado.
+- Estes agentes os leem: Echo Chamber, os trackers, Lorebook Keeper e Long-Term Memory. Nos chats em grupo, a ordem de resposta **Smart** também os lê, então um sussurro pode fazer esse personagem responder em seguida.
+- Cada sussurro é marcado como privado e indica o destinatário. O que um agente escreve a partir dele, como uma entrada de lorebook ou uma nota de tracker, ainda pode chegar a outros personagens.
+- Em uma sala multijogador hospedada, os agentes e a ordem de resposta **Smart** não recebem sussurros.
+- O Relationship Tracker e o Memory Nag leem o chat por conta própria e ainda não veem sussurros.
 
-Um sussurro sempre chega ao destinatário. Se você usar **Hide from AI** (ocultar da IA) para ocultar uma mensagem só de alguns personagens, o destinatário ainda recebe o sussurro naquele ponto da história, mas nada do restante da mensagem. Os outros personagens que não podem ver a mensagem não recebem nada dela.
-
-Depois que um sussurro estiver visível, escolha **Edit whisper** (editar sussurro), altere o texto e pressione **Save** (salvar). A correção fica no swipe daquela mensagem e é usada nos próximos prompts para o destinatário original e o narrador. Para retirar um sussurro, apague o texto e escolha **Save**: o sussurro é removido da mensagem. **Cancel** (cancelar) mantém o texto inalterado.
-
-Você também pode escrever `[whisper: character="name" text="the secret"]` na própria mensagem de Roleplay para sussurrar a um personagem do chat. Seus próprios sussurros ficam visíveis para você imediatamente. Isso funciona em chats comuns sem ativar o modo multijogador.
-
-O mesmo comando funciona quando você edita a mensagem de um personagem ou do narrador: ao salvar, ele vira o sussurro dessa mensagem. O texto do sussurro pode ocupar várias linhas e incluir falas entre aspas do jeito que estão, por exemplo `text=""I love you.""`.
-
-Uma mensagem que contém apenas um sussurro fica totalmente de fora para os personagens que ele não alcança, então eles não percebem que alguém sussurrou. O destinatário e o narrador designado continuam recebendo a mensagem. Um personagem também recebe a mensagem se você compartilhou com ele uma nota privada sobre ela.
+<a id="your-private-notes"></a>
 
 ### Suas notas privadas
 
-Com **Personal Notes** ativado em **Roleplay Commands**, escreva `[notes: content="your private note"]` na própria mensagem. Essas notas pertencem a você e são incluídas apenas para o narrador designado, não para personagens comuns nem agentes compartilhados. Use os detalhes de comandos da mensagem para editá-las ou excluí-las.
+Ative **Personal Notes** e escreva `[notes: content="your private note"]` na sua própria mensagem. Só o narrador recebe essas notas, não os outros personagens nem os agentes compartilhados. Use os detalhes de comandos da mensagem para editar ou excluir uma nota. Se um personagem é desativado ou removido do grupo, o narrador deixa de receber as notas desse personagem. Reativar o personagem as traz de volta.
 
-O narrador também deixa de receber as notas de um personagem quando ele é desativado ou removido do grupo. Desativar não exclui as notas salvas; reativar o personagem as disponibiliza novamente.
+Você também pode guardar uma nota em uma única mensagem:
 
-Você também pode salvar uma nota em uma única mensagem. Escolha **Bookmark, pin or note** (marcar, fixar ou adicionar nota) abaixo da mensagem e escreva uma **Private note** (nota privada). Ela continua privada e nunca é enviada ao modelo, a menos que você ative **Show the note to the narrator character** (mostrar a nota ao personagem narrador) e escolha um personagem. Só esse personagem recebe a nota junto à mensagem; nenhum outro a recebe. Para compartilhar, é preciso usar um chat com um único personagem ou a geração em grupo **Individual**, porque uma resposta de grupo mesclada é escrita para todos os personagens ao mesmo tempo. **Remove note** (remover nota) também interrompe o compartilhamento.
+1. Escolha **Bookmark, pin or note** (marcar, fixar ou adicionar nota) abaixo da mensagem.
+2. Escreva uma **Private note** (nota privada). Por padrão, ela continua privada e não é enviada ao modelo.
+3. Para compartilhá-la com o modelo, ative **Show the note to the narrator character** (mostrar a nota ao personagem narrador) e escolha um personagem. Só esse personagem recebe a nota, junto àquela mensagem. Compartilhar exige um chat solo ou a geração em grupo **Individual**.
+
+**Remove note** (remover nota) também interrompe o compartilhamento.
 
 <a id="video-clips"></a>
 
-## Clipes de vídeo
+### Clipes de vídeo
 
-Em **Chat Settings → Agents → Roleplay Commands**, ative **Video clips** (clipes de vídeo) para permitir que personagens peçam um clipe curto de um momento importante no lugar de uma imagem estática. A opção começa desativada e precisa do agente **Illustrator** no chat e de uma conexão de vídeo em **Scene Videos** de Illustrator.
+Antes de começar: adicione o agente Illustrator ao chat e escolha uma conexão de vídeo em **Scene Videos** (vídeos de cena), no Illustrator.
 
-O modelo usa `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` e recebe a instrução de preferir esse comando a `[illustrate]` quando o momento envolve movimento. O ponto de partida do clipe segue a configuração **First frame** (primeiro quadro) de Illustrator: uma nova imagem de Illustrator do momento, o avatar ou sprite do personagem mencionado, ou nenhuma imagem. O clipe toca na resposta quando fica pronto. Ele só é oferecido enquanto **Video Run Interval** permite um clipe e entra na contagem de **Videos per reply**, como os clipes do próprio Illustrator.
+Ative **Video clips** para deixar os personagens pedirem um clipe curto de um momento importante com `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]`. O modelo recebe a instrução de preferir esse comando a `[illustrate]` quando o momento envolve movimento. O clipe começa pela imagem definida em **First frame** (primeiro quadro), no Illustrator: uma nova imagem do Illustrator, o avatar ou o sprite do personagem, ou nenhuma. Ele toca na resposta quando fica pronto. Um clipe só é oferecido enquanto o **Video Run Interval** permite, e ele entra na contagem de **Videos per reply**.
 
-## Interrupções dos personagens
+### Interrupções dos personagens
 
-Em **Chat Settings → Agents → Roleplay Commands**, ative **Interruptions** (interrupções) para permitir que personagens cortem a última mensagem quando uma intervenção verbal ou física for plausível. A função começa desativada e não exige nenhum agente baixado.
+Ative **Interruptions** (interrupções) para deixar um personagem cortar a última mensagem quando uma interrupção fizer sentido. O comando é `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara procura essa frase na mensagem imediatamente anterior à resposta, mantém o texto até ela e termina com um travessão. O diálogo mantém as aspas de fechamento. Se a frase não aparecer ou corresponder duas vezes, a mensagem continua como está.
 
-O modelo usa `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara procura essa frase literal somente na mensagem imediatamente anterior à resposta, mantém o texto até a frase inclusive e substitui o final por um travessão de interrupção. Diálogos mantêm as aspas de fechamento; ações não recebem aspas. Se não houver correspondência ou ela for ambígua, a mensagem não muda.
-
-Abra as informações de comandos da resposta e escolha **Restore original message** (restaurar mensagem original) para recuperar a mensagem inicial. Regenerar restaura primeiro a entrada original completa, para que a nova resposta decida se interrompe. Selecionar um swipe existente aplica a interrupção desse swipe, a menos que você a tenha restaurado explicitamente. Edições manuais posteriores são preservadas em vez de serem sobrescritas por uma interrupção antiga.
+Para recuperar o original, abra as informações de comandos da resposta e escolha **Restore original message** (restaurar mensagem original). Gerar de novo primeiro restaura o original completo, para que a nova resposta possa decidir outra vez. Escolher um swipe existente aplica a interrupção desse swipe, a menos que você a tenha restaurado. As suas edições manuais posteriores são mantidas.
 
 ## Echo Chamber
 
-**Echo Chamber** é um agente opcional que acrescenta uma plateia ao vivo reagindo à cena. Funciona como um chat de transmissão que publica uma reação nova de tempos em tempos. Ative na seção **Chat Settings**, em **Agents**, no card **Echo Chamber**. No computador, arraste a barra de título para mover a janela, arraste uma borda para mudar o tamanho ou fixe a janela para mantê-la aberta. O **X** a recolhe até virar um botão que você pode mover. No celular, Echo começa como uma janela compacta sobre as mensagens. Arraste a barra de título para movê-la ou uma borda ou um canto para redimensioná-la. Fixe a janela para mantê-la aberta quando tocar em outro lugar ou trave-a para evitar movimentos acidentais. O **X** também a recolhe em um botão móvel. Echo usa o **Chat widget style** escolhido em **Settings → Appearance → App**, e cada chat lembra sua disposição.
+**Echo Chamber** é um agente opcional que acrescenta uma plateia ao vivo reagindo à sua cena, como o chat de uma transmissão ao vivo que publica uma reação nova de tempos em tempos. Ative em **Chat Settings → Agents**, no cartão **Echo Chamber**.
+
+- No computador, arraste a barra de título dele para movê-lo e uma borda para redimensioná-lo. Fixe-o para mantê-lo aberto. O **X** o fecha em um botão que você pode mover.
+- No celular, ele começa como uma janela compacta acima das mensagens. Arraste a barra de título para movê-lo, ou uma borda ou um canto para redimensioná-lo. Fixar o mantém aberto quando você toca em outro lugar, e travar impede movimentos acidentais.
+- Ele segue o **Chat widget style** (estilo dos widgets do chat) escolhido em **Settings → Appearance → App**. Cada chat lembra a disposição dele.
 
 ## Escolhas CYOA
 
-**CYOA** quer dizer Choose Your Own Adventure, ou "escolha sua própria aventura". O agente **CYOA Choices** vem desativado por padrão. Quando ativado, ele acrescenta botões de escolha clicáveis depois de uma resposta. Ao clicar em uma opção, ela vira sua próxima mensagem. Para combinar escolhas ou editar uma antes de enviar, ative **Add CYOA choices to the message box instead of sending them** (adicionar as escolhas CYOA à caixa de mensagem em vez de enviá-las) em **Settings** > **General** > **Input & Editing**: clicar em uma escolha passa a acrescentar o texto dela à sua caixa de mensagem, sem enviar. Funciona apenas no Roleplay Mode.
-
-## Encontros de combate
-
-O Roleplay Mode tem uma camada leve de combate. Ative o agente **Combat** e clique no botão **Encounter** acima da caixa de mensagem (a dica dele diz "Start Combat Encounter"). Isso abre uma janela de configuração e, em seguida, uma tela de combate com barras de vida e botões de ação. É um sistema separado do combate próprio do Game Mode. Veja [Encontros de combate (Roleplay)](combat-encounters.md) para conhecer o fluxo completo.
-
-## Cenas
-
-A **cena** é uma ramificação paralela de um roleplay. Use para um flashback, um local secundário ou um caminho alternativo, sem perder a linha principal. A cena não puxa contexto de uma Conversation conectada, mesmo quando o roleplay principal puxa. Veja [Cenas: criando uma ramificação do roleplay](scenes.md).
-
-## Como escolher os modelos
-
-Os padrões funcionam bem no Roleplay Mode. Duas dicas gerais ajudam na maioria das configurações.
-
-A conexão do chat é quem escreve a prosa dos personagens. Um modelo intermediário ou melhor mantém a voz estável em cenas longas. As conexões dos agentes rodam tarefas pequenas e estruturadas, como ler o estado ou escolher uma expressão. Modelos muito fracos podem produzir estados errados e escolhas ruins de sprite.
-
-É possível usar para os agentes um modelo mais barato do que o do chat. Muita gente roda o chat em um modelo forte e os agentes em um modelo rápido e barato. Se os valores do HUD ou os sprites saem errados o tempo todo, troque a conexão dos agentes por um modelo mais capaz. Para as configurações de amostragem, veja [Parâmetros de geração](../prompts/generation-parameters.md).
+CYOA quer dizer Choose Your Own Adventure (escolha a sua própria aventura). O agente CYOA Choices vem desativado por padrão e funciona só no Roleplay. Quando ativado, ele acrescenta botões de escolha clicáveis depois de uma resposta, e clicar em um deles o envia como a sua próxima mensagem. Para combinar escolhas ou editar uma antes, ative **Add CYOA choices to the message box instead of sending them** (adicionar as escolhas CYOA à caixa de mensagem em vez de enviá-las) em **Settings → General → Input & Editing**. A partir daí, clicar em uma escolha acrescenta o texto dela à sua caixa de mensagem.
 
 ## Solução de problemas
 
-**Os widgets do HUD mostram o valor errado.** Cada widget é preenchido por um tracker. Abra o painel do widget e edite o valor na mão. Se os valores continuarem se desviando, troque a conexão do agente por um modelo mais forte. Você também pode bloquear um campo para que a próxima execução automática não sobrescreva o valor.
+| Sintoma | Solução |
+| --- | --- |
+| Um valor do HUD está errado. | Edite o valor na mão e bloqueie-o para que a próxima execução não mexa nele. Veja [HUD e trackers do Roleplay](hud-and-trackers.md). Se os valores continuarem se desviando, use um modelo de agente mais forte. |
+| Os sprites não mudam. | Verifique se o personagem tem uma biblioteca de sprites. Você também pode usar `/emote`. |
+| O plano de fundo nunca muda. | O agente **Background** escolhe dentro da sua biblioteca, então acrescente mais planos de fundo. Veja [Planos de fundo do Roleplay](backgrounds.md). |
+| Uma resposta regenerada continua indo na direção errada. | Ative o **Debug mode**, abra **Agent activity → Injections** e edite ou rode de novo o trecho salvo antes de regenerar. |
 
-**As expressões dos sprites não mudam.** Verifique se o personagem tem uma biblioteca de sprites enviada. A geração de imagens só é necessária quando você quer que Marinara crie sprites novos. Sem sprites para mostrar, o agente de expressão roda, mas não tem o que exibir. Outra opção é definir a expressão na mão, com o comando **/emote**.
-
-**O plano de fundo nunca muda.** O agente **Background** escolhe dentro da sua biblioteca de planos de fundo. Com apenas um ou dois planos de fundo, ele fica escolhendo sempre os mesmos. Acrescente mais planos de fundo para dar mais opções ao agente. Veja [Planos de fundo do Roleplay](backgrounds.md).
-
-**Uma resposta regenerada continua indo na direção errada.** Ative o **Debug mode** na seção **Settings**, em **Advanced**. Abra **Agent activity**, procure a aba **Injections** e edite ou rode de novo o trecho salvo antes de regenerar. Para mais ajuda, veja [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
+Para mais ajuda, veja [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Guias relacionados
 

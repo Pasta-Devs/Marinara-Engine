@@ -1,135 +1,141 @@
 # Tła czatu
 
-Ten przewodnik opisuje bibliotekę teł w aplikacji Marinara Engine. Chodzi o obrazy, które wgrywasz samodzielnie i wybierasz ręcznie, żeby pojawiły się za czatem. Agent **Background**, który sam dobiera tło sceny w każdej turze, ma osobny opis: [Tła w trybie Roleplay](../roleplay/backgrounds.md). Tła scen generowane przez AI w galerii opisuje z kolei [Tła scen i galeria](../media/scene-backgrounds.md).
+Biblioteka teł zawiera obrazy, które wgrywasz i ręcznie wybierasz, żeby pojawiły się za czatem. Agenta **Background**, który sam dobiera tło w każdej turze, opisuje przewodnik [Tła w trybie Roleplay](../roleplay/backgrounds.md). Tła generowane przez AI w galerii opisuje [Tła scen i galeria](../media/scene-backgrounds.md).
+
+Tło czatu widać we wszystkich trybach czatu. W czatach w trybie Conversation gradient z sekcji **Conversation Theme** (motyw trybu Conversation) zostaje nad obrazem, a **Conversation background image opacity** (nieprzezroczystość obrazu tła w trybie Conversation) ustawia, jak mocno widać obraz. Zobacz [Ustawienia wyglądu](appearance-settings.md).
+
+## Zmiana tła czatu
+
+Zanim zaczniesz: otwórz czat, który chcesz zmienić. Wybrane tło dotyczy tego czatu.
+
+1. Otwórz **Settings** (Ustawienia), potem **Appearance** (wygląd), a potem przycisk **App** (aplikacja).
+2. W sekcji **Backgrounds** (tła) dotknij **Browse library** (przeglądanie biblioteki).
+3. Dotknij obrazu. Staje się tłem tego czatu, a okno się zamyka.
+
+Żeby użyć własnego obrazu, najpierw go zaimportuj (zobacz [Import tła](#import-a-background)).
 
 ## Gdzie znaleźć tła
 
-Wszystkimi tłami zarządzasz w jednym miejscu: **Settings** (Ustawienia), zakładka **Appearance** (Wygląd), sekcja **Backgrounds** (Tła).
+1. Otwórz **Settings**.
+2. Wybierz zakładkę **Appearance**, a potem przycisk **App**.
+3. Znajdź sekcję **Backgrounds**.
 
-Sekcja **Backgrounds** składa się z trzech części:
+Sekcja zawiera selektor **Chat Background** (tło czatu), suwak **Background Blur** (rozmycie tła) oraz kontrolki **Conversation background image opacity** i **Chat List Backgrounds** (tła na liście czatów) (zobacz [Ustawienia wyglądu](appearance-settings.md)).
 
-1. Selektor **Chat Background** (tło czatu), w którym wybierasz obraz dla otwartego czatu.
-2. Suwak **Background Blur** (rozmycie tła).
-3. Biblioteka teł, w której importujesz, porządkujesz, filtrujesz, tagujesz, zmieniasz nazwy, pobierasz i usuwasz obrazy.
-
-Tło czatu widać wyłącznie w czatach w trybie Roleplay i Game Mode. Tryb Conversation używa zamiast tego gradientu, który ustawisz w sekcji **Conversation Theme** (motyw trybu Conversation). Opisują to [Ustawienia wyglądu](appearance-settings.md).
+Selektor pokazuje podgląd bieżącego tła albo napis **Default background** (tło domyślne), gdy żadnego nie wybrano. Pod nim masz na jedno dotknięcie do trzech ostatnio używanych teł **Recent** (ostatnie). Kliknij **Browse library**, żeby otworzyć okno **Background Library** (biblioteka teł).
 
 ## Biblioteka teł
 
-Biblioteka zawiera wszystkie obrazy, spośród których możesz wybierać. Łączy obrazy wgrane przez ciebie z wbudowanymi grafikami dołączonymi do aplikacji Marinara Engine. Każdy obraz ma małą etykietę, dzięki której łatwo je odróżnić:
+Biblioteka łączy obrazy wgrane przez ciebie z grafikami dołączonymi do aplikacji Marinara Engine. Każdy obraz ma etykietę.
 
-- **Library**: obraz wgrany przez ciebie. Takie obrazy da się przemianować, otagować i usunąć.
-- **Game asset**: obraz wbudowany, dołączony do aplikacji Marinara Engine. Takie obrazy są tylko do odczytu. Nie można zmienić ich nazwy, otagować ich ani ich usunąć.
+| Etykieta | Znaczenie |
+| --- | --- |
+| **My upload** (mój plik) | Obraz wgrany przez ciebie. Można zmienić jego nazwę, otagować go i usunąć. |
+| **Game asset** (zasób gry) | Grafika wbudowana. Jest tylko do odczytu: nie da się zmienić jej nazwy, otagować jej ani usunąć. |
+
+Przyciski **Filter by source** (filtrowanie według źródła), czyli **All sources** (wszystkie źródła), **My uploads** (moje pliki) i **Game assets** (zasoby gry), pokazują, ile obrazów zawiera każda grupa.
+
+<a id="import-a-background"></a>
 
 ### Import tła
 
-1. Znajdź pole **Import Backgrounds** (import teł) na górze biblioteki.
-2. Przeciągnij na nie jeden lub więcej plików graficznych albo kliknij je i wskaż pliki.
-3. Zaczekaj na koniec wgrywania. W trakcie pole pokazuje napis **Importing...**.
-4. Nowe obrazy pojawiają się w siatce poniżej z etykietą **Library**.
+1. W oknie **Background Library** znajdź **Import Backgrounds** (import teł) obok pola wyszukiwania.
+2. Dotknij go albo kliknij i wskaż pliki graficzne. Możesz wybrać kilka naraz. Na komputerze możesz też upuścić na nie pliki.
+3. Zaczekaj. W trakcie pracy widać napis **Importing…**.
 
-Możesz zaimportować kilka plików naraz. Każdy plik musi być obrazem w jednym z tych formatów: JPG, PNG, GIF, WebP lub AVIF. Pojedynczy plik może mieć do 20 MB.
+Nowe obrazy pojawiają się w siatce z etykietą **My upload**.
 
-Marinara sprawdza rzeczywistą zawartość każdego pliku, nie tylko jego nazwę. Plik, który nie jest obrazem, zostanie odrzucony nawet po zmianie nazwy na kończącą się na `.png`.
+Każdy plik musi być w formacie JPG, PNG, GIF, WebP lub AVIF i mieć do 20 MB. Marinara sprawdza zawartość pliku, a nie jego nazwę. Plik, który nie jest obrazem, zostanie odrzucony nawet po zmianie nazwy na `.png`.
 
 ### Wybór tła dla bieżącego czatu
 
-1. Otwórz **Settings**, potem **Appearance**, potem **Backgrounds**.
-2. Kliknij w siatce miniaturę, która ci odpowiada.
-3. Na wybranym obrazie pojawia się znacznik. Obraz staje się tłem otwartego czatu.
-4. Aby wrócić do ustawienia domyślnego, kliknij wybraną miniaturę ponownie albo kliknij przycisk **Remove** (usunięcie) obok pozycji **Chat Background**.
+1. Otwórz **Browse library**.
+2. Kliknij miniaturę. Pojawia się znacznik wyboru, obraz staje się tłem tego czatu, a okno się zamyka.
+3. Żeby wrócić do ustawienia domyślnego, kliknij wybraną miniaturę ponownie albo kliknij X (**Clear selection**, wyczyszczenie zaznaczenia) na podglądzie.
 
-### Przeszukiwanie biblioteki
+### Wyszukiwanie i filtrowanie
 
-Pole **Search backgrounds** nad biblioteką filtruje obrazy po nazwie, tagu i źródle. Linia z licznikiem pokazuje, ile obrazów pasuje, na przykład "3 of 20 backgrounds". Kliknij mały X w polu wyszukiwania, żeby je wyczyścić.
+- Pole **Search backgrounds** (wyszukiwanie teł) filtruje po nazwie, tagu lub źródle. Linia z licznikiem pokazuje, ile obrazów pasuje, na przykład "3 of 20 backgrounds". Kliknij X w polu, żeby je wyczyścić.
+- **Sort backgrounds** (sortowanie teł) oferuje **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest** i **Oldest**. Przy opcji **Manual order** przeciągnij obrazy, żeby zmienić kolejność, albo naciśnij <kbd>Alt</kbd>+<kbd>Up</kbd> lub <kbd>Alt</kbd>+<kbd>Down</kbd> na zaznaczonym obrazie.
+- Kafelki folderów **All folders** (wszystkie foldery), **Favorites** (ulubione) i **Unfiled** (poza folderami) oraz po jednym kafelku na każdy folder filtrują według folderów.
+- W tagach **All** czyści filtry tagów. Rozwiń **Tags** i wybierz jeden tag lub kilka. Obraz pasuje, jeśli ma dowolny z wybranych tagów.
 
-Selektor obok wyszukiwania sortuje tła: **A-Z**, **Z-A**, **Newest** lub **Oldest**. Wybierz **All**, żeby wyczyścić filtry tagów, albo rozwiń **Tags** i zaznacz jeden tag lub kilka. Przy kilku zaznaczonych tagach tło pasuje wtedy, gdy ma dowolny z nich.
+Kliknij gwiazdkę na obrazie, żeby dodać go do ulubionych. Nie zmienia to tła domyślnego.
 
 ### Porządkowanie teł w folderach
 
-Foldery porządkują bibliotekę, ale nie przenoszą ani nie ukrywają samych plików graficznych.
+Foldery porządkują bibliotekę, ale nie przenoszą ani nie ukrywają plików graficznych.
 
-1. Kliknij przycisk **New Folder** (nowy folder). Marinara tworzy folder o unikalnej nazwie.
-2. Kliknij dwukrotnie nazwę folderu (na ekranie dotykowym stuknij dwukrotnie), żeby ją zmienić. Inna opcja: ustaw na niej fokus i naciśnij F2.
-3. Na komputerze przeciągnij wiersz tła do folderu. Na telefonie i tablecie naciśnij i przytrzymaj wiersz, a potem go przeciągnij.
-4. Przeciągnij tło z powrotem do obszaru poza folderami, żeby wyjąć je z folderu.
+1. Kliknij **New Folder** (nowy folder), wpisz nazwę i kliknij **Add** (dodaj).
+2. Dotknij przycisku **Move to folder** (przeniesienie do folderu) na obrazie i wybierz folder. Możesz też przeciągnąć obraz na kafelek folderu. Na telefonie lub tablecie naciśnij i przytrzymaj obraz, a potem go przeciągnij.
+3. Żeby wyjąć obraz z folderu, przeciągnij go na **Unfiled**.
+4. Wybierz kafelek folderu, żeby zobaczyć przyciski z ołówkiem (**Rename folder**, zmiana nazwy folderu) i koszem (**Delete folder**, usunięcie folderu).
 
-Foldery i przypisania zapisują się na serwerze i trafiają do kopii zapasowej. Usunięcie folderu przenosi jego tła z powrotem na listę poza folderami; same obrazy zostają. Filtry wyszukiwania i tagów same odsłaniają pasujące elementy ukryte w folderach.
-
-Agent **Background** nadal widzi wszystkie dostępne tła, także te umieszczone w folderach. Foldery porządkują widok wyłącznie w ustawieniach.
+Usunięcie folderu przenosi jego obrazy z powrotem do **Unfiled** i ich nie usuwa. Foldery zapisują się na serwerze i trafiają do kopii zapasowych. Agent **Background** nadal widzi każde tło, także te w folderach.
 
 ### Zmiana nazwy tła
 
-Nazwę można zmienić tylko obrazom z etykietą **Library**.
+Nazwę można zmienić tylko obrazom z etykietą **My upload**.
 
-1. Najedź na wiersz obrazu i kliknij ikonę ołówka (**Rename**, zmiana nazwy).
+1. Kliknij ołówek (**Rename background**, zmiana nazwy tła) na obrazie.
 2. Wpisz nową nazwę. Rozszerzenia pliku nie trzeba podawać.
-3. Kliknij przycisk **Save**.
+3. Kliknij **Save**.
 
 ### Tagowanie tła
 
-Tagi ułatwiają grupowanie i wyszukiwanie wgranych obrazów. Otagować można tylko obrazy z etykietą **Library**.
+Otagować można tylko obrazy z etykietą **My upload**.
 
-1. Kliknij ikonę tagu (**Edit tags**, edycja tagów) w wierszu obrazu.
-2. Wpisz tag w polu **Add tag...**. W trakcie pisania Marinara podpowiada wcześniej używane tagi.
-3. Naciśnij Enter albo kliknij przycisk **Add**.
-4. Aby usunąć tag, kliknij go. Gdy edycja tagów jest otwarta, każdy tag wyświetla się jako przycisk ze znakiem X.
+1. Kliknij ikonę tagu (**Edit tags**, edycja tagów) na obrazie.
+2. Wpisz tag w polu **Add tag…**. Marinara podpowiada wcześniej używane tagi.
+3. Naciśnij <kbd>Enter</kbd> albo kliknij **Add**.
+
+Żeby usunąć tag, kliknij go podczas edycji tagów.
 
 <a id="download-a-background"></a>
 
 ### Pobieranie tła
 
-Pobrać można każde tło, także wbudowane. Najedź na wiersz obrazu i kliknij ikonę pobierania (**Download background**, Pobierz tło). Obraz zapisuje się pod swoją nazwą pliku. Na urządzeniu iPhone lub iPad otwiera się arkusz udostępniania, w którym możesz zapisać obraz; jeśli się nie otworzy, stuknij **Save file** (Zapisz plik) w wyświetlonym komunikacie.
+Kliknij ikonę pobierania (**Download background**, Pobierz tło) na dowolnym obrazie, także wbudowanym. Na urządzeniu iPhone lub iPad otwiera się arkusz udostępniania. Jeśli się nie otworzy, stuknij **Save file** (Zapisz plik) w wyświetlonym komunikacie.
 
 ### Usuwanie tła
 
-Usunąć można tylko obrazy z etykietą **Library**. Najedź na wiersz obrazu, kliknij ikonę kosza i potwierdź usunięcie. Jeśli obraz był bieżącym tłem czatu albo domyślnym tłem trybu Roleplay, Marinara wraca za ciebie do tła wbudowanego.
+Usunąć można tylko obrazy z etykietą **My upload**.
+
+1. Kliknij ikonę kosza (**Delete background**, usunięcie tła) na obrazie.
+2. Potwierdź.
+
+Jeśli był to obraz bieżącego tła czatu albo domyślne tło trybu Roleplay, Marinara wraca do tła wbudowanego.
 
 ## Ustawianie domyślnego tła trybu Roleplay
 
-Domyślne tło trybu Roleplay to obraz, od którego zaczyna każdy nowy czat w trybie Roleplay, zanim wybierze własne. Wystarczy ustawić je raz, a korzystają z niego wszystkie nowe czaty w trybie Roleplay.
+Domyślne tło trybu Roleplay to obraz, od którego zaczyna każdy nowy czat w trybie Roleplay.
 
-1. Znajdź w siatce w sekcji **Backgrounds** obraz, który ci odpowiada.
-2. Kliknij ikonę pinezki (**Set as default for new Roleplay chats**, ustawienie jako domyślne dla nowych czatów w trybie Roleplay) w wierszu tego obrazu.
-3. Przycisk z pinezką pozostaje podświetlony, a na miniaturze pojawia się etykieta **Default** (domyślne). Nowe czaty w trybie Roleplay startują od tego obrazu.
+1. Znajdź obraz w oknie **Background Library**.
+2. Kliknij jego ikonę pinezki (**Set as default for new Roleplay chats**, ustawienie jako domyślne dla nowych czatów w trybie Roleplay).
 
-Gwiazdka w lewym górnym rogu obrazu dodaje go do ulubionych. Nie zmienia tła domyślnego.
-
-Aby to cofnąć, kliknij pinezkę na bieżącym obrazie domyślnym. Inna opcja: kliknij przycisk **Reset Roleplay default** (przywrócenie domyślnego tła trybu Roleplay) u góry siatki. Ten przycisk pojawia się tylko wtedy, gdy tło domyślne różni się od wbudowanego.
+Na miniaturze pojawia się etykieta **Default** (domyślne). Żeby to cofnąć, kliknij pinezkę na tym obrazie ponownie albo kliknij **Reset Roleplay default** (przywrócenie domyślnego tła trybu Roleplay) nad siatką. Ten przycisk pojawia się tylko wtedy, gdy tło domyślne różni się od wbudowanego.
 
 ## Background Blur
 
-**Background Blur** rozmywa obraz tła za czatem, dzięki czemu tekst czyta się łatwiej. Działa na tła w trybie Roleplay i Game Mode.
+**Background Blur** rozmywa tło za czatem, dzięki czemu tekst czyta się łatwiej. Działa na tła we wszystkich trybach czatu.
 
 1. Znajdź suwak **Background Blur** w sekcji **Backgrounds**.
-2. Przesuń go w zakresie od 0 do 24. Im wyższa liczba, tym mocniejsze rozmycie.
-3. Ustaw 0, żeby tła pozostały ostre. Przy 0 wartość wyświetla się jako **Off**.
+2. Przesuń go w zakresie od 0 do 24. Im wyższa wartość, tym mocniejsze rozmycie.
 
-Domyślnie jest to 0 (**Off**).
-
-## Jak łączą się tła wgrane i wbudowane
-
-Biblioteka pokazuje w jednej siatce zarówno obrazy wgrane przez ciebie, jak i wbudowane obrazy **Game asset**. Wybiera się z nich tak samo. Różnica polega na tym, że obrazy **Game asset** są tylko do odczytu, więc nie mają przycisków zmiany nazwy, tagowania ani usuwania.
-
-Tła scen generowane przez AI w galerii trafiają do tej samej biblioteki, więc można ich użyć ponownie później. Zobacz [Tła scen i galeria](../media/scene-backgrounds.md).
+Przy 0 wartość wyświetla się jako **Off**, a tła pozostają ostre. Domyślnie jest to 0.
 
 ## Gdzie zapisują się wybrane tła
 
-O tym, jakie tło pokazuje czat, decydują trzy różne ustawienia, a każde zapisuje się inaczej:
+| Ustawienie | Gdzie się zapisuje |
+| --- | --- |
+| Tło **Chat Background** wybrane dla czatu | Razem z tym czatem na serwerze. Towarzyszy czatowi na każdym urządzeniu. |
+| Foldery i przypisania do nich | Na serwerze, razem z biblioteką. |
+| Domyślne tło trybu Roleplay i **Background Blur** | Osobno na każdym urządzeniu. Nie synchronizują się między przeglądarkami ani urządzeniami. |
 
-- Tło **Chat Background** wybrane dla czatu zapisuje się razem z tym czatem na serwerze. Towarzyszy czatowi na każdym urządzeniu, na którym go otworzysz.
-- Foldery teł i przypisania do nich zapisują się na serwerze i wędrują razem z biblioteką na inne urządzenia.
-- Domyślne tło trybu Roleplay oraz **Background Blur** zapisują się osobno na każdym urządzeniu. Nie synchronizują się między przeglądarkami ani urządzeniami. Pełny model synchronizacji opisują [Ustawienia wyglądu](appearance-settings.md).
-
-## Tła automatyczne i generowane przez AI
-
-Ten przewodnik opisuje bibliotekę, z której wybierasz ręcznie. Tłami zajmują się też dwie pokrewne funkcje:
-
-- Agent **Background** potrafi sam dobierać tło sceny z biblioteki, tura po turze, w czatach w trybie Roleplay. Zobacz [Tła w trybie Roleplay](../roleplay/backgrounds.md).
-- Galeria potrafi wygenerować przy pomocy AI zupełnie nowe tło sceny na podstawie bieżącej sceny. Zobacz [Tła scen i galeria](../media/scene-backgrounds.md).
+Pełny model synchronizacji opisują [Ustawienia wyglądu](appearance-settings.md).
 
 ## Powiązane przewodniki
 
-- [Tła w trybie Roleplay](../roleplay/backgrounds.md): agent Background, który sam dobiera tło w każdej turze.
-- [Tła scen i galeria](../media/scene-backgrounds.md): tła scen generowane przez AI w galerii.
-- [Ustawienia wyglądu](appearance-settings.md): cała zakładka Appearance, w tym informacja o tym, które ustawienia się synchronizują, a które zostają na jednym urządzeniu.
+- [Tła w trybie Roleplay](../roleplay/backgrounds.md): agent Background, który dobiera tło w każdej turze.
+- [Tła scen i galeria](../media/scene-backgrounds.md): tła scen generowane przez AI w galerii. One też trafiają do tej biblioteki.
+- [Ustawienia wyglądu](appearance-settings.md): cała zakładka Appearance.

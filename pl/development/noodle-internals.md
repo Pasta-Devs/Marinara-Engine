@@ -1,6 +1,6 @@
 # Budowa promptów Noodle od środka (dla programistów)
 
-Materiał dla programistów: gdzie w kodzie siedzą prompty (teksty, które Marinara wysyła do AI) generujące treści Noodle, jak je dostosować i jak debugować gotowe prompty. Zwykli użytkownicy konfigurują Noodle w panelu **Settings** (Ustawienia) – zobacz przewodniki Noodle w folderze `docs/noodle/`.
+Materiał dla programistów: gdzie w kodzie siedzą prompty (teksty, które Marinara wysyła do AI) generujące treści Noodle, jak je dostosować i jak debugować gotowe prompty. Zwykli użytkownicy konfigurują Noodle w panelu **Settings** (Ustawienia) – zobacz przewodniki Noodle `docs/agents/noodle.md` i `docs/agents/noodle-settings.md`.
 
 Noodle to pakiet do pobrania. Jego trasy (`/api/noodle`, rejestrowane przy aktywacji pakietu) i kod generowania leżą w pakiecie Noodle w repozytorium [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), w folderze `packages/noodle/src/engine/packages/server/src/`. W tabeli poniżej źródło oznaczone jako **package** jest podane względem tego folderu. Silnik przechowuje wspólny schemat i typy Noodle, magazyn Noodle, zarejestrowane nadpisania promptów wymienione w Settings oraz domyślny tekst promptu osi czasu w `packages/server/src/services/noodle/noodle-prompt.ts`. Pakiet ma własne kopie `services/prompt-overrides/registry/noodle.ts` i `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ Zmiany w kodzie należącym do pakietu wprowadza się i sprawdza w repozytorium 
 
 ## Powiązane przewodniki
 
-- [Noodle: wbudowana oś czasu społecznościowa](../noodle/overview.md)
-- [Ustawienia Noodle i przeniesienie do czatów](../noodle/settings.md)
+- [Noodle: wbudowana oś czasu społecznościowa](../agents/noodle.md)
+- [Ustawienia Noodle i przeniesienie do czatów](../agents/noodle-settings.md)
 - [Opcjonalne pakiety agentów i możliwości](optional-agent-packages.md)
 - [Mapa architektury (dla programistów)](architecture-map.md)

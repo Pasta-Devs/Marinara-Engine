@@ -1,109 +1,97 @@
 # Peek Prompt: zobacz, co dostał model AI
 
-Funkcja **Peek Prompt** (podgląd promptu) pokazuje dokładny tekst, który Marinara Engine wysyła do modelu AI po odpowiedź. Potrafi też pokazać podgląd na żywo, jeszcze zanim cokolwiek zostanie wysłane. Z tego przewodnika dowiesz się, co widać w tym oknie, jak je otworzyć, jak czytać zapisane wskazówki (**Stored guidance**) i jak szukać w nim przyczyn dziwnych odpowiedzi.
+Funkcja Peek Prompt (podgląd promptu) pokazuje dokładny tekst, który aplikacja Marinara Engine wysłała do modelu po daną odpowiedź, albo podgląd na żywo następnego promptu. Sięgnij po nią, gdy odpowiedź jest inna, niż się spodziewasz, i chcesz wiedzieć, co zobaczył model.
 
-Prompt to cały blok instrukcji i historii czatu, który Marinara składa i wysyła do modelu. Model czyta ten prompt i pisze odpowiedź. Dzięki funkcji **Peek Prompt** widać ten blok już po złożeniu, więc żadna odpowiedź nie jest zagadką.
-
-## Co pokazuje Peek Prompt
-
-Po otwarciu funkcji **Peek Prompt** pojawia się okno **Assembled Prompt** (złożony prompt). Składa się z trzech części.
-
-Na górze, obok tytułu, siedzi kafelek ze źródłem. Mówi, którą wersję promptu masz przed sobą:
-
-- **Exact Text Model Request**: dosłowne zapytanie wysłane do modelu.
-- **Live Preview**: świeży podgląd zbudowany w tej chwili.
-- **Raw Messages**: surowa lista wiadomości.
-- **Prompt Preview**: ogólny podgląd.
-- **Decision test preview**: prompt złożony z odpowiedzi uzyskanych w jawnie uruchomionym teście decyzji. Nie został wysłany do modelu czatu.
-
-Pod kafelkiem znajduje się panel informacji o generowaniu. Może pokazać dostawcę i nazwę modelu, szacowaną liczbę tokenów, a po zakończeniu odpowiedzi także rzeczywistą liczbę tokenów promptu. Token to mały kawałek tekstu – modele liczą właśnie tokeny, a nie słowa. Ten panel wyświetla też małe kafelki z użytymi wartościami, takimi jak **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** i **Assistant Prefill**. Mogą się tu pojawić również wartości próbkowania: **Top P**, **Top K** i **Min P**. Jeśli połączenie, dla którego była przeznaczona odpowiedź, zawiodło i zamiast niego napisało ją twoje połączenie zapasowe, panel podaje też nazwę połączenia, które zawiodło, jego model i krótki powód, na przykład "key rejected" albo "rate limited".
-
-Reszta okna to sam prompt, podzielony na zwijane sekcje. Każda sekcja ma etykietę i własne zgrubne oszacowanie liczby tokenów. Wiadomości czatu trafiają razem do jednej sekcji **Chat History**. W zapisanym dosłownym zapytaniu dostawca mógł połączyć kilka tur czatu w jeden blok. Rozwiń każdy blok, żeby obejrzeć cały widoczny dla modelu tekst w środku. Kliknij nagłówek dowolnej sekcji, aby ją otworzyć lub zamknąć.
-
-Żeby przenieść cały prompt gdzie indziej, kliknij przycisk kopiowania obok przycisku zamykania u góry okna. Kopiuje on każdą sekcję i wiadomość czatu jako zwykły tekst, w kolejności wysłania, łącznie z sekcjami, których nie otwarto. Każda wiadomość zaczyna się od linii z nazwą jej roli, na przykład `[system]`, `[user]` albo `[assistant]`. Przy zapisanym dosłownym zapytaniu kopiowane jest to zapytanie w takiej postaci, w jakiej je wysłano. Kopiowanie niczego nie wysyła do modelu ani nie zmienia promptu.
-
-## Wyszukiwanie tekstu w prompcie
-
-Użyj widocznego pola **Find** (znajdź) na górze okna **Assembled Prompt** na komputerze, tablecie lub telefonie. Jeśli korzystasz z klawiatury, naciśnij Ctrl+F lub Cmd+F wewnątrz podglądu, żeby przenieść fokus do tego pola.
-
-Wyszukiwanie znajduje dosłowny tekst bez rozróżniania wielkości liter w całym prompcie, także w zwiniętych sekcjach i historii czatu. Dopasowania są podświetlane, a licznik pokazuje bieżące dopasowanie i ich łączną liczbę. Użyj przycisków w górę i w dół albo klawiszy Enter i Shift+Enter w tym polu, żeby przechodzić między dopasowaniami. Po dotarciu do któregokolwiek końca przechodzisz na drugi koniec.
-
-Gdy pole **Find** zawiera tekst, podgląd pokazuje pełny tekst wiadomości. Wyczyść pole, żeby wrócić do zwijanych sekcji. Wyszukiwanie nie zmienia promptu ani treści kopiowanej przez przycisk kopiowania.
+Prompt to cały blok instrukcji i historii czatu, który Marinara składa i wysyła. Model go czyta i pisze odpowiedź.
 
 ## Otwieranie funkcji Peek Prompt
 
-To okno da się otworzyć na dwa sposoby.
+Okno **Assembled Prompt** (złożony prompt) da się otworzyć na dwa sposoby.
 
-Pierwszy to pasek akcji wiadomości. Wykonaj kolejno te kroki:
+Z wiadomości:
 
-1. Najedź kursorem na najnowszą wiadomość AI w czacie.
-2. Znajdź akcję **Peek prompt**. Jej ikona to lupa.
-3. Kliknij ją. Otwiera się okno **Assembled Prompt**.
+1. Dotknij najnowszej wiadomości AI, żeby pokazać jej pasek akcji.
+2. Kliknij **Peek prompt** (podejrzenie promptu, ikona lupy).
 
-Akcja **Peek prompt** pojawia się wyłącznie przy ostatniej wiadomości AI w czacie. Przy starszych wiadomościach jej nie ma.
+Ten przycisk pojawia się tylko przy ostatniej wiadomości AI. Starsze wiadomości go nie mają.
 
-Drugi sposób to wpisywany skrót. Działa nawet wtedy, gdy nie ma jeszcze żadnej odpowiedzi AI, więc prompt można podejrzeć wcześniej. Wykonaj kolejno te kroki:
+Z pola wpisywania – ten sposób działa też przed pierwszą odpowiedzią AI:
 
-1. Kliknij pole wpisywania wiadomości.
-2. Wpisz dokładnie ten tekst:
+1. Wpisz w polu wiadomości dokładnie ten tekst: `{{prompt}}`
+2. Naciśnij <kbd>Enter</kbd> albo kliknij **Send** (wysłanie).
 
-```
-{{prompt}}
-```
+Zamiast wysłać wiadomość, Marinara czyści pole i otwiera okno. `{{prompt_preview}}` i `{{preview_prompt}}` działają tak samo.
 
-3. Naciśnij Enter albo kliknij przycisk **Send**.
+## Co pokazuje okno
 
-Zamiast wysłać wiadomość, Marinara czyści pole i otwiera okno funkcji **Peek Prompt**. Skróty `{{prompt_preview}}` i `{{preview_prompt}}` robią dokładnie to samo.
+Plakietka obok tytułu mówi, którą wersję promptu czytasz.
 
-## Czytanie zapisanych wskazówek Stored guidance
+| Plakietka | Znaczenie |
+| --- | --- |
+| **Exact Text Model Request** | Dosłowne zapytanie, które wysłano do modelu. |
+| **Live Preview** | Podgląd zbudowany w tej chwili. |
+| **Raw Messages** | Surowa lista wiadomości. |
+| **Prompt Preview** | Ogólny podgląd. |
+| **Decision test preview** | Prompt złożony z odpowiedzi z testu decyzji. Nie został wysłany do modelu czatu. |
 
-Generowanie sterowane pozwala pokierować odpowiedzią za pomocą instrukcji spoza roli. Jeśli wiadomość powstała z zapisaną wskazówką, ma przy sobie osobną akcję **Stored guidance**. Jej ikona to mały zwój. Ta akcja pojawia się także przy wiadomościach utworzonych komendą `/impersonate`.
+Pod nią panel informacji może pokazać usługę i model, szacowaną liczbę tokenów, a po zakończeniu odpowiedzi także rzeczywistą liczbę tokenów promptu. Token to mały kawałek tekstu – modele liczą tokeny zamiast słów. Panel pokazuje też kafelki z użytymi wartościami, takimi jak **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** i **Assistant Prefill**, oraz wartości próbkowania, takie jak **Top P**, **Top K** i **Min P**. Kafelki takie jak **Service Tier** i **Assistant Prefill** oraz wartości próbkowania to zaawansowane ustawienia modelu. Na początek możesz je pominąć. Jeśli pierwszy model zawiódł i odpowiedź napisał twój model zapasowy, panel podaje nazwę modelu, który zawiódł, i krótki powód, na przykład "key rejected" albo "rate limited".
 
-Kliknij akcję **Stored guidance**, aby otworzyć okno ze wskazówką użytą przy tej wiadomości. Przy wiadomości sterowanej okno podpisuje wskazówkę zależnie od jej pochodzenia:
+Resztę okna zajmuje prompt podzielony na zwijane sekcje, każda z własnym zgrubnym oszacowaniem liczby tokenów. Wiadomości czatu są zgrupowane w sekcji **Chat History** (historia czatu). W zapisanym dosłownym zapytaniu usługa mogła połączyć kilka tur czatu w jeden blok, więc rozwiń każdy blok, żeby zobaczyć cały tekst. Kliknij nagłówek sekcji, aby ją otworzyć lub zamknąć.
 
-- **/guided**: użyto komendy slash `/guided`.
-- **Guided regenerate**: wiadomość wygenerowano ponownie z wpisaną wskazówką.
-- **Game start**: wskazówka pochodzi z konfiguracji trybu Game Mode.
+**Exact Text Model Request** to zapytanie w takiej postaci, w jakiej wysłano je po tę odpowiedź. Zostało zapisane przed wszystkim, co uruchomiło się po odpowiedzi, na przykład przed automatycznym podsumowaniem albo ukryciem wiadomości, więc może zawierać wiadomości, których następna odpowiedź nie dostanie. Kliknij **Show current context** (pokazanie bieżącego kontekstu), żeby złożyć prompt z czatu w jego obecnym stanie, bez wysyłania go. Kliknij **Show sent request** (pokazanie wysłanego zapytania), żeby wrócić.
 
-Przycisk **Copy /guided** pokazuje się tylko przy wskazówkach **/guided** i **Guided regenerate**. Kopiuje on wskazówkę z powrotem jako komendę `/guided`. Taką komendę można potem wkleić, żeby powtórzyć to samo sterowanie. Przy wskazówkach **Game start** tego przycisku nie ma.
+### Kopiowanie promptu
 
-Przy wiadomości z wcieleniem okno pokazuje szczegóły wcielenia zamiast jednej wskazówki. Pełny opis generowania sterowanego i wcielania się w postać znajdziesz w przewodniku podlinkowanym niżej.
+Kliknij przycisk kopiowania obok przycisku zamykania. Kopiuje on każdą sekcję i wiadomość jako zwykły tekst, w kolejności wysłania, łącznie z zamkniętymi sekcjami. Każda wiadomość zaczyna się od linii z nazwą jej roli, na przykład `[system]`, `[user]` albo `[assistant]`. Przy zapisanym dosłownym zapytaniu kopiowane jest zapytanie w takiej postaci, w jakiej je wysłano. Kopiowanie niczego nie wysyła.
 
-## Szukanie przyczyn dziwnych odpowiedzi
+### Wyszukiwanie tekstu w prompcie
 
-Funkcja **Peek Prompt** to najlepsze narzędzie do zrozumienia odpowiedzi, której nikt się nie spodziewał. Sięgnij po nią, kiedy postać o czymś zapomina, ignoruje zasadę albo wypada z roli.
+Użyj pola **Find** (znajdź) u góry albo naciśnij <kbd>Ctrl</kbd>+<kbd>F</kbd> (na komputerze Mac <kbd>Cmd</kbd>+<kbd>F</kbd>) wewnątrz okna. Wyszukiwanie nie rozróżnia wielkości liter i obejmuje cały prompt, także zamknięte sekcje i historię czatu. Licznik pokazuje bieżące dopasowanie, na przykład "2 of 5". Między dopasowaniami przechodzisz przyciskami w górę i w dół albo klawiszami <kbd>Enter</kbd> i <kbd>Shift</kbd>+<kbd>Enter</kbd>. Po dotarciu do któregokolwiek końca wyszukiwanie przechodzi na drugi koniec. Gdy pole **Find** zawiera tekst, okno pokazuje pełny tekst wiadomości. Wyczyść pole, żeby wrócić do sekcji.
 
-Otwórz okno **Assembled Prompt** i sprawdź te rzeczy:
+## Sprawdzanie odpowiedzi w panelu Reply checkup
 
-- Poszukaj brakujących informacji. Jeśli wpisu z lorebooka, wspomnienia albo szczegółu persony nie ma w żadnej sekcji, model nigdy tego nie zobaczył.
-- Przejrzyj kafelki z parametrami. Bardzo wysoka wartość **Temperature** potrafi zrobić z odpowiedzi loterię, a niska wartość **Max Output Tokens** ucina je w połowie.
-- Rozwiń sekcję **Chat History**. Sprawdź, czy są tam wszystkie oczekiwane wiadomości i czy stoją we właściwej kolejności.
-- Po odpowiedzi odczytaj rzeczywistą liczbę tokenów. Bardzo duży prompt potrafi wypchnąć starsze wiadomości poza limit modelu.
+Gdy Marinara wykryje prawdopodobną przyczynę słabej odpowiedzi, okno pokazuje nad promptem panel **Reply checkup** (sprawdzenie odpowiedzi). Panel może zgłosić:
 
-Kiedy już wiadomo, co model właściwie dostał, można zabrać się za przyczynę. Czasem trzeba poprawić kartę postaci, czasem wpis w lorebooku, a czasem zmienić wartość w parametrach generowania.
+- Karta postaci jest duża i zajmuje sporą część budżetu promptu (**Large character card**).
+- Odpowiedź dotarła do limitu tokenów i urwała się w pół zdania (**Cut off**).
+- Model nie odesłał żadnego widocznego tekstu (**Empty reply**).
+- Starsze wiadomości nie zostały wysłane, bo prompt by się nie zmieścił (**N older messages not sent**).
+- Wpisy lorebooka pasowały, ale nie zmieściły się w budżecie (**N lorebook entries left out**).
+- Limit odpowiedzi obniżono, żeby zrobić miejsce na prompt (**Reply limit cut**).
+
+Tam, gdzie to pomaga, łącze przenosi do ustawienia, które trzeba zmienić, na przykład **Max output tokens** (maksymalna liczba tokenów wyjściowych) albo **Lorebook token budget** (budżet tokenów lorebooka).
+
+## Szukanie przyczyn nieoczekiwanej odpowiedzi
+
+Otwórz okno **Assembled Prompt** i sprawdź:
+
+- **Brakujące informacje.** Jeśli wpisu z lorebooka, wspomnienia albo szczegółu persony nie ma w żadnej sekcji, model nigdy go nie zobaczył.
+- **Kafelki z parametrami.** Wysoka wartość **Temperature** może sprawić, że odpowiedzi będą przypadkowe, a niska wartość **Max Output Tokens** może je ucinać.
+- **Chat History.** Sprawdź, czy są tam oczekiwane wiadomości i czy stoją we właściwej kolejności.
+- **Liczba tokenów.** Duży prompt może wypchnąć starsze wiadomości poza limit modelu.
+
+Potem usuń przyczynę: popraw kartę postaci, dostosuj wpis lorebooka albo zmień ustawienie generowania. Zobacz [Parametry generowania](../prompts/generation-parameters.md).
+
+Aby przeczytać wskazówkę, która pokierowała odpowiedzią, użyj przycisku **Stored guidance** (zapisana wskazówka) na wiadomości. Zobacz [Sterowane generowanie i Impersonate](guided-and-impersonate.md#read-stored-guidance).
 
 <a id="testing-decision-statements"></a>
 
 ## Testowanie stwierdzeń decyzyjnych
 
-Otwórz **Decision diagnostics** (diagnostyka decyzji) w Peek Prompt, aby sprawdzić stwierdzenia promptu i decyzje lorebooków w bieżącym czacie. Otwarcie panelu lub wybranie **Preview inputs** (podgląd danych wejściowych) przygotowuje treść żądań bez pytania modelu decyzyjnego ani uruchamiania modelu lokalnego. Rozwiń **Prepared request bodies** (przygotowane treści żądań), aby zobaczyć ostatnie wiadomości, rozwinięte stwierdzenia, opcje i format żądania właściwy dla modelu. Kolejne stwierdzenia lorebooków mogą stać się osiągalne dopiero po odpowiedzi na wcześniejszą decyzję.
+[Model decyzyjny](../connections/decision-models.md) odpowiada na pytania typu tak/nie dla funkcji takich jak lorebooki. Panel **Decision diagnostics** (diagnostyka decyzji) w oknie Peek Prompt pozwala przejrzeć i przetestować te pytania dla bieżącego czatu.
 
-Wybierz **Test decisions** (testuj decyzje), aby wysłać kwalifikujące się pytania do wybranego modelu decyzyjnego. To rzeczywiste żądania decyzyjne, więc model hostowany może naliczyć opłaty. Test nie generuje odpowiedzi czatu, nie uruchamia agentów, nie zmienia stanu gry ani nie zapisuje w czacie swoich odpowiedzi i liczników czasu.
+1. Otwórz Peek Prompt i znajdź **Decision diagnostics**.
+2. Otwarcie panelu albo kliknięcie **Preview inputs** (podgląd danych wejściowych) przygotowuje treści żądań bez pytania żadnego modelu. Rozwiń **Prepared request bodies** (przygotowane treści żądań), aby zobaczyć ostatnie wiadomości, rozwinięte stwierdzenia, opcje i format żądania.
+3. Kliknij **Test decisions** (testuj decyzje), aby zadać kwalifikujące się pytania twojemu modelowi decyzyjnemu.
 
-Jawnie uruchomiony test może czekać na lokalny model rozumujący, nawet gdy zwykłe decyzje przed odpowiedzią są odraczane. Nie zmienia to ustawienia dla bieżących odpowiedzi; podgląd danych wejściowych nadal nie wysyła żądań do modelu.
+**Test decisions** wysyła prawdziwe żądania, więc model hostowany może naliczyć za nie opłaty. Test nie pisze odpowiedzi czatu, nie uruchamia agentów, nie zmienia stanu gry ani nie zapisuje w czacie swoich odpowiedzi i liczników czasu. Późniejsze stwierdzenia lorebooków mogą stać się osiągalne dopiero po odpowiedzi na wcześniejsze. Jawnie uruchomiony test może czekać na lokalny model rozumujący, nawet gdy zwykłe decyzje przed odpowiedzią są odraczane. Nie zmienia to twojego ustawienia dla bieżących odpowiedzi.
 
-Każdy wynik pokazuje ocenę, jeśli jest dostępna, próg użyty dla stwierdzenia tak/nie oraz wynikającą z niego odpowiedź. Model zwracający tylko słowo tak/nie jest odpowiednio oznaczony; jego odpowiedź nie jest przedstawiana jako prawdopodobieństwo. Wyniki Choice pokazują wybraną opcję. Decyzje podtrzymane, odroczone, ponad limitem, niedostępne i nieudane mają osobne wyjaśnienia, aby brak odpowiedzi nie wyglądał jak niska ocena.
+Każdy wynik pokazuje ocenę, jeśli jest dostępna, próg dla stwierdzenia typu tak/nie oraz odpowiedź. Model, który zwraca tylko "yes" albo "no", jest tak oznaczony, a jego odpowiedź nie jest pokazywana jako prawdopodobieństwo. Wyniki typu Choice pokazują wybraną opcję. Decyzje podtrzymane, odroczone, ponad limitem, niedostępne i nieudane mają osobne wyjaśnienia.
 
-Po teście prompt poniżej używa jego odpowiedzi. **Show original prompt** (pokaż oryginalny prompt) przywraca pierwotnie otwartą treść, a **Show tested prompt** (pokaż testowany prompt) wraca do testu. **Requests sent and results** (wysłane żądania i wyniki) pokazuje rzeczywiste treści żądań decyzyjnych oraz otrzymane wyniki, bez nagłówków uwierzytelniania.
+Po teście prompt poniżej korzysta z odpowiedzi testu. Kliknij **Show original prompt** (pokaż oryginalny prompt), żeby wrócić do tego, co otwarto, albo **Show tested prompt** (pokaż testowany prompt), żeby przełączyć się z powrotem. **Requests sent and results** (wysłane żądania i wyniki) pokazuje rzeczywiste treści żądań i wyniki, bez nagłówków uwierzytelniania.
 
-Testy używają bieżącego czatu i aktualnych ustawień, nawet gdy Peek Prompt otwarto ze starszej odpowiedzi. Nie odtwarzają pierwotnych żądań decyzyjnych. Obejmują stwierdzenia promptu i decyzje lorebooków; nie uruchamiają aktywacji agentów ani decyzji po odpowiedzi. Zwykły Peek Prompt pozostaje pasywny, dopóki nie wybierzesz jawnie **Test decisions**.
+Jeśli to nie zadziałało: przy komunikacie **Could not prepare the decision test. Check the chat connection and try again.** sprawdź, czy czat ma działający model, i spróbuj ponownie.
 
-Gdy **Use Decision model** (używaj modelu decyzyjnego) jest włączone dla Advanced Memory, panel pokazuje też **Advanced Memory activity** (aktywność Advanced Memory). Zapisane raporty wskazują ostatnie przywołanie pamięci i sprawdzenie końca sceny wraz z modelem, czasem, ocenami, wyborem oraz stanem mechanizmu zastępczego. Mogą się pojawić także bez stwierdzeń decyzyjnych w prompcie. Opisują rzeczywiste wcześniejsze wywołania, a nie bieżący podgląd czy powtórzenie wybranej historycznej odpowiedzi. Zgodne swipe'y mogą ponownie użyć wcześniejszego raportu przywołania. Każdy raport zapisuje do 128 wyników, najpierw wybrane; pominięte wyniki są zliczane. Nowe raporty pojawiają się po następnym kwalifikującym się wywołaniu modelu decyzyjnego, a ich przeglądanie nie wysyła żądań do modelu.
+Testy korzystają z bieżącego czatu i ustawień, nawet gdy Peek Prompt otwarto ze starszej odpowiedzi. Nie odtwarzają pierwotnych żądań decyzyjnych. Obejmują stwierdzenia promptu i decyzje lorebooków, ale nie aktywację agentów ani decyzje po odpowiedzi.
 
-## Powiązane przewodniki
-
-- [Parametry generowania](../prompts/generation-parameters.md)
-- [Edytor presetów i menedżer promptów](../prompts/presets.md)
-- [Modele decyzyjne](../connections/decision-models.md)
-- [Sterowane generowanie i Impersonate](guided-and-impersonate.md)
-- [Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie](messages.md)
+Gdy dla funkcji Advanced Memory (pamięci długoterminowej aplikacji Marinara Engine, zobacz [Memory Recall i podsumowania czatu](../agents/memory.md)) włączone jest **Use Decision model** (używaj modelu decyzyjnego), panel pokazuje też **Advanced Memory activity** (aktywność Advanced Memory). Te zapisane raporty pokazują ostatnie przywołanie i sprawdzenie końca sceny wraz z modelem, czasem, ocenami, wyborami i stanem mechanizmu zastępczego. Opisują wcześniejsze wywołania, a nie bieżący podgląd, i mogą się pojawić nawet wtedy, gdy prompt nie ma stwierdzeń decyzyjnych. Zgodne swipe'y mogą ponownie użyć wcześniejszego raportu przywołania. Każdy raport zachowuje do 128 wyników, najpierw wybrane, a resztę zlicza. Nowe raporty pojawiają się po następnym kwalifikującym się wywołaniu modelu decyzyjnego. Ich przeglądanie nie wysyła żądań do modelu.

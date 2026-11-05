@@ -1,25 +1,26 @@
 # Configuração de workflows do ComfyUI
 
-Marinara Engine envia pedidos de geração de imagens e de vídeos para um servidor ComfyUI local, e pedidos de imagem para um endpoint RunPod Serverless que roda ComfyUI. Uma conexão de imagem local pode usar o workflow básico embutido no Marinara, enquanto as conexões de vídeo e as configurações avançadas de imagem usam um workflow personalizado em formato de API.
+Marinara Engine pode enviar pedidos de imagem e de vídeo para um servidor ComfyUI local, e pedidos de imagem para um endpoint RunPod Serverless que roda ComfyUI. Um modelo de imagem local pode usar o workflow básico embutido no Marinara. As configurações de vídeo e as configurações avançadas de imagem usam um workflow seu em formato de API, que é um workflow exportado do ComfyUI como JSON.
 
-O JSON do workflow colado no Marinara é uma fotografia daquele momento. Marinara não mantém um vínculo ativo com o workflow aberto no ComfyUI. Sempre que você mudar o workflow no ComfyUI, teste de novo, exporte de novo e substitua o JSON salvo na conexão do Marinara.
+O JSON que você cola no Marinara é um instantâneo. Marinara não mantém nenhum vínculo ativo com o workflow aberto no ComfyUI. Quando você mudar o workflow no ComfyUI, teste-o, exporte-o de novo e substitua o JSON salvo no Marinara.
 
 ## Antes de começar
 
 Instale o ComfyUI, adicione os checkpoints e os nós personalizados que o workflow precisa e inicie o servidor dele. O endereço local mais comum é `http://127.0.0.1:8188`.
 
-Se o ComfyUI roda em outro computador da sua rede doméstica, o servidor dele precisa escutar em um endereço que Marinara consiga alcançar. As conexões de imagem também exigem `IMAGE_LOCAL_URLS_ENABLED=true` no arquivo `.env` do Marinara; veja a [Referência de configuração do servidor](../CONFIGURATION.md). Se a conexão continuar falhando, confira o firewall do outro computador.
+Se o ComfyUI roda em outro computador da sua rede doméstica, o servidor dele precisa escutar em um endereço que Marinara consiga alcançar. As contas de imagem também exigem `IMAGE_LOCAL_URLS_ENABLED=true` no arquivo `.env` do Marinara; veja a [Referência de configuração do servidor](../CONFIGURATION.md). Se a conexão continuar falhando, confira o firewall do outro computador.
 
-Um modelo de linguagem local e um modelo de imagem podem não caber juntos na memória da GPU, ainda mais em uma placa de 8 GB. A fila de imagens do Marinara impede que vários trabalhos de imagem rodem ao mesmo tempo, mas ela não faz dois modelos carregados caberem na mesma VRAM. Se a memória acabar, use um modelo de linguagem na nuvem ou hospedado à parte, rode o ComfyUI em outro dispositivo ou tire um modelo da memória antes de usar o outro.
+Um modelo de linguagem local e um modelo de imagem podem não caber juntos na memória da GPU, ainda mais em uma placa de 8 GB. A fila de imagens do Marinara impede que trabalhos de imagem rodem juntos, mas ela não faz dois modelos carregados caberem na mesma VRAM. Se a memória acabar, use um modelo de linguagem na nuvem, rode o ComfyUI em outro dispositivo ou tire um modelo da memória antes de usar o outro.
 
 ## Crie a conexão no Marinara
 
-1. Abra a seção **Connections** (Conexões) e crie uma conexão de **Image Generation** (geração de imagens).
-2. Escolha **ComfyUI** para um servidor local ou **RunPod Serverless (ComfyUI)** para um endpoint do RunPod.
-3. No caso do ComfyUI local, informe a Base URL. Nenhuma chave de API é necessária. Se o campo **ComfyUI Workflow** (workflow do ComfyUI) estiver vazio, Marinara usa um workflow básico embutido de texto para imagem.
-4. No caso do RunPod, informe a chave de API e o Endpoint ID. Aqui um workflow personalizado é obrigatório.
-5. Ajuste a seção **Local Image Defaults** (padrões de imagem local). Esses valores substituem os marcadores correspondentes dentro do workflow.
-6. Salve a conexão e use o botão **Test Image** (testar imagem) depois de adicionar o workflow.
+1. Clique em **Connections** (Conexões) e depois em **Add** (adicionar). Na janela **Add account** (adicionar conta), escolha **ComfyUI** para um servidor local ou **RunPod Serverless (ComfyUI)** para um endpoint do RunPod, em **Images & video** (imagens e vídeo).
+2. No caso do ComfyUI local, informe o endereço dele (`http://127.0.0.1:8188`). Nenhuma chave de API é necessária. Com o campo **ComfyUI workflow (optional)** (workflow do ComfyUI, opcional) vazio, Marinara usa um workflow básico embutido de texto para imagem.
+3. No caso do RunPod, informe a sua chave de API e o **RunPod endpoint ID** (ID do endpoint do RunPod). Um workflow personalizado é obrigatório.
+4. Ajuste **Local image defaults** (padrões de imagem local) no modelo de imagem. Esses valores substituem os marcadores correspondentes no seu workflow.
+5. Cole o workflow, salve e clique em **Test image** (testar imagem).
+
+Se não funcionou, veja [Solução de problemas](#troubleshooting).
 
 ## Monte e exporte um workflow
 
@@ -37,9 +38,9 @@ Um workflow em formato de API é diferente do workflow normal do editor visual. 
 
 ## Workflows de vídeo do ComfyUI
 
-Crie uma conexão de **Video Generation** (geração de vídeos), escolha **ComfyUI** e cole um workflow em formato de API no campo obrigatório **ComfyUI Workflow**. WAN 2.2 e outros grafos de vídeo locais têm suporte, desde que o mesmo workflow rode no ComfyUI e salve um MP4 por uma saída como o nó **SaveVideo** do núcleo.
+Adicione uma conta **ComfyUI** em **Images & video** e abra o modelo de vídeo dela. Cole um workflow em formato de API no campo obrigatório **ComfyUI workflow (optional)**. WAN 2.2 e outros grafos de vídeo locais têm suporte, desde que o mesmo workflow rode no ComfyUI e salve um MP4 por uma saída como o nó **SaveVideo** do núcleo.
 
-Os workflows de vídeo aceitam estes marcadores entre aspas:
+Os workflows de vídeo podem usar estes marcadores, mantidos entre aspas:
 
 | Marcador                 | Valor fornecido por Marinara                                        |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -52,7 +53,7 @@ Os workflows de vídeo aceitam estes marcadores entre aspas:
 
 Marinara coloca o workflow na fila pelo `/prompt`, consulta o `/history` e baixa o MP4 indicado em uma saída `gifs` ou `images`. As ações de imagem para vídeo fornecem `%reference_image_name%`; os testes de conexão só com texto não fornecem, então deixe essa entrada opcional quando o mesmo workflow precisar atender aos dois casos.
 
-Renderizações locais do WAN podem passar de 30 minutos em GPUs intermediárias. Os trabalhos de vídeo do ComfyUI usam `VIDEO_GEN_TIMEOUT_MS`, e não o `COMFYUI_GEN_TIMEOUT`, que vale só para imagens; aumente o tempo limite de vídeo e reinicie Marinara se um workflow válido estiver sendo cortado antes da hora.
+Renderizações locais do WAN podem passar de 30 minutos em GPUs intermediárias. Os trabalhos de vídeo do ComfyUI usam `VIDEO_GEN_TIMEOUT_MS`, e não o `COMFYUI_GEN_TIMEOUT`, que vale só para imagens. Se um workflow válido for cortado antes da hora, aumente o tempo limite de vídeo e reinicie Marinara.
 
 ## Adicione os marcadores do Marinara
 
@@ -60,7 +61,7 @@ Troque pelos marcadores abaixo os valores que Marinara deve controlar.
 
 Em uma conexão de **ComfyUI local**, mantenha todos os marcadores dentro das aspas do JSON. Marinara primeiro interpreta o workflow e depois converte em número de verdade um marcador exatamente numérico, como `"%width%"`. Assim ele continua válido para os nós que exigem entrada numérica.
 
-Em uma conexão de **RunPod Serverless (ComfyUI)**, mantenha entre aspas os marcadores de texto, como `"%prompt%"`, `"%model%"` e `"%sampler%"`, mas deixe sem aspas os marcadores numéricos, como `%width%`, `%height%`, `%seed%`, `%steps%`, `%cfg%`, `%denoise%` e `%clip_skip%`. No RunPod a substituição acontece antes que o Marinara interprete o workflow, então o número inserido deixa o JSON enviado válido. O editor de conexões pode marcar esse modelo temporariamente como JSON inválido, já que o token sem aspas só é substituído na hora da geração; esse aviso não impede que a conexão seja salva.
+Em uma conexão de **RunPod Serverless (ComfyUI)**, mantenha entre aspas os marcadores de texto, como `"%prompt%"`, `"%model%"` e `"%sampler%"`, mas deixe sem aspas os marcadores numéricos, como `%width%`, `%height%`, `%seed%`, `%steps%`, `%cfg%`, `%denoise%` e `%clip_skip%`. No RunPod a substituição acontece antes que Marinara interprete o workflow, então o número inserido deixa o JSON enviado válido. O editor de conexões pode marcar esse modelo temporariamente como JSON inválido, já que o token sem aspas só é substituído na hora da geração; esse aviso não impede que ele seja salvo.
 
 As partes relevantes de um workflow de API **local** básico podem ficar assim:
 
@@ -116,7 +117,7 @@ Isto é só um fragmento: mantenha as ligações entre nós e as demais entradas
 | `%denoise%`           | A força do denoise. `%denoising_strength%` também é aceito.                                 |
 | `%clip_skip%`         | O valor de Clip Skip para um nó compatível.                                                 |
 
-Depois de editar, salve o JSON, copie o arquivo inteiro, cole no campo **ComfyUI Workflow** da conexão de imagem, salve a conexão e clique em **Test Image**.
+Depois de editar, salve o JSON, copie o arquivo inteiro, cole no campo **ComfyUI workflow (optional)** do modelo de imagem, salve e clique em **Test image**.
 
 ## Use imagens de referência
 
@@ -140,7 +141,7 @@ Em um nó **LoadImage** padrão do ComfyUI, use um marcador de nome de arquivo:
 
 Marinara faz upload da referência para a pasta de entrada do ComfyUI e troca o marcador pelo nome de arquivo devolvido pelo ComfyUI. O `%reference_image_name%` indica a primeira imagem. Workflows com várias entradas de referência podem usar de `%reference_image_name_01%` até `%reference_image_name_04%`.
 
-Se o workflow sempre exigir uma entrada de imagem, ative a opção **Upload a 1x1 placeholder when no reference image is provided** na seção **Local Image Defaults**. Marinara passa a enviar uma imagem minúscula de preenchimento quando o pedido não tem uma referência de verdade.
+Se o workflow sempre exigir uma entrada de imagem, ative a opção de upload de uma imagem de preenchimento 1x1 em **Local image defaults**. Marinara passa a enviar uma imagem minúscula de preenchimento quando o pedido não tem uma referência de verdade.
 
 ### Dados de imagem em base64 puro
 
@@ -150,9 +151,11 @@ Os workflows do RunPod aceitam os marcadores de base64 puro. Já os marcadores d
 
 ## Mantenha workflows por personagem
 
-Você pode criar um workflow exportado e uma conexão de imagem no Marinara para cada personagem que precise de um checkpoint específico, de uma pilha de LoRAs, de uma configuração de ControlNet ou de um arranjo próprio de imagens de referência. Depois é só selecionar a conexão de imagem certa onde aquele personagem ou recurso de imagem permitir escolher.
+Você pode criar um workflow exportado e uma conexão de imagem no Marinara para cada personagem que precise de um checkpoint específico, de uma pilha de LoRAs, de uma configuração de ControlNet ou de um arranjo próprio de imagens de referência. Selecione o modelo de imagem correspondente onde quer que aquele personagem ou recurso de imagem permita escolher um.
 
-O resultado costuma ser mais consistente do que com um workflow genérico único, mas cada conexão continua guardando a própria cópia do JSON. Depois de mudar no ComfyUI o workflow de um personagem, repita para aquela conexão os passos de exportar, editar, copiar e colar.
+Isso pode dar resultados mais consistentes do que um workflow genérico único, mas cada modelo continua guardando a própria cópia do JSON. Depois de mudar no ComfyUI o workflow de um personagem, repita para aquela conexão os passos de exportar, editar, copiar e colar.
+
+<a id="troubleshooting"></a>
 
 ## Solução de problemas
 

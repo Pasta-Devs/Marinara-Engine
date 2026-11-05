@@ -1,88 +1,85 @@
 # Orçamento de tokens e recursão em lorebooks
 
-Este guia explica como Marinara Engine limita a quantidade de texto de lorebook que chega à IA. Aqui você vê o campo **Token Budget** (orçamento de tokens) e o campo **Entry Limit** (limite de entradas) de cada lorebook, além do campo **Lorebook Token Budget**, que vale para o chat inteiro. O guia também mostra como Marinara corta entradas quando o orçamento acaba e o que faz a varredura **Recursive** (recursiva).
+Os orçamentos limitam quanto texto de lorebook chega à IA, para que os lorebooks não espremam o chat. Este guia cobre o **Token Budget** (orçamento de tokens) e o **Entry Limit** (limite de entradas) de cada lorebook e o **Lorebook Token Budget** do chat. Também mostra como Marinara corta as entradas e como funciona a varredura **Recursive** (recursiva).
 
-Um token é um pedacinho de texto, mais ou menos alguns caracteres. Todo modelo tem uma janela de contexto limitada, ou seja, um total máximo de texto que ele consegue ler de uma vez. O orçamento evita que os lorebooks ocupem essa janela toda e espremam a conversa de verdade.
+Tokens são pedacinhos de texto que os modelos contam. A janela de contexto de um modelo é quanto texto ele consegue ler de uma vez, contado em tokens. O texto dos lorebooks divide essa janela com o resto do prompt.
 
 ## Dois orçamentos de tokens
 
-Marinara aplica dois orçamentos de tokens separados sempre que monta um prompt. Se uma entrada estourar qualquer um dos dois, Marinara pula essa entrada.
+Marinara aplica dois orçamentos sempre que monta um prompt. Uma entrada é pulada se fizer qualquer um deles passar do limite.
 
-1. Cada lorebook tem o próprio campo **Token Budget**. Ele limita quanto texto aquele lorebook pode acrescentar por resposta.
-2. O chat tem um único campo **Lorebook Token Budget**. Ele limita o texto somado de todos os lorebooks ativos naquele chat.
-
-Os dois limites valem ao mesmo tempo. Uma entrada pode ser barrada pelo orçamento do lorebook, pelo orçamento do chat ou pelos dois.
+- Cada lorebook tem o próprio **Token Budget**: o máximo de tokens que aquele lorebook pode acrescentar a uma resposta.
+- Cada chat tem um único **Lorebook Token Budget**: o máximo de tokens que todos os lorebooks ativos podem acrescentar juntos.
 
 ## Definir o Token Budget e o Entry Limit de um lorebook
 
-Abra um lorebook pelo painel **Lorebooks** e vá até a aba **Overview** (visão geral). Perto das configurações de varredura ficam dois campos numéricos.
+1. Abra um lorebook pelo painel **Lorebooks**.
+2. Clique na aba **Overview** (visão geral).
+3. Defina **Token Budget** e **Entry Limit**.
 
-- **Token Budget** (padrão **2048**): o máximo de tokens que este lorebook pode acrescentar em uma resposta. Use **0** para não ter limite.
-- **Entry Limit** (padrão **100**): o máximo de entradas que este lorebook pode acrescentar em uma resposta. O valor vai de **1** a **1000**.
+| Configuração | Padrão | O que faz |
+| --- | --- | --- |
+| **Token Budget** | 2048 | O máximo de tokens que este lorebook acrescenta em uma resposta. 0 significa sem limite. |
+| **Entry Limit** | 100 | O máximo de entradas que este lorebook acrescenta em uma resposta. Vai de 1 a 1000. |
 
-O campo **Entry Limit** é um limite à parte do orçamento de tokens. Ele conta entradas, não tokens. Mesmo com espaço no orçamento de tokens, o lorebook para de acrescentar entradas ao chegar nesse limite. E o orçamento de tokens continua podendo pular entradas mesmo que o lorebook ainda esteja abaixo do **Entry Limit**.
+O **Entry Limit** conta entradas, não tokens. Um lorebook para de acrescentar entradas quando chega a qualquer um dos dois limites.
 
-Veja um exemplo: um lorebook com **Token Budget** de **2048** e uma entrada de 3000 tokens. Esse lorebook nunca consegue acrescentar a entrada. Diminua o orçamento só quando um lorebook estiver ocupando espaço demais. Aumente quando entradas importantes forem puladas com frequência.
+Por exemplo, com um **Token Budget** de 2048, uma única entrada de 3000 tokens nunca consegue entrar. Diminua um orçamento se um lorebook ocupar espaço demais. Aumente-o se entradas importantes continuarem sendo puladas.
 
-## O Lorebook Token Budget do chat inteiro
-
-O limite do chat fica no painel lateral **Settings** (Configurações) do chat, na seção **Lorebooks**.
+## Definir o Lorebook Token Budget do chat
 
 1. Abra um chat.
-2. Abra o painel lateral **Settings** do chat.
-3. Localize a seção **Lorebooks**.
-4. Preencha o campo **Lorebook Token Budget**.
+2. Abra **Chat Settings** (configurações do chat).
+3. Localize a seção **Lorebooks** e defina **Lorebook Token Budget**.
 
-O padrão é **8192**. Use **0** para não ter limite. Esse orçamento é o total para todos os lorebooks ativos neste chat. Ele vale além do campo **Token Budget** de cada lorebook.
+O padrão é 8192, e 0 significa sem limite. É o total para todos os lorebooks ativos neste chat, além do **Token Budget** próprio de cada lorebook.
 
 ## Como as entradas são cortadas
 
-Quando o número de entradas correspondentes passa do que o orçamento permite, Marinara mantém as mais importantes e descarta o resto. Antes de cortar, Marinara ordena as entradas para que as mais prováveis de serem úteis sobrevivam.
+Quando há mais entradas correspondentes do que um orçamento permite, Marinara acrescenta as entradas nesta ordem.
 
-- As entradas **Constant** (constantes) vêm primeiro. São as entradas configuradas para entrar sempre que o lorebook estiver ativo.
-- Depois vêm as entradas que corresponderam à mensagem mais recente.
-- As demais seguem na ordem normal de inserção.
+1. As entradas **Constant** (constantes).
+2. As entradas que corresponderam às mensagens mais recentes.
+3. As demais, na ordem de inserção delas (o campo **Order** da entrada).
 
-Marinara percorre essa lista e acrescenta cada entrada que ainda couber. Se uma entrada estourar um orçamento, Marinara pula essa entrada e segue em frente. Mesmo assim, todas as entradas abaixo da pulada continuam sendo verificadas. Ou seja, uma entrada menor ainda pode entrar depois que Marinara pulou uma maior.
+Marinara acrescenta cada entrada que ainda couber. Quando uma não cabe, Marinara pula essa entrada e continua verificando as demais. Assim, uma entrada menor ainda pode entrar depois que uma maior foi pulada.
 
 <a id="seeing-skipped-entries-in-active-context"></a>
 
 ## Ver as entradas puladas no Active Context
 
-Não é preciso adivinhar quais entradas ficaram de fora. Abra **Chat Settings** e expanda **Active Context** (contexto ativo). A seção mostra o resultado ao vivo da varredura de lorebooks mais recente.
+1. Abra **Chat Settings**.
+2. Expanda **Active Context** (contexto ativo). A seção mostra a varredura de lorebooks mais recente.
 
-Quando alguma entrada correspondente é pulada, um aviso na cor de destaque do seu tema aparece no topo. Ele diz "N matching lore entries were skipped by token budget." Logo abaixo, o aviso indica cada orçamento que pulou entradas e onde alterá-lo. Expanda o aviso para ver cada entrada pulada.
+Se entradas correspondentes foram puladas, um aviso no topo diz "N matching lore entries were skipped by token budget." Ele indica cada orçamento que pulou entradas e onde alterá-lo. Expanda o aviso para ver cada entrada pulada, o lorebook dela, as palavras-chave correspondentes, o tamanho estimado e quanto do orçamento já tinha sido usado. O motivo é um destes.
 
-Cada entrada pulada informa de qual lorebook veio e por que foi barrada. O motivo é um destes:
+| Motivo | Significado |
+| --- | --- |
+| **lorebook budget** | A entrada não coube no **Token Budget** daquele lorebook. |
+| **chat budget** | A entrada não coube no **Lorebook Token Budget** do chat. |
+| **lorebook and chat budgets** | Os dois limites já estavam cheios. |
+| **current-location context cap** | A entrada está vinculada ao local atual do mapa, que tem um limite próprio e fixo de 2.048 tokens. |
 
-- **lorebook budget**: a entrada não coube no campo **Token Budget** daquele lorebook.
-- **chat budget**: a entrada não coube no campo **Lorebook Token Budget** do chat inteiro.
-- **lorebook and chat budgets**: os dois limites já estavam cheios.
-- **current-location context cap**: a entrada é lore vinculada ao local atual, que tem um limite próprio de 2.048 tokens. Nenhuma configuração altera esse limite, mas a entrada ainda pode entrar pelas próprias palavras-chave.
+Uma entrada com texto vazio, ou com um texto que as macros transformam em nada, não aparece na lista. As macros dela continuam rodando; assim, um `{{setvar}}` nela ainda define a variável. Com os dois orçamentos em 0, só o limite do local pode listar entradas puladas.
 
-Uma entrada com texto vazio, ou que as macros transformam em nada, não aparece na lista. Ela não tem nada a acrescentar, então nenhum orçamento a pulou. As macros dela continuam rodando; assim, um `{{setvar}}` nela ainda define a variável. Com os dois orçamentos de tokens em **0**, só o limite do local atual pode listar entradas puladas aqui.
-
-Expanda uma entrada pulada para ver mais detalhes. Ela mostra as palavras-chave correspondentes, o tamanho estimado em tokens e quanto do orçamento já tinha sido usado. Se lorebooks grandes forem pulados com frequência, **Active Context** sugere os agentes **Knowledge Retrieval** ou **Knowledge Router**. Costumam lidar melhor com lorebooks grandes do que aumentar os limites.
+Se lorebooks grandes continuarem sendo pulados, **Active Context** sugere os agentes **Knowledge Retrieval** ou **Knowledge Router**. Veja [Fontes de conhecimento](../agents/knowledge-sources.md). Esses agentes costumam servir melhor para lorebooks grandes do que um limite maior.
 
 ## Varredura recursiva
 
-Normalmente Marinara procura correspondências de palavras-chave só nas mensagens recentes. Com a varredura **Recursive** ativada, Marinara também analisa o texto das entradas que acabaram de ser ativadas. Assim, uma entrada ativada consegue puxar entradas relacionadas cujas palavras-chave aparecem no texto dela.
+Normalmente Marinara procura as chaves só nas suas mensagens recentes. Com **Recursive** ativado, Marinara também analisa o texto das entradas que acabaram de ser ativadas. Assim, uma entrada consegue puxar entradas relacionadas.
 
-Ative a opção na aba **Overview** do lorebook.
+1. Abra o lorebook e clique em **Overview**.
+2. Ative **Recursive**. Ele vem desativado por padrão.
+3. Defina **Max Depth** (profundidade máxima) se quiser mudar até onde vai o encadeamento.
 
-1. Abra o lorebook.
-2. Abra a aba **Overview**.
-3. Ative o botão liga/desliga **Recursive**. Ele vem desativado por padrão.
-4. Ajuste o campo **Max Depth** se quiser mudar até onde vai o encadeamento.
+**Max Depth** é o número de passagens extras de varredura. O padrão é 3, e o valor vai de 1 a 10. Valores maiores encontram mais lore conectada e usam mais processamento.
 
-O campo **Max Depth** (padrão **3**) define quantas varreduras extras acontecem. Cada passagem procura novas correspondências de palavras-chave nas entradas recém-ativadas. O valor vai de **1** a **10**. Valores maiores encontram mais lore conectada, mas exigem mais processamento.
+Cada entrada também tem o próprio botão liga/desliga **Recursion** (recursão), desativado por padrão, que define se o conteúdo daquela entrada pode acionar outras entradas. Deixe-o desativado, a menos que a entrada deva se encadear. Veja [Entradas de lorebook: chaves, posição e momento de acionar](entries.md).
 
-A recursão também precisa ser ativada entrada por entrada. No painel lateral expandido de uma entrada, o botão liga/desliga **Recursion** define se o conteúdo daquela entrada pode acionar outras entradas. Ele vem desativado por padrão. Deixe assim, a menos que essa entrada deva se encadear com outra lore. Veja [Entradas de lorebook: chaves, posição e momento](entries.md) para conhecer todos os controles de entrada.
-
-A recursão não escapa dos orçamentos. As entradas encontradas em uma passagem recursiva também contam no **Token Budget**, no **Entry Limit** e no **Lorebook Token Budget** do chat inteiro, como qualquer outra entrada.
+A recursão não escapa dos orçamentos. As entradas encontradas em uma passagem recursiva contam no **Token Budget**, no **Entry Limit** e no **Lorebook Token Budget** do chat.
 
 ## Guias relacionados
 
-- [Entradas de lorebook: chaves, posição e momento](entries.md)
+- [Entradas de lorebook: chaves, posição e momento de acionar](entries.md)
 - [Visão geral dos lorebooks](overview.md)
 - [Fontes de conhecimento: agentes Retrieval e Router](../agents/knowledge-sources.md)

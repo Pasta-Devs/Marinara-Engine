@@ -1,227 +1,144 @@
 # Perguntas frequentes
 
-Aqui estão as respostas para as dúvidas mais comuns sobre Marinara Engine, organizadas por assunto. Cada resposta traz o link do guia completo, caso você queira se aprofundar.
+Respostas curtas para as dúvidas mais comuns sobre Marinara Engine. Cada uma traz o link do guia com o passo a passo completo.
+
+<a id="how-do-i-access-marinara-engine-from-my-phone-or-another-device"></a>
 
 ## Como acesso Marinara Engine pelo celular ou por outro dispositivo?
 
-Marinara Engine funciona como um servidor local em um computador, e você abre tudo em um navegador. Esta resposta explica como entrar pelo celular, pelo tablet ou por outro computador da mesma rede.
-
-Os scripts de inicialização (`start.sh`, `start.bat` e `start-termux.sh`) já deixam o servidor escutando em todas as interfaces de rede (`0.0.0.0`). Outros dispositivos conseguem alcançar o servidor pela rede, mas o controle de acesso bloqueia essa entrada por padrão. Enquanto você não configurar o acesso no computador anfitrião, o dispositivo remoto só vê uma página **Access blocked** (acesso bloqueado) com instruções de configuração.
-
-Siga estes passos:
+Marinara roda como um servidor em um computador, e você o abre em um navegador. Os scripts de inicialização deixam outros dispositivos alcançarem o servidor, mas o controle de acesso os bloqueia até você definir um login (um nome de usuário e uma senha) no computador anfitrião. Até lá, um dispositivo remoto só vê uma página **Access blocked** (acesso bloqueado).
 
 1. Mantenha Marinara em execução no computador anfitrião.
-2. Defina um login (um nome de usuário e uma senha): em **Settings → Advanced → Access** (Configurações → Avançado → Acesso), em um navegador que já está conectado em qualquer dispositivo (para mudar ou remover o login, você precisa da senha atual), ou no outro dispositivo com o código de configuração de uso único do log do servidor (no Docker: `docker logs <container> 2>&1 | grep "setup code"`). O guia [Acesso remoto](REMOTE_ACCESS.md#option-1-login-recommended) explica o passo a passo.
-3. Descubra o endereço IP local do computador anfitrião. No Windows, execute este comando e veja o campo **IPv4 Address**:
+2. Descubra o endereço IP local do anfitrião. No Windows, execute `ipconfig` e veja **IPv4 Address**. No macOS ou no Linux, execute `hostname -I`.
+3. No outro dispositivo, abra `http://<host IP>:7860` em um navegador, por exemplo `http://192.168.1.42:7860`. `7860` é a porta padrão.
+4. Defina um login. No outro dispositivo, abra Marinara: a página bloqueada tem um formulário **Setup code** (código de configuração). Encontre o código de uso único no log do servidor, no computador anfitrião (no Docker, execute `docker logs <container> 2>&1 | grep "setup code"`), e digite-o com um novo nome de usuário e uma nova senha. Ou, em um navegador que já tem sessão iniciada no anfitrião, abra **Settings → Advanced → Access** (Configurações → Avançado → Acesso).
+5. Entre. Para adicionar mais dispositivos sem digitar a senha, use **Add a device** (adicionar um dispositivo) em **Settings → Advanced → Access**.
 
-```
-ipconfig
-```
-
-No macOS ou no Linux, execute este comando:
-
-```
-hostname -I
-```
-
-4. No outro dispositivo, abra um navegador e digite o IP do anfitrião seguido da porta. A porta padrão é `7860`:
-
-```
-http://192.168.1.42:7860
-```
-
-Troque `192.168.1.42` pelo endereço IP do seu anfitrião.
-
-5. Entre com o seu nome de usuário e a sua senha. Se aparecer a página **Access blocked**, nenhum login está definido ainda: digite o código de configuração do log do servidor e um novo nome de usuário e uma nova senha ali. Para adicionar mais dispositivos sem digitar a senha, use **Add a device** em **Settings → Advanced → Access**.
-
-Nas instalações comuns de desktop, você não precisa de senha no próprio computador (`127.0.0.1`). Um proxy reverso no mesmo computador, inclusive o nginx com a configuração padrão, conta como visitante remoto e precisa do login. As instalações do Android gerenciadas pelo APK adicionam um login privado no localhost para impedir que outro aplicativo Android se passe pelo Marinara, mas o invólucro do Android cria e usa essa credencial automaticamente. Os outros dispositivos ficam bloqueados até você definir um login. Cada opção está explicada em [Acesso remoto](REMOTE_ACCESS.md).
-
-Se os dois dispositivos não estiverem na mesma rede, uma ferramenta como Tailscale ajuda. Tailscale dá a cada dispositivo um endereço privado fixo. Com isso, você se conecta de qualquer lugar sem expor Marinara à internet pública. Se a conexão não funcionar, veja [Solução de problemas do Marinara Engine](TROUBLESHOOTING.md).
+Nas instalações comuns de desktop, o próprio computador (`127.0.0.1`) não precisa de senha. Um proxy reverso no mesmo computador conta como visitante remoto e precisa do login. Para todas as opções, os códigos de configuração e o Docker, veja [Acesso remoto](REMOTE_ACCESS.md#option-1-login-recommended). Para dispositivos em redes diferentes, use o Tailscale: veja [Conectar de qualquer lugar com o Tailscale](REMOTE_ACCESS.md#connect-from-anywhere-with-tailscale). Se você não conseguir se conectar, veja [Solução de problemas](TROUBLESHOOTING.md).
 
 ## Existe um aplicativo de celular para Marinara?
 
-Não existe um aplicativo nativo separado. No celular ou no tablet, você usa o mesmo aplicativo web pelo navegador. A maioria dos navegadores de celular oferece a opção **Add to Home Screen** ou **Install App** (adicionar à tela inicial ou instalar o aplicativo), o que dá a sensação de um aplicativo de verdade, sem a barra do navegador. Isso se chama PWA (Progressive Web App, um site que você instala como se fosse um aplicativo).
+Não existe um aplicativo nativo separado. No celular ou no tablet, use o aplicativo web em um navegador. A maioria dos navegadores oferece **Add to Home Screen** ou **Install App** (adicionar à tela inicial ou instalar o aplicativo), o que salva o aplicativo como um PWA (um site que abre como um aplicativo, sem a barra do navegador).
 
-No Android, também é possível [baixar diretamente o APK mais recente](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Ele executa Marinara localmente no celular pelo Termux. A instalação não exige chave de assinatura, senha nem segredo de acesso local; veja [Instalação no Android](installation/android-termux.md) para os avisos de permissão do Android. No iPhone e no iPad, veja o [Guia do PWA para iOS / iPadOS](installation/ios-pwa.md).
+No Android, também é possível [baixar o APK mais recente](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Ele roda Marinara no celular pelo Termux. Veja [Instalação no Android](installation/android-termux.md). No iPhone e no iPad, veja o [Guia do PWA para iOS](installation/ios-pwa.md).
 
-O aplicativo Android faz login automaticamente no próprio aplicativo ou no navegador. Selecione **Open in browser** (abrir no navegador) no inicializador e toque em **Retry connection** (tentar conectar novamente); use **Install / Start Marinara** quando o servidor estiver parado. Essa escolha fica salva. No aplicativo, **Settings > General > App Behavior > Open Android launcher (app or browser)** (configurações > geral > comportamento do aplicativo > abrir o inicializador Android (aplicativo ou navegador)) leva de volta a essa escolha. Atualize tanto o APK quanto o Engine para abrir o navegador com autenticação automática. APKs antigos continuam oferecendo login manual em `/android-login`. A CLI local `mari` lê automaticamente o segredo gerenciado pelo inicializador, e instalações manuais no Termux mantêm as regras normais de localhost.
+No aplicativo Android, o inicializador oferece **Open in browser** (abrir no navegador), **Retry connection** (tentar conectar novamente) e **Install / Start Marinara**. Para mudar a sua escolha depois, use **Settings → General → App Behavior → Open Android launcher (app or browser)** (Configurações → Geral → Comportamento do aplicativo → Abrir o inicializador Android: aplicativo ou navegador). APKs antigos fazem login manualmente em `/android-login`.
 
 <a id="can-i-play-with-other-people"></a>
 
 ## Posso jogar com outras pessoas?
 
-O multijogador opcional cria uma nova sessão compartilhada de Conversation, Roleplay ou Game sem limite fixo de humanos ou personagens de IA. Cada participante habilita o pré-requisito de ambiente e o ajuste separado de Settings, depois hospeda ou entra explicitamente pelo próprio cliente confiável. Convidados não precisam de chave de IA; o anfitrião controla geração e admissão. Game espera a ação ou o passe explícito de cada jogador necessário antes de resolver a rodada.
-
-Uma senha não torna seguro um anfitrião desconhecido. Salas aceitam apenas texto e isolam a visualização do convidado de arquivos, integrações nativas e APIs locais. O wrapper nativo Android não pode entrar. Leia a [configuração, avisos e limites do multijogador](CONFIGURATION.md#optional-multiplayer) antes de ativá-lo.
+Sim. O multijogador opcional permite que várias pessoas compartilhem um mesmo chat de Conversation, Roleplay ou Game. Cada pessoa ativa a configuração e depois hospeda ou entra. Convidados não precisam de chave de IA. Uma senha não torna seguro um anfitrião desconhecido. Leia a [configuração, os avisos e os limites do multijogador](CONFIGURATION.md#optional-multiplayer) antes de ativá-lo.
 
 ## Quais são os três modos de chat?
 
-Marinara tem três modos de chat, mostrados como abas quando você abre a lista de chats:
+- **Conversation**: um chat no estilo de aplicativo de mensagens com um personagem.
+- **Roleplay**: uma cena de história imersiva, com narração e avatares dos personagens.
+- **Game**: uma aventura de texto conduzida por um game master de IA.
 
-- **Conversation**: um chat no estilo mensagem de texto, como se você trocasse mensagens com um personagem em um aplicativo de mensagens.
-- **Roleplay**: uma cena de história imersiva, com narração, avatares dos personagens e arte opcional dos personagens.
-- **Game Mode**: uma aventura de texto guiada, conduzida por um game master, com imagens e vídeos de cena opcionais.
-
-Cada modo tem o próprio guia de primeiros passos. Comece pelo modo que você quer usar e depois explore os guias detalhados dele.
+Veja [Primeiros passos com Marinara Engine](home/welcome.md#choose-a-chat-mode) para escolher um.
 
 ## Como mudo o fuso horário usado pelas agendas do Conversation Mode?
 
-Abra um chat Conversation e escolha **Schedule timezone** (fuso horário da agenda) em Chat Settings (configurações do chat). A escolha também aparece durante a criação de agendas no fluxo de configuração do Conversation Mode. Marinara começa com o fuso horário informado pelo dispositivo, mas você pode selecionar qualquer fuso IANA compatível ou escolher **Use device** para voltar ao padrão. Essa é uma preferência global para todos os chats Conversation, inclusive para as mensagens autônomas geradas no servidor, e ela sincroniza com os outros dispositivos ligados ao mesmo servidor Marinara.
+Abra um chat Conversation e escolha **Schedule timezone** (fuso horário da agenda) em Chat Settings (configurações do chat). **Use device** (usar o dispositivo) volta para o fuso horário do seu dispositivo. É uma configuração global para todos os chats Conversation, e ela sincroniza com os outros dispositivos do mesmo servidor. Veja [Conversation Mode: primeiros passos](conversation/getting-started.md).
 
 ## Cada chat Conversation tem a própria agenda?
 
-Não. A agenda pertence ao personagem, e todo chat Conversation com esse personagem usa a mesma. Edite-a em **Character Editor -> Convo -> Weekly schedule** (editor de personagens -> Convo -> agenda semanal) ou pelos controles de agenda em Chat Settings; de qualquer jeito, a mudança vale em todos os lugares.
+Não. A agenda pertence ao personagem, então todo chat Conversation com esse personagem a usa. Edite-a em **Character Editor → Convo → Weekly schedule** (editor de personagem → Convo → agenda semanal).
 
-Para receber respostas instantâneas em um chat, abra as Chat Settings dele e desligue **Conversation schedules** (agendas do Conversation). Essa opção é por chat. O personagem continua disponível nesse chat, mantém a agenda, e os seus outros chats não mudam. Uma substituição manual de status ativa ainda tem prioridade e vale nesse chat, inclusive uma substituição como **dnd**.
-
-Os chats existentes que nunca usaram agendas ficam com elas desligadas até você ligá-las. Os chats novos que você começa com um personagem que tem agenda já a usam desde o início.
-
-A substituição manual de status também pertence ao personagem. Se você define um personagem como **online** em um chat, ele fica online em todos os chats. Use **clear** para remover a substituição.
+Para receber respostas instantâneas em um chat, desligue **Conversation schedules** (agendas do Conversation) nas Chat Settings desse chat. Uma substituição manual de status, como **dnd**, continua valendo, e ela pertence ao personagem em todos os chats. Use **clear** para removê-la.
 
 ## Preciso de uma chave de API para usar Marinara?
 
-Quase sempre, sim. Uma **conexão** é uma chave de API, uma conta ou um endpoint de um serviço de IA. Os modelos que você salva ficam agrupados nela. Uma **chave de API** é um código secreto, parecido com uma senha. Você pega esse código com um provedor de IA para que Marinara converse com esse provedor em seu nome.
+Sim, para os serviços de IA online. Uma **chave de API** é um código secreto de um serviço de IA que deixa Marinara usar a sua conta nesse serviço. Você precisa de pelo menos uma conta antes de iniciar um chat. Abra **Connections** (Conexões) e clique em **Add** (adicionar). Escolha um serviço, cole a sua chave e clique em **Connect** (conectar). Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
-É preciso ter pelo menos uma conexão antes de iniciar qualquer chat. Para criar uma, abra o painel **Connections** (conexões) e clique em **Add** (adicionar). Escolha um serviço na janela **Add account** (adicionar conta), cole a chave em **API key** e clique em **Connect** (conectar). Em seguida, a janela abre a seleção de modelo. Escolha um modelo, use a opção **Make ... my Main** (definir como o meu modelo principal) se quiser que ele responda aos novos chats e clique em **Start chatting** (começar a conversar) quando a janela oferecer essa opção. Numa configuração normal de conta, clique em **Done** (concluir) em vez disso. O passo a passo completo está em [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
-
-Alguns poucos provedores não usam chave de API. As opções por assinatura (Claude, ChatGPT e Grok) fazem login por uma ferramenta de linha de comando, e o Local Model embutido roda na sua própria máquina, sem chave nenhuma.
+Algumas opções não precisam de chave. As opções por assinatura (Claude, ChatGPT e Grok) fazem login por uma ferramenta de linha de comando. O **Built-in model** (modelo embutido) roda no seu computador. Veja [Como configurar o Built-in model](connections/local-model.md).
 
 ## Quais provedores de IA são compatíveis?
 
-Marinara é compatível com vários serviços. Você escolhe um serviço por conexão.
-
-Para o texto de chat e de roleplay, as opções são **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** e **Custom (OAI-Compatible)**, esta última para modelos locais ou hospedados por você, como Ollama, LM Studio e KoboldCpp.
-
-Para a geração de imagens, as opções incluem **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** e **Block Entropy**.
-
-Para a geração de vídeos, as opções são **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** e fluxos de trabalho locais no formato de API do **ComfyUI**.
-
-Você pode salvar várias conexões ao mesmo tempo. Um modelo que você escolhe em um chat pelo menu **Connections**, ao lado da caixa de mensagem, muda só aquele chat. Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
+Marinara tem suporte a OpenAI, Anthropic, Google Gemini, OpenRouter e muitos outros serviços de geração de texto, de imagens e de vídeos, além de servidores **OpenAI-compatible** (compatíveis com OpenAI), como Ollama, LM Studio e KoboldCpp. A lista completa está em [Provedores de IA compatíveis](connections/providers-reference.md). Para adicionar um, veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
 ## Preciso pagar para usar Marinara?
 
-Marinara em si é gratuito e roda no seu próprio computador. O que você paga é o valor cobrado pelo provedor de IA escolhido, que muda conforme o provedor e o modelo.
-
-Algumas opções não custam nada para testar. A geração de imagens do **Pollinations** dispensa chave. O **Stable Horde** é gratuito, e a chave é opcional, apenas para ganhar prioridade na fila. O **Local Model** embutido roda na sua máquina sem chave. As opções por assinatura (Claude, ChatGPT e Grok) usam um plano pago que talvez você já tenha, no lugar de uma chave de API cobrada por uso.
+Marinara é gratuito. Você paga o que o seu serviço de IA cobra. Algumas opções não custam nada para testar: as imagens do **Pollinations** dispensam chave, o **Stable Horde** é gratuito e o **Built-in model** roda no seu computador. As opções por assinatura usam um plano pago que talvez você já tenha.
 
 ## Minhas chaves de API estão seguras?
 
-Sim. Marinara criptografa toda chave de API com AES-256 antes de salvá-la no disco. As exportações de conexão e de perfil removem os
-valores secretos. As exportações de chat e de perfil de configurações também deixam de fora a **DeepL API Key** (chave de API do DeepL) e o webhook do **Discord Mirror** de um chat. Um backup completo é diferente: ele contém os registros criptografados e, quando existe, o arquivo da chave de criptografia
-necessário para abri-los. Por isso, mantenha os ZIPs de backup completo em sigilo.
-
-Como a importação de perfil deixa os valores secretos de fora de propósito, você precisa digitar de novo cada chave de API depois de importar um
-perfil, inclusive quando usa o botão **Import Profile** (importar perfil) em um ZIP de backup completo. Já a restauração manual da pasta de dados completa preserva
-as chaves criptografadas, desde que o arquivo da chave de criptografia correspondente também seja restaurado.
+Sim. Toda chave de API é criptografada com AES-256 antes de ser salva. As exportações de conta e de perfil deixam os valores secretos de fora, então digite as suas chaves de novo depois de usar **Import Profile** (importar perfil), inclusive em um ZIP de backup completo. Um ZIP de backup completo contém os registros criptografados e o arquivo de chave que os abre, então mantenha-o em sigilo. Veja [Fazer backup e restaurar](data/backup-and-restore.md).
 
 ## O que é um card de personagem?
 
-Um **card de personagem** é o perfil salvo de um personagem de IA: nome, avatar, personalidade, história de fundo e saudação inicial. Você cria e edita os cards no **Character Editor** (editor de personagens). Também é possível importar cards feitos em outros aplicativos. Veja [Criando e editando personagens](characters/creating-and-editing-characters.md).
+Um card de personagem é o perfil salvo de um personagem de IA: nome, avatar, personalidade, história de fundo e saudação inicial. Você cria cards no **Character Editor** ou os importa de outros aplicativos. Veja [Criando e editando personagens](characters/creating-and-editing-characters.md).
 
 ## O que é um lorebook e como uso um deles com vários personagens?
 
-Um **lorebook** é um conjunto de entradas com informações do seu mundo. Cada entrada acrescenta fatos ao prompt (o texto que Marinara envia para a IA) só quando as palavras-chave dela aparecem no chat. Isso economiza tokens e mantém a lore coerente. Existem três formas de definir o alcance de um lorebook. Escolha a que combina com o seu caso:
+Um lorebook é um conjunto de fatos do mundo. Cada entrada entra no prompt só quando as palavras de acionamento dela aparecem no chat. Você pode:
 
-1. Vincule o lorebook a personagens ou personas. No editor de lorebooks, preencha **Linked Characters** ou **Linked Personas**. Assim, o lorebook é acionado em qualquer chat que tenha um personagem vinculado ou use uma persona vinculada. Os dois campos aceitam mais de uma entrada, então adicione todos os personagens que quiser.
-2. Anexe o lorebook a um chat. Abra **Chat Settings**, encontre a seção **Lorebooks** e use o botão **Add Lorebook**. Faça isso quando a lore pertencer a um chat específico.
-3. Filtre entradas individuais por personagem. Dentro de um lorebook compartilhado, marque cada entrada para ser acionada só quando certos personagens estiverem presentes. Isso funciona bem em um lorebook grande de mundo, no qual algumas entradas são específicas de um personagem.
+1. Preencher **Linked Characters** (personagens vinculados) ou **Linked Personas** (personas vinculadas) no editor de lorebooks. Assim, o lorebook funciona em qualquer chat com eles.
+2. Abrir **Chat Settings → Lorebooks → Add Lorebook** (configurações do chat → lorebooks → adicionar um lorebook) para anexá-lo a um chat.
+3. Limitar entradas individuais a certos personagens.
 
-Para conhecer o recurso inteiro, veja [Visão geral dos lorebooks](lorebooks/overview.md).
+Veja [Lorebooks](lorebooks/overview.md).
 
 ## O que é um agente?
 
-Um **agente** é um ajudante de IA opcional que trabalha durante o chat com uma tarefa bem definida. Alguns exemplos: acompanhar a cena atual, cuidar da qualidade da escrita, acrescentar mapas ou chamadas, ou conduzir um jogo de mesa no Conversation Mode. Uma instalação nova não vem com agentes opcionais. Abra o painel **Agents** (agentes), clique em **Agent Organizer (organizador de agentes)**, leia os detalhes de um item e instale. Depois, ative os agentes compatíveis em cada chat, em **Chat Settings**. Quando um pacote oficial instalado tem uma atualização compatível, Marinara pergunta antes de baixá-la. Ao escolher **No**, a versão atual continua no lugar e o botão **Update** fica disponível em Agent Organizer (organizador de agentes) para depois. Se o servidor estiver fora do ar ou a verificação falhar, a versão instalada continua funcionando. O catálogo também cuida da remoção completa dos pacotes. Veja [Agentes: ajudantes de IA para os seus chats](agents/agents-overview.md) e o [repositório público Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
+Um agente é um ajudante de IA opcional que roda durante um chat para fazer uma tarefa bem definida, como acompanhar a cena ou acrescentar mapas. Instalações novas não vêm com nenhum. Abra **Agents → Agent Organizer** (agentes → Organizador de agentes), escolha um e instale. Depois, ative-o em cada chat, em **Chat Settings**. Veja [Agentes](agents/agents-overview.md).
 
 ## Como configuro Noodle?
 
-Noodle é a rede social fictícia e local do Marinara para os seus personagens. Primeiro abra **Agents** → **Agent Organizer** (organizador de agentes) e instale o **Noodle**; depois reinicie Marinara quando o aplicativo pedir. Abra **Home** → **Noodle** e entre em **Settings** (configurações). Convide personagens ou pastas de personagens, escolha uma conexão de geração em **Refresh** e selecione **Refresh now** para gerar a primeira atividade. Também é possível definir horários de atualização automática, geração de imagens, usuários aleatórios e o aproveitamento do conteúdo nos seus chats.
+Noodle é uma rede social fictícia e local para os seus personagens. Instale o **Noodle** em **Agents → Agent Organizer**, reinicie Marinara quando o aplicativo pedir e depois abra **Home → Noodle**. Veja [Noodle: a linha do tempo social dentro do aplicativo](agents/noodle.md).
 
-Os guias completos são [Noodle: a linha do tempo social dentro do aplicativo](noodle/overview.md) e [Configurações do Noodle e transferência para os chats](noodle/settings.md).
+## Por que o meu personagem não responde?
+
+Normalmente, o chat não tem conta nem modelo, a chave de API está errada ou a conta está sem crédito. Veja [Meu personagem não responde](TROUBLESHOOTING.md#my-character-does-not-reply).
 
 ## Por que meu personagem não lembra das mensagens antigas?
 
-Os modelos de IA só conseguem segurar uma quantidade limitada de texto de uma vez, então as mensagens antigas somem de vista nos chats longos. Marinara tem dois sistemas de memória que ajudam:
-
-- O **Memory Recall** busca nas mensagens anteriores e recoloca discretamente os trechos mais relevantes no prompt. Ative em **Chat Settings**, na seção **Memory Recall**.
-- Os resumos comprimem as mensagens antigas em recapitulações curtas. Os chats de Roleplay usam **Chat Summary**, e os chats Conversation usam **Automatic Summarization**. As duas opções ficam em **Chat Settings**.
-
-Para gerenciar automaticamente o contexto de Roleplay, ative **Advanced Memory Recall** (recuperação avançada de memória) em **Chat Settings → Memory Recall**. A função mantém o histórico recente, preserva uma continuidade de tamanho limitado e recupera seletivamente cenas antigas dentro do limite estimado de contexto escolhido. Configuração, progresso e edição permanecem no painel lateral. Chats de grupo Individual antigos podem precisar de uma confirmação única do intervalo de conhecimento de cada personagem. A opção **Use Decision model** permite que uma conexão de decisão salva detecte cenas e selecione memórias; o modelo auxiliar continua escrevendo os resumos.
-
-Para a configuração e os detalhes, veja [Memory Recall e resumos do chat](agents/memory.md).
+Os modelos só leem uma quantidade limitada de texto de uma vez, então as mensagens antigas saem de vista nos chats longos. Duas ferramentas ajudam. O **Memory Recall** traz de volta as mensagens antigas relevantes, e os resumos comprimem as mensagens antigas em recapitulações. Os dois ficam em **Chat Settings**. Para chats longos de Roleplay, use **Advanced Memory Recall** (recuperação avançada de memória) em **Chat Settings → Memory Recall**. Veja [Memória e resumos](agents/memory.md).
 
 ## Como faço backup dos meus dados?
 
-Abra **Settings**, vá para a aba **Advanced**, encontre a seção **Backup & Export** e clique em **Download Backup** (baixar o backup). Isso salva um único arquivo `.zip` com os seus dados e os arquivos que você enviou. Para restaurar depois, use **Import Profile (JSON/ZIP)** em **Settings**, na aba **Imports**, e escolha esse mesmo `.zip`.
-
-Na mesma seção, você também pode ativar um backup automático rotativo diário, semanal ou mensal. Os ZIPs de backup completo podem
-conter os registros criptografados e o arquivo de chave necessário para abri-los, então guarde-os em sigilo. O botão **Import Profile** continua
-deixando os segredos dos provedores em branco, então digite as chaves de novo depois de importar. O guia completo é
-[Fazer backup e restaurar](data/backup-and-restore.md).
+Abra **Settings → Advanced → Backup & Export** (Configurações → Avançado → Backup e exportação) e clique em **Download Backup** (baixar o backup). Isso salva um `.zip` com os seus dados e os arquivos que você enviou. Para restaurar, use **Import Profile (JSON/ZIP)** em **Settings → Imports** (Configurações → Importações). A mesma seção pode fazer um backup diário, semanal ou mensal. Veja [Fazer backup e restaurar](data/backup-and-restore.md).
 
 ## Como funcionam as extensões e posso importar código de terceiros?
 
-Por padrão, só Professor Mari pode criar um rascunho de Personal Extension para você. Ele já nasce desativado, e você precisa inspecionar o código e aprovar o hash SHA-256 exato antes de ele rodar.
-
-Por padrão, o código de navegador usa um Worker dedicado, dentro de um iframe de origem opaca. Além das permissões limitadas de log, de armazenamento privado, de temporizador, de limpeza e de interface declarativa, ele recebe os IDs opacos do chat ativo e dos personagens. Assim, extensões como o Notepad conseguem guardar um estado próprio para cada chat. Uma Browser Extension pode pedir à parte cópias limitadas apenas dos cards de personagem que participam daquele chat e/ou da persona escolhida para ele. Essas permissões aparecem na hora da aprovação por hash exato; sem elas, os registros correspondentes nem existem. As extensões isoladas nunca recebem mensagens, bibliotecas inteiras de personagens ou personas, campos não declarados, metadados do chat, acesso ao DOM, acesso à rede nem APIs de alteração. O código de servidor roda em um processo separado, isolado pelo sistema operacional, em hosts macOS e Linux compatíveis, e não recebe o contexto de chat do navegador.
-
-As importações de terceiros ficam ocultas por padrão. O operador do host precisa definir `ENABLE_EXTERNAL_EXTENSIONS=true` no arquivo `.env`, e depois o usuário precisa aceitar o aviso em **Settings → Advanced → Danger Zone**. Enquanto essas duas travas não forem abertas, os registros externos, inclusive os guardados manualmente e os que vieram de importação de perfil, não aparecem, não podem ser aprovados e não podem ser executados.
-
-Uma External Extension pode pedir o **Full page access** (acesso total à página) quando a compatibilidade com código antigo realmente exige o DOM do Marinara. Esse modo não é isolado: o código exato aprovado roda dentro da página do Marinara. Ele alcança o conteúdo da página, o armazenamento do navegador, as APIs de rede e a sessão atual de mesma origem. Os rascunhos da Professor Mari não podem pedir essa permissão. Ative só depois de inspecionar aquela versão exata e confiar nela. Se sobrarem alterações não registradas, recarregue a página depois de desativar. Veja [Extensões pessoais](extending/personal-extensions.md).
+Por padrão, só a Professor Mari cria rascunhos de Personal Extension. Um rascunho começa desativado, e você aprova o código exato dele antes que ele rode. As importações de terceiros ficam ocultas até o anfitrião definir `ENABLE_EXTERNAL_EXTENSIONS=true` no `.env` e você aceitar o aviso em **Settings → Advanced → Danger Zone** (Configurações → Avançado → Zona de perigo). Veja [Extensões pessoais](extending/personal-extensions.md).
 
 ## Onde meus dados ficam guardados?
 
-Tudo fica no computador que executa Marinara, dentro da pasta `data` da sua instalação. Os personagens, os chats, as personas, os lorebooks, os presets e as configurações são salvos ali. Nada vai para a nuvem. Veja [Onde Marinara salva os seus dados](data/where-data-is-stored.md).
+No computador que executa Marinara, na pasta `data` da sua instalação. Nada fica guardado na nuvem. Veja [Onde os seus dados ficam guardados](data/where-data-is-stored.md).
 
 ## Vou perder meus dados ao atualizar?
 
-Não. A atualização do Marinara preserva os personagens, os chats e as configurações. Ainda assim, é prudente fazer um backup antes de uma atualização grande, por precaução. Os passos de atualização em cada plataforma estão em [Atualizando Marinara Engine](UPGRADING.md). Voltar depois para uma versão anterior pode fazer você perder dados que só a versão mais nova armazena; veja [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version).
+Não. A atualização mantém os seus personagens, chats e configurações. Mesmo assim, faça um backup antes. Voltar para uma versão anterior pode fazer você perder dados que só a versão mais nova armazena. Veja [Atualizando](UPGRADING.md) e [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version).
 
-## O que Professor Mari faz?
+## O que a Professor Mari pode fazer?
 
-Professor Mari é a assistente embutida na tela Home. Chame por ela com o botão **Ask Professor Mari** (falar com a Professor Mari). Ela explica o aplicativo e ajuda na configuração. Ela também cria ou edita os seus dados quando você pede em linguagem comum: personagens, personas, lorebooks, presets de prompt (modelos de instrução salvos) e chats novos.
-
-Acima do campo de digitação, ela ainda mostra sugestões rápidas em forma de etiquetas, para guiar criações e edições de várias etapas sem que você precise digitar cada detalhe.
-
-Quando ela mexe nos seus dados, aparece um card de revisão com os botões **Keep** e **Restore**, para você desfazer o que não quiser. Ela é uma ajudante, e não substitui estes guias quando o assunto depende da versão. A lista completa do que ela faz está em [Professor Mari](home/professor-mari.md).
-
-Professor Mari também consegue editar os arquivos de código comuns do Marinara. Já os arquivos de dependências, os iniciadores, os instaladores e os fluxos de CI ficam esperando uma revisão explícita. Se a mudança dela precisar de uma biblioteca pública do npm, Marinara mostra a versão exata resolvida e a integridade do registro antes de instalar, com os scripts de ciclo de vida desativados.
-
-Observação: em um endereço remoto comum, as ações da Professor Mari que alteram dados exigem Basic Auth e também um segredo de administrador. Rotas de rede confiáveis ou com IP na lista de permissões podem usar as liberações descritas em [Acesso remoto](REMOTE_ACCESS.md).
+Professor Mari é a assistente integrada da tela inicial. Ela explica o aplicativo e cria ou edita personagens, personas, lorebooks e presets quando você pede. Cada mudança mostra um card com **Undo** (desfazer). Veja [Professor Mari](home/professor-mari.md).
 
 ## O que é o agente Storyboard e como usá-lo no Game Mode?
 
-O agente **Storyboard**, que você baixa à parte, transforma o texto já concluído da história em uma sequência ordenada de quadros-chave. Ele também pode transformar cada quadro-chave em um clipe curto animado. No **Game Mode**, ele monta o storyboard de um turno de narração já concluído do GM (o mestre do jogo) e mostra os quadros em um visualizador flutuante ou como plano de fundo do Game. No **Roleplay**, ele reúne as trocas recém-concluídas em um episódio embutido.
-
-Para usá-lo no Game Mode, instale o agente **Storyboard** em **Agents > Agent Organizer (organizador de agentes)**. Abra o Game, abra a seção **Chat Settings > Agents**, ative **Enable Agents** e **Enable Storyboards** e defina uma conexão de imagem no Game ou na configuração global do Storyboard. Termine um turno de narração do GM, depois abra **Chat Settings > Gallery** (configurações do chat > galeria) e clique em **Create storyboard**. Use **View storyboard** para reabrir o visualizador.
-
-Para os Storyboards automáticos do Game, ative **Automatic Storyboard Illustrations**. Quando quiser clipes, ative também **Automatic Storyboard Animations** e escolha uma conexão de geração de vídeos. A apresentação **Storyboard Optimized** do assistente de configuração do novo jogo só molda a narração do GM; ela não instala nem ativa o agente. A configuração no Game e no Roleplay, os prompts, os visualizadores, o comportamento na migração e a solução de problemas estão no [Guia do agente Storyboard](game/storyboard.md).
+Ele transforma o texto já concluído da história em imagens. Instale o **Storyboard** em **Agents → Agent Organizer** e depois ative-o no chat. Veja o [Guia do agente Storyboard](game/storyboard.md).
 
 ## Os personagens podem falar em voz alta em uma chamada?
 
-Sim, no modo **Conversation**. As chamadas de áudio e vídeo existem apenas nesse modo. Para ouvir um personagem falar, primeiro configure o **Text to Speech** (conversão de texto em voz) no painel **Connections**.
-
-Se você quiser responder pelo microfone e o reconhecimento de fala do próprio navegador não for confiável, instale antes o agente **Calls** em **Agents > Agent Organizer (organizador de agentes)**. Depois abra o painel **Connections**, expanda o card **Local Model**, encontre **Local Speech Model**, escolha **Whisper Tiny (Multilingual)** ou **Whisper Base (Multilingual)** e clique em **Download Whisper**. Ao desinstalar Calls, os downloads do Whisper também saem, liberando espaço em disco. A configuração completa das chamadas está em [Chamadas](conversation/calls.md).
+Sim, no modo Conversation. Você precisa do **Text to Speech** (conversão de texto em voz) configurado em **Connections**. Veja [Chamadas](conversation/calls.md) para o passo a passo, inclusive o reconhecimento de fala do seu microfone.
 
 ## Marinara consegue gerar imagens?
 
-Sim. Adicione uma conexão de geração de imagens, por exemplo **Pollinations** (dispensa chave) ou um provedor pago. Com isso, Marinara cria avatares de personagem, arte de cena, selfies e os quadros-chave do agente Storyboard no Roleplay ou no Game Mode. Para adicionar uma conexão, veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
+Sim. Adicione uma conta de geração de imagens, como o **Pollinations** (dispensa chave) ou um serviço pago. Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
 ## Como leio a documentação dentro do aplicativo?
 
-Toda instalação já vem com o conjunto completo de guias. Você lê tudo sem sair do aplicativo:
-
-- Na tela Home, clique em **Documentation** na barra de favoritos, ao lado de **Tutorial**. No celular, abra primeiro o menu de favoritos.
-- No FAQ da tela Home, abra a pergunta sobre documentação e clique em **Open Documentation**.
-
-Os dois botões abrem o mesmo leitor interno. Ele lista todos os guias e exibe o conteúdo dentro do Marinara.
+Na tela inicial, clique em **Documentation** (documentação) nos favoritos. No celular, abra primeiro o menu de favoritos. No FAQ da tela inicial, você também pode clicar em **Open Documentation** (abrir a documentação).
 
 ## Onde consigo ajuda ou relato um problema?
 
-Comece por [Solução de problemas do Marinara Engine](TROUBLESHOOTING.md), que está organizado por sintoma. Na barra de favoritos da tela Home, **Discord** abre o chat da comunidade e **Support** abre a página de suporte do projeto. Para relatar bugs e pedir recursos novos, use a página do projeto no GitHub.
+Comece por [Solução de problemas](TROUBLESHOOTING.md). Na tela inicial, **Discord** abre o chat da comunidade e **Support** abre a página de suporte do projeto. Relate bugs e peça recursos novos na página do projeto no GitHub.
 
 ## Guias relacionados
 
-- [Solução de problemas do Marinara Engine](TROUBLESHOOTING.md)
+- [Solução de problemas](TROUBLESHOOTING.md)
 - [Instalação](INSTALLATION.md)
 - [Acesso remoto](REMOTE_ACCESS.md)
 - [Conectando a um provedor de IA](connections/connecting-to-a-provider.md)

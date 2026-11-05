@@ -1,102 +1,124 @@
 # Eigene CSS-Themes (Theme Library)
 
-In dieser Anleitung erfährst du, wie du das gesamte Erscheinungsbild von Marinara Engine mit einem eigenen CSS-Theme umgestaltest. Du lernst, Themes anzulegen, zu importieren, zu exportieren und zu aktivieren. Außerdem siehst du, welche CSS-Variablen sich ändern lassen und wie Themes mit Card CSS zusammenspielen.
+Ein eigenes CSS-Theme färbt ganz Marinara neu ein. In der **Theme Library** (Theme-Bibliothek) legst du Themes an, importierst und exportierst sie und wechselst zwischen ihnen. Diese Anleitung listet außerdem die CSS-Variablen und Klassen auf, die ein Theme nutzen kann, und erklärt, wie Themes mit Card CSS zusammenspielen. Für eine schnelle Änderung ohne CSS siehe [Fertige Stile für Chat-Fenster](#ready-made-chat-window-styles).
+
+Bevor du anfängst: Öffnest du Marinara von einem anderen Gerät aus, etwa vom Handy, braucht der Server ein Admin-Secret, bevor du Themes anlegen, bearbeiten, importieren, aktivieren oder entfernen kannst. Auf dem Rechner, auf dem der Server läuft, ist kein Secret nötig.
+
+1. Setze auf dem Server `ADMIN_SECRET` in der Datei `.env`.
+2. Öffne in der App **Settings → Advanced → Admin Access** (Einstellungen → Erweitert → Admin-Zugriff) und trag denselben Wert ein.
+
+Siehe die [Referenz zur Server-Konfiguration](../CONFIGURATION.md) und die [Anleitung zum Fernzugriff](../REMOTE_ACCESS.md). Willst du zu einem Theme wechseln, das dir jemand gegeben hat, geh zu [Ein Theme aktivieren](#activating-a-theme).
+
+## Was ein eigenes Theme ist
+
+CSS steht für Cascading Style Sheets und ist der Code, der Farben, Rahmen und Abstände festlegt. Ein Theme ist ein Block CSS, der den Seitenhintergrund, die Akzentfarbe, Karten, Rahmen, Text und mehr ändern kann.
+
+Themes liegen in der **Theme Library** auf deinem Marinara-Server und erscheinen deshalb auf jedem Gerät, das sich mit demselben Server verbindet. Die meisten anderen Darstellungseinstellungen bleiben auf einem einzigen Gerät. Aktiv sein kann immer nur ein Theme, behalten kannst du so viele, wie du willst.
+
+## Wo die Theme Library steckt
+
+1. Öffne **Settings**.
+2. Öffne den Tab **Addons**.
+3. Such den Bereich **Theme Library**.
+
+## Ein Theme anlegen
+
+1. Klick im Bereich **Theme Library** auf **Create Theme** (Theme anlegen).
+2. Gib im Namensfeld einen Namen ein (dort steht „Theme name...“).
+3. Schreib dein CSS in das große Textfeld oder füg es dort ein.
+4. Lass **Preview** (Vorschau) an, um deine Änderungen beim Tippen live zu sehen. Schalte sie aus, um die Live-Vorschau zu beenden.
+5. Klick auf **Save** (Speichern).
+
+Ein neues Theme startet mit einer Vorlage, die gängige Variablen als auskommentierte Beispiele auflistet. Entferne die Kommentarzeichen und trag eigene Werte ein. Ein brandneues Theme wird beim Speichern aktiviert, und du siehst: Theme "My Theme" saved and activated.
+
+Um ein Theme später zu ändern, such es unter **Installed Themes** (installierte Themes), klick auf das Code-Symbol (Tooltip **Edit theme CSS**), bearbeite es und klick auf **Save**. Das Bearbeiten ändert nicht, welches Theme aktiv ist.
+
+## Themes importieren und exportieren
+
+So importierst du ein Theme:
+
+1. Klick im Bereich **Theme Library** auf **Import File** (Datei importieren).
+2. Wähle eine `.css`- oder `.json`-Datei.
+3. Lies die Meldung. Sie nennt, wie viele Themes importiert, übersprungen oder nicht übernommen wurden.
+
+Aus einer `.css`-Datei wird ein Theme, benannt nach der Datei. Eine `.json`-Datei kann ein oder mehrere Themes enthalten. Importiere eine aus Marinara exportierte Datei unverändert, oder schreib selbst eine kleine:
+
+```json
+{ "name": "My Theme", "css": "..." }
+```
+
+Importierte Themes aktivieren sich nicht von selbst. Ein Theme mit demselben Namen und demselben CSS wie eines, das schon auf dem Server liegt, wird übersprungen.
+
+Zum Exportieren klickst du in der Zeile des Themes unter **Installed Themes** auf das Upload-Symbol (Tooltip **Export theme**). Marinara lädt eine `.json`-Datei herunter, die du anderswo importieren kannst.
+
+<a id="activating-a-theme"></a>
+
+## Ein Theme aktivieren
+
+**Installed Themes** listet alle Themes auf, ganz oben mit dem Eintrag **Default Theme** (Standard-Theme).
+
+1. Klick auf den Namen eines Themes, um es zu aktivieren. Ein Häkchen zeigt das aktive Theme.
+2. Klick auf **Default Theme**, um eigene Themes abzuschalten und zum eingebauten Aussehen zurückzukehren.
+
+**Reset Appearance** (Darstellung zurücksetzen) oben in **App Style** (App-Stil) unter **Settings → Appearance** (Einstellungen → Darstellung) schaltet ebenfalls das aktive Theme ab.
+
+Um ein Theme zu löschen, klick auf das Papierkorb-Symbol (Tooltip **Remove theme**) und bestätige im Dialogfenster **Delete Theme**. Damit wird sein CSS dauerhaft vom Server gelöscht.
+
+Wenn es nicht funktioniert hat: Sieht die App falsch aus, prüf sowohl das aktive Theme als auch etwaiges Card CSS im Chat. Siehe [Themes und Card CSS](#themes-and-card-css).
 
 <a id="ready-made-chat-window-styles"></a>
 
 ## Fertige Stile für Chat-Fenster
 
-Für eine schnelle Änderung ohne eigenen CSS-Code öffne **Settings > Appearance > App** (Einstellungen, Darstellung, App) und such **Chat widget style** (Chat-Widget-Stil) unten in **App Style** (App-Stil). **Dottore** gibt den Bedienelementen eisblaue Instrumentenrahmen, helle Metallkanten und abgeschrägte Ecken. **Prof. Mari** ergänzt goldgesäumte Märchenbuchrahmen, Edelsteinblau und Primogems an den Fenstertiteln. Seine Schaltflächen nutzen denselben Hintergrund wie die Fenster. Jedes Preset hat eine eigene Schrift, passt zum hellen und dunklen Modus und gestaltet Schaltflächen, Fenster und aufklappbare Abschnitte gemeinsam.
+Bevor du anfängst: Dafür brauchst du kein CSS.
 
-Mit **Font** (Schrift) und **Shape** (Form) änderst du diese Details einzeln. **Preset font** (Preset-Schrift) und **Preset shape** (Preset-Form) folgen dem ausgewählten Stil.
+1. Öffne **Settings → Appearance → App**.
+2. Such unten in **App Style** den Eintrag **Chat widget style** (Chat-Widget-Stil).
+3. Wähl einen Stil.
 
-Darunter stehen drei Farbeinstellungen. Jede bietet einen Farbwähler für eine einheitliche Farbe und einen Farbverlauf, der mehrere Farben ineinander übergehen lässt:
+| Stil | Aussehen |
+| --- | --- |
+| **Default** (Standard) | Das ursprüngliche Aussehen. |
+| **Dottore** | Eisblaue Instrumentenrahmen, helle Metallkanten und abgeschrägte Ecken. |
+| **Prof. Mari** | Goldgesäumte Märchenbuchrahmen, Edelsteinblau und Primogems an den Fenstertiteln. Seine Schaltflächen nutzen denselben Hintergrund wie seine Fenster. |
 
+Jeder Stil hat eine eigene Schrift, funktioniert im hellen und dunklen Modus und gestaltet Schaltflächen, Fenster und aufklappbare Abschnitte gemeinsam. Die Wahl eines Stils setzt **Font** (Schrift), **Shape** (Form) und alle drei Farben zurück. Deine Fensterpositionen bleiben erhalten.
+
+Diese Einstellungen kannst du einzeln ändern:
+
+- **Font** und **Shape** folgen dem Stil (**Preset font**, **Preset shape**), bis du etwas anderes wählst.
 - **Border & Buttons Color** (Rahmen- und Schaltflächenfarbe) färbt Umrisse und Schaltflächensymbole. Symbole nutzen die erste Farbe eines Farbverlaufs.
 - **Background Color** (Hintergrundfarbe) füllt Schaltflächen, Fenster, aufklappbare Abschnitte und Eingabefelder.
-- **Text Color** (Textfarbe) färbt den Widget-Text. Farbverläufe erscheinen auf Überschriften und Beschriftungen; Text in Eingabefeldern nutzt die erste Farbe.
+- **Text Color** (Textfarbe) färbt den Widget-Text. Farbverläufe erscheinen auf Überschriften und Beschriftungen, und Eingabefelder nutzen die erste Farbe.
 
-Die dekorativen Embleme behalten ihre ursprünglichen Farben.
+Jede Farbe hat einen Farbwähler für eine einheitliche Farbe und eine Option für einen Farbverlauf. **Reset color** (Farbe zurücksetzen) neben einer Einstellung folgt wieder den hellen oder dunklen Farben des Stils. Dekorative Embleme behalten ihre ursprünglichen Farben.
 
-Mit **Reset color** (Farbe zurücksetzen) neben einer Einstellung folgst du wieder den hellen oder dunklen Farben des Presets. Die Auswahl eines Presets setzt **Font**, **Shape** und alle drei Farben zurück. **Default** (Standard) stellt das ursprüngliche Aussehen wieder her. Deine Fensterpositionen bleiben erhalten.
+### Den Stil in den Chat übertragen
 
-Mit den drei Schaltern unter den Farbwählern überträgst du den Stil auf den restlichen Chat:
+Drei Schalter unter den Farbwählern erweitern den Stil. Jeder ist anfangs aus und funktioniert für sich. Schaltest du einen aus, kehrt dieser Teil zur üblichen Chatgestaltung zurück, und die Wahl eines anderen Stils behält deine Schalterstellungen bei.
 
-- **Apply preset font** (Preset-Schrift anwenden) nutzt die gewählte Widget-Schrift für Nachrichten, Eingabefelder und Chat-Bedienelemente.
-- **Apply preset shape** (Preset-Form anwenden) nutzt die gewählte Rahmenform für Roleplay-Nachrichten im klassischen und im Visual-Novel-Layout, das Game-Dialogfeld sowie Eingabefelder und Bedienelemente. Conversation-Nachrichten behalten ihre eigene Form.
-- **Apply preset colors** (Preset-Farben anwenden) nutzt die Rahmen-, Hintergrund- und Textfarben des Widgets für diese Bereiche, einschließlich Conversation-Nachrichten. Auch deine eigenen Farben und Farbverläufe gelten dort. Wörtliche Rede behält die eigene Dialogue Highlight Color des jeweiligen Charakters oder der jeweiligen Persona. Eine Nachricht aus HTML, etwa die gestaltete Karte eines Agenten, behält die Textfarben, die sie selbst festlegt.
+| Schalter | Was er anwendet |
+| --- | --- |
+| **Apply preset font** (Preset-Schrift anwenden) | Die Widget-Schrift, für Nachrichten, Eingabefelder und Chat-Bedienelemente. |
+| **Apply preset shape** (Preset-Form anwenden) | Die Rahmenform, für Roleplay-Nachrichten (klassisch und Visual Novel), das Game-Dialogfeld, Eingabefelder und Bedienelemente. Conversation-Nachrichten behalten ihre eigene Form. |
+| **Apply preset colors** (Preset-Farben anwenden) | Die Rahmen-, Hintergrund- und Textfarben für diese Bereiche, einschließlich Conversation-Nachrichten. Auch deine eigenen Farben und Farbverläufe gelten dort. Wörtliche Rede behält die eigene Dialogue Highlight Color des jeweiligen Charakters oder der jeweiligen Persona. Eine Nachricht aus HTML, etwa die gestaltete Karte eines Agenten, behält die Textfarben, die sie selbst festlegt. |
 
-Die Schaltflächen, die ältere oder neuere Nachrichten laden, etwa **Load More** (Mehr laden) und **Show older** (Ältere anzeigen), folgen diesen Schaltern wie die anderen Chat-Bedienelemente.
+Die Verlaufsschaltflächen **Load More** (Mehr laden) und **Show older** (Ältere anzeigen) folgen den Schaltern wie andere Chat-Bedienelemente. Im Game Mode gelten die Schalter außerdem für Randbemerkungen, HUD-Widgets, das Kartenpanel, Charakterbögen, Protokolle, das Inventar, Kampfpanels und Dialogfenster. Professor Mari kann auch eigene Themes für diese Bereiche erstellen.
 
-In Game Mode gelten die Schalter außerdem für Randbemerkungen, HUD-Widgets, das Kartenpanel, Charakterbögen, Protokolle, das Inventar, Kampfpanels und Dialogfenster.
+Ein eigenes Theme kann die Stile weiterhin überschreiben. Die Variablen für Fenster und Abschnitte weiter unten haben Vorrang vor den Farben des Stils. Nutze `--mari-window-font-family` für die Fensterschrift, `--mari-drawer-radius` für die Ecken der Abschnitte und `--mari-window-ornament: none`, um die Verzierung am Titel auszublenden. Um alle Verzierungen des Stils zu entfernen, wähle zuerst **Default**.
 
-Jeder Schalter ist anfangs aus und funktioniert unabhängig von den anderen. So kannst du etwa die Professor-Mari-Schrift mit den gewohnten Chatfarben kombinieren. Schaltest du eine Option aus, kehrt dieser Teil zur üblichen Chatgestaltung zurück. Die Auswahl eines anderen Presets behält deine Schalterstellungen bei. Professor Mari kann auch eigene Themes für diese Bereiche erstellen.
+<a id="themes-and-card-css"></a>
 
-Eigene CSS-Themes können diese Presets weiterhin überschreiben. Die öffentlichen Variablen für Fenster und Abschnitte weiter unten haben Vorrang vor den Preset-Farben. Nutze `--mari-window-font-family` für die Fensterschrift, `--mari-drawer-radius` für die Ecken der Abschnitte und `--mari-window-ornament: none`, um die Verzierung am Titel auszublenden. Um alle Preset-Verzierungen zu entfernen, wähle zuerst **Default**.
+## Themes und Card CSS
 
+Marinara kennt zwei Wege, eigenes CSS einzubringen, und beide können gleichzeitig aktiv sein.
 
-## Was ein eigenes Theme ist
+- Ein eigenes Theme färbt die ganze App neu ein. Es darf Marinaras Kernvariablen überschreiben, `!important` verwenden und `position: fixed` nutzen.
+- Card CSS ist in eine Charakterkarte oder Persona-Karte eingebettet und wird pro Chat eingeschaltet. Es wird strenger bereinigt: Es kann keine Kernvariablen überschreiben, `!important` wird entfernt, und aus `position: fixed` wird `position: absolute`. Es gestaltet Chatnachrichten, nicht die ganze App. Siehe die [Anleitung zum Card-CSS-Theming](card-css-theming.md).
 
-Ein eigenes Theme ist ein Block CSS, der Marinara neu einfärbt. CSS steht für Cascading Style Sheets und ist der Code, der in der ganzen App Farben, Rahmen und Abstände festlegt. Ein Theme kann den Seitenhintergrund ändern, dazu die Akzentfarbe, Karten, Rahmen, Text und vieles mehr.
+## Grenzen für Größe und Name
 
-Eigene Themes liegen in der **Theme Library** (Theme-Bibliothek). Marinara speichert sie auf dem Server, deshalb erscheinen sie auf jedem Gerät und in jedem Browser, der sich mit demselben Server verbindet. Die meisten anderen Darstellungs-Einstellungen bleiben dagegen auf einem einzigen Gerät. Mehr dazu in der Anleitung [Darstellungs-Einstellungen](appearance-settings.md).
-
-Aktiv sein kann immer nur ein eigenes Theme. In der Bibliothek dürfen beliebig viele liegen, und du wechselst jederzeit zwischen ihnen.
-
-## Wo die Theme Library steckt
-
-1. Öffne **Settings** (Einstellungen).
-2. Öffne den Tab **Addons**.
-3. Suche den Bereich **Theme Library**.
-
-Der Bereich heißt **Theme Library** und trägt den Untertitel "Create, import, activate, edit, export, or remove custom CSS themes."
-
-## Ein Theme anlegen
-
-1. Klick im Bereich **Theme Library** auf **Create Theme** (Theme anlegen).
-2. Gib im Feld **Theme name** (Theme-Name) einen Namen ein.
-3. Schreib das CSS in das große Textfeld oder füge es dort ein.
-4. Lass **Preview** (Vorschau) an, damit du die Änderungen beim Tippen sofort in der App siehst. Schalte **Preview** aus, um die Live-Vorschau zu beenden.
-5. Klick auf **Save** (Speichern).
-
-Ein neues Theme startet mit einer Vorlage. Darin stehen gängige Variablen als auskommentierte Beispiele: Entferne die Kommentarzeichen und trag eigene Werte ein. Speicherst du ein brandneues Theme, aktiviert Marinara es sofort. Dazu kommt eine Bestätigung mit dem Theme-Namen, etwa: Theme "My Theme" saved and activated.
-
-Später änderst du ein Theme über die Liste **Installed Themes** (installierte Themes). Klick dort auf das Code-Symbol – sein Tooltip lautet **Edit theme CSS**, also ein Kurzhinweis beim Draufzeigen –, bearbeite das CSS und klick auf **Save**. Beim Bearbeiten eines gespeicherten Themes ändert sich nur dessen Inhalt, nicht das aktive Theme.
-
-## Themes importieren und exportieren
-
-Themes lassen sich als Datei weitergeben. Praktisch, um ein Theme auf einen anderen Server zu holen oder einer Freundin zu schicken.
-
-So importierst du ein Theme:
-
-1. Klick im Bereich **Theme Library** auf **Import File** (Datei importieren).
-2. Wähle eine `.css`- oder eine `.json`-Datei.
-3. Lies die Toast-Meldung. Sie nennt, wie viele Themes importiert, übersprungen oder abgelehnt wurden.
-
-Aus einer `.css`-Datei wird ein Theme, benannt nach der Datei. Eine `.json`-Datei kann ein oder mehrere Themes enthalten, und es gibt zwei Sorten davon.
-
-Die erste Sorte stammt aus einem Export von Marinara. Jedes Theme steckt dort in zusätzlichen Feldern, die Marinara beim Export ergänzt. Du musst die Datei weder lesen noch bearbeiten. Importiere sie einfach unverändert.
-
-Die zweite Sorte ist eine kleine Datei, die du selbst schreibst. Für ein einzelnes Theme reicht das hier:
-
-```
-{ "name": "My Theme", "css": "..." }
-```
-
-Importierte Themes landen ebenfalls auf dem Server, aktivieren sich aber nicht von selbst. Existiert auf dem Server bereits ein Theme mit demselben Namen und demselben CSS, überspringt Marinara es, statt es doppelt anzulegen.
-
-Zum Exportieren suchst du das Theme in der Liste **Installed Themes** und klickst auf das Upload-Symbol (Tooltip: **Export theme**). Marinara lädt eine `.json`-Datei herunter, die du anderswo importieren kannst.
-
-## Ein Theme aktivieren
-
-Die Liste **Installed Themes** zeigt alle Themes und ganz oben zusätzlich den Eintrag **Default Theme** (Standard-Theme).
-
-1. Klick auf den Namen eines Themes, um es zu aktivieren. Ein Häkchen markiert das aktive Theme.
-2. Klick auf **Default Theme**, um eigene Themes abzuschalten und zum eingebauten Marinara-Look zurückzukehren.
-
-Die Schaltfläche **Reset Appearance** (Darstellung zurücksetzen) sitzt oben im Bereich **App Style** unter **Settings -> Appearance**. Sie schaltet auch das aktive eigene Theme ab.
-
-Willst du ein Theme endgültig loswerden, klick in seiner Zeile auf das Papierkorb-Symbol (Tooltip: **Remove theme**) und bestätige im Fenster **Delete Theme**. Damit löscht Marinara das CSS dauerhaft vom Server.
+Ein Theme-Name darf bis zu 200 Zeichen lang sein. Das CSS darf bis zu 256 KiB umfassen, gemessen in UTF-8-Bytes. Ein größeres Theme wird beim Speichern oder Importieren abgelehnt. Das CSS eigener Themes wird außerdem bereinigt, bevor es wirkt: Stile, die eine Datei von einer anderen Website laden, funktionieren nicht. Bette ein Bild oder eine Schrift stattdessen als `data:`-URI ein.
 
 ## Die CSS-Variablen-Referenz
 
@@ -119,11 +141,7 @@ Im Theme-Editor gibt es eine ausklappbare **CSS Variable Reference** (CSS-Variab
 | `--popover` | Hintergrund des Dropdown-Menüs |
 | `--accent` | Hervorhebung beim Draufzeigen |
 
-Auf diese Liste bist du nicht festgelegt. Ein Theme kann jede CSS-Variable setzen, die Marinara verwendet, und darüber hinaus eigene Stile ergänzen.
-
-Manche visuellen Effekte haben eigene Variablen. Die pulsierende Akzent-Animation etwa fordert ein Theme mit `--marinara-theme-accent-pulse: enabled` an.
-
-Aus Sicherheitsgründen bereinigt Marinara das CSS eigener Themes, bevor es wirkt. Stile, die eine Datei von einer fremden Website nachladen, funktionieren nicht. Bilder oder Schriften bindest du deshalb als `data:`-URI ein statt als Web-Link. Eine `data:`-URI trägt den Dateiinhalt direkt im CSS.
+Ein Theme kann jede CSS-Variable setzen, die Marinara verwendet, nicht nur diese. Manche Effekte haben eigene Variablen. Zum Beispiel fordert `--marinara-theme-accent-pulse: enabled` die pulsierende Akzent-Animation an.
 
 ## Chat-Fenster und aufklappbare Abschnitte gestalten
 
@@ -264,36 +282,9 @@ Nicht gesetzte Variablen folgen den Widget-Einstellungen und dem Preset. Damit d
 
 Am Telefon klappt das Drei-Punkte-Menü zu runden Schaltflächen auf. Sein Auslöser ist `[data-chat-tools-menu-button]`, die geöffnete Spalte ist `[data-chat-tools-menu]`, und bei jedem Listeneintrag enthält `data-chat-tools-menu-item` die Fenster-ID. Tool-Schaltflächen nutzen `.mari-window-bubble.mari-chat-tools-button` und `data-chat-tools-menu-tool` mit derselben ID. Die Spalte hat keinen Fensterrahmen. Ihre Schaltflächen folgen den Widget-Farben und der Schaltflächengröße unabhängig von den drei Schaltern für den restlichen Chat und behalten dabei ihre runde Form.
 
-## Grenzen für Größe und Name
-
-Ein Theme-Name darf bis zu 200 Zeichen lang sein. Das CSS selbst darf bis zu 256 KiB umfassen, gemessen in UTF-8-Bytes statt in Zeichen. Größere Themes lehnt Marinara beim Speichern oder Importieren ab.
-
-## Admin Access bei Zugriff aus der Ferne
-
-Themes anlegen, bearbeiten, importieren, aktivieren und entfernen sind geschützte Aktionen. Relevant wird das nur, wenn du Marinara über ein Netzwerk öffnest.
-
-Öffnest du Marinara auf demselben Rechner, auf dem der Server läuft, also über Loopback (auch localhost genannt), klappen diese Aktionen ohne Weiteres. Rufst du Marinara von einem anderen Gerät auf – vom Handy etwa oder von einem anderen Rechner im Netzwerk –, braucht der Server zuerst ein Admin-Secret.
-
-So verwaltest du Themes über das Netzwerk:
-
-1. Setze auf dem Server `ADMIN_SECRET` in der Datei `.env`.
-2. Öffne in der App **Settings -> Advanced -> Admin Access** und trag denselben Wert ein.
-
-Ohne das schlagen Theme-Änderungen über das Netzwerk fehl. Die komplette Einrichtung beschreiben die [Server-Konfigurationsreferenz](../CONFIGURATION.md) und die [Anleitung zum Fernzugriff](../REMOTE_ACCESS.md).
-
-## Wie Themes und Card CSS zusammenspielen
-
-Marinara kennt zwei Wege, eigenes CSS einzubringen. Es sind getrennte Funktionen, und beide dürfen gleichzeitig aktiv sein.
-
-Ein eigenes Theme färbt die ganze App neu. Es darf Marinaras Kernvariablen überschreiben, `!important` verwenden und `position: fixed` setzen. Genau dafür ist ein Theme da.
-
-Card CSS funktioniert anders. Wer eine Charakterkarte oder eine Persona erstellt, kann CSS darin einbetten, und du schaltest es pro Chat frei. Card CSS bereinigt Marinara strenger: Kernvariablen der App bleiben unangetastet, `!important` fliegt raus, und aus `position: fixed` wird `position: absolute`. Es gestaltet die Nachrichten im Chat, nicht die ganze App. Siehe die [Anleitung zu Card-CSS-Themes](card-css-theming.md).
-
-Sieht die App verkorkst aus, lohnt der Blick auf beides – auf das aktive Theme und auf Card CSS. Beides kommt als Ursache infrage.
-
 ## Verwandte Anleitungen
 
-- [Anleitung zu Card-CSS-Themes](card-css-theming.md)
-- [Darstellungs-Einstellungen](appearance-settings.md)
-- [Server-Konfigurationsreferenz](../CONFIGURATION.md)
+- [Anleitung zum Card-CSS-Theming](card-css-theming.md)
+- [Darstellungseinstellungen](appearance-settings.md)
+- [Referenz zur Server-Konfiguration](../CONFIGURATION.md)
 - [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

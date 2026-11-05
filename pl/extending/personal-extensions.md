@@ -1,280 +1,117 @@
 # Rozszerzenia osobiste
 
-Rozszerzenia osobiste to prywatne szkice kodu, które przygotowuje dla ciebie Professor Mari. Otwórz **Settings** (Ustawienia) > **Addons** (dodatki) > **Personal Extensions** (rozszerzenia osobiste).
+Rozszerzenie osobiste to niewielki fragment kodu, który dodaje do aplikacji Marinara Engine przycisk, panel albo narzędzie pomocnicze. Professor Mari może je dla ciebie napisać, a ty decydujesz, czy w ogóle zostanie uruchomione. Ten przewodnik opisuje przeglądanie, włączanie, eksportowanie i odzyskiwanie rozszerzeń. Jeśli chcesz napisać własne, zobacz [Pisanie własnych rozszerzeń](writing-personal-extensions.md).
 
-Domyślnie widać komunikat:
+## Rodzaje rozszerzeń
 
-> Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.
+| Nazwa | Co to jest |
+| --- | --- |
+| Personal Extension (rozszerzenie osobiste) | Rozszerzenie napisane dla ciebie przez Professor Mari. Pojawia się jako szkic w **Settings → Addons** (ustawienia, dodatki). |
+| External Extension (rozszerzenie zewnętrzne) | Rozszerzenie od kogoś innego albo napisane przez ciebie. Wymaga dodatkowych kroków z sekcji [Zezwolenie na import rozszerzeń od osób trzecich](#allow-third-party-imports). |
+| Browser Extension (rozszerzenie przeglądarkowe) | Działa wewnątrz twojej przeglądarki, w piaskownicy. Domyślnie bezpieczne. |
+| Server Extension (rozszerzenie serwerowe) | Działa na komputerze, na którym uruchomiona jest aplikacja Marinara Engine, w piaskownicy systemu operacyjnego. Wymaga obsługiwanej platformy. |
+| Full page access (pełny dostęp do strony) | Uprawnienie, które usuwa piaskownicę. Tylko dla kodu, któremu w pełni ufasz. |
 
-W tej sekcji nie ma akcji tworzenia nowego szkicu ani żadnych kontrolek importu. O utworzenie lub poprawienie szkicu poproś Professor Mari. Asystentka zapisze kod, ale nie zatwierdzi go ani nie włączy.
+## Instalowanie rozszerzenia udostępnionego przez inną osobę
 
-Jeśli chcesz napisać i zaimportować własny pakiet, skorzystaj z [przewodnika tworzenia rozszerzeń osobistych](writing-personal-extensions.md). Pakiety napisane samodzielnie przechodzą przez osobno chroniony proces External Extensions.
+Zanim zaczniesz: wykonaj dwa kroki z sekcji [Zezwolenie na import rozszerzeń od osób trzecich](#allow-third-party-imports). Bez nich przyciski importu są ukryte.
 
-## Szacowanie liczby tokenów w tekście
+1. Otwórz **Settings → Addons**. W sekcji **External Extensions** (rozszerzenia zewnętrzne) wybierz **Import Extension File** (import pliku rozszerzenia) dla pliku `.zip`, `.json`, `.css` lub `.js` albo **Import Extension Folder** (import folderu rozszerzenia) dla folderu.
+2. Otwórz nowy szkic. Jest wyłączony i pokazuje swój kod oraz skrót (hash), czyli krótki odcisk dokładnie tego kodu (Marinara używa algorytmu SHA-256).
+3. Przeczytaj kod i listę **Requested access** (żądany zakres dostępu).
+4. Wybierz **Review and Run** (przegląd i uruchomienie) tylko wtedy, gdy akceptujesz dokładnie tę wersję. Rozszerzenie jest wtedy widoczne jako włączone.
 
-Rozszerzenia osobiste typu Browser, Full page access i Server mogą korzystać z wbudowanej w aplikację Marinara Engine funkcji szacowania liczby tokenów w tekście:
+Jeśli to nie zadziałało: gdy brakuje przycisków importu, jeden z dwóch kroków nie został wykonany. Pamiętaj, żeby po zmianie pliku `.env` uruchomić aplikację Marinara Engine ponownie.
 
-```js
-const tokens = marinara.estimateTextTokens(text);
-```
+## Przegląd rozszerzenia od Professor Mari
 
-Sygnatura funkcji to `estimateTextTokens(text: string): number`. Opisuje ją również typ `PersonalExtensionTokenApi` eksportowany z `@marinara-engine/shared`. Wywołanie jest synchroniczne, nie wymaga dodatkowych uprawnień i zwraca niezależny od modelu szacunek liczby tokenów używany przez aplikację Marinara Engine, a nie dokładny wynik tokenizera. W starszych wersjach Engine przed wywołaniem sprawdź `typeof marinara.estimateTextTokens === "function"`.
+Zanim zaczniesz: poproś [Professor Mari](../home/professor-mari.md) o utworzenie rozszerzenia. Asystentka może zapisać kod, ale nie może go zatwierdzić ani włączyć. W tej sekcji nie ma przycisku New Draft ani kontrolki importu.
 
-## Przegląd kodu i włączenie
+1. Otwórz **Settings → Addons → Personal Extensions** (ustawienia, dodatki, rozszerzenia osobiste). Gdy nie ma żadnych szkiców, widać komunikat: "Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash."
+2. Otwórz szkic i przeczytaj kod. Sprawdź skrót i listę **Requested access**.
+3. Wybierz **Review and Run** tylko wtedy, gdy akceptujesz dokładnie tę wersję.
 
-Każdy szkic zaczyna jako wyłączony. Marinara wylicza odcisk dokładnie tego kodu, który ma się wykonać, algorytmem SHA-256. Otwórz szkic, przejrzyj kod, porównaj wyświetlony odcisk i dopiero wtedy wybierz **Review and Run** (przegląd i uruchomienie) – tylko jeśli akceptujesz dokładnie tę wersję. Każda zmiana w wykonywanym kodzie i każda przywrócona wersja wyłączają rozszerzenie i wymagają ponownego zatwierdzenia.
+Każdy szkic jest na początku wyłączony. Każda zmiana kodu, zmiana uprawnień albo przywrócona wersja wyłącza rozszerzenie i wymaga ponownego zatwierdzenia.
 
-Piaskownica ogranicza uprawnienia, ale nie sprawia, że dowolny kod staje się godny zaufania. Złośliwe rozszerzenie wciąż może marnować moc procesora, dopóki nie zatrzyma go strażnik, zapełnić własną przestrzeń danych w ramach narzuconych limitów albo zachowywać się zwodniczo w logach. Rozszerzenia z pełnym dostępem do strony celowo rezygnują z tej izolacji. Zawsze przejrzyj kod przed włączeniem.
+> **Ostrzeżenie:** Piaskownica ogranicza to, co kod może zrobić, ale nie sprawia, że kod staje się godny zaufania. Szkodliwe rozszerzenie wciąż może marnować czas procesora, dopóki nie zatrzyma go strażnik (licznik czasu, który przerywa kod działający bez końca), zapełnić własną przestrzeń danych aż do limitu albo wprowadzać cię w błąd przez logi. Rozszerzenia z pełnym dostępem do strony celowo rezygnują z piaskownicy. Przeczytaj kod, zanim włączysz rozszerzenie, i przejrzyj każdą linijkę cudzego kodu.
 
-## Izolacja środowiska uruchomieniowego
+Jeśli to nie zadziałało: zmiany wprowadzone przez Professor Mari i każda przywrócona wersja z powrotem wyłączają szkic. Przejrzyj go ponownie i sprawdź, czy skrót w oknie to ten sam, który odczytano wcześniej.
 
-Rozszerzenie przeglądarkowe działa w osobnym wątku Worker wewnątrz ramki iframe z piaskownicą i nieprzezroczystym pochodzeniem. Nie ma dostępu do strony aplikacji Marinara Engine, drzewa DOM, ciasteczek, pamięci przeglądarki, interfejsów API danego pochodzenia ani do sieci. Ma do dyspozycji prywatną pamięć rozszerzenia, logi, zarządzane liczniki czasu, rejestrację sprzątania, ograniczone okna, bezpieczne miejsca na wkład w interfejs aplikacji oraz kopię danych o aktywnym czacie i identyfikatorach postaci tylko do odczytu. Wybrane pola z kart aktywnych postaci albo z wybranej persony trafiają do rozszerzenia dopiero wtedy, gdy odpowiednie uprawnienia są zadeklarowane i zatwierdzone.
+## Co potrafi rozszerzenie
 
-Rozszerzenia mogą dodawać akcje na górnym pasku, pozycje w menu Extensions i trwałe panele po prawej stronie za pomocą `marinara.ui.registerContribution(...)`. Marinara rysuje te elementy w aktywnym motywie i korzysta ze stałego zestawu kontrolek: nagłówki, tekst, wynik w formacie preformatowanym, przyciski, pola tekstowe, listy rozwijane, przełączniki, suwaki, kontrolki koloru i odstępy. Rozszerzenie dostarcza treść i stan, nigdy kod HTML, CSS, adresy URL, komponenty React ani obsługę zdarzeń aplikacji.
+Rozszerzenie przeglądarkowe działa w piaskownicy (odgrodzonym obszarze) wewnątrz twojej przeglądarki. Nie ma dostępu do strony aplikacji Marinara Engine, ciasteczek, pamięci przeglądarki ani sieci. Może:
 
-Te możliwości interfejsu i te zasady są takie same dla każdego rozszerzenia przeglądarkowego w piaskownicy, niezależnie od jego pochodzenia. Zaimportowane rozszerzenie zewnętrzne (External) korzysta z tego bezpiecznego środowiska, chyba że jego paczka wprost prosi o **Full page access** (pełny dostęp do strony) albo używa formatu `marinara.extension` sprzed piaskownicy, opisanego niżej.
+- przechowywać prywatne dane i zapisywać logi
+- dodawać przyciski, pozycje menu i panele, które Marinara rysuje w twoim motywie
+- odczytywać identyfikatory otwartego czatu
+- odczytywać wybrane pola aktywnych postaci albo persony, tylko gdy zatwierdzisz te uprawnienia
 
-<a id="add-a-marinara-rendered-panel"></a>
+Pełna lista jest w przewodniku [Pisanie własnych rozszerzeń](writing-personal-extensions.md#what-a-browser-extension-can-do).
 
-### Dodanie panelu rysowanego przez aplikację Marinara Engine
-
-```js
-const panel = marinara.ui.registerContribution({
-  id: "weather-settings",
-  kind: "panel",
-  label: "Weather controls",
-  description: "Tune a weather scene without leaving Marinara.",
-  icon: "sparkles",
-  elements: [
-    { kind: "heading", text: "Atmosphere" },
-    {
-      kind: "select",
-      id: "weather",
-      label: "Weather",
-      value: "rain",
-      options: [
-        { value: "rain", label: "Rain" },
-        { value: "snow", label: "Snow" },
-        { value: "aurora", label: "Aurora" },
-      ],
-    },
-    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
-    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
-    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
-    { kind: "button", id: "apply", label: "Apply" },
-  ],
-  onActivate: async () => {
-    const settings = await marinara.storage.get();
-    // Update the panel when stored state should be reflected in the controls.
-  },
-  onEvent: async ({ elementId, values }) => {
-    if (elementId !== "apply") return;
-    await marinara.storage.patch(values);
-  },
-});
-
-marinara.onCleanup(() => panel.remove());
-```
-
-Wartość `kind: "button"` daje zwięzłą akcję, a `kind: "menu-item"` – akcję w menu Extensions. Wartość `kind: "command"` tworzy wpis w oknie Command Center, który uruchamia istniejący wkład z tej samej wersji rozszerzenia. Wkład `command` wymaga `targetContributionId` i nie może używać `onActivate` ani `onEvent`.
-
-```js
-marinara.ui.registerContribution({
-  id: "open-weather",
-  kind: "command",
-  label: "Open weather controls",
-  targetContributionId: "weather-settings",
-});
-```
-
-Host rozwiązuje wkład `command` tylko wtedy, gdy cel ma ten sam identyfikator rozszerzenia i ten sam skrót treści. Brakujący cel, cel z innego rozszerzenia i cel z nieaktualnej wersji kończą się odmową. Przyciski domyślnie używają `surface: "top-bar"`. Mogą też wskazywać `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` lub `settings`, z polem `position` ustawionym na `header`, `before-content` albo `after-content`. Pole `icon` przyjmuje każdą obsługiwaną przez aplikację Marinara Engine nazwę ikony Lucide w formacie kebab-case. Oba typy akcji wywołują `onActivate`. Rodzaj `panel` wywołuje `onActivate` przy otwarciu, a jego przyciski wywołują `onEvent` z bieżącymi wartościami kontrolek. Uchwyt obsługuje aktualizacje zależne od typu: `button` przyjmuje `label`, `description`, `icon`, `surface` i `position`; `menu-item` – `label`, `description` i `icon`; `panel` – `label`, `description`, `icon` i `elements`. Wszystkie uchwyty obsługują `remove()`. Identyfikatory mogą zawierać litery, cyfry oraz `.`, `_` i `-`.
-
-Ten przykład umieszcza natywną akcję nad zawartością panelu Presets:
-
-```js
-marinara.ui.registerContribution({
-  id: "preset-helper",
-  kind: "button",
-  label: "Preset helper",
-  description: "Run the preset helper",
-  icon: "list-sparkles",
-  surface: "presets",
-  position: "before-content",
-  onActivate: () => {
-    // Run extension behavior here.
-  },
-});
-```
-
-Rozbudowane narzędzia mogą budować interfejsy wieloetapowe, aktualizując elementy panelu po zdarzeniu. Stan aplikacji trzymaj w `marinara.storage`, nigdy nie zapisuj go w samych znacznikach.
-
-<a id="use-active-chat-context"></a>
-
-### Korzystanie z kontekstu aktywnego czatu
-
-Interfejs rozszerzeń przeglądarkowych w wersji 5 udostępnia nieprzezroczyste identyfikatory czatu wyświetlanego w danej chwili w aplikacji Marinara Engine:
-
-```js
-const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
-  if (!chatId) return; // Home, a library, or another surface without an active chat.
-
-  const storage = await marinara.storage.get();
-  const tab = storage.tabsByChat?.[chatId];
-
-  // characterId is available only for a single-Character chat.
-  // Use characterIds for group chats.
-  marinara.log.debug("Loaded Notepad tab", {
-    chatId,
-    characterId,
-    characterIds,
-    personaId,
-    characterNames: characters.map((character) => character.name),
-    personaName: persona?.name ?? null,
-    tab,
-  });
-};
-
-const unsubscribe = marinara.context.subscribe(renderForContext);
-marinara.onCleanup(unsubscribe);
-```
-
-`marinara.context.get()` zwraca tę samą bieżącą kopię danych, ale bez subskrypcji. Kiedy żaden czat nie jest aktywny, `chatId` ma wartość `null`, a `characterIds` jest puste. Wartość `characterId` pojawia się tylko wtedy, gdy w czacie bierze udział dokładnie jedna postać. Czaty grupowe wymieniają wszystkich uczestników w `characterIds` i zostawiają `characterId` jako `null`. Wartość `personaId` pojawia się dopiero po zatwierdzeniu uprawnienia `read_active_persona`.
-
-Identyfikatory czatu i postaci są dostępne zawsze i pozwalają rozszerzeniu porządkować własną prywatną pamięć. Pola z samych wpisów wymagają jednego lub obu opcjonalnych uprawnień w manifeście rozszerzenia:
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["read_active_characters", "read_active_persona"]
-}
-```
-
-- `read_active_characters` wypełnia `characters` danymi kart biorących udział w aktywnym czacie.
-- `read_active_persona` wypełnia `persona` danymi persony wybranej dla aktywnego czatu.
-
-Bez danego uprawnienia wartość pozostaje `[]` albo `null`. Marinara pokazuje każde żądane uprawnienie na liście **Requested access** (żądany dostęp), a potem jeszcze raz w oknie zatwierdzania dokładnego odcisku. Dodanie lub usunięcie uprawnienia zmienia odcisk wykonywanego kodu, wyłącza rozszerzenie i wymaga ponownego zatwierdzenia.
-
-Kopia danych postaci zawiera wyłącznie pola `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe` i `conversationDisplayName`. Kopia danych persony zawiera wyłącznie pola `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe` i `conversationDisplayName`. Tekst dostaje narzucony limit długości, zanim przejdzie przez most piaskownicy.
-
-Marinara nigdy nie przekazuje wiadomości, notatek twórcy, promptów systemowych, instrukcji dopisywanych po historii, komentarzy, ścieżek do awatarów, całych bibliotek postaci ani person, pól niezadeklarowanych, metadanych czatu, uchwytów bazy danych, dostępu do sieci ani operacji zmieniających dane. Aktualizacje kontekstu pozostają związane z zatwierdzonym odciskiem kodu i przychodzą przy zmianie aktywnego czatu, jego listy postaci albo wybranej persony.
-
-<a id="add-a-dice-format"></a>
-
-### Dodanie formatu kości
-
-Interfejs rozszerzeń przeglądarkowych w wersji 6 pozwala rozszerzeniu nauczyć `/roll` własnej notacji, na przykład puli kości narracyjnych. Rozszerzenie odczytuje notację i wskazuje kości do rzutu; Marinara rzuca nimi za pomocą własnego bezpiecznego mechanizmu losowania i zwraca wyniki na ściankach. Rozszerzenie może określić znaczenie rzutu, ale nigdy jego wylosowany wynik.
-
-```js
-const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
-
-const format = marinara.dice.registerFormat({
-  id: "narrative",
-  label: "Narrative dice",
-  // Return null for notation this format does not read.
-  parse(notation) {
-    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
-    if (!terms.length) return null;
-    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
-    return { dice: kinds.map(() => 6), kinds };
-  },
-  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
-  read({ notation, dice, rolls, plan }) {
-    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
-    return { total: net, text: net > 0 ? `${net} success` : "failure" };
-  },
-});
-marinara.onCleanup(() => format.remove());
-```
-
-`/roll 2 boost 1 setback` publikuje wtedy wyniki na ściankach, sumę i tekst rozszerzenia, oznaczone nazwą formatu. Zwykła notacja, taka jak `2d6` lub `4d6kh3`, zawsze działa jak dotychczas i nigdy nie trafia do rozszerzenia. Inna notacja trafia kolejno do każdego zarejestrowanego formatu, a rzut obsługuje pierwszy, którego `parse` zwróci kości.
-
-- `parse(notation)` zwraca `null` albo `{ dice: [sides, ...] }` z 1-100 kośćmi o 2-1000 ściankach. Wszystko inne w obiekcie pozostaje w piaskownicy i jest przekazywane do `read` jako `plan`.
-- `read(...)` zwraca `{ total, text?, kept? }`: skończoną liczbę, najwyżej 200 znaków zwykłego tekstu oraz opcjonalnie pozycje kości, które się liczyły, w kolejności rosnącej. `/roll` przekreśla pozostałe.
-- Każde rozszerzenie może zarejestrować 4 formaty. Notacja ma najwyżej 100 znaków. `parse` i `read` mogą być asynchroniczne, ale każde musi odpowiedzieć w ciągu 2 sekund.
-- Tekst jest pokazywany jako zwykły tekst: linki, obrazy, formatowanie i HTML są zamieniane na zapis dosłowny.
-
-Formaty kości obsługują `/roll` w przeglądarce. Narzędzie `roll_dice` postaci Game Master i inne rzuty po stronie serwera zachowują wbudowaną notację oraz kości zestawu zasad. Przed wywołaniem w starszych wersjach silnika sprawdź `typeof marinara.dice?.registerFormat === "function"`.
-
-### Rozszerzenia starsze i z pełnym dostępem do strony
-
-Sterowniki pogody, edytory promptów i inne rozbudowane procesy to dobre zastosowania dla wkładu w interfejs. Ich bezpieczne wersje mogą korzystać z uruchamiania z menu lub górnego paska oraz z paneli aktualizowanych krok po kroku. Istniejące paczki, które wstawiają nakładki do drzewa DOM, odpytują selektory CSS aplikacji Marinara Engine, przeszukują wnętrze biblioteki React albo wywołują trasy `/api` z tego samego pochodzenia, nie zaimportują się do bezpiecznego środowiska bez zmian.
-
-Wkład w interfejs daje sam interfejs, a nie dodatkowe uprawnienia. Interfejs kontekstu zawsze udostępnia identyfikatory aktywnego czatu i postaci, a poza tym wyłącznie wymienione wyżej zadeklarowane pola aktywnych wpisów. Funkcje, które potrzebują wiadomości, presetów, lorebooków, niezadeklarowanych danych postaci lub persony albo efektów wizualnych sceny, nadal wymagają osobnego, wąsko zakrojonego pośrednika udostępnionego przez aplikację Marinara Engine. Rozszerzenie nie może go udawać przez dostęp do drzewa DOM aplikacji ani przez nieograniczone zapytania sieciowe.
-
-Jeśli rozszerzenie zewnętrzne naprawdę potrzebuje dostępu do drzewa DOM aplikacji, może o niego poprosić:
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["full_page_access"]
-}
-```
-
-**Full page access nie jest uprawnieniem w piaskownicy.** Zatwierdzony kod JavaScript i CSS działa wewnątrz strony aplikacji Marinara Engine. Taki kod może odczytać lub zmienić wszystko, co widzi bieżąca sesja przeglądarki, zajrzeć do czatów i kart, korzystać z pamięci przeglądarki, wysyłać zapytania sieciowe oraz wywoływać interfejsy API aplikacji Marinara Engine z tego samego pochodzenia. W praktyce ma na stronie takie same uprawnienia jak kod wklejony do konsoli przeglądarki. Szkice od Professor Mari nie mogą o to prosić.
-
-Rozszerzenia z pełnym dostępem do strony powinny używać `marinara.fetch(...)` do żądań sieciowych. Funkcja ma taką samą sygnaturę i zwraca taki sam wynik jak `window.fetch`, a jednocześnie pozwala sekcji **Settings > Addons > External Extensions** (Ustawienia > Dodatki > Rozszerzenia zewnętrzne) wyświetlać liczbę żądań tego rozszerzenia w bieżącej sesji, liczbę przesłanych bajtów zgłaszaną przez odpowiedzi, ostatnią częstotliwość żądań oraz ostrzeżenie o utrzymującym się dużym ruchu. Bezpośrednie wywołania `window.fetch` pozostają dostępne, ponieważ pełny dostęp oznacza uruchamianie zaufanego kodu strony, ale tych żądań nie można przypisać do rozszerzenia.
-
-Starszą kopertę `kind: "marinara.extension"` w wersji 1, bez wyraźnego pola `capabilities`, Marinara rozpoznaje jako paczkę sprzed piaskownicy i przy imporcie przypisuje jej **Full page access**. Dzięki temu starsze paczki, na przykład WeatherTweaker, trafiają do właściwej ścieżki przeglądu, zamiast po cichu zawodzić w wątku Worker. Nowoczesna paczka, która używa tej koperty, ale chce bezpiecznego środowiska, musi zawierać `"capabilities": []`.
-
-Obie blokady rozszerzeń zewnętrznych oraz zatwierdzenie dokładnego odcisku obowiązują tak samo. Zmiana kodu, arkusza CSS lub uprawnień wyłącza rozszerzenie i wymaga ponownego zatwierdzenia. Wyłączenie usuwa węzły skryptu i arkusza stylów dodane przez aplikację Marinara Engine, anuluje liczniki czasu utworzone przez interfejs zgodności i uruchamia funkcje zarejestrowane przez `marinara.onCleanup(...)`. Kod działający na stronie może jednak tworzyć niezarejestrowane nasłuchy, liczniki czasu, zmienne globalne i zmiany w drzewie DOM, więc sprzątanie bywa niepełne. Jeśli coś zostanie, odśwież stronę po wyłączeniu rozszerzenia.
-
-Starszy interfejs `marinara.ui.showWindow(...)` nadal działa i otwiera tymczasowe okno wewnątrz ramki iframe o nieprzezroczystym pochodzeniu. Korzysta z tego samego stałego zestawu kontrolek i zwraca uchwyty `update(...)` oraz `close()`. Kiedy narzędzie ma być osiągalne przez zwykłą nawigację aplikacji Marinara Engine, lepiej wybrać wkład w interfejs.
-
-Rozszerzenie serwerowe działa w osobnym procesie Node z ograniczonymi uprawnieniami, wewnątrz mechanizmu Seatbelt na macOS albo Bubblewrap na Linux. Nie ma dostępu do plików aplikacji Marinara Engine, plików użytkownika, odziedziczonych sekretów serwera, sieci, procesów potomnych, wątków roboczych ani dodatków natywnych. Jeśli Marinara nie zestawi obsługiwanej piaskownicy systemowej, rozszerzenia serwerowe pozostają wyłączone.
+Rozszerzenie serwerowe działa w osobnym procesie Node (programie na komputerze z serwerem) wewnątrz piaskownicy systemu operacyjnego. Nie ma dostępu do plików aplikacji Marinara Engine, twoich plików, sekretów serwera, sieci, procesów potomnych, wątków roboczych ani modułów natywnych.
 
 <a id="platform-support"></a>
 
 ### Obsługiwane platformy
 
-Rozszerzenia przeglądarkowe zamyka w piaskownicy sama przeglądarka, więc działają wszędzie. Rozszerzenia serwerowe wymagają obsługiwanej piaskownicy systemowej – tam, gdzie jej nie ma, zostają wyłączone i nie da się ich włączyć. Marinara nigdy nie uruchamia ich awaryjnie poza piaskownicą.
+Rozszerzenia przeglądarkowe zamyka w piaskownicy sama przeglądarka, więc działają wszędzie. Rozszerzenia serwerowe wymagają obsługiwanej piaskownicy systemu operacyjnego. Tam, gdzie jej nie ma, pozostają wyłączone, a Marinara nigdy nie uruchamia ich bez niej.
 
-| Platforma                | Rozszerzenia przeglądarkowe w piaskownicy | Rozszerzenia zewnętrzne z pełnym dostępem do strony | Rozszerzenia serwerowe                          |
-| ------------------------ | ----------------------------------------- | --------------------------------------------------- | ----------------------------------------------- |
-| macOS                    | ✅ W piaskownicy                          | ⚠️ Wymaga wyraźnego zaufania                        | ✅ W piaskownicy (Seatbelt)                     |
-| Linux (z Bubblewrap)     | ✅ W piaskownicy                          | ⚠️ Wymaga wyraźnego zaufania                        | ✅ W piaskownicy (Bubblewrap)                   |
-| Linux (bez `bwrap`)      | ✅ W piaskownicy                          | ⚠️ Wymaga wyraźnego zaufania                        | ⛔ Wyłączone – zainstaluj `bwrap`               |
-| Docker (domyślnie) | ✅ W piaskownicy | ⚠️ Wymaga wyraźnego zaufania | ⛔ Wyłączone – uprawnienia kontenera |
-| Windows                  | ✅ W piaskownicy                          | ⚠️ Wymaga wyraźnego zaufania                        | ⛔ Wyłączone – użyj rozszerzenia przeglądarkowego |
-| Android                  | ✅ W piaskownicy                          | ⚠️ Wymaga wyraźnego zaufania                        | ⛔ Wyłączone – użyj rozszerzenia przeglądarkowego |
+| Platforma | Rozszerzenia serwerowe |
+| --- | --- |
+| macOS | W piaskownicy Seatbelt, czyli piaskownicy systemu macOS |
+| Linux z Bubblewrap | W piaskownicy Bubblewrap, narzędzia do tworzenia piaskownic w systemie Linux |
+| Linux bez `bwrap` | Wyłączone: zainstaluj `bwrap` |
+| Docker (domyślnie) | Wyłączone: uprawnienia kontenera |
+| Windows | Wyłączone: użyj rozszerzenia przeglądarkowego |
+| Android | Wyłączone: użyj rozszerzenia przeglądarkowego |
 
-Oficjalny obraz Docker zawiera Bubblewrap, ale domyślny kontener z minimalnymi uprawnieniami nie może tworzyć zagnieżdżonych przestrzeni nazw i montowań wymaganych przez Bubblewrap. Marinara sprawdza sandbox podczas działania i pozostawia rozszerzenia serwerowe wyłączone, gdy kontener na niego nie pozwala. W sekcji [Rozwiązywanie problemów](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available) znajdziesz opis jawnej zmiany uprawnień Docker oraz jej konsekwencji dla bezpieczeństwa.
+Rozszerzenia przeglądarkowe działają w piaskownicy na każdej platformie. Rozszerzenia zewnętrzne z pełnym dostępem do strony nie mają piaskownicy na żadnej platformie i zawsze wymagają twojego wyraźnego zaufania.
 
-Na systemach Windows i Android nie ma obsługiwanej systemowej piaskownicy procesów, więc rozszerzeń serwerowych celowo tam nie ma. Użyj zamiast tego rozszerzenia przeglądarkowego albo uruchom serwer Marinara Engine na macOS lub Linux (z `bwrap`), jeśli rozszerzenie serwerowe jest niezbędne.
+Oficjalny obraz Docker zawiera Bubblewrap, ale jego domyślny kontener nie może tworzyć zagnieżdżonych przestrzeni nazw i montowań, których potrzebuje Bubblewrap. Marinara sprawdza piaskownicę podczas działania i pozostawia rozszerzenia serwerowe wyłączone, gdy kontener na nią nie pozwala. Opis nadpisania uprawnień kontenera Docker i związanego z tym kompromisu w zakresie bezpieczeństwa znajdziesz w przewodniku [Rozwiązywanie problemów](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available).
 
-## Rozszerzenia zewnętrzne
+W systemach Windows i Android nie ma obsługiwanej piaskownicy procesów, więc rozszerzenia serwerowe są niedostępne. Użyj rozszerzenia przeglądarkowego albo uruchom serwer Marinara Engine w systemie macOS lub Linux z `bwrap`.
 
-Import cudzych rozszerzeń jest domyślnie zablokowany i ukryty. Trzeba wykonać dwa kroki:
+<a id="allow-third-party-imports"></a>
 
-1. Na komputerze z serwerem Marinara Engine ustaw `ENABLE_EXTERNAL_EXTENSIONS=true` w pliku `.env`.
-2. Otwórz **Settings** > **Advanced** (zaawansowane) > **Danger Zone** (strefa zagrożenia), przewiń poniżej kontrolek usuwania danych, przeczytaj ostrzeżenie i włącz przełącznik **Allow third-party extension imports** (zgoda na import cudzych rozszerzeń).
+## Zezwolenie na import rozszerzeń od osób trzecich
 
-Dopiero wtedy sekcja **Settings** > **Addons** pokazuje **External Extensions** (rozszerzenia zewnętrzne) razem z kontrolkami importu plików i folderów. Obsługiwane formaty są zawsze rozwinięte:
+Import rozszerzeń od osób trzecich jest domyślnie zablokowany i ukryty, ponieważ uruchamia kod napisany przez inne osoby. Odblokowują go dwa kroki:
 
-- `.personal-extension.zip` oraz zgodne paczki `.zip`;
-- manifesty `.json`;
-- `.css`;
-- `.js`, `.mjs` i `.cjs`;
-- `.server.js`, `.server.mjs` i `.server.cjs`.
+1. Na komputerze, na którym działa aplikacja Marinara Engine, ustaw `ENABLE_EXTERNAL_EXTENSIONS=true` w pliku `.env`, a potem uruchom aplikację Marinara Engine ponownie. Zobacz przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
+2. Otwórz **Settings → Advanced → Danger Zone** (ustawienia, zaawansowane, strefa zagrożenia), przewiń poniżej kontrolek usuwania danych, przeczytaj ostrzeżenie i włącz **Allow third-party extension imports** (zezwolenie na import rozszerzeń od osób trzecich).
 
-Import nigdy nie przenosi zatwierdzenia i nie potrafi sam się włączyć. Wpisy starsze, wciągnięte z profilu, zapisane ręcznie oraz te o nieznanym pochodzeniu również liczą się jako zewnętrzne. Pozostają ukryte, nie da się ich zatwierdzić i oba środowiska uruchomieniowe je pomijają, dopóki obie blokady nie zostaną zdjęte.
+Wtedy w **Settings → Addons** pojawia się sekcja **External Extensions** z kontrolkami importu plików i folderów. Obsługiwane formaty:
 
-Przed zatwierdzeniem dokładnego odcisku przejrzyj listę **Requested access**. Większość rozszerzeń przeglądarkowych powinna zostać w bezpiecznej piaskownicy. Paczka oznaczona jako **Full page access** celowo nie jest izolowana, więc włącz ją tylko wtedy, gdy dokładnie tę wersję sprawdzisz i uznasz za godną zaufania.
+- `.personal-extension.zip` oraz zgodne paczki `.zip`
+- manifesty `.json`
+- `.css`
+- `.js`, `.mjs` i `.cjs`
+- `.server.js`, `.server.mjs` i `.server.cjs`
 
-Wyłączenie którejkolwiek z tych blokad zatrzymuje działające zewnętrzne procesy serwerowe, usuwa wątki robocze w przeglądarce i węzły środowiska działającego na całej stronie oraz wyłącza zapisane wpisy zewnętrzne. Ponowne zdjęcie blokad nie uruchamia ich automatycznie. Jeśli rozszerzenie z pełnym dostępem do strony zostawiło po sobie zmiany, których nie zgłosiło do sprzątania, odśwież stronę.
+Importy nigdy nie przenoszą zatwierdzenia i nie mogą same się włączyć. Większość rozszerzeń przeglądarkowych powinna pozostać w bezpiecznej piaskownicy. Paczka oznaczona jako **Full page access** to co innego:
 
-Cudze rozszerzenia mogą zawierać złośliwy lub niebezpieczny kod. Przejrzyj każdą linijkę, zanim cokolwiek pobierzesz, zaimportujesz lub włączysz. Cała odpowiedzialność jest po twojej stronie.
+- Jej kod działa na stronie aplikacji Marinara Engine, bez piaskownicy.
+- Może odczytywać czaty i karty, korzystać z pamięci przeglądarki, wysyłać żądania sieciowe i wywoływać własne interfejsy API aplikacji Marinara Engine.
+- Włącz ją dopiero po sprawdzeniu dokładnie tej wersji i tylko wtedy, gdy jej ufasz.
+- Szkice od Professor Mari nie mogą prosić o taki dostęp.
+
+Wpisy starsze, zaimportowane z profilu, zapisane ręcznie oraz te o nieznanym pochodzeniu również są traktowane jako zewnętrzne. Pozostają ukryte, nie da się ich zatwierdzić i nie działają, dopóki oba kroki nie zostaną wykonane.
+
+Cofnięcie któregokolwiek z tych kroków wyłącza wszystkie zaimportowane rozszerzenia. Ponowne włączenie nie uruchamia ich znowu. Jeśli rozszerzenie z pełnym dostępem do strony zostawiło po sobie zmiany, odśwież stronę.
+
+Jeśli to nie zadziałało: gdy kontrolki importu się nie pojawiają, sprawdź, czy oba kroki są wykonane i czy korzystasz z komputera z serwerem albo masz zapisany sekret administratora w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny).
 
 ## Eksport, wersje i odzyskiwanie
 
-Akcja eksportu w rozszerzeniu pobiera przenośną paczkę. Paczki wyeksportowane i przywrócone pozostają wyłączone. Przywrócenie wcześniejszej wersji też zamienia ją z powrotem w wyłączony szkic.
+Użyj akcji eksportu rozszerzenia, aby pobrać przenośną paczkę. Paczki wyeksportowane i przywrócone pozostają wyłączone. Przywrócenie wcześniejszej wersji też zamienia rozszerzenie z powrotem w wyłączony szkic.
 
-**Settings → Addons → Extension revision history** (ustawienia → dodatki → historia wersji rozszerzeń) określa, ile poprzednich wersji kodu zachowywać dla wszystkich rozszerzeń osobistych i zewnętrznych. Domyślna wartość to **10**; wybierz **0–10**, przy czym **0** wyłącza historię. Zmniejszenie limitu wymaga potwierdzenia przed trwałym usunięciem starszych wersji. Bieżący kod rozszerzeń, zatwierdzenia, stan włączenia i zapisane dane rozszerzeń pozostają zachowane. Ten sam limit obowiązuje przy kolejnych zmianach i przywracaniu wcześniejszych wersji, także przy zmianach wprowadzanych przez Professor Mari.
+**Settings → Addons → Extension revision history** (ustawienia, dodatki, historia wersji rozszerzeń) określa, ile poprzednich wersji kodu jest przechowywanych dla każdego rozszerzenia osobistego i zewnętrznego. Domyślna wartość to **10**. Wybierz od **0** do **10**, przy czym **0** wyłącza historię. Przy zmniejszeniu limitu aplikacja prosi o potwierdzenie, zanim trwale usunie starsze wersje. Bieżący kod, zatwierdzenia, stan włączenia i zapisane dane rozszerzeń zostają zachowane. Zmiany wprowadzane przez Professor Mari podlegają temu samemu limitowi.
 
-Jeśli rozszerzenie zachowuje się źle, wybierz **Disable** (wyłączenie). Jeśli interfejs jest niedostępny, zatrzymaj Marinara Engine i ustaw wartość `enabled` na `"false"` we właściwym wpisie `installed_extensions`. Nigdy nie ustawiaj `approvedHash` ręcznie.
+Jeśli rozszerzenie zachowuje się nieprawidłowo, wybierz **Disable** (wyłączenie). Jeśli interfejs jest niedostępny, zatrzymaj aplikację Marinara Engine i ustaw wartość `enabled` we właściwym wpisie `installed_extensions` na `"false"`. Nigdy nie ustawiaj `approvedHash` ręcznie.
 
 ## Powiązane przewodniki
 
-- [Tworzenie rozszerzeń osobistych](writing-personal-extensions.md)
+- [Pisanie własnych rozszerzeń](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Konfiguracja serwera](../CONFIGURATION.md)
 - [Kopia zapasowa i przywracanie](../data/backup-and-restore.md)

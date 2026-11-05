@@ -1,6 +1,6 @@
 # Construtor de personagens de conjuntos de regras
 
-Esta página faz parte de [Escrever conjuntos de regras de Game Mode](writing-rulesets.md). O construtor guiado: criar um personagem em etapas, de raça e classe a pontuações, proficiências, magias e equipamento.
+Use esta página para adicionar um construtor guiado que cria um personagem em etapas, de raça e classe a pontuações, proficiências, magias e equipamento. Ela é para autores de conjuntos de regras. Antes de começar, leia [Escrever conjuntos de regras de Game Mode](writing-rulesets.md).
 
 Uma ficha pode declarar `sheet.builder` (Capability API 1.86). O editor de fichas, nos editores de personagem e de persona e no **Edit sheet** (editar ficha) de uma partida, passa a abrir numa visão **Guided** (guiada) ao lado do formulário completo (**All fields**: todos os campos): as etapas no topo, cada uma com um selo que conta as escolhas que ainda espera, **Back** (voltar) e **Next** (avançar), que nunca bloqueiam (um jogador pode deixar escolhas para depois), e o personagem como está ao lado delas: o que as etapas escreveram, os valores dos atributos, os valores que `gm.sheetSummary` nomeia (classe de armadura, bônus de proficiência) e as salvaguardas e perícias treinadas.
 

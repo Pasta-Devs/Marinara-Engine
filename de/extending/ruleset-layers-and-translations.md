@@ -1,6 +1,6 @@
 # Regelsatzebenen, Übersetzungen und Migrationen
 
-Diese Seite gehört zu [Regelsätze für Game Mode schreiben](writing-rulesets.md). Hier geht es um Varianten, die ein Spieler für ein einzelnes Spiel einschaltet, Übersetzungen der Texte eines Regelsatzes und das Verschieben von Werten auf neue IDs, wenn sich ein Bogen ändert.
+Auf dieser Seite erfährst du, wie du Varianten anbietest, die ein Spieler für ein einzelnes Spiel einschaltet, wie du die Texte eines Regelsatzes übersetzt und wie du gespeicherte Werte auf neue IDs verschiebst, wenn sich ein Bogen ändert. Sie richtet sich an Regelsatz-Autoren. Bevor du anfängst, lies [Regelsätze für Game Mode schreiben](writing-rulesets.md).
 
 ## Ebenen: Varianten deines eigenen Regelsatzes
 
@@ -49,7 +49,7 @@ Eine Ebene ist eine benannte Variante deines Regelsatzes, die der Spieler bei de
 
 **Konflikte.** `conflicts` nennt Ebenen, die nicht gleichzeitig aktiv sein dürfen. Die Angabe auf einer Seite des Paares reicht. Der Assistent deaktiviert den anderen Schalter. Enthält eine gespeicherte Auswahl dennoch beide, entfällt die **später** deklarierte. Dieselben zwei Auswahlen ergeben dadurch immer dieselben Regeln.
 
-**Ein Bogen mit einem entfernten Wert behält ihn.** Kein Charakter wird umgeschrieben. Der Editor bietet den Wert lediglich nicht mehr an; bei einem Charakter, der ihn schon hatte, zeigt er ihn weiterhin an. Wird die Ebene in einem neuen Spiel ausgeschaltet, steht der Wert wieder zur Auswahl. Dasselbe gilt für einen ausgeblendeten Katalogeintrag: Er fehlt in der Auswahl, doch bereits ausgewählte Zeilen bleiben auf dem Bogen. Münzen, die eine Ebene herausnimmt und die jemand bereits mitführt, bleiben in seiner Tasche.
+**Ein Bogen mit einem entfernten Wert behält ihn.** Kein Charakter wird umgeschrieben. Der Editor bietet den Wert nicht mehr an; bei einem Charakter, der ihn schon hatte, zeigt er ihn weiterhin an. Wird die Ebene in einem neuen Spiel ausgeschaltet, steht der Wert wieder zur Auswahl. Dasselbe gilt für einen ausgeblendeten Katalogeintrag: Er fehlt in der Auswahl, doch bereits ausgewählte Zeilen bleiben auf dem Bogen. Münzen, die eine Ebene herausnimmt und die jemand bereits mitführt, bleiben in seiner Tasche.
 
 **Grenzen.** 12 Ebenen pro Regelsatz und 4000 Zeichen Anleitungstext je Ebene, beide Zeichenfolgen zusammengezählt. Ein als Paket ausgelieferter Regelsatz mit `layers` oder einem grundlegenden `gm.worldGuidance` braucht Capability API 1.25, einer, dessen Ebenen Münzen herausnehmen, braucht 1.64, und einer, dessen Ebenen sein `items` ändern, braucht 1.813. Ein importierter Regelsatz wird von der lesenden Engine geprüft und braucht keine solche Angabe.
 

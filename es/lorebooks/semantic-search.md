@@ -1,117 +1,86 @@
 # Búsqueda semántica para lorebooks
 
-Esta guía explica la búsqueda semántica para lorebooks (libros de trasfondo) en Marinara Engine. La búsqueda semántica permite que una entrada de un lorebook se active por su significado, no solo por palabras clave exactas. Aprenderás a configurar una fuente de embeddings, a vectorizar tus entradas y a ajustar la coincidencia.
+La búsqueda semántica permite que una entrada de un lorebook (libro de trasfondo) se active por su significado, no solo por palabras clave exactas. Así, una entrada asociada a "sword" (espada) puede coincidir con un mensaje que diga "blade" (hoja). Úsala cuando tu escritura use muchas palabras distintas para la misma idea.
 
-## Qué aporta la búsqueda semántica
+Funciona con embeddings, listas de números que capturan el significado de un texto. Marinara guarda un embedding, también llamado vector, para cada entrada. Construirlos se llama vectorizar. Al momento del chat, Marinara genera el embedding de tus mensajes recientes y encuentra las entradas más cercanas.
 
-Un lorebook es un conjunto de entradas. Cada entrada tiene palabras clave disparadoras y un bloque de texto. Normalmente una entrada solo se activa cuando una de sus palabras clave exactas aparece en el chat reciente. Si el texto usa una palabra diferente, la entrada permanece en silencio.
+La búsqueda semántica añade coincidencias. Tus palabras clave siguen funcionando. Las coincidencias por palabra clave y las semánticas tienen la misma prioridad dentro de los presupuestos, así que, cuando no cabe todo, decide el **Order** (Orden) de las entradas.
 
-La búsqueda semántica corrige eso. Compara el significado del chat reciente con el significado de tus entradas. Así una entrada puede activarse aunque no coincida ninguna palabra clave exacta. Por ejemplo, una entrada asociada a "sword" (espada) puede coincidir con un mensaje que solo diga "blade" (hoja).
+## Configurar la búsqueda semántica
 
-Esto funciona usando embeddings (representación numérica del texto). Un embedding es una lista de números que captura el significado de un fragmento de texto. Marinara guarda un embedding, también llamado vector, para cada entrada. Este paso se llama vectorización. Al momento del chat, Marinara genera el embedding de tus mensajes recientes y encuentra las entradas cuyo significado es más cercano.
+Primero necesitas una fuente de embeddings, luego el interruptor **Vectors** (Vectores) y luego una ejecución de vectorización.
 
-La coincidencia por palabra clave sigue funcionando cuando la búsqueda semántica está activada. La búsqueda semántica añade coincidencias extra. No reemplaza tus palabras clave.
+### Paso 1: elige una fuente de embeddings
 
-Las coincidencias por palabra clave y las semánticas tienen la misma prioridad cuando Marinara aplica los presupuestos de entradas y de tokens del lorebook. Si no caben todas las entradas coincidentes, el orden de entradas que configuraste decide entre las coincidencias actuales por palabra clave y las semánticas; el método de activación en sí mismo no gana.
+Antes de empezar: necesitas una cuenta cuyo servicio ofrezca embeddings, o el modelo integrado. No todos los servicios ofrecen embeddings. Si el tuyo no los ofrece, el editor te indica que elijas una cuenta dedicada de embeddings.
 
-## Antes de empezar: elige una fuente de embeddings
+Opción 1: una cuenta con un modelo de embeddings.
 
-La búsqueda semántica necesita un modelo que pueda crear embeddings. Tienes dos opciones.
+1. Abre el panel **Connections** (Conexiones) y abre una cuenta para editarla.
+2. Abre **Advanced** (Avanzado), luego **More** (Más), y busca **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
+3. Escribe el nombre de un modelo de embeddings, como `text-embedding-3-small`. Si no sabes bien el nombre, búscalo en la documentación de tu servicio, o usa en su lugar el modelo integrado.
+4. Guarda la cuenta.
+5. Haz clic en **Test embedding** (Probar embedding) para comprobarlo. Marinara guarda primero, genera el embedding de una breve muestra y muestra el tamaño del vector, como "1536 dimensions" (1536 dimensiones), o el error que devolvió el servicio.
 
-Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Defaults** (Valores predeterminados) y elígela en la sección **Embeddings**. Todas las conexiones que no definan un modelo de embeddings ni un **Embedding provider** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
+Para enviar las solicitudes de embeddings mediante la clave y la dirección de otra cuenta, elige esa cuenta en **Embedding provider** (Proveedor de embeddings). El valor predeterminado es **Same as this provider** (Igual que este proveedor). Si la cuenta elegida tiene su propio modelo de embeddings, Marinara lo usa. Si no, usa el nombre de modelo que escribiste aquí.
 
-Opción 1: una conexión con un modelo de embeddings.
+Opción 2: el modelo integrado. Se ejecuta en tu computadora sin API key (clave de API) y en el selector se llama **Built-in model** (Modelo integrado). Aparece después de que lo descargues, y está oculto en las versiones Lite. Consulta [Configuración del modelo integrado](../connections/local-model.md).
 
-1. Abre el panel **Connections** (Conexiones).
-2. Abre una conexión para editarla.
-3. Abre **Advanced** (Avanzado), luego **More** (Más), y busca la sección **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
-4. Escribe el nombre de un modelo de embeddings en el campo del modelo. Un valor común es `text-embedding-3-small`.
-5. Guarda la conexión.
+Para que una fuente sea la predeterminada de todas las cuentas que no definen ninguna, abre **Connections** y elígela en la tarea **Embeddings**. El ajuste propio de una cuenta sigue teniendo prioridad. La opción predeterminada, **Marinara's own search** (La búsqueda propia de Marinara), conserva el modelo integrado como respaldo.
 
-Para comprobar la configuración, haz clic en **Test embedding** (Probar embedding) debajo de los ajustes de embeddings. Marinara guarda primero tus cambios y luego genera el embedding de un breve texto de muestra con el mismo modelo, la misma API key y la misma dirección que usa la búsqueda semántica. Después muestra el tamaño de vector que recibió, como "1536 dimensions" (1536 dimensiones), o el error que devolvió el proveedor.
+### Paso 2: activa Vectors
 
-Una conexión también puede enviar sus solicitudes de embeddings mediante la API key y la dirección de otra conexión. En la misma sección, elige esa conexión en **Embedding provider** (Proveedor de embeddings). El valor predeterminado es **Same as this provider** (Igual que este proveedor). Si la conexión elegida tiene su propio modelo de embeddings, Marinara lo usa; si no, usa el nombre de modelo que escribiste aquí. Esto se aplica tanto al vectorizar como durante el chat.
+La búsqueda semántica está desactivada en los lorebooks nuevos.
 
-No todos los proveedores ofrecen embeddings. Si el proveedor no puede hacer embeddings, el editor te indica que elijas en su lugar una conexión dedicada de embeddings.
+1. Abre el lorebook y quédate en la pestaña **Overview** (Resumen).
+2. Activa **Vectors**. Con él activado, las entradas también se pueden encontrar por significado. Con él desactivado, las palabras clave siguen funcionando y el lorebook no se vectoriza.
 
-Opción 2: el modelo local integrado.
+Mientras **Vectors** está desactivado, el panel dice "Semantic search is disabled by the lorebook-level Vectors toggle." (La búsqueda semántica está desactivada por el interruptor Vectors a nivel del lorebook.)
 
-Marinara puede ejecutar un pequeño modelo de embeddings en tu propia máquina sin API key (clave de API). En el selector de lorebooks esta opción se llama **Built-in model** (Modelo integrado). Aparece solo después de que descargues el modelo local. Consulta [Configuración del modelo local](../connections/local-model.md) para saber cómo instalarlo.
+### Paso 3: vectoriza las entradas
 
-Si usas una versión Marinara Lite, la opción **Built-in model** está oculta. En Lite, la búsqueda semántica necesita una conexión con un modelo de embeddings.
+1. En el panel **Semantic search (embeddings)**, elige una fuente en el menú desplegable. La primera opción es **No semantic search** (Sin búsqueda semántica). Después viene **Built-in model**, cuando está disponible, y luego tus cuentas elegibles.
+2. Haz clic en **Vectorize N missing** (Vectorizar N que faltan), por ejemplo "Vectorize 5 missing".
+3. Espera. Una ficha muestra el progreso, como "8/12 entries vectorized" (8/12 entradas vectorizadas), y se pone verde cuando todas están listas.
 
-## Activa Vectors para un lorebook
-
-La búsqueda semántica está desactivada de forma predeterminada en los lorebooks nuevos. La activas por cada lorebook.
-
-1. Abre el lorebook que quieres buscar por significado.
-2. Quédate en la pestaña **Overview** (Resumen).
-3. Busca el interruptor **Vectors** (Vectores) y actívalo.
-
-El texto de ayuda de **Vectors** dice: "When on, entries in this lorebook may use semantic embeddings. When off, keyword matching still works and vectorization skips this lorebook." (Cuando está activado, las entradas de este lorebook pueden usar embeddings semánticos. Cuando está desactivado, la coincidencia por palabra clave sigue funcionando y la vectorización omite este lorebook.)
-
-Mientras **Vectors** está desactivado, el panel semántico muestra esta nota: "Semantic search is disabled by the lorebook-level Vectors toggle." (La búsqueda semántica está desactivada por el interruptor Vectors a nivel del lorebook.)
+Si no funcionó: si ninguna cuenta tiene un modelo de embeddings, el panel dice "No connections with an embedding model configured. Set an Embedding Model on a connection first." (No hay conexiones con un modelo de embeddings configurado. Configura primero un Embedding Model en una conexión.) Termina el paso 1 y vuelve a intentarlo.
 
 ## El panel Semantic search (embeddings)
 
-Con **Vectors** activado, el panel **Semantic search (embeddings)** aparece en la pestaña **Overview**. Una etiqueta de estado muestra cuántas entradas están vectorizadas, por ejemplo "8/12 entries vectorized" (8/12 entradas vectorizadas). Se pone verde con una marca de verificación cuando todas las entradas están listas.
-
-El panel tiene tres ajustes numéricos.
+Tras activar **Vectors**, el panel aparece en la pestaña **Overview** con estos ajustes.
 
 | Ajuste | Qué hace | Predeterminado | Rango |
-|---|---|---|---|
-| **Query Messages** | Cuántos mensajes recientes del chat generar como embedding al buscar en este lorebook. | 10 | 0 a 100 |
-| **Score Threshold** | Similitud calibrada mínima que necesita una entrada antes de activarse. Más alto es más estricto. | 0.3 | 0 a 1 |
-| **Vector Limit** | Máximo de coincidencias semánticas que este lorebook puede añadir a una generación. | 10 | 1 a 100 |
+| --- | --- | --- | --- |
+| **Query Messages** (Mensajes de consulta) | Cuántos mensajes recientes del usuario se usan para buscar. 0 usa todos los mensajes disponibles. | 10 | 0 a 100 |
+| **Score Threshold** (Umbral de puntuación) | La similitud que necesita una entrada para activarse. Más alto es más estricto. | 0,3 | 0 a 1 |
+| **Vector Limit** (Límite de vectores) | El máximo de entradas que este lorebook puede añadir por significado en una respuesta. | 10 | 1 a 100 |
 
-Pon **Query Messages** en 0 para buscar contra todo el historial del chat en lugar de una ventana reciente.
+**Include character context** (Incluir el contexto de los personajes) también busca en las respuestas recientes de los personajes, por separado de tus mensajes, y conserva la coincidencia más fuerte. Genera embeddings de texto adicional y está desactivado de forma predeterminada. En ese caso, **Query Messages** también se aplica a las respuestas de los personajes.
 
-**Score Threshold** controla cuán cercano debe ser el significado. Un valor bajo como 0.2 deja entrar más entradas pero arriesga coincidencias fuera de tema. Un valor alto como 0.5 es más estricto y solo coincide con significados cercanos. Empieza con el valor predeterminado y ajústalo si obtienes demasiadas o muy pocas coincidencias.
+Un **Score Threshold** bajo, como 0,2, deja entrar más entradas, pero arriesga coincidencias fuera de tema. Uno alto, como 0,5, solo coincide con significados cercanos. Empieza con el valor predeterminado.
 
-Marinara calibra esta puntuación contra varios pasajes neutros no relacionados del mismo modelo de embeddings. Esto elimina el piso común de coseno inusualmente alto que producen algunos backends de embeddings locales y compatibles con OpenAI, donde de otro modo textos no relacionados pueden puntuar todos alrededor de 0.95 o más. Por eso el ajuste sigue siendo útil en distintos modelos de embeddings en lugar de requerir un corte específico del modelo cercano a 1.0.
+**Vector Limit** solo cuenta las coincidencias por significado. Tus presupuestos de tokens (fragmentos de texto) normales siguen aplicándose.
 
-**Vector Limit** limita solo las coincidencias semánticas. Tus presupuestos de tokens normales siguen aplicándose además de ese límite.
+## Revectorizar, borrar y omitir
 
-## Vectoriza tus entradas
+- **Re-vectorize N entries** (Revectorizar N entradas) aparece cuando todas las entradas tienen un vector. Las reconstruye todas después de que confirmes.
+- **Re-vectorize all** (Revectorizar todo) aparece cuando algunas entradas tienen vectores y otras no. Lo reconstruye todo en una sola pasada.
+- **Delete vectors** (Borrar vectores) elimina solo los vectores guardados. El texto y las palabras clave de las entradas se mantienen, y las palabras clave siguen funcionando.
+- **No Vector** (Sin vector) en una entrada hace que se omita. Su texto de ayuda dice que la vectorización masiva omite la entrada y elimina cualquier embedding guardado. La entrada sigue activándose por palabra clave.
 
-Vectorizar significa construir y guardar el embedding de cada entrada. Debes hacer esto antes de que la coincidencia semántica pueda funcionar.
+### Después de cambiar el modelo de embeddings
 
-1. Activa **Vectors** para el lorebook.
-2. En el panel **Semantic search (embeddings)**, elige una fuente de embeddings en el menú desplegable. La primera opción es **No semantic search** (Sin búsqueda semántica). **Built-in model** viene después, cuando está disponible. Tus conexiones elegibles vienen a continuación.
-3. Haz clic en el botón de vectorizar. Cuando algunas entradas no tienen vector, el botón dice **Vectorize N missing** (Vectorizar N que faltan), por ejemplo "Vectorize 5 missing".
-4. Espera a que termine la ejecución. La etiqueta de estado se actualiza para mostrar todas las entradas vectorizadas.
+Los vectores guardados pertenecen al modelo que los creó. Después de cambiar de modelo, usa **Re-vectorize N entries** o **Re-vectorize all** para que todas las entradas usen el mismo modelo. Una ejecución de "solo los que faltan" que devuelve un tamaño de vector diferente se rechaza con "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models." (Las dimensiones del embedding cambiaron. Usa Re-vectorize all entries en lugar de solo las entradas que faltan antes de cambiar de modelo de embeddings.)
 
-Si ninguna conexión tiene un modelo de embeddings ni un **Embedding provider**, el panel muestra esta nota en lugar del menú desplegable: "No connections with an embedding model configured. Set an Embedding Model on a connection first." (No hay conexiones con un modelo de embeddings configurado. Configura primero un Embedding Model en una conexión.) Configura primero una fuente de embeddings, siguiendo los pasos de arriba.
+Un fallo es silencioso. Al momento del chat, Marinara genera el embedding de tus mensajes con el modelo de embeddings de la cuenta activa, o con el modelo de su **Embedding provider**. Si la cuenta no define ninguno de los dos, usa la fuente de la tarea **Embeddings**, o el modelo integrado. Si el tamaño de vector de ese modelo difiere del de los vectores de tus entradas, Marinara omite esas entradas en la coincidencia semántica y no muestra ningún error. Vectoriza con la misma fuente que usas en el chat, y revectoriza después de cualquier cambio de modelo.
 
-Cuando todas las entradas ya tienen un vector, el botón principal cambia a **Re-vectorize N entries** (Revectorizar N entradas). Esto reconstruye todos los vectores guardados. Te pide confirmación antes de sobrescribirlos.
+## La búsqueda semántica y el Knowledge Router
 
-Un botón aparte **Re-vectorize all** (Revectorizar todo) aparece cuando algunas entradas tienen vectores y otras aún faltan. Úsalo para reconstruir todo en una sola pasada.
-
-Para borrar los vectores guardados, haz clic en **Delete vectors** (Borrar vectores). Esto elimina solo los embeddings. No cambia el texto de tus entradas ni tus palabras clave. La coincidencia por palabra clave sigue funcionando después de que borres los vectores.
-
-### Omite una sola entrada
-
-Puedes dejar una entrada fuera de la vectorización manteniendo el resto. Abre la entrada y luego activa su interruptor **No Vector** (Sin vector). Su texto de ayuda dice: "When enabled, bulk vectorization skips this entry and removes any stored embedding." (Cuando está activado, la vectorización masiva omite esta entrada y elimina cualquier embedding guardado.) Esa entrada sigue activándose por palabra clave. Solo que no coincidirá por significado.
-
-## Revectorizar después de cambiar de modelo
-
-Tus vectores guardados están ligados al modelo de embeddings que los creó. Si cambias a un modelo de embeddings diferente, los vectores antiguos pueden dejar de encajar.
-
-Reconstruye todos los vectores después de cambiar el modelo de embeddings. Usa **Re-vectorize N entries** o **Re-vectorize all** para que todas las entradas usen el mismo modelo.
-
-No ejecutes solo una vectorización parcial después de un cambio de modelo. Si una ejecución de "solo los que faltan" devuelve un tamaño de vector diferente al de los vectores guardados, el servidor la rechaza con este mensaje: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models." (Las dimensiones del embedding cambiaron. Usa Re-vectorize all entries en lugar de solo las entradas que faltan antes de cambiar de modelo de embeddings.)
-
-Hay un modo de fallo silencioso que conviene conocer. Al momento del chat, Marinara genera el embedding de tus mensajes recientes con un modelo de consulta. El modelo de consulta es el propio modelo de embeddings de la conexión activa o, si define uno, el de su **Embedding provider**. Si la conexión no define ninguno de los dos, Marinara usa el valor predeterminado de **Embeddings** en **Defaults**, dentro de **Connections**, o, cuando es **None**, el modelo local integrado. El modelo de consulta puede producir un tamaño de vector diferente al del modelo que vectorizó tus entradas. Entonces Marinara omite esas entradas en la coincidencia semántica. No ves ningún error. Para evitar esto, vectoriza tus entradas con la misma fuente de embeddings que usas durante el chat. Definir un valor predeterminado de **Embeddings** ayuda: el selector de vectorización empieza en él, salvo que hayas elegido otra cosa antes, y las conexiones sin ajustes de embeddings propios consultan con él. Revectoriza después de cualquier cambio de modelo.
-
-## Cómo alimenta al agente Knowledge Router
-
-La búsqueda semántica también ayuda al agente **Knowledge Router** (Enrutador de conocimiento). Ese agente elige entradas relevantes del lorebook y las inyecta en el prompt (instrucciones enviadas a la IA) para lorebooks grandes. Cuando un lorebook está vectorizado, el enrutador usa las coincidencias semánticas para construir su lista corta de entradas candidatas, junto con tus coincidencias por palabra clave.
-
-Este paso es opcional para el enrutador. Si el lorebook no está vectorizado, o no hay ninguna fuente de embeddings disponible, el enrutador recurre solo a las coincidencias por palabra clave. Vectorizar simplemente le da una mejor lista corta. Consulta [Fuentes de conocimiento: agentes de recuperación y enrutamiento](../agents/knowledge-sources.md) para saber cómo funciona ese agente.
+Cuando un lorebook está vectorizado, el agente **Knowledge Router** (Enrutador de conocimiento) también usa las coincidencias por significado para construir su lista corta. Sin vectores, usa solo las coincidencias por palabra clave. Consulta [Fuentes de conocimiento: agentes de recuperación y enrutamiento](../agents/knowledge-sources.md).
 
 ## Guías relacionadas
 
 - [Resumen de lorebooks](overview.md)
 - [Conectar con un proveedor de IA](../connections/connecting-to-a-provider.md)
-- [Configuración del modelo local](../connections/local-model.md)
+- [Configuración del modelo integrado](../connections/local-model.md)
 - [Fuentes de conocimiento: agentes de recuperación y enrutamiento](../agents/knowledge-sources.md)

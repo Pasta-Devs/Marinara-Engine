@@ -1,109 +1,108 @@
 # Lorebooks mit Charakteren und Personas verknüpfen
 
-In dieser Anleitung erfährst du, wie du Lorebooks mit einem Charakter oder einer Persona verknüpfst, damit sie sich in den richtigen Chats von selbst einschalten. Dazu kommt das Einbetten eines Lorebooks direkt in eine Charakterkarte sowie der **Lorebooks**-Bereich (Lorebooks) im einzelnen Chat. Ein Lorebook ist eine Sammlung von Weltwissen: World-Info-Einträge, die über Schlüsselwörter ausgelöst werden. Bist du damit noch nicht vertraut, hilft [Lorebooks – Überblick](overview.md) weiter.
+Verknüpfe ein Lorebook mit einem Charakter oder einer Persona, und es schaltet sich in den richtigen Chats von selbst ein. Du kannst ein Lorebook auch in eine Charakterkarte einbetten und Lorebooks für einen einzelnen Chat steuern. Neu bei Lorebooks? Fang mit [Lorebooks – Überblick](overview.md) an.
 
-## Zwei Wege, ein Lorebook anzuhängen
+## Verknüpfen oder einbetten
 
-Ein Lorebook lässt sich auf zwei Arten an einen Charakter hängen. Die beiden verhalten sich unterschiedlich – wähl also bewusst.
+| Merkmal | Verknüpfen (zuweisen) | Einbetten |
+| --- | --- | --- |
+| Was passiert | Der Charakter oder die Persona verweist auf ein Lorebook in deiner Bibliothek. | Das Lorebook wird in die Charakterkarte geschrieben. |
+| Schaltet sich ein | In Chats mit diesem Charakter oder dieser Persona. | Ebenso, und es reist mit der Karte mit. |
+| Wird mit der Karte exportiert | Nein | Ja |
+| Verfügbar für | Charaktere und Personas | Nur Charaktere |
 
-- **Link (Assign)** (verknüpfen): Das Lorebook bleibt in der Bibliothek, der Charakter oder die Persona verweist nur darauf. In Chats mit diesem Charakter oder dieser Persona schaltet es sich von selbst ein. Beim Export einer Charakterkarte wandert ein verknüpftes Lorebook NICHT mit.
-- **Embed** (einbetten): Das Lorebook wird in die Charakterkarte selbst geschrieben. Exportierst oder teilst du den Charakter, reist es mit der Karte mit. Einbetten geht nur bei Charakteren, nicht bei Personas.
-
-In den allermeisten Fällen ist Verknüpfen die richtige Wahl. Bette nur dann ein, wenn du die Charakterkarte mitsamt Lorebook weitergeben willst.
+Meistens ist Verknüpfen die richtige Wahl. Bette nur ein, wenn du die Karte mitsamt Lorebook weitergeben willst.
 
 ## Der Lorebook-Tab im Editor
 
-Sowohl der Charakter-Editor als auch der Persona-Editor haben einen **Lorebook**-Tab.
+Sowohl der Charakter-Editor als auch der Persona-Editor haben einen Tab **Lorebook**.
 
 1. Öffne einen Charakter oder eine Persona zum Bearbeiten.
-2. Klick auf den **Lorebook**-Tab.
-3. Dort findest du den Bereich **Lorebooks** mit zwei Schaltflächen: **New** (Neu) und **Assign Lorebook** (Lorebook zuweisen).
+2. Klick auf den Tab **Lorebook**. Der Bereich **Lorebooks** hat zwei Schaltflächen: **New** (Neu) und **Assign Lorebook** (Lorebook zuweisen).
 
-**New** legt ein frisches Lorebook an, das sofort mit dem geöffneten Charakter oder der geöffneten Persona verknüpft ist. Es öffnet das Fenster **Create Lorebook** (Lorebook erstellen), wobei **Category** (Kategorie) bereits auf **Character** steht.
-
-**Assign Lorebook** verknüpft ein vorhandenes Lorebook aus der Bibliothek. Die Auswahl zeigt ausschließlich Lorebooks der Kategorie **Character**. Mehr dazu im nächsten Abschnitt.
+**New** legt ein Lorebook an, das bereits mit diesem Charakter oder dieser Persona verknüpft ist und dessen Kategorie auf **Character** steht. **Assign Lorebook** verknüpft ein Lorebook, das du schon hast.
 
 ## Ein vorhandenes Lorebook zuweisen
 
-Die Auswahl hinter **Assign Lorebook** zeigt nur Lorebooks, deren **Category** auf **Character** steht – auch dann, wenn du gerade eine Persona bearbeitest. Ein Lorebook aus einer anderen Kategorie, etwa World oder NPC, taucht weder in der Auswahl noch in der Liste der zugewiesenen Lorebooks auf. Damit es erscheint, öffne das Lorebook und setz im Tab **Overview** (Überblick) die **Category** auf **Character**. Mit **New** umgehst du das Problem von vornherein, denn dabei entsteht direkt ein Lorebook der Kategorie Character.
+Bevor du anfängst: Die Auswahl zeigt nur Lorebooks, deren **Category** (Kategorie) **Character** ist, auch bei Personas. Fehlt ein Lorebook, öffne es, setz im Tab **Overview** (Übersicht) die **Category** auf **Character** und versuch es erneut.
 
-1. Klick im **Lorebook**-Tab auf **Assign Lorebook**.
-2. Tipp im Suchfeld einen Teil des Lorebook-Namens ein.
-3. Klick auf das gewünschte Lorebook. Daneben erscheint ein Häkchen.
-4. Wähl rechts einen **Scope** (Geltungsbereich) – siehe nächster Abschnitt.
-5. Klick auf **Assign**.
+1. Klick im Tab **Lorebook** auf **Assign Lorebook**.
+2. Tipp einen Teil des Namens ins Suchfeld.
+3. Klick auf das Lorebook. Ein Häkchen erscheint.
+4. Lass **Scope** (Geltungsbereich) auf **All chats with** mit dem Namen stehen oder ändere ihn (siehe unten).
+5. Klick auf **Assign** (Zuweisen).
 
-Das Lorebook steht nun in der Liste der zugewiesenen Lorebooks. Jede Zeile hat eine **Scope**-Schaltfläche, um den Geltungsbereich später zu ändern, und ein Papierkorb-Symbol, um die Verknüpfung zu lösen. Ein Klick auf den Namen öffnet das Lorebook im vollen Editor.
+Das Lorebook steht jetzt in der Liste der zugewiesenen Lorebooks. Mit der Schaltfläche **Scope** in seiner Zeile änderst du den Geltungsbereich, mit dem Papierkorb-Symbol löst du die Verknüpfung. Klick auf den Namen, um das Lorebook zu öffnen.
 
-Ein Lorebook, das auf Global steht, ist in jedem Chat aktiv und lässt sich deshalb nicht zusätzlich mit einem Charakter oder einer Persona verknüpfen. Was Global genau bedeutet, steht in [Lorebooks – Überblick](overview.md).
+Ein globales Lorebook kann nicht zusätzlich verknüpft werden. Siehe [Lorebooks – Überblick](overview.md).
 
-## Scope: welche Chats das verknüpfte Lorebook nutzen dürfen
+### Scope
 
-**Scope** legt fest, wo sich ein verknüpftes Lorebook einschalten darf. Gemeint sind nicht alle Chats in Marinara, sondern nur die Chats mit diesem Charakter beziehungsweise dieser Persona. Es gibt drei Modi.
+**Scope** legt fest, welche Chats das verknüpfte Lorebook nutzen dürfen. Infrage kommen immer nur Chats mit diesem Charakter oder mit dieser Persona.
 
-- **All chats with [name]**: der Standard. Das Lorebook schaltet sich in jedem Chat ein, an dem dieser Charakter beteiligt ist oder in dem diese Persona genutzt wird.
-- **Disabled for all chats**: Die Verknüpfung bleibt bestehen, das Lorebook schaltet sich aber nie ein. Praktisch, um ein Lorebook zu pausieren, ohne die Verknüpfung zu lösen.
-- **Specific chats**: Du wählst einzelne Chats aus einer Liste mit Kontrollkästchen. Nur die angehakten Chats dürfen das Lorebook nutzen. Die Liste enthält die Chats, an denen dieser Charakter bereits beteiligt ist oder in denen diese Persona genutzt wird.
+| Scope | Ergebnis |
+| --- | --- |
+| **All chats with** (der Name) | Der Standard. Das Lorebook schaltet sich in jedem dieser Chats ein. |
+| **Disabled for all chats** | Die Verknüpfung bleibt, aber das Lorebook schaltet sich nie ein. Nutze das zum Pausieren. |
+| **Specific chats** | Nur die Chats, die du in der Liste anhakst. Du musst mindestens einen anhaken, bevor du speichern kannst. |
 
-Bei **Specific chats** musst du mindestens einen Chat anhaken, sonst lässt sich nicht speichern.
-
-Willst du den Geltungsbereich später ändern, klick in der Zeile des zugewiesenen Lorebooks auf **Scope**, pass ihn an und klick erneut auf **Assign**.
+Um den Geltungsbereich später zu ändern, klick in der Zeile auf **Scope**, pass ihn an und klick erneut auf **Assign**.
 
 ## Ein Lorebook in eine Charakterkarte einbetten
 
-Beim Einbetten wandert ein Lorebook in die Charakterkarte und wird beim Export mit exportiert. Das geht nur bei Charakteren. Nutz es, wenn du einen Charakter samt seiner World Info weitergeben willst.
+Bevor du anfängst: Weise das Lorebook zuerst dem Charakter zu (siehe oben).
 
-1. Öffne den Charakter im Charakter-Editor.
-2. Wechsel zum **Lorebook**-Tab.
-3. Achte darauf, dass das gewünschte Lorebook bereits zugewiesen ist (siehe oben).
-4. Klick in dessen Zeile auf **Embed into card** (in Karte einbetten).
+1. Öffne den Charakter und klick auf den Tab **Lorebook**.
+2. Klick in der Zeile des Lorebooks auf **Embed into card** (in Karte einbetten).
 
-In der Zeile sollte daraufhin ein **Embedded**-Badge auftauchen. Ab jetzt liegen die Lorebook-Einträge in der Karte und werden mit ihr exportiert.
+In der Zeile erscheint ein **Embedded**-Badge, und die Einträge werden ab jetzt mit der Karte exportiert.
 
-Eine Charakterkarte fasst immer nur ein eingebettetes Lorebook. Ist bereits eines vorhanden, ist die Schaltfläche **Embed into card** deaktiviert und trägt den Hinweis "Remove the current embedded lorebook first". Entferne also erst die vorhandene eingebettete Kopie, bevor du ein anderes Lorebook einbettest.
+Eine Karte fasst ein eingebettetes Lorebook. Hat sie schon eines, ist **Embed into card** deaktiviert, und der Tooltip weist darauf hin, zuerst das aktuelle eingebettete Lorebook zu entfernen.
 
-Bearbeitest du das verknüpfte Lorebook nach dem Einbetten, klick in seiner Zeile auf **Refresh** (aktualisieren). Damit wird die eingebettete Kopie aus den aktuellen Einträgen neu geschrieben und bleibt auf dem neuesten Stand.
+Nachdem du das verknüpfte Lorebook bearbeitet hast, klick in seiner Zeile auf **Refresh** (aktualisieren), um die eingebettete Kopie aus den aktuellen Einträgen neu zu schreiben.
 
-## Ein eingebettetes Lorebook verwalten
+### Ein eingebettetes Lorebook verwalten
 
-Sobald eine Charakterkarte ein eingebettetes Lorebook enthält, erscheinen unterhalb der Liste zusätzliche Bedienelemente – dazu eine schreibgeschützte Übersicht der eingebetteten Einträge.
+Hat eine Karte ein eingebettetes Lorebook, erscheinen unter der Liste der zugewiesenen Lorebooks diese Bedienelemente, dazu eine schreibgeschützte Liste seiner Einträge.
 
-- **Import Embedded Lorebook** (eingebettetes Lorebook importieren): macht aus den Einträgen in der Karte ein normales, bearbeitbares Lorebook in der Bibliothek. Das neue Lorebook wird zugleich mit dem Charakter verknüpft. Existiert bereits eine verknüpfte Kopie, heißt die Schaltfläche **Reimport Embedded Lorebook**.
-- **Edit Embedded Lorebook** (eingebettetes Lorebook bearbeiten): öffnet dieses verknüpfte Lorebook im vollen Editor. Deine Änderungen landen automatisch auch in der eingebetteten Kopie in der Karte.
-- **Remove from card** (aus Karte entfernen): löscht die eingebettete Kopie aus der Karte. Ein separat verknüpftes Lorebook in der Bibliothek bleibt unangetastet.
+- **Import Embedded Lorebook** (eingebettetes Lorebook importieren) macht aus den Einträgen der Karte ein normales Lorebook in deiner Bibliothek, das mit dem Charakter verknüpft ist. Gibt es bereits eine verknüpfte Kopie, heißt die Schaltfläche **Reimport Embedded Lorebook**.
+- **Edit Embedded Lorebook** (eingebettetes Lorebook bearbeiten) öffnet dieses verknüpfte Lorebook. Deine Änderungen werden in die Kopie in der Karte übernommen.
+- **Remove from card** (aus Karte entfernen) löscht die eingebettete Kopie. Ein separat verknüpftes Lorebook bleibt unangetastet.
 
-Besonders nützlich ist das bei Karten aus anderen Tools: Viele importierte Karten bringen ein eingebettetes Lorebook mit. Ein Klick auf **Import Embedded Lorebook** verschafft dir eine voll bearbeitbare Fassung in Marinara.
+Viele Karten aus anderen Tools bringen ein eingebettetes Lorebook mit. Klick auf **Import Embedded Lorebook**, um eine bearbeitbare Fassung zu bekommen.
 
 ## Der Bereich Lorebooks in den Chat Settings
 
-Jeder Chat hat seine eigene **Lorebooks**-Steuerung. Hier siehst du, welche Lorebooks im aktuellen Chat aktiv sind, und passt sie nur für diesen Chat an.
+Jeder Chat hat seine eigene Lorebook-Steuerung.
 
 1. Öffne einen Chat.
 2. Öffne **Chat Settings** (Chat-Einstellungen).
-3. Geh zum Bereich **Lorebooks**. Das Zähler-Badge zeigt, wie viele Lorebooks aktiv sind.
+3. Suche den Bereich **Lorebooks**. Ein Badge zeigt, wie viele Lorebooks aktiv sind.
 
-Jedes aktive Lorebook trägt ein oder mehrere Badges, die den Grund dafür nennen:
+Jedes aktive Lorebook trägt ein Badge, das sagt, warum es an ist.
 
-- **Chat**: Du hast es von Hand an diesen Chat geheftet.
-- **Global**: Es ist ein globales Lorebook.
-- **Character**: Es ist mit einem Charakter in diesem Chat verknüpft.
-- **Persona**: Es ist mit der Persona in diesem Chat verknüpft.
+| Badge | Bedeutung |
+| --- | --- |
+| **Chat** | Du hast es diesem Chat hinzugefügt. |
+| **Global** | Es ist ein globales Lorebook. |
+| **Character** | Es ist mit einem Charakter in diesem Chat verknüpft. |
+| **Persona** | Es ist mit der Persona dieses Chats verknüpft. |
 
-Was aktiv ist, lässt sich für diesen einen Chat ändern.
+Was aktiv ist, kannst du nur für diesen Chat ändern.
 
-- **Add Lorebook** (Lorebook hinzufügen): heftet ein Lorebook an diesen Chat. Angeheftete Lorebooks tragen das **Chat**-Badge.
-- Papierkorb-Symbol (**Remove from chat**): löst ein von Hand hinzugefügtes Lorebook wieder vom Chat.
-- Durchgestrichenes Auge (**Disable in this chat**): blendet ein automatisch aktiviertes Lorebook nur für diesen Chat aus, ohne die Verknüpfung zu lösen. Solche Lorebooks erscheinen durchgestrichen und mit einem **Disabled**-Badge.
-- Auge-Symbol (**Enable in this chat**): schaltet ein deaktiviertes Lorebook für diesen Chat wieder ein.
+- **Add Lorebook** (Lorebook hinzufügen) fügt diesem Chat ein Lorebook hinzu. Es trägt dann das Badge **Chat**.
+- Das Papierkorb-Symbol (**Remove from chat**, aus dem Chat entfernen) entfernt ein Lorebook, das du hinzugefügt hast.
+- Das durchgestrichene Auge (**Disable in this chat**, in diesem Chat deaktivieren) blendet ein automatisches Lorebook hier aus, ohne die Verknüpfung zu lösen. Es zeigt dann einen durchgestrichenen Namen und ein Badge **Disabled**.
+- Das Auge-Symbol (**Enable in this chat**, in diesem Chat aktivieren) schaltet es wieder ein.
 
 ### Lorebook Token Budget
 
-**Lorebook Token Budget** ist ein Zahlenfeld in diesem Bereich. Es begrenzt, wie viel Lorebook-Text in diesem Chat eingefügt werden darf – gemessen in Tokens, also kleinen Textstücken. Der Standard liegt bei **8192**. Mit **0** hebst du die Grenze auf. Dieses chatweite Budget ist unabhängig vom Token-Budget des einzelnen Lorebooks; beide Grenzen gelten gleichzeitig. Wie sie zusammenspielen, steht in [Lorebook-Token-Budgets und Rekursion](token-budgets.md).
+**Lorebook Token Budget** begrenzt, wie viele Tokens Lorebook-Text dieser Chat hinzufügen kann. Der Standard ist 8192, und 0 bedeutet keine Grenze. Die Grenze gilt zusätzlich zum eigenen **Token Budget** jedes Lorebooks. Siehe [Token-Budgets und Rekursion bei Lorebooks](token-budgets.md).
 
 ## Verwandte Anleitungen
 
 - [Lorebooks – Überblick](overview.md)
-- [Lorebook-Token-Budgets und Rekursion](token-budgets.md)
+- [Token-Budgets und Rekursion bei Lorebooks](token-budgets.md)
 - [Lorebooks importieren und exportieren](import-export.md)
 - [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md)
-- [Chat Settings – Überblick](../chats/chat-settings.md)
+- [Chat Settings im Überblick](../chats/chat-settings.md)

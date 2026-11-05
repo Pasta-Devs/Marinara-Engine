@@ -1,95 +1,80 @@
 # Game Mode: HUD-Widgets
 
-In dieser Anleitung erfährst du, wie HUD-Widgets im Game Mode von Marinara Engine funktionieren. HUD steht für Heads-up-Display: kleine Info-Panels am linken und rechten Rand des Spielbildschirms. Es geht um die Widget-Typen, die Prüfung vor dem Spielstart, das Verschieben und Fixieren der Panels sowie das Teilen von Widget-Layouts.
+HUD-Widgets sind kleine Panels am linken und rechten Rand des Spielbildschirms. Sie führen Dinge mit wie eine Lebensanzeige, einen Goldzähler oder das Vertrauen eines Verbündeten. HUD steht für Heads-up-Display. Jedes Spiel hat eigene Widgets, getrennt von den HUD-Trackern in Roleplay (siehe [Roleplay-HUD und Tracker](../roleplay/hud-and-trackers.md)).
 
-## Was HUD-Widgets sind
+Ein Spiel kann insgesamt bis zu 4 Widgets haben, beliebig auf die linke und die rechte Seite verteilt. Widgets kommen nur zum Einsatz, wenn **Custom HUD Widgets** (eigene HUD-Widgets) für das Spiel eingeschaltet ist. Im Einrichtungsassistenten ist die Option standardmäßig an. Der Game Master (GM) entwirft dann beim Aufbau deiner Welt einen Startsatz.
 
-HUD-Widgets sind kleine, selbst gestaltete Panels, die während eines Spiels Werte mitführen – etwa eine Lebensanzeige, einen Goldzähler oder das Vertrauen eines Verbündeten. Jedes Spiel bekommt eigene Widgets. Mit den HUD-Trackern aus dem Roleplay haben sie nichts zu tun. Die Tracker-Leiste in Roleplay-Chats beschreiben die verwandten Anleitungen weiter unten.
+## Widget-Typen
 
-Möglich sind insgesamt bis zu 4 Widgets. Wie du sie auf die linke und die rechte Bildschirmseite verteilst, bleibt dir überlassen.
-
-Widgets kommen nur zum Einsatz, wenn die Option **Custom HUD Widgets** (eigene HUD-Widgets) für das Spiel aktiviert ist. Standardmäßig ist sie im Einrichtungsassistenten aktiv. Ist sie an, entwirft der KI-Game-Master (GM) – die KI, die das Spiel leitet – beim Aufbau der Welt gleich einen Startsatz an Widgets.
-
-## Die 8 Widget-Typen
-
-Es gibt acht Widget-Typen. Der GM wählt für jedes Widget, das er anlegt, einen Typ aus. Baust du Widgets selbst, wählst du den Typ ebenfalls selbst.
+Der GM wählt für jedes Widget, das er anlegt, einen Typ. Baust du Widgets von Hand, kannst du die Typen selbst wählen.
 
 | Widget-Typ | Was es anzeigt |
-|---|---|
+| --- | --- |
 | **Progress Bar** | Ein waagerechter Balken für einen Wert im Verhältnis zu einem Maximum, etwa Leben oder Ausdauer. |
 | **Gauge** | Eine halbrunde Skala für einen Wert im Verhältnis zu einem Maximum. |
-| **Relationship Meter** | Ein Balken mit Meilenstein-Markierungen und Beschriftung – passend für das Vertrauen eines NPC (Nicht-Spieler-Charakter) oder eine Bindung. |
+| **Relationship Meter** | Ein Balken mit Meilenstein-Markierungen und Beschriftung, passend für das Vertrauen eines NPC (Nicht-Spieler-Charakter) oder eine Bindung. |
 | **Counter** | Eine große Zahl, etwa Gold, vergangene Tage oder erledigte Gegner. |
 | **Stat Block** | Ein kleines Raster aus benannten Feldern mit Werten, etwa STR und DEX oder ein Statuswort. |
 | **List** | Eine kurze Aufzählung mit Texteinträgen, etwa aktive Ziele. |
 | **Inventory Grid** | Ein Raster aus Inventarplätzen, optional mit Kategorie-Tabs und Stückzahlen. |
 | **Timer** | Eine Countdown-Uhr in Minuten und Sekunden, die live herunterlaufen kann. |
 
-## Das Prüffenster vor der Sitzung
+## Widgets vor dem Spielstart prüfen
 
-Sobald eigene Widgets existieren, schiebt sich vor deinen ersten Zug ein Prüfschritt. In dem Moment, in dem du **Start Game** (Spiel starten) drückst, öffnet sich das Fenster **Review Starting Widgets** (Start-Widgets prüfen). Es listet jedes Start-Widget auf, damit du es anpassen kannst, bevor das Spiel es festschreibt.
+Gibt es eigene Widgets, sitzt auf dem Spielbildschirm unter **Start Game** (Spiel starten) eine Schaltfläche **Review Starting Widgets** (Start-Widgets prüfen). Ein Klick darauf öffnet vor dem Start das Fenster **Review Starting Widgets**. Es listet jedes Start-Widget auf, damit du die Widgets anpassen kannst, bevor das Spiel sie festschreibt.
 
-In diesem Fenster stehen dir offen:
+1. Drück bei einem Widget auf **Edit** (bearbeiten), um seine Startwerte zu ändern oder **Stat Block**-Felder umzubenennen.
+2. Drück auf **Remove** (entfernen), um ein Widget zu verwerfen, das du nicht willst.
+3. Drück auf **Start Game**, um mit den gezeigten Widgets loszuspielen. Mit **Back** (zurück) schließt du das Fenster, ohne zu starten.
 
-- **Edit** (bearbeiten) bei einem Widget drücken, um Startwerte zu ändern oder **Stat Block**-Felder umzubenennen.
-- **Remove** (entfernen) drücken, um ein Widget loszuwerden, das du nicht willst.
-- **Back** (zurück) drücken, um das Fenster ohne Spielstart zu schließen.
-- **Start Game** drücken, um mit den gezeigten Widgets loszuspielen.
-
-Ein ähnliches Fenster erscheint, wenn du in einem laufenden Spiel eine neue Sitzung beginnst. Es heißt dann **Prepare Next Session Widgets** (Widgets für die nächste Sitzung vorbereiten) und hat statt **Start Game** eine Schaltfläche **Start Next Session**. Die Schließen-Schaltfläche heißt dort **Cancel** statt **Back**.
+Ein ähnliches Fenster, **Prepare Next Session Widgets** (Widgets für die nächste Sitzung vorbereiten), erscheint, wenn du in einem laufenden Spiel eine neue Sitzung beginnst. Es hat **Start Next Session** (nächste Sitzung starten) statt **Start Game** und **Cancel** (Abbrechen) statt **Back**.
 
 ## Ein Widget im laufenden Spiel bearbeiten
 
-Während des Spiels pflegt der GM die Widget-Werte, während die Geschichte voranschreitet. Vergisst er eine Aktualisierung, korrigierst du das Widget einfach von Hand.
+Der GM aktualisiert die Widget-Werte, während die Geschichte voranschreitet. Verpasst er eine Aktualisierung, korrigier das Widget von Hand.
 
-1. Suche das Widget-Panel am linken oder rechten Bildschirmrand.
-2. Klick auf die Stift-Schaltfläche (**Edit**) in der Kopfzeile des Widgets.
-3. Ändere die Werte im Editor-Fenster. Setze bei einem Balken zum Beispiel einen neuen **Current value** und **Maximum value**.
+1. Such das Widget-Panel am linken oder rechten Bildschirmrand.
+2. Klick in der Kopfzeile des Widgets auf die Stift-Schaltfläche (**Edit**).
+3. Ändere die Werte im Editor-Fenster, etwa den **Maximum value** (Maximalwert) bei einem Balken.
 4. Klick auf **Save Changes** (Änderungen speichern).
 
-In der Kopfzeile sitzt außerdem ein kleines Plus- oder Minuszeichen. Ein Klick auf die Kopfzeile klappt das Widget zu oder wieder auf.
+Ein Klick auf die Kopfzeile des Widgets klappt seinen Inhalt zu oder auf.
 
 ## Panels verschieben und fixieren
 
-Widget-Panels sind standardmäßig fixiert. Jedes Panel trägt ein Schloss-Symbol in der Kopfzeile.
+Widget-Panels sind standardmäßig fixiert. Jedes hat ein Schloss-Symbol in der Kopfzeile.
 
-1. Klick auf das Schloss-Symbol, um das Panel zu lösen. Eine zarte Umrandung zeigt, dass es sich jetzt bewegen lässt.
+1. Klick auf das Schloss-Symbol, um das Panel zu lösen. Eine zarte Umrandung zeigt, dass es sich bewegen lässt.
 2. Zieh das Panel an eine neue Stelle.
-3. Klick erneut auf das Schloss-Symbol, um es dort zu fixieren.
+3. Klick erneut auf das Schloss-Symbol, um es zu fixieren.
 
-Zurück an den Standardplatz kommt ein Panel per Doppelklick auf sein Schloss-Symbol oder mit der Taste R, während das Symbol den Fokus hat. Position und Sperrzustand merkt sich jedes Panel pro Spiel. Von einem Spiel ins andere wandert das Layout nicht mit.
+Um ein Panel an seinen Standardplatz zurückzubringen, doppelklick auf sein Schloss-Symbol oder drück <kbd>R</kbd>, während das Symbol den Fokus hat. Jedes Panel merkt sich Position und Sperrzustand pro Spiel. Dein Layout wird nicht in andere Spiele übernommen.
 
-Auf dem Handy erscheinen Widgets als kleine Pillen statt als volle Panels. Tipp auf eine Pille, um das Widget zu öffnen, und auf das X, um es wieder zu schließen.
+Am Handy erscheinen Widgets als kleine Pillen statt als volle Panels. Tipp auf eine Pille, um das Widget zu öffnen, und auf das X, um es zu schließen.
 
 ## Eigene Widgets bauen
 
-Du kannst Widgets auch selbst entwerfen, statt sie dem GM zu überlassen. Den manuellen Widget-Editor erreichst du an zwei Stellen:
+Du kannst Widgets auch selbst entwerfen, statt sie den GM anlegen zu lassen. Den manuellen Editor öffnest du an einer dieser Stellen:
 
-- Im Einrichtungsassistenten: Aktiviere **Custom HUD Widgets** und danach den Schalter **Build Widget Setup**. Der Editor erscheint direkt darunter.
-- In einem bestehenden Spiel: Öffne **Chat Settings** (Chat-Einstellungen) und dort den Bereich **Widgets**.
+- Im Einrichtungsassistenten: Schalte **Custom HUD Widgets** ein und dann **Build Widget Setup** (Widget-Setup bauen). Der Editor erscheint darunter.
+- In einem bestehenden Spiel: Öffne **Chat Settings** (Chat-Einstellungen) und dann den Bereich **Widgets**.
 
-Wähle im Editor einen Widget-Typ aus dem Dropdown-Menü und drück auf **Add** (hinzufügen). Pro Widget legst du fest:
+1. Wähl im Dropdown-Menü einen Widget-Typ und drück auf **Add** (hinzufügen).
+2. Leg **Icon** (ein kurzes Symbol oder Emoji), **Label**, **Type**, **Side** (**Left HUD** oder **Right HUD**) und **Accent** (die Farbe) fest.
+3. Füll die Felder des jeweiligen Typs aus: Ein Balken nutzt **Value** und **Max**, ein Zähler **Count**, ein Inventarraster **Slots** und **Contents** und ein Timer **Seconds** und **Running**.
+4. Drück in den **Chat Settings** auf **Save Widgets** (Widgets speichern), um deine Änderungen zu übernehmen. **Reset** (zurücksetzen) macht ungespeicherte Bearbeitungen rückgängig.
 
-- **Icon**: ein kurzes Symbol oder Emoji für die Kopfzeile.
-- **Label**: der Name, der oben im Widget steht.
-- **Type**: einer der acht Widget-Typen.
-- **Side**: **Left HUD** oder **Right HUD**.
-- **Accent**: die Farbe des Widgets.
-
-Darunter bringt jeder Typ eigene Felder mit. Ein Balken nutzt **Value** und **Max**, ein Zähler **Count**, ein Inventarraster **Slots** und **Contents**, ein Timer **Seconds** und **Running**. Der Editor zeigt dabei an, wie viele der 4 erlaubten Widgets schon vergeben sind.
-
-Drück in den **Chat Settings** auf **Save Widgets** (Widgets speichern), um die Änderungen ins Spiel zu übernehmen, oder auf **Reset** (zurücksetzen), um ungespeicherte Bearbeitungen zu verwerfen.
+Der Editor zeigt, wie viele der 4 erlaubten Widgets du schon verwendet hast.
 
 ## Widgets über Import und Export teilen
 
-Ein Widget-Layout lässt sich in eine Datei speichern und in einem anderen Spiel wieder laden. Die passenden Schaltflächen findest du sowohl im Einrichtungsassistenten als auch im Bereich **Widgets** der **Chat Settings**.
+Ein Widget-Layout lässt sich in eine Datei speichern und in ein anderes Spiel laden. Der Einrichtungsassistent und der Bereich **Widgets** der **Chat Settings** haben beide diese Schaltflächen.
 
-1. Drück auf **Export Widgets** (Widgets exportieren), um die aktuellen Widgets als JSON-Datei herunterzuladen. JSON ist ein reines Textdatenformat.
-2. Drück im anderen Spiel auf **Import Widgets** (Widgets importieren) und wähle diese Datei aus, um dieselben Widgets zu laden.
-
-Denk in den **Chat Settings** daran, nach einem Import auf **Save Widgets** zu drücken – sonst greifen die geladenen Widgets nicht.
+1. Drück auf **Export Widgets** (Widgets exportieren), um deine Widgets als JSON-Datei (ein reines Textdatenformat) herunterzuladen.
+2. Drück in einem anderen Spiel auf **Import Widgets** (Widgets importieren) und wähl diese Datei aus.
+3. Drück in den **Chat Settings** auf **Save Widgets**, damit die geladenen Widgets greifen.
 
 ## Verwandte Anleitungen
 
 - [Game Mode: Erste Schritte](getting-started.md)
-- [Roleplay: HUD und Tracker](../roleplay/hud-and-trackers.md)
+- [Roleplay-HUD und Tracker](../roleplay/hud-and-trackers.md)

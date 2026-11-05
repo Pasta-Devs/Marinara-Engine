@@ -1,38 +1,14 @@
 # Prompts condicionales ({{#if}})
 
-Esta guía explica cómo usar los bloques `{{#if}}` en Marinara Engine. Un bloque condicional te permite incluir cierto texto del prompt (las instrucciones enviadas a la IA) solo cuando un valor cumple una regla que tú defines. Los condicionales forman parte del sistema de macros, así que funcionan en todos los lugares donde funcionan las macros, incluidas las tarjetas de personaje, las personas, las entradas de lorebook y los presets de prompt.
+Un bloque `{{#if}}` incluye cierto texto del prompt (las instrucciones enviadas a la IA) solo cuando una condición es verdadera. Úsalo para dar a un mismo preset (ajuste guardado) compartido instrucciones distintas para diferentes personajes, personas o chats, o para omitir un campo que está vacío. Los condicionales forman parte del sistema de macros, así que funcionan en todos los lugares donde funcionan las [macros](macros.md): tarjetas de personaje, personas, entradas de lorebook (libro de trasfondo) y presets.
 
-## Qué hacen los prompts condicionales
-
-Una macro es un marcador de posición con `{{double-brace}}` que Marinara Engine reemplaza por un valor en vivo mientras arma tu prompt. Un bloque condicional va un paso más allá. Comprueba un valor y luego conserva una parte del texto y descarta el resto.
-
-Escribes una condición, algo de texto para usar cuando la condición es verdadera y (opcionalmente) texto para usar cuando es falsa. Marinara lee la condición cada vez que arma un prompt. Esto significa que la misma tarjeta o preset puede comportarse de forma distinta para diferentes personajes, personas o chats.
-
-Un uso común son las instrucciones específicas de un personaje dentro de un mismo preset compartido. Otro uso común es incluir un campo solo cuando tiene contenido, para no enviar una etiqueta vacía al modelo.
+Marinara comprueba la condición cada vez que arma un prompt, conserva el texto que corresponde y descarta el resto. Es una función avanzada, y la mayoría de los chats nunca la necesitan.
 
 ## La sintaxis básica
 
-Un bloque condicional empieza con `{{#if condition}}` y termina con `{{/if}}`. Todo lo que hay entre ambos es el texto que se usa cuando la condición es verdadera.
+Un bloque empieza con `{{#if condition}}` y termina con `{{/if}}`. Añade `{{else}}` para el caso falso, y `{{else if}}` para encadenar más condiciones. Marinara comprueba cada rama de arriba hacia abajo y conserva la primera que sea verdadera. Si ninguna es verdadera y no hay `{{else}}`, el bloque se resuelve en nada.
 
-```
-{{#if condition}}
-Text used when the condition is true.
-{{/if}}
-```
-
-Puedes añadir una rama `{{else}}` para el caso falso:
-
-```
-{{#if condition}}
-Text used when true.
-{{else}}
-Text used when false.
-{{/if}}
-```
-
-También puedes encadenar condiciones adicionales con `{{else if}}`. Marinara comprueba cada rama en orden, de arriba hacia abajo. Conserva la primera rama cuya condición sea verdadera, resuelve las macros dentro de esa rama y descarta todas las demás. Si ninguna condición es verdadera y no hay `{{else}}`, todo el bloque se resuelve en nada.
-
-```
+```text
 {{#if length == "short"}}
 Keep your reply to one or two sentences.
 {{else if length == "long"}}
@@ -42,66 +18,47 @@ Write a reply of normal length.
 {{/if}}
 ```
 
-Puedes poner un bloque en varias líneas, como se muestra arriba, o en una sola línea. También puedes anidar un condicional dentro de otra rama de un condicional más grande.
+Un bloque puede ir en una sola línea o en varias, y puedes anidar bloques.
 
-## Operadores admitidos
+## Operadores
 
-La condición suele ser un valor a la izquierda, un operador y un valor a la derecha, como `char == "Alice"`. La tabla de abajo lista todos los operadores que puedes usar. Cada operador se muestra en estilo de código.
+Una condición suele ser un valor a la izquierda, un operador y un valor a la derecha, como `char == "Alice"`.
 
 | Operador | Significado |
 | --- | --- |
 | `==`, `=`, `is` | Igual. |
 | `!=`, `is not` | Distinto. |
-| `>` | Mayor que (solo números). |
-| `<` | Menor que (solo números). |
-| `>=` | Mayor o igual que (solo números). |
-| `<=` | Menor o igual que (solo números). |
+| `>`, `<`, `>=`, `<=` | Mayor que, menor que, mayor o igual que, menor o igual que (solo números). |
 | `contains`, `includes` | El valor de la izquierda contiene al de la derecha como texto. |
 | `not contains`, `not includes` | El valor de la izquierda no contiene al de la derecha. |
 
-Algunas reglas controlan cómo funciona la comparación:
+Reglas de comparación:
 
-1. Para `==`, `=`, `is`, `!=` e `is not`, si ambos lados parecen números, Marinara los compara como números. Así que `5` es igual a `5.0`. En caso contrario los compara como texto, ignorando mayúsculas y minúsculas. Así que `Mari` es igual a `mari`.
-2. Para `>`, `<`, `>=` y `<=`, ambos lados deben ser números. Si alguno de los lados no es un número, la condición es falsa.
-3. Para `contains`, `includes`, `not contains` y `not includes`, la coincidencia no distingue mayúsculas de minúsculas. Así que `contains "dr"` coincide con el texto `Dr Smith`.
+1. Para los operadores de igualdad, si ambos lados parecen números, Marinara los compara como números, así que `5` es igual a `5.0`. Si no, compara texto e ignora mayúsculas y minúsculas, así que `Mari` es igual a `mari`.
+2. Para `>`, `<`, `>=` y `<=`, ambos lados deben ser números. Si no, la condición es falsa.
+3. `contains` e `includes` ignoran mayúsculas y minúsculas, así que `contains "dr"` coincide con `Dr Smith`.
 
-## Combinar condiciones con OR y AND
+### Combinar condiciones
 
-Usa `||` cuando cualquiera de las condiciones pueda coincidir. Usa `&&` cuando todas las condiciones deban coincidir.
+Usa `||` para OR y `&&` para AND. `&&` se evalúa antes que `||`. Usa paréntesis para fijar el orden.
 
-```
+```text
 {{#if character == "Maukie" || character == "Pantalone"}}
-Use the shared Maukie and Pantalone instructions.
+Use the shared instructions.
 {{/if}}
 
-{{#if characters contains "Maukie" && characters contains "Pantalone"}}
-Both characters are present in this chat.
-{{/if}}
-```
-
-`&&` se evalúa antes que `||`. Añade paréntesis cuando quieras controlar el orden de forma explícita:
-
-```
 {{#if (character == "Maukie" || character == "Pantalone") && scenario contains "lake"}}
 Use the lakeside instructions for either character.
 {{/if}}
 ```
 
-Para varias opciones de igualdad sobre el mismo valor, puedes omitir el lado izquierdo repetido después de `||`:
+Para varias opciones de igualdad sobre un mismo valor, puedes omitir el lado izquierdo repetido: `character == "Maukie" || "Pantalone"`. Esto funciona con `==`, `=` e `is`. Escribe condiciones completas a ambos lados de `&&`.
 
-```
-{{#if character == "Maukie" || "Pantalone"}}
-Use the shared instructions.
-{{/if}}
-```
+### Comprobaciones de veracidad
 
-Este atajo significa `character == "Maukie" || character == "Pantalone"`. Aplica a los operadores de igualdad `==`, `=` e `is`. Escribe condiciones completas a ambos lados de `&&`, ya que un mismo valor normalmente no puede ser igual a dos opciones distintas a la vez.
+Una condición sin operador es verdadera cuando el valor tiene contenido real. Es falsa cuando el valor está vacío o es uno de `false`, `0`, `no`, `off`, `null` o `undefined`, escrito con cualquier combinación de mayúsculas y minúsculas.
 
-### Comprobaciones de veracidad (sin operador)
-
-Si escribes una condición sin operador, Marinara hace una comprobación de veracidad. Esto plantea una pregunta simple: ¿este valor tiene contenido real dentro?
-
-```
+```text
 {{#if scenario}}
 Current scene: {{scenario}}
 {{else}}
@@ -109,59 +66,41 @@ No specific scene is set.
 {{/if}}
 ```
 
-Una comprobación de veracidad es verdadera cuando el valor no está vacío y no es una de estas palabras: `false`, `0`, `no`, `off`, `null` o `undefined`. La comprobación de palabras ignora mayúsculas y minúsculas. Usa una comprobación de veracidad cuando solo quieras incluir texto si un campo está rellenado.
-
 ### Qué puedes comparar
 
-El lado izquierdo o derecho de una condición puede ser cualquiera de estos:
+Cualquiera de los dos lados de una condición puede ser:
 
-1. Una palabra clave de campo o identidad, como `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` o `reasoning`. Estas leen los mismos valores que las macros correspondientes. `group` lista los demás personajes activos del chat después de excluir al que responde en ese momento.
+1. Una palabra clave de campo o identidad, como `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` o `reasoning`. Estas leen los mismos valores que las macros correspondientes. `group` lista los demás personajes activos, sin el que responde en ese momento.
 2. Un literal entre comillas, como `"Alice"`.
-3. El nombre de una variable de preset, como `length`. Una variable de preset es un valor con nombre que tú defines en un Prompt Preset. Consulta [Variables de preset](preset-variables.md).
-4. Una búsqueda explícita de variable escrita como `var:name` o `var.name`.
-5. Otra macro, cuyo valor se resuelve primero y luego se compara.
-6. Las preguntas y opciones de Decision, como `decision:"..."` y `decision_choice:"..."`. Piden un juicio rápido al Decision model seleccionado antes de construir el prompt. Consulta [Preguntar al modelo de decisión](#asking-the-decision-model).
+3. El nombre de una variable de preset, como `length`. Consulta [Variables de preset](preset-variables.md).
+4. Una búsqueda explícita de variable, escrita como `var:name` o `var.name`.
+5. Otra macro, que se resuelve primero.
+6. Una pregunta para tu Decision model (modelo de decisión): `decision:"..."` o `decision_choice:"..."`. Consulta [Consultar al Decision model](#asking-the-decision-model).
 
-Si escribes una palabra suelta que no es una palabra clave, Marinara la trata como el nombre de una variable. Si no existe ninguna variable con ese nombre, usa la palabra como su propio texto plano. Poner tus valores literales entre comillas evita esta confusión, así que ponlos entre comillas cuando tengas dudas.
+Una palabra suelta que no es una palabra clave se trata como el nombre de una variable. Si no existe ninguna variable con ese nombre, se usa como texto plano. Pon los valores literales entre comillas para evitar confusiones.
 
-## Reglas para las comillas
+### Comillas
 
-Cuando comparas contra un fragmento de texto fijo, ponlo entre comillas. Esto le dice a Marinara que lo trate como un literal exacto y no como una palabra clave o una variable.
-
-```
-{{#if char == "Dottore"}}
-Speak in a cold, clinical tone.
-{{/if}}
-```
-
-Puedes usar comillas dobles rectas o comillas simples rectas. Marinara también acepta comillas curvas (tipográficas), pero las comillas rectas son las más seguras y coinciden con todos los ejemplos de la app. Dentro de un valor entre comillas puedes escapar una comilla con una barra invertida, y puedes escribir `\n` para un salto de línea.
-
-Pon siempre entre comillas un literal que tenga un espacio, como `"Dr Smith"`. Un valor de varias palabras sin comillas se lee como el nombre de una sola variable, que casi nunca es lo que quieres.
+Pon el texto fijo entre comillas dobles rectas o comillas simples rectas. Dentro de un valor entre comillas, escapa una comilla con una barra invertida y escribe `\n` para un salto de línea. Pon siempre entre comillas un literal que tenga un espacio, como `"Dr Smith"`. Un valor de varias palabras sin comillas se lee como el nombre de una sola variable.
 
 ## Bloques de grupo para varios personajes
 
-En un chat grupal con dos o más personajes, un bloque de grupo repite el mismo texto una vez por cada personaje. Esto te permite escribir un solo bloque que describa a todos los personajes de la escena.
+En un chat grupal con dos o más personajes, un bloque de grupo repite su texto una vez por cada personaje. Pon `[` solo en una línea, luego tu texto, y después `]` solo en una línea. El bloque debe contener una macro de personaje, como `{{char}}` o `{{description}}`, o una condición basada en el personaje.
 
-Para hacer un bloque de grupo, pon un único `[` en su propia línea, luego tu texto, y después un único `]` en su propia línea. El bloque debe contener una macro de personaje, como `{{char}}` o `{{description}}`, o una condición basada en el personaje como `{{#if char == "Alice"}}`. Entonces Marinara repite el bloque una vez por personaje y resuelve las macros de personaje contra cada uno por turno.
-
-```
+```text
 [
 {{char}}'s current attitude:
 {{#if char == "Alice"}}cheerful and open{{else}}guarded and quiet{{/if}}
 ]
 ```
 
-En un chat grupal con Alice y Bob, el bloque se ejecuta dos veces. La primera pasada rellena el nombre de Alice y elige su rama. La segunda pasada rellena el nombre de Bob y elige la suya. Fuera de un bloque de grupo, una macro de personaje se resuelve solo contra el personaje actual o principal.
+Con Alice y Bob, el bloque se ejecuta dos veces, una por personaje. Fuera de un bloque de grupo, una macro de personaje se resuelve solo contra el personaje actual o principal. En un chat con un solo personaje, las líneas `[` y `]` se quedan como texto plano.
 
-Los bloques de grupo solo se expanden en un chat con dos o más personajes. En un chat individual, las líneas `[` y `]` se quedan como texto plano.
+## Ejemplos
 
-## Ejemplos resueltos (antes y después)
+Un tono distinto para cada personaje:
 
-Aquí tienes cinco ejemplos completos con el resultado que recibe el modelo.
-
-Tono específico de un personaje dentro de un preset compartido:
-
-```
+```text
 {{#if char == "Dottore"}}
 Speak in a cold, clinical tone.
 {{else}}
@@ -169,41 +108,25 @@ Speak warmly and casually.
 {{/if}}
 ```
 
-Para un personaje llamado `Dottore`, el modelo recibe `Speak in a cold, clinical tone.` Para todos los demás personajes, recibe `Speak warmly and casually.`
+Incluir un campo solo cuando está rellenado. Si **Backstory** (Historia de fondo) está vacío, el bloque se resuelve en nada, así que no se envía ninguna etiqueta vacía.
 
-Incluir un campo solo cuando está rellenado:
-
-```
+```text
 {{#if backstory}}
 Backstory to remember: {{backstory}}
 {{/if}}
 ```
 
-Si el personaje tiene una **Backstory** (Historia de fondo), el modelo recibe esa línea con el texto de la historia de fondo. Si el campo **Backstory** está vacío, todo el bloque se resuelve en nada, así que no se envía ninguna etiqueta vacía.
+Instrucciones para una familia de modelos. `model` es el ID del modelo, como `claude-opus-5-5`, así que `contains` coincide con todas las versiones de Opus y `==` coincide con un modelo exacto.
 
-Coincidir con parte del nombre de usuario:
-
-```
-{{#if user contains "Dr"}}
-Address the user as Doctor.
-{{/if}}
-```
-
-Si el nombre de tu persona contiene `Dr`, se le indica al modelo que te trate como Doctor. Si no, el bloque se resuelve en nada.
-
-Instrucciones específicas de un modelo:
-
-```
+```text
 {{#if model contains "opus"}}
 Keep replies under 400 words.
 {{/if}}
 ```
 
-`model` es el ID del modelo de tu conexión, como `claude-opus-5-5`, así que `contains` coincide con todas las versiones de Opus y `==` coincide con un modelo exacto.
+Instrucciones de planificación que dependen de si el modelo piensa. Con el razonamiento activado en cualquier nivel, el modelo recibe la primera línea. Con el razonamiento desactivado, `{{reasoning}}` vale `off`, que se lee como falso. Para actuar según un nivel concreto, compáralo, como en `{{#if reasoning == "max"}}`.
 
-Instrucciones de cadena de pensamiento solo mientras el modelo piensa:
-
-```
+```text
 {{#if reasoning}}
 Plan the reply in your thinking before you write it.
 {{else}}
@@ -211,46 +134,31 @@ Before replying, write your plan inside <plan></plan> tags.
 {{/if}}
 ```
 
-Con el razonamiento activado en cualquier nivel, el modelo recibe la primera línea. Con el razonamiento desactivado, `{{reasoning}}` vale `off`, que se lee como falso, así que recibe la segunda. Para actuar según un nivel concreto, compáralo: `{{#if reasoning == "max"}}`.
-
 <a id="asking-the-decision-model"></a>
 
 ## Consultar al Decision model
 
-Una condición también puede preguntar a tu **Decision model** (modelo de decisión) qué ocurre en el chat. Es el que elegiste en **Decision model** del panel Connections: el modelo local que ya ejecutas, una conexión Decision alojada o un modelo de decisión instalado. Lee los últimos mensajes y una declaración que escribes, y dice si es verdadera. Nunca escribe nada en el chat. [Modelos de decisión](../connections/decision-models.md) explica qué es y cómo elegir uno.
+Una condición puede preguntar a tu Decision model qué ocurre en el chat. El Decision model es un modelo pequeño que lee los últimos mensajes y una declaración que escribes, y dice si la declaración es verdadera. Nunca escribe nada en el chat. Así un preset, una tarjeta, una entrada de lorebook o un prompt de agente puede enviar una instrucción solo en los turnos en que corresponde.
 
-Así un preset, tarjeta, entrada de lorebook o prompt de agente puede enviar una instrucción solo en los turnos pertinentes, en lugar de enviar "si ocurre X, haz Y" cada turno. Para decidir si se activa una entrada completa de lorebook en vez de recortar su texto, usa su campo [Decision](../lorebooks/entries.md#decision-activation). Algunas ideas:
+Antes de empezar: elige un Decision model en **Decision model** (modelo de decisión) del panel **Connections** (Conexiones). Consulta [Modelos de decisión](../connections/decision-models.md) para saber qué es y cómo elegir uno. Para decidir si se activa una entrada de lorebook completa, usa en su lugar el campo [Decision](../lorebooks/entries.md#decision-activation) de la entrada.
 
-- **Cambios de escena.** Describe un lugar nuevo o un salto temporal solo cuando la escena realmente cambia.
-- **Tipos de escena.** Carga reglas de ritmo para combate, intimidad o tensión solo mientras ocurre ese tipo de escena.
-- **Responder primero la pregunta.** `{{#if decision:"In the latest message, {{user}} asks a direct question"}}Answer it before anything else.{{/if}}`
-- **Estados de ánimo en tarjetas.** Una tarjeta puede incluir comportamientos "cuando se altera" o "cuando se enoja" que solo aparecen si los mensajes recientes los muestran.
-- **Controles de ritmo.** Un preset de desarrollo lento puede retener instrucciones de intensificación hasta que la relación avance de forma visible.
-- **Escenas grupales.** En un bloque de grupo, `{{#if decision:"{{char}} is addressed in the latest message"}}` indica que solo la sección del personaje al que se habla responda directamente.
+Algunas ideas: describir un lugar nuevo solo cuando la escena cambió de sitio, cargar reglas de ritmo de combate solo durante una pelea, retener la intensificación en un preset de desarrollo lento o hacer que, en un bloque de grupo, solo el personaje al que se habla responda directamente.
 
 ### Sí o no: `decision:`
 
-```
+```text
 {{#if decision:"The latest message moves the scene to a new place"}}
 Open your reply by describing the new location in one or two sentences.
 {{/if}}
 ```
 
-La condición es verdadera cuando el Decision model considera verdadera la declaración. Funciona con todo lo demás de esta guía: `{{else}}`, `{{else if}}`, `&&`, `||`, paréntesis, anidación y bloques de grupo.
-
-```
-{{#if char == "Dottore" && decision:"In the latest message, {{user}} says something that contradicts what they said earlier"}}
-Dottore notices the inconsistency and files it away.
-{{/if}}
-```
-
-Las macros de la declaración se completan primero, así que `{{user}}` y `{{char}}` funcionan. En un bloque de grupo, una declaración que nombra `{{char}}` se pregunta una vez por personaje.
+La condición es verdadera cuando el Decision model dice que la declaración es verdadera. Funciona con `{{else}}`, `&&`, `||`, paréntesis, anidación y bloques de grupo. Las macros de la declaración se completan primero, así que `{{user}}` y `{{char}}` funcionan. En un bloque de grupo, una declaración que nombra `{{char}}` se pregunta una vez por personaje.
 
 ### Una entre varias respuestas: `decision_choice:`
 
-`decision_choice:` pide al Decision model que elija una opción. Las opciones son los valores con los que la comparas en cualquier parte del prompt:
+`decision_choice:` pide al modelo que elija una opción. Las opciones son los valores con los que la comparas.
 
-```
+```text
 {{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}
 Kaelen's lines are short and clipped.
 {{else if decision_choice:"Kaelen's mood in the latest message" == "sad"}}
@@ -260,61 +168,52 @@ Kaelen is his usual self.
 {{/if}}
 ```
 
-Aquí el modelo elige entre "angry", "sad" y "none of these". También funciona la forma corta: `decision_choice:"The weather in the latest message" == "rain" || "snow"` ofrece ambas opciones. Escribe la declaración como un tema, por ejemplo "Kaelen's mood in the latest message", y las opciones como respuestas cortas.
+El modelo elige entre "angry", "sad" y "none of these". Escribe la declaración como un tema y las opciones como respuestas cortas. La forma corta `== "rain" || "snow"` ofrece ambas opciones.
 
-Para decirle al modelo qué significa una opción en tu historia, añade criterios después de ella, separados por dos puntos:
-
-```
-{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
-Kaelen's lines are short and clipped.
-{{/if}}
-```
-
-El modelo lee los criterios como la descripción de la opción. Sigue respondiendo "angry", y la comparación sigue siendo con "angry". Pon las dos partes entre el mismo tipo de comillas. Si las comillas son distintas, Marinara no lee "angry" como una opción, y la comparación nunca coincide con ella. Las macros como `{{char}}` funcionan en los criterios. Las opciones sin criterios se ofrecen como antes, y si a una opción se le dan criterios distintos en varios lugares, se usan los primeros.
+Para decir qué significa una opción en tu historia, añade criterios después de ella, separados por dos puntos, con el mismo tipo de comillas en las dos partes: `== "angry":"Kaelen raises his voice, makes threats or breaks something"`. El modelo sigue respondiendo "angry". Si una opción tiene criterios distintos en varios lugares, se usan los primeros.
 
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky y cooldown
 
-Una declaración puede conservar su respuesta varios turnos en vez de preguntarse cada turno. Escribe `sticky:` y `cooldown:` después de la declaración:
+Añade `sticky:` y `cooldown:` después de una declaración para conservar su respuesta unos turnos en vez de preguntarla cada turno.
 
-```
+```text
 {{#if decision:"The latest message starts a fight" sticky:3 cooldown:5}}
 Keep combat pacing rules in effect.
 {{/if}}
 ```
 
-- **sticky:N.** Tras un sí, la declaración sigue siendo sí durante los N turnos siguientes sin preguntarse, de modo que el contenido que controla permanece en el prompt.
-- **cooldown:N.** Comienza al terminar sticky, o justo después del sí si no hay sticky. Durante N turnos la declaración se interpreta como no y no se pregunta. Después vuelve a preguntarse.
-- Un turno es cada mensaje nuevo que lee el Decision model. Una regeneración o swipe del mismo mensaje es el mismo turno, así que regenerar una respuesta nunca agota un temporizador.
-- Mientras sticky o cooldown retienen una declaración, no se pregunta ni cuenta para **Decision statements per turn** (declaraciones de decisión por turno), dejando su lugar a otra.
-- Para `decision_choice:`, sticky conserva la opción elegida y cooldown hace que toda comparación sea no. Elegir ninguna opción no inicia nada.
-- Una declaración escrita en varios lugares usa los mayores valores de sticky y cooldown indicados en cualquiera de ellos.
+- `sticky:N`: tras un sí, la declaración sigue siendo sí durante N turnos sin preguntarse.
+- `cooldown:N`: comienza al terminar sticky, o justo después del sí. Durante N turnos la declaración se interpreta como no y no se pregunta.
+- Un turno es cada mensaje nuevo que lee el Decision model. Una regeneración o un swipe (respuesta alternativa) del mismo mensaje es el mismo turno, así que regenerar nunca agota un temporizador.
+- Una declaración retenida no se pregunta ni cuenta para **Decision statements per turn** (declaraciones de decisión por turno).
+- Para `decision_choice:`, sticky conserva la opción elegida y cooldown hace que toda comparación se interprete como no.
+- Una declaración escrita en varios lugares usa los valores de sticky y cooldown más largos.
 - Peek Prompt muestra la respuesta retenida y nunca avanza un temporizador.
 
-Juntos sirven para algo que debe aparecer una vez y descansar después: una transición de escena, un recordatorio puntual o un estado de ánimo que dure unos turnos. Para una entrada de lorebook activada por su campo **Decision**, usa sus propios **Sticky** y **Cooldown**: una entrada sticky permanece sin volver a preguntar su declaración, y una entrada en cooldown no se evalúa.
+Para una entrada de lorebook activada por su campo **Decision**, usa en su lugar los propios **Sticky** y **Cooldown** de la entrada.
 
 <a id="until-and-while"></a>
 
 ### Until y while
 
-Algunos bloques deberían seguir activos mientras dure algo, como una pelea, en lugar de durante un número fijo de turnos. Escribe `until:` o `while:` con una segunda declaración después de la primera:
+Para mantener un bloque activo mientras dure algo, añade `until:` o `while:` con una segunda declaración.
 
-```
+```text
 {{#if decision:"A fight starts in the latest message" until:"The fight ends in the latest message"}}
 Keep combat pacing rules in effect.
 {{/if}}
 ```
 
-- Tras un sí, el bloque sigue activo, y la primera declaración no se pregunta mientras siga activo. En su lugar, cada turno se pregunta la declaración `until`, y el bloque se desactiva en el turno en que es verdadera.
-- `while:` funciona al revés: el bloque sigue activo mientras su declaración sea verdadera, y se desactiva en el turno en que es falsa.
+- Tras un sí, el bloque sigue activo. La primera declaración no se pregunta. En su lugar, cada turno se pregunta la declaración `until`, y el bloque se desactiva en el turno en que es verdadera.
+- `while:` funciona al revés: el bloque sigue activo mientras su declaración sea verdadera, y se desactiva cuando es falsa.
 - Usa uno u otro. Si se escriben ambos, solo cuenta el primero.
-- Una vez que el bloque se desactiva, cooldown comienza como de costumbre, y después la primera declaración vuelve a preguntarse.
-- Si la declaración `until` o `while` no obtiene respuesta en un turno, el bloque sigue activo.
+- Cuando el bloque se desactiva, cooldown comienza como de costumbre. Si no hay respuesta en un turno, el bloque sigue activo.
 - La declaración `until` o `while` cuenta para **Decision statements per turn**. La primera declaración no cuenta mientras el bloque está activo.
-- Esto funciona con `decision:`, no con `decision_choice:`.
+- Funciona con `decision:`, no con `decision_choice:`.
 
-Con **sticky**, añade `:and` o `:or` justo después de la segunda declaración para elegir cómo funcionan juntas las dos:
+Con **sticky**, añade `:and` (también `:restrict`) o `:or` (también `:extend`) después de la segunda declaración para elegir cómo se combinan las dos.
 
 | Si escribes | Tras el sí, el bloque sigue activo |
 | --- | --- |
@@ -323,97 +222,68 @@ Con **sticky**, añade `:and` o `:or` justo después de la segunda declaración 
 | `while:"..." sticky:5` o `while:"...":or sticky:5` | Al menos 5 turnos más, y después mientras la declaración while sea verdadera. |
 | `while:"...":and sticky:5` | Hasta 5 turnos más, y se desactiva antes si la declaración while es falsa. |
 
-`:restrict` significa lo mismo que `:and`, y `:extend` lo mismo que `:or`. Sin sticky, no cambian nada. Por ejemplo:
-
-```
-{{#if decision:"{{user}} casts a stealth spell in the latest message" while:"{{user}} stays still":extend sticky:5}}...{{/if}}
-{{#if decision:"{{user}} casts a stealth spell in the latest message" until:"{{user}} is spotted":restrict sticky:5}}...{{/if}}
-```
-
 <a id="checking-every-few-turns"></a>
 
 ### Comprobar cada varios turnos
 
-Algunas declaraciones no necesitan preguntarse cada turno. Escribe `every:` después para preguntarlas solo cada N turnos:
+Añade `every:N` para preguntar una declaración solo cada N turnos.
 
-```
+```text
 {{#if decision:"The weather changes in the latest message" every:3}}
 Describe the new weather in a sentence.
 {{/if}}
 ```
 
-- Se pregunta el primer turno en que se alcanza, luego otra vez 3 turnos después y así sucesivamente.
-- Cambiar el número surte efecto inmediato: la próxima comprobación cuenta desde el turno de la última pregunta.
-- Entre comprobaciones se interpreta como no, no se pregunta ni cuenta para **Decision statements per turn**.
-- Los turnos se cuentan como para sticky y cooldown, así que una regeneración o swipe no avanza la programación. La reutilización de respuestas sigue las [reglas de la caché de respuestas](#answer-reuse).
-- Sticky y cooldown siguen reteniendo la respuesta; `every:` solo decide cuándo preguntar una declaración que no retienen.
-- Una declaración escrita en varios lugares usa el menor `every:` indicado en cualquiera de ellos.
+- Se pregunta el primer turno en que se alcanza, luego otra vez 3 turnos después, y así sucesivamente. Entre comprobaciones se interpreta como no, no se pregunta y no cuenta para **Decision statements per turn**.
+- Una regeneración o un swipe no avanza la programación.
+- Sticky y cooldown siguen reteniendo una respuesta. `every:` solo decide cuándo se pregunta una declaración que no está retenida.
+- Una declaración escrita en varios lugares usa el `every:` más pequeño.
 
 <a id="priority"></a>
 
 ### Prioridad
 
-Cuando un plan de prompt tiene más declaraciones que su presupuesto de **Decision statements per turn**, `priority:` decide cuáles se preguntan. El presupuesto se aplica en [varias etapas](#statement-allowance):
+Cuando un plan de prompt tiene más declaraciones que el presupuesto de **Decision statements per turn**, `priority:high` o `priority:low` decide cuáles se preguntan. Sin prioridad, es media.
 
-```
+```text
 {{#if decision:"In the latest message, a character is badly hurt" priority:high}}...{{/if}}
 {{#if decision:"The latest message mentions food" priority:low}}...{{/if}}
 ```
 
-- Las declaraciones `priority:high` se preguntan primero y las `priority:low` al final. Sin prioridad, una declaración tiene prioridad media.
-- Dentro de una misma prioridad, sigue decidiendo el orden de aparición en el prompt.
-- Al superar el límite, se descartan primero las de menor prioridad: se interpretan como no y Peek Prompt las enumera.
-- Una declaración escrita en varios lugares usa la mayor prioridad indicada en cualquiera de ellos.
-- Las declaraciones del propio prompt (preset, tarjetas, persona y notas de autor) se planifican primero. Las del texto de entradas de lorebook se planifican cuando el análisis conoce qué entradas se activan, con los lugares restantes; una declaración de lorebook nunca quita un lugar a las del prompt, sea cual sea su prioridad.
+- Las declaraciones de prioridad alta se preguntan primero y las de prioridad baja al final. Dentro de una misma prioridad, decide el orden en el prompt.
+- Las declaraciones que superan el límite se interpretan como no, empezando por las de menor prioridad, y Peek Prompt las enumera.
+- Una declaración escrita en varios lugares usa la prioridad más alta.
+- Las declaraciones del propio prompt (preset, tarjetas, persona, notas de autor) se planifican primero. Las declaraciones de lorebook usan los lugares que quedan, sea cual sea su prioridad.
 
-Todos los modificadores pueden combinarse en cualquier orden: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
+Puedes combinar todos los modificadores en cualquier orden: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
 
 ### Sin respuesta significa no
 
-Una condición de decisión es **falsa** siempre que no hay respuesta: no hay Decision model configurado, no respondió a tiempo o falló. Para `decision_choice:`, todas las comparaciones son falsas. Por tanto, un usuario sin Decision model recibe la rama `{{else}}` o nada.
+Una condición de decisión es falsa siempre que no hay respuesta: no hay Decision model configurado, no respondió a tiempo o falló. Para `decision_choice:`, todas las comparaciones son falsas. Diseña teniendo esto en cuenta.
 
-Diseña teniendo esto en cuenta:
-
-- Usa una decisión para **añadir o recortar orientación**, nunca para contenido del que dependa la historia. Una rama omitida debería hacer una respuesta un poco menos adaptada, no romperla.
-- Da a cada bloque una opción predeterminada sensata: nada o un `{{else}}` adecuado para cualquier turno.
+- Usa una decisión para añadir o recortar orientación, nunca para llevar contenido del que dependa la historia.
+- Da a cada bloque de decisión una opción predeterminada: nada o un `{{else}}` que sirva en cualquier turno.
 - No encadenes decisiones de forma que una respuesta equivocada cambie varias otras.
-- No supedites el consentimiento, las advertencias de contenido ni las instrucciones de seguridad a una decisión. Deben estar siempre presentes.
+- No supedites el consentimiento, las advertencias de contenido ni las instrucciones de seguridad a una decisión.
 
-Cualquier modelo puede equivocarse. Escribe para "un modelo de decisión", nunca "requiere Jev": un modelo de chat local también puede responder estas declaraciones. Comparten sintaxis, pero las respuestas y la precisión pueden variar.
+Cualquier modelo puede equivocarse. Escribe para "un modelo de decisión", no para un producto concreto.
 
 <a id="writing-statements"></a>
 
 ### Redactar declaraciones
 
-Estos consejos provienen de pruebas con un modelo de chat local y Open-Jev 2B y 9B:
-
-- **Afirma un hecho verdadero o falso**, como una línea de un informe. No una pregunta ("Did the scene change?") ni una instrucción ("If the scene changed, describe it"). Un modelo de chat local respondió no a una instrucción todas las veces, así que el bloque nunca se ejecutó.
-- **Di "in the latest message"** cuando te refieras a este turno. El modelo lee varios mensajes y respondió sí a "Mira asks questions" porque un mensaje anterior hacía una pregunta.
-- **Nombra de quién se trata.** "He is angry" se interpretó como el personaje equivocado.
-- **Describe algo visible en el texto**, una acción o algo dicho, no una palabra de estado de ánimo que el modelo deba interpretar ("The scene is intense") ni una intención oculta ("Mira is lying").
-- Sé breve. Un simple "and" o una negación funcionaron bien en las pruebas; escribe lo que suene natural.
+- Afirma un hecho verdadero o falso, como una línea de un informe. No una pregunta ("Did the scene change?") ni una instrucción ("If the scene changed, describe it"). Los modelos pequeños suelen responder no a una instrucción, así que el bloque nunca se ejecuta.
+- Di "in the latest message" cuando te refieras a este turno. El modelo lee varios mensajes, y uno anterior puede hacer que responda sí.
+- Nombra de quién se trata. "He is angry" puede interpretarse como el personaje equivocado.
+- Describe algo visible en el texto, como una acción o una frase dicha. Evita las palabras de estado de ánimo ("The scene is intense") y las intenciones ocultas ("Mira is lying").
+- Sé breve. Divide una declaración larga en partes si quieres reutilizarlas o depurarlas.
 
 Para probar la redacción:
 
-1. Selecciona un modelo en **Decision model** y haz clic en **Test** (probar). Comprueba la conexión con una muestra fija; no prueba tu declaración ni lee tu chat actual.
-2. Añade la declaración al prompt y envía mensajes representativos: algunos en los que deba ser verdadera y otros en los que deba ser falsa.
-3. Usa **Peek Prompt** para inspeccionar la rama enviada. Abre **Decision diagnostics** (diagnóstico de decisiones) para previsualizar las entradas de decisión actuales y elige **Test decisions** (probar decisiones) para obtener puntuaciones nuevas e inspeccionar el prompt resultante sin generar una respuesta. Las pruebas alojadas pueden tener costo. Consulta [Probar declaraciones de decisión](../chats/peek-prompt.md#testing-decision-statements).
-4. Ajusta la redacción y vuelve a probar. Las generaciones normales pueden [reutilizar respuestas](#answer-reuse); una prueba explícita de decisiones mantiene sus respuestas separadas del chat activo. Abrir Peek Prompt o previsualizar entradas no pregunta al modelo. Para inspeccionar resultados de generaciones en curso, activa Debug Mode o el [registro de depuración](../CONFIGURATION.md#logging-levels).
-
-Qué mostraron las pruebas. Cada redacción se probó en cuatro turnos etiquetados de Roleplay (dos previstos como sí y dos como no) con Open-Jev 2B, Open-Jev 9B y un modelo local Gemma 4 E4B. Es una muestra pequeña de una sola escena, no una prueba general de precisión ni de Jev alojado. La tabla registra observaciones de esa muestra; no promete el mismo resultado con otro modelo o chat.
-
-| Escribe | Evita | Qué ocurrió con la redacción a evitar |
-| --- | --- | --- |
-| The latest message moves the scene to a new place. | Did the scene change? | La pregunta hizo que los turnos "no" de Open-Jev 2B superaran su umbral. El modelo local no se vio afectado. |
-| In the latest message, a character draws a weapon or attacks someone. | The scene is intense. | Los tres llamaron "intenso" a un debate acalorado. Con una palabra vaga, el modelo decide qué significa, no tú. |
-| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions. | El modelo local y Open-Jev 9B dijeron sí cuando el último mensaje de Mira no preguntaba nada, porque uno anterior sí lo hacía. |
-| Kaelen is angry in the latest message. | He is angry. | El modelo local interpretó "he" como el cantinero enojado. |
-| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying. | Ningún modelo calificó una contradicción como mentira de forma fiable. |
-| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences. | El modelo local respondió no a la instrucción todas las veces, así que el bloque nunca se ejecutó. |
-| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | Se manejó correctamente. Separarlo sigue siendo más fácil de reutilizar y depurar. |
-| In the latest message, the characters stay in the same place. | The characters did not leave the room. | No hubo diferencia. Escribe lo que suene natural. |
-
-Las redacciones recomendadas lograron 31 de 32 en Open-Jev 2B, 31 de 32 en Open-Jev 9B y 32 de 32 en el modelo local. Las redacciones a evitar lograron 26, 25 y 24. Estos resultados de muestra pequeña ilustran decisiones de redacción; usa tus propios casos para juzgar qué modelo conviene a tus chats.
+1. Selecciona un modelo en **Decision model** y haz clic en **Test** (probar). Esto comprueba la conexión con una muestra fija. No prueba tu declaración.
+2. Añade la declaración al prompt y envía mensajes en los que deba ser verdadera y mensajes en los que deba ser falsa.
+3. Usa **Peek Prompt** para ver qué rama se envió. Abre **Decision diagnostics** (diagnóstico de decisiones) y luego elige **Test decisions** (probar decisiones) para obtener respuestas nuevas sin generar una respuesta de chat. Las pruebas alojadas pueden costar dinero. Consulta [Probar declaraciones de decisión](../chats/peek-prompt.md#testing-decision-statements).
+4. Ajusta la redacción y vuelve a probar. Para ver las respuestas de las generaciones en curso, activa Debug Mode o el [registro de depuración](../CONFIGURATION.md#logging-levels).
 
 <a id="limits-and-cost"></a>
 
@@ -423,63 +293,53 @@ Las redacciones recomendadas lograron 31 de 32 en Open-Jev 2B, 31 de 32 en Open-
 
 #### Presupuesto de declaraciones
 
-**Decision statements per turn**, en **Decision model**, tiene un valor predeterminado de 32. Pese a su nombre, no es un límite global de todas las solicitudes Decision ni del gasto. Marinara lo aplica por etapas:
+**Decision statements per turn**, en **Decision model**, tiene un valor predeterminado de 32. No es un límite único para todas las solicitudes Decision ni para el gasto. Marinara lo aplica por etapas.
 
-1. Las declaraciones del prompt principal del chat se planifican dentro del presupuesto. Las decisiones de lorebook usan después lo que deja disponible ese plan.
-2. Para agentes que se ejecutan antes o durante la respuesta, Marinara combina las declaraciones del prompt principal con las de sus prompts, usando otra vez el presupuesto configurado. Esta etapa no descuenta el uso previo del lorebook, así que el total puede superar el ajuste.
-3. Los agentes de posprocesamiento reciben un presupuesto separado después de la respuesta. Sus declaraciones leen la respuesta terminada.
+1. Las declaraciones del prompt principal del chat se planifican dentro del presupuesto. Las decisiones de lorebook usan lo que queda.
+2. Los agentes que se ejecutan antes o durante la respuesta reciben un plan combinado con el prompt principal, que vuelve a usar el presupuesto. Esta etapa no descuenta el uso del lorebook, así que el total puede superar el ajuste.
+3. Los agentes de posprocesamiento reciben un presupuesto separado después de la respuesta.
 
-Las **preguntas de activación** de agentes y **Smart response order** (orden de respuesta Smart) son independientes de este ajuste.
+Las preguntas de activación de agentes y Smart response order (orden de respuesta Smart) son independientes de este ajuste.
 
-Solo entran en el plan las declaraciones que la etapa actual puede usar: secciones y grupos de preset activados, opciones de variables seleccionadas y contenido de entradas de lorebook activadas. Una condición fija puede descartar una declaración: `{{#if char == "Dottore" && decision:"..."}}` no se pregunta si el personaje es Mira. Las variables pueden cambiar durante la construcción del prompt, así que una condición de variable no descarta una declaración anticipadamente.
-
-Una declaración retenida por [sticky, cooldown](#sticky-and-cooldown) o [`every:`](#checking-every-few-turns) no ocupa ningún lugar. La [prioridad](#priority) elige cuáles caben en un plan. La activación de lorebooks usa su presupuesto restante a medida que se consideran las entradas. Las declaraciones omitidas se interpretan como no y Peek Prompt las enumera.
+Solo entran en el plan de una etapa las declaraciones que esa etapa puede usar: secciones y grupos de preset activados, opciones de variables seleccionadas y contenido de entradas de lorebook activadas. Una condición fija puede descartar una declaración, como `{{#if char == "Dottore" && decision:"..."}}` mientras el personaje es Mira. Una condición de variable no la descarta, porque las variables pueden cambiar mientras se construye el prompt. Las declaraciones retenidas por sticky, cooldown o `every:` no ocupan ningún lugar. Las declaraciones que quedan fuera se interpretan como no.
 
 #### Solicitudes y tiempo
 
-Un turno puede hacer varias solicitudes facturadas en una conexión Decision alojada. Las declaraciones pueden agruparse, pero la activación de lorebooks, el contenido de entradas recién activadas, las coincidencias recursivas y las fases de agentes pueden requerir más lotes. Las preguntas de activación se agrupan por Scan Depth y fase; Smart hace su propia solicitud. El presupuesto de declaraciones no limita el número de solicitudes ni el dinero.
+En una cuenta Decision alojada, un turno puede hacer varias solicitudes facturadas. Las declaraciones pueden agruparse, pero la activación de lorebooks, el contenido de entradas recién activadas, las coincidencias recursivas y las fases de agentes pueden necesitar más lotes. Un modelo de chat local añade tiempo de procesamiento en lugar de cargos, y responde a un `decision_choice:` con una pregunta de sí/no por opción.
 
-Un modelo de chat local añade tiempo de procesamiento en lugar de cargos alojados. Responde a `decision_choice:` con una pregunta de sí/no por opción, así que una sola elección puede requerir varias generaciones.
-
-Cada solicitud tiene un [límite de tiempo](../connections/decision-models.md#time-limits): 1,5 segundos de forma predeterminada para una conexión Decision (4 para una conexión de modelo de chat compatible con OpenAI) o el presupuesto del backend local. Varias solicitudes pueden sumar una espera mayor. Un modelo local que debe razonar primero se abstiene antes de la respuesta salvo que actives **Also gate agents that run before the reply** (evaluar también agentes que se ejecutan antes de la respuesta).
+Cada solicitud tiene un límite de tiempo: 1,5 segundos de forma predeterminada para una cuenta Decision alojada, o 4 segundos para una cuenta de modelo de chat compatible con OpenAI o un modelo local. Consulta [Límites de tiempo](../connections/decision-models.md#time-limits). Un modelo local de razonamiento se abstiene antes de la respuesta salvo que actives **Also gate agents that run before the reply** (evaluar también los agentes que se ejecutan antes de la respuesta).
 
 <a id="answer-reuse"></a>
 
 #### Reutilización de respuestas
 
-Las respuestas correctas normalmente se reutilizan para el mismo turno y Decision model, así que regenerar suele enviar las mismas ramas sin otra solicitud. Esta caché reside en el servidor en ejecución y conserva hasta 200 claves de turno. Reiniciar o descartar la caché puede provocar otra solicitud. Un mensaje más reciente nuevo o editado, otro modelo, una declaración modificada o un conjunto de opciones cambiado también pueden necesitar otra respuesta.
+Marinara normalmente reutiliza las respuestas correctas para el mismo turno y Decision model, así que una regeneración suele enviar las mismas ramas sin una solicitud nueva. La caché reside en el servidor en ejecución y conserva hasta 200 turnos. Un reinicio, un descarte, un último mensaje nuevo o editado, otro modelo, o una declaración o un conjunto de opciones modificados pueden necesitar una respuesta nueva.
 
-Las respuestas ausentes o fallidas no se guardan como respuestas "no" obtenidas correctamente: reintentar el mismo turno puede preguntar de nuevo y tomar otra rama. Los temporizadores sticky/cooldown son independientes de esta caché.
-
-Las declaraciones de prompts de agentes siguen las mismas reglas. Los agentes anteriores/paralelos leen el turno anterior a la respuesta; los de posprocesamiento leen la respuesta terminada, por lo que cambiar un swipe puede requerir respuestas nuevas. Volver a ejecutar manualmente un agente reutiliza las respuestas correctas que sigan en caché para sus entradas. Consulta [Declaraciones de decisión en el prompt del agente](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
+Las respuestas ausentes o fallidas no se guardan en caché, así que un reintento puede preguntar de nuevo y tomar otra rama. Las declaraciones de prompts de agentes siguen las mismas reglas. Volver a ejecutar manualmente un agente reutiliza las respuestas que sigan en caché para sus entradas. Consulta [Declaraciones de decisión en el prompt del agente](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
 
 <a id="prompt-caching"></a>
 
 #### Caché de prompts
 
-La **caché de prompts** del proveedor es independiente de la caché de respuestas Decision de Marinara. Puede reutilizar un prefijo sin cambios del prompt enviado a tu modelo de chat. Cambiar una rama de decisión puede impedir la reutilización desde ese punto; un prefijo anterior sin cambios aún puede ser válido. La parte exacta reutilizable y la facturación dependen del proveedor, los límites de caché, la longitud mínima y la duración de la caché.
+La caché de prompts del proveedor es independiente de la caché de respuestas de Marinara. Puede reutilizar un inicio sin cambios del prompt enviado a tu modelo de chat. Cambiar una rama de decisión puede impedir la reutilización desde ese punto, aunque una parte anterior sin cambios aún puede ser válida. La facturación depende del proveedor.
 
-**Coloca los bloques de decisión cambiantes al final del prompt**, como en instrucciones posteriores al historial o una nota de autor poco profunda. Un cambio temprano puede perder la mayor parte del ahorro de caché. Mantén una decisión cerca del inicio solo si su respuesta cambia poco y sus instrucciones deben ir allí. Lo mismo se aplica a las opciones de variables de preset: su texto aparece donde está `{{name}}`.
+Coloca al final del prompt los bloques de decisión que cambian a menudo, como en instrucciones posteriores al historial o una nota de autor poco profunda. Mantén una decisión cerca del inicio solo cuando su respuesta cambie poco. Las opciones de variables de preset funcionan igual, porque su texto va dondequiera que aparezca `{{name}}`.
 
-En una conexión directa Anthropic con **Enable prompt caching** (activar caché de prompts), Marinara marca el final del prompt de sistema y un mensaje situado **Cache depth** (profundidad de caché) mensajes antes del más reciente (5 de forma predeterminada). Un cambio antes del historial puede invalidar el límite del sistema y el historial posterior, aunque un prefijo anterior coincidente puede seguir siendo reutilizable. Un cambio después del límite marcado del historial puede conservar ese prefijo en caché. Un cambio entre ambos límites puede conservar el prefijo de sistema y perder parte del historial en caché. Leer y escribir caché tienen precios distintos.
-
-Las longitudes mínimas de caché y los límites admitidos varían por modelo y pueden cambiar. Consulta la [guía de caché de prompts de Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) o la [guía de caché de prompts de OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching) vigentes para esos detalles y las reglas de facturación.
+En una cuenta directa de Anthropic con **Enable prompt caching** (activar caché de prompts) activado, Marinara marca el final del prompt de sistema y un mensaje del chat situado **Cache depth** (profundidad de caché) mensajes antes del más reciente (5 de forma predeterminada). Un cambio antes del historial puede invalidar el límite del sistema y el historial posterior. Un cambio después del límite marcado del historial puede conservar la parte en caché. Las longitudes mínimas de caché varían según el modelo. Consulta la [guía de caché de prompts de Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) o la [guía de caché de prompts de OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching) vigentes del proveedor.
 
 <a id="when-a-decision-branch-never-appears"></a>
 
 ### Cuando una rama de decisión nunca aparece
 
-Si un usuario informa que nunca aparece una rama de decisión, las causas probables, en orden, son:
+Causas probables, en orden:
 
-1. **No hay Decision model configurado.** Toda condición de decisión es falsa cada turno. El editor advierte debajo de cualquier campo que use una.
-2. **El Decision model no responde.** Una conexión alojada con clave incorrecta, sin créditos o limitada; un modelo local detenido o demasiado lento para el presupuesto; o un modelo de decisión instalado que no arrancó.
-3. **Es un modelo de razonamiento** que se abstiene antes de la respuesta.
-4. **Hay demasiadas declaraciones en la etapa de planificación pertinente**, superando su presupuesto.
-5. **Responde, pero por debajo del umbral.** Suele deberse a la redacción o a que el modelo puntúa ese turno más bajo de lo esperado.
+1. No hay Decision model configurado. Toda condición de decisión es falsa. El editor muestra una advertencia debajo de cualquier campo que use una.
+2. El Decision model no responde: una clave incorrecta, sin créditos o un límite de solicitudes en una cuenta alojada, un modelo local detenido o demasiado lento, o un modelo de decisión instalado que no arrancó.
+3. Es un modelo de razonamiento que se abstiene antes de la respuesta.
+4. Hay demasiadas declaraciones en la etapa de planificación, por encima del presupuesto.
+5. Responde, pero por debajo de su umbral. Suele deberse a la redacción.
 
-Pregunta al usuario qué Decision model seleccionó y qué informa **Test**. **Peek Prompt** muestra las ramas realmente enviadas. Si debe construir una vista previa nueva, enumera las declaraciones que aún no tienen respuesta y allí se interpretan como no. Con el nivel de registro debug, se registran cada declaración, su respuesta y si se interpretó como sí; consulta [Niveles de registro](../CONFIGURATION.md#logging-levels).
-
-La solución rara vez está en el preset. Cuando está allí, suele ser la redacción o una rama que contiene algo indispensable para el prompt.
+Comprueba qué informa **Test** y usa **Peek Prompt** para ver las ramas que se enviaron. Enumera las declaraciones que aún no tienen respuesta, que se interpretan como no. Con el nivel de registro en debug, se registran cada declaración, su respuesta y si se interpretó como sí. Consulta [Niveles de registro](../CONFIGURATION.md#logging-levels). La solución rara vez está en el preset. Suele ser la redacción, o una rama que contiene algo indispensable para el prompt.
 
 ## Guías relacionadas
 

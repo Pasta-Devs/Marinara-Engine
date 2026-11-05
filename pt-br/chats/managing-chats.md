@@ -1,131 +1,125 @@
 # Como gerenciar a lista de chats
 
-Este guia explica a lista de chats no Marinara Engine. Aqui você vê para que servem as três abas de modo e como criar, importar, renomear, excluir, organizar, buscar e gerenciar chats em lote. O guia também cobre o widget de chats recentes da tela inicial.
+O painel **Chats**, à esquerda, guarda todos os seus chats. Use-o para começar, encontrar, ordenar, organizar e excluir chats.
 
 ## A lista de chats e as abas de modo
 
-Os chats ficam no painel **Chats**, a barra lateral da esquerda. No topo do painel ficam três abas de modo:
+No topo do painel há três abas de modo. Cada aba lista apenas os chats daquele modo.
 
-- **CONVO**, de Conversation: um chat simples, no estilo de aplicativo de mensagens.
-- **RP**, de Roleplay: uma cena imersiva, com personagens e acompanhamento do mundo.
-- **GM**, de Game: um RPG para um jogador só, conduzido pela IA.
+| Aba | Modo |
+| --- | --- |
+| **CONVO** | Conversation: um chat no estilo de aplicativo de mensagens. |
+| **RP** | Roleplay: uma cena com personagens e acompanhamento do mundo. |
+| **GM** | Game: um RPG para um só jogador, conduzido pela IA. |
 
-Cada aba mostra apenas os chats daquele modo. Ao clicar em uma aba, a lista muda.
+Cada linha mostra o nome do chat e os avatares dos personagens dele. Nos chats de Conversation, um ponto colorido em um avatar mostra o status daquele personagem. Um selo vermelho é a quantidade de mensagens não lidas. Uma linha com um pequeno ícone de ramificação e um número é um chat com várias ramificações, agrupadas em uma só linha. Veja [Ramificações de chat](branches.md).
 
-Cada linha da lista mostra o nome do chat e o avatar do personagem ou dos personagens. Nos chats de Conversation, um pontinho colorido no avatar indica o status de cada personagem. Quando aparece um selo vermelho na linha, ele traz a quantidade de mensagens não lidas.
+## Começar um chat
 
-Algumas linhas mostram um pequeno ícone de ramificação com um número. Isso quer dizer que o chat tem mais de uma ramificação, e que as ramificações estão agrupadas em uma linha só. Para entender o que são as ramificações, veja [Ramificações de chat](branches.md).
+Antes de começar: adicione pelo menos uma conta em **Connections** (Conexões). Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
-## Como criar um chat
+1. Clique na aba do modo que você quer.
+2. Toque no botão **+** no topo do painel. O rótulo dele é **New Conversation**, **New Roleplay** ou **New Game**, conforme a aba.
 
-1. Escolha a aba de modo que você quer (**CONVO**, **RP** ou **GM**).
-2. Clique no botão **+**, perto do topo do painel. A dica dele diz **New Conversation**, **New Roleplay** ou **New Game**, conforme a aba ativa.
-3. O aplicativo cria o chat, abre ele e abre também o painel **Chat Settings** (configurações do chat) e um assistente de configuração, para você terminar a preparação.
+Marinara cria e abre o chat. **Chat Settings** (configurações do chat) e um assistente de configuração abrem ao lado dele. O chat começa com o nome **New Conversation**, **New Roleplay** ou **New Game**. Se você salvou um perfil de configurações padrão marcado com estrela para Conversation ou Roleplay, Marinara o aplica ao chat novo. Veja [Perfis de configurações](settings-profiles.md).
 
-O chat novo recebe o nome **New Conversation**, **New Roleplay** ou **New Game**. Renomeie ele quando quiser (veja "Como renomear um chat", mais abaixo).
+Se não funcionou: sem nenhuma conta salva, a janela **Add account** (adicionar conta) abre no lugar de um chat. Escolha um serviço, clique em **Connect** (conectar) e depois escolha um modelo. O passo a passo completo está em [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
-É preciso ter pelo menos uma conexão para que um chat abra. A conexão liga Marinara a um provedor de IA. Se ainda não houver nenhuma conexão, no lugar do chat abre a janela **Add account** (adicionar conta). Escolha um serviço e clique em **Connect** (conectar). Em seguida, a janela abre a seleção de modelo. Escolha um modelo, use, se quiser, a opção **Make ... my Main** (definir como o meu modelo principal) e clique em **Start chatting** (começar a conversar). Numa configuração normal de conta, clique em **Done** (concluir) em vez disso. O passo a passo completo está em [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+## Importar um chat
 
-Se você salvou um perfil de configurações padrão marcado com estrela para aquele modo, Marinara aplica ele ao chat novo automaticamente. Veja [Visão geral do painel Chat Settings](chat-settings.md).
+Você pode importar um registro de chat `.jsonl` do SillyTavern ou do Marinara.
 
-## Como importar um chat
+1. Clique na aba do modo em que o chat deve entrar.
+2. Toque no botão **Import** (importar) no topo do painel. O rótulo dele é **Import SillyTavern or Marinara chat JSONL**.
+3. Escolha o seu arquivo `.jsonl`.
 
-Você pode importar um registro de chat salvo como arquivo `.jsonl`, vindo do SillyTavern ou do Marinara.
+Marinara cria o chat, abre-o e mostra **Imported N messages**. Para os formatos de exportação e a exportação em lote, veja [Exportar e importar chats](export-import.md).
 
-1. Escolha a aba de modo em que o chat importado deve entrar.
-2. Clique no botão **Import** (importar), perto do topo do painel. A dica dele diz **Import SillyTavern or Marinara chat JSONL**.
-3. Escolha o arquivo `.jsonl`.
+Se não funcionou: uma mensagem pequena na parte de baixo da tela diz **Import failed**, com o motivo. Só arquivos `.jsonl` são aceitos.
 
-Marinara cria um chat novo no modo da aba atual e abre ele. Deve aparecer uma mensagem com o texto **Imported N messages**, em que N é a quantidade de mensagens.
+## Renomear um chat
 
-Para conhecer todas as formas de importar e exportar chats, incluindo a importação em lote e os formatos de exportação, veja [Exportar e importar chats](export-import.md).
+O nome do chat é só para você. Ele não é enviado ao modelo.
 
-## Como renomear um chat
+1. Abra o chat e depois abra **Chat Settings**.
+2. Em **Chat Name** (nome do chat), clique no nome atual.
+3. Digite o nome novo e pressione <kbd>Enter</kbd> ou clique na marca de seleção.
 
-O nome do chat é visível só para você. Ele não é enviado para a IA e não muda a conversa.
+Veja [Chat Settings](chat-settings.md) para saber como abrir o painel.
 
-1. Abra o chat.
-2. Abra **Chat Settings** pelo botão no chat.
-3. Na seção **Chat Name**, clique no nome atual para transformar ele em uma caixa de texto.
-4. Digite o nome novo e pressione Enter ou clique no botão de marca de seleção.
+<a id="delete-a-chat"></a>
 
-Para saber mais sobre o painel Chat Settings, veja [Visão geral do painel Chat Settings](chat-settings.md).
+## Excluir um chat
 
-## Como excluir um chat
+1. Toque no botão de lixeira na linha do chat. No computador, ele aparece quando você aponta o mouse para a linha.
+2. Na caixa de diálogo **Delete Chat** (excluir chat), clique em **Delete** (excluir).
 
-Para excluir um chat só, passe o mouse sobre a linha dele e clique no botão de lixeira. No celular, o botão de lixeira fica sempre visível. Uma caixa de diálogo chamada **Delete Chat** pergunta "Delete this chat?". Clique em **Delete** para confirmar.
+A exclusão é definitiva. Ela também interrompe qualquer resposta que ainda esteja sendo escrita para aquele chat.
 
-A exclusão de um chat é definitiva. Ela também interrompe qualquer resposta que ainda esteja sendo gerada para aquele chat.
+Se o chat tiver várias ramificações, a caixa de diálogo diz quantas são e oferece duas opções:
 
-### A caixa de diálogo de escolha da ramificação
+- **Delete This Branch Only** (excluir só esta ramificação) remove a ramificação em que você clicou.
+- **Delete All N branches** (excluir todas as N ramificações) remove todas as ramificações do grupo.
 
-Se o chat que você exclui tem mais de uma ramificação, abre uma janela diferente. Ela se chama **Delete Chat** e avisa que a conversa tem várias ramificações. Ela oferece duas opções:
+Para gerenciar as ramificações sem excluir o chat, veja [Ramificações de chat](branches.md).
 
-- **Delete This Branch Only** remove apenas a ramificação em que você clicou.
-- **Delete All N Branches** remove todas as ramificações do grupo, em que N é a quantidade de ramificações.
-
-Para gerenciar as ramificações sem excluir o chat inteiro, veja [Ramificações de chat](branches.md).
-
-### Como ativar ou desativar a confirmação de exclusão
-
-Uma configuração geral do aplicativo, chamada **Confirm before deleting**, controla se essas caixas de diálogo de confirmação aparecem. Ela vem ativada por padrão e fica em **Settings** (Configurações), na aba **General**. O próprio texto de ajuda dela recomenda deixar ativada.
+A configuração geral do aplicativo **Confirm before deleting** (confirmar antes de excluir) controla essas caixas de diálogo. Ela vem ativada por padrão e fica em **Settings → General** (Configurações → Geral).
 
 ## Pastas de chats
 
-Dentro de cada aba de modo, os chats podem ser agrupados em pastas.
+As pastas agrupam chats dentro de uma aba de modo.
 
-1. Verifique se a aba atual tem pelo menos um chat. O botão **New Folder** (nova pasta) só aparece acima da lista nesse caso.
-2. Clique em **New Folder**. A pasta é criada com o nome **unnamed** (ou **unnamed 2**, **unnamed 3** e assim por diante, se esse nome já estiver em uso).
+1. Abra uma aba que tenha pelo menos um chat. Só então **New Folder** (nova pasta) aparece abaixo das abas.
+2. Clique em **New Folder**. A pasta recebe o nome **unnamed** (depois **unnamed 2**, **unnamed 3**).
 
-Para renomear uma pasta, dê um clique duplo nela, um toque duplo, ou coloque o foco nela e pressione F2. Renomear para um nome vazio não tem efeito.
+| Para fazer isto | Faça isto |
+| --- | --- |
+| Renomear uma pasta | Dê um clique duplo ou um toque duplo nela, ou coloque o foco nela e pressione <kbd>F2</kbd>. Um nome vazio é ignorado. |
+| Excluir uma pasta | Clique no botão de lixeira na linha da pasta. Uma caixa de diálogo **Delete Folder** (excluir a pasta) aparece quando a pasta tem chats. Os chats vão para o nível principal e não são excluídos. |
+| Reordenar as pastas | Arraste uma pasta para cima ou para baixo. O menu de ordenação passa para **Custom** (personalizado). |
+| Mover um chat para uma pasta | Arraste a linha do chat até a pasta. Em tela sensível ao toque, primeiro pressione e segure o chat por cerca de meio segundo. |
+| Tirar um chat de uma pasta | Arraste o chat até a área vazia abaixo das pastas. |
 
-Para excluir uma pasta, clique no botão de lixeira na linha dela. Uma caixa de diálogo chamada **Delete Folder** pede a confirmação. Excluir uma pasta nunca exclui os chats que estão dentro dela. Esses chats voltam para o nível principal.
+Com vários chats selecionados, arrastar um deles move a seleção inteira. Os chats que estão fora das pastas aparecem abaixo das pastas.
 
-Para reordenar as pastas, arraste a linha de uma pasta para cima ou para baixo. Um espaço se abre onde ela vai ficar. O menu de ordenação passa então para **Custom** (personalizada), que mantém a ordem das suas pastas.
+## Buscar, ordenar e filtrar
 
-Para mover um chat para dentro de uma pasta, arraste a linha dele até a pasta. Para tirar um chat de todas as pastas, arraste ele até a área vazia abaixo das pastas. Em tela sensível ao toque, pressione e segure um chat por cerca de meio segundo para começar a arrastar. Se você tiver vários chats selecionados, arrastar um deles move a seleção inteira.
+### Encontrar um chat pelo nome
 
-Os chats que não estão em nenhuma pasta aparecem em uma lista simples, abaixo das pastas.
+Cada aba tem uma caixa de busca. O texto de exemplo dela é **Search conversations**, **Search roleplays** ou **Search games**. Digite uma palavra. A busca considera os nomes dos chats, as tags e os nomes dos personagens, não o texto das mensagens.
 
-## Busca, ordenação e filtro por tag
+### Encontrar uma mensagem em todos os chats
 
-Cada aba de modo tem a própria caixa de busca no topo da lista. O texto de exemplo muda conforme a aba: **Search conversations...**, **Search roleplays...** ou **Search games...**. A busca considera o nome do chat, as tags e os nomes dos personagens. Ela não procura dentro do texto das mensagens.
+1. Toque em **Search all chats** (buscar em todos os chats), o botão ao lado do menu de ordenação.
+2. Digite as suas palavras.
 
-Ao lado da caixa de busca fica um menu de ordenação, com a dica **Sort chats**. Ele tem estas opções:
+A busca procura em todos os chats e pode filtrar por modo, personagem, remetente e data.
 
-- **Custom** (personalizada) mantém as pastas na ordem em que você as arrastou.
-- **Manual order** (ordem manual) permite arrastar os chats para a ordem que você quiser. Pelo teclado, dê foco a um chat e aperte Alt+Up ou Alt+Down.
-- **Recent** (recentes), o padrão, mostra primeiro os chats com atividade mais recente.
-- **Newest** (mais novos) mostra primeiro os chats criados mais recentemente.
-- **Oldest** (mais antigos) mostra primeiro os chats mais antigos.
-- **A-Z** ordena por nome, de A a Z.
-- **Z-A** ordena por nome, de Z a A.
+O menu de ordenação (**Sort chats**) tem estas opções:
 
-Se algum chat da aba tiver tags, aparece uma linha de filtro por tag. Clique no chip **Tags** para abrir a lista de tags. Depois clique em uma tag para ver só os chats que a têm. Clique em **Clear** para tirar o filtro. Quando há muitas tags, um chip **+N more** mostra as restantes.
+| Opção | Ordem |
+| --- | --- |
+| **Custom** | A ordem das suas pastas. |
+| **Manual order** (ordem manual) | Os chats na ordem em que você os arrasta. Pelo teclado, coloque o foco em um chat e pressione <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd>. |
+| **Recent** (recentes) | A atividade mais recente primeiro. Este é o padrão. |
+| **Newest** (mais novos) | Os criados mais recentemente primeiro. |
+| **Oldest** (mais antigos) | Os mais antigos primeiro. |
+| **A-Z** e **Z-A** | Por nome. |
 
-Observação: esta tela filtra apenas pelas tags que o chat já tem. Não existe aqui um botão para adicionar uma tag a um chat.
+Quando algum chat da aba tem uma tag, aparece um chip **Tags (N)**. Clique nele para expandir as tags e depois clique em uma tag para mostrar só os chats que a têm. Clique em **Clear** (limpar) para tirar o filtro. Este painel não consegue adicionar tags a um chat.
 
-A lista mostra até 100 chats por vez. Se você tiver mais, um botão **Load more** aparece no fim para exibir o próximo lote.
+A lista mostra 100 chats por vez. Clique em **Load more** (carregar mais) para ver o próximo lote.
+
+<a id="selecting-multiple-chats"></a>
 
 ## Como selecionar vários chats
 
-Você pode agir sobre vários chats de uma vez.
+1. Clique no botão de marca de seleção, **Select chats** (selecionar chats), no topo do painel.
+2. Clique em cada chat que você quer. As linhas mostram uma caixa de seleção em vez de abrir o chat.
+3. Use a barra na parte de baixo, que mostra quantos chats estão selecionados.
 
-1. Clique no botão **Select chats** (selecionar chats), perto do topo do painel (o ícone de marca de seleção).
-2. Clique em cada chat que você quer. Em vez de abrir o chat, uma caixa de seleção é marcada em cada linha escolhida.
-3. Uma barra no rodapé mostra quantos chats estão selecionados, com dois botões.
+**Export** (exportar) baixa os chats selecionados como um único arquivo `.zip` com arquivos `.jsonl`. **Delete** pede a sua confirmação em uma caixa de diálogo **Delete Chats** (excluir chats) e depois remove os chats. Clique de novo no botão de marca de seleção para sair do modo de seleção. Trocar de aba também limpa a seleção.
 
-O botão **Export** (exportar) baixa todos os chats selecionados juntos, em um único arquivo `.zip`. O botão **Delete** remove eles. Antes disso, o Delete mostra uma confirmação chamada **Delete Chats**.
+## Chats recentes na tela inicial
 
-Para sair do modo de seleção sem fazer nada, clique de novo no botão de seleção. Trocar de aba também limpa a seleção.
-
-## Recent Chats na tela inicial
-
-A tela inicial tem um widget **Recent chats** (chats recentes) com os seus chats de atividade mais recente. Cada chat mostra o nome, um selo do modo e a última mensagem. Clique em um chat para abri-lo, ou clique em uma parte vazia do widget para abrir a lista de chats. Se você ainda não tiver nenhum chat, o widget mostra **Your chats will show here** (os seus chats vão aparecer aqui). Veja [Widgets da tela inicial](../home/welcome.md#home-widgets).
-
-## Guias relacionados
-
-- [Ramificações de chat](branches.md)
-- [Exportar e importar chats](export-import.md)
-- [Visão geral do painel Chat Settings](chat-settings.md)
-- [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md)
+A tela inicial tem um widget **Recent chats** (chats recentes) com os seus chats mais recentes. Cada um mostra o nome, um selo do modo e a última mensagem. Clique em um chat para abri-lo. Sem nenhum chat, o widget mostra **Your chats will show here** (os seus chats vão aparecer aqui). Veja [Widgets da tela inicial](../home/welcome.md#home-widgets).

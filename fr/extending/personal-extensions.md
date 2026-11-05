@@ -1,276 +1,113 @@
 # Extensions personnelles
 
-Les extensions personnelles sont des brouillons de code privés que Professor Mari écrit pour toi. Ouvre la section **Settings** (Paramètres) > **Addons** > **Personal Extensions**.
+Une Personal Extension (extension personnelle) est un petit morceau de code qui ajoute un bouton, un panneau ou un outil d'aide à Marinara. Professor Mari peut en écrire une pour toi, et c'est toi qui décides si elle s'exécute un jour. Ce guide explique comment examiner, activer, exporter et récupérer des extensions. Pour écrire les tiennes, consulte [Écrire des extensions personnelles](writing-personal-extensions.md).
 
-Le message par défaut est le suivant :
+## Les différents types d'extensions
 
-> Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash.
+| Nom | Ce que c'est |
+| --- | --- |
+| Personal Extension (extension personnelle) | Une extension que Professor Mari a écrite pour toi. Elle apparaît comme brouillon dans **Settings → Addons** (Paramètres → Modules complémentaires). |
+| External Extension (extension externe) | Une extension écrite par quelqu'un d'autre, ou par toi. Elle demande les étapes supplémentaires décrites dans [Autoriser les imports tiers](#allow-third-party-imports). |
+| Browser Extension (extension navigateur) | S'exécute dans ton navigateur, dans un bac à sable. Sûre par défaut. |
+| Server Extension (extension serveur) | S'exécute sur l'ordinateur qui fait tourner Marinara, dans un bac à sable du système d'exploitation. Demande une plateforme prise en charge. |
+| Full page access (accès complet à la page) | Une permission qui supprime le bac à sable. Uniquement pour du code auquel tu fais entièrement confiance. |
 
-Cette section ne propose ni action New Draft, ni contrôle d'import. Demande à Professor Mari de créer ou de retoucher un brouillon. Elle peut enregistrer du code, mais elle ne peut ni l'approuver ni l'activer.
+## Installer une extension partagée par quelqu'un
 
-Pour écrire et importer ton propre paquet, consulte le [guide de création des extensions personnelles](writing-personal-extensions.md). Les paquets que tu écris passent par le flux Extensions externes, protégé séparément.
+Avant de commencer, fais les deux étapes décrites dans [Autoriser les imports tiers](#allow-third-party-imports). Sans elles, les boutons d'import sont masqués.
 
-## Estimer les tokens d'un texte
+1. Ouvre **Settings → Addons**. Sous **External Extensions** (extensions externes), choisis **Import Extension File** (importer un fichier d'extension) pour un fichier `.zip`, `.json`, `.css` ou `.js`, ou **Import Extension Folder** (importer un dossier d'extension) pour un dossier.
+2. Ouvre le nouveau brouillon. Il est désactivé et affiche son code ainsi qu'une empreinte (hash), une courte signature de ce code exact (Marinara utilise SHA-256).
+3. Lis le code et la liste **Requested access** (accès demandés).
+4. Choisis **Review and Run** (relire et exécuter) seulement si tu acceptes cette version exacte. L'extension apparaît alors comme activée.
 
-Les extensions personnelles Browser, Full page access et Server peuvent utiliser l'estimateur de tokens de texte intégré à Marinara :
+Si ça n'a pas marché : si les boutons d'import manquent, l'une des deux étapes n'est pas faite. Pense à redémarrer Marinara après avoir modifié `.env`.
 
-```js
-const tokens = marinara.estimateTextTokens(text);
-```
+## Examiner une extension de Professor Mari
 
-La signature est `estimateTextTokens(text: string): number`. Elle est aussi décrite par le type `PersonalExtensionTokenApi`, exporté depuis `@marinara-engine/shared`. L'appel est synchrone, ne demande aucune permission supplémentaire et renvoie l'estimation de tokens de Marinara, indépendante du modèle, plutôt que le résultat exact d'un tokenizer. Sur une ancienne version d'Engine, vérifie `typeof marinara.estimateTextTokens === "function"` avant d'appeler la fonction.
+Avant de commencer, demande à [Professor Mari](../home/professor-mari.md) de créer une extension. Elle peut enregistrer le code, mais elle ne peut ni l'approuver ni l'activer. Cette section n'a ni bouton New Draft, ni contrôle d'import.
 
-## Relire et activer
+1. Ouvre **Settings → Addons → Personal Extensions** (Paramètres → Modules complémentaires → Extensions personnelles). Sans brouillon, la section affiche : "Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash."
+2. Ouvre le brouillon et lis le code. Vérifie l'empreinte et la liste **Requested access**.
+3. Choisis **Review and Run** seulement si tu acceptes cette version exacte.
 
-Tout brouillon arrive désactivé. Marinara calcule une empreinte SHA-256 du code exécutable exact. Ouvre le brouillon, examine le code, compare l'empreinte affichée, puis choisis **Review and Run** (relire et exécuter) seulement si tu acceptes cette version précise. La moindre modification du code exécutable, ou la restauration d'une révision, désactive l'extension et impose une nouvelle approbation.
+Tout brouillon arrive désactivé. Toute modification du code, tout changement de permission ou toute révision restaurée désactive l'extension et demande une nouvelle approbation.
 
-L'isolation en bac à sable réduit les pouvoirs de l'extension, elle ne rend pas pour autant un code quelconque digne de confiance. Une extension malveillante peut encore gaspiller du processeur jusqu'à ce que le chien de garde l'arrête, saturer son propre espace de stockage dans les limites imposées, ou se montrer trompeuse dans ses logs (le journal du serveur). Les extensions pleine page renoncent délibérément à cette isolation. Relis toujours le code avant de l'activer.
+> **Avertissement :** un bac à sable limite ce que le code peut faire, mais il ne rend pas ce code digne de confiance. Une extension nuisible peut encore gaspiller du temps processeur jusqu'à ce qu'un chien de garde (un minuteur qui arrête le code qui s'emballe) y mette fin, remplir son propre stockage jusqu'à la limite, ou t'induire en erreur par ses logs (son journal de messages). Les extensions pleine page renoncent volontairement au bac à sable. Lis le code avant de l'activer, et inspecte chaque ligne du code tiers.
 
-## Isolation à l'exécution
+Si ça n'a pas marché : les modifications de Professor Mari et toute révision restaurée remettent le brouillon à l'état désactivé. Examine-le de nouveau et vérifie que l'empreinte affichée dans la boîte de dialogue est bien celle que tu as lue.
 
-Une extension navigateur (Browser Extension) tourne dans un Worker dédié, à l'intérieur d'une iframe isolée à origine opaque. Elle n'a accès ni à la page de Marinara, ni au DOM, ni aux cookies, ni au stockage du navigateur, ni aux API d'origine, ni au réseau. Ses capacités se limitent à un stockage d'extension privé, aux logs, à des minuteurs gérés, à l'enregistrement d'un nettoyage, à des fenêtres restreintes, à des points de contribution sûrs vers l'interface hôte et à un instantané en lecture seule des identifiants du chat actif et des personnages. Elle ne reçoit certains champs des fiches de personnage actives ou du persona sélectionné que si les permissions correspondantes sont déclarées et approuvées.
+## Ce qu'une extension peut faire
 
-Une extension peut ajouter des actions dans la barre supérieure, des entrées au menu Extensions et des panneaux persistants sur le côté droit, via `marinara.ui.registerContribution(...)`. Marinara affiche ces surfaces avec le thème actif et un jeu fixe de contrôles : titres, texte, sortie préformatée, boutons, champs de saisie, listes de sélection, interrupteurs, curseurs, sélecteurs de couleur et espaceurs. Une extension fournit du contenu et un état, jamais de HTML, de CSS, d'URL, de composants React ni de gestionnaires d'événements de l'hôte.
+Une Browser Extension s'exécute dans un bac à sable (une zone isolée) à l'intérieur de ton navigateur. Elle n'a accès ni à la page de Marinara, ni aux cookies, ni au stockage du navigateur, ni au réseau. Elle peut :
 
-Ces capacités d'interface et ces règles sont identiques pour toutes les extensions navigateur en bac à sable, quelle que soit leur provenance. Une extension tierce importée (External Extension) utilise ce runtime sûr, sauf si son paquet demande explicitement l'option **Full page access** (accès à la page entière) ou emploie le format `marinara.extension` antérieur au bac à sable, décrit plus bas.
+- garder un stockage privé et écrire des logs ;
+- ajouter des boutons, des entrées de menu et des panneaux que Marinara affiche avec ton thème ;
+- lire les identifiants du chat ouvert ;
+- lire certains champs des personnages actifs ou du persona, seulement si tu approuves les permissions correspondantes.
 
-<a id="add-a-marinara-rendered-panel"></a>
+La liste complète se trouve dans [Écrire des extensions personnelles](writing-personal-extensions.md#what-a-browser-extension-can-do).
 
-### Ajouter un panneau affiché par Marinara
-
-```js
-const panel = marinara.ui.registerContribution({
-  id: "weather-settings",
-  kind: "panel",
-  label: "Weather controls",
-  description: "Tune a weather scene without leaving Marinara.",
-  icon: "sparkles",
-  elements: [
-    { kind: "heading", text: "Atmosphere" },
-    {
-      kind: "select",
-      id: "weather",
-      label: "Weather",
-      value: "rain",
-      options: [
-        { value: "rain", label: "Rain" },
-        { value: "snow", label: "Snow" },
-        { value: "aurora", label: "Aurora" },
-      ],
-    },
-    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
-    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
-    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
-    { kind: "button", id: "apply", label: "Apply" },
-  ],
-  onActivate: async () => {
-    const settings = await marinara.storage.get();
-    // Update the panel when stored state should be reflected in the controls.
-  },
-  onEvent: async ({ elementId, values }) => {
-    if (elementId !== "apply") return;
-    await marinara.storage.patch(values);
-  },
-});
-
-marinara.onCleanup(() => panel.remove());
-```
-
-Utilise `kind: "button"` pour une action compacte et `kind: "menu-item"` pour une action du menu Extensions. Utilise `kind: "command"` pour une entrée du Command Center (centre de commandes) qui active une contribution existante de la même révision de l'extension. Une commande exige `targetContributionId` et ne peut utiliser ni `onActivate` ni `onEvent`.
-
-```js
-marinara.ui.registerContribution({
-  id: "open-weather",
-  kind: "command",
-  label: "Open weather controls",
-  targetContributionId: "weather-settings",
-});
-```
-
-L'hôte ne résout une commande que si la cible a le même identifiant d'extension et la même empreinte de contenu. Les cibles absentes, issues d'une autre extension ou d'une révision périmée échouent par sécurité. Par défaut, les boutons ciblent `surface: "top-bar"`. Ils peuvent aussi viser `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` ou `settings`, avec `position` réglé sur `header`, `before-content` ou `after-content`. `icon` accepte tout nom Lucide en kebab-case pris en charge par Marinara. Les deux types d'action appellent `onActivate`. Un `panel` appelle `onActivate` à son ouverture ; ses boutons appellent `onEvent` avec les valeurs courantes de tous ses contrôles. La référence permet des mises à jour propres au type : `button` accepte `label`, `description`, `icon`, `surface` et `position` ; `menu-item` accepte `label`, `description` et `icon` ; `panel` accepte `label`, `description`, `icon` et `elements`. Toutes les références prennent en charge `remove()`. Les identifiants acceptent lettres, chiffres, `.`, `_` et `-`.
-
-Par exemple, ceci place une action native au-dessus du contenu du panneau Presets :
-
-```js
-marinara.ui.registerContribution({
-  id: "preset-helper",
-  kind: "button",
-  label: "Preset helper",
-  description: "Run the preset helper",
-  icon: "list-sparkles",
-  surface: "presets",
-  position: "before-content",
-  onActivate: () => {
-    // Run extension behavior here.
-  },
-});
-```
-
-Un outil complexe peut construire une interface en plusieurs étapes en mettant à jour les éléments du panneau après un événement. Garde l'état de l'application dans `marinara.storage` ; ne l'encode pas dans le balisage.
-
-<a id="use-active-chat-context"></a>
-
-### Utiliser le contexte du chat actif
-
-La version 5 de l'API des extensions navigateur expose des identifiants opaques pour le chat affiché à l'instant dans Marinara :
-
-```js
-const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
-  if (!chatId) return; // Home, a library, or another surface without an active chat.
-
-  const storage = await marinara.storage.get();
-  const tab = storage.tabsByChat?.[chatId];
-
-  // characterId is available only for a single-Character chat.
-  // Use characterIds for group chats.
-  marinara.log.debug("Loaded Notepad tab", {
-    chatId,
-    characterId,
-    characterIds,
-    personaId,
-    characterNames: characters.map((character) => character.name),
-    personaName: persona?.name ?? null,
-    tab,
-  });
-};
-
-const unsubscribe = marinara.context.subscribe(renderForContext);
-marinara.onCleanup(unsubscribe);
-```
-
-La fonction `marinara.context.get()` renvoie le même instantané, sans abonnement. Quand aucun chat n'est actif, `chatId` vaut `null` et `characterIds` est vide. Le champ `characterId` n'est renseigné que si un seul personnage participe ; dans un chat de groupe, `characterIds` liste tous les participants et `characterId` reste à `null`. Le champ `personaId` n'est renseigné que si la permission `read_active_persona` est approuvée.
-
-Les identifiants de chat et de personnage sont toujours disponibles : une extension peut s'en servir pour cloisonner son stockage privé. Les champs des enregistrements, eux, exigent une des deux permissions facultatives du manifeste de l'extension, ou les deux :
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["read_active_characters", "read_active_persona"]
-}
-```
-
-- La permission `read_active_characters` renseigne `characters` pour les fiches qui participent au chat actif.
-- La permission `read_active_persona` renseigne `persona` pour le persona sélectionné par le chat actif.
-
-Sans la permission, la valeur reste `[]` ou `null`. Marinara affiche chaque permission demandée dans la section **Requested access** (accès demandés), puis à nouveau dans la fenêtre d'approbation de l'empreinte exacte. Ajouter ou retirer une permission change l'empreinte du code exécutable, désactive l'extension et impose une nouvelle approbation.
-
-Un instantané de personnage ne contient que `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe` et `conversationDisplayName`. Un instantané de persona ne contient que `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe` et `conversationDisplayName`. Le texte est limité en longueur avant de franchir le pont du bac à sable.
-
-Marinara n'envoie jamais les messages, les notes du créateur, les prompts système, les instructions post-historique, les commentaires, les chemins des avatars, les bibliothèques complètes de personnages ou de personas, les champs non déclarés, les métadonnées du chat, les descripteurs de base de données, un accès réseau ni des opérations de modification. Les mises à jour du contexte restent liées à l'empreinte approuvée du code ; elles arrivent quand le chat actif, sa liste de personnages ou son persona sélectionné change.
-
-<a id="add-a-dice-format"></a>
-
-### Ajouter un format de dés
-
-La version 6 de la Browser Extension API permet à une extension d'apprendre à `/roll` une notation qui lui est propre, comme une réserve de dés narratifs. L'extension lit la notation et désigne les dés à lancer ; Marinara les lance avec son propre générateur sécurisé et lui renvoie les faces. Une extension peut interpréter un jet, jamais décider du résultat des dés.
-
-```js
-const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
-
-const format = marinara.dice.registerFormat({
-  id: "narrative",
-  label: "Narrative dice",
-  // Return null for notation this format does not read.
-  parse(notation) {
-    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
-    if (!terms.length) return null;
-    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
-    return { dice: kinds.map(() => 6), kinds };
-  },
-  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
-  read({ notation, dice, rolls, plan }) {
-    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
-    return { total: net, text: net > 0 ? `${net} success` : "failure" };
-  },
-});
-marinara.onCleanup(() => format.remove());
-```
-
-`/roll 2 boost 1 setback` publie alors les faces, le total et le texte de l'extension, avec le nom du format comme libellé. Une notation simple comme `2d6` ou `4d6kh3` lance toujours les dés comme avant et n'est jamais transmise à une extension. Les autres notations sont transmises à chaque format enregistré à tour de rôle ; le premier dont `parse` renvoie des dés effectue le jet.
-
-- `parse(notation)` renvoie `null` ou `{ dice: [sides, ...] }` avec 1 à 100 dés de 2 à 1 000 faces. Les autres propriétés de l'objet restent dans le bac à sable et sont renvoyées à `read` sous le nom `plan`.
-- `read(...)` renvoie `{ total, text?, kept? }` : un nombre fini, au plus 200 caractères de texte brut et, facultativement, les positions des dés qui ont compté, par ordre croissant. `/roll` barre les autres.
-- Chaque extension peut enregistrer 4 formats. La notation est limitée à 100 caractères. `parse` et `read` peuvent être asynchrones, mais chacune doit répondre en moins de 2 secondes.
-- Le texte est affiché comme texte brut : les liens, les images, la mise en forme et le HTML sont échappés.
-
-Les formats de dés s'appliquent à `/roll` dans le navigateur. L'outil `roll_dice` du Game Master et les autres jets côté serveur conservent la notation intégrée et les dés de l'ensemble de règles. Vérifie `typeof marinara.dice?.registerFormat === "function"` avant de l'appeler sur les anciennes versions du moteur.
-
-### Anciennes extensions et extensions pleine page
-
-Contrôleurs météo, éditeurs de prompts et autres flux de travail conséquents sont des cas d'usage tout à fait valables pour les contributions. Leur portage sûr peut s'appuyer sur un lanceur dans le menu ou la barre supérieure, complété par des panneaux mis à jour au fil des étapes. En revanche, les paquets existants qui superposent des éléments au DOM, interrogent les sélecteurs CSS de Marinara, parcourent les entrailles de React ou appellent les routes `/api` de même origine ne peuvent pas être importés tels quels dans le runtime sûr.
-
-Les contributions d'interface fournissent l'interface, pas des pouvoirs implicites. L'API de contexte expose toujours les identifiants du chat actif et des personnages ; au-delà, elle ne donne que les champs déclarés des enregistrements actifs listés plus haut. Une fonctionnalité qui a besoin des messages, des presets, des lorebooks, de données de personnage ou de persona non déclarées, ou d'effets visuels de scène réclame toujours une capacité de courtage distincte et étroitement délimitée, exposée par Marinara. Une extension ne doit pas la simuler en accédant au DOM de l'hôte ou en lançant des requêtes réseau sans restriction.
-
-Si une extension externe dépend réellement d'un accès au DOM de l'hôte, elle peut demander :
-
-```json
-{
-  "runtime": "client",
-  "capabilities": ["full_page_access"]
-}
-```
-
-**Full page access n'est pas une capacité du bac à sable.** Le JavaScript et le CSS approuvés s'exécutent à l'intérieur de la page de Marinara. Ce code peut lire ou modifier tout ce qui est visible dans la session de navigateur en cours, inspecter les chats et les fiches, utiliser le stockage du navigateur, lancer des requêtes réseau et appeler les API de Marinara de même origine. Ses pouvoirs sur la page équivalent en pratique à du code collé dans la console du navigateur. Les brouillons de Professor Mari ne peuvent pas le demander.
-
-Les extensions avec accès complet à la page devraient utiliser `marinara.fetch(...)` pour les requêtes réseau. Cette fonction a la même signature et renvoie le même résultat que `window.fetch`, tout en permettant à **Settings > Addons > External Extensions** (Paramètres > Modules complémentaires > Extensions externes) d'afficher le nombre de requêtes de cette extension pendant la session, les octets transférés indiqués par les réponses, la fréquence récente des requêtes et un avertissement en cas de trafic élevé prolongé. Les appels directs à `window.fetch` restent disponibles, car l'accès complet exécute du code de confiance dans la page, mais ces requêtes ne peuvent pas être attribuées à l'extension.
-
-Marinara traite l'ancienne enveloppe v1 `kind: "marinara.extension"`, dépourvue de champ `capabilities` explicite, comme un paquet antérieur au bac à sable et lui attribue **Full page access** à l'import. Les paquets anciens comme WeatherTweaker rejoignent ainsi le bon parcours de relecture, au lieu d'échouer en silence dans un Worker. Un paquet moderne qui emploie cette enveloppe mais veut le runtime sûr doit inclure `"capabilities": []`.
-
-Les deux verrous des extensions externes et l'approbation de l'empreinte exacte restent en vigueur. Toute modification du code, du CSS ou des permissions désactive l'extension et impose une nouvelle approbation. La désactivation supprime les nœuds de script et de feuille de style posés par Marinara, annule les minuteurs créés via l'API de compatibilité et exécute les rappels enregistrés avec `marinara.onCleanup(...)`. Comme le code de la page peut créer des écouteurs, des minuteurs, des variables globales ou des modifications du DOM non enregistrés, le nettoyage reste approximatif : recharge la page après avoir désactivé une extension s'il en reste quelque chose.
-
-L'ancienne API `marinara.ui.showWindow(...)` reste disponible pour ouvrir une fenêtre temporaire dans l'iframe à origine opaque. Elle emploie les mêmes contrôles fixes et renvoie les références `update(...)` et `close()`. Privilégie les contributions quand l'outil doit rester accessible par la navigation habituelle de Marinara.
-
-Une extension serveur (Server Extension) tourne dans un processus Node distinct, aux permissions restreintes, sous macOS Seatbelt ou Linux Bubblewrap. Elle n'a accès ni aux fichiers de Marinara, ni à tes fichiers, ni aux secrets hérités du serveur, ni au réseau, ni aux processus enfants, ni aux workers, ni aux modules natifs. Si Marinara ne parvient pas à mettre en place un bac à sable pris en charge par le système, les extensions serveur restent désactivées.
+Une Server Extension s'exécute dans un processus Node distinct (un programme sur l'ordinateur serveur), à l'intérieur d'un bac à sable du système d'exploitation. Elle n'a accès ni aux fichiers de Marinara, ni à tes fichiers, ni aux secrets du serveur, ni au réseau, ni aux processus enfants, ni aux workers, ni aux modules natifs.
 
 <a id="platform-support"></a>
 
 ### Plateformes prises en charge
 
-Les extensions navigateur sont isolées par le navigateur lui-même : elles fonctionnent donc partout. Les extensions serveur exigent un bac à sable système pris en charge ; à défaut, elles restent désactivées et ne peuvent pas être activées – jamais Marinara ne se rabat sur une exécution sans bac à sable.
+Les Browser Extensions sont isolées par le navigateur : elles fonctionnent donc partout. Les Server Extensions ont besoin d'un bac à sable du système d'exploitation pris en charge. Là où il n'en existe aucun, elles restent désactivées, et Marinara ne les exécute jamais sans bac à sable.
 
-| Plateforme              | Extensions navigateur en bac à sable | Extensions externes pleine page | Extensions serveur                               |
-| ----------------------- | ------------------------------------ | ------------------------------- | ------------------------------------------------ |
-| macOS                   | ✅ Isolées                           | ⚠️ Confiance explicite requise  | ✅ Isolées (Seatbelt)                            |
-| Linux (avec Bubblewrap) | ✅ Isolées                           | ⚠️ Confiance explicite requise  | ✅ Isolées (Bubblewrap)                          |
-| Linux (sans `bwrap`)    | ✅ Isolées                           | ⚠️ Confiance explicite requise  | ⛔ Désactivées – installe `bwrap`                |
-| Docker (par défaut) | ✅ Isolées | ⚠️ Confiance explicite requise | ⛔ Désactivées – autorisations du conteneur |
-| Windows                 | ✅ Isolées                           | ⚠️ Confiance explicite requise  | ⛔ Désactivées – utilise une extension navigateur |
-| Android                 | ✅ Isolées                           | ⚠️ Confiance explicite requise  | ⛔ Désactivées – utilise une extension navigateur |
+| Plateforme | Server Extensions |
+| --- | --- |
+| macOS | Isolées avec Seatbelt, le bac à sable de macOS |
+| Linux avec Bubblewrap | Isolées avec Bubblewrap, un outil de bac à sable pour Linux |
+| Linux sans `bwrap` | Désactivées : installe `bwrap` |
+| Docker (par défaut) | Désactivées : privilèges du conteneur |
+| Windows | Désactivées : utilise une Browser Extension |
+| Android | Désactivées : utilise une Browser Extension |
 
-L'image Docker officielle contient Bubblewrap, mais le conteneur par défaut, doté de privilèges minimaux, ne peut pas créer les espaces de noms imbriqués ni les montages nécessaires à Bubblewrap. Marinara teste le bac à sable à l'exécution et laisse les extensions serveur désactivées si le conteneur ne l'autorise pas. Consulte [Dépannage](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available) pour connaître la modification explicite des autorisations Docker et ses implications pour la sécurité.
+Les Browser Extensions sont isolées sur toutes les plateformes. Les External Extensions pleine page ne sont isolées nulle part et demandent toujours ta confiance explicite.
 
-Sous Windows et Android, aucun bac à sable de processus n'est pris en charge par le système : les extensions serveur y sont donc indisponibles, par conception. Utilise plutôt une extension navigateur, ou fais tourner le serveur Marinara sous macOS ou Linux (avec `bwrap`) si tu as vraiment besoin d'une extension serveur.
+L'image Docker officielle contient Bubblewrap, mais son conteneur par défaut ne peut pas créer les espaces de noms imbriqués ni les montages dont Bubblewrap a besoin. Marinara teste le bac à sable à l'exécution et laisse les Server Extensions désactivées quand le conteneur le refuse. Consulte [Dépannage](../TROUBLESHOOTING.md#a-server-extension-says-no-supported-sandbox-is-available) pour la modification des autorisations Docker et son compromis de sécurité.
 
-## Extensions externes
+Sous Windows et Android, il n'existe aucun bac à sable de processus pris en charge : les Server Extensions y sont donc indisponibles. Utilise une Browser Extension, ou fais tourner le serveur Marinara sous macOS ou sous Linux avec `bwrap`.
 
-Les imports tiers sont verrouillés et masqués par défaut. Il faut passer deux étapes :
+<a id="allow-third-party-imports"></a>
 
-1. Sur la machine qui héberge Marinara, définis `ENABLE_EXTERNAL_EXTENSIONS=true` dans le fichier `.env`.
-2. Ouvre la section **Settings** > **Advanced** > **Danger Zone**, descends sous les contrôles de suppression de données, lis l'avertissement, puis active l'option **Allow third-party extension imports** (autoriser les imports d'extensions tierces).
+## Autoriser les imports tiers
 
-Alors seulement la section **Settings** > **Addons** affiche **External Extensions** avec ses contrôles d'import de fichier et de dossier. Les formats pris en charge sont toujours décompressés :
+Les imports tiers sont verrouillés et masqués par défaut, parce qu'ils exécutent du code écrit par d'autres personnes. Deux étapes les ouvrent :
 
-- `.personal-extension.zip` et les paquets `.zip` compatibles ;
+1. Sur l'ordinateur qui exécute Marinara, définis `ENABLE_EXTERNAL_EXTENSIONS=true` dans le fichier `.env`, puis redémarre Marinara. Consulte la [référence de configuration du serveur](../CONFIGURATION.md).
+2. Ouvre **Settings → Advanced → Danger Zone** (Paramètres → Avancé → Zone de danger), descends sous les contrôles de suppression des données, lis l'avertissement, puis active **Allow third-party extension imports** (autoriser les imports d'extensions tierces).
+
+**Settings → Addons** affiche alors **External Extensions** avec des contrôles d'import de fichier et de dossier. Formats pris en charge :
+
+- `.personal-extension.zip` et les packages `.zip` compatibles ;
 - les manifestes `.json` ;
 - `.css` ;
 - `.js`, `.mjs` et `.cjs` ;
 - `.server.js`, `.server.mjs` et `.server.cjs`.
 
-Un import n'apporte jamais d'approbation avec lui et ne peut pas s'activer tout seul. Les enregistrements anciens, importés depuis un profil, stockés manuellement ou de provenance inconnue comptent eux aussi comme externes. Ils restent masqués, ne peuvent pas être approuvés et sont exclus des deux runtimes tant que les deux verrous ne sont pas levés.
+Un import n'apporte jamais d'approbation et ne peut pas s'activer tout seul. La plupart des Browser Extensions devraient rester dans le bac à sable sûr. Un package marqué **Full page access** est différent :
 
-Parcours la liste **Requested access** avant d'approuver une empreinte exacte. La plupart des extensions navigateur devraient rester dans le bac à sable sûr. Un paquet marqué **Full page access** n'est délibérément pas isolé : ne l'active que si tu as inspecté cette version précise et que tu lui fais confiance.
+- Son code s'exécute dans la page de Marinara, sans bac à sable.
+- Il peut lire les chats et les fiches, utiliser le stockage du navigateur, lancer des requêtes réseau et appeler les propres API de Marinara.
+- Ne l'active qu'après avoir inspecté cette version exacte, et seulement si tu lui fais confiance.
+- Les brouillons de Professor Mari ne peuvent pas le demander.
 
-Refermer l'un ou l'autre verrou arrête les processus serveur externes actifs, supprime les workers du navigateur ainsi que les nœuds du runtime pleine page, et désactive les enregistrements externes stockés. Rouvrir les verrous ne les relance pas automatiquement. Recharge la page si une extension pleine page a laissé derrière elle des modifications qu'elle n'avait pas enregistrées pour le nettoyage.
+Les enregistrements anciens, importés depuis un profil, stockés manuellement ou de provenance inconnue sont eux aussi traités comme externes. Ils restent masqués, ne peuvent pas être approuvés et ne s'exécutent pas tant que les deux étapes ne sont pas faites.
 
-Une extension tierce peut contenir du code malveillant ou dangereux. Examine toujours chaque ligne avant de la télécharger, de l'importer ou de l'activer. Tu procèdes entièrement sous ta propre responsabilité.
+Désactiver l'une ou l'autre étape désactive toutes les extensions importées. La réactiver ne les relance pas. Recharge la page si une extension pleine page a laissé des modifications derrière elle.
+
+Si ça n'a pas marché : si les contrôles d'import n'apparaissent pas, vérifie que les deux étapes sont faites et que tu es sur l'ordinateur serveur, ou que tu as enregistré le secret d'administration dans **Settings → Advanced → Admin Access** (Paramètres → Avancé → Accès administrateur).
 
 ## Export, révisions et récupération
 
-L'action d'export d'une extension télécharge un paquet transportable. Les paquets exportés puis restaurés restent désactivés. Restaurer une révision la ramène également à l'état de brouillon désactivé.
+Utilise l'action d'export d'une extension pour télécharger un package transportable. Les packages exportés et restaurés restent désactivés. Restaurer une révision ramène aussi l'extension à l'état de brouillon désactivé.
 
-**Settings → Addons → Extension revision history** (Paramètres → Extensions → Historique des révisions des extensions) détermine combien de versions précédentes du code sont conservées pour toutes les extensions personnelles et externes. La valeur par défaut est **10** ; choisis une valeur dans la plage **0–10**, **0** désactivant l'historique. Réduire la limite demande confirmation avant la suppression définitive des anciennes révisions. Le code actuel de l'extension, les approbations, l'état d'activation et les données enregistrées de l'extension sont conservés. Les modifications et retours à une révision antérieure respectent ensuite la même limite, y compris les modifications apportées par Professor Mari.
+**Settings → Addons → Extension revision history** (Paramètres → Modules complémentaires → Historique des révisions des extensions) détermine combien de versions précédentes du code sont conservées pour chaque Personal Extension et chaque External Extension. La valeur par défaut est **10**. Choisis de **0** à **10**, **0** désactivant l'historique. Réduire la limite demande une confirmation avant de supprimer définitivement les anciennes révisions. Le code actuel, les approbations, l'état d'activation et les données enregistrées des extensions sont conservés. Les modifications faites par Professor Mari respectent la même limite.
 
-Si une extension se comporte mal, choisis **Disable** (désactiver). Si l'interface est inaccessible, arrête Marinara et passe la valeur `enabled` de l'enregistrement `installed_extensions` concerné à `"false"`. Ne définis jamais `approvedHash` à la main.
+Si une extension se comporte mal, choisis **Disable** (désactiver). Si l'interface est inaccessible, arrête Marinara et passe la valeur `enabled` de l'enregistrement `installed_extensions` correspondant à `"false"`. Ne définis jamais `approvedHash` à la main.
 
 ## Guides associés
 

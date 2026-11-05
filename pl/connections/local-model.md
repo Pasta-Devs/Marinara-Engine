@@ -1,207 +1,179 @@
-# Konfiguracja modelu Local Model
+# Konfiguracja modelu wbudowanego
 
-Ten przewodnik wyjaśnia, czym jest wbudowany **Local Model** (model lokalny) – niewielki model AI, który Marinara Engine pobiera i uruchamia na twoim komputerze. Nie potrzebuje klucza API ani konta w internecie. Znajdziesz tu opis konfiguracji, sekcji **Runtime Settings** (ustawienia środowiska uruchomieniowego) oraz tego, jak Local Model napędza pomocników: agentów typu tracker, efekty scen w Game Mode i transkrypcję rozmów bez internetu.
+**Built-in model** (model wbudowany) to mały model AI, który Marinara pobiera i uruchamia na twoim komputerze. Nie potrzebuje klucza API ani konta w internecie, a nic nie opuszcza twojego komputera.
 
-## Czym jest Local Model
+Jest mały, więc nadaje się do pomocniczej pracy w tle: agentów typu tracker (pomocników, którzy śledzą szczegóły fabuły), efektów scen w trybie Game Mode, embeddingów lorebooków i sprawdzeń decyzyjnych. Na dobry roleplay czy poprawki Professor Mari jest za słaby. Do nich użyj mocniejszego konta. Zobacz [Łączenie z dostawcą AI](connecting-to-a-provider.md).
 
-**Local Model** to kompaktowy model językowy (Gemma), który działa w całości na twoim komputerze. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara łączy się z usługą AI w internecie. Local Model nie potrzebuje klucza API, bo nic nie opuszcza twojego komputera.
+Jeśli brakuje karty **Built-in model**, masz instalację "Lite", czyli odchudzoną wersję bez lokalnego środowiska uruchomieniowego.
 
-Local Model jest celowo mały. Ma wykonywać pomocnicze zadania w tle, a nie prowadzić główny czat czy roleplay. Marinara używa go do takich prac:
+## Pobieranie modelu wbudowanego
 
-- Agenci typu tracker w trybie Roleplay.
-- Efekty scen w Game Mode, na przykład tła, muzyka i pogoda.
-- Embeddingi lorebooków na potrzeby wyszukiwania semantycznego.
-- Transkrypcja z mikrofonu w rozmowach w trybie Conversation, przez osobny model mowy.
-- Odpowiadanie na pytania aktywacyjne i stwierdzenia decyzyjne, jeśli wybierzesz go jako model decyzyjny. Zobacz [Modele decyzyjne](decision-models.md).
+Zanim zaczniesz, upewnij się, że masz wolne miejsce na dysku i pamięć (RAM) na model. Rozmiary podaje tabela poniżej.
 
-W oknie konfiguracji funkcja nazywa się **Local AI Model**. Na listach rozwijanych z połączeniami widnieje jako **Local Model (sidecar)**. To jedno i to samo.
+1. Kliknij **Connections** (Połączenia) na górnym pasku.
+2. Znajdź kartę **Built-in model** pod sekcją **Jobs** (zadania). Widnieje na niej **Not downloaded** (nie pobrano).
+3. Kliknij kartę albo jej przycisk **Download** (pobranie). Otwiera się okno o tytule **Built-in model**.
+4. W sekcji **Which model?** (który model?) wybierz model. **Gemma 4 E2B — Q8 (Best Quality)** ma etykietę **Recommended** (zalecany). Jeśli twój komputer ma mało pamięci, wybierz **Q4_K_M**. Potrzebuje około 3,4 GB RAM zamiast 5,4 GB.
+5. Kliknij przycisk **Download** na dole. Pokazuje rozmiar modelu, na przykład **Download 5.0 GB**.
+6. Poczekaj. Okno pokazuje trzy kroki: **Install runtime** (instalacja środowiska uruchomieniowego), **Download model** (pobranie modelu) i **Start and test** (uruchomienie i test). Środowisko uruchomieniowe to program, który uruchamia model. Jeśli go brakuje, Marinara najpierw je instaluje.
+7. Gdy okno pokaże nazwę modelu z zieloną kropką, kliknij **Test** (test). Ramka o tytule **Local test message** (lokalna wiadomość testowa) pokazuje **Succeeded** (udało się) i czas odpowiedzi.
+8. Kliknij **Done** (gotowe).
 
-Nie używaj modelu Local Model do głównego czatu, roleplayu, narracji Game Master ani poprawek Professor Mari. Jest na to za mały i wyniki będą słabe. Wybierz do tych zadań mocniejsze połączenie. Zobacz [Łączenie z dostawcą AI](connecting-to-a-provider.md).
+Karta pokazuje teraz **Ready** (gotowy) razem z rozmiarem modelu i zadaniami, które wykonuje.
 
-## Otwieranie karty Local Model
+Jeśli to nie zadziałało:
 
-Local Model znajduje się w panelu **Connections** (Połączenia).
+- **Sidecar runtime install is disabled** (komunikat o błędzie). Instalacja środowiska uruchomieniowego to działanie chronione. Zobacz [Zezwolenie na instalację środowiska uruchomieniowego](#allow-runtime-installs).
+- **Local runtime failed to start.** Zobacz [Rozwiązywanie problemów](#troubleshooting).
+- **Download failed.** Okno pokazuje błąd. Sprawdź połączenie z internetem i wolne miejsce na dysku, a potem ponownie kliknij przycisk pobierania.
 
-1. Otwórz panel **Connections**.
-2. Znajdź kartę o nazwie **Local Model**.
-3. Kliknij kartę albo jej przycisk koła zębatego o nazwie **Open local model settings**.
-
-Przycisk koła zębatego otwiera pełne okno konfiguracji o tytule **Local AI Model**. Jeśli żaden model nie został jeszcze pobrany, karta pokazuje dodatkowo przycisk **Download now** i przycisk **Choose model options**. Oba otwierają to samo okno konfiguracji.
-
-W oknie konfiguracji widać ramkę z ostrzeżeniem o tytule **Local Model is for helpers, not main roleplay**. Powtarza ona, że model służy wyłącznie do zadań pomocniczych.
-
-## Obsługiwany sprzęt i systemy operacyjne
-
-Local Model pobiera środowisko uruchomieniowe (program, który uruchamia model) oraz plik modelu. Komputer musi mieć dość wolnego miejsca na dysku i pamięci (RAM) na jedno i drugie.
-
-Zakres obsługi zależy od systemu operacyjnego:
-
-- **Windows (64-bit) i Linux (64-bit)**: dostajesz pełną listę **Runtime Target**, więc możesz wybrać rodzinę swojej karty graficznej (GPU) albo pracę wyłącznie na procesorze (CPU).
-- **Windows na ARM i Linux na ARM**: zawężony zestaw opcji, głównie oparty na CPU.
-- **macOS na Apple Silicon**: Marinara korzysta ze środowiska MLX, dostrojonego do układów Apple. Własne modele to repozytoria HuggingFace, a nie pojedyncze pliki.
-- **macOS na Intel i Android**: w praktyce tylko CPU.
-
-Local Model nie jest dostępny w instalacjach "Lite". Instalacja Lite to odchudzona wersja, która pomija lokalne środowisko uruchomieniowe, żeby zaoszczędzić miejsce. W instalacji Lite karta Local Model w ogóle się nie pojawia.
-
-## Pierwsza konfiguracja
-
-Najpierw przygotuj środowisko uruchomieniowe, potem wybierz model.
-
-1. Otwórz okno konfiguracji **Local AI Model**.
-2. Kliknij przycisk **Install Runtime**. Na Apple Silicon przycisk nosi nazwę **Install MLX Runtime**.
-3. Poczekaj, aż środowisko uruchomieniowe się zainstaluje. Postęp pobierania pokazuje pasek.
-4. Wybierz model zgodnie z sekcją **Pobieranie modelu** poniżej.
-5. Poczekaj na koniec pobierania modelu.
-6. Kiedy status pokaże **Ready**, kliknij przycisk **Done**.
-
-Jeśli to jeszcze nie czas na dokończenie, kliknij przycisk **Skip for Now**. Gdy model już istnieje, przycisk ten nosi nazwę **Close**.
-
-Instalacja i ponowna instalacja środowiska uruchomieniowego to działanie chronione. W instalacjach jednym kliknięciem na Windows włącza się automatycznie. Na macOS, Linux i w kontenerze Docker trzeba je czasem dopuścić samodzielnie. Zobacz sekcję **Rozwiązywanie problemów** poniżej.
-
-Marinara pobiera tylko te wersje llama.cpp, MLX i uv, które zatwierdzono dla zainstalowanego wydania aplikacji Marinara Engine. Przed rozpakowaniem lub uruchomieniem czegokolwiek sprawdza dokładny rozmiar pliku i sumę kontrolną SHA-256. Zestaw zależności Python dla środowiska MLX ma zablokowane wersje i też przechodzi weryfikację sum kontrolnych. Sprawdzone źródło mlx-lm instaluje się dopiero potem, bez doinstalowywania dodatkowych pakietów. Nowe wersje środowiska uruchomieniowego przychodzą więc ze sprawdzonymi aktualizacjami aplikacji Marinara Engine, a nie po cichu z najnowszej kompilacji "latest" z zewnątrz.
-
-## Pobieranie modelu
-
-Okno konfiguracji daje dwie drogi do zdobycia modelu.
+To okno otworzysz też przyciskiem **Add** (dodaj) w panelu **Connections**: w oknie **Add account** (dodanie konta) znajdziesz je pod pozycją **Built-in model**.
 
 ### Gotowe presety
 
-W sekcji **Curated Gemma 4 Presets** wybierasz jedną z dwóch gotowych opcji. Na sprzęcie innym niż Apple korzystają one z formatu GGUF:
+Okno proponuje dwa gotowe presety modelu Gemma 4 E2B, niewielkiego modelu firmy Google. Komputery z układem Apple Silicon dostają zamiast plików GGUF wersje MLX. GGUF i MLX to dwa formaty plików dla modeli lokalnych. Rozmiary poniżej to wartości, które pokazuje okno (w GB, gdzie 1 GB to 1024 × 1024 × 1024 bajtów).
 
-| Preset | Rozmiar pobierania | RAM w trakcie pracy |
+| Preset | Pobieranie | RAM w trakcie pracy |
 | --- | --- | --- |
-| Q8 (Best Quality) | około 5,4 GB | około 5,8 GB |
-| Q4_K_M (Smaller, Faster) | około 3,2 GB | około 3,6 GB |
+| Q8 (Best Quality) | 5,0 GB | 5,4 GB |
+| Q4_K_M (Smaller, Faster) | 3,0 GB | 3,4 GB |
 
-Opcja Q8 ma etykietę **Recommended**. Daje najlepszą jakość. Opcja Q4_K_M jest mniejsza i szybsza, a do tego zużywa mniej pamięci.
+Na Apple Silicon pojawiają się zamiast nich dwa presety MLX:
 
-Na Apple Silicon w ich miejsce pojawiają się presety MLX. Preset 8-bitowy MLX wymaga około 5,9 GB pobierania i około 7,5 GB RAM. Preset 4-bitowy MLX wymaga około 3,6 GB pobierania i około 4,8 GB RAM.
+| Preset | Pobieranie | RAM w trakcie pracy |
+| --- | --- | --- |
+| 8-bit MLX (Best Quality) | 5,5 GB | 7,0 GB |
+| 4-bit MLX (Smaller, Faster) | 3,4 GB | 4,5 GB |
 
-Aby pobrać preset:
-
-1. Zaznacz wybrany preset.
-2. Kliknij przycisk **Use Curated Preset**. Jeśli jakiś model już jest, przycisk nosi nazwę **Switch to Curated Preset**.
+Marinara trzyma na dysku jeden model wbudowany naraz. Wybór innego modelu zastępuje poprzedni. Żeby później zmienić model, otwórz kartę i kliknij **Change model** (zmiana modelu) w oknie **Built-in model**. Na stronie karty przyciski obok pola **Model** (model) przełączają między presetami i najpierw proszą o potwierdzenie rozmiaru pobierania.
 
 ### Własny model
 
-W sekcji **Use Your Own Model From HuggingFace** możesz podać własny model z serwisu HuggingFace, publicznej platformy z modelami.
+W sekcji **Your own model** (własny model) możesz użyć modelu GGUF z serwisu Hugging Face (publicznej platformy z modelami) albo pliku na komputerze, na którym działa Marinara.
 
-1. Wpisz w polu nazwę repozytorium. Format to `owner/repo`.
-2. Kliknij przycisk **List Models**. Na Apple Silicon przycisk nosi nazwę **Validate Repo**.
-3. Na sprzęcie innym niż Apple wybierz konkretny plik z listy rozwijanej, a potem kliknij przycisk **Download Selected GGUF**.
-4. Na Apple Silicon po sprawdzeniu repozytorium kliknij przycisk **Use Validated MLX Repo**.
+1. Kliknij **Your own model**, a potem wybierz zakładkę: **Hugging Face** albo **File on the server** (plik na serwerze).
+2. Na zakładce **Hugging Face** wpisz nazwę repozytorium w formacie `owner/repo`, a potem kliknij **Find files** (znajdź pliki). Wybierz jeden plik z listy.
+3. Na zakładce **File on the server** wpisz pełną ścieżkę do pliku `.gguf`. Marinara używa pliku tam, gdzie leży, i go nie kopiuje.
+4. Kliknij przycisk na dole: **Download** albo, dla pliku na serwerze, **Use this file** (użyj tego pliku).
 
-Marinara trzyma na dysku tylko jeden plik modelu Local Model naraz. Pobranie nowego modelu najpierw kasuje poprzedni. Dla głównego modelu Local Model nie ma osobnego przycisku usuwania. Żeby go usunąć, pobierz na jego miejsce inny model.
+Na Apple Silicon przycisk **Find files** nosi nazwę **Validate repo** (sprawdź repozytorium), a repozytorium musi być natywnie w formacie MLX. Plik GGUF na serwerze nadal tam działa i korzysta z llama.cpp zamiast z MLX.
 
-## Ustawienia w sekcji Runtime Settings
+## Używanie modelu wbudowanego do zadań pomocniczych
 
-Otwórz sekcję **Runtime Settings** w oknie konfiguracji, żeby dostroić pracę modelu. Poszczególne pola zapisują się na różne sposoby:
+Po pobraniu modelu otwórz kartę **Built-in model**. Jej strona pokazuje stan modelu, zużycie pamięci i pole **Used by** (używany przez) oraz ma te kontrolki:
 
-- Listy rozwijane i przełącznik **Native Tool Calls** zapisują się od razu po zmianie.
-- **Context Window**, **Max Response Tokens**, **Temperature**, **Top P** i **Top K** działają dopiero po kliknięciu przycisku **Apply Settings**.
-- Pole **Physical Batch Size** ma własny przycisk **Apply**. Tak samo pole z liczbą warstw, które pojawia się przy ustawieniu **GPU Offload** na **Custom GPU layers**.
+| Kontrolka | Co robi |
+| --- | --- |
+| **Use for tracker agents (roleplay)** | Utrzymuje model uruchomiony dla agentów typu tracker. Domyślnie wyłączony. |
+| **Use for game scene analysis** | Utrzymuje model uruchomiony dla efektów scen w trybie Game Mode, takich jak tła, muzyka i pogoda. Domyślnie włączony. |
+| **Use the built-in model for all tracker agents** | Kieruje wszystkich wbudowanych agentów typu tracker na ten model. Nie włącza samych agentów. |
+| **Change in Defaults** | Otwiera sekcję **Jobs**, w której możesz przydzielić mu inne zadania. |
 
-| Ustawienie | Domyślnie | Za co odpowiada |
+Gdy oba przełączniki są wyłączone, model nie uruchamia się sam. Startuje, gdy włączysz jeden z nich albo gdy użyje go czat lub zadanie. O włączaniu agentów przeczytasz w przewodniku [Memory Recall i podsumowania czatu](../agents/memory.md).
+
+W konfiguracji trybu Game Mode pole **Scene effects model** (model efektów scen) może korzystać z modelu wbudowanego. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md).
+
+### Embeddingi lorebooków
+
+Embeddingi to liczby, dzięki którym lorebook może wyszukiwać po znaczeniu. Żeby tworzył je model wbudowany, wybierz **Built-in model (on this device)** (model wbudowany, na tym urządzeniu) jako model wektoryzacji lorebooka. Najpierw włącz **Use for tracker agents (roleplay)** albo **Use for game scene analysis**, bo inaczej zapytanie kończy się błędem. Ta droga wymaga środowiska GGUF, więc nie działa w środowisku MLX na Apple Silicon. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
+
+### Model decyzyjny
+
+Model wbudowany możesz też wybrać jako swój model decyzyjny. Zobacz [Modele decyzyjne](decision-models.md).
+
+### Model czatu
+
+Żeby czatować z modelem wbudowanym:
+
+1. Otwórz czat i kliknij przycisk modelu w polu wiadomości (ikona linku).
+2. W oknie **Model for this chat** (model dla tego czatu) wybierz **Built-in model (on this device)**. Ta pozycja jest na dole listy i pojawia się, gdy model jest już pobrany.
+3. Wyślij wiadomość. Ostrzeżenie informuje, że model jest mały, więc odpowiedzi mogą być wolne, krótkie albo słabej jakości.
+
+## Ustawienia środowiska uruchomieniowego
+
+Żeby je otworzyć, kliknij **Runtime settings** (ustawienia środowiska uruchomieniowego) na stronie karty albo **Settings** (Ustawienia) w oknie **Built-in model**. Są podzielone na cztery grupy. Listy rozwijane i przełączniki zapisują się od razu. Pola liczbowe zapisują się po kliknięciu **Apply settings** (zastosowanie ustawień). **Physical batch size** i **Custom GPU layers** mają własne przyciski **Apply** (zastosowanie).
+
+**Speed** (szybkość)
+
+| Ustawienie | Domyślnie | Co robi |
 | --- | --- | --- |
-| Runtime Target | Auto detect | Rodzina GPU, pod którą Marinara instaluje środowisko |
-| GPU Offload | Auto offload | Ile pracy trafia na GPU |
-| Native Tool Calls | On | Pozwala modelowi używać narzędzi i wywołań funkcji |
-| Pooling Type | None | Matematyka embeddingów dla wyszukiwania w lorebookach |
-| Physical Batch Size | 512 | Rozmiar partii dla zapytań o embeddingi lorebooków |
-| Context Window | 8192 | Ile tekstu model czyta naraz |
-| Max Response Tokens | 4096 | Najdłuższa odpowiedź, jaką model może napisać |
-| Temperature | 0.3 | Jak losowe są odpowiedzi |
-| Top P | 0.95 | Ograniczenie losowania przy doborze słów |
-| Top K | 64 | Ograniczenie losowania przy doborze słów |
+| **Runtime target** | Auto detect | Rodzina kart graficznych, pod którą Marinara instaluje środowisko. |
+| **GPU offload** | Auto offload | Ile pracy trafia na kartę graficzną. Wybierz **Auto offload**, **CPU only** albo **Custom GPU layers** (od 1 do 1024). |
 
-Uwagi o trudniejszych polach:
+**Memory** (pamięć)
 
-- **Runtime Target** i **GPU Offload** pojawiają się tylko w środowisku GGUF. Na Apple Silicon środowisko MLX samo dobiera akcelerator.
-- **Pooling Type** i **Physical Batch Size** też pojawiają się tylko w środowisku GGUF, pod nagłówkiem **Embedding Endpoint**. Dostrajają wyłącznie embeddingi lorebooków. Nie zmieniają zwykłych odpowiedzi w czacie.
-- Pole **Pooling Type** stoi domyślnie na **None**. Przestaw je na **Mean**, kiedy używasz modelu Local Model do embeddingów lorebooków.
-- Pole **Physical Batch Size** decyduje o tym, ile tekstu endpoint embeddingów bierze w jednej partii. Podnieś je, gdy długie wpisy lorebooka nie dają się zwektoryzować. Aplikacja podpowiada wartość 1024 dla modelu Gemma.
-- Przełącznik **Native Tool Calls** musi być włączony, żeby narzędzia działały. Ostrzeżenie mówi, że Professor Mari i własni agenci potrzebują tej opcji, zanim model lokalny będzie mógł uruchamiać narzędzia. W środowisku MLX ta opcja jest niedostępna.
-- Pole **Max Response Tokens** ogranicza zwykłe odpowiedzi w czacie i odpowiedzi agentów. Nie dotyczy analizy scen w Game Mode, która ma własny wewnętrzny limit.
+| Ustawienie | Domyślnie | Co robi |
+| --- | --- | --- |
+| **Context window** | 8192 | Ile tekstu model czyta naraz, w tokenach. Co najmniej 512. |
+| **KV cache type** | f16 | Jak model przechowuje to, co przeczytał. Wybierz f16, q8_0 albo q4_0. Dwa ostatnie zużywają mniej pamięci i wymagają obsługi Flash Attention. |
 
-## Przycisk Send Test Message
+**Replies** (odpowiedzi)
 
-Użyj przycisku **Send Test Message**, żeby sprawdzić, czy środowisko uruchomieniowe działa. Przycisk znajduje się w sekcji Runtime. Jest nieaktywny, dopóki model nie zostanie pobrany, a środowisko zainstalowane.
+| Ustawienie | Domyślnie | Co robi |
+| --- | --- | --- |
+| **Max response tokens** | 4096 | Najdłuższa odpowiedź, jaką model może napisać. Co najmniej 64. |
+| **Temperature** | 0.3 | Jak losowe są odpowiedzi. Od 0 do 2. |
+| **Top P** | 0.95 | Ograniczenie doboru słów. Powyżej 0, najwyżej 1. |
+| **Top K** | 64 | Ograniczenie doboru słów. Od 0 do 500. |
 
-1. Kliknij przycisk **Send Test Message**.
-2. Poczekaj na ramkę z wynikiem.
-3. Ramka sukcesu pokazuje napis **Local Test Message Succeeded** i czas odpowiedzi.
-4. Ramka błędu pokazuje napis **Local Test Message Failed** i treść błędu.
+**Expert** (ustawienia eksperckie)
 
-Test korzysta ze stałego promptu. Pomija ustawienia Temperature i limity tokenów, więc jest czystym sprawdzeniem, czy model w ogóle odpowiada.
+| Ustawienie | Domyślnie | Co robi |
+| --- | --- | --- |
+| **Native tool calls** | On | Pozwala modelowi używać narzędzi. Professor Mari i własni agenci wymagają, żeby było włączone. |
+| **Max parallel agent jobs** | 2 | Ile zadań działa naraz. Od 1 do 16. |
+| **Pooling type** | None | Jak model zamienia tekst na liczby na potrzeby wyszukiwania w lorebookach. Do embeddingów lorebooków wybierz **Mean**. |
+| **Physical batch size** | 512 | Ilość tekstu w jednej partii embeddingów lorebooka. Od 128 do 32768. Podnieś tę wartość, gdy długie wpisy się nie udają. Gemma często działa z 1024. |
 
-## Local Model jako pomocnik
+Niektóre ustawienia zależą od systemu:
 
-Kiedy model jest już pobrany, karta Local Model pokazuje dwa przełączniki:
+- **Runtime target** w systemach Windows i Linux (x64) oferuje Auto detect, NVIDIA GPU, AMD GPU, Intel GPU, Vulkan GPU, CPU only i System llama-server. Inne systemy oferują mniej opcji.
+- Na Apple Silicon akcelerator wybiera za ciebie MLX. **Runtime target**, **GPU offload**, **KV cache type**, **Native tool calls**, **Pooling type** i **Physical batch size** się nie pojawiają.
+- **Max response tokens** nie ogranicza analizy scen w trybie Game Mode, która ma własny limit.
+- **Diagnostics** (diagnostyka) w grupie **Expert** pokazuje kompilację środowiska uruchomieniowego, wykrytą kartę graficzną i ostatnie polecenie uruchomienia.
 
-- **Use for tracker agents (roleplay)**. Domyślnie wyłączony.
-- **Use for game scene analysis**. Domyślnie włączony.
+<a id="allow-runtime-installs"></a>
 
-Te dwa przełączniki decydują o tym, czy Marinara utrzymuje Local Model uruchomiony w tle. Gdy oba są wyłączone, środowisko uruchomieniowe nie startuje samo. Włączenie któregokolwiek sprawia, że Marinara automatycznie uruchamia lokalny serwer. Pierwszy start po włączeniu może chwilę potrwać.
+### Zezwolenie na instalację środowiska uruchomieniowego
 
-Na karcie jest też przycisk **Use local model for all tracker agents**. Jednym kliknięciem przestawia wszystkich wbudowanych agentów typu tracker na Local Model. Linijka poniżej pokazuje, ilu agentów typu tracker wskazuje na model lokalny, na przykład "3/7 built-in tracker agents currently point at the local model." Zmienia się przy tym wyłącznie używany model. Sami agenci nie zostają włączeni. O włączaniu agentów przeczytasz w przewodniku [Memory Recall i podsumowania czatu](../agents/memory.md) oraz w przewodniku po wybranym trybie.
+Instalacja i ponowna instalacja środowiska uruchomieniowego to działanie chronione. Instalacje jednym kliknięciem w systemie Windows zezwalają na nie za ciebie. W systemach macOS i Linux oraz w kontenerze Docker zrób jedną z tych rzeczy, a potem spróbuj ponownie:
 
-W Game Mode pracę nad scenami też można przekierować na Local Model. W konfiguracji gry lista rozwijana **Scene Effects Connection** zawiera pozycję **Local Model (Gemma)**. Jej wybór włącza przełącznik **Use for game scene analysis**. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md).
+- Wpisz sekret administratora w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny). Sekret administratora to drugie hasło do ryzykownych działań. Tworzysz go w sekcji **Admin Access** na komputerze, na którym działa serwer, albo ustawiasz jako `ADMIN_SECRET` w pliku `.env` serwera. Zobacz [Admin Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
+- Dodaj `SIDECAR_RUNTIME_INSTALL_ENABLED=true` do pliku `.env` serwera, a potem uruchom ponownie aplikację Marinara Engine. Plik `.env` to plik tekstowy w folderze aplikacji Marinara Engine. Zobacz [Edycja pliku .env](../CONFIGURATION.md#edit-the-env-file).
 
-### Local Model do embeddingów lorebooków
+Marinara pobiera tylko te wersje llama.cpp, MLX i uv, które zatwierdzono dla twojego wydania, i przed uruchomieniem czegokolwiek sprawdza rozmiar i sumę kontrolną SHA-256 każdego pliku.
 
-Local Model może napędzać semantyczne wyszukiwanie w lorebookach. W ustawieniach wektoryzacji lorebooka wybierz jako połączenie **Local Model (sidecar)**. Wcześniej trzeba włączyć **Use for tracker agents (roleplay)** albo **Use for game scene analysis**. Jeśli oba są wyłączone, zapytanie kończy się błędem z informacją, że model lokalny musi być włączony dla trackerów albo dla analizy scen w grze. Ta droga korzysta ze środowiska GGUF i nie jest dostępna w środowisku MLX na Apple Silicon. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
+## Lokalny model mowy
 
-## Local Model jako połączenie czatu
+**Local speech model** (lokalny model mowy) zamienia twój głos na tekst na twoim komputerze na potrzeby rozmów w trybie Conversation. To model Whisper, czyli model zamiany mowy na tekst. Wymaga pakietu agenta **Calls**, który instalujesz w **Agents → Agent Organizer** (agenci, organizowanie agentów).
 
-Kiedy model jest już pobrany, Local Model pojawia się na dole większości list wyboru połączenia. Widnieje jako **Local Model (sidecar)** albo jako **Local Model** z nazwą modelu w nawiasie, gdy ta nazwa jest znana.
+1. Otwórz panel **Connections** i kliknij pozycję **Speech to text** (zamiana mowy na tekst) w sekcji **On this device** (na tym urządzeniu).
+2. W sekcji **Local speech model** wybierz model z listy rozwijanej.
+3. Kliknij **Download Whisper** (pobranie modelu Whisper).
+4. Poczekaj na **Ready**. Zanim użyjesz Calls, uruchom aplikację Marinara Engine całkowicie od nowa.
 
-Po wybraniu go do zwykłego czatu pojawia się ostrzeżenie. Mówi ono, że Local Model jest malutki i przeznaczony do zadań pomocniczych. Uprzedza też, że odpowiedzi w głównym czacie i w roleplayu mogą być wolne, krótkie albo słabej jakości. Ta pozycja nie jest prawdziwym zapisanym połączeniem, więc nie da się zapisać dla niej domyślnych ustawień połączenia.
+| Model | Pobieranie | RAM w trakcie pracy |
+| --- | --- | --- |
+| Whisper Tiny (Multilingual) | około 180 MB | około 350 MB |
+| Whisper Base (Multilingual) | około 320 MB | około 650 MB |
 
-Wybór modelu do czatu uruchamia lokalny serwer na żądanie, nawet gdy oba przełączniki pomocnicze są wyłączone. Lista rozwijana z głównym modelem w Game Mode go nie zawiera. Game Mode korzysta z modelu Local Model wyłącznie przez **Scene Effects Connection**.
+Tiny to najlepszy pierwszy wybór dla telefonów i starszych komputerów. Base dokładniej rozpoznaje niewyraźną mowę, ale wolniej startuje. Kliknij **Delete Local Whisper** (usunięcie modelu Local Whisper, przycisk kosza), żeby usunąć pobrany model. Odinstalowanie Calls też go usuwa.
 
-## Local Speech Model do rozmów
+Twój dźwięk zostaje na twoim komputerze. Do modelu czatu trafia tylko tekst. Żeby użyć tego modelu w rozmowie, ustaw wejście audio rozmowy na Local Whisper. Zobacz [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md). Jeśli zamiast tego włączysz serwer **Speech to text**, rozmowy wysyłają twoją mowę na ten serwer. Zobacz [Użyj własnego serwera zamiany mowy na tekst](../conversation/calls.md#use-your-own-speech-to-text-server).
 
-**Local Speech Model** to opcjonalny plik do pobrania dla agenta Calls, odpowiadający za transkrypcję z mikrofonu bez internetu. Napędza rozmowy w trybie Conversation, kiedy głos ma być zamieniany na tekst na twoim komputerze. To model Whisper, czyli model zamieniający wypowiadane słowa na tekst.
-
-Najpierw zainstaluj **Calls** z sekcji **Agents > Agent Organizer (organizowanie agentów)**. Potem możesz zarządzać modelem Whisper z karty **Local Model** w panelu Connections, pod nagłówkiem **Local Speech Model**. Ten nagłówek i przyciski pobierania pozostają ukryte, dopóki Calls nie jest zainstalowany.
-
-Do wyboru są dwie opcje:
-
-- **Whisper Tiny (Multilingual)**: około 180 MB pobierania, około 350 MB RAM. Najlepszy wybór na start dla telefonów i starszych komputerów.
-- **Whisper Base (Multilingual)**: około 320 MB pobierania, około 650 MB RAM. Lepsza dokładność przy niewyraźnej mowie, ale wolniejszy start.
-
-Aby go skonfigurować:
-
-1. Otwórz kartę **Local Model** i rozwiń ją.
-2. Pod nagłówkiem **Local Speech Model** wybierz model z listy rozwijanej.
-3. Kliknij przycisk **Download Whisper**.
-4. Gdy pojawi się status **Ready**, wszystko jest gotowe.
-
-Żeby usunąć tylko wybrany model, kliknij przycisk kosza o nazwie **Delete Local Whisper**. Odinstalowanie agenta Calls automatycznie usuwa wszystkie pobrane modele Whisper wraz z zapisanym wyborem i odzyskuje zajmowane przez nie miejsce na dysku. Po ponownej instalacji agenta Calls ustawienia Local Speech Model wracają i model Whisper można pobrać jeszcze raz.
-
-Nagrany dźwięk nigdy nie opuszcza twojego komputera. Do wybranego połączenia czatu trafia wyłącznie tekst transkrypcji. Żeby użyć go w rozmowie, ustaw tryb wejścia audio rozmowy na opcję Local Whisper. Zobacz [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
-
-Jeśli w Connections włączysz sekcję **Speech to Text** (zamiana mowy na tekst), ten tryb rozmowy zamiast do Local Whisper wysyła twoją mowę na wpisany tam serwer. Zobacz [Korzystanie z własnego serwera zamiany mowy na tekst](../conversation/calls.md#use-your-own-speech-to-text-server).
+<a id="troubleshooting"></a>
 
 ## Rozwiązywanie problemów
 
-**"Sidecar runtime install is disabled."** Instalacja i ponowna instalacja środowiska uruchomieniowego to działanie chronione. Instalacje jednym kliknięciem na Windows włączają je za ciebie. Na macOS, Linux i w kontenerze Docker masz dwie możliwości. Ustaw `SIDECAR_RUNTIME_INSTALL_ENABLED=true` w pliku `.env` serwera, na przykład:
+| Objaw | Rozwiązanie |
+| --- | --- |
+| **Sidecar runtime install is disabled** (komunikat o błędzie). | Zobacz [Zezwolenie na instalację środowiska uruchomieniowego](#allow-runtime-installs). |
+| **Local runtime failed to start.** Okno pokazuje błąd i ścieżkę do pliku z logami. Karta pokazuje **Local runtime unavailable**. | Kliknij **Retry startup** (ponowne uruchomienie). Jeśli to nie pomoże, kliknij **Reinstall runtime** (ponowna instalacja środowiska) albo wybierz inny **Runtime target**. **Continue without local AI** (kontynuacja bez lokalnej AI) wyłącza przełączniki pomocnicze i pozwala dalej korzystać z aplikacji Marinara Engine bez modelu. |
+| Pobieranie środowiska uruchomieniowego zgłasza niezgodny rozmiar albo sumę kontrolną SHA-256. | Marinara odrzuciła plik. Zaktualizuj aplikację Marinara Engine i spróbuj ponownie. Jeśli dalej się nie udaje, nie otwieraj pliku samodzielnie. Zgłoś wybrane docelowe środowisko uruchomieniowe i treść błędu. |
+| Wyszukiwanie w lorebooku zgłasza, że model lokalny nie jest włączony. | Włącz **Use for tracker agents (roleplay)** albo **Use for game scene analysis**, a potem ponów wektoryzację. |
+| Baner w trybie Game Mode pokazuje **Local scene helper failed to start**. | Kliknij w banerze **Open Local AI Model**, żeby spróbować ponownie, zmienić model albo wyłączyć lokalną analizę scen. |
 
-```
-SIDECAR_RUNTIME_INSTALL_ENABLED=true
-```
-
-Druga opcja: wpisz raz sekret Admin Access w **Settings -> Advanced -> Admin Access** i spróbuj ponownie. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
-
-**Środowisko uruchomieniowe nie wystartowało.** Okno konfiguracji pokazuje ramkę o tytule **Local runtime failed to start**, a w niej treść błędu i ścieżkę do pliku z logami. Kliknij przycisk **Retry Startup**. Jeśli to nie pomoże, kliknij przycisk **Reinstall Runtime** albo wypróbuj inny **Runtime Target**. Przycisk **Continue Without Local AI** pozwala korzystać z aplikacji Marinara Engine bez modelu Local Model. Karta w panelu Connections sygnalizuje ten sam problem napisem **Local runtime unavailable**.
-
-**Pobieranie środowiska uruchomieniowego zgłasza niezgodny rozmiar albo sumę kontrolną SHA-256.** Marinara odrzuciła pobrany plik jeszcze przed rozpakowaniem. Zaktualizuj najpierw aplikację Marinara Engine, a potem spróbuj ponownie, żeby zatwierdzona lista środowisk i pobierany plik znów się zgadzały. Jeśli to samo wydanie dalej zawodzi, nie rozpakowuj ani nie uruchamiaj archiwum ręcznie – zgłoś opiekunom projektu wybrane środowisko uruchomieniowe i treść błędu.
-
-**Wyszukiwanie w lorebooku zgłasza, że model lokalny nie jest włączony.** Włącz na karcie Local Model przełącznik **Use for tracker agents (roleplay)** albo **Use for game scene analysis**, a potem ponów wektoryzację.
-
-**Baner w Game Mode pokazuje "Local scene helper failed to start."** Kliknij w banerze **Open Local AI Model**, żeby spróbować ponownie, zmienić model albo wyłączyć lokalną analizę scen.
-
-Więcej pomocy znajdziesz w [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+Więcej pomocy znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Powiązane przewodniki
 

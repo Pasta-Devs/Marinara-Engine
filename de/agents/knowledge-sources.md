@@ -1,97 +1,83 @@
 # Wissensquellen: die Agenten Knowledge Retrieval und Knowledge Router
 
-In dieser Anleitung erfährst du, wie die beiden Wissens-Agenten in Marinara Engine arbeiten: **Knowledge Retrieval** (Wissensabruf) und **Knowledge Router** (Wissensverteiler). Beide holen Fakten aus den Lorebooks in den Chat – aber nur dann, wenn die Szene sie wirklich braucht. So muss nicht jedes Detail in jedem Prompt stehen, also in jedem Text, den Marinara an die KI schickt.
+**Knowledge Retrieval** (Wissensabruf) und **Knowledge Router** (Wissensverteiler) holen Fakten aus deinen Lorebooks nur dann in einen Chat, wenn eine Szene sie braucht. So musst du nicht jedes Detail in jeden Prompt packen. Beide Agenten funktionieren nur in Roleplay-Chats, und keiner von beiden ist standardmäßig an.
 
-## Was diese Agenten leisten
+## Wozu sie gut sind
 
-Ein Lorebook ist eine Sammlung von Weltwissen: Notizen zur Welt oder zu Charakteren, die du vorab schreibst. Jede einzelne Notiz heißt Eintrag. Je länger ein Chat wird, desto teurer wird es, in jedem Zug alle Einträge mitzuschicken – das kostet unnötig Tokens. Ein Token ist ein kleines Textstück, das die KI liest, und mehr Tokens bedeuten höhere Kosten. Außerdem bringt zu viel Material die KI leicht durcheinander.
+Ein Lorebook ist eine Sammlung von Notizen zur Welt oder zu Charakteren. Jede Notiz ist ein Eintrag. Jeden Eintrag in jedem Zug mitzuschicken, verschwendet Tokens (die kleinen Textstücke, die ein Modell liest und für die du bezahlst) und kann die KI durcheinanderbringen.
 
-Wissens-Agenten lösen das mit RAG. RAG steht für retrieval-augmented generation. Dahinter steckt eine einfache Idee: Die App sucht die Einträge heraus, die zur aktuellen Szene passen, und hängt nur diese an den Prompt für genau diesen einen Zug.
+Diese Agenten nutzen retrieval-augmented generation (RAG): Marinara sucht die Einträge heraus, die zur aktuellen Szene passen, und fügt nur diese dem Prompt für diesen Zug hinzu.
 
-Marinara bietet dafür zwei optionale Agenten:
-
-- **Knowledge Retrieval** liest die ausgewählten Quellen, fasst die wichtigen Fakten zusammen und ergänzt den Prompt um diese Zusammenfassung.
-- **Knowledge Router** liest eine kurze Liste der Einträge, wählt die passenden aus und fügt sie wortwörtlich ein.
-
-Beide Agenten funktionieren ausschließlich in **Roleplay**-Chats. In Conversation Mode und Game Mode lassen sie sich nicht hinzufügen. Aktiv ist standardmäßig keiner von beiden – du fügst den gewünschten Agenten selbst zu einem Chat hinzu.
-
-## Knowledge Retrieval oder Knowledge Router?
-
-Diese Tabelle hilft bei der Wahl. Lies vor der Entscheidung auch die Hinweise darunter.
+## Retrieval oder Router wählen
 
 | Frage | Knowledge Retrieval | Knowledge Router |
-|---|---|---|
+| --- | --- | --- |
 | Art der Ergänzung | Fasst die Quellen zuerst zusammen | Fügt die gewählten Einträge wortwörtlich ein |
 | Kosten pro Zug | Höher | Niedriger |
 | Liest hochgeladene Dateien | Ja | Nein |
 | Ideal für | Kleinere Quellen oder eine aufgeräumte Zusammenfassung | Große Lorebooks mit guten Eintragsbeschreibungen |
 
-**Knowledge Retrieval** liest jeden aktivierten Eintrag der gewählten Lorebooks sowie den Text aller hochgeladenen Dateien. Anschließend lässt der Agent die KI eine kurze Zusammenfassung der Fakten schreiben, die zu den letzten Nachrichten passen. Das kostet pro Zug mehr, weil die KI das komplette Quellmaterial liest.
+- **Knowledge Retrieval** liest jeden aktivierten Eintrag in deinen gewählten Lorebooks, dazu hochgeladene Dateien, und lässt die KI die Fakten zusammenfassen, die zu den letzten Nachrichten passen. Das kostet mehr, weil die KI den gesamten Quelltext liest.
+- **Knowledge Router** legt einen kleinen Katalog deiner Einträge an. Jede Zeile enthält eine ID, einen Namen, ein paar Schlüsselwörter und eine kurze Zusammenfassung. Die KI wählt Einträge aus dem Katalog, und Marinara fügt sie vollständig ein. Die KI liest nie jeden Eintrag, deshalb bleibt der Router auch bei einem großen Lorebook günstig.
 
-**Knowledge Router** ist die günstigere Variante. Er legt einen kleinen Katalog der Einträge an. Jede Katalogzeile enthält eine ID, einen Namen, ein paar Schlüsselwörter und eine kurze Zusammenfassung. Die KI liest diesen Katalog, wählt die passenden Einträge aus, und Marinara fügt sie vollständig ein. Die KI bekommt nie alle Einträge in voller Länge zu sehen – deshalb bleibt der Router auch bei einem großen Lorebook günstig.
-
-Du kannst beide Agenten in einem Chat einsetzen. Dann überschneiden sich die Inhalte aber leicht, und die Token-Kosten steigen. Der Agent-Editor warnt dich, sobald beide eingerichtet sind. Für aufgeräumte Prompts nimm nur einen.
+Du kannst beide einem Chat hinzufügen, aber sie überschneiden sich und treiben die Kosten hoch. Der Agent-Editor warnt dich, wenn beide eingerichtet sind. Nimm nur einen.
 
 ## Einen Wissens-Agenten zu einem Chat hinzufügen
 
-Das geht nur innerhalb eines **Roleplay**-Chats.
+Bevor du anfängst: Installiere den Agenten über den **Agent Organizer** (Agentenverwaltung). Siehe [Agenten im Überblick](agents-overview.md).
 
-1. Öffne **Chat Settings** (Chat-Einstellungen).
-2. Geh zum Bereich **Agents** (Agenten).
-3. Schalte **Enable Agents** (Agenten aktivieren) ein. Damit wird die Agentenliste freigegeben.
-4. Klick auf **Add Agent** (Agent hinzufügen).
-5. Öffne die Gruppe **Writer Agents**.
-6. Wähle **Knowledge Retrieval** oder **Knowledge Router**.
+1. Öffne in einem Roleplay-Chat **Chat Settings** (Chat-Einstellungen).
+2. Such den Bereich **Agents** und schalte **Enable Agents** (Agenten aktivieren) ein.
+3. Klick auf **Add Agent** (Agent hinzufügen).
+4. Öffne die Gruppe **Writer Agents** und wähle **Knowledge Retrieval** oder **Knowledge Router**.
+5. Wähle im Einrichtungsfenster deine Quellen (siehe unten).
 
-Es öffnet sich ein Einrichtungsfenster, in dem du direkt die Quellen festlegst. Nach dem Hinzufügen erscheint die Einstellungskarte des Agenten im Bereich **Agents**. Ab dann läuft der Agent bei jedem neuen Zug von selbst mit.
+Danach erscheint die Einstellungskarte des Agenten unter **Agents**, und er läuft bei jedem neuen Zug mit. Während Knowledge Retrieval arbeitet, kann die Fortschrittsanzeige **Retrieving knowledge...** zeigen.
 
-Während **Knowledge Retrieval** arbeitet, zeigt die Fortschrittsanzeige gelegentlich die Phase **Retrieving knowledge...** an.
+> **Hinweis:** Diese Agenten laufen nur bei neuen Zügen. Wenn du eine Antwort neu generierst, laufen sie nicht noch einmal.
 
-Hinweis: Wenn du eine vorhandene Antwort neu generierst, laufen diese Agenten nicht noch einmal. Sie laufen ausschließlich bei neuen Zügen.
+## Die Quellen wählen
 
-## Dateien für Knowledge Retrieval hochladen
+Beide Agenten teilen sich dieselben Quellen-Einstellungen.
 
-Hochgeladene Dateien liest nur **Knowledge Retrieval**. **Knowledge Router** arbeitet allein mit Lorebooks.
+- **Use chat-active lorebooks** (aktive Lorebooks des Chats verwenden) ist standardmäßig an. Im Agent-Editor heißt derselbe Schalter **Use this chat's active lorebooks**. Solange er an ist und du keine festen Lorebooks wählst, liest der Agent die Lorebooks, die im aktuellen Chat aktiv sind.
+- **Fixed source override** (feste Quellenvorgabe) – im Einrichtungsfenster **Fixed Source Lorebooks** – bindet den Agenten fest an die Lorebooks, die du auswählst. Eine feste Auswahl hat immer Vorrang vor den aktiven Lorebooks des Chats, und zwar in jedem Chat, der diesen Agenten nutzt.
 
-In den Einstellungen von **Knowledge Retrieval** findest du eine Dateiliste und die Schaltfläche **Upload file** (Datei hochladen). Hochgeladene Dateien stehen allen Chats zur Verfügung, die **Knowledge Retrieval** nutzen – nicht nur dem aktuellen.
+Nimm feste Quellen, wenn ein Agent immer dasselbe Referenz-Lorebook lesen soll. Lass den Schalter ohne feste Auswahl an, damit der Agent dem folgt, was der Chat gerade nutzt.
 
-Unterstützt werden die Dateitypen .txt, .md, .csv, .json, .xml, .html, .htm, .log, .yaml, .yml, .tsv und .pdf. Andere Typen lässt die Dateiauswahl gar nicht erst zu. Zu jeder Datei in der Liste stehen Name und Größe, daneben eine Schaltfläche zum Löschen.
+## Dateien hochladen (nur Knowledge Retrieval)
 
-Zwei Grenzen solltest du kennen:
+Klick in den Einstellungen von **Knowledge Retrieval** auf **Upload file** (Datei hochladen). Hochgeladene Dateien stehen jedem Chat zur Verfügung, der Knowledge Retrieval nutzt.
 
-- Außer PDFs liest Marinara jede Datei als reinen Text. Eine Datei, die in Wahrheit kein Text ist – etwa ein in .txt umbenanntes Bild –, lässt sich zwar hochladen, liefert aber nur wirren, unlesbaren Inhalt.
-- Ein gescanntes PDF oder ein reines Bild-PDF hat keine Textebene und bleibt für den Agenten unlesbar. Scheitert die Textextraktion, setzt der Agent statt echter Inhalte einen Platzhalter ein. Nimm also ein PDF mit markierbarem Text.
+Unterstützt werden `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.htm`, `.log`, `.yaml`, `.yml`, `.tsv` und `.pdf`. Andere Typen lässt die Dateiauswahl nicht zu. Jede Datei zeigt ihren Namen und ihre Größe, dazu eine Schaltfläche zum Löschen.
 
-## Quellen festlegen: feste Vorgabe oder Chat-Lorebooks
-
-Beide Agenten teilen sich dieselben Quellen-Einstellungen auf ihrer Einstellungskarte.
-
-Der Schalter **Use chat-active lorebooks** (aktive Lorebooks des Chats verwenden) ist standardmäßig eingeschaltet. Im Agent-Editor heißt derselbe Schalter **Use this chat's active lorebooks**. Solange er aktiv ist und du kein festes Lorebook wählst, nutzt der Agent genau die Lorebooks, die im aktuellen Chat aktiv sind.
-
-Darunter liegt **Fixed source override** (feste Quellenvorgabe), im Einrichtungsfenster **Fixed Source Lorebooks** genannt. Wähle hier ein oder mehrere Lorebooks aus, um den Agenten fest auf diesen Satz zu binden. Eine feste Auswahl hat immer Vorrang vor den aktiven Lorebooks des Chats – und zwar in jedem Chat, der diesen Agenten verwendet.
-
-Feste Quellen lohnen sich, wenn ein Agent stets dasselbe Referenz-Lorebook lesen soll. Lass den Schalter ohne feste Auswahl an, wenn der Agent dem folgen soll, was der Chat gerade nutzt.
+- Außer PDFs wird jede Datei als reiner Text gelesen. Eine Datei, die kein Text ist, etwa ein in `.txt` umbenanntes Bild, lässt sich hochladen, liefert aber unlesbaren Inhalt.
+- Ein gescanntes PDF oder ein reines Bild-PDF hat keine Textebene. Der Agent setzt dann statt des Inhalts einen Platzhalter ein. Nimm ein PDF mit markierbarem Text.
 
 ## Gute Eintragsbeschreibungen schreiben
 
-Dieser Abschnitt zählt vor allem für **Knowledge Router**. Der Router entscheidet anhand der **Description** (Beschreibung) jedes Eintrags, was er einfügt. Eine gute Beschreibung ist der Schlüssel zur richtigen Auswahl.
+Das zählt vor allem für Knowledge Router, der Einträge anhand ihrer **Description** (Beschreibung) auswählt.
 
-Geschrieben wird sie im Editor für Lorebook-Einträge, im Feld **Description**. Halte sie kurz und konkret: eine knappe Zusammenfassung dessen, worum es im Eintrag geht. Der Router nutzt diesen Text ausschließlich zur Auswahl. An die Haupt-KI geht er nicht als Story-Inhalt.
+1. Öffne den Eintrag im Lorebook-Editor.
+2. Füll **Description** mit einer kurzen, konkreten Zusammenfassung dessen aus, worum es im Eintrag geht.
 
-Fehlt einem Eintrag die Beschreibung, greift der Router auf den Anfang des Eintragsinhalts zurück. Dieser Ersatz trifft deutlich ungenauer. Fülle das Feld also bei jedem Eintrag aus, den der Router finden soll.
+Der Router nutzt die Beschreibung nur zur Auswahl. An die Haupt-KI geht sie nicht als Story-Inhalt. Fehlt die Beschreibung, greift der Router auf den Anfang des Eintragsinhalts zurück, und das trifft ungenauer.
 
-Sobald du Quell-Lorebooks für den Router auswählst, erscheint neben **Fixed source override** ein kleines Abdeckungs-Badge. Es zeigt als Prozentwert und als Anzahl, wie viele Einträge eine Beschreibung haben, zum Beispiel **75% described (9/12)**. Der Punkt leuchtet grün ab 75 Prozent, gelb zwischen 25 und 74 Prozent und rot unter 25 Prozent. Sind die gewählten Lorebooks leer, steht dort **No entries yet**. Ziel ist Grün.
+Wählst du Quell-Lorebooks für den Router, erscheint neben **Fixed source override** ein Abdeckungs-Badge, zum Beispiel **75% described (9/12)**. Der Punkt ist grün ab 75 %, gelb von 25 % bis 74 % und rot unter 25 %. Bei leeren Lorebooks steht dort **No entries yet**. Ziel ist Grün.
 
-## Optionale semantische Vorauswahl
+## Optional: Vorauswahl nach Bedeutung
 
-**Knowledge Router** kann Einträge auch nach Bedeutung finden, nicht nur nach Schlüsselwort. Das nennt sich semantische Suche. Dafür braucht er einen Embedder – ein kleines Modell, das Text in Zahlen umwandelt, damit die App Bedeutungen vergleichen kann. Dieser Schritt ist optional; der Router funktioniert auch ohne ihn.
+Knowledge Router kann infrage kommende Einträge auch nach Bedeutung finden, nicht nur nach Schlüsselwort. Dafür nutzt er einen Embedder, ein kleines Modell, das Text in Zahlen umwandelt, damit Marinara Bedeutungen vergleichen kann. Der Router funktioniert auch ohne ihn.
 
-Dazu musst du das Lorebook vektorisieren. Beim Vektorisieren lässt die App den Embedder einmal über jeden Eintrag laufen und speichert die Ergebnisse. Öffne den Lorebook-Editor und geh zum Abschnitt **Semantic Search (Embeddings)** (semantische Suche). Wähle eine Verbindung mit einem Embedding-Modell – ein Embedding ist die numerische Darstellung von Text – oder eine **Embedding Connection** (Embedding-Verbindung). Hast du unter **Connections** (Verbindungen) bei **Defaults** (Standardwerte) einen **Embeddings**-Standard gewählt, ist er bereits ausgewählt, sofern du nicht vorher eine andere Quelle gewählt hast. Prüf die ausgewählte Quelle vor dem Vektorisieren und nutze dieselbe Embedding-Quelle wie deine Chat-Verbindung; Vektoren mit einer anderen Größe werden bei der semantischen Suche übersprungen. Klick dann auf **Vectorize N missing**; N steht für die Zahl der Einträge, denen noch Vektoren fehlen. Mit **Re-vectorize** lässt sich außerdem alles neu berechnen. Details stehen in der unten verlinkten Anleitung zur semantischen Suche.
+1. Öffne den Lorebook-Editor und such **Semantic search (embeddings)** (semantische Suche).
+2. Wähl ein Konto mit einem Embedding-Modell. Hast du unter **Connections → Defaults** (Standardwerte) einen Standard für **Embeddings** festgelegt, ist er bereits ausgewählt, sofern du nicht vorher eine andere Quelle gewählt hast.
+3. Nutze dieselbe Embedding-Quelle wie dein Chat-Konto. Vektoren mit einer anderen Größe werden übersprungen.
+4. Klick auf die Schaltfläche zum Vektorisieren. Sie zeigt, wie vielen Einträgen noch Vektoren fehlen. **Re-vectorize all** (alle neu vektorisieren) berechnet jeden Eintrag neu.
 
-Hat ein Lorebook keine Vektoren oder ist kein Embedder verfügbar, stellt der Router seine Kandidatenliste per Schlüsselwort zusammen. Kaputt geht dabei nichts – er verlässt sich dann eben allein auf Schlüsselwörter.
+Hat ein Lorebook keine Vektoren oder ist kein Embedder verfügbar, stellt der Router seine Kandidatenliste allein aus Schlüsselwörtern zusammen. Kaputt geht dabei nichts. Siehe [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md).
 
 ## Verwandte Anleitungen
 
 - [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md)
-- [Lorebooks im Überblick](../lorebooks/overview.md)
+- [Lorebooks – Überblick](../lorebooks/overview.md)
 - [Agenten: KI-Helfer für deine Chats](agents-overview.md)

@@ -1,6 +1,6 @@
 # Fichas de conjuntos de regras
 
-Esta página faz parte de [Escrever conjuntos de regras de Game Mode](writing-rulesets.md). O que vai na ficha de personagem de um conjunto de regras: atributos, perícias, campos e listas, estados vivos, trilhas de ferimentos, penalidades, descansos e o texto do Game Master, além da ficha do grupo e dos relógios de progresso.
+Use esta página para montar a ficha de personagem de um conjunto de regras: atributos, perícias, campos e listas, estados vivos, trilhas de ferimentos, penalidades, descansos e o texto do Game Master, além da ficha do grupo e dos relógios de progresso. Ela é para autores de conjuntos de regras. Antes de começar, leia [Escrever conjuntos de regras de Game Mode](writing-rulesets.md).
 
 ## A ficha
 
@@ -86,7 +86,7 @@ Um campo enum é escolhido quando o personagem é criado e continua escolhido, e
 - `from` nomeia exatamente um entre `field` (um campo enum) e `liveState`. Cada linha de `table` é um valor que ele pode conter, de um a quarenta. Um valor que a tabela omite, e um estado que a ficha oculta, leem `default` (0 quando você o omite).
 - Um campo é fixado quando o personagem é criado, então uma tabela baseada nele pode alimentar um máximo: Gravewatch dá um Resolve a mais a um guardião da vigília da aurora. Um estado vivo muda durante a partida, então uma tabela baseada nele é uma leitura viva, como `liveTrack`: nada calculado antes de existir um estado vivo pode lê-la, diretamente ou por meio de outro valor derivado. Por isso a chave é `liveState` e não `state`: toda leitura do estado vivo leva `live` no nome, e é assim que você e a importação sabem o que um máximo não pode usar.
 - Para levar o número aos dados, aponte `resolution.adjust` para ele (veja Modificadores da ficha). Ember Roads soma sua Stance a toda rolagem de Brawn; Gravewatch aplica a toda rolagem de Nerve uma penalidade quando a lanterna está fechada ou apagada.
-- Uma camada pode retirar de um campo um valor para o qual a tabela tem uma linha. Essa linha simplesmente nunca é lida enquanto a camada estiver ativa.
+- Uma camada pode retirar de um campo um valor para o qual a tabela tem uma linha. Essa linha nunca é lida enquanto a camada estiver ativa.
 
 Estados vivos, `enumTable` e um passo de descanso que nomeia um `state` exigem Capability API 1.42 num conjunto empacotado.
 
@@ -126,7 +126,7 @@ Muitos sistemas não contam pontos de vida. Têm uma coluna de casas, cada uma p
 **As regras exatas**, porque uma leitura vaga produz a trilha errada:
 
 - As marcas ficam ordenadas, **as mais graves primeiro**. Sete níveis comportam no máximo sete marcas.
-- Uma marca é **inserida por ordem de gravidade**, nunca simplesmente no fim. Ocupa o nível mais alto que lhe cabe e empurra as leves para baixo.
+- Uma marca é **inserida por ordem de gravidade** entre as marcas que já existem, nunca no fim. Ocupa o nível mais alto que lhe cabe e empurra as leves para baixo.
 - A penalidade ativa é a do **nível marcado mais baixo**, nunca a soma. Três marcas no exemplo dão `-3`, não `0 + -1 + -3`.
 - `amount` é a quantidade de marcas de um tipo, **aplicadas uma por vez**. Uma trilha que enche no meio do processo segue a mesma regra de uma que já estava cheia.
 - Marcar uma trilha **cheia** **aumenta um passo a gravidade da marca mais leve**, em vez de adicionar outra. Um passo na sua escala de tipos, qualquer que fosse o tipo da marca nova.
@@ -209,9 +209,11 @@ O resultado informa o que a ficha adicionou (`adjust="-2"` no registro e uma lin
 
 Um descanso lista restaurações e elementos a limpar. Cada passo nomeia um alvo (`pool`, `poolGroup`, `listPools`, `track` ou `state`) e o define (`"to": "max"`, `"to": "min"` ou um número) ou modifica (`"by": { "const": 1 }` ou `"by": { "fractionOfMax": 0.5 }`). Se nomeia uma trilha de ferimentos, só pode curá-la, então seu `by` é negativo; veja acima. Se nomeia um estado vivo, só pode defini-lo, como `"default"` ou um dos seus valores. Um passo `poolGroup` com `fractionOfMax` muda cada reserva do grupo pela própria fração; acrescente `"shared": true` (Capability API 1.77) para calcular a fração sobre o máximo do grupo inteiro e distribuí-la entre as reservas do grupo na ordem em que a ficha as lista, cada uma até o que lhe falta. O descanso longo de 5e, "metade do número total de" dados de vida do personagem, guardados numa reserva por tipo de dado, é `{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`.
 
+<a id="game-master-text"></a>
+
 ## Texto do Game Master
 
-- `checkGuidance` substitui o parágrafo integrado que ensina a pedir um teste. Informe o sistema e quando rolar. O GM só nomeia perícia e dificuldade. O Engine rola e calcula a partir da ficha: não peça matemática ao modelo.
+- `checkGuidance` substitui o parágrafo integrado que ensina o GM a pedir um teste. Informe o sistema e quando rolar. O GM só nomeia perícia e dificuldade. O Engine rola e calcula a partir da ficha: não peça matemática ao modelo.
 - `sheetGuidance` apresenta as fichas no prompt. Explique quais recursos importam e quando gastá-los.
 - `worldGuidance` é opcional e lido uma vez ao gerar o mundo, para adequar a ambientação às regras: sem pólvora, magia rara, mortos que andam. Nunca chega a um turno.
 - `opposition` diz quem joga pelo outro lado de uma luta (Capability API 1.774). `"game-master"` entrega o turno de cada oponente ao Game Master, que escolhe uma das opções oferecidas pelo Engine, recorrendo ao seletor do próprio Engine quando o Game Master não responde. Isso se aplica apenas em uma partida cujo jogador permitiu que o Game Master jogasse com chefes, e em todos os estilos de combate, inclusive uma luta Classic ou Tactical para um conjunto de regras sem bloco `combat`. Use para um sistema narrativo cuja oposição é jogada como ficção em vez de uma soma de dano: Fate, Blades in the Dark, Trophy, Lasers & Feelings. `"engine"`, ou a omissão da chave, mantém o seletor do Engine, com chefes (e, quando o jogador pede, oponentes com nome e de intelecto genial) a cargo do Game Master. Um conjunto de regras que usa a chave exige Capability API 1.774.

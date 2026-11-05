@@ -1,6 +1,6 @@
 # Noodle प्रॉम्प्ट इंटरनल्स (डेवलपर्स)
 
-डेवलपर रेफ़रेंस: Noodle के जेनरेशन प्रॉम्प्ट कोड में कहाँ रहते हैं, उन्हें कैसे बदला जाता है, और फ़ाइनल प्रॉम्प्ट को कैसे डीबग करें। रोज़ाना इस्तेमाल के लिए Noodle को उसके **Settings** (सेटिंग्स) पैनल से सेट किया जाता है; इसकी गाइड `docs/noodle/` में हैं।
+डेवलपर रेफ़रेंस: Noodle के जेनरेशन प्रॉम्प्ट कोड में कहाँ रहते हैं, उन्हें कैसे बदला जाता है, और फ़ाइनल प्रॉम्प्ट को कैसे डीबग करें। रोज़ाना इस्तेमाल के लिए Noodle को उसके Settings पैनल से सेट किया जाता है; Noodle की गाइड `docs/agents/noodle.md` और `docs/agents/noodle-settings.md` देखें।
 
 Noodle एक डाउनलोड होने वाला पैकेज है। इसके रूट (`/api/noodle`, जो पैकेज के एक्टिवेट होने पर रजिस्टर होते हैं) और इसका जेनरेशन कोड [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) के Noodle पैकेज में, `packages/noodle/src/engine/packages/server/src/` के नीचे रहते हैं। नीचे की तालिका में **package** से चिह्नित सोर्स इसी फ़ोल्डर के सापेक्ष है। Engine के पास साझा Noodle स्कीमा और टाइप, Noodle स्टोरेज, Settings में दिखने वाले रजिस्टर किए हुए प्रॉम्प्ट ओवरराइड, और `packages/server/src/services/noodle/noodle-prompt.ts` में टाइमलाइन प्रॉम्प्ट का डिफ़ॉल्ट टेक्स्ट रहता है। पैकेज `services/prompt-overrides/registry/noodle.ts` और `services/noodle/noodle-prompt.ts` की अपनी कॉपी रखता है।
 
@@ -11,7 +11,7 @@ Noodle में एक जोड़कर बनाया गया टाइ�
 | मकसद | सोर्स | मुख्य सिंबल | कैसे बदलें |
 | --- | --- | --- | --- |
 | टाइमलाइन पोस्ट, रिप्लाई, फ़ॉलो, पोल, वोट और डाइजेस्ट | **package** `services/noodle/noodle-public-prompt.service.ts` | `buildRefreshPrompt()` | सिस्टम संदेश में पहले **Noodle Timeline Prompt** ओवरराइड और फिर **Noodle Timeline Voice & Tone** ओवरराइड आता है (दोनों नीचे)। दोनों यूज़र संदेश, कॉन्टेक्स्ट (अकाउंट, पर्सोना, प्रोफ़ाइल, शेड्यूल, लोर, ऑप्ट-इन चैट कॉन्टेक्स्ट, टाइमलाइन, चालू फ़ीचर और कोटा) और `# JSON Output Format` संदेश कोड में जोड़े जाते हैं। |
-| टाइमलाइन का बेस सिस्टम प्रॉम्प्ट | `packages/server/src/services/prompt-overrides/registry/noodle.ts` | `NOODLE_TIMELINE_BASE` (`noodle.timelineBase`) | **Settings -> Generations -> Image Generation Prompt Overrides -> Noodle Timeline Prompt** में बदलाव करें, या कोड में `noodle-prompt.ts` का `NOODLE_TIMELINE_BASE_DEFAULT_PROMPT` बदलें। डिफ़ॉल्ट में एडल्ट-प्लेटफ़ॉर्म, पर्सोना की लेखकी, इंटरैक्शन और JSON के नियम होते हैं, इसलिए दोबारा लिखने पर `noodleGeneratedRefreshSchema` की पार्सिंग टूट सकती है। |
+| टाइमलाइन का बेस सिस्टम प्रॉम्प्ट | `packages/server/src/services/prompt-overrides/registry/noodle.ts` | `NOODLE_TIMELINE_BASE` (`noodle.timelineBase`) | **Settings -> Generations -> Image Generation Prompt Overrides -> Noodle Timeline Prompt** में बदलाव करें, या कोड में `noodle-prompt.ts` का `NOODLE_TIMELINE_BASE_DEFAULT_PROMPT` बदलें। डिफ़ॉल्ट में एडल्ट-प्लैटफ़ॉर्म, पर्सोना की लेखकी, इंटरैक्शन और JSON के नियम होते हैं, इसलिए दोबारा लिखने पर `noodleGeneratedRefreshSchema` की पार्सिंग टूट सकती है। |
 | टाइमलाइन के वॉइस/टोन निर्देश (बेस के बाद जोड़े जाते हैं) | `packages/server/src/services/prompt-overrides/registry/noodle.ts` | `NOODLE_TIMELINE_VOICE` (`noodle.timelineVoice`) | **Settings -> Generations -> Image Generation Prompt Overrides -> Noodle Timeline Voice & Tone** में बदलाव करें, या कोड में रजिस्टर किया हुआ डिफ़ॉल्ट (`noodle-prompt.ts` में `noodleTimelineVoiceDefaultText(enhanced, allowRandomUsers)`) बदलें। बिना बदला हुआ डिफ़ॉल्ट Noodle सेटिंग `enableEnhancedTimelineWriting` (`ctx.enhanced`, डिफ़ॉल्ट रूप से बंद, जिसमें वही पुराना एक-पंक्ति वाला टोन निर्देश मिलता है) और इस बात के मुताबिक चलता है कि रैंडम यूज़र की इजाज़त है या नहीं; अपना ओवरराइड टेक्स्ट सेव करने के बाद उसी की चलती है, चाहे ये सेटिंग्स कुछ भी हों। |
 | कैरेक्टर अकाउंट की पहली बार बनने वाली प्रोफ़ाइल | **package** `services/noodle/noodle-public-profiles.service.ts` | `generateMissingNoodleProfiles()` | कोड में इनलाइन सिस्टम और यूज़र संदेश बदलें। पहले पार्टिसिपेंट चुने जाते हैं, और इस प्रॉम्प्ट तक सिर्फ़ वही चुने हुए कैरेक्टर अकाउंट पहुँचते हैं जिनमें `profileGenerated` नहीं है। |
 | जेनरेट होने वाली पोस्ट इमेज का प्रॉम्प्ट | `packages/server/src/services/prompt-overrides/registry/noodle.ts` | `NOODLE_IMAGE_POST` (`noodle.imagePost`) | **Settings -> Generations -> Image Generation Prompt Overrides -> Noodle Post Image** में बदलाव करें, या कोड में रजिस्टर किया हुआ डिफ़ॉल्ट बदलें। |
@@ -54,7 +54,7 @@ pnpm regression:noodle
 
 ## मिलती-जुलती गाइड
 
-- [Noodle: ऐप के अंदर की सोशल टाइमलाइन](../noodle/overview.md)
-- [Noodle की सेटिंग्स और चैट कैरीओवर](../noodle/settings.md)
+- [Noodle: ऐप के अंदर की सोशल टाइमलाइन](../agents/noodle.md)
+- [Noodle की सेटिंग्स और चैट कैरीओवर](../agents/noodle-settings.md)
 - [वैकल्पिक एजेंट और कैपेबिलिटी पैकेज](optional-agent-packages.md)
 - [आर्किटेक्चर मैप (डेवलपर्स के लिए)](architecture-map.md)

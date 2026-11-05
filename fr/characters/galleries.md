@@ -1,118 +1,110 @@
 # Galeries de personnages et de personas
 
-Ce guide explique l'onglet **Gallery** (galerie) des éditeurs de personnage et de persona. Il montre comment ajouter des images et des vidéos qui restent rattachées à un personnage ou à un persona. Tu découvres aussi comment marquer une image de la galerie comme emoji ou sticker personnalisé.
+L'onglet **Gallery** (galerie) des éditeurs de personnage et de persona conserve des images et des vidéos rattachées à un personnage ou à un persona : elles restent même si tu supprimes des chats. Sers-t'en pour les planches de référence, les variantes de tenue et les packs d'images importés. Tu peux aussi marquer une image de la galerie comme emoji ou sticker personnalisé.
 
 ## L'onglet Gallery
 
-Chaque personnage et chaque persona possède son propre onglet **Gallery**. Ouvre un personnage dans l'éditeur **Character Editor** (éditeur de personnage), ou un persona dans l'éditeur **Persona Editor** (éditeur de persona), puis clique sur l'onglet **Gallery** (icône d'appareil photo).
+Chaque personnage et chaque persona possède son propre onglet **Gallery** (icône d'appareil photo). Ouvre le personnage dans le Character Editor (éditeur de personnage) ou le persona dans le Persona Editor (éditeur de persona), puis clique sur **Gallery**. La galerie d'un personnage s'intitule **Character Gallery**, et celle d'un persona **Persona Gallery**. Les deux fonctionnent de la même façon.
 
 La galerie compte deux sous-onglets :
 
-- **Images** : les images que tu téléverses pour ce personnage ou ce persona.
-- **Videos** : les vidéos que tu téléverses, ainsi que les vidéos de scène et les extraits d'appel vidéo liés à ce personnage.
+- **Images** contient les images que tu téléverses.
+- **Videos** contient les vidéos que tu téléverses, ainsi que les vidéos de scène et les extraits d'appel vidéo liés à ce personnage.
 
-La galerie d'un personnage s'intitule **Character Gallery**. Celle d'un persona s'intitule **Persona Gallery**. Les deux fonctionnent de la même façon.
+La galerie propre à un chat est différente. Elle contient les illustrations de scène et les pièces jointes générées pour ce seul chat. Garde-y les images de scène éphémères, et garde ici les images durables.
 
-## En quoi la galerie diffère de celle d'un chat
+### Ajouter des images
 
-Les images de la galerie appartiennent au personnage ou au persona, pas à un chat en particulier. Si tu supprimes un chat, ces images restent en place. Utilise la galerie pour les planches de référence, les variantes de tenue ou les packs d'images de personnage importés.
+1. Ouvre l'onglet **Gallery** et sélectionne **Images**.
+2. Fais glisser des fichiers image sur **Upload Character Images** (téléverser des images de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, la zone s'appelle **Upload Persona Images** (téléverser des images de persona).
+3. Attends la fin du téléversement. Les nouvelles images apparaissent dans la grille.
 
-La galerie propre à un chat, elle, est différente. Elle contient les illustrations liées à une scène et les pièces jointes générées dans les messages de ce chat précis. Garde les images de scène éphémères dans la galerie du chat. Garde les images durables du personnage dans la galerie **Gallery** du personnage ou du persona.
+Clique sur une image pour la voir en plus grand. Chaque vignette a une commande de téléchargement et une commande de suppression.
 
-## Ajouter des images
+### Ajouter des vidéos
 
-1. Ouvre l'éditeur de personnage ou de persona.
-2. Clique sur l'onglet **Gallery**.
-3. Vérifie que le sous-onglet **Images** est bien sélectionné.
-4. Fais glisser des fichiers image sur la zone **Upload Character Images** (téléverser des images de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, cette zone s'appelle **Upload Persona Images**.
-5. Attends la fin du téléversement. Les nouvelles images apparaissent dans la grille en dessous.
+1. Ouvre l'onglet **Gallery** et sélectionne **Videos**.
+2. Fais glisser des fichiers vidéo sur **Upload Character Videos** (téléverser des vidéos de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, la zone s'appelle **Upload Persona Videos** (téléverser des vidéos de persona).
+3. Attends la fin du téléversement.
 
-Les formats d'image courants passent sans problème : JPG, PNG, GIF, WebP et AVIF. Clique sur une image pour l'ouvrir en plus grand. Chaque vignette dispose aussi d'une commande de téléchargement et d'une commande de suppression.
-
-## Ajouter des vidéos
-
-1. Clique sur l'onglet **Gallery**.
-2. Sélectionne le sous-onglet **Videos**.
-3. Fais glisser des fichiers vidéo sur la zone **Upload Character Videos** (téléverser des vidéos de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, cette zone s'appelle **Upload Persona Videos**.
-4. Attends la fin du téléversement.
-
-Les formats vidéo pris en charge sont MP4, WebM et MOV. Le sous-onglet **Videos** liste également les vidéos de scène générées dans les chats avec ce personnage, ainsi que les extraits d'appel vidéo. Les plus récents arrivent en premier. Un message vidéo de Conversation n'est listé que pour les personnages qu'il montre : le personnage qui l'a envoyé et toute personne qu'il nomme. Un prénom suffit quand personne d'autre dans le chat ne le porte, à condition qu'il soit écrit avec une majuscule. Tout le monde dans le chat est inclus quand le texte demande une photo ou un selfie de groupe. Les noms prononcés entre guillemets ne comptent pas. La galerie de ton persona ne liste le clip que s'il nomme ton persona. Les vidéos plus anciennes, et celles des chats Roleplay et Game Mode, sont listées pour chaque personnage et pour le persona de leur chat.
+Les formats pris en charge sont MP4, WebM et MOV. Les vidéos les plus récentes sont listées en premier. Pour savoir quelles vidéos de scène et quels extraits apparaissent pour quel personnage, voir [Quelles vidéos sont listées](#which-videos-are-listed).
 
 ## Marquer une image de la galerie comme emoji ou sticker personnalisé
 
-Une image de la galerie peut devenir un emoji personnalisé ou un sticker pour le mode **Conversation** (le mode de chat façon messagerie). Un emoji personnalisé est une petite image insérée dans le texte, écrite `:name:`. Un sticker est une image plus grande affichée en bloc, écrite `sticker:name:`. Cela ne fonctionne que dans les chats en mode Conversation.
+Un emoji personnalisé est une petite image insérée dans le texte, écrite `:name:`. Un sticker est une image plus grande affichée en bloc, écrite `sticker:name:`. Les deux ne fonctionnent que dans les chats en mode Conversation, le mode façon messagerie.
 
-Pour marquer une image :
+1. Ouvre l'onglet **Gallery** et sélectionne **Images**.
+2. Clique sur le petit bouton de marquage dans le coin supérieur gauche de l'image (infobulle **Tag as emoji or sticker**).
+3. Clique sur **Make emoji** (en faire un emoji) ou sur **Make sticker** (en faire un sticker).
+4. Dans la boîte de dialogue **Custom Emoji** ou **Custom Sticker**, saisis un nom et confirme.
 
-1. Ouvre l'onglet **Gallery** et sélectionne le sous-onglet **Images**.
-2. Repère l'image voulue. Dans son coin supérieur gauche se trouve un petit bouton de marquage, avec l'infobulle **Tag as emoji or sticker**.
-3. Clique sur ce bouton de marquage. Un menu s'ouvre avec **Make emoji** et **Make sticker**.
-4. Clique sur **Make emoji** ou sur **Make sticker**.
-5. Dans la boîte de dialogue **Custom Emoji** ou **Custom Sticker**, saisis un nom, puis confirme.
+Un nom compte de 1 à 32 lettres minuscules, chiffres et tirets bas. Les autres caractères sont convertis à ta place : "Big Grin" devient ainsi `big_grin`.
 
-Le nom accepte les lettres minuscules, les chiffres et les tirets bas, dans la limite de 32 caractères. Marinara convertit les autres caractères à ta place. Par exemple, "Big Grin" devient `big_grin`.
-
-Les limites de taille dépendent du type choisi, pas de la galerie. Une image d'emoji ne doit pas dépasser 256 sur 256 pixels. Une image de sticker ne doit pas dépasser 512 sur 512 pixels. Si l'image est trop grande, un message d'erreur s'affiche et le marquage n'est pas appliqué.
+Si ça n'a pas marché : une image d'emoji ne doit pas dépasser 256 sur 256 pixels, et un sticker 512 sur 512. Si l'image est trop grande, une erreur s'affiche et rien n'est marqué.
 
 ### Gérer une image marquée
 
-Une fois l'image marquée, son bouton en surimpression affiche le nom attribué. Clique dessus pour ouvrir un menu avec d'autres options :
+Une fois l'image marquée, son bouton en surimpression affiche le nom. Clique dessus pour d'autres options :
 
-- **Rename** (renommer) : change le nom.
-- **Switch to sticker** ou **Switch to emoji** : change le type. Le changement revérifie la limite de taille du nouveau type. Une image de sticker de plus de 256 sur 256 pixels est trop grande pour devenir un emoji. Dans ce cas, une erreur s'affiche et le type reste inchangé.
-- **Remove emoji** ou **Remove sticker** : retire le marquage. L'image n'est pas supprimée de la galerie pour autant.
+- **Rename** (renommer) change le nom.
+- **Switch to sticker** (passer en sticker) ou **Switch to emoji** (passer en emoji) change le type. La limite de taille du nouveau type est vérifiée : un sticker de plus de 256 sur 256 pixels ne peut donc pas devenir un emoji. Une erreur s'affiche et le type reste inchangé.
+- **Remove emoji** (retirer l'emoji) ou **Remove sticker** (retirer le sticker) retire le marquage. L'image reste dans la galerie.
 
-### Où fonctionnent ces emojis et stickers rattachés
-
-Un emoji ou un sticker marqué dans la galerie reste rattaché à ce seul personnage ou persona. Il fonctionne uniquement dans les chats en mode Conversation qui incluent ce personnage ou ce persona. C'est indépendant des collections globales d'emojis et de stickers, accessibles depuis la zone de rédaction des messages.
-
-Si un nom de la galerie correspond à un nom de la collection globale, c'est la version de la galerie qui l'emporte dans ce chat. L'unicité des noms n'est pas vérifiée. Choisis un nom distinct pour chaque image afin d'éviter les mauvaises surprises.
+Un emoji ou un sticker marqué dans la galerie ne fonctionne que pour ce seul personnage ou persona, dans les chats en mode Conversation qui l'incluent. C'est indépendant des collections globales d'emojis et de stickers de la zone de rédaction des messages. Si un nom de la galerie correspond à un nom global, c'est la version de la galerie qui l'emporte dans ce chat. L'unicité des noms n'est pas vérifiée : choisis donc un nom distinct pour chaque image.
 
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## Réutiliser une image de galerie dans les messages et les salutations
 
-Toute image de la galerie d'un personnage peut s'afficher dans le texte du chat : une salutation, un message d'exemple ou un message envoyé par le personnage. Survolez l'image et cliquez sur **Copy image reference** (l'icône de lien). Un court fragment Markdown est copié et peut être collé partout où le personnage parle :
+Toute image de la galerie d'un personnage peut s'afficher dans le texte du chat : une salutation, un message d'exemple ou un message envoyé par le personnage. Passe le pointeur sur une image de la galerie et clique sur **Copy image reference** (copier la référence de l'image), l'icône de lien. Un fragment de Markdown est copié, à coller partout où le personnage parle :
 
 ```text
 ![sunset selfie](card://self/gallery/k3m2xq7.png)
 ```
 
-Une seule règle : **`self` désigne le personnage qui prononce ce message.** Au rendu, Marinara remplace `self` par ce personnage et affiche l'image de sa galerie.
+`self` désigne le personnage qui prononce ce message. À l'affichage du message, Marinara remplace `self` par ce personnage et charge l'image depuis sa galerie.
 
-Là où cela fonctionne :
+Cela fonctionne dans :
 
-- **First Message**, **Alternate Greetings** et **Example Dialogue** sur la fiche de personnage. L'aperçu Markdown du champ affiche l'image pendant que tu modifies le texte.
-- Tout message envoyé par un personnage, en mode **Roleplay** comme en mode **Conversation**.
-- **Les chats de groupe** : dans une réponse à plusieurs intervenants, `self` est résolu séparément pour chacun, si bien que la réplique de chaque personnage affiche l'image de sa propre galerie. Si la galerie de l'intervenant ne contient pas le fichier, Marinara le cherche dans les galeries des autres personnages du chat : la bonne image s'affiche donc même quand une réponse est fusionnée sous un seul intervenant.
+- **First Message** (message d'accueil), **Alternate Greetings** (salutations alternatives) et **Example Dialogue** (exemples de dialogue) sur la fiche de personnage. L'aperçu Markdown du champ affiche l'image pendant que tu modifies le texte.
+- Tout message envoyé par un personnage, en mode Roleplay comme en mode Conversation.
+- Les chats de groupe. Dans une réponse à plusieurs intervenants, `self` est résolu pour chaque intervenant. Si la galerie de l'intervenant ne contient pas le fichier, Marinara le cherche chez les autres personnages du chat, dans l'ordre du chat. Si deux personnages ont le même nom de fichier, l'image propre à l'intervenant l'emporte.
 
-Là où cela ne fonctionne pas, par conception :
+Cela ne fonctionne pas dans :
 
-- **Tes propres messages.** Ils n'ont pas de personnage locuteur : une référence `self` s'affiche donc comme une image cassée. Si tu veux publier toi-même l'image de galerie d'un personnage, utilise l'insertion du navigateur de ressources du chat, qui écrit la forme complète `card://characters/<id>/...`.
-- **Les messages système.** Ils n'affichent pas du tout la syntaxe d'image Markdown : une référence s'y affiche donc comme du texte brut.
-- **Les galeries de persona.** Les images de persona apparaissent dans tes messages, qui n'ont pas d'intervenant. Utilise plutôt la forme de persona `card://personas/<id>/gallery/<file>`.
+- **Tes propres messages**. Ils n'ont pas de personnage qui parle : une référence `self` s'affiche donc comme une image cassée. Pour publier toi-même l'image d'un personnage, utilise l'insertion du navigateur de ressources du chat, qui écrit la forme complète `card://characters/<id>/...`.
+- **Les messages système**. Ils n'affichent pas les images Markdown : la référence s'affiche donc comme du texte.
+- **Les galeries de persona**. Tes messages n'ont pas d'intervenant : utilise donc la forme de persona `card://personas/<id>/gallery/<file>`.
 
-Si deux personnages ont une image portant le même nom de fichier, celle du locuteur l'emporte toujours. S'il ne la possède pas, la première correspondance selon l'ordre des personnages du chat est utilisée. Choisissez des noms distincts si vous voulez une version précise.
-
-### Pourquoi `self` plutôt que le lien complet
-
-Un lien complet contient l'id interne du personnage (`card://characters/<id>/gallery/<file>`), et cet id est régénéré à chaque import ; le lien se brise donc au partage. La forme `self` ne contient ni id ni adresse de serveur. Elle résiste à un **export et import JSON natif** : les images de galerie voyagent avec l'export et conservent leur nom.
-
-Une limite demeure : **les exports de fiche PNG n'incluent pas la galerie**. Partagez l'export `.json` natif lorsqu'un personnage utilise des références de galerie.
+Un lien complet contient l'id interne du personnage, et les id sont régénérés à l'import d'un personnage : les liens complets se brisent donc pour toute personne avec qui tu partages le personnage. La forme `self` ne contient aucun id. Elle résiste à un export puis un import **Marinara Native**, car les images de la galerie voyagent dans l'export avec leur nom de fichier. Les exports **Compatible PNG Card** et **Compatible JSON** n'incluent pas la galerie : aucune référence de galerie ne peut donc fonctionner après un partage de ce type. Utilise **Marinara Native** quand un personnage utilise des images de galerie.
 
 <a id="save-web-images-from-greetings"></a>
 
 ### Enregistrer les images web des salutations
 
-Beaucoup de fiches affichent dans leurs salutations des images venues d'autres sites web, et ces liens peuvent cesser de fonctionner ou changer. Quand **First Message** ou **Alternate Greetings** affichent des images web, la section **Dialogue & Greetings** propose un bouton **Save images locally** (enregistrer les images localement). Il télécharge ces images dans la galerie du personnage et remplace chaque lien par une référence `card://self/gallery/...` : les images s'affichent ainsi même si le site les retire ou si tu es hors ligne. Enregistre ensuite le personnage pour conserver les nouveaux liens.
+Beaucoup de fiches affichent dans leurs salutations des images venues d'autres sites web, et ces liens peuvent cesser de fonctionner. Quand **First Message** ou **Alternate Greetings** affichent des images web, **Dialogue & Greetings** (dialogues et salutations) propose un bouton **Save images locally** (enregistrer les images localement).
 
-Rien n'est téléchargé tant que tu n'appuies pas sur le bouton. Seules les images PNG, JPEG, GIF et WebP d'au plus 10 Mo et 40 mégapixels sont enregistrées. Les liens vers ton propre ordinateur ou ton réseau domestique sont refusés. Une image qui ne peut pas être enregistrée garde son lien web, et un avertissement en indique la raison.
+1. Ouvre l'onglet **Card** (fiche) et trouve **Dialogue & Greetings**.
+2. Clique sur **Save images locally**. Marinara télécharge les images dans la galerie et remplace chaque lien par une référence `card://self/gallery/...`.
+3. Clique sur **Save** (enregistrer) pour conserver les nouveaux liens.
 
-**Restore web links** (restaurer les liens web) remet les liens d'origine dans les salutations. Les copies enregistrées restent dans la galerie jusqu'à ce que tu les supprimes. Les exports compatibles JSON et PNG utilisent les liens web d'origine, puisque ces fiches n'emportent aucune galerie. Les images des lorebooks ne sont pas concernées.
+Rien n'est téléchargé tant que tu ne cliques pas sur le bouton. Seules les images PNG, JPEG, GIF et WebP d'au plus 10 Mo et 40 mégapixels sont enregistrées. Les liens vers ton propre ordinateur ou ton réseau domestique sont refusés. Une image qui ne peut pas être enregistrée garde son lien web, et un avertissement en indique la raison.
+
+**Restore web links** (restaurer les liens web) remet les liens d'origine dans les salutations. Les copies enregistrées restent dans la galerie jusqu'à ce que tu les supprimes. Les images des lorebooks ne sont pas concernées.
+
+<a id="which-videos-are-listed"></a>
+
+## Quelles vidéos sont listées
+
+Le sous-onglet **Videos** liste les vidéos de scène générées dans les chats avec ce personnage, ainsi que les extraits d'appel vidéo. Le personnage qui liste une vidéo dépend de sa provenance :
+
+- Un message vidéo de Conversation est listé pour les personnages qu'il montre : celui qui l'a envoyé et toute personne qu'il nomme. Un prénom suffit quand personne d'autre dans le chat ne le porte, à condition qu'il soit écrit avec une majuscule. Tout le monde dans le chat est inclus quand le texte demande une photo ou un selfie de groupe. Les noms entre guillemets ne comptent pas.
+- La galerie de ton persona ne liste un extrait que s'il nomme ton persona.
+- Les vidéos plus anciennes, et celles des chats Roleplay et Game Mode, sont listées pour chaque personnage et pour le persona de leur chat.
 
 ## Guides associés
 
 - [Créer et modifier des personnages](creating-and-editing-characters.md)
-- [Personas utilisateur : création et modification](personas.md)
+- [Personas](personas.md)
 - [Emojis, stickers et GIF personnalisés](../conversation/emoji-stickers-gifs.md)
 - [Arrière-plans de scène et galerie](../media/scene-backgrounds.md)

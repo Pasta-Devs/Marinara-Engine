@@ -1,118 +1,93 @@
 # Konfiguracja Haptic Feedback
 
-Z tego przewodnika dowiesz się, jak pozwolić postaci AI sterować podłączonymi urządzeniami haptycznymi w aplikacji Marinara Engine. Znajdziesz tu instalację aplikacji pomocniczej, dodanie agenta **Haptic Feedback** do czatu, połączenie z urządzeniem oraz ustawienia dotyku, które da się dopasować.
+Haptyczna informacja zwrotna pozwala postaci AI wysyłać w trakcie czatu sygnały dotykowe do podłączonego urządzenia haptycznego (zabawki erotycznej). Z tego przewodnika dowiesz się, jak zainstalować aplikację pomocniczą, dodać agenta **Haptic Feedback** do czatu, połączyć się z urządzeniem i dopasować ustawienia dotyku.
 
-## Czym jest haptyczna informacja zwrotna
-
-Dzięki haptycznej informacji zwrotnej postać AI wysyła w trakcie czatu sygnały dotykowe do podłączonego urządzenia haptycznego (zabawki erotycznej). Marinara Engine nie rozmawia z urządzeniem bezpośrednio. Zamiast tego wysyła komendy do darmowej aplikacji towarzyszącej o nazwie **Intiface Central**, a ta aplikacja steruje urządzeniem.
-
-Aplikacja **Intiface Central** posługuje się protokołem urządzeń **Buttplug.io**. To ten sam otwarty standard, który obsługuje wiele zabawek i innych aplikacji. Aplikację **Intiface Central** instaluje się raz, potem paruje się z nią urządzenie, a Marinara łączy się z nią przez lokalny adres sieciowy.
-
-Haptyczna informacja zwrotna działa jako jeden z agentów czatu, czyli pomocników AI dodawanych do rozmowy w sekcji **Agents**. Sprawdza się w trybach Conversation, Roleplay i Game.
+Marinara Engine nie rozmawia z urządzeniem bezpośrednio. Wysyła komendy do darmowej aplikacji towarzyszącej **Intiface Central**, która steruje urządzeniem. Aplikacja Intiface Central posługuje się standardem **Buttplug.io** – otwartym standardem, który obsługuje wiele zabawek i aplikacji. Marinara łączy się z nią przez adres sieciowy. Haptyczna informacja zwrotna to agent czatu (pomocnik AI, którego dodajesz do czatu). Działa w trybach Conversation, Roleplay i Game.
 
 ## Zanim zaczniesz
 
-Przed włączeniem haptycznej informacji zwrotnej trzeba przygotować trzy rzeczy.
+1. Zainstaluj aplikację **Intiface Central** ze strony `https://intiface.com/central/`.
+2. Otwórz ją i uruchom jej serwer przyciskiem uruchamiania serwera.
+3. Sparuj urządzenie w aplikacji Intiface Central, żeby aplikacja je widziała.
 
-1. Zainstaluj aplikację **Intiface Central** z oficjalnej strony. Otwórz ten adres w przeglądarce.
-
-```
-https://intiface.com/central/
-```
-
-2. Otwórz aplikację **Intiface Central** i uruchom jej serwer. Poszukaj w aplikacji przycisku uruchamiającego serwer.
-3. Sparuj lub podłącz urządzenie w aplikacji **Intiface Central**, żeby aplikacja je widziała.
-
-Jeśli aplikacja **Intiface Central** nie działa z uruchomionym serwerem, Marinara nie wyśle żadnych sygnałów dotykowych.
+Jeśli aplikacja Intiface Central nie działa z uruchomionym serwerem, Marinara nie wyśle sygnałów dotykowych. Potrzebny jest też zainstalowany agent **Haptic Feedback**. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
 ## Dodanie agenta Haptic Feedback
 
-Haptyczną informację zwrotną dodaje się tak samo jak każdego innego agenta, z poziomu ustawień czatu.
-
 1. Otwórz czat w trybie Conversation, Roleplay lub Game.
-2. Otwórz panel **Chat Settings** (ustawienia czatu) dla tego czatu.
-3. Przejdź do sekcji **Agents**.
-4. Dodaj do czatu agenta **Haptic Feedback**.
-5. Znajdź kartę **Haptic Feedback**, która pojawiła się na liście **Agents**.
+2. Otwórz **Chat Settings** (ustawienia czatu) i przejdź do sekcji **Agents**.
+3. Dodaj agenta **Haptic Feedback**. Na liście **Agents** pojawi się karta **Haptic Feedback**.
+4. Włącz przełącznik **Haptic Feedback** na górze karty.
 
-Włącz przełącznik **Haptic Feedback** na górze tej karty. Kiedy jest wyłączony, opis brzmi "Allow this agent to send touch cues during the chat." Kiedy jest włączony, opis brzmi "Touch cues are enabled for this chat." Domyślnie przełącznik jest wyłączony.
+Domyślnie przełącznik jest wyłączony. Gdy jest wyłączony, opis brzmi "Allow this agent to send touch cues during the chat." Gdy jest włączony, opis brzmi "Touch cues are enabled for this chat." Po jego włączeniu AI wysyła w trakcie pisania ukryte sygnały dotykowe. Nie pojawiają się one w czacie jako tekst. Trafiają do wszystkich podłączonych urządzeń.
 
-Po włączeniu przełącznika AI może wysyłać ukryte sygnały dotykowe w trakcie pisania. Te sygnały nie pojawiają się w czacie jako tekst. Trafiają do wszystkich podłączonych urządzeń.
+## Połączenie i skanowanie
 
-## Połączenie, skanowanie i wykrywanie urządzenia
+Po otwarciu karty Marinara próbuje połączyć się z aplikacją Intiface Central pod zapisanym adresem. Wiersz stanu pokazuje zieloną kropkę, gdy połączenie jest aktywne, i czerwoną, gdy go nie ma. Obok jest przycisk **Connect** (połączenie), gdy połączenia nie ma, albo **Disconnect** (rozłączenie), gdy jest aktywne.
 
-Po otwarciu karty **Haptic Feedback** Marinara próbuje połączyć się z aplikacją **Intiface Central** automatycznie, pod zapisanym adresem. Połączenie da się też nawiązać ręcznie.
+1. Kliknij **Connect**. Jeśli się uda, wiersz pokazuje "Connected" razem z adresem serwera.
+2. Kliknij **Scan for devices** (skanowanie w poszukiwaniu urządzeń), aby wyszukać urządzenia ponownie. W trakcie skanowania przycisk pokazuje "Scanning...".
 
-Karta pokazuje wiersz stanu z kolorową kropką. Zielona kropka oznacza połączenie. Czerwona oznacza jego brak. Obok stoi przycisk z napisem **Connect**, gdy połączenia nie ma, oraz **Disconnect**, gdy jest aktywne.
+Karta pokazuje "No devices found" albo liczbę urządzeń i wymienia każde z nich z dokładną nazwą z Intiface i obsługiwanymi działaniami. Marinara przekazuje też agentowi Haptic Agent tę nazwę, rodzaj zabawki określony na podstawie jej możliwości oraz jej działania. Dzięki temu agent wybiera właściwe urządzenie i działanie, zamiast zakładać, że każda zabawka wibruje.
 
-Aby połączyć się ręcznie, kliknij przycisk **Connect** (połączenie). Jeśli się uda, wiersz pokazuje "Connected" razem z adresem serwera.
-
-Jeśli się nie uda, zobaczysz komunikat o nieudanym połączeniu. Prosi on o sprawdzenie, czy aplikacja **Intiface Central** działa i czy jej serwer jest uruchomiony. W komunikacie jest też link do strony aplikacji **Intiface Central**.
-
-Po nawiązaniu połączenia karta pokazuje liczbę wykrytych urządzeń. Widnieje tam "No devices found", gdy nie ma żadnego, albo liczba urządzeń, gdy jakieś są. Kliknij przycisk **Scan for devices** (skanowanie w poszukiwaniu urządzeń), aby wyszukać ponownie. W trakcie skanowania przycisk pokazuje "Scanning...". Karta wymienia każde urządzenie z jego dokładną nazwą z Intiface i obsługiwanymi działaniami. Marinara przekazuje też agentowi Haptic Agent tę nazwę, rodzaj zabawki określony na podstawie możliwości oraz obsługiwane działania. Dzięki temu agent wybiera właściwe urządzenie i działanie, zamiast zakładać, że każda zabawka jest wibratorem.
+Jeśli to nie zadziałało: po nieudanym połączeniu pojawia się komunikat z prośbą o sprawdzenie, czy aplikacja Intiface Central działa i czy jej serwer jest uruchomiony, razem z linkiem do jej strony.
 
 ## Obsługiwane działania i wzorce
 
-Marinara korzysta z każdego rodzaju wyjścia zgłaszanego przez Intiface dla podłączonego urządzenia: wibracji, obracania, ruchu oscylacyjnego, zaciskania, pompowania, pozycji liniowej, temperatury, natrysku i oświetlenia. Pozycja liniowa steruje urządzeniami wykonującymi ruch posuwisty, pchający lub pompujący; pompowanie steruje urządzeniami wykorzystującymi ciśnienie powietrza.
+Marinara korzysta z każdego rodzaju wyjścia, który Intiface zgłasza dla urządzenia: wibracji, obracania, ruchu oscylacyjnego, zaciskania, pompowania, pozycji liniowej, temperatury, natrysku i oświetlenia. Pozycja liniowa steruje urządzeniami wykonującymi ruch posuwisty, pchający lub pompujący. Pompowanie steruje urządzeniami pompującymi, które wykorzystują ciśnienie powietrza.
 
-Agent może zastosować wzorzec **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** albo **Impact** do każdego działania poza zatrzymaniem. Wzorce pozycyjne naprzemiennie wyznaczają prawdziwe cele ruchu, dzięki czemu ruch pompujący lub posuwisty wykonuje się w czasie zamiast wysyłać kilka ruchów naraz.
+Agent może zastosować wzorzec **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** albo **Impact** do każdego działania poza zatrzymaniem. Wzorce pozycyjne naprzemiennie wyznaczają prawdziwe cele ruchu, dzięki czemu wzorzec pompujący lub posuwisty wykonuje się w czasie, zamiast wysyłać kilka ruchów naraz.
 
-### Pole Intiface URL
+## Pole Intiface URL
 
-W polu **Intiface URL** znajduje się adres sieciowy serwera aplikacji **Intiface Central**. To adres WebSocket, czyli lokalny link, przez który obie aplikacje się porozumiewają. Wartość domyślna jest podana niżej.
+Pole **Intiface URL** zawiera adres WebSocket serwera aplikacji Intiface Central. Adres WebSocket to link, przez który obie aplikacje się porozumiewają. Wartość domyślna:
 
-```
+```text
 ws://127.0.0.1:12345
 ```
 
-Adres `127.0.0.1` oznacza "ten sam komputer". Jeśli zostawisz pole puste, Marinara użyje wartości domyślnej serwera. Marinara zapisuje adres razem z czatem i zapamiętuje go też w tej przeglądarce, więc inne czaty otwierane tutaj zaczynają z tym adresem.
+Adres `127.0.0.1` oznacza ten sam komputer. Jeśli zostawisz pole puste, Marinara użyje wartości domyślnej serwera, którą można zmienić zmienną środowiskową `INTIFACE_URL` w pliku `.env`. Zobacz [Konfiguracja serwera](../CONFIGURATION.md). Marinara zapisuje adres razem z czatem i zapamiętuje go w tej przeglądarce, więc inne czaty otwierane tutaj zaczynają z tym adresem.
 
 Adres pozostaje w tej instalacji aplikacji Marinara Engine. Eksporty czatów, eksportowane profile ustawień i pliki **Export Profile** (eksport profilu) go pomijają, a import żadnego z nich go nie ustawia. Po przeniesieniu czatu do innej instalacji wpisz adres ponownie.
 
-Jeśli uruchamiasz aplikację Marinara Engine w kontenerze Docker albo otwierasz ją w przeglądarce na innym urządzeniu, adres `127.0.0.1` nie trafi do aplikacji **Intiface Central**. Wpisz wtedy adres komputera, na którym działa aplikacja **Intiface Central**. Wygląda on jak w przykładzie niżej, w którym liczby zastępuje się prawdziwym adresem tego komputera.
+Jeśli uruchamiasz aplikację Marinara Engine w kontenerze Docker albo otwierasz ją w przeglądarce na innym urządzeniu, adres `127.0.0.1` nie dotrze do aplikacji Intiface Central. Wpisz adres komputera, na którym ona działa, zastępując liczby jego prawdziwym adresem:
 
-```
+```text
 ws://192.168.1.50:12345
 ```
 
 ## Czułość dotyku
 
-W każdym trybie czatu karta **Haptic Feedback** pokazuje kontrolkę **Touch sensitivity** (czułość dotyku) z trzema opcjami. Czułość podpowiada agentowi, jak chętnie wybierać łagodny albo mocny sygnał, ale nie nakłada sztywnego limitu. Każda opcja może wykorzystać pełny zakres intensywności urządzenia `0.0-1.0`, gdy wymaga tego bieżące działanie.
+W każdym trybie czatu karta pokazuje kontrolkę **Touch sensitivity** (czułość dotyku). Wskazuje ona agentowi, jak chętnie ma wybierać łagodny albo mocny sygnał. Nie jest to górny limit: każda opcja może wykorzystać pełny zakres intensywności `0.0-1.0`, gdy wymaga tego działanie. Marinara sprawdza każdą komendę względem fizycznego zakresu Intiface.
 
-Trzy opcje wyznaczają styl reakcji agenta.
-
-| Opcja | Odczucie | Uwagi |
-|---|---|---|
-| **Subtle** | Preferuje łagodniejsze sygnały | Pełny zakres pozostaje dostępny |
-| **Standard** | Wyważona reakcja, dobra do większości scen | Ustawienie domyślne; pełny zakres jest dostępny |
-| **Intense** | Chętniej wybiera mocne sygnały | Może wykorzystać pełną moc |
-
-Domyślnie zaznaczona jest opcja **Standard**. Wybierz styl reakcji pasujący do sceny. Marinara nadal sprawdza każdą komendę względem fizycznego zakresu Intiface `0.0-1.0`.
+| Opcja | Odczucie |
+| --- | --- |
+| **Subtle** | Preferuje łagodniejsze sygnały. |
+| **Standard** | Wyważona reakcja, dobra do większości scen. To ustawienie domyślne. |
+| **Intense** | Chętniej wybiera mocniejsze sygnały. |
 
 ## Przypadkowy kontakt
 
-Pod kontrolką czułości każdy tryb czatu pokazuje też przełącznik **Incidental contact** (przypadkowy kontakt). Widnieje przy nim opis "Tiny taps for accidental brushes and bumps." Domyślnie przełącznik jest wyłączony.
+Przełącznik **Incidental contact** (przypadkowy kontakt) z opisem "Tiny taps for accidental brushes and bumps." jest domyślnie wyłączony. Gdy jest wyłączony, AI pomija drobne przypadkowe dotknięcia i wysyła sygnały tylko przy kontakcie celowym lub zdecydowanym. Włącz go, żeby dostawać delikatne stuknięcia także przy muśnięciach i potrąceniach.
 
-Kiedy jest wyłączony, AI pomija w historii drobne przypadkowe dotknięcia. Wysyła sygnały tylko przy kontakcie celowym lub zdecydowanym. Włącz go, jeśli chcesz odczuwać delikatne stuknięcia także przy muśnięciach i potrąceniach.
+<a id="use-it-from-another-device"></a>
 
 ## Korzystanie z innego urządzenia
 
-Domyślnie Marinara przyjmuje komendy haptyczne tylko z tego komputera, na którym działa serwer Marinara Engine. Dzięki temu sterowanie urządzeniem zostaje lokalne i prywatne.
+Domyślnie Marinara przyjmuje komendy haptyczne tylko z komputera, na którym działa serwer Marinara Engine. Dzięki temu sterowanie urządzeniem pozostaje prywatne. Dlatego haptyczna informacja zwrotna nie działa, gdy otwierasz aplikację Marinara Engine na telefonie lub innym urządzeniu, które łączy się z serwerem działającym gdzie indziej. Połączenie, skanowanie i komendy są wtedy odrzucane.
 
-Z tego powodu haptyczna informacja zwrotna nie zadziała, gdy otworzysz aplikację Marinara Engine na telefonie lub innym urządzeniu. Dotyczy to sytuacji, w której takie urządzenie łączy się z serwerem Marinara Engine działającym gdzie indziej. Połączenie, skanowanie i komendy są wtedy odrzucane, dopóki nie zmienisz ustawień serwera.
-
-Aby zezwolić na sterowanie haptyczne z innego urządzenia, włącz ustawienie serwera o nazwie `HAPTICS_ALLOW_REMOTE`. Trzeba też skonfigurować ochronę dostępu, na przykład Basic Auth albo sekret administratora. Samo ustawienie opisuje [Konfiguracja serwera](../CONFIGURATION.md). Ochronę dostępu opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Dostęp administratora wpisuje się w panelu **Settings** (Ustawienia), w obszarze **Advanced**, w sekcji **Admin Access**.
+Aby na to zezwolić, włącz ustawienie serwera `HAPTICS_ALLOW_REMOTE` i skonfiguruj ochronę dostępu – logowanie albo sekret administratora. Zobacz [Konfiguracja serwera](../CONFIGURATION.md) i przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md). Dostęp administratora wpisuje się w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny).
 
 ## Kiedy coś nie działa
 
-Jeśli AI nigdy nie uruchamia urządzenia, sprawdź kolejno te punkty.
+Jeśli AI nigdy nie uruchamia urządzenia, sprawdź kolejno:
 
-1. Sprawdź, czy aplikacja **Intiface Central** jest otwarta i czy jej serwer jest uruchomiony.
-2. Sprawdź, czy urządzenie jest sparowane i widoczne na liście urządzeń po kliknięciu przycisku **Scan for devices**.
-3. Sprawdź, czy kropka stanu jest zielona i czy przełącznik **Haptic Feedback** jest włączony.
-4. Jeśli korzystasz z telefonu lub urządzenia zdalnego, wróć do uwag o dostępie zdalnym powyżej.
+1. Aplikacja Intiface Central jest otwarta, a jej serwer uruchomiony.
+2. Urządzenie jest sparowane i widać je na liście po użyciu **Scan for devices**.
+3. Kropka stanu jest zielona, a przełącznik **Haptic Feedback** jest włączony.
+4. Jeśli korzystasz z telefonu lub urządzenia zdalnego, zobacz [Korzystanie z innego urządzenia](#use-it-from-another-device).
 
-Kiedy nie ma połączenia z aplikacją **Intiface Central** albo nie jest podłączone żadne urządzenie, Marinara po cichu pomija sygnał dotykowy od AI. W czacie nie pojawi się żaden błąd.
+Kiedy nie ma połączenia z aplikacją Intiface Central albo nie jest podłączone żadne urządzenie, Marinara po cichu pomija sygnał i nie pokazuje w czacie żadnego błędu.
 
 ## Powiązane przewodniki
 

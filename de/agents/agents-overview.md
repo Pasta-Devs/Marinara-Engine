@@ -1,115 +1,115 @@
 # Agenten: KI-Helfer für deine Chats
 
-In dieser Anleitung erfährst du, was Agenten in Marinara Engine sind, wie du sie herunterlädst, wann sie laufen und wie du sie für einen Chat aktivierst. Es geht um das **Agents**-Panel (Agenten), den offiziellen Katalog, die Einstellungen pro Chat und die Frage, woran du erkennst, dass ein Agent gelaufen ist. Den kompletten Erstanbieter-Katalog findest du am Ende unter „Verwandte Anleitungen“.
+Agenten sind kleine KI-Helfer, die rund um die Hauptantwort in deinem Chat mitlaufen. Einer führt Uhrzeit und Wetter mit, ein anderer wählt einen Gesichtsausdruck für den Charakter, wieder ein anderer zeichnet ein Bild für einen wichtigen Moment. In dieser Anleitung erfährst du, wie du Agenten installierst, für einen Chat einschaltest und prüfst, ob sie gelaufen sind.
 
 ## Was Agenten sind
 
-Agenten sind kleine KI-Helfer, die rund um die Hauptantwort im Chat automatisch mitlaufen. Sie erledigen eng umrissene Aufgaben, während du mit einem Charakter sprichst. Ein Agent führt zum Beispiel Uhrzeit und Wetter mit oder wählt einen Gesichtsausdruck für den Charakter. Ein anderer schreibt die Antwort um und entfernt Wortwiederholungen. Wieder andere generieren ein Bild für einen wichtigen Moment.
+Agenten werden pro Chat eingeschaltet, nicht pro Charakter. Zwei Chats mit demselben Charakter können unterschiedliche Agenten nutzen.
 
-Agenten werden pro Chat aktiviert, nicht pro Charakter. Auf einer Charakterkarte gibt es keinen Schalter für Agenten. Zwei Chats mit demselben Charakter können völlig unterschiedliche Agenten nutzen. Welche Agenten laufen, legst du in den Einstellungen des jeweiligen Chats fest.
+Eine frische Installation bringt keine optionalen Agenten mit. Du installierst sie über **Agent Organizer** (Agentenverwaltung), den Store für offizielle Pakete zur Installation per Klick. Quellcode und Katalog sind öffentlich unter [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) einsehbar. Installier über **Agent Organizer**, damit Marinara Kompatibilität, Berechtigungen und Datei-Hashes prüfen kann. Was jeder Agent macht, steht in der [Referenz der herunterladbaren Agenten](built-in-agents.md). Wie du eigene baust, zeigt [Eigene Agenten erstellen](custom-agents.md).
 
-Frisch installierte Marinara-Engine-Versionen bringen keine optionalen Agenten mit. Das hält die Basis-App und die Termux-Installation klein. **Agent Organizer** (Agentenverwaltung) ist der Store für die offiziellen Pakete zur Installation per Klick. Auf der Startseite siehst du empfohlene Agenten, Starterpakete und Bereiche. Jeder Agent hat eine eigene Seite mit Screenshots und Anleitungen. Der Katalog enthält Long-Term Memory, World Maps, Calls, Inventory Tracker und alle sechs Conversation-Spiele. Quellcode, Manifeste, herunterladbare Artefakte und der Katalog auf Repository-Ebene sind öffentlich einsehbar unter [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Die vollständige Beschreibung jedes einzelnen Agenten steht in der [Referenz der herunterladbaren Agenten](built-in-agents.md). Wie du eigene baust, zeigt [Eigene Agenten erstellen](custom-agents.md).
+## Einen Agenten zu einem Chat hinzufügen
 
-## Die drei Phasen
+Bevor du loslegst: Installier zuerst den Agenten. Öffne das Panel **Agents** (Agenten) über das Symbol mit den Funkeln in den Tabs rechts, klick auf **Agent Organizer**, öffne die Seite des Agenten und klick auf **Get** (Herunterladen). Siehe [Agenten installieren und aktualisieren](#install-and-update-agents).
 
-Jeder Agent läuft an einem von drei Punkten rund um die Antwort. Dieser Punkt heißt **pipeline phase** (Pipeline-Phase). Du stellst ihn im Agent-Editor ein; jeder mitgelieferte Agent bringt bereits einen sinnvollen Standard mit.
+1. Öffne den Chat.
+2. Öffne **Chat Settings** (Chat-Einstellungen) und such den Abschnitt **Agents**.
+3. Schalte **Enable Agents** (Agenten aktivieren) ein. Das ist der Hauptschalter: Steht er aus, läuft in diesem Chat kein Agent.
+4. Klick auf **Add Agent** (Agent hinzufügen), öffne die Gruppe, zu der der Agent gehört (etwa **Writer Agents** oder **Misc Agents**), und wähl ihn aus.
 
-- **Pre-Generation**: läuft, bevor die KI ihre Antwort schreibt. So kann der Agent dem Prompt vorab nützlichen Kontext hinzufügen – der Prompt ist der Text, den Marinara an die KI schickt. Agenten, die Wissen nachschlagen, laufen hier.
-- **Parallel**: läuft gleichzeitig mit der Antwort. Der Agent wartet die Antwort nicht ab und kann sie auch nicht verändern. Ein Agent für Live-Publikumsreaktionen läuft hier.
-- **Post-Processing**: läuft, wenn die Antwort fertig ist. Der Agent kann sie lesen und – bei umschreibenden Agenten – auch bearbeiten. Die meisten Tracker, der Agent zur Textbereinigung und der Bild-Agent laufen hier.
+Die hinzugefügten Agenten erscheinen als aktiv, jeweils mit einer kleinen Schaltfläche zum Entfernen. Du kannst Agenten jederzeit hinzufügen oder entfernen.
 
-## Das Agents-Panel
+> **Hinweis:** Jeder Chat-Modus zeigt nur die Agenten, die in diesem Modus funktionieren. In Conversation erscheinen installierte Spiele in der Spieleauswahl, und **Calls** ergänzt Bedienelemente in der Werkzeugleiste. Im Game Mode wählst du Agenten beim Anlegen des Spiels aus oder fügst sie später hinzu.
 
-Öffne das **Agents**-Panel über die Tabs des rechten Panels (Symbol mit den Funkeln). Hier durchsuchst, erstellst und sortierst du Agenten. Das ist deine Bibliothek – und nicht der Schalter, mit dem du einen Agenten für einen einzelnen Chat ein- oder ausschaltest.
+Ist ein Agent nicht gelaufen, prüf, ob **Enable Agents** an ist, ob der Agent in diesem Chat aktiv ist und ob sein Modus zu deinem Chat passt.
 
-Ein Klick auf **Agent Organizer (Agentenverwaltung)** oben öffnet den offiziellen Katalog im Vollbild. Das funktioniert am Rechner wie am Handy. **Home** (Startseite) zeigt empfohlene Agenten und eine Reihe für jeden Bereich, etwa **Apps**, **Chat games** (Chat-Spiele), **Writing help** (Schreibhilfe) und **Trackers** (Tracker). **Updates** listet installierte Agenten mit einer neueren Version auf, **Installed** (Installiert) alle vorhandenen Pakete samt Version und Größe. Suche und Modusfilter grenzen jede Liste ein. Wähle einen Agenten aus, um seine Seite zu öffnen: Beschreibung, unterstützter Funktionstyp, Download-Größe, Berechtigungen, Versionskompatibilität und Dokumentation. Über **Get** (Herunterladen) fügst du ihn hinzu; dieselbe Seite bietet manuelle Updates, und das Menü **⋯** enthält **Uninstall** (Deinstallieren) für bereits vorhandene Pakete. Veröffentlicht das Paket Release Notes, listet ein Abschnitt **Version history** (Versionsverlauf) auf, was sich in jeder Version geändert hat. Das Menü **⋯** neben dem Titel enthält **Update all** (Alle aktualisieren), **Install all** (Alle installieren), **Refresh catalog** (Katalog neu laden) und **Uninstall all** (Alle deinstallieren).
+### Weitere Bedienelemente im Abschnitt Agents
 
-Hinter dem Katalog in der App steht das öffentliche [Repository Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Dort lässt sich jedes Paket und jedes Artefakt einsehen. Für den Normalfall gilt trotzdem: über **Agent Organizer (Agentenverwaltung)** installieren, damit Marinara Kompatibilität, Berechtigungen, Hashes, Archivinhalte und nötige Neustarts prüfen kann.
+Diese Bedienelemente stehen im selben Abschnitt **Agents**.
 
-Der Katalog umfasst Chat-Agenten aus erster Hand, World Maps, Audio- und Videoanrufe für Conversation sowie sämtliche optionalen Conversation-Spiele. Installierte Agenten sind in **Apps**, **Writer Agents**, **Tracker Agents** und **Misc Agents** gruppiert, dazu kommt ein Bereich **Custom Agents** für selbst gebaute. **Apps** sind Pakete mit einem eigenen Home-Tab, etwa Noodle und Slurp, die du eigenständig nutzt, statt sie einem Chat hinzuzufügen. Ein mit **Rules** gekennzeichnetes Paket liefert einen Game Mode-Regelsatz wie 5e (SRD 5.1), keinen Agenten. Du wählst es beim Anlegen eines Spiels unter **Rules**; siehe [Mit einem Regelsatz spielen](../game/rulesets.md). Im Chat gibt es dafür keinen Aktivierungsschalter. Das 5e-Paket ist eine Vorschau und erscheint derzeit nur im Katalog einer Engine aus dem Branch `staging`. Deinstallierst du ein Katalogpaket, verschwinden Code und Einstellungen aus der Engine – Nachrichten und Chatverlauf bleiben erhalten. Löschst du einen eigenen Agenten, ist er endgültig weg.
+- **Agent Menus** (Agent-Menüs, nur in Roleplay): Ein Klick auf den Namen eines Agenten bringt dich zu seinen Einstellungen.
+- **Trackers Control** (Tracker-Steuerung, nur in Roleplay): eine zugeklappte Karte mit den unten aufgeführten Tracker-Optionen.
+- **Agent Suite**: öffnet eine Ansicht, in der du liest und bearbeitest, was die Agenten für diesen Chat gespeichert haben.
+- **Review Agent Outputs** (Agent-Ausgaben prüfen): Änderungen an Lorebook, Zusammenfassung und Charakterkarte warten auf deine Freigabe. In Roleplay steckt die Option in **Trackers Control**. Siehe [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md).
 
-Kommst du von einer Engine-Version, die diese Funktionen noch fest mitbrachte, lädt Marinara die passenden Pakete einmalig herunter. Chat-Auswahl, Agent-Einstellungen, gespeicherte Laufzeitdaten und Verlauf bleiben dabei bestehen. Erreicht diese Migration den Katalog nicht, versucht sie es beim nächsten Start erneut, statt irgendetwas zu verwerfen.
+Optionen in **Trackers Control**:
 
-<a id="updating-packages"></a>
+- **Attach chat summaries** (Chat-Zusammenfassungen anhängen): standardmäßig aus. Hängt gespeicherte Chat-Zusammenfassungen an Agent-Anfragen an, auch bei Wiederholungen. Aus der Hauptantwort verschwinden die Zusammenfassungen dadurch nicht, und sie werden weiterhin erzeugt. Agenten mit vollem Zugriff auf den Hauptprompt können Zusammenfassungen dort weiterhin lesen.
+- **Attach Lorebooks to Trackers** (Lorebooks an Tracker anhängen): Tracker-Agenten bekommen zusätzlich die Lorebook-Einträge, die für die Hauptantwort verwendet wurden. Erscheint, sobald der Chat einen Tracker-Agenten hat.
+- **Individual tracker schedule** (Zeitplan pro Tracker): Ein Tracker läuft dann nicht mehr nach jeder Antwort. Du startest ihn von Hand über das HUD (die Statusanzeige auf dem Bildschirm in Roleplay).
 
-### Pakete aktualisieren
+### Einem Agenten ein Referenz-Lorebook geben
 
-Marinara aktualisiert ein Paket nur nach Rückfrage. Gibt es für ein installiertes Paket eine neuere kompatible Version, erscheint das Fenster **Agent updates available**. Es listet jedes Update mit seiner neuen Version auf und zeigt, ob ein Neustart nötig ist. Alle Updates sind ausgewählt; entferne das Häkchen bei jedem, das du überspringen möchtest. Veröffentlicht das Paket Release Notes, zeigt **What's new** (Was ist neu) sie an. Überspringt das Update Versionen, listet es die Notes aller Versionen seit deiner auf, die neueste zuerst. Lange Notes werden gekürzt; mit **More** (Mehr) liest du sie vollständig. Ein Punkt markiert eine Änderung, die dir auffallen wird; Updates ohne Punkt sind routinemäßige Fehlerbehebungen. **See in Agent Organizer** (in der Agentenverwaltung ansehen) öffnet die Seite des Agenten.
+1. Öffne in **Chat Settings** den Abschnitt **Agents** und dann die Einstellungen des Agenten.
+2. Schalte **Attach lorebook for the specific agent** (Lorebook für diesen Agenten anhängen) ein. Anfangs ist es aus.
+3. Wähl unter **Reference lorebook** (Referenz-Lorebook) ein Buch.
 
-- Klick auf **Update all**, um die ausgewählten Updates zu installieren. Hast du einige Häkchen entfernt, steht dort **Update 2 of 3** (2 von 3 aktualisieren). Jede Zeile zeigt danach **Updated** oder **Failed**. Eine fehlgeschlagene Zeile nennt den Grund und bietet eine Schaltfläche **Retry** (wiederholen). Braucht ein Update einen Neustart, klick auf **Restart now** (Jetzt neu starten) oder starte Marinara Engine später neu.
-- Klick auf **Not now** (Jetzt nicht), um deine aktuellen Versionen zu behalten. Updates, deren Häkchen du entfernt hast, zählen ebenfalls als **Not now**. Zu einer übersprungenen Version fragt Marinara nicht noch einmal nach.
+Die Auswahl gehört zu diesem Agenten in diesem Chat. Passende Einträge folgen den normalen Lorebook-Auslöseregeln und gehen an diesen Agenten, auch bei manuellen Wiederholungen. Die Einstellung fügt das Buch weder der Hauptantwort noch unbeteiligten Agenten hinzu, gemeinsam laufende Agenten können dieselben Einträge aber ebenfalls sehen. Gelöschte oder nicht verfügbare Bücher liefern nichts.
 
-Aktualisieren kannst du jedes Paket auch später noch über **Agent Organizer (Agentenverwaltung)**. Installierte Pakete laufen in ihrer aktuellen Version weiter, bis du sie aktualisierst – auch wenn der Katalog nicht erreichbar ist.
+## Wann Agenten laufen
 
-Updates betreffen nur Pakete, die du bereits installiert hast. Installationen auf dem Rechner, unter Docker und unter Android/Termux halten ihre Pakete auf ihrem lokalen Server. iOS, iPadOS und andere Browser-Clients nutzen die Pakete, die auf ihrem verbundenen Marinara-Server installiert sind.
+Jeder Agent läuft an einem bestimmten Punkt rund um die Antwort, seiner **pipeline phase** (Pipeline-Phase). Jeder mitgelieferte Agent hat dafür einen Standard. Ändern kannst du ihn im Agent-Editor.
 
-## Agenten für einen Chat aktivieren
+| Phase | Wann sie läuft | Beispiele |
+| --- | --- | --- |
+| **Pre-Generation** | Vor der Antwort. Kann dem Prompt Kontext hinzufügen. | Wissen nachschlagen |
+| **Parallel** | Gleichzeitig mit der Antwort. Kann die Antwort nicht verändern. | Live-Publikumsreaktionen |
+| **Post-Processing** | Nach der Antwort. Kann die Antwort lesen; umschreibende Agenten können sie bearbeiten. | Die meisten Tracker, Textbereinigung, Bilder |
 
-Agenten schaltest du innerhalb jedes Chats ein, im Panel **Chat Settings** (Chat-Einstellungen).
-
-1. Öffne den gewünschten Chat.
-2. Öffne **Chat Settings** (Chat-Einstellungen).
-3. Geh zum Abschnitt **Agents**.
-4. Aktiviere **Enable Agents** (Agenten aktivieren). Das ist der Hauptschalter. Steht er aus, läuft in diesem Chat kein einziger Agent.
-5. Füge aus den Listen unter dem Schalter die gewünschten Agenten hinzu oder entferne die, die du nicht brauchst.
-
-Die hinzugefügten Agenten erscheinen anschließend als aktiv, jeweils mit einer kleinen Schaltfläche zum Entfernen.
-
-Der Abschnitt **Agents** bietet noch ein paar weitere Bedienelemente:
-
-- **Agent Menus** (Agent-Menüs, nur in Roleplay-Chats): sitzt direkt unter **Enable Agents**. Ein Klick auf den Namen eines Agenten bringt dich zu seinen Einstellungen.
-- **Trackers Control** (Tracker-Steuerung, nur in Roleplay-Chats): eine Karte, die anfangs zugeklappt ist. Klick darauf, um diese Einstellungen aufzuklappen:
-  - **Attach chat summaries** (Chat-Zusammenfassungen anhängen): standardmäßig aus, auch in bestehenden Chats ohne gespeicherte Auswahl. Aktiviere die Option, um gespeicherte Zusammenfassungen an Agent-Anfragen anzuhängen, auch bei der Nachverarbeitung und manuellen Wiederholungen. Zusammenfassungen bleiben für die Hauptantwort verfügbar und werden weiterhin erzeugt. Agenten mit ausdrücklich gewährtem Zugriff auf den vollständigen Hauptprompt können darin enthaltene Zusammenfassungen weiterhin lesen.
-  - **Attach Lorebooks to Trackers** (Lorebooks an Tracker anhängen): Ist das aktiv, bekommen Tracker-Agenten zusätzlich die Lorebook-Einträge, die für die Hauptantwort verwendet wurden. Ein Lorebook ist eine Sammlung von Weltwissen. Die Option erscheint, sobald der Chat einen Tracker-Agenten hat.
-  - **Review Agent Outputs** (Agent-Ausgaben prüfen): wird im eigenen Punkt nach dieser Liste beschrieben.
-  - **Individual tracker schedule** (Zeitplan pro Tracker): Schalte einen Tracker ein, damit er nicht mehr nach jeder Antwort läuft. Du startest ihn dann von Hand über eine Schaltfläche im HUD. HUD steht für Heads-up-Display, die Info-Leiste am oberen Chatrand in Roleplay. Die Option erscheint, sobald der Chat einen Tracker-Agenten hat.
-- **Review Agent Outputs**: Ist das aktiv, warten Änderungen an Lorebook, Zusammenfassung und Charakterkarte auf deine Freigabe, bevor sie gespeichert werden. Ist die Option aus, speichern sich Lorebook- und Zusammenfassungs-Änderungen selbst – Bearbeitungen an der Charakterkarte fragen aber weiterhin bei dir nach. Mehr dazu unter [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md). In Roleplay-Chats steckt die Option in **Trackers Control**.
-- **Agent Suite**: öffnet eine Ansicht, in der du alles lesen und bearbeiten kannst, was die Agenten für diesen Chat gespeichert haben.
-
-<a id="a-reference-lorebook-for-one-agent"></a>
-
-### Ein Referenz-Lorebook für einen Agenten
-
-Öffne in **Chat Settings** den Abschnitt **Agents** und dann die Einstellungen des schreibenden, nachverfolgenden oder eigenen Agenten. **Attach lorebook for the specific agent** (Lorebook für diesen Agenten anhängen) ist anfangs aus. Schalte es ein, um **Reference lorebook** (Referenz-Lorebook) einzublenden und ein Buch zu wählen. Die Auswahl gehört zu diesem Agenten in diesem Chat; sie ändert weder seine globale Definition noch andere Chats.
-
-Herunterladbare Paketfunktionen wie World Maps benötigen neben dem Engine-Update auch das passende Paket-Update.
-
-Passende Einträge folgen den normalen Lorebook-Auslöseregeln und werden diesem Agenten als Referenzkontext übergeben, auch bei manuellen Wiederholungen. Die Verknüpfung aktiviert das Buch nicht für die Hauptantwort oder unbeteiligte Agenten. Gemeinsam ausgeführte Agenten können dieselben Referenzeinträge ebenfalls sehen. Schaltest du die Verknüpfung aus, liefert sie keine Einträge mehr; nicht verfügbare oder gelöschte Bücher liefern keine. Bestehende Quellen-Einstellungen eigener Agenten bleiben unabhängig davon verfügbar.
-
-Ältere oder importierte Nachrichten enthalten möglicherweise nicht genug Informationen, um eine Gruppenantwort von einer Fortsetzung zu unterscheiden, sodass ihre Auslöser einen konservativen Fallback verwenden.
-
-### Der Kostenhinweis
-
-Agenten kosten zusätzliche Tokens und zusätzliche Modellaufrufe – ein Token ist ein kleines Textstück. Jeder Agent bringt eigene Anweisungen mit, oft auch einen eigenen Modellaufruf. Wo möglich, bündelt Marinara Agenten mit derselben Verbindung in einem einzigen Aufruf. Über der Agentenliste schätzt eine Anzeige die Last deiner aktuellen Auswahl. Sie nennt ungefähr, wie viele Tokens an Agent-Anweisungen dazukommen und wie viele zusätzliche Aufrufe pro Zug anfallen.
-
-Klick oder tippe auf das Hilfesymbol neben der Anzeige, um die Erklärung auf dem Computer oder Smartphone zu öffnen. Wird die Last hoch, färbt sich diese Anzeige bernsteinfarben und zeigt ein Warnsymbol. Die tatsächlichen Kosten pro Zug liegen über dem angezeigten Wert, denn mit jedem Aufruf gehen auch Chatverlauf und Charakterdetails mit. Erscheint die Warnung, entferne nicht benötigte Agenten oder verschiebe einige auf eine günstigere oder lokale Verbindung. Das Limit für die letzten Nachrichten betrifft nur Chatnachrichten; Agent-Anweisungen, Charakterdetails und angehängte Zusammenfassungen kommen als zusätzlicher Kontext dazu. Ein für die Verbindung gespeicherter **Reasoning Effort** (Denkaufwand) gilt auch für ihre Agenten. Eine hohe Stufe macht daher jeden ihrer Aufrufe langsamer und teurer. Siehe [Parameter für Agenten](../prompts/generation-parameters.md#parameters-for-agents).
-
-## Womit die einzelnen Modi starten
-
-Eine frische Installation startet ohne installierte oder aktive optionale Agenten. Jeder Chat-Modus zeigt nur die installierten Pakete, die zu ihm passen.
-
-- **Roleplay**: Installiere Roleplay-Agenten aus dem Katalog und füge sie dann in Chat Settings hinzu. World Maps taucht dort auf wie jeder andere unterstützte Agent.
-- **Conversation**: Installiere Calls oder einzelne Tischspiele aus dem Katalog. Spiele erscheinen in der Spieleauswahl und melden ihre Slash-Befehle an; Anrufe ergänzen ihre Symbolleiste und ihre Bedienelemente in Chat Settings.
-- **Game Mode**: Installierte Game-kompatible Agenten lassen sich beim Anlegen eines Spiels auswählen oder später ergänzen. World Maps steuert Kartenarbeitsfläche und Weltkartenansicht nur bei, wenn es für dieses Spiel aktiv ist.
-
-Kompatible Agenten kannst du jederzeit hinzufügen oder entfernen.
+<a id="tell-whether-an-agent-ran"></a>
 
 ## Erkennen, ob ein Agent gelaufen ist
 
-Manche Agenten verändern sofort etwas Sichtbares, andere arbeiten unauffällig. So findest du es heraus.
+- Tracker-Agenten schreiben ins HUD und in die Tracker-Panels. Haben sich Zeit, Ort, Stimmung oder Werte geändert, ist ein Tracker gelaufen.
+- **Agent activity** (Agentenaktivität) in **Chat Settings** listet kurze Notizen der Agenten auf. Das Symbol dreht sich, während sie arbeiten, und zeigt einen Punkt, wenn einer fehlschlägt. Siehe [Agent activity](../roleplay/getting-started.md#agent-activity).
+- **Prose Guardian** und **Continuity Checker** verändern den Antworttext. Eine geglättete oder korrigierte Antwort heißt, dass sie gelaufen sind.
+- Für eine lückenlose Spur schalte **Debug mode** (Debug-Modus) unter **Settings → Advanced → Message Tools** ein. Er protokolliert Prompt und Antwort jedes Agenten in der Server-Konsole, und Debug-Einträge der Agenten erscheinen zusätzlich in der Browser-Konsole. Zwischengespeicherte Prompt-Injektionen zeigt der Tab **Injections** (Injektionen) von **Agent activity**.
 
-- Tracker-Agenten schreiben ins HUD und in die Tracker-Panels. Haben sich Zeit, Ort, Stimmung oder Werte geändert, war ein Tracker-Agent am Werk.
-- **Agent activity** (Agentenaktivität) in **Chat Settings** listet kurze Notizen der Agenten auf. Während sie arbeiten, wird das Symbol zu einem drehenden Ladesymbol, und schlägt ein Agent fehl, erscheint ein Punkt darauf. Siehe [Agent activity](../roleplay/getting-started.md#agent-activity).
-- Die Agenten **Prose Guardian** und **Continuity Checker** verändern den Antworttext selbst. Eine geglättete oder korrigierte Antwort ist ein Zeichen dafür, dass sie gelaufen sind.
-- Für eine lückenlose Spur aktiviere den **Debug mode** (Debug-Modus) unter **Settings** (Einstellungen), dann **Advanced**, dann **Message Tools**. Er protokolliert Prompt und Antwort jedes Agenten in der Server-Konsole und blendet zusätzlich ein **Agent Debug**-Overlay mit Aufrufen, Tokens und Zeiten pro Agent ein.
+## Die Kosten im Blick behalten
 
-Ein erwarteter Agent ist nicht gelaufen? Prüf, ob **Enable Agents** an ist. Prüf, ob der Agent für diesen Chat aktiv ist. Prüf, ob dein Chat-Modus ihn zulässt.
+Jeder Agent bringt eigene Anweisungen mit und oft auch einen eigenen Modellaufruf. Wo möglich, bündelt Marinara Agenten mit derselben Verbindung in einem Aufruf.
+
+Eine Anzeige über der Agentenliste schätzt die zusätzlichen Tokens und Aufrufe pro Zug. Tipp auf das Hilfesymbol daneben, um Details zu sehen. Ist die Last hoch, färbt sich die Anzeige bernsteinfarben und zeigt ein Warnsymbol. Die tatsächlichen Kosten liegen höher, denn mit jedem Aufruf gehen auch Chatverlauf und Charakterdetails mit.
+
+Erscheint die Warnung, entferne Agenten, die du nicht brauchst, oder verschiebe einige auf eine günstigere oder lokale Verbindung. Ein **Reasoning Effort** (Denkaufwand), der an einer Verbindung gespeichert ist, gilt auch für die Agenten, die sie nutzen. Siehe [Parameter für Agenten](../prompts/generation-parameters.md#parameters-for-agents).
+
+<a id="install-and-update-agents"></a>
+
+## Agenten installieren und aktualisieren
+
+Öffne das Panel **Agents** über das Symbol mit den Funkeln in den Tabs rechts und klick auf **Agent Organizer**. Das funktioniert am Rechner wie am Handy.
+
+- **Home** (Startseite) zeigt empfohlene Agenten und eine Reihe für jeden Bereich: **Apps**, **Chat games** (Chat-Spiele), **Trackers** (Tracker) und **Writing help** (Schreibhilfe).
+- **Updates** listet installierte Agenten mit einer neueren Version auf. **Installed** (Installiert) listet alles, was du hast, mit Version und Größe.
+- Suche und Modusfilter grenzen jede Liste ein.
+- Wähl einen Agenten aus, um Beschreibung, Download-Größe, Berechtigungen, Kompatibilität und **Version history** (Versionsverlauf) zu sehen. Klick auf **Get**, um ihn zu installieren. Das Menü **⋯** bietet **Uninstall** (Deinstallieren).
+- Das Menü **⋯** neben dem Titel enthält **Update all** (Alle aktualisieren), **Install all** (Alle installieren), **Refresh catalog** (Katalog neu laden) und **Uninstall all** (Alle deinstallieren).
+
+Installierte Agenten sind in **Apps**, **Writer Agents**, **Tracker Agents** und **Misc Agents** gruppiert, dazu kommt **Custom Agents** für selbst gebaute. **Apps** sind Pakete mit einem eigenen Home-Tab, etwa Noodle und Slurp. Du nutzt sie eigenständig, statt sie einem Chat hinzuzufügen.
+
+Ein mit **Rules** gekennzeichnetes Paket ist kein Agent. Es liefert einen Game-Mode-Regelsatz wie 5e (SRD 5.1), den du beim Anlegen eines Spiels unter **Rules** wählst. Siehe [Mit einem Regelsatz spielen](../game/rulesets.md). Das 5e-Paket ist eine Vorschau, deshalb listet es nur eine Engine aus dem Branch `staging`.
+
+Deinstallierst du ein Paket, verschwinden sein Code und seine Einstellungen, deine Chatnachrichten und dein Verlauf bleiben aber erhalten. Löschst du einen eigenen Agenten, ist er endgültig weg.
+
+### Agenten aktualisieren
+
+Gibt es für ein installiertes Paket eine neuere kompatible Version, öffnet sich das Fenster **Agent updates available**. Es listet jedes Update mit seiner Version auf und zeigt, ob es einen Neustart braucht.
+
+1. Entferne das Häkchen bei jedem Update, das du überspringen willst. Anfangs sind alle Updates ausgewählt.
+2. Lies **What's new** (Was ist neu), falls das Paket Release Notes veröffentlicht hat. **More** (Mehr) zeigt lange Notes vollständig an. Ein Punkt markiert eine Änderung, die dir auffallen wird.
+3. Klick auf **Update all** – oder auf **Update 2 of 3** (2 von 3 aktualisieren), wenn du einige Häkchen entfernt hast. Jede Zeile zeigt **Updated** oder **Failed**. Eine fehlgeschlagene Zeile nennt den Grund und zeigt **Retry** (wiederholen).
+4. Braucht ein Update einen Neustart, klick auf **Restart now** (Jetzt neu starten) oder starte Marinara später neu.
+
+Klick auf **Not now** (Jetzt nicht), um deine Versionen zu behalten. Zu einer übersprungenen Version fragt Marinara nicht noch einmal nach. Über **Agent Organizer** kannst du jederzeit aktualisieren. Installierte Pakete laufen in ihrer aktuellen Version weiter, auch wenn der Katalog nicht erreichbar ist. **See in Agent Organizer** (in der Agentenverwaltung ansehen) öffnet die Seite des Agenten.
+
+Updates betreffen nur Pakete, die du installiert hast. Pakete liegen auf dem Marinara-Server, deshalb nutzen Browser-Clients, was der Server installiert hat.
+
+Kommst du von einer Engine-Version, die diese Funktionen noch fest mitbrachte, lädt Marinara die passenden Pakete einmalig herunter und behält deine Chat-Auswahl, deine Einstellungen und deinen Verlauf. Ist der Katalog nicht erreichbar, versucht Marinara es beim nächsten Start erneut.
 
 ## Verwandte Anleitungen
 
 - [Referenz der herunterladbaren Agenten](built-in-agents.md)
 - [2D- und 3D-Avatare](avatars.md)
-- [Offizielles Marinara-Agents-Repository](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Eigene Agenten erstellen](custom-agents.md)
 - [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md)
 - [Roleplay-HUD und Tracker](../roleplay/hud-and-trackers.md)

@@ -1,6 +1,6 @@
 # Fonctionnement interne des prompts Noodle (développeurs)
 
-Référence pour les développeurs : où vivent les prompts de génération de Noodle dans le code, comment les personnaliser et comment déboguer les prompts finaux. Un prompt, c'est le texte que Marinara envoie à l'IA. Côté utilisateur, Noodle se configure depuis son panneau **Settings** (Paramètres) ; voir les guides Noodle dans `docs/noodle/`.
+Référence pour les développeurs : où vivent les prompts de génération de Noodle dans le code, comment les personnaliser et comment déboguer les prompts finaux. Un prompt, c'est le texte que Marinara envoie à l'IA. Côté utilisateur, Noodle se configure depuis son panneau **Settings** (Paramètres) ; voir les guides Noodle `docs/agents/noodle.md` et `docs/agents/noodle-settings.md`.
 
 Noodle est un package téléchargeable. Ses routes (`/api/noodle`, enregistrées quand le package s'active) et son code de génération vivent dans le package Noodle de [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), sous `packages/noodle/src/engine/packages/server/src/`. Dans le tableau ci-dessous, une source marquée **package** est relative à ce dossier. Engine conserve le schéma et les types Noodle partagés, le stockage de Noodle, les surcharges de prompts enregistrées que Settings liste, ainsi que le texte par défaut du prompt de timeline dans `packages/server/src/services/noodle/noodle-prompt.ts`. Le package garde ses propres copies de `services/prompt-overrides/registry/noodle.ts` et de `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ Les changements du code qui appartient au package se font et se valident dans Ma
 
 ## Guides associés
 
-- [Noodle : la timeline sociale intégrée](../noodle/overview.md)
-- [Réglages de Noodle et reprise du chat](../noodle/settings.md)
+- [Noodle : la timeline sociale intégrée](../agents/noodle.md)
+- [Réglages de Noodle et reprise vers les chats](../agents/noodle-settings.md)
 - [Packages d'agents et de capacités optionnels](optional-agent-packages.md)
 - [Carte de l'architecture (développeurs)](architecture-map.md)

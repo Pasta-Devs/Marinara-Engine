@@ -1,350 +1,406 @@
 # Memory Recall und Chat-Zusammenfassungen
 
-Diese Anleitung erklärt **Memory Recall** (Suche in früheren Nachrichten), das optionale **Advanced Memory Recall** (erweiterter Erinnerungsabruf) für die automatische Kontextverwaltung in Roleplay und Game Mode, **Chat Summary** und **Automatic Summarization** in Conversation.
+Jedes KI-Modell kann immer nur eine begrenzte Textmenge auf einmal lesen. Diese Grenze heißt Kontextfenster. In einem langen Chat fallen die ältesten Nachrichten heraus, und die KI vergisst sie. Marinara Engine (im Folgenden nur Marinara) kann diesen Verlauf auf mehreren Wegen zurückholen. In dieser Anleitung erfährst du, wie du jeden davon einschaltest und Probleme behebst, wenn er nicht funktioniert.
 
-## Die zwei Gedächtnissysteme
+## Welche Gedächtnisfunktion brauche ich?
 
-Jedes KI-Modell kann immer nur eine begrenzte Textmenge auf einmal lesen. Diese Grenze heißt Kontextfenster. Wird ein Chat lang, fallen die ältesten Nachrichten aus dem Fenster heraus und die KI vergisst sie. Marinara Engine (im Folgenden nur Marinara) hat dafür zwei getrennte Systeme.
+Fang mit **Memory Recall** an. Es funktioniert ohne zusätzliche Einrichtung, weil Marinara ein eingebautes Embedding-Modell auf deinem Rechner nutzen kann. Nimm Zusammenfassungen dazu, wenn Chats sehr lang werden.
 
-- **Memory Recall** durchsucht die älteren Nachrichten nach den Stellen, die am besten zu deiner letzten Eingabe passen, und schiebt sie unauffällig zurück in den Prompt – also in den Text, den Marinara an die KI schickt. Das funktioniert in jedem Chat-Modus.
-- Zusammenfassungen pressen alte Nachrichten zu kurzen Rückblicken zusammen, die im Prompt an die Stelle der Originalnachrichten treten. In Roleplay-Chats übernimmt das **Chat Summary**, in Conversation-Chats **Automatic Summarization**.
+| Funktion | Was sie tut | Gilt für |
+| --- | --- | --- |
+| **Memory Recall** | Durchsucht ältere Nachrichten nach den Stellen, die zu deiner letzten Eingabe passen, und fügt sie in den Prompt ein. | Alle Modi |
+| **Chat Summary** | Ersetzt alte Nachrichten durch kurze Rückblicke. | Roleplay |
+| **Automatic Summarization** | Fasst jeden Tag zusammen, dann jede Woche. Immer an. | Conversation |
+| **Advanced Memory Recall** (erweiterter Erinnerungsabruf) | Verwaltet Live-Verlauf, Szenenzusammenfassungen und abgerufene Auszüge gemeinsam. Optional. | Roleplay und Game Mode |
 
-Game-Mode-Chats bekommen **Memory Recall** und auf Wunsch **Advanced Memory Recall** (siehe [In Game Mode](#in-game-mode)). Beide Zusammenfassungs-Funktionen fehlen dort.
+Memory Recall und Zusammenfassungen erledigen unterschiedliche Aufgaben und können gleichzeitig laufen. Game Mode hat Memory Recall und auf Wunsch Advanced Memory Recall (siehe [In Game Mode](#in-game-mode)). Eine eigene Zusammenfassungsfunktion hat er nicht.
 
-Beide Systeme lassen sich gleichzeitig nutzen. Sie erledigen unterschiedliche Aufgaben und kommen sich nicht in die Quere.
+## Memory Recall
 
-## Memory Recall einrichten
-
-**Memory Recall** sucht passende Bruchstücke aus dem bisherigen Chat und fügt sie als Erinnerungen in den Prompt ein. Grundlage ist ein Embedding: ein numerischer Fingerabdruck der Bedeutung einer Nachricht. Marinara vergleicht den Fingerabdruck deiner neuen Nachricht mit den gespeicherten Fingerabdrücken früherer Nachrichten und ergänzt die ähnlichsten Treffer.
+Memory Recall arbeitet mit Embeddings. Ein Embedding ist ein numerischer Fingerabdruck der Bedeutung einer Nachricht. Marinara speichert frühere Nachrichten in kleinen Gruppen, den sogenannten Chunks. Es vergleicht den Fingerabdruck deiner neuen Nachricht mit den gespeicherten Fingerabdrücken und fügt die ähnlichsten Chunks in den Prompt ein.
 
 ### Memory Recall aktivieren
 
-1. Öffne einen Chat und klick auf die Schaltfläche **Chat Settings** (Chat-Einstellungen) im Chat (anfangs oben rechts).
-2. Such den Abschnitt **Memory Recall** (Symbol: ein Gehirn).
-3. Aktiviere den Schalter **Enable Memory Recall**.
+1. Öffne einen Chat und klick auf **Chat Settings** (Chat-Einstellungen).
+2. Such den Abschnitt **Memory Recall**.
+3. Schalte **Enable Memory Recall** ein.
 
-**Enable Memory Recall** gilt pro Chat. Der Standard hängt vom Modus ab:
+Die Einstellung gilt pro Chat. In Conversation-Chats ist sie anfangs an, ebenso in Roleplay- oder Game-Chats mit aktiver Szene. In allen anderen Chats ist sie anfangs aus. Schaltest du sie aus, endet der Abruf, gespeicherte Erinnerungen werden aber nicht gelöscht.
 
-- In Conversation-Chats standardmäßig an.
-- In Roleplay- oder Game-Chats mit aktiver Szene standardmäßig an.
-- In allen übrigen Chats standardmäßig aus.
+Wenn es nicht funktioniert hat: Memory Recall braucht eine Embedding-Quelle (nächster Abschnitt). Legst du keine fest, nutzt Marinara sein eingebautes Modell, die meisten können diesen Abschnitt also überspringen. Prüf, ob **Memory Recall** überhaupt erscheint. Einige Container-Builds, bekannt als Marinara Lite, schalten es vollständig ab.
 
-Schaltest du den Schalter aus, landen keine abgerufenen Erinnerungen mehr im Prompt. Bereits Gespeichertes bleibt aber erhalten.
+### Die Embedding-Quelle festlegen (optional)
 
-### Die Embedding-Quelle
+Memory Recall braucht ein Modell, das die Fingerabdrücke erzeugt. Legst du nichts fest, nutzt Marinara das eingebaute Embedding-Modell (siehe unten). Für die meisten ist das die einfachste Lösung. Willst du stattdessen einen Dienst nutzen, legst du ihn an einem Konto fest, nicht in den Chat-Einstellungen.
 
-Für die Bedeutungs-Fingerabdrücke braucht **Memory Recall** eine Embedding-Quelle. Die legst du an einer Verbindung fest, nicht in den Chat-Einstellungen. Eine Verbindung ist eine gespeicherte Anbindung an einen KI-Anbieter.
+Bevor du anfängst: Du brauchst ein Konto, das Embeddings anbietet. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
-1. Öffne das Panel **Connections** (Verbindungen) und bearbeite eine Verbindung.
-2. Such den Abschnitt **Semantic Search (Embeddings)**.
-3. Trag im Modellfeld den Namen eines Embedding-Modells ein, zum Beispiel `text-embedding-3-small`.
-4. Optional legst du unter **Embedding Endpoint URL** eine abweichende Adresse fest.
-5. Optional borgst du dir über das Dropdown-Menü **Embedding Connection** Key und Adresse einer anderen Verbindung. Zur Auswahl stehen unter anderem **Same as this connection** und **Local Model (sidecar)**.
+1. Öffne **Connections** (Verbindungen) und bearbeite das Konto.
+2. Such den Abschnitt **Semantic search (embeddings)**.
+3. Trag den Namen eines Embedding-Modells ein, zum Beispiel `text-embedding-3-small`.
+4. Optional: Leg unter **Embedding endpoint URL** eine andere Adresse fest.
+5. Optional: Leih dir über **Embedding provider** (Embedding-Anbieter) Key und Adresse eines anderen Kontos. **Same as this provider** (wie dieser Anbieter) behält die eigenen dieses Kontos.
 
-Manche Anbieter bieten gar keine Embeddings an. Dann weist Marinara mit einem Hinweis darauf hin, dass du eine eigene Embedding-Verbindung wählen sollst – etwa eine OpenAI-kompatible, Google oder das Local Model.
+Manche Dienste bieten keine Embeddings an. Marinara bittet dich dann, ein eigenes Embedding-Konto zu wählen, etwa ein OpenAI-kompatibles, Google oder das eingebaute Modell.
 
-Wenn du überall dieselbe Embedding-Quelle nutzen willst, wähle sie unter **Embeddings** in **Connections** > **Defaults** (Standardwerte). Verbindungen ohne eigenes Embedding-Modell oder eigene **Embedding Connection** verwenden sie dann, während die Einstellung einer Verbindung weiterhin Vorrang hat.
+Willst du überall dieselbe Quelle nutzen, wähl sie unter **Embeddings** in **Connections → Defaults** (Standardwerte). Konten ohne eigenes Embedding-Modell verwenden sie dann. Die Einstellung eines Kontos hat weiterhin Vorrang.
 
-Trägst du weder eine Embedding-Verbindung noch einen **Embeddings**-Standard ein, greift Marinara auf ein eingebautes lokales Embedding-Modell zurück. Es lädt dieses Modell einmalig herunter und führt es auf dem eigenen Rechner aus, ganz ohne API-Key. Mehr zum eingebauten Modell steht unter [Local Model einrichten](../connections/local-model.md).
+Gibt es weder ein Embedding-Konto noch einen **Embeddings**-Standard, greift Marinara auf ein eingebautes Embedding-Modell zurück. Es wird einmal heruntergeladen und läuft ohne API-Key auf deinem Rechner. Siehe [Eingebautes Modell einrichten](../connections/local-model.md).
 
-Dieselbe Einstellung **Semantic Search (Embeddings)** treibt auch die semantische Suche in Lorebooks an. Einmal eingerichtet, profitieren also beide Funktionen davon.
+Dieselbe Einstellung treibt auch die semantische Suche in Lorebooks an, du richtest sie also einmal für beides ein.
 
-### Memories for This Chat
+### Gespeicherte Erinnerungen ansehen und verwalten
 
-Um die Erinnerungen eines Chats anzusehen, öffne **Chat Settings**, gehe zum Bereich **Memory Recall** und klicke auf **Access memories for this chat**. Bei aktiviertem Advanced Memory bleibt die Ansicht in der Roleplay-Seitenleiste; andernfalls öffnet sich das Fenster **Memories for This Chat**.
+1. Öffne **Chat Settings → Memory Recall**.
+2. Klick auf **Access memories for this chat**. Das Fenster **Memories for This Chat** öffnet sich. Ist Advanced Memory an, bleibt die Ansicht in der Roleplay-Seitenleiste.
 
-Das Fenster nennt die Anzahl gespeicherter Chunks – also abgelegter Textabschnitte – und eine grobe Schätzung in Tokens, den kleinen Textstücken, in denen KI-Modelle rechnen. Jede Chunk-Karte zeigt den abgedeckten Zeitraum, die Anzahl der Nachrichten, einen Status und den Zeitpunkt der Erstellung. Als Status erscheint eines von drei Kürzeln:
+Das Fenster zeigt die Anzahl gespeicherter Chunks und eine grobe Schätzung in Tokens. Jede Chunk-Karte zeigt ihren Zeitraum, die Anzahl der Nachrichten, den Erstellungszeitpunkt und einen Status.
 
-- **Vectorized**: Der Fingerabdruck steht und ist durchsuchbar.
-- **Waiting for vector**: Der Fingerabdruck entsteht gerade noch.
-- **Embedding unavailable**: Keine Embedding-Quelle konnte ihn erzeugen.
+| Status | Bedeutung |
+| --- | --- |
+| **Vectorized** | Der Fingerabdruck steht und ist durchsuchbar. |
+| **Waiting for vector** | Der Fingerabdruck entsteht gerade noch. |
+| **Embedding unavailable** | Keine Embedding-Quelle konnte ihn erzeugen. |
 
-Über die Symbolleiste exportierst und importierst du Erinnerungen, baust sie neu auf oder löschst alle auf einmal. Zusätzlich hat jeder Chunk ein eigenes Papierkorb-Symbol, um nur ihn zu vergessen.
+Die Symbolleiste hat Symbole zum Exportieren, Importieren, Neuaufbauen und Leeren der Erinnerungen.
 
-- Das Papierkorb-Symbol eines Chunks öffnet das Dialogfenster **Forget Memory**. Bestätige mit **Forget**.
-- Das Papierkorb-Symbol für alle öffnet das Dialogfenster **Clear Memories**. Bestätige mit **Clear**. Das entfernt die Erinnerungen, nicht aber die Nachrichten im Chat.
-- Das Aktualisieren-Symbol baut sämtliche Chunks aus den aktuellen Chat-Nachrichten neu auf. Nutze es, nachdem du das Embedding-Modell gewechselt hast.
-- Der Export legt eine `.marinara.json`-Datei an. Der Import akzeptiert `.json`- oder `.marinara`-Dateien und führt sie mit den vorhandenen Erinnerungen zusammen.
+- Das Papierkorb-Symbol eines Chunks öffnet **Forget Memory**. Bestätige mit **Forget**.
+- Das Symbol zum Leeren aller Erinnerungen öffnet **Clear Memories**. Bestätige mit **Clear**. Das entfernt die Erinnerungen für den Abruf, nicht deine Chat-Nachrichten.
+- Das Aktualisieren-Symbol baut jeden Chunk aus den aktuellen Nachrichten neu auf. Nutze es, nachdem du das Embedding-Modell gewechselt hast.
+- Der Export speichert eine `.marinara.json`-Datei. Der Import akzeptiert `.json`- oder `.marinara`-Dateien und führt sie mit den vorhandenen Erinnerungen zusammen.
 
 ### Wie sich Memory Recall verhält
 
-Behalte diese Punkte im Hinterkopf:
+- Marinara speichert Chunks im Hintergrund, sobald eine Embedding-Quelle vorhanden ist, auch wenn **Enable Memory Recall** aus ist. Der Schalter steuert nur, ob Erinnerungen in den Prompt eingefügt werden.
+- Ein Chunk entsteht erst, wenn mindestens 5 neue Nachrichten vorliegen.
+- Schwache Treffer werden übersprungen, der Abruf kann also leer ausgehen, obwohl Erinnerungen vorhanden sind. Für abgerufene Erinnerungen wird nur ein kleiner Teil des Prompts genutzt.
+- Nachdem du das Embedding-Modell gewechselt hast, passen alte Chunks nicht mehr. Bau sie neu auf.
+- Löschst du die Nachrichten eines Chats, werden auch dessen Chunks gelöscht.
 
-- Sobald eine Embedding-Quelle bereitsteht, legt Marinara im Hintergrund Chunks an – auch bei ausgeschaltetem **Enable Memory Recall**. Der Schalter steuert nur, ob gespeicherte Erinnerungen eingefügt werden. Willst du das Speichern ganz unterbinden, entferne die Embedding-Quelle oder leere die Erinnerungen von Zeit zu Zeit.
-- Ein Chunk entsteht erst ab 5 neuen Nachrichten. Kleinere Häppchen warten auf die nächste Antwort.
-- Abgerufene Bruchstücke müssen eine Ähnlichkeitsprüfung bestehen. Schwache Treffer fallen weg – der Abruf kann also leer ausgehen, obwohl Erinnerungen vorhanden sind.
-- Für abgerufene Erinnerungen steht nur ein kleines Budget im Prompt bereit. Es landen also immer nur die relevantesten paar darin.
-- Wechselst du das Embedding-Modell, nachdem bereits Erinnerungen existieren, passen die alten Chunks nicht mehr. Bau sie über das Aktualisieren-Symbol neu auf.
-- Löschst du die Nachrichten eines Chats, verschwinden auch dessen Chunks.
+<a id="chat-summary-roleplay"></a>
 
-Einige Container-Builds von Marinara, bekannt als Marinara Lite, deaktivieren **Memory Recall** vollständig. Dort taucht der Abschnitt **Memory Recall** überhaupt nicht auf.
+## Chat Summary (Roleplay)
+
+Chat Summary presst ältere Nachrichten zu kurzen Rückblicken zusammen, den sogenannten Summary Entries. Jeder Eintrag kann von der KI oder von dir geschrieben werden, und jeder lässt sich an- und abschalten. Die Funktion gibt es nur in Roleplay-Chats.
+
+Öffne **Chat Settings** und klapp **Chat Summary** unter **Lorebooks** auf. Am Computer kannst du den Abschnitt in einem eigenen Fenster öffnen. Siehe [Chat Settings im Überblick](../chats/chat-settings.md#popping-a-section-out-into-its-own-window).
+
+### Einen Summary Entry anlegen
+
+1. Wähl unter **Summary Scope** entweder **Last** für die neuesten Nachrichten oder **Range** für einen Nachrichtenbereich.
+2. Klick auf **Generate**, damit die KI einen Eintrag schreibt, oder auf **Write**, um selbst einen zu tippen.
+
+Jeder Eintrag zeigt einen Titel, seinen Quellbereich oder die Anzahl der Nachrichten und eine Token-Schätzung. Du kannst ihn an- oder abschalten, ausklappen, mit **Edit** bearbeiten oder mit **Delete** (Löschen) entfernen. **Show Inactive** und **Hide Inactive** ändern, was die Liste zeigt. **Activate All** und **Deactivate All** schalten alle Einträge auf einmal um.
+
+Um mehrere Einträge zu ändern, hak sie an (am Computer wählst du mit Shift-Klick einen Bereich aus) und nutze dann **Enable selected** oder **Disable selected**.
+
+Ist **Review Agent Outputs** an, warten KI-Zusammenfassungen auf deine Freigabe. Siehe [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md).
+
+### Automatic Summaries
+
+Das Panel **Automatic Summaries** hält die Zusammenfassungen aktuell, während du chattest.
+
+1. Schalte **Enabled** ein.
+2. Leg unter **Every** fest, wie viele Nutzernachrichten zwischen zwei Zusammenfassungen liegen. Der Standard ist 5, möglich sind 1 bis 200.
+3. Optional: Klick auf **Backfill Summary**, um einen älteren Chat zusammenzufassen, der nie Zusammenfassungen hatte. Ein Fortschrittsbalken erscheint. Mit **Stop** brichst du vorzeitig ab.
+
+### Summary Prompt, Summary Provider und Ausgabegröße
+
+- **Summary Prompt**: Klick auf **Edit**, um die Anweisungen zu ändern, die die KI verwendet. Mit **Templates** verwaltest du gespeicherte Prompts über **New template**, **Duplicate**, **Edit** und **Delete**. Vorlagen gelten global: Wählst du in einem Roleplay-Chat eine aus, ändert sich der Prompt für jeden Roleplay-Chat.
+- **Summary Provider**: das Konto, das die Zusammenfassungen schreibt. Es nimmt zuerst dein Standard-Agent-Konto und danach das Konto des Chats selbst.
+- **Maximum output size**: wie lang eine Zusammenfassung sein darf. Der Standard sind 4096 Tokens, möglich sind 1 bis 32768.
+
+### Anzeigeoptionen
+
+- **Hide summarised messages**: blendet die Originalnachrichten aus, sobald eine Zusammenfassung sie abdeckt. Standardmäßig aus.
+- **Recent message tail**: hält so viele der neuesten Nachrichten sichtbar, auch wenn das Ausblenden an ist. Der Standard ist 10. Jede ganze Zahl ab 0 ist möglich. Bei 0 wird der ganze zusammengefasste Block ausgeblendet. Höhere Werte machen Prompts größer und teurer.
+- **Collapse hidden messages**: ändert, wie ausgeblendete Nachrichten im Verlauf aussehen.
+
+**Recent message tail** begrenzt zusammengefasste Nachrichten. Eine zusammengefasste Nachricht, die älter ist als diese neuesten Nachrichten, bleibt sofort aus dem Prompt heraus, noch bevor die nächste Zusammenfassung sie ausblendet. Eine ältere Nachricht, die noch keine Zusammenfassung abdeckt, wird weiterhin gesendet, weil sie sonst verloren ginge. Gibt es solche Nachrichten, zeigt Chat Summary unter dieser Einstellung an, wie viele es sind. Klick auf **Backfill Summary**, um sie zusammenzufassen.
+
+### Gruppenchats mit zusammengeführten Antworten
+
+In einem Gruppenchat mit zusammengeführten Antworten spricht eine einzige Antwort für alle Charaktere. Ein Teil eines Eintrags, der für bestimmte Charaktere geschrieben ist, etwa `{{#if char == "Kaito"}}…{{/if}}`, bleibt für jeden Charakter erhalten, für den er gilt, und wird mit den Charakteren gekennzeichnet, die ihn kennen, etwa „known only to Kaito“ (nur Kaito bekannt). Teile, die nur der **Narrator** (Erzähler) von Advanced Memory erhält, bleiben außen vor. In Gruppenchats, in denen die Charaktere einzeln nacheinander antworten, und in Chats mit nur einem Charakter liest jeder Charakter die Einträge wie bisher, und der Narrator liest jeden Teil.
+
+## Automatic Summarization (Conversation)
+
+Conversation-Chats fassen jeden Kalendertag zusammen und bündeln abgeschlossene Wochen dann zu einer Wochenzusammenfassung. In den Prompt wandern danach nur noch die Wochenzusammenfassungen, die Tageszusammenfassungen der laufenden Woche und die heutigen Nachrichten. Das läuft von allein und lässt sich nicht abschalten.
+
+### Zusammenfassungen bearbeiten
+
+1. Öffne einen Conversation-Chat und klick auf **Chat Settings**.
+2. Such **Automatic Summarization**.
+3. Klick auf **Edit Summaries**.
+
+Das Fenster listet zuerst die Wochen auf, danach die Tage, die noch in keiner Woche stecken. Klapp einen Eintrag auf, um den Text unter **Summary** und die Zeilen unter **Key Details** zu bearbeiten.
+
+### Festlegen, wann ein Tag endet
+
+- **Day Rollover Hour**: die Stunde, ab der für Zusammenfassungen ein neuer Tag beginnt. Der Standard ist 4 AM. Du kannst jede Stunde von 12 AM (Mitternacht) bis 11 AM wählen. Nachrichten vor dieser Uhrzeit zählen zum Vortag. Wähl eine Zeit, zu der du nicht chattest. Änderst du sie, obwohl schon Zusammenfassungen existieren, warnt dich Marinara, dass ältere Zusammenfassungen die vorherige Stunde verwendet haben.
+- **Recent Message Tail**: wie viele der neuesten Nachrichten von heute wortgetreu erhalten bleiben, nachdem sie zusammengefasst wurden. Der Standard ist 10. Höhere Werte machen Prompts größer und teurer.
+
+### Fehlende Tage nachtragen
+
+Ein Tag kann ohne Zusammenfassung bleiben, etwa nachdem du einen alten Chat importiert hast. Im Fenster hat das Panel **Missing Summaries** eine Schaltfläche **Backfill**. Sie versucht es für bis zu 14 zurückliegende Tage auf einmal erneut. Wechselst du das Modell für die Zusammenfassungen, werden vorhandene Tages- oder Wocheneinträge nicht neu geschrieben.
+
+<a id="advanced-memory-recall-roleplay-and-game-mode"></a>
 
 ## Advanced Memory Recall (Roleplay und Game Mode)
 
-Öffne **Chat Settings → Memory Recall** und aktiviere **Advanced Memory Recall**. Du kannst auch **Automatic context and memory handling** (automatische Kontext- und Speicherverwaltung) unter Agents im Roleplay-Einrichtungsassistenten aktivieren. Dieser optionale Modus verwaltet das aktuelle Verlaufsfenster, Kontinuitätszusammenfassungen und relevante ältere Auszüge gemeinsam. Einstellungen und Einrichtungsfortschritt sind sowohl im Assistenten als auch in der Chat-Settings-Seitenleiste auf Desktop und Mobilgeräten verfügbar. Die Archivansicht bleibt in der Chat-Settings-Seitenleiste.
+Advanced Memory Recall ist ein optionaler Modus, der das Live-Verlaufsfenster, Kontinuitätszusammenfassungen und alte Auszüge gemeinsam verwaltet. Er teilt den Chat in Szenen auf, fasst jede abgeschlossene Szene zusammen und ruft für jede Antwort die Szenen und genauen Nachrichten ab, auf die es ankommt. Er läuft ohne den Schalter Agents und braucht keinen herunterladbaren Agenten.
 
-### Einrichtung
+### Einschalten
 
-- Wähle **Maximum allowed context before compression (tokens)** innerhalb des unterstützten Chat-Modellkontexts. Erreicht der ausgehende Prompt diese Größe, wird älterer Kontext abgeschnitten, und der Chatverlauf wächst von dort aus wieder an. Was abgeschnitten wurde, wird zusammengefasst und zu den Erinnerungen hinzugefügt, die abgerufen werden können. Die Grenze gilt für den geschätzten ausgehenden Prompt einschließlich Anweisungen, Nachrichten, abgerufener Inhalte, Tools und Anhänge, sowohl für Chat- als auch für Speicherverarbeitung. Antwort-Tokens und Sicherheitsreserve werden getrennt berechnet. Die gesamte Kontextgrenze des Modells bleibt gültig; dies ist keine exakte Tokenizer- oder Abrechnungsgrenze.
-- Wähle **Summary and recall budget (tokens)** (Budget für Zusammenfassungen und Abruf) innerhalb dieser Grenze. Es legt fest, wie viel vom Kontext auf Erinnerungen entfällt; empfohlen sind mindestens 10 % des maximal erlaubten Kontexts. Schaltest du Advanced Memory Recall in einem Chat zum ersten Mal ein, beginnt es bei **6.500**, also 10 % des Standardmaximums von **65.000**; eine spätere Änderung des Maximums ändert diesen Wert nicht. Aktive konstante Zusammenfassungen sollen höchstens **70%** dieses Budgets belegen. Zuerst kommen Konstanten, dann ausgewählte Szenenzusammenfassungen, dann [Charaktererinnerungen](#character-recollections), wenn sie eingeschaltet sind, zuletzt Nachrichtenauszüge. Der gesamte Speicher darf bei Bedarf **2,000 zusätzliche Tokens** nutzen, sofern der vollständige Kontext Platz bietet. Bei 10k sind das höchstens 7k als Ziel für Konstanten und bis zu 12k insgesamt; dieselben Anteile gelten für andere Werte. Live-Nachrichten zählen nicht zum konstanten Anteil und lösen keine Konsolidierung aus.
-- Standardmäßig: **Helper model** (Hilfsmodell) übernimmt eigenständige Szenenentscheidungen, Szenenzusammenfassungen und komprimierte Kontinuität. Standard ist die Agent-Verbindung, ersatzweise die Chat-Verbindung. Historische Szenenerkennung kann Haupt- oder Hilfsmodell nutzen; Zusammenfassungen nutzen immer das Hilfsmodell. Die aufgelösten Modelle erscheinen vor der Vorbereitung.
-- Alle Speicherzusammenfassungen verwenden **Chat Summary → Maximum output size**, mit mindestens **8,196 Ausgabe-Tokens** als Platz für das Nachdenken. Das gilt für Szenenzusammenfassungen und die Konsolidierung von Konstanten; größere Einstellungen bleiben erhalten. Das gewöhnliche Antwortlimit der Hilfsverbindung ersetzt diesen Wert nicht. Eingabe und Antwortreserve müssen weiterhin in den Gesamtkontext des Modells passen.
-- Eine Szenenzusammenfassung erhält die Zusammenfassungsanweisungen, die zugänglichen Nachrichten dieser Szene samt passenden bereichsbezogenen Korrekturen und das JSON-Ausgabeformat. Zu große Szenen werden in gespeicherten Teilmengen verarbeitet und anschließend kombiniert. Szenenrückblicke sollen **2–3 Absätze** umfassen. Der Standard-Prompt erzeugt einen historischen Rückblick ohne Abschnitte zur aktuellen Situation oder zu offenen Spannungen; eigene Prompts unter **Summaries** gelten weiterhin. Advanced Memory arbeitet unabhängig vom Hauptschalter Agents und benötigt keinen heruntergeladenen Agenten.
-- **Maximum recalled scenes** (maximal abgerufene Szenen) ist standardmäßig **3**, als Obergrenze ohne schwache Treffer. **0** deaktiviert optionalen Szenenabruf und erhält erforderliche Kontinuität. Jede ausgewählte Szene liefert ihre Zusammenfassung, gefolgt von höchstens einem Auszug.
-- **Moving context** (beweglicher Kontext) bestimmt Nachrichten pro Auszug, standardmäßig **3–5**. Ein Auszug enthält Nachrichten einer abgerufenen Szene im genauen Wortlaut und steht direkt nach ihrer Zusammenfassung. Beide Grenzen auf **0** ergeben Zusammenfassungen ohne Auszüge; nur das Minimum auf **0** macht Auszüge optional. Relevanz, Figurenzugriff und Platz können die Anzahl bis auf null reduzieren. Jede abgerufene Szene erhält ihren Mindestauszug, bevor irgendein Auszug wächst. Bleibt eine abgerufene Szene trotzdem ohne Auszug, nennt der Abrufbericht den Grund: Nach den Zusammenfassungen war kein Platz mehr, oder keine ihrer Nachrichten lässt sich zitieren.
+1. Öffne **Chat Settings → Memory Recall**.
+2. Schalte **Advanced Memory Recall** ein. Du kannst auch **Automatic context and memory handling** (automatische Kontext- und Gedächtnisverwaltung) einschalten, unter Agents im Roleplay-Einrichtungsassistenten.
+3. Leg **Maximum allowed context before compression (tokens)** (maximal erlaubter Kontext vor der Komprimierung) innerhalb des Kontextfensters deines Modells fest.
+4. Leg **Summary and recall budget (tokens)** (Budget für Zusammenfassungen und Abruf) innerhalb dieser Grenze fest.
+5. Optional: Wähl ein **Helper model** (Hilfsmodell).
 
-Bestätige bei einem älteren Individual-Gruppenchat fehlende Wissensbereiche einmal. Die erste gesprochene Zeile eines Charakters belegt nicht, dass er alles davor kannte. Wähle einen tatsächlichen Charakter nur dann als **Narrator** (Erzähler), wenn er Teilnahmegrenzen umgehen soll. Charakterspezifisches Ausblenden und bestätigte Wissensbereiche schränken die Erinnerung weiterhin ein. Globales **Hide from AI** (vor der KI ausblenden), manuell gesetzt oder durch automatische Zusammenfassungen, entfernt einen Zug nur aus dem Live-Verlauf: Advanced Memory durchsucht ihn weiterhin, ermittelt Szenenteilnehmer, fasst ihn zusammen und indexiert ihn für zulässigen Abruf. Startmarkierungen kürzen den Live-Verlauf. Du kannst diese Bereiche später korrigieren; neu hinzugefügte Charaktere benötigen eine eigene Bestätigung.
+Hat ein Chat schon einen Verlauf, klick zuerst auf **Prepare existing history** (vorhandenen Verlauf vorbereiten); mehr dazu unten. Einstellungen und Fortschritt erscheinen sowohl im Assistenten als auch in der Seitenleiste von **Chat Settings**, auf Desktop und Mobilgeräten. Die Archivansicht bleibt in der Seitenleiste.
 
-Klick bei vorhandenen Chats zuerst auf **Prepare existing history** (vorhandenen Verlauf vorbereiten). Ändert wiederhergestellter Verlauf die Grenzen einer manuell korrigierten Szene, deaktiviere diese Erinnerung, um ihren Text als Referenz zu behalten, oder lösche sie. Bereite den Verlauf anschließend erneut vor. **Fix** (Beheben) überspringt eine solche Szene dagegen und listet sie auf, statt anzuhalten; siehe [Gedächtnisprobleme beheben](#fixing-memory-problems). Dieselbe Korrektur erneut zu speichern kann ihren Text nicht sicher einem anderen Quellbereich zuordnen. Die Verarbeitung läuft in Teilen; die Phase erscheint neben Professor Maris Hamsterrad. **Cancel** (Abbrechen) erhält fertige Arbeit; **Resume** (Fortsetzen) macht nach Schließen, Serverneustart oder Update weiter. Modellfehler erhalten gültigen Speicher und lassen sich wiederholen. Setze dafür den Speicher nicht zurück: Fortsetzen verwendet fertige Zusammenfassungen und unveränderte Szenenerkennung erneut. Die letzte laufende Szene bleibt offen und wird nach ihrem Ende zusammengefasst. Übersteigen ihre aktuellen Nachrichten die Kontextgrenze, dienen begrenzte Quellauszüge als Kontext.
+### Einstellungen
 
-Eine Verzweigung, die du von einem vorbereiteten Chat abzweigst, etwa mit **Branch from here** (ab hier verzweigen), behält ihr Advanced Memory, du musst sie also nicht erneut vorbereiten. Eine Verzweigung mitten in einer Szene öffnet diese Szene wieder: Ihre alte Zusammenfassung wird verworfen, und eine neue entsteht, wenn die Szene endet. Frühere Szenen bleiben abrufbereit. Ein als neue Verzweigung importierter Chat wird wie gewohnt vorbereitet.
+| Einstellung | Standard | Was sie tut |
+| --- | --- | --- |
+| **Maximum allowed context before compression (tokens)** | 65.000 | Erreicht der ausgehende Prompt diese Größe, wird älterer Kontext abgeschnitten und für den Abruf zusammengefasst. |
+| **Summary and recall budget (tokens)** | 6.500 | Wie viel vom Kontext auf Erinnerungen entfällt. Empfohlen sind mindestens 10 % des Maximums. |
+| **Helper model** | Agent-Konto, dann Chat-Konto | Übernimmt Szenenentscheidungen, Zusammenfassungen und Kontinuität. |
+| **Maximum recalled scenes** (maximal abgerufene Szenen) | 3 | Obergrenze der abgerufenen Szenen pro Antwort. 0 schaltet den optionalen Szenenabruf ab. |
+| **Moving context** (beweglicher Kontext) | 3 bis 5 Nachrichten | Nachrichten in jedem abgerufenen Auszug. Beide Grenzen auf 0 ergeben Zusammenfassungen ohne Auszüge. |
+| **Standalone scene check interval (messages)** | 5 | Wie viele neue Nachrichten zwischen zwei Szenenprüfungen liegen. |
+| **Use Decision model** (Entscheidungsmodell verwenden) | Aus | Lässt ein Decision-Modell Szenenenden finden und Erinnerungen auswählen. |
+| **Decide who sees new messages** (entscheiden, wer neue Nachrichten sieht) | Aus | Nur in Gruppenchats, in denen die Charaktere einzeln nacheinander antworten. |
+| **Character recollections** (Charaktererinnerungen) | Aus | Gibt jedem Charakter seine eigene Erinnerung an eine Szene. |
 
-Öffne eine Zusammenfassung über **Access memories for this chat** und wähle unten **Delete summary** (Zusammenfassung löschen). Bestätige Zusammenfassung und Zielgruppe. Dies gilt auch für ältere **Continuity**- (Kontinuität) und **Ongoing scene**-Einträge (laufende Szene). Reguläre Vorbereitung erzeugt gelöschte Szenenrückblicke nicht erneut. Originalnachrichten bleiben erhalten. Neue Konstanten liegen in **Chat Summaries**, mit vorhandenen Bearbeitungs-, Aktivierungs-, Zusammenführungs- und Löschfunktionen. Ältere Kontinuität im Archiv dient nicht als zusätzliche Konstante.
+Das Standardbudget beträgt 10 % des Standardmaximums. Eine spätere Änderung des Maximums ändert es nicht. Die Obergrenze umfasst den gesamten geschätzten ausgehenden Prompt: Anweisungen, Nachrichten, abgerufenen Kontext, Tools und Anhänge. Antwort-Tokens und Sicherheitsreserve werden getrennt berechnet. Es ist eine Schätzung, keine exakte Tokenizer- oder Abrechnungsgrenze.
+
+Alle Aufrufe für Gedächtniszusammenfassungen verwenden **Chat Summary → Maximum output size**, mit mindestens 8.196 Ausgabe-Tokens als Platz für das Nachdenken.
+
+### Vorhandenen Verlauf vorbereiten
+
+1. Klick auf **Prepare existing history**. Bevor es losgeht, werden die aufgelösten Modelle angezeigt.
+2. Warte. Der ältere Verlauf wird in Teilen abgearbeitet, und die aktuelle Phase wird angezeigt.
+3. Mit **Cancel** (Abbrechen) hältst du an. Fertige Arbeit bleibt erhalten. Mit **Resume** (Fortsetzen) machst du weiter, auch nachdem du die Seitenleiste geschlossen, den Server neu gestartet oder die App aktualisiert hast.
+
+Ein fehlgeschlagener Modellaufruf behält das bisherige gültige Gedächtnis und zeigt einen Fehler, den du wiederholen kannst. Setz das Gedächtnis nach einem Fehler nicht zurück: **Resume** verwendet fertige Zusammenfassungen erneut. Die letzte laufende Szene bleibt offen und wird zusammengefasst, wenn sie endet.
+
+Ändert wiederhergestellter Verlauf eine Szene, die eine manuelle Korrektur abdeckt, schalte diese Erinnerung aus, um ihren Text als Referenz zu behalten, oder lösche sie, und bereite den Verlauf dann erneut vor. **Fix** (Beheben) überspringt eine solche Szene und listet sie auf, statt anzuhalten.
+
+Eine Verzweigung, die aus einem vorbereiteten Chat entsteht, etwa mit **Branch from here** (ab hier verzweigen), behält ihr Advanced Memory. Eine Verzweigung mitten in einer Szene öffnet diese Szene wieder: Ihre alte Zusammenfassung wird verworfen, und eine neue wird geschrieben, wenn die Szene endet. Ein als neue Verzweigung importierter Chat wird wie gewohnt vorbereitet.
 
 <a id="fixing-memory-problems"></a>
 
 ### Gedächtnisprobleme beheben
 
-Ist im Gedächtnis eines Chats etwas kaputt, siehst du das, ohne die Gedächtniseinstellungen zu öffnen. In einer Ecke der Schaltfläche **Chat Settings** erscheint ein ruhig leuchtender Punkt in deiner Akzentfarbe, und ein Hinweis nennt, bei wie vielen Szenen es Probleme gibt. Jede Gruppe von Problemen wird nur einmal gemeldet; der Punkt bleibt, bis sie erledigt sind. Unter **Chat Settings → Memory Recall** stehen dieselben Probleme über den Einstellungen, und **Access memories for this chat** zeigt denselben Punkt.
+Ist im Gedächtnis eines Chats etwas kaputt, erscheint auf der Schaltfläche **Chat Settings** ein ruhig leuchtender Punkt in deiner Akzentfarbe, und ein Hinweis nennt, bei wie vielen Szenen es Probleme gibt. Jede Gruppe von Problemen wird nur einmal gemeldet, und der Punkt bleibt, bis sie erledigt sind. Unter **Chat Settings → Memory Recall** stehen die Probleme über den Einstellungen. **Access memories for this chat** zeigt denselben Punkt.
 
-Klick im Hinweis oder in dieser Liste auf **Fix**, um alle markierten Szenen in einem Durchgang zu reparieren. Die Reparatur nutzt das **Helper model** und den gewohnten Fortschrittsbalken. **Pause processing** (Verarbeitung pausieren) hält sie an, und **Resume processing** (Verarbeitung fortsetzen) setzt sie fort; bereits erledigte Arbeit bleibt erhalten. Fix:
+Drück **Fix** im Hinweis oder in der Liste, um alle markierten Szenen in einem Durchgang zu reparieren. Dafür wird das **Helper model** genutzt. **Pause processing** (Verarbeitung pausieren) hält die Reparatur an, und **Resume processing** (Verarbeitung fortsetzen) setzt sie fort. Fix:
 
-- fragt den Helfer bei Szenen mit der Markierung **Check who was there** erneut, wer dabei war, und speichert eine eindeutige Antwort. Kann der Helfer es weiterhin nicht sagen, bekommt niemand neuen Zugriff: Die Szene behält nur Charaktere, die sie schon hatte und die der Helfer nicht ausgelassen hat, und sie wird zur Prüfung für dich aufgelistet;
-- prüft, wer an älteren Szenen beteiligt war, die gespeichert wurden, bevor es Teilnehmerprüfungen gab – auch an solchen, deren automatische Prüfung fehlgeschlagen ist;
+- fragt den Helfer bei Szenen mit der Markierung **Check who was there** erneut, wer dabei war. Kann er es weiterhin nicht sagen, bekommt niemand neuen Zugriff, und die Szene wird für dich aufgelistet;
+- prüft, wer an älteren Szenen beteiligt war, die gespeichert wurden, bevor es Teilnehmerprüfungen gab;
 - schreibt neue Zusammenfassungen für Szenen, deren Nachrichten, verborgene Nachrichten, Charakternamen oder zugrunde liegende Zusammenfassungen sich geändert haben, und für abgeschlossene Szenen ohne Zusammenfassung. Zusammenfassungen, die du gelöscht hast, bleiben gelöscht;
-- setzt Speicheraufgaben fort, die mit einem Fehler stehen geblieben sind.
+- setzt Gedächtnisaufgaben fort, die mit einem Fehler stehen geblieben sind.
 
-Eine Zusammenfassung, die du von Hand bearbeitet hast, schreibt Fix nie um. Passt eine solche nicht mehr zu ihren Nachrichten, fehlen ihr wieder eingeblendete Nachrichten oder haben sich ihre Szenengrenzen verschoben, lässt Fix sie unangetastet, führt sie unter **need your review** auf und macht mit den übrigen Szenen weiter. Einstellungen, die Fix nicht für dich ändern kann, etwa die Bestätigung des Wissensbereichs jedes Charakters oder die Wahl einer funktionierenden Entscheidungsverbindung, bleiben aufgelistet, bis du sie änderst.
+Eine Zusammenfassung, die du von Hand bearbeitet hast, schreibt Fix nie um. Solche Zusammenfassungen führt Fix unter **need your review** auf und macht weiter. Einstellungen kann Fix nicht für dich ändern, etwa den Wissensbereich eines Charakters oder eine funktionierende Decision-Verbindung.
 
-Am Ende zeigt Fix die Meldung **Fixed N scenes** und listet die Szenen unter **need your review** als Szenennummern auf. Wähl eine Nummer, um diese Szene in **Access memories for this chat** zu öffnen. War Chat Settings geschlossen, bringt dich ein Hinweis mit **Show** (Anzeigen) dorthin. Bei einer Szene, über die Fix nicht entscheiden konnte, fragt der nächste Durchgang nicht noch einmal nach; speichere ihren Charakterzugriff selbst.
+Ist Fix fertig, zeigt es „Advanced Memory fixed N scenes“ und die Nummern der Szenen, die eine Prüfung brauchen. Wähl eine Nummer, um diese Szene in **Access memories for this chat** zu öffnen. War Chat Settings geschlossen, bringt dich ein Hinweis mit **Show** (Anzeigen) dorthin. Nach einer Szene, über die Fix nicht entscheiden konnte, fragt der nächste Fix-Durchgang nicht noch einmal, speichere ihren Charakterzugriff also selbst.
 
 ### Szenen neu durchsuchen
 
-Wurden Szenenwechsel übersehen – etwa weil eine Szene nie endete und nichts Neues zusammengefasst wurde –, nutze **Re-scan scenes** (Szenen neu durchsuchen) unter **Chat Settings → Memory Recall**. Gib die Nummern der ersten und der letzten zu prüfenden Nachricht ein und drück dann **Re-scan** (neu durchsuchen). Anfangs ist die laufende Szene eingetragen. Advanced Memory sucht in diesen Nachrichten erneut nach Szenenwechseln – mit dem Decision-Modell, wenn **Use Decision model** (Entscheidungsmodell verwenden) an ist, sonst mit dem **Helper model** – und fasst die geänderten Szenen neu zusammen. Szenen außerhalb dieser Nachrichten behalten ihre Grenzen und Zusammenfassungen, und die regulären Prüfungen nach jeder Antwort laufen wie bisher weiter. Würde sich eine von dir bearbeitete Zusammenfassung ändern, hält der Durchgang an und nennt diese Szene, so wie es auch die Vorbereitung tut.
+Wurden Szenenwechsel übersehen, etwa weil eine Szene nie endete, nutze **Re-scan scenes** (Szenen neu durchsuchen) unter **Chat Settings → Memory Recall**.
 
-<a id="optional-jev-decisions"></a>
+1. Gib die Nummern der ersten und der letzten zu prüfenden Nachricht ein. Anfangs ist die laufende Szene eingetragen.
+2. Drück **Re-scan** (neu durchsuchen).
+
+Advanced Memory sucht in diesen Nachrichten erneut nach Szenenwechseln und fasst die geänderten Szenen neu zusammen. Ist **Use Decision model** an, nutzt es dafür das Decision-Modell, sonst das Hilfsmodell. Szenen außerhalb des Bereichs behalten ihre Grenzen und Zusammenfassungen. Würde sich eine von dir bearbeitete Zusammenfassung ändern, hält der Durchgang an und nennt diese Szene.
+
 <a id="optional-decision-model"></a>
 
 ### Optionales Decision-Modell
 
-Aktiviere **Use Decision model** in Advanced Memory und wähle dann unter **Memory Decision connection** (Entscheidungsverbindung für Erinnerungen) ein Modell. Unter **Local models** (lokale Modelle) stehen dort dieselben lokalen Modelle wie beim globalen **Decision model** (Entscheidungsmodell), etwa das **Primary local model** (primäres lokales Modell), das du unter **Local Model** laufen lässt. Ein Modell, das noch nicht antworten kann, bleibt samt Begründung ausgegraut, und ein gestopptes Modell startet, sobald Advanced Memory es anfragt. Unter **Connections** stehen deine gespeicherten Entscheidungsverbindungen. Eine neue erstellst du unter **Connections** mit TypeSafe, OpenRouter oder einer kompatiblen Entscheidungsquelle; siehe [Entscheidungsmodelle](../connections/decision-models.md). Die Option ist standardmäßig aus und wird pro Roleplay-Chat gespeichert. Ihre Auswahl ist unabhängig von der globalen Entscheidungsvorgabe.
+Ein Decision-Modell ist ein kleines Modell, das Ja-oder-Nein-Fragen beantwortet. Die Option ist standardmäßig aus und wird pro Roleplay-Chat gespeichert.
 
-Das ausgewählte Modell erkennt Szenengrenzen bei der Vorbereitung des Verlaufs und bei laufenden Szenenprüfungen. Vor einer neuen Antwort wählt es Erinnerungen in zwei Durchgängen aus. Zuerst stellt der normale Abruf eine Vorauswahl von bis zu 24 Szenenzusammenfassungen zusammen – oder bis zu **Maximum recalled scenes**, falls dieser Wert höher ist. Die Vorauswahl verbindet zwei Rangfolgen, Textabgleich und Embeddings, sodass eine Szene über gemeinsame Wörter oder über ihre Bedeutung hineinkommen kann. Die Embeddings vergleichen jede Szene mit jeder deiner Nachrichten, seit der antwortende Charakter zuletzt gesprochen hat – höchstens sechs –, sodass sie in einem Gruppenchat auch abdecken, was du zu einem anderen Charakter gesagt hast. Bei der ersten Antwort eines Charakters wird deine neueste Nachricht verwendet. Solange nicht fast jede Szene Embeddings hat, nutzt die Vorauswahl stattdessen die Rangfolge des normalen Abrufs, damit die wenigen Szenen, die schon welche haben, die Texttreffer nicht verdrängen. Auch die Szene direkt nach jeder der besten drei bekommt einen Platz, für Fragen danach, was als Nächstes geschah. Jede Zusammenfassung, die das Modell beurteilt, beginnt mit einer kurzen Zeile: ihrem Nachrichtenbereich, dem Datum der Handlung und wer gesprochen hat, ermittelt aus den Nachrichten, die die antwortenden Charaktere gesehen haben. Das Modell wählt aus dieser Vorauswahl die relevanten Szenen und beurteilt dann für jede gewählte Szene bis zu 12 ihrer Originalnachrichten, nämlich ihre besten Texttreffer, um den Auszug dieser Szene auszuwählen. Die beste Wahl bildet den Mittelpunkt, die übrigen verlängern den Auszug bis zu **Maximum messages per excerpt** (maximale Nachrichten pro Auszug). Akzeptiert es keine Nachricht einer Szene, legt der Textabgleich den Mittelpunkt des Auszugs fest, und der Abrufbericht weist darauf hin. Passt in einer Szene keine dieser Nachrichten für sich allein in den Platz, den die Zusammenfassungen übrig lassen, kann diese Szene keinen Auszug erhalten; das Modell beurteilt ihre Nachrichten dann gar nicht erst. Gilt das für alle gewählten Szenen, entfällt die zweite Anfrage. Bei jeder neuen Nachricht prüft es, ob die Geschichte an einen anderen Ort oder in eine andere Zeit springt, zu Charakteren wechselt, die woanders sind, oder auf eine Szenentrennzeile wie `***` oder einen POV-Hinweis außerhalb der Rolle folgt. Dabei sieht es die drei vorherigen Nachrichten und wer sie jeweils geschrieben hat. Unsichere Grenzen lassen die Szene offen. Das **Helper model** schreibt weiterhin alle Zusammenfassungen und Kontinuitätsaktualisierungen. Bestehende Grenzen für Szenenanzahl, Auszugslänge, Charakterzugriff und Tokenbudgets gelten weiter. Eine gültige Entscheidung darf nichts auswählen.
+1. Schalte in Advanced Memory **Use Decision model** ein.
+2. Wähl unter **Memory Decision connection** (Entscheidungsverbindung für Erinnerungen) ein Modell. Unter **Built-in model** (eingebautes Modell) stehen dieselben Modelle wie beim globalen **Decision model** (Entscheidungsmodell). Ein Modell, das noch nicht antworten kann, ist samt Begründung ausgegraut, und ein gestopptes startet, sobald es angefragt wird. Unter **Connections** stehen deine gespeicherten Decision-Konten. Siehe [Decision-Modelle](../connections/decision-models.md).
 
-Gehostete Anbieter erhalten den jüngsten Gesprächsverlauf und die vorausgewählten Zusammenfassungen oder Nachrichten zur Bewertung. Pro Antwort können mehrere kostenpflichtige Anfragen entstehen. Vor dem Senden prüft der Abruf den Charakterzugriff und wertet Bedingungen für private Zusammenfassungsabschnitte aus. Von einer Szene sendet er nur Originalnachrichten, die die abrufenden Charaktere im Chat gesehen haben, und jeder Charakter erhält weiterhin nur die Teile einer Zusammenfassung, die für ihn bestimmt sind. Anfragen werden in begrenzte Pakete innerhalb des Kontextbudgets der Verbindung aufgeteilt; das beworbene Kontextfenster eines Jev-Chat-Routers wird nicht als Grenze für Entscheidungsanfragen angenommen.
+Diese Auswahl ist unabhängig vom globalen Decision-Standard.
 
-Jeder Abrufdurchgang bekommt Zeit für seine Arbeit: ungefähr so viel, wie das Modell pro Frage braucht, mal die Anzahl der Fragen und dann noch einmal die Hälfte dazu. Ein Durchgang bekommt mindestens 10 und höchstens 25 Sekunden, beide Durchgänge zusammen höchstens 40 Sekunden pro Antwort. Verwaltete Open-Jev-Modelle nutzen ihre gemessene Zeit pro Frage; eine Entscheidungsverbindung beantwortet die Fragen einer Anfrage gemeinsam und zählt deshalb jede Anfrage einmal. Schafft ein solches Modell nicht alle Fragen in dieser Zeit, beurteilt es weniger, die besten Treffer zuerst. Ein Chat-Modell, dem die Fragen einzeln gestellt werden, wird mit 1 Sekunde pro Frage veranschlagt; seine tatsächliche Geschwindigkeit ist aber unbekannt. Es bekommt deshalb alle Fragen gestellt, und es zählen die Antworten, die rechtzeitig ankommen. Die Fragen gehen in kurzen Anfragen hinaus; läuft die Zeit ab, zählen die bereits beantworteten Anfragen trotzdem. Während der Abruf läuft, zeigt die Antwort ihren üblichen Platzhalter **Thinking…**.
+Das Modell findet Szenengrenzen, während der Verlauf vorbereitet wird und laufende Szenen geprüft werden. Vor einer neuen Antwort wählt es Erinnerungen in zwei Durchgängen aus. Die Einzelheiten stehen unter [Wie der Abruf per Decision-Modell funktioniert](#how-decision-recall-works).
 
-Schlägt eine einzelne Anfrage fehl oder überschreitet sie die Zeit, oder ist eine Zusammenfassung zu groß zum Senden, fallen nur diese Erinnerungen auf den normalen Abruf zurück – nach den Szenen, die das Modell gewählt hat –, und der Abrufbericht weist darauf hin. Fehlende Verbindungen und Durchgänge, bei denen keine Antwort zurückkam, fallen vollständig zurück: Die eigene Rangfolge der Vorauswahl bestimmt die Szenen, der Textabgleich die Auszüge. Nicht verfügbare Szenenentscheidungen führen zum bisherigen Szenenprüfer. Auch in diesem Modus entstehen Embeddings. Eine neu zusammengefasste Szene bekommt sie sofort. Szenen, die im Entscheidungsmodus vorbereitet wurden, bevor hier Embeddings entstanden, und Erinnerungen, die mit einem anderen Embedding-Modell eingebettet wurden, bekommen sie im Lauf der folgenden Antworten, jeweils einige auf einmal, Zusammenfassungen und die neuesten Szenen zuerst; **Reindex** (neu indexieren) erstellt sie alle auf einmal.
-
-Die Prompt-Inspektion bleibt schreibgeschützt und zeigt normalen Abruf ohne Aufruf des Entscheidungsanbieters. Unter **Peek Prompt → Decision diagnostics** (Peek Prompt → Entscheidungsdiagnose) zeigt **Advanced Memory activity** (Advanced-Memory-Aktivität) gespeicherte Ergebnisse des letzten Abrufs und der letzten Szenenprüfung: Modell, Zeit, Werte, ausgewählte Erinnerungen oder Szenenanfänge, verwendetes Ersatzverfahren und warum eine abgerufene Szene keinen Auszug hat. Berichte werden für neue Aufrufe nach diesem Update gespeichert und enthalten bis zu 128 Ergebnisse, ausgewählte zuerst. Sie beschreiben vergangene Aktivität, keine Vorhersage für die Vorschau. Weder das Öffnen des Panels noch ein Test von Prompt-Aussagen führt Speicherentscheidungen erneut aus. Szenenprüfungen durch das Decision-Modell verwenden immer eine eigene Anfrage, getrennt von Tracker- und Agentenpaketen. Der Abrufbericht nennt Entscheidungen und Rückfälle. Kompatible Antwortvarianten verwenden die gespeicherte Auswahl erneut; geänderte Einstellungen machen unvereinbare Speicherstände ungültig. Eine Fortsetzung wählt ihre Erinnerungen neu aus.
+Gehostete Konten erhalten den jüngsten Gesprächstext und die vorausgewählten Rückblicke oder Nachrichten, die bewertet werden, und können pro Antwort mehrere Anfragen berechnen. Der Abruf prüft den Charakterzugriff, bevor er Kandidaten sendet.
 
 <a id="deciding-who-sees-new-messages"></a>
 
 ### Entscheiden, wer neue Nachrichten sieht
 
-In einem Roleplay-Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, kann Advanced Memory entscheiden, welche Charaktere jede neue Nachricht sehen. So musst du nicht jede Zeile selbst vor einem Charakter verbergen, der die Szene verlassen hat. Schalte dazu in Advanced Memory **Decide who sees new messages** (entscheiden, wer neue Nachrichten sieht) ein. Die Option ist standardmäßig aus und erscheint nur in Gruppenchats, in denen die Charaktere einzeln nacheinander antworten; Gruppenchats mit zusammengeführten Antworten und Chats mit nur einem Charakter bieten sie nicht an.
+In einem Roleplay-Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, kann Advanced Memory entscheiden, welche Charaktere jede neue Nachricht sehen. Dann musst du nicht jede Zeile selbst vor einem Charakter verbergen, der die Szene verlassen hat. Gruppenchats mit zusammengeführten Antworten und Chats mit nur einem Charakter bieten die Option nicht an.
 
-Ist sie an, wird jede neue Nachricht – deine oder die eines Charakters – vor den Charakteren verborgen, die nicht in dieser Szene sind. Das Ergebnis nutzt dasselbe charakterspezifische **Hide from AI** wie die Schaltfläche an der Nachricht selbst, daher zeigt die durchgestrichene Augenmarkierung, wer sie nicht sehen kann. Über deine eigene Nachricht wird entschieden, sobald du sie abschickst, auch wenn kein Charakter antwortet. Bevor der nächste Charakter antwortet, ist über die vorherigen Nachrichten bereits entschieden, sodass er nie eine Zeile liest, die er nicht lesen sollte.
+1. Schalte in Advanced Memory **Decide who sees new messages** ein.
 
-- Der hier gewählte **Narrator** und der unter **Roleplay Commands** gewählte **Narrator character** (Erzählercharakter) sehen immer jede Nachricht. Wer eine Nachricht geschrieben hat, sieht sie immer. Ist der Empfänger einer Flüsternachricht nicht in der Szene, verliert er den Rest der Nachricht, erhält die Flüsternachricht aber trotzdem.
-- Ist **Use Decision model** an, wird das Decision-Modell für jeden Charakter gefragt, ob er die Nachricht eindeutig nicht sehen oder hören kann, etwa weil er woanders ist oder die Szene verlassen hat. Ein Charakter, den die Geschichte nie in die Szene bringt, gilt als woanders. Ein anwesender Charakter, an den eine Flüsternachricht nicht gerichtet ist, sieht den Rest der Nachricht trotzdem. Sonst entscheidet das **Helper model**. In beiden Fällen wird eine Nachricht nur verborgen, wenn sich das Modell sicher ist; ist es unsicher, sieht der Charakter sie weiterhin. Ist nach einer Antwort eine Szenenprüfung fällig, klärt dieselbe Anfrage auch, wer anwesend ist, sodass für diese Nachrichten kein zusätzlicher Aufruf nötig ist.
-- Das Modell liest die bisherigen Nachrichten der aktuellen Szene und immer mindestens die letzten paar davor, auch wenn gerade eine neue Szene begonnen hat. Außerdem erhält es eine Liste der Charaktere, die seit Beginn der aktuellen Szene gesprochen haben. Diese Liste ist nur ein Hinweis: Ein Charakter, der still zuhört, gilt trotzdem als anwesend, auch wenn er nichts gesagt hat.
-- Änderst du bei einer Nachricht selbst **Hide from AI** oder wendest `/hide` oder `/unhide` auf sie an – vor oder nach der automatischen Auswahl –, bleibt deine Wahl bestehen, und Advanced Memory ändert diese Nachricht nie wieder. Nachrichten, die du bereits vor jemandem verborgen hattest, bleiben unangetastet.
-- Über jede Nachricht wird nur einmal entschieden. Schlägt das Modell fehl oder antwortet es nicht rechtzeitig, wird bei dieser Nachricht nichts verborgen, und der Fehler erscheint im Server-Log.
+Jede neue Nachricht, deine oder die eines Charakters, wird vor den Charakteren verborgen, die nicht in der Szene sind. Dafür wird dasselbe charakterspezifische **Hide from AI** (vor der KI verbergen) genutzt wie bei der Schaltfläche an der Nachricht selbst, daher zeigt die durchgestrichene Augenmarkierung, wer sie nicht sehen kann. Über deine Nachricht wird entschieden, sobald du sie abschickst. Über frühere Nachrichten wird entschieden, bevor der nächste Charakter antwortet.
 
-Ist Advanced Memory an, kann eine neue Charakterantwort mit einer Trennzeile wie `***`, `---` oder `* * *` die Szene oder die Perspektive wechseln. Sie wird dann als separate Nachrichten desselben Charakters gespeichert, eine pro Teil.
+- Der hier gewählte **Narrator** und der in den Einstellungen für Roleplay Commands gewählte **Narrator character** (Erzählercharakter) sehen jede Nachricht. Wer eine Nachricht geschrieben hat, sieht sie immer. Ist der Empfänger einer Flüsternachricht nicht in der Szene, erhält er die Flüsternachricht trotzdem.
+- Ist **Use Decision model** an, wird das Decision-Modell für jeden Charakter gefragt, ob er die Nachricht eindeutig nicht sehen oder hören kann. Ein Charakter, den die Geschichte nie in die Szene bringt, gilt als woanders. Sonst entscheidet das **Helper model**. Eine Nachricht wird nur verborgen, wenn sich das Modell sicher ist.
+- Das Modell liest die bisherigen Nachrichten der aktuellen Szene und mindestens die letzten paar davor. Außerdem erhält es eine Liste der Charaktere, die seit Beginn der Szene gesprochen haben. Diese Liste ist nur ein Hinweis: Ein Charakter, der still zuhört, gilt trotzdem als anwesend.
+- Änderst du **Hide from AI** an einer Nachricht selbst oder nutzt `/hide` oder `/unhide`, bleibt deine Wahl bestehen, und Advanced Memory ändert diese Nachricht nie wieder.
+- Über jede Nachricht wird nur einmal entschieden. Schlägt das Modell fehl oder überschreitet es die Zeit, wird nichts verborgen, und der Fehler landet im Server-Log.
+
+Ist Advanced Memory an, kann eine neue Charakterantwort mit einer Trennzeile wie `***`, `---` oder `* * *` die Szene oder die Perspektive wechseln. Die Antwort wird dann als separate Nachrichten desselben Charakters gespeichert, eine pro Teil.
 
 - Jeder Teil hat sein eigenes Publikum. **Decide who sees new messages**, **Hide from AI** und Flüsternachrichten gelten für jeden Teil einzeln.
-- Der Charakter, der die Antwort geschrieben hat, sieht weiterhin jeden Teil, wie bei all seinen Nachrichten. Soll er einen Teil nicht sehen, verbirg ihn selbst vor ihm.
-- Die Trennzeile steht oben im Teil, der auf sie folgt. Eine Trennzeile in einem Codeblock oder einem HTML-Block, etwa einem `<details>`-Panel, zählt nicht.
+- Der Charakter, der die Antwort geschrieben hat, sieht weiterhin jeden Teil. Soll er einen Teil nicht sehen, verbirg ihn selbst vor ihm.
+- Die Trennzeile steht oben im Teil, der auf sie folgt. Eine Trennzeile in einem Codeblock oder einem HTML-Block wie `<details>` zählt nicht.
 - Der Denktext der Antwort erscheint am ersten Teil. Er geht nicht zurück an das Modell, auch wenn **Exclude Past Reasoning** (früheres Reasoning ausschließen) aus ist.
 - Infos zur Nachricht, Tracker und Ergebnisse der Agenten gehören zum letzten Teil.
-- Prose Guardian und andere umschreibende Agenten schreiben jeden Teil einzeln um, und die Trennzeile bleibt oben. Ist **Hold Message Until Rewrite** an, wartet jeder Teil auf seine eigene Umschreibung. Schlägt die Umschreibung eines Teils fehl, bleibt dieser Teil so, wie er geschrieben wurde, und die anderen werden trotzdem umgeschrieben.
+- Umschreibende Agenten wie Prose Guardian schreiben jeden Teil einzeln um. Ist **Hold Message Until Rewrite** an, wartet jeder Teil auf seine eigene Umschreibung. Schlägt eine Umschreibung fehl, bleibt dieser Teil so, wie er geschrieben wurde.
 - Die automatische Sprachausgabe liest alle Teile der Reihe nach vor.
-- Ein Swipe oder ein Neugenerieren an einem Teil erzeugt nur für diese eine Nachricht eine neue Fassung. Bei einem früheren Teil behält die neue Fassung nur den Text vor der ersten Trennzeile, weil die Szenen danach bereits eigene Nachrichten haben.
+- Ein Swipe oder ein Neugenerieren an einem Teil erzeugt nur für diese eine Nachricht eine neue Fassung. Bei einem früheren Teil behält die neue Fassung nur den Text vor der ersten Trennzeile.
 - Fortsetzen und Impersonate teilen eine Antwort nie auf.
 
 <a id="character-recollections"></a>
 
 ### Charaktererinnerungen
 
-Schalte in Advanced Memory **Character recollections** (Charaktererinnerungen) ein, damit jeder Charakter seine eigene Erinnerung an eine Szene bekommt. Die Option ist standardmäßig aus.
+Schalte **Character recollections** ein, damit jeder Charakter seine eigene Erinnerung an eine Szene bekommt. Die Option ist standardmäßig aus.
 
-- Zu jeder abgeschlossenen Szene bekommt jeder Charakter, der dabei war, eine kurze Erinnerung daran, etwa 50–100 Wörter lang, in der Ich-Form und in seinem eigenen Tonfall geschrieben: was ihm durch den Kopf geht, wenn er daran zurückdenkt, und was ihm am meisten im Gedächtnis geblieben ist. Seine Charakterkarte bestimmt, worauf er achtet; ein logisch denkender Charakter erinnert sich also an andere Dinge als einer, dem wichtig ist, wie sich andere gefühlt haben. Der **Narrator**, deine Persona und Charaktere, die woanders waren, bekommen keine.
-- Das Modell wird angewiesen, nur zu verwenden, was der jeweilige Charakter wissen konnte. Die Anfrage kennzeichnet jede Nachricht, die vor einem Charakter verborgen ist – durch charakterspezifisches Ausblenden (auch durch **Decide who sees new messages**) oder weil sie vor dem Beginn seines Wissensbereichs liegt –, und ein Teil einer Zusammenfassung, der nur für bestimmte Charaktere geschrieben wurde (`{{#if char == …}}`), gehört allein ihnen. Nachrichten, die mit globalem **Hide from AI** vor allen verborgen sind, bleiben Teil der Szene, wie bei Zusammenfassungen. Eine Charaktererinnerung, die vier Wörter am Stück aus etwas übernimmt, das ihr Charakter nicht wissen konnte, wird weggelassen – es sei denn, er hat diese Wendung an anderer Stelle im Chat oder in seiner eigenen Charakterkarte gelesen, oder er hat jedes Wort daraus in mehreren Nachrichten gelesen. Eine Tatsache, die mit anderen Worten wiedergegeben wird, fällt dabei nicht auf; davor schützen nur die Anweisungen.
-- Eine Charaktererinnerung gilt nur, solange ihr Charakter genau das lesen kann, was er lesen konnte, als sie geschrieben wurde. Wird eine Nachricht der Szene später vor ihm verborgen oder für ihn eingeblendet, wird eine generierte Charaktererinnerung neu geschrieben; eine von dir bearbeitete bleibt aus den Prompts heraus, bis du sie prüfst und erneut speicherst.
-- Die Charaktererinnerungen einer neuen Szene entstehen in derselben Anfrage wie ihre Zusammenfassung. Diese Anfrage enthält dann zusätzlich die vollständige Charakterkarte jedes Charakters, der einen Teil der Szene lesen konnte, sodass keine zusätzliche Anfrage nötig ist. Müsste die Szene wegen der Karten in mehr Teile aufgeteilt werden als ohne sie, wird die Zusammenfassung ohne Karten geschrieben, und die Charaktererinnerungen folgen in einer eigenen Anfrage – einzeln für jeden Charakter, wenn mehrere Karten zusammen die Szene aufteilen würden. Ein Charakter, dessen Karte mehr als die Hälfte des Platzes einnimmt, den der Helfer für die Szene hat, bekommt keine Charaktererinnerung. Auch eine lange Szene, die in Teilen zusammengefasst wird, endet mit einer Charaktererinnerung pro Charakter.
-- Anfragen, die nur Charaktererinnerungen schreiben, enthalten außerdem alle **Chat Summaries**, die die Szene abdecken, und die Zusammenfassung der Szene, wenn du sie bearbeitet hast. So folgt eine Charaktererinnerung deinen Korrekturen.
-- Schaltest du die Option in einem Chat ein, dessen Szenen bereits zusammengefasst sind, bekommen diese Szenen nachträglich Charaktererinnerungen, mit einer Anfrage pro Szene, angezeigt als **Writing character recollections**. Szenenzusammenfassungen, auch von dir bearbeitete, ändern sich dabei nie. Szenen, die schon Charaktererinnerungen haben, werden übersprungen. Schlägt eine Szene fehl, bekommen die anderen ihre trotzdem, und **Resume** versucht die fehlgeschlagenen erneut.
-- Schreibt das Modell für einen Charakter nichts Brauchbares, behält die Szene für ihn eine leere Charaktererinnerung, und für ihn wird erst wieder eine angefordert, wenn sich die Zusammenfassung der Szene oder das, was er lesen konnte, ändert. Du kannst selbst eine in **Access memories for this chat** schreiben.
-- Charaktererinnerungen erscheinen nur bei abgerufenen Szenen, direkt unter der Zusammenfassung der Szene und vor ihrem Auszug, eine Zeile pro Charakter, etwa `Kaito's personal recollections from this scene: *…*`. In einem Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, sieht ein Charakter nur seine eigene, und der **Narrator** sieht keine, wenn er allein antwortet. In einer zusammengeführten Antwort erscheinen die Charaktererinnerungen aller anwesenden Charaktere, die sich an die Szene erinnern, mit ihrem Namen, auch wenn der Erzähler sich die Antwort mit ihnen teilt.
-- Sie zählen zum **Summary and recall budget**: Zuerst kommen Szenenzusammenfassungen, dann Charaktererinnerungen, dann Auszüge. Wird der Platz knapp, schrumpfen zuerst die Auszüge, danach fallen ganze Charaktererinnerungen weg. Eine Charaktererinnerung wird nie gekürzt.
-- Charaktererinnerungen werden nie in **Chat Summaries** übernommen und nie dazu verwendet, die abzurufenden Szenen auszuwählen.
-- Ändert sich die Zusammenfassung einer Szene, weil du sie bearbeitet hast oder weil sie neu geschrieben wurde, sind ihre generierten Charaktererinnerungen veraltet und bleiben aus den Prompts heraus. Nach jeder Antwort werden, sobald die Chat Summaries aktuell sind, die Charaktererinnerungen von bis zu drei Szenen neu geschrieben, die neuesten Szenen zuerst; **Prepare** (Vorbereiten), **Re-scan scenes** und **Resume** erledigen das für alle. Eine Szene, deren Anfrage nach einer Antwort fehlgeschlagen ist, wartet auf **Prepare** oder **Resume**.
-- Öffne in **Access memories for this chat** eine Szene, um unter **Character recollections** die Charaktererinnerung jedes Charakters zu lesen und zu bearbeiten. Eine bearbeitete Charaktererinnerung wird mit **Manually edited** markiert und nie ersetzt. **Delete** (Löschen) nimmt eine Charaktererinnerung aus den Prompts, und sie wird nie neu geschrieben; du kannst aber selbst eine neue in ihr leeres Feld eintippen.
-- Schaltest du die Option aus, bleiben gespeicherte Charaktererinnerungen erhalten, landen aber nicht mehr in den Prompts. Schaltest du sie in einem Chat wieder ein, in dem der Durchgang für Charaktererinnerungen stehen geblieben ist, startet dieser Durchgang erneut. Export, Import und Verzweigungen schließen sie ein.
+- Jeder Charakter, der in einer abgeschlossenen Szene dabei war, bekommt eine kurze Erinnerung daran, etwa 50 bis 100 Wörter lang, in der Ich-Form und in seinem eigenen Tonfall. Seine Charakterkarte bestimmt, worauf er achtet. Der **Narrator**, deine Persona und Charaktere, die woanders waren, bekommen keine.
+- Das Modell darf nur verwenden, was der jeweilige Charakter wissen konnte. Eine Charaktererinnerung, die vier Wörter am Stück aus etwas übernimmt, das ihr Charakter nicht wissen konnte, wird weggelassen. Gegen eine Tatsache, die mit anderen Worten wiedergegeben wird, schützen nur die Anweisungen.
 
-### Während des Chats
+So bleiben sie korrekt:
 
-Die Szenenerkennung läuft nach dem Speichern der Hauptantwort in Roleplay. **Standalone scene check interval (messages)** ist standardmäßig **5**. Sobald so viele neue Nachrichten eingegangen sind, erhält der Prüfer jede Nachricht seit der letzten Prüfung (höchstens doppelt so viele, wie das Intervall vorgibt), zum Vergleich die Nachricht, bei der die letzte Prüfung endete, sowie Szenenanweisungen und das Ausgabeformat. Er nennt die genaue Abschlussnachricht jeder Szene – das kann auch diese frühere Nachricht sein – oder keine Enden, wenn die Szene weiterläuft. Persona- und Charakternachrichten zählen beide. Der Rhythmus ist unabhängig von Tracker-Zeitplänen. Bei ausgeschaltetem Entscheidungsmodus teilt ein fälliger Check sich einen geeigneten nachgelagerten Tracker-Aufruf, wenn Quellsichtbarkeit und Kontextbudget passen; sonst ruft er das Hilfsmodell separat auf. Jeder neue Bereich beginnt nach dem vorherigen Szenenende und schließt das gemeldete Ende ein. Nur ein erkanntes Ende startet die Hintergrundvorbereitung von Zusammenfassung und Nachrichtenindex, auch wenn die neueste Antwort die Szene beendet. Unsichere Übergänge lassen sie offen. Der Abschnitt **Agent activity** in **Chat Settings** zeigt die Vorbereitung als **Advanced Recall** mit Fortschritt, Fehlern und Wiederaufnahme, auch bei ausgeschalteten normalen Agenten. Nur laufende Speicheraufgaben fragen Fortschritt ab; fertige Archive werden im Leerlauf nicht abgefragt.
+- Eine Charaktererinnerung gilt nur, solange ihr Charakter genau das lesen kann, was er lesen konnte, als sie geschrieben wurde. Wird eine Nachricht der Szene später vor ihm verborgen oder für ihn eingeblendet, wird eine generierte Charaktererinnerung neu geschrieben. Eine von dir bearbeitete bleibt aus den Prompts heraus, bis du sie prüfst und erneut speicherst.
+- Die Charaktererinnerungen einer neuen Szene entstehen in derselben Anfrage wie ihre Zusammenfassung. Ist eine Charakterkarte dafür zu groß, folgen sie in eigenen Anfragen. Ein Charakter, dessen Karte mehr als die Hälfte des Platzes einnimmt, den der Helfer für die Szene hat, bekommt keine.
+- Schaltest du die Option in einem Chat mit bereits zusammengefassten Szenen ein, kommen Charaktererinnerungen Szene für Szene hinzu, angezeigt als **Writing character recollections**. Szenenzusammenfassungen ändern sich dabei nie. **Resume** versucht fehlgeschlagene Szenen erneut.
+- Schreibt das Modell nichts Brauchbares, behält die Szene eine leere Charaktererinnerung, bis sich ihre Zusammenfassung oder der lesbare Text ändert. Du kannst selbst eine in **Access memories for this chat** schreiben.
 
-Bei ausgeschaltetem Entscheidungsmodus liest der normale Abruf vorbereiteten Speicher, statt das Archiv erneut vorzubereiten. Ein optionales Anfrage-Embedding hat ein kurzes Zeitlimit und fällt auf Textabgleich zurück, wenn es nicht verfügbar ist. Der Textabgleich gibt charakteristischen Begriffen in deinen Nachrichten mehr Gewicht – in allen, seit der antwortende Charakter zuletzt gesprochen hat –, damit ein kurzes Detail eine lange Szenenzusammenfassung finden kann. Am stärksten zählt ein Name, den du darin nennst, etwa der eines Haustiers. Die Namen der antwortenden Charaktere und deiner Persona zählen dagegen nicht, ebenso wenig ein Name, der in den meisten Erinnerungen vorkommt. Indizierte Originalnachrichten können Szenen auch dann finden, wenn die Ausgabe von Auszügen ausgeschaltet ist. Der Textabgleich benötigt keinen zusätzlichen Modellaufruf. Abruf läuft ausschließlich für die Hauptgenerierung in Roleplay: Agenten, manuelle Agentenwiederholungen und zusätzliche Testgenerierungen starten ihn nicht und erhalten keine abgerufenen Zusammenfassungen oder Auszüge. Haupt-Prompt-Inspektion bleibt schreibgeschützt.
+Wo sie erscheinen und was sie kosten:
 
-Neu generierte Varianten verwenden den frühesten kompatiblen Speicher derselben Antwort: Kontinuität, Szenenzusammenfassungen und genaue Auszüge. Unveränderte Varianten suchen nicht erneut und rufen keinen Zusammenfassungshelfer auf. Fortsetzen behält den ursprünglichen Speicher. Ältere Antworten ohne Momentaufnahme speichern eine bei ihrer nächsten Generierung und verwenden sie danach wieder; kein Zurücksetzen nötig. Hintergrundergänzungen und Zusammenführungen erhalten kompatible Momentaufnahmen. Benutzeränderungen an Verlauf, Zugriff, Zusammenfassungen oder Speicher machen unpassende Momentaufnahmen ungültig. Die aktuelle Kontextgrenze gilt immer. Eine neue Variante ruft außerdem erneut Erinnerungen ab, wenn seit dieser Antwort eine frühere Szene, die ihr Charakter abrufen konnte, gespeichert, bearbeitet, aktiviert oder deaktiviert wurde. Eine Szene, die noch zum Chatverlauf dieser Antwort gehört, lässt sich noch nicht abrufen; ihr Speichern löst daher keinen erneuten Abruf aus.
+- Charaktererinnerungen erscheinen nur bei abgerufenen Szenen, unter der Zusammenfassung der Szene und vor ihrem Auszug, eine Zeile pro Charakter. In einem Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, sieht ein Charakter nur seine eigene. In einer zusammengeführten Antwort erscheinen die Charaktererinnerungen aller anwesenden Charaktere, die sich an die Szene erinnern, mit ihrem Namen.
+- Sie zählen zum **Summary and recall budget**. Zuerst kommen Zusammenfassungen, dann Charaktererinnerungen, dann Auszüge. Zuerst schrumpfen die Auszüge, danach fallen ganze Charaktererinnerungen weg. Eine Charaktererinnerung wird nie gekürzt.
+- Charaktererinnerungen kommen nie in **Chat Summaries** und entscheiden nie darüber, welche Szenen abgerufen werden.
+- Ändert sich die Zusammenfassung einer Szene, werden ihre generierten Charaktererinnerungen neu geschrieben, nach jeder Antwort für bis zu drei Szenen, die neuesten zuerst. **Prepare existing history**, **Re-scan scenes** und **Resume** erledigen das für alle.
 
-Die Hauptgenerierung liest gespeicherte Erinnerungen sofort. Sie startet keine Kontinuitätsgenerierung und wartet auch bei laufendem Hintergrundhelfer nicht darauf. Erreicht der ausgehende Prompt die Grenze, beginnt das Live-Fenster für **alle Charaktere** am Anfang der neuesten Szene und wächst bis zur nächsten Grenze. Folgeanfragen nach Funktionsaufrufen und Würfen zählen nicht zur Grenze und lösen kein Zurücksetzen aus. Der automatische Schnitt erscheint im bestehenden Menü **Mark as new start** mit ausgewähltem **All**; entferne All, um ihn rückgängig zu machen. Persönliche Startmarkierungen gelten weiterhin. Passt eine offene Szene oder übergroße Konstante nicht, verwendet die Anfrage ausdrücklich gekennzeichnete Quellauszüge und behält die neuesten Nachrichten. Diese vorübergehende Anpassung erzeugt keine weitere dauerhafte Markierung. Gespeicherte Zusammenfassungen und Originalnachrichten bleiben unverändert.
+Bearbeiten und Ausschalten:
 
-Nach der Hauptantwort ergänzt Advanced Memory **Chat Summaries** für archivierte Nachrichten, die noch keine Zusammenfassung abdeckt, und verwendet dabei nach Möglichkeit fertige Szenenrückblicke. Inaktive Einträge gelten als abgedeckt. In einem Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, teilen sich alle, die den Rückblick einer Szene gelesen haben, eine Zusammenfassung davon.
-
-Überschreiten die aktiven Zusammenfassungen, die ein Charakter liest, 70 % von **Summary and recall budget**, kombiniert und kürzt **Updating continuity** sie nach der Antwort, mit dem ausgewählten Helfer und **Chat Summary → Maximum output size**. Die Antwort selbst wartet nie darauf. Der Anteil jedes Charakters wird für sich gezählt; in einem Gruppenchat mit zusammengeführten Antworten zählt als Anteil, was der gemeinsame Prompt enthält. Eine Zusammenfassung, die noch Nachrichten aus dem Live-Verlauf eines Charakters abdeckt, wartet, bis diese Nachrichten ihn verlassen haben. Die zusätzlichen 2.000 Tokens gelten für den Gesamtspeicher, nicht für diesen Anteil.
-
-Zusammenfassungen, die verschiedene Charaktere lesen, werden zu einer kombiniert, auch solche, die du selbst geschrieben oder bearbeitet hast. Private Teile bleiben in ihren `{{#if char == "Name"}}…{{/if}}`-Abschnitten, genau für die Charaktere, die sie kannten. Würde das Ergebnis des Helfers ändern, wer einen Teil lesen kann, wird es nicht gespeichert, und stattdessen werden kleinere Gruppen versucht. Ein Teil für einen Charakter, der den Chat verlassen hat, behält seine Bedingung und gehört so weiterhin ihm, falls er zurückkommt. Zusammenfassungen, die andere Makros als `{{user}}` verwenden oder die mit einem solchen Teil nur noch der Erzähler liest, bleiben, wie sie sind; füllen allein sie den Anteil eines Charakters, kürze sie von Hand oder erhöhe das Budget. Ersetzte Einträge, auch deine, werden inaktiv, sodass du sie wieder einschalten kannst. Fehlgeschlagene oder unvollständige Ergebnisse werden nicht gespeichert, und **Resume processing** versucht sie erneut. Szenenrückblicke bleiben im Tresor.
-
-Der Prompt eines Charakters zeigt Nachrichtenbereich und Datumsangaben einer Zusammenfassung nur aus Nachrichten, die dieser Charakter sehen kann. Der **Narrator** von Advanced Memory liest, wenn er allein antwortet, jeden Teil jeder Zusammenfassung einmal. Ein Teil, der zusätzlich von einer Variablen abhängt oder `{{char}}` für mehr als einen Charakter verwendet, folgt weiterhin seiner Bedingung.
-
-Das Archiv ruft passende Szenenzusammenfassungen und genaue Dialoge mit ursprünglichen Nachrichtennummern und Sprechern ab. Ein Abschnitt **Recalled Scenes** enthält jede Zusammenfassung, unmittelbar gefolgt von ihrem Auszug, falls vorhanden, mit einer Bereichsüberschrift für den Auszug. Szenen ohne Auszug bleiben darin. Der Block nennt den aktuellen Live-Bereich und die Nummer der letzten Nutzernachricht, damit sich frühere Ereignisse vom aktuellen Zug unterscheiden lassen. Szenenrückblicke kommen nur hinzu, wenn alle Quellen außerhalb der gesendeten Live-Historie liegen; auch Auszüge schließen Live-Nachrichten aus. Bereichsbezogene **Chat Summaries** werden ebenfalls ausgelassen, solange eine ihrer Nachrichten live bleibt. Sie bleiben gespeichert und aktiviert und werden wieder zulässig, sobald der ganze Bereich archiviert ist. Zulässige Konstanten haben Vorrang vor optionalem Abruf und behalten ihre Charakterbedingungen. Alle ausgewählten Szenenzusammenfassungen reservieren Platz vor den Auszügen. Charakterzugriff und historische Quellgrenzen gelten weiter. Illustrationsanhänge und Bildbeschriftungen fehlen in abgerufenen Nachrichten und neuen Zusammenfassungseingaben; lesbare Textanhänge bleiben verfügbar. Persona- und Charakternachrichten zählen beide. Historische Neugenerierung nutzt nur Quellen vor der Zielantwort, auch wenn diese vor dem aktuell verwalteten Fenster liegt. Bearbeiten, Swipen, Verbergen oder Löschen von Quellen löst vor der Nutzung eine erneute Prüfung abgeleiteter Erinnerungen aus.
-
-Öffne **Access memories for this chat** in derselben Seitenleiste, um chronologisch nummerierte Szenenzusammenfassungen zu durchsuchen, ihre Zeiträume und Empfängerkreise zu prüfen, **Summary text** (Zusammenfassungstext) zu bearbeiten oder mit **Inspect source messages** (Quellnachrichten prüfen) die vollständigen Originalnachrichten zu lesen. Interne wortgetreue Auszüge sind keine eigenen Szenenzusammenfassungen. Quellenbasierte Zeitangaben der Handlung begleiten den abgerufenen Kontext; unbekannte Daten bleiben unbekannt. Du kannst Abrufdatensätze deaktivieren, neu indexieren, exportieren/importieren oder **Delete all memories** (alle Erinnerungen löschen) bestätigen, um die Vorbereitung neu zu beginnen und dabei Originalchat und Einstellungen zu behalten. Korrekturen ursprünglicher manueller Zusammenfassungen bleiben erhalten und machen davon abhängige Kontinuität ungültig. Um eine Szene vom Abruf auszuschließen, deaktiviere ihren Erinnerungseintrag. Charakterspezifisches Ausblenden der Quellen steuert weiterhin den Zugriff; globales Ausblenden entfernt sie nicht aus dem Archiv.
-
-Jede Szenenzusammenfassung hält außerdem fest, wer daran teilgenommen hat. Weicht ein Teilnehmername von der Charakterkarte ab, etwa „Kaito“ für **Kaito Nakamura**, zählt er trotzdem, wenn er auf genau einen Charakter passt und nicht der Name deiner Persona sein kann. Namen, die zwei Charaktere oder ein Charakter und deine Persona gemeinsam haben, Beschreibungen wie „Kaitos Schwester“ und Namen mit Anmerkungen wie „(erwähnt)“ geben einem Charakter nie Zugriff. Der Name deiner eigenen Persona ist kein Fehler und gibt keinem Charakter Zugriff. Sagt der Helfer nicht, wer beteiligt war, geht die Szene an alle Charaktere: in einem Chat mit nur einem Charakter an diesen einen, in einem Gruppenchat an alle. In einem Gruppenchat zählt Advanced Memory das dann als Gedächtnisproblem und markiert die Szene in **Access memories** mit **Check who was there**. So kannst du mit **Edit character access** (Charakterzugriff bearbeiten) alle entfernen, die nicht dabei waren, oder **Fix** den Helfer erneut fragen lassen. Namen, die zu keinem Charakter passen, geben keinen Zugriff und werden genauso markiert, damit du die Teilnehmer der Szene festlegen kannst. Gibt der Helfer ausdrücklich an, dass nur du in einer Szene vorkommst, bleibt sie dem Erzähler vorbehalten. Szenenzusammenfassungen, die gespeichert wurden, bevor es Teilnehmerprüfungen gab, bleiben bis zu ihrer Prüfung dem Erzähler vorbehalten: **Fix** und **Prepare existing history** prüfen sie alle, und jede Antwort, die eine Szene abschließt, prüft zusätzlich bis zu drei davon. Eine Szene, deren automatische Prüfung fehlschlägt, wartet auf **Fix** oder **Prepare existing history**.
-
-Ein Charakter, der nur an einem Teil einer Szene teilgenommen hat, kann den Zugriff auf ihre Erinnerung mit anderen Beteiligten teilen, auch wenn einige Nachrichten vor ihm verborgen sind. Eine Szene ohne zugängliche Quellnachrichten bleibt unzugänglich. Neue Anweisungen für Zusammenfassungen kennzeichnen die Sichtbarkeit der Nachrichten, beschreiben gemeinsame Ereignisse als normalen Text und verwenden `{{#if character == "Name"}}…{{/if}}` nur für private Abschnitte. Die Erwähnung eines abwesenden Charakters macht ihn nicht zum Teilnehmer. Ändert sich die Sichtbarkeit der Quellen oder der Name eines Charakters, für den die Zusammenfassung geschrieben wurde, bleibt eine alte Zusammenfassung für Leser mit Teilzugriff gesperrt, bis du die Szene erneut vorbereitest (**Fix** erledigt das für jede solche Szene) oder ihre privaten Bedingungen prüfst und den korrigierten Text speicherst. Ein Charakter, der dem Chat erst später hinzugefügt wird, zählt nicht als Änderung, es sei denn, nur ein Teil der Szene ist für ihn sichtbar. Zusammenfassungen, die frühere Versionen gespeichert haben, halten nicht fest, für welche Charaktere sie geschrieben wurden; sie brauchen deshalb einmal **Fix**, nachdem ein Charakter hinzugekommen ist. Ältere Zusammenfassungen ohne gespeicherte Sichtbarkeitsinformationen brauchen vor einem Teilzugriff dieselbe Prüfung; nur die Zielgruppe zu ändern bestätigt den Text nicht. Leser mit Zugriff auf jede Quellnachricht können die Erinnerung weiterhin abrufen, und manuell korrigierter Text wird nie stillschweigend umgeschrieben. Diese Prüfungen rufen beim Abruf kein Modell auf. Datum und Zeitraum einer Szene sind gemeinsame Metadaten für alle zugewiesenen Teilnehmer, auch wenn einzelne Quellnachrichten verborgen sind. Wörtliche Auszüge enthalten nie vor einem Charakter verborgene Nachrichten oder Flüsternachrichten. Auch eine Zusammenfassung mit Teilen, die nur für einzelne Charaktere bestimmt sind, erhält einen Auszug: Er zitiert nur die Nachrichten, die der jeweilige Charakter im Chat gesehen hat, und verrät ihm daher nichts, was er nicht schon gesehen hat. Um eine Nachricht aus der Erinnerung eines Charakters herauszuhalten, verbirg sie vor diesem Charakter. Konstante Chat Summaries enthalten weiterhin vor der KI verborgene Nachrichten; Charakterbedingungen regeln den Zugriff auf private Details, ohne diese Nachrichten aus dem zusammengefassten Bereich zu entfernen.
-
-In einem Gruppenchat mit zusammengeführten Antworten kann eine einzige Antwort für alle Charaktere sprechen. Der Abruf umfasst daher alles, woran sich mindestens ein Charakter im Chat erinnert. Szenen und private Teile von Zusammenfassungen, die nicht jeder Charakter im Chat kennt, werden mit den Charakteren gekennzeichnet, die sie kennen, etwa „known only to Kaito“ (nur Kaito bekannt). Kommt mitten im Chat ein Charakter hinzu, verbirgt das frühere Erinnerungen nicht mehr vor den anderen. Eine vor einem Charakter verborgene Nachricht fehlt weiterhin im gemeinsamen Live-Verlauf, doch die Charaktere, die sie sehen konnten, behalten die Erinnerung, als ihre eigene gekennzeichnet. Der Auszug einer abgerufenen Szene zitiert nur Nachrichten, die jeder Charakter gesehen hat, der sich an diese Szene erinnert. Erinnerungen, die kein Charakter im Chat hat, etwa dem Erzähler vorbehaltene Szenen, bleiben außen vor. Teilt sich der Erzähler eine zusammengeführte Antwort mit anderen Charakteren, werden Zusammenfassungen auf dieselbe Weise gekennzeichnet; jeden Teil liest der Erzähler nur, wenn er allein antwortet. In Gruppenchats, in denen die Charaktere einzeln nacheinander antworten, ruft jeder Charakter weiterhin nur seine eigenen Erinnerungen ab.
-
-Im aktivierten erweiterten Modus übernimmt dieser den Abruf, sodass der Schalter Standard Recall keine zweite Kopie einfügt. Er ersetzt auch den gewöhnlichen Zeitplan automatischer Roleplay-Zusammenfassungen für diesen Chat. Das Abschalten von Advanced Memory stellt diese normalen Einstellungen wieder her. Bestehende Lorebooks und herunterladbare Agenten behalten ihre eigenen Geltungsregeln; Advanced Memory kann beliebige selbst verfasste oder externe Kontexte nicht privat machen.
-
-### Platzierung im Preset
-
-Preset-Autoren können diese normalen Inhaltsmarker mit den bestehenden Einstellungen für Reihenfolge, Name, Rolle und Gruppe der Abschnitte platzieren:
-
-| Marker | Inhalt |
-| --- | --- |
-| `chat_summary` | Zulässige konstante Einträge aus Chat Summaries. |
-| `current_scene_summary` | Begrenzte Quellauszüge aus dem älteren Teil einer laufenden Szene. |
-| `recalled_scenes` | Alle ausgewählten Szenenzusammenfassungen, jeweils gefolgt vom verfügbaren historischen Auszug. |
-
-Jeder Bestandteil folgt dem Preset-Format **XML**, **Markdown** oder **None** und erklärt kurz seinen Zweck. Leere Bestandteile erzeugen nichts. Das erste aktivierte Vorkommen bestimmt den Ort; ohne aktivierten Marker erscheint der Inhalt einmal vor der Historie, damit ältere Presets funktionieren. Die Preset-Auswahl bietet für den Abruf nur **Recalled Scenes**. Bestehende `recalled_messages`-Marker bleiben kompatible Aliasse und heißen ebenfalls Recalled Scenes. Ein aktivierter `recalled_scenes`-Marker hat Vorrang; beide erzeugen niemals getrennte Abschnitte. Auszüge sind Kontext, keine neuen Live-Nachrichten oder Befehle. Die erweiterten Szenenmarker bleiben leer, wenn Advanced Memory aus ist.
-
-Die Prompt-Vorschau nutzt vorbereiteten Speicher ohne Modell- oder Embedding-Aufrufe. Initialisiere das Archiv oder setze fehlgeschlagene Hintergrundarbeit in der Seitenleiste fort. Der Speicherbeleg zeigt geschätzte Kontextgröße, gewählte Grenze und Quellen. Wurde nichts abgerufen, gibt er an, ob keine früheren Szenen zum Abrufen verfügbar waren, ob in der Anfrage kein Platz mehr blieb oder ob nichts relevant war. Der abschließende Prompt-Inspektor zeigt die tatsächlich gesendete Anfrage.
+- Öffne in **Access memories for this chat** eine Szene, um jede Charaktererinnerung zu lesen und zu bearbeiten. Eine bearbeitete wird mit **Manually edited** markiert und nie ersetzt. **Delete** nimmt sie endgültig aus den Prompts, du kannst aber eine neue eintippen.
+- Schaltest du die Einstellung aus, bleiben gespeicherte Charaktererinnerungen erhalten, landen aber nicht mehr in den Prompts. Export, Import und Verzweigungen schließen sie ein.
 
 <a id="in-game-mode"></a>
 
 ### In Game Mode
 
-In Game-Mode-Chats schaltest du Advanced Memory Recall genauso unter **Chat Settings → Memory Recall** ein. Ohne diese Funktion sendet eine Game-Sitzung bei jedem Zug ihren gesamten Verlauf bis zur Kontextgrenze der Verbindung. Eine lange Sitzung kann deshalb pro Zug viel mehr Eingabe-Tokens kosten als eine frische. Mit Advanced Memory bleibt der ausgehende Prompt unter **Maximum allowed context before compression** (maximal erlaubter Kontext vor der Komprimierung): Die aktuelle Szene geht als Live-Nachrichten mit, frühere Szenen als Rückblicke plus die Momente, die der Abruf für diesen Zug auswählt.
+In Game-Chats schaltest du Advanced Memory Recall genauso unter **Chat Settings → Memory Recall** ein. Ohne die Funktion sendet eine Game-Sitzung bei jedem Zug ihren gesamten Verlauf bis zur Kontextgrenze, eine lange Sitzung kostet pro Zug also weit mehr Eingabe-Tokens. Mit ihr bleibt der Prompt unter **Maximum allowed context before compression**. Die aktuelle Szene geht als Live-Nachrichten mit, frühere Szenen als Rückblicke plus die Momente, die der Abruf auswählt.
 
-- **Der Game Master liest jede Erinnerung.** Ein Game-Chat hat nur einen Leser, den GM. Deshalb gibt es keine Narrator-Auswahl, keine Wissensbereiche für Charaktere, keine automatische Nachrichtensichtbarkeit und keine Charaktererinnerungen.
-- **Wo die Erinnerung steht.** Rückblicke und abgerufene Szenen stehen nach dem Verlauf, direkt vor den Zuganweisungen des GM. Die Anweisungen des GM und der Sitzungsverlauf davor bleiben von Zug zu Zug gleich, sodass eine Verbindung mit Prompt-Cache sie wiederverwenden kann. Endet eine Szene und beginnt der Live-Verlauf bei der nächsten Szene neu, verfehlt eine Anfrage erwartungsgemäß den Cache.
-- **Was die Erinnerung liest.** Rückblicke entstehen aus der Geschichte, wie du sie siehst: Deine Segmentbearbeitungen gelten, und die Befehlstags des GM werden weggelassen. Ein Hinweis **Checkpoint restored** bleibt wie jeder andere Zug im Live-Verlauf.
-- **Jede Sitzung hat ihr eigenes Gedächtnis.** Eine neue Sitzung behält deine Advanced-Memory-Einstellungen, beginnt aber ihr eigenes Archiv aus ihren eigenen Nachrichten. Der GM bekommt weiterhin wie bisher die Rückblicke früherer Sitzungen.
-- **Das Decision-Modell ist auch hier optional.** Es ist standardmäßig aus. Schaltest du es ein, kann ein Decision-Modell Szenenenden und abzurufende Erinnerungen auswählen, wie unter [Optionales Decision-Modell](#optional-decision-model) beschrieben. Es fügt jedem Zug eigene kleine Anfragen hinzu.
-- **Kosten.** Das Hilfsmodell schreibt einen Rückblick pro Szene und prüft alle paar Züge auf einen Szenenwechsel (**Standalone scene check interval**, Intervall für eigenständige Szenenprüfungen). Diese Anfragen sind klein im Vergleich zum wiederholten Senden einer langen Sitzung im Ganzen.
-- Die Prompt-Vorschau für einen Game-Chat zeigt Advanced Memory noch nicht; die abschließende Prompt-Inspektion zeigt, was an das Modell ging.
-
-### Grenzen und Wiederherstellung
-
-Abruf ist selektiv und Zusammenfassungen können Nuancen verlieren. Bewahre wichtige Korrekturen im Quelltranskript oder Zusammenfassungseditor auf. Kein System rekonstruiert nie erfasste Details. Fallen Embeddings aus, bleiben begrenzter lexikalischer Abruf und gültige Kontinuität verfügbar; das Archiv wird nie vollständig eingefügt. Passen Pflichtanweisungen oder ein Anhang nicht in die Prompt-Grenze, verkleinere sie oder erhöhe die Grenze. Passt die Antwortreserve nicht in den Gesamtkontext des Modells, senke die Ausgabegröße oder wähle ein Modell mit größerem Kontext. Advanced Memory stoppt, statt Anweisungen still zu löschen.
-
-<a id="chat-summary-roleplay"></a>
-
-## Chat Summary (Roleplay)
-
-**Chat Summary** presst ältere Nachrichten zu kurzen erzählerischen Rückblicken zusammen, den sogenannten Summary Entries. Jeder Eintrag stammt entweder von der KI oder von dir selbst, und jeder lässt sich einzeln an- und abschalten. Die Funktion gibt es nur in Roleplay-Chats. Das Speichern eines Schalters lässt andere Einträge bedienbar; Activate All und Deactivate All speichern die Auswahl gemeinsam.
-
-Öffne **Chat Settings** und klapp den Abschnitt **Chat Summary** unter **Lorebooks** auf. Am Computer kannst du ihn in einem eigenen Fenster öffnen (siehe [Chat Settings im Überblick](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)).
-
-### Einen Summary Entry anlegen
-
-1. Wähl unter **Summary Scope** entweder **Last**, um die neuesten Nachrichten zusammenzufassen, oder **Range** für einen bestimmten Nachrichtenbereich.
-2. Klick auf **Generate**, damit die KI daraus einen Eintrag schreibt.
-3. Oder klick auf **Write**, um einen leeren Eintrag anzulegen und den Rückblick selbst zu tippen.
-
-Jeder Eintrag in der Liste zeigt einen Titel, den Quellbereich oder die Anzahl der Nachrichten sowie die geschätzte Größe in Tokens. Einträge lassen sich aktivieren und deaktivieren, ausklappen, über **Edit** bearbeiten oder mit **Delete** entfernen. Sammel-Schaltflächen blenden inaktive Einträge mit **Show Inactive** und **Hide Inactive** ein oder aus und schalten mit **Activate All** und **Deactivate All** alle auf einmal um.
-
-Hak Einträge an, um sie auszuwählen. Am Computer wählst du mit Shift-Klick auf einen weiteren Eintrag den sichtbaren Bereich dazwischen aus. Mit **Enable selected** oder **Disable selected** änderst du dann nur die ausgewählten Einträge.
-
-In einem Gruppenchat mit zusammengeführten Antworten kann eine einzige Antwort für alle Charaktere sprechen. Teile eines Eintrags, die für bestimmte Charaktere geschrieben sind, etwa `{{#if char == "Kaito"}}…{{/if}}`, bleiben für jeden Charakter im Chat erhalten, für den sie gelten, und werden mit den Charakteren gekennzeichnet, die sie kennen, etwa „known only to Kaito“ (nur Kaito bekannt). Teile, die nur der **Narrator** von Advanced Memory erhält, bleiben außen vor. In Gruppenchats, in denen die Charaktere einzeln nacheinander antworten, und in Chats mit nur einem Charakter liest jeder Charakter die Einträge wie bisher, und der **Narrator** von Advanced Memory liest jeden Teil, ganz gleich, welche Charaktere darin genannt sind.
-
-### Automatic Summaries
-
-Das Panel **Automatic Summaries** hält die Zusammenfassungen aktuell, während du weiterchattest. Es erscheint nur in Roleplay-Chats.
-
-- Aktiviere im Panel **Automatic Summaries** den Schalter **Enabled**.
-- Im Feld **Every** legst du das Intervall fest, gezählt in deinen eigenen Nachrichten. Der Standard ist 5, möglich sind 1 bis 200.
-- **Backfill Summary** holt Zusammenfassungen für einen älteren Chat nach, der bisher keine hatte. Marinara arbeitet den Chat dabei in Häppchen ab und zeigt einen Fortschrittsbalken. Mit **Stop** brichst du vorzeitig ab.
-
-### Vorlagen unter Summary Prompt
-
-Das Panel **Summary Prompt** steuert die Anweisungen, mit denen die KI eine Zusammenfassung schreibt. Über **Edit** änderst du den aktiven Prompt. **Templates** öffnet die Vorlagenverwaltung. Dort speicherst du mit **New template** einen Prompt unter einem Namen. Jede gespeicherte Vorlage hat eigene Bedienelemente: **Duplicate**, **Edit** und **Delete**.
-
-Gespeicherte Vorlagen gelten global für die ganze App. Bearbeitest oder wechselst du eine Vorlage in einem Roleplay-Chat, ändert sich der Summary Prompt in allen Roleplay-Chats.
-
-### Summary Connection und Ausgabegröße
-
-Im Panel **Summary Connection** legst du fest, welche Verbindung die Zusammenfassungen schreibt. Der Standard heißt **Agent default (falls back to chat connection)**. Marinara nimmt also zuerst die Standard-Agent-Verbindung und erst danach die Verbindung des Chats selbst.
-
-Das Feld **Maximum output size** begrenzt die Länge einer generierten Zusammenfassung. Der Standard sind 4096 Tokens, möglich sind 1 bis 32768.
-
-### Anzeigeoptionen
-
-Die Bedienelemente unter **Display** in **Chat Summary** bestimmen, wie zusammengefasste Nachrichten auf dem Bildschirm erscheinen:
-
-- **Hide summarised messages**: blendet die Originalnachrichten aus, sobald eine Zusammenfassung sie abdeckt. Standardmäßig aus.
-- **Recent message tail**: hält so viele der neuesten Nachrichten weiterhin voll sichtbar, auch wenn das Ausblenden an ist. Der Standard ist 10, erlaubt ist jede nicht-negative ganze Zahl. Bei 0 verschwindet der zusammengefasste Block komplett. Höhere Werte vergrößern den Prompt und damit die Kosten beim Modell.
-- **Collapse hidden messages**: bestimmt, wie ausgeblendete Nachrichten im Verlauf dargestellt werden.
-
-Verlangt dein Chat eine Freigabe für Agent-Schreibzugriffe (eine eigene Einstellung unter Agents), warten KI-generierte Zusammenfassungen erst auf deine Prüfung, bevor sie greifen.
-
-## Automatic Summarization (Conversation)
-
-Conversation-Chats arbeiten mit einem anderen System namens **Automatic Summarization**. Es fasst jeden Kalendertag zu einer Tageszusammenfassung zusammen und bündelt abgeschlossene Wochen aus Tageszusammenfassungen zu einer Wochenzusammenfassung. In den Prompt wandern dann nur noch die Wochenzusammenfassungen, die Tageszusammenfassungen der laufenden Woche und die heutigen Nachrichten. So bleibt jede Anfrage klein.
-
-Diese Funktion läuft von allein und lässt sich in Conversation-Chats nicht abschalten.
-
-### Den Editor öffnen
-
-1. Öffne einen Conversation-Chat und klick auf **Chat Settings**.
-2. Such den Abschnitt **Automatic Summarization** (Symbol: ein Kalender).
-3. Klick auf **Edit Summaries**, um das Fenster **Automatic Summarization** zu öffnen.
-
-Das Fenster listet zuerst die Wocheneinträge auf, danach alle Tage, die noch in keiner Woche stecken. Klapp einen Eintrag auf, um den Text unter **Summary** und die Liste **Key Details** zu bearbeiten; dort lassen sich Zeilen ergänzen und entfernen.
-
-### Day Rollover Hour und Recent Message Tail
-
-Zwei Einstellungen im Abschnitt **Automatic Summarization** bestimmen, wie die Tage geschnitten werden:
-
-- **Day Rollover Hour**: die Stunde, ab der für Zusammenfassungen ein neuer Tag beginnt. Der Standard ist 4 AM, zur Auswahl steht jede Stunde von 12 AM (Mitternacht) bis 11 AM. Nachrichten vor dieser Uhrzeit zählen noch zum Vortag. Wähl eine Zeit, zu der du nie chattest – sonst zerschneidet Marinara eine durchgemachte Nacht mittendrin.
-- **Recent Message Tail**: wie viele der neuesten Nachrichten von heute wortgetreu erhalten bleiben, auch nachdem sie zusammengefasst wurden. Der Standard ist 10, erlaubt ist jede nicht-negative ganze Zahl. Höhere Werte vergrößern den Prompt und damit die Kosten beim Modell.
-
-Änderst du **Day Rollover Hour**, obwohl schon Zusammenfassungen existieren, warnt dich Marinara: Die älteren Zusammenfassungen beruhen noch auf der vorherigen Einstellung.
-
-### Fehlende Tage nachtragen
-
-Manchmal bleibt ein Tag ohne Zusammenfassung, etwa nach dem Import eines alten Chats. Im Panel **Missing Summaries** des Fensters sitzt die Schaltfläche **Backfill**: Sie nimmt sich die letzten Tage ohne Zusammenfassung noch einmal vor und schaut dabei bis zu 14 Tage zurück.
-
-Wechselst du Verbindung oder Modell für die Zusammenfassungen, schreibt Marinara bereits vorhandene Tages- und Wocheneinträge nicht neu.
+- **Der Game Master liest jede Erinnerung.** Es gibt keine Narrator-Auswahl, keine Wissensbereiche, keine automatische Nachrichtensichtbarkeit und keine Charaktererinnerungen.
+- **Platzierung.** Rückblicke und abgerufene Szenen stehen nach dem Verlauf, direkt vor den Zuganweisungen des GM. Die Anweisungen und der Verlauf davor bleiben von Zug zu Zug gleich, sodass eine Verbindung mit Prompt-Cache sie wiederverwenden kann. Endet eine Szene, verfehlt eine Anfrage den Cache.
+- **Quelle.** Rückblicke folgen der Geschichte, wie du sie siehst: Deine Segmentbearbeitungen gelten, und die Befehlstags des GM werden weggelassen.
+- **Sitzungen.** Eine neue Sitzung behält deine Einstellungen, beginnt aber ihr eigenes Archiv. Der GM bekommt weiterhin Rückblicke früherer Sitzungen.
+- **Decision-Modell.** Optional und standardmäßig aus. Siehe [Optionales Decision-Modell](#optional-decision-model). Es fügt jedem Zug kleine Anfragen hinzu.
+- **Kosten.** Das Hilfsmodell schreibt einen Rückblick pro Szene und prüft alle paar Züge auf einen Szenenwechsel. Diese Anfragen sind klein im Vergleich zum erneuten Senden einer langen Sitzung.
+- Die Prompt-Vorschau für einen Game-Chat zeigt Advanced Memory noch nicht. Nutze den abschließenden Prompt-Inspektor.
 
 ## Fehlerbehebung
 
-### Memory Recall ruft nichts ab
+| Problem | Lösung |
+| --- | --- |
+| Memory Recall ruft nichts ab | Prüf, ob eine Embedding-Quelle eingerichtet ist. Zeigen die Chunks **Embedding unavailable**, leg ein Modell unter **Semantic search (embeddings)** fest oder nutze das eingebaute Modell. Siehe [Eingebautes Modell einrichten](../connections/local-model.md). |
+| Chunks zeigen **Waiting for vector** | Gib ihnen etwas Zeit. Die Fingerabdrücke entstehen nach den Antworten. |
+| Nichts scheint zu passen | Der Abruf ergänzt nur eng passende Erinnerungen. Dass nichts dazukommt, ist normal. |
+| Der Abruf ist nach einem Wechsel des Embedding-Modells schlechter geworden | Nutze das Symbol zum Neuaufbauen in **Memories for This Chat**. |
+| Es entstehen keine Zusammenfassungen | Der Chat braucht ein funktionierendes Textkonto. Chat Summary nutzt den **Summary Provider**. Funktioniert keins, entfällt die Generierung. |
+| KI-Zusammenfassungen erscheinen nie | **Review Agent Outputs** wartet vielleicht auf deine Freigabe. |
+| Eine Zusammenfassung hängt fest | Fehlgeschlagene Zusammenfassungen werden nach einer Weile erneut versucht. Starte **Backfill Summary** (Roleplay) oder **Backfill** (Conversation). |
+| Eine Szene ist mit **Check who was there** markiert | Drück **Fix**, oder öffne sie in **Access memories for this chat** und nutze **Edit character access** (Charakterzugriff bearbeiten). |
 
-- Prüf, ob eine Embedding-Quelle eingerichtet ist. Zeigen die Chunks unter **Memories for This Chat** den Status **Embedding unavailable**, richte an einer Verbindung den Abschnitt **Semantic Search (Embeddings)** ein oder verlass dich auf das eingebaute lokale Modell. Siehe [Local Model einrichten](../connections/local-model.md).
-- Steht dort **Waiting for vector**, gib den Chunks etwas Zeit. Die Fingerabdrücke entstehen nach den Antworten.
-- Der Abruf ergänzt nur Erinnerungen, die eng mit deiner letzten Nachricht zusammenhängen. Passt nichts, kommt auch nichts dazu. Das ist normal.
-- Hast du kürzlich das Embedding-Modell gewechselt, bau die alten Chunks über das Aktualisieren-Symbol unter **Memories for This Chat** neu auf, damit sie zum neuen Modell passen.
+Für andere Probleme siehe [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md).
 
-### Es entstehen keine Zusammenfassungen
+## Referenz zu Advanced Memory
 
-- Achte darauf, dass der Chat eine funktionierende Textverbindung hat. Chat Summary nutzt die **Summary Connection**, Automatic Summarization die ermittelte Verbindung für Zusammenfassungen. Funktioniert keine davon, entfällt die Generierung.
-- Verlangt dein Chat eine Freigabe für Agent-Schreibzugriffe, warten KI-Zusammenfassungen auf deine Bestätigung.
-- Eine fehlgeschlagene Zusammenfassung versucht Marinara nach kurzer Zeit von allein erneut. Hängt sie weiterhin fest, stoß sie von Hand mit **Backfill Summary** (Roleplay) oder **Backfill** (Conversation) noch einmal an.
+Einzelheiten, die die meisten nicht brauchen. Die Einstellungen oben funktionieren, ohne dass du diesen Teil liest.
+
+### Wie Szenen erkannt und zusammengefasst werden
+
+- Die Szenenerkennung läuft, nachdem die Hauptantwort in Roleplay gespeichert wurde. Sobald so viele neue Nachrichten eingegangen sind, wie das Intervall vorgibt, erhält der Prüfer jede Nachricht seit der letzten Prüfung (höchstens doppelt so viele wie das Intervall), die Nachricht, bei der die letzte Prüfung endete, Szenenanweisungen und das Ausgabeformat. Er nennt die genaue Nachricht, mit der jede Szene endet, oder keine, wenn die Szene weiterläuft. Persona- und Charakternachrichten zählen beide.
+- Bei ausgeschaltetem Decision-Modus teilt sich eine fällige Prüfung einen geeigneten nachgelagerten Tracker-Aufruf, wenn Sichtbarkeit und Kontextbudget es erlauben. Sonst macht der Helfer einen eigenen Aufruf. Unsichere Übergänge lassen die Szene offen.
+- Nur ein erkanntes Ende startet im Hintergrund die Vorbereitung von Zusammenfassung und Nachrichtenindex dieser Szene. **Chat Settings → Agent activity** zeigt den Fortschritt als **Advanced Recall**, auch wenn normale Agenten aus sind.
+- Jede Anfrage für eine Szenenzusammenfassung enthält die Zusammenfassungsanweisungen, die zulässigen Nachrichten der Szene, passende Bereichskorrekturen und das JSON-Ausgabeformat. Szenen, die für eine Anfrage zu groß sind, werden in gespeicherten Teilen verarbeitet und dann kombiniert. Rückblicke sollen 2 bis 3 Absätze umfassen. Der Standard-Prompt schreibt einen historischen Rückblick ohne Abschnitt zur aktuellen Situation. Eigene Prompts, die unter **Summaries** ausgewählt sind, gelten weiterhin.
+- Die Szenenerkennung beim ersten Vorbereiten des Verlaufs kann Haupt- oder Hilfsmodell nutzen. Zusammenfassungen nutzen immer das Hilfsmodell.
+- Jede Zusammenfassung hält außerdem fest, wer daran teilgenommen hat. Ein Teilnehmername, der von der Karte abweicht, etwa „Kaito“ für **Kaito Nakamura**, zählt, wenn er auf genau einen Charakter passt und nicht der Name deiner Persona ist. Gemeinsame Namen, Beschreibungen wie „Kaitos Schwester“ und Namen mit Anmerkungen wie „(erwähnt)“ geben keinen Zugriff. Sagt der Helfer nicht, wer beteiligt war, geht die Szene an jeden Charakter, und in einem Gruppenchat wird sie mit **Check who was there** markiert. Eine Szene, die nur dich nennt, bleibt dem Erzähler vorbehalten. Szenen, die gespeichert wurden, bevor es Teilnehmerprüfungen gab, bleiben dem Erzähler vorbehalten, bis **Fix** oder **Prepare existing history** sie prüft. Jede Antwort, die eine Szene abschließt, prüft außerdem bis zu drei davon.
+- Bestätige bei einem älteren Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, fehlende Wissensbereiche einmal. Die erste Zeile eines Charakters belegt nicht, dass er alles davor kannte. Wähle einen tatsächlichen Charakter nur dann als **Narrator**, wenn er Teilnahmegrenzen umgehen soll. Globales **Hide from AI** entfernt einen Zug nur aus dem Live-Verlauf. Advanced Memory durchsucht ihn weiterhin, fasst ihn zusammen und indexiert ihn. Startmarkierungen kürzen den Live-Verlauf.
+
+### Das Live-Fenster und das Budget
+
+- Die Reihenfolge im Prompt ist: Konstanten (immer aktive Zusammenfassungen), dann ausgewählte Szenenzusammenfassungen, dann Charaktererinnerungen, dann Nachrichtenauszüge. Konstanten sollen höchstens 70 % des Budgets belegen. Das gesamte Gedächtnis darf bei Bedarf bis zu 2.000 zusätzliche Tokens nutzen, innerhalb der Kontextgrenze. Live-Nachrichten zählen nicht zum konstanten Anteil.
+- Erreicht der ausgehende Prompt die Grenze, beginnt das Live-Fenster für alle Charaktere am Anfang der neuesten Szene und wächst dann wieder. Folgeanfragen nach Funktionsaufrufen und Würfen zählen nicht. Der Schnitt erscheint in **Mark as new start** mit ausgewähltem **All**. Entferne den Haken bei All, um ihn rückgängig zu machen. Persönliche Startmarkierungen gelten weiterhin. Passt eine unvollendete Szene oder eine übergroße Konstante nicht, verwendet die Anfrage gekennzeichnete Quellauszüge und behält die neuesten Nachrichten. Gespeicherte Zusammenfassungen und Nachrichten werden nie überschrieben.
+- Die Hauptgenerierung liest gespeicherte Erinnerungen sofort. Sie wartet nie auf eine Kontinuitätsaufgabe.
+- Nach der Hauptantwort ergänzt Advanced Memory **Chat Summaries** für archivierte Nachrichten, die noch keine Zusammenfassung abdeckt. In einem Gruppenchat, in dem die Charaktere einzeln nacheinander antworten, teilen sich alle, die eine Szene gelesen haben, eine Zusammenfassung davon.
+- Überschreiten die aktiven Zusammenfassungen, die ein Charakter liest, 70 % des Budgets, kombiniert **Updating continuity** sie nach der Antwort zu einer einzigen Zusammenfassung, die etwa halb so groß ist wie sie zusammen, und nutzt dafür den Helfer. Die Antwort wartet nie darauf. Eine Zusammenfassung, die noch Live-Nachrichten abdeckt, wartet, bis diese das Live-Fenster verlassen haben. Liegt die kombinierte Zusammenfassung danach noch über dem Anteil, halbiert die nächste Aktualisierung sie erneut.
+- Jede Anfrage enthält nur deinen **Combine prompt** (Prompt zum Zusammenführen), eine Zeile, die um etwa die halbe Länge bittet, und den Text der Zusammenfassungen. Enthält der Text Makros wie `{{user}}`, bittet diese Zeile außerdem darum, sie so zu lassen, wie sie geschrieben sind. Ein Text, der für eine Anfrage zu lang ist, wird in Teilen gesendet, und jeder Teil wird halbiert. Die Antwort des Helfers darf so lang sein wie der Text plus 1.024 Tokens, höchstens aber 8.196 Tokens oder **Chat Summary → Maximum output size**, falls dieser Wert größer ist.
+- Zusammenfassungen, die verschiedene Charaktere lesen, werden zu einer kombiniert, auch solche, die du geschrieben hast. Private Teile bleiben in ihren `{{#if char == "Name"}}…{{/if}}`-Abschnitten, genau für die Charaktere, die sie kannten. Der Text, den jede Gruppe von Charakteren liest, wird ohne seine Bedingung in einer eigenen Anfrage gekürzt und kommt danach wieder in dieselbe Bedingung. Die Gruppen folgen der Reihenfolge, in der jede zum ersten Mal vorkommt. Ein Teil unter 64 Tokens bleibt ohne Anfrage, wie er ist. Zusammenfassungen, die andere Makros verwenden, bleiben, wie sie sind. Füllen allein sie den Anteil eines Charakters, kürze sie von Hand oder erhöhe das Budget. Ersetzte Einträge werden inaktiv, sodass du sie wieder einschalten kannst.
+- Wenn die Antwort des Helfers an ihrem Limit abgeschnitten wird, leer ist, nicht kürzer ist oder ein Makro hinzufügt oder wenn das Ergebnis ändern würde, wer einen Teil lesen kann, bleiben die Zusammenfassungen, wie sie sind, und die Aktualisierung wird trotzdem abgeschlossen. Dieselben Zusammenfassungen werden erst wieder gesendet, wenn sich eine von ihnen ändert oder du das Hilfsmodell oder den **Combine prompt** änderst. **Resume processing** versucht eine Aktualisierung erneut, die mit einem Fehler abgebrochen ist.
+- Der Prompt eines Charakters zeigt Nachrichtenbereich und Datumsangaben einer Zusammenfassung nur aus Nachrichten, die dieser Charakter sehen kann. Der Narrator liest, wenn er allein antwortet, jeden Teil einmal.
+
+### Was der Abruf liefert
+
+- Ein Abschnitt **Recalled Scenes** enthält jede Zusammenfassung, gefolgt von ihrem Auszug, falls vorhanden, unter einer Bereichsüberschrift. Der Block nennt den aktuellen Bereich des Live-Verlaufs und die Nummer der letzten Nutzernachricht, damit frühere Ereignisse nicht mit dem aktuellen Zug verwechselt werden.
+- Eine Szene wird nur abgerufen, wenn alle ihre Quellnachrichten außerhalb des gesendeten Live-Verlaufs liegen. Bereichsbezogene **Chat Summaries** werden ausgelassen, solange eine der abgedeckten Nachrichten live ist. Sie bleiben gespeichert und aktiviert. Zulässige Konstanten haben Vorrang vor optionalem Abruf. Alle ausgewählten Zusammenfassungen reservieren Platz vor jedem Auszug.
+- Illustrationsanhänge und Bildbeschriftungen fehlen in abgerufenem Text und neuen Zusammenfassungseingaben. Lesbare Textanhänge bleiben.
+- Bei ausgeschaltetem Decision-Modus liest der Abruf vorbereitete Erinnerungen. Ein Anfrage-Embedding hat ein kurzes Zeitlimit und fällt auf Textabgleich zurück. Der Textabgleich gibt charakteristischen Begriffen in deinen Nachrichten seit der letzten Wortmeldung des antwortenden Charakters mehr Gewicht. Am stärksten zählt ein Name, den du darin nennst. Die Namen der antwortenden Charaktere und deiner Persona zählen nicht, ebenso wenig ein Name, der in den meisten Erinnerungen vorkommt. Der Textabgleich braucht keinen zusätzlichen Modellaufruf.
+- Der Abruf läuft nur für die Hauptgenerierung in Roleplay. Agentenaufrufe, manuelle Agentenwiederholungen und Testläufe lösen ihn weder aus noch erhalten sie ihn.
+- Swipes verwenden das früheste kompatible gespeicherte Gedächtnis dieser Antwort erneut. Ein Swipe ruft erneut ab, wenn seitdem eine frühere Szene, die sein Charakter abrufen konnte, gespeichert, bearbeitet, ein- oder ausgeschaltet wurde. Eine fortgesetzte Antwort behält das Gedächtnis, mit dem sie begonnen hat. Änderungen an Verlauf, Zugriffseinstellungen, Zusammenfassungen oder Erinnerungen machen gespeicherte Snapshots ungültig.
+- Bearbeiten, Swipen, Verbergen oder Löschen von Quellnachrichten führt dazu, dass betroffene Erinnerungen vor der Nutzung erneut geprüft werden. Historische Neugenerierung nutzt nur Quellen vor der Zielantwort.
+- Der Speicherbeleg zeigt die geschätzte Kontextgröße, die gewählte Grenze und die abgerufenen Quellen. Wurde nichts abgerufen, gibt er an, ob es keine früheren Szenen gab, kein Platz mehr blieb oder nichts relevant war. Die Prompt-Vorschau nutzt das vorbereitete Gedächtnis und startet keine Modellaufrufe. Der abschließende Prompt-Inspektor zeigt, was an das Modell ging.
+- Hat eine abgerufene Szene keinen Auszug, nennt der Beleg den Grund: Nach den Zusammenfassungen war kein Platz mehr, oder keine ihrer Nachrichten lässt sich zitieren.
+
+### Access memories for this chat
+
+Öffne diese Ansicht, um nummerierte Szenenzusammenfassungen zu durchsuchen, ihre Zeiträume und Empfängerkreise anzusehen, **Summary text** (Zusammenfassungstext) zu bearbeiten oder mit **Inspect source messages** (Quellnachrichten prüfen) die Originale zu lesen. Du kannst Einträge ausschalten, **Reindex** (neu indexieren) nutzen, exportieren und importieren oder mit **Delete all memories** (alle Erinnerungen löschen) die Vorbereitung neu beginnen und dabei Chat und Einstellungen behalten. Korrekturen an manuellen Zusammenfassungen bleiben erhalten und machen davon abhängige Kontinuität ungültig. **Delete summary** (Zusammenfassung löschen) unten an einer Zusammenfassung entfernt sie, nachdem du Zusammenfassung und Zielgruppe bestätigt hast. Das funktioniert auch für alte Einträge vom Typ **Continuity** (Kontinuität) und **Ongoing scene** (laufende Szene). Gelöschte Rückblicke werden bei der regulären Vorbereitung nicht neu erzeugt.
+
+Um eine Szene vom Abruf auszuschließen, schalte ihren Erinnerungseintrag aus. Charakterspezifisches Ausblenden steuert weiterhin, wer darauf zugreifen kann. Globales Ausblenden entfernt sie nicht aus dem Archiv.
+
+### Wer eine Szene lesen kann
+
+- Ein Charakter, der bei einem Teil einer Szene anwesend war, teilt sich den Zugriff auf ihre Erinnerung, auch wenn einige Nachrichten vor ihm verborgen sind. Eine Szene ohne zugängliche Quellnachrichten ist nicht verfügbar. Die Erwähnung eines abwesenden Charakters macht ihn nicht zum Teilnehmer.
+- Neue Rückblicke kennzeichnen die Sichtbarkeit der Nachrichten, beschreiben gemeinsame Ereignisse als normalen Text und verwenden `{{#if character == "Name"}}…{{/if}}` für private Abschnitte. Ändert sich die Sichtbarkeit oder der Zielcharakter eines Rückblicks, bleibt der alte Rückblick für Leser mit Teilzugriff gesperrt, bis du die Szene erneut vorbereitest (**Fix** erledigt das für jede solche Szene) oder ihre privaten Bedingungen prüfst und speicherst. Ein Charakter, der später hinzukommt, zählt nicht, es sei denn, nur ein Teil der Szene ist für ihn sichtbar. Ältere Rückblicke brauchen einmal **Fix**, nachdem ein Charakter hinzugekommen ist. Leser mit Zugriff auf jede Quellnachricht können sie weiterhin abrufen. Manuell korrigierter Text wird nie stillschweigend umgeschrieben.
+- Die Daten einer Szene gelten für alle zugewiesenen Teilnehmer gemeinsam. Wörtliche Auszüge enthalten nie vor einem Charakter verborgene Nachrichten oder Flüsternachrichten. Auch eine Zusammenfassung mit Teilen, die nur für einzelne Charaktere bestimmt sind, erhält einen Auszug, der nur zitiert, was dieser Charakter gesehen hat. Um eine Nachricht aus der Erinnerung eines Charakters herauszuhalten, verbirg sie vor ihm.
+- In einem Gruppenchat mit zusammengeführten Antworten umfasst der Abruf, woran sich mindestens ein Charakter erinnert. Eine Szene oder ein privater Teil, den nicht jeder Charakter kennt, wird gekennzeichnet, etwa mit „known only to Kaito“. Ein Auszug zitiert nur Nachrichten, die jeder sich erinnernde Charakter gesehen hat. Erinnerungen, die kein Charakter hat, etwa dem Erzähler vorbehaltene Szenen, bleiben außen vor. In Gruppenchats, in denen die Charaktere einzeln nacheinander antworten, ruft jeder Charakter nur seine eigenen Erinnerungen ab.
+
+<a id="how-decision-recall-works"></a>
+
+### Wie der Abruf per Decision-Modell funktioniert
+
+- Der normale Abruf stellt zuerst eine Vorauswahl von bis zu 24 Szenenrückblicken zusammen, oder bis zu **Maximum recalled scenes**, falls dieser Wert höher ist. Die Vorauswahl verbindet Textabgleich und Embeddings. Die Embeddings vergleichen jede Szene mit bis zu sechs deiner Nachrichten, seit der antwortende Charakter zuletzt gesprochen hat. Bei einer ersten Antwort wird deine neueste Nachricht verwendet. Solange nicht fast jede Szene Embeddings hat, nutzt die Vorauswahl die Rangfolge des normalen Abrufs. Auch die Szene direkt nach jeder der besten drei bekommt einen Platz.
+- Jeder Rückblick, den das Modell beurteilt, beginnt mit einer Zeile: Nachrichtenbereich, Datum der Handlung und wer gesprochen hat. Das Modell wählt die relevanten Szenen und beurteilt dann für jede gewählte Szene bis zu 12 ihrer am besten passenden Originalnachrichten, um ihren Auszug auszuwählen. Die beste Wahl bildet den Mittelpunkt, die übrigen verlängern den Auszug bis zu **Maximum messages per excerpt** (maximale Nachrichten pro Auszug).
+- Bei jeder neuen Nachricht prüft das Modell außerdem, ob die Geschichte an einen anderen Ort oder in eine andere Zeit springt, zu Charakteren wechselt, die woanders sind, oder auf eine Szenentrennzeile folgt. Dabei sieht es die drei vorherigen Nachrichten und wer sie geschrieben hat. Unsichere Grenzen lassen die Szene offen. Eine gültige Entscheidung darf nichts auswählen.
+- Zeitlimits: Jeder Durchgang bekommt ungefähr so viel Zeit, wie das Modell pro Frage braucht, mal die Anzahl der Fragen und dann noch einmal die Hälfte dazu, mindestens 10 und höchstens 25 Sekunden. Beide Durchgänge zusammen bekommen höchstens 40 Sekunden pro Antwort. Schafft ein Modell nicht alle Fragen, beurteilt es weniger, die besten Treffer zuerst. Die Anfragen sind kurz, sodass rechtzeitig eintreffende Antworten trotzdem zählen. Währenddessen zeigt die Antwort ihren üblichen Platzhalter **Thinking…**.
+- Schlägt eine Anfrage fehl, überschreitet sie die Zeit oder ist sie zu groß, fallen nur diese Erinnerungen auf den normalen Abruf zurück, nach den Szenen, die das Modell gewählt hat, und der Beleg weist darauf hin. Eine fehlende Verbindung oder ein Durchgang ohne Antwort fällt vollständig auf die Rangfolge der Vorauswahl und den Textabgleich zurück. Nicht verfügbare Szenenentscheidungen fallen auf den normalen Szenenprüfer zurück.
+- Auch in diesem Modus entstehen Embeddings. Eine neu zusammengefasste Szene bekommt sie sofort. Ältere Szenen und solche, die mit einem anderen Embedding-Modell erstellt wurden, bekommen sie im Lauf der folgenden Antworten, jeweils einige auf einmal. **Reindex** erstellt sie alle auf einmal.
+- **Peek Prompt → Decision diagnostics → Advanced Memory activity** (Peek Prompt → Entscheidungsdiagnose → Advanced-Memory-Aktivität) zeigt gespeicherte Ergebnisse des letzten Abrufs und der letzten Szenenprüfung: Modell, Zeit, Werte, ausgewählte Erinnerungen oder Szenenanfänge, Status des Ersatzverfahrens und warum eine Szene keinen Auszug hat. Die Ansicht behält bis zu 128 Ergebnisse. Sie beschreiben vergangene Aktivität, keine Vorhersagen. Das Öffnen führt keine Entscheidungen erneut aus. Kompatible Swipes verwenden die gespeicherte Auswahl erneut. Eine Fortsetzung wählt ihre Erinnerungen neu aus.
+- Gehostete Decision-Konten erhalten begrenzte Pakete innerhalb ihres Kontextbudgets. Verwaltete Open-Jev-Modelle nutzen ihre gemessene Zeit pro Frage, und ein Decision-Konto beantwortet die Fragen einer Anfrage gemeinsam und zählt deshalb jede Anfrage einmal.
+
+### Platzierung im Preset
+
+Preset-Autoren können diese Inhaltsmarker mit den üblichen Einstellungen für Reihenfolge, Name, Rolle und Gruppe der Abschnitte platzieren:
+
+| Marker | Inhalt |
+| --- | --- |
+| `chat_summary` | Zulässige konstante Einträge aus Chat Summaries. |
+| `current_scene_summary` | Quellauszüge aus dem älteren Teil einer laufenden Szene. |
+| `recalled_scenes` | Alle ausgewählten Szenenzusammenfassungen, jeweils gefolgt von ihrem Auszug. |
+
+Jeder folgt dem Preset-Format **XML**, **Markdown** oder **None**. Leere Bestandteile erzeugen nichts. Der erste aktivierte Marker bestimmt den Ort. Bestandteile ohne aktivierten Marker erscheinen ersatzweise einmal vor dem Verlauf, damit ältere Presets funktionieren. Die Preset-Auswahl bietet nur **Recalled Scenes** an. Ein alter `recalled_messages`-Marker ist ein Alias, und ein aktivierter `recalled_scenes`-Marker hat Vorrang. Diese Marker bleiben leer, wenn Advanced Memory aus ist.
+
+### Grenzen
+
+Der Abruf ist selektiv, und Zusammenfassungen können Nuancen verlieren. Bewahre wichtige Korrekturen im Quelltranskript oder im Zusammenfassungseditor auf. Fallen Embeddings aus, bleiben begrenzter Textabruf und gültige Kontinuität erhalten. Das Archiv wird nie vollständig eingefügt. Passen Anweisungen oder ein Anhang nicht in die Grenze, verkleinere sie oder erhöhe die Grenze. Passt die Antwortreserve nicht in den Gesamtkontext des Modells, senke die Ausgabegröße oder wähle ein Modell mit größerem Kontext. Advanced Memory stoppt, statt Anweisungen stillschweigend zu löschen.
+
+Solange der erweiterte Modus an ist, übernimmt er den Abruf, sodass Standard Recall keine zweite Kopie einfügt. Er ersetzt außerdem den üblichen Zeitplan automatischer Roleplay-Zusammenfassungen für diesen Chat. Schaltest du ihn aus, gelten wieder die normalen Einstellungen. Bestehende Lorebooks und herunterladbare Agenten behalten ihre eigenen Geltungsregeln.
 
 ## Verwandte Anleitungen
 
-- [Local Model einrichten](../connections/local-model.md)
-- [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md)
+- [Eingebautes Modell einrichten](../connections/local-model.md)
+- [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md)
 - [Conversation Mode: Erste Schritte](../conversation/getting-started.md)
 - [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md)
 - [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md)

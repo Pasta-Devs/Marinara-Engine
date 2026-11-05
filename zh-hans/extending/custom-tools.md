@@ -1,225 +1,195 @@
 # 自定义工具与函数调用
 
-本指南介绍 Marinara Engine 里的自定义工具，也就是界面上说的 Functions。自定义工具能让 AI 在聊天过程中执行一个小动作：返回一段固定文字、请求外部网址，或者在服务器上跑一小段脚本。下面会讲怎么做一个工具、怎么给聊天开启工具调用，以及怎么安全地使用脚本工具。
+自定义工具（也叫函数）能让 AI 在聊天过程中执行一个小动作。这个动作可以返回一段固定文字、请求一个网址，或者在服务器上运行一小段脚本。想让 AI 去查询或计算某样东西、而不是靠猜的时候，就用自定义工具。
 
-## 什么是函数调用
+函数调用就是 AI 请求应用执行一个动作，再把结果用到回复里。Marinara 本身已经内置了一些工具，比如掷骰、世界书搜索和游戏状态更新。你的自定义工具与它们并列工作。自定义工具不挂在角色卡上。你要为某个聊天开启它，或者把它挂到智能体（在聊天旁边运行的辅助程序）上。
 
-函数调用就是让 AI 请求应用执行一个动作，再把结果用到回复里。应用本身已经内置了一批工具，比如掷骰、世界书搜索、游戏状态更新。自定义工具和这些内置工具并列，同属一套 **Function Calling**(函数调用) 机制。
-
-自定义工具适合做这类事情：
-
-- 返回一段固定内容，比如营业时间或一套自定规则。
-- 向外部服务查询实时数据，比如天气或某个智能家居设备的状态。
-- 做一次简单计算，比如求和或者算出一个自定义结果。
-
-自定义工具不挂在角色卡上。要用它，得给某个聊天开启，或者把它挂到智能体上。智能体是在聊天旁边运行的一个助理程序。这两条路子下面都会讲到。
-
-原生函数调用需要支持工具的连接。Claude 和 Grok 的订阅传输方式会忽略原生工具定义，因此 **Chat Settings**(聊天设置) 会显示可用性提示，并禁用这些连接的工具控件。它们的文本命令和骰子标签仍然可用。Game 聊天可以单独选择工具规划连接，费用与行为见[可选的工具规划与世界设定搜索](../game/getting-started.md#optional-tool-planning-and-lore-searches)。
-
-如果已启用的世界书条目具有兼容的向量，世界书搜索就会按语义排序。语义搜索不可用时，Conversation 和 Roleplay 会保留文本匹配。Game 的世界设定搜索需要单独开启，并会报告向量缺失或不兼容；它不会自动为世界书进行向量化。
-
-## Functions 区块
-
-自定义工具在 **Presets**(预设) 面板里创建和管理。
-
-1. 打开顶栏，点击 **Presets**。
-2. 找到 **Functions**(函数) 区块，图标是一把扳手。
-3. 标题下方会看到一行说明 **Custom function calls available from Chat Settings**。
-
-区块标题栏上有三个图标按钮：
-
-- **Create function**(创建函数)，加号图标，打开一个空白的工具编辑器。
-- **Import functions from ZIP or JSON**(从 ZIP 或 JSON 导入函数)，下载图标，打开文件选择器。
-- **Export functions to ZIP**(导出函数为 ZIP)，上传图标，把所有工具存成一个文件。一个工具都没有时这个按钮是灰的。
-
-列表里每个工具会显示名称和两个小标记（类型和参数个数），下面是一段简短说明，右侧有开关、**Edit function**(编辑函数) 按钮和 **Delete function**(删除函数) 按钮。如果服务器上关闭了脚本工具，**Script** 类型的工具还会多出一个琥珀色的 **Script disabled** 标记，开启方法见下面的“执行类型：Script”。拖动工具左侧的手柄可以调整顺序，顺序只影响显示，不影响行为。一个工具都没有时，列表显示 **No functions yet**。
-
-管理工具（创建、编辑、删除、排序以及那个开关）走的是应用中受保护的一部分接口。如果不是在运行服务器的那台电脑上操作，而是换了别的设备，就必须先保存一个管理员密钥。参见[服务器配置参考](../CONFIGURATION.md)，以及下面“脚本安全”里的说明。
+> **注意：** 工具需要支持它们的连接。Claude 和 Grok 的订阅连接会忽略工具定义，因此 **Chat Settings**(聊天设置) 会显示提示，并为这些连接禁用工具控件。文本命令和骰子标签仍然可用。
 
 ## 创建工具
 
-按以下步骤做一个工具。
+开始之前，从顶栏打开 **Presets**(预设) 面板。工具位于它的 **Functions**(函数) 区块（扳手图标）。如果你从另一台设备打开 Marinara，先在 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问) 下保存管理员密钥。它必须与服务器的 `ADMIN_SECRET` 一致；见[服务器配置参考](../CONFIGURATION.md)。
 
-1. 在 **Functions** 区块点击 **Create function**，完整的工具编辑器会打开。
-2. 在顶部的名称输入框里填一个小写 snake_case 名字。AI 调用工具时用的就是这个名字，必须一字不差。合法的名字以小写字母开头，之后只能用小写字母、数字和下划线。例如 `check_weather`。
-3. 填写 **Description**(说明) 输入框。这段话要当成写给 AI 的指令来写，因为 AI 就是靠它判断什么时候该调用这个工具。例如 `Get the current weather for a city the user names.`
-4. 添加工具需要的 **Parameters**(参数)，见下一节。
-5. 选一个 **Execution Type**(执行类型)：**Static Result**、**Webhook** 或 **Script**。
-6. 填写所选类型对应的那个输入框。
-7. 点击 **Save**(保存)。按钮附近应该会闪出绿色的 **Saved** 提示。
+第一次尝试时，选 **Static Result**(静态结果)：它不需要任何其他东西。
 
-几条需要知道的规则：
+### 创建工具的步骤
 
-- 名称长度为 1 到 100 个字符，说明为 1 到 500 个字符。
-- 两个工具不能重名，也不能占用内置工具的名字，见下面的“保留名称”。
-- 改动没保存就离开编辑器时，会弹出一条横幅，提供 **Keep editing**、**Discard** 和 **Save & close** 三个选项。
+1. 打开 **Presets**，找到 **Functions**。
+2. 点击 **Create function**(创建函数)（加号图标）。一个空白的工具编辑器会打开。
+3. 用小写 snake_case 填一个名称，例如 `check_weather`。AI 调用时用的就是这个确切的名称。名称以小写字母开头，之后使用小写字母、数字和下划线。
+4. 填写 **Description**(说明)。把它写成给 AI 的指令，因为 AI 要靠它判断何时调用该工具。例如：`Get the current weather for a city the user names.`
+5. 添加工具需要的参数（见[添加参数](#add-parameters)）。
+6. 选择一个 **Execution Type**(执行类型)：**Static Result**、**Webhook** 或 **Script**(脚本)。
+7. 填写该类型对应的字段（见[选择执行类型](#choose-an-execution-type)）。
+8. 点击 **Save**(保存)。按钮附近会闪现绿色的 **Saved** 提示。
 
-## 参数构建器
+名称和说明的规则：
 
-参数就是 AI 调用工具时传进来的输入。每个参数都有名称、类型、是否必填和说明四项。
+- 名称为 1 到 100 个字符，说明为 1 到 500 个字符。
+- 两个工具不能重名，工具也不能使用内置名称，例如 `roll_dice`、`update_game_state`、`set_expression`、`trigger_event`、`search_lorebook`、`web_search` 或 `update_about_me`。名称冲突时会显示类似 `"your_name" is a reserved built-in tool name.` 的消息。
+- 如果你带着未保存的改动离开编辑器，会出现一条横幅，提供 **Keep editing**(继续编辑)、**Discard**(放弃) 或 **Save & close**(保存并关闭)。
 
-1. 在 **Parameters** 分组里点击 **Add Parameter**(添加参数)。
-2. 填一个参数名，比如 `city`。
-3. 从下拉菜单里选类型：`string`、`number`、`boolean`、`array` 或 `object`。
+**Functions** 标题栏有三个图标按钮：
+
+- **Create function**，即加号图标
+- **Import functions from ZIP or JSON**(从 ZIP 或 JSON 导入函数)
+- **Export functions to ZIP**(导出函数为 ZIP)（没有任何工具时显示为灰色）
+
+列表中的每个工具显示：
+
+- 名称、类型、参数个数和说明
+- 一个开关
+- **Edit function**(编辑函数) 和 **Delete Function**(删除函数)
+
+拖动工具的手柄可以调整列表顺序。顺序只影响显示。没有任何工具时，列表显示 **No functions yet**。
+
+<a id="add-parameters"></a>
+
+## 添加参数
+
+参数是 AI 调用你的工具时传入的输入。每个参数都有名称、类型、必填标记和说明。
+
+1. 在 **Parameters**(参数) 分组中点击 **Add Parameter**(添加参数)。
+2. 填一个名称，例如 `city`。
+3. 选择类型：`string`、`number`、`boolean`、`array` 或 `object`。
 4. 如果 AI 每次都必须传这个值，就开启 **Required**(必填)。
-5. 写一段说明，告诉 AI 这个值代表什么。例如 `The city name to look up, such as Tokyo.`
+5. 写一段说明，告诉 AI 这个值代表什么，例如 `The city name to look up, such as Tokyo.`
 
-继续点 **Add Parameter** 可以再加一行，点某行的减号按钮可以删掉这一行。名称留空的行在保存时会被丢弃。参数说明写得好很重要，AI 全靠它判断该传什么。
+用 **Add Parameter** 再加几行，或者用某行的减号按钮删掉这一行。名称为空的行会在保存时被丢弃。
 
-如果一个工具怎么都不被调用，参数配置出问题是常见原因。这种情况多半出现在导入手工改过的文件、参数配置不合法的时候。此时应用会在生成过程中悄悄跳过这个工具，只往服务器日志里写一条记录。
+如果 AI 似乎从不调用某个导入的工具，可能是它的参数不合法，这时应用会跳过该工具，而且不会告诉你。删掉这些参数，再手动重新添加。
 
-## 执行类型：Static Result
+<a id="choose-an-execution-type"></a>
 
-**Static Result**(静态结果) 类型的工具每次被调用都返回同一段固定文字。它不依赖任何外部服务，谁都能直接用。它的卡片上写着 **Returns a fixed string when called.**
+## 选择执行类型
 
-唯一的输入框是 **Static Result**，一个多行文本框。填进去的内容会在 AI 调用工具时原样返回。留空的话，工具返回 `OK`。
+### Static Result
 
-举个完整的例子。做一个名叫 `store_hours` 的工具，参数列表留空。在 **Static Result** 框里填：
+**Static Result** 工具每次都返回同一段文字。它不需要任何外部服务。它的卡片上写着 **Returns a fixed string when called.**
 
-```
+唯一的字段是 **Static Result**，一个多行文本框。如果留空，工具会返回 `OK`。
+
+示例：一个名为 `store_hours`、没有参数的工具，**Static Result** 填写如下：
+
+```text
 We are open Monday to Friday, 9am to 5pm. We are closed on weekends.
 ```
 
-这样，AI 调用 `store_hours` 时就会拿回这段文字，然后把营业时间告诉用户。AI 看到的是这段文字连同工具名和它传过去的参数，而不是孤零零的一行内容。
+AI 调用 `store_hours` 时，会收到这段文字，连同工具名和它传过去的参数，然后就能把你的营业时间告诉用户。
 
-## 执行类型：Webhook
+### Webhook
 
-**Webhook** 类型的工具会把这次工具调用发到一个外部网址，再把那个服务的回复交给 AI。Webhook 就是一个能接收数据、也能返回数据的网址。它的卡片上写着 **Sends a POST request to an external URL.**
+**Webhook** 工具会把调用发送到一个网址，再把该服务的回复交给 AI。Webhook 是一个能接收数据并返回数据的地址。它的卡片上写着 **Sends a POST request to an external URL.**
 
-唯一的输入框是 **Webhook URL**。应用会向这个地址发送 POST 请求。POST 请求是一种向网络服务发送数据的方式。请求体是 JSON，一种表示结构化数据的纯文本格式，形式如下：
+唯一的字段是 **Webhook URL**。应用会发送一个 POST 请求，这是向网络服务发送数据的一种方式。请求体是 JSON，一种表示结构化数据的纯文本格式，形式如下：
 
-```
+```json
 { "tool": "your_tool_name", "arguments": { ... } }
 ```
 
-服务端应该返回 JSON 或纯文本，这份回复会被交给 AI。
+如果你开启了 **Include hidden chat context**(附带隐藏的聊天上下文)，请求体中还会有一个 `context` 值。服务以 JSON 或纯文本回复，这份回复会交回给 AI。
 
-举个完整的例子。做一个名叫 `check_weather` 的工具，带一个必填的字符串参数 `city`。把 **Webhook URL** 填成自己的服务地址：
+示例：一个名为 `check_weather` 的工具，带一个必填的字符串参数 `city`，**Webhook URL** 填写如下：
 
-```
+```text
 https://api.example.com/weather
 ```
 
-AI 以 `city` 为 Tokyo 调用 `check_weather` 时，你的服务会收到请求，查好天气并返回。AI 随后把这份回复写进消息里。
+AI 以 `city` 为 Tokyo 调用它时，你的服务会查好天气并回复，AI 再把这份回复用在它的消息里。
 
-关于 Webhook 还要注意几点：
+限制：
 
-- 返回内容上限为 512 KB。
-- 每次调用都有服务器设定的时间上限，默认 60 秒。
-- 默认只允许 `https://` 开头的地址。私有地址和本地地址（比如 `localhost` 或家庭网络里的地址）会被拦下。要放行本地地址，需要服务器管理员开启一个设置项，参见[服务器配置参考](../CONFIGURATION.md)。
-- 调用失败或超时不会让聊天崩掉，AI 会收到一个错误结果。
+- 回复上限为 512 KB。
+- 每次调用都有时间上限。默认为 60 秒（`CUSTOM_TOOL_TIMEOUT_MS`）。
+- 默认只允许 `https://` 地址。私有地址和本地地址（例如 `localhost` 或家庭网络地址）会被拦下，直到服务器管理员放行。见[服务器配置参考](../CONFIGURATION.md)。
+- 如果调用失败或超时，AI 会收到一个错误结果，聊天照常继续。
 
-## 执行类型：Script
+如果没有成功：检查地址是否以 `https://` 开头，并且能够访问。除非管理员放行，否则本地地址会一直被拦下。响应慢的服务可能会撞上 60 秒的时间上限。
 
-**Script**(脚本) 类型的工具会在服务器上运行一小段 JavaScript 并返回结果。JavaScript 是一种常见的编程语言。它的卡片上写着 **Runs a JavaScript expression server-side.**
+### Script
 
-出于安全考虑，脚本工具默认是关闭的。如果服务器没有开启，**Script** 卡片会变灰并显示一条警告。要开启脚本，服务器管理员需要在服务器的 `.env` 文件里加上这一行，然后重启应用：
+**Script** 工具会在服务器上运行一小段 JavaScript 并返回结果。JavaScript 是一种常见的编程语言。它的卡片上写着 **Runs a JavaScript expression server-side.**
 
-```
+脚本工具默认关闭。如果你的服务器没有开启它们，**Script** 卡片会变灰，并显示一个琥珀色的 **Script disabled** 标记。要开启脚本工具，服务器管理员需要在服务器的 `.env` 文件中加入这一行，然后重启 Marinara：
+
+```text
 CUSTOM_TOOL_SCRIPT_ENABLED=true
 ```
 
-唯一的输入框是 **Script Body**(脚本正文)。脚本里可以读取 `args`(AI 传来的那些值)，并且必须 `return` 一个结果。此外还能用 `JSON`、`Math` 和 `Date`。
+唯一的字段是 **Script Body**(脚本正文)。脚本读取 `args`(AI 传来的值)，并且必须 `return` 一个结果。可以使用 `JSON`、`Math` 和 `Date`。
 
-举个完整的例子。做一个名叫 `add_numbers` 的工具，带两个必填的数字参数 `x` 和 `y`。在 **Script Body** 框里填：
+示例：一个名为 `add_numbers` 的工具，带两个必填的数字参数 `x` 和 `y`，**Script Body** 填写如下：
 
-```
+```js
 const result = args.x + args.y;
 return { sum: result };
 ```
 
-AI 以 `x` 为 2、`y` 为 3 调用 `add_numbers` 时，工具返回的和是 5。脚本抛出异常也不会导致崩溃，AI 会收到一个错误结果。开启脚本之前先读一遍下面的“脚本安全”。
+AI 以 `x` 为 2、`y` 为 3 调用它时，工具返回的和为 5。如果脚本抛出错误，AI 会收到一个错误结果。
 
-## 附带隐藏的聊天上下文
+脚本会在你的服务器上运行真实代码，运行环境是一个沙箱（一块隔离出来、限制代码能做什么的区域）：
 
-**Webhook** 和 **Script** 两类工具都可以接收一个隐藏的上下文对象，里面是额外的聊天数据，AI 并不会把它当作工具输入看到。在工具编辑器里开启 **Include hidden chat context**(附带隐藏的聊天上下文) 开关即可，默认关闭。
+- 不能访问网络，也不能访问文件。
+- 不能访问环境变量或服务器机密。
+- 有时间上限。默认为 60 秒。
 
-开启之后，Webhook 或脚本除了参数还会收到一个 `context` 值，其中可能包含聊天模式、当前用户角色的名字，以及聊天中的角色名，也可能包含已保存的聊天变量，在 Game Mode(游戏模式) 下还包含游戏状态。这样工具就能自己把结果个性化，不必让 AI 把这些数据全部传一遍。
+沙箱并不是完整的操作系统级隔离。能创建工具的人仍然可以写出浪费 CPU 或内存的脚本。只在你信任的服务器上开启脚本工具，对别人写的脚本也要多加小心。
 
-## 给聊天开启工具调用
+如果没有成功：**Script** 卡片显示为灰色时，请管理员设置 `CUSTOM_TOOL_SCRIPT_ENABLED=true` 并重启。
 
-工具建好了，AI 并不会自动使用，还得给这个聊天开启工具调用。
+### 附带隐藏的聊天上下文
 
-1. 打开一个聊天，进入 **Chat Settings**(聊天设置)。
-2. 展开 **Function Calling** 区块，图标是一把扳手。
-3. 开启 **Enable Tool Use**(启用工具调用)，它的说明写着 **Allow AI to call functions (dice rolls, game state, etc.)**。新聊天默认是关闭的。
+**Webhook** 和 **Script** 工具可以接收额外的聊天数据，AI 不会把这些数据当作工具输入看到。在工具编辑器中开启 **Include hidden chat context**，它默认是关闭的。之后你的工具会收到一个 `context` 值，其中可能包括：
 
-开启**Enable Tool Use**且未在下方添加工具时，聊天可以使用所有已在全局启用、且该聊天支持的工具。其中包括内置工具，以及你在**Functions**区块启用的所有自定义工具。Game聊天使用`search_lorebook`还需要开启**Let the GM search lore**(允许GM搜索设定)；仅开启Tool Use不会启用世界书查询。要将聊天限制为一组指定工具，请添加具体工具：
+- 聊天模式
+- 当前用户角色的名字和各角色的名字
+- 已保存的聊天变量
+- 在 Game Mode(游戏模式) 中，还有游戏状态
 
-1. 点击 **Add Functions**(添加函数)，会打开一个带搜索框的选择器。
-2. 勾选需要的工具。列表里内置工具和自定义工具是混在一起的。
-3. 点击 **Add Selected**(添加选中项) 添加。
+这样工具就能把结果个性化，而不必让 AI 把这些数据全部传一遍。
 
-只要添加了一个以上的工具，这个聊天就只能用这些工具了。在选择器里点 **New Custom Function**(新建自定义函数) 可以直接跳到工具编辑器。选择器的搜索框只匹配工具名称，不匹配说明。
+## 为聊天开启工具
+
+创建了工具，AI 并不会因此就去使用它。你还需要为聊天开启工具调用。
+
+1. 打开一个聊天，然后打开 **Chat Settings**。
+2. 打开 **Function Calling**(函数调用) 区块（扳手图标）。
+3. 开启 **Enable Tool Use**(启用工具调用)。它的说明写着 **Allow AI to call functions (dice rolls, game state, etc.)**。新聊天默认关闭此项。
+4. 检查是否生效：问 AI 一个你的工具能回答的问题，比如针对 `store_hours` 示例问“你们的营业时间是几点？”，回复里应该会用上工具的文字。
+
+开启 **Enable Tool Use** 且下方没有添加任何工具时，聊天可以使用所有全局启用、且它支持的工具：内置工具，加上每个在 **Functions** 中开关已开启的自定义工具。Game 聊天要使用 `search_lorebook`，还需要开启 **Let the GM search lore**(允许 GM 搜索世界设定)。
+
+要把聊天限定在一组选定的工具：
+
+1. 点击 **Add Functions**(添加函数)。会打开一个选择器，其中的搜索框只匹配工具名称。
+2. 勾选你想要的工具。列表中内置工具和自定义工具混在一起。
+3. 点击 **Add Selected**(添加选中项)。
+
+一旦添加了任何工具，该聊天中就只有这些工具可用。选择器里的 **New Custom Function**(新建自定义函数) 会跳转到工具编辑器。
+
+Game 聊天可以为工具规划使用单独的连接。其费用和行为见[可选的工具规划与世界设定搜索](../game/getting-started.md#optional-tool-planning-and-lore-searches)。
+
+如果没有成功：确认 **Enable Tool Use** 已开启；如果你添加过具体工具，确认该工具在聊天的列表里；并确认该工具在 **Functions** 中的开关已开启。把 **Description** 和参数说明写得更清楚，能帮助 AI 判断何时调用它。
 
 ## 把工具挂到智能体上
 
-工具也可以给智能体用，而不是给聊天用。智能体是在生成过程中运行的半自主助理程序，比如世界书管理员，或者负责挑音乐的那种。
+你也可以把工具交给智能体，而不是交给聊天。
 
-1. 打开 **Agents**(智能体) 面板，点开一个智能体。
-2. 展开它的 **Tools / Function Calling** 分组。
-3. 把想让这个智能体使用的工具逐个开启。
+1. 打开 **Agents**(智能体) 面板，打开一个智能体。
+2. 打开它的 **Tools / Function Calling**(工具/函数调用) 分组。
+3. 开启该智能体可以使用的工具。
 
-即使配好了智能体，聊天的 **Function Calling** 区块里的 **Enable Tool Use** 仍然要开启。这里有个措辞问题需要留意：智能体编辑器底部的说明文字让你启用“Enable Function Calling”，而实际要点的开关叫 **Enable Tool Use**，两者指的是同一个控件。想更完整地了解智能体，参见[创建自定义智能体](../agents/custom-agents.md)。
+你仍然需要在聊天的 **Function Calling** 区块中开启 **Enable Tool Use**。智能体编辑器的底部会提醒你这一点。关于智能体的一般介绍，见[创建自定义智能体](../agents/custom-agents.md)。
 
-## 脚本安全
+## 导出与导入工具
 
-**Script** 工具会在服务器上运行真实代码，所以要谨慎对待。应用会把每段脚本放进沙箱里运行。沙箱是一块隔离出来的区域，用于限制代码能做的事。限制如下：
+- 要导出单个工具，打开它并点击 **Export function**(导出函数)。这会保存一个 `.json` 文件。
+- 要导出全部工具，点击 **Export functions to ZIP**。
+- 要导入，点击 **Import functions from ZIP or JSON**，选择一个 `.json` 或 `.zip` 文件。会有一条消息报告导入了多少个工具。
 
-- 不能访问网络。脚本无法访问互联网或任何网址。
-- 不能访问文件。脚本无法读写服务器上的文件。
-- 不能访问环境变量和服务器上的机密信息。
-- 有时间上限。运行太久的脚本会被终止，默认上限是 60 秒。
+导入的 Webhook 和脚本工具一律以关闭状态保存，**Include hidden chat context** 也是关闭的，即使文件要求开启其中任何一项。随后 Marinara 会显示类型、Webhook 地址和文件请求的权限。逐个打开导入的工具，检查它，只有在你信任它时才开启。Static 工具会保留导入时的开关状态。
 
-这套机制能防住失误，也挡住了网络和文件访问，但它不是完整的操作系统级隔离。有权限创建工具的人，仍然可以写出一段消耗服务器 CPU 或内存的脚本。只在你信任的服务器上开启脚本工具，导入别人写的脚本工具时也要格外小心。
-
-从别的设备管理工具同样受保护。如果不在运行服务器的那台电脑上，需要在 **Settings**(设置) → **Advanced**(高级) → **Admin Access**(管理员访问) 下保存一个管理员密钥。这个密钥必须和服务器上的设置一致。服务器端的配置参见[服务器配置参考](../CONFIGURATION.md)。
-
-## 导出与导入
-
-工具可以在不同安装之间搬运。
-
-- 导出单个工具：打开它，点击 **Export function**(导出函数)，会保存成一个 `.json` 文件。
-- 导出全部工具：在 **Functions** 区块点击 **Export functions to ZIP**。
-- 导入：点击 **Import functions from ZIP or JSON**，选一个 `.json` 或 `.zip` 文件，随后会有一条消息报告导入了多少个工具。
-
-导入的 Webhook 和 Script 工具一律以关闭状态保存，**Include hidden chat context** 也一律关闭，哪怕文件里要求开启其中任意一项。导入完成后，Marinara 会显示执行类型、适用时 Webhook 的目标地址，以及文件请求的权限。逐个打开导入的可执行工具，检查其内容，确认信任后再开启。Static 类型的工具会保留文件里的启用状态。
-
-导入时，名称和已有工具或内置工具冲突的会被跳过。智能体包不会打包也不会导入自定义工具：单独导出你信任的函数，在 **Function Calls** 里逐个检查，导入智能体之后再手动挂上去。
-
-## 保留名称
-
-自定义工具的名称不能和内置工具重名。内置名称包括 `roll_dice`、`update_game_state`、`set_expression`、`trigger_event`、`search_lorebook`、`web_search`、`update_about_me` 等等。用了保留名称去保存，会看到这条消息：
-
-```
-"your_name" is a reserved built-in tool name.
-```
-
-两个自定义工具之间同样不能重名。重复使用名称时会提示已存在同名工具。
-
-## 故障排查
-
-AI 从来不调用我的工具。
-
-- 确认聊天的 **Function Calling** 区块里 **Enable Tool Use** 已经开启。
-- 如果给这个聊天添加过具体工具，确认你的工具在那份列表里。
-- 确认 **Functions** 区块里这个工具自己的开关是开启的。
-- 把 **Description** 和参数说明写得更清楚一些，让 AI 知道什么时候该调用它。
-- 如果工具是导入进来的，参数配置有问题会让应用跳过它。手动把参数重建一遍。
-
-Script 卡片是灰的。
-
-- 这台服务器上脚本是关闭的。让管理员设置 `CUSTOM_TOOL_SCRIPT_ENABLED=true` 并重启，参见[服务器配置参考](../CONFIGURATION.md)。
-
-我的 Webhook 失败或超时。
-
-- 确认地址以 `https://` 开头，并且能访问得到。
-- 除非管理员放行了本地地址，否则本地地址会被拦下，参见[服务器配置参考](../CONFIGURATION.md)。
-- 响应慢的服务可能会撞上 60 秒的时间上限。
-
-我没法在手机或别的设备上创建、编辑工具。
-
-- 在 **Settings** → **Advanced** → **Admin Access** 下保存一个与服务器一致的管理员密钥。
+导入时，名称与现有工具或内置工具冲突的工具会被跳过。智能体包不会打包自定义工具：单独导出并检查它们，导入智能体之后再把它们挂上去。
 
 ## 相关指南
 

@@ -1,63 +1,173 @@
 # Marinara Engine 故障排查
 
-本指南汇总 Marinara Engine 的常见问题和对应的解决办法。先找到和自己症状相符的小节，再按步骤操作。如果都不管用，看最后一节“获取更多帮助”。
+找到和你的症状相符的小节，然后按里面的办法处理。大多数问题只要通过启动脚本（`start.bat`、`start.sh` 或 `start-termux.sh`）重新启动 Marinara 就能解决。
 
-## 先试这两步
+## 先试这几步
 
-不少问题两步就能解决。
+1. 强制刷新页面：Windows 或 Linux 上按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>，Mac 上按 <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>。
+2. 看服务器控制台（运行 Marinara 的那个终端窗口）里有没有红色报错行。这些行通常会点明真正的问题。
+3. 要求助的话，先打开 **Debug mode**(调试模式)。见[获取更多帮助](#get-more-help)。
 
-1. 强制刷新页面。Windows 和 Linux 按 **Ctrl+Shift+R**，Mac 按 **Cmd+Shift+R**。
-2. 看服务器控制台（运行 Marinara 的那个终端窗口）里有没有红色报错行。这些行通常直接点明真正的问题。
+<a id="my-character-does-not-reply"></a>
 
-要向团队求助的话，先打开 **Debug mode**(调试模式)，让服务器把提示词（Marinara Engine 发给 AI 的那段文字）和回复都记进日志。见本指南结尾的“获取更多帮助”。
+## 角色不回复
 
-<a id="multiplayer-connection-or-turn-problems"></a>
+按顺序检查下面几项。
 
-## 多人连接或回合问题
+1. 留意弹出提示（屏幕底部出现的一条简短消息）。它通常会点明问题。见[连接和生成报错](#connection-and-generation-errors)。
+2. 确认聊天有账号和模型：打开 **Chat Settings**(聊天设置)，查看连接。如果没有，就在 **Connections**(连接) 里添加一个账号。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
+3. 确认 API 密钥正确，账号里也还有额度。密钥填错或余额用完是常见原因。
+4. 检查模型名称；如果用的是 Ollama 或 LM Studio 这类本地服务器，确认服务器正在运行。
+5. 重新发送消息，或者换一个模型。
 
-- **控件不可用：**确认正确 Engine 的 `.env` 中有 `MULTIPLAYER_ENABLED=true`，重启该 Engine，再单独启用 Settings。保存的开关不能覆盖缺失或无效的环境标志。Android 原生封装被刻意禁止加入。
-- **房主不可用：**使用独立且可达的 HTTPS 房间端口、有效的证书链/主机名，以及匹配的邀请指纹。不要通过关闭 TLS 验证、将 `null` 加入可信来源、公开普通 Engine API 或打开房主提供的客户端来绕过错误。
-- **等待批准：**房主必须在 Players 中批准申请。批准前没有聊天记录。邀请过期或被撤销时，请索取新邀请。
-- **已断线：**让访客自己的 Engine 保持运行。明确开启的会话仍有效时，客户端会重连到同一个已固定的房主；未发送草稿保留在当前视图。重启会使凭据失效，需要重新加入；如果之后想继续用同一个用户角色名称，先请房主移除你原来的席位。网络故障时仍可使用 Stop/Leave。
-- **Game 等待中：**检查 Players。断线参与者不会自动跳过。房主可以明确选择 Pass/Kick 或 Pause。只提交两个必需行动中的一个，不应运行 GM。
-- **生成中断：**不要反复提交该轮。房主应检查已提交的叙述/状态，明确向前继续或停止房间。多人模式不会默默重放结果不明确的模型请求，也不会重复应用世界效果。
-- **命令受限或缺少媒体：**初始房间协议有意只传输文本。参阅[兼容性表](development/multiplayer.md#command-and-feature-compatibility)，不要安装对端提供的文件或扩展来绕过限制。
+如果都不管用，打开 **Debug mode**，然后查看服务器控制台。见[获取更多帮助](#get-more-help)。
 
-报告连接错误时，请提供模式、平台、可见错误以及是否获准入场。不要发布邀请、房间密码、会话令牌、私有聊天记录或服务商凭据。
+## 手机或其他设备上打不开应用
+
+用手机、平板或另一台电脑打不开 Marinara？
+
+最常见的是下面三种原因之一：
+
+- **地址。** 服务器默认只监听 `127.0.0.1`(仅限本机)。启动脚本会设置 `HOST=0.0.0.0`。如果是用 `pnpm start` 启动的，先在 `.env` 里设置 `HOST=0.0.0.0`。
+- **网络。** 两台设备必须连在同一个 Wi-Fi 网络上，而且不能有防火墙拦住端口。默认端口是 `7860`，或者你设置的 `PORT`。
+- **登录。** 给服务器设置一个登录。在被拦住的设备上，输入服务器日志里的一次性设置码，并设一个新的用户名和密码。在 Docker 里，用 `docker logs <container> 2>&1 | grep "setup code"` 找到设置码。也可以在已经登录的浏览器里，到 **Settings → Advanced → Access**(设置 → 高级 → 访问) 里设置。在无头服务器上，运行 `ssh -L 7860:127.0.0.1:7860 user@server`，打开 `http://localhost:7860`，然后使用 **Settings**。见[远程访问](REMOTE_ACCESS.md#option-1-login-recommended)。
+
+更多原因：
+
+- **同一台机器上的代理或隧道。** 同一台机器上的反向代理或隧道需要登录。直连的 Tailscale 流量默认受信任。Tailscale Serve 或 Funnel，以及 nginx 默认的 HTTP/1.0 `proxy_pass`，都算作被转发的访问，需要登录。同主机的 Docker 网桥流量只在没有设置登录、`IP_ALLOWLIST` 或 `TRUSTED_AUTH_PROXY` 时才受信任。
+- **本机的自定义名称。** 在 `/etc/hosts` 里映射到 `127.0.0.1` 的名称会被算作被转发的访问。改用 `localhost`、`127.0.0.1`、本机的主机名或某个 `*.localhost` 名称。
+- **Too many wrong passwords.** 等 15 分钟再登录。忘了密码？在运行 Marinara 的那台电脑上，在 Marinara 文件夹里运行 `node scripts/reset-login.mjs`。在 Docker 里，运行 `docker exec <container> node scripts/reset-login.mjs`。重启服务器也能让它重新尝试。
+- **Untrusted request host.** 如果用的是公网域名或反向代理域名，把它准确的主机名加进 `.env` 的 `TRUSTED_HOSTS`。直连 IP 地址仍然会被接受。
+- **在那台设备上执行高风险操作被拦截**（备份、清除数据、更新）。在服务器所在的电脑上打开 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问)，点击 **Make admin secret**(生成管理员密钥)；或者在服务器的 `.env` 里设置 `ADMIN_SECRET`。在另一台设备的 **Admin Access** 里输入这个密钥，然后点击 **Save**(保存)。
+
+见[远程访问](REMOTE_ACCESS.md)和[常见问题](FAQ.md)。如果你在更新后被锁在外面，见[更新后被锁在外面](REMOTE_ACCESS.md#locked-out-after-updating)。
+
+## 保存被拦截，或设置存不住
+
+保存看似成功，重新加载后却又变回原样。这是跨站保护（CSRF）在拦截它，因为它不信任当前这个浏览器地址。你会看到一条红色横幅，提示保存会静默失败；或者看到标题为 **Save blocked: missing CSRF header**、**Save blocked: cross-site request rejected** 或 **Save blocked: origin not trusted** 的弹出提示。
+
+环回地址、私有网络地址、Tailscale 和 Docker 网桥都会自动受信任。这种情况大多出现在通过公网 IP 或域名访问时。把这个地址加进 `.env` 的 `CSRF_TRUSTED_ORIGINS`，多个地址用逗号分隔。横幅上有一个 **Copy**(复制) 按钮，会帮你填好这一行。不需要重启。
+
+```bash
+CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
+```
+
+<a id="connection-and-generation-errors"></a>
+
+## 连接和生成报错
+
+生成报错会以弹出提示的形式出现在屏幕底部。提示会写明原因，停留的时间也足够你复制下来。
+
+| 消息或症状 | 解决办法 |
+| --- | --- |
+| **No API connection configured for this chat** | 这个聊天没有账号。在 **Connections** 里添加一个，然后给聊天选上。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。 |
+| 模型不接受某个参数 | 打开 **Chat Settings → Advanced Parameters**(聊天设置 → 高级参数)，关掉提示里点名的那个参数旁边的开关。 |
+| 模型说某个参数是必需的 | 把那个参数的开关打开。 |
+| **This model's chat template needs user and assistant messages to take turns** | 有些本地模型，比如在 llama.cpp 上运行的 Mistral 系模型，需要消息轮流交替。Marinara 会合并连续的消息并重试一次。如果问题依旧，在 **Chat Settings → Advanced Parameters** 里把 **Post-Processing Messages**(消息后处理) 设为 **Single User Message**(单条用户消息)，或者改用没那么严格的聊天模板来运行模型。 |
+| **The AI returned an empty response. Try sending your message again.** | 重新发送。如果反复出现，换一个模型或账号试试。 |
+| **A generation is already in progress for this chat** | 还有一条回复正在流式输出。等它结束，或者点击 **Stop**(停止)，然后再试。 |
+| **No connections are marked for the random pool** | 开启了随机路由，但随机池里没有任何账号。添加一个，或者关掉随机路由。 |
+| 每条消息都以网络错误失败，而你的电脑只能通过代理上网 | 把这个代理告诉 Marinara。见[出站 HTTP 代理](CONFIGURATION.md#outbound-http-proxy)。 |
+
+## 更新之后
+
+刚更新完就遇到的问题，先用简单的话说：
+
+- 屏幕空白或看起来像旧版：见[白屏、内容不刷新或界面像旧版](#blank-stale-or-old-looking-screen)和[更新后页面空白，或 JavaScript 被当作 HTML 返回](#blank-page-or-javascript-served-as-html-after-an-update)。
+- 聊天或预设好像不见了：见[更新之后数据像是丢了](#data-seems-missing-after-an-update)。你的数据几乎总是还在磁盘上。
+- 回到旧版本后聊天看起来是空的：见[切换到旧版本后聊天不显示消息](#chats-show-no-messages-after-switching-to-an-older-version)。
+
+<a id="blank-stale-or-old-looking-screen"></a>
+
+### 白屏、内容不刷新或界面像旧版
+
+服务器在运行，浏览器却显示空白页面；或者更新后应用看起来还是旧版。这是因为浏览器还留着网页应用的缓存副本。
+
+1. 强制刷新。
+2. 如果没用，打开 **Settings → Advanced → Updates**(设置 → 高级 → 更新)，点击 **Refresh App**(刷新应用)。
+
+**Refresh App** 会清掉浏览器的 service worker(在后台缓存应用的脚本) 和缓存，然后重新加载。它不会改动你的数据，也不会更新服务器。要更新应用本身，见[升级 Marinara Engine](UPGRADING.md)。
+
+<a id="blank-page-or-javascript-served-as-html-after-an-update"></a>
+
+### 更新后页面空白，或 JavaScript 被当作 HTML 返回
+
+出现类型为 `text/html` 的“Failed to load module script”之类的错误，说明浏览器请求了一个构建里缺失的 JavaScript 文件。删除数据解决不了这个问题。
+
+1. 停止服务器。
+2. 重新运行 `start.bat`、`start.sh` 或 `start-termux.sh`。启动脚本会在启动前重新构建不完整的客户端文件。如果是手动安装，先在仓库根目录运行 `pnpm build`。
+3. 如果页面仍然空白，强制刷新，或者试试无痕窗口。
+
+如果还是失败，报告出错文件的完整 URL、HTTP 状态、Content-Type 和响应第一行，并附上启动脚本的输出。
+
+<a id="data-seems-missing-after-an-update"></a>
+
+### 更新之后数据像是丢了
+
+不要删除任何数据文件夹。Marinara 把正在用的数据放在数据文件夹里的 `storage` 文件夹中。到 `packages/server/data/` 和 `data/` 里找找有没有 `storage`。服务器启动时会打印它解析出的文件夹。
+
+<a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
+
+### 切换到旧版本后聊天不显示消息
+
+新版 Marinara 会把每个聊天的记录（消息、备选回复、记忆、图片）存进各自的文件，这样保存长聊天会更快。旧版本读不了这种布局，所以聊天看起来是空的。数据仍在磁盘上。
+
+Marinara 会拦下明显的降级。启动器会跳过会落到不兼容版本的自动更新，应用内更新器则会显示一条指向这里的错误。
+
+如果你更新之后又回到了旧版本，请恢复更新前做的备份。见[降级到旧版本](UPGRADING.md#downgrading-to-an-older-version)。下面是技术细节。
+
+你的数据现在处于存储格式 10。格式 8、9 和 10 加入了 3D 虚拟形象设置（先是 MMD，之后是 GLB 和 FBX）以及连接的账号关联，旧版构建无法安全读取这些内容。如果你的数据已经达到格式 8 或更新的格式，要使用旧版构建，请恢复那次升级之前做的完整备份。下面的命令只转换旧的聊天文件布局。不要手动修改格式编号。见[降级到旧版本](UPGRADING.md#downgrading-to-an-older-version)。
+
+对于格式 8 以下的数据，按下面的步骤转换聊天文件布局：
+
+1. 停止 Marinara 服务器。
+2. 在 Marinara 文件夹里运行：
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. 切换到旧版本并启动它。
+
+这条命令会根据每个聊天各自的文件重建单文件布局。不会删除任何东西。每个聊天的文件会保留在名为 `<table>.post-unshard-<timestamp>` 的文件夹里，已有的 `.pre-shard` 原文件也会保留。以后再次升级时，Marinara 会把数据转换回去。
+
+在 Docker 或 Podman 里，数据存放在 `marinara-data` 卷中。停止容器，运行下面的命令，然后启动旧镜像：
+
+```bash
+docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard
+```
 
 ## 安装和启动问题
 
 ### Termux：报错 CANNOT LINK EXECUTABLE "node"
 
-如果 Termux 输出 `CANNOT LINK EXECUTABLE "node"`，后面跟着 `cannot locate symbol` 或 `library ... not found`，说明只有 Node.js 升级了，Termux 的其余部分没有一起升级。Termux 不支持只升级部分软件包，所以新版 Node.js 无法搭配旧版 Termux 库启动。这时 Android 应用可能会停下并显示 **Could not verify that this Marinara Android build can safely read your stored data**。问题不在你的数据，重新安装 APK 也解决不了。
+Termux 输出 `CANNOT LINK EXECUTABLE "node"`，并带有 `cannot locate symbol` 或 `library ... not found`。这说明 Node.js 升级了，Termux 的其余部分却没有一起升级。Android 应用随后可能会停下并显示 **Could not verify that this Marinara Android build can safely read your stored data**。问题不在你的数据，重新安装 APK 也解决不了。
 
-升级 Termux 的所有软件包，然后重新启动 Marinara：
+1. 在 Termux 里运行：
 
-```bash
-pkg upgrade -y
-```
+   ```bash
+   pkg upgrade -y
+   ```
 
-接着在 Android 应用里点击 **Install / Start Marinara**；如果是手动安装，就运行 `cd "$HOME/Marinara-Engine" && ./start-termux.sh`。如果升级过程询问是否保留某个配置文件，按 Enter 保留当前的那份。更新后的 Termux 启动脚本和较新的 Android 应用版本会在 Node.js 无法启动时自动执行这次升级。
+2. 在 Android 应用里点击 **Install / Start Marinara**。如果是手动安装，运行 `cd "$HOME/Marinara-Engine" && ./start-termux.sh`。
+
+如果升级过程询问是否保留某个配置文件，按 Enter 保留当前的那份。当前的启动脚本和 Android 应用会自动执行这次升级。
 
 ### Termux：构建客户端时 JavaScript 堆内存不足
 
-如果 Vite 报 `Reached heap limit` 或 `JavaScript heap out of memory` 后退出，说明客户端构建耗尽了 Node.js 堆内存，与缺少原生 Rollup 二进制文件不同。更新后重新运行 `start-termux.sh`：客户端构建（包括应用内更新）现在使用独立的 1536 MiB 堆上限，不超过已知设备 RAM 的一半，但不会低于构建所需的 1280 MiB。RAM 上限按 128 MiB 向下取整。服务器继续使用按配置文件大小确定的较小上限。`NODE_OPTIONS` 中明确设置的上限对两个进程都优先，因此请检查是否残留旧的 1024 MiB 设置：客户端已经无法在 1024 MiB 内完成构建。
-
-重试前关闭其他应用。RAM 低于约 3 GB 的手机仍可能耗尽内存，或被 Android 终止进程；报告时保留完整启动输出。不要为了修复构建而删除聊天或配置文件。
+Vite 报 `Reached heap limit` 或 `JavaScript heap out of memory` 后停止。更新后重新运行 `./start-termux.sh`。客户端构建使用独立的 1536 MiB 堆，不超过设备 RAM 的一半，但不会低于 1280 MiB。你在 `NODE_OPTIONS` 里设置的堆上限优先，所以请删掉旧的 1024 MiB 覆盖设置。重试前关闭其他应用。RAM 低于约 3 GB 的手机仍可能耗尽内存。不要为了修复构建失败而删除聊天或档案。
 
 ### 桌面端：客户端类型检查时 JavaScript 堆内存不足
 
-如果客户端构建报 `JavaScript heap out of memory` 后停止，接着提示 `The client type-check needs about 2.5 GiB of Node.js heap`，说明你在 `NODE_OPTIONS` 里设置的堆上限太小。构建会沿用你设置的上限，而不会自动调高。如果 `NODE_OPTIONS` 里有 `--max-old-space-size-percentage`，就调高这个百分比，它会覆盖 `--max-old-space-size`。如果只用了 `--max-old-space-size`，把它调到 2560 或更高。也可以删掉这些选项，让构建自己决定上限。然后重新运行启动脚本。你的聊天和设置不受影响。
+构建停止并提示 `The client type-check needs about 2.5 GiB of Node.js heap`。这说明你在 `NODE_OPTIONS` 里设置的上限太小，而构建会沿用你设置的上限。把 `--max-old-space-size` 调到 2560 或更高。如果 `NODE_OPTIONS` 里有 `--max-old-space-size-percentage`，就改为调高它，因为它会覆盖另一个。也可以把这两个选项都删掉。然后重新运行启动脚本。你的数据不受影响。
 
 ### Termux：缺少多人模式访客文件
 
-如果重新构建后，启动时仍提示缺少 `packages/client/dist/multiplayer/guest.js`，请更新 Engine 并重新运行 `./start-termux.sh`。启动脚本现在会执行完整的低内存客户端构建，包括启动时检查的访客文件。修复这个构建错误不需要启用多人模式。
+启动时报告缺少 `packages/client/dist/multiplayer/guest.js`。更新 Marinara 并重新运行 `./start-termux.sh`，它会执行完整的客户端构建。不需要开启多人模式。
 
-### Termux：打开 Engine 时服务器停止，或 Sharp 无法加载
+### Termux：打开 Marinara 时服务器停止，或 Sharp 无法加载
 
-Sharp 是 Engine 用来处理缩略图和立绘的图像库。在 Android 上，它通过 WebAssembly 备用实现运行。从 2.4.6 就地更新时，这个备用实现可能有一部分没有装上，服务器随后会在浏览器第一次打开 Engine 时停止运行。
-
-请更新 Engine，让启动脚本重新安装依赖。更新会补装缺失的部分，之后的更新中 Engine 也会保留它。如果还没来得及更新，服务器就在你打开 Engine 时一再停止，可以在 Termux 里手动修复安装：
+Sharp 是 Marinara 用来处理缩略图和立绘的图像库。在 Android 上，它通过 WebAssembly 备用实现运行。更新 Marinara，让启动脚本重新安装依赖。如果服务器在你来得及更新之前就停止了，在 Termux 里手动修复安装：
 
 ```bash
 cd ~/Marinara-Engine
@@ -66,60 +176,25 @@ SHARP_IGNORE_GLOBAL_LIBVIPS=1 pnpm --config.trustPolicy=off --config.confirmModu
 ./start-termux.sh
 ```
 
-这会清除 pnpm 过时的安装记录，并重新安装依赖。聊天和设置都不会受影响。
-
-如果 Sharp 仍然无法加载，Engine 现在会关闭图像处理并继续运行：已经生成的缩略图照常显示，新的缩略图改为显示原尺寸图片，立绘生成和内置的背景移除不可用。不要换成不相关的 Sharp 版本。报告问题时，请保留完整的错误输出。
+你的聊天和设置不受影响。如果 Sharp 仍然无法加载，Marinara 会关闭图像处理并继续运行。已有的缩略图照常显示，新的缩略图改用原尺寸图片，立绘生成和内置的背景移除不可用。不要把 Sharp 换成其他版本。报告问题时，保留完整的错误输出。
 
 <a id="browser-opens-before-startup-finishes"></a>
 
 ### 启动尚未完成，浏览器就打开了
 
-更新 Marinara Engine，再通过启动器重新启动。现在只有服务器报告初始化完成后才会打开浏览器，构建修复也包括在等待范围内，不再使用固定计时器。仅出现 `.env` 注入消息不代表已经就绪。如果启动失败，保留终端错误以便寻求支持；这时不应打开新标签页。若要自行打开应用，设置 `AUTO_OPEN_BROWSER=false`。
-
-### 更新后页面空白，或 JavaScript 被当作 HTML 返回
-
-带有 `text/html` MIME 类型的“Failed to load module script”等错误，可能表示浏览器请求了已安装构建中缺失的 JavaScript 文件。上次会话的退出警告并不能定位这个问题，删除写入租约（writer lease）或用户数据也无法修复这些文件。
-
-停止正在运行的服务器，再运行 `start.bat`、`start.sh` 或 `start-termux.sh`。启动脚本会检查 Vite 构建清单，包括按需加载的 JavaScript 分块，并在启动前重新构建不完整的客户端文件。在加入这项检查之前生成的构建会重建一次，以生成清单。如果重建失败，请保留终端错误供求助时使用。手动安装时，在再次启动前先从仓库根目录运行 `pnpm build`。
-
-如果检查通过但页面仍然空白，请强制刷新或尝试无痕窗口。报告出错文件的完整 URL、HTTP 状态、Content-Type 和响应第一行，并附上启动脚本的输出。缺失的文件现在会返回 HTTP 404，而不是应用的 HTML 页面。
+更新后通过启动脚本重新启动。启动脚本只在服务器报告就绪后才打开浏览器。如果启动失败，就不会打开标签页，所以请保留终端里的报错。要自己打开应用，设置 `AUTO_OPEN_BROWSER=false`。
 
 ### Windows：安装 pnpm 时出现 EPERM 或 corepack 签名错误
 
-pnpm 是 Marinara 用来安装自身代码的包管理器。如果看到 `EPERM: operation not permitted` 或者 corepack 签名校验失败，说明 corepack 写不进 Node 的安装文件夹。
+pnpm 是 Marinara 用来安装自身代码的包管理器。出现 `EPERM: operation not permitted` 或 corepack 签名错误，说明 corepack 写不进 Node 的安装文件夹。任选一种办法，然后重新运行启动脚本：
 
-任选一种办法：
+1. 右键点击终端，选择 **Run as administrator**(以管理员身份运行)，然后运行启动脚本。
+2. 自己安装 pnpm：`npm install -g pnpm@12.15.0`
+3. 在管理员终端里更新 corepack：`npm install -g corepack`
 
-1. 右键点击终端，选择“以管理员身份运行”，然后重新运行启动脚本。
-2. 自己安装 pnpm。运行下面这条命令，再重新运行启动脚本：
+### pnpm 版本错误，或提示 `'pnpm' is not recognized`
 
-```bash
-npm install -g pnpm@12.15.0
-```
-
-3. 在管理员终端里更新 corepack，然后重新运行启动脚本：
-
-```bash
-npm install -g corepack
-```
-
-### Windows：构建 shared 包时提示 `'pnpm' is not recognized`
-
-Marinara v2.3.0 能通过 Corepack 正常启动 pnpm，却会在构建 shared 包时失败，原因是这一步又去调用了第二个全局 `pnpm` 可执行文件。v2.3.1 去掉了这层嵌套依赖。关掉失败的启动脚本，重新运行 `start.bat`，它会先拉取修正后的构建脚本再重新构建。数据不用删。
-
-如果仓库本身没法更新，在 Marinara 文件夹里运行 `git pull` 再启动。在 v2.3.0 上还可以临时这样绕过：全局安装指定版本的包管理器，重新运行启动脚本，然后照常更新：
-
-```bash
-npm install -g pnpm@12.15.0
-```
-
-<a id="launcher-package-manager-handoff"></a>
-
-### 启动器的包管理器交接
-
-Marinara 使用 pnpm 12.15.0。更新 Engine，然后重新运行 `start.bat`、`start.sh` 或 `start-termux.sh`。启动器会获取所需版本，无需先替换旧的全局 pnpm。如果仍然失败，请使用下面的命令安装指定版本，然后重新运行启动器。
-
-如果早期的 v2.4.1 staging 构建已经因 `Expected version: >=10.34.5` 和 `Got: 10.33.2` 而停止，请再运行一次启动器；该构建在停止前已经下载了刷新后的启动器。如果启动器仍无法自动获取固定版本，请安装准确版本后重新运行：
+Marinara 使用 pnpm 12.15.0。启动脚本会替你获取正确的版本，不需要先替换旧的全局 pnpm。更新 Marinara；如果启动脚本更新不了，就在 Marinara 文件夹里运行 `git pull`。然后重新运行启动脚本。如果仍然失败，安装这个确切版本，再重新运行启动脚本：
 
 ```bash
 npm install -g pnpm@12.15.0
@@ -127,129 +202,46 @@ npm install -g pnpm@12.15.0
 
 ### Linux：安装过程中出现 ERR_PNPM_ENAMETOOLONG
 
-这说明上一次旧的安装留下了过长的文件夹路径。在 Marinara 文件夹里清掉没装完的内容，再重新运行启动脚本：
+旧的安装留下了过长的文件夹路径。在 Marinara 文件夹里运行：
 
 ```bash
 rm -rf node_modules .pnpm .pnpm-store
 ```
 
-然后用 `./start.sh` 重新启动 Marinara。如果是手动安装，删完这些文件夹后运行 `pnpm install`。
+然后重新运行 `./start.sh`。如果是手动安装，运行 `pnpm install`。
 
 ### 安装时提示“Ignored build scripts: @google/genai”
 
-这条提示无害：那个包的安装脚本什么也不做，Marinara 也用不到它。不要运行 `pnpm approve-builds`，因为它会改动一个由 Marinara 跟踪的文件，之后每次更新都得先把这处改动挪开。当前版本已经不会再显示这条提示。如果之前显示过它的安装在更新后还继续显示，删掉 Marinara 文件夹里的 `node_modules/.modules.yaml` 文件，再重新运行启动脚本。你的聊天和设置不受影响。
+这条提示无害。不要运行 `pnpm approve-builds`，因为它会改动一个由 Marinara 跟踪的文件。如果更新后这条提示还一直出现，删掉 Marinara 文件夹里的 `node_modules/.modules.yaml`，然后重新运行启动脚本。
 
 ### 安装过程中出现 ERR_PNPM_TRUST_DOWNGRADE
 
-这几乎都是安装装到一半没完成。先重新运行启动脚本，让它修复工作区。如果是手动安装，在 Marinara 文件夹里运行这一条命令：
+这几乎都是安装没装完造成的。重新运行启动脚本。如果是手动安装，在 Marinara 文件夹里运行：
 
 ```bash
 pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile
 ```
 
-## 白屏、内容不刷新、界面像旧版
+## 内置模型相关问题
 
-有时候服务器明明在跑，浏览器却是一片空白；或者更新之后应用看起来还是老版本。这种情况是浏览器还留着网页应用的缓存副本。
+**Built-in model**(内置模型) 在你的电脑上运行，不需要 API 密钥。有些报错信息把它称作 sidecar。设置方法见[内置模型设置](connections/local-model.md)。
 
-1. 强制刷新（**Ctrl+Shift+R** 或 **Cmd+Shift+R**）。
-2. 还不行的话，打开 **Settings**(设置)，切到 **Advanced**(高级) 选项卡，找到 **Updates**(更新) 一节，点击 **Refresh App**(刷新应用)。
-
-**Refresh App** 会清掉浏览器的 service worker(在后台缓存网页应用的脚本) 和浏览器缓存，然后重新加载。数据不受影响，聊天、设置和其他本地数据都会原样保留。它也不会更新服务器代码，所以不能代替真正的更新。要更新应用本身，见[升级 Marinara Engine](UPGRADING.md)。
-
-## 可下载智能体的问题
-
-如果 **Agents → Agent Organizer(智能体管理器)** 提示目录不可用，说明运行 Marinara 服务器的那台机器（不只是浏览器）必须能通过 GitHub HTTPS 访问官方的 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录。已经装好的智能体在离线状态下仍按当前版本正常工作。恢复服务器的网络连接后，点击 **Refresh** 或 **Try again** 就能浏览目录并检查更新。
-
-如果装好的地图或通话没有出现，把 Marinara Engine 完全关掉再启动。这类带路由的包会一直处于 **Restart required** 状态，直到进程下一次启动。Conversation 游戏则不一样：当前版本的 Engine 会立即热激活它们。安装失败就刷新目录，然后确认游戏显示为就绪状态；只有想让角色自己发起游戏时，才需要在聊天的 **Commands**(命令) 设置里添加它，手动用斜杠命令并不需要。
-
-如果旧版安装完成不了首次包迁移，先别删 `data/capability-packages` 文件夹和聊天数据。Marinara 会保留未完成的迁移状态，下次启动时重试。目录访问不通的期间，已有的聊天选择和设置都会保留。
-
-如果 `data/capability-runtime-snapshots` 或 `data/capability-packages/versions` 变得很大，不需要手动清理。Marinara 启动时会删掉旧副本，每个智能体只保留当前版本和上一个版本。
-
-只要包的校验和、声明的文件列表、Engine 版本范围或压缩包内路径与官方目录对不上，下载就会被拒绝。先更新 Marinara Engine，刷新目录，再重试。不要手动把产物解压进数据目录。
-
-智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **Not now**(暂不更新) 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Agent Organizer(智能体管理器)** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
-
-## 从其他设备访问 Marinara
-
-如果手机、平板或局域网里的另一台电脑访问不了 Marinara，按下面几条逐项排查。
-
-- 让服务器监听一个能被访问到的地址。默认情况下服务器只监听 `127.0.0.1`(环回地址，仅限本机)。shell 启动脚本会自动设置 `HOST=0.0.0.0`。如果是手动用 `pnpm start` 启动的，先在 `.env` 文件里设置 `HOST=0.0.0.0`。
-- 确认两台设备连的是同一个 Wi-Fi 网络。
-- 确认没有防火墙拦端口。默认端口是 `7860`，或者你在 `PORT` 里设置的值。
-- 设置登录。在被拦住的设备上，输入服务器日志里的一次性设置码（Docker 里运行 `docker logs <container> 2>&1 | grep "setup code"`），并设一个新的用户名和密码。也可以在已登录的浏览器里，到 **Settings** → **Advanced** → **Access** 设置登录。无头服务器上，运行 `ssh -L 7860:127.0.0.1:7860 user@server`，然后打开 `http://localhost:7860` 并使用 **Settings**。见[远程访问](REMOTE_ACCESS.md#option-1-login-recommended)。
-- 环回访问仍然免密码，但同一台机器上的反向代理或隧道转发过来的访客需要登录。直连的 Tailscale 流量默认受信任，而 Tailscale Serve/Funnel 和 nginx 默认的 HTTP/1.0 `proxy_pass` 都算作被转发，需要登录。同主机的 Docker 网桥或网关流量，只在没有设置登录（应用内登录或 Basic Auth）、`IP_ALLOWLIST` 或 `TRUSTED_AUTH_PROXY` 时才受信任；经代理转发的 Docker 流量需要正常授权。
-- 如果你在本机通过一个在 `/etc/hosts` 中映射到 `127.0.0.1` 的自定义名称打开 Marinara，Marinara 会把这次访问视为被转发的访问。请改用 `localhost`、`127.0.0.1`、本机的主机名，或类似 `marinara.localhost` 的 `*.localhost` 名称。
-- 如果设备上显示 **Too many wrong passwords**，等 15 分钟，再用正确的密码登录。忘了密码？在运行 Marinara 的电脑上运行 `pnpm reset-login`（Docker 里运行 `docker exec <container> node scripts/reset-login.mjs`）。重启服务器也能让它重新尝试。
-- 要在那台设备上执行特权操作（备份、清除数据、更新），在服务器的 `.env` 里设置 `ADMIN_SECRET`。然后把同一个值粘贴到那台设备的 **Settings** > **Advanced** > **Admin Access**(管理员访问) 里，点击 **Save**(保存)。
-- 如果用的是公网域名或反向代理域名，并且看到 **Untrusted request host**，把它准确的主机名加进 `.env` 的 `TRUSTED_HOSTS`。手机、局域网电脑和 Tailscale 节点使用的直连 IP 地址仍然会自动放行。
-
-完整操作流程见[远程访问](REMOTE_ACCESS.md)和[常见问题](FAQ.md)。
-
-如果你在更新后被锁在外面，见[更新后被锁在外面](REMOTE_ACCESS.md#locked-out-after-updating)。
-
-## 保存被拦截，或设置存不住
-
-如果保存看着成功了，重新加载后又变回原样，说明 Marinara 的跨站保护把它拦下了。CSRF(跨站请求伪造) 保护专门看守会改动数据的操作，只信任特定的浏览器来源。
-
-会看到下面一种或两种迹象：
-
-- 屏幕顶部出现红色横幅，提示当前来源不受信任，保存会静默失败。
-- 出现标题为 **Save blocked: missing CSRF header**、**Save blocked: cross-site request rejected** 或 **Save blocked: origin not trusted** 的提示。
-
-环回地址、私有网络地址、Tailscale 和 Docker 网桥都自动受信任。所以这种情况基本只在通过公网 IP 地址或域名访问 Marinara 时才出现。把那个地址加进 `.env` 的 `CSRF_TRUSTED_ORIGINS`。多个地址用逗号分隔，例如：
-
-```bash
-CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
-```
-
-不需要重启。横幅上有一个 Copy 按钮，会直接帮你填好这一整行。更多内容见[远程访问](REMOTE_ACCESS.md)。
-
-## 连接和生成报错
-
-生成失败会在屏幕底部弹出提示。连接出问题时，提示里会写明原因。提示停留的时间够看完也够复制。
-
-- **No API connection configured for this chat**：这个聊天没有选连接。打开 **Connections**(连接) 面板，新建一个，然后给聊天选上。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。API 密钥是服务商给的一串秘密字符，Marinara 靠它才能调用对方的模型。
-- 模型不接受某个参数：提示里会写明是哪一个。打开 **Chat Settings**(聊天设置) > **Advanced Parameters**(高级参数)，找到那个参数，关掉它名字旁边的开关（悬停提示写的是“This parameter is sent to the model”）。
-- 模型要求必须提供某个参数：同样的做法，但要把那个参数旁边的开关打开。
-- **This model's chat template needs user and assistant messages to take turns**：有些本地模型，比如用 llama.cpp 运行的 Mistral 系模型，只接受你和 AI 轮流交替的消息。对这类模型，Marinara 已经会把连续的消息合并起来，再试一次。如果还是看到这条提示，打开 **Chat Settings** > **Advanced Parameters**，把 **Post-Processing Messages**(消息后处理) 设为 **Single User Message**(单条用户消息)，或者改用没那么严格的聊天模板来运行模型。
-- **The AI returned an empty response. Try sending your message again.**：把消息重新发一次。如果一直这样，换个模型或换个连接试试。
-- **A generation is already in progress for this chat**：还有一条回复正在流式输出。等它结束，或者点 Stop 按钮，然后再试。
-- **No connections are marked for the random pool**：开启了随机连接路由，却没有把任何连接标进随机池。至少往池里加一个连接，或者把随机路由关掉。
-- 每条消息都以网络错误失败，而你的电脑只能通过代理上网（例如未开启 TUN 模式的 v2rayN）：把这个代理告诉 Marinara。见[出站 HTTP 代理](CONFIGURATION.md#outbound-http-proxy)。
-
-## Local Model 相关问题
-
-**Local Model**(本地模型) 是跑在自己机器上的 AI 模型，不需要 API 密钥。有些报错信息里把这个功能称作 sidecar。
-
-- 安装运行时失败并提示 **Sidecar runtime install is disabled**，说明服务器出于安全考虑关闭了这个操作。在自己机器上，在 `.env` 里设置 `SIDECAR_RUNTIME_INSTALL_ENABLED=true`。从其他设备操作时，先把管理员密钥粘贴到 **Settings** > **Advanced** > **Admin Access**。
-- 从其他设备（网络地址或 Docker）下载模型或做初始配置失败时，同样可能需要管理员密钥。在自己机器上则不需要。密钥粘贴到哪里见上一条。
-- 如果内置的 llama.cpp、MLX、uv 或 MLX 依赖锁校验报告文件大小或 SHA-256 不匹配，说明 Marinara 已经在解压或安装之前把它丢弃或拒绝了。更新或重装 Marinara 后重试，不要手动运行、解包、修改或绕过被拒绝的产物。
-
-### 维护者：更新固定版本的本地运行时
-
-GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交内容没有变化。绝不要拿用户机器上看到的字节当作正确值来“修复”不匹配，也不要削弱校验。重新固定运行时输入只能通过一次经过评审的 Engine 改动完成：
-
-1. 选定一个不可变的上游修订版本或发布产物，并审阅上游改动。
-2. 把产物下载到临时目录，记录准确的字节数，并独立计算它的 SHA-256 摘要。
-3. 用新的修订版本、URL、大小和摘要更新 `runtime-integrity-manifest.ts`。MLX 部分要在 Apple Silicon/Python 3.12 上用固定版本的 uv，从 `.in` 文件重新生成 `packages/server/src/assets/mlx-runtime-requirements.lock`，逐条审阅依赖变化，并更新 `requirementsLockSha256`。
-4. 运行 `pnpm regression:runtime-integrity`、`pnpm check`，并在受影响的平台上真实执行一次全新的运行时安装。
-5. 先发布经过评审的 Engine 更新，再让用户重试。不要提供手动跳过校验和的开关。
-
-完整的配置流程见[本地模型设置](connections/local-model.md)。
+- **Sidecar runtime install is disabled.** 在你自己的电脑上，在 `.env` 里设置 `SIDECAR_RUNTIME_INSTALL_ENABLED=true`。从其他设备操作时，先把管理员密钥保存到 **Settings → Advanced → Admin Access**。
+- **从其他设备下载模型或完成设置失败**（网络地址或 Docker）。这可能同样需要管理员密钥。在你自己的电脑上则不需要。
+- **大小或 SHA-256 不匹配**：出在内置的 llama.cpp、MLX 或 uv 文件上。Marinara 在使用这个文件之前就已经拒绝了它。更新或重装 Marinara 后重试。不要解包、修改或绕过这个文件。
 
 ## 记忆和摘要
 
 ### Memory Recall 什么都想不起来
 
-**Memory Recall**(记忆功能) 会检索早先的消息，把最相关的几条悄悄加回提示词里。如果它好像什么都没记住，检查下面几点。
+**Memory Recall**(记忆功能) 会检索早先的消息，把最相关的几条加回提示词里。
 
-1. 打开 **Chat Settings** > **Memory Recall**，确认 **Enable Memory Recall** 是开着的。
-2. 打开 **Access memories for this chat**。在 **Memories for This Chat** 窗口里逐块查看状态。
-3. 状态是 **Waiting for vector** 表示这条记忆还在处理。等一会儿再继续聊。
-4. 状态是 **Embedding unavailable** 表示没有可用的嵌入来源。配置一个嵌入连接，或者等内置的本地模型加载完成。见[本地模型设置](connections/local-model.md)。想让所有聊天都用同一个嵌入来源，在 **Connections**(连接) 面板的 **Defaults**(默认值) 区域里，从 **Embeddings**(嵌入) 中选择它。
+1. 打开 **Chat Settings → Memory Recall**(聊天设置 → 记忆功能)，确认 **Enable Memory Recall** 已开启。
+2. 打开 **Access memories for this chat**。在 **Memories for This Chat** 里查看每个记忆块的状态。
+3. **Waiting for vector** 表示这条记忆还在处理。等一会儿，再继续聊。
+4. **Embedding unavailable** 表示没有可用的嵌入来源。设置一个嵌入账号，或者等内置模型加载完成。想让所有聊天都用同一个来源，就在 **Connections** 的 **Defaults**(默认值) 区域里，从 **Embeddings**(嵌入) 中选择它。
 
-一条记忆需要积累至少 5 条新消息才会生成。而且召回只会给出和新消息高度相关的记忆，所以即使记忆存在，也可能什么都不返回。
+至少要有 5 条新消息，才会生成一条记忆。召回只给出和你的新消息高度相关的记忆，所以即使存在记忆，也可能什么都不返回。
 
 <a id="advanced-memory-says-scenes-need-attention"></a>
 
@@ -257,147 +249,130 @@ GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交�
 
 **Chat Settings** 按钮上出现一个常亮的小圆点，或者弹出通知说 Advanced Memory 发现了问题，就表示有些场景记忆不清楚、已经过时或者缺失。
 
-1. 打开 **Chat Settings** > **Memory Recall**，或者直接点通知里的 **Fix**(修复)。
-2. 点 **Fix**。它会用 Helper model(辅助模型) 修复所有能修的场景，而且绝不会改动你编辑过的摘要。
-3. 点 **need your review**(需要你检查) 下面的每个场景编号，在 **Access memories for this chat** 里打开它，核对文本和角色，然后点 **Save correction**(保存修正)。
+1. 打开 **Chat Settings → Memory Recall**，或者点击通知里的 **Fix**(修复)。
+2. 点击 **Fix**。它会用 Helper model(辅助模型) 修复所有能修的场景，而且绝不会改动你编辑过的摘要。
+3. 选中 **need your review**(需要你检查) 下面的每个场景编号，在 **Access memories for this chat** 里核对它的文本和角色，然后点击 **Save correction**(保存修正)。
 
-如果 Fix 出错停下了，先检查辅助模型的连接，再点 **Resume processing**(继续处理) 或者重新点 **Fix**。见[修复记忆问题](agents/memory.md#fixing-memory-problems)。
+如果 **Fix** 出错停下了，检查 Helper model 的账号，然后点击 **Resume processing**(继续处理)，或者再点一次 **Fix**。见[修复记忆问题](agents/memory.md#fixing-memory-problems)。
 
 ### 摘要生成不出来
 
-写聊天摘要需要一个能正常工作的文本连接。
+摘要需要一个能正常工作的文本账号。
 
-- 在 Roleplay 模式下，打开 **Chat Settings** > **Chat Summary**(聊天摘要)，确认已经设好连接。老聊天可以用 **Backfill Summary** 补齐。
-- 在 Conversation 模式下，打开 **Automatic Summarization**，用 **Backfill** 重试失败的日期。
-- 如果这个聊天要求智能体写入前先经审批，AI 生成的摘要会等你确认后才生效。
-- 一直失败的摘要（比如 API 密钥有问题）会延迟重试。修好连接，然后用 **Backfill**。
+- Roleplay(角色扮演)：打开 **Chat Settings → Chat Summary**(聊天设置 → 聊天摘要)，确认已经设好账号，然后用 **Backfill Summary** 给较早的聊天补齐摘要。
+- Conversation(对话模式)：打开 **Automatic Summarization**(自动摘要)，用 **Backfill** 重试失败的日期。
+- 如果这个聊天要求智能体写入前先审批，AI 生成的摘要会等你审阅。
+- 一直失败的摘要（例如 API 密钥有误）会稍后重试。修好账号，然后用 **Backfill**。
+
+## 可下载智能体的问题
+
+- **Agent Organizer 里提示目录不可用。** 运行服务器的那台电脑（而不只是你的浏览器）必须能通过 HTTPS 访问 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录。已安装的智能体离线时也能继续工作。恢复连接后，点击 **Refresh**(刷新) 或 **Try again**(再试一次)。
+- **装好的地图或通话没有出现。** 把 Marinara 完全关掉，再重新启动。这些包会一直处于 **Restart required** 状态，直到下一次启动。Conversation 游戏会立即生效。如果安装失败，刷新目录，然后确认游戏显示为就绪。只有想让角色自己发起游戏时，才需要在聊天的 **Commands**(命令) 设置里添加它；用它的斜杠命令手动启动则不需要。
+- **首次包迁移无法完成。** 不要删除 `data/capability-packages` 或你的聊天数据。Marinara 会在下次启动时重试，你的聊天选择也会保留。
+- **`data/capability-runtime-snapshots` 或 `data/capability-packages/versions` 变得很大。** 不需要清理。Marinara 启动时会删除旧副本，每个智能体只保留当前版本和上一个版本。
+- **包下载被拒绝。** 校验和、文件列表、Marinara 版本范围或压缩包内路径与官方目录对不上。更新 Marinara，刷新目录，然后重试。不要手动把产物解压进数据文件夹。
+- **更新。** 智能体更新绝不会在启动时自动应用。Marinara 会先询问。**Not now**(暂不更新) 会保留已安装的版本，**Update**(更新) 会一直留在 **Agents → Agent Organizer**(智能体 → 智能体管理器) 里。更新失败时，已安装的版本保持不变。启动自检没通过的服务器运行时会回滚。
 
 ## Card Browser 相关问题
 
-**Card Browser**(角色卡浏览器) 可以搜索公开的角色卡站点并导入角色。用 **Characters**(角色) 或 **Personas**(用户角色) 面板顶部的 **Download**(下载) 按钮打开它。
+**Card Browser**(角色卡浏览器) 用来搜索公开的角色站点。用 **Characters**(角色) 或 **Personas**(用户角色) 面板顶部的 **Download**(下载) 按钮打开它。
 
-- 如果 JannyAI 搜索或某个角色页面被 Cloudflare 拦截，Marinara 会给出提示，让你用同一个浏览器访问一次 JannyAI 站点以通过验证，然后重试。
-- 如果重启服务器后 Pygmalion 的登录失效了，这是正常现象。这个登录信息只存在服务器内存里，重启就清空。打开登录窗口，重新粘贴 Token。
-- 如果 CharacterTavern 显示一条说明而不是搜索结果，这是正常现象。它重建后的网站不再提供 Marinara 原先使用的连接。改为从 character-tavern.com 下载角色卡，再导入这个文件。
+- **JannyAI 显示 Cloudflare 拦截。** 用同一个浏览器访问一次 JannyAI 网站，通过验证后再重试。
+- **重启后 Pygmalion 登录失效。** 这是正常现象。这个登录只保存在服务器内存里。打开登录窗口，重新粘贴你的 Token。
+- **CharacterTavern 显示一条说明，而不是搜索结果。** 这是正常现象。它的新网站不再提供 Marinara 原先使用的连接。从 character-tavern.com 下载角色卡，然后导入这个文件。
 
 ## 媒体生成问题
 
 ### 立绘抠背景在复杂场景下效果不好
 
-生成的静态立绘一般使用原生透明通道，或者自适应的纯色蒙版底色。内置的清理流程还能识别旧的白底、保留主体内部的细节、柔化 alpha 边缘并去除底色溢色。但拍摄的房间、精细的景物、浓重的投影，或者主体颜色和背景接近的情况，可能仍然需要可选的 AI 兜底方案：
+生成的立绘一般使用原生透明通道，或者使用 Marinara 会去掉的纯色背景。拍摄的房间、精细的景物、浓重的阴影，或者与背景相近的颜色，可能需要可选的 AI 兜底方案：
 
 ```bash
 pnpm backgroundremover:install
 ```
 
-然后重启 Marinara，在立绘生成窗口里点击 **Reapply Cleanup**。Marinara 仍会先走内置的蒙版流程，只有边缘看起来不均匀时才动用 AI 模型。如果安装失败：
+然后重启 Marinara，在立绘生成窗口里点击 **Reapply Cleanup**。Marinara 会先尝试内置的清理流程，只有边缘看起来不均匀时才动用 AI 模型。如果安装失败：
 
-- 确认装的是 Python 3.9 到 3.11。更新的 Python 版本可能会触发很慢的原生编译。
-- 用 `pnpm backgroundremover:reinstall` 重新构建这个工具。
-- 排查期间想强制只用自动蒙版清理、不走 AI 兜底，在 `.env` 里设置 `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin`。
+- 确认装的是 Python 3.9 到 3.11。更新的版本可能会触发很慢的原生编译。
+- 运行 `pnpm backgroundremover:reinstall`。
+- 排查期间想跳过 AI 兜底，在 `.env` 里设置 `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin`。
 
 ### Game Mode 或 Roleplay 的分镜不出现
 
-Game Mode 分镜会把一段完整的 GM 叙述变成关键帧图像和可选的短片。Roleplay 分镜则会把完整的往来对话合起来，在 Assistant 回复之后内嵌显示结果。
+分镜会把完成的叙述变成关键帧图像和可选的短片。见 [Storyboard 智能体指南](game/storyboard.md)和 [Game Mode：入门](game/getting-started.md)。
 
-- 确认已经从 **Agents** > **Agent Organizer(智能体管理器)** 装好 **Storyboard**，然后为这个聊天开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)。
-- 手动做场景视频时，先打开 **Chat Settings** > **Gallery**(图库)，生成或上传一张图像，再用它的 **Video** 或 **Animate** 操作。**Gallery** 把 **Images** 和 **Videos** 分成了两个选项卡，记得看 **Videos** 选项卡。
-- 想自动生成 Game Mode 分镜，打开 **Chat Settings** > **Agents**(智能体) > **Storyboards**，确认 **Automatic Storyboard Illustrations** 已开启。也想要短片的话，把 **Automatic Storyboard Animations** 一起打开。
-- 在 Roleplay 里，把 **Storyboard** 智能体加进聊天。选择 **Still images** 或 **Animations**，设置 **Messages per episode**，再选好分镜用的图像连接。选 **Manual only** 则改为从 **Chat Settings** 的 **Gallery** 区域里点击 **Create storyboard** 手动运行。
-- 关键帧图像需要图像连接。短片还额外需要视频连接。
-- 如果自定义提示词在所有角色合并处理时效果更好，把 **Use NovelAI Character Prompts** 关掉。
-- 服务商太慢会超时。在 `.env` 里调大 `IMAGE_GEN_TIMEOUT_MS` 或 `VIDEO_GEN_TIMEOUT_MS`，然后重启 Marinara。服务器只在启动时读取这两个值。
-- 默认情况下，图像服务商的响应超过 30 MiB 时会失败，报错 `Outbound response exceeded 31457280 bytes`。本地 ComfyUI 的输出文件如果把工作流和参考图作为元数据嵌进去，就可能达到这个大小。在 `.env` 里调大 `IMAGE_GEN_MAX_RESPONSE_BYTES` 并重启 Marinara，或者在 ComfyUI 里关闭元数据。
-
-两种工作流见 [Storyboard 智能体指南](game/storyboard.md)，游戏本身的配置见 [Game Mode：入门](game/getting-started.md)。
+- 从 **Agents → Agent Organizer** 安装 **Storyboard**(分镜)，然后为这个聊天开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)。
+- 关键帧需要图像账号。短片还需要视频账号。
+- Game Mode(游戏模式) 自动分镜：打开 **Chat Settings → Agents → Storyboards**(聊天设置 → 智能体 → 分镜)，确认 **Automatic Storyboard Illustrations**(自动分镜插图) 已开启。要短片的话，开启 **Automatic Storyboard Animations**(自动分镜动画)。
+- 手动场景视频：打开 **Chat Settings → Gallery**(聊天设置 → 图库)，生成或上传一张图像，然后使用 **Video**(视频) 或 **Animate**。去 **Videos**(视频) 选项卡查看。
+- Roleplay：把 **Storyboard** 智能体加进聊天。选择 **Still images** 或 **Animations**，设置 **Messages per episode**，再选好图像账号。**Manual only** 需要从 **Chat Settings** 的 **Gallery** 区域里点击 **Create storyboard**(创建分镜) 来运行。
+- 如果自定义提示词在所有角色合并处理时效果更好，关掉 **Use NovelAI Character Prompts**。
+- 服务太慢可能会超时。在 `.env` 里调大 `IMAGE_GEN_TIMEOUT_MS` 或 `VIDEO_GEN_TIMEOUT_MS`，然后重启 Marinara。
+- `Outbound response exceeded 31457280 bytes`：默认情况下，超过 30 MiB 的图像响应会失败。把工作流和参考图嵌进去的 ComfyUI 文件可能达到这个大小。在 `.env` 里调大 `IMAGE_GEN_MAX_RESPONSE_BYTES` 并重启，或者在 ComfyUI 里关闭元数据。
 
 ### Game Mode 世界生成报 JSON 错误
 
-如果开局失败是因为模型返回的 JSON 有问题，Marinara 不会把整个回合直接扔掉，而是打开 **Repair JSON** 窗口。JSON 是模型必须返回的结构化文本格式。
+如果模型返回了损坏的 JSON(结构化文本)，Marinara 会打开 **Repair JSON**(修复 JSON) 窗口，而不是丢弃这个回合。
 
-1. 在编辑器里补好括号、逗号或字段。文本能解析之后，横幅会显示 **JSON is valid.**。
-2. 点击 **Format** 整理排版。
-3. 点击 **Apply Repaired JSON**，无需重新生成整段回复就能直接采用。
+1. 在编辑器里修好括号、逗号或字段。文本能解析时，横幅会显示 **JSON is valid.**
+2. 点击 **Format**(格式化) 整理排版。
+3. 点击 **Apply Repaired JSON**(应用修复后的 JSON)，不用重新生成回复就能直接使用。
 
 ## 语音、通话和 TTS
 
-- 如果通话中角色不出声，说明语音合成还没配好。打开 **Connections** > **Text to Speech**，启用它，选择来源，填入密钥，挑一个音色并保存。没有配音色的角色只会以文字形式出现。
-- 如果语音播放停下并提示 **No audio after 60 s**，说明你的语音服务器比 Marinara 愿意等待的时间更慢，笔记本上的本地服务器经常如此。在 **Connections** > **Text to Speech** 里，或者在提示中点名的音频连接里，调高 **Request timeout (seconds)**(请求超时，单位为秒)。见[请求超时](media/tts-setup.md#request-timeout)。
-- 如果麦克风不工作，可能需要本地语音模型。从 **Agents > Agent Organizer(智能体管理器)** 安装 **Calls**，然后打开 **Connections** > **Local Model**，展开卡片，找到 **Local Speech Model**，选一个 Whisper 模型，点击 **Download Whisper**。Firefox 尤其需要这一步，因为它没有浏览器语音识别。卸载 Calls 会一并删掉它的 Whisper 模型以腾出磁盘空间。你也可以在 **Connections** 的 **Speech to Text**(语音识别) 卡片里使用自己的语音转文字服务器，见[使用自己的语音转文字服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
-- 在 Lite 版本上，提示 **Local Whisper is disabled in Lite mode** 表示这个精简版跑不了本地语音模型。改用完整版的 Marinara。
+- **通话中角色不出声。** 语音合成还没设置好。打开 **Connections → Text to Speech**(连接 → 语音合成)，开启它，选择来源，填入密钥，选一个声音，然后保存。没有声音的角色只会以文字显示。
+- **语音播放停下并提示“No audio after N s”。** 你的语音服务器比 Marinara 等待的时间更慢，笔记本上的本地服务器经常这样。`N` 是你当前的超时时间。在 **Connections → Text to Speech** 里，或者在消息中点名的音频账号里，调高 **Request timeout (seconds)**(请求超时，单位为秒)。见[请求超时](media/tts-setup.md#request-timeout)。
+- **麦克风不工作。** 从 **Agents → Agent Organizer** 安装 **Calls**(通话)。然后打开 **Connections → Speech to text**(连接 → 语音识别)，在 **On this device**(在你的电脑上) 下找到 **Local speech model**(本地语音模型)，选一个 Whisper 模型，然后点击 **Download Whisper**(下载 Whisper)。Firefox 需要这一步，因为它没有浏览器语音识别。卸载 Calls 会删掉它的 Whisper 模型。你也可以使用自己的服务器：见[使用你自己的语音识别服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
+- **Local Whisper is disabled in Lite mode.** 精简版镜像跑不了本地语音模型。改用完整安装。
 
 ### 远程或局域网安装时 Music DJ 的 Spotify 登录失败
 
-Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交接方式，Spotify 会把你送回一个回调地址。重定向 URI 就是这个回调地址，而 Spotify 只接受 `https://` 地址或环回地址 `http://127.0.0.1`，普通的网络 IP 地址会被拒绝。
+Music DJ 智能体的 Spotify 模式使用 OAuth。这是一种登录交接方式，Spotify 会把你送回一个回调地址（重定向 URI）。Spotify 只接受 `https://` 地址或 `http://127.0.0.1`，普通的网络 IP 地址会被拒绝。
 
-- 如果通过 localhost 访问 Marinara，编辑器里显示的是 `127.0.0.1` 回调地址。把它注册到 Spotify，登录就能完成。
-- 如果通过 HTTPS 访问 Marinara，编辑器里显示的是你的 HTTPS 回调地址。注册这一个。
+- 通过 localhost 访问时，编辑器显示的是 `127.0.0.1` 回调地址。把它注册到 Spotify。
+- 通过 HTTPS 访问时，编辑器显示的是你的 HTTPS 回调地址。注册这一个。
 - 如果 HTTPS 在上游终结、主机名对不上，在 `.env` 里把 `SPOTIFY_REDIRECT_URI` 设为你的公网回调地址。
-- 在纯 HTTP 的局域网安装上，弹出窗口页面加载不出来，但地址栏里仍然带着有效的授权码。把弹出窗口里的完整 URL 复制下来，然后展开 Connect 按钮下方的 **Browser couldn't reach the callback?**，粘贴进去。粘贴的 URL 有效期为 10 分钟。
+- 在纯 HTTP 的局域网安装上，弹出窗口加载不出来，但它的地址栏里带着有效的授权码。复制完整的 URL，展开 Connect 按钮下方的 **Browser couldn't reach the callback?**，然后粘贴进去。这个 URL 的有效期为 10 分钟。
 
-长期来看最干净的办法是给服务器套上 HTTPS。最近一次核对基于 Marinara Engine 2.2.0。Spotify 在 2025 年 2 月收紧了这些规则。
+最干净的办法是让 Marinara 通过 HTTPS 提供服务。
 
 ## 存储和数据
 
 ### 执行 Restart Server 后服务器没有恢复
 
-请使用 `start.bat`、`start-local.bat`、`start.sh`、`start-termux.sh` 或 `pnpm start` 启动 Marinara。这些方式会让服务器保持受启动器管理，并等旧进程退出后再启动替代进程。从应用内重启时，会在 4 秒后关闭仍未结束的连接；如果关闭过程仍卡住，则在 8 秒后强制退出。强制关闭可能中断待完成的写入，并会在诊断中标记为强制关闭。直接使用 `node` 启动的进程和开发模式下监视文件的进程不会自动替换：请在终端中停止后重新启动。Docker 继续使用容器的重启策略。在 Windows 上，在启动器控制台中按 Ctrl+C，等待 **Shutdown complete**(关闭完成) 后再关闭窗口。直接关闭或强制终止终端可能打断尚未完成的保存操作。
+请用 `start.bat`、`start-local.bat`、`start.sh`、`start-termux.sh` 或 `pnpm start` 启动 Marinara。这些方式会让服务器挂在启动脚本下，并在旧进程退出后启动替代进程。从应用内重启时，会在 4 秒后关闭仍未结束的连接，8 秒后强制退出。强制退出可能中断待完成的写入。直接用 `node` 运行的进程和开发模式下的文件监视进程不会被替换：请自己停止并重新启动它们。Docker 使用容器的重启策略。在 Windows 上，在启动脚本的控制台里按 <kbd>Ctrl</kbd>+<kbd>C</kbd>，等出现 **Shutdown complete** 后再关闭窗口。
 
-旧服务器仍在运行时，不要使用同一个数据目录启动另一台服务器。如果旧版本遗留了运行中的进程，请先停止该进程；不要删除运行中服务器的写入租约。
+旧服务器还在运行时，不要在同一个数据文件夹上启动第二个服务器。先停止遗留的进程。
 
 ### 启动时提示其他进程可能正在使用数据目录
 
-Marinara 只允许一个正在运行的服务器写入本地数据目录。如果启动时针对该目录显示 **Another Marinara Engine process ... may be using**，请关闭另一个 Marinara 进程后重新启动。
+只能有一个服务器写入本地数据文件夹。如果启动时报告 **Another Marinara Engine process ... may be using** 这个文件夹，关闭另一个 Marinara 进程，然后重新启动。
 
-发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。在数据目录位于本地磁盘的 Linux、Android 和容器主机上，Marinara 会自行回收因进程崩溃或被强制终止而遗留的租约，即使重启后也不例外；网络存储或共享存储上，手动步骤仍是后备方案。数据目录位于电脑自己的某个磁盘上时，Windows 也会这样做。在 Windows 上，如果数据目录在网络驱动器、共享文件夹或 U 盘这类可移动驱动器上，或者电脑在崩溃后改过名，手动步骤仍是后备方案。
+崩溃或移动 Docker 卷之后，启动时可能报告 **The storage writer lease ... is incomplete or invalid**，或者点名一个已经不存在的进程。
 
-### 更新之后数据像是丢了
+1. 确认使用这个数据文件夹的所有 Marinara 进程和容器都已停止。
+2. 只删除错误中点名的 `.writer-lease` 文件夹。
+3. 重启 Marinara。不要删除 `storage` 文件夹或任何表文件。
 
-如果更新后聊天或预设看着不见了，先别急着删任何数据文件夹。Marinara 把正在用的数据放在数据目录下的 `storage` 文件夹里。
-
-这两个本地位置都要查一下有没有 `storage` 文件夹：
-
-1. `packages/server/data/`
-2. `data/`
-
-服务器启动时会打印它解析出的数据目录和存储目录。
-
-<a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
-
-### 切换到旧版本后聊天不显示消息
-
-新版 Marinara 会把每个聊天的数据（消息、swipe、记忆、图片及其他聊天记录）保存为每个聊天各自的文件，而不是每张表一个大文件，因此保存长聊天会快得多。旧版本无法识别这种布局。切换到旧版本后，聊天看起来是空的——数据仍在磁盘上，只是旧版本看不到。
-
-Marinara 会自行拒绝明显的降级：启动器会跳过会落到不兼容版本的自动更新，应用内更新器也会阻止它并显示指向此处的错误。
-
-如果数据已达到存储格式 8（支持 MMD 虚拟形象），要使用格式 7 或更早格式的版本，请恢复这次升级之前创建的完整备份。以下命令仅转换旧的聊天文件布局，无法转换 MMD 虚拟形象设置。不要手动修改格式编号。
-
-对于尚未达到格式 8 的数据，要转换旧的聊天文件布局，请按以下步骤操作：
-
-1. 停止 Marinara 服务器。
-2. 在 Marinara 文件夹中运行：
-
-   ```bash
-   node scripts/protect-launcher-data.mjs unshard
-   ```
-
-3. 切换到旧版本并正常启动。
-
-该命令会根据每个聊天的文件重建旧的单文件布局。不会删除任何内容：聊天文件会保留在每个重建文件旁、名为 `<table>.post-unshard-<timestamp>` 的文件夹中（例如 `messages.post-unshard-…`），迁移前的原文件也会作为 `.pre-shard` 文件保留。以后再次升级时，Marinara 会自动把数据转换回去。
-
-Docker 和 Podman 将数据保存在 `marinara-data` 卷中，因此请在一次性容器里运行命令：停止正在运行的容器，执行 `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`，然后启动旧镜像。
+数据文件夹位于本地磁盘上时，Marinara 会在 Linux、Android、容器和 Windows 上自行清除崩溃进程遗留的租约。手动步骤是以下情况的后备方案：网络存储或共享存储、可移动驱动器，以及（在 Windows 上）崩溃后改过名的电脑。
 
 ### 备份或导出返回 403
 
-环回会话不用管理员密钥就能做备份。默认情况下，来自其他设备、网络地址、Docker，或同一台电脑上的反向代理或隧道的请求，做备份和档案导出时需要额外授权。在服务器上设置 `ADMIN_SECRET`，并把同一个值保存到 **Settings** > **Advanced** > **Admin Access**。如果希望环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。如果设置了 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`，转发过来的访客也会走本地放行；公开的代理或隧道请保留这道防护。
+同一台电脑上的会话不需要管理员密钥就能备份。来自其他设备、网络地址、Docker，或者同一台电脑上的代理或隧道的请求则需要。在服务器所在的电脑上到 **Settings → Advanced → Admin Access** 里生成它，或者在服务器上设置 `ADMIN_SECRET`，然后在另一台设备的 **Admin Access** 里保存同一个值。要让环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。如果设置了 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`，被转发的访客也会走本地放行。面向公网的代理或隧道请让它保持开启。
 
 ### 导入时提示文件不是可读的 ZIP 压缩包
 
-Marinara 把 `.charx` 角色卡、`.marinara` 包、智能体包和自定义智能体仓库都当作 ZIP 压缩包读取。压缩包损坏，或者内容与它自己的文件列表对不上时，Marinara 会拒绝读取，并显示 **The file is not a readable ZIP archive**；如果是 `.marinara` 包，则显示 **Could not read .marinara package**。最常见的原因是文件没下载完整，重新下载一次即可。如果压缩包是你自己做的，请用标准工具重新创建，比如系统自带的压缩功能、`zip` 或 7-Zip。传输过程中在压缩包末尾多出的零填充或换行符不影响读取。
+Marinara 把 `.charx` 角色卡、`.marinara` 包、智能体包和自定义智能体仓库都当作 ZIP 压缩包读取。压缩包损坏，或者内容与它的文件列表对不上时，Marinara 会拒绝它，并显示 **The file is not a readable ZIP archive**(或 **Could not read .marinara package**)。最常见的原因是文件没下载完整：重新下载一次。如果压缩包是你自己做的，用系统自带的压缩功能、`zip` 或 7-Zip 重新创建。
 
-**Package contains too many files** 表示智能体包或自定义仓库里的文件超过 8,192 个。**.marinara package has too many entries** 表示 `.marinara` 包里的文件超过 8 个。这些限制不是新加的。删掉多余的文件后再试。
+**Package contains too many files** 表示智能体包或仓库里的文件超过 8,192 个。**.marinara package has too many entries** 表示 `.marinara` 包里的文件超过 8 个。删掉多余的文件后再试。
 
-## Android 和 Docker
+### Conversation 日程或 Noodle 用错了时区，或者显示 `Etc/Unknown`
+
+Conversation 日程要在 Conversation 的 Chat Settings 或角色的日程编辑器里选择 **Schedule timezone**(日程时区)。**Use device**(使用设备时区) 可以把它重置。
+
+如果是 Noodle 或其他服务器任务，把 `.env` 里空的 `TZ=` 行删掉，然后重启 Marinara，让它使用主机时区。要指定时区，就用一个 IANA 名称，例如 `TZ=Europe/Warsaw`。
+
+## Android 相关问题
 
 ### Android 应用卡在 Connecting 或 Waiting for Server
 
@@ -406,51 +381,54 @@ Android 应用只是套在 Termux 外面的一层轻壳。Termux 是 Android 上
 1. 点击 **Install / Start Marinara**。
 2. 如果 Android 要求安装 Termux，同意这些提示。
 3. 如果 Android 要求在 Termux 里执行命令，授予权限。
-4. 等启动脚本跑完并把服务器拉起来，再回到应用。
+4. 等启动脚本把服务器启动起来，再回到应用。
 
-正常的 APK 流程绝不会要求你粘贴 Marinara 密钥。应用会生成私密 localhost 凭据，把它传给 Termux 并自动登录。Android 的应用安装和 Termux 权限对话框仍然是必需的系统提示。不要把 `null`、`http://null` 或 APK 密钥添加到 `CSRF_TRUSTED_ORIGINS`；这些都不是正确或必要的 Android 设置步骤。
+应用会生成私密的 localhost 凭据并自动登录。你永远不需要粘贴密钥。不要把 `null`、`http://null` 或 APK 的密钥添加到 `CSRF_TRUSTED_ORIGINS`。
 
-另外确认应用和 Termux 用的是同一个端口。默认是 `7860`。如果打包应用时改了端口，Termux 的 `.env` 里也要设置成一样的 `PORT`。
+另外确认应用和 Termux 用的是同一个端口。默认是 `7860`。如果你打包应用时用了其他端口，在 Termux 的 `.env` 里设置相同的 `PORT`。
+
+<a id="android-localhost-opens-the-login-page-or-returns-401503"></a>
 
 ### Android localhost 打开登录页面或返回 401/503
 
-由 APK 管理的 Termux 安装会用每次安装独有的私密密钥保护 localhost。Android 应用会自动认证，设置过程中不应显示这个登录页面。如果它出现在 Marinara Engine 应用内，请安装[最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)，再次点击 **Install / Start Marinara**，Termux 完成后返回应用。
+由 APK 管理的 Termux 安装会用每次安装独有的私密密钥保护 localhost，应用会自动登录。如果应用里出现了登录页面，请安装[最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)，再次点击 **Install / Start Marinara**，等 Termux 完成后再返回应用。
 
-提到来源 `null` 的错误表示，旧版 APK 和服务器组合让 Android WebView 的不透明来源在私密握手前进入了通用 CSRF 检查。编辑 `.env` 无法修复：字面值 `null` 会被有意忽略，而全局信任不透明来源会削弱所有不安全的 API 路由。请更新 APK 和 Engine；当前 Android 登录路由会验证自己的单次证明或每次安装的密钥，其他地方仍会拒绝 `null`。
+提到来源 `null` 的错误，说明你用的是较旧的 APK 和服务器组合。编辑 `.env` 解决不了。请更新 APK 和 Marinara。
 
-要在同一部手机的浏览器中打开应用，在 Android 启动界面选择 **Open in browser**(在浏览器中打开)，然后点击 **Retry connection**(重试连接)。当前版本的 APK 和 Engine 会自动完成认证，不需要输入密钥。服务器重启或会话过期后，也通过这个操作重新打开。应用内可以通过 **Settings > General > App Behavior > Open Android launcher (app or browser)**(设置 → 常规 → 应用行为 → 打开 Android 启动界面(应用或浏览器)) 返回启动界面。
+要在同一部手机的浏览器里打开，在 Android 启动界面点击 **Open in browser**(在浏览器中打开)，然后点击 **Retry connection**(重试连接)。服务器重启或会话过期后，也用这种方式重新打开。要回到启动界面，使用 **Settings → General → App Behavior → Open Android launcher (app or browser)**(设置 → 常规 → 应用行为 → 打开 Android 启动界面（应用或浏览器）)。
 
-旧版 APK 仍可在 `/android-login` 使用 `cat ~/.marinara-engine/android-secret` 显示的值。浏览器链接会在一分钟后过期，而且只能用一次。链接过期后，应从启动界面重新打开浏览器，不要复用历史记录中的链接。
+旧版 APK 在 `/android-login` 用 `cat ~/.marinara-engine/android-secret` 显示的值登录。浏览器链接只能用一次，一分钟后过期，所以请从启动界面重新打开一个。
 
-本地 `mari` CLI 会自动读取同一个文件。401 表示粘贴的密钥或认证质询遭到拒绝；请重新加载 `/android-login` 并粘贴当前值。503 表示服务器收到的已配置密钥格式错误。请通过 `./start-termux.sh` 重新启动。如果启动脚本报告密钥文件无效或为空，请回到 Android 应用并点击 **Install / Start Marinara**，让 APK 重新生成。不要把这个密钥放进截图或问题报告。
+- **401：** 粘贴的密钥或认证质询被拒绝了。重新加载 `/android-login` 并粘贴当前的值。
+- **503：** 服务器收到的密钥格式有误。用 `./start-termux.sh` 重新启动。如果启动脚本提示它的密钥文件无效或为空，在应用里点击 **Install / Start Marinara**，重新生成密钥。
+
+本地的 `mari` 命令会自动读取同一个文件。不要让这个密钥出现在截图和问题报告里。
 
 ### Android 更新停在 exit status 134
 
-exit status 134 通常表示构建过程中 Android 内存不够了。用最新的启动脚本重新更新：
+Android 在构建步骤中耗尽了内存。重新运行启动脚本：
 
 ```bash
 ./start-termux.sh
 ```
 
-还是停下来的话，关掉其他 Android 应用，重新打开 Termux，再运行一次这条命令。
+如果还是停下来，关掉其他应用，重新打开 Termux，然后重试。
 
 ### Marinara 运行时 Termux 关闭或重启
 
-服务器运行期间，启动脚本会申请 Android 唤醒锁，并把每次服务器会话保存到 `~/.marinara-engine/logs/`。意外重启后，请在报告中附上最新的 `server-*.log` 文件。如果文件结尾没有 Marinara 或 Node 错误，最可能是 Android 或手机厂商在服务器进程之外终止了 Termux。
+服务器运行期间，启动脚本会申请唤醒锁，并把每次会话保存到 `~/.marinara-engine/logs/`。意外重启后，请在报告中附上最新的 `server-*.log`。如果日志结尾没有 Marinara 或 Node 的报错，最可能是 Android 或手机厂商终止了 Termux。
 
-请在 Android 设置中允许 Termux 在后台运行，并取消其电池优化。`termux-wake-lock` 和 `termux-wake-unlock` 命令随每一个标准 Termux 安装一起提供（来自核心的 `termux-tools` 软件包），不需要任何附加组件。这些设置无法阻止所有厂商特有的进程终止，但能消除常见的闲置暂停原因，同时持久日志会保留应用层故障的证据。
+请在 Android 设置中允许 Termux 在后台运行，并取消它的电池优化。`termux-wake-lock` 和 `termux-wake-unlock` 随标准 Termux 一起提供。这些设置无法阻止所有厂商特有的进程终止。
 
 ### Marinara 停止响应，把 Termux 切到前台才恢复
 
-如果聊天一直卡在“正在打开聊天...”，随后应用报出 **Server unreachable**，Support Diagnostics(支持诊断信息) 复制出来的内容在服务器相关字段上显示 **Unreachable (request timed out)**，而且一打开 Termux 一切立刻恢复——那么宿主进程是被**冻结**了，不是崩溃了。Android 的缓存应用冻结器（以及厂商的同类机制，在某些手机上尤其激进）会挂起整个 Termux 进程：手机仍然会接受连接，但被冻结的服务器永远不会回应它。单靠唤醒锁并不能让进程免于被冻结，而且会话日志在被冻结的那段时间里只会留下一段时间戳空档，而不是一条报错。
+聊天卡在“正在打开聊天...”，应用报出 **Server unreachable**，Support Diagnostics(支持诊断信息) 复制出来的内容在服务器相关字段上显示 **Unreachable (request timed out)**，而一打开 Termux 一切立刻恢复。这是 Android 的缓存应用冻结器挂起了 Termux 进程。手机仍然会接受连接，但被冻结的服务器永远不会回应。唤醒锁防止不了这种情况。会话日志在被冻结的那段时间里只会留下一段时间戳空档，而不是一条报错。
 
-想减少这种情况：在 Android 设置中取消 Termux 的电池优化并允许后台活动，如果手机支持，就在最近任务界面里锁定 Termux，并让 Termux 的通知一直显示。如果还是会被冻结，可靠的办法是在使用 Marinara 期间让 Termux 保持在前台（或者让屏幕保持常亮）。
+在 Android 设置中取消 Termux 的电池优化并允许后台活动；如果手机支持，就在最近任务界面里锁定 Termux，并让它的通知一直显示。如果还是会被冻结，在使用 Marinara 期间让 Termux 保持在前台，或者让屏幕保持常亮。
 
 ### Android 更新时安装依赖把存储空间占满
 
-构建好的 Marinara 应用并没有好几个 GB，Noodle 也不会自己下载 AI 模型。更新期间临时占用大，通常来自 pnpm 的依赖存储和虚拟存储，尤其是连着更新了好几个版本，或者曾经中断过一次强制重装之后。
-
-当前的启动脚本会清理旧版本遗留的包，并且同一次更新不会重复重建依赖存储。从 **Settings** > **Advanced** > **Updates**(更新) 进行的应用内更新现在也只安装 Android 用的包，不再为其他所有平台各装一份。如果旧的启动脚本已经把设备塞满了，先更新启动脚本并回收无引用的缓存，再重试：
+更新期间临时占用大，通常来自 pnpm 的依赖存储，尤其是连着更新了好几个版本，或者曾经中断过一次重装之后。当前的启动脚本会清理旧的包，应用内更新也只安装 Android 用的包。如果旧的启动脚本已经把设备塞满了，先腾出空间再重试：
 
 ```bash
 cd Marinara-Engine
@@ -459,13 +437,11 @@ pnpm store prune
 ./start-termux.sh
 ```
 
-不要删 `data`、`storage` 或 `marinara-engine.db`，这些位置可能存着聊天和设置。如果命令仍然中断，把从 `Installing dependencies` 开始的那些行抓下来，连同手机的剩余空间和内存数据一起写进反馈。
+不要删除 `data`、`storage` 或 `marinara-engine.db`，因为它们可能存着你的聊天和设置。如果仍然中断，把从 `Installing dependencies` 开始的那些行记录下来，连同手机的剩余空间和内存一起写进报告。
 
 ### 在 Android 上切换 Stable 和 Staging 时应用内更新失败
 
-切换通道（Stable ↔ Staging）会触发近乎完整的依赖重装，在 Termux 较慢的存储上，耗时会远超一次普通更新。现在应用内更新器在 Android 上给每一步都留了更多时间，所以以前那种只报一句 `Update failed: Command failed: corepack pnpm ... install` 就中断的通道切换，应该能顺利完成。
-
-如果更新仍然失败，报错现在会写明是哪一步失败，并附上那一步输出的末尾内容。仔细读这条信息：真正的依赖或锁文件错误都写在里面。也可以按报错提示里给出的手动命令，在 Termux 里自己跑一次更新，或者先腾出空间：
+切换发布通道会触发近乎完整的依赖重装，在 Termux 的存储上很慢。应用内更新器会给每一步多留一些时间。如果更新仍然失败，报错会写明失败的是哪一步，并显示那一步输出的末尾。真正的依赖或锁文件错误会出现在那里。你也可以用报错提示里的命令在 Termux 里手动更新，或者先腾出空间：
 
 ```bash
 cd Marinara-Engine
@@ -473,52 +449,25 @@ pnpm store prune
 ./start-termux.sh
 ```
 
-### Noodle 显示 `Etc/Unknown`，或日程用错了时区
-
-Conversation 的日程要在 Conversation 的 Chat Settings 或角色日程编辑器里选择 **Schedule timezone**。这是一个全局选择，对每个 Conversation 聊天都生效，包括后台的自主消息，也可以用 **Use device** 重置。
-
-如果是 Noodle 或服务器任务，而且没有在 Conversation 里单独指定时区，把 `.env` 里空的 `TZ=` 行删掉并重启 Marinara，让服务器继承主机时区。想显式指定一个主机兜底时区，就填一个有效的 IANA 名称，比如 `TZ=Europe/Warsaw` 或 `TZ=America/New_York`。当前版本会把空值当作未设置，但仍然必须重启，Node 的时区状态和定时任务才能一致地重建。
+## Docker 相关问题
 
 ### 挂载数据卷时容器报权限拒绝
 
-如果 Docker 或 Podman 容器在数据卷上报权限错误：
-
-- 更新之后使用命名卷的情况，拉取最新镜像并用 `docker compose pull && docker compose up -d` 重启。官方镜像会在启动时修复归属权。
-- 绑定挂载的情况，把宿主机文件夹的读写权限开放给用户和组 ID `1000`，或者改用命名卷。
-- 在 Fedora、RHEL 这类启用 SELinux 的系统上，给卷挂载加上 `:Z` 后缀。
+- 更新后使用命名卷：运行 `docker compose pull && docker compose up -d`。官方镜像会在启动时修复归属权。
+- 绑定挂载：让宿主机文件夹对用户和组 ID `1000` 可写，或者改用命名卷。
+- Fedora 或 RHEL 这类启用 SELinux 的系统：给卷挂载加上 `:Z` 后缀。
 
 ### Lite 容器在 Raspberry Pi 4 上崩溃
 
-如果 lite 容器在 Raspberry Pi 4 或类似的 ARM 设备上，一发 AI 请求就重启，先看退出码。退出码 132 或 SIGILL 指向 lite 镜像的 Node 构建在部分 ARM 芯片上的一个已知上游问题。SIGILL 表示程序执行到了 CPU 跑不了的指令。
-
-普通（非 lite）镜像不受影响。在上游修复发布之前，在那台设备上改用普通镜像。已知受影响的 lite 镜像包括 `1.5.7-lite` 和 `1.5.8-lite`。最近一次核对基于 Marinara Engine 2.2.0。
-
-### Addons 里找不到 External Extensions
-
-这一节是刻意隐藏的，只有两道安全开关都打开才会出现：
-
-1. 在宿主机的 `.env` 里设置 `ENABLE_EXTERNAL_EXTENSIONS=true`。
-2. 等大约两秒让配置监听器生效，然后打开 **Settings → Advanced → Danger Zone**，滚动到数据删除控件下方，启用 **Allow third-party extension imports**。
-
-如果 Danger Zone 里的这个开关是禁用状态，说明宿主机的标志仍然是 false，或者应用还没察觉到这次改动。确认改的是[服务器配置](CONFIGURATION.md)里说明的那个生效中的 `.env` 路径。在 Docker 上通常是 `/app/data/.env`。
-
-只要有一道开关是关的，外部的、旧格式的、从档案导入的、手动存放的以及来源不明的扩展记录都不会显示，也无法运行。重新打开开关也不会自动重新启用它们。
-
-### 导入的浏览器扩展出现了却不工作
-
-在 **Settings → Addons → External Extensions** 里打开这个扩展，查看 **Requested access**。使用 `marinara.extension` v1 格式、没有能力声明的旧包，这里应当显示 **Full page access**。只批准你确认并信任的那个准确哈希值。
-
-如果旧包在重新导出时带上了一个明确为空的能力列表，Marinara 会把它当作安全的沙箱扩展处理，依赖 DOM 的代码在这种模式下不会生效。只有在清楚代码将拿到整个 Marinara 页面、浏览器存储、网络 API 和同源会话的访问权时，才给它的清单加上 `full_page_access`。
-
-禁用整页访问扩展之后，如果工具栏项、浮层、监听器或某处视觉改动还留着，重新加载 Marinara。清理只能尽力而为，因为页面代码可能在 Marinara 可追踪的兼容 API 之外留下副作用。
+如果 lite 镜像在 Raspberry Pi 4 或类似的 ARM 设备上一发送 AI 请求就重启，先看退出码。退出码 132 或 SIGILL(CPU 执行到了它跑不了的指令) 指向 lite 镜像的 Node 构建在部分 ARM 芯片上的一个已知上游问题。在那台设备上改用常规镜像。
 
 <a id="a-server-extension-says-no-supported-sandbox-is-available"></a>
 
 ### 服务器扩展提示没有可用的沙箱
 
-服务器扩展和 Professor Mari 的原始 shell 命令只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。在原生 Linux 主机上安装 `bwrap`，然后重启 Marinara。官方 Docker 镜像已经包含 Bubblewrap，但默认的容器保持最小权限，无法创建 Bubblewrap 所需的嵌套命名空间和挂载。Marinara 会检测这种状态并禁用操作系统沙箱功能，而不是尝试必然失败的命令。
+服务器扩展和 Professor Mari 的原始 shell 命令只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。在原生 Linux 主机上，安装 `bwrap` 并重启 Marinara。官方 Docker 镜像包含 Bubblewrap，但默认容器无法创建它所需的嵌套命名空间，所以 Marinara 会让这些功能保持关闭。
 
-如果你接受更宽泛的容器权限并确实需要在 Docker 中使用这些功能，请将以下内容保存为 `docker-compose.yml` 旁边的 `docker-compose.override.yml`：
+如果你接受更宽泛的容器权限，把下面的内容保存为 `docker-compose.yml` 旁边的 `docker-compose.override.yml`，然后重新创建容器：
 
 ```yaml
 services:
@@ -531,24 +480,66 @@ services:
       - apparmor=unconfined
 ```
 
-添加后重新创建容器。服务器进程必须保持为 root，以免 Marinara 入口点通常切换到 `node` 用户时丢弃新增能力。以 root 配合 `SYS_ADMIN` 运行服务器属于大范围提权，禁用容器的 AppArmor 配置还会进一步削弱外层安全边界；不要只为了消除“沙箱不可用”的提示而启用它。Docker 默认的 seccomp 配置会随新增能力自动调整，所以在当前的 Docker 版本上，通常不需要笼统设置 `seccomp=unconfined`。
+> **警告：** 以 root 身份、带 `SYS_ADMIN` 并且不使用 AppArmor 配置运行服务器，属于大范围提权。不要只为了消除这条提示就启用它。
 
-Windows、Android 和其他不受支持的宿主环境会直接拒绝执行服务器扩展，而不是退回到主服务器进程里跑。浏览器扩展仍然可以使用它们的不透明来源 Worker 沙箱。
+Docker 默认的 seccomp 配置会随新增能力自动调整，所以在当前的 Docker 上，你应该不需要 `seccomp=unconfined`。
+
+Windows、Android 和其他不受支持的宿主环境会拒绝执行服务器扩展。浏览器扩展仍在它们的沙箱里运行。
+
+## 扩展相关问题
+
+### Addons 里找不到 External Extensions
+
+只有两道开关都打开，这一节才会出现。
+
+1. 在宿主机的 `.env` 里设置 `ENABLE_EXTERNAL_EXTENSIONS=true`。
+2. 稍等片刻，然后打开 **Settings → Advanced → Danger Zone**(设置 → 高级 → 危险区域)，滚动到数据删除控件下方，开启 **Allow third-party extension imports**(允许导入第三方扩展)。
+
+如果这个开关是禁用状态，说明宿主机的标志仍然是 false，或者应用还没察觉到这次改动。确认你改的是[服务器配置](CONFIGURATION.md)里说明的那个生效中的 `.env`。在 Docker 上，它通常是 `/app/data/.env`。
+
+只要有一道开关是关的，外部扩展记录就不会显示，也无法运行。重新打开开关也不会让它们自动重新启用。
+
+### 导入的浏览器扩展出现了却不工作
+
+在 **Settings → Addons → External Extensions**(设置 → 插件 → 外部扩展) 里打开它，查看 **Requested access**(申请的权限)。没有能力声明的旧版 `marinara.extension` v1 包会显示 **Full page access**(整页访问)。只批准你检查过并且信任的那个准确哈希值。
+
+能力列表为空的重新导出包会被当作安全的沙箱扩展，需要页面 DOM 的代码将无法工作。只有在你接受代码会拿到整个页面、浏览器存储、网络 API 和你的会话时，才给它的清单加上 `full_page_access`。
+
+禁用整页访问扩展后，如果工具栏项、浮层或监听器还留着，重新加载 Marinara。清理只能尽力而为，因为页面代码可能产生 Marinara 无法追踪的副作用。
+
+<a id="multiplayer-connection-or-turn-problems"></a>
+
+## 多人连接或回合问题
+
+| 症状 | 解决办法 |
+| --- | --- |
+| 控件不可用 | 在正确的那个 Marinara 的 `.env` 里写入 `MULTIPLAYER_ENABLED=true`，重启它，然后再单独开启这项设置。Android 原生封装无法加入。 |
+| 房主不可用 | 使用独立且可达的 HTTPS 房间端口、有效的证书链和主机名，以及匹配的邀请指纹。不要关闭 TLS 校验、把 `null` 加入可信来源、暴露普通 API，或者打开房主提供的客户端。 |
+| 等待批准 | 房主必须在 Players(玩家) 里批准你。批准之前你看不到任何聊天记录。如果邀请过期了，请索取新的邀请。 |
+| 已断线 | 让你自己的 Marinara 保持运行。会话仍然有效时，它会重新连接到同一个房主，未发送的草稿也会保留。重启之后，需要重新加入。想继续用同一个用户角色名称，先请房主移除你原来的席位。 |
+| Game 等待中 | 打开 Players。断线的玩家不会被自动跳过。房主可以 **Pass**(跳过)、**Kick**(踢出) 或 **Pause**(暂停)。 |
+| 生成中断 | 不要重新提交这一轮。房主应检查已保存的叙述和状态，然后继续或停止房间。多人模式绝不会重放结果不明确的请求，也不会重复应用它的世界效果。 |
+| 命令受限或缺少媒体 | 房间只传输文本。见[兼容性矩阵](development/multiplayer.md#command-and-feature-compatibility)。不要安装对方提供的文件或扩展。 |
+
+报告连接错误时，请提供模式、平台、可见的错误，以及批准是否成功。不要发布邀请、房间密码、会话 Token、私密聊天记录或 API 密钥。
+
+## 启用登录后，在 Android Chrome 上安装 PWA 失败
+
+使用 HTTPS 地址，登录，并在更新 Marinara 后重新加载页面。应用请求清单时会带上凭据，所以登录可以保持开启。如果仍然无法安装，检查你的代理是否把 `/manifest.json` 作为 JSON 返回，而不是返回登录页面或错误。
+
+<a id="get-more-help"></a>
 
 ## 获取更多帮助
 
-如果还是需要帮助，先把细节收集齐。
+1. 打开 **Settings → Advanced → Message Tools**(设置 → 高级 → 消息工具)，开启 **Debug mode**。它会把提示词和回复记录到服务器控制台。
+2. 记下操作系统、Node.js 版本，以及控制台里完整的报错文本。
+3. 分享任何内容之前，先删掉 API 密钥、访问 Token、管理员密钥和私密聊天内容。
 
-1. 打开 **Settings** > **Advanced** > **Message Tools**，开启 **Debug mode**。这会把提示词和回复的完整内容记录到服务器控制台，方便你分享出去。
-2. 记下操作系统、Node.js 版本，以及服务器控制台里完整的报错文本。
+然后到社区求助：
 
-分享调试输出之前，先删掉 API 密钥、访问 Token、管理员密钥、私密提示词和私密聊天内容。
-
-然后到社区里来：
-
-- 在 https://github.com/Pasta-Devs/Marinara-Engine/issues 查看已有的 issue
-- 加入 Discord 寻求社区帮助：https://discord.com/invite/KdAkTg94ME
-- 带上前面收集的细节，到 https://github.com/Pasta-Devs/Marinara-Engine/issues 提交 bug 反馈。
+- 阅读[已有的 issue](https://github.com/Pasta-Devs/Marinara-Engine/issues)。
+- 加入 [Discord](https://discord.com/invite/KdAkTg94ME)。
+- 带上上面的细节，到同一个 GitHub issues 页面提交 bug 报告。
 
 ## 相关指南
 
@@ -557,10 +548,19 @@ Windows、Android 和其他不受支持的宿主环境会直接拒绝执行服�
 - [远程访问](REMOTE_ACCESS.md)
 - [升级 Marinara Engine](UPGRADING.md)
 - [连接 AI 服务商](connections/connecting-to-a-provider.md)
-- [本地模型设置](connections/local-model.md)
+- [内置模型设置](connections/local-model.md)
 - [Game Mode：入门](game/getting-started.md)
 - [设置总览](settings/settings-overview.md)
 
-### Android Chrome 在 Basic Auth 下不提供 PWA 安装
+<details>
+<summary>维护者：更新固定版本的本地运行时</summary>
 
-使用 HTTPS 地址，登录，并在更新 Marinara 后刷新页面。应用请求清单时会携带凭据，因此可以保持 Basic Auth 开启。如果仍无法安装，检查代理是否将 `/manifest.json` 返回为 JSON，而不是登录页面或错误。
+GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交内容没有变化。绝不要拿用户机器上看到的字节当作正确值来“修复”不匹配，也不要削弱校验。重新固定运行时输入只能通过一次经过评审的 Engine 改动完成：
+
+1. 选定一个不可变的上游修订版本或发布产物，并审阅上游改动。
+2. 把产物下载到临时目录，记录准确的字节数，并独立计算它的 SHA-256 摘要。
+3. 用修订版本、URL、大小和摘要更新 `runtime-integrity-manifest.ts`。MLX 部分要在 Apple Silicon/Python 3.12 上用固定版本的 uv，从 `.in` 文件重新生成 `packages/server/src/assets/mlx-runtime-requirements.lock`，逐条审阅依赖变化，并更新 `requirementsLockSha256`。
+4. 运行 `pnpm regression:runtime-integrity`、`pnpm check`，并在受影响的平台上真实执行一次全新的运行时安装。
+5. 先发布经过评审的 Engine 更新，再让用户重试。不要提供手动跳过校验和的开关。
+
+</details>

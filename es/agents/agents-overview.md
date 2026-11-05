@@ -1,117 +1,115 @@
 # Agentes: ayudantes de IA para tus chats
 
-Esta guía explica qué son los agentes en Marinara Engine, cómo descargarlos, cuándo se ejecutan y cómo activarlos en un chat. Cubre el panel **Agents** (Agentes), el catálogo oficial, los ajustes por chat y cómo saber cuándo un agente se ha ejecutado. Para ver el catálogo oficial completo, consulta las guías relacionadas al final.
+Los agentes son pequeños ayudantes de IA que se ejecutan alrededor de la respuesta principal de tu chat. Uno lleva el control de la hora y el clima, otro elige una expresión del personaje y otro dibuja una imagen para un momento importante. Esta guía muestra cómo instalar agentes, activarlos para un chat y comprobar que se ejecutaron.
 
 ## Qué son los agentes
 
-Los agentes son pequeños ayudantes de IA que se ejecutan automáticamente alrededor de la respuesta principal de tu chat. Hacen tareas concretas mientras hablas con un personaje. Por ejemplo, un agente puede llevar el control de la hora y el clima, o elegir una expresión del personaje. Otro agente puede reescribir la respuesta para eliminar palabras repetidas. Otros pueden generar una imagen para un momento importante.
+Los agentes se activan por chat, no por personaje. Dos chats con el mismo personaje pueden ejecutar agentes distintos.
 
-Los agentes se activan por chat, no por personaje. No hay un interruptor de agente en la tarjeta de personaje. Dos chats con el mismo personaje pueden ejecutar agentes completamente distintos. Tú eliges qué agentes se ejecutan en los ajustes de cada chat.
+Una instalación nueva no tiene agentes opcionales. Instálalos desde **Agent Organizer** (Organizador de agentes), la tienda de paquetes oficiales de un clic. El código fuente y el catálogo son públicos en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Instala a través de **Agent Organizer**, para que Marinara pueda comprobar la compatibilidad, los permisos y los hashes de los archivos. Para saber qué hace cada agente, consulta [Referencia de agentes descargables](built-in-agents.md). Para crear los tuyos, consulta [Crear agentes personalizados](custom-agents.md).
 
-Las instalaciones nuevas de Marinara Engine empiezan sin agentes opcionales. Así la app base y la instalación de Termux ocupan menos. **Agent Organizer** (Organizador de agentes) es la tienda de paquetes oficiales de un clic. Su página Home muestra agentes destacados, kits iniciales y secciones, y cada agente tiene su propia página con capturas y pasos de uso. El catálogo incluye Long-Term Memory, World Maps, Calls, Inventory Tracker y los seis juegos de Conversation. Su código fuente, manifiestos, artefactos descargables y catálogo a nivel de repositorio son públicos en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para ver la guía completa de cada agente, consulta [Downloadable Agents Reference](built-in-agents.md). Para crear los tuyos, consulta [Creating Custom Agents](custom-agents.md).
+## Añadir un agente a un chat
 
-## Las tres fases
+Antes de empezar: instala primero el agente. Abre el panel **Agents** (el icono de las estrellas, Sparkles, en las pestañas del lado derecho), haz clic en **Agent Organizer**, abre la página del agente y haz clic en **Get** (Obtener). Consulta [Instalar y actualizar agentes](#install-and-update-agents).
 
-Cada agente se ejecuta en uno de tres puntos alrededor de tu respuesta. Ese punto se llama la **pipeline phase** (fase de la tubería) del agente. La defines en el editor del agente, y cada agente integrado ya trae un valor predeterminado razonable.
+1. Abre el chat.
+2. Abre **Chat Settings** (Ajustes del chat) y busca la sección **Agents** (Agentes).
+3. Activa **Enable Agents** (Activar agentes). Este es el interruptor maestro: cuando está desactivado, no se ejecuta ningún agente en este chat.
+4. Haz clic en **Add Agent** (Añadir agente), abre el grupo al que pertenece el agente (como **Writer Agents** o **Misc Agents**) y elígelo.
 
-- **Pre-Generation**: se ejecuta antes de que la IA escriba su respuesta. Puede añadir contexto útil al prompt (instrucciones enviadas a la IA) primero. Aquí se ejecutan los agentes de búsqueda de conocimiento.
-- **Parallel**: se ejecuta al mismo tiempo que la respuesta. No espera a la respuesta y no puede cambiarla. Aquí se ejecuta un agente de reacción del público en vivo.
-- **Post-Processing**: se ejecuta después de que la respuesta esté terminada. Puede leer la respuesta y, en el caso de los agentes de reescritura, editarla. Aquí se ejecutan la mayoría de los trackers (agentes de seguimiento), el agente de limpieza de prosa y el agente de imágenes.
+Los agentes que añadiste aparecen como activos, cada uno con un pequeño botón para quitarlo. Puedes añadir o quitar agentes en cualquier momento.
 
-## El panel Agents
+> **Nota:** Cada modo de chat muestra solo los agentes que funcionan en ese modo. En Conversation, los juegos instalados aparecen en el selector de juegos y **Calls** añade controles a la barra de herramientas. En Game Mode, elige los agentes al crear la partida o añádelos más tarde.
 
-Abre el panel **Agents** desde las pestañas de panel del lado derecho (el icono de las estrellas, Sparkles). Aquí exploras, creas y organizas agentes. Esta es tu biblioteca. No es el interruptor de encendido o apagado para un solo chat.
+Si un agente no se ejecutó, comprueba que **Enable Agents** esté activado, que el agente esté activo en este chat y que su modo coincida con tu chat.
 
-Haz clic en **Agent Organizer (Organizador de agentes)** en la parte de arriba para abrir el catálogo oficial a pantalla completa. Funciona en computadora y en el teléfono. **Home** (Inicio) muestra agentes destacados y un estante para cada sección, como **Apps**, **Chat games** (Juegos de chat), **Writing help** (Ayuda para escribir) y **Trackers** (Agentes de seguimiento). **Updates** (Actualizaciones) enumera los agentes instalados que tienen una versión más reciente, e **Installed** (Instalados) enumera todo lo que tienes, con su versión y tamaño. La búsqueda y el filtro de modo acotan todas las listas. Selecciona un agente para abrir su página: descripción, tipo de función que admite, tamaño de descarga, permisos, compatibilidad de versión y documentación. Haz clic en **Get** (Obtener) para añadirlo; la misma página ofrece actualizaciones manuales, y el menú **⋯** tiene **Uninstall** (Desinstalar) para los paquetes que ya tienes. Cuando el paquete publica notas de la versión, una sección **Version history** (Historial de versiones) enumera qué cambió en cada versión. El menú **⋯** junto al título tiene **Update all** (Actualizar todo), **Install all** (Instalar todo), **Refresh catalog** (Refrescar catálogo) y **Uninstall all** (Desinstalar todo).
+### Más controles en la sección Agents
 
-El catálogo dentro de la app se respalda en el [repositorio público Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Ahí puedes inspeccionar cada paquete y artefacto, pero los usuarios normales deberían instalar a través de **Agent Organizer (Organizador de agentes)** para que Marinara pueda validar la compatibilidad, los permisos, los hashes, el contenido del archivo comprimido y los requisitos de reinicio.
+Estos controles están en la misma sección **Agents**.
 
-El catálogo incluye agentes de chat oficiales, World Maps, las llamadas de audio/video de Conversation y todos los juegos opcionales de Conversation. Los agentes instalados se agrupan en **Apps**, **Writer Agents**, **Tracker Agents** y **Misc Agents**, además de una sección **Custom Agents** para los que tú crees. Las **Apps** son paquetes con su propia pestaña de Home, como Noodle y Slurp, que usas de forma independiente en lugar de añadirlos a un chat. Desinstalar un paquete del catálogo elimina su código y sus ajustes del Engine, pero conserva los mensajes y el historial del chat. Borrar un agente personalizado lo elimina para siempre.
+- **Agent Menus** (Menús de agentes, solo en Roleplay): haz clic en el nombre de un agente para ir directamente a sus ajustes.
+- **Trackers Control** (Control de trackers, solo en Roleplay): una tarjeta cerrada con las opciones de los trackers (agentes de seguimiento) que se indican abajo.
+- **Agent Suite**: abre un visor donde lees y editas lo que los agentes guardaron para este chat.
+- **Review Agent Outputs** (Revisar resultados de los agentes): hace que los cambios en el lorebook (libro de trasfondo), el resumen y la tarjeta de personaje esperen tu aprobación. En Roleplay está dentro de **Trackers Control**. Consulta [Aprobaciones de agentes y el Agent Suite](approvals-and-agent-suite.md).
 
-El catálogo incluye agentes de chat oficiales, World Maps, las llamadas de audio/video de Conversation y todos los juegos opcionales de Conversation. Los agentes instalados se agrupan en **Apps**, **Writer Agents**, **Tracker Agents** y **Misc Agents**, además de una sección **Custom Agents** para los que tú crees. Las **Apps** son paquetes con su propia pestaña de Home, como Noodle y Slurp, que usas de forma independiente en lugar de añadirlos a un chat. Un paquete marcado **Rules** aporta un conjunto de reglas de Game Mode, como 5e (SRD 5.1), no un agente. Se elige al crear una partida en **Rules**; consulta [Jugar con un conjunto de reglas](../game/rulesets.md). No tiene interruptor de activación por chat. El paquete 5e es una vista previa y solo aparece en el catálogo de Engine de la rama `staging`. Desinstalar un paquete del catálogo elimina su código y sus ajustes del Engine, pero conserva los mensajes y el historial del chat. Borrar un agente personalizado lo elimina para siempre.
+Opciones dentro de **Trackers Control**:
 
-Cuando actualizas desde una versión del Engine que incluía estas funciones, Marinara descarga los paquetes correspondientes una sola vez y conserva las selecciones de chat existentes, los ajustes de los agentes, los datos de tiempo de ejecución guardados y el historial. Si esa migración no puede llegar al catálogo, lo reintenta en el siguiente arranque en lugar de descartar nada.
+- **Attach chat summaries** (Adjuntar resúmenes del chat): desactivado de forma predeterminada. Añade los resúmenes guardados del chat a las solicitudes de los agentes, incluidos los reintentos. No elimina los resúmenes de la respuesta principal ni detiene la generación de resúmenes. Los agentes con acceso completo al prompt principal (las instrucciones enviadas a la IA) pueden seguir leyendo los resúmenes ahí.
+- **Attach Lorebooks to Trackers** (Adjuntar lorebooks a los trackers): los trackers también reciben las entradas de lorebook usadas para la respuesta principal. Aparece en cuanto el chat tiene un tracker.
+- **Individual tracker schedule** (Programación individual de trackers): impide que un tracker se ejecute después de cada respuesta. Lo ejecutas a mano desde el HUD (la superposición de estado en pantalla en Roleplay).
 
-<a id="updating-packages"></a>
+### Dar a un agente un lorebook de referencia
 
-### Actualizar paquetes
+1. En **Chat Settings**, abre **Agents** y luego los ajustes del agente.
+2. Activa **Attach lorebook for the specific agent** (Adjuntar un lorebook para este agente). Empieza desactivado.
+3. Elige un libro en **Reference lorebook** (Lorebook de referencia).
 
-Marinara pregunta antes de actualizar un paquete. Cuando hay disponible una versión compatible más reciente de un paquete que instalaste, aparece una ventana **Agent updates available** (Actualizaciones de agentes disponibles). Enumera cada actualización con su nueva versión e indica si necesita un reinicio. Todas las actualizaciones están seleccionadas; desmarca la casilla de las que quieras omitir. Cuando el paquete publica notas de la versión, **What's new** (Novedades) las muestra. Si la actualización se salta versiones, enumera las notas de todas las versiones desde la tuya, de la más reciente a la más antigua. Una nota larga se recorta; selecciona **More** (Más) para leerla completa. Un punto marca un cambio que vas a notar; las actualizaciones sin punto son correcciones rutinarias. **See in Agent Organizer** (Ver en Agent Organizer) abre la página del agente.
+La elección pertenece a este agente en este chat. Las entradas coincidentes siguen las reglas de activación habituales de los lorebooks y van a este agente, también en los reintentos manuales. Este ajuste no añade el libro a la respuesta principal ni a agentes no relacionados, pero los agentes que se ejecutan juntos también pueden ver las mismas entradas. Los libros eliminados o no disponibles no aportan nada.
 
-- Haz clic en **Update all** o, cuando hayas desmarcado algunas casillas, en **Update 2 of 3** (Actualizar 2 de 3) para instalar las actualizaciones seleccionadas. Cada fila muestra entonces **Updated** (Actualizado) o **Failed** (Falló). Una fila fallida muestra el motivo y un botón **Retry** (Reintentar). Cuando una actualización necesita un reinicio, haz clic en **Restart now** (Reiniciar ahora), o reinicia Marinara Engine más tarde.
-- Haz clic en **Not now** (Ahora no) para conservar tus versiones actuales. Las actualizaciones que desmarcaste también cuentan como **Not now**. Marinara no vuelve a preguntar por una versión que omitiste.
+## Cuándo se ejecutan los agentes
 
-Aun así, puedes actualizar cualquier paquete más tarde desde **Agent Organizer (Organizador de agentes)**. Los paquetes instalados siguen funcionando en su versión actual hasta que los actualices, incluso cuando no se puede llegar al catálogo.
+Cada agente se ejecuta en un punto alrededor de tu respuesta, llamado su **pipeline phase** (fase de la tubería). Cada agente integrado tiene un valor predeterminado. Puedes cambiarlo en el editor del agente.
 
-Las actualizaciones solo se aplican a los paquetes que ya instalaste. Las instalaciones de computadora, Docker y Android/Termux guardan sus paquetes en su servidor local. iOS, iPadOS y otros clientes de navegador usan los paquetes instalados en el servidor de Marinara al que se conectan.
+| Fase | Cuándo se ejecuta | Ejemplos |
+| --- | --- | --- |
+| **Pre-Generation** | Antes de la respuesta. Puede añadir contexto al prompt. | Búsqueda de conocimiento |
+| **Parallel** | Al mismo tiempo que la respuesta. No puede cambiar la respuesta. | Reacciones del público en vivo |
+| **Post-Processing** | Después de la respuesta. Puede leer la respuesta, y los agentes de reescritura pueden editarla. | La mayoría de los trackers, limpieza de prosa, imágenes |
 
-## Activar agentes para un chat
-
-Los agentes se activan dentro de cada chat, en el panel lateral **Chat Settings** (Ajustes del chat).
-
-1. Abre el chat que quieras.
-2. Abre **Chat Settings**.
-3. Encuentra la sección **Agents**.
-4. Activa **Enable Agents** (Activar agentes). Este es el interruptor maestro. Cuando está apagado, no se ejecuta ningún agente para este chat.
-5. Añade los agentes que quieras desde las listas debajo del interruptor, o quita los que no quieras.
-
-Deberías ver los agentes que añadiste listados como activos, cada uno con un pequeño botón para quitarlo.
-
-La sección **Agents** tiene algunos controles más:
-
-- **Agent Menus** (Menús de agentes, solo en chats de Roleplay): está justo debajo de **Enable Agents**. Haz clic en el nombre de un agente para ir directamente a sus ajustes.
-- **Trackers Control** (Control de trackers, solo en chats de Roleplay): una tarjeta que empieza cerrada. Haz clic en ella para abrir estos ajustes:
-  - **Attach chat summaries** (Adjuntar resúmenes del chat): desactivado de forma predeterminada, también en chats existentes sin una elección guardada. Actívalo para incluir los resúmenes guardados en las solicitudes de los agentes, incluido el posprocesamiento y los reintentos manuales. Esto no elimina los resúmenes del contexto de la respuesta principal ni detiene su generación. Los agentes con acceso explícito al prompt principal completo pueden seguir leyendo los resúmenes incluidos en él.
-  - **Attach Lorebooks to Trackers** (Adjuntar lorebooks a los trackers): cuando está activado, los trackers también reciben las entradas de lorebook (libro de trasfondo) usadas para la respuesta principal. Aparece en cuanto el chat tiene un tracker.
-  - **Review Agent Outputs** (Revisar resultados de los agentes): se describe en su propio punto después de esta lista.
-  - **Individual tracker schedule** (Programación individual de trackers): activa un tracker para que deje de ejecutarse después de cada respuesta. Luego lo ejecutas a mano desde un botón en el HUD (barra de estado en pantalla). HUD significa heads-up display, la superposición de estado en pantalla en Roleplay. Aparece en cuanto el chat tiene un tracker.
-- **Review Agent Outputs**: cuando está activado, los cambios en el lorebook, el resumen y la tarjeta de personaje esperan tu aprobación antes de guardarse. Cuando está apagado, los cambios en el lorebook y el resumen pueden guardarse por su cuenta, pero las ediciones de la tarjeta de personaje siguen preguntándote primero. Consulta [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md). En los chats de Roleplay, está dentro de **Trackers Control**.
-- **Agent Suite**: abre un visor donde puedes leer y editar todo lo que los agentes han guardado para este chat.
-
-<a id="a-reference-lorebook-for-one-agent"></a>
-
-### Un lorebook de referencia para un agente
-
-En **Chat Settings**, abre **Agents** y después los ajustes del agente de escritura, de seguimiento o personalizado. **Attach lorebook for the specific agent** (adjuntar un lorebook para este agente) está desactivado al principio. Actívalo para mostrar **Reference lorebook** (lorebook de referencia) y elegir un libro. La selección pertenece a este agente en este chat; no cambia su definición global ni otros chats.
-
-Las funciones de paquetes descargables, como World Maps, también necesitan la actualización correspondiente del paquete además de la del Engine.
-
-Las entradas coincidentes siguen las reglas de activación habituales de los lorebooks y se proporcionan como contexto de referencia para ese agente, también en los reintentos manuales. Adjuntar el libro no lo activa para la respuesta principal ni para otros agentes. Los agentes que se ejecutan juntos también pueden ver las mismas entradas de referencia. Al desactivar la opción deja de aportar entradas; los libros no disponibles o eliminados no aportan ninguna. Los ajustes de fuentes que ya tengan los agentes personalizados siguen disponibles de forma independiente.
-
-Los mensajes antiguos o importados pueden no contener información suficiente para distinguir una respuesta de grupo de una continuación, por lo que sus disparadores se determinan mediante un mecanismo de respaldo conservador.
-
-### La advertencia de costo
-
-Los agentes cuestan tokens (fragmentos de texto) adicionales y llamadas al modelo adicionales. Cada agente añade sus propias instrucciones, y a menudo su propia llamada al modelo. Marinara agrupa en una sola llamada los agentes que comparten la misma conexión cuando puede. Encima de la lista de agentes, un indicador estima la carga para tu configuración actual. Muestra aproximadamente cuántos tokens de instrucciones de agente añadiste y aproximadamente cuántas llamadas adicionales ocurren por turno.
-
-Toca o haz clic en el icono de ayuda junto al indicador para abrir la explicación en el móvil o en el escritorio. Este indicador se pone ámbar con un icono de advertencia cuando la carga se vuelve pesada. El costo real por turno es más alto que el número mostrado. Tu historial de chat y los detalles del personaje se envían con cada llamada. Si ves la advertencia, quita agentes que no necesites, o mueve algunos a una conexión más barata o local. El límite de mensajes recientes solo controla los mensajes del chat; las instrucciones de los agentes, los detalles de los personajes y los resúmenes adjuntos son contexto adicional. Un **Reasoning Effort** (Esfuerzo de razonamiento) guardado en una conexión también se aplica a los agentes que la usan, así que un nivel alto hace que cada una de sus llamadas sea más lenta y costosa. Consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
-
-## Con qué agentes empieza cada modo
-
-Una instalación nueva empieza sin agentes opcionales instalados ni activos. Cada modo de chat muestra solo los paquetes compatibles que tengas instalados.
-
-- **Roleplay**: instala agentes de Roleplay desde el catálogo, luego añádelos en Chat Settings. World Maps aparece ahí como cualquier otro agente compatible.
-- **Conversation**: instala Calls o juegos de mesa individuales desde el catálogo. Los juegos aparecen en el selector de juegos y registran sus comandos slash; las llamadas añaden su barra de herramientas y sus controles en Chat Settings.
-- **Game Mode**: los agentes compatibles con Game instalados se pueden seleccionar durante la creación del juego o añadir más tarde. World Maps aporta su espacio de trabajo de mapa y su vista de mapa del mundo solo cuando está activo para ese juego.
-
-Puedes añadir o quitar agentes compatibles en cualquier momento.
+<a id="tell-whether-an-agent-ran"></a>
 
 ## Saber si un agente se ejecutó
 
-Algunos agentes cambian algo que puedes ver de inmediato. Otros trabajan en silencio. Así puedes comprobarlo.
+- Los trackers escriben en el HUD y en los paneles de tracker. Si la hora, la ubicación, el estado de ánimo o las estadísticas cambiaron, un tracker se ejecutó.
+- **Agent activity** (Actividad de los agentes) en **Chat Settings** enumera notas breves de los agentes. Su icono gira mientras trabajan y muestra un punto cuando uno falla. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
+- **Prose Guardian** y **Continuity Checker** cambian el texto de la respuesta. Una respuesta limpiada o corregida significa que se ejecutaron.
+- Para un rastro completo, activa **Debug mode** (Modo de depuración) en **Settings → Advanced → Message Tools** (Configuración → Avanzado → Herramientas de mensaje). Registra el prompt y la respuesta de cada agente en la consola del servidor, y las entradas de depuración de los agentes también aparecen en la consola del navegador. Las inyecciones de prompt guardadas en caché se muestran en la pestaña **Injections** (Inyecciones) de **Agent activity**.
 
-- Los trackers escriben en el HUD y en los paneles de tracker. Si la hora, la ubicación, el estado de ánimo o las estadísticas se actualizaron, un tracker se ejecutó.
-- **Agent activity** (Actividad de los agentes) en **Chat Settings** enumera notas breves de los agentes. Mientras trabajan, su icono se convierte en un indicador de carga, y aparece un punto en él cuando un agente falla. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
-- Los agentes **Prose Guardian** y **Continuity Checker** cambian el texto de la respuesta en sí. Una respuesta limpiada o corregida es señal de que se ejecutaron.
-- Para un rastro completo, activa **Debug mode** (Modo de depuración) en **Settings** (Configuración), luego **Advanced** (Avanzado), luego **Message Tools** (Herramientas de mensaje). Registra el prompt y la respuesta de cada agente en la consola del servidor. También muestra una superposición **Agent Debug** con las llamadas, tokens y tiempos de cada agente.
+## Vigilar el costo
 
-¿Un agente que esperabas no se ejecutó? Comprueba que **Enable Agents** esté activado. Comprueba que el agente esté activo para este chat. Comprueba que tu modo de chat lo permita.
+Cada agente añade sus propias instrucciones y a menudo su propia llamada al modelo. Marinara agrupa en una sola llamada los agentes que comparten una conexión cuando puede.
+
+Un indicador encima de la lista de agentes estima los tokens (fragmentos de texto) y las llamadas adicionales por turno. Toca el icono de ayuda junto a él para ver los detalles. Se pone ámbar con un icono de advertencia cuando la carga es pesada. El costo real es más alto, porque el historial del chat y los detalles del personaje van con cada llamada.
+
+Si ves la advertencia, quita los agentes que no necesites o mueve algunos a una conexión más barata o local. Un **Reasoning Effort** (Esfuerzo de razonamiento) guardado en una conexión también se aplica a los agentes que la usan. Consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
+
+<a id="install-and-update-agents"></a>
+
+## Instalar y actualizar agentes
+
+Abre el panel **Agents** (el icono de las estrellas, Sparkles, en las pestañas del lado derecho) y haz clic en **Agent Organizer**. Funciona en computadora y en el teléfono.
+
+- **Home** (Inicio) muestra agentes destacados y un estante para cada sección: **Apps**, **Chat games** (Juegos de chat), **Trackers** (Agentes de seguimiento) y **Writing help** (Ayuda para escribir).
+- **Updates** (Actualizaciones) enumera los agentes instalados que tienen una versión más reciente. **Installed** (Instalados) enumera todo lo que tienes, con la versión y el tamaño.
+- La búsqueda y el filtro de modo acotan todas las listas.
+- Selecciona un agente para ver su descripción, tamaño de descarga, permisos, compatibilidad y **Version history** (Historial de versiones). Haz clic en **Get** para instalarlo. El menú **⋯** ofrece **Uninstall** (Desinstalar).
+- El menú **⋯** junto al título tiene **Update all** (Actualizar todo), **Install all** (Instalar todo), **Refresh catalog** (Refrescar catálogo) y **Uninstall all** (Desinstalar todo).
+
+Los agentes instalados se agrupan como **Apps**, **Writer Agents**, **Tracker Agents** y **Misc Agents**, además de **Custom Agents** para los que tú crees. Las **Apps** son paquetes con su propia pestaña Home, como Noodle y Slurp. Las usas de forma independiente en lugar de añadirlas a un chat.
+
+Un paquete marcado **Rules** no es un agente. Añade un conjunto de reglas de Game Mode, como 5e (SRD 5.1), que eliges en **Rules** al crear una partida. Consulta [Jugar con un conjunto de reglas](../game/rulesets.md). El paquete 5e está en vista previa, así que solo lo muestra un Engine en la rama `staging`.
+
+Desinstalar un paquete elimina su código y sus ajustes, pero conserva los mensajes y el historial de tu chat. Borrar un agente personalizado lo elimina para siempre.
+
+### Actualizar agentes
+
+Cuando existe una versión compatible más reciente de un paquete instalado, se abre una ventana **Agent updates available** (Actualizaciones de agentes disponibles). Enumera cada actualización con su versión e indica si necesita un reinicio.
+
+1. Desmarca la casilla de cualquier actualización que quieras omitir. Todas las actualizaciones empiezan seleccionadas.
+2. Lee **What's new** (Novedades) si el paquete publicó notas. **More** (Más) muestra completa una nota larga. Un punto marca un cambio que vas a notar.
+3. Haz clic en **Update all** (o en **Update 2 of 3**, Actualizar 2 de 3, cuando hayas desmarcado algunas). Cada fila muestra **Updated** (Actualizado) o **Failed** (Falló). Una fila fallida muestra el motivo y **Retry** (Reintentar).
+4. Si una actualización necesita un reinicio, haz clic en **Restart now** (Reiniciar ahora), o reinicia Marinara más tarde.
+
+Haz clic en **Not now** (Ahora no) para conservar tus versiones. Marinara no vuelve a preguntar por una versión que omitiste. Puedes actualizar desde **Agent Organizer** en cualquier momento. Los paquetes instalados siguen funcionando en su versión actual, incluso cuando no se puede llegar al catálogo. **See in Agent Organizer** (Ver en Agent Organizer) abre la página del agente.
+
+Las actualizaciones solo se aplican a los paquetes que instalaste. Los paquetes viven en el servidor de Marinara, así que los clientes de navegador usan lo que el servidor tiene instalado.
+
+Cuando actualizas desde una versión del Engine que incluía estas funciones, Marinara descarga los paquetes correspondientes una sola vez y conserva las selecciones de tus chats, los ajustes y el historial. Si no puede llegar al catálogo, lo reintenta en el siguiente arranque.
 
 ## Guías relacionadas
 
-- [Downloadable Agents Reference](built-in-agents.md)
+- [Referencia de agentes descargables](built-in-agents.md)
 - [Avatares 2D y 3D](avatars.md)
-- [Official Marinara Agents repository](https://github.com/Pasta-Devs/Marinara-Agents)
-- [Creating Custom Agents](custom-agents.md)
-- [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md)
-- [Roleplay HUD and Trackers](../roleplay/hud-and-trackers.md)
+- [Crear agentes personalizados](custom-agents.md)
+- [Aprobaciones de agentes y el Agent Suite](approvals-and-agent-suite.md)
+- [HUD y trackers de Roleplay](../roleplay/hud-and-trackers.md)

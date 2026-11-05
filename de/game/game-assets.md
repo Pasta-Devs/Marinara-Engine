@@ -1,211 +1,192 @@
 # Game-Assets: Musik, Sound, Sprites und Hintergründe
 
-In dieser Anleitung erfährst du, wie die Game-Asset-Bibliothek funktioniert, aus der sich der Game Mode für Musik, Sound, Charakterbilder und Szenen-Hintergründe bedient. Es geht um das mitgelieferte Starter-Set, den Dateimanager **Asset Browser**, das Hochladen eigener Dateien, die Auswahl, welche Assets ein Spiel nutzen darf, sowie Soundeffekte und Musik, die der Game Mode für dich generieren kann.
+Game-Assets sind die Mediendateien, die der Game Mode abspielt und anzeigt: Musik, Sound, Charakterbilder und Szenen-Hintergründe. Diese Anleitung zeigt, wie du das Starter-Set nutzt, eigene Dateien im **Asset Browser** hochlädst, einschränkst, welche Assets ein Spiel nutzen darf, und Soundeffekte und Musik generierst.
 
-## Was Game-Assets sind
+Der Game Mode liest die Bibliothek selbstständig aus. Musik, Umgebungsgeräusche und Hintergründe wählt er passend zur Szene, von Hand zuweisen musst du während des Spiels also nichts.
 
-Game-Assets sind die Mediendateien, die der Game Mode während einer Sitzung abspielt und anzeigt. Marinara Engine sortiert sie in fünf Kategorien:
+| Kategorie | Was sie ist |
+| --- | --- |
+| **Music** | Hintergrundmusik, die mit der Szene wechselt. |
+| **Ambient** | Umgebungsgeräusche in Endlosschleife, etwa aus Natur, Stadt oder Innenräumen. |
+| **Sound Effects** (SFX) | Kurze Geräusche für Menüs, Kampf und Erkundung. |
+| **Sprites** | Charakter- und Objektbilder, die auf dem Bildschirm erscheinen. |
+| **Backgrounds** | Szenenbilder hinter der Geschichte. |
 
-- **Music**: Hintergrundmusik, die mit der Szene wechselt.
-- **Ambient**: Umgebungsgeräusche in Endlosschleife, etwa aus Natur, Stadt oder Innenräumen.
-- **Sound Effects** (kurz SFX): kurze Geräusche für Menüs, Kampf und Erkundung.
-- **Sprites**: Charakter- und Objektbilder, die auf dem Bildschirm erscheinen.
-- **Backgrounds**: Szenenbilder hinter der Geschichte.
+## Das Starter-Set
 
-Der Game Mode liest diese Bibliothek selbstständig aus. Musik, Umgebungsgeräusche und Hintergründe wählt er passend zur Szene automatisch – von Hand zuweisen musst du während des Spiels also nichts.
+Beim ersten Serverstart installiert Marinara eine kostenlose Starter-Bibliothek und frischt sie bei späteren Starts auf, wenn sich das mitgelieferte Set ändert. Sie enthält:
 
-## Das mitgelieferte Starter-Set
-
-Beim ersten Serverstart installiert Marinara eine kostenlose Starter-Bibliothek. Ändert sich das mitgelieferte Set, frischt Marinara die Dateien bei späteren Starts auf. Enthalten sind:
-
-- Fünf **Music**-Titel, jeweils einer für eine bestimmte Szenenstimmung.
-- Mehrere **Ambient**-Schleifen in den Ordnern nature, urban und interior.
+- Fünf **Music**-Titel für verschiedene Szenenstimmungen.
+- **Ambient**-Schleifen in den Ordnern `nature`, `urban` und `interior`.
 - **Sound Effects** für Menüs, Kampf und Erkundung.
 
-**Backgrounds** liegen keine bei. Die Hintergrund-Ordner sind anfangs leer. Sie füllen sich erst, wenn du Bilder hochlädst oder der Game Mode Szenenbilder generiert.
-Auch Charakter-**Sprites** sind nicht dabei. Ergänze nur die Charakterbilder, die zu deinen eigenen Spielen passen.
+Die Ordner **Backgrounds** und **Sprites** im Asset Browser sind anfangs leer. Charakter-Sprites liegen keine bei, ergänze also Bilder, die zu deinen eigenen Spielen passen. Für Hintergründe greift der Game Mode außerdem auf die Hintergrundbibliothek der App zurück. Bei einer Neuinstallation enthält sie 13 Starter-Bilder und ein schlichtes `Black.jpg`, und Spiele können sie ohne Upload nutzen. Lagen in diesem Ordner schon Bilder, wird nur `Black.jpg` wiederhergestellt. Generierte Szenenbilder und deine Uploads kommen dazu.
 
-Alle mitgelieferten Dateien stehen unter CC0 – sie sind also gemeinfrei und frei verwendbar. Die vollständigen Credits zu jeder Datei stehen in der Textdatei `CREDITS.md`, die zusammen mit den Assets auf der Festplatte liegt. In der App wird sie nicht angezeigt.
+Alles mitgelieferte Audio steht unter CC0 (gemeinfrei, frei verwendbar). Die Credits zu jeder Datei stehen in einer Datei `CREDITS.md`, die zusammen mit den Assets auf der Festplatte liegt. In der App wird sie nicht angezeigt.
 
-Mitgelieferte Dateien und Ordner sind geschützt: Im **Asset Browser** lassen sie sich weder löschen noch verschieben, damit die Starter-Bibliothek intakt bleibt. Umbenennen und Kopieren geht trotzdem.
+Mitgelieferte Dateien und Ordner sind geschützt. Im **Asset Browser** kannst du sie weder löschen noch verschieben, umbenennen und kopieren aber schon.
 
 ## Den Asset Browser öffnen
 
-Der **Asset Browser** ist ein Dateimanager für die Game-Assets. Zwei Wege führen dorthin.
-
-Über **Settings** (Einstellungen):
+Der **Asset Browser** ist ein Dateimanager für Game-Assets. Öffne ihn über **Settings** (Einstellungen):
 
 1. Öffne **Settings**.
 2. Wechsle zum Tab **Imports**.
-3. Such den Bereich **Game Assets**.
-4. Klick auf die Schaltfläche **Asset Browser**.
+3. Such **Game Assets** und klick auf **Asset Browser**.
 
-Aus einem Spiel heraus:
+Oder öffne ihn aus einem Spiel:
 
-1. Öffne einen Game-Mode-Chat.
-2. Klick oder tippe auf **Game Assets** (das Ordnersymbol). Die Schaltfläche liegt anfangs nahe der oberen rechten Ecke des Chats. Du kannst sie am Computer oder Telefon an eine andere Stelle ziehen.
+1. Öffne einen Game-Chat.
+2. Klick oder tipp auf die Schaltfläche **Game Assets** (das Ordnersymbol) nahe der oberen rechten Ecke des Chats. Am Computer oder Handy kannst du sie an eine andere Stelle ziehen.
 
-Die Schaltfläche erscheint nur in Chats mit Game Mode. Sie öffnet **Game Assets** mit dem **Asset Browser** darin: am Computer als verschiebbares Fenster, am Telefon als Panel über die ganze Breite.
+Die Schaltfläche erscheint nur in Game-Chats. Sie öffnet **Game Assets** mit dem **Asset Browser** darin, am Computer als verschiebbares Fenster, am Handy als Panel über die ganze Breite. Hast du es mit **Put back in Chat Settings** (zurück in die Chat-Einstellungen) verschoben, öffne stattdessen den Abschnitt **Game Assets** in Chat Settings.
 
-Hast du dieses Fenster mit **Put back in Chat Settings** verschoben, öffne stattdessen den Abschnitt **Game Assets** in Chat Settings.
-
-Oben in der Werkzeugleiste steht eine Brotkrumen-Navigation, die bei **Game Assets** beginnt. Daneben liegen ein Umschalter zwischen **Grid view** (Kachelansicht) und **List view** (Listenansicht), eine Schaltfläche **Upload** (Hochladen) und eine Schaltfläche **New** (Neu). Dazu kommen eine Schaltfläche **Rescan** (Neu einlesen), eine Schaltfläche **Open in system folder** (Im Systemordner öffnen) und ein Suchfeld **Search in folder** (Im Ordner suchen). Auf breiteren Bildschirmen wechselst du über einen Ordnerbaum links zwischen den Kategorien.
+Die Werkzeugleiste zeigt eine Brotkrumen-Navigation, die bei **Game Assets** beginnt, einen Umschalter zwischen **Grid view** (Kachelansicht) und **List view** (Listenansicht), **Upload** (Hochladen), **New** (Neu), **Rescan** (Neu einlesen), **Open in system folder** (Im Systemordner öffnen) und ein Suchfeld **Search in folder** (Im Ordner suchen). Auf breiteren Bildschirmen springst du über einen Ordnerbaum links zwischen den Kategorien.
 
 ## Eigene Assets hochladen
 
-Für den Upload gibt es zwei Wege. Nimm den, der dir leichter fällt.
+Marinara prüft jeden Upload gegen die Regeln unter [Dateitypen und Größen](#file-types-and-sizes). Nimm einen der beiden Wege.
 
 ### Upload über den Asset Browser
 
 1. Öffne den **Asset Browser**.
-2. Klick dich in einen der fünf Kategorie-Ordner oder in einen Unterordner darin.
-3. Klick auf **Upload** und wähle die Dateien aus, oder zieh sie in den Dateibereich.
+2. Öffne einen der fünf Kategorie-Ordner oder einen Unterordner darin.
+3. Klick auf **Upload** und wähle Dateien aus, oder zieh Dateien in den Dateibereich.
 
-Du musst dich zuerst in einem Kategorie-Ordner befinden. Legst du Dateien auf der obersten Ebene ab, fordert dich die App auf, vorher einen Kategorie-Ordner zu öffnen.
+Du musst dich in einem Kategorie-Ordner befinden. Legst du Dateien auf der obersten Ebene ab, bittet dich die App, zuerst einen zu öffnen.
 
 ### Upload über Settings
 
 1. Öffne **Settings** und wechsle zum Tab **Imports**.
-2. Such den Bereich **Game Assets**.
-3. Wähle im Menü **Type** (Typ) eine Kategorie: **Music**, **Ambient**, **Sound Effects**, **Sprites** oder **Backgrounds**.
-4. Leg im Feld **Folder** (Ordner) das Ziel fest, oder behalte den Vorschlag bei.
-5. Klick auf **Choose Files** (Dateien auswählen) und wähle die Dateien aus.
-6. Klick auf **Upload to Server** (Auf den Server hochladen).
+2. Wähle in **Game Assets** unter **Type** (Typ) eine Kategorie: **Music**, **Ambient**, **Sound Effects**, **Sprites** oder **Backgrounds**.
+3. Leg unter **Folder** (Ordner) das Ziel fest, oder behalte den Standard.
+4. Klick auf **Choose Files** (Dateien auswählen) und wähle deine Dateien aus.
+5. Klick auf **Upload to Server** (Auf den Server hochladen).
 
-Jeder **Type** füllt das Feld **Folder** mit einem sinnvollen Standard. Die Standardwerte:
+Hat es nicht funktioniert, listet die Fehlermeldung die erlaubten Dateitypen für diese Kategorie auf. Prüf bei Musik den Ordnerpfad (siehe [Die Ordnerregel für Musik](#the-music-folder-rule)).
 
-- **Music**: `exploration/fantasy/calm`
-- **Ambient**: `nature`
-- **Sound Effects**: `exploration`
-- **Sprites**: `generic-fantasy`
-- **Backgrounds**: `custom`
+Standardwerte für **Folder**:
 
-### Regeln für Dateityp und Größe
+| Typ | Standardordner |
+| --- | --- |
+| **Music** | `exploration/fantasy/calm` |
+| **Ambient** | `nature` |
+| **Sound Effects** | `exploration` |
+| **Sprites** | `generic-fantasy` |
+| **Backgrounds** | `custom` |
 
-Der Server prüft jeden Upload gegen diese Regeln. Sie gelten für beide Upload-Wege.
+<a id="file-types-and-sizes"></a>
 
-| Kategorie                     | Erlaubte Dateitypen                  |
-| ----------------------------- | ------------------------------------ |
-| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM  |
-| Sprites                       | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
-| Backgrounds                   | PNG, JPG, JPEG, GIF, WebP, AVIF      |
+### Dateitypen und Größen
 
-Audio- und Bilddateien dürfen jeweils bis zu 50 MB groß sein, Textdateien bis zu 10 MB. Dateitypen, die nicht zur Kategorie passen, weist der Server ab. Die Fehlermeldung listet die erlaubten Typen auf.
+| Kategorie | Erlaubte Dateitypen |
+| --- | --- |
+| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM |
+| Sprites | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
+| Backgrounds | PNG, JPG, JPEG, GIF, WebP, AVIF |
+
+Audio- und Bilddateien dürfen jeweils bis zu 50 MB groß sein, Textdateien bis zu 10 MB.
+
+<a id="the-music-folder-rule"></a>
 
 ### Die Ordnerregel für Musik
 
-Musik folgt einem strikten Ordnerschema. Jeder Musiktitel muss in einem dreistufigen Pfad nach dem Muster `state/genre/intensity` liegen, zum Beispiel `exploration/fantasy/calm`. Passt der Pfad nicht, schlägt der Upload fehl.
-
-Erlaubt sind diese Werte:
+Jeder Musiktitel muss in einem dreistufigen Pfad `state/genre/intensity` liegen, zum Beispiel `exploration/fantasy/calm`. Passt der Pfad nicht, schlägt der Upload fehl. An diesem Aufbau erkennt der Game Mode, wann er welchen Titel abspielt.
 
 - State: `exploration`, `dialogue`, `combat`, `travel_rest`.
 - Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom` oder die Familie eines Settings (siehe unten), zum Beispiel `wuxia`.
 - Intensity: `calm`, `tense`, `intense`.
 
-An diesem Schema erkennt der Game Mode, wann er welchen Titel abspielt. Für Ambient-, Soundeffekt-, Sprite- und Hintergrund-Ordner gilt die Regel nicht – deren Unterordner darfst du frei benennen.
+Für Ambient-, Soundeffekt-, Sprite- und Hintergrund-Ordner gilt keine solche Regel. Ihre Unterordner darfst du frei benennen.
+
+## Assets organisieren
+
+Am Computer führt ein Rechtsklick auf eine Datei oder einen Ordner zu den Aktionen, alternativ das Menü „...“.
+
+| Dateiaktion | Was sie tut |
+| --- | --- |
+| **Rename** (Umbenennen) | Schlägt fehl, wenn der Name in diesem Ordner schon vergeben ist. |
+| **Move** (Verschieben), **Copy** (Kopieren) | Legt die Datei über eine Ordnerauswahl in einen anderen Ordner. |
+| **Delete** (Löschen), **Download** (Herunterladen) | Entfernt die Datei oder speichert sie auf deinem Gerät. |
+
+| Ordneraktion | Was sie tut |
+| --- | --- |
+| **Create subfolder** (Unterordner anlegen) | Legt einen neuen Ordner darin an. |
+| **Open in system folder** | Zeigt ihn im Dateimanager deines Computers. |
+| **Delete folder** (Ordner löschen) | Liegen Dateien darin, kreuz zuerst **Delete everything inside** (Alles darin löschen) an. |
+
+**New** in der Werkzeugleiste legt im aktuellen Ordner **New folder** (Neuer Ordner), **New text file** (Neue Textdatei) oder **New markdown file** (Neue Markdown-Datei) an. Für viele Dateien auf einmal setzt du Häkchen in ihren Kontrollkästchen. Eine Leiste zeigt, wie viele ausgewählt sind, mit **Select all** (Alle auswählen), **Move**, **Copy** und **Delete**. Große Ordner laden in Teilen, mit einer Schaltfläche **Load more** (Mehr laden).
+
+Jeder Ordner kann eine kurze Notiz tragen. Klick auf den Beschreibungstext oder auf den Hinweis **Add description...** (Beschreibung hinzufügen), um eine zu schreiben. Die fünf Kategorie-Ordner haben feste Beschreibungen.
+
+### Neu einlesen nach Änderungen von außen
+
+Marinara führt intern eine Liste der Assets, damit der Game Mode sie schnell findet. Uploads über die App aktualisieren sie automatisch. Kopierst du außerhalb der App Dateien in den Game-Asset-Ordner auf deinem Computer, klick auf **Rescan**, um den Ordner neu einzulesen. **Rescan** findest du in der Werkzeugleiste des **Asset Browser** und in **Game Assets** unter **Settings**.
+
+### Den Ordner am Computer öffnen
+
+**Open in system folder** funktioniert nur, wenn du die App auf demselben Computer nutzt, auf dem der Server läuft. Auf Handy, Tablet oder einem anderen Computer sagt dir die App, dass sich Systemordner nur auf dem Gerät öffnen lassen, das Marinara hostet.
+
+## Auswählen, welche Assets ein Spiel nutzen darf
+
+Ein Game-Chat kann nur einen Teil deiner Asset-Ordner nutzen, etwa damit deine fröhliche Musik aus einem Horrorspiel herausbleibt.
+
+1. Klapp während der Einrichtung im Schritt **Features** den Bereich **Adjust Game Assets for this Game** (Game-Assets für dieses Spiel anpassen) auf. Bei einem bestehenden Spiel öffnest du dessen Fenster **Game Assets**.
+2. Klick auf **Game assets**. Die Schaltfläche heißt dann **Selecting**.
+3. Über das kleine Statuselement an jedem Ordner nimmst du ihn auf oder schließt ihn aus.
+
+Eine Leiste zeigt „All folders included“ oder wie viele Ordner ausgeschlossen sind. **Reset to all** (Alle wieder aufnehmen) nimmt wieder alles auf. Die Auswahl wird nur für diesen Chat gespeichert. Sie ändert, aus welchen Ordnern der Game Mode wählen darf, löscht oder versteckt aber keine Datei.
 
 <a id="a-settings-own-art-and-music"></a>
 
 ### Eigene Grafik und Musik eines Settings
 
-Ein Spiel, das mit einem Setting-Kit gestartet wurde, hat eine Stilfamilie für Grafik und Musik. Du siehst sie unter **Art and music** (Grafik und Musik), wenn du die Wörter des Kits änderst: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` oder eine eigene Familie des Kits. Das Spiel nutzt die Ordner, die nach seiner Familie benannt sind, und jeden Ordner, der nach keiner Familie benannt ist. Die Ordner der anderen Familien lässt es weg. So spielt ein Cyberpunk-Spiel nie Fantasy-Kampfmusik und zeigt nie den verzauberten Wald. Passt nichts aus der eigenen Familie oder den gemeinsamen Ordnern, läuft lieber gar nichts als ein Titel einer anderen Familie.
+Ein Spiel, das mit einem Setting-Kit gestartet wurde, hat eine Stilfamilie für Grafik und Musik. Du siehst sie unter **Art and music** (Grafik und Musik), wenn du die Wörter des Kits änderst: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` oder eine eigene Familie des Kits. Das Spiel nutzt die Ordner, die nach seiner Familie benannt sind, und jeden Ordner, der nach keiner Familie benannt ist, und lässt die Ordner anderer Familien weg. Ein Cyberpunk-Spiel spielt nie Fantasy-Kampfmusik und zeigt nie den verzauberten Wald. Passt nichts aus seiner Familie oder den gemeinsamen Ordnern, läuft lieber gar nichts als ein Titel einer anderen Familie. Ein Spiel ohne Setting-Kit nutzt jeden Ordner.
 
 - **Music**: Lege die Titel des Settings unter `music/<state>/<family>/<intensity>` ab, zum Beispiel `combat/wuxia/intense`. Sie haben Vorrang vor gemeinsamen Titeln.
-- **Backgrounds**: `backgrounds/<family>`. Hintergründe, die während eines Spiels mit Setting-Kit generiert werden, landen ebenfalls dort.
-- **Kampfgeräusche**: Ein Geräusch in `sfx/combat/<family>`, das genauso heißt wie ein mitgeliefertes, etwa `sword-swing`, ersetzt dieses in Spielen dieser Familie. Die mitgelieferten Kampfgeräusche sind Fantasy. Die Kämpfe einer anderen Familie bleiben deshalb still, bis du eigene Geräusche für sie hinzufügst.
+- **Backgrounds**: `backgrounds/<family>`. Hintergründe, die in einem Spiel mit Setting-Kit generiert werden, landen ebenfalls dort.
+- **Kampfgeräusche**: Ein Geräusch in `sfx/combat/<family>`, das genauso heißt wie ein mitgeliefertes, etwa `sword-swing`, ersetzt dieses in Spielen dieser Familie. Die mitgelieferten Kampfgeräusche sind Fantasy, die Kämpfe anderer Familien bleiben also still, bis du eigene Geräusche für sie hinzufügst.
 
-Die mitgelieferten Starter-Hintergründe gelten als gemeinsam, außer den Fantasy-Hintergründen (`ancient_library`, `castle_cliff`, `enchanted_forest`) und dem modernen `city_night`. Ein Spiel ohne Setting-Kit nutzt wie bisher jeden Ordner. Ein Setting-Kit, das gespeichert wurde, bevor es Stilfamilien gab, funktioniert weiter: Eines, das aus einem Starter-Kit entstanden ist, nutzt die Familie dieses Starter-Kits. Jedes andere nutzt jeden Ordner, bis du unter **Art and music** eine Familie auswählst. Die Auswahlleiste aus [Auswählen, welche Assets ein Spiel nutzen darf](#choosing-which-assets-a-game-can-use) nennt die Familie des geöffneten Spiels.
-
-## Assets organisieren
-
-Im **Asset Browser** hältst du die Dateien in Ordnung. Am Desktop führt ein Rechtsklick auf eine Datei oder einen Ordner zu den Aktionen, alternativ das Menü „...“.
-
-Aktionen für eine Datei:
-
-- **Rename** (Umbenennen): der Datei einen neuen Namen geben. Ist der Name im Ordner schon vergeben, schlägt das Umbenennen fehl.
-- **Move** (Verschieben) und **Copy** (Kopieren): die Datei über eine Ordnerauswahl in einen anderen Ordner legen.
-- **Delete** (Löschen): die Datei entfernen.
-- **Download** (Herunterladen): die Datei auf dem Gerät speichern.
-
-Aktionen für einen Ordner:
-
-- **Create subfolder** (Unterordner anlegen): einen neuen Ordner darin anlegen.
-- **Open in system folder**: den Ordner im Dateimanager des Computers anzeigen.
-- **Delete folder** (Ordner löschen): den Ordner entfernen. Liegen noch Dateien darin, musst du zuerst **Delete everything inside** (Alles darin löschen) ankreuzen.
-
-Auch die Schaltfläche **New** in der Werkzeugleiste legt Elemente im aktuellen Ordner an. Zur Wahl stehen **New folder** (Neuer Ordner), **New text file** (Neue Textdatei) und **New markdown file** (Neue Markdown-Datei).
-
-Für mehrere Dateien auf einmal nutzt du die Kontrollkästchen an jeder Datei. Eine Leiste zeigt die Anzahl der ausgewählten Dateien und bietet die Schaltflächen **Select all** (Alle auswählen), **Move**, **Copy** und **Delete**. Große Ordner zeigen ihren Inhalt nur teilweise an – über **Load more** (Mehr laden) kommt der Rest nach.
-
-Jeder Ordner kann eine kurze Notiz tragen. Klick auf den Beschreibungstext des Ordners oder auf den Hinweis **Add description...** (Beschreibung hinzufügen), um sie zu schreiben. Die fünf Kategorie-Ordner haben feste Beschreibungen, die sich nicht ändern lassen.
-
-Denk daran: Mitgelieferte Starter-Dateien sind geschützt. Umbenennen und Kopieren ist erlaubt, Verschieben und Löschen nicht.
-
-## Neu einlesen nach Änderungen von außen
-
-Marinara führt intern eine Liste der Assets, damit der Game Mode sie schnell findet. Beim Upload über die App aktualisiert sich diese Liste von selbst.
-
-Kopierst du Dateien direkt am Computer in den Game-Asset-Ordner, also außerhalb der App, bekommt die App davon zunächst nichts mit. Ein Klick auf **Rescan** liest den Ordner neu ein und nimmt die neuen Dateien auf. **Rescan** findest du sowohl in der Werkzeugleiste des **Asset Browser** als auch im Bereich **Game Assets** unter **Settings**.
-
-<a id="choosing-which-assets-a-game-can-use"></a>
-
-## Auswählen, welche Assets ein Spiel nutzen darf
-
-Jeder Game-Mode-Chat kann sich auf einen Teil der Asset-Ordner beschränken. Praktisch ist das etwa, wenn ein Horrorspiel die fröhliche Musik überspringen soll.
-
-Während der Einrichtung klappst du im Schritt **Features** den Bereich **Adjust Game Assets for this Game** (Game-Assets für dieses Spiel anpassen) auf. Bei einem laufenden Spiel öffnest du das Fenster **Game Assets**.
-
-Dann:
-
-1. Klick auf die Schaltfläche **Game assets**. Solange sie aktiv ist, heißt sie **Selecting**.
-2. Über das kleine Statuselement an jedem Ordner nimmst du ihn auf oder schließt ihn aus.
-
-Eine Leiste meldet „All folders included“ oder die Zahl der ausgeschlossenen Ordner, dazu holt die Schaltfläche **Reset to all** (Alle wieder aufnehmen) sämtliche Ordner zurück. Die Auswahl gilt nur für diesen einen Chat. Sie steuert, aus welchen Ordnern der Game Mode wählen darf, löscht oder versteckt aber keine Dateien. Außerhalb dieses Game-Mode-Chats hat sie keine Wirkung.
+Die mitgelieferten Starter-Hintergründe gelten als gemeinsam, außer den Fantasy-Hintergründen (`ancient_library`, `castle_cliff`, `enchanted_forest`) und dem modernen `city_night`. Ein Setting-Kit, das gespeichert wurde, bevor es Stilfamilien gab, funktioniert weiter: Eines, das aus einem Starter-Kit entstanden ist, nutzt dessen Familie, und jedes andere nutzt jeden Ordner, bis du unter **Art and music** eine Familie auswählst. Die Auswahlleiste oben nennt die Familie des geöffneten Spiels.
 
 <a id="generated-sound-effects-and-music"></a>
 
 ## Generierte Soundeffekte und Musik
 
-Der Game Mode kann Soundeffekte und Musik auch über eine **Music & Sound Effects**-Verbindung (Musik und Soundeffekte) generieren. Wähle ElevenLabs, SunoAPI oder einen eigenen kompatiblen Server. Jeder neue Sound oder Titel nutzt dieses Anbieterkonto; mitgeliefertes Audio bleibt ohne Generierung verfügbar.
+Der Game Mode kann Soundeffekte und Musik über ein Konto vom Typ **Music & Sound Effects** (Musik und Soundeffekte) generieren. Wähle ElevenLabs, SunoAPI oder einen eigenen kompatiblen Server. Jeder neue Sound oder Titel nutzt dieses Dienstkonto. Mitgeliefertes Audio bleibt ohne Generierung verfügbar.
 
-Richte zuerst eine Generierungsverbindung ein:
+**Bevor du anfängst:** Du brauchst ein Konto vom Typ **Music & Sound Effects**. Im Fenster **Add account** (Konto hinzufügen) gibt es keine Kachel dafür. Solche Konten entstehen durch ein Upgrade oder einen Import, mit **Import a backup** (Backup importieren) in **Connections** (Verbindungen). Siehe [Anbietereinrichtung und Grenzen](../connections/providers-reference.md#music--sound-effects).
 
-1. Öffne **Connections** (Verbindungen) und erstelle eine **Music & Sound Effects**-Verbindung.
-2. Wähle den Dienst, trage seinen Key ein und wähle die Modelle für Musik und Soundeffekte. SunoAPI-Musik braucht außerdem eine öffentliche HTTPS-Callback-URL; ein eigener Server braucht seine Endpunktpfade.
-3. Aktiviere **Sound-effect generation** (Soundeffektgenerierung), **Music generation** (Musikgenerierung) oder beides.
-4. Speichere die Verbindung. Siehe [Anbietereinrichtung und Grenzen](../connections/providers-reference.md#music--sound-effects).
+1. Öffne in **Connections** das Modell des Kontos mit **Edit model** (Modell bearbeiten).
+2. Wähle den Dienst, trag seinen Key ein und wähle die Modelle für Musik und Soundeffekte. SunoAPI-Musik braucht außerdem eine öffentliche HTTPS-Callback-URL. Ein eigener Server braucht seine Endpunktpfade.
+3. Schalte **Sound-effect generation** (Soundeffektgenerierung), **Music generation** (Musikgenerierung) oder beides ein.
+4. Speichere das Konto. Siehe [Anbietereinrichtung und Grenzen](../connections/providers-reference.md#music--sound-effects).
 
 Schalte die Funktion dann beim Anlegen eines Spiels ein:
 
 1. Such im Schritt **Features** des Einrichtungsassistenten die Karte **Game Audio**.
-2. Wähle unter **Music & Sound Effects connection** (Verbindung für Musik und Soundeffekte) deine Verbindung aus, oder behalte **Use the default Music & Sound Effects connection** (Standardverbindung für Musik und Soundeffekte verwenden).
+2. Wähle in der Kontoauswahl dein Konto aus, oder behalte **Use the default Music & Sound Effects account** (Standardkonto für Musik und Soundeffekte verwenden).
 3. Lass **Sound effects** (Soundeffekte) und **Music** (Musik) eingeschaltet, oder schalte aus, was du nicht möchtest.
 
-Jeder Game-Schalter setzt voraus, dass die entsprechende Funktion in der gewählten Verbindung aktiviert ist. Eine reine Audioverbindung für Sprachausgabe wird nicht zur Generierung verwendet.
+Jeder Schalter setzt voraus, dass die passende Funktion im gewählten Konto eingeschaltet ist. Ein Audio-Konto nur für Sprachausgabe wird nicht zur Generierung verwendet.
 
 Während des Spiels:
 
-- **Sound effects**: Nach GM-Zügen fordert Marinara beim gewählten Dienst kurze Soundeffekte an, die zur Szene passen.
-- **Music**: Marinara komponiert einen rund zweiminütigen Instrumentaltitel für jeden Ort, den die Party besucht, und für jede Art von Kampf, etwa einen Bosskampf. Jeder Titel wird nur einmal erzeugt und danach wiederverwendet. Der Titel eines neuen Ortes beginnt erst bei einem späteren Szenenwechsel, damit die Musik nicht mitten in eine Szene hineinplatzt. Der Titel eines Kampfes wird eingeblendet, sobald er fertig ist.
+- **Sound effects.** Nach GM-Zügen fordert Marinara beim Dienst kurze Geräusche an, die zur Szene passen.
+- **Music.** Marinara komponiert für jeden Ort, den die Party besucht, und für jede Art von Kampf, etwa einen Bosskampf, einen Instrumentaltitel von etwa zwei Minuten. Jeder Titel wird einmal erzeugt und wiederverwendet. Der Titel eines neuen Ortes beginnt erst bei einem späteren Szenenwechsel, damit die Musik nicht mitten in eine Szene hineinplatzt. Der Titel eines Kampfes wird eingeblendet, sobald er fertig ist.
 
 Generierte Sounds und Titel werden bei deinen Game-Assets gespeichert, damit derselbe Sound nicht zweimal erzeugt wird. Spielt **Music DJ** die Musik für das Spiel, generiert der Game Mode keine Musik.
 
 ## Eigener Musikordner für den Music DJ
 
-**Music DJ** ist ein Hilfs-Agent, der während eines Spiels Musik abspielen kann. Im Modus Custom spielt er Titel aus einem Ordner deiner Wahl. Diesen Ordner legst du an zwei Stellen fest.
+**Music DJ** ist ein Hilfs-Agent, der während eines Spiels Musik abspielen kann. Im Modus Custom spielt er Titel aus einem Ordner deiner Wahl. Aktivierst du **Music DJ** für einen Chat, richtet sich das Einrichtungsformular nach der Quelle, die im Agenten gespeichert ist. **Game Assets** zeigt einen Pfad innerhalb deiner Game-Assets, etwa `music` oder `music/combat`. **Folder on this device** (Ordner auf diesem Gerät) zeigt den gespeicherten Pfad auf dem Server-Gerät und eine Schaltfläche **Choose Folder** (Ordner wählen).
 
-Aktivierst du **Music DJ** für einen Chat, richtet sich das Einrichtungsformular nach der Quelle, die im Music-DJ-Agenten gespeichert ist. **Game Assets** zeigt einen Pfad innerhalb der Game-Assets, etwa `music` oder `music/combat`. **Folder on this device** (Ordner auf diesem Gerät) zeigt den gespeicherten Pfad auf dem Server-Gerät sowie eine Schaltfläche **Choose Folder** (Ordner wählen).
+Der vollständige Editor von **Music DJ** hat einen Bereich **Custom Music Library** (Eigene Musikbibliothek). **Use Game Assets music folder** (Musikordner aus den Game-Assets verwenden) wechselt zwischen zwei Modi:
 
-Der vollständige Editor von **Music DJ** enthält den Bereich **Custom Music Library** (Eigene Musikbibliothek). Der Schalter **Use Game Assets music folder** (Musikordner aus den Game-Assets verwenden) wechselt zwischen zwei Modi:
+- An: Das Feld **Game Assets music folder** liest einen Ordner innerhalb deiner Game-Assets. **Open Folder** (Ordner öffnen) öffnet ihn auf dem Server-Rechner.
+- Aus: **Music folder on this device** spielt Musik aus jedem Ordner auf dem Rechner, auf dem der Server läuft. Klick auf **Select Folder** (Ordner auswählen) oder füge den Pfad ein.
 
-- Schalter an: Das Feld **Game Assets music folder** verweist auf einen Ordner innerhalb der Game-Assets, etwa `music` oder `music/combat`. Die Schaltfläche **Open Folder** (Ordner öffnen) öffnet ihn auf dem Server-Rechner.
-- Schalter aus: Über das Feld **Music folder on this device** spielt der Modus Custom Musik aus jedem beliebigen Ordner des Rechners, auf dem der Server läuft. Klick auf **Select Folder** (Ordner auswählen), um die Systemauswahl zu öffnen, oder füge den Ordnerpfad direkt ins Feld ein.
-
-Für einen Ordner außerhalb der App braucht es erweiterte Rechte. Auf demselben Rechner wie der Server klappt das ohne Zusatzschritte. Von einem anderen Gerät oder per Fernzugriff musst du zuerst den Admin-Zugang einrichten. Wie du ihn aktivierst, steht unter [Fernzugriff](../REMOTE_ACCESS.md). Alles Weitere zum Musikplayer findest du unter [Music DJ](../media/music.md).
-
-## Den Ordner am Computer öffnen
-
-Die Schaltfläche **Open in system folder** öffnet den ausgewählten Asset-Ordner im normalen Dateimanager des Computers. Das funktioniert nur, wenn du die App auf demselben Rechner nutzt, auf dem der Server läuft. Auf Handy, Tablet oder einem anderen Computer weist dich die App darauf hin, dass sich Systemordner nur auf dem Gerät öffnen lassen, das Marinara hostet.
+Für einen Ordner außerhalb der App braucht es erweiterte Rechte. Auf demselben Rechner wie der Server klappt das ohne zusätzliche Einrichtung. Von einem anderen Gerät oder per Fernzugriff musst du zuerst den Admin-Zugang einrichten. Siehe [Fernzugriff](../REMOTE_ACCESS.md). Alles Weitere zum Musikplayer findest du unter [Music DJ](../media/music.md).
 
 ## Verwandte Anleitungen
 

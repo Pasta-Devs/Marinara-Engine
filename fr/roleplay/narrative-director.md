@@ -1,91 +1,58 @@
-# Narrative Director et intrigue secrète
+# Narrative Director et Secret Plot
 
-Ce guide explique l'agent Narrative Director dans Marinara Engine. Il présente le bouton **Push Story** (faire avancer l'histoire), les modes **Natural** et **Random Event**, ainsi que l'arc caché **Secret Plot** (intrigue secrète). Ces fonctionnalités servent en mode Roleplay.
+Le Narrative Director est un agent (une aide qui tourne en parallèle des réponses) qui oriente l'intrigue d'un chat Roleplay. **Push Story** (faire avancer l'histoire) donne un coup de pouce à une seule réponse quand la scène semble bloquée. **Secret Plot** (intrigue secrète) garde un arc caché à long terme qui façonne de nombreuses réponses. Le Narrative Director ne fonctionne qu'en Roleplay. Pour le fonctionnement général des agents, voir la [vue d'ensemble des agents](../agents/agents-overview.md).
 
-## Ce qu'est le Narrative Director
+## Ajouter le Narrative Director à un chat
 
-Un agent est une IA qui travaille en coulisses pendant ton chat pour accomplir une tâche de fond. Le Narrative Director en fait partie. Il rédige une consigne ponctuelle pour la prochaine réponse, afin que l'histoire prenne la direction que tu souhaites. Pour comprendre le fonctionnement général des agents, va voir la [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
+1. Ouvre **Chat Settings** (réglages du chat) avec le bouton de curseurs dans le chat, et va dans **Agents**.
+2. Active **Enable Agents** (activer les agents), puis ajoute l'agent **Narrative Director**.
 
-Le Narrative Director ne fonctionne qu'en mode Roleplay. Il n'agit jamais de lui-même. Il n'intervient que si tu l'armes (tu l'actives pour une seule réponse) avec le bouton **Push Story**, ou si tu actives la fonctionnalité **Secret Plot**.
+Un bouton **Push Story** apparaît alors au-dessus de ta zone de saisie, et une carte **Narrative Director** apparaît dans **Agents**. L'agent ne fait rien tant que tu n'utilises pas **Push Story** ou que tu n'actives pas **Secret Plot**.
 
-Pour t'en servir, commence par ajouter l'agent à ton chat. Ouvre la section **Chat Settings** (réglages du chat), va dans la section **Agents**, puis active l'agent **Narrative Director**. Une fois qu'il est actif, un bouton **Push Story** apparaît au-dessus de la zone de saisie, et une carte de réglages **Narrative Director** s'ajoute dans la section **Agents**.
+## Faire avancer l'histoire
 
-## Push Story
+**Push Story** agit une seule fois. Il façonne uniquement la réponse suivante, puis se désactive tout seul. Ajoute d'abord le Narrative Director au chat (voir plus haut).
 
-**Push Story** est un bouton à usage unique. Il façonne uniquement la réponse suivante, puis se désactive tout seul. Utilise-le quand la scène tourne en rond et que tu veux que l'IA fasse avancer les choses.
+1. Clique sur **Push Story** au-dessus de ta zone de saisie. Un menu te demande comment faire avancer l'histoire :
+   - **Naturally** (naturellement) : fait avancer l'intrigue existante. L'IA développe les fils déjà présents dans ton histoire.
+   - **Randomly** (au hasard) : ajoute une surprise plausible à la scène.
+2. Choisis l'une des deux options. Tu vois "The next time a character responds, they will push the story forward naturally!" (ou "randomly!"). Le bouton indique maintenant **Push Story: Naturally** ou **Push Story: Randomly**.
+3. Envoie ton message suivant, ou génère une nouvelle réponse. L'IA écrit cette réponse unique en appliquant la poussée narrative.
+4. Après la réponse, **Push Story** se désactive tout seul.
 
-Voici la marche à suivre :
+Tu choisis le mode dans ce menu à chaque fois. Il n'y a ni mode par défaut, ni réglage de mode dans **Chat Settings**.
 
-1. Ouvre un chat en mode Roleplay où l'agent **Narrative Director** est actif.
-2. Repère le bouton **Push Story** au-dessus de la zone de saisie.
-3. Clique sur **Push Story**. En mode **Natural**, le message "The next time a character responds, they will push the story forward naturally!" s'affiche. En mode **Random Event**, le message se termine par "randomly!" à la place.
-4. Envoie ton message suivant, ou génère une nouvelle réponse.
-5. L'IA rédige cette réponse unique en appliquant la poussée narrative.
-6. Après la réponse, le bouton **Push Story** se désactive tout seul.
+Pour annuler avant d'envoyer, clique de nouveau sur le bouton armé. Tu vois "Push Story disarmed."
 
-Si tu changes d'avis avant d'envoyer, clique de nouveau sur **Push Story** pour le désactiver. Le message "Push Story disarmed." s'affiche alors.
+Si ça n'a pas marché : **Push Story** ne réagit pas pendant qu'une réponse est en cours de génération. Attends la fin de la réponse, puis clique dessus.
 
-Le bouton **Push Story** reste indisponible tant qu'une réponse est en cours de génération. Attends la fin de la réponse en cours, puis arme-le.
+## Activer Secret Plot
 
-## Les modes Natural et Random Event
+**Secret Plot** est un arc caché à long terme. L'IA garde un plan secret sur la direction que prend l'histoire. Ce plan est ajouté au prompt, le texte que Marinara envoie à l'IA, mais il te reste caché tant que tu ne le dévoiles pas. Il est désactivé par défaut. Contrairement à **Push Story**, il agit sur de nombreuses réponses et met à jour son plan à intervalle régulier.
 
-**Push Story** a deux modes. Tu choisis le mode dans la carte **Narrative Director**, à l'intérieur de la section **Chat Settings**. Le mode retenu détermine le type de poussée narrative que tu obtiens.
+1. Ouvre **Chat Settings → Agents** et trouve la carte **Narrative Director**.
+2. Active l'interrupteur **Secret Plot**. Son libellé indique "Maintain a hidden long-term arc for this roleplay."
+3. Règle le champ **Run Interval** (intervalle d'exécution) si tu le souhaites. C'est le nombre de messages (les tiens et ceux de l'IA) qui s'écoulent entre deux mises à jour de l'arc. La valeur par défaut est 8. Tu peux utiliser n'importe quel nombre entier de 1 à 100. Plus le nombre est bas, plus le plan se met à jour souvent.
 
-Voici les deux modes :
+## Dévoiler et modifier l'arc caché
 
-- **Natural** : fait avancer l'intrigue existante. L'IA développe les fils déjà présents dans ton histoire.
-- **Random Event** : ajoute une surprise plausible. L'IA introduit un rebondissement inédit, mais cohérent avec la scène.
+Le panneau **Secret plot** se trouve sous **Run Interval**.
 
-**Natural** est le mode par défaut. Pour en changer, ouvre la section **Chat Settings**, va dans **Agents**, repère la carte **Narrative Director**, puis clique sur le mode voulu.
+1. Clique sur **Reveal spoilers** (dévoiler les spoilers). Le bouton indique **Reveal empty arc** si l'IA n'a pas encore écrit d'arc. Tant que l'arc est caché, le panneau affiche "Spoilers hidden". Clique sur **Hide spoilers** (masquer les spoilers) pour le cacher de nouveau.
+2. Modifie les champs que tu veux :
+   - **Arc description** (description de l'arc) : la trame cachée dans son ensemble.
+   - **Protagonist arc** (arc du protagoniste) : la direction que prend ton personnage.
+   - **Character arc** (arc du personnage) : la direction que prend un personnage choisi.
+   - **Completed** (terminé) : coche cette case quand l'arc est terminé.
+3. Utilise le bouton d'enregistrement pour conserver tes changements.
 
-L'infobulle du bouton **Push Story** indique quel mode est armé. En mode **Natural**, elle affiche "Arm a natural Narrative Director push for the next response." En mode **Random Event**, elle affiche "Arm a random Narrative Director event for the next response."
+Pour jeter l'arc et demander à l'IA d'en écrire un nouveau, clique sur **Regenerate** (régénérer). Une boîte de dialogue intitulée "Regenerate Secret Plot" te demande de confirmer. Choisis **Regenerate** pour remplacer l'arc, ou **Keep Current Arc** (garder l'arc actuel) pour annuler.
 
-## Secret Plot
+L'arc est enregistré avec l'agent **Narrative Director**. Effacer les résultats des agents du chat ne le supprime pas. Il n'est supprimé que si tu retires l'agent du chat, et un avertissement te prévient d'abord.
 
-**Secret Plot** est un arc narratif caché, prévu sur la durée de ton roleplay. L'IA garde un plan secret sur la direction que prend l'histoire. Ce plan est ajouté au prompt, le texte que Marinara envoie à l'IA, mais il te reste caché tant que tu ne décides pas de le dévoiler. Il est désactivé par défaut.
+## Modifier le prompt Secret Plot
 
-Contrairement à **Push Story**, qui agit une seule fois, **Secret Plot** s'étend sur de nombreuses réponses. Il met à jour son plan caché à intervalle régulier, au fil du chat.
-
-### Activer Secret Plot
-
-1. Ouvre la section **Chat Settings** et va dans la section **Agents**.
-2. Repère la carte **Narrative Director**.
-3. Active l'interrupteur **Secret Plot**. Son libellé indique "Maintain a hidden long-term arc for this roleplay."
-
-### Run Interval
-
-Quand **Secret Plot** est activé, un champ **Run Interval** (intervalle d'exécution) apparaît. Il détermine le nombre de messages, les tiens comme ceux de l'assistant, qui s'écoulent entre deux mises à jour de l'arc caché.
-
-La valeur par défaut est 8. Tu peux saisir n'importe quel nombre entier de 1 à 100. Plus le nombre est bas, plus le plan se met à jour souvent. Plus il est élevé, moins les mises à jour sont fréquentes.
-
-### Dévoiler et modifier l'arc caché
-
-Sous le champ **Run Interval** se trouve le panneau **Secret plot**. Il te sert à consulter et à modifier le plan caché.
-
-Clique sur le bouton de révélation pour afficher l'arc. Il indique **Reveal spoilers** (dévoiler les spoilers) dès qu'un arc existe, ou **Reveal empty arc** si l'IA n'en a pas encore écrit. Clique sur **Hide spoilers** pour le masquer de nouveau. Tant que l'arc est caché, le panneau affiche "Spoilers hidden".
-
-Une fois l'arc dévoilé, tu peux modifier les champs suivants :
-
-- **Arc description** : la trame cachée dans son ensemble.
-- **Protagonist arc** : la direction que prend ton personnage.
-- **Character arc** : la direction que prend un personnage sélectionné du roleplay.
-- **Completed** : une case à cocher que tu coches quand l'arc est terminé.
-
-Après avoir modifié un champ, utilise le bouton d'enregistrement pour conserver tes changements.
-
-Pour jeter l'arc actuel et demander à l'IA d'en écrire un nouveau, clique sur **Regenerate** (régénérer). Une boîte de dialogue intitulée "Regenerate Secret Plot" te demande de confirmer. Choisis **Regenerate** pour le remplacer, ou **Keep Current Arc** pour annuler.
-
-### L'arc reste attaché à l'agent
-
-L'arc caché est enregistré avec l'agent **Narrative Director**. Vider les exécutions d'agents et la mémoire de ton chat ne l'efface pas. L'arc n'est supprimé que si tu retires l'agent **Narrative Director** du chat. Si tu retires l'agent, un avertissement te prévient que l'arc caché sera effacé, sans retour en arrière possible.
-
-<a id="secret-plot-prompt"></a>
-
-### Le prompt Secret Plot
-
-Le **Secret Plot Prompt** (prompt de l'intrigue secrète) contient les instructions que le Narrative Director suit quand il écrit et met à jour l'arc caché. Le prompt intégré présente chaque arc comme un mystère à découvrir. Cela convient à l'aventure et à l'intrigue, mais peut ne pas convenir à une histoire portée par les personnages.
-
-Pour utiliser tes propres instructions, procède ainsi :
+Le **Secret Plot Prompt** (prompt de l'intrigue secrète) contient les instructions que le Narrative Director suit quand il écrit et met à jour l'arc. Le prompt intégré traite chaque arc comme un mystère à découvrir. Cela convient à l'aventure et à l'intrigue, mais peut ne pas convenir à une histoire portée par ses personnages.
 
 1. Ouvre **Agents** et modifie le **Narrative Director**.
 2. Dans la section **Secret Plot**, clique sur **Copy default to edit** (copier la valeur par défaut pour la modifier).
@@ -93,9 +60,9 @@ Pour utiliser tes propres instructions, procède ainsi :
 
 Clique sur **Reset to default** (rétablir la valeur par défaut) pour revenir au prompt intégré, puis enregistre l'agent.
 
-Garde le format de réponse JSON à la fin du prompt : un objet `overarchingArc` avec `description`, `protagonistArc`, un `characterArc` facultatif et `completed`. Sans lui, l'arc ne peut pas être lu.
+> **Remarque :** ne supprime pas la dernière partie du prompt. Elle décrit le format de la réponse, et sans elle Marinara ne peut pas lire l'arc.
 
-Ce prompt est enregistré sur l'agent : il s'applique donc à tous les chats qui utilisent ce Narrative Director.
+Le prompt est enregistré sur l'agent : il s'applique donc à tous les chats qui utilisent ce Narrative Director.
 
 ## Guides associés
 

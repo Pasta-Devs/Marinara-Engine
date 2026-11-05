@@ -857,6 +857,8 @@ Experience에서 직접 만든 지도는 라이브러리의 동굴, 지하 묘�
 
 `props`는 소품 슬롯 0~7마다 항목 하나입니다(표현하지 않는 슬롯은 `null`). 그러면 Game Master는 지도가 직접 만들어졌다는 말만 듣는 대신 "직접 만든 장소(그루터기가 남은 땅, 서 있는 옥수수로 된 벽)에 빗물이 고인 도랑이 있으며, 그 안에는 허수아비(2개), 옥수수 인형 제단이 있습니다"라는 설명을 받습니다. 두 기능 모두 Experience가 1.357을 선언해야 합니다.
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359: 스토리 숫자를 소비하는 아이템
 
 오버레이는 사용 시 Experience의 스토리 숫자 플래그 하나를 소비하거나 더하는 아이템을 지정할 수 있습니다.
@@ -1057,6 +1059,40 @@ export async function activate({ api }) {
 - `enterLabel`과 `exitLabel`: 토글에 사용할 현지화된 접근성 레이블입니다.
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814: 패키지 프롬프트에서 변하지 않는 부분 캐시하기
+
+`api.runtime.languageModels`로 텍스트를 생성하는 패키지는 프롬프트에서 매 호출마다 같은 부분이 어디서 끝나는지 표시할 수 있습니다. `chatComplete`에 넘기는 메시지에 `cacheBreakpoint: true`를 설정하세요. 그 메시지를 포함해 그 메시지까지의 프롬프트가 캐시되므로, 같은 텍스트로 시작하는 이후 호출은 그 부분에 드는 비용이 줄어듭니다. 지침, 캐릭터 시트, 지금까지의 이야기를 앞에 두고 호출할 때마다 바이트 단위까지 똑같이 유지하세요. 바뀌는 내용은 표시한 메시지 뒤에 두세요.
+
+- Anthropic: 연결의 프롬프트 캐싱이 꺼져 있어도 Engine은 표시된 각 메시지(시스템 메시지 포함)에 캐시 중단점을 두며, 자체 중단점은 추가하지 않습니다. 캐시는 5분 동안 유지되며, 연결이 더 긴 캐시 시간을 요청하면 1시간 동안 유지됩니다. 캐시 쓰기는 입력 가격보다 비싸지만 한 번만 청구되고, 읽기는 입력 가격의 일부만 듭니다. 정확한 요율은 모델마다 다르므로 Anthropic의 모델 가격 정보를 확인하세요. Anthropic은 중단점을 최대 4개까지 받습니다. 표시된 메시지가 더 많으면 마지막 4개가 적용됩니다. 텍스트가 없는 메시지를 표시하면 그 앞 메시지가 대신 표시됩니다. 모델이 정한 최소 길이보다 짧은 앞부분은 캐시되지 않으며 평소처럼 비용이 듭니다.
+- OpenAI, Gemini, xAI, DeepSeek는 동일한 앞부분을 자체적으로 캐시하므로 표시해도 달라지는 것이 없습니다.
+- OpenRouter와 사용자 지정 OpenAI 호환 엔드포인트는 아직 표시를 받지 않습니다. 호출은 표시가 없을 때와 똑같이 전송되므로, 이 경로로 사용하는 Claude 모델은 캐시되지 않습니다.
+- Claude (Subscription): Agent SDK가 자체적으로 캐시하며 표시는 전송되지 않습니다. 연결의 캐시 시간이 적용됩니다.
+
+제공자가 보고하면 `usage`는 `cachedPromptTokens`(캐시에서 읽은 토큰)와 `cacheWritePromptTokens`(캐시에 쓴 토큰)를 보고합니다. `promptTokens`는 계속 제공자 방식으로 셉니다. Anthropic과 Claude (Subscription)에서는 캐시에서 읽지도 캐시에 쓰지도 않은 입력만 해당하므로, 전체 프롬프트는 `promptTokens + cachedPromptTokens + cacheWritePromptTokens`이고, 패키지가 앞부분을 표시하면 `promptTokens`는 캐시되지 않은 뒷부분으로 줄어듭니다. OpenAI 호환 경로(OpenRouter 포함)와 Gemini는 캐시된 토큰을 이미 `promptTokens`에 포함해 세므로, 다시 더하면 두 번 세게 됩니다. 표시된 메시지가 없는 호출은 바뀌지 않습니다.
+
+이전 Engine은 이 필드를 무시하므로 패키지는 언제든 이 필드를 설정할 수 있습니다. 패키지가 캐싱이나 캐시 사용량에 의존한다면 1.814를 선언하세요.
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815: 표시한 프롬프트의 캐시 유지 시간 고르기
+
+`chatComplete`는 `cacheTtl: "5m" | "1h"`를 받습니다. 호출의 `cacheBreakpoint` 메시지(1.814)까지의 프롬프트가 Anthropic에서 얼마나 오래 캐시에 남는지 정합니다. 생략하면 이전처럼 연결 자체의 캐시 시간이 적용됩니다. 같은 앞부분이 5분보다 긴 간격을 두고 다시 쓰일 때는 `"1h"`를 요청하세요. 예를 들어 플레이어가 읽는 동안 장면마다 재사용하는 이야기의 컨텍스트가 그렇습니다. 1시간 캐시 쓰기는 5분 캐시 쓰기보다 비싸므로, 그 1시간 안에 앞부분을 다시 읽을 때만 이득입니다. 표시된 메시지가 없는 호출은 이 옵션을 무시합니다. 자체적으로 캐시하는 제공자(OpenAI, Gemini, xAI, DeepSeek)와 연결의 캐시 시간이 적용되는 Claude (Subscription)도 마찬가지입니다.
+
+이전 Engine은 이 옵션을 무시하므로 패키지는 언제든 이 옵션을 넘길 수 있습니다. 패키지가 이 옵션에 의존한다면 1.815를 선언하세요.
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

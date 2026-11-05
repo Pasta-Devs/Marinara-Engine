@@ -1,378 +1,124 @@
 # Solución de problemas de Marinara Engine
 
-Esta guía enumera problemas comunes en Marinara Engine y cómo resolverlos. Busca la sección que coincide con tu síntoma y sigue los pasos. Si nada de esto te ayuda, revisa la última sección, Cómo obtener más ayuda.
+Busca tu síntoma y sigue la solución. La mayoría de los problemas se resuelven si reinicias Marinara con su lanzador (`start.bat`, `start.sh` o `start-termux.sh`).
 
 ## Primeras cosas que probar
 
-Muchos problemas se resuelven con dos pasos rápidos.
+1. Haz una recarga forzada de la página: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> en Windows o Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> en una Mac.
+2. Mira la consola del servidor (la ventana de terminal que ejecuta Marinara) por si aparecen líneas de error en rojo. Normalmente nombran el problema real.
+3. Para pedir ayuda, activa primero **Debug mode** (Modo de depuración). Consulta [Cómo obtener más ayuda](#get-more-help).
 
-1. Haz una recarga forzada de la página. Pulsa **Ctrl+Shift+R** en Windows o Linux, o **Cmd+Shift+R** en una Mac.
-2. Mira la consola del servidor (la ventana de terminal que ejecuta Marinara) por si aparecen líneas de error en rojo. Esas líneas normalmente nombran el problema real.
+<a id="my-character-does-not-reply"></a>
 
-Si le vas a pedir ayuda al equipo, activa primero **Debug mode** (Modo de depuración) para que el servidor registre el prompt (las instrucciones enviadas a la IA) y la respuesta. Revisa Cómo obtener más ayuda al final de esta guía.
+## Mi personaje no responde
 
-<a id="multiplayer-connection-or-turn-problems"></a>
+Revisa esto en orden.
 
-## Problemas de conexión o turnos multijugador
+1. Busca un aviso (un mensaje breve en la parte inferior de la pantalla). Normalmente nombra el problema. Consulta [Errores de conexión y de generación](#connection-and-generation-errors).
+2. Comprueba que el chat tiene una cuenta y un modelo: abre **Chat Settings** (Ajustes del chat) y mira la conexión. Si no hay ninguna, añade una cuenta en **Connections** (Conexiones). Consulta [Conectar a un proveedor de IA](connections/connecting-to-a-provider.md).
+3. Comprueba que la API key (clave de API) es correcta y que la cuenta tiene crédito. Una clave incorrecta o un saldo vacío son una causa habitual.
+4. Comprueba el nombre del modelo y, en un servidor local como Ollama o LM Studio, que el servidor esté en marcha.
+5. Envía tu mensaje de nuevo, o elige otro modelo.
 
-- **Controles no disponibles:** confirma `MULTIPLAYER_ENABLED=true` en el `.env` del Engine correcto, reinícialo y activa Settings por separado. Un ajuste guardado no sustituye una variable ausente o inválida. El contenedor nativo de Android no puede unirse deliberadamente.
-- **Anfitrión no disponible:** usa un puerto HTTPS independiente y accesible para la sala, una cadena de certificado/nombre de host válidos y la huella correspondiente de la invitación. No desactives la validación TLS, añadas `null` a los orígenes de confianza, expongas la API normal de Engine ni abras un cliente proporcionado por el anfitrión para eludir errores.
-- **Esperando aprobación:** el anfitrión debe aprobar la solicitud en Players. No hay historial antes de la aprobación. Pide otra invitación si caducó o fue revocada.
-- **Desconectado:** mantén en ejecución el Engine del invitado. El cliente se reconecta al mismo anfitrión fijado mientras la sesión explícita siga activa; los borradores sin enviar permanecen en la vista actual. Reiniciar invalida las credenciales y exige volver a unirse; para conservar después el mismo nombre de persona, pide antes al anfitrión que elimine tu asiento anterior. Stop/Leave siguen disponibles si falla la red.
-- **Game esperando:** revisa Players. Los desconectados no pasan automáticamente. El anfitrión puede elegir explícitamente Pass/Kick o Pause. Enviar una de dos acciones requeridas no debe ejecutar el GM.
-- **Generación interrumpida:** no reenvíes la ronda repetidamente. El anfitrión debe revisar la narración/estado guardados y reanudar explícitamente hacia adelante o detener la sala. El multijugador no repite silenciosamente solicitudes de resultado ambiguo ni aplica dos veces sus efectos.
-- **Comando restringido o medios ausentes:** el protocolo inicial solo transmite texto. Consulta la [tabla de compatibilidad](development/multiplayer.md#command-and-feature-compatibility); no instales archivos o extensiones de otro participante como solución.
+Si nada funciona, activa **Debug mode** y lee la consola del servidor. Consulta [Cómo obtener más ayuda](#get-more-help).
 
-Al reportar un error, incluye modo, plataforma, mensaje visible y si la admisión se completó. No publiques invitaciones, contraseñas de sala, tokens de sesión, historiales privados ni credenciales de proveedores.
+## La app no carga en un teléfono u otro dispositivo
 
-## Problemas de instalación y arranque
+¿No puedes abrir Marinara desde un teléfono, una tableta u otra computadora?
 
-### Termux: CANNOT LINK EXECUTABLE "node"
+Lo más frecuente es una de estas tres causas:
 
-Si Termux muestra `CANNOT LINK EXECUTABLE "node"` seguido de `cannot locate symbol` o `library ... not found`, Node.js se actualizó sin el resto de Termux. Termux no admite actualizar solo algunos paquetes, así que un Node.js más reciente no puede iniciarse con bibliotecas de Termux más antiguas. Entonces la app de Android puede detenerse con **Could not verify that this Marinara Android build can safely read your stored data**. Tus datos no son la causa, y volver a instalar el APK no lo soluciona.
+- **Dirección.** El servidor escucha en `127.0.0.1` (solo esta computadora) de forma predeterminada. Los lanzadores fijan `HOST=0.0.0.0`. Si iniciaste con `pnpm start`, fija primero `HOST=0.0.0.0` en `.env`.
+- **Red.** Ambos dispositivos deben estar en la misma red Wi-Fi, y ningún firewall debe bloquear el puerto. El puerto predeterminado es `7860`, o tu `PORT`.
+- **Inicio de sesión.** Configura uno. En el dispositivo bloqueado, escribe el código de configuración de un solo uso del registro del servidor con un nombre de usuario y una contraseña nuevos. En Docker, busca el código con `docker logs <container> 2>&1 | grep "setup code"`. O configúralo en **Settings → Advanced → Access** (Configuración → Avanzado → Acceso) en un navegador que ya haya iniciado sesión. En un servidor sin pantalla, ejecuta `ssh -L 7860:127.0.0.1:7860 user@server`, abre `http://localhost:7860` y usa **Settings**. Consulta [Acceso remoto](REMOTE_ACCESS.md#option-1-login-recommended).
 
-Actualiza todos los paquetes de Termux y luego vuelve a iniciar Marinara:
+Más causas:
 
-```bash
-pkg upgrade -y
-```
+- **Proxy o túnel en la misma máquina.** Un proxy inverso o un túnel en la misma máquina necesita el inicio de sesión. El tráfico directo por Tailscale es de confianza de forma predeterminada. Tailscale Serve o Funnel y el `proxy_pass` HTTP/1.0 predeterminado de nginx cuentan como reenviados y necesitan el inicio de sesión. El tráfico del puente Docker del mismo host solo es de confianza mientras no haya ningún inicio de sesión, `IP_ALLOWLIST` ni `TRUSTED_AUTH_PROXY` configurados.
+- **Nombre personalizado para esta computadora.** Un nombre que apunta a `127.0.0.1` en `/etc/hosts` cuenta como reenviado. Usa en su lugar `localhost`, `127.0.0.1`, el nombre de host de la máquina o un nombre `*.localhost`.
+- **Too many wrong passwords (Demasiadas contraseñas incorrectas).** Espera 15 minutos y luego inicia sesión. ¿Olvidaste la contraseña? Ejecuta `node scripts/reset-login.mjs` en la carpeta de Marinara de la computadora que ejecuta Marinara. En Docker, ejecuta `docker exec <container> node scripts/reset-login.mjs`. Reiniciar el servidor también le permite volver a intentarlo.
+- **Untrusted request host (Host de solicitud no confiable).** Para un dominio público o de proxy inverso, añade su nombre de host exacto a `TRUSTED_HOSTS` en `.env`. Las direcciones IP directas se siguen aceptando.
+- **Acciones de riesgo bloqueadas** (copias de seguridad, borrado de datos, actualizaciones) desde ese dispositivo. En la propia computadora del servidor, abre **Settings → Advanced → Admin Access** (Configuración → Avanzado → Acceso de administrador) y haz clic en **Make admin secret** (Crear secreto de admin), o fija `ADMIN_SECRET` en el `.env` del servidor. Escribe el secreto en **Admin Access** en el otro dispositivo y haz clic en **Save** (Guardar).
 
-Después toca **Install / Start Marinara** en la app de Android o, en una instalación manual, ejecuta `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. Si la actualización te pregunta si quieres conservar un archivo de configuración, pulsa Enter para conservar el actual. El lanzador de Termux actualizado y las versiones más recientes de la app de Android ejecutan esta actualización por sí solos cuando Node.js no puede iniciarse.
-
-### Termux: memoria insuficiente al compilar el cliente
-
-Si Vite termina con `Reached heap limit` o `JavaScript heap out of memory`, falta memoria de heap de Node.js para compilar el cliente. No es el mismo problema que un binario nativo de Rollup ausente. Actualiza y ejecuta de nuevo `start-termux.sh`: las compilaciones del cliente, incluidas las de las actualizaciones dentro de la app, ahora se ejecutan con su propio heap de 1536 MiB, sin superar la mitad de la RAM conocida del dispositivo, pero nunca por debajo de los 1280 MiB que necesita la compilación. El límite de RAM se redondea hacia abajo en pasos de 128 MiB. El servidor conserva su límite menor según el perfil. Un límite explícito en `NODE_OPTIONS` tiene prioridad para ambos; revisa si quedó una configuración antigua de 1024 MiB: el cliente ya no se compila con 1024 MiB.
-
-Cierra otras apps antes de reintentar. Un teléfono con menos de unos 3 GB de RAM aún puede quedarse sin memoria o Android puede detener el proceso; conserva toda la salida del lanzador para el reporte. No borres chats ni el perfil para corregir un fallo de compilación.
-
-### Escritorio: memoria insuficiente en la comprobación de tipos del cliente
-
-Si la compilación del cliente se detiene con `JavaScript heap out of memory` y luego dice `The client type-check needs about 2.5 GiB of Node.js heap`, el límite de heap configurado en tu `NODE_OPTIONS` es demasiado pequeño. La compilación respeta el límite que configuraste en lugar de subirlo. Si `NODE_OPTIONS` contiene `--max-old-space-size-percentage`, sube ese porcentaje; tiene prioridad sobre `--max-old-space-size`. Si solo usas `--max-old-space-size`, súbelo a 2560 o más. O quita esas opciones para que la compilación elija su propio límite. Luego vuelve a ejecutar el lanzador. Tus chats y tu configuración no se tocan.
-
-### Termux: falta un archivo del cliente invitado multijugador
-
-Si el inicio sigue indicando que falta `packages/client/dist/multiplayer/guest.js` después de recompilar, actualiza Engine y vuelve a ejecutar `./start-termux.sh`. Ahora el lanzador ejecuta la compilación completa del cliente con bajo consumo de memoria, incluidos los archivos del invitado que se comprueban al iniciar. No necesitas activar el modo multijugador para reparar este error de compilación.
-
-### Termux: el servidor se detiene al abrir Engine o Sharp no puede cargarse
-
-Sharp es la biblioteca de imágenes que Engine usa para las miniaturas y los sprites (imágenes del personaje). En Android funciona mediante una alternativa WebAssembly. Actualizar sobre una instalación existente desde 2.4.6 podía dejar sin instalar parte de esa alternativa, y entonces el servidor se detenía la primera vez que un navegador abría Engine.
-
-Actualiza Engine y deja que el lanzador reinstale las dependencias. La actualización instala la parte que falta, y Engine la conserva en las actualizaciones posteriores. Si el servidor sigue deteniéndose al abrir Engine antes de que puedas actualizar, repara la instalación a mano en Termux:
-
-```bash
-cd ~/Marinara-Engine
-rm -f node_modules/.modules.yaml
-SHARP_IGNORE_GLOBAL_LIBVIPS=1 pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile --prefer-offline
-./start-termux.sh
-```
-
-Esto borra el registro de instalación obsoleto de pnpm y reinstala las dependencias. Tus chats y tu configuración no se modifican.
-
-Si Sharp sigue sin poder cargarse, Engine ahora sigue funcionando con el procesamiento de imágenes desactivado: las miniaturas que ya creó se siguen mostrando, en lugar de las nuevas se muestra la imagen a tamaño completo, y la generación de sprites y la eliminación de fondo integrada no están disponibles. No sustituyas Sharp por una versión que no corresponda. Conserva toda la salida del error cuando reportes el problema.
-
-<a id="browser-opens-before-startup-finishes"></a>
-
-### El navegador se abre antes de que termine el inicio
-
-Actualiza Marinara Engine y vuelve a iniciarlo con su lanzador. Ahora abre el navegador solo cuando el servidor confirma que terminó la inicialización, incluida cualquier reparación de la compilación. No usa un temporizador fijo. El mensaje de carga de `.env` no indica por sí solo que esté listo. Si el inicio falla, conserva el error de la terminal para soporte; no debería abrirse otra pestaña. Establece `AUTO_OPEN_BROWSER=false` si prefieres abrir la app por tu cuenta.
-
-### Página en blanco o JavaScript servido como HTML después de actualizar
-
-Un error como "Failed to load module script" con el tipo MIME `text/html` puede indicar que el navegador solicitó un archivo JavaScript que falta en la compilación instalada. El aviso sobre el cierre de la sesión anterior no identifica este problema, y borrar un bloqueo de escritura (writer lease) o tus datos no reparará los archivos.
-
-Detén el servidor y vuelve a ejecutar `start.bat`, `start.sh` o `start-termux.sh`. El lanzador comprueba el inventario de compilación de Vite, incluidos los fragmentos JavaScript de carga diferida, y recompila los archivos incompletos del cliente antes de arrancar. Una compilación anterior a esta comprobación se recompila una vez para crear su inventario. Si falla, conserva el error del terminal para pedir ayuda. En una instalación manual, ejecuta `pnpm build` desde la raíz del repositorio antes de volver a arrancar.
-
-Si la comprobación pasa pero la página sigue en blanco, haz una recarga forzada o prueba una ventana privada. Informa la URL completa del archivo que falla, el estado HTTP, Content-Type y la primera línea de la respuesta, junto con la salida del lanzador. Los archivos ausentes ahora devuelven HTTP 404 en lugar de la página HTML de la aplicación.
-
-### Windows: error EPERM o de firma de corepack al instalar pnpm
-
-pnpm es el gestor de paquetes que Marinara usa para instalar su código. Si ves `EPERM: operation not permitted` o un fallo de verificación de firma de corepack, corepack no pudo escribir en la carpeta de instalación de Node.
-
-Elige una solución:
-
-1. Haz clic derecho en tu terminal, elige Ejecutar como administrador y vuelve a ejecutar el lanzador.
-2. Instala pnpm tú mismo. Ejecuta este comando y luego vuelve a ejecutar el lanzador:
-
-```bash
-npm install -g pnpm@12.15.0
-```
-
-3. Actualiza corepack en una terminal de administrador y luego vuelve a ejecutar el lanzador:
-
-```bash
-npm install -g corepack
-```
-
-### Windows: `'pnpm' is not recognized` al compilar el paquete compartido
-
-Marinara v2.3.0 podía iniciar pnpm mediante Corepack correctamente y luego fallar durante la compilación del paquete compartido porque esa compilación intentaba lanzar un segundo ejecutable global de `pnpm`. v2.3.1 elimina ese requisito anidado. Cierra el lanzador que falló y vuelve a ejecutar `start.bat` para que pueda obtener el script de compilación corregido antes de recompilar. No hace falta eliminar tus datos.
-
-Si el propio checkout no puede actualizarse, ejecuta `git pull` en la carpeta de Marinara e inícialo de nuevo. Como solución temporal para v2.3.0, instala el gestor de paquetes fijado de forma global, vuelve a ejecutar el lanzador y luego actualiza normalmente:
-
-```bash
-npm install -g pnpm@12.15.0
-```
-
-<a id="launcher-package-manager-handoff"></a>
-
-### Transición del gestor de paquetes del lanzador
-
-Marinara usa pnpm 12.15.0. Actualiza Engine y vuelve a ejecutar `start.bat`, `start.sh` o `start-termux.sh`. El lanzador obtiene la versión necesaria por ti; no tienes que reemplazar primero una versión global anterior de pnpm. Si sigue fallando, instala la versión exacta con el comando de abajo y vuelve a ejecutar el lanzador.
-
-Si una compilación staging anterior de v2.4.1 ya se detuvo con `Expected version: >=10.34.5` y `Got: 10.33.2`, ejecuta el lanzador otra vez; esa compilación descargó el lanzador actualizado antes de detenerse. Si aún no puede obtener automáticamente la versión fijada, instala la versión exacta y vuelve a ejecutarlo:
-
-```bash
-npm install -g pnpm@12.15.0
-```
-
-### Linux: ERR_PNPM_ENAMETOOLONG durante la instalación
-
-Esto significa que una instalación anterior dejó rutas de carpeta largas. Desde la carpeta de Marinara, limpia la instalación parcial y vuelve a ejecutar el lanzador:
-
-```bash
-rm -rf node_modules .pnpm .pnpm-store
-```
-
-Luego inicia Marinara de nuevo con `./start.sh`. Si instalas a mano, ejecuta `pnpm install` después de eliminar esas carpetas.
-
-### La instalación dice "Ignored build scripts: @google/genai"
-
-Este aviso es inofensivo: el script de instalación de ese paquete no hace nada, y Marinara no lo necesita. No ejecutes `pnpm approve-builds`, porque modifica un archivo que Marinara controla, y cada actualización posterior tiene que apartar ese cambio. Las versiones actuales ya no muestran el aviso. Si una instalación que ya lo mostraba lo sigue mostrando después de actualizar, borra el archivo `node_modules/.modules.yaml` de tu carpeta de Marinara y luego vuelve a ejecutar el lanzador. Tus chats y tu configuración no se tocan.
-
-### ERR_PNPM_TRUST_DOWNGRADE durante la instalación
-
-Esto casi siempre es una instalación a medias. Primero vuelve a ejecutar el lanzador para que pueda reparar el espacio de trabajo. Si instalas a mano, ejecuta este único comando desde la carpeta de Marinara:
-
-```bash
-pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile
-```
-
-## Pantalla en blanco, desactualizada o con aspecto antiguo
-
-A veces el servidor está en marcha pero el navegador muestra una página en blanco, o la app parece una versión antigua después de una actualización. En ese caso, tu navegador conserva una copia en caché de la app web.
-
-1. Haz una recarga forzada (**Ctrl+Shift+R** o **Cmd+Shift+R**).
-2. Si eso no ayuda, abre **Settings** (Configuración), ve a la pestaña **Advanced**, luego a la sección **Updates** y haz clic en **Refresh App**.
-
-**Refresh App** borra el service worker del navegador (un script en segundo plano que guarda la app web en caché) y la caché del navegador, y luego recarga. No cambia tus datos. Tus chats, tu configuración y otros datos locales quedan intactos. Tampoco actualiza el código del servidor, así que no sustituye a una actualización real. Revisa [Actualizar Marinara Engine](UPGRADING.md) para actualizar la app en sí.
-
-## Problemas con los agentes descargables
-
-Si **Agents → Agent Organizer (Organizador de agentes)** dice que el catálogo no está disponible, la máquina que ejecuta el servidor de Marinara —no solo el navegador— debe poder llegar al catálogo oficial [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) por GitHub HTTPS. Los agentes ya instalados siguen funcionando sin conexión en su versión actual. Restaura la conexión del servidor y luego haz clic en **Refresh** o **Try again** para explorar el catálogo y buscar actualizaciones.
-
-Si un mapa o una llamada ya instalados no aparecen, cierra Marinara Engine por completo e inícialo de nuevo. Esos paquetes que traen rutas permanecen en estado **Restart required** hasta el siguiente arranque del proceso. Los juegos de conversación son distintos: las compilaciones actuales del Engine los activan en caliente de inmediato. Refresca el catálogo si la instalación falló, luego confirma que el juego aparece como listo; añadirlo en la configuración de **Commands** de un chat solo es necesario cuando quieres que los personajes lo inicien por sí mismos, no para el comando slash manual del juego.
-
-Si una instalación más antigua no puede completar su primera migración de paquetes, no elimines la carpeta `data/capability-packages` ni tus datos de chat. Marinara deja la migración incompleta y reintenta en el siguiente arranque. Las selecciones y la configuración de chat existentes permanecen guardadas mientras el catálogo no esté disponible.
-
-Si `data/capability-runtime-snapshots` o `data/capability-packages/versions` ocupa mucho espacio, no hace falta que lo limpies a mano. Marinara elimina las copias antiguas cuando arranca y conserva solo la versión actual y la anterior de cada agente.
-
-Las descargas de paquetes se rechazan cuando su checksum, su lista declarada de archivos, su rango de versiones del Engine o las rutas del archivo comprimido no coinciden con el catálogo oficial. Actualiza primero Marinara Engine, refresca el catálogo y vuelve a intentarlo. No extraigas manualmente un artefacto dentro de la carpeta de datos.
-
-Las actualizaciones de agentes nunca se aplican en el arranque. Cuando hay una versión compatible más reciente, Marinara pregunta si quieres aplicarla. Elige **Not now** (Ahora no) para conservar la versión instalada; el botón **Update** sigue disponible en **Agents → Agent Organizer (Organizador de agentes)**. Una actualización fallida también deja registrada la versión instalada, y un runtime del servidor recién actualizado que falle su autocomprobación de arranque vuelve a la versión anterior.
-
-## Acceder a Marinara desde otro dispositivo
-
-Si no puedes acceder a Marinara desde un teléfono, una tableta u otra computadora de tu red, repasa estas comprobaciones.
-
-- Vincula el servidor a una dirección accesible. El servidor escucha en `127.0.0.1` (loopback, solo tu propia máquina) de forma predeterminada. Los lanzadores de shell fijan `HOST=0.0.0.0` por ti. Si iniciaste con `pnpm start` a mano, fija primero `HOST=0.0.0.0` en tu archivo `.env`.
-- Confirma que ambos dispositivos están en la misma red Wi-Fi.
-- Confirma que ningún firewall bloquea el puerto. El puerto predeterminado es `7860`, o el que hayas fijado como `PORT`.
-- Configura un inicio de sesión. En el dispositivo bloqueado, escribe el código de configuración de un solo uso del registro del servidor (en Docker: `docker logs <container> 2>&1 | grep "setup code"`) con un nombre de usuario y una contraseña nuevos. O configura el inicio de sesión en **Settings** → **Advanced** → **Access** en un navegador que ya haya iniciado sesión. En un servidor sin pantalla, ejecuta `ssh -L 7860:127.0.0.1:7860 user@server`, luego abre `http://localhost:7860` y usa **Settings**. Consulta [Acceso remoto](REMOTE_ACCESS.md#option-1-login-recommended).
-- Loopback se queda sin contraseña, pero los visitantes que reenvía un proxy inverso o un túnel en la misma máquina necesitan iniciar sesión. El tráfico directo por Tailscale es de confianza por defecto, pero Tailscale Serve/Funnel y el `proxy_pass` HTTP/1.0 predeterminado de nginx cuentan como reenviados y necesitan iniciar sesión. El tráfico del puente Docker del mismo host o de su puerta de enlace solo es de confianza mientras no haya inicio de sesión (un inicio de sesión de la app o Basic Auth), `IP_ALLOWLIST` ni `TRUSTED_AUTH_PROXY`; el tráfico de Docker reenviado por proxy requiere autorización normal.
-- Si abres Marinara en este equipo con un nombre personalizado que apunta a `127.0.0.1` en `/etc/hosts`, Marinara considera la visita como reenviada. Usa `localhost`, `127.0.0.1` o el nombre de host de la máquina, o un nombre `*.localhost` como `marinara.localhost`. Fija `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` solo cuando el propio proxy exija un inicio de sesión a cada visitante.
-- Si el dispositivo muestra **Too many wrong passwords** (Demasiadas contraseñas incorrectas), espera 15 minutos y luego inicia sesión con la contraseña correcta. ¿La olvidaste? Ejecuta `pnpm reset-login` en la computadora que ejecuta Marinara (en Docker: `docker exec <container> node scripts/reset-login.mjs`). Reiniciar el servidor también le permite volver a intentarlo.
-- Para acciones privilegiadas desde ese dispositivo (copias de seguridad, borrado de datos, actualizaciones), fija `ADMIN_SECRET` en el `.env` del servidor. Luego pega el mismo valor en **Settings** > **Advanced** > **Admin Access** en ese dispositivo y haz clic en **Save**.
-- Si usas un dominio público o de proxy inverso y ves **Untrusted request host**, añade su nombre de host exacto a `TRUSTED_HOSTS` en `.env`. Las direcciones IP directas que usan teléfonos, computadoras de la LAN y pares de Tailscale se siguen aceptando automáticamente.
-
-Para el recorrido completo, revisa [Acceso remoto](REMOTE_ACCESS.md) y las [Preguntas frecuentes](FAQ.md).
-
-Si te quedaste bloqueado después de una actualización, revisa [Bloqueado después de actualizar](REMOTE_ACCESS.md#locked-out-after-updating).
+Consulta [Acceso remoto](REMOTE_ACCESS.md) y las [Preguntas frecuentes](FAQ.md). Si te quedaste bloqueado después de una actualización, consulta [Bloqueado después de actualizar](REMOTE_ACCESS.md#locked-out-after-updating).
 
 ## Guardado bloqueado, o ajustes que no persisten
 
-Si un guardado parece funcionar pero se revierte al recargar, la protección entre sitios de Marinara lo está bloqueando. La protección CSRF (cross-site request forgery, o falsificación de petición entre sitios) protege las acciones que cambian datos. Solo confía en ciertos orígenes del navegador.
+Un guardado parece funcionar, pero se revierte al recargar. La protección entre sitios (CSRF) lo está bloqueando porque no confía en esta dirección del navegador. Verás un banner rojo que dice que los guardados fallarán en silencio, o un aviso titulado **Save blocked: missing CSRF header**, **Save blocked: cross-site request rejected** o **Save blocked: origin not trusted**.
 
-Verás una de estas señales, o ambas:
-
-- Un banner rojo en la parte superior de la pantalla que advierte que los guardados fallarán en silencio porque este origen no es de confianza.
-- Un aviso titulado **Save blocked: missing CSRF header**, **Save blocked: cross-site request rejected** o **Save blocked: origin not trusted**.
-
-Loopback, las direcciones de red privada, Tailscale y el puente Docker son de confianza automáticamente. Esto normalmente solo ocurre cuando llegas a Marinara a través de una dirección IP pública o un nombre de dominio. Añade esa dirección a `CSRF_TRUSTED_ORIGINS` en `.env`. Usa una lista separada por comas para más de una, por ejemplo:
+Loopback, las direcciones de red privada, Tailscale y el puente Docker son de confianza automáticamente. Esto ocurre sobre todo con una IP pública o un nombre de dominio. Añade la dirección a `CSRF_TRUSTED_ORIGINS` en `.env`, separando las direcciones con comas. El banner tiene un botón **Copy** (Copiar) que rellena la línea. No hace falta reiniciar.
 
 ```bash
 CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
 ```
 
-No hace falta reiniciar. El banner tiene un botón Copy que rellena la línea exacta por ti. Revisa [Acceso remoto](REMOTE_ACCESS.md) para más información.
+<a id="connection-and-generation-errors"></a>
 
 ## Errores de conexión y de generación
 
-Los errores de generación aparecen como un aviso en la parte inferior de la pantalla. Si una conexión falló, el aviso nombra el motivo. El aviso permanece el tiempo suficiente para leerlo y copiarlo.
+Los errores de generación aparecen como un aviso en la parte inferior de la pantalla. El aviso nombra el motivo y permanece el tiempo suficiente para copiarlo.
 
-- **No API connection configured for this chat**: el chat no tiene ninguna conexión seleccionada. Abre el panel **Connections**, crea una y luego elígela para el chat. Revisa [Conectar a un proveedor de IA](connections/connecting-to-a-provider.md). Una API key (clave de API) es un código secreto de un proveedor que permite a Marinara usar sus modelos.
-- El modelo no acepta un parámetro: el aviso te dice cuál. Abre **Chat Settings** (Ajustes del chat) > **Advanced Parameters** y busca ese parámetro. Desactiva el interruptor junto a su nombre (la tooltip, o texto de ayuda, dice "This parameter is sent to the model").
-- El modelo dice que un parámetro es obligatorio: haz lo mismo, pero activa el interruptor junto a ese parámetro.
-- **This model's chat template needs user and assistant messages to take turns**: algunos modelos locales, como los modelos basados en Mistral servidos por llama.cpp, solo aceptan mensajes que se alternan entre tú y la IA. Marinara ya combina los mensajes consecutivos para estos modelos y lo intenta una vez más. Si todavía ves esto, abre **Chat Settings** > **Advanced Parameters** y establece **Post-Processing Messages** (Posprocesamiento de mensajes) en **Single User Message** (Un solo mensaje de usuario), o sirve el modelo con una plantilla de chat menos estricta.
-- **The AI returned an empty response. Try sending your message again.**: envía tu mensaje de nuevo. Si sigue pasando, prueba un modelo o una conexión diferentes.
-- **A generation is already in progress for this chat**: todavía se está transmitiendo por streaming una respuesta. Espera a que termine o haz clic en el botón Stop, y luego vuelve a intentarlo.
-- **No connections are marked for the random pool**: activaste el enrutamiento de conexión aleatorio pero no marcaste ninguna conexión para el grupo. Añade al menos una conexión al grupo, o desactiva el enrutamiento aleatorio.
-- Todos los mensajes fallan con un error de red, y tu computadora solo llega a internet a través de un proxy (por ejemplo, v2rayN sin el modo TUN): indícale el proxy a Marinara. Consulta [Proxy HTTP saliente](CONFIGURATION.md#outbound-http-proxy).
+| Mensaje o síntoma | Solución |
+| --- | --- |
+| **No API connection configured for this chat** | El chat no tiene ninguna cuenta. Añade una en **Connections** y luego elígela para el chat. Consulta [Conectar a un proveedor de IA](connections/connecting-to-a-provider.md). |
+| El modelo no acepta un parámetro | Abre **Chat Settings → Advanced Parameters** (Ajustes del chat → Parámetros avanzados) y desactiva el interruptor junto al parámetro que nombra el aviso. |
+| El modelo dice que un parámetro es obligatorio | Activa el interruptor de ese parámetro. |
+| **This model's chat template needs user and assistant messages to take turns** | Algunos modelos locales, como los modelos basados en Mistral en llama.cpp, necesitan mensajes que se alternen. Marinara combina los mensajes consecutivos y lo intenta una vez más. Si persiste, establece **Post-Processing Messages** (Posprocesamiento de mensajes) en **Single User Message** (Un solo mensaje de usuario) en **Chat Settings → Advanced Parameters**, o sirve el modelo con una plantilla de chat menos estricta. |
+| **The AI returned an empty response. Try sending your message again.** | Envía de nuevo. Si se repite, prueba otro modelo u otra cuenta. |
+| **A generation is already in progress for this chat** | Todavía hay una respuesta en streaming. Espera, o haz clic en **Stop** (Detener), y luego vuelve a intentarlo. |
+| **No connections are marked for the random pool** | El enrutamiento aleatorio está activado, pero no hay ninguna cuenta en el grupo. Añade una, o desactiva el enrutamiento aleatorio. |
+| Todos los mensajes fallan con un error de red, y tu computadora solo llega a internet a través de un proxy | Indícale el proxy a Marinara. Consulta [Proxy HTTP saliente](CONFIGURATION.md#outbound-http-proxy). |
 
-## Problemas con el Local Model
+## Después de una actualización
 
-El **Local Model** (Modelo local) es un modelo de IA que se ejecuta en tu propia máquina sin API key. Algunos mensajes de error usan la palabra sidecar para esta función.
+Problemas justo después de una actualización, primero en palabras sencillas:
 
-- Si instalar un runtime falla con **Sidecar runtime install is disabled**, el servidor tiene esa acción desactivada por seguridad. En tu propia máquina, fija `SIDECAR_RUNTIME_INSTALL_ENABLED=true` en `.env`. Desde otro dispositivo, pega primero tu admin secret en **Settings** > **Advanced** > **Admin Access**.
-- Si la descarga o la configuración del modelo falla desde otro dispositivo (una dirección de red o Docker), también puede necesitar el admin secret. En tu propia máquina no hace falta ningún admin secret. Revisa el punto anterior para saber dónde pegar el secreto.
-- Si una comprobación del llama.cpp incluido, de MLX, de uv o del bloqueo de dependencias de MLX informa de un desajuste de tamaño de archivo o de SHA-256, Marinara ya lo descartó o lo rechazó antes de extraerlo o instalarlo. Actualiza o reinstala Marinara y vuelve a intentarlo; no ejecutes, descomprimas, edites ni eludas manualmente el artefacto rechazado.
+- La pantalla está en blanco o se ve antigua: consulta [Pantalla en blanco, desactualizada o con aspecto antiguo](#blank-stale-or-old-looking-screen) y [Página en blanco o JavaScript servido como HTML después de una actualización](#blank-page-or-javascript-served-as-html-after-an-update).
+- Parece que faltan chats o presets (ajustes guardados): consulta [Los datos parecen faltar después de una actualización](#data-seems-missing-after-an-update). Tus datos casi siempre siguen en el disco.
+- Los chats se ven vacíos después de volver a una versión anterior: consulta [Los chats no muestran mensajes después de cambiar a una versión anterior](#chats-show-no-messages-after-switching-to-an-older-version).
 
-### Mantenedores: actualizar los runtimes locales fijados
+<a id="blank-stale-or-old-looking-screen"></a>
 
-No está garantizado que los archivos de código fuente generados por GitHub sigan siendo estables byte a byte, aunque el contenido de su commit no cambie. Nunca "arregles" el desajuste de un usuario aceptando los bytes que se ven en su máquina ni debilitando la verificación. Vuelve a fijar las entradas de runtime solo dentro de un cambio revisado del Engine:
+### Pantalla en blanco, desactualizada o con aspecto antiguo
 
-1. Elige una revisión ascendente inmutable o un recurso de release y revisa los cambios ascendentes.
-2. Descarga el artefacto en una carpeta temporal, anota su número exacto de bytes y calcula su resumen SHA-256 de forma independiente.
-3. Actualiza `runtime-integrity-manifest.ts` con la revisión, la URL, el tamaño y el resumen. Para MLX, vuelve a generar `packages/server/src/assets/mlx-runtime-requirements.lock` desde su archivo `.in` con la versión fijada de uv en Apple Silicon/Python 3.12, revisa cada cambio de dependencia y actualiza `requirementsLockSha256`.
-4. Ejecuta `pnpm regression:runtime-integrity`, `pnpm check` y una instalación limpia y real del runtime en la plataforma afectada.
-5. Publica la actualización revisada del Engine antes de pedir a los usuarios que vuelvan a intentarlo. No ofrezcas una anulación manual de la suma de verificación.
+El servidor está en marcha, pero el navegador muestra una página en blanco, o la app se ve antigua después de una actualización. El navegador conserva una copia en caché de la app web.
 
-Para la configuración completa, revisa [Configuración del Local Model](connections/local-model.md).
+1. Haz una recarga forzada.
+2. Si eso no ayuda, abre **Settings → Advanced → Updates** (Configuración → Avanzado → Actualizaciones) y haz clic en **Refresh App** (Refrescar app).
 
-## Memoria y resúmenes
+**Refresh App** borra el service worker del navegador (un script en segundo plano que guarda la app en caché) y la caché, y luego recarga. No cambia tus datos ni actualiza el servidor. Para actualizar la app en sí, consulta [Actualizar Marinara Engine](UPGRADING.md).
 
-### Memory Recall no recuerda nada
+<a id="blank-page-or-javascript-served-as-html-after-an-update"></a>
 
-**Memory Recall** busca en mensajes anteriores y añade en silencio los más relevantes de vuelta al prompt. Si parece que no recuerda nada, revisa esto.
+### Página en blanco o JavaScript servido como HTML después de una actualización
 
-1. Abre **Chat Settings** > **Memory Recall** y confirma que **Enable Memory Recall** está activado.
-2. Abre **Access memories for this chat**. En la ventana **Memories for This Chat**, mira el estado de cada fragmento.
-3. Un estado de **Waiting for vector** significa que la memoria todavía se está procesando. Espera y luego vuelve a chatear.
-4. Un estado de **Embedding unavailable** significa que no hay ninguna fuente de embedding (representación numérica del texto) funcionando. Configura una conexión de embedding, o deja que se cargue el modelo local integrado. Revisa [Configuración del Local Model](connections/local-model.md). Para usar una sola fuente de embedding en todos los chats, elígela en **Embeddings** dentro de la sección **Defaults** (Valores predeterminados) del panel **Connections**.
+Un error como "Failed to load module script" con el tipo `text/html` significa que el navegador pidió un archivo JavaScript que falta en la compilación. Borrar tus datos no lo soluciona.
 
-Una memoria necesita al menos 5 mensajes nuevos antes de crearse. Recall también solo muestra memorias que coinciden de cerca con tu nuevo mensaje, así que puede no devolver nada incluso cuando existen memorias.
+1. Detén el servidor.
+2. Vuelve a ejecutar `start.bat`, `start.sh` o `start-termux.sh`. El lanzador recompila los archivos incompletos del cliente antes de arrancar. En una instalación manual, ejecuta primero `pnpm build` desde la raíz del repositorio.
+3. Si la página sigue en blanco, haz una recarga forzada o prueba una ventana privada.
 
-<a id="advanced-memory-says-scenes-need-attention"></a>
+Si sigue fallando, informa la URL completa del archivo que falla, el estado HTTP, el Content-Type y la primera línea de la respuesta, junto con la salida del lanzador.
 
-### Advanced Memory indica que hay escenas que necesitan atención
-
-Un punto fijo en el botón **Chat Settings**, o un aviso de que Advanced Memory encontró problemas, significa que algunas memorias de escenas no están claras, están desactualizadas o faltan.
-
-1. Abre **Chat Settings** > **Memory Recall**, o pulsa **Fix** (Reparar) en el aviso.
-2. Pulsa **Fix**. Repara todas las escenas que puede con el Helper model (modelo auxiliar) y nunca cambia los resúmenes que editaste.
-3. Selecciona cada número de escena que aparece bajo **need your review** (necesitan tu revisión) para abrirla en **Access memories for this chat**; luego revisa su texto y sus personajes y pulsa **Save correction** (Guardar corrección).
-
-Si Fix se detiene con un error, revisa la conexión del Helper model y luego pulsa **Resume processing** (Reanudar el procesamiento) o vuelve a pulsar **Fix**. Consulta [Reparar problemas de memoria](agents/memory.md#fixing-memory-problems).
-
-### Los resúmenes no se generan
-
-Los resúmenes de chat necesitan una conexión de texto que funcione para escribirlos.
-
-- En el modo Roleplay, abre **Chat Settings > Chat Summary** y confirma que hay una conexión establecida. Usa **Backfill Summary** para poner al día un chat más antiguo.
-- En el modo Conversation, abre **Automatic Summarization** y usa **Backfill** para reintentar los días que fallaron.
-- Si tu chat requiere aprobación de escritura del agente, un resumen de IA espera tu revisión antes de aplicarse.
-- Un resumen que sigue fallando (por ejemplo, una API key incorrecta) se reintenta tras un retardo. Corrige la conexión y luego usa **Backfill**.
-
-## Problemas del Card Browser
-
-El **Card Browser** te permite buscar en sitios públicos de personajes e importar personajes. Ábrelo con el botón **Download** (Descargar) en la parte superior del panel **Characters** (Personajes) o **Personas**.
-
-- Si la búsqueda de JannyAI o una página de personaje falla con un bloqueo de Cloudflare, Marinara muestra un mensaje. Te pide que visites el sitio de JannyAI una vez en el mismo navegador para superar el desafío, y luego reintentes.
-- Si tu inicio de sesión de Pygmalion deja de funcionar después de reiniciar el servidor, eso es lo esperado. Ese inicio de sesión vive solo en la memoria del servidor y se borra al reiniciar. Abre la ventana de inicio de sesión y pega tu token de nuevo.
-- Si CharacterTavern muestra un aviso en lugar de resultados de búsqueda, eso es lo esperado. Tras rehacer su sitio web, ya no ofrece la conexión que usaba Marinara. En su lugar, descarga la tarjeta desde character-tavern.com e importa el archivo.
-
-## Problemas de generación de medios
-
-### La limpieza del fondo del sprite tiene dificultades con una escena compleja
-
-Los sprites (imágenes del personaje) estáticos generados normalmente usan transparencia nativa o una capa chroma plana adaptativa. La limpieza integrada también reconoce capas blancas más antiguas, preserva los detalles encerrados del sujeto, suaviza el borde alfa y elimina el derrame de color de la capa. Una habitación fotografiada, un decorado detallado, sombras marcadas o un sujeto cuyos colores coinciden con el fondo pueden requerir aún la opción de respaldo con IA:
-
-```bash
-pnpm backgroundremover:install
-```
-
-Luego reinicia Marinara y haz clic en **Reapply Cleanup** en la ventana de generación de sprites. Marinara seguirá probando primero la ruta de capa integrada y usará el modelo de IA solo cuando el borde no se vea uniforme. Si la instalación falla:
-
-- Confirma que tienes Python 3.9 a 3.11 instalado. Las versiones más nuevas de Python pueden forzar compilaciones nativas lentas.
-- Recompila la herramienta con `pnpm backgroundremover:reinstall`.
-- Para forzar la limpieza automática de capa sin el respaldo con IA mientras solucionas el problema, fija `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin` en `.env`.
-
-### Los storyboards del Game Mode o de Roleplay no aparecen
-
-Los Game Mode Storyboards (secuencias de viñetas) convierten una narración terminada del GM (director del juego) en imágenes de fotograma clave y clips opcionales. Los Roleplay Storyboards combinan intercambios terminados y muestran el resultado en línea, después de la respuesta del asistente.
-
-- Confirma que has instalado **Storyboard** desde **Agents** > **Agent Organizer (Organizador de agentes)** y luego activa **Enable Agents** (Activar agentes) y **Enable Storyboards** (Activar storyboards) para el chat.
-- Para un video de escena manual, abre **Chat Settings > Gallery**, genera o sube una imagen y luego usa su acción **Video** o **Animate**. La **Gallery** separa **Images** y **Videos** en pestañas, así que revisa la pestaña **Videos**.
-- Para los Game Mode Storyboards automáticos, abre **Chat Settings** > **Agents** > **Storyboards** y confirma que **Automatic Storyboard Illustrations** está activado. Activa también **Automatic Storyboard Animations** si además quieres clips.
-- En Roleplay, añade el agente **Storyboard** al chat. Elige **Still images** o **Animations**, fija **Messages per episode** y selecciona la conexión de imagen del Storyboard. **Manual only** se ejecuta en su lugar desde **Create storyboard** en la sección **Gallery** de **Chat Settings**.
-- Las imágenes de fotograma clave necesitan una conexión de imagen. Los clips también necesitan una conexión de video.
-- Si un prompt personalizado funciona mejor con todos los personajes combinados, desactiva **Use NovelAI Character Prompts**.
-- Los proveedores lentos pueden alcanzar un tiempo de espera. Sube `IMAGE_GEN_TIMEOUT_MS` o `VIDEO_GEN_TIMEOUT_MS` en `.env` y luego reinicia Marinara. El servidor solo lee estos valores en el arranque.
-- De forma predeterminada, una respuesta de un proveedor de imagen de más de 30 MiB falla con `Outbound response exceeded 31457280 bytes`. Los archivos de salida de ComfyUI local que incrustan el flujo de trabajo y las imágenes de referencia como metadatos pueden llegar a ese tamaño. Sube `IMAGE_GEN_MAX_RESPONSE_BYTES` en `.env` y reinicia Marinara, o desactiva los metadatos en ComfyUI.
-
-Revisa la [Guía del agente Storyboard](game/storyboard.md) para ambos flujos de trabajo y [Game Mode: Primeros pasos](game/getting-started.md) para la configuración del Game.
-
-### La generación del mundo del Game Mode muestra un error de JSON
-
-Si iniciar un juego falla porque el modelo devolvió JSON roto, Marinara abre la ventana **Repair JSON** en lugar de descartar todo el turno. JSON es el formato de texto estructurado que el modelo debe devolver.
-
-1. Corrige los corchetes, las comas o los campos en el editor. El banner dice **JSON is valid.** una vez que el texto se analiza.
-2. Haz clic en **Format** para ordenar el diseño.
-3. Haz clic en **Apply Repaired JSON** para usarlo sin regenerar toda la respuesta.
-
-## Voz, llamadas y TTS
-
-- Si los personajes no hablan durante una llamada, Text to Speech (texto a voz) no está configurado. Abre **Connections** > **Text to Speech**, actívalo, elige una fuente, introduce tu clave, elige una voz y guarda. Un personaje sin voz aparece solo como texto.
-- Si la voz se detiene con **No audio after 60 s** (Sin audio después de 60 s), tu servidor de voz es más lento de lo que Marinara espera. Un servidor local en una laptop suele serlo. Sube **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) en **Connections** > **Text to Speech**, o en la conexión de audio que indica el mensaje. Consulta [Tiempo de espera de la solicitud](media/tts-setup.md#request-timeout).
-- Si el micrófono no funciona, puede que necesites el modelo de voz local. Instala **Calls** desde **Agents > Agent Organizer (Organizador de agentes)**, luego abre **Connections** > **Local Model**, expande la tarjeta, busca **Local Speech Model**, elige un modelo Whisper y haz clic en **Download Whisper**. Firefox en particular necesita esto porque carece de reconocimiento de voz del navegador. Desinstalar Calls elimina sus modelos Whisper para recuperar espacio en disco. También puedes usar tu propio servidor de voz a texto desde la tarjeta **Speech to Text** (Voz a texto) en **Connections**; consulta [Usar tu propio servidor de voz a texto](conversation/calls.md#use-your-own-speech-to-text-server).
-- En una compilación Lite, el mensaje **Local Whisper is disabled in Lite mode** significa que esa compilación pequeña no puede ejecutar el modelo de voz local. Usa en su lugar una instalación completa de Marinara.
-
-### El inicio de sesión de Spotify del Music DJ falla en una instalación remota o de red
-
-El modo Spotify del agente Music DJ usa OAuth. OAuth es un traspaso de inicio de sesión donde Spotify te envía de vuelta a una dirección de retorno. Una redirect URI es esa dirección de retorno, y Spotify solo acepta direcciones `https://` o la dirección de loopback `http://127.0.0.1`. Rechaza las direcciones IP de red normales.
-
-- Si llegas a Marinara en localhost, el editor muestra un retorno de `127.0.0.1`. Regístralo con Spotify y el inicio de sesión se completa.
-- Si llegas a Marinara por HTTPS, el editor muestra tu retorno HTTPS. Regístralo.
-- Si HTTPS se termina más arriba y el host no coincide, fija `SPOTIFY_REDIRECT_URI` en `.env` con tu dirección de retorno pública.
-- En una instalación de red con HTTP simple, la ventana emergente no puede cargar, pero la barra de direcciones aún contiene un código válido. Copia la URL completa de la ventana emergente. Luego expande **Browser couldn't reach the callback?** debajo del botón Connect y pégala. La URL pegada es válida durante 10 minutos.
-
-La solución más limpia a largo plazo es poner el servidor detrás de HTTPS. Comprobado por última vez con Marinara Engine 2.2.0. Spotify endureció estas reglas en febrero de 2025.
-
-## Almacenamiento y datos
-
-### El servidor no vuelve después de Restart Server
-
-Inicia Marinara con `start.bat`, `start-local.bat`, `start.sh`, `start-termux.sh` o `pnpm start`. Estos mantienen el servidor vinculado a su lanzador y esperan a que el proceso anterior termine antes de iniciar su reemplazo. El reinicio desde la aplicación cierra las conexiones persistentes después de cuatro segundos y fuerza la salida después de ocho si el cierre sigue bloqueado. Una salida forzada puede interrumpir escrituras pendientes y queda registrada como forzada en los diagnósticos. Las ejecuciones directas con `node` y los procesos que vigilan archivos durante el desarrollo no se reemplazan automáticamente: detenlos y vuelve a iniciarlos desde su terminal. Docker sigue usando su política de reinicio de contenedores. En Windows, pulsa Ctrl+C en la consola del iniciador y espera a **Shutdown complete** (apagado completado) antes de cerrarla. Cerrar el terminal o forzar su cierre puede interrumpir los guardados pendientes.
-
-No inicies otro servidor con el mismo directorio de datos mientras el anterior siga en ejecución. Si una versión antigua dejó un proceso activo, detenlo primero; no elimines la concesión de escritura de un servidor que sigue funcionando.
-
-### El inicio dice que otro proceso puede estar usando el directorio de datos
-
-Marinara solo permite que un servidor en ejecución escriba en un directorio de datos local. Si el inicio indica que **Another Marinara Engine process ... may be using** el directorio, cierra el otro proceso de Marinara e inténtalo de nuevo.
-
-Después de un fallo o de mover un volumen de datos de Docker, el inicio puede indicar **The storage writer lease ... is incomplete or invalid** o identificar un proceso que ya no existe en este equipo. Primero confirma que todos los procesos y contenedores de Marinara que usan ese directorio de datos estén detenidos. Después elimina únicamente el directorio `.writer-lease` mencionado en el error y reinicia Marinara. No elimines el directorio `storage` que lo contiene ni ningún archivo de tabla. En hosts Linux, Android y contenedores cuyo directorio de datos está en un disco local, Marinara recupera por sí solo una concesión de escritura que dejó un proceso caído o terminado a la fuerza, incluso después de un reinicio; el paso manual sigue siendo el respaldo para el almacenamiento en red o compartido. Windows hace lo mismo cuando el directorio de datos está en una de las unidades propias de la computadora. En Windows, el paso manual sigue siendo el respaldo para una unidad de red, una carpeta compartida, una unidad extraíble como una memoria USB, o una computadora a la que se le cambió el nombre después del fallo.
+<a id="data-seems-missing-after-an-update"></a>
 
 ### Los datos parecen faltar después de una actualización
 
-Si tus chats o presets (ajustes guardados) parecen faltar después de una actualización, no elimines todavía ninguna carpeta de datos. Marinara mantiene tus datos activos en una carpeta `storage` dentro de su carpeta de datos.
-
-Revisa estas dos ubicaciones locales por si hay una carpeta `storage`:
-
-1. `packages/server/data/`
-2. `data/`
-
-El servidor imprime las carpetas de datos y de storage que resolvió en el arranque.
+No borres ninguna carpeta de datos. Marinara guarda los datos activos en una carpeta `storage` dentro de su carpeta de datos. Busca `storage` en `packages/server/data/` y en `data/`. El servidor imprime en el arranque las carpetas que resolvió.
 
 <a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
 
 ### Los chats no muestran mensajes después de cambiar a una versión anterior
 
-Las versiones nuevas de Marinara guardan los datos de cada chat (mensajes, swipes, recuerdos, imágenes y otros registros por chat) en archivos propios, en vez de un archivo grande por tabla. Esto acelera mucho el guardado de chats largos. Las versiones antiguas no entienden este diseño. Si cambias a una versión anterior, los chats parecen vacíos: los datos siguen en el disco, pero esa versión no puede verlos.
+Las versiones nuevas de Marinara guardan los registros de cada chat —mensajes, swipes (respuestas alternativas), recuerdos, imágenes— en archivos propios, lo que acelera el guardado de chats largos. Las versiones antiguas no pueden leer esa estructura, así que los chats se ven vacíos. Los datos siguen en el disco.
 
-Marinara rechaza por sí solo los downgrades evidentes: el lanzador omite una actualización automática que llevaría a una versión incompatible, y el actualizador de la app la bloquea con un error que apunta aquí.
+Marinara bloquea los cambios evidentes a versiones anteriores. El lanzador omite una actualización automática que llevaría a una versión incompatible, y el actualizador de la app muestra un error que apunta aquí.
 
-Si tus datos han llegado al formato de almacenamiento 8 (compatibilidad con avatares MMD), restaura una copia de seguridad completa hecha antes de esa actualización para usar una versión para el formato 7 o anterior. El siguiente comando solo convierte estructuras antiguas de archivos de chat; no puede convertir los ajustes de los avatares MMD. No cambies el número de formato a mano.
+Si actualizaste y luego volviste a una versión anterior, restaura la copia de seguridad que hiciste antes de la actualización. Consulta [Volver a una versión anterior](UPGRADING.md#downgrading-to-an-older-version). A continuación van los detalles técnicos.
 
-Para convertir la estructura antigua de archivos de chat en datos que todavía no han llegado al formato 8:
+Tus datos están ahora en el formato de almacenamiento 10. Los formatos 8, 9 y 10 añaden ajustes de avatares 3D (MMD, y luego GLB y FBX) y vínculos de cuentas de conexión que las compilaciones antiguas no pueden leer de forma segura. Si tus datos llegaron al formato 8 o posterior, restaura una copia de seguridad completa hecha antes de esa actualización para usar una compilación antigua. El siguiente comando solo convierte estructuras antiguas de archivos de chat. No cambies el número de formato a mano. Consulta [Volver a una versión anterior](UPGRADING.md#downgrading-to-an-older-version).
+
+Para datos por debajo del formato 8, convierte la estructura de archivos de chat:
 
 1. Detén el servidor de Marinara.
 2. Desde la carpeta de Marinara, ejecuta:
@@ -381,76 +127,308 @@ Para convertir la estructura antigua de archivos de chat en datos que todavía n
    node scripts/protect-launcher-data.mjs unshard
    ```
 
-3. Cambia a la versión anterior e iníciala normalmente.
+3. Cambia a la versión anterior e iníciala.
 
-El comando reconstruye el antiguo diseño de un solo archivo a partir de los archivos por chat. No se elimina nada: los archivos por chat se conservan junto a cada archivo reconstruido en carpetas llamadas `<table>.post-unshard-<timestamp>` (por ejemplo, `messages.post-unshard-…`), y los originales anteriores a la migración permanecen como archivos `.pre-shard`. Cuando vuelvas a actualizar, Marinara convertirá los datos automáticamente.
+El comando reconstruye la estructura de un solo archivo a partir de los archivos por chat. No se borra nada. Los archivos por chat se quedan en carpetas llamadas `<table>.post-unshard-<timestamp>`, y los originales `.pre-shard` que haya se conservan. Cuando vuelvas a actualizar, Marinara convertirá de nuevo tus datos.
 
-Docker y Podman guardan los datos en el volumen `marinara-data`, así que ejecuta el comando en un contenedor de una sola ejecución: detén el contenedor activo, ejecuta `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard` y luego inicia la imagen anterior.
+En Docker o Podman, los datos están en el volumen `marinara-data`. Detén el contenedor, ejecuta el comando de abajo y luego inicia la imagen anterior:
+
+```bash
+docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard
+```
+
+## Problemas de instalación y arranque
+
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+Termux muestra `CANNOT LINK EXECUTABLE "node"` con `cannot locate symbol` o `library ... not found`. Node.js se actualizó sin el resto de Termux. Entonces la app de Android puede detenerse con **Could not verify that this Marinara Android build can safely read your stored data**. Tus datos no son la causa, y volver a instalar el APK no lo soluciona.
+
+1. En Termux, ejecuta:
+
+   ```bash
+   pkg upgrade -y
+   ```
+
+2. Toca **Install / Start Marinara** en la app de Android. En una instalación manual, ejecuta `cd "$HOME/Marinara-Engine" && ./start-termux.sh`.
+
+Si la actualización te pregunta si quieres conservar un archivo de configuración, pulsa Enter para conservar el tuyo. Los lanzadores y las apps de Android actuales ejecutan esta actualización por sí solos.
+
+### Termux: JavaScript heap out of memory al compilar el cliente
+
+Vite se detiene con `Reached heap limit` o `JavaScript heap out of memory`. Actualiza y vuelve a ejecutar `./start-termux.sh`. Las compilaciones del cliente usan su propio heap de 1536 MiB, limitado a la mitad de la RAM del dispositivo, pero nunca por debajo de 1280 MiB. Un límite de heap que hayas fijado en `NODE_OPTIONS` tiene prioridad, así que quita una anulación antigua de 1024 MiB. Cierra otras apps antes de reintentar. Los teléfonos con menos de unos 3 GB de RAM aún pueden quedarse sin memoria. No borres tus chats ni tu perfil para corregir un fallo de compilación.
+
+### Escritorio: JavaScript heap out of memory en la comprobación de tipos del cliente
+
+La compilación se detiene y dice `The client type-check needs about 2.5 GiB of Node.js heap`. El límite de tu `NODE_OPTIONS` es demasiado pequeño, y la compilación respeta el límite que fijaste. Sube `--max-old-space-size` a 2560 o más. Si `NODE_OPTIONS` contiene `--max-old-space-size-percentage`, sube ese en su lugar, porque anula al otro. O quita ambas opciones. Luego vuelve a ejecutar el lanzador. Tus datos no se tocan.
+
+### Termux: falta un archivo del cliente invitado multijugador
+
+El inicio indica que falta `packages/client/dist/multiplayer/guest.js`. Actualiza Marinara y vuelve a ejecutar `./start-termux.sh`, que ejecuta la compilación completa del cliente. No necesitas activar el modo multijugador.
+
+### Termux: el servidor se detiene al abrir Marinara o Sharp no puede cargarse
+
+Sharp es la biblioteca de imágenes que Marinara usa para las miniaturas y los sprites. En Android funciona mediante una alternativa WebAssembly. Actualiza Marinara y deja que el lanzador reinstale las dependencias. Si el servidor se detiene antes de que puedas actualizar, repara la instalación a mano en Termux:
+
+```bash
+cd ~/Marinara-Engine
+rm -f node_modules/.modules.yaml
+SHARP_IGNORE_GLOBAL_LIBVIPS=1 pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile --prefer-offline
+./start-termux.sh
+```
+
+Tus chats y tu configuración no se tocan. Si Sharp sigue sin poder cargarse, Marinara sigue funcionando con el procesamiento de imágenes desactivado. Las miniaturas existentes se siguen mostrando, las nuevas usan la imagen a tamaño completo, y la generación de sprites y la eliminación de fondo integrada no están disponibles. No sustituyas Sharp por otra versión. Conserva toda la salida del error para el reporte.
+
+<a id="browser-opens-before-startup-finishes"></a>
+
+### El navegador se abre antes de que termine el inicio
+
+Actualiza y reinicia con el lanzador. El lanzador abre el navegador solo cuando el servidor informa que está listo. Si el inicio falla, no se abre ninguna pestaña, así que conserva el error de la terminal. Para abrir la app por tu cuenta, fija `AUTO_OPEN_BROWSER=false`.
+
+### Windows: error EPERM o de firma de corepack al instalar pnpm
+
+pnpm es el gestor de paquetes que Marinara usa para instalar su código. `EPERM: operation not permitted` o un error de firma de corepack significa que corepack no pudo escribir en la carpeta de instalación de Node. Prueba una solución y luego vuelve a ejecutar el lanzador:
+
+1. Haz clic derecho en tu terminal, elige **Run as administrator** (Ejecutar como administrador) y ejecuta el lanzador.
+2. Instala pnpm tú mismo: `npm install -g pnpm@12.15.0`
+3. En una terminal de administrador, actualiza corepack: `npm install -g corepack`
+
+### Error de versión de pnpm, o `'pnpm' is not recognized`
+
+Marinara usa pnpm 12.15.0. El lanzador obtiene la versión correcta por ti, y no hace falta reemplazar primero una versión global anterior de pnpm. Actualiza Marinara (`git pull` en su carpeta si el lanzador no puede) y luego vuelve a ejecutar el lanzador. Si sigue fallando, instala la versión exacta y vuelve a ejecutar el lanzador:
+
+```bash
+npm install -g pnpm@12.15.0
+```
+
+### Linux: ERR_PNPM_ENAMETOOLONG durante la instalación
+
+Una instalación anterior dejó rutas de carpeta largas. Desde la carpeta de Marinara, ejecuta:
+
+```bash
+rm -rf node_modules .pnpm .pnpm-store
+```
+
+Luego vuelve a ejecutar `./start.sh`. En una instalación manual, ejecuta `pnpm install`.
+
+### La instalación dice "Ignored build scripts: @google/genai"
+
+El aviso es inofensivo. No ejecutes `pnpm approve-builds`, porque modifica un archivo que Marinara controla. Si el aviso se sigue mostrando después de una actualización, borra `node_modules/.modules.yaml` en la carpeta de Marinara y vuelve a ejecutar el lanzador.
+
+### ERR_PNPM_TRUST_DOWNGRADE durante la instalación
+
+Esto casi siempre es una instalación a medias. Vuelve a ejecutar el lanzador. En una instalación manual, ejecuta esto desde la carpeta de Marinara:
+
+```bash
+pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile
+```
+
+## Problemas con el modelo integrado
+
+El **Built-in model** (Modelo integrado) se ejecuta en tu computadora sin API key. Algunos mensajes de error lo llaman sidecar. Para la configuración, consulta [Configuración del modelo integrado](connections/local-model.md).
+
+- **Sidecar runtime install is disabled.** En tu propia computadora, fija `SIDECAR_RUNTIME_INSTALL_ENABLED=true` en `.env`. Desde otro dispositivo, guarda primero tu secreto de administrador en **Settings → Advanced → Admin Access**.
+- **La descarga o la configuración del modelo falla desde otro dispositivo** (una dirección de red o Docker). Puede que también necesite el secreto de administrador. En tu propia computadora no lo necesita.
+- **Desajuste de tamaño o de SHA-256** en un archivo incluido de llama.cpp, MLX o uv. Marinara rechazó el archivo antes de usarlo. Actualiza o reinstala Marinara y vuelve a intentarlo. No descomprimas, edites ni eludas el archivo.
+
+## Memoria y resúmenes
+
+### Memory Recall no recuerda nada
+
+**Memory Recall** busca en mensajes anteriores y añade los más relevantes de vuelta al prompt (las instrucciones enviadas a la IA).
+
+1. Abre **Chat Settings → Memory Recall** y confirma que **Enable Memory Recall** está activado.
+2. Abre **Access memories for this chat**. En **Memories for This Chat**, mira el estado de cada fragmento.
+3. **Waiting for vector** significa que la memoria todavía se está procesando. Espera y luego vuelve a chatear.
+4. **Embedding unavailable** significa que ninguna fuente de embeddings funciona. Configura una cuenta de embeddings o deja que se cargue el modelo integrado. Para usar una sola fuente en todos los chats, elígela en **Embeddings** dentro de la sección **Defaults** (Valores predeterminados) de **Connections**.
+
+Una memoria necesita al menos 5 mensajes nuevos antes de crearse. Recall solo muestra las memorias que coinciden de cerca con tu nuevo mensaje, así que puede no devolver nada incluso cuando existen memorias.
+
+<a id="advanced-memory-says-scenes-need-attention"></a>
+
+### Advanced Memory indica que hay escenas que necesitan atención
+
+Un punto fijo en el botón **Chat Settings**, o un aviso de que Advanced Memory encontró problemas, significa que algunas memorias de escenas no están claras, están desactualizadas o faltan.
+
+1. Abre **Chat Settings → Memory Recall**, o haz clic en **Fix** (Reparar) en el aviso.
+2. Haz clic en **Fix**. Repara todas las escenas que puede con el Helper model (modelo auxiliar) y nunca cambia los resúmenes que editaste.
+3. Selecciona cada número de escena bajo **need your review** (necesitan tu revisión), revisa su texto y sus personajes en **Access memories for this chat** y haz clic en **Save correction** (Guardar corrección).
+
+Si **Fix** se detiene con un error, revisa la cuenta del Helper model y luego haz clic en **Resume processing** (Reanudar el procesamiento) o de nuevo en **Fix**. Consulta [Reparar problemas de memoria](agents/memory.md#fixing-memory-problems).
+
+### Los resúmenes no se generan
+
+Los resúmenes necesitan una cuenta de texto que funcione.
+
+- Modo Roleplay: abre **Chat Settings → Chat Summary**, confirma que hay una cuenta establecida y usa **Backfill Summary** para poner al día un chat más antiguo.
+- Modo Conversation: abre **Automatic Summarization** y usa **Backfill** para reintentar los días que fallaron.
+- Si tu chat requiere aprobación de escritura del agente, un resumen de IA espera tu revisión.
+- Un resumen que sigue fallando, por ejemplo por una API key incorrecta, se reintenta más tarde. Corrige la cuenta y luego usa **Backfill**.
+
+## Problemas con los agentes descargables
+
+- **Catálogo no disponible en Agent Organizer.** La computadora que ejecuta el servidor, no solo tu navegador, debe poder llegar al catálogo [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) por HTTPS. Los agentes instalados siguen funcionando sin conexión. Restaura la conexión y luego haz clic en **Refresh** o **Try again**.
+- **Un mapa o una llamada instalados no aparecen.** Cierra Marinara por completo e inícialo de nuevo. Estos paquetes permanecen en **Restart required** hasta el siguiente arranque. Los juegos del modo Conversation se activan de inmediato. Si la instalación falló, refresca el catálogo y comprueba que el juego aparece como listo. Añadir un juego en la configuración de **Commands** de un chat solo es necesario para que los personajes puedan iniciarlo por sí mismos, no para su comando slash manual.
+- **La primera migración de paquetes no puede terminar.** No borres `data/capability-packages` ni tus datos de chat. Marinara lo reintenta en el siguiente arranque, y tus selecciones de chat siguen guardadas.
+- **`data/capability-runtime-snapshots` o `data/capability-packages/versions` muy grandes.** No hace falta limpiarlos. Marinara elimina las copias antiguas al arrancar y conserva la versión actual y la anterior de cada agente.
+- **Se rechaza la descarga de un paquete.** El checksum, la lista de archivos, el rango de versiones de Marinara o las rutas del archivo comprimido no coinciden con el catálogo oficial. Actualiza Marinara, refresca el catálogo y vuelve a intentarlo. No extraigas un artefacto a mano dentro de la carpeta de datos.
+- **Actualizaciones.** Las actualizaciones de agentes nunca se aplican en el arranque. Marinara pregunta primero. **Not now** (Ahora no) conserva la versión instalada, y **Update** (Actualizar) sigue disponible en **Agents → Agent Organizer** (Agentes → Organizador de agentes). Una actualización fallida deja la versión instalada en su lugar. Un runtime del servidor que falla su comprobación de arranque vuelve a la versión anterior.
+
+## Problemas del Card Browser
+
+El **Card Browser** busca en sitios públicos de personajes. Ábrelo con el botón **Download** (Descargar) en la parte superior del panel **Characters** (Personajes) o **Personas**.
+
+- **JannyAI muestra un bloqueo de Cloudflare.** Visita el sitio de JannyAI una vez en el mismo navegador para superar el desafío y luego vuelve a intentarlo.
+- **El inicio de sesión de Pygmalion deja de funcionar después de reiniciar.** Es lo esperado. Ese inicio de sesión vive solo en la memoria del servidor. Abre la ventana de inicio de sesión y pega tu token de nuevo.
+- **CharacterTavern muestra un aviso en lugar de resultados.** Es lo esperado. Su nuevo sitio web ya no ofrece la conexión que usaba Marinara. Descarga la tarjeta desde character-tavern.com e importa el archivo.
+
+## Problemas de generación de medios
+
+### La limpieza del fondo del sprite tiene dificultades con una escena compleja
+
+Los sprites generados normalmente usan transparencia nativa o un fondo plano que Marinara elimina. Una habitación fotografiada, un decorado detallado, sombras marcadas o colores que coinciden con el fondo pueden necesitar el respaldo opcional con IA:
+
+```bash
+pnpm backgroundremover:install
+```
+
+Luego reinicia Marinara y haz clic en **Reapply Cleanup** en la ventana de generación de sprites. Marinara prueba primero la limpieza integrada y usa el modelo de IA solo cuando el borde no se ve uniforme. Si la instalación falla:
+
+- Confirma que tienes instalado Python 3.9 a 3.11. Las versiones más nuevas pueden forzar compilaciones nativas lentas.
+- Ejecuta `pnpm backgroundremover:reinstall`.
+- Para omitir el respaldo con IA mientras solucionas el problema, fija `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin` en `.env`.
+
+### Los storyboards del Game Mode o de Roleplay no aparecen
+
+Los storyboards convierten la narración terminada en imágenes de fotograma clave y clips opcionales. Consulta la [Guía del agente Storyboard](game/storyboard.md) y [Game Mode: primeros pasos](game/getting-started.md).
+
+- Instala **Storyboard** desde **Agents → Agent Organizer** y luego activa **Enable Agents** (Activar agentes) y **Enable Storyboards** (Activar storyboards) para el chat.
+- Los fotogramas clave necesitan una cuenta de imagen. Los clips también necesitan una cuenta de video.
+- Modo Game, automático: abre **Chat Settings → Agents → Storyboards** y confirma que **Automatic Storyboard Illustrations** está activado. Activa **Automatic Storyboard Animations** para tener clips.
+- Video de escena manual: abre **Chat Settings → Gallery**, genera o sube una imagen y luego usa **Video** o **Animate**. Revisa la pestaña **Videos**.
+- Modo Roleplay: añade el agente **Storyboard** al chat. Elige **Still images** o **Animations**, fija **Messages per episode** y elige la cuenta de imagen. **Manual only** se ejecuta desde **Create storyboard** en la sección **Gallery** de **Chat Settings**.
+- Si un prompt personalizado funciona mejor con todos los personajes combinados, desactiva **Use NovelAI Character Prompts**.
+- Los servicios lentos pueden agotar el tiempo de espera. Sube `IMAGE_GEN_TIMEOUT_MS` o `VIDEO_GEN_TIMEOUT_MS` en `.env` y luego reinicia Marinara.
+- `Outbound response exceeded 31457280 bytes`: de forma predeterminada, una respuesta de imagen de más de 30 MiB falla. Los archivos de ComfyUI que incrustan el flujo de trabajo y las imágenes de referencia pueden llegar a ese tamaño. Sube `IMAGE_GEN_MAX_RESPONSE_BYTES` en `.env` y reinicia, o desactiva los metadatos en ComfyUI.
+
+### La generación del mundo del Game Mode muestra un error de JSON
+
+Si el modelo devuelve JSON roto (texto estructurado), Marinara abre la ventana **Repair JSON** en lugar de descartar el turno.
+
+1. Corrige los corchetes, las comas o los campos en el editor. El banner dice **JSON is valid.** cuando el texto se analiza correctamente.
+2. Haz clic en **Format** para ordenar el diseño.
+3. Haz clic en **Apply Repaired JSON** para usarlo sin regenerar la respuesta.
+
+## Voz, llamadas y TTS
+
+- **Los personajes no hablan en una llamada.** Text to Speech (texto a voz) no está configurado. Abre **Connections → Text to Speech**, actívalo, elige una fuente, introduce tu clave, elige una voz y guarda. Un personaje sin voz aparece solo como texto.
+- **La voz se detiene con "No audio after N s".** Tu servidor de voz es más lento de lo que Marinara espera, algo habitual en un servidor local en una laptop. `N` es tu tiempo de espera actual. Sube **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) en **Connections → Text to Speech**, o en la cuenta de audio que indica el mensaje. Consulta [Tiempo de espera de la solicitud](media/tts-setup.md#request-timeout).
+- **El micrófono no funciona.** Instala **Calls** desde **Agents → Agent Organizer**. Luego abre **Connections → Speech to text**, busca **Local speech model** en **On this device**, elige un modelo Whisper y haz clic en **Download Whisper**. Firefox lo necesita porque no tiene reconocimiento de voz del navegador. Desinstalar Calls borra sus modelos Whisper. También puedes usar tu propio servidor: consulta [Usar tu propio servidor de speech-to-text](conversation/calls.md#use-your-own-speech-to-text-server).
+- **Local Whisper is disabled in Lite mode.** La imagen lite no puede ejecutar el modelo de voz local. Usa una instalación completa.
+
+### El inicio de sesión de Spotify del Music DJ falla en una instalación remota o de red
+
+El modo Spotify del agente Music DJ usa OAuth, un traspaso de inicio de sesión en el que Spotify te devuelve a una dirección de retorno (la redirect URI). Spotify solo acepta direcciones `https://` o `http://127.0.0.1`, y rechaza las direcciones IP de red normales.
+
+- En localhost, el editor muestra un retorno de `127.0.0.1`. Regístralo con Spotify.
+- Por HTTPS, el editor muestra tu retorno HTTPS. Registra ese.
+- Si HTTPS termina más arriba y el host no coincide, fija `SPOTIFY_REDIRECT_URI` en `.env` con tu dirección de retorno pública.
+- En una instalación de red con HTTP simple, la ventana emergente no puede cargar, pero su barra de direcciones contiene un código válido. Copia la URL completa, expande **Browser couldn't reach the callback?** debajo del botón Connect y pégala. La URL es válida durante 10 minutos.
+
+La solución más limpia es servir Marinara por HTTPS.
+
+## Almacenamiento y datos
+
+### El servidor no vuelve después de Restart Server
+
+Inicia Marinara con `start.bat`, `start-local.bat`, `start.sh`, `start-termux.sh` o `pnpm start`. Estos mantienen el servidor vinculado a su lanzador e inician un reemplazo cuando el proceso anterior termina. El reinicio desde la app cierra las conexiones persistentes después de cuatro segundos y fuerza la salida después de ocho. Una salida forzada puede interrumpir escrituras pendientes. Las ejecuciones directas con `node` y los procesos que vigilan archivos durante el desarrollo no se reemplazan: detenlos y vuelve a iniciarlos tú. Docker usa su política de reinicio de contenedores. En Windows, pulsa <kbd>Ctrl</kbd>+<kbd>C</kbd> en la consola del lanzador y espera a **Shutdown complete** (Apagado completado) antes de cerrarla.
+
+No inicies un segundo servidor con la misma carpeta de datos mientras el primero siga en ejecución. Detén primero cualquier proceso que haya quedado.
+
+### El inicio dice que otro proceso puede estar usando el directorio de datos
+
+Solo un servidor puede escribir en una carpeta de datos local. Si el inicio indica que **Another Marinara Engine process ... may be using** la carpeta, cierra el otro proceso de Marinara e inicia de nuevo.
+
+Después de una caída o de mover un volumen de Docker, el inicio puede indicar **The storage writer lease ... is incomplete or invalid**, o nombrar un proceso que ya no existe.
+
+1. Confirma que todos los procesos y contenedores de Marinara que usan esa carpeta de datos estén detenidos.
+2. Elimina solo la carpeta `.writer-lease` que nombra el error.
+3. Reinicia Marinara. No elimines la carpeta `storage` ni ningún archivo de tabla.
+
+Marinara borra por sí solo la concesión que dejó un proceso caído en Linux, Android, contenedores y Windows cuando la carpeta de datos está en una unidad local. El paso manual es el respaldo para el almacenamiento en red o compartido, las unidades extraíbles y (en Windows) una computadora a la que se le cambió el nombre después de la caída.
 
 ### La copia de seguridad o la exportación devuelve 403
 
-Las sesiones de loopback pueden hacer copias de seguridad sin un admin secret. De forma predeterminada, las solicitudes desde otro dispositivo, una dirección de red, Docker, o un proxy inverso o un túnel en la misma computadora necesitan más para las copias de seguridad y las exportaciones de perfil. Fija `ADMIN_SECRET` en el servidor y guarda el mismo valor en **Settings** > **Advanced** > **Admin Access**. Si quieres que loopback también requiera el secreto, fija `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Si `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, los visitantes reenviados también usan la excepción local; mantén activada esa protección para un proxy o un túnel públicos.
+Las sesiones desde la misma computadora pueden hacer copias de seguridad sin un secreto de administrador. Las solicitudes desde otro dispositivo, una dirección de red, Docker, o un proxy o un túnel en la misma computadora lo necesitan. Créalo en **Settings → Advanced → Admin Access** en la propia computadora del servidor, o fija `ADMIN_SECRET` en el servidor, y luego guarda el mismo valor en **Admin Access** en el otro dispositivo. Para que loopback también lo requiera, fija `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Si `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, los visitantes reenviados obtienen la excepción local. Mantén activada esa protección para un proxy o un túnel públicos.
 
 ### La importación dice que el archivo no es un archivo ZIP legible
 
-Marinara lee las tarjetas `.charx`, los paquetes `.marinara`, los paquetes de agentes y los repositorios de agentes personalizados como archivos ZIP. Rechaza un archivo comprimido dañado o cuyo contenido no coincide con su propia lista de archivos, y muestra **The file is not a readable ZIP archive** (o **Could not read .marinara package** para un paquete `.marinara`). La causa habitual es una descarga incompleta, así que vuelve a descargar el archivo. Si creaste tú el archivo comprimido, vuelve a crearlo con una herramienta estándar, como la opción de comprimir de tu sistema, `zip` o 7-Zip. No pasa nada si una transferencia añade ceros de relleno o un salto de línea después del archivo comprimido.
+Marinara lee las tarjetas `.charx`, los paquetes `.marinara`, los paquetes de agentes y los repositorios de agentes personalizados como archivos ZIP. Rechaza un archivo comprimido dañado, o uno cuyo contenido no coincide con su lista de archivos, con **The file is not a readable ZIP archive** (o **Could not read .marinara package**). La causa habitual es una descarga incompleta: vuelve a descargar el archivo. Si creaste tú el archivo comprimido, vuelve a crearlo con la opción de comprimir de tu sistema, `zip` o 7-Zip.
 
-**Package contains too many files** significa que un paquete de agente o un repositorio personalizado contiene más de 8.192 archivos. **.marinara package has too many entries** significa que un paquete `.marinara` contiene más de 8 archivos. Estos límites no son nuevos. Quita los archivos sobrantes y vuelve a intentarlo.
+**Package contains too many files** significa que un paquete de agente o un repositorio contiene más de 8.192 archivos. **.marinara package has too many entries** significa que un paquete `.marinara` contiene más de 8. Quita los archivos sobrantes y vuelve a intentarlo.
 
-## Android y Docker
+### Los horarios de Conversation o Noodle usan la zona horaria equivocada, o muestran `Etc/Unknown`
+
+Para los horarios de Conversation, elige **Schedule timezone** en Conversation Chat Settings o en el editor de horario de un personaje. **Use device** la restablece.
+
+Para Noodle u otras tareas del servidor, elimina cualquier línea `TZ=` en blanco de `.env` y reinicia Marinara para que use la zona horaria del host. Para fijar una, usa un nombre IANA como `TZ=Europe/Warsaw`.
+
+## Problemas de Android
 
 ### La app de Android se queda en Connecting o Waiting for Server
 
-La app de Android es una pequeña carcasa alrededor de Termux. Termux es una app de terminal Linux para Android, y ejecuta el servidor real de Marinara.
+La app de Android es una pequeña carcasa alrededor de Termux, una app de terminal Linux para Android que ejecuta el servidor real de Marinara.
 
 1. Toca **Install / Start Marinara**.
 2. Si Android pide instalar Termux, aprueba los avisos.
 3. Si Android pide ejecutar comandos en Termux, concédelo.
-4. Espera a que el lanzador termine e inicie el servidor, luego vuelve a la app.
+4. Espera a que el lanzador inicie el servidor y luego vuelve a la app.
 
-La ruta normal del APK nunca te pide que pegues un secreto de Marinara. La app genera su credencial privada de localhost, la aprovisiona en Termux e inicia sesión automáticamente. Los diálogos de instalación de apps y permisos de Termux de Android siguen siendo avisos obligatorios del sistema. No añadas `null`, `http://null` ni el secreto del APK a `CSRF_TRUSTED_ORIGINS`; ninguno es un paso válido ni necesario para configurar Android.
+La app crea su credencial privada de localhost e inicia sesión automáticamente. Nunca tienes que pegar un secreto. No añadas `null`, `http://null` ni el secreto del APK a `CSRF_TRUSTED_ORIGINS`.
 
-Confirma también que la app y Termux usan el mismo puerto. El predeterminado es `7860`. Si compilaste la app con un puerto diferente, fija el `PORT` correspondiente en el `.env` de Termux también.
+Confirma también que la app y Termux usan el mismo puerto. El predeterminado es `7860`. Si compilaste la app con otro puerto, fija el `PORT` correspondiente en el `.env` de Termux.
+
+<a id="android-localhost-opens-the-login-page-or-returns-401503"></a>
 
 ### Android localhost abre la página de inicio de sesión o devuelve 401/503
 
-Las instalaciones de Termux gestionadas por el APK protegen localhost con un secreto privado por instalación. La app de Android se autentica automáticamente y no debería mostrar esta página de inicio de sesión durante la configuración. Si aparece dentro de la app Marinara Engine, instala el [APK más reciente](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk), toca **Install / Start Marinara** otra vez y vuelve a la app cuando Termux termine.
+Las instalaciones de Termux gestionadas por el APK protegen localhost con un secreto privado por instalación, y la app inicia sesión automáticamente. Si la página de inicio de sesión aparece dentro de la app, instala el [APK más reciente](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk), toca **Install / Start Marinara** otra vez y vuelve cuando Termux termine.
 
-Un error que menciona el origen `null` significa que una pareja antigua de APK y servidor dejó que el origen opaco del WebView de Android llegara a la comprobación general de CSRF antes del intercambio privado. Editar `.env` no puede corregirlo: el valor literal `null` se ignora deliberadamente, y confiar globalmente en un origen opaco debilitaría todas las rutas inseguras de la API. Actualiza el APK y Engine; las rutas actuales de inicio de sesión de Android verifican su propia prueba de un solo uso o secreto por instalación, mientras `null` sigue rechazado en el resto.
+Un error que menciona el origen `null` significa una pareja antigua de APK y servidor. Editar `.env` no puede corregirlo. Actualiza el APK y Marinara.
 
-Para abrir un navegador en el mismo teléfono, selecciona **Open in browser** (abrir en el navegador) en el lanzador de Android y toca **Retry connection** (reintentar conexión). Con el APK y Engine actualizados, la autenticación es automática y no necesitas introducir ningún secreto. Vuelve a abrirlo con esta acción tras reiniciar el servidor o cuando caduque la sesión. Desde la app, vuelve al lanzador mediante **Settings > General > App Behavior > Open Android launcher (app or browser)** (ajustes > general > comportamiento de la app > abrir el lanzador de Android (app o navegador)).
+Para abrir un navegador en el mismo teléfono, toca **Open in browser** (Abrir en el navegador) en el lanzador de Android y luego **Retry connection** (Reintentar conexión). Vuelve a abrirlo así tras reiniciar el servidor o cuando caduque la sesión. Para volver al lanzador, usa **Settings → General → App Behavior → Open Android launcher (app or browser)** (Configuración → General → Comportamiento de la app → Abrir el lanzador de Android: app o navegador).
 
-Los APK anteriores pueden seguir usando `/android-login` con el valor de `cat ~/.marinara-engine/android-secret`. El enlace del navegador caduca al cabo de un minuto y solo funciona una vez. Si caduca, vuelve a abrir el navegador desde el lanzador en lugar de reutilizar el enlace del historial.
+Los APK anteriores inician sesión en `/android-login` con el valor de `cat ~/.marinara-engine/android-secret`. Un enlace del navegador funciona una vez y caduca al cabo de un minuto, así que abre uno nuevo desde el lanzador.
 
-La CLI local `mari` lee el mismo archivo automáticamente. Un 401 significa que se rechazó el secreto pegado o un desafío de autenticación; vuelve a cargar `/android-login` y pega el valor actual. Un 503 significa que el servidor recibió un secreto configurado con un formato incorrecto. Reinicia mediante `./start-termux.sh`; si el lanzador indica que su archivo de secreto no es válido o está vacío, vuelve a la app de Android y toca **Install / Start Marinara** para que el APK lo aprovisione otra vez. No incluyas este secreto en capturas de pantalla ni en informes de problemas.
+- **401:** se rechazó el secreto pegado o el desafío. Vuelve a cargar `/android-login` y pega el valor actual.
+- **503:** el servidor recibió un secreto con un formato incorrecto. Reinicia con `./start-termux.sh`. Si el lanzador indica que su archivo de secreto no es válido o está vacío, toca **Install / Start Marinara** en la app para aprovisionarlo de nuevo.
+
+El comando local `mari` lee el mismo archivo automáticamente. No incluyas el secreto en capturas de pantalla ni en informes de problemas.
 
 ### La actualización de Android se detiene con exit status 134
 
-El exit status 134 normalmente significa que Android se quedó sin memoria durante un paso de compilación. Actualiza de nuevo desde el lanzador más reciente:
+Android se quedó sin memoria durante un paso de compilación. Vuelve a ejecutar el lanzador:
 
 ```bash
 ./start-termux.sh
 ```
 
-Si sigue deteniéndose, cierra otras apps de Android, reabre Termux y ejecuta el comando de nuevo.
+Si se detiene de nuevo, cierra otras apps, reabre Termux y vuelve a intentarlo.
 
 ### Termux se cierra o reinicia mientras Marinara está funcionando
 
-El lanzador solicita un wake lock de Android mientras el servidor funciona y guarda cada sesión del servidor en `~/.marinara-engine/logs/`. Después de un reinicio inesperado, adjunta al informe el archivo `server-*.log` más reciente. Si termina sin un error de Marinara o Node, lo más probable es que Android o el fabricante del teléfono haya terminado Termux fuera del proceso del servidor.
+El lanzador solicita un wake lock mientras el servidor funciona y guarda cada sesión en `~/.marinara-engine/logs/`. Después de un reinicio inesperado, incluye en tu reporte el `server-*.log` más reciente. Si termina sin un error de Marinara o de Node, lo más probable es que Android o el fabricante del teléfono haya terminado Termux.
 
-Permite que Termux funcione en segundo plano y quítale la optimización de batería en los ajustes de Android. Los comandos `termux-wake-lock` y `termux-wake-unlock` vienen incluidos en cualquier instalación estándar de Termux (el paquete básico `termux-tools`); no hace falta ningún complemento. Estos ajustes no evitan todos los cierres de procesos específicos del fabricante, pero eliminan la causa habitual de suspensión por inactividad, mientras el registro persistente conserva pruebas de los fallos de la aplicación.
+En los ajustes de Android, permite que Termux funcione en segundo plano y quítale la optimización de batería. `termux-wake-lock` y `termux-wake-unlock` vienen con la instalación estándar de Termux. Estos ajustes no pueden evitar todos los cierres específicos del fabricante.
 
-### Marinara deja de responder hasta que traes Termux al primer plano
+### Marinara deja de responder hasta que Termux está en primer plano
 
-Si los chats se quedan colgados en "Opening chat...", la app informa entonces de **Server unreachable** (Servidor inalcanzable), la copia de Support Diagnostics muestra **Unreachable (request timed out)** (Inalcanzable: se agotó el tiempo de espera de la solicitud) en los campos del servidor y todo se recupera en el instante en que abres Termux: el proceso host está **congelado**, no caído. El congelador de apps en caché de Android (y sus equivalentes de fabricante, especialmente agresivos en algunos teléfonos) suspende todo el proceso de Termux: el teléfono sigue aceptando la conexión, pero el servidor congelado nunca la responde. Un wake lock por sí solo no exime a un proceso de la congelación, y el registro de la sesión muestra un salto en las marcas de tiempo durante el intervalo congelado en lugar de un error.
+Los chats se quedan colgados en "Opening chat...", la app informa **Server unreachable** (Servidor inalcanzable), la copia de Support Diagnostics muestra **Unreachable (request timed out)** (Inalcanzable: se agotó el tiempo de espera de la solicitud) en los campos del servidor, y todo se recupera en el instante en que abres Termux. El congelador de apps en caché de Android suspendió el proceso de Termux. El teléfono acepta la conexión, pero el servidor congelado nunca responde. Un wake lock no lo evita. El registro de la sesión muestra un salto en las marcas de tiempo durante el intervalo congelado, no un error.
 
-Para reducirlo: exime a Termux de la optimización de batería y permite la actividad en segundo plano en los ajustes de Android, fija Termux en la pantalla de aplicaciones recientes si tu teléfono lo permite, y mantén visible la notificación de Termux. Si las congelaciones continúan, la solución fiable es mantener Termux en primer plano (o la pantalla encendida) mientras usas Marinara de forma activa.
+Exime a Termux de la optimización de batería, permite la actividad en segundo plano, fija Termux en la pantalla de recientes si tu teléfono lo permite y mantén visible su notificación. Si las congelaciones continúan, mantén Termux en primer plano o la pantalla encendida mientras usas Marinara.
 
 ### La actualización de Android se queda sin almacenamiento al instalar dependencias
 
-La app de Marinara compilada no ocupa varios gigabytes, y Noodle no descarga sus propios modelos de IA. Una huella temporal grande durante una actualización normalmente viene del almacén de dependencias y del almacén virtual de pnpm, sobre todo después de varias versiones o de una reinstalación forzada interrumpida.
-
-El lanzador actual poda los paquetes que quedaron de versiones anteriores y evita recompilar el almacén de dependencias más de una vez para la misma actualización. Las actualizaciones dentro de la app desde **Settings** > **Advanced** > **Updates** ahora también instalan solo los paquetes de Android, en lugar de copias para todas las demás plataformas. Si un lanzador más antiguo ya llenó el dispositivo, actualiza el lanzador y recupera su caché sin referencias antes de intentarlo de nuevo:
+Una huella temporal grande durante una actualización normalmente viene del almacén de dependencias de pnpm, después de varias versiones o de una reinstalación interrumpida. El lanzador actual poda los paquetes antiguos, y las actualizaciones dentro de la app instalan solo los paquetes de Android. Si un lanzador más antiguo llenó el dispositivo, libera el espacio y vuelve a intentarlo:
 
 ```bash
 cd Marinara-Engine
@@ -459,13 +437,11 @@ pnpm store prune
 ./start-termux.sh
 ```
 
-No elimines `data`, `storage` ni `marinara-engine.db`; esas ubicaciones pueden contener tus chats y tu configuración. Si el comando sigue deteniéndose, captura las líneas que empiezan en `Installing dependencies` e incluye en el reporte las cifras de espacio libre y de memoria del teléfono.
+No borres `data`, `storage` ni `marinara-engine.db`, porque pueden contener tus chats y tu configuración. Si sigue deteniéndose, captura las líneas a partir de `Installing dependencies` e incluye en tu reporte el espacio libre y la memoria del teléfono.
 
 ### La actualización dentro de la app falla al cambiar entre Stable y Staging en Android
 
-Cambiar de canal (Stable ↔ Staging) fuerza una reinstalación casi completa de dependencias, que en el almacenamiento más lento de Termux puede tardar mucho más que una actualización normal. El actualizador dentro de la app ahora concede tiempo extra para cada paso en Android, así que un cambio de canal que antes se detenía con un simple `Update failed: Command failed: corepack pnpm ... install` debería completarse.
-
-Si una actualización sigue fallando, el error ahora nombra el paso que falló e incluye el final de su salida. Lee ese mensaje: un error real de dependencia o de lockfile se reporta ahí. También puedes ejecutar la actualización a mano desde Termux con el comando manual que se muestra en la pista del error, o recuperar espacio primero:
+Cambiar de canal fuerza una reinstalación casi completa de dependencias, que es lenta en el almacenamiento de Termux. El actualizador dentro de la app concede tiempo extra para cada paso. Si una actualización sigue fallando, el error nombra el paso que falló y muestra el final de su salida. Un error real de dependencia o de lockfile aparece ahí. También puedes actualizar a mano desde Termux con el comando de la pista del error, o liberar espacio primero:
 
 ```bash
 cd Marinara-Engine
@@ -473,52 +449,25 @@ pnpm store prune
 ./start-termux.sh
 ```
 
-### Noodle muestra `Etc/Unknown` o los horarios usan la zona horaria equivocada
-
-Para los horarios de Conversation, abre Conversation Chat Settings o un editor de horario de personaje y elige **Schedule timezone**. Esta selección global se aplica a cada chat de Conversation, incluidos los mensajes autónomos en segundo plano, y se puede restablecer con **Use device**.
-
-Para Noodle o para trabajos del servidor sin una anulación de Conversation, elimina cualquier línea `TZ=` en blanco de `.env` y reinicia Marinara para que el servidor herede la zona horaria del host. Para elegir un valor de reserva del host explícitamente, fija un nombre IANA válido como `TZ=Europe/Warsaw` o `TZ=America/New_York`. Las versiones actuales tratan un valor en blanco como no establecido, pero aún se requiere un reinicio para que el estado de zona horaria de Node y los trabajos programados se reconstruyan de forma consistente.
+## Problemas de Docker
 
 ### Permiso denegado del contenedor en un montaje de volumen
 
-Si un contenedor Docker o Podman falla con errores de permiso en el volumen de datos:
-
-- Para volúmenes con nombre después de una actualización, obtén la imagen más reciente y reinicia con `docker compose pull && docker compose up -d`. La imagen oficial repara la propiedad en el arranque.
-- Para bind mounts, haz que la carpeta del host sea escribible por el ID de usuario y de grupo `1000`, o usa un volumen con nombre en su lugar.
-- En sistemas SELinux como Fedora o RHEL, añade el sufijo `:Z` al montaje del volumen.
+- Volumen con nombre después de una actualización: ejecuta `docker compose pull && docker compose up -d`. La imagen oficial repara la propiedad al arrancar.
+- Bind mount: haz que la carpeta del host sea escribible por el ID de usuario y de grupo `1000`, o usa un volumen con nombre.
+- Sistemas SELinux como Fedora o RHEL: añade el sufijo `:Z` al montaje del volumen.
 
 ### El contenedor Lite se cae en una Raspberry Pi 4
 
-Si el contenedor lite se reinicia cada vez que envía una petición de IA en una Raspberry Pi 4 o un dispositivo ARM similar, revisa el código de salida. Exit 132 o SIGILL apunta a un problema conocido de origen ascendente en la compilación de Node de la imagen lite en algunos chips ARM. SIGILL significa que el programa alcanzó una instrucción que la CPU no puede ejecutar.
-
-La imagen regular (no lite) no está afectada. Hasta que llegue la corrección ascendente, usa la imagen regular en ese dispositivo. Entre las imágenes lite afectadas conocidas están `1.5.7-lite` y `1.5.8-lite`. Comprobado por última vez con Marinara Engine 2.2.0.
-
-### External Extensions no aparece en Addons
-
-La sección está oculta a propósito hasta que se abran ambas puertas de seguridad:
-
-1. Fija `ENABLE_EXTERNAL_EXTENSIONS=true` en el `.env` del host.
-2. Espera unos dos segundos al observador de configuración, luego abre **Settings → Advanced → Danger Zone**, desplázate por debajo de los controles de borrado de datos y activa **Allow third-party extension imports**.
-
-Si el interruptor de Danger Zone está desactivado, la marca del host sigue siendo falsa o la app no ha observado el cambio. Confirma que editaste la ruta `.env` activa descrita en [Configuración del servidor](CONFIGURATION.md). En Docker, esa normalmente es `/app/data/.env`.
-
-Cuando alguna de las puertas está cerrada, los registros de extensiones externas, heredadas, importadas de perfil, almacenadas manualmente y de origen desconocido no aparecen ni pueden ejecutarse. Reabrir las puertas no las vuelve a activar automáticamente.
-
-### Una extensión de navegador importada aparece pero no funciona
-
-Abre la extensión en **Settings → Addons → External Extensions** e inspecciona **Requested access**. Los paquetes antiguos que usan el formato `marinara.extension` v1 sin declaración de capacidades deberían mostrar **Full page access**. Aprueba solo el hash exacto que inspeccionaste y en el que confías.
-
-Si un paquete antiguo se volvió a exportar con una lista de capacidades vacía explícita, Marinara lo trata como una extensión de sandbox segura; ahí no funcionará el código que depende del DOM. Añade `full_page_access` a su manifiesto solo si entiendes que el código obtendrá acceso a toda la página de Marinara, al almacenamiento del navegador, a las APIs de red y a la sesión del mismo origen.
-
-Después de desactivar una extensión con acceso a toda la página, recarga Marinara si queda algún elemento de la barra de herramientas, una capa superpuesta, un listener o un cambio visual. La limpieza se hace en la medida de lo posible, porque el código de la página puede crear efectos secundarios fuera de la API de compatibilidad que Marinara rastrea.
+Si la imagen lite se reinicia cada vez que envía una petición de IA en una Raspberry Pi 4 o un dispositivo ARM similar, revisa el código de salida. Exit 132 o SIGILL (la CPU alcanzó una instrucción que no puede ejecutar) apunta a un problema conocido de origen ascendente en la compilación de Node de la imagen lite en algunos chips ARM. Usa la imagen regular en ese dispositivo.
 
 <a id="a-server-extension-says-no-supported-sandbox-is-available"></a>
 
 ### Una Server Extension dice que no hay ningún sandbox compatible disponible
 
-Las Server Extensions y los comandos de shell sin procesar de Professor Mari solo funcionan con Seatbelt de macOS o Bubblewrap de Linux. Instala `bwrap` en un host Linux nativo y luego reinicia Marinara. La imagen oficial de Docker ya incluye Bubblewrap, pero el contenedor predeterminado mantiene privilegios mínimos y no puede crear sus espacios de nombres y montajes anidados. Marinara detecta ese estado y desactiva las funciones de sandbox del sistema en vez de intentar comandos rotos.
+Las Server Extensions y los comandos de shell sin procesar de Professor Mari solo funcionan con Seatbelt de macOS o Bubblewrap de Linux. En un host Linux nativo, instala `bwrap` y reinicia Marinara. La imagen oficial de Docker incluye Bubblewrap, pero el contenedor predeterminado no puede crear sus espacios de nombres anidados, así que Marinara mantiene desactivadas estas funciones.
 
-Si aceptas privilegios más amplios y necesitas estas funciones en Docker, guarda esto como `docker-compose.override.yml` junto a `docker-compose.yml`:
+Si aceptas privilegios de contenedor más amplios, guarda esto como `docker-compose.override.yml` junto a `docker-compose.yml` y luego vuelve a crear el contenedor:
 
 ```yaml
 services:
@@ -531,24 +480,66 @@ services:
       - apparmor=unconfined
 ```
 
-Vuelve a crear el contenedor después de añadir ese archivo. Aquí es necesario mantener el proceso del servidor como root para que la capacidad añadida no se pierda cuando el punto de entrada de Marinara cambia normalmente al usuario `node`. Ejecutar el servidor como root con `SYS_ADMIN` es una ampliación de privilegios considerable, y desactivar el perfil de AppArmor del contenedor debilita todavía más su frontera de seguridad externa; no lo actives solo para silenciar el mensaje de sandbox no disponible. El perfil seccomp predeterminado de Docker se adapta a las capacidades añadidas, así que en las versiones actuales de Docker no debería hacer falta un ajuste general `seccomp=unconfined`.
+> **Advertencia:** ejecutar el servidor como root con `SYS_ADMIN` y sin perfil de AppArmor es una escalada de privilegios amplia. No lo actives solo para ocultar este mensaje.
 
-Windows, Android y otros hosts no compatibles rechazan deliberadamente la ejecución de Server Extensions en lugar de recurrir al proceso principal del servidor. Las Browser Extensions aún pueden usar su sandbox de Worker con origen opaco.
+El perfil seccomp predeterminado de Docker se adapta a las capacidades añadidas, así que en las versiones actuales de Docker no debería hacer falta `seccomp=unconfined`.
+
+Windows, Android y otros hosts no compatibles rechazan la ejecución de Server Extensions. Las Browser Extensions siguen ejecutándose en su sandbox.
+
+## Problemas con las extensiones
+
+### External Extensions no aparece en Addons
+
+La sección permanece oculta hasta que se abran ambas puertas.
+
+1. Fija `ENABLE_EXTERNAL_EXTENSIONS=true` en el `.env` del host.
+2. Espera un momento y luego abre **Settings → Advanced → Danger Zone** (Configuración → Avanzado → Zona de peligro), desplázate por debajo de los controles de borrado de datos y activa **Allow third-party extension imports**.
+
+Si el interruptor está desactivado, la marca del host sigue siendo falsa o la app no ha visto el cambio. Confirma que editaste el `.env` activo descrito en [Configuración del servidor](CONFIGURATION.md). En Docker normalmente es `/app/data/.env`.
+
+Mientras alguna de las puertas esté cerrada, las extensiones externas registradas no aparecen ni pueden ejecutarse. Volver a abrir las puertas no las vuelve a activar.
+
+### Una extensión de navegador importada aparece pero no funciona
+
+Ábrela en **Settings → Addons → External Extensions** y lee **Requested access**. Los paquetes antiguos `marinara.extension` v1 sin declaración de capacidades muestran **Full page access**. Aprueba solo el hash exacto que inspeccionaste y en el que confías.
+
+Un paquete que se volvió a exportar con una lista de capacidades vacía se trata como una extensión de sandbox segura, y el código que necesita el DOM de la página no funcionará. Añade `full_page_access` a su manifiesto solo si aceptas que el código obtenga toda la página, el almacenamiento del navegador, las APIs de red y tu sesión.
+
+Después de desactivar una extensión con acceso a toda la página, recarga Marinara si queda algún elemento de la barra de herramientas, una capa superpuesta o un listener. La limpieza se hace en la medida de lo posible, porque el código de la página puede causar efectos secundarios que Marinara no rastrea.
+
+<a id="multiplayer-connection-or-turn-problems"></a>
+
+## Problemas de conexión o turnos multijugador
+
+| Síntoma | Solución |
+| --- | --- |
+| Controles no disponibles | Pon `MULTIPLAYER_ENABLED=true` en el `.env` de la instancia de Marinara correcta, reiníciala y luego activa el ajuste por separado. La carcasa nativa de Android no puede unirse. |
+| Anfitrión no disponible | Usa un puerto HTTPS de sala independiente y accesible, una cadena de certificados y un nombre de host válidos, y la huella correspondiente de la invitación. No desactives las comprobaciones TLS, no añadas `null` a los orígenes de confianza, no expongas la API normal ni abras un cliente proporcionado por el anfitrión. |
+| Esperando aprobación | El anfitrión debe aprobarte en Players. No ves ningún historial antes de la aprobación. Pide una nueva invitación si caducó. |
+| Desconectado | Mantén en ejecución tu propio Marinara. Se reconecta al mismo anfitrión mientras la sesión siga activa, y los borradores sin enviar se conservan. Después de un reinicio, vuelve a unirte. Para conservar el mismo nombre de persona, pide antes al anfitrión que elimine tu asiento anterior. |
+| Juego en espera | Abre Players. A los jugadores desconectados no se les pasa el turno automáticamente. El anfitrión puede usar **Pass**, **Kick** o **Pause**. |
+| Generación interrumpida | No reenvíes la ronda. El anfitrión debe revisar la narración y el estado guardados, y luego reanudar o detener la sala. El multijugador nunca repite una solicitud de resultado dudoso ni aplica dos veces sus efectos en el mundo. |
+| Comando restringido o medios ausentes | Las salas solo transmiten texto. Consulta la [tabla de compatibilidad](development/multiplayer.md#command-and-feature-compatibility). No instales un archivo ni una extensión que te pase otro participante. |
+
+Al reportar un error de conexión, incluye el modo, la plataforma, el error visible y si la aprobación funcionó. No publiques invitaciones, contraseñas de sala, tokens de sesión, historiales privados ni API keys.
+
+## La instalación como PWA en Chrome de Android falla detrás de un inicio de sesión
+
+Usa una dirección HTTPS, inicia sesión y recarga después de actualizar Marinara. La app solicita su manifiesto con credenciales, así que el inicio de sesión puede permanecer activado. Si la instalación sigue sin estar disponible, comprueba que tu proxy entregue `/manifest.json` como JSON, no como una página de inicio de sesión o un error.
+
+<a id="get-more-help"></a>
 
 ## Cómo obtener más ayuda
 
-Si todavía necesitas ayuda, reúne primero buenos detalles.
+1. Abre **Settings → Advanced → Message Tools** (Configuración → Avanzado → Herramientas de mensaje) y activa **Debug mode**. Registra el prompt y la respuesta en la consola del servidor.
+2. Anota tu sistema operativo, tu versión de Node.js y el texto completo del error de la consola.
+3. Elimina las API keys, los tokens de acceso, los secretos de administrador y el contenido de chat privado antes de compartir nada.
 
-1. Abre **Settings** > **Advanced** > **Message Tools** y activa **Debug mode**. Esto registra las cargas del prompt y de la respuesta en la consola del servidor para que puedas compartirlas.
-2. Anota tu sistema operativo, tu versión de Node.js y el texto completo del error de la consola del servidor.
+Luego pide ayuda a la comunidad:
 
-Antes de compartir la salida de depuración, elimina las API keys, los tokens de acceso, los admin secrets, los prompts privados y el contenido de chat privado.
-
-Luego contacta con la comunidad:
-
-- Lee los issues abiertos en https://github.com/Pasta-Devs/Marinara-Engine/issues
-- Únete al Discord para obtener ayuda de la comunidad en https://discord.com/invite/KdAkTg94ME
-- Presenta un reporte de error en https://github.com/Pasta-Devs/Marinara-Engine/issues con tus detalles de arriba.
+- Lee los [issues abiertos](https://github.com/Pasta-Devs/Marinara-Engine/issues).
+- Únete al [Discord](https://discord.com/invite/KdAkTg94ME).
+- Presenta un reporte de error en los mismos issues de GitHub, con los detalles de arriba.
 
 ## Guías relacionadas
 
@@ -557,10 +548,19 @@ Luego contacta con la comunidad:
 - [Acceso remoto](REMOTE_ACCESS.md)
 - [Actualizar Marinara Engine](UPGRADING.md)
 - [Conectar a un proveedor de IA](connections/connecting-to-a-provider.md)
-- [Configuración del Local Model](connections/local-model.md)
-- [Game Mode: Primeros pasos](game/getting-started.md)
-- [Descripción general de los ajustes](settings/settings-overview.md)
+- [Configuración del modelo integrado](connections/local-model.md)
+- [Game Mode: primeros pasos](game/getting-started.md)
+- [Descripción general de la configuración](settings/settings-overview.md)
 
-### Chrome en Android no ofrece instalar la PWA con Basic Auth
+<details>
+<summary>Mantenedores: actualizar los runtimes locales fijados</summary>
 
-Usa una dirección HTTPS, inicia sesión y recarga después de actualizar Marinara. La aplicación solicita el manifiesto con credenciales, por lo que Basic Auth puede permanecer activado. Si aún no puedes instalarla, comprueba que el proxy entregue `/manifest.json` como JSON, no como una página de acceso o un error.
+No está garantizado que los archivos de código fuente generados por GitHub sigan siendo estables byte a byte, aunque el contenido de su commit no cambie. Nunca "arregles" el desajuste de un usuario aceptando los bytes que se ven en su máquina ni debilitando la verificación. Vuelve a fijar las entradas de runtime solo dentro de un cambio revisado del Engine:
+
+1. Elige una revisión ascendente inmutable o un recurso de release y revisa los cambios ascendentes.
+2. Descarga el artefacto en un directorio temporal, anota su número exacto de bytes y calcula su hash SHA-256 de forma independiente.
+3. Actualiza `runtime-integrity-manifest.ts` con la revisión, la URL, el tamaño y el hash. Para MLX, vuelve a generar `packages/server/src/assets/mlx-runtime-requirements.lock` desde su archivo `.in` con la versión fijada de uv en Apple Silicon/Python 3.12, revisa cada cambio de dependencia y actualiza `requirementsLockSha256`.
+4. Ejecuta `pnpm regression:runtime-integrity`, `pnpm check` y una instalación limpia y real del runtime en la plataforma afectada.
+5. Publica la actualización revisada del Engine antes de pedir a los usuarios que vuelvan a intentarlo. No ofrezcas una anulación manual de la suma de verificación.
+
+</details>

@@ -1,85 +1,82 @@
 # Limity tokenów i rekurencja w lorebookach
 
-Z tego przewodnika dowiesz się, jak Marinara Engine ogranicza ilość tekstu z lorebooków, który trafia do AI. Omawia pola **Token Budget** (limit tokenów) i **Entry Limit** (limit wpisów) w każdym lorebooku oraz wspólny dla całego czatu **Lorebook Token Budget** (limit tokenów lorebooków). Wyjaśnia też, jak Marinara przycina wpisy po wyczerpaniu limitu i do czego służy skanowanie **Recursive** (rekurencyjne).
+Limity ograniczają, ile tekstu z lorebooków trafia do AI, żeby lorebooki nie wypierały samego czatu. Ten przewodnik omawia pola **Token Budget** (limit tokenów) i **Entry Limit** (limit wpisów) każdego lorebooka, pole **Lorebook Token Budget** (limit tokenów lorebooków) czatu, sposób, w jaki Marinara przycina wpisy, oraz skanowanie **Recursive** (rekurencyjne).
 
-Token to mały kawałek tekstu, mniej więcej kilka znaków. Każdy model ma ograniczone okno kontekstu, czyli łączną ilość tekstu, jaką potrafi przeczytać naraz. Limity pilnują, żeby lorebooki nie zapełniły tego okna i nie wypchnęły z niego samej rozmowy.
+Tokeny to małe kawałki tekstu, które liczą modele. Okno kontekstu modelu to ilość tekstu, jaką model potrafi przeczytać naraz, liczona w tokenach. Tekst z lorebooków dzieli to okno z resztą promptu (tekstu, który Marinara wysyła do AI).
 
 ## Dwa limity tokenów
 
-Przy każdym budowaniu promptu Marinara sprawdza dwa niezależne limity tokenów. Wpis zostaje pominięty, jeśli przekroczyłby którykolwiek z nich.
+Marinara stosuje dwa limity przy każdym budowaniu promptu. Wpis zostaje pominięty, jeśli przekroczyłby którykolwiek z nich.
 
-1. Każdy lorebook ma własne pole **Token Budget**. Ogranicza ono, ile tekstu ten jeden lorebook może dołożyć do jednej odpowiedzi.
-2. Czat ma jedno pole **Lorebook Token Budget**. Ogranicza ono łączny tekst ze wszystkich lorebooków aktywnych w tym czacie.
-
-Oba limity działają jednocześnie. Pojedynczy wpis może zostać zablokowany przez limit lorebooka, limit czatu albo przez oba naraz.
+- Każdy lorebook ma własne pole **Token Budget**: największa liczba tokenów, jaką ten lorebook może dodać do jednej odpowiedzi.
+- Każdy czat ma jedno pole **Lorebook Token Budget**: największa liczba tokenów, jaką wszystkie aktywne lorebooki mogą dodać łącznie.
 
 ## Ustawianie pól Token Budget i Entry Limit w lorebooku
 
-Otwórz lorebook w panelu **Lorebooks** (lorebooki), a potem przejdź do zakładki **Overview** (przegląd). Obok ustawień skanowania widać dwa pola liczbowe.
+1. Otwórz lorebook z panelu **Lorebooks** (lorebooki).
+2. Kliknij zakładkę **Overview** (przegląd).
+3. Ustaw pola **Token Budget** i **Entry Limit**.
 
-- **Token Budget** (domyślnie **2048**): największa liczba tokenów, jaką ten lorebook może dołożyć do jednej odpowiedzi. Wartość **0** oznacza brak limitu.
-- **Entry Limit** (domyślnie **100**): największa liczba wpisów, jaką ten lorebook może dołożyć do jednej odpowiedzi. Zakres to od **1** do **1000**.
+| Ustawienie | Domyślnie | Działanie |
+| --- | --- | --- |
+| **Token Budget** | 2048 | Największa liczba tokenów, jaką ten lorebook dodaje w jednej odpowiedzi. 0 oznacza brak limitu. |
+| **Entry Limit** | 100 | Największa liczba wpisów, jaką ten lorebook dodaje w jednej odpowiedzi. Zakres od 1 do 1000. |
 
-Pole **Entry Limit** to limit niezależny od limitu tokenów. Liczy wpisy, a nie tokeny. Nawet gdy w limicie tokenów zostaje jeszcze miejsce, lorebook przestaje dokładać wpisy po osiągnięciu tej granicy. Odwrotnie też: limit tokenów może pomijać wpisy, choć lorebook nie dobił jeszcze do wartości **Entry Limit**.
+Pole **Entry Limit** liczy wpisy, a nie tokeny. Lorebook przestaje dodawać wpisy, gdy osiągnie którykolwiek z limitów.
 
-Weź na przykład lorebook z polem **Token Budget** ustawionym na **2048** i jednym wpisem o długości 3000 tokenów. Taki lorebook nigdy nie doda tego wpisu. Zmniejszaj limit tylko wtedy, gdy lorebook zajmuje za dużo miejsca. Zwiększ go, jeśli ważne wpisy stale są pomijane.
+Przykładowo przy polu **Token Budget** ustawionym na 2048 pojedynczy wpis o długości 3000 tokenów nigdy nie zostanie dodany. Zmniejsz limit, jeśli lorebook zajmuje za dużo miejsca. Zwiększ go, jeśli ważne wpisy stale są pomijane.
 
-## Wspólny dla czatu Lorebook Token Budget
-
-Limit na poziomie czatu znajdziesz w panelu bocznym **Settings** (ustawienia) danego czatu, w sekcji **Lorebooks**.
+## Ustawianie pola Lorebook Token Budget w czacie
 
 1. Otwórz czat.
-2. Otwórz panel boczny **Settings** czatu.
-3. Znajdź sekcję **Lorebooks**.
-4. Ustaw pole **Lorebook Token Budget**.
+2. Otwórz **Chat Settings** (ustawienia czatu).
+3. Znajdź sekcję **Lorebooks** i ustaw pole **Lorebook Token Budget**.
 
-Domyślna wartość to **8192**. Wartość **0** oznacza brak limitu. Ten limit obejmuje wszystkie lorebooki aktywne w tym czacie. Działa dodatkowo, obok własnego pola **Token Budget** każdego lorebooka.
+Domyślna wartość to 8192, a 0 oznacza brak limitu. To łączny limit dla wszystkich lorebooków aktywnych w tym czacie, działający dodatkowo, obok własnego pola **Token Budget** każdego lorebooka.
 
 ## Jak przebiega przycinanie wpisów
 
-Kiedy pasujących wpisów jest więcej, niż mieści limit, Marinara zachowuje najważniejsze, a resztę odrzuca. Przed przycięciem sortuje wpisy, żeby przetrwały te najbardziej potrzebne.
+Kiedy pasujących wpisów jest więcej, niż mieści limit, Marinara dodaje wpisy w tej kolejności.
 
-- Najpierw idą wpisy **Constant** (stałe). To wpisy ustawione tak, aby były wstawiane zawsze, gdy lorebook jest aktywny.
-- Dalej wpisy, które pasowały do twojej ostatniej wiadomości.
-- Na końcu pozostałe wpisy w swojej zwykłej kolejności wstawiania.
+1. Wpisy **Constant** (stałe).
+2. Wpisy, które pasowały do ostatnich wiadomości.
+3. Pozostałe wpisy, w kolejności wstawiania (pole **Order** wpisu).
 
-Marinara przechodzi tę listę od góry i dodaje każdy wpis, który jeszcze się mieści. Jeśli wpis przekroczyłby limit, Marinara go pomija i przechodzi dalej. Sprawdza przy tym wszystkie wpisy poniżej pominiętego. Dzięki temu mniejszy wpis może się zmieścić nawet po odrzuceniu większego.
+Marinara dodaje każdy wpis, który jeszcze się mieści. Gdy któryś się nie mieści, Marinara go pomija i dalej sprawdza pozostałe, więc mniejszy wpis nadal może się zmieścić po pominięciu większego.
 
 <a id="seeing-skipped-entries-in-active-context"></a>
 
 ## Podgląd pominiętych wpisów w Active Context
 
-Nie musisz zgadywać, które wpisy zostały odrzucone. Otwórz **Chat Settings** i rozwiń sekcję **Active Context** (aktywny kontekst). Pokazuje ona aktualny wynik ostatniego skanowania lorebooków.
+1. Otwórz **Chat Settings**.
+2. Rozwiń sekcję **Active Context** (aktywny kontekst). Pokazuje ona wynik ostatniego skanowania lorebooków.
 
-Jeśli pominięto jakieś pasujące wpisy, na górze pojawia się komunikat w kolorze akcentu twojego motywu. Jego treść to "N matching lore entries were skipped by token budget." Pod tym tekstem komunikat wymienia każdy limit, przez który pominięto wpisy, i podaje, gdzie go zmienić. Rozwiń komunikat, żeby zobaczyć każdy pominięty wpis.
+Jeśli pominięto jakieś pasujące wpisy, na górze pojawia się komunikat "N matching lore entries were skipped by token budget." Wymienia on każdy limit, przez który pominięto wpisy, i podaje, gdzie go zmienić. Rozwiń go, żeby zobaczyć każdy pominięty wpis, jego lorebook, dopasowane słowa kluczowe, szacowany rozmiar i to, ile limitu było już zajęte. Powód jest jeden z poniższych.
 
-Przy każdym pominiętym wpisie widać, z którego lorebooka pochodzi i co go zablokowało. Powód jest jeden z poniższych:
+| Powód | Znaczenie |
+| --- | --- |
+| **lorebook budget** | Wpis nie zmieścił się w polu **Token Budget** tego lorebooka. |
+| **chat budget** | Wpis nie zmieścił się w polu **Lorebook Token Budget** czatu. |
+| **lorebook and chat budgets** | Oba limity były już wyczerpane. |
+| **current-location context cap** | Wpis jest przypięty do bieżącej lokalizacji na mapie, która ma własny, stały limit 2 048 tokenów. |
 
-- **lorebook budget**: wpis nie zmieścił się w polu **Token Budget** tego jednego lorebooka.
-- **chat budget**: wpis nie zmieścił się we wspólnym dla czatu polu **Lorebook Token Budget**.
-- **lorebook and chat budgets**: oba limity były już wyczerpane.
-- **current-location context cap**: wpis należy do wiedzy przypiętej do bieżącej lokalizacji, która ma własny limit 2 048 tokenów. Żadne ustawienie go nie zmienia, ale wpis nadal może trafić do promptu dzięki własnym słowom kluczowym.
+Wpis z pustą treścią albo z treścią, którą makra zamieniają w nic, nie trafia na tę listę. Jego makra nadal się wykonują, więc `{{setvar}}` w takim wpisie wciąż ustawia zmienną. Gdy oba limity mają wartość 0, pominięte wpisy może tu pokazać tylko limit lokalizacji.
 
-Wpis z pustą treścią albo taki, który po rozwinięciu makr staje się pusty, nie trafia na tę listę. Nie ma nic do dodania, więc żaden limit go nie pominął. Jego makra nadal się wykonują, więc `{{setvar}}` w takim wpisie wciąż ustawia zmienną. Gdy oba limity tokenów mają wartość **0**, pominięte wpisy mogą się tu pojawić tylko z powodu limitu bieżącej lokalizacji.
-
-Rozwiń pominięty wpis, żeby poznać szczegóły. Zobaczysz dopasowane słowa kluczowe, szacowany rozmiar w tokenach oraz to, ile limitu było już zajęte. Jeśli duże lorebooki stale są pomijane, **Active Context** podpowiada agentów **Knowledge Retrieval** i **Knowledge Router**. Zwykle radzą sobie z obszernymi lorebookami lepiej niż podnoszenie limitów.
+Jeśli duże lorebooki stale są pomijane, **Active Context** proponuje agentów **Knowledge Retrieval** lub **Knowledge Router**. Zobacz [Źródła wiedzy](../agents/knowledge-sources.md). Często radzą sobie z dużymi lorebookami lepiej niż wyższy limit.
 
 ## Skanowanie rekurencyjne
 
-Normalnie Marinara szuka słów kluczowych tylko w twoich ostatnich wiadomościach. Przy włączonym skanowaniu **Recursive** przegląda dodatkowo treść wpisów, które właśnie się aktywowały. Dzięki temu aktywny wpis może wciągnąć kolejne wpisy, których słowa kluczowe padają w jego treści.
+Normalnie Marinara szuka słów kluczowych tylko w twoich ostatnich wiadomościach. Przy włączonej opcji **Recursive** przegląda też treść wpisów, które właśnie się aktywowały, więc jeden wpis może wciągnąć powiązane wpisy.
 
-Włącz tę opcję w zakładce **Overview** lorebooka.
+1. Otwórz lorebook i kliknij **Overview**.
+2. Włącz przełącznik **Recursive**. Domyślnie jest wyłączony.
+3. Ustaw pole **Max Depth** (maksymalna głębokość), jeśli chcesz zmienić zasięg łańcucha.
 
-1. Otwórz lorebook.
-2. Otwórz zakładkę **Overview**.
-3. Włącz przełącznik **Recursive**. Domyślnie jest wyłączony.
-4. Ustaw pole **Max Depth** (maksymalna głębokość), jeśli chcesz zmienić zasięg takiego łańcucha.
+Pole **Max Depth** to liczba dodatkowych przebiegów skanowania. Domyślnie wynosi 3, a zakres to od 1 do 10. Wyższe wartości wyłapują więcej powiązanej wiedzy i wymagają więcej przetwarzania.
 
-Pole **Max Depth** (domyślnie **3**) decyduje o tym, ile dodatkowych przebiegów skanowania się wykonuje. Każdy przebieg szuka kolejnych dopasowań słów kluczowych w świeżo aktywowanych wpisach. Zakres to od **1** do **10**. Wyższe wartości wyłapują więcej powiązanej wiedzy, ale wymagają więcej przetwarzania.
+Każdy wpis ma też własny przełącznik **Recursion** (rekurencja), domyślnie wyłączony, który decyduje, czy treść tego wpisu może wyzwalać kolejne wpisy. Zostaw go wyłączony, chyba że wpis ma prowadzić do kolejnych wpisów. Zobacz [Wpisy lorebooka: słowa kluczowe, pozycja i czas działania](entries.md).
 
-Rekurencję trzeba włączyć osobno także dla każdego wpisu. W rozwiniętym panelu bocznym wpisu przełącznik **Recursion** (rekurencja) decyduje, czy treść tego wpisu może wyzwalać kolejne wpisy. Domyślnie jest wyłączony. Zostaw go wyłączonego, chyba że ten wpis ma prowadzić do innej wiedzy. Pełny opis ustawień wpisu znajdziesz w przewodniku [Wpisy lorebooka: słowa kluczowe, pozycja i czas działania](entries.md).
-
-Rekurencja nie omija limitów. Wpisy znalezione w przebiegu rekurencyjnym liczą się do pól **Token Budget**, **Entry Limit** i wspólnego dla czatu **Lorebook Token Budget** tak samo jak każdy inny wpis.
+Rekurencja nie omija limitów. Wpisy znalezione w przebiegu rekurencyjnym liczą się do pól **Token Budget** i **Entry Limit** oraz do pola **Lorebook Token Budget** czatu.
 
 ## Powiązane przewodniki
 

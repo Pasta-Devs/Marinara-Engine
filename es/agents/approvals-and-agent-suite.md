@@ -1,110 +1,85 @@
 # Aprobaciones de agentes y el Agent Suite
 
-Esta guía explica cómo revisas y controlas lo que los agentes (pequeños ayudantes de IA que se ejecutan junto a tus respuestas) escriben durante un chat. Cubre el interruptor **Review Agent Outputs** (Revisar salidas de los agentes), las dos ventanas de revisión, el editor **Agent Suite** y el panel **Cached prompt injections** (Inyecciones de prompt en caché).
+Los agentes pueden escribir en tu chat: entradas de lorebook (libro de trasfondo), resúmenes y ediciones de tarjetas de personaje. Esta guía muestra cómo revisar esas escrituras antes de que se guarden y cómo leer y corregir con el **Agent Suite** lo que los agentes han guardado.
 
-## Review Agent Outputs
+## Revisar las escrituras de los agentes antes de que se guarden
 
-Algunos agentes quieren escribir datos nuevos en tu chat. Un agente de lorebook (libro de trasfondo) puede añadir entradas de lorebook. Un agente de resumen puede guardar un Chat Summary. De forma predeterminada, algunas de estas escrituras se guardan por ti automáticamente. El interruptor **Review Agent Outputs** te permite revisar cada escritura primero.
+De forma predeterminada, algunas escrituras de los agentes se guardan solas. **Review Agent Outputs** (Revisar salidas de los agentes) hace que cada una espere tu aprobación.
 
-Para encontrar el interruptor:
-
-1. Abre el chat que quieres controlar.
-2. Abre **Chat Settings** (Ajustes del chat).
-3. Desplázate hasta la sección **Agents**.
-4. En un chat de Roleplay, abre **Trackers Control** (Control de trackers). En una partida de Game, omite este paso.
-5. Activa **Review Agent Outputs**.
-
-Cuando **Review Agent Outputs** está activado, las actualizaciones de lorebook, las actualizaciones de resumen y otras salidas revisables de agentes escritores esperan tu aprobación antes de guardarse. Cuando está desactivado, las actualizaciones de lorebook y de resumen pueden guardarse automáticamente.
-
-Las ediciones de tarjeta de personaje son un caso especial. Siempre piden tu aprobación primero, incluso cuando **Review Agent Outputs** está desactivado. No puedes desactivar esa comprobación de seguridad.
-
-## La ventana Agent Write Approval
-
-Cuando **Review Agent Outputs** está activado y un agente propone una escritura de lorebook o de resumen, se abre una ventana de revisión. Su título es **Review Lorebook Update** o **Review Summary Update**, según el tipo de escritura.
-
-La ventana muestra:
-
-- El nombre del agente que hizo la propuesta.
-- Un cuadro **Proposed Text** (Texto propuesto) que puedes editar antes de guardar.
-- Para las escrituras de lorebook, un breve recordatorio de mantener cada entrada bajo un encabezado `###`.
-
-Tienes tres opciones en la parte inferior de la ventana:
-
-- **Accept** (Aceptar): guarda el texto (después de cualquier edición que hayas hecho) en tu chat.
-- **Regenerate** (Regenerar): vuelve a ejecutar solo ese agente para obtener una propuesta nueva.
-- **Discard** (Descartar): descarta la propuesta sin guardarla.
-
-Si hay más de una propuesta en espera, la ventana muestra cuántas siguen en la cola. Vuelve a abrirse para la siguiente después de que gestiones la actual.
-
-## Revisión de Character Card Update
-
-El agente **Card Evolution Auditor** puede sugerir ediciones a los campos de la tarjeta de personaje según lo que pasó durante el roleplay. La herramienta integrada `update_about_me` del Conversation Mode también puede proponer un cambio público en el About Me. Ninguna vía edita tu tarjeta por su cuenta; ambas abren la ventana **Review Character Card Updates** para que tú decidas.
-
-La ventana lista cada edición propuesta. Para cada edición ves:
-
-- El campo de la tarjeta que toca (por ejemplo, description, personality o appearance).
-- Una breve razón del cambio, cuando el agente da una.
-- Un bloque **Before** (Antes) que muestra el texto actual.
-- Un cuadro **After** (Después) que muestra el texto nuevo. Puedes editar este texto antes de aprobarlo.
-
-Tienes estas acciones:
-
-- **Approve** (Aprobar): aplica las ediciones. El número en el botón muestra cuántas ediciones se aplicarán. Aprobar sube el número de versión del personaje y guarda una entrada en el historial de versiones.
-- **Regenerate** (Regenerar): vuelve a ejecutar el agente para obtener un conjunto nuevo de propuestas.
-- **Reject** (Rechazar): descarta las propuestas sin cambiar la tarjeta.
-
-A veces una tarjeta cambió desde que el agente escribió su propuesta. Cuando esto pasa, la app marca la edición como **stale** (obsoleta) y la atenúa. Si alguna edición está obsoleta, aparece un botón **Override stale** (Forzar obsoleta) con la cuenta. Úsalo solo si aún quieres conservar ese texto. La app te pide confirmación primero. Luego añade el texto obsoleto al campo en lugar de reemplazar un texto que ya no coincide.
-
-## El editor Agent Suite y la reescritura asistida por IA
-
-El **Agent Suite** te permite ver y editar todo lo que los agentes de este chat han guardado. Esto incluye los datos de tracker (agente de seguimiento) (como la escena actual, los personajes presentes y las estadísticas de la persona) y la salida guardada de tus agentes personalizados. Puedes corregir un nombre erróneo, arreglar una estadística o limpiar texto guardado desordenado a mano o con ayuda de IA.
-
-Para abrirlo:
-
-1. Abre **Chat Settings**.
+1. Abre el chat y haz clic en **Chat Settings** (Ajustes del chat).
 2. Desplázate hasta la sección **Agents**.
-3. Haz clic en **Agent Suite**.
+3. En un chat de Roleplay, abre **Trackers Control** (Control de trackers). En una partida de Game, omite este paso.
+4. Activa **Review Agent Outputs**.
 
-A la izquierda hay una lista de los agentes activos en este chat. Elige uno para ver qué ha guardado. El lado derecho muestra bloques editables. Están agrupados en **Stored Memory** (Memoria guardada), **Tracker Data** (Datos de tracker) (solo para agentes de tracker) y **Recent Outputs** (Salidas recientes) (solo para agentes personalizados). Los agentes que no hacen seguimiento de datos muestran solo **Stored Memory**.
+Cuando está activado, las actualizaciones de lorebook, las actualizaciones de resumen y otras salidas revisables de agentes escritores te esperan. Cuando está desactivado, las actualizaciones de lorebook y de resumen pueden guardarse automáticamente.
 
-Cada bloque es un editor de texto o JSON. Los bloques JSON tienen números de línea y avisan enseguida cuando el JSON no se puede interpretar; **Save** permanece desactivado hasta que lo sea. Para buscar en todos los datos del tracker a la vez o editarlos como campos, haz clic en **Open in State Editor** en la cabecera de **Tracker Data** (consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor)).
+Las ediciones de tarjetas de personaje siempre piden tu aprobación primero, incluso cuando **Review Agent Outputs** está desactivado. No puedes desactivar esa comprobación.
 
-Después de cambiar un bloque:
+### Revisar una actualización de lorebook o de resumen
 
-- Haz clic en **Save** (Guardar) para conservar tu edición.
-- Haz clic en **Reset** (Restablecer) para deshacer tu cambio sin guardar y volver al valor guardado.
+Cuando un agente propone una escritura, se abre una ventana titulada **Review Lorebook Update** o **Review Summary Update**. Muestra el nombre del agente y un cuadro **Proposed Text** (Texto propuesto) que puedes editar. Para las escrituras de lorebook, también te recuerda mantener cada entrada bajo un encabezado `###`.
 
-También puedes dejar que la IA reescriba un bloque por ti:
+- **Accept** (Aceptar) guarda el texto, incluidas tus ediciones.
+- **Regenerate** (Regenerar) vuelve a ejecutar solo ese agente para obtener una propuesta nueva.
+- **Discard** (Descartar) descarta la propuesta sin guardarla.
 
-1. Haz clic en **AI Edit** (Edición con IA) en el bloque que quieres cambiar.
-2. Para actuar solo sobre una parte del texto, selecciona esa parte en el editor primero. Si no seleccionas nada, se reescribe todo el bloque.
+Si hay más propuestas en espera, la ventana muestra cuántas. Vuelve a abrirse para la siguiente cuando terminas con la actual.
+
+Un agente con la capacidad **Create character cards** (Crear tarjetas de personaje) también puede proponer una tarjeta de personaje nueva. Se abre una ventana de revisión con el texto de la tarjeta. No se guarda nada hasta que aceptas.
+
+### Revisar una actualización de tarjeta de personaje
+
+El agente **Card Evolution Auditor** sugiere ediciones a una tarjeta de personaje según lo que pasó en el roleplay. En Conversation, la herramienta integrada `update_about_me` también puede proponer un cambio público en el About Me. Ninguno de los dos edita tu tarjeta por su cuenta. Ambos abren **Review Character Card Updates**.
+
+Para cada edición propuesta, la ventana muestra el campo de la tarjeta que toca, una breve razón cuando el agente la da, un bloque **Before** (Antes) con el texto actual y un cuadro **After** (Después) que puedes editar.
+
+- **Approve** (Aprobar) aplica las ediciones. El número del botón indica cuántas se aplicarán. Sube el número de versión del personaje y guarda una entrada en el historial de versiones.
+- **Regenerate** vuelve a ejecutar el agente para obtener propuestas nuevas.
+- **Reject** (Rechazar) las descarta sin cambiar la tarjeta.
+
+Si la tarjeta cambió después de que el agente escribiera su propuesta, la edición se marca como obsoleta y se atenúa. Entonces aparece un botón **Override stale** (Forzar obsoleta) con la cuenta. Úsalo solo si aún quieres ese texto. Marinara te pide confirmación y luego añade el texto obsoleto al campo en lugar de reemplazar un texto que ya no coincide.
+
+## Ver y editar lo que guardaron los agentes
+
+El **Agent Suite** muestra todo lo que los agentes de este chat han guardado: datos de tracker (agente de seguimiento), como la escena actual, los personajes presentes y las estadísticas de la persona, además de la salida guardada de los agentes personalizados. Úsalo para corregir un nombre erróneo, arreglar una estadística o limpiar texto desordenado.
+
+1. Abre **Chat Settings** y desplázate hasta **Agents**.
+2. Haz clic en **Agent Suite**.
+3. Elige un agente de la lista de la izquierda.
+
+El lado derecho muestra bloques editables en hasta tres grupos: **Stored Memory** (Memoria guardada), **Tracker Data** (Datos de tracker; solo en agentes de tracker) y **Recent Outputs** (Salidas recientes; solo en agentes personalizados). Los agentes que no hacen seguimiento de datos muestran solo **Stored Memory**.
+
+Cada bloque es un editor de texto o JSON. Los bloques JSON muestran números de línea y avisan enseguida cuando el JSON no es válido. **Save** (Guardar) permanece desactivado hasta que se pueda interpretar. Para buscar en todos los datos de tracker o editarlos como campos, haz clic en **Open in State Editor** en la cabecera de **Tracker Data**. Consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+Después de cambiar un bloque, haz clic en **Save** para conservarlo o en **Reset** (Restablecer) para volver al valor guardado.
+
+### Dejar que la IA reescriba un bloque
+
+1. Haz clic en **AI Edit** (Edición con IA) en el bloque.
+2. Para cambiar solo una parte, selecciona primero ese texto. Si no seleccionas nada, se reescribe todo el bloque.
 3. Escribe una instrucción, por ejemplo "corrige los nombres de personaje distorsionados, ella se llama Mira".
-4. Opcional: haz clic en **Add Context** (Añadir contexto) para adjuntar tarjetas de personaje o entradas de lorebook. Esto ayuda a la IA a entender qué significan los datos.
-5. Elige la conexión (el proveedor de IA y el modelo) que hará la reescritura.
+4. Opcional: haz clic en **Add Context** (Añadir contexto) para adjuntar tarjetas de personaje o entradas de lorebook, de modo que la IA sepa qué significan los datos.
+5. Elige la conexión (el servicio de IA y el modelo) que hace la reescritura.
 6. Haz clic en **Rewrite** (Reescribir).
 
-El texto reescrito entra en el bloque como un borrador sin guardar. Revísalo y luego haz clic en **Save** para conservarlo o en **Reset** para descartarlo.
+El resultado entra en el bloque como un borrador sin guardar. Revísalo y luego usa **Save** o **Reset**.
 
-Algunas notas:
-
-- Si aún hay agentes ejecutándose para este chat, el guardado se pausa hasta que terminen.
-- La sección **Stored Memory** tiene un botón **Clear memory** (Borrar memoria). Aparece solo cuando el agente tiene datos guardados. Borra de una vez todo lo que ese agente guardó para este chat, y no se puede deshacer. La app te pide confirmación primero.
+- Mientras aún haya agentes ejecutándose para este chat, el guardado espera hasta que terminen.
+- **Clear memory** (Borrar memoria) aparece en **Stored Memory** solo cuando el agente tiene datos guardados. Borra de una vez todo lo que ese agente guardó para este chat y no se puede deshacer. Marinara te pide confirmación primero.
 - Para el **Narrative Director**, los spoilers guardados están ocultos. Usa **Reveal spoilers** (Mostrar spoilers) para verlos y editarlos.
 
-## Panel Cached prompt injections
+## Ver las inyecciones de prompt en caché
 
-Antes de que se genere tu respuesta, algunos agentes escritores añaden texto al prompt (instrucciones enviadas a la IA). Esto es común en **Prose Guardian**, **Narrative Director** y agentes de inyección personalizados. El panel **Cached prompt injections** es una vista de diagnóstico de ese texto añadido. Lo encuentras en la pestaña **Injections** de [Agent activity](../roleplay/getting-started.md#agent-activity) en Roleplay, cuando **Debug mode** está activado. Cubre la respuesta más reciente.
+Antes de que se genere una respuesta, algunos agentes escritores añaden texto al prompt (las instrucciones enviadas a la IA). Esto es común en **Prose Guardian**, **Narrative Director** y los agentes de inyección personalizados. El panel **Cached prompt injections** (Inyecciones de prompt en caché) muestra ese texto para la respuesta más reciente. Es una vista de diagnóstico.
 
-Para cada inyección en caché puedes:
+Antes de empezar: activa **Debug mode** (Modo de depuración). Consulta [Descripción general de los agentes](agents-overview.md#tell-whether-an-agent-ran). En un chat de Roleplay, abre la pestaña **Injections** de **Agent activity** (Actividad de los agentes). Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
 
-- Expandirla para leer y editar el texto.
-- Hacer clic en el icono **Save** para conservar tu edición.
-- Hacer clic en el icono **Re-run** (Volver a ejecutar) para que ese agente escriba una inyección nueva.
+En cada inyección puedes expandirla para leer y editar el texto, hacer clic en el icono **Save** para conservar tu edición o hacer clic en el icono **Re-run** (Volver a ejecutar) para que ese agente escriba una nueva.
 
-Las inyecciones de **Knowledge Retrieval** y **Knowledge Router** no se pueden volver a ejecutar desde este panel. Tus ediciones y reejecuciones solo surten efecto si regeneras esa misma respuesta. Una reejecución usa el historial de chat original desde ese punto, no los mensajes más nuevos.
+Las inyecciones de **Knowledge Retrieval** y **Knowledge Router** no se pueden volver a ejecutar aquí. Las ediciones y las reejecuciones solo surten efecto si regeneras esa misma respuesta. Una reejecución usa el historial del chat desde ese punto, no los mensajes más nuevos.
 
 ## Guías relacionadas
 
-- [Resumen de agentes](agents-overview.md)
+- [Descripción general de los agentes](agents-overview.md)
 - [Referencia de agentes descargables](built-in-agents.md)
 - [Crear y editar personajes](../characters/creating-and-editing-characters.md)

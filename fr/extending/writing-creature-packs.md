@@ -1,15 +1,18 @@
 # Écrire des packs de créatures
 
-Un **pack de créatures** rassemble les illustrations des créatures que Game Mode affronte. Quand un pack
-est choisi, un ennemi pour lequel il a une illustration est dessiné avec elle sur le plateau de combat,
-au lieu d'un pion rond. L'illustration est tournée dans la direction du dernier déplacement de l'ennemi
-et dessinée à la taille propre de la créature. Un ennemi pour lequel le pack n'a pas d'illustration
-garde son pion. Consulte [Combats tactiques et terrain](../game/combat.md#tactical-battles-and-terrain)
-pour voir le rendu en jeu.
+Un **pack de créatures** rassemble les illustrations des créatures qu'on affronte en Game Mode. Quand un pack est choisi, un ennemi pour lequel il a une illustration est dessiné avec elle sur le plateau de combat, au lieu d'un pion rond. L'illustration est tournée dans la direction du dernier déplacement de l'ennemi et dessinée à la taille propre de la créature. Un ennemi pour lequel le pack n'a pas d'illustration garde son pion. Consulte [Combats tactiques et terrain](../game/combat.md#tactical-battles-and-terrain) pour voir le rendu en jeu.
 
-Un pack est un seul fichier JSON (`.creatures.json`). Le plus simple pour en créer un est l'onglet
-**Creatures** (créatures) de Pixelforge, qui construit le fichier à partir d'une image par créature.
-Cette page décrit le fichier lui-même, pour qui construit ses packs autrement.
+Un pack est un seul fichier JSON (`.creatures.json`). Le plus simple pour en créer un est l'onglet **Creatures** (créatures) de Pixelforge, un outil externe qui construit le fichier à partir d'une image par créature. Ce guide décrit le fichier lui-même, pour qui construit ses packs autrement.
+
+## Utiliser un pack
+
+Avant de commencer, crée ou télécharge un fichier `.creatures.json`. Pixelforge est une application de création distincte, qui ne fait pas partie de Marinara.
+
+1. Ouvre l'onglet **Creatures** de Pixelforge.
+2. Pour charger un fichier, choisis **Import a creature pack file** (importer un fichier de pack de créatures). Pour un pack que tu as créé dans Pixelforge, choisis **Save to the library** (enregistrer dans la bibliothèque).
+3. Choisis **Use for fights** (utiliser pour les combats).
+
+Un seul pack dessine tous les combats. Pour revenir aux pions, retire le pack choisi ou choisis **Use tokens instead** (utiliser plutôt les pions).
 
 ## Le fichier
 
@@ -46,16 +49,13 @@ Cette page décrit le fichier lui-même, pour qui construit ses packs autrement.
 | `name`, `author` | Affichés dans la bibliothèque. `author` est facultatif. |
 | `version` | Un nombre entier. Une version n'est jamais réécrite : pour modifier un pack, augmente sa version. Importer de nouveau le même fichier ne change rien. |
 | `tileSize` | La taille d'une case en pixels, un multiple de 16 compris entre 16 et 96. La grille de Game Mode est de 48. |
-| `sheets` | Jusqu'à 64 planches, c'est-à-dire des images d'au plus 8192 pixels de côté chacune. |
-| `creatures` | Jusqu'à 2000 créatures. |
+| `sheets` | Jusqu'à 64 planches, c'est-à-dire des images d'au plus 8 192 pixels de côté chacune. |
+| `creatures` | Jusqu'à 2 000 créatures. |
+| Taille du fichier | Au plus 32 Mo. |
 
 ## Planches
 
-Le `png` d'une planche doit être une **data URL** PNG : `data:image/png;base64,` suivi du base64, et de
-rien d'autre. Un lien vers une image située ailleurs est refusé, tout comme ce qui suit le base64.
-Ainsi, un pack ne peut jamais afficher que ses propres images. `width` et `height` doivent être la
-taille réelle du PNG ; le moteur les lit dans l'en-tête de l'image et refuse un pack dont les planches
-indiquent autre chose.
+Le `png` d'une planche doit être une **data URL** PNG : `data:image/png;base64,` suivi du base64, et de rien d'autre. Un lien vers une image située ailleurs est refusé, tout comme ce qui suit le base64. Ainsi, un pack ne peut jamais afficher que ses propres images. `width` et `height` doivent être la taille réelle du PNG ; le moteur les lit dans l'en-tête de l'image et refuse un pack dont les planches indiquent autre chose.
 
 ## Une créature
 
@@ -66,36 +66,32 @@ indiquent autre chose.
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` ou `gargantuan`. Cela ne concerne que l'affichage ; chaque unité occupe toujours une seule case. |
 | `w`, `h` | La taille d'une image d'animation en cases, de 1 à 6 chacune. |
 | `frames` | `1` pour une créature immobile, `3` pour une créature qui marche (pas, repos, pas). |
-| `variants` | Ses **apparences**, de 1 à 8, chacune indiquant où commence son bloc sur une planche : `sheet` et la case en haut à gauche, `x`, `y`. |
-| `fly` | Facultatif, nécessite `creaturePackVersion` 2 : ses blocs de **vol**, disposés comme un bloc de marche (trois images d'animation en largeur, les quatre orientations en hauteur), placés comme `variants`. Un pour toutes les apparences, ou un par apparence dans le même ordre. |
+| `variants` | Ses apparences, de 1 à 8, chacune indiquant où commence son bloc sur une planche : `sheet` et la case en haut à gauche, `x`, `y`. |
+| `fly` | Facultatif, nécessite `creaturePackVersion` 2 : ses blocs de vol, disposés comme un bloc de marche (trois images d'animation en largeur, les quatre orientations en hauteur), placés comme `variants`. Un pour toutes les apparences, ou un par apparence dans le même ordre. |
 
 ### Vol
 
-Une créature dotée de `fly` est dessinée à partir de son bloc de vol, avec ses images d'animation jouées
-dans l'ordre 0, 1, 2, 1, lorsqu'elle est représentée en l'air dans un combat : elle a une vitesse de vol
-sans vitesse de marche, elle fait du vol stationnaire, elle est au-dessus du sol, ou elle a volé pendant
-ce tour (un pas que seul son vol permet, par exemple au-dessus de l'eau). Sinon, elle est dessinée à
-partir de son apparence habituelle. Un pack de carte d'Experience dont les packs de créatures ont des
-illustrations de vol nécessite Capability API 1.352.
+Une créature dotée de `fly` est dessinée à partir de son bloc de vol, avec ses images d'animation jouées dans l'ordre 0, 1, 2, 1, tant qu'elle est représentée en l'air dans un combat. C'est le cas si elle a l'une de ces caractéristiques :
+
+- une vitesse de vol et aucune vitesse de marche ;
+- le vol stationnaire ;
+- une position au-dessus du sol ;
+- un vol effectué pendant ce tour (un pas que seul son vol permet, par exemple au-dessus de l'eau).
+
+Sinon, elle est dessinée à partir de son apparence, comme auparavant.
+
+Un pack de carte d'Experience dont les packs de créatures ont des illustrations de vol nécessite Capability API 1.352.
 
 ### Ce que désigne `match`
 
-- **Une créature d'ensemble de règles :** `<catalog>/<entry>` (par exemple `creatures/goblin`)
-  correspond à cette entrée de bestiaire dans n'importe quel ensemble de règles.
-  `<ruleset>/<catalog>/<entry>` (par exemple `5e-2014/creatures/goblin`) ne lui correspond que dans cet
-  ensemble de règles.
-- **Un nom :** correspond à un ennemi par son nom. La casse et la ponctuation sont ignorées, tout comme
-  un nombre final : "Goblin 2" est donc un gobelin.
+- **Une créature d'ensemble de règles :** `<catalog>/<entry>` (par exemple `creatures/goblin`) correspond à cette entrée de bestiaire dans n'importe quel ensemble de règles. `<ruleset>/<catalog>/<entry>` (par exemple `5e-2014/creatures/goblin`) ne lui correspond que dans cet ensemble de règles.
+- **Un nom :** correspond à un ennemi par son nom. La casse et la ponctuation sont ignorées, tout comme un nombre final : "Goblin 2" est donc un gobelin.
 
-Un combattant issu du bestiaire d'un ensemble de règles est reconnu d'abord par son entrée, puis par son
-nom. Si deux créatures correspondent à la même chose, celle qui est listée en premier dans le pack
-l'emporte ; le moteur le signale à l'importation du pack.
+Un combattant issu du bestiaire d'un ensemble de règles est reconnu d'abord par son entrée, puis par son nom. Si deux créatures correspondent à la même chose, celle qui est listée en premier dans le pack l'emporte ; le moteur le signale à l'importation du pack.
 
 ### Tailles
 
-Les images d'animation se comptent en cases, et une créature est dessinée debout sur le bas de sa case,
-centrée : une grande créature domine donc les cases qui l'entourent. Ces tailles rendent bien sur la
-grille de 48 pixels :
+Les images d'animation se comptent en cases, et une créature est dessinée debout sur le bas de sa case, centrée : une grande créature domine donc les cases qui l'entourent. Ces tailles rendent bien sur la grille de 48 pixels :
 
 | Créature | Image d'animation (`w` sur `h`) |
 | --- | --- |
@@ -107,33 +103,17 @@ grille de 48 pixels :
 
 ### Le bloc : lignes et images d'animation
 
-Chaque apparence est un **bloc** sur sa planche. Un bloc compte `frames` images d'animation en largeur
-et 4 lignes en hauteur, et chaque image fait `w` sur `h` cases. Les lignes sont les orientations, dans
-cet ordre :
+Chaque apparence est un **bloc** sur sa planche. Un bloc compte `frames` images d'animation en largeur et 4 lignes en hauteur, et chaque image fait `w` sur `h` cases. Les lignes sont les orientations, dans cet ordre :
 
 1. bas (vers le spectateur)
 2. gauche
 3. droite
 4. haut (vu de dos)
 
-Une créature immobile (`frames: 1`) est une seule colonne des quatre orientations. Une créature qui
-marche (`frames: 3`) aligne sur chaque ligne pas, repos et pas, comme un personnage en marche dans RPG
-Maker. Chaque bloc doit tenir entièrement dans sa planche ; le moteur nomme tout bloc qui dépasse du
-bord.
+Une créature immobile (`frames: 1`) est une seule colonne des quatre orientations. Une créature qui marche (`frames: 3`) aligne sur chaque ligne pas, repos et pas, comme dans une planche de sprites de marche classique. Chaque bloc doit tenir entièrement dans sa planche ; le moteur nomme tout bloc qui dépasse du bord.
 
 ### Apparences
 
-Une créature qui a plusieurs apparences (d'autres vêtements, couleurs ou armes) en attribue une à chacun
-de ses combattants. Un combattant garde la même apparence chaque fois qu'il est dessiné, et deux
-gobelins d'un même combat peuvent être différents. Toutes les apparences d'une créature ont la même
-taille.
+Une créature qui a plusieurs apparences (d'autres vêtements, couleurs ou armes) en attribue une à chacun de ses combattants. Un combattant garde la même apparence chaque fois qu'il est dessiné, et deux gobelins d'un même combat peuvent être différents. Toutes les apparences d'une créature ont la même taille.
 
-Dans l'onglet **Creatures** de Pixelforge, **Add looks** (ajouter des apparences), à côté d'une
-créature, ajoute d'autres images de la même taille que la première, jusqu'à huit en tout.
-
-## Utiliser un pack
-
-Dans l'onglet **Creatures** de Pixelforge, choisis **Import a creature pack file** (importer un fichier
-de pack de créatures), ou **Save to the library** (enregistrer dans la bibliothèque) pour un pack créé
-sur place, puis **Use for fights** (utiliser pour les combats). Un seul pack dessine tous les combats.
-Retirer le pack choisi, ou choisir **Use tokens instead** (utiliser plutôt les pions), ramène aux pions.
+Dans l'onglet **Creatures** de Pixelforge, **Add looks** (ajouter des apparences), à côté d'une créature, ajoute d'autres images de la même taille que la première, jusqu'à huit en tout.

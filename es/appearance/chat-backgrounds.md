@@ -1,135 +1,141 @@
 # Fondos del chat
 
-Esta guía cubre la biblioteca de fondos de Marinara Engine. Son imágenes que subes y eliges a mano para colocarlas detrás de tu chat. Para el agente **Background** (Fondo) que elige un fondo de escena por ti en cada turno, consulta [Fondos de Roleplay](../roleplay/backgrounds.md). Para los fondos de escena generados con IA que creas desde la galería, consulta [Fondos de escena y la galería](../media/scene-backgrounds.md).
+La biblioteca de fondos contiene las imágenes que subes y eliges a mano para colocarlas detrás de tu chat. Para el agente **Background** (Fondo) que elige un fondo por ti en cada turno, consulta [Fondos de Roleplay](../roleplay/backgrounds.md). Para los fondos generados con IA que se crean desde la galería, consulta [Fondos de escena y la galería](../media/scene-backgrounds.md).
+
+Un fondo de chat se muestra en todos los modos de chat. En los chats de Conversation, el degradado de **Conversation Theme** (Tema de Conversation) se mantiene sobre la imagen, y **Conversation background image opacity** (Opacidad de la imagen de fondo de Conversation) fija con qué intensidad se ve la imagen. Consulta [Configuración de apariencia](appearance-settings.md).
+
+## Cambiar el fondo de un chat
+
+Antes de empezar: abre el chat que quieres cambiar. El fondo que elijas se aplica a ese chat.
+
+1. Abre **Settings** (Configuración), luego **Appearance** (Apariencia) y luego el botón **App**.
+2. En **Backgrounds** (Fondos), toca **Browse library** (Explorar la biblioteca).
+3. Toca una imagen. Se convierte en el fondo de este chat y la ventana se cierra.
+
+Para usar tu propia imagen, impórtala primero (consulta [Importar un fondo](#import-a-background)).
 
 ## Dónde encontrar los fondos
 
-Gestionas los fondos en un solo lugar: **Settings** (Configuración), luego la pestaña **Appearance** (Apariencia) y luego la sección **Backgrounds** (Fondos).
+1. Abre **Settings**.
+2. Selecciona la pestaña **Appearance** y luego el botón **App**.
+3. Busca la sección **Backgrounds**.
 
-La sección **Backgrounds** tiene tres partes:
+Tiene el selector **Chat Background** (Fondo del chat), el control deslizante **Background Blur** (Desenfoque del fondo) y los controles **Conversation background image opacity** y **Chat List Backgrounds** (Fondos en la lista de chats). Consulta [Configuración de apariencia](appearance-settings.md).
 
-1. El selector **Chat Background** (Fondo del chat), donde eliges la imagen para el chat en el que estás.
-2. El control deslizante **Background Blur** (Desenfoque del fondo).
-3. La biblioteca de fondos, donde importas, organizas, filtras, etiquetas, renombras, descargas y eliminas imágenes.
-
-Un fondo de chat solo se muestra en los chats de Roleplay y de Game Mode. El modo Conversation usa en su lugar un degradado, que configuras en la sección **Conversation Theme** (Tema de conversación). Consulta [Configuración de apariencia](appearance-settings.md) para eso.
+El selector muestra una vista previa del fondo actual, o **Default background** (Fondo predeterminado) cuando no hay ninguno elegido. Debajo, hasta tres fondos **Recent** (Recientes) están a un toque. Haz clic en **Browse library** para abrir la ventana **Background Library** (Biblioteca de fondos).
 
 ## La biblioteca de fondos
 
-La biblioteca contiene todas las imágenes entre las que puedes elegir. Combina las imágenes que subiste con el arte integrado que viene con Marinara. Cada imagen muestra una pequeña etiqueta para que puedas distinguirlas:
+La biblioteca combina las imágenes que subiste con el arte integrado que viene con Marinara. Cada imagen tiene una etiqueta.
 
-- **Library** (Biblioteca): una imagen que subiste tú. Puedes renombrarlas, etiquetarlas y eliminarlas.
-- **Game asset** (Recurso del juego): una imagen integrada que viene con Marinara. Son de solo lectura. No puedes renombrarlas, etiquetarlas ni eliminarlas.
+| Etiqueta | Significado |
+| --- | --- |
+| **My upload** (Mi subida) | Una imagen que subiste. Puedes renombrarla, etiquetarla y eliminarla. |
+| **Game asset** (Recurso del juego) | Arte integrado. Es de solo lectura: no se puede renombrar, etiquetar ni eliminar. |
+
+Los botones de **Filter by source** (Filtrar por fuente) —**All sources** (Todas las fuentes), **My uploads** (Mis subidas) y **Game assets** (Recursos del juego)— muestran cuántas imágenes contiene cada uno.
+
+<a id="import-a-background"></a>
 
 ### Importar un fondo
 
-1. Busca el recuadro **Import Backgrounds** (Importar fondos) en la parte superior de la biblioteca.
-2. Arrastra uno o varios archivos de imagen al recuadro, o haz clic en él para elegir archivos.
-3. Espera a que termine la subida. El recuadro muestra **Importing...** mientras trabaja.
-4. Tus nuevas imágenes aparecen en la cuadrícula de abajo con la etiqueta **Library**.
+1. En la ventana **Background Library**, busca **Import Backgrounds** (Importar fondos) junto al cuadro de búsqueda.
+2. Tócalo o haz clic en él y elige archivos de imagen. Puedes elegir varios a la vez. En una computadora también puedes soltar archivos sobre él.
+3. Espera. Muestra **Importing…** mientras trabaja.
 
-Puedes importar varios archivos a la vez. Cada archivo debe ser una imagen en uno de estos formatos: JPG, PNG, GIF, WebP o AVIF. Cada archivo puede pesar hasta 20 MB.
+Las nuevas imágenes aparecen en la cuadrícula con la etiqueta **My upload**.
 
-Marinara comprueba el contenido real de cada archivo, no solo su nombre. Si renombras un archivo que no es una imagen para que termine en `.png`, la subida se rechaza.
+Cada archivo debe ser JPG, PNG, GIF, WebP o AVIF, de hasta 20 MB. Marinara comprueba lo que contiene el archivo, no su nombre. Un archivo que no es una imagen y que se renombra a `.png` se rechaza.
 
 ### Elegir un fondo para el chat actual
 
-1. Abre **Settings**, luego **Appearance** y luego **Backgrounds**.
-2. En la cuadrícula, haz clic en la miniatura que quieras.
-3. Aparece una marca de verificación en la imagen seleccionada. Se convierte en el fondo del chat que tienes abierto.
-4. Para volver al predeterminado, haz clic de nuevo en la miniatura seleccionada, o haz clic en el botón **Remove** (Quitar) junto a **Chat Background**.
+1. Abre **Browse library**.
+2. Haz clic en una miniatura. Aparece una marca de verificación, la imagen se convierte en el fondo de este chat y la ventana se cierra.
+3. Para volver al predeterminado, haz clic de nuevo en la miniatura seleccionada, o haz clic en la X (**Clear selection**, Borrar la selección) de la vista previa.
 
-### Buscar en la biblioteca
+### Buscar y filtrar
 
-Usa el recuadro **Search backgrounds** (Buscar fondos) encima de la biblioteca para filtrar por nombre, etiqueta u origen. La línea de recuento muestra cuántas imágenes coinciden, por ejemplo "3 of 20 backgrounds". Haz clic en la pequeña X del recuadro de búsqueda para borrarlo.
+- **Search backgrounds** (Buscar fondos) filtra por nombre, etiqueta u origen. Una línea de recuento muestra cuántos coinciden, por ejemplo "3 of 20 backgrounds". Haz clic en la X del cuadro para borrarlo.
+- **Sort backgrounds** (Ordenar fondos) ofrece **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** (Más recientes) y **Oldest** (Más antiguos). Con **Manual order**, arrastra para reordenar, o pulsa <kbd>Alt</kbd>+<kbd>Up</kbd> o <kbd>Alt</kbd>+<kbd>Down</kbd> en una imagen que tenga el foco.
+- Las fichas de carpeta **All folders** (Todas las carpetas), **Favorites** (Favoritos) y **Unfiled** (Sin archivar), más una ficha por cada carpeta, filtran por carpeta.
+- En las etiquetas, **All** (Todas) borra los filtros de etiquetas. Expande **Tags** (Etiquetas) y elige una o más etiquetas. Una imagen coincide si tiene cualquiera de las etiquetas elegidas.
 
-Usa el selector junto a la búsqueda para ordenar los fondos por **A-Z**, **Z-A**, **Newest** (Más recientes) u **Oldest** (Más antiguos). Selecciona **All** (Todos) para borrar los filtros de etiquetas, o expande **Tags** (Etiquetas) y selecciona una o más etiquetas. Cuando hay varias etiquetas seleccionadas, un fondo coincide si tiene cualquiera de las etiquetas seleccionadas.
+Haz clic en la estrella de una imagen para añadirla a tus favoritos. No cambia el fondo predeterminado.
 
 ### Organizar los fondos en carpetas
 
-Las carpetas organizan la biblioteca sin mover ni ocultar los archivos de imagen subyacentes.
+Las carpetas organizan la biblioteca sin mover ni ocultar los archivos de imagen.
 
-1. Haz clic en **New Folder** (Carpeta nueva). Marinara crea una carpeta con un nombre único.
-2. Haz doble clic o doble toque en el nombre de la carpeta para renombrarla. También puedes enfocarla y pulsar F2.
-3. En computadora, arrastra una fila de fondo a una carpeta. En un teléfono o una tableta, mantén pulsada la fila y luego arrástrala.
-4. Arrastra un fondo de vuelta al área sin clasificar para quitarlo de su carpeta.
+1. Haz clic en **New Folder** (Carpeta nueva), escribe un nombre y haz clic en **Add** (Añadir).
+2. Toca el botón **Move to folder** (Mover a una carpeta) de una imagen y elige la carpeta. O arrastra la imagen sobre una ficha de carpeta. En un teléfono o una tableta, mantén pulsada la imagen y luego arrástrala.
+3. Para devolver una imagen, arrástrala sobre **Unfiled**.
+4. Selecciona una ficha de carpeta para mostrar los botones del lápiz (**Rename folder**, Renombrar la carpeta) y de la papelera (**Delete folder**, Eliminar la carpeta).
 
-Las carpetas y sus asignaciones se guardan en el servidor y se incluyen en las copias de seguridad. Eliminar una carpeta devuelve sus fondos a la lista sin clasificar; no elimina las imágenes. Los filtros de búsqueda y de etiquetas revelan automáticamente los elementos coincidentes dentro de sus carpetas.
-
-El agente **Background** sigue viendo todos los fondos disponibles, incluidos los fondos colocados en carpetas. Las carpetas solo afectan a la organización en **Settings**.
+Eliminar una carpeta devuelve sus imágenes a **Unfiled** y no las elimina. Las carpetas se guardan en el servidor y se incluyen en las copias de seguridad. El agente **Background** sigue viendo todos los fondos, incluidos los que están en carpetas.
 
 ### Renombrar un fondo
 
-Solo puedes renombrar las imágenes con la etiqueta **Library**.
+Solo puedes renombrar las imágenes **My upload**.
 
-1. Pasa el cursor por la fila de la imagen y haz clic en el icono del lápiz (**Rename**, Renombrar).
-2. Escribe el nuevo nombre. No necesitas escribir la extensión del archivo.
+1. Haz clic en el lápiz (**Rename background**, Renombrar el fondo) de la imagen.
+2. Escribe el nuevo nombre. No necesitas la extensión del archivo.
 3. Haz clic en **Save** (Guardar).
 
 ### Etiquetar un fondo
 
-Las etiquetas te ayudan a agrupar y buscar tus subidas. Solo puedes etiquetar las imágenes con la etiqueta **Library**.
+Solo puedes etiquetar las imágenes **My upload**.
 
-1. Haz clic en el icono de etiqueta (**Edit tags**, Editar etiquetas) en la fila de la imagen.
-2. Escribe una etiqueta en el campo **Add tag...** (Añadir etiqueta). A medida que escribes, Marinara sugiere etiquetas que usaste antes.
-3. Pulsa Enter o haz clic en **Add** (Añadir).
-4. Para quitar una etiqueta, haz clic en ella. Mientras la edición de etiquetas está abierta, cada etiqueta se muestra como un botón con una X.
+1. Haz clic en el icono de etiqueta (**Edit tags**, Editar etiquetas) de la imagen.
+2. Escribe una etiqueta en **Add tag…** (Añadir etiqueta…). Marinara sugiere etiquetas que usaste antes.
+3. Pulsa <kbd>Enter</kbd> o haz clic en **Add**.
+
+Para quitar una etiqueta, haz clic en ella mientras editas las etiquetas.
 
 <a id="download-a-background"></a>
 
 ### Descargar un fondo
 
-Puedes descargar cualquier fondo, incluidos los integrados. Pasa el cursor por la fila de la imagen y haz clic en el icono de descarga (**Download background**, Descargar fondo). La imagen se guarda con su nombre de archivo. En un iPhone o iPad, se abre la hoja para compartir, donde puedes guardarla; si no se abre, toca **Save file** (Guardar archivo) en el mensaje que aparece.
+Haz clic en el icono de descarga (**Download background**, Descargar fondo) de cualquier imagen, incluidas las integradas. En un iPhone o iPad, se abre la hoja para compartir. Si no se abre, toca **Save file** (Guardar archivo) en el mensaje que aparece.
 
 ### Eliminar un fondo
 
-Solo puedes eliminar las imágenes con la etiqueta **Library**. Pasa el cursor por la fila de la imagen y haz clic en el icono de la papelera, luego confirma la eliminación. Si la imagen era el fondo actual del chat o el fondo de Roleplay predeterminado, Marinara vuelve por ti al predeterminado integrado.
+Solo puedes eliminar las imágenes **My upload**.
+
+1. Haz clic en el icono de la papelera (**Delete background**, Eliminar el fondo) de la imagen.
+2. Confirma.
+
+Si era el fondo del chat actual o el fondo de Roleplay predeterminado, Marinara vuelve al predeterminado integrado.
 
 ## Establecer un fondo de Roleplay predeterminado
 
-El fondo de Roleplay predeterminado es la imagen con la que empieza cada chat de Roleplay nuevo, antes de que elija el suyo. Configúralo una vez y cada chat de Roleplay nuevo lo usa.
+El fondo de Roleplay predeterminado es la imagen con la que empieza cada chat de Roleplay nuevo.
 
-1. En la sección **Backgrounds**, busca en la cuadrícula la imagen que quieras.
-2. Haz clic en el icono del pin (**Set as default for new Roleplay chats**, Establecer como predeterminado para los chats de Roleplay nuevos) en la fila de esa imagen.
-3. El botón del pin queda resaltado y aparece una etiqueta **Default** (Predeterminado) en la miniatura. Los chats de Roleplay nuevos ahora empiezan con ella.
+1. En la ventana **Background Library**, busca la imagen.
+2. Haz clic en su icono del pin (**Set as default for new Roleplay chats**, Establecer como predeterminado para los chats de Roleplay nuevos).
 
-La estrella de la esquina superior izquierda de la imagen la añade a tus favoritos. No cambia el predeterminado.
+La miniatura muestra una etiqueta **Default** (Predeterminado). Para deshacerlo, haz clic de nuevo en el pin de esa imagen, o haz clic en **Reset Roleplay default** (Restablecer el predeterminado de Roleplay) encima de la cuadrícula. Ese botón solo aparece cuando tu predeterminado difiere del integrado.
 
-Para volver atrás, haz clic en el pin de la imagen predeterminada actual. También puedes hacer clic en el botón **Reset Roleplay default** (Restablecer el predeterminado de Roleplay) cerca de la parte superior de la cuadrícula. Ese botón solo aparece cuando tu fondo predeterminado difiere del integrado.
+## Background Blur
 
-## Background Blur (Desenfoque del fondo)
-
-**Background Blur** suaviza la imagen de fondo detrás del chat para que el texto sea más fácil de leer. Se aplica a los fondos de Roleplay y de Game Mode.
+**Background Blur** suaviza el fondo detrás del chat para que el texto sea más fácil de leer. Se aplica a los fondos de todos los modos de chat.
 
 1. En la sección **Backgrounds**, busca el control deslizante **Background Blur**.
-2. Arrástralo de 0 a 24. Los números más altos significan más desenfoque.
-3. Ponlo en 0 para mantener los fondos nítidos. En 0 el valor se lee como **Off**.
+2. Arrástralo de 0 a 24. Un valor más alto significa más desenfoque.
 
-El valor predeterminado es 0 (**Off**).
-
-## Cómo se combinan tus subidas y los fondos integrados
-
-La biblioteca muestra juntas en una sola cuadrícula tus subidas y las imágenes **Game asset** integradas. Eliges de ambas de la misma forma. La diferencia es que las imágenes **Game asset** son de solo lectura, por lo que los controles de renombrar, etiquetar y eliminar no aparecen en ellas.
-
-Los fondos de escena generados con IA que creas desde la galería también van a parar a esta misma biblioteca, para que puedas reutilizarlos más tarde. Consulta [Fondos de escena y la galería](../media/scene-backgrounds.md).
+En 0 se lee **Off** y los fondos se mantienen nítidos. El predeterminado es 0.
 
 ## Dónde se guardan tus elecciones de fondo
 
-Tres ajustes distintos deciden qué fondo muestra un chat, y se guardan de formas diferentes:
+| Ajuste | Dónde se guarda |
+| --- | --- |
+| El **Chat Background** de un chat | Con ese chat en el servidor. Sigue al chat en cualquier dispositivo. |
+| Las carpetas y sus asignaciones | En el servidor, con la biblioteca. |
+| El fondo de Roleplay predeterminado y **Background Blur** | Por dispositivo. No se sincronizan entre navegadores ni dispositivos. |
 
-- El **Chat Background** que eliges para un chat se guarda con ese chat en el servidor. Sigue al chat en cualquier dispositivo en el que lo abras.
-- Las carpetas de fondos y sus asignaciones se guardan en el servidor y siguen a la biblioteca a otros dispositivos.
-- El fondo de Roleplay predeterminado y **Background Blur** se guardan por dispositivo. No se sincronizan entre navegadores ni dispositivos. Para el modelo de sincronización completo, consulta [Configuración de apariencia](appearance-settings.md).
-
-## Fondos automáticos y generados con IA
-
-Esta guía cubre la biblioteca de la que eliges a mano. Dos funciones relacionadas gestionan los fondos por ti:
-
-- El agente **Background** puede elegir un fondo de escena de tu biblioteca por sí solo, turno a turno, en los chats de Roleplay. Consulta [Fondos de Roleplay](../roleplay/backgrounds.md).
-- La galería puede generar un fondo de escena completamente nuevo con IA a partir de la escena actual. Consulta [Fondos de escena y la galería](../media/scene-backgrounds.md).
+Para el modelo de sincronización completo, consulta [Configuración de apariencia](appearance-settings.md).
 
 ## Guías relacionadas
 
-- [Fondos de Roleplay](../roleplay/backgrounds.md): el agente Background que elige automáticamente un fondo en cada turno.
-- [Fondos de escena y la galería](../media/scene-backgrounds.md): fondos de escena generados con IA desde la galería.
-- [Configuración de apariencia](appearance-settings.md): la pestaña Appearance completa, incluidos qué ajustes se sincronizan y cuáles se quedan en un solo dispositivo.
+- [Fondos de Roleplay](../roleplay/backgrounds.md): el agente Background que elige un fondo en cada turno.
+- [Fondos de escena y la galería](../media/scene-backgrounds.md): fondos de escena generados con IA desde la galería. También van a parar a esta biblioteca.
+- [Configuración de apariencia](appearance-settings.md): la pestaña Appearance completa.

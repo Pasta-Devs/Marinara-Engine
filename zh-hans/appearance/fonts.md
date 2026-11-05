@@ -1,61 +1,58 @@
 # 自定义字体与 Google Fonts
 
-本指南介绍如何更换 Marinara Engine 全局使用的字体。可以直接用内置字体，也可以放入自己的字体文件，还能按名字从 Google Fonts 下载。
+更换 Marinara 在整个应用里使用的字体。可以选用内置字体、添加自己的字体文件，或者按名字从 Google Fonts 下载字体。
 
 ## 选择应用字体
 
-字体设置在 **Settings**(设置) 的 **Appearance**(外观) 选项卡里，位于 **Text & Scale**(文字与缩放) 区域。
+1. 打开 **Settings**(设置)，点击 **Appearance**(外观) 选项卡，再点击 **App**(应用) 按钮。
+2. 找到 **Text & Scale**(文字与缩放) 区域。
+3. 打开 **Font**(字体) 下拉菜单，选一款字体。
 
-1. 打开 **Settings**，点击 **Appearance** 选项卡。
-2. 找到 **Text & Scale** 区域。
-3. 打开 **Font**(字体) 下拉菜单。
-4. 从列表里选一款字体。
+获取新字体最简单的方法是 [Google Fonts](#downloading-from-google-fonts)。默认是 **Default (Inter)**，这是一款为屏幕阅读挑选的清爽字体。自己添加的字体会出现在同一个下拉菜单里，排在它下面。
 
-默认是 **Default (Inter)**。Inter 是一款为屏幕阅读挑选的清爽字体。自己添加的字体会出现在同一个 **Font** 下拉菜单里，排在默认项下面。
+字体选择会跨设备同步。连到同一台 Marinara 服务器的每个浏览器都会切换到这款字体。见[设置总览](../settings/settings-overview.md)。
 
-选用默认字体时，预设编辑器里的提示词字段和角色的 Example Dialogue(对话示例) 使用等宽字体。改选其他任何字体，它们也会跟着换成那款字体。其他提示词字段，例如智能体的提示词模板，始终使用等宽字体。
-
-聊天组件另有单独的 **Font** 选项，位于 **Settings > Appearance > App > Chat widget style**(设置 → 外观 → 应用 → 聊天组件样式)。在那里开启 **Apply preset font**(应用预设字体)，消息、输入框和聊天控件也会使用这款字体。保持关闭时，它们沿用原本的字体。见[现成的聊天窗口样式](custom-css-themes.md#ready-made-chat-window-styles)。
-
-字体选择会跨设备同步。选定一款字体后，连到同一台 Marinara 服务器的所有浏览器和设备都会跟着切换。想了解同步的原理，见[设置总览](../settings/settings-overview.md)。
+聊天组件另有单独的 **Font** 选项，位于 **Chat widget style**(聊天组件样式) 下。在那里开启 **Apply preset font**(应用预设字体)，消息、输入框和聊天控件也会使用这款字体。见[现成的聊天窗口样式](custom-css-themes.md#ready-made-chat-window-styles)。
 
 ## 添加自己的字体
 
-把字体文件放进服务器上的一个文件夹，就能添加自定义字体。这里说的服务器，就是运行 Marinara 的那台机器。
+开始之前：字体放在服务器上的一个文件夹里。服务器就是运行 Marinara 的那台电脑。如果 Marinara 跑在你自己的电脑上，那台电脑就是服务器，而数据文件夹是 Marinara 存放你的数据的地方。
 
-1. 在服务器机器上，找到 Marinara 数据文件夹里的 `data/fonts/` 文件夹。
+1. 点击 **Font** 下拉菜单旁边的 **Open Fonts Folder**(打开字体文件夹)，打开服务器上的 `data/fonts/`。也可以自己在 Marinara 的数据文件夹里找到 `data/fonts/` 文件夹。
 2. 把字体文件复制进去。
-3. 回到 **Settings**，依次进入 **Appearance**、**Text & Scale**。
-4. 打开 **Font** 下拉菜单，字体已经出现在列表里。
-5. 选中它。
+3. 进入 **Settings → Appearance → App → Text & Scale**(设置 → 外观 → 应用 → 文字与缩放)。
+4. 打开 **Font** 下拉菜单，你的字体就在列表里。
+5. 选中它。应用里的文字会立刻换成这款字体。
 
-Marinara 能读取这几种字体文件格式：`.ttf`、`.otf`、`.woff` 和 `.woff2`。其他后缀的文件一律忽略。
+Marinara 读取 `.ttf`、`.otf`、`.woff` 和 `.woff2` 文件，其他类型一律忽略。它根据文件名生成显示名称，所以 `OpenSans-Bold.ttf` 会显示成“Open Sans”。文件名起得清楚些，列表就整齐。
 
-Marinara 会根据文件名生成显示名称。例如文件 `OpenSans-Bold.ttf` 会显示成“Open Sans”。想让列表整齐一点，文件名就起得清楚一些。
+连到同一台服务器的每台设备都能使用 `data/fonts/` 里的字体。
 
-`data/fonts/` 文件夹里的字体文件存在服务器上，连到同一台 Marinara 服务器的所有设备都能用。字体选择在这些设备之间同样会同步，所以看到的字体都一样。
+如果没有成功：检查文件类型，并确认文件放在服务器上的 `data/fonts/` 里，而不是你正在浏览的这台设备上。
+
+<a id="downloading-from-google-fonts"></a>
 
 ## 从 Google Fonts 下载
 
-Marinara 可以直接替你从 Google Fonts 取字体。这需要服务器能连接互联网。
+这需要服务器能连接互联网。
 
-1. 打开 **Settings**，依次进入 **Appearance**、**Text & Scale**。
-2. 找到 **Google Fonts** 输入框。
-3. 输入准确的字体名，例如 `Fira Code` 或 `Lora`。
-4. 点击 **Add**(添加)。
-5. 等下载完成，新字体随后会出现在 **Font** 下拉菜单里。
+1. 进入 **Settings → Appearance → App → Text & Scale**。
+2. 在 **Google Fonts** 输入框里输入准确的字体名，例如 `Fira Code` 或 `Lora`。
+3. 点击 **Add**(添加)。
+4. 等下载完成，字体随后会出现在 **Font** 下拉菜单里。
 
-名字要和 Google Fonts 上的写法完全一致。输入框旁边有 **Browse fonts at fonts.google.com** 链接，点击会在新标签里打开 Google Fonts 网站，方便查名字。
+输入框旁边的 **Browse fonts at fonts.google.com →** 链接会打开 Google Fonts 网站，方便查名字。名字只能包含字母、数字和空格。再次下载同一款字体会替换旧的那份。
 
-名字只能包含字母、数字和空格。之后再下载同一款字体时，Marinara 会替换旧的那份，不会重复添加。
+如果没有成功，先看报错信息。
 
-下载失败时，先看报错信息。连不上 Google Fonts 时，Marinara 会提示检查网络连接。提示找不到字体则有两种可能：一是名字和 Google Fonts 上的字体对不上；二是这款字体没有 regular(400) 字重，也就是常规的非粗体样式。请核对拼写，并在 Google Fonts 网站上确认这款字体提供 Regular 样式。
+- 如果 Marinara 连不上 Google Fonts，检查网络连接。
+- 如果提示找不到字体，核对拼写，并在 Google Fonts 网站上确认这款字体有 Regular(400) 样式。Marinara 只下载这一种字重。
 
-## Open Fonts Folder 只对本机有效
+## Open Fonts Folder 按钮
 
-**Font** 下拉菜单旁边有一个 **Open Fonts Folder**(打开字体文件夹) 按钮，它会在服务器机器的文件管理器里打开 `data/fonts/` 文件夹。
+**Font** 下拉菜单旁边的 **Open Fonts Folder** 按钮，会在服务器那台电脑的文件管理器里打开 `data/fonts/`，而不是在你正在使用的设备上打开。如果 Marinara 跑在你自己的电脑上，它会替你打开这个文件夹。从手机或另一台电脑连过来时，就自己把字体文件复制到服务器的 `data/fonts/` 文件夹里。
 
-这个按钮操作的是服务器，而不是正在浏览 Marinara 的这台设备。如果 Marinara 就跑在自己的电脑上，它会正常打开文件夹；如果是从手机或另一台电脑连过来的，这个按钮对你没有用。这种情况下，自己把字体文件复制到服务器的 `data/fonts/` 文件夹里。
+选用默认字体时，预设编辑器里的提示词字段和角色的 Example Dialogue(对话示例) 使用等宽字体。选用其他任何字体时，它们也会跟着用那款字体。其他提示词字段，例如智能体的提示词模板，始终使用等宽字体。
 
 ## 相关指南
 

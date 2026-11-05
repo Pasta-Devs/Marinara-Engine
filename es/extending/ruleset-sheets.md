@@ -1,6 +1,6 @@
 # Fichas de conjuntos de reglas
 
-Esta página forma parte de [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md). Qué contiene la ficha de personaje de un conjunto de reglas: atributos, habilidades, campos y listas, estados vivos, contadores de heridas, penalizaciones, descansos y el texto del Game Master, además de la ficha del grupo y los relojes de progreso.
+Usa esta página para diseñar la ficha de personaje de un conjunto de reglas: atributos, habilidades, campos y listas, estados vivos, contadores de heridas, penalizaciones, descansos y el texto del Game Master, además de la ficha del grupo y los relojes de progreso. Es para quienes escriben conjuntos de reglas. Antes de empezar, lee [Escribir conjuntos de reglas de Game Mode](writing-rulesets.md).
 
 ## La ficha
 
@@ -86,7 +86,7 @@ Un campo enum se elige al crear el personaje y no cambia, y un estado solo está
 - `from` nombra exactamente uno entre `field` (un campo enum) y `liveState`. Cada fila de `table` es un valor que este puede tener, de uno a cuarenta. Un valor que la tabla omite, y un estado que la ficha oculta, leen `default` (0 si lo omites).
 - Un campo queda fijado al crear el personaje, así que una tabla basada en uno puede alimentar un máximo: Gravewatch da una Resolve más a un guardián de la guardia del alba. Un estado vivo cambia durante el juego, así que una tabla basada en uno es una lectura viva, como `liveTrack`: nada que se calcule antes de que exista un estado vivo puede leerla, ni directamente ni mediante otro valor derivado. Por eso la clave es `liveState` y no `state`: toda lectura del estado vivo se llama `live`, y así tanto tú como la importación pueden distinguir lo que un máximo no puede usar.
 - Para llevar el número a los dados, apunta `resolution.adjust` hacia él (consulta Modificadores fuera de la ficha). Ember Roads suma su Stance a cada tirada de Brawn; Gravewatch resta una linterna cerrada u oscura de cada tirada de Nerve.
-- Una capa puede retirar un valor de un campo para el que una tabla tiene una fila. Esa fila simplemente no se lee mientras la capa está activa.
+- Una capa puede retirar un valor de un campo para el que una tabla tiene una fila. Esa fila nunca se lee mientras la capa está activa.
 
 Los estados vivos, `enumTable` y un paso de descanso que nombra un `state` requieren Capability API 1.42 en un conjunto empaquetado.
 
@@ -96,7 +96,7 @@ Los estados vivos, `enumTable` y un paso de descanso que nombra un `state` requi
 
 Muchos sistemas no cuentan puntos de golpe. Tienen una columna de casillas, cada una peor que la anterior, y marcas una al recibir daño. Añade `kinds` y, o bien `levels` con nombre, o bien `boxes` numeradas (abajo), a una entrada `live.tracks` para convertir un número en una de estas escalas:
 
-**¿Qué forma necesita tu sistema?** Una reserva guarda CUÁNTO daño llegó; un contador guarda cuánto Y el tipo de cada parte. Si una herida es contundente, letal o agravada y el tipo sigue importando después del golpe (porque lo agravado cura más despacio, no puede absorberse o acaba matando), debe conservarse tras la tirada. Solo una marca lo conserva. Una reserva no puede: al restar daño solo queda un número menor, sin memoria de qué puntos eran de cada tipo. Por eso `combat.damageKinds` se rechaza cuando la salud es una reserva, en vez de ignorarse. Una reserva sí puede tener `damageTypes`, y los enemigos pueden resistirlos o ser inmunes: eso determina cuánto daño llega, no qué herida queda después.
+**¿Qué forma necesita tu sistema?** Una reserva guarda CUÁNTO daño llegó; un contador guarda cuánto Y de qué tipo era cada parte. Si tu sistema dice que una herida es contundente, letal o agravada, y cuál fue sigue importando después del golpe (porque lo agravado cura más despacio, no puede absorberse o es lo que acaba matando), ese tipo tiene que conservarse en algún sitio tras la tirada, y solo una marca lo conserva. Una reserva de puntos no puede: una vez restado el daño, solo es un número menor, y nada en la ficha recuerda qué puntos eran de cada tipo. Por eso `combat.damageKinds` se rechaza en un conjunto de reglas cuya salud es una reserva, en vez de ignorarse sin avisar. Una reserva sí puede tener `damageTypes`, y un oponente puede resistirlos o ser inmune a ellos, porque esa es una cuestión de cuánto del golpe llega, no de qué herida queda después.
 
 ```json
 {
@@ -126,7 +126,7 @@ Muchos sistemas no cuentan puntos de golpe. Tienen una columna de casillas, cada
 **Las reglas exactas**, porque una interpretación vaga produce un contador incorrecto:
 
 - Las marcas se ordenan con **las más graves primero**. Siete niveles admiten como máximo siete marcas.
-- Cada marca se **inserta por orden de gravedad**, nunca simplemente al final. Ocupa el nivel más alto que le corresponde y desplaza las más leves hacia abajo.
+- Cada marca se **inserta por orden de gravedad** entre las que ya hay, nunca al final. Ocupa el nivel más alto que le corresponde y desplaza las más leves hacia abajo.
 - La penalización activa es la del **nivel marcado más bajo**, nunca la suma. Tres marcas en el ejemplo dan `-3`, no `0 + -1 + -3`.
 - `amount` es la cantidad de marcas de un tipo, **aplicadas una a una**. Así, llenarse a mitad del proceso sigue la misma regla que empezar lleno.
 - Marcar un contador **lleno** **aumenta un paso la gravedad de su marca más leve**, en vez de añadir otra. Sube un peldaño en tu escala de tipos, sea cual sea el tipo nuevo.
@@ -208,6 +208,8 @@ El resultado indica lo que añadió la ficha (`adjust="-2"` en el registro y una
 ## Descansos
 
 Un descanso es una lista de restauraciones y elementos que borrar. Cada paso nombra un objetivo (`pool`, `poolGroup`, `listPools`, `track` o `state`) y lo fija (`"to": "max"`, `"to": "min"` o un número) o modifica (`"by": { "const": 1 }` o `"by": { "fractionOfMax": 0.5 }`). Si nombra un contador de heridas, solo puede curarlo, así que su `by` es negativo; consulta arriba. Un paso que nombra un estado vivo solo lo fija, en `"default"` o en uno de sus valores. Un paso `poolGroup` con `fractionOfMax` cambia cada reserva del grupo según su propia fracción; añade `"shared": true` (Capability API 1.77) para calcular la fracción sobre el máximo de todo el grupo y repartirla entre las reservas del grupo en el orden en que las lista la ficha, cada una hasta lo que le falta. El descanso largo de 5e, "la mitad del número total de" dados de golpe del personaje, guardados en una reserva por dado, es `{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`.
+
+<a id="game-master-text"></a>
 
 ## Texto del Game Master
 

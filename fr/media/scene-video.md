@@ -1,235 +1,206 @@
 # Génération de vidéos de scène
 
-Ce guide explique comment Marinara Engine transforme l'illustration d'une scène en un court clip vidéo MP4. Au programme : les fournisseurs de vidéo, la génération d'un clip depuis la galerie, les commandes de Game Mode et les réglages vidéo. Une vidéo de scène est un bref clip animé créé à partir d'une image fixe ou, en **Roleplay**, du récit seul.
+Une vidéo de scène est un court clip MP4 de la scène. Elle peut animer une image de la galerie : l'image devient la première image du clip et l'IA ajoute le mouvement. En Roleplay, elle peut aussi être créée à partir du récit seul. Ce guide explique comment configurer un service vidéo, créer des clips depuis la galerie et en Game Mode, et modifier les réglages vidéo.
 
-## À quoi sert la vidéo de scène
+Les vidéos de scène fonctionnent dans les chats Roleplay et Game Mode. Les chats Conversation envoient plutôt des messages vidéo. Voir [Messages vidéo](../conversation/selfies.md#video-messages).
 
-Une vidéo de scène est un court clip MP4 de la scène. Elle peut animer une image de la galerie, qui devient la première image du clip tandis que l'IA ajoute le mouvement, ou, en **Roleplay**, être créée à partir du récit seul. Les vidéos de scène fonctionnent dans les chats **Roleplay** et **Game Mode**. Les chats en mode Conversation envoient plutôt des messages vidéo ; voir [Messages vidéo](../conversation/selfies.md#video-messages).
+Game Mode et **Animate illustration** (animer l'illustration) partent toujours d'une image : génère ou téléverse donc une image d'abord. En Roleplay, `/video` et le bouton **Video** (vidéo) de la galerie suivent le réglage **First frame** (première image) d'Illustrator. Sans première image choisie, ils n'ont besoin d'aucune image.
 
-**Game Mode** et **Animate illustration** partent toujours d'une image : génère ou téléverse donc une image d'abord. En **Roleplay**, `/video` et le bouton **Video** de la Gallery suivent le réglage **First frame** (première image) d'Illustrator et n'ont besoin d'aucune image si aucune première image n'est choisie.
+Les vidéos de scène passent par un type de compte à part, **Video Generation** (génération de vidéos), et non par la génération d'images classique. Les clips terminés sont enregistrés avec le chat et affichés dans la galerie, où tu peux les épingler, les télécharger ou les visionner.
 
-Les vidéos de scène passent par un type de connexion à part, appelé **Video Generation** (génération de vidéos). Ce n'est pas la même chose que la génération d'images classique. Marinara enregistre les clips terminés avec le chat et les affiche dans la galerie, où tu peux les épingler, les télécharger ou les visionner.
+## Configurer un service vidéo
 
-## Les connexions Video Generation
+1. Clique sur **Connections** (Connexions) dans la barre du haut, puis sur **Add** (ajouter). La fenêtre **Add account** (ajouter un compte) s'ouvre.
+2. Choisis un service dans la section **Images & video** (images et vidéo). Les services sont listés ci-dessous.
+3. Colle la clé API – un code secret, un peu comme un mot de passe – d'un service cloud. ComfyUI en local n'en a pas besoin. SwarmUI n'a besoin d'un Swarm Auth Token que si ton serveur exige un compte.
+4. Clique sur **Connect** (connecter), puis choisis un modèle ou garde celui par défaut. NanoGPT n'a pas de modèle par défaut : choisis-en un dans sa liste. Pour ComfyUI, laisse le modèle non défini, sauf si le workflow utilise `%model%`. Pour SwarmUI, le modèle est facultatif.
+5. Ouvre le modèle vidéo et clique sur **Test video** (tester la vidéo) pour le vérifier.
 
-Pour créer des vidéos de scène, commence par ajouter une connexion capable de générer de la vidéo. Cela se passe dans le même panneau **Connections** (connexions) que les connexions de chat et d'images.
+Chaque service remplit une adresse par défaut et, le cas échéant, un modèle par défaut. NanoGPT n'a pas de modèle par défaut : choisis-en un.
 
-1. Ouvre **Settings** (Paramètres), puis ouvre **Connections**.
-2. Clique sur **Add Connection** (ajouter une connexion).
-3. Règle le type de fournisseur sur **Video Generation**.
-4. Sous **Video Service** (service vidéo), choisis un des huit services ci-dessous.
-5. Saisis la clé API – un code secret, un peu comme un mot de passe – pour un service cloud. ComfyUI en local n'en a pas besoin. SwarmUI n'a besoin d'un Swarm Auth Token que si ton serveur SwarmUI exige un compte.
-6. Pour les services cloud, choisis un modèle ou garde celui du fournisseur par défaut. NanoGPT n'a pas de modèle par défaut : clique sur **Fetch Models from API** (récupérer les modèles depuis l'API) et choisis-en un. Pour ComfyUI, laisse le modèle vide, sauf si le workflow utilise `%model%`. Pour SwarmUI, le modèle est facultatif.
-7. Enregistre la connexion.
+| Service vidéo | Modèle par défaut | Notes |
+| --- | --- | --- |
+| **Google AI Studio** | `gemini-omni-flash-preview` | Fait tourner les modèles Gemini Omni et Veo via l'API Gemini. |
+| **xAI Imagine** | `grok-imagine-video-1.5` | Grok Imagine vidéo via l'API Videos de xAI. |
+| **OpenRouter Video** | `google/veo-3.1` | Tu peux saisir n'importe quel identifiant de modèle vidéo OpenRouter. |
+| **NanoGPT** | aucun, à choisir | Les modèles vidéo via NanoGPT. |
+| **Atlas Cloud** | `google/veo3.1/text-to-video` | Modèles hébergés texte-vers-vidéo et image-vers-vidéo. |
+| **Seedance 2.0** | `seedance-2-0` | Modes texte, première image, et première et dernière image. |
+| **ComfyUI** | défini par le workflow | Workflows vidéo WAN et autres, en local, au format API. |
+| **SwarmUI** | défini par le workflow | Workflows vidéo ComfyUI via ton serveur SwarmUI. |
 
-Le sélecteur **Video Service** propose huit choix. Chacun remplit une adresse web par défaut et, le cas échéant, un modèle par défaut :
+**Google AI Studio** couvre deux familles. **Gemini Omni** utilise `gemini-omni-flash-preview`. **Google Veo** utilise `veo-3.1-generate-preview`. C'est le modèle que tu choisis qui détermine laquelle tourne.
 
-| Video Service        | Modèle par défaut                 | Notes                                                                        |
-| -------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
-| **Google AI Studio** | `gemini-omni-flash-preview`       | Fait tourner les modèles vidéo Gemini Omni et Veo via l'API Gemini.          |
-| **xAI Imagine**      | `grok-imagine-video-1.5`          | Grok Imagine vidéo via l'API Videos de xAI.                                  |
-| **OpenRouter Video** | `google/veo-3.1`                  | Les modèles vidéo via OpenRouter. Tu peux saisir n'importe quel identifiant de modèle vidéo OpenRouter. |
-| **NanoGPT**          | Aucun, à choisir                  | Les modèles vidéo via NanoGPT. **Fetch Models from API** charge la liste.    |
-| **Atlas Cloud**      | `google/veo3.1/text-to-video`     | Modèles hébergés texte-vers-vidéo et image-vers-vidéo via Atlas Cloud.       |
-| **Seedance 2.0**     | `seedance-2-0`                    | Modes vidéo texte, première image, et première et dernière image.            |
-| **ComfyUI**          | Défini par le workflow            | Workflows vidéo WAN et autres, en local, exportés au format API.             |
-| **SwarmUI**          | Défini par le workflow            | Workflows vidéo ComfyUI exécutés via ton serveur SwarmUI.                    |
+Pour **ComfyUI**, utilise `http://127.0.0.1:8188` et colle un workflow vidéo au format API dans **ComfyUI workflow (required)**. Il est obligatoire. Voir [Configuration des workflows ComfyUI](comfyui.md#comfyui-video-workflows) pour les placeholders et les nœuds de sortie.
 
-**Google AI Studio** couvre deux familles de modèles. **Gemini Omni** utilise `gemini-omni-flash-preview`. **Google Veo** utilise `veo-3.1-generate-preview`. C'est le modèle choisi dans la connexion qui détermine lequel des deux tourne.
+Pour **SwarmUI**, Marinara remplit `http://127.0.0.1:7801`. Colle un workflow vidéo au format API dans **ComfyUI workflow (required)**. Il est obligatoire. SwarmUI ne peut pas utiliser les placeholders `%reference_image_name%` : utilise donc `%reference_image%`. Si ton serveur exige un compte, colle un Swarm Auth Token dans **API key** (clé API).
 
-Pour **ComfyUI**, utilise l'adresse locale habituelle `http://127.0.0.1:8188` et colle un workflow vidéo au format API dans le champ **ComfyUI Workflow**. Ce workflow est obligatoire. Voir [Configuration des workflows ComfyUI](comfyui.md#comfyui-video-workflows) pour les balises de remplacement et les exigences sur le nœud de sortie.
+### En faire le modèle vidéo par défaut
 
-Pour **SwarmUI**, Marinara remplit l'adresse locale `http://127.0.0.1:7801`. Colle un workflow vidéo au format API dans le champ **ComfyUI Workflow**. Ce workflow est obligatoire. SwarmUI ne peut pas utiliser les balises de remplacement `%reference_image_name%` : utilise plutôt `%reference_image%` pour l'image de référence. Si ton serveur SwarmUI exige un compte, colle un Swarm Auth Token dans **API Key** (clé API). **Fetch Models from API** liste les modèles de ton serveur SwarmUI.
+Pour utiliser un modèle vidéo quand un chat n'a pas le sien, règle la tâche **Video** sous **Defaults** (valeurs par défaut), en haut du panneau **Connections**. Dans Chat Settings, elle apparaît sous le nom **Default video provider** (fournisseur vidéo par défaut). Sans modèle de chat ni modèle par défaut, les actions vidéo t'avertissent pour que tu en choisisses un.
 
-### Video Prompting Instructions
+### Instructions pour les prompts vidéo
 
-Une connexion Video Generation dispose d'un champ **Video Prompting Instructions** (instructions pour les prompts vidéo). Utilise-le pour dire à l'IA qui écrit tes prompts vidéo ce qu'attend ton modèle vidéo, comme les mouvements de caméra, la longueur du prompt ou le son. Il guide les animations de la galerie en Roleplay, les messages vidéo en Conversation et l'option **Image-aware shot planning** de Storyboard. Si l'IA en recopie une phrase entière dans le prompt vidéo, Marinara retire cette phrase. Les vidéos de scène de Game Mode, les clips d'appel et les expressions animées créent leurs prompts séparément. **Video Prompting Instructions** n'a pas d'effet sur eux.
+Chaque modèle vidéo a un champ **Video prompting instructions** (instructions pour les prompts vidéo). Un prompt, c'est le texte que Marinara envoie à l'IA. Indique à l'IA qui écrit tes prompts vidéo ce qu'attend ton modèle vidéo, comme les mouvements de caméra, la longueur du prompt ou le son. Ce champ guide les animations de la galerie en Roleplay, les messages vidéo en Conversation et l'option **Image-aware shot planning** (planification des plans à partir de l'image) de Storyboard. Si l'IA en recopie une phrase entière dans le prompt, Marinara retire cette phrase. Les vidéos de scène de Game Mode, les clips d'appel et les expressions animées écrivent leurs prompts séparément et l'ignorent.
 
-### En faire la connexion vidéo par défaut
+### Réglages vidéo par défaut de chaque modèle
 
-L'éditeur d'une connexion Video Generation affiche un groupe **Default for Videos** (connexion vidéo par défaut). Active l'interrupteur **Use as default video connection** pour que Marinara puisse s'appuyer sur cette connexion quand un chat n'a pas la sienne. Ne marque qu'une seule connexion comme connexion vidéo par défaut.
+Un modèle vidéo a un panneau **Video defaults** (réglages vidéo par défaut) pour la durée de clip, le format d'image et la résolution par défaut. Ces valeurs l'emportent sur la durée de repli valable pour toute l'application.
 
-### Réglages vidéo par défaut de la connexion
+Durée par défaut, plage de durée, format d'image et résolution de chaque service :
 
-Une connexion Video Generation dispose de son propre panneau **Video Generation Defaults** (réglages vidéo par défaut) dans l'éditeur de connexion. Tu y définis la durée de clip, le format d'image et la résolution par défaut de cette connexion. Ces réglages propres à la connexion l'emportent sur la durée de repli valable pour toute l'application.
+- Gemini Omni : 10 s, de 1 à 60 s, 16:9, résolution par défaut du fournisseur.
+- Google Veo : 8 s, 4, 6 ou 8 s, 16:9, 720p.
+- xAI Imagine : 10 s, de 1 à 15 s, 16:9, 720p.
+- OpenRouter Video : 10 s, de 1 à 60 s, 16:9, 720p.
+- Atlas Cloud : 8 s, de 1 à 60 s, 16:9, 720p.
+- Seedance 2.0 : 5 s, de 4 à 15 s, 16:9, 720p.
+- ComfyUI et SwarmUI : 5 s, de 1 à 60 s, 16:9, 720p.
 
-| Service          | Durée par défaut | Plage de durée | Format d'image | Résolution           |
-| ---------------- | -------------- | ------------ | ------------ | ---------------- |
-| Gemini Omni      | 10 s           | 1 à 60 s     | 16:9         | Celle du fournisseur |
-| Google Veo       | 8 s            | 4, 6 ou 8 s  | 16:9         | 720p             |
-| xAI Imagine      | 10 s           | 1 à 15 s     | 16:9         | 720p             |
-| OpenRouter Video | 10 s           | 1 à 60 s     | 16:9         | 720p             |
-| NanoGPT          | 10 s           | 1 à 60 s     | 16:9         | 720p             |
-| Atlas Cloud      | 8 s            | 1 à 60 s     | 16:9         | 720p             |
-| Seedance 2.0     | 5 s            | 4 à 15 s     | 16:9         | 720p             |
-| ComfyUI          | 5 s            | 1 à 60 s     | 16:9         | 720p             |
-| SwarmUI          | 5 s            | 1 à 60 s     | 16:9         | 720p             |
+Gemini Omni n'a pas de champ de résolution, et sa durée est écrite dans le texte du prompt. Google Veo impose 8 secondes dès qu'il anime une image de référence, car il lui faut 8 secondes pour fondre la première et la dernière image.
 
-Gemini Omni n'a pas de champ de résolution, et sa durée s'écrit dans le texte du prompt – le texte que Marinara envoie à l'IA – au lieu d'un réglage à part. Google Veo impose 8 secondes dès qu'il anime une image de référence, car il lui faut 8 secondes pour faire la transition entre la première et la dernière image.
+<a id="seedance-reference-frames"></a>
 
-### Les images de référence de Seedance
+### Images de référence de Seedance
 
-Seedance doit récupérer l'image de référence via un lien web public avant de pouvoir l'animer. Un serveur Marinara local n'a pas de lien public : une installation locale simple demande donc une étape de plus.
+Seedance doit récupérer ton image de référence via un lien web public. Un serveur Marinara local n'en a pas : une installation locale simple demande donc une étape de plus.
 
-Ouvre la connexion Seedance et active l'interrupteur **Upload Seedance reference frames temporarily** (téléverser temporairement les images de référence Seedance). Marinara téléverse alors l'image de référence vers un lien public temporaire, que Seedance peut lire. La durée de vie de ce lien se règle sous **Temporary link lifetime** (durée de vie du lien temporaire) ; elle est de 12 heures par défaut.
+1. Ouvre le modèle Seedance.
+2. Active **Upload Seedance reference frames temporarily** (téléverser temporairement les images de référence Seedance). L'image est envoyée vers un lien public temporaire.
+3. Facultatif : règle **Temporary link lifetime** (durée de vie du lien temporaire). La valeur par défaut est de 12 heures.
 
-Si le serveur Marinara dispose déjà d'une adresse web publique, tu peux définir une variable d'environnement au lieu de passer par les téléversements temporaires. Voir la [Référence de configuration du serveur](../CONFIGURATION.md) pour le réglage de référence vidéo.
+Si ton serveur Marinara a déjà une adresse publique, tu peux plutôt définir une variable d'environnement. Voir la [Référence de configuration du serveur](../CONFIGURATION.md).
 
-## Choisir un fournisseur
+## Créer une vidéo depuis la galerie
 
-Les huit services fabriquent tous de courts clips à partir de l'image. Ils diffèrent par la vitesse, la durée des clips et la façon de traiter les images de référence.
+Les chats Roleplay et Game Mode peuvent créer des vidéos de scène depuis la galerie. Ouvre **Chat Settings** (réglages du chat) et déplie **Gallery** (galerie). La galerie a un onglet **Images** et un onglet **Videos** (vidéos), chacun avec un compteur.
 
-- **Google AI Studio (Gemini Omni)** : durée souple, jusqu'à 60 secondes. La durée est intégrée au prompt, ce n'est pas une commande à part.
-- **Google AI Studio (Veo)** : très bonne qualité, mais durée figée à 4, 6 ou 8 secondes. Il passe à 8 secondes quand il anime une image.
-- **xAI Imagine** : clips de 1 à 15 secondes. La limite de longueur du prompt y est plus basse que sur les autres services.
-- **OpenRouter Video** : de 1 à 60 secondes, avec la possibilité de saisir n'importe quel modèle vidéo pris en charge par ton compte OpenRouter.
-- **NanoGPT** : de 1 à 60 secondes. Il n'a pas de modèle par défaut : charge les modèles vidéo de NanoGPT avec **Fetch Models from API** et choisis-en un.
-- **Atlas Cloud** : **Fetch Models** (Récupérer les modèles) charge le catalogue vidéo actuel d'Atlas Cloud, avec les modèles image-vers-vidéo en premier et leur tarif de départ par seconde de vidéo. Si le catalogue est inaccessible, Marinara propose les modèles de départ Veo 3.1 et Seedance 2.0. Tu peux aussi saisir l'identifiant exact d'un modèle vidéo Atlas Cloud ; ses limites de durée, de résolution et d'images de référence s'appliquent toujours.
-- **Seedance 2.0** : clips de 4 à 15 secondes, avec les modes première image et première et dernière image. Il lui faut un lien public vers l'image de référence.
-- **ComfyUI** : génération en local via ton propre workflow au format API. Marinara téléverse l'image de référence directement vers ComfyUI quand le workflow utilise `%reference_image_name%`.
-- **SwarmUI** : génération en local via ton propre workflow au format API, transmis par ton serveur SwarmUI. L'image de référence entre dans le workflow via `%reference_image%`.
+### En Roleplay
 
-Attends-toi à ce que les tâches vidéo prennent du temps. Le fournisseur lance la tâche, puis Marinara patiente et vérifie régulièrement jusqu'à ce que le clip soit prêt. Compte plusieurs minutes par clip, bien plus que pour une image fixe. Les gros modèles WAN locaux peuvent dépasser le délai d'expiration de 30 minutes par défaut : augmente `VIDEO_GEN_TIMEOUT_MS` et redémarre Marinara si besoin.
+Le bouton **Video**, dans la rangée d'actions en haut de la galerie, crée un clip de la dernière réponse, comme `/video`. Ajoute une description après `/video` pour préciser ce que le clip doit montrer.
+
+- **First frame** : suit le réglage **First frame** d'Illustrator. Il s'agit d'une nouvelle image d'Illustrator de la dernière réponse (dessinée d'abord, puis animée), de l'avatar ou du sprite du personnage, ou d'aucune image. Si aucune n'est choisie, le clip est créé à partir du récit seul.
+- **Avatar** : le clip part de la première personne que ta description nomme, y compris ton persona. Une partie de nom que personne d'autre ne partage suffit, avec une majuscule ("Lena" pour "Dr. Lena Kowalski"). Si personne n'est nommé, il part du personnage du chat.
+- **Relecture** : si **Expose media prompts before sending** (afficher les prompts médias avant l'envoi) est activé, tu peux d'abord relire et modifier le prompt du clip.
+- **Contexte** : l'IA lit autant de messages récents qu'Illustrator pour une image (le réglage **Context Size** (taille du contexte) d'Illustrator, sous **Agent Budget** (budget de l'agent) sur son écran de configuration).
+- **Sans image** : quand le clip part d'aucune image ou d'un avatar, l'IA décrit elle-même la scène. Ses instructions sont **Roleplay Clip Director** (réalisation des clips Roleplay), sous **Settings → Generations → Video Generation Prompt Overrides** (Paramètres → Générations → redéfinitions des prompts de génération vidéo).
+
+Le clip terminé se lit directement sous la dernière réponse, même si l'image vient d'une réponse plus ancienne. Les clips ne s'ouvrent pas d'eux-mêmes dans une fenêtre flottante. Pour en faire flotter un, utilise **Pin video to chat** (épingler la vidéo au chat) sous **Videos**. Retire un clip d'un message avec son bouton **X**. Il reste dans la galerie.
+
+### En Game Mode
+
+1. Vérifie qu'au moins une image se trouve sous **Images**. Utilise **Illustrate** (illustrer) ou téléverse une image.
+2. Clique sur **Video** dans la rangée d'actions en haut de la galerie.
+3. Si **Expose media prompts before sending** est activé (**Settings → Generations → Overall Generations** (Paramètres → Générations → Générations globales)), relis ou modifie le prompt et clique sur **Generate** (générer). Annuler ne lance aucune requête.
+4. Le bouton affiche **Generating...** et une bannière indique que la génération de vidéo est en cours.
+5. Une fois terminé, le clip apparaît sous **Videos**.
+
+S'il n'y a aucune image, Marinara affiche "Add or generate a gallery image before generating a scene video." Crée ou téléverse une image, puis réessaie.
+
+### Animer une image
+
+1. Ouvre l'onglet **Images**.
+2. Passe le pointeur sur l'image.
+3. Clique sur **Animate illustration**, l'icône de pellicule.
+
+Quand la relecture des prompts est activée, une fenêtre affiche le prompt compilé exact, la durée, le format d'image et la résolution pour cette image. Ta modification ne vaut que pour ce clip. En Roleplay, l'IA qui planifie le mouvement lit autant de messages récents qu'Illustrator, jusqu'à la réponse à laquelle l'image appartient. Ses instructions réutilisables sont **Roleplay Gallery Animation Director** (réalisation des animations de galerie Roleplay), sous **Settings → Generations → Video Generation Prompt Overrides**.
+
+Chaque clip sous **Videos** se lit directement dans la page, avec sa durée et le nom du modèle. Utilise **Pin video to chat** ou **Download scene video** (télécharger la vidéo de scène). Sans clip, l'onglet affiche **No videos yet**.
+
+## Choisir un service
+
+Les huit services créent tous de courts clips à partir de ton image.
+
+- **Google AI Studio (Gemini Omni)** : durée jusqu'à 60 secondes, écrite dans le prompt.
+- **Google AI Studio (Veo)** : très bonne qualité, durée fixée à 4, 6 ou 8 secondes. Il utilise 8 secondes quand il anime une image.
+- **xAI Imagine** : de 1 à 15 secondes, avec une limite de longueur de prompt plus basse que les autres.
+- **OpenRouter Video** : de 1 à 60 secondes, avec n'importe quel modèle vidéo pris en charge par ton compte.
+- **NanoGPT** : de 1 à 60 secondes, sans modèle par défaut.
+- **Atlas Cloud** : charge le catalogue vidéo actuel d'Atlas Cloud, avec les modèles image-vers-vidéo en premier, chacun avec son tarif de départ par seconde de vidéo produite. Si le chargement échoue, Marinara propose les modèles de départ Veo 3.1 et Seedance 2.0. Tu peux saisir l'identifiant exact d'un modèle. Les limites du modèle s'appliquent toujours.
+- **Seedance 2.0** : de 4 à 15 secondes, avec les modes première image et première et dernière image. Il lui faut un lien public vers ton image de référence.
+- **ComfyUI** : en local, via ton workflow au format API. Marinara téléverse l'image de référence directement quand le workflow utilise `%reference_image_name%`.
+- **SwarmUI** : en local, via ton workflow et ton serveur SwarmUI. L'image de référence entre via `%reference_image%`.
+
+Les tâches vidéo sont lentes. Le service lance la tâche, puis Marinara patiente et vérifie jusqu'à ce que le clip soit prêt. Un clip peut prendre plusieurs minutes. Les gros modèles WAN locaux peuvent avoir besoin de plus que les 30 minutes par défaut. Augmente `VIDEO_GEN_TIMEOUT_MS` et redémarre Marinara.
 
 ### Différences entre les modèles Atlas Cloud
 
-Les modèles Atlas Cloud n'acceptent pas tous les mêmes réglages. Avant chaque requête, Marinara lit le schéma d'entrée publié du modèle sur `static.atlascloud.ai` et y adapte les valeurs par défaut de ta connexion :
+Les modèles Atlas Cloud n'acceptent pas tous les mêmes réglages. Avant chaque requête, Marinara lit le schéma d'entrée publié du modèle sur `static.atlascloud.ai` et y adapte tes valeurs par défaut.
 
-- L'illustration source est envoyée dans le champ d'image utilisé par ce modèle.
-- La durée du clip est ramenée à la durée proposée la plus proche. Un modèle limité à 5 ou 10 secondes transforme une valeur par défaut de 8 secondes en 10 secondes.
-- La résolution est ramenée au niveau proposé le plus proche. Les modèles qui attendent des dimensions en pixels reçoivent le `width*height` le plus proche pour ton format et ta résolution.
-- Un réglage absent du modèle est omis, afin que sa propre valeur par défaut s'applique.
+- L'image source est envoyée dans le champ d'image utilisé par ce modèle.
+- La durée du clip est ramenée à la durée proposée la plus proche. Un modèle limité à 5 ou 10 secondes transforme une valeur par défaut de 8 secondes en 10.
+- La résolution est ramenée au niveau proposé le plus proche. Les modèles qui attendent une taille en pixels reçoivent le `width*height` le plus proche pour ton format d'image et ta résolution.
+- Un réglage absent du modèle est omis : la valeur par défaut du modèle s'applique.
 
-Le journal du serveur énumère les valeurs modifiées dans une ligne commençant par `[video-gen/atlas-cloud] fitted request`. Si le schéma est illisible, Marinara envoie la même requête générale qu'auparavant.
+Le log – le journal du serveur – énumère chaque valeur modifiée sur une ligne qui commence par `[video-gen/atlas-cloud] fitted request`. Si le schéma ne peut pas être lu, Marinara envoie la même requête générale qu'auparavant.
 
-Choisis un modèle **image-to-video** (image-vers-vidéo) pour les vidéos de scène. Un modèle texte-vers-vidéo n'a pas de champ d'image : il ignore donc ton illustration et produit un autre clip à partir du seul prompt. Le serveur le signale dans son journal.
+Choisis un modèle image-vers-vidéo pour les vidéos de scène. Un modèle texte-vers-vidéo n'a pas de champ d'image : il ignore ton image et crée à partir du prompt un clip sans rapport, ce que le log du serveur signale. **Test video** envoie un simple dégradé comme première image quand le modèle exige une image : les modèles image-vers-vidéo peuvent ainsi réussir le test.
 
-**Test Video** (Tester la vidéo) envoie un simple dégradé comme première image lorsque le modèle Atlas Cloud choisi exige une image. Les modèles image-vers-vidéo peuvent ainsi réussir le test de connexion.
+De nombreux modèles Atlas Cloud ont leurs propres entrées, comme `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` ou des listes de LoRA.
 
-### Options des modèles Atlas Cloud
+1. Ouvre le modèle Atlas Cloud et choisis ou saisis un modèle.
+2. Déplie **Video defaults**, puis **Atlas Cloud setup** (configuration Atlas Cloud).
+3. Cherche **Model options** (options du modèle) sous les réglages de durée, de format d'image et de résolution.
 
-De nombreux modèles Atlas Cloud ont leurs propres entrées, comme `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` ou des listes de LoRA. L'éditeur de connexion les affiche pour le modèle choisi :
+Le haut de **Model options** liste les durées, résolutions, dimensions d'image et formats d'image que le modèle accepte. Un modèle texte-vers-vidéo affiche aussi un avertissement. Chaque option reprend le nom et la description d'Atlas Cloud, et commence sur **Model default** (valeur par défaut du modèle), avec la valeur par défaut entre parenthèses. Une option laissée sur **Model default** n'est pas envoyée. Modifie-en une pour envoyer ta valeur avec chaque vidéo de ce modèle, y compris **Test video**. Les entrées de type liste ou objet, comme les LoRA, se saisissent en JSON.
 
-1. Ouvre la connexion Atlas Cloud et choisis ou saisis un modèle.
-2. Déplie **Video Defaults** (Valeurs par défaut des vidéos), puis **Atlas Cloud setup** (Configuration Atlas Cloud).
-3. Cherche **Model options** (Options du modèle) sous les réglages de durée, de format et de résolution.
+Les choix sont enregistrés pour chaque modèle. **Reset model options** (réinitialiser les options du modèle) les efface pour le modèle actuel. Clique sur **Save** (enregistrer) pour conserver tes modifications. Si une option enregistrée ne correspond plus au modèle, Marinara l'omet et la nomme dans la ligne du log.
 
-En haut de **Model options** figurent les durées, résolutions, dimensions d'image et formats acceptés par le modèle. Un modèle texte-vers-vidéo y affiche aussi un avertissement, car il ne peut pas utiliser l'image de ta galerie.
+## Créer une vidéo dans Game Assets
 
-Chaque option reprend exactement le nom et la description donnés par Atlas Cloud. Toutes commencent sur **Model default** (Valeur par défaut du modèle), avec la valeur du fournisseur entre parenthèses. Une option laissée sur **Model default** n'est pas envoyée : Atlas Cloud décide. Modifie une option pour envoyer ta valeur avec chaque vidéo de cette connexion, y compris **Test Video**. Les listes et objets, comme les LoRA, se saisissent en JSON.
-
-Les choix sont enregistrés par modèle : passer à un autre modèle puis revenir conserve les options de chacun. **Reset model options** (Réinitialiser les options du modèle) efface les choix du modèle actuel. Clique sur **Save** (Enregistrer) dans la connexion pour conserver tes modifications.
-
-Si une option enregistrée ne correspond plus au modèle, par exemple après une modification des entrées par Atlas Cloud, Marinara l'omet de la requête et la nomme dans la ligne `[video-gen/atlas-cloud] fitted request` du journal.
-
-## Générer une vidéo depuis la galerie
-
-Les chats **Roleplay** et **Game Mode** créent des vidéos de scène depuis **Gallery** (galerie). Ouvre **Chat Settings** et déplie **Gallery**. Game Mode propose aussi **Game Assets**, présenté plus loin dans ce guide.
-
-La galerie a un onglet **Images** et un onglet **Videos**, chacun avec un compteur. Les images fixes se trouvent sous **Images**. Les clips terminés se trouvent sous **Videos**.
-
-En **Roleplay**, **Video**, dans la rangée d'actions en haut de la Gallery, crée un clip de la **dernière réponse**, comme si tu tapais `/video`. Ajoute une description après `/video` pour préciser ce que le clip doit montrer.
-
-- **First frame** : le clip suit le réglage **First frame** d'Illustrator. Il peut partir d'une nouvelle image d'Illustrator de la dernière réponse (dessinée d'abord, puis animée), de l'avatar ou du sprite du personnage, ou d'aucune image. Sans première image choisie, aucune image n'est dessinée et le clip est créé à partir du récit seul.
-- **Avatar** : le clip part de la première personne nommée dans ta description, y compris ton persona. Une partie du nom qui n'appartient à personne d'autre suffit, avec une majuscule ("Lena" pour "Dr. Lena Kowalski"). Si personne n'est nommé, il part du personnage du chat.
-- **Vérification** : si **Expose media prompts before sending** est activé, tu peux d'abord relire et modifier le prompt du clip.
-- **Contexte lu** : l'IA qui rédige le clip lit autant de messages récents qu'Illustrator pour une image (son réglage **Context Size** (taille du contexte), sous **Agent Budget** (budget de l'agent) sur son écran de configuration). Le clip montre ainsi ce qui se passe maintenant.
-- **Sans image** : lorsque le clip part sans image ou d'un avatar, l'IA décrit elle-même la scène. Ses instructions sont **Roleplay Clip Director** (réalisation des clips Roleplay), sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
-
-En **Game Mode**, **Video** anime l'image la plus récente :
-
-1. Vérifie qu'au moins une image existe sous l'onglet **Images**. Passe d'abord par **Illustrate** (illustrer) ou téléverse une image.
-2. Clique sur **Video** dans la rangée d'actions en haut de la galerie.
-3. Si l'option **Expose media prompts before sending** est activée sous **Settings**, **Generations**, **Overall Generations**, relis ou modifie le prompt d'animation compilé, puis clique sur **Generate**. Fermer cette fenêtre sans valider n'envoie aucune requête au fournisseur.
-4. Le bouton devient **Generating...**, et une bannière signale que la génération de vidéos est en cours.
-5. Une fois terminé, le clip apparaît sous l'onglet **Videos**.
-
-En **Roleplay**, le clip terminé se lit aussi directement dans le chat, sous la dernière réponse, même si l'image vient d'une réponse plus ancienne. Les clips ne s'ouvrent plus d'eux-mêmes dans une fenêtre flottante. Pour en faire flotter un, utilise **Pin video to chat** (épingler la vidéo au chat) sous l'onglet **Videos**. Retire un clip d'un message avec son bouton **X** ; il reste dans la galerie.
-
-Pour animer une image précise plutôt que la plus récente :
-
-1. Ouvre l'onglet **Images**.
-2. Survole l'image voulue.
-3. Clique sur le bouton **Animate illustration** (animer l'illustration), l'icône de pellicule, dans les commandes de survol.
-
-La même fenêtre **Review Video Prompt** (relire le prompt vidéo) s'affiche pour **Animate illustration** quand la relecture du prompt est activée. Elle montre le prompt exact compilé par le serveur, la durée, le format d'image et la résolution qui seront utilisés pour l'image sélectionnée. Ta modification ne vaut que pour cette génération. En Roleplay, l'IA qui prépare le mouvement lit autant de messages récents qu'Illustrator (son réglage **Context Size**), jusqu'à la réponse à laquelle l'image appartient. En Roleplay, les instructions réutilisables qui produisent ce prompt se règlent à part, avec **Roleplay Gallery Animation Director**, sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
-
-Sous l'onglet **Videos**, chaque clip se lit directement dans la page et affiche sa durée et le nom du modèle. Épingle un clip avec **Pin video to chat**, ou enregistre-le avec **Download scene video** (télécharger la vidéo de scène). S'il n'y a encore aucun clip, l'onglet affiche **No videos yet**.
-
-Si tu essaies d'animer une image en Game Mode alors que le chat n'en contient aucune, Marinara affiche ce message : "Add or generate a gallery image before generating a scene video." Génère ou téléverse une image, puis réessaie.
-
-## La vidéo de scène en Game Mode
-
-Game Mode propose aussi **Game Assets** pour créer des vidéos de scène. Clique ou appuie sur son bouton de dossier, placé au départ près du coin supérieur droit du chat. Il s'ouvre dans une fenêtre sur ordinateur, ou dans un panneau sur toute la largeur sur téléphone. Si tu l'as déplacé dans Chat Settings, ouvre plutôt la section **Game Assets** à cet endroit.
+Game Mode propose un second endroit pour créer une vidéo de scène : **Game Assets** (ressources de jeu). Clique sur son bouton en forme de dossier, près du coin supérieur droit du chat. Il s'ouvre dans une fenêtre sur ordinateur, et dans un panneau sur toute la largeur sur téléphone. Si tu l'as déplacé dans Chat Settings, ouvre plutôt la section **Game Assets** à cet endroit.
 
 1. Ouvre **Game Assets**.
-2. Clique sur **Generate video** (générer une vidéo). Son infobulle indique "Generate a scene video from the latest illustration."
+2. Clique sur **Generate video** (générer une vidéo), décrit par "Generate a scene video from the latest illustration".
 3. Le clip le plus récent s'y lit dès qu'il est prêt.
 
-Le bouton **Generate video** reste inactif tant que la partie n'a pas à la fois une connexion vidéo et une illustration de scène. Si tu cliques trop tôt, un de ces messages peut apparaître :
+**Generate video** reste inactif tant que la partie n'a pas à la fois un modèle vidéo et une illustration de scène. Si tu cliques trop tôt, tu peux voir "Choose a Video Generation connection in Game Settings first." (définis un modèle vidéo pour la partie) ou "Generate a scene illustration before generating a scene video." Si un clip échoue, le panneau affiche "Scene video generation failed." Réessaie, et vérifie ta clé si l'échec se répète.
 
-- "Choose a Video Generation connection in Game Settings first." Définis une connexion vidéo pour la partie.
-- "Generate a scene illustration before generating a scene video." Crée d'abord une image.
+## Choisir un modèle vidéo pour un chat
 
-Si un clip échoue, le panneau affiche "Scene video generation failed." Réessaie et, si l'échec se répète, vérifie la connexion et la clé API.
+Chaque chat choisit son propre modèle vidéo sous **Chat Settings → Agents → Scene Videos** (réglages du chat → agents → vidéos de scène).
 
-## Choisir une connexion vidéo pour un chat
+- **Roleplay** affiche une carte **Scene Videos** ("Generate manual MP4 scene videos from gallery images"). Elle n'a qu'une commande, la liste des modèles vidéo.
+- **Game Mode** affiche une carte **Scene Videos** ("Generate MP4 scene videos from game illustrations") avec davantage de commandes. La liste des modèles vidéo choisit le modèle. **Game Video Prompt** (prompt vidéo de Game) est le modèle de prompt qui décide de la façon dont l'image s'anime. La valeur intégrée par défaut est **Cinematic Scene Video**. **Edit Video Prompt Presets** (modifier les presets de prompt vidéo) ajoute et modifie tes propres copies pour ce chat.
 
-Chaque chat choisit sa propre connexion vidéo. Cela se règle sous **Chat Settings** (réglages du chat), puis **Agents**, puis **Scene Videos**.
+**Game Video Prompt** pilote les vidéos manuelles de la galerie et de Game Assets en Game Mode. Les animations de la galerie en Roleplay utilisent plutôt **Roleplay Gallery Animation Director**. L'agent Storyboard a son propre **Storyboard Video Prompt** (prompt vidéo de Storyboard) par défaut. Chaque chat peut le remplacer sous **Chat Settings → Agents → Storyboards**. Réinitialiser ramène à la valeur par défaut de l'agent Storyboard.
 
-Les chats **Roleplay** affichent une carte **Scene Videos** décrite ainsi : "Generate manual MP4 scene videos from gallery images." Elle contient une seule commande, le menu déroulant **Video Connection**. Choisis-y ta connexion Video Generation.
+Quand tu crées un chat Game Mode, l'assistant de configuration propose un sélecteur de modèle vidéo à l'étape **Features** (fonctionnalités), une fois la génération visuelle activée.
 
-Les chats **Game Mode** affichent une carte **Scene Videos** décrite ainsi : "Generate MP4 scene videos from game illustrations." Elle propose davantage de commandes :
+## Réglages de génération de vidéos
 
-- **Video Connection** : la connexion Video Generation utilisée par cette partie.
-- **Game Video Prompt** : le modèle de prompt qui décide de la façon dont l'image s'anime. Le modèle intégré par défaut est **Cinematic Scene Video**.
-- **Edit Video Presets** : ajoute et modifie tes propres copies du modèle de prompt vidéo pour ce chat.
+Certains réglages vidéo par défaut valent pour toute l'application. Ouvre **Settings → Generations** et repère **Video Generation** ("Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls").
 
-Le **Game Video Prompt** continue de piloter les vidéos manuelles de la galerie et de **Game Assets** en Game Mode. Les animations de la galerie en Roleplay passent, elles, par **Roleplay Gallery Animation Director**. L'agent Storyboard installé possède son propre **Storyboard Video Prompt** par défaut, que chaque chat Roleplay ou Game Mode peut remplacer dans **Chat Settings > Agents > Storyboards**. Réinitialiser ce choix ramène à la valeur par défaut de l'agent Storyboard ; le chat n'hérite pas du prompt d'un autre chat.
-
-À la création d'un chat Game Mode, l'assistant de configuration propose lui aussi un sélecteur **Video Generation Connection**. Il se trouve à l'étape **Features** et apparaît une fois que tu as activé **Visual Generation**.
-
-Si un chat n'a pas de connexion vidéo à lui, Marinara se rabat sur la connexion marquée **Use as default video connection**. En l'absence de connexion de chat et de connexion par défaut, les actions vidéo affichent un avertissement qui t'invite à en choisir une.
-
-## Les réglages de génération de vidéos
-
-Certains réglages vidéo par défaut se trouvent dans les paramètres de l'application, pas sur une connexion. Ouvre **Settings**, puis **Generations**, puis la section **Video Generation**. Elle est décrite ainsi : "Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls."
-
-Le principal réglage de vidéo de scène ici est **Scene video fallback length** (durée de repli des vidéos de scène), fixé à 10 secondes par défaut. Il ne sert que si la connexion vidéo sélectionnée n'a pas de durée propre. Tu peux le régler de 1 à 60 secondes.
-
-Cette section contient aussi **Video Generation Prompt Overrides**, où tu modifies les modèles de prompt vidéo réutilisables. **Roleplay Gallery Animation Director** pilote les instructions envoyées au Prompt Model sélectionné avant la génération d'un clip de galerie en Roleplay. Sa variable `${durationSeconds}` est remplacée par la durée de clip choisie. C'est la méthode avancée pour changer la façon dont les clips bougent, sans toucher au code.
-
-**Videos per reply** (vidéos par réponse) fixe le nombre de messages vidéo que les personnages de Conversation peuvent envoyer spontanément dans une réponse et le nombre de clips qu'Illustrator ajoute à une réponse Roleplay. La valeur par défaut est 3, avec un choix de 1 à 10. Chaque personnage de Conversation en envoie au maximum un. Ce réglage sert aux chats de groupe, où plusieurs personnages répondent dans une même réponse, et aux demandes de plusieurs vidéos à la fois. Augmente-le pour permettre à davantage de personnages d'envoyer un clip ; diminue-le pour économiser les requêtes vidéo, car chaque clip en représente une. Les clips au-delà de la limite sont ignorés. `/video` et le bouton **Video** de la Gallery ne comptent pas dans cette limite.
-
-La même section propose un réglage **Animated expression length**. Il relève d'une autre fonctionnalité, les sprites de portrait animés. Voir [Expressions animées](animated-expressions.md) à ce sujet.
+- **Scene video fallback length** (durée de repli des vidéos de scène) : ne sert que si le modèle vidéo sélectionné n'a pas de durée propre. La valeur par défaut est de 10 secondes. La plage va de 1 à 60.
+- **Video Generation Prompt Overrides** : modifie les modèles de prompt vidéo réutilisables. **Roleplay Gallery Animation Director** définit les instructions envoyées au Prompt Model avant un clip de galerie en Roleplay. Sa variable `${durationSeconds}` devient la durée du clip.
+- **Videos per reply** (vidéos par réponse) : le nombre de messages vidéo que les personnages de Conversation peuvent envoyer dans une réponse, et le nombre de clips qu'Illustrator ajoute à une réponse Roleplay. La valeur par défaut est 3. La plage va de 1 à 10. Chaque personnage de Conversation en envoie au maximum un. Ce réglage existe pour les chats de groupe et pour les demandes de plusieurs vidéos à la fois. Augmente-le pour laisser davantage de personnages envoyer un clip. Diminue-le pour économiser des requêtes. Les clips au-delà de la limite sont ignorés. `/video` et le bouton **Video** de la galerie ne comptent pas.
+- **Animated expression length** (durée des expressions animées) relève des sprites de portrait animés. Voir [Expressions animées](animated-expressions.md).
 
 ## Les storyboards
 
-L'agent Storyboard, à télécharger, sait construire des images-clés ordonnées et des clips, en Roleplay comme en Game Mode. En Game Mode, il part d'un tour terminé du Game Master (le maître du jeu) ; en Roleplay, il réunit des échanges terminés en un épisode dans le fil. Quand les animations sont activées, Marinara anime chaque image-clé réussie avec la connexion vidéo choisie et le **Storyboard Video Prompt** de l'agent.
-
-Les storyboards ont leurs propres commandes et leur propre guide. Voir [Guide de l'agent Storyboard](../game/storyboard.md) pour l'installation et le fonctionnement dans les deux modes.
+L'agent Storyboard, à télécharger, construit des images-clés ordonnées et des clips en Roleplay et en Game Mode. Quand les animations sont activées, Marinara anime chaque image-clé réussie avec le modèle vidéo sélectionné et le **Storyboard Video Prompt** de l'agent. Voir le [Guide de l'agent Storyboard](../game/storyboard.md).
 
 ## Dépannage
 
 ### "Choose a Video Generation connection"
 
-Aucune connexion vidéo n'est sélectionnée pour le chat. Ouvre **Chat Settings**, puis **Agents**, puis **Scene Videos**, et choisis une connexion. Si le menu déroulant est vide, ajoute une connexion sous **Settings**, puis **Connections**.
+Ton chat n'a pas de modèle vidéo. Ouvre **Chat Settings → Agents → Scene Videos** et choisis-en un. Si la liste est vide, ajoutes-en un sous **Connections**.
 
 ### "Add or generate a gallery image before generating a scene video"
 
-**Game Mode** et **Animate illustration** ont besoin d'une image existante ; **Roleplay** peut générer un clip à partir du récit seul si aucune première image n'est choisie. Passe par **Illustrate**, téléverse une image, ou clique sur **Animate illustration** sur une image que tu possèdes déjà.
+Game Mode et **Animate illustration** ont besoin d'une image existante. Roleplay peut créer un clip à partir du récit seul quand aucune première image n'est choisie. Utilise **Illustrate**, téléverse une image, ou clique sur **Animate illustration** sur une image que tu as déjà.
 
 ### La vidéo met longtemps à arriver
 
-C'est normal. Le fournisseur lance la tâche, et Marinara patiente et vérifie régulièrement jusqu'à ce que le clip soit prêt. Veo, xAI, OpenRouter, NanoGPT, Atlas Cloud et Seedance fonctionnent tous ainsi, et un clip peut demander plusieurs minutes.
+C'est normal. Google, xAI, OpenRouter, NanoGPT, Atlas Cloud et Seedance lancent tous une tâche, et Marinara attend qu'elle se termine. Un clip peut prendre plusieurs minutes.
 
 ### Seedance n'arrive pas à lire l'image de référence
 
-Seedance a besoin d'un lien public vers l'image. Sur un serveur local, ouvre la connexion Seedance et active l'interrupteur **Upload Seedance reference frames temporarily**. Voir la section Seedance ci-dessus.
+Seedance a besoin d'un lien public vers ton image. Sur un serveur local, active **Upload Seedance reference frames temporarily** sur le modèle Seedance. Voir [Images de référence de Seedance](#seedance-reference-frames).
 
-### Une requête vidéo échoue systématiquement
+### Une requête vidéo échoue sans cesse
 
-Vérifie que la connexion a une clé API valide et que ton compte a bien accès à la vidéo. Ouvre la connexion sous **Settings**, puis **Connections**, et confirme la clé et le modèle. Les délais d'expiration côté serveur pour la vidéo sont traités dans la [Référence de configuration du serveur](../CONFIGURATION.md).
+Vérifie que le compte a une clé API valide et l'accès à la vidéo. Ouvre le compte dans **Connections** et confirme la clé et le modèle. Pour les délais d'expiration du serveur, voir la [Référence de configuration du serveur](../CONFIGURATION.md).
 
 ## Guides associés
 

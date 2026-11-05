@@ -1,271 +1,204 @@
 # 支持的 AI 服务商
 
-本指南列出 Marinara Engine 能连接的所有 AI 服务商，逐个说明去哪里拿 API 密钥、默认的基础 URL 是什么、有哪些需要注意的特殊之处。API 密钥是服务商发放的一串秘密字符，作用类似密码，有了它 Marinara 才能调用对方的 AI 服务。
+本页是一份参考资料，列出 Marinara Engine 能连接的主要服务：每个服务去哪里拿 API 密钥、默认地址是什么，以及有哪些特殊之处。想一步步添加账号，请先读[连接 AI 服务商](connecting-to-a-provider.md)。
 
-添加账号的通用步骤请先看[连接 AI 服务商](connecting-to-a-provider.md)。本页是一份参考资料，想查某一家服务商的细节时来搜就行。
+服务是在 **Add account**(添加账号) 窗口里选的，按用途分在不同的分区下：**Chat**(聊天)、**Images & video**(图像与视频)、**Voice**(声音) 或 **Decisions**(判定)。按钮上的名称与下文一致。地址是 Marinara 发送请求的网址。它在账号编辑器里叫 **Address**(地址)，在模型编辑器里叫 **Base URL**(基础 URL)。已知服务的地址由 Marinara 自动填好。只有使用代理或自己运行的服务器时才需要改。
 
-## 怎么看这一页
+模型变动频繁，所以本页不列出它们。连接之后，模型列表会在选择器里载入。在选择器里点击 **Refresh model list**(刷新模型列表) 可以重新载入。
 
-服务是在 **Add account**(添加账号) 窗口里选定的。每个服务在第 1 步里都有对应的按钮，按钮上的名称与下文完全一致。
+## 聊天服务
 
-本页大多数服务商都是云服务，AI 跑在他们那边。在服务商那里注册账号，复制一个 API 密钥，粘贴到 **API key**(API 密钥) 输入框即可。有三家订阅制服务商不用密钥，改为本地登录，对应小节里会写明。
+这些服务都用 API 密钥，只有三家订阅服务例外，它们用的是你电脑上的登录。
 
-有两个词会反复出现：
+| 服务 | 密钥获取地址 |
+| --- | --- |
+| LinkAPI | `linkapi.ai` |
+| OpenAI | `platform.openai.com/api-keys` |
+| Anthropic | `console.anthropic.com/settings/keys` |
+| Google Gemini | `aistudio.google.com/apikey` |
+| Google Vertex AI | `cloud.google.com/vertex-ai/docs/authentication`(凭据指南) |
+| Mistral | `console.mistral.ai/api-keys` |
+| Cohere | `dashboard.cohere.com/api-keys` |
+| OpenRouter | `openrouter.ai/keys` |
+| NanoGPT | `nano-gpt.com/api` |
+| xAI / Grok | `console.x.ai` |
+| Arli AI | `www.arliai.com/account` |
+| Z.AI | `z.ai/manage-apikey/apikey-list` |
+| DeepSeek | `platform.deepseek.com/api_keys` |
+| OpenAI-compatible、Claude (Subscription)、OpenAI (ChatGPT)、Grok CLI (Subscription) | 没有密钥页面。见下面的说明。 |
 
-- 基础 URL：Marinara 发送请求的网址。连接编辑器里把它叫作 **Address**(地址)。大多数服务商会自动填好，只有本地或自定义服务器才需要改。
-- 模型：选好服务商之后再挑的那个具体 AI 模型。可用模型变动频繁，所以本页不逐一列出。在连接编辑器里用 **Model**(模型) 下拉菜单，或者点击 **Fetch Models from API**(从 API 获取模型) 按钮，就能看到当前的清单。
+默认地址如下，Marinara 会自动替你填好：
 
-## OpenAI
+- LinkAPI：`https://linkapi.ai/v1`(一个使用自有密钥的 OpenAI 兼容网关)
+- OpenAI：`https://api.openai.com/v1`
+- Anthropic：`https://api.anthropic.com/v1`
+- Google Gemini：`https://generativelanguage.googleapis.com/v1beta`
+- Google Vertex AI：`https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
+- Mistral：`https://api.mistral.ai/v1`
+- Cohere：`https://api.cohere.ai/compatibility/v1`
+- OpenRouter：`https://openrouter.ai/api/v1`
+- NanoGPT：`https://nano-gpt.com/api/v1`
+- xAI / Grok：`https://api.x.ai/v1`
+- Arli AI：`https://api.arliai.com/v1`
+- Z.AI：`https://api.z.ai/api/paas/v4`
+- DeepSeek：`https://api.deepseek.com/v1`
+- OpenAI-compatible 和订阅服务：没有。由你填写地址，或者不需要地址。
 
-- 密钥获取地址：`https://platform.openai.com/api-keys`
-- 默认基础 URL：`https://api.openai.com/v1`
+所有密钥页面的网址都以 `https://` 开头。
 
-**OpenAI** 提供 GPT 系列模型。粘贴密钥之后，从下拉菜单里挑一个模型，或者点击 **Fetch Models from API** 载入最新清单。这个连接只用于聊天模型。要生成 DALL-E 图像，请改用 **Image Generation**(图像生成) 服务商下的 **OpenAI (DALL-E)** 服务。
+三家订阅服务会隐藏 **API key**(API 密钥) 和地址输入框。它们不提供嵌入。安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)，那里也介绍了套餐用量。
 
-## Anthropic
+聚合服务是指一个密钥就能用上多家公司模型的服务。OpenRouter 和 NanoGPT 都是聚合服务。网关是同样的思路，只不过是你自己运行或租用的代理。
 
-- 密钥获取地址：`https://console.anthropic.com/settings/keys`
-- 默认基础 URL：`https://api.anthropic.com/v1`
+## 服务说明
 
-**Anthropic** 提供 Claude 系列模型，支持提示词缓存，长聊天的花费能因此降下来。在连接编辑器里开启 **Enable prompt caching**(启用提示词缓存) 开关即可。
+### OpenAI
 
-**Anthropic** 不提供嵌入。嵌入会把文本转成一串数字，Marinara 靠它来搜索世界书和记忆。要用这些功能，得单独建一个嵌入连接，见下文的 Embeddings 一节。
+**OpenAI** 提供 GPT 系列模型。要生成 DALL-E 图像，添加 **OpenAI**，在同一个账号上选择 **Image**(图像) 模型。其他用同一个密钥生成图像的服务也是这样。
 
-## Google Gemini
+### Anthropic
 
-- 密钥获取地址：`https://aistudio.google.com/apikey`
-- 默认基础 URL：`https://generativelanguage.googleapis.com/v1beta`
+**Anthropic** 提供 Claude 系列模型。提示词缓存让服务能复用提示词的开头部分，可以降低长聊天的花费。在模型编辑器里用 **Enable prompt caching**(启用提示词缓存) 开启它。**Anthropic** 不提供嵌入（见[嵌入](#embeddings)）。
 
-**Google Gemini** 通过 Google AI Studio 提供 Gemini 系列模型。两个 Google 选项里，这个更省事。
+### Google Gemini 和 Google Vertex AI
 
-在两个 Google 选项上，Marinara 都会关闭 Google 可调整的安全过滤器，你自己在 **Custom Parameters**(自定义参数) 里设置的类别除外；不过 Google 的核心保护措施，例如儿童安全，仍然有效。
+**Google Gemini** 通过 Google AI Studio 提供 Gemini 系列模型。它是两个 Google 选项里更简单的那个。在两个 Google 选项上，Marinara 都会关闭 Google 可调整的安全过滤器，你自己在 **Custom Parameters**(自定义参数) 里设置的类别除外。Google 的核心保护措施，例如儿童安全，仍然有效。
 
-## Google Vertex AI
+**Google Vertex AI** 通过一个 Google Cloud 项目运行 Gemini，需要更多配置。编辑地址，把 `YOUR_PROJECT_ID` 换成你的项目 ID。如果地区不是 `us-central1`，也要改掉。**API key** 输入框接受下面任意一种，Marinara 会识别你粘贴的是哪一种：
 
-- 凭据文档：`https://cloud.google.com/vertex-ai/docs/authentication`
-- 默认基础 URL：`https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
-
-**Google Vertex AI** 通过一个 Google Cloud 项目提供 Gemini 系列模型，配置起来比 **Google Gemini** 麻烦。必须编辑 **Base URL**(基础 URL)，把 `YOUR_PROJECT_ID` 换成真实的项目 ID。如果地区不是 `us-central1`，也要一并改掉。
-
-**API Key**(API 密钥) 输入框接受下面三种凭据中的任意一种，Marinara 会自动识别粘贴进去的是哪一种：
-
-1. 服务账号 JSON 密钥。
+1. 服务账号 JSON 密钥（Google Cloud 给你的、指明某个服务账号的文件）。
 2. OAuth 访问 Token，例如 `gcloud auth print-access-token` 的输出。
 3. Vertex API 密钥。
 
-**Gemini 4 Argon** 只在 `global`、`us` 和 `eu` 这几个位置运行，不在 `us-central1` 这样的单个地区运行。要使用它，把 **Base URL** 设为 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`。用其他位置时，Google 会返回错误，Marinara 会把错误显示出来。
+根据 Marinara 代码里一条依照 Google 文档写的注释，**Gemini 4 Argon** 只在 `global`、`us` 和 `eu` 这几个位置运行，不在 `us-central1` 这样的单个地区运行。要使用它，把地址设为 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`。用其他位置时，Google 会返回错误，Marinara 会把它显示出来。
 
-无论用哪种 Google 连接，Argon 都可能要几分钟才回答。如果聊天回复超时，调大 `CHAT_GENERATION_TIMEOUT_MS`。如果智能体调用超时，调大 `AGENT_CALL_TIMEOUT_MS`(见[服务器配置参考](../CONFIGURATION.md))。Google 建议至少留出 15 分钟，也就是 `900000`。
+### Cohere
 
-## Mistral
+**Cohere** 使用它的 OpenAI 兼容端点。如果粘贴的是旧的 Cohere v2 地址，Marinara 会自动替你换成兼容端点。
 
-- 密钥获取地址：`https://console.mistral.ai/api-keys`
-- 默认基础 URL：`https://api.mistral.ai/v1`
+### OpenRouter
 
-**Mistral** 提供 Mistral 系列模型。除了 API 密钥之外不需要任何额外配置。
+**OpenRouter** 是聚合服务，在模型编辑器里多出两个选项：
 
-## Cohere
+- **Preferred provider**(优先服务商) 强制把请求路由到指定的一个后端。名称必须与 OpenRouter 模型页上的一致。留空则自动路由。
+- **Enable prompt caching** 为经由 OpenRouter 路由的 Claude 模型发送缓存提示。其他模型大多会自己缓存。
 
-- 密钥获取地址：`https://dashboard.cohere.com/api-keys`
-- 默认基础 URL：`https://api.cohere.ai/compatibility/v1`
+### NanoGPT
 
-**Cohere** 默认走它的 OpenAI 兼容端点。如果粘贴的是旧的 Cohere v2 网址，Marinara 会自动换成兼容端点，请求照样能通。
+**NanoGPT** 是没有内置模型清单的聚合服务。连接之后，选择器会载入你账号可用的模型。它会读取 NanoGPT 的详细模型目录，并标出哪些模型包含在你的订阅里：
 
-## OpenRouter
+| 标记 | 含义 |
+| --- | --- |
+| 绿色的 `1x` | 包含在订阅里，按正常速率消耗。 |
+| 更高的数值，例如 `2x` | 包含在订阅里，但每个输入 Token 会消耗额度里相应倍数的 Token。 |
+| **Paid**(付费) | 不包含在订阅里。用量从付费余额里扣除。 |
+| 没有标记 | NanoGPT 没有它的订阅数据。 |
 
-- 密钥获取地址：`https://openrouter.ai/keys`
-- 默认基础 URL：`https://openrouter.ai/api/v1`
+#### 订阅用量
 
-**OpenRouter** 是聚合服务，一个密钥就能用上多家公司的大量模型。它在连接编辑器里多出两个选项：
-
-- **Preferred Provider**(优先服务商)：一个文本输入框，强制 **OpenRouter** 把请求路由到指定的后端。名称必须和 OpenRouter 模型页上显示的一致。留空则自动路由。
-- **Enable prompt caching**：为经由 **OpenRouter** 路由的 Claude 模型发送缓存提示。**OpenRouter** 上的其他模型大多自己就会缓存，不需要开这个。
-
-## NanoGPT
-
-- 密钥获取地址：`https://nano-gpt.com/api`
-- 默认基础 URL：`https://nano-gpt.com/api/v1`
-
-**NanoGPT** 同样是聚合服务。它没有内置模型清单，所以 **Model** 下拉菜单一开始是空的。粘贴密钥之后点击 **Fetch Models from API**，就能载入账号可用的模型。
-
-Marinara 会读取 NanoGPT 的详细模型目录，因此下拉列表会标明哪些模型包含在订阅中，以及哪些模型会消耗更多额度：
-
-- 订阅包含的模型会显示**输入 token 倍率**标记：按正常速率消耗额度时显示绿色的 `1x`；如果每个发送的 token 会从额度中扣除多个输入 token，则显示 `2x` 等更高数值。订阅*不包含*的模型显示 **Paid**(付费)，因为其使用费用会从付费余额扣除。没有标记表示该模型未提供订阅数据。
-
-### 订阅用量
-
-如果你订阅了 NanoGPT，此连接可以显示当前额度：
+有 NanoGPT 订阅时，账号可以显示你的实时额度。
 
 1. 点击账号行上的 **⋯**，选择 **Edit account**(编辑账号)，打开 **Usage and balance**(用量与余额)。
-2. 如果外部读取处于关闭状态，点击 **Turn on**(开启) 允许读取用量。要添加 NanoGPT 管理令牌，点击 **Add a usage-only key**(添加仅限用量的密钥)，粘贴进去，再点击 **Show usage**(显示用量)。
+2. 如果外部读取是关闭的，点击 **Turn on**(开启)。要添加管理密钥，点击 **Add a usage-only key**(添加仅限用量的密钥)，粘贴进去，再点击 **Show usage**(显示用量)。
 3. 开启 **Show the usage meter on the card**(在卡片上显示用量条) 并保存。
 
-小组件读取 NanoGPT 的用量端点，显示每周和每日输入 token 额度。可以使用两种凭据读取：
+用量条显示每周和每日的输入 Token 额度，以及剩余多少、各自何时重置，例如 `42M remaining · resets in 4d`。NanoGPT 无法报告的额度会显示为未知，而不是未使用。未激活的订阅会明确标出，不会画成满额。刷新按钮会重新读取一次。
 
-- **Management token**(管理令牌，推荐)：在 `https://nano-gpt.com/settings#management-api-tokens` 创建令牌，并选择 **Usage only**(仅用量) 权限范围。它能读取额度，但不能运行模型或花费余额，因此更适合安全地显示用量。Marinara 会加密保存它，并仅发送到 NanoGPT 的管理端点。
-- **你的 API 密钥**：未保存管理令牌时自动使用。这也能工作，但读取额度所用的凭据同时具有花费余额的权限。
+有两种凭据可以读取用量：
 
-每个用量条下面，小组件会显示剩余多少，以及窗口何时重置，例如 `42M remaining · resets in 4d`。
+- **Management key**(管理密钥，推荐)。在 `https://nano-gpt.com/settings#management-api-tokens` 创建一个只用于读取用量的密钥。它能读取额度，但不能运行模型，也不能花你的余额。Marinara 会加密保存它，并且只把它发给 NanoGPT 的管理端点。
+- **你的 API 密钥**，在没有保存管理密钥时使用。这样也能用，但读取额度时用的是一个能花你余额的密钥。
 
-NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。未激活的订阅会明确标出，不会显示为完整可用额度。点击刷新按钮即可按需更新小组件。
+同一个用量条也会显示在聊天连接选择器的上下文条下方，以及聊天的 **Connection**(连接) 设置里。只有聊天的模型是开启了用量条的 NanoGPT 模型时才会显示；**Shuffle**(随机轮换) 不显示。
 
-同一用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection**(连接) 设置中，让你无需离开聊天就能查看额度。它跟随当前连接：仅在 NanoGPT 连接开启 **Show the usage meter on the card** 时显示；**Shuffle**(随机轮换) 没有唯一可查询的连接，因此不显示。选择器中的样式与上方上下文条一致，读法也相同，即已用量相对于每周额度，例如 `8.9M / 60M tokens`，重置时间显示在百分比旁边。
+### xAI / Grok
 
-## xAI / Grok
+**xAI / Grok** 提供 Grok 系列模型。Grok 4.6 和 4.7 有 500,000 Token 的上下文窗口，推理最高到 **Extra high**(超高)。它们支持聊天工具，包括 **Web Search**(网络搜索)，所以搜索结果能用于最终的回复。
 
-- 密钥获取地址：`https://console.x.ai`
-- 默认基础 URL：`https://api.x.ai/v1`
+### Arli AI
 
-**xAI / Grok** 提供 Grok 系列模型。在 **Add account** 窗口里选中这个服务时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。 Grok 4.6 和 4.7 提供 500,000 Token 的上下文窗口，推理最高支持 **Extra high**(超高，即 `xhigh`)。它们支持现有聊天工具，包括 **Web Search**(网络搜索)，让搜索结果能够用于最终回复。
+**Arli AI** 是一项托管聊天服务，没有内置模型清单。连接之后，选择器会载入它的模型。要用 Arli AI 生成图像，添加 **Arli AI**，在同一个账号上选择 **Image** 模型。
 
-## Arli AI
+### Z.AI
 
-- 密钥获取地址：`https://www.arliai.com/account`
-- 默认基础 URL：`https://api.arliai.com/v1`
+**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。GLM 5.2 和 5.3 模型接受 **Maximum**(最高) 推理级别。默认地址是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，所以 Coding Plan 的密钥在这里可能用不了。
 
-**Arli AI** 是一项托管聊天服务。它没有内置模型清单，所以 **Model** 下拉菜单一开始是空的。粘贴密钥之后点击 **Fetch Models from API**，载入它当前的模型。想用 Arli AI 生成图像，请改用 **Image Generation** 服务商及其中的 **Arli AI** 服务。
+### DeepSeek
 
-## Z.AI
+**DeepSeek** 提供 `deepseek-flash` 和 `deepseek-v4-pro`。DeepSeek 默认会思考。它的 **Reasoning Effort**(推理强度) 使用 DeepSeek 自己的级别，**Off**(关闭) 会为该次请求关闭思考。DeepSeek 会把中等强度的请求按 High 处理。思考内容会以平常的思考显示方式出现在回复里。
 
-- 密钥获取地址：`https://z.ai/manage-apikey/apikey-list`
-- 默认基础 URL：`https://api.z.ai/api/paas/v4`
+有些参数不适用，所以面板不显示它们：**Verbosity**(详细度)、**Top K** 和各项惩罚都已弃用，发送了也会被忽略。**Temperature**(温度) 和 **Top P** 是一对，因为 DeepSeek 一次只用其中一个。关闭思考时看到的是 **Temperature**，开启思考时看到的是 **Top P**。
 
-**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。**Model** 下拉列表显示当前的 GLM 模型，**Fetch Models from API** 会从你的账户刷新列表。GLM 5.3 模型始终会进行推理：预设中的 **Reasoning Effort**(推理强度) 会映射到 Z.AI 支持的三个级别（Low、High、Maximum），不设置时会使用 Z.AI 的默认值（Maximum）。默认基础 URL 是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，其使用政策仅允许列表中的指定工具使用，因此不应期待 Coding Plan 的密钥能在这里使用。
+请用 DeepSeek 自己的按钮连接 DeepSeek，不要把 **OpenAI** 指向 DeepSeek 的地址。OpenAI 服务只认 OpenAI 自家的模型，所以配上 DeepSeek 模型时会隐藏生成参数控件，你的设置也几乎都不会发送出去。
 
-## DeepSeek
+### OpenAI-compatible
 
-- 密钥获取地址：`https://platform.deepseek.com/api_keys`
-- 默认基础 URL：`https://api.deepseek.com/v1`
+**OpenAI-compatible**(OpenAI 兼容) 用来连接接受 OpenAI 请求格式的服务器或代理，例如 Ollama、LM Studio 或 KoboldCpp。在 **Add account** 窗口里，它显示为 **OpenAI-compatible address**(OpenAI 兼容地址)。大多数本地服务器的密钥可以留空。地址由你自己填写。见[连接本地或自托管模型](local-self-hosted.md)。Marinara 自己运行的那个小模型，见[内置模型设置](local-model.md)。
 
-**DeepSeek** 提供自家的聊天模型 `deepseek-flash` 和 `deepseek-v4-pro`。粘贴密钥之后，**Model** 下拉列表会列出它们，**Fetch Models from API** 会从你的账户刷新列表。
+## 图像与视频
 
-DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的级别，即 **Low**、**High** 和 **Max**；**Off**(关闭) 则为该次请求关闭思考。这里没有 **Medium**：DeepSeek 会把中等强度的请求按 High 处理，所以 Marinara 提供的是 High，而不是再放一个效果完全相同的按钮。它的思考内容会出现在回复里，显示方式与平时相同。
+**Images & video** 下的每个按钮都有自己的地址，以及自己那套是否需要密钥的规则。这些按钮包括 Stability AI、Together AI、NovelAI、Venice.ai、Atlas Cloud、fal.ai、SpicyAPI、Pollinations、Stable Horde、Seedance 2.0，以及本地服务器：ComfyUI、SD Web UI (AUTOMATIC1111 / Forge)、SwarmUI、RunPod Serverless (ComfyUI)、Draw Things 和 Block Entropy。Draw Things、ComfyUI、SwarmUI、SD Web UI 和 RunPod 带有 **Self-hosted**(自托管) 标签。
 
-参数面板里有些设置对 DeepSeek 不适用，所以面板直接不显示它们，而不是假装它们有效。**Verbosity**(详细度)、**Top K** 和重复惩罚都在此列：DeepSeek 已经弃用这些参数，发送了也会被忽略。**Temperature**(温度) 和 **Top P** 是一对：DeepSeek 一次只用其中一个，取决于它是否在思考。因此关闭思考时你看到的是 **Temperature**，开启思考时看到的是 **Top P**。
+OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视频模型，来自你在该服务上的聊天账号。先添加聊天账号，再在上面选择 **Image** 或 **Video**(视频) 模型。
 
-请直接用这家服务商连接 DeepSeek，不要把 **OpenAI** 服务商指向 DeepSeek 的网址。OpenAI 服务商只认 OpenAI 自家的模型，配上 DeepSeek 模型时会隐藏生成参数控件，你的设置也几乎都不会发送出去。
-
-## Claude (Subscription)
-
-- API 密钥：不需要，改为登录一个本地工具。
-
-**Claude (Subscription)** 借助 Claude Code 工具使用 Anthropic 的 Pro 或 Max 订阅。该工具运行在托管 Marinara 服务器的那台电脑上，登录一次即可。这家服务商的 **API Key** 和 **Base URL** 输入框会被隐藏。它不提供嵌入，见下文的 Embeddings 一节。
-
-安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
-
-### 套餐用量
-
-这个连接可以显示你的 Claude 套餐用掉了多少速率限制：
-
-1. 点击账号行上的 **⋯**，选择 **Edit account**，打开 **Usage and balance**。
-2. 如果外部读取处于关闭状态，点击 **Turn on**。开启 **Show the usage meter on the card**。账号编辑器会显示可用的用量窗口；5 小时和每周用量条没有单独的开关。
-3. 保存连接。
-
-每个窗口都有一条用量条，显示已用百分比和重置时间，例如 `58% · resets in 2h`。只要这个连接处于活动状态，同样的用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection** 设置中。**Shuffle** 没有唯一可查询的连接，因此不会显示。
-
-需要了解：
-
-- 用量条统计的是你 Claude 套餐上的全部使用，例如 Claude Code 和 claude.ai，而不只是 Marinara。
-- Claude 只报告每个窗口的百分比，不提供 token 数，所以不会显示 token 数。
-- 每次读取，都会让 Marinara 主机上的 Claude Code 工具提供与其 `/usage` 命令相同的数据。它不会向 Claude 发送消息，也不消耗你套餐的任何额度。耗时一两秒，刷新按钮会重新读取一次。
-- 标题旁的套餐名称，例如 **Pro**，是 Claude 为当前登录账号报告的名称。
-- Claude Code 把这份用量数据标为实验性的。如果将来的版本改动了它，用量条会显示带重试按钮的错误，而不是错误的数字。
-
-## OpenAI (ChatGPT)
-
-- API 密钥：不需要，改为登录一个本地工具。
-
-**OpenAI (ChatGPT)** 借助 Codex 工具使用 ChatGPT 账号。该工具运行在托管 Marinara 服务器的那台电脑上，登录一次即可。这家服务商的 **API Key** 和 **Base URL** 输入框会被隐藏。它不提供嵌入，见下文的 Embeddings 一节。它的思考程度由连接参数或聊天参数里的 **Reasoning Effort** 决定；选定级别之前，Codex 对该模型使用它自己的默认级别。
-
-安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
-
-### 套餐用量
-
-这个连接可以显示你的 ChatGPT 套餐用掉了多少 Codex 限额。它的用法和上面的 Claude (Subscription) 一样：在 **Edit account** 里打开 **Usage and balance**，必要时用 **Turn on** 允许外部读取，开启 **Show the usage meter on the card**，然后保存。账号编辑器会显示可用的用量窗口，没有单独的 5 小时或每周开关。用量条会出现在账号编辑器、聊天的连接选择器，以及聊天的 **Connection** 设置中。
-
-需要了解：
-
-- 用量条统计的是你 ChatGPT 套餐上的全部 Codex 使用，例如 Codex CLI，而不只是 Marinara。chatgpt.com 上的聊天有各自的限额，不计入这些用量条。
-- ChatGPT 只报告每个窗口的百分比，不提供 token 数，所以不会显示 token 数。
-- 每次读取，都会通过 Marinara 主机上的 Codex 登录，向 ChatGPT 请求与 Codex CLI 显示的限额相同的数据。它不会向任何模型发送消息，也不消耗你套餐的任何额度。
-- 只有两个窗口中的一个的套餐，只显示一条用量条。
-
-## Grok CLI (Subscription)
-
-- API 密钥：不需要，改为登录一个本地工具。
-
-**Grok CLI (Subscription)** 借助 Grok CLI 工具使用 SuperGrok 或 X Premium+ 账号。该工具运行在托管 Marinara 服务器的那台电脑上，登录一次即可。这家服务商的 **API Key** 和 **Base URL** 输入框会被隐藏。它不提供嵌入，见下文的 Embeddings 一节。
-
-安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
-
-## Custom (OAI-Compatible)
-
-- 默认基础 URL：没有，必须自己填。
-
-要连接本地或自建的模型服务器，比如 Ollama、LM Studio、KoboldCpp，就选 **Custom (OAI-Compatible)**。任何能说 OpenAI 聊天格式的托管代理也适用。大多数本地服务器的 **API Key** 可以留空。**Base URL** 填自己的服务器地址。
-
-分步配置说明以及 **Treat as local/custom endpoint**(按本地/自定义端点处理) 开关，见[连接本地或自托管模型](local-self-hosted.md)。Marinara 内置的那个小模型，见[本地模型设置](local-model.md)。
-
-## Image Generation
-
-**Image Generation** 是一个特殊的服务商。选中它之后还要再选一个 **Service**(服务)，也就是真正干活的图像后端。每个服务都有自己的默认基础 URL，以及自己那套是否需要 API 密钥的规则。可选的服务里有付费云 API，比如 **OpenAI (DALL-E)**、**Stability AI**、**NovelAI** 和 **Z.AI**，也有免费选项，比如 **Pollinations** 和 **Stable Horde**。**ComfyUI** 和 **SD Web UI (AUTOMATIC1111 / Forge)** 这类本地服务器同样可用。
-
-图像服务的完整清单、配置方法和生成设置，见[图像生成服务商与设置](../media/image-providers.md)。
-
-## Video Generation
-
-**Video Generation**(视频生成) 也是特殊服务商，有自己的 **Video Service**(视频服务) 选择器。Marinara 用它来生成简短的 MP4 场景视频。可选服务有 **Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**NanoGPT**、**Atlas Cloud**、**Seedance 2.0**、**ComfyUI** 和 **SwarmUI**。云端服务需要 API 密钥。**ComfyUI** 和 **SwarmUI** 在你自己的电脑上运行，通常不需要。
-
-各视频服务的完整配置和限制，见[场景视频生成](../media/scene-video.md)。
+见[图像生成服务商与设置](../media/image-providers.md)和[场景视频生成](../media/scene-video.md)。
 
 ## Decision
 
-- 默认基础 URL：**TypeSafe** 来源为 `https://api.typesafe.ai`。
+**Decisions** 下的按钮有 **TypeSafe**(默认地址 `https://api.typesafe.ai`)、**Own decision server**(自有判定服务器) 和 **Built-in model (decisions)**(内置模型，判定)。使用 OpenAI 聊天格式的聊天服务也能做判定，但只限返回对数概率（每个可能答案的分数）的模型。Decision 模型回答关于你聊天的是或否问题。见 [Decision 模型](decision-models.md)。
 
-**Decision**(判定) 是一个可选的特殊服务商，用于接入回答聊天相关是非题的模型。例如，它可以判断某个自定义智能体是否应该运行。它的答案用来引导 Marinara，不会发布到聊天里。选中它之后，再选择一个来源：**TypeSafe**、**OpenRouter**、**Custom System One endpoint**(自定义 System One 端点) 或 **OpenAI-compatible chat model**(OpenAI 兼容聊天模型)。托管来源需要 API 密钥。
+<a id="audio"></a>
 
-判定模型能做什么、怎么挑选，以及完整的设置方法，见 [Decision 模型](decision-models.md)。
+## 音频
 
-## Audio
+**Voice** 下的音频服务负责说出角色的声音和旁白。选择一个 **Audio source**(音频来源)：
 
-**Audio**(音频) 是用于语音和角色声音的特殊服务商。选中它之后，再选择一个 **Audio Source**(音频来源)：
+| 来源 | 说明 |
+| --- | --- |
+| ElevenLabs | 角色声音和旁白。 |
+| OpenAI-compatible | OpenAI，或任何照搬 OpenAI 语音格式的服务器。 |
+| PocketTTS | 一个在你自己电脑上运行的免费语音服务器。 |
+| xAI Voice | xAI 的语音服务。 |
 
-- **ElevenLabs**：角色声音和旁白。
-- **OpenAI-compatible**：OpenAI，或任何照搬 OpenAI 语音格式的服务器。
-- **PocketTTS**：一个在自己电脑上运行的免费语音服务器。
-- **xAI Voice**：xAI 的语音服务。
+每个来源都会填好默认的地址和模型。**Default voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长。语音服务器较慢时调高它。
 
-每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长，默认 60 秒；语音服务器较慢时可以调高。要选择 Marinara 默认使用哪个语音连接，打开 **Connections**(连接) 面板，展开 **Defaults**(默认值)，在 **Text to Speech** 下选择。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
-
-语音和朗读消息，见 [Text to Speech (TTS) 设置](../media/tts-setup.md)。生成音频在下面单独配置。
+要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框里的 **Voice (Text to Speech)**(语音合成) 行。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见 [Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
 
 <a id="music--sound-effects"></a>
 
 ## 音乐与音效
 
-**Music & Sound Effects**(音乐与音效) 类连接用于生成纯器乐音乐和音效，与语音分开。选择来源，填写密钥和模型，再开启 **Music generation**(音乐生成)、**Sound-effect generation**(音效生成)，或同时开启两项。它的默认连接和回退连接独立于 Audio 和语言模型连接。要设置这两项，打开 **Connections** 面板，展开 **Defaults**，在 **Music & Sound Effects** 下选择。
+这类账号用于生成纯器乐音乐和音效，与语音分开。**Add account** 窗口里没有它的按钮。这类账号来自升级（见下文）或导入。用 **Edit model**(编辑模型) 编辑它，在里面选择服务，并开启 **Music generation**(音乐生成)、**Sound-effect generation**(音效生成)，或同时开启两项。Game 设置会在 **Music & Sound Effects account**(音乐与音效账号) 里要求选一个，默认选项是 **Use the default Music & Sound Effects account**(使用默认的音乐与音效账号)。
 
-| 来源 | 默认 API 基础地址 | 设置 |
-| --- | --- | --- |
-| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabs 密钥；音乐和音效有各自的模型字段。 |
-| SunoAPI | `https://apibox.erweima.ai` | [sunoapi.org](https://sunoapi.org/) 的密钥；开启音乐时还要提供公开的 HTTPS 回调 URL。这是 SunoAPI 的服务，不是通过 Suno 面向普通用户的订阅账号登录。 |
-| 自定义兼容服务器 | 服务器地址 | 明确的音乐/音效端点路径和支持的请求格式；见[兼容音频协议](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)。 |
+可用的服务：
 
-SunoAPI 音乐需要一个公开的 HTTPS 回调地址，用来接收完成通知。这个地址需要你提供，Marinara 不会创建。Marinara 会自行检查曲目是否准备就绪，所以播放时不依赖这些通知。
+- **ElevenLabs**：默认地址 `https://api.elevenlabs.io`。需要 ElevenLabs 密钥。音乐和音效有各自的模型字段。
+- **SunoAPI**：默认地址 `https://apibox.erweima.ai`。需要 [sunoapi.org](https://sunoapi.org/) 的密钥；开启音乐时，还需要一个公开的 HTTPS **SunoAPI music callback URL**(SunoAPI 音乐回调 URL)。这是 SunoAPI 自己的服务，不是用 Suno 订阅账号登录。
+- **Custom compatible server**(自定义兼容服务器)：你服务器的地址。需要明确的音乐或音效端点路径，以及受支持的请求格式。见[兼容音频协议](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)。
 
-音乐风格提示词最多 1,000 个字符，音效提示词最多 500 个字符。每次新请求都可能产生服务商费用。账号要求见[音乐 API](https://docs.sunoapi.org/suno-api/generate-music)和[音效 API](https://docs.sunoapi.org/suno-api/generate-sounds)。SunoAPI 音效尚未使用付费账号验证。
+注意：
 
-升级时，每个已启用生成的 Audio 连接都会新增一个单独的 Music & Sound Effects 连接。旧版独立的 ElevenLabs Game 设置也可能创建自己的连接，因此可能出现多个连接。原来的语音连接和声音分配保持不变。已保存的 Game 连接 ID 不变。只有对应迁移连接可用，且已启用本次请求所需的音乐或音效生成时，才能生成；否则，选择另一个合适的 Music & Sound Effects 连接。如果存在多个连接，检查 **Defaults** 下 Music & Sound Effects 的默认连接和回退连接。删除迁移后的生成连接，不会在重启时重新创建它。从方案恢复的端点在本地检查并保存之前不可用。
+- 尽管 Marinara 会自己检查曲目是否完成，SunoAPI 仍然需要回调地址。这个地址由你提供，Marinara 不会创建。
+- 音乐风格提示词最多 1,000 个字符，音效提示词最多 500 个字符。
+- 每次请求都可能在服务商那里产生费用。见[音乐 API](https://docs.sunoapi.org/suno-api/generate-music) 和[音效 API](https://docs.sunoapi.org/suno-api/generate-sounds)。SunoAPI 音效尚未用付费账号验证过。
 
-按游戏单独启用 Game 生成音频，或在 Roleplay 的命令设置中启用 **Sound effects**(音效)，以使用 `[sound: description]`。Gacha Forge 有自己的生成音频设置和连接选择。关闭生成时，Game 自带的音频仍然可用。
+升级时，每个开启了生成的 Audio 账号都会多出一个单独的 Music & Sound Effects 账号。旧版独立的 ElevenLabs Game 设置也可能创建自己的账号，所以你可能会看到不止一个。语音账号和声音分配保持不变，已保存的 Game 账号 ID 也不会变。只有对应的迁移账号可用，并且开启了音乐或音效选项时，才能生成。否则，请选另一个合适的账号。删除迁移出来的账号后，重启时不会重新创建它。从档案恢复的端点，在你本地检查并保存之前都不可用。
+
+按游戏单独开启生成音频，或者在 Roleplay 的命令设置里开启 **Sound effects**(音效)，就能使用 `[sound: description]`。Gacha Forge 有自己的生成音频设置。关闭生成时，Game 自带的音频仍然可用。
+
+<a id="embeddings"></a>
 
 ## 嵌入
 
-世界书的语义搜索和 Memory Recall(记忆功能) 都靠嵌入驱动。嵌入把文本转成一串数字，Marinara 借此找出相关条目。大多数聊天服务商都允许在连接编辑器里设置 **Embedding Model**(嵌入模型)，以及可选的 **Embedding Endpoint URL**(嵌入端点 URL)。
+嵌入把文本转成一串串数字，让 Marinara 能找出相关的文本。世界书的语义搜索和 Memory Recall(记忆功能) 都靠它驱动。大多数聊天服务都允许你在模型编辑器的 **Semantic search (embeddings)**(语义搜索与嵌入) 下设置嵌入模型，以及可选的 **Embedding endpoint URL**(嵌入端点 URL)。
 
-有些服务商做不了嵌入。**Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 都不提供。遇到这几家，就用 **Embedding Connection**(嵌入连接) 下拉菜单借用另一个连接，比如某个 OpenAI 兼容连接、**Google Gemini**，或者内置的 **Local Model**(本地模型)。
+**Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 无法生成嵌入。遇到这几家，就用 **Embedding provider**(嵌入服务商) 下拉菜单借用另一个账号，比如某个 OpenAI 兼容账号、**Google Gemini** 或 **Built-in model**(内置模型)。
 
-想让所有没有自己嵌入设置的连接都使用同一个嵌入来源，打开 **Connections** 面板，展开 **Defaults**，在 **Embeddings**(嵌入) 下选择它。**None (built-in local model)**(无，使用内置本地模型) 会保留内置的本地嵌入模型。连接自己的嵌入模型或 **Embedding Connection** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
+想让所有没有自己嵌入设置的账号都使用同一个嵌入来源，点击 **Jobs** 框里的 **Embeddings**(嵌入) 行。**Marinara's own search**(Marinara 自带的搜索) 会保留内置的嵌入模型。账号自己的嵌入模型或 **Embedding provider** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
+
+## 超时
+
+较慢的模型可能会碰到服务器对聊天回复和智能体调用设定的时限。相关的服务器设置见[服务器配置参考](../CONFIGURATION.md)。
 
 ## 相关指南
 

@@ -1,92 +1,116 @@
 # Se connecter à un fournisseur d'IA
 
-Ce guide explique comment relier Marinara Engine à un fournisseur d'IA pour que tes personnages puissent répondre. Tu ajoutes un compte, tu colles sa clé et tu choisis le modèle qui répond dans tes chats.
-
-## Comptes et modèles
-
-Un **compte**, c'est une clé, une identification ou une adresse pour un fournisseur d'IA. Il retient le fournisseur, la clé, l'adresse et ses limites. Si tu utilises deux clés pour le même fournisseur, tu as deux comptes.
-
-Un **modèle** est un modèle d'IA que tu as enregistré depuis un compte, comme GPT ou Claude. Chaque modèle enregistré garde ses propres réglages. Les modèles sont rangés sous leur compte dans le panneau **Connections** (Connexions).
-
-Une clé API est un code secret fourni par le fournisseur d'IA. Elle fonctionne un peu comme un mot de passe. Marinara enregistre ta clé sur l'ordinateur qui fait tourner Marinara, et elle n'est jamais incluse dans un export.
-
-Marinara Engine n'est livré ni avec un compte tout prêt, ni avec une clé de démarrage gratuite. Il faut ajouter au moins un compte avant de pouvoir démarrer un chat (une conversation enregistrée). Le **Built-in model** (modèle intégré), sous **On your computer** (sur ton ordinateur), est la seule exception : il tourne sur ton propre ordinateur sans compte (voir [Configuration du Local Model](local-model.md)).
-
-## Le panneau Connections
-
-Les comptes se gèrent dans le panneau **Connections**, à droite de l'application. De haut en bas, il affiche :
-
-- **Search models and accounts** (rechercher des modèles et des comptes), qui filtre la liste au fil de la saisie.
-- **Add** (ajouter), qui ouvre la fenêtre **Add account** (ajouter un compte), et **More actions** (plus d'actions, trois points), qui propose **Import account** (importer un compte), **Export all accounts** (exporter tous les comptes), le repli et le regroupement. Dans un panneau large, le menu déroulant de tri se trouve à côté de **Search models and accounts**. Dans un panneau étroit, le tri se trouve dans **More actions**.
-- L'encadré **Jobs** (tâches). Il indique quel modèle s'occupe de chaque tâche, par exemple **Main** (principal) pour les réponses des chats ou **Images** pour les images. Voir [Choisir le modèle de chaque tâche](#choosing-the-model-for-each-job).
-- Tes comptes, chacun avec ses modèles enregistrés en dessous. Voir [Organiser les connexions](organizing-connections.md).
+Pour discuter, Marinara Engine a besoin d'un modèle d'IA. Tu peux ajouter un compte pour un service d'IA, coller sa clé API et choisir un modèle. Une clé API est un code secret fourni par le service, qui permet à Marinara d'utiliser ton compte chez lui. Traite-la comme un mot de passe. Tu peux aussi utiliser le [Built-in model](local-model.md) (modèle intégré), un petit modèle qui tourne sur ton ordinateur sans clé.
 
 ## Ajouter un compte
 
-1. Dans le panneau **Connections**, clique sur **Add**. La fenêtre **Add account** classe les fournisseurs sous **Popular** (populaires), **Subscriptions** (abonnements), **On your computer** et **All providers** (tous les fournisseurs). Tape dans **Search providers** (rechercher des fournisseurs) pour en trouver un.
-2. Clique sur un fournisseur, par exemple **OpenAI**, **Anthropic** ou **OpenRouter**.
-3. Colle la clé dans **API key** (clé API). **Where do I find my key?** (où trouver ma clé ?) ouvre la page des clés du fournisseur. Le bouton en forme d'œil affiche ou masque la clé. **More options** (plus d'options) contient le champ facultatif **Name** (nom), le champ **Address** (adresse), ainsi que **Requests per minute** (requêtes par minute) et **Parallel jobs** (tâches en parallèle).
-4. Clique sur **Connect** (connecter). Marinara teste la clé. En cas d'échec, la fenêtre en indique la raison et propose **Try again** (réessayer). Les serveurs sur ton ordinateur proposent aussi **Continue anyway** (continuer quand même).
-5. Quand tu ajoutes ton premier compte sans modèle Main, ou que tu ajoutes un compte en démarrant un chat, la fenêtre passe au choix du modèle. Choisis un modèle. **Make … my Main** (faire de … mon Main) le définit comme Main quand ce choix s'affiche. Clique sur **Done** (terminé) pour finir, ou sur **Start chatting** (commencer à discuter) si tu es parti d'un nouveau chat. Si tu as déjà un Main et que tu ajoutes un compte depuis le panneau, la fenêtre se ferme après Connect et le panneau affiche le nouveau compte. Les services d'images, de vidéo et de voix ont leurs propres contrôles de configuration ; le modèle intégré utilise son écran de configuration locale.
+Avant de commencer, procure-toi une clé API auprès d'un service que tu veux utiliser. La fenêtre **Add account** (ajouter un compte) propose un lien **Where do I find my key?** (où trouver ma clé ?) pour chaque service. Voici les pages qu'il ouvre pour les services courants.
 
-Tu pourras changer plus tard le modèle de chaque tâche dans l'encadré **Jobs**.
+- OpenRouter (propose des modèles gratuits) : `openrouter.ai/keys`
+- NanoGPT : `nano-gpt.com/api`
+- OpenAI : `platform.openai.com/api-keys`
+- Anthropic : `console.anthropic.com/settings/keys`
+- Google Gemini : `aistudio.google.com/apikey`
 
-Si tu laisses le champ **Name** vide, Marinara donne au compte le nom du fournisseur. Un deuxième compte pour le même fournisseur, sans nom saisi, reçoit les 4 derniers caractères de sa clé, par exemple `OpenAI · …a1b2`. Un nom que tu saisis n'est jamais modifié.
+La plupart des services te demandent de créer un compte, et certains d'ajouter du crédit, avant qu'une clé fonctionne. Pour les autres services, voir [Fournisseurs d'IA pris en charge](providers-reference.md). Pour utiliser un modèle sur ton propre ordinateur sans clé, voir [Configuration du modèle intégré](local-model.md).
 
-En général, le champ **Address** n'a pas besoin d'être modifié. Marinara le remplit pour les fournisseurs connus. Ne le change que pour un proxy ou un serveur sur ton ordinateur.
+1. Clique sur **Connections** (Connexions) dans la barre du haut. Le panneau s'ouvre à droite. Si tu n'as encore aucun compte, il demande **Where do your models come from?** (d'où viennent tes modèles ?) et affiche quelques services. Clique sur un service (pas sur **Built-in model**). La fenêtre **Add account** s'ouvre sur l'étape de la clé. Passe à l'étape 4.
+2. Clique sur **Add** (ajouter). La fenêtre **Add account** s'ouvre.
+3. Clique sur le service voulu. Pour le trouver, tape dans la zone intitulée **Search providers** (rechercher des fournisseurs). La liste comporte les sections **Chat**, **Images & video** (images et vidéo), **Voice** (voix) et **Decisions** (décisions). Pour un modèle de chat normal, regarde sous **Chat**.
+4. Clique sur **API key** (clé API) et colle ta clé. Clique sur le bouton en forme d'œil pour vérifier que tu l'as collée en entier.
+5. Clique sur **Connect** (connecter). Marinara teste la clé. Quand elle fonctionne, tu vois **Connected** avec le nombre de modèles trouvés.
+6. La suite varie selon que tu as déjà un modèle Main (principal) ou non. Main, c'est la tâche qui consiste à écrire les réponses de tes chats.
+   - **Pas encore de modèle Main, ou tu as ouvert Add depuis un nouveau chat :** la fenêtre affiche les modèles du service. Les modèles **Recommended** (recommandés) sont en haut. Clique sur un modèle pour l'ajouter, ou tape un nom dans **Search or enter model ID…** (rechercher ou saisir un ID de modèle). Si tu ne sais pas lequel choisir, prends-en un **Recommended**. Tu pourras le changer plus tard. Laisse **Make … my Main model** (faire de … mon modèle Main) coché. Cette case ne s'affiche que si tu n'as aucun modèle Main. Si tu as ouvert Add depuis un nouveau chat et que tu as déjà un modèle Main, un bouton **Set … as Main** (définir … comme Main) s'affiche à la place. Clique ensuite sur **Done** (terminé), ou sur **Start chatting** (commencer à discuter) depuis un nouveau chat.
+   - **Tu as déjà un modèle Main :** la fenêtre se ferme et un message indique que le compte a été ajouté, avec son nombre de modèles. Pour ajouter d'autres modèles, clique sur **⋯** sur le compte et choisis **Add model** (ajouter un modèle).
 
-Certains fournisseurs utilisent une identification sur ton ordinateur au lieu d'une clé. Ils se trouvent sous **Subscriptions** et n'ont pas de champ de clé. Voir [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md). Pour te connecter à un modèle qui tourne sur ton propre ordinateur, consulte [Connecter un modèle local ou auto-hébergé](local-self-hosted.md). Pour tous les fournisseurs pris en charge et l'endroit où récupérer chaque clé, consulte [Fournisseurs d'IA pris en charge](providers-reference.md).
+Le panneau affiche ton compte. **Connected**, à l'étape 5, veut déjà dire que la clé fonctionne. Si le nouveau modèle est ton modèle Main, démarre un chat et envoie un message : une réponse veut dire que tout fonctionne. Si tu avais déjà un modèle Main, les nouveaux chats l'utilisent toujours. Pour utiliser le nouveau compte, ajoute-lui un modèle (**⋯** → **Add model**), puis choisis ce modèle pour un chat ou une tâche (voir [Choisir le modèle de chaque tâche](#choosing-the-model-for-each-job)).
+
+Si ça n'a pas marché :
+
+- **The key was not accepted. Check that you copied all of it.** veut dire que la clé a été refusée : vérifie que tu l'as copiée en entier. Colle de nouveau la clé et clique sur **Try again** (réessayer). La clé doit venir du service que tu as choisi.
+- **The service is busy, or your credit is used up.** veut dire que le service est occupé, ou que ton crédit est épuisé. Ajoute du crédit sur le site du service, ou attends et réessaie.
+- **Marinara could not reach** s'affiche quand Marinara n'a pas pu joindre le service. Vérifie ta connexion internet, puis clique sur **Try again**.
+
+### Champs facultatifs du compte
+
+L'étape de la clé affiche aussi ces champs. Laisse-les vides, sauf si tu en as besoin.
+
+- **Name (optional)** (nom, facultatif) : le nom affiché dans le panneau. Vide, c'est le nom du service. Un deuxième compte pour le même service reçoit les 4 derniers caractères de sa clé, par exemple `OpenAI · …a1b2`.
+- **Address** (adresse) : l'endroit où Marinara envoie les requêtes. Quand ce champ est vide, Marinara utilise l'adresse propre au service. Ne le remplis que pour un proxy, une passerelle ou un serveur que tu fais tourner toi-même. Les services qui passent par une identification sur ton ordinateur ne l'affichent pas.
+- **Requests per minute** (requêtes par minute) : ralentit Marinara sur ce compte. Vide veut dire sans limite. Les valeurs autorisées vont de 1 à 600.
+- **Parallel jobs** (tâches en parallèle) : le nombre de requêtes exécutées en même temps. Vide veut dire sans limite. Les valeurs autorisées vont de 1 à 16. Dans **Edit account** (modifier le compte), ce même réglage s'appelle **Parallel requests** (requêtes en parallèle).
+
+Certains services utilisent une identification sur ton ordinateur au lieu d'une clé. Ils affichent l'étiquette **Sign in** (se connecter) et n'ont pas de champ de clé. Voir [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md). Pour un serveur sur ton propre ordinateur, voir [Connecter un modèle local ou auto-hébergé](local-self-hosted.md). Après un test raté, **Continue anyway** (continuer quand même) apparaît. Ce bouton enregistre le compte sans test réussi.
 
 ### Démarrer un chat sans compte
 
-Si tu démarres un chat avant d'avoir un modèle, Marinara ouvre d'abord la fenêtre **Add account**. Après **Connect**, elle affiche les modèles du fournisseur. Clique sur l'un d'eux, puis sur **Start chatting**. Le pied de la fenêtre permet aussi d'en faire ton modèle **Main**.
+Si tu démarres un chat avant d'avoir un modèle, Marinara ouvre d'abord la fenêtre **Add account**. Après **Connect**, clique sur un modèle, puis sur **Start chatting**.
+
+## Le panneau Connections
+
+Les comptes se gèrent dans le panneau **Connections**. De haut en bas, il affiche :
+
+- Une zone de recherche qui filtre la liste au fil de la saisie. Elle s'intitule **Search models and accounts** (rechercher des modèles et des comptes).
+- **Add**, qui ouvre **Add account**, et **More actions** (plus d'actions, trois points), qui propose **Import account** (importer un compte), **Export all accounts** (exporter tous les comptes), le repli et le regroupement. Dans un panneau large, le menu déroulant de tri se trouve à côté de la recherche. Dans un panneau étroit, le tri se trouve dans **More actions**.
+- L'encadré **Jobs** (tâches). Il indique quel modèle s'occupe de chaque tâche.
+- La carte **Built-in model**. Voir [Configuration du modèle intégré](local-model.md).
+- Tes comptes, chacun avec ses modèles enregistrés en dessous. Voir [Organiser les connexions](organizing-connections.md).
+
+Un **compte**, c'est une clé, une identification ou une adresse enregistrée pour un service. Si tu utilises deux clés pour le même service, tu as deux comptes. Un **modèle** est un modèle d'IA que tu as enregistré depuis un compte. Chaque modèle enregistré garde ses propres réglages.
 
 <a id="choosing-the-model-for-each-job"></a>
 
 ## Choisir le modèle de chaque tâche
 
-L'encadré **Jobs** liste toutes les tâches qu'un modèle peut accomplir, en quatre groupes :
+Une tâche, c'est quelque chose qu'un modèle fait pour toi. L'encadré **Jobs** les liste en quatre groupes :
 
-- **Chat** : **Main** écrit les réponses dans tes chats. **Agents** fait tourner les agents d'assistance. **Impersonate** écrit à ta place.
-- **Omnibar** : **Professor Mari** et **Quick answers** (réponses rapides).
-- **Pictures & sound** (images et son) : **Images**, **Video** (vidéo) et **Voice (Text to Speech)** (voix, synthèse vocale).
-- **Behind the scenes** (en coulisses) : **Decision** (décision), **Embeddings** et **Image reading** (lecture d'images).
+| Groupe | Tâches |
+| --- | --- |
+| **Chat** | **Main** écrit les réponses dans tes chats. **Agents** fait tourner les agents d'assistance. **Impersonate** écrit à ta place. |
+| **Omnibar** | **Professor Mari** et **Quick answers** (réponses rapides). |
+| **Pictures & sound** (images et son) | **Images**, **Video** (vidéo), **Voice (Text to Speech)** (voix, synthèse vocale) et **Dictation (Speech to Text)** (dictée, reconnaissance vocale) quand elle est disponible. |
+| **Behind the scenes** (en coulisses) | **Decision** (décision), **Embeddings** et **Image reading** (lecture d'images). |
 
-Chaque ligne affiche le modèle qui s'occupe de cette tâche et son fournisseur, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche qui a besoin d'un modèle affiche **Choose a model** (choisir un modèle).
+Chaque ligne affiche le modèle qui s'occupe de cette tâche, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche qui a besoin d'un modèle affiche **Choose a model** (choisir un modèle). Clique sur **Jobs** pour replier l'encadré.
 
-Clique sur une ligne pour ouvrir la fenêtre **Model for** (modèle pour) de cette tâche. Elle affiche le modèle qui s'occupe de la tâche sous **Now** (actuel), tes modèles **Starred** (favoris), puis tes modèles enregistrés, classés par compte. **All models** (tous les modèles), sous un compte, ouvre son catalogue complet. Tape dans **Search all models or paste a model ID** (rechercher dans tous les modèles ou coller un ID de modèle) pour chercher dans tous les catalogues à la fois. Clique sur n'importe quel modèle pour lui confier la tâche ; inutile de l'enregistrer d'abord. **If it fails** (en cas d'échec), en haut de la fenêtre, choisit un second modèle qui répond quand le premier échoue. **Add account**, en bas, ouvre la fenêtre d'ajout.
+Pour changer le modèle d'une tâche, clique sur sa ligne. La fenêtre **Model for** (modèle pour) de cette tâche s'ouvre, sauf pour trois lignes. **Decision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictation (Speech to Text)** ouvre la configuration de la reconnaissance vocale.
 
-Clique sur **Jobs** pour replier l'encadré jusqu'à son en-tête.
+Dans **Model for** :
+
+1. Regarde la liste.
+2. Clique sur un modèle. La liste l'affiche sous **Now** (actuel), puis tes modèles **Starred** (favoris), puis tes modèles enregistrés, classés par compte. **All models** (tous les modèles), sous un compte, ouvre sa liste complète. Tape dans **Search all models or paste a model ID** (rechercher dans tous les modèles ou coller un ID de modèle) pour chercher dans tous les comptes à la fois. Inutile d'enregistrer un modèle d'abord.
+
+**If it fails** (en cas d'échec), en haut de la fenêtre, choisit un second modèle qui répond quand le premier échoue. **Add account**, en bas, ouvre la fenêtre d'ajout.
 
 ### Quand une fonction a besoin d'un modèle
 
-Un agent ou une fonction qui ne peut pas marcher sans un certain type de modèle le signale avec une étiquette **Needs an image model** (ou son équivalent pour la vidéo, l'audio, la décision ou le chat). Elle s'affiche sur la carte de l'agent dans le panneau **Agents**, dans **Chat Settings** (réglages du chat), dans l'éditeur d'agent et dans les fenêtres d'images et de vidéo. Clique sur **Set up** (configurer) à côté pour ouvrir la fenêtre **Model for** de cette tâche, où tu peux choisir un modèle ou cliquer sur **Add account**. L'étiquette disparaît dès que la tâche a un modèle. Quand une réponse échoue parce qu'aucun modèle d'images n'est défini, le bouton **Set up** du message ouvre le panneau **Connections**.
+Une fonction qui ne peut pas marcher sans un certain type de modèle affiche une étiquette **Needs an image model** (ou son équivalent pour la vidéo, l'audio, la décision ou le chat). Tu la vois sur la carte de l'agent dans le panneau **Agents**, dans **Chat Settings** (réglages du chat), dans l'éditeur d'agent et dans les fenêtres d'images et de vidéo. Clique sur **Set up** (configurer) à côté, puis choisis un modèle ou clique sur **Add account**. L'étiquette disparaît dès que la tâche a un modèle.
 
 ## Tester un compte
 
-**Connect** teste déjà la clé. Pour la tester de nouveau plus tard, ouvre le menu **⋯** du compte dans le panneau et clique sur **Test** (tester). L'éditeur du compte, **Edit account** (modifier le compte), propose **Test account** (tester le compte), qui vérifie la clé et l'adresse telles que tu les as saisies, avant l'enregistrement.
+**Connect** teste déjà la clé. Pour tester de nouveau plus tard, ouvre le menu **⋯** du compte dans le panneau et clique sur **Test** (tester). L'éditeur du compte (**Edit account**) propose **Test account** (tester le compte), qui vérifie la clé et l'adresse telles que tu les as saisies, avant l'enregistrement.
 
 <a id="choosing-a-model-for-one-chat"></a>
 
 ## Choisir un modèle pour un seul chat
 
-Un nouveau chat utilise ton modèle **Main**. Pour donner un autre modèle à un chat, ouvre le menu **Connections** dans la zone de saisie du chat, ou le champ **Model** (modèle) dans **Chat Settings → Connection** (réglages du chat → connexion). Les deux ouvrent **Model for this chat** (modèle pour ce chat) :
+Un nouveau chat utilise ton modèle **Main**. Pour donner un autre modèle à un chat, clique sur le bouton du modèle dans la zone de saisie du chat (l'icône de lien, qui porte le nom du modèle actuel), ou utilise le champ **Model** (modèle) dans **Chat Settings → Connection** (réglages du chat → connexion). Les deux ouvrent **Model for this chat** (modèle pour ce chat) :
 
-- **Now** indique le modèle qu'utilise le chat. **This chat only** (ce chat uniquement) signifie que le chat a son propre choix ; **follows Main** (suit Main) signifie qu'il utilise Main.
+- **Now** indique le modèle qu'utilise le chat. **This chat only** (ce chat uniquement) veut dire que le chat a son propre choix. **follows Main** (suit Main) veut dire qu'il utilise Main.
 - **Recent** (récents) et **Starred** listent tes modèles par compte.
-- **Search models or paste an ID…** (rechercher des modèles ou coller un ID) cherche dans tous les catalogues. **Browse** (parcourir) ouvre la liste complète d'un compte.
+- **Search models or paste an ID…** (rechercher des modèles ou coller un ID) cherche dans tous les comptes. **Browse** (parcourir) ouvre la liste complète d'un compte.
 - **Follow Main** (suivre Main) efface le choix propre au chat. **Shuffle** (mélange) choisit un modèle différent à chaque fois.
 
-Un choix ne change que ce chat. Le message qui suit un choix propose **Make it my Main model** (en faire mon modèle Main) et **Undo** (annuler). En Game Mode, le champ porte l'étiquette **GM / Party Model**.
+Un choix ne change que ce chat. Le message qui suit un choix propose **Make it my Main model** (en faire mon modèle Main) et **Undo** (annuler). En Game Mode, le champ s'intitule **Game Master model** (modèle du maître du jeu).
 
 ## Erreurs fréquentes
 
 Si un test ou un message échoue, commence par vérifier ces points :
 
-- Une clé erronée ou expirée. Ouvre le menu **⋯** du compte, clique sur **Replace key** (remplacer la clé) et colle à nouveau la clé. Un compte sans clé affiche **Needs key**.
-- Un compte désactivé. Il affiche **Off** ; clique sur **Turn on** (activer) dans son menu **⋯**.
-- Une clé venant du mauvais fournisseur. Chaque fournisseur exige sa propre clé.
-- Une **Address** bloquée ou injoignable. Laisse-la vide pour utiliser celle du fournisseur, sauf si tu passes par un proxy ou par un serveur sur ton ordinateur.
+- Une clé erronée ou expirée. Clique sur **⋯** sur le compte, choisis **Replace key** (remplacer la clé) et colle à nouveau la clé. Un compte sans clé affiche **Needs key**.
+- Un compte désactivé. Il affiche **Off**. Clique sur **Turn on** (activer) dans son menu **⋯**.
+- Une clé venant d'un autre service. Chaque service exige sa propre clé.
+- Une **Address** bloquée. Vide, elle utilise l'adresse propre au service.
 
 Pour d'autres solutions, consulte [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
 
@@ -96,4 +120,3 @@ Pour d'autres solutions, consulte [Résoudre les problèmes de Marinara Engine](
 - [Fournisseurs d'IA pris en charge](providers-reference.md)
 - [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md)
 - [Connecter un modèle local ou auto-hébergé](local-self-hosted.md)
-- [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md)

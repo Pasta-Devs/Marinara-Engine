@@ -1,14 +1,12 @@
 # 프롬프트 매크로
 
-이 가이드에서는 Marinara Engine의 프롬프트 매크로를 설명합니다. 매크로는 Marinara가 실제 값으로 바꿔 넣는 짧은 `{{tag}}` 표기입니다. 값은 프롬프트를 만드는 시점에 채워지며, 이름이나 오늘 날짜처럼 그때그때 달라지는 정보가 들어갑니다. 기본 제공 매크로 전부와 매크로를 입력할 수 있는 위치, 피해야 할 실수를 알 수 있습니다.
+매크로는 Marinara가 프롬프트를 만들 때 내 이름이나 오늘 날짜 같은 실제 값으로 바꿔 넣는 짧은 `{{tag}}` 표기입니다. 이 가이드에서는 기본 제공 매크로 전부와 매크로를 입력할 수 있는 위치, 피해야 할 실수를 설명합니다.
 
-## 매크로란 무엇이고 어디에서 동작하는가
+## 매크로가 동작하는 곳
 
-매크로는 `{{user}}`, `{{char}}`처럼 중괄호 두 개로 감싼 글자 그대로의 텍스트입니다. Marinara는 AI에 보낼 텍스트를 만들 때 이 표기를 찾아 각각을 현재 값으로 바꿉니다. 매크로를 켜고 끄는 스위치는 없습니다. 매크로를 지원하는 입력란이라면 언제나 값을 치환합니다.
+Marinara는 AI에 보낼 텍스트를 만들 때 각 `{{tag}}`를 현재 값으로 바꿉니다. 매크로를 켜는 스위치는 없습니다. 매크로를 지원하는 입력란이라면 언제나 값을 치환합니다. 기본 제공 매크로의 이름은 대소문자를 구분하지 않으므로 `{{user}}`와 `{{USER}}` 둘 다 동작합니다. 매크로 값 안에 다른 매크로가 들어 있어도 Marinara가 그 매크로까지 치환합니다.
 
-기본 제공 매크로의 이름은 대소문자를 구분하지 않습니다. 그래서 `{{user}}`와 `{{USER}}` 둘 다 동작합니다.
-
-앱 곳곳에서 매크로를 입력할 수 있습니다.
+다음 위치에서 매크로를 입력할 수 있습니다.
 
 - **Character Editor**(캐릭터 편집기)의 캐릭터 필드: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, 그리고 **Depth Prompt**(깊이 주입 프롬프트).
 - **Persona Editor**(페르소나 편집기)의 페르소나 필드(카드 필드가 같습니다).
@@ -18,13 +16,7 @@
 - 에이전트 프롬프트 템플릿.
 - 채팅 입력란. 메시지에 `{{roll:1d20}}`을 입력하면 메시지를 보내기 전에 값이 치환됩니다.
 
-매크로 값 안에 다른 매크로가 들어 있어도 Marinara가 그 매크로까지 치환합니다.
-
-## 시작하기 전에
-
-따로 준비할 것은 없습니다. 기본 제공 매크로는 API 키도, 추가 연결도 없이 바로 동작합니다. API 키는 Marinara가 AI 제공자와 통신할 수 있게 해 주는 비밀 문자열이지만, 매크로는 Marinara 안에서 자체적으로 처리됩니다.
-
-다만 매크로 기능 2가지는 앱의 다른 부분에 의존합니다.
+매크로는 Marinara 안에서 처리되므로 따로 준비할 것도, API 키도 필요 없습니다. 다만 기능 2가지는 앱의 다른 부분에 의존합니다.
 
 - 프리셋 변수(`{{NAME}}` 포괄 표기)는 이를 정의한 프롬프트 프리셋이 있어야 합니다. [프리셋 변수](preset-variables.md)를 참고하세요.
 - 에이전트 매크로 `{{agent::TYPE}}`는 해당 에이전트가 실행되어 출력을 만들어 낸 뒤에야 텍스트를 보여 줍니다.
@@ -39,7 +31,7 @@
 | `{{userNamePhonetic}}` | 페르소나의 Phonetic 이름. 비어 있으면 `{{user}}`입니다. |
 | `{{char}}` / `{{charName}}` | 현재 캐릭터의 이름. 기본값은 `Character`입니다. |
 | `{{21-character-card-ID}}` | 다른 캐릭터의 이름입니다. 자리 표시자 텍스트를 해당 카드의 정확한 21자 ID로 바꾸면 카드를 컨텍스트에 포함합니다. |
-| `{{persona-21-character-card-ID}}` | 다른 페르소나 이름을 참조하는 자리 표시 구문입니다. 카드 컨텍스트를 가져오려면 `persona-` 뒤를 해당 카드의 정확한 21자 ID로 바꾸세요. |
+| `{{persona-21-character-card-ID}}` | 다른 페르소나의 이름입니다. `persona-` 뒤의 자리 표시자 텍스트를 해당 카드의 정확한 21자 ID로 바꾸면 카드를 컨텍스트에 포함합니다. |
 | `{{charNamePhonetic}}` | 캐릭터의 Phonetic 이름. 비어 있으면 `{{char}}`입니다. |
 | `{{characters}}` | 비활성화한 캐릭터를 포함해 채팅에 있는 모든 캐릭터를 쉼표로 이어 붙입니다. 이 매크로는 이름만 추가하며, 비활성화한 캐릭터 카드를 프롬프트에 추가하지 않습니다. |
 | `{{group}}` | 그룹 채팅에서 지금 응답 중인 캐릭터를 뺀 나머지 활성 캐릭터 전부. 페르소나는 이 캐릭터 명단에 포함되지 않습니다. |
@@ -69,9 +61,9 @@
 
 Phonetic 이름 필드는 2가지 역할을 합니다. 음성 합성이 이름을 어떻게 발음할지 정하고, `{{charNamePhonetic}}`과 `{{userNamePhonetic}}`에도 값을 공급합니다. 이 필드는 **Character Editor**와 **Persona Editor** 양쪽에 있습니다.
 
-현재 채팅에 없는 캐릭터를 참조하려면 카드 ID를 복사해 `{{V1StGXR8_Z5jdHi6B-myT}}`처럼 중괄호 두 개 안에 직접 넣으세요. `<`나 `>` 문자는 넣지 마세요. Marinara는 매크로를 캐릭터 이름으로 바꿉니다. 프롬프트 프리셋을 쓰는 Roleplay 채팅에서는 카드의 Description, Personality, Appearance, Backstory, Scenario, Example Dialogue도 시스템 프롬프트에 추가하며, 그 밖의 채팅에서는 매크로가 이름으로만 바뀝니다. 채팅 메시지와 프롬프트 필드에서 동작하고, 프리셋을 쓰는 Roleplay 채팅에서는 활성화된 로어북 항목에서도 동작합니다. 카드의 첫 인사말은 제외합니다. 연결된 활성 로어북에는 원래 키워드, constant, 필터, 확률, 토큰 예산 규칙이 적용됩니다. 이미 채팅에 있는 캐릭터라면 매크로는 그대로 캐릭터 이름으로 바뀌고, 카드는 한 번 더 추가되지 않습니다.
+현재 채팅에 없는 캐릭터를 참조하려면 카드 ID를 복사해 `{{V1StGXR8_Z5jdHi6B-myT}}`처럼 중괄호 두 개 안에 직접 넣으세요. `<`나 `>` 문자는 넣지 마세요. Marinara는 매크로를 캐릭터 이름으로 바꿉니다. 프롬프트 프리셋을 쓰는 Roleplay 채팅에서는 참조한 카드의 Description, Personality, Appearance, Backstory, Scenario, Example Dialogue도 시스템 프롬프트에 추가하며, 그 밖의 채팅에서는 매크로가 이름으로만 바뀝니다. 채팅 메시지와 프롬프트 필드에서 동작하고, 프리셋을 쓰는 Roleplay 채팅에서는 활성화된 로어북 항목에서도 동작합니다. 참조한 카드의 첫 인사말은 제외됩니다. 그 카드에 연결된 활성 로어북에는 평소의 키워드, constant, 필터, 확률, 토큰 예산 규칙이 그대로 적용됩니다. 이미 채팅에 있는 캐릭터라면 매크로는 그대로 캐릭터 이름으로 바뀌고, 카드는 한 번 더 추가되지 않습니다.
 
-현재 선택되지 않은 페르소나를 참조하려면 복사한 ID 앞에 `persona-`를 붙이세요. 예: `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara는 매크로를 페르소나 이름으로 바꾸고 Description, Personality, Appearance, Backstory, Scenario 필드를 ID Macro Cards에 추가합니다. 연결된 로어북은 평소의 활성화 규칙을 따릅니다.
+활성 페르소나가 아닌 다른 페르소나를 참조하려면 `{{persona-P1StGXR8_Z5jdHi6B-myT}}`처럼 복사한 ID 앞에 `persona-`를 붙이세요. Marinara는 매크로를 페르소나 이름으로 바꾸고, 그 카드의 Description, Personality, Appearance, Backstory, Scenario를 같은 ID Macro Cards 컨텍스트에 추가합니다. 그 페르소나에 연결된 활성 로어북은 평소의 활성화 규칙을 따릅니다.
 
 ## Conversation 모드 매크로
 
@@ -79,10 +71,10 @@ Phonetic 이름 필드는 2가지 역할을 합니다. 음성 합성이 이름�
 
 | 매크로 | 치환 결과 |
 | --- | --- |
-| `{{convo_display}}` | 캐릭터의 **Convo Display Name**(Conversation 표시 이름). 비어 있으면 카드 이름입니다. |
+| `{{convo_display}}` | 캐릭터의 **Convo Display Name**(대화(콘보) 표시 이름). 비어 있으면 카드 이름입니다. |
 | `{{char_about}}` | 캐릭터의 현재 **About Me**(채팅별 재정의가 있으면 그 값, 없으면 카드 기본값). |
 | `{{persona_about}}` | 페르소나의 현재 About Me. |
-| `{{convo_behavior}}` | 캐릭터의 **Convo Behavior**(Conversation 동작) 텍스트. 단, 삽입 설정이 이 매크로 위치에 넣도록 되어 있을 때만 나옵니다. |
+| `{{convo_behavior}}` | 캐릭터의 **Convo Behavior**(대화(콘보) 동작) 텍스트. 단, 삽입 설정이 이 매크로 위치에 넣도록 되어 있을 때만 나옵니다. |
 
 이 필드들은 **Character Editor**와 **Persona Editor**의 **Convo** 탭에서 편집합니다. 전체 설정 방법은 [Conversation Mode 프로필(Display Name, About Me, Behavior)](../conversation/profiles.md)를 참고하세요.
 
@@ -116,7 +108,7 @@ Conversation Mode는 여러 블록을 프롬프트에 자동으로 넣어 줍니
 | `{{gameStoryboardKeyframeCount}}` | Game Mode의 현재 **Keyframes per Turn**(턴당 키프레임 수) 목표값. 1에서 6까지이며 기본값은 `3`입니다. |
 | `{{agent::TYPE}}` | 지정한 종류의 에이전트가 저장한 출력. |
 
-`{{reasoning}}`은 프리셋, 연결, 채팅 설정을 겹쳐 적용한 뒤 모델이 실제로 받는 수준을 나타냅니다. **Maximum**은 모델이 받아들이는 가장 높은 수준으로 표시되므로 `max`, `xhigh`, `high` 중 하나로 읽힐 수 있습니다. `off`는 거짓으로 읽히므로 `{{#if reasoning}}`은 모델이 생각하는 동안에만 블록을 남깁니다. 프리셋이나 채팅에 이미 `reasoning`이라는 이름의 자체 변수가 있다면, 그 변수가 이름을 유지합니다.
+`{{reasoning}}`은 프리셋, 계정, 채팅 설정을 겹쳐 적용한 뒤 모델이 받는 수준을 나타냅니다. **Maximum**(최대)은 모델이 받아들이는 가장 높은 수준으로 표시되므로 `max`, `xhigh`, `high` 중 하나로 읽힐 수 있습니다. `off`는 거짓으로 읽히므로 `{{#if reasoning}}`은 모델이 생각하는 동안에만 블록을 남깁니다. 프리셋이나 채팅에 이미 `reasoning`이라는 이름의 자체 변수가 있다면, 그 변수가 이름을 유지합니다.
 
 `{{lastGenerationType}}`의 값은 단순한 라벨입니다. 앱에서 볼 수 있는 값의 예로는 `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, `retry_agents`가 있습니다. 이 목록은 늘어날 수 있으므로 고정된 집합이 아니라 예시로 봐 주세요.
 
@@ -134,11 +126,11 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 
 ## 로어북 크기 매크로
 
-`{{lorebooksize::ID}}`는 지정한 ID의 로어북에 있는 전체 항목 수로 치환됩니다. `ID`를 Lorebooks 패널에서 복사한 실제 ID로 바꾸세요. 예를 들어 ID가 `V1StGXR8_Z5jdHi6B-myT`이고 항목이 151개면 `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`는 `151`이 됩니다.
+`{{lorebooksize::ID}}`는 지정한 ID의 로어북에 있는 전체 항목 수로 치환됩니다. `ID`를 로어북의 ID로 바꾸세요. ID는 **Lorebooks**(로어북) 패널에서 복사할 수 있습니다. 예를 들어 ID가 `V1StGXR8_Z5jdHi6B-myT`이고 항목이 151개인 로어북이라면 `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`는 `151`로 치환됩니다.
 
-알 수 없는 ID는 `0`이 됩니다. 활성 여부나 폴더 소속과 관계없이 모든 항목을 셉니다.
+알 수 없는 로어북 ID는 `0`으로 치환됩니다. 켜져 있든, 꺼져 있든, 폴더 안에 있든 관계없이 모든 항목을 셉니다.
 
-프롬프트 섹션, 캐릭터 카드 필드, 로어북 항목 내용 등 매크로를 치환하는 모든 곳에서 사용하세요.
+프롬프트 섹션, 캐릭터 카드 필드, 로어북 항목 내용 등 매크로를 치환하는 모든 곳에서 이 매크로를 쓸 수 있습니다.
 
 <a id="lorebook-include-macro"></a>
 
@@ -229,12 +221,12 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 | --- | --- |
 | `{{setvar::name::value}}` | 값을 저장하고 텍스트에는 아무것도 남기지 않습니다. |
 | `{{getvar::name}}` | 저장한 값을 읽습니다(설정한 적이 없으면 빈 값). |
-| `{{addvar::name::value}}` | 두 값이 모두 숫자면 더하고, 아니면 텍스트를 뒤에 붙입니다. |
-| `{{addnumvar::name::value}}` | 항상 숫자로 더하는 Marinara 확장입니다. 없거나 올바르지 않은 값은 0으로 처리하고 오버플로는 무시합니다. |
+| `{{addvar::name::value}}` | 두 값이 모두 숫자면 더하고, 아니면 새 텍스트를 뒤에 붙입니다. |
+| `{{addnumvar::name::value}}` | Marinara 확장 매크로입니다. 저장된 숫자 값에 항상 숫자를 더합니다. 없거나 올바르지 않은 숫자는 0으로 보고, 오버플로가 나는 덧셈은 무시합니다. |
 | `{{incvar::name}}` | 숫자 변수에 1을 더하고 새 값을 삽입합니다. |
 | `{{decvar::name}}` | 숫자 변수에서 1을 빼고 새 값을 삽입합니다. |
 
-변수는 한 번의 프롬프트 생성 안에서 왼쪽부터 오른쪽으로 치환되고 현재 채팅에 저장됩니다. 앞쪽에서 설정한 값, 예컨대 먼저 오는 로어북 항목에서 설정한 값은 같은 프롬프트의 뒤쪽에서 읽을 수 있습니다. SillyTavern의 로컬 변수처럼 이후 턴과 재시작 뒤에도 유지되지만 다른 채팅으로 퍼지지는 않습니다.
+변수는 한 번의 프롬프트 생성 안에서 왼쪽부터 오른쪽으로 치환됩니다. 앞쪽에서 설정한 값, 예컨대 먼저 오는 로어북 항목에서 설정한 값은 같은 프롬프트의 뒤쪽에서 읽을 수 있습니다. Marinara는 SillyTavern의 로컬 변수 동작과 마찬가지로 변수를 현재 채팅에도 저장합니다. 이후 턴과 앱 재시작 뒤에도 값이 유지되며, 다른 채팅에는 각각 별도의 값이 있습니다.
 
 기본 제공 매크로가 아닌 `{{NAME}}`은 이름으로 찾습니다. 먼저 프리셋 변수에서 찾고, 그다음 채팅 자체의 변수에서 찾습니다. 어느 쪽에도 그 이름이 없으면 태그는 입력한 그대로 텍스트에 남습니다. 양쪽에 같은 이름이 있으면 프리셋 변수가 우선합니다. 프리셋 쪽 설명은 [프리셋 변수](preset-variables.md)를 참고하세요.
 
@@ -242,7 +234,7 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 
 변수를 만들 때 반드시 `{{setvar}}`를 쓸 필요는 없습니다. **Chat Settings**(채팅 설정) 패널의 **Chat Variables**(채팅 변수) 섹션에서 이름과 값을 직접 입력한 뒤, 자신의 메시지를 포함해 매크로가 작동하는 곳에서 그 이름을 사용할 수 있습니다. `char1`에 `Mary` 값을 넣고 `{{char1}} walks in.`을 입력하면 AI는 "Mary walks in."으로 읽습니다.
 
-알아 둘 규칙은 다음과 같습니다.
+채팅 변수 규칙은 다음과 같습니다.
 
 - 이름에는 영문자, 숫자, 밑줄을 쓸 수 있으며 영문자나 밑줄로 시작해야 합니다. 정확히 21자인 이름은 캐릭터 참조용으로 예약되어 있습니다. 점이나 하이픈이 들어간 이름도 `{{setvar}}`와 `{{getvar}}`로 설정하고 읽을 수 있지만, 단순한 `{{name}}` 형태로는 처리되지 않습니다.
 - 기본 제공 매크로 이름은 사용할 수 없습니다. `{{char}}`는 항상 캐릭터를 뜻합니다.
@@ -282,19 +274,26 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 
 채팅 입력란에 `/macros`를 입력할 수도 있습니다(짧은 형태인 `/macro`도 동작합니다). 전체 매크로 목록을 채팅에 바로 출력해 간단히 확인할 수 있습니다.
 
-조건부 블록에서는 `||`(OR), `&&`(AND), 괄호로 비교식을 조합할 수 있습니다. 같음 비교를 나열할 때는 `{{#if character == "Maukie" || "Pantalone"}}` 같은 축약 형태도 쓸 수 있습니다. 연산 우선순위, 그룹 채팅 예시, 전체 연산자 목록은 [조건부 프롬프트](conditional-prompts.md)를 참고하세요.
+## 매크로를 사용한 조건
 
-조건은 Decision 모델에 장면을 물을 수도 있습니다. 예/아니요에는 `{{#if decision:"The latest message moves the scene to a new place"}}`, 옵션 선택에는 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`를 사용합니다. 모델이나 답이 없으면 아니요입니다. [Decision 모델에 묻기](conditional-prompts.md#asking-the-decision-model)를 참고하세요. 문장 뒤에 `sticky:3 cooldown:5`를 추가하면 예를 3턴 유지하고 5턴 쉽니다. [Sticky와 Cooldown](conditional-prompts.md#sticky-and-cooldown)을 참고하세요. `until:"..."`이나 `while:"..."`을 추가하면 두 번째 문장이 허용하는 동안 예를 유지합니다. [Until과 While](conditional-prompts.md#until-and-while)을 참고하세요. `every:3`은 3턴마다 묻고 `priority:high`나 `priority:low`는 계획에 들어갈 문장을 정합니다. [몇 턴마다 확인하기](conditional-prompts.md#checking-every-few-turns), [우선순위](conditional-prompts.md#priority), [제한과 비용](conditional-prompts.md#limits-and-cost)을 참고하세요.
+조건부 블록(`{{#if ...}}`)에서는 `||`(OR), `&&`(AND), 괄호로 비교식을 조합할 수 있습니다. 같음 비교를 나열할 때는 `{{#if character == "Maukie" || "Pantalone"}}` 같은 축약 형태도 쓸 수 있습니다. 연산 우선순위, 그룹 채팅 예시, 전체 연산자 목록은 [조건부 프롬프트](conditional-prompts.md)를 참고하세요.
+
+조건은 Decision 모델에 장면을 물을 수도 있습니다. 예를 들어 예/아니요에는 `{{#if decision:"The latest message moves the scene to a new place"}}`, 옵션 하나를 고를 때는 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`를 사용합니다. Decision 모델이 없거나 답이 없으면 아니요로 읽습니다. [Decision 모델에 묻기](conditional-prompts.md#asking-the-decision-model)를 참고하세요. 문장 뒤에 추가할 수 있는 옵션은 다음과 같습니다.
+
+- `sticky:3 cooldown:5`는 예를 3턴 동안 유지한 뒤 5턴 동안 쉽니다. [Sticky와 Cooldown](conditional-prompts.md#sticky-and-cooldown)을 참고하세요.
+- `until:"..."`이나 `while:"..."`은 두 번째 문장이 허용하는 동안 예를 유지합니다. [Until과 While](conditional-prompts.md#until-and-while)을 참고하세요.
+- `every:3`은 3턴마다 한 번만 문장을 묻습니다. [몇 턴마다 확인하기](conditional-prompts.md#checking-every-few-turns)를 참고하세요.
+- `priority:high`나 `priority:low`는 프롬프트 계획에 들어갈 문장을 고릅니다. [우선순위](conditional-prompts.md#priority)와 [제한과 비용](conditional-prompts.md#limits-and-cost)을 참고하세요.
 
 ## 자주 하는 실수
 
 - `{{random::...}}` 블록 안에 변수를 쓰지 마세요. 무작위 선택지 안의 `{{setvar}}`는 선택이 이루어지기 전에 모든 선택지에서 실행됩니다. 뽑힌 선택지에서만 실행되는 것이 아닙니다.
-- 로컬 변수를 전역 변수처럼 사용하지 마세요. `{{setvar}}` 값은 현재 채팅에만 유지되며 다른 채팅에는 각각 별도의 값이 있습니다.
+- 로컬 변수를 전역 상태처럼 쓰지 마세요. 로컬 변수는 설정한 채팅 안에서만 유지됩니다.
 - `{{setvar}}`를 실행하는 프롬프트 섹션이나 로어북 항목은 같은 이름의 채팅 변수를 덮어씁니다. 채팅마다 하나의 저장소를 사용하기 때문입니다. 둘 다 유지하려면 서로 다른 이름을 사용하세요.
 - `{{prompt}}`는 매크로가 아닙니다. 메시지 전체가 `{{prompt}}`이면 Marinara는 메시지를 보내는 대신 **Peek Prompt**(프롬프트 미리보기) 뷰어를 엽니다. [Peek Prompt](../chats/peek-prompt.md)를 참고하세요.
 - Custom Tools는 `{{macro}}` 텍스트를 쓰지 않습니다. 도구 입력란에 `{{roll:1d20}}`을 붙여넣고 치환되기를 기대하지 마세요.
 - **Impersonate**(유저 사칭) 프롬프트 템플릿은 전체 매크로 목록이 아니라 몇 가지 자리 표시만 받습니다. 이름 체계도 달라서 카드에서 되던 매크로가 거기서는 안 될 수 있습니다.
-- 매크로 출력이 아주 크거나 깊게 중첩되면 조용히 잘립니다. 오류도 표시되지 않으니 매크로가 펼쳐지는 양을 적당히 유지하세요.
+- 매크로 출력이 크거나 깊게 중첩되면 조용히 잘립니다. 오류도 표시되지 않으니 매크로가 펼쳐지는 양을 적당히 유지하세요.
 
 ## 관련 가이드
 

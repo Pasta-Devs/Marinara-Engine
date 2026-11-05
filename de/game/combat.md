@@ -1,30 +1,147 @@
 # Game Mode: Kampf
 
-Dieser Leitfaden erklärt Kämpfe im Game Mode von Marinara Engine. Wähle im Einrichtungsschritt **World** (Welt) unter **Combat Preference** (bevorzugte Kampfart) zwischen **Classic** (Menükämpfen) und **Tactical** (Rasterkämpfen). Der KI-Game-Master (GM) legt die Begegnung fest und erzählt die Ergebnisse; die Engine wertet Kampfaktionen aus.
+Kämpfe gibt es im Game Mode in zwei Arten: **Classic** (Menükämpfe) und **Tactical** (Rasterkämpfe). Du wählst zwischen ihnen mit **Combat Preference** (bevorzugte Kampfart) im Schritt **World** (Welt) des Einrichtungsassistenten. Um das später zu ändern, öffne **Chat Settings** (Chat-Einstellungen), klapp **Combat Style** (Kampfstil) auf und wähle ein **Battle system** (Kampfsystem). Ein Regelsatz, der seine eigenen Kämpfe führt, kann die Auswahl einschränken. Der Game Master (GM, die KI, die das Spiel leitet) legt die Begegnung fest und erzählt das Ergebnis. Marinara wertet die Kampfaktionen mit fester Würfelmathematik aus, die KI entscheidet also nie, wer trifft.
 
 ## Eine Kampfbegegnung beginnt
 
-Den Kampf startest du nicht selbst. Der GM eröffnet ihn, sobald die Geschichte es verlangt: etwa wenn du einen Gegner reizt oder in einen Hinterhalt läufst. Dann legt sich ein vollständiger Kampfbildschirm über die Erzählung. Die Engine baut den Kampf aus dem, was gerade in der Geschichte passiert – deine Party (deine Abenteuergruppe), die Gegner, deren Werte und etwaige Sonderregeln.
+Den Kampf startest du nicht selbst. Der GM eröffnet ihn, sobald die Geschichte es verlangt, etwa wenn du einen Gegner reizt oder in einen Hinterhalt läufst. Dann legt sich ein vollständiger Kampfbildschirm über die Erzählung, gebaut aus dem, was gerade in der Geschichte passiert: deine Party, die Gegner, deren Werte und etwaige Sonderregeln.
 
-Auf dem Kampfbildschirm steht deine Party auf der einen Seite, die Gegner stehen auf der anderen. Jeder Kämpfer hat eine Lebensleiste (HP, Trefferpunkte) und, sofern er Fertigkeiten einsetzt, eine Magieleiste (MP, Magiepunkte). Oben zeigt **Next:** an, wer als Nächstes am Zug ist. Ein Rundenzähler nennt **Round** und die aktuelle Rundennummer.
+Der Bildschirm zeigt deine Party auf der einen Seite und die Gegner auf der anderen. Jeder Kämpfer hat eine Lebensleiste (HP, Trefferpunkte) und, sofern er Fertigkeiten einsetzt, eine Magieleiste (MP, Magiepunkte). Oben stehen **Next:** und der Name dessen, der als Nächstes handelt, sowie **Round** mit der Rundennummer.
 
-In einem Spiel, dessen Regelsatz seine Kämpfe selbst auflöst, etwa 5e (SRD 5.1), folgt der Kampf dem Regelsatz statt dem auf dieser Seite beschriebenen Ablauf. Siehe [Kämpfe mit einem Regelsatz](fighting-on-a-ruleset.md). Bei einem Regelsatz, der Kämpfen seinen Charakterbogen zur Verfügung stellt, bleibt das hier beschriebene Kampfsystem erhalten; siehe [Was in Kämpfen passiert](rulesets.md#what-happens-in-battles).
+> **Hinweis:** In einem Spiel mit einem Regelsatz, der seine Kämpfe selbst auflöst, etwa 5e (SRD 5.1), folgt der Kampf dem Regelsatz, nicht dieser Seite. Siehe [Kämpfe mit einem Regelsatz](fighting-on-a-ruleset.md). Ein Regelsatz, der Kämpfen nur seinen Charakterbogen leiht, behält den Kampf von hier. Siehe [Was in Kämpfen passiert](rulesets.md#what-happens-in-battles).
+
+## Einen Classic-Kampf spielen
+
+Ein Classic-Kampf hat kein Spielfeld. Alle Mitglieder der Party nehmen teil. Du wählst die Aktion für einen Charakter, das erste lebende Partymitglied. Die übrigen Begleiter handeln selbstständig.
+
+Bist du am Zug, wähle eine Aktion:
+
+| Aktion | Was sie tut |
+| --- | --- |
+| **Attack** (Angriff) | Trifft einen Gegner mit einem einfachen Angriff. |
+| **Skills** (Fertigkeiten) | Setzt eine besondere Fähigkeit ein. Fertigkeiten können MP kosten. Manche heilen einen Verbündeten, manche treffen einen Gegner, manche verteilen einen Buff oder Debuff. |
+| **Special** (Sonderaktion) | Tipp eine frei formulierte Aktion in eigenen Worten ein und drück dann auf **Ask GM** (den GM fragen), zum Beispiel „Ich kicke Sand in die gesprungene Linse des Ruin Guard.“ Was passiert, entscheidet der GM. |
+| **Defend** (Verteidigen) | Erhöht deine Verteidigung für den Rest der Runde, sodass du weniger Schaden nimmst. |
+| **Items** (Gegenstände) | Setzt einen Gegenstand aus deiner Tasche ein. **Full inventory** (vollständiges Inventar) öffnet deine komplette Gegenstandsliste. |
+| **Flee** (Fliehen) | Verlässt den Kampf sofort. Das gelingt immer und beendet den Kampf augenblicklich. |
+
+Nach deiner Wahl läuft die Runde ab. Die Ergebnisse erscheinen als aufsteigende Schadenszahlen, als sich ändernde Lebensleisten und als Zeilen in **Combat Log** (Kampfprotokoll). Gewinnst du, erscheint das Banner **Victory!**, fällt deine Party, das Banner **Defeat...**.
+
+In einem Spiel mit Regelsatz tut **Items** bei den eigenen Gegenständen des Regelsatzes, was der Regelsatz sagt: wie viel sie heilen oder schaden und welche Zustände sie verursachen. Ein Gegenstand mit Ladungen wird angeboten, solange eine Nutzung übrig ist. Bei einem Gegenstand, der zuerst eine Probe verlangt, wird sie gewürfelt, und misslingt sie, ist der Gegenstand umsonst verbraucht. Ein Gegenstand, dem der Regelsatz keine Nutzung gibt, wird nicht angeboten. Andere Gegenstände tun, was der GM zu Kampfbeginn festgelegt hat, außer der Regelsatz schaltet die eigenen Gegenstände von Game Mode ab.
+
+## Einen Tactical-Kampf spielen
+
+Im Tactical-Kampf stehen deine Party und die Gegner auf einem Schlachtfeld mit Raster. Jedes Quadrat ist ein Feld, etwa **Plains** (Ebene) oder **Forest** (Wald).
+
+1. Bist du am Zug (**Player Phase**, oder am Namen einer Einheit steht „'s turn“), klick auf dem Raster auf eine deiner Einheiten. Ihre Bewegungsreichweite erscheint auf dem Spielfeld.
+2. Klick auf ein Zielfeld und dann auf **Confirm Move** (Bewegung bestätigen). Mit **Reset Move** (Bewegung zurücksetzen) wählst du neu.
+3. Nach der Bewegung meldet das Spielfeld „Already moved — choose an action.“ Wähle **Attack**, **Defend** oder **Item** (Gegenstand). Auch **Flee** steht hier.
+4. Bei **Attack** meldet das Spielfeld **Select an enemy**. Klick auf einen Gegner. Die Angriffsvorschau zeigt das erwartete Ergebnis. Klick auf **Confirm** (Bestätigen), um dich festzulegen. **← Back** (zurück) geht einen Schritt zurück.
+5. Klick auf **End Turn** (Zug beenden), wenn du fertig bist. In der Zugreihenfolge, in der die Party zuerst zieht, folgt dann die **Enemy Phase**.
+
+Zeigt das Spielfeld **Resolving…**, warte einen Moment. **Restart** (Neustart) startet den Kampf nach einer Bestätigung von vorn, auf demselben Schlachtfeld.
+
+Wer wann handelt, hängt von **Turn order** (Zugreihenfolge) ab. Siehe [Zugreihenfolge](#turn-order). Handgemachte Spielfelder und Geländeregeln stehen unter [Taktische Kämpfe und Gelände](#tactical-battles-and-terrain).
+
+## Den GM unterbrechen
+
+Solange der GM schreibt, kannst du mit der Schaltfläche **Interrupt** (Unterbrechen) dazwischengehen. Nichts, was du tippst, zählt, bevor du es abschickst.
+
+1. Klick auf **Interrupt**. Ein Fenster mit dem Titel **Attempt to Interrupt?** öffnet sich.
+2. Wähle eine Möglichkeit:
+   - **No** (Nein) bricht ab und lässt den GM weiterschreiben.
+   - **Force Interrupt** (Unterbrechung erzwingen) geht sauber dazwischen. Der GM erfährt nicht, dass du unterbrochen hast. Dein Eingabefeld bekommt einen grünen Rahmen.
+   - **Yes** (Ja) versucht eine Unterbrechung innerhalb der Geschichte, gegen die sich der GM wehren kann. Dein Eingabefeld färbt sich rot, die App weist mit „using dice recommended“ auf Würfel hin, und die Würfel-Schaltfläche pulsiert. Ein Würfelwurf kann helfen.
+3. Tipp deine Nachricht ein und schick sie ab.
+
+Überlegst du es dir anders, drück auf **Resume** (fortsetzen). Die offene Unterbrechung verfällt, und die Erzählung läuft weiter.
+
+## Quick-Time-Events
+
+Für schnelle Momente wie Ausweichen oder Verfolgen kann der GM ein Quick-Time-Event (QTE) auslösen. Das Overlay zeigt eine schrumpfende Countdown-Leiste, die Aufforderung **React quickly!** (schnell reagieren) und je eine nummerierte Schaltfläche pro Möglichkeit. Klick auf die gewünschte Aktion, bevor die Zeit abläuft, dann bekommst du einen Bonus. Je schneller du reagierst, desto größer der Bonus. Läuft die Zeit ab, kassierst du stattdessen einen Malus. Ein QTE kommt ohne Würfel aus.
+
+Willst du QTEs ausschalten, etwa für Screenreader oder für Spiel ohne Zeitdruck, schalte im Schritt **Features** des Assistenten **Quick Time Events** aus.
+
+## Kampf auf dem Handy
+
+Auf dem Handy kleben die Aktionsschaltflächen am unteren Bildschirmrand. Panels, die keinen Platz finden, wandern in ein Panel, das sich von unten aufschiebt und vier Tabs hat: **Party** (Mitglieder und Lebensstand), **Boss Mechanics** (die Sonderregeln des Kampfes), **Dialogue** (Kampfsprüche der Kämpfer) und **Combat Log** (der Verlauf Runde für Runde). Tipp auf einen Tab, um sein Panel zu öffnen. Zum Schließen tippst du daneben oder auf die Schließen-Schaltfläche.
+
+<a id="how-combat-math-works"></a>
+
+## So rechnet der Kampf
+
+Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kampf fair und nachvollziehbar. Ein d20 ist ein zwanzigseitiger Würfel (1 bis 20). Die Regeln für Initiative, Angriff und Schaden unten bestimmen, wie Classic-Kämpfe ablaufen. Es sind Marinaras eigene Regeln, nicht die eines Regelsatzes. Zu Tactical-Kämpfen siehe [Zugreihenfolge](#turn-order) und [Sicht, Deckung und Höhe](#sight-cover-and-height).
+
+**Initiative.** Zu Beginn jeder Runde würfelt jeder Kämpfer einen d20 und addiert einen Bonus aus seiner Geschwindigkeit (Geschwindigkeit geteilt durch 5, abgerundet). Höhere Summen handeln zuerst. Ein Kämpfer setzt die Runde aus, wenn er eingefroren, betäubt oder gefesselt ist oder seine Geschwindigkeit auf 0 gefallen ist.
+
+**Angriff und Verteidigung.** Greift ein Kämpfer einen anderen an:
+
+1. Der Angreifer würfelt einen d20 und addiert einen Bonus aus seinem Angriffswert.
+2. Der Verteidiger würfelt einen d20 und addiert einen Bonus aus seinem Verteidigungswert.
+3. Ist die Summe des Angreifers niedriger, geht der Angriff daneben.
+4. Ein kritischer Treffer gelingt bei einer natürlichen 20 oder wenn der Angreifer den Verteidiger um 10 oder mehr übertrifft.
+
+**Schaden.** Bei einem Treffer ergibt sich der Grundschaden aus dem Angriffswert des Angreifers und wächst mit der Stufe. Dazu kommen zusätzliche d6, und höherstufige Kämpfer würfeln mehr davon. Ein kritischer Treffer multipliziert die Summe mit 1,5. Danach blockt die Verteidigung des Verteidigers bis zu 40 Prozent ihres eigenen Werts von diesem Schaden.
+
+<a id="difficulty-scaling"></a>
+
+### Skalierung nach Schwierigkeit
+
+Als Nächstes wird der Schaden mit der **Difficulty** (Schwierigkeit) skaliert, die du im Einrichtungsassistenten festlegst. Modifikatoren durch Wetter und Statuseffekte wirken erst danach. Der Multiplikator gilt nur für Angriffe von Gegnern: Ein schwierigeres Spiel lässt die Gegner härter zuschlagen, während der Schaden deiner Party gleich bleibt.
+
+| Schwierigkeit | Schadensmultiplikator der Gegner |
+| --- | --- |
+| Casual | 0,6 |
+| Normal | 1,0 |
+| Hard | 1,3 |
+| Brutal | 1,6 |
+
+Diese Multiplikatoren gehören zu Marinaras eigenen Regeln. Ein Regelsatz bringt seine eigenen Schwierigkeitsregeln mit.
+
+## Statuseffekte und elementare Reaktionen
+
+Ein Statuseffekt verändert Angriff, Verteidigung, Geschwindigkeit oder HP eines Kämpfers vorübergehend. Buffs helfen, Debuffs schaden. Ein Status hält eine festgelegte Zahl an Runden und verfliegt dann. Gifteffekte zehren jede Runde an den HP, Regenerationseffekte füllen sie auf. Eingefroren, betäubt und gefesselt lassen den Kämpfer seinen Zug aussetzen.
+
+Manche Angriffe und Fertigkeiten tragen ein Element. Das erste Element, das ein Ziel trifft, hinterlässt eine Aura, eine nachwirkende Spur. Trifft ein anderes Element dasselbe Ziel, löst das eine elementare Reaktion aus, die Bonusschaden bringt und oft einen Statuseffekt. Zu den Reaktionen zählen Melt, Shatter, Overload, Superconduct, Toxic Blaze, Purification, Eclipse und Electrotoxin. Sie entstehen automatisch, einschalten musst du sie nicht.
+
+### Elemente
+
+Welche Elemente es gibt, gehört zum Setting:
+
+- Kein Setting-Kit oder ein Kit, das keine nennt: die klassischen sechs (Feuer, Eis, Blitz, Gift, Heiliges, Schatten).
+- Wuxia: die fünf Wandlungsphasen (Holz, Feuer, Erde, Metall, Wasser), von denen jede die nächste überwindet.
+- Cyberpunk und Space Opera: kinetisch, thermisch, EM sowie chemisch oder Plasma.
+- Gegenwart und 1920er-Jahre: keine.
+
+Regen und Sturm auf offenem Gelände dämpfen feuerartige Elemente und stärken blitzartige. In einem taktischen Kampf trifft ein Element härter gegen eines, das es schlägt, und schwächer gegen eines, von dem es geschlagen wird. Die Elemente und Reaktionen eines Kits kannst du unter **Change its words** (Wörter ändern) ändern. Siehe [Ein Setting-Kit wählen](getting-started.md#choosing-a-setting-kit).
+
+## Boss-Mechaniken und Beute
+
+Starke Gegner können Boss-Mechaniken haben, Sonderregeln, die der GM für genau diesen Kampf schreibt. Eine Mechanik greift nach Zeitplan, etwa alle paar Runden, oder sobald der Boss unter einen bestimmten Lebensstand fällt. Sie kann die ganze Party treffen, den Boss stärken oder einen Statuseffekt verteilen. Löst eine aus, zeigt **Combat Log** sie an, damit du reagieren kannst.
+
+Gewinnst du, lassen die Gegner Beute fallen, die direkt in den Taschen der Party landet. Gegenstände haben eine Seltenheit, von common über uncommon, rare und epic bis legendary. Höhere Schwierigkeit verschiebt die Beute zu selteneren Gegenständen und wirft etwas mehr davon ab. Eine Benachrichtigung nennt, was gefallen ist, und der GM erfährt, dass es schon in deinen Taschen ist.
+
+Was fällt, gehört zu deinem Setting. Ein Spiel mit Setting-Kit wirft die eigene Beute des Kits ab (ein Spiel in der Gegenwart eine Geschenkkarte oder ein Erste-Hilfe-Set, nie ein verzaubertes Schwert), und du kannst diese Begriffe unter **Change its words** ändern. Ein Spiel ohne Kit wirft ab, was sein Genre üblicherweise hat. Ein Genre ohne Starter-Kit, etwa Steampunk, wirft schlichte Dinge ab, die zu keinem Setting gehören. In einem Spiel, dessen Regelsatz eigene Beutetabellen hat, werfen die Gegner stattdessen die Gegenstände des Regelsatzes ab, und ein Regelsatz, der die eigenen Gegenstände von Game Mode abschaltet, wirft nur seine eigenen ab.
+
+## Referenz: taktische Kämpfe
 
 <a id="tactical-battles-and-terrain"></a>
 
-## Taktische Kämpfe und Gelände
+### Taktische Kämpfe und Gelände
 
-Im taktischen Kampf stehen deine Gruppe und die Gegner auf einem Schlachtfeld. Wähle eine Gruppeneinheit, prüfe ihre Bewegungsreichweite, wähle Ziel und Aktion und bestätige sie. Wer wann handelt, hängt von der **Turn order** (Zugreihenfolge) des Kampfes ab (siehe [Zugreihenfolge](#turn-order)). Angriffsvorschauen zeigen die erwarteten Folgen vor der Bestätigung.
+Beim Erstellen eines Spiels gibt es keine Schlachtfeldeinstellungen auszufüllen. Jeder Kampf erhält ein eigenes Spielfeld, generiert aus einem neuen Seed und der Vorgabe des GM für die Szene. Der GM liefert Umgebung, Formation und eine kurze Geländevorgabe, die Geländeabschnitte und Barrieren nahe der Mitte oder an einem Rand verlangen kann. Marinara erzeugt die genauen Felder und Startpositionen. Das akzeptierte Schlachtfeld wird gespeichert, sodass ein Neuladen dieses Spielfeld wiederherstellt.
 
-Beim Erstellen eines Spiels gibt es keine Schlachtfeldeinstellungen auszufüllen. Jeder Kampf erhält ein eigenes Brett, das aus einem neuen Seed und der Vorgabe des GM für die jeweilige Szene generiert wird.
+Marinara prüft Vorgabe und Aufbau. Das angeforderte Gelände bleibt erhalten, und die Begegnung bleibt zugleich erreichbar.
 
-Der GM liefert Umgebung, Formation und eine kurze Geländevorgabe. Die Engine erzeugt daraus genaue Felder und Startpositionen. Vorgaben können Geländeabschnitte und Barrieren nahe der Kartenmitte oder am Rand verlangen. Das akzeptierte Schlachtfeld wird gespeichert und beim Neuladen wiederhergestellt.
+Lassen sich die Bedingungen nicht vereinbaren, meldet der Kampf das Problem. **Use generated terrain** (generiertes Gelände verwenden) startet dann ohne die abgelehnten Geländeelemente. Stillschweigend entfernt werden sie nie.
 
-Die Engine prüft Vorgabe und Ergebnis. Sie erhält das angeforderte Gelände und stellt zugleich die Erreichbarkeit sicher. Lassen sich die Bedingungen nicht vereinbaren, meldet der Kampf das Problem. **Use generated terrain** (generiertes Gelände verwenden) startet ausdrücklich ohne die abgelehnten Geländeelemente; sie werden nicht stillschweigend entfernt.
+Eine Welt kann auch handgemachte Schlachtfelder haben: Spielfelder, die Feld für Feld für einen ihrer Orte gemalt wurden, mit einem Welteditor wie Pixelforge. Beginnt ein Kampf an diesem Ort oder an einem Ort darin, nutzt er eines dieser Spielfelder statt eines generierten.
 
-Die Welt eines Spiels kann auch **handgemachte Schlachtfelder** haben. Das sind Spielfelder, die Feld für Feld für einen der Orte der Welt gemalt wurden, mit einem Editor wie Pixelforge. Beginnt ein Kampf, während die Party an diesem Ort oder an einem Ort darin ist, nutzt der Kampf eines dieser Spielfelder statt eines generierten. Das Spielfeld wird genau so verwendet, wie es gemalt wurde, in der Szene, für die es gemalt wurde. Hat der Ort mehrere Spielfelder, wählt der Seed des Kampfes eines aus. Die Geländevorgabe des GM wird dort nicht genutzt, seine Formation entscheidet aber weiterhin, wo jede Seite startet. Der GM erfährt, dass das Spielfeld für diesen Ort gemacht wurde, und die Schlachtfeldzeile nennt das Spielfeld.
+- Das Spielfeld wird genau so verwendet, wie es gemalt wurde. Hat der Ort mehrere, entscheidet der Seed des Kampfes, eine Zahl, die eines davon auswählt.
+- Die Geländevorgabe des GM wird dort nicht genutzt, seine Formation entscheidet aber weiterhin, wo jede Seite startet. Der GM erfährt, dass das Spielfeld für diesen Ort gemacht wurde.
+- Ein handgemachtes Spielfeld muss drei Regeln folgen: Es hat eine der drei Spielfeldgrößen, die beiden Spalten an jeder Seite, an denen sich die Seiten aufstellen, sind Ebenen, und jedes Feld, auf dem ein Kämpfer stehen kann, ist mit dem Rest verbunden. Der Editor lehnt ein Spielfeld ab, das eine Regel verletzt, und sagt, warum.
 
-Ein handgemachtes Spielfeld muss drei Regeln folgen. Es hat eine der drei Spielfeldgrößen. Die beiden Spalten an jeder Seite, an denen sich die Seiten aufstellen, sind Ebenenfelder. Jedes Feld, auf dem ein Kämpfer stehen kann, ist mit dem Rest verbunden. Der Editor lehnt ein Spielfeld ab, das eine Regel verletzt, und sagt, warum. Handgemachte Schlachtfelder werden mit den Änderungen von Hand an der Welt gespeichert und reisen so mit ihr in Weltdateien, Kartenpaketen und der Weltbibliothek.
+Diese Spielfelder werden mit den Änderungen von Hand an der Welt gespeichert und reisen so in Weltdateien, Kartenpaketen und der Bibliothek mit.
 
 | Gelände | Gehen | Verteidigung und Ausweichen |
 | --- | --- | --- |
@@ -33,13 +150,13 @@ Ein handgemachtes Spielfeld muss drei Regeln folgen. Es hat eine der drei Spielf
 | Ruinen | Kostet 1 Bewegungspunkt | +1 Verteidigung, +10 Prozentpunkte Ausweichen |
 | Berg, Wasser, Wand | Blockiert Gehen | Kein Bonus |
 
-Einheiten mit einer etablierten Flug- oder Teleportationsfähigkeit können sich anders bewegen:
+Einheiten mit einer etablierten Flug- oder Teleportationsfähigkeit bewegen sich anders:
 
-- **Gehen** folgt erreichbaren Bodenfeldern. Gegner versperren den Weg; auf belegten Feldern darf eine Bewegung nicht enden.
-- **Fliegen** überquert Gelände und dazwischenstehende Einheiten für einen Bewegungspunkt pro Feld, auch im Wald. Eine fliegende Einheit darf über einem sonst blockierten Feld schweben, aber nicht auf einer anderen Einheit enden.
-- **Teleportation** ignoriert Gelände und Einheiten unterwegs. Das Ziel muss in Bewegungsreichweite liegen, frei und begehbar sein. Eine Teleportation darf nicht in einer Wand, auf einem Bergfeld oder über Wasser ohne Untergrund enden.
+- **Gehen** folgt erreichbaren Bodenfeldern. Gegnerische Einheiten versperren den Weg, und auf einem belegten Feld kann eine Einheit ihre Bewegung nicht beenden.
+- **Fliegen** überquert Gelände und Einheiten für einen Bewegungspunkt pro Feld, auch im Wald. Eine fliegende Einheit kann über einem sonst blockierten Feld schweben, aber nicht auf einer anderen Einheit enden.
+- **Teleportation** ignoriert Gelände und Einheiten dazwischen. Das Ziel muss in Bewegungsreichweite liegen, frei und begehbar sein. Es darf nicht in einer Wand, auf einem Berg oder über Wasser ohne Untergrund liegen.
 
-Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die orthogonale Felddistanz. Verteidigungs- und Ausweichboni des Zielfelds bleiben erhalten. Beide ignorieren Höhe (siehe unten). Die Flughöhe eines Fliegers, Decken sowie zauberspezifische Kosten und Sichtanforderungen werden nicht abgebildet.
+Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die gerade (nicht diagonale) Felddistanz. Sie behalten die Verteidigungs- und Ausweichboni des Zielfelds und ignorieren Höhe. Die Flughöhe eines Fliegers, Decken sowie zauberspezifische Kosten und Sichtanforderungen werden nicht abgebildet. Beschwörungen gehören noch nicht zu Marinaras eigenem Kampfsystem.
 
 <a id="turn-order"></a>
 
@@ -47,10 +164,12 @@ Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die orthogonale F
 
 Ein Tactical-Kampf verteilt die Züge auf eine von zwei Arten:
 
-- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Zugreihenfolge. Neue Overworld-RPG-Spiele nutzen diese Art.
+- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Reihenfolge. Neue Overworld-RPG-Spiele nutzen diese Art.
 - **Your whole party, then the enemies** (erst die ganze Party, dann die Gegner): Jede Einheit der Party kann handeln, dann folgt die Gegnerphase. Classic-Spiele nutzen diese Art.
 
-Zum Ändern öffne **Chat Settings** (Chat-Einstellungen), klapp **Combat Style** (Kampfstil) auf und wähle eine **Turn order**. Die Option erscheint, solange das **Battle system** (Kampfsystem) auf Tactical steht, außer wenn der Regelsatz des Spiels seine Kämpfe selbst führt. Die Änderung gilt ab dem nächsten Kampf; ein laufender Kampf behält seine Reihenfolge.
+Zum Ändern öffne **Chat Settings**, klapp **Combat Style** auf und wähle eine **Turn order**. Die Option erscheint, solange das **Battle system** auf Tactical steht, außer wenn der Regelsatz des Spiels seine Kämpfe selbst führt. Die Änderung gilt ab dem nächsten Kampf. Ein laufender Kampf behält seine Reihenfolge.
+
+<a id="sight-cover-and-height"></a>
 
 ### Sicht, Deckung und Höhe
 
@@ -58,109 +177,9 @@ Zum Ändern öffne **Chat Settings** (Chat-Einstellungen), klapp **Combat Style*
 - **Deckung.** Etwas zwischen Angreifer und Ziel schützt das Ziel. Ein Wald- oder Ruinenfeld dazwischen oder eine Wand oder ein Berg, die einen Teil der Sicht versperren, geben halbe Deckung. Eine Wand oder ein Berg, die den größten Teil der Sicht versperren, geben Dreivierteldeckung. Halbe Deckung zieht 15 Prozentpunkte von der Trefferchance ab, Dreivierteldeckung 30. Der Bonus des Feldes, auf dem das Ziel steht, und seine Deckung addieren sich nicht: Es zählt der bessere Wert.
 - **Höhe.** Auf einem Spielfeld mit Bergen ist ein Berg zwei Stufen hoch und der Boden um ihn herum eine Stufe. Eine Stufe hinaufzugehen kostet einen Bewegungspunkt mehr, hinunterzugehen kostet nichts. Ein Absatz von zwei oder mehr Stufen ist eine Klippe, über die niemand gehen kann. Höheres Gelände blockiert außerdem die Sicht zwischen zwei niedrigeren Feldern. Ein Angriff von höherem Gelände nach unten erhöht die Trefferchance um 10, ein Fernangriff von höherem Gelände reicht ein Feld weiter, und niedrige Deckung wie ein Wald verbirgt ein Ziel nicht vor einem Angriff von oben. Handgemachte Schlachtfelder können eigene Klippen haben.
 
-Beschwörungen gehören noch nicht zu Marinaras eigenem Kampfsystem.
+### Schlachtfeldszenen
 
-## Klassische Kämpfe
-
-Ein Classic-Kampf hat kein Brett. Alle Gruppenmitglieder nehmen teil, aber deine gewählte Aktion steuert das erste lebende Gruppenmitglied; die übrigen Begleiter handeln selbstständig. Die folgenden Aktionsmenüs und Kampfberechnungen bestimmen den Ablauf von Classic-Kämpfen.
-
-## Das Aktionsmenü
-
-Bist du am Zug, wählst du genau eine Aktion aus dem Menü. Es gibt sechs davon:
-
-- **Attack** (Angriff): Ein Gegner kassiert einen einfachen Angriff.
-- **Skills** (Fertigkeiten): eine besondere Fähigkeit einsetzen. Fertigkeiten können MP kosten. Manche heilen einen Verbündeten, manche treffen einen Gegner, manche verteilen einen Buff oder Debuff.
-- **Special** (Sonderaktion): Tipp eine frei formulierte Aktion in eigenen Worten ein und drück dann auf **Ask GM** (den GM fragen). Zum Beispiel: „Ich kicke Sand in die gesprungene Linse des Ruin Guard.“ Was daraus wird, entscheidet der GM.
-- **Defend** (verteidigen): Für den Rest der Runde steigt deine Verteidigung, du nimmst also weniger Schaden.
-- **Items** (Gegenstände): einen Gegenstand aus der Tasche nutzen. Über **Full inventory** (vollständiges Inventar) öffnest du von hier aus die komplette Gegenstandsliste. In einem Spiel mit Regelsatz tun die eigenen Gegenstände des Regelsatzes, was der Regelsatz sagt: wie viel sie heilen oder schaden und welche Zustände sie verursachen. Ein Gegenstand mit Ladungen wird angeboten, solange eine Nutzung übrig ist, und bei einem, der zuerst eine Probe verlangt, wird sie beim Einsatz gewürfelt: Misslingt sie, ist er umsonst verbraucht. Einer, dem der Regelsatz keine Nutzung gibt, wird nicht angeboten. Deine übrigen Gegenstände tun, was der Game Master zu Kampfbeginn festgelegt hat, außer der Regelsatz schaltet die eigenen Gegenstände von Game Mode ab.
-- **Flee** (fliehen): den Kampf sofort verlassen. Eine Flucht beendet den Kampf augenblicklich.
-
-Nach deiner Wahl läuft die Runde ab. Die Ergebnisse erscheinen als aufsteigende Schadenszahlen, als Ausschlag der Lebensleisten und als Zeilen im Kampfprotokoll.
-
-<a id="how-combat-math-works"></a>
-
-## So rechnet der Kampf
-
-Sobald ein Kampf läuft, entscheidet feste Würfelmathematik über jede Runde – nicht die KI. Der GM erzählt lediglich die Ergebnisse. Wer trifft und wie viel Schaden ankommt, bestimmt er nie. Damit bleibt der Kampf fair und nachvollziehbar. „W20“ steht im Folgenden für den Wurf eines zwanzigseitigen Würfels, also eine Zahl von 1 bis 20.
-
-### Initiative (Zugreihenfolge)
-
-Zu Beginn jeder Runde würfelt jeder Kämpfer einen W20 und addiert einen Bonus aus seiner Geschwindigkeit. Wer höher liegt, handelt früher. Eingefrorene, betäubte oder gefesselte Kämpfer setzen die ganze Runde aus – ebenso alle, deren Geschwindigkeit auf 0 gefallen ist.
-
-### Angriff und Verteidigung
-
-Greift ein Kämpfer einen anderen an:
-
-1. Der Angreifer würfelt einen W20 und addiert einen Bonus aus seinem Angriffswert.
-2. Der Verteidiger würfelt einen W20 und addiert einen Bonus aus seinem Verteidigungswert.
-3. Liegt die Summe des Angreifers unter der des Verteidigers, geht der Angriff daneben.
-4. Ein kritischer Treffer gelingt bei einer natürlichen 20 oder wenn der Angreifer den Verteidiger um 10 oder mehr übertrifft.
-
-### Schaden
-
-Bei einem Treffer ergibt sich der Grundschaden aus dem Angriffswert des Angreifers und wächst mit dessen Stufe. Dazu kommen zusätzliche Schadenswürfel, von denen höherstufige Kämpfer mehr werfen. Ein kritischer Treffer multipliziert die Summe mit 1,5. Anschließend senkt die Verteidigung des Ziels den Schaden und blockt dabei bis zu 40 Prozent des Verteidigungswerts.
-
-### Skalierung nach Schwierigkeit
-
-Im letzten Schritt skaliert der Schaden mit der Schwierigkeit des Spiels, die du im Einrichtungsassistenten festlegst. Die vier Stufen wirken so auf den Endschaden:
-
-| Schwierigkeit | Schadensmultiplikator |
-|---|---|
-| Casual | 0.6 |
-| Normal | 1.0 |
-| Hard | 1.3 |
-| Brutal | 1.6 |
-
-Je höher die Schwierigkeit, desto härter treffen beide Seiten – Kämpfe werden kürzer und riskanter.
-
-## Statuseffekte und elementare Reaktionen
-
-Ein Statuseffekt verändert Angriff, Verteidigung, Geschwindigkeit oder HP eines Kämpfers vorübergehend. Buffs helfen, Debuffs schaden. Ein Status hält eine festgelegte Zahl an Runden und verfliegt dann. Gifteffekte zehren jede Runde an den HP, Regenerationseffekte füllen sie auf. Drei Effekte mit eigenem Namen lassen den betroffenen Kämpfer seinen Zug aussetzen: eingefroren, betäubt und gefesselt.
-
-Manche Angriffe und Fertigkeiten tragen ein Element: Fire, Ice, Lightning, Poison, Holy oder Shadow. Das erste Element, das ein Ziel trifft, hinterlässt eine Aura – eine nachwirkende Spur dieses Elements. Trifft dann ein anderes Element dasselbe Ziel, löst das eine elementare Reaktion aus. Die Reaktion bringt Bonusschaden und oft einen Statuseffekt.
-
-Zu den Reaktionen zählen Melt, Shatter, Overload, Superconduct, Toxic Blaze, Purification, Eclipse und Electrotoxin. Dieses System läuft von allein. Du musst es weder aktivieren noch einstellen. Reaktionen entstehen automatisch, sobald die passenden Elemente auf demselben Ziel aufeinandertreffen.
-
-## Elemente
-
-Angriffe, Fertigkeiten und Gegenstände können ein Element tragen, und ein Element, das ein Ziel trifft, auf dem noch die Aura eines anderen liegt, kann eine Reaktion auslösen, die härter trifft. Welche Elemente es gibt, gehört zum Setting: Ein Spiel ohne Setting-Kit oder mit einem, das keine nennt, kämpft mit den klassischen sechs (Feuer, Eis, Blitz, Gift, Heiliges und Schatten); ein Wuxia-Spiel mit den fünf Wandlungsphasen (Holz, Feuer, Erde, Metall und Wasser, von denen jede die nächste überwindet); ein Cyberpunk- oder Space-Opera-Spiel mit kinetisch, thermisch, EM und chemisch oder Plasma; und ein Spiel in der Gegenwart oder in den 1920er-Jahren mit gar keinen. Regen und Sturm auf offenem Gelände dämpfen feuerartige Elemente und stärken blitzartige. In einem taktischen Kampf trifft ein Element härter gegen eines, das es schlägt, und schwächer gegen eines, von dem es geschlagen wird. Die Elemente eines Kits und ihre Reaktionen kannst du unter **Change its words** (Wörter ändern) ändern.
-
-## Schlachtfelder
-
-Das Spielfeld eines taktischen Kampfes ist wie der Ort angelegt, an dem der Kampf stattfindet: Ein Wald hat Bäume zum Verstecken, ein Dungeon Wände und Korridore, eine Stadt Straßen. Ein Spiel mit Setting-Kit benennt seine eigenen Szenen in seinen eigenen Worten, und jede ist wie eines dieser Spielfelder angelegt. So findet ein Cyberpunk-Kampf auf einem Dach oder im Korridor eines Megablocks statt und ein Wuxia-Kampf in einem Bambuswald oder einem Teehaus, und auch die Felder des Spielfelds tragen die Begriffe des Settings (Deckung und Trümmer statt Wald und Ruinen). Die Karte eines Gebiets und die kleinen Details, auf die der Game Master achten soll, folgen dem Setting auf dieselbe Weise. Die Szenen und Feldbegriffe eines Kits kannst du unter **Change its words** ändern.
-
-## Boss-Mechaniken und Beute
-
-Starke Gegner können Boss-Mechaniken mitbringen – Sonderregeln, die der GM für genau diesen Kampf schreibt. Eine Mechanik greift nach Zeitplan, etwa alle paar Runden, oder sobald der Boss unter einen bestimmten Lebensstand fällt. Sie kann die ganze Party treffen, den Boss stärken oder einen Statuseffekt verteilen. Löst eine Mechanik aus, erscheint der Effekt im Kampfprotokoll, sodass du reagieren kannst.
-
-Gewinnst du einen Kampf, lassen die Gegner Beute fallen, und sie landet direkt in den Taschen der Party, sobald der Kampf endet. Jeder Gegenstand hat eine Seltenheit, von häufig bis selten: common, uncommon, rare, epic und legendary. Höhere Schwierigkeit verschiebt die Beute zu selteneren Gegenständen und wirft etwas mehr davon ab. Was fällt, gehört zu deinem Setting: Ein Spiel mit Setting-Kit wirft die eigene Beute des Kits ab (ein Spiel in der Gegenwart eine Geschenkkarte oder ein Erste-Hilfe-Set, nie ein verzaubertes Schwert), und du kannst diese Begriffe unter **Change its words** des Kits ändern. Ein Spiel ohne Kit wirft ab, was sein Genre üblicherweise hat, und ein Genre ohne Starter-Kit, etwa Steampunk, wirft schlichte Dinge ab, die zu keinem bestimmten Setting gehören. Eine Benachrichtigung nennt, was gefallen ist, und der Game Master erfährt, dass es schon in deinen Taschen ist. In einem Spiel, dessen Regelsatz eigene Beutetabellen hat, werfen die Gegner stattdessen die Gegenstände des Regelsatzes ab, und ein Regelsatz, der die eigenen Gegenstände von Game Mode abschaltet, wirft nur seine eigenen ab. Bei einem Sieg erscheint das Banner **Victory!**, fällt deine Party, erscheint **Defeat...**.
-
-## Den GM unterbrechen
-
-Solange der GM noch an seiner Antwort schreibt, kannst du mit der Schaltfläche **Interrupt** dazwischengehen. Getippter Text zählt erst, wenn du ihn wirklich abschickst. Ein Klick auf **Interrupt** öffnet ein Bestätigungsfenster mit dem Titel **Attempt to Interrupt?** und drei Möglichkeiten:
-
-- **No**: abbrechen und den GM weiterschreiben lassen.
-- **Force Interrupt**: sauber dazwischengehen. Der GM erfährt nichts von der Unterbrechung. Das Eingabefeld bekommt einen grünen Rahmen.
-- **Yes**: eine Unterbrechung innerhalb der Geschichte versuchen, gegen die sich der GM wehren kann. Das Eingabefeld färbt sich rot, die App weist mit „using dice recommended“ auf Würfel hin, und die Würfel-Schaltfläche pulsiert. Ein Würfelwurf kann deinen Versuch hier gelingen lassen.
-
-Nach der Bestätigung tippst du deine Nachricht und schickst sie ab. Überlegst du es dir anders, drück auf **Resume** (fortsetzen): Die offene Unterbrechung verfällt und die Erzählung läuft weiter. Nützlich ist das in angespannten Momenten – etwa als Reaktion in der Sekunde, bevor ein Kampf losbricht.
-
-## Quick-Time-Events
-
-Für schnelle Actionmomente wie Ausweichen oder Verfolgen kann der GM ein Quick-Time-Events-Overlay auslösen, kurz QTE. Das Overlay zeigt eine schrumpfende Countdown-Leiste, die Aufforderung **React quickly!** (schnell reagieren) und je eine Schaltfläche pro Möglichkeit. Jede Schaltfläche ist nummeriert (1, 2, 3 und so weiter). Klick auf die Schaltfläche der Aktion, die du willst.
-
-Wähle eine Aktion, bevor die Zeit abläuft, dann gibt es einen Bonus. Je schneller du reagierst, desto größer fällt er aus. Läuft die Zeit vorher ab, kassierst du stattdessen einen Malus. Ein Quick-Time-Event kommt ohne Würfel aus. Hier zählt reines Tempo.
-
-## Kampf auf dem Handy
-
-Auf dem Handy ordnet sich der Kampfbildschirm für das kleine Display neu. Die Aktionsschaltflächen kleben am unteren Bildschirmrand. Panels, die daneben keinen Platz mehr finden, wandern in ein Panel, das sich von unten aufschiebt und vier Tabs hat:
-
-- **Party**: deine Partymitglieder und deren Lebensstand.
-- **Boss Mechanics** (Boss-Mechaniken): die Sonderregeln des laufenden Kampfes.
-- **Dialogue** (Dialog): Kampfsprüche der Kämpfer.
-- **Combat Log** (Kampfprotokoll): der Verlauf Runde für Runde.
-
-Tipp auf einen Tab, um dessen Panel zu öffnen. Zum Schließen tippst du daneben oder auf die Schließen-Schaltfläche.
+Ein taktisches Spielfeld ist wie der Ort angelegt, an dem der Kampf stattfindet: Ein Wald hat Bäume zum Verstecken, ein Dungeon Wände und Korridore, eine Stadt Straßen. Ein Spiel mit Setting-Kit benennt seine eigenen Szenen in seinen Worten, sodass ein Cyberpunk-Kampf auf einem Dach oder im Korridor eines Megablocks stattfindet und ein Wuxia-Kampf in einem Bambuswald oder einem Teehaus. Auch die Felder des Spielfelds tragen die Begriffe des Settings (Deckung und Trümmer statt Wald und Ruinen). Die Szenen und Feldbegriffe eines Kits kannst du unter **Change its words** ändern.
 
 ## Verwandte Anleitungen
 
@@ -168,4 +187,4 @@ Tipp auf einen Tab, um dessen Panel zu öffnen. Zum Schließen tippst du daneben
 - [Game Mode: Würfel und Fertigkeitsproben](dice-and-skill-checks.md)
 - [Game Mode: Party und NPCs](party-and-npcs.md)
 - [Game Mode: Erste Schritte](getting-started.md)
-- [Kampfbegegnungen im Roleplay](../roleplay/combat-encounters.md)
+- [Kampfbegegnungen (Roleplay)](../roleplay/combat-encounters.md)

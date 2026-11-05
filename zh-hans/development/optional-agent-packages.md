@@ -827,6 +827,8 @@ Experience 的手绘地图可以采用自己的外观，不限于库中的洞穴
 
 `props` 每项对应一个物件槽位，0 到 7（未描述的槽位用 `null`）。Game Master 随后会获知：“一个手工制作的地点（留着茬的土地、直立玉米构成的墙），里面有一道雨水沟；其中有：稻草人（2 个）、玉米皮偶神龛”，而非仅获知它是手绘的。两项功能都需要 Experience 声明 1.357。
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359：消耗故事数值的物品
 
 叠加层可以指定一些物品，其使用会消耗（或增加）Experience 的某个故事数值型标志：
@@ -1027,6 +1029,40 @@ export async function activate({ api }) {
 - `enterLabel` 和 `exitLabel`：切换按钮使用的本地化无障碍标签。
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814：缓存包提示词中不变的部分
+
+借助 `api.runtime.languageModels` 写作的包，可以标出提示词中每次调用都相同的那部分在哪里结束：在传给 `chatComplete` 的某条消息上设置 `cacheBreakpoint: true`。到这条消息为止（包括这条消息）的提示词会被缓存，之后以相同文本开头的调用，在这部分上的花费就会更少。把指令、人物卡和到目前为止的故事放在前面，让它们在每次调用之间逐字节保持相同，再把会变化的内容放在标记的消息之后。
+
+- Anthropic：Engine 会在每条标记的消息上放置一个缓存断点，包括系统消息；即使连接的提示词缓存已关闭也是如此，而且 Engine 不会自行添加断点。缓存保留 5 分钟；连接要求较长的缓存时间时，保留 1 小时。缓存写入的价格高于输入价格，但只需支付一次；读取的价格只是输入价格的一小部分。具体费率取决于模型，见 Anthropic 的模型定价。Anthropic 最多接受四个断点：标记的消息更多时，以最后四条为准。没有文本的标记消息会改为标记它前面的那条消息。短于模型最低长度的前缀不会被缓存，照常计费。
+- OpenAI、Gemini、xAI 和 DeepSeek 会自行缓存相同的前缀：标记不会带来任何变化。
+- OpenRouter 和自定义 OpenAI 兼容端点暂不支持这个标记：调用会像没有标记时一样发出，因此通过这些途径使用的 Claude 模型不会被缓存。
+- Claude (Subscription)：Agent SDK 会自行缓存，不会发送标记；以连接的缓存时间为准。
+
+服务商报告这两项时，`usage` 会给出 `cachedPromptTokens`(从缓存读取) 和 `cacheWritePromptTokens`(写入缓存)。`promptTokens` 仍按服务商的方式计数。在 Anthropic 和 Claude (Subscription) 上，它只包括既没有从缓存读取、也没有写入缓存的输入，因此整个提示词是 `promptTokens + cachedPromptTokens + cacheWritePromptTokens`；包标记了前缀之后，`promptTokens` 就会降为未缓存的尾部。OpenAI 兼容路由（包括 OpenRouter）和 Gemini 已经把缓存的 Token 计入 `promptTokens`，再加一遍就会重复计算。没有标记消息的调用保持不变。
+
+旧版 Engine 会忽略这个字段，因此包始终可以设置它。包依赖这项缓存或缓存用量时，请声明 1.814。
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815：选择标记的提示词缓存多久
+
+`chatComplete` 接受 `cacheTtl: "5m" | "1h"`：它决定在 Anthropic 上，到这次调用的 `cacheBreakpoint` 消息（1.814）为止的提示词会缓存多久。省略时，和以前一样使用连接自己的缓存时间。同一个前缀相隔五分钟以上才再次出现时，就选用 `"1h"`，例如玩家阅读期间、每个场景都会复用的故事上下文。1 小时缓存的写入费用高于 5 分钟缓存，所以只有在这一小时内再次读取该前缀时才划算。没有标记消息的调用会忽略此选项；自行缓存的服务商（OpenAI、Gemini、xAI、DeepSeek）和 Claude (Subscription) 也会忽略它，后者使用连接的缓存时间。
+
+旧版 Engine 会忽略此选项，因此包始终可以传入它。包依赖此选项时，请声明 1.815。
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

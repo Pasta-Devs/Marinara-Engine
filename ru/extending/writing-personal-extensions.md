@@ -1,17 +1,14 @@
-# Создание собственных расширений Personal Extensions
+# Создание личных расширений
 
-Это руководство предназначено для тех, кто пишет собственные расширения для приложения Marinara Engine. Перед установкой, проверкой и безопасным запуском расширения прочитайте руководство [Personal Extensions](personal-extensions.md).
+Это руководство показывает, как написать расширение Browser Extension или Server Extension, упаковать его и импортировать. Оно рассчитано на тех, кто умеет писать на JavaScript. О проверке и запуске расширения читайте в руководстве [Личные расширения](personal-extensions.md).
 
 Код, который вы написали и импортировали сами, считается **External Extension** (внешним расширением). Сначала он отключен и не может выполняться, пока вы не проверите его и не одобрите точный хеш SHA-256.
 
 ## Перед началом
 
-Расширения External Extensions скрыты, пока не открыты обе защитные блокировки:
+Расширения External Extensions скрыты, пока вы не выполните оба защитных шага из раздела [Разрешение импорта сторонних расширений](personal-extensions.md#allow-third-party-imports): `ENABLE_EXTERNAL_EXTENSIONS=true` в файле `.env` и переключатель **Allow third-party extension imports** (разрешить импорт сторонних расширений) в разделе **Settings → Advanced → Danger Zone** (настройки → дополнительно → опасная зона).
 
-1. Задайте `ENABLE_EXTERNAL_EXTENSIONS=true` в файле `.env` хоста Marinara.
-2. Откройте **Settings** > **Advanced** > **Danger Zone** и включите **Allow third-party extension imports**.
-
-Для импорта расширений и управления ими также нужен доступ через localhost или настроенный **Admin Access**. Если вы используете Marinara с телефона, по адресу LAN или через удаленный браузер, задайте `ADMIN_SECRET` на сервере и введите то же значение в разделе **Settings** > **Advanced** > **Admin Access**.
+Для импорта расширений и управления ими также нужен доступ через localhost или секрет администратора. Если вы работаете с телефона, по адресу LAN или через удаленный браузер, задайте `ADMIN_SECRET` на сервере и введите то же значение в **Settings → Advanced → Admin Access** (доступ администратора).
 
 Выберите среду с минимальными правами, которых достаточно для задачи:
 
@@ -19,7 +16,7 @@
 | --- | --- | --- |
 | Sandboxed Browser Extension | Закрытое состояние, контекст активного чата, кнопки, действия меню и панели, которые отрисовывает Marinara | Нет доступа к DOM приложения Marinara, файлам cookie, хранилищу браузера, сети и произвольному HTML |
 | Server Extension | Фоновая логика, которой нужны управляемые таймеры и закрытое хранилище расширения | Отдельная песочница ОС; нет доступа к файлам и секретам Marinara, сети, дочерним процессам и нативным модулям |
-| Full-page External Extension | Старый код, которому действительно нужны страница Marinara или API с тем же origin | Нет песочницы; используйте только для точно проверенного кода, которому вы полностью доверяете |
+| Full-page External Extension | Старый код, которому нужны страница Marinara или API с тем же origin | Нет песочницы; используйте только для точно проверенного кода, которому вы полностью доверяете |
 
 Расширения Browser Extensions работают на всех поддерживаемых платформах. Расширениям Server Extensions нужен Seatbelt в macOS или Bubblewrap в Linux. Перед выбором Server Extension сверьтесь с [таблицей платформ](personal-extensions.md#platform-support).
 
@@ -97,10 +94,10 @@ marinara.onCleanup(() => panel.remove());
 
 Затем импортируйте и запустите расширение:
 
-1. Откройте **Settings** > **Addons** > **External Extensions**.
+1. Откройте **Settings → Addons → External Extensions** (дополнения → внешние расширения).
 2. Выберите **Import Extension Folder** (импортировать папку расширения) и папку `Hello Panel` либо упакуйте папку в ZIP и импортируйте его через **Import Extension File** (импортировать файл расширения).
 3. Откройте отключенный черновик и проверьте его манифест и JavaScript.
-4. Выберите **Review and Run** и одобрите точно показанный хеш.
+4. Выберите **Review and Run** (проверить и запустить) и одобрите точно показанный хеш.
 5. Откройте меню Extensions и выберите **Hello Panel**.
 
 Этот же готовый к запуску пример находится в репозитории по пути `docs/examples/personal-extensions/browser-minimal/`.
@@ -125,7 +122,7 @@ marinara.onCleanup(() => panel.remove());
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Управляемые таймеры, которые удаляются при остановке расширения |
 | `onCleanup(callback)` | Регистрация дополнительной логики очистки |
 
-Для обычного интерфейса используйте [панели, которые отрисовывает Marinara](personal-extensions.md#add-a-marinara-rendered-panel), для поведения с учетом чата – [контекст активного чата](personal-extensions.md#use-active-chat-context), а для собственной записи `/roll` – [форматы бросков кубиков](personal-extensions.md#add-a-dice-format). Состояние расширения должно находиться в `marinara.storage`, а не в хранилище браузера.
+Для обычного интерфейса используйте [панели, которые отрисовывает Marinara](#add-a-marinara-rendered-panel), для поведения с учетом чата – [контекст активного чата](#use-active-chat-context), а для собственной записи `/roll` – [форматы бросков кубиков](#add-a-dice-format). Состояние расширения должно находиться в `marinara.storage`, а не в хранилище браузера.
 
 `showWindow({ title, elements, onEvent, onClose })` возвращает дескриптор с методами `update({ title?, elements? })` и `close()`. CSS пакета оформляет эти окна iframe в песочнице; элементы, которые отрисовывает хост, всегда используют тему и элементы управления самого приложения Marinara.
 
@@ -141,11 +138,217 @@ marinara.onCleanup(() => panel.remove());
 }
 ```
 
-- `read_active_characters` заполняет ограниченный набор полей карт Character в активном чате.
-- `read_active_persona` заполняет ограниченный набор полей выбранной Persona.
+- `read_active_characters` заполняет ограниченный набор полей карточек персонажей в активном чате.
+- `read_active_persona` заполняет ограниченный набор полей выбранной персоны.
 - `full_page_access` выбирает среду совместимости без песочницы и доступен только расширениям External Extensions.
 
 При изменении возможностей меняется хеш исполняемого кода, расширение отключается и требует новой проверки.
+
+<a id="what-a-browser-extension-can-do"></a>
+
+### Что может расширение Browser Extension
+
+Расширение Browser Extension работает в отдельном Worker внутри изолированного iframe с непрозрачным источником (opaque origin). Ему недоступны страница приложения Marinara, DOM, файлы cookie, хранилище браузера, API источника и сеть. Его возможности – закрытое хранилище расширения, ведение журнала, управляемые таймеры, регистрация очистки, ограниченные окна, безопасные слоты для элементов интерфейса хоста и снимок активного чата и идентификаторов персонажей только для чтения. Отдельные поля активных карточек персонажей или выбранной персоны расширение получает, только если соответствующие разрешения объявлены и одобрены.
+
+Расширения могут добавлять действия на верхнюю или боковую панель, пункты меню Extensions и постоянные панели справа через `marinara.ui.registerContribution(...)`. Marinara отрисовывает эти элементы в активной теме оформления и только фиксированным набором элементов управления: заголовки, текст, предварительно отформатированный вывод, кнопки, текстовые поля, раскрывающиеся списки, переключатели, ползунки, выбор цвета и отступы. Расширение передает содержимое и состояние, но никогда не HTML, CSS, адреса URL, компоненты React или обработчики событий хоста.
+
+Эти возможности интерфейса и правила одинаковы для любого расширения Browser Extension в песочнице, откуда бы оно ни пришло. Импортированное стороннее (External) расширение работает в этой безопасной среде, если только его пакет прямо не запрашивает **Full page access** (полный доступ к странице) или не использует описанный ниже формат `marinara.extension` времен до песочницы.
+
+### Оценка числа токенов в тексте
+
+Личные расширения Browser, Full page access и Server могут использовать встроенную в Marinara функцию оценки числа токенов в тексте:
+
+```js
+const tokens = marinara.estimateTextTokens(text);
+```
+
+Сигнатура функции – `estimateTextTokens(text: string): number`. Она также описана в типе `PersonalExtensionTokenApi`, который экспортируется из `@marinara-engine/shared`. Вызов синхронный и не требует дополнительных возможностей. Он возвращает не зависящую от модели оценку числа токенов Marinara, а не точный результат токенизатора. В старых версиях Engine перед вызовом проверьте `typeof marinara.estimateTextTokens === "function"`.
+
+<a id="add-a-marinara-rendered-panel"></a>
+
+### Добавление панели, которую отрисовывает Marinara
+
+```js
+const panel = marinara.ui.registerContribution({
+  id: "weather-settings",
+  kind: "panel",
+  label: "Weather controls",
+  description: "Tune a weather scene without leaving Marinara.",
+  icon: "sparkles",
+  elements: [
+    { kind: "heading", text: "Atmosphere" },
+    {
+      kind: "select",
+      id: "weather",
+      label: "Weather",
+      value: "rain",
+      options: [
+        { value: "rain", label: "Rain" },
+        { value: "snow", label: "Snow" },
+        { value: "aurora", label: "Aurora" },
+      ],
+    },
+    { kind: "slider", id: "intensity", label: "Intensity", min: 0, max: 100, value: 60 },
+    { kind: "toggle", id: "lightning", label: "Lightning", checked: false },
+    { kind: "color", id: "tint", label: "Tint", value: "#6d8cff" },
+    { kind: "button", id: "apply", label: "Apply" },
+  ],
+  onActivate: async () => {
+    const settings = await marinara.storage.get();
+    // Update the panel when stored state should be reflected in the controls.
+  },
+  onEvent: async ({ elementId, values }) => {
+    if (elementId !== "apply") return;
+    await marinara.storage.patch(values);
+  },
+});
+
+marinara.onCleanup(() => panel.remove());
+```
+
+Значение `kind: "button"` создает компактное действие, а `kind: "menu-item"` – действие в меню Extensions. Значение `kind: "command"` создает пункт Command Center, который активирует существующий элемент интерфейса из той же ревизии расширения. Команде обязательно нужен `targetContributionId`, и она не может использовать `onActivate` или `onEvent`.
+
+```js
+marinara.ui.registerContribution({
+  id: "open-weather",
+  kind: "command",
+  label: "Open weather controls",
+  targetContributionId: "weather-settings",
+});
+```
+
+Хост находит цель команды, только если у цели тот же идентификатор расширения и тот же хеш содержимого. Отсутствующие цели, цели из другого расширения и цели из устаревшей ревизии отклоняются. По умолчанию кнопки используют `surface: "top-bar"`. Вместо этого они могут выбрать `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` или `settings`, задав `position` как `header`, `before-content` или `after-content`. Поле `icon` принимает любое поддерживаемое Marinara имя значка Lucide в kebab-case. Оба вида действий вызывают `onActivate`. Панель (`panel`) вызывает `onActivate` при открытии, а ее кнопки вызывают `onEvent` с текущими значениями всех элементов управления панели. Возвращаемый дескриптор поддерживает обновления в зависимости от вида: `button` принимает `label`, `description`, `icon`, `surface` и `position`; `menu-item` – `label`, `description` и `icon`; `panel` – `label`, `description`, `icon` и `elements`. Все дескрипторы поддерживают `remove()`. В идентификаторах допустимы буквы, цифры, `.`, `_` и `-`.
+
+Например, этот код помещает нативное действие над содержимым панели Presets:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
+
+Сложные инструменты могут строить многошаговый интерфейс, обновляя элементы панели после события. Храните состояние приложения в `marinara.storage` и не кодируйте его в разметке.
+
+<a id="use-active-chat-context"></a>
+
+### Использование контекста активного чата
+
+Browser Extension API версии 5 открывает непрозрачные идентификаторы чата, который сейчас показан в Marinara:
+
+```js
+const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
+  if (!chatId) return; // Home, a library, or another surface without an active chat.
+
+  const storage = await marinara.storage.get();
+  const tab = storage.tabsByChat?.[chatId];
+
+  // characterId is available only for a single-Character chat.
+  // Use characterIds for group chats.
+  marinara.log.debug("Loaded Notepad tab", {
+    chatId,
+    characterId,
+    characterIds,
+    personaId,
+    characterNames: characters.map((character) => character.name),
+    personaName: persona?.name ?? null,
+    tab,
+  });
+};
+
+const unsubscribe = marinara.context.subscribe(renderForContext);
+marinara.onCleanup(unsubscribe);
+```
+
+Метод `marinara.context.get()` возвращает тот же текущий снимок без подписки. Когда активного чата нет, `chatId` равен `null`, а `characterIds` пуст. Поле `characterId` заполняется, только если в чате участвует ровно один персонаж; групповые чаты перечисляют всех участников в `characterIds` и оставляют `characterId` равным `null`. Поле `personaId` заполняется, только если разрешение `read_active_persona` одобрено.
+
+Идентификаторы чата и персонажей доступны всегда, и по ним расширение может разделять собственное закрытое хранилище. Для полей записей нужно одно или оба необязательных разрешения в манифесте расширения:
+
+```json
+{
+  "runtime": "client",
+  "capabilities": ["read_active_characters", "read_active_persona"]
+}
+```
+
+- `read_active_characters` заполняет `characters` карточками, которые участвуют в активном чате.
+- `read_active_persona` заполняет `persona` персоной, выбранной в активном чате.
+
+Без разрешения соответствующее значение остается `[]` или `null`. Marinara показывает каждое запрошенное разрешение в блоке **Requested access** (запрошенный доступ) и еще раз в окне одобрения точного хеша. Добавление или удаление разрешения меняет хеш исполняемого кода, отключает расширение и требует нового одобрения.
+
+Снимок персонажа содержит только `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe` и `conversationDisplayName`. Снимок персоны содержит только `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe` и `conversationDisplayName`. Длина текста ограничивается до передачи через мост песочницы.
+
+Marinara никогда не передает сообщения, заметки автора, системные промпты, инструкции после истории, комментарии, пути к аватарам, полные библиотеки персонажей и персон, необъявленные поля, метаданные чата, дескрипторы базы данных, доступ к сети и операции изменения данных. Обновления контекста остаются привязаны к одобренному хешу кода и приходят при смене активного чата, его списка персонажей или выбранной персоны.
+
+<a id="add-a-dice-format"></a>
+
+### Добавление формата бросков кубиков
+
+Browser Extension API версии 6 позволяет расширению научить `/roll` собственной записи бросков, например для пула повествовательных костей. Расширение читает запись и указывает, какие кости бросить; Marinara бросает их своим безопасным генератором и возвращает выпавшие грани. Расширение может определить смысл броска, но никогда не то, что выпало.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+После этого `/roll 2 boost 1 setback` публикует грани, итог и текст расширения с названием формата. Обычная запись, например `2d6` или `4d6kh3`, всегда обрабатывается как прежде и никогда не передается расширению. Другая запись по очереди передается каждому зарегистрированному формату; бросок выполняет первый, чей `parse` вернет кости.
+
+- `parse(notation)` возвращает `null` или `{ dice: [sides, ...] }` с числом костей от 1 до 100 и числом граней от 2 до 1 000. Остальные данные объекта остаются в песочнице и передаются обратно в `read` как `plan`.
+- `read(...)` возвращает `{ total, text?, kept? }`: конечное число, обычный текст длиной до 200 символов и необязательный список позиций учтенных костей в порядке возрастания. Остальные `/roll` зачеркивает.
+- Каждое расширение может зарегистрировать 4 формата. Длина записи – не более 100 символов. `parse` и `read` могут быть асинхронными, но каждый должен ответить за 2 секунды.
+- Текст показывается как обычный текст: ссылки, изображения, форматирование и HTML экранируются.
+
+Форматы бросков кубиков работают с `/roll` в браузере. Инструмент `roll_dice` Game Master и другие броски на сервере продолжают использовать встроенную запись и кости набора правил. В старых версиях Engine перед вызовом проверьте `typeof marinara.dice?.registerFormat === "function"`.
+
+### Старые расширения и расширения с полным доступом к странице
+
+Управление погодой, редакторы промптов и другие крупные рабочие сценарии – вполне подходящие случаи для элементов интерфейса. Их безопасные версии могут запускаться из меню или кнопкой на верхней панели и работать через панели, которые обновляются по шагам. Существующие пакеты, которые накладывают свои слои на DOM, ищут элементы по селекторам CSS приложения Marinara, обходят внутренние структуры React или обращаются к маршрутам `/api` того же источника, нельзя импортировать в безопасную среду без изменений.
+
+Элементы интерфейса дают интерфейс, а не общие права. API контекста всегда открывает идентификаторы активного чата и персонажей и может открыть только объявленные поля активных записей, перечисленные выше. Функциям, которым нужны сообщения, пресеты, лорбуки, необъявленные данные персонажей или персон либо визуальные эффекты сцены, по-прежнему нужна отдельная, узко ограниченная возможность-посредник, которую предоставляет Marinara. Расширение не должно имитировать ее через доступ к DOM хоста или свободные сетевые запросы.
+
+Если расширению External Extension нужен доступ к DOM хоста, оно может запросить:
+
+```json
+{
+  "runtime": "client",
+  "capabilities": ["full_page_access"]
+}
+```
+
+**Full page access не является возможностью песочницы.** Одобренные JavaScript и CSS выполняются прямо на странице Marinara. Код может прочитать или изменить все, что видно текущей сессии браузера, изучать чаты и карточки, пользоваться хранилищем браузера, отправлять сетевые запросы и вызывать API Marinara того же источника. На практике у него на странице те же права, что у кода, вставленного в консоль браузера. Черновики Professor Mari не могут запросить этот доступ.
+
+Для сетевых запросов расширениям с полным доступом к странице следует использовать `marinara.fetch(...)`. У него те же сигнатура и результат, что у `window.fetch`, но при этом раздел **Settings > Addons > External Extensions** может показать для этого расширения число запросов за сеанс, переданные байты по данным ответов, недавнюю частоту запросов и предупреждение о длительном высоком трафике. Прямой `window.fetch` остается доступен, потому что код с полным доступом к странице считается доверенным, но такие запросы нельзя отнести к расширению.
+
+Старую оболочку `kind: "marinara.extension"` версии 1 без явного поля `capabilities` Marinara распознает как пакет времен до песочницы и при импорте назначает ей **Full page access**. Благодаря этому старые пакеты вроде WeatherTweaker попадают в правильный процесс проверки, а не молча отказывают внутри Worker. Современный пакет, который использует эту оболочку, но хочет безопасную среду, должен указать `"capabilities": []`.
+
+Обе защитные блокировки External Extension и одобрение точного хеша по-прежнему действуют. Изменение кода, CSS или разрешений отключает расширение и требует нового одобрения. При отключении Marinara удаляет свои узлы скрипта и таблицы стилей, отменяет таймеры, созданные через API совместимости, и вызывает обработчики, зарегистрированные через `marinara.onCleanup(...)`. Код страницы может создавать незарегистрированные обработчики событий, таймеры, глобальные переменные и изменения DOM, поэтому очистка выполняется по мере возможности; если после отключения расширения что-то осталось, перезагрузите страницу.
+
+Более старый API `marinara.ui.showWindow(...)` по-прежнему доступен для временного окна внутри iframe с непрозрачным источником. Он использует тот же фиксированный набор элементов управления и возвращает дескрипторы `update(...)` и `close()`. Если инструмент должен быть доступен через обычную навигацию Marinara, лучше используйте элементы интерфейса.
 
 ## Быстрый старт Server Extension
 
@@ -201,7 +404,7 @@ marinara.onCleanup(() => marinara.clearInterval(timer));
 | Поле | Примечания |
 | --- | --- |
 | `kind` | `marinara.personal-extension` или `marinara.personal-server-extension` |
-| top-level `version` | Версия оболочки пакета; сейчас `1` |
+| `version` верхнего уровня | Версия оболочки пакета; сейчас `1` |
 | `config.name` | Обязательное отображаемое имя длиной от 1 до 200 символов |
 | `config.version` | Необязательная версия расширения, например `1.2.0`; числовые версии с точками позволяют предупреждать о понижении версии |
 | `config.description` | Необязательное описание длиной до 2 000 символов |
@@ -248,13 +451,13 @@ marinara.onCleanup(() => marinara.clearInterval(timer));
 | Код Browser не может использовать `document`, `window`, `fetch` или локальное хранилище | Это ожидаемо в безопасной песочнице; используйте описанные посреднические API |
 | Server Extension недоступно | Используйте Seatbelt в macOS или Linux с Bubblewrap либо перейдите на Browser Extension |
 | Browser Extension вызывает исключение | Откройте инструменты разработчика браузера; сообщения `marinara.log` и ошибки запуска помечены именем расширения |
-| Server Extension вызывает исключение | Проверьте его состояние в разделе **Settings** > **Addons** и журнал сервера Marinara |
+| Server Extension вызывает исключение | Проверьте его состояние в разделе **Settings → Addons** и журнал сервера Marinara |
 
 Для CSS, закрытого хранилища, импортируемых архивов и сообщений среды выполнения действуют отдельные ограничения безопасности. Marinara должна сообщить, какая граница отклонила пакет, а не представлять проблему как ошибку выполнения.
 
-## Связанные руководства
+## Смежные руководства
 
-- [Personal Extensions](personal-extensions.md)
-- [Настройка сервера](../CONFIGURATION.md)
-- [Устранение неполадок](../TROUBLESHOOTING.md)
-- [Архитектура Personal Extensions](../development/personal-extensions.md)
+- [Личные расширения](personal-extensions.md)
+- [Настройки сервера: справочник](../CONFIGURATION.md)
+- [Устранение неполадок в приложении Marinara Engine](../TROUBLESHOOTING.md)
+- [Архитектура личных расширений](../development/personal-extensions.md)

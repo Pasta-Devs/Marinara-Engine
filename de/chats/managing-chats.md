@@ -1,131 +1,125 @@
 # Die Chatliste verwalten
 
-In dieser Anleitung geht es um die Chatliste in Marinara Engine. Du erfährst, was die drei Modus-Tabs bedeuten und wie du Chats anlegst, importierst, umbenennst, löschst, ordnest, durchsuchst und gleich mehrere auf einmal verwaltest. Auch das Widget mit den letzten Chats auf dem Home-Bildschirm kommt zur Sprache.
+Im Panel **Chats** links liegen alle deine Chats. Dort startest, findest, sortierst, ordnest und löschst du Chats.
 
 ## Chatliste und Modus-Tabs
 
-Die Chats stehen im Panel **Chats**, der Seitenleiste links. Ganz oben im Panel sitzen drei Modus-Tabs:
+Oben im Panel sitzen drei Modus-Tabs. Jeder Tab listet nur die Chats seines Modus.
 
-- **CONVO** für Conversation, einen schlichten Chat im Messenger-Stil.
-- **RP** für Roleplay, eine dichte Szene mit Charakteren und Weltverfolgung.
-- **GM** für Game, ein Einzelspieler-Rollenspiel unter KI-Leitung.
+| Tab | Modus |
+| --- | --- |
+| **CONVO** | Conversation: ein Chat im Messenger-Stil. |
+| **RP** | Roleplay: eine Szene mit Charakteren und Weltverfolgung. |
+| **GM** | Game: ein Einzelspieler-Rollenspiel, das die KI leitet. |
 
-Jeder Tab zeigt nur die Chats des jeweiligen Modus. Ein Klick auf einen Tab schaltet die Liste um.
+Jede Zeile zeigt den Chatnamen und die Avatare seiner Charaktere. In Conversation-Chats zeigt ein farbiger Punkt an einem Avatar den Status dieses Charakters. Ein rotes Abzeichen nennt die Zahl der ungelesenen Nachrichten. Eine Zeile mit einem kleinen Verzweigungssymbol und einer Zahl ist ein Chat mit mehreren Verzweigungen, die zu einer Zeile zusammengefasst sind. Siehe [Chat-Verzweigungen](branches.md).
 
-Jede Zeile der Liste zeigt den Chatnamen und den Avatar des Charakters oder der Charaktere. In Conversation-Chats sitzt ein kleiner farbiger Punkt am Avatar und zeigt den Status jedes Charakters. Erscheint in einer Zeile ein rotes Abzeichen, steht darin die Zahl der ungelesenen Nachrichten.
+## Einen Chat starten
 
-Manche Zeilen tragen ein kleines Verzweigungssymbol mit einer Zahl. Das heißt: Der Chat hat mehrere Verzweigungen, und alle sind zu einer einzigen Zeile zusammengefasst. Was Verzweigungen sind, erklärt [Chat-Verzweigungen](branches.md).
+Bevor du anfängst: Füge unter **Connections** (Verbindungen) mindestens ein Konto hinzu. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
-## Einen neuen Chat anlegen
+1. Klick auf den Tab des gewünschten Modus.
+2. Tipp oben im Panel auf die Schaltfläche **+**. Ihre Beschriftung lautet passend zum Tab **New Conversation**, **New Roleplay** oder **New Game**.
 
-1. Wähle den gewünschten Modus-Tab (**CONVO**, **RP** oder **GM**).
-2. Klick auf die Schaltfläche **+** oben im Panel. Ihr Tooltip (Kurzhinweis beim Draufzeigen) lautet passend zum aktiven Tab **New Conversation**, **New Roleplay** oder **New Game**.
-3. Die App legt den Chat an, öffnet ihn und blendet das Panel **Chat Settings** (Chat-Einstellungen) samt Einrichtungsassistent ein, damit du die Einrichtung abschließen kannst.
+Marinara legt den Chat an und öffnet ihn. Daneben öffnen sich **Chat Settings** (Chat-Einstellungen) und ein Einrichtungsassistent. Der Chat heißt anfangs **New Conversation**, **New Roleplay** oder **New Game**. Hast du für Conversation oder Roleplay ein mit Stern markiertes Standard-Einstellungsprofil gespeichert, wendet Marinara es auf den neuen Chat an. Siehe [Einstellungsprofile](settings-profiles.md).
 
-Der neue Chat heißt **New Conversation**, **New Roleplay** oder **New Game**. Umbenennen lässt er sich später jederzeit (siehe „Einen Chat umbenennen“ weiter unten).
-
-Ohne mindestens eine Verbindung öffnet sich kein Chat. Eine Verbindung koppelt Marinara an einen KI-Anbieter. Fehlt sie noch, öffnet sich statt des Chats das Fenster **Add account** (Konto hinzufügen). Wähle einen Dienst und klick auf **Connect** (Verbinden). Danach öffnet das Fenster die Modellauswahl. Wähle ein Modell, nutze bei Bedarf die Option **Make ... my Main** (… zu meinem Main machen) und klick auf **Start chatting** (Chat beginnen). Bei einer normalen Kontoeinrichtung klickst du stattdessen auf **Done** (Fertig). Die vollständige Anleitung steht in [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
-
-Hast du für diesen Modus ein Einstellungsprofil als Standard markiert, wendet Marinara es automatisch auf den neuen Chat an. Siehe [Chat Settings im Überblick](chat-settings.md).
+Wenn es nicht funktioniert hat: Ist noch kein Konto gespeichert, öffnet sich statt eines Chats das Fenster **Add account** (Konto hinzufügen). Wähl einen Dienst, klick auf **Connect** (Verbinden) und wähl dann ein Modell. Die vollständigen Schritte stehen in [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
 ## Einen Chat importieren
 
-Importieren lässt sich jeder Chatverlauf, der als `.jsonl`-Datei vorliegt – aus SillyTavern oder aus Marinara.
+Du kannst einen `.jsonl`-Chatverlauf aus SillyTavern oder Marinara importieren.
 
-1. Wähle den Modus-Tab, in dem der importierte Chat landen soll.
-2. Klick auf die Schaltfläche **Import** oben im Panel. Ihr Tooltip lautet **Import SillyTavern or Marinara chat JSONL**.
-3. Wähle die `.jsonl`-Datei aus.
+1. Klick auf den Tab des Modus, in dem der Chat landen soll.
+2. Tipp oben im Panel auf die Schaltfläche **Import** (Importieren). Ihre Beschriftung lautet **Import SillyTavern or Marinara chat JSONL**.
+3. Wähl deine `.jsonl`-Datei.
 
-Marinara legt im Modus des aktuellen Tabs einen neuen Chat an und öffnet ihn. Es erscheint die Meldung **Imported N messages**, wobei N für die Zahl der Nachrichten steht.
+Marinara legt den Chat an, öffnet ihn und zeigt **Imported N messages**. Zu Exportformaten und zum Sammelexport siehe [Chats exportieren und importieren](export-import.md).
 
-Alle Wege, Chats zu importieren und zu exportieren – auch die Sammelfunktionen und die Formate –, beschreibt [Chats exportieren und importieren](export-import.md).
+Wenn es nicht funktioniert hat: Eine kleine Meldung unten am Bildschirm lautet **Import failed** und nennt den Grund. Nur `.jsonl`-Dateien werden akzeptiert.
 
 ## Einen Chat umbenennen
 
-Den Chatnamen siehst nur du. Er geht nicht an die KI und verändert den Chat inhaltlich nicht.
+Den Chatnamen siehst nur du. Er wird nicht an das Modell gesendet.
 
-1. Öffne den Chat.
-2. Öffne **Chat Settings** über die Schaltfläche im Chat.
-3. Klick im Abschnitt **Chat Name** auf den aktuellen Namen – er wird dadurch zum Textfeld.
-4. Tipp den neuen Namen ein und drück Enter oder klick auf die Häkchen-Schaltfläche.
+1. Öffne den Chat und dann **Chat Settings**.
+2. Klick unter **Chat Name** (Chatname) auf den aktuellen Namen.
+3. Tipp den neuen Namen ein und drück <kbd>Enter</kbd> oder klick auf das Häkchen.
 
-Mehr zum Panel Chat Settings steht in [Chat Settings im Überblick](chat-settings.md).
+Wie du das Panel öffnest, steht in [Chat Settings](chat-settings.md).
+
+<a id="delete-a-chat"></a>
 
 ## Einen Chat löschen
 
-Um einen einzelnen Chat zu löschen, zeig auf seine Zeile und klick auf die Papierkorb-Schaltfläche. Auf dem Handy ist sie dauerhaft sichtbar. Ein Dialogfenster mit dem Titel **Delete Chat** fragt „Delete this chat?“. Klick auf **Delete**, um zu bestätigen.
+1. Tipp in der Zeile des Chats auf die Papierkorb-Schaltfläche. Am Computer erscheint sie, wenn du auf die Zeile zeigst.
+2. Klick im Dialogfenster **Delete Chat** auf **Delete** (Löschen).
 
-Gelöschte Chats sind endgültig weg. Läuft für den Chat noch eine Antwort, bricht Marinara sie ab.
+Löschen ist endgültig. Es stoppt außerdem eine Antwort, die für diesen Chat noch geschrieben wird.
 
-### Das Dialogfenster zur Verzweigungswahl
+Hat der Chat mehrere Verzweigungen, nennt das Dialogfenster ihre Zahl und bietet zwei Möglichkeiten:
 
-Hat der Chat mehrere Verzweigungen, öffnet sich stattdessen ein anderes Fenster. Es trägt ebenfalls den Titel **Delete Chat**, weist auf die mehreren Verzweigungen hin und stellt dich vor zwei Möglichkeiten:
+- **Delete This Branch Only** (Nur diese Verzweigung löschen) entfernt die Verzweigung, die du angeklickt hast.
+- **Delete All N branches** (Alle N Verzweigungen löschen) entfernt jede Verzweigung der Gruppe.
 
-- **Delete This Branch Only** (Nur diese Verzweigung löschen) entfernt allein die angeklickte Verzweigung.
-- **Delete All N Branches** (Alle N Verzweigungen löschen) entfernt sämtliche Verzweigungen der Gruppe; N ist ihre Anzahl.
+Um Verzweigungen zu verwalten, ohne den Chat zu löschen, siehe [Chat-Verzweigungen](branches.md).
 
-Wie du Verzweigungen verwaltest, ohne den ganzen Chat zu löschen, zeigt [Chat-Verzweigungen](branches.md).
-
-### Löschabfragen ein- oder ausschalten
-
-Ob diese Sicherheitsabfragen überhaupt erscheinen, steuert die appweite Einstellung **Confirm before deleting** (Vor dem Löschen nachfragen). Sie ist standardmäßig aktiv und steht in **Settings** (Einstellungen) im Tab **General**. Der Hilfetext dort rät, sie aktiv zu lassen.
+Die appweite Einstellung **Confirm before deleting** (Vor dem Löschen nachfragen) steuert diese Dialogfenster. Sie ist standardmäßig an. Du findest sie unter **Settings → General**.
 
 ## Chat-Ordner
 
-Innerhalb jedes Modus-Tabs lassen sich Chats in Ordnern gruppieren.
+Ordner gruppieren Chats innerhalb eines Modus-Tabs.
 
-1. Achte darauf, dass der aktuelle Tab mindestens einen Chat enthält. Erst dann erscheint über der Liste die Schaltfläche **New Folder** (Neuer Ordner).
-2. Klick auf **New Folder**. Der Ordner heißt zunächst **unnamed** (oder **unnamed 2**, **unnamed 3** und so weiter, falls der Name schon vergeben ist).
+1. Öffne einen Tab mit mindestens einem Chat. Nur dann erscheint unter den Tabs **New Folder** (Neuer Ordner).
+2. Klick auf **New Folder**. Der Ordner heißt **unnamed** (danach **unnamed 2**, **unnamed 3**).
 
-Zum Umbenennen doppelklickst du den Ordner, tippst ihn doppelt an oder wählst ihn aus und drückst F2. Ein leerer Name wird ignoriert.
+| Vorhaben | So geht's |
+| --- | --- |
+| Einen Ordner umbenennen | Doppelklick oder Doppeltipp darauf, oder fokussiere ihn und drück <kbd>F2</kbd>. Ein leerer Name wird ignoriert. |
+| Einen Ordner löschen | Klick in der Ordnerzeile auf die Papierkorb-Schaltfläche. Enthält der Ordner Chats, erscheint ein Dialogfenster **Delete Folder**. Die Chats wandern auf die oberste Ebene und werden nicht gelöscht. |
+| Ordner umsortieren | Zieh einen Ordner nach oben oder unten. Das Sortiermenü springt auf **Custom** (Benutzerdefiniert). |
+| Einen Chat in einen Ordner legen | Zieh die Chatzeile auf den Ordner. Auf einem Touchscreen hältst du den Chat zuerst etwa eine halbe Sekunde gedrückt. |
+| Einen Chat aus einem Ordner nehmen | Zieh ihn auf die freie Fläche unterhalb der Ordner. |
 
-Zum Löschen klick auf die Papierkorb-Schaltfläche in der Ordnerzeile. Ein Dialogfenster mit dem Titel **Delete Folder** bestätigt den Vorgang. Die Chats darin bleiben immer erhalten – sie wandern zurück auf die oberste Ebene.
+Sind mehrere Chats ausgewählt, verschiebt das Ziehen eines davon die ganze Auswahl. Chats außerhalb von Ordnern stehen unterhalb der Ordner.
 
-Die Reihenfolge der Ordner änderst du, indem du eine Ordnerzeile nach oben oder unten ziehst. Dort, wo sie landen wird, öffnet sich eine Lücke. Das Sortiermenü springt dann auf **Custom** (Benutzerdefiniert), das deine Ordnerreihenfolge beibehält.
+## Suchen, sortieren und filtern
 
-Um einen Chat in einen Ordner zu legen, zieh seine Zeile auf den Ordner. Um ihn aus allen Ordnern herauszunehmen, zieh ihn auf die freie Fläche unterhalb der Ordner. Auf dem Touchscreen hältst du einen Chat rund eine halbe Sekunde gedrückt, um das Ziehen zu starten. Sind mehrere Chats ausgewählt, wandert beim Ziehen eines davon die ganze Auswahl mit.
+### Einen Chat nach Namen finden
 
-Chats ohne Ordner stehen in einer schlichten Liste unterhalb der Ordner.
+Jeder Tab hat ein Suchfeld. Sein Platzhalter lautet **Search conversations**, **Search roleplays** oder **Search games**. Tipp ein Wort ein. Gesucht wird in Chatnamen, Tags und Charakternamen, nicht im Nachrichtentext.
 
-## Suchen, sortieren und nach Tags filtern
+### Eine Nachricht in allen Chats finden
 
-Jeder Modus-Tab hat oben in der Liste ein eigenes Suchfeld. Der Platzhaltertext wechselt je nach Tab: **Search conversations...** (Conversations durchsuchen), **Search roleplays...** oder **Search games...**. Gesucht wird im Chatnamen, in den Tags (Schlagwörtern) und in den Namen der Charaktere – nicht im Text der Nachrichten.
+1. Tipp auf **Search all chats** (alle Chats durchsuchen), die Schaltfläche neben dem Sortiermenü.
+2. Tipp deine Suchbegriffe ein.
 
-Neben dem Suchfeld liegt ein Sortiermenü mit dem Tooltip **Sort chats**. Es bietet diese Optionen:
+Die Suche läuft über jeden Chat und kann nach Modus, Charakter, Absender und Datum filtern.
 
-- **Custom** behält deine Ordner in der Reihenfolge, in die du sie gezogen hast.
-- **Manual order** (manuelle Reihenfolge) lässt dich Chats in deine eigene Reihenfolge ziehen. Mit der Tastatur fokussierst du einen Chat und drückst Alt+Pfeil nach oben oder Alt+Pfeil nach unten.
-- **Recent** (Zuletzt aktiv) ist der Standard und stellt die zuletzt aktiven Chats nach vorn.
-- **Newest** zeigt die zuletzt erstellten Chats zuerst.
-- **Oldest** zeigt die ältesten Chats zuerst.
-- **A-Z** sortiert die Namen von A bis Z.
-- **Z-A** sortiert die Namen von Z bis A.
+Das Sortiermenü (**Sort chats**) bietet diese Optionen:
 
-Trägt irgendein Chat im Tab Tags, erscheint eine Filterzeile. Klick auf den Chip **Tags**, um die Tag-Liste aufzuklappen. Ein Klick auf ein Tag zeigt dann nur noch die Chats mit diesem Tag. **Clear** hebt den Filter wieder auf. Bei vielen Tags blendet ein Chip **+N more** den Rest ein.
+| Option | Reihenfolge |
+| --- | --- |
+| **Custom** | Deine Ordnerreihenfolge. |
+| **Manual order** (manuelle Reihenfolge) | Chats in der Reihenfolge, in die du sie ziehst. Mit der Tastatur fokussierst du einen Chat und drückst <kbd>Alt</kbd>+<kbd>Pfeil nach oben</kbd> oder <kbd>Alt</kbd>+<kbd>Pfeil nach unten</kbd>. |
+| **Recent** (zuletzt aktiv) | Zuletzt aktive Chats zuerst. Das ist der Standard. |
+| **Newest** | Zuletzt erstellte Chats zuerst. |
+| **Oldest** | Älteste Chats zuerst. |
+| **A-Z** und **Z-A** | Nach Name. |
 
-Hinweis: Dieser Bildschirm filtert nur nach Tags, die ein Chat bereits hat. Eine Schaltfläche zum Vergeben neuer Tags gibt es hier nicht.
+Hat irgendein Chat im Tab ein Tag, erscheint ein Chip **Tags (N)**. Klick darauf, um die Tags aufzuklappen, und dann auf ein Tag, um nur Chats mit diesem Tag zu zeigen. Klick auf **Clear** (Zurücksetzen), um den Filter zu entfernen. In diesem Panel kannst du einem Chat keine Tags hinzufügen.
 
-Die Liste zeigt höchstens 100 Chats auf einmal. Bei mehr erscheint unten die Schaltfläche **Load more** und holt den nächsten Schwung.
+Die Liste zeigt 100 Chats auf einmal. Klick auf **Load more** (Mehr laden), um den nächsten Schwung zu sehen.
+
+<a id="selecting-multiple-chats"></a>
 
 ## Mehrere Chats auswählen
 
-Mehrere Chats lassen sich in einem Rutsch bearbeiten.
+1. Klick oben im Panel auf die Häkchen-Schaltfläche **Select chats** (Chats auswählen).
+2. Klick jeden gewünschten Chat an. Statt sich zu öffnen, zeigen die Zeilen nun ein Kontrollkästchen.
+3. Nutze die Leiste unten, die anzeigt, wie viele Chats ausgewählt sind.
 
-1. Klick oben im Panel auf die Schaltfläche **Select chats** (Chats auswählen) mit dem Häkchen-Symbol.
-2. Klick die gewünschten Chats an. Statt den Chat zu öffnen, setzt der Klick nun ein Kontrollkästchen in der Zeile.
-3. Eine Leiste am unteren Rand zeigt die Anzahl der ausgewählten Chats und zwei Schaltflächen.
+**Export** (Exportieren) lädt die ausgewählten Chats als eine `.zip`-Datei mit `.jsonl`-Dateien herunter. **Delete** fordert dich in einem Dialogfenster **Delete Chats** zur Bestätigung auf und entfernt sie dann. Klick erneut auf die Häkchen-Schaltfläche, um den Auswahlmodus zu verlassen. Auch ein Tab-Wechsel hebt die Auswahl auf.
 
-**Export** lädt alle ausgewählten Chats gemeinsam als eine `.zip`-Datei herunter. **Delete** löscht sie; vorher erscheint eine Sicherheitsabfrage mit dem Titel **Delete Chats**.
+## Recent chats auf dem Home-Bildschirm
 
-Um den Auswahlmodus ohne Aktion zu verlassen, klick erneut auf die Auswahl-Schaltfläche. Auch ein Tab-Wechsel hebt die Auswahl auf.
-
-## Recent Chats auf dem Home-Bildschirm
-
-Der Home-Bildschirm hat ein Widget **Recent chats** (Letzte Chats) mit deinen zuletzt aktiven Chats. Jeder Chat zeigt seinen Namen, ein Modus-Abzeichen und seine letzte Nachricht. Ein Klick auf einen Chat öffnet ihn, ein Klick auf eine leere Stelle des Widgets öffnet die Chatliste. Ohne Chats steht dort **Your chats will show here**. Siehe [Home-Widgets](../home/welcome.md#home-widgets).
-
-## Verwandte Anleitungen
-
-- [Chat-Verzweigungen](branches.md)
-- [Chats exportieren und importieren](export-import.md)
-- [Chat Settings im Überblick](chat-settings.md)
-- [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md)
+Der Home-Bildschirm hat ein Widget **Recent chats** (Letzte Chats) mit deinen neuesten Chats. Jeder zeigt seinen Namen, ein Modus-Abzeichen und seine letzte Nachricht. Klick auf einen Chat, um ihn zu öffnen. Ohne Chats steht dort **Your chats will show here**. Siehe [Home-Widgets](../home/welcome.md#home-widgets).

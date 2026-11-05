@@ -1,8 +1,8 @@
 # Kataloge im Regelsatz
 
-Diese Seite gehört zu [Regelsätze für Game Mode schreiben](writing-rulesets.md). Vorgefertigte Einträge, die der Bogeneditor in einer Auswahl anbietet: der Katalogkopf, Einträge, Werte, die der Regelsatz aktuell hält, Bogenbefehle und der Nutzungsbefehl.
+Auf dieser Seite erfährst du, wie du vorgefertigte Einträge (Zauber, Ausrüstung, Klassenmerkmale) mitlieferst, die der Bogeneditor in einer Auswahl anbietet, damit Spieler lange Listen nicht von Hand eintippen müssen. Sie behandelt den Katalogkopf, Einträge, Werte, die der Regelsatz aktuell hält, Bogenbefehle und den Nutzungsbefehl. Sie richtet sich an Regelsatz-Autoren. Bevor du anfängst, lies [Regelsätze für Game Mode schreiben](writing-rulesets.md).
 
-Zauberlisten, Ausrüstungstabellen oder seitenlange Klassenmerkmale Zeile für Zeile einzugeben, ist mühsam. Ein Katalog ist eine benannte Sammlung fertiger Einträge, die du mit dem Regelsatz auslieferst. Der Bogeneditor bietet sie in einer Auswahl an jeder vom Katalog befüllten Liste an. Die Auswahl eines Eintrags füllt die Zeile aus.
+Eine lange Zauberliste oder Ausrüstungstabelle Zeile für Zeile einzugeben, dauert lange. Ein Katalog ist eine benannte Sammlung fertiger Einträge, die du mit dem Regelsatz auslieferst. Der Bogeneditor bietet sie in einer Auswahl an jeder vom Katalog befüllten Liste an. Die Auswahl eines Eintrags füllt die Zeile aus.
 
 Kataloge sind optional. Ein Regelsatz darf bis zu zwölf enthalten. Die Engine kennt den Inhalt keines davon: Jede ID, Spalte, jeder Filter und jedes Wort stammt aus deiner Datei.
 

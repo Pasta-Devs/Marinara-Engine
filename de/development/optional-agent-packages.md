@@ -867,6 +867,8 @@ Eine handgefertigte Karte darf auch eigene Worte für den Game Master enthalten:
 
 `props` enthält einen Eintrag pro Requisitenplatz, 0 bis 7 (`null` für einen unbenannten Platz). Der Game Master erfährt dann die Karte als „Ein von Hand erstellter Ort (stoppelige Erde, Wände aus stehendem Mais), mit einem Regenwassergraben darin; darin: eine Vogelscheuche (2), ein Schrein aus Maispuppen“, statt nur zu erfahren, dass sie von Hand erstellt wurde. Beides braucht eine Experience, die 1.357 deklariert.
 
+<a id="capability-api-1359-items-that-cost-a-story-number"></a>
+
 #### Capability API 1.359: Gegenstände, die eine Story-Zahl kosten
 
 Ein Overlay darf Gegenstände benennen, deren Benutzung Punkte von einem der Story-Zahlen-Flags der Experience abzieht (oder dazuaddiert):
@@ -1067,6 +1069,40 @@ Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscre
 - `enterLabel` und `exitLabel`: lokalisierte barrierefreie Beschriftungen für den Schalter.
 
 Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
+
+<a id="capability-api-1814-cache-the-stable-part-of-a-package-prompt"></a>
+
+### Capability API 1.814: den stabilen Teil eines Paket-Prompts zwischenspeichern
+
+Ein Paket, das mit `api.runtime.languageModels` schreibt, kann markieren, wo der Teil seines Prompts endet, der bei jedem Aufruf gleich ist: Setz `cacheBreakpoint: true` an einer Nachricht, die an `chatComplete` übergeben wird. Der Prompt bis einschließlich dieser Nachricht wird zwischengespeichert, sodass spätere Aufrufe, die mit demselben Text beginnen, weniger dafür bezahlen. Stell die Anweisungen, Charakterbögen und die bisherige Geschichte an den Anfang, halte sie von Aufruf zu Aufruf Byte für Byte gleich und setz alles, was sich ändert, hinter die markierte Nachricht.
+
+- Anthropic: Die Engine setzt an jede markierte Nachricht einen Cache-Breakpoint, Systemnachrichten eingeschlossen, auch wenn das Prompt-Caching der Verbindung aus ist, und fügt selbst keinen hinzu. Der Cache hält 5 Minuten; fordert die Verbindung die längere Cache-Zeit an, hält er 1 Stunde. Das Schreiben in den Cache kostet einmalig mehr als der Eingabepreis, das Lesen nur einen Bruchteil davon; die genauen Preise hängen vom Modell ab, siehe dazu die Modellpreise von Anthropic. Anthropic nimmt höchstens vier Breakpoints an: Bei mehr markierten Nachrichten zählen die letzten vier. Eine markierte Nachricht ohne Text markiert stattdessen die Nachricht davor. Ein Präfix, das kürzer ist als das Minimum des Modells, wird nicht zwischengespeichert und kostet wie üblich.
+- OpenAI, Gemini, xAI und DeepSeek speichern identische Präfixe von selbst zwischen: Die Markierung ändert nichts.
+- OpenRouter und eigene OpenAI-kompatible Endpunkte nehmen die Markierung noch nicht an: Der Aufruf wird so gesendet, als gäbe es sie nicht. Ein Claude-Modell, das du auf diesem Weg erreichst, wird also nicht zwischengespeichert.
+- Claude (Subscription): Das Agent SDK speichert von selbst zwischen, und die Markierung wird nicht gesendet; es gilt die Cache-Zeit der Verbindung.
+
+`usage` meldet `cachedPromptTokens` (aus dem Cache gelesen) und `cacheWritePromptTokens` (in den Cache geschrieben), wenn der Anbieter diese Werte meldet. `promptTokens` wird weiterhin so gezählt, wie der Anbieter zählt. Bei Anthropic und Claude (Subscription) ist das nur die Eingabe, die weder aus dem Cache gelesen noch in ihn geschrieben wurde. Der ganze Prompt ist dort also `promptTokens + cachedPromptTokens + cacheWritePromptTokens`, und `promptTokens` sinkt auf den nicht zwischengespeicherten Rest am Ende, sobald ein Paket ein Präfix markiert. OpenAI-kompatible Routen (OpenRouter eingeschlossen) und Gemini zählen die zwischengespeicherten Tokens bereits in `promptTokens` mit; addierst du sie noch einmal, zählst du sie doppelt. Ein Aufruf ohne markierte Nachricht bleibt unverändert.
+
+Ältere Engines ignorieren das Feld, ein Paket kann es also immer setzen. Deklariere 1.814, wenn das Paket auf das Caching oder auf die Cache-Nutzung angewiesen ist.
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
+<a id="capability-api-1815-choose-how-long-a-marked-prompt-stays-cached"></a>
+
+### Capability API 1.815: festlegen, wie lange ein markierter Prompt zwischengespeichert bleibt
+
+`chatComplete` nimmt `cacheTtl: "5m" | "1h"` an: wie lange der Prompt bis zu den `cacheBreakpoint`-Nachrichten des Aufrufs (1.814) bei Anthropic zwischengespeichert bleibt. Fehlt die Option, gilt wie bisher die eigene Cache-Zeit der Verbindung. Fordere `"1h"` an, wenn dasselbe Präfix in Abständen von mehr als fünf Minuten wiederkommt, etwa der Kontext einer Geschichte, den jede Szene wiederverwendet, während der Spieler liest. Das Schreiben in den 1-Stunden-Cache kostet mehr als in den 5-Minuten-Cache; es lohnt sich also nur, wenn das Präfix innerhalb dieser Stunde erneut gelesen wird. Ein Aufruf ohne markierte Nachricht ignoriert die Option, ebenso Anbieter, die von selbst zwischenspeichern (OpenAI, Gemini, xAI, DeepSeek), und Claude (Subscription), wo die Cache-Zeit der Verbindung gilt.
+
+Ältere Engines ignorieren die Option, ein Paket kann sie also immer übergeben. Deklariere 1.815, wenn das Paket darauf angewiesen ist.
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

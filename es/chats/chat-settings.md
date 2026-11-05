@@ -1,215 +1,173 @@
 # Descripción general de Chat Settings
 
-Usa **Chat Settings** (Ajustes del chat) para elegir la conexión, los personajes, los agentes y otros ajustes del chat abierto. Aquí también encuentras la búsqueda, los resúmenes, las ramas y la galería del chat.
-
-La mayoría de estos ajustes pertenecen al chat actual. Las posiciones de las ventanas también se guardan por chat. El interruptor **Tracker Panel** se aplica además a tus otros chats de Roleplay.
-
-La primera vez que entres en un chat después de esta actualización, un video corto te muestra cómo organizar los botones y las ventanas. Esta introducción aparece en computadoras y teléfonos, también para quienes ya usaban Marinara. Elige **Got it** cuando termines; no volverá a aparecer en otros chats ni al actualizar la página.
+**Chat Settings** (Ajustes del chat) es el panel de opciones del chat que tienes abierto: su modelo, sus personajes, sus agentes, la búsqueda, los resúmenes, las ramas y la galería. La mayoría de los ajustes pertenecen solo a ese chat.
 
 ## Abrir Chat Settings
 
 1. Abre un chat.
-2. Haz clic o toca el botón **Chat Settings** (el icono de controles deslizantes). Al principio está arriba a la derecha del chat, debajo de la barra superior de la app. En una computadora con el Tracker Panel visible a la derecha, en cambio, empieza justo a la izquierda del panel.
-3. Haz clic en el título de una sección para abrirla. Estas secciones también se llaman **drawers** (paneles desplegables): vuelve a hacer clic en el título para contraerla.
+2. Toca el botón **Chat Settings** (el icono de controles deslizantes). Se abre un panel. En un teléfono, **Help** (el **?**) muestra una guía de los iconos.
+3. Toca el título de una sección para abrirla. Vuelve a tocar el título para contraerla.
 
-Chat Settings se abre automáticamente al crear un chat. Para cerrarlo, haz clic en su **X** o vuelve a pulsar el botón de controles deslizantes.
+Chat Settings se abre por sí solo al crear un chat. Para cerrarlo, toca su **X** o vuelve a tocar el botón de controles deslizantes.
 
-Los chats anteriores a esta actualización conservan sus herramientas habituales fuera de Chat Settings: como botones que puedes mover en una computadora o en el menú de tres puntos **Chat tools** (Herramientas del chat) en un teléfono. Al actualizar una instalación existente, esa disposición conocida también pasa a ser el diseño favorito para los chats nuevos de cada modo, salvo que ya hayas elegido uno. Abre una herramienta y elige **Put back in Chat Settings** si prefieres guardarla dentro de Chat Settings. Los trackers de Roleplay en computadora se agrupan en la ventana **Trackers**. Se conservan las posiciones de ventanas y botones que ya tenías guardadas.
+En una computadora, el botón de controles deslizantes empieza arriba a la derecha del chat. Con el Tracker Panel visible a la derecha, empieza a la izquierda de ese panel. El Tracker Panel es un panel lateral de Roleplay que muestra lo que siguen los agentes (ayudantes que se ejecutan junto con las respuestas), como los personajes de la escena.
 
-Puedes arrastrar el botón de controles deslizantes a un lugar cómodo. Se alinea con los botones cercanos mientras lo arrastras; en una computadora, mantén Alt para colocarlo libremente. Cada chat recuerda su posición. Un punto pequeño en el botón indica que los agentes están trabajando. En un chat de Roleplay con Advanced Memory Recall, un punto fijo en la otra esquina del botón indica que algunas memorias de escenas necesitan atención; consulta [Reparar problemas de memoria](../agents/memory.md#fixing-memory-problems).
+Puedes arrastrar el botón de controles deslizantes a un lugar mejor. Se alinea con los botones cercanos del chat mientras lo arrastras. En una computadora, mantén pulsada la tecla <kbd>Alt</kbd> para colocarlo libremente. Cada chat recuerda la posición. Un punto pequeño en el botón indica que los agentes están trabajando. En un chat de Roleplay con Advanced Memory Recall, un punto fijo en la otra esquina indica que algunas memorias de escenas necesitan atención. Consulta [Reparar problemas de memoria](../agents/memory.md#fixing-memory-problems).
 
-Solo tienes que descartar una vez el recordatorio junto al botón de controles deslizantes en Roleplay. Su **X** lo mantiene oculto en otros chats y tras actualizar la página.
+La primera vez que abres un chat, un video corto muestra cómo organizar los botones y las ventanas. Haz clic en **Got it** (Entendido). No vuelve a aparecer en tus otros chats ni tras actualizar la página. Para mantener ocultos los consejos de diseño en un chat, haz clic en la **X** que hay junto a ellos (**Hide these tips for this chat**, Ocultar estos consejos en este chat).
 
-En una computadora, pulsa la **X** junto a los consejos de diseño (**Hide these tips for this chat**) para ocultarlos en este chat, incluso tras actualizar la página o usar Reset View. También puedes guardar esta elección para los chats nuevos con la estrella del diseño favorito o un perfil de ajustes.
+## Las secciones de un vistazo
 
-## Cambiar el aspecto de las ventanas del chat
+Las secciones que ves dependen del modo del chat. La sección **Impersonate** se explica en [Generación guiada e Impersonate](guided-and-impersonate.md).
 
-Abre **Settings > Appearance > App** (Configuración > Apariencia > App) y busca **Chat widget style** (Estilo de widgets del chat) al final de **App Style**. **Default** conserva el aspecto habitual de Marinara. **Dottore** combina azules de hielo y metal claro con letras de estilo técnico y esquinas recortadas; **Prof. Mari** combina azules de piedras preciosas y dorado cálido con letras de cuento y marcos arqueados. Ambos se adaptan al modo claro y oscuro y cambian el aspecto de los botones móviles, las ventanas y las secciones desplegables de los tres modos de chat.
+- Barra de perfiles de ajustes: aplica o guarda un paquete de ajustes del chat. Consulta [Perfiles de ajustes](settings-profiles.md). (Conversation, Roleplay.)
+- **Search messages** (Buscar mensajes): encuentra mensajes por palabras, o por `#` y un número de mensaje. Sus pestañas **Bookmarks** (Marcadores) y **Trash** (Papelera) muestran los mensajes marcados y los eliminados. (No en Game.)
+- **Chat Name** (Nombre del chat): el nombre que aparece en tu lista de chats. Haz clic en él para cambiarlo. Nunca se envía al modelo.
+- **Chat Branches** (Ramas de chat): cambia, renombra, exporta e importa ramas. Consulta [Ramas de chat](branches.md).
+- **Connection** (Conexión): qué modelo responde en este chat. Consulta más abajo.
+- **Prompt Preset** (Preset de prompt): la estructura guardada del prompt (las instrucciones enviadas a la IA) de este chat.
+- **Advanced Parameters** (Parámetros avanzados): anula ajustes de generación, como la temperatura, para este chat. Consulta [Parámetros de generación](../prompts/generation-parameters.md).
+- **Persona**: a quién interpretas tú. Consulta [Elegir tu persona en un chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
+- **Characters** (Personajes): los personajes del chat. (Conversation, Roleplay.)
+- **Party** (Grupo): reemplaza a **Persona** y **Characters** en un solo lugar. (Game.)
+- **Group Chat** (Chat grupal): quién habla en un grupo. Consulta [Chats grupales y conversaciones grupales](group-chats.md). (Chats con más de un personaje.)
+- **Scoped Regex Scripts**: control por chat de los scripts de regex que pertenecen a un personaje. Consulta [Scripts de regex](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Solo aparece cuando un personaje del chat tiene scripts limitados.)
+- **Chat Variables** (Variables del chat): texto con nombre que reutilizas con `{{name}}`. Consulta más abajo.
+- **Connected Chats** (Chats conectados): vincula un chat con otro. Consulta [Chats conectados](connected-chats.md).
+- **Lorebooks** (Libros de trasfondo): adjunta datos del mundo. Consulta [Descripción general de los lorebooks](../lorebooks/overview.md).
+- **Chat Summary** (Resumen del chat): revisa y crea resúmenes. Consulta [Memory Recall y resúmenes del chat](../agents/memory.md#chat-summary-roleplay). (Donde se usan resúmenes.)
+- **Active Context** (Contexto activo): muestra los lorebooks y el contexto activos en este chat. Consulta [Presupuestos de tokens y recursión](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
+- **Agents** (Agentes): activa ayudantes. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
+- **Agent activity** (Actividad de los agentes): muestra lo que hicieron los agentes. Vuelve a ejecutar trackers, reintenta o detén agentes y borra trackers. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity). (Roleplay, con agentes o Advanced Memory activados.)
+- **Author's Notes** (Notas del autor): una nota que el modelo lee en cada turno. Consulta [Author's Notes](../roleplay/getting-started.md#authors-notes). (Roleplay.)
+- **Background** (Fondo): la imagen de fondo del chat. (Roleplay, Game.)
+- **Gallery** (Galería): las imágenes y los videos del chat. Consulta [Fondos de escena y la galería](../media/scene-backgrounds.md).
+- **Widgets**: qué widgets del HUD se muestran en el juego. (Game.)
+- **Impersonate**: ajustes del comando `/impersonate`. (Roleplay.)
+- **Memory Recall**: recuerda partes anteriores del chat. Consulta [Memory Recall y resúmenes del chat](../agents/memory.md). (No está en la versión Lite.)
+- **Function Calling** (Llamada a funciones): permite que el modelo use herramientas (funciones) en este chat.
+- **Translation** (Traducción): traducción automática de mensajes. Consulta [Traducción de mensajes](../integrations/message-translation.md).
 
-Usa **Font** (Fuente), **Shape** (Forma) y los tres selectores de color debajo de los presets para combinar otras opciones. Las fuentes que has instalado en Marinara también aparecen en la lista. Elegir de nuevo un preset restablece la fuente, la forma y los colores personalizados. Estas elecciones no mueven tus ventanas ni cambian los diseños de chat guardados. Se guardan con las preferencias de la app y se sincronizan con los navegadores conectados al mismo servidor.
+Los chats de Conversation también tienen las secciones Autonomous Messaging (los personajes te escriben primero), Commands (acciones que los personajes realizan por su cuenta) y de notas. Se explican en [Conversation Mode: primeros pasos](../conversation/getting-started.md).
 
-**Button size (px)** (Tamaño del botón en píxeles) cambia los botones móviles del chat y sus iconos sin cambiar Display Size. Introduce un tamaño de 32 a 96 píxeles. Deja el campo vacío o usa su botón de restablecer para conservar el valor predeterminado actual. El tamaño se guarda con tus preferencias de apariencia y se mantiene al elegir otro preset.
+## Elegir el modelo de un chat
 
-Para que el resto del chat tenga el mismo aspecto, activa **Apply preset font** (Aplicar fuente del preset), **Apply preset shape** (Aplicar forma del preset) o **Apply preset colors** (Aplicar colores del preset). Cada interruptor funciona de forma independiente e incluye tus elecciones personalizadas de arriba. Se aplican a los mensajes, los campos de entrada y los controles del chat; los mensajes de Conversation usan la fuente y los colores opcionales, pero conservan su propia forma. Con **Apply preset colors** activado, el diálogo entrecomillado conserva el Dialogue Highlight Color propio de cada personaje o persona. Los tres empiezan desactivados. Desactiva uno para devolver esa parte del chat a su estilo habitual. Consulta [Temas de CSS personalizado](../appearance/custom-css-themes.md#ready-made-chat-window-styles) para más detalles.
+La sección **Connection** elige el modelo que responde en este chat. Una elección cambia solo este chat.
 
-## Mover, fijar y bloquear la ventana
+1. Abre **Chat Settings** y la sección **Connection**.
+2. Toca el campo **Model** (Modelo). Muestra el modelo actual.
+3. Comprueba si indica que el chat sigue a **Main** (Principal). Main es el modelo predeterminado que estableces en **Connections** (Conexiones).
+4. Elige un modelo. El selector es el mismo que el del botón de modelo del área de entrada del chat. El modelo actual se queda arriba, con los modelos recientes y los modelos con estrella debajo, agrupados por cuenta. Busca entre modelos y cuentas, o usa **Browse** (Explorar) para abrir el catálogo de una cuenta.
 
-En una computadora, Chat Settings flota sobre el chat. Su contenido se reorganiza para ajustarse a su tamaño. La primera vez que abres una ventana con su botón, aparece debajo de él, ajustada al espacio del chat. Si ya tiene una posición guardada, se abre allí.
+**Follow Main** (Seguir al principal) quita la elección propia del chat, así que el chat cambia cuando cambias Main. **Shuffle** (Aleatorio) elige un modelo distinto de tu grupo para cada respuesta. Consulta [Shuffle](../connections/organizing-connections.md#shuffle). Si una cuenta necesita una clave o está desactivada, su modelo lleva a la acción para repararla. Para añadir una cuenta, consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
-- **Mover**: arrastra la barra de título. También puedes enfocarla con el teclado y usar las flechas; mantén Shift para dar pasos más grandes.
-- **Cambiar el tamaño**: arrastra un borde o una esquina. También puedes enfocar el tirador de la esquina inferior derecha y usar las flechas.
-- **Pin** mantiene la ventana abierta al hacer clic fuera. Las ventanas fijadas se abren de nuevo al actualizar la página. Si primero cierras o minimizas una, permanece así. Una ventana sin fijar se cierra al hacer clic fuera o pulsar Escape, salvo que estés escribiendo en un campo de texto o usando un menú abierto.
-- **Lock** impide mover o redimensionar la ventana y fija la posición de su botón. Puedes seguir pulsando el botón para abrirla. Desbloquea la ventana para volver a mover cualquiera de los dos.
-- **Close** (la **X**) oculta la ventana.
+## Usar variables del chat
 
-Las ventanas permanecen dentro del área del chat al cambiar el tamaño del navegador o abrir una barra lateral. En una computadora, una ventana o un botón pueden colocarse en el espacio junto al cuadro de mensaje, hasta la parte inferior del chat. Nunca cubren el propio cuadro de mensaje.
+Una variable del chat es un nombre para un fragmento de texto. Por ejemplo, añade `char1` con el valor `Mary` y luego escribe `{{char1}} walks in.` en un mensaje. El modelo lee "Mary walks in."
 
-En un teléfono, Chat Settings se abre como un panel de ancho completo. El panel se ajusta por encima del teclado mientras escribes.
+1. Abre **Chat Settings** y la sección **Chat Variables**.
+2. Toca **Add variable** (Añadir variable) y luego rellena el **name** (nombre) y el **value** (valor) de la fila.
+3. Pulsa <kbd>Enter</kbd> o haz clic fuera del campo para guardar. El botón de la papelera elimina una variable.
 
-## Ayuda, trackers y Reset View
+Los nombres usan letras, números y guiones bajos, empiezan con una letra o un guion bajo y tienen como máximo 64 caracteres. Un nombre de exactamente 21 caracteres está reservado para referencias a personajes. Se rechaza un nombre que pertenezca a una macro integrada, como `char` o `user`.
 
-La barra de título tiene otros botones útiles:
+- Tu mensaje sigue mostrando la etiqueta que escribiste. Solo el modelo ve el valor. Cambiar un valor más adelante cambia todos los turnos anteriores que usaron la etiqueta.
+- Las variables pertenecen solo a este chat y se conservan tras un reinicio.
+- Es el mismo almacenamiento que usa `{{setvar}}`. Una sección del prompt o una entrada de lorebook que establezca el mismo nombre sobrescribe tu valor.
 
-- **Help** (el **?** junto al título) muestra etiquetas que explican los controles del chat. En un teléfono, primero cierra Chat Settings para que puedas ver el chat. Toca el botón **Chat Settings** resaltado para ver una guía de sus iconos: Reset View, diseño favorito, Tracker Panel de Roleplay, bloquear/desbloquear, cerrar y sacar una sección. Desplázate dentro de la guía para leerlo todo. Puedes ocultar Help en **Settings → General → App Behavior → Hide chat Help button**.
-- **Reset View** (la flecha circular) pide confirmación y restaura el diseño inicial de este chat. Devuelve las secciones separadas a su sitio y restablece los tamaños, las posiciones, las fijaciones y los bloqueos predeterminados.
-- **Favorite layout** (la estrella junto a Reset View) guarda esta disposición para los chats nuevos del modo actual. Consulta [Elegir un diseño para chats nuevos](#choosing-a-layout-for-new-chats).
-- **Tracker Panel** (el dado) activa o desactiva el panel en un chat de Roleplay que use agentes o Advanced Memory. En una computadora aparece junto al chat. En un teléfono o una tableta, un botón móvil lo abre y lo cierra. Este ajuste también cambia la preferencia de Tracker Panel en **Settings → Appearance**.
-
-Cuando Tracker Panel no se muestra, los trackers de computadora usan la [ventana Trackers](../roleplay/hud-and-trackers.md#the-trackers-window). Si no hay espacio suficiente junto a los mensajes, empieza como un botón pequeño **Trackers**. Cerrar la ventana la devuelve a ese botón. Usa el dado de la barra de título de Chat Settings para volver a mostrar Tracker Panel.
-
-<a id="popping-a-section-out-into-its-own-window"></a>
-
-## Sacar una sección a su propia ventana
-
-Para tener una sección a mano, pulsa **Pop out** (el cuadro con una flecha junto a su **?**). La sección obtiene su propia ventana y desaparece de Chat Settings hasta que la devuelvas.
-
-En una computadora, también puedes arrastrar el título de la sección fuera de Chat Settings. La nueva ventana empieza sin fijar, así que se reduce a su botón al hacer clic fuera. Fíjala si quieres que permanezca abierta mientras usas el chat. Puedes moverla, cambiar su tamaño o bloquearla igual que Chat Settings.
-
-- **Close** (**X**) reduce la sección a un botón pequeño con su icono. Arrastra el botón donde quieras y púlsalo para reabrir la ventana donde la dejaste.
-- **Put back in Chat Settings** (la flecha curva junto a **X**) devuelve la sección a Chat Settings. También puedes arrastrar su ventana sobre Chat Settings.
-- Una sección sin fijar se reduce a su botón al hacer clic fuera o pulsar Escape, salvo que estés escribiendo en un campo de texto o usando un menú abierto.
-
-En un teléfono, sacar una sección cierra Chat Settings y la añade al menú de tres puntos **Chat tools**. Toca los puntos y luego el botón redondo con el icono de la sección para abrir su panel. Cierra el panel para volver a usar el menú o toca **Put back in Chat Settings** para devolver la sección.
-
-Los trackers pueden salir de la ventana Trackers del mismo modo. Su botón de retorno se llama **Put back in Trackers**.
-
-<a id="the-phones-chat-tools-menu"></a>
-
-## El menú Chat tools del teléfono
-
-El botón móvil de tres puntos reúne las herramientas que has sacado de Chat Settings. Tócalo para desplegar una columna de botones redondos con iconos y luego toca una herramienta para abrirla. Vuelve a tocar los puntos para plegar los botones. Los botones de los trackers, el botón del mapa de Game y Character Profiles siguen separados para que puedas acceder directamente a ellos.
-
-Arrastra el botón de tres puntos para mover todo el menú. Abre el menú y usa el candado de arriba para mantenerlo en su sitio. Mientras está desbloqueado, arrastra un botón de herramienta hacia arriba o abajo para cambiar su posición en la columna. Con un teclado, coloca el foco en el botón y usa las flechas hacia arriba o abajo. Bloquear el menú impide tanto moverlo como cambiar el orden; aún puedes abrir sus herramientas.
-
-Cada chat guarda la posición, el bloqueo y el orden del menú. Los diseños favoritos y los perfiles de ajustes también los incluyen. El menú sigue el estilo de tus widgets del chat, igual que las ventanas que abre.
-
-<a id="control-windows-and-their-buttons"></a>
-
-## Ventanas de controles y sus botones
-
-Algunas herramientas abren sus propias ventanas pequeñas: **Game controls**, **Session**, **Volume** y **Game Assets** de un juego; **Connected chat**; y los controles añadidos por paquetes instalados.
-
-En una computadora, estos botones empiezan cerca de la esquina superior derecha del chat. Haz clic en uno para abrir su ventana; cerrar la ventana devuelve el botón. En un teléfono, busca estas herramientas en el menú de tres puntos **Chat tools**. Se abren como paneles de ancho completo.
-
-Para guardar una de estas herramientas dentro de Chat Settings, abre su ventana y elige **Put back in Chat Settings**. Se convierte en una sección desplegable. Usa su botón para sacarla y volver a darle una ventana propia, o arrastra su título fuera en una computadora. **Reset View** restaura su disposición inicial: botones separados en una computadora o entradas en Chat tools en un teléfono.
-
-En una computadora, arrastra un botón para moverlo. Los botones cercanos se alinean mientras lo arrastras; mantén Alt para colocarlo libremente o usa las flechas mientras el botón tiene el foco. **Calls** de Conversation sigue siendo un botón normal. En Game, **Character Profiles** (Perfiles de personajes) tiene su propio botón móvil tanto en computadoras como en teléfonos. El botón **Map** (Mapa) del teléfono también es independiente y se puede mover. Abre cualquiera de los dos controles y usa su candado para impedir que su ventana y su botón se muevan; cada juego recuerda dónde los colocaste.
-
-## Cada chat guarda su propio diseño de ventanas
-
-Cada chat recuerda los tamaños y las posiciones de las ventanas, las fijaciones y los bloqueos, las secciones separadas y las posiciones de los botones. Las posiciones del teléfono y el orden y el bloqueo del menú Chat tools se guardan por separado de las posiciones de computadora. Cambiar de chat restaura el diseño de ese chat.
-
-Un [perfil de ajustes](#settings-profiles) puede guardar el diseño para otros chats. **Reset View** restaura el diseño inicial del chat actual.
-
-<a id="choosing-a-layout-for-new-chats"></a>
-
-## Elegir un diseño para chats nuevos
-
-Usa la estrella junto a **Reset View** para convertir la disposición actual en el diseño inicial de los chats nuevos del mismo modo. Conversation, Roleplay y Game tienen su propio favorito.
-
-Después de actualizar, el diseño conocido con botones de herramientas ya está marcado con estrella en los tres modos. Los chats nuevos lo usan hasta que reemplaces o borres ese favorito. Una instalación nueva empieza con las herramientas dentro de Chat Settings y sin favorito. Importar un chat antiguo más adelante mantiene sus herramientas disponibles sin cambiar el diseño predeterminado de los chats nuevos.
-
-1. Organiza las ventanas y los botones como quieras. Guarda las herramientas en Chat Settings o sácalas según necesites.
-2. Oculta los consejos de diseño si quieres que los chats nuevos también los oculten.
-3. Pulsa la estrella junto a **Reset View**. Se rellena cuando el diseño actual, los consejos y el modo de Scoped Regex Scripts coinciden con el favorito guardado.
-
-El favorito guarda las posiciones y los tamaños de ventanas y botones, las fijaciones, los bloqueos, las herramientas separadas o guardadas dentro, la elección de los consejos de diseño y el modo de [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) del chat. Un chat en **Use preset default** (Usar el valor predeterminado del preset) no guarda ningún modo, así que los chats nuevos siguen su preset de prompt. Los personajes, la conexión, los ajustes de IA y los mensajes siguen perteneciendo al chat.
-
-Para reemplazar el favorito, cambia la disposición y vuelve a pulsar la estrella. Para dejar de usarlo, pulsa la estrella rellena. Los chats nuevos usarán entonces el diseño estándar. Guardar, reemplazar o borrar un favorito solo afecta a los chats que crees después; los existentes conservan su diseño.
-
-Un perfil de ajustes con su propio diseño guardado tiene prioridad sobre el favorito al aplicarlo. Un perfil sin diseño guardado deja la disposición favorita en su sitio. Los perfiles siguen aplicando su propio ajuste de consejos de diseño y su propio modo de Scoped Regex Scripts; un perfil sin modo usa el valor predeterminado del preset de prompt.
-
-## Chat Name
-
-La sección **Chat Name** (Nombre del chat) contiene el nombre que se muestra en tu lista de chats. Este nombre solo es visible para ti. No se envía a la IA y no cambia la conversación de ningún modo.
-
-1. En la sección **Chat Name**, haz clic en el nombre actual.
-2. El nombre se convierte en un campo de texto.
-3. Escribe un nombre nuevo.
-4. Pulsa Enter, o haz clic en el botón de la marca de verificación para confirmar.
-
-## Connection
-
-La sección **Connection** (Conexión) elige qué modelo de IA responde en este chat. Una conexión es una API key (clave de API), una cuenta o un endpoint de un servicio de IA. Los modelos que guardas se agrupan bajo ella. Una API key es un código secreto que permite a Marinara Engine usar tu cuenta con ese servicio.
-
-El campo **Model** (Modelo) muestra el modelo efectivo y si este chat sigue a **Main** (Principal) o tiene su propia elección. Haz clic en él para abrir el mismo selector que el botón de modelo del área de entrada del chat. El modelo actual se queda arriba, con los modelos recientes y los marcados con estrella debajo, agrupados por cuenta. Busca entre modelos y cuentas, o usa **Browse** (Explorar) para abrir el catálogo de una cuenta. Una elección cambia solo este chat.
-
-**Follow Main** (Seguir al principal) quita la elección propia del chat. **Shuffle** (Aleatorio) elige un modelo distinto de tu grupo para cada respuesta. Si una conexión necesita una clave o está desactivada, su modelo lleva a la acción para repararla. Las estrellas guardan modelos en tu lista sin cambiar el chat. Consulta [Shuffle](../connections/organizing-connections.md#shuffle) para más detalles.
-
-Para aprender a crear una conexión desde cero, consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
+Si tienes muchas variables, haz clic en **Search and edit all in the State Editor** (Buscar y editar todo en el State Editor). Muestra todas las variables para que puedas buscar, editar, pegar muchas a la vez como JSON y revisar los cambios antes de guardar. Consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor). Para otras macros con llaves dobles, consulta [Macros de prompt](../prompts/macros.md).
 
 <a id="settings-profiles"></a>
 
 ## Perfiles de ajustes
 
-En la parte superior del panel está el control **Profile** (Perfil). Un perfil de ajustes es un paquete guardado de ajustes de chat que puedes reutilizar en otros chats. Elige un perfil del menú desplegable para aplicarlo al chat actual.
+Un perfil de ajustes es un paquete guardado de ajustes del chat que puedes aplicar a otros chats. La barra de perfiles está en la parte superior del panel y no aparece en Game. Cómo guardar, aplicar, importar, exportar y elegir uno predeterminado se explica en [Perfiles de ajustes](settings-profiles.md).
 
-Un perfil agrupa la conexión de este chat, el preset de prompt, los agentes, las herramientas, la traducción, Memory Recall, Advanced Parameters, el diseño de ventanas y otros ajustes. Nunca cambia tus personajes, tu persona, tus lorebooks, tus sprites, el resumen, las etiquetas ni el prompt de escena. Esos elementos siguen ligados al chat. Un perfil guardado antes de que existieran los diseños de ventanas, como **Default**, conserva el diseño del chat.
+## Mover, fijar y bloquear la ventana
 
-La barra tiene una fila de botones pequeños con iconos y sin texto. Cada botón muestra su nombre en un tooltip cuando pasas el cursor por encima:
+En una computadora, Chat Settings flota sobre el chat y su contenido se reorganiza para ajustarse a su tamaño. Una ventana se abre debajo de su botón la primera vez, o en su posición guardada.
 
-- El icono de disco (**Save current chat settings into this profile**) escribe los ajustes del chat actual en el perfil seleccionado. Si otros chats usan el perfil, pregunta si quieres actualizarlos también.
-- El icono de lápiz (**Rename profile**) cambia el nombre del perfil seleccionado.
-- El icono de archivo con signo más (**Save current chat settings as a new profile**) guarda los ajustes del chat actual como un perfil nuevo.
-- El icono de flecha hacia abajo (**Import settings profile (.json)**) carga un perfil desde un archivo `.json`.
-- El icono de flecha hacia arriba (**Export settings profile (.json)**) guarda el perfil seleccionado en un archivo `.json`.
-- El icono de papelera (**Delete profile**) elimina el perfil seleccionado.
+- Moverla: arrastra su barra de título. O coloca el foco en la barra de título y usa las teclas de flecha, con <kbd>Shift</kbd> para dar pasos más grandes.
+- Cambiar su tamaño: arrastra un borde o una esquina. O coloca el foco en el tirador de la esquina inferior derecha y usa las teclas de flecha.
+- Fijarla: haz clic en **Pin** (Fijar). Una ventana fijada sigue abierta cuando haces clic en otro sitio y se vuelve a abrir tras actualizar la página. Una ventana sin fijar se cierra cuando haces clic fuera de ella o pulsas <kbd>Esc</kbd>, salvo que estés escribiendo o usando un menú abierto.
+- Bloquearla: haz clic en **Lock** (Bloquear). La ventana no se puede mover ni cambiar de tamaño, y su botón se queda en su sitio. Aún puedes abrirla.
+- Cerrarla: haz clic en **X**.
 
-Junto al menú desplegable hay un botón de estrella. Haz clic en él para convertir un perfil en el predeterminado para los chats nuevos de ese modo. Cuando creas un chat, Marinara aplica por ti el perfil marcado con estrella. Solo un perfil por modo puede ser el predeterminado.
+Las ventanas permanecen dentro del área del chat. Una ventana o un botón pueden colocarse junto al cuadro de mensaje, pero nunca lo cubren. En un teléfono, Chat Settings se abre como un panel de ancho completo que se ajusta por encima del teclado.
 
-Cada modo que admite esta función tiene un perfil **Default** (Predeterminado) integrado. No puedes cambiar su nombre, guardar en él ni eliminarlo. Aplicarlo restablece los ajustes controlados por el perfil a los valores predeterminados de la app.
+## Ayuda, trackers y Reset View
 
-Los controles de perfil no aparecen en el modo Game.
+Estos botones están en la barra de título.
 
-Marinara reserva **preset** para los presets de prompt. Un preset de prompt da forma a la estructura del system prompt y a los parámetros de generación; un perfil de ajustes agrupa la configuración de chat reutilizable enumerada arriba. Para conocer todas las reglas, consulta [Perfiles de ajustes](settings-profiles.md).
+- **Help** (el **?**) muestra etiquetas que explican los controles del chat. En un teléfono, primero cierra Chat Settings. Para ocultarlo, activa **Settings → General → App Behavior → Hide chat Help button** (Configuración → General → Comportamiento de la app → Ocultar el botón de ayuda del chat).
+- **Reset View** (la flecha circular) pide confirmación y luego restaura el diseño inicial de este chat: las secciones separadas vuelven a su sitio y se restablecen los tamaños, las posiciones, las fijaciones y los bloqueos de las ventanas.
+- **Favorite layout** (la estrella) guarda esta disposición para los chats nuevos. Consulta [Elegir un diseño para chats nuevos](#choosing-a-layout-for-new-chats).
+- **Tracker Panel** (el dado) activa o desactiva el panel en un chat de Roleplay que use agentes o Advanced Memory. En una computadora se abre junto al chat. En un teléfono o una tableta, lo abre un botón móvil. También cambia la preferencia de Tracker Panel en **Settings → Appearance** (Configuración → Apariencia).
 
-## Variables del chat
+Cuando el Tracker Panel no se muestra, los trackers de computadora usan la [ventana Trackers](../roleplay/hud-and-trackers.md#the-trackers-window). Si hay poco espacio junto a tus mensajes, empieza como un botón pequeño **Trackers**. Usa el dado para volver a mostrar el Tracker Panel.
 
-La sección **Chat Variables** (variables del chat) te permite dar un nombre a un fragmento de texto y reutilizarlo escribiendo ese nombre entre llaves dobles. Añade una variable llamada `char1` con el valor `Mary` y escribe `{{char1}} walks in.` en un mensaje. La IA lee "Mary walks in."
+<a id="popping-a-section-out-into-its-own-window"></a>
 
-Cada fila tiene un **name** (nombre) y un **value** (valor). Los nombres admiten letras, números y guiones bajos, y deben empezar con una letra o un guion bajo. Los nombres de exactamente 21 caracteres están reservados para referencias a personajes. Se rechaza el nombre de una macro integrada, como `char` o `user`, porque la macro integrada siempre tiene prioridad. Pulsa Enter o haz clic fuera de un campo para guardarlo. El botón de la papelera elimina una variable.
+## Sacar una sección a su propia ventana
 
-Conviene saber tres cosas.
+Saca una sección para darle su propia ventana.
 
-- Tu mensaje sigue mostrando la etiqueta que escribiste. Solo la IA ve el valor. Por eso, cambiar el valor más adelante también cambia todos los turnos anteriores que usaron la etiqueta.
-- Las variables pertenecen solo a este chat. Otro chat tiene su propia lista, y la tuya se conserva tras reiniciar la app.
-- Usan el mismo almacenamiento que `{{setvar}}`. Un valor establecido por una sección del prompt o una entrada de lorebook aparece aquí como una fila editable. Una entrada que use el mismo nombre sobrescribe el valor que escribiste.
+1. Haz clic en el botón **Pop out** (Separar) de la sección (el cuadro con una flecha, junto a su **?**). En una computadora también puedes arrastrar el título de la sección fuera de Chat Settings.
+2. Mueve, cambia el tamaño, fija o bloquea la nueva ventana igual que Chat Settings. Empieza sin fijar, así que al hacer clic en otro sitio se reduce a un botón.
+3. Para devolverla, haz clic en **Put back in Chat Settings** (la flecha curva junto a **X**), o arrastra la ventana sobre Chat Settings.
 
-Si tienes muchas variables, haz clic en **Search and edit all in the State Editor** (buscar y editar todo en el State Editor), al principio de la sección. Abre todas las variables en una sola lista donde puedes buscar, editar valores como campos o pegar muchas a la vez como JSON, y revisar los cambios antes de guardar. Al guardar solo cambian los nombres que editaste, así que se conserva un valor que `{{setvar}}` guarde mientras tanto con otro nombre. Consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+**X** reduce la sección a un botón pequeño con su icono. Arrastra el botón donde quieras y haz clic en él para volver a abrir la ventana. Los trackers salen de la ventana Trackers del mismo modo, y su botón de retorno es **Put back in Trackers**.
 
-Para conocer todo lo demás que puedes escribir entre llaves dobles, consulta [Macros de prompt](../prompts/macros.md).
+En un teléfono, sacar una sección cierra Chat Settings y la añade al menú de tres puntos **Chat tools** (Herramientas del chat). Toca los puntos y luego el icono redondo de la sección. Toca **Put back in Chat Settings** para devolverla.
 
-## Herramientas del chat en Chat Settings
+<a id="the-phones-chat-tools-menu"></a>
 
-Las herramientas del chat también son secciones de Chat Settings. Las que ves dependen del modo del chat.
+## El menú Chat tools del teléfono
 
-- **Search messages** es una sección desplegable cerca de la parte superior, debajo del perfil de ajustes. Escribe palabras o un `#` seguido de un número de mensaje para encontrarlo. Sus pestañas **Bookmarks** y **Trash** muestran los mensajes marcados y eliminados. Puedes sacarla a su propia ventana, como las demás secciones. No está en los chats Game.
-- **Chat Branches**, debajo de **Chat Name**, permite cambiar, renombrar, exportar e importar las ramas del chat. Consulta [Ramas del chat](branches.md).
-- **Chat Summary**, debajo de **Lorebooks**, permite revisar y crear resúmenes de un chat de Roleplay. Consulta [Memoria y resúmenes de chat](../agents/memory.md#chat-summary-roleplay).
-- **Active Context**, debajo de **Chat Summary**, muestra los lorebooks y el contexto activos. Consulta [Presupuestos de tokens y recursión](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
-- **Agent activity**, justo debajo de **Agents** en un chat de Roleplay con agentes o Advanced Memory, muestra qué hicieron los agentes. También permite volver a ejecutar trackers, reintentar o detener agentes y borrar los trackers. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes**, debajo de **Agents**, guarda una nota que la IA lee en cada turno de Roleplay. Cuando la abres en una ventana aparte, su cuadro de texto crece con la ventana; en un teléfono, ocupa toda la pantalla. Consulta [Author's Notes](../roleplay/getting-started.md#authors-notes).
-- **Gallery** guarda las imágenes y los videos del chat. Consulta [Fondos de escena y galería](../media/scene-backgrounds.md).
+El botón móvil de tres puntos reúne las herramientas que sacaste de Chat Settings. Tócalo para desplegar botones redondos con iconos y luego toca una herramienta. Vuelve a tocar los puntos para plegarlos. Los botones de los trackers, el botón del mapa de Game y Character Profiles siguen separados.
 
-## Otras secciones del panel
+Arrastra el botón de tres puntos para mover el menú. Ábrelo y usa el candado de arriba para dejarlo fijo en su sitio. Mientras está desbloqueado, arrastra una herramienta hacia arriba o hacia abajo para cambiar su orden, o coloca el foco en ella y usa las teclas de flecha. Bloquearlo impide tanto moverlo como cambiar el orden. El menú sigue tu estilo de widgets del chat.
 
-El panel **Chat Settings** también alberga muchas funciones por chat. Cada una tiene su propia guía:
+<a id="control-windows-and-their-buttons"></a>
 
-- **Persona** elige a quién interpretas en este chat. Aparece en los chats Conversation y Roleplay. Consulta [Elegir tu persona en un chat](../characters/choosing-your-persona.md).
-- **Characters** gestiona los personajes en los chats Conversation y Roleplay. Para los chats con dos o más personajes, consulta [Chats grupales y conversaciones grupales](group-chats.md).
-- **Party** aparece solo en los chats Game. Reemplaza las secciones **Persona** y **Characters** y combina ambas en un solo lugar.
-- **Lorebooks** adjunta información del mundo (World Info) a este chat. Consulta [Descripción general de los lorebooks](../lorebooks/overview.md).
-- **Agents** activa ayudantes de IA para este chat. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
-- **Translation** configura la traducción automática de mensajes. Consulta [Traducción de mensajes](../integrations/message-translation.md).
-- **Advanced Parameters** anula los ajustes de generación, como la temperatura y el máximo de tokens, para este chat. Consulta [Parámetros de generación](../prompts/generation-parameters.md).
+## Ventanas de controles y sus botones
 
-Qué secciones ves depende del modo del chat. Algunas secciones aparecen solo en los chats Roleplay, Conversation o Game.
+Algunas herramientas abren sus propias ventanas pequeñas: **Game controls**, **Session**, **Volume** y **Game Assets** de un juego; **Connected chat**; y los controles de los paquetes instalados.
 
-## Guías relacionadas
+En una computadora, estos botones empiezan cerca de la esquina superior derecha del chat. Haz clic en uno para abrir su ventana. Al cerrar la ventana, vuelve el botón. En un teléfono, están en el menú **Chat tools** y se abren como paneles de ancho completo.
 
-- [Gestionar tu lista de chats](managing-chats.md)
-- [Elegir tu persona en un chat](../characters/choosing-your-persona.md)
-- [Descripción general de los lorebooks](../lorebooks/overview.md)
-- [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md)
-- [Perfiles de ajustes](settings-profiles.md)
-- [Parámetros de generación](../prompts/generation-parameters.md)
+Para guardar una dentro de Chat Settings, abre su ventana y elige **Put back in Chat Settings**. Usa el botón de separar de la sección para volver a separarla. **Reset View** restaura la disposición inicial.
+
+Arrastra un botón para moverlo. Los botones cercanos se alinean mientras lo arrastras. Mantén pulsada la tecla <kbd>Alt</kbd> para colocarlo libremente, o usa las teclas de flecha mientras tiene el foco. **Calls** de Conversation sigue siendo un botón normal. En Game, **Character Profiles** (Perfiles de personajes) y el botón **Map** (Mapa) del teléfono se pueden mover, y su candado conserva las posiciones de cada juego.
+
+## Cada chat guarda su propio diseño de ventanas
+
+Cada chat recuerda los tamaños y las posiciones de las ventanas, las fijaciones y los bloqueos, las secciones separadas y las posiciones de los botones. Las posiciones del teléfono y el orden y el bloqueo de Chat tools se guardan por separado de las posiciones de computadora. Un [perfil de ajustes](settings-profiles.md) puede guardar un diseño para otros chats.
+
+<a id="choosing-a-layout-for-new-chats"></a>
+
+## Elegir un diseño para chats nuevos
+
+La estrella junto a **Reset View** convierte tu disposición actual en el diseño inicial de los chats nuevos del mismo modo. Conversation, Roleplay y Game tienen cada uno su propio favorito.
+
+1. Organiza las ventanas y los botones. Guarda las herramientas dentro de Chat Settings o sácalas.
+2. Oculta los consejos de diseño si los chats nuevos también deben ocultarlos.
+3. Haz clic en la estrella. Se rellena cuando el diseño actual, los consejos y el modo de Scoped Regex Scripts coinciden con tu favorito guardado.
+
+El favorito guarda las posiciones, los tamaños, las fijaciones, los bloqueos, las herramientas separadas o acopladas, la elección de los consejos de diseño y el modo de [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) del chat. Un chat en **Use preset default** (Usar el valor predeterminado del preset) no guarda ningún modo, así que los chats nuevos siguen su preset de prompt. Los personajes, el modelo, los ajustes de IA y los mensajes se quedan con el chat.
+
+Para reemplazar el favorito, cambia la disposición y vuelve a hacer clic en la estrella. Para dejar de usarlo, haz clic en la estrella rellena. Esto solo afecta a los chats que crees después.
+
+Un perfil de ajustes con su propio diseño guardado tiene prioridad sobre el favorito al aplicarlo. Un perfil sin diseño guardado deja la disposición favorita en su sitio. Los perfiles siguen aplicando su propio ajuste de consejos de diseño y su propio modo de Scoped Regex Scripts. Consulta [Perfiles de ajustes](settings-profiles.md#favorite-window-layouts).
+
+Después de actualizar desde una versión anterior, tu antigua disposición de botones de herramientas ya está marcada con estrella en los tres modos, hasta que la reemplaces o la borres. Una instalación nueva tiene las herramientas dentro de Chat Settings y ningún favorito.
+
+## Cambiar el aspecto de las ventanas del chat
+
+Abre **Settings → Appearance → App** (Configuración → Apariencia → App) y desplázate hasta **Chat widget style** (Estilo de widgets del chat), al final de **App Style**. **Default** conserva el aspecto de Marinara. **Dottore** usa azules de hielo, metal claro y esquinas recortadas. **Prof. Mari** usa azules de piedras preciosas, dorado cálido y marcos arqueados. Ambos se adaptan al modo claro y oscuro y dan estilo a los botones móviles, las ventanas y las secciones de los tres modos de chat.
+
+- **Font** (Fuente), **Shape** (Forma) y tres selectores de color debajo de los presets combinan el aspecto. Las fuentes instaladas en Marinara aparecen en la lista de fuentes. Elegir de nuevo un preset restablece la fuente, la forma y los colores personalizados.
+- **Button size (px)** (Tamaño del botón en píxeles) define el tamaño de los botones móviles del chat, de 32 a 96. Un campo vacío conserva el valor predeterminado.
+- **Apply preset font** (Aplicar fuente del preset), **Apply preset shape** (Aplicar forma del preset) y **Apply preset colors** (Aplicar colores del preset) extienden el estilo a los mensajes, los campos de entrada y los controles del chat. Cada uno funciona por su cuenta, y todos empiezan desactivados. Los mensajes de Conversation usan la fuente y los colores, pero conservan su propia forma. Con **Apply preset colors** activado, el diálogo entrecomillado conserva el Dialogue Highlight Color propio de cada personaje o persona.
+
+Estas elecciones no mueven tus ventanas. Se guardan con tus preferencias de la app y se sincronizan con los navegadores conectados al mismo servidor. Consulta [Temas de CSS personalizado](../appearance/custom-css-themes.md#ready-made-chat-window-styles).

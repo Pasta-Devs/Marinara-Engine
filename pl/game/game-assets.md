@@ -1,211 +1,192 @@
 # Zasoby gry: muzyka, dźwięki, sprite'y i tła
 
-Ten przewodnik wyjaśnia, jak działa biblioteka zasobów gry, z której Game Mode korzysta przy muzyce, dźwiękach, grafice postaci i tłach scen. Opisuje wbudowany zestaw startowy, menedżer plików **Asset Browser** (przeglądarka zasobów), wgrywanie własnych plików, wybór zasobów dostępnych dla poszczególnych gier oraz efekty dźwiękowe i muzykę, które Game Mode może dla ciebie wygenerować.
+Zasoby gry to pliki multimedialne, które Game Mode odtwarza i pokazuje: muzyka, dźwięki, grafika postaci i tła scen. Ten przewodnik pokazuje, jak korzystać z zestawu startowego, wgrywać własne pliki w menedżerze **Asset Browser** (przeglądarka zasobów), ograniczać zasoby dostępne dla gry oraz generować efekty dźwiękowe i muzykę.
 
-## Czym są zasoby gry
+Game Mode czyta bibliotekę samodzielnie. Muzykę, dźwięki otoczenia i tła dobiera do sceny, więc w trakcie gry nie przypisujesz zasobów ręcznie.
 
-Zasoby gry to pliki multimedialne, które Game Mode odtwarza i pokazuje w trakcie sesji. Marinara Engine dzieli je na pięć kategorii:
+| Kategoria | Co to jest |
+| --- | --- |
+| **Music** | Ścieżki muzyki w tle, zmieniające się razem ze sceną. |
+| **Ambient** | Zapętlone dźwięki otoczenia, na przykład natura, miasto lub wnętrza. |
+| **Sound Effects** (SFX) | Krótkie dźwięki do menu, walki i eksploracji. |
+| **Sprites** | Grafika postaci i obiektów pokazywana na ekranie. |
+| **Backgrounds** | Obrazy scen widoczne za historią. |
 
-- **Music**: ścieżki muzyki w tle, zmieniające się razem ze sceną.
-- **Ambient**: zapętlone dźwięki otoczenia, na przykład natura, miasto lub wnętrza.
-- **Sound Effects** (nazywane też SFX): krótkie dźwięki do menu, walki i eksploracji.
-- **Sprites**: grafika postaci i obiektów pokazywana na ekranie.
-- **Backgrounds**: obrazy scen widoczne za historią.
+## Zestaw startowy
 
-Game Mode czyta tę bibliotekę samodzielnie. Muzykę, dźwięki otoczenia i tła dobiera automatycznie do sceny, więc w trakcie gry nie trzeba przypisywać zasobów ręcznie.
+Marinara instaluje darmową bibliotekę startową przy pierwszym uruchomieniu serwera, a przy kolejnych uruchomieniach odświeża ją, jeśli wbudowany zestaw się zmienił. Zestaw zawiera:
 
-## Wbudowany zestaw startowy
+- Pięć ścieżek **Music** dla różnych nastrojów sceny.
+- Pętle **Ambient** w folderach `nature`, `urban` i `interior`.
+- **Sound Effects** do menu, walki i eksploracji.
 
-Marinara instaluje darmową bibliotekę startową przy pierwszym uruchomieniu serwera. Przy kolejnych uruchomieniach odświeża te pliki, jeśli wbudowany zestaw się zmienił. Zestaw startowy zawiera:
+Foldery **Backgrounds** i **Sprites** w panelu Asset Browser są na starcie puste. Wbudowanych sprite'ów postaci nie ma, więc dodaj grafikę pasującą do własnych gier. Przy tłach Game Mode korzysta też z własnej biblioteki teł aplikacji. W nowej instalacji zawiera ona 13 startowych obrazów i zwykły `Black.jpg`, a gry mogą ich używać bez wgrywania czegokolwiek. Jeśli w tym folderze były już obrazy, przywracany jest tylko `Black.jpg`. Wygenerowana grafika scen i wgrane przez ciebie pliki są do nich dodawane.
 
-- Pięć ścieżek **Music**, po jednej dla kilku różnych nastrojów sceny.
-- Zestaw pętli **Ambient** w folderach nature, urban i interior.
-- Efekty **Sound Effects** do menu, walki i eksploracji.
+Wszystkie wbudowane pliki audio mają licencję CC0 (domena publiczna, można ich używać bez ograniczeń). Informacje o autorach każdego pliku znajdują się w pliku `CREDITS.md`, który trafia na dysk razem z zasobami. Aplikacja go nie wyświetla.
 
-Wbudowanych plików **Backgrounds** nie ma. Foldery teł na starcie są puste. Zapełniają się dopiero wtedy, gdy wgrasz obrazy albo gdy Game Mode wygeneruje grafikę scen.
-Wbudowanych **Sprites** postaci też nie ma. Dodaj tylko taką grafikę postaci, która pasuje do własnych gier.
-
-Wszystkie wbudowane pliki mają licencję CC0, czyli należą do domeny publicznej i można ich używać bez ograniczeń. Pełne informacje o autorach każdego pliku znajdują się w pliku tekstowym `CREDITS.md`, który trafia na dysk razem z zasobami. Aplikacja go nie wyświetla.
-
-Wbudowane pliki i foldery są chronione. Nie da się ich usunąć ani przenieść z poziomu panelu **Asset Browser**, więc biblioteka startowa pozostaje nienaruszona. Zmiana nazwy i kopiowanie nadal działają.
+Wbudowane pliki i foldery są chronione. Nie da się ich usunąć ani przenieść w panelu **Asset Browser**, ale można zmieniać ich nazwy i je kopiować.
 
 ## Otwieranie panelu Asset Browser
 
-**Asset Browser** to menedżer plików dla zasobów gry. Można go otworzyć na dwa sposoby.
+**Asset Browser** to menedżer plików dla zasobów gry. Otwórz go z panelu **Settings** (Ustawienia):
 
-Z poziomu panelu **Settings** (Ustawienia):
-
-1. Otwórz panel **Settings**.
+1. Otwórz **Settings**.
 2. Przejdź do zakładki **Imports**.
-3. Znajdź sekcję **Game Assets**.
-4. Kliknij przycisk **Asset Browser**.
+3. Znajdź sekcję **Game Assets** i kliknij **Asset Browser**.
 
-Z poziomu gry:
+Albo otwórz go z gry:
 
 1. Otwórz czat w trybie Game Mode.
-2. Kliknij lub dotknij przycisk **Game Assets** (ikona folderu). Domyślnie znajduje się blisko prawego górnego rogu czatu. Możesz przeciągnąć go w inne miejsce na komputerze lub telefonie.
+2. Kliknij lub dotknij przycisk **Game Assets** (ikona folderu) blisko prawego górnego rogu czatu. Na komputerze i telefonie możesz przeciągnąć go w inne miejsce.
 
-Przycisk pojawia się tylko w czatach korzystających z trybu Game Mode. Otwiera **Game Assets**, a w nim **Asset Browser**: w ruchomym oknie na komputerze lub panelu na całą szerokość ekranu na telefonie.
+Przycisk pojawia się tylko w czatach w trybie Game Mode. Otwiera **Game Assets** z panelem **Asset Browser** w środku: jako ruchome okno na komputerze albo panel na całą szerokość ekranu na telefonie. Jeśli okno zostało przeniesione przyciskiem **Put back in Chat Settings**, otwórz zamiast niego sekcję **Game Assets** w Chat Settings.
 
-Jeśli okno zostało przeniesione przyciskiem **Put back in Chat Settings**, otwórz zamiast niego sekcję **Game Assets** w Chat Settings.
-
-Na górnym pasku narzędzi jest ścieżka nawigacji zaczynająca się od **Game Assets**. Obok niej stoją przełączniki **Grid view** i **List view**, przycisk **Upload** oraz przycisk **New**. Znajdziesz tam także przycisk **Rescan**, przycisk **Open in system folder** i pole **Search in folder**. Na szerszych ekranach drzewo folderów po lewej stronie pozwala przeskakiwać między kategoriami.
+Pasek narzędzi pokazuje ścieżkę nawigacji zaczynającą się od **Game Assets**, przełącznik **Grid view** i **List view**, przyciski **Upload**, **New**, **Rescan** i **Open in system folder** oraz pole **Search in folder**. Na szerszych ekranach drzewo folderów po lewej stronie pozwala przeskakiwać między kategoriami.
 
 ## Wgrywanie własnych zasobów
 
-Zasoby można wgrać na dwa sposoby. Wybierz wygodniejszy.
+Marinara sprawdza każdy wgrywany plik według zasad z części [Typy i rozmiary plików](#file-types-and-sizes). Wybierz jeden z dwóch sposobów.
 
-### Wgrywanie z panelu **Asset Browser**
+### Wgrywanie z panelu Asset Browser
 
 1. Otwórz panel **Asset Browser**.
-2. Wejdź do jednego z pięciu folderów kategorii albo do podfolderu w jego środku.
-3. Kliknij przycisk **Upload** i wskaż pliki albo przeciągnij je na obszar plików.
+2. Otwórz jeden z pięciu folderów kategorii albo podfolder w jego środku.
+3. Kliknij **Upload** i wskaż pliki albo przeciągnij je na obszar plików.
 
-Najpierw trzeba wejść do folderu kategorii. Przy upuszczeniu plików na najwyższym poziomie aplikacja prosi o otwarcie folderu kategorii przed wgraniem.
+Musisz być wewnątrz folderu kategorii. Jeśli upuścisz pliki na najwyższym poziomie, aplikacja poprosi o otwarcie folderu kategorii.
 
-### Wgrywanie z poziomu panelu **Settings**
+### Wgrywanie z panelu Settings
 
-1. Otwórz panel **Settings** i przejdź do zakładki **Imports**.
-2. Znajdź sekcję **Game Assets**.
-3. Wybierz kategorię z listy rozwijanej **Type**: **Music**, **Ambient**, **Sound Effects**, **Sprites** albo **Backgrounds**.
-4. Ustaw miejsce docelowe w polu **Folder** albo zostaw podpowiadaną wartość domyślną.
-5. Kliknij przycisk **Choose Files** i zaznacz pliki.
-6. Kliknij przycisk **Upload to Server**.
+1. Otwórz **Settings** i przejdź do zakładki **Imports**.
+2. W sekcji **Game Assets** wybierz kategorię z listy **Type**: **Music**, **Ambient**, **Sound Effects**, **Sprites** albo **Backgrounds**.
+3. Ustaw miejsce docelowe w polu **Folder** albo zostaw wartość domyślną.
+4. Kliknij **Choose Files** i zaznacz pliki.
+5. Kliknij **Upload to Server**.
 
-Każdy wybór w polu **Type** wypełnia pole **Folder** sensowną wartością domyślną. Wartości domyślne to:
+Jeśli to nie zadziałało: komunikat błędu wymienia dopuszczalne typy plików dla tej kategorii. Przy muzyce sprawdź ścieżkę folderu (zobacz [Zasada folderów muzycznych](#the-music-folder-rule)).
 
-- **Music**: `exploration/fantasy/calm`
-- **Ambient**: `nature`
-- **Sound Effects**: `exploration`
-- **Sprites**: `generic-fantasy`
-- **Backgrounds**: `custom`
+Domyślne wartości pola **Folder**:
 
-### Zasady dotyczące typów i rozmiarów plików
+| Typ | Folder domyślny |
+| --- | --- |
+| **Music** | `exploration/fantasy/calm` |
+| **Ambient** | `nature` |
+| **Sound Effects** | `exploration` |
+| **Sprites** | `generic-fantasy` |
+| **Backgrounds** | `custom` |
 
-Serwer sprawdza każdy wgrywany plik pod kątem tych zasad. Obowiązują one przy obu sposobach wgrywania.
+<a id="file-types-and-sizes"></a>
 
-| Kategoria                     | Dopuszczalne typy plików             |
-| ----------------------------- | ------------------------------------ |
-| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM  |
-| Sprites                       | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
-| Backgrounds                   | PNG, JPG, JPEG, GIF, WebP, AVIF      |
+### Typy i rozmiary plików
 
-Pliki audio i obrazy mogą mieć do 50 MB każdy. Pliki tekstowe – do 10 MB. Serwer odrzuca typy plików, które nie pasują do kategorii. Komunikat błędu wymienia dopuszczalne typy.
+| Kategoria | Dopuszczalne typy plików |
+| --- | --- |
+| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM |
+| Sprites | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
+| Backgrounds | PNG, JPG, JPEG, GIF, WebP, AVIF |
+
+Pliki audio i obrazy mogą mieć do 50 MB każdy. Pliki tekstowe mogą mieć do 10 MB.
+
+<a id="the-music-folder-rule"></a>
 
 ### Zasada folderów muzycznych
 
-Muzyka ma ścisły układ folderów. Każda ścieżka muzyczna musi leżeć w trzypoziomowej ścieżce `state/genre/intensity`, na przykład `exploration/fantasy/calm`. Jeśli ścieżka nie pasuje, wgrywanie kończy się błędem.
-
-Dozwolone wartości to:
+Każda ścieżka muzyczna musi leżeć w trzypoziomowej ścieżce `state/genre/intensity`, na przykład `exploration/fantasy/calm`. Jeśli ścieżka nie pasuje, wgrywanie kończy się błędem. Dzięki temu układowi Game Mode wie, kiedy odtworzyć każdą ścieżkę.
 
 - Stan: `exploration`, `dialogue`, `combat`, `travel_rest`.
 - Gatunek: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom` albo rodzina stylistyczna settingu (zobacz niżej), na przykład `wuxia`.
 - Intensywność: `calm`, `tense`, `intense`.
 
-Dzięki temu układowi Game Mode wie, kiedy odtworzyć każdą ścieżkę. Foldery dźwięków otoczenia, efektów dźwiękowych, sprite'ów i teł nie mają tej zasady. Ich podfoldery można nazywać dowolnie.
+Foldery dźwięków otoczenia, efektów dźwiękowych, sprite'ów i teł nie mają takiej zasady. Ich podfoldery możesz nazywać dowolnie.
+
+## Porządkowanie zasobów
+
+Kliknij plik lub folder prawym przyciskiem myszy na komputerze albo użyj jego menu "...", żeby zobaczyć dostępne działania.
+
+| Działanie na pliku | Co robi |
+| --- | --- |
+| **Rename** | Nie powiedzie się, jeśli taka nazwa jest już zajęta w tym folderze. |
+| **Move**, **Copy** | Wysyła plik do innego folderu przez okno wyboru folderu. |
+| **Delete**, **Download** | Usuwa plik albo zapisuje go na twoim urządzeniu. |
+
+| Działanie na folderze | Co robi |
+| --- | --- |
+| **Create subfolder** | Tworzy w nim nowy folder. |
+| **Open in system folder** | Pokazuje go w menedżerze plików komputera. |
+| **Delete folder** | Jeśli są w nim pliki, najpierw zaznacz **Delete everything inside**. |
+
+Przycisk **New** na pasku narzędzi tworzy w bieżącym folderze **New folder**, **New text file** albo **New markdown file**. Żeby zadziałać na wielu plikach, zaznacz ich pola wyboru. Pasek pokazuje, ile plików zaznaczono, oraz przyciski **Select all**, **Move**, **Copy** i **Delete**. Duże foldery wczytują się w częściach, z przyciskiem **Load more**.
+
+Do każdego folderu można dopisać krótką notatkę. Kliknij tekst opisu albo podpowiedź **Add description...**, żeby ją napisać. Pięć folderów kategorii ma stałe opisy.
+
+### Ponowne skanowanie po zmianach spoza aplikacji
+
+Marinara trzyma wewnętrzną listę zasobów, żeby Game Mode szybko je odnajdywał. Przy wgrywaniu przez aplikację lista aktualizuje się sama. Jeśli skopiujesz pliki do folderu zasobów gry na komputerze poza aplikacją, kliknij **Rescan**, żeby ponownie odczytać folder. **Rescan** jest na pasku narzędzi panelu **Asset Browser** i w sekcji **Game Assets** w panelu **Settings**.
+
+### Otwieranie folderu na komputerze
+
+**Open in system folder** działa tylko wtedy, gdy korzystasz z aplikacji na tym samym komputerze, na którym działa serwer. Na telefonie, tablecie lub innym komputerze aplikacja informuje, że foldery systemowe można otworzyć wyłącznie z urządzenia, na którym działa aplikacja Marinara.
+
+## Wybór zasobów dostępnych dla gry
+
+Czat w trybie Game Mode może korzystać tylko z części folderów zasobów, na przykład po to, żeby wesoła muzyka nie trafiła do gry grozy.
+
+1. W trakcie konfiguracji rozwiń sekcję **Adjust Game Assets for this Game** (dopasowanie zasobów do tej gry) w kroku **Features** (funkcje). W istniejącej grze otwórz okno **Game Assets** tej gry.
+2. Kliknij **Game assets**. Napis zmieni się na **Selecting**.
+3. Użyj małej kontrolki stanu przy każdym folderze, żeby go włączyć albo wykluczyć.
+
+Pasek pokazuje "All folders included" albo liczbę wykluczonych folderów. **Reset to all** znów włącza wszystkie. Wybór zapisuje się tylko dla tego czatu. Zmienia foldery, z których Game Mode może wybierać, ale nie usuwa ani nie ukrywa żadnego pliku.
 
 <a id="a-settings-own-art-and-music"></a>
 
 ### Własna grafika i muzyka settingu
 
-Gra rozpoczęta z zestawem settingu ma rodzinę stylistyczną, widoczną w sekcji **Art and music** (grafika i muzyka), gdy zmieniasz słownictwo zestawu: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` albo jedną z własnych rodzin zestawu. Gra korzysta z folderów nazwanych tak jak jej rodzina i z każdego folderu, którego nazwa nie jest nazwą żadnej rodziny, a foldery innych rodzin pomija. Dzięki temu gra cyberpunkowa nigdy nie zagra muzyki do bitew fantasy ani nie pokaże zaczarowanego lasu. Gdy nic z jej rodziny ani ze wspólnych folderów nie pasuje, nic nie gra – gra nie sięga po ścieżkę innej rodziny.
+Gra rozpoczęta z zestawem settingu ma rodzinę stylistyczną, widoczną w sekcji **Art and music** (grafika i muzyka), gdy zmieniasz słownictwo zestawu: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` albo jedną z własnych rodzin zestawu. Gra korzysta z folderów nazwanych tak jak jej rodzina i z każdego folderu, którego nazwa nie jest nazwą żadnej rodziny, a foldery innych rodzin pomija. Gra cyberpunkowa nigdy nie zagra muzyki do bitew fantasy ani nie pokaże zaczarowanego lasu. Gdy nic z jej rodziny ani ze wspólnych folderów nie pasuje, nic nie gra – gra nie sięga po ścieżkę innej rodziny. Gra bez zestawu settingu korzysta ze wszystkich folderów.
 
 - **Music**: ścieżki settingu umieść w `music/<state>/<family>/<intensity>`, na przykład `combat/wuxia/intense`. Mają pierwszeństwo przed wspólnymi ścieżkami.
-- **Backgrounds**: `backgrounds/<family>`. Tła wygenerowane w trakcie gry z zestawem settingu też trafiają do tego folderu.
-- **Dźwięki walki**: dźwięk w `sfx/combat/<family>` o tej samej nazwie co wbudowany, na przykład `sword-swing`, zastępuje go w grach tej rodziny. Wbudowane dźwięki walki są w stylu fantasy, więc walki innych rodzin są ciche, dopóki nie dodasz dla nich własnych dźwięków.
+- **Backgrounds**: `backgrounds/<family>`. Tła wygenerowane w grze z zestawem settingu też trafiają do tego folderu.
+- **Dźwięki walki**: dźwięk w `sfx/combat/<family>` o tej samej nazwie co wbudowany, na przykład `sword-swing`, zastępuje go w grach tej rodziny. Wbudowane dźwięki walki są w stylu fantasy, więc walki innych rodzin są ciche, dopóki nie dodasz dla nich własnych.
 
-Wbudowane tła startowe liczą się jako wspólne, z wyjątkiem teł fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) i nowoczesnego `city_night`. Gra bez zestawu settingu korzysta, tak jak dotąd, ze wszystkich folderów. Zestaw settingu zapisany, zanim pojawiły się rodziny stylistyczne, nadal działa: zestaw utworzony na podstawie jednego ze startowych zestawów settingu korzysta z rodziny tamtego zestawu, a każdy inny korzysta ze wszystkich folderów, dopóki nie wybierzesz rodziny w sekcji **Art and music**. Pasek wyboru opisany w części [Wybór zasobów dostępnych dla gry](#choosing-which-assets-a-game-can-use) podaje rodzinę otwartej gry.
-
-## Porządkowanie zasobów
-
-Panel **Asset Browser** pomaga utrzymać porządek w plikach. Kliknij plik lub folder prawym przyciskiem myszy na komputerze albo użyj jego menu "...", żeby zobaczyć dostępne działania.
-
-Działania na pliku:
-
-- **Rename**: nadanie plikowi nowej nazwy. Operacja nie powiedzie się, gdy taka nazwa jest już zajęta w tym folderze.
-- **Move** i **Copy**: przeniesienie lub skopiowanie pliku do innego folderu przez okno wyboru folderu.
-- **Delete**: usunięcie pliku.
-- **Download**: zapisanie pliku na urządzeniu.
-
-Działania na folderze:
-
-- **Create subfolder**: utworzenie nowego folderu w jego środku.
-- **Open in system folder**: pokazanie folderu w menedżerze plików komputera.
-- **Delete folder**: usunięcie folderu. Jeśli są w nim jeszcze pliki, trzeba najpierw zaznaczyć pole wyboru **Delete everything inside**.
-
-Przycisk **New** na pasku narzędzi także tworzy elementy w bieżącym folderze. Do wyboru są **New folder**, **New text file** i **New markdown file**.
-
-Żeby zadziałać na wielu plikach naraz, użyj pól wyboru przy plikach. Pasek pokazuje liczbę zaznaczonych plików oraz przyciski **Select all**, **Move**, **Copy** i **Delete**. Duże foldery pokazują naraz tylko część zawartości, z przyciskiem **Load more**.
-
-Do każdego folderu można dopisać krótką notatkę. Kliknij opis folderu albo podpowiedź **Add description...**, żeby ją napisać. Pięć folderów kategorii ma stałe opisy, których nie da się zmienić.
-
-Pamiętaj, że wbudowane pliki startowe są chronione. Można zmieniać ich nazwy i je kopiować, ale nie da się ich przenieść ani usunąć.
-
-## Ponowne skanowanie po zmianach spoza aplikacji
-
-Marinara trzyma wewnętrzną listę zasobów, żeby Game Mode szybko je odnajdywał. Przy wgrywaniu przez aplikację lista aktualizuje się sama.
-
-Jeśli skopiujesz pliki do folderu zasobów gry bezpośrednio na komputerze, poza aplikacją, aplikacja od razu tego nie zauważy. Kliknij przycisk **Rescan**, żeby ponownie odczytała folder i wykryła nowe pliki. Przycisk **Rescan** jest zarówno na pasku narzędzi panelu **Asset Browser**, jak i w sekcji **Game Assets** w panelu **Settings**.
-
-<a id="choosing-which-assets-a-game-can-use"></a>
-
-## Wybór zasobów dostępnych dla gry
-
-Każdy czat w trybie Game Mode może ograniczyć się tylko do części folderów zasobów. Przydaje się to na przykład wtedy, gdy gra grozy ma pomijać wesołą muzykę.
-
-W trakcie konfiguracji rozwiń sekcję **Adjust Game Assets for this Game** w kroku **Features**. W istniejącej grze otwórz okno **Game Assets**.
-
-Następnie:
-
-1. Kliknij przycisk **Game assets**. Po włączeniu napis zmienia się na **Selecting**.
-2. Użyj małej kontrolki stanu przy każdym folderze, żeby go włączyć lub wykluczyć.
-
-Pasek pokazuje "All folders included" albo liczbę wykluczonych folderów, razem z przyciskiem **Reset to all**, który przywraca wszystkie. Ten wybór zapisuje się tylko dla tego jednego czatu. Zmienia zestaw folderów, z których Game Mode może wybierać, ale nie usuwa ani nie ukrywa żadnych plików. Poza tym czatem w trybie Game Mode nie ma żadnego wpływu.
+Wbudowane tła startowe liczą się jako wspólne, z wyjątkiem teł fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) i współczesnego `city_night`. Zestaw settingu zapisany, zanim pojawiły się rodziny stylistyczne, nadal działa: zestaw utworzony na podstawie zestawu startowego korzysta z rodziny tamtego zestawu, a każdy inny korzysta ze wszystkich folderów, dopóki nie wybierzesz rodziny w sekcji **Art and music**. Opisany wyżej pasek wyboru podaje rodzinę otwartej gry.
 
 <a id="generated-sound-effects-and-music"></a>
 
 ## Generowane efekty dźwiękowe i muzyka
 
-Game Mode potrafi też generować efekty dźwiękowe i muzykę przez połączenie **Music & Sound Effects** (muzyka i efekty dźwiękowe). Wybierz ElevenLabs, SunoAPI albo własny zgodny serwer. Każdy nowy dźwięk lub utwór korzysta z konta u danego dostawcy; dołączone dźwięki są dostępne bez generowania.
+Game Mode potrafi generować efekty dźwiękowe i muzykę przez konto **Music & Sound Effects** (muzyka i efekty dźwiękowe). Wybierz ElevenLabs, SunoAPI albo własny zgodny serwer. Każdy nowy dźwięk lub utwór korzysta z konta w tej usłudze. Wbudowane pliki audio są dostępne bez generowania.
 
-Najpierw skonfiguruj połączenie generowania:
+**Zanim zaczniesz:** potrzebujesz konta **Music & Sound Effects**. Okno **Add account** (dodanie konta) nie ma dla niego kafelka. Takie konta powstają przy aktualizacji albo przez import: **Import a backup** (import kopii zapasowej) w panelu **Connections** (Połączenia). Zobacz [konfigurację dostawców i limity](../connections/providers-reference.md#music--sound-effects).
 
-1. Otwórz panel **Connections** (Połączenia) i utwórz połączenie **Music & Sound Effects**.
-2. Wybierz usługę, wpisz jej klucz i wybierz modele muzyki oraz efektów dźwiękowych. Muzyka SunoAPI wymaga też publicznego adresu zwrotnego HTTPS; własny serwer potrzebuje ścieżek endpointów.
+1. W panelu **Connections** otwórz model konta przyciskiem **Edit model** (edycja modelu).
+2. Wybierz usługę, wpisz jej klucz i wybierz modele muzyki oraz efektów dźwiękowych. Muzyka SunoAPI wymaga też publicznego adresu zwrotnego HTTPS. Własny serwer potrzebuje ścieżek endpointów.
 3. Włącz **Sound-effect generation** (generowanie efektów dźwiękowych), **Music generation** (generowanie muzyki) albo oba przełączniki.
-4. Zapisz połączenie. Zobacz [konfigurację dostawców i limity](../connections/providers-reference.md#music--sound-effects).
+4. Zapisz konto. Zobacz [konfigurację dostawców i limity](../connections/providers-reference.md#music--sound-effects).
 
-Potem włącz tę funkcję przy tworzeniu gry:
+Potem włącz generowanie przy tworzeniu gry:
 
 1. W kroku **Features** kreatora konfiguracji znajdź kartę **Game Audio** (dźwięk w grze).
-2. W polu **Music & Sound Effects connection** (połączenie muzyki i efektów dźwiękowych) wybierz swoje połączenie albo zostaw **Use the default Music & Sound Effects connection** (użycie domyślnego połączenia muzyki i efektów dźwiękowych).
+2. Przy wyborze konta wybierz swoje konto albo zostaw **Use the default Music & Sound Effects account** (użycie domyślnego konta muzyki i efektów dźwiękowych).
 3. Zostaw włączone **Sound effects** (efekty dźwiękowe) i **Music** (muzyka) albo wyłącz to, czego nie chcesz.
 
-Każdy przełącznik Game wymaga włączenia odpowiedniej funkcji w wybranym połączeniu. Połączenie Audio obsługujące wyłącznie mowę nie jest używane do generowania.
+Każdy przełącznik wymaga włączenia odpowiedniej funkcji w wybranym koncie. Konto Audio obsługujące wyłącznie mowę nie jest używane do generowania.
 
 W trakcie gry:
 
-- **Sound effects**: po turach GM Marinara prosi wybraną usługę o krótkie efekty dźwiękowe pasujące do sceny.
-- **Music**: Marinara komponuje jeden instrumentalny utwór, trwający około dwóch minut, dla każdego miejsca odwiedzanego przez drużynę i dla każdego rodzaju walki, na przykład walki z bossem. Każdy utwór powstaje tylko raz, a potem jest używany ponownie. Utwór nowego miejsca zaczyna grać przy późniejszej zmianie sceny, więc muzyka nie wcina się w środek sceny. Utwór walki płynnie się pojawia, gdy tylko jest gotowy.
+- **Sound effects.** Po turach GM Marinara prosi usługę o krótkie dźwięki pasujące do sceny.
+- **Music.** Marinara komponuje jeden instrumentalny utwór, trwający około dwóch minut, dla każdego miejsca odwiedzanego przez drużynę i dla każdego rodzaju walki, na przykład walki z bossem. Każdy utwór powstaje raz i jest używany ponownie. Utwór nowego miejsca zaczyna grać przy późniejszej zmianie sceny, więc muzyka nie wcina się w środek sceny. Utwór walki płynnie się pojawia, gdy tylko jest gotowy.
 
 Wygenerowane dźwięki i utwory zapisują się razem z zasobami gry, więc ten sam dźwięk nie powstaje dwa razy. Jeśli muzykę w grze odtwarza agent **Music DJ**, Game Mode nie generuje muzyki.
 
 ## Własny folder muzyki dla agenta Music DJ
 
-**Music DJ** to pomocniczy agent, który potrafi odtwarzać muzykę w trakcie gry. W trybie Custom odtwarza ścieżki z wybranego folderu. Ten folder da się ustawić w dwóch miejscach.
-
-Po włączeniu agenta **Music DJ** dla czatu formularz konfiguracji trzyma się źródła zapisanego w agencie Music DJ. Opcja **Game Assets** pokazuje ścieżkę wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Opcja **Folder on this device** pokazuje zapisaną ścieżkę na urządzeniu serwera oraz przycisk **Choose Folder**.
+**Music DJ** to pomocniczy agent, który potrafi odtwarzać muzykę w trakcie gry. W trybie Custom odtwarza ścieżki z wybranego folderu. Po włączeniu agenta **Music DJ** dla czatu formularz konfiguracji trzyma się źródła zapisanego w agencie. Opcja **Game Assets** pokazuje ścieżkę wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Opcja **Folder on this device** pokazuje zapisaną ścieżkę na urządzeniu serwera oraz przycisk **Choose Folder**.
 
 Pełny edytor agenta **Music DJ** ma sekcję **Custom Music Library**. Przełącznik **Use Game Assets music folder** wybiera jeden z dwóch trybów:
 
-- Przełącznik włączony: pole **Game Assets music folder** wskazuje folder wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Przycisk **Open Folder** otwiera ten folder na maszynie serwera.
-- Przełącznik wyłączony: pole **Music folder on this device** pozwala trybowi Custom odtwarzać muzykę z dowolnego folderu na komputerze, na którym działa serwer. Kliknij przycisk **Select Folder**, żeby otworzyć systemowe okno wyboru folderu, albo wklej ścieżkę folderu do pola.
+- Włączony: pole **Game Assets music folder** wskazuje folder wewnątrz zasobów gry. **Open Folder** otwiera go na komputerze z serwerem.
+- Wyłączony: **Music folder on this device** odtwarza muzykę z dowolnego folderu na komputerze, na którym działa serwer. Kliknij **Select Folder** albo wklej ścieżkę.
 
-Wybór folderu spoza aplikacji wymaga podwyższonych uprawnień. Na tym samym komputerze co serwer działa bez dodatkowej konfiguracji. Z innego urządzenia lub przez zdalny dostęp trzeba najpierw skonfigurować dostęp administracyjny. Sposób włączenia opisuje przewodnik [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Wszystko pozostałe o odtwarzaczu muzyki znajdziesz w przewodniku [Music DJ](../media/music.md).
-
-## Otwieranie folderu na komputerze
-
-Przycisk **Open in system folder** otwiera zaznaczony folder zasobów w zwykłym menedżerze plików komputera. Działa to tylko wtedy, gdy aplikacja jest używana na tym samym komputerze, na którym działa serwer. Na telefonie, tablecie lub innym komputerze aplikacja informuje, że foldery systemowe można otworzyć wyłącznie z urządzenia hostującego Marinara.
+Wybór folderu spoza aplikacji wymaga podwyższonych uprawnień. Na tym samym komputerze co serwer działa bez dodatkowej konfiguracji. Z innego urządzenia lub przez zdalny dostęp najpierw skonfiguruj dostęp administracyjny. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md). Resztę informacji o odtwarzaczu muzyki znajdziesz w przewodniku [Music DJ](../media/music.md).
 
 ## Powiązane przewodniki
 

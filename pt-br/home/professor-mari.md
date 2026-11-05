@@ -1,355 +1,300 @@
 # Professor Mari, a assistente dentro do aplicativo
 
-Professor Mari é a assistente que já vem no Marinara Engine, na tela inicial. Neste guia você vê onde encontrar a Professor Mari, o que ela faz, como as mudanças dela podem ser desfeitas e como resolver os problemas mais comuns.
+Professor Mari é a assistente integrada da tela inicial. Ela explica o aplicativo, ajuda você a configurá-lo e cria ou edita personagens, personas, lorebooks e presets para você. Você pode desfazer as mudanças dela pelo card de mudança durante um tempo limitado (veja [Revisar as mudanças dela](#reviewing-her-changes)).
 
 <a id="where-to-find-her"></a>
 
 ## Onde encontrar a Professor Mari
 
-Professor Mari fica na tela inicial. A tela inicial é o que aparece quando nenhum chat está aberto.
+1. Vá para a tela inicial. Ela aparece quando nenhum chat está aberto.
+2. Clique em **Ask Professor Mari** (falar com a Professor Mari) no widget **Professor Mari**, ou clique na aba **Professor**.
 
-Procure o widget **Professor Mari**, com o desenho em pixel art dela, e clique em **Ask Professor Mari** (falar com a Professor Mari) para abrir a janela de chat completa. A aba **Professor**, no topo da tela inicial, também abre essa janela. A janela dela abre dentro da busca, então você também chega até ela de qualquer tela: digite no campo de busca e escolha **Ask Prof. Mari**, pressione Ctrl+J (Cmd+J no Mac) ou, no celular, puxe a barra superior para baixo. Uma linha de status no cabeçalho da janela dela mostra **Ready to help** quando ela está parada, ou **Working on it...** enquanto ela trabalha.
+A janela dela se abre. Você também chega até ela de qualquer tela: digite na busca e escolha **Ask Prof. Mari**, pressione <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> no Mac) ou, no celular, puxe a barra superior para baixo. O cabeçalho dela mostra **Ready to help** quando ela está parada e **Working on it...** enquanto ela trabalha.
 
-A conversa é em linguagem comum. Digite uma mensagem na caixa e pressione Enter para enviar. Pressione Shift e Enter juntos para quebrar a linha em vez de enviar. Se você desligar **Enter sends to Professor Mari** nas configurações dela, Enter quebra a linha e Ctrl+Enter (Cmd+Enter no Mac) envia. As teclas fazem um pouco mais enquanto ela trabalha, como descrito em [Enviar mensagens enquanto ela trabalha](#sending-messages-while-she-works).
+Digite a sua mensagem em linguagem comum e pressione <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha. Se você desligar **Enter sends to Professor Mari** (Enter envia para a Professor Mari) nas configurações dela, <kbd>Enter</kbd> quebra a linha e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> envia. A sua primeira mensagem desbloqueia a conquista **Hello World**.
 
-A primeira mensagem enviada para ela desbloqueia a conquista **Hello World**.
+Todas as configurações dela ficam em **Settings → General → Search and Professor Mari settings → Open** (Configurações → Geral → configurações da busca e da Professor Mari → abrir), ou na engrenagem da busca. No computador, os controles deslizantes **Height** (altura) e **Width** (largura), em **Professor Mari window** (janela da Professor Mari), mudam o tamanho da janela dela. No celular, a janela dela ocupa a tela inteira.
 
-Uma linha fina na borda inferior da barra superior do aplicativo também mostra o estado dela, em qualquer tela: a linha oscila enquanto ela trabalha, fica verde quando ela termina, dourada enquanto uma aprovação espera e vermelha se a última execução falhou. A linha some quando você abre o chat dela. (A linha fica desligada enquanto a opção **Ask Professor Mari from Search** (falar com a Professor Mari pela busca) estiver desativada.) Enquanto a janela dela está fechada, uma pequena pílula na barra superior mostra o mesmo estado como **Working** (trabalhando), **Needs you** (precisa de você), **Done** (pronto) ou **Failed** (falhou). Clique na pílula para voltar ao chat dela. Todas as opções dela ficam nas configurações da busca e da Professor Mari: a engrenagem da busca, ou **Settings** (Configurações) > **General** > **Search and Professor Mari settings** > **Open** (abrir).
+## Criar um personagem com a Mari
 
-No computador, você também pode mudar ali o tamanho da janela dela. Use os controles deslizantes **Height** (altura) e **Width** (largura) em **Professor Mari window** (janela da Professor Mari). Os controles deslizantes em **Search window** (janela da busca) fazem o mesmo com a busca; a altura dela começa em **Automatic** (automática). No celular, as duas janelas sempre ocupam a tela inteira.
+Antes de começar: adicione uma conta de geração de texto. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md) e [Escolher uma conta para ela](#pick-an-account-for-her).
 
-## Falar com a Professor Mari a partir do que você está fazendo
+1. Abra a janela dela (veja acima).
+2. Se o chat já tiver mensagens, clique antes em **New chat** (chat novo). O chat atual fica salvo em **Chats**.
+3. Clique na sugestão **Create a character** (criar um personagem). A sugestão preenche a caixa de mensagem. Se nenhuma sugestão aparecer, digite o seu pedido.
+4. Acrescente a sua ideia ao texto, por exemplo o nome e a personalidade, e pressione <kbd>Enter</kbd>.
+5. Responda às perguntas dela. Escolha uma opção ou digite a sua e clique em **Submit** (enviar).
+6. Quando ela terminar, clique em **Open** (abrir) no resultado para ver o personagem novo.
+7. Se você não gostar de uma mudança, clique em **Undo** (desfazer) no card de mudança dela.
 
-Professor Mari é bem mais que uma caixa de perguntas. Ela explica o aplicativo, ajuda na configuração inicial e cria coisas quando você pede.
+Se não funcionou: sem nenhuma conta adicionada, a lista **Connections** (Conexões) abre quando você pressiona enviar. Escolha ou adicione uma conta ali.
 
-Você pode abrir a Professor Mari no lugar onde precisa de ajuda. Esses pontos de entrada criam um rascunho editável e anexam um pequeno resumo de contexto, identificado pelo tipo. O contexto anexado pode ser removido antes de você enviar a mensagem.
+## O que ela pode fazer
 
-- Editores de **Character**, **Persona**, **Lorebook** e **Preset**: pergunte sobre o recurso aberto ou sobre um campo selecionado.
-- Respostas do **FAQ**: use **Ask Prof. Mari about this** (perguntar à Professor Mari sobre isto) para incluir a pergunta encontrada e a resposta escrita como ponto de partida.
-- **Search** (busca): pressione `Cmd/Ctrl+K`, selecione um resultado e use **Ask Prof. Mari** para incluir o resultado selecionado no rascunho. A busca não envia sozinha nenhuma requisição ao modelo, a menos que uma resposta rápida esteja ativada (veja **Quick answers in Search** abaixo).
-- **Recent Chats** (chats recentes) e outros estados de erro: use **Ask Professor Mari** ao lado de **Try again** (tentar de novo) para enviar a descrição do erro e a ação de reparo pedida.
-- O chat normal com a personagem Professor Mari e o chat do espaço de trabalho da tela inicial usam o mesmo formato de encaminhamento.
+Ela lê um item antes de editá-lo e pergunta quando o seu pedido está vago.
 
-Os itens anexados aparecem como chips **Context** (contexto) acima da caixa de mensagem dela. Remova um item de contexto quando ele não for relevante. Depois que você envia a mensagem, a Professor Mari obtém no servidor o conteúdo mais extenso do recurso, dentro do orçamento de contexto. Ela não recebe um recurso inteiro só porque você abriu um editor.
+- Explicar uma configuração, um modo ou um conceito.
+- Criar ou editar um personagem, uma persona ou um lorebook. O card de personagem dá à IA um nome, uma personalidade e uma voz. A persona é o card de personagem que representa você. O lorebook é um conjunto de fatos do mundo que a IA lê quando as palavras-chave deles aparecem.
+- Escrever o [onboarding interativo](../characters/interactive-onboarding.md) de um personagem e preencher uma [ficha de conjunto de regras](../characters/colors-and-stats.md#ruleset-sheets) para um conjunto de regras de Game Mode instalado. A alteração dela é recusada, com o motivo, quando um valor não cabe no conjunto de regras.
+- Criar ou editar um tema, um agente, um preset de prompt ou um rascunho de Personal Extension. O rascunho fica desativado até você ler o código dele e aprová-lo em **Settings → Addons** (Configurações → Complementos).
+- Editar uma seção de um preset no próprio lugar, em vez de substituir o preset inteiro.
+- Comparar os agentes disponíveis para download e dizer quais combinam com o seu objetivo. Ela encaminha você para **Agents → Agent Organizer** (agentes → Organizador de agentes) para instalá-los. Veja [Referência dos agentes para download](../agents/built-in-agents.md).
+- Gerar ou atribuir imagens, como avatares, sprites e planos de fundo. Antes, você precisa de uma conta de geração de imagens. Ela não cria essa conta.
+- Consultar páginas públicas de wikis do Fandom quando você pesquisa um personagem ou um mundo.
 
-Peça ajuda a ela em qualquer um destes casos:
+### Comece com uma sugestão
 
-- Explicar uma configuração, um modo ou um conceito antes de você mudar qualquer coisa.
-- Criar ou editar um personagem. O personagem é um card que dá nome, personalidade e voz à IA. Ela também pode escrever o [onboarding interativo](../characters/interactive-onboarding.md) de um card, as perguntas que os jogadores respondem para montar a persona deles.
-- Criar ou editar uma persona. A persona é a identidade que você interpreta no chat, o "você" da história.
-- Preencher ou alterar a [ficha de conjunto de regras](../characters/colors-and-stats.md#ruleset-sheets) de um personagem ou de uma persona para um conjunto de Game Mode instalado: valores de atributo, treinamento, campos e linhas de listas, como equipamento. Ela usa os nomes e limites do próprio conjunto, e a alteração é recusada, com o motivo, quando um valor não cabe nele.
-- Criar ou editar um lorebook. O lorebook é um conjunto de anotações do seu mundo que a IA usa quando fazem sentido.
-- Criar ou editar um tema, um agente, um preset de prompt ou um rascunho de Personal Extension. Professor Mari é a única autora de extensões que já vem no aplicativo. Os rascunhos dela ficam desativados até você inspecionar o código em ambiente isolado (sandbox), revisar as permissões ativas de card de personagem ou de persona que forem pedidas e aprovar o hash exato em **Settings** > **Addons**.
-- Editar uma parte específica de um preset de prompt, sem mexer no resto. Ela lista as seções, os grupos de prompt e as variáveis de escolha do preset, lê qualquer um desses itens por inteiro e acrescenta, altera ou remove só aquele pedaço. É possível, por exemplo, acrescentar uma linha em uma seção específica, em vez de só criar ou substituir o preset inteiro.
-- Comparar os 33 agentes e pacotes de recursos oficiais disponíveis para download, explicar quais modos cada um atende e indicar o que combina com o objetivo do usuário. Ela diferencia o que existe no catálogo do que está realmente instalado, encaminha o usuário para **Agents → Agent Organizer (organizador de agentes)** quando é o caso, e sabe que os pacotes e o catálogo completo estão em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
-- Gerar ou atribuir imagens, como avatares, sprites e planos de fundo. O sprite é a imagem do personagem, um retrato ou uma pose de corpo inteiro, que aparece durante o chat.
-- Consultar páginas públicas de wikis do Fandom para pesquisar um personagem ou um mundo.
-- Conduzir uma criação ou edição de várias etapas pelas sugestões rápidas acima da caixa de mensagem, com cores diferentes para cada tipo de item.
+Em um chat vazio da Professor Mari, sugestões iniciais ajudam a começar: **Create a character**, **Create a lorebook** (criar um lorebook) e **Create a persona** (criar uma persona). Clique em uma sugestão para preencher a caixa de mensagem e edite o texto antes de enviar. Durante uma tarefa guiada, as sugestões mudam de acordo com a próxima etapa. As sugestões só aparecem nos chats da Professor Mari.
 
-Ela lê um item antes de editar e pergunta o que falta quando o pedido está vago. Para tarefas com imagem, é preciso ter antes uma conexão de geração de imagens funcionando. Ela não cria essa conexão para você.
+Quando o seu pedido deixa decisões reais em aberto, ela pode perguntar em um card de perguntas abaixo da resposta dela: até quatro perguntas, uma de cada vez, com opções e a recomendação dela marcada. Escolha uma opção ou digite a sua e clique em **Submit**. As suas respostas vão como a sua próxima mensagem. Você também pode ignorar o card e digitar uma mensagem. Nada do que ela propôs junto com a pergunta é executado até você responder.
 
-## Quick answers in Search
+### Pergunte a partir do lugar onde você está trabalhando
 
-Quando você digita uma pergunta na busca e nenhum resultado corresponde, a Professor Mari pode escrever uma resposta curta. A resposta aparece como um card **Quick answer · Read-only** (resposta rápida · somente leitura) abaixo da linha **Ask Prof. Mari**.
+Estes lugares abrem a Professor Mari com um rascunho editável e um pequeno chip **Context** (contexto: uma etiqueta acima da caixa de mensagem) que você pode remover antes de enviar:
 
-- Uma resposta rápida tem até três frases tiradas da documentação do Marinara. A Professor Mari vê apenas o que você digitou, e a resposta não altera nada.
-- O card cita as páginas da documentação que usou. Durante cinco minutos, repetir a mesma pergunta usa uma cópia salva.
-- Abaixo da resposta ficam **Copy**, **Answer again** (responder de novo) e **Continue with Prof. Mari** (continuar com a Professor Mari). **Continue with Prof. Mari** abre a janela dela em um chat novo com o nome da sua pergunta, com a resposta rápida anexada. Use **Ask Prof. Mari more…** (perguntar mais à Professor Mari) para fazer uma pergunta de acompanhamento na janela dela. As respostas rápidas não têm acompanhamento próprio.
-- Uma resposta rápida espera você parar de digitar. **Wait after typing** (espera depois de digitar) define quanto tempo a busca espera.
-- Escolha quem responde em **Settings** > **General** > **Search and Professor Mari settings** > **Quick answers** > **Answer with** (responder com): um modelo local que você baixou, **Same as Prof. Mari** (igual à Professor Mari: a conexão que ela usa) ou outra conexão. Cada resposta é uma única requisição curta. Uma conexão paga pode gerar custos.
-- Se uma resposta falhar, o card diz o motivo, por exemplo que o modelo não respondeu. **Try again** (tentar de novo) e **Continue with Prof. Mari** estão sempre ali. **Choose a model** (escolher um modelo) só aparece quando falta uma chave ou um modelo. A mensagem do próprio provedor fica em **Details** (detalhes).
-- As respostas rápidas ficam desativadas até você ativá-las com **Quick answers in Search** (respostas rápidas na busca), no mesmo grupo.
+- Os editores **Character**, **Persona**, **Lorebook** e **Preset**.
+- Respostas do **FAQ**: **Ask Prof. Mari about this** (perguntar à Professor Mari sobre isto).
+- Search (busca): escolha um resultado e depois **Ask Prof. Mari**.
+- Estados de erro, como **Try again** (tentar de novo): **Ask Professor Mari**.
 
-## Sugestões guiadas
+Ela não recebe um item inteiro só porque você abriu o editor dele.
 
-Em um chat vazio da Professor Mari, sugestões iniciais como **Create a Character**, **Create a Lorebook** e **Create a Persona** ajudam a começar as tarefas mais comuns. Durante uma criação ou edição guiada, as sugestões mudam de acordo com a próxima etapa. Ao clicar em uma sugestão, o texto vai para a caixa de mensagem; edite esse rascunho antes de enviar.
+<a id="pick-an-account-for-her"></a>
 
-Os fluxos guiados fazem uma pergunta objetiva por vez, em vez de mostrar um formulário longo de uma só vez.
+## Escolher uma conta para ela
 
-Quando um pedido deixa decisões reais em aberto, a Professor Mari pode parar e perguntar em um card de perguntas abaixo da resposta dela: até quatro perguntas, uma de cada vez, cada uma com algumas opções, e a recomendada por ela fica marcada. Algumas perguntas aceitam várias respostas. Escolha uma opção ou digite a sua, depois pressione **Submit** (enviar): as suas respostas vão como a sua próxima mensagem, então nada fica escondido e você vê o que foi dito a ela. A vez dela termina quando ela pergunta, e nada do que ela propôs junto com a pergunta é executado até você responder. Você também pode ignorar o card e digitar na caixa de mensagem; a sua próxima mensagem responde a ele.
+Antes de começar: adicione uma conta de geração de texto. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
-As sugestões só existem nos chats da Professor Mari. Outros personagens não recebem as sugestões da Professor Mari.
+1. Clique no botão de conexão ao lado do clipe de papel. Ele mostra o nome da conta dela, ou **Select connection** (selecionar conexão) quando nenhuma foi escolhida.
+2. Escolha uma conta de geração de texto na lista **Connections**. Se você baixou o **Built-in model** (modelo embutido), ele também aparece aqui.
+3. Clique em um modelo da lista para usá-lo. O modelo fica salvo na conta, então os seus outros chats nessa conta também passam a usá-lo. O **Built-in model** não tem lista de modelos.
 
-## Ela também lê e edita os arquivos do próprio aplicativo
+No celular, toque em uma conta para usá-la, ou toque na seta no fim da linha dela para ver primeiro os modelos. Se ainda não houver nenhuma conta, a lista mostra **Add a connection** (adicionar uma conexão).
 
-Professor Mari consegue olhar dentro dos arquivos de programa do Marinara, alterá-los e rodar comandos em ambiente isolado. Esse poder é real, então vale entender bem como funciona.
+<a id="reviewing-her-changes"></a>
 
-Veja o limite de confiança em palavras simples:
+## Revisar as mudanças dela
 
-- As ferramentas de arquivo dela ficam dentro da pasta onde Marinara está instalado. Os comandos de terminal diretos leem o espaço de trabalho e os programas de sistema necessários, mas não leem os seus outros arquivos pessoais.
-- Arquivos com segredos de ambiente, como o arquivo `.env`, o arquivo de chave que protege as suas chaves de API salvas e os arquivos internos do Git, ficam fora do alcance das ferramentas de arquivo e do terminal direto.
-- Ela não escreve direto na pasta dos seus dados salvos, onde ficam os personagens e os chats, usando as ferramentas de arquivo ou o terminal direto. No lugar disso, ela usa o fluxo de revisão descrito abaixo.
-- Os comandos de terminal diretos não têm acesso à rede, não herdam segredos do servidor e só escrevem arquivos comuns do espaço de trabalho e uma pasta temporária privada.
-- Ela continua editando os arquivos de código normais direto. Já as mudanças em manifestos de dependência, arquivos de lock, inicializadores, instaladores e fluxos de CI ficam separadas e são mostradas a você antes que Marinara aplique.
-- Ela pode ler os arquivos compilados do Marinara, as pastas `dist` de onde o aplicativo roda, mas não pode criar, editar, mover nem excluir esses arquivos. No lugar disso, ela altera os arquivos de código-fonte. Só o comando `mari code check` gera de novo os arquivos compilados, dentro do mesmo ambiente isolado.
-- Se uma mudança de código precisa de uma biblioteca pública do npm, ela pede um pacote específico. Marinara converte `latest` em uma versão exata, mostra a integridade do registro em um card de revisão e só instala depois da sua aprovação. Os scripts de ciclo de vida do pacote continuam desativados.
-- Se Marinara não conseguir oferecer o ambiente isolado de terminal do macOS ou do Linux, os comandos de terminal diretos e o `mari code check` ficam desativados. Ela ainda usa as ferramentas mais seguras de arquivo e de dados do aplicativo.
-- Os comandos que ela roda param sozinhos depois de pouco tempo, então um comando travado não roda para sempre.
+Quando ela muda alguma coisa, salva a mudança na hora e mostra um card de mudança abaixo da resposta. O card lista cada campo que mudou. Uma edição de texto mostra as palavras antigas e as novas. **Show all** (mostrar tudo) mostra todos os campos, e **Technical details** (detalhes técnicos) mostra o comando bruto.
 
-Quase ninguém precisa disso. O recurso existe para ela inspecionar ou consertar o próprio aplicativo quando algo quebra.
+O card tem uma ação: **Undo**. Essa ação traz de volta a versão salva anterior. Enquanto a cópia para desfazer for mantida, toda mudança pode ser desfeita, em qualquer modo de permissões. O modo de permissões só decide se ela pergunta antes.
 
-## Escolher uma conexão
+- **Not saved** (não salva) com um motivo quer dizer que a mudança falhou. **Try again** pede a ela de novo.
+- **Undo until** (desfazer até) só aparece nas últimas 24 horas. Uma cópia para desfazer dura até 14 dias, e só as 50 mais recentes são mantidas. Depois disso, o card mostra **Undo closed** (não dá mais para desfazer) e a mudança fica.
+- Uma etapa na lista de trabalho dela que termina em **· not saved** (· não salva) foi só uma prévia. Nada mudou.
+- Uma edição que não mudaria nada não é salva e não recebe card.
+- Personagens e personas também guardam um histórico de versões nos editores deles, como um segundo caminho de volta.
+- Ela não pode editar nem excluir o próprio card. Marinara o redefine a cada inicialização.
 
-Professor Mari precisa de uma conexão para pensar. A conexão liga Marinara a um provedor de IA por meio de uma chave de API. A chave de API é um código secreto desse provedor.
+Um card pertence ao chat em que ela fez a mudança. Excluir um chat mantém as mudanças dele e remove os cards dele.
 
-Clique no botão de conexão ao lado do clipe de papel. Ele mostra um ícone de link e o nome da conexão que ela usa, ou **Select connection** (selecionar conexão) quando nenhuma foi escolhida. O botão abre a lista **Connections** (Conexões). Escolha qualquer conexão de geração de texto já configurada. Se você baixou o modelo local que vem no aplicativo, ele também aparece aqui como **Local Model (sidecar)**. Quando o aplicativo conhece o nome do modelo, esse nome aparece entre parênteses. A escolha fica salva com as suas preferências do aplicativo.
+### Mudanças que esperam por você
 
-O mesmo menu também lista os modelos da conexão escolhida. Clique em um modelo para usá-lo. O modelo fica salvo na conexão, como em um chat normal, então os outros chats que usam essa conexão também passam a usá-lo. No celular ou em uma janela estreita, toque em uma conexão para passar para ela, ou toque na seta no fim da linha dela para ver primeiro os modelos. O modelo local embutido não tem lista de modelos.
+Uma mudança retida espera, em vez de ser salva. Essa mudança mostra **Apply** (aplicar) e **Don't apply** (não aplicar). Uma exclusão mostra **Delete** (excluir) e **Put back** (pôr de volta). As mudanças ficam retidas no modo Manual e nos casos de arquivos sensíveis e de dependências (veja [Mudanças retidas em arquivos e bibliotecas](#held-changes-for-files-and-libraries)). A busca não lista as mudanças dela: abra a Professor Mari para aplicá-las ou desfazê-las.
 
-Se ainda não houver nenhuma conexão, a lista mostra **Add a connection** (adicionar uma conexão). Clique nessa opção para criar uma. Se você tentar enviar uma mensagem sem conexão, a lista **Connections** abre sozinha para você escolher uma.
-
-O passo a passo completo está no guia de conexão indicado no fim da página.
-
-## Experimentar o ambiente de execução Pi (experimental)
-
-A Professor Mari pode trabalhar de duas formas. **Classic** (clássico) é o padrão. **Pi** é um teste que a deixa pensar mais antes de agir e levar tarefas mais longas até o fim.
-
-Para trocar, abra **Search and Professor Mari settings** e mude **Runtime** (ambiente de execução), abaixo de **Permissions mode** (modo de permissões). A mudança vale a partir da próxima resposta dela. Seu modo de permissões, os cards de mudança e o Undo funcionam igual nos dois.
-
-O Pi funciona com todas as conexões, inclusive o modelo local. Se a Professor Mari se comportar de forma estranha no Pi, volte para o Classic.
-
-## Mudar a aparência dela
-
-Abra **Search and Professor Mari settings** e role até **Appearance** (aparência). Escolha um visual para ela, como **Basic**, **Prof. Mari loves Dottore** ou **Safari Prof. Mari**. O visual novo aparece no chat dela, na busca, na tela inicial e na barra superior. Alguns visuais são desbloqueados depois de tempo suficiente de jogo. Um visual bloqueado mostra quantas horas você já jogou até agora.
+Quando ela cria ou atualiza um personagem, uma persona, um lorebook ou um preset, o resultado pode mostrar **Open**, que abre esse item. Um resultado atualizado também pode mostrar **Review** (revisar) enquanto há uma revisão pendente.
 
 ## O menu do clipe de papel
 
-Clique no botão do clipe de papel, chamado **Attach** (anexar), para abrir um menu com três seções:
+Clique no botão do clipe de papel, chamado **Attach** (anexar). O menu tem três seções.
 
-- **Attach**: **Attach files or photos** (anexar arquivos ou fotos), **Add chat history** (adicionar histórico de chat; serve para compartilhar com ela um dos seus chats anteriores) e **View attached context** (ver contexto anexado).
-- **Reference**: **Link with @** (vincular com @) digita `@` na caixa de mensagem e abre a lista de vínculos descrita mais abaixo.
-- **Mari**: **New chat** (chat novo), **Chat history**, **Skills**, **Memories** (lembranças), **Model** (modelo) e **Permissions**. **Pending approvals** (aprovações pendentes) aparece aqui enquanto uma mudança espera por você.
+| Seção | Itens |
+| --- | --- |
+| **Attach** | **Attach files or photos** (anexar arquivos ou fotos), **Add chat history** (adicionar histórico de chat: compartilhe um dos seus chats anteriores), **View attached context** (ver contexto anexado) |
+| **Reference** | **Link with @** (vincular com @) |
+| **Mari** | **New chat**, **Chat history** (histórico de chats), **Skills**, **Memories** (lembranças), **Model** (modelo), **Permissions** (permissões). **Pending approvals** (aprovações pendentes) aparece enquanto uma mudança espera por você. |
 
-Os mesmos comandos podem ser digitados com `/`, como descrito em [Comandos com /](#commands-with-).
+Você pode digitar as mesmas ações com `/`. Veja [Comandos com /](#commands-with-).
 
-## Anexar arquivos
+### Anexar arquivos
 
-Escolha **Attach files or photos** no menu do clipe de papel, ou digite `/attach`, para adicionar um arquivo à mensagem.
+Escolha **Attach files or photos**, ou digite `/attach`. Ela aceita imagens, arquivos PDF e arquivos de texto, como `.txt`, `.md`, `.json`, `.csv` e `.log`, de até 20 MB cada. Você também pode colar uma captura de tela ou um arquivo na caixa de mensagem. Para ela ler uma imagem, o modelo escolhido precisa aceitar imagens na entrada.
 
-Ela aceita imagens, arquivos PDF e arquivos de texto comuns, como `.txt`, `.md`, `.json`, `.csv` e `.log`. Cada arquivo pode ter até 20 MB. Os arquivos anexados aparecem acima da caixa de mensagem antes do envio e podem ser removidos. Você também pode colar uma captura de tela ou um arquivo copiado direto na caixa de mensagem, com **Ctrl+V** ou com a função de colar do celular.
+### Vincular itens com @
 
-Para ela conseguir ler uma imagem, o modelo da conexão escolhida precisa aceitar imagens na entrada.
+Digite `@` para apontar para ela algo da sua biblioteca. Uma lista se abre, agrupada em **Characters** (personagens), **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** (agentes) e **Docs**. Continue digitando para reduzir a lista. Nomes com espaços não precisam de aspas.
 
-## Vincular itens com @
-
-Digite `@` na caixa de mensagem para apontar para ela algo da sua biblioteca, sem que ela precise procurar. Uma lista se abre enquanto você digita, agrupada em **Characters** (personagens), **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** (agentes) e **Docs**. Continuar digitando reduz a lista; nomes com espaços não precisam de aspas (`@Alice in Wonderland`).
-
-- Use as setas para se mover, **Enter** ou **Tab** para escolher e **Escape** para fechar a lista. Em um lorebook, a seta para a direita mostra as **Entries** (entradas) dele, para você vincular uma única entrada; a seta para a esquerda volta.
-- Quando a janela dela está ao lado de um editor, a primeira linha, **Open beside me** (abrir ao meu lado), vincula o que esse editor tem aberto.
-- Ao lado do editor de personagem, a linha **Open beside me** tem um › (ou pressione ArrowRight) que lista os **Fields** (campos) desse editor, e digitar algo depois de `@` lista direto os que combinam. Escolher um (`@scen` → Scenario) troca o campo em que ela trabalha, igual a clicar nele antes de abri-la. Ele substitui o chip do campo na linha de contexto dela, e o editor rola até esse campo. Um campo não é um vínculo, então nenhum texto com `@` fica na sua mensagem. **Onboarding** é um único campo para o bloco inteiro: enquanto for o campo dela, cada mensagem envia o que `character.onboarding.get` devolve (as perguntas, eventuais problemas e uma persona de exemplo), para ela partir do bloco como está salvo.
-- Um nome escolhido fica destacado na mensagem e aparece como um chip acima da caixa de mensagem. Se você editar ou apagar o nome, o vínculo some junto; o **×** do chip remove o vínculo, mas mantém o seu texto.
-- Em texto comum, **Tab** completa um nome que ela sugere em cinza. Em seguida, uma pequena dica **Tab to link** (Tab para vincular) aparece logo depois dele: pressione **Tab** de novo ou clique na dica para transformar o nome em vínculo. Em uma tela sensível ao toque, toque no nome cinza para completá-lo e depois toque em **Tap to link** (toque para vincular); em um notebook com tela sensível ao toque, a dica é **Tab or tap to link** (Tab ou toque para vincular).
-
-O que cada vínculo envia:
+- Use as setas para se mover, <kbd>Enter</kbd> ou <kbd>Tab</kbd> para escolher e <kbd>Escape</kbd> para fechar. Em um lorebook, a seta para a direita lista as **Entries** (entradas) dele, para você vincular uma única entrada.
+- Ao lado de um editor, a primeira linha, **Open beside me** (abrir ao meu lado), vincula o que o editor tem aberto. Ao lado do editor de personagem, o › dessa linha (ou a seta para a direita) lista os **Fields** (campos). Escolher um campo troca o campo em que ela trabalha e substitui o chip do campo na linha de contexto dela.
+- Um nome escolhido aparece como um chip acima da caixa de mensagem. Apague o nome e o vínculo some junto. O **×** do chip remove o vínculo e mantém o seu texto.
+- Em texto comum, <kbd>Tab</kbd> completa um nome que ela sugere em cinza. Pressione <kbd>Tab</kbd> de novo para vinculá-lo. Em uma tela sensível ao toque, toque no nome cinza e depois em **Tap to link** (toque para vincular).
 
 | Vínculo | O que ela recebe |
 | --- | --- |
-| Personagem, persona, preset | O item inteiro, como ela mesma o leria |
-| Lorebook | As configurações dele e a lista das entradas (vincule uma entrada para ter o texto completo) |
-| Entrada de lorebook | A entrada, mais o lorebook a que ela pertence |
-| Skill | As instruções da sua própria skill. Uma skill integrada abre, no lugar disso, como o guia dela para aquela mensagem. Se você vincular a skill de onboarding com um personagem, ela também recebe o bloco de onboarding desse personagem |
-| Lembrança | O texto completo da lembrança, mesmo desativada. As lembranças persistentes não aparecem na lista, porque ela sempre as tem |
+| Personagem, persona, preset | O item inteiro |
+| Lorebook | As configurações dele e a lista das entradas |
+| Entrada de lorebook | A entrada e o lorebook a que ela pertence |
+| Skill | As instruções da sua skill. Uma skill integrada abre como o guia dela para aquela mensagem. |
+| Lembrança | O texto completo da lembrança, mesmo quando ela está desativada |
 | Chat | Os detalhes do chat e as 30 mensagens mais recentes |
 | Agente | As configurações do agente |
 | Página da documentação | A página inteira desta documentação |
 
-Um vínculo é enviado **uma única vez**, com a mensagem em que você o adiciona. Nos turnos seguintes, ela só vê uma nota de uma linha dizendo que você o vinculou, e o lê de novo se precisar. Uma mensagem leva até 8 vínculos. Se eles somarem mais de cerca de um quarto do contexto da sua conexão (no máximo 60.000 caracteres), os últimos não são enviados; no lugar deles, ela recebe uma nota e pode lê-los por conta própria.
-
-Itens vinculados são tratados como informação, nunca como instruções: um card de personagem ou uma entrada de lorebook não pode dizer a ela o que fazer.
+Um vínculo é enviado uma única vez, com a mensagem em que você o adiciona. Depois disso, ela vê uma nota de uma linha e lê o item de novo se precisar. Uma mensagem leva até 8 vínculos. Se eles somarem mais de cerca de um quarto do contexto do modelo, no máximo 60.000 caracteres, os últimos não são enviados. No lugar deles, ela recebe uma nota e pode lê-los por conta própria. Itens vinculados contam como informação, nunca como instruções.
 
 <a id="commands-with-"></a>
 
-## Comandos com /
+### Comandos com /
 
-Digite `/` no início de uma linha para listar os comandos dela. Continue digitando para filtrar e depois pressione **Enter** para executar um. O `/word` que você digitou é removido da mensagem.
+Digite `/` no início de uma linha para listar os comandos dela. Continue digitando para filtrar e pressione <kbd>Enter</kbd>. A lista também mostra as suas Skills e Memories. Escolher um desses itens o vincula, igual ao `@`.
 
 | Comando | O que faz |
 | --- | --- |
-| `/new` | Inicia um chat novo; o atual é salvo em **Chats** (`/restart` também funciona) |
+| `/new` | Inicia um chat novo e salva o atual (`/restart` também funciona) |
 | `/history` | Abre os seus chats anteriores com ela |
 | `/skills` | Abre o painel **Skills** |
 | `/memories` | Abre o painel **Memories** |
 | `/context` | Mostra o que está anexado a este chat |
 | `/attach` | Escolhe arquivos ou fotos para enviar |
-| `/model` | Escolhe a conexão que ela usa |
+| `/model` | Escolhe a conta que ela usa |
 | `/permissions` | Escolhe o que ela pode alterar |
 | `/approvals` | Abre as mudanças que esperam por você (só enquanto houver uma pendente) |
 
-A lista de `/` também mostra as suas **Skills** e **Memories**. Escolher um item o vincula, igual ao `@`.
-
-## Revisar as mudanças dela
-
-Quando a Professor Mari muda alguma coisa, ela salva a mudança na hora e mostra um card de mudança abaixo da resposta. O card lista cada campo que mudou. Uma edição de texto mostra as palavras antigas e as novas, e um lorebook mostra as entradas dele. Uma mudança mais funda dentro de um item, como no onboarding de um card, ganha o próprio campo, que diz o que mudou. Abra **Show all** (mostrar tudo) para ver todos os campos. **Technical details** (detalhes técnicos) mostra o comando bruto.
-
-O card tem uma ação:
-
-- **Undo** (desfazer) traz de volta a versão salva anterior. Toda mudança pode ser desfeita, em qualquer modo de permissões. O modo de permissões só decide se ela pergunta antes.
-- Uma mudança que não foi salva mostra **Not saved** (não salva) e o motivo. **Try again** pede a ela de novo.
-- O card só mostra **Undo until** (desfazer até) nas últimas 24 horas. Uma cópia para desfazer dura até 14 dias, e só as 50 mais recentes são mantidas. Depois disso, a mudança fica e o card mostra **Undo closed** (não dá mais para desfazer).
-
-Uma mudança que espera por você é diferente. Uma mudança retida (no modo Manual, ou uma mudança em um arquivo sensível ou em uma dependência) mostra **Apply** (aplicar) e **Don't apply** (não aplicar). Uma exclusão mostra **Delete** (excluir) e **Put back** (pôr de volta). A busca não lista as mudanças dela: abra a Professor Mari para ver, aplicar ou desfazer as mudanças.
-
-- O card pertence ao chat da Professor Mari em que ela fez a alteração. Um chat novo começa sem os cards dos outros chats. Excluir um chat mantém suas alterações e remove seus cards. Uma alteração feita com o comando `mari` no terminal não pertence a nenhum chat, por isso seu card aparece em todos os chats da Professor Mari.
-- Uma edição que deixaria tudo igual não é salva e não recebe card.
-- Uma etapa na lista de trabalho dela que mostra **Previewed** (pré-visualizada) e termina em **· not saved** (· não salva) foi apenas uma prévia. Nada mudou e não há card.
-- Professor Mari não pode editar nem excluir o próprio card de personagem. Marinara o redefine para a versão integrada a cada inicialização.
-- Personagens e personas também guardam o próprio histórico de versões dentro dos editores. Ali você restaura uma versão antiga, como uma segunda rede de proteção.
-
-Quando a Professor Mari cria ou atualiza um personagem, uma persona, um lorebook ou um preset, o resultado pode mostrar **Open**. Use esse botão para abrir exatamente esse recurso depois que o aplicativo atualizar os dados. Um resultado atualizado também pode mostrar **Review** (revisar) quando há uma revisão pendente. **Review** abre os controles da mudança pendente. Itens novos normalmente não têm revisão, porque nenhum item existente foi sobrescrito.
-
-Dois tipos de mudança de risco mais alto ficam esperando em vez de serem aplicados de cara:
-
-- **Sensitive file changes** (mudanças em arquivos sensíveis) mostram o caminho e o conteúdo proposto, com os botões **Apply change** e **Discard**. Isso vale para arquivos de dependência, inicializadores, instaladores e fluxos de CI. As edições comuns de TypeScript, React, CSS, prompt, rota e documentação continuam liberadas sem essa trava extra.
-- **Dependencies** (dependências) mostram o pacote público exato do npm, a versão, o espaço de trabalho de destino, o tipo de dependência, a integridade do registro e as dependências diretas declaradas, com os botões **Install** e **Not now**. Os comandos de instalação diretos com `npm`, `pnpm`, `yarn`, `pip` e parecidos ficam bloqueados no terminal dela, inclusive as instalações a partir do cache.
-
-Aprovar uma biblioteca significa confiar no código dela quando Marinara importar ou executar esse código mais tarde. Desativar os scripts de ciclo de vida evita a execução durante a instalação, mas não torna a biblioteca inofensiva depois, em tempo de execução.
-
-## Criar conteúdo com Decisions
-
-Professor Mari pode escrever **Activation questions** (perguntas de ativação) para agentes, declarações **Decision** em entradas de lorebook e prompts condicionais em presets, cards, lorebooks e prompts de agentes. Ela verifica o Decision model selecionado antes de introduzir esses recursos. Um modelo selecionado informa a configuração; não prova que o provedor esteja acessível ou que um modelo local carregará corretamente.
-
-Sem Decision model selecionado, ela mantém criações e edições comuns sem novas dependências de Decision. Conteúdo Decision existente permanece intacto em edições não relacionadas. Se você pedir explicitamente esse conteúdo, ela explica o comportamento alternativo e pergunta uma vez naquele chat da Professor Mari se deve continuar. O registro persiste ao reabrir o chat e em conversas maiores que a janela recente. Uma pergunta sem resposta ou uma recusa não é permissão.
-
-Você pode dizer: **"Stop reminding me to set up a Decision model."** Ela para no chat atual e pode salvar a preferência como Memory. Use **Turn on** (ativar) para valer também em chats futuros. Desativar ou excluir essa Memory remove a preferência permanente. Suprimir lembretes de configuração não autoriza acrescentar Decisions a pedidos comuns.
-
-Com um modelo selecionado, ela segue suas Memories e Skills pertinentes ativadas. Se elas não definem preferência de criação, pergunta se você quer usar Decisions e se deve lembrar a resposta. Você pode permitir, recusar ou aprovar apenas a tarefa atual. Uma Skill que só explica a sintaxe não vale como permissão. Um pedido direto como "add Decision activation to this entry" já autoriza essa tarefa.
-
-O padrão é usar poucas decisões com um controle de tempo adequado: **Sticky** ou **Cooldown** para lorebooks, **Trigger Cadence** para ativação de agentes e `sticky`, `cooldown` ou `every` em condições de prompt. Sticky e Cooldown reduzem verificações repetidas após ativação positiva; não impedem repetições enquanto a declaração responde não. `every` pula verificações entre turnos programados e vale não nesses intervalos, então nem sempre serve para eventos breves.
-
-Professor Mari também tenta manter estável o início do prompt montado. Pergunta antes de adicionar conteúdo variável no início ou contexto dentro do histórico, salvo quando suas instruções ou preferências ativadas já permitem esse posicionamento. Não existe regra universal de "seguro depois de 1.000 tokens": a reutilização depende do provedor, modelo e prefixo renderizado correspondente. Aprovar Decisions não aprova automaticamente esses posicionamentos.
-
-Os controles normais do modo de permissões e de revisão continuam valendo. Memories salvas começam desativadas até você ativá-las. Para saber o que cada recurso Decision vê, seus comportamentos alternativos e exemplos, veja [Modelos de decisão](../connections/decision-models.md), [Prompts condicionais](../prompts/conditional-prompts.md), [Agentes personalizados](../agents/custom-agents.md#activation-questions) e [Entradas de lorebook](../lorebooks/entries.md#decision-activation).
-
-## Skills personalizadas
-
-A Skill é um documento curto de instruções que você escreve para mudar a forma como a Professor Mari trata um certo tipo de pedido.
-
-Clique no botão **Skills** no cabeçalho do chat dela para abrir o painel **Professor Mari skills**. Ali você pode:
-
-- Clicar em **New** para começar uma Skill a partir de um modelo pronto.
-- Clicar em **Upload** para adicionar uma Skill de um arquivo `.md` ou `.txt`.
-- Ativar ou desativar cada Skill. Uma Skill desativada continua existindo, mas não é usada.
-- Selecionar uma Skill para editar os campos **Name**, **Description** e **Instructions** e clicar em **Save**. Clique em **Delete** para excluir a Skill.
-
-Enquanto não houver nenhuma Skill, o painel mostra **No custom skills yet**.
-
-<a id="built-in-skills"></a>
-
-### Skills integradas
-
-Abaixo das suas Skills, em **Always on** (sempre ativas), o painel lista as skills que vêm no Marinara. Cada uma tem a marca **Built-in** (integrada). São os guias dela para personagens e personas, lorebooks, onboarding, presets, temas, Personal Extensions, widgets da tela inicial, Decisions e reparo de respostas. Ela lê uma quando o pedido exige, então elas não ocupam espaço em toda mensagem.
-
-Uma skill integrada é somente leitura: você não pode editá-la, desativá-la nem excluí-la, e uma atualização do aplicativo a substitui pela versão nova. Para mudar como ela trata alguma coisa, copie as instruções para uma nova Skill sua.
-
-Por padrão, em cada chat, a primeira alteração dela em uma área com uma skill integrada é recusada até que ela leia essa skill. Isso ajuda modelos menores e locais. Modelos maiores normalmente conseguem trabalhar sem essa exigência, então você pode desativá-la para poupar uma etapa: abra **Search and Professor Mari settings** e desligue **Read the handbook before the first write** (ler o guia antes da primeira alteração), abaixo de **Runtime**. Só você pode mudar essa configuração; a Professor Mari não pode.
-
-## Lembranças salvas
-
-Professor Mari guarda as suas preferências fixas, para você não repeti-las a cada conversa: o formato que você prefere nos lorebooks ou nos cards de personagem, as suas convenções de nomes, ou o jeito como ela deve se comportar.
-
-Existem duas formas de dar uma lembrança a ela:
-
-- **Conte para ela.** Diga algo como "lembre que eu sempre uso o nome e o apelido do personagem como chaves das entradas de lorebook". Ela salva a informação e mostra um card de mudança com o texto exato. Toda lembrança que ela salva começa **desativada**, então nada muda até você ativá-la. O card oferece **Turn on** para ativá-la na hora.
-- **Crie você mesmo.** Clique no botão **Memories** no cabeçalho do chat dela para abrir o painel **Memories**. Ali você cria, edita, ativa, desativa e exclui as suas lembranças. Também é possível usar o botão **Upload** para enviar um arquivo `.md` ou de texto e transformar o conteúdo dele em uma lembrança.
-
-Ela só salva ou altera uma lembrança quando **você** pede, nunca porque algo que ela leu (um personagem, um lorebook ou um arquivo) mandou.
-
-Como ela usa as lembranças, e por que isso continua econômico:
-
-- A cada turno ela vê um **índice** curto das lembranças *ativadas*, só com os títulos e uma descrição de uma linha, o que custa quase nada. Quando uma lembrança tem a ver com o que você está fazendo, ela consulta o texto completo e segue o que está ali. Assim o prompt dela continua pequeno conforme você acrescenta lembranças, porque só o índice curto está sempre presente. A exceção é a lembrança marcada como **Persistent** (veja abaixo): o texto completo dela entra em todo turno, então convém ter poucas assim, e curtas. Uma lembrança desativada continua salva, mas é ignorada. Desative uma para testar outro caminho e ative de novo depois.
-- As lembranças salvas **têm prioridade sobre o comportamento padrão dela** quando há conflito. Por exemplo, uma lembrança que diz "quando eu perguntar como fazer algo, apenas faça" traz de volta a edição sem perguntar e passa por cima do hábito dela de confirmar antes.
-- Uma orientação rara, que precisa valer em *todo* turno, pode ser marcada como **Persistent** (persistente), para o texto completo ficar sempre diante dela. Mantenha poucas lembranças persistentes, e curtas, porque cada uma ocupa espaço no prompt dela o tempo todo. Use esse recurso só para descrever um comportamento que deve valer sempre.
-
-Para gerenciar as lembranças, use o painel **Memories** ou peça direto a ela: "o que você lembra?", "atualize a minha lembrança de formatação de lorebook para incluir também os títulos" ou "esqueça isso".
-
-## Histórico de chats e Restart
-
-Professor Mari guarda os chats dela em separado. Eles não aparecem na sua lista normal de chats.
-
-Clique no botão **Chats** no cabeçalho dela para abrir os chats salvos da Professor Mari. Quando a lista está vazia, o painel avisa: "New chat keeps this one here." Use **Search Prof. Mari chats** (buscar nos chats da Professor Mari) para encontrar um. Clique em um chat salvo para abri-lo, renomeá-lo ou excluí-lo.
-
-Clique no botão **New chat** para iniciar uma conversa nova com ela. Antes disso, ele salva o chat atual na lista **Chats**. Você também pode digitar `/new` (ou `/restart`) na caixa de mensagem para fazer o mesmo. Aparece a mensagem "Professor Mari's previous chat was saved."
-
-Enquanto ela trabalha, um botão **Stop** (parar) aparece ao lado do botão de enviar. Clique nele para cancelar a tarefa atual.
-
 <a id="sending-messages-while-she-works"></a>
 
-### Enviar mensagens enquanto ela trabalha
+## Enviar mensagens enquanto ela trabalha
 
-A caixa de mensagem continua aberta enquanto ela trabalha, e você escolhe quando a sua mensagem chega até ela:
+A caixa de mensagem continua aberta enquanto ela trabalha. Você escolhe quando a sua mensagem chega até ela.
 
-- **Send now** (enviar agora) entra no próximo passo dela, sem interrompê-la. A resposta dela até ali é salva, a sua mensagem aparece abaixo dela, e ela segue em frente tendo em mente o que você disse. É assim que você a corrige no meio da tarefa e mantém o trabalho que ela já fez.
-- **Queue for later** (colocar na fila para depois) espera em uma lista acima da caixa, marcada com **Sends when she finishes**. Quando ela termina sem problemas, pega as mensagens em espera uma de cada vez, em ordem.
+- **Send now** (enviar agora) entra no próximo passo dela, sem interrompê-la. A resposta dela até ali é salva, a sua mensagem aparece abaixo dela, e ela continua tendo a sua mensagem em mente.
+- **Send after her answer** (enviar depois da resposta dela) espera em uma lista acima da caixa, marcada com **Sends when she finishes** (envia quando ela terminar). Quando ela termina sem problemas, pega as mensagens em espera uma de cada vez.
 
-| | Send now | Queue for later |
-|---|---|---|
-| **Enter sends** ligado (o padrão) | Enter | Ctrl+Enter |
-| **Enter sends** desligado | Ctrl+Enter | Ctrl+Shift+Enter |
+- **Enter sends** ligado (o padrão): <kbd>Enter</kbd> envia agora. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> coloca na fila.
+- **Enter sends** desligado: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> envia agora. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> coloca na fila.
 
-No Mac, use Cmd no lugar de Ctrl. Shift+Enter sempre quebra a linha. A setinha ao lado do botão de enviar oferece as duas opções, o que ajuda no celular.
+No Mac, use <kbd>⌘</kbd> no lugar de <kbd>Ctrl</kbd>. Enquanto ela trabalha, uma caixa de mensagem vazia mostra só um botão **Stop** (parar), que cancela a tarefa atual. Quando você digita, **Stop** vira o botão de enviar. Clique nele para escolher **Send now** ou **Send after her answer**, o que ajuda no celular.
 
-Send now serve só para texto, dentro da execução que ela já está fazendo. Uma mensagem com arquivos, links `@` ou um campo que você entregou a ela vai para a fila, assim como uma sobre outro assunto ou enviada depois de você mudar o modo de permissões. Um aviso curto informa isso. Uma mensagem em espera sem essas características tem o próprio botão **Send now**. Clique no **X** de uma mensagem para removê-la. Um chat pode ter até 20 mensagens em espera.
+Send now serve só para texto. Uma mensagem com arquivos, links `@` ou um campo que você entregou a ela vai para a fila. O mesmo acontece com uma mensagem sobre outro assunto, ou com uma enviada depois de você mudar o modo de permissões. Um aviso curto informa isso. Clique no **X** de uma mensagem para removê-la. Um chat pode ter até 20 mensagens em espera.
 
-Se ela já deu alguns passos mas ainda não disse nada quando a sua mensagem chega, os passos dela são mantidos, com uma linha esmaecida **Still working**. Send now não consegue dar a ela mais passos do que uma execução permite. Se ela chegou ao limite, ou parou para perguntar algo a você, a sua mensagem continua na lista.
+As mensagens em espera não são enviadas por conta própria nestes casos:
 
-As mensagens em espera não são enviadas sozinhas nestes casos:
+- **Você pressiona Stop.** Elas voltam para a caixa de mensagem.
+- **Ela está esperando por você** (uma aprovação ou uma resposta), **a execução falhou ou o aplicativo foi reiniciado.** Elas mostram **Held** (retida), com um botão **Send** (enviar). **Send** envia só aquela mensagem.
 
-- **Você pressiona Stop.** Elas voltam para a caixa de mensagem, e você pode editá-las ou reenviá-las.
-- **Ela está esperando por você**, por uma aprovação ou pela resposta a uma pergunta. Elas mostram **Held**, com um botão **Send** (enviar).
-- **A execução falhou, ou o aplicativo foi reiniciado.** Elas também mostram **Held**. Nada se perde.
+`/restart` e `/title` não fazem nada enquanto ela trabalha. Eles ficam na caixa até ela terminar.
 
-Uma mensagem retida continua retida até você enviá-la ou removê-la. **Send** envia só essa, e digitar uma mensagem nova não libera as outras.
+Em um trabalho mais longo, ela mantém uma lista de tarefas abaixo da última mensagem dela, com uma contagem como **2 of 5**. Você não pode editá-la. Depois que você escreve uma mensagem nova, a lista aparece esmaecida como **Plan from before your last message** (plano de antes da sua última mensagem).
 
-`/restart` e `/title` não fazem nada enquanto ela trabalha e ficam na caixa até ela terminar.
+## Encontrar os seus chats com a Professor Mari
 
-<a id="her-to-do-list"></a>
+Os chats dela ficam separados da sua lista normal de chats.
 
-### A lista de tarefas dela
+1. Clique em **Chats** no cabeçalho dela.
+2. Use **Search Prof. Mari chats** (buscar nos chats da Professor Mari) para encontrar um. Clique em um chat para abri-lo, renomeá-lo ou excluí-lo.
 
-Em um trabalho mais longo, ela mantém para si uma lista curta de passos. Ela fica abaixo da última mensagem dela, com uma contagem como **2 of 5**; o passo em andamento gira enquanto ela trabalha, e os passos concluídos aparecem riscados. Você não pode editá-la. Ela está ali para você ver em que ponto a assistente está, e a assistente a atualiza conforme avança. Quando você escreve depois da resposta que salvou a lista, ela fica esmaecida e mostra **Plan from before your last message**. Ela some depois da próxima resposta dela que não mexer na lista.
+Clique em **New chat** ou digite `/new` para começar do zero. Antes, o chat atual é salvo, e aparece **Professor Mari's previous chat was saved.**
 
-## Sair da janela dela
+## Quick answers in Search
 
-Você pode fechar a janela dela e continuar usando o aplicativo enquanto ela trabalha. A linha e a pílula na barra superior mostram como ela está indo, como descrito em [Onde encontrar a Professor Mari](#where-to-find-her). Clique na pílula para voltar ao chat dela.
+As respostas rápidas ficam desativadas até você ligar **Quick answers in Search** (respostas rápidas na busca) em **Search and Professor Mari settings**. Quando você digita uma pergunta na busca e nenhum resultado corresponde, ela escreve uma resposta curta, somente leitura, em um card **Quick answer · Read-only** (resposta rápida · somente leitura).
+
+- A resposta tem até três frases tiradas da documentação do Marinara, cita as páginas que usou e não altera nada. Durante cinco minutos, a mesma pergunta usa uma cópia salva.
+- Abaixo da resposta ficam **Copy** (copiar), **Answer again** (responder de novo) e **Continue with Prof. Mari** (continuar com a Professor Mari). Este último abre a janela dela em um chat novo com o nome da sua pergunta.
+- **Wait after typing** (espera depois de digitar) define quanto tempo a busca espera. **Answer with** (responder com) escolhe quem responde: um modelo que você baixou, **Same as Prof. Mari** (igual à Professor Mari) ou outra conta. Cada resposta é uma única requisição curta, então uma conta paga pode gerar custos.
+- Se uma resposta falhar, o card diz o motivo. **Choose a model** (escolher um modelo) só aparece quando falta uma chave ou um modelo. A mensagem do próprio serviço fica em **Details** (detalhes).
+
+## Referência: configurações, skills e lembranças
+
+### Linha de status e pílula da barra superior
+
+Você pode fechar a janela dela enquanto ela trabalha. Uma linha fina na borda inferior da barra superior oscila enquanto ela trabalha, fica verde quando ela termina, dourada enquanto uma aprovação espera e vermelha se a última execução falhou. Enquanto a janela dela está fechada, uma pílula na barra superior mostra **Working** (trabalhando), **Needs you** (precisa de você), **Done** (pronto) ou **Failed** (falhou). Clique na pílula para voltar ao chat dela.
+
+### Aparência
+
+Em **Search and Professor Mari settings → Appearance** (configurações da busca e da Professor Mari → aparência), escolha um visual, como **Basic**, **Prof. Mari loves Dottore** ou **Safari Prof. Mari**. Ele aparece no chat dela, na busca, na tela inicial e na barra superior. Alguns visuais são desbloqueados depois de tempo suficiente de jogo, e um visual bloqueado mostra quantas horas você já jogou até agora.
+
+### Skills
+
+A Skill é um documento curto de instruções que muda a forma como ela trata um certo tipo de pedido.
+
+1. Clique em **Skills** no cabeçalho dela. O painel **Professor Mari skills** (skills da Professor Mari) se abre.
+2. Clique em **New** (novo) para começar a partir de um modelo pronto, ou em **Upload** (enviar) para adicionar um arquivo `.md` ou `.txt`.
+3. Selecione uma Skill para editar os campos **Name**, **Description** e **Instructions** e clique em **Save** (salvar). Clique em **Delete** para removê-la.
+
+Desative uma Skill para mantê-la sem usá-la. Sem nenhuma Skill, o painel mostra **No custom skills yet** (ainda não há skills personalizadas).
+
+As skills integradas aparecem em **Always on** (sempre ativas), com a marca **Built-in** (integrada). São os guias dela para personagens, lorebooks, presets, temas, extensões, widgets da tela inicial e mais. Elas são somente leitura, e uma atualização do aplicativo as substitui. Para mudar uma, copie o texto dela para uma nova Skill sua.
+
+### Lembranças
+
+Uma lembrança é uma preferência fixa que ela guarda, como o jeito que você prefere definir as chaves das entradas de lorebook. Peça a ela ("lembre que eu sempre uso o nome do personagem como chave das entradas") ou abra **Memories** no cabeçalho dela para criar, editar, ativar ou desativar e excluir lembranças, ou use **Upload** para enviar um arquivo de texto.
+
+- Uma lembrança que ela salva começa desativada. O card de mudança oferece **Turn on** (ativar). Ela só salva uma lembrança quando você pede, nunca porque algo que ela leu mandou.
+- A cada turno, ela vê só um índice curto das suas lembranças ativadas e lê o texto completo quando uma delas é relevante. Uma lembrança **Persistent** (persistente) fica diante dela em todo turno, então mantenha poucas assim, e curtas.
+- As lembranças têm prioridade sobre os hábitos padrão dela quando há conflito.
 
 ## Status de confiança e de recuperação
 
-Abra **Context** (contexto) no cabeçalho da Professor Mari para ver o que vai junto com a sua próxima mensagem, o que fica neste chat da Professor Mari e como ela trabalha: o modelo com que ela responde, o orçamento de contexto e se os comandos de terminal dela rodam em ambiente isolado. O cabeçalho também mostra as aprovações pendentes, as Skills e as Memories. Confira esses itens antes de um pedido quando precisar saber o que a Professor Mari pode ler.
+Abra **Context** no cabeçalho dela para ver o que vai junto com a sua próxima mensagem, o que fica neste chat e como ela trabalha: o modelo, o orçamento de contexto e se o terminal dela roda em ambiente isolado (sandbox). O cabeçalho também mostra as aprovações pendentes, as Skills e as Memories. **Context** não concede acesso extra.
 
-A Professor Mari mantém as mudanças importantes no espaço de trabalho sujeitas às regras de aprovação e de revisão que o servidor já aplica. **Context** não concede acesso extra. As mudanças em arquivos sensíveis, as mudanças de dependências, os limites do terminal e a validação dos dados do aplicativo continuam sendo aplicados pelo servidor.
+Quando um pedido falha, o chat guarda o motivo e mostra **Retry** (tentar novamente) quando você pode enviá-lo de novo. Antes, corrija o problema indicado de conta, de ambiente isolado ou de acesso. Se a sua pergunta não foi salva, ela volta para a caixa de mensagem com os arquivos dela. **Retry** e **Retry with another model** (tentar novamente com outro modelo) então enviam o que está na caixa.
 
-Quando um pedido falha, o histórico do chat guarda o motivo da falha e mostra **Retry** quando o pedido pode ser enviado de novo. Corrija antes o problema indicado de conexão, de ambiente isolado, de capacidade ou de acesso remoto e depois tente novamente. Se a sua pergunta não foi salva, ela volta para a caixa de mensagem com os arquivos dela, para você poder mudá-la antes. **Retry** e **Retry with another model** (tentar novamente com outro modelo) então enviam o que está na caixa. Uma nova tentativa nunca começa sozinha a partir de uma busca, do FAQ ou de um estado de erro. Ela continua sendo uma ação sua.
+## Ler o FAQ
 
-## O FAQ dela é separado do chat
-
-Clique no favorito **FAQ** da tela inicial, ou em **Read FAQ** (ler o FAQ) no widget **Learn the engine** (conhecer o Engine), para abrir o **Professor Mari's FAQ** (FAQ da Professor Mari). É uma lista fixa de perguntas e respostas já escritas. Não é o chat com a IA.
-
-Digite na caixa **Search FAQ** para filtrar as perguntas. Cada pergunta tem uma tag de categoria colorida, como **Setup**, **Connections** ou **Game Mode**. Toque em uma pergunta para ler a resposta.
-
-Como o FAQ está escrito dentro do aplicativo, ele não conhece a sua configuração atual. Para qualquer coisa sobre os seus próprios dados ou o estado atual, use o chat.
+Clique no favorito **FAQ**, ou em **Read FAQ** (ler o FAQ) no widget **Learn the engine** (conhecer o Engine), para abrir o **Professor Mari's FAQ** (FAQ da Professor Mari). É uma lista fixa já escrita, não o chat com a IA, então ela não conhece a sua configuração. Digite em **Search FAQ** (buscar no FAQ) para filtrar. Cada pergunta tem uma tag de categoria, como **Setup**, **Connections** ou **Game Mode**. Toque em uma pergunta para ler a resposta.
 
 ## Limites e segurança
 
-Professor Mari é uma ajudante, não a documentação completa. Tenha estes limites em mente:
-
-- Ela não garante que o conhecimento embutido dela corresponde à versão exata do seu aplicativo. Quando algo depende da versão ou mudou há pouco tempo, confie primeiro nos guias e nas notas de versão.
-- Criar conteúdo novo costuma ser seguro, já que nada é sobrescrito. Editar conteúdo que já existe pede mais cuidado.
-- Uma dependência aprovada é código de terceiros com o mesmo acesso, em tempo de execução, que o código do Marinara que a importa. Confira o nome do pacote, a versão exata, a finalidade e a integridade mostrados no card de aprovação.
-- Nas edições, diga o item exato e o campo exato que devem mudar. Um pedido como "reescreva este personagem inteiro" é mais arriscado que "deixe a saudação inicial da Luna mais curta e mantenha a personalidade dela".
-- Nas criações de várias etapas, responda ao card de perguntas dela ou use as sugestões, em vez de tentar informar todos os campos de uma vez.
-- Se ela disser que terminou uma tarefa e o aplicativo não mostrar o resultado, confie no aplicativo. Termine a tarefa você mesmo pelo painel correspondente.
-- Se você acessa Marinara de outro dispositivo, e não do mesmo computador, as ações de edição dela exigem o acesso remoto configurado. Veja o guia de acesso remoto.
+- Ela não garante que o conhecimento embutido dela corresponde à versão do seu aplicativo. Para qualquer coisa que dependa da versão, confie nos guias e nas notas de versão.
+- Criar conteúdo novo costuma ser seguro. Editar conteúdo que já existe pede mais cuidado. Diga o item e o campo exatos: "deixe a saudação da Luna mais curta e mantenha a personalidade dela" é mais seguro que "reescreva este personagem".
+- Se ela disser que terminou e o aplicativo não mostrar o resultado, confie no aplicativo e termine a tarefa no painel correspondente.
+- Quando você acessa Marinara de outro dispositivo, as ações de edição dela exigem o acesso remoto configurado. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
 
 ## Solução de problemas
 
-- Nenhuma resposta: confira a conexão mostrada em **Context** ou selecione uma com o botão de conexão. Se não houver nenhuma configurada, abra o painel **Connections** e adicione uma.
-- Um encaminhamento trouxe o item errado: remova o item de contexto, recomece ou troque para o chat certo da Professor Mari e abra o encaminhamento de novo a partir do lugar de origem. O contexto vale só para o encaminhamento e para o chat atual da Professor Mari.
-- Um resultado não aparece em um editor: use **Open** no card do resultado. A Professor Mari pode ter concluído o comando enquanto a lista de recursos estava desatualizada.
-- Um pedido falha: leia o status da falha, corrija o problema de configuração indicado e use **Retry**. Peça de novo à Professor Mari a partir da origem só quando o próprio contexto não estiver mais correto.
-- A lista **Connections** abre quando você pressiona enviar: nenhuma conexão foi escolhida ainda. Escolha uma na lista, ou use antes **Add a connection**.
-- Ela não consegue ler a imagem anexada: o modelo precisa aceitar imagens na entrada. Troque para uma conexão cujo modelo enxergue imagens.
-- As consultas ao Fandom falham: elas precisam de internet, porque o Fandom é um site externo.
-- As ações dela são bloqueadas com erro de permissão: você está acessando Marinara pela rede, e não do mesmo computador. Configure o acesso remoto antes.
+| Sintoma | Solução |
+| --- | --- |
+| Nenhuma resposta | Confira a conta mostrada em **Context** ou escolha uma com o botão de conexão. Se não houver nenhuma, adicione uma em **Connections**. |
+| A lista **Connections** abre quando você pressiona enviar | Nenhuma conta foi escolhida. Escolha uma ou clique em **Add a connection**. |
+| Um encaminhamento trouxe o item errado | Remova o item de contexto, troque para o chat certo da Professor Mari e abra o encaminhamento de novo a partir do lugar de origem. |
+| Um resultado não aparece em um editor | Clique em **Open** no card do resultado. A lista de itens podia estar desatualizada. |
+| Um pedido falha | Leia a falha, corrija o problema indicado e clique em **Retry**. |
+| Ela não consegue ler a sua imagem | Troque para uma conta cujo modelo aceite imagens na entrada. |
+| As consultas ao Fandom falham | Elas precisam de conexão com a internet. |
+| Ações bloqueadas com erro de permissão | Você acessa Marinara pela rede. Configure o acesso remoto antes. |
+
+## Referência para usuários avançados
+
+Estas partes são para quem edita os próprios arquivos do Marinara ou quer ajustar a forma como ela trabalha. Você pode pulá-las.
+
+### Ambiente de execução
+
+Em **Runtime** (ambiente de execução), você pode escolher **Pi (experimental)**, o padrão, ou **Classic** (clássico). Pi é um modo em que ela pensa mais antes de agir e leva tarefas mais longas até o fim. Se a sua conta não conseguir rodar o Pi, ela usa o Classic. A mudança vale a partir da próxima resposta dela, e o Undo funciona igual nos dois. Se ela se comportar de forma estranha no Pi, troque para o Classic.
+
+**Read the handbook before the first write** (ler o guia antes da primeira alteração), também em **Runtime**, vem ativado por padrão. A primeira mudança dela em uma área com uma skill integrada é recusada até que ela leia essa skill. Isso ajuda modelos menores. Só você pode desligar essa opção.
+
+### O que ela alcança no seu computador
+
+Ela pode ler e alterar os próprios arquivos de programa do Marinara e rodar comandos em ambiente isolado, para conseguir consertar o aplicativo. Quase ninguém precisa disso.
+
+- As ferramentas de arquivo dela ficam dentro da pasta onde Marinara está instalado. Os comandos de terminal diretos não conseguem ler os seus outros arquivos pessoais, não têm acesso à rede e não herdam segredos do servidor.
+- O `.env`, o arquivo de chave que protege as suas chaves de API salvas e os arquivos internos do Git ficam fora do alcance dela.
+- Ela não consegue escrever direto na sua pasta de dados, onde ficam os seus personagens e chats. Ela usa o fluxo de mudanças revisáveis descrito acima.
+- Manifestos de dependência, arquivos de lock, inicializadores, instaladores e fluxos de CI ficam separados, esperando antes a sua aprovação. Os scripts de instalação de pacotes continuam desativados.
+- Os comandos param sozinhos depois de pouco tempo.
+- Se Marinara não conseguir oferecer o ambiente isolado de terminal do macOS ou do Linux, os comandos de terminal diretos e o `mari code check` ficam desativados. Ela ainda pode usar as ferramentas estruturadas de arquivo e de dados do aplicativo.
+
+<a id="held-changes-for-files-and-libraries"></a>
+
+### Mudanças retidas em arquivos e bibliotecas
+
+- **Sensitive files** (arquivos sensíveis: arquivos de dependência, inicializadores, instaladores, fluxos de CI) mostram o caminho e o conteúdo novo, com **Apply change** (aplicar a mudança) e **Discard** (descartar).
+- **Dependencies** (dependências) mostram o pacote do npm, a versão exata e a integridade do registro, com **Install** (instalar) e **Not now** (agora não). Os comandos de instalação ficam bloqueados no terminal dela. Aprovar uma biblioteca significa confiar no código dela quando Marinara executar esse código.
+
+### Como ela lida com Decisions
+
+Um modelo de decisão é um modelo pequeno que responde a perguntas de sim ou não. Para as **Activation questions** (perguntas de ativação) dos agentes, as declarações **Decision** dos lorebooks e os prompts condicionais, ela verifica antes qual modelo de decisão você escolheu.
+
+- Ela pergunta antes de acrescentar conteúdo de Decision e, sem um modelo de decisão, mantém o trabalho novo sem Decisions, a menos que você peça.
+- Ela prefere usar poucas decisões, com um controle de tempo: **Sticky** ou **Cooldown** para entradas de lorebook, **Trigger Cadence** para a ativação de agentes e `sticky`, `cooldown` ou `every` em condições de prompt.
+- Ela pergunta antes de acrescentar conteúdo que muda no início de um prompt ou dentro do histórico do chat, para que o começo do prompt continue estável para o cache de prompt do serviço.
+- Diga a ela "Stop reminding me to set up a Decision model" para parar os lembretes.
+
+Veja [Modelos de decisão](../connections/decision-models.md), [Prompts condicionais](../prompts/conditional-prompts.md), [Agentes personalizados](../agents/custom-agents.md#activation-questions) e [Entradas de lorebook](../lorebooks/entries.md#decision-activation).
+
+### O comando mari
+
+Uma mudança feita com o comando `mari` em um terminal não pertence a nenhum chat, então o card de mudança dela aparece em todos os chats da Professor Mari.
 
 ## Guias relacionados
 

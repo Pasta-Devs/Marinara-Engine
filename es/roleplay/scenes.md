@@ -1,101 +1,76 @@
 # Escenas: ramificar un roleplay
 
-Esta guía explica las escenas en Marinara Engine. Una escena es un roleplay breve y autónomo que se ramifica a partir de un chat de **Conversation** (Conversación). Esta guía cubre cómo iniciar una, cómo jugarla y cómo terminarla, descartarla, bifurcarla o convertirla.
+Una escena es un roleplay breve que se ramifica a partir de un chat de Conversation. Úsala para un flashback, una cita o una pelea, sin perder el hilo principal.
 
-## Qué es una escena
+Cada escena es su propio chat de Roleplay, con su propio fondo, sus propios personajes y su propio mensaje de apertura. Mientras está abierta, el chat de Conversation original muestra una tarjeta que dice **A scene is in progress** (Hay una escena en curso), con un botón **Go to Scene** (Ir a la escena).
 
-Una escena es un roleplay secundario que surge de un chat de **Conversation**. Un chat de **Conversation** es el modo de mensajería directa, estilo mensajero. Una escena te permite, a ti y a un personaje, salir de ese chat hacia un momento de roleplay concentrado. Ese momento puede ser un recuerdo, una cita o una pelea. El hilo principal no se pierde.
-
-Cada escena es su propio chat de roleplay. Tiene su propio fondo, sus propios personajes en el escenario y su propio mensaje de apertura. El personaje o la historia escriben la preparación por ti cuando la escena comienza.
-
-Una escena es temporal por diseño. Mientras está abierta, el chat original de **Conversation** muestra una tarjeta pequeña que dice **A scene is in progress** (Hay una escena en curso). Esa tarjeta tiene un botón **Go to Scene** (Ir a la escena) que te lleva de un salto a la escena activa.
-
-Mientras la escena está en curso, sus personajes no responden en el chat de Conversation original, y un aviso indica que están en una Scene activa. Para que te respondan allí de todos modos, activa **Allow replies here** (Permitir respuestas aquí) en la tarjeta. Empieza desactivado. Con él activado, los personajes de la escena responden cuando les escribes, pero siguen sin enviar mensajes allí por su cuenta.
-
-Cuando terminas, eliges qué pasa con la escena. Puedes guardar un resumen de vuelta en la conversación, desechar la escena o conservarla como un roleplay permanente propio. Esas opciones se explican más abajo.
+Mientras una escena está en curso, sus personajes no responden en el chat de Conversation, y un aviso indica que están en una escena activa. Para que te respondan allí de todos modos, activa **Allow replies here** (Permitir respuestas aquí) en la tarjeta. Empieza desactivado. Con él activado, los personajes de la escena responden cuando les escribes, pero siguen sin enviar mensajes por su cuenta.
 
 ## Iniciar una escena
 
-Inicias una escena desde dentro de un chat de **Conversation** con el comando `/scene`. El comando tiene un alias, `/rp`, que hace lo mismo.
+Antes de empezar: abre un chat de Conversation que ya tenga algunos mensajes. Consulta [Conversation Mode: primeros pasos](../conversation/getting-started.md).
 
-Sigue estos pasos:
+1. En el cuadro de mensaje, escribe `/scene` y una descripción breve. `/rp` hace lo mismo. Por ejemplo: `/scene we sneak into the old library at midnight`
+2. Pulsa <kbd>Enter</kbd>. Se abre **Scene Prompt Setup** (Preparación del prompt de escena).
+3. Si ves **Scene persona** (Persona de la escena), elige qué persona te representa. **Use the Conversation persona** (Usar la persona de Conversation) conserva la persona de la Conversation.
+4. Si ves **Scene characters** (Personajes de la escena), deja activado **Let the scene planner choose characters** (Dejar que el planificador de escenas elija los personajes) para que Marinara elija. O desactívalo y elige al menos un personaje.
+5. Elige un **Prompt preset** (Preset de prompt). Déjalo en **None** (Ninguno) para usar el preset de tu [perfil de ajustes](../chats/settings-profiles.md#choosing-the-default-profile) predeterminado de Roleplay. Marinara recuerda tu elección para la siguiente escena.
+6. En **POV**, elige **First Person**, **Second Person** o **Third Person**.
+7. En **Tense**, elige **Past**, **Present** o **Future**.
+8. Opcional: escribe notas en **Extra instructions** para dirigir la escena.
+9. Haz clic en **Plan Scene**.
 
-1. Abre un chat de **Conversation** que ya tenga algunos mensajes.
-2. En la caja de mensaje, escribe el comando de escena. Puedes añadir después una descripción breve de lo que quieres.
+La escena se abre como un nuevo chat de Roleplay en tu lista de chats, con un mensaje de apertura que plantea la situación. Haz clic en **Cancel** (Cancelar) en la ventana de preparación para detenerte sin crear una escena.
 
-```
-/scene we sneak into the old library at midnight
-```
+`/scene` solo también funciona cuando la conversación tiene suficiente historial. Si la conversación aún no tiene mensajes, Marinara te pide que añadas una descripción o que chatees primero.
 
-3. Pulsa Enter. Se abre la ventana **Scene Prompt Setup** (Preparación del prompt de escena).
-4. Elige un **Prompt preset** (preajuste de prompt) para la nueva escena o déjalo en **None** (ninguno) para usar el preajuste de tu perfil de ajustes de Roleplay marcado con una estrella. Marinara recuerda esta elección para la siguiente escena. Las instrucciones propias de la escena siguen aplicándose junto con el preajuste.
-5. En **POV**, elige cómo se enmarca la escritura: **First Person**, **Second Person** o **Third Person**.
-6. En **Tense**, elige **Past**, **Present** o **Future**.
-7. Opcionalmente, escribe notas en la caja **Extra instructions** para dirigir la escena.
-8. Haz clic en **Plan Scene**.
+Un personaje también puede pedir iniciar una escena. Junto a su respuesta aparece una invitación **Set up scene** (Configurar escena). Haz clic en ella para abrir **Scene Prompt Setup** y luego continúa desde el paso 3. **Cancel** cierra la preparación, y la invitación sigue disponible, incluso después de recargar.
 
-Marinara planifica la escena y la abre como un nuevo chat de roleplay. Deberías ver la nueva escena aparecer en tu lista de chats y abrirse automáticamente, con un mensaje de apertura que plantea la situación. Si cambias de idea en la ventana de preparación, haz clic en **Cancel** y no se crea ninguna escena.
+Cómo se abre la escena:
 
-La nueva escena parte de tu perfil de ajustes de Roleplay marcado con una estrella, igual que cualquier chat nuevo de Roleplay. Su apertura funciona así:
+- Parte de tu perfil de ajustes predeterminado de Roleplay, como cualquier chat nuevo de Roleplay. Un [perfil de ajustes](../chats/settings-profiles.md) es un conjunto guardado de ajustes del chat.
+- Cuando el plan de la escena los incluye, primero se publica una nota breve sobre cómo jugar la escena como mensaje del narrador, y luego la descripción de la escena como un segundo mensaje del narrador. Un plan sin nota se la salta.
+- Con un solo personaje, la apertura está escrita con la voz de ese personaje, con las palabras habladas entre comillas dobles salvo que tus instrucciones de escritura fijen otro estilo.
+- En una escena de grupo, la apertura sigue el modo de grupo del perfil. **Merged (Narrator)** (Fusionado: narrador) es el predeterminado: una sola respuesta da voz a todos los personajes. En el modo **Individual**, la escribe el personaje que abre la escena. Consulta [Chats grupales](../chats/group-chats.md#choose-who-speaks).
 
-- La descripción de la escena es un mensaje independiente del narrador, publicado antes del mensaje de apertura.
-- Con un solo personaje, el mensaje de apertura está escrito con la voz de ese personaje. Las palabras pronunciadas en voz alta van entre comillas dobles, salvo que tus instrucciones de escritura indiquen otro estilo.
-- En una escena de grupo, la apertura sigue el modo de grupo del perfil. En el modo combinado (el predeterminado), una sola voz narrativa habla por todos. En el modo **Individual** (individual), lo escribe el personaje que abre la escena.
+## Usar la barra de escena
 
-También puedes iniciar una escena sin descripción. Escribe solo el comando por sí mismo si la conversación ya tiene suficiente historia con la que construir.
+Dentro de una escena, una barra encima del cuadro de mensaje decide qué pasa con ella. Los botones que aparecen dependen de si la escena tiene una conversación de origen.
 
-```
-/scene
-```
+| Botón | Qué hace |
+| --- | --- |
+| **Back to conversation** (Volver a la conversación) | Vuelve al chat de Conversation que inició la escena. La escena sigue abierta. Solo aparece cuando hay una conversación de origen. |
+| **End Scene** (Terminar escena) | Guarda un resumen y termina la escena. Haz clic en **Yes** en **End and save summary?** (¿Terminar y guardar el resumen?). |
+| **Discard** (Descartar) | Borra la escena y no guarda nada. Haz clic en **Yes** en **Discard scene?** (¿Descartar la escena?). |
+| **Convert** (Convertir) | Convierte la escena en un Roleplay independiente propio. Consulta más abajo. |
 
-Si la conversación aún no tiene mensajes, Marinara te pide que añadas una descripción o que converses primero antes de poder planificar una escena.
-
-Un personaje también puede proponer una escena. Junto a su respuesta aparece una invitación con **Set up scene** (configurar escena), sin tapar la conversación. Haz clic cuando quieras abrir **Scene Prompt Setup**, elige **Prompt preset**, **POV** y **Tense** y pulsa **Plan Scene**. **Cancel** cierra la configuración sin crear nada; la invitación sigue disponible tras cancelar o recargar.
-
-## La barra de escena: End Scene, Discard, Convert y Back to conversation
-
-Mientras estás dentro de una escena activa, una barra se sitúa justo encima de la caja de mensaje. Contiene los controles que deciden qué pasa con la escena. Los botones exactos que ves dependen de si la escena tiene una conversación vinculada.
-
-- **Back to conversation** (Volver a la conversación) te devuelve al chat de **Conversation** que inició la escena. Deja la escena abierta y en marcha, para que puedas volver a ella más tarde. Este botón aparece solo cuando la escena tiene una conversación de origen.
-- **End Scene** (Terminar escena) finaliza la escena y guarda un resumen. Cuando haces clic, la barra pregunta **End and save summary?** (¿Terminar y guardar el resumen?) con un botón **Yes** y un botón **No**. Haz clic en **Yes** para confirmar. El botón muestra un estado **Saving...** mientras trabaja. Marinara escribe un resumen corto de la escena de vuelta en la conversación de origen como una memoria, y luego te devuelve al punto donde esa conversación se quedó.
-- **Discard** (Descartar) desecha la escena sin guardar nada. Cuando haces clic, la barra pregunta **Discard scene?** (¿Descartar la escena?) con botones **Yes** y **No**. Haz clic en **Yes** para eliminar la escena y volver a la conversación. No se escribe nada de vuelta.
-- **Convert** (Convertir) transforma la escena en un chat de roleplay independiente propio. Se explica en su propia sección más abajo, porque cambia la escena de forma permanente.
-
-Tómate tu tiempo antes de hacer clic en **End Scene** o **Discard**, porque ambos quitan la escena de tu conversación. **End Scene** conserva una memoria de lo que pasó. **Discard** no conserva nada.
+**End Scene** muestra **Saving...**, escribe un resumen corto en la conversación como una memoria y te devuelve allí. **Discard** no conserva nada. Ambos quitan la escena de tu conversación.
 
 ## Clonar una escena a partir de un mensaje
 
-Dentro de un chat de escena, cada mensaje tiene un pequeño botón de acción cuya tooltip (texto de ayuda) dice **Clone from here** (Clonar desde aquí). Esto te permite bifurcar el contenido de la escena hacia un chat de roleplay completamente nuevo, copiado hasta ese mensaje inclusive.
-
-Para usarlo:
+Para copiar una escena hasta un mensaje y continuarla por separado, mientras la original sigue abierta:
 
 1. Pasa el cursor sobre el mensaje desde el que quieres ramificar.
-2. Haz clic en la acción **Clone from here**.
+2. Haz clic en su acción **Clone from here** (Clonar desde aquí).
 
-Marinara crea un roleplay independiente y nuevo a partir de la escena, copiando los mensajes hasta ese punto. Tu escena original sigue abierta y activa, así que esta es una forma segura de explorar un camino diferente. Deberías ver una confirmación de que la escena se clonó como un roleplay, y el nuevo chat se abre.
+Marinara crea un nuevo Roleplay independiente con los mensajes hasta ese mensaje inclusive, muestra una confirmación y lo abre.
 
-Clonar conserva la escena original. Convertir, que se describe a continuación, no.
+## Convertir una escena en un Roleplay
 
-## Convertir una escena en un roleplay independiente
+Usa **Convert** cuando una escena ha crecido hasta convertirse en una historia que quieres conservar como un Roleplay normal.
 
-El botón **Convert** de la barra de escena separa la escena y la vuelve un chat de roleplay permanente por sí mismo. Cuando haces clic en **Convert**, se abre una ventana de confirmación titulada **Convert this scene into a standalone roleplay?** (¿Convertir esta escena en un roleplay independiente?)
+1. Haz clic en **Convert** en la barra de escena.
+2. Lee **Convert this scene into a standalone roleplay?** (¿Convertir esta escena en un roleplay independiente?). Crea un nuevo chat de Roleplay a partir de la escena y separa la escena original de su conversación. No se escribe de vuelta ningún resumen de escena ni ninguna memoria del personaje.
+3. Haz clic en **Convert**, o en **Cancel** para no cambiar nada.
 
-La ventana explica lo que pasará. Crea un nuevo chat de roleplay a partir de la escena actual y separa la escena original de su conversación. No se escribe de vuelta en la conversación original ningún resumen de escena ni ninguna memoria del personaje. Haz clic en **Convert** para continuar, o en **Cancel** para dejar las cosas como están.
+Clonar mantiene abierta la escena original. Convertir no.
 
-Usa **Convert** cuando una escena ha crecido hasta convertirse en una historia que quieres conservar y continuar como un roleplay normal. Usa **Clone from here** en cambio cuando quieres una copia pero también quieres que la escena original se quede donde está.
+## Escenas y chats conectados
 
-Para mantener claros los dos caminos de bifurcación: **Clone from here** te permite bifurcar ramas de escena mientras la original sigue activa. **Convert** te permite convertir ramas de escena en un roleplay independiente, y quita la original de su conversación.
-
-## Por qué las escenas no heredan el contexto del chat conectado
-
-Un chat de **Conversation** puede estar conectado a un roleplay de modo que el contexto fluya entre ellos. Las escenas funcionan de otra manera a propósito. Una escena es autónoma.
-
-Una escena no arrastra automáticamente el contexto de ida y vuelta de una conversación conectada, incluso cuando el chat padre sí lo hace. Una conversación conectada puede pasar de forma discreta notas cortas de dirección a un roleplay vinculado para orientar su historia, pero una escena ignora esas notas. Esto mantiene una escena centrada en su propio momento en lugar de arrastrar toda la conversación.
-
-Por eso una escena se lee limpiamente como su propia pequeña historia. Si quieres el vínculo bidireccional continuo entre una conversación y un roleplay, usa un chat conectado en lugar de una escena. Consulta la guía de chats conectados enlazada más abajo para esa función.
+Una escena es autónoma. No toma contexto de una Conversation conectada, aunque el chat padre sí lo haga, e ignora las notas cortas de dirección que una conversación conectada puede enviar a un Roleplay vinculado. Para un vínculo bidireccional continuo entre una conversación y un roleplay, usa un chat conectado. Consulta [Conectar una Conversation a un Roleplay o Game](../chats/connected-chats.md).
 
 ## Guías relacionadas
 
 - [Modo Roleplay: primeros pasos](getting-started.md)
-- [Ramas del chat](../chats/branches.md)
-- [Conectar una conversación a un roleplay o juego](../chats/connected-chats.md)
+- [Ramas de chat](../chats/branches.md)
+- [Conectar una Conversation a un Roleplay o Game](../chats/connected-chats.md)

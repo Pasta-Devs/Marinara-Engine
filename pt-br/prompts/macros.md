@@ -1,14 +1,12 @@
 # Macros de prompt
 
-Este guia explica as macros de prompt no Marinara Engine. A macro é uma etiqueta curta, escrita como `{{tag}}`, que Marinara troca por um valor atual. Esse valor entra no momento em que o prompt (o texto que Marinara envia para a IA) é montado: o seu nome ou a data de hoje, por exemplo. Aqui você vê todas as macros embutidas, onde pode digitá-las e quais erros evitar.
+A macro é uma etiqueta curta, escrita como `{{tag}}`, que Marinara troca por um valor atual, como o seu nome ou a data de hoje, quando monta um prompt. Este guia lista todas as macros embutidas, onde você pode digitá-las e quais erros evitar.
 
-## O que são as macros e onde funcionam
+## Onde as macros funcionam
 
-A macro é um texto literal entre chaves duplas, como `{{user}}` ou `{{char}}`. Ao montar o texto que envia para a IA, Marinara procura essas etiquetas e troca cada uma pelo valor do momento. Não existe um botão para ligar ou desligar as macros. Todo campo compatível com elas sempre as resolve.
+Ao montar o texto que envia para a IA, Marinara troca cada `{{tag}}` pelo valor do momento. Não existe um botão para ligar as macros. Todo campo compatível com elas sempre as resolve. Nos nomes das macros embutidas, maiúsculas e minúsculas não fazem diferença, então `{{user}}` e `{{USER}}` funcionam igual. O valor de uma macro pode conter outra macro, e Marinara resolve essa segunda também.
 
-Nas macros embutidas, maiúsculas e minúsculas não fazem diferença no nome. Ou seja, `{{user}}` e `{{USER}}` funcionam igual.
-
-As macros podem ser digitadas em vários lugares do aplicativo:
+Você pode digitar macros nestes lugares:
 
 - Campos de personagem no **Character Editor** (editor de personagem): Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions e o campo **Depth Prompt**.
 - Campos de persona no **Persona Editor** (editor de persona), que são os mesmos campos do card.
@@ -18,13 +16,7 @@ As macros podem ser digitadas em vários lugares do aplicativo:
 - Modelos de prompt dos agentes.
 - A caixa de mensagem do chat. Digite `{{roll:1d20}}` em uma mensagem e a macro é resolvida antes do envio.
 
-O valor de uma macro pode conter outra macro, e Marinara resolve essa segunda também.
-
-## Antes de começar
-
-Você não precisa configurar nada. As macros embutidas funcionam na hora, sem chave de API e sem nenhuma conexão extra. A chave de API é o código secreto que permite ao Marinara conversar com um provedor de IA, mas as macros rodam dentro do Marinara, por conta própria.
-
-Dois recursos de macro dependem de outras partes do aplicativo:
+As macros rodam dentro do Marinara e não precisam de configuração nem de chave de API. Dois recursos dependem de outras partes do aplicativo:
 
 - As variáveis de preset (o coringa `{{NAME}}`) precisam de um preset de prompt que as defina. Veja [Variáveis de preset](preset-variables.md).
 - A macro de agente `{{agent::TYPE}}` só mostra texto depois que o agente correspondente roda e produz uma saída.
@@ -35,11 +27,11 @@ Estas macros trazem os nomes e os campos do card de quem fala e do personagem qu
 
 | Macro | Resultado |
 | --- | --- |
-| `{{user}}` / `{{userName}}` | O nome de exibição atual (ou o nome da persona). Sem persona definida, o padrão é `User`. |
+| `{{user}}` / `{{userName}}` | O seu nome de exibição atual (ou o nome da persona). Sem persona definida, o padrão é `User`. |
 | `{{userNamePhonetic}}` | O nome Phonetic da persona, ou `{{user}}` quando esse campo está vazio. |
 | `{{char}}` / `{{charName}}` | O nome do personagem atual. O padrão é `Character`. |
-| `{{21-character-card-ID}}` | Nome de outro personagem. Troque o marcador pelo ID exato de 21 caracteres do card para incluí-lo no contexto. |
-| `{{persona-21-character-card-ID}}` | Sintaxe de marcador para o nome de outra persona. Troque o texto depois de `persona-` pelo ID exato de 21 caracteres do card para incluir o contexto dele. |
+| `{{21-character-card-ID}}` | Nome de outro personagem. Troque o texto do marcador pelo ID exato de 21 caracteres do card para incluí-lo no contexto. |
+| `{{persona-21-character-card-ID}}` | Nome de outra persona. Troque o texto do marcador depois de `persona-` pelo ID exato de 21 caracteres do card para incluí-lo no contexto. |
 | `{{charNamePhonetic}}` | O nome Phonetic do personagem, ou `{{char}}` quando esse campo está vazio. |
 | `{{characters}}` | Todos os personagens do chat, incluindo os inativos, separados por vírgulas. Esta macro acrescenta apenas os nomes; ela não adiciona os cards dos personagens inativos ao prompt. |
 | `{{group}}` | Todos os outros personagens ativos do chat em grupo, sem contar quem está respondendo. A persona não faz parte dessa lista de personagens. |
@@ -69,9 +61,9 @@ A macro `{{group}}` acompanha o personagem que está respondendo no momento, inc
 
 O campo Phonetic tem duas funções. Ele define como o nome é pronunciado na conversão de texto em voz. E também alimenta as macros `{{charNamePhonetic}}` e `{{userNamePhonetic}}`. O campo aparece tanto no **Character Editor** quanto no **Persona Editor**.
 
-Para citar um personagem fora do chat atual, copie o ID do card diretamente entre chaves duplas, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Não inclua os caracteres literais `<` ou `>`. Marinara troca a macro pelo nome do personagem. Nos chats de Roleplay que usam um preset de prompt, também adiciona Description, Personality, Appearance, Backstory, Scenario e Example Dialogue do card ao prompt de sistema; nos outros chats, a macro só vira o nome. Funciona em mensagens do chat e campos de prompt e, nos chats de Roleplay com preset, também em entradas de lorebook ativadas. As saudações iniciais ficam de fora. Lorebooks ativados vinculados ao card mantêm suas regras normais de palavras-chave, constant, filtros, probabilidade e orçamento de tokens. Se o personagem já estiver no chat, a macro ainda assim é trocada pelo nome dele, e o card não é adicionado uma segunda vez.
+Para citar um personagem que não faz parte do chat atual, copie o ID do card e coloque-o diretamente entre chaves duplas, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Não inclua os caracteres literais `<` ou `>`. Marinara troca a macro pelo nome do personagem. Nos chats de Roleplay que usam um preset de prompt, também adiciona Description, Personality, Appearance, Backstory, Scenario e Example Dialogue do card citado ao prompt de sistema; nos outros chats, a macro só vira o nome. Isso funciona em mensagens do chat e campos de prompt e, nos chats de Roleplay com preset, também em entradas de lorebook ativadas. As saudações iniciais do card citado ficam de fora. Os lorebooks ativados que estão vinculados a esse card continuam sujeitos às regras normais de palavras-chave, constant, filtros, probabilidade e orçamento de tokens. Se o personagem já estiver no chat, a macro ainda assim é trocada pelo nome dele, e o card não é adicionado uma segunda vez.
 
-Para citar uma persona inativa, acrescente `persona-` antes do ID copiado, como em `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara troca a macro pelo nome da persona e adiciona os campos Description, Personality, Appearance, Backstory e Scenario dela aos ID Macro Cards. Os lorebooks vinculados continuam seguindo as regras normais de ativação.
+Para citar uma persona diferente da ativa, acrescente `persona-` antes do ID copiado, como em `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara troca a macro pelo nome da persona e adiciona os campos Description, Personality, Appearance, Backstory e Scenario desse card ao mesmo contexto de ID Macro Cards. Os lorebooks ativados que estão vinculados a essa persona mantêm as regras normais de ativação.
 
 ## Macros do Conversation Mode
 
@@ -116,7 +108,7 @@ Estas macros descrevem o chat atual e a requisição atual.
 | `{{gameStoryboardKeyframeCount}}` | O alvo atual de **Keyframes per Turn** do Game Mode, de 1 a 6. O padrão é `3`. |
 | `{{agent::TYPE}}` | A saída salva de um agente do tipo indicado. |
 
-`{{reasoning}}` informa o nível que o modelo realmente recebe, depois de combinados o seu preset, a conexão e as configurações do chat. **Maximum** aparece como o nível mais alto que o modelo aceita, então pode ser `max`, `xhigh` ou `high`. Como `off` é lido como falso, `{{#if reasoning}}` mantém um bloco só enquanto o modelo pensa. Se o seu preset ou chat já tiver uma variável própria chamada `reasoning`, essa variável mantém o nome.
+`{{reasoning}}` informa o nível que o modelo recebe, depois de combinados o seu preset, a conta e as configurações do chat. **Maximum** aparece como o nível mais alto que o modelo aceita, então pode ser `max`, `xhigh` ou `high`. Como `off` é lido como falso, `{{#if reasoning}}` mantém um bloco só enquanto o modelo pensa. Se o seu preset ou chat já tiver uma variável própria chamada `reasoning`, essa variável mantém o nome.
 
 O valor de `{{lastGenerationType}}` é uma etiqueta simples. Entre os valores que aparecem no aplicativo estão `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan` e `retry_agents`. Essa lista pode crescer, então trate os valores como exemplos, não como um conjunto fechado.
 
@@ -134,11 +126,11 @@ Use as macros de outlet em seções de prompt nos modos Conversation, Roleplay o
 
 ## Macro de tamanho do lorebook
 
-`{{lorebooksize::ID}}` resulta no total de entradas do lorebook com esse ID. Troque `ID` pelo ID real, copiado do painel Lorebooks. Por exemplo, se o ID for `V1StGXR8_Z5jdHi6B-myT` e houver 151 entradas, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resulta em `151`.
+`{{lorebooksize::ID}}` resulta no total de entradas do lorebook com esse ID. Troque `ID` pelo ID do lorebook, que você pode copiar do painel **Lorebooks**. Por exemplo, se um lorebook tiver o ID `V1StGXR8_Z5jdHi6B-myT` e contiver 151 entradas, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resulta em `151`.
 
-IDs desconhecidos resultam em `0`. A contagem inclui todas as entradas, ativadas, desativadas ou em pastas.
+IDs de lorebook desconhecidos resultam em `0`. A contagem inclui todas as entradas, estejam elas ativadas, desativadas ou em pastas.
 
-Use esta macro em seções de prompt, campos de cards de personagem, conteúdo de entradas de lorebook ou qualquer lugar onde macros são resolvidas.
+Use esta macro em seções de prompt, campos de cards de personagem, conteúdo de entradas de lorebook ou qualquer outro lugar onde macros são resolvidas.
 
 <a id="lorebook-include-macro"></a>
 
@@ -229,12 +221,12 @@ Com as variáveis, uma parte do prompt guarda um valor e outra parte, mais adian
 | --- | --- |
 | `{{setvar::name::value}}` | Guarda um valor e não deixa nada no texto. |
 | `{{getvar::name}}` | Lê um valor guardado (nada, se ele nunca foi definido). |
-| `{{addvar::name::value}}` | Soma quando os dois valores são numéricos; caso contrário, acrescenta o texto. |
-| `{{addnumvar::name::value}}` | Extensão do Marinara que sempre faz uma soma numérica. Valores ausentes ou inválidos contam como 0, e o estouro é ignorado. |
+| `{{addvar::name::value}}` | Soma os números quando os dois valores são numéricos; caso contrário, acrescenta o novo texto. |
+| `{{addnumvar::name::value}}` | Extensão do Marinara: sempre soma um número a um valor numérico guardado. Números ausentes ou inválidos contam como 0; uma soma que estoura o limite é ignorada. |
 | `{{incvar::name}}` | Soma 1 a uma variável numérica e insere o novo valor. |
 | `{{decvar::name}}` | Subtrai 1 de uma variável numérica e insere o novo valor. |
 
-As variáveis são resolvidas da esquerda para a direita durante a montagem do prompt e salvas no chat atual. Um valor definido cedo, por exemplo em uma entrada de lorebook que vem antes, pode ser lido depois no mesmo prompt. Assim como as variáveis locais do SillyTavern, ele permanece nos turnos seguintes e depois de reiniciar, sem passar para outros chats.
+As variáveis são resolvidas da esquerda para a direita em uma mesma montagem do prompt. Um valor definido cedo, por exemplo em uma entrada de lorebook que vem antes, pode ser lido depois no mesmo prompt. Marinara também salva as variáveis no chat atual, como as variáveis locais do SillyTavern: elas permanecem nos turnos seguintes e depois de reiniciar o aplicativo, enquanto outro chat tem os próprios valores, separados.
 
 Qualquer `{{NAME}}` que não seja uma macro embutida é procurado pelo nome: primeiro entre as variáveis do preset, depois entre as do chat. Se nenhuma tiver esse nome, a etiqueta fica no texto exatamente como você digitou. A variável do preset tem prioridade quando as duas usam o mesmo nome. Veja [Variáveis de preset](preset-variables.md) para saber sobre o lado do preset.
 
@@ -242,14 +234,14 @@ Qualquer `{{NAME}}` que não seja uma macro embutida é procurado pelo nome: pri
 
 Você não precisa usar `{{setvar}}` para criar uma variável. A seção **Chat Variables** (variáveis do chat) do painel **Chat Settings** (configurações do chat) permite digitar diretamente um nome e um valor e usar esse nome onde as macros funcionam, inclusive nas suas próprias mensagens. Adicione `char1` com o valor `Mary`, digite `{{char1}} walks in.` e a IA lê "Mary walks in."
 
-Estas são as regras:
+Regras das variáveis do chat:
 
 - Os nomes aceitam letras, números e sublinhados, e precisam começar com uma letra ou sublinhado. Nomes com exatamente 21 caracteres são reservados para referências a personagens. Um nome com ponto ou hífen ainda pode ser definido e lido com `{{setvar}}` e `{{getvar}}`, mas não é resolvido na forma direta `{{name}}`.
 - Não é possível usar o nome de uma macro embutida. `{{char}}` sempre significa o personagem.
 - Sua mensagem continua mostrando a etiqueta que você digitou. O valor é inserido ao montar o prompt, então alterá-lo depois também muda os turnos anteriores que o usaram.
 - A seção também lista variáveis definidas por `{{setvar}}`, pois elas compartilham um único armazenamento por chat.
 
-Para conhecer o painel, veja [Visão geral das configurações do chat](../chats/chat-settings.md).
+Para conhecer o painel, veja [Visão geral do painel Chat Settings](../chats/chat-settings.md).
 
 ## Macros de formatação
 
@@ -282,9 +274,16 @@ Esses campos também completam os nomes das macros para você. Digite `{{ch` no 
 
 Você também pode digitar `/macros` na caixa do chat (a forma curta `/macro` também funciona). O comando imprime a lista completa de macros no próprio chat, como lembrete rápido.
 
-Os blocos condicionais combinam comparações com `||` (OU), `&&` (E) e parênteses. As listas de igualdade aceitam a forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Veja em [Prompts condicionais](conditional-prompts.md) a precedência, exemplos de chat em grupo e a lista completa de operadores.
+## Condições com macros
 
-Uma condição também pode consultar o Decision model sobre a cena: `{{#if decision:"The latest message moves the scene to a new place"}}` para sim/não e `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` para escolher uma opção. Sem modelo ou resposta, valem não. Veja [Consultar o Decision model](conditional-prompts.md#asking-the-decision-model). Adicione `sticky:3 cooldown:5` depois da declaração para manter um sim por três turnos e depois esperar cinco; veja [Sticky e cooldown](conditional-prompts.md#sticky-and-cooldown). Adicione `until:"..."` ou `while:"..."` para manter um sim enquanto uma segunda declaração permitir; veja [Until e while](conditional-prompts.md#until-and-while). `every:3` pergunta apenas a cada três turnos, e `priority:high` ou `priority:low` escolhe quais cabem no plano; veja [Verificar a cada poucos turnos](conditional-prompts.md#checking-every-few-turns), [Prioridade](conditional-prompts.md#priority) e [Limites e custo](conditional-prompts.md#limits-and-cost).
+Os blocos condicionais (`{{#if ...}}`) podem combinar comparações com `||` (OU), `&&` (E) e parênteses. As listas de igualdade podem usar a forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Veja em [Prompts condicionais](conditional-prompts.md) a precedência, exemplos de chat em grupo e a lista completa de operadores.
+
+Uma condição também pode consultar o seu modelo de decisão sobre a cena, por exemplo `{{#if decision:"The latest message moves the scene to a new place"}}` para sim ou não, e `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` para escolher uma opção. Sem modelo de decisão, ou sem resposta, essas condições valem não. Veja [Consultar o modelo de decisão](conditional-prompts.md#asking-the-decision-model). Opções que você pode acrescentar depois de uma declaração:
+
+- `sticky:3 cooldown:5` mantém um sim por três turnos e depois deixa a declaração em descanso por cinco. Veja [Sticky e cooldown](conditional-prompts.md#sticky-and-cooldown).
+- `until:"..."` ou `while:"..."` mantém um sim enquanto uma segunda declaração permitir. Veja [Until e while](conditional-prompts.md#until-and-while).
+- `every:3` só pergunta uma declaração a cada três turnos. Veja [Verificar a cada poucos turnos](conditional-prompts.md#checking-every-few-turns).
+- `priority:high` ou `priority:low` escolhe quais declarações cabem em um plano de prompt. Veja [Prioridade](conditional-prompts.md#priority) e [Limites e custo](conditional-prompts.md#limits-and-cost).
 
 ## Erros comuns
 
@@ -294,7 +293,7 @@ Uma condição também pode consultar o Decision model sobre a cena: `{{#if deci
 - `{{prompt}}` não é uma macro. Se a mensagem inteira for `{{prompt}}`, Marinara abre o visualizador **Peek Prompt** em vez de enviá-la. Veja [Peek Prompt](../chats/peek-prompt.md).
 - As Custom Tools não usam texto de `{{macro}}`. Não cole `{{roll:1d20}}` em um campo de ferramenta esperando que a macro seja resolvida.
 - O modelo de prompt de **Impersonate** aceita só alguns marcadores, não a lista completa de macros. Os nomes também são diferentes, então uma macro que funciona em um card pode não funcionar ali.
-- Saídas de macro muito grandes ou com muitos níveis de aninhamento são cortadas em silêncio. Não aparece nenhum erro, então mantenha as expansões em um tamanho razoável.
+- Saídas de macro grandes ou com muitos níveis de aninhamento são cortadas em silêncio. Não aparece nenhum erro, então mantenha as expansões em um tamanho razoável.
 
 ## Guias relacionados
 

@@ -1,126 +1,113 @@
 # Tłumaczenie wiadomości
 
-Marinara Engine tłumaczy wiadomości czatu między językami. Z tego przewodnika dowiesz się, jak działają czterej dostawcy tłumaczeń, przełączniki tłumaczenia automatycznego i przycisk **Translate** przy pojedynczej wiadomości. Poznasz też ograniczenia każdego dostawcy.
+Marinara Engine tłumaczy wiadomości czatu między językami. Z tego przewodnika dowiesz się, jak wybrać usługę tłumaczenia, ustawić języki, włączyć tłumaczenie automatyczne i przetłumaczyć pojedynczą wiadomość.
 
-Tłumaczenie ustawia się osobno dla każdego czatu. Każdy czat ma własnego dostawcę, własne języki i własne klucze. Żeby nowe czaty zaczynały z tymi samymi ustawieniami, zapisz je jako [domyślne ustawienia tłumaczenia](#translator-defaults-for-new-chats).
+Tłumaczenie ustawia się osobno dla każdego czatu. Każdy czat ma własną usługę, własne języki i własne klucze. Żeby nowe czaty zaczynały z tymi samymi ustawieniami, zapisz je jako [domyślne ustawienia tłumaczenia](#translator-defaults-for-new-chats).
 
 ## Gdzie znaleźć ustawienia tłumaczenia
 
 1. Otwórz czat w dowolnym trybie (Conversation, Roleplay lub Game).
-2. Otwórz panel **Chat Settings** (ustawienia czatu) dla tego czatu.
+2. Otwórz **Chat Settings** (ustawienia czatu).
 3. Znajdź sekcję **Translation** (tłumaczenie).
 
-Wszystkie opisane niżej ustawienia dostawcy i przełączniki znajdują się w sekcji **Translation**.
+Wszystkie opisane niżej ustawienia znajdują się w tej sekcji.
 
 ## Wybór dostawcy
 
-Lista rozwijana **Provider** (dostawca) ma cztery opcje:
+Lista **Provider** (dostawca) ma cztery opcje.
 
 | Dostawca | Czego wymaga | Uwagi |
-|---|---|---|
-| **Google Translate** | Niczego | Domyślnie. Za darmo, bez klucza. Limit 5000 znaków na żądanie. |
+| --- | --- | --- |
+| **Google Translate** | Niczego | Opcja domyślna. Za darmo, bez klucza. Do 5000 znaków na żądanie. |
 | **DeepL API** | Klucza API DeepL | Wyższa jakość. Działają klucze darmowe i płatne. |
-| **DeepLX (self-hosted)** | Adresu serwera DeepLX | Dla instancji DeepLX uruchomionej samodzielnie. |
-| **AI (via connection)** | Połączenia AI | Tłumaczy jeden z twoich dostawców AI. |
+| **DeepLX (self-hosted)** | Adresu serwera DeepLX | Dla serwera DeepLX uruchomionego samodzielnie. |
+| **AI (via connection)** | Konta AI | Tłumaczy jeden z twoich modeli AI. |
 
-Domyślnie zaznaczona jest opcja **Google Translate** i nie wymaga ona żadnej konfiguracji. Innego dostawcę wybierz tylko wtedy, gdy potrzebna jest któraś z funkcji opisanych niżej.
+Usługa Google Translate działa bez żadnej konfiguracji. Inną opcję wybierz tylko wtedy, gdy potrzebujesz tego, co oferuje.
 
-### Pola **Model Language** i **My Language**
+### Ustawianie języków
 
 Języki ustawiają dwa pola. Oba mają domyślnie wartość `en` (angielski).
 
-- **Model Language** (język modelu): na ten język są tłumaczone twoje wiadomości, zanim przeczyta je AI. Korzystają z niego **Translate My Messages** i **Translate draft**.
-- **My Language** (mój język): na ten język są tłumaczone odpowiedzi AI. Korzystają z niego **Auto-Translate Responses** i przycisk **Translate** przy pojedynczej wiadomości.
+- **Model Language** (język modelu) to język, który model AI rozumie i w którym odpowiada. Kiedy piszesz we własnym języku, twoja wiadomość jest tłumaczona na ten język, zanim przeczyta ją AI. Korzystają z niego **Translate My Messages** i **Translate draft**.
+- **My Language** (mój język) to język, w którym czytasz. Na ten język są tłumaczone odpowiedzi AI. Korzystają z niego **Auto-Translate Responses** i przycisk **Translate** przy pojedynczej wiadomości.
 
-Format zależy od dostawcy:
+Na przykład jeśli piszesz po hiszpańsku, a AI najlepiej radzi sobie po angielsku, ustaw **Model Language** na `en`, a **My Language** na `es`.
 
-- Dla opcji **Google Translate**, **DeepL API** i **DeepLX (self-hosted)** wpisz krótki kod języka. Przykłady: `en`, `ja`, `es`, `de`, `fr`, `zh`, `ko`.
-- Dla opcji **AI (via connection)** wpisz nazwę języka. Przykłady: `English`, `Japanese`, `Spanish`.
+Dla Google Translate, DeepL API i DeepLX wpisz krótki kod, na przykład `en`, `ja`, `es`, `de`, `fr`, `zh` albo `ko`. Dla AI (via connection) wpisz nazwę języka, na przykład `English`, `Japanese` albo `Spanish`.
 
-### Konfiguracja DeepL API
+Jeśli się nie udało: błędny kod albo nazwa kończy się błędem albo niezmienionym tekstem. Sprawdź format właściwy dla wybranego dostawcy.
 
-Po wybraniu opcji **DeepL API** pojawia się pole **DeepL API Key** (klucz API DeepL). Wklej tutaj klucz ze swojego konta DeepL. Klucze DeepL wyglądają tak:
+### DeepL API
 
-```
+Wybierz **DeepL API** i wklej klucz ze swojego konta DeepL w pole **DeepL API Key** (klucz API DeepL). Klucz zakończony na `:fx` pochodzi z planu darmowego i Marinara wysyła go do darmowej usługi DeepL. Każdy inny klucz traktowany jest jak płatny.
+
+```text
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 ```
 
-Klucz zakończony na `:fx` pochodzi z planu darmowego. Marinara wysyła go do darmowej usługi DeepL. Każdy inny klucz traktowany jest jak klucz płatny.
+### DeepLX
 
-### Konfiguracja DeepLX
+DeepLX to darmowy serwer tłumaczeń, który uruchamiasz samodzielnie. Wybierz **DeepLX (self-hosted)** i wpisz adres swojego serwera w polu **DeepLX URL** (adres DeepLX), na przykład `http://localhost:1188`.
 
-DeepLX to darmowy serwer tłumaczeń, który uruchamiasz samodzielnie. Po wybraniu opcji **DeepLX (self-hosted)** pojawia się pole **DeepLX URL** (adres DeepLX). Wpisz adres swojego serwera DeepLX, na przykład:
+Serwer DeepLX na twoim komputerze albo w sieci lokalnej ma adres lokalny. Ze względów bezpieczeństwa Marinara domyślnie blokuje adresy lokalne. Aby je dopuścić, dodaj tę linię do pliku `.env` i zapisz plik. Ponowne uruchamianie nie jest potrzebne. Zmiana zaczyna działać zwykle w ciągu kilku sekund, najwyżej po około 30 sekundach. Gdzie jest ten plik, pokazuje [Konfiguracja serwera](../CONFIGURATION.md).
 
-```
-http://localhost:1188
-```
-
-Jeśli serwer DeepLX działa na tym samym urządzeniu albo w sieci lokalnej, jego adres jest adresem lokalnym. Ze względów bezpieczeństwa Marinara domyślnie blokuje żądania do adresów lokalnych. Aby je dopuścić, dodaj tę linię do pliku `.env` i zapisz plik:
-
-```
+```text
 DEEPLX_LOCAL_URLS_ENABLED=true
 ```
 
-Plik `.env` to plik ustawień serwera. Miejsce, w którym się znajduje, opisuje [Konfiguracja serwera](../CONFIGURATION.md). Serwera nie trzeba restartować. Zmianę wychwytuje w ciągu kilku sekund.
+Serwer DeepLX pod publicznym adresem internetowym nie potrzebuje tego ustawienia.
 
-Serwer DeepLX pod publicznym adresem internetowym nie potrzebuje tego ustawienia. Domyślnie blokowane są tylko adresy lokalne i adresy sieci prywatnych.
+### AI (via connection)
 
-### Konfiguracja tłumaczenia przez AI
+Wybierz **AI (via connection)**, żeby tłumaczył jeden z twoich modeli AI. Pojawiają się trzy pola.
 
-Po wybraniu opcji **AI (via connection)** tłumaczy jeden z twoich dostawców AI. Pojawiają się wtedy trzy dodatkowe pola.
+- **Connection** (połączenie): konto AI, które tłumaczy. To pole jest wymagane. Jeśli zostanie puste, tłumaczenie kończy się błędem "Connection ID is required for AI translation". Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+- **Outgoing Message Prompt** (prompt dla wiadomości wychodzących) i **Incoming Response Prompt** (prompt dla odpowiedzi przychodzących): instrukcje, które AI dostaje, gdy tłumaczy twoje wiadomości i własne odpowiedzi. Oba zaczynają od wbudowanego promptu domyślnego, który da się zmienić na potrzeby tego czatu. `{{targetLanguage}}` zamienia się w wartość pola **Model Language** albo **My Language**. Po zmianie promptu przycisk **Restore** (przywrócenie) cofa go do wartości domyślnej. Domyślny prompt brzmi:
 
-Lista rozwijana **Connection** (połączenie) decyduje o tym, które połączenie AI wykonuje tłumaczenie. To pole jest wymagane. Puste pole oznacza błąd tłumaczenia z komunikatem "Connection ID is required for AI translation". Połączenie to zapisany skrót do dostawcy AI. Sposób jego utworzenia opisuje przewodnik po połączeniach, do którego link znajdziesz niżej.
-
-Pola **Outgoing Message Prompt** (prompt dla wiadomości wychodzących) i **Incoming Response Prompt** (prompt dla odpowiedzi przychodzących) zawierają instrukcje wysyłane do AI, gdy tłumaczy ono twoje wiadomości i odpowiedzi AI. Oba wypełnia wbudowany prompt domyślny, czyli tekst, który Marinara wysyła do AI, a każdy z nich da się zmienić na potrzeby tego czatu. `{{targetLanguage}}` w prompcie zamienia się w wartość pola **Model Language** albo **My Language**. Po zmianie promptu pojawia się przycisk **Restore** (przywrócenie), który cofa go do wbudowanej wartości domyślnej. Domyślny prompt brzmi:
-
+```text
+You are a translator. Translate the given text accurately into {{targetLanguage}},
+preserving formatting, markdown, and any special characters like *asterisks* for actions.
+Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
-You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
-```
 
-## Przełączniki tłumaczenia automatycznego
+## Włączanie tłumaczenia automatycznego
 
-Pod ustawieniami dostawcy są cztery przełączniki. Wszystkie cztery są domyślnie wyłączone.
+Pod ustawieniami dostawcy są cztery przełączniki. Wszystkie są domyślnie wyłączone.
 
-Przełącznik **Auto-Translate Responses** tłumaczy każdą odpowiedź AI automatycznie, zaraz po jej wygenerowaniu. W trybie Game Mode Marinara usuwa z narracji znaczniki przeznaczone wyłącznie dla postaci Game Master (GM, czyli mistrza gry), zanim ją przetłumaczy.
+- **Auto-Translate Responses**: tłumaczy każdą odpowiedź AI zaraz po jej wygenerowaniu. W trybie Game Mode Marinara najpierw usuwa z narracji znaczniki przeznaczone wyłącznie dla mistrza gry.
+- **Translate My Messages**: tłumaczy twoją wiadomość na język z pola **Model Language** tuż przed wysłaniem jej do AI i zastępuje wpisany tekst. Kiedy tłumaczenie się nie uda, Marinara wysyła oryginalny tekst i pokazuje błąd.
+- **Show Draft Translate Button**: dodaje przycisk **Translate draft** obok przycisku **Send** (wysłanie), żeby można było przejrzeć i poprawić tłumaczenie przed wysłaniem. To ręczna alternatywa dla **Translate My Messages**.
+- **Show Only Translation** (pokazywanie tylko tłumaczenia): pokazuje tłumaczenie przetłumaczonej wiadomości w miejscu oryginału, zamiast obu tekstów razem.
 
-Przełącznik **Translate My Messages** tłumaczy twoją wiadomość na język z pola **Model Language** tuż przed wysłaniem jej do AI. Tłumaczenie zastępuje wpisany tekst. Kiedy tłumaczenie się nie uda, Marinara wysyła oryginalny tekst i pokazuje komunikat o błędzie.
-
-Przełącznik **Show Draft Translate Button** dodaje przycisk **Translate draft** obok przycisku **Send** (wysłanie). Dzięki temu można przetłumaczyć wiadomość i przejrzeć albo poprawić wynik przed wysłaniem. To ręczna alternatywa dla przełącznika **Translate My Messages**, który tłumaczy przy wysyłaniu, bez możliwości sprawdzenia efektu.
-
-Przełącznik **Show Only Translation** (pokazywanie tylko tłumaczenia) pokazuje tłumaczenie przetłumaczonej wiadomości w jej miejscu, zamiast oryginału i tłumaczenia razem.
-
-W trybie **Conversation** zawsze możesz przetłumaczyć niewysłany szkic: otwórz przycisk buźki przy polu wiadomości, a następnie **Tools → Translate draft** (narzędzia → przetłumacz szkic), na komputerze lub telefonie. Nie musisz włączać **Show Draft Translate Button** ani automatycznego tłumaczenia. Akcja używa ustawień tłumaczenia wiadomości wychodzących tego czatu i zastępuje szkic do sprawdzenia; nie wysyła wiadomości. Nieudane tłumaczenie pozostawia szkic bez zmian.
+W trybie Conversation zawsze możesz przetłumaczyć niewysłany szkic: kliknij przycisk buźki przy polu wiadomości, a następnie **Tools → Translate draft** (narzędzia, przetłumacz szkic), na komputerze lub telefonie. Nie musisz włączać żadnego z tych przełączników. Akcja używa ustawień tłumaczenia wiadomości wychodzących tego czatu i zastępuje szkic do sprawdzenia. Niczego nie wysyła. Nieudane tłumaczenie pozostawia szkic bez zmian.
 
 <a id="translator-defaults-for-new-chats"></a>
 
 ## Domyślne ustawienia tłumaczenia dla nowych czatów
 
-Pod przełącznikami przycisk **Save translator defaults** (zapisanie domyślnych ustawień tłumaczenia) zapisuje ustawienia tłumaczenia tego czatu dla nowych czatów w każdym trybie. Ustawienia z kreatora i z profilu ustawień mają pierwszeństwo. Istniejące czaty zachowują własne ustawienia. Przycisk **Forget saved defaults** (usunięcie zapisanych ustawień domyślnych) je czyści. [Noodle](../noodle/settings.md#translation) korzysta z tych samych ustawień domyślnych.
+Przycisk **Save translator defaults** (zapisanie domyślnych ustawień tłumaczenia) pod przełącznikami zapisuje ustawienia tłumaczenia tego czatu dla nowych czatów w każdym trybie. Ustawienia z kreatora i z profilu ustawień mają pierwszeństwo. Istniejące czaty zachowują własne ustawienia. Przycisk **Forget saved defaults** (usunięcie zapisanych ustawień domyślnych) je czyści. [Noodle](../agents/noodle-settings.md#translation) korzysta z tych samych ustawień domyślnych.
 
 Klucz API DeepL i adres DeepLX zostają w tej instalacji aplikacji Marinara Engine. Eksporty czatów, wyeksportowane profile ustawień i pliki z **Export Profile** (Eksportuj profil) je pomijają, a import żadnego z nich nigdy ich nie ustawia. Po przeniesieniu czatu do innej instalacji wpisz je ponownie.
 
-## Przycisk **Translate** przy pojedynczej wiadomości
+## Tłumaczenie pojedynczej wiadomości
 
-Każda wiadomość czatu, twoja i ta od AI, ma przycisk **Translate** (tłumaczenie) na pasku akcji pojawiającym się po najechaniu kursorem. Przycisk oznaczony jest ikoną języków. Działa niezależnie i nie wymaga żadnego z powyższych przełączników.
+Każda wiadomość, twoja i ta od AI, ma na pasku akcji przycisk **Translate** (tłumaczenie, ikona języków). Działa bez żadnego z powyższych przełączników.
 
-1. Najedź kursorem na wiadomość, żeby pokazał się jej pasek akcji.
-2. Kliknij przycisk **Translate**.
+1. Najedź kursorem na wiadomość albo dotknij jej na telefonie, żeby pokazał się jej pasek akcji.
+2. Kliknij **Translate**.
 3. Tłumaczenie pojawia się pod wiadomością albo, przy włączonym **Show Only Translation**, w jej miejscu.
-4. Kliknij ten sam przycisk ponownie, żeby ukryć tłumaczenie. Jego podpowiedź brzmi teraz **Hide translation**.
+4. Kliknij przycisk ponownie, żeby ukryć tłumaczenie. Jego etykieta brzmi wtedy **Hide translation**.
 
-Tłumaczenie wykonane w ten sposób zapisuje się razem z wiadomością. Przetrwa odświeżenie strony i zostaje na miejscu po przejściu do innego czatu i powrocie.
-
-Przycisk przy pojedynczej wiadomości korzysta z tego samego dostawcy i języka z pola **My Language**, które ustawiono w sekcji **Translation**.
+Tłumaczenie zapisuje się razem z wiadomością i przetrwa odświeżenie strony oraz przejście do innego czatu. Korzysta z tego samego dostawcy i języka z pola **My Language** co sekcja opisana wyżej.
 
 ## Ograniczenia dostawców
 
-Wybierając dostawcę, weź pod uwagę te ograniczenia.
-
-- **Google Translate** odrzuca tekst dłuższy niż 5000 znaków. Pojawia się wtedy błąd "Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts." Przy dłuższym tekście przełącz się na DeepL albo na AI.
+- **Google Translate** odrzuca tekst dłuższy niż 5000 znaków z błędem "Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts."
 - **DeepL API**, **DeepLX (self-hosted)** i **AI (via connection)** przyjmują dłuższy tekst, do serwerowego limitu 50000 znaków na żądanie.
-- **Google Translate**, **DeepL API** i **DeepLX (self-hosted)** przerywają pracę i pokazują błąd, jeśli trwa ona dłużej niż 15 sekund.
-- **AI (via connection)** korzysta z modelu i limitu czasu ustawionych w samym połączeniu, a nie z limitu 15 sekund.
-- **DeepLX (self-hosted)** kierowany na adres lokalny jest zablokowany, dopóki nie ustawisz `DEEPLX_LOCAL_URLS_ENABLED=true` w opisany wyżej sposób.
+- **Google Translate**, **DeepL API** i **DeepLX (self-hosted)** przerywają pracę z błędem po 15 sekundach.
+- **AI (via connection)** korzysta z limitu czasu twojego modelu AI, a nie z limitu 15 sekund.
+- **DeepLX (self-hosted)** pod adresem lokalnym jest zablokowany, dopóki nie ustawiono `DEEPLX_LOCAL_URLS_ENABLED=true`.
 
 ## Powiązane przewodniki
 
