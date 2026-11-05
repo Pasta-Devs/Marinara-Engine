@@ -1,7 +1,33 @@
 import type { ImageGenerationQuality } from "../types/connection.js";
+import type { ImageAnimation } from "../types/generation-integration.js";
 
+/** GPT Image 2.5, and 2.6, which keeps 2.5's sizes, quality levels and alpha. */
 export function isOpenAIGptImage25Model(model?: string | null): boolean {
-  return /^gpt-image-2\.5-(?:flare|sunburst)(?:$|-)/i.test(model?.trim() ?? "");
+  return /^gpt-image-2\.[56]-(?:flare|sunburst)(?:$|-)/i.test(model?.trim() ?? "");
+}
+
+/** Whether the model returns a looping GIF for `output_format: "gif"`. An `openai/` (OpenRouter) id does not. */
+export function supportsOpenAIAnimatedGif(model?: string | null): boolean {
+  return /^gpt-image-2\.6-(?:flare|sunburst)(?:$|-)/i.test(model?.trim() ?? "");
+}
+
+// OpenAI takes 2 to 64 frames but doesn't publish a GIF request's pixel budget. At most 12 frames of the
+// smallest frame size stay under the documented 8,294,400 px whether or not the per-image floor applies per frame.
+export const OPENAI_GIF_MAX_FRAMES = 12;
+export const OPENAI_GIF_DEFAULT_FRAMES = 9;
+export const OPENAI_GIF_DEFAULT_FRAME_MS = 200;
+
+const finiteOr = (value: unknown, fallback: number) =>
+  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+/** The frames a GIF request sends: 2 to 12 frames (default 9) of 20 to 2000 ms in steps of 10 (default 200). */
+export function resolveOpenAIGifAnimation(animation: ImageAnimation): { frameCount: number; frameDurationMs: number } {
+  const frameCount = Math.round(finiteOr(animation.frameCount, OPENAI_GIF_DEFAULT_FRAMES));
+  const frameDurationMs = Math.round(finiteOr(animation.frameDurationMs, OPENAI_GIF_DEFAULT_FRAME_MS) / 10) * 10;
+  return {
+    frameCount: Math.min(OPENAI_GIF_MAX_FRAMES, Math.max(2, frameCount)),
+    frameDurationMs: Math.min(2000, Math.max(20, frameDurationMs)),
+  };
 }
 
 export function isOpenAIGptImage2Model(model?: string | null): boolean {

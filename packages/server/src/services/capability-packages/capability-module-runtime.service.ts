@@ -14,6 +14,7 @@ import {
   parseAgentSettingsRecord,
   type PackagedAchievementDefinition,
   type SceneOriginProvider,
+  supportedCapabilityApi,
 } from "@marinara-engine/shared";
 import { getEnvFilePath, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -122,6 +123,7 @@ async function createCapabilityRuntimeHost(
     ? await createConfiguredCapabilityEmbeddingHost(app.db, config?.connectionId)
     : createCapabilityEmbeddingHost();
   return Object.freeze({
+    capabilityApi: supportedCapabilityApi,
     embeddings,
     async resolveEmbeddings() {
       const config = await agents?.getByType(packageId);

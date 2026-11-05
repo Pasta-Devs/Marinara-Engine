@@ -1,3 +1,4 @@
+import type { ImageAnimation } from "../types/generation-integration.js";
 import type { SceneIllustrationCharacterPrompt } from "../types/sidecar.js";
 
 /**
@@ -31,6 +32,8 @@ export interface ChatImageGenerationRecord {
     /** Maps location reference id (chat gallery id or `global-gallery:<id>`). */
     locationImageId: string | null;
   };
+  /** Set for a looping GIF (`ImageGenRequest.animation`). A GIF is drawn from the prompt alone, so it names no references. */
+  animation?: ImageAnimation;
 }
 
 export type ChatImageReferenceSource = "character-sheet" | "avatar" | "sprite";
@@ -44,6 +47,7 @@ export type ChatImageGenerationRecordInput = {
   referencePersonaId?: string | null;
   referencePersonaSource?: ChatImageReferenceSource | null;
   locationImageId?: string | null;
+  animation?: ImageAnimation | null;
 };
 
 function readReferenceSource(value: unknown): ChatImageReferenceSource | null {
@@ -79,6 +83,15 @@ function readCharacterPrompts(value: unknown): SceneIllustrationCharacterPrompt[
   return prompts;
 }
 
+function readAnimation(value: unknown): ImageAnimation | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const { frameCount, frameDurationMs } = value as Record<string, unknown>;
+  return {
+    ...(typeof frameCount === "number" && Number.isFinite(frameCount) ? { frameCount } : {}),
+    ...(typeof frameDurationMs === "number" && Number.isFinite(frameDurationMs) ? { frameDurationMs } : {}),
+  };
+}
+
 function readIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map(readTrimmed).filter((id): id is string => id !== null))];
@@ -86,18 +99,24 @@ function readIds(value: unknown): string[] {
 
 /** Build the record a gallery row stores for a freshly generated image. */
 export function buildChatImageGenerationRecord(input: ChatImageGenerationRecordInput): ChatImageGenerationRecord {
+  const animation = readAnimation(input.animation);
   return {
     version: 1,
     prompt: readTrimmed(input.prompt),
     connectionId: readTrimmed(input.connectionId),
     negativePrompt: input.negativePrompt?.trim() ?? "",
     characterPrompts: readCharacterPrompts(input.characterPrompts),
-    references: {
-      characterIds: readIds(input.referenceCharacterIds),
-      personaId: readTrimmed(input.referencePersonaId),
-      personaSource: readTrimmed(input.referencePersonaId) ? readReferenceSource(input.referencePersonaSource) : null,
-      locationImageId: readTrimmed(input.locationImageId),
-    },
+    references: animation
+      ? { characterIds: [], personaId: null, personaSource: null, locationImageId: null }
+      : {
+          characterIds: readIds(input.referenceCharacterIds),
+          personaId: readTrimmed(input.referencePersonaId),
+          personaSource: readTrimmed(input.referencePersonaId)
+            ? readReferenceSource(input.referencePersonaSource)
+            : null,
+          locationImageId: readTrimmed(input.locationImageId),
+        },
+    ...(animation ? { animation } : {}),
   };
 }
 
@@ -130,5 +149,6 @@ export function parseChatImageGenerationRecord(value: unknown): ChatImageGenerat
     referencePersonaId: typeof references.personaId === "string" ? references.personaId : null,
     referencePersonaSource: readReferenceSource(references.personaSource),
     locationImageId: typeof references.locationImageId === "string" ? references.locationImageId : null,
+    animation: readAnimation(record.animation),
   });
 }

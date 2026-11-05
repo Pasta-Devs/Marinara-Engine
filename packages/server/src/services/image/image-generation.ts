@@ -25,6 +25,9 @@ import {
   isOpenAIGptImageModel,
   isOpenAIGptImage2Model,
   isOpenAIGptImage25Model,
+  OPENAI_GIF_MAX_FRAMES,
+  resolveOpenAIGifAnimation,
+  supportsOpenAIAnimatedGif,
   supportsOpenAITransparentBackground,
   resolveOpenAIImageQuality,
   type Automatic1111Defaults,
@@ -274,6 +277,39 @@ export function imageConnectionTakesReferencePicture(connection: {
       });
 }
 
+/** Shown when a GIF is asked of an image connection that can't make one. */
+export const IMAGE_ANIMATION_UNSUPPORTED_MESSAGE =
+  "This image connection can't make GIFs. Use GPT Image 2.6 Flare or Sunburst on an OpenAI connection.";
+
+/** Shown when a GIF request carries a picture: OpenAI makes GIFs from text only. */
+export const IMAGE_ANIMATION_REFERENCE_MESSAGE =
+  "A GIF is drawn from the prompt alone, so it can't start from a picture.";
+
+/** Shown when a GIF request comes back as a still, which is never saved in its place. */
+export const IMAGE_ANIMATION_STILL_MESSAGE = "The image service sent back a still picture instead of a GIF.";
+
+/** A GIF request generateImage refuses before any paid call; routes answer it with 400 and its `code`. */
+export class ImageAnimationUnsupportedError extends Error {
+  readonly code = "animation-unsupported";
+}
+
+/**
+ * Whether an image connection, given as generateImage receives it, returns a looping GIF for `animation`:
+ * GPT Image 2.6 on the OpenAI backend, not ChatGPT (Codex login), OpenRouter, NanoGPT or ToAPIs.
+ */
+export function imageConnectionMakesAnimatedGif(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+}): boolean {
+  return (
+    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) === "openai" &&
+    !isToAPIsMediaUrl(connection.baseUrl) &&
+    supportsOpenAIAnimatedGif(connection.model)
+  );
+}
+
 /** Default 30-minute timeout for image generation API calls (overridable via env). */
 const IMAGE_GEN_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS ?? 1_800_000);
 const COMFYUI_GEN_TIMEOUT_SECONDS = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 2400);
@@ -333,6 +369,15 @@ export async function generateImage(
   request: ImageGenRequest,
 ): Promise<ImageGenResult> {
   const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
+  if (request.animation) {
+    // Refused before any queue slot or paid call. An empty reference list or field is no picture.
+    if (!imageConnectionMakesAnimatedGif({ source, baseUrl, serviceHint, model: request.model })) {
+      throw new ImageAnimationUnsupportedError(IMAGE_ANIMATION_UNSUPPORTED_MESSAGE);
+    }
+    if (openAIReferenceImages(request).length > 0 || request.referenceIsCanvas === true) {
+      throw new ImageAnimationUnsupportedError(IMAGE_ANIMATION_REFERENCE_MESSAGE);
+    }
+  }
   const normalizedBaseUrl = normalizeImageUrl(baseUrl);
   // Providers without native captions still need the identities and current outfits
   // the prompt writer put there, including when a NovelAI request falls back.
@@ -450,6 +495,8 @@ export async function generateImage(
           task: () => withConnectionAdmission(admissionKey, primaryMode, physicalRequest),
         }),
     });
+    // A still is never saved as a GIF. It was paid for, so the attempt failed and a fallback that makes GIFs may run.
+    if (request.animation && primaryResult.mimeType !== "image/gif") throw new Error(IMAGE_ANIMATION_STILL_MESSAGE);
     outcome = "completed";
     const storedResult = request.preserveProviderOutput
       ? primaryResult
@@ -470,6 +517,14 @@ export async function generateImage(
       logger.warn(
         error,
         "[illustrator-fallback] Primary image edit failed; skipped fallback connection %s, which can't take a reference picture",
+        fallback.connectionId,
+      );
+      throw error;
+    }
+    if (request.animation && !imageConnectionMakesAnimatedGif(fallback)) {
+      logger.warn(
+        error,
+        "[illustrator-fallback] Primary GIF failed; skipped fallback connection %s, which can't make GIFs",
         fallback.connectionId,
       );
       throw error;
@@ -824,10 +879,13 @@ function openAIGptImage2Size(width: number, height: number): string {
   return `${scaledWidth}x${scaledHeight}`;
 }
 
-function openAIGptImage25Size(width: number, height: number): string {
+function openAIGptImage25Size(
+  width: number,
+  height: number,
+  minPixels = OPENAI_GPT_IMAGE_25_MIN_PIXELS,
+  maxPixels = 8_294_400,
+): string {
   // https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options
-  const minPixels = OPENAI_GPT_IMAGE_25_MIN_PIXELS;
-  const maxPixels = 8_294_400;
   const maxEdge = 3840;
   width = Number.isFinite(width) && width > 0 ? width : 1024;
   height = Number.isFinite(height) && height > 0 ? height : 1024;
@@ -852,6 +910,26 @@ function openAIGptImage25Size(width: number, height: number): string {
     else outputHeight -= 16;
   }
   return `${outputWidth}x${outputHeight}`;
+}
+
+// GPT Image 2.5's smallest request, which 2.6 GIF frames use.
+const OPENAI_GIF_FRAME_PIXELS = 655_360;
+
+/**
+ * One GIF frame's size: the smallest valid frame in the requested shape (816x816 square, 608x1088 portrait).
+ * ponytail: OpenAI doesn't publish a GIF request's pixel budget, so frames are the API minimum and there are at
+ * most 12. Upgrade path: size frames as budget / frameCount once the budget is published.
+ */
+export function openAIGifFrameSize(width?: number, height?: number): string {
+  const w = width && Number.isFinite(width) && width > 0 ? width : 1024;
+  const h = height && Number.isFinite(height) && height > 0 ? height : 1024;
+  const scale = Math.sqrt(OPENAI_GIF_FRAME_PIXELS / (w * h));
+  return openAIGptImage25Size(
+    w * scale,
+    h * scale,
+    OPENAI_GIF_FRAME_PIXELS,
+    Math.floor(8_294_400 / OPENAI_GIF_MAX_FRAMES),
+  );
 }
 
 function openAIImageSize(request: ImageGenRequest): string {
@@ -1340,6 +1418,21 @@ function applyImageCustomFormParameters(request: ImageGenRequest, body: FormData
   );
 }
 
+/** Appended to a GIF request's prompt. */
+export const OPENAI_GIF_LOOP_PROMPT =
+  "Animate this as a short, seamless looping GIF: small motion, the same subject and framing in every frame, the last frame flowing back into the first.";
+
+// Custom parameters a GIF request can't take: OpenAI refuses streaming, partial images, custom compression and the
+// prompt rewriter with output_format "gif", and a GIF has no transparent background or URL response.
+const OPENAI_GIF_UNSUPPORTED_FIELDS = [
+  "background",
+  "output_compression",
+  "stream",
+  "partial_images",
+  "response_format",
+  "prompt_rewriter",
+];
+
 async function generateOpenAI(
   baseUrl: string,
   apiKey: string,
@@ -1359,6 +1452,40 @@ async function generateOpenAI(
   const usesGptImageApi = isOpenAIGptImageModel(request.model);
   const references = openAIReferenceImages(request);
   const prompt = openAITextPrompt(request);
+
+  // generateImage lets only GPT Image 2.6 without a picture through. GIFs come from /generations only.
+  if (request.animation) {
+    const { frameCount, frameDurationMs } = resolveOpenAIGifAnimation(request.animation);
+    // Set again over the connection's custom parameters, so they can't change the model, the frame budget or the cost.
+    const fixed: Record<string, unknown> = {
+      model: request.model,
+      n: 1,
+      size: openAIGifFrameSize(request.width, request.height),
+      output_format: "gif",
+      frame_count: frameCount,
+      frame_duration_ms: frameDurationMs,
+    };
+    if (request.quality) fixed.quality = resolveOpenAIImageQuality(request.quality, request.model);
+    // Complexity and other custom parameters pass through.
+    const body: Record<string, unknown> = {
+      prompt: `${prompt}\n\n${OPENAI_GIF_LOOP_PROMPT}`,
+      ...request.imageDefaults?.customParameters,
+    };
+    for (const key of [...OPENAI_GIF_UNSUPPORTED_FIELDS, "quality"]) delete body[key];
+    Object.assign(body, fixed);
+    logDebugOverride(
+      request.debugMode === true,
+      "[debug/image/openai] GIF request payload:\n%s",
+      imagePayloadForLog(body),
+    );
+    const resp = await fetchImageWithSizeFallback(
+      openAIImagesUrl(baseUrl, "generations"),
+      apiKey,
+      JSON.stringify(body),
+      request,
+    );
+    return readOpenAIImageResult(resp, request, "generation");
+  }
 
   if (usesGptImageApi && references.length > 0) {
     const formData = new FormData();
