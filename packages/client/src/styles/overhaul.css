@@ -7097,3 +7097,33 @@ input.ov-edhead__title:focus {
   align-items: center;
   justify-content: flex-end;
 }
+
+/* Message edit: Cancel and Save as two labelled buttons with room above them, so their highlight never
+   touches the text box (desktop and small screens alike). Hidden labels outside the new layout. */
+.ov-edit-actions__label {
+  display: none;
+}
+[data-overhaul] .ov-edit-actions {
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+[data-overhaul] .ov-edit-actions > button {
+  width: auto !important;
+  height: 2rem !important;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+[data-overhaul] .ov-edit-actions > button:first-child {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--ov-text, var(--foreground));
+}
+[data-overhaul] .ov-edit-actions > button:last-child {
+  background: var(--ov-accent, var(--primary));
+  color: var(--primary-foreground, #fff);
+}
+[data-overhaul] .ov-edit-actions__label {
+  display: inline;
+}

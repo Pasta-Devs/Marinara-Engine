@@ -7820,6 +7820,8 @@
   "ui.chat.echochamberpanel.resizeEchoChamber": "Resize Echo Chamber",
   "ui.chat.echochamberpanel.title": "Echo Chamber",
   "ui.chat.echochamberpanel.waitingForReactions": "Waiting for reactions…",
+  "ui.chat.edittextarea.cancel": "Cancel",
+  "ui.chat.edittextarea.save": "Save",
   "ui.chat.edittextarea.cancelEdit": "Cancel edit",
   "ui.chat.edittextarea.cancelEsc": "Cancel (Esc)",
   "ui.chat.edittextarea.saveCmdEnter": "Save (Cmd/Ctrl+Enter)",
