@@ -232,7 +232,9 @@ export function RoleplayCommandsSettings({
                     null
                   }
                   onChange={(value) => update.mutate({ id: chat.id, roleplaySoundConnectionId: value })}
-                  kind="audio"
+                  // Music & Sound Effects Models: kind "audio" lists the speech (TTS) ones.
+                  kind="all"
+                  rowFilter={(row) => audioConnections.some((connection) => connection.id === row.id)}
                   defaultLabel={t("roleplay.commands.sound.defaultConnection")}
                   className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
                 />
