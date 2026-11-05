@@ -1384,11 +1384,13 @@
   columns: 2 19rem;
   column-gap: 2.5rem;
 }
-[data-ov-settings-sections] div:has([id^="settings-section-"]) {
+/* Flatten only the wrappers between the list and its sections, never a section's own body
+   (App Behavior holds a nested section; flattening its body hid all its settings). */
+[data-ov-settings-sections] div:has([id^="settings-section-"]):not([id^="settings-section-"] *) {
   display: contents !important;
 }
 [data-ov-settings-sections]
-  div:has([id^="settings-section-"])
+  div:has([id^="settings-section-"]):not([id^="settings-section-"] *)
   > :not([id^="settings-section-"]):not(div:has([id^="settings-section-"])):not(style) {
   display: none !important;
 }

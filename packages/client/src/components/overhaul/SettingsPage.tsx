@@ -324,7 +324,14 @@ function OverhaulSettingsMobile() {
           {head(sectionTitle, () => go("tab", true))}
           <div className="ov-settings__scroll ovm-settings__section">
             <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
-              <OverhaulSettingsSections key={sectionId} sectionIds={[sectionId]} />
+              <OverhaulSettingsSections
+                key={sectionId}
+                // Sections nested inside this one (Professor Mari inside App Behavior) show on its page.
+                sectionIds={[
+                  sectionId,
+                  ...tab.sections.filter((id) => id !== sectionId && !chips.some((chip) => chip.id === id)),
+                ]}
+              />
             </Suspense>
           </div>
         </>
