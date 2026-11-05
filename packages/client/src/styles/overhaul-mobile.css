@@ -1509,15 +1509,42 @@
   flex-shrink: 0;
 }
 
-/* Text boxes with Expand and Macro buttons in the corner: leave room for the
-   two stacked buttons so they never spill out or sit over the text. */
+/* Text boxes with Expand and Macro buttons: the buttons sit side by side on
+   the label line above the box, so the box is only as tall as its text. */
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  span.inline-flex
+  + .relative:has(> textarea + .absolute.flex-col) {
+  margin-top: 0.25rem;
+}
 .ov-cs.ov-cs
   .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
   .relative:has(> textarea + .absolute.flex-col)
   > textarea {
-  min-height: 5.5rem !important;
-  max-height: none !important;
-  padding-right: 2.875rem !important;
+  field-sizing: content;
+  min-height: 2.75rem !important;
+  max-height: 16rem !important;
+  margin-top: 0;
+  padding-right: 0.75rem !important;
+}
+.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x) .relative > textarea + .absolute.flex-col {
+  position: static;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+/* Under a plain label (Advanced Parameters) the buttons share the label's
+   line; elsewhere the line above is taken, so they get a short row below. */
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
+  span.inline-flex
+  + .relative
+  > textarea
+  + .absolute.flex-col {
+  position: absolute;
+  top: auto;
+  bottom: 100%;
+  right: 0;
 }
 /* Icons in buttons keep their size, and wrapped button labels read from the
    left next to their icon instead of floating centred. */
