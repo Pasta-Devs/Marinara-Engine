@@ -16,7 +16,7 @@ import {
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { queryOptions, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useIsMutating, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
@@ -170,9 +170,18 @@ export function useCreateConnection() {
   });
 }
 
+/** Model saves and pins share this prefix, so a window can tell that a pick is still being saved. */
+const CONNECTION_SAVE_MUTATION_KEY = [...connectionKeys.all, "save"] as const;
+
+/** True while a Model save or pin, including its refetches, is still running anywhere in the app. */
+export function useIsConnectionSaving() {
+  return useIsMutating({ mutationKey: CONNECTION_SAVE_MUTATION_KEY }) > 0;
+}
+
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "update"],
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
     // Auto-save before testing must finish refreshing the editor before a fast
     // test response arrives, otherwise hydration clears the new result.
@@ -704,6 +713,7 @@ export function useRefreshConnectionModels() {
 export function useSetConnectionModelPinned() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "pin"],
     mutationFn: ({ id, model, pinned }: { id: string; model: string; pinned: boolean }) =>
       api.post<{ pinnedModels: string[] }>(`/connections/${encodeURIComponent(id)}/pinned-models`, { model, pinned }),
     onMutate: async ({ id, model, pinned }) => {
