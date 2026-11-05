@@ -1597,3 +1597,245 @@
   font-size: 1rem !important;
   font-weight: 400 !important;
 }
+
+/* ── Drill-in rows (MobileDrill.tsx) ──────────────────────────────
+   A group of fields shown as a row; tapping it opens the fields as a
+   page of their own. While a page is open, everything else in the
+   nearest drill scope is hidden so the page fills the editor. */
+.ovm-drill-scope:has(.ovm-drill-page) *:not(:has(.ovm-drill-page)):not(.ovm-drill-page):not(.ovm-drill-page *) {
+  display: none !important;
+}
+.ovm-drill-row {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 0.25rem;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+  color: var(--ov-text);
+  text-align: left;
+}
+.ovm-drill-row:active {
+  background: color-mix(in srgb, var(--foreground) 10%, var(--ovm-surface));
+}
+.ovm-drill-row__icon {
+  display: grid;
+  flex: none;
+  color: var(--ov-muted);
+}
+.ovm-drill-row__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.ovm-drill-row__title {
+  min-width: 0;
+  flex: 0 0 auto;
+  max-width: 75%;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-drill-row__title + * {
+  margin-left: auto;
+}
+.ovm-drill-row__value {
+  min-width: 0;
+  flex: 0 100 auto;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.9375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-drill-row__chev {
+  flex: none;
+  color: var(--ov-dim);
+}
+.ovm-drill-group {
+  margin: 0;
+  padding: 1rem 0.375rem 0.125rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ovm-drill-page__head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  min-height: 3rem;
+  margin: 0 -0.75rem 0.5rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--ov-line);
+  background: var(--ovm-surface, var(--background));
+}
+.ovm-drill-page__back {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0.75rem;
+  background: none;
+  color: var(--ov-accent);
+}
+.ovm-drill-page__title {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovm-drill-page__body {
+  display: grid;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+.ovm-drill-page .ov-lentry__eyebrow {
+  display: none;
+}
+
+/* ── Lorebook on phones: list, then entry, then a drill page ───────── */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] {
+  padding: 0 0.75rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] > .ov-bk-head {
+  padding: 0.75rem 0 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk-head__row {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__body {
+  display: block;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left,
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__right {
+  overflow: visible;
+  padding: 0;
+  border: 0;
+}
+.ov-lv[data-ovm-lv="list"] .ov-lv__right,
+.ov-lv[data-ovm-lv="detail"] .ov-lv__left,
+.ov-lv[data-ovm-lv="detail"] > .ov-bk-head {
+  display: none !important;
+}
+.ovm-lv-head {
+  margin: 0 -0.75rem 0.5rem;
+}
+/* Tools (Find, Bulk edit, Import...) as tappable rows. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-vw__tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.25rem 0 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-vw__tools button {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+  font-size: 0.9375rem;
+}
+/* The entry list: bigger rows, keys under the name. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__entries {
+  padding: 0 0 1.5rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .mari-editor-toolbar {
+  margin: 0 0 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .mari-editor-toolbar button,
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .mari-editor-toolbar input {
+  height: 2.5rem !important;
+  font-size: 0.9375rem !important;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow {
+  min-height: 3.25rem;
+  align-content: center;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.875rem;
+  border-left: 0;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__grip {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__name {
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__keys {
+  padding-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left .ov-lrow__keys code {
+  font-size: 0.8125rem;
+}
+/* The entry: one column. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__cols {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__row:not(.ov-lentry__row--name) {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry input:not([type="number"]),
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry select {
+  height: 2.5rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lf > span,
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__label {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__row--name {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: row;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry input[type="number"] {
+  height: 2.5rem;
+  font-size: 1rem;
+}
+/* Book settings as a page: no fold header, one column. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk {
+  border: 0;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__toggle {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__body {
+  gap: 0.875rem;
+  padding: 0;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__grid,
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__links {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start;
+  gap: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__grid--five {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__field input:not([type="checkbox"]),
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__field select {
+  min-height: 2.5rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__field > span:first-child {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__switch small {
+  white-space: normal;
+}

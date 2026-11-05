@@ -1,7 +1,8 @@
 import { LorebookEntryImages } from "./LorebookEntryImages";
-import { useOverhaulLook } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
+import { OvmDrill, OvmDrillGroup } from "../overhaul/MobileDrill";
 // ──────────────────────────────────────────────
 // Lorebook Entry Row
 // Compact one-line row with inline controls + expandable drawer.
@@ -1815,6 +1816,7 @@ function ExpandedDrawer({
   const flushAutosave = useCallback(() => {
     void saveNowRef.current();
   }, []);
+  const overhaulMobile = useOverhaulMobile();
 
   if (ov) {
     const conditions = form.activationConditions ?? [];
@@ -1851,396 +1853,257 @@ function ExpandedDrawer({
       </label>
     ));
 
-    return (
-      <div
-        className="ov-lentry"
-        onBlurCapture={(event) => {
-          const nextTarget = event.relatedTarget;
-          if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
-          flushAutosave();
-        }}
-      >
-        <div className="ov-lentry__cols">
-          <div className="ov-lentry__main">
-            <div className="ov-lentry__row ov-lentry__row--name">
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.lorebookentryrow.name", { defaultValue: "Name" })}</span>
-                <input
-                  value={ov.name}
-                  onChange={(event) => ov.setName(event.target.value)}
-                  onBlur={ov.commitName}
-                  onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-                  placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
-                />
-              </label>
-              <div className="ov-lf">
-                <span>Entry type</span>
-                <OvSeg
-                  label="Entry type"
-                  value={ov.status}
-                  onChange={ov.setStatus}
-                  options={STATUS_GUIDE.map((item) => ({ value: item.status, label: STATUS_LABEL[item.status] }))}
-                />
-              </div>
-            </div>
+    const secondaryKeysField = (
+      <div className="ov-lf">
+        <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}</span>
+        <OvChipInput
+          values={form.secondaryKeys ?? []}
+          onChange={(keys) => update({ secondaryKeys: keys })}
+          parse={appendLorebookActivationKeys}
+          placeholder="key…"
+        />
+      </div>
+    );
+    const matchSummary =
+      [
+        (form.secondaryKeys ?? []).length ? `${(form.secondaryKeys ?? []).length} secondary` : null,
+        ov.useRegex ? "Regex" : null,
+        form.matchWholeWords ? "Whole words" : null,
+        form.caseSensitive ? "Case" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Default";
+    const behaviourSummary =
+      [
+        form.locked ? "Locked" : null,
+        form.excludeRecursion ? "No recursion" : null,
+        form.delayUntilRecursion ? "Delayed" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Default";
+    const timingSummary =
+      (["sticky", "cooldown", "delay", "ephemeral"] as const)
+        .filter((key) => form[key])
+        .map((key) => `${key[0]!.toUpperCase()}${key.slice(1)} ${form[key]}`)
+        .join(" · ") || "None";
+    const positionLabel =
+      position === 0
+        ? localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter")
+        : position === 1
+          ? localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter")
+          : position === 2
+            ? `${localizeUi("ui.lorebooks.lorebookentryrow.atDepth")} ${ov.depth ?? ""}`
+            : localizeUi("ui.lorebooks.lorebookentryrow.outlet");
+    const filterCount =
+      (form.characterFilterIds ?? []).length +
+      (form.characterTagFilters ?? []).length +
+      (form.generationTriggerFilters ?? []).length;
+    const scheduleCount =
+      conditions.length + schedule.activeTimes.length + schedule.activeDates.length + schedule.activeLocations.length;
+    const placementBlock = (
+      <>
+        <div className="ov-lentry__row ov-lentry__row--wide">
+          <label className="ov-lf">
+            <span>{localizeUi("ui.lorebooks.lorebookentryrow.position")}</span>
+            <select
+              value={String(position)}
+              onChange={(event) => ov.setPosition(Number(event.target.value) as LorebookEntry["position"])}
+            >
+              <option value="0">{localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter")}</option>
+              <option value="1">{localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter")}</option>
+              <option value="2">{localizeUi("ui.lorebooks.lorebookentryrow.atDepth")}</option>
+              <option value="7">{localizeUi("ui.lorebooks.lorebookentryrow.outlet")}</option>
+            </select>
+          </label>
+          {position === 2 ? (
             <label className="ov-lf">
-              <span>{localizeUi("chat.settings.inlineEditor.fields.description")}</span>
+              <span>{localizeUi("ui.lorebooks.lorebookentryrow.depth")}</span>
+              <OvNum label="Depth" value={ov.depth} min={0} max={9999} onCommit={(n) => n !== null && ov.setDepth(n)} />
+            </label>
+          ) : null}
+        </div>
+        <div className="ov-lentry__row ov-lentry__row--3">
+          <label className="ov-lf">
+            <span>{localizeUi("ui.lorebooks.expandeddrawer.role")}</span>
+            <select
+              value={form.role ?? "system"}
+              onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
+            >
+              <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
+              <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
+              <option value="assistant">{localizeUi("ui.lorebooks.expandeddrawer.assistant")}</option>
+            </select>
+          </label>
+          <label className="ov-lf">
+            <span>{localizeUi("ui.lorebooks.lorebookentryrow.probability")} %</span>
+            <OvNum
+              label="Probability"
+              value={ov.probability}
+              min={0}
+              max={100}
+              onCommit={(n) => ov.setProbability(n ?? 100)}
+            />
+          </label>
+          <label className="ov-lf" title="Messages to scan for this entry. Empty uses the book setting.">
+            <span>Scan depth</span>
+            <OvNum
+              label="Scan depth"
+              value={form.scanDepth ?? null}
+              allowEmpty
+              min={0}
+              placeholder="book"
+              onCommit={(n) => update({ scanDepth: n })}
+            />
+          </label>
+        </div>
+        <div className="ov-lentry__row">
+          {ov.folders.length > 0 ? (
+            <label className="ov-lf">
+              <span>{localizeUi("ui.lorebooks.lorebookentryrow.folder")}</span>
+              <select value={ov.folderId ?? ""} onChange={(event) => ov.setFolder(event.target.value || null)}>
+                <option value="">(root)</option>
+                {ov.folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {position === 7 ? (
+            <label className="ov-lf">
+              <span>{localizeUi("ui.lorebooks.expandeddrawer.outletName")}</span>
               <input
-                value={form.description ?? ""}
-                onChange={(event) => update({ description: event.target.value })}
-                placeholder={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryForRouting")}
+                value={form.outletName ?? ""}
+                maxLength={200}
+                onChange={(event) => {
+                  onOutletNameDraftChange(event.target.value);
+                  update({ outletName: event.target.value });
+                }}
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.outletNamePlaceholder")}
               />
             </label>
-            <div className="ov-lf">
-              <span>
-                {localizeUi("ui.lorebooks.expandeddrawer.content")}{" "}
-                <small>~{estimateTokens(form.content ?? "").toLocaleString()} tokens</small>
-              </span>
-              <ExpandableTextarea
-                value={form.content ?? ""}
-                onChange={(v) => update({ content: v })}
-                onBlur={flushAutosave}
-                onCommit={flushAutosave}
-                rows={5}
-                placeholder={localizeUi("ui.lorebooks.expandeddrawer.theContentThatWillBeInjectedIntoThePrompt")}
-                title={localizeUi("ui.lorebooks.expandeddrawer.editContent")}
-                showMacroReference
-              />
-              <LorebookEntryImages
-                key={entry.id}
-                lorebookId={lorebookId}
-                entryId={entry.id}
-                images={entry.images ?? []}
-                onDraftChange={onImagesDraftChange}
-                hasWardrobeKey={(form.keys ?? []).some((key) => key.toLowerCase() === "wardrobe")}
-                onAddWardrobeKey={() =>
-                  update({ keys: appendLorebookActivationKeys(formRef.current.keys ?? [], "wardrobe") })
-                }
-              />
-            </div>
-            <div className="ov-lentry__row">
-              <div className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}</span>
-                <OvChipInput
-                  values={form.keys ?? []}
-                  onChange={(keys) => update({ keys })}
-                  parse={appendLorebookActivationKeys}
-                  placeholder="key…"
-                />
-              </div>
-              <div className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}</span>
-                <OvChipInput
-                  values={form.secondaryKeys ?? []}
-                  onChange={(keys) => update({ secondaryKeys: keys })}
-                  parse={appendLorebookActivationKeys}
-                  placeholder="key…"
-                />
-              </div>
-            </div>
-            <div className="ov-lentry__inline">
-              <label className="ov-lf">
-                <span>Secondary logic</span>
-                <select
-                  value={form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")}
-                  onChange={(event) => update({ selectiveLogic: event.target.value as SelectiveLogic })}
-                >
-                  {SELECTIVE_LOGIC_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="ov-lentry__switches">
-                <OvToggle label="Regex keys" on={ov.useRegex} onChange={ov.setUseRegex} />
-                <OvToggle
-                  label={localizeUi("ui.lorebooks.expandeddrawer.wholeWords")}
-                  on={form.matchWholeWords ?? false}
-                  onChange={(v) => update({ matchWholeWords: v })}
-                />
-                <OvToggle
-                  label={localizeUi("ui.lorebooks.expandeddrawer.caseSensitive")}
-                  on={form.caseSensitive ?? false}
-                  onChange={(v) => update({ caseSensitive: v })}
-                />
-              </div>
-            </div>
-
-            <p className="ov-lentry__eyebrow">Behaviour</p>
-            <div className="ov-lentry__switches">
-              <OvToggle
-                label={localizeUi("ui.lorebooks.expandeddrawer.locked")}
-                on={form.locked ?? false}
-                onChange={(v) => update({ locked: v })}
-                title="Prevents the Lorebook Keeper agent from modifying this entry."
-              />
-              <OvToggle
-                label="Prevent recursion"
-                on={form.preventRecursion ?? true}
-                onChange={(v) => update({ preventRecursion: v })}
-                title="This entry's content won't trigger other entries during recursive scanning."
-              />
-              <OvToggle
-                label="Exclude recursion"
-                on={form.excludeRecursion ?? false}
-                onChange={(v) => update({ excludeRecursion: v })}
-                title="This entry can't be activated by recursive scanning."
-              />
-              <OvToggle
-                label="Delay until recursion"
-                on={form.delayUntilRecursion ?? false}
-                onChange={(v) => update({ delayUntilRecursion: v })}
-                title="This entry only activates during recursive scanning."
-              />
-              <OvToggle
-                label={localizeUi("ui.lorebooks.expandeddrawer.noVector")}
-                on={form.excludeFromVectorization ?? false}
-                onChange={(v) => update({ excludeFromVectorization: v })}
-                title="Bulk vectorization skips this entry and removes any stored embedding."
-              />
-            </div>
-
-            <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.timing")}</p>
-            <div className="ov-lentry__grid4">{timing}</div>
-
-            <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.decision")}</p>
-            <div className="ov-lentry__inline">
-              <OvSeg
-                label={localizeUi("ui.lorebooks.expandeddrawer.decision")}
-                value={form.decisionMode ?? "off"}
-                onChange={(mode) => update({ decisionMode: mode })}
-                options={[
-                  { value: "off", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeOff") },
-                  { value: "require", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeRequire") },
-                  { value: "trigger", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeTrigger") },
-                ]}
-              />
-              {(form.decisionMode ?? "off") !== "off" ? (
-                <input
-                  className="ov-lentry__grow"
-                  value={form.decisionStatement ?? ""}
-                  maxLength={500}
-                  onChange={(event) => update({ decisionStatement: event.target.value })}
-                  aria-label={localizeUi("ui.lorebooks.expandeddrawer.decisionStatement")}
-                  placeholder={localizeUi("ui.lorebooks.expandeddrawer.decisionStatementPlaceholder")}
-                />
-              ) : (
-                <small className="ov-lentry__hint">{localizeUi("ui.lorebooks.expandeddrawer.decisionHelp")}</small>
-              )}
-            </div>
-            {(form.decisionMode ?? "off") !== "off" ? (
-              <DecisionStatementNote
-                active={(form.decisionStatement ?? "").trim().length > 0}
-                message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
-              />
-            ) : null}
-          </div>
-
-          <div className="ov-lentry__side">
-            <p className="ov-lentry__eyebrow">Placement</p>
-            <div className="ov-lentry__row ov-lentry__row--wide">
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.lorebookentryrow.position")}</span>
-                <select
-                  value={String(position)}
-                  onChange={(event) => ov.setPosition(Number(event.target.value) as LorebookEntry["position"])}
-                >
-                  <option value="0">{localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter")}</option>
-                  <option value="1">{localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter")}</option>
-                  <option value="2">{localizeUi("ui.lorebooks.lorebookentryrow.atDepth")}</option>
-                  <option value="7">{localizeUi("ui.lorebooks.lorebookentryrow.outlet")}</option>
-                </select>
-              </label>
-              {position === 2 ? (
-                <label className="ov-lf">
-                  <span>{localizeUi("ui.lorebooks.lorebookentryrow.depth")}</span>
-                  <OvNum
-                    label="Depth"
-                    value={ov.depth}
-                    min={0}
-                    max={9999}
-                    onCommit={(n) => n !== null && ov.setDepth(n)}
-                  />
-                </label>
-              ) : null}
-            </div>
-            <div className="ov-lentry__row ov-lentry__row--3">
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.role")}</span>
-                <select
-                  value={form.role ?? "system"}
-                  onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
-                >
-                  <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
-                  <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
-                  <option value="assistant">{localizeUi("ui.lorebooks.expandeddrawer.assistant")}</option>
-                </select>
-              </label>
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.lorebookentryrow.probability")} %</span>
-                <OvNum
-                  label="Probability"
-                  value={ov.probability}
-                  min={0}
-                  max={100}
-                  onCommit={(n) => ov.setProbability(n ?? 100)}
-                />
-              </label>
-              <label className="ov-lf" title="Messages to scan for this entry. Empty uses the book setting.">
-                <span>Scan depth</span>
-                <OvNum
-                  label="Scan depth"
-                  value={form.scanDepth ?? null}
-                  allowEmpty
-                  min={0}
-                  placeholder="book"
-                  onCommit={(n) => update({ scanDepth: n })}
-                />
-              </label>
-            </div>
-            <div className="ov-lentry__row">
-              {ov.folders.length > 0 ? (
-                <label className="ov-lf">
-                  <span>{localizeUi("ui.lorebooks.lorebookentryrow.folder")}</span>
-                  <select value={ov.folderId ?? ""} onChange={(event) => ov.setFolder(event.target.value || null)}>
-                    <option value="">(root)</option>
-                    {ov.folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {position === 7 ? (
-                <label className="ov-lf">
-                  <span>{localizeUi("ui.lorebooks.expandeddrawer.outletName")}</span>
-                  <input
-                    value={form.outletName ?? ""}
-                    maxLength={200}
-                    onChange={(event) => {
-                      onOutletNameDraftChange(event.target.value);
-                      update({ outletName: event.target.value });
-                    }}
-                    placeholder={localizeUi("ui.lorebooks.expandeddrawer.outletNamePlaceholder")}
-                  />
-                </label>
-              ) : null}
-            </div>
-
-            <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.groupTag")}</p>
-            <div className="ov-lentry__row ov-lentry__row--3">
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.group")}</span>
-                <input
-                  value={form.group ?? ""}
-                  onChange={(e) => update({ group: e.target.value })}
-                  placeholder={localizeUi("ui.lorebooks.expandeddrawer.groupName")}
-                />
-              </label>
-              <label className="ov-lf">
-                <span>Weight</span>
-                <OvNum
-                  label="Group weight"
-                  value={form.groupWeight ?? null}
-                  allowEmpty
-                  min={0}
-                  placeholder="100"
-                  onCommit={(n) => update({ groupWeight: n })}
-                />
-              </label>
-              <label className="ov-lf">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.tag")}</span>
-                <input
-                  value={form.tag ?? ""}
-                  onChange={(e) => update({ tag: e.target.value })}
-                  placeholder="location"
-                />
-              </label>
-            </div>
-
-            <p className="ov-lentry__eyebrow">Context filters</p>
-            <div className="ov-lentry__filters">
-              <span>{localizeUi("navigation.topbar.characters")}</span>
-              <OvSeg
-                label="Characters"
-                value={form.characterFilterMode ?? "any"}
-                onChange={(value) => update({ characterFilterMode: value })}
-                options={filterModes}
-              />
-              <OvChipPicker
-                options={characters.map((character) => ({ value: character.id, label: character.name }))}
-                selected={form.characterFilterIds ?? []}
-                onChange={(next) => update({ characterFilterIds: next })}
-                placeholder="character…"
-              />
-              <span>{localizeUi("ui.lorebooks.expandeddrawer.characterTags")}</span>
-              <OvSeg
-                label="Character tags"
-                value={form.characterTagFilterMode ?? "any"}
-                onChange={(value) => update({ characterTagFilterMode: value })}
-                options={filterModes}
-              />
-              <OvChipPicker
-                options={characterTags.map((tag) => ({ value: tag, label: tag }))}
-                selected={form.characterTagFilters ?? []}
-                onChange={(next) => update({ characterTagFilters: next })}
-                placeholder="tag…"
-              />
-              <span>{localizeUi("ui.lorebooks.expandeddrawer.generation")}</span>
-              <OvSeg
-                label="Generation"
-                value={form.generationTriggerFilterMode ?? "any"}
-                onChange={(value) => update({ generationTriggerFilterMode: value })}
-                options={filterModes}
-              />
-              <OvChipPicker
-                options={generationTriggerOptions}
-                selected={form.generationTriggerFilters ?? []}
-                onChange={(next) => update({ generationTriggerFilters: next })}
-                placeholder="trigger…"
-              />
-            </div>
-
-            <p className="ov-lentry__eyebrow">Additional matching sources</p>
-            <div className="ov-lentry__sources">
-              {sources.map((source) => (
-                <span key={source} className="ov-chipbox__chip">
-                  {MATCHING_SOURCE_OPTIONS.find((option) => option.value === source)?.label ?? source}
-                  <button
-                    type="button"
-                    aria-label="Remove source"
-                    onClick={() => update({ additionalMatchingSources: sources.filter((item) => item !== source) })}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              {restSources.length ? (
-                <select
-                  className="ov-addselect"
-                  value=""
-                  aria-label="Add matching source"
-                  onChange={(event) =>
-                    event.target.value &&
-                    update({
-                      additionalMatchingSources: [...sources, event.target.value as LorebookMatchingSource],
-                    })
-                  }
-                >
-                  <option value="">+ Add</option>
-                  {restSources.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
-          </div>
+          ) : null}
         </div>
-
+      </>
+    );
+    const groupBlock = (
+      <>
+        <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.groupTag")}</p>
+        <div className="ov-lentry__row ov-lentry__row--3">
+          <label className="ov-lf">
+            <span>{localizeUi("ui.lorebooks.expandeddrawer.group")}</span>
+            <input
+              value={form.group ?? ""}
+              onChange={(e) => update({ group: e.target.value })}
+              placeholder={localizeUi("ui.lorebooks.expandeddrawer.groupName")}
+            />
+          </label>
+          <label className="ov-lf">
+            <span>Weight</span>
+            <OvNum
+              label="Group weight"
+              value={form.groupWeight ?? null}
+              allowEmpty
+              min={0}
+              placeholder="100"
+              onCommit={(n) => update({ groupWeight: n })}
+            />
+          </label>
+          <label className="ov-lf">
+            <span>{localizeUi("ui.lorebooks.expandeddrawer.tag")}</span>
+            <input value={form.tag ?? ""} onChange={(e) => update({ tag: e.target.value })} placeholder="location" />
+          </label>
+        </div>
+      </>
+    );
+    const filtersBlock = (
+      <>
+        <p className="ov-lentry__eyebrow">Context filters</p>
+        <div className="ov-lentry__filters">
+          <span>{localizeUi("navigation.topbar.characters")}</span>
+          <OvSeg
+            label="Characters"
+            value={form.characterFilterMode ?? "any"}
+            onChange={(value) => update({ characterFilterMode: value })}
+            options={filterModes}
+          />
+          <OvChipPicker
+            options={characters.map((character) => ({ value: character.id, label: character.name }))}
+            selected={form.characterFilterIds ?? []}
+            onChange={(next) => update({ characterFilterIds: next })}
+            placeholder="character…"
+          />
+          <span>{localizeUi("ui.lorebooks.expandeddrawer.characterTags")}</span>
+          <OvSeg
+            label="Character tags"
+            value={form.characterTagFilterMode ?? "any"}
+            onChange={(value) => update({ characterTagFilterMode: value })}
+            options={filterModes}
+          />
+          <OvChipPicker
+            options={characterTags.map((tag) => ({ value: tag, label: tag }))}
+            selected={form.characterTagFilters ?? []}
+            onChange={(next) => update({ characterTagFilters: next })}
+            placeholder="tag…"
+          />
+          <span>{localizeUi("ui.lorebooks.expandeddrawer.generation")}</span>
+          <OvSeg
+            label="Generation"
+            value={form.generationTriggerFilterMode ?? "any"}
+            onChange={(value) => update({ generationTriggerFilterMode: value })}
+            options={filterModes}
+          />
+          <OvChipPicker
+            options={generationTriggerOptions}
+            selected={form.generationTriggerFilters ?? []}
+            onChange={(next) => update({ generationTriggerFilters: next })}
+            placeholder="trigger…"
+          />
+        </div>
+      </>
+    );
+    const additionalSources = (
+      <>
+        <p className="ov-lentry__eyebrow">Additional matching sources</p>
+        <div className="ov-lentry__sources">
+          {sources.map((source) => (
+            <span key={source} className="ov-chipbox__chip">
+              {MATCHING_SOURCE_OPTIONS.find((option) => option.value === source)?.label ?? source}
+              <button
+                type="button"
+                aria-label="Remove source"
+                onClick={() => update({ additionalMatchingSources: sources.filter((item) => item !== source) })}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {restSources.length ? (
+            <select
+              className="ov-addselect"
+              value=""
+              aria-label="Add matching source"
+              onChange={(event) =>
+                event.target.value &&
+                update({
+                  additionalMatchingSources: [...sources, event.target.value as LorebookMatchingSource],
+                })
+              }
+            >
+              <option value="">+ Add</option>
+              {restSources.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+      </>
+    );
+    const scheduleBlock = (
+      <>
         <p className="ov-lentry__eyebrow">Activation conditions &amp; schedule</p>
         <div className="ov-lentry__cols">
           <div className="ov-lentry__main">
@@ -2339,7 +2202,252 @@ function ExpandedDrawer({
             </div>
           </div>
         </div>
+      </>
+    );
+    const placementDrill = (
+      <OvmDrill title="Placement" summary={positionLabel}>
+        {placementBlock}
+      </OvmDrill>
+    );
+    const groupDrill = (
+      <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.groupTag")} summary={form.group || form.tag || "None"}>
+        {groupBlock}
+      </OvmDrill>
+    );
+    const filtersDrill = (
+      <OvmDrill title="Context filters" summary={filterCount ? `${filterCount} set` : "All chats"}>
+        {filtersBlock}
+      </OvmDrill>
+    );
+    const scheduleDrill = (
+      <OvmDrill title="Conditions & schedule" summary={scheduleCount ? `${scheduleCount} set` : "Always"}>
+        {scheduleBlock}
+      </OvmDrill>
+    );
 
+    return (
+      <div
+        className="ov-lentry"
+        onBlurCapture={(event) => {
+          const nextTarget = event.relatedTarget;
+          if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+          flushAutosave();
+        }}
+      >
+        <div className="ov-lentry__cols">
+          <div className="ov-lentry__main">
+            <div className="ov-lentry__row ov-lentry__row--name">
+              <label className="ov-lf">
+                <span>{localizeUi("ui.lorebooks.lorebookentryrow.name", { defaultValue: "Name" })}</span>
+                <input
+                  value={ov.name}
+                  onChange={(event) => ov.setName(event.target.value)}
+                  onBlur={ov.commitName}
+                  onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+                  placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
+                />
+              </label>
+              <div className="ov-lf">
+                <span>Entry type</span>
+                <OvSeg
+                  label="Entry type"
+                  value={ov.status}
+                  onChange={ov.setStatus}
+                  options={STATUS_GUIDE.map((item) => ({ value: item.status, label: STATUS_LABEL[item.status] }))}
+                />
+              </div>
+            </div>
+            <label className="ov-lf">
+              <span>{localizeUi("chat.settings.inlineEditor.fields.description")}</span>
+              <input
+                value={form.description ?? ""}
+                onChange={(event) => update({ description: event.target.value })}
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryForRouting")}
+              />
+            </label>
+            <div className="ov-lf">
+              <span>
+                {localizeUi("ui.lorebooks.expandeddrawer.content")}{" "}
+                <small>~{estimateTokens(form.content ?? "").toLocaleString()} tokens</small>
+              </span>
+              <ExpandableTextarea
+                value={form.content ?? ""}
+                onChange={(v) => update({ content: v })}
+                onBlur={flushAutosave}
+                onCommit={flushAutosave}
+                rows={5}
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.theContentThatWillBeInjectedIntoThePrompt")}
+                title={localizeUi("ui.lorebooks.expandeddrawer.editContent")}
+                showMacroReference
+              />
+              <LorebookEntryImages
+                key={entry.id}
+                lorebookId={lorebookId}
+                entryId={entry.id}
+                images={entry.images ?? []}
+                onDraftChange={onImagesDraftChange}
+                hasWardrobeKey={(form.keys ?? []).some((key) => key.toLowerCase() === "wardrobe")}
+                onAddWardrobeKey={() =>
+                  update({ keys: appendLorebookActivationKeys(formRef.current.keys ?? [], "wardrobe") })
+                }
+              />
+            </div>
+            <div className="ov-lentry__row">
+              <div className="ov-lf">
+                <span>{localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}</span>
+                <OvChipInput
+                  values={form.keys ?? []}
+                  onChange={(keys) => update({ keys })}
+                  parse={appendLorebookActivationKeys}
+                  placeholder="key…"
+                />
+              </div>
+              {overhaulMobile ? null : secondaryKeysField}
+            </div>
+            <OvmDrillGroup label="Matching" />
+            <OvmDrill title="Match options" summary={matchSummary}>
+              {overhaulMobile ? secondaryKeysField : null}
+              <div className="ov-lentry__inline">
+                <label className="ov-lf">
+                  <span>Secondary logic</span>
+                  <select
+                    value={form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")}
+                    onChange={(event) => update({ selectiveLogic: event.target.value as SelectiveLogic })}
+                  >
+                    {SELECTIVE_LOGIC_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="ov-lentry__switches">
+                  <OvToggle label="Regex keys" on={ov.useRegex} onChange={ov.setUseRegex} />
+                  <OvToggle
+                    label={localizeUi("ui.lorebooks.expandeddrawer.wholeWords")}
+                    on={form.matchWholeWords ?? false}
+                    onChange={(v) => update({ matchWholeWords: v })}
+                  />
+                  <OvToggle
+                    label={localizeUi("ui.lorebooks.expandeddrawer.caseSensitive")}
+                    on={form.caseSensitive ?? false}
+                    onChange={(v) => update({ caseSensitive: v })}
+                  />
+                </div>
+              </div>
+            </OvmDrill>
+            <OvmDrill title="Additional matching sources" summary={sources.length ? `${sources.length}` : "None"}>
+              {overhaulMobile ? additionalSources : null}
+            </OvmDrill>
+
+            <OvmDrillGroup label="When and where" />
+            {overhaulMobile ? placementDrill : null}
+            <OvmDrill title="Behaviour" summary={behaviourSummary}>
+              <p className="ov-lentry__eyebrow">Behaviour</p>
+              <div className="ov-lentry__switches">
+                <OvToggle
+                  label={localizeUi("ui.lorebooks.expandeddrawer.locked")}
+                  on={form.locked ?? false}
+                  onChange={(v) => update({ locked: v })}
+                  title="Prevents the Lorebook Keeper agent from modifying this entry."
+                />
+                <OvToggle
+                  label="Prevent recursion"
+                  on={form.preventRecursion ?? true}
+                  onChange={(v) => update({ preventRecursion: v })}
+                  title="This entry's content won't trigger other entries during recursive scanning."
+                />
+                <OvToggle
+                  label="Exclude recursion"
+                  on={form.excludeRecursion ?? false}
+                  onChange={(v) => update({ excludeRecursion: v })}
+                  title="This entry can't be activated by recursive scanning."
+                />
+                <OvToggle
+                  label="Delay until recursion"
+                  on={form.delayUntilRecursion ?? false}
+                  onChange={(v) => update({ delayUntilRecursion: v })}
+                  title="This entry only activates during recursive scanning."
+                />
+                <OvToggle
+                  label={localizeUi("ui.lorebooks.expandeddrawer.noVector")}
+                  on={form.excludeFromVectorization ?? false}
+                  onChange={(v) => update({ excludeFromVectorization: v })}
+                  title="Bulk vectorization skips this entry and removes any stored embedding."
+                />
+              </div>
+            </OvmDrill>
+
+            <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.timing")} summary={timingSummary}>
+              <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.timing")}</p>
+              <div className="ov-lentry__grid4">{timing}</div>
+            </OvmDrill>
+
+            <OvmDrill
+              title={localizeUi("ui.lorebooks.expandeddrawer.decision")}
+              summary={
+                (form.decisionMode ?? "off") === "off"
+                  ? "Off"
+                  : localizeUi(
+                      form.decisionMode === "require"
+                        ? "ui.lorebooks.expandeddrawer.decisionModeRequire"
+                        : "ui.lorebooks.expandeddrawer.decisionModeTrigger",
+                    )
+              }
+            >
+              <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.decision")}</p>
+              <div className="ov-lentry__inline">
+                <OvSeg
+                  label={localizeUi("ui.lorebooks.expandeddrawer.decision")}
+                  value={form.decisionMode ?? "off"}
+                  onChange={(mode) => update({ decisionMode: mode })}
+                  options={[
+                    { value: "off", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeOff") },
+                    { value: "require", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeRequire") },
+                    { value: "trigger", label: localizeUi("ui.lorebooks.expandeddrawer.decisionModeTrigger") },
+                  ]}
+                />
+                {(form.decisionMode ?? "off") !== "off" ? (
+                  <input
+                    className="ov-lentry__grow"
+                    value={form.decisionStatement ?? ""}
+                    maxLength={500}
+                    onChange={(event) => update({ decisionStatement: event.target.value })}
+                    aria-label={localizeUi("ui.lorebooks.expandeddrawer.decisionStatement")}
+                    placeholder={localizeUi("ui.lorebooks.expandeddrawer.decisionStatementPlaceholder")}
+                  />
+                ) : (
+                  <small className="ov-lentry__hint">{localizeUi("ui.lorebooks.expandeddrawer.decisionHelp")}</small>
+                )}
+              </div>
+              {(form.decisionMode ?? "off") !== "off" ? (
+                <DecisionStatementNote
+                  active={(form.decisionStatement ?? "").trim().length > 0}
+                  message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+                />
+              ) : null}
+            </OvmDrill>
+            {overhaulMobile ? (
+              <>
+                <OvmDrillGroup label="Limits" />
+                {groupDrill}
+                {filtersDrill}
+                {scheduleDrill}
+              </>
+            ) : null}
+          </div>
+
+          {overhaulMobile ? null : (
+            <div className="ov-lentry__side">
+              {placementBlock}
+              {groupBlock}
+              {filtersBlock}
+              {additionalSources}
+            </div>
+          )}
+        </div>
+
+        {overhaulMobile ? null : scheduleBlock}
         <div className="ov-lentry__foot">
           <span className={cn("ov-lentry__saved", saveError && "is-error")}>
             {saveError

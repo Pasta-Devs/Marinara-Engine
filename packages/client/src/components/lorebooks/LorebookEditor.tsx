@@ -60,6 +60,7 @@ import {
   Settings2,
   AlertTriangle,
   ChevronDown,
+  ChevronLeft,
   Globe,
   Users,
   UserRound,
@@ -119,7 +120,7 @@ import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { Modal } from "../ui/Modal";
-import { useOverhaulLook } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { EditorCrumbs } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
 
@@ -644,6 +645,9 @@ export function LorebookEditor() {
   const [formPersonaIds, setFormPersonaIds] = useState<string[]>([]);
   const [formTags, setFormTags] = useState<string[]>([]);
   const overhaulActive = useOverhaulLook();
+  // Phones: the book page (tools and entries) and the open entry or tool are separate pages.
+  const overhaulMobile = useOverhaulMobile();
+  const [ovmDetail, setOvmDetail] = useState(false);
   const [ovBookOpen, setOvBookOpen] = useState(true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
   const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
@@ -1099,6 +1103,7 @@ export function LorebookEditor() {
     (entryId: string) => {
       // The overhaul viewer always shows the clicked entry on the right; it does not toggle closed.
       setExpandedEntryId((current) => (overhaulActive ? entryId : current === entryId ? null : entryId));
+      setOvmDetail(true);
     },
     [overhaulActive],
   );
@@ -1134,6 +1139,8 @@ export function LorebookEditor() {
         });
       }
       setExpandedEntryId(entryId);
+      if (overhaulMobile) setOvPanel(null);
+      setOvmDetail(true);
       window.requestAnimationFrame(() => {
         const row = contentRef.current?.querySelector<HTMLElement>(
           `[data-lorebook-entry-row-id="${CSS.escape(entryId)}"]`,
@@ -1142,7 +1149,7 @@ export function LorebookEditor() {
         if (row) scrollToElement(row);
       });
     },
-    [contentRef, entries, folders, lorebookId, scrollToElement],
+    [contentRef, entries, folders, lorebookId, overhaulMobile, scrollToElement],
   );
 
   // Open the entry an opener asked for once, e.g. one just made from selected chat text (#6899).
@@ -1773,6 +1780,7 @@ export function LorebookEditor() {
       newlyCreatedEntryRef.current = (result as LorebookEntry).id;
       setEntrySearch("");
       setExpandedEntryId((result as LorebookEntry).id);
+      setOvmDetail(true);
     }
   }, [lorebookId, createEntry]);
 
@@ -2155,7 +2163,7 @@ export function LorebookEditor() {
         <strong>{localizeUi("Book settings")}</strong>
         <span>{ovSummary}</span>
       </button>
-      {ovBookOpen ? (
+      {ovBookOpen || overhaulMobile ? (
         <div className="ov-bk__body">
           <div className="ov-bk__grid ov-bk__grid--top">
             <label className="ov-bk__field">
@@ -3118,7 +3126,10 @@ export function LorebookEditor() {
         <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           {overhaulActive ? (
             <OvLoreDetailTarget.Provider value={ovDetailEl}>
-              <div className="ov-lv">
+              <div
+                className={cn("ov-lv", overhaulMobile && "ovm-drill-scope")}
+                data-ovm-lv={overhaulMobile ? (ovmDetail ? "detail" : "list") : undefined}
+              >
                 {overhaulHeader}
                 <div className="ov-lv__body">
                   <aside className="ov-lv__left" aria-label={localizeUi("Entries")}>
@@ -3137,8 +3148,9 @@ export function LorebookEditor() {
                           className={cn(ovPanel === id && "is-on")}
                           aria-pressed={ovPanel === id}
                           onClick={() => {
-                            const next = ovPanel === id ? null : id;
+                            const next = overhaulMobile ? id : ovPanel === id ? null : id;
                             setOvPanel(next);
+                            if (overhaulMobile) setOvmDetail(true);
                             if (next === "book") setOvBookOpen(true);
                             if (next === "keyword") setKeywordPreviewOpen(true);
                           }}
@@ -3157,12 +3169,37 @@ export function LorebookEditor() {
                     <div className="ov-lv__entries">{ovEntriesBody}</div>
                   </aside>
                   <div className="ov-lv__right">
+                    {overhaulMobile ? (
+                      <div className="ovm-drill-page__head ovm-lv-head">
+                        <button
+                          type="button"
+                          className="ovm-drill-page__back"
+                          aria-label={localizeUi("Back")}
+                          onClick={() => {
+                            setOvmDetail(false);
+                            setOvPanel(null);
+                          }}
+                        >
+                          <ChevronLeft size={26} aria-hidden="true" />
+                        </button>
+                        <span className="ovm-drill-page__title">
+                          {ovPanel === "book"
+                            ? localizeUi("Book settings")
+                            : ovPanel === "check"
+                              ? localizeUi("Check lorebook")
+                              : ovPanel === "keyword"
+                                ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
+                                : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "")}
+                        </span>
+                        <span aria-hidden="true" />
+                      </div>
+                    ) : null}
                     {ovPanel === "book" ? overhaulBookSettings : null}
                     {ovPanel === "check" ? (
                       <LorebookLintPanel entries={entries} onJumpToEntry={jumpToEntry} defaultOpen />
                     ) : null}
                     {ovPanel === "keyword" ? ovKeywordPanel : null}
-                    <div ref={setOvDetailEl} className="ov-lv__detail" />
+                    <div ref={setOvDetailEl} className="ov-lv__detail" hidden={overhaulMobile && ovPanel !== null} />
                     {!expandedEntryId ? (
                       <p className="ov-vw__pick">{localizeUi("Pick an entry on the left, or add one.")}</p>
                     ) : null}
