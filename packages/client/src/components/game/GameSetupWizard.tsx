@@ -1975,7 +1975,10 @@ export function GameSetupWizard({
                         <Plug size={12} className="mr-1 inline" />
                         {localizeUi("ui.game.gamesetupwizard.connection")}
                       </label>
+                      {/* `required`: an empty GM Model means "not picked yet" (Start stays off), never
+                          "follow Main", so picking the Main Model must set it rather than count as "Now". */}
                       <ConnectionSelect
+                        required
                         job={localizeUi("connections.picker.job.gameMaster")}
                         value={gmConnectionId}
                         onChange={setGmConnectionId}
