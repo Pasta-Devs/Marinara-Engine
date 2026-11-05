@@ -7417,3 +7417,18 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.3125rem;
 }
+
+/* Lorebook header buttons (Export, Book settings, Save) keep their full labels; the title gives way first. */
+.ov-bk-head__row > .ov-btn {
+  flex: none;
+  white-space: nowrap;
+}
+/* When the main area is narrow (both side panes open), the buttons drop to a second line instead of
+   squeezing the lorebook's name down to a few letters. */
+.ov-bk-head__row {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+.ov-bk-head__row h1 {
+  min-width: min(14rem, 100%);
+}

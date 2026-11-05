@@ -2127,7 +2127,17 @@ export function LorebookEditor() {
           >
             <SlidersHorizontal size={16} aria-hidden="true" />
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className={cn("ov-btn", ovPanel === "book" && "is-on")}
+            aria-pressed={ovPanel === "book"}
+            onClick={() => openOvPanel("book")}
+          >
+            <SlidersHorizontal size={13} aria-hidden="true" />
+            {localizeUi("Book settings")}
+          </button>
+        )}
         <button
           type="button"
           className="ov-btn ov-btn--primary"
@@ -3173,7 +3183,6 @@ export function LorebookEditor() {
                     <div className="ov-vw__tools" hidden={overhaulMobile}>
                       {(
                         [
-                          ["book", localizeUi("Book settings"), SlidersHorizontal],
                           ["check", localizeUi("Check lorebook"), ListChecks],
                           ["keyword", localizeUi("ui.lorebooks.lorebookeditor.keywordTest"), FlaskConical],
                         ] as const
