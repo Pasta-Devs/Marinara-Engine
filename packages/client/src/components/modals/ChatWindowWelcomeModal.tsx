@@ -1,7 +1,56 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { Modal } from "../ui/Modal";
+
+/** New layout (desktop): a small tip that points at the Chat settings button in the top bar. */
+function OvChatSettingsTip({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useTranslation();
+  const [pos, setPos] = useState<{ top: number; right: number; arrow: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const target = document.querySelector<HTMLElement>(
+        `.ov-topbar [data-window-opener="${CHAT_SETTINGS_WINDOW_ID}"]`,
+      );
+      if (!target) {
+        setPos({ top: 52, right: 16, arrow: -1 });
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const right = Math.max(8, window.innerWidth - rect.right);
+      // Arrow sits under the button's middle, measured from the tip's right edge.
+      setPos({ top: rect.bottom + 10, right, arrow: Math.max(12, rect.width / 2 - 6) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, []);
+  if (!pos) return null;
+  return createPortal(
+    <div
+      data-chat-window-intro
+      role="dialog"
+      aria-labelledby="ov-cs-tip-title"
+      className="ov-cs-tip"
+      style={{ top: pos.top, right: pos.right }}
+    >
+      {pos.arrow >= 0 ? <span className="ov-cs-tip__arrow" style={{ right: pos.arrow }} aria-hidden="true" /> : null}
+      <p id="ov-cs-tip-title" className="ov-cs-tip__title">
+        {t("chatWindowIntro.ovTitle")}
+      </p>
+      <p className="ov-cs-tip__body">{t("chatWindowIntro.ovBody")}</p>
+      <div className="ov-cs-tip__foot">
+        <button data-chat-window-intro-dismiss type="button" className="ov-btn ov-btn--primary" onClick={onDismiss}>
+          {t("chatWindowIntro.gotIt")}
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 /** A single introduction for new and returning users, after they actually enter a private chat. */
 export function ChatWindowWelcomeModal({
@@ -22,6 +71,9 @@ export function ChatWindowWelcomeModal({
     onOpenChange?.(open);
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
+
+  const overhaulActive = useOverhaulActive();
+  if (overhaulActive) return open ? <OvChatSettingsTip onDismiss={dismiss} /> : null;
 
   return (
     <Modal open={open} onClose={dismiss} title={t("chatWindowIntro.title")} width="max-w-3xl">

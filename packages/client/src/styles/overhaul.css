@@ -7432,3 +7432,284 @@ input.ov-edhead__title:focus {
 .ov-bk-head__row h1 {
   min-width: min(14rem, 100%);
 }
+
+/* Shown reasoning: small "Thought for Ns ›" toggle by the name and time; text is grey italic with no box. */
+.ov-thought-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: center;
+  padding: 0.0625rem 0.375rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #9a9aa6;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ov-thought-btn:hover,
+.ov-thought-btn:focus-visible {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+}
+.ov-thought-btn__chev {
+  transition: transform 0.15s ease;
+}
+.ov-thought-btn.is-on .ov-thought-btn__chev {
+  transform: rotate(90deg);
+}
+.ov-thought-btn.is-live svg:first-child {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.ov-thought-text {
+  margin: 0 0 0.625rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  color: #9a9aa6;
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+.ov-thought-text pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.ov-thought-text p + p {
+  margin-top: 0.25rem;
+}
+
+/* Message selection (desktop): the bar takes the composer's place; selected rows get a faint accent tint. */
+:root[data-ov-selecting] .mari-chat-input {
+  display: none !important;
+}
+.ov-selbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  margin: 0 0.75rem 0.75rem;
+  padding: 0.5rem 0.625rem 0.5rem 0.875rem;
+  border: 1px solid var(--ov-line, color-mix(in srgb, var(--foreground) 14%, transparent));
+  border-radius: 0.75rem;
+  background: var(--ov-panel, var(--card));
+  color: var(--foreground);
+  font-size: 0.8125rem;
+}
+.ov-selbar__count {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+.ov-selbar__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.ov-selbar__link:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+}
+.ov-selbar__link:disabled,
+.ov-selbar .ov-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ov-selbar__grow {
+  flex: 1;
+}
+:root[data-overhaul="on"] .mari-message.ring-2 {
+  --tw-ring-shadow: 0 0 #0000;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--ov-accent) 9%, transparent) !important;
+}
+
+/* Bookmark, pin or note: a small form shown in place of the message's More menu. */
+.ov-rpf-pop.ov-marks-pop {
+  width: 17rem;
+  padding: 0.375rem 0.625rem 0.625rem;
+}
+.ov-marks {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+}
+.ov-marks__head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.125rem -0.375rem;
+}
+.ov-marks__head .ov-rpf-pop__label {
+  margin: 0;
+  padding: 0;
+}
+.ov-marks__back {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--ov-muted);
+  cursor: pointer;
+}
+.ov-marks__back:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-marks__row {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.ov-marks__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  color: var(--ov-text);
+}
+.ov-marks__notelabel {
+  margin-top: 0.125rem;
+}
+.ov-marks__switch {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ov-marks__switch:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ov-marks__field {
+  width: 100%;
+  min-height: 1.875rem;
+  padding: 0.3125rem 0.5rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.375rem;
+  background: var(--background);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+.ov-marks__field:focus {
+  border-color: var(--ov-accent);
+}
+.ov-marks__note {
+  resize: vertical;
+  line-height: 1.4;
+}
+.ov-marks__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.125rem;
+}
+.ov-rpf-menu .mari-message-actions .ov-marks-row.is-on svg {
+  color: var(--ov-accent);
+}
+
+/* Import Character (desktop): one dashed drop row, then label-left pickers with the chosen option explained. */
+.ov-imp__drop {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border: 1.5px dashed var(--ov-line);
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.ov-imp__drop.is-over {
+  border-color: var(--ov-accent);
+  background: color-mix(in srgb, var(--ov-accent) 8%, transparent);
+}
+.ov-imp__dropicon {
+  flex: none;
+  color: var(--ov-muted);
+}
+.ov-imp__droptext {
+  flex: 1;
+  min-width: 0;
+  color: var(--ov-text);
+}
+.ov-imp__types {
+  color: var(--ov-muted);
+}
+.ov-imp__pick {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+.ov-imp__label {
+  padding-top: 0.3125rem;
+  color: var(--ov-text);
+  font-weight: 500;
+}
+.ov-imp__choice {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+}
+.ov-imp__desc {
+  margin: 0;
+  padding-left: 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+
+/* First chat: a small tip pointing at Chat settings in the top bar (replaces the video popup). */
+.ov-cs-tip {
+  position: fixed;
+  z-index: 9998;
+  width: 17.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+  background: var(--card);
+  color: var(--ov-text);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  font-size: 0.8125rem;
+}
+.ov-cs-tip__arrow {
+  position: absolute;
+  top: -0.375rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-top: 1px solid var(--ov-line);
+  border-left: 1px solid var(--ov-line);
+  background: var(--card);
+  transform: rotate(45deg);
+}
+.ov-cs-tip__title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+.ov-cs-tip__body {
+  margin: 0;
+  color: var(--ov-muted);
+  line-height: 1.45;
+}
+.ov-cs-tip__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.625rem;
+}
