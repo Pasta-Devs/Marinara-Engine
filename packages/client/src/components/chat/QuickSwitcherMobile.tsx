@@ -25,6 +25,7 @@ import { useCharacters, usePersonas, usePersonaGroups, useCharacterGroups } from
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
   appendLocalSidecarConnectionOption,
@@ -59,6 +60,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"connections" | "personas">("connections");
+  // New layout: the Random dice lives in the Connections tab instead of a row of its own.
+  const diceInTab = useOverhaulMobile();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showCharacterGroups, setShowCharacterGroups] = useState(false);
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
@@ -419,21 +422,71 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             }
           >
             <div className="flex border-b border-foreground/10">
-              <button
-                onClick={() => {
-                  setTab("connections");
-                  setModelsStep(null);
-                }}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
-                  tab === "connections"
-                    ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
-                    : "text-foreground/50 hover:text-foreground/80",
-                )}
-              >
-                <Link size="0.75rem" />
-                {localizeUi("navigation.topbar.connections")}
-              </button>
+              {diceInTab ? (
+                // New layout: the Random dice sits inside the Connections tab, after its label.
+                <div
+                  onClick={() => {
+                    setTab("connections");
+                    setModelsStep(null);
+                  }}
+                  className={cn(
+                    "flex flex-1 cursor-pointer items-center justify-center gap-1 px-2 transition-colors",
+                    tab === "connections"
+                      ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
+                      : "text-foreground/50 hover:text-foreground/80",
+                  )}
+                >
+                  <button type="button" className="flex items-center gap-1.5 py-2.5 text-[0.6875rem] font-semibold">
+                    <Link size="0.75rem" />
+                    {localizeUi("navigation.topbar.connections")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setTab("connections");
+                      setModelsStep(null);
+                      handleToggleRandom();
+                    }}
+                    data-random-on={isRandom ? "" : undefined}
+                    aria-pressed={isRandom}
+                    aria-label={
+                      isRandom
+                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                    }
+                    title={
+                      isRandom
+                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                    }
+                    className={cn(
+                      "-my-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all active:scale-90",
+                      isRandom
+                        ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                        : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
+                    )}
+                  >
+                    <Dices size="1rem" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setTab("connections");
+                    setModelsStep(null);
+                  }}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                    tab === "connections"
+                      ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
+                      : "text-foreground/50 hover:text-foreground/80",
+                  )}
+                >
+                  <Link size="0.75rem" />
+                  {localizeUi("navigation.topbar.connections")}
+                </button>
+              )}
               <button
                 onClick={() => setTab("personas")}
                 className={cn(
@@ -497,37 +550,41 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                       <SubscriptionUsageWidget connectionId={usageConnection.id} variant="inline" />
                     </div>
                   )}
-                  {/* Same as the desktop menu: a Connections header with the Random dice on the right. */}
-                  <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-1.5">
-                    <span className="text-[0.6875rem] font-semibold text-foreground/70">
-                      {localizeUi("navigation.topbar.connections")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleToggleRandom}
-                      data-random-on={isRandom ? "" : undefined}
-                      aria-pressed={isRandom}
-                      aria-label={
-                        isRandom
-                          ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                          : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                      }
-                      title={
-                        isRandom
-                          ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                          : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                      }
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg transition-all active:scale-90",
-                        isRandom
-                          ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-                          : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
-                      )}
-                    >
-                      <Dices size="1rem" />
-                    </button>
-                  </div>
-                  <div className="mx-2 my-1 h-px bg-foreground/10" />
+                  {diceInTab ? null : (
+                    <>
+                      {/* Same as the desktop menu: a Connections header with the Random dice on the right. */}
+                      <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-1.5">
+                        <span className="text-[0.6875rem] font-semibold text-foreground/70">
+                          {localizeUi("navigation.topbar.connections")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleToggleRandom}
+                          data-random-on={isRandom ? "" : undefined}
+                          aria-pressed={isRandom}
+                          aria-label={
+                            isRandom
+                              ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                              : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                          }
+                          title={
+                            isRandom
+                              ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                              : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                          }
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-lg transition-all active:scale-90",
+                            isRandom
+                              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                              : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
+                          )}
+                        >
+                          <Dices size="1rem" />
+                        </button>
+                      </div>
+                      <div className="mx-2 my-1 h-px bg-foreground/10" />
+                    </>
+                  )}
                   {sortedConnections.map((conn) => {
                     const inPool = conn.useForRandom === "true";
                     const isActive = activeConnectionId === conn.id;
