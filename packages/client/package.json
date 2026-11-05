@@ -26,7 +26,7 @@
     "lucide-react": "^1.61.0",
     "mesh-avatar": "0.2.1",
     "mmd-parser": "1.1.4",
-    "postcss": "8.5.31",
+    "postcss": "8.5.32",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-i18next": "^17.1.0",
