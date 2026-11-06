@@ -97,7 +97,7 @@ type BackgroundPickerProps = {
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
 const BACKGROUND_FOLDER_QUERY_KEY = ["background-folders"] as const;
 const CARD_TEXT_FIELD_CLASS =
-  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] max-sm:!text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
+  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] max-sm:!text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
 
 /**
  * The rename input keeps its draft here rather than in the picker, so typing a name
@@ -195,7 +195,7 @@ function CardTagInput({
           }
         }}
         placeholder={placeholder}
-        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] max-sm:!text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] max-sm:!text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
         data-background-tag-input
         autoFocus
         list={datalistId}
@@ -986,7 +986,7 @@ export function BackgroundPicker({
                     {
                       label: localizeUi("ui.panels.backgroundpicker.editTags"),
                       icon: <Tag size="1rem" />,
-                      onSelect: () => setEditingTags(background.id),
+                      onSelect: () => setEditingTags(isEditingTags ? null : background.id),
                     },
                   );
                 }

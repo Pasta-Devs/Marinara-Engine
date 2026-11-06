@@ -361,7 +361,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => generationAbortRef.current?.abort()}
-                className="mari-chrome-control px-2.5 py-1.5 text-xs max-sm:min-h-11 max-sm:text-sm"
+                className="mari-chrome-control px-2.5 py-1.5 text-xs max-sm:!min-h-11 max-sm:text-sm"
               >
                 {localizeUi("ui.chat.summarypopover.stop")}
               </button>

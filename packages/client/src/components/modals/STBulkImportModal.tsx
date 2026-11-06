@@ -328,6 +328,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let finished = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -352,6 +353,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               setProgress(parsed as ImportProgress);
             } else if (eventType === "done") {
               setImportResult(parsed as ImportResult);
+              finished = true;
               setPhase("done");
               qc.invalidateQueries();
             }
@@ -359,6 +361,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
             // Ignore malformed SSE chunks
           }
         }
+      }
+      if (!finished) {
+        setError("Import failed: the server closed the stream early");
+        setPhase("preview");
       }
     } catch (err) {
       setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
@@ -523,6 +529,12 @@ export function STBulkImportModal({ open, onClose }: Props) {
 
         {phase === "preview" && scanResult && (
           <>
+            {error && (
+              <div className="flex items-start gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">
+                <XCircle size="0.875rem" className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 p-2.5 text-xs text-emerald-400">
               <CheckCircle size="0.875rem" className="mt-0.5 shrink-0" />
               <span>
@@ -811,12 +823,6 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
             </div>
 
-            {error && (
-              <div className="flex items-start gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">
-                <XCircle size="0.875rem" className="mt-0.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
           </>
         )}
 

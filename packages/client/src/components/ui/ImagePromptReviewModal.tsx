@@ -123,7 +123,7 @@ export function ImagePromptReviewModal({
         </>
       }
     >
-      <div className="flex max-h-[72vh] flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.ui.imagepromptreviewmodal.editThePrompt")}
           {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
@@ -133,7 +133,7 @@ export function ImagePromptReviewModal({
           {localizeUi("ui.ui.imagepromptreviewmodal.toYourProvider")}
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-3">
           {items.map((item) => {
             const value = drafts[item.id] ?? item.prompt;
             const negativeValue = negativeDrafts[item.id] ?? item.negativePrompt ?? "";

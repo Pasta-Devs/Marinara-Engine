@@ -112,6 +112,7 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
       closeButtonClassName="max-sm:hidden"
       open={!!request}
       onClose={onClose}
+      pullToClose={false}
       closeDisabled={isApplying}
       title={request?.title ?? "Repair JSON"}
       width="max-w-5xl"
@@ -149,7 +150,7 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
           <pre
             ref={lineNumbersRef}
             aria-hidden="true"
-            className="select-none overflow-hidden border-r border-[var(--border)] bg-[var(--secondary)]/50 px-2 py-2 text-right font-mono text-xs leading-relaxed text-[var(--muted-foreground)]/70"
+            className="select-none overflow-hidden border-r border-[var(--border)] bg-[var(--secondary)]/50 px-2 py-2 text-right font-mono text-xs max-sm:text-base leading-relaxed text-[var(--muted-foreground)]/70"
           >
             {lineNumbers}
           </pre>

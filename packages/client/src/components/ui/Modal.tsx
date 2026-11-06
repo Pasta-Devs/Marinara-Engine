@@ -266,7 +266,7 @@ export function Modal({
       if (!dragging) return;
       dragging = false;
       panel.style.transition = prevTransition;
-      const pulled = `translateY(${dy}px)`;
+      const pulled = panel.style.transform; // browser read-back, so a fractional dy still matches
       if (dy > panel.offsetHeight * 0.25 || dy / Math.max(1, e.timeStamp - startT) > 0.4) {
         onCloseRef.current();
         // A guarded close (e.g. "Discard changes?") may keep the sheet open: then snap back.

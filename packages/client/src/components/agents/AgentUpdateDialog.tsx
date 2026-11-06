@@ -91,6 +91,7 @@ export function AgentUpdateDialog({
     <Modal
       open={open}
       onClose={done ? onClose : onNotNow}
+      pullToClose={done}
       title={localizeUi(
         done ? "ui.agents.agentupdatedialog.agentUpdatesFinished" : "ui.agents.agentupdatedialog.agentUpdatesAvailable",
       )}
