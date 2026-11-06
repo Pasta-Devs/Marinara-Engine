@@ -32,7 +32,10 @@ const execFileAsync = promisify(execFile);
  * Must be a public https host — safeFetch blocks loopback/private/reserved
  * addresses, so a LAN mirror is intentionally refused.
  */
-const DEFAULT_BASE_URL = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/docs-i18n";
+// UI overhaul fork: read language packs from the fork's `kolacheee-i18n` branch
+// (Pasta-Devs docs-i18n plus the overhaul's UI translations). Restore the
+// Pasta-Devs URL if the overhaul's strings land upstream.
+const DEFAULT_BASE_URL = "https://raw.githubusercontent.com/kolacheee/Marinara-Engine-kolacheee/kolacheee-i18n";
 
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
