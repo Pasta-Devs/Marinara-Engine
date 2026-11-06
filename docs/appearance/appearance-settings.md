@@ -42,13 +42,13 @@ In **App Style**, the **Color Scheme** dropdown has **Dark** (the default) and *
 | --- | --- | --- |
 | **Accent Color** | Buttons, active icons, focus rings, highlights, panel outlines and the controls around the chat. | **Marinara Gradient**, a pink, orange and cyan blend |
 
-To change the background of the main app shell, use **UI Element Styles** in **App Style**:
+To change the background of the main app shell, use **UI Editor** in **App Style**:
 
-1. Open the dropdown that shows **Choose a part of the app…** and select **Whole app**.
+1. Open the dropdown that shows **Choose what to change…** and select **Whole app**.
 2. Click **Background** and pick a color or a gradient.
 3. Click **Save**.
 
-Without a saved background, the app uses `#050312` in Dark and `#faf8ff` in Light. To return to it, open **Whole app** again and click **Reset this part**.
+Without a saved background, the app uses `#050312` in Dark and `#faf8ff` in Light. To return to it, open **Whole app** again and click **Reset to default**.
 
 A value such as `#050312` is a hex color code, a short way to write a color.
 
