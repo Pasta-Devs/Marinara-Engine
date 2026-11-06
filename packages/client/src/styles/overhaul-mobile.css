@@ -3843,3 +3843,10 @@
   left: 0;
   width: min(21rem, calc(100vw - 2rem));
 }
+
+/* Data > Delete Data on phones: every checkbox one touch size, lined up with its label. */
+:root[data-overhaul="mobile"] .ov-expunge__check:not(#ovm-x) {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.0625rem;
+}

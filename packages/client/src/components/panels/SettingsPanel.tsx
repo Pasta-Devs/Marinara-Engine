@@ -8424,7 +8424,7 @@ function AdvancedSettings() {
                     checked={checked}
                     disabled={isClearing}
                     onChange={() => toggleScope(scope.id)}
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"
+                    className="ov-expunge__check mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
                   />
                   <span className="min-w-0">
                     <span className="block text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)]">
