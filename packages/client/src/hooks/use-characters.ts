@@ -219,6 +219,8 @@ export function useCharacterFolderMembers(
         ...filters.excludeTags.map((tag) => ["excludeTag", tag]),
       ]),
     enabled: folder !== null,
+    // Keep the old members while a new filter loads, but not for a collapsed folder.
+    placeholderData: (previousData) => (folder !== null ? previousData : undefined),
     staleTime: 5 * 60_000,
   });
 }

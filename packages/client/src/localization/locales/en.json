@@ -15402,6 +15402,8 @@
   "ui.panels.characterspanel.failedToRemoveTagFromSomeCharacters": "Failed to remove tag from some characters",
   "ui.panels.characterspanel.favorites": "Favorites",
   "ui.panels.characterspanel.favs": "Favs",
+  "ui.panels.characterspanel.folderMembersLoadFailed": "Could not load this folder. Tap to retry.",
+  "ui.panels.characterspanel.folderMembersLoading": "Loading…",
   "ui.panels.characterspanel.loadMoreValue1Loaded": "Load more ({{value1}} loaded)",
   "ui.panels.characterspanel.loadMoreValue1OfValue2": "Load more ({{value1}} of {{value2}})",
   "ui.panels.characterspanel.noCharactersYet": "No characters yet",

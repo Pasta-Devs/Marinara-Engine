@@ -1187,7 +1187,20 @@ export function CharactersPanel() {
                 className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
                 innerClassName="flex flex-col gap-0.5"
               >
-                {folderMemberIds.length === 0 && (
+                {folderMembers.isError ? (
+                  <button
+                    type="button"
+                    onClick={() => void folderMembers.refetch()}
+                    className="py-2 text-left text-[0.625rem] text-[var(--destructive)]"
+                  >
+                    {localizeUi("ui.panels.characterspanel.folderMembersLoadFailed")}
+                  </button>
+                ) : folderMembers.isFetching && folderMemberIds.length === 0 ? (
+                  <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.characterspanel.folderMembersLoading")}
+                  </div>
+                ) : null}
+                {folderMemberIds.length === 0 && !folderMembers.isError && !folderMembers.isFetching && (
                   <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
                     {localizeUi("ui.panels.characterspanel.dropCharactersHere")}
                   </div>
