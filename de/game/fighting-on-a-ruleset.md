@@ -96,7 +96,7 @@ Auch Gegner können antworten, mit einer eigenen Parade. Ein Konter kann die Fä
 
 ## Auf einem Schlachtfeld
 
-Ein Regelsatz kann festlegen, was ein Feld eines Schlachtfelds in seiner eigenen Entfernung wert ist, in Fuß, Schritten oder seiner eigenen Einheit. Tut er das und ist die **Combat Preference** (bevorzugte Kampfart) deines Spiels **Tactical**, wird der Kampf auf einem Schlachtfeld ausgetragen: mit denselben Spielfeldern (generiert oder für den Ort von Hand gemacht), demselben Gelände und derselben Aufstellung wie bei Marinaras eigenen [Tactical-Kämpfen](combat.md#tactical-battles-and-terrain). Ein Regelsatz ohne Entfernung oder ein auf **Classic** eingestelltes Spiel kämpft ohne Positionen, und jeder kann jeden als Ziel wählen.
+Ein Regelsatz kann festlegen, was ein Feld eines Schlachtfelds in seiner eigenen Entfernung wert ist, in Fuß, Schritten oder seiner eigenen Einheit. Tut er das und ist die **Combat Preference** (bevorzugte Kampfart) deines Spiels **Tactical**, wird der Kampf auf einem Schlachtfeld ausgetragen: mit denselben Spielfeldern (generiert oder für den Ort von Hand gemacht), demselben Gelände und derselben Aufstellung wie bei Marinaras eigenen [Tactical-Kämpfen](combat.md#tactical-battles-and-terrain). Ein Regelsatz ohne Entfernung oder ein auf **Turn-Based** eingestelltes Spiel kämpft ohne Positionen, und jeder kann jeden als Ziel wählen.
 
 Auf dem Schlachtfeld entscheiden die eigenen Werte des Regelsatzes über alles:
 

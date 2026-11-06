@@ -173,7 +173,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | 启用自定义脚本工具。工具来源不可信或是导入来的，就保持关闭。 |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | 允许 Professor Mari 的数据库转换脚本在没有操作系统沙箱的主机上运行（沙箱指 macOS Seatbelt 或 Linux Bubblewrap，存在时会自动使用）。除非你审查过脚本，否则保持关闭。 |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | 在 Agent Organizer(智能体管理器) 里启用手动的 GitHub 智能体仓库预览与同步。见[自定义智能体仓库](#custom-agent-repositories)。 |
-| `MARINARA_OVERWORLD_GAMES` | `false` | 允许玩家创建 Overworld 游戏（一套设定包加一个生成的世界），并把旧版游戏转换成 Overworld 游戏。关闭时，向导只提供 Classic 游戏。 |
+| `MARINARA_OVERWORLD_GAMES` | `false` | 允许玩家创建 Overworld 游戏（一套设定包加一个生成的世界），并把旧版游戏转换成 Overworld 游戏。关闭时，向导只提供 VN 游戏。 |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | 第三方扩展导入两道关中的第一道。见[外部扩展](#external-extensions)。 |
 | `IMPORT_ALLOWED_ROOTS` | 空 | 批量导入无需文件选择器授权即可读取的文件夹。 |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456`(256 MiB) | 服务器构建单个 JSON 档案导出文件的大小上限。 |

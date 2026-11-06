@@ -36,8 +36,8 @@ Se não funcionou, veja [A geração do mundo falha com erro de JSON ou 422](#wo
 
 | Etapa | O que você define |
 |---|---|
-| **Connection** | **Game Name** (nome do jogo), o **Model** que roda o GM e um **Scene effects model** opcional. Por enquanto, o cartão **Game Mode** mostra só **Classic** (veja [Classic ou Overworld RPG](#classic-or-overworld-rpg)). |
-| **World** | Gênero, cenário, tom, dificuldade, classificação de conteúdo e idioma. **Combat Preference** (preferência de combate) é **Classic** ou **Tactical**. Quando há um conjunto de regras instalado, aparece a opção **Rules** (veja [Escolha as regras](#choose-rules)). |
+| **Connection** | **Game Name** (nome do jogo), o **Model** que roda o GM e um **Scene effects model** opcional. Por enquanto, o cartão **Game Mode** mostra só **VN** (veja [VN ou Overworld](#vn-or-overworld)). |
+| **World** | Gênero, cenário, tom, dificuldade, classificação de conteúdo e idioma. **Combat Preference** (preferência de combate) é **Turn-Based** (por turnos) ou **Tactical** (tático). Toda partida nova usa classes **MRPG** (Marinara RPG; veja [Classes MRPG](mrpg-classes.md)). Quando há um conjunto de regras instalado, aparece a opção **Rules** (veja [Escolha as regras](#choose-rules)). |
 | **Party** | A sua persona (o personagem que você interpreta), **Game Master Mode**, os integrantes da equipe e **GM intro message** (veja [A mensagem de introdução do GM](#the-gm-intro-message)). |
 | **Goals** | O que você quer da aventura. |
 | **Lorebooks** | Os lorebooks que o GM trata como cânone. Um lorebook é um conjunto de fatos de fundo sobre o mundo. Veja [Visão geral dos lorebooks](../lorebooks/overview.md). |
@@ -194,6 +194,7 @@ Alguns modelos continuam animados. Acrescente uma instrução clara no campo de 
 ## Onde fica cada assunto
 
 - [Game Mode: combate](combat.md): os encontros, o menu de ações, a matemática do dano e os Quick-Time Events.
+- [Game Mode: classes MRPG](mrpg-classes.md): as classes, os níveis e a ficha, os recém-chegados e a migração de uma partida Legacy.
 - [Game Mode: equipe e NPCs](party-and-npcs.md): os Character Profiles, as fichas e o Adventure Journal.
 - [Game Mode: sessões e saves](sessions-and-saves.md): encerrar e começar sessões, o histórico e os checkpoints.
 - [Game Mode: mapa, tempo e clima](map-time-weather.md): as visualizações do mapa, o relógio, o clima e o moral.
@@ -203,20 +204,20 @@ Alguns modelos continuam animados. Acrescente uma instrução clara no campo de 
 - [Guia do agente Storyboard](storyboard.md): os Storyboards para Game Mode e Roleplay.
 - [Roleplay Mode: primeiros passos](../roleplay/getting-started.md): as Author's Notes funcionam aqui do mesmo jeito.
 
-## Overworld RPG
+## Overworld
 
-As seções abaixo descrevem o **Overworld RPG**, que ainda não está disponível. Leia-as só se o seu servidor o tiver ativado.
+As seções abaixo descrevem as partidas **Overworld**, que ainda não estão disponíveis. Leia-as só se o seu servidor as tiver ativado.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic ou Overworld RPG
+### VN ou Overworld
 
 Uma partida nova é jogada em um de dois modos de jogo, escolhido na primeira etapa e mantido em todas as sessões da partida:
 
-- **Overworld RPG** é um mundo feito para o seu cenário, percorrido em um mapa de overworld, com cidades, lugares para explorar e masmorras. Ele precisa de um kit de cenário e de um mundo. Até você escolher um kit, o do seu primeiro gênero é usado (High fantasy se o gênero não tiver um), e um mundo é sorteado para ele.
-- **Classic** é o Game Mode como sempre foi: cena a cena, com o mapa de cena e as batalhas, e sem kit de cenário, mundo, overworld, cidades ou mapas de masmorra.
+- **Overworld** é um mundo feito para o seu cenário, percorrido em um mapa de overworld, com cidades, lugares para explorar e masmorras. Ele precisa de um kit de cenário e de um mundo. Até você escolher um kit, o do seu primeiro gênero é usado (High fantasy se o gênero não tiver um), e um mundo é sorteado para ele.
+- **VN** é o Game Mode como sempre foi, contado como uma visual novel: cena a cena, com o mapa de cena e as batalhas, e sem kit de cenário, mundo, overworld, cidades ou mapas de masmorra.
 
-O Overworld RPG fica travado, a menos que o dono do servidor defina `MARINARA_OVERWORLD_GAMES`. Enquanto estiver travado, o cartão dele aparece esmaecido com o aviso "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Toda partida nova é então Classic, e as opções de kit de cenário e de mundo não aparecem. Uma partida criada antes de essa escolha existir continua jogando como antes: com um mundo, é uma partida Overworld; sem mundo, é uma partida Classic.
+Overworld fica travado, a menos que o dono do servidor defina `MARINARA_OVERWORLD_GAMES`. Enquanto estiver travado, o cartão aparece esmaecido com o aviso "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Toda partida nova é então uma partida VN, e as opções de kit de cenário e de mundo não aparecem. Uma partida criada antes de essa escolha existir continua jogando como antes: com um mundo, é uma partida Overworld; sem mundo, é uma partida VN.
 
 <a id="choosing-a-setting-kit"></a>
 

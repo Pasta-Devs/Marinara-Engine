@@ -55,12 +55,28 @@ Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwy�
 
 Test umiejętności sprawdza coś ryzykownego, na przykład skradanie, dostrzeżenie poszlaki albo przekonanie postaci NPC (postaci niezależnej). Testu nie zaczynasz samodzielnie. GM wywołuje go w swojej narracji, a Marinara zamienia go w animowany rzut d20 z banerem wyniku. Baner pokazuje umiejętność i liczbę do osiągnięcia, na przykład **Stealth Check** (test skradania) z **DC 15**. Każdy rozstrzygnięty test dostaje osobny baner, po kartach rzutów czekających w kolejce.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Jak liczy się wynik
 
 Test rzuca jedną kością d20 i dodaje dwa modyfikatory:
 
 - Modyfikator umiejętności, wyliczony z poziomu umiejętności, jaki gra prowadzi dla twojej postaci. Jeśli gra nie ma jeszcze poziomu dla tej umiejętności, wynosi 0.
 - Modyfikator atrybutu, wyliczony z atrybutu przypisanego do umiejętności. Każda umiejętność ma automatycznie przypisany jeden atrybut: Stealth korzysta z Dexterity, Perception z Wisdom, a Persuasion z Charisma. Umiejętność, której Marinara nie rozpoznaje, korzysta z Intelligence.
+
+W grze z klasami **MRPG** modyfikator atrybutu pochodzi zamiast tego ze statystyk MRPG postaci, które daje jej aktywna klasa (zobacz [Klasy MRPG](mrpg-classes.md)). Ewentualne atrybuty Legacy pozostawione na ulepszonej karcie nie są używane. Każda umiejętność opiera się na jednej statystyce:
+
+| Statystyka | Umiejętności |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling i każda umiejętność niewymieniona tutaj |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Religion, Intelligence |
+| Resistance | Insight, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+Test dodaje jedną czwartą tej statystyki, zaokrągloną w dół, minus jeden. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +6 na najwyższym poziomie.
 
 Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu unieważniają liczenie:
 

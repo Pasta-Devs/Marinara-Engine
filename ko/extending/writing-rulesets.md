@@ -39,7 +39,7 @@
 
 대항 풀처럼 이 형태들에 맞지 않는 메커니즘은 규칙 집합 파일로 쓸 수 없습니다. 그런 메커니즘에는 Engine 안의 새 판정 종류가 필요하며, 이는 테스트를 갖춘 코드 기여입니다. 시스템에 그런 메커니즘이 필요하면 Engine 저장소에 기능 요청을 열고, 계산 과정을 보여 주는 굴림 몇 개로 메커니즘을 설명하세요. 그 굴림이 테스트가 됩니다.
 
-Game Mode는 Marinara 자체 전투나 규칙 집합의 규칙 중 하나로 싸움을 해결합니다. 선택적 `battle` 블록은 캐릭터 시트의 숫자를 Marinara 전투에 빌려줍니다. [전투 연결](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)을 참고하세요. 선택적 `combat` 블록은 규칙 집합이 싸움 자체를 해결하는 방식을 정합니다. [자체 규칙 전투](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)를 참고하세요. 게임의 Combat Preference는 Classic 표시를 고르거나, 규칙 집합이 거리를 정의하면 Tactical 전장을 고릅니다. 규칙 집합은 `combat.styles`로 게임에서 사용할 수 있는 방식을 제한할 수 있습니다([게임에서 사용할 수 있는 스타일](ruleset-combat.md#combat-a-fight-your-own-rules-resolve) 참고).
+Game Mode는 Marinara 자체 전투나 규칙 집합의 규칙 중 하나로 싸움을 해결합니다. 선택적 `battle` 블록은 캐릭터 시트의 숫자를 Marinara 전투에 빌려줍니다. [전투 연결](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)을 참고하세요. 선택적 `combat` 블록은 규칙 집합이 싸움 자체를 해결하는 방식을 정합니다. [자체 규칙 전투](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)를 참고하세요. 게임의 Combat Preference는 Turn-Based 표시를 고르거나, 규칙 집합이 거리를 정의하면 Tactical 전장을 고릅니다. 규칙 집합은 `combat.styles`로 게임에서 사용할 수 있는 방식을 제한할 수 있습니다([게임에서 사용할 수 있는 스타일](ruleset-combat.md#combat-a-fight-your-own-rules-resolve) 참고).
 
 <a id="parts-of-the-file"></a>
 

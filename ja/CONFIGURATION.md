@@ -173,7 +173,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | カスタムのスクリプトツールをオンにします。信頼できないツールやインポートしたツールを使う場合は、オフのままにしてください。 |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | Professor Mariのデータベース変換スクリプトを、OSのサンドボックス(macOSのSeatbelt、LinuxのBubblewrap。ある場合は使います)がないホストでも実行できるようにします。スクリプトを自分で確認した場合以外は、オフのままにしてください。 |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Agent Organizerで、GitHubのエージェントリポジトリーを手動でプレビューし、同期できるようにします。[カスタムエージェントのリポジトリー](#custom-agent-repositories)を参照してください。 |
-| `MARINARA_OVERWORLD_GAMES` | `false` | プレイヤーがOverworldゲーム(舞台設定キットと生成された世界)を作成し、以前の形式のゲームをOverworldゲームに変換できるようにします。オフの場合、ウィザードではClassicゲームだけを作成できます。 |
+| `MARINARA_OVERWORLD_GAMES` | `false` | プレイヤーがOverworldゲーム(舞台設定キットと生成された世界)を作成し、以前の形式のゲームをOverworldゲームに変換できるようにします。オフの場合、ウィザードではVNゲームだけを作成できます。 |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | サードパーティー製の拡張機能をインポートするための2つの許可のうち、1つ目です。[外部拡張機能(External Extensions)](#external-extensions)を参照してください。 |
 | `IMPORT_ALLOWED_ROOTS` | 空 | ピッカーのトークンなしで一括インポートが読み取れるフォルダー。 |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456`(256 MiB) | サーバーが作成するJSONのプロファイルエクスポート1件の最大サイズ。 |

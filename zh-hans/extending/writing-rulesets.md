@@ -39,7 +39,7 @@ Schema 能发现拼错的键名和错误的类型，但无法检查名称是否�
 
 不符合这些形式的机制（例如对抗骰池）无法写进规则集文件。它需要在 Engine 内新增一种结算类型，也就是一项带测试的代码贡献。如果你的系统需要这样的机制，就在 Engine 仓库提出功能请求，用几个演算完整的掷骰例子描述该机制。这些掷骰例子会成为测试。
 
-Game Mode 用 Marinara 自身的战斗或你的规则集的规则来结算战斗。可选的 `battle` 块把你人物卡上的数值提供给 Marinara 的战斗，见[战斗桥接](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)。可选的 `combat` 块则定义规则集如何自行结算战斗，见[独立规则战斗](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)。游戏的 Combat Preference 选择 Classic 呈现，或者在规则集定义了距离时选择 Tactical 战场。规则集可以用 `combat.styles` 限定其游戏可用哪些样式（见[游戏可以使用哪些样式](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)）。
+Game Mode 用 Marinara 自身的战斗或你的规则集的规则来结算战斗。可选的 `battle` 块把你人物卡上的数值提供给 Marinara 的战斗，见[战斗桥接](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)。可选的 `combat` 块则定义规则集如何自行结算战斗，见[独立规则战斗](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)。游戏的 Combat Preference 选择 Turn-Based 呈现，或者在规则集定义了距离时选择 Tactical 战场。规则集可以用 `combat.styles` 限定其游戏可用哪些样式（见[游戏可以使用哪些样式](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)）。
 
 <a id="parts-of-the-file"></a>
 

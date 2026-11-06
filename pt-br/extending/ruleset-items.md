@@ -13,7 +13,7 @@ Seções desta página:
 - [Armas numa luta](#weapons-in-a-fight)
 - [Armaduras e efeitos de itens vestidos numa luta](#armor-and-worn-effects-in-a-fight)
 - [Usar itens numa luta](#using-items-in-a-fight)
-- [Itens nas batalhas Classic e Tactical](#items-in-classic-and-tactical-battles)
+- [Itens nas batalhas Turn-Based e Tactical](#items-in-turn-based-and-tactical-battles)
 - [Loot](#loot)
 - [Dinheiro](#money)
 - [Equipamento inicial](#starting-gear)
@@ -160,7 +160,7 @@ Tudo acima é verificado quando o conjunto é importado, e seus catálogos de it
 - **Nomes encontram seus itens.** Um nome que o jogador digita, ou que o Game Master escreve em `[inventory: action="add"]`, e que seja o `label` de um dos seus itens, com qualquer combinação de maiúsculas e minúsculas, adiciona esse item. Quando dois itens compartilham um rótulo, o nome encontra o que seus catálogos listam primeiro.
 - **`stack`** é respeitado: adicionar, definir, juntar ou dar além dele enche a pilha e começa uma nova.
 - **`freeform: "refuse"`** deixa ao jogador só os seus itens: o seletor e os nomes que são seus itens.
-- **`native: false`** deixa ao Game Master só os seus itens e os que ele inventa: um nome que não é nenhum dos dois é recusado (`not-ruleset-item`), enquanto mais unidades de algo que já está com o grupo ainda podem ser adicionadas, e as instruções dele dizem isso. Uma luta não pergunta mais a um modelo o que os itens do inventário fazem, então só os seus itens lutam: numa luta do conjunto, suas armas empunhadas e os usos dos seus itens (veja Armas numa luta, abaixo), e numa batalha Classic ou Tactical, seus itens com um `use` (veja Itens nas batalhas Classic e Tactical, abaixo). O que o jogador digita continua seguindo `freeform`, e o que o grupo carregava volta numa nova sessão de qualquer forma.
+- **`native: false`** deixa ao Game Master só os seus itens e os que ele inventa: um nome que não é nenhum dos dois é recusado (`not-ruleset-item`), enquanto mais unidades de algo que já está com o grupo ainda podem ser adicionadas, e as instruções dele dizem isso. Uma luta não pergunta mais a um modelo o que os itens do inventário fazem, então só os seus itens lutam: numa luta do conjunto, suas armas empunhadas e os usos dos seus itens (veja Armas numa luta, abaixo), e numa batalha Turn-Based ou Tactical, seus itens com um `use` (veja Itens nas batalhas Turn-Based e Tactical, abaixo). O que o jogador digita continua seguindo `freeform`, e o que o grupo carregava volta numa nova sessão de qualquer forma.
 - **O que um item é** aparece na pilha selecionada: sua categoria, raridade e tags pelos rótulos, as estatísticas que concede, seu resumo e quantos uma pilha comporta. O seletor também mostra seu `cost`. O Game Master vê cada um dos seus itens que estão no inventário com categoria, raridade, tags e as estatísticas que você deixou `promptVisible`, como `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`.
 
 - **`slots`**: um item que ocupa espaços pode ser equipado por quem o carrega, enquanto tiver esses espaços livres, e um item de uma pilha maior é separado numa pilha própria para ser vestido. O inventário mostra cada espaço em uso por personagem.
@@ -173,7 +173,7 @@ Tudo acima é verificado quando o conjunto é importado, e seus catálogos de it
 - **O que uma arma faz** aparece da mesma forma ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), e uma luta a oferece enquanto ela está empunhada (veja Armas numa luta, abaixo).
 - **O que usar um item faz** aparece da mesma forma ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), com as cargas que lhe restam. Uma luta oferece o uso, assim como o botão **Use** (usar) do inventário e o `[inventory: action="use"]` do Game Master (veja Usar itens numa luta e Usar itens fora de uma luta, abaixo).
 
-Numa batalha Classic ou Tactical, cada um dos seus itens com um `use` faz ali o que diz, e um item sem ele não é oferecido (veja Itens nas batalhas Classic e Tactical, abaixo). Seja o que for que `native` diga, a ficha pode ler seus itens (abaixo), uma arma empunhada é um ataque numa luta do conjunto, disparando o que tira da bolsa, o que um item faz enquanto vestido ou carregado conta nessa luta (veja Armaduras e efeitos de itens vestidos numa luta, abaixo), um item com um `use` é usado pelas próprias regras, numa luta e fora dela (veja Usar itens numa luta e Usar itens fora de uma luta, abaixo), e suas `currencies` são o dinheiro do grupo (veja Dinheiro, abaixo).
+Numa batalha Turn-Based ou Tactical, cada um dos seus itens com um `use` faz ali o que diz, e um item sem ele não é oferecido (veja Itens nas batalhas Turn-Based e Tactical, abaixo). Seja o que for que `native` diga, a ficha pode ler seus itens (abaixo), uma arma empunhada é um ataque numa luta do conjunto, disparando o que tira da bolsa, o que um item faz enquanto vestido ou carregado conta nessa luta (veja Armaduras e efeitos de itens vestidos numa luta, abaixo), um item com um `use` é usado pelas próprias regras, numa luta e fora dela (veja Usar itens numa luta e Usar itens fora de uma luta, abaixo), e suas `currencies` são o dinheiro do grupo (veja Dinheiro, abaixo).
 
 <a id="items-on-the-sheet"></a>
 
@@ -443,11 +443,11 @@ Um item pode ser usado numa luta (Capability API 1.59): um emplastro pressionado
 
 O que uma luta consome e as cargas que deixa são gravados no inventário a cada passo, como os disparos de uma arma, e o diário diz o que foi usado. O registro da luta diz cada uso ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Um membro do grupo jogado pelo Engine só usa uma cura em alguém ferido, e ninguém usa um item para golpear quem se afasta. Os detalhes do item e a linha do Game Master dizem o que usá-lo faz: "Use (Action): heals 1d4 + 1, range 0 paces, used up" e `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, e os detalhes mostram as cargas restantes. Um item que o Game Master inventa `like=` um dos seus é usado como aquele, com cargas e tudo.
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Itens nas batalhas Classic e Tactical
+## Itens nas batalhas Turn-Based e Tactical
 
-Um conjunto que não resolve as próprias lutas as deixa para as batalhas Classic e Tactical do próprio Game Mode, em que um modelo é consultado sobre o que os itens do inventário fazem quando uma luta começa. Seus itens não são adivinhados: cada um com um `use` faz o que ele diz, com os próprios números do Engine, e o palpite do Game Master só é pedido para os itens que não são seus (e para nenhum, com `native: false`).
+Um conjunto que não resolve as próprias lutas as deixa para as batalhas Turn-Based e Tactical do próprio Game Mode, em que um modelo é consultado sobre o que os itens do inventário fazem quando uma luta começa. Seus itens não são adivinhados: cada um com um `use` faz o que ele diz, com os próprios números do Engine, e o palpite do Game Master só é pedido para os itens que não são seus (e para nenhum, com `native: false`).
 
 - Um `heal` cura e um `attack` fere por uma fração da saúde máxima do alvo, a partir da média do seu `amount`: uma média de 7, o `1d8+3` de uma arma básica, é um pouco mais de um quinto dela, nunca menos de um vigésimo e no máximo tudo. Essa é a escala em que a ponte de combate lê os números de uma entrada de catálogo. O `damageType` é o elemento.
 - A primeira condição em `applies` entra como um status com o próprio nome, pelos seus `rounds` (2 sem eles), e um `buff` ou `debuff` é só esse status, que aumenta ou reduz a defesa como os próprios status do Engine fazem.

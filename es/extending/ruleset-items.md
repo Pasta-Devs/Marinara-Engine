@@ -13,7 +13,7 @@ Secciones de esta página:
 - [Armas en un combate](#weapons-in-a-fight)
 - [Armadura y efectos puestos en un combate](#armor-and-worn-effects-in-a-fight)
 - [Usar objetos en un combate](#using-items-in-a-fight)
-- [Objetos en batallas Classic y Tactical](#items-in-classic-and-tactical-battles)
+- [Objetos en batallas Turn-Based y Tactical](#items-in-turn-based-and-tactical-battles)
 - [Botín](#loot)
 - [Dinero](#money)
 - [Equipo inicial](#starting-gear)
@@ -160,7 +160,7 @@ Todo lo anterior se comprueba al importar el conjunto, y tus catálogos de objet
 - **Los nombres encuentran tus objetos.** Un nombre que escribe el jugador, o uno que escribe el Game Master en `[inventory: action="add"]`, que sea la `label` de uno de tus objetos, con cualquier combinación de mayúsculas, añade ese objeto. Si dos objetos comparten etiqueta, un nombre encuentra el que tus catálogos enumeran primero.
 - **`stack`** se respeta: añadir, fijar, combinar o dar por encima de él llena la pila y empieza una nueva.
 - **`freeform: "refuse"`** deja al jugador solo tus objetos: el selector y los nombres que son tus objetos.
-- **`native: false`** deja al Game Master solo tus objetos y los que inventa: se rechaza un nombre que no es ninguna de las dos cosas (`not-ruleset-item`), aunque sigue pudiendo añadirse más de algo que ya se tiene, y sus instrucciones lo indican. Un combate ya no pregunta a un modelo qué hacen los objetos del inventario, así que solo combaten tus objetos: en un combate del conjunto, tus armas empuñadas y los usos de tus objetos (consulta Armas en un combate, más abajo), y en una batalla Classic o Tactical, tus objetos con un `use` (consulta Objetos en batallas Classic y Tactical, más abajo). Lo que escribe el jugador sigue rigiéndose por `freeform`, y lo que llevaba el grupo vuelve en una sesión nueva en cualquier caso.
+- **`native: false`** deja al Game Master solo tus objetos y los que inventa: se rechaza un nombre que no es ninguna de las dos cosas (`not-ruleset-item`), aunque sigue pudiendo añadirse más de algo que ya se tiene, y sus instrucciones lo indican. Un combate ya no pregunta a un modelo qué hacen los objetos del inventario, así que solo combaten tus objetos: en un combate del conjunto, tus armas empuñadas y los usos de tus objetos (consulta Armas en un combate, más abajo), y en una batalla Turn-Based o Tactical, tus objetos con un `use` (consulta Objetos en batallas Turn-Based y Tactical, más abajo). Lo que escribe el jugador sigue rigiéndose por `freeform`, y lo que llevaba el grupo vuelve en una sesión nueva en cualquier caso.
 - **Qué es un objeto** se muestra en la pila seleccionada: su categoría, rareza y propiedades por sus etiquetas, las estadísticas que da, su resumen y cuántos contiene una pila. El selector también muestra su `cost`. El Game Master ve cada uno de tus objetos que tiene con su categoría, rareza, propiedades y las estadísticas que dejaste en `promptVisible`, como `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`.
 
 - **`slots`**: un objeto que ocupa ranuras puede equiparlo quien lo lleva mientras tenga esas ranuras libres, y un objeto de una pila mayor se separa en su propia pila para llevarlo puesto. El inventario muestra cada ranura en uso por personaje.
@@ -173,7 +173,7 @@ Todo lo anterior se comprueba al importar el conjunto, y tus catálogos de objet
 - **Lo que hace un arma** se muestra igual ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), y un combate la ofrece mientras se empuña (consulta Armas en un combate, más abajo).
 - **Lo que hace usar un objeto** se muestra igual ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), con las cargas que le quedan. Lo ofrece un combate, y también el botón **Use** (Usar) del inventario y el `[inventory: action="use"]` del Game Master (consulta Usar objetos en un combate y Usar objetos fuera de un combate, más abajo).
 
-En una batalla Classic o Tactical, cada uno de tus objetos con un `use` hace ahí lo que indica, y uno sin él no se ofrece (consulta Objetos en batallas Classic y Tactical, más abajo). Diga lo que diga `native`, la ficha puede leer tus objetos (abajo), un arma empuñada es un ataque en un combate del conjunto y dispara lo que saca de la bolsa, lo que hace un objeto mientras se lleva puesto o encima cuenta en él (consulta Armadura y efectos puestos en un combate, más abajo), un objeto con un `use` se usa según sus propias reglas, en un combate y fuera de él (consulta Usar objetos en un combate y Usar objetos fuera de un combate, más abajo), y tus `currencies` son el dinero del grupo (consulta Dinero, más abajo).
+En una batalla Turn-Based o Tactical, cada uno de tus objetos con un `use` hace ahí lo que indica, y uno sin él no se ofrece (consulta Objetos en batallas Turn-Based y Tactical, más abajo). Diga lo que diga `native`, la ficha puede leer tus objetos (abajo), un arma empuñada es un ataque en un combate del conjunto y dispara lo que saca de la bolsa, lo que hace un objeto mientras se lleva puesto o encima cuenta en él (consulta Armadura y efectos puestos en un combate, más abajo), un objeto con un `use` se usa según sus propias reglas, en un combate y fuera de él (consulta Usar objetos en un combate y Usar objetos fuera de un combate, más abajo), y tus `currencies` son el dinero del grupo (consulta Dinero, más abajo).
 
 <a id="items-on-the-sheet"></a>
 
@@ -442,11 +442,11 @@ Un objeto puede usarse en un combate (Capability API 1.59): una cataplasma sobre
 
 Lo que un combate consume y las cargas que deja se escriben en el inventario a medida que se da cada paso, igual que los disparos de un arma, y el diario indica lo que se usó. El registro del combate indica cada uso ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Un miembro del grupo que interpreta el motor solo usa una curación en alguien herido, y nadie usa un objeto para golpear a alguien que se aleja. Los detalles del objeto y la línea del Game Master indican lo que hace usarlo: "Use (Action): heals 1d4 + 1, range 0 paces, used up" y `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, y los detalles muestran las cargas que quedan. Un objeto que el Game Master inventa `like=` uno de los tuyos se usa como ese, cargas incluidas.
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Objetos en batallas Classic y Tactical
+## Objetos en batallas Turn-Based y Tactical
 
-Un conjunto que no resuelve sus propios combates los deja a las batallas Classic y Tactical propias de Game Mode, donde se pregunta a un modelo qué hacen los objetos del inventario cuando empieza un combate. Tus objetos no se adivinan: cada uno con un `use` hace lo que este indica, con los números propios del motor, y la suposición del Game Master solo se pide para los objetos que no son tuyos (y para ninguno con `native: false`).
+Un conjunto que no resuelve sus propios combates los deja a las batallas Turn-Based y Tactical propias de Game Mode, donde se pregunta a un modelo qué hacen los objetos del inventario cuando empieza un combate. Tus objetos no se adivinan: cada uno con un `use` hace lo que este indica, con los números propios del motor, y la suposición del Game Master solo se pide para los objetos que no son tuyos (y para ninguno con `native: false`).
 
 - Un `heal` cura y un `attack` daña en una proporción de la salud máxima del objetivo, según la media de su `amount`: una media de 7, el `1d8+3` de un arma básica, es algo más de una quinta parte, nunca menos de una vigésima parte y como mucho toda. Esa es la escala con la que el puente de combate lee los números de una entrada de catálogo. El `damageType` es el elemento.
 - El primer estado de `applies` se aplica como estado con su propio nombre, durante sus `rounds` (2 si no las tiene), y un `buff` o `debuff` es solo ese estado, que sube o baja la defensa como lo hacen los estados propios del motor.

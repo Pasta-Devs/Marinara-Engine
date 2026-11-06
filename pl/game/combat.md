@@ -1,6 +1,6 @@
 # Game Mode: walka
 
-Walka w trybie Game Mode występuje w dwóch odmianach: **Classic** (walka z menu) i **Tactical** (walka na siatce). Wybierasz między nimi w polu **Combat Preference** (preferowany rodzaj walki) w kroku **World** (świat) kreatora konfiguracji. Aby zmienić wybór później, otwórz **Chat Settings** (ustawienia czatu), rozwiń sekcję **Combat Style** (styl walki) i wybierz **Battle system** (system walki). Zestaw zasad, który prowadzi własne walki, może ograniczyć dostępne opcje. Game Master (GM, czyli AI prowadzące grę) przygotowuje starcie i opisuje wynik. Marinara rozstrzyga akcje bojowe stałą matematyką rzutów kośćmi, więc AI nigdy nie decyduje, kto trafia.
+Walka w trybie Game Mode występuje w dwóch odmianach: **Turn-Based** (walka z menu) i **Tactical** (walka na siatce). Wybierasz między nimi w polu **Combat Preference** (preferowany rodzaj walki) w kroku **World** (świat) kreatora konfiguracji. Aby zmienić wybór później, otwórz **Chat Settings** (ustawienia czatu), rozwiń sekcję **Combat Style** (styl walki) i wybierz **Battle system** (system walki). Zestaw zasad, który prowadzi własne walki, może ograniczyć dostępne opcje. Game Master (GM, czyli AI prowadzące grę) przygotowuje starcie i opisuje wynik. Marinara rozstrzyga akcje bojowe stałą matematyką rzutów kośćmi, więc AI nigdy nie decyduje, kto trafia.
 
 ## Początek starcia
 
@@ -10,9 +10,9 @@ Ekran pokazuje drużynę po jednej stronie, a przeciwników po drugiej. Każdy w
 
 > **Uwaga:** W grze z zestawem zasad, który rozstrzyga własne walki, na przykład 5e (SRD 5.1), walka przebiega według zestawu zasad, a nie według tej strony. Zobacz [Walki z zestawem zasad](fighting-on-a-ruleset.md). Zestaw zasad, który tylko użycza walkom swojego arkusza, zachowuje opisany tutaj system walki. Zobacz [Co dzieje się podczas walk](rulesets.md#what-happens-in-battles).
 
-## Rozgrywanie walki Classic
+## Rozgrywanie walki Turn-Based
 
-Walka Classic nie ma planszy. Biorą w niej udział wszyscy członkowie drużyny. Akcję wybierasz dla jednej postaci: pierwszego żyjącego członka drużyny. Pozostali towarzysze działają samodzielnie.
+Walka Turn-Based nie ma planszy. Biorą w niej udział wszyscy członkowie drużyny. Akcję wybierasz dla jednej postaci: pierwszego żyjącego członka drużyny. Pozostali towarzysze działają samodzielnie.
 
 W swojej turze wybierz jedną akcję:
 
@@ -70,7 +70,7 @@ Na telefonie przyciski akcji trzymają się dołu ekranu. Panele, które się ni
 
 ## Jak liczona jest walka
 
-O każdej rundzie decyduje stała matematyka rzutów kośćmi, a nie AI. Dzięki temu walka jest uczciwa i spójna. d20 to kość dwudziestościenna (wynik od 1 do 20). Opisane niżej zasady inicjatywy, ataku i obrażeń określają przebieg walk Classic. To własne zasady aplikacji Marinara, a nie zasady żadnego zestawu zasad. Walki Tactical opisują części [Kolejność tur](#turn-order) i [Widzenie, osłona i wysokość](#sight-cover-and-height).
+O każdej rundzie decyduje stała matematyka rzutów kośćmi, a nie AI. Dzięki temu walka jest uczciwa i spójna. d20 to kość dwudziestościenna (wynik od 1 do 20). Opisane niżej zasady inicjatywy, ataku i obrażeń określają przebieg walk Turn-Based w grze **Legacy**. To własne zasady aplikacji Marinara, a nie zasady żadnego zestawu zasad. Gra z klasami **MRPG** walczy według statystyk i umiejętności swoich klas: zobacz [Klasy MRPG](mrpg-classes.md). Walki Tactical opisują części [Kolejność tur](#turn-order) i [Widzenie, osłona i wysokość](#sight-cover-and-height).
 
 **Inicjatywa.** Na początku każdej rundy każdy walczący rzuca d20 i dolicza premię ze statystyki Speed (Speed podzielona przez 5, zaokrąglona w dół). Kto ma wyższy wynik, działa wcześniej. Walczący pomija rundę, jeśli jest zamrożony, ogłuszony lub uwięziony albo gdy jego Speed spadła do 0.
 
@@ -164,8 +164,8 @@ Oba specjalne rodzaje ruchu korzystają z bieżącej puli ruchu i odległości l
 
 Bitwa Tactical rozgrywa tury na jeden z dwóch sposobów:
 
-- **One at a time, by initiative** (po kolei, według inicjatywy): każda jednostka dostaje miejsce w wylosowanej kolejności i działać może tylko ta jednostka, której jest tura. Plansza pokazuje kolejność. Tak działają nowe gry Overworld RPG.
-- **Your whole party, then the enemies** (najpierw cała drużyna, potem wrogowie): każda jednostka drużyny może działać, a potem rozgrywa się faza wroga. Tak działają gry Classic.
+- **One at a time, by initiative** (po kolei, według inicjatywy): każda jednostka dostaje miejsce w wylosowanej kolejności i działać może tylko ta jednostka, której jest tura. Plansza pokazuje kolejność. Tak działają nowe gry Overworld.
+- **Your whole party, then the enemies** (najpierw cała drużyna, potem wrogowie): każda jednostka drużyny może działać, a potem rozgrywa się faza wroga. Tak działają gry VN.
 
 Aby to zmienić, otwórz **Chat Settings**, rozwiń sekcję **Combat Style** i wybierz **Turn order**. To ustawienie pojawia się, gdy **Battle system** to Tactical, chyba że zestaw zasad gry prowadzi własne walki. Zmiana obowiązuje od następnej bitwy. Trwająca bitwa zachowuje swoją kolejność.
 

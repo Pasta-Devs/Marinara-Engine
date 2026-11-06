@@ -13,7 +13,7 @@ Sections de cette page :
 - [Les armes en combat](#weapons-in-a-fight)
 - [Armures et effets portés en combat](#armor-and-worn-effects-in-a-fight)
 - [Utiliser des objets en combat](#using-items-in-a-fight)
-- [Les objets dans les batailles Classic et Tactical](#items-in-classic-and-tactical-battles)
+- [Les objets dans les batailles Turn-Based et Tactical](#items-in-turn-based-and-tactical-battles)
 - [Butin](#loot)
 - [Argent](#money)
 - [Équipement de départ](#starting-gear)
@@ -160,7 +160,7 @@ Tout ce qui précède est vérifié à l'importation de l'ensemble, et tes catal
 - **Les noms trouvent tes objets.** Un nom que saisit le joueur, ou que le Game Master écrit dans `[inventory: action="add"]`, et qui est le `label` de l'un de tes objets, quelle que soit la casse, ajoute cet objet. Si deux objets partagent un libellé, un nom trouve celui que tes catalogues listent en premier.
 - **`stack`** est respecté : ajouter, fixer, fusionner ou donner au-delà remplit la pile et en commence une nouvelle.
 - **`freeform: "refuse"`** ne laisse au joueur que tes objets : le sélecteur, et les noms qui sont tes objets.
-- **`native: false`** ne laisse au Game Master que tes objets et ceux qu'il invente : un nom qui n'est ni l'un ni l'autre est refusé (`not-ruleset-item`), alors qu'on peut toujours ajouter davantage d'un objet déjà tenu, et ses instructions le disent. Un combat ne demande plus à un modèle ce que font les objets de l'inventaire ; seuls tes objets combattent donc : dans un combat régi par l'ensemble, tes armes tenues et les utilisations de tes objets (voir Les armes en combat, ci-dessous), et dans une bataille Classic ou Tactical, tes objets dotés d'un `use` (voir Les objets dans les batailles Classic et Tactical, ci-dessous). Ce que saisit le joueur suit toujours `freeform`, et ce que l'équipe transportait revient dans une nouvelle session dans les deux cas.
+- **`native: false`** ne laisse au Game Master que tes objets et ceux qu'il invente : un nom qui n'est ni l'un ni l'autre est refusé (`not-ruleset-item`), alors qu'on peut toujours ajouter davantage d'un objet déjà tenu, et ses instructions le disent. Un combat ne demande plus à un modèle ce que font les objets de l'inventaire ; seuls tes objets combattent donc : dans un combat régi par l'ensemble, tes armes tenues et les utilisations de tes objets (voir Les armes en combat, ci-dessous), et dans une bataille Turn-Based ou Tactical, tes objets dotés d'un `use` (voir Les objets dans les batailles Turn-Based et Tactical, ci-dessous). Ce que saisit le joueur suit toujours `freeform`, et ce que l'équipe transportait revient dans une nouvelle session dans les deux cas.
 - **Ce qu'est un objet** s'affiche sur la pile sélectionnée : sa catégorie, sa rareté et ses tags par leurs libellés, les statistiques qu'il donne, son résumé et le contenu maximal d'une pile. Le sélecteur affiche aussi son `cost`. Le Game Master voit chacun de tes objets tenus avec sa catégorie, sa rareté, ses tags et les statistiques laissées `promptVisible`, comme `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`.
 
 - **`slots`** : un objet qui occupe des emplacements peut être équipé par celui qui le transporte, tant qu'il a ces emplacements libres, et un exemplaire d'une pile plus grande est placé dans sa propre pile pour être porté. L'inventaire affiche les emplacements utilisés par chaque personnage.
@@ -173,7 +173,7 @@ Tout ce qui précède est vérifié à l'importation de l'ensemble, et tes catal
 - **Ce que fait une arme** s'affiche de la même façon ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), et un combat la propose tant qu'elle est tenue (voir Les armes en combat, ci-dessous).
 - **Ce que fait l'utilisation d'un objet** s'affiche de la même façon ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), avec les charges qui lui restent. Un combat la propose, tout comme le bouton **Use** (utiliser) de l'inventaire et la commande `[inventory: action="use"]` du Game Master (voir Utiliser des objets en combat et Utiliser des objets hors combat, ci-dessous).
 
-Dans une bataille Classic ou Tactical, chacun de tes objets doté d'un `use` y fait ce qu'il dit, et un objet qui n'en a pas n'est pas proposé (voir Les objets dans les batailles Classic et Tactical, ci-dessous). Quoi que dise `native`, la fiche peut lire tes objets (ci-dessous), une arme tenue est une attaque dans un combat régi par l'ensemble et tire ce qu'elle prend dans le sac, ce que fait un objet porté ou transporté y compte (voir Armures et effets portés en combat, ci-dessous), un objet doté d'un `use` est utilisé selon ses propres règles, en combat et hors combat (voir Utiliser des objets en combat et Utiliser des objets hors combat, ci-dessous), et tes `currencies` sont l'argent de l'équipe (voir Argent, ci-dessous).
+Dans une bataille Turn-Based ou Tactical, chacun de tes objets doté d'un `use` y fait ce qu'il dit, et un objet qui n'en a pas n'est pas proposé (voir Les objets dans les batailles Turn-Based et Tactical, ci-dessous). Quoi que dise `native`, la fiche peut lire tes objets (ci-dessous), une arme tenue est une attaque dans un combat régi par l'ensemble et tire ce qu'elle prend dans le sac, ce que fait un objet porté ou transporté y compte (voir Armures et effets portés en combat, ci-dessous), un objet doté d'un `use` est utilisé selon ses propres règles, en combat et hors combat (voir Utiliser des objets en combat et Utiliser des objets hors combat, ci-dessous), et tes `currencies` sont l'argent de l'équipe (voir Argent, ci-dessous).
 
 <a id="items-on-the-sheet"></a>
 
@@ -443,11 +443,11 @@ Un objet peut être utilisé en combat (Capability API 1.59) : un cataplasme pre
 
 Ce qu'un combat consomme et les charges qu'il laisse sont écrits dans l'inventaire à chaque étape, comme les tirs d'une arme, et le journal de la partie indique ce qui a été utilisé. Le journal de combat indique chaque utilisation ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Un membre de l'équipe joué par le moteur n'utilise un soin que sur quelqu'un de blessé, et personne n'utilise un objet pour frapper quelqu'un qui s'éloigne. Les détails de l'objet et la ligne du Game Master indiquent ce que fait son utilisation : "Use (Action): heals 1d4 + 1, range 0 paces, used up" et `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, et les détails montrent les charges restantes. Un objet que le Game Master invente `like=` l'un des tiens s'utilise comme lui, charges comprises.
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Les objets dans les batailles Classic et Tactical
+## Les objets dans les batailles Turn-Based et Tactical
 
-Un ensemble qui ne résout pas ses propres combats les confie aux batailles Classic et Tactical propres à Game Mode, où l'on demande à un modèle ce que font les objets de l'inventaire au début d'un combat. Tes objets ne sont pas devinés : chacun de ceux dotés d'un `use` fait ce que celui-ci dit, avec les nombres propres au moteur, et l'estimation du Game Master n'est demandée que pour les objets qui ne sont pas les tiens (et pour aucun avec `native: false`).
+Un ensemble qui ne résout pas ses propres combats les confie aux batailles Turn-Based et Tactical propres à Game Mode, où l'on demande à un modèle ce que font les objets de l'inventaire au début d'un combat. Tes objets ne sont pas devinés : chacun de ceux dotés d'un `use` fait ce que celui-ci dit, avec les nombres propres au moteur, et l'estimation du Game Master n'est demandée que pour les objets qui ne sont pas les tiens (et pour aucun avec `native: false`).
 
 - Un `heal` soigne et une `attack` blesse d'une part de la santé maximale de la cible, calculée à partir de la moyenne de son `amount` : une moyenne de 7, le `1d8+3` d'une arme de base, représente un peu plus d'un cinquième de cette santé, jamais moins d'un vingtième et au plus la totalité. C'est l'échelle à laquelle le pont de combat lit les nombres d'une entrée de catalogue. Le `damageType` est l'élément.
 - Le premier état de `applies` s'applique comme un statut portant son propre nom, pendant ses `rounds` (2 sans eux), et un `buff` ou un `debuff` se réduit à ce statut, qui augmente ou baisse la défense comme les statuts propres au moteur.

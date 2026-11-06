@@ -36,8 +36,8 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 
 | 步骤 | 设置内容 |
 | --- | --- |
-| **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **Classic**(经典)（见 [Classic 还是 Overworld RPG](#classic-or-overworld-rpg)）。 |
-| **World**(世界) | 类型、背景、基调、难度、内容分级和语言。**Combat Preference**(战斗偏好) 为 **Classic**(菜单战斗) 或 **Tactical**(网格战斗)。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
+| **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **VN**(见 [VN 还是 Overworld](#vn-or-overworld))。 |
+| **World**(世界) | 类型、背景、基调、难度、内容分级和语言。**Combat Preference**(战斗偏好) 为 **Turn-Based**(回合制) 或 **Tactical**(网格战斗)。所有新游戏都采用 **MRPG**(Marinara RPG) 职业（见 [MRPG 职业](mrpg-classes.md)）。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
 | **Party**(队伍) | 你的用户角色（你扮演的角色）、**Game Master Mode**、队伍成员和 **GM intro message**(GM 开场消息)（见 [GM 开场消息](#the-gm-intro-message)）。 |
 | **Goals**(目标) | 你想从这场冒险里得到什么。 |
 | **Lorebooks**(世界书) | GM 会当作正典的世界书。世界书就是一组世界背景设定。见[世界书](../lorebooks/overview.md)。 |
@@ -194,6 +194,7 @@ Claude 和 Grok 订阅账号不支持原生工具调用。相关控件会说明�
 ## 各个专题在哪
 
 - [Game Mode：战斗](combat.md)：遭遇战、行动菜单、伤害计算和快速反应事件。
+- [Game Mode：MRPG 职业](mrpg-classes.md)：职业、等级和人物卡，新加入的队伍成员，以及把 Legacy 游戏迁移过去的方法。
 - [Game Mode：队伍与 NPC](party-and-npcs.md)：Character Profiles、人物卡和冒险日志。
 - [Game Mode：会话与存档](sessions-and-saves.md)：结束和开始会话、会话历史和检查点。
 - [Game Mode：地图、时间与天气](map-time-weather.md)：地图视图、时钟、天气和士气。
@@ -203,20 +204,20 @@ Claude 和 Grok 订阅账号不支持原生工具调用。相关控件会说明�
 - [Storyboard 智能体指南](storyboard.md)：Game Mode 和 Roleplay 的分镜。
 - [Roleplay 模式：入门](../roleplay/getting-started.md)：作者注释在这里的用法也一样。
 
-## Overworld RPG
+## Overworld
 
-下面几节介绍 **Overworld RPG**(大地图 RPG)，它目前还不可用。只有你的服务器开启了它时才需要看。
+下面几节介绍 **Overworld** 游戏，它目前还不可用。只有你的服务器开启了它时才需要看。
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic 还是 Overworld RPG
+### VN 还是 Overworld
 
 新游戏以两种玩法之一进行，在第一步选定，并在这局游戏的所有会话中保持不变：
 
-- **Overworld RPG** 是一个为你的背景打造的世界，在大地图上行走，有城镇、可以探索的地方和地下城。它需要一个设定包和一个世界。在你选定设定包之前，会采用与你第一个类型对应的设定包（类型没有对应设定包时用高奇幻），并为它随机生成一个世界。
-- **Classic** 是 Game Mode 一直以来的玩法：一个场景接一个场景地进行，有场景地图和战斗，没有设定包、世界、大地图、城镇或地下城地图。
+- **Overworld** 是一个为你的背景打造的世界，在大地图上行走，有城镇、可以探索的地方和地下城。它需要一个设定包和一个世界。在你选定设定包之前，会采用与你第一个类型对应的设定包（类型没有对应设定包时用高奇幻），并为它随机生成一个世界。
+- **VN** 是 Game Mode 一直以来的玩法，像视觉小说一样讲述故事：一个场景接一个场景地进行，有场景地图和战斗，没有设定包、世界、大地图、城镇或地下城地图。
 
-除非服务器所有者设置了 `MARINARA_OVERWORLD_GAMES`，否则 Overworld RPG 处于锁定状态。锁定时，它的卡片是灰色的，并附有说明“Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games.”这时每个新游戏都是 Classic，设定包和世界选项也不会出现。在有这个选项之前创建的游戏会照原样继续：有世界的是 Overworld 游戏，没有世界的是 Classic 游戏。
+除非服务器所有者设置了 `MARINARA_OVERWORLD_GAMES`，否则 Overworld 处于锁定状态。锁定时，它的卡片是灰色的，并附有说明“Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games.”这时每个新游戏都是 VN 游戏，设定包和世界选项也不会出现。在有这个选项之前创建的游戏会照原样继续：有世界的是 Overworld 游戏，没有世界的是 VN 游戏。
 
 <a id="choosing-a-setting-kit"></a>
 

@@ -36,8 +36,8 @@ Game Modeは、3つのチャットモード(Conversation、Roleplay、Game Mode)
 
 | ステップ | 設定する内容 |
 | --- | --- |
-| **Connection** | **Game Name**(ゲーム名)、GMを動かす**Model**(モデル)、任意の**Scene effects model**(シーン効果のモデル)です。**Game Mode**(ゲームモード)のカードには、今のところ**Classic**だけが表示されます([ClassicとOverworld RPG](#classic-or-overworld-rpg)を参照)。 |
-| **World** | ジャンル、舞台、雰囲気、難易度、コンテンツ区分、言語です。**Combat Preference**(戦闘の種類)は**Classic**(メニュー式戦闘)か**Tactical**(グリッド式戦闘)です。ルールセットがインストールされていると、**Rules**(ルール)の選択肢が表示されます([ルールを選ぶ](#choose-rules)を参照)。 |
+| **Connection** | **Game Name**(ゲーム名)、GMを動かす**Model**(モデル)、任意の**Scene effects model**(シーン効果のモデル)です。**Game Mode**(ゲームモード)のカードには、今のところ**VN**だけが表示されます([VNとOverworld](#vn-or-overworld)を参照)。 |
+| **World** | ジャンル、舞台、雰囲気、難易度、コンテンツ区分、言語です。**Combat Preference**(戦闘の種類)は**Turn-Based**(ターン制のメニュー式戦闘)か**Tactical**(グリッド式戦闘)です。新しいゲームはすべて**MRPG**(Marinara RPG)クラスで遊びます([MRPGクラス](mrpg-classes.md)を参照)。ルールセットがインストールされていると、**Rules**(ルール)の選択肢が表示されます([ルールを選ぶ](#choose-rules)を参照)。 |
 | **Party** | 自分のペルソナ(自分が演じるキャラクター)、**Game Master Mode**(ゲームマスターのモード)、パーティーメンバー、**GM intro message**(GMの導入メッセージ)です([GMの導入メッセージ](#the-gm-intro-message)を参照)。 |
 | **Goals** | 冒険に何を求めるかです。 |
 | **Lorebooks** | GMが事実として扱うロアブックです。ロアブックとは、世界の背景設定をまとめたものです。[ロアブック](../lorebooks/overview.md)を参照してください。 |
@@ -194,6 +194,7 @@ ClaudeとGrokのサブスクリプションのアカウントは、ネイティ�
 ## 各トピックの解説はどこにあるか
 
 - [Game Mode: 戦闘](combat.md): エンカウント、アクションメニュー、ダメージの計算、クイックタイムイベント
+- [Game Mode: MRPGクラス](mrpg-classes.md): クラス、レベル、シート、新しく加わる仲間、Legacyゲームの移行
 - [Game Mode: パーティーとNPC](party-and-npcs.md): Character Profiles、シート、Adventure Journal
 - [Game Mode: セッションとセーブデータ](sessions-and-saves.md): セッションの終了と開始、履歴、チェックポイント
 - [Game Mode: マップ、時間、天候](map-time-weather.md): マップの表示、時計、天候、士気
@@ -203,20 +204,20 @@ ClaudeとGrokのサブスクリプションのアカウントは、ネイティ�
 - [Storyboardエージェントガイド](storyboard.md): Game ModeとRoleplayの絵コンテ
 - [Roleplayモード: はじめに](../roleplay/getting-started.md): Author's Notesは、ここでも同じように使えます。
 
-## Overworld RPG
+## Overworld
 
-以下のセクションでは、まだ使えない**Overworld RPG**について説明します。サーバーでオンになっている場合にだけ読んでください。
+以下のセクションでは、まだ使えない**Overworld**ゲームについて説明します。サーバーでオンになっている場合にだけ読んでください。
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### ClassicとOverworld RPG
+### VNとOverworld
 
 新しいゲームは、2つのゲームモードのどちらかで遊びます。モードは最初のステップで選び、そのゲームのすべてのセッションで変わりません。
 
-- **Overworld RPG**は、舞台に合わせて作られた世界を、オーバーワールドのマップの上で歩いて旅するモードです。町、探索する場所、ダンジョンがあります。舞台設定キットと世界が必要です。キットを選ぶまでは最初のジャンルのキット(キットのないジャンルではHigh fantasy)が使われ、そのキットで世界が生成されます。
-- **Classic**は、これまでどおりのGame Modeです。物語はシーンごとに進み、シーンのマップと戦闘があります。舞台設定キット、世界、オーバーワールド、町、ダンジョンのマップはありません。
+- **Overworld**は、舞台に合わせて作られた世界を、オーバーワールドのマップの上で歩いて旅するモードです。町、探索する場所、ダンジョンがあります。舞台設定キットと世界が必要です。キットを選ぶまでは最初のジャンルのキット(キットのないジャンルではHigh fantasy)が使われ、そのキットで世界が生成されます。
+- **VN**は、これまでどおりのGame Modeをビジュアルノベルのように語るモードです。物語はシーンごとに進み、シーンのマップと戦闘があります。舞台設定キット、世界、オーバーワールド、町、ダンジョンのマップはありません。
 
-サーバーの所有者が`MARINARA_OVERWORLD_GAMES`を設定しない限り、Overworld RPGはロックされています。ロック中は、そのカードがグレー表示になり、「Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games.」という注記が表示されます。その場合、新しいゲームはすべてClassicになり、舞台設定キットと世界の選択肢は表示されません。この選択ができる前に作ったゲームは、これまでどおりに遊べます。世界があればOverworldゲーム、なければClassicゲームです。
+サーバーの所有者が`MARINARA_OVERWORLD_GAMES`を設定しない限り、Overworldはロックされています。ロック中は、そのカードがグレー表示になり、「Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games.」という注記が表示されます。その場合、新しいゲームはすべてVNゲームになり、舞台設定キットと世界の選択肢は表示されません。この選択ができる前に作ったゲームは、これまでどおりに遊べます。世界があればOverworldゲーム、なければVNゲームです。
 
 <a id="choosing-a-setting-kit"></a>
 

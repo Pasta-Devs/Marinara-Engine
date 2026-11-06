@@ -39,7 +39,7 @@
 
 対抗プールのように、これらの形に収まらない仕組みは、ルールセットファイルでは表現できません。そうした仕組みにはEngine内の新しい判定方式が必要で、それはテストを伴うコードの貢献になります。必要な場合はEngineリポジトリーに機能要望を開き、計算過程を示したロール例をいくつか添えて仕組みを説明してください。そのロール例がテストになります。
 
-Game Modeは、Marinara独自の戦闘か、ルールセットの規則のどちらかで戦闘を解決します。任意の`battle`ブロックは、キャラクターシートの数値をMarinaraの戦闘へ貸し出します。[戦闘への橋渡し](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)を参照してください。任意の`combat`ブロックは、ルールセットが戦闘そのものを解決する方法を定義します。[独自ルールの戦闘](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)を参照してください。ゲームのCombat Preferenceは、Classic表示か、ルールセットが距離を定義する場合はTacticalの戦場を選びます。ルールセットは`combat.styles`で、そのルールセットを使うゲームがこれらのどれを使えるかを制限できます([ゲームで使えるスタイル](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)を参照)。
+Game Modeは、Marinara独自の戦闘か、ルールセットの規則のどちらかで戦闘を解決します。任意の`battle`ブロックは、キャラクターシートの数値をMarinaraの戦闘へ貸し出します。[戦闘への橋渡し](ruleset-combat.md#battles-lending-the-sheet-to-marinaras-combat)を参照してください。任意の`combat`ブロックは、ルールセットが戦闘そのものを解決する方法を定義します。[独自ルールの戦闘](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)を参照してください。ゲームのCombat Preferenceは、Turn-Based表示か、ルールセットが距離を定義する場合はTacticalの戦場を選びます。ルールセットは`combat.styles`で、そのルールセットを使うゲームがこれらのどれを使えるかを制限できます([ゲームで使えるスタイル](ruleset-combat.md#combat-a-fight-your-own-rules-resolve)を参照)。
 
 <a id="parts-of-the-file"></a>
 

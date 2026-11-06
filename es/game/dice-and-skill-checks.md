@@ -62,6 +62,20 @@ La prueba tira un d20 y suma dos modificadores:
 - Un modificador de habilidad, a partir del nivel de habilidad que el juego lleva para tu personaje. Es 0 si el juego todavía no tiene un nivel para esa habilidad.
 - Un modificador de atributo, a partir del atributo que gobierna la habilidad. Cada habilidad se asigna a uno automáticamente: Stealth usa Dexterity, Perception usa Wisdom y Persuasion usa Charisma. Una habilidad que Marinara no reconoce usa Intelligence.
 
+En una partida con clases **MRPG**, el modificador de atributo procede en cambio de las estadísticas MRPG del personaje, las que le da su clase activa (consulta [Clases MRPG](mrpg-classes.md)). No se usa ningún atributo Legacy que siga en una tarjeta actualizada. Cada habilidad se apoya en una estadística:
+
+| Estadística | Habilidades |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling y cualquier habilidad que no aparezca aquí |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Religion, Intelligence |
+| Resistance | Insight, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+La prueba suma la cuarta parte de esa estadística, redondeada hacia abajo, menos uno. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +6 en el nivel máximo.
+
 Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan el cálculo:
 
 - Un 20 natural es un **CRITICAL SUCCESS** (Éxito crítico) y siempre pasa.

@@ -36,8 +36,8 @@ Jeśli coś nie zadziałało, zajrzyj do sekcji [Generowanie świata kończy si�
 
 | Krok | Co ustawiasz |
 | --- | --- |
-| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **Classic** (zobacz [Classic czy Overworld RPG](#classic-or-overworld-rpg)). |
-| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści i język. **Combat Preference** (preferowany rodzaj walki) to **Classic** albo **Tactical**. Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
+| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **VN** (zobacz [VN czy Overworld](#vn-or-overworld)). |
+| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści i język. **Combat Preference** (preferowany rodzaj walki) to **Turn-Based** albo **Tactical**. Każda nowa gra korzysta z klas **MRPG** (Marinara RPG) (zobacz [Klasy MRPG](mrpg-classes.md)). Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
 | **Party** (drużyna) | Twoja persona (postać, w którą się wcielasz), **Game Master Mode**, członkowie drużyny i **GM intro message** (wiadomość otwierająca GM; zobacz [Wiadomość otwierająca GM](#the-gm-intro-message)). |
 | **Goals** (cele) | Czego oczekujesz od przygody. |
 | **Lorebooks** (lorebooki) | Lorebooki, które postać GM traktuje jako kanon. Lorebook to zbiór faktów o świecie w tle. Zobacz [Lorebooki](../lorebooks/overview.md). |
@@ -194,6 +194,7 @@ Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferenc
 ## Gdzie szukać poszczególnych tematów
 
 - [Game Mode: walka](combat.md): starcia, menu akcji, obliczanie obrażeń i wydarzenia na czas.
+- [Game Mode: klasy MRPG](mrpg-classes.md): klasy, poziomy i arkusz, nowi członkowie drużyny oraz przenoszenie gry Legacy.
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md): Character Profiles, arkusze postaci i Adventure Journal.
 - [Game Mode: sesje i zapisy gry](sessions-and-saves.md): kończenie i rozpoczynanie sesji, historia i punkty kontrolne.
 - [Game Mode: mapa, czas i pogoda](map-time-weather.md): widoki mapy, zegar, pogoda i morale.
@@ -203,20 +204,20 @@ Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferenc
 - [Przewodnik po agencie Storyboard](storyboard.md): storyboardy w trybach Game Mode i Roleplay.
 - [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md): funkcja Author's Notes (notatki autora) działa tu tak samo.
 
-## Overworld RPG
+## Overworld
 
-Sekcje poniżej opisują tryb **Overworld RPG**, który nie jest jeszcze dostępny. Czytaj je tylko wtedy, gdy twój serwer go włączył.
+Sekcje poniżej opisują gry **Overworld**, które nie są jeszcze dostępne. Czytaj je tylko wtedy, gdy twój serwer je włączył.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic czy Overworld RPG
+### VN czy Overworld
 
 Nowa gra toczy się w jednym z dwóch trybów gry, wybieranym w pierwszym kroku i zachowywanym we wszystkich jej sesjach:
 
-- **Overworld RPG** to świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami, miejscami do zbadania i lochami. Wymaga zestawu settingu i świata. Dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy, jeśli gatunek nie ma własnego), a świat jest dla niego losowany.
-- **Classic** to Game Mode w dotychczasowej postaci: scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
+- **Overworld** to świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami, miejscami do zbadania i lochami. Wymaga zestawu settingu i świata. Dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy, jeśli gatunek nie ma własnego), a świat jest dla niego losowany.
+- **VN** to Game Mode w dotychczasowej postaci, opowiadany jak powieść wizualna: scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
 
-Overworld RPG jest zablokowany, dopóki właściciel serwera nie ustawi `MARINARA_OVERWORLD_GAMES`. Gdy jest zablokowany, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Każda nowa gra jest wtedy grą Classic, a wybory zestawu settingu i świata się nie pojawiają. Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą Classic.
+Overworld jest zablokowany, dopóki właściciel serwera nie ustawi `MARINARA_OVERWORLD_GAMES`. Gdy jest zablokowany, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Każda nowa gra jest wtedy grą VN, a wybory zestawu settingu i świata się nie pojawiają. Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą VN.
 
 <a id="choosing-a-setting-kit"></a>
 

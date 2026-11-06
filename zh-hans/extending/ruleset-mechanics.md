@@ -2,7 +2,7 @@
 
 用本页查阅目录条目在数值上的作用：条目的 `mechanics` 块，由检定、休息和战斗读取。这是一份面向规则集作者的参考。开始之前，先读[编写 Game Mode 规则集](writing-rulesets.md)。
 
-条目可以带可选的 `mechanics` 块，用数值说明其效果：`kind`(`attack`、`heal`、`buff`、`debuff`、`utility`、`rider`)、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、`amount`(`2d6` 等骰子表达式或固定数值)、`amountAdd`(从使用者人物卡读取并加到数量上的值，例如 `{ "field": "level_fighter" }`，表示 1d10 加战士等级的 Second Wind；它需要 `amount`，只在规则集自己的战斗中读取（Engine 的 Classic 和 Tactical 战斗按写下的数量使用），并需要 Capability API 1.83)、`damageType`、`attackRoll`、`autoHit`、`save`(人物卡中的一种豁免，以及成功后的效果)、`applies`(为接触到的对象施加的状态)、`temporary`(生命池的临时点数)、`scales`(随人物卡增长的数量)、`cost`(使用时消耗哪个池)、`perCostStep`、`targetsPerCostStep`、`budget`(消耗行动经济的哪部分)、`concentration`、`reaction`、`plus`、`free`、`gives`、`standard`、`rider` 和 `check`。
+条目可以带可选的 `mechanics` 块，用数值说明其效果：`kind`(`attack`、`heal`、`buff`、`debuff`、`utility`、`rider`)、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、`amount`(`2d6` 等骰子表达式或固定数值)、`amountAdd`(从使用者人物卡读取并加到数量上的值，例如 `{ "field": "level_fighter" }`，表示 1d10 加战士等级的 Second Wind；它需要 `amount`，只在规则集自己的战斗中读取（Engine 的 Turn-Based 和 Tactical 战斗按写下的数量使用），并需要 Capability API 1.83)、`damageType`、`attackRoll`、`autoHit`、`save`(人物卡中的一种豁免，以及成功后的效果)、`applies`(为接触到的对象施加的状态)、`temporary`(生命池的临时点数)、`scales`(随人物卡增长的数量)、`cost`(使用时消耗哪个池)、`perCostStep`、`targetsPerCostStep`、`budget`(消耗行动经济的哪部分)、`concentration`、`reaction`、`plus`、`free`、`gives`、`standard`、`rider` 和 `check`。
 
 瞄准敌人的攻击可以用 `summons`(Capability API 1.122) 留下一样东西，在之后的回合继续打击。对于 Spiritual Weapon，在其攻击条目上写 `"summons": { "budget": "bonus", "rounds": 10, "move": 20, "reach": 5 }`。施法本身进行第一次攻击，并在反应结束后把武器留在第一个目标旁边；被取消的施法什么也不留下。之后的打击只消耗所声明的行动经济额度，保留施法时的支付等级用于伤害缩放，并打开相同的反应窗口。距离使用目录的单位；省略移动时为零，省略触及时为一格。在棋盘上，武器可以打击移动距离加触及范围之内的敌人，无视墙壁，并移到其旁边。没有棋盘时，任何站着的敌人都在触及范围内。轮数在持有者的回合结束时倒数，施法的那个回合不计。召唤物在归零、持有者被击败，或其条目的专注结束时结束。再次施放同一条目会替换它的召唤物。
 
@@ -2216,7 +2216,7 @@ cult fanatic 的追随者 `{"guards": ["casters"]}`。
 都会在自身回合开始时停止逃跑，
 并在自己的下个回合再次检定勇气。
 
-狂热者（Capability API 1.778）。`behavior.temperament` 为 `fanatical` 的性格从不随机分配，只能由生物数据或故事指定：无论身处何种危险，它都会全力攻击，维护己方，从不检定 `combat.morale`，在 Classic 和 Tactical 战斗中也没有士气分值。`disciplined` 生物（无次版本要求）会保持阵形，考虑跟随己方移动，执行首领选定的目标，且不会因己方第一个成员倒下（`first-fall`）而动摇。5e：邪教狂信徒及其邪教徒 `{"temperament": "fanatical"}`。指定 `fanatical` 的规则集需要 Capability API 1.778。
+狂热者（Capability API 1.778）。`behavior.temperament` 为 `fanatical` 的性格从不随机分配，只能由生物数据或故事指定：无论身处何种危险，它都会全力攻击，维护己方，从不检定 `combat.morale`，在 Turn-Based 和 Tactical 战斗中也没有士气分值。`disciplined` 生物（无次版本要求）会保持阵形，考虑跟随己方移动，执行首领选定的目标，且不会因己方第一个成员倒下（`first-fall`）而动摇。5e：邪教狂信徒及其邪教徒 `{"temperament": "fanatical"}`。指定 `fanatical` 的规则集需要 Capability API 1.778。
 
 会转变的性格（Capability API 1.779）。`behavior` 可以声明 `shifts`，包含一到四个 `{"on": trigger, "to": temperament}`，每个触发条件只能出现一次：`bloodied`(生命值低于一半)、`ally-down`(己方一员倒下或离场)、`leader-down`(己方首领倒下) 或 `cornered`(生命值低于四分之一、身旁有对手且无路可逃)。在它每个回合开始时，首个已经发生的触发条件会使其性格转变，每场战斗只转变一次，此后它自己的 `temperament` 不再适用。游戏主持人（GM）为单场战斗指定的 `shifts` 优先于此设置。无心智生物从不转变。5e：傲慢的龙 `{"temperament": "opportunistic", "shifts": [{"on": "bloodied", "to": "methodical"}]}`，走投无路的强盗 `{"shifts": [{"on": "cornered", "to": "reckless"}]}`。使用 `shifts` 的规则集需要 Capability API 1.779。
 

@@ -13,7 +13,7 @@
 - [전투 중 무기](#weapons-in-a-fight)
 - [전투 중 방어구와 착용 효과](#armor-and-worn-effects-in-a-fight)
 - [전투 중 아이템 사용](#using-items-in-a-fight)
-- [Classic 및 Tactical 전투의 아이템](#items-in-classic-and-tactical-battles)
+- [Turn-Based 및 Tactical 전투의 아이템](#items-in-turn-based-and-tactical-battles)
 - [전리품](#loot)
 - [돈](#money)
 - [시작 장비](#starting-gear)
@@ -160,7 +160,7 @@
 - **이름으로 아이템을 찾습니다.** 플레이어가 입력한 이름이나 Game Master가 `[inventory: action="add"]`에 쓴 이름이 대소문자와 관계없이 아이템의 `label`과 같으면 그 아이템을 추가합니다. 두 아이템이 같은 라벨을 쓰면 카탈로그에 먼저 나열된 아이템을 찾습니다.
 - **`stack`** 상한을 지킵니다. 추가, 설정, 합치기, 건네기로 상한을 넘으면 묶음을 채우고 새 묶음을 시작합니다.
 - **`freeform: "refuse"`**는 플레이어에게 규칙 집합의 아이템만 남깁니다. 선택기와, 규칙 집합 아이템에 해당하는 이름입니다.
-- **`native: false`**는 Game Master에게 규칙 집합의 아이템과 Game Master가 창작한 아이템만 남깁니다. 둘 다 아닌 이름은 거부하지만(`not-ruleset-item`) 이미 지닌 것을 더 추가할 수는 있으며, 지시문에도 그렇게 안내합니다. 전투는 더 이상 인벤토리 아이템이 하는 일을 모델에게 묻지 않으므로 규칙 집합의 아이템만 싸움에 쓰입니다. 규칙 집합 전투에서는 손에 든 무기와 아이템의 사용(아래 전투 중 무기 참고), Classic이나 Tactical 전투에서는 `use`가 있는 아이템(아래 Classic 및 Tactical 전투의 아이템 참고)입니다. 플레이어가 입력한 것은 여전히 `freeform`을 따르며, 파티가 지니던 것은 어느 경우든 새 세션에서 돌아옵니다.
+- **`native: false`**는 Game Master에게 규칙 집합의 아이템과 Game Master가 창작한 아이템만 남깁니다. 둘 다 아닌 이름은 거부하지만(`not-ruleset-item`) 이미 지닌 것을 더 추가할 수는 있으며, 지시문에도 그렇게 안내합니다. 전투는 더 이상 인벤토리 아이템이 하는 일을 모델에게 묻지 않으므로 규칙 집합의 아이템만 싸움에 쓰입니다. 규칙 집합 전투에서는 손에 든 무기와 아이템의 사용(아래 전투 중 무기 참고), Turn-Based나 Tactical 전투에서는 `use`가 있는 아이템(아래 Turn-Based 및 Tactical 전투의 아이템 참고)입니다. 플레이어가 입력한 것은 여전히 `freeform`을 따르며, 파티가 지니던 것은 어느 경우든 새 세션에서 돌아옵니다.
 - **아이템의 정체**를 선택한 묶음에 표시합니다. 분류, 희귀도, 태그를 라벨로, 아이템이 주는 스탯, 요약, 한 묶음의 최대 개수입니다. 선택기는 `cost`도 표시합니다. Game Master는 보유한 각 아이템을 분류, 희귀도, 태그, `promptVisible`로 남긴 스탯과 함께 봅니다. `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`처럼 나옵니다.
 
 - **`slots`**: 슬롯을 차지하는 아이템은 그 슬롯이 비어 있는 동안 소지한 사람이 장착할 수 있으며, 큰 묶음에서는 아이템 하나를 별도 묶음으로 떼어 착용합니다. 인벤토리는 캐릭터마다 사용 중인 슬롯을 표시합니다.
@@ -173,7 +173,7 @@
 - **무기가 하는 일**도 같은 방식으로 표시하며("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), 전투는 손에 든 동안 이를 제공합니다(아래 전투 중 무기 참고).
 - **아이템 사용의 효과**도 같은 방식으로 남은 충전과 함께 표시합니다("Use (Action): heals 1d4 + 1, range 0 paces, used up"). 전투가 이를 제공하며, 인벤토리의 **Use**(사용) 버튼과 Game Master의 `[inventory: action="use"]`도 마찬가지입니다(아래 전투 중 아이템 사용과 전투 밖 아이템 사용 참고).
 
-Classic이나 Tactical 전투에서는 `use`가 있는 각 아이템이 거기 적힌 일을 하고, 없는 아이템은 제공하지 않습니다(아래 Classic 및 Tactical 전투의 아이템 참고). `native` 설정과 관계없이 시트는 아이템을 읽을 수 있고(아래 참고), 손에 든 무기는 규칙 집합 전투에서 가방에서 꺼낸 것을 쏘는 공격이 되며, 착용하거나 소지한 동안 아이템이 하는 일은 그 전투에서도 적용되고(아래 전투 중 방어구와 착용 효과 참고), `use`가 있는 아이템은 전투 안팎에서 자체 규칙대로 사용되며(아래 전투 중 아이템 사용과 전투 밖 아이템 사용 참고), `currencies`는 파티의 돈입니다(아래 돈 참고).
+Turn-Based나 Tactical 전투에서는 `use`가 있는 각 아이템이 거기 적힌 일을 하고, 없는 아이템은 제공하지 않습니다(아래 Turn-Based 및 Tactical 전투의 아이템 참고). `native` 설정과 관계없이 시트는 아이템을 읽을 수 있고(아래 참고), 손에 든 무기는 규칙 집합 전투에서 가방에서 꺼낸 것을 쏘는 공격이 되며, 착용하거나 소지한 동안 아이템이 하는 일은 그 전투에서도 적용되고(아래 전투 중 방어구와 착용 효과 참고), `use`가 있는 아이템은 전투 안팎에서 자체 규칙대로 사용되며(아래 전투 중 아이템 사용과 전투 밖 아이템 사용 참고), `currencies`는 파티의 돈입니다(아래 돈 참고).
 
 <a id="items-on-the-sheet"></a>
 
@@ -444,11 +444,11 @@ Gravewatch의 저주받은 과부의 반지는 모든 공격에서 주사위 하
 
 전투가 소진한 것과 남긴 충전은 무기의 사격처럼 각 단계마다 인벤토리에 기록되며, 일지에 사용한 것이 나옵니다. 전투 로그는 각 사용을 기록합니다("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Engine이 조종하는 파티원은 다친 사람에게만 회복을 쓰며, 걸어 나가는 상대를 치는 데 아이템을 쓰는 사람은 없습니다. 아이템 세부 정보와 Game Master의 줄은 사용 효과를 알려 줍니다. "Use (Action): heals 1d4 + 1, range 0 paces, used up"과 `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`이며, 세부 정보에는 남은 충전도 나옵니다. Game Master가 규칙 집합의 아이템을 `like=`로 지정해 창작한 아이템은 충전을 포함해 그 아이템과 같은 방식으로 사용합니다.
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Classic 및 Tactical 전투의 아이템
+## Turn-Based 및 Tactical 전투의 아이템
 
-자체 전투를 해결하지 않는 규칙 집합은 Game Mode 자체의 Classic과 Tactical 전투에 맡기며, 여기서는 전투가 시작될 때 모델에게 인벤토리 아이템이 하는 일을 묻습니다. 규칙 집합의 아이템은 추측하지 않습니다. `use`가 있는 각 아이템은 Engine 자체 수치로 거기 적힌 일을 하며, Game Master의 추측은 규칙 집합의 것이 아닌 아이템에만 묻습니다(`native: false`이면 아무것도 묻지 않습니다).
+자체 전투를 해결하지 않는 규칙 집합은 Game Mode 자체의 Turn-Based와 Tactical 전투에 맡기며, 여기서는 전투가 시작될 때 모델에게 인벤토리 아이템이 하는 일을 묻습니다. 규칙 집합의 아이템은 추측하지 않습니다. `use`가 있는 각 아이템은 Engine 자체 수치로 거기 적힌 일을 하며, Game Master의 추측은 규칙 집합의 것이 아닌 아이템에만 묻습니다(`native: false`이면 아무것도 묻지 않습니다).
 
 - `heal`은 회복하고 `attack`은 피해를 주며, `amount`의 평균에 따라 대상 최대 체력의 일정 비율만큼입니다. 기본 무기의 `1d8+3`인 평균 7은 5분의 1을 조금 넘으며, 20분의 1보다 작지 않고 최대 전부입니다. 전투 연결이 카탈로그 항목의 숫자를 읽는 척도와 같습니다. `damageType`은 속성입니다.
 - `applies`의 첫 상태는 자체 이름의 상태로 `rounds`만큼(없으면 2) 걸리며, `buff`나 `debuff`는 그 상태만이고 Engine 자체 상태처럼 방어를 올리거나 내립니다.

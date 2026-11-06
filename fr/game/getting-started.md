@@ -36,8 +36,8 @@ Si ça n'a pas marché, voir [La génération du monde échoue avec une erreur J
 
 | Étape | Ce que tu définis |
 | --- | --- |
-| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **Classic** pour l'instant (voir [Classic ou Overworld RPG](#classic-or-overworld-rpg)). |
-| **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Classic** ou **Tactical**. Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
+| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **VN** pour l'instant (voir [VN ou Overworld](#vn-or-overworld)). |
+| **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Turn-Based** ou **Tactical**. Chaque nouvelle partie utilise les classes **MRPG** (Marinara RPG) (voir [Classes MRPG](mrpg-classes.md)). Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
 | **Party** (équipe) | Ton persona (le personnage que tu incarnes), le **Game Master Mode**, les membres de l'équipe et le **GM intro message** (message d'introduction du GM). Voir [Le message d'introduction du GM](#the-gm-intro-message). |
 | **Goals** (objectifs) | Ce que tu attends de l'aventure. |
 | **Lorebooks** | Les lorebooks qui font foi pour le GM. Un lorebook est un recueil de faits sur ton univers. Voir [Lorebooks](../lorebooks/overview.md). |
@@ -194,6 +194,7 @@ Certains modèles restent enjoués. Ajoute une consigne claire dans le champ de 
 ## Où trouver chaque sujet
 
 - [Game Mode : le combat](combat.md) : les rencontres, le menu d'action, le calcul des dégâts et les quick-time events.
+- [Game Mode : classes MRPG](mrpg-classes.md) : les classes, les niveaux et la fiche, les nouveaux venus et le passage d'une partie Legacy à MRPG.
 - [Game Mode : l'équipe et les PNJ](party-and-npcs.md) : Character Profiles, les feuilles de personnage et l'Adventure Journal.
 - [Game Mode : sessions et sauvegardes](sessions-and-saves.md) : la fin et le début des sessions, l'historique et les points de contrôle.
 - [Game Mode : carte, heure et météo](map-time-weather.md) : les vues de la carte, l'horloge, la météo et le moral.
@@ -203,20 +204,20 @@ Certains modèles restent enjoués. Ajoute une consigne claire dans le champ de 
 - [Guide de l'agent Storyboard](storyboard.md) : les storyboards pour Game Mode et Roleplay.
 - [Mode Roleplay : premiers pas](../roleplay/getting-started.md) : les Author's Notes (notes de l'auteur) fonctionnent ici de la même façon.
 
-## Overworld RPG
+## Overworld
 
-Les sections ci-dessous décrivent **Overworld RPG**, qui n'est pas encore disponible. Ne les lis que si ton serveur l'a activé.
+Les sections ci-dessous décrivent les parties **Overworld**, qui ne sont pas encore disponibles. Ne les lis que si ton serveur les a activées.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic ou Overworld RPG
+### VN ou Overworld
 
 Une nouvelle partie se joue dans l'un de deux modes de jeu, choisi à la première étape et conservé pour toutes ses sessions :
 
-- **Overworld RPG** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
-- **Classic** : Game Mode tel qu'il a toujours été, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
+- **Overworld** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
+- **VN** : Game Mode tel qu'il a toujours été, raconté comme un roman visuel, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
 
-Overworld RPG est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Toute nouvelle partie est alors Classic, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie Classic.
+Overworld est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Toute nouvelle partie est alors une partie VN, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie VN.
 
 <a id="choosing-a-setting-kit"></a>
 

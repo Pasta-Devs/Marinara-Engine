@@ -62,6 +62,20 @@ GM 也可以在叙述里用 `[dice: 3d8+2]` 请求掷骰。Marinara 会给出真
 - 技能调整值，来自游戏为你的角色记录的技能等级。如果游戏还没有这项技能的等级，这个调整值就是 0。
 - 属性调整值，来自这项技能对应的主导属性。每项技能都会自动对应一个属性：Stealth 对应 Dexterity，Perception 对应 Wisdom，Persuasion 对应 Charisma。Marinara 不认识的技能一律使用 Intelligence。
 
+采用 **MRPG** 职业的游戏改用角色的 MRPG 属性，也就是当前职业提供的属性（见 [MRPG 职业](mrpg-classes.md)）。升级后角色卡上仍保留的 Legacy 属性不会使用。每项技能主要依赖一个属性：
+
+| 属性 | 技能 |
+| --- | --- |
+| Strength | Athletics、Intimidation |
+| Speed | Acrobatics、Stealth |
+| Skill | Sleight of Hand、Investigation、Perception、Medicine、Survival、Animal Handling，以及此处未列出的所有技能 |
+| Defense | Endurance、Constitution |
+| Magic | Arcana、History、Nature、Religion、Intelligence |
+| Resistance | Insight、Wisdom |
+| Luck | Persuasion、Deception、Performance、Charisma |
+
+检定会加上该属性的四分之一（向下取整），再减 1。对于新角色最强的属性，这通常约为 +1；到 10 级时约为 +2 或 +3；达到最高等级时为 +6。
+
 总值达到或超过 DC，检定就成功。有两种骰面会直接覆盖这套算法：
 
 - 自然 20 算 **CRITICAL SUCCESS**(大成功)，必定通过。

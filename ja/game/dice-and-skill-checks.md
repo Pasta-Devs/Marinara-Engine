@@ -55,12 +55,28 @@ GMは物語の中で`[dice: 3d8+2]`を使ってロールを求めることもで
 
 スキル判定は、忍び足、手がかりの発見、NPCの説得のように、失敗の可能性がある行動を試すものです。スキル判定を自分から始めることはありません。GMが物語の中で判定を求め、Marinaraがそれをアニメーション付きのd20のロールと結果バナーに変えます。バナーにはスキルと目標値が表示されます。たとえば**Stealth Check**と**DC 15**です。解決した判定にはそれぞれ専用のバナーが付き、順番待ちのダイスカードのあとに表示されます。
 
+<a id="how-the-result-is-decided"></a>
+
 ### 結果の決まり方
 
 判定ではd20を1個振り、2つの修正値を足します。
 
 - スキル修正値。ゲームが自分のキャラクターについて記録しているスキルレベルから決まります。そのスキルのレベルがまだない場合は0です。
 - 能力値修正値。そのスキルに対応する能力値から決まります。各スキルは自動的に1つの能力値に対応します。StealthはDexterity、PerceptionはWisdom、PersuasionはCharismaを使います。Marinaraが認識できないスキルはIntelligenceを使います。
+
+**MRPG**クラスを使うゲームでは、能力値修正値の代わりに、現在のクラスから得られるMRPGステータスを使います([MRPGクラス](mrpg-classes.md)を参照)。アップグレード後もカードに残っているLegacyの能力値は使いません。各スキルは次のステータスを使います。
+
+| ステータス | スキル |
+| --- | --- |
+| Strength | Athletics、Intimidation |
+| Speed | Acrobatics、Stealth |
+| Skill | Sleight of Hand、Investigation、Perception、Medicine、Survival、Animal Handling、およびここにないすべてのスキル |
+| Defense | Endurance、Constitution |
+| Magic | Arcana、History、Nature、Religion、Intelligence |
+| Resistance | Insight、Wisdom |
+| Luck | Persuasion、Deception、Performance、Charisma |
+
+判定では、そのステータスの4分の1を切り捨て、1を引いた値を加えます。これは、新しいキャラクターの最も高いステータスではおよそ+1、レベル10では+2または+3、最高レベルでは+6です。
 
 合計がDC以上なら、判定は成功です。次の2つの出目は、計算より優先されます。
 

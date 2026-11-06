@@ -96,7 +96,7 @@ Przeciwnicy też mogą odpowiadać, na przykład własną paradą. Kontra może 
 
 ## Na polu bitwy
 
-Zestaw zasad może określać, ile jedno pole planszy jest warte we własnej odległości: w stopach, krokach albo własnej jednostce. Jeżeli tak jest, a **Combat Preference** (preferowany rodzaj walki) twojej gry to **Tactical**, walka odbywa się na polu bitwy: z tymi samymi planszami (wygenerowanymi albo ręcznie wykonanymi dla danego miejsca), terenem i rozstawieniem co własna [walka taktyczna](combat.md#tactical-battles-and-terrain) aplikacji Marinara Engine. Zestaw zasad bez odległości albo gra ustawiona na **Classic** prowadzi walkę bez pozycji, a każdy może wskazać jako cel każdego.
+Zestaw zasad może określać, ile jedno pole planszy jest warte we własnej odległości: w stopach, krokach albo własnej jednostce. Jeżeli tak jest, a **Combat Preference** (preferowany rodzaj walki) twojej gry to **Tactical**, walka odbywa się na polu bitwy: z tymi samymi planszami (wygenerowanymi albo ręcznie wykonanymi dla danego miejsca), terenem i rozstawieniem co własna [walka taktyczna](combat.md#tactical-battles-and-terrain) aplikacji Marinara Engine. Zestaw zasad bez odległości albo gra ustawiona na **Turn-Based** prowadzi walkę bez pozycji, a każdy może wskazać jako cel każdego.
 
 Na polu bitwy o wszystkim decydują liczby zestawu zasad:
 

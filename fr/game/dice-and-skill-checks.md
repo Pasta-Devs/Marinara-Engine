@@ -55,12 +55,28 @@ Tu peux lancer au maximum 100 dés à la fois, et chaque dé peut avoir au plus 
 
 Un jet de compétence met à l'épreuve une action risquée, comme te faufiler sans être vu, repérer un indice ou convaincre un PNJ (personnage non-joueur). Tu ne le déclenches pas toi-même. Le GM le demande dans sa narration, et Marinara le transforme en un jet de d20 animé accompagné d'un bandeau de résultat. Le bandeau affiche la compétence et la cible, par exemple **Stealth Check** avec **DC 15**. Chaque jet résolu reçoit son propre bandeau, après les éventuelles cartes de dés en attente.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Comment le résultat est calculé
 
 Le jet lance un d20 et ajoute deux modificateurs :
 
 - Un modificateur de compétence, issu du niveau de compétence que le jeu suit pour ton personnage. Il vaut 0 si le jeu n'a pas encore de niveau pour cette compétence.
 - Un modificateur de caractéristique, issu de la caractéristique dont dépend la compétence. Chaque compétence est rattachée automatiquement à une caractéristique : Stealth utilise Dexterity, Perception utilise Wisdom, Persuasion utilise Charisma. Une compétence que Marinara ne reconnaît pas utilise Intelligence.
+
+Dans une partie utilisant les classes **MRPG**, le modificateur de caractéristique vient plutôt des caractéristiques MRPG du personnage, celles que lui donne sa classe active (voir [Classes MRPG](mrpg-classes.md)). Les éventuelles caractéristiques Legacy qui restent sur une fiche mise à niveau ne sont pas utilisées. Chaque compétence s'appuie sur une caractéristique :
+
+| Caractéristique | Compétences |
+| --- | --- |
+| Force | Athletics, Intimidation |
+| Vitesse | Acrobatics, Stealth |
+| Compétence | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, et toute compétence qui ne figure pas ici |
+| Défense | Endurance, Constitution |
+| Magie | Arcana, History, Nature, Religion, Intelligence |
+| Résistance | Insight, Wisdom |
+| Chance | Persuasion, Deception, Performance, Charisma |
+
+Le jet ajoute le quart de cette caractéristique, arrondi à l'inférieur, moins un. Cela représente environ +1 pour la meilleure caractéristique d'un nouveau personnage, +2 ou +3 au niveau 10 et +6 au maximum.
 
 Si le total atteint ou dépasse le DC, le jet réussit. Deux résultats passent outre le calcul :
 

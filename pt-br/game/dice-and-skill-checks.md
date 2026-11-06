@@ -62,6 +62,20 @@ O teste rola um d20 e soma dois modificadores:
 - Um modificador de perícia, tirado do nível de perícia que o jogo acompanha para o seu personagem. Ele é 0 se o jogo ainda não tem um nível para aquela perícia.
 - Um modificador de atributo, tirado do atributo que rege a perícia. Cada perícia é ligada a um atributo automaticamente: Stealth usa Dexterity, Perception usa Wisdom, Persuasion usa Charisma. Uma perícia que Marinara não reconhece usa Intelligence.
 
+Numa partida com classes **MRPG**, o modificador de atributo vem dos atributos MRPG do personagem, aqueles concedidos pela classe ativa dele (veja [Classes MRPG](mrpg-classes.md)). Os atributos Legacy que ainda estiverem num card atualizado não são usados. Cada perícia se apoia num atributo:
+
+| Atributo | Perícias |
+| --- | --- |
+| Força | Athletics, Intimidation |
+| Velocidade | Acrobatics, Stealth |
+| Habilidade | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling e qualquer perícia que não esteja listada aqui |
+| Defesa | Endurance, Constitution |
+| Magia | Arcana, History, Nature, Religion, Intelligence |
+| Resistência | Insight, Wisdom |
+| Sorte | Persuasion, Deception, Performance, Charisma |
+
+O teste soma um quarto desse atributo, arredondado para baixo, menos um. Isso equivale a cerca de +1 para o melhor atributo de um personagem novo, +2 ou +3 no nível 10 e +6 no nível máximo.
+
 Se o total alcançar ou superar a DC, o teste tem sucesso. Duas rolagens passam por cima da conta:
 
 - Um 20 natural é um **CRITICAL SUCCESS** (sucesso crítico) e sempre passa.

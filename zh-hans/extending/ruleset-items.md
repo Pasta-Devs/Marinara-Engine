@@ -13,7 +13,7 @@
 - [战斗中的武器](#weapons-in-a-fight)
 - [战斗中的护甲与穿戴效果](#armor-and-worn-effects-in-a-fight)
 - [在战斗中使用物品](#using-items-in-a-fight)
-- [Classic 与 Tactical 战斗中的物品](#items-in-classic-and-tactical-battles)
+- [Turn-Based 与 Tactical 战斗中的物品](#items-in-turn-based-and-tactical-battles)
 - [战利品](#loot)
 - [金钱](#money)
 - [初始装备](#starting-gear)
@@ -160,7 +160,7 @@
 - **名称能找到你的物品。** 玩家输入的名称，或 Game Master 在 `[inventory: action="add"]` 中写的名称，只要是你某件物品的 `label`(不区分大小写)，就会添加那件物品。两件物品标签相同时，名称找到的是目录中先列出的那一件。
 - **`stack`** 会被遵守：添加、设置、合并或给予超过上限时，会填满这一叠并开始新的一叠。
 - **`freeform: "refuse"`** 让玩家只能使用你的物品：选择器，以及属于你物品的名称。
-- **`native: false`** 让 Game Master 只能使用你的物品和它自创的物品：两者都不是的名称会被拒绝（`not-ruleset-item`），但已持有的东西仍可以继续添加，它的指令也会这样说明。战斗不再询问模型物品栏中的物品有什么作用，因此只有你的物品参与战斗：在规则集战斗中是手持的武器和物品的使用（见下文“战斗中的武器”），在 Classic 或 Tactical 战斗中是带 `use` 的物品（见下文“Classic 与 Tactical 战斗中的物品”）。玩家输入的内容仍遵循 `freeform`，而队伍携带的东西无论哪种情况都会在新会话中回来。
+- **`native: false`** 让 Game Master 只能使用你的物品和它自创的物品：两者都不是的名称会被拒绝（`not-ruleset-item`），但已持有的东西仍可以继续添加，它的指令也会这样说明。战斗不再询问模型物品栏中的物品有什么作用，因此只有你的物品参与战斗：在规则集战斗中是手持的武器和物品的使用（见下文“战斗中的武器”），在 Turn-Based 或 Tactical 战斗中是带 `use` 的物品（见下文“Turn-Based 与 Tactical 战斗中的物品”）。玩家输入的内容仍遵循 `freeform`，而队伍携带的东西无论哪种情况都会在新会话中回来。
 - **物品是什么**会显示在选中的那一叠上：按标签显示其类别、稀有度和标签，它给出的数值、摘要，以及一叠能容纳多少。选择器还会显示它的 `cost`。Game Master 会看到物品栏中你的每件物品，连同类别、稀有度、标签，以及你保留 `promptVisible` 的数值，例如 `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`。
 
 - **`slots`**：占用槽位的物品可以由携带者装备，前提是对应槽位有空；较大的一叠中，会取出一件单独成叠来穿戴。物品栏会按角色显示每个已占用的槽位。
@@ -173,7 +173,7 @@
 - **武器的作用**以同样方式显示（“Attack (Action): Brawn to hit, 1d6 + Brawn cut damage”），手持时战斗会提供它（见下文“战斗中的武器”）。
 - **使用物品的效果**也以同样方式显示（“Use (Action): heals 1d4 + 1, range 0 paces, used up”），并附带剩余充能。战斗会提供它，物品栏的 **Use**(使用) 按钮和 Game Master 的 `[inventory: action="use"]` 也一样（见下文“在战斗中使用物品”和“在战斗外使用物品”）。
 
-在 Classic 或 Tactical 战斗中，每件带 `use` 的物品都按其描述生效，没有它的物品不会提供（见下文“Classic 与 Tactical 战斗中的物品”）。无论 `native` 如何设置：人物卡都能读取你的物品（见下文）；在规则集战斗中，手持的武器就是一次攻击，射出从背包中取出的东西；物品在穿戴或携带时的作用在规则集战斗中也会计入（见下文“战斗中的护甲与穿戴效果”）；带 `use` 的物品在战斗中和战斗外都按其自身规则使用（见下文“在战斗中使用物品”和“在战斗外使用物品”）；你的 `currencies` 就是队伍的钱（见下文“金钱”）。
+在 Turn-Based 或 Tactical 战斗中，每件带 `use` 的物品都按其描述生效，没有它的物品不会提供（见下文“Turn-Based 与 Tactical 战斗中的物品”）。无论 `native` 如何设置：人物卡都能读取你的物品（见下文）；在规则集战斗中，手持的武器就是一次攻击，射出从背包中取出的东西；物品在穿戴或携带时的作用在规则集战斗中也会计入（见下文“战斗中的护甲与穿戴效果”）；带 `use` 的物品在战斗中和战斗外都按其自身规则使用（见下文“在战斗中使用物品”和“在战斗外使用物品”）；你的 `currencies` 就是队伍的钱（见下文“金钱”）。
 
 <a id="items-on-the-sheet"></a>
 
@@ -463,11 +463,11 @@ Gravewatch 受诅咒的寡妇戒指让每次攻击少一颗骰子，已绑定的
 
 战斗用掉的物品和剩余的充能，会像武器的射击一样在每一步执行时写入物品栏，冒险日志也会记下用掉了什么。战斗日志记录每次使用（“Poultice: 1 of 2 left.”、“Dawn bell: 2 of 3 left.”）。Engine 扮演的队伍成员只对受伤的人使用治疗，也没有人会用物品打击走开的人。物品详情和 Game Master 看到的那一行会说明使用效果：“Use (Action): heals 1d4 + 1, range 0 paces, used up” 和 `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`，详情还会显示剩余充能。Game Master 用 `like=` 你的某件物品自创的物品，会像那件物品一样使用，充能等一应俱全。
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Classic 与 Tactical 战斗中的物品
+## Turn-Based 与 Tactical 战斗中的物品
 
-不自行结算战斗的规则集，会把战斗交给 Game Mode 自己的 Classic 和 Tactical 战斗；在那里，战斗开始时会询问模型物品栏中的物品有什么作用。你的物品不靠猜测：每件带 `use` 的物品都按其描述、以 Engine 自己的数值生效，只有不属于你的物品才会请 Game Master 猜测（`native: false` 时一件也不会）。
+不自行结算战斗的规则集，会把战斗交给 Game Mode 自己的 Turn-Based 和 Tactical 战斗；在那里，战斗开始时会询问模型物品栏中的物品有什么作用。你的物品不靠猜测：每件带 `use` 的物品都按其描述、以 Engine 自己的数值生效，只有不属于你的物品才会请 Game Master 猜测（`native: false` 时一件也不会）。
 
 - `heal` 治疗、`attack` 伤害的量，是按其 `amount` 平均值换算的目标最大生命值比例：平均值 7，即基础武器的 `1d8+3`，略多于五分之一，最少二十分之一，最多为全部。这与战斗桥接读取目录条目数值时使用的尺度相同。`damageType` 就是元素。
 - `applies` 中的第一个状态以其自身名称作为状态效果施加，持续其 `rounds` 回合（没有时为 2）；`buff` 或 `debuff` 就只是这个状态效果，像 Engine 自身的状态效果一样提高或降低防御。

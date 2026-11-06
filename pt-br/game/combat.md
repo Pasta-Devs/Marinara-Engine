@@ -1,6 +1,6 @@
 # Game Mode: combate
 
-O combate no Game Mode tem dois tipos: batalhas **Classic**, com menus, e batalhas **Tactical**, em grade. Você escolhe entre eles em **Combat Preference** (preferência de combate), na etapa **World** (mundo) do assistente de configuração. Para mudar depois, abra **Chat Settings** (configurações do chat) e expanda **Combat Style** (estilo de combate). Ali, escolha um **Battle system** (sistema de batalha). Um conjunto de regras que conduz as próprias lutas pode limitar as opções. O Game Master (GM, a IA que conduz o jogo) monta o encontro e narra o resultado. Marinara resolve as ações de batalha com uma matemática de dados fixa, então a IA nunca decide quem acerta.
+O combate no Game Mode tem dois tipos: batalhas **Turn-Based** (por turnos), com menus, e batalhas **Tactical** (táticas), em grade. Você escolhe entre eles em **Combat Preference** (preferência de combate), na etapa **World** (mundo) do assistente de configuração. Para mudar depois, abra **Chat Settings** (configurações do chat) e expanda **Combat Style** (estilo de combate). Ali, escolha um **Battle system** (sistema de batalha). Um conjunto de regras que conduz as próprias lutas pode limitar as opções. O Game Master (GM, a IA que conduz o jogo) monta o encontro e narra o resultado. Marinara resolve as ações de batalha com uma matemática de dados fixa, então a IA nunca decide quem acerta.
 
 ## Começar um encontro
 
@@ -10,9 +10,9 @@ A tela mostra a sua equipe de um lado e os inimigos do outro. Cada combatente te
 
 > **Observação:** Em uma partida com um conjunto de regras que resolve as próprias lutas, como 5e (SRD 5.1), a luta segue o conjunto de regras, e não esta página. Veja [Lutas com um conjunto de regras](fighting-on-a-ruleset.md). Um conjunto de regras que só empresta a ficha dele às batalhas mantém o combate daqui. Veja [O que acontece nas batalhas](rulesets.md#what-happens-in-battles).
 
-## Jogar uma batalha Classic
+## Jogar uma batalha Turn-Based
 
-Uma batalha Classic não tem tabuleiro. Todos os integrantes da equipe participam. Você escolhe a ação de um personagem, o primeiro integrante vivo da equipe. Os outros companheiros agem por conta própria.
+Uma batalha Turn-Based não tem tabuleiro. Todos os integrantes da equipe participam. Você escolhe a ação de um personagem, o primeiro integrante vivo da equipe. Os outros companheiros agem por conta própria.
 
 No seu turno, escolha uma ação:
 
@@ -70,7 +70,7 @@ No celular, os botões de ação ficam fixos na parte de baixo da tela. Os pain�
 
 ## Como funciona a matemática do combate
 
-Cada rodada é decidida por uma matemática de dados fixa, e não pela IA. Assim o combate fica justo e consistente. Um d20 é um dado de vinte lados (de 1 a 20). As regras de iniciativa, ataque e dano abaixo são as das batalhas Classic. São as regras próprias do Marinara, e não as de um conjunto de regras. Para as batalhas Tactical, veja [Ordem dos turnos](#turn-order) e [Visão, cobertura e altura](#sight-cover-and-height).
+Cada rodada é decidida por uma matemática de dados fixa, e não pela IA. Assim o combate fica justo e consistente. Um d20 é um dado de vinte lados (de 1 a 20). As regras de iniciativa, ataque e dano abaixo são as das batalhas Turn-Based numa partida **Legacy**. São as regras próprias do Marinara, e não as de um conjunto de regras. Uma partida com classes **MRPG** luta usando os atributos e as habilidades das classes: veja [Classes MRPG](mrpg-classes.md). Para as batalhas Tactical, veja [Ordem dos turnos](#turn-order) e [Visão, cobertura e altura](#sight-cover-and-height).
 
 **Iniciativa.** No início de cada rodada, todo combatente rola um d20 e soma um bônus vindo da Velocidade (a Velocidade dividida por 5, arredondada para baixo). Os totais mais altos agem primeiro. Um combatente pula a rodada se estiver congelado, atordoado ou aprisionado, ou se a Velocidade dele tiver caído para 0.
 
@@ -164,8 +164,8 @@ Os dois modos especiais usam a capacidade de movimento atual e a distância em l
 
 Uma batalha Tactical organiza os turnos de uma de duas formas:
 
-- **One at a time, by initiative** (um por vez, por iniciativa): cada unidade recebe um lugar em uma ordem rolada, e só a unidade da vez pode agir. O tabuleiro mostra a ordem. As partidas Overworld RPG novas usam esta forma.
-- **Your whole party, then the enemies** (toda a sua equipe, depois os inimigos): cada unidade da equipe pode agir, e depois acontece a fase inimiga. As partidas Classic usam esta forma.
+- **One at a time, by initiative** (um por vez, por iniciativa): cada unidade recebe um lugar em uma ordem rolada, e só a unidade da vez pode agir. O tabuleiro mostra a ordem. As partidas Overworld novas usam esta forma.
+- **Your whole party, then the enemies** (toda a sua equipe, depois os inimigos): cada unidade da equipe pode agir, e depois acontece a fase inimiga. As partidas VN usam esta forma.
 
 Para mudar, abra **Chat Settings**, expanda **Combat Style** e escolha uma **Turn order**. A opção aparece enquanto o **Battle system** é Tactical, a menos que o conjunto de regras da partida conduza as próprias lutas. A mudança vale a partir da próxima batalha. Uma batalha em andamento mantém a ordem dela.
 

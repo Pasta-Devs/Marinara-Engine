@@ -55,12 +55,28 @@ GM도 서술에서 `[dice: 3d8+2]`로 굴림을 요청할 수 있습니다. Mari
 
 스킬 판정은 몰래 숨어들기, 단서 찾기, NPC(플레이어가 아닌 캐릭터) 설득처럼 위험이 따르는 행동을 시험합니다. 스킬 판정은 직접 시작하지 않습니다. GM이 서술에서 판정을 요구하면 Marinara가 이를 결과 배너가 있는 d20 굴림 애니메이션으로 바꿉니다. 배너에는 스킬과 목표 숫자가 표시됩니다. 예를 들면 **Stealth Check**와 **DC 15**입니다. 해결된 판정마다 별도 배너가 생기며, 대기 중인 주사위 카드가 있으면 그 뒤에 표시됩니다.
 
+<a id="how-the-result-is-decided"></a>
+
 ### 결과를 정하는 방식
 
 판정에서는 d20 1개를 굴리고 수정치 2가지를 더합니다.
 
 - 스킬 수정치. 게임이 내 캐릭터에 대해 관리하는 스킬 레벨에서 가져옵니다. 게임에 아직 그 스킬의 레벨이 없으면 0입니다.
 - 능력치 수정치. 그 스킬을 관장하는 능력치에서 가져옵니다. 스킬마다 관장 능력치가 자동으로 정해집니다. Stealth는 Dexterity, Perception은 Wisdom, Persuasion은 Charisma를 씁니다. Marinara가 알지 못하는 스킬은 Intelligence를 씁니다.
+
+**MRPG** 클래스를 사용하는 게임에서는 캐릭터의 활성 클래스가 부여하는 MRPG 능력치에서 능력치 수정치를 가져옵니다([MRPG 클래스](mrpg-classes.md) 참고). 업그레이드한 카드에 Legacy 능력치가 남아 있어도 사용하지 않습니다. 각 스킬은 능력치 하나를 사용합니다.
+
+| 능력치 | 스킬 |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, 그리고 여기에 없는 모든 스킬 |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Religion, Intelligence |
+| Resistance | Insight, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+판정에는 그 능력치의 4분의 1을 내림한 다음 1을 뺀 값을 더합니다. 새 캐릭터의 가장 좋은 능력치에서는 약 +1, 레벨 10에서는 +2나 +3, 최고 수준에서는 +6입니다.
 
 합계가 DC에 도달하거나 넘어서면 판정에 성공합니다. 다음 두 굴림은 계산 결과보다 우선합니다.
 

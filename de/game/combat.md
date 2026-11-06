@@ -1,6 +1,6 @@
 # Game Mode: Kampf
 
-Kämpfe gibt es im Game Mode in zwei Arten: **Classic** (Menükämpfe) und **Tactical** (Rasterkämpfe). Du wählst zwischen ihnen mit **Combat Preference** (bevorzugte Kampfart) im Schritt **World** (Welt) des Einrichtungsassistenten. Um das später zu ändern, öffne **Chat Settings** (Chat-Einstellungen), klapp **Combat Style** (Kampfstil) auf und wähle ein **Battle system** (Kampfsystem). Ein Regelsatz, der seine eigenen Kämpfe führt, kann die Auswahl einschränken. Der Game Master (GM, die KI, die das Spiel leitet) legt die Begegnung fest und erzählt das Ergebnis. Marinara wertet die Kampfaktionen mit fester Würfelmathematik aus, die KI entscheidet also nie, wer trifft.
+Kämpfe gibt es im Game Mode in zwei Arten: **Turn-Based** (Menükämpfe) und **Tactical** (Rasterkämpfe). Du wählst zwischen ihnen mit **Combat Preference** (bevorzugte Kampfart) im Schritt **World** (Welt) des Einrichtungsassistenten. Um das später zu ändern, öffne **Chat Settings** (Chat-Einstellungen), klapp **Combat Style** (Kampfstil) auf und wähle ein **Battle system** (Kampfsystem). Ein Regelsatz, der seine eigenen Kämpfe führt, kann die Auswahl einschränken. Der Game Master (GM, die KI, die das Spiel leitet) legt die Begegnung fest und erzählt das Ergebnis. Marinara wertet die Kampfaktionen mit fester Würfelmathematik aus, die KI entscheidet also nie, wer trifft.
 
 ## Eine Kampfbegegnung beginnt
 
@@ -10,9 +10,9 @@ Der Bildschirm zeigt deine Party auf der einen Seite und die Gegner auf der ande
 
 > **Hinweis:** In einem Spiel mit einem Regelsatz, der seine Kämpfe selbst auflöst, etwa 5e (SRD 5.1), folgt der Kampf dem Regelsatz, nicht dieser Seite. Siehe [Kämpfe mit einem Regelsatz](fighting-on-a-ruleset.md). Ein Regelsatz, der Kämpfen nur seinen Charakterbogen leiht, behält den Kampf von hier. Siehe [Was in Kämpfen passiert](rulesets.md#what-happens-in-battles).
 
-## Einen Classic-Kampf spielen
+## Einen Turn-Based-Kampf spielen
 
-Ein Classic-Kampf hat kein Spielfeld. Alle Mitglieder der Party nehmen teil. Du wählst die Aktion für einen Charakter, das erste lebende Partymitglied. Die übrigen Begleiter handeln selbstständig.
+Ein Turn-Based-Kampf hat kein Spielfeld. Alle Mitglieder der Party nehmen teil. Du wählst die Aktion für einen Charakter, das erste lebende Partymitglied. Die übrigen Begleiter handeln selbstständig.
 
 Bist du am Zug, wähle eine Aktion:
 
@@ -70,7 +70,7 @@ Auf dem Handy kleben die Aktionsschaltflächen am unteren Bildschirmrand. Panels
 
 ## So rechnet der Kampf
 
-Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kampf fair und nachvollziehbar. Ein d20 ist ein zwanzigseitiger Würfel (1 bis 20). Die Regeln für Initiative, Angriff und Schaden unten bestimmen, wie Classic-Kämpfe ablaufen. Es sind Marinaras eigene Regeln, nicht die eines Regelsatzes. Zu Tactical-Kämpfen siehe [Zugreihenfolge](#turn-order) und [Sicht, Deckung und Höhe](#sight-cover-and-height).
+Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kampf fair und nachvollziehbar. Ein d20 ist ein zwanzigseitiger Würfel (1 bis 20). Die Regeln für Initiative, Angriff und Schaden unten bestimmen, wie Turn-Based-Kämpfe in einem **Legacy**-Spiel ablaufen. Es sind Marinaras eigene Regeln, nicht die eines Regelsatzes. Ein Spiel mit **MRPG**-Klassen kämpft stattdessen nach den Werten und Fertigkeiten seiner Klassen; siehe [MRPG-Klassen](mrpg-classes.md). Zu Tactical-Kämpfen siehe [Zugreihenfolge](#turn-order) und [Sicht, Deckung und Höhe](#sight-cover-and-height).
 
 **Initiative.** Zu Beginn jeder Runde würfelt jeder Kämpfer einen d20 und addiert einen Bonus aus seiner Geschwindigkeit (Geschwindigkeit geteilt durch 5, abgerundet). Höhere Summen handeln zuerst. Ein Kämpfer setzt die Runde aus, wenn er eingefroren, betäubt oder gefesselt ist oder seine Geschwindigkeit auf 0 gefallen ist.
 
@@ -164,8 +164,8 @@ Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die gerade (nicht
 
 Ein Tactical-Kampf verteilt die Züge auf eine von zwei Arten:
 
-- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Reihenfolge. Neue Overworld-RPG-Spiele nutzen diese Art.
-- **Your whole party, then the enemies** (erst die ganze Party, dann die Gegner): Jede Einheit der Party kann handeln, dann folgt die Gegnerphase. Classic-Spiele nutzen diese Art.
+- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Reihenfolge. Neue Overworld-Spiele nutzen diese Art.
+- **Your whole party, then the enemies** (erst die ganze Party, dann die Gegner): Jede Einheit der Party kann handeln, dann folgt die Gegnerphase. VN-Spiele nutzen diese Art.
 
 Zum Ändern öffne **Chat Settings**, klapp **Combat Style** auf und wähle eine **Turn order**. Die Option erscheint, solange das **Battle system** auf Tactical steht, außer wenn der Regelsatz des Spiels seine Kämpfe selbst führt. Die Änderung gilt ab dem nächsten Kampf. Ein laufender Kampf behält seine Reihenfolge.
 

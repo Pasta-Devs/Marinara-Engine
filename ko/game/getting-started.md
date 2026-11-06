@@ -36,8 +36,8 @@ Game Mode(게임 모드)는 Marinara Engine을 AI 게임 마스터가 진행하�
 
 | 단계 | 설정하는 항목 |
 |---|---|
-| **Connection** | **Game Name**(게임 이름), GM을 구동할 **Model**, 선택 사항인 **Scene effects model**입니다. **Game Mode** 카드에는 지금은 **Classic**(클래식)만 표시됩니다([Classic 또는 Overworld RPG](#classic-or-overworld-rpg) 참고). |
-| **World** | 장르, 배경, 분위기, 난이도, 콘텐츠 등급, 언어입니다. **Combat Preference**(전투 방식 설정)는 **Classic** 또는 **Tactical**(전술)입니다. 규칙 집합이 설치되어 있으면 **Rules**(규칙) 선택지가 나타납니다([규칙 선택](#choose-rules) 참고). |
+| **Connection** | **Game Name**(게임 이름), GM을 구동할 **Model**, 선택 사항인 **Scene effects model**입니다. **Game Mode** 카드에는 지금은 **VN**만 표시됩니다([VN 또는 Overworld](#vn-or-overworld) 참고). |
+| **World** | 장르, 배경, 분위기, 난이도, 콘텐츠 등급, 언어입니다. **Combat Preference**(전투 방식 설정)는 **Turn-Based** 또는 **Tactical**(전술)입니다. 새 게임은 모두 **MRPG**(Marinara RPG) 클래스로 플레이합니다([MRPG 클래스](mrpg-classes.md) 참고). 규칙 집합이 설치되어 있으면 **Rules**(규칙) 선택지가 나타납니다([규칙 선택](#choose-rules) 참고). |
 | **Party** | 내 페르소나(직접 연기할 캐릭터), **Game Master Mode**, 파티원, **GM intro message**(GM 도입 메시지)입니다([GM 도입 메시지](#the-gm-intro-message) 참고). |
 | **Goals** | 이 모험에서 바라는 것입니다. |
 | **Lorebooks** | GM이 정해진 사실로 다루는 로어북입니다. 로어북은 세계의 배경 사실을 모아 둔 것입니다. [로어북](../lorebooks/overview.md)을 참고하세요. |
@@ -194,6 +194,7 @@ Claude와 Grok 구독 계정은 네이티브 도구 호출을 지원하지 않�
 ## 각 주제가 있는 곳
 
 - [Game Mode: 전투](combat.md): 인카운터, 행동 메뉴, 피해 계산, 퀵 타임 이벤트.
+- [Game Mode: MRPG 클래스](mrpg-classes.md): 클래스, 레벨, 시트, 새 파티원, Legacy 게임 전환.
 - [Game Mode: 파티와 NPC](party-and-npcs.md): Character Profiles, 캐릭터 시트, 모험 일지.
 - [Game Mode: 세션과 저장 데이터](sessions-and-saves.md): 세션 끝내기와 시작하기, 기록, 체크포인트.
 - [Game Mode: 지도, 시간, 날씨](map-time-weather.md): 지도 보기, 시계, 날씨, 사기.
@@ -203,20 +204,20 @@ Claude와 Grok 구독 계정은 네이티브 도구 호출을 지원하지 않�
 - [스토리보드 에이전트 가이드](storyboard.md): Game Mode와 Roleplay의 스토리보드.
 - [Roleplay Mode: 시작하기](../roleplay/getting-started.md): Author's Notes(작가 노트)는 Game Mode에서도 똑같이 작동합니다.
 
-## Overworld RPG
+## Overworld
 
-아래 섹션은 아직 사용할 수 없는 **Overworld RPG**를 설명합니다. 서버에서 이 기능을 켠 경우에만 읽으세요.
+아래 섹션은 아직 사용할 수 없는 **Overworld** 게임을 설명합니다. 서버에서 이 기능을 켠 경우에만 읽으세요.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic 또는 Overworld RPG
+### VN 또는 Overworld
 
 새 게임은 두 가지 게임 모드 중 하나로 진행됩니다. 첫 단계에서 고르며, 그 게임의 모든 세션에 유지됩니다.
 
-- **Overworld RPG**는 내 배경에 맞춰 만든 세계를 오버월드 지도 위에서 걸어 다니는 방식으로, 마을, 탐험할 장소, 던전이 있습니다. 세계관 키트와 세계가 필요합니다. 키트를 고르기 전까지는 첫 번째 장르에 맞는 키트가 쓰이고(맞는 키트가 없는 장르는 High fantasy), 그 키트로 세계가 무작위로 만들어집니다.
-- **Classic**은 예전부터 있던 그대로의 Game Mode입니다. 장면 단위로 진행되며 장면 지도와 전투가 있고, 세계관 키트, 세계, 오버월드, 마을, 던전 지도는 없습니다.
+- **Overworld**는 내 배경에 맞춰 만든 세계를 오버월드 지도 위에서 걸어 다니는 방식으로, 마을, 탐험할 장소, 던전이 있습니다. 세계관 키트와 세계가 필요합니다. 키트를 고르기 전까지는 첫 번째 장르에 맞는 키트가 쓰이고(맞는 키트가 없는 장르는 High fantasy), 그 키트로 세계가 무작위로 만들어집니다.
+- **VN**은 예전부터 있던 그대로의 Game Mode를 비주얼 노벨처럼 들려주는 방식입니다. 장면 단위로 진행되며 장면 지도와 전투가 있고, 세계관 키트, 세계, 오버월드, 마을, 던전 지도는 없습니다.
 
-서버 운영자가 `MARINARA_OVERWORLD_GAMES`를 설정하지 않으면 Overworld RPG는 잠겨 있습니다. 잠겨 있는 동안 이 카드는 흐리게 표시되고 "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games."라는 안내가 붙습니다. 그러면 새 게임은 모두 Classic이며, 세계관 키트와 세계 선택지는 나타나지 않습니다. 이 선택지가 생기기 전에 만든 게임은 이전과 같이 진행됩니다. 세계가 있으면 Overworld 게임, 없으면 Classic 게임입니다.
+서버 운영자가 `MARINARA_OVERWORLD_GAMES`를 설정하지 않으면 Overworld는 잠겨 있습니다. 잠겨 있는 동안 이 카드는 흐리게 표시되고 "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games."라는 안내가 붙습니다. 그러면 새 게임은 모두 VN 게임이며, 세계관 키트와 세계 선택지는 나타나지 않습니다. 이 선택지가 생기기 전에 만든 게임은 이전과 같이 진행됩니다. 세계가 있으면 Overworld 게임, 없으면 VN 게임입니다.
 
 <a id="choosing-a-setting-kit"></a>
 

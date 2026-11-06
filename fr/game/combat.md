@@ -1,6 +1,6 @@
 # Game Mode : le combat
 
-En Game Mode, le combat prend deux formes : les batailles **Classic** (combat par menus) et les batailles **Tactical** (combat sur grille). Tu choisis entre les deux avec **Combat Preference** (préférence de combat), à l'étape **World** (monde) de l'assistant de configuration. Pour changer plus tard, ouvre **Chat Settings** (réglages du chat), déplie **Combat Style** (style de combat) et choisis un **Battle system** (système de combat). Un ensemble de règles qui gère ses propres combats peut limiter les choix. Le Game Master (GM, le maître du jeu : l'IA qui mène la partie) met en place la rencontre et raconte le résultat. Marinara résout les actions de combat avec des calculs de dés fixes : l'IA ne décide donc jamais qui touche.
+En Game Mode, le combat prend deux formes : les batailles **Turn-Based** (combat par menus) et les batailles **Tactical** (combat sur grille). Tu choisis entre les deux avec **Combat Preference** (préférence de combat), à l'étape **World** (monde) de l'assistant de configuration. Pour changer plus tard, ouvre **Chat Settings** (réglages du chat), déplie **Combat Style** (style de combat) et choisis un **Battle system** (système de combat). Un ensemble de règles qui gère ses propres combats peut limiter les choix. Le Game Master (GM, le maître du jeu : l'IA qui mène la partie) met en place la rencontre et raconte le résultat. Marinara résout les actions de combat avec des calculs de dés fixes : l'IA ne décide donc jamais qui touche.
 
 ## Le début d'une rencontre
 
@@ -10,9 +10,9 @@ L'écran affiche ton équipe d'un côté et les ennemis de l'autre. Chaque comba
 
 > **Remarque :** dans une partie dont l'ensemble de règles résout ses propres combats, comme 5e (SRD 5.1), le combat suit l'ensemble de règles, pas cette page. Consulte [Combats avec un ensemble de règles](fighting-on-a-ruleset.md). Un ensemble de règles qui se contente de prêter sa fiche aux combats garde le combat décrit ici. Consulte [Ce qui se passe dans les combats](rulesets.md#what-happens-in-battles).
 
-## Jouer une bataille Classic
+## Jouer une bataille Turn-Based
 
-Une bataille Classic n'a pas de plateau. Tous les membres de l'équipe y participent. Tu choisis l'action d'un seul personnage, le premier membre vivant de l'équipe. Les autres compagnons agissent d'eux-mêmes.
+Une bataille Turn-Based n'a pas de plateau. Tous les membres de l'équipe y participent. Tu choisis l'action d'un seul personnage, le premier membre vivant de l'équipe. Les autres compagnons agissent d'eux-mêmes.
 
 À ton tour, choisis une action :
 
@@ -70,7 +70,7 @@ Sur un téléphone, les boutons d'action restent collés en bas de l'écran. Les
 
 ## Comment les combats se calculent
 
-Chaque round est réglé par des calculs de dés fixes, pas par l'IA. Le combat reste ainsi équitable et cohérent. Un d20 est un dé à vingt faces (de 1 à 20). Les règles d'initiative, d'attaque et de dégâts ci-dessous décrivent le déroulement des batailles Classic. Ce sont les règles propres à Marinara, pas celles d'un ensemble de règles. Pour les batailles Tactical, consulte [Ordre des tours](#turn-order) et [Ligne de vue, couvert et hauteur](#sight-cover-and-height).
+Chaque round est réglé par des calculs de dés fixes, pas par l'IA. Le combat reste ainsi équitable et cohérent. Un d20 est un dé à vingt faces (de 1 à 20). Les règles d'initiative, d'attaque et de dégâts ci-dessous décrivent le déroulement des batailles Turn-Based dans une partie **Legacy**. Ce sont les règles propres à Marinara, pas celles d'un ensemble de règles. Une partie utilisant les classes **MRPG** combat plutôt à partir des caractéristiques et des compétences de ses classes : consulte [Classes MRPG](mrpg-classes.md). Pour les batailles Tactical, consulte [Ordre des tours](#turn-order) et [Ligne de vue, couvert et hauteur](#sight-cover-and-height).
 
 **Initiative.** Au début de chaque round, chaque combattant lance un d20 et ajoute un bonus tiré de sa Vitesse (la Vitesse divisée par 5, arrondie à l'inférieur). Les totaux les plus élevés agissent en premier. Un combattant saute le round s'il est gelé, étourdi ou emprisonné, ou si sa Vitesse est tombée à 0.
 
@@ -164,8 +164,8 @@ Ces deux modes spéciaux utilisent le budget de déplacement actuel et la distan
 
 Une bataille Tactical se joue tour par tour de l'une de ces deux façons :
 
-- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre. Les nouvelles parties Overworld RPG utilisent ce mode.
-- **Your whole party, then the enemies** : chaque unité de l'équipe peut agir, puis la phase ennemie se joue. Les parties Classic utilisent ce mode.
+- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre. Les nouvelles parties Overworld utilisent ce mode.
+- **Your whole party, then the enemies** : chaque unité de l'équipe peut agir, puis la phase ennemie se joue. Les parties VN utilisent ce mode.
 
 Pour le changer, ouvre **Chat Settings**, déplie **Combat Style** et choisis un **Turn order**. Ce réglage apparaît tant que le **Battle system** est sur Tactical, sauf si l'ensemble de règles de la partie gère ses propres combats. Le changement s'applique à partir de la bataille suivante. Une bataille en cours garde son ordre.
 

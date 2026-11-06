@@ -221,7 +221,7 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 Game MasterはEngineが提示する選択肢から選び、
 応答しない場合はEngine自身の選択処理にフォールバックします。
 プレイヤーがGame Masterによるボスの操作を許可したゲームでのみ適用され、
-`combat`ブロックのないルールセットのClassicやTacticalの戦闘を含む、
+`combat`ブロックのないルールセットのTurn-BasedやTacticalの戦闘を含む、
 すべての戦闘スタイルに適用されます。
 Fate、
 Blades in the Dark、
