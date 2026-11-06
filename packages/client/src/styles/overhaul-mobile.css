@@ -2002,6 +2002,7 @@
   grid-area: value;
   margin-left: 0;
   font-size: 0.8125rem;
+  white-space: normal;
 }
 .ovm-settings[data-ovm-level="root"] .ovm-drill-row__chev {
   grid-area: chev;
@@ -3849,4 +3850,271 @@
   width: 1.25rem;
   height: 1.25rem;
   margin-top: 0.0625rem;
+}
+
+/* ─── Settings on phones and tablets (approved mockups, Nov 6): grouped inset lists ───
+   Each section's settings sit in one rounded box with hairlines between rows. One-page tabs
+   keep the pink section headers; a section's own page shows only its description, wrapped. */
+:root[data-overhaul="mobile"] .ovm-settings [data-ov-settings-sections] [id^="settings-section-"]:not(#ovm-x) {
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:first-child {
+  padding: 1.25rem 1rem 0.4375rem;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:first-child
+  > div:first-of-type
+  > div:first-child {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+/* One-page tabs: headers only, no descriptions. */
+:root[data-overhaul="mobile"]
+  .ovm-settings__onepage
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:first-child
+  > div:first-of-type
+  > div:nth-child(2) {
+  display: none;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child:not(#ovm-x) {
+  padding: 0 1rem !important;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :not(.mari-chrome-control) {
+  padding-block: 0.5rem;
+  border-bottom: 0.5px solid var(--ov-line);
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :last-child:not(#ovm-x) {
+  border-bottom: 0;
+}
+/* A section nested in another (Professor Mari in App Behavior) gets its own box, not a box in a box. */
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  section[id^="settings-section-"]
+  > div:last-child:not(#ovm-x) {
+  margin-inline: -1rem;
+}
+/* A section's own page: the page title names it, so only its description shows, wrapped. */
+:root[data-overhaul="mobile"]
+  .ovm-settings__single
+  [data-ov-settings-sections]
+  > section[id^="settings-section-"]:first-of-type
+  > div:first-child,
+:root[data-overhaul="mobile"]
+  .ovm-settings__single
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]:not(section[id^="settings-section-"] *)
+  > div:first-child {
+  padding: 0.125rem 1rem 0.875rem;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings__single
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]:not(section[id^="settings-section-"] *)
+  > div:first-child
+  > div:first-of-type
+  > div:first-child {
+  display: none;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings__single
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]:not(section[id^="settings-section-"] *)
+  > div:first-child
+  > div:first-of-type
+  > div:nth-child(2):not(#ovm-x) {
+  color: var(--ov-muted);
+  font-size: 0.875rem !important;
+  line-height: 1.45;
+  white-space: normal;
+}
+/* Tab rows sit together in one box with hairlines, like the section boxes. */
+.ovm-settings__rows {
+  gap: 0 !important;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--ovm-raised);
+}
+.ovm-settings__rows > .ovm-drill-row {
+  border-radius: 0;
+  background: none;
+}
+.ovm-settings__rows > .ovm-drill-row + .ovm-drill-row {
+  box-shadow: inset 0 0.5px 0 var(--ov-line);
+}
+.ovm-settings__rows:has(> .ovm-drill-help) {
+  background: none;
+}
+.ovm-settings[data-ovm-level="tab"] .ovm-settings__rows {
+  margin-top: 0.75rem;
+}
+.ovm-settings__inline + .ovm-settings__rows {
+  margin-top: 1.25rem;
+}
+.ovm-settings__edit {
+  justify-self: end;
+  height: 2.75rem;
+  padding: 0 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--ov-accent);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Risky buttons (resets, deletes) only after tapping Edit; Clear All Data is not on phones. */
+.ovm-settings:not([data-ovm-edit]) .ovm-risky {
+  display: none !important;
+}
+:root[data-overhaul="mobile"] .ovm-hide-phone {
+  display: none !important;
+}
+.ovm-settings[data-ovm-edit] .ovm-risky--last {
+  order: 99;
+}
+/* Computer-only settings, and settings waiting on another one: hidden, not greyed out. */
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  :is(
+    #settings-control-desktop-sidebar-width,
+    #settings-control-custom-cursor,
+    #settings-control-game-middle-mouse-navigation,
+    #settings-control-tracker-desktop-size,
+    [data-fonts-folder]
+  ),
+:root[data-overhaul="mobile"] .ovm-settings:not([data-ovm-android]) #settings-control-android-status-bar,
+:root[data-overhaul="mobile"] .ovm-settings:not([data-ovm-android]) #settings-section-layout,
+:root[data-overhaul="mobile"] .ovm-settings [data-ov-settings-sections] .cursor-not-allowed.opacity-60,
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  [id^="settings-control-"]:has(> .cursor-not-allowed.opacity-60:only-child) {
+  display: none !important;
+}
+
+/* ─── iPad split view (from about 700px wide): tabs left, the tab's sections right ─── */
+:root[data-overhaul="mobile"] .ovm-settings--split:not(#ovm-x) {
+  flex-direction: row;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.ovm-settings__side {
+  display: flex;
+  width: 18rem;
+  flex: none;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-y: auto;
+  padding: 1.125rem 0.75rem;
+  border-right: 1px solid var(--ov-line);
+}
+.ovm-settings__side h1 {
+  margin: 0 0.375rem 0.75rem;
+  color: var(--ov-text);
+  font-size: 2rem;
+  font-weight: 700;
+}
+.ovm-settings__side .ov-settings__search {
+  margin: 0 0.125rem 0.75rem;
+}
+.ovm-settings__side .ov-search {
+  width: 100%;
+  height: 2.5rem;
+}
+.ovm-settings__tab {
+  display: flex;
+  min-height: 2.75rem;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.25rem 0.875rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: none;
+  color: var(--ov-text);
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+}
+.ovm-settings__tab.is-on {
+  background: var(--ov-accent);
+  color: var(--ov-on-accent, #fff);
+  font-weight: 600;
+}
+.ovm-settings__tab small {
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ovm-settings__main:not(#ovm-x) {
+  min-width: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.125rem 2rem 2.5rem;
+}
+.ovm-settings__mainhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ovm-settings__mainhead h2 {
+  margin: 0;
+  color: var(--ov-text);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+:root[data-overhaul="mobile"] .ovm-settings--split .ov-settings__sections:not(#ovm-x) {
+  columns: auto;
+}
+/* Landscape iPad: General's short sections in two columns. */
+@media (min-width: 1000px) {
+  :root[data-overhaul="mobile"] .ovm-settings--split[data-ovm-tab="general"] .ov-settings__sections:not(#ovm-x) {
+    columns: 2;
+    column-gap: 1.5rem;
+  }
+}
+/* Bordered cards inside a section box (Chat Layout, Avatar Shape, Visual Novel...) sit flat as rows. */
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  div:is(.rounded-lg, .rounded-xl).border:not(:has(div:is(.rounded-lg, .rounded-xl).border)):not(#ovm-x) {
+  padding-inline: 0;
+  border-width: 0 0 0.5px;
+  border-radius: 0;
+  background: none;
+}
+:root[data-overhaul="mobile"] .ovm-settings [data-google-font-add] {
+  flex: none;
 }

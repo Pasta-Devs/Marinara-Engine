@@ -7,7 +7,10 @@
 // ──────────────────────────────────────────────
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
+import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
+import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "../../stores/ui.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useOverhaulMobile, useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
@@ -218,31 +221,142 @@ function useSettingsSearch(query: string) {
   }, [query]);
 }
 
+/** Phones and tablets: a shorter line under each tab, and how the tab opens. */
+const MOBILE_TABS: Partial<
+  Record<OverhaulSettingsTab, { blurb: string; onePage?: boolean; inline?: SettingsSectionId[] }>
+> = {
+  general: { blurb: "Language, confirmations, notifications", onePage: true },
+  chatting: { blurb: "Replies, message box, swipes, thinking" },
+  appearance: { blurb: "Theme, fonts, colors and backgrounds" },
+  conversation: { blurb: "How Conversation chats look", onePage: true },
+  roleplay: { blurb: "Tracker Panel, avatars, Visual Novel" },
+  game: { blurb: "Game Mode text, art and assets", onePage: true },
+  media: { blurb: "Image and video generation", inline: ["overall-generations"] },
+  data: { blurb: "Imports, backups, storage and deleting data" },
+  advanced: { blurb: "Updates, server, requests and security" },
+};
+
+/** Sections whose risky buttons (resets, deletes) only show after tapping Edit. */
+const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "image-generation", "danger-zone"]);
+
+const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+/** Layout holds a computer-only setting and an Android-only one; elsewhere it would be empty. */
+const HIDDEN_ON_DEVICE = new Set<SettingsSectionId>(IS_ANDROID ? [] : ["layout"]);
+
+const VISUAL_THEME_LABELS: Record<string, string> = { default: "Marinara", sillytavern: "SillyTavern", stage: "Stage" };
+const AVATAR_LABELS: Record<string, string> = {
+  none: "None",
+  circles: "Small circles",
+  rectangles: "Small rectangles",
+  panel: "Side panel",
+  faded: "Faded",
+};
+const WIDGET_LABELS: Record<string, string> = { default: "Default", dottore: "Dottore", mari: "Mari" };
+
+/** The current value shown in grey on a section's row, where one short value says it. */
+function useSectionValues(): Partial<Record<SettingsSectionId, string>> {
+  const s = useUIStore(
+    useShallow((state) => ({
+      visualTheme: state.visualTheme,
+      theme: state.theme,
+      fontFamily: state.fontFamily,
+      fontSize: state.fontSize,
+      chatFontColor: state.chatFontColor,
+      weatherEffects: state.weatherEffects,
+      chatBackground: state.chatBackground,
+      chatWidgetPreset: state.chatWidgetPreset,
+      activeCustomTheme: state.activeCustomTheme,
+      customThemes: state.customThemes,
+      trackerPanelEnabled: state.trackerPanelEnabled,
+      roleplayAvatarStyle: state.roleplayAvatarStyle,
+      roleplayDisplayStyle: state.roleplayDisplayStyle,
+      enableStreaming: state.enableStreaming,
+      enterToSendRP: state.enterToSendRP,
+    })),
+  );
+  const customTheme = s.customThemes.find((item) => item.id === s.activeCustomTheme);
+  return {
+    "app-style": `${VISUAL_THEME_LABELS[s.visualTheme] ?? s.visualTheme} · ${s.theme === "light" ? "Light" : "Dark"}`,
+    "text-scale": `${s.fontFamily ? s.fontFamily.split(",")[0]!.replace(/["']/g, "").trim() : "Default"} · ${s.fontSize} px`,
+    "text-colors": s.chatFontColor ? "Custom" : "Default",
+    "motion-backgrounds": s.weatherEffects ? "Weather on" : "Weather off",
+    "chat-backgrounds": s.chatBackground ? "Custom" : "None",
+    "chat-widgets": WIDGET_LABELS[s.chatWidgetPreset] ?? s.chatWidgetPreset,
+    "theme-library": customTheme?.name ?? "None",
+    "roleplay-tracker": s.trackerPanelEnabled ? "On" : "Off",
+    "roleplay-avatars": AVATAR_LABELS[s.roleplayAvatarStyle] ?? s.roleplayAvatarStyle,
+    "visual-novel": s.roleplayDisplayStyle === "visual-novel" ? "On" : "Off",
+    responses: s.enableStreaming ? "Streaming" : "All at once",
+    "input-editing": s.enterToSendRP ? "Enter sends" : "Enter adds a line",
+    updates: `v${APP_VERSION}`,
+  };
+}
+
 /**
- * Phones: Settings is three levels of pages. The seven tabs are rows; a tab
- * opens a page of its sections; a section opens a page of its settings.
- * Search jumps straight to a section's page. Back returns to where you were.
+ * Phones: Settings is three levels of pages. The nine tabs are rows; a tab opens a list of its
+ * sections (small tabs open as one page); a section opens a page of its settings. Search jumps
+ * straight to a section's page. Back returns to where you were. From about 700px wide (iPad)
+ * it is a split view instead: tabs on the left, the tab's sections on the right.
  */
 function OverhaulSettingsMobile() {
+  const split = useMatchMedia("(min-width: 700px)");
+  return split ? <OverhaulSettingsSplit /> : <OverhaulSettingsPhone />;
+}
+
+function EditToggle({ editing, onToggle }: { editing: boolean; onToggle: () => void }) {
+  const localize = useLocalizedUiText();
+  return (
+    <button type="button" className="ovm-settings__edit" aria-pressed={editing} onClick={onToggle}>
+      {localize(editing ? "Done" : "Edit")}
+    </button>
+  );
+}
+
+function SettingsSearchField({ query, setQuery }: { query: string; setQuery: (value: string) => void }) {
+  const localize = useLocalizedUiText();
+  return (
+    <div className="ov-settings__search">
+      <label className="ov-search">
+        <Search size={14} aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={localize("Search all settings")}
+          aria-label={localize("Search all settings")}
+        />
+      </label>
+    </div>
+  );
+}
+
+function OverhaulSettingsPhone() {
   const localize = useLocalizedUiText();
   const tabId = useOverhaulStore((s) => s.settingsTab);
   const setTab = useOverhaulStore((s) => s.setSettingsTab);
   const [level, setLevel] = useState<"root" | "tab" | "section">("root");
   const [sectionId, setSectionId] = useState<SettingsSectionId | null>(null);
   const [query, setQuery] = useState("");
-  const results = useSettingsSearch(query);
+  const [editing, setEditing] = useState(false);
+  const results = useSettingsSearch(query).filter((result) => !HIDDEN_ON_DEVICE.has(result.id));
+  const values = useSectionValues();
   const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
+  const mobileTab = MOBILE_TABS[tab.id] ?? { blurb: tab.blurb };
+  const inline = mobileTab.inline ?? [];
   const rootRef = useRef<HTMLElement>(null);
   const scrolls = useRef<Record<string, number>>({});
   const restore = useRef<number | null>(null);
   // Section titles exactly as the sections print them, read from an off-screen copy of the tab.
   const [probeEl, setProbeEl] = useState<HTMLDivElement | null>(null);
-  const chips = useSectionChips(probeEl, tab.sections);
+  const chips = useSectionChips(probeEl, tab.sections).filter((chip) => !HIDDEN_ON_DEVICE.has(chip.id));
+  const onePage = mobileTab.onePage || chips.length === 1;
+  const rowChips = chips.filter((chip) => !inline.includes(chip.id));
 
   const go = (next: "root" | "tab" | "section", back = false) => {
     const el = rootRef.current;
     if (el && !back) scrolls.current[level] = el.scrollTop;
     restore.current = back ? (scrolls.current[next] ?? 0) : 0;
+    setEditing(false);
     setLevel(next);
   };
   useLayoutEffect(() => {
@@ -252,23 +366,24 @@ function OverhaulSettingsMobile() {
     rootRef.current?.scrollTo({ top });
   }, [level, sectionId, tab.id]);
 
-  const row = (key: string, label: string, value: string | null, onClick: () => void) => (
+  const row = (key: string, label: string, value: string | null | undefined, onClick: () => void) => (
     <button key={key} type="button" className="ovm-drill-row" onClick={onClick}>
       <span className="ovm-drill-row__title">{label}</span>
       {value ? <span className="ovm-drill-row__value">{value}</span> : null}
       <ChevronRight size={16} className="ovm-drill-row__chev" aria-hidden="true" />
     </button>
   );
-  const head = (title: string, onBack: () => void) => (
+  const head = (title: string, onBack: () => void, edit = false) => (
     <div className="ovm-drill-page__head">
       <button type="button" className="ovm-drill-page__back" aria-label={localize("Back")} onClick={onBack}>
         <ChevronLeft size={26} aria-hidden="true" />
       </button>
       <span className="ovm-drill-page__title">{title}</span>
-      <span aria-hidden="true" />
+      {edit ? <EditToggle editing={editing} onToggle={() => setEditing((on) => !on)} /> : <span aria-hidden="true" />}
     </div>
   );
   const sectionTitle = sectionId ? (chips.find((chip) => chip.id === sectionId)?.label ?? sectionLabel(sectionId)) : "";
+  const loading = <p className="ov-gallery__note">{localize("Loading…")}</p>;
 
   return (
     <section
@@ -276,21 +391,14 @@ function OverhaulSettingsMobile() {
       className="ov-settings ovm-settings"
       data-component="OverhaulSettingsPage"
       data-ovm-level={level}
+      data-ovm-edit={editing ? "" : undefined}
+      data-ovm-android={IS_ANDROID ? "" : undefined}
     >
       {level === "root" ? (
         <>
           <header className="ov-settings__head">
             <h1>{localize("Settings")}</h1>
-            <div className="ov-settings__search">
-              <label className="ov-search">
-                <Search size={14} aria-hidden="true" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={localize("Search all settings")}
-                />
-              </label>
-            </div>
+            <SettingsSearchField query={query} setQuery={setQuery} />
           </header>
           <div className="ovm-settings__rows">
             {query.trim()
@@ -308,8 +416,10 @@ function OverhaulSettingsMobile() {
                         }
                         scrolls.current.tab = 0;
                         setTab(result.tab.id);
+                        const small = MOBILE_TABS[result.tab.id]?.onePage;
                         setSectionId(result.id);
-                        go("section");
+                        go(small ? "tab" : "section");
+                        if (small) scrollToSectionIn(result.id, rootRef.current);
                       },
                     ),
                   )
@@ -319,7 +429,7 @@ function OverhaulSettingsMobile() {
                     </p>,
                   ]
               : OVERHAUL_SETTINGS_TABS.map((item) =>
-                  row(item.id, localize(item.label), localize(item.blurb), () => {
+                  row(item.id, localize(item.label), localize(MOBILE_TABS[item.id]?.blurb ?? item.blurb), () => {
                     scrolls.current.tab = 0;
                     setTab(item.id);
                     go("tab");
@@ -331,30 +441,39 @@ function OverhaulSettingsMobile() {
       {level === "tab" ? (
         <>
           {head(localize(tab.label), () => go("root", true))}
-          {chips.length === 1 ? (
-            // One section (Media before the Illustrator Agent is installed): show it, no menu of one.
-            <div className="ov-settings__scroll ovm-settings__section">
-              <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+          {onePage ? (
+            // Small tabs (and Media before the Illustrator Agent is installed) are one page.
+            <div className="ov-settings__scroll ovm-settings__section ovm-settings__onepage">
+              <Suspense fallback={loading}>
                 <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
               </Suspense>
             </div>
           ) : (
-            <div className="ovm-settings__rows">
-              {chips.map((chip) =>
-                row(chip.id, chip.label, null, () => {
-                  setSectionId(chip.id);
-                  go("section");
-                }),
-              )}
-            </div>
+            <>
+              {inline.length ? (
+                <div className="ov-settings__scroll ovm-settings__section ovm-settings__onepage ovm-settings__inline">
+                  <Suspense fallback={loading}>
+                    <OverhaulSettingsSections key={`${tab.id}:inline`} sectionIds={inline} />
+                  </Suspense>
+                </div>
+              ) : null}
+              <div className="ovm-settings__rows">
+                {rowChips.map((chip) =>
+                  row(chip.id, chip.label, values[chip.id], () => {
+                    setSectionId(chip.id);
+                    go("section");
+                  }),
+                )}
+              </div>
+            </>
           )}
         </>
       ) : null}
       {level === "section" && sectionId ? (
         <>
-          {head(sectionTitle, () => go("tab", true))}
-          <div className="ov-settings__scroll ovm-settings__section">
-            <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+          {head(sectionTitle, () => go("tab", true), EDIT_SECTIONS.has(sectionId))}
+          <div className="ov-settings__scroll ovm-settings__section ovm-settings__single">
+            <Suspense fallback={loading}>
               <OverhaulSettingsSections
                 key={sectionId}
                 // Sections nested inside this one (Professor Mari inside App Behavior) show on its page.
@@ -374,6 +493,112 @@ function OverhaulSettingsMobile() {
           </Suspense>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/** Scrolls a phone one-page tab to a section once it has loaded. */
+function scrollToSectionIn(id: SettingsSectionId, root: HTMLElement | null, attempt = 0) {
+  window.requestAnimationFrame(() => {
+    const target = document.querySelector<HTMLElement>(`.ovm-settings__onepage #settings-section-${id}`);
+    if (!target || !root) {
+      if (attempt < 20) window.setTimeout(() => scrollToSectionIn(id, root, attempt + 1), 100);
+      return;
+    }
+    const top = target.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
+    root.scrollTo({ top: Math.max(0, top - 56) });
+  });
+}
+
+/** iPad (from about 700px wide): tabs on the left, the selected tab's sections on the right. */
+function OverhaulSettingsSplit() {
+  const localize = useLocalizedUiText();
+  const tabId = useOverhaulStore((s) => s.settingsTab);
+  const setTab = useOverhaulStore((s) => s.setSettingsTab);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(false);
+  const results = useSettingsSearch(query).filter((result) => !HIDDEN_ON_DEVICE.has(result.id));
+  const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
+  const sections = tab.sections.filter((id) => !HIDDEN_ON_DEVICE.has(id));
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  // Edit shows only when the tab has a risky button on screen (Media has none before its Agent is installed).
+  const [hasEdit, setHasEdit] = useState(false);
+  useEffect(() => {
+    if (!scrollEl) return;
+    const read = () =>
+      setHasEdit(
+        Array.from(scrollEl.querySelectorAll<HTMLElement>('[id^="settings-section-"]')).some(
+          (el) => el.offsetParent !== null && !!el.querySelector(".ovm-risky"),
+        ),
+      );
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(scrollEl, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [scrollEl]);
+  useEffect(() => {
+    scrollEl?.scrollTo({ top: 0 });
+    setEditing(false);
+  }, [scrollEl, tab.id]);
+
+  return (
+    <section
+      className="ov-settings ovm-settings ovm-settings--split"
+      data-component="OverhaulSettingsPage"
+      data-ovm-edit={editing ? "" : undefined}
+      data-ovm-android={IS_ANDROID ? "" : undefined}
+      data-ovm-tab={tab.id}
+    >
+      <nav className="ovm-settings__side" aria-label={localize("Settings tabs")}>
+        <h1>{localize("Settings")}</h1>
+        <SettingsSearchField query={query} setQuery={setQuery} />
+        {query.trim() ? (
+          results.length ? (
+            results.map((result) => (
+              <button
+                key={`${result.tab.id}:${result.id}`}
+                type="button"
+                className="ovm-settings__tab ovm-settings__tab--result"
+                onClick={() => {
+                  setQuery("");
+                  if (result.page) {
+                    openLibrarySection(result.page);
+                    return;
+                  }
+                  setTab(result.tab.id);
+                  scrollToSection(result.id);
+                }}
+              >
+                <span>{localize(sectionLabel(result.id))}</span>
+                <small>{localize(result.tab.label)}</small>
+              </button>
+            ))
+          ) : (
+            <p className="ovm-drill-help">{localize("No settings match.")}</p>
+          )
+        ) : (
+          OVERHAUL_SETTINGS_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={cn("ovm-settings__tab", item.id === tab.id && "is-on")}
+              aria-current={item.id === tab.id ? "page" : undefined}
+              onClick={() => setTab(item.id)}
+            >
+              {localize(item.label)}
+            </button>
+          ))
+        )}
+      </nav>
+      <div className="ov-settings__scroll ovm-settings__main ovm-settings__onepage" ref={setScrollEl}>
+        <div className="ovm-settings__mainhead">
+          <h2>{localize(tab.label)}</h2>
+          {hasEdit ? <EditToggle editing={editing} onToggle={() => setEditing((on) => !on)} /> : null}
+        </div>
+        <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+          <OverhaulSettingsSections key={tab.id} sectionIds={sections} />
+        </Suspense>
+      </div>
     </section>
   );
 }

@@ -971,15 +971,29 @@ function ImageStyleProfilesEditor({
             <Plus size="0.75rem" />
             {localizeUi("ui.panels.imagestyleprofileseditor.clone")}
           </button>
-          <button type="button" onClick={resetSelected} disabled={!selected.builtIn} className={SETTINGS_BUTTON_CLASS}>
+          <button
+            type="button"
+            onClick={resetSelected}
+            disabled={!selected.builtIn}
+            className={cn(SETTINGS_BUTTON_CLASS, "ovm-risky")}
+          >
             <RotateCcw size="0.75rem" />
             {localizeUi("ui.panels.imagestyleprofileseditor.reset")}
           </button>
           <button
             type="button"
-            onClick={deleteSelected}
+            onClick={() => {
+              void showConfirmDialog({
+                title: localizeUi("lorebook.editor.batch.delete"),
+                message: `${selected.name}`,
+                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+              }).then((confirmed) => {
+                if (confirmed) deleteSelected();
+              });
+            }}
             disabled={selected.builtIn || settings.profiles.length <= 1}
-            className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger")}
+            className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger ovm-risky")}
           >
             <Trash2 size="0.75rem" />
             {localizeUi("lorebook.editor.batch.delete")}
@@ -3988,10 +4002,19 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {...getSettingsSectionAnchorProps("app-style")}
           >
             <div className="flex flex-col gap-3">
-              <div className="flex justify-start">
+              <div className="ovm-risky ovm-risky--last flex justify-start">
                 <button
                   type="button"
-                  onClick={handleResetAppearance}
+                  onClick={() => {
+                    void showConfirmDialog({
+                      title: localizeUi("ui.panels.appearancesettings.resetAppearance"),
+                      message: localizeUi("settings.actions.resetAppearance"),
+                      confirmLabel: localizeUi("ui.panels.appearancesettings.resetAppearance"),
+                      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+                    }).then((confirmed) => {
+                      if (confirmed) handleResetAppearance();
+                    });
+                  }}
                   disabled={setActiveSyncedTheme.isPending}
                   className={SETTINGS_BUTTON_CLASS}
                   title={localizeUi("settings.actions.resetAppearance")}
@@ -4188,6 +4211,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 <button
                   type="button"
                   onClick={handleOpenFontsFolder}
+                  data-fonts-folder
                   className={cn(SETTINGS_BUTTON_CLASS, "mt-1 self-start")}
                 >
                   <FolderOpen size="0.75rem" />
@@ -4213,10 +4237,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                       }
                     }}
                     placeholder={localizeUi("settings.placeholders.fontFamily")}
-                    className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+                    className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
                   />
                   <button
                     type="button"
+                    data-google-font-add
                     onClick={() => googleFontMutation.mutate(googleFontName.trim())}
                     disabled={!googleFontName.trim() || googleFontMutation.isPending}
                     className={SETTINGS_BUTTON_CLASS}
@@ -8432,7 +8457,7 @@ function AdvancedSettings() {
                     checked={checked}
                     disabled={isClearing}
                     onChange={() => toggleScope(scope.id)}
-                    className="ov-expunge__check mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
+                    className="ov-expunge__check ovm-risky mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
                   />
                   <span className="min-w-0">
                     <span className="block text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)]">
@@ -8451,7 +8476,7 @@ function AdvancedSettings() {
                 setSelectedScopes(isAllScopesSelected ? [] : EXPUNGE_SCOPE_OPTIONS.map((scope) => scope.id))
               }
               disabled={isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
+              className={cn(SETTINGS_BUTTON_CLASS, "ovm-risky w-full")}
             >
               {isAllScopesSelected ? (
                 <Square size="0.875rem" aria-hidden="true" />
@@ -8466,7 +8491,7 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("selected")}
               disabled={selectedScopes.length === 0 || isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger ovm-risky w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearSelectedData")}
@@ -8475,7 +8500,8 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("all")}
               disabled={isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              // Phones: no one-tap wipe of everything; Select all, then Delete selected, asks first.
+              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger ovm-hide-phone w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearAllData")}
