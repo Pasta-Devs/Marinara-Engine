@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { Fragment, useMemo, useState, type MouseEvent } from "react";
 import { ChevronDown, ChevronRight, Download, MoreHorizontal, Plus, Search, Star } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { isChatProvider, parsePinnedModels, PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
@@ -67,6 +67,7 @@ function AccountBalance({ account }: { account: ConnectionAccountListItem }) {
 }
 
 function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const tiles = useConnectionDefaults(connectionsList);
   const [open, setOpen] = useState(true);
@@ -92,7 +93,12 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
         <span className="ov-conn__dim">{localize("which model each job uses")}</span>
         {problems > 0 ? (
           <span className="ov-conn-defaults__warn">
-            {problems === 1 ? localize("1 needs a model") : `${problems} ${localize("need a model")}`}
+            {problems === 1
+              ? localize("1 needs a model")
+              : localizeUi("ui.chat.scheduletimeline.value1Value2", {
+                  value1: problems,
+                  value2: localize("need a model"),
+                })}
           </span>
         ) : null}
       </button>

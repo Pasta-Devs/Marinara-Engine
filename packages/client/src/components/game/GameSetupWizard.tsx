@@ -1888,7 +1888,10 @@ export function GameSetupWizard({
                     className="ov-gsw__icon"
                     onClick={() => ovImportInputRef.current?.click()}
                     disabled={isLoading || !setupImportResourcesReady}
-                    title={`${localizeUi("ui.game.gamesetupwizard.reuseAGameSetup")}: ${localizeUi("ui.game.gamesetupwizard.importASetupDownloadedFromAnotherCampaignYouCan")}`}
+                    title={localizeUi("ui.chat.quickreplymenu.value1Value2", {
+                      value1: localizeUi("ui.game.gamesetupwizard.reuseAGameSetup"),
+                      value2: localizeUi("ui.game.gamesetupwizard.importASetupDownloadedFromAnotherCampaignYouCan"),
+                    })}
                     aria-label={localizeUi("ui.game.gamesetupwizard.importSetup")}
                   >
                     <FileUp size={15} />
@@ -1910,7 +1913,7 @@ export function GameSetupWizard({
             </div>
 
             {overhaulActive && (
-              <nav className="ov-gsw__steps" aria-label="Setup steps">
+              <nav className="ov-gsw__steps" aria-label={localizeUi("ui.game.gamesetupwizard.setupSteps")}>
                 {steps.map((item, i) => (
                   <button
                     key={item.key}
@@ -4181,7 +4184,9 @@ export function GameSetupWizard({
                     className={GAME_SETUP_PRIMARY_BUTTON_CLASS}
                   >
                     {localizeUi("onboarding.actions.next")}
-                    {overhaulActive ? `: ${steps[step + 1]?.title}` : null}
+                    {overhaulActive
+                      ? localizeUi("ui.modals.modeldownloadmodal.value1", { value1: steps[step + 1]?.title })
+                      : null}
                     <ArrowRight size={14} />
                   </button>
                 ) : (

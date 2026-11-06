@@ -339,7 +339,7 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
       >
         <aside className="ov-sched__list" aria-label={localizeUi("ui.characters.schedulemanager.title")}>
           <div className="ov-sched__lh">
-            <h1>Character schedules</h1>
+            <h1>{localizeUi("ui.chat.characterschedulemanagermodal.characterSchedules")}</h1>
             <label className="ov-sched__search">
               <Search size={14} aria-hidden="true" />
               <input
@@ -414,7 +414,7 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
           {overhaulMobile && editingCharacter ? (
             <button type="button" className="ov-docs__back ov-sched__back" onClick={() => setEditingCharacterId(null)}>
               <ChevronLeft size={18} aria-hidden="true" />
-              Character schedules
+              {localizeUi("ui.chat.characterschedulemanagermodal.characterSchedules")}
             </button>
           ) : null}
           {editingCharacter ? (

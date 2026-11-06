@@ -171,7 +171,7 @@ export function ConversationMessageActions({
                 <button
                   key={emoji}
                   type="button"
-                  aria-label={`React with ${emoji}`}
+                  aria-label={localizeUi("ui.chat.conversationmessageactions.reactWithValue1", { value1: emoji })}
                   onClick={() => onPickReaction(emoji, null)}
                 >
                   {emoji}
@@ -261,7 +261,7 @@ export function ConversationMessageActions({
               <button
                 key={emoji}
                 type="button"
-                aria-label={`React with ${emoji}`}
+                aria-label={localizeUi("ui.chat.conversationmessageactions.reactWithValue1", { value1: emoji })}
                 onClick={(event) => {
                   event.stopPropagation();
                   onPickReaction(emoji, null);
@@ -284,7 +284,7 @@ export function ConversationMessageActions({
         ) : null}
         <MsgAction
           icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
-          title="More actions"
+          title={localizeUi("connections.accounts.header.more")}
           onClick={() => {
             setMarksOpen(false);
             if (moreAnchor) return setMoreAnchor(null);
@@ -312,7 +312,7 @@ export function ConversationMessageActions({
           </FooterPopover>
         ) : moreAnchor ? (
           <FooterPopover anchor={moreAnchor} onClose={() => setMoreAnchor(null)} className="ov-rpf-menu">
-            <p className="ov-rpf-pop__label">Message actions</p>
+            <p className="ov-rpf-pop__label">{localizeUi("ui.chat.conversationmessageactions.messageActions")}</p>
             <div className="mari-message-actions" onClickCapture={closeAfterAction(() => setMoreAnchor(null))}>
               <MsgAction
                 icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}

@@ -27,6 +27,7 @@ import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { OvMarksMenuContext } from "./marks-menu-context";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 type Anchor = { left: number; top: number; bottom: number; right: number };
 
@@ -117,6 +118,7 @@ function SwipeList({
   onPick: (index: number) => void;
   onCreate?: () => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const { data } = useQuery({
     queryKey: [...chatKeys.all, "swipes", messageId],
     queryFn: () => api.get<MessageSwipe[]>(`/chats/${chatId}/messages/${messageId}/swipes`),
@@ -124,8 +126,8 @@ function SwipeList({
   });
   const rows = data?.length ? [...data].sort((a, b) => a.index - b.index) : null;
   return (
-    <div role="listbox" aria-label="Swipes">
-      <p className="ov-rpf-pop__label">Swipes</p>
+    <div role="listbox" aria-label={localizeUi("ui.overhaul.swiperows.swipes")}>
+      <p className="ov-rpf-pop__label">{localizeUi("ui.overhaul.swiperows.swipes")}</p>
       <div className="ov-rpf-swipes">
         {(rows ?? Array.from({ length: count }, (_, index) => ({ index, content: "", createdAt: "" }))).map((row) => (
           <button
@@ -156,7 +158,7 @@ function SwipeList({
       <div className="ov-rpf-pop__foot">
         {onCreate ? (
           <button type="button" onClick={onCreate}>
-            <Plus size={13} /> Generate another
+            <Plus size={13} /> {localizeUi("ui.overhaul.swipelist.generateAnother")}
           </button>
         ) : null}
       </div>
@@ -209,6 +211,7 @@ export function OvRpMessageFooter({
    */
   part?: "all" | "tools" | "generate";
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState<null | { kind: "more" | "swipes" | "marks"; anchor: Anchor }>(null);
   const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
     if (open?.kind === kind || (kind === "more" && open?.kind === "marks")) return setOpen(null);
@@ -236,8 +239,8 @@ export function OvRpMessageFooter({
         <button
           type="button"
           className="ov-rpf__btn is-accent"
-          title="Regenerate"
-          aria-label="Regenerate"
+          title={localizeUi("ui.agents.secretplotpanel.regenerate")}
+          aria-label={localizeUi("ui.agents.secretplotpanel.regenerate")}
           onClick={onRegenerate}
         >
           <RefreshCw size={14} />
@@ -247,7 +250,7 @@ export function OvRpMessageFooter({
         <span className="ov-rpf__swipes">
           <button
             type="button"
-            aria-label="Previous swipe"
+            aria-label={localizeUi("ui.chat.swipejumpcontrol.previousSwipe")}
             disabled={swipeIndex <= 0}
             onClick={() => onSetSwipe(swipeIndex - 1)}
           >
@@ -256,7 +259,7 @@ export function OvRpMessageFooter({
           <button
             type="button"
             className="ov-rpf__count"
-            aria-label="Show all swipes"
+            aria-label={localizeUi("ui.overhaul.ovrpmessagefooter.showAllSwipes")}
             aria-expanded={open?.kind === "swipes"}
             onClick={(event) => openAt("swipes", event.currentTarget)}
           >
@@ -265,7 +268,11 @@ export function OvRpMessageFooter({
           </button>
           <button
             type="button"
-            aria-label={swipeIndex < count - 1 ? "Next swipe" : "Generate another swipe"}
+            aria-label={
+              swipeIndex < count - 1
+                ? localizeUi("ui.chat.swipejumpcontrol.nextSwipe")
+                : localizeUi("ui.overhaul.ovrpmessagefooter.generateAnotherSwipe")
+            }
             disabled={swipeIndex >= count - 1 && !onCreateSwipe}
             onClick={() => (swipeIndex < count - 1 ? onSetSwipe(swipeIndex + 1) : onCreateSwipe?.())}
           >
@@ -279,8 +286,8 @@ export function OvRpMessageFooter({
         <button
           type="button"
           className="ov-rpf__btn is-accent"
-          title="Regenerate"
-          aria-label="Regenerate"
+          title={localizeUi("ui.agents.secretplotpanel.regenerate")}
+          aria-label={localizeUi("ui.agents.secretplotpanel.regenerate")}
           onClick={onRegenerate}
         >
           <RefreshCw size={14} />
@@ -288,18 +295,30 @@ export function OvRpMessageFooter({
       ) : null}
       {part !== "generate" ? (
         <>
-          <button type="button" className="ov-rpf__btn" title="Edit" aria-label="Edit" onClick={onEdit}>
+          <button
+            type="button"
+            className="ov-rpf__btn"
+            title={localizeUi("chat.settingsProfile.builder.edit")}
+            aria-label={localizeUi("chat.settingsProfile.builder.edit")}
+            onClick={onEdit}
+          >
             <Pencil size={14} />
           </button>
-          <button type="button" className="ov-rpf__btn" title="Copy" aria-label="Copy" onClick={onCopy}>
+          <button
+            type="button"
+            className="ov-rpf__btn"
+            title={localizeUi("lorebook.editor.batch.copy")}
+            aria-label={localizeUi("lorebook.editor.batch.copy")}
+            onClick={onCopy}
+          >
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
           {onBranch ? (
             <button
               type="button"
               className="ov-rpf__btn"
-              title="Branch from here"
-              aria-label="Branch from here"
+              title={localizeUi("ui.chat.chatmessage.branchFromHere")}
+              aria-label={localizeUi("ui.chat.chatmessage.branchFromHere")}
               onClick={onBranch}
             >
               <GitBranch size={14} />
@@ -308,8 +327,8 @@ export function OvRpMessageFooter({
           <button
             type="button"
             className={cn("ov-rpf__btn", (open?.kind === "more" || open?.kind === "marks") && "is-on")}
-            title="More actions"
-            aria-label="More actions"
+            title={localizeUi("connections.accounts.header.more")}
+            aria-label={localizeUi("connections.accounts.header.more")}
             aria-expanded={open?.kind === "more" || open?.kind === "marks"}
             onClick={(event) => openAt("more", event.currentTarget)}
           >
@@ -319,7 +338,7 @@ export function OvRpMessageFooter({
       ) : null}
       {open?.kind === "more" ? (
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
-          <p className="ov-rpf-pop__label">Message actions</p>
+          <p className="ov-rpf-pop__label">{localizeUi("ui.overhaul.ovrpmessagefooter.messageActions")}</p>
           <div className="contents" onClickCapture={closeAfterAction(() => setOpen(null))}>
             <OvMarksMenuContext.Provider
               value={marksPanel ? () => setOpen({ kind: "marks", anchor: { ...open.anchor } }) : null}

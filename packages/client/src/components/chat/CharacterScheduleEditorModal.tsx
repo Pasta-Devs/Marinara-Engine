@@ -1500,7 +1500,7 @@ export function CharacterScheduleEditorModal({
             onClick={embedded ? () => setDraft(createDraft(schedule)) : handleClose}
             className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            {embedded ? "Discard" : localizeUi("chat.delete.dialog.cancel")}
+            {embedded ? localizeUi("avatars.generation.discard") : localizeUi("chat.delete.dialog.cancel")}
           </button>
           <button
             type="button"
@@ -1544,11 +1544,12 @@ function OvWeekCalendar({
   expandedDay: string | null;
   onPickDay: (day: string) => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const now = new Date();
   const todayName = CONVERSATION_SCHEDULE_DAYS[(now.getDay() + 6) % 7];
   const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
   return (
-    <div className="ov-week" role="grid" aria-label="Week schedule">
+    <div className="ov-week" role="grid" aria-label={localizeUi("ui.chat.ovweekcalendar.weekSchedule")}>
       <div className="ov-week__hrs" aria-hidden="true">
         {[0, 4, 8, 12, 16, 20].map((hour) => (
           <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
@@ -1564,7 +1565,7 @@ function OvWeekCalendar({
             onClick={() => onPickDay(day)}
           >
             {day.slice(0, 3)}
-            {day === todayName ? " · today" : ""}
+            {day === todayName ? localizeUi("ui.chat.ovweekcalendar.today") : ""}
           </button>
           <div className="ov-week__day" onClick={() => onPickDay(day)}>
             {(days[day] ?? []).flatMap((block, index) => {
@@ -1583,7 +1584,10 @@ function OvWeekCalendar({
                   key={`${index}-${part}`}
                   className={cn("ov-week__blk", `is-${status}`)}
                   style={{ top: `${(start! / 1440) * 100}%`, height: `${((end! - start!) / 1440) * 100}%` }}
-                  title={`${block.time} · ${block.activity || STATUS_LABELS[status]}`}
+                  title={localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
+                    value1: block.time,
+                    value2: block.activity || STATUS_LABELS[status],
+                  })}
                 >
                   <b>{block.activity || STATUS_LABELS[status]}</b>
                   <span>{block.time}</span>

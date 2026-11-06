@@ -1548,7 +1548,7 @@ export function CharacterEditor() {
           {formData.creator
             ? localizeUi("ui.characters.charactereditor.byValue1", { value1: formData.creator })
             : localizeUi("ui.characters.charactereditor.noCreator")}
-          {" · v"}
+          {localizeUi("ui.characters.charactereditor.v_0286fbd")}
           {formData.character_version || "1.0"}
         </>
       }
@@ -6781,7 +6781,7 @@ function StatsTab({
     <div className="space-y-6">
       {overhaul ? (
         <>
-          <SectionHeader title="Game Mode" />
+          <SectionHeader title={localizeUi("game.style.label")} />
           <GameModeSheet
             rpgEnabled={stats.enabled}
             onRpgEnabled={(enabled) => update({ enabled })}

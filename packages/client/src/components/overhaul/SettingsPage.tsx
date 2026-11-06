@@ -274,20 +274,21 @@ function useSectionValues(): Partial<Record<SettingsSectionId, string>> {
       enterToSendRP: state.enterToSendRP,
     })),
   );
+  const localize = useLocalizedUiText();
   const customTheme = s.customThemes.find((item) => item.id === s.activeCustomTheme);
   return {
-    "app-style": `${VISUAL_THEME_LABELS[s.visualTheme] ?? s.visualTheme} · ${s.theme === "light" ? "Light" : "Dark"}`,
-    "text-scale": `${s.fontFamily ? s.fontFamily.split(",")[0]!.replace(/["']/g, "").trim() : "Default"} · ${s.fontSize} px`,
-    "text-colors": s.chatFontColor ? "Custom" : "Default",
-    "motion-backgrounds": s.weatherEffects ? "Weather on" : "Weather off",
-    "chat-backgrounds": s.chatBackground ? "Custom" : "None",
-    "chat-widgets": WIDGET_LABELS[s.chatWidgetPreset] ?? s.chatWidgetPreset,
-    "theme-library": customTheme?.name ?? "None",
-    "roleplay-tracker": s.trackerPanelEnabled ? "On" : "Off",
-    "roleplay-avatars": AVATAR_LABELS[s.roleplayAvatarStyle] ?? s.roleplayAvatarStyle,
-    "visual-novel": s.roleplayDisplayStyle === "visual-novel" ? "On" : "Off",
-    responses: s.enableStreaming ? "Streaming" : "All at once",
-    "input-editing": s.enterToSendRP ? "Enter sends" : "Enter adds a line",
+    "app-style": `${VISUAL_THEME_LABELS[s.visualTheme] ?? s.visualTheme} · ${localize(s.theme === "light" ? "Light" : "Dark")}`,
+    "text-scale": `${s.fontFamily ? s.fontFamily.split(",")[0]!.replace(/["']/g, "").trim() : localize("Default")} · ${s.fontSize} px`,
+    "text-colors": localize(s.chatFontColor ? "Custom" : "Default"),
+    "motion-backgrounds": localize(s.weatherEffects ? "Weather on" : "Weather off"),
+    "chat-backgrounds": localize(s.chatBackground ? "Custom" : "None"),
+    "chat-widgets": localize(WIDGET_LABELS[s.chatWidgetPreset] ?? s.chatWidgetPreset),
+    "theme-library": customTheme?.name ?? localize("None"),
+    "roleplay-tracker": localize(s.trackerPanelEnabled ? "On" : "Off"),
+    "roleplay-avatars": localize(AVATAR_LABELS[s.roleplayAvatarStyle] ?? s.roleplayAvatarStyle),
+    "visual-novel": localize(s.roleplayDisplayStyle === "visual-novel" ? "On" : "Off"),
+    responses: localize(s.enableStreaming ? "Streaming" : "All at once"),
+    "input-editing": localize(s.enterToSendRP ? "Enter sends" : "Enter adds a line"),
     updates: `v${APP_VERSION}`,
   };
 }

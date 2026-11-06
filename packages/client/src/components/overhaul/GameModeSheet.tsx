@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 type Attr = { name: string; value: number };
 type Meter = { name: string; value: number; max: number; color: string };
@@ -109,13 +110,14 @@ export function GameModeSheet({
   barsNote?: string;
   footer?: ReactNode;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
 
   return (
     <div className="ov-sheet" data-component="OverhaulGameModeSheet">
       <div className="ov-sheet__top">
         <div>
-          <Eyebrow title="Attributes" on={rpgEnabled} onToggle={onRpgEnabled} />
+          <Eyebrow title={localizeUi("ui.characters.statstab.attributes")} on={rpgEnabled} onToggle={onRpgEnabled} />
           {rpgEnabled ? (
             <>
               <div className="ov-attrs">
@@ -154,7 +156,7 @@ export function GameModeSheet({
           )}
         </div>
         <div>
-          <Eyebrow title="Pools" />
+          <Eyebrow title={localizeUi("ui.characters.statstab.pools")} />
           {rpgEnabled ? (
             <>
               <div className="ov-sheet__table">
@@ -234,7 +236,12 @@ export function GameModeSheet({
 
       {bars && onBarChange && onAddBar && onRemoveBar && onBarsEnabled ? (
         <div>
-          <Eyebrow title="Tracker stat bars" note={barsNote} on={barsEnabled} onToggle={onBarsEnabled} />
+          <Eyebrow
+            title={localizeUi("ui.overhaul.gamemodesheet.trackerStatBars")}
+            note={barsNote}
+            on={barsEnabled}
+            onToggle={onBarsEnabled}
+          />
           {barsEnabled ? (
             <>
               <div className="ov-sheet__table">

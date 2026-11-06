@@ -56,7 +56,7 @@ import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
 import { BrowserPackageTabIcon } from "../chat/BrowserPackageTabIcon";
 import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
-import { useTranslation } from "react-i18next";
+import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
 // Its own chunk, so the app shell stays under the bundle budget.
@@ -323,6 +323,7 @@ export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] })
 
 /** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */
 function GamePaneToggle() {
+  const { t: localizeUi } = useUiTranslation();
   const open = useOverhaulStore((state) => state.gamePaneOpen);
   const setOpen = useOverhaulStore((state) => state.setGamePaneOpen);
   return (
@@ -330,8 +331,12 @@ function GamePaneToggle() {
       type="button"
       className={cn("ov-icon-btn", open && "is-on")}
       aria-pressed={open}
-      title={open ? "Hide game pane" : "Show game pane"}
-      aria-label={open ? "Hide game pane" : "Show game pane"}
+      title={
+        open ? localizeUi("ui.overhaul.ovgamepane.hideGamePane") : localizeUi("ui.overhaul.gamepanetoggle.showGamePane")
+      }
+      aria-label={
+        open ? localizeUi("ui.overhaul.ovgamepane.hideGamePane") : localizeUi("ui.overhaul.gamepanetoggle.showGamePane")
+      }
       onClick={() => setOpen(!open)}
     >
       <PanelRight size={16} />

@@ -7,6 +7,8 @@
 import { useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
 /** Chips inside one input-looking box; Enter or comma adds, Backspace on empty removes the last. */
 export function OvChipInput({
@@ -23,6 +25,7 @@ export function OvChipInput({
   parse?: (current: string[], text: string) => string[];
   mono?: boolean;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const [draft, setDraft] = useState("");
   const commit = () => {
     const text = draft.trim();
@@ -49,7 +52,7 @@ export function OvChipInput({
           {value}
           <button
             type="button"
-            aria-label={`Remove ${value}`}
+            aria-label={localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: value })}
             onClick={(event) => {
               event.stopPropagation();
               onChange(values.filter((_, i) => i !== index));
@@ -88,6 +91,7 @@ export function OvSeg<T extends string>({
   onChange: (next: T) => void;
   label?: string;
 }) {
+  const localize = useLocalizedUiText();
   return (
     <div className="ov-seg" role="radiogroup" aria-label={label}>
       {options.map((option) => (
@@ -99,7 +103,7 @@ export function OvSeg<T extends string>({
           className={cn(value === option.value && "is-on")}
           onClick={() => onChange(option.value)}
         >
-          {option.label}
+          {localize(option.label)}
         </button>
       ))}
     </div>
@@ -146,6 +150,7 @@ export function OvChipPicker({
   onChange: (next: string[]) => void;
   placeholder: string;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const labelOf = (value: string) => options.find((option) => option.value === value)?.label ?? value;
   const rest = options.filter((option) => !selected.includes(option.value));
   return (
@@ -155,7 +160,7 @@ export function OvChipPicker({
           {labelOf(value)}
           <button
             type="button"
-            aria-label={`Remove ${labelOf(value)}`}
+            aria-label={localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: labelOf(value) })}
             onClick={() => onChange(selected.filter((item) => item !== value))}
           >
             <X size={10} />

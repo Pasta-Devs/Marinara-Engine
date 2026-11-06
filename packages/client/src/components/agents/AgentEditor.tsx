@@ -2477,7 +2477,7 @@ export function AgentEditor() {
               <>
                 <button type="button" className="ov-edbtn" onClick={handleExportAgent}>
                   <Upload size={13} aria-hidden="true" />
-                  Export
+                  {localizeUi("chat.advancedMemory.export")}
                 </button>
                 <button
                   type="button"
@@ -2486,7 +2486,9 @@ export function AgentEditor() {
                   disabled={!dirty || isPending}
                 >
                   <Save size={13} aria-hidden="true" />
-                  {savedFlash && !dirty ? "Saved" : "Save"}
+                  {savedFlash && !dirty
+                    ? localizeUi("chat.settings.inlineEditor.saved")
+                    : localizeUi("chat.settingsProfile.builder.save")}
                 </button>
               </>
             }
@@ -4996,6 +4998,7 @@ function FieldGroup({
   /** Phones: keep this group on the main page instead of a drill-in row. */
   inline?: boolean;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const contentVisible = !collapsible || expanded;
   const overhaulActive = useOverhaulLook();
   const overhaulMobile = useOverhaulMobile();
@@ -5029,7 +5032,13 @@ function FieldGroup({
           )}
           {collapsible && summary ? <small>{summary}</small> : null}
         </div>
-        <div className="ov-cf__control">{contentVisible ? children : <span className="ov-row__note">Hidden</span>}</div>
+        <div className="ov-cf__control">
+          {contentVisible ? (
+            children
+          ) : (
+            <span className="ov-row__note">{localizeUi("game.combat.ruleset.stance.hidden")}</span>
+          )}
+        </div>
       </div>
     );
   }

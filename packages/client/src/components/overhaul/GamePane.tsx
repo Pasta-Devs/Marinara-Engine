@@ -11,6 +11,8 @@ import { BookOpen, Backpack, Map as MapIcon, ScrollText, Users, X } from "lucide
 import type { AvatarCrop, GameInventoryStack } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useOverhaulStore, type OverhaulGamePaneTab } from "../../stores/overhaul.store";
+import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
 export interface OvGamePaneMember {
   id: string;
@@ -46,11 +48,16 @@ function findStat(card: OvGamePaneCard | undefined, pattern: RegExp) {
 }
 
 function Meter({ stat }: { stat?: { value: number; max?: number; color?: string } }) {
+  const { t: localizeUi } = useUiTranslation();
   if (!stat) return <span className="ov-gpane__na">—</span>;
   const pct = stat.max ? Math.max(0, Math.min(100, (stat.value / stat.max) * 100)) : 100;
   return (
     <span className="ov-gpane__meter">
-      <span>{stat.max ? `${stat.value}/${stat.max}` : stat.value}</span>
+      <span>
+        {stat.max
+          ? localizeUi("ui.chat.roleplaysetupwizard.value1Value2", { value1: stat.value, value2: stat.max })
+          : stat.value}
+      </span>
       <i>
         <b style={{ width: `${pct}%`, background: stat.color || undefined }} />
       </i>
@@ -77,9 +84,10 @@ function PartyTab({
   cards: Record<string, OvGamePaneCard>;
   inventory: GameInventoryStack[];
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const [picked, setPicked] = useState<string | null>(null);
   const selected = members.find((member) => member.id === picked) ?? members[0];
-  if (!members.length) return <p className="ov-gpane__empty">No party members yet.</p>;
+  if (!members.length) return <p className="ov-gpane__empty">{localizeUi("ui.overhaul.partytab.noPartyMembersYet")}</p>;
   const card = selected ? cards[selected.id] : undefined;
   const carried = selected
     ? inventory.filter((stack) => (stack.holder ?? "").toLowerCase() === selected.name.toLowerCase())
@@ -90,9 +98,9 @@ function PartyTab({
       <table className="ov-gpane__table">
         <thead>
           <tr>
-            <th>Member</th>
-            <th>HP</th>
-            <th>MP</th>
+            <th>{localizeUi("ui.overhaul.partytab.member")}</th>
+            <th>{localizeUi("ui.chat.targetselection.hp")}</th>
+            <th>{localizeUi("ui.game.gamecombatui.mp")}</th>
           </tr>
         </thead>
         <tbody>
@@ -138,14 +146,18 @@ function PartyTab({
               {otherStats.map((stat) => (
                 <span key={stat.name}>
                   <small>{stat.name}</small>
-                  <b>{stat.max ? `${stat.value}/${stat.max}` : stat.value}</b>
+                  <b>
+                    {stat.max
+                      ? localizeUi("ui.chat.roleplaysetupwizard.value1Value2", { value1: stat.value, value2: stat.max })
+                      : stat.value}
+                  </b>
                 </span>
               ))}
             </div>
           ) : null}
           {card?.status || card?.mood ? (
             <>
-              <p className="ov-gpane__label">Conditions</p>
+              <p className="ov-gpane__label">{localizeUi("game.ruleset.sheet.conditions")}</p>
               <div className="ov-gpane__chips">
                 {[card.status, card.mood].filter(Boolean).map((value) => (
                   <span key={value}>{value}</span>
@@ -165,7 +177,7 @@ function PartyTab({
           ) : null}
           {carried.length || card?.inventory?.length ? (
             <>
-              <p className="ov-gpane__label">Carrying</p>
+              <p className="ov-gpane__label">{localizeUi("ui.overhaul.partytab.carrying")}</p>
               <ul className="ov-gpane__list">
                 {(carried.length
                   ? carried.map((stack) => ({
@@ -205,6 +217,7 @@ function InventoryTab({
   playerName: string;
   onOpenInventory?: () => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const groups = useMemo(() => {
     const byHolder = new Map<string, GameInventoryStack[]>();
     for (const stack of inventory) {
@@ -217,11 +230,14 @@ function InventoryTab({
     <>
       <div className="ov-gpane__bar">
         <span>
-          {inventory.length} {inventory.length === 1 ? "stack" : "stacks"}
+          {inventory.length}{" "}
+          {inventory.length === 1
+            ? localizeUi("ui.overhaul.inventorytab.stack")
+            : localizeUi("ui.overhaul.inventorytab.stacks")}
         </span>
         {onOpenInventory ? (
           <button type="button" className="ov-edbtn" onClick={onOpenInventory}>
-            Open inventory
+            {localizeUi("ui.overhaul.inventorytab.openInventory")}
           </button>
         ) : null}
       </div>
@@ -234,14 +250,14 @@ function InventoryTab({
                 <li key={stack.id}>
                   <span>{stack.nickname || stack.name}</span>
                   {stack.quantity > 1 ? <small>×{stack.quantity}</small> : null}
-                  {stack.equipped ? <em>Equipped</em> : null}
+                  {stack.equipped ? <em>{localizeUi("ui.game.gameinventory.equipped")}</em> : null}
                 </li>
               ))}
             </ul>
           </div>
         ))
       ) : (
-        <p className="ov-gpane__empty">The inventory is empty.</p>
+        <p className="ov-gpane__empty">{localizeUi("ui.overhaul.inventorytab.theInventoryIsEmpty")}</p>
       )}
     </>
   );
@@ -269,16 +285,23 @@ export function OvGamePane({
   map: ReactNode;
   sessions: ReactNode;
 }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const open = useOverhaulStore((state) => state.gamePaneOpen);
   const tab = useOverhaulStore((state) => state.gamePaneTab);
   const setTab = useOverhaulStore((state) => state.setGamePaneTab);
   const setOpen = useOverhaulStore((state) => state.setGamePaneOpen);
   if (!open) return null;
   return (
-    <aside className="ov-gpane" aria-label="Game pane">
+    <aside className="ov-gpane" aria-label={localizeUi("ui.overhaul.ovgamepane.gamePane")}>
       <div className="ov-gpane__head">
         <div className="ov-gpane__where">{heading}</div>
-        <button type="button" aria-label="Hide game pane" title="Hide game pane" onClick={() => setOpen(false)}>
+        <button
+          type="button"
+          aria-label={localizeUi("ui.overhaul.ovgamepane.hideGamePane")}
+          title={localizeUi("ui.overhaul.ovgamepane.hideGamePane")}
+          onClick={() => setOpen(false)}
+        >
           <X size={14} />
         </button>
       </div>
@@ -293,7 +316,7 @@ export function OvGamePane({
             onClick={() => setTab(id)}
           >
             <Icon size={14} aria-hidden="true" />
-            {label}
+            {localize(label)}
           </button>
         ))}
       </div>

@@ -10,6 +10,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 export function OvmDrill({
   title,
@@ -25,6 +26,7 @@ export function OvmDrill({
   children: ReactNode;
   className?: string;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const mobile = useOverhaulMobile();
   const [open, setOpen] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -52,7 +54,12 @@ export function OvmDrill({
   return (
     <div ref={pageRef} className={className ? `ovm-drill-page ${className}` : "ovm-drill-page"}>
       <div className="ovm-drill-page__head">
-        <button type="button" className="ovm-drill-page__back" aria-label="Back" onClick={() => setOpen(false)}>
+        <button
+          type="button"
+          className="ovm-drill-page__back"
+          aria-label={localizeUi("characters.bulkTags.back")}
+          onClick={() => setOpen(false)}
+        >
           <ChevronLeft size={26} aria-hidden="true" />
         </button>
         <span className="ovm-drill-page__title">{title}</span>

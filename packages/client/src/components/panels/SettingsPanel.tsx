@@ -985,7 +985,7 @@ function ImageStyleProfilesEditor({
             onClick={() => {
               void showConfirmDialog({
                 title: localizeUi("lorebook.editor.batch.delete"),
-                message: `${selected.name}`,
+                message: localizeUi("ui.chat.gameprompttemplateselect.value1", { value1: selected.name }),
                 confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                 cancelLabel: localizeUi("chat.delete.dialog.cancel"),
               }).then((confirmed) => {
@@ -2365,8 +2365,8 @@ function GeneralSettings() {
       <SettingsIntro>{t("settings.application.intro")}</SettingsIntro>
 
       <SettingsSection
-        title="Language"
-        description="The app's language and the documentation's language."
+        title={localizeUi("connections.speechToText.language")}
+        description={localizeUi("ui.panels.generalsettings.theAppSLanguageAndTheDocumentationSLanguage")}
         icon={<Languages size="0.875rem" />}
         {...getSettingsSectionAnchorProps("application")}
       >
@@ -2378,8 +2378,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Confirmations & Help"
-        description="Delete confirmations and the chat Help button."
+        title={localizeUi("ui.panels.generalsettings.confirmationsHelp")}
+        description={localizeUi("ui.panels.generalsettings.deleteConfirmationsAndTheChatHelpButton")}
         icon={<ShieldCheck size="0.875rem" />}
         {...getSettingsSectionAnchorProps("confirmations-help")}
       >
@@ -2402,8 +2402,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Extras"
-        description="Achievements, seasonal themes and the music player."
+        title={localizeUi("ui.panels.generalsettings.extras")}
+        description={localizeUi("ui.panels.generalsettings.achievementsSeasonalThemesAndTheMusicPlayer")}
         icon={<Sparkles size="0.875rem" />}
         {...getSettingsSectionAnchorProps("extras")}
       >
@@ -2436,8 +2436,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Professor Mari"
-        description="Search, quick answers and Professor Mari. They open in the search bar."
+        title={localizeUi("commandCenter.workTitle")}
+        description={localizeUi("ui.panels.generalsettings.searchQuickAnswersAndProfessorMariTheyOpenIn")}
         icon={<GraduationCap size="0.875rem" />}
         {...getSettingsSectionAnchorProps("omnibar")}
       >
@@ -2462,7 +2462,7 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Notifications"
+        title={localizeUi("settings.sections.notifications.title")}
         description={localizeUi("settings.sections.notifications.description")}
         icon={<Bell size="0.875rem" />}
         {...getSettingsSectionAnchorProps("notifications")}
@@ -2486,7 +2486,7 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Responses"
+        title={localizeUi("settings.sections.responses.title")}
         description={localizeUi("settings.sections.responses.description")}
         icon={<MessageCircle size="0.875rem" />}
         {...getSettingsSectionAnchorProps("responses")}
@@ -2569,8 +2569,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Message Box"
-        description="Sending messages, quick replies and the microphone."
+        title={localizeUi("ui.panels.generalsettings.messageBox")}
+        description={localizeUi("ui.panels.generalsettings.sendingMessagesQuickRepliesAndTheMicrophone")}
         icon={<UserCheck size="0.875rem" />}
         {...getSettingsSectionAnchorProps("input-editing")}
       >
@@ -2646,8 +2646,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Editing & Swipes"
-        description="Editing messages, swiping between replies and the swipe menu."
+        title={localizeUi("ui.panels.generalsettings.editingSwipes")}
+        description={localizeUi("ui.panels.generalsettings.editingMessagesSwipingBetweenRepliesAndTheSwipeMenu")}
         icon={<Repeat size="0.875rem" />}
         {...getSettingsSectionAnchorProps("editing-swipes")}
       >
@@ -2706,8 +2706,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Thinking"
-        description="How the AI's reasoning shows in Roleplay messages."
+        title={localizeUi("connections.decision.thinkingLabel")}
+        description={localizeUi("ui.panels.generalsettings.howTheAiSReasoningShowsInRoleplayMessages")}
         icon={<Brain size="0.875rem" />}
         {...getSettingsSectionAnchorProps("thinking")}
       >
@@ -2731,8 +2731,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Text Formatting"
-        description="Formatting applied to chat text."
+        title={localizeUi("ui.panels.generalsettings.textFormatting")}
+        description={localizeUi("settings.sections.textRules.description")}
         icon={<FileText size="0.875rem" />}
         {...getSettingsSectionAnchorProps("text-rules")}
       >
@@ -2792,8 +2792,8 @@ function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Game Text"
-        description="How Game Mode text appears, plays and moves on."
+        title={localizeUi("ui.panels.generalsettings.gameText")}
+        description={localizeUi("ui.panels.generalsettings.howGameModeTextAppearsPlaysAndMovesOn")}
         icon={<ScrollText size="0.875rem" />}
         {...getSettingsSectionAnchorProps("game-playback")}
       >
@@ -2932,8 +2932,8 @@ function OverallGenerationSettings() {
 
   return (
     <SettingsSection
-      title="Generation Defaults"
-      description="Behaviour shared by image and video generation."
+      title={localizeUi("ui.panels.overallgenerationsettings.generationDefaults")}
+      description={localizeUi("ui.panels.overallgenerationsettings.behaviourSharedByImageAndVideoGeneration")}
       icon={<WandSparkles size="0.875rem" />}
       {...getSettingsSectionAnchorProps("overall-generations")}
     >
@@ -2947,7 +2947,7 @@ function OverallGenerationSettings() {
         />
         <ToggleSetting
           anchorId={getSettingsControlAnchorId("image-prompt-review")}
-          label="Review prompts before sending"
+          label={localizeUi("ui.panels.overallgenerationsettings.reviewPromptsBeforeSending")}
           checked={reviewImagePromptsBeforeSend}
           onChange={setReviewImagePromptsBeforeSend}
           help={localizeUi("settings.controls.reviewMediaPrompts.help")}
@@ -3996,8 +3996,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {localizeUi("settings.appearance.groups.general")}
           </h2>
           <SettingsSection
-            title="Theme"
-            description="Visual style, color scheme, and background and accent colors."
+            title={localizeUi("commandCenter.controls.theme")}
+            description={localizeUi("ui.panels.appearancesettings.visualStyleColorSchemeAndBackgroundAndAccentColors")}
             icon={<Paintbrush size="0.875rem" />}
             {...getSettingsSectionAnchorProps("app-style")}
           >
@@ -4144,7 +4144,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 disabled={overhaulLayoutEnabled}
                 help={
                   overhaulLayoutEnabled
-                    ? "Off in the new layout: animating the accent restyles every element twice a second and freezes large pages."
+                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
                     : localizeUi("settings.controls.accentPulse.help")
                 }
               />
@@ -4168,7 +4168,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 switchClassName={appAccentRgbMode && !overhaulLayoutEnabled ? "mari-rgb-toggle-track" : undefined}
                 help={
                   overhaulLayoutEnabled
-                    ? "Off in the new layout: animating the accent restyles every element twice a second and freezes large pages."
+                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
                     : localizeUi("settings.controls.rainbowAccent.help")
                 }
               />
@@ -4176,8 +4176,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Fonts & Text Size"
-            description="Font, display size and chat font size."
+            title={localizeUi("ui.panels.appearancesettings.fontsTextSize")}
+            description={localizeUi("ui.panels.appearancesettings.fontDisplaySizeAndChatFontSize")}
             icon={<FileText size="0.875rem" />}
             {...getSettingsSectionAnchorProps("text-scale")}
           >
@@ -4317,8 +4317,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Text Colors"
-            description="Chat text, dialogue and chrome text colors, and text outline."
+            title={localizeUi("ui.panels.appearancesettings.textColors")}
+            description={localizeUi("ui.panels.appearancesettings.chatTextDialogueAndChromeTextColorsAndText")}
             icon={<Palette size="0.875rem" />}
             {...getSettingsSectionAnchorProps("text-colors")}
           >
@@ -4421,8 +4421,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Layout"
-            description="Sidebar width and the Android status bar."
+            title={localizeUi("ui.panels.appearancesettings.layout")}
+            description={localizeUi("ui.panels.appearancesettings.sidebarWidthAndTheAndroidStatusBar")}
             icon={<PanelsTopLeft size="0.875rem" />}
             {...getSettingsSectionAnchorProps("layout")}
           >
@@ -4469,8 +4469,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Effects"
-            description="Weather and animation effects."
+            title={localizeUi("ui.panels.appearancesettings.effects")}
+            description={localizeUi("ui.panels.appearancesettings.weatherAndAnimationEffects")}
             icon={<CloudRain size="0.875rem" />}
             {...getSettingsSectionAnchorProps("motion-backgrounds")}
           >
@@ -4506,7 +4506,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Backgrounds"
+            title={localizeUi("settings.controls.backgroundGeneration.label")}
             description={localizeUi("settings.sections.backgrounds.componentDescription")}
             icon={<Image size="0.875rem" />}
             {...getSettingsSectionAnchorProps("chat-backgrounds")}
@@ -4600,8 +4600,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Chat Buttons & Windows"
-            description="The look of the chat's movable buttons, windows and sections."
+            title={localizeUi("ui.panels.appearancesettings.chatButtonsWindows")}
+            description={localizeUi("ui.panels.appearancesettings.theLookOfTheChatSMovableButtonsWindows")}
             icon={<AppWindow size="0.875rem" />}
             {...getSettingsSectionAnchorProps("chat-widgets")}
           >
@@ -4837,8 +4837,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {localizeUi("settings.appearance.groups.conversation")}
           </h2>
           <SettingsSection
-            title="Conversation Layout"
-            description="Rows or bubbles, and avatar shape for Conversation chats."
+            title={localizeUi("ui.panels.appearancesettings.conversationLayout")}
+            description={localizeUi("ui.panels.appearancesettings.rowsOrBubblesAndAvatarShapeForConversationChats")}
             icon={<MessageCircle size="0.875rem" />}
             {...getSettingsSectionAnchorProps("chat-display")}
           >
@@ -4959,8 +4959,10 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Conversation Background"
-            description="Background gradient for Conversation chats, per color scheme."
+            title={localizeUi("ui.panels.appearancesettings.conversationBackground")}
+            description={localizeUi(
+              "ui.panels.appearancesettings.backgroundGradientForConversationChatsPerColorScheme",
+            )}
             icon={<Palette size="0.875rem" />}
             {...getSettingsSectionAnchorProps("conversation-theme")}
           >
@@ -5096,8 +5098,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </div>
 
           <SettingsSection
-            title="Roleplay Messages"
-            description="Chat position and width, message opacity and stretching."
+            title={localizeUi("ui.panels.appearancesettings.roleplayMessages")}
+            description={localizeUi("ui.panels.appearancesettings.chatPositionAndWidthMessageOpacityAndStretching")}
             icon={<Image size="0.875rem" />}
             {...getSettingsSectionAnchorProps("roleplay-messages")}
           >
@@ -5209,8 +5211,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Avatars"
-            description="How portraits sit beside Roleplay messages, and their size."
+            title={localizeUi("avatars.setup.title")}
+            description={localizeUi("ui.panels.appearancesettings.howPortraitsSitBesideRoleplayMessagesAndTheirSize")}
             icon={<CircleUserRound size="0.875rem" />}
             {...getSettingsSectionAnchorProps("roleplay-avatars")}
           >
@@ -5397,8 +5399,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
           </SettingsSection>
 
           <SettingsSection
-            title="Visual Novel"
-            description="Visual Novel display, auto-play and art size for Roleplay."
+            title={localizeUi("chat.roleplayVn.visualNovel")}
+            description={localizeUi("ui.panels.appearancesettings.visualNovelDisplayAutoPlayAndArtSizeFor")}
             icon={<BookOpen size="0.875rem" />}
             {...getSettingsSectionAnchorProps("visual-novel")}
           >
@@ -5491,8 +5493,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {localizeUi("settings.appearance.groups.game")}
           </h2>
           <SettingsSection
-            title="Game Art"
-            description="Portrait and sprite size in Game Mode."
+            title={localizeUi("ui.panels.appearancesettings.gameArt")}
+            description={localizeUi("ui.panels.appearancesettings.portraitAndSpriteSizeInGameMode")}
             icon={<ScrollText size="0.875rem" />}
             {...getSettingsSectionAnchorProps("game-presentation")}
           >
@@ -5608,8 +5610,8 @@ function GenerationsSettings() {
         </div>
       ) : !illustratorInstalled ? (
         <SettingsSection
-          title="Illustrator Agent"
-          description="Needed for image and video generation."
+          title={localizeUi("ui.panels.generationssettings.illustratorAgent")}
+          description={localizeUi("ui.panels.generationssettings.neededForImageAndVideoGeneration")}
           icon={<WandSparkles size="0.875rem" />}
           {...getSettingsSectionAnchorProps("overall-generations")}
         >
@@ -5988,7 +5990,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       )}
 
       <SettingsSection
-        title="CSS Themes"
+        title={localizeUi("ui.panels.themessettings.cssThemes")}
         description={localizeUi("settings.sections.themeLibrary.componentDescription")}
         icon={<Palette size="0.875rem" />}
         {...getSettingsSectionAnchorProps("theme-library")}
@@ -7733,7 +7735,7 @@ function AdvancedSettings() {
         {localizeUi("ui.panels.advancedsettings.serverMaintenanceMessageUtilitiesBackupsAndDataRemoval")}
       </SettingsIntro>
       <SettingsSection
-        title="Updates"
+        title={localizeUi("commandCenter.system.updates")}
         description={localizeUi("settings.sections.updates.componentDescription")}
         icon={<RefreshCw size="0.875rem" />}
         {...getSettingsSectionAnchorProps("updates")}
@@ -7969,8 +7971,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Server"
-        description="Restart Marinara's server."
+        title={localizeUi("ui.panels.extensionsettings.server")}
+        description={localizeUi("ui.panels.advancedsettings.restartMarinaraSServer")}
         icon={<Power size="0.875rem" />}
         {...getSettingsSectionAnchorProps("server")}
       >
@@ -7999,8 +8001,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Timeouts & Retries"
-        description="How long to wait for slow backends, and whether to retry failed calls."
+        title={localizeUi("ui.panels.advancedsettings.timeoutsRetries")}
+        description={localizeUi("ui.panels.advancedsettings.howLongToWaitForSlowBackendsAndWhether")}
         icon={<Gauge size="0.875rem" />}
         {...getSettingsSectionAnchorProps("request-timeouts")}
       >
@@ -8009,7 +8011,7 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Custom Request Parameters"
+        title={localizeUi("ui.panels.advancedsettings.customRequestParameters")}
         description={localizeUi("settings.customGenerationParameters.sectionDescription")}
         help={localizeUi("settings.customGenerationParameters.help")}
         icon={<SlidersHorizontal size="0.875rem" />}
@@ -8021,8 +8023,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Lorebooks"
-        description="Optional lorebook behaviours, off by default."
+        title={localizeUi("chat.settingsProfile.builder.slot.lore")}
+        description={localizeUi("ui.panels.advancedsettings.optionalLorebookBehavioursOffByDefault")}
         icon={<BookOpen size="0.875rem" />}
         {...getSettingsSectionAnchorProps("features")}
       >
@@ -8033,8 +8035,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Security"
-        description="Admin secret, what may be imported, and images from other websites."
+        title={localizeUi("settings.sections.adminAccess.title")}
+        description={localizeUi("ui.panels.advancedsettings.adminSecretWhatMayBeImportedAndImagesFrom")}
         icon={<ShieldCheck size="0.875rem" />}
         {...getSettingsSectionAnchorProps("admin-access")}
       >
@@ -8111,8 +8113,8 @@ function AdvancedSettings() {
       <AccessStatusSettings {...getSettingsSectionAnchorProps("access-status")} />
 
       <SettingsSection
-        title="Troubleshooting"
-        description="Debug mode, the console, and diagnostics for a support request."
+        title={localizeUi("ui.panels.advancedsettings.troubleshooting")}
+        description={localizeUi("ui.panels.advancedsettings.debugModeTheConsoleAndDiagnosticsForASupport")}
         icon={<LifeBuoy size="0.875rem" />}
         {...getSettingsSectionAnchorProps("support-diagnostics")}
       >
@@ -8153,8 +8155,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Message Info"
-        description="What each message shows: time, model, tokens and numbers."
+        title={localizeUi("ui.panels.advancedsettings.messageInfo")}
+        description={localizeUi("ui.panels.advancedsettings.whatEachMessageShowsTimeModelTokensAndNumbers")}
         icon={<MessageCircle size="0.875rem" />}
         {...getSettingsSectionAnchorProps("message-tools")}
       >
@@ -8205,8 +8207,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Backup & Restore"
-        description="Automatic and manual backups, profile export and restore."
+        title={localizeUi("ui.panels.advancedsettings.backupRestore")}
+        description={localizeUi("ui.panels.advancedsettings.automaticAndManualBackupsProfileExportAndRestore")}
         help={localizeUi("settings.transfer.fullBackup.help")}
         icon={<Download size="0.875rem" />}
         {...getSettingsSectionAnchorProps("backup-export")}
@@ -8353,8 +8355,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Chat Exports"
-        description="What goes into exported chats."
+        title={localizeUi("ui.panels.advancedsettings.chatExports")}
+        description={localizeUi("ui.panels.advancedsettings.whatGoesIntoExportedChats")}
         icon={<FileDown size="0.875rem" />}
         {...getSettingsSectionAnchorProps("chat-exports")}
       >
@@ -8377,7 +8379,7 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Storage Cleanup"
+        title={localizeUi("ui.panels.advancedsettings.storageCleanup")}
         description={localizeUi("settings.sections.storageOptimization.componentDescription")}
         icon={<HardDrive size="0.875rem" />}
         {...getSettingsSectionAnchorProps("storage-optimization")}
@@ -8433,8 +8435,8 @@ function AdvancedSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Delete Data"
-        description="Permanently clear selected kinds of data. Professor Mari is always kept."
+        title={localizeUi("settings.sections.dangerZone.title")}
+        description={localizeUi("ui.panels.advancedsettings.permanentlyClearSelectedKindsOfDataProfessorMariIs")}
         icon={<AlertTriangle size="0.875rem" />}
         {...getSettingsSectionAnchorProps("danger-zone")}
       >

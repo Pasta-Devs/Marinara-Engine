@@ -1,11 +1,12 @@
 import { Reply, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { messageReplySchema, type Message } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { MessageActionButton, MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 
 export function MessageReplyPreview({ reply: value, onCancel }: { reply: unknown; onCancel?: () => void }) {
+  const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const overhaulActive = useOverhaulLook();
   const parsed = messageReplySchema.safeParse(value);
@@ -21,7 +22,7 @@ export function MessageReplyPreview({ reply: value, onCancel }: { reply: unknown
         <span className="ov-replybar__who">
           {onCancel ? (
             <>
-              Replying to <b>{reply.name}</b>
+              {localizeUi("ui.noodle.noodlepostcard.replyingTo")} <b>{reply.name}</b>
             </>
           ) : (
             <b>{reply.name}</b>
