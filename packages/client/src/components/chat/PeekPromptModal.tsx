@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { X, ChevronRight, ChevronDown, Copy, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { X, ChevronRight, ChevronDown, Copy, Search, ArrowUp, ArrowDown, List } from "lucide-react";
 import { toast } from "sonner";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { generationLevelLabel } from "../../lib/generation-level-label";
@@ -33,7 +33,7 @@ import {
   type ReplyCheckupLink,
 } from "@marinara-engine/shared";
 import { DecisionDebugPanel } from "./DecisionDebugPanel";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { ReplyCheckupFacts } from "./ReplyCheckup";
 
 const PROMPT_TAG_CLASS =
@@ -609,7 +609,10 @@ function peekPreview(content: string): string {
 
 export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModalProps) {
   const { t: localizeUi } = useUiTranslation();
-  const ovDesktop = useOverhaulActive();
+  // The new layout (desktop and phones) shows the outline + transcript viewer; phones get it as a bottom sheet.
+  const ovLook = useOverhaulLook();
+  const ovMobile = useOverhaulMobile();
+  const [partsOpen, setPartsOpen] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const [tested, setTested] = useState<DecisionDebugPreview | null>(null);
@@ -708,12 +711,12 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
               <div
                 key={messageIndex}
                 className={
-                  ovDesktop
+                  ovLook
                     ? `ov-peek__row ov-peek__row--${peekRoleKind(message.role)}`
                     : "rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2"
                 }
               >
-                {ovDesktop ? (
+                {ovLook ? (
                   <div className="ov-peek__rowhead">
                     <span className="ov-peek__mark" aria-hidden="true" />
                     <span className="ov-peek__who">
@@ -733,7 +736,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                 <pre
                   data-prompt-search-message
                   className={
-                    ovDesktop
+                    ovLook
                       ? "ov-peek__text"
                       : "mari-chat-style-text mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--foreground)]/80"
                   }
@@ -745,7 +748,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             );
           })
         : null,
-    [data.messages, deferredQuery, search, activeMatch, ovDesktop, localizeUi],
+    [data.messages, deferredQuery, search, activeMatch, ovLook, localizeUi],
   );
 
   const gen = data.generationInfo;
@@ -849,7 +852,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     }
   };
 
-  if (ovDesktop) {
+  if (ovLook) {
     const ovT = (key: string, fallback: string, options?: Record<string, unknown>) =>
       String(localizeUi(key, { defaultValue: fallback, ...options }));
     const kindTotals = { system: 0, character: 0, you: 0 };
@@ -867,6 +870,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     const sentTokens = gen?.tokensPrompt ?? null;
     const canShowCurrent = !showTest && originalData.source === "cached" && !!originalData.chatId;
     const jumpTo = (id: string) => {
+      setPartsOpen(false);
       const go = () => {
         const el = transcriptRef.current?.querySelector<HTMLElement>(`[data-peek-id="${id}"]`);
         el?.scrollIntoView({ block: "start" });
@@ -964,6 +968,37 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     }
 
     let outlineHistoryShown = false;
+    // Phones: quick jumps to the start of the system prompt, the chat history and the last message.
+    const mobileChips: Array<{ key: string; kind: PeekRoleKind; label: string; target: string; tokens: number }> = [];
+    if (ovMobile && peekRows.length > 0) {
+      const firstSystem = peekRows.find((row) => !row.inHistory);
+      const firstHistory = peekRows.find((row) => row.firstInHistory);
+      const last = peekRows[peekRows.length - 1]!;
+      if (firstSystem)
+        mobileChips.push({
+          key: "system",
+          kind: "system",
+          label: peekRoleName("system", ovT),
+          target: firstSystem.parts[0]!.id,
+          tokens: peekRows.filter((row) => !row.inHistory).reduce((sum, row) => sum + row.tokens, 0),
+        });
+      if (firstHistory)
+        mobileChips.push({
+          key: "history",
+          kind: "system",
+          label: ovT("ui.chat.peekpromptmodal.ov.chatHistory", "Chat history"),
+          target: firstHistory.parts[0]!.id,
+          tokens: peekRows.filter((row) => row.inHistory).reduce((sum, row) => sum + row.tokens, 0),
+        });
+      if (last !== firstSystem && last !== firstHistory)
+        mobileChips.push({
+          key: "last",
+          kind: last.kind,
+          label: ovT("ui.chat.peekpromptmodal.ov.last", "Last"),
+          target: last.parts[0]!.id,
+          tokens: last.tokens,
+        });
+    }
     return (
       <div
         data-chat-floating-panel
@@ -1081,8 +1116,48 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
               <X size="0.875rem" />
             </button>
           </header>
+          {ovMobile ? (
+            <nav className="ov-peek__chips" aria-label={ovT("ui.chat.peekpromptmodal.ov.jump", "Jump to a part")}>
+              <button type="button" className="ov-peek__chip ov-peek__chip--all" onClick={() => setPartsOpen(true)}>
+                <List aria-hidden="true" size="0.875rem" />
+                {ovT("ui.chat.peekpromptmodal.ov.allParts", "All parts")}
+              </button>
+              {mobileChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className={`ov-peek__chip ov-peek__item--${chip.kind}`}
+                  onClick={() => jumpTo(chip.target)}
+                >
+                  <span className="ov-peek__mark" aria-hidden="true" />
+                  {chip.label}
+                  <span className="ov-peek__item-tok">{fmtTokens(chip.tokens)}</span>
+                </button>
+              ))}
+            </nav>
+          ) : null}
           <div className="ov-peek__main">
-            <nav className="ov-peek__outline" aria-label={ovT("ui.chat.peekpromptmodal.ov.outline", "Prompt outline")}>
+            {ovMobile && partsOpen ? (
+              <div className="ov-peek__parts-scrim" aria-hidden="true" onClick={() => setPartsOpen(false)} />
+            ) : null}
+            <nav
+              className="ov-peek__outline"
+              data-open={ovMobile ? (partsOpen ? "true" : "false") : undefined}
+              aria-label={ovT("ui.chat.peekpromptmodal.ov.outline", "Prompt outline")}
+            >
+              {ovMobile ? (
+                <div className="ov-peek__parts-head">
+                  <span>{ovT("ui.chat.peekpromptmodal.ov.sendOrder", "In send order")}</span>
+                  <button
+                    type="button"
+                    className="ov-peek__iconbtn"
+                    onClick={() => setPartsOpen(false)}
+                    aria-label={ovT("ui.chat.peekpromptmodal.ov.closeParts", "Close parts")}
+                  >
+                    <X size="1.125rem" />
+                  </button>
+                </div>
+              ) : null}
               <div className="ov-peek__outline-list">
                 <p className="ov-peek__group">{ovT("ui.chat.peekpromptmodal.ov.sendOrder", "In send order")}</p>
                 {peekRows.flatMap((row) => {
@@ -1206,6 +1281,23 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
               )}
             </div>
           </div>
+          {ovMobile ? (
+            <div className="ov-peek__mfoot">
+              <div className="ov-peek__bar" aria-hidden="true">
+                <span className="ov-peek__bar--system" style={{ width: `${(kindTotals.system / kindSum) * 100}%` }} />
+                <span
+                  className="ov-peek__bar--character"
+                  style={{ width: `${(kindTotals.character / kindSum) * 100}%` }}
+                />
+                <span className="ov-peek__bar--you" style={{ width: `${(kindTotals.you / kindSum) * 100}%` }} />
+              </div>
+              <p>
+                {peekRoleName("system", ovT)} {fmtTokens(kindTotals.system)} ·{" "}
+                {ovT("ui.chat.peekpromptmodal.ov.characters", "Characters")} {fmtTokens(kindTotals.character)} ·{" "}
+                {peekRoleName("you", ovT)} {fmtTokens(kindTotals.you)}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     );
