@@ -783,6 +783,8 @@ POST /api/game/experience/check
 
 世界的故事可以无视日期，将地点固定在某个季节（`seasons` 和 `season` 动作，见[编写故事脚本](../extending/writing-story-scripts.md#seasons)），世界的战场也可以绘制季节（`seasons` 行和 `seasonKeys`）。带有任一种的地图包都需要 1.351。大地图通过 `GET /api/game/:chatId/overworld` 的 `seasons` 读取被固定的地点（地点 ID 映射到季节，`*` 表示整个世界）；制作的战场则在 `seasons` 中携带地块的初始季节，以 `"x,y"` 为键。
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355：规则集叠加层
 
 Experience 的地图包可以在该 Experience 启用期间，给游戏所用规则集追加内容：它自己的生物、状态和物品，这些不应由规则集包提供。

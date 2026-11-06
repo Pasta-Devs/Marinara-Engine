@@ -55,6 +55,8 @@ Uma camada é uma variante nomeada do seu conjunto de regras que o jogador ativa
 
 **Camadas escritas por outra pessoa** (uma camada de pouca magia para um conjunto de regras que você não escreveu, distribuída no próprio arquivo) virão depois. Hoje, uma camada é distribuída dentro do conjunto de regras ao qual pertence.
 
+<a id="translations"></a>
+
 ## Traduções
 
 **Traduções** (Capability API 1.811). Os textos exibidos de um conjunto de regras em outro idioma formam uma tradução por idioma, nomeada pelo código do idioma, como os pacotes de idioma do próprio Engine (`ru`, `pt-BR`, `zh-Hans`). No catálogo oficial de agentes, cada uma é um pacote de idioma ao lado do arquivo do conjunto de regras (abaixo). Um arquivo de pacote de conjunto de regras que você compartilha pode, em vez disso, contê-las, com um arquivo por idioma ao lado de `ruleset.json`: `locales/<language>.json`, listado no manifesto como os outros arquivos. Nos dois casos, cada uma é um catálogo de localização de pacote com uma seção `ruleset`: cada chave é um texto exibido do conjunto de regras ou de seus catálogos, palavra por palavra em inglês, e seu valor é esse texto no idioma do arquivo.

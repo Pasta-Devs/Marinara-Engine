@@ -812,6 +812,8 @@ POST /api/game/experience/check
 
 世界のストーリーは、日付にかかわらず場所をある季節に固定でき(`seasons`と`season`アクション。[ストーリースクリプトの作成](../extending/writing-story-scripts.md#seasons)を参照)、世界の戦場にも季節を描けます(`seasons`行と`seasonKeys`)。いずれかを含むマップパックには1.351が必要です。オーバーワールドは、固定された場所を`GET /api/game/:chatId/overworld`の`seasons`(場所IDから季節への対応、`*`は世界全体)から読みます。作られた戦場は、タイルの開始時の季節を、`"x,y"`をキーとする`seasons`で保持します。
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: ルールセットのオーバーレイ
 
 Experienceのマップパックは、Experienceがオンの間、ゲームが使うルールセットに追加できます。ルールセットパッケージが提供するものではない、独自のクリーチャー、状態、アイテムです。

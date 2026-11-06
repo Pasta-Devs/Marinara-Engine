@@ -55,6 +55,8 @@ Eine Ebene ist eine benannte Variante deines Regelsatzes, die der Spieler bei de
 
 **Von anderen geschriebene Ebenen**, etwa eine separat ausgelieferte Ebene für seltene Magie zu einem fremden Regelsatz, sind für später vorgesehen. Derzeit wird eine Ebene im zugehörigen Regelsatz ausgeliefert.
 
+<a id="translations"></a>
+
 ## Übersetzungen
 
 **Übersetzungen** (Capability API 1.811). Die Anzeigetexte eines Regelsatzes in einer anderen Sprache bilden eine Übersetzung pro Sprache, benannt nach dem Sprachcode wie die eigenen Sprachpakete der Engine (`ru`, `pt-BR`, `zh-Hans`). Im offiziellen Agentenkatalog ist jede davon ein Sprachpaket neben der Regelsatzdatei (siehe unten). Eine Regelsatz-Paketdatei, die du teilst, kann sie stattdessen in sich tragen, eine Datei pro Sprache neben `ruleset.json`: `locales/<language>.json`, wie die anderen Dateien im Manifest aufgeführt. In beiden Fällen ist jede ein Lokalisierungskatalog für das Paket mit einem Abschnitt `ruleset`: Jeder Schlüssel ist ein Anzeigetext des Regelsatzes oder seiner Kataloge, Wort für Wort auf Englisch, und sein Wert ist dieser Text in der Sprache der Datei.

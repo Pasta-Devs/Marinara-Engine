@@ -55,6 +55,8 @@ Una capa es una variante con nombre de tu conjunto de reglas que el jugador acti
 
 **Las capas escritas por otra persona** (una capa de magia escasa para un conjunto de reglas que no escribiste, distribuida en su propio archivo) llegarán más adelante. Actualmente, una capa se distribuye dentro del conjunto de reglas al que pertenece.
 
+<a id="translations"></a>
+
 ## Traducciones
 
 **Traducciones** (Capability API 1.811). Las cadenas de texto que muestra un conjunto de reglas en otro idioma se agrupan en una traducción por idioma, nombrada con el código del idioma como los paquetes de idioma del propio Engine (`ru`, `pt-BR`, `zh-Hans`). En el catálogo oficial de agentes, cada una es un paquete de idioma junto al archivo del conjunto de reglas (más abajo). Un archivo de paquete de conjunto de reglas que compartas puede, en cambio, llevarlas dentro, un archivo por idioma junto a `ruleset.json`: `locales/<language>.json`, enumerado en el manifiesto como los demás archivos. En ambos casos, cada una es un catálogo de localización de paquete con una sección `ruleset`: cada clave es una cadena de texto que muestra el conjunto de reglas o sus catálogos, palabra por palabra en inglés, y su valor es esa cadena en el idioma del archivo.

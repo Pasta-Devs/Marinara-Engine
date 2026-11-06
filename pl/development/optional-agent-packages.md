@@ -811,6 +811,8 @@ POST /api/game/experience/check
 
 Fabuła świata może utrzymywać w miejscach porę roku niezależnie od daty (`seasons` i akcja `season`: zobacz [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md#seasons)), a pola bitwy świata mogą mieć namalowane pory roku (wiersze `seasons` i `seasonKeys`). Pakiet map z którymkolwiek z tych elementów wymaga 1.351. Mapa świata odczytuje takie miejsca jako `seasons` (identyfikator miejsca na porę roku, `*` dla całego świata) z `GET /api/game/:chatId/overworld`; gotowe pole bitwy zawiera początkowe pory roku kafelków jako `seasons`, z kluczami `"x,y"`.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: nakładki zestawów zasad
 
 Pakiet map Experience może rozszerzać zestawy zasad jego gier, dopóki Experience jest włączone: o własne stworzenia, stany i przedmioty, których dostarczanie nie należy do pakietu zestawu zasad.
