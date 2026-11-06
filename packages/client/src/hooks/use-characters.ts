@@ -1599,15 +1599,13 @@ export function useCharacterGroups() {
 // The root list hides folder members and pages carry folder counts, so folder edits refresh both.
 type CachedGroup = { id: string } & Record<string, unknown>;
 
-/** Apply a folder edit at once; the caller restores `previous` if the server refuses. */
+/** Apply a folder edit at once; on error the caller refetches, so parallel edits are kept. */
 async function patchCachedGroups(
   qc: ReturnType<typeof useQueryClient>,
   update: (groups: CachedGroup[]) => CachedGroup[],
 ) {
   await qc.cancelQueries({ queryKey: characterKeys.groups });
-  const previous = qc.getQueryData<CachedGroup[]>(characterKeys.groups);
-  if (previous) qc.setQueryData(characterKeys.groups, update(previous));
-  return { previous };
+  qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) => (old ? update(old) : old));
 }
 
 function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
@@ -1637,7 +1635,7 @@ export function useUpdateGroup() {
         groups.map((group) => (group.id === id ? { ...group, ...patch } : group)),
       );
     },
-    onError: (_err, _vars, context) => context?.previous && qc.setQueryData(characterKeys.groups, context.previous),
+    onError: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
     onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
@@ -1647,7 +1645,7 @@ export function useDeleteGroup() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
     onMutate: (id) => patchCachedGroups(qc, (groups) => groups.filter((group) => group.id !== id)),
-    onError: (_err, _id, context) => context?.previous && qc.setQueryData(characterKeys.groups, context.previous),
+    onError: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
     onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
