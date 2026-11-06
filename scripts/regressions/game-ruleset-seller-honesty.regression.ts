@@ -497,6 +497,12 @@ try {
     const [answer] = readResolvedInventoryTags(tagged.content);
     assert.equal(answer?.revealed, "Bitter tonic", tagged.content);
     assert.ok(tagged.stacks.some((stack) => stack.item === "kit/bitter-tonic" && !stack.truly));
+    // Its count is the bitter tonic's left, as its line says, never the warming tonic's.
+    const left = tagged.stacks
+      .filter((stack) => stack.item === "kit/bitter-tonic")
+      .reduce((sum, stack) => sum + stack.quantity, 0);
+    assert.ok(left > 0);
+    assert.equal(answer?.now, left, tagged.content);
   }
   // ── A fake beside the real thing ──
   {
@@ -517,21 +523,47 @@ try {
       ["w2", "kit/bitter-tonic", 2, null],
     ]);
 
-    // A sale takes only the kind it was priced by: never the fake with the real thing.
+    // A sale takes only the kind it was priced by, never the fake with the real thing: a count past
+    // the real one sells it, then offers the fake on its own, which the honest buyer sees through and
+    // buys for what it truly is.
     const mixed = run('[inventory: action="sell" item="Warming tonic" count="2" seller="chandler"]', realFirst);
-    assert.equal(readResolvedInventoryTags(mixed.content)[0]?.ok, false, mixed.content);
-    assert.deepEqual(tonics(mixed.stacks), tonics(realFirst), "nothing sold, the fake still a fake");
+    const mixedAnswers = readResolvedInventoryTags(mixed.content);
+    assert.deepEqual(
+      mixedAnswers.map((answer) => [answer.ok, answer.count, answer.revealed ?? null]),
+      [
+        [true, 1, null],
+        [true, 1, "Bitter tonic"],
+      ],
+      mixed.content,
+    );
+    assert.deepEqual(tonics(mixed.stacks), [["w2", "kit/bitter-tonic", 1, null]], "the real one sold, the fake seen");
     // Nor the real thing with the fake: seen through, the fake alone is what the honest buyer prices.
     const seen = run('[inventory: action="sell" item="Warming tonic" count="3" seller="chandler"]', fakeFirst);
-    assert.equal(readResolvedInventoryTags(seen.content)[0]?.ok, false, seen.content);
-    assert.deepEqual(tonics(seen.stacks), [
-      ["w2", "kit/bitter-tonic", 2, null],
-      ["w1", "kit/warming-tonic", 1, null],
-    ]);
+    assert.deepEqual(
+      readResolvedInventoryTags(seen.content).map((answer) => [answer.ok, answer.count, answer.revealed ?? null]),
+      [
+        [true, 2, "Bitter tonic"],
+        [true, 1, null],
+      ],
+      seen.content,
+    );
+    assert.deepEqual(tonics(seen.stacks), []);
     // The fence takes the fake it was offered and leaves the real one.
     const fenced = run('[inventory: action="sell" item="Warming tonic" count="2" seller="fence"]', fakeFirst);
     assert.equal(readResolvedInventoryTags(fenced.content)[0]?.ok, true, fenced.content);
     assert.deepEqual(tonics(fenced.stacks), [["w1", "kit/warming-tonic", 1, null]]);
+    // A count past one kind is sold kind by kind, each priced on its own: the fence buys all three.
+    const both = run('[inventory: action="sell" item="Warming tonic" count="3" seller="fence"]', fakeFirst);
+    const answers = readResolvedInventoryTags(both.content);
+    assert.deepEqual(
+      answers.map((answer) => [answer.ok, answer.count]),
+      [
+        [true, 2],
+        [true, 1],
+      ],
+      both.content,
+    );
+    assert.deepEqual(tonics(both.stacks), []);
 
     // A sale is about the stack the take takes first: a worn real bell comes after the fake in the
     // pack, so the honest buyer is offered the fake and sees through it, and the worn bell stays.

@@ -130,7 +130,8 @@ export async function startMultiplayerPeerServer(options: PeerServerOptions) {
     (request, reply) => {
       const address = request.socket.remoteAddress ?? "unknown";
       if (!available()) return error(reply, "disabled");
-      if (!allowedRate(address)) return error(reply, "rate-limited");
+      // Keyed like the socket share, so one IPv6 host cannot multiply its budget across its /64.
+      if (!allowedRate(multiplayerPeerSocketKey(address))) return error(reply, "rate-limited");
       if (request.method !== "POST" || request.url !== "/room") return error(reply, "invalid-message", 404);
       // The trusted guest's own backend connects here; browsers cannot submit
       // cookie-bearing requests or use this as a cross-origin Engine endpoint.

@@ -5,6 +5,7 @@ import { ChatModeIcon } from "../../components/chat/ChatModeIcon";
 import { getChatInputShellClass } from "../../components/chat/chat-input-styles";
 import { cn, generateClientId } from "../../lib/utils";
 import type { MultiplayerGuestLabels } from "./multiplayer-guest-labels";
+import { MultiplayerGuestFight } from "./MultiplayerGuestFight";
 
 interface MultiplayerGuestViewProps {
   state: MultiplayerGuestState;
@@ -141,7 +142,12 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
       data-chat-mode={snapshot?.mode}
       className="flex h-full min-h-0 flex-col overflow-y-auto bg-[var(--background)] text-[var(--foreground)]"
     >
-      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--background)] px-3 py-2">
+      {/* An obstacle for the host's Chat Settings bubble, which otherwise sat on Stop hosting (laptop room
+          playtest 2026-10-30). */}
+      <header
+        data-chat-window-top-obstacle
+        className="sticky top-0 z-10 flex shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--background)] px-3 py-2"
+      >
         {snapshot && <ChatModeIcon mode={snapshot.mode} size={18} className="shrink-0 text-[var(--primary)]" />}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-semibold">{snapshot?.name ?? labels.title}</h1>
@@ -179,6 +185,18 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
           <p className="mt-1 text-[var(--destructive)]">{labels.errors["generation-failed"]}</p>
         )}
         {actionFailed && !state.error && <p className="mt-1 text-[var(--destructive)]">{labels.actionFailed}</p>}
+        {/* Your own checks in the latest reply, rolled for you (Alyssa 2026-10-30). */}
+        {isGame &&
+          game?.ownRolls.map((roll, index) => (
+            <p key={index} className="mt-1 font-medium" data-own-roll>
+              {formatLabel(labels.ownRoll, {
+                skill: roll.skill,
+                total: String(roll.total),
+                dc: String(roll.dc),
+                outcome: roll.success ? labels.ownRollSuccess : labels.ownRollFailure,
+              })}
+            </p>
+          ))}
       </div>
 
       {isGame && game && !playersOpen && (
@@ -244,6 +262,20 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
                 ))}
               </section>
             )}
+            {game.bag.length > 0 && (
+              <section aria-label={labels.bag} data-own-bag>
+                <h2 className="mb-1 font-semibold">{labels.bag}</h2>
+                <ul className="space-y-1">
+                  {game.bag.map((item, index) => (
+                    <li key={index} className="break-words">
+                      {item.name}
+                      {item.quantity > 1 && <> ×{item.quantity}</>}
+                      {item.equipped && <span className="text-[var(--muted-foreground)]"> · {labels.bagEquipped}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {game.choices.length > 0 && (
               <section aria-label={labels.gameChoices} className="space-y-2">
                 <h2 className="font-semibold">{labels.gameChoices}</h2>
@@ -265,6 +297,28 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
             )}
           </div>
         </details>
+      )}
+
+      {isGame && snapshot?.fight && !playersOpen && (
+        <MultiplayerGuestFight
+          fight={snapshot.fight}
+          labels={labels}
+          disabled={!canAct || pending}
+          onCommand={(command) =>
+            dispatch({
+              type: "fight-command",
+              operationId: generateClientId(),
+              sequence: snapshot.nextSequence,
+              fight: {
+                anchor: snapshot.fight!.anchor,
+                id: snapshot.fight!.id,
+                instanceId: snapshot.fight!.instanceId,
+                revision: snapshot.fight!.revision,
+              },
+              command,
+            })
+          }
+        />
       )}
 
       {playersOpen && snapshot ? (

@@ -52,9 +52,22 @@ assert.equal(healthyResult.status, 2, healthyResult.stderr);
 assert.match(healthyResult.stdout, /Marinara Engine v2\.4\.4 regression is already running/u);
 await close(healthyServer);
 
-const unrelatedServer = createServer((_request, response) => {
+// A Marinara that requires sign-in tells the unauthenticated probe only `{ status: "ok" }`.
+const protectedServer = createServer((_request, response) => {
   response.writeHead(200, { "content-type": "application/json" });
   response.end(JSON.stringify({ status: "ok" }));
+});
+await listen(protectedServer);
+const protectedAddress = protectedServer.address();
+assert.ok(protectedAddress && typeof protectedAddress === "object");
+const protectedResult = await runChecker(protectedAddress.port);
+assert.equal(protectedResult.status, 2, protectedResult.stderr);
+assert.match(protectedResult.stdout, /Marinara Engine is already running at .*\(sign-in required\)/u);
+await close(protectedServer);
+
+const unrelatedServer = createServer((_request, response) => {
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ status: "ok", service: "another-app" }));
 });
 await listen(unrelatedServer);
 const unrelatedAddress = unrelatedServer.address();

@@ -1,276 +1,150 @@
 # Windows Installation Guide
 
-This guide shows you how to install Marinara Engine on Windows. You can use the one click installer (the easy path) or set it up from source. It also covers system requirements, optional features, and how to update later.
+Install Marinara Engine on a Windows PC with the installer (the fewest steps) or from source. Marinara then runs on your own PC.
 
-## System requirements
+## Before you start
 
-Marinara Engine runs on your own Windows PC. You need the following:
+You need Windows 10 or Windows 11 (64-bit), a few gigabytes of free disk space and an internet connection for the install. The installer recommends about 2.5 GB free.
 
-- Windows 10 or Windows 11 (64 bit).
-- A few gigabytes of free disk space for the app and its dependencies.
-- An internet connection during install (to download code and packages).
+You also need two tools:
 
-Both install methods need two tools. The installer can fetch them for you. For the source method you install them yourself:
+- **Node.js** 24, 25 or 26. Node.js runs the app. Version 24 is the recommended LTS (Long Term Support) release.
+- **Git**. Git downloads the code and lets Marinara update itself.
 
-- **Node.js** version 24, 25, or 26. Node.js runs the app. Version 24 is the recommended LTS release. LTS means Long Term Support, a stable version.
-- **Git**. Git downloads the code and lets the app update itself later.
+If you use the installer, skip installing them: it fetches both for you. If you install from source, you install them yourself. You do not need to install pnpm (the tool that installs the app's parts). The installer and `start.bat` set it up.
 
-pnpm is the package manager that installs the app's parts. If you use the installer or the **start.bat** launcher, you do not need to install pnpm yourself. Both fetch the correct pnpm version through Corepack, a pnpm helper included with Node.js, or through a temporary download. Only the manual setup without the launcher needs the `pnpm` command on your system. That section includes the install step.
+## Install with the Windows installer
 
-## Method 1: Windows installer (recommended)
+1. Open the [Marinara Engine releases page](https://github.com/Pasta-Devs/Marinara-Engine/releases).
+2. Download the latest Windows installer. It is named `Marinara-Engine-Installer-` followed by the version.
+3. Run the installer. If Windows shows "Windows protected your PC", choose **More info**, then **Run anyway**, but only for a file from the releases page.
+4. Follow the prompts. If Node.js or Git is missing, let the installer install it.
+5. Choose the install folder, or accept the default (`%LOCALAPPDATA%\Marinara-Engine`).
+6. Wait while it downloads and builds the app. A progress list shows each step. This takes a few minutes.
+7. When it says the installation is complete, double-click the **Marinara Engine** desktop shortcut.
 
-The installer is the easiest way to start. It checks for Node.js and Git, helps you install them if they are missing, downloads the app, builds it, and creates shortcuts.
+A console window (a black text window) opens and shows progress. Your browser then opens Marinara. If it does not, go to `http://127.0.0.1:7860`.
 
-Follow these steps:
+The installer makes a Git copy of the latest stable release, so Marinara can update itself on every launch.
 
-1. Open the Marinara Engine releases page in your browser.
+> **Tip:** Some antivirus tools flag the installer because it downloads Node.js and Git. Run the installer only if you got it from the releases page above.
 
-```text
-https://github.com/Pasta-Devs/Marinara-Engine/releases
-```
+## Start and stop Marinara
 
-2. Download the latest Windows installer file from that page.
-3. Run the installer and follow the on screen prompts. If Node.js or Git are missing, let the installer install them.
-4. Choose the install folder when asked, or accept the default.
-5. Wait for the installer to download the app and build it. This can take a few minutes.
-6. When it finishes, double click the new desktop shortcut to launch Marinara Engine.
+- **Start:** double-click the desktop shortcut or the Start Menu entry. From a source install, run `start.bat` in the Marinara folder.
+- **Stop:** the shortcut opens a console window. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> in it.
 
-Your browser should open to the app after a short delay. If it does not open on its own, open your browser and go to this address:
+If Marinara is already running, the shortcut reopens it in your browser.
 
-```text
-http://127.0.0.1:7860
-```
+## Install from source
 
-The installer sets up a Git based copy of the app. This means it can update itself the next time you launch it. See the Updating section below.
+Use this method if you prefer to run commands yourself, or if you want the staging (tester) version.
 
-If your antivirus warns you about the installer, this is a known false alarm. The installer downloads Node.js and Git, and some antivirus tools flag that behavior. Only run the installer if you downloaded it from the official releases page linked above.
+1. Install [Node.js](https://nodejs.org/en/download) and [Git for Windows](https://git-scm.com/download/win).
+2. Open a new Command Prompt window (a text window where you type commands).
+3. Check both tools. `node -v` must show version 24, 25 or 26.
 
-## Method 2: Install from source
+   ```bat
+   node -v
+   git --version
+   ```
 
-Use this method if you prefer to run the commands yourself, or if you want the tester (staging) version.
+   If a command is not found, close and reopen Command Prompt, or reinstall the missing tool.
 
-### Step 1: Install Node.js and Git
+4. Download the code.
 
-1. Download the Node.js installer from the official site and run it.
+   ```bat
+   git clone https://github.com/Pasta-Devs/Marinara-Engine.git
+   ```
 
-```text
-https://nodejs.org/en/download
-```
+5. Open its folder.
 
-2. Download the Git installer from the official site and run it.
+   ```bat
+   cd Marinara-Engine
+   ```
 
-```text
-https://git-scm.com/download/win
-```
+6. Optional: switch to the staging version before the first launch. Skip this to stay on stable. Back up your data before you use staging.
 
-3. Open a new Command Prompt window. Check that Node.js is version 24, 25, or 26:
+   ```bat
+   git checkout staging
+   ```
 
-```bat
-node -v
-```
+   The launcher then keeps you on staging when it updates.
 
-4. Check that Git is installed:
+7. Run the launcher, the script that sets up and starts Marinara.
 
-```bat
-git --version
-```
+   ```bat
+   start.bat
+   ```
 
-You should see a version number for each command. If a command is not found, close and reopen Command Prompt, or reinstall the missing tool.
+The first launch takes a few minutes while it installs and builds everything. A console window shows progress. Your browser opens Marinara when it is ready. To start again later, run `start.bat` from the same folder.
 
-### Step 2: Download the code and launch
-
-The launcher script named **start.bat** does the setup for you. It picks the correct pnpm version, installs dependencies, builds the app, and opens your browser.
-
-1. Download the code with Git:
-
-```bat
-git clone https://github.com/Pasta-Devs/Marinara-Engine.git
-```
-
-2. Enter the new folder:
-
-```bat
-cd Marinara-Engine
-```
-
-3. Optional: switch to the tester version. The download starts on the stable version. If you want the tester (staging) version instead, run this command before the first launch. Skip this step if you want the stable version. Back up your data before using tester builds.
-
-```bat
-git checkout staging
-```
-
-After this switch, the launcher keeps you on the tester version when it updates.
-
-4. Run the launcher:
-
-```bat
-start.bat
-```
-
-The first launch takes a few minutes because it installs and builds everything. When it is ready, your browser opens to the app at `http://127.0.0.1:7860`. To start the app again later, run **start.bat** from the same folder.
-
-The launcher opens the app to your local network by default, so other devices on your network can reach it. See Accessing from another device below.
+If it did not work: `[ERROR] Node.js 24 LTS or newer is required` means your Node.js is too old. Install Node.js 24 or newer from [nodejs.org](https://nodejs.org), then run `start.bat` again.
 
 ### Manual setup without the launcher
 
-If you want to run each command yourself instead of using **start.bat**, do this from inside the `Marinara-Engine` folder.
+This path needs the `pnpm` command. Run these from inside the `Marinara-Engine` folder.
 
-1. Install pnpm. This path does not use the launcher, so the `pnpm` command must exist on your system. The `npm` command comes with Node.js. Run this once:
+1. Install pnpm once.
 
-```bat
-npm install -g pnpm
-```
+   ```bat
+   npm install -g pnpm
+   ```
 
-2. Install dependencies:
+2. Install the dependencies (the parts the app needs), build the app and start the server.
 
-```bat
-pnpm install --force
-```
+   ```bat
+   pnpm install --force
+   pnpm build
+   pnpm start
+   ```
 
-3. Build the app:
+3. Open `http://127.0.0.1:7860`.
 
-```bat
-pnpm build
-```
-
-4. Start the server:
-
-```bat
-pnpm start
-```
-
-5. Open the app in your browser:
-
-```text
-http://127.0.0.1:7860
-```
-
-Everything runs on your own computer. With this manual method the app listens on `127.0.0.1`, which means only this computer can reach it. To let other devices on your network connect, create a file named `.env` in the `Marinara-Engine` folder. Add this line to it, then restart the server:
+With `pnpm start`, only this PC can reach Marinara. To let other devices connect, create a file named `.env` in the `Marinara-Engine` folder, add this line and restart the server.
 
 ```env
 HOST=0.0.0.0
 ```
 
+## Open Marinara from another device
+
+The installer, its shortcut and `start.bat` let other devices on your network reach Marinara, but it blocks them until you set a login. For the steps, see [Remote Access](../REMOTE_ACCESS.md) and the [FAQ](../FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device).
+
+## Update Marinara
+
+Each time you start Marinara from the shortcut or `start.bat`, the launcher checks for updates, installs them, rebuilds and starts. Your chats, characters and settings stay in place. If you changed the code yourself, the launcher sets your changes aside and puts them back after the update. If it cannot, it keeps your current version and prints a note. For the in-app **Apply Update** button, skipping an update and manual commands, see [Upgrading Marinara Engine](../UPGRADING.md#windows).
+
+## Find your data or uninstall
+
+Your data is in the `packages\server\data` folder inside the Marinara folder. To uninstall, open the Start Menu entry **Uninstall Marinara Engine**. The uninstaller asks whether to delete your data too. Choose **No** to keep it for a later reinstall. See [Backing Up and Restoring Marinara](../data/backup-and-restore.md).
+
 ## Optional: AI sprite background removal
 
-Marinara Engine requests native transparency for generated still sprites and has built-in adaptive matte cleanup for flat chroma and older white backgrounds. You can also install an optional tool called `backgroundremover` as a fallback for detailed scenery and other non-flat backgrounds. It is optional because it downloads large machine learning files.
+Marinara asks for transparent backgrounds on generated sprites and cleans flat backgrounds by itself. As a fallback for detailed scenery, you can install the optional `backgroundremover` tool. It downloads large machine learning files, so it is off by default.
 
-To use it you first need Python. Install Python 3.11 from the official site, then run the install command from the `Marinara-Engine` folder:
+1. Install Python 3.11 from [python.org](https://www.python.org/downloads/windows/). Python 3.9 to 3.11 works.
+2. Run this from the `Marinara-Engine` folder.
 
-```text
-https://www.python.org/downloads/windows/
-```
+   ```bat
+   pnpm backgroundremover:install
+   ```
 
-Run the installer step:
+This creates a private Python folder (a venv) under your data folder. Marinara uses it automatically.
 
-```bat
-pnpm backgroundremover:install
-```
-
-This creates a private Python folder (a venv) under your data folder. Marinara Engine then uses it automatically for sprite cleanup. A venv is a self contained Python setup that does not affect the rest of your system.
-
-You can also let **start.bat** install the tool for you on the next launch. Add this line to your `.env` file:
+To let `start.bat` install it on the next launch, add this line to your `.env` file:
 
 ```env
 BACKGROUNDREMOVER_AUTO_INSTALL=true
 ```
 
-## Accessing from another device
-
-You can open Marinara Engine from your phone, tablet, or another computer on the same network. For the setup steps and the security options, see the [Frequently Asked Questions](../FAQ.md) guide.
-
-## Updating Marinara Engine
-
-Your chats, characters, and settings stay in place when you update. Marinara Engine offers three ways to update on Windows.
-
-### Automatic updates with the launcher
-
-When you launch the app with the desktop shortcut or **start.bat** from a Git based copy, the launcher checks for updates first. If a newer version exists, it downloads the changes, reinstalls dependencies, rebuilds the app, and then starts. This works for both installer setups and manual clones.
-
-Run `start.bat --skip-update` to skip one check. To keep the installed Engine version across launches, add `AUTO_UPDATE_ENABLED=false` to `.env`. Manual checks, in-app apply, and manual Git updates remain available.
-
-If you have unsaved local changes to the code, the launcher tries to set them aside safely. It puts them back after updating. If it cannot, it keeps your current version and prints a note.
-
-### In-app updates
-
-You can also check for updates inside the app.
-
-1. Open **Settings**.
-2. Go to the **Advanced** tab.
-3. Find the **Updates** section.
-4. Pick a channel in **Release Channel**. Choose **Latest Stable** for the normal version, or **Staging/UAT** for early tester builds. Back up your data before using tester builds.
-5. Click **Check for Updates**. The app tells you if a newer version is available.
-
-The **Apply Update** button is turned off by default for safety. Applying the update from inside the app needs extra setup. In your `.env` file, set the following values:
-
-```env
-UPDATES_APPLY_ENABLED=true
-ADMIN_SECRET=your-own-secret-value
-```
-
-Then open **Settings**, go to the **Advanced** tab, find **Admin Access**, and paste the same secret value there. After that, the **Apply Update** button becomes available.
-
-If you open the app from an iPhone or iPad that connects to this Windows PC, **Apply Update** updates this Windows server. Remote apply also needs one more value in `.env`:
-
-```env
-UPDATES_ALLOW_REMOTE_APPLY=true
-```
-
-If you do not enable in-app apply, just relaunch the app with the shortcut or **start.bat** to update.
-
-### Manual update
-
-If you use a Git copy without the launcher, you can update by hand. Run these from the `Marinara-Engine` folder.
-
-1. Get the latest stable code:
-
-```bat
-git fetch origin +refs/heads/main:refs/remotes/origin/main
-```
-
-2. Move to the latest stable version:
-
-```bat
-git merge --ff-only origin/main || git checkout --detach origin/main
-```
-
-3. Reinstall dependencies:
-
-```bat
-pnpm install --force
-```
-
-4. Rebuild the app:
-
-```bat
-pnpm build
-```
-
-5. Start the server again:
-
-```bat
-pnpm start
-```
-
-For tester builds, use the staging branch instead. Run these two commands in place of steps 1 and 2 above. Then continue with the install and build steps:
-
-```bat
-git fetch origin +refs/heads/staging:refs/remotes/origin/staging
-```
-
-```bat
-git checkout -B staging origin/staging
-```
-
 ## If something goes wrong
 
-If the install or launch fails, first make sure Node.js is version 24, 25, or 26 and that Git is installed. If your antivirus blocks the installer or the download, that is a known false alarm as noted above.
-
-For more fixes, see the [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md) guide.
+Check that Node.js is version 24, 25 or 26 and that Git is installed. For more fixes, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 
-- [Marinara Engine Installation](../INSTALLATION.md): pick the right install method for your device.
-- [Upgrading Marinara Engine](../UPGRADING.md): more detail on keeping the app up to date.
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md): fixes for common problems.
-- [Frequently Asked Questions](../FAQ.md): quick answers, including network access.
+- [Marinara Engine Installation](../INSTALLATION.md)
+- [Upgrading Marinara Engine](../UPGRADING.md)
+- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+- [Frequently Asked Questions](../FAQ.md)

@@ -106,7 +106,7 @@ export function isRequestTimeoutError(error: unknown): boolean {
 }
 
 export const PRIVILEGED_ACCESS_HINT =
-  "This action needs loopback access or admin access. Open the app through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Marinara sends it as the X-Admin-Secret header.";
+  "This action needs loopback access or admin access. Open the app through localhost, or make the admin secret in Settings → Advanced → Admin Access on the server's own computer (or set ADMIN_SECRET=<secret> in the server .env), then paste it in Admin Access on this device. Marinara sends it as the X-Admin-Secret header.";
 
 /**
  * Build a user-facing message for a privileged-gated action (theme install,
@@ -171,10 +171,15 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Format the first usable Zod validation issue in an API error payload. */
+/**
+ * Format the first usable Zod validation issue in an API error payload: `issues`, or the server error handler's
+ * `details` (packages/server/src/middleware/error-handler.ts), so the message names the field that failed.
+ */
 export function formatFirstApiValidationIssue(error: unknown, fallback: string): string {
-  if (error instanceof ApiError && isRecord(error.payload) && Array.isArray(error.payload.issues)) {
-    for (const issue of error.payload.issues) {
+  const issues =
+    error instanceof ApiError && isRecord(error.payload) ? (error.payload.issues ?? error.payload.details) : undefined;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
       if (!isRecord(issue) || typeof issue.message !== "string" || !issue.message.trim()) continue;
       const path = Array.isArray(issue.path)
         ? issue.path.filter((segment) => typeof segment === "string" || typeof segment === "number").join(".")
@@ -374,7 +379,8 @@ export const api = {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }),
 
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "DELETE", body: body !== undefined ? JSON.stringify(body) : undefined }),
 
   /** Download a JSON endpoint as a file (triggers browser save-as). */
   download: (path: string, fallbackFilename = "export.json", init?: RequestInit) =>

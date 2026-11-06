@@ -1,0 +1,373 @@
+// ──────────────────────────────────────────────
+// ConnectionSelect — picks a Model, grouped by Connection: a field (or a Settings label/value row) that opens
+// the searchable ConnectionPicker.
+// ──────────────────────────────────────────────
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { LOCAL_SIDECAR_CONNECTION_ID, type ConnectionPickerKind } from "@marinara-engine/shared";
+import { useConnections } from "../../hooks/use-connections";
+import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
+import { groupModelsByAccount, viaName, type ConnectionModelRow } from "../../lib/connection-groups";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
+import { cn } from "../../lib/utils";
+import { ModelTile } from "./ModelRow";
+
+// The window loads on first open, so a screen of compact fields does not pull it into startup.
+const ModelPicker = lazy(() => import("./ModelPicker").then((m) => ({ default: m.ModelPicker })));
+
+export type ConnectionSelectKind = ConnectionPickerKind;
+
+export type ConnectionChoiceRow = ConnectionModelRow & { profileImportReviewRequired?: unknown };
+export type ConnectionChoiceFilter = (row: ConnectionModelRow) => boolean;
+
+export const choiceLabel = (row: ConnectionModelRow) => row.name?.trim() || row.model?.trim() || row.id;
+
+/** What an empty choice falls back to: Main, the agents' default, or one Connection (`null` = Main). */
+export type InheritsFrom = "main" | "agents" | { connectionId: string | null };
+
+export function resolveInherited<R extends { id: string }>(
+  inherits: InheritsFrom,
+  rows: readonly R[],
+  allRows: readonly R[] | undefined,
+  main: R | null,
+): R | null {
+  if (inherits === "main") return main;
+  if (inherits === "agents")
+    return rows.find((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents)) ?? main;
+  const id = inherits.connectionId;
+  return id === null ? main : (rows.find((row) => row.id === id) ?? allRows?.find((row) => row.id === id) ?? null);
+}
+
+/** "Same as chat" plus the Model it resolves to: "Same as chat (→ Claude Sonnet)". */
+export const inheritLabel = (
+  label: string,
+  model: string,
+  t: (key: string, values: Record<string, string>) => string,
+) => t("connections.select.inheritWith", { label, model });
+
+/**
+ * The Models one slot offers, grouped by Connection, with their states and the texts of "Default" and the
+ * current value. ConnectionSelect and ConnectionPicker share it.
+ */
+export function useConnectionChoices({
+  kind,
+  value,
+  defaultLabel,
+  includeLocalSidecar,
+  extraOptions,
+  rowFilter,
+  inherits,
+}: {
+  kind: ConnectionSelectKind;
+  value: string | null;
+  defaultLabel?: string;
+  includeLocalSidecar: boolean;
+  extraOptions: ReadonlyArray<{ value: string; label: string }>;
+  /** Hides Models this slot cannot use; the current value stays listed. */
+  rowFilter?: ConnectionChoiceFilter;
+  /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
+  inherits?: InheritsFrom;
+}) {
+  const { t } = useTranslation();
+  const connections = useConnections();
+  const accountsQuery = useConnectionAccounts();
+  const rawRows = connections.data;
+  const accounts = accountsQuery.data;
+
+  const view = useMemo(() => {
+    const allRows = (rawRows ?? []) as ConnectionChoiceRow[];
+    const offered = (row: ConnectionChoiceRow) =>
+      matchesKind(row, kind) && (!rowFilter || row.id === value || rowFilter(row));
+    const rows = allRows.filter(offered);
+    const accountById = new Map((accounts ?? []).map((account) => [account.id, account]));
+    const rowById = new Map(allRows.map((row) => [row.id, row]));
+    // A Model that borrows credentials (a decision row) belongs to, and is only as usable as, its lender's
+    // Connection; the lender may be another kind, so grouping and lookups use every row.
+    const accountOf = (row: ConnectionChoiceRow) => {
+      const lender = row.credentialsFromConnectionId ? rowById.get(row.credentialsFromConnectionId) : undefined;
+      const accountId = lender ? lender.accountId : row.accountId;
+      return accountId ? accountById.get(accountId) : undefined;
+    };
+    const accountIdOf = (row: ConnectionChoiceRow) => {
+      const lender = row.credentialsFromConnectionId ? rowById.get(row.credentialsFromConnectionId) : undefined;
+      return lender ? lender.accountId : row.accountId;
+    };
+    const all = groupModelsByAccount(allRows, accounts ?? []);
+    const groups = all.groups.map((group) => ({ ...group, rows: group.rows.filter(offered) }));
+    const standalone = all.standalone.filter(offered);
+    // Each kind defaults through its job's flag: Main for chat, the agents flag for media.
+    const defaultFlag = FLAG_JOBS.find((job) => job.kind === kind)?.flag ?? "isDefault";
+    const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
+    const resolvedAccount = resolved ? accountOf(resolved) : undefined;
+    return { rows, groups, standalone, resolved, resolvedAccount, accountOf, accountIdOf };
+  }, [accounts, kind, rawRows, rowFilter, value]);
+
+  const inheritedRow =
+    inherits === undefined
+      ? undefined
+      : resolveInherited(inherits, view.rows, rawRows as ConnectionChoiceRow[] | undefined, view.resolved);
+  const defaultText =
+    defaultLabel !== undefined && inheritedRow
+      ? inheritLabel(defaultLabel, choiceLabel(inheritedRow), t)
+      : (defaultLabel ??
+        (view.resolved
+          ? t("connections.select.defaultResolved", {
+              model: view.resolved.model || choiceLabel(view.resolved),
+              connection: view.resolvedAccount?.name ?? view.resolved.name ?? "",
+            })
+          : t("connections.select.default")));
+
+  // The on-device Local Model answers chat-shaped helper calls only.
+  const local = includeLocalSidecar && kind === "chat";
+  const loading = connections.isLoading || accountsQuery.isLoading;
+  const accountsKnown = accounts !== undefined;
+
+  // An off Connection, one without a key, or an import awaiting review cannot answer;
+  // the option stays visible but cannot be picked.
+  const stateOf = (row: ConnectionChoiceRow) => {
+    const account = view.accountOf(row);
+    const accountId = view.accountIdOf(row);
+    const suffix = !accountsKnown
+      ? isConnectionFlagTrue(row.profileImportReviewRequired)
+        ? t("connections.select.review")
+        : accountId
+          ? t(accountsQuery.isError ? "connections.select.unavailable" : "connections.select.checking")
+          : ""
+      : isConnectionFlagTrue(row.profileImportReviewRequired)
+        ? t("connections.select.review")
+        : account && account.state !== "ok"
+          ? t(`connections.select.${account.state}`)
+          : "";
+    return { account, suffix };
+  };
+
+  const extra = extraOptions.find((option) => option.value === value);
+  const row = value ? view.rows.find((candidate) => candidate.id === value) : undefined;
+  const isLocal = local && value === LOCAL_SIDECAR_CONNECTION_ID;
+  const missing = !!value && !isLocal && !extra && !row;
+  const rowState = row ? stateOf(row) : undefined;
+  const current = !value
+    ? { label: defaultText, hint: "" }
+    : isLocal
+      ? { label: t("connections.select.localModel"), hint: "" }
+      : extra
+        ? { label: extra.label, hint: "" }
+        : row
+          ? {
+              row,
+              account: rowState?.account,
+              label: choiceLabel(row),
+              hint: [rowState?.account?.name ?? t("connections.select.standalone"), rowState?.suffix]
+                .filter(Boolean)
+                .join(" · "),
+            }
+          : // Until the lists arrive an unknown id is not "missing" yet.
+            { label: loading ? value : t("connections.select.missing", { id: value }), hint: "" };
+
+  return {
+    ...view,
+    defaultText,
+    local,
+    missing,
+    current,
+    stateOf,
+    loading,
+    accountsKnown,
+    error: connections.isError || accountsQuery.isError,
+    retry: () => {
+      void connections.refetch();
+      void accountsQuery.refetch();
+    },
+  };
+}
+
+export function ConnectionSelect({
+  value,
+  onChange,
+  kind = "chat",
+  defaultLabel,
+  includeLocalSidecar = false,
+  extraOptions = [],
+  rowFilter,
+  inherits,
+  variant = "picker",
+  label: rowLabel,
+  title,
+  job,
+  className,
+  scope,
+  embedding,
+  disabled,
+  open: controlledOpen,
+  onOpenChange,
+  fallback,
+  required,
+  ...aria
+}: {
+  /** A Model id, or `null` for "Default". */
+  value: string | null;
+  onChange: (value: string | null) => void;
+  kind?: ConnectionSelectKind;
+  /** Text of the first option; without it the option names the Model the flags resolve to. */
+  defaultLabel?: string;
+  /** Add the on-device Local Model after the Connections (chat kind only). */
+  includeLocalSidecar?: boolean;
+  /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
+  extraOptions?: ReadonlyArray<{ value: string; label: string }>;
+  /** Hides Models this slot cannot use; the current value stays listed. */
+  rowFilter?: ConnectionChoiceFilter;
+  /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
+  inherits?: InheritsFrom;
+  /**
+   * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
+   * opens the same picker. `controlled`: no field; the caller's own row opens the picker.
+   */
+  variant?: "picker" | "menu" | "controlled";
+  /** Left side of the `menu` row (icon and role name). */
+  label?: ReactNode;
+  /** The picker window's title. */
+  /** The job this slot is, for the window title: "Model for <job>". */
+  job?: string;
+  title?: string;
+  className?: string;
+  /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
+  scope?: "chat" | "agent";
+  /** Embeddings: lists the catalog's embedding models and tries a pick. */
+  embedding?: boolean;
+  disabled?: boolean;
+  /** `controlled` shows no field: the caller's own row opens the picker through `open`. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** The job's "If it fails" slot inside the picker. */
+  fallback?: { value: string | null; onChange: (value: string | null) => void };
+  /** The job always has a Model: no "follow the default" row. */
+  required?: boolean;
+  id?: string;
+  "aria-label"?: string;
+}) {
+  const { t } = useTranslation();
+  const [openState, setOpenState] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const open = controlledOpen ?? openState;
+  const setOpen = (next: boolean) => (onOpenChange ? onOpenChange(next) : setOpenState(next));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const valueId = useId();
+  const jobName = String(job ?? rowLabel ?? aria["aria-label"] ?? title ?? "").replace(/\s+model$/i, "");
+  const choices = useConnectionChoices({
+    kind,
+    value,
+    defaultLabel,
+    includeLocalSidecar,
+    extraOptions,
+    rowFilter,
+    inherits,
+  });
+  // "Add a model for this…" sets the new Model through the latest onChange, and its Undo through the one after it.
+  const onChangeRef = useRef(onChange);
+  // The picker's Undo runs after it closed, so it compares with the value shown now, not the one it opened with.
+  const valueRef = useRef(value);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    valueRef.current = value;
+  });
+
+  const { current } = choices;
+  // Empty with no custom first-option text means "follow the job's default": say whose.
+  const jobKey = FLAG_JOBS.find((job) => job.kind === kind)?.key;
+  const source = value
+    ? scope && t(`connections.select.scope.${scope}`)
+    : !defaultLabel && choices.resolved && jobKey
+      ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${jobKey}`) })
+      : null;
+  // A chosen Model reads as it does in the Jobs box: picture, name, account and upstream.
+  const via = current.row ? viaName(current.row.provider, current.row.model) : null;
+  const note = current.row
+    ? [current.hint, via && t("connections.accounts.section.via", { service: via })].filter(Boolean).join(" · ")
+    : "";
+  const trigger = {
+    ref: triggerRef,
+    type: "button" as const,
+    disabled,
+    id: aria.id,
+    // A <label for> names the button; the value then reaches assistive tech as its description.
+    "aria-label": aria["aria-label"]
+      ? t("connections.select.labelWithValue", { label: aria["aria-label"], value: current.label })
+      : undefined,
+    "aria-describedby": aria["aria-label"] ? undefined : valueId,
+    "aria-haspopup": "dialog" as const,
+    "aria-expanded": open,
+    "data-connection-value": value ?? "",
+    onClick: () => {
+      setOpened(true);
+      setOpen(true);
+    },
+  };
+
+  return (
+    <>
+      {variant === "controlled" ? null : variant === "menu" ? (
+        <button
+          {...trigger}
+          className={cn(
+            "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11",
+            className,
+          )}
+        >
+          {rowLabel && <span className="flex shrink-0 items-center gap-2 text-[var(--foreground)]">{rowLabel}</span>}
+          <span className="min-w-0 flex-1 text-right">
+            <span id={valueId} className="block break-words text-[var(--foreground)]">
+              {current.label}
+            </span>
+            {current.hint && (
+              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{current.hint}</span>
+            )}
+          </span>
+          <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+        </button>
+      ) : (
+        <button
+          {...trigger}
+          className={cn(
+            "mari-chrome-field flex h-9 w-full min-w-0 items-center gap-1.5 px-2 py-0 text-left text-[0.6875rem] max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+            className,
+          )}
+        >
+          {current.row && <ModelTile row={current.row} account={current.account} size="xs" />}
+          <span id={valueId} className="min-w-0 flex-1 truncate">
+            {current.label}
+            {(note || source) && (
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {" · "}
+                {[note, source].filter(Boolean).join(" · ")}
+              </span>
+            )}
+          </span>
+          <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden />
+        </button>
+      )}
+      {(opened || open) && (
+        <Suspense fallback={null}>
+          <ModelPicker
+            open={open}
+            onClose={() => setOpen(false)}
+            title={jobName ? t("connections.picker.modelFor", { job: jobName }) : t("connections.switcher.chooseModel")}
+            jobName={jobName || t("connections.picker.model")}
+            kind={kind}
+            embedding={embedding}
+            value={value}
+            onChange={(next) => next !== (valueRef.current || null) && onChangeRef.current(next)}
+            defaultText={choices.defaultText}
+            includeDefault={!required}
+            fallback={fallback}
+            includeLocalSidecar={includeLocalSidecar}
+            extraOptions={extraOptions}
+            rowFilter={rowFilter}
+            restoreFocusRef={triggerRef}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}

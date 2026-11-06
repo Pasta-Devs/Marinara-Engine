@@ -179,9 +179,9 @@ try {
     refused(gravewatchText, (doc) => (doc.combat.offHand.ability = "half"), /ability/, "an ability rule nobody has");
     refused(
       gravewatchText,
-      nailAttack((attack) => (attack.onHit[0].atLeast = 0)),
+      nailAttack((attack) => (attack.onHit[0].atLeast = -1)),
       /atLeast/,
-      "a hit of none",
+      "a hit below none",
     );
     refused(
       gravewatchText,

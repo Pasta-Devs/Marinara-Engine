@@ -49,9 +49,11 @@ import {
 } from "../../../lib/mari-work-animations";
 import { seasonalThemeFor } from "../../../lib/seasonal-themes";
 import { useActivityOverview } from "../../../hooks/use-chat-insights";
+import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
+import { ConnectionSelect } from "../../connections/ConnectionSelect";
 
 /** The anchor a search row, the Settings panel or one of Mari's links scrolls to. */
 function anchorId(controlId: string) {
@@ -242,6 +244,49 @@ const MARI_RUNTIME_LABEL_KEYS: Record<MariRuntime, string> = {
 
 type MariRuntimeStatus = Pick<MariWorkspaceStatus, "runtimeSelected" | "runtimeActive">;
 
+// #7949: the "read the handbook before the first write" gate. Server-authoritative like the runtime
+// below, so Mari cannot lift it; on until the server says otherwise.
+function SkillGateRow() {
+  const { t } = useTranslation();
+  const [enabled, setEnabled] = useState(true);
+  const writeSeqRef = useRef(0);
+  useEffect(() => {
+    let cancelled = false;
+    const seqAtStart = writeSeqRef.current;
+    api
+      .get<{ enabled: boolean }>("/professor-mari/workspace/skill-gate")
+      .then((response) => {
+        if (!cancelled && writeSeqRef.current === seqAtStart) setEnabled(response.enabled);
+      })
+      .catch(() => {
+        // The toggle keeps the default; a failed read is not worth a toast in a settings view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const change = async (next: boolean) => {
+    const writeSeq = ++writeSeqRef.current;
+    setEnabled(next);
+    try {
+      await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/skill-gate", { enabled: next }));
+    } catch {
+      if (writeSeqRef.current !== writeSeq) return;
+      setEnabled(!next);
+      toast.error(t("omnibar.settings.mariSkillGate.couldNotChange"));
+    }
+  };
+  return (
+    <SettingRow
+      controlId="mari-skill-gate"
+      label={t("omnibar.settings.mariSkillGate.label")}
+      description={t("omnibar.settings.mariSkillGate.description")}
+      checked={enabled}
+      onChange={(next) => void change(next)}
+    />
+  );
+}
+
 // Professor Mari's runtime ("classic" or "pi"), the same server-authoritative pattern as the
 // Permissions Mode row above. The workspace status answers for her connection, so it also says
 // when "pi" is selected but the next run falls back to "classic" there.
@@ -249,7 +294,7 @@ function RuntimeRow() {
   const { t } = useTranslation();
   const selectId = useId();
   const helpId = useId();
-  const connectionId = useUIStore((state) => state.mariConnectionId);
+  const connectionId = useFeatureModels().data?.mariConnectionId ?? null;
   const [status, setStatus] = useState<MariRuntimeStatus | null>(null);
   const writeSeqRef = useRef(0);
   const statusPath = `/professor-mari/workspace/status${
@@ -455,7 +500,6 @@ export function OmnibarSettingsButton({ open, onOpen }: { open: boolean; onOpen:
 export function OmnibarSettingsSheet({
   onClose,
   focusControlId,
-  connections,
   marisConnectionName,
   onClearSearchHistory,
   onSetUpLocalModel,
@@ -463,8 +507,6 @@ export function OmnibarSettingsSheet({
   onClose: () => void;
   /** Scrolls to and focuses this setting on open (a search row, the Settings panel, Mari's link). */
   focusControlId: string | null;
-  /** Language connections that can answer a quick question. */
-  connections: readonly { id: string; name: string }[];
   /** The connection Mari uses, which "Same as Mari" follows. Absent when she has none. */
   marisConnectionName?: string | null;
   /** O2: forgets the local frecency history (which results you run most, per surface). */
@@ -493,14 +535,16 @@ export function OmnibarSettingsSheet({
     },
   });
 
-  const mariEnabled = useUIStore((state) => state.commandCenterMariEnabled);
-  const setMariEnabled = useUIStore((state) => state.setCommandCenterMariEnabled);
   const suggestionsEnabled = useUIStore((state) => state.omnibarSuggestionsEnabled);
   const setSuggestionsEnabled = useUIStore((state) => state.setOmnibarSuggestionsEnabled);
   const asideEnabled = useUIStore((state) => state.omnibarAsideEnabled);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
-  const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
-  const setAsideConnectionId = useUIStore((state) => state.setOmnibarAsideConnectionId);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
+  const setAsideConnectionId = (id: string) => {
+    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
+  };
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDelayMs = useUIStore((state) => state.setOmnibarAsideDelayMs);
   const editViewMode = useUIStore((state) => state.mariEditViewMode);
@@ -514,9 +558,6 @@ export function OmnibarSettingsSheet({
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const usesLocalModel = asideConnectionId === LOCAL_SIDECAR_CONNECTION_ID;
-  const followsMari = asideConnectionId === MARI_QUICK_CONNECTION && Boolean(marisConnectionName);
-  const knownConnection =
-    usesLocalModel || followsMari || connections.some((connection) => connection.id === asideConnectionId);
 
   // Focus moves in on open and back to whatever opened the sheet on close; Escape and Tab stay here.
   const onKeyDown = useInDialogFocusScope(cardRef, onClose);
@@ -614,36 +655,26 @@ export function OmnibarSettingsSheet({
                 )}
               </span>
             </label>
-            <select
+            <ConnectionSelect
+              job={t("connections.picker.job.search")}
               id={connectionSelectId}
-              className="mari-chrome-field omnibar-settings-sheet__select"
               value={asideConnectionId}
               disabled={!asideEnabled}
-              onChange={(event) => setAsideConnectionId(event.target.value)}
-            >
-              {marisConnectionName ? (
-                <option value={MARI_QUICK_CONNECTION}>
-                  {t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
-                    name: marisConnectionName,
-                  })}
-                </option>
-              ) : null}
-              <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                {localModelDownloaded
-                  ? t("omnibar.settings.aside.connection.local", "Local model (free)")
-                  : t("omnibar.settings.aside.connection.localMissing", "Local model (not set up)")}
-              </option>
-              {connections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                </option>
-              ))}
-              {knownConnection ? null : (
-                <option value={asideConnectionId} disabled>
-                  {t("omnibar.settings.aside.connection.missing", "Deleted connection")}
-                </option>
-              )}
-            </select>
+              onChange={(id) => setAsideConnectionId(id ?? LOCAL_SIDECAR_CONNECTION_ID)}
+              includeLocalSidecar
+              extraOptions={
+                marisConnectionName
+                  ? [
+                      {
+                        value: MARI_QUICK_CONNECTION,
+                        label: t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
+                          name: marisConnectionName,
+                        }),
+                      },
+                    ]
+                  : []
+              }
+            />
             {asideEnabled && usesLocalModel && !localModelDownloaded ? (
               <p className="omnibar-settings-sheet__note">
                 {t(
@@ -752,18 +783,9 @@ export function OmnibarSettingsSheet({
         </Section>
 
         <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
-          <SettingRow
-            controlId="ask-mari"
-            label={t("omnibar.settings.mari.label", "Ask Professor Mari from Search")}
-            description={t(
-              "omnibar.settings.mari.description",
-              "Open her from the Search field, the pull-down or Ctrl/Command+J.",
-            )}
-            checked={mariEnabled}
-            onChange={setMariEnabled}
-          />
           <PermissionsModeRow />
           <RuntimeRow />
+          <SkillGateRow />
           <SettingRow
             controlId="professor-mari-suggestions"
             label={t("settings.controls.professorMariSuggestions.label")}

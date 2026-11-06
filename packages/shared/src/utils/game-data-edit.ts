@@ -36,8 +36,8 @@ export const gameDataEditRequestSchema = z
             key: z.enum(GAME_DATA_EDITABLE_KEYS),
             /** The value the editor opened with (null when the key was absent). The save is
              *  refused when the key has changed since. */
-            expected: z.unknown(),
-            value: z.unknown(),
+            expected: z.unknown().optional(),
+            value: z.unknown().optional(),
           })
           .strict(),
       )

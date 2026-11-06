@@ -285,6 +285,20 @@ assert.equal(
 const shipped = formatCatalogMechanics(lastEmber.mechanics!, labels, t);
 assert.ok(shipped.includes("Grit") && !shipped.includes("{{"), shipped);
 
+// In another language every word the ruleset wrote is read in its translation: the unit, the pool and
+// the damage type, not only the UI's own words around them (Spanish re-test 2026-10-27).
+const spanish: Record<string, string> = { paces: "pasos", Grit: "Temple", coldfire: "fuego frío" };
+const translated = catalogMechanicsLabels(definition, catalog, (english) => spanish[english] ?? english);
+assert.equal(
+  formatCatalogMechanics(coldfire.mechanics!, translated, keyed),
+  "kind.attack · mechanics.range(distance=mechanics.distance(unit=pasos,value=12)) · mechanics.area(distance=mechanics.distance(unit=pasos,value=4),shape=shape.burst) · targets.any · mechanics.friendlyFire · mechanics.amountOfType(amount=2d6,type=fuego frío)",
+);
+assert.equal(
+  formatCatalogMechanics(lastEmber.mechanics!, translated, keyed),
+  "kind.heal · mechanics.selfOrTouch · targets.ally · 3 · mechanics.cost(count=1,pool=Temple)",
+);
+assert.equal(labels.units?.distance?.label, "paces", "the catalog's own header is never changed");
+
 // Nothing in the line is hard-coded to one system: the save and the pool are named by the RULESET,
 // the unit by the CATALOG, and every other word by a localization key.
 const d20Labels = {

@@ -1,99 +1,95 @@
 # Peek Prompt: See What the AI Received
 
-Peek Prompt shows you the exact text that Marinara Engine sent to the AI model for a reply. It can also show a live preview of the prompt before anything is sent. This guide explains what the viewer shows, how to open it, how to read Stored guidance, and how to use it to debug replies.
+Peek Prompt shows the exact text Marinara Engine sent to the model for a reply, or a live preview of the next one. Use it when a reply is not what you expected and you want to know what the model saw.
 
-A prompt is the full block of instructions and chat history that Marinara builds and sends to the model. The model reads that prompt and writes a reply. Peek Prompt lets you see that block after it is put together, so nothing about your reply is a mystery.
-
-## What Peek Prompt shows
-
-When you open Peek Prompt, a window titled **Assembled Prompt** appears. It has three parts.
-
-A source badge sits at the top next to the title. It tells you which version of the prompt you are looking at:
-
-- **Exact Text Model Request**: the literal request that was sent to the model.
-- **Live Preview**: a fresh preview built right now.
-- **Raw Messages**: the raw list of messages.
-- **Prompt Preview**: a general preview.
-- **Decision test preview**: a prompt assembled with the answers from an explicit decision test. It has not been sent to the chat model.
-
-Below the badge is a generation info panel. It can show the provider and model name, an estimated token count, and the real prompt token count once a reply has finished. A token is a small chunk of text that models count instead of words. This panel also shows small tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier**, and **Assistant Prefill**. Sampling values like **Top P**, **Top K**, and **Min P** can also appear here. If the connection the reply was meant for failed and your fallback connection wrote it instead, the panel also names the connection that failed, its model and a short reason, such as "key rejected" or "rate limited".
-
-The rest of the window is the prompt itself, split into collapsible sections. Each section has a label and its own rough token estimate. The chat messages are grouped under one **Chat History** section. For an exact saved request, the provider may have combined several chat turns into one provider block. Expand each block to inspect all model-visible text inside it. Click any section header to open or close it.
-
-To take the whole prompt somewhere else, click the copy button next to the close button at the top of the window. It copies every section and chat message as plain text, in the order they were sent, including sections you have not opened. Each message starts with a line naming its role, such as `[system]`, `[user]` or `[assistant]`. For an exact saved request, it copies that saved request as it was sent. Copying does not send anything to the model or change the prompt.
+The prompt is the full block of instructions and chat history Marinara puts together and sends. The model reads it and writes the reply.
 
 ## Opening Peek Prompt
 
-There are two ways to open the viewer.
+There are two ways to open the **Assembled Prompt** window.
 
-The first way is the message action bar. Follow these steps:
+From a message:
 
-1. Hover over the newest AI message in your chat.
-2. Find the **Peek prompt** action. Its icon is a magnifying glass.
-3. Click it. The **Assembled Prompt** window opens.
+1. Tap the newest AI message to show its action bar.
+2. Click **Peek prompt** (a magnifying glass).
 
-The **Peek prompt** action only appears on the last AI message in the chat. Older messages do not show it.
+It appears only on the last AI message. Older messages do not show it.
 
-The second way is a typed shortcut. It works even before you have any AI reply, so you can preview the prompt first. Follow these steps:
+From the input box, which also works before any AI reply:
 
-1. Click the message input box.
-2. Type this exact text:
+1. Type this exact text in the message box: `{{prompt}}`
+2. Press <kbd>Enter</kbd> or click **Send**.
 
-```
-{{prompt}}
-```
+Marinara clears the box and opens the window instead of sending a message. `{{prompt_preview}}` and `{{preview_prompt}}` do the same.
 
-3. Press Enter or click Send.
+## What the window shows
 
-Instead of sending a message, Marinara clears the box and opens the Peek Prompt viewer. The shortcuts `{{prompt_preview}}` and `{{preview_prompt}}` do the same thing.
+A badge next to the title says which version of the prompt you are reading.
 
-## Reading Stored guidance
+| Badge | Meaning |
+| --- | --- |
+| **Exact Text Model Request** | The literal request that was sent to the model. |
+| **Live Preview** | A preview built right now. |
+| **Raw Messages** | The raw list of messages. |
+| **Prompt Preview** | A general preview. |
+| **Decision test preview** | A prompt built with the answers from a decision test. It was not sent to the chat model. |
 
-Guided generation lets you steer a reply with an out of character instruction. When a message was made with a stored direction, it carries a separate **Stored guidance** action. Its icon is a small scroll. The action also appears on messages made with the `/impersonate` command.
+Below it, an info panel can show the service and model, an estimated token count, and the real prompt token count after a reply finishes. A token is a small chunk of text that models count instead of words. It also shows tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** and **Assistant Prefill**, and sampling values like **Top P**, **Top K** and **Min P**. Tags such as **Service Tier** and **Assistant Prefill**, and the sampling values, are advanced model settings. You can ignore them at first. If the first model failed and your fallback wrote the reply, the panel names the failed model and a short reason, such as "key rejected" or "rate limited".
 
-Click **Stored guidance** to open a window that shows the direction used for that message. For a guided message, the window labels the direction by where it came from:
+The rest is the prompt in collapsible sections, each with its own rough token estimate. Chat messages are grouped under **Chat History**. For an exact saved request, the service may have merged several chat turns into one block, so expand each block to see all the text. Click a section header to open or close it.
 
-- **/guided**: you used the `/guided` slash command.
-- **Guided regenerate**: you regenerated the message with a typed direction.
-- **Game start**: the direction came from Game Mode setup.
+An **Exact Text Model Request** is the request as sent for that reply. It was saved before anything that ran after the reply, such as an automatic summary or hiding messages, so it can hold messages the next reply will not get. Click **Show current context** to build the prompt from the chat as it is now, without sending it. Click **Show sent request** to go back.
 
-A **Copy /guided** button appears only for **/guided** and **Guided regenerate** directions. It copies the direction back out as a `/guided` command. You can paste that command later to reuse the same steer. The button does not appear for **Game start** directions.
+### Copy the prompt
 
-For an impersonated message, the window shows the impersonation details instead of a single direction. For the full guided generation and impersonate workflow, see the guide linked below.
+Click the copy button next to the close button. It copies every section and message as plain text, in the order sent, including closed sections. Each message starts with a line naming its role, such as `[system]`, `[user]` or `[assistant]`. For an exact saved request, it copies the request as it was sent. Copying sends nothing.
 
-## Using Peek Prompt to debug responses
+### Find text in the prompt
 
-Peek Prompt is the best tool for understanding a reply you did not expect. Use it when a character forgets something, ignores a rule, or acts out of character.
+Use the **Find** field at the top, or press <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd> on a Mac) inside the window. Find ignores letter case and searches the whole prompt, including closed sections and chat history. The counter shows the current match, such as "2 of 5". Use the up and down buttons, or <kbd>Enter</kbd> and <kbd>Shift</kbd>+<kbd>Enter</kbd>, to move between matches. It wraps at both ends. While **Find** has text, the window shows the full message text. Clear it to return to sections.
 
-Open the **Assembled Prompt** window and check these things:
+## Check a reply with Reply checkup
 
-- Look for missing information. If a lorebook entry, memory, or persona detail is not in any section, the model never saw it.
-- Check the parameter tags. A very high **Temperature** can make replies random, and a low **Max Output Tokens** value can cut replies short.
-- Expand the **Chat History** section. Confirm the messages you expect are present and in the right order.
-- Read the real token count after a reply. A very large prompt can push older messages out of the model's limit.
+When Marinara spots a likely cause for a poor reply, the window shows a **Reply checkup** panel above the prompt. It can say:
 
-Once you know what the model actually received, you can fix the cause. You might edit a character card, adjust a lorebook entry, or change a value in your generation parameters.
+- The character card is large and takes a big share of the prompt budget (**Large character card**).
+- The reply hit its token limit and stopped mid-sentence (**Cut off**).
+- The model sent back no visible text (**Empty reply**).
+- Older messages were not sent because the prompt did not fit (**N older messages not sent**).
+- Lorebook entries matched but did not fit the budget (**N lorebook entries left out**).
+- The reply limit was lowered to make room for the prompt (**Reply limit cut**).
+
+Where it helps, a link jumps to the setting to change, such as **Max output tokens** or **Lorebook token budget**.
+
+## Debug an unexpected reply
+
+Open **Assembled Prompt** and check:
+
+- **Missing information.** If a lorebook entry, memory or persona detail is in no section, the model never saw it.
+- **Parameter tags.** A high **Temperature** can make replies random, and a low **Max Output Tokens** can cut them short.
+- **Chat History.** Confirm the messages you expect are there, in the right order.
+- **Token count.** A large prompt can push older messages out of the model's limit.
+
+Then fix the cause: edit a character card, adjust a lorebook entry, or change a generation setting. See [Generation Parameters](../prompts/generation-parameters.md).
+
+To read the direction behind a steered reply, use **Stored guidance** on the message. See [Guided Generation and Impersonate](guided-and-impersonate.md#read-stored-guidance).
 
 ## Testing decision statements
 
-Open **Decision diagnostics** inside Peek Prompt to inspect the current chat's prompt statements and lorebook decisions. Opening the panel or choosing **Preview inputs** prepares the request bodies without asking the Decision model or starting a local model. Expand **Prepared request bodies** to see the recent messages, resolved statements, options, and model-specific request format. Further lorebook statements may become reachable only after an earlier decision is answered.
+A [Decision model](../connections/decision-models.md) answers yes-or-no questions for features such as lorebooks. **Decision diagnostics** inside Peek Prompt lets you inspect and test those questions for the current chat.
 
-Choose **Test decisions** to run the eligible questions against your selected Decision model. This makes real decision requests, so a hosted model may charge for them. It does not generate a chat reply, run agents, change game state, or save the test's answers or timers to the chat.
+1. Open Peek Prompt and find **Decision diagnostics**.
+2. Opening it, or clicking **Preview inputs**, prepares the request bodies without asking any model. Expand **Prepared request bodies** to see the recent messages, resolved statements, options and request format.
+3. Click **Test decisions** to ask your Decision model the eligible questions.
 
-An explicit test can wait for a local reasoning model even when ordinary pre-reply decisions are deferred. This does not change your preference for live replies; previewing inputs still sends no model requests.
+**Test decisions** makes real requests, so a hosted model may charge for them. It does not write a chat reply, run agents, change game state, or save its answers or timers to the chat. Later lorebook statements may become reachable only after an earlier one is answered. An explicit test can wait for a local reasoning model even when ordinary pre-reply decisions are deferred. This does not change your setting for live replies.
 
-Each result shows its score when available, the threshold used for a yes/no statement, and the resulting answer. A model that returns only a yes/no word is labeled accordingly; its answer is not presented as a probability. Choice results show the selected option. Held, deferred, over-limit, unavailable, and failed decisions have separate explanations, so a missing answer is not mistaken for a low score.
+Each result shows its score when there is one, the threshold for a yes-or-no statement, and the answer. A model that returns only "yes" or "no" is labeled so, and its answer is not shown as a probability. Choice results show the selected option. Held, deferred, over-limit, unavailable and failed decisions each have their own explanation.
 
-After a test, the prompt below uses the test's answers. Use **Show original prompt** to return to the content you originally opened, or **Show tested prompt** to switch back. **Requests sent and results** shows the actual decision request bodies and returned results, without authentication headers.
+After a test, the prompt below uses the test's answers. Click **Show original prompt** to return to what you opened, or **Show tested prompt** to switch back. **Requests sent and results** shows the actual request bodies and results, without authentication headers.
 
-Tests use the current chat and current settings, even when you opened Peek Prompt from a historical reply. They do not reconstruct the original decision requests. Tests cover prompt statements and lorebook decisions; they do not run agent activation or post-reply decisions. Ordinary Peek Prompt remains passive until you explicitly choose **Test decisions**.
+If it did not work: **Could not prepare the decision test. Check the chat connection and try again.** Check that the chat has a working model, then retry.
 
-When **Use Decision model** is enabled for Advanced Memory, the panel also shows **Advanced Memory activity**. These saved reports identify the latest recall and scene-end check, with their model, time, scores, selections and fallback status. They can appear even when the prompt has no decision statements. They describe actual past calls, not the current preview or a replay of the selected historical reply. Compatible swipes can reuse an earlier recall report. Up to 128 results are saved per report, with selected results first; omitted results are counted. New reports appear after the next eligible Decision model call, and viewing them makes no model requests.
+Tests use the current chat and settings, even when you opened Peek Prompt from an older reply. They do not rebuild the original decision requests. They cover prompt statements and lorebook decisions, not agent activation or post-reply decisions.
 
-## Related guides
-
-- [Generation Parameters](../prompts/generation-parameters.md)
-- [Preset Editor and Prompt Manager](../prompts/presets.md)
-- [Decision Models](../connections/decision-models.md)
-- [Guided Generation and Impersonate](guided-and-impersonate.md)
-- [Message Actions: Edit, Delete, Swipe, Regenerate](messages.md)
+When **Use Decision model** is on for Advanced Memory (Marinara's long-term memory feature, see [Memory Recall and Chat Summaries](../agents/memory.md)), the panel also shows **Advanced Memory activity**. These saved reports show the latest recall and scene-end check with their model, time, scores, selections and fallback status. They describe past calls, not the current preview, and can appear even when the prompt has no decision statements. Compatible swipes can reuse an earlier recall report. Each report keeps up to 128 results, selected ones first, and counts the rest. New reports appear after the next eligible Decision model call. Viewing them makes no model requests.

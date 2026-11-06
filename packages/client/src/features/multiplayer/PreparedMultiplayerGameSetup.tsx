@@ -1,7 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Chat, MultiplayerHostAction, MultiplayerPlayer } from "@marinara-engine/shared";
 import { useCharacters } from "../../hooks/use-characters";
+import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { GameSetupWizardProps } from "../../components/game/GameSetupWizard";
 
 const GameSetupWizard = lazy(() =>
@@ -24,7 +25,24 @@ export function PreparedMultiplayerGameSetup({
   busy?: boolean;
 }) {
   const { t } = useTranslation();
-  const { data: characters = [], isLoading } = useCharacters();
+  const { data: rows, isLoading } = useCharacters();
+  // Library rows carry the card as JSON; the wizard needs display names and avatars, as ChatArea hands them.
+  const characters = useMemo<GameSetupWizardProps["characters"]>(
+    () =>
+      ((rows ?? []) as Array<{ id: string; data: unknown; comment?: string | null; avatarPath?: string | null }>).map(
+        (row) => {
+          const display = parseCharacterDisplayData({ data: row.data, comment: row.comment });
+          return {
+            id: row.id,
+            name: display.name,
+            comment: display.comment,
+            avatarUrl: row.avatarPath ?? undefined,
+            avatarCrop: display.avatarCrop ?? null,
+          };
+        },
+      ),
+    [rows],
+  );
   const loading = (
     <p role="status" className="p-4 text-sm text-[var(--muted-foreground)]">
       {t("multiplayer.loading")}
@@ -37,7 +55,7 @@ export function PreparedMultiplayerGameSetup({
         activeChatId={chat.id}
         isNewGame
         chatMetadata={chat.metadata as Record<string, unknown>}
-        characters={characters as GameSetupWizardProps["characters"]}
+        characters={characters}
         multiplayerPlayers={players}
         onSetupError={() => false}
         isLoading={busy}

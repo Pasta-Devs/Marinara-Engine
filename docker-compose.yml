@@ -23,6 +23,7 @@ services:
       # - TZ=America/New_York          # IANA timezone for time-based features (e.g. character schedules)
       # - ENCRYPTION_KEY=              # AES key for API key encryption (generate: openssl rand -hex 32)
       # - LOG_LEVEL=debug              # Set to "debug" to log full prompts & responses
+      # - LOG_FORMAT=pretty            # Readable lines with real line breaks in `docker logs`
     restart: unless-stopped
 
 volumes:

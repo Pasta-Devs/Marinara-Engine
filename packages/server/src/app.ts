@@ -19,6 +19,8 @@ import { compressJsonHook } from "./middleware/compress-json.js";
 import { seedDefaultPreset } from "./db/seed.js";
 import { seedProfessorMari } from "./db/seed-mari.js";
 import { seedDefaultConnection } from "./db/seed-connection.js";
+import { linkConnectionAccounts } from "./services/storage/connection-accounts.storage.js";
+import { starSavedModels } from "./services/connections/model-stars.js";
 import { seedDefaultBackgrounds } from "./db/seed-backgrounds.js";
 import { seedDefaultGameAssets } from "./db/seed-game-assets.js";
 import { seedDefaultRegexScripts } from "./db/seed-regex.js";
@@ -27,6 +29,7 @@ import { recoverGalleryImages } from "./services/storage/gallery-recovery.js";
 import { createLibraryFoldersStorage } from "./services/storage/library-folders.storage.js";
 import { migrateCharacterExtendedDescriptionsToLorebooks } from "./services/lorebook/extended-descriptions-migration.js";
 import { migrateTtsSettingsToAudioConnection } from "./services/connections/tts-audio-connection-migration.js";
+import { migrateGenerativeAudioConnections } from "./services/connections/generative-audio-connection-migration.js";
 import { migrateTripoConnectionsToApiKey } from "./services/avatars/generation/tripo-key.js";
 import { migrateLegacyDefaultAgentPrompts } from "./services/agents/default-prompt-migration.js";
 import { APP_VERSION, resetTurnGameRegistry } from "@marinara-engine/shared";
@@ -67,7 +70,7 @@ import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
-import { followLogLevel, logger, protectTerminalLogger } from "./lib/logger.js";
+import { followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -121,13 +124,16 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   });
   // app.log shares the shared logger's stream, which logger.ts already protects; this
   // is a no-op then and only matters if Fastify is ever given its own stream again.
-  protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  protectTerminalLogger(app.log, prettyLogs);
   // Hold internal inject() calls until every route, hook and package is registered (see fastify-inject-gate.ts).
   const releaseInjectGate = holdInjectUntilRegistered(app);
   const stopFollowingLogLevel = followLogLevel(app.log);
   app.addHook("onClose", async () => stopFollowingLogLevel());
   // requestId on every line of a request, echoed as x-request-id.
   registerRequestLogging(app, logController);
+
+  // Runs before host validation so its 421 refusals also carry the security headers.
+  app.addHook("onRequest", securityHeadersHook);
 
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.
@@ -227,6 +233,17 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   } else {
     await startup.phase("seed.connection", () => seedDefaultConnection(db));
   }
+  try {
+    // Unlinked Models still work on their own copied credentials, so a failed link must not stop the boot.
+    await startup.phase("migrate.connection-accounts", () => linkConnectionAccounts(db));
+  } catch (error) {
+    app.log.warn(error, "Connection account linking did not complete; it will retry next startup");
+  }
+  try {
+    await startup.phase("migrate.model-stars", () => starSavedModels(db));
+  } catch (error) {
+    app.log.warn(error, "Starring saved models did not complete; it will retry next startup");
+  }
   await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
   await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));
   await startup.phase("migrate.extended-descriptions", () => migrateCharacterExtendedDescriptionsToLorebooks(db));
@@ -239,9 +256,23 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.warn(error, "Lorebook folder cleanup did not complete; it will retry next startup");
   }
   try {
+    const removedPresetFolderIds = await startup.phase("migrate.preset-folder-references", () =>
+      createLibraryFoldersStorage(db).pruneMissingPresetItemIds(),
+    );
+    if (removedPresetFolderIds > 0)
+      app.log.info("Removed %d missing preset ID(s) from library folders", removedPresetFolderIds);
+  } catch (error) {
+    app.log.warn(error, "Preset folder cleanup did not complete; it will retry next startup");
+  }
+  try {
     await startup.phase("migrate.tts-audio", () => migrateTtsSettingsToAudioConnection(db));
   } catch (error) {
     app.log.warn(error, "TTS audio-connection migration did not complete; it will retry next startup");
+  }
+  try {
+    await startup.phase("migrate.generative-audio", () => migrateGenerativeAudioConnections(db));
+  } catch (error) {
+    app.log.warn(error, "Generative audio-connection migration did not complete; it will retry next startup");
   }
   try {
     await startup.phase("migrate.tripo-key", () => migrateTripoConnectionsToApiKey(db));
@@ -249,13 +280,27 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.warn(error, "Tripo connection migration did not complete; it will retry next startup");
   }
   await startup.phase("seed.backgrounds", () => seedDefaultBackgrounds());
-  await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  // Guarded like the asset scan below: the seed runs again next boot, while a failed boot costs the user everything.
+  try {
+    await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  } catch (error) {
+    logger.warn(error, "[seed] Default game assets were not fully installed; the seed runs again next boot");
+  }
 
   // ── Ensure default asset directories exist, then build manifest ──
-  await startup.phase("assets.manifest", () => {
-    ensureAssetDirs();
-    buildAssetManifest();
-  });
+  // Guarded like the post-activation rescan below: the manifest is rebuilt on the next rescan or upload, while a failed
+  // boot costs the user everything.
+  try {
+    await startup.phase("assets.manifest", () => {
+      ensureAssetDirs();
+      buildAssetManifest();
+    });
+  } catch (error) {
+    logger.warn(
+      error,
+      "[game-assets] Startup asset scan failed; the asset manifest may be stale until the next rescan",
+    );
+  }
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
   await startup.phase("gallery.recover", () => recoverGalleryImages(db));
@@ -285,9 +330,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   app.addHook("preHandler", (_request, reply, done) => {
     runWithGenerationFallbackNotifier(createReplyFallbackNotifier(reply), done);
   });
-
-  // ── Security headers ──
-  app.addHook("onRequest", securityHeadersHook);
 
   // ── IP Allowlist ──
   app.addHook("onRequest", ipAllowlistHook);
@@ -394,6 +436,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── Health Check ──
   app.get("/api/health", { config: { rateLimit: HEALTH_RATE_LIMIT } }, async (request) => {
+    // The probe is exempt from sign-in, so a caller who could not open the app itself (this machine,
+    // a trusted network, or a signed-in browser) only learns that the server is up.
+    if (!isBasicAuthSatisfied(request) || !isAndroidLocalAuthSatisfied(request)) return { status: "ok" };
     const commit = getBuildCommit();
     let capabilityPackages: Awaited<ReturnType<typeof capabilityPackageManager.diagnostics>> | null = null;
     try {
@@ -404,15 +449,11 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
     // A slot service that throws must not take the health endpoint down with it: this
     // response is also the freeze detector's signal and an uptime check's target.
-    // The probe is exempt from sign-in, so local model file names and GPU details only go to callers who could
-    // open the app itself (this machine, a trusted network, or a signed-in browser).
     let sidecars: ReturnType<typeof buildSidecarHealthSection> | null = null;
-    if (isBasicAuthSatisfied(request) && isAndroidLocalAuthSatisfied(request)) {
-      try {
-        sidecars = buildSidecarHealthSection();
-      } catch (error) {
-        logRateLimited("warn", "health.sidecars", error, "Sidecar health diagnostics are unavailable");
-      }
+    try {
+      sidecars = buildSidecarHealthSection();
+    } catch (error) {
+      logRateLimited("warn", "health.sidecars", error, "Sidecar health diagnostics are unavailable");
     }
     return {
       status: "ok",

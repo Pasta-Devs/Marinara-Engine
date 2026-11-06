@@ -9,6 +9,8 @@ import {
   AVATAR_FEELING_EMOTIONS,
   PNGTUBER_DEFAULT_MOTION,
   SPRITE_EXPRESSION_LABELS,
+  SPRITE_EYES_CLOSED_SUFFIXES,
+  SPRITE_MOUTH_OPEN_SUFFIXES,
   detectSpriteEmotionBindings,
   detectSpriteFeelingBindings,
   isAvatarExtraFeeling,
@@ -32,8 +34,6 @@ export const PNGTUBER_HOP_MS = 220;
 const MAX_LAYER_SETS = 64;
 const LAYER_KEY = /^[\p{L}\p{N}_]{1,64}$/u;
 const FULL_BODY = /^full[_\s-]+/iu;
-const MOUTH_OPEN_SUFFIXES = ["mouth_open", "open_mouth", "talking", "talk", "speaking", "speak"];
-const EYES_CLOSED_SUFFIXES = ["eyes_closed", "closed_eyes", "eyes_shut", "blinking", "blink"];
 
 /** Names of the extra feelings (the six have AVATAR_EMOTION_LABEL_KEYS in PngtuberSetupPanel.tsx). */
 export const AVATAR_FEELING_LABEL_KEYS: Readonly<Record<AvatarExtraFeeling, string>> = {
@@ -64,6 +64,7 @@ export const AVATAR_FEELING_LABEL_KEYS: Readonly<Record<AvatarExtraFeeling, stri
 
 export interface SpriteLike {
   expression: string;
+  label?: string;
   url?: string;
 }
 
@@ -75,8 +76,8 @@ export function splitSpriteVariant(key: string): { base: string; mouthOpen: bool
   for (let changed = true; changed;) {
     changed = false;
     for (const [suffixes, isMouth] of [
-      [MOUTH_OPEN_SUFFIXES, true],
-      [EYES_CLOSED_SUFFIXES, false],
+      [SPRITE_MOUTH_OPEN_SUFFIXES, true],
+      [SPRITE_EYES_CLOSED_SUFFIXES, false],
     ] as const) {
       const suffix = suffixes.find((candidate) => base.length > candidate.length + 1 && base.endsWith(`_${candidate}`));
       if (!suffix) continue;
@@ -118,7 +119,7 @@ export function buildPngtuberLayersFromSprites(
   const layers = new Map<string, PngtuberLayerSet>();
   const variants: { base: string; key: string; mouthOpen: boolean; eyesClosed: boolean }[] = [];
   for (const sprite of pngtuberSpriteFamily(sprites)) {
-    const key = normalizeSpriteExpressionKey(sprite.expression);
+    const key = normalizeSpriteExpressionKey(sprite.label ?? sprite.expression);
     if (!LAYER_KEY.test(key)) continue;
     const split = splitSpriteVariant(key);
     if (split.mouthOpen || split.eyesClosed) variants.push({ ...split, key });

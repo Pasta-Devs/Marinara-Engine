@@ -164,7 +164,7 @@ export async function gameBoardPacksRoutes(app: FastifyInstance) {
   // ── POST /api/game-tile-packs/boards ── a pack saved from the maker.
   app.post("/", { bodyLimit: SAVE_BODY_LIMIT }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Board pack save" })) return;
-    const read = parseBoardPack(z.object({ pack: z.unknown() }).parse(req.body).pack);
+    const read = parseBoardPack(z.object({ pack: z.unknown().optional() }).parse(req.body).pack);
     return read.ok ? save(reply, read.pack, read.notes) : refuse(reply, read.issues);
   });
 

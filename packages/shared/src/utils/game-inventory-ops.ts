@@ -12,6 +12,7 @@ import {
   GAME_INVENTORY_HOLDER_MAX_LENGTH,
   GAME_INVENTORY_ITEM_REF_PATTERN,
   GAME_INVENTORY_MAX_QUANTITY,
+  GAME_INVENTORY_VANISHES_MAX_MINUTES,
   GAME_INVENTORY_NAME_MAX_LENGTH,
   addGameInventoryPlaced,
   gameInventoryAddedItem,
@@ -66,6 +67,9 @@ export const gameInventoryOpSchema = z.discriminatedUnion("op", [
       holder: holder.optional(),
       among: z.array(z.string().trim().max(GAME_INVENTORY_HOLDER_MAX_LENGTH)).min(1).max(20).optional(),
       log: z.boolean().optional(),
+      /** It vanishes after this many minutes of game time (Capability API 1.760), on stacks of its own:
+       *  5e's Creation. */
+      lasts: z.number().int().min(1).max(GAME_INVENTORY_VANISHES_MAX_MINUTES).optional(),
     })
     .strict(),
   /** Out by name, from one bag when `from` is given and otherwise the player's first. `as` is what the
@@ -108,6 +112,9 @@ export const gameInventoryOpSchema = z.discriminatedUnion("op", [
   z.object({ op: z.enum(["equip", "unequip", "bind", "unbind"]), id: stackId }).strict(),
   /** One stack's switch turned on or off (Capability API 1.170): an item of one with a `toggle`. */
   z.object({ op: z.literal("switch"), id: stackId, on: z.boolean() }).strict(),
+  /** One stack turned into another of its forms (Capability API 1.575), 0 as it was made: an item of
+   *  one with `forms`. */
+  z.object({ op: z.literal("form"), id: stackId, form: z.number().int().min(0).max(8) }).strict(),
 ]);
 
 export type GameInventoryOp = z.infer<typeof gameInventoryOpSchema>;
@@ -117,7 +124,12 @@ export type GameInventoryOp = z.infer<typeof gameInventoryOpSchema>;
  *  a fake with the real thing), which no op a client sends can, since the schema above is strict. */
 export type GameInventoryEngineOp =
   | GameInventoryOp
-  | (Extract<GameInventoryOp, { op: "add" }> & { truly?: string })
+  | (Extract<GameInventoryOp, { op: "add" }> & {
+      truly?: string;
+      /** Into one bag past what its bearer can carry, who is then over their limit: starting gear
+       *  taken with Free edit on (2026-10-23 playtest). */
+      pastLimit?: true;
+    })
   | (Extract<GameInventoryOp, { op: "take" }> & { kind?: string });
 
 export const gameInventoryOpsRequestSchema = z
@@ -243,7 +255,15 @@ export function applyGameInventoryOps(
           break;
         }
         const destination = op.among ? { among: op.among.map((holder) => cleanGameInventoryHolder(holder)) } : bag;
-        const added = addGameInventoryPlaced(current, like, op.count, destination, makeId, rules);
+        const added = addGameInventoryPlaced(
+          current,
+          op.lasts ? { ...like, vanishesIn: op.lasts } : like,
+          op.count,
+          destination,
+          makeId,
+          rules,
+          "pastLimit" in op && op.pastLimit ? { pastLimit: true } : undefined,
+        );
         if (!added || added.shares.length === 0) {
           refuse(added ? "too-heavy" : "refused");
           break;
@@ -516,6 +536,26 @@ export function applyGameInventoryOps(
         const { on: _on, ...rest } = stack;
         current = current.map((each, index) =>
           index === at ? { ...rest, ...(op.on ? { on: true as const } : {}) } : each,
+        );
+        results.push({ ok: true, id: stack.id });
+        break;
+      }
+      case "form": {
+        const at = current.findIndex((stack) => stack.id === op.id);
+        const stack = current[at];
+        if (!stack) {
+          refuse("missing-stack");
+          break;
+        }
+        // Only one of an item with forms, and only a form it has.
+        const forms = stack.item ? rules?.itemOf(stack.item)?.forms : undefined;
+        if (!forms || op.form >= forms.length || stack.quantity !== 1) {
+          refuse("refused");
+          break;
+        }
+        const { form: _form, ...rest } = stack;
+        current = current.map((each, index) =>
+          index === at ? { ...rest, ...(op.form ? { form: op.form } : {}) } : each,
         );
         results.push({ ok: true, id: stack.id });
         break;

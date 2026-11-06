@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
@@ -10,6 +11,7 @@ import {
 import type { DB } from "../../packages/server/src/db/connection.js";
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
 import { appSettings, installedExtensions } from "../../packages/server/src/db/schema/index.js";
+import { personalExtensionsRoutes } from "../../packages/server/src/routes/personal-extensions.routes.js";
 import {
   getPersonalExtensionPolicy,
   setExternalExtensionsEnabled,
@@ -22,6 +24,9 @@ import { getMariDbService } from "../../packages/server/src/services/mari-db/mar
 import { preparePersonalExtensionTrust } from "../../packages/server/src/services/setup/personal-extension-trust.js";
 import { createAppSettingsStorage } from "../../packages/server/src/services/storage/app-settings.storage.js";
 
+const Fastify = createRequire(new URL("../../packages/server/package.json", import.meta.url))(
+  "fastify",
+) as typeof import("fastify").default;
 const readSource = (relative: string) => readFileSync(new URL(relative, import.meta.url), "utf8");
 const clientInjectorSource = readSource("../../packages/client/src/components/layout/PersonalExtensionInjector.tsx");
 const clientContextSource = readSource("../../packages/client/src/lib/personal-extension-context.ts");
@@ -295,6 +300,19 @@ try {
   assert.deepEqual(capabilityDraft.capabilities, ["read_active_characters"]);
   const approvedCapabilityDraft = await storage.approve(capabilityDraft.id, capabilityDraft.contentHash);
   assert.equal(approvedCapabilityDraft?.enabled, true);
+  // The sandbox document keeps an opaque origin even when it is opened outside its sandboxed iframe.
+  const sandboxApp = Fastify({ logger: false });
+  sandboxApp.decorate("db", db);
+  await sandboxApp.register(personalExtensionsRoutes, { prefix: "/api/personal-extensions" });
+  const sandboxPage = await sandboxApp.inject({
+    method: "GET",
+    url: `/api/personal-extensions/${capabilityDraft.id}/sandbox.html?hash=${encodeURIComponent(capabilityDraft.contentHash)}`,
+  });
+  await sandboxApp.close();
+  assert.equal(sandboxPage.statusCode, 200);
+  const sandboxPolicy = String(sandboxPage.headers["content-security-policy"]);
+  assert.match(sandboxPolicy, /^sandbox allow-scripts;/u);
+  assert.doesNotMatch(sandboxPolicy, /allow-same-origin/u);
   const changedCapabilityDraft = await storage.update(capabilityDraft.id, {
     capabilities: ["read_active_persona"],
   });
@@ -531,7 +549,7 @@ try {
     updatedAt: "",
   };
   const worker = browserWorkerSource(uiExtension);
-  assert.match(worker, /version:\s*5/u, "Worker must advertise context-capable API version 5");
+  assert.match(worker, /version:\s*6/u, "Worker must advertise dice-format-capable API version 6");
   assert.match(worker, /capabilities:\s*Object\.freeze/u, "Worker must expose its approved capabilities");
   assert.match(worker, /context:\s*Object\.freeze\(\{\s*get:/u);
   assert.match(worker, /"context-update"/u, "Worker must receive bounded context snapshots");

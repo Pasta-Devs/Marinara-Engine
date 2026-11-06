@@ -46,6 +46,11 @@ export function advanceTime(current: GameTime, action: string): GameTime {
   return addMinutes(current, minutes);
 }
 
+/** The clock as minutes since day 0, for how long passed between two times. */
+export function gameTimeMinutes(time: GameTime): number {
+  return time.day * 24 * 60 + time.hour * 60 + time.minute;
+}
+
 /** Add a specific number of minutes to the clock. */
 export function addMinutes(current: GameTime, minutes: number): GameTime {
   let totalMinutes = current.day * 24 * 60 + current.hour * 60 + current.minute + minutes;
@@ -89,4 +94,13 @@ export function formatGameTime(time: GameTime): string {
 /** Create the initial game time (Day 1, morning). */
 export function createInitialTime(): GameTime {
   return { day: 1, hour: 8, minute: 0 };
+}
+
+/** A game's clock as minutes from its start, as the story counts time in a place (Capability API 1.362);
+ *  undefined when the game keeps no clock. */
+export function gameClockMinutes(time: unknown): number | undefined {
+  const { day, hour, minute } = (time ?? {}) as Partial<Record<keyof GameTime, unknown>>;
+  if (typeof day !== "number" || !Number.isFinite(day)) return undefined;
+  const at = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  return Math.max(0, Math.round(day * 24 * 60 + at(hour) * 60 + at(minute)));
 }

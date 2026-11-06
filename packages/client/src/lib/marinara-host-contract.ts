@@ -32,10 +32,30 @@ export const MARINARA_HOST_MODULE_SPECIFIERS = [
   "i18next",
   "react-i18next",
   "framer-motion",
+  "motion/react",
   "tailwind-merge",
   "clsx",
 ] as const;
 export type MarinaraHostModuleSpecifier = (typeof MARINARA_HOST_MODULE_SPECIFIERS)[number];
+
+/** Public slots resolve independently of the Engine's primary dependencies: API-1 Motion 13 and Zod 3 stay compatible. */
+export const MARINARA_HOST_MODULE_IMPORTS = {
+  react: "react",
+  "react/jsx-runtime": "react/jsx-runtime",
+  "react-dom": "react-dom",
+  "react-dom/client": "react-dom/client",
+  "@tanstack/react-query": "@tanstack/react-query",
+  zustand: "zustand",
+  "zustand/middleware": "zustand/middleware",
+  sonner: "sonner",
+  zod: "zod-v3",
+  i18next: "i18next",
+  "react-i18next": "react-i18next",
+  "framer-motion": "framer-motion-v13",
+  "motion/react": "framer-motion",
+  "tailwind-merge": "tailwind-merge",
+  clsx: "clsx",
+} as const satisfies Record<MarinaraHostModuleSpecifier, string>;
 
 export const MARINARA_HOST_STORE_NAMES = [
   "ui",
@@ -51,7 +71,7 @@ export const MARINARA_HOST_STORE_NAMES = [
 export type MarinaraHostStoreName = (typeof MARINARA_HOST_STORE_NAMES)[number];
 
 /**
- * Major versions of the host modules, which packages are built against. They must match packages/client/package.json,
+ * Major versions of the host modules, which packages are built against. Their mapped dependencies must match packages/client/package.json,
  * and changing one requires a capability API major (scripts/regressions/marinara-host-namespace.regression.ts).
  */
 export const MARINARA_HOST_MODULE_MAJORS = {
@@ -64,6 +84,7 @@ export const MARINARA_HOST_MODULE_MAJORS = {
   i18next: 26,
   "react-i18next": 17,
   "framer-motion": 13,
+  motion: 14,
   "tailwind-merge": 3,
   clsx: 2,
 } as const;
@@ -99,6 +120,13 @@ export interface MarinaraHostV1 {
     readonly backfill: typeof useRollingBackfillStore;
   };
   readonly services: {
+    /** Capability API 1.385: the gallery's existing browser, Android and prepared iPhone image saving. */
+    readonly imageDownloads: Pick<
+      typeof import("./file-download"),
+      "downloadUrlToDevice" | "prepareImageSave" | "savePreparedImageToDevice" | "shouldUseIosImageShare"
+    >;
+    /** Capability API 1.381: independent package audio players and the shared asset selector. */
+    readonly audio: typeof import("./audio-service");
     /** The module namespace of lib/tts-service.ts (ttsService, playWhenAvailable, ...). */
     readonly tts: typeof import("./tts-service");
     /** The module namespace of lib/app-dialogs.ts (showAlertDialog, showConfirmDialog, ...). */

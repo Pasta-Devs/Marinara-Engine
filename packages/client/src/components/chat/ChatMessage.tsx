@@ -3,19 +3,29 @@ import { useMessagePresetVariables } from "../../hooks/use-message-preset-variab
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
 import { createPortal } from "react-dom";
-import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
+import {
+  cn,
+  copyToClipboard,
+  getAvatarCropStyle,
+  getMergedAvatarBorderStyle,
+  isLegacyAvatarCrop,
+} from "../../lib/utils";
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
   getRoleplayCommandActivity,
+  getRoleplayArtifacts,
   getRoleplayCommandContentOffset,
   type AvatarCrop,
 } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
+import { SystemMessage } from "./SystemMessage";
+import { protectMarkdownCode } from "../../lib/markdown-code";
 import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview";
 import {
   RoleplayCommandResults,
   RoleplayDiceRoll,
+  RoleplayArtifact,
   RoleplayWhisper,
   replaceRoleplayCommandMarkers,
 } from "./RoleplayCommandResults";
@@ -36,9 +46,11 @@ import { useCharacterSummaries, useChatGalleryFilenameIndex } from "../../hooks/
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { ChatImagePreview } from "./ChatImagePreview";
+import { resolveMergedAvatarRoster } from "./merged-avatar-roster";
 import { ChatVideoAttachment, isAttachmentHiddenByImageText, isVideoAttachment } from "./ChatVideoAttachment";
 import { recordClientRuntimeEvent } from "../../lib/client-runtime-diagnostics";
 import { isDiceRollResult, readRoleplayDiceRolls } from "../../lib/dice-roll-result";
+import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
 import { DiceMessageContent, diceRollReplacesMessageContent } from "./ConversationMessageShared";
 import {
   User,
@@ -74,6 +86,7 @@ import {
 import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import type { GameTurnStoryboard, GameTurnStoryboardKeyframe } from "@marinara-engine/shared";
 import {
+  Fragment,
   memo,
   useState,
   useMemo,
@@ -90,6 +103,8 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys, rememberRecentMessageContentEdit } from "../../hooks/use-chats";
 import { useShallow } from "zustand/react/shallow";
 import { createMessageMacroResolver } from "../../lib/chat-macros";
+import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
+import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -103,6 +118,9 @@ import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
+  getTTSPersonaVoice,
+  resolveTTSMessagePersona,
   withTTSVoiceRequestCacheKeys,
 } from "../../lib/tts-dialogue";
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
@@ -1026,9 +1044,15 @@ interface ChatMessageProps {
   isGrouped?: boolean;
   personaInfo?: PersonaInfo;
   groupChatMode?: string;
+  /** This chat's Card Theming switch; undefined falls back to the retired global setting. */
+  colorInlineNames?: boolean;
   chatCharacterIds?: string[];
-  /** Active character IDs used for merged Narrator avatar presentation. */
+  /** The chat's live active characters: a streaming merged Narrator reply shows them; a saved one keeps its own. */
   mergedGroupCharacterIds?: string[];
+  /** Chat members an expression result cannot name, kept on a merged reply saved before its roster was. */
+  noExpressionCharacterIds?: string[];
+  /** For an earlier part of a reply split at scene breaks: its last part's extra, whose saved data its avatars use. */
+  splitReplyLastPartExtra?: Record<string, unknown>;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   /** Distance from the latest message (0 = newest). Used for depth-range regex filtering. */
   messageDepth?: number;
@@ -1168,6 +1192,7 @@ function RoleplayThinkingDisclosure({
 }) {
   const { t } = useTranslation();
   const contentId = useId();
+  const [copied, setCopied] = useState(false);
   const { expanded, setExpanded, durationLabel } = useThinkingToggle(
     isStreaming,
     outputStarted,
@@ -1180,26 +1205,46 @@ function RoleplayThinkingDisclosure({
       data-message-thinking-inline
       className="mb-2 overflow-hidden rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]"
     >
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={expanded ? contentId : undefined}
-        title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
-        onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-[0.75rem] font-medium text-[var(--marinara-chat-chrome-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)]"
-      >
-        <Brain
-          size="0.875rem"
-          aria-hidden="true"
-          className={cn("shrink-0", isStreaming && !outputStarted && "animate-pulse")}
-        />
-        <span className="min-w-0 flex-1">{durationLabel}</span>
-        <ChevronRight
-          size="0.875rem"
-          aria-hidden="true"
-          className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
-        />
-      </button>
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={expanded ? contentId : undefined}
+          title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
+          onClick={() => setExpanded((value) => !value)}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-[0.75rem] font-medium text-[var(--marinara-chat-chrome-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)]"
+        >
+          <Brain
+            size="0.875rem"
+            aria-hidden="true"
+            className={cn("shrink-0", isStreaming && !outputStarted && "animate-pulse")}
+          />
+          <span className="min-w-0 flex-1">{durationLabel}</span>
+          <ChevronRight
+            size="0.875rem"
+            aria-hidden="true"
+            className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
+          />
+        </button>
+        {!summaryUnavailable && thinking && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!(await copyToClipboard(thinking))) {
+                toast.error(t("chat.message.thoughts.copyFailed"));
+                return;
+              }
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            aria-label={t(copied ? "chat.message.thoughts.copied" : "chat.message.thoughts.copy")}
+            title={t(copied ? "chat.message.thoughts.copied" : "chat.message.thoughts.copy")}
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-[var(--marinara-chat-chrome-text)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            {copied ? <Check size="0.875rem" aria-hidden="true" /> : <Copy size="0.875rem" aria-hidden="true" />}
+          </button>
+        )}
+      </div>
       {expanded && (
         <div
           id={contentId}
@@ -1248,9 +1293,11 @@ function renderWithSpeakerTags(
   let key = 0;
 
   while ((match = SPEAKER_TAG_RE.exec(text)) !== null) {
-    // Text before the speaker tag — use default color
+    // Keep each narration chunk's Markdown keys local to that chunk.
     if (match.index > lastIndex) {
-      nodes.push(...renderLine(text.slice(lastIndex, match.index), defaultDialogueColor));
+      nodes.push(
+        <Fragment key={`n${key++}`}>{renderLine(text.slice(lastIndex, match.index), defaultDialogueColor)}</Fragment>,
+      );
     }
     const speakerName = match[1]!;
     const dialogue = match[2]!;
@@ -1264,7 +1311,7 @@ function renderWithSpeakerTags(
 
   // Remaining text after last speaker tag
   if (lastIndex < text.length) {
-    nodes.push(...renderLine(text.slice(lastIndex), defaultDialogueColor));
+    nodes.push(<Fragment key={`n${key}`}>{renderLine(text.slice(lastIndex), defaultDialogueColor)}</Fragment>);
   }
 
   return nodes;
@@ -1770,7 +1817,8 @@ function renderContent(
   // chat-wide index lets merged group replies fall back to whichever chat
   // character owns the file when the speaker does not.
   const selfResolved = resolveSelfCardAssets(text, selfCharacterId, galleryIndex);
-  const normalized = decodeEncodedSpeakerTags(decodeEncodedChatHtmlTags(formatTextQuotes(selfResolved, quoteFormat)));
+  const code = protectMarkdownCode(selfResolved);
+  const normalized = decodeEncodedSpeakerTags(decodeEncodedChatHtmlTags(formatTextQuotes(code.text, quoteFormat)));
 
   // Strip speaker tags before HTML detection (they aren't real HTML)
   const withoutSpeakerTags = normalized.replace(/<\/?speaker(?:="[^"]*")?>/g, "");
@@ -1782,7 +1830,7 @@ function renderContent(
   // Name coloring runs AFTER on the React tree so injected spans don't
   // interfere with paragraph splitting or trigger the HTML path.
   if (!isHtmlPath) {
-    const markdownResult = renderMarkdownBlocks(normalized, (seg, _kp) =>
+    const markdownResult = renderMarkdownBlocks(code.restoreSource(normalized), (seg, _kp) =>
       renderWithSpeakerTags(seg, dialogueColor, speakerColorMap, boldDialogue, ownDialogueColor),
     );
     if (nameColorMap && nameColorMap.size > 0) {
@@ -1863,7 +1911,7 @@ function renderContent(
 
   // Apply markdown-style bold/italic in HTML path
   const withMarkdown = applyInlineMarkdownHTML(withDialogue);
-  const finalHtml = sanitizeChatHtml(withMarkdown, { allowStyle: true, remoteImages });
+  const finalHtml = sanitizeChatHtml(code.restoreHtml(withMarkdown), { allowStyle: true, remoteImages });
   const scopedCss = scopeChatMessageCss(rawStyleBlocks, `.${htmlScopeClass}`, { remoteUrls: remoteImages.loadAll });
   const html = scopedCss ? `<style>${scopedCss}</style>${finalHtml}` : finalHtml;
 
@@ -1876,17 +1924,58 @@ function renderContent(
   );
 }
 
+/**
+ * Mark the runs of already-resolved text that the player's answers filled in.
+ * Walks the rendered React tree like `colorNamesInNodes`, so no markup is put
+ * into the text itself (a `<mark>` string would flip HTML detection).
+ */
+function highlightAnswersInNodes(nodes: ReactNode, values: readonly string[], template: string): ReactNode {
+  const processString = (str: string, nodeIdx: number): ReactNode => {
+    const segments = highlightAnswerValues(str, values, template);
+    if (!segments.some((segment) => segment.yours)) return str;
+    return segments.map((segment, i) =>
+      segment.yours ? (
+        <mark key={`answer-${nodeIdx}-${i}`} className={HIGHLIGHT_CLASS}>
+          {segment.text}
+        </mark>
+      ) : (
+        segment.text
+      ),
+    );
+  };
+
+  const processNode = (node: ReactNode, idx: number): ReactNode => {
+    if (typeof node === "string") return processString(node, idx);
+    if (!node || typeof node !== "object" || !("props" in node)) return node;
+    const element = node as React.ReactElement;
+    const props = element.props as Record<string, unknown>;
+    if (props.children === undefined) return element;
+    const children = Array.isArray(props.children)
+      ? props.children.map((child: ReactNode, i: number) => processNode(child, i))
+      : processNode(props.children as ReactNode, 0);
+    return cloneElement(element, {}, children);
+  };
+
+  return Array.isArray(nodes) ? nodes.map((node, i) => processNode(node, i)) : processNode(nodes, 0);
+}
+
 export function RoleplayMessagePreview({
   content,
   dialogueColor,
   className,
   selfCharacterId,
+  answerValues,
+  answerTemplate = "",
 }: {
   content: string;
   dialogueColor?: string;
   className?: string;
   /** Character the previewed greeting belongs to — resolves card://self refs. */
   selfCharacterId?: string | null;
+  /** The player's answers inside `content`, to mark. Keep the array stable between renders. */
+  answerValues?: readonly string[];
+  /** The raw text `content` was resolved from, so the card author's own words are never marked. */
+  answerTemplate?: string;
 }) {
   const previewId = useId();
   const { chatFontColor, defaultDialogueColor, theme, textStrokeWidth, textStrokeColor, boldDialogue, quoteFormat } =
@@ -1914,33 +2003,38 @@ export function RoleplayMessagePreview({
     }),
     [chatFontColor, textStrokeColor, textStrokeWidth],
   );
-  const renderedContent = useMemo(
-    () =>
-      renderContent(
-        content,
-        resolvedDialogueColor,
-        undefined,
-        boldDialogue,
-        htmlScopeClass,
-        quoteFormat,
-        selfCharacterId,
-        undefined, // galleryIndex
-        undefined, // nameColorMap
-        undefined, // textShadowStr
-        !!dialogueColor,
-        remoteImages,
-      ),
-    [
-      boldDialogue,
+  const renderedContent = useMemo(() => {
+    const rendered = renderContent(
       content,
-      dialogueColor,
+      resolvedDialogueColor,
+      undefined,
+      boldDialogue,
       htmlScopeClass,
       quoteFormat,
-      remoteImages,
-      resolvedDialogueColor,
       selfCharacterId,
-    ],
-  );
+      undefined, // galleryIndex
+      undefined, // nameColorMap
+      undefined, // textShadowStr
+      !!dialogueColor,
+      remoteImages,
+    );
+    // An HTML-path greeting is one sanitized HTML string with no React text nodes, so it shows the resolved
+    // text without highlights.
+    return answerValues && answerValues.length > 0
+      ? highlightAnswersInNodes(rendered, answerValues, answerTemplate)
+      : rendered;
+  }, [
+    answerTemplate,
+    answerValues,
+    boldDialogue,
+    content,
+    dialogueColor,
+    htmlScopeClass,
+    quoteFormat,
+    remoteImages,
+    resolvedDialogueColor,
+    selfCharacterId,
+  ]);
 
   return (
     <div
@@ -2012,8 +2106,11 @@ export const ChatMessage = memo(function ChatMessage({
   isGrouped,
   personaInfo,
   groupChatMode,
+  colorInlineNames: chatColorInlineNames,
   chatCharacterIds,
   mergedGroupCharacterIds,
+  noExpressionCharacterIds,
+  splitReplyLastPartExtra,
   expressionAvatarResolver,
   messageDepth,
   messageIndex,
@@ -2050,6 +2147,7 @@ export const ChatMessage = memo(function ChatMessage({
     roleplayAvatarsScrollable,
     roleplayStretchMessages,
     roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders,
     showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded,
     textStrokeWidth,
@@ -2058,7 +2156,7 @@ export const ChatMessage = memo(function ChatMessage({
     showTokenUsage,
     showMessageNumbers,
     boldDialogue,
-    colorInlineNames,
+    legacyColorInlineNames,
     disableInlineNameGradients,
     editMessageOnDoubleClick,
     quoteFormat,
@@ -2076,6 +2174,7 @@ export const ChatMessage = memo(function ChatMessage({
       roleplayAvatarsScrollable: s.roleplayAvatarsScrollable,
       roleplayStretchMessages: s.roleplayStretchMessages,
       roleplayNarratorAvatarCycling: s.roleplayNarratorAvatarCycling,
+      roleplayNarratorAvatarBorders: s.roleplayNarratorAvatarBorders,
       showRoleplayThinkingInMessages: s.showRoleplayThinkingInMessages,
       keepRoleplayThinkingExpanded: s.keepRoleplayThinkingExpanded,
       textStrokeWidth: s.textStrokeWidth,
@@ -2084,7 +2183,7 @@ export const ChatMessage = memo(function ChatMessage({
       showTokenUsage: s.showTokenUsage,
       showMessageNumbers: s.showMessageNumbers,
       boldDialogue: s.boldDialogue ?? true,
-      colorInlineNames: s.colorInlineNames,
+      legacyColorInlineNames: s.colorInlineNames,
       disableInlineNameGradients: s.disableInlineNameGradients,
       editMessageOnDoubleClick: s.editMessageOnDoubleClick,
       quoteFormat: s.quoteFormat,
@@ -2092,6 +2191,7 @@ export const ChatMessage = memo(function ChatMessage({
       setTTSLineVolume: s.setTTSLineVolume,
     })),
   );
+  const colorInlineNames = chatColorInlineNames ?? legacyColorInlineNames;
   const remoteImages = useRemoteImagePolicy();
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
   const textStrokeStyle = useMemo<React.CSSProperties>(
@@ -2221,16 +2321,25 @@ export const ChatMessage = memo(function ChatMessage({
   // TTS
   const { data: ttsConfig } = useTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
-  const ttsSpeakerName =
-    message.role === "narrator"
+  const ttsPersona = useMemo(() => resolveTTSMessagePersona(message, personaInfo), [message, personaInfo]);
+  const mappedUserPersona = message.role === "user" && ttsConfig && getTTSPersonaVoice(ttsConfig, ttsPersona);
+  const ttsFallbackId =
+    message.role === "user" ? (mappedUserPersona ? ttsPersona?.id : undefined) : message.characterId;
+  const ttsSpeakerName = mappedUserPersona
+    ? ttsPersona?.name
+    : message.role === "narrator"
       ? "Narrator"
       : message.characterId
         ? characterMap?.get(message.characterId)?.name
         : undefined;
   // Same lookup as autoplay in ChatArea, so replaying a message uses the voice it autoplayed with.
   const resolveTTSCharacterId = useCallback(
-    (speaker?: string | null) => (characterMap ? findTTSCharacterIdBySpeakerName(speaker, characterMap) : null),
-    [characterMap],
+    (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
+  );
+  const ambiguousTTSSpeaker = useCallback(
+    (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
   );
   const ttsVoiceRequests = useMemo(() => {
     if (!ttsConfig) return [];
@@ -2238,8 +2347,10 @@ export const ChatMessage = memo(function ChatMessage({
       message.content,
       ttsConfig,
       ttsSpeakerName,
-      message.characterId,
+      ttsFallbackId,
       resolveTTSCharacterId,
+      message.role === "user" && !mappedUserPersona ? undefined : ttsPersona,
+      ambiguousTTSSpeaker,
     );
     return withTTSVoiceRequestCacheKeys(
       visualNovel || followSpeechParagraphs
@@ -2249,12 +2360,16 @@ export const ChatMessage = memo(function ChatMessage({
       message.id,
     );
   }, [
-    message.characterId,
     message.content,
     message.id,
+    ambiguousTTSSpeaker,
     resolveTTSCharacterId,
     ttsConfig,
     ttsSpeakerName,
+    ttsFallbackId,
+    ttsPersona,
+    mappedUserPersona,
+    message.role,
     visualNovel,
     followSpeechParagraphs,
   ]);
@@ -2491,8 +2606,9 @@ export const ChatMessage = memo(function ChatMessage({
     summaryUnavailable: reasoningSummaryUnavailable,
     hasReasoning,
   } = resolveMessageReasoningDisplay(extra);
-  const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning && !isUser;
-  const showThinkingAction = hasReasoning && !isUser && !showInlineThinking;
+  // A user turn has reasoning only when a model wrote it (impersonation or a rewrite), so it shows it like a reply (#8682).
+  const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning;
+  const showThinkingAction = hasReasoning && !showInlineThinking;
   const ovThinkingInHeader = overhaulActive && showInlineThinking;
   const ovThinkingId = useId();
   const ovThinking = useThinkingToggle(
@@ -2757,7 +2873,14 @@ export const ChatMessage = memo(function ChatMessage({
   // we don't JSON-parse the whole chat metadata on every store tick during streaming.
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
   const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
+  const rollToneMode = useMemo(
+    () => normalizeRollOutcomeToneMode(parseChatMetadata(activeChatMetadata).roleplayRollOutcomeTone),
+    [activeChatMetadata],
+  );
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
+  // The chat's variables, so {{name}} in a message shows what the model reads. Memoized on the raw
+  // metadata: a new object every render would rebuild every message's display text.
+  const chatVariables = useMemo(() => readChatVariables(activeChatMetadata), [activeChatMetadata]);
   // Roleplay can show a private note to one character; it stays private only when each character replies alone.
   const noteSharing = useMemo<MessageNoteSharing | undefined>(() => {
     if (!isRoleplay || !chatCharacterIds?.length) return undefined;
@@ -2833,9 +2956,7 @@ export const ChatMessage = memo(function ChatMessage({
   const personaScenario = msgPersona ? msgPersona.scenario : personaInfo?.scenario;
   const macroCharacters = useMemo(() => {
     if (scopedCharacterMap?.size) {
-      const candidates = Array.from(scopedCharacterMap.values()).filter(
-        (candidate): candidate is NonNullable<typeof candidate> => !!candidate,
-      );
+      const candidates = Array.from(scopedCharacterMap, ([id, character]) => ({ ...character, id }));
       if (candidates.length > 0) return candidates;
     }
     return charName ? [{ name: charName }] : [];
@@ -2845,6 +2966,7 @@ export const ChatMessage = memo(function ChatMessage({
     (content: string) => {
       const macroContext = {
         variables: presetVariables,
+        chatVariables,
         userName,
         persona: {
           name: userName,
@@ -2856,6 +2978,7 @@ export const ChatMessage = memo(function ChatMessage({
         },
         primaryCharacter: primaryCharInfo ?? { name: charName },
         characters: macroCharacters,
+        inactiveCharacterIds: isRoleplay ? parseChatMetadata(activeChatMetadata).inactiveCharacterIds : undefined,
       };
       // #3164: seed display randomness by message identity, not content — a
       // content-based seed re-rolls every {{random}}/{{roll}} on each streamed
@@ -2874,9 +2997,12 @@ export const ChatMessage = memo(function ChatMessage({
       return resolveDisplayMacros(text);
     },
     [
+      activeChatMetadata,
+      isRoleplay,
       applyToAIOutput,
       scopedRegexMode,
       presetVariables,
+      chatVariables,
       message.characterId,
       charName,
       isSystem,
@@ -2956,7 +3082,14 @@ export const ChatMessage = memo(function ChatMessage({
   const ownDialogueColor = !isMergedGroup && !!msgColors?.dialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
-  const roleplayBubbleBg = boxBgColor ? boxBgColor : isUser ? userBubbleBg : assistantBubbleBg;
+  const roleplayBubbleBg =
+    chatFontOpacity <= 0
+      ? "transparent"
+      : boxBgColor
+        ? `rgb(from ${boxBgColor} r g b / ${chatFontOpacity / 100})`
+        : isUser
+          ? userBubbleBg
+          : assistantBubbleBg;
   const nameColorMap = useMemo(() => {
     if (!colorInlineNames || !scopedCharacterMap) return null;
     const map = new Map<string, string>();
@@ -3006,8 +3139,26 @@ export const ChatMessage = memo(function ChatMessage({
   }, [isRoleplay, isMergedGroup, extra.referencedCharacterIds, chatCharacterIds]);
   const { data: referencedAvatarCharacters } = useCharacterSummaries(referencedAvatarIds);
   const mergedCharacterIds = useMemo(
-    () => [...(mergedGroupCharacterIds ?? chatCharacterIds ?? []), ...referencedAvatarIds],
-    [chatCharacterIds, mergedGroupCharacterIds, referencedAvatarIds],
+    () => [
+      ...resolveMergedAvatarRoster({
+        extra,
+        chatCharacterIds: chatCharacterIds ?? [],
+        liveRoster: mergedGroupCharacterIds,
+        isLive: !!isStreaming,
+        noExpressionCharacterIds,
+        splitReplyLastPartExtra,
+      }),
+      ...referencedAvatarIds,
+    ],
+    [
+      chatCharacterIds,
+      extra,
+      isStreaming,
+      mergedGroupCharacterIds,
+      noExpressionCharacterIds,
+      referencedAvatarIds,
+      splitReplyLastPartExtra,
+    ],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
   const reduceAmbientEffects = useReducedAmbientEffects();
@@ -3052,6 +3203,7 @@ export const ChatMessage = memo(function ChatMessage({
   const mergedNameRef = useRef<HTMLSpanElement>(null);
   const mergedAvatarRefs = useRef<(HTMLImageElement | null)[]>([]);
   const mergedAvatarTailRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const mergedAvatarBorderRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     cycleIndexRef.current = 0;
@@ -3063,6 +3215,9 @@ export const ChatMessage = memo(function ChatMessage({
       });
       mergedAvatarTailRefs.current.forEach((img, i) => {
         if (img) img.style.opacity = i === index ? "1" : "0";
+      });
+      mergedAvatarBorderRefs.current.forEach((border, i) => {
+        if (border) border.style.opacity = i === index ? "1" : "0";
       });
       // Update name color opacity via DOM directly
       const nameEl = mergedNameRef.current;
@@ -3179,6 +3334,14 @@ export const ChatMessage = memo(function ChatMessage({
             while (fullText[offset] === "\n" || fullText[offset] === "\r") offset++;
             return [{ kind: "illustration" as const, index, images, offset }];
           }),
+          // Visual Novel keeps only the marker for now: its paragraphs have no room for a free-form block.
+          ...(visualNovel || isUser
+            ? []
+            : getRoleplayArtifacts(extra).map(({ activity, index, artifact }) => {
+                let offset = getRoleplayCommandContentOffset(fullText, activity);
+                while (fullText[offset] === "\n" || fullText[offset] === "\r") offset++;
+                return { kind: "artifact" as const, index, html: artifact.html, offset };
+              })),
         ].sort((a, b) => a.offset - b.offset || a.index - b.index)
       : [];
     let paragraphStart = 0;
@@ -3281,6 +3444,12 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {command.images.map(({ attachment, index }) => renderRoleplayImageAttachment(attachment, index, false))}
         </div>
+      ) : command.kind === "artifact" ? (
+        <RoleplayArtifact
+          key={`artifact-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          html={command.html}
+          scopeClass={`${htmlScopeClass}-artifact-${message.activeSwipeIndex}-${command.index}`}
+        />
       ) : command.kind === "whisper" ? (
         <RoleplayWhisper
           // The original command text identifies the whisper, so an open editor never saves over a replacement.
@@ -3302,9 +3471,12 @@ export const ChatMessage = memo(function ChatMessage({
           key={`roll-${message.id}-${message.activeSwipeIndex}-${command.index}`}
           result={command.result}
           createdAt={message.createdAt}
+          toneMode={rollToneMode}
         />
       ),
     [
+      rollToneMode,
+      htmlScopeClass,
       message.chatId,
       message.id,
       message.activeSwipeIndex,
@@ -3478,6 +3650,9 @@ export const ChatMessage = memo(function ChatMessage({
   // ─── Swipe navigation ───
   const swipeCount = message.swipeCount ?? 0;
   const hasSwipes = swipeCount > 1;
+  // A reply still being written shows its stream on every swipe, and a held rewrite would then save
+  // into the swipe picked meanwhile (#8636). Switch once it is done.
+  const showSwipeControls = !isStreaming && (hasSwipes || canCreateNextSwipe);
 
   const hideRoleplayAvatars = isRoleplay && roleplayAvatarStyle === "none";
   const useCompactRectangleAvatar = isRoleplay && roleplayAvatarStyle === "rectangles";
@@ -3530,6 +3705,42 @@ export const ChatMessage = memo(function ChatMessage({
   /** Faded Side Panel: the glued panel's layout with a wider portrait that fades into the bubble. */
   const fadedRoleplayAvatarPanel = showRoleplayAvatarPanel && roleplayAvatarStyle === "faded";
   const showCompactRoleplayAvatar = isRoleplay && !isGrouped && !hideRoleplayAvatars && !showRoleplayAvatarPanel;
+  // Name-color borders sit over the merged avatars without changing their size, place or cycle.
+  // Side by side in the Glued Side Panel's square frame, each avatar gets a full outline of its own
+  // share, laid out like the images. The compact frame clips round instead (`.rpg-avatar-glow`'s 50%
+  // radius makes a circle, or an oval for rectangles), so there the avatars split the frame's own
+  // ring and each keeps the arc over its column.
+  const mergedAvatarsSideBySide = !cycleMergedNarratorAvatars && mergedAvatars.length > 1;
+  const outlineEachMergedAvatar = mergedAvatarsSideBySide && showRoleplayAvatarPanel;
+  const mergedAvatarBorders = !roleplayNarratorAvatarBorders ? null : outlineEachMergedAvatar ? (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex">
+      {mergedAvatars.map((avatar) => (
+        <span
+          key={`border-${avatar.id}`}
+          className="w-0 min-w-0 flex-1"
+          style={getMergedAvatarBorderStyle(avatar.nameColor)}
+        />
+      ))}
+    </span>
+  ) : (
+    mergedAvatars.map((avatar, i) => (
+      <span
+        key={`border-${avatar.id}`}
+        ref={(el) => {
+          mergedAvatarBorderRefs.current[i] = el;
+          // Opacity lives in the DOM like the cycling avatars', so a border shown mid-cycle
+          // starts on the avatar in view.
+          if (el) el.style.opacity = !cycleMergedNarratorAvatars || i === cycleIndexRef.current ? "1" : "0";
+        }}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-700"
+        style={getMergedAvatarBorderStyle(
+          avatar.nameColor,
+          mergedAvatarsSideBySide ? { index: i, count: mergedAvatars.length } : undefined,
+        )}
+      />
+    ))
+  );
   const roleplayAvatarPanelTail = showRoleplayAvatarPanel ? (
     isMergedGroup && mergedAvatars.length > 0 ? (
       <div
@@ -3882,37 +4093,36 @@ export const ChatMessage = memo(function ChatMessage({
   // ─── System messages (shared across modes) ───
   if (isSystem) {
     return (
-      <div
-        ref={msgRef}
-        className={cn(
-          "mari-system-message group flex justify-center py-2",
-          multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
-        )}
+      <SystemMessage
+        message={message}
+        messageRef={msgRef}
+        editing={editing}
+        copied={copied}
+        showActions={showActions}
+        multiSelectMode={multiSelectMode}
+        isSelected={isSelected}
+        hiddenFromAI={isHiddenFromAI}
+        fontSize={chatFontSize}
         onClick={handleMobileTap}
+        onCopy={handleCopy}
+        onEdit={onEdit ? startEditing : undefined}
+        onBranch={onBranch ? () => onBranch(message.id) : undefined}
+        onToggleHiddenFromAI={onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined}
+        onDelete={onDelete ? () => onDelete(message.id) : undefined}
       >
-        <div className="relative">
-          {!multiSelectMode && onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(message.id);
-              }}
-              aria-label={localizeUi("chat.delete.dialog.title")}
-              className={cn(
-                "absolute -right-1 -top-1 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-foreground/10 hover:text-foreground/70 group-hover:opacity-100",
-                showActions && "opacity-100",
-              )}
-              title={localizeUi("lorebook.editor.batch.delete")}
-            >
-              <Trash2 size="0.75rem" />
-            </button>
-          )}
-          <div className="mari-system-message-content rounded-full bg-[var(--secondary)] px-4 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {message.content}
-          </div>
-        </div>
-      </div>
+        {editing ? (
+          <EditTextarea
+            initialContent={message.content}
+            fontSize={chatFontSize}
+            quoteFormat={quoteFormat}
+            saving={editSavePending}
+            onSave={handleSaveEdit}
+            onCancel={handleCancelEdit}
+          />
+        ) : (
+          <RoleplayMessagePreview content={displayContent} />
+        )}
+      </SystemMessage>
     );
   }
 
@@ -4295,6 +4505,7 @@ export const ChatMessage = memo(function ChatMessage({
                       }}
                     />
                   ))}
+                  {mergedAvatarBorders}
                 </button>
               ) : displayAvatarUrl ? (
                 <div className={cn(!isUser && "rpg-avatar-glow")}>
@@ -4397,6 +4608,7 @@ export const ChatMessage = memo(function ChatMessage({
                   // an inline `background` so card CSS can override the bubble
                   // (inline styles beat every selector). Applied by `.mari-rp-bubble`.
                   "--mari-rp-bubble-bg": roleplayBubbleBg,
+                  "--mari-rp-bubble-opacity": chatFontOpacity / 100,
                 } as React.CSSProperties
               }
             >
@@ -4450,6 +4662,7 @@ export const ChatMessage = memo(function ChatMessage({
                               }}
                             />
                           ))}
+                          {mergedAvatarBorders}
                         </button>
                       ) : displayAvatarUrl ? (
                         <button
@@ -4549,7 +4762,7 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             {/* Swipes (the overhaul shows them in the footer line instead) */}
-            {!overhaulActive && !overhaulMobile && (hasSwipes || canCreateNextSwipe) && (
+            {!overhaulActive && !overhaulMobile && showSwipeControls && (
               <SwipeJumpControl
                 alwaysShow={alwaysDisplaySwipeMenu && !isUser}
                 messageId={message.id}
@@ -4885,7 +5098,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Swipes */}
-          {(hasSwipes || canCreateNextSwipe) && (
+          {showSwipeControls && (
             <SwipeJumpControl
               alwaysShow={alwaysDisplaySwipeMenu && !isUser}
               messageId={message.id}

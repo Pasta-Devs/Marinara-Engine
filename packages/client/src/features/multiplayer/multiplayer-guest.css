@@ -1,5 +1,6 @@
 @import "tailwindcss" source(none);
 @source "./MultiplayerGuestView.tsx";
+@source "./MultiplayerGuestFight.tsx";
 @source "../../components/chat/chat-input-styles.ts";
 
 /* Bundled Marinara defaults, never peer-supplied CSS or remote assets. */

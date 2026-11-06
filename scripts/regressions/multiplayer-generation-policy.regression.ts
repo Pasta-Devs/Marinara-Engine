@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -73,6 +73,28 @@ for (const status of ["paused", "lobby", "broken"]) {
   );
 }
 assert.equal(resolveRoomGenerationPolicy("private_chat", {}, []), null);
+const carded = resolveRoomGenerationPolicy(
+  "chat_12345",
+  { ...metadata, gameCharacterCards: [{ name: "Guest Hero", multiplayerParticipantId: "guest_12345" }] },
+  characterIds,
+  authority,
+)!;
+runWithRoomGeneration(carded, () =>
+  assert.ok(
+    roomRosterPrompt()?.includes("Alex controls Rowan and plays the game character Guest Hero"),
+    "the GM is told which game card each player plays, so it never voices it",
+  ),
+);
+runWithRoomGeneration(carded, () => {
+  assert.match(roomRosterPrompt()!, /Played by these people, never by you: [^\n]*Rowan, Guest Hero\./u);
+  assert.match(
+    roomRosterPrompt()!,
+    /never write a party_change for one of them/u,
+    "a seated hero never leaves the party by the Game Master's word",
+  );
+  // Laptop room playtest 2026-10-30: the reply after a fight gave the seated Guest Hero a line.
+  assert.match(roomRosterPrompt()!, /After a fight too, where a \[combat_result\] lists them/u);
+});
 for (const characters of [
   undefined,
   "not-a-roster",
@@ -140,6 +162,7 @@ try {
   await runWithRoomGeneration(policy, async () => {
     assert.ok(roomRosterPrompt()?.includes("Exact <leaf> & {{user}}"), "approved persona leaves stay verbatim");
     assert.ok(roomRosterPrompt()?.includes("Alex controls Rowan"));
+    assert.ok(!roomRosterPrompt()?.includes("plays the game character"), "no bound game card, no extra name");
     assert.ok(roomRosterPrompt()?.includes("Narrator: GM"));
     assert.ok(roomRosterPrompt()?.includes("Companion: AI character"));
     assert.ok(!roomRosterPrompt()?.includes("Pending"), "pending roster changes do not enter the current round");
@@ -182,6 +205,14 @@ try {
       gameMessages[0]?.content.includes("Harbormaster"),
       "the existing GM prompt retains tracked NPC companions",
     );
+    assert.ok(gameMessages[0]?.content.includes("Human-controlled persona"), "a guest's card is still shown");
+    // A seated guest is never one the Game Master "also plays" (laptop room playtest 2026-10-30).
+    const runtimeSource = readFileSync(
+      new URL("../../packages/server/src/services/generation/game-gm-prompt-runtime.ts", import.meta.url),
+      "utf8",
+    );
+    const guestLoop = runtimeSource.slice(runtimeSource.indexOf("for (const participant of currentRoomGeneration()"));
+    assert.doesNotMatch(guestLoop.slice(0, guestLoop.indexOf("\n  }\n")), /partyNames\.push/u);
     assert.deepEqual(resolveRoleplayWhisperRecipient("Rowan", [], { id: "legacy_host", name: "Luna" }), {
       id: "guest_12345",
       kind: "persona",

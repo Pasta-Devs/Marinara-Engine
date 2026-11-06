@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { seasonalThemeFor } from "../lib/seasonal-themes";
+import { seasonalThemeFor, seasonYear } from "../lib/seasonal-themes";
 import { useUIStore } from "../stores/ui.store";
 
 const MINUTE_MS = 60_000;
@@ -25,10 +25,10 @@ export function useMinuteClock(): Date {
 
 export function useSeasonalTheme() {
   const date = useMinuteClock();
-  const year = date.getFullYear();
   // The `?seasonalPreview=` page keeps its greeting and "Turn it off" in the store, unsaved, so trying it never
   // saves anything and Professor Mari's dated pack sees them too.
   const { themeId, showGreeting } = useUIStore(useShallow((state) => seasonalThemeFor(state, date)));
+  const year = themeId ? seasonYear(themeId, date) : date.getFullYear();
 
   const markGreeted = useCallback(() => {
     if (themeId) useUIStore.getState().markSeasonalGreetingShown(themeId, year);

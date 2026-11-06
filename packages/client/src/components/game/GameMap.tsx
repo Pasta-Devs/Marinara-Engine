@@ -24,7 +24,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
+import { PanelLockButton, useDraggablePanel, usePersistedPanelFlag } from "./DraggablePanel";
 import { getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { FloatingWindow, PHONE_SHEET_CLASS } from "../ui/FloatingWindow";
@@ -615,6 +615,8 @@ interface GameMapPanelProps extends GameMapProps {
   constraintsRef?: RefObject<HTMLElement | null>;
   /** UI overhaul: shown inside the game pane's Map tab, so it is fixed in place (no lock, no dragging). */
   docked?: boolean;
+  /** A fight's board is up: the map keeps a folded-or-open state of its own there, folded at first. */
+  inFight?: boolean;
 }
 
 /** Desktop: inline collapsible panel. */
@@ -639,9 +641,16 @@ export function GameMapPanel({
   chatId,
   constraintsRef,
   docked = false,
+  inFight,
 }: GameMapPanelProps) {
   const { t: localizeUi } = useUiTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  // Folded or open as the player last left it, kept apart for a fight: there the map starts folded,
+  // so it does not lie over the fight board's edge.
+  const [collapsed, setCollapsed] = usePersistedPanelFlag(
+    chatId,
+    inFight ? "map-collapsed-fight" : "map-collapsed",
+    !!inFight,
+  );
   const [stateHovered, setStateHovered] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
   const [mapViewMode, setMapViewMode] = useState<GameMapViewMode>("world");
@@ -665,6 +674,9 @@ export function GameMapPanel({
   );
 
   if (!map && !hasWorldMap) {
+    // Nothing to show and nothing worth making mid-fight: the box would only lie over the fight
+    // board's top-left squares (playtest 2026-10-24).
+    if (inFight) return null;
     return (
       <div
         data-tour="game-map"

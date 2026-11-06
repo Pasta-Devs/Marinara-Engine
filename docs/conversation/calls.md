@@ -1,124 +1,167 @@
 # Conversation Audio and Video Calls
 
-This guide explains Conversation calls in Marinara Engine. You will learn how a call works, how to set one up, how to talk during a call, and how to fix common problems.
+A call is a live screen, like a voice-chat app, where you talk to one or more characters by microphone or by typing. It sits on top of the normal Conversation chat while it runs. Calls exist only in Conversation Mode.
 
-Calls exist only in Conversation Mode. Roleplay and Game chats do not have a call screen.
+Calls is an optional package. Install **Calls** from **Agents → Agent Organizer**. If the catalog asks you to restart, stop Marinara and start it again the way you normally start it (see [Installation](../INSTALLATION.md)).
 
-Calls is an optional agent package. Install **Calls** from **Agents → Download Agents** before following the setup below, then restart Marinara when the catalog asks.
+During a call, characters with a working Text to Speech (TTS, text turned into spoken audio) voice speak out loud. Characters without a voice reply as typed messages in the call chat. You can also show looping AI-made video clips of a character instead of a still avatar.
 
-## What a call is
+Marinara records your microphone or camera in your browser. Depending on the input mode (below), your speech is turned into text on your own computer or sent to the model you picked for the chat. Replies are spoken through your TTS service. When the call ends, a short summary goes back into the Conversation. The full transcript stays in separate call storage.
 
-A call gives you a live, Discord-style screen where you talk to one or more characters. It sits on top of the normal Conversation chat while the call runs.
+## What you need
 
-During a call:
+- **Calls** installed.
+- A Conversation chat with at least one character, and an account for the model that writes replies.
+- **Audio/Video Calls** and **Call Audio Pipeline** turned on in the chat's settings.
+- Optional: a Text to Speech account, so characters speak. Without it they reply as text.
+- Optional: the default microphone mode needs a one-time Local Whisper download (see [Download Local Whisper](#download-local-whisper)). You can instead type in the call chat.
 
-- Characters that have a working Text to Speech (TTS) voice speak their lines out loud. TTS means text turned into spoken audio.
-- Characters without a voice reply as typed messages in the call chat.
-- You answer by microphone or by typing.
-- You can optionally see looping AI-generated video clips of a character instead of a still avatar.
+## Set up your first call
 
-A call is not a peer-to-peer phone call. Marinara records your local browser microphone or camera. It sends that input to the model you picked for that Conversation. It speaks replies through your TTS provider and stores the call data on your own machine.
+Before you start: you need a Conversation chat with at least one character, and an account for the model that writes the replies (see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)).
 
-When the call ends, Marinara writes a short summary of the audio call back into the normal Conversation. The full call transcript stays in separate call storage and is not copied message by message into the main chat.
+1. Optional: set up Text to Speech (see [Set up Text to Speech](#set-up-text-to-speech)). Without it, every character joins as text only.
+2. Open the chat, then open **Chat Settings → Agents → Calls**.
+3. Turn on **Audio/Video Calls**. A call button appears next to the conversation name.
+4. Turn on **Call Audio Pipeline**. No call can start without it, even if you only type or only listen. It also enables the microphone.
+5. Pick an **Audio input mode** (below).
+6. Click **Start call**.
 
-## Before you start
+If it did not work: when you see "Conversation call audio is not enabled in Chat Settings", **Call Audio Pipeline** is off. It is a global setting, so turning it on in one chat turns it on for all Conversation calls.
 
-To run a working voice call, set up these pieces in order. You can skip the steps marked Optional.
+For a new chat, finish the setup wizard first, then open that chat's **Chat Settings**. The Calls settings show only when Calls is installed.
 
-1. A Conversation-mode chat with at least one character.
-2. A normal model connection selected for that chat. This is the model that writes the character replies during the call.
-3. **Audio/Video Calls** turned on for that chat (see the section "Turn calls on for a chat" below).
-4. **Call Audio Pipeline** turned on. This is required to start any call, even a call where you only type or only listen. It also enables microphone input.
-5. Text to Speech set up so characters can speak. Without it, every character joins as text only.
-6. Optional: Local Whisper downloaded from Connections after Calls is installed, if your browser cannot do reliable speech recognition (Firefox needs this). Or your own speech-to-text server instead of Local Whisper.
-7. Optional: a video connection and generated clips if you want **Character Video Presence**.
-8. Optional: an image connection set as the chat Selfie Connection if you want characters to send selfies in the call.
+Two switches look alike but do different things:
+
+- **Audio/Video Calls** shows the call button, so you can call a character.
+- The **Calls** command lets characters ring you first. With it off you can still start calls yourself.
+
+The master **Commands** switch in the same section must be on for in-call commands. The call itself can start with it off.
 
 ### Set up Text to Speech
 
-Text to Speech decides which characters can speak and which voice each one uses. It is a shared feature, so it is documented in its own guide.
-
-For the full walkthrough, read [Text to Speech (TTS) Setup](../media/tts-setup.md). In short, you open **Connections** and then **Text to Speech**, then you:
+Text to Speech decides which characters can speak and with which voice. Read [Text to Speech (TTS) Setup](../media/tts-setup.md) for the full walkthrough. In short, open **Connections**, click **Add account** and choose **Text to speech** If it is already listed under **On this device**, open it there. Then:
 
 1. Turn on Text to Speech.
-2. Choose a source: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS**, or **xAI Voice**.
-3. Enter the provider key or local server address for that source.
+2. Choose a source: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** or **xAI Voice**.
+3. Enter the API key or local server address for that source.
 4. Pick a model and a voice.
-5. Set **Voice Option** to **One voice for all characters** or **Selected per character**.
+5. Set **Voice option** to **One voice for all** or **Selected per character or persona**. Per-character voices make group calls easier to follow.
 6. Save, then use the preview button to confirm you hear audio.
 
-For a group call, per-character voices make it much easier to tell who is talking. If a character has no voice that Marinara can resolve, that character becomes text only for the call.
+If a character has no voice Marinara can resolve, that character is text only for the call.
 
-### Choose a microphone input mode
+### Choose an Audio input mode
 
-When **Call Audio Pipeline** is on, an **Audio input mode** dropdown appears with four choices. Pick the one that fits your browser and provider.
+When **Call Audio Pipeline** is on, the **Audio input mode** list appears. If you are unsure, keep the default.
 
-- **Mic recording + Local Whisper**: records while you are unmuted, ignores silence, and turns your speech into text on your own machine. This is the default and the best choice for Firefox.
-- **Browser speech recognition**: uses your browser Web Speech feature. The Web Speech API is a built-in browser tool for turning speech into text. Support varies by browser, and Marinara falls back to Local Whisper when it is missing.
-- **Manual system dictation**: only puts the cursor in the call text box so your operating system dictation can type there. Marinara does not record your microphone by itself in this mode.
-- **Provider-native audio/video**: sends your recorded audio or video straight to the Conversation model, when that model can accept media directly. If the model cannot, use Local Whisper or browser speech recognition instead.
+| Mode | What it does |
+| --- | --- |
+| **Mic recording + Local Whisper** (default) | Records while you are unmuted, ignores silence and turns your speech into text on your own computer. Best for Firefox. |
+| **Browser speech recognition** | Uses the speech tool built into your browser. Support varies. Marinara falls back to Local Whisper when it is missing. |
+| **Manual system dictation** | Only puts the cursor in the call text box so your operating system's dictation can type there. Marinara does not record. |
+| **Provider-native audio/video** | Sends your recorded audio or video straight to the model, if the model accepts media. |
 
-The camera and screen buttons appear only when **Camera and screen input** is on. They work only in **Provider-native audio/video** mode. In every other mode the buttons are visible but stay disabled.
+The camera and screen buttons need **Camera and screen input** on and work only in **Provider-native audio/video** mode. In other modes they show but stay disabled.
+
+## Start, answer and end a call
+
+**Start a call.** With calls on, a phone button sits next to the conversation name. Its tooltip is **Start call**, or **Open call** when a call is running. Click it and the call screen opens. Only one call can be active or ringing per chat. Starting another reopens the current one.
+
+**Answer a call.** A character can ring you when the **Calls** command is on. In that chat, an **Incoming call** banner appears above the message box with **Decline call** and **Answer call**. Elsewhere in Marinara you get an incoming-call notification and a short ringing tone. Marinara never answers for you. Only characters that are available join: a character whose schedule or status is offline does not.
+
+**End a call.** Click the red **End call** button on the call screen or on the minimized popout. A character can also leave or end the call with an in-call command. Marinara then stops recording and adds a card to the Conversation.
+
+## The call screen
+
+The stage shows one tile per participant, your persona and each available character, and highlights who is speaking. The call chat holds typed messages and text-only replies. Spoken lines are not repeated there. On desktop it is a side panel. On a phone it opens as a drawer with **Open call chat** and closes with **Close call chat**.
+
+The call composer has a **Message in call** box, **Send**, an emoji, GIF and sticker picker and a quick model switcher. File attachments are not supported in call chat.
+
+| Control | What it does |
+| --- | --- |
+| Microphone | Mutes or unmutes you. The tooltip changes with the mode, for example **Unmute microphone with Local Whisper**. |
+| **Turn camera on** / **Turn camera off** | Provider-native audio/video mode with **Camera and screen input** on only. |
+| **Share screen** / **Stop sharing screen** | Same rule as the camera. |
+| **Character volume** | A mute button and a 0 to 100 slider. Default 100, saved in the browser. |
+| **Soundboard** | A list of sounds with an **Upload** control. |
+| **End call** | The red hang-up button. |
+
+If you stay muted a while you see "You are muted! Remember to unmute yourself first if you want to talk."
+
+If you leave the Conversation during a call, it shrinks into a floating popout with the chat name, elapsed time and **End call**. Click the popout to return. The call keeps running while you browse.
+
+### Soundboard
+
+The soundboard has four built-in sounds you cannot delete: **Soft Chime**, **Tap**, **Sparkle** and **Pop**. Click **Upload** to add your own (mp3, wav, ogg, webm or m4a, up to 8 MB each). You can delete your own uploads. Characters can play a sound with the soundboard command.
+
+## Character Video Presence
+
+This part is optional and advanced. **Character video presence** replaces a still avatar tile with a looping AI-made clip of the character. It is off by default. The switch is in **Chat Settings → Agents → Calls**.
+
+Before you start: add a Video Generation account in **Connections**, and mark one as **Default for Videos** or pick one each time.
+
+1. Open a character or persona editor.
+2. Open the **Sprites** tab, then the **Clips** sub-tab.
+3. Click **Generate Clips**, or **Upload extra** to add your own.
+4. In the **Generate Call Clips** window, pick a **Video Generation Connection** and choose **Use avatar as reference**.
+5. Pick the standard clips to make: **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, **Sighing**. You can also define one custom clip with a **Clip name** and an action description.
+
+During a spoken turn, Marinara reads voice cues in a line, such as `[sighs]`, picks a matching reaction clip, then returns to Idle. A missing clip never blocks a call: the character shows a still avatar. A trimmed clip loops inside its trim range. See [Character Sprites (Expressions and Full-body)](../characters/sprites.md).
+
+Two more switches appear under **Character video presence** when it is on:
+
+- **Automatic video clips generation** (off by default) makes only **Idle** and **Talking** for a participant that needs them. Reaction and custom clips are never made automatically.
+- **Custom clips** (off by default) lets a character rarely request a one-off clip in a live call and replay a ready custom clip. It is for special requests, not every mood.
+
+Turning **Character video presence** off also turns off both. Clips here are reusable presence loops, not Gallery **Videos**, which hold scene videos.
+
+## Speech-to-text setup (advanced)
+
+Only needed for the **Mic recording + Local Whisper** mode, or if you want your own speech-to-text server.
 
 ### Download Local Whisper
 
-Local Whisper turns your speech into text on the machine running Marinara. Your microphone audio never leaves that machine for transcription. The resulting text is still sent to your Conversation model as part of the call.
+Local Whisper turns your speech into text on the computer that runs Marinara, so your microphone audio does not leave it for transcription. The text is still sent to your model as part of the call. It is the most reliable microphone path for browsers with weak speech support, such as Firefox.
 
-Local Whisper is owned by the Calls package and is the most reliable microphone path for browsers with weak speech support, including Firefox. After installing Calls, open **Connections**, open **Local Model**, expand the card, and find **Local Speech Model**. The section is hidden when Calls is not installed. For the general Local Model card, see [Local Model Setup](../connections/local-model.md).
+Before you start: install Calls. The section is hidden without it.
 
-1. Choose a model. **Whisper Tiny (Multilingual)** is the default. It is about 180 MB to download and uses about 350 MB of memory while running. It is the best first choice for phones and older machines.
-2. Or choose **Whisper Base (Multilingual)** for better accuracy on messy speech. It is about 320 MB to download and uses about 650 MB of memory.
-3. Click **Download Whisper**.
-4. Wait for the progress bar to finish.
+1. Open **Connections** and find **Speech to text** under **On this device**. If it is not listed, click **Add account** and choose **Speech to text**.
+2. Find **Local speech model** on that page.
+3. Choose a model:
+   - **Whisper Tiny (Multilingual)**: about 180 MB to download and 350 MB of memory. Best for phones and older computers.
+   - **Whisper Base (Multilingual)**: about 320 MB to download and 650 MB of memory. Better with messy speech.
+4. Click **Download Whisper** and wait for the progress bar.
+5. Restart Marinara completely before you use Calls.
 
-After download, a **Delete Local Whisper** control (trash icon) appears if you want to remove the model.
+A trash icon, **Delete Local Whisper**, removes the model. Uninstalling Calls also deletes downloaded Whisper models; reinstalling does not download one again until you choose it.
 
-Uninstalling Calls also deletes every downloaded Whisper model and its saved selection. This reclaims the model's disk space. Reinstalling Calls restores the download controls, but does not redownload a model until you choose one.
+If it did not work: on a Lite build of Marinara you see "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model." If you see a message about the "native ONNX runtime", the speech engine for your platform is missing. Reinstall dependencies with the same Node build you run Marinara with, then restart.
 
 ### Use your own speech-to-text server
 
-If Local Whisper struggles with your language or your accent, you can send your recorded voice to another speech-to-text model instead. This works with any server that offers the OpenAI-style `/audio/transcriptions` endpoint. That includes self-hosted servers such as Speaches, faster-whisper servers, LocalAI and whisper.cpp server (started with `--inference-path /v1/audio/transcriptions`), and providers such as OpenAI or Groq.
+If Local Whisper struggles with your language or accent, send your voice to another speech-to-text server instead. Any server that accepts the OpenAI speech-to-text format (the `/audio/transcriptions` address) works, whether you run it yourself or use a service such as OpenAI or Groq.
 
-1. Install Calls, then open **Connections** and find the **Speech to Text** card. The card is hidden while Calls is not installed.
-2. Expand the card and enter the **Server URL**, for example `http://localhost:8000/v1` for a server on your own machine.
-3. Enter an **API key** if your server or provider needs one. It is saved encrypted, and the card only shows it masked.
+1. Open **Connections** and open **Speech to text** under **On this device**. If it is not listed, click **Add account** and choose **Speech to text**. It is hidden while Calls is not installed.
+2. Enter the **Server URL**, for example `http://localhost:8000/v1`.
+3. Enter an **API key** if the server needs one. It is saved encrypted and shown masked.
 4. Enter the **Model** name your server uses. Leave it empty to send `whisper-1`.
-5. Optional: enter a **Language** code, such as `pl` or `de`. Telling the model your language usually improves accuracy. Leave it empty to let the server detect it.
-6. Click **Test**. Marinara sends a one-second silent clip and tells you whether the server answered.
-7. Turn the card's switch on.
+5. Optional: enter a **Language** code such as `pl` or `de`. Leave it empty to let the server detect it.
+6. Click **Test**. Marinara sends a one-second silent clip. You see "The server answered." or "The test failed."
+7. Turn on **Use your own speech-to-text server**.
 
-While the switch is on, **Mic recording + Local Whisper** sends your speech to this server instead of Local Whisper. You do not need to download Local Whisper for it. Turn the switch off to go back to Local Whisper. Your audio goes to the server you entered, so use a server you trust.
+While it is on, **Mic recording + Local Whisper** sends your speech to this server, and you do not need to download Local Whisper. Your audio goes to that server, so use one you trust.
 
-A server on the same machine as Marinara works as is. A server on another machine in your home network is refused unless you set `STT_LOCAL_URLS_ENABLED=true` in the server `.env` file. See [Server Configuration Reference](../CONFIGURATION.md).
+A server on the same computer works as is. A server on another computer in your network is refused unless you set `STT_LOCAL_URLS_ENABLED=true` in `.env` (see [Server Configuration Reference](../CONFIGURATION.md)).
 
-This needs a Calls version that supports it. If calls still use Local Whisper after you turn the switch on, update Calls from **Agents → Download Agents**.
+If it did not work: read the message under **Test**. "Could not reach the speech-to-text server" means the address is wrong or the server is off. A message naming `STT_LOCAL_URLS_ENABLED` means the server is on another computer. A number comes from your server: 401 usually means a wrong API key, 404 a wrong address or model name. If calls still use Local Whisper, update Calls from **Agents → Agent Organizer**.
 
-## Turn calls on for a chat
+## Settings and defaults
 
-You can turn calls on while creating a new Conversation, or later from the chat settings.
-
-For a new Conversation, finish the setup wizard first, then open that chat's settings and follow the same steps below. The optional package settings are shown only after Calls is installed.
-
-For an existing Conversation:
-
-1. Open the chat.
-2. Open **Chat Settings**.
-3. Go to the **Agents** section.
-4. Open **Calls**.
-5. Turn on **Audio/Video Calls**. You should now see a call button next to the conversation name.
-6. Turn on **Call Audio Pipeline**. No call can start without it, even if you never use a microphone.
-7. Pick an **Audio input mode**.
-
-**Audio/Video Calls** and the **Calls** command are two different settings. **Audio/Video Calls** shows the call button so you can call a character. The **Calls** command lets characters ring you first. If you turn **Calls** off, you can still start calls yourself, but characters should not start incoming calls.
-
-The **Agents** section also contains a master **Commands** toggle when a command-providing package is installed. It must be on for hidden in-call commands to work. The call itself can still start with it off.
-
-### Settings and defaults
-
-Most call settings live in **Chat Settings**, then **Agents**, then **Calls**. Some of them are global, which means changing them in one chat changes them for every Conversation call in the app.
+**Per chat** settings apply to one chat. **Global** settings apply to every Conversation call.
 
 | Setting | Scope | Default |
-|---|---|---|
+| --- | --- | --- |
 | **Audio/Video Calls** | Per chat | Off |
 | **Calls** (command) | Per chat | On |
 | **Generate voice cues in [tags]** | Per chat | On |
@@ -129,168 +172,33 @@ Most call settings live in **Chat Settings**, then **Agents**, then **Calls**. S
 | **Automatic video clips generation** | Global | Off |
 | **Custom clips** | Global | Off |
 
-**Generate voice cues in [tags]** asks the model to add short bracketed cues, such as `[whispering]`, `[laughing]`, or `[sighs]`, inside spoken lines. These cues shape how TTS reads the line and help pick reaction video clips. It is on by default. Turn it off to keep spoken lines plain.
+A global setting changed in one chat changes for every Conversation call. **Generate voice cues in [tags]** asks the model to add short cues such as `[whispering]`, `[laughing]` or `[sighs]` inside spoken lines. They shape how TTS reads the line and help pick reaction clips. Turn it off to keep spoken lines plain.
 
-## Start, receive, and end a call
+## Commands in a call
 
-### Starting a call
+Characters use the same hidden commands in a call as in normal messages. Each needs its switch in **Chat Settings → Agents → Commands** and the master **Commands** switch on. See [Choose which Commands a character can use](getting-started.md#choose-which-commands-a-character-can-use). They run silently and are never spoken.
 
-When calls are on for a chat, a phone button appears next to the conversation name. Its tooltip reads **Start call** when no call is active, or **Open call** when a call is already running.
-
-Click **Start call**. The full call screen opens right away.
-
-Only one call can be active or ringing per chat. If you start a call while one is already going, Marinara reopens that call instead of making a new one.
-
-### Incoming character calls
-
-A character can ring you if the **Calls** command is on. When that happens and you are inside that chat, an **Incoming call** banner appears above the message box. The banner has a **Decline call** button and an **Answer call** button.
-
-If you are somewhere else in Marinara, an incoming-call notification appears, similar to the notification for an autonomous character message. A short ringing tone plays. Marinara never answers for you, so you must click **Answer call**.
-
-Only characters that are currently available join a call. If a schedule or status marks a character as offline, that character does not join the call, even though they belong to the chat.
-
-### Ending a call
-
-You can end a call at any time with the red **End call** button. It sits on the call screen and on the minimized popout. A character can also leave or end the call through an in-call command.
-
-When the call ends, Marinara stops recording, closes the media safely, and adds a card to the normal Conversation.
-
-## The call screen and controls
-
-The call stage shows one tile per participant, which includes your persona and each available character. It highlights whoever is speaking.
-
-The call chat holds typed messages and text-only character replies. On desktop it sits in a side panel. On mobile it hides behind an **Open call chat** button. The chat opens as a full drawer, and you close it with **Close call chat**. Spoken lines are used for audio but are not repeated as separate chat bubbles.
-
-The call composer has a **Message in call** box and a **Send** button. It also has an emoji, GIF, and sticker picker and a quick connection switcher. File attachments are not supported in call chat yet.
-
-The control bar at the bottom of the stage has icon buttons:
-
-- Microphone: mutes or unmutes you. Its tooltip changes with the input mode, for example **Unmute microphone with Local Whisper**.
-- **Turn camera on** and **Turn camera off**: enabled only in **Provider-native audio/video** mode with **Camera and screen input** on.
-- **Share screen** and **Stop sharing screen**: same rule as the camera.
-- **Character volume**: opens a popover with a mute button and a 0 to 100 volume slider. The default is 100 percent, and your choice is saved in the browser.
-- **Soundboard**: opens a list of sounds with an **Upload** control.
-- **End call**: the red hang-up button.
-
-If you stay muted for a while, a reminder appears: "You are muted! Remember to unmute yourself first if you want to talk."
-
-If you leave the Conversation while a call is active, the call shrinks into a small floating popout. The popout shows the chat name, the elapsed time, and a red **End call** button. Click the popout body to return to the full call screen. Marinara keeps the call running while you browse other panels.
-
-### Soundboard
-
-The soundboard is a small library of sounds you can play during any call. Four built-in sounds ship by default: **Soft Chime**, **Tap**, **Sparkle**, and **Pop**. You cannot delete the built-in sounds.
-
-You can upload your own sound with the **Upload** button. Accepted formats are mp3, wav, ogg, webm, and m4a, up to 8 MB each. Your uploads have a delete control. Characters can also play a sound through the soundboard command.
-
-## Character Video Presence and video call clips
-
-**Character Video Presence** replaces a still avatar tile with a looping AI-generated video clip of the character. It is off by default. The toggle is **Character video presence** in **Chat Settings**, then **Agents**, then **Calls**.
-
-To set up video call clips:
-
-1. Create a Video Generation connection under **Settings**, then **Connections**.
-2. Mark one connection as **Default for Videos**, or pick a video connection each time you generate.
-3. Open a character or persona editor.
-4. Open the **Sprites** tab, then the **Clips** sub-tab.
-5. Use **Generate Clips** or **Upload extra** to add the clips you want.
-
-For more on sprites and the editor, see [Character Sprites (Expressions and Full-body)](../characters/sprites.md).
-
-The **Generate Clips** button opens the **Generate Call Clips** window. There you choose a **Video Generation Connection** and choose **Use avatar as reference**. Then you pick which standard clips to make. You can also define one custom clip with a **Clip name** and an action description.
-
-The six standard clip types are **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, and **Sighing**. During a spoken turn, Marinara reads the voice cues in a line, such as `[sighs]` or `[laughs]`. It picks a matching reaction clip, then returns the character to Idle.
-
-Two extra toggles appear under **Character video presence** when it is on:
-
-- **Automatic video clips generation**: off by default. When on, Marinara auto-generates only the two basic clips, **Idle** and **Talking**, for a call participant that needs them. Reaction clips and custom clips are never auto-generated. You make those by hand from the **Clips** sub-tab.
-- **Custom clips**: off by default. When on, a character can rarely request a one-off clip during a live call, and can replay a ready custom clip afterward. This is meant for special visual requests, not for every mood or line.
-
-Missing clips never block a call. The character just shows a still avatar until a clip is ready. If you trim a clip, it loops inside the trim range you set.
-
-Turning **Character video presence** off also turns off **Automatic video clips generation** and **Custom clips**.
-
-Video call clips are not the same as Gallery **Videos**. Gallery Videos hold scene videos from Roleplay, Game, or Conversation chats. The **Clips** sub-tab holds the reusable presence loops described here.
-
-## Hidden in-call commands
-
-Characters can use the same hidden bracket commands in a call that they use in normal Conversation messages. Each command needs its matching toggle in **Chat Settings → Agents**, and the master **Commands** toggle inside that section must be on. These commands run silently and are never spoken or shown as prose.
-
-- **Selfies**: a character generates and sends a photo into the call chat. This needs a **Selfie Connection** set for the chat. See [Selfies](selfies.md).
-- **Memories**: a character saves a memory about another character based on the call.
-- **Music**: a character plays a song through the Music Player, if a music source is connected.
-- **Haptics**: a character drives a connected haptic device during intimate moments, if a device is connected.
-- **Reactions**: a character reacts to your latest typed call message with an emoji.
-- **Cross-Post**: a character moves the current topic into a different shared Conversation chat.
-- **Schedule Updates**: a character changes its own online, idle, do-not-disturb, or offline status and activity for a while, then returns to its schedule. See [Character Schedules and Autonomous Messaging](schedules.md#characters-can-change-their-own-status).
-- **Notes** and **Influence**: these save a durable note or a one-time nudge, and appear only when the chat has a connected chat set up.
-- **Soundboard**: a character plays one of the call soundboard sounds.
-- Leave and end: a character can leave the call alone, or end the call for everyone.
-
-Some commands add a small system entry to the call chat. For example, a selfie shows a "sent a selfie" entry with the image, and a custom clip shows a placeholder while the clip renders.
+Two extras work in a call: **Soundboard** (a character plays a soundboard sound) and leave or end (a character leaves the call, or ends it for everyone). **Notes** and **Influence** appear only when the chat has a connected chat (see [Connected Chats](../chats/connected-chats.md)). A selfie needs a **Selfie model** (see [Selfies](selfies.md)). Some commands add a small entry to the call chat, such as "sent a selfie" with the image.
 
 ## The call-ended summary
 
-When a call ends, Marinara adds a card to the normal Conversation transcript. The card shows the call status. You may see these titles:
-
-- **Call Started**
-- **Incoming Call**
-- **Call Ended**, with the call length
-- **Call Declined**
-- **Missed Call**
-
-After a **Call Ended** card, Marinara generates a short audio call summary in the background if anything meaningful happened. It then adds that summary to the Conversation as hidden context that the model can read. This keeps the model aware of what was said without copying the whole call into the visible chat.
-
-The detailed call transcript stays in separate call storage. Only the short summary flows back into the normal chat.
+When a call ends, a card appears in the Conversation. Its title is **Call Started**, **Incoming Call**, **Call Ended** (with the length), **Call Declined** or **Missed Call**. After **Call Ended**, if anything meaningful happened, Marinara writes a short summary in the background and adds it as hidden context the model can read. This keeps the model aware of the call without copying it into the visible chat.
 
 ## Troubleshooting
 
-### Start call fails and says call audio is not enabled
-
-If you click **Start call** and see "Conversation call audio is not enabled in Chat Settings", turn on **Call Audio Pipeline**. Open **Chat Settings**, then **Agents**, then **Calls**, and turn it on. This setting is required for every call, even a call where you only type. It is global, so turning it on in one chat turns it on for all Conversation calls.
-
-### I can hear characters, but they cannot hear me
-
-Open **Chat Settings**, then **Agents**, then **Calls**, and confirm **Call Audio Pipeline** is on. Then confirm your browser has given the Marinara page permission to use the microphone.
-
-If you are on Firefox, or browser speech recognition does not work, install Calls and download Local Whisper. Open **Connections**, then **Local Model**, then **Local Speech Model**. Then choose **Mic recording + Local Whisper**.
-
-### Local Whisper says it is unavailable
-
-Local Whisper needs the native ONNX runtime for your platform. ONNX is the engine that runs the local speech model. If the model was set up for a different Node build, reinstall dependencies with the same Node build you use to run Marinara, then restart.
-
-If you run a "Lite" build of Marinara, Local Whisper is turned off in that build. The app shows: "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model." Use a full install to get Local Whisper.
-
-### The browser speech option does nothing
-
-Browser speech recognition depends on browser support. Firefox does not offer the same Web Speech recognition as Chromium and Safari browsers. Use **Mic recording + Local Whisper** for hands-free capture, or use **Manual system dictation** to type with your operating system dictation.
-
-### A character only types instead of speaking
-
-Check your Text to Speech settings and voice assignments. The character needs either the single global voice or a per-character voice that your TTS provider can resolve. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
-
-### The model misunderstands my speech
-
-Try **Whisper Base (Multilingual)** instead of Whisper Tiny for better accuracy. Reduce background noise and music. If your model supports it, switch **Audio input mode** to **Provider-native audio/video** so the model hears your audio directly. For a language Whisper handles poorly, [use your own speech-to-text server](#use-your-own-speech-to-text-server) with a model that knows it, and set its **Language** code.
-
-### The Speech to Text test fails
-
-Read the message under the **Test** button. "Could not reach the speech-to-text server" means the address is wrong or the server is not running. A message naming `STT_LOCAL_URLS_ENABLED` means the server is on another machine in your network; set that variable to `true` in `.env`. A number such as 401 or 404 comes from your server: 401 usually means a wrong API key, and 404 a wrong address or model name.
-
-### The camera or screen button is disabled
-
-Those buttons only work in **Provider-native audio/video** mode with **Camera and screen input** turned on. Switch the **Audio input mode** and turn on **Camera and screen input**, then try again. The buttons also help only when your model can actually use camera or screen input.
-
-### The call is not working on my phone
-
-On mobile, the call chat opens with the **Open call chat** button and closes with **Close call chat**. If a character will not speak, confirm Text to Speech is set up. For microphone problems on mobile, the same Local Whisper and permission steps above apply.
-
-### A character stopped replying mid-call
-
-Characters reply only while the model connection you selected for the chat is working. If replies stop, check that connection, then try sending a message in the call chat again.
+| Symptom | Fix |
+| --- | --- |
+| Characters cannot hear me | Confirm **Call Audio Pipeline** is on and your browser allows the microphone for the Marinara page. On Firefox, or if browser speech does not work, download Local Whisper and use **Mic recording + Local Whisper**. |
+| The browser speech option does nothing | Firefox lacks the Web Speech recognition that Chromium and Safari browsers have. Use **Mic recording + Local Whisper**, or **Manual system dictation**. |
+| A character types instead of speaking | Check your Text to Speech settings and voice assignments. See [Text to Speech (TTS) Setup](../media/tts-setup.md). |
+| The model misunderstands my speech | Try **Whisper Base (Multilingual)**, reduce noise, or use **Provider-native audio/video** if your model supports it. For a language Whisper handles poorly, [use your own speech-to-text server](#use-your-own-speech-to-text-server) and set its **Language**. |
+| The camera or screen button is disabled | Use **Provider-native audio/video** mode and turn on **Camera and screen input**. Your model must also accept camera or screen input. |
+| A character stops replying mid-call | Check the model account for the chat, then send a message in the call chat again. |
+| The call does not work on my phone | The call chat opens with **Open call chat**. For speech, confirm TTS is set up. For the microphone, the same Local Whisper and permission steps apply. |
 
 ## Related guides
 
 - [Text to Speech (TTS) Setup](../media/tts-setup.md)
-- [Local Model Setup](../connections/local-model.md)
+- [Built-in Model Setup](../connections/local-model.md)
 - [Character Sprites (Expressions and Full-body)](../characters/sprites.md)
 - [Conversation Mode: Getting Started](getting-started.md)

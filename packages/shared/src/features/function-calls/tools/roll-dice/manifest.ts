@@ -7,7 +7,11 @@ export const rollDiceToolManifest = {
   parameters: {
     type: "object",
     properties: {
-      notation: { type: "string", description: "Dice notation (e.g. '2d6', '1d20+5', '3d8-2', 'd20')" },
+      notation: {
+        type: "string",
+        description:
+          "Dice notation (e.g. '2d6', '1d20+5', '3d8-2', 'd20', '4d6kh3' to keep the highest 3). In a game whose ruleset throws symbol dice, name its dice instead: '2 ability 1 proficiency vs 2 difficulty' (modifier and dc do not apply to them)",
+      },
       reason: { type: "string", description: "Why the roll is being made (e.g. 'Perception check')" },
       modifier: {
         type: "integer",

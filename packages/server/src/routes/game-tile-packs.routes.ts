@@ -143,7 +143,7 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
     { bodyLimit: SAVE_BODY_LIMIT, config: { rateLimit: GAME_TILE_PACKS_RATE_LIMIT } },
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Tile pack save" })) return;
-      const sent = z.object({ pack: z.record(z.unknown()) }).safeParse(req.body);
+      const sent = z.object({ pack: z.record(z.string(), z.unknown()) }).safeParse(req.body);
       if (!sent.success) return reply.status(400).send({ error: "The tile pack is not usable: no pack was sent." });
       const body = sent.data.pack;
       // The body limit is an image pack's; a drawn pack keeps its own, smaller one.

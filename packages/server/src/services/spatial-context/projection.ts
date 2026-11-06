@@ -1,4 +1,4 @@
-import type { ResolvedOwnerSpatialProjection, SpatialContextDefinition } from "@marinara-engine/shared";
+import type { AgentContext, ResolvedOwnerSpatialProjection, SpatialContextDefinition } from "@marinara-engine/shared";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
 import { isHierarchicalMapsEnabledForChat } from "./activation.js";
 import type { ResolveSpatialStateOptions } from "./state-resolution.js";
@@ -54,6 +54,19 @@ export function formatOwnerSpatialBreadcrumb(projection: ResolvedOwnerSpatialPro
   return (
     service()?.formatOwnerSpatialBreadcrumb(projection) ?? projection.breadcrumb.map(({ name }) => name).join(" > ")
   );
+}
+
+/**
+ * The current Roleplay location as agents see it: path and public description only.
+ * IDs, destinations and private model memory stay with the narrator (#8251).
+ */
+export function agentCurrentLocationFromProjection(
+  projection: ResolvedOwnerSpatialProjection | null,
+): AgentContext["currentLocation"] {
+  if (projection?.ownerMode !== "roleplay") return null;
+  const path = formatOwnerSpatialBreadcrumb(projection).trim();
+  if (!path) return null;
+  return { path, description: projection.description.trim() };
 }
 
 export function formatOwnerSpatialPrompt(projection: ResolvedOwnerSpatialProjection): string {

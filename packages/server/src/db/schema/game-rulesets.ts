@@ -38,11 +38,16 @@ export const gameRulesets = fileTable("game_rulesets", {
    *  `game_ruleset_catalogs`; null for a ruleset whose catalogs are inline (every JSON or repository
    *  import). Part of the version's identity: a changed catalog is a changed version. */
   catalogs: text("catalogs"),
+  /** The translation kept of a package file's (1.811), in the Engine's language, as the JSON of
+   *  `{ <language>: <sha256> }`, its text kept once in `game_ruleset_catalogs` beside the catalog files;
+   *  null for none. Display only, so NOT part of the version's identity: importing the version again in
+   *  another language replaces it. */
+  locales: text("locales"),
   createdAt: text("created_at").notNull(),
 });
 
-/** The catalog files of rulesets imported from a package file (RM), kept once by their content, however
- *  many versions name them. Read only through a ruleset row's `catalogs`, and checked against it; a file
+/** The catalog files of rulesets imported from a package file (RM), and their translations (1.811), kept
+ *  once by their content, however many versions name them. Read only through a ruleset row's `catalogs`, and checked against it; a file
  *  no version names any more is removed with the last one that did. */
 export const gameRulesetCatalogs = fileTable("game_ruleset_catalogs", {
   /** The file's hex sha256. */

@@ -53,6 +53,18 @@ try {
     apply: true,
   });
   assert.equal(mariEquivalentUpdate.ok, true);
+  const snakeUpdate = await mari.executeAction({
+    action: "agent.update",
+    agentId: agent.id,
+    prompt_template: "Watch the harbor.",
+    apply: true,
+  });
+  assert.equal(snakeUpdate.ok, true);
+  assert.equal(
+    (await storage.getById(agent.id))?.promptTemplate,
+    "Watch the harbor.",
+    "top-level prompt_template applies",
+  );
   const widgetStateKey = `agent_home_widget:${agent.id}:${widget.id}`;
   const mariWidgetPublish = await mari.executeCli({
     argv: [

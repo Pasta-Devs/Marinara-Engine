@@ -79,7 +79,6 @@ const PANEL_CONFIG: Record<string, PanelConfig> = {
     title: "Connections",
     icon: <Link size="0.875rem" />,
     gradient: "from-sky-400 to-blue-500",
-    helpKey: "navigation.sidebarHelp.connections",
   },
   agents: {
     title: "Agents",
@@ -176,7 +175,7 @@ function StandardRightPanel() {
     <section
       ref={sectionRef}
       data-component="RightPanel"
-      aria-label={config.title}
+      aria-label={localize(config.title)}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className="mari-right-panel-content mari-chrome-token-scope flex h-full min-h-0 flex-col outline-none"
@@ -195,7 +194,7 @@ function StandardRightPanel() {
           >
             {config.icon}
           </div>
-          <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{config.title}</h2>
+          <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize(config.title)}</h2>
           {config.helpKey && (
             <HelpTooltip
               key={panel}

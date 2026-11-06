@@ -79,12 +79,312 @@ try {
     selected.participantCharacterIds,
     "The model cannot override explicit participants",
   );
+  // Models often slip on JSON (an unquoted key, single quotes, a trailing comma); the plan is still read.
+  providerContent = `{
+  name: 'Scene: Library',
+  "description": "A library.",
+  "scenario": "Find a book.",
+  "firstMessage": "Welcome.",
+}`;
+  const repaired = await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: { pov: "third_person", tense: "past", ...selected },
+  });
+  assert.equal(repaired.error, undefined, "a slightly broken JSON plan is repaired");
+  assert.equal(repaired.plan?.name, "Scene: Library");
+  assert.equal(repaired.plan?.scenario, "Find a book.");
+  // Dialogue in plain quotes inside a one-line value ("firstMessage": ""Hi," she says."): the quotes are kept as text.
+  providerContent = [
+    "{",
+    '  "name": "Scene: Library",',
+    '  "scenario": "Find a book.",',
+    '  "firstMessage": "So. You came back.", The librarian smiles. "Again?",',
+    '  "description": "A library."',
+    "}",
+  ].join("\n");
+  const quoted = await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: { pov: "third_person", tense: "past", ...selected },
+  });
+  assert.equal(quoted.error, undefined, "dialogue quotes inside a value are repaired");
+  assert.equal(quoted.plan?.firstMessage, 'So. You came back.", The librarian smiles. "Again?');
+  assert.equal(quoted.plan?.description, "A library.");
+  // The shared repair keeps valid lines as they are: two properties on one valid line stay two properties.
+  const { tryParseJsonRecord } = await import("../../packages/server/src/lib/json-repair.js");
+  // Dialogue quotes come in pairs, so a bare `, warning: "` inside quoted dialogue is not a key: no field is cut short.
+  const signsText = 'The signs read, "Welcome", warning: "Do not enter."';
+  for (const [field, other] of [
+    ["firstMessage", "description"],
+    ["description", "firstMessage"],
+  ] as const) {
+    const lines = [
+      "{",
+      '  "name": "Scene: Library",',
+      `  "${field}": "${signsText}",`,
+      `  "${other}": "A library."`,
+      "}",
+    ];
+    providerContent = lines.join("\n");
+    assert.deepEqual(tryParseJsonRecord(providerContent), {
+      name: "Scene: Library",
+      [field]: signsText,
+      [other]: "A library.",
+    });
+    const signs = await api("POST", "/api/scene/plan", {
+      chatId: origin.id,
+      connectionId: conn.id,
+      prompt: "Visit the library",
+      promptPreferences: { pov: "third_person", tense: "past", ...selected },
+    });
+    assert.equal(signs.error, undefined);
+    assert.equal(signs.plan?.[field], signsText, `${field} is kept whole`);
+    assert.equal(signs.plan?.[other], "A library.");
+  }
+  // Real properties before and after that dialogue still split off.
+  assert.deepEqual(tryParseJsonRecord(`{\n  "firstMessage": "${signsText}", mood: "warm"\n}`), {
+    firstMessage: signsText,
+    mood: "warm",
+  });
+  assert.deepEqual(tryParseJsonRecord(`{\n  "name": "Scene", "firstMessage": "${signsText}", mood: "warm"\n}`), {
+    name: "Scene",
+    firstMessage: signsText,
+    mood: "warm",
+  });
+  // A dialogue quote never closed doesn't swallow the whole properties written after it on the line.
+  assert.deepEqual(
+    tryParseJsonRecord('{\n  "firstMessage": "The sign said "Welcome.", mood: "warm",\n  "name": "x"\n}'),
+    {
+      firstMessage: 'The sign said "Welcome.',
+      mood: "warm",
+      name: "x",
+    },
+  );
+  assert.deepEqual(
+    tryParseJsonRecord('{\n  "firstMessage": "The sign said "Welcome.", mood: "warm", "tone": "calm"\n}'),
+    { firstMessage: 'The sign said "Welcome.', mood: "warm", tone: "calm" },
+  );
+  // A value missing its own closing quote doesn't swallow the bare property after it either.
+  const openHead = '"description": "The lab was cold, title: "The Lab"';
+  assert.deepEqual(tryParseJsonRecord(`{\n  ${openHead}\n}`), { description: "The lab was cold", title: "The Lab" });
+  assert.deepEqual(tryParseJsonRecord(`{\n  "name": "x", ${openHead}\n}`), {
+    name: "x",
+    description: "The lab was cold",
+    title: "The Lab",
+  });
+  providerContent = `{\n  "name": "Scene: Lab",\n  "firstMessage": "Cold in here.",\n  ${openHead}\n}`;
+  const openHeadPlan = await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the lab",
+    promptPreferences: { pov: "third_person", tense: "past", ...selected },
+  });
+  assert.equal(openHeadPlan.error, undefined);
+  assert.equal(openHeadPlan.plan?.description, "The lab was cold", "the description isn't joined to the next property");
+  assert.deepEqual(tryParseJsonRecord(`{\n  "firstMessage": "${signsText.replace("warning", "'warning'")}"\n}`), {
+    firstMessage: signsText.replace("warning", "'warning'"),
+  });
+  // Dialogue that quotes a "key": "value" of its own is still one value: only a comma before the key starts another.
+  // ("She said, "mood": "warm"" can't be told from a real property, so there jsonrepair's reading stands.)
+  for (const dialogue of ['She read "mood": "warm" aloud', 'He said "hi" twice']) {
+    assert.deepEqual(tryParseJsonRecord(`{\n  "firstMessage": "${dialogue}",\n  "name": "x"\n}`), {
+      firstMessage: dialogue,
+      name: "x",
+    });
+  }
+  // Two properties on one broken line, either one holding dialogue quotes: each keeps its own value.
+  assert.deepEqual(tryParseJsonRecord('{\n  "name": "Scene: Return", "firstMessage": ""Hi," she says."\n}'), {
+    name: "Scene: Return",
+    firstMessage: '"Hi," she says.',
+  });
+  assert.deepEqual(tryParseJsonRecord('{\n  "firstMessage": ""Hi," she says.", "name": "Scene: Return"\n}'), {
+    firstMessage: '"Hi," she says.',
+    name: "Scene: Return",
+  });
+  // A key written with an escape (first\u004dessage) counts as the key it reads as.
+  assert.deepEqual(tryParseJsonRecord('{\n  "first\\u004dessage": "Hello", "name": "x" "role": "assistant"\n}'), {
+    firstMessage: "Hello",
+    name: "x",
+    role: "assistant",
+  });
+  // A missing comma between real properties is jsonrepair's to fix; nothing is merged into one value.
+  assert.deepEqual(tryParseJsonRecord('{\n  "firstMessage": "Hello", "name": "x" "role": "assistant"\n}'), {
+    firstMessage: "Hello",
+    name: "x",
+    role: "assistant",
+  });
+  // An invalid line holding two properties keeps both: the dialogue escape leaves it to jsonrepair.
+  assert.deepEqual(tryParseJsonRecord('{\n  "firstMessage": "She said "hi"", "mood": "warm",\n  "name": "x"\n}'), {
+    firstMessage: 'She said "hi"',
+    mood: "warm",
+    name: "x",
+  });
+  // Quoted and bare keys mixed, as models write them: every property is kept, none swallowed into the one before.
+  assert.deepEqual(tryParseJsonRecord('{\n  "name": "Scene: X", firstMessage: "Hi there"\n}'), {
+    name: "Scene: X",
+    firstMessage: "Hi there",
+  });
+  assert.deepEqual(tryParseJsonRecord('{\n  "name": "Scene: X, again", \'firstMessage\': "Hi there"\n}'), {
+    name: "Scene: X, again",
+    firstMessage: "Hi there",
+  });
+  assert.deepEqual(
+    tryParseJsonRecord('{\n  "name": "Scene: X", firstMessage: "Hi", "scenario": "Find: a book", rating: "sfw"\n}'),
+    { name: "Scene: X", firstMessage: "Hi", scenario: "Find: a book", rating: "sfw" },
+  );
+  assert.deepEqual(tryParseJsonRecord('{\n  name: "Scene: X",\n  "firstMessage": "Hi there"\n}'), {
+    name: "Scene: X",
+    firstMessage: "Hi there",
+  });
+  // Prose that jsonrepair would turn into a key sends the line to the dialogue escape, which splits at a bare key too.
+  assert.deepEqual(
+    tryParseJsonRecord('{\n  "name": "Scene: Rain", firstMessage: "You\'re late.", She turns. "Again."\n}'),
+    { name: "Scene: Rain", firstMessage: 'You\'re late.", She turns. "Again.' },
+  );
+  assert.deepEqual(
+    tryParseJsonRecord('{\n  "name": "Scene: Rain", \'firstMessage\': "You\'re late.", She turns. "Again."\n}'),
+    { name: "Scene: Rain", firstMessage: 'You\'re late.", She turns. "Again.' },
+  );
+  // Prose shaped like a bare key (", softly: "") stays inside its value.
+  assert.deepEqual(tryParseJsonRecord('{\n  "firstMessage": "She said, softly: "Come here."",\n  "name": "x"\n}'), {
+    firstMessage: 'She said, softly: "Come here."',
+    name: "x",
+  });
+  assert.deepEqual(tryParseJsonRecord('{\n  "name": "Scene: X", "firstMessage": "Hi there"\n}'), {
+    name: "Scene: X",
+    firstMessage: "Hi there",
+  });
+  assert.deepEqual(tryParseJsonRecord('{\n  "a": "x", "b": "y",\n  "c": "He said "hi" twice",\n}'), {
+    a: "x",
+    b: "y",
+    c: 'He said "hi" twice',
+  });
+  providerContent = JSON.stringify(plan);
   const sent = requests
     .at(-1)!
     .messages.map((m) => m.content)
     .join("\n");
   assert.ok(sent.includes("Scene persona") && sent.includes("Alice") && sent.includes("Bob"));
   assert.ok(!sent.includes("Charlie"), "Excluded character cards are not sent to the planner");
+
+  // In Individual group mode the opening is credited to the initiator, so the planner writes it in their voice.
+  const individualProfile = await api("POST", "/api/chat-presets", {
+    name: "Individual scenes",
+    mode: "roleplay",
+    settings: { metadata: { groupChatMode: "individual" } },
+  });
+  await api("POST", `/api/chat-presets/${individualProfile.id}/set-active`);
+  await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: { pov: "first_person", tense: "present", ...selected },
+    initiatorCharId: ids[1],
+  });
+  const openerPrompt = requests
+    .at(-1)!
+    .messages.map((m) => m.content)
+    .join("\n");
+  assert.match(openerPrompt, /<opening_character>Bob<\/opening_character>/u, "the planner knows who opens");
+  assert.match(openerPrompt, /"firstMessage" is posted by Bob\. Write it only as Bob/u);
+  assert.match(openerPrompt, /\("I" is Bob\)/u, 'first person: the opener is "I"');
+  assert.match(openerPrompt, /says aloud in double quotes/u, "spoken words are quoted");
+  // Third person: the opener is not made "I" against the selected POV.
+  await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: { pov: "third_person", tense: "past", ...selected },
+    initiatorCharId: ids[1],
+  });
+  const thirdPersonPrompt = requests
+    .at(-1)!
+    .messages.map((m) => m.content)
+    .join("\n");
+  assert.match(
+    thirdPersonPrompt,
+    /Write it only as Bob: Bob's own actions, dialogue and thoughts, in the selected POV/u,
+  );
+  assert.doesNotMatch(thirdPersonPrompt, /"I" is Bob/u);
+  // In merged group mode one narrating voice tells the scene, so the opening is written that way.
+  const mergedProfile = await api("POST", "/api/chat-presets", {
+    name: "Merged scenes",
+    mode: "roleplay",
+    settings: { metadata: { groupChatMode: "merged" } },
+  });
+  await api("POST", `/api/chat-presets/${mergedProfile.id}/set-active`);
+  await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: selected,
+    initiatorCharId: ids[1],
+  });
+  const mergedPrompt = requests
+    .at(-1)!
+    .messages.map((m) => m.content)
+    .join("\n");
+  assert.match(mergedPrompt, /told by one narrating voice for every character/u, "merged: narrated opening");
+  assert.doesNotMatch(mergedPrompt, /Write it only as Bob/u);
+  await api("POST", `/api/chat-presets/${individualProfile.id}/set-active`);
+  // Without chosen participants, a cast the model picks always keeps the opening character.
+  providerContent = JSON.stringify({ ...plan, characterIds: [ids[0]] });
+  const castPlan = await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    initiatorCharId: ids[1],
+  });
+  assert.deepEqual(castPlan.plan.characterIds, [ids[1], ids[0]], "the opening character stays in the scene");
+  // Without an initiator the first participant opens; a model that reorders the cast doesn't hand the opening to
+  // someone else, since /scene/create credits the first listed participant.
+  providerContent = JSON.stringify({ ...plan, characterIds: [ids[1], ids[0]] });
+  const noInitiatorPlan = await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+  });
+  assert.match(
+    requests
+      .at(-1)!
+      .messages.map((m) => m.content)
+      .join("\n"),
+    /<opening_character>Alice<\/opening_character>/u,
+  );
+  assert.deepEqual(noInitiatorPlan.plan.characterIds, [ids[0], ids[1]], "the opening character is listed first");
+  providerContent = JSON.stringify(plan);
+  // The starred Roleplay settings profile, as a new Roleplay chat would get it, with its own prompt preset.
+  const writingPreset = await api("POST", "/api/prompts", { name: "House style" });
+  await api("POST", `/api/prompts/${writingPreset.id}/sections`, {
+    presetId: writingPreset.id,
+    identifier: "house-style",
+    name: "House style",
+    content: "HOUSE-STYLE: write dialogue in double quotes.",
+  });
+  const profile = await api("POST", "/api/chat-presets", {
+    name: "Scene defaults",
+    mode: "roleplay",
+    settings: { promptPresetId: writingPreset.id, metadata: { illustratorRunInterval: 7, enableAgents: false } },
+  });
+  await api("POST", `/api/chat-presets/${profile.id}/set-active`);
+  // With no preset picked for the scene, the planner follows the profile's prompt preset, as the scene chat will.
+  await api("POST", "/api/scene/plan", {
+    chatId: origin.id,
+    connectionId: conn.id,
+    prompt: "Visit the library",
+    promptPreferences: selected,
+  });
+  assert.match(
+    requests
+      .at(-1)!
+      .messages.map((m) => m.content)
+      .join("\n"),
+    /<scene_writing_instructions>[\s\S]*HOUSE-STYLE: write dialogue in double quotes\./u,
+    "the starred profile's writing rules reach the planner",
+  );
   const payload = {
     originChatId: origin.id,
     connectionId: conn.id,
@@ -102,10 +402,61 @@ try {
   );
   const created = creations.find((response) => response.statusCode === 200)!.json();
   const scene = await api("GET", `/api/chats/${created.chatId}`);
+  // The scene starts from the starred Roleplay profile, with its own scene settings on top.
+  const sceneMeta = typeof scene.metadata === "string" ? JSON.parse(scene.metadata) : scene.metadata;
+  assert.equal(sceneMeta.appliedChatPresetId, profile.id, "the starred Roleplay profile is applied");
+  assert.equal(sceneMeta.illustratorRunInterval, 7);
+  assert.equal(sceneMeta.enableAgents, false);
+  assert.equal(sceneMeta.sceneStatus, "active", "the scene's own settings stay");
+  assert.equal(scene.connectionId, conn.id, "the connection the scene was given stays");
   assert.deepEqual(scene.characterIds, selected.participantCharacterIds);
   assert.equal(scene.personaId, persona.id);
   const messages = await api("GET", `/api/chats/${scene.id}/messages`);
   assert.equal(messages.at(-1).characterId, ids[0], "An excluded initiator cannot author the Scene opening");
+  // The opening is only the character's own message; the description is narration, posted by the narrator.
+  assert.equal(messages.at(-1).content, "Welcome.", "the description is not glued onto the opening");
+  const narration = messages.filter((message: { role: string }) => message.role === "narrator");
+  assert.deepEqual(
+    narration.map((message: { content: string }) => message.content),
+    ["Explore the library.", "A library."],
+    "the guide, then the description",
+  );
+  const guideExtra = typeof narration[0].extra === "string" ? JSON.parse(narration[0].extra) : narration[0].extra;
+  assert.equal(guideExtra?.sceneParticipationGuide, true, "the guide is marked so a fork can leave out only it");
+  // A copy without the guide leaves out only the guide: the description and the opening stay.
+  const fork = await api("POST", "/api/scene/fork", {
+    sceneChatId: scene.id,
+    mode: "clone",
+    includeParticipationGuide: false,
+  });
+  const forkMessages = await api("GET", `/api/chats/${fork.chatId}/messages`);
+  assert.deepEqual(
+    forkMessages
+      .filter((message: { role: string }) => message.role !== "system")
+      .map((message: { content: string }) => message.content)
+      .filter(
+        (content: string) => content === "A library." || content === "Welcome." || content === "Explore the library.",
+      ),
+    ["A library.", "Welcome."],
+    "only the guide is left out",
+  );
+  // A scene whose plan had no guide: the copy still keeps the description, which is marked too.
+  const guideMessage = (await api("GET", `/api/chats/${scene.id}/messages`)).find(
+    (message: { content: string }) => message.content === "Explore the library.",
+  );
+  await createChatsStorage(app.db).removeMessage(guideMessage.id);
+  const noGuideFork = await api("POST", "/api/scene/fork", {
+    sceneChatId: scene.id,
+    mode: "clone",
+    includeParticipationGuide: false,
+  });
+  assert.deepEqual(
+    (await api("GET", `/api/chats/${noGuideFork.chatId}/messages`))
+      .map((message: { content: string }) => message.content)
+      .filter((content: string) => content === "A library." || content === "Welcome."),
+    ["A library.", "Welcome."],
+    "with no guide in the scene, nothing else is left out",
+  );
   const store = createChatsStorage(app.db);
   const chars = createCharactersStorage(app.db);
   const meta = (await api("GET", `/api/chats/${origin.id}`)).metadata;

@@ -1,6 +1,7 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MULTIPLAYER_LIMITS, type MultiplayerPersona } from "@marinara-engine/shared";
+import { CharacterSelect } from "../../components/characters/CharacterSelect";
 import { usePersonas } from "../../hooks/use-characters";
 
 export const MULTIPLAYER_INPUT_CLASS =
@@ -18,31 +19,30 @@ export function MultiplayerPersonaFields({
   const { t } = useTranslation();
   const { data: personas = [] } = usePersonas();
   const id = useId();
+  const [picked, setPicked] = useState<string | null>(null);
   return (
     <div className="space-y-2">
       <label htmlFor={`${id}-picker`} className="block text-xs font-medium">
         {t("multiplayer.persona.choose")}
       </label>
-      <select
+      <CharacterSelect
+        kind="persona"
+        withCharacters={false}
+        variant="picker"
         id={`${id}-picker`}
-        className={MULTIPLAYER_INPUT_CLASS}
-        defaultValue=""
-        onChange={(event) => {
-          const persona = personas.find((item) => item.id === event.target.value);
-          if (persona)
-            onChange({
-              name: persona.name.slice(0, 80),
-              description: persona.description.slice(0, MULTIPLAYER_LIMITS.description),
-            });
+        value={picked ? { persona: picked } : null}
+        placeholder={t("multiplayer.persona.manual")}
+        onChange={(choice) => {
+          const personaId = choice && "persona" in choice ? choice.persona : null;
+          const persona = personas.find((item) => item.id === personaId);
+          if (!persona) return;
+          setPicked(persona.id);
+          onChange({
+            name: persona.name.slice(0, 80),
+            description: persona.description.slice(0, MULTIPLAYER_LIMITS.description),
+          });
         }}
-      >
-        <option value="">{t("multiplayer.persona.manual")}</option>
-        {personas.map((persona) => (
-          <option key={persona.id} value={persona.id}>
-            {persona.name}
-          </option>
-        ))}
-      </select>
+      />
       <label htmlFor={`${id}-name`} className="block text-xs font-medium">
         {t("multiplayer.persona.name")}
       </label>

@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
@@ -21,7 +21,10 @@ export function useDialogFocusScope(
   ownedPortalSelector?: string,
   /** Trap focus only while this scope owns the topmost overlay. */
   isActive?: () => boolean,
+  containFocus = true,
 ) {
+  const containFocusRef = useRef(containFocus);
+  containFocusRef.current = containFocus;
   useEffect(() => {
     if (!open) return;
 
@@ -44,7 +47,7 @@ export function useDialogFocusScope(
     });
 
     const trapFocus = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
+      if (!containFocusRef.current || event.key !== "Tab") return;
       if (isActive && !isActive()) return;
       const container = containerRef.current;
       if (!container) return;

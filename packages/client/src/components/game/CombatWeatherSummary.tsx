@@ -4,7 +4,16 @@ import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { cn } from "../../lib/utils";
 
 /** Accepted battle rules, independent of the cosmetic weather-animation preference. */
-export function CombatWeatherSummary({ weather, tactical }: { weather?: CombatWeather; tactical: boolean }) {
+export function CombatWeatherSummary({
+  weather,
+  tactical,
+  inline,
+}: {
+  weather?: CombatWeather;
+  tactical: boolean;
+  /** One quiet line inside another panel (the fight screen's footer) rather than a band of its own. */
+  inline?: boolean;
+}) {
   const { t } = useTranslation();
   if (!weather) return null;
   const effects = combatWeatherEffects(weather);
@@ -30,7 +39,9 @@ export function CombatWeatherSummary({ weather, tactical }: { weather?: CombatWe
       data-game-section="combat-weather"
       className={cn(
         GAME_SECTION_CLASS,
-        "shrink-0 border-b border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)]",
+        inline
+          ? "text-[0.7rem] text-[var(--foreground)]"
+          : "shrink-0 border-b border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)]",
       )}
       aria-label={t("game.combat.weather.label")}
     >

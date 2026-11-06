@@ -124,7 +124,8 @@ const provider = createServer(async (req, res) => {
       ? "tracker"
       : prompt.includes("Identify scene transitions")
         ? "scene"
-        : prompt.includes("Summarize only the supplied eligible source material")
+        : prompt.includes("Summarize only the supplied eligible source material") ||
+            prompt.includes("about half its current length")
           ? "summary"
           : "main";
   calls.push({
@@ -245,7 +246,7 @@ const provider = createServer(async (req, res) => {
     res.end(
       responses
         ? `data: ${JSON.stringify({ type: "response.completed", response })}\n\n`
-        : `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n${
+        : `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: kind === "summary" ? summaryFinishReason : "stop" }] })}\n\n${
             usageLast
               ? `data: ${JSON.stringify({
                   choices: [],
@@ -310,6 +311,11 @@ app.decorate("db", db);
 await app.register(generateRoutes, { prefix: "/api/generate" });
 await app.register(chatsRoutes, { prefix: "/api/chats" });
 const chatIds: string[] = [];
+// Updating continuity asks for half the text it shortens (#8820).
+const halfOf = (text: string) => Math.floor(estimateChatSummaryTokens(text) / 2);
+// A Helper that shortens what it is sent: each run of a repeated word becomes "SHORT" and the word once.
+const shortReply = (prompt: string) =>
+  (JSON.parse(prompt).at(-1).content as string).replace(/(\S+)(?: \1)+/gu, "SHORT $1");
 try {
   await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
   const address = provider.address();
@@ -460,6 +466,8 @@ try {
     ["custom", "fixture"],
     ["openai", "gpt-6-astra"],
   ] as const) {
+    // A linked Model takes its provider from its Connection, so a provider switch leaves the Connection first.
+    await createConnectionsStorage(db).update(connection.id, { accountId: null });
     await createConnectionsStorage(db).update(connection.id, { provider, model });
     streamGate = new Promise<void>((resolve) => {
       finishStream = resolve;
@@ -499,6 +507,7 @@ try {
       "routine recall does not prepare the archive",
     );
   }
+  await createConnectionsStorage(db).update(connection.id, { accountId: null });
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
   // The embedding space follows the provider, so the Responses reply's upkeep embedded the archive for that one;
   // a reply's upkeep embeds it for this one again.
@@ -1390,7 +1399,8 @@ try {
       ["main", "summary"],
     );
     const combine = calls[1]!;
-    assert(combine.messages[0]!.content.includes(`approximately ${Math.floor(summaryBudgetTokens * 0.7)} tokens`));
+    // The share decides when; the request asks for half the summary, whatever the budget (#8820).
+    assert(combine.messages[0]!.content.includes(`about ${halfOf(combine.messages[1]!.content)} tokens, about half`));
     assert(JSON.stringify(calls[0]!.messages).includes(content.trim()), "the crossing reply keeps its constants");
     assert.doesNotMatch(JSON.stringify(combine.messages), /STILL_LIVE_SUMMARY/u);
     const afterCombine = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
@@ -1449,16 +1459,17 @@ try {
   await waitFor(async () => calls.some((call) => call.kind === "summary"));
   assert.equal(calls[0]!.kind, "main", "constant consolidation follows the main reply");
   const combinedRequest = calls.find((call) => call.kind === "summary")!;
+  const combinedText = combinedRequest.messages[1]!.content;
   assert.equal(
     combinedRequest.maxTokens,
-    12_000,
-    "Chat Summary output size overrides the helper connection's 256-token setting",
+    Math.min(12_000, 2 * halfOf(combinedText) + 1024),
+    "the reply may be as long as the text it halves and 1,024 tokens more, within Chat Summary's output size, not the helper connection's 256-token setting",
   );
-  assert(JSON.stringify(combinedRequest.messages).includes("CONSTANTS_ONLY_SOURCE"));
+  assert(combinedText.includes("CONSTANTS_ONLY_SOURCE"));
   assert.match(
     combinedRequest.messages[0]!.content,
-    /approximately 7000 tokens/u,
-    "the helper receives the 70% allocation, not the combined memory allowance",
+    new RegExp(`about ${halfOf(combinedText)} tokens, about half its current length`, "u"),
+    "the helper is asked for half the summary, not the 70% allocation",
   );
   assert.doesNotMatch(
     JSON.stringify(combinedRequest.messages),
@@ -1740,18 +1751,27 @@ try {
       }),
     ],
   });
+  summaryReply = shortReply;
   calls.length = 0;
   await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
-  // #7454: a summary written by hand with a section per character goes to the Helper too, with its conditions.
-  // This answer drops those sections, so it is not saved; retried in halves, the other summary is shortened alone.
-  assert.equal(calls.length, 3);
-  assert.match(calls[0]!.messages[1]!.content, /\{\{#if char == "Maukie"\}\}MAUKIE_SECTION[\s\S]*STABLE_CONSTANT/u);
-  assert.match(JSON.stringify(calls[2]!.messages), /STABLE_CONSTANT/u);
-  assert.doesNotMatch(JSON.stringify(calls[2]!.messages), /MAUKIE_SECTION|PANTALONE_SECTION/u);
-  const macroAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
+  // #7454, #8820: a summary written by hand with a section per character is combined too. Each character's section
+  // is shortened in a request of its own, without its condition, and so is the summary both of them read.
   assert.deepEqual(
-    macroAfter.find((entry: { id: string }) => entry.id === template.id),
-    template,
+    calls.map((call) => call.messages[1]!.content.split(" ")[0]),
+    ["MAUKIE_SECTION", "PANTALONE_SECTION", "STABLE_CONSTANT"],
+  );
+  for (const call of calls)
+    assert.doesNotMatch(call.messages[1]!.content, /\{\{|MAUKIE[\s\S]*(?:PANTALONE|STABLE)|PANTALONE[\s\S]*STABLE/u);
+  const macroAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
+  assert.equal(
+    macroAfter.find((entry: { id: string }) => entry.id === template.id).content,
+    template.content,
+    "the hand-written summary stays as an inactive version",
+  );
+  assert.equal(
+    macroAfter.find((entry: { enabled: boolean }) => entry.enabled).content,
+    '{{#if char == "Maukie"}}SHORT MAUKIE_SECTION{{/if}}\n\n{{#if char == "Pantalone"}}SHORT PANTALONE_SECTION{{/if}}\n\n{{#if char == "Maukie" || "Pantalone"}}SHORT STABLE_CONSTANT{{/if}}',
+    "each part goes back inside exactly the condition it had",
   );
   for (const [id, expected, excluded] of [
     [privateA.id, "MAUKIE_SECTION", "PANTALONE_SECTION"],
@@ -1782,20 +1802,19 @@ try {
   });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
-  assert.equal(calls.length, 3);
-  assert.match(
-    calls[0]!.messages[1]!.content,
-    /\{\{#if char == "Maukie"\}\}MAUKIE_SECTION[\s\S]*\{\{#if char == "Pantalone"\}\}PANTALONE_SECTION/u,
+  assert.deepEqual(
+    calls.map((call) => call.messages[1]!.content.split(" ")[0]),
+    ["MAUKIE_SECTION", "PANTALONE_SECTION", "STABLE_CONSTANT"],
     "shared-mode compaction must not resolve a mixed-POV template as only the first character",
   );
-  assert.doesNotMatch(JSON.stringify(calls[2]!.messages), /MAUKIE_SECTION|PANTALONE_SECTION/u);
-  assert.deepEqual(
+  assert.match(
     JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries.find(
-      (entry: { id: string }) => entry.id === template.id,
-    ),
-    template,
-    "all existing POV sections and their conditions remain saved",
+      (entry: { enabled: boolean }) => entry.enabled,
+    ).content,
+    /^\{\{#if char == "Maukie"\}\}SHORT MAUKIE_SECTION\{\{\/if\}\}\n\n\{\{#if char == "Pantalone"\}\}SHORT PANTALONE_SECTION\{\{\/if\}\}/u,
+    "all POV sections keep their conditions",
   );
+  summaryReply = undefined;
   await chats.patchMetadata(macroChat.id, { groupChatMode: "individual" });
 
   // Its {{char}} keeps it out of combining (#7454), so it still fills most of each view.
@@ -1826,11 +1845,11 @@ try {
   await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
   assert.equal(calls.length, 1, "a valid shorter recap is kept without retries to force a tiny group target");
   assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /AAAA|BBBB/u);
-  assert.equal(calls[0]!.maxTokens, 12_000, "compaction preserves a larger Chat Summary output allowance");
-  assert.doesNotMatch(calls[0]!.messages[0]!.content, /196 tokens/u);
-  // The target is the summary's proportional share of the budget, not the little room the template leaves.
-  const askedTokens = Number(/Aim for approximately (\d+) tokens/u.exec(calls[0]!.messages[0]!.content)?.[1]);
-  assert(askedTokens > 1000, `no tiny compaction target (#6512): ${askedTokens}`);
+  // The target is half the summary (#8820), not the little room the template leaves (#6512), and the reply may be
+  // as long as the summary and 1,024 tokens more.
+  const askedTokens = Number(/about (\d+) tokens, about half/u.exec(calls[0]!.messages[0]!.content)?.[1]);
+  assert.equal(askedTokens, halfOf(longConstant.content), `the target is half the summary: ${askedTokens}`);
+  assert.equal(calls[0]!.maxTokens, 2 * askedTokens + 1024);
   const softBudgetAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
   assert.deepEqual(
     softBudgetAfter.find((entry: { id: string }) => entry.id === tightTemplate.id),
@@ -1843,8 +1862,8 @@ try {
   );
   assert.equal((await memory.status(macroChat.id)).job.status, "ready");
 
-  // A helper can ignore the length guidance. Keep the existing entries and reuse
-  // the completed attempt instead of paying again for unchanged inputs.
+  // A helper can ignore the length it is asked for. A reply no shorter keeps the existing entries, and the
+  // failed attempt is kept, so unchanged inputs are not paid for again (#8820).
   await chats.patchMetadata(macroChat.id, { summaryEntries: [tightTemplate, longConstant] });
   summaryResponse = longConstant.content;
   calls.length = 0;
@@ -1859,14 +1878,15 @@ try {
 
   // A failed provider result can contain text. It must never become an active
   // replacement or deactivate the originals, even on repeated Resume attempts.
+  await createConnectionsStorage(db).update(connection.id, { accountId: null });
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
   const failureEntries = [
     { ...longConstant, id: "failed-replacement-source", content: "EXISTING_CONSTANT ".repeat(2000) },
   ];
   await chats.patchMetadata(macroChat.id, { summaryEntries: failureEntries });
-  for (const reason of ["length", "error", "abort", "tool_calls", "content_filter"]) {
+  for (const reason of ["error", "abort", "tool_calls", "content_filter"]) {
     summaryFinishReason = reason;
-    await assert.rejects(memory.checkScenesAfterGeneration(macroChat.id), /summary model.*(limit|complete)/u);
+    await assert.rejects(memory.checkScenesAfterGeneration(macroChat.id), /summary model.*complete/u);
     assert.deepEqual(
       JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries,
       failureEntries,
@@ -1879,6 +1899,19 @@ try {
   assert.equal(replacementEntries.filter((entry: { enabled: boolean }) => entry.enabled).length, 1);
   assert.equal(replacementEntries.find((entry: { id: string }) => entry.id === failureEntries[0]!.id).enabled, false);
   assert.equal(replacementEntries.find((entry: { enabled: boolean }) => entry.enabled).title, "Messages #1–#1");
+  // A reply cut off at its limit is a failed attempt for these summaries, not an error: the originals stay, the
+  // update finishes, and the same summaries are not sent again on the next reply (#8820).
+  const cutEntries = [{ ...longConstant, id: "cut-off-source", content: "CUT_OFF_CONSTANT ".repeat(2000) }];
+  await chats.patchMetadata(macroChat.id, { summaryEntries: cutEntries });
+  summaryFinishReason = "length";
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(macroChat.id);
+  await memory.checkScenesAfterGeneration(macroChat.id);
+  summaryFinishReason = "stop";
+  assert.equal(calls.length, 1, "a cut-off attempt is not asked again");
+  assert.deepEqual(JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries, cutEntries);
+  assert.equal((await memory.status(macroChat.id)).job.status, "ready");
+  assert.equal((await memory.status(macroChat.id)).job.error, null);
 
   const partialChat = await chats.create({
     name: "Reuse existing summary ranges",
@@ -2148,11 +2181,13 @@ try {
   const maukieBefore = estimateChatSummaryTokens(await departure.view(privateA.id));
   calls.length = 0;
   await memory.checkScenesAfterGeneration(departure.chat.id, { blocking: false });
-  assert.equal(combineCalls().length, 1, "Maukie's share is shortened after Pantalone leaves");
+  // One request for the part everyone reads, one for Maukie's part and one for Pantalone's (#8820).
+  assert.equal(combineCalls().length, 3, "Maukie's share is shortened after Pantalone leaves");
+  const pantalonePart = combineCalls().find((call) => call.messages[1]!.content.includes("PANTALONE_COINS"));
   assert.match(
-    JSON.stringify(combineCalls()[0]!.messages),
-    /\{\{#if char == \\"Pantalone\\"\}\}(?:FILL_P )+PANTALONE_COINS/u,
-    "Pantalone's part reaches the Helper with its own condition",
+    pantalonePart!.messages[1]!.content,
+    /^(?:FILL_P )+PANTALONE_COINS$/u,
+    "Pantalone's part reaches the Helper alone, without its condition",
   );
   const departureEntry = (
     JSON.parse((await chats.getById(departure.chat.id))!.metadata).summaryEntries as Array<{
@@ -2173,7 +2208,14 @@ try {
   const userMacro = await sharedSceneChat("User macro", "{{user}} took a SHARED_STROLL.");
   calls.length = 0;
   await memory.checkScenesAfterGeneration(userMacro.chat.id, { blocking: false });
-  assert.equal(combineCalls().length, 1, "a shared part with {{user}} is shortened too");
+  assert.equal(combineCalls().length, 3, "a shared part with {{user}} is shortened too");
+  const userPart = combineCalls().find((call) => call.messages[1]!.content.includes("{{user}}"))!;
+  assert.match(userPart.messages[0]!.content, /Keep every \{\{…\}\} macro exactly as written\.$/u);
+  assert.doesNotMatch(
+    combineCalls().find((call) => call.messages[1]!.content.includes("MAUKIE_PLAN"))!.messages[0]!.content,
+    /macro/u,
+    "text without macros is not told about them",
+  );
   const maukieUser = await userMacro.view(privateA.id);
   const pantaloneUser = await userMacro.view(privateB.id);
   assert.match(maukieUser, /SHARED_STROLL[\s\S]*SHORT MAUKIE_PLAN/u);
@@ -2242,19 +2284,18 @@ try {
         readOnly: true,
       })
     ).chatSummary ?? "";
-  summaryResponse = `COMBINED_WALK. ${maukieSecret}`;
+  summaryResponse = "COMBINED_WALK.";
   calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.deepEqual(
     calls.map((call) => call.kind),
     ["summary"],
-    "one Helper call combines every summary both characters read, including the one with a private section",
+    "one Helper call shortens the text both characters read in every summary, including the one with a private section",
   );
   const [combineSystem, combineInput] = calls[0]!.messages;
-  assert.match(combineSystem!.content, /Condense the ordered summaries below into one summary/u);
-  assert.match(combineSystem!.content, /exactly its original condition/u);
-  assert(combineInput!.content.includes(maukieSecret), "the private section reaches the Helper with its condition");
-  assert.match(combineInput!.content, /SHARED_WALK[\s\S]*SHARED_TWO/u, "summaries stay in chat order");
+  assert.match(combineSystem!.content, /^Condense the ordered summaries below into one summary/u);
+  assert.doesNotMatch(combineInput!.content, /\{\{|MAUKIE_SECRET/u, "the Helper gets no condition and no private part");
+  assert.match(combineInput!.content, /^SHARED_WALK[\s\S]*SHARED_TWO$/u, "summaries stay in chat order");
   const privateCombined = await combineEntries();
   assert.deepEqual(
     privateCombined.filter((entry) => !entry.enabled).map((entry) => entry.id),
@@ -2265,6 +2306,11 @@ try {
   assert.equal(privateResult.origin, "automated");
   assert.equal(privateResult.title, "Messages #1–#2");
   assert.deepEqual(privateResult.messageIds, [combineSource[0]!.id, combineSource[1]!.id]);
+  assert.equal(
+    privateResult.content,
+    `${forBoth}COMBINED_WALK.{{/if}}\n\n${maukieSecret}`,
+    "Maukie's short private section is kept as it is, inside exactly its condition",
+  );
   assert.match(await recallFor(privateA.id), /COMBINED_WALK[\s\S]*MAUKIE_SECRET/u);
   const pantaloneRecall = await recallFor(privateB.id);
   assert.match(pantaloneRecall, /COMBINED_WALK/u);
@@ -2272,55 +2318,17 @@ try {
   calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.deepEqual(calls, [], "combined summaries within the share need no further calls");
+  summaryResponse = undefined;
 
-  // A result that would show Maukie's secret to Pantalone is not saved; the plain summary is still shortened.
-  // This one keeps a Maukie section but copies the secret into the text both characters read.
-  summaryReply = (prompt) =>
-    prompt.includes("MAUKIE_SECRET")
-      ? `COMBINED_WALK. MAUKIE_SECRET hid the key. {{#if char == "Maukie"}}Maukie kept quiet.{{/if}}`
-      : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, { summaryEntries: [privateRecap, sharedRecap] });
-  calls.length = 0;
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  // #7454: a rejected answer is retried in halves, in chat order: the private summary alone, rejected again
-  // and kept, then the plain one.
-  assert.equal(calls.length, 3);
-  assert.match(JSON.stringify(calls[0]!.messages), /MAUKIE_SECRET[\s\S]*SHARED_TWO/u);
-  assert.match(JSON.stringify(calls[1]!.messages), /MAUKIE_SECRET/u);
-  assert.doesNotMatch(
-    JSON.stringify(calls[2]!.messages),
-    /MAUKIE_SECRET|SHARED_WALK|exactly its original condition/u,
-    "the plain summary is shortened on its own, as before",
-  );
-  const leakEntries = await combineEntries();
-  assert.deepEqual(
-    leakEntries[0],
-    privateRecap,
-    "a result that copies a private sentence into shared text is not saved",
-  );
-  assert.equal(leakEntries.find((entry) => entry.id === sharedRecap.id)!.enabled, false);
-  assert(leakEntries.some((entry) => entry.enabled && entry.content.includes("PLAIN_COMPACTED")));
-  assert.doesNotMatch(await recallFor(privateB.id), /MAUKIE_SECRET/u);
-
-  // A result that drops the private section is rejected too, and the rejected attempt is kept,
-  // so unchanged summaries do not pay for it again.
-  summaryReply = () => "COMBINED_WALK. MAUKIE_SECRET hid the key.";
-  await chats.patchMetadata(combineChat.id, { summaryEntries: [privateRecap] });
-  calls.length = 0;
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "a rejected combination is not requested again for the same summaries");
-  assert.deepEqual(await combineEntries(), [privateRecap]);
-
-  // A result that is only shorter because it left out a condition is not saved, so it is not paid for on every reply.
+  // A reply that writes a condition of its own is not saved, and is asked once.
   const walkRecap = recap("walk-recap", 0, privateRecap.content);
-  summaryReply = () => `${"SHARED_WALK ".repeat(300)}${maukieSecret}`;
+  summaryReply = () => `SHARED_WALK ${maukieSecret}`;
   await chats.patchMetadata(combineChat.id, { summaryEntries: [walkRecap] });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "a combination that shortens nothing is requested once");
-  assert.deepEqual(await combineEntries(), [walkRecap], "a combination that shortens nothing is not saved");
+  assert.equal(calls.length, 1, "a reply that adds a condition is requested once");
+  assert.deepEqual(await combineEntries(), [walkRecap], "a reply that adds a condition is not saved");
 
   // A private section may repeat a sentence both characters already read; keeping it shared is no leak.
   const innRecap = recap(
@@ -2328,7 +2336,7 @@ try {
     0,
     `${forBoth}They returned to the inn. ${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}MAUKIE_SECRET hid the key. They returned to the inn.{{/if}}{{/if}}`,
   );
-  summaryReply = () => `They returned to the inn. COMBINED_WALK. ${maukieSecret}`;
+  summaryReply = () => "They returned to the inn. COMBINED_WALK.";
   await chats.patchMetadata(combineChat.id, { summaryEntries: [innRecap] });
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.match(
@@ -2342,7 +2350,7 @@ try {
     0,
     `${forBoth}“They returned to Maukie’s inn.” ${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}MAUKIE_SECRET hid the key. They returned to Maukie's inn.{{/if}}{{/if}}`,
   );
-  summaryReply = () => `They returned to Maukie's inn. COMBINED_CURLY. ${maukieSecret}`;
+  summaryReply = () => "They returned to Maukie's inn. COMBINED_CURLY.";
   await chats.patchMetadata(combineChat.id, { summaryEntries: [curlyRecap] });
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.match(
@@ -2361,12 +2369,12 @@ try {
     updatedAt: new Date(Date.parse(privateRecap.createdAt) + 1000).toISOString(),
   };
   const buriedSecret = '{{#if char == "Maukie"}}MAUKIE_SECRET buried the key.{{/if}}';
-  summaryResponse = `COMBINED_EDIT. ${buriedSecret}`;
+  summaryResponse = "COMBINED_EDIT.";
   await chats.patchMetadata(combineChat.id, { summaryEntries: [editedRecap, sharedRecap] });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.equal(calls.length, 1);
-  assert(calls[0]!.messages[1]!.content.includes(buriedSecret), "the edited section reaches the Helper as written");
+  assert.doesNotMatch(calls[0]!.messages[1]!.content, /MAUKIE_SECRET/u, "the short edited section is not sent");
   const editedEntries = await combineEntries();
   assert.deepEqual(
     editedEntries.filter((entry) => !entry.enabled).map((entry) => entry.id),
@@ -2383,93 +2391,29 @@ try {
   summaryResponse = undefined;
 
   // Merged group chats combine them too, instead of skipping every summary with a character condition.
-  summaryResponse = `COMBINED_WALK. ${maukieSecret}`;
+  summaryResponse = "COMBINED_WALK.";
   await chats.patchMetadata(combineChat.id, { groupChatMode: "shared", summaryEntries: [privateRecap, sharedRecap] });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.equal(calls.length, 1);
-  assert(calls[0]!.messages[1]!.content.includes(maukieSecret));
+  assert.doesNotMatch(calls[0]!.messages[1]!.content, /MAUKIE_SECRET/u);
   const mergedCombined = await combineEntries();
   assert.equal(mergedCombined.filter((entry) => entry.enabled).length, 1);
   assert(mergedCombined.find((entry) => entry.enabled)!.content.includes(maukieSecret));
   summaryResponse = undefined;
 
-  // A private sentence in Chinese or Japanese, which have no spaces, is caught when copied into shared text too.
-  const cjkRecap = recap(
-    "cjk-recap",
-    0,
-    `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}毛奇把钥匙藏在了钟楼里。{{/if}}{{/if}}`,
-  );
-  summaryReply = (prompt) =>
-    prompt.includes("钟楼")
-      ? 'COMBINED_WALK. 毛奇把钥匙藏在了钟楼里。 {{#if char == "Maukie"}}毛奇保持沉默。{{/if}}'
-      : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, { groupChatMode: "individual", summaryEntries: [cjkRecap, sharedRecap] });
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.deepEqual((await combineEntries())[0], cjkRecap, "a copied private sentence without spaces is not saved");
-  assert.doesNotMatch(await recallFor(privateB.id), /钟楼/u);
-  // So is one whose full stops split it into pieces under four words: a decimal or an abbreviation.
-  for (const [index, secret] of ["Meet at 3.5 now.", "Mr. Fox hid it."].entries()) {
-    const pieceRecap = recap(
-      `piece-recap-${index}`,
-      0,
-      `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}${secret}{{/if}}{{/if}}`,
-    );
-    summaryReply = (prompt) =>
-      prompt.includes(secret)
-        ? `COMBINED_WALK. ${secret} {{#if char == "Maukie"}}Maukie kept quiet.{{/if}}`
-        : "PLAIN_COMPACTED";
-    await chats.patchMetadata(combineChat.id, { summaryEntries: [pieceRecap, sharedRecap] });
-    await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-    assert.deepEqual((await combineEntries())[0], pieceRecap, `copied "${secret}" is not saved`);
-    assert(!(await recallFor(privateB.id)).includes(secret));
-  }
-  // So is one copied without its quote marks, from a list without full stops, with a plain apostrophe,
-  // with a part for Maukie in the middle, or shortened around a private phrase (#7454). A long run of "!" in a
-  // private section is still checked quickly.
-  for (const [index, [secret, copy, found]] of [
-    [
-      "Maukie secretly hid the brass key under the floorboards.",
-      "Maukie hid the brass key under the floor.",
-      "brass key",
-    ],
-    ['"Maukie hid the key in the attic."', "Maukie hid the key in the attic.", "hid the key"],
-    ["- Maukie hid the key in the attic\n- Maukie fears the butler", "Maukie fears the butler.", "butler"],
-    ["Maukie’s key is in the attic.", "Maukie's key is in the attic.", "key is in"],
-    [
-      "Maukie hid the key in the attic.",
-      'Maukie {{#if char == "Maukie"}}quietly {{/if}}hid the key in the attic.',
-      "hid the key",
-    ],
-    [`Maukie hid the key in the attic${"!".repeat(1000)}`, "Maukie hid the key in the attic.", "hid the key"],
-  ].entries()) {
-    const copyRecap = recap(
-      `copy-recap-${index}`,
-      0,
-      `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}${secret}{{/if}}{{/if}}`,
-    );
-    summaryReply = (prompt) =>
-      prompt.includes("SHARED_WALK")
-        ? `COMBINED_WALK. ${copy} {{#if char == "Maukie"}}Maukie kept quiet.{{/if}}`
-        : "PLAIN_COMPACTED";
-    await chats.patchMetadata(combineChat.id, { summaryEntries: [copyRecap, sharedRecap] });
-    const started = Date.now();
-    await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-    assert(Date.now() - started < 5000, `checking "${copy}" takes under five seconds`);
-    assert.deepEqual((await combineEntries())[0], copyRecap, `copied "${copy}" is not saved`);
-    assert(!(await recallFor(privateB.id)).includes(found));
-  }
-  // Shared text that only reuses words from those sentences is still saved.
+  // Shared text that reuses words from Maukie's part is saved.
   const piecesRecap = recap(
     "pieces-recap",
     0,
     `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}Meet at 3.5 now. Mr. Fox hid it.{{/if}}{{/if}}`,
   );
   summaryReply = (prompt) =>
-    prompt.includes("Mr. Fox hid it.")
-      ? 'COMBINED_WALK. Mr. Fox met them at 3.5 now. {{#if char == "Maukie"}}Meet at 3.5 now. Mr. Fox hid it.{{/if}}'
-      : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, { summaryEntries: [piecesRecap, sharedRecap] });
+    prompt.includes("SHARED_WALK") ? "COMBINED_WALK. Mr. Fox met them at 3.5 now." : "PLAIN_COMPACTED";
+  await chats.patchMetadata(combineChat.id, {
+    groupChatMode: "individual",
+    summaryEntries: [piecesRecap, sharedRecap],
+  });
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.deepEqual(
     (await combineEntries()).filter((entry) => !entry.enabled).map((entry) => entry.id),
@@ -2479,16 +2423,19 @@ try {
   const piecesRecall = await recallFor(privateB.id);
   assert.match(piecesRecall, /Mr\. Fox met them at 3\.5 now\./u);
   assert.doesNotMatch(piecesRecall, /Meet at 3\.5 now|hid it/u);
-  // Text next to another macro counts as read by everyone.
-  summaryReply = (prompt) =>
-    prompt.includes("MAUKIE_SECRET")
-      ? 'COMBINED_WALK. {{#if char == "Maukie"}}Maukie kept quiet.{{/if}} {{foo}} MAUKIE_SECRET hid the key.'
-      : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, {
-    summaryEntries: [privateRecap, recap("macro-recap", 1, `${forBoth}${"SHARED_TWO ".repeat(300)}{{foo}}{{/if}}`)],
-  });
+  // Text next to another macro is kept as it is and never sent: no reader's text can be moved next to it.
+  summaryReply = () => "PLAIN_COMPACTED";
+  const macroRecap = recap("macro-recap", 1, `${forBoth}${"SHARED_TWO ".repeat(300)}{{foo}}{{/if}}`);
+  await chats.patchMetadata(combineChat.id, { summaryEntries: [privateRecap, macroRecap] });
+  calls.length = 0;
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.deepEqual((await combineEntries())[0], privateRecap, "a private sentence next to another macro is not saved");
+  assert.equal(calls.length, 1);
+  assert.doesNotMatch(calls[0]!.messages[1]!.content, /\{\{foo\}\}|SHARED_TWO|MAUKIE_SECRET/u);
+  assert.equal(
+    (await combineEntries()).find((entry) => entry.enabled)!.content,
+    `${forBoth}PLAIN_COMPACTED{{/if}}\n\n${maukieSecret}\n\n${forBoth}${"SHARED_TWO ".repeat(300)}{{foo}}{{/if}}`,
+    "the part with another macro is saved as it was",
+  );
   assert.doesNotMatch(await recallFor(privateB.id), /MAUKIE_SECRET/u);
 
   // A summary only Maukie reads is combined with one Pantalone also reads (#7454). Each reader's prompt shows
@@ -2543,13 +2490,14 @@ try {
       rangeRecap("both-read", 1, `${forBoth}${"SHARED_TWO ".repeat(300)}{{/if}}`),
     ],
   });
-  summaryReply = (prompt) =>
-    `${prompt.includes("SHARED_TWO") ? "SHARED_SHORT. " : ""}${
-      prompt.includes("MAUKIE_ALONE") ? '{{#if char == "Maukie"}}MAUKIE_SHORT.{{/if}}' : ""
-    }`;
+  summaryReply = (prompt) => (prompt.includes("SHARED_TWO") ? "SHARED_SHORT." : "MAUKIE_SHORT.");
   calls.length = 0;
   await memory.checkScenesAfterGeneration(rangeChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "summaries different characters read are combined in one call");
+  assert.equal(
+    calls.length,
+    2,
+    "summaries different characters read are combined, each reader set's part in its own call",
+  );
   const rangeEntries = JSON.parse((await chats.getById(rangeChat.id))!.metadata).summaryEntries as Array<
     ReturnType<typeof createChatSummaryEntry>
   >;
@@ -2600,9 +2548,10 @@ try {
         readOnly: true,
       })
     ).chatSummary ?? "";
+  // The parts keep chat order: Maukie's night, then the shared morning.
   assert.match(
     bothRange,
-    /^Messages #2–#2; [^\n]*: MORNING_AFTER\.\nSHARED_SHORT\. \[Known only to Maukie: MAUKIE_SHORT\.\]$/u,
+    /^Messages #2–#2; [^\n]*: MORNING_AFTER\.\n\[Known only to Maukie: MAUKIE_SHORT\.\]\n\nSHARED_SHORT\.$/u,
   );
   assert.doesNotMatch(bothRange, /NIGHT_OF_THE_HEIST|Messages #1/u);
   // A summary only Maukie reads keeps its range and date there, next to the mark that it is his.
@@ -2625,8 +2574,8 @@ try {
 
   // #7454, as in a one-by-one chat with a narrator and four characters: every summary has its own readers, some
   // leave the narrator out, and two were written or edited by hand with private sections. The narrator reads all
-  // of them, so its view is over the share. One call combines them all and brings it under; the next reply calls
-  // nothing. This Helper keeps every condition and shortens each run of filler.
+  // of them, so its view is over the share. One call per set of readers (#8820) combines them all and brings it
+  // under; the next reply calls nothing. This Helper shortens each run of filler.
   const keepSections = (prompt: string) =>
     (JSON.parse(prompt).at(-1).content as string).replace(/(?:FILL_\w+ )+/gu, "SHORT ");
   const powers = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Powers That Be" }));
@@ -2707,7 +2656,8 @@ try {
   summaryReply = keepSections;
   calls.length = 0;
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "one call combines summaries different characters read");
+  assert.equal(calls.length, 5, "one call per set of readers combines summaries different characters read");
+  for (const call of calls) assert.doesNotMatch(call.messages[1]!.content, /\{\{/u, "no request carries a condition");
   const canonAfter = JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries as Array<
     ReturnType<typeof createChatSummaryEntry>
   >;
@@ -2739,22 +2689,22 @@ try {
   assert.deepEqual(calls, [], "no view has room to win back");
   assert.deepEqual(JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries, unmergeable);
 
-  // An answer that adds or drops the narrator in a condition changes no reader, so it is saved.
+  // A condition that names the narrator is kept as it is, and each set of readers' part is sent on its own.
   const mapSecret = "HIDE_A Maukie hid the map in the cellar.";
   const ledgerSecret = "HIDE_B Pantalone sold the old ledger.";
   const twoReaders = [
     canonEntry(0, `{{#if char == "Maukie" || "Powers That Be"}}${fill("H", 400)}${mapSecret}{{/if}}`),
     canonEntry(1, `{{#if char == "Pantalone"}}${fill("I", 400)}${ledgerSecret}{{/if}}`),
   ];
-  summaryReply = () =>
-    `{{#if char == "Maukie"}}SHORT ${mapSecret}{{/if}} {{#if char == "Pantalone" || "Powers That Be"}}SHORT ${ledgerSecret}{{/if}}`;
+  summaryReply = keepSections;
   await chats.patchMetadata(canonChat.id, { summaryEntries: twoReaders });
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
+  for (const call of calls) assert.doesNotMatch(call.messages[1]!.content, /HIDE_A[\s\S]*HIDE_B/u);
   const slipEntries = JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries as Array<{
     enabled: boolean;
   }>;
-  assert.equal(slipEntries.filter((entry) => entry.enabled).length, 1, "a narrator slip is not a rejection");
+  assert.equal(slipEntries.filter((entry) => entry.enabled).length, 1);
   for (const [id, own, other] of [
     [privateA.id, mapSecret, ledgerSecret],
     [privateB.id, ledgerSecret, mapSecret],
@@ -2764,25 +2714,18 @@ try {
   }
   const narratorSlip = await canonView(powers.id);
   assert(narratorSlip.includes(mapSecret) && narratorSlip.includes(ledgerSecret), "the narrator reads both");
-  // One that drops a reader's section is not saved; the halves are tried on their own.
+  // When one set's part can't be shortened, nothing is saved, no smaller groups are tried, and the same summaries
+  // are not sent again on the next reply (#8820).
   summaryReply = (prompt) =>
-    prompt.includes("HIDE_A") && prompt.includes("HIDE_B")
-      ? `{{#if char == "Maukie"}}SHORT ${mapSecret}{{/if}}`
-      : `SHORT ${prompt.includes("HIDE_A") ? mapSecret : ledgerSecret}`;
+    (JSON.parse(prompt).at(-1).content as string).includes("HIDE_B")
+      ? JSON.parse(prompt).at(-1).content
+      : keepSections(prompt);
   await chats.patchMetadata(canonChat.id, { summaryEntries: twoReaders });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 3);
-  assert.match(JSON.stringify(calls[1]!.messages), /HIDE_A/u);
-  assert.doesNotMatch(JSON.stringify(calls[1]!.messages), /HIDE_B/u);
-  assert.match(JSON.stringify(calls[2]!.messages), /HIDE_B/u);
-  const halvesEntries = JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries as Array<{
-    enabled: boolean;
-    content: string;
-  }>;
-  assert.equal(halvesEntries.filter((entry) => entry.enabled && entry.content.includes("SHORT")).length, 2);
-  assert.doesNotMatch(await canonView(privateB.id), /HIDE_A/u);
-  assert.doesNotMatch(await canonView(privateA.id), /HIDE_B/u);
+  await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
+  assert.equal(calls.length, 2, "one call per set, none for smaller groups, none on the next reply");
+  assert.deepEqual(JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries, twoReaders);
 
   // A summary only a character who left the chat reads is never rewritten for the narrator alone, so it is
   // still theirs when they come back; the narrator still reads it.
@@ -2804,8 +2747,8 @@ try {
   );
   assert.match(await canonView(powers.id), /CYNO_SECRET/u);
 
-  // A combined answer that drops every condition is retried with the summaries each set of characters reads,
-  // which combine on their own, rather than halving down to single summaries.
+  // Summaries that alternate between two readers become one summary: each reader's parts are shortened together
+  // in one call, and each reads their own part once.
   await chats.patchMetadata(canonChat.id, {
     summaryEntries: [0, 1, 2, 3].map((index) =>
       canonEntry(index, `{{#if char == "${index % 2 ? "Pantalone" : "Maukie"}"}}${fill(`L${index}`)}{{/if}}`),
@@ -2814,44 +2757,35 @@ try {
   summaryReply = () => "PLAIN_SHORT.";
   calls.length = 0;
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 3, "one combined call, then one per set of readers");
+  assert.equal(calls.length, 2, "one call per set of readers");
   const setEntries = JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries as Array<
     ReturnType<typeof createChatSummaryEntry>
   >;
   assert.deepEqual(
-    setEntries
-      .filter((entry) => entry.enabled)
-      .map((entry) => JSON.stringify(entry.messageIds))
-      .sort(),
-    [
-      [canonSource[0]!.id, canonSource[2]!.id],
-      [canonSource[1]!.id, canonSource[3]!.id],
-    ]
-      .map((ids) => JSON.stringify(ids))
-      .sort(),
+    setEntries.filter((entry) => entry.enabled).map((entry) => entry.messageIds),
+    [canonSource.slice(0, 4).map((message) => message.id)],
   );
   for (const id of [privateA.id, privateB.id])
     assert.equal((await canonView(id)).split("PLAIN_SHORT").length, 2, "each reads their own once");
 
-  // The target counts text as the views do, without conditions, so an answer of exactly that size brings the
-  // narrator under the share in one pass, even when the inputs carry many more conditions than the answer.
+  // The target counts text as the views do, without conditions, so answers of exactly half bring the narrator
+  // under the share in one pass, even when the inputs carry many more conditions than the answers.
   await chats.patchMetadata(canonChat.id, {
     summaryEntries: Array.from({ length: 5 }, (_, index) =>
       canonEntry(index, `{{#if char == "${index % 2 ? "Pantalone" : "Maukie"}"}}${fill(`N${index}`, 125)}{{/if}}`),
     ),
   });
   summaryReply = (prompt) => {
-    const target = Math.min(5000, Number(/Aim for approximately (\d+) tokens/u.exec(prompt)?.[1]) || 0);
-    let pad = "PAD ";
-    const answer = () => `{{#if char == "Maukie"}}${pad}{{/if}}{{#if char == "Pantalone"}}${pad}{{/if}}`;
-    while (estimateChatSummaryTokens(answer()) < target) pad += "PAD ";
-    return answer();
+    const target = Number(/about (\d+) tokens, about half/u.exec(prompt)?.[1]) || 0;
+    let pad = "PAD";
+    while (estimateChatSummaryTokens(pad) < target) pad += " PAD";
+    return pad;
   };
   calls.length = 0;
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "the narrator is under the share after the first answer");
+  assert.equal(calls.length, 2, "the narrator is under the share after the first answers");
 
   // A summary is combined only once its messages are archived for every character: a combined summary leaves
   // a reader's prompt while any message it covers is live for them, which would hide their older summaries.

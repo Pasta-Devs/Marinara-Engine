@@ -76,9 +76,9 @@ const thinkingSchema = z.object({ slot: slotSchema, thinking: z.enum(DECISION_TH
 
 /** The label shown for each local entry, with the model it would actually use. */
 const SLOT_LABELS: Record<DecisionLocalSlot, string> = {
-  primary: "Primary local model",
-  utility: "Utility local model",
-  decision_sidecar: "Decision sidecar",
+  primary: "Built-in model",
+  utility: "Built-in model (utility)",
+  decision_sidecar: "Built-in model (decisions)",
 };
 
 /**

@@ -42,6 +42,8 @@ type Fixture = {
   zip64?: boolean;
   /** Point the central record here instead of writing a local record for this entry. */
   localAt?: number;
+  /** Name bytes written without the UTF-8 flag, as legacy tools do. */
+  rawName?: Buffer;
 };
 
 function pack(...fields: Array<[2 | 4 | 8, number]>): Buffer {
@@ -61,7 +63,8 @@ function prepare(fixture: Fixture) {
   return {
     ...fixture,
     method,
-    nameBytes: Buffer.from(fixture.name, "utf8"),
+    nameBytes: fixture.rawName ?? Buffer.from(fixture.name, "utf8"),
+    nameFlag: fixture.rawName ? 0 : 0x0800,
     body: method === 8 ? deflateRawSync(fixture.data) : fixture.data,
     crc: crc32(fixture.data),
   };
@@ -77,7 +80,7 @@ function localRecord(fixture: Fixture): Buffer {
   const header = pack(
     [4, 0x04034b50],
     [2, entry.zip64 ? 45 : 20],
-    [2, 0x0800 | (streamed ? 0x0008 : 0)],
+    [2, entry.nameFlag | (streamed ? 0x0008 : 0)],
     [2, entry.method],
     [2, 0],
     [2, 0x5c21],
@@ -107,7 +110,7 @@ function centralRecord(fixture: Fixture, offset: number): Buffer {
     [4, 0x02014b50],
     [2, 0x031e],
     [2, entry.zip64 ? 45 : 20],
-    [2, 0x0800 | (entry.descriptor ? 0x0008 : 0)],
+    [2, entry.nameFlag | (entry.descriptor ? 0x0008 : 0)],
     [2, entry.method],
     [2, 0],
     [2, 0x5c21],
@@ -290,6 +293,27 @@ function blockPadded(bytes: Buffer, block = 10_240) {
 assertReadsAsBefore(blockPadded(buildZip(honest).bytes), "zero padding after the end record");
 assertReadsAsBefore(blockPadded(buildZip(honest, { comment: "archive comment" }).bytes, 512), "comment, then padding");
 assertReadsAsBefore(Buffer.concat([buildZip(honest).bytes, Buffer.from("\r\n")]), "a line break after the archive");
+
+// Names without the UTF-8 flag read as UTF-8 when valid, else as the CP932 that Japanese Windows tools write. The
+// 0x5C trail bytes of 表 and ソ are not path separators, and two such names no longer collapse into one.
+assert.deepEqual(
+  openZipArchive(
+    buildZip([
+      { name: "表情/ソ.png", rawName: Buffer.from("955c8fee2f835c2e706e67", "hex"), data: icon },
+      { name: "髪.png", rawName: Buffer.from("94af2e706e67", "hex"), data: icon },
+      { name: "肌.png", rawName: Buffer.from("94a72e706e67", "hex"), data: icon },
+      { name: "utf8/肌.png", rawName: Buffer.from("utf8/肌.png"), data: icon },
+    ]).bytes,
+  )
+    .getEntries()
+    .map((entry) => [entry.entryName, entry.isDirectory]),
+  [
+    ["表情/ソ.png", false],
+    ["髪.png", false],
+    ["肌.png", false],
+    ["utf8/肌.png", false],
+  ],
+);
 
 // ── Archives from the tools available here. ──
 

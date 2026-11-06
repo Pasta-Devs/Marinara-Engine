@@ -405,6 +405,141 @@ try {
     avatar: onePixelPng,
   });
   assertDecodedPersona(avatar, activeId);
+  assert.ok(avatar.avatarPath);
+  const beforeRemoval = await requestJson("PATCH", `/api/characters/personas/${activeId}`, {
+    avatarCrop: { srcX: 0.1, srcY: 0.2, srcWidth: 0.6, srcHeight: 0.6 },
+  });
+  const removed = await requestJson("DELETE", `/api/characters/personas/${activeId}/avatar`);
+  assertDecodedPersona(removed, activeId);
+  assert.equal(removed.avatarPath, null);
+  assert.equal(removed.avatarCrop, null);
+  assert.equal(removed.name, beforeRemoval.name);
+  assert.equal(removed.description, beforeRemoval.description);
+  const reloaded = await requestJson("GET", `/api/characters/personas/${activeId}`);
+  assert.equal(reloaded.avatarPath, null);
+  assert.equal(reloaded.avatarCrop, null);
+  assert.equal((await requestJson("DELETE", `/api/characters/personas/${activeId}/avatar`)).avatarPath, null);
+  const missingRemoval = await app.inject({ method: "DELETE", url: "/api/characters/personas/missing/avatar" });
+  assert.equal(missingRemoval.statusCode, 404);
+  const frozenPersona = await charactersStorage.createPersona("Frozen identity", "", undefined, {
+    versioningEnabled: "false",
+  });
+  assert.ok(frozenPersona);
+  assert.equal(frozenPersona.versioningEnabled, "false");
+  const frozenAvatar = await requestJson("POST", `/api/characters/personas/${frozenPersona.id}/avatar`, {
+    avatar: onePixelPng,
+  });
+  const frozenChat = await requestJson("POST", "/api/chats", {
+    name: "Frozen persona avatar",
+    mode: "conversation",
+    characterIds: [],
+  });
+  const frozenMessage = await requestJson("POST", `/api/chats/${frozenChat.id}/messages`, {
+    role: "user",
+    content: "Keep my original identity",
+    extra: {
+      personaSnapshot: { personaId: frozenPersona.id, name: frozenPersona.name, avatarUrl: frozenAvatar.avatarPath },
+    },
+  });
+  const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  const snapshotStorage = createChatsStorage(db);
+  const savedSnapshot = await snapshotStorage.updateMessageExtra(String(frozenMessage.id), {
+    personaSnapshot: {
+      personaId: frozenPersona.id,
+      name: frozenPersona.name,
+      avatarUrl: String(frozenAvatar.avatarPath),
+    },
+  });
+  assert.ok(savedSnapshot);
+  const snapshotExtra = typeof savedSnapshot.extra === "string" ? JSON.parse(savedSnapshot.extra) : savedSnapshot.extra;
+  assert.equal(snapshotExtra.personaSnapshot.avatarUrl, frozenAvatar.avatarPath);
+  await requestJson("POST", `/api/characters/personas/${frozenPersona.id}/avatar`, {
+    avatar:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII=",
+  });
+  assert.equal(
+    (await app.inject({ method: "GET", url: String(frozenAvatar.avatarPath) })).statusCode,
+    200,
+    "replacing an unversioned persona avatar must preserve a frozen chat identity's file",
+  );
+  const frozenRemoval = await requestJson("DELETE", `/api/characters/personas/${frozenPersona.id}/avatar`);
+  assert.equal(frozenRemoval.avatarPath, null);
+  assert.equal(
+    (await app.inject({ method: "GET", url: String(frozenAvatar.avatarPath) })).statusCode,
+    200,
+    "removing the current avatar must preserve a frozen chat identity's file",
+  );
+
+  // Force the real reassignment route to fail AFTER its last old avatar reference
+  // has been overwritten. The manual rollback still needs that old file.
+  const { unlinkAvatarFilesIfUnreferenced } =
+    await import("../../packages/server/src/services/image/avatar-file-lifecycle.js");
+  const { messageSwipes: swipeTable } = await import("../../packages/server/src/db/schema/index.js");
+  await requestJson("PATCH", `/api/chats/${frozenChat.id}`, { personaId: activeId });
+  let releaseSnapshot!: () => void;
+  const snapshotGate = new Promise<void>((resolve) => {
+    releaseSnapshot = resolve;
+  });
+  let signalSnapshotWritten!: () => void;
+  const snapshotWritten = new Promise<void>((resolve) => {
+    signalSnapshotWritten = resolve;
+  });
+  const update = db.update;
+  let intercepted = false;
+  db.update = ((table: Parameters<typeof update>[0]) => {
+    const builder = update(table);
+    if (table !== swipeTable) return builder;
+    return {
+      set: (patch: Record<string, unknown>) => {
+        const writer = builder.set(patch);
+        const extra = typeof patch.extra === "string" ? JSON.parse(patch.extra) : null;
+        if (intercepted || extra?.personaSnapshot?.personaId !== activeId) return writer;
+        return {
+          ...writer,
+          where: async (condition: Parameters<typeof writer.where>[0]) => {
+            await writer.where(condition);
+            intercepted = true;
+            signalSnapshotWritten();
+            await snapshotGate;
+            throw new Error("Injected failure after replacing the last frozen identity reference");
+          },
+        };
+      },
+    };
+  }) as typeof update;
+  const reassignment = Promise.resolve(
+    app.inject({
+      method: "POST",
+      url: `/api/chats/${frozenChat.id}/messages/reassign-persona`,
+      payload: { scope: "all" },
+    }),
+  );
+  try {
+    await Promise.race([
+      snapshotWritten,
+      reassignment.then(() => assert.fail("reassignment ended before snapshot write")),
+    ]);
+  } finally {
+    db.update = update;
+  }
+  let cleanupSettled = false;
+  const pendingCleanup = unlinkAvatarFilesIfUnreferenced({ db, avatarPaths: [String(frozenAvatar.avatarPath)] }).then(
+    (count) => {
+      cleanupSettled = true;
+      return count;
+    },
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const cleanupWaited = !cleanupSettled;
+  releaseSnapshot();
+  assert.equal((await reassignment).statusCode, 500, "the injected route failure must trigger snapshot rollback");
+  assert.equal(await pendingCleanup, 0, "cleanup must preserve the old avatar restored by rollback");
+  assert.equal(cleanupWaited, true, "cleanup must wait until reassignment rollback has finished");
+  assert.equal(
+    (await app.inject({ method: "GET", url: String(frozenAvatar.avatarPath) })).statusCode,
+    200,
+    "a rolled-back real route must still display its frozen avatar",
+  );
 } finally {
   await app?.close();
   for (const [key, previous] of [

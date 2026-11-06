@@ -7,6 +7,7 @@ export const CHAT_REGENERATE_REQUEST_EVENT = "marinara:chat-regenerate-request";
 export const CHAT_REPLY_CHECKUP_REQUEST_EVENT = "marinara:chat-reply-checkup-request";
 export const CHAT_RETRY_WITH_CONNECTION_REQUEST_EVENT = "marinara:chat-retry-with-connection-request";
 export const CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT = "marinara:chat-settings-section-open-request";
+export const CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT = "marinara:chat-message-range-export-request";
 
 export function announceChatFloatingUiDismiss() {
   if (typeof window === "undefined") return;
@@ -14,7 +15,10 @@ export function announceChatFloatingUiDismiss() {
 }
 
 /** Opens Chat Settings at one section, for omnibar rows that name a setting inside it (UX-13). */
-export function requestChatSettingsSectionOpen(chatId: string, section: "advanced-parameters" | "memory-recall") {
+export function requestChatSettingsSectionOpen(
+  chatId: string,
+  section: "advanced-parameters" | "memory-recall" | `agent:${string}`,
+) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, { detail: { chatId, section } }));
 }
@@ -32,6 +36,12 @@ export function requestChatLorebookEntriesOpen(chatId: string) {
 export function requestChatSearchOpen(chatId: string) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_SEARCH_OPEN_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+/** Puts the chat in message selection to export a range of it (#8547). */
+export function requestChatMessageRangeExport(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT, { detail: { chatId } }));
 }
 
 export function requestChatPeekPrompt(chatId: string) {

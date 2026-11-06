@@ -60,7 +60,7 @@ const IMPORT_UNSAFE_AGENT_SETTING_KEYS = new Set([
 ]);
 
 const updateAgentRunSchema = z.object({
-  resultData: z.unknown(),
+  resultData: z.unknown().optional(),
   // Optional owner hint: keeps the lazy file store from loading every chat's agent_runs
   // shards for a bare-id lookup. The chat is always open when a run is edited.
   chatId: z.string().min(1).optional(),

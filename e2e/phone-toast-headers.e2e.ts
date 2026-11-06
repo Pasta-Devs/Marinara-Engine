@@ -335,7 +335,7 @@ test.describe("phone toasts", () => {
       await inventoryButton(page).click();
       const inventory = page.getByRole("dialog", { name: "Inventory", exact: true });
       await expect(inventory.locator("[data-phone-toast-header]")).toBeVisible();
-      const close = inventory.getByRole("button", { name: "Close", exact: true });
+      const close = inventory.getByRole("button", { name: "Close inventory", exact: true });
       const entry = sampleHeaderHits(page);
       const toast = await showToast(page, "Inventory header toast");
       await headerOverlaps(toast);

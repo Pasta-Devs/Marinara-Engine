@@ -4,6 +4,7 @@
 import { z } from "zod";
 import {
   DECISION_SOURCES,
+  GENERATIVE_AUDIO_SOURCES,
   IMAGE_GENERATION_QUALITIES,
   MAX_MODEL_ID_LENGTH,
   MAX_PINNED_MODELS,
@@ -31,11 +32,24 @@ export const apiProviderSchema = z.enum([
   "custom",
   "image_generation",
   "video_generation",
+  "audio_generation",
   "audio",
   "decision",
 ]);
 
 export const audioGenerationSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
+export const generativeAudioSourceSchema = z.enum(GENERATIVE_AUDIO_SOURCES);
+
+const audioGenerationEndpointSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => value === "" || /^(?!\/\/)[^?#:\\\s]+$/.test(value),
+    "Use an endpoint path without a host, query, or fragment",
+  )
+  .nullable()
+  .default(null);
 
 export const imageGenerationQualitySchema = z.enum(IMAGE_GENERATION_QUALITIES);
 
@@ -47,6 +61,56 @@ export const connectionModelPinSchema = z.object({
   model: connectionModelIdSchema,
   pinned: z.boolean(),
 });
+
+/** Move a Model to another Connection (decision 28). */
+/**
+ * "Move to connection…": the target Connection, and for a Connection of another service the model it runs there
+ * (from its catalog; a custom endpoint takes any id). A move within the same service ignores `model`.
+ */
+export const connectionMoveSchema = z.object({
+  accountId: z.string().trim().min(1).max(200),
+  model: connectionModelIdSchema.optional(),
+});
+
+/**
+ * The picture of a Connection or Model, besides an uploaded `imagePath`: null = the service logo,
+ * `brand:<key>` = a bundled provider logo, `letters:<XY>` = one or two typed characters.
+ */
+export type ConnectionIcon = { kind: "brand"; key: string } | { kind: "letters"; text: string };
+
+const CONNECTION_ICON_BRAND_KEY = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** The stored icon value as a choice, or null for the default (also for a malformed value). */
+export function parseConnectionIcon(value: unknown): ConnectionIcon | null {
+  if (typeof value !== "string") return null;
+  if (value.startsWith("brand:")) {
+    const key = value.slice(6);
+    return CONNECTION_ICON_BRAND_KEY.test(key) ? { kind: "brand", key } : null;
+  }
+  if (value.startsWith("letters:")) {
+    const text = value.slice(8).trim();
+    const count = [...graphemeSegmenter.segment(text)].length;
+    // No whitespace or control characters inside: a picture tile has room for two visible characters.
+    return count >= 1 && count <= 2 && !/[\s\p{Cc}]/u.test(text) ? { kind: "letters", text } : null;
+  }
+  return null;
+}
+
+/** Trust-boundary shape of the icon value; letters are trimmed. */
+export const connectionIconSchema = z
+  .string()
+  .max(64)
+  .nullable()
+  .transform((value, ctx) => {
+    if (value === null) return null;
+    const icon = parseConnectionIcon(value);
+    if (!icon) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Use brand:<key> or letters:<1-2 characters>" });
+      return z.NEVER;
+    }
+    return icon.kind === "brand" ? `brand:${icon.key}` : `letters:${icon.text}`;
+  });
 
 export const connectionImageCaptioningDefaultsSchema = z.object({
   imageCaptioningEnabled: z.boolean().optional(),
@@ -77,6 +141,8 @@ export const createConnectionSchema = z.object({
   /** Model IDs shown first in this connection's model picker. */
   pinnedModels: z.array(connectionModelIdSchema).max(MAX_PINNED_MODELS).default([]),
   imagePath: z.string().nullable().default(null),
+  /** Picture choice; any change clears `imagePath` unless the same request sets it. */
+  icon: connectionIconSchema.default(null),
   maxContext: z.number().int().min(1).default(128000),
   isDefault: z.boolean().default(false),
   fallbackForMain: z.boolean().default(false),
@@ -100,8 +166,12 @@ export const createConnectionSchema = z.object({
   videoService: z.string().nullable().default(null),
   videoPromptInstructions: z.string().trim().max(MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH).nullable().default(null),
   audioSource: audioGenerationSourceSchema.nullable().default(null),
+  audioGenerationSource: generativeAudioSourceSchema.nullable().default(null),
+  audioGenerationCallbackUrl: z.string().trim().url().or(z.literal("")).nullable().default(null),
+  audioSoundEffectsModel: z.string().trim().max(MAX_MODEL_ID_LENGTH).nullable().default(null),
   decisionSource: z.enum(DECISION_SOURCES).nullable().default(null),
   credentialsFromConnectionId: z.string().trim().min(1).nullable().default(null),
+  accountId: z.string().trim().min(1).nullable().default(null),
   maxStateTokens: z.number().int().min(1).max(30000).nullable().default(null),
   /** Milliseconds; null keeps the default. */
   decisionTimeoutMs: z
@@ -111,6 +181,8 @@ export const createConnectionSchema = z.object({
     .max(DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max)
     .nullable()
     .default(null),
+  /** null = Automatic: the Model's catalog decides whether it reads images. */
+  imageInput: z.enum(["reads", "text"]).nullable().default(null),
   audioVoice: z.string().nullable().default(null),
   /** Milliseconds; null keeps the default. */
   audioTimeoutMs: z
@@ -122,6 +194,9 @@ export const createConnectionSchema = z.object({
     .default(null),
   audioSoundEffects: z.boolean().default(false),
   audioMusic: z.boolean().default(false),
+  audioMusicEndpoint: audioGenerationEndpointSchema,
+  audioSoundEffectsEndpoint: audioGenerationEndpointSchema,
+  audioGenerationFormat: z.enum(["binary", "chat_completions"]).default("binary"),
   promptPresetId: z.string().nullable().default(null),
   maxTokensOverride: z.number().int().min(1).nullable().default(null),
   maxParallelJobs: z.number().int().min(1).max(16).default(1),

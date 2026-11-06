@@ -23,6 +23,8 @@ with tempfile.TemporaryDirectory(prefix="marinara-terminal-shutdown-") as temp:
                MARINARA_ENV_FILE=str(data / ".env"), MARINARA_LITE="true",
                LOG_LEVEL="info", LOG_DISABLE_REQUEST_LOGGING="false",
                AUTO_CREATE_DEFAULT_CONNECTION="false", AUTO_OPEN_BROWSER="false")
+    # A terminal gets readable lines, which development already covers; production keeps the direct JSON stdout path.
+    env["LOG_FORMAT"] = "json" if node_env == "production" else "pretty"
     child, master = pty.fork()
     if child == 0:
         os.chdir(root)

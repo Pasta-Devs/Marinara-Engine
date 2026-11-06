@@ -1,5 +1,10 @@
 import { combatWeatherEffects, normalizeGameDifficulty } from "../combat-conditions.js";
-import { chooseCombatCandidate, type CombatAiCandidate } from "../combat-ai.js";
+import {
+  chooseCombatCandidate,
+  rankCombatCandidates,
+  type CombatAiCandidate,
+  type RankedCombatCandidate,
+} from "../combat-ai.js";
 import { aliveUnits, canTraverseTile, forecastFrom, getMovementRange, occupantAt, skillReady } from "./engine.js";
 import { climbCost, computeHeal, hasLineOfSight, inReach, manhattan, reachFrom, terrainInfoAt } from "./math.js";
 import type { TacticalAction, TacticalCombatState, TacticalCoord, TacticalUnit } from "./types.js";
@@ -81,6 +86,9 @@ export function pursueOpponent(
 export function decideProfileAction(
   state: TacticalCombatState,
   unit: TacticalUnit & { tactics: NonNullable<TacticalUnit["tactics"]> },
+  /** Handed every candidate scored, best first, instead of the unit taking the pick: what a Game
+   *  Master deciding for it is shown. Nothing on the unit changes then. */
+  ranked?: (ranking: Array<RankedCombatCandidate<TacticalAction>>) => void,
 ): TacticalAction {
   const opponents = aliveUnits(state).filter((t) => t.side !== unit.side);
   const allies = aliveUnits(state, unit.side);
@@ -217,6 +225,16 @@ export function decideProfileAction(
   }
   const progressing =
     (unit.tactics.holds ?? 0) >= 1 && candidates.some((c) => !c.hold) ? candidates.filter((c) => !c.hold) : candidates;
+  if (ranked) {
+    const ranking = rankCombatCandidates(
+      unit,
+      progressing,
+      state.round,
+      unit.side === "enemy" ? normalizeGameDifficulty(state.difficulty) : "normal",
+    );
+    ranked(ranking);
+    return ranking[0]!.candidate.action;
+  }
   return chooseCombatCandidate(
     unit,
     progressing,

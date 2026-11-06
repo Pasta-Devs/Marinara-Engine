@@ -19,6 +19,7 @@ import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatMessageCount } from "../../hooks/use-chats";
 
 const fieldClass = "mari-chrome-field w-full rounded-lg px-3 py-2 text-xs disabled:opacity-50";
@@ -40,17 +41,18 @@ export interface MemoryCharacterOption {
 export function AdvancedMemorySettings({
   chatId,
   metadataSettings,
+  gameMode = false,
   individual,
   characters,
-  connections,
   hasHistory = false,
   variant = "drawer",
 }: {
   chatId: string;
   metadataSettings: unknown;
+  /** A Game chat: the GM is the only reader, so the per-character controls do not apply. */
+  gameMode?: boolean;
   individual: boolean;
   characters: MemoryCharacterOption[];
-  connections: Array<{ id: string; name: string; model?: string }>;
   hasHistory?: boolean;
   variant?: "drawer" | "wizard";
 }) {
@@ -221,6 +223,11 @@ export function AdvancedMemorySettings({
         className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
         labelClassName="text-xs font-medium"
       />
+      {gameMode && (
+        <p className="px-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+          {t("chat.advancedMemory.gameHelp")}
+        </p>
+      )}
       {status.isError && (
         <p role="alert" className="text-xs text-[var(--destructive)]">
           {t("chat.advancedMemory.failed", { message: status.error.message })}{" "}
@@ -428,23 +435,16 @@ export function AdvancedMemorySettings({
           )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.helperModel")}</span>
-            <select
-              value={settings.helperConnectionId ?? ""}
-              disabled={disabled}
-              className={fieldClass}
-              onChange={(event) => save({ helperConnectionId: event.target.value || null })}
-            >
-              <option value="">{t("chat.advancedMemory.defaultAgentConnection")}</option>
-              {settings.helperConnectionId && !connections.some((item) => item.id === settings.helperConnectionId) && (
-                <option value={settings.helperConnectionId}>{t("chat.advancedMemory.missingConnection")}</option>
-              )}
-              {connections.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                  {item.model ? <> · {item.model}</> : null}
-                </option>
-              ))}
-            </select>
+            <fieldset disabled={disabled} className="min-w-0">
+              <ConnectionSelect
+                job={t("connections.picker.job.memoryHelper")}
+                value={settings.helperConnectionId ?? null}
+                onChange={(helperConnectionId) => save({ helperConnectionId })}
+                defaultLabel={t("chat.advancedMemory.defaultAgentConnection")}
+                inherits="agents"
+                className={fieldClass}
+              />
+            </fieldset>
           </label>
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             {t("chat.advancedMemory.summaryGenerationHelp")}
@@ -531,23 +531,25 @@ export function AdvancedMemorySettings({
               {t("chat.advancedMemory.excerptMessagesHelp")}
             </p>
           </div>
-          <SettingsSwitch
-            label={t("chat.advancedMemory.characterRecollections")}
-            description={t("chat.advancedMemory.characterRecollectionsHelp")}
-            checked={settings.characterRecollections}
-            disabled={disabled}
-            // Turning it on for a prepared chat starts writing recollections for its scenes.
-            onChange={(characterRecollections) =>
-              action.mutate({
-                action: "settings",
-                settings: { characterRecollections },
-                debugMode: useUIStore.getState().debugMode,
-              })
-            }
-            labelPosition="start"
-            className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
-            labelClassName="text-xs font-medium"
-          />
+          {!gameMode && (
+            <SettingsSwitch
+              label={t("chat.advancedMemory.characterRecollections")}
+              description={t("chat.advancedMemory.characterRecollectionsHelp")}
+              checked={settings.characterRecollections}
+              disabled={disabled}
+              // Turning it on for a prepared chat starts writing recollections for its scenes.
+              onChange={(characterRecollections) =>
+                action.mutate({
+                  action: "settings",
+                  settings: { characterRecollections },
+                  debugMode: useUIStore.getState().debugMode,
+                })
+              }
+              labelPosition="start"
+              className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+              labelClassName="text-xs font-medium"
+            />
+          )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.initialModel")}</span>
             <select
@@ -643,11 +645,12 @@ export function AdvancedMemorySettings({
               {t("chat.advancedMemory.reviewKnowledge")}
             </button>
           )}
-          {(status.data?.job.status === "idle" || status.data?.job.status === "needs_confirmation") && (
-            <button type="button" disabled={disabled} className={`${actionClass} w-full`} onClick={initialize}>
-              {t("chat.advancedMemory.initialize")}
-            </button>
-          )}
+          {variant === "drawer" &&
+            (status.data?.job.status === "idle" || status.data?.job.status === "needs_confirmation") && (
+              <button type="button" disabled={disabled} className={`${actionClass} w-full`} onClick={initialize}>
+                {t("chat.advancedMemory.initialize")}
+              </button>
+            )}
         </div>
       )}
       {confirmKnowledge && (

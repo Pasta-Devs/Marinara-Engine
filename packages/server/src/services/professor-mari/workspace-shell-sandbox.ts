@@ -15,7 +15,7 @@ import {
   workspacePathAccessPolicy,
 } from "./workspace-change-review.service.js";
 import { getBubblewrapRuntimeStatus } from "../sandbox/bubblewrap-runtime.js";
-import { getFileStorageDir } from "../../config/runtime-config.js";
+import { getDataDir, getFileStorageDir } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 
 export type WorkspaceShellSandboxBackend = "macos-seatbelt" | "linux-bubblewrap";
@@ -147,6 +147,22 @@ const PACKAGE_STORE_DIR_NAMES = new Set(["node_modules", ".pnpm", ".pnpm-store"]
 // before anything else runs (probed against this repo's vite@7.x), so without
 // the carve-out every default-scaffold build fails on a read-only store.
 const PACKAGE_STORE_WRITABLE_CACHES = [".cache", ".vite", ".vite-temp"];
+// The app's media folders in the data dir. Only mari images and the app write them, both in the server process, so the
+// shell has no reason to. No mari command writes fonts, stickers, emojis, sounds, avatar models or the prompt, agent
+// and connection images, so those keep their current shell access.
+const APP_MEDIA_FOLDERS = [
+  "avatars",
+  "backgrounds",
+  "backgrounds-thumbs",
+  "conversation-call-character-videos",
+  "game-assets",
+  "game-scene-videos",
+  "gallery",
+  "lorebooks/images",
+  "sprites",
+];
+// The folders in the data dir that hold a media folder rather than being one.
+const APP_MEDIA_HOLDERS = [...new Set(APP_MEDIA_FOLDERS.filter((name) => name.includes("/")).map(dirname))];
 
 /**
  * Takes the LOGICAL node_modules stores (see workspacePolicyPaths) - a store
@@ -266,10 +282,35 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
   const [storageDir] = uniqueExistingPaths([getFileStorageDir()]).filter((path) =>
     path.startsWith(workspaceRoot + sep),
   );
+  // The app's media folders are read-only the same way when the data dir is inside the workspace: they change only
+  // through mari images and the app, which check a folder's real path before they use it. The folders holding saved
+  // data and media, up to the workspace, are pinned too, so a command cannot move one away and put a link or a folder
+  // of its own in its place between that check and that use.
+  const [dataDir] = uniqueExistingPaths([getDataDir()]).filter(
+    (path) => path === workspaceRoot || path.startsWith(workspaceRoot + sep),
+  );
+  const mediaDirs = dataDir ? APP_MEDIA_FOLDERS.map((name) => join(dataDir, ...name.split("/"))) : [];
+  const appDataHolders = new Set<string>();
+  for (const path of storageDir ? [storageDir, ...mediaDirs] : mediaDirs) {
+    for (let dir = dirname(path); dir.startsWith(workspaceRoot + sep); dir = dirname(dir)) appDataHolders.add(dir);
+  }
+  const forbiddenPaths = uniqueExistingPaths(forbidden);
+  // The workspace itself and the folders between it and each forbidden path, so a command cannot rename one and
+  // reach what it holds under a new path. The workspace is always pinned: the name rules match paths under it.
+  const forbiddenHolders = new Set<string>([workspaceRoot]);
+  for (const path of forbiddenPaths) {
+    for (let dir = dirname(path); dir.startsWith(workspaceRoot + sep); dir = dirname(dir)) forbiddenHolders.add(dir);
+  }
   return {
-    forbidden: uniqueExistingPaths(forbidden),
+    workspaceRoot,
+    forbidden: forbiddenPaths,
+    forbiddenHolders: [...forbiddenHolders],
     sensitive: uniqueExistingPaths(sensitive),
     storageDir: storageDir ?? null,
+    dataDir: dataDir ?? null,
+    // At the real data dir, whether they exist yet or not.
+    mediaDirs,
+    appDataHolders: [...appDataHolders],
     packageStores: uniqueExistingPaths(packageStores),
     nodeModulesStores: uniqueExistingPaths(nodeModulesStores),
     storeLinks,
@@ -341,6 +382,8 @@ export type SensitiveWorkspaceSnapshot = {
    * read-only store, quarantined and restored by restoreReplacedStoreLinks.
    */
   storeLinks: StoreLink[];
+  /** The workspace's root .git and .env, when they did not exist at snapshot time; see quarantineNewRootSecrets. */
+  absentRootSecrets: string[];
   /**
    * Subtrees the PRE-run walk could not inspect. Anything detected under
    * them later cannot be attributed to the command - a pre-existing file
@@ -518,7 +561,11 @@ export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Pr
     unscannable,
     storePaths,
   );
-  return { files, unscannable, entryCapExceeded, storePaths, storeLinks };
+  const absentRootSecrets: string[] = [];
+  for (const path of [join(workspaceRoot, ".git"), join(workspaceRoot, ".env")]) {
+    if (!(await pathPresent(path))) absentRootSecrets.push(path);
+  }
+  return { files, unscannable, entryCapExceeded, storePaths, storeLinks, absentRootSecrets };
 }
 
 function stageableText(content: Buffer | null): string | null {
@@ -559,22 +606,7 @@ export async function restoreReplacedStoreLinks(snapshot: SensitiveWorkspaceSnap
         }
         await rm(link, { force: true });
       } else if (current) {
-        // #5894 review: the destination must be unguessable and collisions
-        // retried - rename onto a NON-EMPTY directory fails, so a command
-        // that pre-planted content at a predictable timestamp name would
-        // keep its impostor live at the store path.
-        let quarantine: string | null = null;
-        let renameFailure: unknown = null;
-        for (let attempt = 0; attempt < 3 && quarantine === null; attempt += 1) {
-          const candidate = `${link}.unreviewed-${randomBytes(6).toString("hex")}`;
-          try {
-            await rename(link, candidate);
-            quarantine = candidate;
-          } catch (renameErr) {
-            renameFailure = renameErr;
-          }
-        }
-        if (quarantine === null) throw renameFailure;
+        const quarantine = await quarantineByRename(link);
         lines.push(
           `A package-store symlink was replaced during the run; the replacement was quarantined to ${quarantine
             .slice(link.length - basename(link).length)
@@ -590,6 +622,57 @@ export async function restoreReplacedStoreLinks(snapshot: SensitiveWorkspaceSnap
     }
   }
   return lines;
+}
+
+/**
+ * Bubblewrap masks forbidden paths with mounts, which need an existing path, so a root .git or .env the run created
+ * had no rule there (Seatbelt matches the names and refuses them). Host git and the server's .env loader read exactly
+ * these two, so one that appeared during the run is quarantined by rename, like a replaced store link, before any
+ * later command can use it. Returns engine lines describing what happened.
+ */
+export async function quarantineNewRootSecrets(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
+  const lines: string[] = [];
+  for (const path of snapshot.absentRootSecrets) {
+    if (!(await pathPresent(path))) continue;
+    try {
+      const quarantine = await quarantineByRename(path);
+      lines.push(
+        `${basename(path)} appeared at the workspace root during the run and was moved to ${basename(quarantine)}, because shell commands may not create it - ask the user to inspect it.`,
+      );
+    } catch (err) {
+      logger.error(err, "[mari] Could not quarantine a %s created during a shell run", basename(path));
+      lines.push(
+        `${basename(path)} appeared at the workspace root during the run and could not be moved away; ask the user to remove it.`,
+      );
+    }
+  }
+  return lines;
+}
+
+// lstat, not existsSync: a dangling link is still there.
+async function pathPresent(path: string) {
+  try {
+    await lstat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// #5894 review: the destination must be unguessable and collisions retried - rename onto a NON-EMPTY directory
+// fails, so a command that pre-planted content at a predictable name would keep its impostor in place.
+async function quarantineByRename(path: string): Promise<string> {
+  let renameFailure: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const candidate = `${path}.unreviewed-${randomBytes(6).toString("hex")}`;
+    try {
+      await rename(path, candidate);
+      return candidate;
+    } catch (renameErr) {
+      renameFailure = renameErr;
+    }
+  }
+  throw renameFailure;
 }
 
 export async function detectUnreviewedSensitiveChanges(
@@ -702,6 +785,7 @@ function macosReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, sandboxTe
     "/private/var/run",
     "/dev",
     "/opt/homebrew",
+    "/opt/local",
     "/usr/local",
     dirname(process.execPath),
     ...pathRoots,
@@ -723,19 +807,46 @@ export async function buildMacosWorkspaceShellProfile(
   const readable = macosReadRoots(workspaceRoot, env, sandboxTemp, codeCheck)
     .map((path) => `    (subpath ${sandboxLiteral(path)})`)
     .join("\n");
-  const forbiddenReads = policyPaths.forbidden.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
+  const forbiddenPaths = policyPaths.forbidden.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   const sensitiveWrites = policyPaths.sensitive.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
-  const forbiddenReadRule = forbiddenReads ? `(deny file-read*\n${forbiddenReads})` : "";
+  // Forbidden paths (.git, .env, the key file) are closed to writes as well as reads: a write-only open, a rename or
+  // a delete gets past a read rule alone. The workspace and the folders holding them are pinned, and the names are
+  // matched too, so a .git, .env or key file that does not exist yet cannot be created. Seatbelt regexes have no
+  // case-insensitive flag, so each letter matches both cases, as the volume does. These rules come last, so no allow
+  // reopens them.
+  const root = `^${escapeRegExp(policyPaths.workspaceRoot)}/(.*/)?`;
+  const anyCase = (name: string) => escapeRegExp(name).replace(/[a-z]/gu, (c) => `[${c}${c.toUpperCase()}]`);
+  const forbiddenNames = `${root}(${anyCase(".git")}(/|$)|${anyCase(".env")}(\\.[^/]*)?$|${anyCase(".encryption-key")}$)`;
+  const envTemplates = `${root}${anyCase(".env.")}(${anyCase("example")}|${anyCase("sample")}|${anyCase("template")})$`;
+  const forbiddenRule = forbiddenPaths ? `(deny file-read* file-write*\n${forbiddenPaths})` : "";
+  const forbiddenWriteRule = `(deny file-write*\n${[
+    ...policyPaths.forbiddenHolders.map((path) => `    (literal ${sandboxLiteral(path)})`),
+    `    (require-all (regex ${JSON.stringify(forbiddenNames)}) (require-not (regex ${JSON.stringify(envTemplates)})))`,
+  ].join("\n")})`;
   const sensitiveWriteRule = writableWorkspace && sensitiveWrites ? `(deny file-write*\n${sensitiveWrites})` : "";
   const storeWrites = policyPaths.packageStores.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   const storeWriteRule = writableWorkspace && storeWrites ? `(deny file-write*\n${storeWrites})` : "";
-  const storageWriteRule =
-    writableWorkspace && policyPaths.storageDir
-      ? `(deny file-write*\n    (subpath ${sandboxLiteral(policyPaths.storageDir)}))`
-      : "";
+  // Saved data and the media folders stay read-only, and the folders holding them are pinned. The media folders and
+  // the ones holding them inside the data dir are matched by name, in either case as the volume matches names, so one
+  // that does not exist yet can be neither made nor moved into place.
+  const dataPrefix = policyPaths.dataDir ? `^${escapeRegExp(policyPaths.dataDir)}/` : null;
+  const appDataWrites = [
+    ...(policyPaths.storageDir ? [`    (subpath ${sandboxLiteral(policyPaths.storageDir)})`] : []),
+    ...policyPaths.appDataHolders.map((path) => `    (literal ${sandboxLiteral(path)})`),
+    ...(dataPrefix
+      ? [
+          `    (regex ${JSON.stringify(`${dataPrefix}(${APP_MEDIA_FOLDERS.map(anyCase).join("|")})(/|$)`)})`,
+          `    (regex ${JSON.stringify(`${dataPrefix}(${APP_MEDIA_HOLDERS.map(anyCase).join("|")})$`)})`,
+        ]
+      : []),
+  ];
+  const appDataWriteRule =
+    writableWorkspace && appDataWrites.length ? `(deny file-write*\n${appDataWrites.join("\n")})` : "";
   const storeCacheAllows = storeCaches.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   // Placed AFTER the store deny: seatbelt's last matching rule wins, so the
-  // cache subpaths stay writable inside the otherwise read-only store.
+  // cache subpaths stay writable inside the otherwise read-only store. The
+  // saved-data and media deny comes after it, so a store inside one of those
+  // folders gets no writable cache.
   const storeCacheRule = writableWorkspace && storeCacheAllows ? `(allow file-write*\n${storeCacheAllows})` : "";
   // #6984: build output stays read-only. The pattern also covers folders that do not exist yet, new packages
   // and dist-* builds; seatbelt matched DIST to dist on a case-insensitive volume when this was tested.
@@ -766,14 +877,52 @@ ${workspaceWriteRule}
     (subpath ${sandboxLiteral(sandboxTemp)})
     (literal "/dev/null")
     (literal "/dev/tty"))
-${forbiddenReadRule}
 ${sensitiveWriteRule}
 ${storeWriteRule}
-${storageWriteRule}
 ${storeCacheRule}
+${appDataWriteRule}
 ${buildOutputRule}
+${forbiddenRule}
+${forbiddenWriteRule}
 (deny network*)
 `;
+}
+
+// These paths are built from real paths, so one whose real path differs has a link on the way.
+function isRealFolder(path: string) {
+  try {
+    return realpathSync(path) === path && statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A mount needs an existing folder, so a missing media folder is made first, one part at a time so that no part is
+ * made through a link. The app makes these folders when it needs them anyway.
+ */
+// ponytail: a media folder that is itself a link, or sits behind one, when her shell starts gets no mount (a mount
+// cannot sit on a link), so for that run her shell can replace it with a folder of its own and swap that folder as in
+// #8802. mari images refuses the link itself, and the server logs it here. Upgrade path: refuse the shell while a media
+// folder is a link.
+async function mediaFolderMounts(dataDir: string | null, mediaDirs: string[]) {
+  if (!dataDir) return [];
+  const mounts: string[] = [];
+  for (const folder of mediaDirs) {
+    let dir = dataDir;
+    for (const part of relative(dataDir, folder).split(sep)) {
+      dir = join(dir, part);
+      await mkdir(dir).catch(() => undefined);
+      if (!(await lstat(dir).catch(() => null))?.isDirectory()) break;
+    }
+    if (isRealFolder(folder)) mounts.push(folder);
+    else
+      logger.warn(
+        "[mari] %s is not a real folder in the data dir, so the shell sandbox cannot hold it read-only",
+        folder,
+      );
+  }
+  return mounts;
 }
 
 function linuxReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, codeCheck: boolean) {
@@ -823,10 +972,18 @@ export async function linuxBubblewrapArgs(
     args.push("--ro-bind", root, root);
   }
   args.push(writableWorkspace ? "--bind" : "--ro-bind", workspaceRoot, workspaceRoot);
+  // Made first, so a missing media folder, and the folder holding it, exist for their mounts below.
+  const mediaMounts = writableWorkspace ? await mediaFolderMounts(policyPaths.dataDir, policyPaths.mediaDirs) : [];
   // #6984: binding the folders that hold build output onto themselves makes them mount points, which cannot be
-  // renamed, so a command cannot move a package away and build a new dist in its place. They come before every
-  // other bind inside the workspace, because a bind hides the ones already made beneath it.
-  if (writableWorkspace) for (const holder of policyPaths.buildOutputHolders) args.push("--bind", holder, holder);
+  // renamed, so a command cannot move a package away and build a new dist in its place. The folders holding saved
+  // data and media are pinned the same way. They come before every other bind inside the workspace, shallowest first,
+  // because a bind hides the ones already made beneath it.
+  if (writableWorkspace) {
+    const holders = [...new Set([...policyPaths.buildOutputHolders, ...policyPaths.appDataHolders])];
+    for (const holder of holders.filter(isRealFolder).sort((a, b) => a.length - b.length)) {
+      args.push("--bind", holder, holder);
+    }
+  }
   args.push("--bind", sandboxTemp, sandboxTemp);
   for (const path of policyPaths.sensitive) {
     args.push("--ro-bind", path, path);
@@ -844,7 +1001,13 @@ export async function linuxBubblewrapArgs(
     // package that has none yet is not covered here; the pre-run shell check refuses the usual ways to create one.
     if (!codeCheck) for (const output of policyPaths.buildOutputs) args.push("--ro-bind", output, output);
     if (policyPaths.storageDir) args.push("--ro-bind", policyPaths.storageDir, policyPaths.storageDir);
+    for (const folder of mediaMounts) args.push("--ro-bind", folder, folder);
   }
+  // ponytail: a mount needs an existing path, so a forbidden name a command creates where none existed has no rule
+  // here (Seatbelt matches the names). The root .git and .env, which host git and the .env loader read, are
+  // quarantined after the run (quarantineNewRootSecrets); until the command ends they sit on the host, and deeper
+  // ones stay. Upgrade path: mount placeholders over a missing root .git and .env for the run, and remove the empty
+  // mount points bubblewrap leaves on the host afterwards.
   for (const path of policyPaths.forbidden) {
     if ((await lstat(path)).isDirectory()) args.push("--tmpfs", path);
     else args.push("--ro-bind", "/dev/null", path);

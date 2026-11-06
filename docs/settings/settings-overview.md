@@ -1,175 +1,201 @@
 # Settings Overview
 
-This guide maps the Marinara Engine **Settings** panel: its six tabs and what each one controls. It covers the **General** tab in depth, the **Text Rules** that format your chat text, and how settings sync across your devices.
+Find which part of **Settings** holds a control, set up the **General** tab, and learn how your settings sync between devices.
 
 ## The Settings panel and its six tabs
 
-Open **Settings** using the gear icon in the top bar. At the top of the panel is a **Search settings** box. Type any word (like `delete`, `streaming`, or `quotes`) and Marinara jumps you to the matching section. It finds a setting by its name in your interface language or in English.
+Open **Settings** with the gear icon in the top bar. The **Search settings** box at the top finds a setting by name. Type a word such as `delete`, `streaming` or `quotes`, and Marinara jumps to the matching section. It matches names in your interface language and in English.
 
-The panel has six tabs. The table below shows what each tab controls.
+The panel has six tabs. Each tab has its own sections.
 
-| Tab | What you set there |
+### I want to…
+
+| I want to… | Go to |
 | --- | --- |
-| **General** | App behavior, notifications, responses, input, text rules, and game playback. |
-| **Appearance** | Theme, colors, fonts, chat layout, motion, and backgrounds. |
-| **Generations** | Image and video defaults, and reusable prompt templates. |
-| **Addons** | Professor Mari's sandboxed Personal Extension drafts, optionally unlocked External Extensions, and custom themes. |
-| **Imports** | Restore full profiles and import from other apps. |
-| **Advanced** | Admin access, optional feature switches, updates, message tools, backups, and destructive resets. |
+| Change the language | **Settings → General → App Behavior → Language** |
+| Make text bigger | **Settings → Appearance → App → Text & Scale** |
+| Change the theme or colors | **Settings → Appearance → App → App Style** |
+| Set a notification sound | **Settings → General → Notifications** |
+| Stop the delete confirmation | **Settings → General → App Behavior** |
+| Add quick replies | **Settings → General → Input & Editing** |
+| Make a backup | **Settings → Advanced → Backup & Export** |
+| Delete my data | **Settings → Advanced → Danger Zone** |
+| Update Marinara | **Settings → Advanced → Updates** |
 
-Here is where to read more about each tab:
+### What each tab holds
 
-- **General**: covered on this page (see the sections below).
-- **Appearance**: see [Appearance Settings](../appearance/appearance-settings.md).
-- **Generations**: see [Style Profiles](../media/style-profiles.md) and [Scene Video](../media/scene-video.md).
-- **Addons**: see [Personal Extensions](../extending/personal-extensions.md) and [Custom CSS Themes](../appearance/custom-css-themes.md).
-- **Imports**: see [Importing from SillyTavern](../data/importing-from-sillytavern.md) and [Backup and Restore](../data/backup-and-restore.md).
-- **Advanced**: see the **Message Tools** section below, [Feature Switches](../configuration/features.md), plus [Upgrading Marinara Engine](../UPGRADING.md), [Remote Access](../REMOTE_ACCESS.md), and [Clearing Your Data](../data/clearing-data.md).
+**General** (this guide)
 
-## Settings, General tab
+- **App Behavior** (with a **Search and Professor Mari settings** row)
+- **Notifications**
+- **Responses**
+- **Input & Editing**
+- **Text Rules**
+- **Game Playback**
 
-The **General** tab holds six sections. This page owns two of them in full: **App Behavior** and **Text Rules**. The others are summarized here and covered in detail in their own guides.
+**Appearance** has four buttons. See [Appearance Settings](../appearance/appearance-settings.md).
 
-- **App Behavior**: language, delete safety, and show/hide toggles. Covered below.
-- **Notifications**: notification sounds plus separate browser and Android app controls. Upload a **Custom sound** in MP3, WAV, OGG, M4A/MP4, or WebM format (up to 10 MB) to replace Marinara's built-in tone for every device connected to this server. You can preview, replace, or remove it at any time; an unreadable custom file falls back to the built-in tone, and the file is included in backups and profile exports. **Background Notifications** cover autonomous Conversation messages, while **Generation Completion Notifications** cover replies you start manually in Conversation, Roleplay, and Game modes. Both work while Marinara remains open but unfocused, and message contents stay hidden.
-- **Responses**: how replies stream, save, and paginate. See [Sending and Streaming Messages](../chats/sending-and-streaming.md).
-- **Input & Editing**: message input and fast edit controls. See [Message Actions](../chats/messages.md).
-- **Text Rules**: formatting applied to chat text. Covered below.
-- **Game Playback**: Game mode reading and navigation.
+- **App**: **App Style**, **Text & Scale**, **Atmosphere**, **Backgrounds**
+- **Conversation**: **Conversation Display**, **Conversation Theme**
+- **Roleplay**: **Tracker Panel**, **Roleplay Presentation**
+- **Game**: **Game Presentation**
 
-## App Behavior
+**Generations** has **Overall Generations**, **Image Generation**, **Video Generation** and **Prompt Overrides**. Until you install the Illustrator agent, this tab only shows a prompt to download it. See [Style Profiles](../media/style-profiles.md) and [Scene Video](../media/scene-video.md).
 
-This section is at **Settings** > **General** > **App Behavior**. It controls daily app behavior and a few show/hide toggles.
+**Addons** has the extension revision history, **Personal Extensions**, **External Extensions** (only when you have unlocked them) and **Theme Library**. See [Personal Extensions](../extending/personal-extensions.md) and [Custom CSS Themes](../appearance/custom-css-themes.md).
 
-- **Language**: choose the app interface language. Marinara currently includes Arabic, Simplified Chinese, English,
-  French, German, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian, and Spanish. Arabic uses a
-  right-to-left layout. Interface text that has not been translated yet falls back to English. This setting changes
-  Marinara's controls and guidance, not model prompts or chat content. To improve a translation or contribute another
-  language, see [UI Localization](../development/localization.md).
-- **Documentation Language**: choose the language for Marinara's built-in guides, separate from the interface language above. English is built in and never downloaded. Picking a language other than English shows **Download & Replace**, which downloads that language pack once and removes the previous pack, so only one downloaded language is kept. Guides that are not translated yet open in English with a small `EN` badge, and the docs search works in whichever language is active. Your choice survives updates, and the pack refreshes automatically after an update when its translations changed. If the downloaded guides ever go missing or get damaged, a **Fix documentation** button appears: it re-downloads the pack, and resets the guides to English when the download source cannot be reached.
-- **Confirm before deleting**: on by default. When on, Marinara asks before it permanently deletes a chat, a character, or another item. Keep it on to avoid accidental deletes.
-- **Hide chat Help button**: off by default. When on, the **Help** button disappears from Conversation, Roleplay, and Game chats.
-- **Show Android status bar**: off by default, and works only in the Marinara Engine Android app. When on, the time, battery level, and notification icons stay visible above Marinara.
-- **Achievements**: on by default. When on, the Home screen shows the **Achievements** bookmark and unlock notices. The optional **Achievements** widget appears if you added it to your Home layout. When off, tracking stays silent. See [Achievements](../home/achievements.md).
-- **Music Player**: on by default. When on, the compact Music Player is shown. It needs the **Music DJ** agent from **Agents** > **Download Agents**, and the switch stays greyed out until you install it. See [Music](../media/music.md).
-- **Search and Professor Mari settings**: select **Open** to go to their settings page. Every Search and Professor Mari setting lives there, in these groups:
+**Imports** has **Profile & Marinara**, **SillyTavern Import** and **Game Assets**. See [Backing Up and Restoring Marinara](../data/backup-and-restore.md) and [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
-  - **Search**: offer to improve a field and search history.
-  - **Quick answers**: **Quick answers in Search**, **Answer with** and **Wait after typing**.
-  - **Search window** and **Professor Mari window**: each window has **Height** and **Width** settings. These groups are not shown on phones.
-  - **Professor Mari**: Ask Professor Mari from Search, permissions mode, **Runtime**, reply chips, how change cards open and Enter sends to Professor Mari.
-  - **Around the app**: Mini Professor Mari visits.
-  - **Appearance**: her look. Each pack shows her portrait. The one in use says **In use**. A locked pack shows your play time toward unlocking it.
+**Advanced** has these sections, in this order. See [The Advanced tab](#the-advanced-tab).
 
-  The gear in Search opens the same page. Searching for any of these settings, by its new or old name, takes you straight to it.
+- **Multiplayer WIP**
+- **Access**
+- **Admin Access**
+- **Features**
+- **Updates**
+- **Support Diagnostics**
+- **Request timeouts**
+- **Parameters**
+- **Message Tools**
+- **Backup & Export**
+- **Storage Optimization**
+- **Danger Zone**
 
-## Text Rules
+## The General tab
 
-This section is at **Settings** > **General** > **Text Rules**. These rules change how your chat text is handled. **Bold dialogue in quotes** and **Convert LaTeX symbols** are display-only, so they never change your saved messages. **Quote style** is different: it rewrites the actual quotation marks in text you type and save.
+Each section of the **General** tab is at **Settings → General**.
 
-### Bold dialogue in quotes
+| Section | What it controls |
+| --- | --- |
+| **App Behavior** | Language, delete safety, show and hide switches, and the **Search and Professor Mari settings** row. See [App Behavior](#app-behavior). |
+| **Notifications** | Notification sounds, and browser and Android notifications. See [Notifications](#notifications). |
+| **Responses** | Streaming, trimming and **Messages per page**. See [Sending and Streaming Messages](../chats/sending-and-streaming.md). |
+| **Input & Editing** | **Send on Enter**, **Quick replies**, swipe and edit shortcuts. See [Input and Editing](#input-and-editing). |
+| **Text Rules** | How chat text is formatted. See [Text Rules](#text-rules). |
+| **Game Playback** | Game Mode reading and navigation. See [Game Mode: Getting Started](../game/getting-started.md). |
 
-On by default. When on, text inside quotation marks is shown in bold. Take this line:
+### App Behavior
 
-```
-"I missed you," she said.
-```
+| Setting | What it does |
+| --- | --- |
+| **Language** | Sets the interface language. It does not change model prompts or chat content. Text not yet translated shows in English. Arabic uses a right-to-left layout. Default: English. |
+| **Documentation Language** | Sets the language of the built-in guides. See below. Default: English. |
+| **Confirm before deleting** | Asks before Marinara permanently deletes a chat, a character or another item. Default: on. |
+| **Hide chat Help button** | Hides the **Help** button in Conversation, Roleplay and Game chats. Default: off. |
+| **Show Android status bar** | Keeps the time, battery and notification icons visible above Marinara. Works only in the Android app. Default: off. |
+| **Achievements** | Tracks achievements, shows unlock notices and the Home bookmark and widget. See [Achievements](../home/achievements.md). Default: on. |
+| **Disable seasonal ME themes** | Turns off Marinara's seasonal themes. Default: off. |
+| **Music Player** | Shows the compact Music Player. It needs the **Music DJ** agent from **Agents → Agent Organizer**, and stays greyed out until you install it. See [Music](../media/music.md). Default: on. |
 
-With **Bold dialogue in quotes** on, the words `I missed you` appear in bold. Turn it off to keep the dialogue color without the bold.
+**Search and Professor Mari settings** is a row at the bottom of **App Behavior**. Select **Open** to go to the settings page for Search, quick answers and Professor Mari. See [Professor Mari](../home/professor-mari.md).
 
-### Convert LaTeX symbols
+The interface languages are Arabic, Simplified Chinese, English, French, German, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian and Spanish. To improve a translation or add a language, see [UI Localization](../development/localization.md).
 
-On by default. Some models write math using LaTeX commands. When on, common commands like `\rightarrow`, `\neq`, `\times`, and `\alpha` are shown as their normal symbols. For example, `\times` is displayed as the multiplication sign `×`, and `\alpha` is displayed as the Greek letter `α`. Code snippets are left alone.
+For **Documentation Language**, English is built in. Choose another language and click **Download & Replace**. Marinara downloads that language pack once and removes the previous one, so it keeps one downloaded language. Guides not yet translated open in English with a small `EN` badge. Docs search works in the active language. Your choice survives updates, and the pack refreshes after an update when its translations changed. If the downloaded guides go missing or break, a **Fix documentation** button appears. It downloads the pack again, or resets the guides to English if the download source cannot be reached.
 
-### Quote style
+### Notifications
 
-Chooses how quotation marks are unified. Unlike the two rules above, this changes the text itself: messages you type and save are rewritten to use the style you pick. There are two options:
+Marinara plays a built-in tone for notifications. To use your own sound:
 
-- **Straight**: keeps plain typewriter marks, like `"Hello," it's me.` This is the default.
-- **Typographic**: replaces straight marks with curved quotation marks and apostrophes.
+1. Open **Settings → General → Notifications**.
+2. Upload a **Custom sound**: MP3, WAV, OGG, M4A, MP4 or WebM, up to 10 MB.
 
-### Load images from other websites in messages
+The sound plays on every device connected to this server. You can preview, replace or remove it. If the file cannot be read, Marinara plays the built-in tone. The file is part of backups and profile exports.
 
-Off by default. When off, an image from another website in a message, greeting or card preview shows the website's name and a **Load image** button instead, so a message cannot contact other sites on its own. Select **Load image** to show that image; Marinara remembers it on all your devices. Turn the setting on to show every image right away. Images stored in Marinara, such as gallery pictures, avatars and sprites, always show.
+**Background Notifications** cover Conversation messages that characters send on their own. **Generation Completion Notifications** cover replies you start yourself in Conversation, Roleplay and Game Mode. Both work while Marinara is open but not in focus. They never show message contents.
 
-## Responses and Input & Editing
+### Input and Editing
 
-These two **General** sections tune how replies arrive and how you type and edit. Here are the controls, with links to the full guides.
+Settings in **Settings → General → Input & Editing**:
 
-The **Responses** section controls:
+| Setting | What it does |
+| --- | --- |
+| **Send on Enter** | Picks which modes send when you press Enter. |
+| **Keep guidance after regenerating** | Leaves your direction in the message box after a guided regenerate. On by default. |
+| **Add CYOA choices to the message box instead of sending them** | Puts a clicked choice in your message box so you can edit it first. |
+| **Quick replies** | Adds draft actions beside the Send button. See [Guided Generation and Impersonate](../chats/guided-and-impersonate.md). |
+| **Speech-to-text microphone** | Shows a microphone button in chat inputs. |
+| **Intuitive swipe navigation** | Moves between swipes (several answers kept on one message) with arrow keys or a touch swipe. |
+| **Reroll past the newest swipe** | Makes a new reply when you swipe past the newest one. |
+| **Up Arrow edits last message** | Press Up Arrow on an empty input to edit your last message. |
+| **Double-click edits messages** | Double-click a Roleplay message to edit it. |
 
-- **Enable streaming**: show AI text word by word as it generates.
-- **Streaming speed**: how fast streamed text appears.
-- **Trim incomplete sentences from the response**: trim a trailing unfinished sentence before saving.
-- **Add a new line before /continue text**: start text added by `/continue` after a blank line. On by default.
-- **Messages per page**: how many messages load at once.
+The **Responses** section has **Enable streaming**, **Streaming speed**, **Trim incomplete sentences from the response**, **Add a new line before /continue text** (on by default) and **Messages per page**. See [Sending and Streaming Messages](../chats/sending-and-streaming.md). For message actions, see [Message Actions](../chats/messages.md).
 
-Read more in [Sending and Streaming Messages](../chats/sending-and-streaming.md).
+### Text Rules
 
-The **Input & Editing** section controls:
+These rules change how chat text is handled in **Settings → General → Text Rules**. **Bold dialogue in quotes** and **Convert LaTeX symbols** only change how text looks, so your saved messages stay the same. **Quote style** rewrites the quotation marks in text you type and save.
 
-- **Send on Enter**: pick which modes send when you press Enter.
-- **Keep guidance after regenerating**: leave your direction in the message box after a guided regenerate. On by default.
-- **Add CYOA choices to the message box instead of sending them**: a clicked CYOA choice goes into your message box, so you can edit it before sending.
-- **Quick replies**: add alternate draft actions beside the Send button. See [Guided Generation and Impersonate](../chats/guided-and-impersonate.md).
-- **Speech-to-text microphone**: show a microphone button in chat inputs.
-- **Intuitive swipe navigation**: use arrow keys or touch swipes to move between alternate replies.
-- **Reroll past the newest swipe**: make a new reply when you swipe past the newest one.
-- **Up Arrow edits last message**: press Up Arrow on an empty input to edit the last message.
-- **Double-click edits messages**: double-click a Roleplay message to edit it.
+| Setting | What it does |
+| --- | --- |
+| **Bold dialogue in quotes** | Shows text inside quotation marks in bold. On by default. |
+| **Convert LaTeX symbols** | Shows LaTeX math commands as symbols. Code is left alone. On by default. |
+| **Quote style** | **Straight** keeps plain marks (default). **Typographic** rewrites them as curved quotation marks and apostrophes. |
+| **Load images from other websites in messages** | Controls images hosted on other websites. Off by default. |
 
-Read more in [Message Actions](../chats/messages.md).
+#### Bold dialogue in quotes
 
-## Message Tools
+With this on, the words inside the quotation marks in `"I missed you," she said.` appear in bold. Turn it off to keep the dialogue color without the bold.
 
-The **Message Tools** section is at **Settings** > **Advanced** > **Message Tools**. It is a hub of display and repair toggles. Each toggle below is off by default, except **Show context usage** and **Show "older messages not sent" note**, which are on. The table shows what each one does and where to read more.
+#### Convert LaTeX symbols
 
-| Toggle | What it does | Full guide |
-| --- | --- | --- |
-| **Show message timestamps** | Shows the date and time on each message. | [Message Actions](../chats/messages.md) |
-| **Show characters in Persona pickers** | Lists your characters in the persona pickers, so you can play as one of them. | [Personas](../characters/personas.md) |
-| **Show model name on messages** | Shows which AI model wrote each reply. | [Message Actions](../chats/messages.md) |
-| **Show token usage on messages** | Shows prompt and completion token counts per message. | [Message Actions](../chats/messages.md) |
-| **Show context usage** | Shows how full the model's context was on the last measured request, in the connection switchers and Game chat settings. | [Organizing Connections](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
-| **Show message numbers** | Shows a number on each message in the chat. | [Message Actions](../chats/messages.md) |
-| **Show "older messages not sent" note** | Shows a note under the newest reply when older messages did not fit the prompt. Turn it off to hide that note in long chats. A cut-off or empty reply still shows its own note. | [Peek Prompt](../chats/peek-prompt.md) |
-| **Guide swipes/regens with chat input** | Uses your current draft as direction when you regenerate. | [Guided Generation and Impersonate](../chats/guided-and-impersonate.md) |
-| **Include reasoning in exports** | Adds hidden thinking to chat exports. | [Exporting and Importing Chats](../chats/export-import.md) |
-| **Include private notes in exports** | Adds your private message notes to JSONL and text chat exports. Keep it off when you share a transcript. | [Exporting and Importing Chats](../chats/export-import.md) |
-| **Debug mode** | Logs model payloads in the server console for support. | [Troubleshooting](../TROUBLESHOOTING.md) |
+Some models write math as LaTeX commands. With this on, `\rightarrow`, `\neq`, `\times` and `\alpha` show as `→`, `≠`, `×` and `α`.
 
-The rest of the **Advanced** tab is covered elsewhere. See [Upgrading Marinara Engine](../UPGRADING.md) for **Updates**, [Remote Access](../REMOTE_ACCESS.md) for **Admin Access**, [Backup and Restore](../data/backup-and-restore.md) for **Backup & Export**, and [Clearing Your Data](../data/clearing-data.md) for **Danger Zone**.
+#### Load images from other websites in messages
+
+With this off, an image from another website in a message, greeting or card preview shows the website's name and a **Load image** button. This stops a message from contacting other sites on its own. Select **Load image** to show that image. Marinara remembers your choice on all your devices. Turn the setting on to show every image right away. Images stored in Marinara, such as gallery pictures, avatars and sprites, always show.
+
+## The Advanced tab
+
+| Section | Read more |
+| --- | --- |
+| **Admin Access** | [Remote Access](../REMOTE_ACCESS.md) |
+| **Features** | [Feature Switches](../configuration/features.md) |
+| **Updates** | [Upgrading Marinara Engine](../UPGRADING.md) |
+| **Message Tools** | [Message Tools](#message-tools) |
+| **Backup & Export** | [Backing Up and Restoring Marinara](../data/backup-and-restore.md) |
+| **Danger Zone** | [Clearing or Resetting Your Data](../data/clearing-data.md) |
+
+### Message Tools
+
+These switches are in **Settings → Advanced → Message Tools**. All are off by default, except **Show context usage** and **Show "older messages not sent" note**.
+
+| Switch | What it does |
+| --- | --- |
+| **Show message timestamps** | Shows the date and time on each message. |
+| **Show characters in Persona pickers** | Lists your characters in persona pickers so you can play as one. |
+| **Show model name on messages** | Shows which model wrote each reply. |
+| **Show token usage on messages** | Shows prompt and reply token counts per message. |
+| **Show context usage** | Shows how full the context window was on the last measured request, in the connection switchers and Game chat settings. |
+| **Show message numbers** | Shows a number on each message. |
+| **Show "older messages not sent" note** | Shows a note under the newest reply when older messages did not fit the prompt. A cut-off or empty reply still shows its own note. |
+| **Guide swipes/regens with chat input** | Uses your draft as direction when you regenerate. |
+| **Include reasoning in exports** | Adds the model's hidden thinking to chat exports. |
+| **Include private notes in exports** | Adds your private message notes to JSONL and text exports. Keep it off when you share a transcript. |
+| **Debug mode** | Logs model payloads in the server console for support. |
+
+For more, see [Message Actions](../chats/messages.md), [Personas](../characters/personas.md), [Choosing a model for one chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [Guided Generation and Impersonate](../chats/guided-and-impersonate.md), [Exporting and Importing Chats](../chats/export-import.md) and [Troubleshooting](../TROUBLESHOOTING.md).
 
 ## How settings sync across devices
 
-Marinara stores most of your settings on the server, so they follow you between browsers and devices. This is the settings sync behavior.
+Marinara saves most settings on the server, so they follow you between browsers and devices.
 
-Here is how it works:
+1. You change a setting in **Settings**.
+2. About one second later, Marinara saves it to the server.
+3. Another browser that opens the same server loads those settings.
 
-1. You change a setting anywhere in **Settings**.
-2. About one second later, Marinara saves the change to the server with a timestamp.
-3. When another browser opens the same Marinara server, it loads those saved settings.
+The newest change wins. If you open Marinara on a second device soon after a change, its older copy can replace your change. Wait a moment before you switch devices.
 
-Each device keeps the newer copy. This is last-write-wins by timestamp. Watch out for one result of this rule. If you open Marinara on a second device, its copy can quietly overwrite a setting you just changed on the first device. Give the app a moment to sync before you switch devices.
+Two settings never sync. Set them again on each device, at **Settings → Appearance → Text & Scale**:
 
-Two settings never sync. They stay per-browser on the device where you set them:
+- **Display Size**, the interface text size
+- **Chat Font Size**, the chat text size
 
-- **Display Size** (the interface text size)
-- **Chat Font Size** (the chat text size)
-
-Both live at **Settings** > **Appearance** > **Text & Scale**. Set them again on each device you use. See [Appearance Settings](../appearance/appearance-settings.md).
-
-If the server is unreachable, the app keeps working from your local settings and retries the next time you change something.
+See [Appearance Settings](../appearance/appearance-settings.md). If the server cannot be reached, the app keeps working from your local settings and tries again at your next change.
 
 ## Related guides
 
 - [Appearance Settings](../appearance/appearance-settings.md)
 - [Message Actions](../chats/messages.md)
-- [Sending and Streaming Messages](../chats/sending-and-streaming.md)
-- [Exporting and Importing Chats](../chats/export-import.md)
-- [Where Your Data Is Stored](../data/where-data-is-stored.md)
-- [Upgrading Marinara Engine](../UPGRADING.md)
+- [Where Marinara Stores Your Data](../data/where-data-is-stored.md)
 - [Troubleshooting](../TROUBLESHOOTING.md)
-- [Achievements](../home/achievements.md)
-- [Personal Extensions](../extending/personal-extensions.md)
-- [UI Localization](../development/localization.md)

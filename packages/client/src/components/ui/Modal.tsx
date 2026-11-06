@@ -24,6 +24,8 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Shown in the header instead of the title text; `title` still names the dialog. */
+  titleSlot?: ReactNode;
   children: ReactNode;
   /** Width class, e.g. "max-w-md", "max-w-lg" */
   width?: string;
@@ -41,8 +43,13 @@ interface ModalProps {
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
   closeDisabled?: boolean;
+  closeButtonClassName?: string;
+  /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
+  opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
   dragThrough?: boolean;
+  /** Keep surrounding libraries interactive, without a backdrop or focus trap. */
+  modeless?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
   topLayer?: boolean;
 }
@@ -51,6 +58,7 @@ export function Modal({
   open,
   onClose,
   title,
+  titleSlot,
   children,
   width = "max-w-md",
   contentRef,
@@ -63,9 +71,16 @@ export function Modal({
   contentClassName,
   panelStyle,
   closeDisabled = false,
+  closeButtonClassName,
+  opaque = false,
   dragThrough = false,
+  modeless = false,
   topLayer = false,
 }: ModalProps) {
+  const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
+  const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
+  const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
+  const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
@@ -87,6 +102,7 @@ export function Modal({
     restoreFocusRef,
     focusScopePortalSelector,
     () => overlayRegistrationRef.current?.isTopmost() ?? true,
+    !modeless,
   );
   // Hardware / gesture back closes the topmost modal. While closing is disabled
   // the press is absorbed rather than ignored, matching Escape: an in-flight
@@ -147,17 +163,29 @@ export function Modal({
     const handler = (e: KeyboardEvent) => {
       // Escape while an IME is composing cancels the composition first.
       if (e.isComposing) return;
+      if (!modeless) {
+        if (e.key !== "Escape" || closeDisabled) return;
+        if (!overlayRegistrationRef.current?.isTopmost()) return;
+        onClose();
+        return;
+      }
       if (e.key !== "Escape" || closeDisabled) return;
       if (!overlayRegistrationRef.current?.isTopmost()) return;
+      // Sidebar keys belong to the sidebar; drag/menu cancellation may also consume Escape.
+      if (e.defaultPrevented) return;
+      const panel = panelRef.current;
+      const targetInside = e.target instanceof Node && panel?.contains(e.target);
+      if (!targetInside && !panel?.contains(document.activeElement)) return;
       onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose, closeDisabled]);
+  }, [open, onClose, closeDisabled, modeless]);
 
-  // Remove from DOM after exit animation completes
+  // Remove from DOM after exit animation completes. A reopen during the exit (focus is already back on the opener)
+  // keeps it: the late transitionend or the fallback below must not unmount an open dialog.
   const handleAnimationEnd = () => {
-    if (animating === "exit") {
+    if (animating === "exit" && !open) {
       setMounted(false);
       setAnimating(null);
     }
@@ -168,13 +196,13 @@ export function Modal({
   // backgrounded (e.g. a game starting auto-closes its setup). Without this
   // the overlay stays mounted forever and blocks clicks.
   useEffect(() => {
-    if (animating !== "exit") return;
+    if (animating !== "exit" || open) return;
     const timer = setTimeout(() => {
       setMounted(false);
       setAnimating(null);
     }, 400);
     return () => clearTimeout(timer);
-  }, [animating]);
+  }, [animating, open]);
 
   if (!mounted) return null;
 
@@ -184,37 +212,45 @@ export function Modal({
     <div
       ref={overlayRef}
       role="dialog"
-      aria-modal="true"
+      aria-modal={modeless ? undefined : true}
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough || modeless ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
-          ? "p-0 sm:p-4"
-          : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4"
+          ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
+          : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
       }`}
       style={{
+        ...(modeless
+          ? ({
+              "--dialog-left": `${sidebarOpen ? sidebarWidth + 16 : 16}px`,
+              "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
+            } as CSSProperties)
+          : {}),
         opacity: isEntering ? 1 : 0,
         transition: "opacity 150ms ease-out",
       }}
       onTransitionEnd={handleAnimationEnd}
-      {...backdropDismiss}
+      {...(modeless ? {} : backdropDismiss)}
     >
       {/* Backdrop */}
-      <div
-        data-backdrop-dismiss-surface="true"
-        className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-        style={{
-          opacity: isEntering ? 1 : 0,
-          transition: "opacity 150ms ease-out",
-        }}
-      />
+      {!modeless && (
+        <div
+          data-backdrop-dismiss-surface="true"
+          className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+          style={{
+            opacity: isEntering ? 1 : 0,
+            transition: "opacity 150ms ease-out",
+          }}
+        />
+      )}
 
       {/* Panel */}
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough ? "pointer-events-auto" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(100dvh-5rem)]!" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""
@@ -229,13 +265,13 @@ export function Modal({
       >
         {/* Header */}
         <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
-          <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>
+          {titleSlot ?? <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>}
           <button
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
             aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className="flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40"
+            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${closeButtonClassName ?? ""}`}
           >
             <X size="1rem" />
           </button>

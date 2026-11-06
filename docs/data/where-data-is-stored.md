@@ -1,26 +1,24 @@
 # Where Marinara Stores Your Data
 
-This guide explains where Marinara Engine keeps your data on your own computer. It covers the main data folder, the `storage` and asset folders inside it, and the encryption key file that protects your saved API keys.
+Find the folder where Marinara Engine keeps your data, and know which parts to keep when you move or copy it.
 
-Marinara Engine (called "Marinara" below) runs on your own machine. Marinara stores your saved characters, chats, and settings only on your own computer. Keep in mind that when you generate a reply, Marinara still sends your chat content to the AI provider you connected to.
+Marinara runs on your own computer and saves your characters, chats and settings there. When you generate a reply, Marinara still sends your chat content to the AI service you connected.
 
-## The data folder (DATA_DIR)
+## Find the data folder
 
-Everything you create in Marinara lives inside one folder on the machine that runs the server. That folder is called the data folder. The environment variable that points to it is named `DATA_DIR`. An environment variable is a value you set on the server outside the app. You will not find it inside the app's **Settings** panel.
+Everything you create lives in one folder on the computer that runs the server. This is the data folder. Its setting is `DATA_DIR`, a value you give the server before it starts (an environment variable). It is not in **Settings**.
 
-By default the data folder is a folder named `data` that Marinara creates next to its server files. If you run Marinara in an official Docker container, the data folder is `/app/data` inside the container.
+- By default it is a folder named `data` next to the server files.
+- In the official Docker container it is `/app/data`.
+- To see the exact path, look at the window where you started Marinara (the terminal or console). When it starts, it prints a line that begins with `[storage] DATA_DIR=` followed by the path. If you cannot find that window, look for a folder named `data` inside the Marinara folder.
 
-If you are not sure where the data folder is, check the server startup log. When Marinara starts, it prints a line that begins with `[storage] DATA_DIR=` followed by the full path to your data folder.
+To move the folder, set `DATA_DIR` and restart Marinara. See the [Server Configuration Reference](../CONFIGURATION.md).
 
-You can move the data folder to another location by setting `DATA_DIR` yourself. To learn how to set it, see the [Server Configuration Reference](../CONFIGURATION.md). Marinara must restart for a new `DATA_DIR` value to take effect.
+## What is inside
 
-## The storage folder and asset folders
+Your text data is in the `storage` folder: characters, chats, messages, lorebooks, presets and connections. Marinara saves it as many small files. After an upgrade from the older layout, you may see old copies in `storage/tables/` with names ending in `.pre-shard`. Marinara never deletes them. You can delete them yourself to free space once everything works.
 
-Inside the data folder, your data is split into a `storage` folder and several asset folders.
-
-The `storage` folder holds your text data: characters, chats, messages, lorebooks, presets, and connections. Marinara saves each table as smaller ownership-grouped files—for example, one chat's messages or one lorebook's entries—so changing one item does not rewrite an ever-growing global JSON file. During the one-time upgrade from older storage, Marinara preserves the original table files beside the new folders with a `.pre-shard` suffix.
-
-Your images, audio, and other media files live in their own folders, each named for what it holds. The main asset folders are:
+Your images, audio and other files are in their own folders next to `storage`. The folder names are:
 
 | Folder | What it holds |
 | --- | --- |
@@ -32,34 +30,33 @@ Your images, audio, and other media files live in their own folders, each named 
 | `fonts` | Custom fonts you added |
 | `knowledge-sources` | Files you uploaded for knowledge agents |
 | `game-assets` | Game Mode assets |
+| `game-scene-videos` | Game Mode scene videos |
+| `conversation-call-character-videos` | Character videos for Conversation calls |
 | `custom-emojis` | Custom emoji images |
 | `custom-stickers` | Custom sticker images |
+| `notification-sounds` | Your custom notification sound |
+| `long-term-memory` | Data for the long-term memory agent |
+| `lorebooks/images`, `prompts/images`, `agents/images`, `connections/images` | Images attached to lorebooks, presets, agents and accounts |
 
-For a deeper technical explanation of how the `storage` folder works, developers can read [File-Native Storage](../development/file-storage.md).
+The data folder also holds `backups/` (your [automatic backups](backup-and-restore.md#automatic-backups)) and the encryption key file. **Download Backup** includes every folder in the table, `storage` and the key file. Developers can read [File-Native Storage](../development/file-storage.md).
 
-## The encryption key file
+## Keep the encryption key file
 
-Marinara encrypts your saved API keys so they are not stored as plain text. The key used for this encryption is saved in a file named `.encryption-key` inside your data folder.
+Marinara encrypts your saved API keys. The key for this is the file `.encryption-key` in the data folder.
 
-This file matters when you move or restore your data. Say you copy your data folder to a new machine but leave the `.encryption-key` file behind. Marinara can no longer decrypt your saved API keys, so you have to enter them again. Always keep this file together with the rest of your data.
+If you copy your data to a new computer without this file, Marinara cannot read your saved API keys. You must enter them again. Copy it together with the rest of the data folder.
 
-Some advanced setups provide the key through an `ENCRYPTION_KEY` environment variable instead of the file. If you use that variable, keep the value safe on its own. In that case there is no `.encryption-key` file to copy. See the [Server Configuration Reference](../CONFIGURATION.md) for details.
+Some setups give the key through the `ENCRYPTION_KEY` environment variable instead. Then there is no file to copy. Keep that value safe on its own. See the [Server Configuration Reference](../CONFIGURATION.md).
 
-## Where is my data on Android
+## Copy your data from Android
 
-On Android, the server's data folder usually sits in app storage that you cannot reach without root access. This means you cannot simply copy the folder off the phone.
+On Android, the data folder is in app storage that you cannot reach without root access, so you cannot copy it. Use **Settings → Advanced → Backup & Export → Download Backup**. The `.zip` includes the `.encryption-key` file when one exists. See [Backing Up and Restoring Marinara](backup-and-restore.md).
 
-To get a copy of your data on Android, use the **Download Backup** button. You can find it in **Settings**, on the **Advanced** tab, in the **Backup & Export** section. This creates a single zip file with your data. The zip includes the `.encryption-key` file when one exists. This is the most reliable way to save your data from a phone.
-
-The same section can keep 1 to 9999 rotating daily, weekly, or monthly automatic archives in `backups/` inside the
-data folder. The newest is `marinara-automatic-backup.zip`, and retained older automatic archives are timestamped.
-This limit applies only to automatic backups. Copy important backups somewhere outside the app's storage too, because
-uninstalling or resetting the app can remove both the live data and its local automatic backups.
-
-For the full backup and restore steps on every platform, see [Backing Up and Restoring Marinara](backup-and-restore.md).
+Automatic backups are saved in the same app storage. Uninstalling or resetting the app can remove them with the live data, so keep a copy somewhere else.
 
 ## Related guides
 
 - [Backing Up and Restoring Marinara](backup-and-restore.md)
+- [Clearing or Resetting Your Data](clearing-data.md)
 - [Server Configuration Reference](../CONFIGURATION.md)
 - [File-Native Storage](../development/file-storage.md)

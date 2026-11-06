@@ -11,7 +11,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
+import {
+  BaseLLMProvider,
+  markLlmRequestActivity,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMUsage,
+} from "../base-provider.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { DATA_DIR } from "../../../utils/data-dir.js";
@@ -222,7 +228,7 @@ function grokInstallHint(): string {
 
 async function runGrokCliCommand(
   args: string[],
-  options: { timeoutMs: number; signal?: AbortSignal; timeoutLabel: string },
+  options: { timeoutMs: number; signal?: AbortSignal; timeoutLabel: string; inactivityTimeout?: boolean },
 ): Promise<GrokCliCommandResult> {
   const grokScratchDir = await getGrokScratchDir();
 
@@ -238,11 +244,17 @@ async function runGrokCliCommand(
   let timedOut = false;
   let requestTimer: NodeJS.Timeout | null = null;
   let killTimer: NodeJS.Timeout | null = null;
+  const receiveData = () => {
+    markLlmRequestActivity();
+    if (options.inactivityTimeout && !aborted && !timedOut) requestTimer?.refresh();
+  };
 
   child.stdout?.on("data", (chunk: Buffer) => {
+    if (chunk.length) receiveData();
     stdout += chunk.toString("utf8");
   });
   child.stderr?.on("data", (chunk: Buffer) => {
+    if (chunk.length) receiveData();
     stderr += chunk.toString("utf8");
   });
 
@@ -276,7 +288,7 @@ async function runGrokCliCommand(
 
     if (timedOut) {
       throw new GrokCliCommandError(
-        `Grok CLI ${options.timeoutLabel} timed out after ${Math.round(options.timeoutMs / 1000)}s.`,
+        `Grok CLI ${options.timeoutLabel} timed out after ${Math.round(options.timeoutMs / 1000)}s${options.inactivityTimeout ? " without output" : ""}.`,
         stdout,
         stderr,
         result.code,
@@ -386,6 +398,7 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
           timeoutMs: GROK_REQUEST_TIMEOUT_MS,
           signal: options.signal,
           timeoutLabel: "request",
+          inactivityTimeout: true,
         });
       } finally {
         await rm(promptFile, { force: true }).catch(() => {});

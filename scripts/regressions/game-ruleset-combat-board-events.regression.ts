@@ -746,6 +746,28 @@ try {
     assert.equal(at(1, 1).season, "winter");
     assert.ok(rulesetCellSentences(at(0, 2), view, t).includes("game.combat.ruleset.board.growth"));
     assert.ok(rulesetCellSentences(at(1, 1), view, t).includes('game.combat.ruleset.board.season{"season":"winter"}'));
+    // One that gave itself up stays on the board where it did, a prisoner (re-test 14); one sent
+    // away does not.
+    {
+      const x = encounter.combatants.find((one) => one.id === "x")!;
+      const tokenOf = (away: NonNullable<typeof x.away>) => {
+        const was = { away: x.away, defeated: x.defeated };
+        x.away = away;
+        x.defeated = true;
+        try {
+          const seen = directedRulesetView(definition, {
+            style: "ruleset",
+            rulesetFight: { encounter, events: [], eventSeq: 0, controllers: {}, live: {}, adjustments: [] },
+          } as never) as DirectedRulesetView;
+          return rulesetBoardCells(seen, null).find((cell) => cell.x === x.x && cell.y === x.y)?.occupant?.id;
+        } finally {
+          x.away = was.away;
+          x.defeated = was.defeated;
+        }
+      };
+      assert.equal(tokenOf({ by: "x", label: "Surrendered", surrendered: true }), "x", "a prisoner stays");
+      assert.equal(tokenOf({ by: "ada", label: "Banished" }), undefined, "one sent away is gone");
+    }
     const plain = createRulesetFight({
       definition,
       seed: 3,
@@ -762,6 +784,38 @@ try {
     } as never) as { fight: { encounter: RulesetEncounterState } };
     assert.equal(plain.fight.encounter.board?.grid.ground, undefined);
     assert.equal(plain.fight.encounter.board?.events, undefined);
+  }
+
+  // ── Features asked for that cannot all stand keep those that can, the first said first (laptop
+  //    playtest 2026-10-25: forest and mountain both laid east left a fight unstartable) ──
+  {
+    const features = [
+      { terrain: "forest", placement: "center", shape: "patch" },
+      { terrain: "wall", placement: "center", shape: "barrier" },
+    ];
+    const seeded = (battlefield: unknown) =>
+      createRulesetFight({
+        definition,
+        seed: 13,
+        party: [{ id: "ada", name: "Ada" }],
+        enemies: [{ id: "x", name: "X" }],
+        bestiary: {},
+        cards: [{ name: "Ada", rulesetSheet: { v: 1, build: defaultRulesetSheetBuild(definition) } }],
+        playerName: null,
+        live: {},
+        items: () => [],
+        partyCatalogs: {},
+        positioned: true,
+        environment: "plains",
+        battlefield,
+      } as never);
+    const both = seeded({ features });
+    assert.ok(both.ok, both.ok ? "" : (both as { error: string }).error);
+    const first = seeded({ features: [features[0]] });
+    assert.ok(first.ok);
+    const grid = (built: typeof both) =>
+      JSON.stringify((built as { fight: { encounter: RulesetEncounterState } }).fight.encounter.board?.grid.tiles);
+    assert.equal(grid(both), grid(first), "the forest stands, and the wall that cannot is left out");
   }
 
   // ── Only cells on the board change ──
@@ -783,7 +837,7 @@ try {
   }
 
   console.log(
-    "Board events: rings, sweeps, blocks and spreading growth each round; terrain, light, fog, seasons and a turning wheel; growth cut, burnt and cleared; painted, shown and gated.",
+    "Board events: rings, sweeps, blocks and spreading growth each round; terrain, light, fog, seasons and a turning wheel; growth cut, burnt and cleared; asked-for features that clash keep those that can; painted, shown and gated.",
   );
 } finally {
   rmSync(dataDir, { recursive: true, force: true });

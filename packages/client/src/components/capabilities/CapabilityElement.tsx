@@ -2,6 +2,7 @@ import { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState, t
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, RefreshCw, X } from "lucide-react";
 import type { CapabilityLocalizationContext } from "@marinara-engine/shared";
+import { useCapabilityConnectionPicker } from "../../hooks/use-capability-connection-picker";
 import { retryCapabilityClientModule, useCapabilityClientModuleState } from "../../hooks/use-capability-packages";
 import { cn } from "../../lib/utils";
 import { reloadBrowser } from "../../lib/browser-runtime";
@@ -411,9 +412,14 @@ export function CapabilityElement({
   const onClose = typeof close === "function" ? (close as () => void) : undefined;
   const locale = localization.resolvedLanguage ?? localization.language;
   const direction = localization.dir(locale);
+  // Any host state/version/key change cancels an open picker request.
+  const { ui, dialog } = useCapabilityConnectionPicker(
+    `${packageId}:${clientModule.version ?? ""}:${clientModule.attempt}:${clientModule.status}:${runtimeError ? 1 : 0}`,
+  );
   const localizedCapabilityProps = useMemo(
     () => ({
       ...(capabilityProps ?? {}),
+      ui,
       // Package identity, so a bundle can build version-pinned asset URLs
       // (`/api/capability-packages/<id>/assets/<path>?v=<version>` → immutable
       // caching) without re-fetching /installed or scraping import.meta.url.
@@ -424,7 +430,7 @@ export function CapabilityElement({
         direction,
       } satisfies CapabilityLocalizationContext,
     }),
-    [capabilityProps, clientModule.version, direction, locale, packageId],
+    [capabilityProps, clientModule.version, direction, locale, packageId, ui],
   );
 
   useEffect(() => {
@@ -503,12 +509,17 @@ export function CapabilityElement({
     );
   }
 
-  return createElement(tag, {
-    ref,
-    view,
-    lang: locale,
-    dir: direction,
-    class: className,
-    key: `${packageId}:${clientModule.version ?? "registered"}:${clientModule.attempt}`,
-  });
+  return (
+    <>
+      {createElement(tag, {
+        ref,
+        view,
+        lang: locale,
+        dir: direction,
+        class: className,
+        key: `${packageId}:${clientModule.version ?? "registered"}:${clientModule.attempt}`,
+      })}
+      {dialog}
+    </>
+  );
 }

@@ -1,25 +1,26 @@
 # ComfyUI Workflow Setup
 
-Marinara Engine can send image- and video-generation requests to a local ComfyUI server, and image requests to a RunPod Serverless endpoint that runs ComfyUI. A local image connection can use Marinara's built-in basic workflow, while video connections and advanced image setups use a custom API-format workflow.
+Marinara Engine can send image and video requests to a local ComfyUI server, and image requests to a RunPod Serverless endpoint that runs ComfyUI. A local image model can use Marinara's built-in basic workflow. Video and advanced image setups use your own API-format workflow, which is a workflow exported from ComfyUI as JSON.
 
-The workflow JSON pasted into Marinara is a snapshot. Marinara does not keep a live link to the workflow open in ComfyUI. Whenever you change the workflow in ComfyUI, test it again, export it again, and replace the JSON saved on the Marinara connection.
+The JSON you paste into Marinara is a snapshot. Marinara keeps no live link to the workflow open in ComfyUI. When you change the workflow in ComfyUI, test it, export it again and replace the JSON saved in Marinara.
 
 ## Before you begin
 
 Install ComfyUI, add the checkpoints and custom nodes your workflow needs, and start its server. The usual local address is `http://127.0.0.1:8188`.
 
-If ComfyUI runs on a different computer on your home network, its server must listen on an address that Marinara can reach. Image connections also require `IMAGE_LOCAL_URLS_ENABLED=true` in Marinara's `.env`; see the [Server Configuration Reference](../CONFIGURATION.md). Check the other computer's firewall if the connection still fails.
+If ComfyUI runs on a different computer on your home network, its server must listen on an address that Marinara can reach. Image accounts also require `IMAGE_LOCAL_URLS_ENABLED=true` in Marinara's `.env`; see the [Server Configuration Reference](../CONFIGURATION.md). Check the other computer's firewall if the connection still fails.
 
-A local language model and an image model may not fit in GPU memory at the same time, especially on an 8 GB card. Marinara's image queue prevents multiple image jobs from running together, but it cannot make two loaded models fit into the same VRAM. If you run out of memory, use a cloud or separately hosted language model, run ComfyUI on another device, or unload one model before using the other.
+A local language model and an image model may not fit in GPU memory at the same time, especially on an 8 GB card. Marinara's image queue stops image jobs from running together, but it cannot make two loaded models fit into the same VRAM. If you run out of memory, use a cloud language model, run ComfyUI on another device, or unload one model before using the other.
 
 ## Create the Marinara connection
 
-1. Open **Connections** and create a new **Image Generation** connection.
-2. Choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint.
-3. For local ComfyUI, enter its Base URL. No API key is required. If the **ComfyUI Workflow** field is empty, Marinara uses a built-in basic text-to-image workflow.
-4. For RunPod, enter your API key and Endpoint ID. A custom workflow is required.
-5. Configure **Local Image Defaults**. These values replace the matching placeholders in your workflow.
-6. Save the connection and use **Test Image** after adding the workflow.
+1. Click **Connections**, then **Add**. In the **Add account** window, choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint, under **Images & video**.
+2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed. With an empty **ComfyUI workflow (optional)** field, Marinara uses a built-in basic text-to-image workflow.
+3. For RunPod, enter your API key and **RunPod endpoint ID**. A custom workflow is required.
+4. Set **Local image defaults** on the image model. These values replace the matching placeholders in your workflow.
+5. Paste the workflow, save, and click **Test image**.
+
+If it did not work, see [Troubleshooting](#troubleshooting).
 
 ## Build and export a workflow
 
@@ -35,9 +36,9 @@ An API-format workflow is different from the normal visual-editor workflow. Its 
 
 ## ComfyUI video workflows
 
-Create a **Video Generation** connection, choose **ComfyUI**, and paste an API-format workflow into the required **ComfyUI Workflow** field. WAN 2.2 and other local video graphs are supported as long as the same workflow runs in ComfyUI and saves an MP4 through an output such as the core **SaveVideo** node.
+Add a **ComfyUI** account under **Images & video** and open its video model. Paste an API-format workflow into the required **ComfyUI workflow (optional)** field. WAN 2.2 and other local video graphs are supported as long as the same workflow runs in ComfyUI and saves an MP4 through an output such as the core **SaveVideo** node.
 
-Video workflows can use these quoted placeholders:
+Video workflows can use these placeholders, kept inside quotes:
 
 | Placeholder              | Value supplied by Marinara                                          |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -50,7 +51,7 @@ Video workflows can use these quoted placeholders:
 
 Marinara queues the workflow through `/prompt`, polls `/history`, and downloads the MP4 named in a `gifs` or `images` output. Image-to-video actions provide `%reference_image_name%`; text-only connection tests do not, so keep that input optional when the same workflow must support both.
 
-Local WAN renders can exceed 30 minutes on mid-range GPUs. ComfyUI video jobs use `VIDEO_GEN_TIMEOUT_MS`, not the image-only `COMFYUI_GEN_TIMEOUT`; raise the video timeout and restart Marinara if a valid workflow is cut off early.
+Local WAN renders can exceed 30 minutes on mid-range GPUs. ComfyUI video jobs use `VIDEO_GEN_TIMEOUT_MS`, not the image-only `COMFYUI_GEN_TIMEOUT`. If a valid workflow is cut off early, raise the video timeout and restart Marinara.
 
 ## Add Marinara placeholders
 
@@ -114,7 +115,7 @@ This is only a fragment: keep the node links and other inputs from your exported
 | `%denoise%`           | Denoising strength. `%denoising_strength%` is also accepted.                                |
 | `%clip_skip%`         | Clip Skip value for a compatible node.                                                      |
 
-After editing, save the JSON, copy the entire file, paste it into **ComfyUI Workflow** on the image connection, save the connection, and click **Test Image**.
+After editing, save the JSON, copy the whole file, paste it into **ComfyUI workflow (optional)** on the image model, save, and click **Test image**.
 
 ## Use reference images
 
@@ -138,7 +139,7 @@ For a standard ComfyUI **LoadImage** node, use a filename placeholder:
 
 Marinara uploads the reference to ComfyUI's input directory and replaces the placeholder with the filename returned by ComfyUI. `%reference_image_name%` means the first image. Workflows with several reference inputs can use `%reference_image_name_01%` through `%reference_image_name_04%`.
 
-If the workflow always requires an image input, enable **Upload a 1x1 placeholder when no reference image is provided** in **Local Image Defaults**. Marinara then supplies a tiny placeholder image when the request has no real reference.
+If the workflow always requires an image input, turn on the 1x1 placeholder upload option in **Local image defaults**. Marinara then supplies a tiny placeholder image when the request has no real reference.
 
 ### Raw base64 image data
 
@@ -148,9 +149,9 @@ RunPod workflows support the raw base64 placeholders. The filename-upload placeh
 
 ## Keep character-specific workflows
 
-You can create a separate exported workflow and Marinara image connection for each character that needs a particular checkpoint, LoRA stack, ControlNet setup, or reference-image layout. Select the appropriate image connection wherever that character or image feature lets you choose one.
+You can create a separate exported workflow and Marinara image connection for each character that needs a particular checkpoint, LoRA stack, ControlNet setup, or reference-image layout. Select the matching image model wherever that character or image feature lets you choose one.
 
-This can produce more consistent results than one generic workflow, but each connection still holds its own copied JSON. After changing a character's workflow in ComfyUI, repeat the export, edit, copy, and paste steps for that connection.
+This can give more consistent results than one generic workflow, but each model still holds its own copy of the JSON. After changing a character's workflow in ComfyUI, repeat the export, edit, copy, and paste steps for that connection.
 
 ## Troubleshooting
 

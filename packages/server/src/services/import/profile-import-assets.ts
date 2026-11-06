@@ -1,5 +1,6 @@
 import { createWriteStream, existsSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { spriteCatalogSchema } from "@marinara-engine/shared";
 import { dirname, join } from "node:path";
 import { Transform, type Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -81,6 +82,14 @@ function isProfileVideoAssetPath(path: string): boolean {
 
 async function validateProfileImportAsset(path: string, stagedPath: string, stagedRoot: string): Promise<void> {
   const normalized = path.replace(/\\/g, "/");
+  if (/^sprites\/[^/]+\/catalog\.json$/u.test(normalized)) {
+    try {
+      spriteCatalogSchema.parse(JSON.parse(await readFile(stagedPath, "utf8")));
+    } catch {
+      throw new ProfileImportAssetValidationError(`Profile asset ${path} is not a valid sprite catalog.`);
+    }
+    return;
+  }
   // The game-asset seeder drops an empty `.native` marker into every bundled
   // asset directory and profile exports archive those directories verbatim.
   // Tolerate exactly that marker — empty, dot-prefixed, never served as

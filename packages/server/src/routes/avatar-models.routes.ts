@@ -30,7 +30,10 @@ import {
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
+import { validationDetails } from "../middleware/error-handler.js";
 import { AVATAR_FORMAT_IMPORTERS, findAvatarImporter } from "../services/avatars/formats/registry.js";
+import { glbFbxFileMime } from "../services/avatars/formats/glb-fbx.js";
+import { mmdTextureMime } from "../services/avatars/formats/mmd.js";
 import {
   AVATAR_IMPORT_MAX_BYTES,
   AVATAR_MODELS_DIR,
@@ -58,7 +61,9 @@ const routeOptions = { config: { rateLimit: AVATAR_MODELS_RATE_LIMIT } };
 const IMPORT_HEAD_BYTES = 64 * 1024;
 /** Model files keep their name when re-imported, so the browser revalidates instead of caching forever. */
 const MODEL_CACHE_CONTROL = "private, no-cache";
-const MODEL_MAGIC: Readonly<Record<Exclude<AvatarKind, "pngtuber">, { mimeType: string; magic: readonly Buffer[] }>> = {
+const MODEL_MAGIC: Readonly<
+  Record<Exclude<AvatarKind, "pngtuber" | "mmd" | "glb-fbx">, { mimeType: string; magic: readonly Buffer[] }>
+> = {
   // A ZIP archive: a local file header, or the end record of an empty archive.
   "mesh-avatar": { mimeType: "application/zip", magic: [Buffer.from("PK\x03\x04"), Buffer.from("PK\x05\x06")] },
   // glTF binary (VRM models and VRMA animations are both GLB files).
@@ -101,8 +106,25 @@ async function openModelFile(filePath: string, kind: Exclude<AvatarKind, "pngtub
     handle = await open(canonicalPath, "r");
     const info = await handle.stat();
     if (!info.isFile()) throw new Error("not a file");
-    const head = Buffer.alloc(4);
+    // An FBX names itself in its first 21 bytes.
+    const head = Buffer.alloc(kind === "mmd" ? 4096 : kind === "glb-fbx" ? 32 : 4);
     const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    if (kind === "mmd") {
+      const extension = extname(filePath).toLowerCase();
+      const mimeType =
+        extension === ".pmx" && head.toString("ascii", 0, 4) === "PMX "
+          ? "application/octet-stream"
+          : extension === ".vmd" && head.toString("ascii", 0, 4) === "Voca"
+            ? "application/octet-stream"
+            : mmdTextureMime(head.subarray(0, bytesRead), filePath, info.size);
+      if (!mimeType) throw new Error("unexpected content");
+      return { mimeType, handle, size: info.size };
+    }
+    if (kind === "glb-fbx") {
+      const mimeType = glbFbxFileMime(head.subarray(0, bytesRead), filePath);
+      if (!mimeType) throw new Error("unexpected content");
+      return { mimeType, handle, size: info.size };
+    }
     const { mimeType, magic } = MODEL_MAGIC[kind];
     if (bytesRead < 4 || !magic.some((expected) => head.equals(expected))) throw new Error("unexpected content");
     return { mimeType, handle, size: info.size };
@@ -150,7 +172,8 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
       if (!owner) return reply.status(400).send({ error: "Invalid character or persona" });
       const parsed = avatarConfigUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid avatar settings" });
+        const [issue] = validationDetails(parsed.error.issues);
+        return reply.status(400).send({ error: issue?.message ?? "Invalid avatar settings" });
       }
       if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
       const update = parsed.data;
@@ -250,9 +273,12 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
     const input = { owner, filename, bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) };
     try {
       const validated = await importer.validate(input);
-      const extracted = await importer.extract(validated, input);
-      if (extracted.kind !== importer.kind) throw new AvatarImportError("invalid-file", "This file couldn't be read.");
-      const result = await saveExtractedAvatar(owner, extracted);
+      const result = await saveExtractedAvatar(owner, async () => {
+        const extracted = await importer.extract(validated, input);
+        if (extracted.kind !== importer.kind)
+          throw new AvatarImportError("invalid-file", "This file couldn't be read.");
+        return extracted;
+      });
       if (await ownerGoneAfterWrite(owner)) {
         return reply.status(404).send({ error: "Character or persona not found" });
       }
@@ -288,7 +314,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
         if (!image) return reply.status(404).send({ error: "Not found" });
         return sendValidatedMediaFile(reply, image, sendOptions);
       }
-      if (!AVATAR_IMPORT_EXTENSIONS[kind].includes(extname(name).toLowerCase())) {
+      if (kind !== "mmd" && !AVATAR_IMPORT_EXTENSIONS[kind].includes(extname(name).toLowerCase())) {
         return reply.status(404).send({ error: "Not found" });
       }
       const model = await openModelFile(filePath, kind);

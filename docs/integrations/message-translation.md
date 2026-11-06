@@ -1,124 +1,111 @@
 # Message Translation
 
-Marinara Engine can translate chat messages between languages. This guide covers the four translation providers, the automatic translation toggles, the per-message Translate button, and the limits of each provider.
+Marinara Engine can translate chat messages between languages. This guide shows how to choose a translation service, set languages, turn on automatic translation and translate a single message.
 
-Translation is set up per chat. Each chat keeps its own provider, languages, and keys. To start new chats with the same settings, save them as [translator defaults](#translator-defaults-for-new-chats).
+Translation is set per chat. Each chat keeps its own service, languages and keys. To start new chats with the same settings, save them as [translator defaults](#translator-defaults-for-new-chats).
 
 ## Where to find translation settings
 
-1. Open a chat in any mode (Conversation, Roleplay, or Game).
-2. Open the **Chat Settings** panel for that chat.
+1. Open a chat in any mode (Conversation, Roleplay or Game).
+2. Open **Chat Settings**.
 3. Find the **Translation** section.
 
-All of the provider and toggle settings below live in that **Translation** section.
+All the settings below are in that section.
 
-## Choosing a provider
+## Choose a provider
 
-The **Provider** dropdown has four options:
+The **Provider** list has four options.
 
 | Provider | What it needs | Notes |
-|---|---|---|
-| **Google Translate** | Nothing | Default. Free, no key. Limited to 5000 characters per request. |
+| --- | --- | --- |
+| **Google Translate** | Nothing | The default. Free, no key. Up to 5000 characters per request. |
 | **DeepL API** | A DeepL API key | Higher quality. Free and paid keys both work. |
-| **DeepLX (self-hosted)** | A DeepLX server URL | For a DeepLX instance you run yourself. |
-| **AI (via connection)** | An AI connection | Uses one of your AI providers to translate. |
+| **DeepLX (self-hosted)** | A DeepLX server URL | For a DeepLX server you run yourself. |
+| **AI (via connection)** | An AI account | Uses one of your AI models to translate. |
 
-**Google Translate** is selected by default and needs no setup. Pick a different provider only if you need one of the features below.
+Google Translate works with no setup. Pick another only if you need what it offers.
 
-### Model Language and My Language
+### Set the languages
 
 Two fields set the languages. Both default to `en` (English).
 
-- **Model Language**: your own messages are translated into this language before the AI reads them. **Translate My Messages** and **Translate draft** use it.
-- **My Language**: AI replies are translated into this language. **Auto-Translate Responses** and the per-message **Translate** button use it.
+- **Model Language** is the language the AI model understands and replies in. When you type in your own language, your message is translated into this one before the AI reads it. **Translate My Messages** and **Translate draft** use it.
+- **My Language** is the language you read. AI replies are translated into this one. **Auto-Translate Responses** and the per-message **Translate** button use it.
 
-The format depends on the provider:
+For example, if you write in Spanish and the AI works best in English, set **Model Language** to `en` and **My Language** to `es`.
 
-- For **Google Translate**, **DeepL API**, and **DeepLX (self-hosted)**, enter a short language code. Examples: `en`, `ja`, `es`, `de`, `fr`, `zh`, `ko`.
-- For **AI (via connection)**, enter a language name. Examples: `English`, `Japanese`, `Spanish`.
+For Google Translate, DeepL API and DeepLX, enter a short code such as `en`, `ja`, `es`, `de`, `fr`, `zh` or `ko`. For AI (via connection), enter a language name such as `English`, `Japanese` or `Spanish`.
 
-### DeepL API setup
+If it did not work: a wrong code or name gives an error or an unchanged text. Check the format for your provider.
 
-When you pick **DeepL API**, a **DeepL API Key** field appears. Paste your DeepL account key here. DeepL keys look like this:
+### DeepL API
 
-```
+Pick **DeepL API** and paste your DeepL account key into **DeepL API Key**. A key ending in `:fx` is a free-tier key, and Marinara sends it to DeepL's free service. Any other key is treated as paid.
+
+```text
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 ```
 
-A key that ends in `:fx` is a free-tier key. Marinara sends it to DeepL's free service. Any other key is treated as a paid key.
+### DeepLX
 
-### DeepLX setup
+DeepLX is a free translation server you run yourself. Pick **DeepLX (self-hosted)** and enter your server's address in **DeepLX URL**, for example `http://localhost:1188`.
 
-DeepLX is a free, self-hosted translation server that you run yourself. When you pick **DeepLX (self-hosted)**, a **DeepLX URL** field appears. Enter the address of your DeepLX server, for example:
+A DeepLX server on your own computer or local network has a local address. Marinara blocks local addresses by default for safety. To allow them, add this line to your `.env` file and save. No restart is needed. It takes effect usually within seconds, up to about 30 seconds. The [Server Configuration Reference](../CONFIGURATION.md) shows where the file is.
 
-```
-http://localhost:1188
-```
-
-If your DeepLX server runs on your own machine or your local network, the address is a local address. Marinara blocks requests to local addresses by default for safety. To allow them, set this line in your `.env` file and save the file:
-
-```
+```text
 DEEPLX_LOCAL_URLS_ENABLED=true
 ```
 
-The `.env` file is the server's settings file. The [Server Configuration Reference](../CONFIGURATION.md) explains where to find it. You do not need to restart the server. It picks up the change within a few seconds.
+A DeepLX server at a public internet address does not need this setting.
 
-A DeepLX server at a public internet address does not need this setting. Only local and private network addresses are blocked by default.
+### AI (via connection)
 
-### AI translation setup
+Pick **AI (via connection)** to use one of your AI models. Three fields appear.
 
-When you pick **AI (via connection)**, Marinara uses one of your AI providers to translate. Three extra fields appear.
+- **Connection**: which AI account translates. It is required. If you leave it unset, translation fails with "Connection ID is required for AI translation". See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+- **Outgoing Message Prompt** and **Incoming Response Prompt**: the instructions the AI gets when it translates your messages and its own replies. Both start with a built-in default you can edit for this chat. `{{targetLanguage}}` becomes **Model Language** or **My Language**. After you change a prompt, **Restore** resets it. The default prompt is:
 
-The **Connection** dropdown lets you choose which AI connection does the translating. This field is required. If you leave it unset, translation fails with the message "Connection ID is required for AI translation". A connection is a saved link to an AI provider. See the connections guide below to set one up.
-
-The **Outgoing Message Prompt** and **Incoming Response Prompt** fields are the instructions sent to the AI when it translates your messages and the AI's replies. Both are filled with a built-in default, and you can edit each one for this chat. `{{targetLanguage}}` in a prompt becomes **Model Language** or **My Language**. Once you change a prompt, a **Restore** button appears that resets it to the built-in default. The default prompt is:
-
+```text
+You are a translator. Translate the given text accurately into {{targetLanguage}},
+preserving formatting, markdown, and any special characters like *asterisks* for actions.
+Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
-You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
-```
 
-## The automatic translation toggles
+## Turn on automatic translation
 
-Below the provider settings are four toggles. All four are off by default.
+Four toggles sit below the provider settings. All start off.
 
-**Auto-Translate Responses** translates every AI response automatically, right after it is generated. In Game mode, Marinara removes game-master-only tags from the narration before translating it.
+- **Auto-Translate Responses**: translates every AI response right after it is generated. In Game mode, Marinara removes game-master-only tags from the narration first.
+- **Translate My Messages**: translates your message into **Model Language** just before it goes to the AI, replacing your typed text. If translation fails, Marinara sends your original text and shows an error.
+- **Show Draft Translate Button**: adds a **Translate draft** button beside **Send**, so you can review and edit the translation before sending. It is the manual alternative to **Translate My Messages**.
+- **Show Only Translation**: shows a translated message's translation in place of the original, instead of both together.
 
-**Translate My Messages** translates your own message into **Model Language** just before it is sent to the AI. The translation replaces your typed text. If the translation fails, Marinara sends your original text instead and shows an error message.
-
-**Show Draft Translate Button** adds a **Translate draft** button next to the **Send** button. This lets you translate your message and review or edit the result before you send it. This is the manual alternative to **Translate My Messages**, which translates on send with no chance to review.
-
-**Show Only Translation** shows a translated message's translation in its place, instead of the original and the translation together.
-
-In **Conversation**, you can always translate an unsent draft from the composer's smile button → **Tools → Translate draft**, on desktop or mobile. You do not need to enable **Show Draft Translate Button** or automatic translation. The action uses this chat's input translation settings and replaces the draft for you to review; it does not send a message. A failed translation leaves the draft intact.
+In Conversation you can always translate an unsent draft from the composer's smile button, then **Tools → Translate draft**, on desktop or mobile. You do not need either toggle. It uses this chat's input translation settings and replaces the draft for you to review. It does not send anything. A failed translation leaves the draft as it was.
 
 ## Translator defaults for new chats
 
-Below the toggles, **Save translator defaults** saves this chat's translation settings for new chats in every mode. Settings from the setup wizard and from a settings profile come first. Existing chats keep their own settings. **Forget saved defaults** clears them. [Noodle](../noodle/settings.md#translation) uses the same defaults.
+**Save translator defaults**, below the toggles, saves this chat's translation settings for new chats in every mode. Settings from the setup wizard and from a settings profile come first. Existing chats keep their own settings. **Forget saved defaults** clears them. [Noodle](../agents/noodle-settings.md#translation) uses the same defaults.
 
 The DeepL API key and the DeepLX URL stay on this Marinara install. Chat exports, exported settings profiles and **Export Profile** files leave them out, and importing any of them never sets them. Enter them again after you move a chat to another install.
 
-## The per-message Translate button
+## Translate one message
 
-Every chat message, whether from you or the AI, has a **Translate** button in its hover action bar. The button uses a languages icon. This button works on its own and does not need any of the toggles above.
+Every message, from you or the AI, has a **Translate** button (a languages icon) in its action bar. It works without any toggle above.
 
-1. Move your pointer over a message to show its action bar.
-2. Click the **Translate** button.
+1. Move your pointer over the message, or tap it on a phone, to show its action bar.
+2. Click **Translate**.
 3. The translation appears below the message, or in its place with **Show Only Translation** on.
-4. Click the same button again to hide the translation. Its hover text now reads **Hide translation**.
+4. Click the button again to hide it. Its label then reads **Hide translation**.
 
-A translation made this way is saved with the message. It survives a page refresh and stays when you switch chats and come back.
-
-The per-message button uses the same provider and **My Language** you set in the **Translation** section.
+The translation is saved with the message and survives a page refresh and switching chats. It uses the same provider and **My Language** as the section above.
 
 ## Provider limits
 
-Keep these limits in mind when you choose a provider.
-
-- **Google Translate** rejects text longer than 5000 characters. You see the error "Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts." Switch to DeepL or AI for longer text.
-- **DeepL API**, **DeepLX (self-hosted)**, and **AI (via connection)** accept longer text, up to a server limit of 50000 characters per request.
-- **Google Translate**, **DeepL API**, and **DeepLX (self-hosted)** each stop and show an error if they take longer than 15 seconds.
-- **AI (via connection)** uses your connection's own model and timeout behavior, not the 15 second limit.
-- **DeepLX (self-hosted)** to a local address is blocked unless you set `DEEPLX_LOCAL_URLS_ENABLED=true` as described above.
+- **Google Translate** rejects text over 5000 characters with "Text too long for Google Translate (max 5000 characters). Use DeepL or AI provider for longer texts."
+- **DeepL API**, **DeepLX (self-hosted)** and **AI (via connection)** accept longer text, up to a server limit of 50000 characters per request.
+- **Google Translate**, **DeepL API** and **DeepLX (self-hosted)** stop with an error after 15 seconds.
+- **AI (via connection)** follows your AI model's own timeout, not the 15-second limit.
+- **DeepLX (self-hosted)** at a local address is blocked unless `DEEPLX_LOCAL_URLS_ENABLED=true` is set.
 
 ## Related guides
 

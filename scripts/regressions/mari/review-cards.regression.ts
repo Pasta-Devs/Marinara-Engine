@@ -306,6 +306,10 @@ try {
       { id: "w1", name: "write", arguments: { path: "/work/package.json", content: "{}" } },
     ]);
     assert.equal(many[1]?.name, "package.json", "a file command is named by its file");
+    const [entryEdit] = describeHeldCommands([
+      { id: "e", name: "app_data", arguments: { action: "lorebook.updateEntry", lorebookId: "b1", entryId: "e1" } },
+    ]);
+    assert.equal(entryEdit?.id, "e1", "a held entry edit names the entry, not its lorebook");
     assert.equal(describeMariHeldChanges(many, () => undefined).kind, "many");
     assert.equal(describeMariHeldChanges(null, () => undefined).kind, "change", "an old turn still gets a card");
   }

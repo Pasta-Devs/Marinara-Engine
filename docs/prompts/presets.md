@@ -1,182 +1,182 @@
 # Preset Editor and Prompt Manager
 
-This guide explains prompt presets in Marinara Engine. You will learn what they are, how to build one in the **Preset Editor**, and how to assign one to a chat. A preset controls the structure of the text that Marinara sends to the AI.
+A preset is a saved blueprint for the prompt, the text Marinara sends to the model for each reply. It decides what goes in and in what order: your instructions, the character card, your persona, the chat history, lorebook entries and more. Use the **Preset Editor** to build one, then assign it to a chat.
 
-## What a preset is
+Presets build the prompt in **Roleplay** chats. **Conversation** and **Game** chats use a single prompt box instead (see [Conversation and Game chats](#conversation-and-game-chats)). Presets need no API key, but you still need a working account to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-A preset is a reusable blueprint. It decides what information Marinara sends to the AI and in what order. That includes system instructions you write, the character card, your persona, the chat history, lorebook entries, and more.
+## Assign a preset to a chat
 
-Presets shape the prompt for **Roleplay** and **Game** chats. **Conversation** mode works differently and uses a single prompt field. See "How Conversation and Game modes differ" below.
-
-Presets do not need an API key or account. They only describe how a prompt is built. You still need a working connection to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
-
-## Opening the Preset Editor
-
-Prompt presets live in the **Prompts** section of the **Presets** panel on the left side of the app. The other sections in this panel are **Regexes** and **Functions**.
-
-The panel has three buttons at the top:
-
-- **New** (plus icon): create a new preset.
-- **Import** (download icon): load a preset from a `.json` file.
-- **Select** (check icon): pick several presets to export or delete at once.
-
-Below the buttons are a **Search presets** box and a sort menu with **Manual order**, **A-Z**, **Z-A**, **Newest**, and **Oldest**. **Manual order** keeps the order you set: drag a preset row up or down, or press Alt+Up or Alt+Down on a focused row. A **New Folder** button lets you group presets into folders. Drag a preset onto a folder to move it. On a touch screen, press and hold a row to pick it up. Double-click or double-tap a folder to rename it.
-
-Each preset row shows its name, wrap format, section count, and author. A **DEFAULT** badge appears if the preset is the starred default. Click a preset row to open it in the **Preset Editor**.
-
-## Creating and editing a preset
-
-Follow these steps to make a new preset.
-
-1. Open the **Presets** panel.
-2. Click the **New** button. The **Create Preset** modal opens.
-3. Type a **Name**. This field is required.
-4. Add an optional **Description** so you remember what the preset is for.
-5. Click **Create**. The new preset opens in the **Preset Editor**.
-6. Build your prompt on the **Sections** tab (covered below).
-7. Click **Save** in the top right corner when you are done.
-
-The editor does not save on its own. Your changes are only kept after you click **Save**. If you try to leave with unsaved edits, a warning appears with **Keep editing**, **Discard**, and **Save & close** buttons.
-
-To export a preset, open it and click the export button (up-arrow icon) in the top bar. Marinara asks to save first if you have unsaved edits. To delete a preset, use the trash icon in the top bar.
-
-## The Preset Editor's five tabs
-
-The **Preset Editor** has five tabs.
-
-- **Overview**: the preset name, description, wrap format, and author.
-- **Sections**: the actual prompt structure, built from blocks and markers.
-- **Prompts**: the mode prompts used by Conversation and Game chats.
-- **Parameters**: the starting generation settings for chats that use this preset. See [Generation Parameters](generation-parameters.md).
-- **Regex**: the regex scripts linked to this preset, and the **Scoped regex default**. See [Regex Scripts](../extending/regex-scripts.md).
-
-### Overview tab
-
-The **Overview** tab holds four fields. **Name** is the display name shown in the **Presets** panel. **Description** is a short summary of the preset. **Wrap Format** controls how sections are formatted (see "Wrap formats"). **Author** is an optional creator name, useful when you share a preset. Two read-only cards show the **Sections** and **Groups** counts.
-
-### Prompts tab
-
-The **Prompts** tab holds the mode prompts.
-
-- **Conversation Mode**: a text box used as this preset's Conversation prompt. Leave it empty to use Marinara's built-in conversation prompt.
-- **Roleplay Mode**: not editable here. Roleplay uses the assembled prompt from your **Sections**.
-- **Game Mode**: a text box used as this preset's Game prompt. Leave it empty to use Marinara's built-in game prompt.
-
-## Sections and markers
-
-The **Sections** tab is where you build the prompt. Every section becomes part of the final text sent to the AI. Sections are assembled from top to bottom.
-
-Click **Add Section** to open the add menu. It offers two kinds of section.
-
-A **Prompt Block** is a free-text section that you write yourself. Use it for system instructions, tone rules, or any wording you want in every prompt.
-
-A **marker** is an auto-filled section. It has no text of its own. Instead, Marinara fills it at send time with live content from your chat. The table below lists the markers.
-
-| Marker | What it inserts |
-|---|---|
-| **Character Info** | The active character card details. |
-| **Persona** | Your active persona details. |
-| **Chat History** | The running chat messages. |
-| **Chat Summary** | The compiled chat summary for this chat. |
-| **Dialogue Examples** | The character's example dialogue. |
-| **Lorebook Marker (All)** | All active lorebook entries. |
-| **Lorebook Marker (Before)** | Lorebook entries set to insert before. |
-| **Lorebook Marker (After)** | Lorebook entries set to insert after. |
-
-A section that is a marker shows a **MARKER** badge in its row. Expand it to see a note that names the marker type. You cannot type content into most markers, because Marinara generates them for you.
-
-When a preset has no enabled **Dialogue Examples** marker, non-empty Example Dialogue is appended to **Character Info** after Scenario. It uses the preset's XML, Markdown, or unwrapped formatting. Add a Dialogue Examples marker when you want to control its placement explicitly; Marinara will not include it twice.
-
-If your chat has active lorebooks but your preset has no lorebook marker, a warning appears. It reads: "Add a lorebook marker when this preset should receive active lorebook entries." Add a lorebook marker so those entries reach the AI. See [Lorebooks Overview](../lorebooks/overview.md).
-
-If you have set up custom agents with the "inject as section" option turned on, the add menu shows an **Agent Sections** group. Each agent section inserts that agent's latest output into the prompt. You can add your own instructions around it.
-
-Each section row has controls on the right. **Duplicate** copies the section. The eye icon enables or disables the section. **Delete** removes it. To reorder sections, drag the grip handle, use the up and down arrows, or long-press on a touch screen.
-
-Expand a section (click its name or the chevron) to edit it. You can change its **Name** and its role (**System**, **User**, or **Assistant**). For a **Prompt Block**, you can also edit its **Content**. The content box supports macros. See [Prompt Macros](macros.md).
-
-## Groups and section position
-
-### Groups
-
-Groups wrap several sections in one container. This keeps related sections together in the final prompt.
-
-1. On the **Sections** tab, click the **Groups** button in the toolbar.
-2. Click **New Group**. A group named "New Group" appears.
-3. Click the group name to rename it.
-4. Expand a section and pick your group in its **Group** dropdown.
-
-With **XML** wrap format, a group becomes one parent tag around its sections. With **Markdown**, a group becomes one heading. Deleting a group does not delete its sections. They simply lose the group.
-
-### Position and depth
-
-Each section has a **Position** setting inside its expanded editor.
-
-- **Ordered (in sequence)**: the section sits where it appears in the list. This is the normal choice.
-- **Depth (from end of chat)**: the section is placed a set number of messages up from the end of the chat. When you pick this, a **Depth** number appears. A depth of 0 means the section goes after the last message.
-
-Use **Depth** for reminders you want the AI to see near the newest messages, such as a short style note.
-
-## Wrap formats
-
-**Wrap Format** on the **Overview** tab controls how each section is wrapped when the prompt is assembled. There are three buttons.
-
-- **XML**: each section is wrapped in tags, for example a name tag around its content. Groups become parent tags. This is the default.
-- **MARKDOWN**: each section is wrapped with a heading. Groups become higher-level headings.
-- **NONE**: no wrapping is added. Section content is sent exactly as written.
-
-XML is a good default for most models. Try **MARKDOWN** or **NONE** only if a model seems to respond better without tags.
-
-To send one **Prompt Block** without its tag or heading while the rest of the preset stays wrapped, expand it on the **Sections** tab and turn on **Send without wrapper**. The block's content is sent exactly as written. If the block belongs to a group, the group's tag or heading can still surround it; remove it from the group when you want it fully bare. Markers always keep their wrapper, so the switch appears only on prompt blocks. It is also hidden when the preset's wrap format is **NONE**, because nothing is wrapped then.
-
-## Assigning a preset to a chat
-
-A preset does nothing until you assign it to a chat. There are two ways to do this in a **Roleplay** chat.
+A preset does nothing until a chat uses it. In a **Roleplay** chat, use either way. To pick one, assign it. To make your own, see [Create a preset](#create-a-preset).
 
 From the **Presets** panel:
 
-1. Open the chat you want to change.
-2. In the **Presets** panel, hover over a preset row.
-3. Click the check-mark **Assign to chat** button. Click it again to unassign.
+1. Open the chat.
+2. In the **Presets** panel, find a preset row. On a computer, point at the row to show its buttons.
+3. Click the check-mark **Assign to chat** button. A check mark shows the preset is in use. Click it again to unassign.
 
 From **Chat Settings**:
 
-1. Open the chat.
-2. Open **Chat Settings**.
-3. Find the **Prompt Preset** section.
-4. Pick a preset from the dropdown.
+1. Open the chat, then **Chat Settings**.
+2. Find **Prompt Preset** and pick a preset from the dropdown.
 
-If a preset has variables, a **Configure Preset Variables** window opens when you assign it. Fill in your choices there. See [Preset Variables](preset-variables.md). Switching to a different preset clears any variable choices you made before.
+If the preset has variables, the **Configure Preset Variables** window opens. See [Preset Variables](preset-variables.md). Switching presets clears earlier variable choices.
 
-Prompt presets are not available in **Conversation** mode from the panel. Clicking the assign button in a Conversation chat shows a message: "Prompt presets are not available in conversation mode." See the next section for how Conversation and Game chats use presets instead.
+## Create a preset
 
-## How Conversation and Game modes differ
+1. Open the **Presets** panel from the sidebar.
+2. Click **New** (the plus icon). The **Create Preset** window opens.
+3. Type a **Name**. It is required. Add a **Description** if you want.
+4. Click **Create**. The preset opens in the **Preset Editor**.
+5. Build the prompt on the **Sections** tab.
+6. Click **Save** in the top right.
 
-**Conversation** and **Game** chats do not build a prompt from Sections. Instead they use one mode prompt, which you can override per chat.
+The editor does not save by itself. Click **Save** after every change. If you leave with unsaved edits, a warning offers **Keep editing**, **Discard** and **Save & close**.
 
-In these modes, **Chat Settings** shows a **Prompt Preset** section with a **Prompt source** dropdown. The dropdown lists your presets. It defaults to "Default conversation prompt" or "Default game prompt". If you have no presets, it reads "No presets available".
+To export a preset, click the up-arrow icon in the top bar (tooltip **Export preset**). Marinara asks you to save first if you have unsaved edits. To delete it, click the trash icon.
 
-Below the dropdown is a status row. It shows one of three states:
+## The Presets panel
 
-- **Default**: the built-in mode prompt is used.
-- **Preset**: the prompt comes from the chosen preset.
-- **Custom**: you have typed a chat-local edit for this chat only.
+**Prompts** is the section for presets. The other sections are **Regexes** and **Functions**. The top buttons are **New**, **Import** (load a `.json` file) and **Select** (export or delete several at once).
 
-Click **Edit Prompt** to type a prompt just for this chat. The editor opens as **Edit Conversation Prompt** or **Edit Game Prompt**. If your edit matches the preset or default exactly, Marinara treats it as not customized. Once a custom edit exists, a **Reset to default prompt** button appears to clear it.
+- **Search presets** filters the list.
+- The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.
+- **New Folder** groups presets. Drag a preset onto a folder, and double-click or double-tap a folder to rename it.
 
-Game chats also have an **Extra instructions** box. Text there is added to the Game prompt. It has a limit of 2000 characters. A sample instruction is "Write in the style of Terry Pratchett."
+Each row shows the name, wrap format, section count and author. A **DEFAULT** badge marks the starred default. Click a row to open it.
+
+## The Preset Editor's tabs
+
+| Tab | What it holds |
+| --- | --- |
+| **Overview** | Name, description, wrap format and author. |
+| **Sections** | The prompt structure, built from blocks and markers. |
+| **Prompts** | The mode prompts for Conversation and Game chats. |
+| **Parameters** | Starting generation settings. See [Generation Parameters](generation-parameters.md). |
+| **Regex** | Regex scripts linked to this preset and the **Scoped regex default**. See [Regex Scripts](../extending/regex-scripts.md). |
+
+### Overview tab
+
+- **Name** is the title in the **Presets** panel.
+- **Description** is a short summary.
+- **Wrap Format** controls how sections are formatted (see [Wrap formats](#wrap-formats)).
+- **Author** is an optional creator name, useful when you share a preset.
+
+Two read-only cards show the **Sections** and **Groups** counts.
+
+### Prompts tab
+
+- **Conversation Mode** is a text box for this preset's Conversation prompt. Leave it empty to use the built-in prompt.
+- **Roleplay Mode** is not editable here. Roleplay uses the prompt assembled from your **Sections**.
+- **Game Mode** is a text box for this preset's Game prompt. Leave it empty to use the built-in prompt.
+
+The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
+
+## Sections and markers
+
+The **Sections** tab is where you build the prompt. Sections are assembled from top to bottom.
+
+1. Click **Add Section**.
+2. Pick **Prompt Block** or a marker.
+
+A **Prompt Block** is text you write: system instructions, tone rules, anything you want in every prompt. A marker has no text of its own. Marinara fills it with live content from the chat when it sends the prompt.
+
+| Marker | What it inserts |
+| --- | --- |
+| **Character Info** | The active character card details. |
+| **Persona** | Your active persona details. |
+| **Chat History** | The chat messages. |
+| **Chat Summary** | The compiled chat summary. |
+| **Dialogue Examples** | The character's example dialogue. |
+| **Lorebook Marker (All)** | All active lorebook entries. |
+| **Lorebook Marker (Before)** | Lorebook entries set to go before. |
+| **Lorebook Marker (After)** | Lorebook entries set to go after. |
+
+A marker row shows a **MARKER** badge. You cannot type into most markers. Use **Lorebook Marker (All)** unless you want to split lorebook entries into before and after.
+
+Three rarer markers:
+
+- **Current Scene Summary** and **Recalled Scenes** place the summaries that Advanced Memory Recall makes. Without a **Recalled Scenes** marker, they appear before the chat history. See [Memory](../agents/memory.md).
+- **ID Macro Cards** places character cards that you pull into a prompt by typing a character's card ID in double braces. Without this marker, they go at the default place. See [Prompt Macros](macros.md).
+
+Without an enabled **Dialogue Examples** marker, non-empty example dialogue is added to **Character Info** after the scenario, in the preset's wrap format. Add the marker to choose the placement. Marinara never includes it twice.
+
+If your chat has active lorebooks but the preset has no lorebook marker, a warning says: "Add a lorebook marker when this preset should receive active lorebook entries." Add one so the entries reach the model. See [Lorebooks Overview](../lorebooks/overview.md).
+
+If you have custom agents with "inject as section" turned on, the add menu shows **Agent Sections**. Each inserts that agent's latest output, and you can add your own instructions around it.
+
+### Edit a section
+
+1. Click a section's name or arrow to expand it.
+2. Change its **Name** or its role (**System**, **User** or **Assistant**).
+3. For a **Prompt Block**, edit **Content**. It supports [macros](macros.md).
+4. Click **Save** in the top right.
+
+The row's controls:
+
+- **Duplicate** copies the section.
+- The eye icon turns it on or off.
+- **Delete** removes it.
+- To reorder, drag the grip handle, use the up and down arrows, or long-press on a touch screen.
+
+### Groups
+
+A group wraps several sections in one container.
+
+1. On the **Sections** tab, click **Groups**, then **New Group**.
+2. Click the group's name to rename it.
+3. Expand a section and pick the group in its **Group** dropdown.
+
+With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Deleting a group does not delete its sections. They only lose the group.
+
+### Position and depth
+
+Each section has a **Position** in its editor.
+
+- **Ordered (in sequence)** places the section where it sits in the list. This is the normal choice.
+- **Depth (from end of chat)** places it a set number of messages up from the end of the chat, using the **Depth** number. A depth of 0 goes after the last message. Use it for reminders the model should see near the newest messages.
+
+## Wrap formats
+
+**Wrap Format** on the **Overview** tab sets how each section is wrapped.
+
+| Format | Result |
+| --- | --- |
+| **XML** | Each section sits in tags. Groups become parent tags. This is the default. |
+| **MARKDOWN** | Each section gets a heading. Groups become higher-level headings. |
+| **NONE** | No wrapping. Content is sent as written. |
+
+XML suits most models. Try the others only if a model answers better without tags.
+
+To send one **Prompt Block** without its tag or heading, expand it and turn on **Send without wrapper**. A group's tag can still surround it, so remove the block from its group to make it fully bare. Markers always keep their wrapper, and the switch is hidden when the format is **NONE**.
+
+## Conversation and Game chats
+
+These chats do not build a prompt from Sections. They use one mode prompt. In **Chat Settings**, the **Prompt Preset** section has a **Prompt source** dropdown with your presets. It starts on **Default conversation prompt** or **Default game prompt**, or says **No presets available** when you have none. In the **Presets** panel, the assign button shows "Prompt presets are not available in conversation mode."
+
+Below the dropdown, a badge shows where the prompt comes from.
+
+| Badge | Meaning |
+| --- | --- |
+| **Default** | The built-in prompt. |
+| **Preset** | The chosen preset's prompt. |
+| **Style** | The prompt of the selected GM prompt style. Game chats only. |
+| **Custom** | A chat-local edit for this chat only. It wins over all the others. |
+
+The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
+
+Game chats add two controls. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
 
 ## Decision blocks and prompt caching
 
-A section can hold a decision block, `{{#if decision:"..."}}`, so that part of the preset is sent only on turns where a statement about the chat is true. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+A section can hold a decision block, `{{#if decision:"..."}}`, so that part is sent only when a statement about the chat is true. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
 
-**Put changing decision blocks late in the prompt**, such as in post-history instructions. A changed branch can prevent a provider from reusing the prompt from that point onward, so an early change can lose most cache savings. An earlier unchanged prefix may still qualify; the whole prompt is not necessarily billed as new. Keep a decision near the top only when its answer rarely changes and its instructions belong there. Provider-specific details are in [Prompt caching](conditional-prompts.md#prompt-caching).
+Put decision blocks that change often late in the prompt, such as in post-history instructions. A changed branch can stop a provider from reusing the prompt from that point on, so an early change loses most cache savings. An unchanged earlier part can still be reused. Keep a decision near the top only when its answer rarely changes. See [Prompt caching](conditional-prompts.md#prompt-caching).
 
-Statements in disabled sections and groups are never asked, and do not count toward **Decision statements per turn**.
+Statements in disabled sections and groups are never asked and do not count toward **Decision statements per turn**.
 
-## Checking what the AI received
+## Check what the AI received
 
-To confirm which preset and sections actually reached the AI, use **Peek Prompt**. It shows the fully assembled prompt for a message. This is the fastest way to debug an odd response. See [Peek Prompt: See What the AI Received](../chats/peek-prompt.md).
+**Peek Prompt** shows the fully assembled prompt for a message. It is the quickest way to debug an odd reply. See [Peek Prompt: See What the AI Received](../chats/peek-prompt.md).
 
 ## Related guides
 

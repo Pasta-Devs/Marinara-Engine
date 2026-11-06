@@ -10,6 +10,12 @@ import type {
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
+import { BUILTIN_SKILL_ID_PREFIX, builtinSkillTimestamp, loadBuiltinSkills } from "./builtin-skills.js";
+import {
+  parseSkillFrontmatter as parseFrontmatter,
+  skillInstructions,
+  stripSkillFrontmatter as stripFrontmatter,
+} from "./skill-frontmatter.js";
 
 type SkillRecord = {
   id: string;
@@ -51,7 +57,7 @@ This is an example skill. Turn it on if you want Professor Mari to check with yo
 While this skill is on, ask before you create or change something whenever a missing detail would change the result (a name, a tone, a genre, which item to edit). This replaces the default of building first with your best guess.
 
 - Ask one short question at a time. Give 2-5 likely answers as \`suggestions\`, one chip per answer, and make each chip's prompt the full answer. The user can still type their own.
-- When a create request leaves several fields open, send one \`plan\` with those fields and 3-5 example chips each, instead of asking turn by turn.
+- When a create request leaves several fields open, send one \`ask\` card with those fields and 2-4 options each, instead of asking turn by turn.
 - Ask about three things at most. Fill in the rest with your best guess and say what you guessed.
 - Skip the questions when the request already has what you need, or when the user says to just do it.
 - Do not stage or apply changes while a question waits for an answer.`,
@@ -74,29 +80,6 @@ function skillDir(id: string) {
 
 function skillFilePath(id: string) {
   return join(skillDir(id), "SKILL.md");
-}
-
-function stripFrontmatter(content: string) {
-  return content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, "").trimStart();
-}
-
-function skillInstructions(content: string) {
-  return stripFrontmatter(content).trim();
-}
-
-function parseFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
-  if (!match?.[1]) return {};
-  const frontmatter: Record<string, string> = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const separator = line.indexOf(":");
-    if (separator < 0) continue;
-    const key = line.slice(0, separator).trim();
-    const raw = line.slice(separator + 1).trim();
-    if (!key) continue;
-    frontmatter[key] = raw.replace(/^["']|["']$/g, "");
-  }
-  return frontmatter;
 }
 
 function normalizeSkillName(value: string | null | undefined, fallback = "custom-skill") {
@@ -180,6 +163,7 @@ function summarizeRecord(record: SkillRecord, content: string): MariWorkspaceSki
     updatedAt: record.updatedAt,
     size: Buffer.byteLength(content, "utf8"),
     filePath: skillFilePath(record.id),
+    origin: "user",
   };
 }
 
@@ -189,6 +173,36 @@ export class ProfessorMariWorkspaceSkillsService {
     const records = await this.readRecords();
     const diagnostics: string[] = [];
     const skills: MariWorkspaceSkillDetail[] = [];
+
+    // Shipped skills come first: the prompt index is capped, and a built-in is how
+    // Mari knows a task has a procedure at all, so a long user list must not push
+    // one out. They are read from the app's assets, never from DATA_DIR, so an
+    // update replaces the text and a user cannot fork it by accident.
+    const builtins = await loadBuiltinSkills();
+    diagnostics.push(...builtins.diagnostics);
+    const userIds = new Set(records.map((record) => record.id));
+    for (const skill of builtins.skills) {
+      if (userIds.has(skill.id)) {
+        // Only reachable from a hand-edited or pre-existing index; say so instead of
+        // letting one skill silently win.
+        diagnostics.push(
+          `Built-in skill ${skill.name} is hidden by one of your own skills with the same id (${skill.id}).`,
+        );
+        continue;
+      }
+      skills.push({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        enabled: true,
+        createdAt: builtinSkillTimestamp(),
+        updatedAt: builtinSkillTimestamp(),
+        size: Buffer.byteLength(skill.content, "utf8"),
+        filePath: skill.filePath,
+        origin: "builtin",
+        content: skill.content,
+      });
+    }
 
     for (const record of records) {
       try {
@@ -216,7 +230,7 @@ export class ProfessorMariWorkspaceSkillsService {
       input.name ?? frontmatter.name,
       titleFromBody(input.content) || titleFromFileName(input.fileName),
     );
-    const id = this.uniqueId(name, records);
+    const id = this.uniqueId(this.userSkillIdCandidate(name), records);
     const description = normalizeDescription(input.description, input.content);
     const timestamp = now();
     const record: SkillRecord = {
@@ -236,6 +250,7 @@ export class ProfessorMariWorkspaceSkillsService {
 
   async update(id: string, input: SkillUpdate): Promise<MariWorkspaceSkillDetail> {
     await this.ensureStorage();
+    await this.assertNotBuiltin(id);
     const safeId = assertSafeSkillId(id);
     const records = await this.readRecords();
     const index = records.findIndex((record) => record.id === safeId);
@@ -267,6 +282,7 @@ export class ProfessorMariWorkspaceSkillsService {
 
   async delete(id: string): Promise<void> {
     await this.ensureStorage();
+    await this.assertNotBuiltin(id);
     const safeId = assertSafeSkillId(id);
     const records = await this.readRecords();
     const record = records.find((entry) => entry.id === safeId);
@@ -293,6 +309,30 @@ export class ProfessorMariWorkspaceSkillsService {
     await this.writeRecords([
       { id, name: id, description, enabled: false, createdAt: timestamp, updatedAt: timestamp },
     ]);
+  }
+
+  /** A shipped skill is read-only unless a user record owns the id (a legacy squat must be repairable). */
+  async isReadOnly(id: string): Promise<boolean> {
+    await this.ensureStorage();
+    const records = await this.readRecords();
+    if (records.some((record) => record.id === id)) return false;
+    return (await loadBuiltinSkills()).skills.some((skill) => skill.id === id);
+  }
+
+  private async assertNotBuiltin(id: string) {
+    if (await this.isReadOnly(id)) {
+      throw new Error("Built-in skills are read-only. Copy it into a new skill to change it.");
+    }
+  }
+
+  /**
+   * A user skill may not take the reserved `builtin-` prefix. The rewritten name is
+   * re-capped at 64 characters, the id limit `assertSafeSkillId` enforces: without
+   * this, a 64-character name becomes a 69-character id that update and delete reject.
+   */
+  private userSkillIdCandidate(name: string) {
+    if (!name.startsWith(BUILTIN_SKILL_ID_PREFIX)) return name;
+    return `user-${name}`.slice(0, 64).replace(/-+$/g, "");
   }
 
   private async readRecords(): Promise<SkillRecord[]> {

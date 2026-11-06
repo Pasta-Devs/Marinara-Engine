@@ -14,9 +14,6 @@ const NOVELAI_CHARACTER_PROMPT_MODEL =
   /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)$/i;
 const NOVELAI_V5_MODEL = /^nai-diffusion-5(?:-(?:curated|full))?$/i;
 
-const MAX_CHARACTER_PROMPT_LENGTH = 1400;
-const MAX_CHARACTER_NEGATIVE_PROMPT_LENGTH = 700;
-
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -25,9 +22,8 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function compactText(value: unknown, max: number): string {
-  const text = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
-  return text.length > max ? `${text.slice(0, max - 3).trim()}...` : text;
+function promptText(value: unknown): string {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 }
 
 /** Whether the model accepts native character captions at all (V4, V4.5, V5). */
@@ -114,7 +110,7 @@ export function sanitizeCharacterPrompts(
     if (candidates.length >= limit) break;
     const entry = asRecord(rawEntry);
     const name = matchCharacterPromptName(entry.name, characters);
-    const prompt = compactText(entry.prompt, MAX_CHARACTER_PROMPT_LENGTH);
+    const prompt = promptText(entry.prompt);
     if (!name || !prompt) continue;
     if (seen.has(name)) continue;
     seen.add(name);
@@ -124,7 +120,7 @@ export function sanitizeCharacterPrompts(
     candidates.push({
       name,
       prompt,
-      negativePrompt: compactText(entry.negativePrompt, MAX_CHARACTER_NEGATIVE_PROMPT_LENGTH) || undefined,
+      negativePrompt: promptText(entry.negativePrompt) || undefined,
       position: hasPosition
         ? {
             x: normalizeCharacterPromptCoordinate(rawPosition.x, 0.5),
@@ -186,7 +182,7 @@ export const IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY = "_illustratorImageAppearanc
 /**
  * Reads one entity's normalized image-prompt appearance override. Returns null
  * when it has no override, so callers fall back to the normal appearance.
- * Normalization keeps macro-stripping and clipping identical to the normal
+ * Normalization keeps macro-stripping and whitespace handling identical to the normal
  * appearance path (the shared helper is trim-only).
  */
 export function readIllustratorImageAppearanceOverride(
@@ -226,7 +222,6 @@ export function personaEntityId(memory: Record<string, unknown> | undefined): st
 }
 
 const ENSEMBLE_SEGMENT = /\[([^\]]+)\]\s*([^[]*)/g;
-const MAX_APPEARANCE_REFERENCE_CHARS = 8000;
 
 /**
  * Ensemble cards keep one Appearance block for several characters, written as
@@ -261,8 +256,6 @@ export function buildCharacterAppearanceReferenceBlock(
   nativeCaptions = true,
 ): string {
   const lines: string[] = [];
-  let used = 0;
-  let truncated = false;
   for (const source of sources) {
     const text = stripMacroComments(source.appearance).trim().replace(/\s+/g, " ");
     if (!text) continue;
@@ -270,14 +263,8 @@ export function buildCharacterAppearanceReferenceBlock(
     for (const segment of segments) {
       if (!segment.name || !segment.appearance) continue;
       const line = `[${segment.name}] ${segment.appearance}`;
-      if (used + line.length > MAX_APPEARANCE_REFERENCE_CHARS) {
-        truncated = true;
-        break;
-      }
-      used += line.length;
       lines.push(line);
     }
-    if (truncated) break;
   }
   if (lines.length === 0) return "";
   return [
@@ -289,7 +276,6 @@ export function buildCharacterAppearanceReferenceBlock(
     "Clothing and accessory tags here are the character's default outfit. The tracker's current outfit or what the scene describes overrides them; drop the default clothing tags when it does.",
     nativeCaptions ? "Do not repeat these traits in the base prompt." : "",
     ...lines,
-    truncated ? "(Reference truncated: remaining characters omitted.)" : "",
     "</character_appearance_reference>",
   ]
     .filter(Boolean)
@@ -304,7 +290,6 @@ export function buildUncaptionedCharacterAppearanceBlock(
 ): string {
   const covered = new Set(characterPrompts.map((entry) => entry.name));
   const lines: string[] = [];
-  let used = 0;
   for (const source of sources) {
     const appearance = stripMacroComments(source.appearance ?? "").trim();
     if (!appearance) continue;
@@ -312,9 +297,6 @@ export function buildUncaptionedCharacterAppearanceBlock(
       const name = matchCharacterPromptName(segment.name, characters);
       if (!name || covered.has(name) || !segment.appearance) continue;
       const line = `${name}'s Appearance: ${segment.appearance}`;
-      const length = line.length + (lines.length > 0 ? 1 : 0);
-      if (used + length > MAX_APPEARANCE_REFERENCE_CHARS) continue;
-      used += length;
       covered.add(name);
       lines.push(line);
     }

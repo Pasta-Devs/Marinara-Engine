@@ -159,9 +159,11 @@ for (const bulk of [false, true]) {
       useUIStore.getState().openAgentCatalog("decision-fixture");
     });
     const catalog = page.locator('[data-component="AgentCatalogView"]');
-    if (bulk && (page.viewportSize()?.width ?? 1440) < 768)
-      await catalog.getByRole("button", { name: "All agents", exact: true }).click();
-    await catalog.getByRole("button", { name: bulk ? "Install All" : "Install", exact: true }).click();
+    // The Agent Organizer (#8494) moved Install All into its More actions menu and names a card's install Get.
+    if (bulk) {
+      await catalog.getByRole("button", { name: "More actions", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Install all 2 agents", exact: true }).click();
+    } else await catalog.getByRole("button", { name: "Get Decision fixture", exact: true }).click();
     await expect(page.getByRole("button", { name: "Open guide", exact: true })).toHaveCount(1);
     await expect(
       page

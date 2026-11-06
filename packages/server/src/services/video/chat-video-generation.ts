@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import {
   VIDEO_GENERATION_SETTINGS_KEY,
+  normalizeVideoFirstFrame,
+  ROLEPLAY_DEFAULT_VIDEO_FIRST_FRAME,
   normalizeVideoGenerationUserSettings,
   type GeneratedSceneVideo,
   type VideoReferenceImage,
@@ -7,13 +10,18 @@ import {
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { resolveVideoConnectionFallback } from "../generation/media-connection-fallback.js";
+import { resolveGalleryImagePath } from "../image/gallery-image-path.js";
+import { removeCopiedPromptGuidance } from "../image/image-prompt-compiler.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
+import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createGameSceneVideosStorage } from "../storage/game-scene-videos.storage.js";
 import { getSharp } from "../../utils/sharp.js";
 import { resolveSceneVideoConnectionId, serializeSceneVideo } from "./chat-video-messages.js";
 import { resolveGameVideoRuntime } from "./game-video-runtime.js";
+import { resolveSceneVideoPrompt } from "./scene-video-prompt-review.js";
+import { videoInstructionsUseAppearance } from "./appearance-reference.js";
 import { generateVideo, removeSavedVideoFromDisk, saveVideoToDisk } from "./video-generation.js";
 
 /** A problem the user can fix (missing connection, unusable picture); `statusCode` suits an HTTP reply. */
@@ -30,6 +38,15 @@ export class ChatVideoError extends Error {
 export type ChatVideoSetup = Awaited<ReturnType<typeof resolveChatVideoSetup>>;
 
 /** The chat's video connection with its runtime, clip length and aspect ratio. */
+/** Whether the chat has a usable video connection, found the way resolveChatVideoSetup finds it. */
+export async function hasChatVideoConnection(db: DB, chatMeta: Record<string, unknown>): Promise<boolean> {
+  const connections = createConnectionsStorage(db);
+  const videoConnectionId = await resolveSceneVideoConnectionId(chatMeta, connections);
+  return Boolean(
+    videoConnectionId && (await connections.getWithKey(videoConnectionId))?.provider === "video_generation",
+  );
+}
+
 export async function resolveChatVideoSetup(db: DB, chatMeta: Record<string, unknown>) {
   const connections = createConnectionsStorage(db);
   const videoConnectionId = await resolveSceneVideoConnectionId(chatMeta, connections);
@@ -67,7 +84,6 @@ export async function generateAndSaveChatVideo(
     referenceImage?: VideoReferenceImage;
     sourceTag: string | null;
     sourcePath: string | null;
-    /** The characters the clip shows, for their galleries; omit to leave it in every chat character's. */
     characterIds?: string[];
     queue?: boolean;
     signal?: AbortSignal;
@@ -149,4 +165,127 @@ export async function toVideoReferenceImage(base64: string, url?: string | null)
   } catch {
     throw new ChatVideoError(400, "This picture can't be read as a video first frame.");
   }
+}
+
+/**
+ * Animate a saved gallery picture with a motion prompt the caller's writer already produced (for
+ * example the Illustrator's videoPrompt), using the chat's video connection.
+ */
+export async function animateGalleryImage(
+  db: DB,
+  args: {
+    chatId: string;
+    chatMeta: Record<string, unknown>;
+    galleryImageId: string;
+    motionPrompt: string;
+    /** Appearance lines to add, when the chat sends appearance with video prompts. */
+    appearanceBlock?: string | null;
+    characterIds?: string[];
+    queue?: boolean;
+    signal?: AbortSignal;
+    debugMode?: boolean;
+  },
+): Promise<GeneratedSceneVideo> {
+  const setup = await resolveChatVideoSetup(db, args.chatMeta);
+  const image = await createGalleryStorage(db).getById(args.galleryImageId, args.chatId);
+  const path = image ? resolveGalleryImagePath(image) : null;
+  if (!image || !path) throw new ChatVideoError(404, "Gallery image not found");
+  const referenceImage = await toVideoReferenceImage(readFileSync(path).toString("base64"));
+  // A sentence of the connection's instructions the writer copied word for word is not video-model text.
+  let prompt = removeCopiedPromptGuidance(args.motionPrompt.trim(), [setup.videoConn.videoPromptInstructions]);
+  // Instructions that speak to appearance had the writer build it in; otherwise the lines go after the prompt.
+  if (args.appearanceBlock && !videoInstructionsUseAppearance(setup.videoConn.videoPromptInstructions)) {
+    prompt = `${prompt}\n\n${args.appearanceBlock}`;
+  }
+  prompt = resolveSceneVideoPrompt({
+    generatedPrompt: prompt,
+    maxPromptLength: setup.runtime.promptLimits.finalPrompt,
+  });
+  if (!prompt) throw new ChatVideoError(400, "The video prompt is empty.");
+  return generateAndSaveChatVideo(db, setup, {
+    chatId: args.chatId,
+    prompt,
+    referenceImage,
+    sourceTag: `gallery:${image.id}`,
+    sourcePath: `gallery/${image.filePath.replace(/\\/g, "/")}`,
+    characterIds: args.characterIds,
+    queue: args.queue,
+    signal: args.signal,
+    debugMode: args.debugMode,
+  });
+}
+
+/**
+ * What a Roleplay clip starts from, by the chat's First frame setting: a new Illustrator picture, the named
+ * character's avatar or sprite, or nothing (text-to-video).
+ */
+export function roleplayVideoFirstFrame(
+  chatMeta: Record<string, unknown>,
+  hasImageConnection: boolean,
+  /** A picture of this moment already exists (Illustrator just drew it). */
+  pictureMade = false,
+): "picture" | "avatar" | "avatar_or_none" | "none" {
+  // With no First frame chosen, a clip uses a picture that already exists and never draws one for itself.
+  if (pictureMade && chatMeta.sceneVideoFirstFrame == null) return "picture";
+  const mode = normalizeVideoFirstFrame(chatMeta.sceneVideoFirstFrame, ROLEPLAY_DEFAULT_VIDEO_FIRST_FRAME);
+  // Send Avatar References for videos: a clip with no picture of its own starts from the avatar when there is one.
+  if (mode === "prompt_only") return chatMeta.illustratorVideoUseAvatarReferences === true ? "avatar_or_none" : "none";
+  return mode === "picture" || (mode === "picture_or_avatar" && hasImageConnection) ? "picture" : "avatar";
+}
+
+/**
+ * A Roleplay clip that starts from the named character's avatar or sprite, or from no picture. The caller's
+ * prompt describes the scene and the motion; a picture first frame is animated with animateGalleryImage instead.
+ */
+export async function generateRoleplayClip(
+  db: DB,
+  args: {
+    chatId: string;
+    chatMeta: Record<string, unknown>;
+    prompt: string;
+    firstFrame: "avatar" | "avatar_or_none" | "none";
+    /** The avatar or sprite of the first character or persona the clip names, already read. */
+    avatar: { base64: string; name: string } | null;
+    /** Everyone the clip shows, for the character galleries. */
+    characterIds?: string[];
+    appearanceBlock?: string | null;
+    queue?: boolean;
+    /** Stop: ends the clip while it waits its turn or renders. */
+    signal?: AbortSignal;
+    debugMode?: boolean;
+  },
+): Promise<GeneratedSceneVideo> {
+  args.signal?.throwIfAborted();
+  const setup = await resolveChatVideoSetup(db, args.chatMeta);
+  const referenceImage =
+    args.firstFrame !== "none" && args.avatar
+      ? await toVideoReferenceImage(args.avatar.base64).catch(() => undefined)
+      : undefined;
+  if (!referenceImage && args.firstFrame === "avatar") {
+    throw new ChatVideoError(
+      400,
+      `${args.avatar?.name || "This clip"} needs a readable avatar or sprite to start from. Pick another first frame in Chat Settings.`,
+    );
+  }
+  let prompt = removeCopiedPromptGuidance(args.prompt.trim(), [setup.videoConn.videoPromptInstructions]);
+  // Instructions that speak to appearance had the writer build it in; otherwise the lines go after the prompt.
+  if (args.appearanceBlock && !videoInstructionsUseAppearance(setup.videoConn.videoPromptInstructions)) {
+    prompt = `${prompt}\n\n${args.appearanceBlock}`;
+  }
+  prompt = resolveSceneVideoPrompt({
+    generatedPrompt: prompt,
+    maxPromptLength: setup.runtime.promptLimits.finalPrompt,
+  });
+  if (!prompt) throw new ChatVideoError(400, "The video prompt is empty.");
+  return generateAndSaveChatVideo(db, setup, {
+    chatId: args.chatId,
+    prompt,
+    referenceImage,
+    sourceTag: referenceImage && args.avatar ? `avatar:${args.avatar.name}` : null,
+    sourcePath: null,
+    characterIds: args.characterIds?.length ? args.characterIds : undefined,
+    queue: args.queue,
+    signal: args.signal,
+    debugMode: args.debugMode,
+  });
 }

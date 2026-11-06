@@ -9,20 +9,20 @@
     "architecture boundaries",
     "mode ownership",
     "failure paths",
-    "missing regression tests",
+    "proof gaps (reported as pre-merge checks, not findings)",
     "CI and deployment failures"
   ],
   "severity_policy": {
     "blocking": "The PR should not merge because the changed behavior is broken, unsafe, or violates a hard architecture boundary.",
     "high": "A likely production or data-loss regression, security/privacy issue, or serious cross-mode/persistence contract risk.",
-    "medium": "A concrete bug, edge case, maintainability trap, or missing test tied directly to changed behavior.",
-    "low": "A small but actionable correctness, proof, or maintainability risk tied to changed behavior.",
+    "medium": "A concrete bug or edge case in changed behavior that an ordinary action reaches.",
+    "low": "A small but actionable correctness or maintainability risk tied to changed behavior.",
     "nitpick": "Optional changed-line polish with no behavior risk, such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency."
   },
   "repo_concerns": [
     "Product behavior belongs in its owning package or mode; shared generation and prompt changes must not silently alter an unrelated mode.",
     "Fake success states, silent catches, broad fallbacks, and response-shape drift are defects, not resilience.",
-    "Changed behavior with realistic regression risk needs focused tests or manual proof.",
+    "Changed behavior with realistic regression risk needs focused tests or manual proof; a missing one is a proof gap under pre-merge checks, not a finding.",
     "Persistence stays consistent wherever it happens: parent records take nothing from child rows that later skip or fail to persist, pre-scans use the write loop's eligibility criteria, and rollback or partial writes leave no inconsistent metadata."
   ],
   "path_instructions": [
@@ -167,7 +167,8 @@
       "checks": [
         "Durable feature-area additions update the relevant docs or architecture map; a behavior change that makes an existing doc misleading should fix that doc in the same PR.",
         "Version-bearing files stay in sync. Root package.json is canonical; the per-package package.json files, packages/shared/src/constants/defaults.ts, and the win/android version files must not drift.",
-        "Workflow and agent-guidance changes remain concrete, testable, and narrow."
+        "Workflow and agent-guidance changes remain concrete, testable, and narrow.",
+        "Once a clarification exists at one place, do not ask for it to be repeated or reworded elsewhere unless the current text is wrong. Group remaining prose nits into one nitpick per file."
       ]
     }
   ],

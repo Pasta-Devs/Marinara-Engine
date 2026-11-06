@@ -12,7 +12,7 @@ const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayH
 const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const cardLibrary = readSource("packages/client/src/components/characters/CardLibraryPreview.tsx");
-const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
+const agentPage = readSource("packages/client/src/components/agents/organizer/AgentPage.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const inventoryPanel = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
@@ -135,9 +135,9 @@ assert.match(
   "character and persona library tags must use the shared compact tag shape",
 );
 assert.match(
-  agentCatalog,
-  /selected\.manifest\.kind[\s\S]*mari-chrome-tag[\s\S]*packageModes\(selected\.manifest\.id\)[\s\S]*mari-chrome-tag/u,
-  "agent kind and mode tags must use the shared compact tag shape",
+  agentPage,
+  /modes\.map\(\(mode\) => \([\s\S]*?rounded-md border px-1\.5 py-0\.5[\s\S]*?MODE_BADGES\[mode\]\.className/u,
+  "store page mode tags must use the shared mode badge colours",
 );
 assert.match(
   sectionControls,

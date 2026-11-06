@@ -271,7 +271,7 @@ for (const variant of ["current", "legacy", "invalid-brief"] as const) {
       const accepted = acceptedMetadata.gameTacticalCombatSnapshot as TacticalCombatState;
       expect(Number.isInteger(accepted.seed)).toBeTruthy();
       expect([accepted.grid.width, accepted.grid.height]).toEqual([14, 10]);
-      expect(accepted.battlefield).toMatchObject({ kind: "generated", generatorVersion: 2, size: "large" });
+      expect(accepted.battlefield).toMatchObject({ kind: "generated", generatorVersion: 3, size: "large" });
       await expect
         .poll(async () => (await readMetadata(request, chatId)).gameCombatState?.combatStyle)
         .toBe("tactical");
@@ -448,7 +448,7 @@ test("GameSurface turns an invalid generated terrain brief without an error fiel
     const accepted = (await readMetadata(request, chatId)).gameTacticalCombatSnapshot as TacticalCombatState;
     expect(Number.isInteger(accepted.seed)).toBeTruthy();
     expect([accepted.grid.width, accepted.grid.height]).toEqual([14, 10]);
-    expect(accepted.battlefield).toMatchObject({ kind: "generated", generatorVersion: 2, size: "large" });
+    expect(accepted.battlefield).toMatchObject({ kind: "generated", generatorVersion: 3, size: "large" });
     expect(startRequests).toHaveLength(1);
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);

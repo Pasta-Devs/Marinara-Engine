@@ -107,8 +107,8 @@ export function HelpTooltip({
     const rect = wrapRef.current.getBoundingClientRect();
     const tip = tipRef.current.getBoundingClientRect();
     const pad = 8;
-    let top = 0;
-    let left = 0;
+    let top: number;
+    let left: number;
 
     if (side === "top") {
       top = rect.top - 6 - tip.height;

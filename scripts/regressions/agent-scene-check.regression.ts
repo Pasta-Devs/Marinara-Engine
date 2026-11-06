@@ -138,7 +138,9 @@ for (const limits of [
   const result = await completeAgentCall(pending, [tracker], provider, baseMessages, options);
   assert.equal(provider.calls.length, 1, "an oversized window must not add a fallback call");
   assert.equal(provider.calls[0]!.messages, baseMessages, "the existing tracker prompt must remain untouched");
-  assert.equal(provider.calls[0]!.options, options, "skipped checks must preserve the original request options");
+  const { signal, ...requestOptions } = provider.calls[0]!.options;
+  assert.ok(signal instanceof AbortSignal, "ordinary tracker calls receive their inactivity cancellation signal");
+  assert.deepEqual(requestOptions, options, "skipped checks must preserve the original generation options");
   assert.deepEqual(pending.sceneCheck, originalSceneCheck, "skipped checks must neither claim nor advance the scene");
   assert.deepEqual(JSON.parse(result.content!), { location: "Road" });
 
@@ -184,7 +186,7 @@ for (const gate of ["other-agent", "pre-generation", "tools", "cancelled"] as co
       : gate === "pre-generation"
         ? { ...tracker, phase: "pre_generation" }
         : tracker;
-  await completeAgentCall(excluded, [config], provider, baseMessages, {
+  const call = completeAgentCall(excluded, [config], provider, baseMessages, {
     model: "fixture",
     stream: false,
     ...(gate === "tools"
@@ -192,8 +194,11 @@ for (const gate of ["other-agent", "pre-generation", "tools", "cancelled"] as co
       : {}),
     ...(gate === "cancelled" ? { signal: AbortSignal.abort() } : {}),
   });
+  if (gate === "cancelled") await assert.rejects(call, { name: "AbortError" });
+  else await call;
   assert.equal(excluded.sceneCheck!.claimed, false, `${gate} must not consume a tracker scene check`);
-  assert.equal(provider.calls[0]!.messages, baseMessages);
+  if (gate === "cancelled") assert.equal(provider.calls.length, 0, "cancelled requests never start a provider call");
+  else assert.equal(provider.calls[0]!.messages, baseMessages);
 }
 
 for (const finishReason of ["abort", "error", "length", "content_filter"]) {
@@ -247,10 +252,13 @@ const aborted = context();
 const controller = new AbortController();
 const lateProvider = new RecordingProvider({ location: "Road", __scene_check: sceneResult });
 lateProvider.beforeComplete = () => controller.abort();
-await completeAgentCall(aborted, [tracker], lateProvider, baseMessages, {
-  model: "fixture",
-  signal: controller.signal,
-});
+await assert.rejects(
+  completeAgentCall(aborted, [tracker], lateProvider, baseMessages, {
+    model: "fixture",
+    signal: controller.signal,
+  }),
+  { name: "AbortError" },
+);
 assert.equal(aborted.sceneCheck!.result, undefined, "a late successful provider response cannot beat cancellation");
 
 const wrappedPayload = JSON.stringify({ location: "Road", __scene_check: sceneResult });

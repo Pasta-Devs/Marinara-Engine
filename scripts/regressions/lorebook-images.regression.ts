@@ -403,8 +403,11 @@ try {
   assert.deepEqual(await readdir(lorebookImagesDirectory()), filesBefore);
   assert.equal((await storage.list()).length, booksBefore);
   // Force persistence failure after portable image files have been saved.
-  const failingDb = new Proxy(db, {
+  const failingDb: typeof db = new Proxy(db, {
     get(target, property) {
+      // Transactions pass a handle to their callback; keep failure injection active there too.
+      if (property === "transaction")
+        return (operation: (tx: typeof db) => Promise<unknown>) => target.transaction(() => operation(failingDb));
       if (property === "insert")
         return (table: unknown) => {
           if (table === lorebookEntries)

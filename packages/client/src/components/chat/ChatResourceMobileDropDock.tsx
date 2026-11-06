@@ -96,7 +96,7 @@ export function ChatResourceMobileDropDock() {
       role="status"
       aria-live="polite"
       aria-label={title}
-      className={`mari-chat-drop-dock fixed left-2 top-1/2 z-[9000] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border-2 border-dotted backdrop-blur-sm ${
+      className={`mari-chat-drop-dock fixed left-[max(0.5rem,var(--mari-safe-area-inset-left))] top-1/2 z-[9000] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border-2 border-dotted backdrop-blur-sm ${
         blocked ? "mari-chat-drop-dock--blocked" : CHAT_RESOURCE_ACTION_ACCENT_CLASS[action.type]
       } ${over ? "mari-chat-drop-dock--over" : ""}`}
     >

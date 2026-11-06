@@ -185,6 +185,8 @@ function consumeEscapedAtom(source: string, i: number): number | null {
     const close = source.indexOf("}", i + 3);
     return close === -1 ? null : close + 1;
   }
+  if (next === "x" && /^[0-9a-f]{2}$/i.test(source.slice(i + 2, i + 4))) return i + 4;
+  if (next === "u" && /^[0-9a-f]{4}$/i.test(source.slice(i + 2, i + 6))) return i + 6;
   return i + 2;
 }
 
@@ -202,11 +204,9 @@ function getGroupBodyStart(source: string, openIdx: number): number | null {
 }
 
 function findCharClassClose(source: string, openIdx: number): number {
-  // The first ] after [ closes the class, except for an immediate `]` which is literal in many
-  // dialects. Account for `[]...]` and escape sequences.
+  // JavaScript closes even an empty [] or [^] class at the first unescaped ].
   let j = openIdx + 1;
   if (source[j] === "^") j += 1;
-  if (source[j] === "]") j += 1; // Leading ] is literal
   while (j < source.length) {
     const c = source[j]!;
     if (c === "\\") {
@@ -222,14 +222,19 @@ function findCharClassClose(source: string, openIdx: number): number {
 function hasUnsafeQuantifiedAlternation(body: string): boolean {
   const alternatives = splitTopLevelAlternatives(body);
   if (alternatives.length < 2) return false;
-  const tokenized = alternatives.map(tokenizeAlternative);
+  const characters = new Map<string, TokenCharacterSet | null>();
+  const tokenized = alternatives.map((alternative) => {
+    const tokens = tokenizeAlternative(alternative);
+    // ponytail: unsupported atoms may change token positions or consume no
+    // character. Only preceding known atoms prove disjointness until parsing is flag-aware.
+    const uncertain = tokens.findIndex((token) => readTokenCharacterSet(token.source, characters) === null);
+    return uncertain === -1 ? tokens : tokens.slice(0, uncertain);
+  });
   if (tokenized.some((tokens) => tokens.length === 0)) return true;
 
   for (let i = 0; i < tokenized.length; i += 1) {
     for (let j = i + 1; j < tokenized.length; j += 1) {
-      const a = tokenized[i]!;
-      const b = tokenized[j]!;
-      if (isTokenPrefix(a, b) || isTokenPrefix(b, a)) return true;
+      if (haveOverlappingPrefixes(tokenized[i]!, tokenized[j]!, characters)) return true;
     }
   }
   return false;
@@ -271,35 +276,156 @@ function splitTopLevelAlternatives(body: string): string[] {
   return alternatives;
 }
 
-function tokenizeAlternative(alternative: string): string[] {
-  const tokens: string[] = [];
+interface AlternativeToken {
+  source: string;
+  optional: boolean;
+}
+
+function tokenizeAlternative(alternative: string): AlternativeToken[] {
+  const tokens: AlternativeToken[] = [];
   for (let i = 0; i < alternative.length; i += 1) {
     const c = alternative[i]!;
     if (c === "\\") {
       const end = consumeEscapedAtom(alternative, i);
       if (end === null) return tokens;
-      tokens.push(alternative.slice(i, end));
+      tokens.push({ source: alternative.slice(i, end), optional: false });
       i = end - 1;
       continue;
     }
     if (c === "[") {
       const close = findCharClassClose(alternative, i);
       if (close === -1) return tokens;
-      tokens.push(alternative.slice(i, close + 1));
+      tokens.push({ source: alternative.slice(i, close + 1), optional: false });
       i = close;
       continue;
     }
-    if ("(){}*+?|^$.".includes(c)) {
+    if (c === "?") {
+      const previous = tokens.at(-1);
+      if (previous) previous.optional = true;
+      if (alternative[i + 1] === "?") i += 1;
+      continue;
+    }
+    if ("(){}*+|^$.".includes(c)) {
       return tokens;
     }
-    tokens.push(c);
+    tokens.push({ source: c, optional: false });
   }
   return tokens;
 }
 
-function isTokenPrefix(prefix: string[], candidate: string[]): boolean {
-  if (prefix.length > candidate.length) return false;
-  return prefix.every((token, index) => candidate[index] === token);
+interface TokenCharacterSet {
+  exact: Set<string>;
+  folded: Set<string>;
+  negated: boolean;
+}
+
+function haveOverlappingPrefixes(
+  left: AlternativeToken[],
+  right: AlternativeToken[],
+  characters: Map<string, TokenCharacterSet | null>,
+): boolean {
+  const width = right.length + 1;
+  const pending = [0];
+  const visited = new Set<number>();
+  // Optional atoms can be consumed or skipped. Visit each pair of positions
+  // once instead of expanding every combination of optional branches.
+  while (pending.length > 0) {
+    const state = pending.pop()!;
+    if (visited.has(state)) continue;
+    visited.add(state);
+    const i = Math.floor(state / width);
+    const j = state % width;
+    if (i === left.length || j === right.length) return true;
+    const a = left[i]!;
+    const b = right[j]!;
+    if (a.optional) pending.push((i + 1) * width + j);
+    if (b.optional) pending.push(i * width + j + 1);
+    if (tokensMayOverlap(a.source, b.source, characters)) pending.push((i + 1) * width + j + 1);
+  }
+  return false;
+}
+
+function tokensMayOverlap(token: string, other: string, characters: Map<string, TokenCharacterSet | null>): boolean {
+  if (token === other) return true;
+  const left = readTokenCharacterSet(token, characters);
+  const right = readTokenCharacterSet(other, characters);
+  // Unsupported atoms may overlap. The guard must prove disjointness before
+  // allowing repeated alternatives, rather than trusting different spelling.
+  if (left === null || right === null) return true;
+  if (left.negated && right.negated) return true;
+  if (left.negated || right.negated) {
+    const included = left.negated ? right.exact : left.exact;
+    const excluded = left.negated ? left.exact : right.exact;
+    // A subset stays excluded with or without case-insensitive matching.
+    for (const c of included) if (!excluded.has(c)) return true;
+    return false;
+  }
+  for (const c of left.folded) if (right.folded.has(c)) return true;
+  return false;
+}
+
+function readTokenCharacterSet(token: string, cache: Map<string, TokenCharacterSet | null>): TokenCharacterSet | null {
+  const cached = cache.get(token);
+  if (cached !== undefined) return cached;
+  const negatedClass = token.startsWith("[^");
+  const negatedEscape = /^\\[DSW]$/.test(token);
+  const positiveToken = negatedClass ? removeClassNegation(token) : negatedEscape ? token.toLowerCase() : token;
+  const characters = readTokenCharacters(positiveToken);
+  // The checker has no flags argument, so include case-insensitive overlap.
+  const result =
+    characters === null
+      ? null
+      : {
+          exact: new Set(characters.split("")),
+          folded: new Set((characters + characters.toUpperCase() + characters.toLowerCase()).split("")),
+          negated: negatedClass || negatedEscape,
+        };
+  cache.set(token, result);
+  return result;
+}
+
+function removeClassNegation(token: string): string {
+  // A second caret is a literal member, not another negation marker.
+  return `[${token[2] === "^" ? "\\" : ""}${token.slice(2)}`;
+}
+
+/** Statically enumerate simple atoms; unknown syntax stays conservative. */
+function readTokenCharacters(token: string): string | null {
+  if (token === "\\d") return "0123456789";
+  if (token === "\\w") return "0123456789_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (token === "\\s")
+    return "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff";
+  if (!token.startsWith("[") || !token.endsWith("]") || token.startsWith("[^")) {
+    return readRequiredLiteral(token);
+  }
+  const body = token.slice(1, -1);
+  let characters = "";
+  for (let i = 0; i < body.length;) {
+    // Unicode-set operators and nested classes need a full v-mode parser.
+    if (body[i] === "[" || body.startsWith("&&", i) || body.startsWith("--", i)) return null;
+    const end = body[i] === "\\" ? consumeEscapedAtom(body, i) : i + 1;
+    if (end === null) return null;
+    const atom = body.slice(i, end);
+    const start = atom === "\\b" ? "\b" : readTokenCharacters(atom);
+    if (start === null) return null;
+    if (body[end] === "-" && end + 1 < body.length) {
+      const rangeEnd = body[end + 1] === "\\" ? consumeEscapedAtom(body, end + 1) : end + 2;
+      if (rangeEnd === null) return null;
+      const last = readRequiredLiteral(body.slice(end + 1, rangeEnd));
+      if (start.length !== 1 || last === null || last.length !== 1) return null;
+      const lo = start.charCodeAt(0);
+      const hi = last.charCodeAt(0);
+      // ponytail: enumerate small ranges only; larger/unsupported sets are
+      // treated as possibly overlapping until a full static parser is needed.
+      if (hi < lo || hi - lo > 255) return null;
+      for (let code = lo; code <= hi; code += 1) characters += String.fromCharCode(code);
+      i = rangeEnd;
+    } else {
+      characters += start;
+      i = end;
+    }
+  }
+  return characters;
 }
 
 function hasPolynomialBacktrackingRisk(source: string, maxRepetition: number): boolean {
@@ -399,18 +525,28 @@ function hasPolynomialBacktrackingRisk(source: string, maxRepetition: number): b
 }
 
 function readRequiredLiteral(atom: string): string | null {
-  if (atom.length === 1) return atom;
+  if (atom.length === 1) {
+    const code = atom.charCodeAt(0);
+    return code >= 0xd800 && code <= 0xdfff ? null : atom;
+  }
   if (/^\\[\\^$.*+?()[\]{}|/-]$/.test(atom)) return atom[1] ?? null;
+  const escapedControls: Record<string, string> = { "\\n": "\n", "\\r": "\r", "\\t": "\t", "\\v": "\v", "\\f": "\f" };
+  if (escapedControls[atom] !== undefined) return escapedControls[atom]!;
+  if (/^\\x[0-9a-f]{2}$/i.test(atom) || /^\\u[0-9a-f]{4}$/i.test(atom)) {
+    const code = Number.parseInt(atom.slice(2), 16);
+    // A surrogate can pair with the next code unit in Unicode mode, so it
+    // cannot prove that a following delimiter is excluded by a class.
+    return code >= 0xd800 && code <= 0xdfff ? null : String.fromCharCode(code);
+  }
   return null;
 }
 
 function characterClassMatchesLiteral(characterClass: string, literal: string): boolean {
-  try {
-    return new RegExp(`^(?:${characterClass})$`).test(literal);
-  } catch {
-    // Invalid classes are rejected by the main walker. Stay conservative here.
-    return true;
-  }
+  // This is only called for negated classes. Never compile a fragment of the
+  // unvalidated source inside the safety checker itself.
+  if (!characterClass.startsWith("[^")) return true;
+  const excluded = readTokenCharacters(removeClassNegation(characterClass));
+  return excluded === null || !excluded.includes(literal);
 }
 
 function isRequiredLiteralAtom(consumed: ConsumedQuantifier | null): boolean {

@@ -32,6 +32,15 @@ import {
   Unplug,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  DESCRIPTION_SPLIT_VERSION,
+  splitCharacterDescription,
+  unassignCardFieldAlternatives,
+  type DescriptionSplitResult,
+} from "@marinara-engine/shared";
+import { HelpTooltip } from "../ui/HelpTooltip";
+import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
+import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api } from "../../lib/api-client";
@@ -41,12 +50,8 @@ import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { scopeChatMessageCss } from "../../lib/chat-message-css";
 import { handleRemoteImageClick, useRemoteImagePolicy } from "../../lib/remote-image-policy";
-import {
-  containsChatHtml,
-  decodeEncodedChatHtmlTags,
-  extractChatStyleBlocks,
-  sanitizeChatHtml,
-} from "../../lib/chat-html";
+import { HTML_TAG_RE, decodeEncodedChatHtmlTags, extractChatStyleBlocks, sanitizeChatHtml } from "../../lib/chat-html";
+import { protectMarkdownCode } from "../../lib/markdown-code";
 import {
   countLorebookEntries,
   hasLorebookEntries,
@@ -306,6 +311,9 @@ function readCardTags(value: unknown): string[] {
       .filter(Boolean);
   return [];
 }
+
+/** A finished import's split outcome; the character is set when Professor Mari can be asked to sort it. */
+type ImportSplitSummary = { result: DescriptionSplitResult; character?: { id: string; name: string } };
 
 function optionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -1325,8 +1333,8 @@ const datacatProvider: ProviderConfig = {
     // text-search support, so any user query forces the recent-public path.
     const useFresh = p.sort === "fresh" && tagIds.length === 0 && trimmedQuery.length === 0;
 
-    let list: any[] = [];
-    let totalCount = 0;
+    let list: any[];
+    let totalCount: number;
 
     if (useFresh) {
       const params = new URLSearchParams({
@@ -1696,6 +1704,10 @@ export function BotBrowserView() {
   const [importing, setImporting] = useState(false);
   const [pendingImport, setPendingImport] = useState<PendingBrowserCardImport | null>(null);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
+  const [splitDescription, setSplitDescription] = useState(false);
+  // Kept after closing so the summary dialog does not empty out while it fades.
+  const [splitSummary, setSplitSummary] = useState<ImportSplitSummary | null>(null);
+  const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
   const resultsScrollTopRef = useRef(0);
   const restoreResultsScrollRef = useRef(false);
@@ -2030,6 +2042,12 @@ export function BotBrowserView() {
     return { card, payload, embeddedLorebook: cardDetail?.embeddedLorebook };
   };
 
+  // The same summary dialog as the editor's split button, shown once the import has finished.
+  const showSplitSummary = (summary: ImportSplitSummary) => {
+    setSplitSummary(summary);
+    setSplitSummaryOpen(true);
+  };
+
   const importPreparedCard = async (
     prepared: PreparedBrowserCardImport,
     target: BrowserCardImportTarget,
@@ -2043,9 +2061,17 @@ export function BotBrowserView() {
           ...prepared.payload,
           importEmbeddedLorebook,
           tagImportMode,
+          splitDescription,
         }),
       });
-      const data = (await response.json()) as { success?: boolean; name?: string; error?: string; lorebook?: unknown };
+      const data = (await response.json()) as {
+        success?: boolean;
+        characterId?: string;
+        name?: string;
+        error?: string;
+        lorebook?: unknown;
+        descriptionSplit?: DescriptionSplitResult;
+      };
       if (!response.ok || !data.success)
         throw new Error(data.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
 
@@ -2054,12 +2080,23 @@ export function BotBrowserView() {
           value1: data.name ?? prepared.card.name,
         }),
       );
+      if (data.descriptionSplit) {
+        showSplitSummary({
+          result: data.descriptionSplit,
+          character: data.characterId ? { id: data.characterId, name: data.name ?? prepared.card.name } : undefined,
+        });
+      }
       void qc.invalidateQueries({ queryKey: characterKeys.list() });
       if (data.lorebook) void qc.invalidateQueries({ queryKey: lorebookKeys.all });
       return;
     }
 
     const cardData = readCharacterCardData(prepared.payload);
+    // Personas are created from explicit fields, so the split runs here instead of on the server. The
+    // persona is created as it came and the split is saved afterwards as a new persona version. Personas
+    // have no system prompt, so instruction lines stay in the description.
+    const split = splitDescription ? splitCharacterDescription(cardData, { instructions: false }) : null;
+    let summary = split;
     const extensions = optionalRecord(cardData.extensions) ?? {};
     const personaName = optionalString(cardData.name) ?? prepared.card.name;
     const sourceTags = readCardTags(cardData.tags);
@@ -2069,6 +2106,9 @@ export function BotBrowserView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: personaName,
+        summary: typeof cardData.summary === "string" ? cardData.summary : "",
+        mes_example: typeof cardData.mes_example === "string" ? cardData.mes_example : "",
+        cardFieldAlternatives: unassignCardFieldAlternatives(extensions.cardFieldAlternatives),
         description: optionalString(cardData.description) ?? optionalString(cardData.personality) ?? "",
         personality: optionalString(cardData.personality) ?? "",
         scenario: optionalString(cardData.scenario) ?? "",
@@ -2083,6 +2123,28 @@ export function BotBrowserView() {
     const persona = (await personaResponse.json()) as { id?: string; error?: string };
     if (!personaResponse.ok || !persona.id) {
       throw new Error(persona.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+    }
+
+    if (split?.status === "changed") {
+      const { description, personality, scenario, backstory, appearance, mes_example } = split.after;
+      const splitResponse = await fetch(`/api/characters/personas/${persona.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          personality,
+          scenario,
+          backstory,
+          appearance,
+          mes_example,
+          versionSource: DESCRIPTION_SPLIT_VERSION.source,
+          versionReason: DESCRIPTION_SPLIT_VERSION.reason,
+        }),
+      });
+      if (!splitResponse.ok) {
+        toast.warning(localizeUi("ui.botBrowser.importDialog.personaImportedWithoutSplit"));
+        summary = null;
+      }
     }
 
     const avatarDataUrl = optionalString(prepared.payload._avatarDataUrl);
@@ -2122,6 +2184,8 @@ export function BotBrowserView() {
     }
 
     toast.success(localizeUi("ui.characters.charactereditor.importedValue1AsAPersona", { value1: personaName }));
+    // Professor Mari's split request targets characters, so a persona summary has no Ask Mari button.
+    if (summary) showSplitSummary({ result: summary });
     void qc.invalidateQueries({ queryKey: characterKeys.personas });
   };
 
@@ -2395,139 +2459,142 @@ export function BotBrowserView() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* ═══ Tag Sidebar ═══ */}
-        {showTagPanel && (
-          <div className="flex w-[260px] flex-shrink-0 flex-col border-r border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/80">
-            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2">
-              <span className="mari-chrome-text-strong flex items-center gap-1.5 text-xs font-semibold">
-                <Tag size="0.75rem" /> {localizeUi("ui.characters.metadatatab.tags")}
-              </span>
-              <div className="flex items-center gap-1">
-                {(includeTags.length > 0 || excludeTags.length > 0) && (
-                  <button
-                    onClick={clearAllTags}
-                    className="mari-chrome-control mari-chrome-control--danger min-h-0 px-1.5 py-0.5 text-[0.6rem]"
-                  >
-                    {localizeUi("lorebook.editor.batch.clear")}
-                  </button>
-                )}
+        <div
+          key={sourceId}
+          className={cn(
+            "w-[260px] flex-shrink-0 flex-col border-r border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/80",
+            showTagPanel ? "flex" : "hidden",
+          )}
+        >
+          <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2">
+            <span className="mari-chrome-text-strong flex items-center gap-1.5 text-xs font-semibold">
+              <Tag size="0.75rem" /> {localizeUi("ui.characters.metadatatab.tags")}
+            </span>
+            <div className="flex items-center gap-1">
+              {(includeTags.length > 0 || excludeTags.length > 0) && (
                 <button
-                  onClick={() => setShowTagPanel(false)}
-                  className="mari-chrome-control mari-chrome-control--small min-h-0 p-0.5"
+                  onClick={clearAllTags}
+                  className="mari-chrome-control mari-chrome-control--danger min-h-0 px-1.5 py-0.5 text-[0.6rem]"
                 >
-                  <X size="0.75rem" />
+                  {localizeUi("lorebook.editor.batch.clear")}
                 </button>
-              </div>
-            </div>
-            <div className="px-3 py-2">
-              <input
-                type="text"
-                value={tagSearch}
-                onChange={(e) => setTagSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomTag();
-                  }
-                }}
-                placeholder={localizeUi("ui.botBrowser.botbrowserview.searchTags")}
-                className="mari-chrome-field mari-chrome-field--compact w-full px-2.5 py-1.5 text-xs"
-              />
-            </div>
-            {(includeTags.length > 0 || excludeTags.length > 0) && (
-              <div className="flex flex-wrap gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 pb-2">
-                {includeTags.map((tag) => (
-                  <span
-                    key={`inc-${tag}`}
-                    onClick={() => toggleIncludeTag(tag)}
-                    className="cursor-pointer rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-emerald-400 ring-1 ring-emerald-500/30 transition-colors hover:bg-emerald-500/30"
-                  >
-                    + {tag}
-                  </span>
-                ))}
-                {excludeTags.map((tag) => (
-                  <span
-                    key={`exc-${tag}`}
-                    onClick={() => toggleExcludeTag(tag)}
-                    className="cursor-pointer rounded-full bg-red-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-red-400 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/30"
-                  >
-                    − {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto px-1 py-1">
-              {canAddCustomTag && (
-                <div className="mx-1 mb-1 flex flex-col gap-1">
-                  <button
-                    onClick={addCustomTag}
-                    className="flex w-full items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
-                  >
-                    {localizeUi("ui.characters.dialoguetab.add")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
-                    {localizeUi("ui.botBrowser.botbrowserview.asFilter")}
-                  </button>
-                  <button
-                    onClick={() => {
-                      const custom = tagSearch.trim().toLowerCase();
-                      if (custom.length >= 2 && !excludeTags.includes(custom)) {
-                        setExcludeTags((prev) => [...prev, custom]);
-                        setIncludeTags((prev) => prev.filter((t) => t !== custom));
-                        setTagSearch("");
-                        setPage(1);
-                      }
-                    }}
-                    className="flex w-full items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
-                  >
-                    {localizeUi("ui.botBrowser.botbrowserview.block")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
-                    {localizeUi("ui.botBrowser.botbrowserview.fromResults")}
-                  </button>
-                </div>
               )}
-              {filteredTags.length === 0 && !canAddCustomTag ? (
-                <div className="px-2 py-4 text-center text-[0.65rem] italic text-[var(--muted-foreground)]">
-                  {availableTags.length === 0
-                    ? localizeUi("ui.botBrowser.botbrowserview.tagsWillAppearAfterSearching")
-                    : localizeUi("ui.botBrowser.botbrowserview.noTagsMatchFilter")}
-                </div>
-              ) : (
-                filteredTags.map((tag) => {
-                  const isIncluded = includeTags.includes(tag);
-                  const isExcluded = excludeTags.includes(tag);
-                  return (
-                    <div
-                      key={tag}
-                      className="mari-chrome-text flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
-                    >
-                      <button
-                        onClick={() => toggleIncludeTag(tag)}
-                        className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
-                          isIncluded
-                            ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                            : "border-[var(--border)] hover:border-emerald-500/50",
-                        )}
-                      >
-                        {isIncluded && "✓"}
-                      </button>
-                      <span className="min-w-0 flex-1 truncate">{tag}</span>
-                      <button
-                        onClick={() => toggleExcludeTag(tag)}
-                        className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
-                          isExcluded
-                            ? "border-red-500 bg-red-500/20 text-red-400"
-                            : "border-red-500/30 text-red-400/40 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10",
-                        )}
-                      >
-                        −
-                      </button>
-                    </div>
-                  );
-                })
-              )}
+              <button
+                onClick={() => setShowTagPanel(false)}
+                className="mari-chrome-control mari-chrome-control--small min-h-0 p-0.5"
+              >
+                <X size="0.75rem" />
+              </button>
             </div>
           </div>
-        )}
-
+          <div className="px-3 py-2">
+            <input
+              type="text"
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomTag();
+                }
+              }}
+              placeholder={localizeUi("ui.botBrowser.botbrowserview.searchTags")}
+              className="mari-chrome-field mari-chrome-field--compact w-full px-2.5 py-1.5 text-xs"
+            />
+          </div>
+          {(includeTags.length > 0 || excludeTags.length > 0) && (
+            <div className="flex flex-wrap gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 pb-2">
+              {includeTags.map((tag) => (
+                <span
+                  key={`inc-${tag}`}
+                  onClick={() => toggleIncludeTag(tag)}
+                  className="cursor-pointer rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-emerald-400 ring-1 ring-emerald-500/30 transition-colors hover:bg-emerald-500/30"
+                >
+                  + {tag}
+                </span>
+              ))}
+              {excludeTags.map((tag) => (
+                <span
+                  key={`exc-${tag}`}
+                  onClick={() => toggleExcludeTag(tag)}
+                  className="cursor-pointer rounded-full bg-red-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-red-400 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/30"
+                >
+                  − {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto px-1 py-1">
+            {canAddCustomTag && (
+              <div className="mx-1 mb-1 flex flex-col gap-1">
+                <button
+                  onClick={addCustomTag}
+                  className="flex w-full items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                >
+                  {localizeUi("ui.characters.dialoguetab.add")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
+                  {localizeUi("ui.botBrowser.botbrowserview.asFilter")}
+                </button>
+                <button
+                  onClick={() => {
+                    const custom = tagSearch.trim().toLowerCase();
+                    if (custom.length >= 2 && !excludeTags.includes(custom)) {
+                      setExcludeTags((prev) => [...prev, custom]);
+                      setIncludeTags((prev) => prev.filter((t) => t !== custom));
+                      setTagSearch("");
+                      setPage(1);
+                    }
+                  }}
+                  className="flex w-full items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                >
+                  {localizeUi("ui.botBrowser.botbrowserview.block")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
+                  {localizeUi("ui.botBrowser.botbrowserview.fromResults")}
+                </button>
+              </div>
+            )}
+            {filteredTags.length === 0 && !canAddCustomTag ? (
+              <div className="px-2 py-4 text-center text-[0.65rem] italic text-[var(--muted-foreground)]">
+                {availableTags.length === 0
+                  ? localizeUi("ui.botBrowser.botbrowserview.tagsWillAppearAfterSearching")
+                  : localizeUi("ui.botBrowser.botbrowserview.noTagsMatchFilter")}
+              </div>
+            ) : (
+              filteredTags.map((tag) => {
+                const isIncluded = includeTags.includes(tag);
+                const isExcluded = excludeTags.includes(tag);
+                return (
+                  <div
+                    key={tag}
+                    className="mari-chrome-text flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
+                  >
+                    <button
+                      onClick={() => toggleIncludeTag(tag)}
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
+                        isIncluded
+                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                          : "border-[var(--border)] hover:border-emerald-500/50",
+                      )}
+                    >
+                      {isIncluded && "✓"}
+                    </button>
+                    <span className="min-w-0 flex-1 truncate">{tag}</span>
+                    <button
+                      onClick={() => toggleExcludeTag(tag)}
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
+                        isExcluded
+                          ? "border-red-500 bg-red-500/20 text-red-400"
+                          : "border-red-500/30 text-red-400/40 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10",
+                      )}
+                    >
+                      −
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
         {/* ═══ Main area ═══ */}
         <div ref={mainScrollRef} className="flex-1 overflow-y-auto p-4">
           {provider.unavailable ? (
@@ -2996,6 +3063,22 @@ export function BotBrowserView() {
                     </span>
                   </button>
                 </div>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+                  <input
+                    type="checkbox"
+                    checked={splitDescription}
+                    onChange={(e) => setSplitDescription(e.target.checked)}
+                    className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--foreground)]">
+                    {localizeUi("ui.botBrowser.importDialog.splitDescriptionIntoFields")}
+                    <HelpTooltip
+                      text={localizeUi("ui.botBrowser.importDialog.splitDescriptionHelp")}
+                      ariaLabel={localizeUi("ui.botBrowser.importDialog.aboutSplitDescription")}
+                      wide
+                    />
+                  </span>
+                </label>
               </>
             ) : !pendingImport.prepared ? (
               <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -3054,6 +3137,25 @@ export function BotBrowserView() {
           </div>
         )}
       </Modal>
+
+      <DescriptionSplitDialog
+        open={splitSummaryOpen}
+        result={splitSummary?.result ?? null}
+        applied
+        hasUnsavedChanges={false}
+        onAskMari={
+          splitSummary?.character
+            ? () => {
+                setSplitSummaryOpen(false);
+                requestMariDescriptionSplit(
+                  splitSummary.character!,
+                  localizeUi("ui.characters.descriptionsplitdialog.mariDraft", { name: splitSummary.character!.name }),
+                );
+              }
+            : undefined
+        }
+        onClose={() => setSplitSummaryOpen(false)}
+      />
 
       {/* ═══ Login Modal ═══ */}
       {showLoginModal && (
@@ -3924,10 +4026,12 @@ function DefSection({ title, content, allowHtml = false }: { title: string; cont
   const htmlScopeClass = `mari-bot-notes-${sectionId.replace(/[^a-zA-Z0-9_-]/g, "") || "content"}`;
   const remoteImages = useRemoteImagePolicy();
   const renderedHtml = useMemo(() => {
-    if (!allowHtml || !containsChatHtml(content)) return null;
-    const decoded = decodeEncodedChatHtmlTags(content);
+    if (!allowHtml) return null;
+    const code = protectMarkdownCode(content);
+    const decoded = decodeEncodedChatHtmlTags(code.text);
+    if (!HTML_TAG_RE.test(decoded)) return null;
     const { html, css } = extractChatStyleBlocks(decoded);
-    const clean = sanitizeChatHtml(html, { allowStyle: true, allowLinks: false, remoteImages });
+    const clean = sanitizeChatHtml(code.restoreHtml(html), { allowStyle: true, allowLinks: false, remoteImages });
     const scopedCss = scopeChatMessageCss(css, `.${htmlScopeClass}`, { remoteUrls: remoteImages.loadAll });
     return scopedCss ? `<style>${scopedCss}</style>${clean}` : clean;
   }, [allowHtml, content, htmlScopeClass, remoteImages]);

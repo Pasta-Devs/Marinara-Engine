@@ -63,8 +63,12 @@ export function bumpCharacterVersion(value: unknown): string {
   return `${prefix}${next}${suffix}`;
 }
 
-const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›]*$/;
-const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›]+)?(?=\s|$)/g;
+// Closing quotes and brackets (CJK `」』）】〉》` too), Markdown emphasis (`*action.*`, `**bold.**`, `_aside._`,
+// `~~struck.~~`) and HTML closing tags (`"Hi."</font>`, `<i>Home.</i>`) may follow the full stop. Without them, a whole
+// styled paragraph ending a roleplay reply read as unfinished and was cut off (#8643).
+const SENTENCE_CLOSERS = String.raw`(?:["'”’)\]}»›」』）】〉》*_~]|<\/[a-z][a-z0-9-]*\s*>)*`;
+const COMPLETE_OUTPUT_END_RE = new RegExp(String.raw`[.!?…。！？]${SENTENCE_CLOSERS}$`, "iu");
+const COMPLETE_SENTENCE_RE = new RegExp(String.raw`[.!?…。！？]${SENTENCE_CLOSERS}(?=\s|$)`, "giu");
 
 export function trimIncompleteModelEnding(content: string): string {
   const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";

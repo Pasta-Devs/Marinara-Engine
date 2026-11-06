@@ -1,209 +1,188 @@
 # Game Assets: Music, Sound, Sprites, and Backgrounds
 
-This guide explains the game asset library that Game Mode uses for music, sound, character art, and scene backgrounds. It covers the built-in starter set, the **Asset Browser** file manager, uploading your own files, choosing which assets each game may use, and sound effects and music that Game Mode can generate for you.
+Game assets are the media files Game Mode plays and shows: music, sound, character art and scene backgrounds. This guide shows how to use the starter set, upload your own files in the **Asset Browser**, limit which assets a game may use and generate sound effects and music.
 
-## What game assets are
+Game Mode reads the library on its own. It picks music, ambient sound and backgrounds from the scene, so you do not assign assets by hand during play.
 
-Game assets are the media files Game Mode plays and shows while a session runs. Marinara Engine sorts them into five categories:
+| Category | What it is |
+| --- | --- |
+| **Music** | Background tracks that change with the scene. |
+| **Ambient** | Looping environment sound, such as nature, urban or interior audio. |
+| **Sound Effects** (SFX) | Short sounds for menus, combat and exploration. |
+| **Sprites** | Character and object art shown on screen. |
+| **Backgrounds** | Scene images shown behind the story. |
 
-- **Music**: background music tracks that change with the scene.
-- **Ambient**: looping environmental sound, such as nature, urban, or interior audio.
-- **Sound Effects** (also called SFX): short sounds for menus, combat, and exploration.
-- **Sprites**: character and object art shown on screen.
-- **Backgrounds**: scene images shown behind the story.
+## The starter set
 
-Game Mode reads this library on its own. It picks music, ambient sound, and backgrounds automatically based on the scene, so you do not have to assign assets by hand during play.
+Marinara installs a free starter library the first time the server starts, and refreshes it on later starts if the bundled set changes. It holds:
 
-## The bundled starter set
+- Five **Music** tracks, for different scene moods.
+- **Ambient** loops under `nature`, `urban` and `interior` folders.
+- **Sound Effects** for menus, combat and exploration.
 
-Marinara installs a free starter library the first time the server starts. It refreshes these files on later starts if the bundled set changes. The starter set includes:
+The **Backgrounds** and **Sprites** folders in the Asset Browser start empty. No character sprites are bundled, so add art that fits your own games. For backgrounds, Game Mode also draws on the app's own background library. On a new install it holds 13 starter images plus a plain `Black.jpg`, and games can use those without any upload. If that folder already held images, only `Black.jpg` is restored. Generated scene art and your uploads add to them.
 
-- Five **Music** tracks, one for each of several scene moods.
-- A set of **Ambient** loops under nature, urban, and interior folders.
-- **Sound Effects** for menus, combat, and exploration.
+All bundled audio is licensed CC0 (public domain, free to use). Credit for each file is in a `CREDITS.md` file that ships with the assets on disk. It is not shown in the app.
 
-No **Backgrounds** are bundled. The background folders start empty. They fill up only when you upload images or when Game Mode generates scene art.
-No character **Sprites** are bundled. Add only the character art that fits your own games.
+Bundled files and folders are protected. You cannot delete or move them in the **Asset Browser**, but you can rename or copy them.
 
-All bundled files are licensed CC0, which means they are in the public domain and free to use. Full credit for each file lives in a `CREDITS.md` text file that ships with the assets on disk. It is not shown inside the app.
+## Open the Asset Browser
 
-Bundled files and folders are protected. You cannot delete or move them from the **Asset Browser**, so your starter library stays intact. You can still rename or copy them.
-
-## Opening the Asset Browser
-
-The **Asset Browser** is a file manager for your game assets. You can open it two ways.
-
-From **Settings**:
+The **Asset Browser** is a file manager for game assets. Open it from **Settings**:
 
 1. Open **Settings**.
 2. Go to the **Imports** tab.
-3. Find the **Game Assets** section.
-4. Click the **Asset Browser** button.
+3. Find **Game Assets** and click **Asset Browser**.
 
-From a game:
+Or open it from a game:
 
 1. Open a Game Mode chat.
-2. Click or tap the **Game Assets** button (the folder icon). It starts near the top right of the chat. You can drag it to another spot on a computer or phone.
+2. Click or tap the **Game Assets** button (the folder icon) near the top right of the chat. You can drag it elsewhere on a computer or phone.
 
-The button only appears in chats that use Game Mode. It opens **Game Assets** with the **Asset Browser** inside: a movable window on a computer, or a full-width panel on a phone.
+The button appears only in Game Mode chats. It opens **Game Assets** with the **Asset Browser** inside, as a movable window on a computer or a full-width panel on a phone. If you used **Put back in Chat Settings** to move it, open the **Game Assets** section in Chat Settings instead.
 
-If you used **Put back in Chat Settings** to move this window, open the **Game Assets** section in Chat Settings instead.
+The toolbar shows a breadcrumb starting at **Game Assets**, a **Grid view** and **List view** toggle, **Upload**, **New**, **Rescan**, **Open in system folder** and a **Search in folder** box. A folder tree on the left helps you jump between categories on wider screens.
 
-The toolbar at the top holds a breadcrumb that starts at **Game Assets**. Next to it are a **Grid view** and **List view** toggle, an **Upload** button, and a **New** button. It also has a **Rescan** button, an **Open in system folder** button, and a **Search in folder** box. A folder tree on the left lets you jump between categories on wider screens.
+## Upload your own assets
 
-## Uploading your own assets
-
-You can upload assets in two ways. Use whichever is easier for you.
+Marinara checks every upload against the rules in [File types and sizes](#file-types-and-sizes). Use either path.
 
 ### Upload from the Asset Browser
 
 1. Open the **Asset Browser**.
-2. Click into one of the five category folders, or a subfolder inside it.
-3. Click **Upload** and pick your files, or drag files onto the file area.
+2. Open one of the five category folders, or a subfolder in it.
+3. Click **Upload** and pick files, or drag files onto the file area.
 
-You must be inside a category folder first. If you drop files at the top level, the app asks you to open a category folder before uploading.
+You must be inside a category folder. If you drop files at the top level, the app asks you to open one first.
 
 ### Upload from Settings
 
 1. Open **Settings** and go to the **Imports** tab.
-2. Find the **Game Assets** section.
-3. Pick a category from the **Type** menu: **Music**, **Ambient**, **Sound Effects**, **Sprites**, or **Backgrounds**.
-4. Set the destination in the **Folder** box, or keep the suggested default.
-5. Click **Choose Files** and select your files.
-6. Click **Upload to Server**.
+2. In **Game Assets**, pick a category from **Type**: **Music**, **Ambient**, **Sound Effects**, **Sprites** or **Backgrounds**.
+3. Set the destination in **Folder**, or keep the default.
+4. Click **Choose Files** and select your files.
+5. Click **Upload to Server**.
 
-Each **Type** fills the **Folder** box with a sensible default. The defaults are:
+If it did not work, the error message lists the accepted file types for that category. For music, check the folder path (see [The music folder rule](#the-music-folder-rule)).
 
-- **Music**: `exploration/fantasy/calm`
-- **Ambient**: `nature`
-- **Sound Effects**: `exploration`
-- **Sprites**: `generic-fantasy`
-- **Backgrounds**: `custom`
+Default **Folder** values:
 
-### File type and size rules
+| Type | Default folder |
+| --- | --- |
+| **Music** | `exploration/fantasy/calm` |
+| **Ambient** | `nature` |
+| **Sound Effects** | `exploration` |
+| **Sprites** | `generic-fantasy` |
+| **Backgrounds** | `custom` |
 
-The server checks every upload against these rules. They apply to both upload paths.
+### File types and sizes
 
-| Category                      | Accepted file types                  |
-| ----------------------------- | ------------------------------------ |
-| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM  |
-| Sprites                       | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
-| Backgrounds                   | PNG, JPG, JPEG, GIF, WebP, AVIF      |
+| Category | Accepted file types |
+| --- | --- |
+| Music, Ambient, Sound Effects | MP3, OGG, WAV, FLAC, M4A, AAC, WebM |
+| Sprites | PNG, JPG, JPEG, GIF, WebP, AVIF, SVG |
+| Backgrounds | PNG, JPG, JPEG, GIF, WebP, AVIF |
 
-Audio and image files can be up to 50 MB each. Text files can be up to 10 MB. The server rejects file types that do not fit the category. The error message lists the accepted types.
+Audio and image files can be up to 50 MB each. Text files can be up to 10 MB.
 
 ### The music folder rule
 
-Music has a strict folder layout. Every music track must sit in a three-level path of `state/genre/intensity`, for example `exploration/fantasy/calm`. If the path does not match, the upload fails.
-
-The allowed values are:
+Every music track must sit in a three-level path `state/genre/intensity`, for example `exploration/fantasy/calm`. If the path does not match, the upload fails. This layout is how Game Mode knows when to play each track.
 
 - State: `exploration`, `dialogue`, `combat`, `travel_rest`.
 - Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`, or a setting's family (see below), such as `wuxia`.
 - Intensity: `calm`, `tense`, `intense`.
 
-This layout is how Game Mode knows when to play each track. Ambient, sound effect, sprite, and background folders do not have this rule. You can name their subfolders freely.
+Ambient, sound effect, sprite and background folders have no such rule. Name their subfolders freely.
+
+## Organize your assets
+
+Right-click a file or folder on a computer, or use its "..." menu, to see its actions.
+
+| File action | What it does |
+| --- | --- |
+| **Rename** | Fails if the name is already taken in that folder. |
+| **Move**, **Copy** | Sends the file to another folder with a folder picker. |
+| **Delete**, **Download** | Removes the file, or saves it to your device. |
+
+| Folder action | What it does |
+| --- | --- |
+| **Create subfolder** | Makes a new folder inside it. |
+| **Open in system folder** | Shows it in your computer's file manager. |
+| **Delete folder** | If files are inside, check **Delete everything inside** first. |
+
+**New** in the toolbar creates **New folder**, **New text file** or **New markdown file** in the current folder. To act on many files, tick their checkboxes. A bar shows how many are selected, with **Select all**, **Move**, **Copy** and **Delete**. Large folders load in parts with a **Load more** button.
+
+Each folder can hold a short note. Click the description text, or the **Add description...** hint, to write one. The five category folders have fixed descriptions.
+
+### Rescan after outside changes
+
+Marinara keeps an internal list of assets so Game Mode finds them fast. Uploads through the app update it automatically. If you copy files into the game asset folder on your computer outside the app, click **Rescan** to read the folder again. **Rescan** is in the **Asset Browser** toolbar and in **Game Assets** under **Settings**.
+
+### Open the folder on your computer
+
+**Open in system folder** works only when you use the app on the same computer that runs the server. On a phone, tablet or another computer, the app tells you system folders can only be opened from the device hosting Marinara.
+
+## Choose which assets a game can use
+
+A Game Mode chat can use only some of your asset folders, for example to keep your cheerful music out of a horror game.
+
+1. During setup, expand **Adjust Game Assets for this Game** on the **Features** step. For an existing game, open the game's **Game Assets** window.
+2. Click **Game assets**. It changes to **Selecting**.
+3. Use the small status control on each folder to include or exclude it.
+
+A bar shows "All folders included" or how many are excluded. **Reset to all** includes everything again. The choice is saved for that chat only. It changes which folders Game Mode may pick from, and does not delete or hide any file.
 
 ### A setting's own art and music
 
-A game started with a setting kit has an art family, shown under **Art and music** when you change the kit's words: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland`, or one of the kit's own. The game uses the folders named for its family and every folder that is not named for a family, and leaves the other families' folders out, so a cyberpunk game never plays fantasy battle music or shows the enchanted forest. When nothing of its own family or the shared folders fits, nothing plays rather than another family's track.
+A game started with a setting kit has an art family, shown under **Art and music** when you change the kit's words: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland`, or one of the kit's own. The game uses folders named for its family and every folder not named for a family, and leaves out other families' folders. A cyberpunk game never plays fantasy battle music or shows the enchanted forest. When nothing of its family or the shared folders fits, nothing plays rather than another family's track. A game without a setting kit uses every folder.
 
 - **Music**: put the setting's tracks in `music/<state>/<family>/<intensity>`, such as `combat/wuxia/intense`. They play ahead of shared tracks.
-- **Backgrounds**: `backgrounds/<family>`. Backgrounds generated during a game with a setting kit are saved there too.
-- **Combat sounds**: a sound in `sfx/combat/<family>` with the same name as a bundled one, such as `sword-swing`, replaces it in games of that family. The bundled combat sounds are fantasy, so another family's fights are quiet until you add its own.
+- **Backgrounds**: `backgrounds/<family>`. Backgrounds generated in a game with a setting kit are saved there too.
+- **Combat sounds**: a sound in `sfx/combat/<family>` with the same name as a bundled one, such as `sword-swing`, replaces it in games of that family. The bundled combat sounds are fantasy, so other families' fights are quiet until you add their own.
 
-The bundled starter backgrounds count as shared, except the fantasy ones (`ancient_library`, `castle_cliff`, `enchanted_forest`) and the modern `city_night`. A game without a setting kit uses every folder, as before. A setting kit saved before art families existed keeps working: one made from a starter kit uses that starter's family, and any other uses every folder until you pick a family under **Art and music**. The selection bar described in [Choosing which assets a game can use](#choosing-which-assets-a-game-can-use) names the open game's family.
-
-## Organizing your assets
-
-The **Asset Browser** lets you keep your files tidy. Right-click a file or folder on desktop, or use its "..." menu, to see its actions.
-
-Actions on a file:
-
-- **Rename**: give the file a new name. Renaming fails if the name is already taken in that folder.
-- **Move** and **Copy**: send the file to another folder using a folder picker.
-- **Delete**: remove the file.
-- **Download**: save the file to your device.
-
-Actions on a folder:
-
-- **Create subfolder**: make a new folder inside it.
-- **Open in system folder**: show the folder in your computer's file manager.
-- **Delete folder**: remove the folder. If it still has files inside, you must check **Delete everything inside** first.
-
-The **New** button in the toolbar also creates items in the current folder. It offers **New folder**, **New text file**, and **New markdown file**.
-
-To act on many files at once, use the checkboxes on each file. A bar shows how many files you selected, with **Select all**, **Move**, **Copy**, and **Delete** buttons. Large folders show only part of their contents at a time, with a **Load more** button.
-
-Each folder can hold a short note. Click the folder description text, or the **Add description...** hint, to write one. The five category folders have fixed descriptions you cannot change.
-
-Remember that bundled starter files are protected. You can rename or copy them, but you cannot move or delete them.
-
-## Rescanning after outside changes
-
-Marinara keeps an internal list of your assets so Game Mode can find them fast. When you upload through the app, this list updates on its own.
-
-If you copy files into the game asset folder directly on your computer, outside the app, the app does not notice right away. Click the **Rescan** button to make it re-read the folder and pick up the new files. **Rescan** sits in both the **Asset Browser** toolbar and the **Game Assets** section under **Settings**.
-
-## Choosing which assets a game can use
-
-Each Game Mode chat can limit itself to only some of your asset folders. This is useful when you want a horror game to skip your cheerful music, for example.
-
-During setup, expand **Adjust Game Assets for this Game** on the **Features** step. For an existing game, open the game's **Game Assets** window.
-
-Then:
-
-1. Click the **Game assets** button. It changes to read **Selecting** while active.
-2. Use the small status control on each folder to include or exclude it.
-
-A bar shows "All folders included" or how many folders are excluded, with a **Reset to all** button to include everything again. This choice is saved for that one chat only. It changes which folders Game Mode may pick from, but it does not delete or hide any files. It has no effect outside that Game Mode chat.
+The bundled starter backgrounds count as shared, except the fantasy ones (`ancient_library`, `castle_cliff`, `enchanted_forest`) and the modern `city_night`. A setting kit saved before art families existed keeps working: one made from a starter kit uses that starter's family, and any other uses every folder until you pick a family under **Art and music**. The selection bar above names the open game's family.
 
 ## Generated sound effects and music
 
-Game Mode can also make new sound effects and music for your scenes with ElevenLabs, an AI audio service. You need an ElevenLabs API key. Each new sound or track is a request to ElevenLabs on your account.
+Game Mode can generate sound effects and music through a **Music & Sound Effects** account. Choose ElevenLabs, SunoAPI or a custom compatible server. Each new sound or track uses that service account. Bundled audio stays available without generation.
 
-First, set up an audio connection:
+**Before you start:** you need a **Music & Sound Effects** account. The **Add account** window has no tile for it. These accounts come from an upgrade or an import (**Import a backup** in **Connections**). See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
 
-1. Open the **Connections** panel and create a connection with the **Audio** provider.
-2. Under **Audio Source**, pick **ElevenLabs**, then paste your ElevenLabs API key.
-3. Turn on **Game sound effects**, **Game music**, or both. These switches appear only for the **ElevenLabs** source.
-4. Save the connection.
+1. In **Connections**, open the account's model with **Edit model**.
+2. Choose the service, enter its key and select the music and sound-effect models. SunoAPI music also needs a public HTTPS callback URL. A custom server needs its endpoint paths.
+3. Turn on **Sound-effect generation**, **Music generation**, or both.
+4. Save the account. See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
 
 Then turn it on when you create a game:
 
 1. On the **Features** step of the setup wizard, find the **Game Audio** card.
-2. Under **Audio Connection**, pick your ElevenLabs connection, or keep **Use the default audio connection**.
+2. Under the account choice, pick your account or keep **Use the default Music & Sound Effects account**.
 3. Leave **Sound effects** and **Music** on, or switch off the one you do not want.
 
-You cannot turn on **Sound effects** or **Music** until the chosen connection is an ElevenLabs connection with that switch on. The card tells you when this is the case.
+Each toggle needs the matching capability turned on in the selected account. A speech-only Audio account is not used for generation.
 
 During play:
 
-- **Sound effects**: after GM turns, Marinara asks ElevenLabs for short sound effects that fit the scene.
-- **Music**: Marinara composes one instrumental track, about two minutes long, for each place the party visits and for each kind of fight, such as a boss fight. Each track is made only once and then reused. A new place's track starts at a later scene change, so the music does not cut in mid-scene. A fight's track fades in as soon as it is ready.
+- **Sound effects.** After GM turns, Marinara asks the service for short sounds that fit the scene.
+- **Music.** Marinara composes one instrumental track, about two minutes long, for each place the party visits and each kind of fight, such as a boss fight. Each track is made once and reused. A new place's track starts at a later scene change, so music does not cut in mid-scene. A fight's track fades in as soon as it is ready.
 
 Generated sounds and tracks are saved with your game assets, so the same sound is not made twice. If **Music DJ** plays music for the game, Game Mode does not generate music.
 
 ## Custom music folder for Music DJ
 
-**Music DJ** is a helper agent that can play music during a game. When it runs in its Custom mode, it plays tracks from a folder you choose. You can set that folder in two places.
+**Music DJ** is a helper agent that can play music during a game. In its Custom mode it plays tracks from a folder you choose. When you enable **Music DJ** for a chat, the setup form follows the source saved on the agent. **Game Assets** shows a path inside your game assets, such as `music` or `music/combat`. **Folder on this device** shows the saved server-device path and a **Choose Folder** button.
 
-When you enable **Music DJ** for a chat, the setup form follows the source saved on the Music DJ agent. **Game Assets** shows a path inside your game assets, such as `music` or `music/combat`. **Folder on this device** shows the saved server-device path and a **Choose Folder** button.
+The full **Music DJ** editor has a **Custom Music Library** section. **Use Game Assets music folder** picks between two modes:
 
-The full **Music DJ** editor has a **Custom Music Library** section. Its **Use Game Assets music folder** switch picks between two modes:
+- On: the **Game Assets music folder** field reads a folder inside your game assets. **Open Folder** opens it on the server computer.
+- Off: **Music folder on this device** plays music from any folder on the computer that runs the server. Click **Select Folder**, or paste the path.
 
-- Switch on: the **Game Assets music folder** field reads a folder inside your game assets, such as `music` or `music/combat`. The **Open Folder** button opens that folder on the server machine.
-- Switch off: the **Music folder on this device** field lets Custom mode play music from any folder on the computer that runs the server. Click **Select Folder** to open a system folder picker, or paste the folder path into the box.
-
-Picking a folder outside the app needs privileged access. On the same computer as the server, it works with no extra setup. From another device or over remote access, you must set up admin access first. See [Remote Access](../REMOTE_ACCESS.md) for how to enable it. For everything else about the music player, see [Music DJ](../media/music.md).
-
-## Opening the folder on your computer
-
-The **Open in system folder** button opens the selected asset folder in your computer's normal file manager. This only works when you use the app on the same computer that runs the server. On a phone, tablet, or another computer, the app tells you that system folders can only be opened from the device hosting Marinara.
+Picking a folder outside the app needs privileged access. On the same computer as the server it works with no extra setup. From another device or over remote access, set up admin access first. See [Remote Access](../REMOTE_ACCESS.md). For the rest of the music player, see [Music DJ](../media/music.md).
 
 ## Related guides
 
 - [Music DJ: Spotify, YouTube, and Local Music](../media/music.md)
 - [Supported AI Providers](../connections/providers-reference.md)
 - [Game Mode: Getting Started](getting-started.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

@@ -1,6 +1,6 @@
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
 import { CombatAiControls } from "./CombatAiControls";
-import { CreatureArtFigure, useCreatureFacings, useCreaturePack } from "./CreatureArt";
+import { CreatureArtFigure, findCreatureArtIn, useCreatureFacings, useCreaturePacks } from "./CreatureArt";
 // ──────────────────────────────────────────────
 // Game: Tactical (grid) Combat UI
 //
@@ -53,6 +53,7 @@ import { audioManager } from "../../lib/game-audio";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useTacticalCombatStart, useTacticalCombatAction } from "../../hooks/use-game";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import {
   TERRAIN_DATA,
   type TacticalTerrain,
@@ -77,7 +78,6 @@ import {
   type TacticalCoord,
   type TacticalBattlefieldBrief,
   type TacticalClass,
-  findCreatureArt,
   creatureArtVariant,
   type CreatureFacing,
   type CreaturePack,
@@ -98,6 +98,7 @@ import {
   tileShadow,
   heightWash,
 } from "../../lib/tactical-board-look";
+import { TokenPicture } from "./TokenPicture";
 
 // ── Props ──
 
@@ -221,6 +222,9 @@ function movementLabelKey(mode: TacticalUnit["movementMode"]): string {
 function battlefieldSizeLabelKey(size: string): string {
   if (size === "small") return "ui.game.tacticalcombatui.sizeSmall";
   if (size === "large") return "ui.game.tacticalcombatui.sizeLarge";
+  if (size === "huge") return "ui.game.tacticalcombatui.sizeHuge";
+  if (size === "vast") return "ui.game.tacticalcombatui.sizeVast";
+  if (size === "colossal") return "ui.game.tacticalcombatui.sizeColossal";
   return "ui.game.tacticalcombatui.sizeMedium";
 }
 
@@ -330,6 +334,12 @@ export function TacticalCombatUI({
   const [logOpen, setLogOpen] = useState(false);
   const [fleeConfirm, setFleeConfirm] = useState(false);
   const [restartConfirm, setRestartConfirm] = useState(false);
+  // The accent holds still while this board is up (see App).
+  const setTacticalShowing = useCombatScreenStore((store) => store.setTacticalShowing);
+  useEffect(() => {
+    setTacticalShowing(true);
+    return () => setTacticalShowing(false);
+  }, [setTacticalShowing]);
 
   // Root element — the drag constraints boundary for the draggable inspect card.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -1179,7 +1189,7 @@ export function TacticalCombatUI({
     );
   }, [liveState, animUnits, stagedMove, selectedUnitId, optimisticMove]);
   // Creature art (design-game-creature-art.md): the library's creature pack, and which way each fighter faces.
-  const creaturePack = useCreaturePack();
+  const creaturePacks = useCreaturePacks();
   const facings = useCreatureFacings(
     renderUnits.map(({ unit, x, y }) => ({ id: unit.id, x, y, side: unit.side })),
     String(liveState?.seed ?? ""),
@@ -1413,14 +1423,27 @@ export function TacticalCombatUI({
       </div>
 
       {/* Battlefield */}
-      <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-auto p-2 sm:p-4">
+      {/* A board bigger than the large one keeps squares a finger can pick and scrolls (2026-10-24). */}
+      <div
+        className={cn(
+          "relative z-10 flex min-h-0 flex-1 overflow-auto p-2 sm:p-4",
+          gridW > 14 || gridH > 10 ? "items-start" : "items-center justify-center",
+        )}
+      >
         <div
-          className="relative"
-          style={{
-            aspectRatio: `${gridW} / ${gridH}`,
-            width: "min(100%, calc((100vh - 14rem) * " + gridW + " / " + gridH + "))",
-            maxWidth: "100%",
-          }}
+          className="relative m-auto shrink-0"
+          style={
+            gridW > 14 || gridH > 10
+              ? {
+                  aspectRatio: `${gridW} / ${gridH}`,
+                  width: `max(${gridW} * 1.75rem, min(100%, calc((100vh - 14rem) * ${gridW} / ${gridH})))`,
+                }
+              : {
+                  aspectRatio: `${gridW} / ${gridH}`,
+                  width: "min(100%, calc((100vh - 14rem) * " + gridW + " / " + gridH + "))",
+                  maxWidth: "100%",
+                }
+          }
         >
           {/* Tile grid */}
           <div
@@ -1433,6 +1456,9 @@ export function TacticalCombatUI({
             {liveState.grid.tiles.flatMap((row, y) =>
               row.map((terrain, x) => {
                 const key = `${x},${y}`;
+                // Beyond the board's outline (2026-10-24): nothing is drawn there.
+                if (liveState.grid.outside?.[y]?.[x])
+                  return <div key={key} aria-hidden="true" className="pointer-events-none" />;
                 const inMove = movementKeys.has(key);
                 const inThreat = threatKeys.has(key);
                 const isStaged = stagedMove?.x === x && stagedMove?.y === y;
@@ -1564,7 +1590,7 @@ export function TacticalCombatUI({
               // An enemy with no picture of its own is drawn with its creature art when the pack has it.
               const creature =
                 unit.side === "enemy" && resolveSprite(unit.sprite).kind !== "url"
-                  ? findCreatureArt(creaturePack, { name: unit.name })
+                  ? findCreatureArtIn(creaturePacks, { name: unit.name })
                   : null;
               const isSel = selectedUnitId === unit.id;
               const isTarget = ui.kind === "target" && targetIds.has(unit.id);
@@ -1582,12 +1608,14 @@ export function TacticalCombatUI({
                   unit={unit}
                   hp={hp}
                   art={
-                    creature && creaturePack
+                    creature
                       ? {
-                          pack: creaturePack,
-                          creature,
-                          variant: creatureArtVariant(creature, String(liveState?.seed ?? ""), unit.id),
+                          pack: creature.pack,
+                          creature: creature.creature,
+                          variant: creatureArtVariant(creature.creature, String(liveState?.seed ?? ""), unit.id),
                           facing: facings.get(unit.id) ?? "down",
+                          // A flier is drawn in its flying art (1.352).
+                          flying: unit.movementMode === "fly",
                         }
                       : undefined
                   }
@@ -1683,10 +1711,10 @@ export function TacticalCombatUI({
       {ui.kind === "idle" && (
         <CombatAiControls
           party={liveState.units.filter((u) => u.side === "party")}
-          enemies={liveState.units.filter((u) => u.side === "enemy")}
           defaultController="manual"
           locked={!playerPhase || animating}
           onChange={(unitId, controller) => sendAction({ type: "control", unitId, controller })}
+          onOrders={(unitId, orders) => sendAction({ type: "orders", unitId, orders })}
           className={GAME_SECTION_CLASS}
         />
       )}
@@ -2154,7 +2182,13 @@ interface UnitTokenProps {
   ariaLabel: string;
   onClick: () => void;
   /** Its creature art, when the creature pack has it (design-game-creature-art.md). */
-  art?: { pack: CreaturePack; creature: CreaturePackCreature; variant: number; facing: CreatureFacing };
+  art?: {
+    pack: CreaturePack;
+    creature: CreaturePackCreature;
+    variant: number;
+    facing: CreatureFacing;
+    flying?: boolean;
+  };
 }
 
 function UnitToken({
@@ -2230,7 +2264,12 @@ function UnitToken({
           // The token is 0.9 of a cell: its art is drawn at the creature's own size, standing on the cell.
           <CreatureArtFigure {...art} cellFraction={1 / 0.9} label={unit.name} />
         ) : sprite.kind === "url" ? (
-          <img src={sprite.value} alt={unit.name} className="h-full w-full rounded-full object-cover" />
+          <TokenPicture
+            src={sprite.value}
+            alt={unit.name}
+            className="h-full w-full rounded-full object-cover"
+            fallback={<span className="text-[min(3vw,0.9rem)] font-black text-white/90">{initialsOf(unit.name)}</span>}
+          />
         ) : sprite.kind === "emoji" ? (
           <span className="text-[min(4vw,1.5rem)] leading-none">{sprite.value}</span>
         ) : (

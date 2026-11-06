@@ -11,6 +11,7 @@ import {
   MARINARA_HOST_ENGINE_INDEXED_DB,
   MARINARA_HOST_ENGINE_STORAGE_KEYS,
   MARINARA_HOST_MODULE_MAJORS,
+  MARINARA_HOST_MODULE_IMPORTS,
   MARINARA_HOST_MODULE_SPECIFIERS,
   MARINARA_HOST_STORE_FIELDS,
   MARINARA_HOST_STORE_NAMES,
@@ -49,6 +50,7 @@ const MODULE_SPECIFIERS = [
   "i18next",
   "react-i18next",
   "framer-motion",
+  "motion/react",
   "tailwind-merge",
   "clsx",
 ];
@@ -75,12 +77,17 @@ const typesMatch: [
   Equal<keyof MarinaraHostV1, (typeof MEMBERS)[number]>,
   Equal<keyof MarinaraHostV1["stores"], (typeof MARINARA_HOST_STORE_NAMES)[number]>,
   Equal<keyof MarinaraHostV1["modules"], MarinaraHostModuleSpecifier>,
-  Equal<keyof MarinaraHostV1["services"], "tts" | "dialogs">,
+  Equal<keyof MarinaraHostV1["services"], "tts" | "dialogs" | "audio" | "imageDownloads">,
   Equal<keyof MarinaraHostV1["components"], "Modal">,
   Equal<keyof MarinaraHostV1["data"], "emojiCatalog">,
   Equal<keyof MarinaraHostStoreFields, (typeof MARINARA_HOST_STORE_NAMES)[number]>,
 ] = [true, true, true, true, true, true, true];
 assert.ok(typesMatch.every(Boolean));
+const imageDownloadTypesMatch: Equal<
+  keyof MarinaraHostV1["services"]["imageDownloads"],
+  "downloadUrlToDevice" | "prepareImageSave" | "savePreparedImageToDevice" | "shouldUseIosImageShare"
+> = true;
+assert.ok(imageDownloadTypesMatch);
 // Each Pick<> in MarinaraHostStoreFields fails this compile when a store drops a field packages read.
 const pinnedFields: { [K in keyof MarinaraHostStoreFields]: Array<keyof MarinaraHostStoreFields[K]> } = {
   ui: [...MARINARA_HOST_STORE_FIELDS.ui],
@@ -110,11 +117,27 @@ assert.deepEqual(
   Object.keys(MARINARA_HOST_MODULE_MAJORS).sort(),
   "every host module's package has a pinned major",
 );
+assert.equal(
+  MARINARA_HOST_MODULE_MAJORS["framer-motion"],
+  13,
+  "installed API-1 packages keep the complete Motion 13 contract",
+);
+assert.equal(MARINARA_HOST_MODULE_MAJORS.motion, 14, "the opt-in slot has its own major");
+assert.equal(MARINARA_HOST_MODULE_IMPORTS["framer-motion"], "framer-motion-v13");
+assert.equal(MARINARA_HOST_MODULE_IMPORTS["motion/react"], "framer-motion");
+assert.equal(MARINARA_HOST_MODULE_MAJORS.zod, 3, "installed API-1 packages retain their Zod 3 contract");
+assert.equal(MARINARA_HOST_MODULE_IMPORTS.zod, "zod-v3");
+assert.match(clientPackage.dependencies.zod!, /^\^4\./u, "the Engine's primary validator stays native Zod 4");
+assert.deepEqual(Object.keys(MARINARA_HOST_MODULE_IMPORTS), MODULE_SPECIFIERS);
 for (const [name, major] of Object.entries(MARINARA_HOST_MODULE_MAJORS)) {
-  const range = clientPackage.dependencies[name];
+  const specifier = MODULE_SPECIFIERS.find((entry) => packageOf(entry) === name)! as MarinaraHostModuleSpecifier;
+  const dependency = packageOf(MARINARA_HOST_MODULE_IMPORTS[specifier]);
+  const range = clientPackage.dependencies[dependency];
   assert.ok(range, `${name} is a direct dependency of packages/client, so the Engine's build resolves it`);
-  assert.equal(Number(/\d+/u.exec(range)?.[0]), major, `${name} ${range}: ${MAJOR_CHANGE}`);
-  const installed = JSON.parse(readSource(`packages/client/node_modules/${name}/package.json`)) as { version: string };
+  assert.equal(Number(/\d+/u.exec(range.split("@").at(-1)!)?.[0]), major, `${name} ${range}: ${MAJOR_CHANGE}`);
+  const installed = JSON.parse(readSource(`packages/client/node_modules/${dependency}/package.json`)) as {
+    version: string;
+  };
   assert.equal(Number(installed.version.split(".")[0]), major, `${name}@${installed.version}: ${MAJOR_CHANGE}`);
 }
 
@@ -142,6 +165,11 @@ assert.match(mainSource, /<QueryClientProvider client=\{queryClient\}>/u);
 assert.match(mainSource, /Object\.assign\(globalThis, \{ React, ReactDOM \}\);/u);
 const hostSource = readSource("packages/client/src/lib/marinara-host.ts");
 assert.match(hostSource, /import \{ queryClient \} from "\.\/query-client";/u);
+assert.match(hostSource, /import \* as framerMotion from "framer-motion-v13";/u);
+assert.match(hostSource, /import \* as motion14 from "framer-motion";/u);
+assert.match(hostSource, /import \* as zod from "zod-v3";/u);
+assert.match(hostSource, /"framer-motion": framerMotion/u);
+assert.match(hostSource, /"motion\/react": motion14/u);
 assert.match(hostSource, /writable: false,\s*configurable: false,/u);
 const queryClientConstructions = readSource("packages/client/src/lib/query-client.ts").match(/new QueryClient\(/gu);
 assert.equal(queryClientConstructions?.length, 1, "lib/query-client.ts makes the QueryClient the app renders with");

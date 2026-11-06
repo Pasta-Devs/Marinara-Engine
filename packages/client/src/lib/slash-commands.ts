@@ -9,6 +9,7 @@ import { useGalleryStore } from "../stores/gallery.store";
 import { toast } from "sonner";
 import { startSceneWithPromptPreferences } from "./scene-generation";
 import { isMessageHidden } from "./message-visibility";
+import { rollWithPersonalExtensionDiceFormats } from "./personal-extension-dice-formats";
 export { isMessageHidden } from "./message-visibility";
 import {
   SUPPORTED_MACROS,
@@ -16,7 +17,8 @@ import {
   buildNarratorInstructionMessage,
   isWithinDiceLimits,
   normalizeTextForMatch,
-  parseDiceNotation,
+  formatKeptRolls,
+  parseDicePool,
   rollParsedDice,
   type MessageReply,
   type ParsedDiceNotation,
@@ -89,10 +91,14 @@ export interface SlashCommandContext {
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
   /** Trigger the same image illustration action exposed in the chat Gallery. */
   illustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
+  /** Make one in-world HTML artifact on the latest reply. */
+  html?: (prompt: string) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
   selfie?: (characterId?: string) => void | Promise<void>;
   /** Have a Conversation character send a video message, as the chat Gallery's Video button does. */
   video?: (characterId?: string) => void | Promise<void>;
+  /** Roleplay /video: a clip of the latest reply, or of the description. */
+  roleplayVideo?: (description?: string) => void | Promise<void>;
   /** Active downloadable capability packages available to this composer. */
   availableCapabilityIds?: ReadonlySet<string>;
   /** Installed Conversation games that contribute manual slash launchers. */
@@ -185,7 +191,7 @@ function buildStatusCommandHelp(characters: Array<{ id: string; name: string }>)
 
 function formatGuidedTargetHelp(characters: Array<{ name: string }>): string {
   const available = formatAvailableCharacterList(characters);
-  return `Use /guided respond for <character> <direction>${available ? `\nAvailable: ${available}` : ""}`;
+  return `Use /guided respond as <character> <direction>${available ? `\nAvailable: ${available}` : ""}`;
 }
 
 function trimGuideSeparator(value: string): string {
@@ -256,12 +262,36 @@ async function translateSlash(key: string, options?: Record<string, unknown>): P
 // ── Dice roller ────────────────
 
 function parseDice(notation: string): ParsedDiceNotation | null {
-  const parsed = parseDiceNotation(notation);
+  const parsed = parseDicePool(notation);
   // Same caps the server dice route enforces. Without them "/roll 99999999d6"
   // spins the render thread, and "0d6" rolls nothing at all (the shared grammar
   // already refuses a count below one).
   if (!parsed || !isWithinDiceLimits(parsed)) return null;
   return parsed;
+}
+
+/** Extension text as one plain line in a chat message: no links, images, markup or HTML. */
+function plainDiceText(text: string): string {
+  // Backslashes do not stop HTML, and the chat renderer decodes `&lt;…&gt;` into tags, so `<`, `>` and `&`
+  // become full-width lookalikes.
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/</g, "＜")
+    .replace(/>/g, "＞")
+    .replace(/&/g, "＆")
+    .replace(/[\\`*_{}[\]()#+\-.!|~]/g, "\\$&");
+}
+
+/** `/roll` with notation the shared grammar does not read: ask the formats extensions registered. */
+async function rollExtensionDice(notation: string, ctx: SlashCommandContext): Promise<SlashCommandResult | null> {
+  const rolled = await rollWithPersonalExtensionDiceFormats(notation);
+  if (!rolled) return null;
+  const meaning = rolled.text ? ` · ${plainDiceText(rolled.text)}` : "";
+  await ctx.createMessage({
+    role: "narrator",
+    content: `🎲 **${notation}** → **${rolled.total}** [${formatKeptRolls(rolled.rolls, rolled.kept)}]${meaning} _(${plainDiceText(rolled.formatLabel)})_`,
+  });
+  return { handled: true };
 }
 
 // ── Reminder parser ────────────────
@@ -291,12 +321,16 @@ function parseReminder(input: string): { ms: number; timeStr: string; message: s
   return { ms, timeStr: parts.join(""), message };
 }
 
-function buildMacroHelpText(): string {
+async function buildMacroHelpText(): Promise<string> {
+  const { translate } = await import("../localization/i18n");
   const sections = new Map<string, string[]>();
 
   for (const macro of SUPPORTED_MACROS) {
     const lines = sections.get(macro.category) ?? [];
-    lines.push(`${macro.syntax} - ${macro.description}`);
+    const description = macro.descriptionKey
+      ? translate(macro.descriptionKey, { defaultValue: macro.description })
+      : macro.description;
+    lines.push(`${macro.syntax} - ${description}`);
     sections.set(macro.category, lines);
   }
 
@@ -314,7 +348,6 @@ function buildMacroHelpText(): string {
   ].join("\n");
 }
 
-const MACRO_HELP_TEXT = buildMacroHelpText();
 const ILLUSTRATE_SLASH_TIMEOUT_MS = 1_800_000;
 
 function withSlashCommandTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -521,13 +554,14 @@ function resolveAsCommandTarget(
   return { target: null, requestedName: fallbackName, message: "" };
 }
 
-async function listSpriteExpressions(characterId: string): Promise<string[]> {
+async function listSpriteExpressions(characterId: string): Promise<Array<{ expression: string; label?: string }>> {
   try {
-    const sprites = await api.get<Array<{ expression?: string }>>(`/sprites/${encodeURIComponent(characterId)}`);
-    const expressions = sprites
-      .map((sprite) => sprite.expression?.trim())
-      .filter((expression): expression is string => !!expression);
-    return Array.from(new Set(expressions)).sort((a, b) => a.localeCompare(b));
+    const sprites = await api.get<Array<{ expression: string; label?: string }>>(
+      `/sprites/${encodeURIComponent(characterId)}`,
+    );
+    return sprites
+      .filter((sprite) => sprite.expression?.trim())
+      .sort((a, b) => (a.label ?? a.expression).localeCompare(b.label ?? b.expression));
   } catch {
     return [];
   }
@@ -537,7 +571,7 @@ async function buildEmoteListFeedback(characters: Array<{ id: string; name: stri
   const rows = await Promise.all(
     characters.map(async (character) => {
       const expressions = await listSpriteExpressions(character.id);
-      return `${character.name}: ${expressions.length > 0 ? expressions.join(", ") : "no uploaded expression sprites"}`;
+      return `${character.name}: ${expressions.length > 0 ? [...new Set(expressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ") : "no uploaded expression sprites"}`;
     }),
   );
 
@@ -550,13 +584,18 @@ async function buildEmoteListFeedback(characters: Array<{ id: string; name: stri
   ].join("\n");
 }
 
-function matchSpriteExpression(expressions: string[], requested: string): string | null {
+function matchSpriteExpression(
+  expressions: Array<{ expression: string; label?: string }>,
+  requested: string,
+): string | null {
   const normalized = normalizeLookup(requested);
   if (!normalized) return null;
   return (
-    expressions.find((expression) => normalizeLookup(expression) === normalized) ??
-    expressions.find((expression) => normalizeLookup(expression).includes(normalized)) ??
-    null
+    (
+      expressions.find((sprite) => normalizeLookup(sprite.label ?? sprite.expression) === normalized) ??
+      expressions.find((sprite) => normalizeLookup(sprite.expression) === normalized) ??
+      expressions.find((sprite) => normalizeLookup(sprite.label ?? sprite.expression).includes(normalized))
+    )?.expression ?? null
   );
 }
 
@@ -662,7 +701,7 @@ export function parseTargetedHideArguments(
 }
 
 function readHiddenFromAICharacterIds(extra: unknown): string[] {
-  let parsed: Record<string, unknown> = {};
+  let parsed: Record<string, unknown>;
   try {
     parsed =
       typeof extra === "string"
@@ -698,21 +737,28 @@ const COMMANDS: SlashCommand[] = [
   {
     name: "roll",
     aliases: ["r", "dice"],
-    description: "Roll dice (e.g. 2d6, 1d20+5)",
+    description: "Roll dice (e.g. 2d6, 1d20+5, 4d6kh3)",
     usage: "/roll [dice (optional)]",
     local: true,
     async execute(args, ctx) {
       const notation = args.trim() || "1d20";
       const parsed = parseDice(notation);
-      if (!parsed) return { handled: true, feedback: `Invalid dice notation: ${notation}` };
-      const { rolls, total: sum } = rollParsedDice(parsed);
+      if (!parsed) {
+        // Only notation the shared grammar cannot read goes to extensions; an oversized 500d6 stays refused.
+        const extensionRoll = parseDicePool(notation) ? null : await rollExtensionDice(notation, ctx);
+        return extensionRoll ?? { handled: true, feedback: `Invalid dice notation: ${notation}` };
+      }
+      const { rolls, total: sum, kept } = rollParsedDice(parsed);
       const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
-      const detail = parsed.count > 1 ? ` [${rolls.join(", ")}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
+      const detail =
+        parsed.count > 1 ? ` [${formatKeptRolls(rolls, kept)}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
       const text = `🎲 **${notation}** → **${sum}**${detail}`;
       await ctx.createMessage({
         role: "narrator",
         content: text,
-        extra: { diceRollResult: { notation, rolls, modifier: parsed.modifier, total: sum } },
+        extra: {
+          diceRollResult: { notation, rolls, modifier: parsed.modifier, total: sum, ...(kept ? { kept } : {}) },
+        },
       });
       return { handled: true };
     },
@@ -767,8 +813,9 @@ const COMMANDS: SlashCommand[] = [
   {
     name: "guided",
     aliases: ["narrator", "narrate", "nar"],
-    description: "Steer the narrative — the AI will narrate events in the direction you describe",
-    usage: "/guided [direction] | /guided respond for [name] [direction (optional)]",
+    description:
+      'Steer the narrative — the AI will narrate events in the direction you describe. Add "respond as" or "reply as" a character name to steer one character.',
+    usage: "/guided [direction] | /guided respond as [name] [direction (optional)]",
     async execute(args, ctx) {
       if (!args.trim()) return { handled: true, feedback: "Usage: /guided <direction to steer the narrative>" };
       const characters = ctx.characters ?? [];
@@ -988,7 +1035,9 @@ const COMMANDS: SlashCommand[] = [
           feedback: [
             `Available Emotes for ${target.name}:`,
             "",
-            availableExpressions.length > 0 ? availableExpressions.join(", ") : "No uploaded expression sprites.",
+            availableExpressions.length > 0
+              ? [...new Set(availableExpressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ")
+              : "No uploaded expression sprites.",
             "",
             `Use /emote "${target.name}" expression to switch one manually.`,
           ].join("\n"),
@@ -1001,7 +1050,7 @@ const COMMANDS: SlashCommand[] = [
           handled: true,
           feedback:
             availableExpressions.length > 0
-              ? `Expression "${requestedExpression}" not found for ${target.name}. Available: ${availableExpressions.join(", ")}`
+              ? `Expression "${requestedExpression}" not found for ${target.name}. Available: ${[...new Set(availableExpressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ")}`
               : `No uploaded expression sprites found for ${target.name}.`,
         };
       }
@@ -1128,8 +1177,7 @@ const COMMANDS: SlashCommand[] = [
     usage: "/impersonate [direction (optional)]",
     async execute(args, ctx) {
       const direction = args.trim();
-      const { impersonatePresetId, impersonateConnectionId, impersonateBlockAgents, impersonatePromptTemplate } =
-        useUIStore.getState();
+      const { impersonatePresetId, impersonateBlockAgents, impersonatePromptTemplate } = useUIStore.getState();
       const trimmedPromptTemplate = impersonatePromptTemplate.trim();
       await ctx.generate({
         chatId: ctx.chatId,
@@ -1137,7 +1185,6 @@ const COMMANDS: SlashCommand[] = [
         impersonate: true,
         ...(direction ? { userMessage: direction } : {}),
         ...(impersonatePresetId ? { impersonatePresetId } : {}),
-        ...(impersonateConnectionId ? { impersonateConnectionId } : {}),
         ...(impersonateBlockAgents !== undefined ? { impersonateBlockAgents } : {}),
         ...(trimmedPromptTemplate ? { impersonatePromptTemplate: trimmedPromptTemplate } : {}),
       });
@@ -1288,6 +1335,23 @@ const COMMANDS: SlashCommand[] = [
     },
   },
   {
+    name: "html",
+    description: "Make one in-world HTML artifact on the latest reply",
+    usage: "/html <what you want, e.g. a spellbook page>",
+    modes: ["roleplay"],
+    local: true,
+    async execute(args, ctx) {
+      const prompt = args.trim();
+      if (!prompt) return { handled: true, feedback: "Usage: /html <what you want, e.g. a spellbook page>" };
+      if (!ctx.html) return { handled: true, feedback: "HTML artifacts are not available in this chat." };
+      if (useChatStore.getState().abortControllers.has(ctx.chatId)) {
+        return { handled: true, feedback: "Wait for the current generation to finish." };
+      }
+      await ctx.html(prompt);
+      return { handled: true };
+    },
+  },
+  {
     name: "illustrate",
     aliases: ["ill"],
     description: "Generate a gallery illustration for the current chat",
@@ -1393,12 +1457,30 @@ const COMMANDS: SlashCommand[] = [
   },
   {
     name: "video",
-    description: "Have a character send you a short video message",
-    usage: "/video [name (optional)]",
+    description: "Have a character send you a short video message, or in Roleplay, make a clip of the scene",
+    usage: "/video [name (optional)] — in Roleplay: /video [description (optional)]",
     requiredCapabilityId: "illustrator",
-    modes: ["conversation"],
+    modes: ["conversation", "roleplay"],
     local: true,
     async execute(args, ctx) {
+      if (ctx.roleplayVideo) {
+        if (useGalleryStore.getState().videoGeneratingChatIds.has(ctx.chatId)) {
+          return { handled: true, feedback: await translateSlash("ui.chat.slash.video.alreadyRunning") };
+        }
+        useGalleryStore.getState().setChatGeneratingVideo(ctx.chatId, true);
+        try {
+          await withSlashCommandTimeout(
+            Promise.resolve(ctx.roleplayVideo(args.trim() || undefined)),
+            ILLUSTRATE_SLASH_TIMEOUT_MS,
+            await translateSlash("ui.chat.slash.video.timedOut"),
+          );
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : await translateSlash("ui.chat.slash.video.failed"));
+        } finally {
+          useGalleryStore.getState().setChatGeneratingVideo(ctx.chatId, false);
+        }
+        return { handled: true };
+      }
       if (!ctx.video) {
         return { handled: true, feedback: await translateSlash("ui.chat.slash.video.unavailable") };
       }
@@ -1572,7 +1654,7 @@ const COMMANDS: SlashCommand[] = [
     usage: "/macros",
     local: true,
     async execute() {
-      return { handled: true, feedback: MACRO_HELP_TEXT };
+      return { handled: true, feedback: await buildMacroHelpText() };
     },
   },
 ];

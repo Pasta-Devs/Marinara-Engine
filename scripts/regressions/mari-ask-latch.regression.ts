@@ -216,7 +216,18 @@ assert.ok(
   !flat.includes("call `home_widget.create` with `apply:false`"),
   "the home-widget template must not model the preview-then-reapply double-step",
 );
-assert.match(workspaceAgent, /home_widget\.create\\` command with \\`apply:true\\` in the SAME response/u);
+// The permanent router line is what every turn sees: the inverted apply rule must stay in the prompt
+// itself, not only behind a fetched skill.
+assert.match(
+  workspaceAgent,
+  /A create is a dry run unless you send top-level/u,
+  "the permanent home-widgets router line keeps the inverted-apply rule",
+);
+assert.match(
+  workspaceAgent,
+  /and it goes in the SAME response with \\`awaitingAuthorization: true\\`/u,
+  "the permanent home-widgets router line keeps the no-preview-round rule",
+);
 
 // ── Client: the Accept affordance survives what the chips slot does not ─────
 // The chips store is a single app-wide ephemeral slot (a regular chat

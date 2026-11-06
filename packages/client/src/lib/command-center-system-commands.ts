@@ -236,7 +236,8 @@ export function createSettingsCommandDefinitions(source: CommandCenterTitleSourc
       aliases: ["tts", "speech", "voice settings", "elevenlabs", "pockettts"],
       keywords: ["text to speech", "read aloud"],
       availability: { status: "requires-capability", capability: "tts", setupTarget: true },
-      action: { kind: "navigate", target: { kind: "panel", panel: "connections" } },
+      // The voice job's own set-up screen in the Add window, not the bare Connections panel.
+      action: { kind: "modal", modal: "create-connection", props: { service: "tts" } },
     }),
     defineCommand({
       id: "settings",

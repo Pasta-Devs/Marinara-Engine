@@ -1,5 +1,10 @@
 import type { Page } from "@playwright/test";
 
+export async function selectUILanguage(page: Page, locale: string) {
+  await page.locator("#settings-control-language-select").click();
+  await page.locator(`[role="option"][id="settings-control-language-select-list-${locale}"]`).click();
+}
+
 // Small excerpts of the moved packs, not a second bundled translation catalog.
 const titles: Record<string, string> = {
   ar: "سلوك التطبيق",

@@ -292,6 +292,18 @@ try {
   assert.deepEqual(readFileSync(join(dataDir, "gallery", "character-videos", "char", "manifest.json")), videoManifest);
   await cleanupStagedProfileAssets(validStage);
 
+  for (const catalog of [
+    Buffer.from("{broken"),
+    Buffer.from(JSON.stringify({ version: 1, folders: "invalid", sprites: {} })),
+  ]) {
+    const stage = await stageProfileImportAssets(dataDir, [
+      { path: "sprites/invalid/catalog.json", expectedSize: catalog.length, read: () => catalog },
+    ]);
+    assert.equal(stage.assets.length, 0);
+    assert.match(stage.skipped[0]?.message ?? "", /not a valid sprite catalog/);
+    await cleanupStagedProfileAssets(stage);
+  }
+
   const streamedGif = Buffer.concat([Buffer.from("GIF89a", "ascii"), Buffer.alloc(128, 0x5a)]);
   let streamedGifCrcState = 0xffffffff;
   streamedGifCrcState = updateCrc32State(streamedGifCrcState, streamedGif);

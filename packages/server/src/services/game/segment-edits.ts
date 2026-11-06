@@ -13,6 +13,8 @@
 
 import {
   formatSkillCheckResultSummary,
+  renderOocNotes,
+  repairGameSpeakerLine,
   stripGameBranchDelimiters,
   type SkillCheckResult,
 } from "@marinara-engine/shared";
@@ -32,7 +34,7 @@ export function stripGmCommandTags(content: string): string {
   // the set below does not strip either one — only this literal pass does. The prose
   // between the delimiters is kept: a block only reaches a stripper when the chance pass
   // never ran for it, so what this is looking at is narration the player already read.
-  let text = stripGameBranchDelimiters(content);
+  let text = renderOocNotes(stripGameBranchDelimiters(content));
   text = stripSimpleGmTags(preserveResolvedSkillCheckResults(text));
   // Catch-all for unknown [tag: value] (but NOT [Name] or [Note:/Book:])
   text = stripUnknownGmTags(text);
@@ -424,7 +426,13 @@ function parseSegments(stripped: string): ParsedSegment[] {
     }
   }
 
-  const lines = normalizeInlineVnDialogueLines(source).split(/\r?\n/);
+  // Drifted speaker lines are repaired first, as the narration screen does, so both count the same beats.
+  const lines = normalizeInlineVnDialogueLines(
+    source
+      .split(/\r?\n/)
+      .map((line) => repairGameSpeakerLine(line))
+      .join("\n"),
+  ).split(/\r?\n/);
   const segments: ParsedSegment[] = [];
   let fallbackText = "";
 

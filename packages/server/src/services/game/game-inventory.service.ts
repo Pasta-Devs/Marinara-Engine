@@ -22,12 +22,19 @@ import {
   gameInventoryItemsOwnNamed,
   gameInventoryForTelling,
   normalizeGameInventoryStacks,
+  passRulesetItemTime,
+  rulesetItemVanishedLine,
+  rulesetItemRechargeLine,
   readGameInventoryTurn,
   readRulesetInventedItems,
   rulesetItemBook,
   gameWorldKitFromMetadata,
   worldKitItems,
   rulesetLayerOptionKey,
+  rulesetLiveWornOff,
+  rulesetItemTouchHarm,
+  gameInventoryWearMet,
+  gameInventoryWearNeeds,
   type RulesetLayerOptions,
   type CombatItemEffect,
   type GameInventoryFightLine,
@@ -46,9 +53,10 @@ import { loadGameRulesetSheetContext, sheetCommandCards } from "./ruleset-sheet-
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../chat-user-identity.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "../storage/chats.storage.js";
-import { createGameStateStorage } from "../storage/game-state.storage.js";
+import { createGameStateStorage, parseStoredRulesetLive } from "../storage/game-state.storage.js";
 import { resolveVisibleGameStateAnchor } from "../../routes/generate/generate-route-utils.js";
 import { addEventEntry, addInventoryEntry, createJournal, type Journal } from "./journal.service.js";
+import { rollDieSecurely } from "./dice-rng.js";
 
 /** What a change works out from the stacks it is given. The same stacks and nothing else leave
  *  everything as it was. */
@@ -282,6 +290,58 @@ export async function gameRulesetTurnsNativeItemsOff(db: DB, metadata: Record<st
  * chat's metadata queue held, so nothing else can move the stacks between the read and the write;
  * it may throw to refuse the whole change. Null when the chat does not exist.
  */
+/**
+ * Game time passing on the chat's clock (Capability API 1.556): the items whose charges or uses come
+ * back after a wait count it, and get them back once they have waited it all. Logged, never thrown:
+ * the clock moved either way.
+ */
+export async function passGameInventoryTime(db: DB, chatId: string, minutes: number): Promise<void> {
+  if (!(minutes > 0)) return;
+  try {
+    const chat = await createChatsStorage(db).getById(chatId);
+    if (!chat) return;
+    const metadata = readMetadata(chat.metadata);
+    if (metadata.gameRuleset == null) return;
+    // Only items that wait for something to come back, or that vanish (1.760), count it.
+    if (
+      !normalizeGameInventoryStacks(metadata.gameInventory).some(
+        (stack) => (stack.item && stack.quantity === 1) || stack.vanishesIn,
+      )
+    )
+      return;
+    const resolved = resolveGameRuleset(metadata, await loadRulesetRegistry(db));
+    if (resolved.status !== "ok") return;
+    const book = await loadGameInventoryItemBook(db, { metadata, resolved }, "player");
+    if (!book) return;
+    await commitGameInventoryChange(db, chatId, (current) => {
+      const passed = passRulesetItemTime({
+        definition: resolved.definition,
+        itemOf: book.itemOf,
+        stacks: current,
+        minutes,
+        roll: rollDieSecurely,
+      });
+      const events = [
+        ...(passed.recharged.length > 0
+          ? [{ title: "Items recharged", content: rulesetItemRechargeLine(passed.recharged) }]
+          : []),
+        // What was made to last only so long (1.760): Creation's.
+        ...(passed.vanished.length > 0
+          ? [{ title: "Items vanished", content: rulesetItemVanishedLine(passed.vanished) }]
+          : []),
+      ];
+      return {
+        stacks: passed.changed ? passed.stacks : current,
+        journal: passed.vanished.map((one) => ({ item: one.name, action: "removed" as const, quantity: one.count })),
+        ...(events.length > 0 ? { events } : {}),
+        value: null,
+      };
+    });
+  } catch (error) {
+    logger.warn(error, "[game/inventory] Could not pass game time over the items in chat %s", chatId);
+  }
+}
+
 export async function commitGameInventoryChange<T>(
   db: DB,
   chatId: string,
@@ -319,10 +379,21 @@ export async function applyGameInventoryChangeHeld<T>(
       logger.warn(error, "[game/inventory] Could not tell whether a fake shows on a sheet in chat %s", chatId);
     }
   }
-  const outcome = found ? withFoundOut(changed, found) : changed;
+  let outcome = found ? withFoundOut(changed, found) : changed;
   if (outcome.stacks === before && outcome.journal.length === 0 && !outcome.events?.length && !outcome.metadata) {
     return { stacks: before, value: outcome.value };
   }
+  // What an item deals whoever it comes into the hands of (1.701), said in the same write and taken
+  // off their sheet once it is saved. Never at the cost of the change itself.
+  let touched: Awaited<ReturnType<typeof harmWhoTouched>> = null;
+  if (outcome.stacks !== before) {
+    try {
+      touched = await harmWhoTouched(db, chatId, metadata, before, outcome.stacks);
+    } catch (error) {
+      logger.warn(error, "[game/inventory] Could not work out what an item dealt whoever took it in chat %s", chatId);
+    }
+  }
+  if (touched) outcome = { ...outcome, events: [...(outcome.events ?? []), ...touched.events] };
 
   await chats.patchMetadata(
     chatId,
@@ -341,12 +412,141 @@ export async function applyGameInventoryChangeHeld<T>(
     },
     { metadataQueueHeld: true },
   );
+  if (touched) {
+    try {
+      await touched.write();
+    } catch (error) {
+      logger.warn(error, "[game/inventory] Could not take what an item dealt off a sheet in chat %s", chatId);
+    }
+  }
+  // What only a worn item kept on (1.664) comes off with the change that took the item off. Never at
+  // the cost of the change itself.
+  if (outcome.stacks !== before) {
+    try {
+      await endWhatWornItemsKept(db, chatId, metadata, outcome.stacks);
+    } catch (error) {
+      logger.warn(error, "[game/inventory] Could not end what a worn item kept on in chat %s", chatId);
+    }
+  }
   const foundOut = found ? { foundOut: found.events.map((event) => event.content) } : {};
   if (outcome.stacks === before || target.kind === "none") {
     return { stacks: outcome.stacks, value: outcome.value, ...foundOut };
   }
   const playerStats = await followOnRow(db, chatId, before, outcome.stacks, target);
   return { stacks: outcome.stacks, ...(playerStats ? { playerStats } : {}), value: outcome.value, ...foundOut };
+}
+
+/**
+ * The conditions an item's use kept on only while that item is worn (1.664, Armor of Invulnerability),
+ * taken off every sheet whose item is no longer worn, or no longer there, on the row the sheet shows.
+ */
+async function endWhatWornItemsKept(
+  db: DB,
+  chatId: string,
+  metadata: Record<string, unknown>,
+  stacks: readonly GameInventoryStack[],
+): Promise<void> {
+  if (metadata.gameRuleset == null) return;
+  const states = createGameStateStorage(db);
+  const visibleAnchor = resolveVisibleGameStateAnchor(await createChatsStorage(db).listMessages(chatId));
+  const row = await states.getForGeneration(chatId, { preferLatestVisible: true, visibleAnchor });
+  const stored = parseStoredRulesetLive(row?.rulesetLive);
+  if (!row || !stored) return;
+  const kept = Object.values(stored).some(
+    (live) => live && typeof live === "object" && Object.keys((live as { wornFrom?: object }).wornFrom ?? {}).length,
+  );
+  if (!kept) return;
+  const resolved = resolveGameRuleset(metadata, await loadRulesetRegistry(db));
+  if (resolved.status !== "ok") return;
+  const book = await loadGameInventoryItemBook(db, { metadata, resolved }, "player");
+  if (!book) return;
+  const worn = new Set(
+    stacks.flatMap((stack) => {
+      // Read off the catalog item, so one drawn as it is used (1.808) counts only while it is on.
+      const item = stack.item ? book.itemOf(stack.item)?.entry.item : undefined;
+      return item && gameInventoryWearMet(stack, gameInventoryWearNeeds(item)) ? [stack.id] : [];
+    }),
+  );
+  let changed = false;
+  const next = Object.fromEntries(
+    Object.entries(stored).map(([name, live]) => {
+      const before = Object.keys((live as { wornFrom?: object } | null)?.wornFrom ?? {}).length;
+      const after = rulesetLiveWornOff(live, worn);
+      if (Object.keys(after.live.wornFrom ?? {}).length === before) return [name, live];
+      changed = true;
+      return [name, after.live];
+    }),
+  );
+  if (changed) await states.updateByMessage(row.messageId, row.swipeIndex, chatId, { rulesetLive: next });
+}
+
+/**
+ * What an item deals whoever it comes into the hands of (Capability API 1.701): every stack that is new,
+ * changed hands, or grew, of an item with `touchHarms`, rolled for whoever now carries it on the row the
+ * sheet shows. The journal's lines, and the write that takes it off their sheets.
+ */
+async function harmWhoTouched(
+  db: DB,
+  chatId: string,
+  metadata: Record<string, unknown>,
+  before: readonly GameInventoryStack[],
+  after: readonly GameInventoryStack[],
+): Promise<{ events: Array<{ title: string; content: string }>; write: () => Promise<void> } | null> {
+  if (metadata.gameRuleset == null) return null;
+  const was = new Map(before.map((stack) => [stack.id, stack]));
+  const taken = after.filter((stack) => {
+    const had = was.get(stack.id);
+    return !had || (had.holder ?? "") !== (stack.holder ?? "") || stack.quantity > had.quantity;
+  });
+  if (!taken.length) return null;
+  const resolved = resolveGameRuleset(metadata, await loadRulesetRegistry(db));
+  if (resolved.status !== "ok") return null;
+  const book = await loadGameInventoryItemBook(db, { metadata, resolved }, "player");
+  if (!book) return null;
+  // What it truly is touches them (1.79): a fake of a talisman is no talisman.
+  const harming = taken.flatMap((stack) => {
+    const ref = stack.truly ?? stack.item;
+    const found = ref ? book.itemOf(ref) : undefined;
+    return found?.entry.item?.touchHarms?.length ? [{ stack, item: found.entry.item, name: found.name }] : [];
+  });
+  if (!harming.length) return null;
+  const context = await loadGameRulesetSheetContext(db, chatId, resolved);
+  if (!context) return null;
+  const states = createGameStateStorage(db);
+  const visibleAnchor = resolveVisibleGameStateAnchor(await createChatsStorage(db).listMessages(chatId));
+  const row = await states.getForGeneration(chatId, { preferLatestVisible: true, visibleAnchor });
+  if (!row) return null;
+  let stored = parseStoredRulesetLive(row.rulesetLive) ?? {};
+  const events: Array<{ title: string; content: string }> = [];
+  const named = (name: string) =>
+    context.cards.find((each) => normalizeCharacterLookupName(each.name) === normalizeCharacterLookupName(name));
+  for (const { stack, item, name } of harming) {
+    // The player's own bag is the player's sheet, as an item's use reads it.
+    const card = stack.holder
+      ? named(stack.holder)
+      : ((context.playerName ? named(context.playerName) : undefined) ?? context.cards[0]);
+    if (!card) continue;
+    const key = normalizeCharacterLookupName(card.name);
+    const harm = rulesetItemTouchHarm({
+      definition: resolved.definition,
+      item,
+      user: { build: card.build, live: stored[key] },
+      roll: rollDieSecurely,
+    });
+    if (!harm) continue;
+    stored = { ...stored, [key]: harm.live };
+    events.push({
+      title: `${name} harms ${card.name}`,
+      content: `${card.name} took ${harm.amount}${harm.type ? ` ${harm.type}` : ""} damage taking up ${name}${harm.now ? ` (${harm.now})` : ""}.`,
+    });
+  }
+  if (!events.length) return null;
+  return {
+    events,
+    write: async () => {
+      await states.updateByMessage(row.messageId, row.swipeIndex, chatId, { rulesetLive: stored });
+    },
+  };
 }
 
 /** A change with what it found out: the revealed stacks, the journal's lines, and a telling's record (a

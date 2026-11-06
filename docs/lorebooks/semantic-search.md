@@ -1,115 +1,86 @@
 # Semantic Search for Lorebooks
 
-This guide explains semantic search for lorebooks in Marinara Engine. Semantic search lets a lorebook entry activate by meaning, not just by exact keywords. You will learn how to set up an embedding source, vectorize your entries, and tune the matching.
+Semantic search lets a lorebook entry activate by meaning, not only by exact keywords. An entry keyed to "sword" can then match a message that says "blade". Use it when your writing uses many different words for the same idea.
 
-## What semantic search adds
+It works with embeddings, lists of numbers that capture the meaning of a text. Marinara stores one embedding, also called a vector, for each entry. Building them is called vectorizing. At chat time Marinara embeds your recent messages and finds the closest entries.
 
-A lorebook is a set of entries. Each entry has trigger keywords and a block of text. Normally an entry only activates when one of its exact keywords appears in the recent chat. If the writing uses a different word, the entry stays silent.
+Semantic search adds matches. Your keywords keep working. Keyword and semantic matches have equal priority under the budgets, so when not everything fits, the entry **Order** decides.
 
-Semantic search fixes that. It compares the meaning of the recent chat with the meaning of your entries. An entry can then activate even when no exact keyword matches. For example, an entry keyed to "sword" can still match a message that only says "blade".
+## Set up semantic search
 
-This works using embeddings. An embedding is a list of numbers that captures the meaning of a piece of text. Marinara stores one embedding, also called a vector, for each entry. This step is called vectorization. At chat time, Marinara embeds your recent messages and finds the entries whose meaning is closest.
+You need an embedding source first, then the **Vectors** switch, then a vectorize run.
 
-Keyword matching still works when semantic search is on. Semantic search adds extra matches. It does not replace your keywords.
+### Step 1: Pick an embedding source
 
-Keyword and semantic matches have equal priority when Marinara applies lorebook entry and token budgets. If every matching entry cannot fit, the entry order you configured decides between current keyword and semantic matches; the activation method itself does not win.
+Before you start: you need either an account whose service offers embeddings, or the built-in model. Not every service offers embeddings. If yours does not, the editor tells you to pick a dedicated embedding account.
 
-## Before you start: pick an embedding source
+Option 1: an account with an embedding model.
 
-Semantic search needs a model that can create embeddings. You have two options.
+1. Open the **Connections** panel and open an account for editing.
+2. Open **Advanced**, then **More**, and find **Semantic search (embeddings)**.
+3. Type an embedding model name, such as `text-embedding-3-small`. If you are not sure of the name, look in your service's documentation, or use the built-in model instead.
+4. Save the account.
+5. Click **Test embedding** to check. Marinara saves first, embeds a short sample, and shows the vector size, such as "1536 dimensions", or the error the service returned.
 
-Whichever you pick, you can make it the app-wide default: open **Connections**, then **Defaults**, and choose it under **Embeddings**. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
+To send embedding requests through another account's key and address, pick that account under **Embedding provider**. The default is **Same as this provider**. If the chosen account has its own embedding model, Marinara uses it. Otherwise it uses the model name typed here.
 
-Option 1: a connection with an embedding model.
+Option 2: the built-in model. It runs on your computer with no API key and is named **Built-in model** in the picker. It appears after you download it, and it is hidden on Lite builds. See [Built-in Model Setup](../connections/local-model.md).
 
-1. Open the **Connections** panel.
-2. Open a connection for editing.
-3. Find the **Semantic Search (Embeddings)** section.
-4. Type an embedding model name in the model field. A common value is `text-embedding-3-small`.
-5. Save the connection.
+To make one source the default for every account that sets none, open **Connections** and choose it in the **Embeddings** job. An account's own setting still wins. The default entry, **Marinara's own search**, keeps the built-in fallback.
 
-A connection can also send its embedding requests through another connection's API key and address. In the same section, pick that connection under **Embedding Connection**. The default is **Same as this connection**. If the chosen connection has its own embedding model, Marinara uses it; otherwise it uses the model name typed here. This applies both when you vectorize and during chat.
+### Step 2: Turn on Vectors
 
-Not every provider offers embeddings. If the provider cannot do embeddings, the editor tells you to choose a dedicated embedding connection instead.
+Semantic search is off for new lorebooks.
 
-Option 2: the built-in local model.
+1. Open the lorebook and stay on the **Overview** tab.
+2. Turn on **Vectors**. With it on, entries can also be found by meaning. With it off, keywords still work and the lorebook is not vectorized.
 
-Marinara can run a small embedding model on your own machine with no API key. In the lorebook picker this option is named **Local Model (sidecar)**. It appears only after you download the local model. See [Local Model Setup](../connections/local-model.md) for how to install it.
+While **Vectors** is off, the panel says "Semantic search is disabled by the lorebook-level Vectors toggle."
 
-If you are on a Marinara Lite build, the **Local Model (sidecar)** option is hidden. On Lite, semantic search needs a connection with an embedding model.
+### Step 3: Vectorize the entries
 
-## Turn on Vectors for a lorebook
+1. In the **Semantic search (embeddings)** panel, pick a source in the dropdown. The first choice is **No semantic search**. **Built-in model** comes next, when available, then your eligible accounts.
+2. Click **Vectorize N missing**, for example "Vectorize 5 missing".
+3. Wait. A chip shows progress, such as "8/12 entries vectorized", and turns green when all are done.
 
-Semantic search is off for new lorebooks by default. You turn it on per lorebook.
+If it did not work: with no embedding model on any account, the panel says "No connections with an embedding model configured. Set an Embedding Model on a connection first." Finish Step 1 and try again.
 
-1. Open the lorebook you want to search by meaning.
-2. Stay on the **Overview** tab.
-3. Find the **Vectors** switch and turn it on.
+## The Semantic search (embeddings) panel
 
-The **Vectors** help text reads: "When on, entries in this lorebook may use semantic embeddings. When off, keyword matching still works and vectorization skips this lorebook."
-
-While **Vectors** is off, the semantic panel shows this note: "Semantic search is disabled by the lorebook-level Vectors toggle."
-
-## The Semantic Search (Embeddings) panel
-
-With **Vectors** on, the **Semantic Search (Embeddings)** panel appears on the **Overview** tab. A status chip shows how many entries are vectorized, for example "8/12 entries vectorized". It turns green with a check mark once every entry is done.
-
-The panel has three number settings.
+After you turn on **Vectors**, the panel appears on the **Overview** tab with these settings.
 
 | Setting | What it does | Default | Range |
-|---|---|---|---|
-| **Query Messages** | How many recent chat messages to embed when searching this lorebook. | 10 | 0 to 100 |
-| **Score Threshold** | Minimum calibrated similarity an entry needs before it activates. Higher is stricter. | 0.3 | 0 to 1 |
-| **Vector Limit** | Most semantic matches this lorebook can add to one generation. | 10 | 1 to 100 |
+| --- | --- | --- | --- |
+| **Query Messages** | How many recent user messages to search with. 0 uses all available messages. | 10 | 0 to 100 |
+| **Score Threshold** | The similarity an entry needs to activate. Higher is stricter. | 0.3 | 0 to 1 |
+| **Vector Limit** | The most entries this lorebook can add by meaning in one reply. | 10 | 1 to 100 |
 
-Set **Query Messages** to 0 to search against the full chat history instead of a recent window.
+**Include character context** also searches recent character replies, separately from your messages, and keeps the stronger match. It embeds extra text and is off by default. **Query Messages** then applies to character replies too.
 
-**Score Threshold** controls how close the meaning must be. A low value like 0.2 lets more entries in but risks off-topic matches. A high value like 0.5 is stricter and matches only close meanings. Start at the default and adjust if you get too many or too few matches.
+A low **Score Threshold** such as 0.2 lets more entries in but risks off-topic matches. A high one such as 0.5 matches only close meanings. Start at the default.
 
-Marinara calibrates this score against several unrelated neutral passages from the same embedding model. This removes the unusually high common cosine floor produced by some local and OpenAI-compatible embedding backends, where unrelated texts can otherwise all score around 0.95 or higher. The setting therefore remains useful across embedding models instead of requiring a model-specific cutoff near 1.0.
+**Vector Limit** counts only meaning matches. Your normal token budgets still apply.
 
-**Vector Limit** caps semantic matches only. Your normal token budgets still apply on top of it.
+## Re-vectorize, delete, and skip
 
-## Vectorize your entries
+- **Re-vectorize N entries** appears when every entry has a vector. It rebuilds all of them after you confirm.
+- **Re-vectorize all** appears when some entries have vectors and some do not. It rebuilds everything in one pass.
+- **Delete vectors** removes the stored vectors only. Entry text and keywords stay, and keywords keep working.
+- **No Vector** on an entry skips it. Its help text says bulk vectorization skips the entry and removes any stored embedding. The entry still activates by keyword.
 
-Vectorizing means building and storing the embedding for each entry. You must do this before semantic matching can work.
+### After you change the embedding model
 
-1. Turn on **Vectors** for the lorebook.
-2. In the **Semantic Search (Embeddings)** panel, pick an embedding source in the dropdown. The first option is **No semantic search**. **Local Model (sidecar)** comes next, when available. Your eligible connections come after it.
-3. Click the vectorize button. When some entries are missing a vector, the button reads **Vectorize N missing**, for example "Vectorize 5 missing".
-4. Wait for the run to finish. The status chip updates to show all entries vectorized.
+Stored vectors belong to the model that made them. After you switch models, use **Re-vectorize N entries** or **Re-vectorize all** so every entry uses the same model. A "missing only" run that returns a different vector size is refused with "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-If no connection has an embedding model or an **Embedding Connection**, the panel shows this note instead of the dropdown: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Set up an embedding source first, using the steps above.
+One failure is silent. At chat time Marinara embeds your messages with the active account's embedding model, or the model from its **Embedding provider**. If the account sets neither, it uses the **Embeddings** job's source, or the built-in model. If that model's vector size differs from your entries' vectors, Marinara skips those entries in semantic matching and shows no error. Vectorize with the same source you use in chat, and re-vectorize after any model change.
 
-When every entry already has a vector, the main button changes to **Re-vectorize N entries**. This rebuilds all stored vectors. It asks you to confirm before it overwrites them.
+## Semantic search and the Knowledge Router
 
-A separate **Re-vectorize all** button appears when some entries have vectors and others are still missing. Use it to rebuild everything in one pass.
-
-To clear the stored vectors, click **Delete vectors**. This removes the embeddings only. It does not change your entry text or keywords. Keyword matching keeps working after you delete vectors.
-
-### Skip a single entry
-
-You can leave one entry out of vectorization while keeping the rest. Open the entry, then turn on its **No Vector** toggle. Its help text reads: "When enabled, bulk vectorization skips this entry and removes any stored embedding." That entry still activates by keyword. It just will not match by meaning.
-
-## Re-vectorizing after you change models
-
-Your stored vectors are tied to the embedding model that made them. If you switch to a different embedding model, the old vectors may no longer line up.
-
-Rebuild every vector after you change the embedding model. Use **Re-vectorize N entries** or **Re-vectorize all** so all entries use the same model.
-
-Do not run only a partial vectorize after a model change. If a "missing only" run returns a different vector size than the stored vectors, the server refuses it with this message: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
-
-There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model, or the model from its **Embedding Connection** if it sets one. If the connection sets neither, Marinara uses the **Embeddings** default under **Defaults** in **Connections**, or the built-in local model when that is **None**. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Setting an **Embeddings** default helps: the vectorize picker starts on it unless you picked something else before, and connections without embedding settings of their own query with it. Re-vectorize after any model change.
-
-## How it feeds the Knowledge Router agent
-
-Semantic search also helps the **Knowledge Router** agent. That agent picks relevant lorebook entries and injects them into the prompt for large lorebooks. When a lorebook is vectorized, the router uses semantic matches to build its shortlist of candidate entries, alongside your keyword matches.
-
-This step is optional for the router. If the lorebook is not vectorized, or no embedding source is available, the router falls back to keyword matches only. Vectorizing simply gives it a better shortlist. See [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md) for how that agent works.
+When a lorebook is vectorized, the **Knowledge Router** agent also uses meaning matches to build its shortlist. Without vectors it uses keyword matches only. See [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md).
 
 ## Related guides
 
 - [Lorebooks Overview](overview.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
-- [Local Model Setup](../connections/local-model.md)
+- [Built-in Model Setup](../connections/local-model.md)
 - [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md)

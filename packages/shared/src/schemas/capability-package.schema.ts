@@ -1,13 +1,29 @@
 import { z } from "zod";
+import { experienceSetupDefaultsSchema } from "../features/world/game-intro.js";
 import { agentResultTypeSchema } from "./agent.schema.js";
-import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.js";
+import {
+  isRulesetCatalogAssetPath,
+  isRulesetLocaleAssetPath,
+  isRulesetLocaleCode,
+  RULESET_ASSET_PATH,
+  RULESET_LOCALE_MAX_BYTES,
+  RULESET_LOCALE_MAX_FILES,
+} from "./ruleset.schema.js";
 
 /** Caps mirrored by the Marinara-Agents catalog build. Kept here so a hostile or
  *  broken notes document cannot push an unbounded string into a modal. */
 export const MAX_RELEASE_NOTE_CHARACTERS = 1000;
 export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
-export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
+export const capabilityPackageKindSchema = z.enum([
+  "agent",
+  "maps",
+  "conversation-calls",
+  "turn-game",
+  "ruleset",
+  // A data-only Experience (Capability API 1.373): Game Mode's own view plays it; it carries no code.
+  "experience",
+]);
 export const capabilityPermissionSchema = z.enum([
   "achievements",
   "agent-runtime",
@@ -23,6 +39,43 @@ export const capabilityPermissionSchema = z.enum([
   "tools",
   "ui",
 ]);
+
+/** What a data-only Experience (Capability API 1.373) may hold: pictures, music and data, nothing that runs.
+ *  The same list as the Experience file's (features/world/experience-file.ts). */
+const DATA_ONLY_EXPERIENCE_FILE = /\.(?:png|jpe?g|gif|webp|ogg|mp3|wav|json)$/iu;
+
+/** The largest audio file a package may ship as an asset (Capability API 1.345). */
+export const CAPABILITY_AUDIO_ASSET_MAX_BYTES = 16 * 1024 * 1024;
+const AUDIO_ASSET = /\.(?:ogg|mp3|wav)$/iu;
+const musicId = z.string().regex(/^[a-z0-9_-]{1,40}$/, "A track id is 1 to 40 lowercase letters, digits, _ or -");
+
+/** An Experience's own music (Capability API 1.345). */
+export const experienceMusicSchema = z
+  .object({
+    tracks: z
+      .array(
+        z
+          .object({
+            id: musicId,
+            path: z.string().min(1).max(240).regex(AUDIO_ASSET, "A track is an .ogg, .mp3 or .wav file"),
+            title: z.string().min(1).max(80).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(64),
+    /** Played wherever no place has a track of its own. */
+    default: musicId.optional(),
+    /** Played while a fight is on. */
+    combat: musicId.optional(),
+    /** A place's track (a place id of the pack's worlds), for it and every place inside it. */
+    places: z
+      .array(z.object({ place: z.string().min(1).max(120), track: musicId }).strict())
+      .max(128)
+      .optional(),
+  })
+  .strict();
+export type ExperienceMusic = z.infer<typeof experienceMusicSchema>;
 
 const capabilityPackageManifestBaseSchema = z
   .object({
@@ -118,6 +171,8 @@ const capabilityPackageManifestBaseSchema = z
                   .refine((value) => JSON.stringify(value).length <= 8_000)
                   .optional(),
                 requires: z.object({ enableCustomWidgets: z.boolean().optional() }).strict().optional(),
+                /** GM setup values the wizard fills in when the Experience is picked (Capability API 1.372). */
+                defaults: experienceSetupDefaultsSchema.optional(),
               })
               .strict()
               .optional(),
@@ -147,6 +202,70 @@ const capabilityPackageManifestBaseSchema = z
                   .min(1)
                   .max(240)
                   .regex(/\.tilepack\.json$/u, "A map pack's tiles are a .tilepack.json file")
+                  .optional(),
+                /** Creature packs for this Experience's fights (Capability API 1.344): their art comes
+                 *  before the creature pack chosen in the library, in this order. */
+                creatures: z
+                  .array(
+                    z
+                      .string()
+                      .min(1)
+                      .max(240)
+                      .regex(/\.creaturepack\.json$/u, "A map pack's creatures are a .creaturepack.json file"),
+                  )
+                  .min(1)
+                  .max(8)
+                  .optional(),
+                /** Image packs of the Experience's own for its maps made by hand (Capability API 1.357): tile
+                 *  packs laid out as the library's dungeon sets (floor, wall, liquid and eight props), each
+                 *  named by its id from a hand map's `pack`, before the library's. */
+                dungeons: z
+                  .array(
+                    z
+                      .string()
+                      .min(1)
+                      .max(240)
+                      .regex(/\.tilepack\.json$/u, "A map pack's dungeon looks are a .tilepack.json file"),
+                  )
+                  .min(1)
+                  .max(16)
+                  .optional(),
+                /** The Experience's own music (Capability API 1.345): its tracks, the one for each place
+                 *  (a place's own, else the nearest place it is inside that has one), the one played
+                 *  anywhere else, and the one for fights. A story may cue a track over them. */
+                music: experienceMusicSchema.optional(),
+                /** The Experience's people (Capability API 1.346): a `.people.json` file dressing the named
+                 *  people of its worlds with portraits, expressions, a walking look and lore. */
+                people: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.people\.json$/u, "A map pack's people are a .people.json file")
+                  .optional(),
+                /** What the Experience adds to rulesets while it is on (Capability API 1.355): for each
+                 *  ruleset (by id), a `.overlay.json` file of bestiary creatures, conditions, creature tags
+                 *  and catalog entries merged into a game's ruleset of that id. */
+                rulesets: z
+                  .array(
+                    z
+                      .object({
+                        ruleset: z
+                          .string()
+                          .max(140)
+                          .regex(
+                            /^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,63}\/)?[a-z0-9]+(?:-[a-z0-9]+)*$/u,
+                            "A ruleset is named by its id",
+                          ),
+                        overlay: z
+                          .string()
+                          .min(1)
+                          .max(240)
+                          .regex(/\.overlay\.json$/u, "A ruleset overlay is a .overlay.json file"),
+                      })
+                      .strict(),
+                  )
+                  .min(1)
+                  .max(8)
                   .optional(),
               })
               .strict()
@@ -239,9 +358,9 @@ const capabilityPackageManifestBaseSchema = z
                   .string()
                   .min(1)
                   .max(240)
-                  // Passive content only — images plus JSON metadata. Never SVG, HTML, or
-                  // scripts: those are active documents on a same-origin route.
-                  .regex(/\.(?:gif|jpe?g|png|webp|json)$/iu),
+                  // Passive content only — images, audio (Capability API 1.345) plus JSON metadata.
+                  // Never SVG, HTML, or scripts: those are active documents on a same-origin route.
+                  .regex(/\.(?:gif|jpe?g|png|webp|json|ogg|mp3|wav)$/iu),
               )
               .min(1)
               // Bounded so a manifest cannot enumerate an arbitrarily large tree.
@@ -268,6 +387,13 @@ const capabilityPackageManifestBaseSchema = z
               )
               .min(1)
               .max(32),
+            /**
+             * Capability API 1.390. `"engine"`: the Engine draws the page header (Back, store banner
+             * and logo, name, author and version, Active, Manage package). The package's
+             * `view="detail"` gets `engineHeader: true` and a `headerSlot` element to portal its own
+             * header buttons into. Leave it out to draw the whole page, header included, as before.
+             */
+            header: z.literal("engine").optional(),
           })
           .strict()
           .optional(),
@@ -1249,7 +1375,204 @@ const capabilityPackageManifestBaseSchema = z
 //        first message exactly, guided only shapes it; an Experience may lock its own.
 // 1.340: a ruleset of up to 512 KB and catalog files of up to 2 MB (256 KB and 1 MB before).
 // 1.341: the client host namespace (__MARINARA_HOST__), api.runtime services, commands, admission, haptics, Spotify, local speech, chat-gallery and chat-write members, and shared server libraries.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 341 } as const);
+// 1.342: a story's number flag may be a `clock` (title, 2-12 segments, a "when full" line, hidden until
+//        shown): the player sees it fill in the HUD and the World tab, and the Game Master is told once
+//        when it fills. A map pack world whose story has one needs 1.342.
+// 1.343: story actions `give` (a ruleset item by `catalog/entry` id, or one by name), `fight` (one of the
+//        script's `fights`: its creatures, counted, on a painted board), `move` (the party to a place) and
+//        `ending` (one of the script's `endings`: a title, a scene and the epilogue; nothing trips after).
+//        A map pack world whose story uses them needs 1.343.
+// 1.344: an Experience's map pack may ship creature packs (`mapPack.creatures`, .creaturepack.json files
+//        declared as assets): its fights draw their creatures from them first, then from the library's.
+// 1.345: a package's assets may be audio (`.ogg`, `.mp3`, `.wav`, 16 MB each at most), and an Experience's
+//        map pack may ship `music`: its tracks, by place, anywhere else and in fights. A story's `music`
+//        action cues one of them over the place's, or hands back to the place's.
+// 1.346: an Experience's map pack may ship its people (`mapPack.people`, a .people.json file declared as
+//        an asset): named people of its worlds with a portrait (the journal, the narration), expressions,
+//        a walking look from its tiles, how they speak, and lore that is active in its games.
+// 1.347: an Experience's people may be companions (`companion`: a role and, per ruleset, a build for each
+//        level they are made for): the story recruits and dismisses them (`recruit` / `dismiss` actions),
+//        the Game Master may take only them in, and they join with their sheet and keep up with the party.
+// 1.348: a story may keep what people know (`knowledge`: a person or keys, the text, flag conditions): an
+//        entry is told to the Game Master on a turn it holds and its person is in the scene (named, or
+//        travelling with the party) or one of its keys is said. Up to 600 entries, 12 a turn.
+// 1.349: story triggers `rest` (a rest the Game Master's sheet tags took), `travel` (the party sets out
+//        from one place for another) and `idle` (some replies with nothing happening), with a `priority`:
+//        one of them goes a turn, the highest. A condition may ask whether a person travels with the party
+//        (`{ "party": "<person id>", "is": "in" | "out" }`). A script may have 256 events (128 before).
+// 1.350: `POST /api/game/experience/check` checks a whole map pack before it is exported, as an installed
+//        one is read: send `{ mapPack, files: { <path>: <parsed JSON> }, assets: [{ path, bytes }] }`, get
+//        `{ ok, minor, issues: [{ path, message }] }` (`minor`: the Capability API minor the pack needs).
+// 1.351: a story may hold places at a season whatever the date (`seasons`: a place, and every place inside
+//        it, or the whole world; the `season` action changes or lets one go during play). The overworld,
+//        towns and the weather follow it. A world's battlefield may be painted with seasons (`seasons`
+//        rows, a letter or `.` per tile, named by `seasonKeys`), what a fight's tiles start in.
+// 1.352: a creature pack (creaturePackVersion 2) may give a creature flying art (`fly`: a block laid out as
+//        a walking one, one per look or one for all), played 0, 1, 2, 1 while it is shown flying: it flies
+//        and has no walk, it hovers, it is up in the air, or it flew this turn. Ruleset fights' views say so
+//        as `flying` on the fighter.
+// 1.353: a story may have 256 flags (64 before).
+// 1.354: a ruleset fighter may be in the air (`airborne`): a flier with no walk, or that hovers, starts
+//        so; a step only its flight takes, flying up, or the free `move:take-off` move puts it there, and
+//        `move:land` or anything that grounds it brings it down. A fighter in the air is shown in its
+//        flying art.
+// 1.355: an Experience's map pack may ship ruleset overlays (`mapPack.rulesets`: a ruleset id and a
+//        .overlay.json file each): bestiary creatures, combat conditions, sheet conditions, creature tags
+//        and entries for the ruleset's catalogs, merged into a game's ruleset of that id while the
+//        Experience is on. An overlay that does not fit the ruleset is left out whole.
+// 1.356: a story's fight may have variants by party size (`variants`: a party size or `{ min, max }` and
+//        the creatures, board and note for a party that size); a party is the player's character and the
+//        companions travelling with it. The GM is told the variant and the fight's tell names it.
+// 1.357: an Experience's map pack may ship image packs for its maps made by hand (`mapPack.dungeons`:
+//        .tilepack.json files laid out as a dungeon set, `dn_floor`, `dn_wall`, `dn_liquid`, `dn_prop0`-
+//        `dn_prop7`), named by id from a hand map's `pack` before the library's; and a hand map may carry
+//        its own `words` for the Game Master (floor, wall, liquid and each prop slot).
+// 1.358: a story script reaches further: `any` condition groups (one of them holds), a `fight` event that
+//        names the script's fight it waits on, a `leave` event, a number flag's `min` and `max` (every set
+//        and add kept within), and an `if` on each cutscene page and each action (done only when it holds
+//        as the event reaches it; recorded as `acts` on the trip's tag).
+// 1.359: an Experience's ruleset overlay may give items a story cost (`storyUses`: the item by
+//        `catalog/entry`, the story's number flag, what a use adds to it, and `atLeast`): a fight refuses
+//        the use while the flag is below it, and the next story turn records what it spent.
+// 1.360: a story fight's variant may be for parties above six, or open-ended (`party: { "min": 7 }`); a
+//        story condition may test the party's size (`{ "partySize": { "is": ">=", "value": 5 } }`); and a
+//        people file's companion may never fight (`noncombatant`): not counted in the party's size, and
+//        not put in its fights.
+// 1.361: a story's `season` action may hold `over` everything inside it (the script's own seasons and
+//        every other hold), and what people know is ranked: the people the scene names first, then what
+//        its words bring in, then companions only travelling along, shared out person by person.
+// 1.362: a story may keep `exposures`: what being in a place does to the party over time (every `hours`
+//        hours there while its `if` holds, tracks moved and conditions put on for each of the party, by
+//        the Engine's own sheet commands on the game's clock). Noonfield's light outside a fight.
+// 1.363: a story fight's (or variant's) creature entry may `adjust` it for that fight: its Legendary
+//        Resistance and its health (`maxHp`), in place of its stat block's.
+// 1.364: a story's exposure may ask a `save` ({ save, difficulty, against? }, as a light rule's 1.321) that
+//        each of the party rolls off their own sheet, only failures taking its tracks and conditions; a
+//        track it moves may stop at `upTo`. A sheet command's `op="track"` takes `upto=` the same way.
+// 1.365: a story's exposure may be `sparedByShade`: a shade carried lit by any of the party (an item whose
+//        light has `shade`, switched on where it has a switch) keeps it off, as its `if` not holding does.
+// 1.366: a story may hold death (`heldGround`: a place or the whole world, a label, the condition the felled
+//        take, the marks their tracks take, flag conditions): recorded as the party comes and goes, and a
+//        ruleset fight started there is fought on that Held Ground (1.323).
+// 1.367: an Experience's ruleset overlay may add sheet tracks (`tracks`, as the ruleset's `sheet.live.tracks`):
+//        shown on the sheet, moved by sheet commands, and kept for Held Ground's and light rules' marks.
+// 1.368: a story action `sheet` puts a sheet condition on each of the party or takes it off, or moves a
+//        track of each one's sheet (`upTo` stops it), as the Engine's own sheet command.
+// 1.369: Held Ground may let go (`heldGround[].release`: the felled die or go down, and marks of a track
+//        come due as dying saves with a bonus, a number or a number flag): in a ruleset fight still on it,
+//        in the very step that lets it go (an item's story spend, a prop broken), and out of a fight each
+//        of the party rolls what they owe off their own sheet.
+// 1.370: a story's `give` may name a ruleset entry by its bare id (the first catalog that offers it), and
+//        may list alternatives, the first the game offers given.
+// 1.371: a story fight's creature `adjust` may change whom its actions call (`calls`), and change any of
+//        it from a party level up (`levels`), the level read off the Experience's companion sheets' fields.
+// 1.372: an Experience's GM setup values (`contributions.gameSurface.setup.defaults`), filled into the Game
+//        wizard when it is picked, with its own intro (locked or not) beside a story's.
+// 1.373: a data-only Experience (`kind: ["experience"]`): no entrypoints, permissions or code, only
+//        pictures, music and data; Game Mode's own view plays it. Shared as one `.experience.json` file
+//        (features/world/experience-file.ts) the user reviews before it is imported.
+// 1.374: a ruleset in the agents catalog is a ruleset package file (`<id>.ruleset.json`), never a package zip;
+//        its manifest declares 1.374 or newer.
+// 1.375: how the fight screen shows a ruleset: a budget's `short` letters and `tone`, and `combat.display`
+//        (the defense column's `short` and `hide`, and which pools show under a turn).
+// 1.376: Home package browser fullscreen controls.
+// 1.377: explicit Motion 14 host slot (motion/react); the existing framer-motion slot stays on Motion 13.
+// 1.378: a ruleset's own words on the sheet, menu and cards: a combat modifier's `label`, a pool's `unit`
+//        and `units`, a list's `display` (tab, rows split by a number column, a tick column), a text
+//        field's `hideWhen` by a derived value, a condition's `pickable: false`, a track's `showWhenSet`,
+//        an item toggle's `onLabel` and `offLabel`, an item use's `title`, a derived value's `signed`,
+//        and creature traits to 1200.
+// 1.379: which combat styles a ruleset's games may play (`combat.styles`): the New Game wizard and the
+//        game's settings offer only those, and a game saved on another plays the first one listed.
+// 1.380: package-bound per-chat agent reference lorebook trigger resolution.
+// 1.381: independent browser audio players, shared manifest fetch and default music selection.
+// 1.382: fights for a symbol-pool ruleset (`combat.kind: "symbol-pool"`): attacks, saves, checks,
+//        contests and initiative thrown in the ruleset's own symbol dice, a defense read as the
+//        difficulty dice, `combat.symbols` for the harm each net success adds, flat soak and the
+//        spends leftover symbols buy (harm, a critical, a condition, a track, boost or setback dice
+//        on the next roll), picked by the Engine and the AI for whichever side spends that symbol.
+//        A creature action's `upgrades` names its upgraded to-hit dice.
+// 1.383: fight health on a plain track that fills up to its maximum (`combat.health` or
+//        `battle.health` naming a track with neither levels nor boxes): Genesys's Wounds, read as the
+//        room left above its value, damage adding points and a heal taking them off.
+// 1.384: animate a saved Global Gallery image through a saved video connection, without exposing its credentials.
+// 1.385: package clients save images through the Engine gallery's existing platform-aware helpers.
+// 1.386: the Home browser view's openConnection(connectionId), and /api/generate/raw's debugMode prompt logging.
+// 1.387: `persistence.listChatSummaries(chatId)`: a chat's day, week, rolling and Game session summaries. Requires
+//        `chat-read`, like `listMessages`.
+// 1.388: `api.registerService(key, service, { hostOnly: true })` keeps a service out of `runtime.services.get`, so only
+//        the Engine reads it.
+// 1.389: `persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides or shows a chat's messages from the
+//        AI and resolves the ids it changed. Requires `chat-write`; skips messages the user set by hand.
+// 1.390: `contributions.agentDetail.header: "engine"`: the Engine draws an agent page's header and
+//        passes the package's detail view `engineHeader: true` and a `headerSlot` for its buttons.
+// 1.391: `persistence.listChatSummaries(chatId).advancedMemory`: Advanced Memory's scene summaries with the
+//        `memory` block from `long-term-memory:runtime.summaryMemoryInstruction()`, stored untouched.
+// 1.392-1.790: the 5e work (Ruleset Engine capabilities and combat AI), held until 5e lands; each
+//        minor's keys are documented in docs/extending/writing-rulesets.md and the ruleset-*.md pages beside it.
+// 1.791: what a ruleset's weights are counted in (`items.carry.unit`), said after every weight shown.
+// 1.792: a damage change only on a blow carrying given damage types (`onTypes`), and one that spends
+//        its condition once it adds (`spentOnUse`).
+// 1.793: an attack list's `abilityChoices`: a value of a row's ability column that stands for the
+//        best of several abilities, for its damage too (5e's Finesse, the better of STR and DEX).
+// 1.794: a sheet migration's `setColumn`: one column set on every list row its `where` columns match,
+//        as attack rows made before a weapon's ability choice existed.
+// 1.795: a bestiary creature's `inventory`: what it has on it as a fight begins, each line an item of
+//        the ruleset's or a loot table's picks, `chance` in a hundred and `count` of it. It uses what it
+//        can (a sheet-backed one as a party member does; a plain stat block what is used up in the using
+//        and reads nothing of its user), and what it has left drops when it is beaten. The Game Master
+//        may give an opponent its own instead (`carrying`).
+// 1.796: a text field's or list column's `suggestions`: words offered as chips to pick, the field still
+//        typed in freely (a ranger's favored enemies).
+// 1.797: a text field's or list column's `pick`: how many of its `suggestions` its holder picks, read
+//        off the sheet (a ranger's favored enemies by level), shown as "choose N".
+// 1.798: a `beforeFight` entry that calls a creature, used outside a fight, keeps it on its user's
+//        sheet, and it joins every fight they are in until it is dismissed or killed (Find Familiar).
+// 1.799: a guided-builder rows step's `countFrom`: how many of the player's own rows it wants, read off
+//        the sheet (5e's hit point rolls, one per level after 1st). The step starts with that many and
+//        waits on that many whole rows, as its `min` does.
+// 1.800: an attack list's `toHit.sheetBonus`: a number off the sheet added to hit on its rows, or on
+//        only the rows whose `when` column holds a value (5e's Archery on ranged weapons).
+// 1.803: an encounter budget, `combat.threat.budget`, and a threat tier's `worth`: what a fight may hold
+//        for a party by level and game difficulty. The Game Master is told it, and invented opponents
+//        are brought down a rung while a fight is over it.
+// 1.804: a rest's `clear.temp`: every pool's temporary points go as it ends (5e's temporary hit points
+//        at a long rest).
+// 1.805: `combat.signatureAtTurnStart`: signature actions also bought as a foe's turn starts.
+// 1.807: a sheet list's `ritual`: a yes-or-no column whose ticked rows may be used outside a fight as a
+//        ritual, the use tag's ritual="yes", paying none of their pools (5e's ritual spells).
+// 1.808: `items.drawOnUse`: items of some categories or tags used while only carried, each put in hand
+//        as it is used by putting away the fewest other such items in its slots (5e's weapons).
+// 1.809: a sheet list's `ritualNeeds`: the entries a sheet must hold a row from to use its rows as
+//        rituals (5e's Ritual Casting).
+// 1.810: a rest's `every`: the hours of the game's clock before it may be taken again (5e's one long
+//        rest in 24 hours).
+// 1.811: a ruleset's language packs: a catalog entry's `locales`, one `<id>-<version>.<lang>.json` per
+//        language, fetched only in the Engine's language; and a ruleset package file a player shares may
+//        carry `locales/<lang>.json`, of which an import keeps the Engine's language alone.
+// 1.812: an `ammoRider`'s `toHit`: what magic ammunition adds to the attack roll of the shot it rides
+//        (5e's Arrow +1).
+// 1.813: a ruleset layer's `items`: sellers taken out of the market (`market.removeSellers`), wares
+//        no seller sells (`market.unsold`, appended to the market's own new `unsold`), and loot tables
+//        replaced by id (`lootTables`). Nothing is added to the catalogs, so an item stays known and
+//        only where it is sold and how often it drops changes (a low-magic layer). Not a soft seam: an
+//        Engine that cannot read these refuses the whole ruleset file, so a package that ships either
+//        declares 1.813. No permission.
+// 1.814: a language model message's `cacheBreakpoint`: the prompt up to and including it is cached on providers
+//        that take cache breakpoints (Anthropic), whatever the connection's caching switch says, for the connection's
+//        cache time; and a completion's usage reports `cachedPromptTokens` and `cacheWritePromptTokens`. A soft seam:
+//        older Engines ignore the field. No permission.
+// 1.815: a language model call's `cacheTtl` ("5m" or "1h"): how long its marked prefix stays cached on Anthropic,
+//        whatever the connection's cache time says; left out, the connection's applies. A soft seam: older Engines
+//        ignore the option. No permission.
+// 1.816: an image request's `animation` ({ frameCount?, frameDurationMs? }): one looping GIF, drawn from the
+//        prompt alone, from GPT Image 2.6 on an OpenAI connection; refused before any paid call when the
+//        connection can't make one or a picture is sent (the avatar-generation route answers 400 code
+//        "animation-unsupported"), and an error when the service answers with a still. And the server
+//        runtime host's `capabilityApi`. A soft seam: older Engines ignore `animation` and paint a still,
+//        so a package checks `__MARINARA_HOST__.capabilityApi` (client) or `api.runtime.capabilityApi`
+//        (server, absent on older Engines) before asking. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1307,13 +1630,120 @@ export const capabilityPackageManifestSchema = z
         [mapPack.kit, ["kit"]],
         ...(mapPack.worlds ?? []).map((path, index): [string, Array<string | number>] => [path, ["worlds", index]]),
         ...(mapPack.tiles ? [[mapPack.tiles, ["tiles"]] as [string, Array<string | number>]] : []),
+        ...(mapPack.creatures ?? []).map((path, index): [string, Array<string | number>] => [
+          path,
+          ["creatures", index],
+        ]),
+        ...(mapPack.people ? [[mapPack.people, ["people"]] as [string, Array<string | number>]] : []),
+        ...(mapPack.dungeons ?? []).map((path, index): [string, Array<string | number>] => [path, ["dungeons", index]]),
+        ...(mapPack.rulesets ?? []).map((each, index): [string, Array<string | number>] => [
+          each.overlay,
+          ["rulesets", index, "overlay"],
+        ]),
       ];
+      if (mapPack.music) {
+        const tracks = new Set(mapPack.music.tracks.map((track) => track.id));
+        files.push(
+          ...mapPack.music.tracks.map((track, index): [string, Array<string | number>] => [
+            track.path,
+            ["music", "tracks", index, "path"],
+          ]),
+        );
+        const named: Array<[string | undefined, Array<string | number>]> = [
+          [mapPack.music.default, ["music", "default"]],
+          [mapPack.music.combat, ["music", "combat"]],
+          ...(mapPack.music.places ?? []).map((each, index): [string, Array<string | number>] => [
+            each.track,
+            ["music", "places", index, "track"],
+          ]),
+        ];
+        for (const [track, at] of named) {
+          if (track !== undefined && !tracks.has(track)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "gameSurface", "mapPack", ...at],
+              message: `No track "${track}" in the map pack's music`,
+            });
+          }
+        }
+        if (tracks.size !== mapPack.music.tracks.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "gameSurface", "mapPack", "music", "tracks"],
+            message: "Two tracks share an id",
+          });
+        }
+      }
+      if (mapPack.music && (!api || api.major !== 1 || api.minor < 345)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "music"],
+          message: "A map pack's music requires capabilityApi 1.345 or newer",
+        });
+      }
+      if (mapPack.dungeons && (!api || api.major !== 1 || api.minor < 357)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "dungeons"],
+          message: "A map pack's dungeon looks require capabilityApi 1.357 or newer",
+        });
+      }
+      if (mapPack.rulesets && (!api || api.major !== 1 || api.minor < 355)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "rulesets"],
+          message: "A map pack's ruleset overlays require capabilityApi 1.355 or newer",
+        });
+      }
+      if (new Set((mapPack.rulesets ?? []).map((each) => each.ruleset)).size !== (mapPack.rulesets ?? []).length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "rulesets"],
+          message: "Two overlays are for the same ruleset",
+        });
+      }
+      if (mapPack.people && (!api || api.major !== 1 || api.minor < 346)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "people"],
+          message: "A map pack's people require capabilityApi 1.346 or newer",
+        });
+      }
+      if (mapPack.creatures && api && api.major === 1 && api.minor < 344) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "creatures"],
+          message: "A map pack's creature packs require capabilityApi 1.344 or newer",
+        });
+      }
       for (const [path, at] of files) {
         if (!declared.has(path)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["contributions", "gameSurface", "mapPack", ...at],
             message: `${path} must also be declared in contributions.assets.paths`,
+          });
+        }
+      }
+    }
+    // Audio assets (1.345): only an Engine this new serves them, each kept to a size a page can stream.
+    const audio = (manifest.contributions?.assets?.paths ?? []).filter((path) => AUDIO_ASSET.test(path));
+    if (audio.length) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 345) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: "Audio assets require schemaVersion 2 and capabilityApi 1.345 or newer",
+        });
+      }
+      for (const path of audio) {
+        const file = manifest.files.find((each) => each.path === path);
+        if (file && file.bytes > CAPABILITY_AUDIO_ASSET_MAX_BYTES) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "assets", "paths"],
+            message: `${path} is larger than an audio asset can be (16 MB)`,
           });
         }
       }
@@ -1333,6 +1763,13 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "gameSurface", "setup", "config"],
           message: "Experience config cannot override the declared seed key",
+        });
+      }
+      if (setup.defaults && (!api || api.major !== 1 || api.minor < 372)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "setup", "defaults"],
+          message: "Experience setup defaults require capabilityApi 1.372 or newer",
         });
       }
     }
@@ -1399,10 +1836,48 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    // A data-only Experience (1.373): Game Mode's own view plays it, so it has nothing to run and may hold
+    // nothing that could. Everything else about it is an Experience package's as before.
+    if (manifest.kind.includes("experience")) {
+      const issue = (path: Array<string | number>, message: string) =>
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 373) {
+        issue(["kind"], "A data-only Experience requires schemaVersion 2 and capabilityApi 1.373 or newer");
+      }
+      if (manifest.kind.length !== 1) issue(["kind"], "A data-only Experience is an Experience and nothing else");
+      for (const [key, value] of Object.entries(manifest.entrypoints)) {
+        if (value !== undefined) issue(["entrypoints", key], "A data-only Experience carries no code");
+      }
+      if (manifest.permissions.length) issue(["permissions"], "A data-only Experience asks for no permissions");
+      if (manifest.restartRequired) issue(["restartRequired"], "A data-only Experience never needs a restart");
+      const slots = manifest.contributions?.slots ?? [];
+      if (slots.length !== 1 || slots[0] !== "game-surface") {
+        issue(["contributions", "slots"], 'A data-only Experience fills the "game-surface" slot and nothing else');
+      }
+      if (manifest.contributions?.gameSurface?.prepareBeforeStart) {
+        issue(["contributions", "gameSurface", "prepareBeforeStart"], "A data-only Experience has nothing to prepare");
+      }
+      manifest.files.forEach((file, index) => {
+        if (!DATA_ONLY_EXPERIENCE_FILE.test(file.path)) {
+          issue(["files", index, "path"], `${file.path} is not a picture, music or data file`);
+        }
+        // An Experience file writes each path as a key without escapes, so a path that would need one
+        // (a quote, a backslash, a control character or a lone surrogate) cannot travel in it.
+        if (JSON.stringify(file.path) !== `"${file.path}"`) {
+          issue(["files", index, "path"], `${JSON.stringify(file.path)} has a character a file name cannot carry`);
+        }
+      });
+    }
     // A game-surface package draws the whole mode from its client bundle: without a client entrypoint the
     // module loader skips it, so it would be offered in the setup wizard and then render nothing. Caught
-    // here so it fails at install with a clear reason rather than as an empty screen later.
-    if (manifest.contributions?.slots?.includes("game-surface") && !manifest.entrypoints.client?.trim()) {
+    // here so it fails at install with a clear reason rather than as an empty screen later. A data-only
+    // Experience (1.373) is the one game surface Game Mode draws itself.
+    if (
+      manifest.contributions?.slots?.includes("game-surface") &&
+      !manifest.kind.includes("experience") &&
+      !manifest.entrypoints.client?.trim()
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["entrypoints", "client"],
@@ -1543,7 +2018,41 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    // A ruleset package file's translations (1.811) ship beside its ruleset. Only a ruleset package's are:
+    // another package's locales/ folder is its own business. The catalog never carries them inside the
+    // file: its rulesets list language packs instead.
+    if (
+      manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH) &&
+      manifest.contributions.assets.paths.some(isRulesetLocaleAssetPath)
+    ) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 811)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message:
+            "A ruleset file's translations (locales/<language>.json) require schemaVersion 2 and capabilityApi 1.811 or newer",
+        });
+      }
+    }
   });
+
+/** One language pack of a catalog ruleset (1.811): where it is, pinned by its sha256 and size, and the
+ *  store card's name and description in its language. */
+const capabilityCatalogLocalePackSchema = z
+  .object({
+    url: z
+      .string()
+      .url()
+      .refine((url) => url.startsWith("https://"), { message: "A language pack is fetched over https" }),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    bytes: z.number().int().positive().max(RULESET_LOCALE_MAX_BYTES),
+    // The store card's text in this language. One that is not usable (empty, too long, not text) is
+    // left out, so the card reads in English rather than hiding the whole package.
+    name: z.string().min(1).max(120).optional().catch(undefined),
+    description: z.string().max(2000).optional().catch(undefined),
+  })
+  .strict();
 
 export const capabilityCatalogPackageSchema = z
   .object({
@@ -1562,8 +2071,52 @@ export const capabilityCatalogPackageSchema = z
       .strict(),
     iconUrl: z.string().url().optional(),
     documentationUrl: z.string().url().optional(),
+    /** A ruleset's language packs (1.811), by language: each `<id>-<version>.<lang>.json`, fetched only in
+     *  the Engine's language, with the store card's name and description in it. English is the ruleset. */
+    locales: z
+      .record(z.string(), capabilityCatalogLocalePackSchema)
+      .refine((locales) => Object.keys(locales).length <= RULESET_LOCALE_MAX_FILES, {
+        message: `A ruleset lists at most ${RULESET_LOCALE_MAX_FILES} language packs`,
+      })
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (!entry.locales) return;
+    const { manifest } = entry;
+    const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+    if (!manifest.kind.includes("ruleset") || !api || api.major < 1 || (api.major === 1 && api.minor < 811)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["locales"],
+        message: "Language packs belong to a ruleset of schemaVersion 2 and capabilityApi 1.811 or newer",
+      });
+    }
+    for (const [locale, pack] of Object.entries(entry.locales)) {
+      if (locale === "en" || !isRulesetLocaleCode(locale)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["locales", locale],
+          message: `"${locale}" is not a language a pack is listed under (English is the ruleset itself)`,
+        });
+        continue;
+      }
+      // The pack is the ruleset version's own, named as the catalog build names it.
+      let pathname = "";
+      try {
+        pathname = new URL(pack.url).pathname;
+      } catch {
+        // The url schema has already said so.
+      }
+      if (!pathname.endsWith(`/${manifest.id}-${manifest.version}.${locale}.json`)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["locales", locale, "url"],
+          message: `The ${locale} pack is not ${manifest.id}-${manifest.version}.${locale}.json`,
+        });
+      }
+    }
+  });
 
 export const capabilityCatalogSchema = z
   .object({
@@ -1692,6 +2245,8 @@ export const packagedAgentDefinitionSchema = z
     runInterval: z.number().int().positive().optional(),
     defaultPromptTemplate: z.string(),
     execution: z.enum(["pipeline", "feature", "host"]).optional(),
+    /** The kind of Model the agent cannot run without; the Engine shows a "Needs a … model" chip until one is set. */
+    requiresConnection: z.enum(["image", "video", "audio", "decision"]).optional(),
   })
   .strict();
 
@@ -1710,9 +2265,62 @@ export type CapabilityCatalog = z.infer<typeof capabilityCatalogSchema>;
  *  its own entries. The Engine assigns it from the source URL and nowhere else,
  *  so a value arriving on the wire is rejected by the strict entry schema and
  *  can never reach a consumer. */
-export type StampedCapabilityCatalogPackage = CapabilityCatalogPackage & { preview?: true };
+export type StampedCapabilityCatalogPackage = CapabilityCatalogPackage & {
+  preview?: true;
+  store?: CapabilityStoreListing;
+};
+
+/** Agent Organizer sections, in display order. */
+export const CAPABILITY_STORE_SECTIONS = [
+  "apps",
+  "games",
+  "writing",
+  "memory",
+  "trackers",
+  "adventure",
+  "media",
+  "alive",
+] as const;
+export type CapabilityStoreSection = (typeof CAPABILITY_STORE_SECTIONS)[number];
+
+/**
+ * One package's entry in the `store.json` sidecar beside a catalog.json. Paths are
+ * relative to the sidecar URL. Unknown keys are dropped (not rejected), so the Agents
+ * repo can add fields without breaking Engines that predate them. Untrusted remote data.
+ */
+export const capabilityStoreEntrySchema = z.object({
+  section: z.enum(CAPABILITY_STORE_SECTIONS),
+  tagline: z.string().trim().min(1).max(120),
+  featured: z.number().int().positive().max(1000).optional(),
+  iconPath: z.string().min(1).max(512).optional(),
+  bannerPath: z.string().min(1).max(512).optional(),
+  bannerSmallPath: z.string().min(1).max(512).optional(),
+  previews: z.array(z.string().min(1).max(512)).max(4).optional(),
+});
+
+/** A starter kit: a named set of packages the Organizer installs together. */
+export const capabilityStoreKitSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(80),
+  tagline: z.string().trim().max(160).default(""),
+  packages: z.array(z.string().min(1).max(80)).min(1).max(20),
+});
+export type CapabilityStoreKit = z.infer<typeof capabilityStoreKitSchema>;
+
+/** Store data as the Engine serves it: image paths resolved to absolute URLs. */
+export interface CapabilityStoreListing {
+  section: CapabilityStoreSection;
+  tagline: string;
+  featured?: number;
+  iconUrl?: string;
+  bannerUrl?: string;
+  bannerSmallUrl?: string;
+  previewUrls?: string[];
+}
 export type StampedCapabilityCatalog = Omit<CapabilityCatalog, "packages"> & {
   packages: StampedCapabilityCatalogPackage[];
+  /** Starter kits from the published store sidecar; packages not in the catalog are dropped. */
+  kits?: CapabilityStoreKit[];
 };
 export type InstalledCapabilityPackage = z.infer<typeof installedCapabilityPackageSchema>;
 export type PackagedAgentDefinition = z.infer<typeof packagedAgentDefinitionSchema>;

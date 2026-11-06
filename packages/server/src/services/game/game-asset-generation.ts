@@ -11,10 +11,16 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
-import { basename, join } from "path";
+import { basename, extname, join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { generateImage, type ImageGenRequest, type ImageGenResult } from "../image/image-generation.js";
+import { formatGeneratedImageForStorage } from "../image/generated-image-format.js";
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
+import {
+  moveBackgroundAssignment,
+  readBackgroundLibraryOrganization,
+  writeBackgroundLibraryOrganization,
+} from "../background-library-organization.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import {
   loadPrompt,
@@ -34,7 +40,6 @@ import type { ImageGenerationSize } from "../image/image-generation-settings.js"
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import { loadGameStoryboardImagePrompt } from "../image/game-storyboard-image-prompt.js";
 import { SPATIAL_LOCATION_REFERENCE_PROMPT_LINE } from "../image/spatial-location-reference.js";
-import { compactImagePromptInstructions } from "../sidecar/scene-analyzer.js";
 
 const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
 const CHAT_BACKGROUND_DIR = join(DATA_DIR, "backgrounds");
@@ -50,7 +55,6 @@ const GAME_BACKGROUND_NEGATIVE_PROMPT =
   "text, letters, captions, subtitles, UI, watermark, logo, signature, foreground character, main character, named character, portrait, close-up person, posed subject, split screen, panel, collage, contact sheet, grid, multiple frames, low quality";
 const GAME_ILLUSTRATION_NEGATIVE_PROMPT =
   "text, letters, captions, subtitles, UI, watermark, logo, signature, speech bubble, split screen, panel, collage, contact sheet, character sheet, grid, four images, duplicated face, extra head, unrelated character, bad anatomy, low quality";
-const MAX_SCENE_ILLUSTRATION_APPEARANCE_NOTES_CHARS = 4800;
 const MAX_GENERATED_ASSET_SLUG_BYTES = 180;
 const DEFAULT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 4;
 const OPENAI_COMPAT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 16;
@@ -223,24 +227,28 @@ function normalizeGeneratedImageExt(result: Pick<ImageGenResult, "mimeType" | "e
   return "png";
 }
 
-/** Resize generated backgrounds through sharp when available, preserving original format otherwise. */
+/** Resize generated backgrounds through sharp when available, then encode them once in the chosen storage format.
+ *  Callers request the provider's own output, so the WebP setting never re-encodes a lossy copy as PNG. */
 async function gameBackgroundImage(result: ImageGenResult, size: ImageGenerationSize): Promise<GameBackgroundImage> {
-  const input = Buffer.from(result.base64, "base64");
+  let resized = result;
   const sharp = await getSharp();
-  if (!sharp) return { buffer: input, ext: normalizeGeneratedImageExt(result, input) };
-  try {
-    const buffer = await sharp(input, {
-      limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS,
-      failOn: "warning",
-    })
-      .resize(size.width, size.height, { fit: "cover", position: "centre" })
-      .png()
-      .toBuffer();
-    return { buffer, ext: "png" };
-  } catch (err) {
-    logger.warn(err, "[game-asset-gen] Failed to resize generated game background; saving original image");
-    return { buffer: input, ext: normalizeGeneratedImageExt(result, input) };
+  if (sharp) {
+    try {
+      const buffer = await sharp(Buffer.from(result.base64, "base64"), {
+        limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS,
+        failOn: "warning",
+      })
+        .resize(size.width, size.height, { fit: "cover", position: "centre" })
+        .png()
+        .toBuffer();
+      resized = { ...result, base64: buffer.toString("base64"), mimeType: "image/png", ext: "png" };
+    } catch (err) {
+      logger.warn(err, "[game-asset-gen] Failed to resize generated game background; saving original image");
+    }
   }
+  const stored = await formatGeneratedImageForStorage(resized);
+  const buffer = Buffer.from(stored.base64, "base64");
+  return { buffer, ext: normalizeGeneratedImageExt(stored, buffer) };
 }
 
 /** Build the generated game background file path for a slug and extension. */
@@ -255,6 +263,32 @@ function existingGeneratedBackgroundPath(targetDir: string, slug: string): strin
     if (isUsableGeneratedImagePath(candidate)) return candidate;
   }
   return null;
+}
+
+/** After a new background is written, delete other-format copies of the slug so every lookup finds the new file.
+ *  Returns the removed filenames. */
+function removeOtherGeneratedBackgroundFormats(targetDir: string, slug: string, keptExt: string): string[] {
+  const removed: string[] = [];
+  for (const ext of GENERATED_GAME_BACKGROUND_EXTS) {
+    if (ext === keptExt) continue;
+    const candidate = generatedBackgroundPath(targetDir, slug, ext);
+    if (!existsSync(candidate)) continue;
+    try {
+      unlinkSync(candidate);
+      removed.push(basename(candidate));
+    } catch (err) {
+      logger.warn(err, "[game-asset-gen] Could not remove the previous background %s", candidate);
+    }
+  }
+  return removed;
+}
+
+/** A chat or setting can still name a generated background that a regeneration replaced with another format.
+ *  Returns the replacement file, or null. */
+export function replacedGeneratedChatBackgroundPath(filename: string): string | null {
+  const ext = extname(filename).slice(1).toLowerCase();
+  if (!filename.startsWith("generated-") || !GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  return existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, filename.slice(0, -ext.length - 1));
 }
 
 function existingGeneratedPortraitPath(targetDir: string, slug: string): string | null {
@@ -548,6 +582,7 @@ export type GameDynamicImagePromptRequest = {
   title: string;
   sourcePrompt: string;
   assetContext: string[];
+  /** Legacy template variable and draft-context budget; does not truncate the returned image prompt. */
   maxCharacters: number;
 };
 
@@ -587,7 +622,6 @@ export async function buildNpcPortraitProviderPrompt(req: NpcPortraitRequest): P
     req.dynamicPromptGenerator ? { ...req, appearance: null, preserveFullSourcePrompt: true } : req,
     "portrait",
     prompt,
-    1400,
     GAME_PORTRAIT_NEGATIVE_PROMPT,
   );
 }
@@ -610,24 +644,14 @@ function compileGameImagePrompt(
   },
   kind: "portrait" | "background" | "illustration",
   prompt: string,
-  maxLength: number,
   hardNegative?: string,
   negativePrompt?: string | null,
 ) {
   const canonicalAppearance = kind === "portrait" && typeof req.appearance === "string" ? req.appearance.trim() : "";
-  const protectedCanonicalAppearance = canonicalAppearance.slice(0, 700);
-  const canonicalPrefix = protectedCanonicalAppearance
-    ? `Required canonical NPC visual profile: ${protectedCanonicalAppearance}`
-    : "";
+  const canonicalPrefix = canonicalAppearance ? `Required canonical NPC visual profile: ${canonicalAppearance}` : "";
   if (!req.styleProfiles) {
     return {
-      prompt: prependCanonicalAppearanceIfMissing(
-        prompt,
-        protectedCanonicalAppearance,
-        canonicalPrefix,
-        maxLength,
-        ". ",
-      ),
+      prompt: prependCanonicalAppearanceIfMissing(prompt, canonicalAppearance, canonicalPrefix, ". "),
       negativePrompt: [negativePrompt, hardNegative].filter(Boolean).join(", "),
     };
   }
@@ -635,33 +659,23 @@ function compileGameImagePrompt(
     req.preserveFullSourcePrompt ||
     ((kind === "illustration" || kind === "background") && req.preserveFullScenePrompt)
   ) {
-    const compilePrefix = (dedupeAgainstPrompt: string) =>
-      compileImagePrompt({
-        kind,
-        prompt: "",
-        dedupeAgainstPrompt,
-        negativePrompt,
-        hardNegative,
-        styleProfiles: req.styleProfiles!,
-        styleProfileId: req.styleProfileId,
-        imageDefaults: req.imgDefaults,
-        generatedStyle: req.artStyle,
-        applyPromptModeToSourcePrompt: false,
-        omitProfileStyleText: req.omitProfileStyleText,
-        omitProfileSubjectTags: req.omitProfileSubjectTags,
-      });
-    // The preliminary prefix determines how much preserved source text can actually fit.
-    // Compare against only that guaranteed slice so truncation cannot remove the sole style copy.
-    const preliminaryPrefix = compilePrefix(prompt);
-    const preliminaryHeader = [canonicalPrefix, preliminaryPrefix.prompt].filter(Boolean).join(", ");
-    const guaranteedSourceLength = Math.max(
-      0,
-      maxLength - preliminaryHeader.length - (preliminaryHeader && prompt.trim() ? 2 : 0),
-    );
-    const compiledPrefix = compilePrefix(prompt.trim().slice(0, guaranteedSourceLength));
+    const compiledPrefix = compileImagePrompt({
+      kind,
+      prompt: "",
+      dedupeAgainstPrompt: prompt,
+      negativePrompt,
+      hardNegative,
+      styleProfiles: req.styleProfiles!,
+      styleProfileId: req.styleProfileId,
+      imageDefaults: req.imgDefaults,
+      generatedStyle: req.artStyle,
+      applyPromptModeToSourcePrompt: false,
+      omitProfileStyleText: req.omitProfileStyleText,
+      omitProfileSubjectTags: req.omitProfileSubjectTags,
+    });
     const protectedPrompt = [canonicalPrefix, compiledPrefix.prompt, prompt.trim()].filter(Boolean).join(", ");
     return {
-      prompt: protectedPrompt.slice(0, maxLength),
+      prompt: protectedPrompt,
       negativePrompt: compiledPrefix.negativePrompt,
     };
   }
@@ -681,13 +695,7 @@ function compileGameImagePrompt(
     omitProfileSubjectTags: req.omitProfileSubjectTags,
   });
   return {
-    prompt: prependCanonicalAppearanceIfMissing(
-      compiled.prompt,
-      protectedCanonicalAppearance,
-      canonicalPrefix,
-      maxLength,
-      ", ",
-    ),
+    prompt: prependCanonicalAppearanceIfMissing(compiled.prompt, canonicalAppearance, canonicalPrefix, ", "),
     negativePrompt: compiled.negativePrompt,
   };
 }
@@ -696,16 +704,12 @@ function prependCanonicalAppearanceIfMissing(
   prompt: string,
   canonicalAppearance: string,
   canonicalPrefix: string,
-  maxLength: number,
   separator: string,
 ): string {
-  // Inspect the provider-visible slice. If identity is missing, rebuild from the original
-  // prompt so prefixing still happens before the single final maxLength truncation.
-  const truncatedPrompt = prompt.slice(0, maxLength);
-  if (!canonicalPrefix || promptContainsCanonicalAppearance(truncatedPrompt, canonicalAppearance)) {
-    return truncatedPrompt;
+  if (!canonicalPrefix || promptContainsCanonicalAppearance(prompt, canonicalAppearance)) {
+    return prompt;
   }
-  return [canonicalPrefix, prompt].filter(Boolean).join(separator).slice(0, maxLength);
+  return [canonicalPrefix, prompt].filter(Boolean).join(separator);
 }
 
 function promptContainsCanonicalAppearance(prompt: string, canonicalAppearance: string): boolean {
@@ -729,7 +733,7 @@ async function maybeGenerateDynamicGameImagePrompt(
 ): Promise<string> {
   if (!generator) return request.sourcePrompt;
   try {
-    const generated = cleanDynamicGameImagePrompt(await generator(request), request.maxCharacters);
+    const generated = cleanDynamicGameImagePrompt(await generator(request));
     if (!generated) throw new Error("Dynamic image prompt generation returned no usable prompt");
     return generated;
   } catch (err) {
@@ -738,7 +742,7 @@ async function maybeGenerateDynamicGameImagePrompt(
   }
 }
 
-function cleanDynamicGameImagePrompt(value: string | null | undefined, maxCharacters: number): string | null {
+function cleanDynamicGameImagePrompt(value: string | null | undefined): string | null {
   const clean = (value ?? "")
     .replace(/^```(?:json|text)?/i, "")
     .replace(/```$/i, "")
@@ -746,7 +750,7 @@ function cleanDynamicGameImagePrompt(value: string | null | undefined, maxCharac
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (clean.length < 20) return null;
-  return clean.slice(0, Math.max(1, maxCharacters)).trim() || null;
+  return clean;
 }
 
 /**
@@ -999,7 +1003,7 @@ async function buildBackgroundRawPrompt(req: BackgroundGenRequest): Promise<stri
     ? await loadPrompt(req.promptOverridesStorage, GAME_BACKGROUND, backgroundVars)
     : GAME_BACKGROUND.defaultBuilder(backgroundVars);
   const imagePromptInstructionsLine = req.imagePromptInstructions?.trim()
-    ? `User image instructions: ${compactImagePromptInstructions(req.imagePromptInstructions)}`
+    ? `User image instructions: ${req.imagePromptInstructions.trim()}`
     : "";
   return imagePromptInstructionsLine && !rawPrompt.includes(imagePromptInstructionsLine)
     ? `${rawPrompt}\n${imagePromptInstructionsLine}`
@@ -1078,7 +1082,6 @@ export async function buildBackgroundProviderPrompt(req: BackgroundGenRequest): 
         : req,
     "background",
     prompt,
-    req.preserveFullBackgroundPrompt || req.preserveFullScenePrompt ? 7000 : 1000,
     GAME_BACKGROUND_NEGATIVE_PROMPT,
   );
 }
@@ -1087,46 +1090,15 @@ export async function buildBackgroundImagePrompt(req: BackgroundGenRequest): Pro
   return (await buildBackgroundProviderPrompt(req)).prompt;
 }
 
-function truncateSceneIllustrationAppearanceLine(value: string, maxLength: number): string {
-  const clean = value.trim().replace(/\s+/g, " ");
-  if (clean.length <= maxLength) return clean;
-  if (maxLength <= 3) return ".".repeat(Math.max(0, maxLength));
-  const clipped = clean.slice(0, maxLength - 3).trimEnd();
-  const wordBoundary = clipped.lastIndexOf(" ");
-  return `${(wordBoundary > 0 ? clipped.slice(0, wordBoundary) : clipped).trimEnd()}...`;
-}
-
 function buildSceneIllustrationAppearanceNotes(characterDescriptions: string[] | undefined): string {
   const header = "Character appearance notes:\n";
   const lines = Array.from(
     new Set(
       (characterDescriptions ?? []).map((description) => description.trim().replace(/\s+/g, " ")).filter(Boolean),
     ),
-  ).slice(0, 16);
+  );
   if (!lines.length) return "";
-
-  const separatorChars = Math.max(0, lines.length - 1);
-  let remainingBudget = MAX_SCENE_ILLUSTRATION_APPEARANCE_NOTES_CHARS - header.length - separatorChars;
-  let remainingIndexes = lines.map((_, index) => index);
-  const allocations = new Array<number>(lines.length).fill(0);
-  while (remainingIndexes.length) {
-    const fairShare = Math.floor(remainingBudget / remainingIndexes.length);
-    const completed = remainingIndexes.filter((index) => lines[index]!.length <= fairShare);
-    if (!completed.length) {
-      for (const index of remainingIndexes) allocations[index] = fairShare;
-      break;
-    }
-    for (const index of completed) {
-      allocations[index] = lines[index]!.length;
-      remainingBudget -= allocations[index]!;
-    }
-    remainingIndexes = remainingIndexes.filter((index) => !completed.includes(index));
-  }
-
-  return `${header}${lines
-    .map((line, index) => truncateSceneIllustrationAppearanceLine(line, allocations[index]!))
-    .filter(Boolean)
-    .join("\n")}`;
+  return `${header}${lines.join("\n")}`;
 }
 
 async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest): Promise<string> {
@@ -1137,7 +1109,7 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
   const referenceImages = sceneIllustrationReferenceImagesForProvider(req);
   const characterReferenceImagesAttached = referenceImages.length > (req.locationReferenceImageAttached ? 1 : 0);
   const imagePromptInstructionsLine = req.imagePromptInstructions?.trim()
-    ? `User image instructions: ${compactImagePromptInstructions(req.imagePromptInstructions)}`
+    ? `User image instructions: ${req.imagePromptInstructions.trim()}`
     : "";
   const useGamePromptTemplate = req.useGamePromptTemplate !== false;
   const scopedScenePrompt = req.prompt.trim();
@@ -1267,7 +1239,6 @@ export async function buildSceneIllustrationProviderPrompt(
     req.dynamicPromptGenerator ? { ...req, preserveFullSourcePrompt: true } : req,
     "illustration",
     prompt,
-    7000,
     GAME_ILLUSTRATION_NEGATIVE_PROMPT,
   );
 }
@@ -1326,6 +1297,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
         quality: req.imgQuality,
         fallback: req.imgFallback,
         signal: req.signal,
+        preserveProviderOutput: true,
       },
     );
 
@@ -1333,6 +1305,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
     const image = await gameBackgroundImage(result, size);
     const targetPath = generatedBackgroundPath(targetDir, slug, image.ext);
     atomicWriteBuffer(targetPath, image.buffer);
+    removeOtherGeneratedBackgroundFormats(targetDir, slug, image.ext);
 
     // Rebuild manifest so the new tag is available immediately
     buildAssetManifest();
@@ -1397,6 +1370,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
         quality: req.imgQuality,
         fallback: req.imgFallback,
         signal: req.signal,
+        preserveProviderOutput: true,
       },
     );
 
@@ -1404,11 +1378,21 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     const filename = `${slug}.${image.ext}`;
     atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
+    const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext);
     const meta = readChatBackgroundMeta();
+    for (const removed of replaced) delete meta[removed];
     meta[filename] = {
       tags: chatBackgroundTags(req, baseSlug),
     };
     writeChatBackgroundMeta(meta);
+    if (replaced.length > 0) {
+      // The new file takes over the replaced file's folder and star, as a rename does.
+      let organization = readBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR);
+      for (const removed of replaced) {
+        organization = moveBackgroundAssignment(organization, `user:${removed}`, `user:${filename}`);
+      }
+      writeBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR, organization);
+    }
 
     buildAssetManifest();
     logger.info('[background-agent] Generated roleplay background "%s"', filename);
@@ -1468,6 +1452,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
         signal: req.signal,
         referenceImages: referenceImages.length ? referenceImages : undefined,
         characterPrompts: req.characterPrompts,
+        preserveProviderOutput: true,
       },
     );
 

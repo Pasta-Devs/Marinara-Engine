@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { PROFESSOR_MARI_ID } from "../../../packages/shared/src/constants/defaults.js";
 import {
+  formatMariQuestionAnswers,
   sanitizeMariGuidedPlan,
+  sanitizeMariQuestions,
   sanitizeMariSuggestionChips,
 } from "../../../packages/shared/src/types/professor-mari-workspace.js";
 import { useAgentStore } from "../../../packages/client/src/stores/agent.store.ts";
@@ -35,6 +37,49 @@ useAgentStore.getState().resetForChatChange();
 assert.equal(useAgentStore.getState().mariChipsChatId, null);
 assert.equal(useAgentStore.getState().mariPlanChatId, null);
 assert.equal(useAgentStore.getState().mariPlanCursor, 0);
+
+const questions = sanitizeMariQuestions({
+  questions: [
+    { question: "One option", options: [{ label: "Only" }] },
+    { question: "Tone?", options: ["Dark", { label: "Light", detail: " a  b ", recommended: true }, "Dark"] },
+    {
+      question: "Genres?",
+      multiSelect: true,
+      options: [
+        { label: "A", recommended: true },
+        { label: "B", recommended: true },
+        { label: "C" },
+        { label: "D" },
+        { label: "E" },
+      ],
+    },
+    { question: "Three?", options: ["x", "y"] },
+    { question: "Four?", options: ["x", "y"] },
+    { question: "Five?", options: ["x", "y"] },
+  ],
+});
+assert.deepEqual(
+  questions.map((question) => question.id),
+  ["question-1", "question-2", "question-3", "question-4"],
+  "at most four questions, and one with too few options is dropped",
+);
+assert.deepEqual(questions[0], {
+  id: "question-1",
+  question: "Tone?",
+  options: [{ label: "Dark" }, { label: "Light", detail: "a b", recommended: true }],
+});
+assert.equal(questions[1]!.multiple, true);
+assert.equal(questions[1]!.options.length, 4, "at most four options");
+assert.equal(questions[1]!.options.filter((option) => option.recommended).length, 1, "one recommended option");
+assert.deepEqual(sanitizeMariQuestions("nope"), []);
+assert.equal(
+  formatMariQuestionAnswers(questions, {
+    "question-1": ["  dark and gritty "],
+    "question-2": ["A", "B"],
+    "question-3": [],
+  }),
+  "Tone? → dark and gritty\nGenres? → A, B",
+);
 
 const shouldShowMariSuggestions = (characterIds: string[], enabled: boolean) =>
   enabled && characterIds.includes(PROFESSOR_MARI_ID);

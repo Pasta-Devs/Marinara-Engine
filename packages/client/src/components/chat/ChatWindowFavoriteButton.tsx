@@ -7,6 +7,7 @@ import {
   parseChatWindowDefault,
   type ChatMode,
   type ChatWindowDefault,
+  type ScopedRegexMode,
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import {
@@ -16,8 +17,19 @@ import {
 } from "../../lib/floating-window-layout";
 import { selectWindowLayoutSnapshot, useFloatingWindowStore } from "../../stores/floating-window.store";
 
-/** Save an arrangement for future chats without changing any existing chat or profile. */
-export function ChatWindowFavoriteButton({ mode, hintsDismissed }: { mode: ChatMode; hintsDismissed: boolean }) {
+/**
+ * Save an arrangement for future chats without changing any existing chat or profile. It carries the
+ * chat's Scoped Regex Scripts choice too (#8676); `null` means the chat follows its prompt preset.
+ */
+export function ChatWindowFavoriteButton({
+  mode,
+  hintsDismissed,
+  scopedRegexMode,
+}: {
+  mode: ChatMode;
+  hintsDismissed: boolean;
+  scopedRegexMode: ScopedRegexMode | null;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const settingsKey = getChatWindowDefaultSettingsKey(mode);
@@ -42,6 +54,7 @@ export function ChatWindowFavoriteButton({ mode, hintsDismissed }: { mode: ChatM
   const matches =
     !!favorite.data &&
     favorite.data.chatSettingsHintDismissed === hintsDismissed &&
+    (favorite.data.scopedRegexMode ?? null) === scopedRegexMode &&
     serializeWindowLayoutSnapshot(savedLayout) === serializeWindowLayoutSnapshot(comparableLayout);
   const modeName = t(`settings.modes.${mode}`);
   const save = useMutation({
@@ -79,6 +92,7 @@ export function ChatWindowFavoriteButton({ mode, hintsDismissed }: { mode: ChatM
             : {
                 windowLayout: isEmptyWindowLayoutSnapshot(layout) ? null : layout,
                 chatSettingsHintDismissed: hintsDismissed,
+                ...(scopedRegexMode && { scopedRegexMode }),
               },
         })
       }

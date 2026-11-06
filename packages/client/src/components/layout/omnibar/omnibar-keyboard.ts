@@ -17,7 +17,6 @@ type OmnibarKeyHandlerInput = {
   activeResult: RankedOmnibarResult | undefined;
   expandedPreviewId: string | null;
   expandedChoiceId: string | null;
-  mariEnabled: boolean;
   asideSettled: boolean;
   setQuery: (query: string) => void;
   setPane: (pane: OmnibarPane) => void;
@@ -52,7 +51,6 @@ export function createOmnibarKeyHandlers({
   activeResult,
   expandedPreviewId,
   expandedChoiceId,
-  mariEnabled,
   asideSettled,
   setQuery,
   setPane,
@@ -121,7 +119,6 @@ export function createOmnibarKeyHandlers({
       event.preventDefault();
       moveSelection(results.length - 1);
     } else if (
-      mariEnabled &&
       pane === "results" &&
       event.key === "Enter" &&
       (event.metaKey || event.ctrlKey) &&
@@ -133,7 +130,6 @@ export function createOmnibarKeyHandlers({
       event.preventDefault();
       escalateAside();
     } else if (
-      mariEnabled &&
       pane === "results" &&
       event.key === "Enter" &&
       (event.metaKey || event.ctrlKey) &&
@@ -143,7 +139,7 @@ export function createOmnibarKeyHandlers({
       // Continue the selected result with Mari without opening the detail pane first.
       event.preventDefault();
       askMariAbout(resolveCurrentResult(activeResult));
-    } else if (pane === "results" && event.key === "Enter" && !activeResult && mariEnabled && query.trim()) {
+    } else if (pane === "results" && event.key === "Enter" && !activeResult && query.trim()) {
       // Nothing ranked at all, so Enter still reaches Mari by the one door.
       event.preventDefault();
       askMariAbout(null);
@@ -169,7 +165,7 @@ export function createOmnibarKeyHandlers({
       if (activeResult.control?.type === "toggle") flipToggleControl(activeResult, activeResult.control.value !== true);
       else if (activeResult.control?.type === "choice")
         setExpandedChoiceId((current) => (current === activeResult.id ? null : activeResult.id));
-      else if (mariEnabled && activeResult.id === "ask-professor-mari") {
+      else if (activeResult.id === "ask-professor-mari") {
         // An answer grown inside the promoted row goes along with the question (G3).
         if (asideSettled && activeResult.group !== "continue") escalateAside();
         else openProfessorMari(null, { submitDraft: true });

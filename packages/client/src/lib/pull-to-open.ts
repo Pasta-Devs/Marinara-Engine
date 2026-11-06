@@ -84,11 +84,9 @@ export const PULL_SIDE_FROM = 0.35;
 
 /**
  * The target for a finger at `x` on a bar `width` wide: left half search, right
- * half Mari, with a dead zone around the middle so it cannot flicker. Without
- * Mari the whole bar is search.
+ * half Mari, with a dead zone around the middle so it cannot flicker.
  */
-export function pullTarget(current: PullTarget | null, x: number, width: number, mariEnabled: boolean): PullTarget {
-  if (!mariEnabled) return "search";
+export function pullTarget(current: PullTarget | null, x: number, width: number): PullTarget {
   const middle = width / 2;
   if (current === "search") return x > middle + PULL_SIDE_DEAD_ZONE ? "mari" : "search";
   if (current === "mari") return x < middle - PULL_SIDE_DEAD_ZONE ? "search" : "mari";

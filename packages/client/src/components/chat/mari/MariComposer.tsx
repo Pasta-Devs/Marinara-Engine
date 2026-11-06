@@ -5,6 +5,7 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   MARI_PERMISSIONS_MODE_LABELS,
   MARI_PERMISSIONS_MODES,
+  type MariPendingMessageSummary,
 } from "@marinara-engine/shared";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -15,24 +16,47 @@ import {
   Link,
   ChevronDown,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
   ArrowUp,
+  Clock,
   Square,
   RotateCcw,
 } from "lucide-react";
-import type { MariPermissionsMode, Message } from "@marinara-engine/shared";
-import { RefObject, Dispatch, SetStateAction, ChangeEvent, useState, type KeyboardEvent } from "react";
+import type { ChatModelChoice, MariComposerReference, MariPermissionsMode, Message } from "@marinara-engine/shared";
+import {
+  RefObject,
+  Dispatch,
+  SetStateAction,
+  ChangeEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { MariWorkspaceContextItem } from "../../../hooks/use-mari-workspace-context";
 import { ProfessorMariContextFacet } from "../../../lib/professor-mari-presentation";
+import { RESULT_TYPE_ICONS, resourceResultType } from "../../../lib/command-icons";
+import {
+  activeToken,
+  composerKeyAction,
+  pastedFiles,
+  type ComposerMark,
+  type ComposerPickerAction,
+} from "../../../lib/composer-triggers";
+import type { MariCommandId } from "../../../lib/mari-commands";
 import { cn } from "../../../lib/utils";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
-import { useUIStore } from "../../../stores/ui.store";
-import { InlineGhostText } from "../../ui/InlineGhostText";
-import { ConnectionModelPicker } from "../../connections/ConnectionModelPicker";
+import { openAddConnection } from "../../../lib/add-connection";
+import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
+import { Modal } from "../../ui/Modal";
+import { useMatchMedia } from "../../../hooks/use-match-media";
+import { usePickModel, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
+import { useConnections } from "../../../hooks/use-connections";
+import { InlineDraftOverlay } from "../../ui/InlineDraftOverlay";
 import { MariRow } from "../mari-primitives";
+import { MariPendingQueue } from "./MariPendingQueue";
+import { MariConnectionGuidance } from "./MariConnectionGuidance";
 import { MariAttachButton } from "../MariAttachButton";
 import { MariContextFacetChips } from "../MariContextFacetChips";
 import { MariSuggestionChips } from "../MariSuggestionChips";
@@ -44,8 +68,10 @@ import {
   MARI_PERMISSIONS_MODE_ICONS,
   MARI_PERMISSIONS_MODE_FACT_KEYS,
 } from "./mari-chat-helpers";
+import { MariReferencePicker, type MariReferencePickerProps } from "./MariReferencePicker";
 import { MariRuntimeRecovery } from "./MariRuntimeRecovery";
 import { CompactMarkdown, ProfessorMariAttachmentPreviews } from "./MariReplyContent";
+import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 
 /** R11 (composer v5): her composer dock: the question strip, context chips, the field, attach, connection and mode menus, and Send/Stop. */
 type MariComposerProps = {
@@ -70,19 +96,27 @@ type MariComposerProps = {
   effectiveConnectionId: string;
   enterToSend: boolean;
   floatingTextareaRef: RefObject<HTMLTextAreaElement | null>;
-  handleAttachmentUpload: (files: FileList | null) => Promise<void>;
+  handleAttachmentUpload: (files: FileList | readonly File[] | null) => Promise<void>;
   handleConnectionChange: (id: string) => void;
   handleOpenContextViewer: () => Promise<void>;
   handleOpenHistoryPicker: () => Promise<void>;
   handleSubmit: (
     overrideText?: string,
-    overrideRecovery?: Pick<ProfessorMariRecovery, "attachments" | "context" | "localMessageId"> & {
+    overrideRecovery?: Pick<
+      ProfessorMariRecovery,
+      "attachments" | "context" | "localMessageId" | "references" | "pendingMessageId"
+    > & {
       reuseSavedMessage?: boolean;
     },
     overrideContext?: ProfessorMariAskContext | null,
+    queueLater?: boolean,
   ) => Promise<void>;
   handleSuggestionSelect: (chip: MariSuggestionChip, draft?: boolean, context?: ProfessorMariAskContext) => void;
   isBusy: boolean;
+  pendingMessages: MariPendingMessageSummary[];
+  onRemovePendingMessage: (id: string) => void;
+  onSendPendingNow: (id: string) => void;
+  onSendHeldMessage: (message: MariPendingMessageSummary) => void;
   isReadingAttachments: boolean;
   jumpToLatest: () => void;
   messages: Message[];
@@ -113,7 +147,38 @@ type MariComposerProps = {
   stopWorkspace: () => Promise<void>;
   suggestionQuestion: string | null;
   workspaceTimelineActive: boolean;
+  /** The `@` / `/` picker owns Arrow, Enter, Tab and Escape while it is open. */
+  pickerOpen?: boolean;
+  onPickerAction?: (action: ComposerPickerAction) => void;
+  onActiveTokenChange?: (token: ReturnType<typeof activeToken>) => void;
+  /** The commands the `/` picker and the paperclip menu offer, how to run one, and the counts shown beside some. */
+  availableCommands?: readonly MariCommandId[];
+  onCommand?: (id: MariCommandId) => void;
+  commandCounts?: Partial<Record<MariCommandId, number>>;
+  /** Resolved `@` references to mark in the draft. */
+  referenceMarks?: ComposerMark[];
+  /** The `@` picker's rows, its highlighted option, and the references picked so far (shown as chips). */
+  referenceUi?: {
+    picker: MariReferencePickerProps | null;
+    activeOptionId?: string;
+    canDrillIn: boolean;
+    canDrillOut: boolean;
+    /** A name just completed with Tab ends the draft: Tab again links it. */
+    canLinkCompletion?: boolean;
+    /** Where the caret goes after a pick; `n` makes the same position a new request. */
+    caretRequest: { pos: number; n: number } | null;
+    references: readonly MariComposerReference[];
+    onRemove: (reference: MariComposerReference) => void;
+  };
 };
+
+/** The link hint names the input the device has: Tab, a tap, or both. */
+function linkHintKey() {
+  if (window.matchMedia("(pointer: coarse)").matches) return "mari.composerReferences.linkHintTouch";
+  // A touch laptop reports a fine pointer but can still be tapped, so it gets both words.
+  if (window.matchMedia("(any-pointer: coarse)").matches) return "mari.composerReferences.linkHintHybrid";
+  return "mari.composerReferences.linkHint";
+}
 
 export function MariComposer({
   workspaceStatus,
@@ -133,6 +198,7 @@ export function MariComposer({
   connectionOptions,
   draft,
   draftSuffix,
+  referenceMarks = [],
   effectiveConnection,
   effectiveConnectionId,
   enterToSend,
@@ -144,6 +210,10 @@ export function MariComposer({
   handleSubmit,
   handleSuggestionSelect,
   isBusy,
+  pendingMessages,
+  onRemovePendingMessage,
+  onSendPendingNow,
+  onSendHeldMessage,
   isReadingAttachments,
   jumpToLatest,
   messages,
@@ -174,19 +244,102 @@ export function MariComposer({
   stopWorkspace,
   suggestionQuestion,
   workspaceTimelineActive,
+  pickerOpen = false,
+  onPickerAction,
+  onActiveTokenChange,
+  referenceUi,
+  availableCommands = [],
+  onCommand,
+  commandCounts,
 }: MariComposerProps) {
   const localize = useLocalizedUiText();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
-  const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
-  // The connection menu shows the chosen connection's models beside the list, like the chat input's
-  // Connections menu. A narrow composer shows one step at a time: the list, then the chosen models.
-  const [shownConnectionId, setShownConnectionId] = useState<string | null>(null);
-  // Narrow only: the row's arrow opens the models step; tapping the row itself just switches.
-  const [modelsStep, setModelsStep] = useState(false);
-  const modelsConnection = connectionOptions.find(
-    (connection) => connection.id === (shownConnectionId ?? effectiveConnectionId),
+  // While she works, Send opens this choice of now or after her answer. It only exists while she works.
+  const [sendMenuOpen, setSendMenuOpen] = useState(false);
+  const sendMenuRef = useRef<HTMLDivElement | null>(null);
+  const sendMenuPopoverRef = useRef<HTMLDivElement | null>(null);
+  const sendMenuVisible = sendMenuOpen && workspaceTimelineActive && canSubmitMessage;
+  // A cleared field or a finished run closes it, so it does not pop open again on the next message.
+  if (sendMenuOpen && !sendMenuVisible) setSendMenuOpen(false);
+  // Inside the omnibar, Escape closes this menu and not the dialog behind it.
+  const handleSendMenuKeyDown = useInDialogFocusScope(
+    sendMenuPopoverRef,
+    () => setSendMenuOpen(false),
+    sendMenuVisible,
   );
+  useEffect(() => {
+    if (!sendMenuVisible) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!sendMenuRef.current?.contains(event.target as Node)) setSendMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [sendMenuVisible]);
+  // Where the caret sits in the draft, so a live `@` / `/` token can be found.
+  const [caret, setCaret] = useState(draft.length);
+  const liveToken = activeToken(draft, Math.min(caret, draft.length));
+  const liveTokenKey = liveToken ? `${liveToken.trigger}:${liveToken.start}:${liveToken.end}:${liveToken.query}` : "";
+  // Report only when the token itself changes; the ref keeps the latest callback without re-firing on each render.
+  const tokenChangeRef = useRef(onActiveTokenChange);
+  tokenChangeRef.current = onActiveTokenChange;
+  const liveTokenRef = useRef(liveToken);
+  liveTokenRef.current = liveToken;
+  useEffect(() => {
+    tokenChangeRef.current?.(liveTokenRef.current);
+  }, [liveTokenKey]);
+  const trackCaret = (element: HTMLTextAreaElement) => setCaret(element.selectionStart ?? element.value.length);
+  // A pick rewrites the draft: put the caret after the new token before the next paint.
+  const caretRequest = referenceUi?.caretRequest ?? null;
+  useLayoutEffect(() => {
+    const textarea = floatingTextareaRef.current;
+    if (!caretRequest || !textarea) return;
+    textarea.setSelectionRange(caretRequest.pos, caretRequest.pos);
+    setCaret(caretRequest.pos);
+  }, [caretRequest, floatingTextareaRef]);
+  // The paperclip's "Link with @" types the trigger at the caret, which opens the picker.
+  const [atRequest, setAtRequest] = useState<{ pos: number; n: number } | null>(null);
+  const linkWithAt = () => {
+    const at = Math.min(caret, draft.length);
+    const before = draft.slice(0, at);
+    const lead = before === "" || /\s$/.test(before) ? "" : " ";
+    setDraft(`${before}${lead}@${draft.slice(at)}`);
+    setAtRequest((current) => ({ pos: at + lead.length + 1, n: (current?.n ?? 0) + 1 }));
+  };
+  useLayoutEffect(() => {
+    const textarea = floatingTextareaRef.current;
+    if (!atRequest || !textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(atRequest.pos, atRequest.pos);
+    setCaret(atRequest.pos);
+  }, [atRequest, floatingTextareaRef]);
+  // The ghost may sit in an `@` token that ends the draft (a Tab there links it); the open picker replaces it.
+  const ghostInToken = liveToken?.trigger === "@" && liveToken.end === draft.length;
+  const ghostAvailable = Boolean(draftSuffix) && (!liveToken || ghostInToken);
+  // A completed name ends the draft and a second Tab would link it: say so where the ghost was, and let a
+  // tap link it, since touch screens have no Tab.
+  const linkHint = Boolean(referenceUi?.canLinkCompletion) && !ghostAvailable && !pickerOpen;
+  const linkHintText = linkHint ? t(linkHintKey()) : "";
+  const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
+  // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
+  const setFeatureModels = useSetFeatureModels();
+  const pickModel = usePickModel();
+  const { data: connectionRows } = useConnections();
+  // Her Model is a global setting with no chat to hold a per-chat pick, so a catalog pick is saved to the library.
+  // The local selection keeps working while the server copy saves.
+  const applyMariPick = async (choice: ChatModelChoice) => {
+    let connectionId = choice.connectionId;
+    if (choice.model) {
+      const accountId = (connectionRows as Array<{ id: string; accountId?: string | null }> | undefined)?.find(
+        (row) => row.id === choice.connectionId,
+      )?.accountId;
+      if (!accountId) throw new Error(t("connections.switcher.noConnection"));
+      const { model, name, maxContext, maxTokensOverride } = choice;
+      ({ connectionId } = await pickModel.mutateAsync({ accountId, model, name, maxContext, maxTokensOverride }));
+    }
+    handleConnectionChange(connectionId);
+    setFeatureModels.mutate({ mariConnectionId: connectionId });
+  };
   // R11 (composer v5): one-line facts; the full description stays in the row's tooltip and in Settings.
   const renderPermissionsModeRow = ({
     key,
@@ -251,6 +404,45 @@ export function MariComposer({
       )}
     </>
   );
+  // Phones open the same full-height Modal sheet as the ConnectionPicker; wider screens keep the popover.
+  const phone = useMatchMedia("(max-width: 39.99rem)");
+  // Enter in the model search must not send the message: the menu sits inside the composer form.
+  const connectionMenuKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
+    onConnectionMenuKeyDown(event);
+  };
+  const connectionBody = (
+    <ConnectionSwitcherBody
+      current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
+      onApply={applyMariPick}
+      onDone={() => {
+        setConnectionMenuOpen(false);
+        connectionButtonRef.current?.focus();
+      }}
+      autoFocusSearch
+      showLocalModel={connectionOptions.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID)}
+      localModelHint={localizeUi(
+        sidecarNativeToolCalls ? "ui.chat.homeprofessormarichat.nativeTools" : "ui.chat.homeprofessormarichat.toolsOff",
+      )}
+      listHeader={
+        phone ? undefined : (
+          <p className="mari-composer-menu__head">
+            {t("connections.picker.modelFor", { job: t("connections.picker.jobMari") })}
+          </p>
+        )
+      }
+      onAdd={() => {
+        setConnectionMenuOpen(false);
+        openAddConnection({ job: "mari" });
+      }}
+      listFooter={
+        <div className="px-3 py-2">
+          <MariConnectionGuidance compact />
+        </div>
+      }
+    />
+  );
+
   return (
     <form
       ref={attachComposerDock}
@@ -313,15 +505,22 @@ export function MariComposer({
           event.target.value = "";
         }}
       />
+      <MariPendingQueue
+        messages={pendingMessages}
+        running={workspaceTimelineActive}
+        onRemove={onRemovePendingMessage}
+        onSend={onSendHeldMessage}
+        onSendNow={onSendPendingNow}
+      />
       {/* R11 (composer v5): Mari's own shell, not the regular chat input's: neutral at rest, a primary
                               ring only on focus, quiet controls and one neutral filled Send. */}
-      <div
-        className="mari-workspace-composer outline-none"
-        tabIndex={-1}
-        data-busy={isBusy ? "true" : undefined}
-        data-collapsed={workspaceTimelineActive ? "true" : undefined}
-      >
-        {attachments.length > 0 || isReadingAttachments || composerContextFacets.length > 0 || oneShotContext?.query ? (
+      <div className="mari-workspace-composer outline-none" tabIndex={-1}>
+        {pickerOpen && referenceUi?.picker ? <MariReferencePicker {...referenceUi.picker} /> : null}
+        {attachments.length > 0 ||
+        isReadingAttachments ||
+        composerContextFacets.length > 0 ||
+        oneShotContext?.query ||
+        (referenceUi?.references.length ?? 0) > 0 ? (
           <div className="mari-workspace-composer__context">
             <ProfessorMariAttachmentPreviews
               attachments={attachments}
@@ -352,61 +551,114 @@ export function MariComposer({
                 </button>
               </span>
             ) : null}
+            {referenceUi?.references.map((reference) => {
+              const Icon = RESULT_TYPE_ICONS[resourceResultType(reference.kind)];
+              return (
+                <span key={`${reference.kind}:${reference.id}`} className="mari-workspace-context-chip" data-reference>
+                  <Icon aria-hidden="true" />
+                  <span className="min-w-0 truncate">{reference.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => referenceUi.onRemove(reference)}
+                    className="mari-workspace-context-chip__remove"
+                    aria-label={t("mari.composerReferences.remove", { name: reference.label })}
+                    title={t("mari.composerReferences.remove", { name: reference.label })}
+                  >
+                    <X size="0.625rem" aria-hidden="true" />
+                  </button>
+                </span>
+              );
+            })}
           </div>
         ) : null}
 
         <div className="relative flex min-w-0 flex-1 basis-full">
-          <InlineGhostText
+          <InlineDraftOverlay
             value={draft}
-            suffix={draftSuffix}
+            suffix={linkHintText || (ghostAvailable && !pickerOpen ? draftSuffix : "")}
+            hint={linkHint}
+            marks={[
+              ...referenceMarks,
+              ...(liveToken ? [{ start: liveToken.start, end: liveToken.end, tone: "pending" as const }] : []),
+            ]}
             multiline
             scrollLeft={composerScroll.left}
             scrollTop={composerScroll.top}
             className="mari-workspace-composer__text"
-            // The textarea is disabled while busy, so the suggestion is not tappable then either.
-            onAccept={isBusy ? undefined : acceptDraftCompletion}
+            onAccept={ghostInToken || linkHint ? () => onPickerAction?.("ghost-link") : acceptDraftCompletion}
           />
           <textarea
             ref={floatingTextareaRef}
             value={draft}
             onChange={(event) => {
               setDraft(event.target.value);
+              trackCaret(event.currentTarget);
               if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
             }}
             onScroll={(event) => {
               const { scrollLeft, scrollTop } = event.currentTarget;
-              event.currentTarget.toggleAttribute("data-scrolled", scrollTop > 0);
+              // Display scaling leaves a fraction of a pixel to scroll even on one line: that must not fade the text.
+              event.currentTarget.toggleAttribute("data-scrolled", scrollTop >= 1);
               setComposerScroll({ left: scrollLeft, top: scrollTop });
             }}
+            onPaste={(event) => {
+              const files = pastedFiles(event.clipboardData);
+              if (files.length === 0) return;
+              event.preventDefault();
+              void handleAttachmentUpload(files);
+            }}
+            onSelect={(event) => trackCaret(event.currentTarget)}
+            onKeyUp={(event) => trackCaret(event.currentTarget)}
+            onClick={(event) => trackCaret(event.currentTarget)}
             onKeyDown={(event) => {
-              if (event.key === "Tab" && !event.shiftKey && draftSuffix) {
-                event.preventDefault();
-                acceptDraftCompletion();
-                return;
-              }
-              const shouldSend =
-                event.key === "Enter" && !event.shiftKey && (enterToSend || event.metaKey || event.ctrlKey);
-              if (shouldSend) {
-                event.preventDefault();
-                void handleSubmit();
+              const action = composerKeyAction({
+                key: event.key,
+                shiftKey: event.shiftKey,
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                isComposing: event.nativeEvent.isComposing,
+                pickerOpen,
+                hasGhost: ghostAvailable,
+                inReferenceToken: ghostInToken,
+                canDrillIn: referenceUi?.canDrillIn,
+                canDrillOut: referenceUi?.canDrillOut,
+                canLinkCompletion: referenceUi?.canLinkCompletion,
+                enterToSend,
+              });
+              if (action === "none") return;
+              event.preventDefault();
+              if (action === "ghost-accept") acceptDraftCompletion();
+              else if (action === "send") void handleSubmit();
+              else if (action === "queue") void handleSubmit(undefined, undefined, undefined, true);
+              else {
+                // In companion mode the first Escape closes only the picker, not the omnibar behind it.
+                if (action === "picker-close") event.stopPropagation();
+                onPickerAction?.(action);
               }
             }}
+            // The overlay is hidden from screen readers, so the field itself carries the hint.
+            aria-description={linkHintText || undefined}
+            aria-controls={pickerOpen ? referenceUi?.picker?.id : undefined}
+            aria-activedescendant={pickerOpen ? referenceUi?.activeOptionId : undefined}
             rows={1}
             placeholder={t("home.professorMari.placeholder")}
             className="mari-workspace-composer__text mari-workspace-composer__input"
-            disabled={isBusy}
           />
         </div>
         {/* Under the text, like Claude's: attach, the connection and the Permissions Mode. */}
         <div className="mari-composer-toolbar">
-          <div className="mari-workspace-composer__attach">
+          <div className="mari-workspace-composer__attach mari-composer-menu">
             <MariAttachButton
               onAttachFiles={() => attachmentInputRef.current?.click()}
               onAddChatHistory={() => void handleOpenHistoryPicker()}
               onViewContext={() => void handleOpenContextViewer()}
+              onLinkWithAt={linkWithAt}
+              onCommand={(id) => onCommand?.(id)}
+              availableCommands={availableCommands}
+              commandCounts={commandCounts}
               attachedFileCount={attachments.length}
               attachedContextCount={attachedContext?.length ?? 0}
-              disabled={isBusy || isReadingAttachments}
+              disabled={isReadingAttachments}
               isReading={isReadingAttachments}
             />
           </div>
@@ -417,8 +669,6 @@ export function MariComposer({
               type="button"
               onClick={() => {
                 setPermissionsMenuOpen(false);
-                setShownConnectionId(null);
-                setModelsStep(false);
                 setConnectionMenuOpen((current) => !current);
               }}
               disabled={isBusy}
@@ -443,125 +693,37 @@ export function MariComposer({
               }
             >
               <Link aria-hidden="true" />
-              <span>
-                {effectiveConnection
-                  ? effectiveConnection.name || effectiveConnection.id
-                  : localizeUi("ui.chat.homeprofessormarichat.selectConnection")}
-              </span>
-              <ChevronDown aria-hidden="true" />
             </button>
-            {connectionMenuOpen && (
-              <div
-                ref={connectionMenuRef}
-                className="mari-composer-menu__popover mari-connection-picker"
-                data-step={modelsStep ? "models" : "list"}
-                onKeyDown={(event) => {
-                  // Enter in the model search must not send the message: the menu sits inside the composer form.
-                  if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
-                  onConnectionMenuKeyDown(event);
-                }}
-              >
-                <div className="mari-connection-picker__list">
-                  <p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>
-                  {connectionOptions.length > 0 ? (
-                    connectionOptions.map((connection) => {
-                      const isActive = effectiveConnectionId === connection.id;
-                      return (
-                        <MariRow
-                          key={connection.id}
-                          slot={<Link aria-hidden="true" />}
-                          title={connection.name || connection.id}
-                          fact={
-                            connection.id === LOCAL_SIDECAR_CONNECTION_ID
-                              ? sidecarNativeToolCalls
-                                ? localizeUi("ui.chat.homeprofessormarichat.nativeTools")
-                                : localizeUi("ui.chat.homeprofessormarichat.toolsOff")
-                              : [connection.provider, connection.model].filter(Boolean).join(" · ")
-                          }
-                          trail={isActive ? <Check aria-hidden="true" /> : undefined}
-                          state={isActive ? "selected" : undefined}
-                          onClick={() => {
-                            if (!isActive) handleConnectionChange(connection.id);
-                            setShownConnectionId(connection.id);
-                            // Choosing is the last step when no models show beside the list: a narrow composer
-                            // (its arrow opens them), or the local model, which has no list to pick from.
-                            const modelsShown = connectionMenuRef.current
-                              ?.querySelector(".mari-connection-picker__models")
-                              ?.getClientRects().length;
-                            if (connection.id === LOCAL_SIDECAR_CONNECTION_ID || !modelsShown) {
-                              setConnectionMenuOpen(false);
-                              connectionButtonRef.current?.focus();
-                            }
-                          }}
-                          action={
-                            connection.id !== LOCAL_SIDECAR_CONNECTION_ID ? (
-                              <button
-                                type="button"
-                                className="mari-connection-picker__open"
-                                onClick={() => {
-                                  setShownConnectionId(connection.id);
-                                  setModelsStep(true);
-                                }}
-                                aria-label={localizeUi("connections.modelPicker.showModels", {
-                                  connection: connection.name || connection.id,
-                                })}
-                                title={localizeUi("connections.modelPicker.showModels", {
-                                  connection: connection.name || connection.id,
-                                })}
-                              >
-                                <ChevronRight aria-hidden="true" />
-                              </button>
-                            ) : undefined
-                          }
-                        />
-                      );
-                    })
-                  ) : (
-                    <MariRow
-                      slot={<Plus aria-hidden="true" />}
-                      title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
-                      onClick={() => {
-                        setConnectionMenuOpen(false);
-                        useUIStore.getState().openModal("create-connection");
-                      }}
-                    />
-                  )}
-                </div>
-                {modelsConnection && (
-                  <div className="mari-connection-picker__models">
-                    {modelsConnection.id !== LOCAL_SIDECAR_CONNECTION_ID ? (
-                      <ConnectionModelPicker
-                        key={modelsConnection.id}
-                        connection={modelsConnection}
-                        autoFocusSearch
-                        onPicked={() => {
-                          if (modelsConnection.id !== effectiveConnectionId)
-                            handleConnectionChange(modelsConnection.id);
-                          setConnectionMenuOpen(false);
-                          connectionButtonRef.current?.focus();
-                        }}
-                        leading={
-                          <button
-                            type="button"
-                            className="mari-connection-picker__back"
-                            onClick={() => {
-                              setShownConnectionId(null);
-                              setModelsStep(false);
-                            }}
-                            aria-label={localizeUi("connections.modelPicker.back")}
-                            title={localizeUi("connections.modelPicker.back")}
-                          >
-                            <ChevronLeft aria-hidden="true" />
-                          </button>
-                        }
-                      />
-                    ) : (
-                      <p className="mari-composer-menu__head">{localizeUi("connections.modelPicker.localModel")}</p>
-                    )}
+            {connectionMenuOpen &&
+              (phone ? (
+                <Modal
+                  open
+                  onClose={() => {
+                    setConnectionMenuOpen(false);
+                    connectionButtonRef.current?.focus();
+                  }}
+                  title={t("connections.picker.modelFor", { job: t("connections.picker.jobMari") })}
+                  opaque
+                  panelClassName="max-sm:h-[calc(100dvh-1.5rem)]"
+                  contentClassName="flex flex-col overflow-hidden !p-0"
+                >
+                  <div
+                    ref={connectionMenuRef}
+                    className="mari-connection-picker-sheet"
+                    onKeyDown={connectionMenuKeyDown}
+                  >
+                    <div className="mari-connection-picker">{connectionBody}</div>
                   </div>
-                )}
-              </div>
-            )}
+                </Modal>
+              ) : (
+                <div
+                  ref={connectionMenuRef}
+                  className="mari-composer-menu__popover mari-connection-picker"
+                  onKeyDown={connectionMenuKeyDown}
+                >
+                  {connectionBody}
+                </div>
+              ))}
           </div>
           <div className="mari-composer-menu">
             <button
@@ -595,30 +757,65 @@ export function MariComposer({
             ) : null}
           </div>
         </div>
-        {/* While she works the whole bar folds into one labelled Stop pill, and unfolds again after. */}
-        <button
-          type={workspaceTimelineActive ? "button" : "submit"}
-          onClick={workspaceTimelineActive ? () => void stopWorkspace() : undefined}
-          disabled={workspaceTimelineActive ? false : !canSubmitMessage || isBusy}
-          data-mode={workspaceTimelineActive ? "stop" : "send"}
-          className="mari-workspace-composer__send"
-          aria-label={
-            workspaceTimelineActive
-              ? localizeUi("ui.chat.homeprofessormarichat.stopProfessorMariWorkspaceAgent")
-              : t("home.professorMari.send")
-          }
-          title={
-            workspaceTimelineActive
-              ? localizeUi("ui.chat.homeprofessormarichat.stopProfessorMariWorkspaceAgent")
-              : t("home.professorMari.send")
-          }
-        >
-          <ArrowUp size="1rem" strokeWidth={2.25} data-icon="send" aria-hidden="true" />
-          <span data-icon="stop" aria-hidden="true">
-            <Square size="0.7rem" fill="currentColor" strokeWidth={0} />
+        {/* While she works one button shows: Stop on an empty field, Send once there is a message.
+            That Send opens the full-width choice of now or after her answer. */}
+        {workspaceTimelineActive && !canSubmitMessage ? (
+          <button
+            type="button"
+            onClick={() => void stopWorkspace()}
+            className="mari-workspace-composer__stop"
+            aria-label={localizeUi("ui.chat.homeprofessormarichat.stopProfessorMariWorkspaceAgent")}
+            title={localizeUi("ui.chat.homeprofessormarichat.stopProfessorMariWorkspaceAgent")}
+          >
+            <Square size="0.7rem" fill="currentColor" strokeWidth={0} aria-hidden="true" />
             {localizeUi("ui.chat.homeprofessormarichat.stop")}
-          </span>
-        </button>
+          </button>
+        ) : workspaceTimelineActive ? (
+          <div ref={sendMenuRef} className="mari-composer-menu mari-workspace-composer__send-menu">
+            <button
+              type="button"
+              onClick={() => setSendMenuOpen((current) => !current)}
+              className="mari-workspace-composer__send"
+              aria-expanded={sendMenuVisible}
+              aria-label={t("mari.queue.sendOptions")}
+              title={t("mari.queue.sendOptions")}
+            >
+              <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
+            </button>
+            {sendMenuVisible ? (
+              <div ref={sendMenuPopoverRef} onKeyDown={handleSendMenuKeyDown} className="mari-composer-menu__popover">
+                <MariRow
+                  slot={<ArrowUp aria-hidden="true" />}
+                  title={t("mari.queue.sendNow")}
+                  fact={t("mari.queue.sendNowFact")}
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    void handleSubmit();
+                  }}
+                />
+                <MariRow
+                  slot={<Clock aria-hidden="true" />}
+                  title={t("mari.queue.later")}
+                  fact={t("mari.queue.waiting")}
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    void handleSubmit(undefined, undefined, undefined, true);
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled={!canSubmitMessage}
+            className="mari-workspace-composer__send"
+            aria-label={t("home.professorMari.send")}
+            title={t("home.professorMari.send")}
+          >
+            <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </form>
   );

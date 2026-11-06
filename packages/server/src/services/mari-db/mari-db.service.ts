@@ -1,6 +1,9 @@
+import { partialInput } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import { applyChatModelOverride, readChatModelOverride } from "../generation/connection-resolution.js";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -9,6 +12,21 @@ import { basename, join, resolve } from "node:path";
 import { eq, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
+import {
+  assertCardMacros,
+  assertEntryMacros,
+  assertLiteralCardFields,
+  assertLiteralEntryFields,
+} from "./macro-lint.js";
+import {
+  badEnum,
+  describeReceived,
+  missingRecord,
+  needArg,
+  noteArgument,
+  unknownActionMessage,
+  withArgumentNotes,
+} from "./tool-error.js";
 import {
   CASCADE_DANGLING_EXEMPT_PREFIXES,
   CASCADES,
@@ -46,6 +64,8 @@ import { newId, now } from "../../utils/id-generator.js";
 import { normalizeThemeCss } from "../../utils/theme-css.js";
 import { getMariImagesService } from "./mari-images.service.js";
 import { buildOnboardingUpdate, describeCharacterOnboarding } from "./character-onboarding.js";
+import { applyRulesetSheetPatch, describeRulesetSheet, withRulesetSheet } from "./ruleset-sheets.js";
+import { readRulesetRegistry } from "../game/ruleset-registry.service.js";
 import { executeWikiCli } from "../professor-mari/fandom-mediawiki/wiki-cli.js";
 import {
   LIMITS,
@@ -59,6 +79,7 @@ import {
   homeCustomWidgetSchema,
   normalizeLorebookCategory,
   normalizePersonalExtensionCapabilities,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   scopedRegexModeSchema,
   type MariDbCommandResult,
   type MariDbMutationReadBack,
@@ -72,6 +93,12 @@ import {
   type MariDbValidationResult,
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
+  MARI_SKILL_GATE_SETTINGS_KEY,
+  SPEECH_TO_TEXT_SETTINGS_KEY,
+  TTS_SETTINGS_KEY,
+  CHAT_METADATA_LOCAL_DESTINATION_KEYS,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
+  createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
@@ -198,6 +225,8 @@ type MariCliEnvelope = {
   command?: string;
   cwd?: string;
   sessionId?: string;
+  // Set by Professor Mari's direct runtime (never by the HTTP route): checks a file path before mari images reads it.
+  resolveReadPath?: (path: string) => string;
 };
 
 type MariAppDataActionEnvelope = Row & {
@@ -450,7 +479,15 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   characters: ["data"],
   character_card_versions: ["data"],
   persona_card_versions: ["data"],
-  personas: ["avatarCrop", "trackerCardColors", "personaStats", "tags", "savedStatusOptions", "convoBehavior"],
+  personas: [
+    "avatarCrop",
+    "trackerCardColors",
+    "personaStats",
+    "tags",
+    "savedStatusOptions",
+    "convoBehavior",
+    "cardFieldAlternatives",
+  ],
   character_groups: ["characterIds"],
   persona_groups: ["personaIds"],
   chats: ["characterIds", "metadata"],
@@ -884,16 +921,42 @@ function rowId(meta: TableMeta, row: Row): string {
   return value == null ? "" : String(value);
 }
 
+// #7999: an unreadable limit or offset is refused, and one that had to be changed says so in
+// the result, so a lowered limit cannot pass for the whole list.
 function normalizeLimit(value: unknown, fallback: number, max: number) {
+  if (value === undefined || value === null || value === "") return fallback;
   // Floor first, so a fraction below 1 falls back instead of becoming an empty page (#7407).
   const parsed = Math.floor(Number(value));
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(max, parsed);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `"limit" must be a number from 1 to ${max} (${describeReceived(value)}). Leave it out for ${fallback}.`,
+    );
+  }
+  if (parsed <= 0) {
+    noteArgument(`"limit" ${String(value)} is below 1, so the default ${fallback} was used.`);
+    return fallback;
+  }
+  if (parsed > max) {
+    noteArgument(
+      `"limit" ${String(value)} is above this read's maximum, so ${max} was used: this may not be everything.`,
+    );
+    return max;
+  }
+  return parsed;
 }
 
 function normalizeOffset(value: unknown) {
+  if (value === undefined || value === null || value === "") return 0;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `"offset" must be a whole number of 0 or more (${describeReceived(value)}). Leave it out to start at the beginning.`,
+    );
+  }
+  if (parsed < 0) {
+    noteArgument(`"offset" ${String(value)} is below 0, so 0 was used.`);
+    return 0;
+  }
   return Math.floor(parsed);
 }
 
@@ -981,6 +1044,16 @@ function flagString(flags: Map<string, string | boolean>, name: string): string 
 
 function hasFlag(flags: Map<string, string | boolean>, name: string): boolean {
   return flags.has(name) && flags.get(name) !== false;
+}
+
+/**
+ * Whether `mari code <args>` answers with its help text. Professor Mari's shell asks the same question to decide
+ * whether `mari code check` goes to the sandbox, so the two can never read the arguments differently.
+ */
+export function isMariCodeHelpArgs(args: string[]) {
+  const sub = args[0];
+  if (!sub || sub === "help" || sub === "--help" || sub === "-h") return true;
+  return hasFlag(parseArgs(args.slice(1)).flags, "help");
 }
 
 // An on/off flag: bare means on, `--flag=true|false` sets it, anything else is refused. Before, any
@@ -1087,6 +1160,8 @@ export function normalizeAppDataActionName(action: string): string {
     "lorebook.entry.remove": "lorebook.deleteentry",
     "lorebook.entries.remove": "lorebook.deleteentry",
     "lorebook.removeentry": "lorebook.deleteentry",
+    "character.linklorebook": "lorebook.linkcharacter",
+    "character.unlinklorebook": "lorebook.unlinkcharacter",
     "theme.set": "theme.setactive",
     "theme.activate": "theme.setactive",
     "promptpreset.list": "preset.list",
@@ -1098,6 +1173,95 @@ export function normalizeAppDataActionName(action: string): string {
   return aliases[key] ?? key;
 }
 
+// Canonical sub-actions per namespace. Only used to tell a caller what is valid when a name did
+// not match; dispatch still goes through the switch below.
+const CHARACTER_ACTIONS = [
+  "folder.list",
+  "list",
+  "get",
+  "search",
+  "create",
+  "update",
+  "onboarding.get",
+  "onboarding.update",
+  "moveToFolder",
+] as const;
+const PERSONA_ACTIONS = ["list", "active", "get", "search", "create", "update"] as const;
+const LOREBOOK_ACTIONS = [
+  "list",
+  "get",
+  "entries",
+  "getEntry",
+  "search",
+  "testScan",
+  "folder.list",
+  "folder.create",
+  "libraryFolder.list",
+  "libraryFolder.create",
+  "create",
+  "update",
+  "addEntry",
+  "createEntry",
+  "updateEntry",
+  "deleteEntry",
+  "linkCharacter",
+  "unlinkCharacter",
+] as const;
+const HOME_WIDGET_ACTIONS = ["list", "get", "create", "update", "delete"] as const;
+const THEME_ACTIONS = ["list", "active", "get", "create", "update", "setActive"] as const;
+const PERSONAL_EXTENSION_ACTIONS = ["list", "get", "search", "create", "update"] as const;
+const AGENT_ACTIONS = ["list", "get", "runs", "search", "create", "update"] as const;
+const PRESET_ACTIONS = [
+  "list",
+  "get",
+  "search",
+  "create",
+  "update",
+  "sections",
+  "getSection",
+  "groups",
+  "getGroup",
+  "choiceBlocks",
+  "getChoiceBlock",
+  "updateSection",
+  "updateGroup",
+  "updateChoiceBlock",
+  "addSection",
+  "addGroup",
+  "addChoiceBlock",
+  "deleteSection",
+  "deleteGroup",
+  "deleteChoiceBlock",
+] as const;
+
+/** Table -> the word a person would use and the action that lists real ids, for "No <kind> has the id ..." refusals. */
+const RECORD_LOOKUPS: Record<string, readonly [kind: string, lookup: string]> = {
+  characters: ["character", "character.search (or character.list)"],
+  personas: ["persona", "persona.search (or persona.list)"],
+  lorebooks: ["lorebook", "lorebook.list (or lorebook.search)"],
+  lorebook_entries: ["lorebook entry", "lorebook.entries <lorebook-id>"],
+  chats: ["chat", "chat.list"],
+  messages: ["message", "chat.messages with the chat's chatId"],
+  prompt_presets: ["prompt preset", "preset.list (or preset.search)"],
+  prompt_sections: ["prompt section", "preset.sections <preset-id>"],
+  prompt_groups: ["prompt group", "preset.groups <preset-id>"],
+  choice_blocks: ["choice block", "preset.choiceBlocks <preset-id>"],
+  custom_themes: ["theme", "theme.list"],
+  agent_configs: ["agent", "agent.list (or agent.search)"],
+};
+
+/** Token match for the search actions. `JSON.stringify` escapes quotes, so a card named
+ *  Elspeth "Elsie" MacRae never matched a query carrying those quotes; ignore escapes and
+ *  require every token, so the name a user typed finds her. */
+function matchesSearchQuery(row: unknown, query: string): boolean {
+  const haystack = JSON.stringify(row).toLowerCase().replaceAll("\\", "");
+  const tokens = query
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  return tokens.length > 0 && tokens.every((token) => haystack.includes(token));
+}
+
 function firstString(source: Row, keys: string[]): string | undefined {
   for (const key of keys) {
     const value = source[key];
@@ -1107,11 +1271,23 @@ function firstString(source: Row, keys: string[]): string | undefined {
 }
 
 function requiredString(source: Row, keys: string[], label: string): string {
-  const value = firstString(source, keys);
+  // Reads take their field top-level, but a model that learned "fields go in data" nests it there;
+  // accept both so the message's promise ("top-level, or inside data") is true for reads too.
+  const nested =
+    source.data && typeof source.data === "object" && !Array.isArray(source.data) ? (source.data as Row) : undefined;
+  const value = firstString(source, keys) ?? (nested ? firstString(nested, keys) : undefined);
   if (!value) {
-    // Name the argument: models that got only "<label> is required" repeated the same call.
-    const hint = label.endsWith(" id") ? "; if you do not know it, use the matching list or search action first" : "";
-    throw new Error(`${label} is required: pass it as ${keys.map((key) => `"${key}"`).join(" or ")}${hint}`);
+    // Name the argument, echo what arrived, and say where it goes: a bare value name reads as
+    // "somewhere in the object" (#7909). Ids are top-level; entity fields may also sit in "data".
+    const idLike = label.endsWith(" id");
+    const hint = idLike ? " If you do not know it, use the matching list or search action first." : "";
+    const where = idLike ? "top-level" : 'top-level, or inside "data"';
+    const sentKey = keys.find((key) => source[key] !== undefined || nested?.[key] !== undefined) ?? keys[0]!;
+    throw new Error(
+      `${label} is required (${describeReceived(source[sentKey] ?? nested?.[sentKey])}): send a non-empty ${keys
+        .map((key) => `"${key}"`)
+        .join(" or ")} ${where}.${hint}`,
+    );
   }
   return value;
 }
@@ -1129,8 +1305,23 @@ function firstBoolean(source: Row, keys: string[]): boolean | undefined {
   return undefined;
 }
 
+const applyDefaultProbe = new AsyncLocalStorage<{ savesWithoutApply: boolean }>();
+
 function appDataCreateApply(source: Row): boolean {
+  const probe = applyDefaultProbe.getStore();
+  if (probe) probe.savesWithoutApply = true;
   return firstBoolean(source, ["apply"]) !== false;
+}
+
+/**
+ * Runs a call as a dry run and also reports whether it would have saved with "apply" left out:
+ * creates do, edits and deletes preview. The skill gate uses it to name a missing "apply" in the
+ * same refusal (T15, round 2: a 12b learned of it only after fixing the gate).
+ */
+export async function probeAppDataCall<T>(run: () => Promise<T>): Promise<{ result: T; savesWithoutApply: boolean }> {
+  const store = { savesWithoutApply: false };
+  const result = await applyDefaultProbe.run(store, run);
+  return { result, savesWithoutApply: store.savesWithoutApply };
 }
 
 // #4851: Mari-authored memory rows. Writes flow through executeMutation so each
@@ -1152,13 +1343,19 @@ function buildInstructionInsertRow(data: Row, id: string, timestamp: string): Ro
     MAX_INSTRUCTION_NAME_LENGTH,
     "name",
   );
-  if (!name) throw new Error("A memory needs a name.");
+  if (!name) needArg("instruction.remember", "name", { aliases: ["title", "label"], received: data.name });
   const content = requireInstructionLength(
     (firstString(data, ["content", "text", "body", "memory"]) ?? "").trim(),
     MAX_INSTRUCTION_CONTENT_LENGTH,
     "content",
   );
-  if (!content) throw new Error("A memory needs content: the thing to remember.");
+  if (!content) {
+    needArg("instruction.remember", "content", {
+      aliases: ["text", "body"],
+      received: data.content,
+      shape: "It is the sentence to remember.",
+    });
+  }
   return {
     id,
     name,
@@ -1226,6 +1423,15 @@ function stringListValue(value: unknown): string[] | undefined {
     return value.map((entry) => (typeof entry === "string" ? entry.trim() : String(entry).trim())).filter(Boolean);
   }
   if (typeof value === "string") {
+    // A small model sends a list as JSON text ('["mentor", "chef"]'); splitting that on commas kept the brackets.
+    if (value.trimStart().startsWith("[")) {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (Array.isArray(parsed)) return stringListValue(parsed);
+      } catch {
+        // Not JSON after all: fall through to the comma split.
+      }
+    }
     return value
       .split(/[,|]/)
       .map((entry) => entry.trim())
@@ -1236,7 +1442,24 @@ function stringListValue(value: unknown): string[] | undefined {
 
 function firstStringList(source: Row, keys: string[]): string[] | undefined {
   for (const key of keys) {
-    const value = stringListValue(source[key]);
+    // #7949: a live 12b sent keys as [{"key":"guild","constant":"true"}]; String() saved "[object Object]".
+    let raw = source[key];
+    // Parse JSON text first, so a list of objects sent as text meets the same guard.
+    if (typeof raw === "string" && raw.trimStart().startsWith("[")) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) raw = parsed;
+      } catch {
+        // Not JSON: stringListValue splits it on commas.
+      }
+    }
+    const nested = Array.isArray(raw) ? raw.find((entry) => entry !== null && typeof entry === "object") : undefined;
+    if (nested !== undefined) {
+      throw new Error(
+        `"${key}" must be a list of plain strings, such as ["guild", "forms"]; it held an object (${JSON.stringify(nested).slice(0, 120)}), which would save as "[object Object]". Send each value as its own string, and any other field (constant, selective) on the record itself.`,
+      );
+    }
+    const value = stringListValue(raw);
     if (value !== undefined) return value;
   }
   return undefined;
@@ -1247,6 +1470,14 @@ function collectActionRecords(source: Row, keys: string[]): Row {
   for (const key of keys) {
     const value = source[key];
     if (isRecord(value)) Object.assign(out, clone(value));
+  }
+  // A wrapper sent twice ({data:{patch:{…}}}) meant its inner fields; kept as is, "patch" was saved
+  // as a card field and the write read back as applied.
+  for (const key of new Set([...keys, "patch", "data"])) {
+    const inner = out[key];
+    if (!isRecord(inner)) continue;
+    delete out[key];
+    Object.assign(out, inner);
   }
   return out;
 }
@@ -1303,6 +1534,8 @@ export function normalizeCharacterActionData(input: Row): Row {
   delete out.about_me;
   delete out["about-me"];
   if (Object.keys(extensions).length > 0) out.extensions = extensions;
+  // A string here was saved as is, and every character screen crashed on tags.map.
+  if (out.tags !== undefined) out.tags = firstStringList(out, ["tags"]) ?? [];
   return out;
 }
 
@@ -1318,6 +1551,13 @@ const LOREBOOK_MATCHING_SOURCE_VALUES = new Set([
   "persona_tags",
 ]);
 
+/** The CLI's --selective-logic refusal, from the one enum so the add and update paths cannot drift. */
+function selectiveLogicFlagError(received: string): Error {
+  return new Error(
+    `--selective-logic must be one of: ${[...SELECTIVE_LOGIC_VALUES].join(", ")} (${describeReceived(received)}).`,
+  );
+}
+
 /** Validate a selectiveLogic string against the stored enum; undefined if absent or invalid. */
 function normalizeSelectiveLogicValue(raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;
@@ -1328,6 +1568,45 @@ function normalizeSelectiveLogicValue(raw: string | undefined): string | undefin
 /** Validate an incoming selectiveLogic against the stored enum; undefined if absent or invalid. */
 function normalizeSelectiveLogic(source: Row): string | undefined {
   return normalizeSelectiveLogicValue(firstString(source, ["selectiveLogic", "selective_logic"]));
+}
+
+/** A stored or incoming key list: an array, a JSON array string, or a comma list. */
+function entryKeyList(value: unknown): string[] {
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      return stringListValue(JSON.parse(value)) ?? [];
+    } catch {
+      return [];
+    }
+  }
+  return stringListValue(value) ?? [];
+}
+
+/**
+ * #7949: the scanner weighs secondary keys only when selective is on AND secondaryKeys is non-empty
+ * (keyword-scanner.ts). Either half alone saves fine and quietly fires on any one primary key.
+ */
+function selectiveKeysNotice(entry: Row, label: string): string | null {
+  const selective = entry.selective === true || entry.selective === "true";
+  const secondary = entryKeyList(entry.secondaryKeys);
+  const keys = JSON.stringify(entryKeyList(entry.keys));
+  const howTo =
+    'To need two words, put one in keys, the other in secondaryKeys, and set selective: true; with several secondary keys, "and_all" needs every one and "and" needs any one.';
+  if (selective && secondary.length === 0) {
+    // Usually a leftover flag on an imported book, so the turn-off comes before the two-word how-to.
+    return `${label}: selective is on but secondaryKeys is empty, so selectiveLogic does nothing and the entry fires on any one of keys ${keys}. If one keyword is enough (common on imported books), set selective: false. ${howTo}`;
+  }
+  if (!selective && secondary.length > 0) {
+    return `${label}: secondaryKeys are set but selective is off, so they are ignored and the entry fires on any one of keys ${keys}. ${howTo}`;
+  }
+  return null;
+}
+
+function withNotices(result: MariDbCommandResult, table: string, id: string, messages: string[]): MariDbCommandResult {
+  if (messages.length === 0) return result;
+  const notices = messages.map((message) => ({ level: "notice" as const, table, id, message }));
+  const validation = result.validation ?? { status: "passed" as const, errors: [], notices: [], infos: [] };
+  return { ...result, validation: { ...validation, notices: [...validation.notices, ...notices] } };
 }
 
 export function buildLorebookEntryCreateRow(
@@ -1424,11 +1703,14 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
         : "true",
     creatorNotes: firstString(data, ["creatorNotes", "creator_notes", "creator-notes"]) ?? "",
     phoneticName: firstString(data, ["phoneticName", "phonetic_name", "phonetic-name"]) ?? "",
+    summary: firstString(data, ["summary"]) ?? "",
+    mes_example: firstString(data, ["mes_example"]) ?? "",
     description: firstString(data, ["description"]) ?? "",
     personality: firstString(data, ["personality"]) ?? "",
     scenario: firstString(data, ["scenario"]) ?? "",
     backstory: firstString(data, ["backstory"]) ?? "",
     appearance: firstString(data, ["appearance"]) ?? "",
+    cardFieldAlternatives: [],
     imageAppearanceEnabled:
       data.imageAppearanceEnabled === true ||
       data.imageAppearanceEnabled === "true" ||
@@ -1526,6 +1808,7 @@ function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   delete row.resultType;
   delete row.result_type;
   delete row.prompt;
+  delete row.prompt_template;
   return row;
 }
 
@@ -1643,6 +1926,21 @@ function promptOptionRows(value: unknown): Array<{ id: string; label: string; va
       };
     })
     .filter((option): option is { id: string; label: string; value: string } => option !== null);
+}
+
+// A section id with quote characters inside it (`"\"YZuq…\""`) is a JSON-encoded id sent as text. It
+// never matches a real id, so it would write a section or an order entry nothing can find. Refuse it.
+function refuseQuotedSectionIds(action: string, payload: Row): void {
+  const sections = [payload.sections, payload.promptSections].flatMap((value) => (Array.isArray(value) ? value : []));
+  const ids = [
+    ...sections.map((section) => (isRecord(section) ? firstString(section, ["id", "sectionId"]) : undefined)),
+    ...parseJsonArrayValue(payload.sectionOrder ?? payload.section_order),
+  ];
+  const quoted = ids.find((id) => typeof id === "string" && /["']/.test(id));
+  if (quoted === undefined) return;
+  throw new Error(
+    `${action}: a section id contains quote characters (${describeReceived(quoted)}). Nothing was changed. Send each id exactly as preset.sections returns it, without the quotes.`,
+  );
 }
 
 function normalizePromptPresetChildInserts(payload: Row, presetId: string): Array<{ table: string; row: Row }> {
@@ -1871,7 +2169,7 @@ function buildChoiceBlockPatch(data: Row, usedVariableNames: Set<string>): Row {
 function requireOneOf(value: unknown, allowed: readonly string[], field: string, fallback: string): string {
   if (value === undefined || value === null || value === "") return fallback;
   const text = String(value);
-  if (!allowed.includes(text)) throw new Error(`${field} must be one of ${allowed.join(", ")}, got "${text}"`);
+  if (!allowed.includes(text)) badEnum(field, allowed, text);
   return text;
 }
 
@@ -1971,6 +2269,19 @@ function assignStringField(target: Row, source: Row, sourceKeys: string[], targe
   if (value === undefined) return false;
   target[targetKey] = value;
   return true;
+}
+
+// Like assignStringField, but "" and whitespace are a real value (a clear), as summary and the
+// character card fields already treat them; non-strings are still dropped.
+function assignClearableStringField(target: Row, source: Row, sourceKeys: string[], targetKey: string): boolean {
+  for (const key of sourceKeys) {
+    const value = source[key];
+    if (typeof value === "string") {
+      target[targetKey] = value.trim();
+      return true;
+    }
+  }
+  return false;
 }
 
 function assignNumberField(target: Row, source: Row, sourceKeys: string[], targetKey: string): boolean {
@@ -2662,6 +2973,35 @@ function addCharacterDataShapeIssues(tableName: string, row: Row, id: unknown, i
   }
 }
 
+/** The app_data card linters, run on what a `mari characters` command would write: its JSON and its flags. */
+function assertCliCardInput(
+  json: Record<string, unknown>,
+  flags: Map<string, string | boolean>,
+  command: string,
+): void {
+  const fromFlags: Record<string, unknown> = {};
+  for (const [flagName, fieldName] of [
+    ["name", "name"],
+    ["summary", "summary"],
+    ["description", "description"],
+    ["personality", "personality"],
+    ["scenario", "scenario"],
+    ["first-mes", "first_mes"],
+    ["greeting", "greeting"],
+    ["backstory", "backstory"],
+    ["appearance", "appearance"],
+    ["about-me", "aboutMe"],
+    ["tags", "tags"],
+  ] as const) {
+    const val = flagString(flags, flagName);
+    if (val !== undefined) fromFlags[fieldName] = val;
+  }
+  for (const record of [json, fromFlags]) {
+    assertCardMacros(record, command);
+    assertLiteralCardFields(record, command);
+  }
+}
+
 function buildMinimalCharacterData(
   name: string,
   base: Record<string, unknown>,
@@ -2701,7 +3041,7 @@ function buildMinimalCharacterData(
     const val = flagString(flags, flagName);
     if (val !== undefined) data[fieldName] = val;
   }
-  data.summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 500) : "";
+  data.summary = typeof data.summary === "string" ? data.summary.trim() : "";
   // backstory and appearance are Marinara extensions stored under data.extensions.*
   const extensions = data.extensions as Record<string, unknown>;
   const extMap: Array<[string, string]> = [
@@ -2740,7 +3080,15 @@ export class MariDbService {
 
   constructor(private readonly db: DB) {}
 
-  async executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
+  executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
+    return withArgumentNotes(() => this.runCli(envelope));
+  }
+
+  executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
+    return withArgumentNotes(() => this.runAction(envelope));
+  }
+
+  private async runCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
     const argv = envelope.argv ?? [];
     const command = formatCommand(argv, envelope.command);
     const sessionId = envelope.sessionId || "mari-cli";
@@ -2756,7 +3104,12 @@ export class MariDbService {
         return await this.executeThemeCommand(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
       }
       if (group === "image" || group === "images" || group === "media") {
-        return await getMariImagesService(this.db).execute(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
+        return await getMariImagesService(this.db).execute(argv.slice(1), {
+          command,
+          sessionId,
+          cwd: envelope.cwd,
+          resolveReadPath: envelope.resolveReadPath,
+        });
       }
       if (group === "wiki" || group === "fandom") {
         return await executeWikiCli(argv.slice(1), { command });
@@ -2795,11 +3148,29 @@ export class MariDbService {
     }
   }
 
-  async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
+  private async runAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
     let command = "app_data";
     try {
-      const action = requiredString(envelope, ["action", "type"], "app_data action");
+      const action = firstString(envelope, ["action", "type"]);
+      if (!action) {
+        throw new Error(
+          'app_data needs "action" (none was sent), e.g. "character.get" or "character.create". "type" is only a mari CLI alias; this tool takes "action".',
+        );
+      }
       command = formatAppDataActionCommand(action, envelope);
+      // #7999: a value the action cannot read is refused, never replaced. An unreadable
+      // "apply" (0, "dry-run") used to write on every create and preview on every update.
+      const sent = envelope as Row;
+      if (sent.apply != null && firstBoolean(sent, ["apply"]) === undefined) {
+        throw new Error(
+          `"apply" must be true or false (${describeReceived(sent.apply)}), so nothing was saved. Send "apply": true to save, or "apply": false to preview.`,
+        );
+      }
+      for (const key of ["limit", "offset"]) {
+        if (sent[key] != null && sent[key] !== "" && firstNumber(sent, [key]) === undefined) {
+          throw new Error(`"${key}" must be a number (${describeReceived(sent[key])}). Leave it out for the default.`);
+        }
+      }
       const context = {
         command,
         sessionId:
@@ -2834,8 +3205,7 @@ export class MariDbService {
           ok: false,
           mode: "read",
           command,
-          error:
-            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, chat.*, preset.*, home_widget.*, skill.*, or instruction.* actions for structured no-shell app-data work.",
+          error: `Unknown app_data action "${action}". Actions look like "<namespace>.<action>", e.g. "character.get"; valid namespaces: character, persona, lorebook, theme, personal_extension, agent, chat, preset, home_widget, skill, instruction.`,
         };
       };
       // Field-aware bounding keeps a single read response within the workspace
@@ -2846,6 +3216,28 @@ export class MariDbService {
       return { ok: false, mode: "read", command, error: err instanceof Error ? err.message : String(err) };
     } finally {
     }
+  }
+
+  /**
+   * The books a card brings to a chat: the ones linked to it (Lorebook Assignments) and the
+   * one it owns (`lorebooks.characterId`, an embedded card book). Id, name and a short
+   * description only, so a caller can decide which book is worth opening.
+   */
+  private async characterLorebooks(characterId: string): Promise<Row[]> {
+    const linked = new Set(
+      (await this.rawRows("lorebook_character_links"))
+        .filter((link) => String(link.characterId) === characterId)
+        .map((link) => String(link.lorebookId)),
+    );
+    return (await this.rawRows("lorebooks"))
+      .filter((book) => linked.has(String(book.id)) || String(book.characterId ?? "") === characterId)
+      .map((book) => ({
+        id: String(book.id),
+        name: String(book.name ?? ""),
+        description: truncateStr(String(book.description ?? ""), 160),
+        attached: linked.has(String(book.id)) ? "linked" : "owned",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private async executeCharacterAction(
@@ -2884,23 +3276,31 @@ export class MariDbService {
       case "get": {
         const id = requiredString(args, ["id", "characterId"], "character id");
         const row = await this.getRawById(getMeta("characters"), id);
+        // #7949: a live 12b sent the name "Aldric" as the id and got a bare null back.
+        if (!row) throw missingRecord("character", id, "character.search (or character.list)");
+        // The card's own row carries no lorebook relation: attachments live in
+        // `lorebook_character_links` and the book it owns in `lorebooks.characterId`.
+        // Both are lore a reader would otherwise have to hunt for, so expose them here.
+        const lorebooks = await this.characterLorebooks(id);
         return {
-          ok: Boolean(row),
+          ok: true,
           mode: "read",
           command: context.command,
-          output: row ? parseRow("characters", row) : null,
+          output: { ...parseRow("characters", row), lorebooks },
         };
       }
       case "search": {
         const query = requiredString(args, ["query", "search"], "character search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows("characters"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizeCharacterRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
       }
       case "create": {
+        assertCardMacros(args as Record<string, unknown>, "character.create");
+        assertLiteralCardFields(args as Record<string, unknown>, "character.create");
         const data = normalizeCharacterActionData(
           actionDataWithTopLevel(
             args,
@@ -2956,7 +3356,31 @@ export class MariDbService {
       case "update": {
         const id = requiredString(args, ["id", "characterId"], "character id");
         const existing = await this.getRawById(getMeta("characters"), id);
-        if (!existing) throw new Error(`Character ${id} not found`);
+        if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
+        assertCardMacros(args as Record<string, unknown>, "character.update");
+        assertLiteralCardFields(args as Record<string, unknown>, "character.update");
+        // `lorebooks` is read off a card but is not a card field; a model will try to write it back.
+        // Attaching belongs to the lorebook CLI, so refuse with the command instead of dropping it.
+        const sentFields = collectActionRecords(args, ["patch", "data", "card", "character"]);
+        const linkField = ["lorebooks", "lorebookIds", "lorebookId", "lorebook"].find(
+          (key) => key in args || key in sentFields,
+        );
+        const sentBooks = "lorebooks" in args ? args : sentFields;
+        const bookIds = (books: unknown) =>
+          Array.isArray(books)
+            ? books
+                .map((book) => String(isRecord(book) ? book.id : book))
+                .sort()
+                .join("\n")
+            : null;
+        const echoedRead =
+          linkField === "lorebooks" &&
+          bookIds((sentBooks as Row | undefined)?.lorebooks) === bookIds(await this.characterLorebooks(id));
+        if (linkField && !echoedRead) {
+          throw new Error(
+            `character.update does not attach or detach lorebooks ("${linkField}" was sent and would be ignored). To attach one, send app_data {"action":"lorebook.linkCharacter","lorebookId":"<lorebook id>","characterId":"${id}","reason":"…"}; to detach one, send the same with "action":"lorebook.unlinkCharacter" and "apply":true. Take the lorebook id from lorebook.search, never its name.`,
+          );
+        }
         const existingDataRaw = tryParseJsonColumn(existing, "data");
         const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
         const patchData = normalizeCharacterActionData(
@@ -2984,6 +3408,8 @@ export class MariDbService {
             ],
           ),
         );
+        // A tolerated echo is ignored, not stored: the link table owns it, and its labels were true only at read time.
+        delete patchData.lorebooks;
         const comment =
           firstString(patchData, ["comment"]) ?? (typeof existing.comment === "string" ? existing.comment : "");
         delete patchData.comment;
@@ -2992,7 +3418,7 @@ export class MariDbService {
           comment === (typeof existing.comment === "string" ? existing.comment : "")
         ) {
           throw new Error(
-            "character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment",
+            'character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         const name =
@@ -3024,7 +3450,7 @@ export class MariDbService {
       case "onboarding.get": {
         const id = requiredString(args, ["id", "characterId"], "character id");
         const existing = await this.getRawById(getMeta("characters"), id);
-        if (!existing) throw new Error(`Character ${id} not found`);
+        if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
         const data = tryParseJsonColumn(existing, "data");
         return {
           ok: true,
@@ -3036,7 +3462,7 @@ export class MariDbService {
       case "onboarding.update": {
         const id = requiredString(args, ["id", "characterId"], "character id");
         const existing = await this.getRawById(getMeta("characters"), id);
-        if (!existing) throw new Error(`Character ${id} not found`);
+        if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
         const existingDataRaw = tryParseJsonColumn(existing, "data");
         const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
         const { onboarding, warnings } = buildOnboardingUpdate(
@@ -3072,21 +3498,20 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
-        if (warnings.length === 0) return result;
-        const notices = warnings.map((message) => ({ level: "notice" as const, table: "characters", id, message }));
-        const validation = result.validation ?? { status: "passed" as const, errors: [], notices: [], infos: [] };
-        return { ...result, validation: { ...validation, notices: [...validation.notices, ...notices] } };
+        return withNotices(result, "characters", id, warnings);
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {
           const characterId = requiredString(args, ["characterId", "id"], "character id");
           const character = await this.getRawById(getMeta("characters"), characterId);
-          if (!character) throw new Error(`Character ${characterId} not found`);
+          if (!character) throw missingRecord("character", characterId, "character.search (or character.list)");
 
           const requestedFolderId = firstString(args, ["folderId"]);
           const requestedFolderName = firstString(args, ["folderName", "folder"]);
           if (!requestedFolderId && !requestedFolderName) {
-            throw new Error("character.moveToFolder needs folderId or folderName");
+            throw new Error(
+              'character.moveToFolder needs a top-level "folderId" or "folderName" (neither was sent) — not inside "data". List folders with character.folder.list.',
+            );
           }
 
           const groups = await this.rawRows("character_groups");
@@ -3098,14 +3523,15 @@ export class MariDbService {
                   group.name.trim().toLowerCase() === requestedFolderName!.trim().toLowerCase(),
               );
           if (matches.length === 0) {
+            if (requestedFolderId) throw missingRecord("character folder", requestedFolderId, "character.folder.list");
             throw new Error(
-              requestedFolderId
-                ? `Character folder ${requestedFolderId} not found`
-                : `Character folder ${requestedFolderName} not found`,
+              `No character folder is named "${requestedFolderName}". List folders with character.folder.list; folders are created in the UI only, so ask the user to make it.`,
             );
           }
           if (matches.length > 1) {
-            throw new Error(`More than one character folder is named ${requestedFolderName}; use folderId instead`);
+            throw new Error(
+              `More than one character folder is named "${requestedFolderName}"; send the folderId from character.folder.list instead.`,
+            );
           }
 
           return this.executeMutation(
@@ -3124,8 +3550,16 @@ export class MariDbService {
           );
         });
       }
+      case "rulesetsheet.get":
+      case "rulesetsheet.update":
+        return this.executeRulesetSheetAction("character", sub, args, context);
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported character app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("character", sub, CHARACTER_ACTIONS),
+        };
     }
   }
 
@@ -3165,7 +3599,7 @@ export class MariDbService {
         const query = requiredString(args, ["query", "search"], "persona search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows("personas"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizePersonaRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -3176,6 +3610,8 @@ export class MariDbService {
           ["data", "persona", "row"],
           [
             "name",
+            "summary",
+            "mes_example",
             "description",
             "personality",
             "scenario",
@@ -3225,6 +3661,8 @@ export class MariDbService {
           ["patch", "data", "persona"],
           [
             "name",
+            "summary",
+            "mes_example",
             "description",
             "personality",
             "scenario",
@@ -3251,27 +3689,29 @@ export class MariDbService {
         );
         const patch: Row = { updatedAt: now() };
         assignStringField(patch, data, ["name"], "name");
-        assignStringField(patch, data, ["description"], "description");
-        assignStringField(patch, data, ["personality"], "personality");
-        assignStringField(patch, data, ["scenario"], "scenario");
-        assignStringField(patch, data, ["backstory"], "backstory");
-        assignStringField(patch, data, ["appearance"], "appearance");
-        assignStringField(patch, data, ["imageAppearance", "image_appearance"], "imageAppearance");
+        if (typeof data.summary === "string") patch.summary = data.summary.trim();
+        if (typeof data.mes_example === "string") patch.mes_example = data.mes_example.trim();
+        assignClearableStringField(patch, data, ["description"], "description");
+        assignClearableStringField(patch, data, ["personality"], "personality");
+        assignClearableStringField(patch, data, ["scenario"], "scenario");
+        assignClearableStringField(patch, data, ["backstory"], "backstory");
+        assignClearableStringField(patch, data, ["appearance"], "appearance");
+        assignClearableStringField(patch, data, ["imageAppearance", "image_appearance"], "imageAppearance");
         if (data.imageAppearanceEnabled !== undefined || data.image_appearance_enabled !== undefined) {
           const flag = data.imageAppearanceEnabled ?? data.image_appearance_enabled;
           patch.imageAppearanceEnabled = flag === true || flag === "true" ? "true" : "false";
         }
-        assignStringField(patch, data, ["comment"], "comment");
-        assignStringField(patch, data, ["creator"], "creator");
-        assignStringField(patch, data, ["creatorNotes", "creator_notes", "creator-notes"], "creatorNotes");
-        assignStringField(patch, data, ["phoneticName", "phonetic_name", "phonetic-name"], "phoneticName");
-        assignStringField(
+        assignClearableStringField(patch, data, ["comment"], "comment");
+        assignClearableStringField(patch, data, ["creator"], "creator");
+        assignClearableStringField(patch, data, ["creatorNotes", "creator_notes", "creator-notes"], "creatorNotes");
+        assignClearableStringField(patch, data, ["phoneticName", "phonetic_name", "phonetic-name"], "phoneticName");
+        assignClearableStringField(
           patch,
           data,
           ["convoDisplayName", "convo_display_name", "convo-display-name"],
           "convoDisplayName",
         );
-        assignStringField(patch, data, ["aboutMe", "about_me", "about-me"], "aboutMe");
+        assignClearableStringField(patch, data, ["aboutMe", "about_me", "about-me"], "aboutMe");
         if (
           data.convoBehavior !== undefined ||
           data.convo_behavior !== undefined ||
@@ -3284,7 +3724,7 @@ export class MariDbService {
         assignListField(patch, data, ["tags"], "tags");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "persona.update needs a patch field such as name, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes",
+            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         return this.executeMutation(
@@ -3302,9 +3742,123 @@ export class MariDbService {
           context.sessionId,
         );
       }
+      case "rulesetsheet.get":
+      case "rulesetsheet.update":
+        return this.executeRulesetSheetAction("persona", sub, args, context);
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported persona app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("persona", sub, PERSONA_ACTIONS),
+        };
     }
+  }
+
+  /**
+   * `character.rulesetSheet.get|update` and `persona.rulesetSheet.get|update`: one ruleset's sheet on a
+   * card (`data.extensions.rulesetSheets`) or a persona (`personaStats.rulesetSheets`). The update only
+   * ever replaces that one ruleset's entry; everything else on the card or in personaStats is kept.
+   */
+  private async executeRulesetSheetAction(
+    owner: "character" | "persona",
+    sub: string,
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const table = owner === "character" ? "characters" : "personas";
+    const id =
+      owner === "character"
+        ? requiredString(args, ["characterId", "id"], "character id")
+        : requiredString(args, ["personaId", "id"], "persona id");
+    const existing = await this.getRawById(getMeta(table), id);
+    if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
+    const column = owner === "character" ? "data" : "personaStats";
+    const rawColumn = existing[column];
+    const parsedColumn = tryParseJsonColumn(existing, column);
+    if (parsedColumn === undefined && typeof rawColumn === "string" && rawColumn.trim() !== "") {
+      throw new Error(`The ${owner}'s ${column} cannot be read, so its ruleset sheets are left as they are.`);
+    }
+    const holder = isRecord(parsedColumn) ? parsedColumn : {};
+    const extensions = owner === "character" && isRecord(holder.extensions) ? holder.extensions : {};
+    const sheets = owner === "character" ? extensions.rulesetSheets : holder.rulesetSheets;
+    const storedSheets = isRecord(sheets) ? sheets : {};
+    const registry = await readRulesetRegistry(this.db);
+    const installed = [...registry.values()].map(({ definition }) => ({ id: definition.id, name: definition.name }));
+    const rulesetId = firstString(args, ["rulesetId", "ruleset"]);
+    const ownerKey = owner === "character" ? "characterId" : "personaId";
+
+    if (sub === "rulesetsheet.get" && !rulesetId) {
+      return {
+        ok: true,
+        mode: "read",
+        command: context.command,
+        output: {
+          [ownerKey]: id,
+          sheets: Object.keys(storedSheets).map((key) => ({ rulesetId: key, installed: registry.has(key) })),
+          installed,
+        },
+      };
+    }
+    if (!rulesetId) throw new Error(`${owner}.rulesetSheet.update needs a rulesetId`);
+    const registered = registry.get(rulesetId);
+    if (!registered) {
+      throw new Error(
+        `Ruleset ${rulesetId} is not installed. Installed rulesets: ${
+          installed.map((entry) => `${entry.id} (${entry.name})`).join(", ") || "none"
+        }`,
+      );
+    }
+    const stored = Object.hasOwn(storedSheets, rulesetId) ? storedSheets[rulesetId] : undefined;
+    if (sub === "rulesetsheet.get") {
+      return {
+        ok: true,
+        mode: "read",
+        command: context.command,
+        output: { [ownerKey]: id, ...describeRulesetSheet(registered.definition, stored) },
+      };
+    }
+
+    const patched = applyRulesetSheetPatch(registered.definition, stored, args.patch ?? args.data);
+    const next = patched.ok ? withRulesetSheet(storedSheets, rulesetId, patched.envelope) : patched;
+    if (!next.ok) {
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: `The ${registered.definition.name} sheet was not changed. Fix these and resend:\n- ${next.issues.join("\n- ")}`,
+      };
+    }
+    const mutation = {
+      apply: firstBoolean(args, ["apply"]) === true,
+      cascade: false,
+      reason: firstString(args, ["reason"]) ?? null,
+      cwd: context.cwd,
+    };
+    if (owner === "persona") {
+      // A replace, not a patch: a patch deep-merges personaStats, so a cleared value would come back.
+      const row: Row = {
+        ...parseRow("personas", existing),
+        personaStats: { ...holder, rulesetSheets: next.sheets },
+        updatedAt: now(),
+      };
+      return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+    }
+    const name = typeof holder.name === "string" ? holder.name : "";
+    const row: Row = {
+      id,
+      data: buildMinimalCharacterData(
+        name,
+        { ...holder, extensions: { ...extensions, rulesetSheets: next.sheets } },
+        new Map(),
+      ),
+      comment: typeof existing.comment === "string" ? existing.comment : "",
+      avatarPath: existing.avatarPath ?? null,
+      spriteFolderPath: existing.spriteFolderPath ?? null,
+      createdAt: existing.createdAt,
+      updatedAt: now(),
+    };
+    return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
   }
 
   private assignLorebookActionFields(target: Row, source: Row): boolean {
@@ -3778,7 +4332,7 @@ export class MariDbService {
       case "get": {
         const id = requiredString(args, ["id", "lorebookId"], "lorebook id");
         const row = await this.getRawById(getMeta("lorebooks"), id);
-        if (!row) return { ok: false, mode: "read", command: context.command, output: null };
+        if (!row) throw missingRecord("lorebook", id, "lorebook.search (or lorebook.list)");
         const entryCount = (await this.rawRows("lorebook_entries")).filter((entry) => entry.lorebookId === id).length;
         return {
           ok: true,
@@ -3810,7 +4364,7 @@ export class MariDbService {
         const query = requiredString(args, ["query", "search"], "lorebook search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows("lorebooks"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizeLorebookRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -3826,7 +4380,12 @@ export class MariDbService {
         const lorebooksStorage = createLorebooksStorage(this.db);
         const lorebook = (await lorebooksStorage.getById(lorebookId)) as unknown as Lorebook | null;
         if (!lorebook) {
-          return { ok: false, mode: "read", command: context.command, error: `Lorebook ${lorebookId} not found` };
+          return {
+            ok: false,
+            mode: "read",
+            command: context.command,
+            error: missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)").message,
+          };
         }
         let messages: Array<{ role: string; content: string }> = [];
         let activeCharacterIds: string[] = [];
@@ -3844,7 +4403,13 @@ export class MariDbService {
         if (chatId) {
           const chatsStorage = createChatsStorage(this.db);
           const chat = await chatsStorage.getById(chatId);
-          if (!chat) return { ok: false, mode: "read", command: context.command, error: `Chat ${chatId} not found` };
+          if (!chat)
+            return {
+              ok: false,
+              mode: "read",
+              command: context.command,
+              error: missingRecord("chat", chatId, "chat.list").message,
+            };
           const rawMessages = await chatsStorage.listMessages(chatId);
           messages = rawMessages.map((message) => ({
             role: message.role === "narrator" ? "system" : String(message.role),
@@ -3971,7 +4536,7 @@ export class MariDbService {
       case "folder.list": {
         const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
         if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
-          throw new Error(`Lorebook ${lorebookId} not found`);
+          throw missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)");
         }
         const rows = (await this.rawRows("lorebook_folders"))
           .filter((row) => row.lorebookId === lorebookId)
@@ -3986,7 +4551,7 @@ export class MariDbService {
         const parentFolderId = firstString(data, ["parentFolderId"]);
         return this.withLorebookFolderMutationLock(async () => {
           if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
-            throw new Error(`Lorebook ${lorebookId} not found`);
+            throw missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)");
           }
           if (parentFolderId) {
             const parent = await this.getRawById(getMeta("lorebook_folders"), parentFolderId);
@@ -4125,13 +4690,19 @@ export class MariDbService {
             if (!isRecord(entry)) throw new Error(`lorebook entry ${index + 1} must be an object`);
             // Give embedded entries the same coverage as lorebook.addEntry: build the base row, then
             // apply every user-editable setting and validate folder placement against this lorebook.
+            assertEntryMacros(entry, "lorebook.create");
+            assertLiteralEntryFields(entry, "lorebook.create");
             const entryRow = buildLorebookEntryCreateRow(entry, id, newId(), timestamp, (index + 1) * 100);
             this.assignLorebookEntryActionFields(entryRow, entry);
             await this.assignEntryFolderId(entryRow, entry, id);
             return { table: "lorebook_entries", row: entryRow };
           }),
         );
-        return this.executeMutation(
+        const entryNotices = relatedInserts.flatMap(({ row: entryRow }) => {
+          const notice = selectiveKeysNotice(entryRow, `entry "${String(entryRow.name)}"`);
+          return notice ? [notice] : [];
+        });
+        const createResult = await this.executeMutation(
           {
             kind: "insert",
             table: "lorebooks",
@@ -4146,6 +4717,7 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+        return withNotices(createResult, "lorebooks", id, entryNotices);
       }
       case "update": {
         const id = requiredString(args, ["id", "lorebookId"], "lorebook id");
@@ -4180,7 +4752,7 @@ export class MariDbService {
         this.assignLorebookActionFields(patch, data);
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "lorebook.update needs a patch field such as name, description, category, tags, enabled, global, scanDepth, tokenBudget, entryLimit, recursiveScanning, excludeFromVectorization, vectorQueryDepth, vectorIncludeAssistant, vectorScoreThreshold, or vectorMaxResults",
+            'lorebook.update needs a patch field such as name, description, category, tags, enabled, global, scanDepth, tokenBudget, entryLimit, recursiveScanning, excludeFromVectorization, vectorQueryDepth, vectorIncludeAssistant, vectorScoreThreshold, or vectorMaxResults (no known field arrived). Send them top-level or inside "patch" or "data"; entries change through lorebook.updateEntry.',
           );
         }
         return this.executeMutation(
@@ -4202,7 +4774,9 @@ export class MariDbService {
       case "createentry": {
         const lorebookId = requiredString(args, ["lorebookId"], "lorebook id");
         const lorebookExists = await this.getRawById(getMeta("lorebooks"), lorebookId);
-        if (!lorebookExists) throw new Error(`Lorebook ${lorebookId} not found`);
+        if (!lorebookExists) throw missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)");
+        assertEntryMacros(args as Record<string, unknown>, "lorebook.addEntry");
+        assertLiteralEntryFields(args as Record<string, unknown>, "lorebook.addEntry");
         const data = actionDataWithTopLevel(
           args,
           ["data", "entry", "row"],
@@ -4255,7 +4829,7 @@ export class MariDbService {
         const row = buildLorebookEntryCreateRow(data, lorebookId, id, timestamp);
         this.assignLorebookEntryActionFields(row, data);
         await this.assignEntryFolderId(row, data, lorebookId);
-        return this.executeMutation(
+        const addResult = await this.executeMutation(
           {
             kind: "insert",
             table: "lorebook_entries",
@@ -4269,11 +4843,15 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+        const addNotice = selectiveKeysNotice(row, "lorebook.addEntry");
+        return withNotices(addResult, "lorebook_entries", id, addNotice ? [addNotice] : []);
       }
       case "updateentry": {
         const entryId = requiredString(args, ["entryId", "id"], "lorebook entry id");
         const entryExists = await this.getRawById(getMeta("lorebook_entries"), entryId);
-        if (!entryExists) throw new Error(`Lorebook entry ${entryId} not found`);
+        if (!entryExists) throw missingRecord("lorebook entry", entryId, "lorebook.entries <lorebook-id>");
+        assertEntryMacros(args as Record<string, unknown>, "lorebook.updateEntry");
+        assertLiteralEntryFields(args as Record<string, unknown>, "lorebook.updateEntry");
         const data = actionDataWithTopLevel(
           args,
           ["patch", "data", "entry"],
@@ -4331,7 +4909,7 @@ export class MariDbService {
             "lorebook.updateEntry needs entryId plus a patch field such as name, content, keys, description, enabled, constant, or order",
           );
         }
-        return this.executeMutation(
+        const updateResult = await this.executeMutation(
           {
             kind: "patch",
             table: "lorebook_entries",
@@ -4345,13 +4923,74 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+        // Only when this patch touched the matching keys: an unrelated content edit stays quiet.
+        const touchedKeys = ["keys", "secondaryKeys", "selective", "selectiveLogic"].some((key) => key in patch);
+        const updateNotice = touchedKeys
+          ? selectiveKeysNotice({ ...entryExists, ...patch }, "lorebook.updateEntry")
+          : null;
+        return withNotices(updateResult, "lorebook_entries", entryId, updateNotice ? [updateNotice] : []);
+      }
+      case "linkcharacter":
+      case "unlinkcharacter": {
+        // The same rows as `mari lorebooks link-character`, as a structured call: a weak model kept
+        // writing the link into character.update, or lost it to the CLI's flag and quoting.
+        const link = sub === "linkcharacter";
+        const verb = link ? "lorebook.linkCharacter" : "lorebook.unlinkCharacter";
+        // Before the early returns: the skill gate's probe reads the verb's default, not the row it finds.
+        const apply = link ? appDataCreateApply(args) : firstBoolean(args, ["apply"]) === true;
+        const lorebookId = requiredString(args, ["lorebookId"], "lorebook id");
+        const characterId = requiredString(args, ["characterId"], "character id");
+        if (!(await this.getRawById(getMeta("lorebooks"), lorebookId)))
+          throw missingRecord("lorebook", lorebookId, "lorebook.search");
+        if (!(await this.getRawById(getMeta("characters"), characterId)))
+          throw missingRecord("character", characterId, "character.search");
+        const existingLink = (await this.rawRows("lorebook_character_links")).find(
+          (row) => row.lorebookId === lorebookId && row.characterId === characterId,
+        );
+        if (link ? existingLink : !existingLink) {
+          return {
+            ok: true,
+            mode: "read",
+            command: context.command,
+            output: `${verb}: lorebook ${lorebookId} is ${link ? "already" : "not"} linked to character ${characterId}; nothing changed.`,
+          };
+        }
+        const common = { table: "lorebook_character_links", cascade: false, cwd: context.cwd };
+        const reason = firstString(args, ["reason"]) ?? null;
+        // Linking adds a row like a create, so it writes by default; unlinking previews like a delete.
+        if (link) {
+          const linkRow: Row = { id: newId(), lorebookId, characterId, createdAt: now() };
+          return this.executeMutation(
+            {
+              ...common,
+              kind: "insert",
+              id: String(linkRow.id),
+              row: linkRow,
+              apply,
+              reason,
+            },
+            context.command,
+            context.sessionId,
+          );
+        }
+        return this.executeMutation(
+          {
+            ...common,
+            kind: "delete",
+            id: String(existingLink!.id),
+            apply,
+            reason,
+          },
+          context.command,
+          context.sessionId,
+        );
       }
       case "deleteentry": {
         // A safe, scoped single-entry delete so Mari never reaches for a raw `mari db delete --where`
         // (which can match — and remove — far more rows than intended).
         const entryId = requiredString(args, ["entryId", "id"], "lorebook entry id");
         const entryExists = await this.getRawById(getMeta("lorebook_entries"), entryId);
-        if (!entryExists) throw new Error(`Lorebook entry ${entryId} not found`);
+        if (!entryExists) throw missingRecord("lorebook entry", entryId, "lorebook.entries <lorebook-id>");
         return this.executeMutation(
           {
             kind: "delete",
@@ -4367,7 +5006,12 @@ export class MariDbService {
         );
       }
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported lorebook app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("lorebook", sub, LOREBOOK_ACTIONS),
+        };
     }
   }
 
@@ -4440,11 +5084,14 @@ export class MariDbService {
       case "update": {
         const id = requiredString(args, ["id", "widgetId"], "Home widget id");
         const index = catalog.widgets.findIndex((candidate) => candidate.id === id);
-        if (index < 0) throw new Error(`Home widget ${id} was not found.`);
-        const patch = homeCustomWidgetDraftSchema
-          .partial()
-          .parse(actionDataWithTopLevel(args, ["patch", "data", "widget"], ["title", "description", "accent", "icon"]));
-        if (Object.keys(patch).length === 0) throw new Error("home_widget.update needs a non-empty patch.");
+        if (index < 0) throw missingRecord("home widget", id, "home_widget.list");
+        const patch = partialInput(homeCustomWidgetDraftSchema).parse(
+          actionDataWithTopLevel(args, ["patch", "data", "widget"], ["title", "description", "accent", "icon"]),
+        );
+        if (Object.keys(patch).length === 0)
+          throw new Error(
+            'home_widget.update needs a non-empty patch. Send at least one of title, description, accent, icon, top-level or inside "patch" or "data".',
+          );
         const widgets = [...catalog.widgets];
         widgets[index] = homeCustomWidgetSchema.parse({ ...widgets[index], ...patch, updatedAt: now() });
         return saveCatalog(widgets);
@@ -4452,11 +5099,16 @@ export class MariDbService {
       case "delete": {
         const id = requiredString(args, ["id", "widgetId"], "Home widget id");
         if (!catalog.widgets.some((candidate) => candidate.id === id))
-          throw new Error(`Home widget ${id} was not found.`);
+          throw missingRecord("home widget", id, "home_widget.list");
         return saveCatalog(catalog.widgets.filter((candidate) => candidate.id !== id));
       }
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported Home widget app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("home widget", sub, HOME_WIDGET_ACTIONS),
+        };
     }
   }
 
@@ -4526,7 +5178,9 @@ export class MariDbService {
           cwd: context.cwd,
         };
         if (request.name === undefined && request.css === undefined)
-          throw new Error("theme.update needs a patch with name or css");
+          throw new Error(
+            'theme.update needs a patch with name or css (neither arrived). Send them top-level or inside "patch" or "data"; "css" replaces the whole stylesheet.',
+          );
         return this.executeMutation(request, context.command, context.sessionId);
       }
       case "setactive": {
@@ -4544,7 +5198,12 @@ export class MariDbService {
         return this.executeMutation(request, context.command, context.sessionId);
       }
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported theme app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("theme", sub, THEME_ACTIONS),
+        };
     }
   }
 
@@ -4586,6 +5245,14 @@ export class MariDbService {
         serverJs: runtime === "server" && typeof row.serverJs === "string" ? row.serverJs : null,
       } as const;
     };
+    // The Settings/runtime path drops this capability for Mari's drafts while the startup trust check hashes the
+    // raw row, so a stored declaration would leave a draft whose approval is revoked on every restart.
+    const refuseFullPageAccess = (capabilities: readonly string[]) => {
+      if (capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY))
+        throw new Error(
+          `Personal Extensions cannot request "${PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY}"; only External Extensions can. Nothing was changed. Send "capabilities" without it and retry.`,
+        );
+    };
 
     switch (sub) {
       case "list": {
@@ -4604,7 +5271,7 @@ export class MariDbService {
         const query = requiredString(args, ["query", "search"], "Personal Extension search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows(table))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarize);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -4624,6 +5291,7 @@ export class MariDbService {
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
         } as const;
+        refuseFullPageAccess(executable.capabilities);
         const timestamp = now();
         const id = firstString(args, ["id", "extensionId"]) ?? newId();
         const row: Row = {
@@ -4661,14 +5329,24 @@ export class MariDbService {
       case "update": {
         const id = requiredString(args, ["id", "extensionId"], "Personal Extension id");
         const existingRaw = await this.getRawById(getMeta(table), id);
-        if (!existingRaw) throw new Error(`Personal Extension ${id} not found`);
+        if (!existingRaw)
+          throw missingRecord("personal extension", id, "personal_extension.list (or personal_extension.search)");
         const existing = parseRow(table, existingRaw);
+        // An update rewrites `source` and keeps an unchanged hash's approval, so editing an external row
+        // would move it past the External gates while it keeps running.
+        if (existing.source !== "professor_mari")
+          throw new Error(
+            `personal_extension.update edits only extensions Professor Mari drafted; "${id}" is an External Extension. Nothing was changed. Point the user to Settings → Addons → External Extensions to change it there.`,
+          );
         const data = actionDataWithTopLevel(
           args,
           ["patch", "data", "extension"],
           ["name", "version", "description", "runtime", "capabilities", "css", "js", "serverJs"],
         );
-        if (Object.keys(data).length === 0) throw new Error("personal_extension.update needs a code or metadata patch");
+        if (Object.keys(data).length === 0)
+          throw new Error(
+            'personal_extension.update needs a code or metadata patch (no known field arrived). Send name, version, description, runtime, capabilities, css, js or serverJs top-level or inside "patch" or "data".',
+          );
         const runtime =
           data.runtime === "server" || (data.runtime === undefined && existing.runtime === "server")
             ? "server"
@@ -4697,6 +5375,7 @@ export class MariDbService {
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
         } as const;
+        refuseFullPageAccess(executable.capabilities);
         const previousExecutable = executableFromRow(existing);
         const previousHash =
           typeof existing.contentHash === "string" && existing.contentHash
@@ -4754,7 +5433,7 @@ export class MariDbService {
           ok: false,
           mode: "read",
           command: context.command,
-          error: "Unsupported Personal Extension app_data action.",
+          error: unknownActionMessage("personal extension", sub, PERSONAL_EXTENSION_ACTIONS),
         };
     }
   }
@@ -4818,7 +5497,7 @@ export class MariDbService {
         const query = requiredString(args, ["query", "search"], "agent search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows("agent_configs"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizeAgentConfigRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -4875,6 +5554,7 @@ export class MariDbService {
               "imagePath",
               "promptTemplate",
               "prompt",
+              "prompt_template",
               "settings",
               "resultType",
             ],
@@ -4895,7 +5575,12 @@ export class MariDbService {
         return this.executeMutation(request, context.command, context.sessionId);
       }
       default:
-        return { ok: false, mode: "read", command: context.command, error: "Unsupported agent app_data action." };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: unknownActionMessage("agent", sub, AGENT_ACTIONS),
+        };
     }
   }
 
@@ -4930,7 +5615,7 @@ export class MariDbService {
         const query = requiredString(args, ["query", "search"], "prompt preset search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.rawRows("prompt_presets"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(query))
+          .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizePromptPresetRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -4966,6 +5651,7 @@ export class MariDbService {
         );
         const presetId = firstString(payload, ["id", "presetId", "promptPresetId"]) ?? newId();
         payload.id = presetId;
+        refuseQuotedSectionIds("preset.create", payload);
         const relatedInserts = normalizePromptPresetChildInserts(payload, presetId);
         const data = normalizePromptPresetActionData(stripPromptPresetChildPayload(payload));
         requiredString(data, ["name"], "prompt preset name");
@@ -5001,6 +5687,8 @@ export class MariDbService {
             "wrapFormat",
             "scopedRegexMode",
             "scoped_regex_mode",
+            "conversation_prompt",
+            "game_prompt",
             "defaultChoices",
             "isDefault",
             "author",
@@ -5012,6 +5700,15 @@ export class MariDbService {
             "choices",
           ],
         );
+        // Sections sent here were rebuilt into a new sectionOrder holding only them, so a one-section
+        // update dropped every other section from the prompt. Sections have their own actions.
+        const sentSections = ["sections", "promptSections"].find((key) => payload[key] !== undefined);
+        if (sentSections) {
+          throw new Error(
+            `preset.update does not take "${sentSections}" (${describeReceived(payload[sentSections])}): it would replace the whole section order. Nothing was changed. Edit a section with {"action":"preset.updateSection","sectionId":"<id from preset.sections>","data":{"content":"…"},"apply":true}; add one with {"action":"preset.addSection","presetId":"${id}","data":{"name":"…","content":"…"}}. To reorder, send preset.update with the complete "sectionOrder".`,
+          );
+        }
+        refuseQuotedSectionIds("preset.update", payload);
         const relatedInserts = normalizePromptPresetChildInserts(payload, id);
         const data = normalizePromptPresetActionData(stripPromptPresetChildPayload(payload), existing);
         delete data.id;
@@ -5031,7 +5728,7 @@ export class MariDbService {
       case "sections": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const sectionId = firstString(args, ["sectionId"]);
         const orderIndex = new Map(
           parseJsonArrayValue(preset.sectionOrder).map((id, index) => [String(id), index] as const),
@@ -5060,7 +5757,7 @@ export class MariDbService {
       case "groups": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const orderIndex = new Map(
           parseJsonArrayValue(preset.groupOrder).map((id, index) => [String(id), index] as const),
         );
@@ -5087,7 +5784,7 @@ export class MariDbService {
       case "choiceblocks": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const blocks = (await this.rawRows("choice_blocks"))
           .filter((block) => block.presetId === presetId)
           .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
@@ -5107,7 +5804,7 @@ export class MariDbService {
       case "updatesection": {
         const sectionId = requiredString(args, ["sectionId", "id"], "prompt section id");
         const existing = await this.getRawById(getMeta("prompt_sections"), sectionId);
-        if (!existing) throw new Error(`Prompt section ${sectionId} not found`);
+        if (!existing) throw missingRecord("prompt section", sectionId, "preset.sections <preset-id>");
         const data = actionDataWithTopLevel(
           args,
           ["patch", "data", "section"],
@@ -5174,7 +5871,7 @@ export class MariDbService {
       case "updategroup": {
         const groupId = requiredString(args, ["groupId", "id"], "prompt group id");
         const existing = await this.getRawById(getMeta("prompt_groups"), groupId);
-        if (!existing) throw new Error(`Prompt group ${groupId} not found`);
+        if (!existing) throw missingRecord("prompt group", groupId, "preset.groups <preset-id>");
         const data = actionDataWithTopLevel(
           args,
           ["patch", "data", "group"],
@@ -5227,7 +5924,7 @@ export class MariDbService {
       case "updatechoiceblock": {
         const choiceBlockId = requiredString(args, ["choiceBlockId", "id"], "choice block id");
         const existing = await this.getRawById(getMeta("choice_blocks"), choiceBlockId);
-        if (!existing) throw new Error(`Choice block ${choiceBlockId} not found`);
+        if (!existing) throw missingRecord("choice block", choiceBlockId, "preset.choiceBlocks <preset-id>");
         const data = actionDataWithTopLevel(
           args,
           ["patch", "data", "choiceBlock", "choice"],
@@ -5280,7 +5977,7 @@ export class MariDbService {
       case "addsection": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const data = actionDataWithTopLevel(
           args,
           ["data", "section", "row"],
@@ -5300,7 +5997,7 @@ export class MariDbService {
             "skipWrap",
           ],
         );
-        requiredString(data, ["name", "title", "label"], "section name");
+        const sectionName = requiredString(data, ["name", "title", "label"], "section name");
         if (firstBoolean(data, ["isMarker", "marker"]) === true && firstBoolean(data, ["skipWrap"]) === true) {
           throw new Error("Markers always keep their wrapper, so skipWrap has no effect on a marker.");
         }
@@ -5314,15 +6011,17 @@ export class MariDbService {
         }
         const sectionOrder = parseJsonArrayValue(preset.sectionOrder).map(String);
         const sectionId = newId();
-        const usedIdentifiers = new Set(
-          (await this.rawRows("prompt_sections"))
-            .filter((section) => section.presetId === presetId)
-            .map((section) => String(section.identifier)),
+        const presetSections = (await this.rawRows("prompt_sections")).filter(
+          (section) => section.presetId === presetId,
         );
+        const usedIdentifiers = new Set(presetSections.map((section) => String(section.identifier)));
         const row = buildPromptSectionInsertRow(data, presetId, sectionId, sectionOrder.length + 1, usedIdentifiers);
+        // T10 (round 2): a 12b set injectionOrder 850 to place a section before Chat History, then
+        // reported it there. Only sectionOrder places a section, so say where it landed.
+        const lastSection = presetSections.find((section) => String(section.id) === sectionOrder.at(-1));
         // Insert the section AND append its id to the parent sectionOrder in one reviewable plan;
         // a section missing from sectionOrder is never assembled (would look like the #4812 bug).
-        return this.executeMutation(
+        const added = await this.executeMutation(
           {
             kind: "patch",
             table: "prompt_presets",
@@ -5337,11 +6036,17 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+        if (added.ok !== false && added.mode === "apply") {
+          noteArgument(
+            `"${sectionName}" was added as the last section${lastSection ? `, after "${String(lastSection.name)}"` : ""}.${data.injectionOrder !== undefined ? ` "injectionOrder" does not move it.` : ""} To place it elsewhere, send preset.update with the whole "sectionOrder".`,
+          );
+        }
+        return added;
       }
       case "addgroup": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const data = actionDataWithTopLevel(
           args,
           ["data", "group", "row"],
@@ -5378,7 +6083,7 @@ export class MariDbService {
       case "addchoiceblock": {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
-        if (!preset) throw new Error(`Prompt preset ${presetId} not found`);
+        if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const data = actionDataWithTopLevel(
           args,
           ["data", "choiceBlock", "choice", "row"],
@@ -5432,7 +6137,7 @@ export class MariDbService {
       case "deletesection": {
         const sectionId = requiredString(args, ["sectionId", "id"], "prompt section id");
         const existing = await this.getRawById(getMeta("prompt_sections"), sectionId);
-        if (!existing) throw new Error(`Prompt section ${sectionId} not found`);
+        if (!existing) throw missingRecord("prompt section", sectionId, "preset.sections <preset-id>");
         return this.executeMutation(
           {
             kind: "preset-section-delete",
@@ -5450,7 +6155,7 @@ export class MariDbService {
       case "deletegroup": {
         const groupId = requiredString(args, ["groupId", "id"], "prompt group id");
         const existing = await this.getRawById(getMeta("prompt_groups"), groupId);
-        if (!existing) throw new Error(`Prompt group ${groupId} not found`);
+        if (!existing) throw missingRecord("prompt group", groupId, "preset.groups <preset-id>");
         return this.executeMutation(
           {
             kind: "preset-group-delete",
@@ -5468,7 +6173,7 @@ export class MariDbService {
       case "deletechoiceblock": {
         const choiceBlockId = requiredString(args, ["choiceBlockId", "id"], "choice block id");
         const existing = await this.getRawById(getMeta("choice_blocks"), choiceBlockId);
-        if (!existing) throw new Error(`Choice block ${choiceBlockId} not found`);
+        if (!existing) throw missingRecord("choice block", choiceBlockId, "preset.choiceBlocks <preset-id>");
         return this.executeMutation(
           {
             kind: "delete",
@@ -5488,7 +6193,7 @@ export class MariDbService {
           ok: false,
           mode: "read",
           command: context.command,
-          error: "Unsupported prompt preset app_data action.",
+          error: unknownActionMessage("prompt preset", sub, PRESET_ACTIONS),
         };
     }
   }
@@ -5957,7 +6662,8 @@ export class MariDbService {
           this.validateAgentConfigRow(row, id, issues, change?.beforeRaw);
         }
         if (tableName === "custom_tools") {
-          this.validateCustomToolRow(row, id, issues);
+          const change = changes?.find((entry) => entry.table === tableName && entry.id === id);
+          this.validateCustomToolRow(row, id, issues, change?.beforeRaw);
         }
       }
     }
@@ -6095,10 +6801,16 @@ export class MariDbService {
     }
   }
 
-  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[], previousRow?: Row | null) {
     const id = idValue == null ? null : String(idValue);
+    // The editor's own limits (#8516) apply to values this change sets: a row Mari writes past them could not be saved
+    // again from the editor, but a stored value already past them (an import, an older write) must not block an
+    // unrelated edit such as `enabled`, which the editor itself now saves.
+    const sets = (field: string) => !previousRow || row[field] !== previousRow[field];
     if (typeof row.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(row.name)) {
       issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be lowercase snake_case" });
+    } else if (sets("name") && !createCustomToolSchema.shape.name.safeParse(row.name).success) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be at most 100 characters" });
     }
     if (typeof row.description !== "string" || row.description.trim().length === 0) {
       issues.push({
@@ -6106,6 +6818,13 @@ export class MariDbService {
         table: "custom_tools",
         id,
         message: "Tool description must be a non-empty string",
+      });
+    } else if (sets("description") && !createCustomToolSchema.shape.description.safeParse(row.description).success) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: "Tool description must be at most 500 characters",
       });
     }
     if (typeof row.executionType !== "string" || !TOOL_EXECUTION_TYPES.has(row.executionType)) {
@@ -6197,12 +6916,10 @@ export class MariDbService {
 
   private async executeCodeCommand(args: string[], context: CodeCommandContext): Promise<MariDbCommandResult> {
     const sub = args[0];
-    if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
+    if (isMariCodeHelpArgs(args)) {
       return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
     }
     const parsed = parseArgs(args.slice(1));
-    if (hasFlag(parsed.flags, "help"))
-      return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
 
     switch (sub) {
       case "status":
@@ -6462,7 +7179,7 @@ export class MariDbService {
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const rows = (await this.rawRows("characters"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(needle))
+          .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizeCharacterRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -6477,6 +7194,7 @@ export class MariDbService {
           );
         }
         const baseData = rawJson ? parseCharacterDataJsonInput(rawJson, "Character create JSON") : {};
+        assertCliCardInput(baseData, flags, "mari characters create");
         const charName = name ?? (typeof baseData.name === "string" ? baseData.name.trim() : "");
         if (!charName) throw new Error("Character name is required (--name or name field in --json)");
         const charData = buildMinimalCharacterData(charName, baseData, flags);
@@ -6508,11 +7226,12 @@ export class MariDbService {
             "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
           );
         const existing = await this.getRawById(getMeta("characters"), id);
-        if (!existing) throw new Error(`Character ${id} not found`);
+        if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
         const existingDataRaw = tryParseJsonColumn(existing, "data");
         const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
         const rawJson = await resolveJsonInput(flags, context.cwd);
         const patchData = rawJson ? parseCharacterDataJsonInput(rawJson, "Character update JSON") : {};
+        assertCliCardInput(patchData, flags, "mari characters update");
         const updatedData = buildMinimalCharacterData(
           flagString(flags, "name")?.trim() ?? (typeof existingData.name === "string" ? existingData.name : ""),
           deepMerge(existingData, patchData) as Row,
@@ -6602,7 +7321,7 @@ export class MariDbService {
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const rows = (await this.rawRows("personas"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(needle))
+          .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizePersonaRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -6750,7 +7469,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id) throw new Error("Usage: mari lorebooks get <id>");
         const row = await this.getRawById(getMeta("lorebooks"), id);
-        if (!row) return { ok: false, mode: "read", command: context.command, output: null };
+        if (!row) throw missingRecord("lorebook", id, "mari lorebooks list");
         const entryCount = (await this.rawRows("lorebook_entries")).filter((e) => e.lorebookId === id).length;
         return {
           ok: true,
@@ -6790,7 +7509,7 @@ export class MariDbService {
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const rows = (await this.rawRows("lorebooks"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(needle))
+          .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizeLorebookRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -6893,8 +7612,17 @@ export class MariDbService {
         }
         const entryName = flagString(flags, "name")?.trim();
         if (!entryName) throw new Error("--name is required for add-entry");
+        // The same linter as lorebook.addEntry, which shares this command's row constructor.
+        const lintedFlags = {
+          name: entryName,
+          content: flagString(flags, "content"),
+          keys: flagString(flags, "keys"),
+          secondaryKeys: flagString(flags, "secondary-keys"),
+        };
+        assertEntryMacros(lintedFlags, "mari lorebooks add-entry");
+        assertLiteralEntryFields(lintedFlags, "mari lorebooks add-entry");
         const lorebookExists = await this.getRawById(getMeta("lorebooks"), lorebookId);
-        if (!lorebookExists) throw new Error(`Lorebook ${lorebookId} not found`);
+        if (!lorebookExists) throw missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)");
         const addFolderId = flagString(flags, "folder-id");
         if (addFolderId) {
           const folderRow = await this.getRawById(getMeta("lorebook_folders"), addFolderId);
@@ -6920,7 +7648,7 @@ export class MariDbService {
           : [];
         const addSelectiveLogic = flagString(flags, "selective-logic");
         if (addSelectiveLogic !== undefined && !normalizeSelectiveLogicValue(addSelectiveLogic)) {
-          throw new Error("--selective-logic must be one of: and, and_all, or, not, not_all");
+          throw selectiveLogicFlagError(addSelectiveLogic);
         }
         // Reuse buildLorebookEntryCreateRow (the app_data create path) so the CLI and app_data
         // entry shapes cannot drift; then apply the CLI-only folderId.
@@ -6965,7 +7693,16 @@ export class MariDbService {
           );
         }
         const entryExists = await this.getRawById(getMeta("lorebook_entries"), entryId);
-        if (!entryExists) throw new Error(`Lorebook entry ${entryId} not found`);
+        if (!entryExists) throw missingRecord("lorebook entry", entryId, "lorebook.entries <lorebook-id>");
+        // The same linter as add-entry and lorebook.updateEntry.
+        const lintedFlags = {
+          name: flagString(flags, "name"),
+          content: flagString(flags, "content"),
+          keys: flagString(flags, "keys"),
+          secondaryKeys: flagString(flags, "secondary-keys"),
+        };
+        assertEntryMacros(lintedFlags, "mari lorebooks update-entry");
+        assertLiteralEntryFields(lintedFlags, "mari lorebooks update-entry");
         const entryPatch: Row = { updatedAt: now() };
         const entryFieldMap: Array<[string, string]> = [
           ["name", "name"],
@@ -7009,7 +7746,7 @@ export class MariDbService {
         const updateSelectiveLogic = flagString(flags, "selective-logic");
         if (updateSelectiveLogic !== undefined) {
           const normalizedLogic = normalizeSelectiveLogicValue(updateSelectiveLogic);
-          if (!normalizedLogic) throw new Error("--selective-logic must be one of: and, and_all, or, not, not_all");
+          if (!normalizedLogic) throw selectiveLogicFlagError(updateSelectiveLogic);
           entryPatch.selectiveLogic = normalizedLogic;
         }
         const updateSecondaryKeysRaw = flagString(flags, "secondary-keys");
@@ -7070,9 +7807,20 @@ export class MariDbService {
         if (!lorebookId || !characterId)
           throw new Error("Usage: mari lorebooks link-character <lorebook-id> --character <character-id> [--apply]");
         const lorebookExists = await this.getRawById(getMeta("lorebooks"), lorebookId);
-        if (!lorebookExists) throw new Error(`Lorebook ${lorebookId} not found`);
+        if (!lorebookExists) throw missingRecord("lorebook", lorebookId, "lorebook.list (or lorebook.search)");
         const characterExists = await this.getRawById(getMeta("characters"), characterId);
-        if (!characterExists) throw new Error(`Character ${characterId} not found`);
+        if (!characterExists) throw missingRecord("character", characterId, "character.search (or character.list)");
+        const alreadyLinked = (await this.rawRows("lorebook_character_links")).some(
+          (row) => row.lorebookId === lorebookId && row.characterId === characterId,
+        );
+        if (alreadyLinked) {
+          return {
+            ok: true,
+            mode: "read",
+            command: context.command,
+            output: `Lorebook ${lorebookId} is already linked to character ${characterId}; nothing changed.`,
+          };
+        }
         const timestamp = now();
         const linkRow: Row = { id: newId(), lorebookId, characterId, createdAt: timestamp };
         const request: ParsedMutationRequest = {
@@ -7319,7 +8067,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id) throw new Error("Usage: mari chats get <id>");
         const row = await this.getRawById(getMeta("chats"), id);
-        if (!row) return { ok: false, mode: "read", command: context.command, output: null };
+        if (!row) throw missingRecord("chat", id, "mari chats list");
         const messageCount = (await this.rawRows("messages")).filter((m) => m.chatId === id).length;
         return {
           ok: true,
@@ -7382,7 +8130,7 @@ export class MariDbService {
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 20, 200);
         const rows = (await this.rawRows("chats"))
-          .filter((row) => JSON.stringify(row).toLowerCase().includes(needle))
+          .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizeChatRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
@@ -7469,7 +8217,7 @@ export class MariDbService {
 
     const chatsStorage = createChatsStorage(this.db);
     const chat = await chatsStorage.getById(chatId);
-    if (!chat) throw new Error(`Chat ${chatId} not found.`);
+    if (!chat) throw missingRecord("chat", chatId, "chat.list");
     if (chat.mode === "game") {
       throw new Error("chat.updateMessage only fixes replies in non-game chats; a game chat's turns are out of scope.");
     }
@@ -7485,7 +8233,7 @@ export class MariDbService {
     }
     const message = await chatsStorage.getMessage(messageId);
     if (!message || message.chatId !== chatId) {
-      throw new Error(`Message ${requestedMessageId} was not found in chat ${chatId}.`);
+      throw missingRecord("message", requestedMessageId, `chat.messages with chatId ${chatId}`);
     }
     if (message.role !== "assistant" && message.role !== "narrator") {
       throw new Error("chat.updateMessage can only fix an assistant or narrator reply, not a user message.");
@@ -7585,7 +8333,13 @@ export class MariDbService {
     const chatId = requiredString(args, ["chatId", "chat_id"], "chat id");
     const chatsStorage = createChatsStorage(this.db);
     const chat = await chatsStorage.getById(chatId);
-    if (!chat) return { ok: false, mode: "read", command: context.command, error: `Chat ${chatId} not found` };
+    if (!chat)
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: missingRecord("chat", chatId, "chat.list").message,
+      };
 
     const messageArg = firstString(args, ["messageId", "message_id"]);
     // Models write "last" for "the newest reply"; that is the default anyway.
@@ -7596,7 +8350,7 @@ export class MariDbService {
         ok: false,
         mode: "read",
         command: context.command,
-        error: `Message ${requestedMessageId} was not found in chat ${chatId}.`,
+        error: missingRecord("message", requestedMessageId, `chat.messages with chatId ${chatId}`).message,
       };
     }
     if (!message) {
@@ -7639,7 +8393,11 @@ export class MariDbService {
         "Token Budget": (row as unknown as Lorebook).tokenBudget,
       }));
 
-    const connection = chat.connectionId ? await createConnectionsStorage(this.db).getById(chat.connectionId) : null;
+    const connectionsStorage = createConnectionsStorage(this.db);
+    const storedConnection = chat.connectionId
+      ? await connectionsStorage.getById(chat.connectionId)
+      : await connectionsStorage.getDefault();
+    const connection = storedConnection ? applyChatModelOverride(storedConnection, readChatModelOverride(chat)) : null;
     const presetCandidates = buildGenerationPromptPresetCandidates({
       chatMode: chat.mode,
       chatPromptPresetId: chat.promptPresetId,
@@ -7894,7 +8652,7 @@ export class MariDbService {
     if (!table) throw new Error("Usage: mari db list <table>");
     const rows = (await this.rawRows(table)).map((row) => (hasFlag(flags, "parsed") ? parseRow(table, row) : row));
     const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
-    const offset = normalizeLimit(flagString(flags, "offset"), 0, Number.MAX_SAFE_INTEGER);
+    const offset = normalizeOffset(flagString(flags, "offset"));
     return { ok: true, mode: "read", command, output: rows.slice(offset, offset + limit) };
   }
 
@@ -7942,7 +8700,7 @@ export class MariDbService {
       getMeta(table);
       for (const raw of await this.rawRows(table)) {
         const row = parseRow(table, raw);
-        if (JSON.stringify(row).toLowerCase().includes(needle)) results.push({ table, row });
+        if (matchesSearchQuery(row, needle)) results.push({ table, row });
         if (results.length >= limit) return { ok: true, mode: "read", command, output: results };
       }
     }
@@ -8226,6 +8984,15 @@ export class MariDbService {
         message: "The Professor Mari runtime can only be changed by the user, from Settings.",
       });
     }
+    // The handbook gate exists to hold her to the docs, so she must not be able to lift it.
+    if (changes.some((change) => change.table === "app_settings" && change.id === MARI_SKILL_GATE_SETTINGS_KEY)) {
+      issues.push({
+        level: "error",
+        table: "app_settings",
+        id: MARI_SKILL_GATE_SETTINGS_KEY,
+        message: "The handbook-first setting can only be changed by the user, from Settings.",
+      });
+    }
     // #6842: Professor Mari's own built-in card is Engine data. Startup rewrites it to the
     // shipped card, so an edit would vanish at the next start and its review could never be
     // restored. Change-level, like the floor above, so raw db commands are covered too.
@@ -8377,6 +9144,57 @@ export class MariDbService {
         message:
           "Professor Mari cannot mutate memories through raw DB actions. Use instruction.remember, instruction.update, or instruction.forget so length limits and flag rules apply.",
       });
+    }
+
+    // Models, Connections and the speech server settings keep a stored key next to the address it is sent to.
+    // Raw writes apply before the Keep/Restore review, so an edited address could receive the key before the user
+    // sees the change, without the checks the Connections editor and profile import make. Mari has no actions for
+    // them, so deny every change (change-level, so transforms are covered too).
+    const credentialChange = changes.find(
+      (change) =>
+        change.table === "api_connections" ||
+        change.table === "connection_accounts" ||
+        (change.table === "app_settings" &&
+          (change.id === TTS_SETTINGS_KEY || change.id === SPEECH_TO_TEXT_SETTINGS_KEY)),
+    );
+    if (credentialChange) {
+      issues.push({
+        level: "error",
+        table: credentialChange.table,
+        id: credentialChange.id,
+        message:
+          "Professor Mari cannot change Models, Connections or the speech server settings, because they hold stored keys. The user edits them in Connections and Settings.",
+      });
+    }
+    // Same reason for the chat settings that send chat text to an address outside the app, or hold its key
+    // (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import strips them: chat metadata, a settings
+    // profile's metadata and the translator defaults for new chats. Per key, so her other chat-settings edits still
+    // apply; clearing one is allowed, since that sends nothing.
+    const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
+      if (!row) return {};
+      if (change.table === "chats") return parseJsonRecordValue(row.metadata);
+      if (change.table === "chat_presets") return parseJsonRecordValue(parseJsonRecordValue(row.settings).metadata);
+      if (change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY) {
+        return parseJsonRecordValue(row.value);
+      }
+      return {};
+    };
+    for (const change of changes) {
+      const after = localDestinations(change, change.afterRaw);
+      const before = localDestinations(change, change.beforeRaw);
+      if (
+        CHAT_METADATA_LOCAL_DESTINATION_KEYS.some(
+          (key) => after[key] && stableJson(after[key]) !== stableJson(before[key]),
+        )
+      ) {
+        issues.push({
+          level: "error",
+          table: change.table,
+          id: change.id,
+          message:
+            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys. The user enters them in Chat Settings.",
+        });
+      }
     }
 
     const validation = await this.validateTouchedRows(changes, issues);
@@ -8540,7 +9358,7 @@ export class MariDbService {
     const meta = getMeta("character_groups");
     const groups = await this.rawRows(meta.name);
     if (!groups.some((group) => group.id === targetFolderId)) {
-      throw new Error(`Character folder ${targetFolderId} not found`);
+      throw missingRecord("character folder", targetFolderId, "character.folder.list");
     }
 
     return groups
@@ -8586,7 +9404,7 @@ export class MariDbService {
     const sectionMeta = getMeta("prompt_sections");
     const sectionId = String(request.id ?? "");
     const section = await this.getRawById(sectionMeta, sectionId);
-    if (!section) throw new Error(`Prompt section ${sectionId} not found`);
+    if (!section) throw missingRecord("prompt section", sectionId, "preset.sections <preset-id>");
     const changes: PlanChange[] = [];
     const presetMeta = getMeta("prompt_presets");
     const preset = await this.getRawById(presetMeta, String(section.presetId));
@@ -8628,7 +9446,7 @@ export class MariDbService {
     const groupMeta = getMeta("prompt_groups");
     const groupId = String(request.id ?? "");
     const group = await this.getRawById(groupMeta, groupId);
-    if (!group) throw new Error(`Prompt group ${groupId} not found`);
+    if (!group) throw missingRecord("prompt group", groupId, "preset.groups <preset-id>");
     const presetId = String(group.presetId);
     const changes: PlanChange[] = [];
 
@@ -8779,6 +9597,7 @@ export class MariDbService {
         });
       }
     }
+    await this.addLibraryFolderPrunes(changes);
     const cascaded = changes.filter((change) => change.cascadeOf);
     if (cascaded.length > 0 && !request.cascade) {
       issues.push({
@@ -9031,6 +9850,40 @@ export class MariDbService {
     if (meta.byKey.has("updatedAt") && !row.updatedAt) row.updatedAt = stamp;
   }
 
+  // #7977: a deleted preset or lorebook left its id in a library folder's itemIds. The HTTP routes
+  // prune it with removeItemReferences; here the prune joins the plan, so Restore puts it back too.
+  private async addLibraryFolderPrunes(changes: PlanChange[]) {
+    const folderScopes: Record<string, string> = { prompt_presets: "presets", lorebooks: "lorebooks" };
+    const removing = new Map<string, Set<string>>();
+    for (const change of changes) {
+      const scope = folderScopes[change.table];
+      if (!scope || change.action !== "delete" || !change.apply) continue;
+      removing.set(scope, (removing.get(scope) ?? new Set()).add(change.id));
+    }
+    if (removing.size === 0) return;
+    const folderMeta = getMeta("library_folders");
+    const timestamp = now();
+    for (const folder of await this.rawRows(folderMeta.name)) {
+      const removedIds = removing.get(String(folder.scope));
+      if (!removedIds) continue;
+      const parsed = parseRow(folderMeta.name, folder);
+      const itemIds = parseJsonArrayValue(parsed.itemIds).map(String);
+      const nextIds = itemIds.filter((id) => !removedIds.has(id));
+      if (nextIds.length === itemIds.length) continue;
+      const afterRaw = serializeRow(folderMeta.name, { ...parsed, itemIds: nextIds, updatedAt: timestamp });
+      changes.push({
+        table: folderMeta.name,
+        id: rowId(folderMeta, folder),
+        action: "update",
+        before: parsed,
+        after: parseRow(folderMeta.name, afterRaw),
+        beforeRaw: folder,
+        afterRaw,
+        apply: true,
+      });
+    }
+  }
+
   private async addCascadeDeletes(changes: PlanChange[], includeChildren: boolean) {
     if (!includeChildren && changes.length === 0) return;
     const queue = changes.filter((change) => change.action === "delete");
@@ -9122,7 +9975,7 @@ export class MariDbService {
       }
       addCharacterDataShapeIssues(change.table, row, change.id, issues);
       if (change.table === "agent_configs") this.validateAgentConfigRow(row, change.id, issues, change.beforeRaw);
-      if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues);
+      if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues, change.beforeRaw);
     }
 
     for (const change of changes) {
@@ -9829,7 +10682,12 @@ export class MariDbService {
 
   private async requireRawById(meta: TableMeta, id: string): Promise<Row> {
     const row = await this.getRawById(meta, id);
-    if (!row) throw new Error(`No row found in ${meta.name} with ${getPrimary(meta)}=${id}`);
+    if (!row) {
+      // Every patch path lands here, so the refusal has to say what an id looks like and how
+      // to find the real one, not just name the table (a 12b invented "shelley-the-snail").
+      const [kind, lookup] = RECORD_LOOKUPS[meta.name] ?? [meta.name.replace(/_/g, " "), "its list action"];
+      throw missingRecord(kind, id, lookup);
+    }
     return row;
   }
 

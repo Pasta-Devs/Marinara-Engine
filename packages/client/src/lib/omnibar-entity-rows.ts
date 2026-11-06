@@ -38,7 +38,10 @@ const LOREBOOK_CATEGORY_FALLBACKS: Record<Lorebook["category"], string> = {
 };
 
 /** The `t` shape these builders need, without the i18next generic machinery. */
-export type OmnibarTranslate = (key: string, fallback: string, options?: Record<string, unknown>) => string;
+export type OmnibarTranslate = {
+  (key: string, fallback: string): string;
+  (key: string, fallback: string, options: Record<string, unknown>): string;
+};
 
 /** Minimal `{ id, name }` view of a connection row. */
 export type OmnibarNamedRow = { id: string; name: string };

@@ -1,0 +1,138 @@
+:root[data-seasonal-theme="newyearseve"] {
+  --nye-bg: #101326;
+  --nye-surface: #1d2038;
+  --nye-sidebar: #191c32;
+  --nye-text: #fff1d6;
+  /* Chrome buttons draw this at 64%, so it needs more contrast than body text. */
+  --nye-button-text: #fff1d6;
+  --nye-muted: #d5cbb8;
+  --nye-gold: #f2c75c;
+  --nye-on-gold: #211800;
+  --nye-cream: #ffe8bc;
+  --nye-magenta: #a83c73;
+  --nye-magenta-surface: #382037;
+  --nye-magenta-text: #ffe4ef;
+  --nye-hover: #30243d;
+  --background: var(--nye-bg) !important;
+  --marinara-app-background-paint: var(--nye-bg) !important;
+  --foreground: var(--nye-text) !important;
+  --card: var(--nye-surface) !important;
+  --card-foreground: var(--nye-text) !important;
+  --popover: var(--nye-surface) !important;
+  --popover-foreground: var(--nye-text) !important;
+  --primary: var(--nye-gold) !important;
+  --primary-foreground: var(--nye-on-gold) !important;
+  --secondary: var(--nye-magenta-surface) !important;
+  --secondary-foreground: var(--nye-magenta-text) !important;
+  --muted: var(--nye-magenta-surface) !important;
+  --muted-foreground: var(--nye-muted) !important;
+  --accent: var(--nye-hover) !important;
+  --accent-foreground: var(--nye-text) !important;
+  --ring: var(--nye-gold) !important;
+  --sidebar: var(--nye-sidebar) !important;
+  --sidebar-foreground: var(--nye-text) !important;
+  --sidebar-accent: color-mix(in srgb, var(--nye-gold) 12%, transparent) !important;
+  --sidebar-accent-foreground: var(--nye-gold) !important;
+  --glow-primary: color-mix(in srgb, var(--nye-gold) 18%, transparent) !important;
+  --glow-accent: color-mix(in srgb, var(--nye-magenta) 16%, transparent) !important;
+  --marinara-app-accent-solid: var(--nye-gold) !important;
+  --marinara-app-accent-static: var(--nye-gold) !important;
+  --marinara-app-accent-gradient: linear-gradient(
+    90deg,
+    var(--nye-gold),
+    var(--nye-cream),
+    var(--nye-magenta)
+  ) !important;
+  --marinara-app-accent-static-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-accent: var(--nye-gold) !important;
+  --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-text: var(--nye-text) !important;
+  --marinara-chat-chrome-button-text-base: var(--nye-button-text) !important;
+}
+:root[data-seasonal-theme="newyearseve"][data-theme="light"] {
+  --nye-bg: #fffaf0;
+  --nye-surface: #fffdf8;
+  --nye-sidebar: #f7f0df;
+  --nye-text: #261d12;
+  --nye-button-text: #1a1209;
+  --nye-muted: #594b39;
+  --nye-gold: #795400;
+  --nye-on-gold: #ffffff;
+  --nye-cream: #a87520;
+  --nye-magenta: #91335f;
+  --nye-magenta-surface: #f5e6ed;
+  --nye-magenta-text: #57203c;
+  --nye-hover: #f2e6d5;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky {
+  position: absolute;
+  width: 2.5rem;
+  aspect-ratio: 8/5;
+  background: url("/seasonal/newyearseve/sky.webp") center/contain no-repeat;
+  animation: mari-seasonal-drift 7s ease-in-out infinite alternate;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky:nth-child(1) {
+  top: 0.5rem;
+  left: 6%;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky:nth-child(2) {
+  top: 2.6rem;
+  left: 17%;
+  width: 1.75rem;
+  animation-duration: 9s;
+  animation-delay: -3s;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky:nth-child(3) {
+  top: 1.1rem;
+  right: 8%;
+  width: 2.25rem;
+  animation-delay: -5s;
+}
+:root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__ground {
+  position: absolute;
+  top: 2.75rem;
+  right: 2%;
+  width: 4rem;
+  aspect-ratio: 480/276;
+  background: url("/seasonal/newyearseve/ground.webp") center bottom/contain no-repeat;
+}
+@container (min-width:34rem) {
+  :root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__ground {
+    right: 3%;
+    width: 5.5rem;
+  }
+}
+@container (min-width:72rem) {
+  :root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__ground {
+    top: auto;
+    right: 1rem;
+    bottom: 0.25rem;
+    width: 9.5rem;
+  }
+}
+@container (max-width:34rem) {
+  :root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky {
+    width: 1.6rem;
+  }
+  :root[data-seasonal-theme="newyearseve"] .mari-seasonal-home__sky:nth-child(2) {
+    display: none;
+  }
+}
+html[data-marinara-reduced-effects="true"] .mari-seasonal-home__sky,
+html[data-marinara-effects-paused="true"] .mari-seasonal-home__sky {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mari-seasonal-home__sky {
+    animation: none !important;
+  }
+}

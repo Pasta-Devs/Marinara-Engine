@@ -1,3 +1,4 @@
+import { partialInput } from "@marinara-engine/shared";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatMessage } from "../../services/llm/base-provider.js";
 import {
@@ -41,6 +42,8 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
+import type { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import {
   parseSceneManualOverrides,
   parseStoredRulesetClocks,
@@ -48,11 +51,10 @@ import {
 } from "../../services/storage/game-state.storage.js";
 import {
   appendReadableAttachmentsToContent,
-  extractFileAttachmentInputs,
-  extractImageAttachmentDataUrls,
   parseExtra,
   type PromptAttachment,
 } from "../../services/generation/prompt-attachments.js";
+import { summaryEntriesAlwaysInPrompt } from "../../services/generation/roleplay-summary-retrieval.js";
 
 export { resolveBaseUrl } from "../../services/generation/connection-base-url.js";
 export {
@@ -740,12 +742,22 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
   return result;
 }
 
-/** Format only audience-filtered, context-fitted messages, preserving live tool exchanges. */
+/**
+ * Format only audience-filtered, context-fitted messages, preserving live tool exchanges. A prompt that `endsOnPrefill`
+ * keeps its final Assistant Prefill turn out of a Single User Message, so the request still ends on it. Apply still
+ * joins it to an assistant reply right before it: roles must alternate, and a chat template such as llama.cpp's refuses
+ * two assistant turns at the end.
+ */
 export function postProcessMessages(
   messages: ChatMessage[],
   parameters: Pick<StoredGenerationParameters, "strictRoleFormatting" | "singleUserMessage"> = {},
+  endsOnPrefill = false,
 ): ChatMessage[] {
   const single = parameters.singleUserMessage === true;
+  const prefill = endsOnPrefill && single ? messages.at(-1) : undefined;
+  if (prefill?.role === "assistant") {
+    return [...postProcessMessages(messages.slice(0, -1), parameters), clonePromptRoleMessage(prefill)];
+  }
   const apply = parameters.strictRoleFormatting !== false && !single;
   const source = apply ? appendNonLeadingSystemMessagesToLastUser(messages) : messages;
   const result: ChatMessage[] = [];
@@ -852,6 +864,41 @@ export function computeSummaryHideIds(args: {
   return messages
     .filter((message) => entryIdSet.has(message.id) && !tailIdSet.has(message.id))
     .map((message) => message.id);
+}
+
+/**
+ * Hold a roleplay chat's summarized history to its recent message tail (#8831). With "Hide summarised
+ * messages" on, a message an enabled summary entry covers is sent only while it is among the newest `tail`
+ * messages; the summary carries the older ones. Hiding runs only when a summary is written, so without this
+ * every message sent since then stretched the tail. A covered message the user showed again by hand stays.
+ * An older message no entry covers yet stays too, since leaving it out would lose it, and counts as `backlog`;
+ * one only a turned-off entry covers is sent on purpose, like Backfill Summary treats it, so it does not count.
+ * Only an entry every prompt keeps covers a message here: a swipe leaves out the summary of the reply it
+ * replaces (`excludeMessageIds`, the same ids the prompt's summary gets), and semantic retrieval can leave out
+ * older entries, so their messages are sent word for word instead of being in neither form.
+ * Pure: `messages` must be the chat-ordered history the model may see, without hidden messages.
+ */
+export function capSummarizedHistory<T extends { id: string; extra?: unknown }>(
+  messages: T[],
+  chatMeta: Record<string, unknown>,
+  options: { excludeMessageIds?: readonly string[] } = {},
+): { messages: T[]; backlog: number } {
+  if (chatMeta.hideSummarisedMessages !== true) return { messages, backlog: 0 };
+  const covered = new Set(
+    summaryEntriesAlwaysInPrompt(chatMeta, options.excludeMessageIds).flatMap((entry) => entry.messageIds ?? []),
+  );
+  if (covered.size === 0) return { messages, backlog: 0 };
+  const entries = normalizeChatSummaryEntries(chatMeta.summaryEntries);
+  const summarized = new Set(entries.flatMap((entry) => entry.messageIds ?? []));
+  const cut = messages.length - resolveRoleplaySummaryTail(chatMeta.summaryTailMessages);
+  let backlog = 0;
+  const kept = messages.filter((message, index) => {
+    if (index >= cut) return true;
+    if (covered.has(message.id)) return parseExtra(message.extra).visibilityManual === true;
+    if (!summarized.has(message.id)) backlog++;
+    return true;
+  });
+  return { messages: kept, backlog };
 }
 
 /**
@@ -1072,6 +1119,25 @@ export async function resolveCharacterNameMap(
   return new Map([...identities].map(([id, identity]) => [id, identity.name]));
 }
 
+/** The names of a chat's characters and persona: who may speak in the prompt of a clip a character sent. */
+export async function resolveChatSpeakerNames(
+  chars: ReturnType<typeof createCharactersStorage>,
+  chat: { characterIds: unknown; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null },
+): Promise<string[]> {
+  let characterIds: string[] = [];
+  try {
+    const parsed: unknown = typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
+    if (Array.isArray(parsed)) characterIds = parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    // Unreadable ids: no character names, as the routes read them.
+  }
+  const [names, persona] = await Promise.all([
+    resolveCharacterNameMap(characterIds, (id) => chars.getById(id)),
+    resolveChatUserIdentity(chars, chat),
+  ]);
+  return [...names.values(), ...(persona ? [persona.name] : [])];
+}
+
 function prefixSpeakerName(content: string, speakerName: string): string {
   const speaker = speakerName.trim();
   if (!speaker) return content;
@@ -1107,10 +1173,8 @@ export function resolveGroupIndividualHistorySpeaker(
   }
   if (message.role === "user") return message.personaSnapshotName?.trim() || options.personaName.trim() || "User";
   if (message.role === "assistant") {
-    return (
-      (message.characterId ? (options.characterNamesById.get(message.characterId) ?? null) : null) ??
-      (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null)
-    );
+    const characterName = message.characterId ? options.characterNamesById.get(message.characterId) : undefined;
+    return characterName ?? (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null);
   }
   return null;
 }
@@ -1174,18 +1238,6 @@ export function buildUserMessageRegenerationInstruction(message: { content?: unk
   ].join("\n");
 }
 
-export function buildUserMessageRegenerationPrompt(message: { content?: unknown; extra?: unknown }): SimpleMessage {
-  const attachments = parsePromptAttachments(message.extra);
-  const images = extractImageAttachmentDataUrls(attachments);
-  const files = extractFileAttachmentInputs(attachments);
-  return {
-    role: "user",
-    content: buildUserMessageRegenerationInstruction(message),
-    ...(images.length ? { images } : {}),
-    ...(files.length ? { files } : {}),
-  };
-}
-
 export function buildUserMessageRegenerationPromptFromSource(source: SimpleMessage): SimpleMessage {
   return {
     role: "user",
@@ -1196,27 +1248,11 @@ export function buildUserMessageRegenerationPromptFromSource(source: SimpleMessa
 }
 
 /**
- * Build the context-facing version of a user message being regenerated.
- * This preserves the original user text and attachments for prompt shaping
- * without adding the provider-facing rewrite instruction.
+ * The Assistant Prefill turn a reply opens with: the visible prefill as set and, where the provider takes one, the
+ * reasoning prefill. A regenerated user message on Gemini ends on its rewrite instruction (#7558), so the turn goes
+ * before that here. Otherwise it is returned as `prefill`, for each request to end on (endPromptOnAssistantPrefill)
+ * after everything the request gains later.
  */
-export function buildUserMessageRegenerationSourceMessage(message: {
-  content?: unknown;
-  extra?: unknown;
-}): SimpleMessage {
-  const original = typeof message.content === "string" ? message.content : "";
-  const attachments = parsePromptAttachments(message.extra);
-  const content = appendReadableAttachmentsToContent(original, attachments);
-  const images = extractImageAttachmentDataUrls(attachments);
-  const files = extractFileAttachmentInputs(attachments);
-  return {
-    role: "user",
-    content,
-    ...(images.length ? { images } : {}),
-    ...(files.length ? { files } : {}),
-  };
-}
-
 export function appendGenerationTailMessages(
   messages: SimpleMessage[],
   options: {
@@ -1228,48 +1264,101 @@ export function appendGenerationTailMessages(
     isGoogleProvider: boolean;
     regenerateUserMessage: SimpleMessage | null;
   },
-): { assistantPrefillInjected: boolean; googleUserRegenerationInjected: boolean } {
-  if (options.followUpIteration !== 0) {
-    return { assistantPrefillInjected: false, googleUserRegenerationInjected: false };
+): { prefill: SimpleMessage | null; googleUserRegenerationInjected: boolean } {
+  if (options.followUpIteration !== 0 || options.impersonate) {
+    return { prefill: null, googleUserRegenerationInjected: false };
   }
 
-  const shouldAppendGoogleUserRegeneration =
-    !options.impersonate && options.isGoogleProvider && !!options.regenerateUserMessage;
-  const assistantPrefill = options.assistantPrefill.trim();
-  const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
-  const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
-  const shouldAppendReasoningPrefill =
-    !options.impersonate && options.supportsAssistantReasoningPrefill && !!assistantReasoningPrefill;
-  const shouldAppendAssistantMessage =
-    !options.impersonate && (shouldAppendAssistantPrefill || shouldAppendReasoningPrefill);
+  const visible = options.assistantPrefill.trim() ? options.assistantPrefill : "";
+  const reasoning =
+    options.supportsAssistantReasoningPrefill && options.assistantReasoningPrefill.trim()
+      ? options.assistantReasoningPrefill.trimEnd()
+      : "";
+  const prefill: SimpleMessage | null =
+    visible || reasoning
+      ? {
+          role: "assistant",
+          content: visible,
+          ...(reasoning ? { providerMetadata: { reasoning_content: reasoning, partial: true } } : {}),
+        }
+      : null;
 
-  if (shouldAppendAssistantMessage) {
-    // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
-    // message ending in whitespace (HTTP 400), which surfaces to users as a refusal.
-    // A prefill ending in "\n" or a space is common. The user-facing prefill is
-    // rendered separately, so only what is sent to the API is trimmed.
-    messages.push({
-      role: "assistant",
-      content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
-      ...(shouldAppendReasoningPrefill
-        ? {
-            providerMetadata: {
-              reasoning_content: options.assistantReasoningPrefill.trimEnd(),
-              partial: true,
-            },
-          }
-        : {}),
-    });
+  if (options.isGoogleProvider && options.regenerateUserMessage) {
+    if (prefill) messages.push({ ...prefill, content: prefill.content.trimEnd() });
+    messages.push(options.regenerateUserMessage);
+    return { prefill: null, googleUserRegenerationInjected: true };
   }
+  return { prefill, googleUserRegenerationInjected: false };
+}
 
-  if (shouldAppendGoogleUserRegeneration) {
-    messages.push(options.regenerateUserMessage!);
+const HISTORY_REPLY_HEADER =
+  /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
+
+/**
+ * End the prompt on the Assistant Prefill turn, after every injection, instruction and reply it gained. Its text is
+ * trimmed at the end: Anthropic's Messages API rejects a final assistant message ending in whitespace (HTTP 400).
+ *
+ * A model that refuses a request ending on an assistant message (`finalAssistantAccepted` false) reads the prefill at
+ * the start of its last reply in the chat history instead, the turn it last opened: right before the reply's own text
+ * (`ownText`, after any timestamp, speaker name or history wrapper), joined as a streamed reply joins it. With no reply
+ * in the history there is no turn to show it in, so it is sent as a user message at the end instead (the maintainer's
+ * choice, #8692). A reasoning prefill still ends the prompt, as before; the provider turns that into a continuation
+ * request.
+ *
+ * `endsOnPrefill`: the prompt ends on the turn. `opensReply`: the reply starts with the visible prefill.
+ */
+export function endPromptOnAssistantPrefill<
+  T extends { role: string; content: string; contextKind?: string; providerMetadata?: Record<string, unknown> },
+>(
+  messages: T[],
+  prefill: T | null,
+  finalAssistantAccepted: boolean,
+  ownText?: (message: T) => string | undefined,
+): { endsOnPrefill: boolean; opensReply: boolean; userPrefill?: string } {
+  if (!prefill) return { endsOnPrefill: false, opensReply: false };
+  let visible = prefill.content;
+  let userPrefill: string | undefined;
+  if (!finalAssistantAccepted && visible) {
+    let index = messages.length - 1;
+    while (index >= 0 && !(messages[index]!.role === "assistant" && messages[index]!.contextKind === "history"))
+      index--;
+    const reply = messages[index];
+    if (reply) {
+      const own = ownText?.(reply)?.trim();
+      // The header Marinara writes before a history reply's text: chat-history and date wrappers, a timestamp, then a
+      // "Name: " label the reply's own text does not start with.
+      const wrapped = HISTORY_REPLY_HEADER.exec(reply.content)![0].length;
+      const label = /^[^\n:]{1,80}: /u.exec(reply.content.slice(wrapped))?.[0];
+      const head = wrapped + (label && !own?.startsWith(label) ? label.length : 0);
+      // ponytail: a reply whose own text the prompt changed (a regex script, a macro) and does not follow that header
+      // gets the prefill right after the header, and a label the changed text starts with reads as a speaker name.
+      // Upgrade: record where each history reply's text starts when its header is written.
+      const start =
+        !own || reply.content.startsWith(own, head)
+          ? head
+          : (new RegExp(`(?<=^|\\s)${escapeRegex(own)}(?=\\s|$)`, "u").exec(reply.content)?.index ?? head);
+      const body = reply.content.slice(start);
+      if (!body.startsWith(visible.trim())) {
+        const prefixed = { ...reply, content: reply.content.slice(0, start) + visible + body };
+        // Saved Gemini parts are sent in place of the text and no longer describe it, so the text goes instead.
+        const { geminiParts: _parts, ...metadata } = reply.providerMetadata ?? {};
+        if (Object.keys(metadata).length) prefixed.providerMetadata = metadata;
+        else delete prefixed.providerMetadata;
+        messages[index] = prefixed;
+      }
+    } else {
+      // No reply to open: the prefill goes in as a user message, which every model accepts last.
+      const { providerMetadata: _reasoning, ...turn } = prefill;
+      messages.push({ ...turn, role: "user", content: visible.trimEnd() } as T);
+      userPrefill = visible.trim();
+    }
+    visible = "";
   }
-
-  return {
-    assistantPrefillInjected: shouldAppendAssistantPrefill,
-    googleUserRegenerationInjected: shouldAppendGoogleUserRegeneration,
-  };
+  // `userPrefill`: the prompt ends on the prefill as a user turn (a game tool round must keep it last).
+  if (!visible && !prefill.providerMetadata)
+    return { endsOnPrefill: false, opensReply: false, ...(userPrefill && { userPrefill }) };
+  messages.push({ ...prefill, content: visible.trimEnd() });
+  return { endsOnPrefill: true, opensReply: !!visible, ...(userPrefill && { userPrefill }) };
 }
 
 export function resolveActiveCharacterIds(
@@ -1511,7 +1600,7 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
 
-  const result = generationParametersSchema.partial().safeParse(parsed);
+  const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (result.success) return result.data;
 
   // Older installs or extension callers may leave one malformed field in an
@@ -2114,4 +2203,24 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     rulesetClocks: parseStoredRulesetClocks(row.rulesetClocks),
     createdAt: row.createdAt as string,
   };
+}
+
+/** A turn's live sheet state laid over what the player changed while it was being written. A rest or
+ *  a slot pressed back on the sheet during a reply lands on the row the turn started from, and the
+ *  turn's own row, built from the state before it, would otherwise put the old numbers back
+ *  (laptop playtest 2026-10-27). Per character: one the turn left alone takes the player's edit; one
+ *  the turn changed keeps the turn's, which already started from the sheet the Game Master saw. */
+export function rebaseTurnRulesetLive<T>(
+  start: Readonly<Record<string, T>>,
+  after: Readonly<Record<string, T>>,
+  now: Readonly<Record<string, T>>,
+): Record<string, T> {
+  const next = { ...after };
+  for (const name of new Set([...Object.keys(start), ...Object.keys(now)])) {
+    if (isDeepStrictEqual(start[name], now[name])) continue;
+    if (!isDeepStrictEqual(start[name], after[name])) continue;
+    if (now[name] === undefined) delete next[name];
+    else next[name] = now[name]!;
+  }
+  return next;
 }

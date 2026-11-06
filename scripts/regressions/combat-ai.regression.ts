@@ -3,6 +3,8 @@ import {
   assignCombatTactics,
   chooseCombatCandidate,
   combatTacticsSchema,
+  shiftCombatTemperament,
+  type CombatTactics,
 } from "../../packages/shared/src/features/combat-ai.js";
 import {
   applyTacticalTurn,
@@ -37,11 +39,50 @@ assert.deepEqual(chooseClassicAction(actor("unprofiled"), [], [actor("target")],
   targetId: "target",
 });
 const weaken: CombatSkill = { id: "weaken", name: "Weaken", type: "debuff", mpCost: 5, power: 1, cooldown: 2 };
+// A thing that never thinks (the pursuer below), and an animal, which fights by its nature (1.761).
 const beast = {
   ...actor("beast"),
-  aiHints: { category: "beast" as const, temperament: "cautious" as const, proficiency: "master" as const },
+  aiHints: { category: "other" as const, temperament: "mindless" as const, proficiency: "master" as const },
 };
 assert.equal(assignCombatTactics(beast, 7).adjective, "mindless");
+assert.equal(assignCombatTactics(beast, 7).mind, "mindless");
+const wolf = {
+  ...actor("wolf"),
+  aiHints: { category: "beast" as const, temperament: "cautious" as const, proficiency: "master" as const },
+};
+assert.equal(assignCombatTactics(wolf, 7).mind, "instinct");
+for (const seed of [0, 7, 21, 33, 99]) {
+  const adjective = assignCombatTactics({ ...wolf, aiHints: { category: "beast" as const } }, seed).adjective;
+  assert.ok(
+    ["reckless", "cautious", "opportunistic", "protective", "cowardly", "coordinated"].includes(adjective),
+    `an animal is never ${adjective}`,
+  );
+}
+assert.equal(assignCombatTactics(wolf, 7, "cunning").mind, "cunning", "its own data over the Game Master's guess");
+assert.equal(
+  assignCombatTactics({ ...wolf, aiHints: { category: "beast" as const, mind: "genius" as const } }, 7, "cunning").mind,
+  "cunning",
+  "a hint never puts more thought in it than its own data does",
+);
+assert.equal(
+  assignCombatTactics({ ...wolf, aiHints: { category: "beast" as const, mind: "instinct" as const } }, 7, "cunning")
+    .mind,
+  "instinct",
+  "a hint puts less thought in it than its data does: one dominated or maddened",
+);
+assert.equal(
+  assignCombatTactics({ ...wolf, aiHints: { category: "beast" as const, mind: "genius" as const } }, 7).mind,
+  "genius",
+  "a hint where its own data says nothing",
+);
+assert.equal(assignCombatTactics(actor("kraken"), 7, "genius").mind, "genius");
+assert.equal(
+  assignCombatTactics(actor("kraken"), 7, "genius").proficiency,
+  "veteran",
+  "a genius is at least a veteran",
+);
+assert.equal(assignCombatTactics(actor("kraken"), 7, "mindless").adjective, "mindless");
+assert.equal(assignCombatTactics(actor("plain"), 7).mind, "tactical");
 for (const category of ["other", "unknown"] as const) {
   for (const seed of [0, 7, 21]) {
     assert.equal(
@@ -52,11 +93,14 @@ for (const category of ["other", "unknown"] as const) {
   }
 }
 assert.throws(
-  () =>
-    assignCombatTactics({ ...beast, tactics: { ...assignCombatTactics(actor("other"), 1), adjective: "reckless" } }, 7),
+  () => assignCombatTactics({ ...beast, tactics: { ...assignCombatTactics(actor("other"), 1), mind: "mindless" } }, 7),
   /Mindless/,
 );
 assert.equal(combatTacticsSchema.safeParse({ ...assignCombatTactics(beast, 7), adjective: "cautious" }).success, false);
+assert.equal(combatTacticsSchema.safeParse({ ...assignCombatTactics(wolf, 7), adjective: "mindless" }).success, false);
+// A profile saved before minds were read still reads.
+const { mind: _mind, ...unminded } = assignCombatTactics(actor("old"), 3);
+assert.equal(combatTacticsSchema.safeParse({ ...unminded, adjective: "mindless" }).success, true);
 assert.equal(combatTacticsSchema.safeParse({ ...assignCombatTactics(beast, 7), version: 99 }).success, false);
 assert.deepEqual(assignCombatTactics(actor("same"), 21), assignCombatTactics(actor("same"), 21));
 const saved = assignCombatTactics(actor("same"), 21);
@@ -407,6 +451,32 @@ assert.equal(
   ),
   "focused",
 );
+// Against a party too sturdy for any blow to dent, a trained one still tells the harder blow from one
+// two thirds as good: its wavering is a share of what the turn stands to gain (re-test 10).
+{
+  const trained = {
+    ...actor("trained"),
+    tactics: {
+      ...assignCombatTactics(actor("trained"), 9),
+      adjective: "disciplined" as const,
+      proficiency: "trained" as const,
+    },
+  };
+  for (let turn = 1; turn <= 60; turn++) {
+    assert.equal(
+      chooseCombatCandidate(
+        trained,
+        [
+          { action: "daggers", targetId: "wizard", damage: 0.06 },
+          { action: "multiattack", targetId: "knight", damage: 0.09 },
+        ],
+        turn,
+      ),
+      "multiattack",
+      `turn ${turn}`,
+    );
+  }
+}
 // Legacy units must respect authored attack-skill range, too.
 const legacyRange = arena();
 legacyRange.units = legacyRange.units.slice(0, 2);
@@ -442,3 +512,111 @@ assert.equal(
   "skill",
   "A wounded ally becomes healable at the declared range",
 );
+
+// ── What a role does (combat AI A1): a bulwark stands up for a friend, a solo spends everything ──
+{
+  const as = (role: CombatTactics["role"]) => ({
+    ...actor(`as-${role}`),
+    tactics: { ...assignCombatTactics(actor(`as-${role}`), 7, "tactical"), role, adjective: "disciplined" as const },
+  });
+  const guard = [
+    { action: "strike", targetId: "a", damage: 0.5 },
+    { action: "cover", targetId: "b", damage: 0.4, protection: 0.3 },
+  ];
+  assert.equal(chooseCombatCandidate(as("bruiser"), guard, 1), "strike");
+  assert.equal(chooseCombatCandidate(as("bulwark"), guard, 1), "cover");
+  const spend = [
+    { action: "everything", targetId: "a", damage: 0.6, cost: 1 },
+    { action: "keep", targetId: "a", damage: 0.45 },
+  ];
+  assert.equal(chooseCombatCandidate(as("bruiser"), spend, 1), "keep");
+  assert.equal(chooseCombatCandidate(as("solo"), spend, 1), "everything");
+  // A temperament dealt with a ruleset's role in mind (A3): a supporter may be supportive with no
+  // Engine skill that heals.
+  const drawn = new Set(
+    Array.from(
+      { length: 60 },
+      (_, seed) => assignCombatTactics(actor("priest"), seed, "tactical", "supporter").adjective,
+    ),
+  );
+  assert.ok(drawn.has("supportive"));
+  assert.equal(assignCombatTactics(actor("priest"), 7, "tactical", "supporter").role, "supporter");
+  assert.equal(assignCombatTactics({ ...actor("boss"), boss: { points: 3 } } as never, 7).role, "solo");
+  // A fanatic (T2) only where the story names one: never dealt by chance.
+  const dealt = new Set(
+    Array.from({ length: 200 }, (_, seed) => assignCombatTactics(actor("cultist"), seed).adjective),
+  );
+  assert.ok(!dealt.has("fanatical"));
+  const zealots = Array.from(
+    { length: 40 },
+    (_, seed) =>
+      assignCombatTactics({ ...actor("zealot"), aiHints: { temperament: "fanatical" } } as never, seed).adjective,
+  );
+  assert.ok(zealots.includes("fanatical"));
+  // A fanatic hits as hard as it can whatever it stands in; a disciplined one goes where its side does.
+  const risky = [
+    { action: "safe", targetId: "a", damage: 0.4 },
+    { action: "exposed", targetId: "a", damage: 0.6, risk: 0.5 },
+  ];
+  const as2 = (adjective: CombatTactics["adjective"]) => ({
+    ...actor(`t-${adjective}`),
+    tactics: { ...assignCombatTactics(actor(`t-${adjective}`), 7, "tactical"), role: "bruiser" as const, adjective },
+  });
+  assert.equal(chooseCombatCandidate(as2("cautious"), risky, 1), "safe");
+  assert.equal(chooseCombatCandidate(as2("fanatical"), risky, 1), "exposed");
+  const formation = [
+    { action: "alone", targetId: "a", damage: 0.5 },
+    { action: "together", targetId: "b", damage: 0.4, coordination: 0.3 },
+  ];
+  assert.equal(chooseCombatCandidate(as2("opportunistic"), formation, 1), "alone");
+  assert.equal(chooseCombatCandidate(as2("disciplined"), formation, 1), "together");
+  // Turned once by what happens (T7): the first shift whose trigger has happened.
+  const proud = { ...assignCombatTactics(actor("proud"), 7, "tactical"), adjective: "opportunistic" as const };
+  const shifts = [
+    { on: "cornered" as const, to: "reckless" as const },
+    { on: "bloodied" as const, to: "methodical" as const },
+  ];
+  assert.equal(
+    shiftCombatTemperament(proud, shifts, () => false),
+    undefined,
+  );
+  assert.equal(
+    shiftCombatTemperament(proud, shifts, (on) => on === "bloodied"),
+    "methodical",
+  );
+  assert.equal(proud.adjective, "methodical");
+  assert.equal(
+    shiftCombatTemperament(proud, shifts, () => true),
+    undefined,
+    "only once",
+  );
+  assert.equal(proud.adjective, "methodical");
+  assert.ok(combatTacticsSchema.safeParse(proud).success);
+  // An arrogant one (T5) gets serious once bloodied or once one of its own falls, unless told otherwise.
+  const lofty = { ...assignCombatTactics(actor("lofty"), 7, "tactical"), adjective: "arrogant" as const };
+  assert.equal(
+    shiftCombatTemperament(lofty, undefined, (on) => on === "ally-down"),
+    "methodical",
+  );
+  assert.equal(lofty.shiftedFrom, "arrogant");
+  assert.ok(combatTacticsSchema.safeParse(lofty).success);
+  const vain = { ...assignCombatTactics(actor("vain"), 7, "tactical"), adjective: "arrogant" as const };
+  assert.equal(
+    shiftCombatTemperament(vain, [{ on: "cornered", to: "reckless" }], (on) => on === "bloodied"),
+    undefined,
+    "its own shifts replace the default",
+  );
+  // It holds back its best: a cheap blow over a costly one an opportunist would spend.
+  const hoard = [
+    { action: "cheap", targetId: "a", damage: 0.4 },
+    { action: "dear", targetId: "a", damage: 0.6, cost: 0.3 },
+  ];
+  assert.equal(chooseCombatCandidate(as2("arrogant"), hoard, 1), "cheap");
+  assert.equal(chooseCombatCandidate(as2("opportunistic"), hoard, 1), "dear");
+  // Never dealt by chance.
+  assert.ok(!dealt.has("arrogant"));
+  assert.ok(!dealt.has("territorial"));
+  assert.ok(!dealt.has("cruel"));
+  assert.ok(!dealt.has("honourable"));
+  assert.ok(!dealt.has("hungry"));
+}

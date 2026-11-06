@@ -29,7 +29,6 @@ export function buildOmnibarPreviewActions(
     activeChat,
     attachedResultIds,
     connections,
-    mariEnabled,
     previewEnterHint,
     updateChat,
     askMariAbout,
@@ -43,7 +42,6 @@ export function buildOmnibarPreviewActions(
     activeChat: Chat | null;
     attachedResultIds: ReadonlySet<string>;
     connections: ReturnType<typeof useConnections>["data"];
-    mariEnabled: boolean;
     previewEnterHint: string | null;
     updateChat: ReturnType<typeof useUpdateChat>;
     askMariAbout: (result: RankedOmnibarResult | null) => void;
@@ -56,7 +54,7 @@ export function buildOmnibarPreviewActions(
   if (previewResult.command.availability?.status === "requires-admin") return [];
   // Only for what she can change; a setting, a message or a doc has nothing to continue.
   const mariActions =
-    mariEnabled && MARI_EDITABLE_CATEGORIES.has(previewResult.category) && !previewResult.action
+    MARI_EDITABLE_CATEGORIES.has(previewResult.category) && !previewResult.action
       ? [
           {
             label: t("commandCenter.actions.continueWithMari", "Continue with Prof. Mari"),
@@ -138,13 +136,11 @@ export function buildOmnibarPreviewActions(
         }
       },
     };
-    const askMariAction = mariEnabled
-      ? {
-          label: t("commandCenter.mode.work", "Ask Prof. Mari"),
-          icon: Sparkles,
-          onSelect: () => askMariAbout(previewResult),
-        }
-      : null;
+    const askMariAction = {
+      label: t("commandCenter.mode.work", "Ask Prof. Mari"),
+      icon: Sparkles,
+      onSelect: () => askMariAbout(previewResult),
+    };
     const contextAction = inActiveChat
       ? {
           label: t("commandCenter.actions.removeFromThisChat", "Remove from this chat"),
@@ -153,7 +149,7 @@ export function buildOmnibarPreviewActions(
           onSelect: () => detachFromChat("lorebook", resourceId, previewResult.title),
         }
       : addToChatAction;
-    return [editAction, ...(askMariAction ? [askMariAction] : []), ...(contextAction ? [contextAction] : [])];
+    return [editAction, askMariAction, ...(contextAction ? [contextAction] : [])];
   }
   if (previewResult.category === "character") {
     const characterId = getOmnibarResourceId(previewResult);

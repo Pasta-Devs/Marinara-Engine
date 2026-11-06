@@ -141,7 +141,7 @@ test("an old-layout sheet opens migrated in the editor and in the game, and stor
   // The game's sheet reads the old pool's spent dice on the fighter's d10, and a spend stores them there.
   const game = page.locator("[data-game]");
   await expect(game.getByLabel("hit_dice_d10 for Brenna", { exact: true })).toHaveValue("1");
-  await game.getByRole("button", { name: "Spend one hit_dice_d10 for Brenna", exact: true }).click();
+  await game.getByRole("button", { name: "Take one from hit_dice_d10 for Brenna", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __live?: unknown }).__live))
     .toEqual({ pools: { hit_dice_d10: { value: 0 } } });

@@ -7,7 +7,8 @@
 // its first package client, so an Engine without packages never loads it and startup does not wait for it.
 import * as tanstackReactQuery from "@tanstack/react-query";
 import * as clsx from "clsx";
-import * as framerMotion from "framer-motion";
+import * as motion14 from "framer-motion";
+import * as framerMotion from "framer-motion-v13";
 import * as i18next from "i18next";
 import * as react from "react";
 import * as reactJsxRuntime from "react/jsx-runtime";
@@ -16,7 +17,7 @@ import * as reactDomClient from "react-dom/client";
 import * as reactI18next from "react-i18next";
 import * as sonner from "sonner";
 import * as tailwindMerge from "tailwind-merge";
-import * as zod from "zod";
+import * as zod from "zod-v3";
 import * as zustand from "zustand";
 import * as zustandMiddleware from "zustand/middleware";
 import { supportedCapabilityApi } from "@marinara-engine/shared";
@@ -31,8 +32,15 @@ import { useGameStateStore } from "../stores/game-state.store";
 import { useSidecarStore } from "../stores/sidecar.store";
 import { useUIStore } from "../stores/ui.store";
 import * as api from "./api-client";
+import * as audio from "./audio-service";
 import * as dialogs from "./app-dialogs";
 import * as emojiCatalog from "./emoji-catalog.generated";
+import {
+  downloadUrlToDevice,
+  prepareImageSave,
+  savePreparedImageToDevice,
+  shouldUseIosImageShare,
+} from "./file-download";
 import {
   MARINARA_HOST_MODULE_SPECIFIERS,
   MARINARA_HOST_STORE_NAMES,
@@ -61,7 +69,7 @@ function defineMarinaraHost(): MarinaraHostV1 {
     gameState: useGameStateStore,
     backfill: useRollingBackfillStore,
   });
-  // Each value is exactly what `import * as m from "<specifier>"` gives the Engine's own code, so a package shares the
+  // Each value is the namespace of its MARINARA_HOST_MODULE_IMPORTS dependency, so a package shares the
   // Engine's one React, React Query, zustand and toast state.
   const modules = Object.freeze({
     react,
@@ -76,6 +84,7 @@ function defineMarinaraHost(): MarinaraHostV1 {
     i18next,
     "react-i18next": reactI18next,
     "framer-motion": framerMotion,
+    "motion/react": motion14,
     "tailwind-merge": tailwindMerge,
     clsx,
   });
@@ -88,7 +97,17 @@ function defineMarinaraHost(): MarinaraHostV1 {
     version: MARINARA_HOST_VERSION,
     capabilityApi: supportedCapabilityApi,
     stores,
-    services: Object.freeze({ tts, dialogs }),
+    services: Object.freeze({
+      tts,
+      dialogs,
+      audio,
+      imageDownloads: Object.freeze({
+        downloadUrlToDevice,
+        prepareImageSave,
+        savePreparedImageToDevice,
+        shouldUseIosImageShare,
+      }),
+    }),
     modules,
     queryClient,
     components: Object.freeze({ Modal }),
@@ -111,6 +130,9 @@ let hostReady: Promise<MarinaraHostV1> | null = null;
  * of this module finds the namespace an earlier copy defined, which can never be replaced.
  */
 export function ensureMarinaraHost(): Promise<MarinaraHostV1> {
-  hostReady ??= new Promise((resolve) => resolve(globalThis.__MARINARA_HOST__ ?? defineMarinaraHost()));
+  // Only an own property: a page element with this id (chat HTML keeps ids) is a named property of window too.
+  hostReady ??= new Promise((resolve) =>
+    resolve(Object.hasOwn(globalThis, "__MARINARA_HOST__") ? globalThis.__MARINARA_HOST__! : defineMarinaraHost()),
+  );
   return hostReady;
 }

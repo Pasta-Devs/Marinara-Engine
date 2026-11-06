@@ -1,10 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  type CapabilityAdvancedMemorySummary,
   type CapabilityCharacterStatusResult,
   type CapabilityCharacterStatusUpdate,
   type CapabilityChatActivityUpdate,
   type CapabilityChatMetadataUpdate,
   type CapabilityChatRecord,
+  type CapabilityChatSummaries,
   type CapabilityCreateMessageWithSwipeInput,
   type CapabilityGameStateRecord,
   type CapabilityRoleplayEventInput,
@@ -15,8 +17,10 @@ import {
   type CapabilityPersistenceHost,
   type CapabilityPersistenceSession,
   type CapabilitySpatialSnapshotStore,
+  type SessionSummary,
   type SpatialContextSnapshot,
   type SpatialSnapshotSource,
+  normalizeChatSummaryEntries,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -26,6 +30,7 @@ import { FileUniqueConstraintError } from "../../db/file-schema.js";
 import { engineEventOwner } from "./capability-roleplay-events.service.js";
 import { ensureTimestampAfter } from "../import/import-timestamps.js";
 import {
+  advancedMemoryRecords,
   chats,
   capabilityDocuments,
   gameStateSnapshots,
@@ -191,6 +196,114 @@ async function agentWhisperNames(db: DB, chatId: string): Promise<ReadonlyMap<st
     ...(await resolveCharacterNameMap(parseStringArray(chat.characterIds), (id) => characters.getById(id))),
     [identity?.id ?? "user", identity?.name ?? "User"],
   ]);
+}
+
+function readSummaryEntries(value: unknown): CapabilityChatSummaries["day"] {
+  const entries: CapabilityChatSummaries["day"] = {};
+  for (const [key, raw] of Object.entries(parseMetadata(value) ?? {})) {
+    const entry = parseMetadata(raw);
+    if (typeof entry?.summary === "string") {
+      entries[key] = { summary: entry.summary, keyDetails: parseStringArray(entry.keyDetails) };
+    }
+  }
+  return entries;
+}
+
+/**
+ * One stored Game session as a complete SessionSummary. Older entries lack fields or keep `revelations`, so each
+ * field is read on its own (as the Game routes do); a missing number is the entry's position plus one.
+ */
+function readGameSession(session: Record<string, unknown>, index: number, chatUpdatedAt?: string): SessionSummary {
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const stats = parseMetadata(session.statsSnapshot);
+  return {
+    sessionNumber: typeof session.sessionNumber === "number" ? session.sessionNumber : index + 1,
+    summary: text(session.summary),
+    resumePoint: text(session.resumePoint),
+    partyDynamics: text(session.partyDynamics),
+    partyState: text(session.partyState),
+    keyDiscoveries: [
+      ...new Set([...parseStringArray(session.keyDiscoveries), ...parseStringArray(session.revelations)]),
+    ],
+    characterMoments: parseStringArray(session.characterMoments),
+    littleDetails: parseStringArray(session.littleDetails),
+    statsSnapshot: stats ? structuredClone(stats) : {},
+    npcUpdates: parseStringArray(session.npcUpdates),
+    ...(typeof session.nextSessionRequest === "string" ? { nextSessionRequest: session.nextSessionRequest } : {}),
+    timestamp: typeof session.timestamp === "string" ? session.timestamp : (chatUpdatedAt ?? ""),
+  };
+}
+
+/**
+ * The summaries a chat keeps in its metadata; whatever is missing or malformed reads as empty.
+ * Undated entries take the chat's own update time, so repeated reads return the same values.
+ */
+function mapChatSummaries(value: unknown, chatUpdatedAt?: string): Omit<CapabilityChatSummaries, "advancedMemory"> {
+  const metadata = parseMetadata(value) ?? {};
+  const sessions = Array.isArray(metadata.gamePreviousSessionSummaries) ? metadata.gamePreviousSessionSummaries : [];
+  return {
+    day: readSummaryEntries(metadata.daySummaries),
+    week: readSummaryEntries(metadata.weekSummaries),
+    rolling: normalizeChatSummaryEntries(metadata.summaryEntries, {
+      legacySummary: typeof metadata.summary === "string" ? metadata.summary : null,
+      now: chatUpdatedAt,
+    }),
+    gameSessions: sessions.flatMap((entry, index) => {
+      const session = parseMetadata(entry);
+      return typeof session?.summary === "string" ? [readGameSession(session, index, chatUpdatedAt)] : [];
+    }),
+  };
+}
+
+/** The columns a package sees; vectors, work-in-progress replies and message lists are never loaded. */
+const advancedMemorySummaryColumns = {
+  id: advancedMemoryRecords.id,
+  sceneId: advancedMemoryRecords.sceneId,
+  title: advancedMemoryRecords.title,
+  content: advancedMemoryRecords.content,
+  timeline: advancedMemoryRecords.timeline,
+  startMessageId: advancedMemoryRecords.startMessageId,
+  endMessageId: advancedMemoryRecords.endMessageId,
+  audienceCharacterIds: advancedMemoryRecords.audienceCharacterIds,
+  sourceFingerprint: advancedMemoryRecords.sourceFingerprint,
+  structuredMemory: advancedMemoryRecords.structuredMemory,
+  createdAt: advancedMemoryRecords.createdAt,
+  updatedAt: advancedMemoryRecords.updatedAt,
+};
+type AdvancedMemorySummaryRow = Pick<
+  typeof advancedMemoryRecords.$inferSelect,
+  keyof typeof advancedMemorySummaryColumns
+>;
+
+/** The query keeps enabled scene rows; scaffolds and preparation work have no content yet. */
+function mapAdvancedMemory(rows: AdvancedMemorySummaryRow[]): CapabilityAdvancedMemorySummary[] {
+  return rows
+    .filter((row) => row.content.trim())
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+    .map((row) => {
+      let audience: unknown = [];
+      try {
+        audience = JSON.parse(row.audienceCharacterIds);
+      } catch {
+        audience = [];
+      }
+      return {
+        id: row.id,
+        sceneId: row.sceneId,
+        kind: "scene",
+        title: row.title,
+        content: row.content,
+        timeline: row.timeline ?? null,
+        startMessageId: row.startMessageId,
+        endMessageId: row.endMessageId,
+        audienceCharacterIds: Array.isArray(audience)
+          ? audience.filter((id): id is string => typeof id === "string")
+          : [],
+        sourceFingerprint: row.sourceFingerprint,
+        updatedAt: row.updatedAt,
+        memory: typeof row.structuredMemory === "string" ? row.structuredMemory : null,
+      };
+    });
 }
 
 function parsePresentCharacterIds(value: unknown): string[] {
@@ -498,6 +611,27 @@ function createPersistenceSession(db: DB, assertPermission: PersistencePermissio
       });
       return rows.map((row) => mapMessage(row, names));
     },
+    async listChatSummaries(chatId) {
+      assertPermission("chat-read");
+      const rows = await db
+        .select({ metadata: chats.metadata, updatedAt: chats.updatedAt })
+        .from(chats)
+        .where(eq(chats.id, chatId))
+        .limit(1);
+      const records = rows[0]
+        ? await db
+            .select(advancedMemorySummaryColumns)
+            .from(advancedMemoryRecords)
+            .where(
+              and(
+                eq(advancedMemoryRecords.chatId, chatId),
+                eq(advancedMemoryRecords.kind, "scene"),
+                eq(advancedMemoryRecords.enabled, 1),
+              ),
+            )
+        : [];
+      return { ...mapChatSummaries(rows[0]?.metadata, rows[0]?.updatedAt), advancedMemory: mapAdvancedMemory(records) };
+    },
     async getGameState(chatId) {
       assertPermission("chat-read");
       const rows = await db
@@ -725,6 +859,24 @@ export function createCapabilityPersistenceHost(db: DB, permissions?: readonly s
         const row = byId.get(id);
         return row ? [mapMessage(row)] : [];
       });
+    },
+    async setMessagesHiddenFromAI(chatId, messageIds, hidden) {
+      assertPermission("chat-write");
+      if (!(await hostChats().getById(chatId))) throw new Error(`Chat ${chatId} was not found.`);
+      // An automatic writer leaves a message the user hid or showed by hand alone, like Advanced Memory (#7192).
+      // ponytail: read outside the patch queues, so a hand-set choice made during this call can be overwritten; a
+      // skip-manual option inside bulkSetHiddenFromAI's transaction closes it.
+      const manual = new Set(
+        (await hostChats().listMessages(chatId))
+          .filter((message) => parseExtra(message.extra).visibilityManual === true)
+          .map((message) => message.id),
+      );
+      // No extra fields: a package never marks a message's visibility as the user's choice.
+      return hostChats().bulkSetHiddenFromAI(
+        chatId,
+        messageIds.filter((id) => !manual.has(id)),
+        hidden,
+      );
     },
     async createChatNote(sourceChatId, targetChatId, content, anchorMessageId) {
       assertPermission("chat-write");

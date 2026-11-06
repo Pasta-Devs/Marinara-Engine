@@ -549,14 +549,14 @@ for (const marks of ["per-blow", "per-point"] as const) {
     );
   }
 
-  // Health naming a track nobody declared, and a track with no levels to mark.
+  // Health naming a track nobody declared, and a plain track (1.383) that is handed kinds to mark.
   refuse((doc) => {
     doc.combat.health = { track: "nowhere" };
   }, /Unknown track "nowhere"/);
   refuse((doc) => {
     doc.sheet.live.tracks.push({ id: "heat_plain", label: "Plain", min: 0, max: 4 });
     doc.combat.health = { track: "heat_plain" };
-  }, /has no levels, so a fight has nothing to mark/);
+  }, /Health is the plain track "heat_plain", which fills by points and keeps no kinds/);
 
   // A fight on a track has to say what kind of harm its damage is.
   refuse((doc) => {
