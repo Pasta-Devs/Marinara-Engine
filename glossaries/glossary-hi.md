@@ -876,3 +876,13 @@ Precedents from the #8872 sync (`media/image-providers.md`, `development/optiona
 - **Custom Parameters** (कस्टम पैरामीटर) is now glossed in the new GPT Image 2.6 section, its first mention in `media/image-providers.md`; the fal.ai and SpicyAPI mentions run bare.
 
 These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed (कस्टम रिक्वेस्ट हेडर) at its first mention, step 3 of the new section, and runs bare in the Warning and the Troubleshooting row. Every word is pack register (कस्टम, रिक्वेस्ट, हेडर). It happens to match `ui/hi.json`, but it rests on pack usage, not on the locale (§5). **Video defaults** (वीडियो डिफ़ॉल्ट) and **Test video** (वीडियो टेस्ट करें) reuse `media/scene-video.md`. **API key** (API कुंजी) is glossed at its first bold use in the file.
+- The heading is `## पहचान-जाँच वाली प्रॉक्सी इस्तेमाल करें`, under `<a id="use-an-authenticated-proxy"></a>`; both links use it as link text. "Authenticated" follows the same file's `बिना पहचान-जाँच वाले ComfyUI सर्वर` (Troubleshooting LAN row). `लॉगिन प्रॉक्सी` is avoided because `REMOTE_ACCESS.md` uses it for forward-auth proxies.
+- A proxy is **प्रॉक्सी**, feminine as elsewhere in the pack (`प्रॉक्सी … माँगती है`, `प्रॉक्सी ने रिक्वेस्ट ठुकरा दी`). "A proxy in front of ComfyUI" is `ComfyUI के आगे लगी प्रॉक्सी`, the counterpart of `REMOTE_ACCESS.md`'s `प्रॉक्सी के पीछे`. A rejected request is **ठुकराना** (`media/image-providers.md`), and "a 401 means" follows `conversation/calls.md` (`401 का मतलब …`). "Sent as-is" is `जैसी है वैसी ही भेजी जाती है`. "Non-secret headers" is `ऐसे अतिरिक्त हेडर जिनमें कोई सीक्रेट नहीं है`. Secrets are **सीक्रेट**, credentials **क्रेडेंशियल** (masculine, as in `अपना निजी localhost क्रेडेंशियल`, `installation/android-termux.md:28`, so `प्रॉक्सी ने क्रेडेंशियल ठुकरा दिए`), an auth scheme **स्कीम** and model listing **मॉडल लिस्ट**.
+
+These are translation choices, not a new native-reader review.

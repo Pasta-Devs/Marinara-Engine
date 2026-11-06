@@ -802,3 +802,13 @@ Precedent from the #8872 mirror (`media/image-providers.md`, `development/option
 - The **Custom Parameters** (свои параметры) gloss moves to the new GPT Image 2.6 section; the fal.ai mention now runs bare. The quoted Engine errors stay English (§5 Pattern C).
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed (собственные заголовки запросов), coined from pack vocabulary: **собственный** for custom (`media/comfyui.md:19`) and **запрос** for an HTTP request. Bare **заголовки** also means a heading in this pack, so prose qualifies it as **HTTP-заголовки** or **заголовки запросов**; bare **заголовки** appears only after a code span (в заголовке `Authorization: Bearer`) or in the sentence right after a qualified mention. Not taken from `ui/ru.json` (§5). **API key** takes (ключ API) at its first bold use (`media/comfyui.md:31`); **Video defaults** (параметры видео по умолчанию) and **Test video** (проверить видео) reuse the `media/scene-video.md` glosses.
+- The heading is `## Использование прокси с проверкой доступа` (`media/comfyui.md:27`), a verbal noun like `## Использование референсных изображений`. **с проверкой доступа** is the positive of the Troubleshooting row's **без проверки доступа**. `<a id="use-an-authenticated-proxy"></a>` and a blank line sit above it; the line-18 link and the new Troubleshooting row both target it.
+- **прокси** is masculine and indeclinable (`прокси проверяет`, `прокси отклонил`, `прокси нужны`), as in `REMOTE_ACCESS.md`; "in front of ComfyUI" is **перед ComfyUI**. "ComfyUI itself has no login" is **Собственного входа у ComfyUI нет**, after the pack's **вход** for login (`REMOTE_ACCESS.md:197`, `:205`). A proxy auth token is **токен**, credentials **учетные данные** (§3), an auth scheme **схема**; a 401/403 is **ответ с кодом 401 или 403** and the row title **ComfyUI отвечает кодом 401 или 403**. "Account exports leave the key out" follows `connections/organizing-connections.md:103`: **Ключ в экспорт аккаунтов не попадает**.
+
+These are documented translation choices from this sync, not an independent native-reader review.

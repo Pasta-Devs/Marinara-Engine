@@ -664,3 +664,14 @@ Choices from the #8872 sync (`media/image-providers.md`, `development/optional-a
 | queue slot / paid call | キューの枠 / 料金のかかる呼び出し |
 
 The three GIF refusal and failure messages are app strings and stay byte-exact English in 「」. These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers**(カスタムリクエストヘッダー) matches the shipped `ui/ja.json` `settings.connection.customHeaders.label` and the pack's カスタム, リクエスト and ヘッダー. **Video defaults** keeps the pack's (動画のデフォルト設定) from `media/scene-video.md`, not `ja.json`'s 動画のデフォルト.
+- The heading is `## 認証付きプロキシを使う`, a plain-form verb like `## 参照画像を使う`, with `<a id="use-an-authenticated-proxy">` above it. The link text in step 2 and in the Troubleshooting row is 認証付きプロキシを使う.
+- a proxy in front of ComfyUI: ComfyUIの手前にあるプロキシ. non-secret headers: 秘密情報を含まない追加のヘッダー; secrets: 秘密情報, after `home/professor-mari.md`. An auth scheme such as `Basic ...` is 認証スキーム, to keep it apart from the URL スキーム in `connections/decision-models.md`.
+- The new section and the Troubleshooting row gloss their labels again, per the once-per-section rule; the **Warning:** callout uses them bare.
+
+These are translation choices, not a new native-reader review.

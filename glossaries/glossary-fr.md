@@ -537,3 +537,11 @@ Precedent from the #8872 mirror (`media/image-providers.md`, `development/option
 - A GIF frame is **une image** (*9 images de 200 ms*, *Durée d'une image*), after *première image* and *Images par seconde*; the frames table row is *Images du GIF*, so it does not read as *Images envoyées*. A still is **une image fixe**, as in **Still images** (images fixes).
 - `0.66 MP` becomes *0,66 mégapixel*: comma per §4.9, unit spelled out as in `characters/galleries.md:91`, singular below 2. It also avoids `MP`, which the pack uses for magic points.
 - Engine error strings stay English in straight quotes without a gloss (§5.9). "Soft seam" keeps *interface souple*.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed *(en-têtes de requête personnalisés)*, coined from pack vocabulary (*en-têtes* in `REMOTE_ACCESS.md:175`, *requête* for HTTP requests per §3.1, *personnalisé* in `media/comfyui.md:19`), not from `ui/fr.json` (§5.12). **Video defaults** (réglages vidéo par défaut) and **Test video** (tester la vidéo) keep the `media/scene-video.md` glosses; **API key** takes *(clé API)* at its first bold use (`media/comfyui.md:31`).
+- The heading is `## Utiliser un proxy avec authentification` (`media/comfyui.md:27`), which echoes the Troubleshooting row's *sans authentification*. `<a id="use-an-authenticated-proxy"></a>` and a blank line sit above it; the line-18 link and the new Troubleshooting row both target it.
+- A proxy auth token is **le jeton** (*vérifie un jeton*, *Le jeton est enregistré sur le compte*), like the OAuth *jeton d'accès* (§3.1); the LLM-token ban stays. Credentials are plural **les identifiants**, because the singular *identifiant* means an ID in this file (**RunPod endpoint ID**). "Has no login" is *n'a pas de système d'identification*, so it cannot be read as a Marinara *connexion*. A proxy "in front of" ComfyUI is *placé devant ComfyUI*.

@@ -769,3 +769,18 @@ New anchors let the new English fragment links resolve against translated headin
 | still / still picture | 静态图 | Reuses `game/storyboard.md` and `media/animated-expressions.md`; a GIF frame is 帧 (9 帧、每帧 200 ms). |
 
 The Engine's GIF refusal strings stay English inside “ ” (§4.5.2). **Custom Parameters**(自定义参数) moved to its new first use in `media/image-providers.md` (§5.2.a). These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Custom Request Headers (image or video model field) | **Custom Request Headers**(自定义请求头) | Equals `settings.connection.customHeaders.label` in `ui/zh-Hans.json` and fits the pack's 请求头 (`REMOTE_ACCESS.md`) and 自定义. Glossed once, in step 3 of the new section. |
+| Use an authenticated proxy (heading) | `## 使用需要认证的代理` | Sits under `<a id="use-an-authenticated-proxy"></a>`; both links read 使用需要认证的代理. 需要认证 (the proxy asks Marinara for credentials) keeps it apart from the forward-auth 转发认证代理 and 登录代理 in `REMOTE_ACCESS.md` and `CONFIGURATION.md`, and pairs with the LAN row's 没有认证的. |
+| a proxy in front of ComfyUI | ComfyUI 前面的代理 | 代理 is the §3 network-proxy term. |
+| scheme (an `Authorization` value such as `Basic ...`) | 认证类型 | Not 认证方案, because 方案 is the settings-profile term (§3). |
+| non-secret headers / secrets | 非机密的请求头 / 机密 | 非机密 follows `settings.connection.customHeaders.help`; 机密 as in 服务器机密 (`extending/custom-tools.md`). |
+| token checked by the proxy | Token | The §3 auth-credential row; never 令牌. |
+
+**API key**(API 密钥), **Video defaults**(视频默认值) and **Test video**(测试视频) take their first gloss in this file in the new section, copied from the 2026-11-01 entry and `media/scene-video.md`. These are translation choices, not a new native-reader review.

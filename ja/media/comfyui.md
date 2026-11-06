@@ -15,12 +15,25 @@ ComfyUIを家庭内ネットワークの別のコンピューターで動かし�
 ## Marinaraの接続を作る
 
 1. **Connections**(接続)をクリックし、**Add**(追加)をクリックします。**Add account**(アカウントの追加)ウィンドウの**Images & video**(画像と動画)で、ローカルサーバーなら**ComfyUI**、RunPodのエンドポイントなら**RunPod Serverless (ComfyUI)**を選びます。
-2. ローカルのComfyUIでは、そのアドレス(`http://127.0.0.1:8188`)を入力します。APIキーは不要です。**ComfyUI workflow (optional)**(ComfyUIワークフロー、任意)欄が空のときは、Marinaraが内蔵の基本的なtext-to-imageワークフローを使います。
+2. ローカルのComfyUIでは、そのアドレス(`http://127.0.0.1:8188`)を入力します。ComfyUIの手前にあるプロキシがキーを求める場合を除き、APIキーは不要です([認証付きプロキシを使う](#use-an-authenticated-proxy)を参照)。**ComfyUI workflow (optional)**(ComfyUIワークフロー、任意)欄が空のときは、Marinaraが内蔵の基本的なtext-to-imageワークフローを使います。
 3. RunPodでは、APIキーと**RunPod endpoint ID**(RunPodのエンドポイントID)を入力します。カスタムワークフローが必須です。
 4. 画像モデルで**Local image defaults**(ローカル画像のデフォルト設定)を設定します。ここで指定した値が、ワークフロー内の対応するプレースホルダーに入ります。
 5. ワークフローを貼り付けて保存し、**Test image**(画像をテスト)をクリックします。
 
 うまくいかなかった場合は、[トラブルシューティング](#troubleshooting)を参照してください。
+
+<a id="use-an-authenticated-proxy"></a>
+
+## 認証付きプロキシを使う
+
+ComfyUI自体にはログイン機能がありません。ComfyUIの手前にあるプロキシがトークンや追加のヘッダーを求める場合、MarinaraはComfyUIへのすべてのリクエストにそれらを付けて送ります。キューに入れる、履歴を読み取る、画像をダウンロードする、参照画像をアップロードする、モデルの一覧を取得する、のどのリクエストも同じです。トークンはアカウントに、ヘッダーは画像モデルまたは動画モデルに保存されます。
+
+1. プロキシがトークンを確認する場合は、**Connections**(接続)を開いてComfyUIのアカウントを編集し、**API key**(APIキー)欄にトークンを入力します。Marinaraはこれを`Authorization: Bearer`ヘッダーとして送ります。`Basic ...`のように、すでに認証スキームが付いている値は、そのまま送られます。
+2. アカウントを保存します。
+3. プロキシが秘密情報を含まない追加のヘッダーを必要とする場合は、画像モデルまたは動画モデルを開き、**Local image defaults**(ローカル画像のデフォルト設定)または**Video defaults**(動画のデフォルト設定)を展開します。**Custom Request Headers**(カスタムリクエストヘッダー)欄にJSONオブジェクトを入力します。
+4. モデルを保存し、**Test image**(画像をテスト)または**Test video**(動画をテスト)を選びます。401または403が返る場合は、プロキシが認証情報を拒否しています。
+
+> **Warning:** **Custom Request Headers**に秘密情報を貼り付けないでください。秘密情報には**API key**を使ってください。アカウントをエクスポートしたファイルにキーは含まれません。
 
 ## ワークフローを作ってエクスポートする
 
@@ -169,6 +182,7 @@ RunPodのワークフローはbase64の生データのプレースホルダー�
 | ジョブは完了するのにMarinaraに画像が届かない     | 接続済みの**SaveImage**出力を追加し、ComfyUIでワークフローをもう一度直接テストします。                                                                                                                                       |
 | 参照画像のノードが失敗する                       | 通常のローカルの**LoadImage**ノードには`%reference_image_name...%`のプレースホルダーを使います。base64の生データは、それ専用のノードでのみ使い、Marinaraの機能が実際に参照画像を渡したかどうかも確認します。                |
 | リモートやLANのComfyUIのURLがブロックされる      | 画像の接続では`IMAGE_LOCAL_URLS_ENABLED`を有効にします。ComfyUIがネットワークインターフェイスで待ち受けるように設定し、ホストのファイアウォールも確認します。認証のないComfyUIサーバーをインターネットに公開しないでください。 |
+| ComfyUIが401または403を返す                      | ComfyUIの手前にあるプロキシがリクエストを拒否しました。プロキシの認証情報を**API key**(APIキー)に、追加のヘッダーを**Custom Request Headers**(カスタムリクエストヘッダー)に入力してから、もう一度**Test image**(画像をテスト)を実行します。[認証付きプロキシを使う](#use-an-authenticated-proxy)を参照してください。 |
 | エラー: `Outbound response exceeded N bytes`     | 応答が設定された上限(デフォルトは30 MiB)を超えました。画像に埋め込まれたワークフローや参照画像のメタデータが原因になることがあります。ComfyUIでメタデータをオフにするか、Marinaraの`.env`で`IMAGE_GEN_MAX_RESPONSE_BYTES`を大きくしてMarinaraを再起動します。 |
 | 時間のかかる画像生成がタイムアウトする           | Marinaraの`.env`で`COMFYUI_GEN_TIMEOUT`を大きくします。単位は秒で、デフォルトは`2400`です。                                                                                                                              |
 | 時間のかかる動画生成がタイムアウトする           | Marinaraの`.env`で`VIDEO_GEN_TIMEOUT_MS`を大きくします。単位はミリ秒で、デフォルトは`1800000`(30分)です。                                                                                                                |

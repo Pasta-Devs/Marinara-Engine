@@ -1322,3 +1322,25 @@ Precedents from the #8872 mirror against Engine `21da93b590` (`media/image-provi
   bare.
 - Numbers follow the English grouping: `8,294,400` is **8 294 400** (R-103), while an
   ungrouped English `2000` stays `2000`, as at `development/optional-agent-packages.md:647`.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed once as *(własne nagłówki żądań)*: *własny* is the
+  pack's word for *custom* (`media/comfyui.md:19` "Własny workflow"), *żądanie* its word for
+  request ("żądani-" ×276 before this change), lowercase per R-112. `ui/pl.json` has no value for it,
+  so the gloss is coined; recheck it when the key ships. **API key** *(klucz API)*, **Video
+  defaults** *(domyślne ustawienia wideo)* and **Test video** *(test wideo)* reuse the existing
+  glosses (`media/scene-video.md`), not `pl.json`'s "Testuj wideo".
+- The heading is `## Korzystanie z proxy wymagającego uwierzytelniania`, a verbal noun like
+  `## Korzystanie z obrazów referencyjnych`, with `<a id="use-an-authenticated-proxy"></a>`
+  above it (2026-10-14 pattern). Both same-file links use that heading as link text.
+- *Proxy* stays the indeclinable neuter loanword of `REMOTE_ACCESS.md` ("proxy odrzuciło");
+  *in front of ComfyUI* is **przed ComfyUI**. *Headers* are **nagłówki HTTP** in prose, so they
+  do not read as UI headers. *Credentials* are **dane uwierzytelniające**
+  (`connections/providers-reference.md:107`); *secrets* are **sekrety** (`REMOTE_ACCESS.md`);
+  *a scheme* (`Basic ...`) is **schemat uwierzytelniania**; *sent as-is* is **wysyłana bez
+  zmian**. *Account exports leave the key out* is "Eksport konta nie zawiera klucza API", after
+  `connections/organizing-connections.md:105`. *ComfyUI answers 401 or 403* is "ComfyUI zwraca
+  błąd 401 lub 403", after `TROUBLESHOOTING.md` "zwraca błąd 403".

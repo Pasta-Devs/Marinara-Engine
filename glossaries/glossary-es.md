@@ -522,3 +522,11 @@ Precedents from the #8872 sync (`media/image-providers.md`, `development/optiona
 
 - **Image quality** is glossed (Calidad de imagen) and its option **Max** (Máxima), the `ui/es.json` values of `ui.connections.connectioneditor.gptImageQuality` and `imageQualityMax`; the feminine agrees with *calidad*. `prompts/generation-parameters.md` leaves its long reasoning-level list bare; a single option value takes the gloss, as **Max** (Máximo) does in `game/hud-widgets.md`.
 - A *still* or *still picture* is **imagen fija** (the `game/storyboard.md` word), a GIF *frame* is **fotograma**, a *looping GIF* is **un GIF en bucle**, plural **GIFs**. Quoted Engine errors stay English, as in `media/scene-video.md`.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed (Encabezados de solicitud personalizados), the `ui/es.json` value of `settings.connection.customHeaders.label`. It also fits the pack's own words: *headers* are **encabezados** (`REMOTE_ACCESS.md`), a *request* is **solicitud** and *custom* is **personalizado**. **API key** takes its usual (clave de API) at its first bold use, and **Video defaults** (Valores predeterminados de video) and **Test video** (Probar video) follow `media/scene-video.md`.
+- The heading is `## Usar un proxy con autenticación`, infinitive like `## Usar imágenes de referencia`, with `<a id="use-an-authenticated-proxy"></a>` and a blank line above it. Both same-file links use that heading as link text.
+- A network *proxy* stays **proxy** (as in `proxy inverso`), not **pasarela**, which the 2026-11-01 entry reserves for gateway accounts. *A proxy in front of ComfyUI* is **un proxy delante de ComfyUI**. An auth *scheme* (`Basic ...`) is **esquema**, and *sent as-is* is **se envía tal cual**. *Credentials* are **credenciales**, the token is **el token** (masculine, § 3), and *non-secret headers* are **encabezados adicionales que no sean secretos**.

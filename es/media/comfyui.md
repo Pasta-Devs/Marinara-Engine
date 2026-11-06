@@ -15,12 +15,25 @@ Puede que un modelo de lenguaje local y un modelo de imagen no quepan al mismo t
 ## Crear la conexión de Marinara
 
 1. Haz clic en **Connections** (Conexiones) y luego en **Add** (Añadir). En la ventana **Add account** (Añadir cuenta), elige **ComfyUI** para un servidor local o **RunPod Serverless (ComfyUI)** para un endpoint de RunPod, en **Images & video** (Imágenes y video).
-2. Para ComfyUI local, ingresa su dirección (`http://127.0.0.1:8188`). No se necesita API key (clave de API). Con el campo **ComfyUI workflow (optional)** (Flujo de trabajo de ComfyUI: opcional) vacío, Marinara usa un flujo de trabajo básico integrado de texto a imagen.
+2. Para ComfyUI local, ingresa su dirección (`http://127.0.0.1:8188`). No se necesita API key (clave de API), a menos que un proxy delante de ComfyUI la pida (consulta [Usar un proxy con autenticación](#use-an-authenticated-proxy)). Con el campo **ComfyUI workflow (optional)** (Flujo de trabajo de ComfyUI: opcional) vacío, Marinara usa un flujo de trabajo básico integrado de texto a imagen.
 3. Para RunPod, ingresa tu API key y el **RunPod endpoint ID** (ID del endpoint de RunPod). Se requiere un flujo de trabajo personalizado.
 4. Configura **Local image defaults** (Valores predeterminados de imagen local) en el modelo de imagen. Estos valores reemplazan los marcadores de posición correspondientes en tu flujo de trabajo.
 5. Pega el flujo de trabajo, guarda y haz clic en **Test image** (Probar imagen).
 
 Si no funcionó, consulta [Solución de problemas](#troubleshooting).
+
+<a id="use-an-authenticated-proxy"></a>
+
+## Usar un proxy con autenticación
+
+ComfyUI en sí no tiene inicio de sesión. Cuando un proxy delante de ComfyUI pide un token o encabezados adicionales, Marinara los envía con cada solicitud a ComfyUI: cola, historial, descarga de imágenes, subida de referencias y lista de modelos. El token se guarda en la cuenta, y los encabezados, en el modelo de imagen o de video.
+
+1. Si el proxy comprueba un token, abre **Connections**, edita la cuenta de ComfyUI e ingresa el token en **API key** (clave de API). Marinara lo envía como un encabezado `Authorization: Bearer`. Un valor que ya incluye un esquema, como `Basic ...`, se envía tal cual.
+2. Guarda la cuenta.
+3. Si el proxy necesita encabezados adicionales que no sean secretos, abre el modelo de imagen o de video y despliega **Local image defaults** o **Video defaults** (Valores predeterminados de video). Ingresa un objeto JSON en **Custom Request Headers** (Encabezados de solicitud personalizados).
+4. Guarda el modelo y elige **Test image** o **Test video** (Probar video). Un 401 o un 403 significa que el proxy rechazó las credenciales.
+
+> **Advertencia:** Nunca pegues secretos en **Custom Request Headers**. Usa **API key** para los secretos. Las exportaciones de cuentas no incluyen la clave.
 
 ## Construir y exportar un flujo de trabajo
 
@@ -169,6 +182,7 @@ Esto puede dar resultados más consistentes que un solo flujo de trabajo genéri
 | El trabajo se completa pero Marinara no recibe ninguna imagen | Agrega una salida **SaveImage** conectada y prueba de nuevo el flujo de trabajo directamente en ComfyUI.                                                                                                                     |
 | Un nodo de imagen de referencia falla             | Para un nodo **LoadImage** local normal, usa un marcador de posición `%reference_image_name...%`. Usa base64 sin procesar solo con un nodo diseñado para ello, y confirma que la función de Marinara realmente proporcionó una referencia. |
 | Una URL de ComfyUI remota o de LAN está bloqueada | Para las conexiones de imagen, activa `IMAGE_LOCAL_URLS_ENABLED`. Haz que ComfyUI escuche en la interfaz de red y revisa el firewall del host. No expongas un servidor de ComfyUI sin autenticación a la internet pública.    |
+| ComfyUI responde con 401 o 403                    | El proxy delante de ComfyUI rechazó la solicitud. Ingresa su credencial en **API key** y los encabezados adicionales en **Custom Request Headers**, y luego vuelve a ejecutar **Test image**. Consulta [Usar un proxy con autenticación](#use-an-authenticated-proxy). |
 | Error: `Outbound response exceeded N bytes`      | La respuesta superó el límite configurado, que es de 30 MiB de forma predeterminada. Los metadatos incrustados del flujo de trabajo o de las imágenes de referencia pueden causarlo. Desactiva los metadatos en ComfyUI, o sube `IMAGE_GEN_MAX_RESPONSE_BYTES` en el `.env` de Marinara y reinicia Marinara. |
 | Una generación de imagen larga agota el tiempo de espera | Aumenta `COMFYUI_GEN_TIMEOUT` en el `.env` de Marinara. El valor se mide en segundos y es `2400` de forma predeterminada.                                                                                                     |
 | Una generación de video larga agota el tiempo de espera | Aumenta `VIDEO_GEN_TIMEOUT_MS` en el `.env` de Marinara. El valor se mide en milisegundos y es `1800000` (30 minutos) de forma predeterminada.                                                                                |

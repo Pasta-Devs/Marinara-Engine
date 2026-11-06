@@ -15,12 +15,25 @@ Lokalny model językowy i model do obrazów mogą nie zmieścić się w pamięci
 ## Tworzenie połączenia w aplikacji Marinara Engine
 
 1. Kliknij **Connections** (Połączenia), a potem **Add** (dodaj). W oknie **Add account** (dodanie konta), w sekcji **Images & video** (obrazy i wideo), wybierz **ComfyUI** dla serwera lokalnego albo **RunPod Serverless (ComfyUI)** dla punktu końcowego RunPod.
-2. Przy lokalnym ComfyUI wpisz jego adres (`http://127.0.0.1:8188`). Klucz API nie jest potrzebny. Jeśli pole **ComfyUI workflow (optional)** (workflow ComfyUI, opcjonalny) jest puste, Marinara używa wbudowanego prostego workflow typu tekst-na-obraz.
+2. Przy lokalnym ComfyUI wpisz jego adres (`http://127.0.0.1:8188`). Klucz API nie jest potrzebny, chyba że wymaga go proxy przed ComfyUI (zobacz [Korzystanie z proxy wymagającego uwierzytelniania](#use-an-authenticated-proxy)). Jeśli pole **ComfyUI workflow (optional)** (workflow ComfyUI, opcjonalny) jest puste, Marinara używa wbudowanego prostego workflow typu tekst-na-obraz.
 3. Przy RunPod wpisz klucz API oraz **RunPod endpoint ID** (identyfikator punktu końcowego RunPod). Własny workflow jest tu obowiązkowy.
 4. Ustaw panel **Local image defaults** (domyślne ustawienia obrazów lokalnych) w modelu obrazów. Te wartości zastępują odpowiadające im symbole zastępcze w workflow.
 5. Wklej workflow, zapisz i kliknij **Test image** (test obrazu).
 
 Jeśli się nie udało, zobacz [Rozwiązywanie problemów](#troubleshooting).
+
+<a id="use-an-authenticated-proxy"></a>
+
+## Korzystanie z proxy wymagającego uwierzytelniania
+
+ComfyUI nie ma własnego logowania. Gdy proxy przed nim wymaga tokenu albo dodatkowych nagłówków HTTP, Marinara wysyła je z każdym żądaniem do ComfyUI: przy ustawianiu workflow w kolejce, odpytywaniu historii, pobieraniu obrazów, wgrywaniu obrazów referencyjnych i wczytywaniu listy modeli. Token zapisuje się w koncie, a nagłówki w modelu obrazów lub wideo.
+
+1. Jeśli proxy sprawdza token, otwórz **Connections**, edytuj konto ComfyUI i wpisz token w polu **API key** (klucz API). Marinara wysyła go jako nagłówek `Authorization: Bearer`. Wartość, która zawiera już schemat uwierzytelniania, na przykład `Basic ...`, jest wysyłana bez zmian.
+2. Zapisz konto.
+3. Jeśli proxy potrzebuje dodatkowych nagłówków HTTP, które nie zawierają sekretów, otwórz model obrazów lub wideo i rozwiń panel **Local image defaults** albo **Video defaults** (domyślne ustawienia wideo). W polu **Custom Request Headers** (własne nagłówki żądań) wpisz obiekt JSON.
+4. Zapisz model i wybierz **Test image** albo **Test video** (test wideo). Błąd 401 lub 403 oznacza, że proxy odrzuciło dane uwierzytelniające.
+
+> **Ostrzeżenie:** Nigdy nie wklejaj sekretów w polu **Custom Request Headers**. Sekrety wpisuj w polu **API key**. Eksport konta nie zawiera klucza API.
 
 ## Tworzenie i eksport workflow
 
@@ -169,6 +182,7 @@ Efekty bywają dzięki temu spójniejsze niż przy jednym uniwersalnym workflow,
 | Zadanie kończy się, ale Marinara nie dostaje obrazu | Dodaj podłączone wyjście **SaveImage** i przetestuj workflow jeszcze raz bezpośrednio w ComfyUI.                                                                                                                            |
 | Węzeł obrazu referencyjnego zgłasza błąd         | Przy zwykłym lokalnym węźle **LoadImage** użyj symbolu `%reference_image_name...%`. Surowego base64 używaj tylko z węzłem stworzonym pod ten format i sprawdź, czy funkcja aplikacji Marinara Engine faktycznie przekazała obraz referencyjny. |
 | Zdalny adres ComfyUI w sieci lokalnej jest blokowany | Przy połączeniach do generowania obrazów włącz `IMAGE_LOCAL_URLS_ENABLED`. Ustaw nasłuchiwanie ComfyUI na interfejsie sieciowym i sprawdź zaporę na komputerze docelowym. Nie wystawiaj serwera ComfyUI bez uwierzytelniania do publicznego internetu. |
+| ComfyUI zwraca błąd 401 lub 403                  | Proxy przed ComfyUI odrzuciło żądanie. Wpisz dane uwierzytelniające tego proxy w polu **API key**, a ewentualne dodatkowe nagłówki HTTP w polu **Custom Request Headers**. Potem jeszcze raz uruchom **Test image**. Zobacz [Korzystanie z proxy wymagającego uwierzytelniania](#use-an-authenticated-proxy). |
 | Błąd: `Outbound response exceeded N bytes`      | Odpowiedź przekroczyła ustawiony limit, domyślnie 30 MiB. Mogą to spowodować osadzone w metadanych workflow lub obrazy referencyjne. Wyłącz metadane w ComfyUI albo zwiększ `IMAGE_GEN_MAX_RESPONSE_BYTES` w pliku `.env` aplikacji Marinara Engine i uruchom ją ponownie. |
 | Długie generowanie obrazu przekracza limit czasu | Zwiększ `COMFYUI_GEN_TIMEOUT` w pliku `.env` aplikacji Marinara Engine. Wartość podaje się w sekundach, domyślnie `2400`.                                                                                                     |
 | Długie generowanie wideo przekracza limit czasu  | Zwiększ `VIDEO_GEN_TIMEOUT_MS` w pliku `.env` aplikacji Marinara Engine. Wartość podaje się w milisekundach, domyślnie `1800000` (30 minut).                                                                                  |

@@ -1015,3 +1015,21 @@ Precedents from the #8872 sync against Engine `21da93b590` (`media/image-provide
   options in `prompts/generation-parameters.md`; the `ui/de.json` „Max.“ is not copied.
 - **Custom Parameters** *(eigene Parameter)* now first appears in „### GPT Image 2.6“, so the gloss
   moved there and the fal.ai mention is bare (rule of 2026-10-11).
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed *(eigene Anfrage-Header)*: *custom* is „eigen“ as in
+  „Ein eigener Workflow“ in the same file, *request* is **die Anfrage** (the pack's word), and
+  *header* is **der Header**, pl. **Header**, as in `REMOTE_ACCESS.md`. It happens to equal
+  `ui/de.json`, which is not a wording source (§8). **API key** stays bare as everywhere in the
+  pack.
+- The heading „## Proxy mit Authentifizierung nutzen“ carries
+  `<a id="use-an-authenticated-proxy"></a>`; the link text in step 2 and in the Troubleshooting
+  row repeats the heading. „mit Authentifizierung“ pairs with the file's „ohne
+  Authentifizierung“.
+- *A proxy in front of ComfyUI* is „ein Proxy vor ComfyUI“ or „ein vorgeschalteter Proxy“. A
+  *secret* in a header is **der Geheimwert**, as in `TROUBLESHOOTING.md`; *credentials* are
+  **Zugangsdaten**. An auth *scheme* such as `Basic ...` is **das Schema**; a code span takes
+  the hyphenated carrier noun „`Authorization: Bearer`-Header“ (§6).
