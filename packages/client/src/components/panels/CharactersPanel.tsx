@@ -13,7 +13,7 @@ import {
   useRef,
   type UIEvent,
 } from "react";
-import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -191,6 +191,9 @@ function usePanelMobileOverlay() {
 
   return isMobileOverlay;
 }
+
+// Measured row heights survive a remount, so the saved scroll offset lands on the same card.
+let rootRowMeasurements: VirtualItem[] = [];
 
 export function CharactersPanel() {
   const manualOrder = useLibraryOrder("character");
@@ -572,12 +575,19 @@ export function CharactersPanel() {
     gap: 4,
     overscan: 6,
     scrollMargin: rootListOffset,
+    initialMeasurementsCache: rootRowMeasurements,
     // Keep a dragged card mounted, so its dragend and touch handlers still run after it scrolls away.
     rangeExtractor: (range) => {
       const indexes = defaultRangeExtractor(range);
       return draggedRootIndex >= 0 && !indexes.includes(draggedRootIndex) ? [draggedRootIndex, ...indexes] : indexes;
     },
   });
+  useEffect(
+    () => () => {
+      rootRowMeasurements = rootVirtualizer.takeSnapshot();
+    },
+    [rootVirtualizer],
+  );
   const rootVirtualItems = rootVirtualizer.getVirtualItems();
   const lastRootVirtualIndex = rootVirtualItems.at(-1)?.index ?? -1;
 
