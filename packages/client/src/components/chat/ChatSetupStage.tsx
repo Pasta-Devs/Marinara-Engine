@@ -348,6 +348,7 @@ export function ChatSetupStage({
 }: ChatSetupStageProps) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
   const calm = variant === "conversation";
   const { data: connectionsData } = useConnections();
   const { data: presets } = usePresets();
@@ -386,10 +387,19 @@ export function ChatSetupStage({
   // Group chats show the first character's card.
   const { data: leadRow } = useCharacter(characters[0]?.id ?? null);
   const leadCard = parseData((leadRow as { data?: unknown } | undefined)?.data);
+  const modeTag = t(`chat.setupStage.tags.${variant}`);
+  // Case-insensitive, so a card tagged "Roleplay" does not repeat the mode word.
+  const seenTags = new Set([modeTag.toLocaleLowerCase()]);
   const tags = (Array.isArray(leadCard?.tags) ? leadCard.tags : [])
-    .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-    .slice(0, 3)
-    .map((tag) => tag.trim());
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const key = tag.toLocaleLowerCase();
+      if (!tag || seenTags.has(key)) return false;
+      seenTags.add(key);
+      return true;
+    })
+    .slice(0, 3);
   const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
@@ -399,6 +409,12 @@ export function ChatSetupStage({
   const first = messages?.[0]?.role === "assistant" && messages[0].chatId === chat.id ? messages[0] : null;
   const greetingCount = Math.max(1, first?.swipeCount ?? first?.swipes?.length ?? 1);
   const greetingIndex = first?.activeSwipeIndex ?? 0;
+  const greetingPeek = first?.content
+    .split("\n")
+    .find((line) => line.trim())
+    ?.replace(/[*_]/g, "")
+    .trim();
+  const hasScene = !calm && !!first && !chatMeta.multiplayer && chatMeta.multiplayerSetup !== true;
   const greetingWord =
     greetingCount > 1
       ? t("chat.setupStage.greetingNumbered", { index: greetingIndex + 1, count: greetingCount })
@@ -642,7 +658,9 @@ export function ChatSetupStage({
     <button
       type="button"
       onClick={begin}
+      data-stage-kb="start"
       className={cn(
+        "max-md:h-[52px] max-md:flex-1 max-md:justify-center max-md:text-base",
         "inline-flex h-[46px] min-w-11 items-center gap-2 rounded-full bg-[var(--primary)] px-[26px] text-[15px] font-semibold text-[var(--primary-foreground)] shadow-[0_10px_30px_color-mix(in_srgb,var(--primary)_40%,transparent)] transition-[filter] duration-150 hover:brightness-110",
         FOCUS,
         "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
@@ -654,7 +672,7 @@ export function ChatSetupStage({
   );
   // The first message ends the stage too; on phones the row has no room for it.
   const typingHint = noModel ? null : (
-    <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-sm:hidden">
+    <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-md:hidden">
       {t("chat.setupStage.typingHint")}
     </span>
   );
@@ -662,6 +680,7 @@ export function ChatSetupStage({
     <button
       type="button"
       onClick={() => setExpanded((v) => !v)}
+      data-stage-kb="hide"
       aria-expanded={expanded}
       className={cn(
         "inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-sm text-[color-mix(in_srgb,var(--foreground)_85%,transparent)] hover:text-[var(--foreground)]",
@@ -686,16 +705,18 @@ export function ChatSetupStage({
       aria-label={t("chat.setupStage.a11y.region")}
       className={cn(
         "mari-setup-stage relative z-[2] mx-auto mb-2 w-full max-w-[600px]",
+        // Phones: fill the list down to the composer so the greeting starts below the fold.
+        "max-md:mb-0 max-md:flex max-md:min-h-[calc(100%+var(--mari-roleplay-content-padding-bottom,0px))] max-md:flex-col max-md:pb-[var(--mari-roleplay-content-padding-bottom,0px)]",
         calm
-          ? "px-4 pt-6 md:pt-10"
-          : "px-2 pt-[clamp(1rem,22vh,9rem)] md:mx-0 md:px-0 md:ml-[max(0px,calc(50%-20rem))] md:pt-16",
+          ? "px-4 pt-6 [--stage-list-offset:3.5rem] max-md:min-h-[calc(100%-3.5rem)] md:pt-10" // the floating chat header shares the list
+          : "px-2 pt-4 md:mx-0 md:px-0 md:ml-[max(0px,calc(50%-20rem))] md:pt-16",
       )}
     >
       {/* Scrim: keeps the text readable over the roleplay background and sprites. */}
       {!calm && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] -z-10 [mask-image:linear-gradient(to_bottom,#000_75%,transparent)] bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
+          className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] max-md:hidden -z-10 [mask-image:linear-gradient(to_bottom,#000_75%,transparent)] bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
         />
       )}
       {!hasSprite && castAvatars.length > 0 ? (
@@ -704,213 +725,289 @@ export function ChatSetupStage({
           tabIndex={-1}
           aria-hidden="true"
           onClick={open("characters")}
-          className="mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 md:mb-5"
+          data-stage-kb="hide"
+          className={cn(
+            "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:mb-5",
+            sceneOpen && "max-md:hidden",
+          )}
         >
           {castAvatars.slice(0, 3).map((avatar, index) => (
             <StageAvatar
               key={index}
               {...avatar}
-              className="h-16 w-16 border-2 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_55%,transparent)] text-2xl shadow-[0_8px_30px_rgba(0,0,0,.35)] md:h-[76px] md:w-[76px]"
+              className="h-[120px] w-[120px] border-2 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_55%,transparent)] text-2xl shadow-[0_8px_30px_rgba(0,0,0,.35)] md:h-[76px] md:w-[76px]"
             />
           ))}
         </button>
       ) : null}
-      {(tags.length > 0 || hasCreatorNotes) && (
-        <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
-          {tags.length > 0 && (
-            <span className="font-semibold uppercase tracking-[0.18em]">
-              {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
-            </span>
+      {/* Phones anchor this block above the composer, under the art. */}
+      <div data-stage-kb="block" className="max-md:relative max-md:mt-auto">
+        {!calm && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-16 -z-10 bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_70%,transparent)_16%,color-mix(in_srgb,var(--background)_88%,transparent)_45%,var(--background)_100%)] md:hidden"
+          />
+        )}
+        {(tags.length > 0 || hasCreatorNotes) && (
+          <p
+            data-stage-kb="hide"
+            className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs"
+          >
+            {tags.length > 0 && (
+              <span className="font-semibold uppercase tracking-[0.18em]">{[modeTag, ...tags].join(" · ")}</span>
+            )}
+            {hasCreatorNotes && (
+              <button
+                type="button"
+                onClick={open("creator-notes")}
+                aria-haspopup="dialog"
+                className={cn(
+                  "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 italic underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+                  FOCUS,
+                  "rounded-sm",
+                )}
+              >
+                {t("chat.setupStage.creatorNotes")}
+              </button>
+            )}
+          </p>
+        )}
+        <h1
+          data-stage-kb="name"
+          style={SERIF}
+          className={cn(
+            "m-0 font-normal tracking-[-0.02em] text-[var(--foreground)]",
+            calm
+              ? "text-[32px] md:text-[40px]"
+              : "text-[42px] [text-shadow:0_2px_30px_rgba(0,0,0,.45),0_0_46px_color-mix(in_srgb,var(--stage-accent,var(--primary))_26%,transparent)] md:text-[66px]",
+            // Last, so the size classes above do not drop it in tailwind-merge.
+            "leading-[1.02]",
           )}
-          {hasCreatorNotes && (
+        >
+          <button
+            type="button"
+            onClick={open("characters")}
+            aria-haspopup="dialog"
+            className={cn(
+              "cursor-pointer bg-transparent p-0 text-left max-md:block max-md:w-full",
+              FOCUS,
+              "rounded-md",
+            )}
+          >
+            <span className="max-md:line-clamp-2">{title}</span>
+          </button>
+        </h1>
+        {tagline && (
+          <p
+            data-stage-kb="hide"
+            className="mt-3 text-sm max-md:line-clamp-2 text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]"
+          >
+            {tagline}
+          </p>
+        )}
+        <p
+          data-stage-kb="hide"
+          style={SERIF}
+          className="mt-5 text-[22px] leading-[1.42] text-[color-mix(in_srgb,var(--foreground)_66%,transparent)] [text-wrap:pretty] md:mt-7 md:text-[27px]"
+        >
+          <Trans
+            t={t}
+            i18nKey={personaWord ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
+            values={{ persona: personaWord, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
+            components={sentenceComponents}
+          />{" "}
+          {first ? (
+            <Trans
+              t={t}
+              i18nKey="chat.setupStage.sentenceBegins"
+              values={{ greeting: greetingWord, preset: presetName ?? t("chat.setupStage.defaultPreset") }}
+              components={sentenceComponents}
+            />
+          ) : (
+            <Trans
+              t={t}
+              i18nKey="chat.setupStage.sentenceUses"
+              values={{ preset: presetName ?? t("chat.setupStage.defaultPreset") }}
+              components={sentenceComponents}
+            />
+          )}
+          {noModel && (
+            <>
+              {" "}
+              <Trans
+                t={t}
+                i18nKey={castNames ? "chat.setupStage.sentenceModel" : "chat.setupStage.sentenceModelNoCast"}
+                count={characters.length}
+                values={{ cast: castNames }}
+                components={{ model: modelWord }}
+              />
+            </>
+          )}
+        </p>
+
+        <div data-stage-kb="hide">
+          <ChatSetupStageMemoryNote chatId={chat.id} />
+        </div>
+
+        {hasScene && (
+          <div data-stage-kb="hide" className={cn(!sceneOpen && "max-md:hidden")}>
+            <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
+          </div>
+        )}
+        {(greetingPeek || hasScene) && (
+          <div data-stage-kb="hide" className="mt-4 flex items-center gap-4 md:hidden">
+            {greetingPeek && (
+              <button
+                type="button"
+                onClick={openGreeting}
+                aria-haspopup="dialog"
+                className={cn(
+                  "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 bg-transparent p-0 text-left text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)]",
+                  FOCUS,
+                  "rounded-sm",
+                )}
+              >
+                <MessageSquare
+                  size="0.9rem"
+                  aria-hidden
+                  className="flex-none text-[var(--stage-accent,var(--primary))]"
+                />
+                <span className="min-w-0 flex-1 truncate">{greetingPeek}</span>
+                <ChevronRight size="1rem" aria-hidden className="flex-none opacity-60" />
+              </button>
+            )}
+            {hasScene && (
+              <button
+                type="button"
+                onClick={() => setSceneOpen((v) => !v)}
+                aria-expanded={sceneOpen}
+                className={cn(
+                  "inline-flex min-h-11 flex-none cursor-pointer items-center bg-transparent p-0 text-[13px] underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 text-[color-mix(in_srgb,var(--foreground)_70%,transparent)] hover:text-[var(--foreground)]",
+                  FOCUS,
+                  "rounded-sm",
+                )}
+              >
+                {t(sceneOpen ? "chat.setupStage.scene.hide" : "chat.setupStage.scene.toggle")}
+              </button>
+            )}
+          </div>
+        )}
+        {expanded ? (
+          <div
+            data-stage-kb="card"
+            className={cn(
+              "mt-6 rounded-[22px] border p-2 md:mt-[26px]",
+              calm
+                ? "border-[var(--border)] bg-[var(--card)]"
+                : "border-[color-mix(in_srgb,var(--foreground)_11%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] shadow-[0_20px_50px_rgba(0,0,0,.35)] backdrop-blur-[20px] backdrop-saturate-[1.25]",
+            )}
+          >
+            <div data-stage-kb="hide" className="grid grid-cols-1 gap-0.5 md:grid-cols-2">
+              {rows.map((row) => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={row.onClick}
+                  className={cn(
+                    "flex min-h-14 min-w-0 items-center gap-3 rounded-[14px] px-2.5 py-[9px] text-left hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
+                    FOCUS,
+                  )}
+                >
+                  <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[11px] bg-[color-mix(in_srgb,var(--stage-accent,var(--primary))_15%,transparent)] text-[var(--stage-accent,var(--primary))] [&>svg]:h-[17px] [&>svg]:w-[17px]">
+                    {row.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <small className="block truncate text-xs leading-[1.3] text-[var(--muted-foreground)]">
+                      {row.label}
+                    </small>
+                    <b className="block truncate text-[14.5px] font-medium leading-[1.35] text-[var(--foreground)]">
+                      {row.value}
+                    </b>
+                  </span>
+                  <ChevronRight
+                    size="1rem"
+                    aria-hidden
+                    className="flex-none text-[var(--muted-foreground)] opacity-55"
+                  />
+                </button>
+              ))}
+            </div>
+            <div
+              data-stage-kb="actions"
+              className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3"
+            >
+              {beginButton}
+              {typingHint}
+              {toggleButton}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-[18px] flex flex-wrap gap-x-4 max-md:hidden text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] md:mt-[22px] md:gap-x-[22px] md:gap-y-1 md:text-sm">
+              {lineItems
+                .filter((item) => item.text)
+                .map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={open(item.section)}
+                    className={cn(
+                      "inline-flex min-h-11 max-w-full items-center gap-[7px] rounded-md hover:text-[var(--foreground)] md:min-h-8 [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--stage-accent,var(--primary))] [&>svg]:opacity-90",
+                      FOCUS,
+                    )}
+                  >
+                    {item.icon}
+                    <span className="truncate">{item.text}</span>
+                  </button>
+                ))}
+            </div>
+            <div data-stage-kb="actions" className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
+              {beginButton}
+              {typingHint}
+              {toggleButton}
+            </div>
+          </>
+        )}
+
+        {readiness && !noModel && (
+          <p
+            data-stage-kb="hide"
+            className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]"
+          >
+            <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
+            <span>{t(readiness.text, { percent: readiness.percent })}</span>
             <button
               type="button"
-              onClick={open("creator-notes")}
+              onClick={open(readiness.section)}
               aria-haspopup="dialog"
               className={cn(
-                "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 italic underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+                "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 font-semibold text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_60%,transparent)] underline-offset-4 md:my-0 md:min-h-0",
                 FOCUS,
                 "rounded-sm",
               )}
             >
-              {t("chat.setupStage.creatorNotes")}
+              {t(readiness.fix)}
             </button>
-          )}
-        </p>
-      )}
-      <h1
-        style={SERIF}
-        className={cn(
-          "m-0 font-normal tracking-[-0.02em] text-[var(--foreground)]",
-          calm
-            ? "text-[32px] md:text-[40px]"
-            : "text-[42px] [text-shadow:0_2px_30px_rgba(0,0,0,.45),0_0_46px_color-mix(in_srgb,var(--stage-accent,var(--primary))_26%,transparent)] md:text-[66px]",
-          // Last, so the size classes above do not drop it in tailwind-merge.
-          "leading-[1.02]",
+          </p>
         )}
-      >
-        <button
-          type="button"
-          onClick={open("characters")}
-          aria-haspopup="dialog"
-          className={cn("cursor-pointer bg-transparent p-0 text-left", FOCUS, "rounded-md")}
-        >
-          {title}
-        </button>
-      </h1>
-      {tagline && (
-        <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]">
-          {tagline}
-        </p>
-      )}
-      <p
-        style={SERIF}
-        className="mt-5 text-[22px] leading-[1.42] text-[color-mix(in_srgb,var(--foreground)_66%,transparent)] [text-wrap:pretty] md:mt-7 md:text-[27px]"
-      >
-        <Trans
-          t={t}
-          i18nKey={personaWord ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
-          values={{ persona: personaWord, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
-          components={sentenceComponents}
-        />{" "}
-        {first ? (
-          <Trans
-            t={t}
-            i18nKey="chat.setupStage.sentenceBegins"
-            values={{ greeting: greetingWord, preset: presetName ?? t("chat.setupStage.defaultPreset") }}
-            components={sentenceComponents}
-          />
-        ) : (
-          <Trans
-            t={t}
-            i18nKey="chat.setupStage.sentenceUses"
-            values={{ preset: presetName ?? t("chat.setupStage.defaultPreset") }}
-            components={sentenceComponents}
-          />
+        {first && (
+          <p className="mb-0 mt-8 flex items-center gap-2 max-md:hidden text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
+            <button
+              type="button"
+              onClick={open("opening")}
+              aria-haspopup="dialog"
+              className={cn(
+                "-my-2 inline-flex min-h-11 cursor-pointer items-center gap-2 bg-transparent p-0 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+                FOCUS,
+                "rounded-sm",
+              )}
+            >
+              <MessageSquare size="0.8rem" aria-hidden className="text-[var(--stage-accent,var(--primary))]" />
+              {t("chat.setupStage.firstMessage")}
+            </button>
+          </p>
         )}
-        {noModel && (
-          <>
-            {" "}
-            <Trans
-              t={t}
-              i18nKey={castNames ? "chat.setupStage.sentenceModel" : "chat.setupStage.sentenceModelNoCast"}
-              count={characters.length}
-              values={{ cast: castNames }}
-              components={{ model: modelWord }}
-            />
-          </>
-        )}
-      </p>
-
-      <ChatSetupStageMemoryNote chatId={chat.id} />
-
-      {!calm && !chatMeta.multiplayer && chatMeta.multiplayerSetup !== true && (
-        <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
-      )}
-      {expanded ? (
-        <div
-          className={cn(
-            "mt-6 rounded-[22px] border p-2 md:mt-[26px]",
-            calm
-              ? "border-[var(--border)] bg-[var(--card)]"
-              : "border-[color-mix(in_srgb,var(--foreground)_11%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] shadow-[0_20px_50px_rgba(0,0,0,.35)] backdrop-blur-[20px] backdrop-saturate-[1.25]",
-          )}
-        >
-          <div className="grid grid-cols-1 gap-0.5 md:grid-cols-2">
-            {rows.map((row) => (
-              <button
-                key={row.key}
-                type="button"
-                onClick={row.onClick}
-                className={cn(
-                  "flex min-h-14 min-w-0 items-center gap-3 rounded-[14px] px-2.5 py-[9px] text-left hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
-                  FOCUS,
-                )}
-              >
-                <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[11px] bg-[color-mix(in_srgb,var(--stage-accent,var(--primary))_15%,transparent)] text-[var(--stage-accent,var(--primary))] [&>svg]:h-[17px] [&>svg]:w-[17px]">
-                  {row.icon}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <small className="block truncate text-xs leading-[1.3] text-[var(--muted-foreground)]">
-                    {row.label}
-                  </small>
-                  <b className="block truncate text-[14.5px] font-medium leading-[1.35] text-[var(--foreground)]">
-                    {row.value}
-                  </b>
-                </span>
-                <ChevronRight size="1rem" aria-hidden className="flex-none text-[var(--muted-foreground)] opacity-55" />
-              </button>
-            ))}
-          </div>
-          <div className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3">
-            {beginButton}
-            {typingHint}
-            {toggleButton}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="mt-[18px] flex flex-wrap gap-x-4 text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] md:mt-[22px] md:gap-x-[22px] md:gap-y-1 md:text-sm">
-            {lineItems
-              .filter((item) => item.text)
-              .map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={open(item.section)}
-                  className={cn(
-                    "inline-flex min-h-11 max-w-full items-center gap-[7px] rounded-md hover:text-[var(--foreground)] md:min-h-8 [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--stage-accent,var(--primary))] [&>svg]:opacity-90",
-                    FOCUS,
-                  )}
-                >
-                  {item.icon}
-                  <span className="truncate">{item.text}</span>
-                </button>
-              ))}
-          </div>
-          <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
-            {beginButton}
-            {typingHint}
-            {toggleButton}
-          </div>
-        </>
-      )}
-
-      {readiness && !noModel && (
-        <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
-          <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
-          <span>{t(readiness.text, { percent: readiness.percent })}</span>
-          <button
-            type="button"
-            onClick={open(readiness.section)}
-            aria-haspopup="dialog"
-            className={cn(
-              "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 font-semibold text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_60%,transparent)] underline-offset-4 md:my-0 md:min-h-0",
-              FOCUS,
-              "rounded-sm",
-            )}
-          >
-            {t(readiness.fix)}
-          </button>
-        </p>
-      )}
-      {first && (
-        <p className="mb-0 mt-8 flex items-center gap-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
-          <button
-            type="button"
-            onClick={open("opening")}
-            aria-haspopup="dialog"
-            className={cn(
-              "-my-2 inline-flex min-h-11 cursor-pointer items-center gap-2 bg-transparent p-0 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
-              FOCUS,
-              "rounded-sm",
-            )}
-          >
-            <MessageSquare size="0.8rem" aria-hidden className="text-[var(--stage-accent,var(--primary))]" />
-            {t("chat.setupStage.firstMessage")}
-          </button>
-        </p>
-      )}
+      </div>
       {editor && chat && (
         <StageEditor
           section={editor.section}

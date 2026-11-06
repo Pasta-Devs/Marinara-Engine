@@ -306,7 +306,11 @@ export function SpriteOverlay({
 
   const stageZIndexClass = editing ? "z-[35]" : "z-[5]";
   return (
-    <div ref={stageRef} className={`pointer-events-none absolute inset-0 overflow-hidden ${stageZIndexClass}`}>
+    <div
+      ref={stageRef}
+      data-sprite-overlay
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${stageZIndexClass}`}
+    >
       {visibleSpriteEntries.map((entry) => (
         <CharacterSprite
           key={entry.placementKey}
