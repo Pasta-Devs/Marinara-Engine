@@ -225,11 +225,11 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
 
   return (
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="mari-avatar-crop__head flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
           <Crop size="0.75rem" /> {localizeUi("ui.ui.avatarcropwidget.avatarCrop")}
         </span>
-        <div className="flex items-center gap-1.5">
+        <div className="mari-avatar-crop__actions flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setShowFullView(true)}
