@@ -24,7 +24,14 @@ const SERVER_SWITCHES: ReadonlyArray<FeatureSwitchName> = [
  * Settings > Advanced > Features: optional server behaviours. Every switch starts off, which keeps
  * the standard behaviour; a switch pinned by a server environment variable is shown locked.
  */
-export function FeatureSwitchesSettings({ anchorId }: { anchorId?: string }) {
+export function FeatureSwitchesSettings({
+  anchorId,
+  switches = SERVER_SWITCHES,
+}: {
+  anchorId?: string;
+  /** Which switches to show; Settings spreads them over the sections they belong to. */
+  switches?: ReadonlyArray<FeatureSwitchName>;
+}) {
   const { t } = useTranslation();
   const query = useFeatureSettings();
   const save = useSaveFeatureSettings();
@@ -51,7 +58,7 @@ export function FeatureSwitchesSettings({ anchorId }: { anchorId?: string }) {
           {t("settings.features.loadFailed")}
         </p>
       ) : null}
-      {SERVER_SWITCHES.map((name) => {
+      {switches.map((name) => {
         // A switch pinned by an environment variable shows the value in effect, not the saved one.
         const enabled = envEffective[name] ?? resolveFeatureEnabled(settings, name);
         const envVar = envOverrides[name];

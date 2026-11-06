@@ -78,7 +78,7 @@ export function requirePrivilegedAccess(
       // With the loopback flag on, this gate also refuses making the secret in the app.
       message: isAdminSecretRequiredOnLoopback()
         ? "Set ADMIN_SECRET=<secret> in the server .env and send the same value in the X-Admin-Secret header."
-        : "Make the admin secret in Settings > Advanced > Admin Access on the server's own computer, or set ADMIN_SECRET=<secret> in the server .env, and send the same value in the X-Admin-Secret header.",
+        : "Make the admin secret in Settings > Advanced > Security on the server's own computer, or set ADMIN_SECRET=<secret> in the server .env, and send the same value in the X-Admin-Secret header.",
     });
     return false;
   }

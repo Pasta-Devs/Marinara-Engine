@@ -63,7 +63,7 @@ function runtimeInstallDisabledPayload() {
   return {
     error: "Sidecar runtime install is disabled",
     message:
-      "Set SIDECAR_RUNTIME_INSTALL_ENABLED=true or enter the matching Admin Access secret to allow runtime installation from the API.",
+      "Set SIDECAR_RUNTIME_INSTALL_ENABLED=true or enter the matching admin secret (Settings > Advanced > Security) to allow runtime installation from the API.",
   };
 }
 

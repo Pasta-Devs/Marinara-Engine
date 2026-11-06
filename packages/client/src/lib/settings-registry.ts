@@ -105,7 +105,7 @@ export type SettingsSearchResult =
 export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
   {
     id: "hide-chat-help-button",
-    sectionId: "application",
+    sectionId: "confirmations-help",
     labelKey: "settings.controls.hideChatHelpButton.label",
     label: "Hide chat Help button",
     description: "Remove the Help button from Conversation, Roleplay, and Game chats.",
@@ -164,7 +164,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "confirm-before-delete",
-    sectionId: "application",
+    sectionId: "confirmations-help",
     labelKey: "settings.controls.confirmBeforeDelete.label",
     label: "Confirm before deleting",
     description: "Ask before permanently deleting chats, characters, or other items.",
@@ -175,7 +175,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "android-status-bar",
-    sectionId: "application",
+    sectionId: "layout",
     labelKey: "settings.search.androidStatusBar.label",
     label: "Android status bar",
     description: "Show the time, battery level, and notification icons in the Android app.",
@@ -185,7 +185,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "achievements",
-    sectionId: "application",
+    sectionId: "extras",
     labelKey: "settings.controls.achievements.label",
     label: "Achievements",
     description: "Show the Home achievements button and unlock notifications.",
@@ -195,7 +195,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "disable-seasonal-themes",
-    sectionId: "application",
+    sectionId: "extras",
     labelKey: "settings.controls.disableSeasonalThemes.label",
     label: "Disable seasonal ME themes",
     description: "Holiday themes won't turn on by themselves.",
@@ -205,7 +205,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "music-player",
-    sectionId: "application",
+    sectionId: "extras",
     labelKey: "settings.controls.musicPlayer.label",
     label: "Music Player",
     description: "Show the compact Music Player.",
@@ -552,7 +552,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "intuitive-swipe-navigation",
-    sectionId: "input-editing",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.intuitiveSwipes.label",
     label: "Intuitive swipe navigation",
     description: "Use keyboard arrows or touch swipes to move between generations.",
@@ -563,7 +563,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "reroll-past-newest-swipe",
-    sectionId: "input-editing",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.rerollLatest.label",
     label: "Reroll past the newest swipe",
     description: "Create a reroll when swiping past the newest assistant message.",
@@ -573,7 +573,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "up-arrow-edits-last-message",
-    sectionId: "input-editing",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.upArrowEdit.label",
     label: "Up Arrow edits last message",
     description: "Open the most recent message for editing with Up Arrow.",
@@ -583,7 +583,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "double-click-edits-messages",
-    sectionId: "input-editing",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.doubleClickEdit.label",
     label: "Double-click edits messages",
     description: "Edit Roleplay messages with double-click or double-tap.",
@@ -613,7 +613,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "load-remote-message-images",
-    sectionId: "text-rules",
+    sectionId: "admin-access",
     labelKey: "settings.controls.loadRemoteMessageImages.label",
     label: "Load images from other websites in messages",
     description: "Show images from other websites in messages without clicking Load image first.",
@@ -864,7 +864,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "desktop-sidebar-width",
-    sectionId: "app-style",
+    sectionId: "layout",
     labelKey: "settings.appearance.sidebarWidth",
     label: "Desktop sidebar width",
     description:
@@ -886,7 +886,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "reduce-ambient-effects",
-    sectionId: "app-style",
+    sectionId: "motion-backgrounds",
     labelKey: "settings.controls.reduceAmbientEffects.label",
     label: "Reduce Ambient Animations & Effects",
     description: "Stop decorative animation, particles, and text reveal.",
@@ -941,7 +941,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-style",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetStyle.label",
     label: "Chat widget style",
     description:
@@ -952,7 +952,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-border-color",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetBorderColor.label",
     label: "Border & Buttons Color",
     description: "Set chat widget outlines and button icon colors.",
@@ -962,7 +962,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-background-color",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.search.chatWidgetBackgroundColor.label",
     label: "Widget Background Color",
     description: "Set backgrounds for chat windows, sections and buttons.",
@@ -972,7 +972,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-text-color",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.search.chatWidgetTextColor.label",
     label: "Widget Text Color",
     description: "Set chat widget text colors and gradients.",
@@ -982,7 +982,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-button-size",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetButtonSize.label",
     label: "Button size (px)",
     description:
@@ -993,7 +993,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-font",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetFont.searchLabel",
     label: "Chat widget font",
     description: "Choose lettering for chat windows and sections.",
@@ -1003,7 +1003,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-shape",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetShape.searchLabel",
     label: "Chat widget shape",
     description: "Change the frame shape without changing the colors.",
@@ -1024,7 +1024,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-apply-font",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetApplyFont.label",
     label: "Apply preset font",
     description: "Use the selected widget font for chat messages, input boxes and controls.",
@@ -1034,7 +1034,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-apply-shape",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetApplyShape.label",
     label: "Apply preset shape",
     description: "Use widget shapes for chat boxes and controls. Conversation messages keep their own shape.",
@@ -1044,7 +1044,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-widget-apply-colors",
-    sectionId: "app-style",
+    sectionId: "chat-widgets",
     labelKey: "settings.controls.chatWidgetApplyColors.label",
     label: "Apply preset colors",
     description: "Use widget colors and custom gradients for chat messages, input boxes and controls.",
@@ -1076,7 +1076,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-text-color",
-    sectionId: "text-scale",
+    sectionId: "text-colors",
     labelKey: "settings.colors.chatText",
     label: "Chat Text Color",
     description: "Control the main chat message text color.",
@@ -1087,7 +1087,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "default-dialogue-color",
-    sectionId: "text-scale",
+    sectionId: "text-colors",
     labelKey: "settings.colors.defaultDialogue",
     label: "Default Dialogue Color",
     description: "Choose the dialogue highlight used by cards without their own dialogue color.",
@@ -1097,7 +1097,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "chat-chrome-text-color",
-    sectionId: "text-scale",
+    sectionId: "text-colors",
     labelKey: "settings.colors.chatChrome",
     label: "Chat Chrome Text Color",
     description: "Control ordinary chrome copy color in chat-adjacent UI.",
@@ -1107,7 +1107,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "text-outline-width",
-    sectionId: "text-scale",
+    sectionId: "text-colors",
     labelKey: "ui.panels.appearancesettings.textOutlineStroke",
     label: "Text Outline / Stroke",
     description: "Tune chat text outline width and color.",
@@ -1129,7 +1129,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "conversation-always-display-swipe-menu",
-    sectionId: "chat-display",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.alwaysDisplaySwipeMenu.label",
     label: "Always display swipe menu",
     description:
@@ -1140,7 +1140,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-always-display-swipe-menu",
-    sectionId: "roleplay-messages",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.alwaysDisplaySwipeMenu.label",
     label: "Always display swipe menu",
     description:
@@ -1161,7 +1161,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "show-characters-in-persona-pickers",
-    sectionId: "message-tools",
+    sectionId: "input-editing",
     labelKey: "settings.search.showCharactersInPersonaPickers.label",
     label: "Show Characters in Persona Pickers",
     description: "Allow character cards to appear as user identities in chat.",
@@ -1262,7 +1262,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-vn-display",
-    sectionId: "roleplay-messages",
+    sectionId: "visual-novel",
     labelKey: "settings.roleplayVn.enabled",
     label: "Visual Novel display",
     description: "Show one completed paragraph at a time above the composer.",
@@ -1272,7 +1272,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-vn-autoplay",
-    sectionId: "roleplay-messages",
+    sectionId: "visual-novel",
     labelKey: "settings.roleplayVn.autoPlay",
     label: "Auto-play VN paragraphs",
     description: "Advance Roleplay Visual Novel paragraphs automatically, waiting for speech when it is playing.",
@@ -1282,7 +1282,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-vn-autoplay-delay",
-    sectionId: "roleplay-messages",
+    sectionId: "visual-novel",
     labelKey: "settings.roleplayVn.autoPlayDelay",
     label: "Paragraph delay",
     description: "Set the time between Roleplay Visual Novel paragraphs when auto-play is enabled.",
@@ -1292,7 +1292,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-vn-portrait-scale",
-    sectionId: "roleplay-messages",
+    sectionId: "visual-novel",
     labelKey: "ui.panels.appearancesettings.dialoguePortraitScale",
     label: "Dialogue portrait scale",
     description: "Adjust Roleplay Visual Novel portraits.",
@@ -1302,7 +1302,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-vn-sprite-scale",
-    sectionId: "roleplay-messages",
+    sectionId: "visual-novel",
     labelKey: "ui.panels.appearancesettings.fullBodySpriteScale",
     label: "Full-body sprite scale",
     description: "Adjust Roleplay Visual Novel full-body sprites.",
@@ -1344,7 +1344,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-reduced-paint-effects",
-    sectionId: "roleplay-messages",
+    sectionId: "motion-backgrounds",
     labelKey: "settings.controls.reducedPaintEffects.label",
     label: "Reduced paint effects",
     description: "Flatten costly Roleplay transparency, shadows, and scene overlays.",
@@ -1355,7 +1355,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "show-roleplay-thinking-in-messages",
-    sectionId: "roleplay-messages",
+    sectionId: "thinking",
     labelKey: "settings.controls.showRoleplayThinkingInMessages.label",
     label: "Show Thinking In Messages",
     description: "Show model reasoning above the response inside Roleplay message bubbles.",
@@ -1366,7 +1366,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "keep-roleplay-thinking-expanded",
-    sectionId: "roleplay-messages",
+    sectionId: "thinking",
     labelKey: "settings.controls.keepRoleplayThinkingExpanded.label",
     label: "Don't Collapse Thinking",
     description: "Keep inline model reasoning expanded when the response starts.",
@@ -1386,7 +1386,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "scrollable-avatars",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "settings.controls.scrollableAvatars.label",
     label: "Scrollable Avatars",
     description: "Keep roleplay avatars visible while scrolling long messages.",
@@ -1396,7 +1396,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "narrator-cycling-avatars",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "settings.controls.narratorCyclingAvatars.label",
     label: "Narrator's Cycling Avatars",
     description: "Cycle Narrator avatars or show active characters together.",
@@ -1406,7 +1406,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "narrator-avatar-borders",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "settings.controls.narratorAvatarBorders.label",
     label: "Narrator's Avatar Borders",
     description: "Outline Narrator avatars in each character's name color.",
@@ -1417,7 +1417,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-avatar-style",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "ui.panels.appearancesettings.roleplayAvatars",
     label: "Roleplay Avatars",
     description: "Choose how avatars sit next to roleplay messages.",
@@ -1427,7 +1427,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-avatar-scale",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "ui.panels.appearancesettings.messageAvatarScale",
     label: "Message avatar scale",
     description: "Adjust the default roleplay message avatar scale.",
@@ -1437,7 +1437,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "roleplay-sprite-scale",
-    sectionId: "roleplay-messages",
+    sectionId: "roleplay-avatars",
     labelKey: "ui.panels.appearancesettings.defaultSpriteScale",
     label: "Default sprite scale",
     description: "Adjust the default roleplay sprite scale.",
@@ -1477,7 +1477,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "game-dialogue-display",
-    sectionId: "game-presentation",
+    sectionId: "game-playback",
     labelKey: "ui.panels.appearancesettings.gameDialogueDisplay",
     label: "Game Dialogue Display",
     description: "Choose a classic dialogue box or segment history display.",
@@ -1487,7 +1487,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "game-text-effects",
-    sectionId: "game-presentation",
+    sectionId: "game-playback",
     labelKey: "settings.controls.gameTextEffects.label",
     label: "Game text effects",
     description: "Animate dramatic words and explicit text-effect tags in Game mode.",
@@ -1520,7 +1520,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "restart-server",
-    sectionId: "admin-access",
+    sectionId: "server",
     labelKey: "settings.serverRestart.action",
     label: "Restart Server",
     description: "Gracefully restart the Marinara server from this browser.",
@@ -1624,7 +1624,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "guide-generations",
-    sectionId: "message-tools",
+    sectionId: "editing-swipes",
     labelKey: "settings.controls.guideGenerations.label",
     label: "Guide swipes/regens with chat input",
     description: "Use the current draft as regeneration direction.",
@@ -1634,7 +1634,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "include-reasoning-in-exports",
-    sectionId: "message-tools",
+    sectionId: "chat-exports",
     labelKey: "settings.controls.includeReasoning.label",
     label: "Include reasoning in exports",
     description: "Include hidden thinking metadata in chat exports.",
@@ -1644,7 +1644,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "include-private-notes-in-exports",
-    sectionId: "message-tools",
+    sectionId: "chat-exports",
     labelKey: "settings.controls.includePrivateNotes.label",
     label: "Include private notes in exports",
     description: "Include your private message notes in chat exports.",
@@ -1654,7 +1654,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
   {
     id: "debug-mode",
-    sectionId: "message-tools",
+    sectionId: "support-diagnostics",
     labelKey: "settings.controls.debugMode.label",
     label: "Debug mode",
     description: "Log model payloads in the server console.",

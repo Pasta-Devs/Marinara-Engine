@@ -106,7 +106,7 @@ export function isRequestTimeoutError(error: unknown): boolean {
 }
 
 export const PRIVILEGED_ACCESS_HINT =
-  "This action needs loopback access or admin access. Open the app through localhost, or make the admin secret in Settings → Advanced → Admin Access on the server's own computer (or set ADMIN_SECRET=<secret> in the server .env), then paste it in Admin Access on this device. Marinara sends it as the X-Admin-Secret header.";
+  "This action needs loopback access or admin access. Open the app through localhost, or make the admin secret in Settings → Advanced → Security on the server's own computer (or set ADMIN_SECRET=<secret> in the server .env), then paste it in Admin Access on this device. Marinara sends it as the X-Admin-Secret header.";
 
 /**
  * Build a user-facing message for a privileged-gated action (theme install,

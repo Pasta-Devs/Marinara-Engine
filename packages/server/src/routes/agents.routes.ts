@@ -244,7 +244,7 @@ export async function agentsRoutes(app: FastifyInstance) {
     if (!(await getCustomAgentImportPolicy(app.db)).enabled) {
       return reply.status(403).send({
         error: "Custom Agent imports are disabled",
-        message: "Enable Agent imports in Advanced Settings → Danger Zone first.",
+        message: "Enable Agent imports in Settings → Advanced → Security first.",
       });
     }
     try {

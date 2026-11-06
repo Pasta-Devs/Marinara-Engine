@@ -29,7 +29,13 @@ export function MultiplayerSettings() {
   const id = useId();
   return (
     <SettingsSection
-      title={t("multiplayer.settingsTitle")}
+      title="Multiplayer"
+      description="Play one chat together with people on other devices."
+      headerAction={
+        <span className="rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+          Work in progress
+        </span>
+      }
       icon={<Users size={16} />}
       anchorId="settings-section-multiplayer"
     >
