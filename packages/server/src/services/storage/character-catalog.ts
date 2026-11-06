@@ -196,10 +196,10 @@ export function createCharacterCatalog(db: DB) {
       }
       if (options.favoriteFilter === "favorites") entries = entries.filter((item) => item.favorite);
       if (options.favoriteFilter === "non-favorites") entries = entries.filter((item) => !item.favorite);
-      const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map((tag) => tag.toLowerCase());
-      const excluded = new Set((options.excludeTags ?? []).map((tag) => tag.toLowerCase()));
+      const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map(normalizeTextForMatch);
+      const excluded = new Set((options.excludeTags ?? []).map(normalizeTextForMatch));
       if (excluded.size > 0) entries = entries.filter((item) => !lowerTags(item).some((tag) => excluded.has(tag)));
-      const included = new Set((options.tags ?? []).map((tag) => tag.toLowerCase()));
+      const included = new Set((options.tags ?? []).map(normalizeTextForMatch));
       const matchCount = new Map<string, number>();
       if (included.size > 0) {
         for (const item of entries) matchCount.set(item.id, lowerTags(item).filter((tag) => included.has(tag)).length);

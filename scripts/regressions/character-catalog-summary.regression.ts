@@ -75,7 +75,7 @@ try {
       id: `summary-${String(index).padStart(3, "0")}`,
       data: JSON.stringify({
         name: `Character ${index}`,
-        tags: index === 104 ? ["only-last"] : [],
+        tags: index === 104 ? ["only-last"] : index === 103 ? ["ＲＰＧ", "Science  Fiction"] : [],
         description: index === 104 ? "needle hidden in long description" : "long card text ".repeat(200),
         extensions: { fav: index === 104 },
       }),
@@ -118,6 +118,15 @@ try {
   assert.equal(matched.total, 1);
   assert.equal(matched.items[0]?.description, undefined, "search matches full text before slimming");
   assert.deepEqual((await get("view=summary&search=needle&folder=none")).items, []);
+  // Typed exclusions arrive normalized, so stored tags must be normalized the same way (NFKC, case, spaces).
+  for (const tag of ["rpg", "science fiction"]) {
+    const excluded = await get(`view=summary&excludeTag=${encodeURIComponent(tag)}`);
+    assert.equal(excluded.total, 104, `excludeTag=${tag} drops the full-width / double-spaced tag`);
+    assert.equal(
+      excluded.items.some((item) => item.id === "summary-103"),
+      false,
+    );
+  }
 } finally {
   await app.close();
 }
