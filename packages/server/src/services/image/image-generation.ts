@@ -1221,6 +1221,10 @@ async function downloadImageUrl(
       allowedOrigins: resultPolicy.allowedOrigins,
     },
   );
+  return imageResultFromDownload(imgResp, normalizedImageUrl);
+}
+
+async function imageResultFromDownload(imgResp: Response, normalizedImageUrl: string): Promise<ImageGenResult> {
   if (!imgResp.ok) {
     throw new Error(`Failed to download generated image (${imgResp.status})`);
   }
@@ -4348,8 +4352,18 @@ async function generateSwarmUI(baseUrl: string, apiKey: string, request: ImageGe
     request.imageDefaults?.customHeaders,
   );
   if (imageReference.startsWith("data:")) return decodeImageDataUrl(imageReference);
-  const imageUrl = new URL(imageReference, `${base}/`).toString();
-  return downloadImageUrl(imageUrl, request.privateImageResultOrigin, request.signal);
+  const imageUrl = new URL(imageReference, `${base}/`);
+  // A saved image on the SwarmUI server sits behind the same auth as its API; any
+  // other origin keeps the headerless result-URL policy so credentials stay home.
+  if (imageUrl.origin !== new URL(base).origin) {
+    return downloadImageUrl(imageUrl.toString(), request.privateImageResultOrigin, request.signal);
+  }
+  const response = await localImageBackendFetch(
+    imageUrl,
+    { headers: swarmUiHeaders(apiKey), signal: imageRequestSignal(request) },
+    { headers: resolveLocalBackendHeaders(apiKey, request.imageDefaults?.customHeaders) },
+  );
+  return imageResultFromDownload(response, imageUrl.toString());
 }
 
 // ── AUTOMATIC1111 / SD Web UI / Forge ──

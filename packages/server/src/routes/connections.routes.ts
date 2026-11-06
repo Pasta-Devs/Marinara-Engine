@@ -559,14 +559,18 @@ function getStoredVideoDefaults(raw: unknown) {
 /** Auth + custom headers for a user-run local backend, read from the stored connection row. */
 export function localBackendDiscoveryHeaders(conn: {
   apiKey?: string | null;
+  provider?: string | null;
   defaultParameters?: string | Record<string, unknown> | null;
 }): Record<string, string> {
   // Read the stored profile directly instead of resolving the defaults service:
   // service inference needs baseUrl/model hints that a proxied connection may not
   // carry, and a null service would drop the headers along with the profile.
   // Callers already limited this to ComfyUI/SwarmUI/AUTOMATIC1111 connections.
+  // A row switched between image and video can keep the other kind's profile,
+  // so the provider picks which one applies.
   const root = parseDefaultParametersRoot(conn.defaultParameters);
-  const rawProfile = root[IMAGE_DEFAULTS_STORAGE_KEY] ?? root[VIDEO_DEFAULTS_STORAGE_KEY];
+  const rawProfile =
+    conn.provider === "video_generation" ? root[VIDEO_DEFAULTS_STORAGE_KEY] : root[IMAGE_DEFAULTS_STORAGE_KEY];
   const customHeaders = normalizeCustomRequestHeaders(isRecord(rawProfile) ? rawProfile.customHeaders : undefined);
   return resolveLocalBackendHeaders(conn.apiKey || "", customHeaders);
 }

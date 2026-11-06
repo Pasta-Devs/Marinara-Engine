@@ -44,6 +44,15 @@ for (const [label, row] of [
   const resolved = localBackendDiscoveryHeaders(row);
   assert.equal(resolved["x-test-header"], "test-value", `${label} keeps custom headers`);
 }
+// A row switched between image and video keeps both profiles; the provider picks one.
+const bothProfiles = JSON.stringify({
+  imageGeneration: { version: 1, service: "comfyui", seed: -1, customHeaders: { "x-image-only": "1" } },
+  videoGeneration: { version: 1, service: "comfyui", customHeaders: validHeaders, comfyui: {} },
+});
+assert.deepEqual(localBackendDiscoveryHeaders({ ...videoRow, defaultParameters: bothProfiles }), validHeaders);
+assert.deepEqual(localBackendDiscoveryHeaders({ ...comfyRow, apiKey: "", defaultParameters: bothProfiles }), {
+  "x-image-only": "1",
+});
 assert.deepEqual(localBackendDiscoveryHeaders(swarmRow).Authorization, "Bearer session-key");
 assert.equal(localBackendDiscoveryHeaders({ ...comfyRow, apiKey: "" }).Authorization, undefined);
 
@@ -69,7 +78,12 @@ const server = createServer(async (request, response) => {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify(value));
   };
-  if (request.url!.startsWith("/object_info/HtmlNode")) return json(200, "<!DOCTYPE html><html></html>");
+  if (request.url!.startsWith("/object_info/HtmlNode")) {
+    response.statusCode = 200;
+    response.setHeader("content-type", "text/html");
+    response.end("<!DOCTYPE html><html></html>");
+    return;
+  }
   if (request.url!.startsWith("/object_info/UNETLoader")) {
     response.statusCode = 404;
     response.end("not found");

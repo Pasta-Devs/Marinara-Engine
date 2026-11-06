@@ -24,12 +24,12 @@ If it did not work, see [Troubleshooting](#troubleshooting).
 
 ## Use an authenticated proxy
 
-ComfyUI itself has no login. When a proxy in front of it asks for credentials or extra headers, add them to the account. Marinara sends them with every ComfyUI request: queue, history, image download, reference upload, model listing, and connection testing. Video accounts behave the same way.
+ComfyUI itself has no login. When a proxy in front of it asks for a token or extra headers, Marinara sends them with every ComfyUI request: queue, history, image download, reference upload and model listing. The token is saved on the account, and the headers on the image or video model.
 
-1. Open **Connections** and edit the ComfyUI image or video account.
-2. For a token the proxy checks, enter it in **API key**. Marinara sends it as an `Authorization: Bearer` header. A value that already carries a scheme, such as `Basic ...`, is sent as-is.
-3. For extra non-secret headers, open **Local image defaults** or **Video defaults** and enter a JSON object under **Custom Request Headers**.
-4. Save the account and choose **Test image** or **Test video**. A 401 or 403 means the proxy rejected the credentials.
+1. If the proxy checks a token, open **Connections**, edit the ComfyUI account and enter the token under **API key**. Marinara sends it as an `Authorization: Bearer` header. A value that already carries a scheme, such as `Basic ...`, is sent as-is.
+2. Save the account.
+3. If the proxy needs extra non-secret headers, open the image or video model and expand **Local image defaults** or **Video defaults**. Enter a JSON object under **Custom Request Headers**.
+4. Save the model and choose **Test image** or **Test video**. A 401 or 403 means the proxy rejected the credentials.
 
 > **Warning:** Never paste secrets into **Custom Request Headers**. Use **API key** for secrets. Account exports leave the key out.
 
