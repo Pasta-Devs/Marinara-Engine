@@ -1373,6 +1373,17 @@
     0 0 0 4px var(--marinara-chat-chrome-focus-ring);
 }
 
+/* Selecting messages to delete tints the selection in the danger colour (export keeps the accent). */
+[data-message-delete-select] {
+  --message-selection-color: var(--destructive);
+  --message-selection-bg: color-mix(in srgb, var(--destructive) 10%, transparent);
+}
+
+[data-marinara-accent-animation][data-message-delete-select] {
+  --message-selection-color: var(--marinara-app-accent-static);
+  --message-selection-bg: color-mix(in srgb, var(--marinara-app-accent-static) 10%, transparent);
+}
+
 /* Accent Pulse animates --primary, and --destructive defaults to it. Delete buttons hold the
    steady accent instead, like the editor shells in 4c.
    ponytail: a theme that sets its own --destructive shows the steady accent while Accent Pulse

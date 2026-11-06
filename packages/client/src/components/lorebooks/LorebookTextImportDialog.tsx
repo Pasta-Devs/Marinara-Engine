@@ -16,6 +16,7 @@ import {
   type LorebookTextIssue,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { api } from "../../lib/api-client";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
@@ -129,6 +130,23 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
 
   return (
     <Modal
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => void handleImport()}
+            disabled={!canImport}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {importing ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
+            {t("lorebook.textImport.import", { count: validCount })}
+          </button>
+          <button type="button" onClick={close} disabled={importing} className={SHEET_BUTTON_QUIET}>
+            {t("lorebook.textImport.cancel")}
+          </button>
+        </>
+      }
+      closeButtonClassName="max-sm:hidden"
       open={open}
       onClose={close}
       title={t("lorebook.textImport.title")}
@@ -154,7 +172,7 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
             value={format}
             onChange={(event) => setFormat(event.target.value as LorebookTextFormat)}
             aria-label={t("lorebook.textImport.format")}
-            className="mari-editor-field ml-auto px-2 py-1.5 text-xs"
+            className="mari-editor-field ml-auto px-2 py-1.5 text-xs max-sm:text-base"
           >
             <option value="markdown">{t("lorebook.textImport.formatMarkdown")}</option>
             <option value="csv">{t("lorebook.textImport.formatCsv")}</option>
@@ -180,7 +198,7 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
           placeholder={t("lorebook.textImport.pastePlaceholder")}
           aria-label={t("lorebook.textImport.pasteLabel")}
           spellCheck={false}
-          className="mari-editor-field block h-32 w-full resize-y px-3 py-2 font-mono text-xs"
+          className="mari-editor-field block h-32 w-full resize-y px-3 py-2 font-mono text-xs max-sm:text-base"
         />
 
         {parsed ? (
@@ -280,7 +298,7 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
                 placeholder={suggestedName || t("lorebook.textImport.defaultName")}
                 aria-label={t("lorebook.textImport.newName")}
                 maxLength={200}
-                className="mari-editor-field w-full px-3 py-1.5 text-xs"
+                className="mari-editor-field w-full px-3 py-1.5 text-xs max-sm:text-base"
               />
             ) : null}
           </div>
@@ -289,33 +307,13 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
             <select
               value={duplicateMode}
               onChange={(event) => setDuplicateMode(event.target.value as LorebookTextDuplicateMode)}
-              className="mari-editor-field w-full px-3 py-1.5 text-xs"
+              className="mari-editor-field w-full px-3 py-1.5 text-xs max-sm:text-base"
             >
               <option value="skip">{t("lorebook.textImport.duplicateSkip")}</option>
               <option value="rename">{t("lorebook.textImport.duplicateRename")}</option>
               <option value="overwrite">{t("lorebook.textImport.duplicateOverwrite")}</option>
             </select>
           </label>
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={close}
-            disabled={importing}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
-          >
-            {t("lorebook.textImport.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleImport()}
-            disabled={!canImport}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 disabled:opacity-40"
-          >
-            {importing ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
-            {t("lorebook.textImport.import", { count: validCount })}
-          </button>
         </div>
       </div>
     </Modal>

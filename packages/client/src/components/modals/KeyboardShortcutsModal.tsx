@@ -29,7 +29,7 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
                       {shortcut.keys.map((combo, comboIndex) => (
                         <Fragment key={combo.join("+")}>
                           {comboIndex > 0 && (
-                            <span className="text-[0.625rem] text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem]">
+                            <span className="text-[0.625rem] text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem] max-sm:!text-[13px]">
                               {t("shortcuts.or")}
                             </span>
                           )}

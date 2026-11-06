@@ -134,7 +134,7 @@ function TriggerAvatars({
           <span
             key={item.id}
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-full bg-foreground/15 text-[0.625rem] font-semibold ring-2 ring-[var(--background)]",
+              "flex h-6 w-6 items-center justify-center rounded-full bg-foreground/15 text-[0.625rem] max-sm:text-[13px] font-semibold ring-2 ring-[var(--background)]",
               index > 0 && "-ml-2",
             )}
           >
@@ -268,14 +268,14 @@ export function CharacterSelect(props: CharacterSelectProps) {
     />
   );
   const footer = props.multiple ? (
-    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2">
-      <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-foreground/55">
+    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2 max-md:w-full max-md:border-t-0 max-md:p-0 max-sm:flex-col">
+      <span className="min-w-0 flex-1 truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/55 max-sm:w-full max-sm:text-center max-sm:text-[13px]">
         {t("ui.characterselect.picked", { count: items.length })}
       </span>
       <button
         type="button"
         onClick={close}
-        className="h-9 rounded-lg bg-[var(--primary)] px-3.5 text-xs font-semibold text-[var(--primary-foreground)] max-md:h-11"
+        className="h-9 rounded-lg bg-[var(--primary)] px-3.5 text-xs font-semibold text-[var(--primary-foreground)] max-md:h-11 max-sm:w-full"
       >
         {t("ui.characterselect.done")}
       </button>
@@ -330,7 +330,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
             {names || emptyText}
           </span>
           {items.length > 3 && (
-            <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 text-[0.625rem] tabular-nums text-foreground/60">
+            <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 text-[0.625rem] max-sm:text-[13px] tabular-nums text-foreground/60">
               +{items.length - 3}
             </span>
           )}
@@ -418,9 +418,9 @@ function CharacterSelectWindow({
         restoreFocusRef={anchorRef}
         panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
         contentClassName="flex flex-col !overflow-hidden !p-0"
+        footer={footer}
       >
         {children}
-        {footer}
       </Modal>
     );
   }

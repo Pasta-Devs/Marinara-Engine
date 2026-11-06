@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { useUIStore } from "../../stores/ui.store";
@@ -71,6 +72,28 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
       onClose={onClose}
       title={localizeUi("ui.modals.createpresetmodal.createPreset")}
       width="max-w-sm"
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim() || createPreset.isPending}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {createPreset.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <FileText size="0.75rem" />}
+            {localizeUi("ui.modals.createpresetmodal.createPreset")}
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              reset();
+            }}
+            className={SHEET_BUTTON_QUIET}
+          >
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
@@ -96,7 +119,7 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCreate();
             }}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           />
         </label>
 
@@ -111,29 +134,9 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCreate();
             }}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           />
         </label>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            onClick={() => {
-              onClose();
-              reset();
-            }}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!name.trim() || createPreset.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {createPreset.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <FileText size="0.75rem" />}
-            {localizeUi("ui.modals.createcharactermodal.create")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

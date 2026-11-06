@@ -72,6 +72,7 @@ import {
 } from "@marinara-engine/shared";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
+import { SHEET_CHOICE_GROUP_CLASS, SHEET_CHOICE_ROW_CLASS } from "../ui/neutral-surface-styles";
 import { Reorder } from "framer-motion";
 import { parseChatMetadata, getChatDisplayName } from "../../lib/chat-display";
 import { buildChatBranchRows, hasChatBranchLineage, type BranchTreeRow } from "../../lib/chat-branch-tree";
@@ -877,9 +878,9 @@ export function ChatSidebar() {
   const handleDeleteFolder = useCallback(
     async (folder: ChatFolder, chatCount: number) => {
       const ok = await confirmNonEmptyFolderDelete(chatCount, {
-        title: "Delete Folder",
+        title: "Delete folder?",
         message: `Delete "${folder.name}"? Its ${chatCount} chat${chatCount === 1 ? "" : "s"} will move to the top level.`,
-        confirmLabel: "Delete",
+        confirmLabel: "Delete folder",
         tone: "destructive",
       });
       if (ok) {
@@ -1939,6 +1940,7 @@ export function ChatSidebar() {
         onClose={() => setDeleteTarget(null)}
         title={localizeUi("ui.layout.chatsidebar.deleteChat")}
         width="max-w-sm"
+        pullToClose={false}
       >
         {deleteTarget && (
           <div className="flex flex-col gap-4">
@@ -1953,14 +1955,14 @@ export function ChatSidebar() {
                 })}
               </p>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className={SHEET_CHOICE_GROUP_CLASS}>
               <button
                 onClick={() => {
                   deleteChat.mutate({ id: deleteTarget.chatId, force: true });
                   if (activeChatId === deleteTarget.chatId) setActiveChatId(null);
                   setDeleteTarget(null);
                 }}
-                className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
+                className={`${SHEET_CHOICE_ROW_CLASS} text-[var(--destructive)]`}
               >
                 <Trash2 size="0.8125rem" />
                 {localizeUi("ui.layout.chatsidebar.deleteThisBranchOnly")}
@@ -1973,7 +1975,7 @@ export function ChatSidebar() {
                   }
                   setDeleteTarget(null);
                 }}
-                className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
+                className={`${SHEET_CHOICE_ROW_CLASS} font-semibold text-[var(--destructive)]`}
               >
                 <Trash2 size="0.8125rem" />
                 {localizeUi("ui.characters.spritestab.deleteAll")} {deleteTarget.branchCount}{" "}
