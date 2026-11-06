@@ -1,6 +1,6 @@
 # Kitchens — plan
 
-Status: concept, parked 2026-10-05. Omnibar ships first. Engine core, with follow-up adoption work in Marinara-Agents.
+Status: concept, parked 2026-10-05 (Omnibar first). Revived 2026-11-06: Meanwhile (Marinara-Agents package `meanwhile`, 0.1.0 prototype) becomes the Kitchen's "Time" feature; see "Time: Meanwhile in a Kitchen". Engine core, with follow-up adoption work in Marinara-Agents.
 
 **Mental model:** the pantry is shared, the cooking is not. The library (characters, lorebooks, personas, connections) is available in every Kitchen. What happens in a Kitchen (its chats, agent memory, Noodle, Slurp, maps) stays in that Kitchen.
 
@@ -35,6 +35,7 @@ Name: **Kitchen / Kitchens** in the UI (see Naming for code). "Workspace" is tak
 | World | Lorebooks, map and world state, default persona and connection, a character cast, selected agents. |
 | Membership | A chat is in zero or one Kitchen (`kitchenId`). Chats with no Kitchen behave exactly as today. |
 | Memory | Characters remember the scenes they were in. Opt-in per Kitchen. See "Memory between chats". |
+| Time | A Kitchen can keep living while you are away. Engine core owns the world, memory and prompt block; the `meanwhile` package owns the clock and the off-screen events. Opt-in per Kitchen, because it costs model calls. See "Time: Meanwhile in a Kitchen". |
 
 ## Where Kitchens live in the UI
 
@@ -110,6 +111,36 @@ Not in V1:
 
 Engine-only work; no package changes. Wire prompt logging for the new block (`DEBUG_AGENTS`, `logDebugOverride`) and cover it with `pnpm regression:prompt`.
 
+## Time: Meanwhile in a Kitchen
+
+Decided 2026-11-06. Meanwhile 0.1.0 (Marinara-Agents, branch `background-simulation`, on the maintainer's prod only, no PR) proved the idea with its own "Circle": a cast, a setting, linked chats and a clock. A Circle is a small Kitchen built inside a package. Instead of two "worlds" that do not know each other, the Kitchen is the world and Meanwhile is the time in it.
+
+**Split:**
+
+| Engine core (this plan) | `meanwhile` package (Marinara-Agents) |
+| --- | --- |
+| Kitchen: cast, chats, lorebooks, persona, connection | Clock per Kitchen: real time, speed, fast forward with cost preview |
+| Kitchen memory: scenes with `audienceCharacterIds`, "Elsewhere in <Kitchen>" block, [×] | Daily events: code deals seeds, one model call writes events, diary lines, hooks and texts |
+| Conversation schedules and status (`conversation/schedule.service.ts`) | Diary, Phone, Monday paper, Timeline with veto and edit |
+| Package access to the active Kitchen (`sphereId`) and Kitchen-scoped storage | Nudges, surprise mode, big events that wait for a yes, daily call budget |
+| A package section slot on the Kitchen page | "Time" section on the Kitchen page and the Home widget |
+
+**What changes in Meanwhile:**
+
+- The Circle goes away. Meanwhile stores its clock and settings per Kitchen (`sphereId` namespace) and reads cast, chats and setting (Kitchen lorebooks) from the Kitchen.
+- Events become Kitchen memory scenes, with the characters present as the audience. The "Elsewhere in <Kitchen>" block then carries them into chats, and Advanced Memory keeps them after the first telling. Meanwhile's own prompt-context injection and its "who may know it" ledger go away.
+- Meanwhile reads the Engine's Conversation schedules instead of a second routine. It makes its own routine only for characters with no schedule (for example in Roleplay chats).
+- Status: Meanwhile stops writing over Conversation status; an event that changes where a character is becomes a status override through the Engine's own path.
+- Characters texting each other: the Phone tab shows Meanwhile texts; whether the Engine's `checkCharacterExchange` texts also show there is an open question.
+
+**Engine needs for this (new compared to the slices above):**
+
+- Packages can read the active chat's Kitchen and its cast, chat ids and lorebook ids (read-only).
+- Packages can add a scene to Kitchen memory with an audience, and remove it again (veto). Scenes from a package carry their source so the Kitchen page can show "from Meanwhile".
+- A Kitchen page section slot for packages.
+
+These come before the package storage work for Noodle and Slurp, so they move into slice 3 below.
+
 ## Current state (what we build on)
 
 - `Chat` has `folderId`, `groupId`, `connectedChatId` (`packages/shared/src/types/chat.ts`). None share state.
@@ -162,11 +193,12 @@ Everything is live: Kitchen settings apply to every Kitchen chat at resolve time
 0. **Link chats (no shared behavior).** `kitchens` table shaped like `api_connection_folders` (id, name, color, sortOrder), CRUD via `registerFolderCrudRoutes`; nullable `kitchenId` on chats through the existing chat update; sidebar scope picker (create/rename/delete Kitchen) + mode-tab filter + badge; "Kitchen" select in the chat settings drawer. Delete Kitchen = unset `kitchenId`, never delete chats. No Kitchen page, no generation or prompt change. Likely no `STORAGE_VERSION` bump (folder tables were added without one); confirm. Regression: deleting a Kitchen keeps its chats with `kitchenId = null`. PR text: cross-mode grouping is useful alone (folders are per mode) and is the base for later slices.
 1. **Kitchen page + Kitchen lorebooks.** Kitchen page (open button in the scope row), Kitchen lorebook scope (extend `LorebookScope` with Kitchen ids), drag and drop from the sidebars into the Kitchen page.
 2. **Kitchen memories.** "Share memories between chats" setting, "Elsewhere in <Kitchen>" prompt block, Kitchen page Memory section with [×], persona "Counts as a witness". Regression: a chat receives only scenes one of its characters witnessed.
-3. **Defaults and cast.** Kitchen persona, connection, and cast resolve live for Kitchen chats.
-4. **Agents and Kitchen agent memory.** Kitchen agents join the agent resolution; `kitchen_agent_memory` table, capability API access, debug logging.
-5. **Kitchen-scoped package storage.** `kitchenId` namespace on Noodle/Slurp tables and the document store API (Engine). Adoption in Noodle, Slurp, LTM (Marinara-Agents).
-6. **Shared map and world state.** Kitchen-level spatial and game-state snapshots.
-7. **Intro tutorial.** Mari in her kitchen shows her drawers (left and right sidebars), then zooms out to differently themed kitchens. Reuse the existing tutorial system.
+3. **Packages in a Kitchen.** Read access to the active Kitchen (cast, chat ids, lorebook ids); `sphereId` namespace on the capability document store; add and remove Kitchen memory scenes with source; Kitchen page section slot. Regression: a package scene reaches only chats whose characters were in its audience. Then, in Marinara-Agents: **Meanwhile 0.2** runs on a Kitchen (no Circle), writes events as scenes, reads Conversation schedules.
+4. **Defaults and cast.** Kitchen persona, connection, and cast resolve live for Kitchen chats.
+5. **Agents and Kitchen agent memory.** Kitchen agents join the agent resolution; `kitchen_agent_memory` table, capability API access, debug logging.
+6. **Kitchen-scoped Noodle and Slurp storage.** `kitchenId` namespace on Noodle/Slurp tables (Engine). Adoption in Noodle, Slurp, LTM (Marinara-Agents).
+7. **Shared map and world state.** Kitchen-level spatial and game-state snapshots. Meanwhile's clock and World State's in-story date must agree here.
+8. **Intro tutorial.** Mari in her kitchen shows her drawers (left and right sidebars), then zooms out to differently themed kitchens. Reuse the existing tutorial system.
 
 Each slice is its own PR against `staging`, with a CHANGELOG entry, localization keys, and one regression proof.
 
@@ -188,3 +220,7 @@ Each slice is its own PR against `staging`, with a CHANGELOG entry, localization
 - LTM (Long-Term Memory) storage: confirm where it stores data before slice 5.
 - Memory: timeline and flashbacks across chats; recall of older scenes from other chats.
 - Memory: does [×] also stop a scene from coming back through later recall?
+- Time: Meanwhile needs Kitchen memory sharing on. Does turning on "Time" also turn on "Share memories between chats", or ask?
+- Time: Roleplay and Game chats have their own story time (World State, game state). Real-time clock only for Conversation, fast forward only for the rest?
+- Time: Meanwhile 0.1.0 Circles on the maintainer's prod: convert each Circle into a Kitchen once, or start fresh?
+- Time: do Engine `checkCharacterExchange` texts show in Meanwhile's Phone tab?
