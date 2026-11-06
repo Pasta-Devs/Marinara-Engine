@@ -13,6 +13,7 @@ import {
   useRef,
   type UIEvent,
 } from "react";
+import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -267,6 +268,8 @@ export function CharactersPanel() {
   const [editGroupName, setEditGroupName] = useState("");
   const [draggedCharacterId, setDraggedCharacterId] = useState<string | null>(null);
   const panelScrollRef = useRef<HTMLDivElement | null>(null);
+  const rootListRef = useRef<HTMLDivElement | null>(null);
+  const [rootListOffset, setRootListOffset] = useState(0);
   const pendingPanelScrollTopRef = useRef(0);
   const panelScrollFrameRef = useRef<number | null>(null);
   const suppressCharacterClickRef = useRef(false);
@@ -556,6 +559,62 @@ export function CharactersPanel() {
     () => sortedCharacters.filter((char) => !folderedCharacterIds.has(char.id)),
     [sortedCharacters, folderedCharacterIds],
   );
+
+  // Only the root cards near the viewport are in the DOM; with thousands of cards a full render stutters.
+  const draggedRootIndex = draggedCharacterId
+    ? visibleRootCharacters.findIndex((char) => char.id === draggedCharacterId)
+    : -1;
+  const rootVirtualizer = useVirtualizer({
+    count: visibleRootCharacters.length,
+    getScrollElement: () => panelScrollRef.current,
+    getItemKey: (index) => visibleRootCharacters[index]!.id,
+    estimateSize: () => 80,
+    gap: 4,
+    overscan: 6,
+    scrollMargin: rootListOffset,
+    // Keep a dragged card mounted, so its dragend and touch handlers still run after it scrolls away.
+    rangeExtractor: (range) => {
+      const indexes = defaultRangeExtractor(range);
+      return draggedRootIndex >= 0 && !indexes.includes(draggedRootIndex) ? [draggedRootIndex, ...indexes] : indexes;
+    },
+  });
+  const rootVirtualItems = rootVirtualizer.getVirtualItems();
+  const lastRootVirtualIndex = rootVirtualItems.at(-1)?.index ?? -1;
+
+  // The folders above the root list change height (expand, rename, filters), so scrollMargin is remeasured.
+  useLayoutEffect(() => {
+    const scroller = panelScrollRef.current;
+    const list = rootListRef.current;
+    if (!scroller || !list) return;
+    const measure = () =>
+      setRootListOffset(list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop);
+    const resize = new ResizeObserver(measure);
+    const observeChildren = () => {
+      resize.disconnect();
+      for (const child of scroller.children) resize.observe(child);
+      measure();
+    };
+    const mutation = new MutationObserver(observeChildren);
+    mutation.observe(scroller, { childList: true });
+    observeChildren();
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, []);
+
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = characterPages;
+  useEffect(() => {
+    if (lastRootVirtualIndex < visibleRootCharacters.length - 3) return;
+    if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
+  }, [
+    lastRootVirtualIndex,
+    visibleRootCharacters.length,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  ]);
 
   const rememberPanelScroll = useCallback(() => {
     const node = panelScrollRef.current;
@@ -1581,8 +1640,13 @@ export function CharactersPanel() {
         </div>
       )}
 
-      <div className="flex min-h-8 shrink-0 flex-col gap-1 rounded-xl transition-colors">
-        {visibleRootCharacters.map((char) => {
+      <div
+        ref={rootListRef}
+        className="relative min-h-8 shrink-0 rounded-xl transition-colors"
+        style={{ height: rootVirtualizer.getTotalSize() }}
+      >
+        {rootVirtualItems.map((virtualRow) => {
+          const char = visibleRootCharacters[virtualRow.index]!;
           const charName = char.parsed.name ?? "Unnamed";
           const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
           const charTags = getCharacterTags(char);
@@ -1595,7 +1659,10 @@ export function CharactersPanel() {
 
           return (
             <div
-              key={char.id}
+              key={virtualRow.key}
+              ref={rootVirtualizer.measureElement}
+              data-index={virtualRow.index}
+              style={{ transform: `translateY(${virtualRow.start - rootVirtualizer.options.scrollMargin}px)` }}
               data-character-id={char.id}
               data-touch-drag-card="character"
               data-drag-id={char.id}
@@ -1664,7 +1731,7 @@ export function CharactersPanel() {
                 clearActiveChatResourceDrag();
               }}
               className={cn(
-                "group relative flex min-h-[4.5rem] shrink-0 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] max-md:min-h-16",
+                "group absolute left-0 top-0 flex w-full min-h-[4.5rem] shrink-0 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-xl p-2 transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)] max-md:min-h-16",
                 selectionMode &&
                   isBulkSelected &&
                   "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1872,7 +1939,7 @@ export function CharactersPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void characterPages.fetchNextPage()}
           disabled={characterPages.isFetchingNextPage}
-          autoLoad={!characterPages.isFetchNextPageError}
+          autoLoad={false}
         >
           {characterPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
