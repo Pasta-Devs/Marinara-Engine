@@ -220,7 +220,10 @@ Each slice is its own PR against `staging`, with a CHANGELOG entry, localization
 - LTM (Long-Term Memory) storage: confirm where it stores data before slice 5.
 - Memory: timeline and flashbacks across chats; recall of older scenes from other chats.
 - Memory: does [×] also stop a scene from coming back through later recall?
-- Time: Meanwhile needs Kitchen memory sharing on. Does turning on "Time" also turn on "Share memories between chats", or ask?
-- Time: Roleplay and Game chats have their own story time (World State, game state). Real-time clock only for Conversation, fast forward only for the rest?
-- Time: Meanwhile 0.1.0 Circles on the maintainer's prod: convert each Circle into a Kitchen once, or start fresh?
-- Time: do Engine `checkCharacterExchange` texts show in Meanwhile's Phone tab?
+- Time: Roleplay and Game chats have their own story time (World State, game state). Real-time clock only for Conversation, fast forward only for the rest? Undecided (2026-11-06); revisit at slice 7.
+
+Decided 2026-11-06 for Time:
+
+- Turning on Time also turns on "Share memories between chats" and says so in a short note.
+- Meanwhile 0.1.0 Circles are not converted. Meanwhile 0.2 starts fresh on Kitchens.
+- Texts between Kitchen characters: one place for all of them. The Engine's `checkCharacterExchange` texts and Meanwhile texts both belong to the Kitchen; design how Kitchens owns character-to-character texts during the Kitchen work, not as a Meanwhile add-on.
