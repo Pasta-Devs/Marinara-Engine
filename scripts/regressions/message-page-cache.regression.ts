@@ -15,11 +15,9 @@ import {
   chatIdOfMessagesQueryKey,
   createLeadingTrailingCoalescer,
   INACTIVE_CHAT_MAX_MESSAGE_PAGES,
-  locateMessagesInPages,
   shouldRefetchMessagesOnReconnect,
   trimInactiveMessagePageCaches,
   removeMessagesFromPages,
-  restoreMessagesToPages,
   trimMessagePagesToNewest,
 } from "../../packages/client/src/lib/message-page-cache";
 
@@ -291,46 +289,6 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(next?.pageParams, [undefined, "c2"], "Load more keeps its cursor");
   assert.equal(cached.pages[0].length, 2, "the snapshot kept for rollback is not mutated");
   assert.equal(removeMessagesFromPages(undefined, ["m1"]), undefined, "an empty cache stays empty");
-}
-
-// ── Failed delete: hidden messages return to their old place, without undoing what landed meanwhile
-{
-  const cached = {
-    pages: [
-      [{ id: "m3" }, { id: "m4" }, { id: "m5" }],
-      [{ id: "m1" }, { id: "m2" }],
-    ],
-    pageParams: [undefined, "c2"],
-  };
-  const removed = locateMessagesInPages(cached, ["m4", "m1"]);
-  assert.deepEqual(
-    removed.map(({ page, index, message }) => [page, index, message.id]),
-    [
-      [0, 1, "m4"],
-      [1, 0, "m1"],
-    ],
-    "positions are kept per page",
-  );
-  const hidden = removeMessagesFromPages(cached, ["m4", "m1"]);
-  // Meanwhile m5 was deleted elsewhere, a reply m6 arrived, and m1 came back from a refetch.
-  const meanwhile = {
-    ...hidden!,
-    pages: [
-      [{ id: "m3" }, { id: "m6" }],
-      [{ id: "m1" }, { id: "m2" }],
-    ],
-  };
-  const restored = restoreMessagesToPages(meanwhile, removed);
-  assert.deepEqual(
-    restored?.pages,
-    [
-      [{ id: "m3" }, { id: "m4" }, { id: "m6" }],
-      [{ id: "m1" }, { id: "m2" }],
-    ],
-    "the hidden message returns, the reply and the other delete stay, present ids are not doubled",
-  );
-  assert.deepEqual(restored?.pageParams, [undefined, "c2"], "Load more keeps its cursor");
-  assert.equal(meanwhile.pages[0].length, 2, "the current cache is not mutated");
 }
 
 console.info("Message page cache regressions passed.");

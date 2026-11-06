@@ -6,6 +6,7 @@ import {
   useQueries,
   useQuery,
   useMutation,
+  useMutationState,
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import { useMemo } from "react";
 import { api } from "../lib/api-client";
 import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
+import { applyGroupEdits, type CachedGroup, type GroupEdit } from "../lib/character-group-cache";
 import {
   spriteCatalogSchema,
   normalizeSpriteExpressionLabel,
@@ -1590,48 +1592,26 @@ export function useRemovePersonaAvatar() {
 // ── Character Groups ──
 
 export function useCharacterGroups() {
+  const pendingEdits = useMutationState({
+    filters: { mutationKey: characterGroupEditKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as GroupEdit,
+  });
   return useQuery({
     queryKey: characterKeys.groups,
     queryFn: () => api.get<unknown[]>("/characters/groups/list"),
+    // Pending folder edits show at once on top of the server list; a failed one just stops showing.
+    select: (groups) => (pendingEdits.length ? applyGroupEdits(groups as CachedGroup[], pendingEdits) : groups),
   });
 }
 
 // The root list hides folder members and pages carry folder counts, so folder edits refresh both.
-type CachedGroup = { id: string } & Record<string, unknown>;
 
-/** Apply an edit to one folder at once and keep its old copy, so a failed edit can put only that folder back. */
-async function patchCachedGroup(
-  qc: ReturnType<typeof useQueryClient>,
-  id: string,
-  update: (group: CachedGroup) => CachedGroup | null,
-) {
-  await qc.cancelQueries({ queryKey: characterKeys.groups });
-  const groups = qc.getQueryData<CachedGroup[]>(characterKeys.groups);
-  const index = groups?.findIndex((group) => group.id === id) ?? -1;
-  if (!groups || index < 0) return undefined;
-  const before = groups[index];
-  const after = update(before);
-  qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) =>
-    old?.flatMap((group) => (group.id !== id ? [group] : after ? [after] : [])),
-  );
-  return { before, index };
-}
+/** Mutation key shared by folder updates and deletes, so useCharacterGroups can show them while pending. */
+const characterGroupEditKey = ["character-group-edit"] as const;
 
-/** Put the old folder back into the current list (other folders keep their changes), then refetch in the background. */
-function restoreCachedGroup(
-  qc: ReturnType<typeof useQueryClient>,
-  context: { before: CachedGroup; index: number } | undefined,
-) {
-  if (context) {
-    const { before, index } = context;
-    qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) => {
-      if (!old) return old;
-      if (old.some((group) => group.id === before.id))
-        return old.map((group) => (group.id === before.id ? before : group));
-      return [...old.slice(0, index), before, ...old.slice(index)];
-    });
-  }
-  void qc.invalidateQueries({ queryKey: characterKeys.groups });
+/** The server accepted the edit: write it into the cache so the folder does not flash back before the refetch. */
+function commitGroupEdit(qc: ReturnType<typeof useQueryClient>, edit: GroupEdit) {
+  qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) => (old ? applyGroupEdits(old, [edit]) : old));
 }
 
 function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
@@ -1655,12 +1635,11 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
-    onMutate: ({ id, characterIds, ...fields }) => {
-      const patch = characterIds ? { ...fields, characterIds: JSON.stringify(characterIds) } : fields;
-      return patchCachedGroup(qc, id, (group) => ({ ...group, ...patch }));
+    mutationKey: characterGroupEditKey,
+    onSuccess: (_data, edit) => {
+      commitGroupEdit(qc, edit);
+      return invalidateGroupsAndCatalog(qc);
     },
-    onError: (_err, _vars, context) => restoreCachedGroup(qc, context),
-    onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
 
@@ -1668,9 +1647,11 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
-    onMutate: (id) => patchCachedGroup(qc, id, () => null),
-    onError: (_err, _id, context) => restoreCachedGroup(qc, context),
-    onSuccess: () => invalidateGroupsAndCatalog(qc),
+    mutationKey: characterGroupEditKey,
+    onSuccess: (_data, id) => {
+      commitGroupEdit(qc, id);
+      return invalidateGroupsAndCatalog(qc);
+    },
   });
 }
 

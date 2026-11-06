@@ -7,6 +7,7 @@ import {
   useQuery,
   useInfiniteQuery,
   useMutation,
+  useMutationState,
   useQueryClient,
   type InfiniteData,
   type QueryClient,
@@ -22,13 +23,7 @@ import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
-import {
-  locateMessagesInPages,
-  removeMessagesFromPages,
-  restoreMessagesToPages,
-  shouldRefetchMessagesOnReconnect,
-  type RemovedMessage,
-} from "../lib/message-page-cache";
+import { removeMessagesFromPages, shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
 import { notifyTTSUserMessageReady } from "../lib/tts-autoplay";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
@@ -157,36 +152,21 @@ function findCachedMessage(data: InfiniteData<Message[]> | undefined, messageId:
   return null;
 }
 
-/** Hide deleted messages at once and keep them, so a failed delete can put them back. */
-async function removeCachedMessages(qc: QueryClient, chatId: string | null, messageIds: string[]) {
-  if (!chatId) return undefined;
-  await qc.cancelQueries({ queryKey: chatKeys.messages(chatId) });
-  const removed = locateMessagesInPages(
-    qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId)),
-    messageIds,
-  );
+/** Mutation key shared by single and bulk message deletes, so the transcript can hide pending deletes. */
+const chatMessageDeleteKey = (chatId: string | null) => ["chat-message-delete", chatId ?? ""] as const;
+
+function deletedMessageIds(variables: unknown): string[] {
+  if (Array.isArray(variables)) return variables as string[];
+  if (typeof variables === "string") return [variables];
+  const messageId = (variables as { messageId?: unknown } | undefined)?.messageId;
+  return typeof messageId === "string" ? [messageId] : [];
+}
+
+/** The server deleted them: drop them from the cache so they do not flash back before the refetch. */
+function dropDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
   qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
     removeMessagesFromPages(old, messageIds),
   );
-  return { removed };
-}
-
-/**
- * Put the hidden messages back into the current cache (not a snapshot, so replies and edits that landed
- * meanwhile stay), then refetch in the background; the error does not wait for the refetch.
- */
-function restoreCachedMessages(
-  qc: QueryClient,
-  chatId: string | null,
-  context: { removed: RemovedMessage<Message>[] } | undefined,
-) {
-  if (!chatId) return;
-  if (context) {
-    qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
-      restoreMessagesToPages(old, context.removed),
-    );
-  }
-  void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
 }
 
 export function rememberRecentMessageContentEdit(
@@ -303,10 +283,30 @@ async function resetClientAfterExpunge(qc: ReturnType<typeof useQueryClient>) {
   qc.clear();
 }
 
+const chatUpdateKey = ["chat-update"] as const;
+
+/** Names of chats with a rename still in flight, so every chat query shows the new name at once. */
+function usePendingChatNames(): Map<string, string> {
+  const renames = useMutationState({
+    filters: { mutationKey: chatUpdateKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as { id: string; name?: string } | undefined,
+  });
+  const names = new Map<string, string>();
+  for (const rename of renames) if (rename?.name !== undefined) names.set(rename.id, rename.name);
+  return names;
+}
+
+function withPendingName(chat: Chat, names: Map<string, string>): Chat {
+  const name = names.get(chat.id);
+  return name === undefined || name === chat.name ? chat : { ...chat, name };
+}
+
 export function useChats(options: { enabled?: boolean; refetchOnMount?: boolean | "always" } = {}) {
+  const pendingNames = usePendingChatNames();
   return useQuery({
     queryKey: chatKeys.list(),
     queryFn: () => api.get<Chat[]>("/chats"),
+    select: (chats) => (pendingNames.size ? chats.map((chat) => withPendingName(chat, pendingNames)) : chats),
     enabled: options.enabled ?? true,
     placeholderData: (previousData) => previousData,
     staleTime: 10_000,
@@ -328,8 +328,10 @@ const CHAT_OPEN_TIMEOUT_MS = 15_000;
 
 export function useChat(id: string | null) {
   const queryClient = useQueryClient();
+  const pendingNames = usePendingChatNames();
   return useQuery<Chat>({
     queryKey: chatKeys.detail(id ?? ""),
+    select: (chat) => (pendingNames.size ? withPendingName(chat, pendingNames) : chat),
     // The list row already holds this chat, so the view can mount while the detail loads.
     // Game and multiplayer chats restore and save scene state on mount, so they wait for the detail.
     placeholderData: () => {
@@ -465,8 +467,20 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     generationStatus?.translating,
     queryClient,
   ]);
+  const pendingDeleteIds = useMutationState({
+    filters: { mutationKey: chatMessageDeleteKey(chatId), status: "pending" },
+    select: (mutation) => deletedMessageIds(mutation.state.variables),
+  }).flat();
+  const pendingDeleteKey = pendingDeleteIds.join(",");
+  const hidePendingDeletes = useCallback(
+    (data: InfiniteData<Message[]>) =>
+      pendingDeleteKey ? (removeMessagesFromPages(data, pendingDeleteKey.split(",")) ?? data) : data,
+    [pendingDeleteKey],
+  );
   const query = useInfiniteQuery({
     ...chatMessagesQueryOptions(chatId ?? "", pageSize),
+    // Pending deletes are hidden on read; the cache keeps them, so paging and a failed delete stay correct.
+    select: hidePendingDeletes,
     enabled: !!chatId && enabled,
     // #4703: a reconnect refetch re-drains every loaded page back-to-back, so
     // a scrolled-back chat on a flaky mobile connection re-downloads its whole
@@ -661,9 +675,11 @@ export function useClearChatNotes(chatId: string | null) {
 }
 
 export function useChatGroup(groupId: string | null) {
+  const pendingNames = usePendingChatNames();
   return useQuery({
     queryKey: chatKeys.group(groupId ?? ""),
     queryFn: () => api.get<Chat[]>(`/chats/group/${groupId}`),
+    select: (chats) => (pendingNames.size ? chats.map((chat) => withPendingName(chat, pendingNames)) : chats),
     enabled: !!groupId,
   });
 }
@@ -1021,14 +1037,6 @@ export function useSetChatModel() {
   });
 }
 
-/** Rename a chat in the detail, list and group caches, only where it still shows the `from` name. */
-function setCachedChatName(qc: QueryClient, id: string, groupId: string | null | undefined, from: string, to: string) {
-  const swap = (chat: Chat) => (chat.id === id && chat.name === from ? { ...chat, name: to } : chat);
-  qc.setQueryData<Chat>(chatKeys.detail(id), (old) => (old ? swap(old) : old));
-  qc.setQueryData<Chat[]>(chatKeys.list(), (old) => old?.map(swap));
-  if (groupId) qc.setQueryData<Chat[]>(chatKeys.group(groupId), (old) => old?.map(swap));
-}
-
 export function useUpdateChat() {
   const qc = useQueryClient();
   return useMutation({
@@ -1045,26 +1053,9 @@ export function useUpdateChat() {
       personaCharacterId?: string | null;
       characterIds?: string[];
     }) => api.patch<Chat>(`/chats/${id}`, data),
-    onMutate: ({ id, name }) => {
-      const metadataVersion = captureChatMetadataVersion(id);
-      if (name === undefined) return { metadataVersion };
-      // Show a rename at once in the caches that already hold the chat. On error only the name goes back,
-      // so other edits that landed meanwhile stay.
-      const cached =
-        qc.getQueryData<Chat>(chatKeys.detail(id)) ??
-        qc.getQueryData<Chat[]>(chatKeys.list())?.find((chat) => chat.id === id);
-      if (!cached) return { metadataVersion };
-      const rename = { id, groupId: cached.groupId, from: cached.name, to: name };
-      setCachedChatName(qc, rename.id, rename.groupId, rename.from, rename.to);
-      return { metadataVersion, rename };
-    },
-    onError: (_err, { id }, context) => {
-      const rename = context?.rename;
-      if (rename) setCachedChatName(qc, rename.id, rename.groupId, rename.to, rename.from);
-      void qc.invalidateQueries({ queryKey: chatKeys.detail(id) });
-      void qc.invalidateQueries({ queryKey: chatKeys.list() });
-      if (rename?.groupId) void qc.invalidateQueries({ queryKey: chatKeys.group(rename.groupId) });
-    },
+    // While pending, a new name shows at once through usePendingChatNames; a failed rename just stops showing.
+    mutationKey: chatUpdateKey,
+    onMutate: ({ id }) => ({ metadataVersion: captureChatMetadataVersion(id) }),
     onSuccess: (updatedChat, vars, context) => {
       const guardedChat = updatedChat ? guardServerChatSnapshot(qc, updatedChat, context?.metadataVersion ?? 0) : null;
       if (guardedChat) {
@@ -1573,10 +1564,11 @@ export function useDeleteMessage(chatId: string | null) {
         `/chats/${chatId}/messages/${messageId}${skipTrash ? "?trash=false" : ""}`,
       );
     },
-    onMutate: (target) => removeCachedMessages(qc, chatId, [typeof target === "string" ? target : target.messageId]),
-    onError: (_err, _vars, context) => restoreCachedMessages(qc, chatId, context),
-    onSuccess: (result) => {
+    // While pending, useChatMessages hides the message; a failed delete simply shows it again.
+    mutationKey: chatMessageDeleteKey(chatId),
+    onSuccess: (result, target) => {
       if (chatId) {
+        dropDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: 1 }), {
@@ -1600,10 +1592,10 @@ export function useDeleteMessages(chatId: string | null) {
   return useMutation({
     mutationFn: (messageIds: string[]) =>
       api.post<{ trashed: boolean; trashedCount: number }>(`/chats/${chatId}/messages/bulk-delete`, { messageIds }),
-    onMutate: (messageIds) => removeCachedMessages(qc, chatId, messageIds),
-    onError: (_err, _vars, context) => restoreCachedMessages(qc, chatId, context),
-    onSuccess: (result) => {
+    mutationKey: chatMessageDeleteKey(chatId),
+    onSuccess: (result, messageIds) => {
       if (chatId) {
+        dropDeletedMessages(qc, chatId, messageIds);
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
