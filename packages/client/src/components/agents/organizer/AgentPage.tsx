@@ -27,6 +27,7 @@ import {
   useOrganizer,
   useShownEntry,
 } from "./OrganizerParts";
+import { OvAgentAction } from "../../overhaul/OvAgentOrganizer";
 
 const HOW_TO_STEPS = [1, 2, 3] as const;
 
@@ -64,10 +65,13 @@ export function AgentPage({
   entry,
   entries,
   customSource,
+  compact = false,
 }: {
   entry: OrganizerEntry;
   entries: readonly OrganizerEntry[];
   customSource: boolean;
+  /** New layout: short banner, one-line facts, a plain how-to list; neighbours live in the side list. */
+  compact?: boolean;
 }) {
   const { installedById, chatCountById, settingsAgentById, open } = useOrganizer();
   const openAgentDetail = useUIStore((state) => state.openAgentDetail);
@@ -95,6 +99,157 @@ export function AgentPage({
       ? [{ kind: "available" as const, version: manifest.version, permissions: manifest.permissions }]
       : []),
   ];
+
+  if (compact) {
+    const chats = chatCountById.get(manifest.id) ?? 0;
+    return (
+      <article className="ov-agentpage">
+        <StoreBanner entry={entry} priority sizes="70vw" className="ov-agentpage__banner" />
+        <header className="ov-agentpage__head">
+          <AgentIcon entry={entry} className="ov-agentpage__icon" />
+          <div className="ov-agentpage__title">
+            <h2>{shown.name}</h2>
+            <p>{taglineOf(entry, shown.description)}</p>
+          </div>
+          <div className="ov-agentpage__actions">
+            {(!installed || update) && <OvAgentAction entry={entry} />}
+            {installed && type === "app" && (
+              <button type="button" className="ov-btn" onClick={() => open(entry)}>
+                <ArrowUpRight size={14} aria-hidden="true" />
+                {localizeUi("ui.agents.organizer.open")}
+              </button>
+            )}
+            {settingsAgentId && (
+              <button type="button" className="ov-btn" onClick={() => openAgentDetail(settingsAgentId)}>
+                {localizeUi("ui.agents.organizer.settings")}
+              </button>
+            )}
+          </div>
+        </header>
+        <dl className="ov-agentpage__facts">
+          <div>
+            <dd>
+              {localizeUi(sectionLabelKey(section))} · {localizeUi(typeLabelKey(type))}
+            </dd>
+          </div>
+          <div>
+            <dt>{localizeUi("ui.agents.organizer.facts.worksIn")}</dt>
+            <dd>
+              {modes.length > 0
+                ? modes.map((mode, index) => (
+                    <span key={mode} className={`ov-org__mode is-${mode}`}>
+                      {index > 0 ? <i aria-hidden="true">·</i> : null}
+                      {localizeUi(MODE_BADGES[mode].labelKey)}
+                    </span>
+                  ))
+                : localizeUi("ui.agents.organizer.facts.anyMode")}
+            </dd>
+          </div>
+          <div>
+            <dt>{localizeUi("ui.agents.organizer.facts.version")}</dt>
+            <dd>
+              {installed && update
+                ? localizeUi("ui.agents.organizer.versionChange", { from: installed.version, to: manifest.version })
+                : (installed?.version ?? manifest.version)}
+            </dd>
+          </div>
+          <div>
+            <dt>{localizeUi("ui.agents.organizer.facts.engine")}</dt>
+            <dd>{localizeUi("ui.agents.organizer.facts.engineValue", { version: manifest.engine.min })}</dd>
+          </div>
+          {installed && (
+            <div>
+              <dt>{localizeUi("ui.agents.organizer.facts.usedIn")}</dt>
+              <dd>{localizeUi("ui.agents.organizer.facts.chatCount", { count: chats })}</dd>
+            </div>
+          )}
+          <div>
+            <dt>{localizeUi("ui.agents.organizer.facts.size")}</dt>
+            <dd>{formatBytes(entry.artifact.bytes)}</dd>
+          </div>
+          <div>
+            <dt>{localizeUi("ui.agents.organizer.facts.source")}</dt>
+            <dd>
+              {localizeUi(customSource ? "ui.agents.organizer.facts.custom" : "ui.agents.organizer.facts.official")}
+            </dd>
+          </div>
+        </dl>
+        {checkReason !== null && (
+          <p className="ov-agentpage__warn">
+            <b>{localizeUi("ui.agents.organizer.needsCheck")}</b> ·{" "}
+            {checkReason || localizeUi("ui.agents.organizer.needsCheckHint")}
+          </p>
+        )}
+        <div className="ov-agentpage__body">
+          <p className="ov-agentpage__about">{shown.description}</p>
+          {entry.documentationUrl && (
+            <a href={entry.documentationUrl} target="_blank" rel="noreferrer" className="ov-agentpage__link">
+              <ExternalLink size={13} aria-hidden="true" />
+              {localizeUi("ui.agents.agentcatalogview.readHowThisAgentWorks")}
+            </a>
+          )}
+          {(type === "app" || type === "game" || type === "agent") && (
+            <>
+              <h3>{localizeUi("ui.agents.organizer.howTo")}</h3>
+              <ol className="ov-agentpage__steps">
+                {HOW_TO_STEPS.map((step) => (
+                  <li key={step}>
+                    {localizeUi(`ui.agents.organizer.steps.${type}.step${step}`, { name: manifest.name })}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+          {previews.length > 0 && (
+            <>
+              <h3>{localizeUi("ui.agents.organizer.preview")}</h3>
+              <div className="ov-agentpage__previews">
+                {previews.map((url, index) => (
+                  <img
+                    key={url}
+                    src={url}
+                    alt={localizeUi("ui.agents.organizer.previewAlt", { name: manifest.name, index: index + 1 })}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          <h3>{localizeUi("ui.agents.agentcatalogview.permissions")}</h3>
+          {(manifest.entrypoints.server || manifest.entrypoints.client) && (
+            <p className="ov-agentpage__note">{localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}</p>
+          )}
+          {permissionGroups.map((group) => (
+            <div key={group.kind} className="ov-agentpage__perms">
+              {permissionGroups.length > 1 && (
+                <span className="ov-agentpage__permhead">
+                  {localizeUi(
+                    group.kind === "installed"
+                      ? "ui.agents.agentcatalogview.installedPermissions"
+                      : "ui.agents.agentcatalogview.availablePermissions",
+                    { version: group.version },
+                  )}
+                </span>
+              )}
+              {group.permissions.length > 0 ? (
+                group.permissions.map((permission) => (
+                  <span key={permission} className="ov-agentpage__chip">
+                    {permission.replaceAll("-", " ")}
+                  </span>
+                ))
+              ) : (
+                <span className="ov-agentpage__permhead">{localizeUi("ui.agents.agentcatalogview.noPermissions")}</span>
+              )}
+            </div>
+          ))}
+          <p className="ov-agentpage__note">{localizeUi("ui.agents.agentcatalogview.permissionScopeNotice")}</p>
+          <WhatsNew packageId={manifest.id} version={manifest.version} />
+          <AgentVersionHistory packageId={manifest.id} />
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article className="min-w-0 pb-6 [overflow-wrap:anywhere]">

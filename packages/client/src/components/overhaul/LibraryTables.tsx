@@ -207,7 +207,7 @@ function ListPage<T extends { id: string }>({
   );
 }
 
-function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (gallery: boolean) => void }) {
+export function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (gallery: boolean) => void }) {
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
   if (mobile) {

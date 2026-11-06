@@ -64,6 +64,8 @@ import {
 } from "./organizer/OrganizerLists";
 import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
+import { OvAgentOrganizer } from "../overhaul/OvAgentOrganizer";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -83,6 +85,7 @@ function catalogErrorDescription(error: unknown) {
 /** The Agent Organizer: browse, install, update and remove downloadable agents. */
 export function AgentCatalogView() {
   const { t: localizeUi, i18n } = useUiTranslation();
+  const ovDesktop = useOverhaulActive();
   const shownLanguage = i18n.resolvedLanguage ?? i18n.language;
   const closeAgentCatalog = useUIStore((state) => state.closeAgentCatalog);
   const initialPackageId = useUIStore((state) => state.agentCatalogInitialPackageId);
@@ -636,6 +639,88 @@ export function AgentCatalogView() {
     );
   }
 
+  const sharedOverlays = (
+    <>
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} autoFocus />
+      )}
+      <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+    </>
+  );
+
+  if (ovDesktop) {
+    const catalogReady = !catalog.isLoading && !catalog.isError && all.length > 0;
+    return (
+      <OrganizerContext.Provider value={actions}>
+        <div data-component="AgentCatalogView" className="mari-chrome-token-scope ov-org-root">
+          <OvAgentOrganizer
+            all={all}
+            entries={entries}
+            updates={updates}
+            kits={(catalog.data?.kits ?? []).map((kit) => ({
+              ...kit,
+              entries: all.filter((entry) => kit.packages.includes(entry.manifest.id)),
+            }))}
+            query={query}
+            setQuery={setQuery}
+            modeFilter={modeFilter}
+            setModeFilter={setModeFilter}
+            page={page}
+            agentEntry={agentEntry}
+            status={catalogReady ? null : content}
+            agentPage={
+              agentEntry ? (
+                <AgentPage
+                  key={agentEntry.manifest.id}
+                  entry={agentEntry}
+                  entries={all}
+                  customSource={catalog.data?.provenance?.kind === "custom"}
+                  compact
+                />
+              ) : (
+                <p className="ov-list__empty">{localizeUi("ui.agents.organizer.agentMissing")}</p>
+              )
+            }
+            updatesPage={
+              <UpdatesPage
+                entries={all}
+                run={updateRun}
+                onUpdateAll={handleUpdateAll}
+                onRetry={(entry) =>
+                  void runUpdates([all.find((live) => live.manifest.id === entry.manifest.id) ?? entry], true)
+                }
+              />
+            }
+            bulkNote={
+              bulkProgress ? (
+                <p className="ov-org__bulk" role="status" aria-live="polite">
+                  {bulkProgress.action === "install"
+                    ? localizeUi("ui.agents.agentcatalogview.installingValue1Value2", {
+                        value1: bulkProgress.completed,
+                        value2: bulkProgress.total,
+                      })
+                    : localizeUi("ui.agents.agentcatalogview.uninstallingValue1Value2", {
+                        value1: bulkProgress.completed,
+                        value2: bulkProgress.total,
+                      })}{" "}
+                  {localizeUi("ui.agents.agentcatalogview.keepMarinaraEngineOpenUntilThisFinishes")}
+                </p>
+              ) : null
+            }
+            bulkBusy={bulkActionPending}
+            onBack={closeAgentCatalog}
+            onMore={(event) => openMenu(null, event)}
+            onUpdateAll={() => void handleUpdateAll()}
+            onInstallKit={(kit) =>
+              void handleInstallAll(kit.entries.filter((entry) => !installedById.has(entry.manifest.id)))
+            }
+          />
+          {sharedOverlays}
+        </div>
+      </OrganizerContext.Provider>
+    );
+  }
+
   return (
     <OrganizerContext.Provider value={actions}>
       <div
@@ -849,10 +934,7 @@ export function AgentCatalogView() {
           </main>
         </div>
 
-        {menu && (
-          <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} autoFocus />
-        )}
-        <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+        {sharedOverlays}
       </div>
     </OrganizerContext.Provider>
   );
