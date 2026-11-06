@@ -251,7 +251,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     // With no Audio connection, text to speech reads with the TTS card's own source settings.
     if (role.key === "voice" && tts?.enabled) {
       const value = t(`connections.device.ttsSource.${tts.source}`);
-      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true };
+      // Local PocketTTS lives On this device: the row opens its page (turn off, server, voice), not an empty picker.
+      const device = tts.source === "pockettts" ? ("tts" as const) : undefined;
+      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true, device };
     }
     // Agents follow the chat's model; a new chat uses Main.
     if (isAgents)
