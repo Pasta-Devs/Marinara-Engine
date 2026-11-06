@@ -42,6 +42,16 @@ export function trimMessagePagesToNewest<T>(
   };
 }
 
+/** Drop messages from every loaded page; page params stay so Load more keeps its cursor. */
+export function removeMessagesFromPages<T extends { id: string }>(
+  data: InfiniteData<T[]> | undefined,
+  messageIds: Iterable<string>,
+): InfiniteData<T[]> | undefined {
+  if (!data?.pages) return data;
+  const removed = new Set(messageIds);
+  return { ...data, pages: data.pages.map((page) => page.filter((msg) => !removed.has(msg.id))) };
+}
+
 export function shouldRefetchMessagesOnReconnect(loadedPageCount: number): boolean {
   return loadedPageCount <= RECONNECT_REFETCH_MAX_PAGES;
 }

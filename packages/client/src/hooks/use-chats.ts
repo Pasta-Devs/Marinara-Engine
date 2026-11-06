@@ -22,7 +22,7 @@ import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
-import { shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
+import { removeMessagesFromPages, shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
 import { notifyTTSUserMessageReady } from "../lib/tts-autoplay";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
@@ -149,6 +149,25 @@ function findCachedMessage(data: InfiniteData<Message[]> | undefined, messageId:
     if (found) return found;
   }
   return null;
+}
+
+/** Hide deleted messages at once; the caller restores the snapshot if the server refuses. */
+async function removeCachedMessages(qc: QueryClient, chatId: string | null, messageIds: string[]) {
+  if (!chatId) return undefined;
+  await qc.cancelQueries({ queryKey: chatKeys.messages(chatId) });
+  const previous = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
+  qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
+    removeMessagesFromPages(old, messageIds),
+  );
+  return { previous };
+}
+
+function restoreCachedMessages(
+  qc: QueryClient,
+  chatId: string | null,
+  context: { previous?: InfiniteData<Message[]> } | undefined,
+) {
+  if (chatId && context?.previous) qc.setQueryData(chatKeys.messages(chatId), context.previous);
 }
 
 export function rememberRecentMessageContentEdit(
@@ -999,7 +1018,26 @@ export function useUpdateChat() {
       personaCharacterId?: string | null;
       characterIds?: string[];
     }) => api.patch<Chat>(`/chats/${id}`, data),
-    onMutate: ({ id }) => ({ metadataVersion: captureChatMetadataVersion(id) }),
+    onMutate: ({ id, name }) => {
+      const metadataVersion = captureChatMetadataVersion(id);
+      if (name === undefined) return { metadataVersion };
+      // Show a rename at once in the caches that already hold the chat; the server copy replaces it on success.
+      const previousDetail = qc.getQueryData<Chat>(chatKeys.detail(id));
+      const previousList = qc.getQueryData<Chat[]>(chatKeys.list());
+      const groupId = (previousDetail ?? previousList?.find((chat) => chat.id === id))?.groupId;
+      const previousGroup = groupId ? qc.getQueryData<Chat[]>(chatKeys.group(groupId)) : undefined;
+      const rename = (old: Chat[] | undefined) => old?.map((chat) => (chat.id === id ? { ...chat, name } : chat));
+      if (previousDetail) qc.setQueryData<Chat>(chatKeys.detail(id), { ...previousDetail, name });
+      qc.setQueryData<Chat[]>(chatKeys.list(), rename);
+      if (groupId) qc.setQueryData<Chat[]>(chatKeys.group(groupId), rename);
+      return { metadataVersion, previousDetail, previousList, groupId, previousGroup };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.previousDetail) qc.setQueryData(chatKeys.detail(id), context.previousDetail);
+      if (context?.previousList) qc.setQueryData(chatKeys.list(), context.previousList);
+      if (context?.groupId && context.previousGroup)
+        qc.setQueryData(chatKeys.group(context.groupId), context.previousGroup);
+    },
     onSuccess: (updatedChat, vars, context) => {
       const guardedChat = updatedChat ? guardServerChatSnapshot(qc, updatedChat, context?.metadataVersion ?? 0) : null;
       if (guardedChat) {
@@ -1508,6 +1546,8 @@ export function useDeleteMessage(chatId: string | null) {
         `/chats/${chatId}/messages/${messageId}${skipTrash ? "?trash=false" : ""}`,
       );
     },
+    onMutate: (target) => removeCachedMessages(qc, chatId, [typeof target === "string" ? target : target.messageId]),
+    onError: (_err, _target, context) => restoreCachedMessages(qc, chatId, context),
     onSuccess: (result) => {
       if (chatId) {
         if (result.trashed) {
@@ -1533,6 +1573,8 @@ export function useDeleteMessages(chatId: string | null) {
   return useMutation({
     mutationFn: (messageIds: string[]) =>
       api.post<{ trashed: boolean; trashedCount: number }>(`/chats/${chatId}/messages/bulk-delete`, { messageIds }),
+    onMutate: (messageIds) => removeCachedMessages(qc, chatId, messageIds),
+    onError: (_err, _ids, context) => restoreCachedMessages(qc, chatId, context),
     onSuccess: (result) => {
       if (chatId) {
         if (result.trashed) {

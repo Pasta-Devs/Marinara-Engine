@@ -1597,6 +1597,19 @@ export function useCharacterGroups() {
 }
 
 // The root list hides folder members and pages carry folder counts, so folder edits refresh both.
+type CachedGroup = { id: string } & Record<string, unknown>;
+
+/** Apply a folder edit at once; the caller restores `previous` if the server refuses. */
+async function patchCachedGroups(
+  qc: ReturnType<typeof useQueryClient>,
+  update: (groups: CachedGroup[]) => CachedGroup[],
+) {
+  await qc.cancelQueries({ queryKey: characterKeys.groups });
+  const previous = qc.getQueryData<CachedGroup[]>(characterKeys.groups);
+  if (previous) qc.setQueryData(characterKeys.groups, update(previous));
+  return { previous };
+}
+
 function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     qc.invalidateQueries({ queryKey: characterKeys.groups }),
@@ -1618,6 +1631,13 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
+    onMutate: async ({ id, characterIds, ...fields }) => {
+      const patch = characterIds ? { ...fields, characterIds: JSON.stringify(characterIds) } : fields;
+      return patchCachedGroups(qc, (groups) =>
+        groups.map((group) => (group.id === id ? { ...group, ...patch } : group)),
+      );
+    },
+    onError: (_err, _vars, context) => context?.previous && qc.setQueryData(characterKeys.groups, context.previous),
     onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
@@ -1626,6 +1646,8 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
+    onMutate: (id) => patchCachedGroups(qc, (groups) => groups.filter((group) => group.id !== id)),
+    onError: (_err, _id, context) => context?.previous && qc.setQueryData(characterKeys.groups, context.previous),
     onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }

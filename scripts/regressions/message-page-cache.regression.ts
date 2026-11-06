@@ -17,6 +17,7 @@ import {
   INACTIVE_CHAT_MAX_MESSAGE_PAGES,
   shouldRefetchMessagesOnReconnect,
   trimInactiveMessagePageCaches,
+  removeMessagesFromPages,
   trimMessagePagesToNewest,
 } from "../../packages/client/src/lib/message-page-cache";
 
@@ -272,6 +273,22 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   void coalesce("chat-a", run);
   void coalesce("chat-b", run);
   assert.equal(runsStarted, 2, "different chats never queue behind each other");
+}
+
+// ── Optimistic delete: the messages leave every page, cursors and the input stay intact
+{
+  const cached = {
+    pages: [
+      [{ id: "m3" }, { id: "m4" }],
+      [{ id: "m1" }, { id: "m2" }],
+    ],
+    pageParams: [undefined, "c2"],
+  };
+  const next = removeMessagesFromPages(cached, ["m4", "m1"]);
+  assert.deepEqual(next?.pages, [[{ id: "m3" }], [{ id: "m2" }]], "deleted messages leave every page");
+  assert.deepEqual(next?.pageParams, [undefined, "c2"], "Load more keeps its cursor");
+  assert.equal(cached.pages[0].length, 2, "the snapshot kept for rollback is not mutated");
+  assert.equal(removeMessagesFromPages(undefined, ["m1"]), undefined, "an empty cache stays empty");
 }
 
 console.info("Message page cache regressions passed.");
