@@ -957,6 +957,8 @@ export function App() {
     };
 
     if (accentAnimationEnabled) {
+      // Ticks only touch foreground tokens, so set surface, sidebar and glow once here.
+      if (accent) applyStaticAccent();
       // Keep the custom cursor on the selected solid accent. Resolving it after
       // live root-token writes forces a synchronous app-wide style flush.
       applyCursorAccent(solidAccent);

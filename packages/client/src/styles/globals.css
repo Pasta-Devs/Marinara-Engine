@@ -2704,7 +2704,8 @@
 html[data-marinara-accent-animation] *,
 html[data-marinara-accent-animation] *::before,
 html[data-marinara-accent-animation] *::after {
-  transition-property: opacity, transform, translate, scale, rotate !important;
+  transition-property:
+    opacity, transform, translate, scale, rotate, width, height, max-width, max-height, grid-template-rows !important;
 }
 
 /* ─────────────────────────────────────────────
