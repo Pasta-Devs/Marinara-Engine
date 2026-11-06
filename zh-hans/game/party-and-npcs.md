@@ -22,11 +22,13 @@
 
 ## 人物卡
 
-人物卡是某位队伍成员在游戏里的摘要，和角色卡是两回事。GM 根据你的角色和当前剧情来写它。有内容的部分才会显示出来：
+人物卡是某位队伍成员在游戏里的摘要，和角色卡是两回事。采用 **MRPG** 职业的游戏（也就是所有新游戏）会先显示角色的 MRPG 职业人物卡：其中有 **Status**(状态)、**Classes**(职业)、**Skills**(技能) 和 **Gear**(装备) 选项卡，可用来切换职业、携带技能和装备物品。见[人物卡](mrpg-classes.md#the-character-sheet)。MRPG 属性会取代下文的 **Attributes**(属性)。
+
+在它下面，GM 会根据你的角色和当前剧情来编写人物卡的剧情部分。有内容的部分才会显示出来：
 
 | 部分 | 内容 |
 | --- | --- |
-| **Attributes**(属性) | STR、DEX、CON 之类带调整值的数值，以及 HP、MP 这类资源条。 |
+| **Attributes** | 仅限 Legacy 游戏：STR、DEX、CON 之类带调整值的数值，以及 HP、MP 这类资源条。 |
 | **Stats**(状态) | 其他数值条。 |
 | **Abilities**(能力) | 这名角色会做的事。 |
 | **Strengths**(优势)、**Weaknesses**(劣势) | 简短列表。 |
@@ -45,7 +47,7 @@
 1. 打开这名角色的人物卡，点击 **Edit card**。
 2. 修改需要改的内容：
    - **Sheet Details**(人物卡详情) 下的 **Class**(职业) 和一段简短描述。
-   - **RPG Attributes**(RPG 属性)：打开 **Enable**(启用)，就能记录资源池和属性。**Add Pool**(添加资源条) 会添加一条资源条（名称、当前值、最大值、颜色）。**Add Attribute**(添加属性) 会添加 STR 之类的数值。
+   - **RPG Attributes**(RPG 属性)（Legacy 游戏）：打开 **Enable**(启用)，就能记录资源池和属性。**Add Pool**(添加资源条) 会添加一条资源条（名称、当前值、最大值、颜色）。**Add Attribute**(添加属性) 会添加 STR 之类的数值。采用 MRPG 职业的游戏不会把它们用于检定或战斗。
    - **Abilities**、**Strengths** 和 **Weaknesses**：**Add**(添加) 会追加一行。
    - **Details**：**Add Detail**(添加详情) 会添加一条带标签的信息。
 3. 点击 **Save Sheet**。点击 **Cancel** 则放弃修改。

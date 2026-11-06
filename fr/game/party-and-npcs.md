@@ -22,11 +22,13 @@ Tu peux faire glisser le bouton dans le chat, sur ordinateur comme sur télépho
 
 ## Les feuilles de personnage
 
-Une feuille de personnage est un résumé, propre au jeu, d'un membre de l'équipe, distinct de la fiche de personnage. Le GM la rédige à partir de ton personnage et de l'histoire en cours. Elle affiche les sections qui ont du contenu :
+Une feuille de personnage est un résumé, propre au jeu, d'un membre de l'équipe, distinct de la fiche de personnage. Dans une partie utilisant les classes **MRPG**, c'est-à-dire toute nouvelle partie, elle s'ouvre sur la fiche de classe MRPG du personnage : des onglets **Status**, **Classes**, **Skills** et **Gear**, où tu changes de classe, conserves des compétences et choisis ton équipement. Voir [La fiche du personnage](mrpg-classes.md#the-character-sheet). Ses caractéristiques MRPG remplacent les **Attributes** ci-dessous.
+
+En dessous, le GM rédige la partie narrative de la feuille à partir de ton personnage et de l'histoire en cours. Elle affiche les sections qui ont du contenu :
 
 | Section | Ce qu'elle contient |
 | --- | --- |
-| **Attributes** (attributs) | Des scores comme STR, DEX et CON avec un modificateur, et des barres de ressources comme HP ou MP. |
+| **Attributes** (attributs) | Parties Legacy uniquement : des scores comme STR, DEX et CON avec un modificateur, et des barres de ressources comme HP ou MP. |
 | **Stats** (caractéristiques) | D'autres barres de statistiques. |
 | **Abilities** (capacités) | Ce que le personnage sait faire. |
 | **Strengths** (forces), **Weaknesses** (faiblesses) | De courtes listes. |
@@ -45,7 +47,7 @@ Un nouveau personnage peut afficher "Character data will populate as the story p
 1. Ouvre la feuille du personnage et clique sur **Edit card**.
 2. Change ce dont tu as besoin :
    - **Class** (classe) et une courte description, sous **Sheet Details** (détails de la feuille).
-   - **RPG Attributes** (attributs de RPG) : active **Enable** (activer) pour suivre des jauges et des attributs. **Add Pool** (ajouter une jauge) ajoute une barre (nom, valeur actuelle, valeur maximale, couleur). **Add Attribute** (ajouter un attribut) ajoute un score comme STR.
+   - **RPG Attributes** (attributs de RPG, parties Legacy) : active **Enable** (activer) pour suivre des jauges et des attributs. **Add Pool** (ajouter une jauge) ajoute une barre (nom, valeur actuelle, valeur maximale, couleur). **Add Attribute** (ajouter un attribut) ajoute un score comme STR. Une partie utilisant les classes MRPG ne s'en sert ni pour les jets ni pour les combats.
    - **Abilities**, **Strengths** et **Weaknesses** : **Add** (ajouter) ajoute une ligne à la fin.
    - **Details** : **Add Detail** (ajouter un détail) ajoute une information avec son intitulé.
 3. Clique sur **Save Sheet**. Clique sur **Cancel** pour abandonner tes modifications.

@@ -24,11 +24,13 @@ Puedes arrastrar el botón por el chat en una computadora o en un teléfono. Áb
 
 ## Hojas de personaje
 
-Una hoja de personaje es un resumen de juego de un miembro del grupo, distinto de la tarjeta de personaje. El GM la escribe a partir de tu personaje y de la historia actual. Muestra las secciones que tienen contenido:
+Una hoja de personaje es un resumen de juego de un miembro del grupo, distinto de la tarjeta de personaje. En una partida con clases **MRPG**, como todas las partidas nuevas, empieza con la ficha de clase MRPG del personaje: las pestañas **Status** (Estado), **Classes** (Clases), **Skills** (Habilidades) y **Gear** (Equipo), donde cambias de clase, llevas habilidades y equipas piezas. Consulta [La ficha de personaje](mrpg-classes.md#the-character-sheet). Sus estadísticas MRPG sustituyen a los **Attributes** de abajo.
+
+Debajo, el GM escribe la parte narrativa de la hoja a partir de tu personaje y de la historia actual. Muestra las secciones que tienen contenido:
 
 | Sección | Qué contiene |
 | --- | --- |
-| **Attributes** (Atributos) | Puntuaciones como STR, DEX y CON con un modificador, y barras de recursos como HP o MP. |
+| **Attributes** (Atributos) | Solo en partidas Legacy: puntuaciones como STR, DEX y CON con un modificador, y barras de recursos como HP o MP. |
 | **Stats** (Estadísticas) | Otras barras de estadísticas. |
 | **Abilities** (Habilidades) | Cosas que el personaje puede hacer. |
 | **Strengths** (Fortalezas), **Weaknesses** (Debilidades) | Listas cortas. |
@@ -47,7 +49,7 @@ Un personaje nuevo puede mostrar "Character data will populate as the story prog
 1. Abre la hoja del personaje y haz clic en **Edit card**.
 2. Cambia lo que necesites:
    - **Class** (Clase) y una descripción corta en **Sheet Details** (Detalles de la hoja).
-   - **RPG Attributes** (Atributos de RPG): activa **Enable** (Activar) para llevar el registro de reservas y atributos. **Add Pool** (Añadir reserva) añade una barra (nombre, valor actual, valor máximo, color). **Add Attribute** (Añadir atributo) añade una puntuación como STR.
+   - **RPG Attributes** (Atributos de RPG; partidas Legacy): activa **Enable** (Activar) para llevar el registro de reservas y atributos. **Add Pool** (Añadir reserva) añade una barra (nombre, valor actual, valor máximo, color). **Add Attribute** (Añadir atributo) añade una puntuación como STR. Una partida con clases MRPG no los usa para pruebas ni peleas.
    - **Abilities**, **Strengths** y **Weaknesses**: **Add** (Añadir) agrega una línea.
    - **Details**: **Add Detail** (Añadir detalle) añade un dato con etiqueta.
 3. Haz clic en **Save Sheet**. Haz clic en **Cancel** para descartar tus cambios.

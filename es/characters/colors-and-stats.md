@@ -68,6 +68,20 @@ La pestaña **Stats** de una persona tiene dos bloques separados, cada uno con s
 - **Persona Status Bars** (Barras de estado de la persona), que se activan con **Enable Persona Stats** (Activar estadísticas de la persona), siguen necesidades físicas y mentales. Las barras iniciales son Satiety, Energy, Hygiene y Mood, cada una en 100 de 100. En **Status Bars**, cada barra tiene un nombre, un valor actual, un máximo y un color. Haz clic en **Add** para crear una y en la X para quitar una.
 - **Enable RPG Attributes** (Activar atributos RPG) funciona como en una tarjeta de personaje. Le da a tu persona **Pools** (que empiezan con HP y MP en 100 de 100) y **Attributes** (que empiezan con STR, DEX, CON, INT, WIS y CHA en 10).
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### Elecciones MRPG en una tarjeta
+
+Ambas pestañas **Stats** tienen una sección **Game Mode** con un bloque **MRPG**, para partidas con clases MRPG (todas las partidas nuevas). Cada partida genera de nuevo las estadísticas MRPG de cada personaje, por lo que la tarjeta no contiene números, solo tres elecciones:
+
+- **Starting tree** (Árbol inicial): el árbol en el que empieza el personaje. **Auto** lo deduce de la descripción y la personalidad de la tarjeta, y muestra qué árbol da como resultado.
+- **Strong in** (Fuerte en): hasta dos estadísticas en las que el personaje progresa bien.
+- **Weak in** (Débil en): una estadística en la que progresa poco.
+
+El bloque muestra una vista previa de la clase con la que empezaría una partida nueva, en el nivel 1, junto con su fila y sus valores iniciales de HP, MP y Stamina. Las elecciones fuertes y débiles inclinan el crecimiento oculto del personaje en cada partida. Su árbol hermano procede de su temperamento en la partida, no de la tarjeta. Consulta [Game Mode: clases MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+En una tarjeta de personaje, **Story stats for Legacy games** (Estadísticas de historia para partidas Legacy), debajo de ese bloque, oculta de forma plegable los atributos RPG descritos arriba. Solo las partidas Legacy los usan.
+
 <a id="game-mode-icon"></a>
 
 ### Icono de Game Mode

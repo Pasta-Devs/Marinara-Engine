@@ -38,7 +38,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 | --- | --- |
 | **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **VN**(见 [VN 还是 Overworld](#vn-or-overworld))。 |
 | **World**(世界) | 类型、背景、基调、难度、内容分级和语言。**Combat Preference**(战斗偏好) 为 **Turn-Based**(回合制) 或 **Tactical**(网格战斗)。所有新游戏都采用 **MRPG**(Marinara RPG) 职业（见 [MRPG 职业](mrpg-classes.md)）。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
-| **Party**(队伍) | 你的用户角色（你扮演的角色）、**Game Master Mode**、队伍成员和 **GM intro message**(GM 开场消息)（见 [GM 开场消息](#the-gm-intro-message)）。 |
+| **Party**(队伍) | 你的用户角色（你扮演的角色）、**Game Master Mode**、队伍成员和 **GM intro message**(GM 开场消息)（见 [GM 开场消息](#the-gm-intro-message)）。每位成员的 MRPG 起始树来自其卡片的 **Game Mode** 区块（见[选择角色的树](mrpg-classes.md#choose-a-characters-trees)）。 |
 | **Goals**(目标) | 你想从这场冒险里得到什么。 |
 | **Lorebooks**(世界书) | GM 会当作正典的世界书。世界书就是一组世界背景设定。见[世界书](../lorebooks/overview.md)。 |
 | **Features**(功能) | **Enable Agents**(启用智能体)，然后是每个已下载智能体的卡片（**Illustrator**、**Music DJ**、**Lorebook Keeper**），以及 **Custom HUD Widgets**(自定义 HUD 小组件)、**Quick Time Events**(快速反应事件) 和 **Start Muted**(开局静音)。 |
@@ -46,7 +46,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 
 背景和目标下方给出的点子，每次打开向导都会变化。在 Tactical 游戏中，GM 会为每场战斗写一段简述，Marinara 据此生成棋盘。见[战斗](combat.md#tactical-battles-and-terrain)。
 
-**World** 步骤里还有针对首领的战斗选项。**GM directs bosses**(GM 控制首领) 默认开启。它让 GM 用你的 GM 连接来决定首领的回合，这可能要花一点时间。普通敌人自己做决定，除非 **GM directs bosses** 开启、且游戏的规则集把对手交给 Game Master 操控（见 [Game Master 文本](../extending/ruleset-sheets.md#game-master-text)）。**GM directs bosses** 开启时，**Game Master also plays named and brilliant opponents**(Game Master 也扮演有名有姓、才智超群的对手)（默认开启）让 GM 也扮演有名字的角色和非常聪明的敌人。另有两个选项始终显示：**Companions fight on their own**(同伴自主战斗)（默认开启；关掉它就由你自己操控整个队伍）和 **Let cruel opponents strike the fallen**(允许残忍的对手攻击倒下的角色)（默认关闭）。见[战斗](combat.md)。
+**World** 步骤里还有针对首领的战斗选项。**GM directs bosses**(GM 控制首领) 默认开启。它让 GM 用你的 GM 连接来决定首领的回合，这可能要花一点时间。普通敌人自己做决定，除非 **GM directs bosses** 开启、且游戏的规则集把对手交给 Game Master 操控（见 [Game Master 文本](../extending/ruleset-sheets.md#game-master-text)）。**GM directs bosses** 开启时，**Game Master also plays named and brilliant opponents**(Game Master 也扮演有名有姓、才智超群的对手)（默认开启）让 GM 也扮演有名字的角色和非常聪明的敌人。另有两个选项始终显示：**Companions fight on their own**(同伴自主战斗)（默认开启；关掉它就由你自己操控整个队伍）和 **Let cruel opponents strike the fallen**(允许残忍的对手攻击倒下的角色)（默认关闭）。新游戏还提供 **Permadeath**(永久死亡)（默认关闭）：队伍成员若在战斗中倒下，且战斗结束前没有获救，就会永远离队。见[战斗](combat.md)。
 
 下载了 **Hierarchical Maps** 智能体（现在叫 World Maps，见 [World Maps](../agents/hierarchical-maps.md)）并开启 **Enable Agents** 后，**Features** 步骤还可以起草一份 **Hierarchical world map**(分层世界地图)、使用已保存的地图模板，或者关联一个共享世界。
 
@@ -56,7 +56,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 | --- | --- | --- |
 | Genre | Fantasy | 可多选，也能自己加。先选的设定包会设定它自己的类型。 |
 | Tone | Heroic | 可多选。 |
-| Difficulty | Normal | **Casual**、**Normal**、**Hard** 或 **Brutal**。设置越高，敌人的攻击打得越重（见[战斗](combat.md#difficulty-scaling)）。 |
+| Difficulty | Normal | **Casual**、**Normal**、**Hard** 或 **Brutal**。设置越高，战斗越难：MRPG 游戏会出现更多、更强的敌人（见 [MRPG 游戏中的战斗](combat.md#battles-in-an-mrpg-game)），Legacy 游戏中的敌人则会打得更重（见[难度缩放](combat.md#difficulty-scaling)）。 |
 | Content Rating | SFW | **SFW** 或 **NSFW**。NSFW 只是允许成人内容，不会强制出现。 |
 | Language | English | 游戏内所有文字都用这个语言书写。 |
 | Game Master Mode | Standalone GM | **Character GM** 用你的某张角色卡当 GM。 |
@@ -194,7 +194,7 @@ Claude 和 Grok 订阅账号不支持原生工具调用。相关控件会说明�
 ## 各个专题在哪
 
 - [Game Mode：战斗](combat.md)：遭遇战、行动菜单、伤害计算和快速反应事件。
-- [Game Mode：MRPG 职业](mrpg-classes.md)：职业、等级和人物卡，新加入的队伍成员，以及把 Legacy 游戏迁移过去的方法。
+- [Game Mode：MRPG 职业](mrpg-classes.md)：选择职业、属性、等级与晋升、职业人物卡、共享游戏，以及把 Legacy 游戏迁移过去的方法。
 - [Game Mode：队伍与 NPC](party-and-npcs.md)：Character Profiles、人物卡和冒险日志。
 - [Game Mode：会话与存档](sessions-and-saves.md)：结束和开始会话、会话历史和检查点。
 - [Game Mode：地图、时间与天气](map-time-weather.md)：地图视图、时钟、天气和士气。

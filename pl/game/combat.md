@@ -8,6 +8,8 @@ Walki nie zaczynasz samodzielnie. Robi to GM, kiedy wymaga tego fabuła – na p
 
 Ekran pokazuje drużynę po jednej stronie, a przeciwników po drugiej. Każdy walczący ma pasek zdrowia (HP, punkty życia), a jeśli korzysta z umiejętności – także pasek many (MP, punkty magii). Na górze widać **Next:** (następny) i imię tego, kto działa jako następny, oraz **Round** (runda) z numerem rundy.
 
+Sposób rozstrzygania walki zależy od systemu postaci w grze. Każda nowa gra korzysta z klas **MRPG**: każdy walczący używa statystyk, umiejętności i wyposażenia swojej klasy (zobacz [Walki w grze MRPG](#battles-in-an-mrpg-game)). Gra **Legacy**, utworzona przed wprowadzeniem klas MRPG, korzysta ze starszych zasad Attack i Defense opisanych w części [Jak liczona jest walka](#how-combat-math-works). Opisane niżej ekrany i przyciski są takie same w obu przypadkach.
+
 > **Uwaga:** W grze z zestawem zasad, który rozstrzyga własne walki, na przykład 5e (SRD 5.1), walka przebiega według zestawu zasad, a nie według tej strony. Zobacz [Walki z zestawem zasad](fighting-on-a-ruleset.md). Zestaw zasad, który tylko użycza walkom swojego arkusza, zachowuje opisany tutaj system walki. Zobacz [Co dzieje się podczas walk](rulesets.md#what-happens-in-battles).
 
 ## Rozgrywanie walki Turn-Based
@@ -43,6 +45,52 @@ Jeśli plansza pokazuje **Resolving…** (rozstrzyganie), poczekaj chwilę. **Re
 
 To, kto i kiedy działa, zależy od ustawienia **Turn order** (kolejność tur). Zobacz [Kolejność tur](#turn-order). Ręcznie wykonane plansze i zasady terenu opisuje część [Walka taktyczna i teren](#tactical-battles-and-terrain).
 
+<a id="battles-in-an-mrpg-game"></a>
+
+## Walki w grze MRPG
+
+W grze korzystającej z klas MRPG każdy członek drużyny walczy swoją aktywną klasą: jej statystykami, umiejętnościami i wyposażeniem z arkusza (zobacz [Klasy MRPG](mrpg-classes.md)). Przeciwnicy walczą według kategorii: minion, standard, elite albo boss. Panel obok walki pokazuje, kto działa jako następny, klasę, poziom, szereg i zasoby każdego walczącego, a na końcu także to, co zdobyła drużyna.
+
+<a id="turns-skills-and-resources"></a>
+
+### Tury, umiejętności i zasoby
+
+- **Kolejność tur.** Nie ma rzutów na inicjatywę. Walczący działają na osi czasu, a każda akcja odsuwa następną turę postaci tym mniej, im wyższa jest jej Speed, więc szybcy walczący działają częściej.
+- **Umiejętności.** Sekcja **Skills** pokazuje umiejętności aktywnej klasy oraz przeniesione umiejętności, każdą z kosztem i szacowanym działaniem. Umiejętności magiczne kosztują **MP**, które nie odnawia się podczas walki. Pozostałe kosztują **Stamina**, która odnawia się trochę co turę.
+- **Obrona.** Akcja **Defend** podnosi Defense o połowę do następnej tury walczącego i przywraca więcej Stamina.
+- **Amunicja i żywioły.** Marksman ładuje rodzaj amunicji, a Channeler skupia żywioł, korzystając z panelu obok walki. Obie zmiany są darmowe. Jeśli pozostawisz wybór grze, AI dobierze najlepszą opcję dla danego celu.
+
+<a id="hitting-and-damage"></a>
+
+### Trafienia i obrażenia
+
+- **Szansa trafienia** rośnie wraz ze Skill i Luck atakującego, a maleje wraz ze Speed i Luck celu. Nigdy nie spada poniżej 25%.
+- **Trafienia krytyczne** wynikają ze Skill atakującego przeciwko Luck celu i zadają podwójne obrażenia.
+- **Obrażenia.** Atak bronią zadaje obrażenia równe Strength plus moc ataku, pomniejszone o Defense celu. Zaklęcie albo trafienie kosturem, różdżką lub magicznym katalizatorem korzysta zamiast tego z Magic przeciwko Resistance. Moc rośnie nieco wraz z poziomem, tak jak w przypadku lepszego wyposażenia.
+- **Rodzaje obrażeń.** Każde trafienie ma rodzaj: cięte, kłute lub obuchowe dla broni; żywioł (ogień, lód, błyskawica, wiatr, drewno, ziemia, woda albo metal); światło lub mrok. Przeciwnik może być podatny na dany rodzaj (obrażenia większe o połowę), odporny na niego (połowa obrażeń), niewrażliwy albo może go pochłaniać. Podatność lub odporność pojawia się przy przeciwniku, gdy trafienie ją odkryje, a drużyna zapamiętuje ją dla każdego przeciwnika tego rodzaju. Podatności na żywioły wynikają z cyklu pięciu faz, w którym każdy żywioł pokonuje następny: drewno rozsadza ziemię, ziemia tamuje wodę, woda gasi ogień, ogień topi metal, a metal ścina drewno.
+
+<a id="rows"></a>
+
+### Szeregi
+
+Walka Turn-Based ma po każdej stronie szereg przedni i tylny. Trafienie wręcz w tylny szereg zadaje połowę obrażeń w obie strony, natomiast ataki dystansowe i zaklęcia zadają pełne obrażenia w obu szeregach. Gdy po jednej stronie nikt nie stoi w przednim szeregu, jej tylny szereg staje się przednim. Każda klasa ma domyślny szereg, który można zmienić na zakładce **Status** jej arkusza. Walki Tactical nie mają szeregów: to pozycje na planszy decydują, kto może kogo dosięgnąć.
+
+<a id="taunts-yielding-and-taming"></a>
+
+### Prowokowanie, poddawanie się i oswajanie
+
+- **Provoke.** Umiejętność Provoke klasy Sentinel sprawia, że każdy przeciwnik przez 2 tury obiera za cel postać Sentinel. Na planszy przeciwnik, który nie może do niej dotrzeć, podchodzi tak blisko, jak może, i zamiast tego przygotowuje akcję.
+- **Poddanie się.** Inteligentny przeciwnik, który przegrywa, może się poddać albo uciec. Gdy pozostają tylko przeciwnicy, którzy się poddali, gra pyta o **Spare them** (oszczędź ich) albo **Finish them** (wykończ ich). W obu przypadkach drużyna dostaje łupy i doświadczenie. Przeciwnik z łupem, który ucieknie, zabiera zdobycz ze sobą.
+- **Oswajanie.** Tracker może oswoić dziką bestię, której zostało mniej niż 30% HP. Bestia opuszcza walkę i staje się towarzyszem, którego postać zachowuje nawet po przegranej walce.
+
+<a id="after-the-fight"></a>
+
+### Po walce
+
+Wygrana walka daje doświadczenie wszystkim, którzy w niej uczestniczyli (zobacz [Poziomy i doświadczenie](mrpg-classes.md#levels-and-experience)), a panel końcowy pokazuje każdy zdobyty poziom, statystyki, które wzrosły, oraz nowo dostępny awans klasy. Przegrana walka lub ucieczka nie daje nic. Gdy opcja **Permadeath** jest włączona, członek drużyny, który leży pokonany po zakończeniu walki, przepada na zawsze.
+
+W grze MRPG ustawienie **Difficulty** decyduje o liczbie i sile przeciwników, zamiast mnożyć zadawane przez nich obrażenia. Na poziomie **Brutal** przeciwnicy mogą mieć o kilka poziomów więcej od drużyny.
+
 ## Przerywanie wypowiedzi GM
 
 Kiedy GM pisze, możesz wejść mu w słowo przyciskiem **Interrupt** (przerwanie). Nic z tego, co wpiszesz, nie liczy się, dopóki tego nie wyślesz.
@@ -70,7 +118,9 @@ Na telefonie przyciski akcji trzymają się dołu ekranu. Panele, które się ni
 
 ## Jak liczona jest walka
 
-O każdej rundzie decyduje stała matematyka rzutów kośćmi, a nie AI. Dzięki temu walka jest uczciwa i spójna. d20 to kość dwudziestościenna (wynik od 1 do 20). Opisane niżej zasady inicjatywy, ataku i obrażeń określają przebieg walk Turn-Based w grze **Legacy**. To własne zasady aplikacji Marinara, a nie zasady żadnego zestawu zasad. Gra z klasami **MRPG** walczy według statystyk i umiejętności swoich klas: zobacz [Klasy MRPG](mrpg-classes.md). Walki Tactical opisują części [Kolejność tur](#turn-order) i [Widzenie, osłona i wysokość](#sight-cover-and-height).
+Zasady w tej części dotyczą gier **Legacy** oraz gier, których zestaw zasad użycza arkusza walkom aplikacji Marinara. Gra korzystająca z klas **MRPG**, czyli każda nowa gra, walczy zamiast tego według zasad opisanych w części [Walki w grze MRPG](#battles-in-an-mrpg-game).
+
+O każdej rundzie decyduje stała matematyka rzutów kośćmi, a nie AI. Dzięki temu walka jest uczciwa i spójna. d20 to kość dwudziestościenna (wynik od 1 do 20). W przypadku walk Tactical zobacz też części [Kolejność tur](#turn-order) i [Widzenie, osłona i wysokość](#sight-cover-and-height).
 
 **Inicjatywa.** Na początku każdej rundy każdy walczący rzuca d20 i dolicza premię ze statystyki Speed (Speed podzielona przez 5, zaokrąglona w dół). Kto ma wyższy wynik, działa wcześniej. Walczący pomija rundę, jeśli jest zamrożony, ogłuszony lub uwięziony albo gdy jego Speed spadła do 0.
 
@@ -87,7 +137,7 @@ O każdej rundzie decyduje stała matematyka rzutów kośćmi, a nie AI. Dzięki
 
 ### Skalowanie trudności
 
-Następnie obrażenia są skalowane według poziomu **Difficulty** (trudność) ustawionego w kreatorze konfiguracji. Po nim działają modyfikatory pogody i efektów statusu. Mnożnik dotyczy tylko ataków wrogów, więc w trudniejszej grze wrogowie biją mocniej, a obrażenia twojej drużyny pozostają takie same.
+W grze Legacy obrażenia są następnie skalowane według poziomu **Difficulty** (trudność) ustawionego w kreatorze konfiguracji. Po nim działają modyfikatory pogody i efektów statusu. Mnożnik dotyczy tylko ataków wrogów, więc w trudniejszej grze wrogowie biją mocniej, a obrażenia twojej drużyny pozostają takie same.
 
 | Trudność | Mnożnik obrażeń wrogów |
 | --- | --- |
@@ -99,6 +149,8 @@ Następnie obrażenia są skalowane według poziomu **Difficulty** (trudność) 
 Te mnożniki należą do własnych zasad aplikacji Marinara. Zestaw zasad ma własne reguły trudności.
 
 ## Efekty statusu i reakcje żywiołów
+
+Ta część opisuje walki Legacy. Gra MRPG ma własne rodzaje obrażeń (zobacz [Trafienia i obrażenia](#hitting-and-damage)), a działanie jej umiejętności, na przykład Poisoned, Asleep czy Slowed, opisano przy każdej umiejętności.
 
 Efekt statusu to tymczasowa zmiana Attack, Defense, Speed albo HP walczącego. Wzmocnienia pomagają, a osłabienia szkodzą. Status trwa określoną liczbę rund, a potem mija. Efekty w rodzaju trucizny odbierają HP co rundę, a efekty w rodzaju regeneracji je przywracają. Zamrożenie, ogłuszenie i uwięzienie sprawiają, że walczący pomija turę.
 

@@ -38,7 +38,7 @@ Game Modeは、3つのチャットモード(Conversation、Roleplay、Game Mode)
 | --- | --- |
 | **Connection** | **Game Name**(ゲーム名)、GMを動かす**Model**(モデル)、任意の**Scene effects model**(シーン効果のモデル)です。**Game Mode**(ゲームモード)のカードには、今のところ**VN**だけが表示されます([VNとOverworld](#vn-or-overworld)を参照)。 |
 | **World** | ジャンル、舞台、雰囲気、難易度、コンテンツ区分、言語です。**Combat Preference**(戦闘の種類)は**Turn-Based**(ターン制のメニュー式戦闘)か**Tactical**(グリッド式戦闘)です。新しいゲームはすべて**MRPG**(Marinara RPG)クラスで遊びます([MRPGクラス](mrpg-classes.md)を参照)。ルールセットがインストールされていると、**Rules**(ルール)の選択肢が表示されます([ルールを選ぶ](#choose-rules)を参照)。 |
-| **Party** | 自分のペルソナ(自分が演じるキャラクター)、**Game Master Mode**(ゲームマスターのモード)、パーティーメンバー、**GM intro message**(GMの導入メッセージ)です([GMの導入メッセージ](#the-gm-intro-message)を参照)。 |
+| **Party** | 自分のペルソナ(自分が演じるキャラクター)、**Game Master Mode**(ゲームマスターのモード)、パーティーメンバー、**GM intro message**(GMの導入メッセージ)です([GMの導入メッセージ](#the-gm-intro-message)を参照)。各メンバーの開始時のMRPGツリーは、そのカードの**Game Mode**セクションから決まります([キャラクターのツリーを選ぶ](mrpg-classes.md#choose-a-characters-trees)を参照)。 |
 | **Goals** | 冒険に何を求めるかです。 |
 | **Lorebooks** | GMが事実として扱うロアブックです。ロアブックとは、世界の背景設定をまとめたものです。[ロアブック](../lorebooks/overview.md)を参照してください。 |
 | **Features** | **Enable Agents**(エージェントを有効にする)と、その下に表示されるダウンロード済みの各エージェントのカード(**Illustrator**、**Music DJ**、**Lorebook Keeper**)、さらに**Custom HUD Widgets**(カスタムHUDウィジェット)、**Quick Time Events**(クイックタイムイベント)、**Start Muted**(ミュートで開始)です。 |
@@ -46,7 +46,7 @@ Game Modeは、3つのチャットモード(Conversation、Roleplay、Game Mode)
 
 舞台と目標の下に表示されるアイデアは、ウィザードを開くたびに変わります。Tacticalのゲームでは、GMが戦闘ごとに短い概要を書き、Marinaraがそれをもとに盤面を作ります。[戦闘](combat.md#tactical-battles-and-terrain)を参照してください。
 
-**World**のステップには、ボスに関する戦闘の選択肢もあります。**GM directs bosses**(GMがボスを操作)はデフォルトでオンです。GMの接続を使ってGMがボスのターンを決めるため、少し時間がかかることがあります。通常の敵は自分で行動を決めます。ただし、**GM directs bosses**がオンで、ゲームのルールセットが敵側をGame Masterに任せている場合は別です([Game Master向けの文章](../extending/ruleset-sheets.md#game-master-text)を参照)。**GM directs bosses**がオンの間は、**Game Master also plays named and brilliant opponents**(名前のある敵と非常に賢い敵もGame Masterが演じる、デフォルトでオン)によって、名前のあるキャラクターや非常に賢い敵もGMが演じます。さらに2つの選択肢が常に表示されます。**Companions fight on their own**(仲間が自分で戦う、デフォルトでオン。オフにするとパーティー全体を自分で操作します)と、**Let cruel opponents strike the fallen**(残酷な相手が倒れた者を攻撃できるようにする、デフォルトでオフ)です。[戦闘](combat.md)を参照してください。
+**World**のステップには、ボスに関する戦闘の選択肢もあります。**GM directs bosses**(GMがボスを操作)はデフォルトでオンです。GMの接続を使ってGMがボスのターンを決めるため、少し時間がかかることがあります。通常の敵は自分で行動を決めます。ただし、**GM directs bosses**がオンで、ゲームのルールセットが敵側をGame Masterに任せている場合は別です([Game Master向けの文章](../extending/ruleset-sheets.md#game-master-text)を参照)。**GM directs bosses**がオンの間は、**Game Master also plays named and brilliant opponents**(名前のある敵と非常に賢い敵もGame Masterが演じる、デフォルトでオン)によって、名前のあるキャラクターや非常に賢い敵もGMが演じます。さらに2つの選択肢が常に表示されます。**Companions fight on their own**(仲間が自分で戦う、デフォルトでオン。オフにするとパーティー全体を自分で操作します)と、**Let cruel opponents strike the fallen**(残酷な相手が倒れた者を攻撃できるようにする、デフォルトでオフ)です。新しいゲームでは**Permadeath**(永久死、デフォルトでオフ)も選べます。戦闘で倒れ、戦闘終了までに救出されなかったパーティーメンバーは永久に失われます。[戦闘](combat.md)を参照してください。
 
 **Hierarchical Maps**エージェント(現在の名前はWorld Maps。[World Maps](../agents/hierarchical-maps.md)を参照)をダウンロードし、**Enable Agents**をオンにしていると、**Features**のステップで**Hierarchical world map**の下書きを作ったり、保存したマップのテンプレートを使ったり、共有された世界をリンクしたりもできます。
 
@@ -56,7 +56,7 @@ Game Modeは、3つのチャットモード(Conversation、Roleplay、Game Mode)
 | --- | --- | --- |
 | Genre | Fantasy | 複数選択でき、独自のものも追加できます。先に舞台設定キットを選ぶと、そのキットのジャンルが設定されます。 |
 | Tone | Heroic | 複数選択できます。 |
-| Difficulty | Normal | **Casual**、**Normal**、**Hard**、**Brutal**のいずれかです。上の設定ほど、敵の攻撃のダメージが大きくなります([戦闘](combat.md#difficulty-scaling)を参照)。 |
+| Difficulty | Normal | **Casual**、**Normal**、**Hard**、**Brutal**のいずれかです。上の設定ほど戦闘が難しくなります。MRPGゲームでは敵が増えて強くなり([ゲームでのMRPG戦闘](combat.md#battles-in-an-mrpg-game)を参照)、Legacyゲームでは敵の攻撃が重くなります([難易度による補正](combat.md#difficulty-scaling)を参照)。 |
 | Content Rating | SFW | **SFW**か**NSFW**です。NSFWはアダルト表現を許可するだけで、強制はしません。 |
 | Language | English | ゲーム内のテキストはすべてこの言語で書かれます。 |
 | Game Master Mode | Standalone GM | **Character GM**(キャラクターがGMを担当)は、手持ちのキャラクターカードの1つをGMとして使います。 |
@@ -194,7 +194,7 @@ ClaudeとGrokのサブスクリプションのアカウントは、ネイティ�
 ## 各トピックの解説はどこにあるか
 
 - [Game Mode: 戦闘](combat.md): エンカウント、アクションメニュー、ダメージの計算、クイックタイムイベント
-- [Game Mode: MRPGクラス](mrpg-classes.md): クラス、レベル、シート、新しく加わる仲間、Legacyゲームの移行
+- [Game Mode: MRPGクラス](mrpg-classes.md): クラスの選択、ステータス、レベルとクラスアップ、クラスシート、共有ゲーム、Legacyゲームの移行
 - [Game Mode: パーティーとNPC](party-and-npcs.md): Character Profiles、シート、Adventure Journal
 - [Game Mode: セッションとセーブデータ](sessions-and-saves.md): セッションの終了と開始、履歴、チェックポイント
 - [Game Mode: マップ、時間、天候](map-time-weather.md): マップの表示、時計、天候、士気

@@ -8,6 +8,8 @@ Tú no inicias el combate por tu cuenta. El GM inicia una pelea cuando la histor
 
 La pantalla muestra tu grupo en un lado y los enemigos en el otro. Cada luchador tiene una barra de salud (HP, puntos de vida) y, si usa habilidades, una barra de magia (MP, puntos de magia). Arriba se muestra **Next:** seguido del nombre de quien actúa a continuación, y **Round** con el número de ronda.
 
+La forma de decidir una pelea depende del sistema de personajes de la partida. Todas las partidas nuevas usan clases **MRPG**: cada luchador combate con las estadísticas, habilidades y equipo de su clase (consulta [Batallas en una partida MRPG](#battles-in-an-mrpg-game)). Una partida **Legacy**, creada antes de las clases MRPG, usa las reglas anteriores de Ataque y Defensa de [Cómo funcionan las matemáticas del combate](#how-combat-math-works). Las pantallas y los botones de abajo son iguales para ambas.
+
 > **Nota:** En una partida con un conjunto de reglas que resuelve sus propias peleas, como 5e (SRD 5.1), la pelea sigue el conjunto de reglas, no esta página. Consulta [Peleas con un conjunto de reglas](fighting-on-a-ruleset.md). Un conjunto de reglas que solo presta su ficha a las batallas conserva el combate de esta página. Consulta [Qué ocurre en las batallas](rulesets.md#what-happens-in-battles).
 
 ## Jugar una batalla Turn-Based
@@ -43,6 +45,52 @@ Si el tablero muestra **Resolving…** (Resolviendo…), espera un momento. **Re
 
 Quién actúa y cuándo depende de **Turn order** (Orden de turnos). Consulta [Orden de turnos](#turn-order). Los tableros hechos a mano y las reglas del terreno están en [Batallas tácticas y terreno](#tactical-battles-and-terrain).
 
+<a id="battles-in-an-mrpg-game"></a>
+
+## Batallas en una partida MRPG
+
+En una partida con clases MRPG, cada miembro del grupo combate con su clase activa: sus estadísticas, sus habilidades y el equipo de su ficha (consulta [Clases MRPG](mrpg-classes.md)). Los oponentes combaten según su categoría: minion, standard, elite o boss. Un panel junto a la pelea muestra quién actúa a continuación, la clase, el nivel, la fila y los recursos de cada luchador y, al final, lo que ganó el grupo.
+
+<a id="turns-skills-and-resources"></a>
+
+### Turnos, habilidades y recursos
+
+- **Orden de turnos.** No hay tiradas de iniciativa. Los luchadores actúan en una línea temporal, y cada acción retrasa el turno siguiente de un luchador en menor medida cuanto mayor es su Speed, por lo que los luchadores rápidos actúan más a menudo.
+- **Habilidades.** **Skills** enumera las habilidades de la clase activa y las que se llevan de otras clases, cada una con su costo y una estimación de lo que haría. Las habilidades mágicas cuestan **MP**, que no se recupera durante la pelea. Las demás cuestan **Stamina**, que se recupera un poco en cada turno.
+- **Defender.** Aumenta la Defense en un 50% hasta el siguiente turno del luchador y recupera más Stamina.
+- **Munición y elementos.** Un Marksman carga un tipo de munición y un Channeler canaliza un elemento desde el panel junto a la pelea. Cambiar cualquiera de los dos es gratis. Si no intervienes, la IA elige el mejor para el objetivo.
+
+<a id="hitting-and-damage"></a>
+
+### Golpes y daño
+
+- La **probabilidad de acertar** aumenta con el Skill y la Luck del atacante y disminuye con el Speed y la Luck del objetivo. Nunca baja del 25%.
+- Los **golpes críticos** dependen del Skill del atacante frente a la Luck del objetivo y causan el doble de daño.
+- **Daño.** Un ataque con arma causa la Strength más la potencia del ataque, menos la Defense del objetivo. Un conjuro, o un golpe con un bastón, una varita o un foco, usa Magic contra Resistance. La potencia aumenta un poco con el nivel, como lo haría con equipo mejor.
+- **Tipos de daño.** Cada golpe tiene un tipo: cortante, perforante o contundente para las armas; un elemento (fuego, hielo, rayo, viento, madera, tierra, agua o metal); o luz u oscuridad. Un enemigo puede ser débil ante un tipo (recibe un 50% más), resistirlo (recibe la mitad), ser inmune o absorberlo. Una debilidad o resistencia se muestra en el enemigo una vez que un golpe la ha descubierto, y el grupo la recuerda para todos los enemigos de ese tipo. Las debilidades elementales de los enemigos siguen el ciclo de cinco fases, en el que cada elemento vence al siguiente: la madera separa la tierra, la tierra contiene el agua, el agua apaga el fuego, el fuego funde el metal y el metal corta la madera.
+
+<a id="rows"></a>
+
+### Filas
+
+Una batalla Turn-Based tiene una fila delantera y una trasera en cada lado. Un golpe cuerpo a cuerpo contra la fila trasera causa la mitad de daño, en ambos sentidos, mientras que los ataques a distancia y los conjuros causan todo el daño a cualquiera de las filas. Cuando no queda nadie en la fila delantera de un bando, su fila trasera pasa a ser la delantera. Cada clase tiene una fila predeterminada, y puedes cambiar la fila de un personaje en la pestaña **Status** (Estado) de su ficha. Las batallas Tactical no tienen filas: las posiciones del tablero deciden quién puede alcanzar a quién.
+
+<a id="taunts-yielding-and-taming"></a>
+
+### Provocaciones, rendición y domesticación
+
+- **Provoke.** El Provoke de un Sentinel hace que todos los enemigos ataquen al Sentinel durante 2 turnos. En un tablero, un enemigo que no pueda alcanzarlo se acerca todo lo posible y se prepara en su lugar.
+- **Rendición.** Un enemigo inteligente que está perdiendo puede rendirse o huir. Cuando los únicos enemigos que quedan se han rendido, la pelea pregunta **Spare them** (Perdonarlos) o **Finish them** (Acabar con ellos). De cualquier forma, el grupo recibe su botín y experiencia. Un enemigo que lleva un tesoro y huye escapa con su premio.
+- **Domesticación.** Un Tracker puede domesticar a una bestia salvaje que esté por debajo del 30% de HP. Sale de la pelea y se convierte en compañero, que se conserva incluso si después se pierde la pelea.
+
+<a id="after-the-fight"></a>
+
+### Después de la pelea
+
+Una pelea ganada da experiencia a todos los que combatieron (consulta [Niveles y experiencia](mrpg-classes.md#levels-and-experience)), y el panel final muestra cada nivel ganado, las estadísticas que aumentaron y cualquier ascenso que se haya abierto. Una pelea perdida o de la que se huye no da nada. Con **Permadeath** (Muerte permanente) activado, un miembro del grupo que esté caído cuando termine la pelea desaparece para siempre.
+
+En una partida MRPG, la **Difficulty** (Dificultad) decide cuántos enemigos hay y lo fuertes que son, en vez de multiplicar su daño. En **Brutal**, los enemigos pueden estar varios niveles por encima del grupo.
+
 ## Interrumpir al GM
 
 Mientras el GM escribe, puedes intervenir con el botón **Interrupt** (Interrumpir). Nada de lo que escribas se confirma hasta que lo envías.
@@ -70,7 +118,9 @@ En un teléfono, los botones de acción se fijan en la parte inferior de la pant
 
 ## Cómo funcionan las matemáticas del combate
 
-Cada ronda se decide con matemáticas de dados fijas, no con la IA. Esto hace que el combate sea justo y consistente. Un d20 es un dado de veinte caras (del 1 al 20). Las reglas de iniciativa, ataque y daño de abajo son las de las batallas Turn-Based de una partida **Legacy**. Son las reglas propias de Marinara, no las de un conjunto de reglas. Una partida con clases **MRPG** combate según las estadísticas y habilidades de sus clases: consulta [Clases MRPG](mrpg-classes.md). Para las batallas Tactical, consulta [Orden de turnos](#turn-order) y [Visión, cobertura y altura](#sight-cover-and-height).
+Las reglas de esta sección son para partidas **Legacy** y para partidas cuyo conjunto de reglas presta su ficha a las batallas de Marinara. Una partida con clases **MRPG**, como todas las partidas nuevas, combate según las reglas de [Batallas en una partida MRPG](#battles-in-an-mrpg-game).
+
+Cada ronda se decide con matemáticas de dados fijas, no con la IA. Esto hace que el combate sea justo y consistente. Un d20 es un dado de veinte caras (del 1 al 20). Para las batallas Tactical, consulta también [Orden de turnos](#turn-order) y [Visión, cobertura y altura](#sight-cover-and-height).
 
 **Iniciativa.** Al comienzo de cada ronda, cada luchador tira un d20 y suma un bono basado en su Velocidad (la Velocidad dividida entre 5, redondeada hacia abajo). Los totales más altos actúan primero. Un luchador se salta la ronda si está congelado, aturdido o aprisionado, o si su Velocidad ha bajado a 0.
 
@@ -87,7 +137,7 @@ Cada ronda se decide con matemáticas de dados fijas, no con la IA. Esto hace qu
 
 ### Escalado de dificultad
 
-A continuación, el daño se escala según la **Difficulty** (Dificultad) que fijas en el asistente de configuración. Después se aplican los modificadores del clima y de los efectos de estado. El multiplicador solo se aplica a los ataques de los enemigos, así que en una partida más difícil los enemigos golpean más fuerte mientras el daño de tu grupo sigue igual.
+En una partida Legacy, a continuación el daño se escala según la **Difficulty** que fijas en el asistente de configuración. Después se aplican los modificadores del clima y de los efectos de estado. El multiplicador solo se aplica a los ataques de los enemigos, así que en una partida más difícil los enemigos golpean más fuerte mientras el daño de tu grupo sigue igual.
 
 | Dificultad | Multiplicador de daño enemigo |
 | --- | --- |
@@ -99,6 +149,8 @@ A continuación, el daño se escala según la **Difficulty** (Dificultad) que fi
 Estos multiplicadores pertenecen a las reglas propias de Marinara. Un conjunto de reglas aporta su propia política de dificultad.
 
 ## Efectos de estado y reacciones elementales
+
+Esta sección describe las batallas Legacy. Una partida MRPG tiene sus propios tipos de daño (consulta [Golpes y daño](#hitting-and-damage)), y los efectos de sus habilidades, como Poisoned, Asleep o Slowed, se describen en cada habilidad.
 
 Un efecto de estado es un cambio temporal en el Ataque, la Defensa, la Velocidad o el HP de un luchador. Los buffs ayudan y los debuffs perjudican. Un estado dura un número fijo de rondas y luego desaparece. Los efectos de tipo veneno drenan HP cada ronda y los de tipo regeneración lo restauran. Congelado, aturdido y aprisionado hacen que el luchador se salte su turno.
 

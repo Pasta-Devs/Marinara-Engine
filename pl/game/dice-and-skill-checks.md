@@ -62,9 +62,15 @@ Test umiejętności sprawdza coś ryzykownego, na przykład skradanie, dostrzeż
 Test rzuca jedną kością d20 i dodaje dwa modyfikatory:
 
 - Modyfikator umiejętności, wyliczony z poziomu umiejętności, jaki gra prowadzi dla twojej postaci. Jeśli gra nie ma jeszcze poziomu dla tej umiejętności, wynosi 0.
-- Modyfikator atrybutu, wyliczony z atrybutu przypisanego do umiejętności. Każda umiejętność ma automatycznie przypisany jeden atrybut: Stealth korzysta z Dexterity, Perception z Wisdom, a Persuasion z Charisma. Umiejętność, której Marinara nie rozpoznaje, korzysta z Intelligence.
+- Modyfikator statystyki wynikający ze statystyki, na której opiera się umiejętność. Dostępne statystyki zależą od rodzaju gry, jak opisano niżej.
 
-W grze z klasami **MRPG** modyfikator atrybutu pochodzi zamiast tego ze statystyk MRPG postaci, które daje jej aktywna klasa (zobacz [Klasy MRPG](mrpg-classes.md)). Ewentualne atrybuty Legacy pozostawione na ulepszonej karcie nie są używane. Każda umiejętność opiera się na jednej statystyce:
+W grze współdzielonej każdy test korzysta ze statystyk postaci, którą wskazuje.
+
+<a id="mrpg-games"></a>
+
+#### Gry MRPG
+
+W grze z klasami **MRPG**, czyli każdej nowej grze, modyfikator statystyki pochodzi ze statystyk MRPG postaci, które daje jej aktywna klasa (zobacz [Klasy MRPG](mrpg-classes.md#what-the-stats-mean)). Ewentualne atrybuty Legacy pozostawione na ulepszonej karcie nie są używane. Każda umiejętność opiera się na jednej statystyce:
 
 | Statystyka | Umiejętności |
 | --- | --- |
@@ -76,7 +82,17 @@ W grze z klasami **MRPG** modyfikator atrybutu pochodzi zamiast tego ze statysty
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Test dodaje jedną piątą tej statystyki, zaokrągloną w dół, maksymalnie +5. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +5 na najwyższym poziomie. Słaba statystyka nie dodaje nic.
+Test dodaje jedną piątą tej statystyki, zaokrągloną w dół, maksymalnie +5. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +5 na najwyższym poziomie. Słaba statystyka nie dodaje nic. Ponieważ statystyki wynikają z aktywnej klasy, zmiana klasy zmienia również te premie.
+
+<a id="legacy-games"></a>
+
+#### Gry Legacy
+
+W grze **Legacy** modyfikator pochodzi z atrybutu przypisanego do umiejętności na arkuszu postaci. Każda umiejętność ma automatycznie przypisany jeden atrybut: Stealth korzysta z Dexterity, Perception z Wisdom, a Persuasion z Charisma. Umiejętność, której Marinara nie rozpoznaje, korzysta z Intelligence.
+
+<a id="the-result"></a>
+
+#### Wynik
 
 Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu unieważniają liczenie:
 
@@ -91,7 +107,7 @@ GM może wywołać test z ułatwieniem (rzut dwiema kośćmi d20, liczy się wy�
 
 ### Własny rzut d20 z wyprzedzeniem
 
-Zanim dojdzie do testu, dodaj do kolejki `d20` z menu kości. Test użyje wtedy twojej liczby zamiast rzucać nową kością. Modyfikatory umiejętności i atrybutu nadal się doliczają.
+Zanim dojdzie do testu, dodaj do kolejki `d20` z menu kości. Test użyje wtedy twojej liczby zamiast rzucać nową kością. Modyfikatory umiejętności i statystyki nadal się doliczają.
 
 Jak GM kończy turę po rzucie i ile to kosztuje, opisuje część [Jak opisywana jest tura z rzutem](#how-a-rolled-turn-is-narrated).
 

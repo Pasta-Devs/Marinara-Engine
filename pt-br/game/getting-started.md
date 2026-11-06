@@ -38,7 +38,7 @@ Se não funcionou, veja [A geração do mundo falha com erro de JSON ou 422](#wo
 |---|---|
 | **Connection** | **Game Name** (nome do jogo), o **Model** que roda o GM e um **Scene effects model** opcional. Por enquanto, o cartão **Game Mode** mostra só **VN** (veja [VN ou Overworld](#vn-or-overworld)). |
 | **World** | Gênero, cenário, tom, dificuldade, classificação de conteúdo e idioma. **Combat Preference** (preferência de combate) é **Turn-Based** (por turnos) ou **Tactical** (tático). Toda partida nova usa classes **MRPG** (Marinara RPG; veja [Classes MRPG](mrpg-classes.md)). Quando há um conjunto de regras instalado, aparece a opção **Rules** (veja [Escolha as regras](#choose-rules)). |
-| **Party** | A sua persona (o personagem que você interpreta), **Game Master Mode**, os integrantes da equipe e **GM intro message** (veja [A mensagem de introdução do GM](#the-gm-intro-message)). |
+| **Party** | A sua persona (o personagem que você interpreta), **Game Master Mode**, os integrantes da equipe e **GM intro message** (veja [A mensagem de introdução do GM](#the-gm-intro-message)). A árvore MRPG inicial de cada integrante vem da seção **Game Mode** do card dele (veja [Escolher as árvores de um personagem](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | O que você quer da aventura. |
 | **Lorebooks** | Os lorebooks que o GM trata como cânone. Um lorebook é um conjunto de fatos de fundo sobre o mundo. Veja [Visão geral dos lorebooks](../lorebooks/overview.md). |
 | **Features** | **Enable Agents** e, em seguida, um cartão para cada agente baixado (**Illustrator**, **Music DJ**, **Lorebook Keeper**), além de **Custom HUD Widgets**, **Quick Time Events** e **Start Muted**. |
@@ -46,7 +46,7 @@ Se não funcionou, veja [A geração do mundo falha com erro de JSON ou 422](#wo
 
 As ideias oferecidas abaixo do cenário e dos objetivos mudam a cada vez que o assistente abre. Em um jogo Tactical, o GM escreve uma descrição breve para cada luta, e Marinara monta um tabuleiro a partir dela. Veja [Game Mode: combate](combat.md#tactical-battles-and-terrain).
 
-A etapa **World** também tem opções de combate para chefes. **GM directs bosses** (o GM dirige os chefes) vem ativada por padrão. Ela deixa o GM decidir os turnos dos chefes usando a sua conexão do GM, o que pode levar um momento. Os inimigos comuns decidem por conta própria, a menos que **GM directs bosses** esteja ativada e o conjunto de regras do jogo entregue a oposição ao Game Master (veja [Texto do Game Master](../extending/ruleset-sheets.md#game-master-text)). Enquanto **GM directs bosses** estiver ativada, **Game Master also plays named and brilliant opponents** (ativada por padrão) deixa o GM controlar também personagens com nome próprio e inimigos muito espertos. Outras duas opções sempre aparecem: **Companions fight on their own** (companheiros lutam por conta própria; ativada por padrão, desative para você mesmo controlar a equipe inteira) e **Let cruel opponents strike the fallen** (permitir que oponentes cruéis golpeiem os caídos; desativada por padrão). Veja [Game Mode: combate](combat.md).
+A etapa **World** também tem opções de combate para chefes. **GM directs bosses** (o GM dirige os chefes) vem ativada por padrão. Ela deixa o GM decidir os turnos dos chefes usando a sua conexão do GM, o que pode levar um momento. Os inimigos comuns decidem por conta própria, a menos que **GM directs bosses** esteja ativada e o conjunto de regras do jogo entregue a oposição ao Game Master (veja [Texto do Game Master](../extending/ruleset-sheets.md#game-master-text)). Enquanto **GM directs bosses** estiver ativada, **Game Master also plays named and brilliant opponents** (ativada por padrão) deixa o GM controlar também personagens com nome próprio e inimigos muito espertos. Outras duas opções sempre aparecem: **Companions fight on their own** (companheiros lutam por conta própria; ativada por padrão, desative para você mesmo controlar a equipe inteira) e **Let cruel opponents strike the fallen** (permitir que oponentes cruéis golpeiem os caídos; desativada por padrão). Uma partida nova também oferece **Permadeath** (morte permanente; desativada por padrão): um integrante da equipe que cair numa luta e não for salvo antes do fim desaparece para sempre. Veja [Game Mode: combate](combat.md).
 
 Com o agente **Hierarchical Maps** baixado (agora chamado World Maps, veja [World Maps](../agents/hierarchical-maps.md)) e **Enable Agents** ativado, a etapa **Features** também pode esboçar um **Hierarchical world map** (mapa hierárquico do mundo), usar um modelo de mapa salvo ou ligar um mundo compartilhado.
 
@@ -56,7 +56,7 @@ Com o agente **Hierarchical Maps** baixado (agora chamado World Maps, veja [Worl
 |---|---|---|
 | Genre | Fantasy | Várias opções permitidas, mais as suas próprias. Um kit de cenário escolhido antes define o próprio gênero. |
 | Tone | Heroic | Várias opções permitidas. |
-| Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Níveis mais altos fazem os ataques inimigos acertarem com mais força (veja [Game Mode: combate](combat.md#difficulty-scaling)). |
+| Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Níveis mais altos tornam as lutas mais difíceis: mais inimigos, e mais fortes, numa partida MRPG (veja [Batalhas numa partida MRPG](combat.md#battles-in-an-mrpg-game)); inimigos que batem mais forte numa partida Legacy (veja [Ajuste pela dificuldade](combat.md#difficulty-scaling)). |
 | Content Rating | SFW | **SFW** ou **NSFW**. NSFW apenas permite conteúdo adulto, não o obriga. |
 | Language | English | Todo o texto dentro do jogo é escrito nesse idioma. |
 | Game Master Mode | Standalone GM | **Character GM** usa um dos seus cards de personagem como GM. |
@@ -194,7 +194,7 @@ Alguns modelos continuam animados. Acrescente uma instrução clara no campo de 
 ## Onde fica cada assunto
 
 - [Game Mode: combate](combat.md): os encontros, o menu de ações, a matemática do dano e os Quick-Time Events.
-- [Game Mode: classes MRPG](mrpg-classes.md): as classes, os níveis e a ficha, os recém-chegados e a migração de uma partida Legacy.
+- [Game Mode: classes MRPG](mrpg-classes.md): a escolha de classes, os status, os níveis e as promoções, a ficha de classe, as partidas compartilhadas e a migração de uma partida Legacy.
 - [Game Mode: equipe e NPCs](party-and-npcs.md): os Character Profiles, as fichas e o Adventure Journal.
 - [Game Mode: sessões e saves](sessions-and-saves.md): encerrar e começar sessões, o histórico e os checkpoints.
 - [Game Mode: mapa, tempo e clima](map-time-weather.md): as visualizações do mapa, o relógio, o clima e o moral.

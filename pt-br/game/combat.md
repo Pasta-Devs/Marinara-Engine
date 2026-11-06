@@ -8,6 +8,8 @@ Você não começa o combate. O GM inicia uma luta quando a história pede, por 
 
 A tela mostra a sua equipe de um lado e os inimigos do outro. Cada combatente tem uma barra de vida (HP, pontos de vida) e, se usar habilidades, uma barra de magia (MP, pontos de magia). O topo mostra **Next:** (próximo) e o nome de quem age em seguida, e **Round** (rodada) com o número da rodada.
 
+O modo como uma luta é decidida depende do sistema de personagens da partida. Toda partida nova usa classes **MRPG**: cada combatente luta com os status, as habilidades e o equipamento da própria classe (veja [Batalhas numa partida MRPG](#battles-in-an-mrpg-game)). Uma partida **Legacy**, criada antes das classes MRPG, usa as regras antigas de Ataque e Defesa de [Como funciona a matemática do combate](#how-combat-math-works). As telas e os botões abaixo são os mesmos nos dois casos.
+
 > **Observação:** Em uma partida com um conjunto de regras que resolve as próprias lutas, como 5e (SRD 5.1), a luta segue o conjunto de regras, e não esta página. Veja [Lutas com um conjunto de regras](fighting-on-a-ruleset.md). Um conjunto de regras que só empresta a ficha dele às batalhas mantém o combate daqui. Veja [O que acontece nas batalhas](rulesets.md#what-happens-in-battles).
 
 ## Jogar uma batalha Turn-Based
@@ -43,6 +45,52 @@ Se o tabuleiro mostrar **Resolving…**, espere um momento. **Restart** (reinici
 
 Quem age e quando depende de **Turn order** (ordem dos turnos). Veja [Ordem dos turnos](#turn-order). Os tabuleiros feitos à mão e as regras de terreno estão em [Batalhas táticas e terreno](#tactical-battles-and-terrain).
 
+<a id="battles-in-an-mrpg-game"></a>
+
+## Batalhas numa partida MRPG
+
+Numa partida com classes MRPG, cada integrante da equipe luta com a classe ativa: os status e as habilidades dela e o equipamento na ficha do personagem (veja [Classes MRPG](mrpg-classes.md)). Os oponentes lutam por categoria: capanga, padrão, elite ou chefe. Um painel ao lado da luta mostra quem age em seguida, a classe, o nível, a fileira e os recursos de cada combatente e, no fim, o que a equipe ganhou.
+
+<a id="turns-skills-and-resources"></a>
+
+### Turnos, habilidades e recursos
+
+- **Ordem dos turnos.** Não há rolagens de iniciativa. Os combatentes agem numa linha do tempo, e cada ação empurra o próximo turno de um combatente para trás; quanto maior a Velocidade, menor esse recuo, então combatentes rápidos agem com mais frequência.
+- **Habilidades.** **Skills** lista as habilidades da classe ativa e aquelas levadas de outras classes, cada uma com o custo e uma estimativa do que faria. Habilidades mágicas custam **MP**, que não volta durante a luta. As demais custam **Stamina**, que recupera um pouco a cada turno.
+- **Defender.** Aumenta a Defesa pela metade até o próximo turno do combatente e recupera mais Stamina.
+- **Munição e elementos.** Um Marksman carrega um tipo de munição, e um Channeler canaliza um elemento, pelo painel ao lado da luta. Trocar qualquer um dos dois é grátis. Se você não mexer nisso, a IA escolhe a melhor opção para o alvo.
+
+<a id="hitting-and-damage"></a>
+
+### Acertos e dano
+
+- **Chance de acertar** aumenta com a Habilidade e a Sorte do atacante e diminui com a Velocidade e a Sorte do alvo. Nunca cai abaixo de 25%.
+- **Acertos críticos** vêm da Habilidade do atacante contra a Sorte do alvo e causam o dobro do dano.
+- **Dano.** Um ataque com arma causa a Força mais o poder do ataque, menos a Defesa do alvo. Uma magia ou um golpe com cajado, varinha ou foco usa Magia contra Resistência. O poder aumenta um pouco com o nível, como aconteceria com equipamento melhor.
+- **Tipos de dano.** Todo acerto tem um tipo: corte, perfuração ou impacto para armas; um elemento (fogo, gelo, raio, vento, madeira, terra, água ou metal); ou luz ou escuridão. Um inimigo pode ser fraco contra um tipo (recebe metade a mais), resistente a ele (recebe metade), imune a ele ou capaz de absorvê-lo. Uma fraqueza ou resistência aparece no inimigo depois que um acerto a revela, e a equipe se lembra dela para todos os inimigos daquele tipo. As fraquezas elementais dos inimigos seguem o ciclo das cinco fases, no qual cada elemento supera o seguinte: madeira separa terra, terra represa água, água apaga fogo, fogo derrete metal e metal corta madeira.
+
+<a id="rows"></a>
+
+### Fileiras
+
+Uma batalha Turn-Based tem uma fileira da frente e uma de trás em cada lado. Um golpe corpo a corpo contra a fileira de trás causa metade do dano, nos dois sentidos, enquanto ataques à distância e magias causam dano integral em qualquer fileira. Quando ninguém ocupa a fileira da frente de um lado, a fileira de trás passa a ser a da frente. Cada classe tem uma fileira padrão, e você pode mudar a de um personagem na aba **Status** da ficha dele. As batalhas Tactical não têm fileiras: as posições no tabuleiro decidem quem alcança quem.
+
+<a id="taunts-yielding-and-taming"></a>
+
+### Provocações, rendição e doma
+
+- **Provoke.** A habilidade Provoke de um Sentinel faz todos os inimigos atacarem o Sentinel por 2 turnos. Num tabuleiro, um inimigo que não consegue alcançá-lo se aproxima o máximo possível e se prepara no lugar de atacar.
+- **Rendição.** Um inimigo inteligente que está perdendo pode se render ou fugir. Quando restam apenas inimigos que se renderam, a luta oferece **Spare them** (poupá-los) ou **Finish them** (dar cabo deles). De qualquer forma, a equipe recebe o loot e a experiência deles. Um inimigo que carrega um tesouro e foge escapa com o prêmio.
+- **Doma.** Um Tracker pode domar uma fera selvagem com menos de 30% de HP. Ela sai da luta e se torna uma companheira, mantida mesmo que a equipe perca a luta depois.
+
+<a id="after-the-fight"></a>
+
+### Depois da luta
+
+Uma luta vencida concede experiência a todos que lutaram (veja [Níveis e experiência](mrpg-classes.md#levels-and-experience)), e o painel final mostra cada nível ganho, os status que aumentaram e qualquer promoção que agora esteja disponível. Uma luta perdida ou da qual a equipe fugiu não concede nada. Com **Permadeath** (morte permanente) ativada, um integrante da equipe que estiver caído quando a luta terminar desaparece para sempre.
+
+Numa partida MRPG, **Difficulty** (dificuldade) determina quantos inimigos há e quão fortes eles são, em vez de multiplicar o dano deles. Em **Brutal**, os inimigos podem estar vários níveis acima da equipe.
+
 ## Interromper o GM
 
 Enquanto o GM escreve, você pode cortar a narração com o botão **Interrupt** (interromper). Nada do que você digita é registrado antes do envio.
@@ -70,7 +118,9 @@ No celular, os botões de ação ficam fixos na parte de baixo da tela. Os pain�
 
 ## Como funciona a matemática do combate
 
-Cada rodada é decidida por uma matemática de dados fixa, e não pela IA. Assim o combate fica justo e consistente. Um d20 é um dado de vinte lados (de 1 a 20). As regras de iniciativa, ataque e dano abaixo são as das batalhas Turn-Based numa partida **Legacy**. São as regras próprias do Marinara, e não as de um conjunto de regras. Uma partida com classes **MRPG** luta usando os atributos e as habilidades das classes: veja [Classes MRPG](mrpg-classes.md). Para as batalhas Tactical, veja [Ordem dos turnos](#turn-order) e [Visão, cobertura e altura](#sight-cover-and-height).
+As regras desta seção valem para partidas **Legacy** e para partidas cujo conjunto de regras empresta a própria ficha às batalhas do Marinara. Uma partida com classes **MRPG**, o que inclui toda partida nova, usa as regras de [Batalhas numa partida MRPG](#battles-in-an-mrpg-game).
+
+Cada rodada é decidida por uma matemática de dados fixa, e não pela IA. Assim o combate fica justo e consistente. Um d20 é um dado de vinte lados (de 1 a 20). Para as batalhas Tactical, veja também [Ordem dos turnos](#turn-order) e [Visão, cobertura e altura](#sight-cover-and-height).
 
 **Iniciativa.** No início de cada rodada, todo combatente rola um d20 e soma um bônus vindo da Velocidade (a Velocidade dividida por 5, arredondada para baixo). Os totais mais altos agem primeiro. Um combatente pula a rodada se estiver congelado, atordoado ou aprisionado, ou se a Velocidade dele tiver caído para 0.
 
@@ -87,7 +137,7 @@ Cada rodada é decidida por uma matemática de dados fixa, e não pela IA. Assim
 
 ### Ajuste pela dificuldade
 
-Depois, o dano é ajustado pela **Difficulty** (dificuldade) que você definiu no assistente de configuração. Os modificadores de clima e de efeitos de status entram depois disso. O multiplicador vale só para os ataques dos inimigos, então uma partida mais difícil faz os inimigos baterem mais forte, enquanto o dano da sua equipe continua o mesmo.
+Numa partida Legacy, o dano é então ajustado pela **Difficulty** que você definiu no assistente de configuração. Os modificadores de clima e de efeitos de status entram depois disso. O multiplicador vale só para os ataques dos inimigos, então uma partida mais difícil faz os inimigos baterem mais forte, enquanto o dano da sua equipe continua o mesmo.
 
 | Dificuldade | Multiplicador do dano inimigo |
 | --- | --- |
@@ -99,6 +149,8 @@ Depois, o dano é ajustado pela **Difficulty** (dificuldade) que você definiu n
 Esses multiplicadores fazem parte das regras próprias do Marinara. Um conjunto de regras traz a própria política de dificuldade.
 
 ## Efeitos de status e reações elementais
+
+Esta seção descreve batalhas Legacy. Uma partida MRPG tem tipos próprios de dano (veja [Acertos e dano](#hitting-and-damage)), e os efeitos das habilidades, como Poisoned, Asleep ou Slowed, são descritos em cada habilidade.
 
 Um efeito de status é uma mudança temporária no Ataque, na Defesa, na Velocidade ou no HP de um combatente. Os efeitos positivos ajudam e os negativos atrapalham. Um status dura um número definido de rodadas e depois passa. Efeitos do tipo veneno drenam HP a cada rodada, e efeitos do tipo regeneração devolvem HP. Congelado, atordoado e aprisionado fazem o combatente perder o turno.
 

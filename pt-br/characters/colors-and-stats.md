@@ -68,6 +68,20 @@ A aba **Stats** de uma persona tem dois blocos separados, cada um com seu própr
 - **Persona Status Bars** (barras de status da persona), ativadas com **Enable Persona Stats**, acompanham necessidades físicas e mentais. As barras iniciais são Satiety, Energy, Hygiene e Mood, cada uma com 100 de 100. Em **Status Bars**, cada barra tem nome, valor atual, máximo e cor. Clique em **Add** para criar uma e no X para remover uma.
 - **Enable RPG Attributes** funciona como em um card de personagem. Ele dá à sua persona **Pools** (começando com HP e MP em 100 de 100) e **Attributes** (começando com STR, DEX, CON, INT, WIS e CHA em 10).
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### Escolhas de MRPG em um card
+
+As duas abas **Stats** têm uma seção **Game Mode** com um bloco **MRPG**, para partidas com classes MRPG (toda partida nova). Cada partida rola de novo os status MRPG de cada personagem, então o card não guarda números, só três escolhas:
+
+- **Starting tree** (árvore inicial): a árvore em que o personagem começa. **Auto** deduz a árvore a partir da descrição e da personalidade do card e mostra em qual árvore isso resulta.
+- **Strong in** (forte em): até dois status nos quais o personagem progride bem.
+- **Weak in** (fraco em): um status no qual ele progride mal.
+
+O bloco mostra uma prévia da classe em que o personagem começa uma partida nova, no nível 1, com a fileira e os valores iniciais de HP, MP e Stamina. As escolhas de pontos fortes e fracos influenciam o crescimento oculto do personagem em cada partida. A árvore irmã vem do temperamento dele na partida, e não do card. Veja [Game Mode: classes MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Em um card de personagem, **Story stats for Legacy games** (status da história para partidas Legacy), logo abaixo, recolhe os atributos de RPG descritos acima. Só as partidas Legacy usam esses atributos.
+
 <a id="game-mode-icon"></a>
 
 ### Ícone de Game Mode

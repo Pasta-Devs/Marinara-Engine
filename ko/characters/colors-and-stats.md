@@ -68,6 +68,20 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 - **Enable Persona Stats**(페르소나 능력치 활성화)로 켜는 **Persona Status Bars**(페르소나 상태바)는 신체적, 정신적 욕구를 추적합니다. 기본 막대는 Satiety, Energy, Hygiene, Mood이며 각각 100 중 100입니다. **Status Bars**(상태바) 아래에서 막대마다 이름, 현재 값, 최댓값, 색상을 정합니다. **Add**를 클릭하면 막대를 만들고 X를 클릭하면 삭제합니다.
 - **Enable RPG Attributes**(RPG 속성 활성화)는 캐릭터 카드와 같은 방식으로 동작합니다. 페르소나에 **Pools**(HP와 MP가 100 중 100으로 시작)와 **Attributes**(STR, DEX, CON, INT, WIS, CHA가 10으로 시작)가 생깁니다.
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### 카드의 MRPG 선택 사항
+
+두 **Stats** 탭에는 MRPG 클래스 게임(모든 새 게임)을 위한 **MRPG** 블록이 있는 **Game Mode**(게임 모드) 섹션이 있습니다. 게임마다 각 캐릭터의 MRPG 스탯을 새로 굴리므로 카드에는 숫자가 없고 다음 3가지 선택 사항만 있습니다.
+
+- **Starting tree**(시작 트리): 캐릭터가 시작하는 트리입니다. **Auto**(자동)는 카드의 설명과 성격에서 트리를 읽어 오고, 그 결과로 정해지는 트리를 표시합니다.
+- **Strong in**(강한 능력치): 캐릭터가 잘 성장하는 능력치를 최대 2개까지 고릅니다.
+- **Weak in**(약한 능력치): 캐릭터가 잘 성장하지 못하는 능력치를 1개 고릅니다.
+
+이 블록은 새 게임에서 캐릭터가 레벨 1로 시작할 클래스와 그 열, 시작 HP, MP, Stamina를 미리 보여 줍니다. 강점과 약점 선택은 게임마다 숨겨진 캐릭터 성장률에 영향을 줍니다. 자매 트리는 카드가 아니라 게임 속 성향에서 정해집니다. [Game Mode: MRPG 클래스](../game/mrpg-classes.md#choose-a-characters-trees)를 참고하세요.
+
+캐릭터 카드에서는 그 아래의 **Story stats for Legacy games**(Legacy 게임용 스토리 스탯)가 위에서 설명한 RPG 속성을 접어 둡니다. 이 속성은 Legacy 게임에서만 사용합니다.
+
 <a id="game-mode-icon"></a>
 
 ### Game Mode 아이콘

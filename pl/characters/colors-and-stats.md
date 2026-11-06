@@ -68,6 +68,20 @@ Zakładka **Stats** persony ma dwa osobne bloki, każdy z własnym przełącznik
 - **Persona Status Bars** (paski stanu persony), włączane przełącznikiem **Enable Persona Stats** (włączenie statystyk persony), śledzą potrzeby fizyczne i psychiczne. Paski startowe to Satiety, Energy, Hygiene i Mood, każdy na poziomie 100 ze 100. W sekcji **Status Bars** każdy pasek ma nazwę, wartość bieżącą, wartość maksymalną i kolor. Kliknij **Add**, aby dodać pasek, a X, aby go usunąć.
 - **Enable RPG Attributes** (włączenie atrybutów RPG) działa tak samo jak w karcie postaci. Daje personie sekcję **Pools** (na starcie HP i MP na poziomie 100 ze 100) oraz sekcję **Attributes** (na starcie STR, DEX, CON, INT, WIS i CHA o wartości 10).
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### Wybory MRPG na karcie
+
+Obie zakładki **Stats** mają sekcję **Game Mode** (tryb Game Mode) z blokiem **MRPG** dla gier korzystających z klas MRPG (czyli każdej nowej gry). Gra losuje statystyki MRPG każdej postaci od nowa, więc karta nie przechowuje liczb, a tylko trzy wybory:
+
+- **Starting tree** (drzewko początkowe): drzewko, w którym postać zaczyna. Opcja **Auto** (automatycznie) odczytuje je z opisu i osobowości na karcie oraz pokazuje, które drzewko z nich wynika.
+- **Strong in** (mocne statystyki): maksymalnie dwie statystyki, w których postać dobrze się rozwija.
+- **Weak in** (słaba statystyka): jedna statystyka, w której postać rozwija się słabo.
+
+Blok pokazuje podgląd klasy, z którą postać rozpocznie nową grę na poziomie 1, wraz z jej szeregiem oraz początkowymi wartościami HP, MP i Stamina. Wybór mocnych i słabej statystyki wpływa na ukryty rozwój postaci w każdej grze. Jej siostrzane drzewko wynika z temperamentu w grze, a nie z karty. Zobacz [Game Mode: klasy MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Na karcie postaci znajdująca się niżej sekcja **Story stats for Legacy games** (statystyki fabularne do gier Legacy) skrywa opisane wyżej atrybuty RPG. Korzystają z nich wyłącznie gry Legacy.
+
 <a id="game-mode-icon"></a>
 
 ### Ikona trybu Game Mode

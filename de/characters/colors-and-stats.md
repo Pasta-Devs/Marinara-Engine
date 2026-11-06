@@ -68,6 +68,20 @@ Der Tab **Stats** einer Persona hat zwei getrennte Blöcke mit jeweils eigenem S
 - **Persona Status Bars** (Statusleisten der Persona), eingeschaltet über **Enable Persona Stats** (Persona-Werte aktivieren), führen körperliche und seelische Bedürfnisse mit. Die Startleisten sind Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Unter **Status Bars** hat jede Leiste einen Namen, einen aktuellen Wert, ein Maximum und eine Farbe. Klick auf **Add**, um eine anzulegen, und auf das X, um eine zu entfernen.
 - **Enable RPG Attributes** (RPG-Attribute aktivieren) funktioniert wie bei einer Charakterkarte. Die Persona bekommt **Pools** (Start: HP und MP mit 100 von 100) und **Attributes** (Start: STR, DEX, CON, INT, WIS und CHA mit 10).
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### MRPG-Auswahl auf einer Karte
+
+Beide **Stats**-Tabs haben einen Abschnitt **Game Mode** mit einem Block **MRPG** für Spiele mit MRPG-Klassen (also jedes neue Spiel). Die MRPG-Werte jedes Charakters werden in jedem Spiel neu ausgewürfelt. Deshalb stehen auf der Karte keine Zahlen, sondern nur drei Festlegungen:
+
+- **Starting tree** (Startbaum): der Baum, in dem der Charakter beginnt. **Auto** leitet ihn aus Beschreibung und Persönlichkeit der Karte ab und zeigt den daraus ermittelten Baum an.
+- **Strong in** (Stark in): bis zu zwei Werte, bei denen der Charakter gut wächst.
+- **Weak in** (Schwach in): ein Wert, bei dem der Charakter schlecht wächst.
+
+Der Block zeigt eine Vorschau auf die Klasse, mit der der Charakter in einem neuen Spiel auf Stufe 1 beginnt, einschließlich Reihe sowie anfänglichen HP, MP und Stamina. Die Auswahl der starken und schwachen Werte beeinflusst das verborgene Wachstum des Charakters in jedem Spiel. Sein Schwesterbaum ergibt sich im Spiel aus seinem Temperament, nicht aus der Karte. Siehe [Game Mode: MRPG-Klassen](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Auf einer Charakterkarte fasst **Story stats for Legacy games** (Story-Werte für Legacy-Spiele) darunter die oben beschriebenen RPG-Attribute in einem einklappbaren Bereich zusammen. Nur Legacy-Spiele verwenden sie.
+
 <a id="game-mode-icon"></a>
 
 ### Symbol für Game Mode

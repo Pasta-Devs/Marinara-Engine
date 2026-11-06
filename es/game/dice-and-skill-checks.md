@@ -55,14 +55,22 @@ Puedes tirar como máximo 100 dados a la vez, y cada dado puede tener como máxi
 
 Una prueba de habilidad pone a prueba algo arriesgado, como escabullirte, detectar una pista o convencer a un NPC (personaje no jugador). Tú no la inicias. El GM la pide en su narración, y Marinara la convierte en una tirada de d20 animada con un banner de resultado. El banner muestra la habilidad y el objetivo, por ejemplo **Stealth Check** con **DC 15**. Cada prueba resuelta recibe su propio banner, después de las tarjetas de dados en cola.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Cómo se decide el resultado
 
 La prueba tira un d20 y suma dos modificadores:
 
 - Un modificador de habilidad, a partir del nivel de habilidad que el juego lleva para tu personaje. Es 0 si el juego todavía no tiene un nivel para esa habilidad.
-- Un modificador de atributo, a partir del atributo que gobierna la habilidad. Cada habilidad se asigna a uno automáticamente: Stealth usa Dexterity, Perception usa Wisdom y Persuasion usa Charisma. Una habilidad que Marinara no reconoce usa Intelligence.
+- Un modificador de estadística, a partir de la estadística en la que se apoya la habilidad. Las estadísticas dependen de la partida, como se explica abajo.
 
-En una partida con clases **MRPG**, el modificador de atributo procede en cambio de las estadísticas MRPG del personaje, las que le da su clase activa (consulta [Clases MRPG](mrpg-classes.md)). No se usa ningún atributo Legacy que siga en una tarjeta actualizada. Cada habilidad se apoya en una estadística:
+En una partida compartida, cada prueba lee las estadísticas del personaje al que nombra.
+
+<a id="mrpg-games"></a>
+
+#### Partidas MRPG
+
+En una partida con clases **MRPG**, como todas las partidas nuevas, el modificador de estadística procede de las estadísticas MRPG del personaje, las que le da su clase activa (consulta [Clases MRPG](mrpg-classes.md#what-the-stats-mean)). No se usa ningún atributo Legacy que siga en una tarjeta actualizada. Cada habilidad se apoya en una estadística:
 
 | Estadística | Habilidades |
 | --- | --- |
@@ -74,7 +82,17 @@ En una partida con clases **MRPG**, el modificador de atributo procede en cambio
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-La prueba suma la quinta parte de esa estadística, redondeada hacia abajo, hasta un máximo de +5. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +5 en el nivel máximo. Una estadística baja no suma nada.
+La prueba suma la quinta parte de esa estadística, redondeada hacia abajo, hasta un máximo de +5. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +5 en el nivel máximo. Una estadística baja no suma nada. Como las estadísticas dependen de la clase activa, cambiar de clase también cambia estos bonos.
+
+<a id="legacy-games"></a>
+
+#### Partidas Legacy
+
+En una partida **Legacy**, el modificador procede del atributo que gobierna la habilidad en la ficha del personaje. Cada habilidad se asigna a uno automáticamente: Stealth usa Dexterity, Perception usa Wisdom y Persuasion usa Charisma. Una habilidad que Marinara no reconoce usa Intelligence.
+
+<a id="the-result"></a>
+
+#### El resultado
 
 Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan el cálculo:
 
@@ -89,7 +107,7 @@ El GM puede pedir una prueba con ventaja (se tiran dos d20 y se conserva el más
 
 ### Tirar tu propio d20 por adelantado
 
-Pon en cola un `d20` desde el menú de dados antes de que ocurra la prueba. La prueba usa entonces tu número en lugar de tirar un dado nuevo. Tus modificadores de habilidad y de atributo se siguen aplicando.
+Pon en cola un `d20` desde el menú de dados antes de que ocurra la prueba. La prueba usa entonces tu número en lugar de tirar un dado nuevo. Tus modificadores de habilidad y de estadística se siguen aplicando.
 
 Para saber cómo termina el GM un turno después de una tirada, y cuánto cuesta, consulta [Cómo se narra un turno con dados](#how-a-rolled-turn-is-narrated).
 

@@ -1,6 +1,6 @@
 {
   "language": "fr",
-  "sourceCommit": "85aec0709fd2f2a07a64e196ababc28849c4b573",
+  "sourceCommit": "40c94a21820e16976ad3f3d775894d33ce439660",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -119,8 +119,8 @@
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "f4cec09aa40d08bc952e7c0d2eaf9254212aab4811974302bc9dd42ed97fbf9c",
-      "bytes": 12452
+      "sha256": "d7abe1b41cec9976a91f3091e8b148b9a1cc02c04fe25c42d78b684879984423",
+      "bytes": 13831
     },
     {
       "path": "characters/creating-and-editing-characters.md",
@@ -484,13 +484,13 @@
     },
     {
       "path": "game/combat.md",
-      "sha256": "288c511dd0e7396d36bc5c64511dd8705b51779fc66570282c74cb513f1ff10d",
-      "bytes": 20830
+      "sha256": "71e5b4631f4770bbfd1a95458893ab6620dc20c68637e68894992eff1de6c79b",
+      "bytes": 26976
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "f085c96997fa36b34b96f4e5739ef6b8572c55e5b02a7661967b76c352e4ff49",
-      "bytes": 17134
+      "sha256": "1f4f36b3eb2b861e2e1e4e347e6b90f38f7919819b7dbbcb0375c46579e00180",
+      "bytes": 17735
     },
     {
       "path": "game/fighting-on-a-ruleset.md",
@@ -504,8 +504,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "d8518c26dc34667ee8ab7986361a32b27455fcaaf6b80d1277e0b416c693b160",
-      "bytes": 35234
+      "sha256": "cbd9f564b3d0cdbc6bb01f33e13faa7d389c166d00d6f1fd4fa435653d7f6cd3",
+      "bytes": 35892
     },
     {
       "path": "game/hud-widgets.md",
@@ -524,13 +524,13 @@
     },
     {
       "path": "game/mrpg-classes.md",
-      "sha256": "f841be7167b6412ea8616c1f69f13b079c15d30dc7b52f33cbcf184943fe88f5",
-      "bytes": 7117
+      "sha256": "cbb811713588100f0cb36e18e869bf44e594a6d4611f89a8a1d8f98c287411b9",
+      "bytes": 18826
     },
     {
       "path": "game/party-and-npcs.md",
-      "sha256": "4a4a29962adc9db4b9c1e0258080a9f3ef1781a3d0cf83be4ac018c82a956931",
-      "bytes": 21063
+      "sha256": "55c2622a4f97e4c1da89061020f762222716c85780276f0b408c62d251d003f2",
+      "bytes": 21661
     },
     {
       "path": "game/rulesets.md",

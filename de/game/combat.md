@@ -8,6 +8,8 @@ Den Kampf startest du nicht selbst. Der GM eröffnet ihn, sobald die Geschichte 
 
 Der Bildschirm zeigt deine Party auf der einen Seite und die Gegner auf der anderen. Jeder Kämpfer hat eine Lebensleiste (HP, Trefferpunkte) und, sofern er Fertigkeiten einsetzt, eine Magieleiste (MP, Magiepunkte). Oben stehen **Next:** und der Name dessen, der als Nächstes handelt, sowie **Round** mit der Rundennummer.
 
+Wie ein Kampf entschieden wird, hängt vom Charaktersystem des Spiels ab. Jedes neue Spiel nutzt **MRPG**-Klassen: Jeder Kämpfer kämpft mit den Werten, Fertigkeiten und der Ausrüstung seiner Klasse (siehe [Kämpfe in einem MRPG-Spiel](#battles-in-an-mrpg-game)). Ein **Legacy**-Spiel, das vor den MRPG-Klassen angelegt wurde, nutzt die älteren Regeln für Angriff und Verteidigung unter [So rechnet der Kampf](#how-combat-math-works). Die Bildschirme und Schaltflächen unten sind bei beiden gleich.
+
 > **Hinweis:** In einem Spiel mit einem Regelsatz, der seine Kämpfe selbst auflöst, etwa 5e (SRD 5.1), folgt der Kampf dem Regelsatz, nicht dieser Seite. Siehe [Kämpfe mit einem Regelsatz](fighting-on-a-ruleset.md). Ein Regelsatz, der Kämpfen nur seinen Charakterbogen leiht, behält den Kampf von hier. Siehe [Was in Kämpfen passiert](rulesets.md#what-happens-in-battles).
 
 ## Einen Turn-Based-Kampf spielen
@@ -43,6 +45,52 @@ Zeigt das Spielfeld **Resolving…**, warte einen Moment. **Restart** (Neustart)
 
 Wer wann handelt, hängt von **Turn order** (Zugreihenfolge) ab. Siehe [Zugreihenfolge](#turn-order). Handgemachte Spielfelder und Geländeregeln stehen unter [Taktische Kämpfe und Gelände](#tactical-battles-and-terrain).
 
+<a id="battles-in-an-mrpg-game"></a>
+
+## Kämpfe in einem MRPG-Spiel
+
+In einem Spiel mit MRPG-Klassen kämpft jedes Partymitglied mit seiner aktiven Klasse: ihren Werten, ihren Fertigkeiten und der Ausrüstung auf seinem Bogen (siehe [MRPG-Klassen](mrpg-classes.md)). Gegner kämpfen je nach Rang als Lakai, Standardgegner, Elitegegner oder Boss. Ein Panel neben dem Kampf zeigt, wer als Nächstes handelt, sowie Klasse, Stufe, Reihe und Ressourcen jedes Kämpfers und am Ende, was die Party erhalten hat.
+
+<a id="turns-skills-and-resources"></a>
+
+### Züge, Fertigkeiten und Ressourcen
+
+- **Zugreihenfolge.** Initiativewürfe gibt es nicht. Die Kämpfer handeln auf einer Zeitleiste. Jede Aktion schiebt den nächsten Zug eines Kämpfers nach hinten – je höher seine Speed, desto weniger weit. Schnelle Kämpfer handeln deshalb häufiger.
+- **Fertigkeiten.** **Skills** führt die Fertigkeiten der aktiven Klasse und die mitgeführten Fertigkeiten auf, jeweils mit Kosten und einer Schätzung ihrer Wirkung. Magische Fertigkeiten kosten **MP**, die während des Kampfes nicht zurückkehren. Die übrigen kosten **Stamina**, von der sich in jedem Zug ein wenig erholt.
+- **Verteidigen.** Erhöht Defense bis zum nächsten Zug des Kämpfers um die Hälfte und stellt mehr Stamina wieder her.
+- **Munition und Elemente.** Ein Marksman lädt im Panel neben dem Kampf eine Munitionsart, ein Channeler kanalisiert dort ein Element. Beides zu wechseln ist kostenlos. Wenn du nichts auswählst, nimmt die KI die beste Option für das Ziel.
+
+<a id="hitting-and-damage"></a>
+
+### Treffer und Schaden
+
+- **Trefferchance.** Sie steigt mit Skill und Luck des Angreifers und sinkt mit Speed und Luck des Ziels. Unter 25 % fällt sie nie.
+- **Kritische Treffer.** Sie ergeben sich aus Skill des Angreifers gegen Luck des Ziels und verursachen doppelten Schaden.
+- **Schaden.** Ein Waffenangriff verursacht Strength plus Angriffskraft abzüglich Defense des Ziels. Ein Zauber oder ein Treffer mit einem Stab, Zauberstab oder Fokus nutzt stattdessen Magic gegen Resistance. Die Angriffskraft wächst mit der Stufe ein wenig, so wie es bessere Ausrüstung tun würde.
+- **Schadensarten.** Jeder Treffer hat eine Art: Hieb, Stich oder Wucht bei Waffen, ein Element (Feuer, Eis, Blitz, Wind, Holz, Erde, Wasser oder Metall) oder Licht beziehungsweise Dunkelheit. Ein Gegner kann gegen eine Art schwach sein (anderthalbfacher Schaden), ihr widerstehen (halber Schaden), gegen sie immun sein oder sie absorbieren. Eine Schwäche oder Resistenz wird beim Gegner angezeigt, sobald ein Treffer sie aufgedeckt hat, und die Party merkt sie sich für alle Gegner dieser Art. Elementare Schwächen von Gegnern folgen dem Zyklus der fünf Wandlungsphasen, in dem jedes Element das nächste überwindet: Holz spaltet Erde, Erde staut Wasser, Wasser löscht Feuer, Feuer schmilzt Metall und Metall schneidet Holz.
+
+<a id="rows"></a>
+
+### Reihen
+
+Ein Turn-Based-Kampf hat auf jeder Seite eine vordere und eine hintere Reihe. Ein Nahkampftreffer gegen die hintere Reihe verursacht in beide Richtungen halben Schaden, während Fernangriffe und Zauber beide Reihen mit vollem Schaden treffen. Steht niemand in der vorderen Reihe einer Seite, wird ihre hintere Reihe zur vorderen. Jede Klasse hat eine Standardreihe. Du kannst die Reihe eines Charakters im Tab **Status** (Status) seines Bogens ändern. Tactical-Kämpfe haben keine Reihen: Die Positionen auf dem Spielfeld entscheiden, wer wen erreichen kann.
+
+<a id="taunts-yielding-and-taming"></a>
+
+### Provokation, Aufgabe und Zähmen
+
+- **Provoke.** Provoke eines Sentinels zwingt alle Gegner, den Sentinel 2 Züge lang anzugreifen. Kann ein Gegner ihn auf einem Spielfeld nicht erreichen, kommt er so nah wie möglich heran und macht sich stattdessen bereit.
+- **Aufgeben.** Ein intelligenter Gegner, der am Verlieren ist, kann sich ergeben oder fliehen. Haben alle verbliebenen Gegner aufgegeben, fragt der Kampf **Spare them** (verschonen) oder **Finish them** (erledigen). In beiden Fällen erhält die Party Beute und Erfahrung. Ein Gegner, der einen Schatz trägt und flieht, entkommt mit seiner Beute.
+- **Zähmen.** Ein Tracker kann ein wildes Tier zähmen, das weniger als 30 % HP hat. Es verlässt den Kampf und wird zu einem Gefährten, den der Charakter auch behält, wenn der Kampf danach verloren geht.
+
+<a id="after-the-fight"></a>
+
+### Nach dem Kampf
+
+Ein gewonnener Kampf bringt allen, die gekämpft haben, Erfahrung (siehe [Stufen und Erfahrung](mrpg-classes.md#levels-and-experience)). Das Abschlusspanel zeigt jede gewonnene Stufe, die gestiegenen Werte und alle nun offenen Beförderungen. Ein verlorener Kampf oder eine Flucht bringt nichts. Ist **Permadeath** (dauerhafter Tod) an, ist ein Partymitglied, das am Kampfende am Boden liegt, für immer verloren.
+
+In einem MRPG-Spiel bestimmt **Difficulty** (Schwierigkeit), wie viele Gegner kommen und wie stark sie sind, statt ihren Schaden zu multiplizieren. Auf **Brutal** können Gegner mehrere Stufen über der Party stehen.
+
 ## Den GM unterbrechen
 
 Solange der GM schreibt, kannst du mit der Schaltfläche **Interrupt** (Unterbrechen) dazwischengehen. Nichts, was du tippst, zählt, bevor du es abschickst.
@@ -70,7 +118,9 @@ Auf dem Handy kleben die Aktionsschaltflächen am unteren Bildschirmrand. Panels
 
 ## So rechnet der Kampf
 
-Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kampf fair und nachvollziehbar. Ein d20 ist ein zwanzigseitiger Würfel (1 bis 20). Die Regeln für Initiative, Angriff und Schaden unten bestimmen, wie Turn-Based-Kämpfe in einem **Legacy**-Spiel ablaufen. Es sind Marinaras eigene Regeln, nicht die eines Regelsatzes. Ein Spiel mit **MRPG**-Klassen kämpft stattdessen nach den Werten und Fertigkeiten seiner Klassen; siehe [MRPG-Klassen](mrpg-classes.md). Zu Tactical-Kämpfen siehe [Zugreihenfolge](#turn-order) und [Sicht, Deckung und Höhe](#sight-cover-and-height).
+Die Regeln in diesem Abschnitt gelten für **Legacy**-Spiele und für Spiele, deren Regelsatz Marinaras Kämpfen seinen Charakterbogen leiht. Ein Spiel mit **MRPG**-Klassen – also jedes neue Spiel – kämpft stattdessen nach den Regeln unter [Kämpfe in einem MRPG-Spiel](#battles-in-an-mrpg-game).
+
+Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kampf fair und nachvollziehbar. Ein d20 ist ein zwanzigseitiger Würfel (1 bis 20). Zu Tactical-Kämpfen siehe außerdem [Zugreihenfolge](#turn-order) und [Sicht, Deckung und Höhe](#sight-cover-and-height).
 
 **Initiative.** Zu Beginn jeder Runde würfelt jeder Kämpfer einen d20 und addiert einen Bonus aus seiner Geschwindigkeit (Geschwindigkeit geteilt durch 5, abgerundet). Höhere Summen handeln zuerst. Ein Kämpfer setzt die Runde aus, wenn er eingefroren, betäubt oder gefesselt ist oder seine Geschwindigkeit auf 0 gefallen ist.
 
@@ -87,7 +137,7 @@ Jede Runde entscheidet feste Würfelmathematik, nicht die KI. So bleibt der Kamp
 
 ### Skalierung nach Schwierigkeit
 
-Als Nächstes wird der Schaden mit der **Difficulty** (Schwierigkeit) skaliert, die du im Einrichtungsassistenten festlegst. Modifikatoren durch Wetter und Statuseffekte wirken erst danach. Der Multiplikator gilt nur für Angriffe von Gegnern: Ein schwierigeres Spiel lässt die Gegner härter zuschlagen, während der Schaden deiner Party gleich bleibt.
+In einem Legacy-Spiel wird der Schaden als Nächstes mit der **Difficulty** skaliert, die du im Einrichtungsassistenten festlegst. Modifikatoren durch Wetter und Statuseffekte wirken erst danach. Der Multiplikator gilt nur für Angriffe von Gegnern: Ein schwierigeres Spiel lässt die Gegner härter zuschlagen, während der Schaden deiner Party gleich bleibt.
 
 | Schwierigkeit | Schadensmultiplikator der Gegner |
 | --- | --- |
@@ -99,6 +149,8 @@ Als Nächstes wird der Schaden mit der **Difficulty** (Schwierigkeit) skaliert, 
 Diese Multiplikatoren gehören zu Marinaras eigenen Regeln. Ein Regelsatz bringt seine eigenen Schwierigkeitsregeln mit.
 
 ## Statuseffekte und elementare Reaktionen
+
+Dieser Abschnitt beschreibt Legacy-Kämpfe. Ein MRPG-Spiel hat eigene Schadensarten (siehe [Treffer und Schaden](#hitting-and-damage)). Die Effekte seiner Fertigkeiten wie Poisoned, Asleep oder Slowed sind bei der jeweiligen Fertigkeit beschrieben.
 
 Ein Statuseffekt verändert Angriff, Verteidigung, Geschwindigkeit oder HP eines Kämpfers vorübergehend. Buffs helfen, Debuffs schaden. Ein Status hält eine festgelegte Zahl an Runden und verfliegt dann. Gifteffekte zehren jede Runde an den HP, Regenerationseffekte füllen sie auf. Eingefroren, betäubt und gefesselt lassen den Kämpfer seinen Zug aussetzen.
 

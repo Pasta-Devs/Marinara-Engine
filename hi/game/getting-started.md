@@ -38,7 +38,7 @@ Game Mode तीन चैट मोड (Conversation, Roleplay और Game Mode
 | --- | --- |
 | **Connection** (कनेक्शन) | **Game Name** (गेम का नाम), GM को चलाने वाला **Model**, और वैकल्पिक **Scene effects model**। **Game Mode** कार्ड पर फ़िलहाल सिर्फ़ **VN** दिखता है (देखें [VN या Overworld](#vn-or-overworld))। |
 | **World** | शैली, परिवेश, लहजा, कठिनाई, कंटेंट रेटिंग और भाषा। **Combat Preference** (लड़ाई की पसंद) **Turn-Based** या **Tactical** होती है। हर नया गेम **MRPG** (Marinara RPG) क्लास पर खेला जाता है ([MRPG क्लास](mrpg-classes.md) देखें)। कोई नियमसेट इंस्टॉल होने पर **Rules** (नियम) का विकल्प दिखता है (देखें [नियम चुनें](#choose-rules))। |
-| **Party** (पार्टी) | आपका पर्सोना (वह कैरेक्टर जिसे आप निभाते हैं), **Game Master Mode**, पार्टी के साथी और **GM intro message** (GM का शुरुआती संदेश, देखें [GM का शुरुआती संदेश](#the-gm-intro-message))। |
+| **Party** (पार्टी) | आपका पर्सोना (वह कैरेक्टर जिसे आप निभाते हैं), **Game Master Mode**, पार्टी के साथी और **GM intro message** (GM का शुरुआती संदेश, देखें [GM का शुरुआती संदेश](#the-gm-intro-message))। हर सदस्य का शुरुआती MRPG ट्री उसके कार्ड के **Game Mode** सेक्शन से आता है (देखें [कैरेक्टर के ट्री चुनना](mrpg-classes.md#choose-a-characters-trees))। |
 | **Goals** (गोल) | आप इस एडवेंचर से क्या चाहते हैं। |
 | **Lorebooks** (लोरबुक) | वे लोरबुक जिनके तथ्यों को GM कहानी का पक्का सच मानता है। लोरबुक यानी दुनिया के बैकग्राउंड तथ्यों का सेट। देखें [लोरबुक](../lorebooks/overview.md)। |
 | **Features** (फ़ीचर) | **Enable Agents** (एजेंट चालू करें), फिर हर डाउनलोड किए गए एजेंट का एक कार्ड (**Illustrator**, **Music DJ**, **Lorebook Keeper**), साथ में **Custom HUD Widgets** (कस्टम HUD विजेट), **Quick Time Events** (क्विक टाइम इवेंट) और **Start Muted** (म्यूट करके शुरू करें)। |
@@ -46,7 +46,7 @@ Game Mode तीन चैट मोड (Conversation, Roleplay और Game Mode
 
 परिवेश और गोल के नीचे दिखने वाले आइडिया हर बार विज़ार्ड खुलने पर बदल जाते हैं। Tactical गेम में GM हर लड़ाई के लिए एक छोटा ब्रीफ़ लिखता है और Marinara उससे एक बोर्ड बनाता है। देखें [कॉम्बैट](combat.md#tactical-battles-and-terrain)।
 
-**World** स्टेप में बॉस के लिए कॉम्बैट के विकल्प भी हैं। **GM directs bosses** (GM बॉस चलाता है) डिफ़ॉल्ट रूप से चालू रहता है। इससे GM आपके GM कनेक्शन से बॉस के टर्न तय करता है, जिसमें थोड़ा समय लग सकता है। साधारण दुश्मन अपने फ़ैसले खुद लेते हैं, जब तक **GM directs bosses** चालू न हो और गेम का नियमसेट विरोधी पक्ष Game Master को न सौंपता हो (देखें [Game Master टेक्स्ट](../extending/ruleset-sheets.md#game-master-text))। **GM directs bosses** चालू रहने पर **Game Master also plays named and brilliant opponents** (Game Master नाम वाले और बेहद चतुर विरोधियों को भी निभाता है, डिफ़ॉल्ट रूप से चालू) GM को नाम वाले कैरेक्टर और बहुत चालाक दुश्मनों को भी निभाने देता है। दो और विकल्प हमेशा दिखते हैं: **Companions fight on their own** (साथी खुद लड़ते हैं, डिफ़ॉल्ट रूप से चालू; पूरी पार्टी खुद चलाने के लिए इसे बंद करें) और **Let cruel opponents strike the fallen** (क्रूर विरोधियों को गिरे हुओं पर वार करने दें, डिफ़ॉल्ट रूप से बंद)। देखें [कॉम्बैट](combat.md)।
+**World** स्टेप में बॉस के लिए कॉम्बैट के विकल्प भी हैं। **GM directs bosses** (GM बॉस चलाता है) डिफ़ॉल्ट रूप से चालू रहता है। इससे GM आपके GM कनेक्शन से बॉस के टर्न तय करता है, जिसमें थोड़ा समय लग सकता है। साधारण दुश्मन अपने फ़ैसले खुद लेते हैं, जब तक **GM directs bosses** चालू न हो और गेम का नियमसेट विरोधी पक्ष Game Master को न सौंपता हो (देखें [Game Master टेक्स्ट](../extending/ruleset-sheets.md#game-master-text))। **GM directs bosses** चालू रहने पर **Game Master also plays named and brilliant opponents** (Game Master नाम वाले और बेहद चतुर विरोधियों को भी निभाता है, डिफ़ॉल्ट रूप से चालू) GM को नाम वाले कैरेक्टर और बहुत चालाक दुश्मनों को भी निभाने देता है। दो और विकल्प हमेशा दिखते हैं: **Companions fight on their own** (साथी खुद लड़ते हैं, डिफ़ॉल्ट रूप से चालू; पूरी पार्टी खुद चलाने के लिए इसे बंद करें) और **Let cruel opponents strike the fallen** (क्रूर विरोधियों को गिरे हुओं पर वार करने दें, डिफ़ॉल्ट रूप से बंद)। नया गेम **Permadeath** (स्थायी मौत, डिफ़ॉल्ट रूप से बंद) भी देता है: लड़ाई में गिरा पार्टी सदस्य अगर लड़ाई खत्म होने से पहले न बचाया जाए, तो हमेशा के लिए चला जाता है। देखें [कॉम्बैट](combat.md)।
 
 **Hierarchical Maps** एजेंट डाउनलोड होने पर (अब इसका नाम World Maps है, देखें [World Maps](../agents/hierarchical-maps.md)) और **Enable Agents** चालू होने पर **Features** स्टेप एक **Hierarchical world map** का ड्राफ़्ट भी बना सकता है, सेव किया हुआ मैप टेम्पलेट इस्तेमाल कर सकता है या किसी शेयर की गई दुनिया को लिंक कर सकता है।
 
@@ -56,7 +56,7 @@ Game Mode तीन चैट मोड (Conversation, Roleplay और Game Mode
 | --- | --- | --- |
 | Genre | Fantasy | एक से ज़्यादा चुन सकते हैं, साथ में अपनी खुद की शैली भी। पहले चुनी गई सेटिंग किट अपनी शैली खुद सेट करती है। |
 | Tone | Heroic | एक से ज़्यादा चुन सकते हैं। |
-| Difficulty | Normal | **Casual**, **Normal**, **Hard** या **Brutal**। ऊँची सेटिंग पर दुश्मनों के हमले ज़्यादा ज़ोर से लगते हैं (देखें [कॉम्बैट](combat.md#difficulty-scaling))। |
+| Difficulty | Normal | **Casual**, **Normal**, **Hard** या **Brutal**। ऊँची सेटिंग लड़ाइयों को कठिन बनाती है: MRPG गेम में ज़्यादा और ताकतवर दुश्मन (देखें [MRPG गेम में लड़ाइयाँ](combat.md#battles-in-an-mrpg-game)), और Legacy गेम में ज़्यादा ज़ोर से वार करने वाले दुश्मन (देखें [डिफ़िकल्टी के हिसाब से पैमाना](combat.md#difficulty-scaling))। |
 | Content Rating | SFW | **SFW** या **NSFW**। NSFW सिर्फ़ वयस्क कंटेंट की छूट देता है, उसे ज़रूरी नहीं बनाता। |
 | Language | English | गेम का सारा टेक्स्ट इसी भाषा में लिखा जाता है। |
 | Game Master Mode | Standalone GM | **Character GM** आपके किसी कैरेक्टर कार्ड को GM बनाता है। |
@@ -194,7 +194,7 @@ Claude और Grok सब्सक्रिप्शन अकाउंट न�
 ## कौन-सा विषय कहाँ मिलेगा
 
 - [Game Mode: कॉम्बैट](combat.md): एनकाउंटर, एक्शन मेन्यू, डैमेज का हिसाब और क्विक-टाइम इवेंट
-- [Game Mode: MRPG क्लास](mrpg-classes.md): क्लास, लेवल और शीट, नए सदस्य, और Legacy गेम को MRPG पर ले जाना
+- [Game Mode: MRPG क्लास](mrpg-classes.md): क्लास चुनना, स्टैट, लेवल और प्रमोशन, क्लास शीट, साझा गेम, और Legacy गेम को MRPG पर ले जाना
 - [Game Mode: पार्टी और NPC](party-and-npcs.md): Character Profiles, शीट और Adventure Journal
 - [Game Mode: सेशन और सेव](sessions-and-saves.md): सेशन खत्म करना और शुरू करना, हिस्ट्री और चेकपॉइंट
 - [Game Mode: मैप, समय और मौसम](map-time-weather.md): मैप के व्यू, घड़ी, मौसम और मनोबल

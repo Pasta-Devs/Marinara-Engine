@@ -68,6 +68,20 @@ L'onglet **Stats** d'un persona contient deux blocs distincts, chacun avec son p
 - Les **Persona Status Bars** (barres d'état du persona), activées avec **Enable Persona Stats** (activer les caractéristiques du persona), suivent les besoins physiques et mentaux. Les barres de départ sont Satiety, Energy, Hygiene et Mood, chacune à 100 sur 100. Sous **Status Bars** (barres d'état), chaque barre a un nom, une valeur actuelle, un maximum et une couleur. Clique sur **Add** pour en créer une et sur le X pour en supprimer une.
 - **Enable RPG Attributes** (activer les attributs RPG) fonctionne comme sur une fiche de personnage. Il donne à ton persona des **Pools** (au départ HP et MP à 100 sur 100) et des **Attributes** (au départ STR, DEX, CON, INT, WIS et CHA à 10).
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### Choix MRPG sur une fiche
+
+Les deux onglets **Stats** ont une section **Game Mode** avec un bloc **MRPG**, pour les parties utilisant les classes MRPG (toutes les nouvelles parties). Chaque partie tire à nouveau les caractéristiques MRPG de chaque personnage : la fiche ne contient donc aucun nombre, seulement trois choix :
+
+- **Starting tree** (arbre de départ) : l'arbre dans lequel le personnage commence. **Auto** le déduit de la description et de la personnalité de la fiche, et affiche l'arbre obtenu.
+- **Strong in** (fort en) : jusqu'à deux caractéristiques dans lesquelles le personnage progresse bien.
+- **Weak in** (faible en) : une caractéristique dans laquelle il progresse mal.
+
+Le bloc donne un aperçu de la classe avec laquelle une nouvelle partie le fait commencer, au niveau 1, ainsi que de sa ligne et de ses HP, MP et Stamina de départ. Les choix forts et faibles orientent la progression cachée du personnage dans chaque partie. Son arbre frère vient de son tempérament dans la partie, pas de la fiche. Voir [Game Mode : classes MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Sur une fiche de personnage, **Story stats for Legacy games** (caractéristiques narratives des parties Legacy), juste en dessous, replie les attributs RPG décrits plus haut. Seules les parties Legacy les utilisent.
+
 <a id="game-mode-icon"></a>
 
 ### Icône de Game Mode

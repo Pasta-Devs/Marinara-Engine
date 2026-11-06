@@ -68,6 +68,20 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 - **Persona Status Bars**(用户角色状态条) 用 **Enable Persona Stats**(启用用户角色属性) 开启，用来追踪生理和心理需求。初始的状态条是 Satiety、Energy、Hygiene 和 Mood，数值都是 100，满值 100。在 **Status Bars**(状态条) 下，每条都有名字、当前值、最大值和颜色。点击 **Add** 新增一条，点击 X 删除一条。
 - **Enable RPG Attributes**(启用 RPG 属性值) 的机制和角色卡一样，给你的用户角色提供 **Pools**(初始为 HP 和 MP，数值都是 100，满值 100) 和 **Attributes**(初始为 STR、DEX、CON、INT、WIS 和 CHA，全部为 10)。
 
+<a id="mrpg-picks-on-a-card"></a>
+
+### 卡片上的 MRPG 选择
+
+两个 **Stats** 选项卡都有一个 **Game Mode**(游戏模式) 区块，其中的 **MRPG** 区块用于采用 MRPG 职业的游戏（也就是所有新游戏）。每局游戏都会为每个角色重新掷出 MRPG 属性，因此卡片不保存数值，只保存三项选择：
+
+- **Starting tree**(起始树)：角色从哪棵树开始。**Auto**(自动) 会从卡片的描述和性格中判断，并显示由此选出的树。
+- **Strong in**(强项)：最多两项角色擅长成长的属性。
+- **Weak in**(弱项)：一项角色不擅长成长的属性。
+
+这个区块会预览角色在新游戏里从 1 级开始时的职业，包括所在排位以及初始 HP、MP 和 Stamina。强项和弱项会影响角色在每局游戏中隐藏的成长倾向。姐妹树由角色在游戏中的性格决定，而不是来自卡片。见 [Game Mode：MRPG 职业](../game/mrpg-classes.md#choose-a-characters-trees)。
+
+角色卡上，这个区块下方的 **Story stats for Legacy games**(Legacy 游戏的剧情属性) 会收起上文介绍的 RPG 属性。只有 Legacy 游戏会使用这些属性。
+
 <a id="game-mode-icon"></a>
 
 ### Game Mode 图标
