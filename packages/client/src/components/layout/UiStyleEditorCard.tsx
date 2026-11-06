@@ -145,6 +145,13 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
     : target.transient || document.querySelector(target.selector)
       ? null
       : 0;
+  // An open chat paints its own background over the app's; offer its surface part instead.
+  const chatSurface =
+    target.id === "app"
+      ? (["conversation-surface", "roleplay-surface"] as const)
+          .map((id) => getUiStyleTarget(id))
+          .find((part) => part && document.querySelector(part.selector))
+      : undefined;
   const savedOverride = saved[target.id] ?? null;
   // The card is keyed to its region, so the edit never outlives it.
   const [edit, setEdit] = useState<UiStyleOverride | null>(null);
@@ -370,6 +377,19 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
             )}
           </div>
         </div>
+        {chatSurface && (
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.chatCoversApp")}</p>
+            <button
+              type="button"
+              onClick={() => setSelectedTarget(chatSurface.id)}
+              disabled={dirty}
+              className={SETTINGS_BUTTON_CLASS}
+            >
+              {t("settings.appearance.uiStyles.styleChatSurface", { part: uiStyleTargetLabel(chatSurface, t) })}
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-1.5">
           {COLOR_FIELDS.map((field) => {
             const value = draft[field.key];
