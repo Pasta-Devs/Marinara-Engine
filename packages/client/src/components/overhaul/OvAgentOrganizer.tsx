@@ -4,13 +4,15 @@
 // An agent's page keeps a narrow list of its neighbours on the left.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { ChevronDown, Loader2, MoreHorizontal, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Loader2, MoreHorizontal, Plus, RefreshCw, Search } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CapabilityStoreKit } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { EditorCrumbs } from "./EditorRail";
-import { ViewSwitch } from "./LibraryTables";
+import { PHASE_LABEL, Thumb, ViewSwitch, swatch, useOvAgentRows, type OvAgentRow } from "./LibraryTables";
+import { useUIStore } from "../../stores/ui.store";
+import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import {
   checkReasonOf,
@@ -110,16 +112,28 @@ export function OvAgentAction({ entry }: { entry: OrganizerEntry }) {
   return <span className="ov-org__state">{localizeUi("ui.agents.organizer.installed")}</span>;
 }
 
-function Row({ entry }: { entry: OrganizerEntry }) {
-  const { go, menu } = useOrganizer();
+/** On the Installed tab an agent opens its settings; elsewhere it opens its Organizer page. */
+function useOpenEntry(settings: boolean) {
+  const { go, settingsAgentById } = useOrganizer();
+  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  return (entry: OrganizerEntry) => {
+    const agentId = settings ? settingsAgentById.get(entry.manifest.id) : undefined;
+    if (agentId) openAgentDetail(agentId);
+    else go({ kind: "agent", id: entry.manifest.id });
+  };
+}
+
+function Row({ entry, settings }: { entry: OrganizerEntry; settings: boolean }) {
+  const { menu } = useOrganizer();
+  const openEntry = useOpenEntry(settings);
   const shown = useShownEntry(entry);
   return (
     <tr
       data-ov-org-row
       tabIndex={0}
-      onClick={() => go({ kind: "agent", id: entry.manifest.id })}
+      onClick={() => openEntry(entry)}
       onKeyDown={(event) => {
-        if (event.key === "Enter") go({ kind: "agent", id: entry.manifest.id });
+        if (event.key === "Enter") openEntry(entry);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -144,8 +158,8 @@ function Row({ entry }: { entry: OrganizerEntry }) {
   );
 }
 
-function Card({ entry }: { entry: OrganizerEntry }) {
-  const { go } = useOrganizer();
+function Card({ entry, settings }: { entry: OrganizerEntry; settings: boolean }) {
+  const openEntry = useOpenEntry(settings);
   const shown = useShownEntry(entry);
   return (
     <div
@@ -153,9 +167,9 @@ function Card({ entry }: { entry: OrganizerEntry }) {
       data-ov-org-row
       role="button"
       tabIndex={0}
-      onClick={() => go({ kind: "agent", id: entry.manifest.id })}
+      onClick={() => openEntry(entry)}
       onKeyDown={(event) => {
-        if (event.key === "Enter") go({ kind: "agent", id: entry.manifest.id });
+        if (event.key === "Enter") openEntry(entry);
       }}
     >
       <StoreBanner entry={entry} sizes="(min-width: 1024px) 30vw, 50vw" className="ov-org-card__art" />
@@ -266,8 +280,10 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   const { installedById, go } = useOrganizer();
   // Phones put the List / Gallery switch with the filters, leaving search and sort a line of their own.
   const ovMobile = useOverhaulMobile();
+  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  // This is the Library's Agents page, so it opens on what the user has.
   const [tab, setTab] = useState<Tab>(
-    page.kind === "updates" ? "updates" : page.kind === "installed" ? "installed" : "available",
+    page.kind === "updates" ? "updates" : page.kind === "section" ? "available" : "installed",
   );
   const [section, setSection] = useState<OrganizerSectionId | "all">(page.kind === "section" ? page.id : "all");
   const [sort, setSort] = useState<SortKey>("section");
@@ -321,14 +337,26 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
     [sort, visible],
   );
   const sectionsPresent = ORGANIZER_SECTIONS.filter((id) => all.some((entry) => sectionOf(entry) === id));
-  const installedCount = all.filter((entry) => installedById.has(entry.manifest.id)).length;
+  // The user's own agents (and any built-in no package owns) live outside the catalog.
+  const { rows: agentRows } = useOvAgentRows();
+  const { data: registry } = useCapabilityAgentRegistry();
+  const ownAgents = useMemo(() => {
+    const packaged = new Set((registry ?? []).filter((agent) => agent.packageId).map((agent) => agent.id));
+    return agentRows.filter((row) => !packaged.has(row.id)).sort((a, b) => a.name.localeCompare(b.name, language));
+  }, [agentRows, language, registry]);
+  const visibleOwn = useMemo(
+    () =>
+      tab !== "installed" || section !== "all"
+        ? []
+        : ownAgents.filter((row) => !needle || `${row.name} ${row.description ?? ""}`.toLowerCase().includes(needle)),
+    [needle, ownAgents, section, tab],
+  );
+  const installedCount = all.filter((entry) => installedById.has(entry.manifest.id)).length + ownAgents.length;
+  const onInstalled = tab === "installed";
 
   const crumbs = [
-    { label: localize("Agents"), onClick: props.onBack },
-    agentEntry
-      ? { label: localizeUi("ui.agents.organizer.title"), onClick: () => go({ kind: "home" }) }
-      : { label: localizeUi("ui.agents.organizer.title") },
-    ...(agentEntry ? [{ label: agentEntry.manifest.name }] : []),
+    { label: localize("Agents"), onClick: () => go({ kind: "home" }) },
+    { label: agentEntry?.manifest.name ?? "" },
   ];
 
   if (page.kind === "agent") {
@@ -338,7 +366,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
       <div className="ov-org-detail">
         <aside className="ov-org-detail__list">
           <div className="ov-org-detail__head">
-            <b>{localizeUi("ui.agents.organizer.title")}</b>
+            <b>{localize("Agents")}</b>
             <span>{localize(tab === "installed" ? "Installed" : tab === "updates" ? "Updates" : "Available")}</span>
           </div>
           <label className="ov-search">
@@ -388,10 +416,9 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
 
   return (
     <section className="ov-list ov-org" data-component="OverhaulAgentOrganizer">
-      <EditorCrumbs items={crumbs} />
       <header className="ov-gallery__head">
         <h1>
-          {localizeUi("ui.agents.organizer.title")}
+          {localize("Agents")}
           <span className="ov-org__count">
             {installedCount} {localize("installed")} · {all.length} {localize("available")}
           </span>
@@ -409,6 +436,15 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
           ) : (
             <MoreHorizontal size={15} aria-hidden="true" />
           )}
+        </button>
+        <button
+          type="button"
+          className="ov-btn ov-btn--primary"
+          aria-label={localize("New agent")}
+          onClick={() => openAgentDetail("__new__")}
+        >
+          <Plus size={14} aria-hidden="true" />
+          {ovMobile ? localize("New") : localize("New agent")}
         </button>
       </header>
       {props.bulkNote}
@@ -504,18 +540,28 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
         <div className="ov-org__status">{props.status}</div>
       ) : tab === "updates" ? (
         <div className="ov-org__updates-page">{props.updatesPage}</div>
-      ) : visible.length === 0 ? (
+      ) : visible.length === 0 && visibleOwn.length === 0 ? (
         <p className="ov-list__empty">
           {needle ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents") : localize("Nothing here yet.")}
         </p>
       ) : gallery ? (
         <div className="ov-org-gallery">
+          {visibleOwn.length > 0 ? (
+            <section>
+              <h3 className="ov-org-gallery__head">{localize("Your agents")}</h3>
+              <div className="ov-org-gallery__grid">
+                {visibleOwn.map((row) => (
+                  <OwnCard key={row.id} row={row} />
+                ))}
+              </div>
+            </section>
+          ) : null}
           {groups.map((group) => (
             <section key={group.id ?? "all"}>
               {group.id ? <h3 className="ov-org-gallery__head">{localizeUi(sectionLabelKey(group.id))}</h3> : null}
               <div className="ov-org-gallery__grid">
                 {group.rows.map((entry) => (
-                  <Card key={entry.manifest.id} entry={entry} />
+                  <Card key={entry.manifest.id} entry={entry} settings={onInstalled} />
                 ))}
               </div>
             </section>
@@ -534,8 +580,9 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               </tr>
             </thead>
             <tbody>
+              {visibleOwn.length > 0 ? <OwnRows rows={visibleOwn} /> : null}
               {groups.map((group) => (
-                <GroupRows key={group.id ?? "all"} id={group.id} rows={group.rows} />
+                <GroupRows key={group.id ?? "all"} id={group.id} rows={group.rows} settings={onInstalled} />
               ))}
             </tbody>
           </table>
@@ -545,7 +592,15 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   );
 }
 
-function GroupRows({ id, rows }: { id: OrganizerSectionId | null; rows: readonly OrganizerEntry[] }) {
+function GroupRows({
+  id,
+  rows,
+  settings,
+}: {
+  id: OrganizerSectionId | null;
+  rows: readonly OrganizerEntry[];
+  settings: boolean;
+}) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <>
@@ -560,8 +615,85 @@ function GroupRows({ id, rows }: { id: OrganizerSectionId | null; rows: readonly
         </tr>
       ) : null}
       {rows.map((entry) => (
-        <Row key={entry.manifest.id} entry={entry} />
+        <Row key={entry.manifest.id} entry={entry} settings={settings} />
       ))}
     </>
+  );
+}
+
+function ownRunsLabel(row: OvAgentRow) {
+  return row.app ? "App, opens its own screen" : (PHASE_LABEL[row.phase] ?? "—");
+}
+
+/** Agents the user made or imported: no catalog entry, so they open straight into their settings. */
+function OwnRows({ rows }: { rows: readonly OvAgentRow[] }) {
+  const localize = useLocalizedUiText();
+  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  return (
+    <>
+      <tr className="ov-org__group">
+        <td colSpan={5}>
+          <b>{localize("Your agents")}</b>
+          <span>
+            {rows.length} · {localize("Made or imported by you")}
+          </span>
+        </td>
+      </tr>
+      {rows.map((row) => (
+        <tr
+          key={row.id}
+          data-ov-org-row
+          tabIndex={0}
+          onClick={() => openAgentDetail(row.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") openAgentDetail(row.id);
+          }}
+        >
+          <td>
+            <span className="ov-org__name">
+              <Thumb id={row.id} src={row.imagePath} />
+              <b>{row.name}</b>
+            </span>
+          </td>
+          <td className="ov-org__dim">{row.description || "—"}</td>
+          <td className="ov-org__dim">{localize(ownRunsLabel(row))}</td>
+          <td className="ov-org__dim">—</td>
+          <td className="ov-org__actcell">
+            <button type="button" className="ov-org__act is-quiet">
+              {localize("Edit")}
+            </button>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function OwnCard({ row }: { row: OvAgentRow }) {
+  const localize = useLocalizedUiText();
+  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  return (
+    <div
+      className="ov-org-card"
+      data-ov-org-row
+      role="button"
+      tabIndex={0}
+      onClick={() => openAgentDetail(row.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") openAgentDetail(row.id);
+      }}
+    >
+      <div className="ov-org-card__art ov-org-card__art--own" style={{ background: swatch(row.id) }} />
+      <div className="ov-org-card__foot">
+        <Thumb id={row.id} src={row.imagePath} />
+        <span className="ov-org-card__text">
+          <b>{row.name}</b>
+          <span>{row.description || localize(ownRunsLabel(row))}</span>
+        </span>
+        <button type="button" className="ov-org__act is-quiet">
+          {localize("Edit")}
+        </button>
+      </div>
+    </div>
   );
 }

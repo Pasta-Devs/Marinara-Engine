@@ -27,9 +27,7 @@ const TablesPage = lazy(() =>
             ? m.PresetsLanding
             : section === "regex"
               ? m.RegexLanding
-              : section === "connections"
-                ? m.ConnectionsLanding
-                : m.AgentsLanding;
+              : m.ConnectionsLanding;
       return <Page />;
     },
   })),
@@ -40,12 +38,16 @@ const SettingsModulePage = lazy(() =>
       section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />,
   })),
 );
+// Agents opens on the Agent Organizer, which lists installed and the user's own agents.
+const AgentsPage = lazy(() =>
+  import("../agents/AgentCatalogView").then((m) => ({ default: () => <m.AgentCatalogView /> })),
+);
 const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<PageProps>>>> = {
   lorebooks: TablesPage,
   presets: TablesPage,
   regex: TablesPage,
   connections: TablesPage,
-  agents: TablesPage,
+  agents: AgentsPage,
   settings: SettingsModulePage,
   extensions: SettingsModulePage,
 };

@@ -10,8 +10,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Download, Plus, Search } from "lucide-react";
 import { PROVIDERS, type APIConnection, type APIProvider } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
-import { useChatStore } from "../../stores/chat.store";
-import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
@@ -19,7 +17,7 @@ import { groupModelsByAccount } from "../../lib/connection-groups";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { Thumb, Toggle, flag, parseList, useOvAgentRows, useRegexImport } from "./LibraryTables";
+import { Toggle, flag, parseList, useRegexImport } from "./LibraryTables";
 
 export type OvViewerRow = {
   id: string;
@@ -342,84 +340,3 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
 }
 
 // ── Agents ──
-
-const AGENT_GROUPS: Array<{ id: string; label: string; match: (row: { phase: string; app?: boolean }) => boolean }> = [
-  { id: "apps", label: "Apps", match: (row) => Boolean(row.app) },
-  { id: "pre", label: "Before the reply", match: (row) => !row.app && row.phase === "pre_generation" },
-  { id: "with", label: "Alongside the reply", match: (row) => !row.app && row.phase === "parallel" },
-  { id: "post", label: "After the reply", match: (row) => !row.app && row.phase === "post_processing" },
-];
-
-export function OvAgentsViewer({ children }: { children: ReactNode }) {
-  const localize = useLocalizedUiText();
-  const { rows } = useOvAgentRows();
-  const selectedId = useUIStore((s) => s.agentDetailId);
-  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
-  const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
-  const installed = useInstalledCapabilityPackages();
-  const homeAppIds = useMemo(
-    () => new Set(selectHomeBrowserPackages(installed.data).map((item) => item.id)),
-    [installed.data],
-  );
-  const [search, setSearch] = useState("");
-
-  const groups = useMemo<OvViewerGroup[]>(() => {
-    const needle = search.trim().toLowerCase();
-    const list = [...rows]
-      .filter(
-        (row) => !needle || row.name.toLowerCase().includes(needle) || row.description?.toLowerCase().includes(needle),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const known = new Set<string>();
-    const result = AGENT_GROUPS.map((group) => {
-      const matched = list.filter((row) => group.match(row));
-      matched.forEach((row) => known.add(row.id));
-      return { id: group.id, label: localize(group.label), rows: matched };
-    });
-    const other = list.filter((row) => !known.has(row.id));
-    if (other.length) result.push({ id: "other", label: localize("Other"), rows: other });
-    return result
-      .filter((group) => group.rows.length)
-      .map((group) => ({
-        ...group,
-        rows: group.rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          sub: row.app ? localize("App, opens in its own tab") : row.description,
-          lead: <Thumb id={row.id} src={row.imagePath} />,
-        })),
-      }));
-  }, [localize, rows, search]);
-
-  const firstId = groups.find((group) => group.id !== "apps")?.rows[0]?.id ?? groups[0]?.rows[0]?.id;
-  useAutoSelect("agents", selectedId, firstId, openAgentDetail);
-
-  return (
-    <OvViewer
-      title={localize("Agents")}
-      meta={`${rows.length} ${localize("installed")}`}
-      tools={[{ label: localize("Download agents"), icon: Download, onClick: () => openAgentCatalog() }]}
-      listLabel={localize("Installed")}
-      listNote={localize("grouped by when they run")}
-      search={search}
-      onSearch={setSearch}
-      searchPlaceholder={localize("Search agents…")}
-      newLabel={localize("New agent")}
-      onNew={() => openAgentDetail("__new__")}
-      groups={groups}
-      selectedId={selectedId}
-      onSelect={(id) => {
-        // Home apps (Noodle, Slurp...) open in their own tab, not on a settings page.
-        if (homeAppIds.has(id)) {
-          useUIStore.getState().closeAllDetails();
-          useChatStore.getState().setActiveChatId(null);
-          useOverhaulStore.getState().openApp(id);
-        } else openAgentDetail(id);
-      }}
-      emptyList={localize("No agents installed yet. Use Download agents to add some.")}
-      emptyDetail={localize("Pick an agent on the left, or download some.")}
-    >
-      {children}
-    </OvViewer>
-  );
-}
