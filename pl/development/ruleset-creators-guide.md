@@ -4,7 +4,7 @@ Ta strona pomoże ci zaplanować zestaw zasad trybu Game Mode dla własnego syst
 
 Zestaw zasad to jeden plik JSON (lub pakiet plików), który mówi aplikacji Marinara Engine, jak działa twój system. Engine wykonuje następnie każdy test, stosuje każdą zmianę arkusza i może prowadzić całe walki według twoich zasad. Zestaw zasad nie zawiera kodu, więc projektowanie polega na uzupełnianiu mechanik, które Engine już zna. Mechanika, której nie zna, wymaga zgłoszenia prośby o funkcję w Engine.
 
-Przy każdym kluczu poniżej podano wersję podrzędną Capability API, która go dodała. Pakiet korzystający z klucza deklaruje tę wersję podrzędną lub nowszą (zobacz [Wersjonowanie, testowanie i publikowanie](#versioning-testing-and-publishing)).
+Liczba w nawiasach po kluczu, taka jak (1.135), wskazuje wersję podrzędną Capability API, w której go dodano. Pakiet korzystający z klucza deklaruje tę wersję podrzędną lub nowszą. Jeśli liczby nie podano, znajdziesz ją na podlinkowanej stronie referencyjnej (zobacz [Wersjonowanie, testowanie i publikowanie](#versioning-testing-and-publishing)).
 
 Łatwo pomylić dwa pojęcia:
 

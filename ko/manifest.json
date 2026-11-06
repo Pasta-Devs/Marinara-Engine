@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "750392dd409c44b43d1491855d22222b56281946",
+  "sourceCommit": "68dbe348881c5ebe017fa1159eb21348661dfbe4",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -404,8 +404,8 @@
     },
     {
       "path": "development/ruleset-creators-guide.md",
-      "sha256": "c9ffb197fb779db53586dee53565497a8c15be161a89c597a84e5fdf83e5c6f1",
-      "bytes": 36928
+      "sha256": "90d15dddd0970c1a1572b5711476b1be172bc867ddf2586a6449b44cfc787153",
+      "bytes": 37541
     },
     {
       "path": "extending/custom-tools.md",

@@ -4,7 +4,7 @@ In dieser Anleitung erfährst du, wie du einen Regelsatz für dein eigenes Tisch
 
 Ein Regelsatz ist eine JSON-Datei (oder ein Paket aus Dateien), die Marinara Engine erklärt, wie dein System funktioniert. Die Engine würfelt dann jede Probe, übernimmt jede Bogenänderung und kann ganze Kämpfe nach deinen Regeln ausführen. Ein Regelsatz enthält keinen Code. Du gestaltest ihn also, indem du Mechaniken ausfüllst, die die Engine bereits kennt. Für eine Mechanik, die sie nicht kennt, braucht es einen Funktionswunsch an die Engine.
 
-Bei jedem Schlüssel unten steht die Capability-API-Minorversion, mit der er hinzukam. Ein Paket, das diesen Schlüssel nutzt, deklariert diese oder eine neuere Minorversion (siehe [Versionierung, Tests und Veröffentlichung](#versioning-testing-and-publishing)).
+Eine Zahl in Klammern nach einem Schlüssel, etwa (1.135), gibt die Minorversion der Capability API an, mit der er hinzukam. Ein Paket, das den Schlüssel nutzt, deklariert diese oder eine neuere Minorversion. Wenn keine Zahl angegeben ist, findest du sie auf der verlinkten Referenzseite (siehe [Versionierung, Tests und Veröffentlichung](#versioning-testing-and-publishing)).
 
 Zwei Begriffe lassen sich leicht verwechseln:
 

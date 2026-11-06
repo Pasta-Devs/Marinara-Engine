@@ -4,7 +4,7 @@ Utilise cette page pour préparer un ensemble de règles Game Mode pour ton prop
 
 Un ensemble de règles est un fichier JSON (ou un package de fichiers) qui indique à Marinara Engine comment fonctionne ton système. Le moteur lance ensuite chaque test, applique chaque modification de fiche et peut mener des combats entiers selon tes règles. Rien dans un ensemble de règles n'est du code : tu le conçois donc en renseignant des mécaniques que le moteur connaît déjà. Une mécanique qu'il ne connaît pas relève d'une demande de fonctionnalité pour le moteur.
 
-Chaque clé ci-dessous indique la version mineure de Capability API qui l'a ajoutée. Un package qui utilise cette clé déclare cette version mineure ou une plus récente (voir [Versions, tests et publication](#versioning-testing-and-publishing)).
+Un nombre entre parenthèses après une clé, comme (1.135), indique la version mineure de Capability API qui l'a ajoutée. Un package qui utilise cette clé déclare cette version mineure ou une plus récente. Si aucun nombre n'est indiqué, la page de référence liée l'indique (voir [Versions, tests et publication](#versioning-testing-and-publishing)).
 
 Deux termes se confondent facilement :
 

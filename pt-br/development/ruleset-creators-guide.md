@@ -4,7 +4,7 @@ Use esta página para planejar um conjunto de regras de Game Mode para o seu pr�
 
 Um conjunto de regras é um arquivo JSON (ou um pacote de arquivos) que informa ao Marinara Engine como o seu sistema funciona. O Engine então rola cada teste, aplica cada mudança na ficha e pode conduzir lutas inteiras pelas suas regras. Nada em um conjunto de regras é código, então você cria o sistema preenchendo mecânicas que o Engine já conhece. Uma mecânica que ele não conhece exige uma solicitação de recurso para o Engine.
 
-Cada chave abaixo indica a versão secundária da Capability API que a adicionou. Um pacote que usa a chave declara essa versão secundária ou uma mais recente (veja [Versionamento, testes e publicação](#versioning-testing-and-publishing)).
+Um número entre parênteses após uma chave, como (1.135), indica a versão secundária da Capability API que a adicionou. Um pacote que usa a chave declara essa versão secundária ou uma mais recente. Quando não há número, ele é informado na página de referência vinculada (veja [Versionamento, testes e publicação](#versioning-testing-and-publishing)).
 
 É fácil confundir dois termos:
 
