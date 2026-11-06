@@ -1080,11 +1080,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       tag?: string | string[];
       excludeTag?: string | string[];
       folder?: string;
+      view?: string;
     };
   }>("/catalog", async (req) => {
     const page = parseLibraryPageQuery(req.query);
     const list = (value: string | string[] | undefined) => (value === undefined ? [] : [value].flat());
     return catalog.list({
+      view: req.query.view === "summary" ? "summary" : undefined,
       includeBuiltIn: req.query.includeBuiltIn === "true",
       limit: page.limit,
       offset: page.offset,
