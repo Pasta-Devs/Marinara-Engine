@@ -363,7 +363,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
         }
       }
       if (!finished) {
-        setError("Import failed: the server closed the stream early");
+        setError((prev) => prev || "Import failed: the server closed the stream early");
         setPhase("preview");
       }
     } catch (err) {
