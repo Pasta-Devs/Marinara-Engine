@@ -4,7 +4,7 @@ Use this page to plan a Game Mode ruleset for your own tabletop system before yo
 
 A ruleset is one JSON file (or a package of files) that tells Marinara Engine how your system works. The Engine then rolls every check, applies every sheet change and can run whole fights by your rules. Nothing in a ruleset is code, so you design by filling in mechanics the Engine already knows. A mechanic it does not know is an Engine feature request.
 
-Each key below names the Capability API minor that added it. A package that uses the key declares that minor or newer (see [Versioning, testing and publishing](#versioning-testing-and-publishing)).
+A number in brackets after a key, such as (1.135), is the Capability API minor that added it. A package that uses the key declares that minor or newer. Where no number is shown, the linked reference page gives it (see [Versioning, testing and publishing](#versioning-testing-and-publishing)).
 
 Two terms are easy to mix up:
 
@@ -15,11 +15,11 @@ Two terms are easy to mix up:
 
 A ruleset is one JSON file of at most 512 KB, validated whole on import. Bigger rulesets split their catalogs into a package. Start by copying the example closest to your dice:
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6 plus a stat.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): a d10 pool.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6 plus a stat.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): a d10 pool.
 - The full [5e (SRD 5.1) package](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) in Marinara-Agents.
 
-Point your editor at the [JSON Schema](../extending/ruleset.schema.json) with a `$schema` line for autocomplete and typo checks.
+Point your editor at the [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json) with a `$schema` line for autocomplete and typo checks.
 
 | Key                                                            | What it holds                                                                                                      | Reference                                                                                                                                          |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Beyond the essentials, add what your system needs:
 
 ## The fight AI: minds, temperaments and who plays opponents
 
-The Engine plays every opponent and AI companion nobody else controls, with no model call per turn. It is ruleset-neutral: we tested it on Storyteller, Exalted, old-school, Call of Cthulhu, GURPS and Genesys conversions as well as 5e. It works without any of the keys below; they make your creatures fight like themselves. All are in [Ruleset Entry Mechanics](../extending/ruleset-mechanics.md), and the design is in [Game Mode combat AI](game-combat-ai.md).
+The Engine plays every opponent and AI companion nobody else controls, with no model call per turn. It is ruleset-neutral: we tested it on Storyteller, Exalted, old-school, Call of Cthulhu, GURPS and Genesys conversions as well as 5e. It works without any of the keys below; they make your creatures fight like themselves. All are in [Ruleset Entry Mechanics](../extending/ruleset-mechanics.md), and the design is in [Game Mode combat AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Key                                                               | What it controls                                                                                                                                                                                                          | API            |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Three mechanisms change a ruleset without forking it. Use a layer for a variant 
 
 A layer cannot add a field, value, skill, pool, rest, seller or loot table, change the resolution kind, or touch combat numbers. Characters keep anything a layer removes. The SRD's **Low magic** layer is a good model: spells capped at 5th level, items above uncommon rarer and not normally for sale, high-magic creatures kept out of random encounters, and world guidance asking the Game Master to explain why magic is rare. Other authors may copy it. Layers written for somebody else's ruleset are not supported yet.
 
-**Overlays** (1.355) let an Experience's map pack add creatures, conditions, sheet conditions, items and tracks (1.367) to your ruleset while that Experience is on. Keep adventure-specific monsters and loot in an overlay, not in your base ruleset. An overlay that reuses one of your ids, or does not fit, is dropped whole, which is another reason to keep ids stable. Reference: [ruleset overlays](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Overlays** (1.355) let an Experience's map pack add creatures, conditions, sheet conditions, items and tracks (1.367) to your ruleset while that Experience is on. Keep adventure-specific monsters and loot in an overlay, not in your base ruleset. An overlay that reuses one of your ids, or does not fit, is dropped whole, which is another reason to keep ids stable. Reference: [ruleset overlays](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Migrations** (`sheet.migrations`, 1.77) say how saved characters move when you rename a field, split one level into per-class levels, or split a pool. Adding things needs no migration; raise `sheet.version` when the sheet's shape changes. Reference: [Layers, Translations and Migrations](../extending/ruleset-layers-and-translations.md).
 
@@ -247,6 +247,6 @@ We converted 16 systems from a community collection to this format, from rules-l
 ## Related guides
 
 - [Writing Game Mode Rulesets](../extending/writing-rulesets.md)
-- [Game Mode architecture](game-mode-architecture.md), for changing the Engine's rules code
-- [Game Mode combat AI](game-combat-ai.md)
+- [Game Mode architecture](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), for changing the Engine's rules code
+- [Game Mode combat AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Playing with a Ruleset](../game/rulesets.md)
