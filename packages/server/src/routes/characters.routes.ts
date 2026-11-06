@@ -1077,9 +1077,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       search?: string;
       sort?: string;
       favoriteFilter?: string;
+      tag?: string | string[];
+      excludeTag?: string | string[];
+      folder?: string;
     };
   }>("/catalog", async (req) => {
     const page = parseLibraryPageQuery(req.query);
+    const list = (value: string | string[] | undefined) => (value === undefined ? [] : [value].flat());
     return catalog.list({
       includeBuiltIn: req.query.includeBuiltIn === "true",
       limit: page.limit,
@@ -1087,8 +1091,15 @@ export async function charactersRoutes(app: FastifyInstance) {
       search: page.search,
       sort: page.sort,
       favoriteFilter: page.favoriteFilter,
+      tags: list(req.query.tag),
+      excludeTags: list(req.query.excludeTag),
+      folder: typeof req.query.folder === "string" ? req.query.folder : undefined,
     });
   });
+
+  app.get<{ Querystring: { includeBuiltIn?: string } }>("/catalog/tags", async (req) =>
+    catalog.tags(req.query.includeBuiltIn === "true"),
+  );
 
   app.post<{ Body: { ids?: unknown } }>("/summaries", async (req) => {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((id): id is string => typeof id === "string") : [];

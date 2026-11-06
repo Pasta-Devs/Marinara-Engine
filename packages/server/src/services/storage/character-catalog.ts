@@ -9,7 +9,7 @@ import {
   type CharacterCatalogPage,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { characters } from "../../db/schema/index.js";
+import { characterGroups, characters } from "../../db/schema/index.js";
 
 type CachedCharacterCatalogEntry = CharacterCatalogEntry & { searchText: string };
 
@@ -18,6 +18,11 @@ type CatalogOptions = {
   search?: string;
   sort?: string;
   favoriteFilter?: string;
+  /** Any of these tags (case-insensitive); more matches rank first. */
+  tags?: string[];
+  excludeTags?: string[];
+  /** A folder id, "none" for cards in no folder, or "any" for cards in some folder. */
+  folder?: string;
   limit: number;
   offset: number;
 };
@@ -34,6 +39,15 @@ function readData(value: string): CharacterData {
     return parsed as CharacterData;
   } catch {
     return { name: "Unknown" } as CharacterData;
+  }
+}
+
+function parseIdList(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
   }
 }
 
@@ -146,7 +160,36 @@ export function createCharacterCatalog(db: DB) {
       }
       if (options.favoriteFilter === "favorites") entries = entries.filter((item) => item.favorite);
       if (options.favoriteFilter === "non-favorites") entries = entries.filter((item) => !item.favorite);
+      const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map((tag) => tag.toLowerCase());
+      const excluded = new Set((options.excludeTags ?? []).map((tag) => tag.toLowerCase()));
+      if (excluded.size > 0) entries = entries.filter((item) => !lowerTags(item).some((tag) => excluded.has(tag)));
+      const included = new Set((options.tags ?? []).map((tag) => tag.toLowerCase()));
+      const matchCount = new Map<string, number>();
+      if (included.size > 0) {
+        for (const item of entries) matchCount.set(item.id, lowerTags(item).filter((tag) => included.has(tag)).length);
+        entries = entries.filter((item) => matchCount.get(item.id)! > 0);
+      }
       entries = sortEntries(entries, options.sort ?? "");
+      // Same order as the panel: favourites first when sorted by favourite, then most matching tags.
+      if (included.size > 0)
+        entries.sort(
+          (a, b) =>
+            (options.sort === "favorites" ? Number(b.favorite) - Number(a.favorite) : 0) ||
+            matchCount.get(b.id)! - matchCount.get(a.id)!,
+        );
+
+      const folderOf = new Map<string, string[]>();
+      for (const group of await db.select().from(characterGroups)) {
+        for (const id of parseIdList(group.characterIds)) folderOf.set(id, [...(folderOf.get(id) ?? []), group.id]);
+      }
+      // Favourite sort lifts folders that hold a favourite, also when their members are not loaded.
+      const favoriteFolderIds = new Set<string>();
+      for (const item of entries)
+        if (item.favorite) for (const id of folderOf.get(item.id) ?? []) favoriteFolderIds.add(id);
+      if (options.folder === "none") entries = entries.filter((item) => !folderOf.has(item.id));
+      else if (options.folder === "any") entries = entries.filter((item) => folderOf.has(item.id));
+      else if (options.folder) entries = entries.filter((item) => folderOf.get(item.id)?.includes(options.folder!));
+
       const page = entries.slice(options.offset, options.offset + options.limit + 1);
       return {
         items: page.slice(0, options.limit).map(({ searchText: _searchText, ...item }) => item),
@@ -154,7 +197,17 @@ export function createCharacterCatalog(db: DB) {
         offset: options.offset,
         hasMore: page.length > options.limit,
         catalogGeneration: catalog.generation,
+        total: entries.length,
+        favoriteFolderIds: [...favoriteFolderIds],
       };
+    },
+    /** Every tag in the library, for filter chips that must not depend on loaded pages. */
+    async tags(includeBuiltIn: boolean): Promise<string[]> {
+      const { entries } = await getEntries();
+      const tags = new Set<string>();
+      for (const item of entries)
+        if (includeBuiltIn || item.id !== PROFESSOR_MARI_ID) for (const tag of item.tags) tags.add(tag);
+      return [...tags].sort((a, b) => a.localeCompare(b));
     },
   };
 }
