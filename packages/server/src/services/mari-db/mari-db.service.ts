@@ -97,6 +97,7 @@ import {
   SPEECH_TO_TEXT_SETTINGS_KEY,
   TTS_SETTINGS_KEY,
   CHAT_METADATA_LOCAL_DESTINATION_KEYS,
+  addsMusicDjFolderPath,
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   createCustomToolSchema,
   createLorebookEntrySchema,
@@ -9169,7 +9170,8 @@ export class MariDbService {
     // Same reason for the chat settings that send chat text to an address outside the app, hold its key, or
     // name a folder on the server device (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import
     // strips them: chat metadata, a settings profile's metadata and the translator defaults for new chats. Per key,
-    // so her other chat-settings edits still apply; clearing one is allowed, since that sends nothing.
+    // so her other chat-settings edits still apply; clearing one is allowed, since that sends nothing. The Music DJ's
+    // default and character folders sit in its agent settings and get the same check (#8901).
     const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
       if (!row) return {};
       if (change.table === "chats") return parseJsonRecordValue(row.metadata);
@@ -9185,14 +9187,16 @@ export class MariDbService {
       if (
         CHAT_METADATA_LOCAL_DESTINATION_KEYS.some(
           (key) => after[key] && stableJson(after[key]) !== stableJson(before[key]),
-        )
+        ) ||
+        (change.table === "agent_configs" &&
+          addsMusicDjFolderPath(change.beforeRaw?.settings, change.afterRaw?.settings))
       ) {
         issues.push({
           level: "error",
           table: change.table,
           id: change.id,
           message:
-            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys, or a chat's music folder. The user enters them in Chat Settings.",
+            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys, or a music folder. The user enters them in Chat Settings.",
         });
       }
     }

@@ -395,14 +395,20 @@ export function applyAgentAddSetupToAgentSettings(
   if (agentId === "spotify") {
     next.musicProvider = setup.musicProvider;
     next.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
-    // Each "Apply to" choice writes only its own folder; this chat's folder goes to the chat (#8901).
-    if (setup.customMusicFolderTarget === "default") {
-      next.customMusicSource = setup.customMusicSource;
-      next.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicExternalFolder);
-    } else if (setup.customMusicFolderTarget === "character" && setup.customMusicCharacter) {
+    // Every folder edited here is saved to its own place, whichever "Apply to" is showing on Add, so the save
+    // matches "In use" (#8901). The default and source start from these settings, so unedited they stay as they are.
+    // This chat's folder goes to the chat (buildAgentAddMetadataPatch).
+    next.customMusicSource = setup.customMusicSource;
+    next.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicExternalFolder);
+    const character = setup.customMusicCharacter;
+    if (
+      character &&
+      normalizeCustomMusicExternalFolder(setup.customMusicCharacterFolder) !==
+        (readMusicDjCharacterFolders(settings)[character.id] ?? "")
+    ) {
       next.customMusicCharacterFolders = withMusicDjCharacterFolder(
         settings,
-        setup.customMusicCharacter.id,
+        character.id,
         setup.customMusicCharacterFolder,
       );
     }
@@ -469,8 +475,9 @@ export function buildAgentAddMetadataPatch(
   }
   if (agentId === "spotify") {
     patch.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
-    if (setup.customMusicFolderTarget === "chat") {
-      patch.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicChatFolder) || null;
+    const chatFolder = normalizeCustomMusicExternalFolder(setup.customMusicChatFolder);
+    if (chatFolder !== normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder)) {
+      patch.customMusicExternalFolder = chatFolder || null;
     }
   }
   if (agentId === "expression") {
@@ -615,6 +622,19 @@ function musicFolderPatch(target: MusicDjFolderSource, folder: string): Partial<
   if (target === "chat") return { customMusicChatFolder: folder };
   if (target === "character") return { customMusicCharacterFolder: folder };
   return { customMusicExternalFolder: folder };
+}
+
+/** The "In use" folder from every folder edited in the add window, which is what Add saves. */
+export function musicFolderInUse(value: AgentAddSetupState): MusicDjFolderResolution {
+  const character = value.customMusicCharacter;
+  return resolveMusicDjExternalFolder({
+    settings: {
+      customMusicExternalFolder: value.customMusicExternalFolder,
+      customMusicCharacterFolders: character ? { [character.id]: value.customMusicCharacterFolder } : {},
+    },
+    chatMetadata: { customMusicExternalFolder: value.customMusicChatFolder },
+    chatCharacterIds: character ? [character.id] : [],
+  });
 }
 
 function SetupTextarea({
@@ -1224,14 +1244,7 @@ function MusicDjSetupFields({
   const folderTarget = value.customMusicFolderTarget;
   const folderValue = musicFolderForTarget(value);
   const musicCharacter = value.customMusicCharacter;
-  const folderInUse = resolveMusicDjExternalFolder({
-    settings: {
-      customMusicExternalFolder: value.customMusicExternalFolder,
-      customMusicCharacterFolders: musicCharacter ? { [musicCharacter.id]: value.customMusicCharacterFolder } : {},
-    },
-    chatMetadata: { customMusicExternalFolder: value.customMusicChatFolder },
-    chatCharacterIds: musicCharacter ? [musicCharacter.id] : [],
-  });
+  const folderInUse = musicFolderInUse(value);
 
   const selectCustomMusicFolder = async () => {
     try {

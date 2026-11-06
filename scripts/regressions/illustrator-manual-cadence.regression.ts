@@ -11,10 +11,13 @@ import {
   shouldSkipAgentByMessageInterval,
 } from "../../packages/server/src/services/generation/agent-cadence.js";
 import { normalizeIllustratorRunInterval } from "../../packages/shared/src/utils/illustrator-generation-count.js";
+import { resolveMusicDjExternalFolder } from "../../packages/shared/src/utils/music-dj-folder.js";
 import {
   applyAgentAddSetupToAgentSettings,
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
+  musicFolderInUse,
+  type AgentAddSetupState,
 } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 
 const illustrator = getAgentRunIntervalMeta("illustrator")!;
@@ -187,7 +190,7 @@ assert.equal(
 );
 assert.equal(applyAgentAddSetupToAgentSettings("illustrator", illustratorSetup, { runInterval: 5 }).runInterval, 5);
 
-// Music DJ "Apply to" (#8901): this chat, its only character, or all chats. Each choice writes only its own folder.
+// Music DJ "Apply to" (#8901): this chat, its only character, or all chats. Each folder is saved to its own place.
 const musicSettings = {
   customMusicSource: "game-assets",
   customMusicExternalFolder: "/music/default",
@@ -219,48 +222,118 @@ assert.equal(
   null,
   "a group chat offers no character",
 );
-const musicWrites = (target: "chat" | "character" | "default", folder: string) => {
-  const setup = {
-    ...musicSetup(),
-    customMusicSource: "folder" as const,
-    customMusicFolderTarget: target,
-    customMusicChatFolder: target === "chat" ? folder : "/music/unused-chat",
-    customMusicCharacterFolder: target === "character" ? folder : "/music/unused-character",
-    customMusicExternalFolder: target === "default" ? folder : "/music/unused-default",
-  };
+// Add saves every folder edited in the window to its own place, whichever "Apply to" is showing, so what it saves is
+// what "In use" showed. Each edit below is what the window's controls set.
+const nazuna = [{ id: "nazuna", name: "Nazuna" }];
+const keyleth = [{ id: "keyleth", name: "Keyleth" }];
+const chatWithFolder = { customMusicExternalFolder: "/music/chat" };
+const useDefault = { customMusicFolderTarget: "chat", customMusicChatFolder: "" } as const;
+const unlink = { customMusicFolderTarget: "character", customMusicCharacterFolder: "" } as const;
+const addMusicDj = (
+  metadata: Record<string, unknown>,
+  chatCharacters: Array<{ id: string; name: string }>,
+  ...edits: Array<Partial<AgentAddSetupState>>
+) => {
+  const setup = edits.reduce<AgentAddSetupState>(
+    (state, edit) => ({ ...state, ...edit }),
+    musicSetup(metadata, chatCharacters),
+  );
   const settings = applyAgentAddSetupToAgentSettings("spotify", setup, musicSettings);
+  const patch = buildAgentAddMetadataPatch("spotify", setup, metadata);
+  assert.deepEqual(
+    resolveMusicDjExternalFolder({
+      settings,
+      chatMetadata: { ...metadata, ...patch },
+      chatCharacterIds: chatCharacters.map((character) => character.id),
+    }),
+    musicFolderInUse(setup),
+    `Add saves the folder "In use" shows after ${JSON.stringify(edits)}`,
+  );
   return {
     source: settings.customMusicSource,
     defaultFolder: settings.customMusicExternalFolder,
     characterFolders: settings.customMusicCharacterFolders,
-    chatFolder: buildAgentAddMetadataPatch("spotify", setup, {}).customMusicExternalFolder,
+    chatFolder: patch.customMusicExternalFolder,
   };
 };
-assert.deepEqual(musicWrites("chat", " /music/chat "), {
+assert.deepEqual(
+  addMusicDj(chatWithFolder, keyleth),
+  {
+    source: "game-assets",
+    defaultFolder: "/music/default",
+    characterFolders: { keyleth: "/music/keyleth" },
+    chatFolder: undefined,
+  },
+  "an untouched window keeps every saved folder",
+);
+assert.deepEqual(addMusicDj({}, nazuna, { customMusicFolderTarget: "chat", customMusicChatFolder: " /music/chat " }), {
   source: "game-assets",
   defaultFolder: "/music/default",
   characterFolders: { keyleth: "/music/keyleth" },
   chatFolder: "/music/chat",
 });
-assert.deepEqual(musicWrites("character", "/music/nazuna"), {
-  source: "game-assets",
-  defaultFolder: "/music/default",
-  characterFolders: { keyleth: "/music/keyleth", nazuna: "/music/nazuna" },
-  chatFolder: undefined,
-});
-assert.deepEqual(musicWrites("default", "/music/new-default"), {
-  source: "folder",
-  defaultFolder: "/music/new-default",
-  characterFolders: { keyleth: "/music/keyleth" },
-  chatFolder: undefined,
-});
-assert.equal(musicWrites("chat", "").chatFolder, null, "Use default clears only this chat's folder");
-const unlinked = applyAgentAddSetupToAgentSettings(
-  "spotify",
-  { ...musicSetup({}, [{ id: "keyleth", name: "Keyleth" }]), customMusicCharacterFolder: "" },
-  musicSettings,
+assert.deepEqual(
+  addMusicDj({}, nazuna, { customMusicFolderTarget: "character", customMusicCharacterFolder: "/music/nazuna" }),
+  {
+    source: "game-assets",
+    defaultFolder: "/music/default",
+    characterFolders: { keyleth: "/music/keyleth", nazuna: "/music/nazuna" },
+    chatFolder: undefined,
+  },
 );
-assert.deepEqual(unlinked.customMusicCharacterFolders, {}, "Unlink removes only that character's folder");
+assert.deepEqual(
+  addMusicDj({}, nazuna, {
+    customMusicFolderTarget: "default",
+    customMusicSource: "folder",
+    customMusicExternalFolder: "/music/new-default",
+  }),
+  {
+    source: "folder",
+    defaultFolder: "/music/new-default",
+    characterFolders: { keyleth: "/music/keyleth" },
+    chatFolder: undefined,
+  },
+);
+assert.deepEqual(
+  addMusicDj(
+    {},
+    nazuna,
+    { customMusicFolderTarget: "chat", customMusicChatFolder: "/music/a" },
+    { customMusicFolderTarget: "default", customMusicSource: "folder", customMusicExternalFolder: "/music/b" },
+  ),
+  {
+    source: "folder",
+    defaultFolder: "/music/b",
+    characterFolders: { keyleth: "/music/keyleth" },
+    chatFolder: "/music/a",
+  },
+  "switching Apply to keeps the folder typed for this chat",
+);
+assert.deepEqual(
+  addMusicDj(
+    {},
+    nazuna,
+    { customMusicFolderTarget: "character", customMusicCharacterFolder: "/music/nazuna" },
+    { customMusicFolderTarget: "chat" },
+  ).characterFolders,
+  { keyleth: "/music/keyleth", nazuna: "/music/nazuna" },
+  "switching Apply to keeps the character's new folder",
+);
+assert.equal(
+  addMusicDj(chatWithFolder, nazuna, useDefault, { customMusicFolderTarget: "default" }).chatFolder,
+  null,
+  "Use default still clears this chat's folder after switching Apply to",
+);
+assert.deepEqual(
+  addMusicDj(chatWithFolder, keyleth, useDefault, unlink),
+  {
+    source: "game-assets",
+    defaultFolder: "/music/default",
+    characterFolders: {},
+    chatFolder: null,
+  },
+  "Use default and then Unlink clear both folders",
+);
 
 // Run the production formatter without booting browser hooks in Node.
 const hookSource = readFileSync(new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url), "utf8");
