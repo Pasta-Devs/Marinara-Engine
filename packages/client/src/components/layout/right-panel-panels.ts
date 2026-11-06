@@ -17,5 +17,5 @@ export const RIGHT_PANELS = {
 };
 
 export function preloadRightPanel(panel: string) {
-  if (panel in RIGHT_PANELS) void RIGHT_PANELS[panel as keyof typeof RIGHT_PANELS].preload();
+  if (panel in RIGHT_PANELS) RIGHT_PANELS[panel as keyof typeof RIGHT_PANELS].preload().catch(() => undefined);
 }

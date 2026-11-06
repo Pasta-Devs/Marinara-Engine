@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Right Panel (polished with panel transitions)
 // ──────────────────────────────────────────────
-import { Activity, Suspense, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { Activity, Suspense, useRef, useState, type ReactNode } from "react";
 import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
@@ -68,8 +68,6 @@ const PANEL_CONFIG: Record<string, PanelConfig> = {
   },
   extensions: { title: "Extensions", icon: <Puzzle size="0.875rem" /> },
 };
-
-const PANELS: Record<string, ComponentType> = RIGHT_PANELS;
 
 const PANEL_CONTRIBUTION_SURFACES: Partial<Record<string, Exclude<PersonalExtensionContributionSurface, "top-bar">>> = {
   "bot-browser": "bots",
@@ -175,7 +173,7 @@ export function RightPanel() {
 
       {/* Content — keep visited panels mounted but hidden to avoid re-animation */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {Object.entries(PANELS).map(([key, PanelComp]) => {
+        {Object.entries(RIGHT_PANELS).map(([key, PanelComp]) => {
           if (!mountedPanels.has(key)) return null;
           const active = key === panel && panelOpen;
           const panelContent = (

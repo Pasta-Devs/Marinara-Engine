@@ -248,8 +248,9 @@ export function AppShell({
   // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
   useEffect(() => {
     const preload = () => {
-      void ChatArea.preload();
-      void RightPanel.preload();
+      // A failed preload only means the click loads the code; the lazy import reports real failures.
+      ChatArea.preload().catch(() => undefined);
+      RightPanel.preload().catch(() => undefined);
     };
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(preload, { timeout: 5_000 });

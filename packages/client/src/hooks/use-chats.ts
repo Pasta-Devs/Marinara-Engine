@@ -364,8 +364,11 @@ export function usePrefetchChatMessages() {
   const queryClient = useQueryClient();
   const pageSize = useUIStore((state) => state.messagesPerPage);
   return useCallback(
-    (chatId: string) =>
-      void queryClient.prefetchInfiniteQuery({ ...chatMessagesQueryOptions(chatId, pageSize), staleTime: 10_000 }),
+    (chatId: string) => {
+      // A cached transcript refreshes on open; prefetching it would re-download every loaded page.
+      if (queryClient.getQueryData(chatKeys.messages(chatId))) return;
+      void queryClient.prefetchInfiniteQuery(chatMessagesQueryOptions(chatId, pageSize));
+    },
     [queryClient, pageSize],
   );
 }

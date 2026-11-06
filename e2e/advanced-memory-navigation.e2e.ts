@@ -162,6 +162,8 @@ for (const { detached, pinned } of [
               const { queryClient } = await import("/src/lib/query-client.ts" as string);
               const { chatKeys } = await import("/src/hooks/use-chats.ts" as string);
               queryClient.removeQueries({ queryKey: chatKeys.detail(id), exact: true });
+              // The list row is a placeholder for the detail, so a cold chat must leave the cached list too.
+              queryClient.setQueryData<{ id: string }[]>(chatKeys.list(), (old) => old?.filter((row) => row.id !== id));
             }, chat.id);
           }
         }
