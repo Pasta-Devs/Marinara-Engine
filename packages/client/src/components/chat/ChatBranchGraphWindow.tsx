@@ -64,9 +64,27 @@ function getBranchGraphDefaultLayout(bounds: WindowBounds): WindowLayout {
 }
 
 /** The long button over the Chat Branches section's other buttons; it opens (or closes) the graph window. */
-export function ChatBranchGraphButton() {
+export function ChatBranchGraphButton({ compact = false }: { compact?: boolean } = {}) {
   const { t: localizeUi } = useUiTranslation();
   const open = useFloatingWindowStore((state) => state.open[CHAT_BRANCH_GRAPH_WINDOW_ID] === true);
+  if (compact) {
+    // New layout: one button in the Chat Branches toolbar row.
+    return (
+      <button
+        type="button"
+        data-chat-branch-graph-button
+        aria-pressed={open}
+        title={localizeUi("chat.settings.branchGraphOpen")}
+        className="ov-cb-io__btn"
+        onClick={(event) =>
+          useFloatingWindowStore.getState().toggleWindow(CHAT_BRANCH_GRAPH_WINDOW_ID, event.currentTarget)
+        }
+      >
+        <GitGraph size="0.8125rem" />
+        <span className="ov-cb-io__label">{localizeUi("chat.settings.branchGraph")}</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"

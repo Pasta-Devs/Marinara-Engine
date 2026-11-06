@@ -42,7 +42,7 @@ import {
 import { HelpTooltip } from "./HelpTooltip";
 import { useDrawerHost, type DrawerHost } from "./drawer-host";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useMobileChatSettingsNav } from "../../features/chat-settings/mobile-nav";
 
 export interface DrawerProps {
@@ -92,10 +92,38 @@ function toGeometry(rect: DOMRect): WindowGeometry {
 function readDetachedSize(drawer: DOMRect, open: boolean, bounds: WindowBounds) {
   const remPx = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   const maxHeight = Math.min(32 * remPx, bounds.bottom - bounds.top);
+  const overhaul = useOverhaulStore.getState();
+  if (overhaul.enabled && overhaul.desktop) {
+    // New layout: one compact 360px window that hugs an open section's content.
+    return {
+      width: 22.5 * remPx,
+      height: open ? Math.min(Math.max(drawer.height, 7 * remPx), maxHeight) : 18 * remPx,
+    };
+  }
   return {
     width: Math.min(Math.max(drawer.width, 18 * remPx), 28 * remPx),
     height: open ? Math.min(Math.max(drawer.height + WINDOW_HEADER_PX, 14 * remPx), maxHeight) : 22 * remPx,
   };
+}
+
+/** New layout: once the popped-out window has rendered, its height grows or shrinks to fit the section. */
+function fitDetachedHeight(windowId: FloatingWindowId, layout: WindowLayout) {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const root = document.querySelector<HTMLElement>(`.mari-window[data-window="${CSS.escape(windowId)}"]`);
+      const scroller = root?.querySelector<HTMLElement>(".mari-window__body > .overflow-y-auto");
+      if (!root || !scroller) return;
+      const remPx = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+      const bounds = readFloatingWindowBounds();
+      const extra = scroller.scrollHeight - scroller.clientHeight;
+      const content = scroller.firstElementChild?.getBoundingClientRect().height ?? scroller.clientHeight;
+      const delta = extra > 0 ? extra : content - scroller.clientHeight;
+      if (Math.abs(delta) < 4) return;
+      const maxHeight = Math.min(36 * remPx, bounds.bottom - layout.y - 8);
+      const height = Math.round(Math.min(Math.max(root.offsetHeight + delta, 6 * remPx), maxHeight));
+      useFloatingWindowStore.getState().saveLayout(windowId, { ...layout, height });
+    }),
+  );
 }
 
 function popOutLayout(geometry: WindowGeometry): WindowLayout {
@@ -259,7 +287,10 @@ export function Drawer({
     }
     const windows = useFloatingWindowStore.getState();
     const phone = isPhoneWindowLayout();
-    windows.detachDrawer(windowId, popOutLayout(geometry), { focus: !phone });
+    const layout = popOutLayout(geometry);
+    windows.detachDrawer(windowId, layout, { focus: !phone });
+    const overhaul = useOverhaulStore.getState();
+    if (!phone && overhaul.enabled && overhaul.desktop) fitDetachedHeight(windowId, layout);
     if (phone) {
       // On a phone it becomes a bubble, and the sheet covering the chat closes so the bubble shows.
       windows.closeWindow(windowId);
