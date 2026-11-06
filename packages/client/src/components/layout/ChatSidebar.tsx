@@ -33,7 +33,14 @@ import {
   Activity,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
-import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
+import {
+  useBulkExportChats,
+  useChats,
+  useCreateChat,
+  useDeleteChat,
+  useDeleteChatGroup,
+  usePrefetchChatMessages,
+} from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
 import { useConnections } from "../../hooks/use-connections";
 import {
@@ -250,6 +257,7 @@ export function ChatSidebar() {
   const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
+  const prefetchChatMessages = usePrefetchChatMessages();
   const { data: chatPresetsData } = useChatPresets();
   const applyChatPreset = useApplyChatPreset();
   const deleteChat = useDeleteChat();
@@ -1184,6 +1192,7 @@ export function ChatSidebar() {
             });
           }}
           onMouseDown={(event) => startMouseDrag(event, chat.id)}
+          onPointerDown={() => prefetchChatMessages(chat.id)}
           draggable
           onDragStart={(event) => {
             const chatIds = getDragChatIds(chat.id);

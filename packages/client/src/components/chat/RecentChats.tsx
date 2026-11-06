@@ -10,6 +10,7 @@ import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { usePrefetchChatMessages } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useTranslation } from "react-i18next";
 import { ChatModeIcon } from "./ChatModeIcon";
@@ -84,6 +85,7 @@ export function RecentChats() {
   const feed = useHomeFeed();
   const gameAssets = useGameAssetManifest();
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
+  const prefetchChatMessages = usePrefetchChatMessages();
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
   const characterIds = useMemo(
     () => Array.from(new Set(recentChats.flatMap(({ chat }) => chat.characterIds))),
@@ -238,6 +240,7 @@ export function RecentChats() {
             key={chat.id}
             type="button"
             onClick={() => setActiveChatId(chat.id)}
+            onPointerDown={() => prefetchChatMessages(chat.id)}
             style={style}
             data-chat-mode={chatMode}
             data-recent-chat-index={index}

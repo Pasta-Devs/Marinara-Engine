@@ -2,6 +2,7 @@
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
 import { useQueryClient } from "@tanstack/react-query";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { GlobalOmnibar } from "./GlobalOmnibarHost";
@@ -70,7 +71,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
-const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
+const ChatArea = preloadedLazy(() => import("../chat/ChatArea").then((module) => module.ChatArea));
 const CharacterEditor = lazy(() =>
   import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
 );
@@ -101,7 +102,7 @@ const BotBrowserView = lazy(() =>
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
-const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const RightPanel = preloadedLazy(() => import("./RightPanel").then((module) => module.RightPanel));
 const TrackerDataSidebar = lazy(() =>
   import("./TrackerDataSidebar").then((module) => ({ default: module.TrackerDataSidebar })),
 );
@@ -244,6 +245,19 @@ export function AppShell({
   chatWindowIntroAllowed?: boolean;
   onChatWindowIntroOpenChange?: (open: boolean) => void;
 }) {
+  // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
+  useEffect(() => {
+    const preload = () => {
+      void ChatArea.preload();
+      void RightPanel.preload();
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(preload, 2_000);
+    return () => window.clearTimeout(timer);
+  }, []);
   const { t: localizeUi } = useUiTranslation();
   const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
   const queryClient = useQueryClient();
