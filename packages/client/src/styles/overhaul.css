@@ -8094,3 +8094,578 @@ input.ov-edhead__title:focus {
   outline: 2px solid var(--ov-accent);
   outline-offset: 1px;
 }
+
+/* ─── Popped-out Chat settings sections (board section 5): one compact window frame ─── */
+.mari-window.ov-cs--section > .mari-window__header {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.375rem 0.25rem 0.75rem;
+  gap: 0.25rem;
+}
+/* Framed skins (Dottore, Prof. Mari) keep room for their corners and crest. */
+:root:is([data-chat-widget-preset="dottore"], [data-chat-widget-preset="mari"])
+  .mari-window.ov-cs--section
+  > .mari-window__header {
+  min-height: 2.5rem;
+  padding: 0.5rem 1.125rem 0.375rem 1.25rem;
+}
+.ov-cs--section .mari-window__title {
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.ov-cs--section .mari-window__title-row {
+  min-width: 0;
+  gap: 0.375rem;
+}
+.ov-cs--section .mari-window__title-row .mari-help-tooltip,
+.ov-cs--section .mari-window__title-row > :not(h2) svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+.ov-cs--section .mari-window__controls {
+  gap: 0;
+}
+.ov-cs--section .mari-window__control {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+.ov-cs--section .mari-window__control svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.ov-cs--section .mari-window__body {
+  container-type: inline-size;
+}
+.ov-cb-io {
+  flex-wrap: nowrap;
+}
+.ov-cb-io__btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ov-cb-io__btn[aria-pressed="true"] {
+  background: var(--ov-active-bg);
+}
+.ov-cb-io__menu .ov-cb-io__menu-range {
+  border-top: 1px solid var(--ov-line);
+}
+/* A narrow window (or a wide skin font) keeps one row by dropping the labels; each button keeps its title. */
+@container (max-width: 25rem) {
+  .ov-cb-io__label {
+    display: none;
+  }
+  .ov-cb-io__btn {
+    padding: 0 0.5rem;
+  }
+}
+/* Persona: "Apply persona to earlier messages…" is a one-line text link, not a full-width box. */
+.ov-cs .ov-persona-reassign {
+  width: auto;
+  max-width: 100%;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-accent);
+  font-size: 0.75rem;
+}
+.ov-cs .ov-persona-reassign span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-cs .ov-persona-reassign:hover {
+  color: var(--ov-text);
+  text-decoration: underline;
+}
+
+/* ─── Connections landing (board "ConnList"): accounts table with nested models ─── */
+.ov-conn .ov-gallery__tools {
+  margin: 0.625rem 0 0;
+}
+.ov-conn .ov-gallery__tools + .ov-gallery__tools {
+  margin-top: 0.5rem;
+}
+.ov-conn__count {
+  margin-left: 0.75rem;
+  color: var(--ov-muted);
+  font: 400 0.875rem/1 var(--font-sans, inherit);
+  vertical-align: middle;
+}
+.ov-conn__dim {
+  color: var(--ov-muted);
+}
+.ov-conn__note {
+  font-size: 0.75rem;
+}
+.ov-conn__nowrap {
+  white-space: nowrap;
+}
+.ov-conn-defaults {
+  margin-top: 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.ov-conn-defaults__head {
+  display: flex;
+  width: 100%;
+  height: 2.125rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  background: none;
+  color: var(--ov-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ov-conn-defaults__head svg {
+  flex-shrink: 0;
+  color: var(--ov-muted);
+  transition: transform 120ms;
+}
+.ov-conn-defaults__title {
+  font-weight: 600;
+}
+.ov-conn-defaults__warn {
+  margin-left: auto;
+  color: var(--ov-mode-game);
+  font-size: 0.75rem;
+}
+.ov-conn-defaults__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--ov-line);
+}
+.ov-conn-defaults__cell {
+  display: flex;
+  min-width: 0;
+  height: 1.875rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--ov-line);
+  border-right: 1px solid var(--ov-line);
+  background: none;
+  color: var(--ov-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ov-conn-defaults__cell:nth-child(3n) {
+  border-right: 0;
+}
+.ov-conn-defaults__cell:hover {
+  background: var(--ov-hover);
+}
+.ov-conn-defaults__job {
+  width: 6.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  color: var(--ov-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-conn-defaults__value {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-conn-defaults__value.is-unset {
+  color: var(--ov-muted);
+}
+.ov-conn-defaults__value.is-warn {
+  color: var(--ov-mode-game);
+}
+.ov-conn .ov-table-wrap {
+  margin-top: 0.875rem;
+}
+.ov-conn__table td,
+.ov-conn__table th {
+  height: 2.25rem;
+}
+.ov-conn__table .ov-conn__lead {
+  width: 1.75rem;
+  padding-right: 0 !important;
+  color: var(--ov-muted);
+}
+.ov-conn__table .ov-conn__fill {
+  width: 30%;
+}
+.ov-conn__table .ov-conn__num {
+  width: 4.5rem;
+  text-align: left;
+}
+.ov-conn__table .ov-conn__act {
+  width: 2.5rem;
+  text-align: right;
+}
+.ov-conn__account {
+  cursor: pointer;
+}
+.ov-conn__account.is-open > td {
+  background: color-mix(in srgb, var(--ov-text) 3%, transparent);
+}
+.ov-conn__acct,
+.ov-conn__model-name {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+.ov-conn__acct b,
+.ov-conn__model-name b {
+  font-weight: 600;
+}
+.ov-conn__acct .ov-conn__dim,
+.ov-conn__model-name .ov-conn__dim {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-conn__model > td {
+  height: 2.125rem;
+  font-size: 0.8125rem;
+}
+.ov-conn__model > td:nth-child(2) {
+  padding-left: 1.75rem;
+}
+.ov-conn__model b {
+  font-weight: 500;
+}
+.ov-conn__star {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-muted);
+  cursor: pointer;
+}
+.ov-conn__star.is-on {
+  color: var(--ov-mode-game);
+}
+.ov-conn__star.is-on svg {
+  fill: currentColor;
+}
+.ov-conn__star:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.ov-conn__chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.ov-conn__chip {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  background: var(--ov-hover);
+  color: var(--ov-text);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.ov-conn__chip.is-main {
+  background: color-mix(in srgb, var(--ov-mode-game) 18%, transparent);
+  color: var(--ov-mode-game);
+}
+.ov-conn__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+.ov-conn__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--ov-muted);
+}
+.ov-conn__status.is-ok .ov-conn__dot {
+  background: #5fc98a;
+}
+.ov-conn__status.is-needs_key {
+  color: #e07a7a;
+}
+.ov-conn__status.is-needs_key .ov-conn__dot {
+  background: #e07a7a;
+}
+.ov-conn__more {
+  display: inline-flex;
+  width: 1.625rem;
+  height: 1.625rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--ov-muted);
+  cursor: pointer;
+}
+.ov-conn__more:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-conn__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.ov-conn__menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.ov-menu.ov-conn__menu {
+  position: fixed;
+  z-index: 61;
+  transform: translateX(-100%);
+}
+.ov-conn__table {
+  width: 100%;
+  table-layout: fixed;
+}
+.ov-conn__table th:nth-child(2) {
+  width: 34%;
+}
+.ov-conn__table .ov-conn__fill {
+  width: auto;
+}
+.ov-conn__table th:nth-child(5) {
+  width: 8.5rem;
+}
+.ov-conn__table th:nth-child(6) {
+  width: 7.5rem;
+}
+.ov-conn__table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-conn__acct,
+.ov-conn__model-name {
+  overflow: hidden;
+}
+.ov-conn-defaults__job {
+  width: 8rem;
+}
+.ov-conn__model-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ov-conn__model-line .ov-conn__model-name {
+  min-width: 0;
+  flex: 1;
+}
+.ov-conn__ctx {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+.ov-conn__table th.ov-conn__act,
+.ov-conn__table td.ov-conn__act {
+  width: 3rem;
+  padding-left: 0 !important;
+  padding-right: 0.5rem !important;
+  overflow: visible;
+}
+.ov-conn-defaults__job {
+  width: auto;
+  max-width: 55%;
+}
+.ov-conn__acct .ov-conn__dim,
+.ov-conn__model-name .ov-conn__dim {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-conn__table .ov-conn__acct {
+  display: flex;
+}
+.ov-conn__acct b,
+.ov-conn__model-name b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Add account: a menu under the button (steps 1-2), not a centred window ── */
+.mari-modal-panel.ov-add-drop {
+  position: fixed !important;
+  top: var(--ov-drop-top);
+  right: var(--ov-drop-right);
+  width: 23rem !important;
+  max-width: calc(100vw - 1rem) !important;
+  height: auto;
+  max-height: calc(100dvh - var(--ov-drop-top) - 0.75rem) !important;
+  margin: 0 !important;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.45);
+}
+.mari-modal-panel.ov-add-drop--list {
+  height: min(70dvh, 34rem);
+}
+/* The list is the whole menu: no title bar over the search field. */
+.mari-modal-panel.ov-add-drop--list > :first-child {
+  display: none;
+}
+.ov-add-drop > :first-child {
+  min-height: 2.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+}
+.ov-add-list {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+.ov-add-list__top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-add-list__top .ov-search {
+  width: 100%;
+}
+.ov-add-list__tabs {
+  display: flex;
+  border-radius: 0.5rem;
+}
+.ov-add-list__tabs button {
+  flex: 1;
+  border-radius: 0.375rem;
+  padding: 0.1875rem 0.25rem;
+  white-space: nowrap;
+}
+.ov-add-list__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.25rem 0 0.5rem;
+}
+.ov-add-list__section,
+.ov-add-list__group {
+  padding: 0.625rem 0.75rem 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ov-add-list__section {
+  color: var(--ov-text);
+}
+.ov-add-list__row {
+  display: flex;
+  width: 100%;
+  height: 1.875rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-add-list__row:hover,
+.ov-add-list__row:focus-visible {
+  background: var(--ov-hover);
+  outline: none;
+}
+.ov-add-list__row > :first-child {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 0.3125rem;
+  font-size: 0.5625rem;
+}
+.ov-add-list__row > :first-child svg,
+.ov-add-list__row > :first-child img {
+  max-width: 0.875rem;
+  max-height: 0.875rem;
+}
+.ov-add-list__name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-add-list__tag {
+  flex-shrink: 0;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-add-list__tag.is-good {
+  color: color-mix(in srgb, var(--color-emerald-500) 80%, var(--ov-text) 20%);
+}
+.ov-add-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+/* New layout: connection windows take the app accent (amber in Stage), like the rest of the Library. */
+:root[data-overhaul="on"] .mari-connection-scope {
+  --mari-panel-gradient-start: var(--ov-accent);
+  --mari-panel-gradient-end: color-mix(in srgb, var(--ov-accent) 85%, #000);
+  --mari-panel-gradient-text: var(--primary-foreground);
+}
+/* The key step's title bar matches the menu's scale. */
+.ov-add-drop > :first-child .mari-editor-action {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0;
+}
+.ov-add-drop > :first-child > div > :nth-child(2):not(h3):not(input) {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  min-width: 1.5rem;
+  border-radius: 0.375rem;
+}
+.ov-add-drop > :first-child input {
+  height: 1.75rem;
+  border-color: transparent;
+  font-size: 0.875rem;
+}
+.ov-add-drop > :first-child input:hover {
+  border-color: var(--ov-line);
+}
+/* Long account names stay on one line in the viewer's list headings. */
+.ov-vw__ghead {
+  min-width: 0;
+  text-align: left;
+}
+.ov-vw__ghead > span:first-of-type {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -162,6 +162,7 @@ export function ModalRenderer() {
           initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
           modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
           forJob={modal?.props?.forJob as AddFor | undefined}
+          anchor={modal?.props?.anchor as string | undefined}
         />
       );
       break;

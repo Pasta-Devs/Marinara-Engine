@@ -988,9 +988,8 @@ export function AppShell({
             ? null
             : "agents"
           : !ovOtherDetail &&
-              (overhaulLibraryPage === "regex" ||
-                overhaulLibraryPage === "connections" ||
-                overhaulLibraryPage === "agents")
+              // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
+              (overhaulLibraryPage === "regex" || overhaulLibraryPage === "agents")
             ? overhaulLibraryPage
             : null;
 

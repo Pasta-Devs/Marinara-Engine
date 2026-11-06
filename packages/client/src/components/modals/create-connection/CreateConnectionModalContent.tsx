@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   type DecisionSource,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
+import { useOverhaulActive } from "../../../stores/overhaul.store";
 import {
   useCreateConnection,
   useConnectionModels,
@@ -90,6 +91,8 @@ export interface CreateConnectionModalProps {
   onStartChat?: (connectionId?: string) => Promise<void>;
   /** Add for a job: step 1 starts filtered to it, and Done sets the new Model for it (with Undo). */
   forJob?: AddFor;
+  /** New layout: steps 1-2 drop down under the element with this data-ov-anchor instead of a centred window. */
+  anchor?: string;
 }
 
 /** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
@@ -103,8 +106,11 @@ export function CreateConnectionModalContent({
   newChatMode,
   onStartChat,
   forJob,
+  anchor,
 }: CreateConnectionModalProps) {
   const { t } = useTranslation();
+  const ovDesktop = useOverhaulActive();
+  const [anchorBox, setAnchorBox] = useState<{ top: number; right: number } | null>(null);
   const { data: accounts } = useConnectionAccounts();
   const connectionsQuery = useConnections();
   const rows = connectionsQuery.data;
@@ -385,6 +391,34 @@ export function CreateConnectionModalContent({
     if (closeBlocked) return;
     void close();
   };
+
+  // New layout: picking a service and giving its key happen in a menu under "Add account"; models stay a window.
+  const dropdown = ovDesktop && !!anchor && !modelsFor && (step === 1 || step === 2) && anchorBox !== null;
+  useLayoutEffect(() => {
+    if (!ovDesktop || !anchor || !open) return;
+    const measure = () => {
+      const el = document.querySelector(`[data-ov-anchor="${anchor}"]`);
+      if (!el) return setAnchorBox(null);
+      const rect = el.getBoundingClientRect();
+      setAnchorBox({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [ovDesktop, anchor, open]);
+  const dropRef = useRef(requestClose);
+  dropRef.current = requestClose;
+  useEffect(() => {
+    // A menu closes on a click outside it while nothing has been typed yet.
+    if (!dropdown || step !== 1) return;
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest(".ov-add-drop") || target?.closest(`[data-ov-anchor="${anchor}"]`)) return;
+      dropRef.current();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [dropdown, step, anchor]);
 
   const resetFields = () => {
     setTarget(null);
@@ -960,11 +994,19 @@ export function CreateConnectionModalContent({
     "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
   // On sm+ the top sits where the tall panel's centred top is, so the short cards screen grows downward
   // and the search field stays under the caret when typing switches to the tall results.
-  const panelClass = cn(
-    "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    // The key step fits its content; the lists and the built-in model keep the tall frame.
-    step === 2 && device !== "local_model" && service !== DECISION_BUILTIN ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
-  );
+  const panelClass = dropdown
+    ? cn("mari-connection-scope ov-add-drop", step === 1 && "ov-add-drop--list")
+    : cn(
+        "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
+        // The key step fits its content; the lists and the built-in model keep the tall frame.
+        step === 2 && device !== "local_model" && service !== DECISION_BUILTIN
+          ? "sm:h-auto"
+          : "sm:h-[min(90dvh,44rem)]",
+      );
+  const dropStyle: CSSProperties | undefined =
+    dropdown && anchorBox
+      ? ({ "--ov-drop-top": `${anchorBox.top}px`, "--ov-drop-right": `${anchorBox.right}px` } as CSSProperties)
+      : undefined;
 
   return (
     <Modal
@@ -972,9 +1014,11 @@ export function CreateConnectionModalContent({
       onClose={requestClose}
       // Picking models has no back step: its heading is the window title, not a second line under it.
       title={step === 3 && !goBack ? heading : t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
-      width={step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
+      width={dropdown ? "" : step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
       mobileFullscreen
       opaque
+      modeless={dropdown}
+      panelStyle={dropStyle}
       closeDisabled={closeBlocked}
       panelClassName={panelClass}
       contentClassName="flex flex-col overflow-hidden! p-0!"
@@ -1028,6 +1072,7 @@ export function CreateConnectionModalContent({
               choosePreset={choosePreset}
               openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
+              compact={dropdown}
             />
           )}
           {step === 2 && (
@@ -1153,7 +1198,7 @@ export function CreateConnectionModalContent({
         )}
 
         {/* The built-in model window brings its own footer. */}
-        {!(step === 2 && device === "local_model") && (
+        {!(step === 2 && device === "local_model") && !(dropdown && step === 1) && (
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
             {footerRight}
