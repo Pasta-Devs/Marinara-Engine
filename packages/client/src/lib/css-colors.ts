@@ -158,3 +158,24 @@ export function hsvToHex(hue: number, saturation: number, brightness: number) {
     )
     .join("")}`;
 }
+
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as lowercase `#rrggbb`, plus `aa` only when not opaque. */
+export function normalizeHexColor(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  const short = normalized.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f])?$/);
+  const long = short
+    ? `#${short
+        .slice(1)
+        .map((digit) => (digit ? digit + digit : ""))
+        .join("")}`
+    : normalized;
+  if (!/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/.test(long)) return null;
+  return long.endsWith("ff") && long.length === 9 ? long.slice(0, 7) : long;
+}
+
+const alphaHex = (alpha: number) =>
+  Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+/** `#rrggbb` with the alpha appended when it is not fully opaque. */
+export const withAlpha = (hex: string, alpha: number) => (alpha >= 1 ? hex : `${hex}${alphaHex(alpha)}`);

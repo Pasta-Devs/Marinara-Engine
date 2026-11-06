@@ -3984,6 +3984,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
 
               <SearchableSettingTarget controlId="app-accent-color">
                 <ColorPicker
+                  opacity={false}
                   value={displayedAppAccentColor}
                   onChange={handleAppAccentColorChange}
                   gradient

@@ -636,6 +636,7 @@ export function GameWidgetSetupEditor({
                   </select>
                 </label>
                 <ColorPicker
+                  opacity={false}
                   compact
                   label={localizeUi("ui.game.gamewidgetsetupeditor.accent")}
                   value={widget.accent === DEFAULT_ACCENTS[widget.type] ? "" : (widget.accent ?? "")}

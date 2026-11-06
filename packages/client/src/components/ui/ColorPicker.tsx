@@ -10,12 +10,14 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
+import { Crosshair, Palette, Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_ICON_BUTTON_CLASS } from "../panels/settings/SettingControls";
 import {
   hexToHsv,
   hsvToHex,
+  normalizeHexColor,
+  withAlpha,
   isCssGradient,
   MARINARA_GRADIENT_PRESET,
   RAINBOW_GRADIENT_PRESET,
@@ -47,6 +49,8 @@ interface ColorPickerProps {
   disabled?: boolean;
   /** Show only the label row and the always-open picker panel; the caller supplies its own trigger. */
   panelOnly?: boolean;
+  /** Offer the opacity strip (default). Turn off where the value gets its own alpha appended later. */
+  opacity?: boolean;
 }
 
 /** Preset palette colors */
@@ -137,20 +141,6 @@ function cacheResolvedCssColor(key: string, value: string | null) {
   resolvedCssColorCache.set(key, value);
 }
 
-function normalizeHexColor(value: string): string | null {
-  const normalized = value.trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized;
-  const short = normalized.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
-  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
-  const opaqueLong = normalized.match(/^#([0-9a-f]{6})ff$/i);
-  if (opaqueLong) return `#${opaqueLong[1]}`;
-  const opaqueShort = normalized.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])f$/i);
-  if (opaqueShort) {
-    return `#${opaqueShort[1]}${opaqueShort[1]}${opaqueShort[2]}${opaqueShort[2]}${opaqueShort[3]}${opaqueShort[3]}`;
-  }
-  return null;
-}
-
 function resolveCssColorToHex(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -182,8 +172,8 @@ function resolveCssColorToHex(value: string): string | null {
   let resolved = normalizeHexColor(normalized);
   if (!resolved) {
     const rgb = normalized.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/);
-    if (rgb && (rgb[4] === undefined || Number(rgb[4]) === 1)) {
-      resolved = `#${rgb
+    if (rgb) {
+      const hex = `#${rgb
         .slice(1, 4)
         .map((channel) =>
           Math.max(0, Math.min(255, Math.round(Number(channel))))
@@ -191,6 +181,7 @@ function resolveCssColorToHex(value: string): string | null {
             .padStart(2, "0"),
         )
         .join("")}`;
+      resolved = withAlpha(hex, rgb[4] === undefined ? 1 : Number(rgb[4]));
     }
   }
   cacheResolvedCssColor(cacheKey, resolved);
@@ -221,49 +212,133 @@ function parseGradientColorStop(stop: string): { color: string; suffix: string; 
 }
 
 const clampUnit = (value: number) => Math.min(1, Math.max(0, value));
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 const HUE_GRADIENT = "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)";
+const CHECKER_BACKGROUND = "repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%) 0 0 / 0.5rem 0.5rem";
 const HANDLE_CLASS =
   "pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45),0_1px_3px_rgba(0,0,0,0.4)]";
 const SLIDER_FOCUS_CLASS =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--background)]";
 
 type EyeDropperConstructor = new () => { open: () => Promise<{ sRGBHex: string }> };
-/** The browser's screen colour dropper (Chromium desktop only), or undefined. */
+/** The browser's screen colour dropper (Chromium desktop, secure pages only), or undefined. */
 function getEyeDropper() {
   return typeof window === "undefined"
     ? undefined
     : (window as unknown as { EyeDropper?: EyeDropperConstructor }).EyeDropper;
 }
 
-/** Drag-to-pick colour selector: saturation/brightness square, hue strip and the screen dropper. */
+function arrowStep(event: ReactKeyboardEvent) {
+  const step = event.shiftKey ? 10 : 1;
+  const dx = event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
+  const dy = event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
+  if (dx || dy) event.preventDefault();
+  return [dx, dy] as const;
+}
+
+/** Pointer capture for a 2D or 1D drag surface: reports the pointer as 0-1 fractions of the box. */
+function dragProps(read: (x: number, y: number) => void, commit: () => void) {
+  const readEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    read(clampUnit((event.clientX - rect.left) / rect.width), clampUnit((event.clientY - rect.top) / rect.height));
+  };
+  return {
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.focus();
+      readEvent(event);
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) readEvent(event);
+    },
+    onPointerUp: commit,
+    onPointerCancel: commit,
+    onKeyUp: commit,
+  };
+}
+
+/** One horizontal strip slider (hue, opacity): drag, click or arrow keys. */
+function ColorStrip({
+  label,
+  valueNow,
+  valueMax,
+  valueText,
+  position,
+  background,
+  thumb,
+  onPick,
+  onStep,
+  onCommit,
+}: {
+  label: string;
+  valueNow: number;
+  valueMax: number;
+  valueText: string;
+  position: number;
+  background: string;
+  thumb: string;
+  onPick: (x: number) => void;
+  onStep: (delta: number) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <div
+      role="slider"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={valueMax}
+      aria-valuenow={Math.round(valueNow)}
+      aria-valuetext={valueText}
+      {...dragProps((x) => onPick(x), onCommit)}
+      onKeyDown={(event) => {
+        const [dx, dy] = arrowStep(event);
+        if (dx || dy) onStep(dx + dy);
+      }}
+      className={cn("relative h-3.5 cursor-pointer touch-none rounded-full", SLIDER_FOCUS_CLASS)}
+      style={{ background }}
+    >
+      <span aria-hidden="true" className={HANDLE_CLASS} style={{ left: `${position * 100}%`, background: thumb }} />
+    </div>
+  );
+}
+
+/**
+ * Drag-to-pick colour selector: saturation/brightness square, hue strip, optional opacity strip and the
+ * screen dropper. `value` is `#rrggbb` or `#rrggbbaa`; changes come back in the same form.
+ */
 function MarinaraColorSelector({
   value,
   onChange,
   onCommit,
   label,
+  opacity,
 }: {
   value: string;
   onChange: (value: string, defer?: boolean) => void;
   onCommit: () => void;
   label: string;
+  opacity: boolean;
 }) {
   const { t } = useUiTranslation();
+  const baseHex = value.slice(0, 7);
+  const alpha = opacity && value.length === 9 ? Number.parseInt(value.slice(7), 16) / 255 : 1;
   // The draft keeps hue and saturation while they cannot be read back from the hex (greys, black).
   const [draft, setDraft] = useState<[number, number, number] | null>(null);
   const previousValueRef = useRef(value);
-  const [hue, saturation, brightness] = draft ?? hexToHsv(value);
+  const [hue, saturation, brightness] = draft ?? hexToHsv(baseHex);
   const EyeDropper = getEyeDropper();
   useEffect(() => {
     const previousValue = previousValueRef.current;
     previousValueRef.current = value;
-    if (draft && value !== previousValue && hsvToHex(...draft).toLowerCase() !== value.toLowerCase()) {
+    if (draft && value !== previousValue && withAlpha(hsvToHex(...draft), alpha) !== value.toLowerCase()) {
       setDraft(null);
     }
-  }, [draft, value]);
+  }, [alpha, draft, value]);
 
-  const update = (next: [number, number, number]) => {
+  const update = (next: [number, number, number], nextAlpha = alpha) => {
     setDraft(next);
-    onChange(hsvToHex(...next), true);
+    onChange(withAlpha(hsvToHex(...next), nextAlpha), true);
   };
   const commit = () => {
     onCommit();
@@ -273,37 +348,15 @@ function MarinaraColorSelector({
     if (!EyeDropper) return;
     try {
       const { sRGBHex } = await new EyeDropper().open();
+      const picked = normalizeHexColor(sRGBHex);
+      if (!picked) return;
       setDraft(null);
-      onChange(sRGBHex);
+      onChange(withAlpha(picked.slice(0, 7), alpha));
     } catch {
       // Escape closes the dropper without a colour.
     }
   };
-
-  const pointerProps = (read: (x: number, y: number) => void) => ({
-    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      event.currentTarget.focus();
-      const rect = event.currentTarget.getBoundingClientRect();
-      read(clampUnit((event.clientX - rect.left) / rect.width), clampUnit((event.clientY - rect.top) / rect.height));
-    },
-    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      read(clampUnit((event.clientX - rect.left) / rect.width), clampUnit((event.clientY - rect.top) / rect.height));
-    },
-    onPointerUp: commit,
-    onPointerCancel: commit,
-    onKeyUp: commit,
-  });
-  const arrowStep = (event: ReactKeyboardEvent) => {
-    const step = event.shiftKey ? 10 : 1;
-    const dx = event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
-    const dy = event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
-    if (dx || dy) event.preventDefault();
-    return [dx, dy] as const;
-  };
-  const clampPercent = (n: number) => Math.min(100, Math.max(0, n));
+  const alphaPercent = Math.round(alpha * 100);
 
   return (
     <div
@@ -322,7 +375,7 @@ function MarinaraColorSelector({
           saturation: Math.round(saturation),
           brightness: Math.round(brightness),
         })}
-        {...pointerProps((x, y) => update([hue, Math.round(x * 100), Math.round((1 - y) * 100)]))}
+        {...dragProps((x, y) => update([hue, Math.round(x * 100), Math.round((1 - y) * 100)]), commit)}
         onKeyDown={(event) => {
           const [dx, dy] = arrowStep(event);
           if (dx || dy) update([hue, clampPercent(saturation + dx), clampPercent(brightness + dy)]);
@@ -335,37 +388,10 @@ function MarinaraColorSelector({
         <span
           aria-hidden="true"
           className={HANDLE_CLASS}
-          style={{ left: `${saturation}%`, top: `${100 - brightness}%`, background: value }}
+          style={{ left: `${saturation}%`, top: `${100 - brightness}%`, background: baseHex }}
         />
       </div>
       <div className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]"
-          style={{ background: value }}
-        />
-        <div
-          role="slider"
-          tabIndex={0}
-          aria-label={t("ui.ui.colorpicker.hue")}
-          aria-valuemin={0}
-          aria-valuemax={359}
-          aria-valuenow={Math.round(hue)}
-          aria-valuetext={`${Math.round(hue)}°`}
-          {...pointerProps((x) => update([Math.min(359, Math.round(x * 360)), saturation, brightness]))}
-          onKeyDown={(event) => {
-            const [dx, dy] = arrowStep(event);
-            if (dx || dy) update([(hue + dx + dy + 360) % 360, saturation, brightness]);
-          }}
-          className={cn("relative h-3.5 min-w-0 flex-1 cursor-pointer touch-none rounded-full", SLIDER_FOCUS_CLASS)}
-          style={{ background: HUE_GRADIENT }}
-        >
-          <span
-            aria-hidden="true"
-            className={HANDLE_CLASS}
-            style={{ left: `${(hue / 359) * 100}%`, background: `hsl(${hue} 100% 50%)` }}
-          />
-        </div>
         {EyeDropper && (
           <button
             type="button"
@@ -377,10 +403,54 @@ function MarinaraColorSelector({
             <Pipette size="0.75rem" />
           </button>
         )}
+        <span
+          aria-hidden="true"
+          className="h-8 w-8 shrink-0 rounded-md ring-1 ring-[var(--border)]"
+          style={{ background: `linear-gradient(${value}, ${value}), ${CHECKER_BACKGROUND}` }}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <ColorStrip
+            label={t("ui.ui.colorpicker.hue")}
+            valueNow={hue}
+            valueMax={359}
+            valueText={`${Math.round(hue)}°`}
+            position={hue / 359}
+            background={HUE_GRADIENT}
+            thumb={`hsl(${hue} 100% 50%)`}
+            onPick={(x) => update([Math.min(359, Math.round(x * 360)), saturation, brightness])}
+            onStep={(delta) => update([(hue + delta + 360) % 360, saturation, brightness])}
+            onCommit={commit}
+          />
+          {opacity && (
+            <ColorStrip
+              label={t("ui.ui.colorpicker.opacity")}
+              valueNow={alphaPercent}
+              valueMax={100}
+              valueText={`${alphaPercent}%`}
+              position={alpha}
+              background={`linear-gradient(to right, transparent, ${baseHex}), ${CHECKER_BACKGROUND}`}
+              thumb={value}
+              onPick={(x) => update([hue, saturation, brightness], x)}
+              onStep={(delta) => update([hue, saturation, brightness], clampPercent(alphaPercent + delta) / 100)}
+              onCommit={commit}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+const SEGMENT_GROUP_CLASS = "flex min-w-[9rem] flex-1 rounded-lg bg-[var(--secondary)] p-0.5";
+const segmentClass = (active: boolean) =>
+  cn(
+    "flex-1 rounded-md px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
+    active
+      ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
+      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+  );
+const PALETTE_SWATCH_CLASS =
+  "h-7 w-7 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50";
 
 export function ColorPicker({
   value,
@@ -396,6 +466,7 @@ export function ColorPicker({
   headerAction,
   disabled = false,
   panelOnly = false,
+  opacity = true,
 }: ColorPickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const previewValue = value || emptyPreviewValue;
@@ -408,6 +479,7 @@ export function ColorPicker({
   const [expandedState, setExpanded] = useState(false);
   const expanded = panelOnly || expandedState;
   const [activeStop, setActiveStop] = useState(0);
+  const [view, setView] = useState<"custom" | "palette">("custom");
   const onChangeRef = useRef(onChange);
   const pendingChangeRef = useRef<string | null>(null);
   const pendingFrameRef = useRef<number | null>(null);
@@ -615,94 +687,100 @@ export function ColorPicker({
             compact ? "space-y-2 p-2" : "space-y-3 p-3",
           )}
         >
-          {/* Mode toggle (only if gradient is allowed) */}
-          {gradient && (
-            <div className="flex rounded-lg bg-[var(--secondary)] p-0.5">
+          {/* Mode (solid or gradient) and view (custom or palette) on one row */}
+          <div className="flex flex-wrap gap-1.5">
+            {gradient && (
+              <div className={SEGMENT_GROUP_CLASS}>
+                <button
+                  type="button"
+                  aria-pressed={mode === "solid"}
+                  onClick={() => {
+                    setMode("solid");
+                    if (gradientStops[0]) handleSolidChange(parseGradientColorStop(gradientStops[0]).color);
+                  }}
+                  className={segmentClass(mode === "solid")}
+                >
+                  <Pipette size="0.6875rem" className="mr-1 inline" />
+                  {localizeUi("ui.ui.colorpicker.solid")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={mode === "gradient"}
+                  onClick={() => {
+                    setMode("gradient");
+                    commitChange(buildGradient(gradientAngle, gradientStops));
+                  }}
+                  className={segmentClass(mode === "gradient")}
+                >
+                  <Sparkles size="0.6875rem" className="mr-1 inline" />
+                  {localizeUi("ui.ui.colorpicker.gradient")}
+                </button>
+              </div>
+            )}
+            <div className={SEGMENT_GROUP_CLASS}>
               <button
                 type="button"
-                onClick={() => {
-                  setMode("solid");
-                  if (gradientStops[0]) handleSolidChange(parseGradientColorStop(gradientStops[0]).color);
-                }}
-                className={cn(
-                  "flex-1 rounded-md px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
-                  mode === "solid"
-                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                )}
+                aria-pressed={view === "custom"}
+                onClick={() => setView("custom")}
+                className={segmentClass(view === "custom")}
               >
-                <Pipette size="0.6875rem" className="mr-1 inline" />
-                {localizeUi("ui.ui.colorpicker.solid")}
+                <Crosshair size="0.6875rem" className="mr-1 inline" />
+                {localizeUi("ui.ui.colorpicker.custom")}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setMode("gradient");
-                  commitChange(buildGradient(gradientAngle, gradientStops));
-                }}
-                className={cn(
-                  "flex-1 rounded-md px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
-                  mode === "gradient"
-                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                )}
+                aria-pressed={view === "palette"}
+                onClick={() => setView("palette")}
+                className={segmentClass(view === "palette")}
               >
-                <Sparkles size="0.6875rem" className="mr-1 inline" />
-                {localizeUi("ui.ui.colorpicker.gradient")}
+                <Palette size="0.6875rem" className="mr-1 inline" />
+                {localizeUi("ui.ui.colorpicker.palette")}
               </button>
             </div>
-          )}
+          </div>
 
           {/* Solid color mode */}
           {mode === "solid" && (
-            <>
-              {/* Native color picker + typed CSS value */}
-              <div className="grid gap-2">
-                {solidSliderColor ? (
-                  <MarinaraColorSelector
-                    value={solidSliderColor}
-                    onChange={handleSolidChange}
-                    onCommit={flushPendingChange}
-                    label={localizeUi("ui.ui.colorpicker.pickValue1Color", { value1: label })}
-                  />
-                ) : null}
-
-                <label className="min-w-0 space-y-1">
-                  <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                    {localizeUi("ui.ui.colorpicker.hexCss")}
-                  </span>
-                  <input
-                    aria-label={localizeUi("ui.ui.colorpicker.value1HexOrCssColor", { value1: label })}
-                    value={value && !isEditableLinearGradient(value) ? value : ""}
-                    onChange={(e) => handleSolidChange(e.target.value)}
-                    placeholder={localizeUi("ui.ui.colorpicker.hexOrColorName")}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)]/50"
-                  />
-                </label>
-              </div>
-
-              {/* Preset palette */}
-              <div>
-                <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("navigation.topbar.presets")}
-                </p>
+            <div className="grid gap-2">
+              {view === "custom" && solidSliderColor ? (
+                <MarinaraColorSelector
+                  value={solidSliderColor}
+                  onChange={handleSolidChange}
+                  onCommit={flushPendingChange}
+                  label={localizeUi("ui.ui.colorpicker.pickValue1Color", { value1: label })}
+                  opacity={opacity}
+                />
+              ) : null}
+              {view === "palette" && (
                 <div className="flex flex-wrap gap-1.5">
                   {PRESETS.map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => handleSolidChange(color)}
-                      className={cn(
-                        "h-6 w-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50",
-                        value === color && "ring-2 ring-[var(--primary)] scale-110",
-                      )}
+                      className={cn(PALETTE_SWATCH_CLASS, value === color && "ring-2 ring-[var(--primary)] scale-110")}
                       style={{ backgroundColor: color }}
                       title={color}
+                      aria-label={color}
+                      aria-pressed={value === color}
                     />
                   ))}
                 </div>
-              </div>
-            </>
+              )}
+
+              <label className="min-w-0 space-y-1">
+                <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                  {localizeUi("ui.ui.colorpicker.hexCss")}
+                </span>
+                <input
+                  aria-label={localizeUi("ui.ui.colorpicker.value1HexOrCssColor", { value1: label })}
+                  value={value && !isEditableLinearGradient(value) ? value : ""}
+                  onChange={(e) => handleSolidChange(e.target.value)}
+                  placeholder={localizeUi("ui.ui.colorpicker.hexOrColorName")}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)]/50"
+                />
+              </label>
+            </div>
           )}
 
           {/* Gradient mode */}
@@ -714,117 +792,122 @@ export function ColorPicker({
                 style={{ background: buildGradient(gradientAngle, gradientStops) }}
               />
 
-              {/* Stops */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                    {localizeUi("ui.ui.colorpicker.colorStops")}
-                  </p>
-                  <button type="button" onClick={addStop} className={SETTINGS_BUTTON_CLASS}>
-                    <Plus size="0.75rem" />
-                    {localizeUi("ui.characters.metadatatab.add")}
-                  </button>
-                </div>
-                {gradientStops.map((stop, i) => {
-                  const parsedStop = parseGradientColorStop(stop);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveStop(i)}
-                        className={cn(
-                          "h-7 w-7 shrink-0 rounded-md border border-[var(--border)] transition-[transform,box-shadow] hover:scale-105",
-                          activeStop === i &&
-                            "ring-2 ring-[var(--marinara-app-accent-solid)] ring-offset-1 ring-offset-[var(--card)]",
-                        )}
-                        style={{ backgroundColor: parsedStop.hex ?? "transparent" }}
-                        aria-label={localizeUi("ui.ui.colorpicker.editColorStop", { index: i + 1 })}
-                      />
-                      <input
-                        value={stop}
-                        aria-label={localizeUi("ui.ui.colorpicker.editColorStop", { index: i + 1 })}
-                        onChange={(e) => handleGradientStopTextChange(i, e.target.value)}
-                        className="flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 font-mono text-[0.6875rem] outline-none focus:border-[var(--primary)]/40"
-                      />
-                      {gradientStops.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeStop(i)}
-                          aria-label={localizeUi("ui.ui.colorpicker.removeColorStop", { index: i + 1 })}
-                          className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
-                        >
-                          <Trash2 size="0.75rem" />
-                        </button>
-                      )}
+              {view === "custom" && (
+                <>
+                  {/* Stops */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                        {localizeUi("ui.ui.colorpicker.colorStops")}
+                      </p>
+                      <button type="button" onClick={addStop} className={SETTINGS_BUTTON_CLASS}>
+                        <Plus size="0.75rem" />
+                        {localizeUi("ui.characters.metadatatab.add")}
+                      </button>
                     </div>
-                  );
-                })}
-                {activeGradientStop.hex ? (
-                  <MarinaraColorSelector
-                    value={activeGradientStop.hex}
-                    onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
-                    onCommit={flushPendingChange}
-                    label={localizeUi("ui.ui.colorpicker.editColorStop", { index: activeStop + 1 })}
-                  />
-                ) : null}
-              </div>
+                    {gradientStops.map((stop, i) => {
+                      const parsedStop = parseGradientColorStop(stop);
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveStop(i)}
+                            className={cn(
+                              "h-7 w-7 shrink-0 rounded-md border border-[var(--border)] transition-[transform,box-shadow] hover:scale-105",
+                              activeStop === i &&
+                                "ring-2 ring-[var(--marinara-app-accent-solid)] ring-offset-1 ring-offset-[var(--card)]",
+                            )}
+                            style={{ backgroundColor: parsedStop.hex ?? "transparent" }}
+                            aria-label={localizeUi("ui.ui.colorpicker.editColorStop", { index: i + 1 })}
+                          />
+                          <input
+                            value={stop}
+                            aria-label={localizeUi("ui.ui.colorpicker.editColorStop", { index: i + 1 })}
+                            onChange={(e) => handleGradientStopTextChange(i, e.target.value)}
+                            className="flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 font-mono text-[0.6875rem] outline-none focus:border-[var(--primary)]/40"
+                          />
+                          {gradientStops.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removeStop(i)}
+                              aria-label={localizeUi("ui.ui.colorpicker.removeColorStop", { index: i + 1 })}
+                              className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
+                            >
+                              <Trash2 size="0.75rem" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {activeGradientStop.hex ? (
+                      <MarinaraColorSelector
+                        value={activeGradientStop.hex}
+                        onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
+                        onCommit={flushPendingChange}
+                        label={localizeUi("ui.ui.colorpicker.editColorStop", { index: activeStop + 1 })}
+                        opacity={opacity}
+                      />
+                    ) : null}
+                  </div>
 
-              {/* Angle */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.ui.colorpicker.angle")}
-                  </span>
-                  <span className="min-w-[2.75rem] text-right font-mono text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
-                    {gradientAngle}°
-                  </span>
-                </div>
-                <input
-                  aria-label={localizeUi("ui.ui.colorpicker.gradientAngle")}
-                  type="range"
-                  min={0}
-                  max={360}
-                  value={gradientAngle}
-                  onChange={(e) => handleAngleChange(parseInt(e.target.value), true)}
-                  onPointerUp={flushPendingChange}
-                  onKeyUp={flushPendingChange}
-                  onBlur={flushPendingChange}
-                  className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
-                />
-              </div>
-
-              {/* Gradient presets */}
-              <div>
-                <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("navigation.topbar.presets")}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {GRADIENT_PRESETS.map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        setGradientStops(parseGradientStops(g));
-                        const angleMatch = g.match(/linear-gradient\((\d+)deg/);
-                        if (angleMatch) setGradientAngle(parseInt(angleMatch[1]));
-                        commitChange(g);
-                      }}
-                      className={cn(
-                        "h-6 w-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50",
-                        previewValue === g && "ring-2 ring-[var(--primary)] scale-110",
-                      )}
-                      style={{ background: g }}
-                      title={
-                        g === MARINARA_GRADIENT_PRESET
-                          ? localizeUi("ui.ui.colorpicker.marinaraGradient")
-                          : g === RAINBOW_GRADIENT_PRESET
-                            ? localizeUi("ui.ui.colorpicker.gayRgbRainbow")
-                            : g
-                      }
+                  {/* Angle */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                        {localizeUi("ui.ui.colorpicker.angle")}
+                      </span>
+                      <span className="min-w-[2.75rem] text-right font-mono text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
+                        {gradientAngle}°
+                      </span>
+                    </div>
+                    <input
+                      aria-label={localizeUi("ui.ui.colorpicker.gradientAngle")}
+                      type="range"
+                      min={0}
+                      max={360}
+                      value={gradientAngle}
+                      onChange={(e) => handleAngleChange(parseInt(e.target.value), true)}
+                      onPointerUp={flushPendingChange}
+                      onKeyUp={flushPendingChange}
+                      onBlur={flushPendingChange}
+                      className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
                     />
-                  ))}
+                  </div>
+                </>
+              )}
+
+              {view === "palette" && (
+                <div className="flex flex-wrap gap-1.5">
+                  {GRADIENT_PRESETS.map((g) => {
+                    const name =
+                      g === MARINARA_GRADIENT_PRESET
+                        ? localizeUi("ui.ui.colorpicker.marinaraGradient")
+                        : g === RAINBOW_GRADIENT_PRESET
+                          ? localizeUi("ui.ui.colorpicker.gayRgbRainbow")
+                          : g;
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          setGradientStops(parseGradientStops(g));
+                          const angleMatch = g.match(/linear-gradient\((\d+)deg/);
+                          if (angleMatch) setGradientAngle(parseInt(angleMatch[1]));
+                          commitChange(g);
+                        }}
+                        className={cn(
+                          PALETTE_SWATCH_CLASS,
+                          previewValue === g && "ring-2 ring-[var(--primary)] scale-110",
+                        )}
+                        style={{ background: g }}
+                        title={name}
+                        aria-label={name}
+                        aria-pressed={previewValue === g}
+                      />
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { hexToHsv, hsvToHex } from "../../packages/client/src/lib/css-colors.js";
+import { hexToHsv, hsvToHex, normalizeHexColor, withAlpha } from "../../packages/client/src/lib/css-colors.js";
 import { sanitizeAppCss } from "../../packages/client/src/lib/theme-css.js";
 import {
   buildUiStyleOverridesCss,
@@ -221,5 +221,23 @@ assert.deepEqual(hexToHsv("#ff0000"), [0, 100, 100]);
 assert.deepEqual(hexToHsv("#000000"), [0, 0, 0]);
 assert.equal(hsvToHex(359, 100, 100), "#ff0004", "the end of the hue strip stays red");
 assert.equal(hsvToHex(240, 0, 50), "#808080", "zero saturation is grey whatever the hue");
+
+// The opacity strip: an alpha below 1 rides along as `#rrggbbaa`; fully opaque values stay `#rrggbb`.
+assert.equal(normalizeHexColor("#ABC"), "#aabbcc");
+assert.equal(normalizeHexColor("#abcf"), "#aabbcc", "opaque short alpha is dropped");
+assert.equal(normalizeHexColor("#abc8"), "#aabbcc88");
+assert.equal(normalizeHexColor("#112233FF"), "#112233");
+assert.equal(normalizeHexColor("#11223380"), "#11223380");
+assert.equal(normalizeHexColor("#1122"), "#11112222");
+for (const bad of ["#12345", "#1234567", "red", "#ggg"]) assert.equal(normalizeHexColor(bad), null, bad);
+assert.equal(withAlpha("#112233", 1), "#112233");
+assert.equal(withAlpha("#112233", 0.5), "#11223380");
+assert.equal(withAlpha("#112233", 0), "#11223300");
+assert.equal(withAlpha("#112233", -1), "#11223300", "alpha is clamped");
+assert.equal(
+  sanitizeAppCss(buildUiStyleOverridesCss({ "top-bar": { background: "#11223380" } })),
+  ':root [data-component="TopBar"]{background:#11223380!important}',
+  "an 8-digit hex survives the override sanitizer",
+);
 
 console.info("UI style override regressions passed.");
