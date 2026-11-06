@@ -10,10 +10,8 @@ import { Plus, Search, Download, List, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import {
   BUILT_IN_AGENTS,
-  PROVIDERS,
   isAgentConfigDeleted,
   isRetiredBuiltInAgentId,
-  type APIProvider,
   type APIConnection,
   type Lorebook,
 } from "@marinara-engine/shared";
@@ -752,93 +750,7 @@ export function flag(value: unknown) {
   return value === true || value === "true" || value === "1" || value === 1;
 }
 
-export function ConnectionsLanding() {
-  const localize = useLocalizedUiText();
-  const { data } = useConnections();
-  const openModal = useUIStore((s) => s.openModal);
-  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
-  const [search, setSearch] = useState("");
-  const [chip, setChip] = useState("all");
-  const [sort, setSort] = useState<SortKey>("name-asc");
-
-  const connections = useMemo(
-    () =>
-      ((data ?? []) as Partial<APIConnection>[])
-        .filter((row): row is Partial<APIConnection> & { id: string } => typeof row?.id === "string")
-        .map((row) => ({ ...row, name: row.name ?? "", kind: connectionKind(String(row.provider ?? "")) })),
-    [data],
-  );
-
-  const rows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const list = connections.filter((row) => {
-      if (chip !== "all" && row.kind !== chip) return false;
-      if (!needle) return true;
-      return (
-        row.name.toLowerCase().includes(needle) ||
-        String(row.model ?? "")
-          .toLowerCase()
-          .includes(needle)
-      );
-    });
-    return sortRows(list as ((typeof list)[number] & { updatedAt?: string })[], sort);
-  }, [chip, connections, search, sort]);
-
-  const defaultFor = (row: Partial<APIConnection>) => {
-    const parts: string[] = [];
-    if (flag(row.isDefault)) parts.push(localize("Default"));
-    if (flag(row.defaultForAgents)) parts.push(localize("Agents"));
-    if (flag(row.fallbackForMain)) parts.push(localize("Fallback"));
-    if (flag(row.useForRandom)) parts.push(localize("Random pool"));
-    return parts.join(" · ") || "—";
-  };
-
-  return (
-    <ListPage
-      title={localize("Connections")}
-      actions={
-        <>
-          <button type="button" className="ov-btn" onClick={() => openModal("import-connection")}>
-            <Download size={14} aria-hidden="true" />
-            {localize("Import")}
-          </button>
-          <NewButton label={localize("New connection")} onClick={() => openModal("create-connection")} />
-        </>
-      }
-      searchPlaceholder={localize("Search connections or models")}
-      search={search}
-      onSearch={setSearch}
-      chips={[
-        { id: "all", label: "All" },
-        { id: "text", label: "Text" },
-        { id: "image", label: "Image" },
-        { id: "video", label: "Video" },
-        { id: "audio", label: "Audio" },
-      ]}
-      chip={chip}
-      onChip={setChip}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
-      rows={rows}
-      onOpen={(row) => openConnectionDetail(row.id)}
-      columns={[
-        { key: "name", label: "Connection", className: "ov-table__name", render: (row) => row.name || "—" },
-        {
-          key: "type",
-          label: "Type",
-          render: (row) => <span className="ov-kbd">{localize(KIND_LABEL[row.kind])}</span>,
-        },
-        {
-          key: "provider",
-          label: "Provider",
-          render: (row) => PROVIDERS[row.provider as APIProvider]?.name ?? row.provider ?? "—",
-        },
-        { key: "model", label: "Model", className: "ov-table__mono", render: (row) => row.model || "—" },
-        { key: "default", label: "Default for", render: defaultFor },
-      ]}
-      empty={localize("No connections yet.")}
-    />
-  );
-}
+export { ConnectionsLanding } from "./ConnectionsLanding";
 
 // ── Agents ──
 
