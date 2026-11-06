@@ -36,12 +36,14 @@ If your edits are not picked up, for example when you edit from another machine 
 These settings are read only at startup. Changing one needs a restart, and the log warns you:
 
 - `PORT`, `HOST`, `SSL_CERT`, `SSL_KEY`
-- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY`
+- `DATA_DIR`, `FILE_STORAGE_DIR`, `ENCRYPTION_KEY`, `MARINARA_EAGER_STORAGE`
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH`, `TZ`
-- `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
+- `AUTO_OPEN_BROWSER`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`, `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - Image, video, sprite and ComfyUI timeouts and poll settings: `IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` and the four `*_VIDEO_POLL_INTERVAL_MS` settings
+
+The launchers read `AUTO_UPDATE_ENABLED` before the server starts, so a change applies from the next launch and the log does not warn about it.
 
 Access-control settings and secrets (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`) need no restart.
 

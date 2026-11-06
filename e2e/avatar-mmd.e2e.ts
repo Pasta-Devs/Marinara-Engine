@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { AvatarConfig, AvatarOwnerRef } from "@marinara-engine/shared";
 import { mmdPmx, mmdVmd } from "../scripts/regressions/fixtures/avatar-mmd-fixtures.js";
 import { paintPng, solid, zipFiles } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
+import { chooseCharacter } from "./character-picker.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
@@ -391,8 +392,15 @@ test("MMD setup imports, maps and removes model-specific motion for character an
   page,
   request,
 }, info) => {
-  const character = await request.post("/api/characters", { data: { data: { name: "MMD setup character" } } });
-  const persona = await request.post("/api/characters/personas", { data: { name: "MMD setup persona" } });
+  // Two owners each import, map, reload per theme and render in software WebGL (1.8 min on a loaded Mac), so it
+  // gets the budget of the other avatar setup specs.
+  test.setTimeout(180_000);
+  // The owner picker finds owners by name, so a run's own names keep an earlier run's leftovers out of it.
+  const run = Date.now().toString(36);
+  const characterName = `MMD setup character ${run}`;
+  const personaName = `MMD setup persona ${run}`;
+  const character = await request.post("/api/characters", { data: { data: { name: characterName } } });
+  const persona = await request.post("/api/characters/personas", { data: { name: personaName } });
   expect(character.ok()).toBeTruthy();
   expect(persona.ok()).toBeTruthy();
   const characterId = ((await character.json()) as { id: string }).id;
@@ -404,11 +412,16 @@ test("MMD setup imports, maps and removes model-specific motion for character an
     await page.goto("/");
     const setup = page.locator('[data-avatar-setup="3d-avatars"]');
     await expect(setup).toBeVisible();
-    for (const [ownerType, ownerId] of [
-      ["character", characterId],
-      ["persona", personaId],
+    // The owner field opens the shared Personas picker (#8763), which lists characters too.
+    const chooseOwner = async (name: string) => {
+      await chooseCharacter(page, setup.getByLabel("Character or persona"), "Personas", name);
+      await expect(setup.getByLabel("Character or persona")).toContainText(name);
+    };
+    for (const [ownerType, ownerId, ownerName] of [
+      ["character", characterId, characterName],
+      ["persona", personaId, personaName],
     ] as const) {
-      await setup.getByLabel("Character or persona").selectOption(`${ownerType}:${ownerId}`);
+      await chooseOwner(ownerName);
       await setup.getByRole("radio", { name: /^MMD PMX model/u }).check();
       const panel = setup.locator("[data-avatar-mmd-setup]");
       await expect(panel.getByRole("button", { name: "Import PMX or ZIP", exact: true })).toBeVisible();
@@ -452,7 +465,7 @@ test("MMD setup imports, maps and removes model-specific motion for character an
             await expect(setup).toBeVisible();
           }
           await page.reload();
-          await setup.getByLabel("Character or persona").selectOption(`${ownerType}:${ownerId}`);
+          await chooseOwner(ownerName);
           await setup.getByRole("radio", { name: /^MMD PMX model/u }).check();
         }
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);

@@ -932,9 +932,15 @@ export function createConnectionsStorage(db: DB) {
       // chooses that address for this row and it keeps its own key, so the address is saved on the row.
       const keepsKeyOnMove =
         existing.provider === "decision" && (data.decisionSource ?? existing.decisionSource) === "typesafe";
+      // A Music & Sound Effects Model switched to another service (ElevenLabs, SunoAPI, a custom server) takes
+      // that service's address and leaves its account below: the account's key is the old service's.
+      const audioServiceChanged =
+        existing.provider === "audio_generation" &&
+        data.audioGenerationSource !== undefined &&
+        (data.audioGenerationSource ?? "elevenlabs") !== (existing.audioGenerationSource ?? "elevenlabs");
       if (account) {
         for (const key of ACCOUNT_MIRRORED_INPUT_KEYS) delete data[key];
-        if (existing.provider === account.provider && !keepsKeyOnMove) delete data.baseUrl;
+        if (existing.provider === account.provider && !keepsKeyOnMove && !audioServiceChanged) delete data.baseUrl;
       }
 
       const effectiveProvider = data.provider ?? existing.provider;
@@ -953,9 +959,12 @@ export function createConnectionsStorage(db: DB) {
       ) {
         updateFields.profileImportReviewRequired = "false";
       }
-      // Detach explicitly, or when the row's own endpoint moved off the account's origin.
+      // Detach explicitly, when the row's own endpoint moved off the account's origin, or when its audio
+      // service changed.
       const movedOffAccount =
-        !!account && credentialOrigin({ ...existing, ...definedFields(data) }) !== credentialOrigin(account);
+        !!account &&
+        (audioServiceChanged ||
+          credentialOrigin({ ...existing, ...definedFields(data) }) !== credentialOrigin(account));
       if (account && (input.accountId === null || movedOffAccount)) {
         updateFields.accountId = null;
       }

@@ -1830,11 +1830,13 @@ export function GameSetupWizard({
 
   return (
     <>
+      {/* Just under the body-level pickers it opens (Modal, z-[10000]). On iPhone WebKit the app shell is no
+          stacking context, so a higher layer here would cover the "Model for …" and character pickers. */}
       <div
-        className="fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]"
         onClick={isLoading ? undefined : onCancel}
       />
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
@@ -1975,7 +1977,10 @@ export function GameSetupWizard({
                         <Plug size={12} className="mr-1 inline" />
                         {localizeUi("ui.game.gamesetupwizard.connection")}
                       </label>
+                      {/* `required`: an empty GM Model means "not picked yet" (Start stays off), never
+                          "follow Main", so picking the Main Model must set it rather than count as "Now". */}
                       <ConnectionSelect
+                        required
                         job={localizeUi("connections.picker.job.gameMaster")}
                         value={gmConnectionId}
                         onChange={setGmConnectionId}
@@ -3081,7 +3086,9 @@ export function GameSetupWizard({
                           id={`${activeChatId}:game-audio-connection`}
                           value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : null}
                           onChange={setAudioConnectionId}
-                          kind="audio"
+                          // Music & Sound Effects Models: kind "audio" lists the speech (TTS) ones.
+                          kind="all"
+                          rowFilter={(row) => audioConnections.some((connection) => connection.id === row.id)}
                           defaultLabel={localizeUi("connections.audioGeneration.defaultChoice")}
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
                         />

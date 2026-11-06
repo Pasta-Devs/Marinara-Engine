@@ -660,11 +660,14 @@ export function ChatSidebar() {
     folderSynced: boolean;
     /** Folder we already asked to expand — the mutation is in flight, don't ask again. */
     expandRequestedFolderId: string | null;
+    /** The active chat's row still has to be scrolled into view. Survives re-runs, which cancel the timer. */
+    scrollPending: boolean;
   }>({
     chatId: null,
     tabSynced: false,
     folderSynced: false,
     expandRequestedFolderId: null,
+    scrollPending: false,
   });
   // When true the next sync skips clearing the search query — set by
   // the sidebar's own click handler so clicking a search result doesn't
@@ -678,7 +681,6 @@ export function ChatSidebar() {
 
     const s = syncRef.current;
     const isNewChat = s.chatId !== activeChatId;
-    let needsScroll = false;
 
     if (isNewChat) {
       s.chatId = activeChatId;
@@ -703,7 +705,7 @@ export function ChatSidebar() {
       }
       internalNavRef.current = false;
       s.tabSynced = true;
-      needsScroll = true;
+      s.scrollPending = true;
     }
 
     // 2. Folder expansion — waits for folders data; if the folder is
@@ -725,16 +727,19 @@ export function ChatSidebar() {
           // folderSynced stays false — re-runs after query invalidation
         } else {
           s.folderSynced = true;
-          needsScroll = true;
+          s.scrollPending = true;
         }
       }
       // else: folders not loaded yet — effect re-runs when they arrive
     }
 
-    // 3. Scroll active chat row into view once both tab + folder are settled
-    if (needsScroll && s.tabSynced && s.folderSynced) {
+    // 3. Scroll active chat row into view once both tab + folder are settled.
+    //    Chats or folders landing re-run this and cancel the timer; the pending flag schedules it again.
+    if (s.scrollPending && s.tabSynced && s.folderSynced) {
       const timer = setTimeout(() => {
-        const el = document.querySelector(`[data-chat-id="${activeChatId}"]`);
+        s.scrollPending = false;
+        // Look in the list: the chat's composer carries the same data-chat-id and comes first in the page.
+        const el = chatListRef.current?.querySelector(`[data-chat-id="${activeChatId}"]`);
         el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }, 200);
       return () => clearTimeout(timer);

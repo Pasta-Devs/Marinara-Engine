@@ -177,6 +177,13 @@ EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 MODEL_MAX_RETRIES = 1
 # Waits before resending a call that hit a transient gateway error (unavailable, overloaded, cut stream).
 RETRY_DELAYS = (15, 45)
+# A reply the gateway ends at max_tokens before the model writes anything (#8817) fails within a minute and bills
+# only its prompt, but it comes in bursts: one review got 15, and a finder that got three in a row failed it. So it
+# is also resent after these longer waits, which give the gateway time to recover, while the resent reply still has
+# its role's whole time box before the role's deadline and the review is under its cost limit (see chat). The time
+# the failures take does not count against the box (see run_agent), so a resent finder may still step down a level.
+# Other errors keep RETRY_DELAYS, so a dead endpoint still fails fast.
+EMPTY_REPLY_DELAYS = (*RETRY_DELAYS, 90, 120)
 # The scout gathers the code the bundle builder could not follow, the finder proposes claims at changed lines from the
 # bundle alone, and the checker ("verify") judges each claim against the code. Reading takes the small model and
 # judging the large one, each set by its DOTTORE_SMALL_* or DOTTORE_LARGE_* settings (README.md).
@@ -765,7 +772,9 @@ def tests_on_disk(focus):
 
 
 def repository_variables(files):
-    """The repository's Actions variables, never its secrets, for a PR that changes the workflows reading them."""
+    """Dottore's own Actions variables (DOTTORE_*, the only ones the workflows read), never secrets, for a PR that
+    changes any file under .github/. The workflow passes toJSON(vars), every repository and organization variable,
+    so other names are left out here."""
     if not any(path.startswith(".github/") for path in files):
         return ""
     try:
@@ -774,7 +783,8 @@ def repository_variables(files):
         return "Not passed to this run."
     except json.JSONDecodeError:
         return "Could not be read."
-    return "\n".join(f"{name}={value}" for name, value in sorted(variables.items())) or "None set."
+    shown = sorted((name, value) for name, value in variables.items() if name.startswith("DOTTORE_"))
+    return "\n".join(f"{name}={value}" for name, value in shown) or "None set."
 
 
 def removed_lines(base):
@@ -932,7 +942,7 @@ def build_bundle(base, focus, description):
         ),
     ]
     if variables := repository_variables(files):
-        sections.append(("Repository Variables", "The Actions variables (not secrets) the workflows read.\n\n" + variables))
+        sections.append(("Repository Variables", "The DOTTORE_* Actions variables (not secrets) the workflows read.\n\n" + variables))
     if patch:
         sections.append(("Diff of Files Other Than Code", f"```diff\n{truncate(patch, MAX_SECTION_CHARS)}\n```"))
     bundle = f"# Bundle\n{BUNDLE_NOTE}\n\n" + "\n\n".join(f"# {title}\n{redact_for_model(body)}" for title, body in sections)
@@ -1749,16 +1759,18 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
             raise RuntimeError(f"the {role} role failed {MAX_ROLE_FAILURES} calls in a row, so it makes no more")
     first_call = not any(message.get("role") == "assistant" for message in messages)
     reply = {"anthropic": claude_reply, "responses": responses_reply}.get(settings["api"], openai_reply)
-    # SDK retries are disabled: this loop checks readiness before every request, including a retry. It retries one that stalls after
-    # it at once, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
+    # SDK retries are disabled: this loop checks readiness before every request, including a retry. It resends at once a request
+    # that stalls after its stream opens, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
     # waits out a transient gateway error, which can arrive mid-stream with a request to resend. A role whose calls
     # give up MAX_ROLE_FAILURES times in a row stops: a dead endpoint costs no more. Attempts are not counted, so a
     # rate-limit burst across parallel calls does not trip the breaker before any of them retries.
     stalls = 0
-    for attempt in range(len(RETRY_DELAYS) + 1):
+    for attempt in itertools.count():
         if readiness := getattr(ctx, "readiness", None):
             readiness(fresh=True)
         started = time.monotonic()
+        if not attempt:
+            first = started
         timing = {}
         if len(tools) == 1 and (settings.get("minutes") or until):
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
@@ -1776,23 +1788,43 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         except ReviewWithheld:
             raise
         except Exception as exc:
-            if isinstance(exc, ResponseFailed) and exc.usage:
-                # A reply cut short before any output still billed its prompt, so the cost limit counts it.
+            # A reply cut short before any output still billed its prompt, so the cost limit counts it.
+            empty = isinstance(exc, ResponseFailed) and bool(exc.usage)
+            if empty:
                 charge(ctx, role, settings, exc.usage)
             stalled = isinstance(exc, StreamStalled)
             stalls += stalled
-            retry = stalls <= MODEL_MAX_RETRIES if stalled else transient_error(exc)
-            if not retry or attempt == len(RETRY_DELAYS):
+            delays = EMPTY_REPLY_DELAYS if empty else RETRY_DELAYS
+            retry = attempt < len(delays) and (stalls <= MODEL_MAX_RETRIES if stalled else transient_error(exc))
+            wait = 0
+            if retry and not stalled:
+                # Calls that fail together, such as the finders on each packet or a packet's scouts, would resend
+                # together. Each waits up to a third longer, by an amount its request fixes, so they spread out and a
+                # rerun waits the same.
+                # ponytail: a packet's finder copies send the same request, so they share a spread; they already start
+                # CACHE_STAGGER_SECONDS apart. Pass the copy's number into the seed if they still resend together.
+                seed = int(hashlib.sha1(f"{role}\n{cache_key}\n{messages[-1:]}".encode()).hexdigest()[:8], 16)
+                wait = delays[attempt] + seed % (delays[attempt] // 3 + 1)
+            if retry and attempt >= len(RETRY_DELAYS):
+                # Every transient error gets the RETRY_DELAYS resends, even a submission forced after its deadline.
+                # The longer ones are patience the review must afford: one is sent only when the resent reply still
+                # has its role's whole time box before the role's deadline (`until`), since a reply offered only its
+                # submit tool may stay silent that long, and never once the review has reached its cost limit.
+                room = (settings.get("minutes") or 0) * 60
+                fits = until is None or time.monotonic() + wait + room <= until
+                retry = fits and not (ctx.cost_limit and ctx.spent_usd >= ctx.cost_limit)
+            if not retry:
                 with ctx.lock:
                     ctx.failures[role] = ctx.failures.get(role, 0) + 1
                 raise
-            wait = 0 if stalled else RETRY_DELAYS[attempt]
             print(
                 f"Dottore call retry: role={role}; attempt={attempt + 1}; after_s={time.monotonic() - started:.1f}; "
                 f"wait_s={wait}; {error_text(exc)}",
                 flush=True,
             )
             time.sleep(wait)
+    # The failed attempts and the waits after them, which run_agent does not count against the role's time box.
+    message.lost = started - first
     with ctx.lock:
         ctx.failures[role] = 0
     charge(ctx, role, settings, usage)
@@ -1850,8 +1882,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     The role's reads count read-tool calls and its chars their characters (budget and output_budget override them);
     a repeated call is answered from the earlier result for free. A role without reads is offered only its submit
     tool. Once either budget is spent, or the deadline (the review's by default, and no later than the role's
-    minutes from now) has passed, the model is made to call the submit tool, and a few malformed submissions are
-    tolerated. The role's stats record which limit, if any, ended the run.
+    minutes from now, not counting the time chat loses to failed attempts) has passed, the model is made to call
+    the submit tool, and a few malformed submissions are tolerated. The role's stats record which limit, if any,
+    ended the run.
 
     With keep, the name of the submit tool's list argument, the submit tool does not end the run: each call adds its
     items, and the first turn that makes no read, or the turn after a limit, ends it with every item kept. No final
@@ -1897,7 +1930,7 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             # Claude cannot be made to submit, so it is told; its reads stay offered so the cached prefix holds.
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
         try:
-            message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
+            message = chat(ctx, role, messages, tools, choice, cache_key, until=deadline, settings=settings)
         except ReviewWithheld:
             raise
         except Exception as exc:
@@ -1909,6 +1942,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             with ctx.lock:
                 ctx.stats["roles"][role]["stop_error"] += 1
             return {keep: kept}
+        # The box is the role's time to work, so the gateway's failures and chat's waits after them push it back:
+        # a finder resent after empty replies keeps its whole box for a reply that may still step down (#8817).
+        box += message.lost
         calls = list(message.tool_calls or [])
         # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):

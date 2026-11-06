@@ -65,7 +65,8 @@ test("Image API custom parameters validate, save, export, and survive copying", 
       const downloaded = page.waitForEvent("download");
       await editor.getByRole("button", { name: "Export model" }).click();
       await page
-        .getByRole("dialog", { name: "Export connection data" })
+        // #8456 renamed the export window "Export provider data".
+        .getByRole("dialog", { name: "Export provider data" })
         .getByRole("button", { name: "Export", exact: true })
         .click();
       const file = await (await downloaded).path();

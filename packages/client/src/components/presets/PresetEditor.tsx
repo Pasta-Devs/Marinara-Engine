@@ -2400,13 +2400,18 @@ function SectionContentTextarea({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [local, setLocal] = useState(value);
+  // The latest text, for a commit that runs before the render that would show it: closing the expanded editor
+  // sends its text and commits at once, after a refetch may have reset `local` behind it.
+  const localRef = useRef(value);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusedRef = useRef(false);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
 
   // Only sync from parent when not actively editing
   useEffect(() => {
-    if (!focusedRef.current) setLocal(value);
+    if (focusedRef.current) return;
+    localRef.current = value;
+    setLocal(value);
   }, [value]);
 
   const commit = useCallback(() => {
@@ -2414,12 +2419,13 @@ function SectionContentTextarea({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    if (local !== value) onCommit(local);
-  }, [local, value, onCommit]);
+    if (localRef.current !== value) onCommit(localRef.current);
+  }, [value, onCommit]);
 
   // Debounced auto-save while typing (800ms)
   const handleChange = (nextRawValue: string) => {
     const nextValue = nextRawValue;
+    localRef.current = nextValue;
     setLocal(nextValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {

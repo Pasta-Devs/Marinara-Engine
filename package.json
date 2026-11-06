@@ -1,6 +1,6 @@
 {
   "name": "marinara-engine",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "private": true,
   "description": "AI Chat & Roleplay Frontend \u2014 Conversation, Roleplay, Game",
   "author": "Marianna",
@@ -65,7 +65,7 @@
     "clean": "node ./scripts/pnpm-runner.mjs -r --if-present run clean && node ./scripts/clean-workspace.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.19.2",
     "adm-zip": "^0.6.1",
     "esbuild": "^0.28.1",

@@ -77,51 +77,20 @@ test("Speech to Text keeps an edit made just before leaving Connections", async 
   };
   const openCard = async () => {
     await openDefaultsTile(page, "stt");
-    const toggle = card.locator("button[aria-expanded]");
-    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+    // #8456: the card has no fold of its own; its only aria-expanded button is now a help tooltip.
     await expect(serverUrl).toBeVisible();
   };
 
   await openCard();
-  await expect(card.locator("div.bg-gradient-to-br").first()).toHaveClass(/from-sky-400 to-blue-500/);
-  const ttsCard = page.locator('[data-component="TTSConfigCard"]');
-  const expandTts = ttsCard.getByTitle("Expand", { exact: true });
-  await expect(expandTts).toBeVisible();
-  await expandTts.click();
-  const surfaceStyle = (locator: typeof card) =>
-    locator.evaluate((element) => {
-      const icon = element.querySelector("svg.lucide-mic, svg.lucide-volume-2")!;
-      const surface = getComputedStyle(element);
-      const tile = getComputedStyle(icon.parentElement!);
-      return {
-        background: surface.backgroundImage,
-        border: surface.borderColor,
-        tile: tile.backgroundImage,
-        icon: tile.color,
-      };
-    });
-  const expectMatchingSurfaces = () =>
-    expect
-      .poll(
-        async () => {
-          const speechToText = await surfaceStyle(card);
-          const textToSpeech = await surfaceStyle(ttsCard);
-          return JSON.stringify(speechToText) === JSON.stringify(textToSpeech) ? null : { speechToText, textToSpeech };
-        },
-        { message: "Speech to Text uses the original Connections blue, matching Text to Speech" },
-      )
-      .toBeNull();
+  // #8456 took the sky gradient and icon tile off Speech to Text and Text to Speech alike: both are plain fields
+  // in the Add window now, so there is no coloured surface left to match.
+  await expect(card.locator(".bg-gradient-to-br")).toHaveCount(0);
   for (const theme of ["light", "dark"] as const) {
     await page.evaluate(async (theme) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      const settings = useUIStore.getState();
-      settings.setAppAccentColor("#22c55e");
-      settings.setAppAccentRgbMode(false);
-      settings.setAppAccentPulseMode(false);
-      settings.setTheme(theme);
+      useUIStore.getState().setTheme(theme);
     }, theme);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await expectMatchingSurfaces();
     await card.screenshot({
       path: testInfo.outputPath(`speech-to-text-connections-${theme}.png`),
       animations: "disabled",

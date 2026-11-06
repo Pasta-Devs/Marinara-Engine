@@ -126,7 +126,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.5.1](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.5.1)**.
+Current stable release: **[v2.5.2](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.5.2)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page with a Windows installer, Android bootstrap APK, and named versioned source ZIP. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device. **[Download the latest Android APK directly](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).**
 
@@ -228,7 +228,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/game/getting-started.md](docs/game/getting-started.md)                         | Game Mode setup, world-gen, party play, storyboards, and troubleshooting                                           |
 | [docs/game/rulesets.md](docs/game/rulesets.md)                                       | Playing Game Mode on a ruleset such as 5e (SRD 5.1): choosing one, checks, sheets, and battles                     |
 | [docs/agents/built-in-agents.md](docs/agents/built-in-agents.md)                     | Modes, behavior, and setup for the downloadable first-party agents and feature packages                            |
-| [docs/agents/noodle.md](docs/agents/noodle.md)                                   | Noodle social timeline: setup, posting, interactions, images, and chat carryover                                   |
+| [docs/agents/noodle.md](docs/agents/noodle.md)                                       | Noodle social timeline: setup, posting, interactions, images, and chat carryover                                   |
 | [docs/prompts/generation-parameters.md](docs/prompts/generation-parameters.md)       | Sampler and output-parameter reference across providers                                                            |
 | [docs/REMOTE_ACCESS.md](docs/REMOTE_ACCESS.md)                                       | Remote access, Basic Auth, IP allowlists, and admin access                                                         |
 | [docs/conversation/calls.md](docs/conversation/calls.md)                             | Conversation audio-call setup, Local Whisper, TTS, and troubleshooting                                             |

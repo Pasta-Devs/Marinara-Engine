@@ -316,7 +316,9 @@ export function checkedPmx(bytes: Uint8Array): { bytes: Buffer; textures: string
     text();
     text();
     if (c.u8() !== 0) refuse();
-    if (!inRange(c.index(rigidSize), rigidBodies, true) || !inRange(c.index(rigidSize), rigidBodies, true)) refuse();
+    const rigidBodyA = c.index(rigidSize);
+    const rigidBodyB = c.index(rigidSize);
+    if (!inRange(rigidBodyA, rigidBodies, true) || !inRange(rigidBodyB, rigidBodies, true)) refuse();
     c.take(96);
   });
   const recordsEnd = c.offset;

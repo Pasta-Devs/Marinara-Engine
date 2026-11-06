@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { MultiplayerHostState } from "@marinara-engine/shared";
+import { chooseCharacter } from "./character-picker.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies";
 import { seedUIState } from "./ui-state-fixture";
 
@@ -271,7 +272,7 @@ test("multiplayer requires separate consent and reviews only selected persona te
   await expect(page.locator("#fixture img")).toHaveCount(0);
   await page.getByLabel("Room password (at least 12 characters)").fill("separate-password");
   await page.getByLabel("Your display name").fill("Mari");
-  await page.getByLabel("Choose your persona").selectOption("persona_123");
+  await chooseCharacter(page, page.getByLabel("Choose your persona"), "Personas", "Mira");
   await expect(page.getByLabel("Description to share")).toHaveValue("An astronomer.");
   const join = page.getByRole("button", { name: "Request to join" });
   await expect(join).toBeDisabled();
@@ -949,7 +950,7 @@ test("host adds an existing library ID while guests only propose reviewed text, 
     return route.fulfill({ json: [] });
   });
   await mountControls(page, info, "participant-host");
-  await page.getByLabel("Choose a character from your library").selectOption("character_123");
+  await chooseCharacter(page, page.getByLabel("Choose a character from your library"), "Characters", "Guide");
   await expect(page.getByLabel("Character name", { exact: true }).last()).not.toBeEditable();
   await page.getByRole("button", { name: "Add AI character", exact: true }).click();
   await expect
@@ -962,7 +963,7 @@ test("host adds an existing library ID while guests only propose reviewed text, 
     ]);
   await mountControls(page, info, "participant-guest");
   await expect(page.getByRole("button", { name: "Add AI character", exact: true })).toHaveCount(0);
-  await page.getByLabel("Choose a character from your library").selectOption("character_123");
+  await chooseCharacter(page, page.getByLabel("Choose a character from your library"), "Characters", "Guide");
   await page.getByRole("button", { name: "Send proposal for approval", exact: true }).click();
   await expect.poll(() => writes.at(-1)?.path).toBe("/api/multiplayer/guest/action");
   expect(writes.at(-1)?.body.operationId).toMatch(/^[a-zA-Z0-9_-]{8,128}$/u);
@@ -1151,7 +1152,7 @@ test("joining while another shared chat is open says to leave it first", async (
   await page.getByRole("button", { name: "Review invitation" }).click();
   await page.getByLabel("Room password (at least 12 characters)").fill("separate-password");
   await page.getByLabel("Your display name").fill("Mari");
-  await page.getByLabel("Choose your persona").selectOption("persona_123");
+  await chooseCharacter(page, page.getByLabel("Choose your persona"), "Personas", "Mira");
   await page
     .getByLabel("I verified the host and agree to share only the display name and persona text shown above.")
     .check();

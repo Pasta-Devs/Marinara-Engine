@@ -11,6 +11,12 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const sha256 = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
 
+declare global {
+  interface Window {
+    __experienceUploadSha256?: string;
+  }
+}
+
 const files = [
   { path: "art/portrait.png", data: new Uint8Array(300_000).fill(7) },
   { path: "music/theme.ogg", data: new Uint8Array(600_000).fill(3) },
@@ -112,6 +118,20 @@ test("an Experience file is reviewed before import: its size, what it is made of
     installed = [installedRecord];
     return route.fulfill({ json: { ...installedRecord, usesDecisions: false } });
   });
+  // Playwright's WebKit routing does not expose a File request body (postDataBuffer() is null there), so the
+  // page also hashes the request it sends; the bytes on the wire are compared wherever they can be read.
+  // The app's CSRF shim wraps this fetch and hands it a Request, so a copy of that is read.
+  await page.addInitScript(() => {
+    const send = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      if ((input instanceof Request ? input.url : String(input)).endsWith("/experience-file")) {
+        const sent = input instanceof Request ? input.clone() : new Request(input, init);
+        const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await sent.arrayBuffer()));
+        window.__experienceUploadSha256 = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+      return send(input, init);
+    };
+  });
   const wizard = await mountWizard(page, testInfo);
   await wizard.getByRole("button", { name: "Show", exact: true }).first().click();
   const input = page.getByTestId("experience-file-input");
@@ -160,7 +180,8 @@ test("an Experience file is reviewed before import: its size, what it is made of
   await expect(dialog).toBeHidden();
   expect(uploads).toHaveLength(1);
   expect(uploads[0]!.contentType).toBe(EXPERIENCE_FILE_CONTENT_TYPE);
-  expect(uploads[0]!.body?.equals(experienceFile)).toBe(true);
+  if (uploads[0]!.body) expect(uploads[0]!.body.equals(experienceFile)).toBe(true);
+  else expect(await page.evaluate(() => window.__experienceUploadSha256)).toBe(sha256(experienceFile));
   await expect(
     wizard.getByText("Imported The Held Autumn (file). It is on for this game.", { exact: true }),
   ).toBeVisible();

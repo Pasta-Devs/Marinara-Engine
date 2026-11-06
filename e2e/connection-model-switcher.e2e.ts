@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, openChatSettings } from "./chat-settings-tools.js";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
+import { hideExistingItems } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -59,6 +60,10 @@ async function setup(
   ui: Record<string, unknown> = {},
   seedMode: "replace" | "if-missing" = "replace",
 ) {
+  // The page sees only this test's Models and accounts: the shared server keeps other specs' ones, and a run that
+  // timed out before its cleanup keeps its starred models, which would open the menu on Starred.
+  await hideExistingItems(page, request, "/api/connections");
+  await hideExistingItems(page, request, "/api/connection-accounts");
   const provider = await startProvider();
   const suffix = `${testInfo.project.name} ${theme} ${Date.now()}`;
   const createConnection = async (name: string, model: string, baseUrl = provider.baseUrl, apiKey = "") => {
@@ -519,6 +524,10 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     await expect(menu.locator("[data-switcher-results]")).toContainText("Delta");
     await switcherSearch.press("Enter");
     await menuGone();
+    // A phone shows the pick's toast over the top of the sheet, where "Use default" is; close it, as a user would.
+    const deltaToast = page.locator("[data-sonner-toast]").filter({ hasText: "This chat now uses Delta" });
+    await deltaToast.getByRole("button", { name: "Close toast", exact: true }).click();
+    await expect(deltaToast).toHaveCount(0);
     await expect.poll(chatModel).toBe("vendor/delta");
     const delta = await chatState(request, chat.id);
     // Both Connections list Delta now; the first hit runs on one of their Models, and nothing is saved.

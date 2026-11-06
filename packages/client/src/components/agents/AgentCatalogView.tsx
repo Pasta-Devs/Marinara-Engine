@@ -139,7 +139,20 @@ export function AgentCatalogView() {
     }
     return ids;
   }, [capabilityAgents.data]);
-  const all = useMemo(() => catalog.data?.packages ?? [], [catalog.data]);
+  const all = useMemo(() => {
+    const packages = catalog.data?.packages;
+    if (!packages) return [];
+    const listed = new Set(packages.map((entry) => entry.manifest.id));
+    // Installed packages that left the catalog (like the retired Slurp Legacy) stay listed so they can be uninstalled.
+    const retired = (installed.data ?? [])
+      .filter((item) => !listed.has(item.id))
+      .map((item) => ({
+        manifest: item.manifest,
+        category: "misc" as const,
+        artifact: { url: "", sha256: "", bytes: 0 },
+      }));
+    return [...packages, ...retired];
+  }, [catalog.data, installed.data]);
   const entries = useMemo(
     () => (modeFilter === "all" ? all : all.filter((entry) => packageModes(entry.manifest.id).includes(modeFilter))),
     [all, modeFilter],
@@ -158,13 +171,15 @@ export function AgentCatalogView() {
               shown.name,
               shown.description,
               taglineOf({ manifest, ...entry }),
+              // A section's name ("Apps") finds the packages in it.
+              localizeUi(sectionLabelKey(sectionOf({ manifest, ...entry }))),
             ]
               .join(" ")
               .toLowerCase()
               .includes(needle);
           })
         : null,
-    [entries, needle, shownLanguage],
+    [entries, needle, shownLanguage, localizeUi],
   );
   const updates = useMemo(
     () => all.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id))),
