@@ -24,7 +24,12 @@ import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
-import { removeMessagesFromPages, shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
+import {
+  removeMessagesFromPages,
+  shouldRefetchMessagesOnReconnect,
+  stillHiddenDeletes,
+  type ConfirmedDelete,
+} from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
 import { notifyTTSUserMessageReady } from "../lib/tts-autoplay";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
@@ -163,25 +168,27 @@ function deletedMessageIds(variables: unknown): string[] {
   return typeof messageId === "string" ? [messageId] : [];
 }
 
-/** Messages the server deleted that the cached transcript may still hold, per chat, until a refetch lands. */
-const useDeletedMessages = create<{ byChat: Record<string, string[]> }>(() => ({ byChat: {} }));
-
-function setDeletedMessages(chatId: string, update: (ids: string[]) => string[]) {
-  useDeletedMessages.setState((state) => ({
-    byChat: { ...state.byChat, [chatId]: update(state.byChat[chatId] ?? []) },
-  }));
-}
+/** Messages the server deleted, per chat, with the time the delete was confirmed. */
+const useDeletedMessages = create<{ byChat: Record<string, ConfirmedDelete[]> }>(() => ({ byChat: {} }));
 
 /**
- * The server deleted them: keep them hidden on read and refetch in the background. The cached pages are
- * never shortened, so Load more keeps the real oldest page; a failed refetch keeps them hidden.
+ * The server deleted them: hide them on read until a transcript fetch newer than the delete lands, and
+ * refetch in the background. The cached pages are never shortened, so Load more keeps the real oldest page.
  */
 function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
-  setDeletedMessages(chatId, (ids) => [...ids, ...messageIds]);
-  void qc
-    .invalidateQueries({ queryKey: chatKeys.messages(chatId) }, { throwOnError: true })
-    .then(() => setDeletedMessages(chatId, (ids) => ids.filter((id) => !messageIds.includes(id))))
-    .catch(() => undefined);
+  const at = Date.now();
+  const dataUpdatedAt = qc.getQueryState(chatKeys.messages(chatId))?.dataUpdatedAt ?? 0;
+  useDeletedMessages.setState((state) => ({
+    byChat: {
+      ...state.byChat,
+      // Entries older than the cached data no longer hide anything, so drop them here.
+      [chatId]: [
+        ...(state.byChat[chatId] ?? []).filter((entry) => entry.at > dataUpdatedAt),
+        ...messageIds.map((id) => ({ id, at })),
+      ],
+    },
+  }));
+  void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
 }
 
 export function rememberRecentMessageContentEdit(
@@ -486,12 +493,16 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     filters: { mutationKey: chatMessageDeleteKey(chatId), status: "pending" },
     select: (mutation) => deletedMessageIds(mutation.state.variables),
   }).flat();
-  const deletedIds = useDeletedMessages((state) => (chatId ? state.byChat[chatId] : undefined));
-  const pendingDeleteKey = [...pendingDeleteIds, ...(deletedIds ?? [])].join(",");
+  const confirmedDeletes = useDeletedMessages((state) => (chatId ? state.byChat[chatId] : undefined));
+  const pendingDeleteKey = pendingDeleteIds.join(",");
   const hidePendingDeletes = useCallback(
-    (data: InfiniteData<Message[]>) =>
-      pendingDeleteKey ? (removeMessagesFromPages(data, pendingDeleteKey.split(",")) ?? data) : data,
-    [pendingDeleteKey],
+    (data: InfiniteData<Message[]>) => {
+      const dataUpdatedAt = queryClient.getQueryState(chatKeys.messages(chatId ?? ""))?.dataUpdatedAt ?? 0;
+      const pending = pendingDeleteKey ? pendingDeleteKey.split(",") : [];
+      const hidden = [...pending, ...stillHiddenDeletes(confirmedDeletes ?? [], dataUpdatedAt)];
+      return hidden.length ? (removeMessagesFromPages(data, hidden) ?? data) : data;
+    },
+    [pendingDeleteKey, confirmedDeletes, chatId, queryClient],
   );
   const query = useInfiniteQuery({
     ...chatMessagesQueryOptions(chatId ?? "", pageSize),
