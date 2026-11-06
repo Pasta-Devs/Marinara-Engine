@@ -47,7 +47,7 @@ import { usePresetFull, usePresets } from "../../hooks/use-presets";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatPresets } from "../../hooks/use-chat-presets";
-import { useCharacter, usePersonas } from "../../hooks/use-characters";
+import { useCharacter } from "../../hooks/use-characters";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
@@ -355,7 +355,6 @@ export function ChatSetupStage({
   const { data: lorebooksData } = useLorebooks();
   const { data: agentConfigs } = useAgentConfigs();
   const { data: chatPresets } = useChatPresets(variant);
-  const { data: personas } = usePersonas();
 
   const connections = (connectionsData ?? []) as ConnectionRow[];
   const chatConnection = connections.find((c) => c.id === chat.connectionId) ?? null;
@@ -402,9 +401,8 @@ export function ChatSetupStage({
     .slice(0, 3);
   const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
-  const canPickPersona = (personas?.length ?? 0) >= 2;
-  // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
-  const personaWord = personaName ?? (canPickPersona ? t("chat.setupStage.choosePersona") : null);
+  // Always in the sentence: with no persona set, the word opens the picker (which can also make one).
+  const personaWord = personaName ?? t("chat.setupStage.choosePersona");
 
   const first = messages?.[0]?.role === "assistant" && messages[0].chatId === chat.id ? messages[0] : null;
   const greetingCount = Math.max(1, first?.swipeCount ?? first?.swipes?.length ?? 1);
@@ -533,11 +531,7 @@ export function ChatSetupStage({
     return { src: known?.avatarUrl, crop: known?.avatarCrop, name: c.name ?? "" };
   });
   const sentenceComponents: Record<string, ReactElement> = {
-    persona: canPickPersona ? (
-      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }), personaAvatars)
-    ) : (
-      <span />
-    ),
+    persona: word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }), personaAvatars),
     cast: word(
       open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
@@ -800,7 +794,7 @@ export function ChatSetupStage({
         >
           <Trans
             t={t}
-            i18nKey={personaWord ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
+            i18nKey="chat.setupStage.sentenceWho"
             values={{ persona: personaWord, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
             components={sentenceComponents}
           />{" "}
