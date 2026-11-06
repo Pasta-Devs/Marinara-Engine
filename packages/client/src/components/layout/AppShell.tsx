@@ -124,9 +124,6 @@ const OvRegexViewer = lazy(() =>
 const OvConnectionsViewer = lazy(() =>
   import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionsViewer })),
 );
-const OvAgentsViewer = lazy(() =>
-  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvAgentsViewer })),
-);
 const LibraryLandingPage = lazy(() =>
   import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
 );
@@ -989,7 +986,8 @@ export function AppShell({
             : "agents"
           : !ovOtherDetail &&
               // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
-              (overhaulLibraryPage === "regex" || overhaulLibraryPage === "agents")
+              // Agents opens on the Agent Organizer (it lists installed agents too); an agent opens its settings.
+              overhaulLibraryPage === "regex"
             ? overhaulLibraryPage
             : null;
 
@@ -1007,9 +1005,12 @@ export function AppShell({
         {connectionDetailId ? <ConnectionEditor key={connectionDetailId} /> : null}
       </OvConnectionsViewer>
     ) : ovViewer === "agents" ? (
-      <OvAgentsViewer>
-        {agentDetailId ? capabilityAgents.isLoading ? <MainPaneFallback /> : <AgentEditor key={agentDetailId} /> : null}
-      </OvAgentsViewer>
+      // The Agent Organizer is the list now, so an agent's settings take the whole pane.
+      capabilityAgents.isLoading ? (
+        <MainPaneFallback />
+      ) : (
+        <AgentEditor key={agentDetailId ?? "new"} />
+      )
     ) : overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
     ) : overhaulPages && overhaulMari ? (

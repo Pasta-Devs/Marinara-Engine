@@ -12,14 +12,12 @@ import {
   BUILT_IN_AGENTS,
   isAgentConfigDeleted,
   isRetiredBuiltInAgentId,
-  type APIConnection,
   type Lorebook,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
-import { useConnections } from "../../hooks/use-connections";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import {
@@ -823,86 +821,4 @@ export function useOvAgentRows() {
     return [...builtIns, ...custom];
   }, [configs, registry]);
   return { rows, ready: !configsLoading && !registryLoading };
-}
-
-export function AgentsLanding() {
-  const localize = useLocalizedUiText();
-  const { rows: data } = useOvAgentRows();
-  const { data: connections } = useConnections();
-  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
-  const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortKey>("name-asc");
-
-  const connectionName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const row of (connections ?? []) as Partial<APIConnection>[]) {
-      if (row?.id) map.set(row.id, row.name ?? row.id);
-    }
-    return map;
-  }, [connections]);
-
-  const rows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const list = data.filter(
-      (agent) =>
-        !needle || agent.name.toLowerCase().includes(needle) || agent.description?.toLowerCase().includes(needle),
-    );
-    // Apps first, so installed apps like Noodle are easy to find and open.
-    return sortRows(list, sort).sort((a, b) => Number(Boolean(b.app)) - Number(Boolean(a.app)));
-  }, [data, search, sort]);
-
-  return (
-    <ListPage
-      title={localize("Agents")}
-      actions={
-        <>
-          <button type="button" className="ov-btn" onClick={() => openAgentCatalog()}>
-            {localize("Download Agents")}
-          </button>
-          <NewButton label={localize("New")} onClick={() => openAgentDetail("__new__")} />
-        </>
-      }
-      searchPlaceholder={localize("Search agents")}
-      search={search}
-      onSearch={setSearch}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
-      rows={rows}
-      onOpen={(agent) => openAgentDetail(agent.id)}
-      columns={[
-        {
-          key: "name",
-          label: "Agent",
-          className: "ov-table__name",
-          render: (agent) => (
-            <span className="ov-table__title">
-              <Thumb id={agent.id} src={agent.imagePath} />
-              <span>{agent.name}</span>
-            </span>
-          ),
-        },
-        {
-          key: "description",
-          label: "Description",
-          className: "ov-table__desc",
-          render: (agent) => agent.description || "—",
-        },
-        {
-          key: "phase",
-          label: "Runs",
-          render: (agent) =>
-            agent.app
-              ? localize("App, opens its own screen")
-              : localize(PHASE_LABEL[agent.phase] ?? agent.phase ?? "—"),
-        },
-        {
-          key: "connection",
-          label: "Connection",
-          render: (agent) =>
-            agent.connectionId ? (connectionName.get(agent.connectionId) ?? localize("Unknown")) : localize("Default"),
-        },
-      ]}
-      empty={localize("No agents installed yet. Use Download Agents to add some.")}
-    />
-  );
 }
