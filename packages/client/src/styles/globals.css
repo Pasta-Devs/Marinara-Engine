@@ -2696,16 +2696,16 @@
     transform 180ms linear;
 }
 
-/* Touch accents should repaint at their tick cadence, not start color, border
-   and shadow transitions across every mounted control between ticks.
+/* Animated accents should repaint at their tick cadence, not start color, border
+   and shadow transitions across every mounted control between ticks. Desktop
+   gets Accent Pulse by default, so this applies to every pointer type.
    ponytail: root colors still update at 2 Hz; isolated accent layers are the
    upgrade path if device profiles need a smaller rendering budget. */
-@media (pointer: coarse) {
-  html[data-marinara-accent-animation] *,
-  html[data-marinara-accent-animation] *::before,
-  html[data-marinara-accent-animation] *::after {
-    transition-property: opacity, transform, translate, scale, rotate !important;
-  }
+html[data-marinara-accent-animation] *,
+html[data-marinara-accent-animation] *::before,
+html[data-marinara-accent-animation] *::after {
+  transition-property:
+    opacity, transform, translate, scale, rotate, width, height, max-width, max-height, grid-template-rows !important;
 }
 
 /* ─────────────────────────────────────────────
