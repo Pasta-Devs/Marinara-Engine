@@ -38,6 +38,7 @@ import {
   type CharacterData,
   type CharacterCatalogEntry,
   type CharacterCatalogPage,
+  type CharacterCatalogSummaryPage,
   type CharacterCardVersion,
   type Persona,
   type PersonaCardVersion,
@@ -168,6 +169,34 @@ export function useCharacterPages(options: {
     getNextPageParam: getNextPageOffset,
     placeholderData: (previousData) => previousData,
     enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** One slim response for the virtualized Characters panel, independent of full library pages. */
+export function useCharacterPanelCatalog(options: {
+  search: string;
+  sort: string;
+  favoriteFilter: string;
+  tags: string[];
+  excludeTags: string[];
+  folder: string;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "summary", options] as const,
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ view: "summary", folder: options.folder });
+      if (options.search) params.set("search", options.search);
+      if (options.sort) params.set("sort", options.sort);
+      if (options.favoriteFilter) params.set("favoriteFilter", options.favoriteFilter);
+      for (const tag of options.tags) params.append("tag", tag);
+      for (const tag of options.excludeTags) params.append("excludeTag", tag);
+      return api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
+    },
+    enabled: options.enabled ?? true,
+    placeholderData: (previousData, previousQuery) =>
+      (previousQuery?.queryKey[4] as typeof options | undefined)?.folder === options.folder ? previousData : undefined,
     staleTime: 5 * 60_000,
   });
 }
