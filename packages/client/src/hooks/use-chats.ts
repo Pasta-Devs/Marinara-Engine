@@ -2,6 +2,7 @@
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef } from "react";
+import { create } from "zustand";
 import {
   infiniteQueryOptions,
   useQuery,
@@ -162,18 +163,25 @@ function deletedMessageIds(variables: unknown): string[] {
   return typeof messageId === "string" ? [messageId] : [];
 }
 
+/** Messages the server deleted that the cached transcript may still hold, per chat, until a refetch lands. */
+const useDeletedMessages = create<{ byChat: Record<string, string[]> }>(() => ({ byChat: {} }));
+
+function setDeletedMessages(chatId: string, update: (ids: string[]) => string[]) {
+  useDeletedMessages.setState((state) => ({
+    byChat: { ...state.byChat, [chatId]: update(state.byChat[chatId] ?? []) },
+  }));
+}
+
 /**
- * The server deleted them: refetch the transcript so the pages keep their real length (Load more stays).
- * Only if that refetch fails are they dropped from the cached pages, so they do not show again.
+ * The server deleted them: keep them hidden on read and refetch in the background. The cached pages are
+ * never shortened, so Load more keeps the real oldest page; a failed refetch keeps them hidden.
  */
-async function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
-  try {
-    await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }, { throwOnError: true });
-  } catch {
-    qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
-      removeMessagesFromPages(old, messageIds),
-    );
-  }
+function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
+  setDeletedMessages(chatId, (ids) => [...ids, ...messageIds]);
+  void qc
+    .invalidateQueries({ queryKey: chatKeys.messages(chatId) }, { throwOnError: true })
+    .then(() => setDeletedMessages(chatId, (ids) => ids.filter((id) => !messageIds.includes(id))))
+    .catch(() => undefined);
 }
 
 export function rememberRecentMessageContentEdit(
@@ -478,7 +486,8 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     filters: { mutationKey: chatMessageDeleteKey(chatId), status: "pending" },
     select: (mutation) => deletedMessageIds(mutation.state.variables),
   }).flat();
-  const pendingDeleteKey = pendingDeleteIds.join(",");
+  const deletedIds = useDeletedMessages((state) => (chatId ? state.byChat[chatId] : undefined));
+  const pendingDeleteKey = [...pendingDeleteIds, ...(deletedIds ?? [])].join(",");
   const hidePendingDeletes = useCallback(
     (data: InfiniteData<Message[]>) =>
       pendingDeleteKey ? (removeMessagesFromPages(data, pendingDeleteKey.split(",")) ?? data) : data,
@@ -486,7 +495,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
   );
   const query = useInfiniteQuery({
     ...chatMessagesQueryOptions(chatId ?? "", pageSize),
-    // Pending deletes are hidden on read; the cache keeps them, so paging and a failed delete stay correct.
+    // Pending and server-confirmed deletes are hidden on read; the cache is never shortened, so paging stays correct.
     select: hidePendingDeletes,
     enabled: !!chatId && enabled,
     // #4703: a reconnect refetch re-drains every loaded page back-to-back, so
@@ -1579,9 +1588,9 @@ export function useDeleteMessage(chatId: string | null) {
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: async (result, target) => {
+    onSuccess: (result, target) => {
       if (chatId) {
-        const settled = settleDeletedMessages(qc, chatId, deletedMessageIds(target));
+        settleDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: 1 }), {
@@ -1594,8 +1603,6 @@ export function useDeleteMessage(chatId: string | null) {
         qc.invalidateQueries({ queryKey: chatKeys.list() });
         qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
-        // Stay pending, so the messages stay hidden, until the transcript refetch lands.
-        await settled;
       }
     },
   });
@@ -1613,9 +1620,9 @@ export function useDeleteMessages(chatId: string | null) {
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: async (result, messageIds) => {
+    onSuccess: (result, messageIds) => {
       if (chatId) {
-        const settled = settleDeletedMessages(qc, chatId, messageIds);
+        settleDeletedMessages(qc, chatId, messageIds);
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
@@ -1628,8 +1635,6 @@ export function useDeleteMessages(chatId: string | null) {
         qc.invalidateQueries({ queryKey: chatKeys.list() });
         qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
-        // Stay pending, so the messages stay hidden, until the transcript refetch lands.
-        await settled;
       }
     },
   });
