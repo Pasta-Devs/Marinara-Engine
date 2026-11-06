@@ -13920,6 +13920,7 @@
   "ui.modals.stbulkimportmodal.browse": "Browse",
   "ui.modals.stbulkimportmodal.browseForFolder": "Browse for folder",
   "ui.modals.stbulkimportmodal.builtIn": "Built-in",
+  "ui.modals.stbulkimportmodal.streamClosedEarly": "Import failed: the server closed the stream early.",
   "ui.modals.stbulkimportmodal.builtInPreset": "built-in preset",
   "ui.modals.stbulkimportmodal.builtInPresetsDetectedAndUnchecked_one": "{{count}} built-in preset was detected and left unchecked by default, so only likely custom presets come across unless you opt in.",
   "ui.modals.stbulkimportmodal.builtInPresetsDetectedAndUnchecked_other": "{{count}} built-in presets were detected and left unchecked by default, so only likely custom presets come across unless you opt in.",

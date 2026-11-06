@@ -363,14 +363,25 @@ export function STBulkImportModal({ open, onClose }: Props) {
         }
       }
       if (!finished) {
-        setError((prev) => prev || "Import failed: the server closed the stream early");
+        // A plain JSON reply (expired folder token, bad mode) has no SSE frames, so it is still in the buffer.
+        let serverError: unknown;
+        try {
+          serverError = (JSON.parse(buffer.trim()) as ApiErrorPayload).error;
+        } catch {
+          // Not JSON: the stream closed early.
+        }
+        setError(
+          typeof serverError === "string"
+            ? serverError.slice(0, 500)
+            : localizeUi("ui.modals.stbulkimportmodal.streamClosedEarly"),
+        );
         setPhase("preview");
       }
     } catch (err) {
       setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
       setPhase("preview");
     }
-  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection]);
+  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection, localizeUi]);
 
   const hasAnySelected = Object.values(selection).some((ids) => ids.length > 0);
   const builtinPresetCount = scanResult?.presets.filter((item) => item.isBuiltin).length ?? 0;
