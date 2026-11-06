@@ -15,11 +15,11 @@ Zwei Begriffe lassen sich leicht verwechseln:
 
 Ein Regelsatz ist eine JSON-Datei von höchstens 512 KB, die beim Import vollständig geprüft wird. Größere Regelsätze lagern ihre Kataloge in ein Paket aus. Kopiere zunächst das Beispiel, dessen Würfelmechanik deiner am nächsten kommt:
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6 plus ein Wert.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): ein d10-Pool.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6 plus ein Wert.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): ein d10-Pool.
 - Das vollständige [Paket für 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) in Marinara-Agents.
 
-Verweise deinen Editor mit einer `$schema`-Zeile auf das [JSON-Schema](../extending/ruleset.schema.json), damit er automatisch vervollständigt und Tippfehler erkennt.
+Verweise deinen Editor mit einer `$schema`-Zeile auf das [JSON-Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json), damit er automatisch vervollständigt und Tippfehler erkennt.
 
 | Schlüssel | Inhalt | Referenz |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Ergänze über die Grundlagen hinaus, was dein System braucht:
 
 ## Die Kampf-KI: Denkweisen, Temperamente und wer die Gegner spielt
 
-Die Engine spielt jeden Gegner und KI-Begleiter, den niemand sonst steuert, ohne Modellaufruf pro Zug. Sie ist vom Regelsatz unabhängig: Wir haben sie mit Umsetzungen von Storyteller, Exalted, Systemen der alten Schule, Call of Cthulhu, GURPS und Genesys sowie 5e getestet. Sie funktioniert ohne die folgenden Schlüssel. Damit kämpfen deine Kreaturen jedoch ihrer Eigenart entsprechend. Alle stehen unter [Mechanik von Regelsatzeinträgen](../extending/ruleset-mechanics.md), das Design unter [Kampf-KI im Game Mode](game-combat-ai.md).
+Die Engine spielt jeden Gegner und KI-Begleiter, den niemand sonst steuert, ohne Modellaufruf pro Zug. Sie ist vom Regelsatz unabhängig: Wir haben sie mit Umsetzungen von Storyteller, Exalted, Systemen der alten Schule, Call of Cthulhu, GURPS und Genesys sowie 5e getestet. Sie funktioniert ohne die folgenden Schlüssel. Damit kämpfen deine Kreaturen jedoch ihrer Eigenart entsprechend. Alle stehen unter [Mechanik von Regelsatzeinträgen](../extending/ruleset-mechanics.md), das Design unter [Kampf-KI im Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Schlüssel | Was er steuert | API |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Drei Mechanismen ändern einen Regelsatz, ohne ihn abzuspalten. Nutze eine Ebene
 
 Eine Ebene kann weder ein Feld, einen Wert, eine Fertigkeit, einen Pool, eine Rast, einen Händler oder eine Beutetabelle hinzufügen noch die Auflösungsart oder Kampfzahlen ändern. Charaktere behalten alles, was eine Ebene entfernt. Die Ebene **Low magic** des SRD ist ein gutes Vorbild: Zauber sind auf den 5. Grad begrenzt, Gegenstände oberhalb von ungewöhnlich sind seltener und normalerweise nicht im Handel, Kreaturen mit starker Magie werden aus Zufallsbegegnungen ausgeschlossen, und die Weltanweisungen bitten den Game Master zu erklären, warum Magie selten ist. Andere Autoren dürfen sie kopieren. Ebenen für den Regelsatz eines anderen Autors werden noch nicht unterstützt.
 
-**Overlays** (1.355) lassen das Kartenpaket einer Experience Kreaturen, Zustände, Bogenzustände, Gegenstände und Leisten (1.367) zu deinem Regelsatz hinzufügen, solange diese Experience aktiv ist. Halte abenteuerspezifische Monster und Beute in einem Overlay statt im Basisregelsatz. Ein Overlay, das eine deiner IDs erneut verwendet oder nicht passt, wird vollständig verworfen. Auch deshalb sollten IDs stabil bleiben. Referenz: [Regelsatz-Overlays](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Overlays** (1.355) lassen das Kartenpaket einer Experience Kreaturen, Zustände, Bogenzustände, Gegenstände und Leisten (1.367) zu deinem Regelsatz hinzufügen, solange diese Experience aktiv ist. Halte abenteuerspezifische Monster und Beute in einem Overlay statt im Basisregelsatz. Ein Overlay, das eine deiner IDs erneut verwendet oder nicht passt, wird vollständig verworfen. Auch deshalb sollten IDs stabil bleiben. Referenz: [Regelsatz-Overlays](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Migrationen** (`sheet.migrations`, 1.77) legen fest, wie gespeicherte Charaktere übertragen werden, wenn du ein Feld umbenennst, eine einzelne Stufe in Stufen pro Klasse oder einen Pool aufteilst. Ergänzungen brauchen keine Migration. Erhöhe `sheet.version`, wenn sich der Aufbau des Bogens ändert. Referenz: [Ebenen, Übersetzungen und Migrationen](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Wir haben 16 Systeme aus einer Community-Sammlung in dieses Format umgesetzt, vo
 ## Weiterführende Anleitungen
 
 - [Regelsätze für Game Mode schreiben](../extending/writing-rulesets.md)
-- [Architektur von Game Mode](game-mode-architecture.md), um den Regelcode der Engine zu ändern
-- [Kampf-KI im Game Mode](game-combat-ai.md)
+- [Architektur von Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), um den Regelcode der Engine zu ändern
+- [Kampf-KI im Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Mit einem Regelsatz spielen](../game/rulesets.md)

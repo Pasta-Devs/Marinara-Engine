@@ -15,11 +15,11 @@ Deux termes se confondent facilement :
 
 Un ensemble de règles est un fichier JSON d'au plus 512 KB, validé en entier à l'importation. Les ensembles plus gros répartissent leurs catalogues dans un package. Commence par copier l'exemple le plus proche de tes dés :
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json) : 2d6 plus un attribut.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json) : une réserve de d10.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json) : 2d6 plus un attribut.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) : une réserve de d10.
 - Le [package 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) complet dans Marinara-Agents.
 
-Indique le [schéma JSON](../extending/ruleset.schema.json) à ton éditeur avec une ligne `$schema` pour bénéficier de l'autocomplétion et des vérifications de fautes de frappe.
+Indique le [schéma JSON](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json) à ton éditeur avec une ligne `$schema` pour bénéficier de l'autocomplétion et des vérifications de fautes de frappe.
 
 | Clé                                                            | Contenu                                                                                                      | Référence                                                                                                                                          |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Au-delà de ces bases, ajoute ce dont ton système a besoin :
 
 ## L'IA de combat : esprits, tempéraments et contrôle des adversaires
 
-Le moteur joue chaque adversaire et compagnon IA que personne d'autre ne contrôle, sans appel au modèle à chaque tour. Il est indépendant de l'ensemble de règles : nous l'avons testé sur des conversions de Storyteller, Exalted, de systèmes à l'ancienne, de Call of Cthulhu, GURPS et Genesys, ainsi que de 5e. Il fonctionne sans aucune des clés ci-dessous ; elles font combattre tes créatures selon leur nature. Toutes figurent dans [Mécaniques des entrées des ensembles de règles](../extending/ruleset-mechanics.md), et la conception est décrite dans [IA de combat de Game Mode](game-combat-ai.md).
+Le moteur joue chaque adversaire et compagnon IA que personne d'autre ne contrôle, sans appel au modèle à chaque tour. Il est indépendant de l'ensemble de règles : nous l'avons testé sur des conversions de Storyteller, Exalted, de systèmes à l'ancienne, de Call of Cthulhu, GURPS et Genesys, ainsi que de 5e. Il fonctionne sans aucune des clés ci-dessous ; elles font combattre tes créatures selon leur nature. Toutes figurent dans [Mécaniques des entrées des ensembles de règles](../extending/ruleset-mechanics.md), et la conception est décrite dans [IA de combat de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Clé                                                               | Ce qu'elle contrôle                                                                                                                                                                                                          | API            |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Trois mécanismes modifient un ensemble de règles sans en créer une version d�
 
 Une couche ne peut pas ajouter de champ, de valeur, de compétence, de réserve, de repos, de vendeur ni de table de butin, changer le type de résolution ou toucher aux nombres de combat. Les personnages conservent tout ce qu'une couche retire. La couche **Low magic** du SRD est un bon modèle : sorts limités au niveau 5, objets au-dessus de peu commun plus rares et normalement pas à vendre, créatures très magiques exclues des rencontres aléatoires et consignes de monde demandant au GM d'expliquer pourquoi la magie est rare. D'autres auteurs peuvent la copier. Les couches écrites pour l'ensemble de règles de quelqu'un d'autre ne sont pas encore prises en charge.
 
-**Les surcouches** (1.355) permettent au pack de cartes d'une Experience d'ajouter des créatures, des états, des états de fiche, des objets et des pistes (1.367) à ton ensemble de règles pendant que cette Experience est active. Garde les monstres et le butin propres à l'aventure dans une surcouche, pas dans ton ensemble de règles de base. Une surcouche qui réutilise l'un de tes identifiants, ou qui ne convient pas, est rejetée en entier : une raison de plus de garder les identifiants stables. Référence : [surcouches d'ensembles de règles](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Les surcouches** (1.355) permettent au pack de cartes d'une Experience d'ajouter des créatures, des états, des états de fiche, des objets et des pistes (1.367) à ton ensemble de règles pendant que cette Experience est active. Garde les monstres et le butin propres à l'aventure dans une surcouche, pas dans ton ensemble de règles de base. Une surcouche qui réutilise l'un de tes identifiants, ou qui ne convient pas, est rejetée en entier : une raison de plus de garder les identifiants stables. Référence : [surcouches d'ensembles de règles](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Les migrations** (`sheet.migrations`, 1.77) indiquent comment les personnages sauvegardés sont adaptés quand tu renommes un champ, divises un niveau en niveaux par classe ou scindes une réserve. Les ajouts ne nécessitent pas de migration ; augmente `sheet.version` quand la structure de la fiche change. Référence : [Couches, traductions et migrations](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Nous avons converti à ce format 16 systèmes issus d'une collection communautai
 ## Guides associés
 
 - [Écrire des ensembles de règles Game Mode](../extending/writing-rulesets.md)
-- [Architecture de Game Mode](game-mode-architecture.md), pour modifier le code des règles du moteur
-- [IA de combat de Game Mode](game-combat-ai.md)
+- [Architecture de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), pour modifier le code des règles du moteur
+- [IA de combat de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Jouer avec un ensemble de règles](../game/rulesets.md)

@@ -15,11 +15,11 @@
 
 规则集是一个最大 512 KB 的 JSON 文件，导入时会整体校验。更大的规则集会把目录拆分到包中。先复制最接近你所用骰子机制的示例：
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json)：2d6 加属性。
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json)：d10 骰池。
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json)：2d6 加属性。
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json)：d10 骰池。
 - Marinara-Agents 中完整的 [5e (SRD 5.1) 包](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014)。
 
-用一行 `$schema` 为编辑器指定 [JSON Schema](../extending/ruleset.schema.json)，以获得自动补全和拼写检查。
+用一行 `$schema` 为编辑器指定 [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json)，以获得自动补全和拼写检查。
 
 | 键 | 内容 | 参考 |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ GM 通过 Engine 自动教给它的人物卡命令来修改人物卡，使用的
 
 ## 战斗 AI：心智、性格与由谁操控对手
 
-Engine 操控所有无人控制的对手和 AI 同伴，每回合无需调用模型。它不依赖特定规则集：除了 5e，我们也在 Storyteller、Exalted、老派系统、Call of Cthulhu、GURPS 和 Genesys 的转换版本上做过测试。即使没有下列任何键，它也能工作；这些键让生物的战斗方式更符合自身特点。所有键都在[规则集条目机制](../extending/ruleset-mechanics.md)中，设计说明见 [Game Mode 战斗 AI](game-combat-ai.md)。
+Engine 操控所有无人控制的对手和 AI 同伴，每回合无需调用模型。它不依赖特定规则集：除了 5e，我们也在 Storyteller、Exalted、老派系统、Call of Cthulhu、GURPS 和 Genesys 的转换版本上做过测试。即使没有下列任何键，它也能工作；这些键让生物的战斗方式更符合自身特点。所有键都在[规则集条目机制](../extending/ruleset-mechanics.md)中，设计说明见 [Game Mode 战斗 AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)。
 
 | 键 | 控制什么 | API |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ Engine 操控所有无人控制的对手和 AI 同伴，每回合无需调用模
 
 层不能添加字段、值、技能、资源池、休息、卖家或战利品表，不能改变结算类型，也不能修改战斗数值。角色会保留层所移除的任何东西。SRD 的 **Low magic**(低魔) 层就是很好的范例：法术最高 5 级、高于非普通稀有度的物品更罕见且通常不出售、高魔生物不会进入随机遭遇，世界指引则要求 GM 解释魔法为何罕见。其他作者可以复制它。目前尚不支持为别人的规则集编写层。
 
-**叠加层**(1.355) 让 Experience 的地图包在该 Experience 启用期间，为规则集添加生物、状态、人物卡状态、物品和轨道（1.367）。把冒险专用的怪物和战利品放在叠加层中，不要放进基础规则集。若叠加层复用了已有 ID，或与规则集不兼容，整个叠加层都会被丢弃，这也是保持 ID 稳定的另一个原因。参考：[规则集叠加层](optional-agent-packages.md#capability-api-1355-ruleset-overlays)。
+**叠加层**(1.355) 让 Experience 的地图包在该 Experience 启用期间，为规则集添加生物、状态、人物卡状态、物品和轨道（1.367）。把冒险专用的怪物和战利品放在叠加层中，不要放进基础规则集。若叠加层复用了已有 ID，或与规则集不兼容，整个叠加层都会被丢弃，这也是保持 ID 稳定的另一个原因。参考：[规则集叠加层](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays)。
 
 **迁移**（`sheet.migrations`，1.77）说明重命名字段、把单一等级拆成各职业等级，或拆分资源池时，已保存的角色如何转移数据。添加内容无需迁移；人物卡结构改变时，提高 `sheet.version`。参考：[层、翻译与迁移](../extending/ruleset-layers-and-translations.md)。
 
@@ -249,6 +249,6 @@ Marinara-Agents 中的 [ruleset-5e-2014 包](https://github.com/Pasta-Devs/Marin
 ## 相关指南
 
 - [编写 Game Mode 规则集](../extending/writing-rulesets.md)
-- [Game Mode 架构](game-mode-architecture.md)，用于修改 Engine 的规则代码
-- [Game Mode 战斗 AI](game-combat-ai.md)
+- [Game Mode 架构](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md)，用于修改 Engine 的规则代码
+- [Game Mode 战斗 AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [使用规则集游玩](../game/rulesets.md)

@@ -15,11 +15,11 @@ Przy każdym kluczu poniżej podano wersję podrzędną Capability API, która g
 
 Zestaw zasad to jeden plik JSON o rozmiarze najwyżej 512 KB, sprawdzany w całości przy imporcie. Większe zestawy zasad rozdzielają swoje katalogi na pliki pakietu. Zacznij od skopiowania przykładu najbliższego twoim kościom:
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6 plus cecha.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): pula d10.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6 plus cecha.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): pula d10.
 - Pełny [pakiet 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) w repozytorium Marinara-Agents.
 
-Wskaż edytorowi [JSON Schema](../extending/ruleset.schema.json) przez linię `$schema`, aby uzyskać autouzupełnianie i wykrywanie literówek.
+Wskaż edytorowi [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json) przez linię `$schema`, aby uzyskać autouzupełnianie i wykrywanie literówek.
 
 | Klucz | Zawartość | Dokumentacja |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Poza podstawami dodaj to, czego potrzebuje twój system:
 
 ## AI walki: umysły, temperamenty i kto prowadzi przeciwników
 
-Engine prowadzi każdego przeciwnika i towarzysza AI, którego nie kontroluje nikt inny, bez wywołania modelu w każdej turze. Jest niezależny od zestawu zasad: testowaliśmy go na konwersjach Storyteller, Exalted, systemów klasycznych, Call of Cthulhu, GURPS i Genesys, a także 5e. Działa bez żadnego z poniższych kluczy; sprawiają one, że twoje stworzenia walczą zgodnie ze swoją naturą. Wszystkie opisuje [Mechanika wpisów zestawu zasad](../extending/ruleset-mechanics.md), a projekt przedstawia strona [AI walki w trybie Game Mode](game-combat-ai.md).
+Engine prowadzi każdego przeciwnika i towarzysza AI, którego nie kontroluje nikt inny, bez wywołania modelu w każdej turze. Jest niezależny od zestawu zasad: testowaliśmy go na konwersjach Storyteller, Exalted, systemów klasycznych, Call of Cthulhu, GURPS i Genesys, a także 5e. Działa bez żadnego z poniższych kluczy; sprawiają one, że twoje stworzenia walczą zgodnie ze swoją naturą. Wszystkie opisuje [Mechanika wpisów zestawu zasad](../extending/ruleset-mechanics.md), a projekt przedstawia strona [AI walki w trybie Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Klucz | Czym steruje | API |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Trzy mechanizmy zmieniają zestaw zasad bez tworzenia jego osobnej odmiany. Uży
 
 Warstwa nie może dodać pola, wartości, umiejętności, puli, odpoczynku, sprzedawcy ani tabeli łupów, zmienić rodzaju rozstrzygania ani dotknąć liczb walki. Postacie zachowują wszystko, co usuwa warstwa. Warstwa **Low magic** (mało magii) z SRD to dobry wzór: zaklęcia ograniczone do 5. poziomu, przedmioty powyżej niepospolitych są rzadsze i zwykle nie są sprzedawane, stworzenia związane z potężną magią nie trafiają do losowych starć, a wskazówki świata proszą mistrza gry o wyjaśnienie, dlaczego magia jest rzadka. Inni autorzy mogą ją kopiować. Warstwy pisane dla cudzego zestawu zasad nie są jeszcze obsługiwane.
 
-**Nakładki** (1.355) pozwalają pakietowi map Experience dodawać do twojego zestawu zasad stworzenia, stany, stany arkusza, przedmioty i tory (1.367), dopóki to Experience jest aktywne. Potwory i łupy charakterystyczne dla przygody trzymaj w nakładce, a nie w bazowym zestawie zasad. Nakładka, która ponownie wykorzystuje jeden z twoich identyfikatorów lub nie pasuje, jest odrzucana w całości, co stanowi kolejny powód, aby utrzymywać stałe identyfikatory. Dokumentacja: [nakładki zestawu zasad](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Nakładki** (1.355) pozwalają pakietowi map Experience dodawać do twojego zestawu zasad stworzenia, stany, stany arkusza, przedmioty i tory (1.367), dopóki to Experience jest aktywne. Potwory i łupy charakterystyczne dla przygody trzymaj w nakładce, a nie w bazowym zestawie zasad. Nakładka, która ponownie wykorzystuje jeden z twoich identyfikatorów lub nie pasuje, jest odrzucana w całości, co stanowi kolejny powód, aby utrzymywać stałe identyfikatory. Dokumentacja: [nakładki zestawu zasad](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Migracje** (`sheet.migrations`, 1.77) określają, jak przenosić zapisane postacie, gdy zmieniasz nazwę pola, rozdzielasz jeden poziom na poziomy poszczególnych klas lub rozdzielasz pulę. Dodawanie elementów nie wymaga migracji; zwiększ `sheet.version`, gdy zmienia się struktura arkusza. Dokumentacja: [Warstwy, tłumaczenia i migracje zestawu zasad](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Przekonwertowaliśmy do tego formatu 16 systemów ze zbioru społeczności, od g
 ## Powiązane przewodniki
 
 - [Pisanie zestawów zasad Game Mode](../extending/writing-rulesets.md)
-- [Architektura trybu Game Mode](game-mode-architecture.md), do zmieniania kodu zasad Engine
-- [AI walki w trybie Game Mode](game-combat-ai.md)
+- [Architektura trybu Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), do zmieniania kodu zasad Engine
+- [AI walki w trybie Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Game Mode: gra z zestawem zasad](../game/rulesets.md)

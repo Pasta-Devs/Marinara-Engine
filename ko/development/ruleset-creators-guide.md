@@ -15,11 +15,11 @@
 
 규칙 집합은 최대 512 KB의 JSON 파일 하나이며, 가져올 때 전체를 검증합니다. 더 큰 규칙 집합은 카탈로그를 나눠 패키지로 만듭니다. 사용하는 주사위에 가장 가까운 예제를 복사해 시작하세요.
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6에 능력치를 더합니다.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): d10 풀입니다.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6에 능력치를 더합니다.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): d10 풀입니다.
 - Marinara-Agents의 완전한 [5e (SRD 5.1) 패키지](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014).
 
-자동 완성과 오타 검사를 사용하려면 `$schema` 줄로 편집기에 [JSON Schema](../extending/ruleset.schema.json)를 지정하세요.
+자동 완성과 오타 검사를 사용하려면 `$schema` 줄로 편집기에 [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json)를 지정하세요.
 
 | 키 | 내용 | 참고 자료 |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Game Master는 Engine이 자동으로 가르치는 시트 명령으로 시트를
 
 ## 전투 AI: 사고방식, 성향과 상대를 조작하는 주체
 
-Engine은 다른 사람이 조작하지 않는 모든 상대와 AI 동료를 턴마다 모델을 호출하지 않고 조작합니다. 특정 규칙 집합에 얽매이지 않습니다. 5e뿐 아니라 Storyteller, Exalted, 올드스쿨, Call of Cthulhu, GURPS와 Genesys 변환으로도 시험했습니다. 아래 키가 하나도 없어도 작동하며, 키를 사용하면 생물이 자기답게 싸웁니다. 모두 [규칙 집합 항목 메커니즘](../extending/ruleset-mechanics.md)에 있고, 설계는 [Game Mode 전투 AI](game-combat-ai.md)에 있습니다.
+Engine은 다른 사람이 조작하지 않는 모든 상대와 AI 동료를 턴마다 모델을 호출하지 않고 조작합니다. 특정 규칙 집합에 얽매이지 않습니다. 5e뿐 아니라 Storyteller, Exalted, 올드스쿨, Call of Cthulhu, GURPS와 Genesys 변환으로도 시험했습니다. 아래 키가 하나도 없어도 작동하며, 키를 사용하면 생물이 자기답게 싸웁니다. 모두 [규칙 집합 항목 메커니즘](../extending/ruleset-mechanics.md)에 있고, 설계는 [Game Mode 전투 AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)에 있습니다.
 
 | 키 | 제어하는 내용 | API |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Engine은 다른 사람이 조작하지 않는 모든 상대와 AI 동료를 턴
 
 레이어는 필드, 값, 기술, 풀, 휴식, 판매자나 전리품 표를 추가하거나, 판정 종류를 바꾸거나, 전투 숫자를 건드릴 수 없습니다. 레이어가 제거한 것도 캐릭터는 계속 보유합니다. SRD의 **Low magic** 레이어가 좋은 본보기입니다. 주문을 5레벨까지로 제한하고, 고급보다 높은 등급의 아이템을 더 드물게 하고 보통 판매하지 않게 하며, 강한 마법 생물을 무작위 조우에서 제외하고, 세계 지침에서 Game Master에게 마법이 드문 이유를 설명하도록 요청합니다. 다른 작성자도 이를 복사할 수 있습니다. 다른 사람의 규칙 집합을 위한 레이어는 아직 지원하지 않습니다.
 
-**오버레이**(1.355)는 Experience가 켜져 있는 동안 그 Experience의 지도 팩이 규칙 집합에 생물, 상태, 시트 상태, 아이템과 트랙(1.367)을 추가하게 합니다. 모험 전용 괴물과 전리품은 기본 규칙 집합 대신 오버레이에 두세요. 기존 ID를 재사용하거나 규칙 집합에 맞지 않는 오버레이는 통째로 버립니다. 이것도 ID를 유지해야 하는 이유입니다. 참고 자료: [규칙 집합 오버레이](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**오버레이**(1.355)는 Experience가 켜져 있는 동안 그 Experience의 지도 팩이 규칙 집합에 생물, 상태, 시트 상태, 아이템과 트랙(1.367)을 추가하게 합니다. 모험 전용 괴물과 전리품은 기본 규칙 집합 대신 오버레이에 두세요. 기존 ID를 재사용하거나 규칙 집합에 맞지 않는 오버레이는 통째로 버립니다. 이것도 ID를 유지해야 하는 이유입니다. 참고 자료: [규칙 집합 오버레이](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **마이그레이션**(`sheet.migrations`, 1.77)은 필드 이름을 바꾸거나, 레벨 하나를 클래스별 레벨로 나누거나, 풀을 나눌 때 저장된 캐릭터를 어떻게 옮길지 정합니다. 추가만 할 때는 마이그레이션이 필요하지 않습니다. 시트 구조가 바뀌면 `sheet.version`을 올리세요. 참고 자료: [레이어, 번역과 마이그레이션](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Marinara-Agents의 [ruleset-5e-2014 패키지](https://github.com/Pasta-Devs/Mar
 ## 관련 가이드
 
 - [Game Mode 규칙 집합 작성하기](../extending/writing-rulesets.md)
-- [Game Mode 아키텍처](game-mode-architecture.md): Engine의 규칙 코드를 바꾸는 경우
-- [Game Mode 전투 AI](game-combat-ai.md)
+- [Game Mode 아키텍처](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md): Engine의 규칙 코드를 바꾸는 경우
+- [Game Mode 전투 AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [규칙 집합으로 플레이하기](../game/rulesets.md)

@@ -15,11 +15,11 @@ Es fácil confundir dos términos:
 
 Un conjunto de reglas es un archivo JSON de como máximo 512 KB, que se valida entero al importarlo. Los conjuntos de reglas más grandes separan sus catálogos en un paquete. Empieza copiando el ejemplo más cercano a tus dados:
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6 más un atributo.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): una reserva de d10.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6 más un atributo.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): una reserva de d10.
 - El [paquete completo de 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) en Marinara-Agents.
 
-Indícale a tu editor el [JSON Schema](../extending/ruleset.schema.json) con una línea `$schema` para autocompletar y comprobar errores de escritura.
+Indícale a tu editor el [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json) con una línea `$schema` para autocompletar y comprobar errores de escritura.
 
 | Clave                                                            | Qué contiene                                                                                                      | Referencia                                                                                                                                          |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Más allá de lo esencial, añade lo que necesite tu sistema:
 
 ## La IA de combate: mentes, temperamentos y quién controla a los oponentes
 
-El Engine controla a cada oponente y compañero de IA que no controle nadie más, sin una llamada al modelo por turno. Es independiente del conjunto de reglas: la probamos con conversiones de Storyteller, Exalted, juegos de la vieja escuela, Call of Cthulhu, GURPS y Genesys, además de 5e. Funciona sin ninguna de las claves siguientes; estas hacen que tus criaturas peleen según su naturaleza. Todas están en [Mecánicas de las entradas de conjuntos de reglas](../extending/ruleset-mechanics.md), y el diseño está en [IA de combate de Game Mode](game-combat-ai.md).
+El Engine controla a cada oponente y compañero de IA que no controle nadie más, sin una llamada al modelo por turno. Es independiente del conjunto de reglas: la probamos con conversiones de Storyteller, Exalted, juegos de la vieja escuela, Call of Cthulhu, GURPS y Genesys, además de 5e. Funciona sin ninguna de las claves siguientes; estas hacen que tus criaturas peleen según su naturaleza. Todas están en [Mecánicas de las entradas de conjuntos de reglas](../extending/ruleset-mechanics.md), y el diseño está en [IA de combate de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Clave                                                               | Qué controla                                                                                                                                                                                                          | API            |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -143,7 +143,7 @@ Tres mecanismos cambian un conjunto de reglas sin bifurcarlo. Usa una capa para 
 
 Una capa no puede añadir un campo, valor, habilidad, reserva, descanso, vendedor ni tabla de botín, cambiar el tipo de resolución ni tocar los números de combate. Los personajes conservan todo lo que quita una capa. La capa **Low magic** (Magia escasa) del SRD es un buen modelo: conjuros limitados al nivel 5, objetos por encima de poco común más raros y normalmente no a la venta, criaturas de mucha magia fuera de los encuentros aleatorios y orientación del mundo que pide al Game Master explicar por qué la magia es escasa. Otros autores pueden copiarla. Todavía no se admiten capas escritas para el conjunto de reglas de otra persona.
 
-**Las superposiciones** (1.355) permiten que el paquete de mapas de una Experience añada criaturas, estados, estados de ficha, objetos y contadores (1.367) a tu conjunto de reglas mientras esa Experience esté activa. Mantén los monstruos y el botín específicos de la aventura en una superposición, no en tu conjunto de reglas base. Una superposición que reutiliza uno de tus IDs, o que no encaja, se omite entera, lo que es otro motivo para mantener los IDs estables. Referencia: [superposiciones de conjuntos de reglas](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Las superposiciones** (1.355) permiten que el paquete de mapas de una Experience añada criaturas, estados, estados de ficha, objetos y contadores (1.367) a tu conjunto de reglas mientras esa Experience esté activa. Mantén los monstruos y el botín específicos de la aventura en una superposición, no en tu conjunto de reglas base. Una superposición que reutiliza uno de tus IDs, o que no encaja, se omite entera, lo que es otro motivo para mantener los IDs estables. Referencia: [superposiciones de conjuntos de reglas](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Las migraciones** (`sheet.migrations`, 1.77) indican cómo se trasladan los personajes guardados cuando renombras un campo, divides un nivel en niveles por clase o divides una reserva. Añadir elementos no necesita migración; aumenta `sheet.version` cuando cambia la estructura de la ficha. Referencia: [Capas, traducciones y migraciones](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Convertimos 16 sistemas de una colección de la comunidad a este formato, desde 
 ## Guías relacionadas
 
 - [Escribir conjuntos de reglas de Game Mode](../extending/writing-rulesets.md)
-- [Arquitectura de Game Mode](game-mode-architecture.md), para cambiar el código de reglas del Engine
-- [IA de combate de Game Mode](game-combat-ai.md)
+- [Arquitectura de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), para cambiar el código de reglas del Engine
+- [IA de combate de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Jugar con un conjunto de reglas](../game/rulesets.md)

@@ -15,11 +15,11 @@ Cada chave abaixo indica a versão secundária da Capability API que a adicionou
 
 Um conjunto de regras é um arquivo JSON de no máximo 512 KB, validado por inteiro na importação. Conjuntos de regras maiores dividem os catálogos em um pacote. Comece copiando o exemplo mais próximo dos seus dados:
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6 mais um atributo.
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): uma reserva de d10.
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6 mais um atributo.
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): uma reserva de d10.
 - O [pacote 5e (SRD 5.1)](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014) completo no Marinara-Agents.
 
-Aponte o editor para o [JSON Schema](../extending/ruleset.schema.json) com uma linha `$schema` para ter preenchimento automático e verificação de erros de digitação.
+Aponte o editor para o [JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json) com uma linha `$schema` para ter preenchimento automático e verificação de erros de digitação.
 
 | Chave | Conteúdo | Referência |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ Além do essencial, adicione o que o seu sistema precisa:
 
 ## A IA das lutas: mentes, temperamentos e quem joga com os oponentes
 
-O Engine joga com cada oponente e companheiro de IA que ninguém mais controla, sem chamar o modelo a cada turno. Ele é independente do conjunto de regras: ele foi testado em conversões de Storyteller, Exalted, jogos da velha escola, Call of Cthulhu, GURPS e Genesys, além de 5e. Funciona sem nenhuma das chaves abaixo; elas fazem suas criaturas lutarem de acordo com suas características. Todas estão em [Mecânicas de entradas de conjuntos de regras](../extending/ruleset-mechanics.md), e o design está em [IA de combate de Game Mode](game-combat-ai.md).
+O Engine joga com cada oponente e companheiro de IA que ninguém mais controla, sem chamar o modelo a cada turno. Ele é independente do conjunto de regras: ele foi testado em conversões de Storyteller, Exalted, jogos da velha escola, Call of Cthulhu, GURPS e Genesys, além de 5e. Funciona sem nenhuma das chaves abaixo; elas fazem suas criaturas lutarem de acordo com suas características. Todas estão em [Mecânicas de entradas de conjuntos de regras](../extending/ruleset-mechanics.md), e o design está em [IA de combate de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md).
 
 | Chave | O que controla | API |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ Três mecanismos alteram um conjunto de regras sem criar uma cópia independente
 
 Uma camada não pode adicionar campo, valor, perícia, reserva, descanso, vendedor ou tabela de saque, mudar o tipo de resolução nem alterar números de combate. Os personagens mantêm tudo que uma camada remove. A camada **Low magic** do SRD é um bom modelo: magias limitadas ao nível 5, itens acima de incomum mais raros e normalmente indisponíveis para venda, criaturas de alta magia fora de encontros aleatórios e orientações de mundo que pedem ao Game Master para explicar por que a magia é rara. Outros autores podem copiá-la. Ainda não há suporte a camadas escritas para o conjunto de regras de outra pessoa.
 
-**Sobreposições** (1.355) permitem ao pacote de mapas de uma Experience adicionar criaturas, condições, condições de ficha, itens e trilhas (1.367) ao seu conjunto de regras enquanto essa Experience está ativa. Mantenha monstros e saques específicos da aventura numa sobreposição, em vez de colocá-los no conjunto de regras base. Uma sobreposição que reutiliza um dos seus IDs, ou que não se encaixa, é descartada por inteiro, mais um motivo para manter os IDs estáveis. Referência: [sobreposições de conjuntos de regras](optional-agent-packages.md#capability-api-1355-ruleset-overlays).
+**Sobreposições** (1.355) permitem ao pacote de mapas de uma Experience adicionar criaturas, condições, condições de ficha, itens e trilhas (1.367) ao seu conjunto de regras enquanto essa Experience está ativa. Mantenha monstros e saques específicos da aventura numa sobreposição, em vez de colocá-los no conjunto de regras base. Uma sobreposição que reutiliza um dos seus IDs, ou que não se encaixa, é descartada por inteiro, mais um motivo para manter os IDs estáveis. Referência: [sobreposições de conjuntos de regras](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays).
 
 **Migrações** (`sheet.migrations`, 1.77) dizem como transferir personagens salvos quando você renomeia um campo, divide um nível em níveis por classe ou divide uma reserva. Adicionar coisas não exige migração; aumente `sheet.version` quando a estrutura da ficha mudar. Referência: [Camadas, traduções e migrações de conjuntos de regras](../extending/ruleset-layers-and-translations.md).
 
@@ -249,6 +249,6 @@ Convertemos 16 sistemas de uma coleção da comunidade para este formato, de jog
 ## Guias relacionados
 
 - [Escrever conjuntos de regras de Game Mode](../extending/writing-rulesets.md)
-- [Arquitetura de Game Mode](game-mode-architecture.md), para alterar o código de regras do Engine
-- [IA de combate de Game Mode](game-combat-ai.md)
+- [Arquitetura de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md), para alterar o código de regras do Engine
+- [IA de combate de Game Mode](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [Jogar com um conjunto de regras](../game/rulesets.md)

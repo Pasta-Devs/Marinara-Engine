@@ -15,11 +15,11 @@
 
 ルールセットは最大512 KBの一つのJSONファイルで、インポート時に全体を検証します。より大きいルールセットは、カタログを分割してパッケージにまとめます。まず使うダイスに最も近い例をコピーしてください。
 
-- [`ember-roads.json`](../examples/rulesets/ember-roads.json): 2d6に能力値を加えます。
-- [`gravewatch.json`](../examples/rulesets/gravewatch.json): d10のプールです。
+- [`ember-roads.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/ember-roads.json): 2d6に能力値を加えます。
+- [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json): d10のプールです。
 - Marinara-Agentsにある完全な[5e (SRD 5.1)パッケージ](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014)。
 
-`$schema`の行でエディターに[JSON Schema](../extending/ruleset.schema.json)を指定すると、自動補完と誤字の検査が使えます。
+`$schema`の行でエディターに[JSON Schema](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/extending/ruleset.schema.json)を指定すると、自動補完と誤字の検査が使えます。
 
 | キー | 内容 | リファレンス |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ Game Masterは、Engineが自動的に教えるシートコマンドを通じて
 
 ## 戦闘AI: 思考、性格、相手の操作主体
 
-Engineは、ほかの誰も操作しないすべての相手とAIの仲間を操作し、ターンごとのモデル呼び出しは行いません。特定のルールセットに依存せず、5eに加えて、Storyteller、Exalted、オールドスクール、Call of Cthulhu、GURPS、Genesysの変換でもテストしました。以下のキーがなくても動きますが、指定するとクリーチャーらしい戦い方になります。すべて[ルールセットのエントリーの仕組み](../extending/ruleset-mechanics.md)にあり、設計は[Game Modeの戦闘AI](game-combat-ai.md)にあります。
+Engineは、ほかの誰も操作しないすべての相手とAIの仲間を操作し、ターンごとのモデル呼び出しは行いません。特定のルールセットに依存せず、5eに加えて、Storyteller、Exalted、オールドスクール、Call of Cthulhu、GURPS、Genesysの変換でもテストしました。以下のキーがなくても動きますが、指定するとクリーチャーらしい戦い方になります。すべて[ルールセットのエントリーの仕組み](../extending/ruleset-mechanics.md)にあり、設計は[Game Modeの戦闘AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)にあります。
 
 | キー | 制御するもの | API |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ Engineは、ほかの誰も操作しないすべての相手とAIの仲間を操
 
 レイヤーは、フィールド、値、スキル、プール、休息、売り手、戦利品表を追加できず、判定方式の変更も、戦闘の数値の変更もできません。レイヤーが取り除いたものも、キャラクターは保持します。SRDの**Low magic**(低魔法)レイヤーがよい見本です。呪文は5レベルまでに制限し、アンコモンより上のアイテムは出現頻度を下げて通常は非売品にし、高魔法のクリーチャーをランダム遭遇から除き、世界についての指示でGame Masterに魔法が珍しい理由を説明するよう求めます。ほかの作者もこれをコピーできます。ほかの人のルールセット向けに書くレイヤーには、まだ対応していません。
 
-**オーバーレイ**(1.355)を使うと、Experienceがオンの間、そのマップパックからルールセットへクリーチャー、状態、シートの状態、アイテム、トラック(1.367)を追加できます。冒険に固有のモンスターと戦利品は、基本のルールセットではなくオーバーレイに入れてください。既存のIDを再利用するか、適合しないオーバーレイは全体が破棄されます。これもIDを変えないほうがよい理由です。リファレンス: [ルールセットのオーバーレイ](optional-agent-packages.md#capability-api-1355-ruleset-overlays)。
+**オーバーレイ**(1.355)を使うと、Experienceがオンの間、そのマップパックからルールセットへクリーチャー、状態、シートの状態、アイテム、トラック(1.367)を追加できます。冒険に固有のモンスターと戦利品は、基本のルールセットではなくオーバーレイに入れてください。既存のIDを再利用するか、適合しないオーバーレイは全体が破棄されます。これもIDを変えないほうがよい理由です。リファレンス: [ルールセットのオーバーレイ](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/optional-agent-packages.md#capability-api-1355-ruleset-overlays)。
 
 **移行**(`sheet.migrations`、1.77)は、フィールドの名前を変える、一つのレベルをクラスごとのレベルへ分ける、プールを分割するといったときに、保存済みのキャラクターをどう移すかを指定します。項目の追加には移行は不要ですが、シートの形が変わったら`sheet.version`を上げてください。リファレンス: [レイヤー、翻訳、移行](../extending/ruleset-layers-and-translations.md)。
 
@@ -249,6 +249,6 @@ Marinara-Agentsの[ruleset-5e-2014パッケージ](https://github.com/Pasta-Devs
 ## 関連ガイド
 
 - [Game Modeのルールセットを作成する](../extending/writing-rulesets.md)
-- [Game Modeのアーキテクチャー](game-mode-architecture.md): Engineのルールのコードを変更する場合
-- [Game Modeの戦闘AI](game-combat-ai.md)
+- [Game Modeのアーキテクチャー](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-mode-architecture.md): Engineのルールのコードを変更する場合
+- [Game Modeの戦闘AI](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/development/game-combat-ai.md)
 - [ルールセットで遊ぶ](../game/rulesets.md)
