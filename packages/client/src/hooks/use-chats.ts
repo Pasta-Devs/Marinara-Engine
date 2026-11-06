@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef } from "react";
 import {
+  infiniteQueryOptions,
   useQuery,
   useInfiniteQuery,
   useMutation,
@@ -15,6 +16,7 @@ import { api, ApiError, isRequestTimeoutError, requestTimeoutSignal } from "../l
 import { EXPORT_FAILED_TOAST_ID } from "../lib/file-download";
 import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
+import { readChatMetadata } from "../lib/chat-wizard-defaults";
 import { useAgentStore } from "../stores/agent.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
@@ -287,8 +289,17 @@ export function useChats(options: { enabled?: boolean; refetchOnMount?: boolean 
 const CHAT_OPEN_TIMEOUT_MS = 15_000;
 
 export function useChat(id: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  return useQuery<Chat>({
     queryKey: chatKeys.detail(id ?? ""),
+    // The list row already holds this chat, so the view can mount while the detail loads.
+    // Game and multiplayer chats restore and save scene state on mount, so they wait for the detail.
+    placeholderData: () => {
+      const listed = id ? queryClient.getQueryData<Chat[]>(chatKeys.list())?.find((chat) => chat.id === id) : undefined;
+      if (!listed || listed.mode === "game") return undefined;
+      const metadata = readChatMetadata(listed);
+      return metadata.multiplayer || metadata.multiplayerSetup ? undefined : listed;
+    },
     queryFn: ({ signal }) =>
       api.get<Chat>(`/chats/${id}`, { signal: requestTimeoutSignal(CHAT_OPEN_TIMEOUT_MS, signal) }),
     enabled: !!id,
@@ -322,6 +333,43 @@ function hasLocalGeneration(state: ReturnType<typeof useChatStore.getState>, cha
     state.abortControllers.has(chatId) ||
     (state.isStreaming && state.streamingChatId === chatId) ||
     state.backgroundIllustrationChatIds.has(chatId)
+  );
+}
+
+/** One definition for the transcript query, so a row can prefetch exactly what the chat view reads. */
+function chatMessagesQueryOptions(chatId: string, pageSize: number) {
+  return infiniteQueryOptions({
+    queryKey: chatKeys.messages(chatId),
+    queryFn: ({ pageParam, signal }) => {
+      const params = new URLSearchParams();
+      if (pageSize > 0) params.set("limit", String(pageSize));
+      if (pageParam) params.set("before", pageParam);
+      const qs = params.toString();
+      return api
+        .get<Message[]>(`/chats/${chatId}/messages${qs ? `?${qs}` : ""}`, { signal })
+        .then((messages) => messages.map((message) => preserveRecentMessageContentEdit(chatId, message)));
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (pageSize <= 0 || lastPage.length < pageSize) return undefined;
+      const oldestLoaded = lastPage[0];
+      if (!oldestLoaded) return undefined;
+      return `${oldestLoaded.createdAt}|${encodeURIComponent(oldestLoaded.id)}`;
+    },
+  });
+}
+
+/** Starts loading a chat's newest messages on pointer down, before the click opens it. */
+export function usePrefetchChatMessages() {
+  const queryClient = useQueryClient();
+  const pageSize = useUIStore((state) => state.messagesPerPage);
+  return useCallback(
+    (chatId: string) => {
+      // A cached transcript refreshes on open; prefetching it would re-download every loaded page.
+      if (queryClient.getQueryData(chatKeys.messages(chatId))) return;
+      void queryClient.prefetchInfiniteQuery(chatMessagesQueryOptions(chatId, pageSize));
+    },
+    [queryClient, pageSize],
   );
 }
 
@@ -380,25 +428,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     queryClient,
   ]);
   const query = useInfiniteQuery({
-    queryKey: chatKeys.messages(chatId ?? ""),
-    queryFn: ({ pageParam, signal }) => {
-      const params = new URLSearchParams();
-      if (pageSize > 0) params.set("limit", String(pageSize));
-      if (pageParam) params.set("before", pageParam);
-      const qs = params.toString();
-      return api
-        .get<Message[]>(`/chats/${chatId}/messages${qs ? `?${qs}` : ""}`, { signal })
-        .then((messages) =>
-          chatId ? messages.map((message) => preserveRecentMessageContentEdit(chatId, message)) : messages,
-        );
-    },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => {
-      if (pageSize <= 0 || lastPage.length < pageSize) return undefined;
-      const oldestLoaded = lastPage[0];
-      if (!oldestLoaded) return undefined;
-      return `${oldestLoaded.createdAt}|${encodeURIComponent(oldestLoaded.id)}`;
-    },
+    ...chatMessagesQueryOptions(chatId ?? "", pageSize),
     enabled: !!chatId && enabled,
     // #4703: a reconnect refetch re-drains every loaded page back-to-back, so
     // a scrolled-back chat on a flaky mobile connection re-downloads its whole
