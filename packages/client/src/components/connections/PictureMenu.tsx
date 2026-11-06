@@ -243,7 +243,7 @@ function LettersForm({ initial, onSave }: { initial: string; onSave: (text: stri
         onChange={(event) => setText(event.target.value)}
         maxLength={16}
         aria-invalid={!valid}
-        className="mari-chrome-field h-9 w-14 px-2 text-center text-sm font-semibold"
+        className="mari-chrome-field h-9 w-14 px-2 text-center text-sm max-sm:text-base font-semibold"
       />
       <button type="submit" disabled={!valid} className="mari-chrome-control mari-chrome-control--primary">
         {t("connections.picture.saveLetters")}

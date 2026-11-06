@@ -5,6 +5,7 @@ import type { CapabilityPackageUpdate } from "@marinara-engine/shared";
 import { useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { AgentArtwork } from "./AgentArtwork";
 import { AgentReleaseNoteList } from "./AgentReleaseNoteList";
 import { NotableChangeMarker } from "./NotableChangeMarker";
@@ -90,12 +91,48 @@ export function AgentUpdateDialog({
     <Modal
       open={open}
       onClose={done ? onClose : onNotNow}
+      pullToClose={done}
       title={localizeUi(
         done ? "ui.agents.agentupdatedialog.agentUpdatesFinished" : "ui.agents.agentupdatedialog.agentUpdatesAvailable",
       )}
       width="max-w-lg"
+      closeButtonClassName="max-sm:hidden"
       chatFloatingPanel
       closeDisabled={running}
+      footer={
+        done ? (
+          <>
+            {onRestart && (
+              <button type="button" onClick={onRestart} className={SHEET_BUTTON_PRIMARY}>
+                {localizeUi("ui.agents.agentupdatedialog.restartNow")}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className={onRestart ? SHEET_BUTTON_QUIET : SHEET_BUTTON_SECONDARY}>
+              {localizeUi("ui.agents.agentupdatedialog.close")}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onUpdate}
+              disabled={running || selected.size === 0}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {running && <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />}
+              {selected.size === updates.length
+                ? localizeUi("ui.agents.agentupdatedialog.updateAll")
+                : localizeUi("ui.agents.agentupdatedialog.updateSome", {
+                    count: selected.size,
+                    total: updates.length,
+                  })}
+            </button>
+            <button type="button" onClick={onNotNow} disabled={running} className={SHEET_BUTTON_QUIET}>
+              {localizeUi("ui.agents.agentupdatedialog.notNow")}
+            </button>
+          </>
+        )
+      }
     >
       <div className="space-y-3">
         <p className="text-xs text-[var(--muted-foreground)]" role="status" aria-live="polite">
@@ -199,55 +236,12 @@ export function AgentUpdateDialog({
           })}
         </ul>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-          {anyHighlighted && phase === "ask" && (
-            <p className="mr-auto flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--primary)]" />
-              {localizeUi("ui.agents.notablechangemarker.notableChange")}
-            </p>
-          )}
-          {done ? (
-            <>
-              <button type="button" onClick={onClose} className="mari-chrome-control h-9 px-3 text-sm font-semibold">
-                {localizeUi("ui.agents.agentupdatedialog.close")}
-              </button>
-              {onRestart && (
-                <button
-                  type="button"
-                  onClick={onRestart}
-                  className="mari-chrome-control mari-chrome-control--primary h-9 px-3 text-sm font-semibold"
-                >
-                  {localizeUi("ui.agents.agentupdatedialog.restartNow")}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={onNotNow}
-                disabled={running}
-                className="mari-chrome-control h-9 px-3 text-sm font-semibold"
-              >
-                {localizeUi("ui.agents.agentupdatedialog.notNow")}
-              </button>
-              <button
-                type="button"
-                onClick={onUpdate}
-                disabled={running || selected.size === 0}
-                className="mari-chrome-control mari-chrome-control--primary h-9 gap-1.5 px-3 text-sm font-semibold"
-              >
-                {running && <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />}
-                {selected.size === updates.length
-                  ? localizeUi("ui.agents.agentupdatedialog.updateAll")
-                  : localizeUi("ui.agents.agentupdatedialog.updateSome", {
-                      count: selected.size,
-                      total: updates.length,
-                    })}
-              </button>
-            </>
-          )}
-        </div>
+        {anyHighlighted && phase === "ask" && (
+          <p className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--primary)]" />
+            {localizeUi("ui.agents.notablechangemarker.notableChange")}
+          </p>
+        )}
       </div>
     </Modal>
   );
