@@ -2568,6 +2568,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           settings: agent.settings,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatCharacterIds: parseJsonField<string[]>(chat.characterIds, []),
         });
         effectiveAgentSettingsById.set(agent.id, settings);
         const isCharacterActivityAgent =
@@ -2950,6 +2951,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatCachingAtDepth: conn.cachingAtDepth ?? 5,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatCharacterIds: allCharacterIds,
           chatConnectionMainFallback: { connection: mainFallbackConnection, connectionName: conn.name },
           onFallback,
           resolveBaseUrl,
@@ -5000,6 +5002,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatCachingAtDepth: conn.cachingAtDepth ?? 5,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatCharacterIds: allCharacterIds,
           onFallback,
           resolveBaseUrl,
         });

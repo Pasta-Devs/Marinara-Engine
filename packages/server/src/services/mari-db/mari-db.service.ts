@@ -9166,10 +9166,10 @@ export class MariDbService {
           "Professor Mari cannot change Models, Connections or the speech server settings, because they hold stored keys. The user edits them in Connections and Settings.",
       });
     }
-    // Same reason for the chat settings that send chat text to an address outside the app, or hold its key
-    // (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import strips them: chat metadata, a settings
-    // profile's metadata and the translator defaults for new chats. Per key, so her other chat-settings edits still
-    // apply; clearing one is allowed, since that sends nothing.
+    // Same reason for the chat settings that send chat text to an address outside the app, hold its key, or
+    // name a folder on the server device (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import
+    // strips them: chat metadata, a settings profile's metadata and the translator defaults for new chats. Per key,
+    // so her other chat-settings edits still apply; clearing one is allowed, since that sends nothing.
     const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
       if (!row) return {};
       if (change.table === "chats") return parseJsonRecordValue(row.metadata);
@@ -9192,7 +9192,7 @@ export class MariDbService {
           table: change.table,
           id: change.id,
           message:
-            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys. The user enters them in Chat Settings.",
+            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys, or a chat's music folder. The user enters them in Chat Settings.",
         });
       }
     }
