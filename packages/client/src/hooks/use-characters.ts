@@ -6,6 +6,7 @@ import {
   useQueries,
   useQuery,
   useMutation,
+  useMutationState,
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import { useMemo } from "react";
 import { api } from "../lib/api-client";
 import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
+import { applyGroupEdits, type CachedGroup, type GroupEdit } from "../lib/character-group-cache";
 import {
   spriteCatalogSchema,
   normalizeSpriteExpressionLabel,
@@ -61,8 +63,13 @@ export const characterKeys = {
   all: ["characters"] as const,
   list: () => [...characterKeys.all, "list"] as const,
   listWithBuiltIns: () => [...characterKeys.all, "list", "with-built-ins"] as const,
-  page: (includeBuiltIn: boolean, search: string, sort: string, favoriteFilter: string) =>
-    [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter] as const,
+  page: (
+    includeBuiltIn: boolean,
+    search: string,
+    sort: string,
+    favoriteFilter: string,
+    filters: { tags?: string[]; excludeTags?: string[]; folder?: string } = {},
+  ) => [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter, filters] as const,
   summariesRoot: () => [...characterKeys.all, "summaries"] as const,
   summaries: (idsKey: string) => [...characterKeys.all, "summaries", idsKey] as const,
   detail: (id: string) => [...characterKeys.all, "detail", id] as const,
@@ -125,6 +132,11 @@ export function useCharacterPages(options: {
   search?: string;
   sort?: string;
   favoriteFilter?: string;
+  /** Any of these tags. Sent to the server so filters cover cards that are not loaded yet. */
+  tags?: string[];
+  excludeTags?: string[];
+  /** A folder id, or "none" for cards that are in no folder. */
+  folder?: string;
 }) {
   const enabled = options.enabled ?? true;
   const includeBuiltIn = options.includeBuiltIn === true;
@@ -133,7 +145,11 @@ export function useCharacterPages(options: {
   const favoriteFilter = options.favoriteFilter ?? "";
 
   return useInfiniteQuery({
-    queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter),
+    queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter, {
+      tags: options.tags,
+      excludeTags: options.excludeTags,
+      folder: options.folder,
+    }),
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
@@ -144,6 +160,9 @@ export function useCharacterPages(options: {
       if (search) params.set("search", search);
       if (sort) params.set("sort", sort);
       if (favoriteFilter) params.set("favoriteFilter", favoriteFilter);
+      for (const tag of options.tags ?? []) params.append("tag", tag);
+      for (const tag of options.excludeTags ?? []) params.append("excludeTag", tag);
+      if (options.folder) params.set("folder", options.folder);
       return api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
     },
     getNextPageParam: getNextPageOffset,
@@ -153,29 +172,67 @@ export function useCharacterPages(options: {
   });
 }
 
+async function fetchWholeCatalog(signal: AbortSignal, extra: string[][] = []) {
+  const items: CharacterCatalogEntry[] = [];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    items.length = 0;
+    let offset = 0;
+    let generation: number | undefined;
+    while (true) {
+      const params = new URLSearchParams([...extra, ["limit", String(LIBRARY_PAGE_SIZE)], ["offset", String(offset)]]);
+      const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
+      generation ??= page.catalogGeneration;
+      if (page.catalogGeneration !== generation) break;
+      items.push(...page.items);
+      if (!page.hasMore) return items;
+      offset += page.limit;
+    }
+  }
+  throw new Error("Character catalog changed repeatedly while loading.");
+}
+
 /** Compact character rows for surfaces that need search and navigation only. */
 export function useAllCharacterCatalog(enabled = true) {
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "all"] as const,
-    queryFn: async ({ signal }) => {
-      const items: CharacterCatalogEntry[] = [];
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        items.length = 0;
-        let offset = 0;
-        let generation: number | undefined;
-        while (true) {
-          const params = new URLSearchParams({ limit: String(LIBRARY_PAGE_SIZE), offset: String(offset) });
-          const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
-          generation ??= page.catalogGeneration;
-          if (page.catalogGeneration !== generation) break;
-          items.push(...page.items);
-          if (!page.hasMore) return items;
-          offset += page.limit;
-        }
-      }
-      throw new Error("Character catalog changed repeatedly while loading.");
-    },
+    queryFn: ({ signal }) => fetchWholeCatalog(signal),
     enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Every matching card in one folder, or in any folder ("any"). Folders load on their own,
+ * so they never wait for root pages and filtered folders are complete.
+ */
+export function useCharacterFolderMembers(
+  folder: string | null,
+  filters: { search: string; sort: string; favoriteFilter: string; tags: string[]; excludeTags: string[] },
+) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "folder", folder, filters] as const,
+    queryFn: ({ signal }) =>
+      fetchWholeCatalog(signal, [
+        ["folder", folder!],
+        ...(filters.search ? [["search", filters.search]] : []),
+        ...(filters.sort ? [["sort", filters.sort]] : []),
+        ...(filters.favoriteFilter ? [["favoriteFilter", filters.favoriteFilter]] : []),
+        ...filters.tags.map((tag) => ["tag", tag]),
+        ...filters.excludeTags.map((tag) => ["excludeTag", tag]),
+      ]),
+    enabled: folder !== null,
+    // Keep the old members while a new filter loads, but only for the same folder.
+    placeholderData: (previousData, previousQuery) =>
+      folder !== null && previousQuery?.queryKey.includes(folder) ? previousData : undefined,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Every tag in the library, so filter chips do not depend on loaded pages. */
+export function useCharacterCatalogTags() {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "tags"] as const,
+    queryFn: ({ signal }) => api.get<string[]>("/characters/catalog/tags", { signal }),
     staleTime: 5 * 60_000,
   });
 }
@@ -1535,10 +1592,33 @@ export function useRemovePersonaAvatar() {
 // ── Character Groups ──
 
 export function useCharacterGroups() {
+  const pendingEdits = useMutationState({
+    filters: { mutationKey: characterGroupEditKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as GroupEdit,
+  });
   return useQuery({
     queryKey: characterKeys.groups,
     queryFn: () => api.get<unknown[]>("/characters/groups/list"),
+    // Pending folder edits show at once on top of the server list; a failed one just stops showing.
+    select: (groups) => (pendingEdits.length ? applyGroupEdits(groups as CachedGroup[], pendingEdits) : groups),
   });
+}
+
+// The root list hides folder members and pages carry folder counts, so folder edits refresh both.
+
+/** Mutation key shared by folder updates and deletes, so useCharacterGroups can show them while pending. */
+const characterGroupEditKey = ["character-group-edit"] as const;
+
+/** The server accepted the edit: write it into the cache so the folder does not flash back before the refetch. */
+function commitGroupEdit(qc: ReturnType<typeof useQueryClient>, edit: GroupEdit) {
+  qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) => (old ? applyGroupEdits(old, [edit]) : old));
+}
+
+function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    qc.invalidateQueries({ queryKey: characterKeys.list() }),
+  ]);
 }
 
 export function useCreateGroup() {
@@ -1546,7 +1626,7 @@ export function useCreateGroup() {
   return useMutation({
     mutationFn: (data: { name: string; description?: string; characterIds?: string[] }) =>
       api.post("/characters/groups", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
 
@@ -1555,7 +1635,13 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
+    onSuccess: (_data, edit) => {
+      commitGroupEdit(qc, edit);
+      return invalidateGroupsAndCatalog(qc);
+    },
   });
 }
 
@@ -1563,7 +1649,13 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
+    onSuccess: (_data, id) => {
+      commitGroupEdit(qc, id);
+      return invalidateGroupsAndCatalog(qc);
+    },
   });
 }
 

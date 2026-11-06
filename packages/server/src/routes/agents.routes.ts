@@ -1,11 +1,12 @@
 // ──────────────────────────────────────────────
 // Routes: Agents
 // ──────────────────────────────────────────────
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
+  addsMusicDjFolderPath,
   agentSuiteRewriteSchema,
   customAgentImportPolicyUpdateSchema,
   createAgentConfigSchema,
@@ -192,6 +193,21 @@ function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } 
     }
   }
   return { buffer: Buffer.from(base64, "base64"), hintedExt };
+}
+
+/**
+ * A typed Music DJ folder path is saved only with the folder picker's access, because the Music DJ lists and plays
+ * the files in it (#8901). Keeping a saved folder or clearing one is not gated.
+ */
+async function allowsMusicDjFolderPaths(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  nextSettings: unknown,
+  readPreviousSettings: () => Promise<unknown>,
+): Promise<boolean> {
+  if (!addsMusicDjFolderPath({}, nextSettings)) return true;
+  if (!addsMusicDjFolderPath(await readPreviousSettings(), nextSettings)) return true;
+  return requirePrivilegedAccess(req, reply, { feature: "Custom music folder" });
 }
 
 function getSafeAgentImagePath(filename: string): string | null {
@@ -499,8 +515,10 @@ export async function agentsRoutes(app: FastifyInstance) {
     return state;
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const input = createAgentConfigSchema.parse(req.body);
+    const previous = async () => (await storage.getByType(input.type))?.settings;
+    if (!(await allowsMusicDjFolderPaths(req, reply, input.settings, previous))) return;
     return storage.create(input);
   });
 
@@ -510,6 +528,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Agent is not configured" });
     }
     const data = updateAgentConfigSchema.parse(req.body);
+    if (!(await allowsMusicDjFolderPaths(req, reply, data.settings, async () => config.settings))) return;
     if (config.type === "long-term-memory" && data.connectionId !== undefined) {
       return withLongTermMemoryEmbeddingChange(app.db, reply, () => storage.update(config.id, data));
     }
@@ -518,6 +537,8 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const data = updateAgentConfigSchema.parse(req.body);
+    const previous = async () => (await storage.getById(req.params.id))?.settings;
+    if (!(await allowsMusicDjFolderPaths(req, reply, data.settings, previous))) return;
     if (data.connectionId !== undefined && (await storage.getById(req.params.id))?.type === "long-term-memory") {
       return withLongTermMemoryEmbeddingChange(app.db, reply, () => storage.update(req.params.id, data));
     }

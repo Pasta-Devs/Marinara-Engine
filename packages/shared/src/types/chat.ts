@@ -633,6 +633,11 @@ export interface ChatMetadata {
   spotifyPlaylistName?: string | null;
   /** Spotify artist name used when spotifySourceType is "artist". */
   spotifyArtist?: string | null;
+  /**
+   * Music DJ folder on the server device for this chat only (#8901). Missing, null or empty follows the
+   * chat's one character, then the default folder.
+   */
+  customMusicExternalFolder?: string | null;
   /** Recent Spotify track URIs played by the roleplay/conversation Music DJ. */
   spotifyRecentTracks?: string[];
   /** Durable count of autonomous messages the user has not viewed yet. */

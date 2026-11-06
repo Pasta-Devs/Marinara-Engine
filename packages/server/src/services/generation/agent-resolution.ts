@@ -1,6 +1,7 @@
 import { roomAgentAllowed } from "../multiplayer/generation-policy.js";
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import {
+  applyMusicDjChatFolder,
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
@@ -75,6 +76,8 @@ type ResolveAgentPipelineAgentsArgs = {
   chatCachingAtDepth: number;
   activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   chatMetadata?: Record<string, unknown>;
+  /** The chat's whole roster: a one-character chat can use that character's Music DJ folder. */
+  chatCharacterIds?: string[];
   /** Agents on the chat's connection fall back like the reply instead of through the agents fallback (routing). */
   chatConnectionMainFallback?: ChatConnectionMainFallback;
   onFallback?: GenerationFallbackNotifier;
@@ -181,8 +184,10 @@ export function resolveEffectiveAgentSettings(args: {
   settings: unknown;
   activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   chatMetadata?: Record<string, unknown>;
+  /** The chat's whole roster, not only the members speaking now. */
+  chatCharacterIds?: string[];
 }): Record<string, unknown> {
-  const { agentType, activeMusicPlayerSource, chatMetadata } = args;
+  const { agentType, activeMusicPlayerSource, chatMetadata, chatCharacterIds } = args;
   const parsed = parseAgentSettings(args.settings);
   let settings = BUILT_IN_AGENTS.some((agent) => agent.id === agentType)
     ? mergeBuiltInAgentSettings(agentType, parsed)
@@ -201,6 +206,7 @@ export function resolveEffectiveAgentSettings(args: {
   settings = applyKnowledgeAgentChatSettings(agentType, settings, chatMetadata);
   settings = applyCustomAgentImageChatSettings(agentType, settings, chatMetadata);
   settings = applyAgentLorebookChatSettings(agentType, settings, chatMetadata);
+  settings = applyMusicDjChatFolder(agentType, settings, chatMetadata, chatCharacterIds);
 
   const usesNonSpotifyMusicSource =
     agentType === "spotify" &&
@@ -406,6 +412,7 @@ export async function resolveAgentPipelineAgents({
   chatCachingAtDepth,
   activeMusicPlayerSource,
   chatMetadata,
+  chatCharacterIds,
   chatConnectionMainFallback,
   onFallback,
   resolveBaseUrl,
@@ -487,6 +494,7 @@ export async function resolveAgentPipelineAgents({
       settings: cfg.settings,
       activeMusicPlayerSource,
       chatMetadata,
+      chatCharacterIds,
     });
     let selectedPromptTemplate = resolveAgentPromptTemplate({
       promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
@@ -680,6 +688,7 @@ export async function resolveAgentPipelineAgents({
       settings: undefined,
       activeMusicPlayerSource,
       chatMetadata,
+      chatCharacterIds,
     });
     let selectedPromptTemplate = resolveAgentPromptTemplate({
       promptTemplate: "",

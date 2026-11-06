@@ -16,7 +16,9 @@ import {
   createLeadingTrailingCoalescer,
   INACTIVE_CHAT_MAX_MESSAGE_PAGES,
   shouldRefetchMessagesOnReconnect,
+  stillHiddenDeletes,
   trimInactiveMessagePageCaches,
+  removeMessagesFromPages,
   trimMessagePagesToNewest,
 } from "../../packages/client/src/lib/message-page-cache";
 
@@ -272,6 +274,41 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   void coalesce("chat-a", run);
   void coalesce("chat-b", run);
   assert.equal(runsStarted, 2, "different chats never queue behind each other");
+}
+
+// ── Optimistic delete: the messages leave every page, cursors and the input stay intact
+{
+  const cached = {
+    pages: [
+      [{ id: "m3" }, { id: "m4" }],
+      [{ id: "m1" }, { id: "m2" }],
+    ],
+    pageParams: [undefined, "c2"],
+  };
+  const next = removeMessagesFromPages(cached, ["m4", "m1"]);
+  assert.deepEqual(next?.pages, [[{ id: "m3" }], [{ id: "m2" }]], "deleted messages leave every page");
+  assert.deepEqual(next?.pageParams, [undefined, "c2"], "Load more keeps its cursor");
+  assert.equal(cached.pages[0].length, 2, "the snapshot kept for rollback is not mutated");
+  assert.equal(removeMessagesFromPages(undefined, ["m1"]), undefined, "an empty cache stays empty");
+}
+
+// ── Confirmed deletes stay hidden only until a transcript fetch newer than the delete lands
+{
+  const deletes = [
+    { id: "m1", at: 1_000 },
+    { id: "m2", at: 2_000 },
+  ];
+  assert.deepEqual(
+    stillHiddenDeletes(deletes, 500),
+    ["m1", "m2"],
+    "data older than both deletes (or a failed refetch, which keeps dataUpdatedAt) hides both",
+  );
+  assert.deepEqual(stillHiddenDeletes(deletes, 1_500), ["m2"], "a fetch after the first delete ends only that hiding");
+  assert.deepEqual(
+    stillHiddenDeletes(deletes, 3_000),
+    [],
+    "any later successful fetch (a superseding refetch, a trash restore) shows the server truth again",
+  );
 }
 
 console.info("Message page cache regressions passed.");

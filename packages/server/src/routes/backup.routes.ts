@@ -694,9 +694,9 @@ for (const candidate of Object.values(schema)) {
 
 /**
  * Where profile rows hold the chat settings that stay on one install (CHAT_METADATA_LOCAL_DESTINATION_KEYS:
- * the Discord mirror, translator address and key, haptics server): chat metadata, a settings profile's
- * metadata and the translator defaults for new chats. Like the connection keys, profiles are exported
- * without them and an import brings none; a row restored over this install's own keeps its values.
+ * the Discord mirror, translator address and key, haptics server, a chat's music folder): chat metadata, a
+ * settings profile's metadata and the translator defaults for new chats. Like the connection keys, profiles are
+ * exported without them and an import brings none; a row restored over this install's own keeps its values.
  */
 const PROFILE_LOCAL_DESTINATION_ROWS: Record<string, { key: string; column: string }> = {
   chats: { key: "id", column: "metadata" },

@@ -296,6 +296,7 @@ import type {
   HudWidget,
   KnowledgeAgentSourceSettings,
   Message,
+  MusicDjFolderSource,
   PromptPreset,
   SpotifySourceType,
   WeekSchedule,
@@ -341,6 +342,9 @@ import {
   isBuiltInAgentRuntimeDisabled,
   isRetiredBuiltInAgentId,
   mergeBuiltInAgentSettings,
+  readMusicDjCharacterFolders,
+  resolveMusicDjExternalFolder,
+  withMusicDjCharacterFolder,
   normalizeManualTrackerAgentTypes,
   normalizeAgentPromptTemplateOptions,
   normalizeAgentPhaseForType,
@@ -381,6 +385,7 @@ import {
   applyAgentAddSetupToAgentSettings,
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
+  MusicFolderScope,
   normalizeCustomMusicExternalFolder,
   normalizeCustomMusicSource,
   type AgentAddSetupState,
@@ -1662,11 +1667,38 @@ export function ChatSettingsDrawer({
     typeof metadata.gameSpotifyPlaylistId === "string" ? metadata.gameSpotifyPlaylistId : "";
   const gameSpotifyArtist = typeof metadata.gameSpotifyArtist === "string" ? metadata.gameSpotifyArtist : "";
   const musicDjSettings = mergeBuiltInAgentSettings("spotify", agentConfigsByType.get("spotify")?.settings);
+  // The default source and folder for all chats. A chat or character folder can take over (#8901), but only
+  // these defaults are ever written back to the Music DJ settings.
   const customMusicSource = normalizeCustomMusicSource(musicDjSettings);
   const customMusicFolder = normalizeCustomMusicFolder(metadata.customMusicFolder ?? musicDjSettings.customMusicFolder);
-  const customMusicExternalFolder = normalizeCustomMusicExternalFolder(
+  const defaultCustomMusicExternalFolder = normalizeCustomMusicExternalFolder(
     musicDjSettings.customMusicExternalFolder ?? musicDjSettings.localMusicExternalFolder,
   );
+  const musicFolderInUse = resolveMusicDjExternalFolder({
+    settings: musicDjSettings,
+    chatMetadata: metadata,
+    chatCharacterIds: chatCharIds,
+  });
+  const effectiveCustomMusicSource: CustomMusicSource =
+    musicFolderInUse.source === "default" ? customMusicSource : "folder";
+  const chatMusicFolder = normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder);
+  const characterMusicFolder = musicFolderInUse.characterId
+    ? (readMusicDjCharacterFolders(musicDjSettings)[musicFolderInUse.characterId] ?? "")
+    : "";
+  const [musicFolderTargetChoice, setMusicFolderTargetChoice] = useState<{
+    chatId: string;
+    target: MusicDjFolderSource;
+  } | null>(null);
+  const requestedMusicFolderTarget =
+    musicFolderTargetChoice?.chatId === chat.id ? musicFolderTargetChoice.target : musicFolderInUse.source;
+  const musicFolderTarget: MusicDjFolderSource =
+    requestedMusicFolderTarget === "character" && !musicFolderInUse.characterId ? "chat" : requestedMusicFolderTarget;
+  const targetMusicFolder =
+    musicFolderTarget === "chat"
+      ? chatMusicFolder
+      : musicFolderTarget === "character"
+        ? characterMusicFolder
+        : defaultCustomMusicExternalFolder;
   const gameMusicDjEnabled =
     metadata.gameUseMusicDj === true || gameUseSpotifyMusic || activeAgentIds.includes("youtube");
   const spriteCharacterIds = useMemo<string[]>(
@@ -4407,10 +4439,19 @@ export function ChatSettingsDrawer({
           musicPlayerSource,
           roleplaySpriteScale,
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+          chatCharacters: chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id })),
         }),
       });
     },
-    [agentConfigsByType, metadata, musicPlayerSource, roleplaySpriteScale, supportsNarrativeDirectorSecretPlot],
+    [
+      agentConfigsByType,
+      charNameMap,
+      chatCharIds,
+      metadata,
+      musicPlayerSource,
+      roleplaySpriteScale,
+      supportsNarrativeDirectorSecretPlot,
+    ],
   );
 
   useEffect(() => {
@@ -4545,7 +4586,7 @@ export function ChatSettingsDrawer({
         musicPlayerSource: provider,
         customMusicSource,
         customMusicFolder,
-        customMusicExternalFolder,
+        customMusicExternalFolder: defaultCustomMusicExternalFolder,
         enabledTools: provider === "spotify" ? (DEFAULT_AGENT_TOOLS.spotify ?? []) : [],
       };
 
@@ -4567,7 +4608,7 @@ export function ChatSettingsDrawer({
     [
       agentConfigsByType,
       createAgent,
-      customMusicExternalFolder,
+      defaultCustomMusicExternalFolder,
       customMusicFolder,
       customMusicSource,
       installedAgentManifests,
@@ -4614,8 +4655,12 @@ export function ChatSettingsDrawer({
   );
 
   const updateCustomMusicLibrary = useCallback(
-    async (patch: { customMusicSource?: CustomMusicSource; customMusicExternalFolder?: string }) => {
+    async (patch: Record<string, unknown>, where: "agent" | "chat" = "agent") => {
       try {
+        if (where === "chat") {
+          await updateMeta.mutateAsync({ id: chat.id, ...patch });
+          return;
+        }
         const config = agentConfigsByType.get("spotify") ?? null;
         if (!config) throw new Error("Music DJ agent settings are missing.");
         const nextSettings = {
@@ -4630,64 +4675,90 @@ export function ChatSettingsDrawer({
         });
       }
     },
-    [agentConfigsByType, updateAgentConfig],
+    [agentConfigsByType, chat.id, updateAgentConfig, updateMeta],
   );
 
-  const selectCustomMusicExternalFolder = useCallback(async () => {
+  // Each "Apply to" choice writes only its own folder (#8901).
+  const saveCustomMusicExternalFolder = (target: MusicDjFolderSource, folder: string) => {
+    if (target === "chat") return updateCustomMusicLibrary({ customMusicExternalFolder: folder || null }, "chat");
+    if (target === "character") {
+      if (!musicFolderInUse.characterId) return;
+      return updateCustomMusicLibrary({
+        customMusicCharacterFolders: withMusicDjCharacterFolder(musicDjSettings, musicFolderInUse.characterId, folder),
+      });
+    }
+    return updateCustomMusicLibrary({ customMusicSource: "folder", customMusicExternalFolder: folder });
+  };
+
+  const selectCustomMusicExternalFolder = async (target: MusicDjFolderSource) => {
     try {
       const data = await api.post<{ success: boolean; path: string }>("/game-assets/pick-local-music-folder");
       if (data.success !== true || !data.path) throw new Error("No folder selected.");
-      await updateCustomMusicLibrary({
-        customMusicSource: "folder",
-        customMusicExternalFolder: data.path,
-      });
+      await saveCustomMusicExternalFolder(target, data.path);
     } catch (error) {
       await showAlertDialog({
         title: "Couldn't Select Music Folder",
         message: error instanceof Error ? error.message : "The music folder could not be selected.",
       });
     }
-  }, [updateCustomMusicLibrary]);
+  };
 
+  const musicFolderCharacter = musicFolderInUse.characterId
+    ? {
+        id: musicFolderInUse.characterId,
+        name: charNameMap.get(musicFolderInUse.characterId) ?? musicFolderInUse.characterId,
+      }
+    : null;
   const renderCustomMusicLibrarySettings = (surface: "game" | "roleplay") => (
     <div className="space-y-2">
-      <label className="flex flex-col gap-1">
-        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
-        </span>
-        <select
-          value={customMusicSource}
-          onChange={(event) =>
-            void updateCustomMusicLibrary({ customMusicSource: event.target.value as CustomMusicSource })
-          }
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-        >
-          <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
-          <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
-        </select>
-      </label>
+      <MusicFolderScope
+        target={musicFolderTarget}
+        character={musicFolderCharacter}
+        inUse={musicFolderInUse}
+        showInUse={effectiveCustomMusicSource === "folder"}
+        canUseDefault={!!chatMusicFolder}
+        canUnlink={!!characterMusicFolder}
+        onTargetChange={(target) => setMusicFolderTargetChoice({ chatId: chat.id, target })}
+        onUseDefault={() => void saveCustomMusicExternalFolder("chat", "")}
+        onUnlink={() => void saveCustomMusicExternalFolder("character", "")}
+      />
+      {musicFolderTarget === "default" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
+          </span>
+          <select
+            value={customMusicSource}
+            onChange={(event) =>
+              void updateCustomMusicLibrary({ customMusicSource: event.target.value as CustomMusicSource })
+            }
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          >
+            <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
+            <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
+          </select>
+        </label>
+      )}
 
-      {customMusicSource === "folder" ? (
+      {musicFolderTarget !== "default" || customMusicSource === "folder" ? (
         <div className="flex flex-col gap-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.agents.agenteditor.musicFolderOnThisDevice")}
           </span>
           <div className="flex flex-col gap-2 @lg:flex-row">
             <input
-              key={`${chat.id}-${surface}-custom-music-folder-${customMusicExternalFolder}`}
-              defaultValue={customMusicExternalFolder}
-              onBlur={(event) =>
-                void updateCustomMusicLibrary({
-                  customMusicSource: "folder",
-                  customMusicExternalFolder: normalizeCustomMusicExternalFolder(event.target.value),
-                })
-              }
+              key={`${chat.id}-${surface}-custom-music-folder-${musicFolderTarget}-${targetMusicFolder}`}
+              defaultValue={targetMusicFolder}
+              onBlur={(event) => {
+                const folder = normalizeCustomMusicExternalFolder(event.target.value);
+                if (folder !== targetMusicFolder) void saveCustomMusicExternalFolder(musicFolderTarget, folder);
+              }}
               placeholder={localizeUi("ui.agents.agenteditor.noFolderSelected")}
               className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
             />
             <button
               type="button"
-              onClick={() => void selectCustomMusicExternalFolder()}
+              onClick={() => void selectCustomMusicExternalFolder(musicFolderTarget)}
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
               <FolderOpen size="0.75rem" />
@@ -9251,7 +9322,7 @@ export function ChatSettingsDrawer({
                                 )
                               : musicPlayerSource === "youtube"
                                 ? localizeUi("ui.chat.chatsettingsdrawer.youtubeModeUsesTheMusicDjAgentSYoutube")
-                                : customMusicSource === "folder"
+                                : effectiveCustomMusicSource === "folder"
                                   ? localizeUi(
                                       "ui.chat.chatsettingsdrawer.customModePicksFromTheSelectedDeviceFolderAnd",
                                     )

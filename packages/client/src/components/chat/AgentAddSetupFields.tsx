@@ -4,13 +4,19 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
   getDefaultBuiltInAgentSettings,
+  musicDjFolderCharacterId,
   normalizeAgentPromptTemplateSelectionMap,
   normalizeSpotifySourceType,
+  readMusicDjCharacterFolders,
   resolveDefaultAgentPromptTemplateId,
+  resolveMusicDjExternalFolder,
+  withMusicDjCharacterFolder,
   type AgentPromptTemplateOption,
   type HapticFeedbackSensitivity,
   type KnowledgeAgentSourceSettings,
   type Lorebook,
+  type MusicDjFolderResolution,
+  type MusicDjFolderSource,
   type SpotifySourceType,
 } from "@marinara-engine/shared";
 import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
@@ -69,7 +75,15 @@ export type AgentAddSetupState = {
   musicProvider: MusicProvider;
   customMusicSource: CustomMusicSource;
   customMusicFolder: string;
+  /** The default device folder for all chats. */
   customMusicExternalFolder: string;
+  /** Which device folder the fields edit (#8901): this chat's, its one character's, or the default. */
+  customMusicFolderTarget: MusicDjFolderSource;
+  /** This chat's own folder; empty follows the character, then the default. */
+  customMusicChatFolder: string;
+  customMusicCharacterFolder: string;
+  /** The chat's only character, who can have a folder of their own. Null in a group chat. */
+  customMusicCharacter: { id: string; name: string } | null;
   hapticFeedbackEnabled: boolean;
   hapticSensitivity: HapticFeedbackSensitivity;
   hapticIncidentalContact: boolean;
@@ -227,6 +241,7 @@ export function buildInitialAgentAddSetupState({
   musicPlayerSource,
   roleplaySpriteScale,
   allowSecretPlot = true,
+  chatCharacters = [],
 }: {
   agentId: string;
   settings: Record<string, unknown>;
@@ -234,6 +249,8 @@ export function buildInitialAgentAddSetupState({
   musicPlayerSource: MusicProvider;
   roleplaySpriteScale: number;
   allowSecretPlot?: boolean;
+  /** The chat's whole roster, with display names. */
+  chatCharacters?: Array<{ id: string; name: string }>;
 }): AgentAddSetupState {
   const proseBanned = readString(settings.banned, DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
   const proseAvoid = readString(settings.avoid, DEFAULT_PROSE_GUARDIAN_AVOID);
@@ -251,6 +268,9 @@ export function buildInitialAgentAddSetupState({
     SPRITE_DISPLAY_OPACITY_MIN,
     SPRITE_DISPLAY_OPACITY_MAX,
   );
+  const chatCharacterIds = chatCharacters.map((character) => character.id);
+  const musicCharacterId = musicDjFolderCharacterId(chatCharacterIds);
+  const musicCharacter = chatCharacters.find((character) => character.id === musicCharacterId) ?? null;
 
   return {
     secretPlotEnabled:
@@ -330,6 +350,11 @@ export function buildInitialAgentAddSetupState({
     customMusicExternalFolder: normalizeCustomMusicExternalFolder(
       settings.customMusicExternalFolder ?? settings.localMusicExternalFolder,
     ),
+    customMusicFolderTarget: resolveMusicDjExternalFolder({ settings, chatMetadata: metadata, chatCharacterIds })
+      .source,
+    customMusicChatFolder: normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder),
+    customMusicCharacterFolder: musicCharacter ? (readMusicDjCharacterFolders(settings)[musicCharacter.id] ?? "") : "",
+    customMusicCharacter: musicCharacter,
     hapticFeedbackEnabled: metadata.enableHapticFeedback === true,
     hapticSensitivity: normalizeHapticSensitivity(metadata.hapticSensitivity),
     hapticIncidentalContact: metadata.hapticIncidentalContact === true,
@@ -369,9 +394,24 @@ export function applyAgentAddSetupToAgentSettings(
   }
   if (agentId === "spotify") {
     next.musicProvider = setup.musicProvider;
-    next.customMusicSource = setup.customMusicSource;
     next.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
+    // Every folder edited here is saved to its own place, whichever "Apply to" is showing on Add, so the save
+    // matches "In use" (#8901). The default and source start from these settings, so unedited they stay as they are.
+    // This chat's folder goes to the chat (buildAgentAddMetadataPatch).
+    next.customMusicSource = setup.customMusicSource;
     next.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicExternalFolder);
+    const character = setup.customMusicCharacter;
+    if (
+      character &&
+      normalizeCustomMusicExternalFolder(setup.customMusicCharacterFolder) !==
+        (readMusicDjCharacterFolders(settings)[character.id] ?? "")
+    ) {
+      next.customMusicCharacterFolders = withMusicDjCharacterFolder(
+        settings,
+        character.id,
+        setup.customMusicCharacterFolder,
+      );
+    }
     next.enabledTools = setup.musicProvider === "spotify" ? next.enabledTools : [];
   }
   if (agentId === "illustrator") {
@@ -435,6 +475,10 @@ export function buildAgentAddMetadataPatch(
   }
   if (agentId === "spotify") {
     patch.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
+    const chatFolder = normalizeCustomMusicExternalFolder(setup.customMusicChatFolder);
+    if (chatFolder !== normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder)) {
+      patch.customMusicExternalFolder = chatFolder || null;
+    }
   }
   if (agentId === "expression") {
     patch.spriteDisplayModes = setup.spriteDisplayModes;
@@ -486,6 +530,111 @@ export function buildAgentAddMetadataPatch(
 
 function SetupLabel({ children }: { children: ReactNode }) {
   return <span className="text-[0.625rem] font-medium text-[var(--foreground)]">{children}</span>;
+}
+
+const MUSIC_FOLDER_SELECT_CLASS =
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60";
+const MUSIC_FOLDER_BUTTON_CLASS =
+  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
+
+/** Where the Music DJ's device folder is saved ("Apply to"), and which folder this chat uses and why (#8901). */
+export function MusicFolderScope({
+  target,
+  character,
+  inUse,
+  showInUse,
+  canUseDefault,
+  canUnlink,
+  disabled,
+  onTargetChange,
+  onUseDefault,
+  onUnlink,
+}: {
+  target: MusicDjFolderSource;
+  character: { id: string; name: string } | null;
+  inUse: MusicDjFolderResolution;
+  showInUse: boolean;
+  canUseDefault: boolean;
+  canUnlink: boolean;
+  disabled?: boolean;
+  onTargetChange: (target: MusicDjFolderSource) => void;
+  onUseDefault: () => void;
+  onUnlink: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const sourceLabel =
+    inUse.source === "chat"
+      ? localizeUi("ui.chat.musicdjsetupfields.thisChat")
+      : inUse.source === "character"
+        ? localizeUi("ui.chat.musicdjsetupfields.folderFromCharacter", { name: character?.name ?? "" })
+        : localizeUi("ui.chat.musicdjsetupfields.defaultFolder");
+  return (
+    <div className="space-y-1.5">
+      <label className="flex flex-col gap-1">
+        <SetupLabel>{localizeUi("ui.chat.musicdjsetupfields.applyTo")}</SetupLabel>
+        <select
+          value={target}
+          disabled={disabled}
+          onChange={(event) => onTargetChange(event.target.value as MusicDjFolderSource)}
+          className={MUSIC_FOLDER_SELECT_CLASS}
+        >
+          <option value="chat">{localizeUi("ui.chat.musicdjsetupfields.thisChat")}</option>
+          {character && <option value="character">{character.name}</option>}
+          <option value="default">{localizeUi("ui.chat.musicdjsetupfields.allChatsDefault")}</option>
+        </select>
+      </label>
+      {showInUse && (
+        <p className="flex flex-wrap items-center gap-1.5 text-[0.5625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.chat.musicdjsetupfields.folderInUse")}
+          <code className="break-all text-[var(--foreground)]">
+            {inUse.folder || localizeUi("ui.agents.agenteditor.noFolderSelected")}
+          </code>
+          <span className="rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 font-medium text-[var(--primary)]">
+            {sourceLabel}
+          </span>
+        </p>
+      )}
+      {(canUseDefault || (canUnlink && character)) && (
+        <div className="flex flex-wrap gap-1.5">
+          {canUseDefault && (
+            <button type="button" disabled={disabled} onClick={onUseDefault} className={MUSIC_FOLDER_BUTTON_CLASS}>
+              {localizeUi("ui.chat.musicdjsetupfields.useDefaultFolder")}
+            </button>
+          )}
+          {canUnlink && character && (
+            <button type="button" disabled={disabled} onClick={onUnlink} className={MUSIC_FOLDER_BUTTON_CLASS}>
+              {localizeUi("ui.chat.musicdjsetupfields.unlinkFolderFromCharacter", { name: character.name })}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function musicFolderForTarget(value: AgentAddSetupState): string {
+  if (value.customMusicFolderTarget === "chat") return value.customMusicChatFolder;
+  if (value.customMusicFolderTarget === "character") return value.customMusicCharacterFolder;
+  return value.customMusicExternalFolder;
+}
+
+function musicFolderPatch(target: MusicDjFolderSource, folder: string): Partial<AgentAddSetupState> {
+  if (target === "chat") return { customMusicChatFolder: folder };
+  if (target === "character") return { customMusicCharacterFolder: folder };
+  return { customMusicExternalFolder: folder };
+}
+
+/** The "In use" folder from every folder edited in the add window, which is what Add saves. */
+export function musicFolderInUse(value: AgentAddSetupState): MusicDjFolderResolution {
+  const character = value.customMusicCharacter;
+  return resolveMusicDjExternalFolder({
+    settings: {
+      customMusicExternalFolder: value.customMusicExternalFolder,
+      customMusicCharacterFolders: character ? { [character.id]: value.customMusicCharacterFolder } : {},
+    },
+    chatMetadata: { customMusicExternalFolder: value.customMusicChatFolder },
+    chatCharacterIds: character ? [character.id] : [],
+  });
 }
 
 function SetupTextarea({
@@ -1092,11 +1241,19 @@ function MusicDjSetupFields({
     retry: false,
   });
 
+  const folderTarget = value.customMusicFolderTarget;
+  const folderValue = musicFolderForTarget(value);
+  const musicCharacter = value.customMusicCharacter;
+  const folderInUse = musicFolderInUse(value);
+
   const selectCustomMusicFolder = async () => {
     try {
       const data = await api.post<{ success: boolean; path: string }>("/game-assets/pick-local-music-folder");
       if (data.success !== true || !data.path) throw new Error("No folder selected.");
-      onChange({ customMusicSource: "folder", customMusicExternalFolder: data.path });
+      onChange({
+        ...musicFolderPatch(folderTarget, data.path),
+        ...(folderTarget === "default" ? { customMusicSource: "folder" as const } : {}),
+      });
     } catch (error) {
       await showAlertDialog({
         title: "Couldn't Select Music Folder",
@@ -1219,31 +1376,43 @@ function MusicDjSetupFields({
         </p>
       ) : (
         <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
-          <label className="flex flex-col gap-1">
-            <SetupLabel>{localizeUi("ui.chat.musicdjsetupfields.customMusicSource")}</SetupLabel>
-            <select
-              value={value.customMusicSource}
-              disabled={disabled}
-              onChange={(event) => onChange({ customMusicSource: event.target.value as CustomMusicSource })}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
-              <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
-            </select>
-          </label>
+          <MusicFolderScope
+            target={folderTarget}
+            character={musicCharacter}
+            inUse={folderInUse}
+            showInUse={folderInUse.source !== "default" || value.customMusicSource === "folder"}
+            canUseDefault={!!value.customMusicChatFolder.trim()}
+            canUnlink={!!value.customMusicCharacterFolder.trim()}
+            disabled={disabled}
+            onTargetChange={(customMusicFolderTarget) => onChange({ customMusicFolderTarget })}
+            onUseDefault={() => onChange({ customMusicFolderTarget: "chat", customMusicChatFolder: "" })}
+            onUnlink={() => onChange({ customMusicFolderTarget: "character", customMusicCharacterFolder: "" })}
+          />
+          {folderTarget === "default" && (
+            <label className="flex flex-col gap-1">
+              <SetupLabel>{localizeUi("ui.chat.musicdjsetupfields.customMusicSource")}</SetupLabel>
+              <select
+                value={value.customMusicSource}
+                disabled={disabled}
+                onChange={(event) => onChange({ customMusicSource: event.target.value as CustomMusicSource })}
+                className={MUSIC_FOLDER_SELECT_CLASS}
+              >
+                <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
+                <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
+              </select>
+            </label>
+          )}
 
-          {value.customMusicSource === "folder" ? (
+          {folderTarget !== "default" || value.customMusicSource === "folder" ? (
             <div className="flex flex-col gap-1">
               <SetupLabel>{localizeUi("ui.chat.musicdjsetupfields.musicFolderOnThisDevice")}</SetupLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
-                  value={value.customMusicExternalFolder}
+                  value={folderValue}
                   disabled={disabled}
-                  onChange={(event) => onChange({ customMusicExternalFolder: event.target.value })}
+                  onChange={(event) => onChange(musicFolderPatch(folderTarget, event.target.value))}
                   onBlur={() =>
-                    onChange({
-                      customMusicExternalFolder: normalizeCustomMusicExternalFolder(value.customMusicExternalFolder),
-                    })
+                    onChange(musicFolderPatch(folderTarget, normalizeCustomMusicExternalFolder(folderValue)))
                   }
                   placeholder={localizeUi("ui.agents.agenteditor.noFolderSelected")}
                   className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1252,7 +1421,7 @@ function MusicDjSetupFields({
                   type="button"
                   disabled={disabled}
                   onClick={() => void selectCustomMusicFolder()}
-                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={MUSIC_FOLDER_BUTTON_CLASS}
                 >
                   <FolderOpen size="0.75rem" />
                   {localizeUi("ui.chat.musicdjsetupfields.chooseFolder")}

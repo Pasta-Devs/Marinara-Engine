@@ -7,6 +7,7 @@ import { partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import { deletePendingForChat } from "../services/professor-mari/workspace-pending-store.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
@@ -1799,6 +1800,16 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const incoming = req.body as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(incoming, "customMusicExternalFolder")) {
+      // This chat's Music DJ folder (#8901). A typed path needs the folder picker's access; clearing it does not.
+      const value = incoming.customMusicExternalFolder;
+      const folder = typeof value === "string" ? value.trim() : "";
+      const saved = parseChatMetadata(chat.metadata).customMusicExternalFolder;
+      incoming.customMusicExternalFolder = folder || null;
+      if (folder && folder !== (typeof saved === "string" ? saved.trim() : "")) {
+        if (!requirePrivilegedAccess(req, reply, { feature: "Custom music folder" })) return;
+      }
+    }
     let attachmentPatch: Parameters<typeof mergeAgentLorebookAttachments>[1] | undefined;
     if (Object.prototype.hasOwnProperty.call(incoming, "agentLorebookAttachments")) {
       const parsed = agentLorebookAttachmentPatchesSchema.safeParse(incoming.agentLorebookAttachments);
