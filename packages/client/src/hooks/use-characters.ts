@@ -1636,6 +1636,8 @@ export function useUpdateGroup() {
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
     mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
     onSuccess: (_data, edit) => {
       commitGroupEdit(qc, edit);
       return invalidateGroupsAndCatalog(qc);
@@ -1648,6 +1650,8 @@ export function useDeleteGroup() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
     mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
     onSuccess: (_data, id) => {
       commitGroupEdit(qc, id);
       return invalidateGroupsAndCatalog(qc);

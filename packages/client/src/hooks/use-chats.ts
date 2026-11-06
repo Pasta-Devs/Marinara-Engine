@@ -162,11 +162,18 @@ function deletedMessageIds(variables: unknown): string[] {
   return typeof messageId === "string" ? [messageId] : [];
 }
 
-/** The server deleted them: drop them from the cache so they do not flash back before the refetch. */
-function dropDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
-  qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
-    removeMessagesFromPages(old, messageIds),
-  );
+/**
+ * The server deleted them: refetch the transcript so the pages keep their real length (Load more stays).
+ * Only if that refetch fails are they dropped from the cached pages, so they do not show again.
+ */
+async function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
+  try {
+    await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }, { throwOnError: true });
+  } catch {
+    qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
+      removeMessagesFromPages(old, messageIds),
+    );
+  }
 }
 
 export function rememberRecentMessageContentEdit(
@@ -1566,9 +1573,15 @@ export function useDeleteMessage(chatId: string | null) {
     },
     // While pending, useChatMessages hides the message; a failed delete simply shows it again.
     mutationKey: chatMessageDeleteKey(chatId),
-    onSuccess: (result, target) => {
+    // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
+    onError: () => {
+      if (!chatId) return;
+      void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+      void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
+    },
+    onSuccess: async (result, target) => {
       if (chatId) {
-        dropDeletedMessages(qc, chatId, deletedMessageIds(target));
+        const settled = settleDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: 1 }), {
@@ -1576,12 +1589,13 @@ export function useDeleteMessage(chatId: string | null) {
           });
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.list() });
         qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        // Stay pending, so the messages stay hidden, until the transcript refetch lands.
+        await settled;
       }
     },
   });
@@ -1593,9 +1607,15 @@ export function useDeleteMessages(chatId: string | null) {
     mutationFn: (messageIds: string[]) =>
       api.post<{ trashed: boolean; trashedCount: number }>(`/chats/${chatId}/messages/bulk-delete`, { messageIds }),
     mutationKey: chatMessageDeleteKey(chatId),
-    onSuccess: (result, messageIds) => {
+    // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
+    onError: () => {
+      if (!chatId) return;
+      void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+      void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
+    },
+    onSuccess: async (result, messageIds) => {
       if (chatId) {
-        dropDeletedMessages(qc, chatId, messageIds);
+        const settled = settleDeletedMessages(qc, chatId, messageIds);
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
@@ -1603,12 +1623,13 @@ export function useDeleteMessages(chatId: string | null) {
           });
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.list() });
         qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        // Stay pending, so the messages stay hidden, until the transcript refetch lands.
+        await settled;
       }
     },
   });
