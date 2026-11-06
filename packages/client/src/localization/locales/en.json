@@ -6572,6 +6572,7 @@
   "settings.appearance.uiStyles.reach_one": "Everywhere · 1 on this screen",
   "settings.appearance.uiStyles.reach_other": "Everywhere · {{count}} on this screen",
   "settings.appearance.uiStyles.region": "Region",
+  "settings.appearance.uiStyles.regions.app": "Whole app",
   "settings.appearance.uiStyles.regions.assistantMessage": "Character messages",
   "settings.appearance.uiStyles.regions.buttons": "Buttons",
   "settings.appearance.uiStyles.regions.center": "Main area",

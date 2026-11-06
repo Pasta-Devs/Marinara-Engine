@@ -19,6 +19,14 @@ const CHAT_SURFACES = [".mari-chat-area", ".rpg-overlay"] as const;
  * the bubble in bubble layouts and the line body in the plain conversation layout.
  */
 export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
+  {
+    // The shell and every layer that repaints the app background (body included) read this variable,
+    // as Background Color sets it, so a gradient spans the app instead of restarting in each layer.
+    id: "app",
+    labelKey: "settings.appearance.uiStyles.regions.app",
+    selector: '[data-component="AppShell"]',
+    paintVariable: "--marinara-app-background-paint",
+  },
   { id: "top-bar", labelKey: "settings.appearance.uiStyles.regions.topBar", selector: '[data-component="TopBar"]' },
   { id: "sidebar", labelKey: "settings.appearance.uiStyles.regions.sidebar", selector: ".mari-sidebar" },
   {
@@ -115,6 +123,7 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
 ];
 
 export type UiStyleRegionId =
+  | "app"
   | "top-bar"
   | "sidebar"
   | "center"
@@ -151,6 +160,8 @@ export interface UiStyleTarget {
   className?: string;
   selector: string;
   surfaces?: readonly string[];
+  /** A custom property the region's background is painted from; set instead of the element's background. */
+  paintVariable?: string;
 }
 
 /** Lowercase words joined by single hyphens, so the class doubles as a safe CSS selector. */
@@ -373,24 +384,27 @@ function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[]
   const px = (value: number | undefined) => (value === undefined ? undefined : `${value}px`);
   const blur = (value: number | undefined) =>
     value === undefined ? undefined : value > 0 ? `blur(${value}px)` : "none";
-  const rules = [
-    `${root}{${declare([
-      ["background", override.background],
-      ["color", override.color],
-      ["border-color", override.borderColor],
-      ["border-radius", px(override.borderRadius)],
-      ["opacity", override.opacity === undefined ? undefined : override.opacity / 100],
-      ["font-size", px(override.fontSize)],
-      ["border-width", px(override.borderWidth)],
-      ["border-style", override.borderWidth === undefined ? undefined : "solid"],
-      // Unset, the border would take the text color (currentColor).
-      ["border-color", override.borderWidth !== undefined && !override.borderColor ? "var(--border)" : undefined],
-      ["box-shadow", override.shadow && UI_STYLE_SHADOWS[override.shadow]],
-      // Any value but none traps fixed-position descendants, so 0 means none rather than blur(0px).
-      ["-webkit-backdrop-filter", blur(override.blur)],
-      ["backdrop-filter", blur(override.blur)],
-    ])}}`,
-  ];
+  const own = declare([
+    ["background", target.paintVariable ? undefined : override.background],
+    ["color", override.color],
+    ["border-color", override.borderColor],
+    ["border-radius", px(override.borderRadius)],
+    ["opacity", override.opacity === undefined ? undefined : override.opacity / 100],
+    ["font-size", px(override.fontSize)],
+    ["border-width", px(override.borderWidth)],
+    ["border-style", override.borderWidth === undefined ? undefined : "solid"],
+    // Unset, the border would take the text color (currentColor).
+    ["border-color", override.borderWidth !== undefined && !override.borderColor ? "var(--border)" : undefined],
+    ["box-shadow", override.shadow && UI_STYLE_SHADOWS[override.shadow]],
+    // Any value but none traps fixed-position descendants, so 0 means none rather than blur(0px).
+    ["-webkit-backdrop-filter", blur(override.blur)],
+    ["backdrop-filter", blur(override.blur)],
+  ]);
+  // A painted region with only a background has no rule of its own.
+  const rules = own ? [`${root}{${own}}`] : [];
+  if (override.background && target.paintVariable) {
+    rules.push(`:root{${declare([[target.paintVariable, override.background]])}}`);
+  }
   if (override.background && target.surfaces?.length) {
     rules.push(`${root} :is(${target.surfaces.join(", ")}){${declare([["background", override.background]])}}`);
   }

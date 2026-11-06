@@ -276,4 +276,26 @@ assert.deepEqual(
 assert.equal(normalizeUiStyleOverride({ shadow: "toString" }), null, "inherited keys are not shadow presets");
 assert.notEqual(serializeUiStyleOverride({ shadow: "soft" }), serializeUiStyleOverride({ shadow: "glow" }));
 
+// The whole app paints through the variable the body, the shell and every paint layer read, so a
+// gradient spans the app; inner regions still come later and win.
+{
+  const gradient = "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)";
+  const css = buildUiStyleOverridesCss({
+    app: { background: gradient, color: "#eee" },
+    center: { background: "#000" },
+  });
+  const lines = css.split("\n");
+  assert.equal(lines[0], ':root [data-component="AppShell"]{color:#eee!important}', "no element background");
+  assert.equal(lines[1], `:root{--marinara-app-background-paint:${gradient}!important}`);
+  assert.ok(css.indexOf("CenterContent") > css.indexOf(gradient), "the center region's rules follow the app's");
+  assert.equal(sanitizeAppCss(css), css, "the paint variable rule passes the theme sanitizer unchanged");
+  assert.deepEqual(normalizeUiStyleOverrides({ app: { background: gradient } }), { app: { background: gradient } });
+  assert.equal(
+    buildUiStyleOverridesCss({ app: { background: gradient } }),
+    `:root{--marinara-app-background-paint:${gradient}!important}`,
+    "a background alone leaves no empty region rule",
+  );
+  assert.equal(resolveUiStyleTarget(node(['[data-component="AppShell"]'], null)), "app");
+}
+
 console.info("UI style override regressions passed.");
