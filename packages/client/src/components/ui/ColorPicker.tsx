@@ -16,6 +16,7 @@ import { SETTINGS_BUTTON_CLASS, SETTINGS_ICON_BUTTON_CLASS } from "../panels/set
 import {
   hexToHsv,
   hsvToHex,
+  hexAlpha,
   normalizeHexColor,
   withAlpha,
   isCssGradient,
@@ -304,25 +305,23 @@ function ColorStrip({
 }
 
 /**
- * Drag-to-pick colour selector: saturation/brightness square, hue strip, optional opacity strip and the
- * screen dropper. `value` is `#rrggbb` or `#rrggbbaa`; changes come back in the same form.
+ * Drag-to-pick colour selector: saturation/brightness square, hue strip and the screen dropper.
+ * `value` is `#rrggbb` or `#rrggbbaa`; its alpha is kept on every change (the opacity strip sets it).
  */
 function MarinaraColorSelector({
   value,
   onChange,
   onCommit,
   label,
-  opacity,
 }: {
   value: string;
   onChange: (value: string, defer?: boolean) => void;
   onCommit: () => void;
   label: string;
-  opacity: boolean;
 }) {
   const { t } = useUiTranslation();
   const baseHex = value.slice(0, 7);
-  const alpha = opacity && value.length === 9 ? Number.parseInt(value.slice(7), 16) / 255 : 1;
+  const alpha = hexAlpha(value);
   // The draft keeps hue and saturation while they cannot be read back from the hex (greys, black).
   const [draft, setDraft] = useState<[number, number, number] | null>(null);
   const previousValueRef = useRef(value);
@@ -336,9 +335,9 @@ function MarinaraColorSelector({
     }
   }, [alpha, draft, value]);
 
-  const update = (next: [number, number, number], nextAlpha = alpha) => {
+  const update = (next: [number, number, number]) => {
     setDraft(next);
-    onChange(withAlpha(hsvToHex(...next), nextAlpha), true);
+    onChange(withAlpha(hsvToHex(...next), alpha), true);
   };
   const commit = () => {
     onCommit();
@@ -356,8 +355,6 @@ function MarinaraColorSelector({
       // Escape closes the dropper without a colour.
     }
   };
-  const alphaPercent = Math.round(alpha * 100);
-
   return (
     <div
       role="group"
@@ -405,10 +402,10 @@ function MarinaraColorSelector({
         )}
         <span
           aria-hidden="true"
-          className="h-8 w-8 shrink-0 rounded-md ring-1 ring-[var(--border)]"
+          className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]"
           style={{ background: `linear-gradient(${value}, ${value}), ${CHECKER_BACKGROUND}` }}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="min-w-0 flex-1">
           <ColorStrip
             label={t("ui.ui.colorpicker.hue")}
             valueNow={hue}
@@ -421,22 +418,47 @@ function MarinaraColorSelector({
             onStep={(delta) => update([(hue + delta + 360) % 360, saturation, brightness])}
             onCommit={commit}
           />
-          {opacity && (
-            <ColorStrip
-              label={t("ui.ui.colorpicker.opacity")}
-              valueNow={alphaPercent}
-              valueMax={100}
-              valueText={`${alphaPercent}%`}
-              position={alpha}
-              background={`linear-gradient(to right, transparent, ${baseHex}), ${CHECKER_BACKGROUND}`}
-              thumb={value}
-              onPick={(x) => update([hue, saturation, brightness], x)}
-              onStep={(delta) => update([hue, saturation, brightness], clampPercent(alphaPercent + delta) / 100)}
-              onCommit={commit}
-            />
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Opacity of a `#rrggbb(aa)` colour, shared by the Custom and Palette views. */
+function OpacityStrip({
+  value,
+  onChange,
+  onCommit,
+}: {
+  value: string;
+  onChange: (value: string, defer?: boolean) => void;
+  onCommit: () => void;
+}) {
+  const { t } = useUiTranslation();
+  const baseHex = value.slice(0, 7);
+  const alpha = hexAlpha(value);
+  const percent = Math.round(alpha * 100);
+  const label = t("ui.ui.colorpicker.opacity");
+  return (
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
+      <div className="min-w-0 flex-1">
+        <ColorStrip
+          label={label}
+          valueNow={percent}
+          valueMax={100}
+          valueText={`${percent}%`}
+          position={alpha}
+          background={`linear-gradient(to right, transparent, ${baseHex}), ${CHECKER_BACKGROUND}`}
+          thumb={value}
+          onPick={(x) => onChange(withAlpha(baseHex, x), true)}
+          onStep={(delta) => onChange(withAlpha(baseHex, clampPercent(percent + delta) / 100), true)}
+          onCommit={onCommit}
+        />
+      </div>
+      <span className="w-9 shrink-0 text-right font-mono text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
+        {percent}%
+      </span>
     </div>
   );
 }
@@ -622,6 +644,8 @@ export function ColorPicker({
       ? resolveCssColorToHex(previewValue)
       : "#6c5ce7"
     : null;
+  // Palette picks keep the current opacity; fields without the opacity strip always pick opaque colours.
+  const solidAlpha = opacity && solidSliderColor ? hexAlpha(solidSliderColor) : 1;
   const activeGradientStop = parseGradientColorStop(gradientStops[activeStop] ?? "");
   const showClear = clearValue ? value !== clearValue : !!value;
   const displayStyle = previewValue
@@ -748,25 +772,30 @@ export function ColorPicker({
                   onChange={handleSolidChange}
                   onCommit={flushPendingChange}
                   label={localizeUi("ui.ui.colorpicker.pickValue1Color", { value1: label })}
-                  opacity={opacity}
                 />
               ) : null}
               {view === "palette" && (
                 <div className="flex flex-wrap gap-1.5">
-                  {PRESETS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => handleSolidChange(color)}
-                      className={cn(PALETTE_SWATCH_CLASS, value === color && "ring-2 ring-[var(--primary)] scale-110")}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                      aria-label={color}
-                      aria-pressed={value === color}
-                    />
-                  ))}
+                  {PRESETS.map((color) => {
+                    const selected = solidSliderColor?.slice(0, 7) === color;
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleSolidChange(withAlpha(color, solidAlpha))}
+                        className={cn(PALETTE_SWATCH_CLASS, selected && "ring-2 ring-[var(--primary)] scale-110")}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                        aria-label={color}
+                        aria-pressed={selected}
+                      />
+                    );
+                  })}
                 </div>
               )}
+              {opacity && solidSliderColor ? (
+                <OpacityStrip value={solidSliderColor} onChange={handleSolidChange} onCommit={flushPendingChange} />
+              ) : null}
 
               <label className="min-w-0 space-y-1">
                 <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
@@ -840,13 +869,21 @@ export function ColorPicker({
                       );
                     })}
                     {activeGradientStop.hex ? (
-                      <MarinaraColorSelector
-                        value={activeGradientStop.hex}
-                        onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
-                        onCommit={flushPendingChange}
-                        label={localizeUi("ui.ui.colorpicker.editColorStop", { index: activeStop + 1 })}
-                        opacity={opacity}
-                      />
+                      <>
+                        <MarinaraColorSelector
+                          value={activeGradientStop.hex}
+                          onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
+                          onCommit={flushPendingChange}
+                          label={localizeUi("ui.ui.colorpicker.editColorStop", { index: activeStop + 1 })}
+                        />
+                        {opacity && (
+                          <OpacityStrip
+                            value={activeGradientStop.hex}
+                            onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
+                            onCommit={flushPendingChange}
+                          />
+                        )}
+                      </>
                     ) : null}
                   </div>
 

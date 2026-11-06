@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { hexToHsv, hsvToHex, normalizeHexColor, withAlpha } from "../../packages/client/src/lib/css-colors.js";
+import {
+  hexAlpha,
+  hexToHsv,
+  hsvToHex,
+  normalizeHexColor,
+  withAlpha,
+} from "../../packages/client/src/lib/css-colors.js";
 import { sanitizeAppCss } from "../../packages/client/src/lib/theme-css.js";
 import {
   buildUiStyleOverridesCss,
@@ -234,6 +240,8 @@ assert.equal(withAlpha("#112233", 1), "#112233");
 assert.equal(withAlpha("#112233", 0.5), "#11223380");
 assert.equal(withAlpha("#112233", 0), "#11223300");
 assert.equal(withAlpha("#112233", -1), "#11223300", "alpha is clamped");
+assert.equal(hexAlpha("#112233"), 1);
+assert.equal(withAlpha("#ff0000", hexAlpha("#11223366")), "#ff000066", "a palette pick keeps the current opacity");
 assert.equal(
   sanitizeAppCss(buildUiStyleOverridesCss({ "top-bar": { background: "#11223380" } })),
   ':root [data-component="TopBar"]{background:#11223380!important}',

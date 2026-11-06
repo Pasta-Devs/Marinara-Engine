@@ -179,3 +179,5 @@ const alphaHex = (alpha: number) =>
     .padStart(2, "0");
 /** `#rrggbb` with the alpha appended when it is not fully opaque. */
 export const withAlpha = (hex: string, alpha: number) => (alpha >= 1 ? hex : `${hex}${alphaHex(alpha)}`);
+/** Alpha (0-1) of a `#rrggbb` or `#rrggbbaa` colour. */
+export const hexAlpha = (hex: string) => (hex.length === 9 ? Number.parseInt(hex.slice(7), 16) / 255 : 1);
