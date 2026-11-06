@@ -115,33 +115,38 @@ for (const theme of ["dark", "light"] as const) {
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
           useUIStore.getState().openConnectionDetail(connectionId);
         }, id);
-      try {
-        await open();
-        await expect(page.getByPlaceholder("Connection name")).toHaveValue(`${model.id} ${theme} fixture`);
-        await page.getByText("Select a model…", { exact: true }).click();
-        await page.getByPlaceholder("Search models…").fill(model.id);
-        const choice = page.getByRole("button").filter({ hasText: model.id });
+      const pickModel = async (modelId: string) => {
+        const picker = page.locator("[data-connection-model-picker]");
+        await picker.locator("[data-model-search]").fill(modelId);
+        const choice = picker.locator(`[data-model-section="all"] [data-model-id="${modelId}"] [data-model-option]`);
         await expect(choice).toHaveCount(1);
         await choice.click();
+      };
+      try {
+        await open();
+        // #8456 renamed the name field and lists the models inline.
+        await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue(`${model.id} ${theme} fixture`);
+        await pickModel(model.id);
         const resolution = page.getByRole("combobox", { name: "Resolution", exact: true });
         if (!(await resolution.count())) await page.getByRole("button", { name: /OpenRouter Video setup/ }).click();
         await expect(resolution).toHaveValue(model.resolution);
         await expect(resolution.locator("option")).toHaveText(model.resolutions);
         await page.getByRole("button", { name: "Reset", exact: true }).click();
         await expect(resolution).toHaveValue(model.resolution);
-        const duration = page.getByRole("spinbutton", { name: "Duration Seconds", exact: true });
+        const duration = page.getByRole("spinbutton", { name: "Duration (seconds)", exact: true });
         await duration.fill(model.duration);
         await duration.blur();
         await page.getByRole("button", { name: "Save", exact: true }).click();
         await expect
           .poll(async () => {
             const saved = await (await request.get(`/api/connections/${id}`)).json();
-            const profile = JSON.parse(saved.defaultParameters).videoGeneration;
+            // A read between the save's requests can find no defaults yet; keep polling instead of throwing.
+            const profile = saved.defaultParameters ? JSON.parse(saved.defaultParameters).videoGeneration : null;
             return {
               model: saved.model,
               source: saved.videoGenerationSource,
-              resolution: profile.openrouter.resolution,
-              duration: profile.openrouter.durationSeconds,
+              resolution: profile?.openrouter?.resolution,
+              duration: profile?.openrouter?.durationSeconds,
             };
           })
           .toEqual({
@@ -158,9 +163,7 @@ for (const theme of ["dark", "light"] as const) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`${model.id.split("/")[1]}-saved.png`), animations: "disabled" });
         if (model.resolution === "768p") {
-          await page.getByText("MiniMax: H3 Max (OpenRouter) (minimax/hailuo-3-max)", { exact: true }).click();
-          await page.getByPlaceholder("Search models…").fill("google/veo-3.1");
-          await page.getByRole("button").filter({ hasText: "google/veo-3.1" }).click();
+          await pickModel("google/veo-3.1");
           await expect(resolution).toHaveValue("720p");
           await expect(resolution.locator('option[value="768p"]')).toHaveCount(0);
           await page.getByRole("button", { name: "Save", exact: true }).click();

@@ -604,6 +604,12 @@ function knownStabilityImageModels() {
     .map((model) => ({ id: model.id, name: model.name }));
 }
 
+function knownNovelAiImageModels() {
+  return MODEL_LISTS.image_generation
+    .filter((model) => model.id.startsWith("nai-"))
+    .map((model) => ({ id: model.id, name: model.name }));
+}
+
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
   const appSettings = createAppSettingsStorage(app.db);
@@ -1262,6 +1268,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
           const models = MODEL_LISTS.video_generation.map((m) => ({ id: m.id, name: m.name }));
           return { models };
         }
+      }
+
+      // NovelAI serves no model list, and the image provider has no default base URL to ask one from.
+      if (
+        conn.provider === "image_generation" &&
+        resolveImageGenerationSource(conn as any, conn.baseUrl || "") === "novelai"
+      ) {
+        return { models: knownNovelAiImageModels(), builtIn: true };
       }
 
       const { PROVIDERS } = await import("@marinara-engine/shared");

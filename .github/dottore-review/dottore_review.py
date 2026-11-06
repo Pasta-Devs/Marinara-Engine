@@ -772,7 +772,9 @@ def tests_on_disk(focus):
 
 
 def repository_variables(files):
-    """The repository's Actions variables, never its secrets, for a PR that changes the workflows reading them."""
+    """Dottore's own Actions variables (DOTTORE_*, the only ones the workflows read), never secrets, for a PR that
+    changes any file under .github/. The workflow passes toJSON(vars), every repository and organization variable,
+    so other names are left out here."""
     if not any(path.startswith(".github/") for path in files):
         return ""
     try:
@@ -781,7 +783,8 @@ def repository_variables(files):
         return "Not passed to this run."
     except json.JSONDecodeError:
         return "Could not be read."
-    return "\n".join(f"{name}={value}" for name, value in sorted(variables.items())) or "None set."
+    shown = sorted((name, value) for name, value in variables.items() if name.startswith("DOTTORE_"))
+    return "\n".join(f"{name}={value}" for name, value in shown) or "None set."
 
 
 def removed_lines(base):
@@ -939,7 +942,7 @@ def build_bundle(base, focus, description):
         ),
     ]
     if variables := repository_variables(files):
-        sections.append(("Repository Variables", "The Actions variables (not secrets) the workflows read.\n\n" + variables))
+        sections.append(("Repository Variables", "The DOTTORE_* Actions variables (not secrets) the workflows read.\n\n" + variables))
     if patch:
         sections.append(("Diff of Files Other Than Code", f"```diff\n{truncate(patch, MAX_SECTION_CHARS)}\n```"))
     bundle = f"# Bundle\n{BUNDLE_NOTE}\n\n" + "\n\n".join(f"# {title}\n{redact_for_model(body)}" for title, body in sections)
@@ -1756,8 +1759,8 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
             raise RuntimeError(f"the {role} role failed {MAX_ROLE_FAILURES} calls in a row, so it makes no more")
     first_call = not any(message.get("role") == "assistant" for message in messages)
     reply = {"anthropic": claude_reply, "responses": responses_reply}.get(settings["api"], openai_reply)
-    # SDK retries are disabled: this loop checks readiness before every request, including a retry. It retries one that stalls after
-    # it at once, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
+    # SDK retries are disabled: this loop checks readiness before every request, including a retry. It resends at once a request
+    # that stalls after its stream opens, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
     # waits out a transient gateway error, which can arrive mid-stream with a request to resend. A role whose calls
     # give up MAX_ROLE_FAILURES times in a row stops: a dead endpoint costs no more. Attempts are not counted, so a
     # rate-limit burst across parallel calls does not trip the breaker before any of them retries.

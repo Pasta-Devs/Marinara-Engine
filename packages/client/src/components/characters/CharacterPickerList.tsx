@@ -545,7 +545,7 @@ export function CharacterPickerList({
           {picked.map((item) => (
             <span
               key={item.id}
-              className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full bg-foreground/10 pl-0.5 pr-1 text-[0.6875rem]"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full bg-foreground/10 pl-0.5 pr-1 text-[0.6875rem] max-sm:h-9 max-sm:text-[13px]"
             >
               {item.src ? (
                 <img src={item.src} alt="" className="h-5 w-5 rounded-full object-cover" />

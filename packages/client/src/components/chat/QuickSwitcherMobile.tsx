@@ -111,7 +111,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("connections")}
                 className={cn(
-                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] font-semibold transition-colors",
                   tab === "connections"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",
@@ -123,7 +123,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("personas")}
                 className={cn(
-                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] font-semibold transition-colors",
                   tab === "personas"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",
@@ -136,6 +136,13 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
 
             {tab === "connections" && (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {/* Above the picker, not its list header: a phone hides the picker's Now row (and its header)
+                    while a pane is open, and the picker's Connections colours would recolour the meter. */}
+                {contextBudget && (
+                  <div className="shrink-0 px-2 pt-1">
+                    <ContextBudgetIndicator budget={contextBudget} useAccentColor />
+                  </div>
+                )}
                 <ConnectionSwitcherBody
                   onAdd={() => openAddConnection()}
                   current={chatPick.current}
@@ -144,13 +151,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
                   shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
                   followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
-                  listHeader={
-                    contextBudget && (
-                      <div className="px-2 pt-1">
-                        <ContextBudgetIndicator budget={contextBudget} useAccentColor />
-                      </div>
-                    )
-                  }
                 />
               </div>
             )}

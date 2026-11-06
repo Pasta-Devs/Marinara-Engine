@@ -61,7 +61,7 @@ Marinara fills in each service's address for you. Cloud services need an account
 
 Notes for the simple services:
 
-- **OpenAI (DALL-E)**: offers DALL-E and GPT Image models.
+- **OpenAI (DALL-E)**: offers DALL-E and GPT Image models. Only GPT Image 2.6 makes looping GIFs. See [GPT Image 2.6](#gpt-image-26).
 - **Stability AI**: Stable Diffusion and Stable Image models.
 - **Together AI**: FLUX and other open image models.
 - **OpenRouter Images**: reaches image models through OpenRouter's chat interface, so the models vary by account.
@@ -74,6 +74,30 @@ Notes for the simple services:
 
 ## Services with special setup
 
+### GPT Image 2.6
+
+GPT Image 2.6 runs on an **OpenAI (DALL-E)** account. **GPT Image 2.6 Flare** is the faster model. **GPT Image 2.6 Sunburst** gives higher quality and stays steadier across edits. Both take the same sizes and transparent backgrounds as GPT Image 2.5, and **Image quality** goes up to **Max**.
+
+The model plans each picture before it draws. To make it plan less, add `{"complexity": "low"}` or `{"complexity": "medium"}` to the image model's **Custom Parameters**. The default is `high`. Higher complexity can take longer and can change more than you asked for in an edit.
+
+GPT Image 2.6 can also make a short looping GIF. Marinara asks for one only where a feature or a downloaded agent offers GIFs:
+
+| Limit | Value |
+| --- | --- |
+| Account | **OpenAI (DALL-E)** with an API key |
+| Models | GPT Image 2.6 Flare or Sunburst |
+| Frames | 2 to 12, 9 by default |
+| Frame length | 20 to 2000 ms, 200 ms by default |
+| Frame size | About 0.66 MP: 816x816 square, 608x1088 portrait |
+| Pictures sent | None. A GIF is drawn from the prompt alone |
+| Transparent background | No |
+
+OpenAI allows more frames but does not publish how many pixels one GIF may have, so Marinara keeps to 12 small frames. **ChatGPT (Codex login)**, **OpenRouter Images**, **NanoGPT**, ToAPIs and other services can't make GIFs. Marinara refuses those requests before it sends anything, so you pay nothing. An **OpenAI-compatible** account is tried like OpenAI.
+
+A failed GIF is never replaced by a still picture. If the service answers with a still, the request fails. The **Images** job's **If it fails** model is tried only when it can make GIFs.
+
+> **Warning:** OpenAI does not publish the price of a GIF. Expect one GIF to cost several pictures, and a still that comes back instead is charged too.
+
 ### ChatGPT (Codex login)
 
 This service uses your ChatGPT plan instead of an API key, so images need no OpenAI API credit.
@@ -81,7 +105,7 @@ This service uses your ChatGPT plan instead of an API key, so images need no Ope
 1. On the computer that runs Marinara, install the Codex CLI and run `codex login` once. It is the same sign-in the ChatGPT chat account uses. See [Claude, ChatGPT, and Grok Subscription Connections](../connections/subscription-clis.md#openai-chatgpt).
 2. Choose the service. There is no key or address to fill in. Marinara fills in the model `gpt-image-2`, the one Codex uses for images.
 
-**Test provider** only checks that Marinara can read your Codex login. **Test image** makes a real image and counts against your ChatGPT image limits. With reference images, Marinara sends an edit request with up to 16 of them. ChatGPT may return a different pixel size, so Marinara also states the wanted aspect ratio in the prompt. This service uses the ChatGPT image endpoint that Codex uses, not the public OpenAI API, so OpenAI can change it without notice.
+**Test provider** only checks that Marinara can read your Codex login. **Test image** makes a real image and counts against your ChatGPT image limits. This service can't make GIFs, even with a GPT Image 2.6 model ID. With reference images, Marinara sends an edit request with up to 16 of them. ChatGPT may return a different pixel size, so Marinara also states the wanted aspect ratio in the prompt. This service uses the ChatGPT image endpoint that Codex uses, not the public OpenAI API, so OpenAI can change it without notice.
 
 ### Arli AI
 
@@ -177,7 +201,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 
 | Service | Reference images |
 | --- | --- |
-| OpenAI (DALL-E) | Up to 16, GPT Image models only |
+| OpenAI (DALL-E) | Up to 16, GPT Image models only. None for a GIF |
 | ChatGPT (Codex login) | Up to 16 |
 | NovelAI | Up to 16, V4.5 model only |
 | xAI / Grok Imagine | Up to 3 |

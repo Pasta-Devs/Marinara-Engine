@@ -72,6 +72,7 @@ import {
 } from "@marinara-engine/shared";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
+import { SHEET_CHOICE_GROUP_CLASS, SHEET_CHOICE_ROW_CLASS } from "../ui/neutral-surface-styles";
 import { Reorder } from "framer-motion";
 import { parseChatMetadata, getChatDisplayName } from "../../lib/chat-display";
 import { buildChatBranchRows, hasChatBranchLineage, type BranchTreeRow } from "../../lib/chat-branch-tree";
@@ -659,11 +660,14 @@ export function ChatSidebar() {
     folderSynced: boolean;
     /** Folder we already asked to expand — the mutation is in flight, don't ask again. */
     expandRequestedFolderId: string | null;
+    /** The active chat's row still has to be scrolled into view. Survives re-runs, which cancel the timer. */
+    scrollPending: boolean;
   }>({
     chatId: null,
     tabSynced: false,
     folderSynced: false,
     expandRequestedFolderId: null,
+    scrollPending: false,
   });
   // When true the next sync skips clearing the search query — set by
   // the sidebar's own click handler so clicking a search result doesn't
@@ -677,7 +681,6 @@ export function ChatSidebar() {
 
     const s = syncRef.current;
     const isNewChat = s.chatId !== activeChatId;
-    let needsScroll = false;
 
     if (isNewChat) {
       s.chatId = activeChatId;
@@ -702,7 +705,7 @@ export function ChatSidebar() {
       }
       internalNavRef.current = false;
       s.tabSynced = true;
-      needsScroll = true;
+      s.scrollPending = true;
     }
 
     // 2. Folder expansion — waits for folders data; if the folder is
@@ -724,16 +727,19 @@ export function ChatSidebar() {
           // folderSynced stays false — re-runs after query invalidation
         } else {
           s.folderSynced = true;
-          needsScroll = true;
+          s.scrollPending = true;
         }
       }
       // else: folders not loaded yet — effect re-runs when they arrive
     }
 
-    // 3. Scroll active chat row into view once both tab + folder are settled
-    if (needsScroll && s.tabSynced && s.folderSynced) {
+    // 3. Scroll active chat row into view once both tab + folder are settled.
+    //    Chats or folders landing re-run this and cancel the timer; the pending flag schedules it again.
+    if (s.scrollPending && s.tabSynced && s.folderSynced) {
       const timer = setTimeout(() => {
-        const el = document.querySelector(`[data-chat-id="${activeChatId}"]`);
+        s.scrollPending = false;
+        // Look in the list: the chat's composer carries the same data-chat-id and comes first in the page.
+        const el = chatListRef.current?.querySelector(`[data-chat-id="${activeChatId}"]`);
         el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }, 200);
       return () => clearTimeout(timer);
@@ -872,9 +878,9 @@ export function ChatSidebar() {
   const handleDeleteFolder = useCallback(
     async (folder: ChatFolder, chatCount: number) => {
       const ok = await confirmNonEmptyFolderDelete(chatCount, {
-        title: "Delete Folder",
+        title: "Delete folder?",
         message: `Delete "${folder.name}"? Its ${chatCount} chat${chatCount === 1 ? "" : "s"} will move to the top level.`,
-        confirmLabel: "Delete",
+        confirmLabel: "Delete folder",
         tone: "destructive",
       });
       if (ok) {
@@ -1934,6 +1940,7 @@ export function ChatSidebar() {
         onClose={() => setDeleteTarget(null)}
         title={localizeUi("ui.layout.chatsidebar.deleteChat")}
         width="max-w-sm"
+        pullToClose={false}
       >
         {deleteTarget && (
           <div className="flex flex-col gap-4">
@@ -1948,14 +1955,14 @@ export function ChatSidebar() {
                 })}
               </p>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className={SHEET_CHOICE_GROUP_CLASS}>
               <button
                 onClick={() => {
                   deleteChat.mutate({ id: deleteTarget.chatId, force: true });
                   if (activeChatId === deleteTarget.chatId) setActiveChatId(null);
                   setDeleteTarget(null);
                 }}
-                className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
+                className={`${SHEET_CHOICE_ROW_CLASS} text-[var(--destructive)]`}
               >
                 <Trash2 size="0.8125rem" />
                 {localizeUi("ui.layout.chatsidebar.deleteThisBranchOnly")}
@@ -1968,7 +1975,7 @@ export function ChatSidebar() {
                   }
                   setDeleteTarget(null);
                 }}
-                className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
+                className={`${SHEET_CHOICE_ROW_CLASS} font-semibold text-[var(--destructive)]`}
               >
                 <Trash2 size="0.8125rem" />
                 {localizeUi("ui.characters.spritestab.deleteAll")} {deleteTarget.branchCount}{" "}

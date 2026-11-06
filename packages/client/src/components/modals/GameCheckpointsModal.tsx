@@ -172,7 +172,7 @@ export function GameCheckpointsModal({ open, onClose, chatId, highlight }: GameC
                 type="button"
                 onClick={() => void load(checkpoint)}
                 disabled={busyId !== null}
-                className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[var(--secondary)] px-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]"
+                className="inline-flex min-h-8 max-sm:min-h-11 items-center gap-1 rounded-md bg-[var(--secondary)] px-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]"
               >
                 <History size="0.75rem" />
                 {localizeUi("ui.game.checkpoints.load")}
@@ -183,7 +183,7 @@ export function GameCheckpointsModal({ open, onClose, chatId, highlight }: GameC
                 disabled={busyId !== null}
                 aria-label={localizeUi("ui.game.checkpoints.delete")}
                 title={localizeUi("ui.game.checkpoints.delete")}
-                className="inline-flex size-8 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                className="inline-flex size-8 max-sm:min-h-11 max-sm:min-w-11 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
               >
                 <Trash2 size="0.875rem" />
               </button>

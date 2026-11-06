@@ -19,6 +19,8 @@ import {
   fetchAllCharacterPages,
   flattenCharacterPages,
   useCharacterPages,
+  useCharacterFolderMembers,
+  useCharacterCatalogTags,
   useDeleteCharacter,
   useCharacterGroups,
   useCreateGroup,
@@ -222,11 +224,45 @@ export function CharactersPanel() {
   const deferredSearch = useDeferredValue(search);
   const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
-  const characterPages = useCharacterPages({ search: serverSearch, sort, favoriteFilter: serverFavoriteFilter });
-  const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
+  const folderFilterActive =
+    search.trim().length > 0 || includedTagValues.length > 0 || excludedTagValues.length > 0 || favFilter !== "all";
+  // Filters run on the server so they cover every card, not only loaded pages. The root list skips
+  // folder members; folders load their own: all matching members while filtering, else the open one.
+  const serverFilters = {
+    search: serverSearch,
+    sort,
+    favoriteFilter: serverFavoriteFilter,
+    tags: includedTagValues,
+    excludeTags: excludedTagValues,
+  };
+  const characterPages = useCharacterPages({ ...serverFilters, folder: "none" });
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const folderMembers = useCharacterFolderMembers(folderFilterActive ? "any" : expandedGroupId, serverFilters);
+  const folderStatus = folderMembers.isError ? (
+    <button
+      type="button"
+      onClick={() => void folderMembers.refetch()}
+      className="px-2 py-2 text-left text-[0.625rem] text-[var(--destructive)]"
+    >
+      {localizeUi("ui.panels.characterspanel.folderMembersLoadFailed")}
+    </button>
+  ) : folderMembers.isFetching && (!folderMembers.data || folderMembers.isPlaceholderData) ? (
+    <div className="px-2 py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
+      {localizeUi("ui.panels.characterspanel.folderMembersLoading")}
+    </div>
+  ) : null;
+  const catalogTags = useCharacterCatalogTags();
+  const firstPage = characterPages.data?.pages[0];
+  const characters = useMemo(() => {
+    const rows = flattenCharacterPages(characterPages.data);
+    const members = folderMembers.data;
+    if (!members?.length) return rows;
+    const loaded = new Set(rows.map((row) => row.id));
+    const merged: typeof rows = [...rows, ...members.filter((member) => !loaded.has(member.id))];
+    return merged;
+  }, [characterPages.data, folderMembers.data]);
   const isLoading = characterPages.isLoading;
 
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [draggedCharacterId, setDraggedCharacterId] = useState<string | null>(null);
@@ -328,14 +364,14 @@ export function CharactersPanel() {
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+    const tagSet = new Set<string>(catalogTags.data);
     for (const c of parsedCharacters) {
       for (const t of getCharacterTags(c)) {
         tagSet.add(t);
       }
     }
     return [...tagSet].sort((a, b) => a.localeCompare(b));
-  }, [parsedCharacters]);
+  }, [catalogTags.data, parsedCharacters]);
 
   const handleDeleteTag = useCallback(
     async (tag: string) => {
@@ -410,11 +446,13 @@ export function CharactersPanel() {
   const sortedCharactersBySort = useMemo(() => {
     const list = [...filteredCharacters];
     const hasIncludedTags = includedTags.size > 0;
+    // Count lowercased chips once each, like the server, so later pages do not reorder loaded cards.
+    const lowerIncluded = new Set([...includedTags].map((tag) => tag.toLowerCase()));
     const matchCounts = hasIncludedTags
       ? new Map(
           list.map((c) => {
             const tags = new Set(getCharacterTags(c).map((t) => t.toLowerCase()));
-            return [c.id, [...includedTags].filter((tag) => tags.has(tag.toLowerCase())).length];
+            return [c.id, [...lowerIncluded].filter((tag) => tags.has(tag)).length];
           }),
         )
       : null;
@@ -498,14 +536,9 @@ export function CharactersPanel() {
   const sortedGroups = useMemo(() => {
     const folders = sortPanelFolders(parsedGroups, sort === "favorites" ? "name-asc" : sort);
     if (sort !== "favorites") return folders;
-    const favorites = new Set(
-      sortedCharacters.filter((character) => character.parsed.extensions?.fav).map((character) => character.id),
-    );
-    return folders.sort(
-      (a, b) =>
-        Number(b.memberIds.some((id) => favorites.has(id))) - Number(a.memberIds.some((id) => favorites.has(id))),
-    );
-  }, [parsedGroups, sort, sortedCharacters]);
+    const favoriteFolders = new Set(firstPage?.favoriteFolderIds);
+    return folders.sort((a, b) => Number(favoriteFolders.has(b.id)) - Number(favoriteFolders.has(a.id)));
+  }, [parsedGroups, sort, firstPage]);
 
   const folderedCharacterIds = useMemo(() => {
     const ids = new Set<string>();
@@ -518,8 +551,6 @@ export function CharactersPanel() {
     () => new Map(sortedCharacters.map((character, index) => [character.id, index])),
     [sortedCharacters],
   );
-  const folderFilterActive =
-    search.trim().length > 0 || includedTags.size > 0 || excludedTags.size > 0 || favFilter !== "all";
 
   const visibleRootCharacters = useMemo(
     () => sortedCharacters.filter((char) => !folderedCharacterIds.has(char.id)),
@@ -1033,6 +1064,7 @@ export function CharactersPanel() {
       )}
 
       <div className="flex flex-col gap-0.5">
+        {folderFilterActive && folderStatus}
         {folderDrag.orderItems(sortedGroups).map((group) => {
           const folderMemberIds = (
             folderFilterActive
@@ -1169,7 +1201,8 @@ export function CharactersPanel() {
                 className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
                 innerClassName="flex flex-col gap-0.5"
               >
-                {folderMemberIds.length === 0 && (
+                {!folderFilterActive && isExpanded && folderStatus}
+                {folderMemberIds.length === 0 && !folderMembers.isError && !folderMembers.isFetching && (
                   <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
                     {localizeUi("ui.panels.characterspanel.dropCharactersHere")}
                   </div>
@@ -1839,10 +1872,14 @@ export function CharactersPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void characterPages.fetchNextPage()}
           disabled={characterPages.isFetchingNextPage}
+          autoLoad={!characterPages.isFetchNextPageError}
         >
           {characterPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
-            : localizeUi("ui.panels.characterspanel.loadMoreValue1Loaded", { value1: parsedCharacters.length })}
+            : localizeUi("ui.panels.characterspanel.loadMoreValue1OfValue2", {
+                value1: characterPages.data?.pages.reduce((count, page) => count + page.items.length, 0) ?? 0,
+                value2: firstPage?.total ?? 0,
+              })}
         </PanelLoadMoreBar>
       )}
 

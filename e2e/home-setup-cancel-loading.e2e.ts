@@ -85,7 +85,12 @@ test("Home cancel and Skip discard only the untouched new chat in every mode", a
         await choices.getByRole("button", { name: "Close Configure Preset Variables", exact: true }).click();
       }
       await expect(wizard.getByRole("heading", { name: "Persona & Characters", exact: true })).toBeVisible();
-      await wizard.getByPlaceholder(/Search characters/i).fill("Just browsing, no selection");
+      // The character search moved into the CharacterSelect window (#8763); browsing it still picks nothing.
+      await wizard.getByRole("button", { name: "Choose a character", exact: true }).click();
+      const picker = page.getByRole("dialog", { name: "Characters", exact: true });
+      await picker.getByRole("searchbox").fill("Just browsing, no selection");
+      await picker.getByRole("button", { name: "Done", exact: true }).click();
+      await expect(picker).toHaveCount(0);
       await wizard.getByRole("button", { name: "Skip", exact: true }).click();
       await expect.poll(async () => (await page.request.get(`/api/chats/${chat.id}`)).status()).toBe(404);
       await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible();
@@ -152,8 +157,12 @@ test("Connections hand-offs leave untouched setup chats eligible for cleanup", a
         const { queryClient } = await import("/src/lib/query-client.ts" as string);
         queryClient.setQueryData(["connections", "list"], []);
       });
-      await wizard.getByRole("button", { name: "Set Up a Connection", exact: true }).click();
+      // #8456 renamed the shortcut and made it open the Add account window over the chat.
+      await wizard.getByRole("button", { name: "Set Up a Provider", exact: true }).click();
       await expect(wizard).toHaveCount(0);
+      const addAccount = page.getByRole("dialog", { name: "Add account", exact: true });
+      await addAccount.getByRole("button", { name: "Close Add account", exact: true }).click();
+      await expect(addAccount).toHaveCount(0);
       await closeChatSettings(page);
       await page.getByRole("button", { name: "Home", exact: true }).click();
       await expect.poll(async () => (await page.request.get(`/api/chats/${chat.id}`)).status()).toBe(404);
@@ -177,7 +186,8 @@ test("Download Agents hand-off leaves an untouched setup chat eligible for clean
     chatId = chat.id;
     for (let step = 0; step < 3; step += 1) await wizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(wizard.getByRole("heading", { name: "Automation", exact: true })).toBeVisible();
-    await wizard.getByRole("button", { name: "Download Agents", exact: true }).click();
+    // #8494 turned Download Agents into the Agent Organizer.
+    await wizard.getByRole("button", { name: "Agent Organizer", exact: true }).click();
     await expect(wizard).toHaveCount(0);
     await page.getByRole("button", { name: "Home", exact: true }).click();
     await expect.poll(async () => (await page.request.get(`/api/chats/${chatId}`)).status()).toBe(404);
@@ -364,8 +374,9 @@ test("a stalled setup save releases cancellation and a later attempt retries saf
   }
 });
 
-test("a stalled discard request releases the wizard for a safe retry", async ({ page }) => {
+test("a stalled discard request releases the wizard for a safe retry", async ({ page }, testInfo) => {
   const connection = await seedConnection(page);
+  const webkit = testInfo.project.name.includes("webkit");
   let chatId = "";
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -379,8 +390,10 @@ test("a stalled discard request releases the wizard for a safe retry", async ({ 
     await page.route(`**/api/chats/${chatId}/discard-empty-setup`, async (route) => {
       attempts += 1;
       if (attempts === 1) {
-        // This controlled failure is held before it reaches the server.
-        await gate;
+        // This controlled failure is held before it reaches the server, so only the client's 10 s AbortSignal can end
+        // it. Playwright's WebKit can keep a held request pending after that signal fires, so there alone the route
+        // also fails itself just after the limit.
+        await (webkit ? Promise.race([gate, new Promise((resolve) => setTimeout(resolve, 10_500))]) : gate);
         await route.abort().catch(() => {});
       } else {
         await route.continue();

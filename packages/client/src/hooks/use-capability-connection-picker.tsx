@@ -127,6 +127,7 @@ export function useCapabilityConnectionPicker(scopeKey: string): { ui: Capabilit
         includeLocalSidecar={request.includeLocalSidecar ?? false}
         extraOptions={[]}
         restoreFocusRef={scope.opener}
+        confirmCurrent
         onClose={() => settle(request.id, CANCELLED)}
         onChange={(value) =>
           settle(request.id, { status: "selected", value: typeof value === "string" && value ? value : null })

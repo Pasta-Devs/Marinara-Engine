@@ -136,6 +136,8 @@ try {
   const full = getCapabilityService<CapabilityRuntimeHost>("host-services-full:runtime");
   const reader = getCapabilityService<CapabilityRuntimeHost>("host-services-reader:runtime");
   assert.ok(full && reader);
+  // 1.816: a package server reads the Engine's capability API before asking for something an older Engine ignores.
+  assert.deepEqual(reader.capabilityApi, supportedCapabilityApi);
 
   // ── services.get reads the host registry, across packages ──
   assert.deepEqual(full.services?.get("host-services-full:value"), { answer: 42 });

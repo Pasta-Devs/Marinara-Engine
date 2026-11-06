@@ -702,7 +702,7 @@ export function ConnectionDefaultsBox({
     >
       <button
         type="button"
-        data-connection-row="defaults"
+        data-connections-row="defaults"
         onClick={() => toggleFold(DEFAULTS_FOLD_ID)}
         aria-expanded={!folded}
         aria-controls={folded ? undefined : "connections-defaults"}

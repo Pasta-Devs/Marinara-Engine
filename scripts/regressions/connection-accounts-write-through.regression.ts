@@ -339,6 +339,34 @@ try {
   assert.equal((await rowOf(typesafe!.id)).baseUrl, "https://mirror.example");
   assert.equal(await plainKey(typesafe!.id), "fixture-typesafe-key", "the TypeSafe key stays on the row");
 
+  // A Music & Sound Effects Model switched to another service leaves its account: the service's own address is
+  // saved and the old server's key stays behind. A save on the same service keeps both.
+  const customAudio = await connections.create(
+    createConnectionSchema.parse({
+      name: "Custom audio",
+      provider: "audio_generation",
+      audioGenerationSource: "custom",
+      baseUrl: "https://custom-audio.example/v1",
+      apiKey: "fixture-custom-audio-key",
+      model: "custom-music",
+    }),
+  );
+  const audioAccount = customAudio!.accountId;
+  assert(audioAccount, "the audio Model is linked to an account");
+  await connections.update(customAudio!.id, { audioGenerationSource: "custom", baseUrl: "https://ignored.example" });
+  assert.equal((await rowOf(customAudio!.id)).accountId, audioAccount, "the same service stays on its account");
+  assert.equal((await rowOf(customAudio!.id)).baseUrl, "https://custom-audio.example/v1");
+  assert.equal(await plainKey(customAudio!.id), "fixture-custom-audio-key");
+  await connections.update(customAudio!.id, {
+    audioGenerationSource: "elevenlabs",
+    baseUrl: "https://api.elevenlabs.io",
+    model: "music_v2_5",
+  });
+  const switched = await rowOf(customAudio!.id);
+  assert.equal(switched.baseUrl, "https://api.elevenlabs.io", "the new service's address is saved");
+  assert.notEqual(switched.accountId, audioAccount, "the switched Model leaves the custom server's account");
+  assert.equal(await plainKey(customAudio!.id), "", "the custom server's key does not follow it to ElevenLabs");
+
   console.log("connection-accounts-write-through regression passed");
 } finally {
   await app.close();

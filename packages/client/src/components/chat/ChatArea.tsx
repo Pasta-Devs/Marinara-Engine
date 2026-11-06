@@ -92,6 +92,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { isBuiltInTrackerAgentType, resolveTrackerRerunTypes } from "../../lib/tracker-agents";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useEncounter } from "../../hooks/use-encounter";
 import { useRoleplayHtmlArtifact } from "../../hooks/use-roleplay-commands";
 import { useScene } from "../../hooks/use-scene";
@@ -4502,6 +4503,20 @@ function AgentInjectionReviewModal({
       onClose={onClose}
       title={localizeUi("ui.chat.agentinjectionreviewmodal.writerAgentReview")}
       width="max-w-3xl"
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button type="button" onClick={onContinue} className={SHEET_BUTTON_PRIMARY}>
+            <Check size="0.875rem" />
+            {localizeUi("ui.noodle.wizardfooter.continue")}
+          </button>
+          <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+            <X size="0.875rem" />
+            {localizeUi("capabilities.actions.close")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-3">
         <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -4520,29 +4535,11 @@ function AgentInjectionReviewModal({
                 value={drafts[injection.agentType] ?? injection.text}
                 onChange={(event) => onDraftChange(injection.agentType, event.target.value)}
                 rows={6}
-                className="min-h-32 w-full resize-y rounded-b-lg border-0 bg-[var(--secondary)]/35 px-3 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--ring)]"
+                className="min-h-32 w-full resize-y rounded-b-lg border-0 bg-[var(--secondary)]/35 px-3 py-2 font-mono text-xs max-sm:text-base leading-relaxed text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--ring)]"
                 spellCheck={false}
               />
             </div>
           ))}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <X size="0.875rem" />
-            {localizeUi("capabilities.actions.close")}
-          </button>
-          <button
-            type="button"
-            onClick={onContinue}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-          >
-            <Check size="0.875rem" />
-            {localizeUi("ui.noodle.wizardfooter.continue")}
-          </button>
         </div>
       </div>
     </Modal>

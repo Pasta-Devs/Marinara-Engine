@@ -1,7 +1,7 @@
 {
   "name": "@marinara-engine/client",
   "private": true,
-  "version": "2.5.1",
+  "version": "2.5.2",
   "type": "module",
   "scripts": {
     "dev": "node ./scripts/build-multiplayer-guest.mjs && vite",

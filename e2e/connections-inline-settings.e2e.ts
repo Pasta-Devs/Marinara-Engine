@@ -120,6 +120,13 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
     const back = dialog.locator("[data-switcher-back]");
     if (await back.isVisible()) await back.click();
   };
+  // On a phone Escape first steps back from an open account pane (ConnectionSwitcherBody), so a pane still
+  // open when Escape is pressed leaves the picker over the tile. From the list, Escape closes it.
+  const closePicker = async () => {
+    await showList();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  };
   await expect(main).toBeVisible();
   await expect(main).toHaveAttribute("aria-current", "true");
   await main.click();
@@ -134,7 +141,7 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
   await showList();
   await dialog.locator('[data-switcher-pane="folder:none"]').click();
   await expect(dialog.locator('[data-switcher-pane-models] [data-switcher-entry="inline-main"]')).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closePicker();
   starred = true;
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -144,7 +151,7 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
   });
   await agents.click();
   await expect(dialog.locator('[data-switcher-section="starred"] [data-switcher-entry="inline-main"]')).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closePicker();
   await agents.click();
   await showList();
   await dialog.locator('[data-switcher-section="now"] [data-switcher-entry="inline-main"]').click();

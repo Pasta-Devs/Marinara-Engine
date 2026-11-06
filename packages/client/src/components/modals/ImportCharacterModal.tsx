@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen, Scissors } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
@@ -335,12 +336,24 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
   return (
     <Modal
+      closeButtonClassName="max-sm:hidden"
       open={open}
       onClose={() => {
         reset();
         onClose();
       }}
       title={localizeUi("ui.modals.importcharactermodal.importCharacter")}
+      footer={
+        <button
+          onClick={() => {
+            reset();
+            onClose();
+          }}
+          className={SHEET_BUTTON_SECONDARY}
+        >
+          {localizeUi("capabilities.actions.close")}
+        </button>
+      }
     >
       <div className="flex flex-col gap-4">
         {pendingLorebookChoice && (
@@ -374,14 +387,14 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => void handleFiles(pendingLorebookChoice.files, false)}
-                    className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    className={SHEET_BUTTON_SECONDARY}
                   >
                     {localizeUi("ui.modals.importcharactermodal.noImport")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleFiles(pendingLorebookChoice.files, true)}
-                    className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+                    className={SHEET_BUTTON_PRIMARY}
                   >
                     {localizeUi("ui.modals.importcharactermodal.importLorebook")}
                   </button>
@@ -397,7 +410,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
               <p className="text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("ui.modals.importcharactermodal.importedCardTags")}
               </p>
-              <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                 {localizeUi("ui.modals.importcharactermodal.chooseHowSourceSiteTagsAreAppliedToCharacter")}
               </p>
             </div>
@@ -421,7 +434,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   className="sr-only"
                 />
                 <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                   {localizeUi(option.description)}
                 </span>
               </label>
@@ -434,7 +447,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             <p className="text-xs font-semibold text-[var(--foreground)]">
               {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
             </p>
-            <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.modals.importcharactermodal.keepABotSEmbeddedFindReplaceScriptsScoped")}
             </p>
           </div>
@@ -457,7 +470,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   className="sr-only"
                 />
                 <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
-                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                   {localizeUi(option.description)}
                 </span>
               </label>
@@ -475,6 +488,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--foreground)]">
             {localizeUi("ui.modals.importcharactermodal.splitDescriptionIntoFields")}
             <HelpTooltip
+              buttonClassName="relative max-sm:after:absolute max-sm:after:-inset-4 max-sm:after:content-['']"
               text={localizeUi("ui.modals.importcharactermodal.moveLabelledPersonalityAppearanceBackstory")}
               ariaLabel={localizeUi("ui.modals.importcharactermodal.aboutSplitDescription")}
               wide
@@ -585,7 +599,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     <div className="truncate font-medium">{result.filename}</div>
                     <div className="text-[var(--muted-foreground)]">{result.message}</div>
                     {result.descriptionSplit && (
-                      <div className="mt-1 flex items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <div className="mt-1 flex items-center gap-1.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         <Scissors size="0.6875rem" className="shrink-0" />
                         <span className="min-w-0 flex-1">{describeSplit(result.descriptionSplit)}</span>
                         <button
@@ -603,19 +617,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="flex justify-end border-t border-[var(--border)] pt-3">
-          <button
-            onClick={() => {
-              reset();
-              onClose();
-            }}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("capabilities.actions.close")}
-          </button>
-        </div>
       </div>
       <DescriptionSplitDialog
         open={splitSummaryOpen}

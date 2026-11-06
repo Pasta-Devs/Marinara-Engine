@@ -692,7 +692,8 @@ async function keepsFieldAboveKeyboard(page: Page, request: APIRequestContext, i
     await typeIn("title", panel.getByPlaceholder("Summary title", { exact: true }));
     await panel.getByRole("button", { name: "Cancel", exact: true }).click();
 
-    await panel.getByRole("button", { name: "Edit", exact: true }).click();
+    // The summary prompt's Edit is the one that folds; the settings profile Edit (#8555) is a plain button.
+    await panel.getByRole("button", { name: "Edit", exact: true, expanded: false }).click();
     await typeIn(
       "prompt",
       panel.getByRole("textbox", { name: "Prompt instructions for summary generation...", exact: true }),
