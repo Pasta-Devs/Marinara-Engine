@@ -9296,3 +9296,9 @@ input.ov-edhead__title:focus {
 .ov-agentpage__actions {
   padding-top: 2.125rem;
 }
+/* The account ⋯ menu sizes to its items (it inherited right: 0 and stretched to the window edge). */
+.ov-menu.ov-conn__menu {
+  right: auto;
+  width: max-content;
+  min-width: 9.5rem;
+}
