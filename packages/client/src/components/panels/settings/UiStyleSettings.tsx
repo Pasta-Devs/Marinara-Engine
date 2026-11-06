@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // UiStyleSettings: launcher for the floating UI style editor. Pick an element
-// (or choose a region), then restyle it in the card; chips reopen saved regions and blocks.
+// (or choose a part), then restyle it in the card; chips reopen saved parts and blocks.
 // ──────────────────────────────────────────────
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import {
   UI_STYLE_PRESET_LIMITS,
   UI_STYLE_TARGETS,
+  getUiStyleTarget,
   savedUiStyleTargets,
   uiStyleTargetLabel,
   type UiStylePreset,
@@ -21,12 +22,47 @@ import {
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
 } from "./SettingControls";
-import { HelpTooltip } from "../../ui/HelpTooltip";
 
 const SELECT_CLASS =
   "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
 
 const PREVIEW_SWATCHES = 4;
+const HINT_CLASS = "text-[0.625rem] text-[var(--muted-foreground)]";
+
+/** Every part of the app, then the saved blocks (and the open one). Shared by this launcher and the editor card. */
+export function UiStylePartSelect({
+  value,
+  onChange,
+  disabled,
+  className,
+}: {
+  value: UiStyleTargetId | null;
+  onChange: (id: UiStyleTargetId) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  const saved = useUIStore((s) => s.uiStyleOverrides);
+  const blocks = savedUiStyleTargets(saved).filter((target) => target.className);
+  const current = getUiStyleTarget(value);
+  if (current?.className && !saved[current.id]) blocks.push(current);
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(event) => onChange(event.target.value as UiStyleTargetId)}
+      disabled={disabled}
+      aria-label={t("settings.appearance.uiStyles.region")}
+      className={cn(SELECT_CLASS, className)}
+    >
+      {!value && <option value="">{t("settings.appearance.uiStyles.noneSelected")}</option>}
+      {[...UI_STYLE_TARGETS, ...blocks].map((target) => (
+        <option key={target.id} value={target.id}>
+          {uiStyleTargetLabel(target, t)}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 /** A few of the preset's regions as small swatches: their background, with the text color as a dot. */
 function PresetPreview({ preset }: { preset: UiStylePreset }) {
@@ -68,15 +104,15 @@ export function UiStyleSettings() {
   const [naming, setNaming] = useState<string | null>(null);
 
   const savedTargets = savedUiStyleTargets(saved);
-  const savedBlocks = savedTargets.filter((target) => target.className);
   const lockedTitle = unsaved ? t("settings.appearance.uiStyles.saveOrRevertFirst") : undefined;
+  const presetsFull = presets.length >= UI_STYLE_PRESET_LIMITS.count;
 
   // On a phone the settings panel covers the whole app, so step aside to let the user see it.
   const stepAside = () => {
     if (isMobileShellViewport()) closeRightPanel();
   };
-  const openEditor = (id: UiStyleTargetId | null) => {
-    if (id) stepAside();
+  const openEditor = (id: UiStyleTargetId) => {
+    stepAside();
     setSelectedTarget(id);
   };
   const startPick = () => {
@@ -111,7 +147,6 @@ export function UiStyleSettings() {
       <div className="flex items-center gap-1.5">
         <Pipette size="0.75rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
         <span className="text-xs font-medium">{t("settings.controls.uiElementStyles.label")}</span>
-        <HelpTooltip text={t("settings.appearance.uiStyles.help")} />
       </div>
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -125,21 +160,6 @@ export function UiStyleSettings() {
             <MousePointerClick size="0.75rem" />
             {t("settings.appearance.uiStyles.pickElement")}
           </button>
-          <select
-            value={selectedTarget ?? ""}
-            onChange={(event) => openEditor((event.target.value || null) as UiStyleTargetId | null)}
-            disabled={unsaved}
-            title={lockedTitle}
-            aria-label={t("settings.appearance.uiStyles.region")}
-            className={SELECT_CLASS}
-          >
-            <option value="">{t("settings.appearance.uiStyles.noneSelected")}</option>
-            {[...UI_STYLE_TARGETS, ...savedBlocks].map((target) => (
-              <option key={target.id} value={target.id}>
-                {uiStyleTargetLabel(target, t)}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             onClick={handleResetAll}
@@ -149,7 +169,9 @@ export function UiStyleSettings() {
             <RotateCcw size="0.75rem" />
             {t("settings.appearance.uiStyles.resetAll")}
           </button>
+          <UiStylePartSelect value={selectedTarget} onChange={openEditor} disabled={unsaved} className="basis-full" />
         </div>
+        {unsaved && <p className={cn(HINT_CLASS, "-mt-1.5")}>{t("settings.appearance.uiStyles.saveOrRevertFirst")}</p>}
 
         {savedTargets.length > 0 && (
           <div
@@ -159,8 +181,8 @@ export function UiStyleSettings() {
           >
             {savedTargets.map((target) => {
               const style = saved[target.id];
-              // Blocks belong to particular screens; say when this one is elsewhere.
-              const offScreen = !!target.className && !document.querySelector(target.selector);
+              // Blocks and screen-bound parts say when they are elsewhere; pop-ups and toasts open on demand.
+              const offScreen = !target.transient && !document.querySelector(target.selector);
               return (
                 <button
                   key={target.id}
@@ -198,12 +220,8 @@ export function UiStyleSettings() {
               <button
                 type="button"
                 onClick={() => setNaming("")}
-                disabled={unsaved || savedTargets.length === 0 || presets.length >= UI_STYLE_PRESET_LIMITS.count}
-                title={
-                  presets.length >= UI_STYLE_PRESET_LIMITS.count
-                    ? t("settings.appearance.uiStyles.presetsFull")
-                    : lockedTitle
-                }
+                disabled={unsaved || savedTargets.length === 0 || presetsFull}
+                title={presetsFull ? t("settings.appearance.uiStyles.presetsFull") : lockedTitle}
                 className={SETTINGS_BUTTON_CLASS}
               >
                 <Plus size="0.75rem" />
@@ -211,6 +229,10 @@ export function UiStyleSettings() {
               </button>
             )}
           </div>
+          {presetsFull && <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.presetsFull")}</p>}
+          {savedTargets.length === 0 && (
+            <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.presetsNeedStyle")}</p>
+          )}
           {naming !== null && (
             <form onSubmit={handleSavePreset} className="flex items-center gap-1.5">
               <input
@@ -241,36 +263,32 @@ export function UiStyleSettings() {
               </button>
             </form>
           )}
-          {presets.length === 0 ? (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("settings.appearance.uiStyles.presetsEmpty")}
-            </p>
-          ) : (
-            presets.map((preset) => (
-              <div key={preset.id} className="flex min-w-0 items-center gap-2">
-                <PresetPreview preset={preset} />
-                <span className="min-w-0 flex-1 truncate text-[0.6875rem]">{preset.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleApplyPreset(preset)}
-                  disabled={unsaved}
-                  title={lockedTitle}
-                  className={SETTINGS_BUTTON_CLASS}
-                >
-                  {t("settings.appearance.uiStyles.applyPreset")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeletePreset(preset)}
-                  aria-label={t("settings.appearance.uiStyles.deletePreset")}
-                  title={t("settings.appearance.uiStyles.deletePreset")}
-                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger shrink-0")}
-                >
-                  <Trash2 size="0.75rem" />
-                </button>
-              </div>
-            ))
-          )}
+          {presets.length === 0
+            ? savedTargets.length > 0 && <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.presetsEmpty")}</p>
+            : presets.map((preset) => (
+                <div key={preset.id} className="flex min-w-0 items-center gap-2">
+                  <PresetPreview preset={preset} />
+                  <span className="min-w-0 flex-1 truncate text-[0.6875rem]">{preset.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset(preset)}
+                    disabled={unsaved}
+                    title={lockedTitle}
+                    className={SETTINGS_BUTTON_CLASS}
+                  >
+                    {t("settings.appearance.uiStyles.applyPreset")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePreset(preset)}
+                    aria-label={t("settings.appearance.uiStyles.deletePreset")}
+                    title={t("settings.appearance.uiStyles.deletePreset")}
+                    className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger shrink-0")}
+                  >
+                    <Trash2 size="0.75rem" />
+                  </button>
+                </div>
+              ))}
         </div>
       </div>
     </div>

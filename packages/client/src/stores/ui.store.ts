@@ -35,6 +35,7 @@ import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
+  foldAppBackgroundColor,
   normalizeUiStyleOverride,
   normalizeUiStyleOverrides,
   normalizeUiStylePresets,
@@ -502,7 +503,8 @@ function normalizeAppAccentColor(value: unknown) {
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
-function normalizeAppBackgroundColor(value: unknown) {
+/** The retired Background Color, minus the stock scheme backgrounds; only migrations read it now. */
+export function normalizeAppBackgroundColor(value: unknown) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
@@ -738,6 +740,7 @@ interface UIState {
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Retired Background Color: "" once folded into the Whole app part; keeps only values that part cannot hold. */
   appBackgroundColor: string;
   appAccentColor: string;
   appAccentPulseMode: boolean;
@@ -1330,7 +1333,6 @@ interface UIState {
   closeModal: () => void;
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
-  setAppBackgroundColor: (color: string) => void;
   saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
   resetUiStyleOverrides: () => void;
   saveUiStylePreset: (name: string) => void;
@@ -2642,7 +2644,6 @@ export const useUIStore = create<UIState>()(
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
         setTheme: (theme) => set({ theme }),
-        setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
         saveUiStyleOverride: (target, override) =>
           set((state) => {
             const next = { ...state.uiStyleOverrides };
@@ -4219,6 +4220,10 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
+        // v104 -> v105: Background Color became the Whole app part's background (use-settings-sync folds server copies).
+        if (version <= 104) {
+          Object.assign(persisted, foldAppBackgroundColor(persisted.appBackgroundColor, persisted.uiStyleOverrides));
+        }
         if (typeof persisted.appAccentPulseMode !== "boolean") {
           persisted.appAccentPulseMode = persisted.appAccentRgbMode !== true && getDefaultAppAccentPulseMode();
         }

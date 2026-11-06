@@ -21,7 +21,8 @@ const CHAT_SURFACES = [".mari-chat-area", ".rpg-overlay"] as const;
 export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
   {
     // The shell and every layer that repaints the app background (body included) read this variable,
-    // as Background Color sets it, so a gradient spans the app instead of restarting in each layer.
+    // so a gradient spans the app instead of restarting in each layer. App.tsx also derives the page
+    // backing and theme colour from this part's background (it replaced the old Background Color).
     id: "app",
     labelKey: "settings.appearance.uiStyles.regions.app",
     selector: '[data-component="AppShell"]',
@@ -36,8 +37,18 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
     surfaces: [".mari-app-background-paint", ...CHAT_SURFACES],
   },
   { id: "right-panel", labelKey: "settings.appearance.uiStyles.regions.rightPanel", selector: ".mari-right-panel" },
-  { id: "floating-window", labelKey: "settings.appearance.uiStyles.regions.floatingWindow", selector: ".mari-window" },
-  { id: "modal", labelKey: "settings.appearance.uiStyles.regions.modal", selector: ".mari-modal-panel" },
+  {
+    id: "floating-window",
+    labelKey: "settings.appearance.uiStyles.regions.floatingWindow",
+    selector: ".mari-window",
+    transient: true,
+  },
+  {
+    id: "modal",
+    labelKey: "settings.appearance.uiStyles.regions.modal",
+    selector: ".mari-modal-panel",
+    transient: true,
+  },
   {
     id: "home",
     labelKey: "settings.appearance.uiStyles.regions.home",
@@ -99,13 +110,20 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
     id: "menus",
     labelKey: "settings.appearance.uiStyles.regions.menus",
     selector: ':is(.mari-context-menu, .mari-chat-input-popup, [data-component="TopbarMoreMenu"])',
+    transient: true,
   },
   {
     id: "omnibar",
     labelKey: "settings.appearance.uiStyles.regions.omnibar",
     selector: '[data-component="GlobalOmnibar.Panel"]',
+    transient: true,
   },
-  { id: "toasts", labelKey: "settings.appearance.uiStyles.regions.toasts", selector: "[data-sonner-toast]" },
+  {
+    id: "toasts",
+    labelKey: "settings.appearance.uiStyles.regions.toasts",
+    selector: "[data-sonner-toast]",
+    transient: true,
+  },
   {
     // Zero specificity beyond `:root`, like "buttons". The composer's own text box belongs to the composer.
     id: "text-fields",
@@ -162,6 +180,8 @@ export interface UiStyleTarget {
   surfaces?: readonly string[];
   /** A custom property the region's background is painted from; set instead of the element's background. */
   paintVariable?: string;
+  /** Opens on demand (pop-ups, toasts), so its absence never means "not on this screen". */
+  transient?: boolean;
 }
 
 /** Lowercase words joined by single hyphens, so the class doubles as a safe CSS selector. */
@@ -316,6 +336,23 @@ export function normalizeUiStyleOverrides(value: unknown): UiStyleOverrides {
     blocks += 1;
   }
   return out;
+}
+
+/**
+ * Moves the retired Background Color setting into the Whole app part. A background already saved on that
+ * part wins. The old field is cleared only once the part has a background; a value the part cannot hold
+ * (`url(...)`, quotes, over-long) stays in `appBackgroundColor`, which App.tsx still paints.
+ */
+export function foldAppBackgroundColor(
+  color: string,
+  overrides: unknown,
+): { uiStyleOverrides: UiStyleOverrides; appBackgroundColor: string } {
+  let uiStyleOverrides = normalizeUiStyleOverrides(overrides);
+  const background = normalizeColor(color);
+  if (background && !uiStyleOverrides.app?.background) {
+    uiStyleOverrides = normalizeUiStyleOverrides({ ...uiStyleOverrides, app: { ...uiStyleOverrides.app, background } });
+  }
+  return { uiStyleOverrides, appBackgroundColor: uiStyleOverrides.app?.background ? "" : color };
 }
 
 /** Every saved region and block, regions in registry order first. */

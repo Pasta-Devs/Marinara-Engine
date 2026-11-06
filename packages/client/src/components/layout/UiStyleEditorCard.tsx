@@ -35,6 +35,7 @@ import {
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
 } from "../panels/settings/SettingControls";
+import { UiStylePartSelect } from "../panels/settings/UiStyleSettings";
 
 type ColorKey = "background" | "color" | "borderColor";
 type NumberKey = "borderRadius" | "borderWidth" | "opacity" | "blur" | "fontSize";
@@ -58,6 +59,7 @@ const SHADOW_IDS = Object.keys(UI_STYLE_SHADOWS) as UiStyleShadow[];
 const ROW_CLASS =
   "grid min-w-0 items-center gap-1.5 rounded-md bg-[var(--background)]/24 px-1.5 py-1 ring-1 ring-[var(--border)]/25";
 const ROW_LABEL_CLASS = "truncate text-[0.5625rem] font-semibold text-[var(--foreground)]/80";
+const HINT_CLASS = "text-[0.625rem] text-[var(--muted-foreground)]";
 
 const MARGIN = 12;
 const CHECKERBOARD: CSSProperties = {
@@ -122,6 +124,9 @@ function StyleChip({ style }: { style: UiStyleOverride }) {
   );
 }
 
+// The card remounts per part (keyed by target), so switching with its select would drop keyboard focus.
+let refocusPartSelect = false;
+
 /** `levels`: what the pick could restyle, outermost first; the card's breadcrumb switches between them. */
 export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; levels: UiStyleTargetId[] }) {
   const { t } = useTranslation();
@@ -134,7 +139,12 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
   const regionName = uiStyleTargetLabel(target, t);
   const crumbs = levels.map((id) => getUiStyleTarget(id)).filter((level) => level !== null);
   // A block restyles every element with its class, across the app; say how far it reaches here.
-  const reach = target.className ? document.querySelectorAll(target.selector).length : null;
+  // A part only says when it is not on this screen; a pop-up or toast is absent until it opens.
+  const reach = target.className
+    ? document.querySelectorAll(target.selector).length
+    : target.transient || document.querySelector(target.selector)
+      ? null
+      : 0;
   const savedOverride = saved[target.id] ?? null;
   // The card is keyed to its region, so the edit never outlives it.
   const [edit, setEdit] = useState<UiStyleOverride | null>(null);
@@ -160,6 +170,11 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `draft` changes only with `edit` or `saved`
   }, [target.id, dirty, edit, saved, setPreview]);
   useEffect(() => () => setPreview(null), [setPreview]);
+
+  useLayoutEffect(() => {
+    if (refocusPartSelect) cardRef.current?.querySelector("select")?.focus();
+    refocusPartSelect = false;
+  }, []);
 
   // Place once beside the region; afterwards keep the card inside the viewport as it resizes.
   useLayoutEffect(() => {
@@ -232,7 +247,7 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
 
   const onDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     const card = cardRef.current;
-    if (!card || mobile || event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+    if (!card || mobile || event.button !== 0 || (event.target as HTMLElement).closest("button, select")) return;
     const rect = card.getBoundingClientRect();
     dragRef.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -260,7 +275,7 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
           ? "inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]"
           : "max-h-[80vh] w-[20rem] max-w-[calc(100vw-1.5rem)] rounded-xl",
       )}
-      // One layer under the pick overlay, which must stay on top for "Pick another".
+      // One layer under the pick overlay, which must stay on top for "Pick on screen".
       style={{
         zIndex: "calc(var(--mari-layer-omnibar) + 1)",
         ...(!mobile && { left: pos?.x ?? 0, top: pos?.y ?? 0, visibility: pos ? "visible" : "hidden" }),
@@ -277,54 +292,21 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
         onPointerCancel={onDragEnd}
       >
         {!mobile && <GripVertical size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
-        {crumbs.length > 1 ? (
-          <nav
-            aria-label={t("settings.appearance.uiStyles.levels")}
-            className="flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5 text-xs"
-          >
-            {crumbs.map((level, index) => {
-              const current = level.id === target.id;
-              return (
-                <span key={level.id} className="flex min-w-0 max-w-full items-center gap-0.5">
-                  {index > 0 && (
-                    <span aria-hidden="true" className="text-[var(--muted-foreground)]">
-                      ›
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTarget(level.id)}
-                    disabled={current || dirty}
-                    aria-current={current ? "true" : undefined}
-                    title={
-                      dirty && !current
-                        ? t("settings.appearance.uiStyles.saveOrRevertFirst")
-                        : uiStyleTargetLabel(level, t)
-                    }
-                    className={cn(
-                      "min-w-0 truncate rounded px-1 py-0.5",
-                      current
-                        ? "font-semibold text-[var(--foreground)]"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:hover:bg-transparent",
-                    )}
-                  >
-                    {uiStyleTargetLabel(level, t)}
-                  </button>
-                </span>
-              );
-            })}
-          </nav>
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold">{regionName}</span>
-        )}
+        <UiStylePartSelect
+          value={target.id}
+          onChange={(id) => {
+            refocusPartSelect = true;
+            setSelectedTarget(id);
+          }}
+          disabled={dirty}
+          className="min-w-0 text-xs font-semibold"
+        />
         <button
           type="button"
           onClick={handlePickAnother}
           disabled={dirty}
           aria-label={t("settings.appearance.uiStyles.pickAnother")}
-          title={
-            dirty ? t("settings.appearance.uiStyles.saveOrRevertFirst") : t("settings.appearance.uiStyles.pickAnother")
-          }
+          title={t("settings.appearance.uiStyles.pickAnother")}
           className={SETTINGS_ICON_BUTTON_CLASS}
         >
           <MousePointerClick size="0.75rem" />
@@ -341,13 +323,53 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
-        {reach !== null && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {reach > 0
-              ? t("settings.appearance.uiStyles.reach", { count: reach })
-              : t("settings.appearance.uiStyles.notOnScreen")}
-          </p>
-        )}
+        {dirty && <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.saveOrRevertFirst")}</p>}
+        <div className="flex min-w-0 items-center gap-2">
+          <StyleChip style={draft} />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {crumbs.length > 1 && (
+              <nav
+                aria-label={t("settings.appearance.uiStyles.levels")}
+                className="flex min-w-0 flex-wrap items-center gap-x-0.5 text-xs"
+              >
+                {crumbs.map((level, index) => {
+                  const current = level.id === target.id;
+                  return (
+                    <span key={level.id} className="flex min-w-0 max-w-full items-center gap-0.5">
+                      {index > 0 && (
+                        <span aria-hidden="true" className="text-[var(--muted-foreground)]">
+                          ›
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTarget(level.id)}
+                        disabled={current || dirty}
+                        aria-current={current ? "true" : undefined}
+                        title={uiStyleTargetLabel(level, t)}
+                        className={cn(
+                          "min-w-0 truncate rounded px-1 py-0.5",
+                          current
+                            ? "font-semibold text-[var(--foreground)]"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:hover:bg-transparent",
+                        )}
+                      >
+                        {uiStyleTargetLabel(level, t)}
+                      </button>
+                    </span>
+                  );
+                })}
+              </nav>
+            )}
+            {reach !== null && (
+              <p className={HINT_CLASS}>
+                {reach > 0
+                  ? t("settings.appearance.uiStyles.reach", { count: reach })
+                  : t("settings.appearance.uiStyles.notOnScreen")}
+              </p>
+            )}
+          </div>
+        </div>
         <div className="grid grid-cols-3 gap-1.5">
           {COLOR_FIELDS.map((field) => {
             const value = draft[field.key];
@@ -489,7 +511,6 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
           aria-expanded={panel === "copy"}
           onClick={() => setPanel(panel === "copy" ? null : "copy")}
           disabled={copySources.length === 0}
-          title={copySources.length === 0 ? t("settings.appearance.uiStyles.copyFromEmpty") : undefined}
           className={cn(SETTINGS_BUTTON_CLASS, "w-full justify-between")}
         >
           <span className="truncate">{t("settings.appearance.uiStyles.copyFrom")}</span>
@@ -499,6 +520,7 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
           />
         </button>
 
+        {copySources.length === 0 && <p className={HINT_CLASS}>{t("settings.appearance.uiStyles.copyFromEmpty")}</p>}
         {panel === "copy" && (
           <div className="grid max-h-36 min-w-0 gap-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--secondary)]/55 p-1">
             {copySources.map((other) => (

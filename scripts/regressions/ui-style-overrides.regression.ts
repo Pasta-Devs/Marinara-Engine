@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  gradientStopsFromColor,
   hexAlpha,
   hexToHsv,
   hsvToHex,
@@ -9,6 +10,7 @@ import {
 import { sanitizeAppCss } from "../../packages/client/src/lib/theme-css.js";
 import {
   buildUiStyleOverridesCss,
+  foldAppBackgroundColor,
   normalizeUiStyleOverride,
   normalizeUiStyleOverrides,
   normalizeUiStylePresets,
@@ -296,6 +298,59 @@ assert.notEqual(serializeUiStyleOverride({ shadow: "soft" }), serializeUiStyleOv
     "a background alone leaves no empty region rule",
   );
   assert.equal(resolveUiStyleTarget(node(['[data-component="AppShell"]'], null)), "app");
+}
+
+// The retired Background Color folds into the Whole app part (persist migrate and server sync both call this).
+{
+  const gradient = "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)";
+  const blocks = { "class:mari-chrome-control": { borderRadius: 4 } };
+  assert.deepEqual(
+    foldAppBackgroundColor(gradient, { app: { color: "#eee" }, ...blocks }),
+    { uiStyleOverrides: { app: { color: "#eee", background: gradient }, ...blocks }, appBackgroundColor: "" },
+    "a background joins the part's other properties, blocks stay, and the old field clears",
+  );
+  assert.deepEqual(
+    foldAppBackgroundColor("url(wall.png)", { app: { background: "#000" } }),
+    { uiStyleOverrides: { app: { background: "#000" } }, appBackgroundColor: "" },
+    "a saved Whole app background wins",
+  );
+  assert.deepEqual(
+    foldAppBackgroundColor("url(wall.png)", {}),
+    { uiStyleOverrides: {}, appBackgroundColor: "url(wall.png)" },
+    "a value the part cannot hold stays where it is",
+  );
+}
+
+// Gradient mode starts from the current color: it, then a lighter shade (dark) or darker shade (light).
+{
+  assert.equal(gradientStopsFromColor(""), null, "no color: the picker falls back to its first preset");
+  assert.equal(gradientStopsFromColor(null), null);
+  const [darkStart, darkEnd] = gradientStopsFromColor("#1A1A2E") ?? [];
+  assert.equal(darkStart, "#1a1a2e");
+  assert.ok(hexToHsv(darkEnd!)[2] > hexToHsv(darkStart!)[2], "a dark color ends lighter");
+  const [lightStart, lightEnd] = gradientStopsFromColor("#ffd93d") ?? [];
+  assert.equal(lightStart, "#ffd93d");
+  assert.ok(hexToHsv(lightEnd!)[2] < hexToHsv(lightStart!)[2], "a light color ends darker");
+  assert.equal(hexAlpha(gradientStopsFromColor("#ffd93d80")![1]), hexAlpha("#ffd93d80"), "the shade keeps the opacity");
+}
+
+// The persist migrate (v104 -> v105) leaves a Background Color the part cannot hold, so App.tsx still paints it.
+{
+  const { UI_PERSISTENCE } = await import("../../packages/client/src/lib/ui-persistence.js");
+  const stored = new Map([
+    [UI_PERSISTENCE.name, JSON.stringify({ state: { appBackgroundColor: "url(wall.png)" }, version: 104 })],
+  ]);
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+    },
+  });
+  const { useUIStore } = await import("../../packages/client/src/stores/ui.store.js");
+  assert.equal(useUIStore.getState().appBackgroundColor, "url(wall.png)", "the migrate keeps what it cannot fold");
+  assert.equal(useUIStore.getState().uiStyleOverrides.app, undefined);
 }
 
 console.info("UI style override regressions passed.");

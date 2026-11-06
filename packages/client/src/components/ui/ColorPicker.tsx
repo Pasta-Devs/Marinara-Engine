@@ -20,6 +20,7 @@ import {
   normalizeHexColor,
   withAlpha,
   isCssGradient,
+  gradientStopsFromColor,
   MARINARA_GRADIENT_PRESET,
   RAINBOW_GRADIENT_PRESET,
 } from "../../lib/css-colors";
@@ -494,9 +495,8 @@ export function ColorPicker({
   const previewValue = value || emptyPreviewValue;
   const isGradient = isEditableLinearGradient(previewValue);
   const [mode, setMode] = useState<"solid" | "gradient">(isGradient ? "gradient" : "solid");
-  const [gradientStops, setGradientStops] = useState<string[]>(
-    isGradient ? parseGradientStops(previewValue) : ["#ff6b6b", "#ffd93d"],
-  );
+  // Empty until a gradient is shown, so the first switch to Gradient can seed from the current colour.
+  const [gradientStops, setGradientStops] = useState<string[]>(isGradient ? parseGradientStops(previewValue) : []);
   const [gradientAngle, setGradientAngle] = useState(90);
   const [expandedState, setExpanded] = useState(false);
   const expanded = panelOnly || expandedState;
@@ -731,8 +731,14 @@ export function ColorPicker({
                   type="button"
                   aria-pressed={mode === "gradient"}
                   onClick={() => {
+                    // Keep the stops from earlier; otherwise start from the current colour, then the first preset.
+                    const stops = gradientStops.length
+                      ? gradientStops
+                      : (gradientStopsFromColor(previewValue && solidSliderColor) ??
+                        parseGradientStops(GRADIENT_PRESETS[0]));
                     setMode("gradient");
-                    commitChange(buildGradient(gradientAngle, gradientStops));
+                    setGradientStops(stops);
+                    commitChange(buildGradient(gradientAngle, stops));
                   }}
                   className={segmentClass(mode === "gradient")}
                 >

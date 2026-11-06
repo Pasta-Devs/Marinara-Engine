@@ -181,3 +181,12 @@ const alphaHex = (alpha: number) =>
 export const withAlpha = (hex: string, alpha: number) => (alpha >= 1 ? hex : `${hex}${alphaHex(alpha)}`);
 /** Alpha (0-1) of a `#rrggbb` or `#rrggbbaa` colour. */
 export const hexAlpha = (hex: string) => (hex.length === 9 ? Number.parseInt(hex.slice(7), 16) / 255 : 1);
+
+/** Two gradient stops starting from `color`: it, then a shade lighter (dark colours) or darker; null without a colour. */
+export function gradientStopsFromColor(color: string | null | undefined): [string, string] | null {
+  const hex = color ? normalizeHexColor(color) : null;
+  if (!hex) return null;
+  const [hue, saturation, brightness] = hexToHsv(hex);
+  const shade = hsvToHex(hue, saturation, brightness < 50 ? brightness + 35 : brightness - 35);
+  return [hex, withAlpha(shade, hexAlpha(hex))];
+}

@@ -40,8 +40,10 @@ import {
   getDefaultChatChromeTextColor,
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
+  normalizeAppBackgroundColor,
   useUIStore,
 } from "./stores/ui.store";
+import { normalizeUiStyleOverride } from "./lib/ui-style-overrides";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
@@ -507,7 +509,14 @@ export function App() {
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
+  // The Whole app part's background (draft first, as Save keeps it) also sets --background, the page backing and
+  // theme-color. A legacy Background Color the part could not hold still paints when the part has none.
+  const appBackgroundColor = useUIStore(
+    (s) =>
+      (s.uiStylePreview?.target === "app"
+        ? normalizeUiStyleOverride(s.uiStylePreview.override)?.background
+        : s.uiStyleOverrides.app?.background) ?? normalizeAppBackgroundColor(s.appBackgroundColor),
+  );
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
