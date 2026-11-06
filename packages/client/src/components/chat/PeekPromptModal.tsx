@@ -1,7 +1,16 @@
 // ──────────────────────────────────────────────
 // Peek Prompt Modal — collapsible section viewer
 // ──────────────────────────────────────────────
-import { useState, useMemo, useEffect, useRef, useId, useDeferredValue } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useId,
+  useDeferredValue,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { X, ChevronRight, ChevronDown, Copy, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn, copyToClipboard } from "../../lib/utils";
@@ -24,6 +33,7 @@ import {
   type ReplyCheckupLink,
 } from "@marinara-engine/shared";
 import { DecisionDebugPanel } from "./DecisionDebugPanel";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { ReplyCheckupFacts } from "./ReplyCheckup";
 
 const PROMPT_TAG_CLASS =
@@ -519,11 +529,89 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 }
 
 // ═══════════════════════════════════════════════
+//  New layout: a transcript in send order with an outline
+// ═══════════════════════════════════════════════
+
+type PeekRoleKind = "system" | "character" | "you";
+
+interface PeekPart {
+  id: string;
+  label: string;
+  content: string;
+  tokens: number;
+}
+
+interface PeekRow {
+  id: string;
+  kind: PeekRoleKind;
+  parts: PeekPart[];
+  tokens: number;
+  inHistory: boolean;
+  firstInHistory: boolean;
+}
+
+function peekRoleKind(role: string): PeekRoleKind {
+  if (role === "assistant") return "character";
+  if (role === "user") return "you";
+  return "system";
+}
+
+/** Flattens the display sections into transcript rows; neighbouring system parts share one row. */
+function buildPeekRows(sections: DisplaySection[]): PeekRow[] {
+  const rows: PeekRow[] = [];
+  let n = 0;
+  let historyStarted = false;
+  const push = (kind: PeekRoleKind, rawLabel: string, rawContent: string, inHistory: boolean) => {
+    const tokens = estimateTokens(rawContent);
+    let label = rawLabel;
+    let content = rawContent;
+    // A part wrapped in one tag reads as "<tag> text": the tag names it.
+    const wrapped = kind === "system" ? /^\s*<([A-Za-z][\w.-]*)>\n?([\s\S]*?)\n?<\/\1>\s*$/.exec(rawContent) : null;
+    if (wrapped) {
+      label = wrapped[1]!;
+      content = wrapped[2]!;
+    }
+    const part: PeekPart = { id: `peek-part-${n++}`, label, content, tokens };
+    const prev = rows[rows.length - 1];
+    if (kind === "system" && prev && prev.kind === "system" && prev.inHistory === inHistory && !inHistory) {
+      prev.parts.push(part);
+      prev.tokens += tokens;
+      return;
+    }
+    const firstInHistory = inHistory && !historyStarted;
+    if (inHistory) historyStarted = true;
+    rows.push({ id: `peek-row-${rows.length}`, kind, parts: [part], tokens, inHistory, firstInHistory });
+  };
+  for (const section of sections) {
+    if (section.kind === "chat-history") {
+      for (const entry of section.entries) push(peekRoleKind(entry.role), entry.role, entry.content, true);
+      historyStarted = false;
+    } else {
+      push(peekRoleKind(section.role), section.label, section.content, false);
+    }
+  }
+  return rows;
+}
+
+function peekRoleName(kind: PeekRoleKind, localizeUi: (key: string, fallback: string) => string): string {
+  if (kind === "character") return localizeUi("ui.chat.peekpromptmodal.ov.character", "Character");
+  if (kind === "you") return localizeUi("ui.chat.peekpromptmodal.ov.you", "You");
+  return localizeUi("ui.chat.peekpromptmodal.ov.system", "System");
+}
+
+function peekPreview(content: string): string {
+  return content.replace(/\s+/g, " ").trim().slice(0, 60);
+}
+
+// ═══════════════════════════════════════════════
 //  Main Modal
 // ═══════════════════════════════════════════════
 
 export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const ovDesktop = useOverhaulActive();
+  const [showDiag, setShowDiag] = useState(false);
+  const transcriptRef = useRef<HTMLDivElement>(null);
   const [tested, setTested] = useState<DecisionDebugPreview | null>(null);
   const [showTest, setShowTest] = useState(false);
   // A saved request predates its turn's summary and hiding; the current context is built on request (#8831).
@@ -555,6 +643,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
     [data.chatMode, data.messages],
   );
+  const peekRows = useMemo(() => buildPeekRows(sections), [sections]);
   const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
   const search = useMemo(() => {
     // Search the original messages, not parsed sections: parsing trims whitespace and removes history wrappers.
@@ -618,19 +707,36 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             return (
               <div
                 key={messageIndex}
-                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2"
+                className={
+                  ovDesktop
+                    ? `ov-peek__row ov-peek__row--${peekRoleKind(message.role)}`
+                    : "rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2"
+                }
               >
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider",
-                    message.role === "assistant" ? PROMPT_TAG_ACTIVE_CLASS : PROMPT_TAG_CLASS,
-                  )}
-                >
-                  {message.role}
-                </span>
+                {ovDesktop ? (
+                  <div className="ov-peek__rowhead">
+                    <span className="ov-peek__mark" aria-hidden="true" />
+                    <span className="ov-peek__who">
+                      {peekRoleName(peekRoleKind(message.role), (k, d) => String(localizeUi(k, d)))}
+                    </span>
+                  </div>
+                ) : (
+                  <span
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider",
+                      message.role === "assistant" ? PROMPT_TAG_ACTIVE_CLASS : PROMPT_TAG_CLASS,
+                    )}
+                  >
+                    {message.role}
+                  </span>
+                )}
                 <pre
                   data-prompt-search-message
-                  className="mari-chat-style-text mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--foreground)]/80"
+                  className={
+                    ovDesktop
+                      ? "ov-peek__text"
+                      : "mari-chat-style-text mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--foreground)]/80"
+                  }
                 >
                   {parts}
                   {message.content.slice(end)}
@@ -639,7 +745,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             );
           })
         : null,
-    [data.messages, deferredQuery, search, activeMatch],
+    [data.messages, deferredQuery, search, activeMatch, ovDesktop, localizeUi],
   );
 
   const gen = data.generationInfo;
@@ -697,6 +803,414 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     }
   };
 
+  const toggleCurrentContext = () => {
+    if (current) {
+      setShowCurrent(!showCurrent);
+      return;
+    }
+    peekCurrent.mutate(
+      { chatId: originalData.chatId!, current: true },
+      {
+        onSuccess: ({ characterId: _characterId, ...next }) => {
+          setCurrent({ ...next, chatId: originalData.chatId });
+          setShowCurrent(true);
+        },
+        onError: () => toast.error(localizeUi("ui.chat.peekpromptmodal.currentContextFailed")),
+      },
+    );
+  };
+
+  const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      (event.key.toLowerCase() === "f" || (event.code === "KeyF" && !/^[a-z]$/i.test(event.key)))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      findRef.current?.focus();
+      findRef.current?.select();
+    }
+    if (event.key === "Tab") {
+      const controls = Array.from(
+        event.currentTarget.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]',
+        ),
+      ).filter((control) => control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+  };
+
+  if (ovDesktop) {
+    const ovT = (key: string, fallback: string, options?: Record<string, unknown>) =>
+      String(localizeUi(key, { defaultValue: fallback, ...options }));
+    const kindTotals = { system: 0, character: 0, you: 0 };
+    for (const row of peekRows) kindTotals[row.kind] += row.tokens;
+    const kindSum = Math.max(1, kindTotals.system + kindTotals.character + kindTotals.you);
+    const sourceText = showTest
+      ? localizeUi("decisionDebug.testedPrompt")
+      : data.exact
+        ? ovT("ui.chat.peekpromptmodal.ov.exact", "Exact request")
+        : data.source === "live_preview"
+          ? ovT("ui.chat.peekpromptmodal.ov.preview", "Live preview")
+          : data.source === "raw_messages"
+            ? ovT("ui.chat.peekpromptmodal.ov.raw", "Raw messages")
+            : ovT("ui.chat.peekpromptmodal.ov.promptPreview", "Prompt preview");
+    const sentTokens = gen?.tokensPrompt ?? null;
+    const canShowCurrent = !showTest && originalData.source === "cached" && !!originalData.chatId;
+    const jumpTo = (id: string) => {
+      const go = () => {
+        const el = transcriptRef.current?.querySelector<HTMLElement>(`[data-peek-id="${id}"]`);
+        el?.scrollIntoView({ block: "start" });
+      };
+      if (findQuery) {
+        setFindQuery("");
+        setSelection({ query: "", index: 0 });
+        requestAnimationFrame(() => requestAnimationFrame(go));
+      } else go();
+    };
+    const notices: ReactNode[] = [];
+    if (canShowCurrent)
+      notices.push(
+        <p key="current" className="ov-peek__note">
+          {localizeUi(
+            showCurrent ? "ui.chat.peekpromptmodal.currentContextHint" : "ui.chat.peekpromptmodal.sentRequestHint",
+          )}
+        </p>,
+      );
+    if (tested)
+      notices.push(
+        <p key="tested" className="ov-peek__note">
+          <span>{localizeUi(showTest ? "decisionDebug.testedHint" : "decisionDebug.originalHint")}</span>{" "}
+          <button type="button" className="ov-peek__link" onClick={() => setShowTest(!showTest)}>
+            {localizeUi(showTest ? "decisionDebug.showOriginal" : "decisionDebug.showTest")}
+          </button>
+        </p>,
+      );
+    if (data.agentNote)
+      notices.push(
+        <p key="agent" className="ov-peek__note">
+          {localizeUi("ui.chat.peekpromptmodal.note")} {data.agentNote}
+        </p>,
+      );
+    if (fallbackNote)
+      notices.push(
+        <p key="fallback" className="ov-peek__note">
+          {fallbackNote}
+        </p>,
+      );
+    if (gen?.tokensLastRequestInput != null)
+      notices.push(
+        <p key="last" className="ov-peek__note">
+          {localizeUi("ui.chat.peekpromptmodal.lastRequestInput", { tokens: fmtTokens(gen.tokensLastRequestInput) })}
+        </p>,
+      );
+    if ((gen?.requestCount ?? 0) > 1)
+      notices.push(
+        <p key="multi" className="ov-peek__note">
+          {localizeUi("ui.chat.peekpromptmodal.toolRequestUsageHint")}
+        </p>,
+      );
+    if (planner)
+      notices.push(
+        <p key="planner" className="ov-peek__note">
+          {localizeUi("ui.chat.peekpromptmodal.toolPlanner")}: {planner.provider} / {planner.model} ·{" "}
+          {planner.usage?.promptTokens != null && planner.usage.completionTokens != null
+            ? localizeUi("ui.chat.peekpromptmodal.plannerUsage", {
+                input: fmtTokens(planner.usage.promptTokens),
+                output: fmtTokens(planner.usage.completionTokens),
+              })
+            : localizeUi("ui.chat.peekpromptmodal.plannerUsageUnavailable")}
+        </p>,
+      );
+    for (const [key, list, text] of [
+      [
+        "unanswered",
+        data.decisions?.unanswered,
+        data.decisions
+          ? localizeUi(
+              data.decisions.decisionModelSet
+                ? "ui.chat.peekpromptmodal.decisionsUnanswered"
+                : "ui.chat.peekpromptmodal.decisionsNoModel",
+              { count: data.decisions.unanswered.length },
+            )
+          : "",
+      ],
+      [
+        "dropped",
+        data.decisions?.dropped,
+        localizeUi("ui.chat.peekpromptmodal.decisionsDropped", { count: data.decisions?.dropped?.length ?? 0 }),
+      ],
+    ] as const) {
+      if (list && list.length > 0)
+        notices.push(
+          <div key={key} role="status" className="ov-peek__note ov-peek__note--warn">
+            <p>{text}</p>
+            <ul>
+              {list.slice(0, 12).map((statement) => (
+                <li key={statement}>{statement}</li>
+              ))}
+            </ul>
+          </div>,
+        );
+    }
+
+    let outlineHistoryShown = false;
+    return (
+      <div
+        data-chat-floating-panel
+        className="ov-peek-backdrop fixed inset-0 z-[100] flex items-center justify-center"
+        {...backdropDismiss}
+      >
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          className="ov-peek mari-chat-style-surface mari-chat-action-panel"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={handlePanelKeyDown}
+        >
+          <header className="ov-peek__head">
+            <h3 id={titleId} className="ov-peek__title">
+              {localizeUi("ui.chat.peekpromptmodal.assembledPrompt")}
+            </h3>
+            <span className="ov-peek__meta">
+              <span>{sourceText}</span>
+              {gen?.model ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="ov-peek__model">
+                    {gen.provider ? <span className="ov-peek__dim">{gen.provider} / </span> : null}
+                    {gen.model}
+                  </span>
+                </>
+              ) : null}
+              <span aria-hidden="true">·</span>
+              <span>
+                {sentTokens != null
+                  ? ovT("ui.chat.peekpromptmodal.ov.tokensSent", "{{count}} tokens sent", {
+                      count: fmtTokens(sentTokens),
+                    })
+                  : ovT("ui.chat.peekpromptmodal.ov.tokensEst", "~{{count}} tokens", { count: fmtTokens(totalTokens) })}
+              </span>
+            </span>
+            <label className="ov-peek__find">
+              <Search aria-hidden="true" size="0.8125rem" />
+              <input
+                ref={findRef}
+                type="search"
+                value={findQuery}
+                placeholder={ovT("ui.chat.peekpromptmodal.ov.find", "Find in prompt")}
+                onChange={(event) => {
+                  setFindQuery(event.target.value);
+                  setSelection({ query: event.target.value, index: 0 });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    moveMatch(event.shiftKey ? -1 : 1);
+                  }
+                }}
+                aria-label={localizeUi("ui.chat.peekpromptmodal.find.input")}
+              />
+              {deferredQuery ? (
+                <>
+                  <span role="status" className="ov-peek__count">
+                    {search.count
+                      ? `${activeMatch + 1}/${search.count}`
+                      : localizeUi("ui.chat.peekpromptmodal.find.noMatches")}
+                  </span>
+                  {[
+                    { direction: -1, label: "ui.chat.peekpromptmodal.find.previous", Icon: ArrowUp },
+                    { direction: 1, label: "ui.chat.peekpromptmodal.find.next", Icon: ArrowDown },
+                  ].map(({ direction, label, Icon }) => (
+                    <button
+                      key={direction}
+                      type="button"
+                      disabled={!search.count || findQuery !== deferredQuery}
+                      onClick={() => moveMatch(direction)}
+                      aria-label={localizeUi(label)}
+                      title={localizeUi(label)}
+                      className="ov-peek__iconbtn ov-peek__iconbtn--small"
+                    >
+                      <Icon aria-hidden="true" size="0.8125rem" />
+                    </button>
+                  ))}
+                </>
+              ) : null}
+            </label>
+            {canShowCurrent ? (
+              <button
+                type="button"
+                className="ov-peek__btn"
+                disabled={peekCurrent.isPending}
+                onClick={toggleCurrentContext}
+              >
+                {localizeUi(
+                  showCurrent
+                    ? "ui.chat.peekpromptmodal.showSentRequest"
+                    : "ui.chat.peekpromptmodal.showCurrentContext",
+                )}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void handleCopyPrompt()}
+              className="ov-peek__iconbtn"
+              title={localizeUi("ui.chat.peekpromptmodal.copyPromptHint")}
+              aria-label={localizeUi("ui.chat.peekpromptmodal.copyPrompt")}
+            >
+              <Copy size="0.875rem" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ov-peek__iconbtn"
+              aria-label={localizeUi("ui.chat.peekpromptmodal.closeAssembledPrompt")}
+            >
+              <X size="0.875rem" />
+            </button>
+          </header>
+          <div className="ov-peek__main">
+            <nav className="ov-peek__outline" aria-label={ovT("ui.chat.peekpromptmodal.ov.outline", "Prompt outline")}>
+              <div className="ov-peek__outline-list">
+                <p className="ov-peek__group">{ovT("ui.chat.peekpromptmodal.ov.sendOrder", "In send order")}</p>
+                {peekRows.flatMap((row) => {
+                  const items: ReactNode[] = [];
+                  if (row.firstInHistory && !outlineHistoryShown) {
+                    outlineHistoryShown = true;
+                    items.push(
+                      <p key={`${row.id}-h`} className="ov-peek__group">
+                        {ovT("ui.chat.peekpromptmodal.ov.chatHistory", "Chat history")}
+                      </p>,
+                    );
+                  }
+                  for (const part of row.parts) {
+                    const name = row.kind === "system" ? prettifyTag(part.label) : peekPreview(part.content);
+                    items.push(
+                      <button
+                        key={part.id}
+                        type="button"
+                        className={`ov-peek__item ov-peek__item--${row.kind}`}
+                        onClick={() => jumpTo(part.id)}
+                        title={name}
+                      >
+                        <span className="ov-peek__mark" aria-hidden="true" />
+                        <span className="ov-peek__item-name">{name}</span>
+                        <span className="ov-peek__item-tok">{fmtTokens(part.tokens)}</span>
+                      </button>,
+                    );
+                  }
+                  return items;
+                })}
+              </div>
+              <div className="ov-peek__outline-foot">
+                <div className="ov-peek__bar" aria-hidden="true">
+                  <span className="ov-peek__bar--system" style={{ width: `${(kindTotals.system / kindSum) * 100}%` }} />
+                  <span
+                    className="ov-peek__bar--character"
+                    style={{ width: `${(kindTotals.character / kindSum) * 100}%` }}
+                  />
+                  <span className="ov-peek__bar--you" style={{ width: `${(kindTotals.you / kindSum) * 100}%` }} />
+                </div>
+                <p>
+                  {peekRoleName("system", ovT)} {fmtTokens(kindTotals.system)} ·{" "}
+                  {ovT("ui.chat.peekpromptmodal.ov.characters", "Characters")} {fmtTokens(kindTotals.character)} ·{" "}
+                  {peekRoleName("you", ovT)} {fmtTokens(kindTotals.you)}
+                </p>
+                {paramPills.length > 0 ? (
+                  <p>{paramPills.map((pill) => `${pill.label} ${pill.value}`).join(" · ")}</p>
+                ) : null}
+                {originalData.chatId ? (
+                  <button
+                    type="button"
+                    className="ov-peek__link"
+                    aria-expanded={showDiag}
+                    onClick={() => setShowDiag(!showDiag)}
+                  >
+                    {ovT("ui.chat.peekpromptmodal.ov.diagnostics", "Decision diagnostics")}
+                    <ChevronDown size="0.75rem" className={showDiag ? "rotate-180" : undefined} />
+                  </button>
+                ) : null}
+              </div>
+            </nav>
+            <div ref={transcriptRef} className="ov-peek__transcript">
+              {!showTest && !showCurrent && originalData.checkup && originalData.checkup.findings.length > 0 ? (
+                <div className="ov-peek__note mari-reply-checkup" data-peek-checkup>
+                  <p className="ov-peek__strong">{localizeUi("chat.replyCheckup.peekTitle", "Reply checkup")}</p>
+                  <ReplyCheckupFacts findings={originalData.checkup.findings} onLink={originalData.checkup.onLink} />
+                </div>
+              ) : null}
+              {originalData.chatId ? (
+                <div className="ov-peek__diag" hidden={!showDiag}>
+                  <DecisionDebugPanel
+                    key={`${originalData.chatId}:${originalData.characterId ?? ""}`}
+                    chatId={originalData.chatId}
+                    characterId={originalData.characterId}
+                    onPreview={(preview) => {
+                      setTested(preview);
+                      setShowTest(preview !== null);
+                      if (preview) setShowCurrent(false);
+                    }}
+                  />
+                </div>
+              ) : null}
+              {notices}
+              {deferredQuery ? (
+                <>
+                  <p className="ov-peek__note">{localizeUi("ui.chat.peekpromptmodal.find.fullPrompt")}</p>
+                  {searchContent}
+                </>
+              ) : (
+                peekRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className={`ov-peek__row ov-peek__row--${row.kind}`}
+                    data-peek-id={row.parts[0]!.id}
+                  >
+                    {row.firstInHistory ? (
+                      <div className="ov-peek__divider">
+                        {ovT("ui.chat.peekpromptmodal.ov.chatHistory", "Chat history")}
+                      </div>
+                    ) : null}
+                    <div className="ov-peek__rowhead">
+                      <span className="ov-peek__mark" aria-hidden="true" />
+                      <span className="ov-peek__who">{peekRoleName(row.kind, ovT)}</span>
+                      <span className="ov-peek__dim">
+                        {row.parts.length > 1
+                          ? `${ovT("ui.chat.peekpromptmodal.ov.parts", "{{count}} parts", { count: row.parts.length })} · `
+                          : row.kind === "system"
+                            ? `${prettifyTag(row.parts[0]!.label)} · `
+                            : ""}
+                        ~{fmtTokens(row.tokens)}
+                      </span>
+                    </div>
+                    {row.parts.map((part, index) => (
+                      <pre key={part.id} data-peek-id={index > 0 ? part.id : undefined} className="ov-peek__text">
+                        {row.parts.length > 1 ? <span className="ov-peek__tag">&lt;{part.label}&gt; </span> : null}
+                        {part.content}
+                      </pre>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-chat-floating-panel
@@ -714,34 +1228,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           "mari-chat-style-surface mari-chat-action-panel mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden",
         )}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(event) => {
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            !event.altKey &&
-            (event.key.toLowerCase() === "f" || (event.code === "KeyF" && !/^[a-z]$/i.test(event.key)))
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
-            findRef.current?.focus();
-            findRef.current?.select();
-          }
-          if (event.key === "Tab") {
-            const controls = Array.from(
-              event.currentTarget.querySelectorAll<HTMLElement>(
-                'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]',
-              ),
-            ).filter((control) => control.getClientRects().length > 0);
-            const first = controls[0];
-            const last = controls[controls.length - 1];
-            if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
-              event.preventDefault();
-              last?.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first?.focus();
-            }
-          }
-        }}
+        onKeyDown={handlePanelKeyDown}
       >
         <div className={cn(NEUTRAL_PANEL_HEADER, "shrink-0 flex items-center justify-between gap-3 px-5 py-3")}>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -889,22 +1376,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                 type="button"
                 className="mari-chat-style-control mari-chrome-control min-h-10 px-3"
                 disabled={peekCurrent.isPending}
-                onClick={() => {
-                  if (current) {
-                    setShowCurrent(!showCurrent);
-                    return;
-                  }
-                  peekCurrent.mutate(
-                    { chatId: originalData.chatId!, current: true },
-                    {
-                      onSuccess: ({ characterId: _characterId, ...next }) => {
-                        setCurrent({ ...next, chatId: originalData.chatId });
-                        setShowCurrent(true);
-                      },
-                      onError: () => toast.error(localizeUi("ui.chat.peekpromptmodal.currentContextFailed")),
-                    },
-                  );
-                }}
+                onClick={toggleCurrentContext}
               >
                 {localizeUi(
                   showCurrent
