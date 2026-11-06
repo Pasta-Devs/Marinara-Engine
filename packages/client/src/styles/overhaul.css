@@ -8631,7 +8631,7 @@ input.ov-edhead__title:focus {
   text-align: center;
 }
 /* New layout: connection windows take the app accent (amber in Stage), like the rest of the Library. */
-:root[data-overhaul="on"] .mari-connection-scope {
+:root[data-overhaul] .mari-connection-scope {
   --mari-panel-gradient-start: var(--ov-accent);
   --mari-panel-gradient-end: color-mix(in srgb, var(--ov-accent) 85%, #000);
   --mari-panel-gradient-text: var(--primary-foreground);

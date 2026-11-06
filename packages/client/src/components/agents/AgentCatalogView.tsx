@@ -65,7 +65,7 @@ import {
 import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 import { OvAgentOrganizer } from "../overhaul/OvAgentOrganizer";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -85,7 +85,7 @@ function catalogErrorDescription(error: unknown) {
 /** The Agent Organizer: browse, install, update and remove downloadable agents. */
 export function AgentCatalogView() {
   const { t: localizeUi, i18n } = useUiTranslation();
-  const ovDesktop = useOverhaulActive();
+  const ovLook = useOverhaulLook();
   const shownLanguage = i18n.resolvedLanguage ?? i18n.language;
   const closeAgentCatalog = useUIStore((state) => state.closeAgentCatalog);
   const initialPackageId = useUIStore((state) => state.agentCatalogInitialPackageId);
@@ -648,7 +648,7 @@ export function AgentCatalogView() {
     </>
   );
 
-  if (ovDesktop) {
+  if (ovLook) {
     const catalogReady = !catalog.isLoading && !catalog.isError && all.length > 0;
     return (
       <OrganizerContext.Provider value={actions}>
