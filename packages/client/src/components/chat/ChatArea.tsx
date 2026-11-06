@@ -595,7 +595,7 @@ export const ChatArea = memo(function ChatArea({
   onChatWindowIntroOpenChange,
 }: ChatWindowIntroProps) {
   const activeChatId = useChatStore((state) => state.activeChatId);
-  const { data: chat, error, refetch } = useChat(activeChatId);
+  const { data: chat, error, refetch, isPlaceholderData, failureCount } = useChat(activeChatId);
   const metadata = chat ? readChatMetadata(chat) : {};
   // Keep the local host registered while the next chat loads. Multiplayer registers its own host
   // once the room is ready; its setup screen must not offer Chat Settings.
@@ -617,7 +617,8 @@ export const ChatArea = memo(function ChatArea({
       useChatStore.getState().setActiveChatId(null);
     }
   }, [activeChatId, error]);
-  if (activeChatId && !chat)
+  // A failing detail keeps the list placeholder through its retries; show the opening state meanwhile.
+  if (activeChatId && (!chat || (isPlaceholderData && failureCount > 0)))
     return (
       <ChatOpeningState error={error} onRetry={refetch} onBack={() => useChatStore.getState().setActiveChatId(null)} />
     );

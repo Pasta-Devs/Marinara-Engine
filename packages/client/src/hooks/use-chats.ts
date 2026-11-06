@@ -16,6 +16,7 @@ import { api, ApiError, isRequestTimeoutError, requestTimeoutSignal } from "../l
 import { EXPORT_FAILED_TOAST_ID } from "../lib/file-download";
 import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
+import { readChatMetadata } from "../lib/chat-wizard-defaults";
 import { useAgentStore } from "../stores/agent.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
@@ -292,8 +293,13 @@ export function useChat(id: string | null) {
   return useQuery<Chat>({
     queryKey: chatKeys.detail(id ?? ""),
     // The list row already holds this chat, so the view can mount while the detail loads.
-    placeholderData: () =>
-      id ? queryClient.getQueryData<Chat[]>(chatKeys.list())?.find((chat) => chat.id === id) : undefined,
+    // Game and multiplayer chats restore and save scene state on mount, so they wait for the detail.
+    placeholderData: () => {
+      const listed = id ? queryClient.getQueryData<Chat[]>(chatKeys.list())?.find((chat) => chat.id === id) : undefined;
+      if (!listed || listed.mode === "game") return undefined;
+      const metadata = readChatMetadata(listed);
+      return metadata.multiplayer || metadata.multiplayerSetup ? undefined : listed;
+    },
     queryFn: ({ signal }) =>
       api.get<Chat>(`/chats/${id}`, { signal: requestTimeoutSignal(CHAT_OPEN_TIMEOUT_MS, signal) }),
     enabled: !!id,
