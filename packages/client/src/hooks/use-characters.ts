@@ -61,8 +61,13 @@ export const characterKeys = {
   all: ["characters"] as const,
   list: () => [...characterKeys.all, "list"] as const,
   listWithBuiltIns: () => [...characterKeys.all, "list", "with-built-ins"] as const,
-  page: (includeBuiltIn: boolean, search: string, sort: string, favoriteFilter: string) =>
-    [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter] as const,
+  page: (
+    includeBuiltIn: boolean,
+    search: string,
+    sort: string,
+    favoriteFilter: string,
+    filters: { tags?: string[]; excludeTags?: string[]; folder?: string } = {},
+  ) => [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter, filters] as const,
   summariesRoot: () => [...characterKeys.all, "summaries"] as const,
   summaries: (idsKey: string) => [...characterKeys.all, "summaries", idsKey] as const,
   detail: (id: string) => [...characterKeys.all, "detail", id] as const,
@@ -125,6 +130,11 @@ export function useCharacterPages(options: {
   search?: string;
   sort?: string;
   favoriteFilter?: string;
+  /** Any of these tags. Sent to the server so filters cover cards that are not loaded yet. */
+  tags?: string[];
+  excludeTags?: string[];
+  /** A folder id, or "none" for cards that are in no folder. */
+  folder?: string;
 }) {
   const enabled = options.enabled ?? true;
   const includeBuiltIn = options.includeBuiltIn === true;
@@ -133,7 +143,11 @@ export function useCharacterPages(options: {
   const favoriteFilter = options.favoriteFilter ?? "";
 
   return useInfiniteQuery({
-    queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter),
+    queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter, {
+      tags: options.tags,
+      excludeTags: options.excludeTags,
+      folder: options.folder,
+    }),
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
@@ -144,6 +158,9 @@ export function useCharacterPages(options: {
       if (search) params.set("search", search);
       if (sort) params.set("sort", sort);
       if (favoriteFilter) params.set("favoriteFilter", favoriteFilter);
+      for (const tag of options.tags ?? []) params.append("tag", tag);
+      for (const tag of options.excludeTags ?? []) params.append("excludeTag", tag);
+      if (options.folder) params.set("folder", options.folder);
       return api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
     },
     getNextPageParam: getNextPageOffset,
@@ -153,29 +170,50 @@ export function useCharacterPages(options: {
   });
 }
 
+async function fetchWholeCatalog(signal: AbortSignal, extra: Record<string, string> = {}) {
+  const items: CharacterCatalogEntry[] = [];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    items.length = 0;
+    let offset = 0;
+    let generation: number | undefined;
+    while (true) {
+      const params = new URLSearchParams({ ...extra, limit: String(LIBRARY_PAGE_SIZE), offset: String(offset) });
+      const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
+      generation ??= page.catalogGeneration;
+      if (page.catalogGeneration !== generation) break;
+      items.push(...page.items);
+      if (!page.hasMore) return items;
+      offset += page.limit;
+    }
+  }
+  throw new Error("Character catalog changed repeatedly while loading.");
+}
+
 /** Compact character rows for surfaces that need search and navigation only. */
 export function useAllCharacterCatalog(enabled = true) {
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "all"] as const,
-    queryFn: async ({ signal }) => {
-      const items: CharacterCatalogEntry[] = [];
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        items.length = 0;
-        let offset = 0;
-        let generation: number | undefined;
-        while (true) {
-          const params = new URLSearchParams({ limit: String(LIBRARY_PAGE_SIZE), offset: String(offset) });
-          const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
-          generation ??= page.catalogGeneration;
-          if (page.catalogGeneration !== generation) break;
-          items.push(...page.items);
-          if (!page.hasMore) return items;
-          offset += page.limit;
-        }
-      }
-      throw new Error("Character catalog changed repeatedly while loading.");
-    },
+    queryFn: ({ signal }) => fetchWholeCatalog(signal),
     enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Every card in one folder. Folders load on their own, so they never wait for root pages. */
+export function useCharacterFolderMembers(folderId: string | null, sort: string) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "folder", folderId, sort] as const,
+    queryFn: ({ signal }) => fetchWholeCatalog(signal, { folder: folderId!, ...(sort ? { sort } : {}) }),
+    enabled: folderId !== null,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Every tag in the library, so filter chips do not depend on loaded pages. */
+export function useCharacterCatalogTags() {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "tags"] as const,
+    queryFn: ({ signal }) => api.get<string[]>("/characters/catalog/tags", { signal }),
     staleTime: 5 * 60_000,
   });
 }
@@ -1541,12 +1579,20 @@ export function useCharacterGroups() {
   });
 }
 
+// The root list hides folder members and pages carry folder counts, so folder edits refresh both.
+function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    qc.invalidateQueries({ queryKey: characterKeys.list() }),
+  ]);
+}
+
 export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; description?: string; characterIds?: string[] }) =>
       api.post("/characters/groups", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
 
@@ -1555,7 +1601,7 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
 
@@ -1563,7 +1609,7 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+    onSuccess: () => invalidateGroupsAndCatalog(qc),
   });
 }
 

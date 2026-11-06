@@ -29,4 +29,8 @@ export type CharacterCatalogPage = {
   offset: number;
   hasMore: boolean;
   catalogGeneration: number;
+  /** Matching cards across all pages. */
+  total: number;
+  /** Matching cards per folder id, before the folder filter. */
+  folderCounts: Record<string, number>;
 };

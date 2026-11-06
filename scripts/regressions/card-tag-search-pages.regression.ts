@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // including storage filtering before pagination, rather than mock search results.
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
-const [{ buildApp }, { getDB }, { characters, personas }] = await Promise.all([
+const [{ buildApp }, { getDB }, { characters, characterGroups, personas }] = await Promise.all([
   import("../../packages/server/src/app.js"),
   import("../../packages/server/src/db/connection.js"),
   import("../../packages/server/src/db/schema/index.js"),
@@ -130,6 +130,30 @@ try {
       );
     }
   }
+
+  // Tag chips, excluded tags and folders filter on the server, so they cover cards outside loaded pages.
+  type CatalogBody = { items: { id: string }[]; total: number; folderCounts: Record<string, number> };
+  const catalog = async (search: string, extra: string) =>
+    (await getPage("/api/characters/catalog", search, 100, 0, extra)) as unknown as CatalogBody;
+  const ids = (body: CatalogBody) => body.items.map((row) => row.id);
+  const modernAu = await catalog("", "&tag=modern%20au");
+  assert.deepEqual(ids(modernAu).sort(), ["tag-search-target-a", "tag-search-target-b"]);
+  assert.equal(modernAu.total, 2);
+  assert.equal(ids(await catalog("", "&tag=Genshin&tag=FATUI%2C%20HARBINGER"))[0], "tag-search-target-a");
+  assert.deepEqual(ids(await catalog("Target", "&excludeTag=Fatui%2C%20Harbinger")), ["tag-search-target-b"]);
+  await db.insert(characterGroups).values({
+    id: "tag-search-folder",
+    name: "Folder",
+    characterIds: JSON.stringify(["tag-search-target-a"]),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const rootOnly = await catalog("Target", "&folder=none");
+  assert.deepEqual(ids(rootOnly), ["tag-search-target-b"]);
+  assert.equal(rootOnly.folderCounts["tag-search-folder"], 1);
+  assert.deepEqual(ids(await catalog("", "&folder=tag-search-folder")), ["tag-search-target-a"]);
+  const tags = await app.inject({ method: "GET", url: "/api/characters/catalog/tags" });
+  assert.ok((tags.json() as string[]).includes("Modern AU"));
 } finally {
   await app.close();
 }

@@ -15403,6 +15403,7 @@
   "ui.panels.characterspanel.favorites": "Favorites",
   "ui.panels.characterspanel.favs": "Favs",
   "ui.panels.characterspanel.loadMoreValue1Loaded": "Load more ({{value1}} loaded)",
+  "ui.panels.characterspanel.loadMoreValue1OfValue2": "Load more ({{value1}} of {{value2}})",
   "ui.panels.characterspanel.noCharactersYet": "No characters yet",
   "ui.panels.characterspanel.noFolder": "No folder",
   "ui.panels.characterspanel.noMatchesFound": "No matches found",

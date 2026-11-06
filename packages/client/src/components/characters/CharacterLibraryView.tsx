@@ -34,6 +34,7 @@ import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { resolveSelfCardAssets } from "../../lib/card-asset-links";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
   useUIStore,
@@ -581,6 +582,7 @@ export function CharacterLibraryView() {
     if (isPersonaLibrary) void personaPages.fetchNextPage();
     else void characterPages.fetchNextPage();
   };
+  const loadMoreSentinelRef = useLoadMoreWhenNear(fetchNextPage, isLoading || !hasNextPage || isFetchingNextPage);
 
   const placeholderClass = isPersonaLibrary ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
   const newCardButtonClass = cn(
@@ -748,6 +750,7 @@ export function CharacterLibraryView() {
             </div>
           )}
 
+          {!isLoading && hasNextPage && <div ref={loadMoreSentinelRef} aria-hidden className="h-px" />}
           {!isLoading && hasNextPage && (
             <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex justify-center border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6">
               <button
@@ -758,7 +761,12 @@ export function CharacterLibraryView() {
               >
                 {isFetchingNextPage
                   ? localizeUi("ui.characters.characterlibraryview.loading")
-                  : localizeUi("ui.characters.characterlibraryview.loadMoreValue1Loaded", { value1: cards.length })}
+                  : isPersonaLibrary
+                    ? localizeUi("ui.characters.characterlibraryview.loadMoreValue1Loaded", { value1: cards.length })
+                    : localizeUi("ui.panels.characterspanel.loadMoreValue1OfValue2", {
+                        value1: cards.length,
+                        value2: characterPages.data?.pages[0]?.total ?? cards.length,
+                      })}
               </button>
             </div>
           )}

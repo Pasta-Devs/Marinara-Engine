@@ -19,6 +19,8 @@ import {
   fetchAllCharacterPages,
   flattenCharacterPages,
   useCharacterPages,
+  useCharacterFolderMembers,
+  useCharacterCatalogTags,
   useDeleteCharacter,
   useCharacterGroups,
   useCreateGroup,
@@ -222,11 +224,32 @@ export function CharactersPanel() {
   const deferredSearch = useDeferredValue(search);
   const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
-  const characterPages = useCharacterPages({ search: serverSearch, sort, favoriteFilter: serverFavoriteFilter });
-  const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
+  const folderFilterActive =
+    search.trim().length > 0 || includedTagValues.length > 0 || excludedTagValues.length > 0 || favFilter !== "all";
+  // Filters run on the server so they cover every card, not only loaded pages. Without filters the
+  // root list skips folder members, and the open folder loads its own members.
+  const characterPages = useCharacterPages({
+    search: serverSearch,
+    sort,
+    favoriteFilter: serverFavoriteFilter,
+    tags: includedTagValues,
+    excludeTags: excludedTagValues,
+    folder: folderFilterActive ? undefined : "none",
+  });
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const folderMembers = useCharacterFolderMembers(folderFilterActive ? null : expandedGroupId, sort);
+  const catalogTags = useCharacterCatalogTags();
+  const firstPage = characterPages.data?.pages[0];
+  const characters = useMemo(() => {
+    const rows = flattenCharacterPages(characterPages.data);
+    const members = folderMembers.data;
+    if (!members?.length) return rows;
+    const loaded = new Set(rows.map((row) => row.id));
+    const merged: typeof rows = [...rows, ...members.filter((member) => !loaded.has(member.id))];
+    return merged;
+  }, [characterPages.data, folderMembers.data]);
   const isLoading = characterPages.isLoading;
 
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [draggedCharacterId, setDraggedCharacterId] = useState<string | null>(null);
@@ -328,14 +351,14 @@ export function CharactersPanel() {
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+    const tagSet = new Set<string>(catalogTags.data);
     for (const c of parsedCharacters) {
       for (const t of getCharacterTags(c)) {
         tagSet.add(t);
       }
     }
     return [...tagSet].sort((a, b) => a.localeCompare(b));
-  }, [parsedCharacters]);
+  }, [catalogTags.data, parsedCharacters]);
 
   const handleDeleteTag = useCallback(
     async (tag: string) => {
@@ -518,8 +541,6 @@ export function CharactersPanel() {
     () => new Map(sortedCharacters.map((character, index) => [character.id, index])),
     [sortedCharacters],
   );
-  const folderFilterActive =
-    search.trim().length > 0 || includedTags.size > 0 || excludedTags.size > 0 || favFilter !== "all";
 
   const visibleRootCharacters = useMemo(
     () => sortedCharacters.filter((char) => !folderedCharacterIds.has(char.id)),
@@ -1043,6 +1064,10 @@ export function CharactersPanel() {
               (characterOrder.get(a) ?? sortedCharacters.length) - (characterOrder.get(b) ?? sortedCharacters.length),
           );
           if (folderFilterActive && folderMemberIds.length === 0) return null;
+          // Filtered lists load folder members page by page; the server count covers the rest.
+          const folderCount = folderFilterActive
+            ? (firstPage?.folderCounts[group.id] ?? folderMemberIds.length)
+            : folderMemberIds.length;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
           const isEditing = editingGroupId === group.id;
 
@@ -1130,24 +1155,24 @@ export function CharactersPanel() {
                     </>
                   )}
                 </div>
-                {folderMemberIds.length > 0 && (
+                {folderCount > 0 && (
                   <span
                     data-folder-item-count="inline"
                     className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
                   >
-                    {folderMemberIds.length}
+                    {folderCount}
                   </span>
                 )}
                 <div
                   data-folder-actions
                   className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
                 >
-                  {folderMemberIds.length > 0 && (
+                  {folderCount > 0 && (
                     <span
                       data-folder-item-count="actions"
                       className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
                     >
-                      {folderMemberIds.length}
+                      {folderCount}
                     </span>
                   )}
                   <button
@@ -1842,7 +1867,10 @@ export function CharactersPanel() {
         >
           {characterPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
-            : localizeUi("ui.panels.characterspanel.loadMoreValue1Loaded", { value1: parsedCharacters.length })}
+            : localizeUi("ui.panels.characterspanel.loadMoreValue1OfValue2", {
+                value1: characterPages.data?.pages.reduce((count, page) => count + page.items.length, 0) ?? 0,
+                value2: firstPage?.total ?? 0,
+              })}
         </PanelLoadMoreBar>
       )}
 
