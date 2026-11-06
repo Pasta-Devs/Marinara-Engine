@@ -6682,7 +6682,7 @@ input.ov-edhead__title:focus {
 /* "+ Personality" style add-field chips: tinted with the theme accent, close to the fields they extend. */
 .ov-ed .ov-addchips {
   gap: 0.375rem;
-  margin-top: -0.625rem !important;
+  margin-top: 0.75rem !important;
 }
 /* Metadata / Advanced are moved to the end with `order`, so the sibling spacing rule misses them. */
 .ov-ed .mari-editor-content-inner > :is([data-editor-section="metadata"], [data-editor-section="advanced"]) {
@@ -7731,4 +7731,14 @@ input.ov-edhead__title:focus {
 }
 :root[data-overhaul] .ov-help-row > :last-child:not(:has(> button[aria-label^="Show help"])) {
   margin-left: auto;
+}
+
+/* Connection editor (upstream's account-first editor inside the Connections pane): in a narrow pane the
+   header wraps its actions onto a second line, so let it grow instead of overlapping the first field. */
+[data-overhaul] .mari-connection-scope > .mari-editor-header {
+  height: auto;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  padding-block: 0.625rem;
 }
