@@ -1,14 +1,51 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { resolveLocalBackendHeaders } from "../../packages/server/src/services/image/image-generation.js";
 
-const { fetchComfyUiLoaderModelNames, postSwarmUiJson } =
+const { fetchComfyUiLoaderModelNames, localBackendDiscoveryHeaders, postSwarmUiJson } =
   await import("../../packages/server/src/routes/connections.routes.js");
 
 const validHeaders = { "x-test-header": "test-value" };
-const extraHeaders = resolveLocalBackendHeaders("fixture-key", validHeaders);
+const imageDefaults = (service: string, comfyui: Record<string, unknown> = {}) =>
+  JSON.stringify({
+    imageGeneration: { version: 1, service, seed: -1, customHeaders: validHeaders, comfyui },
+  });
+
+// The helper resolves headers from realistic stored rows, even when the
+// backend behind the base URL is not inferable (proxied host, blank model,
+// no explicit service selected).
+const comfyRow = {
+  apiKey: "fixture-key",
+  provider: "image_generation",
+  baseUrl: "http://my-proxy:9000",
+  model: "",
+  defaultParameters: imageDefaults("comfyui"),
+};
+const swarmRow = {
+  ...comfyRow,
+  apiKey: "session-key",
+  imageGenerationSource: "swarmui",
+};
+const automaticRow = { ...comfyRow, apiKey: "", imageService: "automatic1111" };
+const videoRow = {
+  apiKey: "",
+  provider: "video_generation",
+  defaultParameters: JSON.stringify({
+    videoGeneration: { version: 1, service: "comfyui", customHeaders: validHeaders, comfyui: {} },
+  }),
+};
+const extraHeaders = localBackendDiscoveryHeaders(comfyRow);
 assert.equal(extraHeaders.Authorization, "Bearer fixture-key");
 assert.equal(extraHeaders["x-test-header"], "test-value");
+for (const [label, row] of [
+  ["swarmui", swarmRow],
+  ["automatic1111", automaticRow],
+  ["video", videoRow],
+] as const) {
+  const resolved = localBackendDiscoveryHeaders(row);
+  assert.equal(resolved["x-test-header"], "test-value", `${label} keeps custom headers`);
+}
+assert.deepEqual(localBackendDiscoveryHeaders(swarmRow).Authorization, "Bearer session-key");
+assert.equal(localBackendDiscoveryHeaders({ ...comfyRow, apiKey: "" }).Authorization, undefined);
 
 const seen: Array<{ url: string; method: string; authorization?: string; custom?: string; cookie?: string }> = [];
 const checkpointInfo = {
@@ -92,7 +129,7 @@ try {
 
   // SwarmUI discovery carries the session cookie plus custom headers
   // (Authorization would come from the same helper with the Swarm key).
-  const swarmExtra = resolveLocalBackendHeaders("", validHeaders);
+  const swarmExtra = localBackendDiscoveryHeaders({ ...swarmRow, apiKey: "" });
   const session = await postSwarmUiJson(baseUrl, "session-key", "GetNewSession", {}, swarmExtra);
   assert.equal((session as { session_id?: string }).session_id, "s1");
 
