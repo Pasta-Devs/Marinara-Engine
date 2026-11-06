@@ -17,12 +17,14 @@ import { ChevronDown, GripVertical, MousePointerClick, Save, X } from "lucide-re
 import { MOBILE_SHELL_MEDIA_QUERY, isMobileShellViewport, useUIStore } from "../../stores/ui.store";
 import {
   UI_STYLE_LIMITS,
+  UI_STYLE_SHADOWS,
   getUiStyleTarget,
   normalizeUiStyleOverride,
   savedUiStyleTargets,
   serializeUiStyleOverride,
   uiStyleTargetLabel,
   type UiStyleOverride,
+  type UiStyleShadow,
   type UiStyleTarget,
   type UiStyleTargetId,
 } from "../../lib/ui-style-overrides";
@@ -35,7 +37,7 @@ import {
 } from "../panels/settings/SettingControls";
 
 type ColorKey = "background" | "color" | "borderColor";
-type NumberKey = "borderRadius" | "opacity" | "fontSize";
+type NumberKey = "borderRadius" | "borderWidth" | "opacity" | "blur" | "fontSize";
 
 const COLOR_FIELDS: { key: ColorKey; labelKey: string; gradient?: boolean }[] = [
   { key: "background", labelKey: "settings.appearance.uiStyles.background", gradient: true },
@@ -46,9 +48,16 @@ const COLOR_FIELDS: { key: ColorKey; labelKey: string; gradient?: boolean }[] = 
 /** `fallback` is only where the slider rests while the property is unset ("Default"). */
 const NUMBER_FIELDS: { key: NumberKey; labelKey: string; unit: string; fallback: number }[] = [
   { key: "borderRadius", labelKey: "settings.appearance.uiStyles.borderRadius", unit: "px", fallback: 8 },
+  { key: "borderWidth", labelKey: "settings.appearance.uiStyles.borderWidth", unit: "px", fallback: 1 },
   { key: "opacity", labelKey: "settings.appearance.uiStyles.opacity", unit: "%", fallback: 100 },
+  { key: "blur", labelKey: "settings.appearance.uiStyles.blur", unit: "px", fallback: 0 },
   { key: "fontSize", labelKey: "settings.appearance.uiStyles.fontSize", unit: "px", fallback: 14 },
 ];
+
+const SHADOW_IDS = Object.keys(UI_STYLE_SHADOWS) as UiStyleShadow[];
+const ROW_CLASS =
+  "grid min-w-0 items-center gap-1.5 rounded-md bg-[var(--background)]/24 px-1.5 py-1 ring-1 ring-[var(--border)]/25";
+const ROW_LABEL_CLASS = "truncate text-[0.5625rem] font-semibold text-[var(--foreground)]/80";
 
 const MARGIN = 12;
 const CHECKERBOARD: CSSProperties = {
@@ -105,6 +114,7 @@ function StyleChip({ style }: { style: UiStyleOverride }) {
         color: style.color ?? "var(--foreground)",
         borderRadius: Math.min(style.borderRadius ?? 6, 12),
         ...(style.borderColor && { border: `1px solid ${style.borderColor}` }),
+        ...(style.shadow && { boxShadow: UI_STYLE_SHADOWS[style.shadow] }),
       }}
     >
       {t("settings.appearance.uiStyles.sampleText")}
@@ -399,11 +409,10 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
             const valueText =
               value === undefined ? t("settings.appearance.uiStyles.themeDefault") : String(value) + field.unit;
             return (
-              <div
-                key={field.key}
-                className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)_3rem_1.5rem] items-center gap-1.5 rounded-md bg-[var(--background)]/24 px-1.5 py-1 ring-1 ring-[var(--border)]/25"
-              >
-                <span className="truncate text-[0.5625rem] font-semibold text-[var(--foreground)]/80">{label}</span>
+              <div key={field.key} className={cn(ROW_CLASS, "grid-cols-[5rem_minmax(0,1fr)_3rem_1.5rem]")}>
+                <span className={ROW_LABEL_CLASS} title={label}>
+                  {label}
+                </span>
                 <input
                   type="range"
                   aria-label={label}
@@ -426,9 +435,53 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
                 >
                   <X size="0.75rem" />
                 </button>
+                {field.key === "blur" && !!value && (
+                  <span className="col-span-full text-[0.5625rem] text-[var(--muted-foreground)]">
+                    {t("settings.appearance.uiStyles.blurHint")}
+                  </span>
+                )}
               </div>
             );
           })}
+          <div className={cn(ROW_CLASS, "grid-cols-[5rem_minmax(0,1fr)_1.5rem]")}>
+            <span className={ROW_LABEL_CLASS}>{t("settings.appearance.uiStyles.shadow")}</span>
+            <div role="group" aria-label={t("settings.appearance.uiStyles.shadow")} className="grid grid-cols-5 gap-1">
+              {SHADOW_IDS.map((id) => {
+                const name = t(`settings.appearance.uiStyles.shadows.${id}`);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={draft.shadow === id}
+                    aria-label={name}
+                    title={name}
+                    onClick={() => updateField("shadow", id)}
+                    className={cn(
+                      // A fixed light well, so a dark shadow reads in either theme (like the checkerboard).
+                      "grid h-7 place-items-center rounded-md bg-neutral-200 ring-1 ring-[var(--border)] transition-shadow hover:ring-[var(--primary)]/50",
+                      draft.shadow === id && "ring-2 ring-[var(--primary)]",
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="h-3.5 w-5 rounded-sm bg-white"
+                      style={{ boxShadow: UI_STYLE_SHADOWS[id] }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              aria-label={t("settings.appearance.uiStyles.useDefault")}
+              title={t("settings.appearance.uiStyles.useDefault")}
+              onClick={() => updateField("shadow", undefined)}
+              disabled={draft.shadow === undefined}
+              className={SETTINGS_ICON_BUTTON_CLASS}
+            >
+              <X size="0.75rem" />
+            </button>
+          </div>
         </div>
 
         <button

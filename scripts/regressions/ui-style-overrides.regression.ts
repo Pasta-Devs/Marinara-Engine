@@ -248,4 +248,32 @@ assert.equal(
   "an 8-digit hex survives the override sanitizer",
 );
 
+// Border width, background blur and shadow presets. A width draws the real border (theme color when
+// none is picked) instead of the inset outline; blur 0 is `none`, which never traps fixed descendants.
+{
+  const css = buildUiStyleOverridesCss({
+    "top-bar": { borderWidth: 2, blur: 12, shadow: "soft" },
+    sidebar: { borderColor: "red", borderWidth: 0, blur: 0 },
+  });
+  assert.equal(
+    css.split("\n")[0],
+    ':root [data-component="TopBar"]{border-width:2px!important;border-style:solid!important;border-color:var(--border)!important;box-shadow:0 1px 3px rgb(0 0 0 / 0.25)!important;-webkit-backdrop-filter:blur(12px)!important;backdrop-filter:blur(12px)!important}',
+  );
+  assert.ok(
+    css.includes(
+      "border-color:red!important;border-width:0px!important;border-style:solid!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important",
+    ),
+    css,
+  );
+  assert.ok(!css.includes("outline"), "a set border width replaces the inset outline");
+  assert.equal(sanitizeAppCss(css), css, "the new properties pass the theme sanitizer unchanged");
+}
+assert.deepEqual(
+  normalizeUiStyleOverride({ borderWidth: 99, blur: -5, shadow: "huge" }),
+  { borderWidth: 8, blur: 0 },
+  "numbers are clamped and unknown shadows dropped",
+);
+assert.equal(normalizeUiStyleOverride({ shadow: "toString" }), null, "inherited keys are not shadow presets");
+assert.notEqual(serializeUiStyleOverride({ shadow: "soft" }), serializeUiStyleOverride({ shadow: "glow" }));
+
 console.info("UI style override regressions passed.");

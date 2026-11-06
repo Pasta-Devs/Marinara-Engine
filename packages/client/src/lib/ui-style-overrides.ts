@@ -204,15 +204,36 @@ export interface UiStyleOverride {
   opacity?: number;
   /** px */
   fontSize?: number;
+  /** px; with no border color the theme's border color draws it. */
+  borderWidth?: number;
+  /** px of backdrop blur; 0 removes a theme's blur. */
+  blur?: number;
+  shadow?: UiStyleShadow;
 }
+
+/** Shadow presets: a free-form box-shadow is too easy to get wrong for a picker. */
+export const UI_STYLE_SHADOWS = {
+  none: "none",
+  soft: "0 1px 3px rgb(0 0 0 / 0.25)",
+  medium: "0 4px 12px rgb(0 0 0 / 0.35)",
+  strong: "0 12px 32px rgb(0 0 0 / 0.5)",
+  glow: "0 0 14px color-mix(in srgb, var(--primary) 55%, transparent)",
+} as const;
+export type UiStyleShadow = keyof typeof UI_STYLE_SHADOWS;
 
 export type UiStyleOverrides = Partial<Record<UiStyleTargetId, UiStyleOverride>>;
 
 /** [min, max] for the numeric properties. The opacity floor keeps the settings surface (inside the right panel) usable. */
-export const UI_STYLE_LIMITS = { borderRadius: [0, 48], opacity: [30, 100], fontSize: [8, 32] } as const;
+export const UI_STYLE_LIMITS = {
+  borderRadius: [0, 48],
+  opacity: [30, 100],
+  fontSize: [8, 32],
+  borderWidth: [0, 8],
+  blur: [0, 40],
+} as const;
 
 const COLOR_KEYS = ["background", "color", "borderColor"] as const;
-const NUMBER_KEYS = ["borderRadius", "opacity", "fontSize"] as const;
+const NUMBER_KEYS = ["borderRadius", "opacity", "fontSize", "borderWidth", "blur"] as const;
 const COLOR_MAX_LENGTH = 300;
 const COLOR_ALLOWED = /^[\w#\s(),.%/+-]+$/u;
 const COLOR_FORBIDDEN = /url\s*\(|expression|\/\*|\*\//iu;
@@ -254,6 +275,9 @@ export function normalizeUiStyleOverride(value: unknown): UiStyleOverride | null
   for (const key of NUMBER_KEYS) {
     const number = normalizeNumber(value[key], UI_STYLE_LIMITS[key]);
     if (number !== null) out[key] = number;
+  }
+  if (typeof value.shadow === "string" && Object.prototype.hasOwnProperty.call(UI_STYLE_SHADOWS, value.shadow)) {
+    out.shadow = value.shadow as UiStyleShadow;
   }
   return Object.keys(out).length > 0 ? out : null;
 }
@@ -334,7 +358,7 @@ export function normalizeUiStylePresets(value: unknown): UiStylePreset[] {
 export function serializeUiStyleOverride(value: UiStyleOverride | null | undefined): string {
   const clean = normalizeUiStyleOverride(value);
   if (!clean) return "";
-  return JSON.stringify([...COLOR_KEYS, ...NUMBER_KEYS].map((key) => clean[key] ?? null));
+  return JSON.stringify([...COLOR_KEYS, ...NUMBER_KEYS, "shadow" as const].map((key) => clean[key] ?? null));
 }
 
 function declare(declarations: [string, string | number | undefined][]): string {
@@ -347,6 +371,8 @@ function declare(declarations: [string, string | number | undefined][]): string 
 function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[] {
   const root = `:root ${target.selector}`;
   const px = (value: number | undefined) => (value === undefined ? undefined : `${value}px`);
+  const blur = (value: number | undefined) =>
+    value === undefined ? undefined : value > 0 ? `blur(${value}px)` : "none";
   const rules = [
     `${root}{${declare([
       ["background", override.background],
@@ -355,6 +381,14 @@ function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[]
       ["border-radius", px(override.borderRadius)],
       ["opacity", override.opacity === undefined ? undefined : override.opacity / 100],
       ["font-size", px(override.fontSize)],
+      ["border-width", px(override.borderWidth)],
+      ["border-style", override.borderWidth === undefined ? undefined : "solid"],
+      // Unset, the border would take the text color (currentColor).
+      ["border-color", override.borderWidth !== undefined && !override.borderColor ? "var(--border)" : undefined],
+      ["box-shadow", override.shadow && UI_STYLE_SHADOWS[override.shadow]],
+      // Any value but none traps fixed-position descendants, so 0 means none rather than blur(0px).
+      ["-webkit-backdrop-filter", blur(override.blur)],
+      ["backdrop-filter", blur(override.blur)],
     ])}}`,
   ];
   if (override.background && target.surfaces?.length) {
@@ -368,7 +402,8 @@ function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[]
   ]);
   if (inherited) rules.push(`:where(${root} *){${inherited}}`);
   // Most regions have no border to recolor; an inset outline draws one without moving the layout.
-  if (override.borderColor) {
+  // A set border width draws the real border instead.
+  if (override.borderColor && override.borderWidth === undefined) {
     rules.push(
       `${root}:not(:focus-visible){${declare([
         ["outline", `1px solid ${override.borderColor}`],
