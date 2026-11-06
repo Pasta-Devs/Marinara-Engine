@@ -34,6 +34,8 @@ import { cn } from "../../lib/utils";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatBranchGraphButton } from "./ChatBranchGraphWindow";
+import { FloatPortal } from "../ui/FloatPortal";
+import { useWindowFloat, WINDOW_FLOAT_Z } from "../ui/useWindowFloat";
 
 type BranchRow = {
   id: string;
@@ -70,10 +72,15 @@ export function ChatBranchesPanel({
   const overhaul = useOverhaulLook();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const exportListRef = useRef<HTMLDivElement>(null);
+  // In a popped-out window the menu floats over the chat instead of being cut off by the window.
+  const exportFloat = useWindowFloat(exportMenuRef, exportMenuOpen);
   useEffect(() => {
     if (!exportMenuOpen) return;
     const onDown = (event: PointerEvent) => {
-      if (!exportMenuRef.current?.contains(event.target as Node)) setExportMenuOpen(false);
+      const target = event.target as Node;
+      if (!exportMenuRef.current?.contains(target) && !exportListRef.current?.contains(target))
+        setExportMenuOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setExportMenuOpen(false);
@@ -232,44 +239,61 @@ export function ChatBranchesPanel({
                 <ChevronDown size="0.75rem" />
               </button>
               {exportMenuOpen ? (
-                <div className="ov-menu ov-cb-io__menu" role="menu">
-                  {(
-                    [
-                      { format: "jsonl", label: "JSONL", ext: ".jsonl", hint: "Re-importable chat file" },
-                      { format: "text", label: "Plain text", ext: ".txt", hint: "Messages as plain text" },
-                      { format: "markdown", label: "Markdown", ext: ".md", hint: "Formatted for notes and docs" },
-                      { format: "html", label: "Story", ext: ".html", hint: "Styled page to share or print" },
-                    ] as const
-                  ).map((item) => (
-                    <button
-                      key={item.format}
-                      type="button"
-                      role="menuitem"
-                      title={item.hint}
-                      onClick={() => {
-                        setExportMenuOpen(false);
-                        exportChat.mutate({ chatId: activeChatId, format: item.format });
-                      }}
-                    >
-                      <span>{item.label}</span>
-                      <small>{item.ext}</small>
-                    </button>
-                  ))}
-                  {allowRangeExport ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="ov-cb-io__menu-range"
-                      title={localizeUi("chat.rangeExport.openTitle")}
-                      onClick={() => {
-                        setExportMenuOpen(false);
-                        requestChatMessageRangeExport(activeChatId);
-                      }}
-                    >
-                      <span>{localizeUi("chat.rangeExport.open")}…</span>
-                    </button>
-                  ) : null}
-                </div>
+                <FloatPortal float={exportFloat}>
+                  <div
+                    ref={exportListRef}
+                    className="ov-menu ov-cb-io__menu"
+                    role="menu"
+                    style={
+                      exportFloat
+                        ? {
+                            position: "fixed",
+                            top: exportFloat.bottom + 4,
+                            right: window.innerWidth - exportFloat.right,
+                            left: "auto",
+                            zIndex: WINDOW_FLOAT_Z,
+                          }
+                        : undefined
+                    }
+                  >
+                    {(
+                      [
+                        { format: "jsonl", label: "JSONL", ext: ".jsonl", hint: "Re-importable chat file" },
+                        { format: "text", label: "Plain text", ext: ".txt", hint: "Messages as plain text" },
+                        { format: "markdown", label: "Markdown", ext: ".md", hint: "Formatted for notes and docs" },
+                        { format: "html", label: "Story", ext: ".html", hint: "Styled page to share or print" },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.format}
+                        type="button"
+                        role="menuitem"
+                        title={item.hint}
+                        onClick={() => {
+                          setExportMenuOpen(false);
+                          exportChat.mutate({ chatId: activeChatId, format: item.format });
+                        }}
+                      >
+                        <span>{item.label}</span>
+                        <small>{item.ext}</small>
+                      </button>
+                    ))}
+                    {allowRangeExport ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="ov-cb-io__menu-range"
+                        title={localizeUi("chat.rangeExport.openTitle")}
+                        onClick={() => {
+                          setExportMenuOpen(false);
+                          requestChatMessageRangeExport(activeChatId);
+                        }}
+                      >
+                        <span>{localizeUi("chat.rangeExport.open")}…</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </FloatPortal>
               ) : null}
             </div>
             <button
