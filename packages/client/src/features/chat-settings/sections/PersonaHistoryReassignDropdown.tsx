@@ -75,7 +75,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
           type="button"
           onClick={() => setOpen(true)}
           disabled={!targetName}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
+          className="ov-persona-reassign flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
         >
           <History size="0.75rem" />
           <span>{localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}</span>

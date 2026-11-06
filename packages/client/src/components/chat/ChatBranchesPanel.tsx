@@ -200,11 +200,12 @@ export function ChatBranchesPanel({
 
   return (
     <div data-chat-branches className="space-y-2">
-      <ChatBranchGraphButton />
+      {overhaul ? null : <ChatBranchGraphButton />}
       <div>
         <input ref={importInputRef} type="file" accept=".jsonl" onChange={handleImportChat} className="hidden" />
         {overhaul ? (
           <div className="ov-cb-io">
+            <ChatBranchGraphButton compact />
             <button
               type="button"
               className="ov-cb-io__btn"
@@ -213,7 +214,9 @@ export function ChatBranchesPanel({
               title={localizeUi("ui.chat.chatbranchselector.import")}
             >
               <Download size="0.8125rem" />
-              {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
+              <span className="ov-cb-io__label">
+                {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
+              </span>
             </button>
             <div className="ov-menu-wrap" ref={exportMenuRef}>
               <button
@@ -225,7 +228,7 @@ export function ChatBranchesPanel({
                 onClick={() => setExportMenuOpen((open) => !open)}
               >
                 <Upload size="0.8125rem" />
-                {exportChat.isPending ? "..." : "Export"}
+                <span className="ov-cb-io__label">{exportChat.isPending ? "..." : "Export"}</span>
                 <ChevronDown size="0.75rem" />
               </button>
               {exportMenuOpen ? (
@@ -252,6 +255,20 @@ export function ChatBranchesPanel({
                       <small>{item.ext}</small>
                     </button>
                   ))}
+                  {allowRangeExport ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="ov-cb-io__menu-range"
+                      title={localizeUi("chat.rangeExport.openTitle")}
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        requestChatMessageRangeExport(activeChatId);
+                      }}
+                    >
+                      <span>{localizeUi("chat.rangeExport.open")}…</span>
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -262,19 +279,8 @@ export function ChatBranchesPanel({
               title={localizeUi("chatInsights.stats.open")}
             >
               <ChartColumn size="0.8125rem" />
-              {localizeUi("chatInsights.stats.button")}
+              <span className="ov-cb-io__label">{localizeUi("chatInsights.stats.button")}</span>
             </button>
-            {allowRangeExport && (
-              <button
-                type="button"
-                className="ov-cb-io__btn"
-                onClick={() => requestChatMessageRangeExport(activeChatId)}
-                title={localizeUi("chat.rangeExport.openTitle")}
-              >
-                <ListChecks size="0.8125rem" />
-                {localizeUi("chat.rangeExport.open")}
-              </button>
-            )}
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-1.5">
