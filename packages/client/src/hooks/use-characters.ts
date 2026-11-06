@@ -36,7 +36,6 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   PROFESSOR_MARI_ID,
   type CharacterData,
-  type CharacterCatalogEntry,
   type CharacterCatalogPage,
   type CharacterCatalogSummaryPage,
   type CharacterCardVersion,
@@ -201,58 +200,13 @@ export function useCharacterPanelCatalog(options: {
   });
 }
 
-async function fetchWholeCatalog(signal: AbortSignal, extra: string[][] = []) {
-  const items: CharacterCatalogEntry[] = [];
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    items.length = 0;
-    let offset = 0;
-    let generation: number | undefined;
-    while (true) {
-      const params = new URLSearchParams([...extra, ["limit", String(LIBRARY_PAGE_SIZE)], ["offset", String(offset)]]);
-      const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
-      generation ??= page.catalogGeneration;
-      if (page.catalogGeneration !== generation) break;
-      items.push(...page.items);
-      if (!page.hasMore) return items;
-      offset += page.limit;
-    }
-  }
-  throw new Error("Character catalog changed repeatedly while loading.");
-}
-
 /** Compact character rows for surfaces that need search and navigation only. */
 export function useAllCharacterCatalog(enabled = true) {
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "all"] as const,
-    queryFn: ({ signal }) => fetchWholeCatalog(signal),
+    queryFn: async ({ signal }) =>
+      (await api.get<CharacterCatalogSummaryPage>("/characters/catalog?view=summary", { signal })).items,
     enabled,
-    staleTime: 5 * 60_000,
-  });
-}
-
-/**
- * Every matching card in one folder, or in any folder ("any"). Folders load on their own,
- * so they never wait for root pages and filtered folders are complete.
- */
-export function useCharacterFolderMembers(
-  folder: string | null,
-  filters: { search: string; sort: string; favoriteFilter: string; tags: string[]; excludeTags: string[] },
-) {
-  return useQuery({
-    queryKey: [...characterKeys.list(), "catalog", "folder", folder, filters] as const,
-    queryFn: ({ signal }) =>
-      fetchWholeCatalog(signal, [
-        ["folder", folder!],
-        ...(filters.search ? [["search", filters.search]] : []),
-        ...(filters.sort ? [["sort", filters.sort]] : []),
-        ...(filters.favoriteFilter ? [["favoriteFilter", filters.favoriteFilter]] : []),
-        ...filters.tags.map((tag) => ["tag", tag]),
-        ...filters.excludeTags.map((tag) => ["excludeTag", tag]),
-      ]),
-    enabled: folder !== null,
-    // Keep the old members while a new filter loads, but only for the same folder.
-    placeholderData: (previousData, previousQuery) =>
-      folder !== null && previousQuery?.queryKey.includes(folder) ? previousData : undefined,
     staleTime: 5 * 60_000,
   });
 }
