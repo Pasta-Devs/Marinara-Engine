@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // UiStyleOverridesInjector: applies the user's saved (and in-progress) region
-// restyling as one <style> tag, and hosts the full-screen element picker.
+// and block restyling as one <style> tag, and hosts the full-screen element picker.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -10,36 +10,64 @@ import { useUIStore } from "../../stores/ui.store";
 import { sanitizeAppCss } from "../../lib/theme-css";
 import { UiStyleEditorCard } from "./UiStyleEditorCard";
 import {
-  UI_STYLE_TARGETS,
   buildUiStyleOverridesCss,
-  resolveUiStyleTarget,
+  getUiStyleTarget,
+  resolveUiStyleChain,
+  uiStyleTargetLabel,
   type UiStyleOverrides,
   type UiStyleTargetId,
 } from "../../lib/ui-style-overrides";
 
 const STYLE_ELEMENT_ID = "marinara-ui-style-overrides";
 const OVERLAY_ATTRIBUTE = "data-ui-style-overlay";
+/** Outlines drawn for the other blocks a pick would restyle; the count still covers all of them. */
+const MAX_SIBLING_OUTLINES = 60;
+
+type Box = { top: number; left: number; width: number; height: number };
 
 interface PickHit {
-  id: UiStyleTargetId;
-  rect: { top: number; left: number; width: number; height: number };
+  /** Outermost first; the last level is the one a click picks. */
+  chain: UiStyleTargetId[];
+  rect: Box;
+  /** Blocks only: every other element with the class, and how many there are. */
+  siblings: Box[];
+  count: number;
+}
+
+function toBox(element: Element): Box {
+  const rect = element.getBoundingClientRect();
+  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+}
+
+function isOnScreen({ top, left, width, height }: Box): boolean {
+  return (
+    width > 0 &&
+    height > 0 &&
+    top < window.innerHeight &&
+    left < window.innerWidth &&
+    top + height > 0 &&
+    left + width > 0
+  );
 }
 
 function probeTarget(x: number, y: number): PickHit | null {
   const element = document.elementsFromPoint(x, y).find((candidate) => !candidate.closest(`[${OVERLAY_ATTRIBUTE}]`));
-  const id = resolveUiStyleTarget((element as HTMLElement | undefined) ?? null);
-  if (!id || !element) return null;
-  const selector = UI_STYLE_TARGETS.find((target) => target.id === id)?.selector;
-  const region = selector ? element.closest(selector) : null;
-  if (!region) return null;
-  const rect = region.getBoundingClientRect();
-  return { id, rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height } };
+  const chain = resolveUiStyleChain((element as HTMLElement | undefined) ?? null);
+  const target = getUiStyleTarget(chain.at(-1));
+  const picked = target && element ? element.closest(target.selector) : null;
+  if (!target || !picked) return null;
+  const all = target.className ? Array.from(document.querySelectorAll(target.selector)) : [picked];
+  const siblings = all
+    .filter((other) => other !== picked)
+    .map(toBox)
+    .filter(isOnScreen)
+    .slice(0, MAX_SIBLING_OUTLINES);
+  return { chain, rect: toBox(picked), siblings, count: all.length };
 }
 
-function UiStylePickOverlay() {
+function UiStylePickOverlay({ onPick }: { onPick: (chain: UiStyleTargetId[]) => void }) {
   const { t } = useTranslation();
   const setPickMode = useUIStore((s) => s.setUiStylePickMode);
-  const setSelectedTarget = useUIStore((s) => s.setUiStyleSelectedTarget);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [hit, setHit] = useState<PickHit | null>(null);
@@ -85,7 +113,15 @@ function UiStylePickOverlay() {
     };
   }, [reprobe, setPickMode]);
 
-  const label = hit ? t(UI_STYLE_TARGETS.find((target) => target.id === hit.id)?.labelKey ?? "") : "";
+  const label = hit
+    ? hit.chain
+        .map((id) => getUiStyleTarget(id))
+        .filter((target) => target !== null)
+        .map((target) => uiStyleTargetLabel(target, t))
+        .join(" › ")
+    : "";
+  const reach =
+    hit && hit.chain.at(-1)?.startsWith("class:") ? t("settings.appearance.uiStyles.reach", { count: hit.count }) : "";
 
   // ponytail: the overlay probes the main document only, so detached/pop-out windows are not pickable
   // (the region dropdown is the path there); upgrade path is a per-window overlay host.
@@ -109,12 +145,19 @@ function UiStylePickOverlay() {
         event.stopPropagation();
         const picked = probeTarget(event.clientX, event.clientY);
         if (!picked) return;
-        setSelectedTarget(picked.id);
+        onPick(picked.chain);
         setPickMode(false);
       }}
     >
       {hit && (
         <>
+          {hit.siblings.map((box, index) => (
+            <div
+              key={index}
+              className="pointer-events-none fixed rounded-sm border border-dashed border-[var(--primary)]/70"
+              style={box}
+            />
+          ))}
           <div
             className="pointer-events-none fixed rounded-sm border-2 border-[var(--primary)] bg-[var(--primary)]/15"
             style={{ top: hit.rect.top, left: hit.rect.left, width: hit.rect.width, height: hit.rect.height }}
@@ -124,6 +167,7 @@ function UiStylePickOverlay() {
             style={{ top: Math.max(4, hit.rect.top - 24), left: Math.max(4, hit.rect.left) }}
           >
             {label}
+            {reach && <span className="font-normal opacity-85"> · {reach}</span>}
           </div>
         </>
       )}
@@ -154,7 +198,17 @@ export function UiStyleOverridesInjector() {
       selectedTarget: s.uiStyleSelectedTarget,
     })),
   );
-  const editedTarget = UI_STYLE_TARGETS.find((target) => target.id === selectedTarget);
+  const setSelectedTarget = useUIStore((s) => s.setUiStyleSelectedTarget);
+  const editedTarget = getUiStyleTarget(selectedTarget);
+  // The levels of the last pick, for the card's breadcrumb; a region opened from settings has none.
+  const [pickedChain, setPickedChain] = useState<UiStyleTargetId[]>([]);
+  const onPick = useCallback(
+    (chain: UiStyleTargetId[]) => {
+      setPickedChain(chain);
+      setSelectedTarget(chain.at(-1) ?? null);
+    },
+    [setSelectedTarget],
+  );
 
   const css = useMemo(() => {
     const effective: UiStyleOverrides = preview ? { ...saved, [preview.target]: preview.override ?? undefined } : saved;
@@ -179,6 +233,8 @@ export function UiStyleOverridesInjector() {
 
   useEffect(() => () => document.getElementById(STYLE_ELEMENT_ID)?.remove(), []);
 
-  if (pickMode) return <UiStylePickOverlay />;
-  return editedTarget ? <UiStyleEditorCard key={editedTarget.id} target={editedTarget} /> : null;
+  if (pickMode) return <UiStylePickOverlay onPick={onPick} />;
+  if (!editedTarget) return null;
+  const levels = pickedChain.includes(editedTarget.id) ? pickedChain : [editedTarget.id];
+  return <UiStyleEditorCard key={editedTarget.id} target={editedTarget} levels={levels} />;
 }

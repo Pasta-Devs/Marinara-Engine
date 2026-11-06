@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// UiStyleEditorCard: the floating editor for one picked interface region.
+// UiStyleEditorCard: the floating editor for one picked interface region or block.
 // Edits preview live and only persist on Save (like TrackerCardColorSettings).
 // Desktop: a draggable card placed beside the region. Phone: a bottom sheet.
 // ──────────────────────────────────────────────
@@ -17,11 +17,14 @@ import { ChevronDown, GripVertical, MousePointerClick, Save, X } from "lucide-re
 import { MOBILE_SHELL_MEDIA_QUERY, isMobileShellViewport, useUIStore } from "../../stores/ui.store";
 import {
   UI_STYLE_LIMITS,
-  UI_STYLE_TARGETS,
+  getUiStyleTarget,
   normalizeUiStyleOverride,
+  savedUiStyleTargets,
   serializeUiStyleOverride,
+  uiStyleTargetLabel,
   type UiStyleOverride,
   type UiStyleTarget,
+  type UiStyleTargetId,
 } from "../../lib/ui-style-overrides";
 import { ColorPicker } from "../ui/ColorPicker";
 import { cn } from "../../lib/utils";
@@ -109,7 +112,8 @@ function StyleChip({ style }: { style: UiStyleOverride }) {
   );
 }
 
-export function UiStyleEditorCard({ target }: { target: UiStyleTarget }) {
+/** `levels`: what the pick could restyle, outermost first; the card's breadcrumb switches between them. */
+export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; levels: UiStyleTargetId[] }) {
   const { t } = useTranslation();
   const saved = useUIStore((s) => s.uiStyleOverrides);
   const saveOverride = useUIStore((s) => s.saveUiStyleOverride);
@@ -117,14 +121,17 @@ export function UiStyleEditorCard({ target }: { target: UiStyleTarget }) {
   const setSelectedTarget = useUIStore((s) => s.setUiStyleSelectedTarget);
   const setPreview = useUIStore((s) => s.setUiStylePreview);
 
-  const regionName = t(target.labelKey);
+  const regionName = uiStyleTargetLabel(target, t);
+  const crumbs = levels.map((id) => getUiStyleTarget(id)).filter((level) => level !== null);
+  // A block restyles every element with its class, across the app; say how far it reaches here.
+  const reach = target.className ? document.querySelectorAll(target.selector).length : null;
   const savedOverride = saved[target.id] ?? null;
   // The card is keyed to its region, so the edit never outlives it.
   const [edit, setEdit] = useState<UiStyleOverride | null>(null);
   const draft: UiStyleOverride = edit ?? savedOverride ?? {};
   const dirty = serializeUiStyleOverride(draft) !== serializeUiStyleOverride(savedOverride);
   const [panel, setPanel] = useState<ColorKey | "copy" | null>(null);
-  const copySources = UI_STYLE_TARGETS.filter((other) => other.id !== target.id && saved[other.id]);
+  const copySources = savedUiStyleTargets(saved).filter((other) => other.id !== target.id);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<Point | null>(null);
@@ -260,7 +267,46 @@ export function UiStyleEditorCard({ target }: { target: UiStyleTarget }) {
         onPointerCancel={onDragEnd}
       >
         {!mobile && <GripVertical size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold">{regionName}</span>
+        {crumbs.length > 1 ? (
+          <nav
+            aria-label={t("settings.appearance.uiStyles.levels")}
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5 text-xs"
+          >
+            {crumbs.map((level, index) => {
+              const current = level.id === target.id;
+              return (
+                <span key={level.id} className="flex min-w-0 max-w-full items-center gap-0.5">
+                  {index > 0 && (
+                    <span aria-hidden="true" className="text-[var(--muted-foreground)]">
+                      ›
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTarget(level.id)}
+                    disabled={current || dirty}
+                    aria-current={current ? "true" : undefined}
+                    title={
+                      dirty && !current
+                        ? t("settings.appearance.uiStyles.saveOrRevertFirst")
+                        : uiStyleTargetLabel(level, t)
+                    }
+                    className={cn(
+                      "min-w-0 truncate rounded px-1 py-0.5",
+                      current
+                        ? "font-semibold text-[var(--foreground)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:hover:bg-transparent",
+                    )}
+                  >
+                    {uiStyleTargetLabel(level, t)}
+                  </button>
+                </span>
+              );
+            })}
+          </nav>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold">{regionName}</span>
+        )}
         <button
           type="button"
           onClick={handlePickAnother}
@@ -285,6 +331,13 @@ export function UiStyleEditorCard({ target }: { target: UiStyleTarget }) {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
+        {reach !== null && (
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {reach > 0
+              ? t("settings.appearance.uiStyles.reach", { count: reach })
+              : t("settings.appearance.uiStyles.notOnScreen")}
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-1.5">
           {COLOR_FIELDS.map((field) => {
             const value = draft[field.key];
@@ -403,7 +456,7 @@ export function UiStyleEditorCard({ target }: { target: UiStyleTarget }) {
                 className="flex min-w-0 items-center gap-2 rounded-md p-1 text-left text-[0.6875rem] hover:bg-[var(--accent)]"
               >
                 <StyleChip style={saved[other.id] ?? {}} />
-                <span className="min-w-0 truncate">{t(other.labelKey)}</span>
+                <span className="min-w-0 truncate">{uiStyleTargetLabel(other, t)}</span>
               </button>
             ))}
           </div>

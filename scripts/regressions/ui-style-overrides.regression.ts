@@ -5,6 +5,7 @@ import {
   normalizeUiStyleOverride,
   normalizeUiStyleOverrides,
   normalizeUiStylePresets,
+  resolveUiStyleChain,
   resolveUiStyleTarget,
   serializeUiStyleOverride,
   UI_STYLE_TARGETS,
@@ -12,7 +13,10 @@ import {
 } from "../../packages/client/src/lib/ui-style-overrides.js";
 
 const css = buildUiStyleOverridesCss({ "top-bar": { background: "#123", borderRadius: 8, opacity: 90 } });
-assert.equal(css, ':root [data-component="TopBar"]{background:#123!important;border-radius:8px!important;opacity:0.9!important}');
+assert.equal(
+  css,
+  ':root [data-component="TopBar"]{background:#123!important;border-radius:8px!important;opacity:0.9!important}',
+);
 assert.equal(sanitizeAppCss(css), css, "generated CSS passes the theme sanitizer unchanged");
 
 // Text color and size reach descendants that set their own; inner layers take the background; a border
@@ -27,9 +31,15 @@ assert.deepEqual(chatCss.split("\n"), [
   ':root [data-component="ChatArea.Roleplay"]:not(:focus-visible){outline:1px solid red!important;outline-offset:-1px!important}',
 ]);
 assert.equal(sanitizeAppCss(chatCss), chatCss, "every rule shape passes the theme sanitizer unchanged");
-assert.equal(new Set(UI_STYLE_TARGETS.map((target) => target.id)).size, UI_STYLE_TARGETS.length, "region ids are unique");
+assert.equal(
+  new Set(UI_STYLE_TARGETS.map((target) => target.id)).size,
+  UI_STYLE_TARGETS.length,
+  "region ids are unique",
+);
 const everyCss = buildUiStyleOverridesCss(
-  Object.fromEntries(UI_STYLE_TARGETS.map((target) => [target.id, { background: "#000", color: "#fff", borderColor: "red" }])),
+  Object.fromEntries(
+    UI_STYLE_TARGETS.map((target) => [target.id, { background: "#000", color: "#fff", borderColor: "red" }]),
+  ),
 );
 assert.equal(everyCss.split("\n").length >= UI_STYLE_TARGETS.length * 3, true, "every region emits its rules");
 assert.equal(sanitizeAppCss(everyCss), everyCss, "every region's selector passes the theme sanitizer unchanged");
@@ -82,6 +92,13 @@ function node(tokens: string[], parent: UiStyleProbe | null): UiStyleProbe {
       }
       return true;
     },
+    getAttribute(name) {
+      if (name !== "class") return null;
+      return tokens
+        .filter((token) => token.startsWith("."))
+        .map((token) => token.slice(1))
+        .join(" ");
+    },
     ...({ tokens } as object),
   };
 }
@@ -93,15 +110,68 @@ const lineBody = node([".mari-message-line-body"], node(['[data-message-role="as
 assert.equal(resolveUiStyleTarget(node([".text"], lineBody)), "assistant-message", "plain layout messages resolve too");
 assert.equal(resolveUiStyleTarget(node([".x"], null)), null);
 
+// Blocks: a pick offers its region, then up to two enclosing `mari-*` blocks, its own block last.
+const shell = node([".mari-editor-shell", ".mari-editor-legacy-bridge"], null);
+const contentInner = node([".mari-editor-content-inner"], shell);
+const panel = node([".mari-editor-panel", ".p-3"], contentInner);
+const field = node([".mari-editor-field", ".w-full"], panel);
+assert.deepEqual(resolveUiStyleChain(field), ["editors", "class:mari-editor-panel", "class:mari-editor-field"]);
+assert.equal(resolveUiStyleTarget(field), "class:mari-editor-field", "a click picks the innermost block");
+assert.deepEqual(resolveUiStyleChain(node([".label"], panel)), [
+  "editors",
+  "class:mari-editor-content-inner",
+  "class:mari-editor-panel",
+]);
+assert.deepEqual(
+  resolveUiStyleChain(node([".mari-x--state", ".mari-Bad"], null)),
+  [],
+  "modifier/invalid classes are no block",
+);
+assert.deepEqual(resolveUiStyleChain(inner), ["user-message"], "a region with no inner block is unchanged");
+
+// Block keys are the synced trust boundary too: only `class:mari-<lowercase-words>` survives.
+const blockOverrides = normalizeUiStyleOverrides({
+  "class:mari-editor-panel": { background: "#123", bogus: 1 },
+  "class:mari-editor-field": { color: "red;}body{display:none" },
+  "class:Mari-x": { color: "red" },
+  "class:mari-x;}body{display:none": { color: "red" },
+  "class:mari-x y": { color: "red" },
+  "class:mari-": { color: "red" },
+  "class:mari--x": { color: "red" },
+  "class:other": { color: "red" },
+  [`class:mari-${"a".repeat(70)}`]: { color: "red" },
+  "mari-editor-panel": { color: "red" },
+  sidebar: { color: "blue" },
+});
+assert.deepEqual(blockOverrides, { sidebar: { color: "blue" }, "class:mari-editor-panel": { background: "#123" } });
+const blockCss = buildUiStyleOverridesCss(blockOverrides);
+assert.ok(blockCss.includes(":root .mari-editor-panel{background:#123!important}"), blockCss);
+assert.ok(blockCss.indexOf(".mari-sidebar") < blockCss.indexOf(".mari-editor-panel"), "blocks come after regions");
+assert.equal(sanitizeAppCss(blockCss), blockCss, "block rules pass the app CSS sanitizer unchanged");
+const manyBlocks = Object.fromEntries(Array.from({ length: 120 }, (_, i) => [`class:mari-b${i}`, { color: "red" }]));
+assert.equal(Object.keys(normalizeUiStyleOverrides(manyBlocks)).length, 100, "block count is capped");
+assert.deepEqual(
+  normalizeUiStylePresets([{ id: "blk", name: "Blocks", overrides: { "class:mari-editor-panel": { opacity: 80 } } }])[0]
+    ?.overrides,
+  { "class:mari-editor-panel": { opacity: 80 } },
+  "presets keep blocks",
+);
+
 // Presets: a synced library of whole-interface snapshots, so everything is re-validated on the way in.
-const goodPreset = { id: "a_1-B", name: "  Night\u0007 mode ", overrides: { sidebar: { background: "#000", bogus: 1 }, nope: { background: "#fff" } } };
+const goodPreset = {
+  id: "a_1-B",
+  name: "  Night\u0007 mode ",
+  overrides: { sidebar: { background: "#000", bogus: 1 }, nope: { background: "#fff" } },
+};
 assert.deepEqual(normalizeUiStylePresets([goodPreset]), [
   { id: "a_1-B", name: "Night mode", overrides: { sidebar: { background: "#000" } } },
 ]);
 assert.deepEqual(normalizeUiStylePresets({ 0: goodPreset }), [], "non-arrays yield no presets");
 assert.deepEqual(normalizeUiStylePresets("x"), []);
 assert.deepEqual(
-  normalizeUiStylePresets([{ ...goodPreset, overrides: { sidebar: { background: "#000", color: "red;} body{display:none" } } }])[0]?.overrides,
+  normalizeUiStylePresets([
+    { ...goodPreset, overrides: { sidebar: { background: "#000", color: "red;} body{display:none" } } },
+  ])[0]?.overrides,
   { sidebar: { background: "#000" } },
   "hostile override values are dropped",
 );
@@ -114,8 +184,19 @@ assert.deepEqual(
   [],
   "presets with nothing valid left are dropped",
 );
-assert.deepEqual(normalizeUiStylePresets([{ ...goodPreset, name: "   " }, { ...goodPreset, name: "\u0001" }, { ...goodPreset, name: 5 }]), []);
-assert.equal(normalizeUiStylePresets([{ ...goodPreset, name: "n".repeat(100) }])[0]?.name.length, 40, "names are capped at 40");
+assert.deepEqual(
+  normalizeUiStylePresets([
+    { ...goodPreset, name: "   " },
+    { ...goodPreset, name: "\u0001" },
+    { ...goodPreset, name: 5 },
+  ]),
+  [],
+);
+assert.equal(
+  normalizeUiStylePresets([{ ...goodPreset, name: "n".repeat(100) }])[0]?.name.length,
+  40,
+  "names are capped at 40",
+);
 for (const id of ["", "a b", "a/b", "x".repeat(65), 7, null]) {
   assert.deepEqual(normalizeUiStylePresets([{ ...goodPreset, id }]), [], `rejects id ${JSON.stringify(id)}`);
 }
@@ -124,7 +205,11 @@ assert.deepEqual(
   ["Night mode"],
   "duplicate ids keep the first",
 );
-const many = Array.from({ length: 45 }, (_, index) => ({ id: `p${index}`, name: `Preset ${index}`, overrides: { sidebar: { opacity: 80 } } }));
+const many = Array.from({ length: 45 }, (_, index) => ({
+  id: `p${index}`,
+  name: `Preset ${index}`,
+  overrides: { sidebar: { opacity: 80 } },
+}));
 assert.equal(normalizeUiStylePresets(many).length, 30, "at most 30 presets");
 
 console.info("UI style override regressions passed.");

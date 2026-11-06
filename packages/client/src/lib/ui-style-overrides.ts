@@ -1,5 +1,6 @@
 // ──────────────────────────────────────────────
-// UI style overrides: user restyling of curated interface regions.
+// UI style overrides: user restyling of curated interface regions and of
+// Engine blocks by their `mari-*` class (every block with that class, app-wide).
 //
 // Pure module (no React, no DOM imports) so regressions can import it. The
 // normalizers are the trust boundary for the synced `uiStyleOverrides` blob: the
@@ -113,40 +114,83 @@ export const UI_STYLE_TARGETS: readonly UiStyleTarget[] = [
   },
 ];
 
-const UI_STYLE_TARGET_IDS = [
-  "top-bar",
-  "sidebar",
-  "center",
-  "right-panel",
-  "floating-window",
-  "modal",
-  "home",
-  "professor-mari",
-  "editors",
-  "tracker-panel",
-  "conversation-surface",
-  "roleplay-surface",
-  "game-narration",
-  "game-panels",
-  "message-name",
-  "user-message",
-  "assistant-message",
-  "composer",
-  "toolbar-button",
-  "menus",
-  "omnibar",
-  "toasts",
-  "text-fields",
-  "buttons",
-] as const;
-
-export type UiStyleTargetId = (typeof UI_STYLE_TARGET_IDS)[number];
+export type UiStyleRegionId =
+  | "top-bar"
+  | "sidebar"
+  | "center"
+  | "right-panel"
+  | "floating-window"
+  | "modal"
+  | "home"
+  | "professor-mari"
+  | "editors"
+  | "tracker-panel"
+  | "conversation-surface"
+  | "roleplay-surface"
+  | "game-narration"
+  | "game-panels"
+  | "message-name"
+  | "user-message"
+  | "assistant-message"
+  | "composer"
+  | "toolbar-button"
+  | "menus"
+  | "omnibar"
+  | "toasts"
+  | "text-fields"
+  | "buttons";
+/** A block target: every element with the class `mari-…`. */
+export type UiStyleClassId = `class:mari-${string}`;
+export type UiStyleTargetId = UiStyleRegionId | UiStyleClassId;
 
 export interface UiStyleTarget {
   id: UiStyleTargetId;
-  labelKey: string;
+  /** Curated regions only; blocks are named by `uiStyleTargetLabel`. */
+  labelKey?: string;
+  /** Blocks only: the `mari-*` class they restyle. */
+  className?: string;
   selector: string;
   surfaces?: readonly string[];
+}
+
+/** Lowercase words joined by single hyphens, so the class doubles as a safe CSS selector. */
+const BLOCK_CLASS = /^mari-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const BLOCK_CLASS_MAX_LENGTH = 64;
+/** At most this many restyled blocks are kept; regions are not counted. */
+export const UI_STYLE_BLOCK_LIMIT = 100;
+
+function isBlockClass(value: string): boolean {
+  return value.length <= BLOCK_CLASS_MAX_LENGTH && BLOCK_CLASS.test(value);
+}
+
+/** The region or block for an id, or null for an unknown id or an invalid class. */
+export function getUiStyleTarget(id: string | null | undefined): UiStyleTarget | null {
+  if (!id) return null;
+  const region = UI_STYLE_TARGETS.find((target) => target.id === id);
+  if (region) return region;
+  const className = id.startsWith("class:") ? id.slice("class:".length) : "";
+  if (!isBlockClass(className)) return null;
+  return { id: id as UiStyleClassId, className, selector: `.${className}` };
+}
+
+/** Translated names for common blocks; any other block is named from its class ("mari-editor-panel" → "Editor panel"). */
+const BLOCK_LABEL_KEYS: Record<string, string> = {
+  "mari-editor-panel": "settings.appearance.uiStyles.blocks.editorPanel",
+  "mari-editor-field": "settings.appearance.uiStyles.blocks.editorField",
+  "mari-editor-header": "settings.appearance.uiStyles.blocks.editorHeader",
+  "mari-editor-action": "settings.appearance.uiStyles.blocks.editorAction",
+  "mari-chrome-control": "settings.appearance.uiStyles.blocks.chromeControl",
+};
+
+export function uiStyleTargetLabel(
+  target: UiStyleTarget,
+  t: (key: string, options?: { defaultValue: string }) => string,
+): string {
+  if (target.labelKey) return t(target.labelKey);
+  const words = (target.className ?? "").replace(/^mari-/u, "").replace(/-/gu, " ");
+  const fallback = words.charAt(0).toUpperCase() + words.slice(1);
+  const key = target.className ? BLOCK_LABEL_KEYS[target.className] : undefined;
+  return key ? t(key, { defaultValue: fallback }) : fallback;
 }
 
 export interface UiStyleOverride {
@@ -214,7 +258,10 @@ export function normalizeUiStyleOverride(value: unknown): UiStyleOverride | null
   return Object.keys(out).length > 0 ? out : null;
 }
 
-/** Drops unknown region ids and regions with nothing valid left. */
+/**
+ * Drops unknown region ids, invalid block classes and targets with nothing valid left. Regions come
+ * first in registry order, then at most `UI_STYLE_BLOCK_LIMIT` blocks in their stored order.
+ */
 export function normalizeUiStyleOverrides(value: unknown): UiStyleOverrides {
   const out: UiStyleOverrides = {};
   if (!isRecord(value)) return out;
@@ -223,7 +270,26 @@ export function normalizeUiStyleOverrides(value: unknown): UiStyleOverrides {
     const override = normalizeUiStyleOverride(value[target.id]);
     if (override) out[target.id] = override;
   }
+  let blocks = 0;
+  for (const [id, raw] of Object.entries(value)) {
+    if (blocks >= UI_STYLE_BLOCK_LIMIT) break;
+    const target = getUiStyleTarget(id);
+    if (!target?.className) continue;
+    const override = normalizeUiStyleOverride(raw);
+    if (!override) continue;
+    out[target.id] = override;
+    blocks += 1;
+  }
   return out;
+}
+
+/** Every saved region and block, regions in registry order first. */
+export function savedUiStyleTargets(overrides: UiStyleOverrides): UiStyleTarget[] {
+  const regions = UI_STYLE_TARGETS.filter((target) => overrides[target.id]);
+  const blocks = Object.keys(overrides)
+    .map((id) => getUiStyleTarget(id))
+    .filter((target): target is UiStyleTarget => !!target?.className && !!overrides[target.id]);
+  return [...regions, ...blocks];
 }
 
 export interface UiStylePreset {
@@ -314,7 +380,8 @@ function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[]
 }
 
 /**
- * Rules for every region with at least one property, in registry order. Declarations are `!important`
+ * Rules for every region with at least one property, in registry order, then every block (after the
+ * regions, so a block inside a region keeps its own text color and size). Declarations are `!important`
  * because chat styles and themes set these properties with `!important` themselves; the `:root ` prefix
  * adds a class of specificity on top. Values are re-normalized here so a caller can never feed the
  * stylesheet an unchecked shape.
@@ -322,7 +389,7 @@ function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[]
 export function buildUiStyleOverridesCss(overrides: UiStyleOverrides): string {
   const clean = normalizeUiStyleOverrides(overrides);
   const rules: string[] = [];
-  for (const target of UI_STYLE_TARGETS) {
+  for (const target of savedUiStyleTargets(clean)) {
     const override = clean[target.id];
     if (override) rules.push(...targetRules(target, override));
   }
@@ -332,15 +399,47 @@ export function buildUiStyleOverridesCss(overrides: UiStyleOverrides): string {
 /** The slice of `Element` the resolver needs; a real Element satisfies it. */
 export interface UiStyleProbe {
   matches(selector: string): boolean;
+  getAttribute(name: string): string | null;
   parentElement: UiStyleProbe | null;
 }
 
-/** Walks up from `start`; the first ancestor matching a region selector is the deepest region. */
-export function resolveUiStyleTarget(start: UiStyleProbe | null): UiStyleTargetId | null {
+/** The app-wide text fields and buttons: an element's own block class names it better. */
+const BROAD_REGIONS: ReadonlySet<UiStyleTargetId> = new Set<UiStyleTargetId>(["text-fields", "buttons"]);
+/** Blocks offered between the region and the picked element; more would be layout wrappers. */
+const MAX_BLOCK_LEVELS = 2;
+
+function blockClassOf(node: UiStyleProbe): string | null {
+  return (node.getAttribute("class") ?? "").split(/\s+/u).find(isBlockClass) ?? null;
+}
+
+/**
+ * The levels a picked element can restyle, outermost first: its nearest region, then up to two
+ * enclosing blocks (by their first `mari-*` class), the element's own block last. A broad region
+ * (text fields, buttons) is offered only for an element with no block class.
+ */
+export function resolveUiStyleChain(start: UiStyleProbe | null): UiStyleTargetId[] {
+  const levels: UiStyleTargetId[] = [];
+  let blocks = 0;
   for (let node = start; node; node = node.parentElement) {
-    for (const target of UI_STYLE_TARGETS) {
-      if (node.matches(target.selector)) return target.id;
+    const current = node;
+    const region = UI_STYLE_TARGETS.find((target) => current.matches(target.selector));
+    if (region && !BROAD_REGIONS.has(region.id)) {
+      levels.push(region.id);
+      break;
+    }
+    const className = blockClassOf(node);
+    const id = className ? (`class:${className}` as UiStyleClassId) : null;
+    if (id && blocks < MAX_BLOCK_LEVELS && !levels.includes(id)) {
+      levels.push(id);
+      blocks += 1;
+    } else if (region && levels.length === 0) {
+      levels.push(region.id);
     }
   }
-  return null;
+  return levels.reverse();
+}
+
+/** The level a click picks: the innermost one. */
+export function resolveUiStyleTarget(start: UiStyleProbe | null): UiStyleTargetId | null {
+  return resolveUiStyleChain(start).at(-1) ?? null;
 }

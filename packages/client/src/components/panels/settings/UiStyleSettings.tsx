@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // UiStyleSettings: launcher for the floating UI style editor. Pick an element
-// (or choose a region), then restyle it in the card; chips reopen saved regions.
+// (or choose a region), then restyle it in the card; chips reopen saved regions and blocks.
 // ──────────────────────────────────────────────
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,8 @@ import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import {
   UI_STYLE_PRESET_LIMITS,
   UI_STYLE_TARGETS,
+  savedUiStyleTargets,
+  uiStyleTargetLabel,
   type UiStylePreset,
   type UiStyleTargetId,
 } from "../../../lib/ui-style-overrides";
@@ -64,7 +66,8 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
   const deletePreset = useUIStore((s) => s.deleteUiStylePreset);
   const [naming, setNaming] = useState<string | null>(null);
 
-  const savedTargets = UI_STYLE_TARGETS.filter((target) => saved[target.id]);
+  const savedTargets = savedUiStyleTargets(saved);
+  const savedBlocks = savedTargets.filter((target) => target.className);
   const lockedTitle = unsaved ? t("settings.appearance.uiStyles.saveOrRevertFirst") : undefined;
 
   // On a phone the settings panel covers the whole app, so step aside to let the user see it.
@@ -131,9 +134,9 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
             className={SELECT_CLASS}
           >
             <option value="">{t("settings.appearance.uiStyles.noneSelected")}</option>
-            {UI_STYLE_TARGETS.map((target) => (
+            {[...UI_STYLE_TARGETS, ...savedBlocks].map((target) => (
               <option key={target.id} value={target.id}>
-                {t(target.labelKey)}
+                {uiStyleTargetLabel(target, t)}
               </option>
             ))}
           </select>
@@ -156,6 +159,8 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
           >
             {savedTargets.map((target) => {
               const style = saved[target.id];
+              // Blocks belong to particular screens; say when this one is elsewhere.
+              const offScreen = !!target.className && !document.querySelector(target.selector);
               return (
                 <button
                   key={target.id}
@@ -174,7 +179,12 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
                       ...(style?.borderColor && { boxShadow: `inset 0 0 0 1px ${style.borderColor}` }),
                     }}
                   />
-                  {t(target.labelKey)}
+                  {uiStyleTargetLabel(target, t)}
+                  {offScreen && (
+                    <span className="text-[var(--muted-foreground)]">
+                      · {t("settings.appearance.uiStyles.notOnScreen")}
+                    </span>
+                  )}
                 </button>
               );
             })}
