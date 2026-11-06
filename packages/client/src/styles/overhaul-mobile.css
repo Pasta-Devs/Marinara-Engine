@@ -3646,7 +3646,7 @@
 }
 
 /* ─── Agent Organizer on phones and tablets ───
-   Landing: ‹ and title on top with ⋯ beside it, Starter kits under; the Installed / Available /
+   Landing: title and + New on top; Starter kits and ⋯ under; the Installed / Available /
    Updates switch spans the width; section, mode and List / Gallery share a line; search and sort
    share the next. Rows are icon, name, tagline and the Get / Open button. */
 :root[data-overhaul="mobile"] .ov-org-root {
@@ -3660,12 +3660,13 @@
   margin-left: 1.875rem;
 }
 :root[data-overhaul="mobile"] .ov-org .ov-gallery__head > .ov-btn--icon {
-  order: 1;
+  order: 4;
+  margin-left: auto;
   width: 2.5rem;
   padding: 0;
   justify-content: center;
 }
-:root[data-overhaul="mobile"] .ov-org .ov-gallery__head > :not(h1, .ov-btn--icon) {
+:root[data-overhaul="mobile"] .ov-org .ov-gallery__head > :not(h1, .ov-btn--icon, .ov-btn--primary) {
   order: 3;
 }
 :root[data-overhaul="mobile"] .ov-org .ov-gallery__head > :not(h1, .ov-btn--icon) .ov-btn {
@@ -3764,7 +3765,7 @@
   grid-row: 1 / span 2;
   padding: 0;
 }
-:root[data-overhaul="mobile"] .ov-org__table .ov-org__icon {
+:root[data-overhaul="mobile"] .ov-org__table :is(.ov-org__icon, .ov-thumb):not(#ovm-x) {
   width: 1.875rem !important;
   height: 1.875rem !important;
   flex-shrink: 0;
