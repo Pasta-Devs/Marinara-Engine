@@ -955,7 +955,10 @@ assert.deepEqual(streamingSetting && { tab: streamingSetting.tab, controlId: str
   tab: "general",
   controlId: "streaming-speed",
 });
-assert.equal(settingsDestinations.find((setting) => setting.controlId === "font-family")?.sectionLabel, "Text & Scale");
+assert.equal(
+  settingsDestinations.find((setting) => setting.controlId === "font-family")?.sectionLabel,
+  "Fonts & Text Size",
+);
 // Tab rows open the tab and nothing else. They used to scroll to a hand-picked
 // "representative" control; the 32 real section rows do that job properly now.
 const appearanceTabRow = settingsDestinations.find((setting) => setting.id === "settings-section:appearance");
@@ -1545,7 +1548,7 @@ assert.ok(!("mariDetailId" in mariSession));
   // labels and lists real section labels - no ids, no descriptions, no aliases -
   // so it stays small and only ever names things the user can actually see.
   assert.ok(QUICK_ANSWER_SETTINGS_LABELS.includes("General:"), "a real tab label heads its group");
-  assert.ok(QUICK_ANSWER_SETTINGS_LABELS.includes("Backup & Export"), "a real section label is present");
+  assert.ok(QUICK_ANSWER_SETTINGS_LABELS.includes("Backup & Restore"), "a real section label is present");
   assert.ok(
     !QUICK_ANSWER_SETTINGS_LABELS.includes("backup-export"),
     "the internal section id does not leak into the prompt",

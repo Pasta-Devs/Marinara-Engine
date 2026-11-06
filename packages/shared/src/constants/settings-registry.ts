@@ -45,7 +45,18 @@ export type SettingsSectionId =
   | "message-tools"
   | "backup-export"
   | "storage-optimization"
-  | "danger-zone";
+  | "danger-zone"
+  | "confirmations-help"
+  | "extras"
+  | "editing-swipes"
+  | "thinking"
+  | "text-colors"
+  | "layout"
+  | "chat-widgets"
+  | "roleplay-avatars"
+  | "visual-novel"
+  | "chat-exports"
+  | "server";
 
 export type SettingsSectionMeta = {
   id: SettingsSectionId;
@@ -109,8 +120,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "application",
     tab: "general",
-    label: "App Behavior",
-    description: "Language, safety confirmations, achievements, music, and playful extras.",
+    label: "Language",
+    description: "The app's language and the documentation's language.",
     aliases: ["language", "delete", "confirm", "music", "achievements", "app"],
   },
   {
@@ -118,7 +129,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     // that opens it, and every jump to this section or its controls opens the omnibar instead.
     id: "omnibar",
     tab: "general",
-    label: "Search and Professor Mari",
+    label: "Professor Mari",
     description: "Search, quick answers, Professor Mari and her appearance. Opens in Search.",
     aliases: ["omnibar", "search", "command palette", "ctrl k", "quick answers", "professor mari", "mari", "mini mari"],
   },
@@ -139,8 +150,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "input-editing",
     tab: "general",
-    label: "Input & Editing",
-    description: "Message input behavior and fast edit controls.",
+    label: "Message Box",
+    description: "Sending messages, quick replies and the microphone.",
     aliases: [
       "enter",
       "send",
@@ -159,22 +170,22 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "text-rules",
     tab: "general",
-    label: "Text Rules",
+    label: "Text Formatting",
     description: "Formatting applied to chat text.",
     aliases: ["quotes", "bold", "dialogue", "latex", "symbols", "typographic"],
   },
   {
     id: "game-playback",
     tab: "general",
-    label: "Game Playback",
-    description: "Game mode reading and navigation.",
+    label: "Game Text",
+    description: "How Game Mode text appears, plays and moves on.",
     aliases: ["game", "text speed", "auto play", "middle mouse", "navigation", "vn"],
   },
   {
     id: "overall-generations",
     tab: "generations",
-    label: "Overall Generations",
-    description: "Shared behavior for image and video generation requests.",
+    label: "Generation Defaults",
+    description: "Behaviour shared by image and video generation.",
     aliases: ["media", "image", "video", "queue", "prompt review", "generation"],
   },
   {
@@ -201,15 +212,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "app-style",
     tab: "appearance",
-    label: "App Style",
-    description: "Theme family, color scheme, accent, and app chrome controls.",
+    label: "Theme",
+    description: "Visual style, color scheme, and background and accent colors.",
     aliases: ["theme", "accent", "rgb", "cursor", "background", "style", "color scheme"],
   },
   {
     id: "text-scale",
     tab: "appearance",
-    label: "Text & Scale",
-    description: "Fonts, display size, chat text colors, and legibility controls.",
+    label: "Fonts & Text Size",
+    description: "Font, display size and chat font size.",
     aliases: [
       "font",
       "google fonts",
@@ -225,8 +236,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "chat-display",
     tab: "appearance",
-    label: "Conversation Display",
-    description: "Conversation layout and shared message text presentation.",
+    label: "Conversation Layout",
+    description: "Rows or bubbles, and avatar shape for Conversation chats.",
     aliases: ["chat", "conversation", "messages", "timestamps", "token", "model", "grouping"],
   },
   {
@@ -239,29 +250,29 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "roleplay-messages",
     tab: "appearance",
-    label: "Roleplay Presentation",
-    description: "Classic and Visual Novel display, avatars, sprites, and message opacity.",
+    label: "Roleplay Messages",
+    description: "Chat position and width, message opacity and stretching.",
     aliases: ["roleplay", "avatar", "sprite", "message", "bubble", "opacity", "portrait"],
   },
   {
     id: "game-presentation",
     tab: "appearance",
-    label: "Game Presentation",
-    description: "Game VN art scale and dialogue display.",
+    label: "Game Art",
+    description: "Portrait and sprite size in Game Mode.",
     aliases: ["game", "vn", "dialogue", "portrait", "sprite", "full body", "presentation"],
   },
   {
     id: "motion-backgrounds",
     tab: "appearance",
-    label: "Atmosphere",
-    description: "Roleplay weather and atmospheric effects.",
+    label: "Effects",
+    description: "Weather and animation effects.",
     aliases: ["motion", "weather", "effects", "atmosphere", "rain", "snow", "fog", "roleplay"],
   },
   {
     id: "conversation-theme",
     tab: "appearance",
-    label: "Conversation Theme",
-    description: "Conversation-mode background gradient by color scheme.",
+    label: "Conversation Background",
+    description: "Background gradient for Conversation chats, per color scheme.",
     aliases: ["conversation", "gradient", "theme", "dark", "light"],
   },
   {
@@ -288,7 +299,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "theme-library",
     tab: "addons",
-    label: "Theme Library",
+    label: "CSS Themes",
     description: "Synced themes and custom theme CSS.",
     aliases: ["themes", "custom css", "css", "library", "export theme"],
   },
@@ -316,22 +327,22 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "admin-access",
     tab: "advanced",
-    label: "Admin Access",
-    description: "Admin authorization for privileged actions.",
+    label: "Security",
+    description: "Admin secret, what may be imported, and images from other websites.",
     aliases: ["admin", "secret", "access", "authorization"],
   },
   {
     id: "multiplayer",
     tab: "advanced",
-    label: "Multiplayer WIP",
+    label: "Multiplayer",
     description: "Optional shared roleplay, conversation and game sessions.",
     aliases: ["multiplayer", "host", "join", "players", "invite", "shared", "online"],
   },
   {
     id: "features",
     tab: "advanced",
-    label: "Features",
-    description: "Optional server behaviours, all off by default.",
+    label: "Lorebooks",
+    description: "Optional lorebook behaviours, off by default.",
     aliases: ["features", "switches", "optional", "provider retry", "lorebook groups"],
   },
   {
@@ -344,51 +355,128 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "support-diagnostics",
     tab: "advanced",
-    label: "Support Diagnostics",
-    description: "Copy technical details for support tickets.",
+    label: "Troubleshooting",
+    description: "Debug mode, the console, and diagnostics for a support request.",
     aliases: ["support", "diagnostics", "system info", "gpu", "model", "ticket", "bug report"],
   },
   {
     id: "request-timeouts",
     tab: "advanced",
-    label: "Request timeouts",
-    description: "Adjust how long text, agents and media wait for a slow backend.",
+    label: "Timeouts & Retries",
+    description: "How long to wait for slow backends, and whether to retry failed calls.",
     aliases: ["timeout", "slow", "koboldcpp", "images", "video", "seconds", "backend"],
   },
   {
     id: "parameters",
     tab: "advanced",
-    label: "Parameters",
+    label: "Custom Request Parameters",
     description: "Reusable numeric controls for provider-specific request fields.",
     aliases: ["custom parameters", "generation", "provider", "min p", "min_p"],
   },
   {
     id: "message-tools",
     tab: "advanced",
-    label: "Message Tools",
-    description: "Message maintenance and repair utilities.",
+    label: "Message Info",
+    description: "What each message shows: time, model, tokens and numbers.",
     aliases: ["messages", "tools", "repair", "cleanup"],
   },
   {
     id: "backup-export",
     tab: "advanced",
-    label: "Backup & Export",
-    description: "Backups and manual export tools.",
+    label: "Backup & Restore",
+    description: "Automatic and manual backups, profile export and restore.",
     aliases: ["backup", "export", "download", "archive", "automatic", "scheduled"],
   },
   {
     id: "storage-optimization",
     tab: "advanced",
-    label: "Storage Optimization",
+    label: "Storage Cleanup",
     description: "Find and remove abandoned avatar files.",
     aliases: ["storage", "avatar", "cleanup", "optimize", "orphan", "abandoned"],
   },
   {
     id: "danger-zone",
     tab: "advanced",
-    label: "Danger Zone",
-    description: "Destructive reset and expunge actions.",
+    label: "Delete Data",
+    description: "Permanently clear selected kinds of data. Professor Mari is always kept.",
     aliases: ["danger", "reset", "delete", "clear", "expunge", "destructive"],
+  },
+  {
+    id: "confirmations-help",
+    tab: "general",
+    label: "Confirmations & Help",
+    description: "Delete confirmations and the chat Help button.",
+    aliases: ["confirm", "delete", "help button"],
+  },
+  {
+    id: "extras",
+    tab: "general",
+    label: "Extras",
+    description: "Achievements, seasonal themes and the music player.",
+    aliases: ["achievements", "seasonal", "music"],
+  },
+  {
+    id: "editing-swipes",
+    tab: "general",
+    label: "Editing & Swipes",
+    description: "Editing messages, swiping between replies and the swipe menu.",
+    aliases: ["edit", "swipe", "reroll", "double click", "arrow up", "swipe menu"],
+  },
+  {
+    id: "thinking",
+    tab: "general",
+    label: "Thinking",
+    description: "How the AI's reasoning shows in Roleplay messages.",
+    aliases: ["thinking", "reasoning", "thoughts"],
+  },
+  {
+    id: "text-colors",
+    tab: "appearance",
+    label: "Text Colors",
+    description: "Chat text, dialogue and chrome text colors, and text outline.",
+    aliases: ["text color", "dialogue color", "outline", "stroke"],
+  },
+  {
+    id: "layout",
+    tab: "appearance",
+    label: "Layout",
+    description: "Sidebar width and the Android status bar.",
+    aliases: ["sidebar", "width", "android", "status bar"],
+  },
+  {
+    id: "chat-widgets",
+    tab: "appearance",
+    label: "Chat Buttons & Windows",
+    description: "The look of the chat's movable buttons, windows and sections.",
+    aliases: ["widget", "chat buttons", "windows", "shape"],
+  },
+  {
+    id: "roleplay-avatars",
+    tab: "appearance",
+    label: "Avatars",
+    description: "How portraits sit beside Roleplay messages, and their size.",
+    aliases: ["avatar", "portrait", "narrator", "sprite"],
+  },
+  {
+    id: "visual-novel",
+    tab: "appearance",
+    label: "Visual Novel",
+    description: "Visual Novel display, auto-play and art size for Roleplay.",
+    aliases: ["vn", "visual novel", "auto play"],
+  },
+  {
+    id: "chat-exports",
+    tab: "advanced",
+    label: "Chat Exports",
+    description: "What goes into exported chats.",
+    aliases: ["export", "reasoning", "private notes"],
+  },
+  {
+    id: "server",
+    tab: "advanced",
+    label: "Server",
+    description: "Restart Marinara's server.",
+    aliases: ["restart", "server", "reboot"],
   },
 ] as const;
 
