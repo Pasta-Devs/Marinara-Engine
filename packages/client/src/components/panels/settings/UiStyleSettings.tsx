@@ -20,8 +20,8 @@ import {
   SETTINGS_BUTTON_CLASS,
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
-  SettingsSection,
 } from "./SettingControls";
+import { HelpTooltip } from "../../ui/HelpTooltip";
 
 const SELECT_CLASS =
   "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
@@ -47,7 +47,8 @@ function PresetPreview({ preset }: { preset: UiStylePreset }) {
   );
 }
 
-export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
+/** Inline block of the App Style section, placed after Reduce Ambient Animations & Effects. */
+export function UiStyleSettings() {
   const { t } = useTranslation();
   const { saved, presets, selectedTarget, unsaved } = useUIStore(
     useShallow((s) => ({
@@ -106,13 +107,12 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
   };
 
   return (
-    <SettingsSection
-      title={t("settings.sections.uiElementStyles.title")}
-      description={t("settings.sections.uiElementStyles.description")}
-      help={t("settings.appearance.uiStyles.help")}
-      icon={<Pipette size="0.875rem" />}
-      anchorId={anchorId}
-    >
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center gap-1.5">
+        <Pipette size="0.75rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
+        <span className="text-xs font-medium">{t("settings.controls.uiElementStyles.label")}</span>
+        <HelpTooltip text={t("settings.appearance.uiStyles.help")} />
+      </div>
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -273,6 +273,6 @@ export function UiStyleSettings({ anchorId }: { anchorId?: string }) {
           )}
         </div>
       </div>
-    </SettingsSection>
+    </div>
   );
 }

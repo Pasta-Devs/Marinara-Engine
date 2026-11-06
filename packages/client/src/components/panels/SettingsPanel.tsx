@@ -3966,6 +3966,10 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 help={localizeUi("settings.controls.reduceAmbientEffects.help")}
               />
 
+              <SearchableSettingTarget controlId="ui-element-styles">
+                <UiStyleSettings />
+              </SearchableSettingTarget>
+
               <SearchableSettingTarget controlId="app-background-color">
                 <ColorPicker
                   value={displayedAppBackgroundColor}
@@ -4242,8 +4246,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               </fieldset>
             </div>
           </SettingsSection>
-
-          <UiStyleSettings {...getSettingsSectionAnchorProps("ui-element-styles")} />
 
           <SettingsSection
             title={localizeUi("settings.sections.textScale.title")}
