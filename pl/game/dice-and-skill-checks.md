@@ -76,7 +76,7 @@ W grze z klasami **MRPG** modyfikator atrybutu pochodzi zamiast tego ze statysty
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Test dodaje jedną trzecią tej statystyki, zaokrągloną w dół, minus jeden. Oznacza to około +1 lub +2 dla najlepszej statystyki nowej postaci, +3 lub +4 na poziomie 10 oraz +8 na najwyższym poziomie.
+Test dodaje jedną piątą tej statystyki, zaokrągloną w dół, maksymalnie +5. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +5 na najwyższym poziomie. Słaba statystyka nie dodaje nic.
 
 Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu unieważniają liczenie:
 

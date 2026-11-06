@@ -76,7 +76,7 @@ Dans une partie utilisant les classes **MRPG**, le modificateur de caractéristi
 | Résistance | Insight, Religion, Wisdom |
 | Chance | Persuasion, Deception, Performance, Charisma |
 
-Le jet ajoute le tiers de cette caractéristique, arrondi à l'inférieur, moins un. Cela représente environ +1 ou +2 pour la meilleure caractéristique d'un nouveau personnage, +3 ou +4 au niveau 10 et +8 au maximum.
+Le jet ajoute un cinquième de cette caractéristique, arrondi à l'inférieur, jusqu'à +5. Cela représente environ +1 pour la meilleure caractéristique d'un nouveau personnage, +2 ou +3 au niveau 10 et +5 au maximum. Une caractéristique faible n'ajoute rien.
 
 Si le total atteint ou dépasse le DC, le jet réussit. Deux résultats passent outre le calcul :
 

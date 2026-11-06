@@ -76,7 +76,7 @@ In einem Spiel mit **MRPG**-Klassen stammt der Attributsmodifikator stattdessen 
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Die Probe addiert ein Drittel dieses Werts, abgerundet, minus eins. Das entspricht ungefähr +1 oder +2 beim besten Wert eines neuen Charakters, +3 oder +4 auf Stufe 10 und +8 auf der höchsten Stufe.
+Die Probe addiert ein Fünftel dieses Werts, abgerundet, bis zu +5. Das entspricht ungefähr +1 beim besten Wert eines neuen Charakters, +2 oder +3 auf Stufe 10 und +5 auf der höchsten Stufe. Ein schwacher Wert addiert nichts.
 
 Erreicht oder übertrifft die Summe die DC, gelingt die Probe. Zwei Würfe setzen die Rechnung außer Kraft:
 

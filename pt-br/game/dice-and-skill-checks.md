@@ -74,7 +74,7 @@ Numa partida com classes **MRPG**, o modificador de atributo vem dos atributos M
 | Resistência | Insight, Religion, Wisdom |
 | Sorte | Persuasion, Deception, Performance, Charisma |
 
-O teste soma um terço desse atributo, arredondado para baixo, menos um. Isso equivale a cerca de +1 ou +2 para o melhor atributo de um personagem novo, +3 ou +4 no nível 10 e +8 no nível máximo.
+O teste soma um quinto desse atributo, arredondado para baixo, até +5. Isso equivale a cerca de +1 para o melhor atributo de um personagem novo, +2 ou +3 no nível 10 e +5 no nível máximo. Um atributo baixo não soma nada.
 
 Se o total alcançar ou superar a DC, o teste tem sucesso. Duas rolagens passam por cima da conta:
 

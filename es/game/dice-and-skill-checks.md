@@ -74,7 +74,7 @@ En una partida con clases **MRPG**, el modificador de atributo procede en cambio
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-La prueba suma la tercera parte de esa estadística, redondeada hacia abajo, menos uno. Esto equivale aproximadamente a +1 o +2 para la mejor estadística de un personaje nuevo, +3 o +4 en el nivel 10 y +8 en el nivel máximo.
+La prueba suma la quinta parte de esa estadística, redondeada hacia abajo, hasta un máximo de +5. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +5 en el nivel máximo. Una estadística baja no suma nada.
 
 Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan el cálculo:
 
