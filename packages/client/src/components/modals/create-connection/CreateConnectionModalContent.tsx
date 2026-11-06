@@ -13,7 +13,7 @@ import {
   type DecisionSource,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
-import { useOverhaulActive } from "../../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile } from "../../../stores/overhaul.store";
 import {
   useCreateConnection,
   useConnectionModels,
@@ -110,6 +110,7 @@ export function CreateConnectionModalContent({
 }: CreateConnectionModalProps) {
   const { t } = useTranslation();
   const ovDesktop = useOverhaulActive();
+  const ovMobile = useOverhaulMobile();
   const [anchorBox, setAnchorBox] = useState<{ top: number; right: number } | null>(null);
   const { data: accounts } = useConnectionAccounts();
   const connectionsQuery = useConnections();
@@ -394,6 +395,9 @@ export function CreateConnectionModalContent({
 
   // New layout: picking a service and giving its key happen in a menu under "Add account"; models stay a window.
   const dropdown = ovDesktop && !!anchor && !modelsFor && (step === 1 || step === 2) && anchorBox !== null;
+  // On phones the same short list and key step open as a bottom sheet.
+  const sheet = ovMobile && !modelsFor && (step === 1 || step === 2);
+  const compact = dropdown || sheet;
   useLayoutEffect(() => {
     if (!ovDesktop || !anchor || !open) return;
     const measure = () => {
@@ -996,13 +1000,15 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = dropdown
     ? cn("mari-connection-scope ov-add-drop", step === 1 && "ov-add-drop--list")
-    : cn(
-        "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-        // The key step fits its content; the lists and the built-in model keep the tall frame.
-        step === 2 && device !== "local_model" && service !== DECISION_BUILTIN
-          ? "sm:h-auto"
-          : "sm:h-[min(90dvh,44rem)]",
-      );
+    : sheet
+      ? cn("mari-connection-scope ov-add-sheet", step === 1 && "ov-add-sheet--list")
+      : cn(
+          "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
+          // The key step fits its content; the lists and the built-in model keep the tall frame.
+          step === 2 && device !== "local_model" && service !== DECISION_BUILTIN
+            ? "sm:h-auto"
+            : "sm:h-[min(90dvh,44rem)]",
+        );
   const dropStyle: CSSProperties | undefined =
     dropdown && anchorBox
       ? ({ "--ov-drop-top": `${anchorBox.top}px`, "--ov-drop-right": `${anchorBox.right}px` } as CSSProperties)
@@ -1014,8 +1020,8 @@ export function CreateConnectionModalContent({
       onClose={requestClose}
       // Picking models has no back step: its heading is the window title, not a second line under it.
       title={step === 3 && !goBack ? heading : t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
-      width={dropdown ? "" : step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
-      mobileFullscreen
+      width={compact ? "" : step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
+      mobileFullscreen={!sheet}
       opaque
       modeless={dropdown}
       panelStyle={dropStyle}
@@ -1072,7 +1078,7 @@ export function CreateConnectionModalContent({
               choosePreset={choosePreset}
               openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
-              compact={dropdown}
+              compact={compact}
             />
           )}
           {step === 2 && (
@@ -1198,7 +1204,7 @@ export function CreateConnectionModalContent({
         )}
 
         {/* The built-in model window brings its own footer. */}
-        {!(step === 2 && device === "local_model") && !(dropdown && step === 1) && (
+        {!(step === 2 && device === "local_model") && !(compact && step === 1) && (
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
             {footerRight}

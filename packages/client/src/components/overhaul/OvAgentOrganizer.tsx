@@ -11,6 +11,7 @@ import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { EditorCrumbs } from "./EditorRail";
 import { ViewSwitch } from "./LibraryTables";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import {
   checkReasonOf,
   hasUpdate,
@@ -263,6 +264,8 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   const { t: localizeUi, i18n } = useUiTranslation();
   const language = i18n.resolvedLanguage ?? i18n.language;
   const { installedById, go } = useOrganizer();
+  // Phones put the List / Gallery switch with the filters, leaving search and sort a line of their own.
+  const ovMobile = useOverhaulMobile();
   const [tab, setTab] = useState<Tab>(
     page.kind === "updates" ? "updates" : page.kind === "installed" ? "installed" : "available",
   );
@@ -455,6 +458,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
           <option value="roleplay">{localizeUi("ui.agents.agentcatalogview.roleplayMode")}</option>
           <option value="game">{localizeUi("ui.agents.agentcatalogview.gameMode")}</option>
         </select>
+        {ovMobile && tab !== "updates" ? <ViewSwitch gallery={gallery} onChange={setGallery} /> : null}
       </div>
       {tab !== "updates" ? (
         <div className="ov-gallery__tools">
@@ -476,7 +480,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
             <option value="name">{localize("Sort: Name")}</option>
             <option value="featured">{localize("Sort: Featured")}</option>
           </select>
-          <ViewSwitch gallery={gallery} onChange={setGallery} />
+          {!ovMobile && <ViewSwitch gallery={gallery} onChange={setGallery} />}
         </div>
       ) : null}
 

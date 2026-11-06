@@ -15,6 +15,7 @@ import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-m
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { JOB, type JobKey } from "../../lib/connection-jobs";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { ProviderIcon } from "../connections/ProviderIcon";
@@ -143,6 +144,7 @@ export function ConnectionsLanding() {
   const modelStar = useModelStar();
   const openModal = useUIStore((s) => s.openModal);
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const ovMobile = useOverhaulMobile();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
   const [sort, setSort] = useState<SortKey>("name");
@@ -280,6 +282,21 @@ export function ConnectionsLanding() {
     setMenu((current) => (current?.id === id ? null : { id, x: rect.right, y: rect.bottom + 4 }));
   };
 
+  const kindSelect = (
+    <select
+      className={cn("ov-select", ovMobile && "ovm-lp-filter")}
+      value={kind}
+      onChange={(event) => setKind(event.target.value as KindFilter)}
+      aria-label={localize("Kind")}
+    >
+      <option value="all">{localize("All kinds")}</option>
+      <option value="chat">{localize("Chat")}</option>
+      <option value="image">{localize("Images")}</option>
+      <option value="video">{localize("Video")}</option>
+      <option value="voice">{localize("Voice")}</option>
+    </select>
+  );
+
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
       <header className="ov-gallery__head">
@@ -299,28 +316,21 @@ export function ConnectionsLanding() {
           className="ov-btn ov-btn--primary"
           data-ov-add-account
           data-ov-anchor="ov-add-account"
+          aria-label={ovMobile ? t("connections.accounts.header.add") : undefined}
           onClick={() => openModal("create-connection", { anchor: "ov-add-account" })}
         >
           <Plus size={14} aria-hidden="true" />
-          {t("connections.accounts.header.add")}
+          {ovMobile ? localize("New") : t("connections.accounts.header.add")}
         </button>
+        {ovMobile && kindSelect}
       </header>
-      <div className="ov-gallery__tools">
-        <select
-          className="ov-select"
-          value={kind}
-          onChange={(event) => setKind(event.target.value as KindFilter)}
-          aria-label={localize("Kind")}
-        >
-          <option value="all">{localize("All kinds")}</option>
-          <option value="chat">{localize("Chat")}</option>
-          <option value="image">{localize("Images")}</option>
-          <option value="video">{localize("Video")}</option>
-          <option value="voice">{localize("Voice")}</option>
-        </select>
-        <span className="ov-gallery__spacer" />
-        <span className="ov-conn__dim ov-conn__note">{localize("Balance shown where the service reports it")}</span>
-      </div>
+      {!ovMobile && (
+        <div className="ov-gallery__tools">
+          {kindSelect}
+          <span className="ov-gallery__spacer" />
+          <span className="ov-conn__dim ov-conn__note">{localize("Balance shown where the service reports it")}</span>
+        </div>
+      )}
       <div className="ov-gallery__tools">
         <label className="ov-search">
           <Search size={14} aria-hidden="true" />
