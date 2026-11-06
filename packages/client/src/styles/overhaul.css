@@ -9332,3 +9332,10 @@ input.ov-edhead__title:focus {
 [data-ov-settings-sections] #settings-section-roleplay-messages > div:last-child > div > * {
   break-inside: avoid;
 }
+/* The pinned editor header paints the editor's own surface (not the app background), so it doesn't
+   read as a separate band in themes where the two differ. */
+.ov-edhead {
+  background:
+    linear-gradient(var(--marinara-editor-bg, var(--background)), var(--marinara-editor-bg, var(--background))),
+    var(--marinara-app-background-paint, var(--background));
+}
