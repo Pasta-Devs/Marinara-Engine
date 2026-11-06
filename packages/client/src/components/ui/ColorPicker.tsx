@@ -1,11 +1,25 @@
 // ──────────────────────────────────────────────
 // Color Picker — supports single colors & gradients
 // ──────────────────────────────────────────────
-import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_ICON_BUTTON_CLASS } from "../panels/settings/SettingControls";
-import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../../lib/css-colors";
+import {
+  hexToHsv,
+  hsvToHex,
+  isCssGradient,
+  MARINARA_GRADIENT_PRESET,
+  RAINBOW_GRADIENT_PRESET,
+} from "../../lib/css-colors";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ColorPickerProps {
@@ -206,55 +220,23 @@ function parseGradientColorStop(stop: string): { color: string; suffix: string; 
   return { color: trimmed, suffix: "", hex: null };
 }
 
-function hexToHsl(value: string): [number, number, number] {
-  const hex = value.slice(1);
-  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
-  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
-  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const lightness = (max + min) / 2;
-  if (max === min) return [0, 0, Math.round(lightness * 100)];
-  const delta = max - min;
-  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
-  const hue =
-    max === red
-      ? 60 * (((green - blue) / delta) % 6)
-      : max === green
-        ? 60 * ((blue - red) / delta + 2)
-        : 60 * ((red - green) / delta + 4);
-  return [Math.round((hue + 360) % 360), Math.round(saturation * 100), Math.round(lightness * 100)];
+const clampUnit = (value: number) => Math.min(1, Math.max(0, value));
+const HUE_GRADIENT = "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)";
+const HANDLE_CLASS =
+  "pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45),0_1px_3px_rgba(0,0,0,0.4)]";
+const SLIDER_FOCUS_CLASS =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--background)]";
+
+type EyeDropperConstructor = new () => { open: () => Promise<{ sRGBHex: string }> };
+/** The browser's screen colour dropper (Chromium desktop only), or undefined. */
+function getEyeDropper() {
+  return typeof window === "undefined"
+    ? undefined
+    : (window as unknown as { EyeDropper?: EyeDropperConstructor }).EyeDropper;
 }
 
-function hslToHex(hue: number, saturation: number, lightness: number) {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const section = hue / 60;
-  const x = chroma * (1 - Math.abs((section % 2) - 1));
-  const [red, green, blue] =
-    section < 1
-      ? [chroma, x, 0]
-      : section < 2
-        ? [x, chroma, 0]
-        : section < 3
-          ? [0, chroma, x]
-          : section < 4
-            ? [0, x, chroma]
-            : section < 5
-              ? [x, 0, chroma]
-              : [chroma, 0, x];
-  const match = l - chroma / 2;
-  return `#${[red, green, blue]
-    .map((channel) =>
-      Math.round((channel + match) * 255)
-        .toString(16)
-        .padStart(2, "0"),
-    )
-    .join("")}`;
-}
-
-function MarinaraColorSliders({
+/** Drag-to-pick colour selector: saturation/brightness square, hue strip and the screen dropper. */
+function MarinaraColorSelector({
   value,
   onChange,
   onCommit,
@@ -266,63 +248,136 @@ function MarinaraColorSliders({
   label: string;
 }) {
   const { t } = useUiTranslation();
-  const derivedChannels = hexToHsl(value);
-  const [draftChannels, setDraftChannels] = useState<[number, number, number] | null>(null);
+  // The draft keeps hue and saturation while they cannot be read back from the hex (greys, black).
+  const [draft, setDraft] = useState<[number, number, number] | null>(null);
   const previousValueRef = useRef(value);
-  const channels = draftChannels ?? derivedChannels;
+  const [hue, saturation, brightness] = draft ?? hexToHsv(value);
+  const EyeDropper = getEyeDropper();
   useEffect(() => {
     const previousValue = previousValueRef.current;
     previousValueRef.current = value;
-    if (draftChannels && value !== previousValue && hslToHex(...draftChannels).toLowerCase() !== value.toLowerCase()) {
-      setDraftChannels(null);
+    if (draft && value !== previousValue && hsvToHex(...draft).toLowerCase() !== value.toLowerCase()) {
+      setDraft(null);
     }
-  }, [draftChannels, value]);
-  const update = (index: number, nextValue: number) => {
-    const next = [...channels] as [number, number, number];
-    next[index] = nextValue;
-    setDraftChannels(next);
-    onChange(hslToHex(...next), true);
+  }, [draft, value]);
+
+  const update = (next: [number, number, number]) => {
+    setDraft(next);
+    onChange(hsvToHex(...next), true);
   };
   const commit = () => {
     onCommit();
-    setDraftChannels(null);
+    setDraft(null);
   };
-  const controls = [
-    { key: "hue", label: t("ui.ui.colorpicker.hue"), max: 359, value: channels[0], unit: "°" },
-    { key: "saturation", label: t("ui.ui.colorpicker.saturation"), max: 100, value: channels[1], unit: "%" },
-    { key: "lightness", label: t("ui.ui.colorpicker.lightness"), max: 100, value: channels[2], unit: "%" },
-  ] as const;
+  const pickFromScreen = async () => {
+    if (!EyeDropper) return;
+    try {
+      const { sRGBHex } = await new EyeDropper().open();
+      setDraft(null);
+      onChange(sRGBHex);
+    } catch {
+      // Escape closes the dropper without a colour.
+    }
+  };
+
+  const pointerProps = (read: (x: number, y: number) => void) => ({
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.focus();
+      const rect = event.currentTarget.getBoundingClientRect();
+      read(clampUnit((event.clientX - rect.left) / rect.width), clampUnit((event.clientY - rect.top) / rect.height));
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      read(clampUnit((event.clientX - rect.left) / rect.width), clampUnit((event.clientY - rect.top) / rect.height));
+    },
+    onPointerUp: commit,
+    onPointerCancel: commit,
+    onKeyUp: commit,
+  });
+  const arrowStep = (event: ReactKeyboardEvent) => {
+    const step = event.shiftKey ? 10 : 1;
+    const dx = event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
+    const dy = event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
+    if (dx || dy) event.preventDefault();
+    return [dx, dy] as const;
+  };
+  const clampPercent = (n: number) => Math.min(100, Math.max(0, n));
 
   return (
     <div
       role="group"
-      className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/55 p-2.5"
+      className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/55 p-2"
       aria-label={label}
     >
-      <div className="h-20 rounded-lg border border-[var(--border)]" style={{ backgroundColor: value }} />
-      {controls.map((control, index) => (
-        <label
-          key={control.key}
-          className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.6rem] items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]"
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={t("ui.ui.colorpicker.saturationAndBrightness")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(saturation)}
+        aria-valuetext={t("ui.ui.colorpicker.saturationAndBrightnessValue", {
+          saturation: Math.round(saturation),
+          brightness: Math.round(brightness),
+        })}
+        {...pointerProps((x, y) => update([hue, Math.round(x * 100), Math.round((1 - y) * 100)]))}
+        onKeyDown={(event) => {
+          const [dx, dy] = arrowStep(event);
+          if (dx || dy) update([hue, clampPercent(saturation + dx), clampPercent(brightness + dy)]);
+        }}
+        className={cn("relative h-28 cursor-crosshair touch-none rounded-md", SLIDER_FOCUS_CLASS)}
+        style={{
+          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hue} 100% 50%))`,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className={HANDLE_CLASS}
+          style={{ left: `${saturation}%`, top: `${100 - brightness}%`, background: value }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]"
+          style={{ background: value }}
+        />
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={t("ui.ui.colorpicker.hue")}
+          aria-valuemin={0}
+          aria-valuemax={359}
+          aria-valuenow={Math.round(hue)}
+          aria-valuetext={`${Math.round(hue)}°`}
+          {...pointerProps((x) => update([Math.min(359, Math.round(x * 360)), saturation, brightness]))}
+          onKeyDown={(event) => {
+            const [dx, dy] = arrowStep(event);
+            if (dx || dy) update([(hue + dx + dy + 360) % 360, saturation, brightness]);
+          }}
+          className={cn("relative h-3.5 min-w-0 flex-1 cursor-pointer touch-none rounded-full", SLIDER_FOCUS_CLASS)}
+          style={{ background: HUE_GRADIENT }}
         >
-          <span>{control.label}</span>
-          <input
-            type="range"
-            min={0}
-            max={control.max}
-            value={control.value}
-            onChange={(event) => update(index, Number(event.currentTarget.value))}
-            onPointerUp={commit}
-            onKeyUp={commit}
-            onBlur={commit}
-            className="h-1.5 w-full cursor-pointer accent-[var(--marinara-app-accent-solid)]"
+          <span
+            aria-hidden="true"
+            className={HANDLE_CLASS}
+            style={{ left: `${(hue / 359) * 100}%`, background: `hsl(${hue} 100% 50%)` }}
           />
-          <span className="text-right font-mono tabular-nums">
-            {control.value}
-            {control.unit}
-          </span>
-        </label>
-      ))}
+        </div>
+        {EyeDropper && (
+          <button
+            type="button"
+            onClick={pickFromScreen}
+            aria-label={t("ui.ui.colorpicker.pickFromScreen")}
+            title={t("ui.ui.colorpicker.pickFromScreen")}
+            className={SETTINGS_ICON_BUTTON_CLASS}
+          >
+            <Pipette size="0.75rem" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -604,7 +659,7 @@ export function ColorPicker({
               {/* Native color picker + typed CSS value */}
               <div className="grid gap-2">
                 {solidSliderColor ? (
-                  <MarinaraColorSliders
+                  <MarinaraColorSelector
                     value={solidSliderColor}
                     onChange={handleSolidChange}
                     onCommit={flushPendingChange}
@@ -705,7 +760,7 @@ export function ColorPicker({
                   );
                 })}
                 {activeGradientStop.hex ? (
-                  <MarinaraColorSliders
+                  <MarinaraColorSelector
                     value={activeGradientStop.hex}
                     onChange={(next, defer) => handleGradientStopChange(activeStop, next, defer)}
                     onCommit={flushPendingChange}

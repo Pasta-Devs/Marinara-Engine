@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { hexToHsv, hsvToHex } from "../../packages/client/src/lib/css-colors.js";
 import { sanitizeAppCss } from "../../packages/client/src/lib/theme-css.js";
 import {
   buildUiStyleOverridesCss,
@@ -211,5 +212,14 @@ const many = Array.from({ length: 45 }, (_, index) => ({
   overrides: { sidebar: { opacity: 80 } },
 }));
 assert.equal(normalizeUiStylePresets(many).length, 30, "at most 30 presets");
+
+// The colour selector's square and hue strip: hex survives a round trip through hue/saturation/brightness.
+for (const hex of ["#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#123456", "#ec4b97", "#808080", "#fe01ff"]) {
+  assert.equal(hsvToHex(...hexToHsv(hex)), hex, `round trip ${hex}`);
+}
+assert.deepEqual(hexToHsv("#ff0000"), [0, 100, 100]);
+assert.deepEqual(hexToHsv("#000000"), [0, 0, 0]);
+assert.equal(hsvToHex(359, 100, 100), "#ff0004", "the end of the hue strip stays red");
+assert.equal(hsvToHex(240, 0, 50), "#808080", "zero saturation is grey whatever the hue");
 
 console.info("UI style override regressions passed.");

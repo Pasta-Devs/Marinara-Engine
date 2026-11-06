@@ -111,3 +111,50 @@ export function getCssGradientColorStops(value: string | null | undefined, fallb
 
   return colors.length > 0 ? colors : [fallback];
 }
+
+/** `#rrggbb` to unrounded [hue 0-360, saturation 0-100, brightness 0-100], so a round trip is exact. */
+export function hexToHsv(value: string): [number, number, number] {
+  const hex = value.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const delta = max - Math.min(red, green, blue);
+  const hue =
+    delta === 0
+      ? 0
+      : max === red
+        ? 60 * (((green - blue) / delta) % 6)
+        : max === green
+          ? 60 * ((blue - red) / delta + 2)
+          : 60 * ((red - green) / delta + 4);
+  return [(hue + 360) % 360, max ? (delta / max) * 100 : 0, max * 100];
+}
+
+/** Hue 0-359, saturation and brightness 0-100 to `#rrggbb`. */
+export function hsvToHex(hue: number, saturation: number, brightness: number) {
+  const v = brightness / 100;
+  const chroma = v * (saturation / 100);
+  const section = hue / 60;
+  const x = chroma * (1 - Math.abs((section % 2) - 1));
+  const [red, green, blue] =
+    section < 1
+      ? [chroma, x, 0]
+      : section < 2
+        ? [x, chroma, 0]
+        : section < 3
+          ? [0, chroma, x]
+          : section < 4
+            ? [0, x, chroma]
+            : section < 5
+              ? [x, 0, chroma]
+              : [chroma, 0, x];
+  const match = v - chroma;
+  return `#${[red, green, blue]
+    .map((channel) =>
+      Math.round((channel + match) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
