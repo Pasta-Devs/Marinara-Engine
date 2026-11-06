@@ -9156,6 +9156,12 @@ html[data-setup-stage]
   opacity: 1;
 }
 
+/* The stage hides the composer: Start is its only action. Start sets data-setup-stage="leaving",
+   so the composer returns inside the tap and can take focus while the curtain folds. */
+html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
+  display: none;
+}
+
 /* Setup stage curtain on Start: the title lifts toward the header, the rest fades, then the stage folds so the
    greeting slides up. ChatSetupStage sets the start height and the 560 ms close timer. */
 .mari-setup-stage {
@@ -9191,7 +9197,6 @@ html[data-setup-stage]
   padding-bottom: 0;
 }
 
-/* Phones with the composer focused (keyboard open): only the name and a small Start stay. */
 @media (max-width: 767.98px) {
   /* While the stage is open a lone sprite is the poster art: large and centred in the upper screen.
      Its placement is inline, hence !important; it returns once Start clears data-setup-stage. */
@@ -9202,49 +9207,6 @@ html[data-setup-stage]
   html[data-setup-stage] [data-sprite-overlay] > :only-child img {
     height: 50dvh !important;
     max-width: 92vw !important;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="hide"] {
-    display: none;
-  }
-  /* The stage is all the list holds, so keeping the chat at the bottom cannot scroll it away. */
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage {
-    min-height: calc(100% - var(--stage-list-offset, 0px));
-    padding-bottom: 0;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage ~ * {
-    display: none;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="block"] {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="name"] {
-    min-width: 0;
-    flex: 1;
-    font-size: 26px;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="name"] span {
-    -webkit-line-clamp: 1;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="card"] {
-    margin: 0;
-    border: 0;
-    padding: 0;
-    background: none;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="actions"] {
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-  html:has(textarea[data-chat-composer]:focus) .mari-setup-stage [data-stage-kb="start"] {
-    flex: none;
-    height: 40px;
-    padding-inline: 18px;
-    font-size: 14px;
   }
 }
 
