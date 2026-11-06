@@ -36,8 +36,8 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   PROFESSOR_MARI_ID,
   type CharacterData,
-  type CharacterCatalogEntry,
   type CharacterCatalogPage,
+  type CharacterCatalogSummaryPage,
   type CharacterCardVersion,
   type Persona,
   type PersonaCardVersion,
@@ -172,58 +172,41 @@ export function useCharacterPages(options: {
   });
 }
 
-async function fetchWholeCatalog(signal: AbortSignal, extra: string[][] = []) {
-  const items: CharacterCatalogEntry[] = [];
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    items.length = 0;
-    let offset = 0;
-    let generation: number | undefined;
-    while (true) {
-      const params = new URLSearchParams([...extra, ["limit", String(LIBRARY_PAGE_SIZE)], ["offset", String(offset)]]);
-      const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
-      generation ??= page.catalogGeneration;
-      if (page.catalogGeneration !== generation) break;
-      items.push(...page.items);
-      if (!page.hasMore) return items;
-      offset += page.limit;
-    }
-  }
-  throw new Error("Character catalog changed repeatedly while loading.");
+/** One slim response for the virtualized Characters panel, independent of full library pages. */
+export function useCharacterPanelCatalog(options: {
+  search: string;
+  sort: string;
+  favoriteFilter: string;
+  tags: string[];
+  excludeTags: string[];
+  folder: string;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "summary", options] as const,
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ view: "summary", folder: options.folder });
+      if (options.search) params.set("search", options.search);
+      if (options.sort) params.set("sort", options.sort);
+      if (options.favoriteFilter) params.set("favoriteFilter", options.favoriteFilter);
+      for (const tag of options.tags) params.append("tag", tag);
+      for (const tag of options.excludeTags) params.append("excludeTag", tag);
+      return api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
+    },
+    enabled: options.enabled ?? true,
+    placeholderData: (previousData, previousQuery) =>
+      (previousQuery?.queryKey[4] as typeof options | undefined)?.folder === options.folder ? previousData : undefined,
+    staleTime: 5 * 60_000,
+  });
 }
 
 /** Compact character rows for surfaces that need search and navigation only. */
 export function useAllCharacterCatalog(enabled = true) {
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "all"] as const,
-    queryFn: ({ signal }) => fetchWholeCatalog(signal),
+    queryFn: async ({ signal }) =>
+      (await api.get<CharacterCatalogSummaryPage>("/characters/catalog?view=summary", { signal })).items,
     enabled,
-    staleTime: 5 * 60_000,
-  });
-}
-
-/**
- * Every matching card in one folder, or in any folder ("any"). Folders load on their own,
- * so they never wait for root pages and filtered folders are complete.
- */
-export function useCharacterFolderMembers(
-  folder: string | null,
-  filters: { search: string; sort: string; favoriteFilter: string; tags: string[]; excludeTags: string[] },
-) {
-  return useQuery({
-    queryKey: [...characterKeys.list(), "catalog", "folder", folder, filters] as const,
-    queryFn: ({ signal }) =>
-      fetchWholeCatalog(signal, [
-        ["folder", folder!],
-        ...(filters.search ? [["search", filters.search]] : []),
-        ...(filters.sort ? [["sort", filters.sort]] : []),
-        ...(filters.favoriteFilter ? [["favoriteFilter", filters.favoriteFilter]] : []),
-        ...filters.tags.map((tag) => ["tag", tag]),
-        ...filters.excludeTags.map((tag) => ["excludeTag", tag]),
-      ]),
-    enabled: folder !== null,
-    // Keep the old members while a new filter loads, but only for the same folder.
-    placeholderData: (previousData, previousQuery) =>
-      folder !== null && previousQuery?.queryKey.includes(folder) ? previousData : undefined,
     staleTime: 5 * 60_000,
   });
 }

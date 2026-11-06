@@ -18,9 +18,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { toast } from "sonner";
 import {
   fetchAllCharacterPages,
-  flattenCharacterPages,
-  useCharacterPages,
-  useCharacterFolderMembers,
+  useCharacterPanelCatalog,
   useCharacterCatalogTags,
   useDeleteCharacter,
   useCharacterGroups,
@@ -57,28 +55,22 @@ import {
   UserPlus,
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
-import {
-  formatCardLibraryMeta,
-  getCardLibrarySummary,
-  matchesCardLibrarySearch,
-  parseCardLibrarySearchQuery,
-} from "../../lib/card-library-search";
+import { parseCardLibrarySearchQuery } from "../../lib/card-library-search";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
-import type { CharacterCatalogEntry } from "@marinara-engine/shared";
+import type { CharacterCatalogSummaryEntry } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { CharacterBulkTagsModal } from "../characters/CharacterBulkTagsModal";
 
-type CharacterRow = CharacterCatalogEntry;
+type CharacterRow = CharacterCatalogSummaryEntry;
 type GroupRow = {
   id: string;
   name: string;
@@ -87,7 +79,15 @@ type GroupRow = {
   avatarPath: string | null;
   createdAt: string;
 };
-type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
+type ParsedCharacterRow = CharacterRow & {
+  parsed: {
+    name: string;
+    tags: string[];
+    creator: string;
+    character_version: string;
+    extensions: { fav: boolean; avatarCrop: unknown; nameColor: string | null };
+  };
+};
 type ParsedGroupRow = GroupRow & { memberIds: string[] };
 
 function getNextUnnamedFolderName(folders: Array<{ name: string }>) {
@@ -112,24 +112,16 @@ function getCharacterTags(char: ParsedCharacterRow): string[] {
 }
 
 function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
-  try {
-    const parsed = {
+  return {
+    ...char,
+    parsed: {
       name: char.name,
-      summary: char.explicitSummary,
-      description: char.description,
-      personality: char.personality,
-      scenario: char.scenario,
-      first_mes: char.firstMessage,
-      creator_notes: char.creatorNotes,
       tags: char.tags,
       creator: char.creator,
       character_version: char.version,
       extensions: { fav: char.favorite, avatarCrop: char.avatarCrop, nameColor: char.nameColor },
-    };
-    return { ...char, parsed: parsed as unknown as ParsedCharacterRow["parsed"] };
-  } catch {
-    return { ...char, parsed: { name: "Unknown", description: "" } };
-  }
+    },
+  };
 }
 
 /** Passive marker on a character's avatar: the card has interactive onboarding (same icon as Chat Settings). */
@@ -154,16 +146,8 @@ function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
   const parts: string[] = [];
   const creator = typeof char.parsed.creator === "string" ? char.parsed.creator.trim() : "";
   const version = typeof char.parsed.character_version === "string" ? char.parsed.character_version.trim() : "";
-  const importMetadata =
-    char.parsed.extensions?.importMetadata && typeof char.parsed.extensions.importMetadata === "object"
-      ? (char.parsed.extensions.importMetadata as Record<string, unknown>)
-      : {};
-  const cardMetadata =
-    importMetadata.card && typeof importMetadata.card === "object"
-      ? (importMetadata.card as Record<string, unknown>)
-      : {};
-  const spec = typeof cardMetadata.spec === "string" ? cardMetadata.spec.trim() : "";
-  const specVersion = typeof cardMetadata.specVersion === "string" ? cardMetadata.specVersion.trim() : "";
+  const spec = char.cardSpec.trim();
+  const specVersion = char.cardSpecVersion.trim();
   const tags = getCharacterTags(char);
 
   if (creator) parts.push(`by ${creator}`);
@@ -226,23 +210,31 @@ export function CharactersPanel() {
   const setFavFilter = useUIStore((s) => s.setCharacterPanelFavoriteFilter);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
   const deferredSearch = useDeferredValue(search);
-  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
+  const parsedSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch), [deferredSearch]);
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
   const folderFilterActive =
-    search.trim().length > 0 || includedTagValues.length > 0 || excludedTagValues.length > 0 || favFilter !== "all";
+    deferredSearch.trim().length > 0 ||
+    includedTagValues.length > 0 ||
+    excludedTagValues.length > 0 ||
+    favFilter !== "all";
   // Filters run on the server so they cover every card, not only loaded pages. The root list skips
   // folder members; folders load their own: all matching members while filtering, else the open one.
   const serverFilters = {
-    search: serverSearch,
+    search: parsedSearch.text,
     sort,
     favoriteFilter: serverFavoriteFilter,
     tags: includedTagValues,
-    excludeTags: excludedTagValues,
+    excludeTags: [...excludedTagValues, ...parsedSearch.excludedTags],
   };
-  const characterPages = useCharacterPages({ ...serverFilters, folder: "none" });
+  const characterCatalog = useCharacterPanelCatalog({ ...serverFilters, folder: "none" });
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-  const folderMembers = useCharacterFolderMembers(folderFilterActive ? "any" : expandedGroupId, serverFilters);
-  const folderStatus = folderMembers.isError ? (
+  const folderMembers = useCharacterPanelCatalog({
+    ...serverFilters,
+    folder: folderFilterActive ? "any" : (expandedGroupId ?? ""),
+    enabled: folderFilterActive || expandedGroupId !== null,
+  });
+  const visibleFolderMembers = folderFilterActive || expandedGroupId !== null ? folderMembers : null;
+  const folderStatus = visibleFolderMembers?.isError ? (
     <button
       type="button"
       onClick={() => void folderMembers.refetch()}
@@ -250,22 +242,22 @@ export function CharactersPanel() {
     >
       {localizeUi("ui.panels.characterspanel.folderMembersLoadFailed")}
     </button>
-  ) : folderMembers.isFetching && (!folderMembers.data || folderMembers.isPlaceholderData) ? (
+  ) : visibleFolderMembers?.isFetching && (!visibleFolderMembers.data || visibleFolderMembers.isPlaceholderData) ? (
     <div className="px-2 py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
       {localizeUi("ui.panels.characterspanel.folderMembersLoading")}
     </div>
   ) : null;
   const catalogTags = useCharacterCatalogTags();
-  const firstPage = characterPages.data?.pages[0];
+  const firstPage = characterCatalog.data;
   const characters = useMemo(() => {
-    const rows = flattenCharacterPages(characterPages.data);
-    const members = folderMembers.data;
+    const rows = characterCatalog.data?.items ?? [];
+    const members = visibleFolderMembers?.data?.items;
     if (!members?.length) return rows;
     const loaded = new Set(rows.map((row) => row.id));
     const merged: typeof rows = [...rows, ...members.filter((member) => !loaded.has(member.id))];
     return merged;
-  }, [characterPages.data, folderMembers.data]);
-  const isLoading = characterPages.isLoading;
+  }, [characterCatalog.data, visibleFolderMembers?.data]);
+  const isLoading = characterCatalog.isLoading;
 
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
@@ -289,8 +281,8 @@ export function CharactersPanel() {
   // Parse character data and filter by search
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
-    return (characters as CharacterRow[]).map(parseCharacterRow);
-  }, [characters]) as ParsedCharacterRow[];
+    return characters.map(parseCharacterRow);
+  }, [characters]);
 
   const charMap = useMemo(() => {
     const map = new Map<
@@ -315,7 +307,6 @@ export function CharactersPanel() {
 
   const filteredCharacters = useMemo(() => {
     let list = parsedCharacters;
-    const query = parseCardLibrarySearchQuery(deferredSearch);
     // Filter by favorites
     if (favFilter === "favorites") {
       list = list.filter((c) => c.parsed.extensions?.fav);
@@ -340,33 +331,8 @@ export function CharactersPanel() {
         return true;
       });
     }
-    list = list.filter((c) => {
-      const tags = getCharacterTags(c);
-      return matchesCardLibrarySearch(
-        {
-          name: c.parsed.name,
-          title: getCharacterTitle({ name: c.parsed.name ?? "", comment: c.comment }),
-          meta: formatCardLibraryMeta(c.parsed.creator, c.parsed.character_version),
-          summary: getCardLibrarySummary([
-            c.parsed.summary,
-            c.parsed.creator_notes,
-            c.parsed.description,
-            c.parsed.personality,
-          ]),
-          creatorNotes: c.parsed.creator_notes,
-          tags,
-          sections: [
-            { content: c.parsed.description },
-            { content: c.parsed.personality },
-            { content: c.parsed.scenario },
-            { content: c.parsed.first_mes },
-          ],
-        },
-        query,
-      );
-    });
     return list;
-  }, [parsedCharacters, deferredSearch, includedTags, excludedTags, favFilter]);
+  }, [parsedCharacters, includedTags, excludedTags, favFilter]);
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {
@@ -589,7 +555,6 @@ export function CharactersPanel() {
     [rootVirtualizer],
   );
   const rootVirtualItems = rootVirtualizer.getVirtualItems();
-  const lastRootVirtualIndex = rootVirtualItems.at(-1)?.index ?? -1;
 
   // The folders above the root list change height (expand, rename, filters), so scrollMargin is remeasured.
   useLayoutEffect(() => {
@@ -612,19 +577,6 @@ export function CharactersPanel() {
       mutation.disconnect();
     };
   }, []);
-
-  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = characterPages;
-  useEffect(() => {
-    if (lastRootVirtualIndex < visibleRootCharacters.length - 3) return;
-    if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
-  }, [
-    lastRootVirtualIndex,
-    visibleRootCharacters.length,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-  ]);
 
   const rememberPanelScroll = useCallback(() => {
     const node = panelScrollRef.current;
@@ -1271,11 +1223,13 @@ export function CharactersPanel() {
                 innerClassName="flex flex-col gap-0.5"
               >
                 {!folderFilterActive && isExpanded && folderStatus}
-                {folderMemberIds.length === 0 && !folderMembers.isError && !folderMembers.isFetching && (
-                  <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.characterspanel.dropCharactersHere")}
-                  </div>
-                )}
+                {folderMemberIds.length === 0 &&
+                  !visibleFolderMembers?.isError &&
+                  !visibleFolderMembers?.isFetching && (
+                    <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.characterspanel.dropCharactersHere")}
+                    </div>
+                  )}
                 {folderMemberIds.map((memberId) => {
                   const member = charMap.get(memberId);
                   if (!member) return null;
@@ -1944,21 +1898,6 @@ export function CharactersPanel() {
           );
         })}
       </div>
-
-      {characterPages.hasNextPage && (
-        <PanelLoadMoreBar
-          onLoadMore={() => void characterPages.fetchNextPage()}
-          disabled={characterPages.isFetchingNextPage}
-          autoLoad={false}
-        >
-          {characterPages.isFetchingNextPage
-            ? localizeUi("ui.characters.characterlibraryview.loading")
-            : localizeUi("ui.panels.characterspanel.loadMoreValue1OfValue2", {
-                value1: characterPages.data?.pages.reduce((count, page) => count + page.items.length, 0) ?? 0,
-                value2: firstPage?.total ?? 0,
-              })}
-        </PanelLoadMoreBar>
-      )}
 
       {selectionMode && (
         <SelectionActionBar
