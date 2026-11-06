@@ -52,6 +52,41 @@ export function removeMessagesFromPages<T extends { id: string }>(
   return { ...data, pages: data.pages.map((page) => page.filter((msg) => !removed.has(msg.id))) };
 }
 
+export type RemovedMessage<T> = { page: number; index: number; message: T };
+
+/** Where each message sits before an optimistic delete, so a failed delete can put it back. */
+export function locateMessagesInPages<T extends { id: string }>(
+  data: InfiniteData<T[]> | undefined,
+  messageIds: Iterable<string>,
+): RemovedMessage<T>[] {
+  const wanted = new Set(messageIds);
+  const found: RemovedMessage<T>[] = [];
+  data?.pages?.forEach((page, pageIndex) =>
+    page.forEach((message, index) => {
+      if (wanted.has(message.id)) found.push({ page: pageIndex, index, message });
+    }),
+  );
+  return found;
+}
+
+/**
+ * Put back messages a failed delete hid, at their old place in their old page. Messages already
+ * present are skipped, so replies, edits and other deletes that landed meanwhile stay as they are.
+ */
+export function restoreMessagesToPages<T extends { id: string }>(
+  data: InfiniteData<T[]> | undefined,
+  removed: RemovedMessage<T>[],
+): InfiniteData<T[]> | undefined {
+  if (!data?.pages || removed.length === 0) return data;
+  const present = new Set(data.pages.flatMap((page) => page.map((msg) => msg.id)));
+  const pages = data.pages.map((page) => [...page]);
+  for (const { page, index, message } of removed) {
+    if (present.has(message.id) || !pages[page]) continue;
+    pages[page].splice(Math.min(index, pages[page].length), 0, message);
+  }
+  return { ...data, pages };
+}
+
 export function shouldRefetchMessagesOnReconnect(loadedPageCount: number): boolean {
   return loadedPageCount <= RECONNECT_REFETCH_MAX_PAGES;
 }
