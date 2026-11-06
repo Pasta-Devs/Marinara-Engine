@@ -9321,3 +9321,14 @@ input.ov-edhead__title:focus {
 .ov-org-card__art {
   aspect-ratio: 8 / 3;
 }
+/* Roleplay Presentation is long: let it continue into the next column (row by row) so Chat modes balances. */
+[data-ov-settings-sections] #settings-section-roleplay-messages {
+  break-inside: auto;
+}
+[data-ov-settings-sections] #settings-section-roleplay-messages > div:last-child > div {
+  break-inside: auto;
+}
+[data-ov-settings-sections] #settings-section-roleplay-messages > div:first-child,
+[data-ov-settings-sections] #settings-section-roleplay-messages > div:last-child > div > * {
+  break-inside: avoid;
+}
