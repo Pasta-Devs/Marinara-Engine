@@ -2780,10 +2780,19 @@ function RoleplaySetupWizard({
           musicPlayerSource,
           roleplaySpriteScale,
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+          chatCharacters: chatCharIds.map((id) => ({ id, name: charInfoMap.get(id)?.name ?? id })),
         }),
       });
     },
-    [agentConfigsByType, metadata, musicPlayerSource, roleplaySpriteScale, supportsNarrativeDirectorSecretPlot],
+    [
+      agentConfigsByType,
+      charInfoMap,
+      chatCharIds,
+      metadata,
+      musicPlayerSource,
+      roleplaySpriteScale,
+      supportsNarrativeDirectorSecretPlot,
+    ],
   );
 
   const removeAgentFromChat = useCallback(

@@ -1518,6 +1518,8 @@ export function AgentEditor() {
       // YouTube key is encrypted server-side and not exposed by the form — preserve it
       // so a normal agent Save doesn't wipe the stored key.
       "youtubeApiKey",
+      // Folders linked to characters are set from Chat Settings, not this form (#8901).
+      "customMusicCharacterFolders",
       "customAgentRepositorySource",
       CUSTOM_AGENT_IMPORT_SOURCE_SETTING,
       CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
@@ -1892,9 +1894,6 @@ export function AgentEditor() {
             musicProvider: localMusicProvider,
             customMusicSource: localCustomMusicSource,
             customMusicFolder: normalizeCustomMusicFolderInput(localCustomMusicFolder),
-            ...(localCustomMusicExternalFolder.trim()
-              ? { customMusicExternalFolder: localCustomMusicExternalFolder.trim() }
-              : {}),
           }
         : {}),
       enabledTools: exportingMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
@@ -4330,7 +4329,7 @@ export function AgentEditor() {
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                     <label className="mb-1 block text-[0.6875rem] font-medium text-white/60">
-                      {localizeUi("ui.agents.agenteditor.musicFolderOnThisDevice")}
+                      {localizeUi("ui.agents.agenteditor.defaultMusicFolderOnThisDevice")}
                     </label>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <input
