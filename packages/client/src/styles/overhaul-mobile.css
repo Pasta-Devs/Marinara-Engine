@@ -4118,3 +4118,16 @@
 :root[data-overhaul="mobile"] .ovm-settings [data-google-font-add] {
   flex: none;
 }
+/* The tab list box never shrinks (it clipped its last row and squeezed the rest), and rows are even. */
+.ovm-settings__rows:not(#ovm-x) {
+  flex: none;
+  padding-top: 0;
+}
+:root[data-overhaul="mobile"] .ovm-settings[data-ovm-level="root"] .ov-settings__head {
+  margin-bottom: 0.75rem;
+}
+/* Touch screens have no mouse-over: rows don't light up on hover (the highlight stuck after a tap). */
+:root[data-overhaul="mobile"] [class*="hover:bg-[var(--accent)]"]:hover:not(#ovm-x) {
+  background-color: transparent !important;
+  transition: none !important;
+}
