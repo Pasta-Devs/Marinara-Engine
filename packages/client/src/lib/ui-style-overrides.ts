@@ -416,8 +416,15 @@ function declare(declarations: [string, string | number | undefined][]): string 
     .join(";");
 }
 
+/** Marks the style editor and its picker so the styles being edited never repaint the editor itself. */
+export const UI_STYLE_EDITOR_ATTRIBUTE = "data-ui-style-editor";
+/** Zero specificity, so it never changes which rule wins. */
+const OUTSIDE_EDITOR = `:where(:not([${UI_STYLE_EDITOR_ATTRIBUTE}], [${UI_STYLE_EDITOR_ATTRIBUTE}] *))`;
+
 function targetRules(target: UiStyleTarget, override: UiStyleOverride): string[] {
-  const root = `:root ${target.selector}`;
+  // Only blocks and the app-wide fields and buttons can match inside the editor (it is portaled to body).
+  const guard = target.className || BROAD_REGIONS.has(target.id) ? OUTSIDE_EDITOR : "";
+  const root = `:root ${target.selector}${guard}`;
   const px = (value: number | undefined) => (value === undefined ? undefined : `${value}px`);
   const blur = (value: number | undefined) =>
     value === undefined ? undefined : value > 0 ? `blur(${value}px)` : "none";

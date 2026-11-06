@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // UiStyleEditorCard: the floating editor for one picked interface region or block.
 // Edits preview live and only persist on Save (like TrackerCardColorSettings).
-// Desktop: a draggable card placed beside the region. Phone: a bottom sheet.
+// Desktop: a draggable card placed beside the region. Phone: a sheet docked at the
+// bottom, or at the top when the edited part sits in the lower half.
 // ──────────────────────────────────────────────
 import {
   useEffect,
@@ -17,6 +18,7 @@ import { ChevronDown, GripVertical, MousePointerClick, Save, X } from "lucide-re
 import { MOBILE_SHELL_MEDIA_QUERY, isMobileShellViewport, useUIStore } from "../../stores/ui.store";
 import {
   UI_STYLE_LIMITS,
+  UI_STYLE_EDITOR_ATTRIBUTE,
   UI_STYLE_SHADOWS,
   getUiStyleTarget,
   normalizeUiStyleOverride,
@@ -83,9 +85,58 @@ function clampPoint(point: Point, { width, height }: Size): Point {
   };
 }
 
+/** Matches on the page, never the editor's own controls (a block class can name those too). */
+function pageMatches(selector: string): Element[] {
+  return Array.from(document.querySelectorAll(selector)).filter(
+    (element) => !element.closest(`[${UI_STYLE_EDITOR_ATTRIBUTE}]`),
+  );
+}
+
+/**
+ * What the card says about the screen. A block restyles every element with its class, across the app,
+ * so it says how far it reaches here. A part only says when it is not on this screen; a pop-up or toast
+ * is absent until it opens. An open chat paints its own background over the app's, so the whole-app
+ * part offers the chat's surface part instead.
+ */
+function scanScreen(id: UiStyleTargetId): { reach: number | null; chatSurfaceId?: UiStyleTargetId } {
+  const target = getUiStyleTarget(id);
+  if (!target) return { reach: null };
+  const reach = target.className
+    ? pageMatches(target.selector).length
+    : target.transient || document.querySelector(target.selector)
+      ? null
+      : 0;
+  const chatSurfaceId =
+    id === "app"
+      ? (["conversation-surface", "roleplay-surface"] as const).find((surface) => {
+          const part = getUiStyleTarget(surface);
+          return part && document.querySelector(part.selector);
+        })
+      : undefined;
+  return { reach, chatSurfaceId };
+}
+
+/** The match under the pick point (a block class matches many), else the first one. */
+function anchorRect(selector: string, anchor: Point | null): DOMRect | undefined {
+  const rects = pageMatches(selector).map((element) => element.getBoundingClientRect());
+  const under =
+    anchor &&
+    rects.find(
+      (rect) => anchor.x >= rect.left && anchor.x <= rect.right && anchor.y >= rect.top && anchor.y <= rect.bottom,
+    );
+  return under || rects[0];
+}
+
+/** Phone: dock the sheet at the top when the part's visible middle is in the lower half, so it stays in view. */
+function dockAtTop(region: DOMRect | undefined): boolean {
+  if (!region || region.width <= 0 || region.height <= 0) return false;
+  const top = Math.max(region.top, 0);
+  const bottom = Math.min(region.bottom, window.innerHeight);
+  return bottom > top && (top + bottom) / 2 > window.innerHeight / 2;
+}
+
 /** Beside the region when there is room to its right or left, else the viewport's top-right corner. */
-function placeCard(size: Size, selector: string): Point {
-  const region = document.querySelector(selector)?.getBoundingClientRect();
+function placeCard(size: Size, region: DOMRect | undefined): Point {
   const topRight = { x: window.innerWidth - size.width - MARGIN, y: MARGIN };
   const visible =
     region &&
@@ -128,7 +179,16 @@ function StyleChip({ style }: { style: UiStyleOverride }) {
 let refocusPartSelect = false;
 
 /** `levels`: what the pick could restyle, outermost first; the card's breadcrumb switches between them. */
-export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; levels: UiStyleTargetId[] }) {
+export function UiStyleEditorCard({
+  target,
+  levels,
+  anchor,
+}: {
+  target: UiStyleTarget;
+  levels: UiStyleTargetId[];
+  /** Where the pick landed, so the card follows the element tapped rather than the class's first match. */
+  anchor: Point | null;
+}) {
   const { t } = useTranslation();
   const saved = useUIStore((s) => s.uiStyleOverrides);
   const saveOverride = useUIStore((s) => s.saveUiStyleOverride);
@@ -138,20 +198,28 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
 
   const regionName = uiStyleTargetLabel(target, t);
   const crumbs = levels.map((id) => getUiStyleTarget(id)).filter((level) => level !== null);
-  // A block restyles every element with its class, across the app; say how far it reaches here.
-  // A part only says when it is not on this screen; a pop-up or toast is absent until it opens.
-  const reach = target.className
-    ? document.querySelectorAll(target.selector).length
-    : target.transient || document.querySelector(target.selector)
-      ? null
-      : 0;
-  // An open chat paints its own background over the app's; offer its surface part instead.
-  const chatSurface =
-    target.id === "app"
-      ? (["conversation-surface", "roleplay-surface"] as const)
-          .map((id) => getUiStyleTarget(id))
-          .find((part) => part && document.querySelector(part.selector))
-      : undefined;
+  // Rescanned as the page changes (a panel opens, a chat closes), throttled to one scan a frame.
+  const [screen, setScreen] = useState(() => scanScreen(target.id));
+  useEffect(() => {
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const next = scanScreen(target.id);
+        setScreen((current) =>
+          current.reach === next.reach && current.chatSurfaceId === next.chatSurfaceId ? current : next,
+        );
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [target.id]);
+  const { reach } = screen;
+  const chatSurface = getUiStyleTarget(screen.chatSurfaceId);
   const savedOverride = saved[target.id] ?? null;
   // The card is keyed to its region, so the edit never outlives it.
   const [edit, setEdit] = useState<UiStyleOverride | null>(null);
@@ -164,6 +232,7 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
   const dragRef = useRef<Point | null>(null);
   const [pos, setPos] = useState<Point | null>(null);
   const [mobile, setMobile] = useState(isMobileShellViewport);
+  const [dockTop, setDockTop] = useState(false);
   useEffect(() => {
     const query = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
     const sync = () => setMobile(isMobileShellViewport());
@@ -184,10 +253,14 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
   }, []);
 
   // Place once beside the region; afterwards keep the card inside the viewport as it resizes.
+  // Phone: pick the sheet's edge once, so it never jumps while editing.
   useLayoutEffect(() => {
     const card = cardRef.current;
-    if (!card || mobile) return;
-    setPos(placeCard(card.getBoundingClientRect(), target.selector));
+    if (!card) return;
+    const region = anchorRect(target.selector, anchor);
+    if (mobile) setDockTop(dockAtTop(region));
+    else setPos(placeCard(card.getBoundingClientRect(), region));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- placed once per card; the anchor is fixed for its life
   }, [mobile, target.selector]);
   useEffect(() => {
     const card = cardRef.current;
@@ -275,12 +348,15 @@ export function UiStyleEditorCard({ target, levels }: { target: UiStyleTarget; l
       ref={cardRef}
       role="dialog"
       aria-label={regionName}
+      {...{ [UI_STYLE_EDITOR_ATTRIBUTE]: "" }}
       // `--sidebar` is the opaque shell surface; `--card` is translucent and the page would show through.
       className={cn(
         "fixed flex flex-col border border-[var(--border)] bg-[var(--sidebar)] text-[var(--foreground)] shadow-2xl",
-        mobile
-          ? "inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]"
-          : "max-h-[80vh] w-[20rem] max-w-[calc(100vw-1.5rem)] rounded-xl",
+        !mobile
+          ? "max-h-[80vh] w-[20rem] max-w-[calc(100vw-1.5rem)] rounded-xl"
+          : dockTop
+            ? "inset-x-0 top-0 max-h-[55vh] rounded-b-2xl pt-[env(safe-area-inset-top)]"
+            : "inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]",
       )}
       // One layer under the pick overlay, which must stay on top for "Pick on screen".
       style={{

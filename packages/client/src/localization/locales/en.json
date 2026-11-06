@@ -6565,6 +6565,7 @@
   "settings.appearance.uiStyles.pickAnother": "Pick on screen",
   "settings.appearance.uiStyles.pickElement": "Pick an element",
   "settings.appearance.uiStyles.pickHint": "Click a part of the interface to select it. Press Escape to cancel.",
+  "settings.appearance.uiStyles.pickHintTouch": "Tap a part to select it. Scroll to find more.",
   "settings.appearance.uiStyles.presetName": "Preset name",
   "settings.appearance.uiStyles.presets": "Presets",
   "settings.appearance.uiStyles.presetsEmpty": "Save your element styles as a preset to switch looks later.",

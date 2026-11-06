@@ -154,7 +154,15 @@ const blockOverrides = normalizeUiStyleOverrides({
 });
 assert.deepEqual(blockOverrides, { sidebar: { color: "blue" }, "class:mari-editor-panel": { background: "#123" } });
 const blockCss = buildUiStyleOverridesCss(blockOverrides);
-assert.ok(blockCss.includes(":root .mari-editor-panel{background:#123!important}"), blockCss);
+const outsideEditor = ":where(:not([data-ui-style-editor], [data-ui-style-editor] *))";
+assert.ok(blockCss.includes(`:root .mari-editor-panel${outsideEditor}{background:#123!important}`), blockCss);
+assert.ok(!blockCss.includes(`.mari-sidebar${outsideEditor}`), "regions outside the editor keep their plain selector");
+{
+  // The editor's own buttons and fields carry block classes too; the styles being edited must not repaint them.
+  const css = buildUiStyleOverridesCss({ buttons: { color: "red" }, "text-fields": { color: "red" } });
+  assert.equal(css.split("\n").filter((rule) => rule.includes(outsideEditor)).length, 4, css);
+  assert.equal(sanitizeAppCss(css), css, "the editor guard passes the theme sanitizer unchanged");
+}
 assert.ok(blockCss.indexOf(".mari-sidebar") < blockCss.indexOf(".mari-editor-panel"), "blocks come after regions");
 assert.equal(sanitizeAppCss(blockCss), blockCss, "block rules pass the app CSS sanitizer unchanged");
 const manyBlocks = Object.fromEntries(Array.from({ length: 120 }, (_, i) => [`class:mari-b${i}`, { color: "red" }]));
