@@ -72,11 +72,11 @@ W grze z klasami **MRPG** modyfikator atrybutu pochodzi zamiast tego ze statysty
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling i każda umiejętność niewymieniona tutaj |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Test dodaje jedną czwartą tej statystyki, zaokrągloną w dół, minus jeden. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +6 na najwyższym poziomie.
+Test dodaje jedną trzecią tej statystyki, zaokrągloną w dół, minus jeden. Oznacza to około +1 lub +2 dla najlepszej statystyki nowej postaci, +3 lub +4 na poziomie 10 oraz +8 na najwyższym poziomie.
 
 Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu unieważniają liczenie:
 

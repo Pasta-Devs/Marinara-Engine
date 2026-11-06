@@ -72,11 +72,11 @@ GMは物語の中で`[dice: 3d8+2]`を使ってロールを求めることもで
 | Speed | Acrobatics、Stealth |
 | Skill | Sleight of Hand、Investigation、Perception、Medicine、Survival、Animal Handling、およびここにないすべてのスキル |
 | Defense | Endurance、Constitution |
-| Magic | Arcana、History、Nature、Religion、Intelligence |
-| Resistance | Insight、Wisdom |
+| Magic | Arcana、History、Nature、Intelligence |
+| Resistance | Insight、Religion、Wisdom |
 | Luck | Persuasion、Deception、Performance、Charisma |
 
-判定では、そのステータスの4分の1を切り捨て、1を引いた値を加えます。これは、新しいキャラクターの最も高いステータスではおよそ+1、レベル10では+2または+3、最高レベルでは+6です。
+判定では、そのステータスの3分の1を切り捨て、1を引いた値を加えます。これは、新しいキャラクターの最も高いステータスではおよそ+1または+2、レベル10では+3または+4、最高レベルでは+8です。
 
 合計がDC以上なら、判定は成功です。次の2つの出目は、計算より優先されます。
 

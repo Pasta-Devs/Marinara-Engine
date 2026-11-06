@@ -70,11 +70,11 @@ GM 也可以在叙述里用 `[dice: 3d8+2]` 请求掷骰。Marinara 会给出真
 | Speed | Acrobatics、Stealth |
 | Skill | Sleight of Hand、Investigation、Perception、Medicine、Survival、Animal Handling，以及此处未列出的所有技能 |
 | Defense | Endurance、Constitution |
-| Magic | Arcana、History、Nature、Religion、Intelligence |
-| Resistance | Insight、Wisdom |
+| Magic | Arcana、History、Nature、Intelligence |
+| Resistance | Insight、Religion、Wisdom |
 | Luck | Persuasion、Deception、Performance、Charisma |
 
-检定会加上该属性的四分之一（向下取整），再减 1。对于新角色最强的属性，这通常约为 +1；到 10 级时约为 +2 或 +3；达到最高等级时为 +6。
+检定会加上该属性的三分之一（向下取整），再减 1。对于新角色最强的属性，这通常约为 +1 或 +2；到 10 级时约为 +3 或 +4；达到最高等级时为 +8。
 
 总值达到或超过 DC，检定就成功。有两种骰面会直接覆盖这套算法：
 

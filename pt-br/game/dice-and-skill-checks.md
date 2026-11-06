@@ -70,11 +70,11 @@ Numa partida com classes **MRPG**, o modificador de atributo vem dos atributos M
 | Velocidade | Acrobatics, Stealth |
 | Habilidade | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling e qualquer perícia que não esteja listada aqui |
 | Defesa | Endurance, Constitution |
-| Magia | Arcana, History, Nature, Religion, Intelligence |
-| Resistência | Insight, Wisdom |
+| Magia | Arcana, History, Nature, Intelligence |
+| Resistência | Insight, Religion, Wisdom |
 | Sorte | Persuasion, Deception, Performance, Charisma |
 
-O teste soma um quarto desse atributo, arredondado para baixo, menos um. Isso equivale a cerca de +1 para o melhor atributo de um personagem novo, +2 ou +3 no nível 10 e +6 no nível máximo.
+O teste soma um terço desse atributo, arredondado para baixo, menos um. Isso equivale a cerca de +1 ou +2 para o melhor atributo de um personagem novo, +3 ou +4 no nível 10 e +8 no nível máximo.
 
 Se o total alcançar ou superar a DC, o teste tem sucesso. Duas rolagens passam por cima da conta:
 

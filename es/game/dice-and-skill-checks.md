@@ -70,11 +70,11 @@ En una partida con clases **MRPG**, el modificador de atributo procede en cambio
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling y cualquier habilidad que no aparezca aquí |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-La prueba suma la cuarta parte de esa estadística, redondeada hacia abajo, menos uno. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +6 en el nivel máximo.
+La prueba suma la tercera parte de esa estadística, redondeada hacia abajo, menos uno. Esto equivale aproximadamente a +1 o +2 para la mejor estadística de un personaje nuevo, +3 o +4 en el nivel 10 y +8 en el nivel máximo.
 
 Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan el cálculo:
 

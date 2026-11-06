@@ -72,11 +72,11 @@ GM도 서술에서 `[dice: 3d8+2]`로 굴림을 요청할 수 있습니다. Mari
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, 그리고 여기에 없는 모든 스킬 |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-판정에는 그 능력치의 4분의 1을 내림한 다음 1을 뺀 값을 더합니다. 새 캐릭터의 가장 좋은 능력치에서는 약 +1, 레벨 10에서는 +2나 +3, 최고 수준에서는 +6입니다.
+판정에는 그 능력치의 3분의 1을 내림한 다음 1을 뺀 값을 더합니다. 새 캐릭터의 가장 좋은 능력치에서는 약 +1이나 +2, 레벨 10에서는 +3이나 +4, 최고 수준에서는 +8입니다.
 
 합계가 DC에 도달하거나 넘어서면 판정에 성공합니다. 다음 두 굴림은 계산 결과보다 우선합니다.
 

@@ -72,11 +72,11 @@ In einem Spiel mit **MRPG**-Klassen stammt der Attributsmodifikator stattdessen 
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling und jede hier nicht aufgeführte Fertigkeit |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Die Probe addiert ein Viertel dieses Werts, abgerundet, minus eins. Das entspricht ungefähr +1 beim besten Wert eines neuen Charakters, +2 oder +3 auf Stufe 10 und +6 auf der höchsten Stufe.
+Die Probe addiert ein Drittel dieses Werts, abgerundet, minus eins. Das entspricht ungefähr +1 oder +2 beim besten Wert eines neuen Charakters, +3 oder +4 auf Stufe 10 und +8 auf der höchsten Stufe.
 
 Erreicht oder übertrifft die Summe die DC, gelingt die Probe. Zwei Würfe setzen die Rechnung außer Kraft:
 

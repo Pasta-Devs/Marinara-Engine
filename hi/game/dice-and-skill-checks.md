@@ -72,11 +72,11 @@ GM अपने नैरेशन में `[dice: 3d8+2]` लिखकर भ
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, और यहाँ लिस्ट न की गई हर स्किल |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-चेक उस स्टैट का एक चौथाई, नीचे की ओर पूरा करके, और उसमें से एक घटाकर जोड़ता है। यह किसी नए कैरेक्टर के सबसे अच्छे स्टैट के लिए करीब +1, लेवल 10 पर +2 या +3, और सबसे ऊँचे लेवल पर +6 होता है।
+चेक उस स्टैट का एक तिहाई, नीचे की ओर पूरा करके, और उसमें से एक घटाकर जोड़ता है। यह किसी नए कैरेक्टर के सबसे अच्छे स्टैट के लिए करीब +1 या +2, लेवल 10 पर +3 या +4, और सबसे ऊँचे लेवल पर +8 होता है।
 
 अगर कुल DC तक पहुँच जाए या उससे आगे निकल जाए, तो चेक सफल होता है। दो रोल इस हिसाब को पलट देते हैं:
 

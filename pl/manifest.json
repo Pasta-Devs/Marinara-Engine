@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "924014c5e380136953202faa0b786ee8302059ad",
+  "sourceCommit": "d2b64d1a15171a647fcdb44bf917617e346af421",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -489,8 +489,8 @@
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "9b6cf76343e87c562e61c6513e74064bcf380a42e03672002f226914f37c1c05",
-      "bytes": 16169
+      "sha256": "9af567ff48db27fc618656dc8d79dfb4e487137c292ac9e65c9dd5ea2534c744",
+      "bytes": 16176
     },
     {
       "path": "game/fighting-on-a-ruleset.md",

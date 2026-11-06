@@ -70,11 +70,11 @@ GM также может запросить бросок в своем пове�
 | Speed | Acrobatics, Stealth |
 | Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling и любой навык, не указанный здесь |
 | Defense | Endurance, Constitution |
-| Magic | Arcana, History, Nature, Religion, Intelligence |
-| Resistance | Insight, Wisdom |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-К проверке прибавляется четверть этой характеристики с округлением вниз минус один. Это примерно +1 для лучшей характеристики нового персонажа, +2 или +3 на 10-м уровне и +6 на максимальном.
+К проверке прибавляется треть этой характеристики с округлением вниз минус один. Это примерно +1 или +2 для лучшей характеристики нового персонажа, +3 или +4 на 10-м уровне и +8 на максимальном.
 
 Если итог достигает DC или превышает его, проверка пройдена. Два броска отменяют математику:
 
