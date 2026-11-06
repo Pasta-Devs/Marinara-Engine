@@ -5,7 +5,7 @@
 // present. Tapping it opens the Tracker sheet; tapping again closes it.
 // ──────────────────────────────────────────────
 import { ChevronDown, MapPin } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useTrackerGameState } from "../../features/tracker-panel/hooks/use-tracker-game-state";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
@@ -13,6 +13,7 @@ import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/fl
 const MAX_FACES = 3;
 
 export function OverhaulMobileTrackerStrip({ chatId }: { chatId: string }) {
+  const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const { currentGameState } = useTrackerGameState(chatId);
   const open = useFloatingWindowStore((state) => state.open[TRACKER_PANEL_BUBBLE_ID] === true);
@@ -29,7 +30,7 @@ export function OverhaulMobileTrackerStrip({ chatId }: { chatId: string }) {
       className="ovm-trk-strip"
       data-tracker-panel-toggle="strip"
       aria-expanded={open}
-      aria-label={scene ? `${label}: ${scene}` : label}
+      aria-label={scene ? localizeUi("ui.chat.quickreplymenu.value1Value2", { value1: label, value2: scene }) : label}
       onClick={() => {
         if (open) closeTrackerPanel();
         else useFloatingWindowStore.getState().openWindow(TRACKER_PANEL_BUBBLE_ID, null, { focus: false });

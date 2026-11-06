@@ -11,6 +11,7 @@ import { ExternalLink, Eye, EyeOff, GripVertical, Pencil } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useOverhaulMobile, useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/overhaul.store";
 import { OvSeg } from "./LoreEntryParts";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 const MODE_LABELS: Record<string, string> = {
   roleplay: "Roleplay",
@@ -62,6 +63,7 @@ export function OvChatSettingsStyle({ mode }: { mode: string }) {
 
 /** Header accessory: mode, hidden count, and the Edit / Done button. */
 export function OvChatSettingsHeader({ mode }: { mode: string }) {
+  const { t: localizeUi } = useUiTranslation();
   const layout = useLayout(mode);
   const editing = useOverhaulStore((state) => state.chatSettingsEditing);
   const setEditing = useOverhaulStore((state) => state.setChatSettingsEditing);
@@ -72,7 +74,7 @@ export function OvChatSettingsHeader({ mode }: { mode: string }) {
       <span className="ov-cs__mode">{MODE_LABELS[mode] ?? mode}</span>
       {!editing && layout.hidden.length ? (
         <button type="button" className="ov-cs__hidden" onClick={() => setEditing(true)}>
-          {layout.hidden.length} hidden
+          {layout.hidden.length} {localizeUi("ui.overhaul.ovchatsettingsheader.hidden")}
         </button>
       ) : null}
       <button
@@ -82,10 +84,10 @@ export function OvChatSettingsHeader({ mode }: { mode: string }) {
         onClick={() => setEditing(!editing)}
       >
         {editing ? (
-          "Done"
+          localizeUi("chat.settingsProfile.builder.done")
         ) : (
           <>
-            <Pencil size={12} /> Edit
+            <Pencil size={12} /> {localizeUi("chat.settingsProfile.builder.edit")}
           </>
         )}
       </button>
@@ -151,6 +153,7 @@ export function OvChatSettingsEditor({
   /** Where the drawer renders its settings-profile bar while editing. */
   onProfileSlot?: (element: HTMLDivElement | null) => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const layout = useLayout(mode);
   const setLayout = useOverhaulStore((state) => state.setChatSettingsLayout);
   const floating = useOverhaulStore((state) => state.chatSettingsFloating);
@@ -198,18 +201,18 @@ export function OvChatSettingsEditor({
   return (
     <div className="ov-cs-edit">
       <div className="ov-cs-edit__hint">
-        <p>Drag a row to reorder it. Click the eye to hide or show a setting. Hidden settings still apply.</p>
+        <p>{localizeUi("ui.overhaul.ovchatsettingseditor.dragARowToReorderItClickTheEye")}</p>
         <button type="button" className="ov-ed__link" onClick={() => setLayout(mode, null)}>
-          Reset
+          {localizeUi("chat.settings.resetViewConfirm.confirm")}
         </button>
       </div>
       {/* On phones and tablets the drawer is always a bottom sheet, so docking,
           floating and width don't apply. */}
       {overhaulMobile ? null : (
         <div className="ov-cs-edit__panel">
-          <span>Panel</span>
+          <span>{localizeUi("ui.overhaul.ovchatsettingseditor.panel")}</span>
           <OvSeg
-            label="Panel placement"
+            label={localizeUi("ui.overhaul.ovchatsettingseditor.panelPlacement")}
             value={floating ? "float" : "dock"}
             options={[
               { value: "dock", label: "Docked" },
@@ -219,19 +222,19 @@ export function OvChatSettingsEditor({
           />
           <small>
             {floating
-              ? "Drag the title bar to move it and any edge to resize it."
-              : "Drag the left edge to make it wider or narrower."}
+              ? localizeUi("ui.overhaul.ovchatsettingseditor.dragTheTitleBarToMoveItAndAny")
+              : localizeUi("ui.overhaul.ovchatsettingseditor.dragTheLeftEdgeToMakeItWiderOr")}
           </small>
           {!floating ? (
             <button type="button" className="ov-ed__link" onClick={() => setWidth(0)}>
-              Default width
+              {localizeUi("ui.overhaul.ovchatsettingseditor.defaultWidth")}
             </button>
           ) : null}
         </div>
       )}
       {onProfileSlot ? (
         <div className="ov-cs-edit__profile">
-          <span>Settings profile</span>
+          <span>{localizeUi("ui.overhaul.ovchatsettingseditor.settingsProfile")}</span>
           <div ref={onProfileSlot} />
         </div>
       ) : null}
@@ -275,7 +278,11 @@ export function OvChatSettingsEditor({
                 type="button"
                 className="ov-cs-edit__eye"
                 aria-pressed={!hidden}
-                aria-label={hidden ? `Show ${section.label}` : `Hide ${section.label}`}
+                aria-label={
+                  hidden
+                    ? localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", { value1: section.label })
+                    : localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", { value1: section.label })
+                }
                 onClick={() =>
                   save({
                     hidden: hidden ? layout.hidden.filter((id) => id !== section.id) : [...layout.hidden, section.id],
@@ -287,14 +294,18 @@ export function OvChatSettingsEditor({
               <button
                 type="button"
                 className="ov-cs-edit__pop"
-                title={`Open ${section.label} in its own window`}
-                aria-label={`Open ${section.label} in its own window`}
+                title={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
+                  value1: section.label,
+                })}
+                aria-label={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
+                  value1: section.label,
+                })}
                 onClick={() => popOutSection(section.id)}
               >
                 <ExternalLink size={13} />
               </button>
               <span className="ov-cs-edit__label">{section.label}</span>
-              {hidden ? <small>Hidden</small> : null}
+              {hidden ? <small>{localizeUi("game.combat.ruleset.stance.hidden")}</small> : null}
             </li>
           );
         })}
@@ -305,6 +316,7 @@ export function OvChatSettingsEditor({
 
 /** Left-edge handle that resizes the docked drawer (shown in Edit mode). */
 export function OvChatSettingsResizeHandle() {
+  const { t: localizeUi } = useUiTranslation();
   const setWidth = useOverhaulStore((state) => state.setChatSettingsWidth);
   const [dragging, setDragging] = useState(false);
   const onPointerDown = useCallback(
@@ -328,7 +340,7 @@ export function OvChatSettingsResizeHandle() {
       className={cn("ov-cs__resize", dragging && "is-dragging")}
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize chat settings"
+      aria-label={localizeUi("ui.overhaul.ovchatsettingsresizehandle.resizeChatSettings")}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={() => setDragging(false)}

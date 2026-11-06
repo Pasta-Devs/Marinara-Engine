@@ -11,6 +11,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { AvatarImage } from "../characters/AvatarImage";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type GalleryCard = {
   id: string;
@@ -60,6 +61,7 @@ export function CardGallery({
   onImport: () => void;
   extraHeader?: ReactNode;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
@@ -233,7 +235,9 @@ export function CardGallery({
               {card.name}
             </button>
             <p className="ov-card__tags">
-              {card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : `#${localize("Untagged")}`}
+              {card.tags.length
+                ? card.tags.map((tag) => `#${tag}`).join(" ")
+                : localizeUi("ui.overhaul.cardgallery.value1", { value1: localize("Untagged") })}
             </p>
           </div>
         ))}

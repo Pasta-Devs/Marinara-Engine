@@ -741,14 +741,20 @@ export function LorebookEntryRow({
           <span className="ov-lrow__name">
             <span className={cn("ov-lrow__dot", STATUS_DOT_COLOR[localStatus])} title={STATUS_LABEL[localStatus]} />
             <span className="truncate">{localName || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}</span>
-            {entry.locked ? <Lock size="0.6875rem" aria-label="Locked" /> : null}
+            {entry.locked ? (
+              <Lock size="0.6875rem" aria-label={localizeUi("ui.lorebooks.expandeddrawer.locked")} />
+            ) : null}
             {previewMatch ? (
-              <small className="ov-lrow__match">{previewMatch === "matched" ? "would activate" : "always"}</small>
+              <small className="ov-lrow__match">
+                {previewMatch === "matched"
+                  ? localizeUi("ui.lorebooks.lorebookentryrow.wouldActivate_f8a3766")
+                  : localizeUi("ui.lorebooks.lorebookentryrow.always")}
+              </small>
             ) : null}
           </span>
           <span className="ov-lrow__keys" title={(entry.keys ?? []).join(", ")}>
             {localStatus === "constant" ? (
-              <em>Always active</em>
+              <em>{localizeUi("ui.lorebooks.lorebookentryrow.alwaysActive")}</em>
             ) : (
               <>
                 {(entry.keys ?? []).slice(0, 4).map((key, index) => (
@@ -760,12 +766,12 @@ export function LorebookEntryRow({
           </span>
           <span className="ov-lrow__pos">
             {localPosition === 0
-              ? "↑Char"
+              ? localizeUi("ui.lorebooks.lorebookentryrow.beforeCompact")
               : localPosition === 1
-                ? "↓Char"
+                ? localizeUi("ui.lorebooks.lorebookentryrow.afterCompact")
                 : localPosition === 2
-                  ? `@Depth ${localDepth}`
-                  : "Outlet"}
+                  ? localizeUi("ui.lorebooks.lorebookentryrow.depthValue1", { value1: localDepth })
+                  : localizeUi("ui.lorebooks.lorebookentryrow.outlet")}
           </span>
           <OvNum
             className="ov-lrow__order"
@@ -1915,7 +1921,7 @@ function ExpandedDrawer({
           values={form.secondaryKeys ?? []}
           onChange={(keys) => update({ secondaryKeys: keys })}
           parse={appendLorebookActivationKeys}
-          placeholder="key…"
+          placeholder={localizeUi("ui.lorebooks.expandeddrawer.key")}
         />
       </div>
     );
@@ -1973,7 +1979,13 @@ function ExpandedDrawer({
           {position === 2 ? (
             <label className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.depth")}</span>
-              <OvNum label="Depth" value={ov.depth} min={0} max={9999} onCommit={(n) => n !== null && ov.setDepth(n)} />
+              <OvNum
+                label={localizeUi("ui.lorebooks.lorebookentryrow.depth")}
+                value={ov.depth}
+                min={0}
+                max={9999}
+                onCommit={(n) => n !== null && ov.setDepth(n)}
+              />
             </label>
           ) : null}
         </div>
@@ -1992,21 +2004,24 @@ function ExpandedDrawer({
           <label className="ov-lf">
             <span>{localizeUi("ui.lorebooks.lorebookentryrow.probability")} %</span>
             <OvNum
-              label="Probability"
+              label={localizeUi("ui.lorebooks.lorebookentryrow.probability")}
               value={ov.probability}
               min={0}
               max={100}
               onCommit={(n) => ov.setProbability(n ?? 100)}
             />
           </label>
-          <label className="ov-lf" title="Messages to scan for this entry. Empty uses the book setting.">
-            <span>Scan depth</span>
+          <label
+            className="ov-lf"
+            title={localizeUi("ui.lorebooks.expandeddrawer.messagesToScanForThisEntryEmptyUsesThe")}
+          >
+            <span>{localizeUi("ui.lorebooks.expandeddrawer.scanDepth")}</span>
             <OvNum
-              label="Scan depth"
+              label={localizeUi("ui.lorebooks.expandeddrawer.scanDepth")}
               value={form.scanDepth ?? null}
               allowEmpty
               min={0}
-              placeholder="book"
+              placeholder={localizeUi("ui.lorebooks.expandeddrawer.book")}
               onCommit={(n) => update({ scanDepth: n })}
             />
           </label>
@@ -2016,7 +2031,7 @@ function ExpandedDrawer({
             <label className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.folder")}</span>
               <select value={ov.folderId ?? ""} onChange={(event) => ov.setFolder(event.target.value || null)}>
-                <option value="">(root)</option>
+                <option value="">{localizeUi("ui.lorebooks.expandeddrawer.root")}</option>
                 {ov.folders.map((folder) => (
                   <option key={folder.id} value={folder.id}>
                     {folder.name}
@@ -2055,9 +2070,9 @@ function ExpandedDrawer({
             />
           </label>
           <label className="ov-lf">
-            <span>Weight</span>
+            <span>{localizeUi("ui.lorebooks.expandeddrawer.weight")}</span>
             <OvNum
-              label="Group weight"
+              label={localizeUi("ui.lorebooks.expandeddrawer.groupWeight")}
               value={form.groupWeight ?? null}
               allowEmpty
               min={0}
@@ -2067,18 +2082,22 @@ function ExpandedDrawer({
           </label>
           <label className="ov-lf">
             <span>{localizeUi("ui.lorebooks.expandeddrawer.tag")}</span>
-            <input value={form.tag ?? ""} onChange={(e) => update({ tag: e.target.value })} placeholder="location" />
+            <input
+              value={form.tag ?? ""}
+              onChange={(e) => update({ tag: e.target.value })}
+              placeholder={localizeUi("ui.lorebooks.expandeddrawer.location")}
+            />
           </label>
         </div>
       </>
     );
     const filtersBlock = (
       <>
-        <p className="ov-lentry__eyebrow">Context filters</p>
+        <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.contextFilters")}</p>
         <div className="ov-lentry__filters">
           <span>{localizeUi("navigation.topbar.characters")}</span>
           <OvSeg
-            label="Characters"
+            label={localizeUi("chat.presence.characters")}
             value={form.characterFilterMode ?? "any"}
             onChange={(value) => update({ characterFilterMode: value })}
             options={filterModes}
@@ -2087,11 +2106,11 @@ function ExpandedDrawer({
             options={characters.map((character) => ({ value: character.id, label: character.name }))}
             selected={form.characterFilterIds ?? []}
             onChange={(next) => update({ characterFilterIds: next })}
-            placeholder="character…"
+            placeholder={localizeUi("ui.lorebooks.expandeddrawer.character")}
           />
           <span>{localizeUi("ui.lorebooks.expandeddrawer.characterTags")}</span>
           <OvSeg
-            label="Character tags"
+            label={localizeUi("ui.lorebooks.expandeddrawer.characterTags")}
             value={form.characterTagFilterMode ?? "any"}
             onChange={(value) => update({ characterTagFilterMode: value })}
             options={filterModes}
@@ -2100,11 +2119,11 @@ function ExpandedDrawer({
             options={characterTags.map((tag) => ({ value: tag, label: tag }))}
             selected={form.characterTagFilters ?? []}
             onChange={(next) => update({ characterTagFilters: next })}
-            placeholder="tag…"
+            placeholder={localizeUi("ui.lorebooks.expandeddrawer.tag_34527a8")}
           />
           <span>{localizeUi("ui.lorebooks.expandeddrawer.generation")}</span>
           <OvSeg
-            label="Generation"
+            label={localizeUi("ui.lorebooks.expandeddrawer.generation")}
             value={form.generationTriggerFilterMode ?? "any"}
             onChange={(value) => update({ generationTriggerFilterMode: value })}
             options={filterModes}
@@ -2113,21 +2132,21 @@ function ExpandedDrawer({
             options={generationTriggerOptions}
             selected={form.generationTriggerFilters ?? []}
             onChange={(next) => update({ generationTriggerFilters: next })}
-            placeholder="trigger…"
+            placeholder={localizeUi("ui.lorebooks.expandeddrawer.trigger")}
           />
         </div>
       </>
     );
     const additionalSources = (
       <>
-        <p className="ov-lentry__eyebrow">Additional matching sources</p>
+        <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.additionalMatchingSources")}</p>
         <div className="ov-lentry__sources">
           {sources.map((source) => (
             <span key={source} className="ov-chipbox__chip">
               {MATCHING_SOURCE_OPTIONS.find((option) => option.value === source)?.label ?? source}
               <button
                 type="button"
-                aria-label="Remove source"
+                aria-label={localizeUi("ui.lorebooks.expandeddrawer.removeSource")}
                 onClick={() => update({ additionalMatchingSources: sources.filter((item) => item !== source) })}
               >
                 ×
@@ -2138,7 +2157,7 @@ function ExpandedDrawer({
             <select
               className="ov-addselect"
               value=""
-              aria-label="Add matching source"
+              aria-label={localizeUi("ui.lorebooks.expandeddrawer.addMatchingSource")}
               onChange={(event) =>
                 event.target.value &&
                 update({
@@ -2146,7 +2165,7 @@ function ExpandedDrawer({
                 })
               }
             >
-              <option value="">+ Add</option>
+              <option value="">{localizeUi("ui.characters.dialoguetab.add")}</option>
               {restSources.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -2159,18 +2178,19 @@ function ExpandedDrawer({
     );
     const scheduleBlock = (
       <>
-        <p className="ov-lentry__eyebrow">Activation conditions &amp; schedule</p>
+        <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.activationConditionsSchedule")}</p>
         <div className="ov-lentry__cols">
           <div className="ov-lentry__main">
             <span className="ov-lentry__label">
-              Conditions <small>all must be true</small>
+              {localizeUi("game.ruleset.sheet.conditions")}{" "}
+              <small>{localizeUi("ui.lorebooks.expandeddrawer.allMustBeTrue")}</small>
             </span>
             {conditions.map((condition, index) => (
               <div key={index} className="ov-lentry__cond">
                 <input
                   value={condition.field}
-                  placeholder="field, e.g. location"
-                  aria-label="Field"
+                  placeholder={localizeUi("ui.lorebooks.expandeddrawer.fieldEGLocation")}
+                  aria-label={localizeUi("ui.chat.homeprofessormarichat.contextFacetField")}
                   onChange={(event) =>
                     update({
                       activationConditions: conditions.map((item, i) =>
@@ -2181,7 +2201,7 @@ function ExpandedDrawer({
                 />
                 <select
                   value={condition.operator}
-                  aria-label="Operator"
+                  aria-label={localizeUi("ui.lorebooks.expandeddrawer.operator")}
                   onChange={(event) =>
                     update({
                       activationConditions: conditions.map((item, i) =>
@@ -2192,17 +2212,17 @@ function ExpandedDrawer({
                     })
                   }
                 >
-                  <option value="equals">equals</option>
-                  <option value="not_equals">does not equal</option>
-                  <option value="contains">contains</option>
-                  <option value="not_contains">does not contain</option>
-                  <option value="gt">greater than</option>
-                  <option value="lt">less than</option>
+                  <option value="equals">{localizeUi("ui.lorebooks.expandeddrawer.equals")}</option>
+                  <option value="not_equals">{localizeUi("ui.lorebooks.expandeddrawer.doesNotEqual")}</option>
+                  <option value="contains">{localizeUi("ui.lorebooks.expandeddrawer.contains")}</option>
+                  <option value="not_contains">{localizeUi("ui.lorebooks.expandeddrawer.doesNotContain")}</option>
+                  <option value="gt">{localizeUi("ui.lorebooks.expandeddrawer.greaterThan")}</option>
+                  <option value="lt">{localizeUi("ui.lorebooks.expandeddrawer.lessThan")}</option>
                 </select>
                 <input
                   value={condition.value}
-                  placeholder="value"
-                  aria-label="Value"
+                  placeholder={localizeUi("ui.chatSettings.chatvariablessection.value")}
+                  aria-label={localizeUi("settings.customGenerationParameters.value")}
                   onChange={(event) =>
                     update({
                       activationConditions: conditions.map((item, i) =>
@@ -2213,7 +2233,7 @@ function ExpandedDrawer({
                 />
                 <button
                   type="button"
-                  aria-label="Remove condition"
+                  aria-label={localizeUi("ui.lorebooks.expandeddrawer.removeCondition")}
                   onClick={() => update({ activationConditions: conditions.filter((_, i) => i !== index) })}
                 >
                   ×
@@ -2227,32 +2247,32 @@ function ExpandedDrawer({
                 update({ activationConditions: [...conditions, { field: "", operator: "equals", value: "" }] })
               }
             >
-              + Condition
+              {localizeUi("ui.lorebooks.expandeddrawer.condition")}
             </button>
           </div>
           <div className="ov-lentry__side">
             <div className="ov-lf">
-              <span>Active times</span>
+              <span>{localizeUi("ui.lorebooks.expandeddrawer.activeTimes")}</span>
               <OvChipInput
                 values={schedule.activeTimes}
                 onChange={(activeTimes) => setSchedule({ activeTimes })}
-                placeholder="time…"
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.time")}
               />
             </div>
             <div className="ov-lf">
-              <span>Active dates</span>
+              <span>{localizeUi("ui.lorebooks.expandeddrawer.activeDates")}</span>
               <OvChipInput
                 values={schedule.activeDates}
                 onChange={(activeDates) => setSchedule({ activeDates })}
-                placeholder="date…"
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.date")}
               />
             </div>
             <div className="ov-lf">
-              <span>Active locations</span>
+              <span>{localizeUi("ui.lorebooks.expandeddrawer.activeLocations")}</span>
               <OvChipInput
                 values={schedule.activeLocations}
                 onChange={(activeLocations) => setSchedule({ activeLocations })}
-                placeholder="location…"
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.location_2302a51")}
               />
             </div>
           </div>
@@ -2260,7 +2280,7 @@ function ExpandedDrawer({
       </>
     );
     const placementDrill = (
-      <OvmDrill title="Placement" summary={positionLabel}>
+      <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.placement")} summary={positionLabel}>
         {placementBlock}
       </OvmDrill>
     );
@@ -2270,12 +2290,18 @@ function ExpandedDrawer({
       </OvmDrill>
     );
     const filtersDrill = (
-      <OvmDrill title="Context filters" summary={filterCount ? `${filterCount} set` : "All chats"}>
+      <OvmDrill
+        title={localizeUi("ui.lorebooks.expandeddrawer.contextFilters")}
+        summary={filterCount ? `${filterCount} set` : "All chats"}
+      >
         {filtersBlock}
       </OvmDrill>
     );
     const scheduleDrill = (
-      <OvmDrill title="Conditions & schedule" summary={scheduleCount ? `${scheduleCount} set` : "Always"}>
+      <OvmDrill
+        title={localizeUi("ui.lorebooks.expandeddrawer.conditionsSchedule")}
+        summary={scheduleCount ? `${scheduleCount} set` : "Always"}
+      >
         {scheduleBlock}
       </OvmDrill>
     );
@@ -2303,9 +2329,9 @@ function ExpandedDrawer({
                 />
               </label>
               <div className="ov-lf">
-                <span>Entry type</span>
+                <span>{localizeUi("ui.lorebooks.expandeddrawer.entryType")}</span>
                 <OvSeg
-                  label="Entry type"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.entryType")}
                   value={ov.status}
                   onChange={ov.setStatus}
                   options={STATUS_GUIDE.map((item) => ({ value: item.status, label: STATUS_LABEL[item.status] }))}
@@ -2323,7 +2349,10 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>
                 {localizeUi("ui.lorebooks.expandeddrawer.content")}{" "}
-                <small>~{estimateTokens(form.content ?? "").toLocaleString()} tokens</small>
+                <small>
+                  ~{estimateTokens(form.content ?? "").toLocaleString()}{" "}
+                  {localizeUi("ui.lorebooks.expandeddrawer.tokens")}
+                </small>
               </span>
               <ExpandableTextarea
                 value={form.content ?? ""}
@@ -2354,17 +2383,17 @@ function ExpandedDrawer({
                   values={form.keys ?? []}
                   onChange={(keys) => update({ keys })}
                   parse={appendLorebookActivationKeys}
-                  placeholder="key…"
+                  placeholder={localizeUi("ui.lorebooks.expandeddrawer.key")}
                 />
               </div>
               {overhaulMobile ? null : secondaryKeysField}
             </div>
-            <OvmDrillGroup label="Matching" />
-            <OvmDrill title="Match options" summary={matchSummary}>
+            <OvmDrillGroup label={localizeUi("ui.lorebooks.expandeddrawer.matching")} />
+            <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.matchOptions")} summary={matchSummary}>
               {overhaulMobile ? secondaryKeysField : null}
               <div className="ov-lentry__inline">
                 <label className="ov-lf">
-                  <span>Secondary logic</span>
+                  <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryLogic")}</span>
                   <select
                     value={form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")}
                     onChange={(event) => update({ selectiveLogic: event.target.value as SelectiveLogic })}
@@ -2377,7 +2406,11 @@ function ExpandedDrawer({
                   </select>
                 </label>
                 <div className="ov-lentry__switches">
-                  <OvToggle label="Regex keys" on={ov.useRegex} onChange={ov.setUseRegex} />
+                  <OvToggle
+                    label={localizeUi("ui.lorebooks.expandeddrawer.regexKeys")}
+                    on={ov.useRegex}
+                    onChange={ov.setUseRegex}
+                  />
                   <OvToggle
                     label={localizeUi("ui.lorebooks.expandeddrawer.wholeWords")}
                     on={form.matchWholeWords ?? false}
@@ -2391,44 +2424,47 @@ function ExpandedDrawer({
                 </div>
               </div>
             </OvmDrill>
-            <OvmDrill title="Additional matching sources" summary={sources.length ? `${sources.length}` : "None"}>
+            <OvmDrill
+              title={localizeUi("ui.lorebooks.expandeddrawer.additionalMatchingSources")}
+              summary={sources.length ? `${sources.length}` : "None"}
+            >
               {overhaulMobile ? additionalSources : null}
             </OvmDrill>
 
-            <OvmDrillGroup label="When and where" />
+            <OvmDrillGroup label={localizeUi("ui.lorebooks.expandeddrawer.whenAndWhere")} />
             {overhaulMobile ? placementDrill : null}
-            <OvmDrill title="Behaviour" summary={behaviourSummary}>
-              <p className="ov-lentry__eyebrow">Behaviour</p>
+            <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.behaviour")} summary={behaviourSummary}>
+              <p className="ov-lentry__eyebrow">{localizeUi("ui.lorebooks.expandeddrawer.behaviour")}</p>
               <div className="ov-lentry__switches">
                 <OvToggle
                   label={localizeUi("ui.lorebooks.expandeddrawer.locked")}
                   on={form.locked ?? false}
                   onChange={(v) => update({ locked: v })}
-                  title="Prevents the Lorebook Keeper agent from modifying this entry."
+                  title={localizeUi("ui.lorebooks.expandeddrawer.preventsTheLorebookKeeperAgentFromModifyingThisEntry")}
                 />
                 <OvToggle
-                  label="Prevent recursion"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.preventRecursion")}
                   on={form.preventRecursion ?? true}
                   onChange={(v) => update({ preventRecursion: v })}
-                  title="This entry's content won't trigger other entries during recursive scanning."
+                  title={localizeUi("ui.lorebooks.expandeddrawer.thisEntrySContentWonTTriggerOtherEntries")}
                 />
                 <OvToggle
-                  label="Exclude recursion"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.excludeRecursion")}
                   on={form.excludeRecursion ?? false}
                   onChange={(v) => update({ excludeRecursion: v })}
-                  title="This entry can't be activated by recursive scanning."
+                  title={localizeUi("ui.lorebooks.expandeddrawer.thisEntryCanTBeActivatedByRecursiveScanning")}
                 />
                 <OvToggle
-                  label="Delay until recursion"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.delayUntilRecursion")}
                   on={form.delayUntilRecursion ?? false}
                   onChange={(v) => update({ delayUntilRecursion: v })}
-                  title="This entry only activates during recursive scanning."
+                  title={localizeUi("ui.lorebooks.expandeddrawer.thisEntryOnlyActivatesDuringRecursiveScanning")}
                 />
                 <OvToggle
                   label={localizeUi("ui.lorebooks.expandeddrawer.noVector")}
                   on={form.excludeFromVectorization ?? false}
                   onChange={(v) => update({ excludeFromVectorization: v })}
-                  title="Bulk vectorization skips this entry and removes any stored embedding."
+                  title={localizeUi("ui.lorebooks.expandeddrawer.bulkVectorizationSkipsThisEntryAndRemovesAnyStored")}
                 />
               </div>
             </OvmDrill>
@@ -2484,7 +2520,7 @@ function ExpandedDrawer({
             </OvmDrill>
             {overhaulMobile ? (
               <>
-                <OvmDrillGroup label="Limits" />
+                <OvmDrillGroup label={localizeUi("ui.lorebooks.expandeddrawer.limits")} />
                 {groupDrill}
                 {filtersDrill}
                 {scheduleDrill}
@@ -2525,7 +2561,6 @@ function ExpandedDrawer({
       </div>
     );
   }
-
 
   return (
     <div

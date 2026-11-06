@@ -1639,7 +1639,7 @@ export function ConversationView({
                 small
               />
               <span>
-                <b>{liveTypingName}</b> {liveTypingVerb} typing…
+                <b>{liveTypingName}</b> {liveTypingVerb} {localizeUi("ui.chat.conversationview.typing")}
               </span>
             </>
           ) : null}

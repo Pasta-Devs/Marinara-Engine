@@ -452,7 +452,10 @@ export function ImportCharacterModal({ open, onClose }: Props) {
               <Download size={16} aria-hidden="true" className="ov-imp__dropicon" />
               <span className="ov-imp__droptext">
                 {localizeUi("ui.modals.importcharactermodal.ovDropFiles")}
-                <span className="ov-imp__types"> · .json .png .charx .marinara</span>
+                <span className="ov-imp__types">
+                  {" "}
+                  {localizeUi("ui.modals.importcharactermodal.jsonPngCharxMarinara")}
+                </span>
               </span>
               <button type="button" className="ov-btn" onClick={() => fileRef.current?.click()}>
                 {localizeUi("ui.modals.importcharactermodal.ovBrowse")}

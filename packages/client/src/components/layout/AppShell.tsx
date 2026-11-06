@@ -1756,7 +1756,11 @@ export function AppShell({
                   <button
                     type="button"
                     className="ovm-trk-sheet__handle"
-                    aria-label={localizeUi(trackerSheetFull ? "Show less of the tracker" : "Show all of the tracker")}
+                    aria-label={localizeUi(
+                      trackerSheetFull
+                        ? "ui.overhaul.text.showLessOfTheTracker"
+                        : "ui.overhaul.text.showAllOfTheTracker",
+                    )}
                     onClick={() => setTrackerSheetFull((full) => !full)}
                   />
                 </motion.div>

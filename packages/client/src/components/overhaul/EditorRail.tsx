@@ -17,6 +17,7 @@ import { ChevronLeft, ChevronRight, Plus, X, type LucideIcon, Upload } from "luc
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type RailSection = {
   id: string;
@@ -29,13 +30,14 @@ export type RailCrumb = { label: string; onClick?: () => void };
 
 /** Phones: a bare ‹ that goes back to the Library section, in place of the breadcrumb trail. */
 export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () => void }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   return (
-    <nav className="ovm-crumb-back" aria-label="Breadcrumb">
+    <nav className="ovm-crumb-back" aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
       <button
         type="button"
         className="ovm-drill-page__back"
-        aria-label={`${localize("Back to")} ${label}`}
+        aria-label={localizeUi("ui.chat.scheduletimeline.value1Value2", { value1: localize("Back to"), value2: label })}
         title={label}
         onClick={onBack}
       >
@@ -46,20 +48,22 @@ export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () =
 }
 
 export function EditorCrumbs({ items }: { items: RailCrumb[] }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
   const back = [...items].reverse().find((item) => item.onClick);
-  if (mobile && back?.onClick) return <MobileBackCrumb label={back.label} onBack={back.onClick} />;
+  if (mobile && back?.onClick) return <MobileBackCrumb label={localize(back.label)} onBack={back.onClick} />;
   return (
-    <nav className="ov-crumbs" aria-label="Breadcrumb">
+    <nav className="ov-crumbs" aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
       {items.map((item, index) => (
         <span key={`${item.label}-${index}`} className="ov-crumbs__item">
           {index > 0 ? <ChevronRight size={12} aria-hidden="true" /> : null}
           {item.onClick ? (
             <button type="button" onClick={item.onClick}>
-              {item.label}
+              {localize(item.label)}
             </button>
           ) : (
-            <span aria-current="page">{item.label}</span>
+            <span aria-current="page">{localize(item.label)}</span>
           )}
         </span>
       ))}

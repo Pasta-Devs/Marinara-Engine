@@ -1062,7 +1062,10 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                 <>
                   <span role="status" className="ov-peek__count">
                     {search.count
-                      ? `${activeMatch + 1}/${search.count}`
+                      ? localizeUi("ui.chat.roleplaysetupwizard.value1Value2", {
+                          value1: activeMatch + 1,
+                          value2: search.count,
+                        })
                       : localizeUi("ui.chat.peekpromptmodal.find.noMatches")}
                   </span>
                   {[
@@ -1263,9 +1266,13 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                       <span className="ov-peek__who">{peekRoleName(row.kind, ovT)}</span>
                       <span className="ov-peek__dim">
                         {row.parts.length > 1
-                          ? `${ovT("ui.chat.peekpromptmodal.ov.parts", "{{count}} parts", { count: row.parts.length })} · `
+                          ? localizeUi("ui.chat.peekpromptmodal.value1", {
+                              value1: ovT("ui.chat.peekpromptmodal.ov.parts", "{{count}} parts", {
+                                count: row.parts.length,
+                              }),
+                            })
                           : row.kind === "system"
-                            ? `${prettifyTag(row.parts[0]!.label)} · `
+                            ? localizeUi("ui.chat.peekpromptmodal.value1", { value1: prettifyTag(row.parts[0]!.label) })
                             : ""}
                         ~{fmtTokens(row.tokens)}
                       </span>

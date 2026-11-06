@@ -11,6 +11,8 @@ import { cn } from "../../lib/utils";
 import { openLibrarySection } from "./library-navigation";
 import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.store";
 import { MobileBackCrumb } from "./EditorRail";
+import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
 export function OvEditorHead({
   section,
@@ -34,6 +36,8 @@ export function OvEditorHead({
   /** Items for the ⋯ menu. */
   menu?: Array<{ label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }>;
 }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -50,9 +54,9 @@ export function OvEditorHead({
       {mobile ? (
         <MobileBackCrumb label={sectionLabel} onBack={() => openLibrarySection(section)} />
       ) : (
-        <nav className="ov-edhead__crumbs" aria-label="Breadcrumb">
+        <nav className="ov-edhead__crumbs" aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
           <button type="button" onClick={() => openLibrarySection(section)}>
-            Library
+            {localizeUi("ui.overhaul.oveditorhead.library")}
           </button>
           <ChevronRight size={12} aria-hidden="true" />
           <button type="button" onClick={() => openLibrarySection(section)}>
@@ -69,7 +73,7 @@ export function OvEditorHead({
             value={title}
             placeholder={titlePlaceholder}
             onChange={(event) => onTitleChange(event.target.value)}
-            aria-label="Name"
+            aria-label={localizeUi("connections.accounts.editor.name")}
           />
         ) : (
           <h1 className="ov-edhead__title">{title || titlePlaceholder}</h1>
@@ -83,7 +87,7 @@ export function OvEditorHead({
               <button
                 type="button"
                 className="ov-edbtn ov-edbtn--icon"
-                aria-label="More"
+                aria-label={localizeUi("chatInsights.activity.more")}
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen((open) => !open)}
               >
@@ -110,7 +114,7 @@ export function OvEditorHead({
                         item.onSelect();
                       }}
                     >
-                      {item.label}
+                      {localize(item.label)}
                     </button>
                   ))}
                 </div>
@@ -124,9 +128,16 @@ export function OvEditorHead({
 }
 
 export function OvSaveState({ dirty, saving, error }: { dirty: boolean; saving?: boolean; error?: boolean }) {
+  const { t: localizeUi } = useUiTranslation();
   return (
     <span className={cn("ov-savestate", error ? "is-error" : dirty ? "is-dirty" : "is-saved")}>
-      {error ? "Save failed" : saving ? "Saving…" : dirty ? "Unsaved" : "Saved"}
+      {error
+        ? localizeUi("ui.agents.agenteditor.saveFailed")
+        : saving
+          ? localizeUi("chat.settings.inlineEditor.saving")
+          : dirty
+            ? localizeUi("ui.agents.agenteditor.unsaved")
+            : localizeUi("chat.settings.inlineEditor.saved")}
     </span>
   );
 }

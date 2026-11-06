@@ -2216,7 +2216,7 @@ export function PersonaEditor() {
           {formData.creator
             ? localizeUi("ui.personas.personaeditor.byValue1", { value1: formData.creator })
             : localizeUi("ui.personas.personaeditor.noCreator")}
-          {" · v"}
+          {localizeUi("ui.personas.personaeditor.v_0286fbd")}
           {formData.personaVersion || "1.0"}
         </>
       }
@@ -3577,7 +3577,7 @@ function PersonaStatsTab({
     };
     return (
       <div className="space-y-6">
-        <SectionHeader title="Game Mode" />
+        <SectionHeader title={localizeUi("game.style.label")} />
         <GameModeSheet
           rpgEnabled={rpgStats.enabled}
           onRpgEnabled={(enabled) => updateRpg({ enabled })}

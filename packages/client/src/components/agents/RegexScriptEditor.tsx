@@ -608,7 +608,7 @@ export function RegexScriptEditor() {
             actions={
               <>
                 <OvToggle
-                  label="Enabled"
+                  label={localizeUi("commandCenter.values.enabled")}
                   on={localEnabled}
                   onChange={(next) => {
                     setLocalEnabled(next);
@@ -617,7 +617,7 @@ export function RegexScriptEditor() {
                 />
                 <button type="button" className="ov-edbtn" onClick={handleExport}>
                   <Upload size={13} aria-hidden="true" />
-                  Export
+                  {localizeUi("chat.advancedMemory.export")}
                 </button>
                 <button
                   type="button"
@@ -626,7 +626,9 @@ export function RegexScriptEditor() {
                   onClick={() => void handleSave()}
                 >
                   <Save size={13} aria-hidden="true" />
-                  {savedFlash ? "Saved" : "Save"}
+                  {savedFlash
+                    ? localizeUi("chat.settings.inlineEditor.saved")
+                    : localizeUi("chat.settingsProfile.builder.save")}
                 </button>
               </>
             }
@@ -637,12 +639,12 @@ export function RegexScriptEditor() {
           />
           {showUnsavedWarning ? (
             <div className="ov-ed__banner">
-              <span>You have unsaved changes.</span>
+              <span>{localizeUi("ui.agents.agenteditor.youHaveUnsavedChanges")}</span>
               <button type="button" className="ov-edbtn" onClick={() => setShowUnsavedWarning(false)}>
-                Keep editing
+                {localizeUi("ui.agents.agenteditor.keepEditing")}
               </button>
               <button type="button" className="ov-edbtn ov-edbtn--danger" onClick={() => closeRegexDetail()}>
-                Discard
+                {localizeUi("ui.agents.agenteditor.discard")}
               </button>
               <button
                 type="button"
@@ -653,7 +655,7 @@ export function RegexScriptEditor() {
                 }}
               >
                 <Save size={13} aria-hidden="true" />
-                Save and close
+                {localizeUi("ui.agents.regexscripteditor.saveAndClose")}
               </button>
             </div>
           ) : null}
@@ -664,7 +666,7 @@ export function RegexScriptEditor() {
               <button
                 type="button"
                 className="ov-edbtn ov-edbtn--icon"
-                aria-label="Dismiss"
+                aria-label={localizeUi("ui.app.banner.dismiss")}
                 onClick={() => setSaveError(null)}
               >
                 <X size={12} />
@@ -673,8 +675,11 @@ export function RegexScriptEditor() {
           ) : null}
           <div className="ov-ed__cols">
             <div className="ov-ed__col">
-              <OvEyebrow>Pattern</OvEyebrow>
-              <OvRow label="Find pattern" hint={regexError ? undefined : "Macros like {{char}} work"}>
+              <OvEyebrow>{localizeUi("ui.agents.regexscripteditor.pattern")}</OvEyebrow>
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.findPattern")}
+                hint={regexError ? undefined : "Macros like {{char}} work"}
+              >
                 <input
                   className={cn("is-mono", regexError && "is-invalid")}
                   value={localFindRegex}
@@ -682,12 +687,12 @@ export function RegexScriptEditor() {
                     setLocalFindRegex(e.target.value);
                     markDirty();
                   }}
-                  placeholder="e.g. \\(OOC:.*?\\)"
-                  aria-label="Find pattern"
+                  placeholder={localizeUi("ui.agents.regexscripteditor.eGOoc")}
+                  aria-label={localizeUi("ui.agents.regexscripteditor.findPattern")}
                 />
                 {regexError ? <span className="ov-row__note is-error">{regexError}</span> : null}
               </OvRow>
-              <OvRow label="Replace with">
+              <OvRow label={localizeUi("ui.agents.regexscripteditor.replaceWith_dde4069")}>
                 <input
                   className="is-mono"
                   value={localReplaceString}
@@ -695,11 +700,11 @@ export function RegexScriptEditor() {
                     setLocalReplaceString(e.target.value);
                     markDirty();
                   }}
-                  placeholder="e.g. $1 or leave empty to remove"
-                  aria-label="Replace with"
+                  placeholder={localizeUi("ui.agents.regexscripteditor.eG1OrLeaveEmptyToRemove")}
+                  aria-label={localizeUi("ui.agents.regexscripteditor.replaceWith_dde4069")}
                 />
               </OvRow>
-              <OvRow label="Flags">
+              <OvRow label={localizeUi("ui.agents.regexscripteditor.flags")}>
                 <div className="ov-ed__flags">
                   {["g", "i", "m", "s", "u", "y", "d"].map((flag) => (
                     <OvToggle
@@ -715,49 +720,58 @@ export function RegexScriptEditor() {
                   ))}
                 </div>
               </OvRow>
-              <OvRow label="Trim strings" hint="Removed from the result" top>
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.trimStrings_f0be26a")}
+                hint="Removed from the result"
+                top
+              >
                 <OvChipInput
                   values={localTrimStrings}
                   onChange={(next) => {
                     setLocalTrimStrings(next);
                     markDirty();
                   }}
-                  placeholder="string to trim…"
+                  placeholder={localizeUi("ui.agents.regexscripteditor.stringToTrim_718c515")}
                   parse={(current, text) => (current.includes(text) ? current : [...current, text])}
                 />
               </OvRow>
-              <OvEyebrow aside="Preview only; placement, scope and depth are not simulated">Live test</OvEyebrow>
-              <OvRow label="Sample" top>
+              <OvEyebrow aside="Preview only; placement, scope and depth are not simulated">
+                {localizeUi("ui.agents.regexscripteditor.liveTest_ca9c1ea")}
+              </OvEyebrow>
+              <OvRow label={localizeUi("ui.agents.regexscripteditor.sample")} top>
                 <textarea
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
                   rows={3}
-                  placeholder="Paste sample text to test…"
-                  aria-label="Sample"
+                  placeholder={localizeUi("ui.agents.regexscripteditor.pasteSampleTextToTest")}
+                  aria-label={localizeUi("ui.agents.regexscripteditor.sample")}
                 />
               </OvRow>
-              <OvRow label="Result" top>
+              <OvRow label={localizeUi("roleplay.commands.activity.result")} top>
                 <div className="ov-ed__result">{testInput ? testResult : <span className="ov-row__note">—</span>}</div>
               </OvRow>
             </div>
             <div className="ov-ed__col">
-              <OvEyebrow>Where it applies</OvEyebrow>
-              <OvRow label="Apply to">
+              <OvEyebrow>{localizeUi("ui.agents.regexscripteditor.whereItApplies")}</OvEyebrow>
+              <OvRow label={localizeUi("ui.chat.chatsettingsdrawer.spriteLayoutApplyTo")}>
                 {(Object.entries(PLACEMENT_META) as [RegexPlacement, { label: string; description: string }][]).map(
                   ([placement, meta]) => (
                     <OvToggle
                       key={placement}
-                      label={meta.label}
-                      title={meta.description}
+                      label={localizeUi(meta.label)}
+                      title={localizeUi(meta.description)}
                       on={localPlacement.includes(placement)}
                       onChange={() => togglePlacement(placement)}
                     />
                   ),
                 )}
               </OvRow>
-              <OvRow label="Apply mode" hint={APPLY_MODE_META[localApplyMode].description}>
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.applyMode_a59c9c4")}
+                hint={localizeUi(APPLY_MODE_META[localApplyMode].description)}
+              >
                 <OvSeg
-                  label="Apply mode"
+                  label={localizeUi("ui.agents.regexscripteditor.applyMode_a59c9c4")}
                   value={localApplyMode}
                   options={[
                     { value: "prompt", label: "Prompt" },
@@ -770,9 +784,16 @@ export function RegexScriptEditor() {
                   }}
                 />
               </OvRow>
-              <OvRow label="Characters" top={localCharacterScopeEnabled}>
+              <OvRow
+                label={localizeUi("ui.agents.agenteditor.contextSource.characters.label")}
+                top={localCharacterScopeEnabled}
+              >
                 <OvToggle
-                  label={localCharacterScopeEnabled ? "Specific characters" : "Applies to all characters"}
+                  label={
+                    localCharacterScopeEnabled
+                      ? localizeUi("ui.agents.regexscripteditor.specificCharacters_20ff8e5")
+                      : localizeUi("ui.agents.regexscripteditor.appliesToAllCharacters")
+                  }
                   on={localCharacterScopeEnabled}
                   onChange={(next) => {
                     setLocalCharacterScopeEnabled(next);
@@ -785,7 +806,7 @@ export function RegexScriptEditor() {
                       kind="character"
                       multiple
                       variant="picker"
-                      placeholder="Add character…"
+                      placeholder={localizeUi("ui.agents.regexscripteditor.addCharacter")}
                       aria-label={localizeUi("ui.agents.regexscripteditor.addCharacter")}
                       value={localTargetCharacterIds}
                       onChange={(ids) => {
@@ -797,9 +818,16 @@ export function RegexScriptEditor() {
                   </div>
                 ) : null}
               </OvRow>
-              <OvRow label="Prompt presets" top={localPromptPresetScopeEnabled}>
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.promptPresets")}
+                top={localPromptPresetScopeEnabled}
+              >
                 <OvToggle
-                  label={localPromptPresetScopeEnabled ? "Specific prompt presets" : "Applies to all prompt presets"}
+                  label={
+                    localPromptPresetScopeEnabled
+                      ? localizeUi("ui.agents.regexscripteditor.specificPromptPresets_f9a1456")
+                      : localizeUi("ui.agents.regexscripteditor.appliesToAllPromptPresets")
+                  }
                   on={localPromptPresetScopeEnabled}
                   onChange={(next) => {
                     setLocalPromptPresetScopeEnabled(next);
@@ -815,7 +843,7 @@ export function RegexScriptEditor() {
                         setLocalTargetPromptPresetIds(next);
                         markDirty();
                       }}
-                      placeholder="Add prompt preset…"
+                      placeholder={localizeUi("ui.agents.regexscripteditor.addPromptPreset")}
                     />
                     {promptPresetScopeError ? (
                       <span className="ov-row__note is-error">{promptPresetScopeError}</span>
@@ -823,19 +851,22 @@ export function RegexScriptEditor() {
                   </div>
                 ) : null}
               </OvRow>
-              <OvEyebrow>Advanced</OvEyebrow>
-              <OvRow label="Execution order">
+              <OvEyebrow>{localizeUi("connections.builtin.advanced")}</OvEyebrow>
+              <OvRow label={localizeUi("ui.agents.regexscripteditor.executionOrder_08482fe")}>
                 <OvNum
                   value={localOrder}
                   onCommit={(value) => {
                     setLocalOrder(value ?? 0);
                     markDirty();
                   }}
-                  label="Execution order"
+                  label={localizeUi("ui.agents.regexscripteditor.executionOrder_08482fe")}
                 />
-                <span className="ov-row__note">Lower numbers run first</span>
+                <span className="ov-row__note">{localizeUi("ui.agents.regexscripteditor.lowerNumbersRunFirst")}</span>
               </OvRow>
-              <OvRow label="Depth range" hint="Messages back from the newest">
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.depthRange_61afeee")}
+                hint="Messages back from the newest"
+              >
                 <OvNum
                   value={localMinDepth}
                   allowEmpty
@@ -845,9 +876,11 @@ export function RegexScriptEditor() {
                     setLocalMinDepth(value);
                     markDirty();
                   }}
-                  label="Minimum depth"
+                  label={localizeUi("ui.agents.regexscripteditor.minimumDepth")}
                 />
-                <span className="ov-row__note">to</span>
+                <span className="ov-row__note">
+                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryRangeTo")}
+                </span>
                 <OvNum
                   value={localMaxDepth}
                   allowEmpty
@@ -857,7 +890,7 @@ export function RegexScriptEditor() {
                     setLocalMaxDepth(value);
                     markDirty();
                   }}
-                  label="Maximum depth"
+                  label={localizeUi("ui.agents.regexscripteditor.maximumDepth")}
                 />
                 <span className={cn("ov-row__note", depthRangeError && "is-error")}>
                   {depthRangeError ?? "blank = no limit"}
@@ -865,10 +898,10 @@ export function RegexScriptEditor() {
               </OvRow>
               {dbRow ? (
                 <div className="ov-ed__id">
-                  ID <code>{dbRow.id}</code>
+                  {localizeUi("ui.game.gamewidgetsetupeditor.id")} <code>{dbRow.id}</code>
                   <button type="button" className="ov-ed__link" onClick={copyId}>
                     <Copy size={12} aria-hidden="true" />
-                    Copy
+                    {localizeUi("lorebook.editor.batch.copy")}
                   </button>
                 </div>
               ) : null}

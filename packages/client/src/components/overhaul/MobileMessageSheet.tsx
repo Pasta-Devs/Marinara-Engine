@@ -16,6 +16,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { closeAfterAction } from "./RpMessageFooter";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 const LONG_PRESS_MS = 450;
 const MOVE_TOLERANCE_PX = 10;
@@ -91,6 +92,7 @@ function SwipeRows({
   count: number;
   onPick: (index: number) => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const { data } = useQuery({
     queryKey: [...chatKeys.all, "swipes", messageId],
     queryFn: () => api.get<MessageSwipe[]>(`/chats/${chatId}/messages/${messageId}/swipes`),
@@ -98,7 +100,7 @@ function SwipeRows({
   });
   const rows = data?.length ? [...data].sort((a, b) => a.index - b.index) : null;
   return (
-    <div className="ov-rpf-swipes" role="listbox" aria-label="Swipes">
+    <div className="ov-rpf-swipes" role="listbox" aria-label={localizeUi("ui.overhaul.swiperows.swipes")}>
       {(rows ?? Array.from({ length: count }, (_, index) => ({ index, content: "" }))).map((row) => (
         <button
           key={row.index}

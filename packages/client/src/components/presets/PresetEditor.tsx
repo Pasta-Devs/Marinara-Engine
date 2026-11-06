@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -230,6 +231,7 @@ function presetSavePatch(form: PresetFormFields, loaded: PresetFormFields | null
 
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const overhaulActive = useOverhaulLook();
   const overhaulMobileShell = useOverhaulMobile();
   // Phones: the preset is a page of rows; each row opens as its own page.
@@ -774,7 +776,7 @@ export function PresetEditor() {
       const hubRow = (id: keyof typeof ovmTitles, icon: ReactNode, value?: ReactNode) => (
         <button type="button" className="ovm-drill-row" onClick={() => setOvmPage(id)}>
           <span className="ovm-drill-row__icon">{icon}</span>
-          <span className="ovm-drill-row__title">{localizeUi(ovmTitles[id])}</span>
+          <span className="ovm-drill-row__title">{localize(ovmTitles[id])}</span>
           {value ? <span className="ovm-drill-row__value">{value}</span> : null}
           <ChevronRight size={16} className="ovm-drill-row__chev" aria-hidden="true" />
         </button>
@@ -808,7 +810,7 @@ export function PresetEditor() {
               >
                 <ChevronLeft size={26} aria-hidden="true" />
               </button>
-              <span className="ovm-drill-page__title">{localizeUi(ovmTitles[ovmPage])}</span>
+              <span className="ovm-drill-page__title">{localize(ovmTitles[ovmPage])}</span>
               {saveButton}
             </div>
           ) : (
@@ -977,13 +979,15 @@ export function PresetEditor() {
                     setOvResetKey((key) => key + 1);
                   }}
                 >
-                  {localizeUi(page.label)}
+                  {localize(page.label)}
                 </button>
               ))}
             </div>
             <p className="ov-preset__eyebrow">
               {localizeUi("Prompt order")}
-              <small>~{totalTokens.toLocaleString()} tk</small>
+              <small>
+                ~{totalTokens.toLocaleString()} {localizeUi("ui.presets.preseteditor.tk")}
+              </small>
             </p>
             {renderSections({
               compact: true,
@@ -1550,6 +1554,7 @@ function OvPresetOverview({
   sectionCount: number;
   groupCount: number;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const { data: scripts } = useRegexScripts();
   const linkedCount = useMemo(
     () =>
@@ -1565,33 +1570,41 @@ function OvPresetOverview({
   );
   return (
     <div className="ov-povw">
-      <h2 className="ov-povw__title">Overview</h2>
+      <h2 className="ov-povw__title">{localizeUi("editor.tabs.overview")}</h2>
       <div className="ov-povw__grid">
         <label className="ov-lf ov-povw__name">
-          <span>Name</span>
-          <input value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="Preset name" />
+          <span>{localizeUi("ui.presets.overviewtab.name")}</span>
+          <input
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder={localizeUi("ui.presets.ovpresetoverview.presetName")}
+          />
         </label>
         <label className="ov-lf">
-          <span>Author</span>
-          <input value={author} onChange={(e) => onAuthorChange(e.target.value)} placeholder="Your name (optional)" />
+          <span>{localizeUi("ui.presets.overviewtab.author")}</span>
+          <input
+            value={author}
+            onChange={(e) => onAuthorChange(e.target.value)}
+            placeholder={localizeUi("ui.presets.overviewtab.yourNameOptional")}
+          />
         </label>
         <div className="ov-lf">
-          <span>Picture</span>
+          <span>{localizeUi("ui.presets.overviewtab.picture")}</span>
           <PresetPictureField preset={preset} compact />
         </div>
         <label className="ov-lf ov-povw__full">
-          <span>Description</span>
+          <span>{localizeUi("chat.settings.inlineEditor.fields.description")}</span>
           <textarea
             value={description}
             rows={3}
             onChange={(e) => onDescriptionChange(e.target.value)}
-            placeholder="What does this preset do?"
+            placeholder={localizeUi("ui.presets.overviewtab.whatDoesThisPresetDo")}
           />
         </label>
         <div className="ov-lf">
-          <span>Wrap format</span>
+          <span>{localizeUi("commandCenter.preview.wrapFormat")}</span>
           <OvSeg
-            label="Wrap format"
+            label={localizeUi("commandCenter.preview.wrapFormat")}
             value={wrapFormat}
             options={[
               { value: "xml", label: "XML" },
@@ -1602,9 +1615,9 @@ function OvPresetOverview({
           />
         </div>
         <div className="ov-lf">
-          <span>Scoped regex default</span>
+          <span>{localizeUi("presets.regex.defaultMode")}</span>
           <OvSeg
-            label="Scoped regex default"
+            label={localizeUi("presets.regex.defaultMode")}
             value={scopedRegexMode}
             options={[
               { value: "disabled", label: "Disabled" },
@@ -1615,18 +1628,27 @@ function OvPresetOverview({
           />
         </div>
         <div className="ov-lf">
-          <span>Regex scripts</span>
+          <span>{localizeUi("ui.modals.importcharactermodal.ovRegexScripts")}</span>
           <p className="ov-povw__line">
-            {linkedCount === 1 ? "1 script targets" : `${linkedCount} scripts target`} this preset{" "}
+            {linkedCount === 1
+              ? localizeUi("ui.presets.ovpresetoverview.text1ScriptTargets")
+              : localizeUi("ui.presets.ovpresetoverview.value1ScriptsTarget", { value1: linkedCount })}{" "}
+            {localizeUi("ui.presets.ovpresetoverview.thisPreset")}{" "}
             <button type="button" className="ov-ed__link" onClick={onOpenRegex}>
-              Open in Regex ›
+              {localizeUi("ui.presets.ovpresetoverview.openInRegex")}
             </button>
           </p>
         </div>
       </div>
       <p className="ov-povw__stats">
-        {sectionCount} {sectionCount === 1 ? "section" : "sections"} · {groupCount}{" "}
-        {groupCount === 1 ? "group" : "groups"}
+        {sectionCount}{" "}
+        {sectionCount === 1
+          ? localizeUi("ui.chat.peekpromptmodal.section")
+          : localizeUi("ui.presets.sectionstab.sections")}{" "}
+        · {groupCount}{" "}
+        {groupCount === 1
+          ? localizeUi("ui.presets.ovpresetoverview.group")
+          : localizeUi("ui.presets.ovpresetoverview.groups")}
       </p>
     </div>
   );
@@ -1693,7 +1715,9 @@ function PresetPictureField({ preset, compact = false }: { preset: PromptPreset;
         </button>
         <button type="button" className="ov-ed__link" onClick={pick} disabled={uploadPresetImage.isPending}>
           <Upload size={12} aria-hidden="true" />
-          {artwork ? "Replace" : "Upload"}
+          {artwork
+            ? localizeUi("connections.accounts.editor.replace")
+            : localizeUi("ui.characters.characterclipcard.upload")}
         </button>
       </div>
     );

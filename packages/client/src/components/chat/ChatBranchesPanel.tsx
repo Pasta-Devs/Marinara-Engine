@@ -33,6 +33,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { ChatBranchGraphButton } from "./ChatBranchGraphWindow";
 import { FloatPortal } from "../ui/FloatPortal";
 import { useWindowFloat, WINDOW_FLOAT_Z } from "../ui/useWindowFloat";
@@ -61,6 +62,7 @@ export function ChatBranchesPanel({
   allowRangeExport = false,
 }: ChatBranchesPanelProps) {
   const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const { data: groupChats } = useChatGroup(groupId ?? null);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const exportChat = useExportChat();
@@ -235,7 +237,9 @@ export function ChatBranchesPanel({
                 onClick={() => setExportMenuOpen((open) => !open)}
               >
                 <Upload size="0.8125rem" />
-                <span className="ov-cb-io__label">{exportChat.isPending ? "..." : "Export"}</span>
+                <span className="ov-cb-io__label">
+                  {exportChat.isPending ? "..." : localizeUi("chat.advancedMemory.export")}
+                </span>
                 <ChevronDown size="0.75rem" />
               </button>
               {exportMenuOpen ? (
@@ -268,13 +272,13 @@ export function ChatBranchesPanel({
                         key={item.format}
                         type="button"
                         role="menuitem"
-                        title={item.hint}
+                        title={localize(item.hint)}
                         onClick={() => {
                           setExportMenuOpen(false);
                           exportChat.mutate({ chatId: activeChatId, format: item.format });
                         }}
                       >
-                        <span>{item.label}</span>
+                        <span>{localize(item.label)}</span>
                         <small>{item.ext}</small>
                       </button>
                     ))}

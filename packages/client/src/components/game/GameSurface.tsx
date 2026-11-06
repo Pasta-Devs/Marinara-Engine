@@ -13870,7 +13870,7 @@ function GameSurfaceComponent({
       </ChatSettingsSection>
       <ChatSettingsSection
         id="game-tools"
-        label="Game tools"
+        label={localizeUi("ui.game.gamesurfacecomponent.gameTools")}
         icon={<Gamepad2 size="0.875rem" />}
         style={{ order: -1248 }}
       >
@@ -13898,8 +13898,10 @@ function GameSurfaceComponent({
   const ovHeading = (
     <>
       <span>
-        Day {currentGameDay}
-        {gameSnapshot?.time || metaTime ? ` · ${gameSnapshot?.time ?? metaTime}` : ""}
+        {localizeUi("ui.game.daytimeindicator.day")} {currentGameDay}
+        {gameSnapshot?.time || metaTime
+          ? localizeUi("ui.characters.characterversionhistorypanel.value1", { value1: gameSnapshot?.time ?? metaTime })
+          : ""}
       </span>
       {gameSnapshot?.location ? <b>{gameSnapshot.location}</b> : null}
       <small>

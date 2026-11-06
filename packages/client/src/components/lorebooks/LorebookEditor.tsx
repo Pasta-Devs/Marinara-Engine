@@ -2176,7 +2176,11 @@ export function LorebookEditor() {
       <div className="ov-bk-head__row">
         <h1>{lorebook.name}</h1>
         <span className="ov-bk-head__meta">
-          {entries.length} {entries.length === 1 ? "entry" : "entries"} · ~{ovTotalTokens.toLocaleString()} tk
+          {entries.length}{" "}
+          {entries.length === 1
+            ? localizeUi("ui.lorebooks.lorebookeditor.entry")
+            : localizeUi("ui.lorebooks.lorebookeditor.entries_c2e311d")}{" "}
+          · ~{ovTotalTokens.toLocaleString()} {localizeUi("ui.lorebooks.lorebookeditor.tk")}
         </span>
         <span className="ov-bk-head__spacer" />
         {expandedEntryId ? (
@@ -2339,7 +2343,7 @@ export function LorebookEditor() {
                     {tag}
                     <button
                       type="button"
-                      aria-label={`Remove ${tag}`}
+                      aria-label={localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: tag })}
                       onClick={() => {
                         setFormTags(formTags.filter((value) => value !== tag));
                         markLorebookDirty();
@@ -2917,11 +2921,11 @@ export function LorebookEditor() {
 
       {overhaulActive && entries.length > 0 ? (
         <div className="ov-lhead" aria-hidden="true">
-          <span>Entry</span>
-          <span>Keys</span>
-          <span>Position</span>
-          <span>Order</span>
-          <span>Tokens</span>
+          <span>{localizeUi("ui.lorebooks.lorebookeditor.entry_19172e9")}</span>
+          <span>{localizeUi("lorebook.editor.bulk.keys")}</span>
+          <span>{localizeUi("ui.lorebooks.lorebookentryrow.position")}</span>
+          <span>{localizeUi("ui.lorebooks.lorebookentryrow.order")}</span>
+          <span>{localizeUi("ui.panels.personaspanel.tokens")}</span>
         </div>
       ) : null}
 
@@ -3370,7 +3374,8 @@ export function LorebookEditor() {
                         <p className="ov-vw__label">
                           {localizeUi("Entries")}
                           <small>
-                            {entries.length} · ~{ovTotalTokens.toLocaleString()} tk
+                            {entries.length} · ~{ovTotalTokens.toLocaleString()}{" "}
+                            {localizeUi("ui.lorebooks.lorebookeditor.tk")}
                           </small>
                         </p>
                         <div className="ov-lv__entries">{ovEntriesBody}</div>

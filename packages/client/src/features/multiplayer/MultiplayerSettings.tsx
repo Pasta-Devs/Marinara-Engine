@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { LogIn, Power, PowerOff, Users } from "lucide-react";
 import type { MultiplayerGuestSession, MultiplayerPersona, MultiplayerPreview } from "@marinara-engine/shared";
 import { multiplayerActionError, useMultiplayerMutation, useMultiplayerStatus } from "../../hooks/use-multiplayer";
@@ -14,6 +14,7 @@ import { ChatModeSelectorModal, type ChatLaunchMode } from "../../components/cha
 import { MultiplayerPersonaFields, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 
 export function MultiplayerSettings() {
+  const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const status = useMultiplayerStatus();
   const settings = useMultiplayerMutation<unknown, { enabled: boolean; consent: boolean }>(
@@ -29,11 +30,11 @@ export function MultiplayerSettings() {
   const id = useId();
   return (
     <SettingsSection
-      title="Multiplayer"
-      description="Play one chat together with people on other devices."
+      title={localizeUi("multiplayer.title")}
+      description={localizeUi("ui.multiplayer.multiplayersettings.playOneChatTogetherWithPeopleOnOtherDevices")}
       headerAction={
         <span className="rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-          Work in progress
+          {localizeUi("ui.multiplayer.multiplayersettings.workInProgress")}
         </span>
       }
       icon={<Users size={16} />}

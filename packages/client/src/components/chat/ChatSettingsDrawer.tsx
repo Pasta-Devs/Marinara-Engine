@@ -6117,8 +6117,8 @@ export function ChatSettingsDrawer({
                             type="button"
                             onClick={() => setShowPersonaPicker(true)}
                             className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                            title="Change persona"
-                            aria-label="Change persona"
+                            title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
+                            aria-label={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
                           >
                             <RefreshCw size="0.6875rem" />
                           </button>
