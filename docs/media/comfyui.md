@@ -24,7 +24,7 @@ If it did not work, see [Troubleshooting](#troubleshooting).
 
 ## Use an authenticated proxy
 
-ComfyUI itself has no login. When a proxy in front of it asks for credentials or extra headers, add them to the account. Marinara sends them with every ComfyUI request: queue, history, image download, and reference upload. Video accounts behave the same way.
+ComfyUI itself has no login. When a proxy in front of it asks for credentials or extra headers, add them to the account. Marinara sends them with every ComfyUI request: queue, history, image download, reference upload, model listing, and connection testing. Video accounts behave the same way.
 
 1. Open **Connections** and edit the ComfyUI image or video account.
 2. For a token the proxy checks, enter it in **API key**. Marinara sends it as an `Authorization: Bearer` header. A value that already carries a scheme, such as `Basic ...`, is sent as-is.
