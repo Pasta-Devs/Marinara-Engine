@@ -383,13 +383,17 @@ for (const [size, theme] of [
     // The Add models catalog: shared rows with cost badges, a retiring hint and "Updated …".
     await nano.getByRole("button", { name: "Actions for NanoGPT subscription with a long name" }).click();
     await page.getByRole("menuitem", { name: "Add model", exact: true }).click();
-    const catalog = page.getByRole("dialog", { name: "Add model", exact: true });
+    // #8456: opened from an account, the window is titled with its step, "Add models to <account>".
+    const catalog = page.getByRole("dialog", {
+      name: "Add models to NanoGPT subscription with a long name",
+      exact: true,
+    });
     // NanoGPT also offers image and video: the screen opens on Chat, and its chips switch kinds.
     await expect(catalog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(catalog.locator('[data-model-id="zai-org/glm-5.2"] [data-model-cost="included"]')).toHaveText(
-      "Plan",
+    await expect(catalog.locator('[data-model-id="zai-org/glm-5.2"] [data-model-cost="included"]')).toHaveText("Plan");
+    await expect(catalog.locator('[data-model-id="openai/gpt-5.5"] [data-model-cost="multiplier"]')).toHaveText(
+      "Plan ×2",
     );
-    await expect(catalog.locator('[data-model-id="openai/gpt-5.5"] [data-model-cost="multiplier"]')).toHaveText("Plan ×2");
     await expect(catalog.locator('[data-model-id="anthropic/claude-opus-4"] [data-model-cost="paid"]')).toHaveText(
       "Paid",
     );

@@ -47,6 +47,11 @@ const context = {
     calls.push("close");
   },
   target: null,
+  // Opened for no job: Done makes no Decision pick (that path is covered by the agent-activation browser test).
+  job: null,
+  picks: [],
+  decisionOptions: { data: undefined },
+  selectDecision: { mutateAsync: async () => assert.fail("no Decision pick without the Decision job") },
 };
 const applyChoices = handler("const applyChoices =", "  const setAsMain =", "applyChoices", context);
 const close = handler("const close =", "  const requestClose", "close", { ...context, applyChoices });

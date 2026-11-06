@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { logger } from "../../packages/server/src/lib/logger.js";
+import { debugJson, logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
@@ -79,6 +79,7 @@ import { resolveMainGenerationToolChoice } from "../../packages/server/src/servi
 import {
   appendGenerationTailMessages,
   buildUserMessageRegenerationPromptFromSource,
+  endPromptOnAssistantPrefill,
   hasProviderMessagePayload,
   parseStoredGenerationParameters,
   type SimpleMessage,
@@ -486,7 +487,7 @@ try {
     overrides: Partial<Parameters<typeof appendGenerationTailMessages>[1]> = {},
   ) => {
     const messages: SimpleMessage[] = [{ role: "user", content: "Continue." }];
-    appendGenerationTailMessages(messages, {
+    const tail = appendGenerationTailMessages(messages, {
       assistantPrefill,
       assistantReasoningPrefill,
       supportsAssistantReasoningPrefill: true,
@@ -496,6 +497,7 @@ try {
       regenerateUserMessage: null,
       ...overrides,
     });
+    endPromptOnAssistantPrefill(messages, tail.prefill, true);
     return messages;
   };
 
@@ -2730,6 +2732,47 @@ await assert.rejects(
 assert.equal(callbackOutput, "visible callback output");
 assert.equal(callbackFallback.calls, 0, "a fallback must not replace output already emitted through onToken");
 
+const completeCallbackFallback = new RegressionProvider(["must not follow streamed completion output"]);
+let completeCallbackOutput = "";
+await assert.rejects(
+  new ConnectionFallbackProvider(
+    new TokenCallbackFailureProvider(),
+    completeCallbackFallback,
+    fallbackConnection,
+    "main",
+  ).chatComplete([{ role: "user", content: "test" }], {
+    model: "primary-model",
+    onToken: (chunk) => {
+      completeCallbackOutput += chunk;
+    },
+  }),
+  /stream interrupted after callback output/,
+);
+assert.equal(completeCallbackOutput, "visible callback output");
+assert.equal(
+  completeCallbackFallback.calls,
+  0,
+  "a chatComplete fallback must not be appended after output already emitted through onToken",
+);
+
+const keepaliveCallbackFallback = new RegressionProvider(["fallback replaces keepalive-only output"]);
+let keepaliveChunks = 0;
+const keepaliveCallbackResult = await new ConnectionFallbackProvider(
+  new TokenCallbackFailureProvider(),
+  keepaliveCallbackFallback,
+  fallbackConnection,
+  "main",
+).chatComplete([{ role: "user", content: "test" }], {
+  model: "primary-model",
+  onToken: () => {
+    keepaliveChunks += 1;
+  },
+  onTokenKeepaliveOnly: true,
+});
+assert.equal(keepaliveCallbackResult.content, "fallback replaces keepalive-only output");
+assert.equal(keepaliveCallbackFallback.calls, 1, "a keepalive-only onToken must still let the fallback answer");
+assert.ok(keepaliveChunks > 1, "the fallback keeps the caller's keepalive onToken");
+
 const rejectedNoticeFallback = new RegressionProvider(["fallback survives notification failure"]);
 assert.equal(
   await collectProviderOutput(
@@ -3905,7 +3948,11 @@ try {
         });
         assert.equal(promptLogs.length, debug === "off" ? 0 : 1);
         if (debug !== "off") {
-          assert.deepEqual(promptLogs[0]![1], sentBody, "debug logs include final parameter/tool shaping");
+          assert.equal(
+            String(promptLogs[0]![1]),
+            String(debugJson(sentBody)),
+            "debug logs include final parameter/tool shaping",
+          );
           assert.ok(!JSON.stringify(promptLogs).includes("synthetic-auth-marker"), "auth headers are not prompt data");
         }
       }
@@ -4691,7 +4738,7 @@ try {
       { role: "user", content: "Hello.\n\nWrite my next reply." },
     ]);
     assert.ok(
-      warnLogs.some((args) => JSON.stringify(args[1]) === JSON.stringify(strictTemplateBodies[1]!.messages)),
+      warnLogs.some((args) => String(args[1]) === String(debugJson(strictTemplateBodies[1]!.messages))),
       "debug mode logs the retried messages",
     );
 

@@ -1,12 +1,13 @@
 // ──────────────────────────────────────────────
 // Professor Mari image command service
 // ──────────────────────────────────────────────
-import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { existsSync, lstatSync } from "node:fs";
+import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   listSpriteCatalog,
@@ -53,6 +54,8 @@ type ImageCommandContext = {
   command: string;
   sessionId: string;
   cwd?: string;
+  // Resolves and checks a file path before it is read (Professor Mari's direct runtime passes her read tool's rule).
+  resolveReadPath?: (path: string) => string;
 };
 
 type ImageConnection = {
@@ -394,18 +397,60 @@ function parseManifest(value: string): MariImageAsset[] {
   }
 }
 
-async function ensurePreviewDir() {
-  await mkdir(PREVIEW_DIR, { recursive: true });
+// A write or delete acts on the file's own name in its checked real folder, so a link at that name is never followed.
+function appFileEntry(folder: string, path: string): string {
+  return join(realPathInAppFolder(folder, dirname(path)), basename(path));
 }
 
+// The file's own name in its checked real folder, refused when that name is a link, dangling or not, wherever it
+// points. The manifest and meta.json reads and every write share this, so a file a read accepts is one its write
+// accepts, and a refusal comes before any image is saved or deleted.
+function unlinkedAppFile(folder: string, path: string): string {
+  const entry = appFileEntry(folder, path);
+  if (lstatSync(entry, { throwIfNoEntry: false })?.isSymbolicLink())
+    throw new Error(`Linked app file refused: ${basename(entry)}`);
+  return entry;
+}
+
+// Writes go to a new temporary file in the checked folder, renamed into place: a link already at the name is refused,
+// and one that appears after the check is replaced by the rename, never followed.
+async function writeAppFile(folder: string, path: string, data: string | Buffer): Promise<void> {
+  const entry = unlinkedAppFile(folder, path);
+  await mkdir(dirname(entry), { recursive: true });
+  const temporary = join(dirname(entry), `.mari-${newId()}.tmp`);
+  try {
+    await writeFile(temporary, data, { flag: "wx" });
+    await rename(temporary, entry);
+  } catch (error) {
+    await unlink(temporary).catch(() => undefined);
+    throw error;
+  }
+}
+
+// The sprite catalog helpers refuse a linked owner folder; this also refuses a sprites folder linked out of the data
+// dir before they read or write the catalog in it.
+function spriteFolder(ownerId: string): string {
+  const dir = join(SPRITES_DIR, ownerId);
+  realPathInAppFolder(SPRITES_DIR, dir);
+  return dir;
+}
+
+// A chat or character ID names one gallery subfolder, never a path, so an ID such as `..` cannot move a write.
+function galleryFolder(...names: string[]): string {
+  if (names.some((name) => !name || name === "." || name === ".." || /[/\\\0]/u.test(name)))
+    throw new Error(`Invalid gallery folder ID: ${names.at(-1)}`);
+  return join(GALLERY_DIR, ...names);
+}
+
+// Refused here, by the same rule as its write, before any image is saved or deleted beside it.
 async function readManifest() {
-  if (!existsSync(PREVIEW_MANIFEST_PATH)) return [] as MariImageAsset[];
-  return parseManifest(await readFile(PREVIEW_MANIFEST_PATH, "utf8"));
+  const path = unlinkedAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH);
+  if (!existsSync(path)) return [] as MariImageAsset[];
+  return parseManifest(await readFile(path, "utf8"));
 }
 
 async function writeManifest(assets: MariImageAsset[]) {
-  await ensurePreviewDir();
-  await writeFile(PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2), "utf8");
+  await writeAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2));
 }
 
 async function savePreviewAsset(args: {
@@ -420,15 +465,15 @@ async function savePreviewAsset(args: {
   capability: ImageCapability;
   sourceImage?: string | null;
 }) {
-  await ensurePreviewDir();
+  // Read first, so a refused manifest leaves no unlisted image behind.
+  const assets = await readManifest();
   const id = newId();
   const imageBuffer = Buffer.from(args.result.base64, "base64");
   const imageInfo = isAllowedImageBuffer(imageBuffer, `.${args.result.ext}`);
   if (!imageInfo) throw new Error("Generated image was not a supported image file");
   const ext = extensionFromImageMime(imageInfo.mimeType);
   const filename = `mari-${id}.${ext}`;
-  const outputPath = assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, filename));
-  await writeFile(outputPath, imageBuffer);
+  await writeAppFile(PREVIEW_DIR, join(PREVIEW_DIR, filename), imageBuffer);
 
   const asset: MariImageAsset = {
     id,
@@ -452,23 +497,23 @@ async function savePreviewAsset(args: {
     sourceImage: args.sourceImage ?? null,
     createdAt: now(),
   };
-  const assets = await readManifest();
   await writeManifest([asset, ...assets].slice(0, 200));
   return asset;
 }
 
 async function readBackgroundMeta(): Promise<Record<string, { tags: string[] }>> {
-  if (!existsSync(BACKGROUND_META_PATH)) return {};
+  // Checked outside the try: a linked meta.json is refused, by the same rule as its write, not read as empty.
+  const path = unlinkedAppFile(BACKGROUND_DIR, BACKGROUND_META_PATH);
+  if (!existsSync(path)) return {};
   try {
-    return JSON.parse(await readFile(BACKGROUND_META_PATH, "utf8")) as Record<string, { tags: string[] }>;
+    return JSON.parse(await readFile(path, "utf8")) as Record<string, { tags: string[] }>;
   } catch {
     return {};
   }
 }
 
 async function writeBackgroundMeta(meta: Record<string, { tags: string[] }>) {
-  await mkdir(BACKGROUND_DIR, { recursive: true });
-  await writeFile(BACKGROUND_META_PATH, JSON.stringify(meta, null, 2), "utf8");
+  await writeAppFile(BACKGROUND_DIR, BACKGROUND_META_PATH, JSON.stringify(meta, null, 2));
 }
 
 function decodeDataImage(value: string): ResolvedImage | null {
@@ -482,8 +527,10 @@ function decodeDataImage(value: string): ResolvedImage | null {
   return { label: "data-url", buffer, base64, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
 }
 
-async function imageFromFile(path: string, label: string): Promise<ResolvedImage> {
-  const buffer = await readFile(path);
+// An asset or app URL names its file inside an app folder, checked as written; a read follows links, so it reads the
+// real path held to that folder.
+async function imageFromFile(path: string, label: string, appFolder?: string): Promise<ResolvedImage> {
+  const buffer = await readFile(appFolder ? realPathInAppFolder(appFolder, path) : path);
   const imageInfo = isAllowedImageBuffer(buffer, extname(path));
   if (!imageInfo) throw new Error(`Unsupported or invalid image file: ${label}`);
   return {
@@ -503,7 +550,7 @@ function safeUrlPath(value: string) {
   }
 }
 
-function appImagePathFromUrl(value: string): { path: string; label: string; url: string } | null {
+function appImagePathFromUrl(value: string): { path: string; folder: string; label: string; url: string } | null {
   const pathname = safeUrlPath(value);
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "api") return null;
@@ -514,6 +561,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!chatId || !filename) return null;
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, join(GALLERY_DIR, chatId), filename),
+      folder: GALLERY_DIR,
       label: `gallery:${chatId}/${filename}`,
       url: pathname,
     };
@@ -532,6 +580,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "personas", personaId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `persona-gallery:${personaId}/${filename}`,
       url: pathname,
     };
@@ -543,6 +592,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "characters", characterId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `character-gallery:${characterId}/${filename}`,
       url: pathname,
     };
@@ -552,6 +602,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)),
+      folder: AVATAR_DIR,
       label: `avatar:${filename}`,
       url: pathname,
     };
@@ -561,6 +612,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)),
+      folder: LOREBOOK_IMAGE_DIR,
       label: `lorebook-image:${filename}`,
       url: pathname,
     };
@@ -570,6 +622,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)),
+      folder: BACKGROUND_DIR,
       label: `background:${filename}`,
       url: pathname,
     };
@@ -579,7 +632,12 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const filename = decodeSafePathSegment(parts[4]);
     if (!ownerId || !filename) return null;
     const root = join(SPRITES_DIR, ownerId);
-    return { path: assertInsideDir(root, join(root, filename)), label: `sprite:${ownerId}/${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(root, join(root, filename)),
+      folder: root,
+      label: `sprite:${ownerId}/${filename}`,
+      url: pathname,
+    };
   }
 
   return null;
@@ -717,7 +775,7 @@ export class MariImagesService {
       imageDefaults,
     });
     const size = this.resolveSize(flags, kind, imageSettings);
-    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
 
     return {
       ok: true,
@@ -759,7 +817,7 @@ export class MariImagesService {
       throw new Error(`No edit-capable image connection selected. ${capability.notes.join(" ")}`);
     }
 
-    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
     const imageSettings = await loadImageGenerationUserSettings(this.db);
     const imageDefaults = resolveConnectionImageDefaults(connection);
     const kind = detectImageKind(target, flagString(flags, "kind"));
@@ -916,25 +974,25 @@ export class MariImagesService {
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required: true,
   ): Promise<ResolvedImage>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required?: false,
   ): Promise<ResolvedImage | null>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required = false,
   ): Promise<ResolvedImage | null> {
     const explicit = flagString(flags, "source", "source-image", "asset", "from");
-    if (explicit) return this.resolveImageReference(explicit, cwd);
+    if (explicit) return this.resolveImageReference(explicit, context);
     const targetImage = target ? await this.currentImageReferenceForTarget(target) : null;
-    if (targetImage) return this.resolveImageReference(targetImage, cwd);
+    if (targetImage) return this.resolveImageReference(targetImage, context);
     if (required)
       throw new Error(
         "Image editing requires --source <asset-id|app-url|file|data-url>, or a target that already has an image.",
@@ -943,6 +1001,7 @@ export class MariImagesService {
   }
 
   private findSprite(ownerId: string, expression: string) {
+    spriteFolder(ownerId);
     const sprites = listSpriteCatalog(ownerId).sprites;
     const exact = sprites.find((sprite) => sprite.expression === expression);
     const matches = sprites.filter((sprite) => sprite.label === expression);
@@ -999,7 +1058,7 @@ export class MariImagesService {
     return `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}`;
   }
 
-  private async resolveImageReference(value: string, cwd?: string): Promise<ResolvedImage> {
+  private async resolveImageReference(value: string, context: ImageCommandContext): Promise<ResolvedImage> {
     const data = decodeDataImage(value);
     if (data) return data;
 
@@ -1015,13 +1074,14 @@ export class MariImagesService {
       const image = await imageFromFile(
         assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)),
         `asset:${asset.id}`,
+        PREVIEW_DIR,
       );
       return { ...image, url: asset.url, asset };
     }
 
     const appPath = appImagePathFromUrl(value);
     if (appPath) {
-      const image = await imageFromFile(appPath.path, appPath.label);
+      const image = await imageFromFile(appPath.path, appPath.label, appPath.folder);
       return { ...image, url: appPath.url };
     }
 
@@ -1033,7 +1093,10 @@ export class MariImagesService {
         return { label: "base64", buffer, base64: base64ish, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
     }
 
-    const filePath = resolve(cwd?.trim() ? cwd : process.cwd(), value);
+    // Anything else is a file path. Check it before imageFromFile opens it, so a refused file is never read.
+    const filePath = context.resolveReadPath
+      ? context.resolveReadPath(value)
+      : resolve(context.cwd?.trim() ? context.cwd : process.cwd(), value);
     return imageFromFile(filePath, value);
   }
 
@@ -1046,7 +1109,7 @@ export class MariImagesService {
       throw new Error(
         "Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.",
       );
-    const source = await this.resolveSourceImage(flags, null, context.cwd, true);
+    const source = await this.resolveSourceImage(flags, null, context, true);
 
     if (!hasFlag(flags, "apply")) {
       return {
@@ -1097,10 +1160,8 @@ export class MariImagesService {
     const store = createCharactersStorage(this.db);
     const existing = await store.getById(characterId);
     if (!existing) throw new Error(`Character not found: ${characterId}`);
-    await mkdir(AVATAR_DIR, { recursive: true });
     const filename = `character-${characterId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${source.ext}`;
-    const path = assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename));
-    await writeFile(path, source.buffer);
+    await writeAppFile(AVATAR_DIR, join(AVATAR_DIR, filename), source.buffer);
     const avatarPath = `/api/avatars/file/${filename}`;
     const updated = await store.updateAvatar(characterId, avatarPath);
     return { avatarPath, row: updated };
@@ -1108,16 +1169,15 @@ export class MariImagesService {
 
   private async assignPersonaAvatar(source: ResolvedImage, personaId: string) {
     const store = createCharactersStorage(this.db);
-    await mkdir(AVATAR_DIR, { recursive: true });
     const filename = `persona-${personaId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${source.ext}`;
-    const path = assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename));
+    const path = appFileEntry(AVATAR_DIR, join(AVATAR_DIR, filename));
     const avatarPath = `/api/avatars/file/${filename}`;
 
     const row = await withAvatarFileLifecycleLock(async () => {
       const existing = await store.getPersona(personaId);
       if (!existing) throw new Error(`Persona not found: ${personaId}`);
       try {
-        await writeFile(path, source.buffer);
+        await writeAppFile(AVATAR_DIR, path, source.buffer);
         const updated = await store.updatePersona(
           personaId,
           { avatarPath, avatarCrop: "" },
@@ -1137,10 +1197,8 @@ export class MariImagesService {
     const store = createLorebooksStorage(this.db);
     const existing = await store.getById(lorebookId);
     if (!existing) throw new Error(`Lorebook not found: ${lorebookId}`);
-    await mkdir(LOREBOOK_IMAGE_DIR, { recursive: true });
     const filename = `lorebook-${lorebookId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${source.ext}`;
-    const path = assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename));
-    await writeFile(path, source.buffer);
+    await writeAppFile(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename), source.buffer);
     const imagePath = `/api/lorebooks/images/file/${filename}`;
     const updated = await store.update(lorebookId, { imagePath });
     return { imagePath, row: updated };
@@ -1152,17 +1210,16 @@ export class MariImagesService {
     const owner = (await characters.getById(ownerId)) ?? (await characters.getPersona(ownerId));
     if (!owner) throw new Error(`Character/persona not found for sprite owner: ${ownerId}`);
     return withSpriteCatalogLock(ownerId, async () => {
+      const dir = spriteFolder(ownerId);
       const catalog = readSpriteCatalog(ownerId);
       const match = this.findSprite(ownerId, expression);
       const handle = match?.expression ?? expression;
-      const dir = join(SPRITES_DIR, ownerId);
-      await mkdir(dir, { recursive: true });
       const filename =
         match && extname(match.filename).toLowerCase() === `.${source.ext.toLowerCase()}`
           ? match.filename
           : `${handle}.${source.ext}`;
-      await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
-      if (match && match.filename !== filename) await unlink(assertInsideDir(dir, join(dir, match.filename)));
+      await writeAppFile(dir, join(dir, filename), source.buffer);
+      if (match && match.filename !== filename) await unlink(appFileEntry(dir, join(dir, match.filename)));
       catalog.sprites[handle] = { label: match?.label ?? expression, folderId: match?.folderId ?? null };
       await writeSpriteCatalog(ownerId, catalog);
       return listSpriteCatalog(ownerId).sprites.find((sprite) => sprite.expression === handle)!;
@@ -1170,7 +1227,8 @@ export class MariImagesService {
   }
 
   private async assignBackground(source: ResolvedImage, target: Extract<ImageTarget, { type: "background" }>) {
-    await mkdir(BACKGROUND_DIR, { recursive: true });
+    // Read first, so a refused meta.json leaves no untagged image behind.
+    const meta = await readBackgroundMeta();
     const desired = target.filename
       ? sanitizeFilenamePart(target.filename, `background.${source.ext}`)
       : `${sanitizeFilenamePart(target.name ?? "generated-background", "generated-background")}.${source.ext}`;
@@ -1178,9 +1236,7 @@ export class MariImagesService {
       BACKGROUND_DIR,
       desired.endsWith(`.${source.ext}`) ? desired : `${desired}.${source.ext}`,
     );
-    const path = assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename));
-    await writeFile(path, source.buffer);
-    const meta = await readBackgroundMeta();
+    await writeAppFile(BACKGROUND_DIR, join(BACKGROUND_DIR, filename), source.buffer);
     meta[filename] = { tags: target.tags };
     await writeBackgroundMeta(meta);
     buildAssetManifest();
@@ -1191,11 +1247,9 @@ export class MariImagesService {
     const chats = createChatsStorage(this.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error(`Chat not found: ${chatId}`);
-    const dir = join(GALLERY_DIR, chatId);
-    await mkdir(dir, { recursive: true });
+    const dir = galleryFolder(chatId);
     const filename = `${newId()}.${source.ext}`;
-    const path = assertInsideDir(dir, join(dir, filename));
-    await writeFile(path, source.buffer);
+    await writeAppFile(GALLERY_DIR, join(dir, filename), source.buffer);
     const image = await createGalleryStorage(this.db).create({
       chatId,
       filePath: `${chatId}/${filename}`,
@@ -1212,11 +1266,9 @@ export class MariImagesService {
     const characters = createCharactersStorage(this.db);
     const existing = await characters.getById(characterId);
     if (!existing) throw new Error(`Character not found: ${characterId}`);
-    const dir = join(GALLERY_DIR, "characters", characterId);
-    await mkdir(dir, { recursive: true });
+    const dir = galleryFolder("characters", characterId);
     const filename = `${newId()}.${source.ext}`;
-    const path = assertInsideDir(dir, join(dir, filename));
-    await writeFile(path, source.buffer);
+    await writeAppFile(GALLERY_DIR, join(dir, filename), source.buffer);
     const image = await createCharacterGalleryStorage(this.db).create({
       characterId,
       filePath: `characters/${characterId}/${filename}`,
@@ -1301,6 +1353,8 @@ export class MariImagesService {
 
   private async clearPersonaAvatar(personaId: string, deleteFile: boolean) {
     const store = createCharactersStorage(this.db);
+    // The shared cleanup deletes by name in the flat avatar folder, so holding that folder holds every file it deletes.
+    if (deleteFile) realPathInAppFolder(AVATAR_DIR, AVATAR_DIR);
     const { result, filesDeleted } = await mutateAvatarReferencesAndCleanup({
       db: this.db,
       collectAvatarPaths: () => collectPersonaAvatarPaths(this.db, [personaId]),
@@ -1320,8 +1374,10 @@ export class MariImagesService {
 
   private async deleteKnownAppImage(value: string) {
     const appPath = appImagePathFromUrl(value);
-    if (!appPath || !existsSync(appPath.path)) return false;
-    await unlink(appPath.path);
+    if (!appPath) return false;
+    const path = appFileEntry(appPath.folder, appPath.path);
+    if (!existsSync(path)) return false;
+    await unlink(path);
     return true;
   }
 
@@ -1330,7 +1386,7 @@ export class MariImagesService {
     const assets = await readManifest();
     const asset = assets.find((candidate) => candidate.id === assetId || candidate.filename === assetId);
     if (!asset) throw new Error(`Preview asset not found: ${assetId}`);
-    const path = assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename));
+    const path = appFileEntry(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename));
     if (existsSync(path)) await unlink(path);
     await writeManifest(assets.filter((candidate) => candidate.id !== asset.id));
     return { deleted: asset };
@@ -1341,12 +1397,12 @@ export class MariImagesService {
       const sprite = this.findSprite(ownerId, expression);
       if (!sprite) return { deleted: 0, files: [] };
       const catalog = readSpriteCatalog(ownerId);
-      const dir = join(SPRITES_DIR, ownerId);
+      const dir = spriteFolder(ownerId);
       const files = listSpriteCatalog(ownerId)
         .sprites.filter((entry) => entry.expression === sprite.expression)
         .map((entry) => entry.filename);
       if (!files.length) return { deleted: 0, files };
-      for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
+      for (const file of files) await unlink(appFileEntry(dir, join(dir, file)));
       delete catalog.sprites[sprite.expression];
       await writeSpriteCatalog(ownerId, catalog);
       return { deleted: files.length, files };
@@ -1356,10 +1412,10 @@ export class MariImagesService {
   private async deleteBackground(identifier: string | null) {
     if (!identifier) throw new Error("background delete requires --filename <filename> or --name <name>");
     const filename = basename(identifier);
-    const path = assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename));
+    const path = appFileEntry(BACKGROUND_DIR, join(BACKGROUND_DIR, filename));
     if (!existsSync(path)) throw new Error(`Background not found: ${filename}`);
-    await unlink(path);
     const meta = await readBackgroundMeta();
+    await unlink(path);
     delete meta[filename];
     await writeBackgroundMeta(meta);
     buildAssetManifest();
@@ -1370,6 +1426,8 @@ export class MariImagesService {
     const store = createGalleryStorage(this.db);
     const image = await store.getById(imageId, chatId);
     if (!image || image.chatId !== chatId) throw new Error(`Chat gallery image not found: ${imageId}`);
+    // Refused before the row goes; the shared cleanup also holds every file it deletes to the real gallery folder.
+    appFileEntry(GALLERY_DIR, join(GALLERY_DIR, image.filePath));
     const cleanup = await deleteChatGalleryImageEverywhere({ db: this.db, image });
     return { deleted: image, cleanup };
   }
@@ -1378,6 +1436,7 @@ export class MariImagesService {
     const store = createCharacterGalleryStorage(this.db);
     const image = await store.getById(imageId);
     if (!image || image.characterId !== characterId) throw new Error(`Character gallery image not found: ${imageId}`);
+    appFileEntry(GALLERY_DIR, join(GALLERY_DIR, image.filePath));
     await store.remove(imageId);
     await unlinkGalleryFileIfUnreferenced({ db: this.db, filePath: image.filePath });
     return { deleted: image };
@@ -1398,9 +1457,10 @@ export class MariImagesService {
         return { ok: true, mode: "read", command: context.command, output: assets.slice(0, limit) };
       }
       case "backgrounds": {
-        await mkdir(BACKGROUND_DIR, { recursive: true });
+        const dir = realPathInAppFolder(BACKGROUND_DIR, BACKGROUND_DIR);
+        await mkdir(dir, { recursive: true });
         const meta = await readBackgroundMeta();
-        const files = (await readdir(BACKGROUND_DIR)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase()));
+        const files = (await readdir(dir)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase()));
         return {
           ok: true,
           mode: "read",
@@ -1418,6 +1478,7 @@ export class MariImagesService {
           flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
         );
         if (!ownerId) throw new Error("sprite list requires --character <id>, --persona <id>, or --owner <id>");
+        spriteFolder(ownerId);
         const catalog = listSpriteCatalog(ownerId);
         return {
           ok: true,
@@ -1431,6 +1492,7 @@ export class MariImagesService {
           flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
         );
         if (!ownerId) throw new Error("sprite-folders requires an owner ID");
+        spriteFolder(ownerId);
         const catalog = listSpriteCatalog(ownerId);
         return {
           ok: true,

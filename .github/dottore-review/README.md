@@ -116,7 +116,8 @@ variants), up to 1,000 characters. An issue with none of those sections shows th
 - **`scout`** reads outward from the bundle with the read-only tools and keeps places as it reads: the callers in other
   files, imported definitions and what the changed values flow into. Each packet's changed functions are split into
   shares, one scout per share, and the scouts run at once, so the reading takes one scout's time. Code quotes the places
-  into the bundle. A scout names no defect. A failed scout is noted and its share keeps the code-built bundle.
+  into the bundle. A scout names no defect. A scout whose call fails after it has kept places ends with them; one
+  that fails before is noted and its share keeps the code-built bundle.
 - **`finder`** makes one call with no tools on the bundle and claims defects at changed lines.
 - **`verify`** (the checker) judges the finder's claims, one call per file, with the bundle and the code around each
   candidate in view and a few reads for what is still out of reach. Only confirmed findings are published; a confirmed
@@ -176,9 +177,9 @@ runner's own account of the change, and ends with a `Dottore-Autofix` trailer th
 A repair runs in two jobs after the review job:
 
 - **`fix`** checks out the head, gives the open threads to Claude Code (`claude -p`) with only file tools (read, edit,
-  write, search; no shell) on the small model (see Models), and no GitHub write token. A patch containing the small
-  model's key is discarded. Then, without the key, it runs `autofix.validate` from the base branch's `rules.json`, such as
-  `pnpm install --frozen-lockfile && pnpm check`.
+  write, search; no shell), none of the head's own Claude Code settings, hooks or MCP servers, on the small model (see
+  Models), and no GitHub write token. A patch containing the small model's key is discarded. Then, without the key, it
+  runs `autofix.validate` from the base branch's `rules.json`, such as `pnpm install --frozen-lockfile && pnpm check`.
 - **`push`** commits a patch that passed, with a `Dottore-Autofix:` trailer, and pushes it with the Dottore GitHub
   App's token, because a push made with `GITHUB_TOKEN` starts no CI and no review. That push starts the next review,
   whose repair check resolves the threads the code confirms. A patch that changed nothing, failed the checks, met a
@@ -297,8 +298,9 @@ These are all of Dottore's repository variables, beside the model settings above
 | `DOTTORE_CONCURRENCY` | Scout and checker calls run at once, up to 16; the finders always run all at once, up to 16 | `4` | the review job |
 | `DOTTORE_FINDERS` | Finder copies per packet, `1` or `2`; a second one starts a few seconds later and reuses the cache | `1` | the review job |
 
-The review job also passes every repository variable to the reviewer, which shows them in the bundle only for a pull
-request that changes a file under `.github/`. Do not keep a value in a variable that a model provider must not see.
+The review job also passes every repository and organization variable to the reviewer. It shows only the `DOTTORE_*`
+ones in the bundle, and only for a pull request that changes a file under `.github/`; other variables never reach the
+model. Do not keep a value in a `DOTTORE_*` variable that a model provider must not see.
 
 Everything else the reviewer reads from its environment, the workflow sets itself: the pull request number, head and
 base, the mode, the paths of the prompt and rules it copied out of the pinned checkout, and that checkout's repository
@@ -343,9 +345,15 @@ progress, however late in the review it starts. A reply that keeps producing thi
 pings, empty deltas and block boundaries do not refresh the watchdog. Claude requests summarized thinking so that
 its progress is visible even on models that omit thinking text by default. A role offered no
 read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
-`medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. On Claude, thinking
-counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room for both thinking
-and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
+`medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. A reply that stops
+at the cap with no output tokens did not spend it: the gateway cut it off, so it is resent at the same effort after
+the transient-error waits (15 and 45 s), like an overloaded or dropped call, and then, because these come in bursts,
+after 90 and 120 s while the resent reply still has the role's whole `minutes` box before the role's deadline and the
+review is under its cost limit (`EMPTY_REPLY_DELAYS`); its prompt tokens still count toward the cost limit. Each wait
+is up to a third longer, by an amount fixed by the request, so calls that failed together do not resend together.
+The time a call loses to failed attempts and these waits does not count against the role's box.
+On Claude, thinking counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room
+for both thinking and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 
 Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECONDS`), the last 8 minutes of it
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,

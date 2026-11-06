@@ -599,7 +599,9 @@ for (const theme of ["dark", "light"] as const) {
     page,
     request,
   }, testInfo) => {
-    test.setTimeout(120_000);
+    // Two presets, each with its window, colour and drawer checks: about a minute on Chromium, and WebKit
+    // runs this file 2-2.5x slower, which is past 120 s every time (#8843).
+    test.setTimeout(testInfo.project.name.includes("webkit") ? 240_000 : 120_000);
     const chat = await createChat(request);
     try {
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));

@@ -5,6 +5,7 @@ import {
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
   isStockMarinaraUniversalPreset,
+  mergedReplyRoster,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
 } from "@marinara-engine/shared";
@@ -605,6 +606,7 @@ import {
   appendGenerationTailMessages,
   canUseMessageForUserRegeneration,
   dedupeLastMessageWrappers,
+  endPromptOnAssistantPrefill,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
@@ -623,6 +625,7 @@ import {
   extractImageAttachmentDataUrls,
   postProcessMessages,
   appendSeparateAgentInjectionMessage,
+  capSummarizedHistory,
   computeSummaryHideIds,
   computeSummaryMessageRange,
   selectRollingSummaryMessages,
@@ -979,6 +982,7 @@ import {
   collectPastReasoningMetadata,
   limitPastReasoningMetadata,
   readChatCompletionsReasoningMetadata,
+  rejectsFinalAssistantMessage,
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
 } from "../services/generation/generation-parameters.js";
@@ -2170,6 +2174,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
         lorebookKeeperMessages = lorebookKeeperMessages.filter((message) => timelineIds.has(message.id));
       }
+      if (isRoleplaySummaryMode(chatMode) && !advancedMemoryEnabled) {
+        chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
+          excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+        }).messages;
+      }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
         excludeMessageId: currentTurnUserMessageId,
@@ -2898,25 +2907,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           maxContext: conn.maxContext,
         });
         const routingKnownModel = findKnownModel(conn.provider as APIProvider, conn.model.trim());
-        const routingChatProvider = withConnectionFallbackProvider({
-          primary: createLLMProvider(
-            conn.provider,
-            baseUrl,
-            conn.apiKey,
-            conn.maxContext,
-            conn.openrouterProvider,
-            conn.maxTokensOverride,
-            conn.claudeFastMode === "true",
-            conn.treatAsLocalEndpoint === "true",
-            conn.defaultParameters,
-          ),
-          primaryConnectionId: connId ?? conn.id,
-          primaryConnectionName: conn.name,
-          fallbackConnection: mainFallbackConnection,
-          fallbackBaseUrl: mainFallbackBaseUrl,
-          category: "main",
-          onFallback,
-        });
+        // Unwrapped: agent resolution adds the reply's fallback (chatConnectionMainFallback) and the retry layer
+        // once. A wrapped provider got them twice, so a failed routing prompt reached the fallback twice and each
+        // 429 retry ran inside another one.
+        const routingChatProvider = createLLMProvider(
+          conn.provider,
+          baseUrl,
+          conn.apiKey,
+          conn.maxContext,
+          conn.openrouterProvider,
+          conn.maxTokensOverride,
+          conn.claudeFastMode === "true",
+          conn.treatAsLocalEndpoint === "true",
+          conn.defaultParameters,
+        );
         const routingAgentTypes = new Set(eligibleCharacterActivityConfigs.map((config) => config.type));
         const { resolvedAgents: characterActivityAgents, agentConnectionWarnings } = await resolveAgentPipelineAgents({
           connections,
@@ -2946,6 +2950,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatCachingAtDepth: conn.cachingAtDepth ?? 5,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatConnectionMainFallback: { connection: mainFallbackConnection, connectionName: conn.name },
           onFallback,
           resolveBaseUrl,
         });
@@ -5905,7 +5910,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             input.chatId,
                             pinnedGameRuleset.definition,
                             turnSheetMetadata as Record<string, unknown>,
-                            personaName || null,
+                            chat.personaId,
                           ),
                         ),
                       }
@@ -8192,12 +8197,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           isGoogleProvider: isGoogleProvider || isGeminiModel(conn.model),
           regenerateUserMessage,
         });
-        if (tailMessages.assistantPrefillInjected) {
-          const prefillPosition = tailMessages.googleUserRegenerationInjected
-            ? "before final user message"
-            : "as final assistant message";
-          logger.debug("[generate] Injected assistant prefill (%d chars) %s", assistantPrefill.length, prefillPosition);
-        }
         if (tailMessages.googleUserRegenerationInjected && assistantPrefill.trim()) {
           logger.debug("[generate] Preserved assistant prefill before Gemini user-message regeneration instruction");
         }
@@ -9240,16 +9239,36 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               wrapFormat,
             );
           }
+          // The request ends on the Assistant Prefill, after everything this responder's prompt gained above.
+          const prefillTurn = endPromptOnAssistantPrefill<GenerationPromptMessage>(
+            preparedMessagesForGen,
+            tailMessages.prefill &&
+              resolvePromptMessageMacros([tailMessages.prefill], providerMacroContext, historyMacroProfilesById)[0]!,
+            !rejectsFinalAssistantMessage(conn.provider, conn.model),
+            (message) => {
+              const source = message.id ? allChatMessages.find((saved: any) => saved.id === message.id) : undefined;
+              return source ? conversationPromptHistoryContent(source, chatMode) : undefined;
+            },
+          );
+          if (tailMessages.prefill?.content) {
+            logger.debug(
+              "[generate] Assistant prefill (%d chars) %s",
+              assistantPrefill.length,
+              prefillTurn.opensReply
+                ? "as the final assistant message"
+                : "at the start of the last assistant reply, if any: the model refuses a final assistant message",
+            );
+          }
 
-          const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-            return postProcessMessages(messages, {
-              ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
-                ? parseStoredGenerationParameters(resolvedPreset.parameters)
-                : {}),
-              ...providerRuntime.connectionParams,
-              ...providerRuntime.chatParams,
-            });
+          const providerMessageParameters = {
+            ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
+              ? parseStoredGenerationParameters(resolvedPreset.parameters)
+              : {}),
+            ...providerRuntime.connectionParams,
+            ...providerRuntime.chatParams,
           };
+          const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] =>
+            postProcessMessages(messages, providerMessageParameters, prefillTurn.endsOnPrefill);
 
           let advancedMemoryReceipt: AdvancedMemoryReceipt | undefined;
           let advancedMemorySnapshot: AdvancedMemorySnapshot | undefined;
@@ -9365,11 +9384,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           providerThinking = "";
           replyThinking = "";
           streamOutput.resetReasoningClock();
-          if (
-            tailMessages.assistantPrefillInjected &&
-            !tailMessages.googleUserRegenerationInjected &&
-            assistantPrefill
-          ) {
+          if (prefillTurn.opensReply && assistantPrefill) {
             await writeContentChunked(assistantPrefill);
           }
           let geminiResponseParts: unknown[] | null = null;
@@ -9616,7 +9631,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 gameToolPlan,
                 maxToolRounds,
                 initialMessages: initialProviderMessages,
-                assistantPrefillInjected: tailMessages.assistantPrefillInjected,
+                assistantPrefillInjected: prefillTurn.endsOnPrefill,
+                // A Single User Message labels each turn, so the merged prefill carries its "[USER]" label.
+                userPrefill:
+                  prefillTurn.userPrefill &&
+                  `${providerMessageParameters.singleUserMessage ? "[USER]\n" : ""}${prefillTurn.userPrefill}`,
                 tools: nativeToolCalls ? responderToolDefs : undefined,
                 toolChoice: (round) =>
                   nativeToolCalls
@@ -9920,7 +9939,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           let assistantSpatialDirective: ReturnType<typeof extractAssistantSpatialDirective>["directive"] = null;
           let assistantSpatialDirectiveDetected = false;
           let conversationCommandContent: string | null = null;
-          if (tailMessages.assistantPrefillInjected && assistantPrefill && fullResponse.startsWith(assistantPrefill)) {
+          if (prefillTurn.opensReply && assistantPrefill && fullResponse.startsWith(assistantPrefill)) {
             const responseAfterPrefill = fullResponse.slice(assistantPrefill.length);
             if (responseAfterPrefill.startsWith(assistantPrefill)) {
               fullResponse = assistantPrefill + responseAfterPrefill.slice(assistantPrefill.length);
@@ -11630,8 +11649,23 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ...referencedCharacterIds,
                 ]),
               ];
+              // The roster this reply was written with, so its narrator avatars outlast later roster changes (#8762).
+              // Continuing keeps the reply's own as saved, even members who have left the chat since; only a reply
+              // without one derives it from its expression result.
+              const previousRosterIds = input.continueMessageId
+                ? mergedReplyRoster(parseExtra(savedMsg.extra), allCharacterIds)
+                : [];
+              extraUpdate.mergedRosterCharacterIds = [...new Set([...previousRosterIds, ...characterIds])];
             } else {
               extraUpdate.referencedCharacterIds = [];
+              // Continuing keeps the reply's saved roster even when the chat is down to one member, so the others
+              // come back if they rejoin; a new or regenerated reply here saves none, so no swipe inherits one.
+              const savedRosterIds = input.continueMessageId
+                ? parseExtra(savedMsg.extra).mergedRosterCharacterIds
+                : null;
+              extraUpdate.mergedRosterCharacterIds = Array.isArray(savedRosterIds)
+                ? savedRosterIds.filter((id): id is string => typeof id === "string")
+                : [];
             }
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
@@ -11797,6 +11831,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 "generationReplay",
                 "lorebookGenerationTriggers",
                 "referencedCharacterIds",
+                "mergedRosterCharacterIds",
               ]);
               // Every fallback-written part keeps its identity, without duplicating the turn's usage.
               if (generationProviderOrigin.fallback) everyPart.generationInfo = generationProviderOrigin;

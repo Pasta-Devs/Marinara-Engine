@@ -144,6 +144,12 @@ import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
+import {
+  SHEET_BUTTON_DESTRUCTIVE,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_QUIET,
+  SHEET_BUTTON_SECONDARY,
+} from "../ui/neutral-surface-styles";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { formFieldValue } from "../../lib/mari-editor-fields";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
@@ -3077,24 +3083,27 @@ function PersonaSpritesTab({
         {deleteSpriteRequest && (
           <Modal
             open
-            onClose={() => {
-              if (!deletingSprites) setDeleteSpriteRequest(null);
-            }}
-            title={localizeUi("ui.personas.personaspritestab.deleteSprite")}
-            width="max-w-sm"
-          >
-            <div className="space-y-4">
-              <p className="text-sm leading-relaxed text-[var(--foreground)]">
-                {localizeUi("ui.personas.personaspritestab.deleteSpriteFor")}
-                {displayExpression(deleteSpriteRequest.expression)}"?
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+            onClose={() => setDeleteSpriteRequest(null)}
+            closeDisabled={!!deletingSprites}
+            pullToClose={false}
+            closeButtonClassName="max-sm:hidden"
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSingleSprite()}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_DESTRUCTIVE}
+                >
+                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
+                </button>
                 {categorySprites.length > 1 ? (
                   <button
                     type="button"
                     onClick={() => void handleDeleteVisibleSprites()}
                     disabled={!!deletingSprites}
-                    className="mr-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
+                    className={SHEET_BUTTON_SECONDARY + " text-[var(--destructive)]"}
                   >
                     {deletingSprites === "all" ? (
                       <Loader2 size="0.875rem" className="animate-spin" />
@@ -3107,26 +3116,24 @@ function PersonaSpritesTab({
                       : localizeUi("ui.personas.personaspritestab.expressions")}
                   </button>
                 ) : null}
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSpriteRequest(null)}
-                    disabled={!!deletingSprites}
-                    className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {localizeUi("chat.delete.dialog.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteSingleSprite()}
-                    disabled={!!deletingSprites}
-                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                    {localizeUi("lorebook.editor.batch.delete")}
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteSpriteRequest(null)}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_QUIET}
+                >
+                  {localizeUi("chat.delete.dialog.cancel")}
+                </button>
+              </>
+            }
+            title={localizeUi("ui.personas.personaspritestab.deleteSprite")}
+            width="max-w-sm"
+          >
+            <div className="space-y-4">
+              <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                {localizeUi("ui.personas.personaspritestab.deleteSpriteFor")}
+                {displayExpression(deleteSpriteRequest.expression)}"?
+              </p>
             </div>
           </Modal>
         )}
@@ -3750,7 +3757,7 @@ function PersonaCharacterSheetSection({
                 : localizeUi("ui.characters.charactersheet.upload")
             }
             pending={upload.isPending}
-            pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+            pendingLabel={localizeUi("ui.ui.imageuploaddropzone.uploadingImages")}
             dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
             onFilesSelected={(files) => void handleUpload(files)}
             icon={<Upload size="1rem" />}
@@ -4138,6 +4145,23 @@ function PersonaVersionHistoryPanel({
             : localizeUi("ui.personas.personaversionhistorypanel.compareVersion")
         }
         width="max-w-5xl"
+        footer={
+          selectedVersion ? (
+            <button
+              type="button"
+              onClick={() => handleRestore(selectedVersion)}
+              disabled={restoreVersion.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {restoreVersion.isPending ? (
+                <Loader2 size="0.75rem" className="animate-spin" />
+              ) : (
+                <RotateCcw size="0.75rem" />
+              )}
+              {localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
+            </button>
+          ) : undefined
+        }
       >
         {selectedVersion && (
           <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto">
@@ -4204,22 +4228,6 @@ function PersonaVersionHistoryPanel({
                   </div>
                 );
               })}
-            </div>
-
-            <div className="flex justify-end border-t border-[var(--border)] pt-3">
-              <button
-                type="button"
-                onClick={() => handleRestore(selectedVersion)}
-                disabled={restoreVersion.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {restoreVersion.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <RotateCcw size="0.75rem" />
-                )}
-                {localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
-              </button>
             </div>
           </div>
         )}

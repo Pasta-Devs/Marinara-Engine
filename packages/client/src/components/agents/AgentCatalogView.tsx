@@ -54,7 +54,14 @@ import {
 } from "./organizer/organizer-model";
 import { AgentIcon, IconStack, OrganizerContext, type OrganizerActions } from "./organizer/OrganizerParts";
 import { OrganizerHome } from "./organizer/OrganizerHome";
-import { InstalledPage, SearchResults, SectionPage, UpdatesPage, type UpdateRun } from "./organizer/OrganizerLists";
+import {
+  InstalledPage,
+  NotInstalledPage,
+  SearchResults,
+  SectionPage,
+  UpdatesPage,
+  type UpdateRun,
+} from "./organizer/OrganizerLists";
 import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 
@@ -132,7 +139,20 @@ export function AgentCatalogView() {
     }
     return ids;
   }, [capabilityAgents.data]);
-  const all = useMemo(() => catalog.data?.packages ?? [], [catalog.data]);
+  const all = useMemo(() => {
+    const packages = catalog.data?.packages;
+    if (!packages) return [];
+    const listed = new Set(packages.map((entry) => entry.manifest.id));
+    // Installed packages that left the catalog (like the retired Slurp Legacy) stay listed so they can be uninstalled.
+    const retired = (installed.data ?? [])
+      .filter((item) => !listed.has(item.id))
+      .map((item) => ({
+        manifest: item.manifest,
+        category: "misc" as const,
+        artifact: { url: "", sha256: "", bytes: 0 },
+      }));
+    return [...packages, ...retired];
+  }, [catalog.data, installed.data]);
   const entries = useMemo(
     () => (modeFilter === "all" ? all : all.filter((entry) => packageModes(entry.manifest.id).includes(modeFilter))),
     [all, modeFilter],
@@ -151,13 +171,15 @@ export function AgentCatalogView() {
               shown.name,
               shown.description,
               taglineOf({ manifest, ...entry }),
+              // A section's name ("Apps") finds the packages in it.
+              localizeUi(sectionLabelKey(sectionOf({ manifest, ...entry }))),
             ]
               .join(" ")
               .toLowerCase()
               .includes(needle);
           })
         : null,
-    [entries, needle, shownLanguage],
+    [entries, needle, shownLanguage, localizeUi],
   );
   const updates = useMemo(
     () => all.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id))),
@@ -508,6 +530,12 @@ export function AgentCatalogView() {
       icon: PackageCheck,
       count: installedById.size,
     },
+    {
+      page: { kind: "notInstalled" } as const,
+      label: localizeUi("ui.agents.organizer.notInstalledTitle"),
+      icon: Download,
+      count: entries.filter((entry) => !installedById.has(entry.manifest.id)).length,
+    },
   ];
   const isCurrent = (target: OrganizerPage) =>
     !results &&
@@ -601,6 +629,8 @@ export function AgentCatalogView() {
     );
   } else if (page.kind === "installed") {
     content = <InstalledPage entries={all} />;
+  } else if (page.kind === "notInstalled") {
+    content = <NotInstalledPage entries={entries} modeFiltered={modeFilter !== "all"} />;
   } else if (page.kind === "section") {
     content = <SectionPage section={page.id} entries={entries.filter((entry) => sectionOf(entry) === page.id)} />;
   } else {

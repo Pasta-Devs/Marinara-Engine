@@ -1395,6 +1395,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "narrator-avatar-borders",
+    sectionId: "roleplay-messages",
+    labelKey: "settings.controls.narratorAvatarBorders.label",
+    label: "Narrator's Avatar Borders",
+    description: "Outline Narrator avatars in each character's name color.",
+    descriptionKey: "settings.search.narratorAvatarBorders.description",
+    aliases: ["roleplay", "narrator", "avatars", "border", "outline", "group"],
+    keywords: ["name color", "portrait border", "glued side panel"],
+    kind: "Toggle",
+  },
+  {
     id: "roleplay-avatar-style",
     sectionId: "roleplay-messages",
     labelKey: "ui.panels.appearancesettings.roleplayAvatars",

@@ -103,6 +103,12 @@ assert.equal(toolNamesAction.suggestions[0]?.label, "Run lorebook test scan", "c
 assert.equal(toolNamesAction.suggestions[0]?.detail, "via app data", "chip details name no tool");
 assert.equal(toolNamesAction.suggestions[0]?.prompt, "Run lorebook.testScan", "the chip prompt to Mari stays raw");
 assert.equal(toolNamesAction.commands[0]?.arguments.action, "chat.diagnose", "command arguments stay raw");
+const recovered = parseAssistantWorkspaceAction(
+  'Ready.\n<suggestions><chip label="Run chat.diagnose" prompt="Run chat.diagnose" /></suggestions>',
+);
+assert.equal(recovered.suggestions[0]?.label, "Run the chat checkup");
+assert.equal(recovered.suggestions[0]?.prompt, "Run chat.diagnose");
+assert.deepEqual(JSON.parse(recovered.assistantHistoryContent).suggestions, recovered.suggestions);
 assert.equal(
   scrubInternalNames("Open character.json; marinara.ui.registerContribution stays."),
   "Open character.json; marinara.ui.registerContribution stays.",

@@ -3,6 +3,7 @@ import { ExternalLink, MapPinned, Swords, type LucideIcon } from "lucide-react";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
 export const WHATS_NEW_SEEN_VERSION_KEY = "marinara:whats-new:seen-version";
@@ -49,6 +50,145 @@ function localizedCopy(key: string): ReleaseCopy {
 // Add each release here before its version ships. Versions without a tailored
 // entry still get a one-time update notice and a link to their full release.
 const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
+  "2.5.2": {
+    headline: localizedCopy("ui.modals.whatsnewmodal.release252.headline"),
+    intro: localizedCopy("ui.modals.whatsnewmodal.release252.intro"),
+    highlights: [],
+    story: [
+      {
+        id: "otomeHearth",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.otomeHearth",
+        media: [
+          {
+            url: "/releases/2.5.2/otome-home.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.otomeHearth",
+          },
+        ],
+      },
+      {
+        id: "otomeStory",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.otomeStory",
+        media: [
+          {
+            url: "/releases/2.5.2/otome-reader.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.otomeStory",
+          },
+          {
+            url: "/releases/2.5.2/otome-reader.mp4",
+            altKey: "ui.modals.whatsnewmodal.release252.media.otomeStory2",
+            kind: "video",
+          },
+        ],
+      },
+      {
+        id: "otomeDates",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.otomeDates",
+        media: [
+          {
+            url: "/releases/2.5.2/otome-claw.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.otomeDates",
+          },
+        ],
+      },
+      {
+        id: "connections",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.connections",
+        media: [
+          {
+            url: "/releases/2.5.2/connections-add.mp4",
+            altKey: "ui.modals.whatsnewmodal.release252.media.connections",
+            kind: "video",
+          },
+          {
+            url: "/releases/2.5.2/connections-account.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.connections2",
+          },
+        ],
+      },
+      {
+        id: "connectionsPicker",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.connectionsPicker",
+        media: [
+          {
+            url: "/releases/2.5.2/connections-model-picker.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.connectionsPicker",
+          },
+        ],
+      },
+      {
+        id: "saucelings",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.saucelings",
+        media: [
+          {
+            url: "/releases/2.5.2/saucelings-nook.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.saucelings",
+          },
+        ],
+      },
+      {
+        id: "saucelingsCare",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.saucelingsCare",
+        media: [
+          {
+            url: "/releases/2.5.2/saucelings-care.mp4",
+            altKey: "ui.modals.whatsnewmodal.release252.media.saucelingsCare",
+            kind: "video",
+          },
+        ],
+      },
+      {
+        id: "storyWriter",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.storyWriter",
+        media: [
+          {
+            url: "/releases/2.5.2/story-writer.jpg",
+            altKey: "ui.modals.whatsnewmodal.release252.media.storyWriter",
+          },
+        ],
+      },
+      {
+        id: "agentOrganizer",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.agentOrganizer",
+      },
+      {
+        id: "mari",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.mari",
+      },
+      {
+        id: "signIn",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.signIn",
+      },
+      {
+        id: "gachaForge",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.gachaForge",
+      },
+      {
+        id: "memory",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.memory",
+      },
+      {
+        id: "videoAndSound",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.videoAndSound",
+      },
+      {
+        id: "avatars3d",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.avatars3d",
+      },
+      {
+        id: "smallerThings",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.smallerThings",
+      },
+      {
+        id: "headsUp",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.headsUp",
+      },
+      {
+        id: "thanks",
+        copyKey: "ui.modals.whatsnewmodal.release252.paragraphs.thanks",
+      },
+    ],
+    outro: localizedCopy("ui.modals.whatsnewmodal.release252.outro"),
+  },
   "2.5.1": {
     headline: localizedCopy("ui.modals.whatsnewmodal.release251.headline"),
     intro: localizedCopy("ui.modals.whatsnewmodal.release251.intro"),
@@ -852,6 +992,17 @@ export function WhatsNewModal({
       width="max-w-3xl"
       mobileFullscreen
       panelClassName="overflow-hidden"
+      footer={
+        <>
+          <button type="button" onClick={() => setOpen(false)} className={SHEET_BUTTON_PRIMARY}>
+            {localizeUi("ui.modals.whatsnewmodal.gotIt")}
+          </button>
+          <a href={releaseUrl} target="_blank" rel="noreferrer" className={SHEET_BUTTON_QUIET}>
+            {localizeUi("ui.modals.whatsnewmodal.viewRelease")}
+            <ExternalLink size="0.875rem" aria-hidden="true" />
+          </a>
+        </>
+      }
     >
       <div data-component="WhatsNewModal" className="-mx-5 -my-4">
         <div className="relative overflow-hidden border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-5 pt-3">
@@ -994,25 +1145,6 @@ export function WhatsNewModal({
               {releaseCopy(announcement.outro)}
             </p>
           ) : null}
-
-          <footer className="sticky bottom-0 z-10 -mx-5 -mb-6 flex flex-col-reverse gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)] px-5 py-3 shadow-[0_-10px_24px_rgba(0,0,0,0.12)] sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
-            <a
-              href={releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
-            >
-              {localizeUi("ui.modals.whatsnewmodal.viewRelease")}
-              <ExternalLink size="0.875rem" aria-hidden="true" />
-            </a>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
-            >
-              {localizeUi("ui.modals.whatsnewmodal.gotIt")}
-            </button>
-          </footer>
         </div>
       </div>
     </Modal>

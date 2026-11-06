@@ -8,6 +8,7 @@ import { cn, copyToClipboard } from "../../lib/utils";
 import { generationLevelLabel } from "../../lib/generation-level-label";
 import { describeGenerationFallback } from "../../lib/generation-fallback-notice";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
+import { usePeekPrompt } from "../../hooks/use-chats";
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
@@ -525,6 +526,10 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
   const { t: localizeUi } = useUiTranslation();
   const [tested, setTested] = useState<DecisionDebugPreview | null>(null);
   const [showTest, setShowTest] = useState(false);
+  // A saved request predates its turn's summary and hiding; the current context is built on request (#8831).
+  const peekCurrent = usePeekPrompt();
+  const [current, setCurrent] = useState<PeekPromptModalProps["data"] | null>(null);
+  const [showCurrent, setShowCurrent] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const deferredQuery = useDeferredValue(findQuery);
   const [selection, setSelection] = useState({ query: "", index: 0 });
@@ -542,7 +547,9 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
           source: "live_preview",
           exact: false,
         }
-      : originalData;
+      : showCurrent && current
+        ? current
+        : originalData;
   const backdropDismiss = useBackdropDismiss(onClose);
   const sections = useMemo(
     () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
@@ -833,7 +840,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             </p>
           )}
         </div>
-        {!showTest && originalData.checkup && originalData.checkup.findings.length > 0 && (
+        {!showTest && !showCurrent && originalData.checkup && originalData.checkup.findings.length > 0 && (
           <div className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")} data-peek-checkup>
             <p className="mb-1 font-medium text-[var(--foreground)]">
               {localizeUi("chat.replyCheckup.peekTitle", "Reply checkup")}
@@ -850,6 +857,8 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
               onPreview={(preview) => {
                 setTested(preview);
                 setShowTest(preview !== null);
+                // "Show original prompt" then returns to the sent request its hint names.
+                if (preview) setShowCurrent(false);
               }}
             />
           )}
@@ -864,6 +873,44 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                 onClick={() => setShowTest(!showTest)}
               >
                 {localizeUi(showTest ? "decisionDebug.showOriginal" : "decisionDebug.showTest")}
+              </button>
+            </div>
+          )}
+          {!showTest && originalData.source === "cached" && originalData.chatId && (
+            <div className="flex flex-col items-start gap-2 py-2 text-xs sm:flex-row sm:items-center">
+              <p className="flex-1 text-[var(--muted-foreground)]">
+                {localizeUi(
+                  showCurrent
+                    ? "ui.chat.peekpromptmodal.currentContextHint"
+                    : "ui.chat.peekpromptmodal.sentRequestHint",
+                )}
+              </p>
+              <button
+                type="button"
+                className="mari-chat-style-control mari-chrome-control min-h-10 px-3"
+                disabled={peekCurrent.isPending}
+                onClick={() => {
+                  if (current) {
+                    setShowCurrent(!showCurrent);
+                    return;
+                  }
+                  peekCurrent.mutate(
+                    { chatId: originalData.chatId!, current: true },
+                    {
+                      onSuccess: ({ characterId: _characterId, ...next }) => {
+                        setCurrent({ ...next, chatId: originalData.chatId });
+                        setShowCurrent(true);
+                      },
+                      onError: () => toast.error(localizeUi("ui.chat.peekpromptmodal.currentContextFailed")),
+                    },
+                  );
+                }}
+              >
+                {localizeUi(
+                  showCurrent
+                    ? "ui.chat.peekpromptmodal.showSentRequest"
+                    : "ui.chat.peekpromptmodal.showCurrentContext",
+                )}
               </button>
             </div>
           )}

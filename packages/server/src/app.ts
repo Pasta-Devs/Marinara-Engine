@@ -70,7 +70,7 @@ import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
-import { followLogLevel, logger, protectTerminalLogger } from "./lib/logger.js";
+import { followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -124,7 +124,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   });
   // app.log shares the shared logger's stream, which logger.ts already protects; this
   // is a no-op then and only matters if Fastify is ever given its own stream again.
-  protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  protectTerminalLogger(app.log, prettyLogs);
   // Hold internal inject() calls until every route, hook and package is registered (see fastify-inject-gate.ts).
   const releaseInjectGate = holdInjectUntilRegistered(app);
   const stopFollowingLogLevel = followLogLevel(app.log);
@@ -280,13 +280,27 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.warn(error, "Tripo connection migration did not complete; it will retry next startup");
   }
   await startup.phase("seed.backgrounds", () => seedDefaultBackgrounds());
-  await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  // Guarded like the asset scan below: the seed runs again next boot, while a failed boot costs the user everything.
+  try {
+    await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  } catch (error) {
+    logger.warn(error, "[seed] Default game assets were not fully installed; the seed runs again next boot");
+  }
 
   // ── Ensure default asset directories exist, then build manifest ──
-  await startup.phase("assets.manifest", () => {
-    ensureAssetDirs();
-    buildAssetManifest();
-  });
+  // Guarded like the post-activation rescan below: the manifest is rebuilt on the next rescan or upload, while a failed
+  // boot costs the user everything.
+  try {
+    await startup.phase("assets.manifest", () => {
+      ensureAssetDirs();
+      buildAssetManifest();
+    });
+  } catch (error) {
+    logger.warn(
+      error,
+      "[game-assets] Startup asset scan failed; the asset manifest may be stale until the next rescan",
+    );
+  }
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
   await startup.phase("gallery.recover", () => recoverGalleryImages(db));

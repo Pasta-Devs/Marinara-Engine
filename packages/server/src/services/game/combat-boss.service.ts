@@ -6,7 +6,7 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { resolveGameConnection } from "./connection.service.js";
-import { logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../lib/logger.js";
 import { cardPromptText } from "../prompt/card-text.js";
 import { directorUnits, type CombatDirectorState } from "./combat-director.service.js";
 import { directedRulesetView, rulesetGmBrief, rulesetMenu } from "./ruleset-combat-director.service.js";
@@ -279,11 +279,11 @@ export async function chooseGmCombatOption(
   }
   logDebugOverride(
     debugMode,
-    "[debug/game/combat:boss] chat=%s window=%s model=%s prompt=%s",
+    "[debug/game/combat:boss] chat=%s window=%s model=%s prompt:\n%s",
     chatId,
     state.window!.id,
     conn.model,
-    JSON.stringify(messages),
+    debugJson(messages),
   );
   const provider = createLLMProvider(
     conn.provider,

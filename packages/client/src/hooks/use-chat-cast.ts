@@ -130,5 +130,5 @@ export function useChatCast({
     }
   };
 
-  return { toggleCharacter, changeRoomCharacters, hostedRoom };
+  return { toggleCharacter, changeRoomCharacters, hostedRoom, rosterPending: roomRoster.isPending };
 }

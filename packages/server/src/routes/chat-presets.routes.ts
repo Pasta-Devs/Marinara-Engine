@@ -14,7 +14,9 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
+import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { prepareChatIdentityChange } from "./chats.routes.js";
 
 function toSafeExportName(name: string, fallback: string) {
   const sanitized = name
@@ -115,11 +117,20 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     if (preset.mode !== chat.mode) {
       return reply.status(409).send({ error: "Settings profile mode does not match chat mode" });
     }
-    const body = (req.body ?? {}) as { connectionId?: unknown };
+    const body = (req.body ?? {}) as { connectionId?: unknown; keepPersona?: unknown };
     const connectionId =
       typeof body.connectionId === "string" ? body.connectionId : body.connectionId === null ? null : undefined;
-    const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId });
+    const keepPersona = body.keepPersona === true;
+    // The profile's persona switches who the user plays the way Chat Settings does. applyToChat skips a persona
+    // that no longer exists, so only an existing one is a change.
+    const personaId = keepPersona ? null : preset.settings.personaId;
+    const announceIdentityChange =
+      personaId && (await createCharactersStorage(app.db).getPersona(personaId))
+        ? await prepareChatIdentityChange(app, chat, { personaId, personaCharacterId: null })
+        : null;
+    const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId, keepPersona });
     if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
+    await announceIdentityChange?.();
     return updated;
   });
 

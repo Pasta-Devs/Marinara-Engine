@@ -39,9 +39,18 @@ function withUploadedImage<T extends { id: string }>(current: T[] | undefined, i
   return [image, ...current];
 }
 
+/** Only a picture token needs the gallery. The Stats tab mounts with the editor, so fetching it on every
+ *  render loaded the gallery before its own lazy section was reached. */
+function useNeedsGallery(value: unknown) {
+  const [imageModeOpened, setImageModeOpened] = useState(false);
+  const needed = imageModeOpened || parseCombatIconChoice(value)?.source === "image";
+  return [needed, () => setImageModeOpened(true)] as const;
+}
+
 /** The block for a character card, whose pictures live in the character's gallery. */
 export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps & { characterId: string | null }) {
-  const { data: images, isLoading } = useCharacterGalleryImages(characterId);
+  const [needsImages, onImageMode] = useNeedsGallery(props.value);
+  const { data: images, isLoading } = useCharacterGalleryImages(needsImages ? characterId : null);
   const upload = useUploadCharacterGalleryImage(characterId ?? "");
   const queryClient = useQueryClient();
   return (
@@ -50,6 +59,7 @@ export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps
       {...props}
       images={images}
       imagesLoading={isLoading}
+      onImageMode={onImageMode}
       canUseGallery={!!characterId}
       uploading={upload.isPending}
       onUpload={async (file) => {
@@ -67,7 +77,8 @@ export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps
 
 /** The block for a persona, whose pictures live in the persona's gallery. */
 export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & { personaId: string | null }) {
-  const { data: images, isLoading } = usePersonaGalleryImages(personaId);
+  const [needsImages, onImageMode] = useNeedsGallery(props.value);
+  const { data: images, isLoading } = usePersonaGalleryImages(needsImages ? personaId : null);
   const upload = useUploadPersonaGalleryImage(personaId ?? "");
   const queryClient = useQueryClient();
   return (
@@ -76,6 +87,7 @@ export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & {
       {...props}
       images={images}
       imagesLoading={isLoading}
+      onImageMode={onImageMode}
       canUseGallery={!!personaId}
       uploading={upload.isPending}
       onUpload={async (file) => {
@@ -101,6 +113,7 @@ function GameModeIconSection({
   canUseGallery,
   uploading,
   onUpload,
+  onImageMode,
 }: {
   name: string;
   avatarUrl: string | null;
@@ -113,6 +126,8 @@ function GameModeIconSection({
   canUseGallery: boolean;
   uploading: boolean;
   onUpload: (file: File) => Promise<CombatIconGalleryImage | undefined>;
+  /** The image mode was chosen, so the gallery is needed now. */
+  onImageMode: () => void;
 }) {
   const { t } = useUiTranslation();
   const choice = parseCombatIconChoice(value);
@@ -126,6 +141,7 @@ function GameModeIconSection({
 
   const pickMode = (next: CombatIconMode) => {
     setPickingImage(next === "image");
+    if (next === "image") onImageMode();
     if (next === "avatar") onChange(undefined);
     else if (next === "initials") onChange({ source: "initials" });
   };

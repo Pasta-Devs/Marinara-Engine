@@ -1,6 +1,6 @@
 # Ruleset Sheets
 
-This page is part of [Writing Game Mode Rulesets](writing-rulesets.md). What goes on a ruleset's character sheet: abilities, skills, fields and lists, live states, wound tracks, penalties, rests and the Game Master text, plus the party sheet and progress clocks.
+Use this page to design a ruleset's character sheet: abilities, skills, fields and lists, live states, wound tracks, penalties, rests and the Game Master text, plus the party sheet and progress clocks. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
 ## The sheet
 
@@ -86,7 +86,7 @@ An enum field is chosen when a character is made and stays chosen, and a conditi
 - `from` names exactly one of `field` (an enum field) or `liveState`. Every row of `table` is a value that one can hold, one to forty of them. A value the table leaves out, and a state the sheet hides, read `default` (0 when you leave it out).
 - A field is fixed when the character is made, so a table keyed on one may feed a maximum: Gravewatch gives a warden on the dawn watch one more Resolve. A live state changes in play, so a table keyed on one is a live read, like `liveTrack`: nothing worked out before there is a live state may read it, directly or through another derived value. That is why the key is `liveState` rather than `state`: every read of the live state is named `live`, which is how you and the import tell what a maximum cannot use.
 - To put the number on the dice, point `resolution.adjust` at it (see Modifiers off the sheet). Ember Roads adds its Stance to every Brawn roll; Gravewatch takes a shuttered or dark lantern off every Nerve roll.
-- A layer may take a value out of a field a table has a row for. The row is simply never read while the layer is on.
+- A layer may take a value out of a field a table has a row for. The row is never read while the layer is on.
 
 Live states, `enumTable` and a rest step that names a `state` are Capability API 1.42 for a packaged ruleset.
 
@@ -94,7 +94,7 @@ Live states, `enumTable` and a rest step that names a `state` are Capability API
 
 Plenty of systems do not count hit points at all. They have a column of boxes, each worse than the last, and you tick one when you get hurt. Give a `live.tracks` entry `kinds` and either named `levels` or numbered `boxes` (below) and it stops being a number on a scale and becomes one of those:
 
-**Which shape does your system want?** A pool records how MUCH harm landed; a track records how much AND what kind each piece of it was. If your system says a wound is bashing, lethal or aggravated, and which one it was still matters after the blow, because aggravated heals slower or cannot be soaked or is what finally kills, then that kind has to live somewhere after the roll, and only a mark carries one. A pool of points cannot: once damage is subtracted it is just a smaller number, and nothing on the sheet remembers which points were which. That is why `combat.damageKinds` is refused on a ruleset whose health is a pool rather than being quietly ignored. A pool can still have `damageTypes`, and an opponent can still resist or be immune to them, because that is a question about how much of the blow lands rather than about what the wound is afterwards.
+**Which shape does your system want?** A pool records how MUCH harm landed; a track records how much AND what kind each piece of it was. If your system says a wound is bashing, lethal or aggravated, and which one it was still matters after the blow, because aggravated heals slower or cannot be soaked or is what finally kills, then that kind has to live somewhere after the roll, and only a mark carries one. A pool of points cannot: once damage is subtracted it is only a smaller number, and nothing on the sheet remembers which points were which. That is why `combat.damageKinds` is refused on a ruleset whose health is a pool rather than being quietly ignored. A pool can still have `damageTypes`, and an opponent can still resist or be immune to them, because that is a question about how much of the blow lands rather than about what the wound is afterwards.
 
 ```json
 {

@@ -1558,7 +1558,21 @@ const capabilityPackageManifestBaseSchema = z
 //        only where it is sold and how often it drops changes (a low-magic layer). Not a soft seam: an
 //        Engine that cannot read these refuses the whole ruleset file, so a package that ships either
 //        declares 1.813. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 813 } as const);
+// 1.814: a language model message's `cacheBreakpoint`: the prompt up to and including it is cached on providers
+//        that take cache breakpoints (Anthropic), whatever the connection's caching switch says, for the connection's
+//        cache time; and a completion's usage reports `cachedPromptTokens` and `cacheWritePromptTokens`. A soft seam:
+//        older Engines ignore the field. No permission.
+// 1.815: a language model call's `cacheTtl` ("5m" or "1h"): how long its marked prefix stays cached on Anthropic,
+//        whatever the connection's cache time says; left out, the connection's applies. A soft seam: older Engines
+//        ignore the option. No permission.
+// 1.816: an image request's `animation` ({ frameCount?, frameDurationMs? }): one looping GIF, drawn from the
+//        prompt alone, from GPT Image 2.6 on an OpenAI connection; refused before any paid call when the
+//        connection can't make one or a picture is sent (the avatar-generation route answers 400 code
+//        "animation-unsupported"), and an error when the service answers with a still. And the server
+//        runtime host's `capabilityApi`. A soft seam: older Engines ignore `animation` and paint a still,
+//        so a package checks `__MARINARA_HOST__.capabilityApi` (client) or `api.runtime.capabilityApi`
+//        (server, absent on older Engines) before asking. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

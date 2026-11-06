@@ -234,7 +234,10 @@ try {
     "a Home widget create is held for Accept even when the handbook was not read",
   );
   const piPrompt = piRuntimePrompt();
-  assert.ok(piPrompt.includes("never wrap them in tags"), "the pi prompt forbids pseudo-XML tags in visible text");
+  assert.ok(
+    piPrompt.includes("Keep the answer itself in plain assistant text."),
+    "the pi prompt keeps UI calls separate from visible text",
+  );
   // Only a small output limit asks for split writes; a strong model told to fragment wastes calls.
   assert.match(
     piRuntimePrompt(1024),

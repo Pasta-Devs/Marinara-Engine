@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { showConnectionsList } from "./connections-panel.js";
+import { hideExistingItems, showConnectionsList } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -47,25 +47,9 @@ async function startProvider() {
 
 /** The shared test server has Connections; hiding them makes this a first run. */
 async function hideExisting(page: Page, request: APIRequestContext) {
-  const rows = (await (await request.get("/api/connections")).json()) as Row[];
-  const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
-  const hiddenRows = new Set(rows.map((row) => row.id));
-  const hiddenAccounts = new Set(accounts.map((account) => account.id));
-  for (const [path, hidden] of [
-    ["/api/connections", hiddenRows],
-    ["/api/connection-accounts", hiddenAccounts],
-  ] as const) {
-    await page.route(`**${path}`, async (route) => {
-      if (route.request().method() !== "GET" || new URL(route.request().url()).pathname !== path) {
-        await route.fallback();
-        return;
-      }
-      const response = await route.fetch();
-      const body = ((await response.json()) as Array<{ id: string }>).filter((item) => !hidden.has(item.id));
-      await route.fulfill({ response, json: body });
-    });
-  }
-  return { rows, hiddenRows, hiddenAccounts };
+  const { items: rows, hidden: hiddenRows } = await hideExistingItems(page, request, "/api/connections");
+  const { hidden: hiddenAccounts } = await hideExistingItems(page, request, "/api/connection-accounts");
+  return { rows: rows as Row[], hiddenRows, hiddenAccounts };
 }
 
 test("a first run adds a connection from the empty new-chat gate and starts the chat", async ({ page, request }) => {
@@ -87,8 +71,9 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
       useChatStore.getState().setPendingNewChatMode("conversation");
     });
 
-    // No gate box: the Add window itself, and it names the chat that follows.
-    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
+    // No gate box: the Add window itself, and it names the chat that follows. Once a model is picked the
+    // model screen has no back step, so the window takes its "Add models to …" heading as its title.
+    const dialog = page.getByRole("dialog", { name: /^(Add account|Add models to )/ });
     await expect(dialog).toBeVisible();
     await expect(page.locator("[data-new-chat-connection-gate]")).toHaveCount(0);
     await expect(dialog.locator('[data-add-connection-service="openrouter"]')).toBeVisible();
@@ -209,7 +194,8 @@ test("Add model on a card opens the model screen; a star adds a model and taking
       .first()
       .click();
     await page.getByRole("menuitem", { name: "Add model", exact: true }).click();
-    const screen = page.getByRole("dialog", { name: "Add model", exact: true });
+    // With no back step, the heading is the window's title.
+    const screen = page.getByRole("dialog", { name: "Add models to E2E add model", exact: true });
     await expect(screen.getByText("Add models to E2E add model")).toBeVisible();
     // No steps: the screen is the model list alone.
     await expect(screen.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
@@ -310,7 +296,7 @@ async function openCustomSetup(page: Page, request: APIRequestContext, baseUrl: 
     const { openAddModels } = await import("/src/lib/add-connection.ts" as string);
     openAddModels({ accountId });
   }, account.id);
-  const dialog = page.getByRole("dialog", { name: "Add model", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Add models to E2E setup", exact: true });
   await expect(dialog.locator('[data-model-id="local/alpha"]')).toBeVisible();
   return dialog;
 }
@@ -364,7 +350,7 @@ for (const dismiss of ["Escape", "the close button"] as const) {
       await expect(dialog.locator("[data-add-connection-set-main]")).toBeVisible();
 
       if (dismiss === "Escape") await page.keyboard.press("Escape");
-      else await dialog.getByRole("button", { name: "Close Add model", exact: true }).click();
+      else await dialog.getByRole("button", { name: "Close Add models to E2E setup", exact: true }).click();
       await expect(dialog).toHaveCount(0);
 
       // The added model stays, but only Done or Set as Main changes Main.
@@ -445,7 +431,8 @@ test("unstarring the first model after starring a second keeps the model screen 
       const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
       useChatStore.getState().setPendingNewChatMode("conversation");
     });
-    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
+    // The window is retitled "Add models to …" once a pick takes the model screen's back step away.
+    const dialog = page.getByRole("dialog", { name: /^(Add account|Add models to )/ });
     await dialog.locator('[data-add-connection-service="custom"]').click();
     await dialog.getByLabel("Server address", { exact: true }).fill(provider.baseUrl);
     await dialog.locator("[data-add-connection-connect]").click();

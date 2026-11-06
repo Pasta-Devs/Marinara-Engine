@@ -71,9 +71,17 @@ for (const theme of ["dark", "light"] as const) {
         .getByText("128k: useful for extensive work, but unnecessary as a minimum.", { exact: true })
         .scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath(`guidance-start-${theme}.png`) });
-      await pane.getByRole("button", { name: "Select connection", exact: true }).click();
-      const picker = pane.locator(".mari-connection-picker");
-      await expect(picker.getByRole("button", { name: "Add a connection" })).toBeVisible();
+      await pane.getByRole("button", { name: "Select provider", exact: true }).click();
+      // Wider screens open the picker under the chip; phones open it as a sheet over the page.
+      const picker = page.locator(".mari-connection-picker");
+      // With no models yet, the picker still offers to add an account.
+      await expect(picker.getByRole("button", { name: "Add account" })).toBeVisible();
+      // The picker keeps the guidance to one line until More opens the full text.
+      const openGuidance = async () => {
+        await expect(picker.locator(guidanceSelector)).toContainText("32k+ context recommended");
+        await picker.locator(guidanceSelector).getByRole("button", { name: "More", exact: true }).click();
+      };
+      await openGuidance();
       await expect(picker.locator(guidanceSelector)).toContainText(contextRecommendation);
       await expect(picker.locator(guidanceSelector).locator("li")).toHaveText(tierRecommendations);
       await expect(picker.locator(guidanceSelector)).not.toContainText('clicking the "chains" icon');
@@ -98,11 +106,12 @@ for (const theme of ["dark", "light"] as const) {
       availableConnections = [connection];
       await page.reload();
       await openMari();
-      await expect(pane.getByRole("button", { name: "Connection: Mari guidance fixture", exact: true })).toBeVisible();
+      await expect(pane.getByRole("button", { name: "Provider: Mari guidance fixture", exact: true })).toBeVisible();
       await expect(
         pane.locator('[data-component="HomeProfessorMariChat.Transcript"]').locator(guidanceSelector),
       ).toHaveCount(0);
-      await pane.getByRole("button", { name: "Connection: Mari guidance fixture", exact: true }).click();
+      await pane.getByRole("button", { name: "Provider: Mari guidance fixture", exact: true }).click();
+      await openGuidance();
       await expect(picker.locator(guidanceSelector)).toContainText(contextRecommendation);
       await expect(picker.locator(guidanceSelector).locator("li")).toHaveText(tierRecommendations);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();

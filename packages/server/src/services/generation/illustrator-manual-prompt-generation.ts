@@ -10,7 +10,7 @@ import {
   personaEntityId,
   readIllustratorImageAppearanceOverride,
 } from "../image/character-prompts.js";
-import { logger } from "../../lib/logger.js";
+import { debugJson, logger } from "../../lib/logger.js";
 import {
   agentRequestOptions,
   buildAgentCurrentLocationBlock,
@@ -378,6 +378,6 @@ export async function writeManualIllustratorPromptPlan(args: {
     plan = parseManualIllustratorPromptPlan(raw);
   }
   if (!plan) throw new Error("Illustrator returned an invalid manual illustration prompt.");
-  args.debugLog?.("[debug/illustrator/manual-illustration-prompt] plan:\n%s", JSON.stringify(plan, null, 2));
+  args.debugLog?.("[debug/illustrator/manual-illustration-prompt] plan:\n%s", debugJson(plan));
   return { plan, tokensUsed };
 }

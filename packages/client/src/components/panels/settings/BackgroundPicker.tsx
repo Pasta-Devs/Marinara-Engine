@@ -11,6 +11,7 @@ import {
   FolderPlus,
   Image,
   Loader2,
+  MoreHorizontal,
   Pencil,
   Pin,
   Search,
@@ -21,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BACKGROUND_THUMBNAIL_WIDTH } from "@marinara-engine/shared";
+import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { saveExportUrl } from "../../../lib/file-download";
 import { cn } from "../../../lib/utils";
@@ -47,7 +48,12 @@ import { Modal } from "../../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../../chat/ChatResourceActionButton";
-import { SETTINGS_BUTTON_CLASS, SETTINGS_ICON_BUTTON_CLASS } from "./SettingControls";
+import { ContextMenu, type ContextMenuItem } from "../../ui/ContextMenu";
+import {
+  SETTINGS_BUTTON_CLASS,
+  SETTINGS_ICON_BUTTON_CLASS,
+  SETTINGS_PRIMARY_FULL_BUTTON_CLASS,
+} from "./SettingControls";
 
 type BackgroundLibraryItem = {
   id: string;
@@ -91,7 +97,7 @@ type BackgroundPickerProps = {
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
 const BACKGROUND_FOLDER_QUERY_KEY = ["background-folders"] as const;
 const CARD_TEXT_FIELD_CLASS =
-  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
+  "min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] max-sm:!text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)]";
 
 /**
  * The rename input keeps its draft here rather than in the picker, so typing a name
@@ -189,7 +195,7 @@ function CardTagInput({
           }
         }}
         placeholder={placeholder}
-        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] max-sm:!text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
         data-background-tag-input
         autoFocus
         list={datalistId}
@@ -254,6 +260,7 @@ export function BackgroundPicker({
   const [uploading, setUploading] = useState(false);
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [cardMenu, setCardMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<BackgroundLibrarySort>("name-asc");
   const [sourceFilter, setSourceFilter] = useState<"all" | "user" | "game_asset">("all");
@@ -412,6 +419,12 @@ export function BackgroundPicker({
   const previewUrl =
     selected ?? (sceneBackgroundTag ? gameAssetFileUrl(assetManifest?.assets[sceneBackgroundTag]?.path) : null);
   const selectedBackground = backgrounds.find((background) => background.url === previewUrl) ?? null;
+  const recentUrls = useUIStore((state) => state.recentChatBackgrounds);
+  // Deleted files drop out because only library rows are shown.
+  const recentBackgrounds = recentUrls
+    .filter((url) => url !== previewUrl)
+    .flatMap((url) => backgrounds.filter((background) => background.url === url))
+    .slice(0, 3);
   const sourceCounts = useMemo(
     () => ({
       all: backgrounds.length,
@@ -796,7 +809,7 @@ export function BackgroundPicker({
               decoding="async"
             />
             <span className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
-            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5625rem] font-medium text-white/90 backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5625rem] max-sm:!text-[13px] font-medium text-white/90 backdrop-blur-sm">
               {localizeUi(
                 background.source === "game_asset"
                   ? "ui.panels.backgroundpicker.gameAsset"
@@ -806,7 +819,7 @@ export function BackgroundPicker({
             {showRoleplayDefault && isDefaultRoleplay && (
               <span
                 data-background-default-indicator
-                className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-[var(--primary)] md:group-hover:opacity-0"
+                className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] max-sm:!text-[13px] font-medium text-[var(--primary)] md:group-hover:opacity-0"
               >
                 {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
               </span>
@@ -859,20 +872,20 @@ export function BackgroundPicker({
           <div
             data-background-actions
             className={cn(
-              "flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5",
+              "flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11",
               isFloatingActions &&
                 "md:absolute md:bottom-2 md:right-2 md:flex-nowrap md:rounded-lg md:bg-black/60 md:px-0.5 md:pb-0.5 md:pt-0.5 md:opacity-0 md:backdrop-blur-sm md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100",
             )}
           >
             <ChatResourceActionButton
               payload={{ version: 1, kind: "background", ids: [background.url], label: title }}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!size-11")}
             />
             <button
               type="button"
               data-background-move
               onClick={() => void handleMoveBackground(background)}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
               title={localizeUi("ui.panels.backgroundpicker.moveToFolder")}
               aria-label={localizeUi("ui.panels.backgroundpicker.moveValue1ToAFolder", { value1: title })}
             >
@@ -886,7 +899,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setRenamingFile(background.id);
                   }}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                   title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
                 >
@@ -899,7 +912,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setEditingTags(isEditingTags ? null : background.id);
                   }}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                   title={localizeUi("ui.panels.backgroundpicker.editTags")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
                   aria-pressed={isEditingTags}
@@ -916,7 +929,7 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
                 }}
-                className={SETTINGS_ICON_BUTTON_CLASS}
+                className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                 title={
                   isDefaultRoleplay
                     ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
@@ -941,7 +954,7 @@ export function BackgroundPicker({
                 cancelPendingClose();
                 void saveExportUrl(background.url, background.filename);
               }}
-              className={SETTINGS_ICON_BUTTON_CLASS}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
               title={localizeUi("ui.panels.backgroundpicker.downloadBackground")}
               aria-label={localizeUi("ui.panels.backgroundpicker.downloadValue1", { value1: title })}
             >
@@ -954,13 +967,70 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   void handleDeleteBackground(background);
                 }}
-                className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
+                className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger max-sm:!hidden")}
                 title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
                 aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
               >
                 <Trash2 size="0.75rem" />
               </button>
             )}
+            {/* Phones: one 44px menu button instead of a crowded row of small icons. */}
+            <button
+              type="button"
+              onClick={(event) => {
+                cancelPendingClose();
+                const items: ContextMenuItem[] = [
+                  {
+                    label: localizeUi("ui.panels.backgroundpicker.moveToFolder"),
+                    icon: <FolderInput size="1rem" />,
+                    onSelect: () => void handleMoveBackground(background),
+                  },
+                ];
+                if (isEditable) {
+                  items.push(
+                    {
+                      label: localizeUi("ui.panels.backgroundpicker.renameBackground"),
+                      icon: <Pencil size="1rem" />,
+                      onSelect: () => setRenamingFile(background.id),
+                    },
+                    {
+                      label: localizeUi("ui.panels.backgroundpicker.editTags"),
+                      icon: <Tag size="1rem" />,
+                      onSelect: () => setEditingTags(isEditingTags ? null : background.id),
+                    },
+                  );
+                }
+                if (showRoleplayDefault) {
+                  items.push({
+                    label: isDefaultRoleplay
+                      ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                      : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats"),
+                    icon: <Pin size="1rem" />,
+                    onSelect: () =>
+                      onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url),
+                  });
+                }
+                items.push({
+                  label: localizeUi("ui.panels.backgroundpicker.downloadBackground"),
+                  icon: <Download size="1rem" />,
+                  onSelect: () => void saveExportUrl(background.url, background.filename),
+                });
+                if (background.deletable !== false && isEditable) {
+                  items.push({
+                    label: localizeUi("ui.panels.backgroundpicker.deleteBackground"),
+                    icon: <Trash2 size="1rem" />,
+                    destructive: true,
+                    onSelect: () => void handleDeleteBackground(background),
+                  });
+                }
+                setCardMenu({ x: event.clientX, y: event.clientY, items });
+              }}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!size-11 sm:!hidden")}
+              title={localizeUi("connections.accounts.header.more")}
+              aria-label={localizeUi("connections.accounts.header.more")}
+            >
+              <MoreHorizontal size="1rem" />
+            </button>
           </div>
         </div>
 
@@ -1002,7 +1072,7 @@ export function BackgroundPicker({
                 ) : (
                   <span
                     key={tag}
-                    className="inline-flex max-w-28 items-center truncate rounded-full bg-[var(--background)]/65 px-1.5 py-0.5 text-[0.5rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60"
+                    className="inline-flex max-w-28 items-center truncate rounded-full bg-[var(--background)]/65 px-1.5 py-0.5 text-[0.5rem] max-sm:!text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60"
                   >
                     {tag}
                   </span>
@@ -1029,55 +1099,82 @@ export function BackgroundPicker({
 
   return (
     <>
-      {/* Stacked, not one row: the preview reads as the current value, and the two actions get a
-          full-width line each instead of being squeezed against it. */}
-      <div className="flex flex-col gap-1.5">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="group flex min-w-0 items-center gap-2.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]/55 hover:ring-[var(--primary)]/45"
-        >
-          <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
+      {/* Big preview of the current value, the last picks one tap away, then the full library. */}
+      <div className="flex flex-col gap-3">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+            className="relative block h-28 w-full overflow-hidden rounded-xl bg-[var(--secondary)] text-left shadow-lg ring-1 ring-[var(--border)] transition-shadow hover:ring-[var(--primary)]/45"
+          >
             {previewUrl ? (
               <img
-                src={`${previewUrl}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
+                src={`${previewUrl}?w=${CHAT_IMAGE_PREVIEW_WIDTH}`}
                 alt=""
                 className="h-full w-full object-cover"
-                loading="lazy"
                 decoding="async"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[var(--muted-foreground)]/45">
-                <Image size="1.25rem" />
-              </div>
+              <span className="flex h-full items-center justify-center text-[var(--muted-foreground)]/45">
+                <Image size="2rem" />
+              </span>
             )}
-          </span>
-          <span className="min-w-0 flex-1 basis-24">
-            <div className="truncate text-xs font-semibold text-[var(--foreground)]">
+            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-7 text-sm font-semibold text-white">
               {selectedBackground
                 ? getBackgroundLibraryTitle(selectedBackground)
                 : localizeUi("ui.panels.backgroundpicker.defaultBackground")}
-            </div>
-            <div className="mt-0.5 truncate text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.backgroundpicker.value1BackgroundsAvailable", { value1: backgrounds.length })}
-            </div>
-          </span>
-        </button>
-        <button type="button" onClick={() => setOpen(true)} className={cn(SETTINGS_BUTTON_CLASS, "w-full")}>
-          <Image size="0.75rem" />
-          {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-        </button>
-        {selected && (
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
-            title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
-          >
-            <X size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.clearSelection")}
+            </span>
           </button>
+          {selected && (
+            <button
+              type="button"
+              onClick={() => onSelect(null)}
+              aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+              title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+              className="absolute right-2 top-2 flex h-8 w-8 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 transition-transform active:scale-90"
+            >
+              <X size="0.875rem" />
+            </button>
+          )}
+        </div>
+        {recentBackgrounds.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-[var(--muted-foreground)]">
+              {localizeUi("ui.panels.backgroundpicker.recent")}
+            </span>
+            <div className="grid grid-cols-3 gap-2.5">
+              {recentBackgrounds.map((background) => {
+                const title = getBackgroundLibraryTitle(background);
+                return (
+                  <button
+                    key={background.id}
+                    type="button"
+                    onClick={() => onSelect(background.url)}
+                    aria-label={localizeUi("ui.panels.backgroundpicker.useValue1ForThisChat", { value1: title })}
+                    className="group flex min-w-0 flex-col gap-1.5 text-left"
+                  >
+                    <img
+                      src={`${background.url}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
+                      alt=""
+                      className="aspect-[4/3] w-full rounded-lg object-cover ring-1 ring-[var(--border)] transition-shadow group-hover:ring-[var(--primary)]/60"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span className="truncate text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+                      {title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
+        <button type="button" onClick={() => setOpen(true)} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
+          <Image size="0.8125rem" />
+          {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+          <span className="opacity-70">· {backgrounds.length}</span>
+        </button>
       </div>
 
       <Modal
@@ -1100,7 +1197,7 @@ export function BackgroundPicker({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={localizeUi("ui.panels.backgroundpicker.searchBackgrounds")}
-                className="mari-chrome-field h-10 w-full py-0 pl-8 pr-8 text-xs md:h-9"
+                className="mari-chrome-field h-10 w-full py-0 pl-8 pr-8 text-xs max-sm:text-base md:h-9"
               />
               {searchQuery.trim() && (
                 <button
@@ -1122,7 +1219,7 @@ export function BackgroundPicker({
                   folderDrag.setActive(event.target.value === "custom");
                   if (event.target.value !== "custom") setSort(event.target.value as BackgroundLibrarySort);
                 }}
-                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
+                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:!text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
                 title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
                 aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
               >
@@ -1148,12 +1245,12 @@ export function BackgroundPicker({
               icon={uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
               labelClassName="max-md:sr-only"
               // h-10/md:h-9 and the mobile w-10 match the search field and sort select beside it.
-              className={cn(SETTINGS_BUTTON_CLASS, "h-10 max-md:w-10 md:h-9")}
+              className={cn(SETTINGS_BUTTON_CLASS, "h-10 max-md:w-10 md:h-9 max-sm:h-11 max-sm:w-11")}
             />
           </div>
 
           <div
-            className="grid grid-cols-3 gap-1 sm:w-fit"
+            className="grid grid-cols-3 gap-1 max-sm:flex max-sm:flex-wrap sm:w-fit"
             role="group"
             aria-label={localizeUi("ui.panels.backgroundpicker.filterBySource")}
           >
@@ -1168,7 +1265,7 @@ export function BackgroundPicker({
                 key={value}
                 type="button"
                 onClick={() => setSourceFilter(value)}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
                 aria-pressed={sourceFilter === value}
               >
                 <span>{label}</span>
@@ -1177,7 +1274,7 @@ export function BackgroundPicker({
             ))}
           </div>
 
-          <p className="mari-folder-helper">
+          <p className="mari-folder-helper max-sm:!text-[13px]">
             {localizeUi("ui.panels.backgroundpicker.dragBackgroundsOntoAFolderChip")}
           </p>
 
@@ -1211,7 +1308,7 @@ export function BackgroundPicker({
                 // Only Unfiled is a drop target; All and Favorites are not folders.
                 onDragOver={value === "unfiled" ? allowFolderDrop : undefined}
                 onDrop={value === "unfiled" ? (event) => handleFolderDrop(event, null) : undefined}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
                 aria-pressed={folderFilter === value}
               >
                 {value === "favorites" && (
@@ -1231,7 +1328,7 @@ export function BackgroundPicker({
                 data-background-folder-id={folder.id}
                 onDragOver={allowFolderDrop}
                 onDrop={(event) => handleFolderDrop(event, folder.id)}
-                className={SETTINGS_BUTTON_CLASS}
+                className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
                 aria-pressed={folderFilter === folder.id}
               >
                 <Folder size="0.75rem" />
@@ -1245,7 +1342,7 @@ export function BackgroundPicker({
               type="button"
               onClick={() => void handleCreateFolder()}
               disabled={createFolder.isPending}
-              className={SETTINGS_BUTTON_CLASS}
+              className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
               title={localizeUi("ui.panels.backgroundpicker.newFolder")}
               aria-label={localizeUi("ui.panels.backgroundpicker.newFolder")}
             >
@@ -1293,7 +1390,7 @@ export function BackgroundPicker({
             <button
               type="button"
               onClick={() => setIncludedTagValues([])}
-              className={SETTINGS_BUTTON_CLASS}
+              className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
               aria-pressed={includedTags.size === 0}
             >
               {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
@@ -1303,7 +1400,11 @@ export function BackgroundPicker({
                 type="button"
                 onClick={() => setTagsExpanded((expanded) => !expanded)}
                 // Selected while a tag filter is active: the counterpart of the pressed All chip.
-                className={cn(SETTINGS_BUTTON_CLASS, includedTags.size > 0 && "mari-chrome-control--selected")}
+                className={cn(
+                  SETTINGS_BUTTON_CLASS,
+                  "max-sm:!min-h-11 max-sm:!text-[13px]",
+                  includedTags.size > 0 && "mari-chrome-control--selected",
+                )}
                 aria-expanded={tagsExpanded}
               >
                 <Tag size="0.75rem" />
@@ -1320,7 +1421,7 @@ export function BackgroundPicker({
                   key={tag}
                   type="button"
                   onClick={() => toggleIncludedTag(tag)}
-                  className={SETTINGS_BUTTON_CLASS}
+                  className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
                   aria-pressed={includedTags.has(tag)}
                 >
                   {tag}
@@ -1329,7 +1430,7 @@ export function BackgroundPicker({
             </div>
           )}
 
-          <div className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+          <div className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-[0.625rem] max-sm:!text-[13px] text-[var(--muted-foreground)]">
             <span>
               {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
               {localizeUi("ui.panels.backgroundpicker.backgrounds")}
@@ -1340,6 +1441,7 @@ export function BackgroundPicker({
                 onClick={() => onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL)}
                 className={cn(
                   SETTINGS_BUTTON_CLASS,
+                  "max-sm:!min-h-11 max-sm:!text-[13px]",
                   defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL && "invisible pointer-events-none",
                 )}
                 aria-hidden={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL}
@@ -1356,11 +1458,14 @@ export function BackgroundPicker({
               {visibleBackgrounds.map(renderCard)}
             </div>
           )}
+          {cardMenu && (
+            <ContextMenu x={cardMenu.x} y={cardMenu.y} items={cardMenu.items} onClose={() => setCardMenu(null)} />
+          )}
 
           {backgrounds.length === 0 && (
             <div className="flex flex-col items-center gap-1.5 py-4 text-center">
               <Image size="1.25rem" className="text-[var(--muted-foreground)]/40" />
-              <p className="mari-chrome-text-muted text-[0.625rem]">
+              <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
                 {localizeUi("ui.panels.backgroundpicker.noBackgroundsAvailableYet")}
               </p>
             </div>
@@ -1368,7 +1473,7 @@ export function BackgroundPicker({
           {backgrounds.length > 0 && visibleBackgrounds.length === 0 && (
             <div className="flex flex-col items-center gap-1.5 py-4 text-center">
               <Search size="1.25rem" className="text-[var(--muted-foreground)]/40" />
-              <p className="mari-chrome-text-muted text-[0.625rem]">
+              <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
                 {localizeUi("ui.panels.backgroundpicker.noBackgroundsMatchThoseFilters")}
               </p>
             </div>

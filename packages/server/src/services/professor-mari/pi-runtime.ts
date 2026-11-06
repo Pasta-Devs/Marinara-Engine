@@ -29,6 +29,7 @@ import {
   supportsNativeToolCalls,
 } from "@marinara-engine/shared";
 import { parseTextualToolCalls, stripTextualToolCalls } from "../llm/textual-tool-call-parser.js";
+import { recoverSuggestionSuffix } from "./suggestion-suffix.js";
 import {
   appendTraceStatus,
   appendVisibleText,
@@ -39,10 +40,12 @@ import {
   describeHeldCommands,
   emitRoundText,
   formatCommandResultForPrompt,
+  isChangeAttemptCommand,
   isLengthFinishReason,
   isLocalSidecarConnection,
   isMutatingWorkspaceCommand,
   isStagedSensitiveMutation,
+  withWithheldNotice,
   MAX_PROTOCOL_REPAIR_ROUNDS,
   MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR,
   sanitizeSuggestionChips,
@@ -61,6 +64,7 @@ import {
 } from "./workspace-agent.service.js";
 import type { WorkspaceCommands } from "./workspace-commands.js";
 import {
+  closingAnswerGetsNotice,
   newRoundReviewState,
   reviewRepeatedFailures,
   reviewRoundClaim,
@@ -108,6 +112,8 @@ export type PiRunState = {
   questions: MariQuestion[];
   /** Her to-do list, set only once she called `todo`; `[]` means she cleared it. */
   todos?: MariTodoItem[];
+  /** #8711: these words were kept although a claim check flagged them, in a run that tried no change. */
+  nothingChanged: boolean;
 };
 
 export type PiRunInput = {
@@ -133,8 +139,8 @@ export type PiRunInput = {
   setRoundFlags: (flags: { manualSilentMutationBlocked: boolean; askLatchSilentMutationBlocked: boolean }) => void;
   /** Tool rounds allowed in one run; defaults to MAX_PI_TOOL_ROUNDS. Injected only by the regression. */
   maxToolRounds?: number;
-  /** The connection's output token limit, when known; the output-limit recovery quotes it. */
-  maxOutputTokens?: number;
+  /** The output token limit the run's requests use now, when known; the output-limit recovery quotes it. */
+  maxOutputTokens?: () => number | undefined;
   /** Called once the session exists, with the tools it really has active. The regression inspects the boundary here. */
   /** #5740: the understood-request record. `record` runs once per round with mutating calls; `settle` after they ran. */
   understood?: {
@@ -149,7 +155,22 @@ export type PiRunInput = {
   onSession?: (session: AgentSession, tools: ToolDefinition[]) => void;
 };
 
+// Recognize only the two complete, standalone read requests seen in #8806. Their contents
+// never become tool arguments. A fresh model turn must choose a tool for the user's request.
+function printedLorebookLookup(content: string): boolean {
+  const text = content.trim();
+  return (
+    /^<use_tool name="app[ _]data">\s*<parameter name="action">lorebook[. ]entries<\/parameter>\s*<parameter name="lorebookId">[^<>]+<\/parameter>\s*<\/use_tool>$/u.test(
+      text,
+    ) ||
+    /^<tool_calls>\s*<invoke name="app[ _]data">\s*<parameter name="action">lorebook[. ]search<\/parameter>\s*<parameter name="query">[^<>]+<\/parameter>\s*<\/invoke>\s*<\/tool_calls>$/u.test(
+      text,
+    )
+  );
+}
+
 type Round = {
+  printedLookup: boolean;
   text: string;
   /** Tool calls in order, UI tools included. */
   calls: WorkspaceCommandCall[];
@@ -275,7 +296,9 @@ function textualToolPrompt(tools: readonly ToolDefinition[]) {
     .join("\n");
   return `<text_tool_calls>
 This connection has no native tool calls. Wherever the rules above say to call a tool, write the call as text instead: one \`<tool_call>{"name":"TOOL","arguments":{...}}</tool_call>\` tag per call, with valid JSON inside. You may write several tags in one reply, after your words. Marinara runs them and answers in the next user message with the results. Never write a tag you do not want to run.
-Example: ${textCall("ls", { path: "." })}
+Example:
+The opening is ready.
+${textCall("suggestions", { chips: [{ label: "Play from here", prompt: "Continue from the opening." }] })}
 Tools:
 ${docs}
 </text_tool_calls>`;
@@ -339,6 +362,15 @@ export function outputLimitRepairPrompt(cut: CutReply, attempt: number, maxOutpu
   return lines.join("\n");
 }
 
+/** A provider's tool call as a workspace call; unparsable arguments arrive as {}. */
+function asCall(call: ChatCompletionResult["toolCalls"][number]): WorkspaceCommandCall {
+  return {
+    id: call.id || randomUUID(),
+    name: call.function.name as WorkspaceCommandCall["name"],
+    arguments: parseArguments(call.function.arguments),
+  };
+}
+
 function parseArguments(raw: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(raw || "{}");
@@ -399,6 +431,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   let chipRepair: "unused" | "pending" | "used" = "unused";
   let toolRounds = 0;
   let limitReached = false;
+  let lookupRetried = false;
   let emptyRepairs = 0;
   let outputLimitRepairs = 0;
   const maxEmptyRepairs = isLocalSidecarConnection(input.connection)
@@ -570,8 +603,31 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
             (result.content ?? "").lastIndexOf("<tool_call>") > (result.content ?? "").lastIndexOf("</tool_call>"));
         const reply = textualTools ? textualReply(result.content) : null;
         const parsedCalls = reply?.calls ?? result.toolCalls;
-        const shown = scrubInternalNames(reply ? reply.text : (result.content ?? ""));
-        const text = shown.trim() ? shown : "";
+        const words = reply ? reply.text : (result.content ?? "");
+        const recovered = !truncated && isAgentTurn ? recoverSuggestionSuffix(words) : null;
+        // Recover only an otherwise final answer. Adding a UI call beside todo, for example, would end its work early.
+        if (
+          recovered &&
+          !state.suggestions.length &&
+          parsedCalls.length === 0 &&
+          tools.some((tool) => tool.name === "suggestions")
+        ) {
+          parsedCalls.push({
+            id: `suggestions_${randomUUID()}`,
+            type: "function",
+            function: { name: "suggestions", arguments: JSON.stringify({ chips: recovered.chips }) },
+          });
+        }
+        const shown = scrubInternalNames(recovered?.text ?? words);
+        const printedLookup =
+          isAgentTurn &&
+          !truncated &&
+          parsedCalls.length === 0 &&
+          result.toolCalls.length === 0 &&
+          toolDefs.some((tool) => tool.function.name === "app_data") &&
+          printedLorebookLookup(result.content ?? "");
+        // Keep a nonempty, argument-free assistant turn in the repair history for strict endpoints.
+        const text = printedLookup ? "I printed a lorebook lookup. It did not run." : shown.trim() ? shown : "";
         // A truncated frame never runs: its tool calls may be cut off mid-argument.
         const calls = truncated ? [] : parsedCalls;
         if (result.usage) {
@@ -589,11 +645,6 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: message });
           stream.push({ type: "text_end", contentIndex: 0, content: text, partial: message });
         }
-        const asCall = (call: (typeof calls)[number]): WorkspaceCommandCall => ({
-          id: call.id || randomUUID(),
-          name: call.function.name as WorkspaceCommandCall["name"],
-          arguments: parseArguments(call.function.arguments),
-        });
         const allCalls = calls.map(asCall);
         for (const { id, name, arguments: args } of allCalls) {
           const toolCall = { type: "toolCall" as const, id, name, arguments: args as never };
@@ -605,11 +656,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         // Like classic, an identical call in one turn runs once; pi still needs a result for each call it was given.
         const workspaceCalls = dedupeWorkspaceCommandCalls(allCalls);
         const duplicates = new Set(allCalls.filter((call) => !workspaceCalls.includes(call)).map((call) => call.id));
-        const droppedMutating = truncated && parsedCalls.map(asCall).some(isMutatingWorkspaceCommand);
+        const sentCalls = parsedCalls.map(asCall);
+        const droppedMutating = truncated && sentCalls.some(isMutatingWorkspaceCommand);
+        // #8711: every change a turn sends counts for the run, whatever comes of it: cut off, held, set aside beside a
+        // question, or refused in a chips-only round.
+        if (isAgentTurn && sentCalls.some(isChangeAttemptCommand)) reviewState.changeTried = true;
         if (result.providerMetadata && workspaceCalls[0])
           metadataByCallId.set(workspaceCalls[0].id, result.providerMetadata);
         if (isAgentTurn) {
           round = {
+            printedLookup,
             text,
             calls: workspaceCalls,
             results: [],
@@ -664,6 +720,19 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       stopRequested = true;
       return "done" as const;
     }
+    if (current.printedLookup) {
+      if (lookupRetried) {
+        addNote("The lorebook lookup did not run. Please try again.", "retry", "warning");
+        stopRequested = true;
+        return "done" as const;
+      }
+      lookupRetried = true;
+      const format = textualTools ? "the <tool_call> format in your instructions" : "the provided tool interface";
+      return {
+        kind: "repair" as const,
+        prompt: `Your last reply printed a lorebook lookup and nothing ran. Return to the user's original request. If it needs a tool, use ${format}. Otherwise answer directly.`,
+      };
+    }
     if (current.calls.length === 0 && !current.text.trim() && !current.truncated) {
       // Same as classic: an empty turn is retried within a budget, then ends with a note.
       emptyRepairs += 1;
@@ -683,6 +752,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     emptyRepairs = 0;
+    // A repaired turn's words are never shown, yet they stay in pi's history: tell her, so she restates them.
+    const withheld = (prompt: string) => withWithheldNotice(prompt, current.text);
     // A turn cut at the output limit ran nothing, so no claim audit spends a repair on its half-written words: it is
     // redone smaller, and its words are not kept. Once that budget is spent the run stops with a note. A failed stream
     // is not a limit cut: it is audited like any turn and stops further down.
@@ -691,13 +762,15 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         outputLimitRepairs += 1;
         appendTraceStatus(trace, OUTPUT_LIMIT_RETRY);
         onEvent({ type: "status", data: { content: OUTPUT_LIMIT_RETRY, kind: "output_limit", level: "info" } });
-        return {
-          kind: "repair" as const,
-          prompt: outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens),
-        };
+        const repair = outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens?.());
+        // Words before a cut call (often the plan) are withheld too. A cut answer's repair already says to write it
+        // again shorter, and the notice's "write out again everything" would fight that limit.
+        return { kind: "repair" as const, prompt: current.cut.kind === "prose" ? repair : withheld(repair) };
       }
       if (current.text.trim()) {
         state.assistantText = current.text.trim();
+        // #8711: new words, so an earlier round's notice no longer applies to them.
+        state.nothingChanged = false;
         emitRoundText(trace, current.text, onEvent);
       }
       return stopTruncated(current, OUTPUT_LIMIT_STOP);
@@ -765,6 +838,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           ? current.text.trim()
           : HELD_WITHOUT_WORDS;
       state.assistantText = words;
+      state.nothingChanged = false;
       emitRoundText(trace, words, onEvent);
       state.suggestions = [
         MARI_AUTHORIZATION_ACCEPT_CHIP,
@@ -779,19 +853,21 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
     });
-    if (decision.kind === "repair") return decision;
+    if (decision.kind === "repair") return { ...decision, prompt: withheld(decision.prompt) };
     if (decision.kind === "stop") {
       addNote(decision.content, "retry", "warning");
       stopRequested = true;
       return "done" as const;
     }
     // A final answer that says a change is held, when nothing was held, is false: one repair, then an honest line.
-    // Not after an applied change: a summary of real work must not be replaced by "nothing changed".
+    // Not after an applied change: a summary of real work must not be replaced by "nothing changed". Not in a run that
+    // tried no change either (#8711): there the claim review kept the words with the notice.
     const appliedAny = input.commandResults.some(
       (result) =>
         result.success && isMutatingWorkspaceCommand({ id: result.id, name: result.name, arguments: result.input }),
     );
     if (
+      reviewState.changeTried &&
       !hasWorkspaceCalls &&
       !todoOnly &&
       !state.endedWithDeferral &&
@@ -802,11 +878,13 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         heldClaimRepaired = true;
         return {
           kind: "repair" as const,
-          prompt:
+          prompt: withheld(
             "Nothing is held and no change card exists. Either make the change now with the tools, or say plainly that it was not made.",
+          ),
         };
       }
       state.assistantText = NOTHING_HELD;
+      state.nothingChanged = false;
       emitRoundText(trace, NOTHING_HELD, onEvent);
       stopRequested = true;
       return "done" as const;
@@ -815,6 +893,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (visibleTextAsksApplyPermission(current.text)) runAskedForApproval = true;
       state.assistantText = current.text.trim();
       emitRoundText(trace, current.text, onEvent);
+      // #8711: the notice belongs to the reply these words are, never to words no check flagged.
+      state.nothingChanged = decision.kind === "notice";
+      if (state.nothingChanged) onEvent({ type: "metadata", data: { nothingChanged: true } });
       if (((current.results.length > 0 && hasWorkspaceCalls) || todoOnly) && !asking) {
         onEvent({ type: "metadata", data: { narration: true } });
       }
@@ -833,6 +914,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (!current.text.trim()) {
         const words = mariQuestionsAsText(questions);
         state.assistantText = words;
+        state.nothingChanged = false;
         emitRoundText(trace, words, onEvent);
       }
       stopRequested = true;
@@ -885,13 +967,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // Calls in this turn never run; they only decide which line the user reads.
     const reply = textualTools ? textualReply(result.content) : null;
     const text = scrubInternalNames(reply ? reply.text : (result.content ?? "")).trim();
-    const tried = (reply?.calls ?? result.toolCalls).length > 0;
+    const sentCalls = (reply?.calls ?? result.toolCalls).map(asCall);
+    const tried = sentCalls.length > 0;
+    if (sentCalls.some(isChangeAttemptCommand)) reviewState.changeTried = true;
     const issue = auditWorkspaceCompletionClaim({ visibleText: text, commands: [], stop: true }, input.commandResults, {
       auditFrom: reviewState.claimAuditWatermark,
       hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
       lastPassedClaimText: reviewState.lastPassedClaimText,
     }).issue;
-    if (issue) {
+    const nothingChanged = closingAnswerGetsNotice(reviewState, text, issue);
+    if (issue && !nothingChanged) {
       addNote(
         "Professor Mari reached the tool round limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.",
         "retry",
@@ -900,6 +985,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     } else if (text) {
       state.assistantText = text;
       emitRoundText(trace, text, onEvent);
+      state.nothingChanged = nothingChanged;
+      if (nothingChanged) onEvent({ type: "metadata", data: { nothingChanged: true } });
     } else if (tried) {
       addNote(
         "Professor Mari tried to call more tools after the round limit, so I stopped the loop. Ask her to continue if you want her to keep working from the saved trace.",

@@ -30,6 +30,11 @@ export interface ChatMessage {
   media?: ChatMediaAttachment[];
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
   providerMetadata?: Record<string, unknown>;
+  /**
+   * Cache the prompt up to and including this message (Capability API 1.814). Anthropic puts a cache breakpoint
+   * here whether or not `enableCaching` is on, keeping the last four, and then adds none of its own.
+   */
+  cacheBreakpoint?: boolean;
 }
 
 export interface ChatMediaAttachment {
@@ -92,6 +97,11 @@ export interface ChatOptions {
   captureReasoning?: boolean;
   /** Callback for streaming text tokens as they arrive (used in tool path) */
   onToken?: (chunk: string) => void | Promise<void>;
+  /**
+   * onToken only shows the call is alive and the caller reads the reply from the result, so a fallback connection may
+   * still answer after the primary streamed text and failed.
+   */
+  onTokenKeepaliveOnly?: boolean;
   /** Enable extended thinking (reasoning models) */
   enableThinking?: boolean;
   /**
@@ -247,6 +257,12 @@ export type ConnectionAdmissionMode =
    */
   | { kind: "none" };
 
+/** A looping GIF's timing. The Engine clamps it to 2..12 frames of 20..2000 ms (see resolveOpenAIGifAnimation). */
+export interface ImageAnimation {
+  frameCount?: number;
+  frameDurationMs?: number;
+}
+
 export interface ImageGenRequest {
   prompt: string;
   /** OpenAI GPT Image generation quality. Ignored by unsupported services and models. */
@@ -274,6 +290,12 @@ export interface ImageGenRequest {
   referenceIsCanvas?: boolean;
   /** Optional structured per-character prompts. NovelAI V4/V4.5 maps these to native character captions. */
   characterPrompts?: SceneIllustrationCharacterPrompt[];
+  /**
+   * Return one looping GIF (image/gif) instead of a still; `{}` uses the Engine defaults (9 frames, 200 ms).
+   * Only GPT Image 2.6 on an OpenAI connection makes one. The prompt is the only input: a request that also
+   * carries a reference picture, or a connection that can't make GIFs, is refused before any paid call.
+   */
+  animation?: ImageAnimation;
   /** Request a transparent image background when the provider/model supports it. */
   transparentBackground?: boolean;
   /** Keep uncompressed provider output for sprite/portrait processing that requires its original pixels and format. */

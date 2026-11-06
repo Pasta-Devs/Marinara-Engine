@@ -50,7 +50,8 @@ for (const theme of ["dark", "light"] as const) {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(connectionId);
       }, id);
-      const name = page.getByPlaceholder("Connection name");
+      // #8456 renamed the editor title field "Model name".
+      const name = page.getByPlaceholder("Model name", { exact: true });
       await expect(name).toHaveValue("MiniMax 3");
       const header = page.locator(".mari-editor-header");
       const save = header.getByRole("button", { name: "Save", exact: true });

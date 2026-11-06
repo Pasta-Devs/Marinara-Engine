@@ -138,6 +138,7 @@ import {
   keepsCodexDefaultEffort,
   limitPastReasoningMetadata,
   normalizeChatTopP,
+  rejectsFinalAssistantMessage,
 } from "../../services/generation/generation-parameters.js";
 import {
   filterPromptMessagesForCharacterAudience,
@@ -150,8 +151,10 @@ import { sendSseEvent, startSseReply } from "./sse.js";
 import {
   postProcessMessages,
   buildGenerationGuideInstruction,
+  capSummarizedHistory,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
+  endPromptOnAssistantPrefill,
   extractImageAttachmentDataUrls,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
@@ -777,6 +780,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         const timelineIds = new Set(scopedMessages.slice(0, index).map((message) => message.id));
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
       }
+    }
+    if (chatMode === "roleplay" && !advancedMemoryEnabled) {
+      chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
+        excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
+      }).messages;
     }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),
@@ -2251,11 +2259,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
 
     if (typeof chatParams?.assistantPrefill === "string") assistantPrefill = chatParams.assistantPrefill;
-    if (!impersonate && assistantPrefill.trim()) {
-      // Mirror the real send path: the trailing edge is stripped because Anthropic
-      // rejects a final assistant message ending in whitespace.
-      finalMessages.push({ role: "assistant", content: assistantPrefill.trimEnd() });
-    }
     finalMessages = injectOwnerSpatialPrompt(finalMessages, promptSpatialProjection);
     dedupeLastMessageWrappers(finalMessages);
     // Mirror the live route's provider-boundary macro guard so Peek Prompt is
@@ -2406,6 +2409,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     await appendLorebookImageMessages(finalMessages, lorebookImageEntries, {
       rememberImage: (dataUrl) => referenceImages.add(dataUrl),
     });
+    // Mirror the real send path: the prompt ends on the Assistant Prefill, after everything above.
+    const prefillTurn = endPromptOnAssistantPrefill(
+      finalMessages,
+      !impersonate && assistantPrefill.trim()
+        ? resolveHistoryMessageMacros([{ role: "assistant" as const, content: assistantPrefill }])[0]!
+        : null,
+      !rejectsFinalAssistantMessage(conn.provider ?? "", conn.model ?? ""),
+      (message) => {
+        const source = message.id ? allChatMessages.find((saved) => saved.id === message.id) : undefined;
+        return source ? conversationPromptHistoryContent(source, chatMode) : undefined;
+      },
+    );
     const provider = withImageCaptionFallback(
       withLorebookImageCompatibility(
         rawProvider,
@@ -2443,13 +2458,17 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }));
 
     const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-      return postProcessMessages(messages, {
-        ...(effectivePreset && !isStockMarinaraUniversalPreset(effectivePreset)
-          ? parseStoredGenerationParameters(effectivePreset.parameters)
-          : {}),
-        ...connectionParams,
-        ...chatParams,
-      });
+      return postProcessMessages(
+        messages,
+        {
+          ...(effectivePreset && !isStockMarinaraUniversalPreset(effectivePreset)
+            ? parseStoredGenerationParameters(effectivePreset.parameters)
+            : {}),
+          ...connectionParams,
+          ...chatParams,
+        },
+        prefillTurn.endsOnPrefill,
+      );
     };
 
     let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;

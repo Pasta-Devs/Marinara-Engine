@@ -212,10 +212,9 @@ try {
     await generate(characterPath, "appearance", { debugMode: true });
     const debug = warnings.find((entry) => String(entry[0]).includes("[debug/card-field/"));
     assert.ok(debug);
-    assert.deepEqual(JSON.parse(String(debug.at(-1)))[1], {
-      role: "user",
-      content: JSON.stringify({ selectedField: "appearance", card }),
-    });
+    // The prompt prints as readable JSON: the user turn is the field request, quoted exactly.
+    const userTurn = JSON.stringify(JSON.stringify({ selectedField: "appearance", card }));
+    assert.ok(String(debug.at(-1)).includes(`"role": "user",\n    "content": ${userTurn}`));
   } finally {
     logger.warn = originalWarn;
     logger.level = originalLevel;

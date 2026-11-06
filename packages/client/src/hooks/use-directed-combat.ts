@@ -93,7 +93,12 @@ export function useDirectedCombat(input: {
   }, [qc, input.chatId, input.anchor]);
   /** The revision a ruleset refusal was answered at, until the fight moves past it. */
   const refusedRevision = useRef<number | null>(null);
+  /** How many commands were sent: a failed one clears its error only while no newer one is out, as
+   *  clearing it then takes the screen off the newer one in flight, and the next `continue` and the
+   *  queued switches would go out at a stale revision. */
+  const sentCommands = useRef(0);
   const mutate = useMutation({
+    onMutate: () => ++sentCommands.current,
     mutationFn: async (command: DirectedCommand) => {
       const current = qc.getQueryData<DirectedCombatView>(key);
       if (!current) throw new Error("Battle has not loaded.");
@@ -139,7 +144,10 @@ export function useDirectedCombat(input: {
           : current,
       );
     },
-    onError: (error) => {
+    onError: (error, _command, sent) => {
+      const clear = () => {
+        if (sent === sentCommands.current) mutate.reset();
+      };
       // A refusal is the rules saying no, not a broken battle: it changed nothing on the server, so
       // it is said once and the fight stays exactly where it was.
       const code = rulesetRefusalCode(error);
@@ -150,8 +158,8 @@ export function useDirectedCombat(input: {
         // every turn the screen plays by itself, and the fight would stand on "is taking their turn"
         // until a reload (laptop playtest 2026-10-25, a boss's turn).
         void catchUp().then((moved) => {
-          if (moved) mutate.reset();
-          else setTimeout(() => mutate.reset(), RULESET_CATCH_UP_MS);
+          if (moved) clear();
+          else setTimeout(clear, RULESET_CATCH_UP_MS);
         });
         return;
       }
@@ -160,7 +168,7 @@ export function useDirectedCombat(input: {
       // the revision stays where it was, and autoplay must not send the same thing at it again
       // every pause (a toast a second, for ever). It picks up once the fight has moved.
       refusedRevision.current = qc.getQueryData<DirectedCombatView>(key)?.revision ?? null;
-      mutate.reset();
+      clear();
     },
   });
   const send = mutate.mutate;

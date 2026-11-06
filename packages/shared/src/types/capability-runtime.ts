@@ -186,6 +186,16 @@ export interface CapabilityResourceHost {
 export interface CapabilityLanguageModelMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /**
+   * Capability API 1.814: cache everything up to and including this message. Set it on the last message of the part
+   * of the prompt that stays the same from call to call. Providers that take cache breakpoints (Anthropic) cache it
+   * whatever the connection's prompt-caching switch says, for the connection's cache time (1 hour when it asks for
+   * that, else 5 minutes). OpenAI, Gemini, xAI and DeepSeek cache identical prefixes on their own and ignore it.
+   * OpenRouter and custom OpenAI-compatible endpoints do not take it yet, so Claude reached through them is not
+   * cached. At most four count: the last four. A marked message with no text marks the message before it. Older
+   * Engines ignore it.
+   */
+  cacheBreakpoint?: boolean;
 }
 
 export interface CapabilityLanguageModelCompletionOptions {
@@ -196,16 +206,31 @@ export interface CapabilityLanguageModelCompletionOptions {
   verbosity?: "low" | "medium" | "high";
   signal?: AbortSignal;
   responseFormat?: Readonly<{ type: string; [key: string]: unknown }>;
+  /**
+   * Capability API 1.815: how long the prompt up to the call's `cacheBreakpoint` messages stays cached on a provider
+   * with a cache time (Anthropic): "5m" or "1h". Left out, the connection's own cache time applies. A call with no
+   * marked message ignores it, and so does a provider that caches on its own.
+   */
+  cacheTtl?: "5m" | "1h";
 }
 
 export interface CapabilityLanguageModelCompletion {
   content: string | null;
   finishReason: string;
   usage?: {
+    /**
+     * Prompt tokens as the provider counts them. Anthropic and Claude (Subscription) count only the input neither read
+     * from nor written to the cache, so their whole prompt is promptTokens + cachedPromptTokens +
+     * cacheWritePromptTokens. OpenAI-compatible routes (OpenRouter included) and Gemini already include both.
+     */
     promptTokens?: number;
     completionTokens?: number;
     completionReasoningTokens?: number;
     totalTokens?: number;
+    /** Capability API 1.814: prompt tokens read from the provider's cache, when it reports them. */
+    cachedPromptTokens?: number;
+    /** Capability API 1.814: prompt tokens written to the provider's cache, when it reports them. */
+    cacheWritePromptTokens?: number;
   };
 }
 
@@ -559,6 +584,8 @@ export interface CapabilityDecisionHost {
 }
 
 export interface CapabilityRuntimeHost {
+  /** Capability API 1.816. The Engine's supportedCapabilityApi; absent on older Engines. */
+  capabilityApi?: { readonly major: number; readonly minor: number };
   /** Read and unlock the package's own achievements. Requires the `achievements`
    *  permission and capability API 1.36. */
   achievements: CapabilityAchievementHost;

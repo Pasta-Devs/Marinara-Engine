@@ -234,7 +234,7 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS LOG_FORMAT; do
         load_launcher_setting "$setting_name"
     done
 fi
@@ -286,6 +286,13 @@ prune_pnpm_store() {
     # Old releases otherwise accumulate there indefinitely and can consume several
     # gigabytes even though the built application itself is comparatively small.
     echo "  [..] Reclaiming dependency cache space from older releases..."
+    # The pinned pnpm 12 never reads the pnpm 10 store and its prune cannot see it. Drop it before the
+    # install so both stores never have to fit at once (the install relinks node_modules anyway).
+    # ponytail: only the v10 layout; delete once no supported update starts from a pnpm 10 install.
+    # Under set -e a bare rm that fails (read-only file, busy mount) would end startup; it only costs space.
+    if ! rm -rf .pnpm-store/v10; then
+        echo "  [WARN] Could not remove the pnpm 10 dependency cache (.pnpm-store/v10); continuing with it in place."
+    fi
     if ! run_pnpm store prune >/dev/null 2>&1; then
         echo "  [WARN] Could not prune the pnpm store; continuing without removing cached packages."
     fi
@@ -601,6 +608,9 @@ fi
 export NODE_ENV=production
 export PORT=${PORT:-7860}
 export HOST=${HOST:-0.0.0.0}
+# The server's output reaches Termux through tee, so it cannot see a terminal and would print
+# JSON lines. Ask for readable ones, so debug mode's prompts keep their line breaks.
+export LOG_FORMAT=${LOG_FORMAT:-pretty}
 
 if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
   PROTOCOL=https

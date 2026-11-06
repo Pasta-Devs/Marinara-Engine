@@ -31,6 +31,7 @@ import { formatMoney } from "./CostBadge";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { BrandMark } from "./ProviderIcon";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 
 /** The card header word: what is left, or this month's use where the key has no cap. */
 export function balanceWord(balance: ConnectionBalance | null | undefined, t: TFunction, locale?: string) {
@@ -364,7 +365,7 @@ function UsageKeySheet({
       }}
       placeholder={t("connections.usage.keyPlaceholder")}
       aria-label={t("connections.usage.pasteKey")}
-      className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs md:h-9"
+      className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9"
     />
   );
 
@@ -375,6 +376,32 @@ function UsageKeySheet({
       closeDisabled={busy}
       title={upstream ? t("connections.usage.sheetTitle", { service }) : t("connections.usage.selfSheetTitle")}
       opaque
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy || !canSave}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {t("connections.usage.showUsage")}
+          </button>
+          <button type="button" onClick={onClose} disabled={busy} className={SHEET_BUTTON_QUIET}>
+            {t("connections.accounts.editor.cancel")}
+          </button>
+          {saved && (
+            <button
+              type="button"
+              onClick={() => void remove()}
+              disabled={busy}
+              className={`${SHEET_BUTTON_QUIET} text-[var(--destructive)]`}
+            >
+              {t("connections.usage.remove")}
+            </button>
+          )}
+        </>
+      }
+      closeButtonClassName="max-sm:hidden"
       width="max-w-md"
       panelClassName="mari-connection-scope"
     >
@@ -402,35 +429,12 @@ function UsageKeySheet({
                   inputMode="numeric"
                   autoComplete="off"
                   maxLength={20}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9"
                 />
               </label>
             )}
           </>
         )}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-          {saved && (
-            <button
-              type="button"
-              onClick={() => void remove()}
-              disabled={busy}
-              className="me-auto min-h-11 text-xs font-semibold text-[var(--marinara-app-accent-static)] hover:underline md:min-h-9"
-            >
-              {t("connections.usage.remove")}
-            </button>
-          )}
-          <button type="button" onClick={onClose} disabled={busy} className="mari-chrome-control px-3">
-            {t("connections.accounts.editor.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={busy || !canSave}
-            className="mari-chrome-control mari-chrome-control--primary"
-          >
-            {t("connections.usage.showUsage")}
-          </button>
-        </div>
       </div>
     </Modal>
   );
@@ -440,6 +444,10 @@ function UsageKeySheet({
  * "Usage and balance" on the Connection page. Hidden where nothing can be read (a local server, a service without a
  * balance and without readable upstreams). Until the user allows outside reads it offers to turn them on.
  */
+/** Small capitals that head a section of the account form, as in the Connections panel groups. */
+export const SECTION_HEADING_CLASS =
+  "text-[0.625rem] font-semibold uppercase tracking-[0.06em] text-[var(--muted-foreground)]";
+
 export function ConnectionUsageSection({
   account,
   models,
@@ -468,7 +476,7 @@ export function ConnectionUsageSection({
   return (
     <section data-connection-usage className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-baseline gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+        <h3 className={cn("flex items-baseline gap-1.5", SECTION_HEADING_CLASS)}>
           {t("connections.usage.title")}
           <span className="font-normal text-[var(--muted-foreground)]">
             {t("connections.usage.sources", { count: upstreams.length + 1 })}
@@ -485,40 +493,43 @@ export function ConnectionUsageSection({
           </button>
         )}
       </div>
-      {!allowed ? (
-        <div className="mari-connection-model-well flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3">
-          <p className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("connections.usage.consentNeeded")}
-          </p>
-          <button type="button" onClick={() => void outsideReads.ask()} className={SMALL_ACTION}>
-            {t("connections.usage.turnOn")}
-          </button>
-        </div>
-      ) : (
-        <ul className="mari-connection-model-well divide-y divide-[var(--border)]/60">
-          <OwnRow
-            account={account}
-            usageAnchorId={usageAnchorId}
-            refreshTick={refreshTick}
-            onKey={() => setSheet({ upstream: null })}
-          />
-          {upstreams.map((upstream) => (
-            <UpstreamRow
-              key={upstream}
+      {/* One card: the reads, then the meter switch at its foot. */}
+      <div className="mari-connection-model-well divide-y divide-[var(--border)]/60 overflow-hidden">
+        {!allowed ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3">
+            <p className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("connections.usage.consentNeeded")}
+            </p>
+            <button type="button" onClick={() => void outsideReads.ask()} className={SMALL_ACTION}>
+              {t("connections.usage.turnOn")}
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]/60">
+            <OwnRow
               account={account}
-              upstream={upstream}
-              accounts={accounts}
+              usageAnchorId={usageAnchorId}
               refreshTick={refreshTick}
-              onKey={() => setSheet({ upstream })}
+              onKey={() => setSheet({ upstream: null })}
             />
-          ))}
-        </ul>
-      )}
-      {plan && (
-        <div className="-mx-1.5">
-          <ToggleSetting label={t("connections.usage.showOnCard")} checked={showOnCard} onChange={onShowOnCard} />
-        </div>
-      )}
+            {upstreams.map((upstream) => (
+              <UpstreamRow
+                key={upstream}
+                account={account}
+                upstream={upstream}
+                accounts={accounts}
+                refreshTick={refreshTick}
+                onKey={() => setSheet({ upstream })}
+              />
+            ))}
+          </ul>
+        )}
+        {plan && (
+          <div className="px-1.5">
+            <ToggleSetting label={t("connections.usage.showOnCard")} checked={showOnCard} onChange={onShowOnCard} />
+          </div>
+        )}
+      </div>
       {sheet && (
         <UsageKeySheet account={account} upstream={sheet.upstream} accounts={accounts} onClose={() => setSheet(null)} />
       )}

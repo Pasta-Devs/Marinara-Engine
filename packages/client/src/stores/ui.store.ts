@@ -765,6 +765,8 @@ interface UIState {
   /** The same for a `?seasonalPreview=` page: this page load only, never saved or synced. */
   mariSeasonPreviewOptOut: string;
   chatBackground: string | null;
+  /** Last picked background URLs, newest first; kept on this device only. */
+  recentChatBackgrounds: string[];
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
   /** Native blur applied to selected chat/game background images, in px. */
@@ -1116,6 +1118,8 @@ interface UIState {
   roleplayAvatarsScrollable: boolean;
   /** When true, merged-group Narrator avatars cycle instead of appearing together. */
   roleplayNarratorAvatarCycling: boolean;
+  /** When true, each merged-group Narrator avatar has a border in that character's name color. */
+  roleplayNarratorAvatarBorders: boolean;
   /** Default scale multiplier for Roleplay full-body sprites. */
   roleplaySpriteScale: number;
   /** Default presentation for Roleplay chats without a saved choice. */
@@ -1512,6 +1516,7 @@ interface UIState {
   setRoleplayAvatarScale: (v: number) => void;
   setRoleplayAvatarsScrollable: (v: boolean) => void;
   setRoleplayNarratorAvatarCycling: (v: boolean) => void;
+  setRoleplayNarratorAvatarBorders: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
   setRoleplayDisplayStyle: (v: "classic" | "visual-novel") => void;
   setRoleplayChatPosition: (v: RoleplayChatPosition) => void;
@@ -1807,6 +1812,7 @@ export function pickSyncedSettings(state: UIState) {
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders: state.roleplayNarratorAvatarBorders,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
     roleplayChatPosition: state.roleplayChatPosition,
@@ -1946,6 +1952,7 @@ export function pickPersistedUIState(state: UIState) {
     mariUnlockedPackIds: state.mariUnlockedPackIds,
     mariSeasonOptOut: state.mariSeasonOptOut,
     chatBackground: state.chatBackground,
+    recentChatBackgrounds: state.recentChatBackgrounds,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
     conversationBackgroundImageOpacity: state.conversationBackgroundImageOpacity,
@@ -2060,6 +2067,7 @@ export function pickPersistedUIState(state: UIState) {
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders: state.roleplayNarratorAvatarBorders,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
     roleplayChatPosition: state.roleplayChatPosition,
@@ -2221,6 +2229,7 @@ export const useUIStore = create<UIState>()(
         mariSeasonOptOut: "",
         mariSeasonPreviewOptOut: "",
         chatBackground: null,
+        recentChatBackgrounds: [],
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
         conversationBackgroundImageOpacity: DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY,
@@ -2392,6 +2401,7 @@ export const useUIStore = create<UIState>()(
         roleplayAvatarScale: 1,
         roleplayAvatarsScrollable: false,
         roleplayNarratorAvatarCycling: true,
+        roleplayNarratorAvatarBorders: false,
         roleplaySpriteScale: 1,
         roleplayDisplayStyle: "classic",
         roleplayChatPosition: "center",
@@ -2631,7 +2641,14 @@ export const useUIStore = create<UIState>()(
               ? state
               : { mariUnlockedPackIds: [...state.mariUnlockedPackIds, packId] },
           ),
-        setChatBackground: (url) => set({ chatBackground: url }),
+        setChatBackground: (url) =>
+          set((state) => ({
+            chatBackground: url,
+            // Keep the one being replaced too, so the picker can offer it back right away.
+            recentChatBackgrounds: [
+              ...new Set([url, state.chatBackground, ...state.recentChatBackgrounds].filter((recent) => !!recent)),
+            ].slice(0, 4) as string[],
+          })),
         setDefaultRoleplayBackground: (url) =>
           set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
         setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
@@ -3368,6 +3385,7 @@ export const useUIStore = create<UIState>()(
           set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
         setRoleplayAvatarsScrollable: (v) => set({ roleplayAvatarsScrollable: v }),
         setRoleplayNarratorAvatarCycling: (v) => set({ roleplayNarratorAvatarCycling: v }),
+        setRoleplayNarratorAvatarBorders: (v) => set({ roleplayNarratorAvatarBorders: v }),
         setRoleplaySpriteScale: (v) =>
           set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
         setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
@@ -3456,6 +3474,7 @@ export const useUIStore = create<UIState>()(
             roleplayAvatarScale: 1,
             roleplayAvatarsScrollable: false,
             roleplayNarratorAvatarCycling: true,
+            roleplayNarratorAvatarBorders: false,
             roleplaySpriteScale: 1,
             roleplayDisplayStyle: "classic",
             roleplayChatPosition: "center",
@@ -4262,6 +4281,7 @@ export const useUIStore = create<UIState>()(
         persisted.keepRoleplayThinkingExpanded =
           persisted.showRoleplayThinkingInMessages && persisted.keepRoleplayThinkingExpanded === true;
         persisted.roleplayNarratorAvatarCycling = persisted.roleplayNarratorAvatarCycling !== false;
+        persisted.roleplayNarratorAvatarBorders = persisted.roleplayNarratorAvatarBorders === true;
         persisted.gameTextEffectsEnabled = persisted.gameTextEffectsEnabled !== false;
         persisted.defaultDialogueColor =
           typeof persisted.defaultDialogueColor === "string" ? persisted.defaultDialogueColor : "";
@@ -4287,6 +4307,9 @@ export const useUIStore = create<UIState>()(
           mariAppearancePackId: getMariAppearancePack(persisted.mariAppearancePackId).id,
           mariUnlockedPackIds: Array.isArray(persisted.mariUnlockedPackIds)
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
+            : [],
+          recentChatBackgrounds: Array.isArray(persisted.recentChatBackgrounds)
+            ? persisted.recentChatBackgrounds.filter((url): url is string => typeof url === "string").slice(0, 4)
             : [],
           connectionTestFailures:
             persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"

@@ -47,6 +47,7 @@ function ModelPickerSlot({
   unsetIsOwn = false,
   restoreFocusRef,
   header,
+  confirmCurrent = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -70,6 +71,8 @@ function ModelPickerSlot({
   restoreFocusRef?: RefObject<HTMLElement | null>;
   /** Above the list: the slot switch of a job with an "If it fails" Model. */
   header?: ReactNode;
+  /** Choosing the current value still calls onChange (a package's pickConnection, CONNECTION_PICKER.md). */
+  confirmCurrent?: boolean;
 }) {
   const { t } = useTranslation();
   const pickModel = usePickModel();
@@ -130,6 +133,11 @@ function ModelPickerSlot({
     });
   };
 
+  // The current value changes nothing (no toast), but a host that confirms it still hears the choice.
+  const keep = (current: string | null) => {
+    if (confirmCurrent) onChange(current);
+  };
+
   // A catalog model nobody saved yet is saved under its provider first, as the chat does.
   const apply = async (choice: ChatModelChoice) => {
     let id = choice.connectionId ?? null;
@@ -147,7 +155,7 @@ function ModelPickerSlot({
       });
       id = saved.connectionId;
     }
-    if (id === value) return;
+    if (id === value) return keep(id);
     commit(id, choice.name ?? choice.model);
   };
 
@@ -279,6 +287,7 @@ function ModelPickerSlot({
         }
         onApply={decision ? applyDecision : embedding ? applyEmbedding : apply}
         onDone={onClose}
+        confirmCurrent={confirmCurrent}
         showLocalModel={includeLocalSidecar}
         followDefault={
           includeDefault
@@ -288,6 +297,7 @@ function ModelPickerSlot({
                 label: defaultText,
                 onSelect: async () => {
                   if (value) commit(null);
+                  else keep(null);
                 },
               }
             : undefined
@@ -393,7 +403,7 @@ export function ModelPicker({
                 slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
               )}
             >
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">{entry.label}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">{entry.label}</span>
               <span className="w-full truncate text-xs font-medium">{entry.value}</span>
             </button>
           ))}

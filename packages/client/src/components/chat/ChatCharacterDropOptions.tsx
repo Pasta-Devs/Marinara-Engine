@@ -17,6 +17,7 @@ import { useCharacter, useCharacters, usePersonas } from "../../hooks/use-charac
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
 import { RoleplayMessagePreview } from "./ChatMessage";
 
@@ -173,6 +174,17 @@ export function ChatCharacterDropOptions({
         title={t("ui.chat.chatcharacterdropoptions.title", { name: characterName })}
         width="max-w-md"
         chatFloatingPanel
+        closeButtonClassName="max-sm:hidden"
+        footer={
+          <>
+            <button type="button" onClick={() => void confirm()} disabled={saving} className={SHEET_BUTTON_PRIMARY}>
+              {saving ? t("ui.chat.chatsettingsdrawer.adding") : t("ui.chat.chatcharacterdropoptions.done")}
+            </button>
+            <button type="button" onClick={onClose} disabled={saving} className={SHEET_BUTTON_QUIET}>
+              {t("onboarding.actions.skip")}
+            </button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           {greetings.length > 0 && (
@@ -273,25 +285,6 @@ export function ChatCharacterDropOptions({
               ))}
             </div>
           )}
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs"
-            >
-              {t("onboarding.actions.skip")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void confirm()}
-              disabled={saving}
-              className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
-            >
-              {saving ? t("ui.chat.chatsettingsdrawer.adding") : t("ui.chat.chatcharacterdropoptions.done")}
-            </button>
-          </div>
         </div>
       </Modal>
     </>

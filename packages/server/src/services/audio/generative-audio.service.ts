@@ -259,8 +259,9 @@ async function compose(
       /* compose below */
     }
   }
+  // Sound effects send no length, so the provider fits it to the cue (Custom endpoints default to 5 s).
   const bytes = await generateAudioBytes(config, kind, prompt, {
-    lengthMs: context?.lengthMs ?? (context ? 120_000 : 5_000),
+    lengthMs: context ? (context.lengthMs ?? 120_000) : undefined,
   });
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `.${hash}.${randomUUID()}.tmp`);

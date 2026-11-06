@@ -16,8 +16,8 @@ assert.match(prepared, /parseCharacterDisplayData\(\{ data: row\.data, comment: 
 assert.match(prepared, /name: display\.name/);
 assert.doesNotMatch(prepared, /characters=\{characters as /);
 
-// The wizard's searches tolerate a nameless entry from any other caller.
+// The wizard's pickers search through the shared CharacterSelect, not their own name filters.
 assert.doesNotMatch(wizard, /return c\.name\.toLowerCase\(\)/);
-assert.equal(wizard.match(/\(c\.name \?\? ""\)\.toLowerCase\(\)\.includes\(query\)/g)?.length, 2);
+assert.match(wizard, /<CharacterSelect\b/);
 
 console.log("multiplayer-wizard-characters regression passed");

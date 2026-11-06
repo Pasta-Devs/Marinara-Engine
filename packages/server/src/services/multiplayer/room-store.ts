@@ -423,7 +423,13 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
      *  did is done twice: its actions, or a pause notice after them, are still the newest messages. */
     async retry() {
       return change(async (room, chats) => {
-        if (room.status !== "paused" || room.round?.phase !== "interrupted" || room.generation === "running")
+        // At the generation limit claim() cannot start it; refuse before the room is left active with nothing to run.
+        if (
+          room.status !== "paused" ||
+          room.round?.phase !== "interrupted" ||
+          room.generation === "running" ||
+          room.generations >= room.maxGenerations
+        )
           throw new MultiplayerError("busy");
         const newest = (await chats.listMessagesPaginated(chatId, 8))
           .filter((message) => !(message.role === "narrator" && message.content === "The host paused the session."))

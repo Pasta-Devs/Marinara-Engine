@@ -7,6 +7,7 @@ import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
 import { CardIdentityFields } from "../cards/CardIdentityFields";
+import { SpriteImageImport } from "./SpriteImageImport";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -98,7 +99,7 @@ import { mergeEmbeddedCharacterCardFields } from "../../lib/character-import";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
 import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
-import { AvatarCropWidget } from "../ui/AvatarCropWidget";
+import { AvatarCropWidget, FullImageView } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
@@ -126,7 +127,6 @@ import {
   Upload,
   Plus,
   Palette,
-  FolderOpen,
   Film,
   Link2,
   Loader2,
@@ -178,6 +178,12 @@ import { ImageDownloadButton } from "../ui/ImageDownloadButton";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
+import {
+  SHEET_BUTTON_DESTRUCTIVE,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_QUIET,
+  SHEET_BUTTON_SECONDARY,
+} from "../ui/neutral-surface-styles";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ContextMenu } from "../ui/ContextMenu";
@@ -290,6 +296,11 @@ const CHARACTER_ONBOARDING_SECTIONS = [
  */
 type CardVariableField = "description" | "personality" | "backstory" | "appearance" | "scenario";
 
+type CharacterSheetUpdate = {
+  characterSheetImageId?: string | null;
+  useCharacterSheetAsReference?: boolean;
+};
+
 function isCardVariableField(field: CardFieldKey): field is CardVariableField {
   return field !== "summary" && field !== "mes_example";
 }
@@ -341,9 +352,6 @@ const CHARACTER_ADVANCED_HELP =
 
 const CHARACTER_GALLERY_HELP =
   "These images belong to the character, so deleting a chat does not remove them. Use this for reference sheets, outfit variants, or imported ST-style character image packs. Chat gallery is still best for scene-specific illustrations and generated message attachments.";
-
-const CHARACTER_SPRITES_HELP =
-  "Upload sprites one by one, or use Upload Folder to bulk-import a folder of PNGs. Each filename becomes the expression name, for example admiration.png becomes admiration. To rotate variants, share a prefix before an underscore, for example happy_01.png and happy_blush.png. Enable the Expression Engine agent so roleplay can pick matching sprites from detected emotions. Sprites appear as VN-style overlays in the chat area.";
 
 const CHARACTER_STATS_HELP =
   "HP is injected into the prompt so the AI knows the character's current health. Attributes are custom stats, like STR or DEX, that define the character's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
@@ -439,6 +447,7 @@ export function CharacterEditor() {
   const closeDetail = useUIStore((s) => s.closeCharacterDetail);
   const { data: rawCharacter, isLoading, refetch: refetchCharacter } = useCharacter(characterId);
   const updateCharacter = useUpdateCharacter();
+  const updateSheet = useUpdateCharacter();
   const uploadAvatar = useUploadAvatar();
   const removeAvatar = useRemoveAvatar();
   const deleteCharacter = useDeleteCharacter();
@@ -823,6 +832,15 @@ export function CharacterEditor() {
     );
   }, [characterId, formData, localizeUi]);
 
+  const updateCharacterSheet = useCallback(
+    async (extensions: CharacterSheetUpdate) => {
+      if (!characterId) return;
+      await pendingSave.current;
+      await updateSheet.mutateAsync({ id: characterId, data: { extensions } });
+    },
+    [characterId, pendingSave, updateSheet],
+  );
+
   const handleGeneratedCharacterSheet = useCallback(
     async (dataUrl: string) => {
       let file: File;
@@ -834,10 +852,10 @@ export function CharacterEditor() {
       const uploaded = await uploadCharacterSheet.mutateAsync([file]);
       const image = uploaded[0];
       if (!image) throw new Error(localizeUi("ui.characters.charactersheet.generatedSaveFailed"));
-      updateExtension("characterSheetImageId", image.id);
+      await updateCharacterSheet({ characterSheetImageId: image.id });
       toast.success(localizeUi("ui.characters.charactersheet.created"));
     },
-    [formData?.name, localizeUi, updateExtension, uploadCharacterSheet],
+    [formData?.name, localizeUi, updateCharacterSheet, uploadCharacterSheet],
   );
 
   const beginAvatarUpload = useCallback(() => {
@@ -876,6 +894,7 @@ export function CharacterEditor() {
   // Saves `data` as the card. `version` labels the version snapshot (the default is a manual save).
   const saveCard = async (data: CharacterData | null, version?: { source: string; reason: string }) => {
     if (!characterId || !data) return false;
+    if (updateSheet.isPending) return false;
     // The server would reject the whole card; say why instead (the Onboarding
     // tab offers Start over). Also covers the leave-page save, which stays put.
     if (unreadableOnboarding) {
@@ -921,7 +940,7 @@ export function CharacterEditor() {
     `characterDetailId:${characterId}`,
     dirty,
     handleSave,
-    saving || avatarUploading || lorebookEmbedding,
+    saving || updateSheet.isPending || avatarUploading || lorebookEmbedding,
   );
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1254,7 +1273,8 @@ export function CharacterEditor() {
         : null;
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
-  const saveDisabled = !dirty || unreadableOnboarding || saving || avatarUploading || lorebookEmbedding;
+  const saveDisabled =
+    !dirty || unreadableOnboarding || saving || updateSheet.isPending || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
     ? localizeUi("editor.save.uploading")
     : lorebookEmbedding
@@ -1542,7 +1562,8 @@ export function CharacterEditor() {
                     : null
                 }
                 useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
-                updateExtension={updateExtension}
+                onUpdateCharacterSheet={updateCharacterSheet}
+                characterSheetSaving={saving || updateSheet.isPending}
                 onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
               />
             )}
@@ -3848,30 +3869,28 @@ function CharacterSheetSection({
   characterName,
   characterSheetImageId,
   useAsReference,
-  updateExtension,
+  onChange,
+  saving,
   onCreateCharacterSheet,
 }: {
   characterId: string;
   characterName: string;
   characterSheetImageId: string | null;
   useAsReference: boolean;
-  updateExtension: (key: string, value: unknown) => void;
+  onChange: (patch: CharacterSheetUpdate) => Promise<void>;
+  saving: boolean;
   onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId);
   const [expanded, setExpanded] = useState(false);
+  const [showFullView, setShowFullView] = useState(false);
   const referenceId = useId();
   const selectedImage = images?.find((image) => image.id === characterSheetImageId) ?? null;
   const selectionMissing = Boolean(characterSheetImageId && !isLoading && !selectedImage);
 
-  const chooseImage = useCallback(
-    (imageId: string) => {
-      updateExtension("characterSheetImageId", imageId);
-    },
-    [updateExtension],
-  );
+  const pending = upload.isPending || saving;
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -3880,24 +3899,41 @@ function CharacterSheetSection({
       try {
         const uploaded = await upload.mutateAsync([file]);
         const image = uploaded[0];
-        if (image) chooseImage(image.id);
+        if (image) await onChange({ characterSheetImageId: image.id });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : localizeUi("ui.characters.charactersheet.uploadFailed"));
       }
     },
-    [chooseImage, localizeUi, upload],
+    [onChange, localizeUi, upload],
   );
 
-  const clearSelection = useCallback(() => {
-    updateExtension("characterSheetImageId", null);
-    updateExtension("useCharacterSheetAsReference", false);
-  }, [updateExtension]);
+  const handleChange = useCallback(
+    async (patch: CharacterSheetUpdate) => {
+      try {
+        await onChange(patch);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : localizeUi("ui.characters.charactersheet.saveFailed"));
+      }
+    },
+    [localizeUi, onChange],
+  );
 
   return (
     <section className="space-y-4 border-y border-[var(--border)] py-3">
       <div className="flex items-center gap-3">
         {selectedImage ? (
-          <img src={selectedImage.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
+          <button
+            type="button"
+            onClick={(event) => {
+              event.currentTarget.focus();
+              setShowFullView(true);
+            }}
+            aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+            aria-haspopup="dialog"
+            className="shrink-0 cursor-zoom-in rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            <img src={selectedImage.url} alt="" className="h-11 w-11 rounded-lg object-contain" />
+          </button>
         ) : (
           <Image size={20} className="shrink-0 text-[var(--muted-foreground)]" />
         )}
@@ -3925,11 +3961,22 @@ function CharacterSheetSection({
         >
           <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
             {selectedImage ? (
-              <img
-                src={selectedImage.url}
-                alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
-                className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
-              />
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.currentTarget.focus();
+                  setShowFullView(true);
+                }}
+                aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                aria-haspopup="dialog"
+                className="block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                <img
+                  src={selectedImage.url}
+                  alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
+                  className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
+                />
+              </button>
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center gap-3 bg-[var(--secondary)] px-6 text-center">
                 <Image size="2rem" className="text-[var(--muted-foreground)]/50" aria-hidden="true" />
@@ -3947,7 +3994,7 @@ function CharacterSheetSection({
             <button
               type="button"
               onClick={onCreateCharacterSheet}
-              disabled={upload.isPending}
+              disabled={pending}
               className="mari-editor-action mari-editor-action--primary inline-flex w-full justify-center disabled:cursor-wait disabled:opacity-60"
             >
               <Wand2 size="0.875rem" />
@@ -3961,8 +4008,8 @@ function CharacterSheetSection({
                   ? localizeUi("ui.characters.charactersheet.replace")
                   : localizeUi("ui.characters.charactersheet.upload")
               }
-              pending={upload.isPending}
-              pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+              pending={pending}
+              pendingLabel={localizeUi("ui.ui.imageuploaddropzone.uploadingImages")}
               dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
               onFilesSelected={(files) => void handleUpload(files)}
               icon={<Upload size="1rem" />}
@@ -3973,8 +4020,8 @@ function CharacterSheetSection({
               label={<span className="font-medium">{localizeUi("ui.characters.charactersheet.useAsReference")}</span>}
               description={localizeUi("ui.characters.charactersheet.useAsReferenceDescription")}
               checked={Boolean(selectedImage) && useAsReference}
-              disabled={!selectedImage}
-              onChange={(checked) => updateExtension("useCharacterSheetAsReference", checked)}
+              disabled={!selectedImage || pending}
+              onChange={(checked) => void handleChange({ useCharacterSheetAsReference: checked })}
               labelPosition="start"
               className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
             />
@@ -3982,8 +4029,9 @@ function CharacterSheetSection({
             {(selectedImage || selectionMissing) && (
               <button
                 type="button"
-                onClick={clearSelection}
-                className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)]"
+                onClick={() => void handleChange({ characterSheetImageId: null, useCharacterSheetAsReference: false })}
+                disabled={pending}
+                className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)] disabled:cursor-wait disabled:opacity-60"
               >
                 <X size="0.875rem" />
                 {localizeUi("ui.characters.charactersheet.remove")}
@@ -3991,6 +4039,13 @@ function CharacterSheetSection({
             )}
           </div>
         </div>
+      )}
+      {selectedImage && showFullView && (
+        <FullImageView
+          src={selectedImage.url}
+          alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
+          onClose={() => setShowFullView(false)}
+        />
       )}
     </section>
   );
@@ -4996,6 +5051,22 @@ function CharacterClipTrimModal({
         value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
       })}
       width="max-w-2xl"
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button type="button" onClick={handleSave} disabled={saving || !canSave} className={SHEET_BUTTON_PRIMARY}>
+            {saving ? <Loader2 size="0.85rem" className="animate-spin" /> : <Scissors size="0.85rem" />}
+            {localizeUi("ui.characters.charactercliptrimmodal.saveTrim")}
+          </button>
+          <button type="button" onClick={handleReset} className={SHEET_BUTTON_SECONDARY}>
+            <RotateCcw size="0.85rem" />
+            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
+          </button>
+          <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="space-y-4">
         <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-black">
@@ -5055,35 +5126,6 @@ function CharacterClipTrimModal({
                 className="w-full accent-[var(--primary)]"
               />
             </label>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50"
-          >
-            <RotateCcw size="0.85rem" />
-            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50"
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !canSave}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? <Loader2 size="0.85rem" className="animate-spin" /> : <Scissors size="0.85rem" />}
-              {localizeUi("ui.characters.charactercliptrimmodal.saveTrim")}
-            </button>
           </div>
         </div>
       </div>
@@ -5311,7 +5353,8 @@ function SpritesTab({
   defaultAvatarUrl,
   characterSheetImageId,
   useCharacterSheetAsReference,
-  updateExtension,
+  onUpdateCharacterSheet,
+  characterSheetSaving,
   onCreateCharacterSheet,
 }: {
   characterId: string;
@@ -5320,7 +5363,8 @@ function SpritesTab({
   defaultAvatarUrl?: string | null;
   characterSheetImageId: string | null;
   useCharacterSheetAsReference: boolean;
-  updateExtension: (key: string, value: unknown) => void;
+  onUpdateCharacterSheet: (patch: CharacterSheetUpdate) => Promise<void>;
+  characterSheetSaving: boolean;
   onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -5360,7 +5404,6 @@ function SpritesTab({
   const [folderProgress, setFolderProgress] = useState<{ done: number; total: number } | null>(null);
   const [spriteGenOpen, setSpriteGenOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   const pendingExpressionRef = useRef("");
   const pendingReplaceRef = useRef(false);
 
@@ -5485,7 +5528,7 @@ function SpritesTab({
     fileInputRef.current?.click();
   };
 
-  const handleImageFiles = async (files: File[], preserveFolders = false) => {
+  const handleImageFiles = async (files: File[]) => {
     if (!files.length || spriteBusy) return;
     setFolderProgress({ done: 0, total: files.length });
     try {
@@ -5493,7 +5536,7 @@ function SpritesTab({
         characterId,
         files,
         folderId: null,
-        preserveFolders,
+        preserveFolders: false,
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
@@ -5502,7 +5545,7 @@ function SpritesTab({
           ? result.failed
             ? toast.error
             : toast.warning
-          : result.failed || result.catalogIgnored
+          : result.failed
             ? toast.warning
             : toast.success;
       notify(
@@ -5521,7 +5564,6 @@ function SpritesTab({
                 result.failed > 0 &&
                 localizeUi("sprites.library.importFailed", { count: result.failed }),
               result.firstError,
-              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
             ]
               .filter(Boolean)
               .join(" ") || undefined,
@@ -5532,11 +5574,6 @@ function SpritesTab({
     } finally {
       setFolderProgress(null);
     }
-  };
-
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    await handleImageFiles(Array.from(e.target.files ?? []), true);
-    e.target.value = "";
   };
 
   const handleDeleteSingleSprite = useCallback(async () => {
@@ -5800,7 +5837,8 @@ function SpritesTab({
       characterName={characterName ?? ""}
       characterSheetImageId={characterSheetImageId}
       useAsReference={useCharacterSheetAsReference}
-      updateExtension={updateExtension}
+      onChange={onUpdateCharacterSheet}
+      saving={characterSheetSaving}
       onCreateCharacterSheet={onCreateCharacterSheet}
     />
   );
@@ -5811,7 +5849,7 @@ function SpritesTab({
         <SectionHeader
           title={localizeUi("ui.characters.spritestab.characterSprites")}
           subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
-          helpText={CHARACTER_SPRITES_HELP}
+          helpText={localizeUi("sprites.library.help")}
         />
 
         {characterSheetSection}
@@ -5828,7 +5866,7 @@ function SpritesTab({
       <SectionHeader
         title={localizeUi("ui.characters.spritestab.characterSprites")}
         subtitle={localizeUi("sprites.library.intro")}
-        helpText={CHARACTER_SPRITES_HELP}
+        helpText={localizeUi("sprites.library.help")}
       />
       {characterSheetSection}
       <SpriteLibraryShell
@@ -5893,16 +5931,6 @@ function SpritesTab({
         }
       >
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-        <input
-          ref={folderInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
-          webkitdirectory=""
-          className="hidden"
-          onChange={handleFolderUpload}
-        />
 
         {exportAnchor && (
           <ContextMenu
@@ -5937,29 +5965,14 @@ function SpritesTab({
             aria-label={localizeUi("sprites.library.addSprites")}
           >
             <div className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center">
-              <ImageUploadDropzone
-                multiple
-                className="col-span-2 min-h-11 py-2 md:min-h-9"
+              <SpriteImageImport
                 disabled={spriteBusy}
-                label={localizeUi("sprites.library.uploadImages")}
                 pending={!!folderProgress || uploading}
-                pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
-                dragLabel={localizeUi("sprites.library.dropImages")}
-                onFilesSelected={(files) => void handleImageFiles(files)}
-                icon={<Upload size={16} />}
+                onImport={handleImageFiles}
               />
               <button
                 type="button"
-                className={cn(spriteActionClass, "md:ml-auto")}
-                disabled={spriteBusy}
-                onClick={() => folderInputRef.current?.click()}
-              >
-                <FolderOpen size={14} />
-                {localizeUi("sprites.library.importFolder")}
-              </button>
-              <button
-                type="button"
-                className={spriteActionClass}
+                className={cn(spriteActionClass, "col-span-2")}
                 disabled={spriteGenerationUnavailable || spriteBusy}
                 title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
                 onClick={() => setSpriteGenOpen(true)}
@@ -6275,33 +6288,36 @@ function SpritesTab({
             }}
             title={localizeUi("ui.characters.spritestab.deleteSprite")}
             width="max-w-sm"
+            pullToClose={false}
+            closeButtonClassName="max-sm:hidden"
+            closeDisabled={!!deletingSprites}
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSingleSprite()}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_DESTRUCTIVE}
+                >
+                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteSpriteRequest(null)}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_QUIET}
+                >
+                  {localizeUi("chat.delete.dialog.cancel")}
+                </button>
+              </>
+            }
           >
             <div className="space-y-4">
               <p className="text-sm leading-relaxed text-[var(--foreground)]">
                 {localizeUi("ui.characters.spritestab.deleteSpriteFor")}
                 {displayExpression(deleteSpriteRequest.expression)}"?
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSpriteRequest(null)}
-                    disabled={!!deletingSprites}
-                    className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {localizeUi("chat.delete.dialog.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteSingleSprite()}
-                    disabled={!!deletingSprites}
-                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                    {localizeUi("lorebook.editor.batch.delete")}
-                  </button>
-                </div>
-              </div>
             </div>
           </Modal>
         )}

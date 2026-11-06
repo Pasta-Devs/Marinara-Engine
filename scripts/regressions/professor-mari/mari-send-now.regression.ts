@@ -402,6 +402,25 @@ try {
     assert.equal(wordless.rows[1]!.extra.mariCheckpointFiller, true);
     assert.equal(wordless.rows[3]!.extra.mariCheckpointFiller, undefined, `${runtime}: the mark does not stick`);
 
+    // #8711: the notice flag rides the reply a claim check flagged, a checkpoint reply too, and never the next one.
+    const flaggedFirst = await scenario("flagged checkpoint", [
+      { say: "Done! Your greeting has been updated.", onCall: steer("Now the farewell") },
+      { say: "Here is a farewell draft." },
+    ]);
+    assert.deepEqual(shape(flaggedFirst.rows).slice(1), [
+      "assistant: Done! Your greeting has been updated.",
+      "user: Now the farewell",
+      "assistant: Here is a farewell draft.",
+    ]);
+    assert.equal(flaggedFirst.rows[1]!.extra.mariNothingChanged, true, `${runtime}: the checkpoint reply has it`);
+    assert.equal(flaggedFirst.rows[3]!.extra.mariNothingChanged, undefined, `${runtime}: the next reply does not`);
+    const flaggedLast = await scenario("flagged after checkpoint", [
+      { say: "Reading it.", calls: [read], onCall: steer("Did you save it?") },
+      { say: "I've saved the greeting." },
+    ]);
+    assert.equal(flaggedLast.rows[1]!.extra.mariNothingChanged, undefined, `${runtime}: unflagged narration has none`);
+    assert.equal(flaggedLast.rows[3]!.extra.mariNothingChanged, true, `${runtime}: the flagged reply has it`);
+
     // Waiting wins: a question ends the run with the message still in the list, for its own Send.
     const question = await scenario("question", [{ say: "Which way?", ask: true, onCall: steer("Never mind") }]);
     assert.equal(question.outcome, "stopped", `${runtime}: a question is not finished`);

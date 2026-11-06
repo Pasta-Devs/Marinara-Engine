@@ -18,10 +18,13 @@ import {
   useConnectionModels,
   useCountConnectionModels,
   useConnections,
+  useIsConnectionSaving,
   useDeleteConnection,
   useTestConnection,
   useUpdateConnection,
+  useAccessCheck,
 } from "../../../hooks/use-connections";
+import { accessCheckFields } from "../../connections/AccessCheck";
 import {
   useConnectionAccounts,
   useCreateConnectionAccount,
@@ -29,6 +32,7 @@ import {
   useUpdateConnectionAccount,
 } from "../../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../../hooks/use-chats";
+import { useDecisionOptions, useSelectDecisionModel } from "../../../hooks/use-decision-model";
 import { useChatStore } from "../../../stores/chat.store";
 import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
@@ -109,6 +113,9 @@ export function CreateConnectionModalContent({
   const deleteAccount = useDeleteConnectionAccount();
   const deleteRow = useDeleteConnection();
   const updateRow = useUpdateConnection();
+  // The model picker saves with its own copy of these hooks. Closing before that save recorded the pick threw the
+  // new Model away, so closing and Done wait for it.
+  const pickSaving = useIsConnectionSaving();
   const testConnection = useTestConnection();
   const createRow = useCreateConnection();
   const setChatModel = useSetChatModel();
@@ -116,6 +123,7 @@ export function CreateConnectionModalContent({
   const countModels = useCountConnectionModels();
   const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const builtInMain = useSidecarStore((state) => state.config.useAsMainDefault);
+  const selectDecision = useSelectDecisionModel();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
@@ -160,6 +168,8 @@ export function CreateConnectionModalContent({
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
   const jobFor = forJob ?? null;
   const job = jobFor?.job ?? null;
+  // What Undo puts back after Done makes the new model the Decision model.
+  const decisionOptions = useDecisionOptions(job === "decision");
   // The kind chip in step 1; step 3 starts on the same kind.
   const kindFilter: ChipKind | null = forJob
     ? forJob.job
@@ -191,12 +201,22 @@ export function CreateConnectionModalContent({
   const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
+  const accessCheck = useAccessCheck({
+    provider: step === 2 && !isMedia && !selectedMedia ? provider : null,
+    // Check the address Save will store, so "localhost:11434/v1" works here too.
+    baseUrl: withHttpScheme(baseUrl.trim()),
+    apiKey,
+  });
+  const check = accessCheckFields(accessCheck, { hasAddress: !!baseUrl.trim(), hasKey: !!apiKey.trim() }, t);
+  // A live check already failed: Connect would only fail again, so the one button saves without the test.
+  const checkFailed = !tested && (check.address.state === "warn" || check.key.state === "bad");
   const closeBlocked =
     finishing ||
     busy ||
     mediaCreating ||
     createRow.isPending ||
     updateRow.isPending ||
+    pickSaving ||
     deleteRow.isPending ||
     deleteAccount.isPending;
   const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
@@ -260,6 +280,28 @@ export function CreateConnectionModalContent({
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
   const applyChoices = async (includeMain = true) => {
+    // Added for the Decision job ("Use this key for decisions", a feature with no Decision model): the model that
+    // passed its test becomes the Decision model, with Undo, as a pick in "Model for Decision" does.
+    const decisionPick = job === "decision" ? picks.find((pick) => pick.kind === "decision") : undefined;
+    const previousDecision = decisionOptions.data?.selected ?? null;
+    if (decisionPick && decisionPick.connectionId !== previousDecision) {
+      try {
+        await selectDecision.mutateAsync(decisionPick.connectionId);
+      } catch (error) {
+        toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
+        return false;
+      }
+      toast.success(
+        t("connections.picker.nowUses", {
+          job: t("connections.picker.job.decision"),
+          model: modelName(decisionPick.modelId),
+        }),
+        {
+          duration: 8000,
+          action: { label: t("connections.switcher.undo"), onClick: () => selectDecision.mutate(previousDecision) },
+        },
+      );
+    }
     if (!firstPick) return true;
     if (includeMain && offerMain && makeMainOn) {
       try {
@@ -806,6 +848,9 @@ export function CreateConnectionModalContent({
       : step === 1
         ? t("connections.add.heading.forProvider")
         : (presetName ?? serviceName(service ?? provider!));
+  // The account form names the account in the header; device and built-in screens have no name.
+  const nameInHeader =
+    step === 2 && !!provider && !device && service !== DECISION_BUILTIN && (!isMedia || !!selectedMedia);
   const goBack =
     step === 2
       ? backToList
@@ -848,12 +893,18 @@ export function CreateConnectionModalContent({
           <button
             type="button"
             data-add-connection-connect
-            onClick={() => void saveAndTest()}
+            onClick={() => void saveAndTest(checkFailed)}
             disabled={connectDisabled}
-            className={PRIMARY_CLASS}
+            className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
           >
             {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-            {t(failure ? "connections.add.tryAgain" : "connections.add.connect")}
+            {t(
+              checkFailed
+                ? "connections.add.continueAnyway"
+                : failure
+                  ? "connections.add.tryAgain"
+                  : "connections.add.connect",
+            )}
           </button>
         </div>
       );
@@ -894,7 +945,7 @@ export function CreateConnectionModalContent({
           // Done applies the choices above the footer and closes; the panel then shows the new card.
           onClick={finishModels}
           // A new Connection needs one model; without it the window throws the Connection away.
-          disabled={finishing || (target?.fresh && picks.length === 0)}
+          disabled={finishing || pickSaving || (target?.fresh && picks.length === 0)}
           className={PRIMARY_CLASS}
         >
           {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
@@ -927,34 +978,47 @@ export function CreateConnectionModalContent({
       closeDisabled={closeBlocked}
       panelClassName={panelClass}
       contentClassName="flex flex-col overflow-hidden! p-0!"
+      titleSlot={
+        step !== 1 && (step === 2 || goBack) ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {goBack && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!closeBlocked) void goBack();
+                }}
+                disabled={closeBlocked}
+                aria-label={t("connections.add.back")}
+                title={t("connections.add.back")}
+                className="mari-editor-action shrink-0"
+              >
+                <ArrowLeft size="1.125rem" aria-hidden />
+              </button>
+            )}
+            {step === 2 && service && (
+              <ServiceTile service={service} baseUrl={baseUrl} name={presetName ?? undefined} />
+            )}
+            <h3
+              ref={headingRef}
+              tabIndex={-1}
+              className={cn("min-w-0 flex-1 text-sm font-semibold outline-none", nameInHeader && "sr-only")}
+            >
+              {heading}
+            </h3>
+            {nameInHeader && (
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={heading}
+                aria-label={t("connections.add.name")}
+                className="h-9 min-w-0 flex-1 rounded-lg border border-dashed border-[var(--border)] bg-transparent px-2 text-sm font-semibold outline-none focus:border-solid focus:border-[var(--primary)]"
+              />
+            )}
+          </div>
+        ) : undefined
+      }
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        {step !== 1 && (step === 2 || goBack) && (
-          <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
-            <div className="flex items-center gap-2">
-              {goBack && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!closeBlocked) void goBack();
-                  }}
-                  disabled={closeBlocked}
-                  aria-label={t("connections.add.back")}
-                  title={t("connections.add.back")}
-                  className="mari-editor-action shrink-0"
-                >
-                  <ArrowLeft size="1.125rem" aria-hidden />
-                </button>
-              )}
-              {step === 2 && service && (
-                <ServiceTile service={service} baseUrl={baseUrl} name={presetName ?? undefined} />
-              )}
-              <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
-                {heading}
-              </h3>
-            </div>
-          </div>
-        )}
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
           {step === 1 && (
             <ServiceListStep
@@ -973,7 +1037,6 @@ export function CreateConnectionModalContent({
               device={device}
               selectedMedia={selectedMedia}
               def={def}
-              presetName={presetName}
               closeBlocked={closeBlocked}
               keyless={keyless}
               isLocal={isLocal}
@@ -987,8 +1050,8 @@ export function CreateConnectionModalContent({
               setBaseUrl={setBaseUrl}
               resetTest={resetTest}
               tested={tested}
-              name={name}
-              setName={setName}
+              check={check}
+              onRecheck={() => void accessCheck.recheck()}
               maxRpm={maxRpm}
               setMaxRpm={setMaxRpm}
               maxJobs={maxJobs}

@@ -14,6 +14,7 @@ import type {
   LLMUsage,
 } from "../llm/base-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
@@ -27,6 +28,7 @@ import { readFeatureModelConnections } from "../storage/feature-model-connection
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createMariInstructionsStorage } from "../storage/mari-instructions.storage.js";
 import { mariDecisionContext } from "./decision-authoring.js";
+import { recoverSuggestionSuffix, suggestionSuffixIndex } from "./suggestion-suffix.js";
 import { renderMariMemoryPrompt } from "./mari-instructions-prompt.js";
 import { renderMariSkillsPrompt } from "./mari-skills-prompt.js";
 import { createMariWorkspaceContextStorage } from "../storage/mari-workspace-context.storage.js";
@@ -54,7 +56,7 @@ import {
   takePendingSteers,
   type MariPromptOutcome,
 } from "./workspace-pending-store.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import { readJobFallback, visionCaptionSettings } from "../generation/job-fallback.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
@@ -122,7 +124,7 @@ import type {
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
 import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
-import { getMariDbService, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
+import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -149,6 +151,7 @@ import {
 } from "./mari-composer-references.js";
 import { createAssistantMessage, saveAssistantMessageExtra, saveRunStart } from "./workspace-message-store.js";
 import {
+  closingAnswerGetsNotice,
   newRoundReviewState,
   reviewRepeatedFailures,
   reviewRoundClaim,
@@ -346,6 +349,8 @@ export type AssistantWorkspaceAction = {
   understoodRequest: string | null;
   stop: boolean;
   protocolValid: boolean;
+  /** #8711: the reply sent a change attempt, run or not: beside a question or in a rejected frame counts too. */
+  triedChange: boolean;
   assistantHistoryContent: string;
 };
 
@@ -370,6 +375,10 @@ export const RUNTIME_API_KEY = "local-marinara-runtime";
 // Every review belongs to the Mari chat that made it (runSessionId()); slice 71 (F3) moved sensitive file
 // and install reviews there too. The status without a chat id (the omnibar's pending list) still lists all.
 const MAX_COMMAND_ROUNDS = 12;
+// Ceiling on Mari's per-reply output budget on OpenRouter, which reserves credits
+// for every requested output token. Large enough for a whole lorebook or
+// extension in one command plus hidden reasoning on models that cannot turn it off.
+export const MARI_MAX_OUTPUT_TOKENS = 32_768;
 /** The saved words of a reply that Send now reached after steps but before she said anything. */
 const MARI_CHECKPOINT_FILLER = "Still working";
 export const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
@@ -403,6 +412,106 @@ export const SKIPPED_DIRS = new Set([
   "coverage",
   ".gradle",
 ]);
+
+/**
+ * Appended to every repair prompt whose rejected reply was NOT shown to the
+ * user. Without it the model assumes its rejected `say` (often the complete
+ * answer or plan) reached the user, runs the requested checks, and then ends
+ * with "the original plan I made is still there" - referencing text the user
+ * never saw.
+ */
+export const MARI_WITHHELD_REPLY_NOTICE =
+  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+
+/** A repair for a withheld turn, with the notice only when that turn had words: a silent turn withheld nothing. */
+export function withWithheldNotice(prompt: string, text: string) {
+  return text.trim() ? `${prompt}\n\n${MARI_WITHHELD_REPLY_NOTICE}` : prompt;
+}
+
+/**
+ * Detect a provider "prompt + output budget exceeds the context window" error
+ * and extract the window size when the message states it. OpenRouter phrases
+ * it as "This endpoint's maximum context length is N tokens. However, you
+ * requested about M tokens ..."; other OpenAI-compatible gateways use similar
+ * wording. Returns null when the error is not a context overflow.
+ */
+export function parseContextOverflowError(error: unknown): { limit: number | null } | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (!message) return null;
+  const isOverflow =
+    /maximum context length|context(?:[ _]window|[ _]length)?[^.]{0,40}(?:too long|exceed|overflow)|(?:prompt|input|request(?:ed)?)[^.]{0,40}too long|context_length_exceeded|too many tokens/iu.test(
+      message,
+    );
+  if (!isOverflow) return null;
+  const match =
+    message.match(/maximum context length (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/context (?:window|length|limit) (?:is|of) (?:about )?([\d,]+)/iu) ??
+    message.match(/(?:limit|maximum) (?:is|of) ([\d,]+) tokens/iu);
+  const parsed = match ? Number(match[1]!.replace(/,/gu, "")) : NaN;
+  return { limit: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null };
+}
+
+/**
+ * OpenRouter reserves credits for the worst case - the full prompt plus every
+ * requested output token - and rejects the call with 402 "This request
+ * requires more credits, or fewer max_tokens. You requested up to N tokens,
+ * but can only afford M." before the model runs. Returns M, or null when the
+ * error is something else.
+ */
+export function parseAffordableMaxTokens(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const match = message.match(/can only afford ([\d,]+)/iu);
+  if (!match) return null;
+  const parsed = Number(match[1]!.replace(/,/gu, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
+/** Below this, a credit-limited reply cannot hold a useful command frame; surface the 402 instead. */
+const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
+/** Each call retries at most this many times on a credit or context-window rejection. */
+const MAX_LIMIT_RETRIES = 2;
+const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+
+/** The output budget a run's requests use now: the run-start one, lowered by any limit learned from a rejection. */
+function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number | undefined) {
+  const learned = signal ? learnedRunLimits.get(signal)?.maxTokens : undefined;
+  return learned === undefined ? maxTokens : Math.min(maxTokens ?? Infinity, learned);
+}
+
+/**
+ * Turn a provider limit rejection into smaller request limits, or null when
+ * the error is not one or nothing smaller would help.
+ */
+export function nextOptionsAfterLimitError(
+  error: unknown,
+  options: Pick<ChatOptions, "maxTokens" | "maxContext" | "enabledParameters">,
+): { reason: string; maxTokens?: number; maxContext?: number } | null {
+  const affordable = parseAffordableMaxTokens(error);
+  if (affordable !== null) {
+    // Leave headroom: the prompt's own cost grows with every retry's estimate drift.
+    const maxTokens = Math.floor(affordable * 0.9);
+    if (maxTokens < MIN_AFFORDABLE_OUTPUT_TOKENS) return null;
+    // With Max Tokens switched off nothing was sent, so the provider reserved its own maximum: any limit that fits the
+    // balance is a retry worth making, never compared with the unsent fallback.
+    if (options.enabledParameters?.maxTokens === false) {
+      return { reason: "Credit limit", maxTokens: Math.min(maxTokens, options.maxTokens ?? maxTokens) };
+    }
+    if (options.maxTokens !== undefined && maxTokens >= options.maxTokens) return null;
+    return { reason: "Credit limit", maxTokens };
+  }
+  const overflow = parseContextOverflowError(error);
+  if (!overflow) return null;
+  const current = options.maxContext && options.maxContext > 0 ? options.maxContext : null;
+  // Prefer the window the provider stated. If it is no smaller than what we
+  // already sent (the token estimate ran low), or unstated, tighten instead.
+  const maxContext =
+    overflow.limit !== null && (current === null || overflow.limit < current)
+      ? overflow.limit
+      : current !== null
+        ? Math.floor(current * 0.75)
+        : null;
+  return maxContext === null ? null : { reason: "Context overflow", maxContext };
+}
 
 export function professorMariWorkspaceResponseFormat(provider: string): ChatOptions["responseFormat"] | undefined {
   return ["openrouter", "google", "google_vertex"].includes(provider) ? { type: "json_object" } : undefined;
@@ -994,10 +1103,10 @@ function smallOutputLimitRule(maxOutputTokens?: number) {
 /** The pi runtime's workspace rules: the shared knowledge block plus a note that maps the JSON-frame words to native calls. */
 export function piRuntimePrompt(maxOutputTokens?: number) {
   return `<workspace_tools>
-You work through native tool calls. Wherever the rules below say \`say\`, write ordinary assistant text; wherever they say \`commands\`, call the tools. There is no JSON frame, no \`stop\` and no \`awaitingAuthorization\` field.
-Write your words as plain assistant text: never wrap them in tags such as \`<say>\`, \`<commands>\`, \`<suggestions>\` or \`<ask>\`, and never write a tool call as a tag — a tool call is a call, not text.
+Use this connection’s tool-call format. Wherever the rules below say \`say\`, write ordinary assistant text; wherever they say \`commands\`, call the tools. There is no JSON frame, no \`stop\` and no \`awaitingAuthorization\` field.
+Keep the answer itself in plain assistant text.
 - To ask the user to approve a change, write the change and your question as text in the SAME turn as the mutating tool calls; Marinara holds those calls behind an Accept action and ends the run.
-- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt). It only shows UI and changes nothing. Call it in the SAME turn as your final text.
+- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt). It only shows UI and changes nothing. Call it in the SAME turn as your final text. For example, write “The opening is ready.” and call suggestions with a chip labeled “Play from here” whose prompt is “Continue from the opening.”
 - Your first action on a surface a shipped skill covers is \`skill.get\` with its plain id (e.g. \`id: "builtin-characters"\`), before any write or multi-step answer. The skill index below names them; acting without one means guessing.
 - Immediately after you successfully create or update something, call \`suggestions\` with 2-4 follow-up chips for a natural next step: refine a field, link it to something else, or open it for full editing. Lean toward refining or connecting what already exists rather than making new items, unless the user's task is itself about creating. Tag each with the relevant entity (\`characters|lorebooks|personas|presets|connections|agents|settings|chat\`).
 - When your answer ends with a question the user can answer by picking an option, call \`suggestions\` with one chip per option.
@@ -1005,7 +1114,8 @@ Write your words as plain assistant text: never wrap them in tags such as \`<say
 - Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. Calling \`ask\` ends your turn: changes beside it do not run, and the answer arrives as the user's next message. Say in a sentence what you are asking and why, then call it. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
 - Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
-- Finish by answering in text with no tool call.${smallOutputLimitRule(maxOutputTokens)}
+- Your hidden reasoning/thinking is NEVER shown to the user, and Marinara may withhold a turn's text it could not accept (it will tell you when it does). Only your final turn's text is kept as your answer; text from a turn followed by more steps collapses into the step timeline. So when checks follow an answer or plan you already wrote, restate that whole answer or plan in your final text - never refer to it as already shown ("the plan above", "the original plan is still there").
+- Finish with your answer, including a suggestions call when you offer next steps.${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
 </workspace_tools>`;
@@ -1040,7 +1150,7 @@ Required schema:
 }
 
 Field rules:
-- \`say\` is the only text Marinara may show to the user.
+- \`say\` is the only text Marinara may show to the user. Your hidden reasoning/thinking is NEVER shown, and Marinara may withhold a reply it could not accept (it will tell you when it does). Never refer to a plan, list, draft, or answer as already shown ("the plan above", "the original plan is still there") unless it reached the user in a \`say\`; if it did not, write it out in full in your final \`say\`. Only your final \`say\` (the response that sets \`stop\` to \`true\`) is kept as your answer; \`say\` text from earlier rounds collapses into the step timeline. So when checks follow an answer or plan you already wrote, repeat that whole answer or plan in the final \`say\` - never end with only "it is still there" or "as above".
 - Set \`awaitingAuthorization\` to \`true\` only when \`say\` asks the user to approve the mutating commands in this response. Marinara will pause those commands and show an Accept action.
 - \`understoodRequest\`: when a response carries mutating commands, copy the exact words you are treating as the request or permission for them - from the user's message, or from the saved memory or instruction that directs the change. It is shown to the user for transparency and NEVER validated: a missing or imperfect quote never blocks a command. Keep it short (one sentence or phrase).
 - \`commands\` is the command list to execute now. Use \`[]\` only when no command is needed.
@@ -1459,9 +1569,21 @@ export function mariMaxOutputTokens(connection: WorkspaceConnection) {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
-  return (
-    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection)
-  );
+  const configured =
+    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
+  const provider = normalizeCatalogProvider(connection.provider);
+  const known = provider ? findKnownModel(provider, connection.model.trim()) : undefined;
+  // A Max Tokens that is most of the model's window (~1M for some models) was copied from it: hold it to the model's
+  // known max output. The catalog's max output lags some models (GLM 4.5/4.6, Claude 4.5/4.6), so a smaller value,
+  // the user's or the provider's own, is kept as set.
+  const limit =
+    known?.context && configured * 2 >= known.context
+      ? clampGenerationMaxOutputTokens({ provider, model: connection.model, maxTokens: configured })
+      : configured;
+  // OpenRouter reserves credits for every requested output token, so a large
+  // budget fails with 402 before she can act. Direct providers keep their
+  // limit: hidden reasoning shares it there.
+  return connection.provider === "openrouter" ? Math.min(limit, MARI_MAX_OUTPUT_TOKENS) : limit;
 }
 
 function resolveMariMaxOutputTokens(connection: WorkspaceConnection) {
@@ -1729,12 +1851,19 @@ export function scrubInternalNames(text: string): string {
     });
 }
 
+const LOOKUP_OPENERS = ['<use_tool name="app data">', '<use_tool name="app_data">'];
+
 /**
  * The visible part of a live draft: cut at the first textual call opener (or a half-written one), internal names
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
  */
 export function draftVisibleText(raw: string): string {
-  const marker = textualCallMarkerIndex(raw);
+  // Hold the standalone lookup opener, including a split across provider deltas.
+  const start = raw.trimStart();
+  if (LOOKUP_OPENERS.some((opener) => opener.startsWith(start) || start.startsWith(opener))) return "";
+  const suggestion = suggestionSuffixIndex(raw);
+  const marker = textualCallMarkerIndex(suggestion < 0 ? raw : raw.slice(0, suggestion));
+  if (marker < 0 && suggestion >= 0) return scrubInternalNames(raw.slice(0, suggestion));
   let end = marker >= 0 ? marker : raw.length;
   while (marker < 0 && end > 0 && /[\w.`:]/.test(raw[end - 1]!)) end -= 1;
   return scrubInternalNames(raw.slice(0, end));
@@ -1896,7 +2025,8 @@ function stripWorkspaceCommands(content: string): string {
 }
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
-  const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
+  const recovered = recoverSuggestionSuffix(content);
+  const { content: contentWithoutJson, matches } = removeJsonActionFrames(recovered?.text ?? content);
   const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
   const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
   const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
@@ -1909,13 +2039,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     .filter(Boolean)
     .join("\n\n");
   const visibleText = scrubInternalNames([inlineVisibleText, frameVisibleText].filter(Boolean).join("\n\n").trim());
-  const parsedSuggestions = matches
-    .flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions))
-    .map((chip) => ({
-      ...chip,
-      label: scrubInternalNames(chip.label),
-      ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
-    }));
+  const parsedSuggestions = matches.flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions));
   // A frame with invalid commands is repaired, not shown, so its card is dropped with it.
   const questions = hasInvalidCommands
     ? []
@@ -1945,21 +2069,29 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
       )
       .find((value) => value.length > 0)
       ?.slice(0, 2000) ?? null;
-  const parsedCommands = hasInvalidCommands
-    ? []
-    : dedupeWorkspaceCommandCalls([
-        ...parseXmlCommandCalls(contentWithoutJson),
-        ...jsonCommands,
-        ...textualCommands,
-        ...parseBracketCommandCalls(contentWithoutJson),
-      ]);
+  const sentCommands = [
+    ...parseXmlCommandCalls(contentWithoutJson),
+    ...jsonCommands,
+    ...textualCommands,
+    ...parseBracketCommandCalls(contentWithoutJson),
+  ];
+  const parsedCommands = hasInvalidCommands ? [] : dedupeWorkspaceCommandCalls(sentCommands);
   // A question ends the turn: reads beside it run, changes don't (no Accept card next to a question), and the card
   // replaces any chips.
   // Even an invalid card means she wants an answer first.
   const askCalled = matches.some((match) => Array.isArray(match.payload.ask) && match.payload.ask.length > 0);
   const commands = askCalled ? parsedCommands.filter((call) => !isMutatingWorkspaceCommand(call)) : parsedCommands;
-  const suggestions = asking ? [] : parsedSuggestions;
-  const protocolValid = matches.length > 0 && !hasInvalidCommands;
+  const chosenChips = parsedSuggestions.length ? parsedSuggestions : (recovered?.chips ?? []);
+  const suggestions =
+    asking || hasInvalidCommands
+      ? []
+      : chosenChips.map((chip) => ({
+          ...chip,
+          label: scrubInternalNames(chip.label),
+          ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
+        }));
+  const protocolValid =
+    (matches.length > 0 || (Boolean(recovered) && sentCommands.length === 0)) && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
   const stop = asking || (!hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid)));
@@ -1973,6 +2105,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     understoodRequest,
     stop,
     protocolValid,
+    triedChange: sentCommands.some(isChangeAttemptCommand),
     assistantHistoryContent: hasInvalidCommands
       ? content
       : assistantHistoryContentForAction({
@@ -2352,13 +2485,39 @@ export function visibleTextAsksApplyPermission(text: string): boolean {
   );
 }
 
+// #8711: a fenced block counts only once it is closed, so an unclosed fence hides nothing after its own line.
+const CLOSED_CODE_FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gmu;
+// A quote is a double or curly pair within one sentence of one line, its marks away from letters and digits, so a
+// stray mark never hides the next sentence. Single quotes never count: they are too often apostrophes ("I've", "'90s",
+// "'em", "the twins'"), and a single-quoted example costs at most the notice, never a hidden claim.
+const quotedPhrase = (open: string, close: string) => String.raw`${open}(?:[^${close}\n.!?]|[.!?](?!\s))*${close}`;
+const QUOTED_PHRASE = new RegExp(
+  String.raw`(?<![\p{L}\p{N}])(?:${quotedPhrase('"', '"')}|${quotedPhrase("“", "”")})(?![\p{L}\p{N}])`,
+  "gu",
+);
+
+/**
+ * #8711: the words a claim check reads - her own prose, whitespace collapsed and curly apostrophes made straight. A
+ * closed code fence, inline code, a blockquote line or a quoted phrase is a draft, an example or a quote, never her claim.
+ */
+function workspaceClaimProse(text: string): string {
+  return text
+    .replace(/[’‘]/gu, "'")
+    .replace(CLOSED_CODE_FENCE, " ")
+    .replace(/`[^`\n]*`/gu, " ")
+    .replace(/^[ \t]*>.*$/gmu, " ")
+    .replace(QUOTED_PHRASE, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 /**
  * True when the text says a change is held, staged, ready on a card or waiting for the user's approval. The pi
  * runtime checks it on a run that held nothing, where such a claim is false.
  * ponytail: English phrasings only. Upgrade path: have the server state what is held and compare, not read words.
  */
 export function workspaceTextClaimsHeldChange(text: string): boolean {
-  const normalized = text.toLowerCase().replace(/\s+/g, " ");
+  const normalized = workspaceClaimProse(text).toLowerCase();
   return (
     /\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/.test(normalized) ||
     /\bchange cards? (is|are) (ready|staged|waiting|held)\b/.test(normalized) ||
@@ -2440,6 +2599,11 @@ export function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boole
   if (command.name !== "bash") return false;
   const rawCommand = command.arguments.command;
   return typeof rawCommand === "string" && bashLooksMutating(rawCommand);
+}
+
+/** #8711: a call that tries a change, whatever comes of it: a change, a preview of one, or any shell command. */
+export function isChangeAttemptCommand(command: WorkspaceCommandCall): boolean {
+  return command.name === "bash" || isMutatingWorkspaceCommand(command) || isPreviewOnlyAppDataCommand(command);
 }
 
 /** The "Needs you" card lists this many held changes; Accept applies stored calls only when it showed them all. */
@@ -2815,13 +2979,16 @@ export function workspaceTextClaimsMutationCompletion(
     // is the exact word the guard's own coaching asks the model to produce.
     "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|added|applied|edited|modified|set|inserted|completed";
   const adverbs = "(?:(?:successfully|now|just|already)\\s+)*";
+  // #8711: a phrase counts only in her prose, never in code, a blockquote or a quoted phrase; a whole-reply claim
+  // ("Done.") is still read from the whole reply.
+  const prose = workspaceClaimProse(text);
   // Slice 68: a docs answer's "a chunk waits before it's created" or "it is enabled by default"
   // describes how a feature works, not work she did; the audit then replaced a correct answer.
   const describesFeature = (match: RegExpMatchArray) =>
     /\b(?:before|until|when|whenever|after|once|if|unless|whether)\s+(?:[^\s.,;:!?]+\s+){0,3}$/iu.test(
-      normalized.slice(0, match.index),
-    ) || /^\s*by default\b/iu.test(normalized.slice((match.index ?? 0) + match[0].length));
-  const claims = (pattern: RegExp) => [...normalized.matchAll(pattern)].some((match) => !describesFeature(match));
+      prose.slice(0, match.index),
+    ) || /^\s*by default\b/iu.test(prose.slice((match.index ?? 0) + match[0].length));
+  const claims = (pattern: RegExp) => [...prose.matchAll(pattern)].some((match) => !describesFeature(match));
   const selfClaim = claims(
     new RegExp(`\\b(?:i(?:'ve| have)?|we(?:'ve| have)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu"),
   );
@@ -3161,10 +3328,11 @@ export function parseDirectMariArgv(command: string, cwd: string): string[] | nu
 const QUICK_EDIT_EXPIRY_MS = 10 * 60_000;
 /**
  * `mari code check` runs pnpm check, which executes workspace scripts and configs Mari can edit, so it runs in
- * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct.
+ * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct, decided by the
+ * CLI's own argument reading, so an argument the CLI does not take as a help flag cannot send the check direct.
  */
 export function isMariCodeCheckArgv(argv: string[]) {
-  return argv[0] === "code" && argv[1] === "check" && !argv.includes("--help");
+  return argv[0] === "code" && argv[1] === "check" && !isMariCodeHelpArgs(argv.slice(1));
 }
 
 /**
@@ -3666,11 +3834,7 @@ export class ProfessorMariWorkspaceService {
       memoryChars,
     );
     if (debugOverrideEnabled) {
-      logDebugOverride(
-        true,
-        "[debug/professor-mari-quick] Final prompt messages:\n%s",
-        JSON.stringify(messages, null, 2),
-      );
+      logDebugOverride(true, "[debug/professor-mari-quick] Final prompt messages:\n%s", debugJson(messages));
     }
 
     args.onEvent({ type: "status", data: { phase: "thinking" } });
@@ -3791,6 +3955,8 @@ export class ProfessorMariWorkspaceService {
     let replyStartedAt = runStartedAt;
     let replyUserMessageId = userMessage.id;
     let replyIsFiller = false;
+    // #8711: this reply's words were kept although a claim check flagged them, in a run that tried no change.
+    let replyNothingChanged = false;
     // Where this reply's results start in `commandResultsForContinuity`: each row keeps only its own.
     let replyResultsStart = 0;
     // A typed "yes" armed this run for the change she held, not for whatever you send next.
@@ -3946,6 +4112,7 @@ export class ProfessorMariWorkspaceService {
         runError,
         runStartedAt: replyStartedAt,
         checkpointFiller: replyIsFiller,
+        nothingChanged: replyNothingChanged,
         suggestions: runSuggestions,
         questions: runQuestions,
         todos: runTodos,
@@ -4049,6 +4216,7 @@ export class ProfessorMariWorkspaceService {
       assistantText = "";
       thinkingText = "";
       replyIsFiller = false;
+      replyNothingChanged = false;
       workspaceTrace.length = 0;
       workspaceActionResults.length = 0;
       totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
@@ -4263,6 +4431,7 @@ export class ProfessorMariWorkspaceService {
           suggestions: runSuggestions,
           questions: runQuestions,
           todos: runTodos,
+          nothingChanged: replyNothingChanged,
         };
         const syncFromPi = () => {
           assistantText = piState.assistantText;
@@ -4272,6 +4441,7 @@ export class ProfessorMariWorkspaceService {
           runSuggestions = piState.suggestions;
           runQuestions = piState.questions;
           runTodos = piState.todos;
+          replyNothingChanged = piState.nothingChanged;
         };
         try {
           await this.runPiRuntime({
@@ -4285,7 +4455,8 @@ export class ProfessorMariWorkspaceService {
             actionResults: workspaceActionResults,
             commandResults: commandResultsForContinuity,
             onEvent: args.onEvent,
-            maxOutputTokens: baseOptions.maxTokens,
+            // Read when a repair quotes it, so a limit learned from a 402 mid-run is the one she is told.
+            maxOutputTokens: () => runMaxOutputTokens(controller.signal, baseOptions.maxTokens),
             steers: {
               waiting: () => {
                 syncFromPi();
@@ -4298,6 +4469,7 @@ export class ProfessorMariWorkspaceService {
                   piState.assistantText = assistantText;
                   piState.suggestions = runSuggestions;
                   piState.todos = runTodos;
+                  piState.nothingChanged = replyNothingChanged;
                 }
                 return text;
               },
@@ -4333,7 +4505,7 @@ export class ProfessorMariWorkspaceService {
               debugLog?.(
                 "[debug/professor-mari] Raw response:\n%s\nTool calls: %s",
                 result.content ?? "",
-                JSON.stringify(result.toolCalls),
+                debugJson(result.toolCalls),
               );
               latestUsage = result.usage;
               latestFinishReason = result.finishReason ?? null;
@@ -4404,6 +4576,8 @@ export class ProfessorMariWorkspaceService {
         const rawContent = result.content ?? "";
         debugLog?.("[debug/professor-mari] Raw response:\n%s", rawContent);
         const parsedFrame = parseAssistantWorkspaceAction(rawContent);
+        // #8711: a change this round sent counts even if it never runs: held, set aside, rejected or discarded.
+        if (parsedFrame.triedChange) reviewState.changeTried = true;
         // Slice 70: a chips-only round adds chips to the answer already shown - never new words or commands;
         // without chips the answer simply stands.
         const chipRound = chipRepairPending;
@@ -4477,7 +4651,7 @@ export class ProfessorMariWorkspaceService {
         if (isEmptyCompletedAction(action)) {
           protocolRepairRounds += 1;
           if (protocolRepairRounds <= maxProtocolRepairRounds) {
-            messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
             messages.push({
               role: "user",
               content:
@@ -4557,7 +4731,7 @@ export class ProfessorMariWorkspaceService {
           runEndedWithDeferral = false;
           runHeldChanges = [];
           runHeldCalls = [];
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
             messages.push({
               role: "user",
@@ -4565,7 +4739,13 @@ export class ProfessorMariWorkspaceService {
               contextKind: "history",
             });
           }
-          messages.push({ role: "user", content: claimDecision.prompt, contextKind: "history" });
+          messages.push({
+            role: "user",
+            // The rejected frame's say never reached the user (the review runs
+            // before its words are emitted), so the model must restate it.
+            content: withWithheldNotice(claimDecision.prompt, action.visibleText),
+            contextKind: "history",
+          });
           continue;
         }
         if (claimDecision.kind === "stop") {
@@ -4604,12 +4784,15 @@ export class ProfessorMariWorkspaceService {
           } else {
             protocolRepairRounds = 0;
           }
-          messages.push({ role: "assistant", content: action.assistantHistoryContent });
+          messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
+          const continueCoaching = action.protocolValid
+            ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
+            : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.";
           messages.push({
             role: "user",
-            content: action.protocolValid
-              ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
-              : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
+            // A frame with neither commands nor stop is never emitted to the
+            // user, so any say it carried (often the whole answer) was lost.
+            content: withWithheldNotice(continueCoaching, action.visibleText),
             contextKind: "history",
           });
           continue;
@@ -4633,6 +4816,9 @@ export class ProfessorMariWorkspaceService {
           // his card…") stays in the timeline only. Server notes are appended after this and end the run.
           assistantText = action.visibleText.trim();
           emitRoundText(workspaceTrace, action.visibleText, args.onEvent);
+          // #8711: the notice belongs to the reply these words are, never to words no check flagged.
+          replyNothingChanged = claimDecision.kind === "notice";
+          if (replyNothingChanged) args.onEvent({ type: "metadata", data: { nothingChanged: true } });
           // Slice 72: this round's steps ran before its words were judged and sent, so its words arrive after
           // them. Mark them (unless they end the run: then they are her answer), so the client shows them as that
           // phase's caption instead of a line below it.
@@ -4643,7 +4829,7 @@ export class ProfessorMariWorkspaceService {
           args.onEvent({ type: "suggestions", data: action.suggestions });
         }
 
-        messages.push({ role: "assistant", content: action.assistantHistoryContent });
+        messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
 
         if (isLengthFinishReason(result.finishReason)) {
           if (action.commands.some(isMutatingWorkspaceCommand)) {
@@ -4756,12 +4942,14 @@ export class ProfessorMariWorkspaceService {
             totalTokens: totalUsage.totalTokens + finalUsage.totalTokens,
           };
           const finalAction = parseAssistantWorkspaceAction(finalResult.content ?? "");
+          if (finalAction.triedChange) reviewState.changeTried = true;
           const finalVerificationIssue = auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, {
             auditFrom: reviewState.claimAuditWatermark,
             hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
             lastPassedClaimText: reviewState.lastPassedClaimText,
           }).issue;
-          if (finalVerificationIssue) {
+          const nothingChanged = closingAnswerGetsNotice(reviewState, finalAction.visibleText, finalVerificationIssue);
+          if (finalVerificationIssue && !nothingChanged) {
             const content =
               "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
             assistantText = appendVisibleText(assistantText, content);
@@ -4771,6 +4959,8 @@ export class ProfessorMariWorkspaceService {
           } else if (finalAction.visibleText || finalAction.questions.length > 0) {
             assistantText = finalAction.visibleText.trim() || mariQuestionsAsText(finalAction.questions);
             emitRoundText(workspaceTrace, assistantText, args.onEvent);
+            replyNothingChanged = nothingChanged;
+            if (nothingChanged) args.onEvent({ type: "metadata", data: { nothingChanged: true } });
             runQuestions = finalAction.questions;
             if (finalAction.suggestions.length > 0) {
               runSuggestions = finalAction.suggestions;
@@ -5379,12 +5569,27 @@ export class ProfessorMariWorkspaceService {
         : []),
       ...messages.filter((message) => message.role !== "system"),
     ];
-    const options: ChatOptions = onToken
-      ? {
-          ...baseOptions,
-          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame),
-        }
-      : { ...baseOptions };
+    // Limits learned from earlier provider rejections in this run. Keyed by the
+    // run's abort signal, which every caller passes through unchanged (the pi
+    // runtime spreads a copy of baseOptions, so mutating it would not stick).
+    const runLimits = baseOptions.signal ? learnedRunLimits.get(baseOptions.signal) : undefined;
+    let options: ChatOptions = {
+      ...baseOptions,
+      ...(onToken
+        ? { onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame) }
+        : {}),
+      ...(runLimits?.maxContext !== undefined
+        ? { maxContext: Math.min(baseOptions.maxContext || Infinity, runLimits.maxContext) }
+        : {}),
+      // A limit the provider asked for is sent even when the send map switches Max Tokens off: unsent, the provider
+      // reserves its own default and rejects the call again.
+      ...(runLimits?.maxTokens !== undefined
+        ? {
+            maxTokens: runMaxOutputTokens(baseOptions.signal, baseOptions.maxTokens),
+            enabledParameters: { ...baseOptions.enabledParameters, maxTokens: true },
+          }
+        : {}),
+    };
     logger.debug(
       "\n[debug/professor-mari] Prompt sent to model (%d messages):\n  Model: %s  Temp: %s  MaxTokens: %s  MaxContext: %s  Effort: %s  Verbosity: %s  CustomParameterKeys: %s",
       messages.length,
@@ -5396,8 +5601,36 @@ export class ProfessorMariWorkspaceService {
       options.enabledParameters?.verbosity === false ? "disabled" : (options.verbosity ?? "default"),
       Object.keys(options.customParameters ?? {}).join(",") || "none",
     );
-    debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", JSON.stringify(messages, null, 2));
-    return provider.chatComplete(messages, options);
+    debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", debugJson(messages));
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await provider.chatComplete(messages, options);
+      } catch (err) {
+        if (attempt >= MAX_LIMIT_RETRIES || baseOptions.signal?.aborted) throw err;
+        const next = nextOptionsAfterLimitError(err, options);
+        if (!next) throw err;
+        logger.warn(
+          "[Professor Mari] %s from %s; retrying with maxTokens=%s maxContext=%s",
+          next.reason,
+          options.model,
+          next.maxTokens ?? options.maxTokens ?? "default",
+          next.maxContext ?? options.maxContext ?? "default",
+        );
+        if (baseOptions.signal) {
+          const learned = learnedRunLimits.get(baseOptions.signal) ?? {};
+          if (next.maxTokens !== undefined) learned.maxTokens = next.maxTokens;
+          if (next.maxContext !== undefined) learned.maxContext = next.maxContext;
+          learnedRunLimits.set(baseOptions.signal, learned);
+        }
+        options = {
+          ...options,
+          ...(next.maxTokens !== undefined
+            ? { maxTokens: next.maxTokens, enabledParameters: { ...options.enabledParameters, maxTokens: true } }
+            : {}),
+          ...(next.maxContext !== undefined ? { maxContext: next.maxContext } : {}),
+        };
+      }
+    }
   }
 
   private executeWorkspaceCommandBatch(...args: Parameters<WorkspaceCommands["executeWorkspaceCommandBatch"]>) {

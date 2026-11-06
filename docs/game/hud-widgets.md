@@ -1,93 +1,78 @@
 # Game Mode: HUD Widgets
 
-This guide explains HUD widgets in Marinara Engine Game Mode. HUD stands for heads-up display: small info panels that sit at the left and right edges of the game screen. This guide covers the widget types, the review step before a game starts, moving and locking panels, and sharing widget layouts.
+HUD widgets are small panels at the left and right edges of the game screen. They track things such as a health bar, a gold counter or an ally's trust level. HUD stands for heads-up display. Each game has its own widgets, separate from the Roleplay HUD trackers (see [Roleplay HUD and Trackers](../roleplay/hud-and-trackers.md)).
 
-## What HUD widgets are
+A game can have up to 4 widgets in total, split between the left and right sides however you like. Widgets are used only when **Custom HUD Widgets** is on for the game. It is on by default in the setup wizard. The Game Master (GM) then designs a starting set while it builds your world.
 
-HUD widgets are small custom panels that track things during a game, like a health bar, a gold counter, or an ally's trust level. Each game can have its own widgets. They are separate from the Roleplay HUD trackers. For the tracker strip used in Roleplay chats, see the Related guides below.
+## Widget types
 
-You can have up to 4 widgets in total. You split them between the left side and the right side of the screen however you like.
-
-Widgets are only used when the **Custom HUD Widgets** option is turned on for the game. This option is on by default in the setup wizard. When it is on, the AI Game Master (GM) designs a starting set of widgets while it builds your world.
-
-## The 8 widget types
-
-There are eight widget types. The GM picks a type for each widget it creates. You can also pick types yourself when you build widgets by hand.
+The GM picks a type for each widget it creates. You can pick types yourself when you build widgets by hand.
 
 | Widget type | What it shows |
-|---|---|
+| --- | --- |
 | **Progress Bar** | A horizontal bar for a value out of a maximum, like health or stamina. |
 | **Gauge** | A half-circle dial for a value out of a maximum. |
 | **Relationship Meter** | A bar with milestone markers and a label, good for an NPC's trust or a bond. |
-| **Counter** | One large number, like gold, days passed, or kills. |
+| **Counter** | One large number, like gold, days passed or kills. |
 | **Stat Block** | A small grid of named fields with values, like STR and DEX or a status word. |
 | **List** | A short bulleted list of text items, like active goals. |
 | **Inventory Grid** | A grid of item slots, with optional category tabs and item counts. |
 | **Timer** | A countdown clock in minutes and seconds that can tick down live. |
 
-## The pre-session review modal
+## Review widgets before the game starts
 
-When custom widgets exist, a pre-session review step runs before your first turn. The moment you press **Start Game**, the **Review Starting Widgets** window opens. It lists every starting widget so you can adjust them before the game locks them in.
+When custom widgets exist, a **Review Starting Widgets** button sits under **Start Game** on the game screen. Clicking it opens the **Review Starting Widgets** window before you start. It lists every starting widget so you can adjust them before the game locks them in.
 
-In this window you can:
+1. Press **Edit** on a widget to change its starting values or rename **Stat Block** fields.
+2. Press **Remove** to drop a widget you do not want.
+3. Press **Start Game** to begin play with the widgets as shown. Press **Back** to close the window without starting.
 
-- Press **Edit** on a widget to change its starting values or rename **Stat Block** fields.
-- Press **Remove** to drop a widget you do not want.
-- Press **Back** to close the window without starting.
-- Press **Start Game** to begin play with the widgets as shown.
+A similar window, **Prepare Next Session Widgets**, appears when you start a new session in an ongoing game. It has **Start Next Session** instead of **Start Game**, and **Cancel** instead of **Back**.
 
-A similar window appears when you start a new session in an ongoing game. It is titled **Prepare Next Session Widgets** and has a **Start Next Session** button in place of **Start Game**. Its close button is labeled **Cancel** instead of **Back**.
+## Edit a widget during play
 
-## Editing a widget during play
-
-During the game, the GM updates widget values for you as the story moves. If the GM misses an update, you can fix a widget by hand.
+The GM updates widget values as the story moves. If it misses an update, fix the widget by hand.
 
 1. Find the widget panel on the left or right edge of the screen.
 2. Click the pencil (**Edit**) button in the widget's header.
-3. Change the values in the editor window. For example, set a new **Current value** and **Maximum value** on a bar.
+3. Change the values in the editor window, for example the **Maximum value** on a bar.
 4. Click **Save Changes**.
 
-The header also has a small plus or minus mark. Click the widget header to collapse or expand its body.
+Click the widget header to collapse or expand its body.
 
-## Moving and locking panels
+## Move and lock panels
 
-Widget panels are locked in place by default. Each panel has a lock icon in its header.
+Widget panels are locked in place by default. Each has a lock icon in its header.
 
-1. Click the lock icon to unlock the panel. A faint outline shows it is now movable.
+1. Click the lock icon to unlock the panel. A faint outline shows it can move.
 2. Drag the panel to a new spot.
-3. Click the lock icon again to lock it back in place.
+3. Click the lock icon again to lock it.
 
-To move a panel back to its default spot, double-click its lock icon or press the R key while the icon is focused. Each panel remembers its position and lock state per game. Your layout does not carry over between different games.
+To return a panel to its default spot, double-click its lock icon, or press <kbd>R</kbd> while the icon is focused. Each panel remembers its position and lock state per game. Your layout does not carry over to other games.
 
-On a phone, widgets show as small pills instead of full panels. Tap a pill to open that widget, and tap the X to close it again.
+On a phone, widgets show as small pills instead of full panels. Tap a pill to open that widget and tap the X to close it.
 
-## Building your own widgets
+## Build your own widgets
 
-You can design widgets yourself instead of letting the GM create them. You open the manual widget editor in two places:
+You can design widgets yourself instead of letting the GM create them. Open the manual editor in either place:
 
-- In the game setup wizard: turn on **Custom HUD Widgets**, then turn on the **Build Widget Setup** toggle. The editor appears below the toggle.
-- In an existing game: open **Chat Settings**, then open the **Widgets** section.
+- In the setup wizard: turn on **Custom HUD Widgets**, then turn on **Build Widget Setup**. The editor appears below.
+- In an existing game: open **Chat Settings**, then the **Widgets** section.
 
-In the editor, pick a widget type from the dropdown and press **Add**. For each widget you can set:
+1. Pick a widget type from the dropdown and press **Add**.
+2. Set the **Icon** (a short symbol or emoji), **Label**, **Type**, **Side** (**Left HUD** or **Right HUD**) and **Accent** (the color).
+3. Fill in the fields for that type: a bar uses **Value** and **Max**, a counter uses **Count**, an inventory grid uses **Slots** and **Contents**, and a timer uses **Seconds** and **Running**.
+4. In **Chat Settings**, press **Save Widgets** to apply your changes. **Reset** undoes unsaved edits.
 
-- **Icon**: a short symbol or emoji shown in the header.
-- **Label**: the name shown at the top of the widget.
-- **Type**: one of the eight widget types.
-- **Side**: **Left HUD** or **Right HUD**.
-- **Accent**: the widget's color.
-
-Below those, each type has its own fields. A bar uses **Value** and **Max**. A counter uses **Count**. An inventory grid uses **Slots** and **Contents**. A timer uses **Seconds** and **Running**. The editor shows how many widgets you have used out of the 4 you are allowed.
-
-In **Chat Settings**, press **Save Widgets** to apply your changes to the game, or press **Reset** to undo unsaved edits.
+The editor shows how many of the 4 allowed widgets you have used.
 
 ## Sharing widgets with import and export
 
-You can save a widget layout to a file and load it into another game. Both the setup wizard and the **Chat Settings** **Widgets** section have these buttons.
+You can save a widget layout to a file and load it into another game. The setup wizard and the **Widgets** section of **Chat Settings** both have these buttons.
 
-1. Press **Export Widgets** to download your current widgets as a JSON file. JSON is a plain text data format.
-2. Press **Import Widgets** in another game and pick that file to load the same widgets.
-
-In **Chat Settings**, remember to press **Save Widgets** after an import so the loaded widgets are applied.
+1. Press **Export Widgets** to download your widgets as a JSON file (a plain text data format).
+2. In another game, press **Import Widgets** and pick that file.
+3. In **Chat Settings**, press **Save Widgets** so the loaded widgets apply.
 
 ## Related guides
 

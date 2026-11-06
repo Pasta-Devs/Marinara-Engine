@@ -22,7 +22,7 @@ import {
   type DecisionDebugRequest,
 } from "@marinara-engine/shared";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import type { DecisionConnection } from "./decision-connection.js";
 import {
   getAnswerStyle,
@@ -150,7 +150,7 @@ async function askOnce(
   }
   const debug = diagnostics.debugMode === true || process.env.DEBUG_AGENTS === "true";
   const source = connection ? "Chat connection" : "Local";
-  logDebugOverride(debug, "[decision] %s request: %s", source, JSON.stringify(body));
+  logDebugOverride(debug, "[decision] %s request:\n%s", source, debugJson(body));
   const finish = (answer: SidecarAnswer | null, error?: string) => {
     const result = {
       id: question.id,

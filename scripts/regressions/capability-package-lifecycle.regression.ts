@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 813 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 816 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,11 +140,11 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.813/,
+    /requires capability API 2\.0; this Engine supports 1\.816/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 813 },
+    capabilityApi: { major: 1, minor: 814 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   assert.equal(
@@ -236,6 +236,7 @@ try {
     [389, "hide messages from the AI"],
     [390, "let the Engine draw an agent page header"],
     [391, "Advanced Memory scene summaries and the memory block"],
+    [814, "package prompt cache breakpoints"],
   ];
   for (const [minor, label] of supportedMinors) {
     assert.equal(
@@ -1253,6 +1254,74 @@ try {
     ],
     "A compatible Agent update must remain available until the user applies or declines that version",
   );
+
+  // The unattended startup migrations install what the catalog publishes. An entry this Engine refuses before
+  // downloading must not throw: the startup retried the whole migration every launch, so the packages after it and
+  // the Noodle step never ran (v2.5.1 against an Agents catalog that needed a newer capability API).
+  const incompatibleMigrationEntries = [
+    { ...manifestV2, id: "newer-api", capabilityApi: { major: 1, minor: supportedCapabilityApi.minor + 1 } },
+    { ...legacyManifest, id: "newer-engine", engine: { min: "99.0.0", maxExclusive: "100.0.0" } },
+    { ...legacyManifest, id: "routes-without-restart", permissions: ["routes"], restartRequired: false },
+  ].map((manifest) => catalogEntry(capabilityPackageManifestSchema.parse({ ...manifest, name: manifest.id })));
+  // https only, so the download refuses it: a stand-in for a network failure, which must still throw and retry.
+  const undownloadableEntry = (manifest: typeof legacyManifest) => ({
+    ...catalogEntry(manifest),
+    artifact: { url: `http://invalid.example/${manifest.id}.zip`, sha256: "1".repeat(64), bytes: 1 },
+  });
+  const migrationCatalog = (packages: ReturnType<typeof catalogEntry>[]) => async () => ({
+    schemaVersion: 1 as const,
+    generatedAt: new Date().toISOString(),
+    packages,
+  });
+  const publishedCatalog = capabilityPackageManager.catalog;
+  try {
+    rmSync(migrationPath, { force: true });
+    writeRegistry([]);
+    capabilityPackageManager.catalog = migrationCatalog(incompatibleMigrationEntries);
+    assert.deepEqual(
+      await capabilityPackageManager.migrateLegacyAvailability(true),
+      { migrated: true, legacy: true, complete: false },
+      "Entries this Engine cannot install must be skipped so the startup can record the migration complete",
+    );
+    assert.deepEqual(await capabilityPackageManager.installed(), []);
+    capabilityPackageManager.catalog = migrationCatalog([
+      ...incompatibleMigrationEntries,
+      undownloadableEntry(callsUpdateManifest),
+    ]);
+    await assert.rejects(
+      () => capabilityPackageManager.migrateLegacyAvailability(true),
+      /protocol 'http' is not allowed/,
+      "The loop must reach the entries after a skipped one, and a failed download must still fail the migration",
+    );
+
+    rmSync(noodleMigrationPath, { force: true });
+    const noodleManifest = capabilityPackageManifestSchema.parse({ ...legacyManifest, id: "noodle", name: "Noodle" });
+    capabilityPackageManager.catalog = migrationCatalog([
+      catalogEntry(
+        capabilityPackageManifestSchema.parse({
+          ...manifestV2,
+          id: "noodle",
+          name: "Noodle",
+          capabilityApi: { major: 1, minor: supportedCapabilityApi.minor + 1 },
+        }),
+      ),
+    ]);
+    assert.deepEqual(
+      await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+      { migrated: false, legacy: true, pending: true },
+      "A Noodle entry this Engine cannot install must leave the extraction pending, like one not published yet",
+    );
+    assert.equal(existsSync(noodleMigrationPath), false, "A later Engine must still install the skipped Noodle");
+    capabilityPackageManager.catalog = migrationCatalog([undownloadableEntry(noodleManifest)]);
+    await assert.rejects(
+      () => capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+      /protocol 'http' is not allowed/,
+      "A failed Noodle download must still fail the migration so the next startup retries it",
+    );
+  } finally {
+    capabilityPackageManager.catalog = publishedCatalog;
+  }
+
   const unsupportedInstalled = installedCapabilityPackageSchema.parse({
     ...installedPackage("future-contract", ["agent"]),
     manifest: unsupportedMajorManifest,

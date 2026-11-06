@@ -16,17 +16,16 @@ import {
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { queryOptions, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useIsMutating, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { translate } from "../localization/i18n";
-import { useChatStore } from "../stores/chat.store";
-import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
+import { useDebouncedValue } from "./use-debounced-value";
+import { chatKeys } from "./use-chats";
 import { connectionAccountKeys } from "./use-connection-accounts";
 import type {
   APIProvider,
-  Chat,
   ConnectionTestResult,
   DecisionSource,
   GenerativeAudioSource,
@@ -171,9 +170,18 @@ export function useCreateConnection() {
   });
 }
 
+/** Model saves and pins share this prefix, so a window can tell that a pick is still being saved. */
+const CONNECTION_SAVE_MUTATION_KEY = [...connectionKeys.all, "save"] as const;
+
+/** True while a Model save or pin, including its refetches, is still running anywhere in the app. */
+export function useIsConnectionSaving() {
+  return useIsMutating({ mutationKey: CONNECTION_SAVE_MUTATION_KEY }) > 0;
+}
+
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "update"],
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
     // Auto-save before testing must finish refreshing the editor before a fast
     // test response arrives, otherwise hydration clears the new result.
@@ -250,23 +258,15 @@ export function useDeleteConnection() {
         throw new Error(t("connections.decision.deleteCancelled"));
       return api.delete(`/connections/${id}`);
     },
-    onSuccess: async (_data, id) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
       // Deleting the default embedding connection clears that default on the server.
       qc.invalidateQueries({ queryKey: connectionKeys.defaultEmbedding() });
-      const activeChatId = useChatStore.getState().activeChatId;
-      if (!activeChatId) return;
-      const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));
-      if (activeChat?.connectionId !== id) return;
-      try {
-        const metadataVersion = captureChatMetadataVersion(activeChatId);
-        const updated = await api.patch<Chat>(`/chats/${activeChatId}`, { connectionId: null });
-        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), guardServerChatSnapshot(qc, updated, metadataVersion));
-        qc.invalidateQueries({ queryKey: chatKeys.list() });
-      } catch {
-        qc.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
-      }
+      // The delete already cleared the chats' Model, or moved a catalog pick onto another Model of the
+      // Connection: refetch rather than clear the cached Model, which would drop that pick.
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: [...chatKeys.all, "detail"] });
     },
   });
 }
@@ -283,6 +283,63 @@ function recordConnectionFailure(id: string, action: string, error: unknown) {
 /** A Model id, or one with a key or address typed in an editor but not saved yet. */
 type TestInput = string | { id: string; apiKey?: string; baseUrl?: string };
 const testId = (input: TestInput) => (typeof input === "string" ? input : input.id);
+
+export type AccessCheck =
+  | { supported: false }
+  | {
+      supported: true;
+      reachable: boolean;
+      /** The server's own policy refused the address. */
+      blocked?: boolean;
+      /** The provider answered 429 or 5xx: busy, not a wrong address. */
+      transient?: boolean;
+      keyOk: boolean | null;
+      modelCount: number | null;
+      status: number | null;
+      error: string | null;
+    };
+
+/** Live address and key check for the account forms: runs 0.6 s after the user stops typing. */
+export function useAccessCheck(input: {
+  provider: string | null;
+  baseUrl: string;
+  apiKey: string;
+  accountId?: string;
+}) {
+  const typedUrl = input.baseUrl.trim();
+  const typedKey = input.apiKey.trim();
+  const baseUrl = useDebouncedValue(typedUrl, 600);
+  const apiKey = useDebouncedValue(typedKey, 600);
+  const query = useQuery({
+    queryKey: ["connection-access-check", input.provider, baseUrl, apiKey, input.accountId ?? null],
+    queryFn: ({ signal }) =>
+      api.post<AccessCheck>(
+        "/connections/check",
+        {
+          provider: input.provider,
+          baseUrl: baseUrl || undefined,
+          apiKey: apiKey || undefined,
+          accountId: input.accountId,
+        },
+        { signal },
+      ),
+    // Only send what the form still holds: after Back and a new service, the debounced values are stale.
+    enabled: !!input.provider && typedUrl === baseUrl && typedKey === apiKey,
+    staleTime: 30_000,
+    gcTime: 60_000,
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+  // Typing, or waiting for the answer: the last answer is for other input.
+  const checking = typedUrl !== baseUrl || typedKey !== apiKey || query.isFetching;
+  return {
+    result: checking ? undefined : query.data,
+    // A provider without live checks shows no spinner.
+    checking: !!input.provider && checking && query.data?.supported !== false,
+    supported: query.isError ? false : query.data?.supported,
+    recheck: query.refetch,
+  };
+}
 
 export function useTestConnection(accountId?: string) {
   const qc = useQueryClient();
@@ -656,6 +713,7 @@ export function useRefreshConnectionModels() {
 export function useSetConnectionModelPinned() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [...CONNECTION_SAVE_MUTATION_KEY, "pin"],
     mutationFn: ({ id, model, pinned }: { id: string; model: string; pinned: boolean }) =>
       api.post<{ pinnedModels: string[] }>(`/connections/${encodeURIComponent(id)}/pinned-models`, { model, pinned }),
     onMutate: async ({ id, model, pinned }) => {

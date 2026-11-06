@@ -35,6 +35,9 @@ test.describe("Marinara accent defaults", () => {
 
   for (const theme of ["dark", "light"] as const) {
     test(`default gradient, editable device Pulse, reload and reset (${theme})`, async ({ page }, testInfo) => {
+      // A load, a reload, a screenshot and a dozen clicks: each click waits 2-4 s for a stable frame on CI
+      // WebKit, so the steps alone took 50-66 s there (runs 42053259370, 42060999461, 42073643163; 13-15 s on a Mac).
+      test.setTimeout(120_000);
       const desktop = testInfo.project.name.includes("desktop");
       await seedUIState(
         page,

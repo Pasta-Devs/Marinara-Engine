@@ -75,9 +75,13 @@ type ResolveAgentPipelineAgentsArgs = {
   chatCachingAtDepth: number;
   activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   chatMetadata?: Record<string, unknown>;
+  /** Agents on the chat's connection fall back like the reply instead of through the agents fallback (routing). */
+  chatConnectionMainFallback?: ChatConnectionMainFallback;
   onFallback?: GenerationFallbackNotifier;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 };
+
+type ChatConnectionMainFallback = { connection: FallbackConnection | null; connectionName: string };
 
 type AgentProviderCacheEntry = {
   provider: BaseLLMProvider;
@@ -262,6 +266,7 @@ async function resolveAgentConnectionProvider(args: {
   fallbackAnthropicExtendedCacheTtl: boolean;
   fallbackCachingAtDepth: number;
   fallbackConnection: FallbackConnection | null;
+  chatConnectionMainFallback?: ChatConnectionMainFallback;
   primaryConnectionId: string;
   onFallback?: GenerationFallbackNotifier;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
@@ -270,12 +275,15 @@ async function resolveAgentConnectionProvider(args: {
   if (cached) return { entry: cached };
 
   if (!args.connectionId) {
+    const main = args.chatConnectionMainFallback;
+    const fallbackConnection = main ? main.connection : args.fallbackConnection;
     const provider = withConnectionFallbackProvider({
       primary: args.fallbackProvider,
       primaryConnectionId: args.primaryConnectionId,
-      fallbackConnection: args.fallbackConnection,
-      fallbackBaseUrl: args.fallbackConnection ? args.resolveBaseUrl(args.fallbackConnection) : "",
-      category: "agents",
+      primaryConnectionName: main?.connectionName,
+      fallbackConnection,
+      fallbackBaseUrl: fallbackConnection ? args.resolveBaseUrl(fallbackConnection) : "",
+      category: main ? "main" : "agents",
       onFallback: args.onFallback,
     });
     // Agents on the chat's connection read that connection's saved parameters like any agent connection; the
@@ -398,6 +406,7 @@ export async function resolveAgentPipelineAgents({
   chatCachingAtDepth,
   activeMusicPlayerSource,
   chatMetadata,
+  chatConnectionMainFallback,
   onFallback,
   resolveBaseUrl,
 }: ResolveAgentPipelineAgentsArgs): Promise<ResolvedAgentPipelineAgents> {
@@ -524,6 +533,7 @@ export async function resolveAgentPipelineAgents({
       fallbackAnthropicExtendedCacheTtl: chatAnthropicExtendedCacheTtl,
       fallbackCachingAtDepth: chatCachingAtDepth,
       fallbackConnection: fallbackAgentConn,
+      chatConnectionMainFallback,
       primaryConnectionId: effectiveConnectionId ?? chatConnectionId,
       onFallback,
       resolveBaseUrl,
@@ -637,6 +647,7 @@ export async function resolveAgentPipelineAgents({
       fallbackAnthropicExtendedCacheTtl: chatAnthropicExtendedCacheTtl,
       fallbackCachingAtDepth: chatCachingAtDepth,
       fallbackConnection: fallbackAgentConn,
+      chatConnectionMainFallback,
       primaryConnectionId: builtInConnectionId ?? chatConnectionId,
       onFallback,
       resolveBaseUrl,

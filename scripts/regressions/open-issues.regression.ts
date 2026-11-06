@@ -5919,7 +5919,7 @@ assert.match(
 assert.equal(
   roleplaySurfaceSource.match(/mergedGroupCharacterIds=\{activeChatCharacterIds\}/gu)?.length,
   6,
-  "Classic and VN historical, regenerating, and streaming Narrator messages must share the active avatar list",
+  "Classic and VN historical, regenerating, and streaming Narrator messages must all receive the live active roster; saved replies keep their own (#8762)",
 );
 assert.match(
   chatMessageSource,
@@ -10649,7 +10649,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(turnGameCommandRuntimeSource, /debugLog: args\.debugLog/u);
   assert.match(
     turnGameBotRunnerSource,
-    /args\.debugLog\?\.\([\s\S]*?JSON\.stringify\(moveMessages, null, 2\)[\s\S]*?provider\.chatComplete\(moveMessages/u,
+    /args\.debugLog\?\.\([\s\S]*?debugJson\(moveMessages\)[\s\S]*?provider\.chatComplete\(moveMessages/u,
     "Turn-game bot moves must log the final provider prompt immediately before submission",
   );
 }

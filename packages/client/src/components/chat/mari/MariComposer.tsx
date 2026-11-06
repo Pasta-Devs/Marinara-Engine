@@ -255,11 +255,13 @@ export function MariComposer({
   const localize = useLocalizedUiText();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
-  // Send's small menu, for phones and anyone who hasn't learned the keys. It only exists while she works.
+  // While she works, Send opens this choice of now or after her answer. It only exists while she works.
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement | null>(null);
   const sendMenuPopoverRef = useRef<HTMLDivElement | null>(null);
   const sendMenuVisible = sendMenuOpen && workspaceTimelineActive && canSubmitMessage;
+  // A cleared field or a finished run closes it, so it does not pop open again on the next message.
+  if (sendMenuOpen && !sendMenuVisible) setSendMenuOpen(false);
   // Inside the omnibar, Escape closes this menu and not the dialog behind it.
   const handleSendMenuKeyDown = useInDialogFocusScope(
     sendMenuPopoverRef,
@@ -755,8 +757,9 @@ export function MariComposer({
             ) : null}
           </div>
         </div>
-        {/* While she works the field stays open, so a message can wait its turn; Stop sits beside Send. */}
-        {workspaceTimelineActive ? (
+        {/* While she works one button shows: Stop on an empty field, Send once there is a message.
+            That Send opens the full-width choice of now or after her answer. */}
+        {workspaceTimelineActive && !canSubmitMessage ? (
           <button
             type="button"
             onClick={() => void stopWorkspace()}
@@ -767,28 +770,17 @@ export function MariComposer({
             <Square size="0.7rem" fill="currentColor" strokeWidth={0} aria-hidden="true" />
             {localizeUi("ui.chat.homeprofessormarichat.stop")}
           </button>
-        ) : null}
-        <button
-          type="submit"
-          disabled={!canSubmitMessage}
-          className="mari-workspace-composer__send"
-          aria-label={t("home.professorMari.send")}
-          title={t("home.professorMari.send")}
-        >
-          <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
-        </button>
-        {workspaceTimelineActive ? (
+        ) : workspaceTimelineActive ? (
           <div ref={sendMenuRef} className="mari-composer-menu mari-workspace-composer__send-menu">
             <button
               type="button"
-              disabled={!canSubmitMessage}
               onClick={() => setSendMenuOpen((current) => !current)}
-              className="mari-workspace-composer__send-more"
+              className="mari-workspace-composer__send"
               aria-expanded={sendMenuVisible}
               aria-label={t("mari.queue.sendOptions")}
               title={t("mari.queue.sendOptions")}
             >
-              <ChevronDown aria-hidden="true" />
+              <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
             </button>
             {sendMenuVisible ? (
               <div ref={sendMenuPopoverRef} onKeyDown={handleSendMenuKeyDown} className="mari-composer-menu__popover">
@@ -813,7 +805,17 @@ export function MariComposer({
               </div>
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <button
+            type="submit"
+            disabled={!canSubmitMessage}
+            className="mari-workspace-composer__send"
+            aria-label={t("home.professorMari.send")}
+            title={t("home.professorMari.send")}
+          >
+            <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </form>
   );

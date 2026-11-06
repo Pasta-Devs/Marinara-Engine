@@ -54,9 +54,29 @@ for (const theme of ["dark", "light"] as const) {
       achievementsEnabled: false,
     });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+    await page.addInitScript(() => {
+      const note = () => ((window as typeof window & { __orientationAt?: number }).__orientationAt = performance.now());
+      window.addEventListener("orientationchange", note);
+      screen.orientation?.addEventListener("change", note);
+    });
     await page.goto("/");
-    // AppShell re-baselines landscape at 80/320ms after an orientation event, including the initial device rotation.
-    if (mobile) await page.waitForTimeout(400);
+    if (mobile) {
+      // The keyboard is emulated once AppShell measures the viewport (it sets --mari-visual-viewport-height), and
+      // after its re-baselines 80 and 320 ms past an orientation event, including the device's initial rotation,
+      // which a slow runner can deliver well after load. A keyboard opened before then is taken for the screen.
+      if (info.project.name === "mobile-webkit") {
+        await expect(page.locator("html")).toHaveAttribute("data-mari-camera-side", "left");
+      }
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const at = (window as typeof window & { __orientationAt?: number }).__orientationAt;
+            const measured = document.documentElement.style.getPropertyValue("--mari-visual-viewport-height") !== "";
+            return measured && (at === undefined || performance.now() - at > 320);
+          }),
+        )
+        .toBe(true);
+    }
     // Exercise the real shared component with a caller-supplied footer, as package prompt editors use it.
     await page.evaluate(async () => {
       const { ensureMarinaraHost } = await import("/src/lib/marinara-host.ts" as string);

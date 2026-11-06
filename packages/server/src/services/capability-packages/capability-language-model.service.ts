@@ -39,6 +39,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
     connectionId: string,
     model: string,
     saved: SavedConnectionParameters | null = null,
+    extendedCacheTtl = false,
   ) =>
     Object.freeze({
       name: unwrapConnectionAdmissionProvider(provider).constructor.name,
@@ -61,12 +62,18 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         const requestOptions = saved
           ? resolveCapabilityChatOptions({ ...saved, model }, packageOptions)
           : packageOptions;
+        // A marked stable prefix (1.814) is cached whatever the connection's caching switch says, for the cache time the
+        // call asks for (1.815), else the connection's.
+        const cacheOptions = messages.some((message) => message.cacheBreakpoint === true)
+          ? { anthropicExtendedCacheTtl: options.cacheTtl ? options.cacheTtl === "1h" : extendedCacheTtl }
+          : {};
         const result = await withLlmInactivityTimeout(
           timeoutMs,
           (signal) =>
             provider.chatComplete(messages as ChatMessage[], {
               model,
               ...requestOptions,
+              ...cacheOptions,
               // Keep upstream progress alive while the package receives only the completed response.
               stream: true,
               debugMode: options.debugMode,
@@ -75,6 +82,11 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
             }),
           options.signal,
         );
+        // A stream that broke partway resolves with the partial text so a live chat keeps what it showed. A package
+        // only gets the finished reply, and a cut-off one would be parsed and saved as complete.
+        // ponytail: the provider's own error is only logged; carry it on the result if packages need the cause.
+        if (result.finishReason === "error")
+          throw new Error("The language model stream failed before the reply finished.");
         return { content: result.content, finishReason: result.finishReason, usage: result.usage };
       },
       fitContext(messages: CapabilityLanguageModelMessage[], options = {}) {
@@ -127,6 +139,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
           await appSettings.get(CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY),
         ),
       },
+      connection.anthropicExtendedCacheTtl === "true",
     );
   };
   const defaultConnection = async (model?: string, preferAgentDefault = false) => {

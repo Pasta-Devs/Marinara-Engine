@@ -281,6 +281,8 @@ export type ConnectionRowLite = {
   audioVoice?: string | null;
   audioSource?: string | null;
   decisionSource?: string | null;
+  comfyuiWorkflow?: string | null;
+  defaultParameters?: string | null;
 };
 /** The source of an audio or decision row; an older row without one uses its container's default. */
 export const jobSourceOf = (row: ConnectionRowLite) =>

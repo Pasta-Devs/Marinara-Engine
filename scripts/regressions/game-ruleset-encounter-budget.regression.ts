@@ -316,6 +316,24 @@ try {
   assert.match(prompt, /One enemy alone, a boss too, fits it at cr_1 at most: give no invented enemy a higher tier\./);
   // An invented caster's guidance (Alyssa, 2026-10-25): one role, six that spend its pools at most.
   assert.match(prompt, /A caster you make up has one role .* at most 6 that spend its pools/);
+  // Weighed for those who will fight, as the director weighs it: a level 5 companion taken out of the
+  // party and a dead level 5 hero count for nothing.
+  const briefed = await encounterRulesetBrief(definition, null, {
+    cards: [...cards, card("Dagna", 5), card("Mars", 5)],
+    difficulty: "normal",
+    away: ["Dagna"],
+    live: { mars: { tracks: { death_save_failures: 3 } } },
+  });
+  assert.deepEqual(briefed?.budget, brief.budget);
+  assert.deepEqual(briefed?.budgetTop, brief.budgetTop);
+  // And the fight's setup hands it both: who left, and the live sheets the fight will read.
+  assert.match(
+    readFileSync(
+      fileURLToPath(new URL("../../packages/server/src/routes/encounter.routes.ts", import.meta.url)),
+      "utf8",
+    ),
+    /away: await gameRulesetCardsAway\(app\.db, chatId, resolved\.definition, chatMeta, chat\.personaId\),\s*live: parseStoredRulesetLive\(liveRow\?\.rulesetLive\),/u,
+  );
   // A ruleset with no budget says nothing of one.
   const plain = parsed(JSON.parse(text));
   const none = await encounterRulesetBrief(plain, null, { cards, difficulty: "normal" });

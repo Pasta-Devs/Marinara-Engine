@@ -6,7 +6,7 @@ import {
 } from "@marinara-engine/shared";
 import { isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
-import { logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
 import type { DecisionConnection } from "./decision-connection.js";
 
@@ -137,8 +137,8 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
     }
     logDebugOverride(
       req.debugMode === true || process.env.DEBUG_AGENTS === "true",
-      "[decision] System One request: %s",
-      JSON.stringify(body),
+      "[decision] System One request:\n%s",
+      debugJson(body),
     );
     const response = await postDecisionRequest(req.connection.endpoint, req.connection.apiKey, body, signal);
     if (!response.ok) {

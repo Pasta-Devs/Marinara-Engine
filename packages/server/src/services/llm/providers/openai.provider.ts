@@ -38,7 +38,7 @@ import {
   shouldSuppressUnknownModelParameters,
   supportsXhighReasoningEffort,
 } from "@marinara-engine/shared";
-import { logger, logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { getOpenCodeSessionId } from "../../../utils/opencode-session.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
@@ -580,6 +580,11 @@ export class OpenAIProvider extends BaseLLMProvider {
     return fallbackPayload;
   }
 
+  /** Compatible endpoints may ignore stream:true and return the completed JSON response. */
+  private static receivedJsonBody(response: Response): boolean {
+    return response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+  }
+
   private static extractSseData(trimmedLine: string): string | null {
     if (!trimmedLine.startsWith("data:")) return null;
     return trimmedLine.slice(5).trimStart();
@@ -1032,8 +1037,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     // `tool` role before. Debug mode shows what the model actually reads, not the transcript it came from.
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/openai] chat request messages:\n%j",
-      body.messages,
+      "[debug/openai] chat request messages:\n%s",
+      debugJson(body.messages),
     );
     const send = () =>
       llmFetch(url, {
@@ -1055,8 +1060,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] role-alternation retry messages:\n%j",
-          messages,
+          "[debug/openai] role-alternation retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -1075,8 +1080,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] Anthropic-compatible retry messages:\n%j",
-          messages,
+          "[debug/openai] Anthropic-compatible retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -1104,8 +1109,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] tool-role retry messages:\n%j",
-          messages,
+          "[debug/openai] tool-role retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -2102,11 +2107,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     const response = await this.postChatCompletions(url, body, effectiveStream, options);
     const prefixEcho = createPrefixEchoFilter(mistralPrefixText(body));
 
-    if (!effectiveStream) {
+    if (!effectiveStream || OpenAIProvider.receivedJsonBody(response)) {
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
         response,
         "OpenAI chat() non-stream response",
       );
+      if (effectiveStream) options.signal?.throwIfAborted();
       const choices = OpenAIProvider.requireChatCompletionsChoices<{
         finish_reason?: string | null;
         message: Record<string, unknown> & { content: string | unknown[] | null; refusal?: string };
@@ -2416,8 +2422,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const response = await this.postChatCompletions(url, body, useStream, options);
     const prefixEcho = createPrefixEchoFilter(mistralPrefixText(body));
 
-    const receivedJson =
-      response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+    const receivedJson = OpenAIProvider.receivedJsonBody(response);
     if (!useStream || receivedJson) {
       // Compatible endpoints may ignore stream:true and return the completed JSON response.
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
@@ -3009,8 +3014,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     // provider caches is this body's prefix, so two turns' bodies are what to compare on a miss.
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/openai] responses request body: %j",
-      body,
+      "[debug/openai] responses request body:\n%s",
+      debugJson(body),
     );
     return body;
   }
@@ -3079,12 +3084,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
-    if (!parseAsStream) {
+    if (!parseAsStream || OpenAIProvider.receivedJsonBody(response)) {
       // Non-streaming: parse the full response
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
         response,
         "OpenAI chatResponses() non-stream response",
       );
+      if (parseAsStream) options.signal?.throwIfAborted();
       OpenAIProvider.assertResponsesSucceeded(json, "OpenAI chatResponses() non-stream response");
       this.emitMissingResponsesReasoningSummary(json, options, "");
       // Emit encrypted reasoning items for multi-turn context
@@ -3347,8 +3353,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
-    const receivedJson =
-      response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+    const receivedJson = OpenAIProvider.receivedJsonBody(response);
     if (!useStream || receivedJson) {
       // Non-streaming: parse the full response
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(

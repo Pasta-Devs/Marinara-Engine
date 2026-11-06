@@ -18,12 +18,13 @@
 // docs/development/logging.md.
 // ──────────────────────────────────────────────
 import pino from "pino";
+import { readableJson } from "@marinara-engine/shared";
 import { randomBytes } from "node:crypto";
 import type { EventEmitter } from "node:events";
 import { writeSync } from "node:fs";
 import { hostname } from "node:os";
 import { isatty } from "node:tty";
-import { getLogLevel, getNodeEnv } from "../config/runtime-config.js";
+import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
 
 type TerminalLogStream = EventEmitter & {
@@ -115,6 +116,14 @@ function privateErrorLogArgument(value: unknown): unknown {
   return err || error ? { ...value, ...(err ? { err } : {}), ...(error ? { error } : {}) } : value;
 }
 
+// Readable lines wherever a person reads the console: `pnpm dev`, a launcher's terminal and the Windows launcher
+// window, so a prompt or reply that debug mode prints keeps its line breaks. Production output that goes anywhere
+// else (Docker logs, a pipe, a file) stays one JSON object per line for log tools. LOG_FORMAT=pretty|json decides
+// instead; the Termux launcher sets pretty, because its output reaches the terminal through tee.
+const stdoutIsTerminal = isatty(1);
+const developmentLogs = getNodeEnv() !== "production";
+export const prettyLogs = (getLogFormat() ?? (developmentLogs || stdoutIsTerminal ? "pretty" : "json")) === "pretty";
+
 export const logger = pino({
   level: getLogLevel(),
   hooks: {
@@ -125,19 +134,22 @@ export const logger = pino({
       return method.apply(this, args);
     },
   },
-  // pino-pretty hides hostname by default; bootId is hidden too, since a dev terminal only
-  // ever shows one run. JSON output (production, log files) keeps both.
-  transport:
-    getNodeEnv() !== "production"
-      ? { target: "pino-pretty", options: { colorize: true, ignore: "hostname,bootId" } }
-      : undefined,
+  // pino-pretty hides hostname by default; bootId is hidden too, since a terminal only ever
+  // shows one run. JSON output keeps both. Colours only reach a terminal (and the dev server's
+  // own pipes, as before), never a launcher's log file.
+  transport: prettyLogs
+    ? {
+        target: "pino-pretty",
+        options: { colorize: developmentLogs || stdoutIsTerminal, ignore: "hostname,bootId" },
+      }
+    : undefined,
   // Pino's defaults (pid, hostname) plus bootId.
   base: { pid: process.pid, hostname: hostname(), bootId },
   mixin: logContextMixin,
   // Pino only serialises `err` by default; `{ error }` would otherwise print as `{}`.
   serializers: { err: pino.stdSerializers.err, error: pino.stdSerializers.err },
 });
-protectTerminalLogger(logger, getNodeEnv() !== "production");
+protectTerminalLogger(logger, prettyLogs);
 
 /**
  * Keeps a child logger (Fastify's app.log) on the shared logger's level after
@@ -154,6 +166,19 @@ export function followLogLevel(child: { level: string }): () => void {
   return () => {
     logger.off("level-change", listener);
   };
+}
+
+/**
+ * A JSON value for a debug line (a prompt, a provider request body, a parsed reply), as readableJson prints it: each
+ * line break inside its strings is a real line break, so a multi-line prompt reads as it was written. Pass it to %s:
+ * it is rendered only when the line is printed, so a large prompt costs nothing while debug output is off.
+ */
+export function debugJson(
+  value: unknown,
+  replacer?: Parameters<typeof readableJson>[1],
+): { toString(): string; toJSON(): string } {
+  const render = () => readableJson(value, replacer);
+  return { toString: render, toJSON: render };
 }
 
 export function logDebugOverride(overrideEnabled: boolean, message: string, ...args: any[]) {

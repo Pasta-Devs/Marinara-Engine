@@ -302,12 +302,15 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       maxParallelJobs: source.maxParallelJobs,
       icon: null,
     });
-    // The copy serves the same model list, so the saved catalogs come along.
-    await app.db
-      .update(connectionAccounts)
-      .set({ modelCatalogs: source.modelCatalogs, usageKeys: source.usageKeys })
-      .where(eq(connectionAccounts.id, copy.id));
-    return copy;
+    // The copy serves the same model list, so the saved catalogs come along. A copy of an imported Connection still
+    // under review stays under review until its endpoint or key is saved locally.
+    const copied = {
+      modelCatalogs: source.modelCatalogs,
+      usageKeys: source.usageKeys,
+      profileImportReviewRequired: source.profileImportReviewRequired,
+    };
+    await app.db.update(connectionAccounts).set(copied).where(eq(connectionAccounts.id, copy.id));
+    return { ...copy, ...copied };
   }
 
   // "Move to a new connection": a copy of this Connection (same service, address, key and limits) takes one Model.

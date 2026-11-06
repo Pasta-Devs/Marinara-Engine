@@ -29,4 +29,8 @@ export type CharacterCatalogPage = {
   offset: number;
   hasMore: boolean;
   catalogGeneration: number;
+  /** Matching cards across all pages. */
+  total: number;
+  /** Folders that hold a matching favourite, before the folder filter. */
+  favoriteFolderIds: string[];
 };

@@ -8,6 +8,22 @@ A quick word list used throughout this guide:
 - Loopback: the machine that is actually running the server. Its address is `127.0.0.1` or `localhost`.
 - Remote access: opening Marinara from any device that is NOT the machine running the server.
 
+## Connect from anywhere with Tailscale
+
+[Tailscale](https://tailscale.com) is a private network for your own devices. Use it to open Marinara on your phone or laptop, at home or away, without opening ports on your router or putting Marinara on the public internet. Marinara trusts devices that connect straight over Tailscale, so you do not need to set a login.
+
+1. Install Tailscale on the computer that runs Marinara and on your other device. Get it from [tailscale.com/download](https://tailscale.com/download).
+2. Sign in to Tailscale with the same account on both devices.
+3. Start Marinara with `start.sh`, `start.bat`, `start-termux.sh`, or the Windows installer. These let other devices connect. If you run `pnpm start` instead, first add `HOST=0.0.0.0` to your `.env` file (see [Where the .env file lives](#where-the-env-file-lives)).
+4. Find the Tailscale address of the Marinara computer. Open the Tailscale app on it, or run `tailscale ip -4`. The address starts with `100.`, for example `100.101.102.103`.
+5. On your other device, turn Tailscale on and open `http://100.101.102.103:7860` in a browser. Use your own address, and your `PORT` if you changed it. Marinara opens without a sign-in page.
+
+If the page does not load, check that Tailscale is on for both devices and that the server listens on `HOST=0.0.0.0`.
+
+> **Note:** This does not work for Docker installs. Tailscale traffic reaches the container through the Docker gateway, so Marinara cannot see that it came from Tailscale. Set a login first ([Option 1](#option-1-login-recommended)), then publish the port beyond `127.0.0.1`.
+
+Backups, imports, updates, and other risky actions still need the admin secret from a remote device. See [Admin Access and privileged actions](#admin-access-and-privileged-actions).
+
 ## What Marinara blocks by default
 
 To protect your data, a fresh Marinara install refuses connections from other devices until you set up access control. By default, only three kinds of client are trusted:
@@ -87,7 +103,7 @@ Then follow these steps from the remote device.
 
 To sign in another device without typing the password, use a pairing code. On a device that is signed in, open **Settings → Advanced → Access** and choose **Add a device**. Then type the code on the sign-in page of the new device. The code works once, for a few minutes. An expired code gets its own message; make a new one. Under **Signed-in devices**, you see each device with its sign-in method and the date it first signed in. You can sign out any device, including the one you use. You can also change or remove the password. For that, Marinara asks for the current password, unless you work on the computer that runs Marinara or have set `ADMIN_SECRET`.
 
-If you forget the password, run `pnpm reset-login` on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. It removes the login set in the app and signs out every browser. If the server listens beyond loopback, it then prints a new setup code. Only if that command does not work, delete `.remote-login.json` and `.remote-sessions.json` from the data folder instead. With the default `/app/data`, run `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`; if you changed `DATA_DIR`, use that folder. A login in `.env` you change in `.env`.
+If you forget the password, run `node scripts/reset-login.mjs` in the Marinara folder on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. It removes the login set in the app and signs out every browser. If the server listens beyond loopback, it then prints a new setup code. Only if that command does not work, delete `.remote-login.json` and `.remote-sessions.json` from the data folder instead. With the default `/app/data`, run `docker exec <container> rm -f /app/data/.remote-login.json /app/data/.remote-sessions.json`; if you changed `DATA_DIR`, use that folder. A login in `.env` you change in `.env`.
 
 **Headless server with no browser?** A native install on a headless server listens on loopback only and prints no setup code. On your own computer, run `ssh -L 7860:127.0.0.1:7860 user@server`. Then open `http://localhost:7860` there and use **Settings**.
 
@@ -233,9 +249,25 @@ You need a certificate and key before setting `SSL_CERT` and `SSL_KEY`. You can 
 
 ## Admin Access and privileged actions
 
-Some actions are extra sensitive: clearing data, creating or downloading backups, importing and exporting profiles, installing themes, and installing the Local Model runtime. These need a separate shared secret called the admin secret, on top of whichever access option you chose above.
+Some actions are extra sensitive: clearing data, creating or downloading backups, importing and exporting profiles, installing themes and agents, and installing the Local Model runtime. These need a separate shared secret called the admin secret, on top of whichever access option you chose above.
 
-On the loopback machine, these actions usually work with no admin secret. From a remote device, you need to set the secret up. Follow these steps.
+On the loopback machine, these actions usually work with no admin secret. From a remote device, you need to set the secret up. You can make it in the app or set it in `.env`.
+
+Installed agents, such as the ones on the Home screen, do not need the admin secret. A device that signed in with the login can use them. Installing, updating and removing an agent still need it.
+
+### Make the admin secret in the app
+
+1. On the computer that runs Marinara, open **Settings**, then the **Advanced** tab, then the **Admin Access** section.
+2. Click **Make admin secret**. Marinara shows the new secret once and saves it in this browser.
+3. On each remote device, open **Settings** → **Advanced** → **Admin Access**, type the secret into the box, then click **Save**. Case, spaces and dashes do not matter.
+
+A device that already has the secret can also make it. A device that is only signed in with the login cannot. This stops a stolen sign-in from taking over the risky actions.
+
+With Docker, your browser reaches Marinara through the Docker network, so Marinara does not treat it as the same computer. Set the first secret in `.env` instead (see below).
+
+To change the secret, click **Replace admin secret**. The old secret stops working on every device. To turn it off, click **Remove admin secret**. Marinara keeps only a fingerprint of the secret, in `.admin-secret.json` in the data folder. Deleting that file also removes the secret.
+
+### Set the admin secret in .env
 
 1. In `.env`, set a strong random value and save. It applies within a couple of seconds, no restart.
 
@@ -243,18 +275,20 @@ On the loopback machine, these actions usually work with no admin secret. From a
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. On the remote device, open Marinara and go to **Settings**, then the **Advanced** tab, then the **Admin Access** section.
+2. On the remote device, open **Settings** → **Advanced** → **Admin Access**.
 3. Paste the same value into the box (its placeholder reads **ADMIN_SECRET**), then click **Save**.
 4. You should see the message **Admin secret saved for this browser**.
 
-A few things to know about the admin secret:
+`ADMIN_SECRET` in `.env` wins over a secret made in the app. While it is set, **Admin Access** says so and you change the secret in `.env` only.
 
-- It is stored in that one browser only. It does not sync across devices. Each browser that needs privileged actions must paste it in separately.
+### Good to know
+
+- Each browser keeps its own copy. It does not sync across devices.
 - Clicking **Save** with the box empty clears it and shows **Admin secret cleared**.
-- If the server operator sets `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, even the loopback machine needs the secret.
+- If the server operator sets `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, even the loopback machine needs the secret. Then you need the current secret to make, replace or remove it in the app, so set the first one in `.env`.
 - This is separate from Basic Auth. You can use both. Basic Auth gates the whole app, and the admin secret gates the dangerous actions.
 
-If a privileged action fails on a remote device, Marinara shows an error message with two fixes. One fix is to open the app through localhost. The other is to set `ADMIN_SECRET` in the server `.env`, then paste the same value in **Settings** > **Advanced** > **Admin Access**.
+If a privileged action fails on a remote device, Marinara shows an error message with two fixes. One fix is to open the app through localhost. The other is to set up the admin secret as described above.
 
 ## Why is my save blocked (CSRF)
 

@@ -191,20 +191,21 @@ jobs:
           DOTTORE_CONCURRENCY: ${{ vars.DOTTORE_CONCURRENCY }}
           DOTTORE_FINDERS: ${{ vars.DOTTORE_FINDERS }}
           DOTTORE_COST_LIMIT_USD: ${{ vars.DOTTORE_COST_LIMIT_USD }}
-          # Shown to the reviewer only when the PR changes a file under .github/; secrets are never passed.
+          # Every repository and organization variable; the reviewer shows only the DOTTORE_* ones, and only when the PR
+          # changes a file under .github/. Variables only: toJSON(vars) holds no secret.
           DOTTORE_VARS_JSON: ${{ toJSON(vars) }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py produce
 
       - name: Render review
-        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && steps.post.outputs.ready != 'false' && inputs.review_mode != 'autofix'
+        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && inputs.review_mode != 'autofix'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py render
 
       - name: Post the review
         id: post
-        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && steps.post.outputs.ready != 'false' && inputs.review_mode != 'autofix'
+        if: steps.admission.outputs.ready == 'true' && steps.examination.outputs.ready != 'false' && inputs.review_mode != 'autofix'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py post
@@ -384,13 +385,17 @@ jobs:
           DISABLE_TELEMETRY: "1"
         run: |
           mkdir -p /tmp/dottore-fix
+          # The checkout is the PR's: Claude Code takes no agent configuration from it (settings, hooks, MCP servers)
+          # and has only the file tools. The patch below leaves the removal out.
+          rm -rf .claude .mcp.json
           claude -p "$(cat /tmp/dottore-autofix/prompt.md)" --model "$AUTOFIX_MODEL" ${AUTOFIX_EFFORT:+--effort "$AUTOFIX_EFFORT"} --max-turns 40 \
+            --setting-sources user --strict-mcp-config --settings '{"disableAllHooks":true}' --tools "Read,Edit,Write,Grep,Glob" \
             --allowedTools "Read,Edit,Write,Grep,Glob" --permission-mode acceptEdits --output-format json \
             > /tmp/dottore-fix/claude.json || echo "::warning::Claude Code exited with an error."
           jq -r '"Autofix: \(.subtype) turns=\(.num_turns) seconds=\(.duration_ms / 1000) list_usd=\(.total_cost_usd)"' \
             /tmp/dottore-fix/claude.json || true
           jq -r '.result // ""' /tmp/dottore-fix/claude.json > /tmp/dottore-fix/summary.md 2>/dev/null || true
-          git add -A -- . ':!.claude' && git diff --cached --binary > /tmp/dottore-fix/patch.diff
+          git add -A -- . ':!.claude' ':!.mcp.json' && git diff --cached --binary > /tmp/dottore-fix/patch.diff
           # The patch is pushed in public: refuse one that carries this step's key (a file read from the process).
           if [ -n "$ANTHROPIC_API_KEY" ] && grep -qF -- "$ANTHROPIC_API_KEY" /tmp/dottore-fix/patch.diff /tmp/dottore-fix/summary.md; then
             echo "::error::The repair contains a secret; discarding it."

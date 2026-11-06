@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, openChatSettings } from "./chat-settings-tools.js";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
+import { hideExistingItems } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -59,6 +60,10 @@ async function setup(
   ui: Record<string, unknown> = {},
   seedMode: "replace" | "if-missing" = "replace",
 ) {
+  // The page sees only this test's Models and accounts: the shared server keeps other specs' ones, and a run that
+  // timed out before its cleanup keeps its starred models, which would open the menu on Starred.
+  await hideExistingItems(page, request, "/api/connections");
+  await hideExistingItems(page, request, "/api/connection-accounts");
   const provider = await startProvider();
   const suffix = `${testInfo.project.name} ${theme} ${Date.now()}`;
   const createConnection = async (name: string, model: string, baseUrl = provider.baseUrl, apiKey = "") => {
@@ -519,6 +524,10 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     await expect(menu.locator("[data-switcher-results]")).toContainText("Delta");
     await switcherSearch.press("Enter");
     await menuGone();
+    // A phone shows the pick's toast over the top of the sheet, where "Use default" is; close it, as a user would.
+    const deltaToast = page.locator("[data-sonner-toast]").filter({ hasText: "This chat now uses Delta" });
+    await deltaToast.getByRole("button", { name: "Close toast", exact: true }).click();
+    await expect(deltaToast).toHaveCount(0);
     await expect.poll(chatModel).toBe("vendor/delta");
     const delta = await chatState(request, chat.id);
     // Both Connections list Delta now; the first hit runs on one of their Models, and nothing is saved.
@@ -620,6 +629,59 @@ test("the models menu reads in light theme too (#7098)", async ({ page, request 
     await cleanup();
   }
 });
+
+// #8833: the menu floats over the chat background, so its paint lies on a solid layer and the busy
+// background never shows through its text. A translucent custom color with Apply preset colors keeps its paint.
+const BUSY_BACKGROUND = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64"><rect width="96" height="64" fill="#ffd60a"/>' +
+    '<rect width="32" height="64" fill="#0a84ff"/><text x="4" y="42" font-size="30" fill="#ff2d55">Model</text></svg>',
+)}`;
+
+/** The menu's computed paint: the desktop menu itself, or the phone's window around it. */
+const menuPaint = (menu: Locator) =>
+  menu.evaluate((element) => {
+    const style = getComputedStyle(element.closest<HTMLElement>(".mari-modal-panel") ?? element);
+    return { color: style.backgroundColor, image: style.backgroundImage };
+  });
+
+/** The alpha of a computed color: rgb() and other three-channel colors are opaque. */
+const alphaOf = (color: string) => {
+  const channels = color.match(/[\d.]+/g) ?? [];
+  return channels.length === 4 ? Number(channels[3]) : 1;
+};
+
+for (const theme of ["dark", "light"] as const) {
+  test(`the models menu stays opaque over a busy chat background in ${theme} theme (#8833)`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const { cleanup } = await setup(page, request, testInfo, theme, { defaultRoleplayBackground: BUSY_BACKGROUND });
+    try {
+      await page.goto("/");
+      await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
+      const menu = await openMenu(page, testInfo);
+      const paint = await menuPaint(menu);
+      // The bottom layer is opaque, so the layers above it are too.
+      expect(alphaOf(paint.color), paint.color).toBe(1);
+      if (!isPhone(testInfo)) expect(paint.image).toContain("linear-gradient(");
+      await capture(page, testInfo, `menu-over-busy-background-${theme}`);
+
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setChatWidgetBackgroundColor("rgba(20, 20, 32, 0.3)");
+        useUIStore.getState().setChatWidgetApplyColors(true);
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-chat-widget-apply-colors", "true");
+      if (!isPhone(testInfo)) await expect.poll(async () => (await menuPaint(menu)).image).toContain("0.3)");
+      const glass = await menuPaint(menu);
+      expect(alphaOf(glass.color), glass.color).toBe(1);
+      await capture(page, testInfo, `menu-over-busy-background-${theme}-custom-color`);
+      await closeMenu(page);
+    } finally {
+      await cleanup();
+    }
+  });
+}
 
 test("reselecting Main keeps the chat following it, and unavailable search picks lead to repair", async ({
   page,

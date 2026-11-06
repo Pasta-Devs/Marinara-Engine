@@ -117,7 +117,12 @@ test("package and Engine share typed selection without changing chats or default
       await page.locator('.mari-window-bubble[data-tracker-panel-toggle="bubble"]').click();
     await expect(panel).toBeVisible();
     const trigger = page.getByRole("button", { name: "Open shared picker fixture" });
-    await trigger.click();
+    // WebKit does not focus a button on click, so the trigger is used from the keyboard: focus can go back to it.
+    const openFromKeyboard = async () => {
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+    };
+    await openFromKeyboard();
     const dialog = page.getByRole("dialog", { name: "Image model", exact: true });
     await expect(dialog).toBeVisible();
     // The heading shows the account's own name; the tooltip pairs it with the service.
@@ -135,7 +140,8 @@ test("package and Engine share typed selection without changing chats or default
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     }
     await dialog.getByRole("searchbox").fill("gpt-image-1");
-    await dialog.getByRole("button", { name: /Fixture image/ }).click();
+    // #8456: each row carries a "Star Fixture image" button, so the row is the one whose name starts with the model.
+    await dialog.getByRole("button", { name: /^Fixture image/ }).click();
     await expect
       .poll(() => page.evaluate(() => (window as any).pickerResult))
       .toEqual({ status: "selected", value: image.id });
@@ -148,9 +154,11 @@ test("package and Engine share typed selection without changing chats or default
         .pickConnection({ value: id, kind: "image", title: "Confirm model" })
         .then((r: unknown) => (w.pickerResult = r));
     }, image.id);
+    // The current model is listed twice, in the Now strip and in its account's models.
     await page
       .getByRole("dialog", { name: "Confirm model" })
-      .getByRole("button", { name: /Fixture image/ })
+      .getByRole("region", { name: "All models" })
+      .getByRole("button", { name: /^Fixture image/ })
       .click();
     await expect
       .poll(() => page.evaluate(() => (window as any).pickerResult))
@@ -163,14 +171,16 @@ test("package and Engine share typed selection without changing chats or default
         .pickConnection({ kind: "chat", defaultLabel: "Inherit fixture default", title: "Default choice" })
         .then((r: unknown) => (w.pickerResult = r));
     });
-    await page
-      .getByRole("dialog", { name: "Default choice" })
-      .getByRole("button", { name: "Inherit fixture default", exact: true })
-      .click();
+    const defaultDialog = page.getByRole("dialog", { name: "Default choice" });
+    // A phone opens on one account's models; the default sits in the Now strip above the account list.
+    const back = defaultDialog.locator("[data-switcher-back]").filter({ visible: true });
+    await expect(defaultDialog.locator("[data-switcher-accounts]")).toHaveCount(1);
+    if (await back.count()) await back.click();
+    await defaultDialog.getByRole("button", { name: "Inherit fixture default", exact: true }).click();
     await expect
       .poll(() => page.evaluate(() => (window as any).pickerResult))
       .toEqual({ status: "selected", value: null });
-    await trigger.click();
+    await openFromKeyboard();
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");
     await expect.poll(() => page.evaluate(() => (window as any).pickerResult)).toEqual({ status: "cancelled" });
@@ -189,14 +199,30 @@ test("package and Engine share typed selection without changing chats or default
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();
     await expect.poll(() => page.evaluate(() => (window as any).second)).toEqual({ status: "cancelled" });
-    // A disabled account remains visible and cannot be newly selected.
+    // A disabled account remains visible and cannot be newly selected: since #8456 its rows say Off and lead to
+    // the account's Turn on, rather than being disabled.
     await request.patch(`/api/connection-accounts/${account.account.id}`, { data: { enabled: false } });
     await page.reload();
     if (page.viewportSize()!.width < 768)
       await page.locator('.mari-window-bubble[data-tracker-panel-toggle="bubble"]').click();
     await trigger.click();
-    await expect(dialog.getByRole("button", { name: /Fixture image/ })).toBeDisabled();
-    await page.keyboard.press("Escape");
+    const offRow = dialog.locator(`[data-switcher-entry="${image.id}"]`).filter({ visible: true });
+    await expect(offRow).toHaveAttribute("aria-label", /^Fixture image, .*\bOff\b/);
+    await expect(
+      dialog.getByRole("button", { name: `Turn on Picker studio ${info.project.name}`, exact: true }).first(),
+    ).toBeVisible();
+    // Clicking the Off row turns its account on and picks nothing: the picker stays open with no result.
+    await offRow.first().click();
+    const accountEnabled = async () =>
+      ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string; enabled: boolean }>).find(
+        (row) => row.id === account.account.id,
+      )?.enabled;
+    await expect.poll(accountEnabled).toBe(true);
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => (window as any).pickerResult)).toBeUndefined();
+    // A phone's pane goes back to the account list, so focus leaves the window and Escape would not reach it.
+    await dialog.getByRole("button", { name: "Close Image model", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).pickerResult)).toEqual({ status: "cancelled" });
     await request.patch(`/api/connection-accounts/${account.account.id}`, { data: { enabled: true } });
     const afterChat = await (await request.get(`/api/chats/${chatId}`)).json();
     expect(afterChat.connectionId).toBe(account.connectionId);
@@ -236,7 +262,7 @@ test("package and Engine share typed selection without changing chats or default
   }
 });
 
-test("picker waits for account state", async ({ page }, info) => {
+test("picker waits for account state", async ({ page, isMobile }, info) => {
   const { prepareViteFixtureDependencies } = await import("./vite-fixture-dependencies.js");
   let releaseAccounts!: () => void;
   const accountGate = new Promise<void>((resolve) => (releaseAccounts = resolve));
@@ -303,17 +329,23 @@ test("picker waits for account state", async ({ page }, info) => {
       );
     });
     await page.getByRole("button", { name: /^Shared state picker/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Choose a model", exact: true });
+    // #8456: the one model picker is titled with its job, and its rows are [data-switcher-entry].
+    const dialog = page.getByRole("dialog", { name: "Model for Shared state picker", exact: true });
+    const row = dialog.locator('[data-switcher-entry="state-fixture"]');
     await expect(dialog).toContainText("Loading models");
-    await expect(dialog.locator('[data-picker-value="state-fixture"]')).toHaveCount(0);
+    await expect(row).toHaveCount(0);
     await page.screenshot({ path: `.tmp/shared-picker/screenshots/loading-${info.project.name}.png` });
     releaseAccounts();
     await expect(dialog.getByRole("alert")).toContainText("Couldn't load your models");
-    await expect(dialog.locator('[data-picker-value="state-fixture"]')).toHaveCount(0);
+    await expect(row).toHaveCount(0);
     await page.screenshot({ path: `.tmp/shared-picker/screenshots/error-${info.project.name}.png` });
     failAccounts = false;
     await dialog.getByRole("button", { name: "Try again", exact: true }).click();
-    await expect(dialog.locator('[data-picker-value="state-fixture"]')).toBeDisabled();
+    // An Off account's rows say so and lead to its Turn on instead of being disabled (#8456).
+    await expect(row.filter({ visible: true })).toHaveAttribute("aria-label", /^State fixture, .*\bOff\b/);
+    await expect(dialog.getByRole("button", { name: "Turn on State account", exact: true }).first()).toBeVisible();
+    // Its search box only shows once both lists are in; a fine pointer then still gets it focused.
+    if (!isMobile) await expect(dialog.getByRole("searchbox")).toBeFocused();
     await expect(dialog.locator("strong", { hasText: "State account" }).first()).toHaveAttribute(
       "title",
       "OpenAI · State account",

@@ -1433,7 +1433,7 @@ export function ConversationView({
                 replyCheckup={msg.id === replyCheckupMessageId ? replyCheckup : undefined}
                 onSetActiveSwipe={onSetActiveSwipe}
                 onToggleHiddenFromAI={onToggleHiddenFromAI}
-                onPeekPrompt={() => onPeekPrompt(msg.id)}
+                onPeekPrompt={onPeekPrompt}
                 isLastAssistantMessage={msg.id === lastAssistantMessageId}
                 characterMap={characterMap}
                 personaInfo={personaInfo as any}
@@ -1468,7 +1468,7 @@ export function ConversationView({
                   onEdit={onEdit}
                   onSetActiveSwipe={onSetActiveSwipe}
                   onToggleHiddenFromAI={onToggleHiddenFromAI}
-                  onPeekPrompt={() => onPeekPrompt(regenerationDraftMessage.id)}
+                  onPeekPrompt={onPeekPrompt}
                   isLastAssistantMessage={false}
                   characterMap={characterMap}
                   personaInfo={personaInfo as any}
@@ -1500,7 +1500,7 @@ export function ConversationView({
             onEdit={onEdit}
             onSetActiveSwipe={onSetActiveSwipe}
             onToggleHiddenFromAI={onToggleHiddenFromAI}
-            onPeekPrompt={() => onPeekPrompt(liveStreamMessage.id)}
+            onPeekPrompt={onPeekPrompt}
             isLastAssistantMessage={false}
             characterMap={characterMap}
             personaInfo={personaInfo as any}

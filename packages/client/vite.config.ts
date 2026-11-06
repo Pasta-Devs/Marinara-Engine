@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import path from "path";
 import { delegateDirectAndroidBuild } from "./scripts/build-heap.mjs";
+import { cssLangSelectorGuard } from "./scripts/css-lang-selectors.mjs";
 
 const ENABLE_SOURCE_MAPS = process.env.VITE_ENABLE_SOURCEMAP === "true";
 const PWA_DISABLED = Boolean(process.env.SKIP_PWA);
@@ -255,6 +256,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     bundleBudget(),
+    cssLangSelectorGuard(),
     !PWA_DISABLED
       ? VitePWA({
           injectRegister: false,
@@ -333,6 +335,8 @@ export default defineConfig({
     outDir: "dist",
     manifest: true,
     target: "es2020",
+    // Old iOS. Lightning CSS fakes the logical properties Safari 14 lacks with :lang() lists Chromium drops,
+    // so cssLangSelectorGuard fails the build on one (#8709).
     cssTarget: "safari14",
     // Vite reports decimal kB; 512 kB matches the bundle plugin's enforced 500 KiB ceiling.
     chunkSizeWarningLimit: 512,

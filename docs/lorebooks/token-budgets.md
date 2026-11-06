@@ -1,83 +1,80 @@
 # Lorebook Token Budgets and Recursion
 
-This guide explains how Marinara Engine limits how much lorebook text reaches the AI. It covers each lorebook's own **Token Budget** and **Entry Limit**, plus the chat-wide **Lorebook Token Budget**. It also explains how Marinara trims entries when a budget is full, and what **Recursive** scanning does.
+Budgets limit how much lorebook text reaches the AI, so lorebooks do not crowd out the chat. This guide covers each lorebook's **Token Budget** and **Entry Limit**, the chat's **Lorebook Token Budget**, how Marinara trims entries, and **Recursive** scanning.
 
-A token is a small chunk of text, roughly a few characters. Every model has a limited context window, which is the total amount of text it can read at once. Budgets keep your lorebooks from filling that window and crowding out the actual conversation.
+Tokens are small pieces of text that models count. A model's context window is how much text it can read at once, counted in tokens. Lorebook text shares that window with the rest of the prompt.
 
 ## Two token budgets
 
-Marinara applies two separate token budgets every time it builds a prompt. Marinara skips an entry if it would push either budget over its cap.
+Marinara applies two budgets every time it builds a prompt. An entry is skipped if it would push either one over its cap.
 
-1. Each lorebook has its own **Token Budget**. This caps how much text that one lorebook can add per reply.
-2. The chat has a single **Lorebook Token Budget**. This caps the total text from all active lorebooks combined in that chat.
-
-Both caps run at the same time. A single entry can be blocked by the lorebook budget, the chat budget, or both.
+- Each lorebook has its own **Token Budget**: the most tokens that lorebook can add to one reply.
+- Each chat has one **Lorebook Token Budget**: the most tokens all active lorebooks can add together.
 
 ## Setting a lorebook's Token Budget and Entry Limit
 
-Open a lorebook from the **Lorebooks** panel, then use the **Overview** tab. You will see two number fields near the scan settings.
+1. Open a lorebook from the **Lorebooks** panel.
+2. Click the **Overview** tab.
+3. Set **Token Budget** and **Entry Limit**.
 
-- **Token Budget** (default **2048**): the most tokens this lorebook can add in one reply. Set it to **0** for unlimited.
-- **Entry Limit** (default **100**): the most entries this lorebook can add in one reply. You can set it from **1** to **1000**.
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Token Budget** | 2048 | The most tokens this lorebook adds in one reply. 0 means unlimited. |
+| **Entry Limit** | 100 | The most entries this lorebook adds in one reply. Range 1 to 1000. |
 
-The **Entry Limit** is a separate cap from the token budget. It counts entries, not tokens. Even with room in the token budget, a lorebook stops adding entries once it hits this limit. The token budget can still skip entries while the lorebook is under its **Entry Limit**.
+**Entry Limit** counts entries, not tokens. A lorebook stops adding entries when it reaches either limit.
 
-For example, imagine a lorebook with a **Token Budget** of **2048** and one 3000-token entry. That lorebook can never add the entry. Lower the budget only if a lorebook is taking too much space. Raise it if important entries keep getting skipped.
+For example, with a **Token Budget** of 2048, a single 3000-token entry can never be added. Lower a budget if a lorebook takes too much space. Raise it if important entries keep being skipped.
 
-## The chat-wide Lorebook Token Budget
-
-The chat-level cap lives in the chat's **Settings** drawer, in the **Lorebooks** section.
+## Set the chat's Lorebook Token Budget
 
 1. Open a chat.
-2. Open the chat **Settings** drawer.
-3. Find the **Lorebooks** section.
-4. Set the **Lorebook Token Budget** field.
+2. Open **Chat Settings**.
+3. Find the **Lorebooks** section and set **Lorebook Token Budget**.
 
-The default is **8192**. Set it to **0** for unlimited. This budget is the total for every lorebook active in this chat. It applies on top of each lorebook's own **Token Budget**.
+The default is 8192, and 0 means unlimited. It is the total for every lorebook active in this chat, on top of each lorebook's own **Token Budget**.
 
 ## How entries get trimmed
 
-When more entries match than a budget allows, Marinara keeps the most important ones and drops the rest. It sorts entries before trimming so the ones you most likely need survive.
+When more entries match than a budget allows, Marinara adds entries in this order.
 
-- **Constant** entries come first. These are entries set to inject every time the lorebook is active.
-- Entries that matched your latest message come next.
-- Remaining entries follow in their normal injection order.
+1. **Constant** entries.
+2. Entries that matched the latest messages.
+3. The rest, in their injection order (the entry **Order** field).
 
-Marinara goes down that list and adds each entry that still fits. If an entry would push a budget over its cap, Marinara skips that entry and moves on. It still checks every entry below the skipped one. This means a smaller entry can get in even after Marinara skips a larger one.
+Marinara adds each entry that still fits. When one does not fit, it skips that entry and keeps checking the rest, so a smaller entry can still get in after a larger one was skipped.
 
 ## Seeing skipped entries in Active Context
 
-You do not have to guess which entries were dropped. Open **Chat Settings** and expand the **Active Context** section. It shows the live result of the most recent lorebook scan.
+1. Open **Chat Settings**.
+2. Expand **Active Context**. It shows the most recent lorebook scan.
 
-If any matching entries were skipped, a notice in your theme's accent color appears at the top. It reads "N matching lore entries were skipped by token budget." Under that, it names each budget that skipped entries and where to change it. Expand it to see each skipped entry.
+If matching entries were skipped, a notice at the top reads "N matching lore entries were skipped by token budget." It names each budget that skipped entries and where to change it. Expand it to see each skipped entry, its lorebook, its matched keywords, its estimated size and how much of the budget was used. The reason is one of these.
 
-Each skipped entry names the lorebook it came from and why it was blocked. The reason is one of these:
+| Reason | Meaning |
+| --- | --- |
+| **lorebook budget** | The entry did not fit that lorebook's **Token Budget**. |
+| **chat budget** | The entry did not fit the chat's **Lorebook Token Budget**. |
+| **lorebook and chat budgets** | Both caps were already full. |
+| **current-location context cap** | The entry is attached to the current map location, which has its own fixed cap of 2,048 tokens. |
 
-- **lorebook budget**: the entry did not fit that single lorebook's **Token Budget**.
-- **chat budget**: the entry did not fit the chat-wide **Lorebook Token Budget**.
-- **lorebook and chat budgets**: both caps were already full.
-- **current-location context cap**: the entry is lore attached to the current location, which has its own limit of 2,048 tokens. No setting changes it, but the entry can still come in through its own keywords.
+An entry with blank text, or text that macros turn into nothing, is not listed. Its macros still run, so a `{{setvar}}` in it still sets the variable. With both budgets at 0, only the location cap can list skipped entries.
 
-An entry whose text is blank, or that macros turn into nothing, is not listed. It has nothing to add, so no budget skipped it. Its macros still run, so a `{{setvar}}` in it still sets the variable. With both token budgets at **0**, only the current-location limit can list skipped entries here.
-
-Expand a skipped entry to see more detail. It shows the matched keywords, the estimated token size, and how much of the budget was already used. If large lorebooks keep getting skipped, **Active Context** suggests the **Knowledge Retrieval** or **Knowledge Router** agents. These often fit big lorebooks better than raising your caps.
+If large lorebooks keep being skipped, **Active Context** suggests the **Knowledge Retrieval** or **Knowledge Router** agents. See [Knowledge Sources](../agents/knowledge-sources.md). These often fit big lorebooks better than a higher cap.
 
 ## Recursive scanning
 
-Normally Marinara scans only your recent messages for keyword matches. With **Recursive** scanning on, it also scans the text of entries that just activated. This lets an activated entry pull in related entries whose keywords appear in its text.
+Normally Marinara scans only your recent messages for keys. With **Recursive** on, it also scans the text of entries that were newly activated, so one entry can pull in related entries.
 
-Turn it on in the lorebook **Overview** tab.
+1. Open the lorebook and click **Overview**.
+2. Turn on **Recursive**. It is off by default.
+3. Set **Max Depth** if you want to change how far chaining goes.
 
-1. Open the lorebook.
-2. Open the **Overview** tab.
-3. Turn on the **Recursive** switch. It is off by default.
-4. Set **Max Depth** if you want to change how far the chaining goes.
+**Max Depth** is the number of extra scanning passes. The default is 3 and the range is 1 to 10. Higher values find more connected lore and use more processing.
 
-**Max Depth** (default **3**) sets how many extra scanning passes run. Each pass looks at the newly activated entries for more keyword matches. You can set it from **1** to **10**. Higher values find more connected lore but use more processing.
+Each entry also has its own **Recursion** toggle, off by default, which decides whether that entry's content can trigger more entries. Keep it off unless the entry should chain. See [Lorebook Entries: Keys, Position, and Timing](entries.md).
 
-Recursion is opt-in per entry as well. In an entry's expanded drawer, the **Recursion** toggle controls whether that entry's content can trigger more entries. It is off by default. Keep it off unless that entry should chain into other lore. See [Lorebook Entries: Keys, Position, and Timing](entries.md) for the full entry controls.
-
-Recursion does not bypass your budgets. Entries found by a recursive pass still count against the **Token Budget**, the **Entry Limit**, and the chat-wide **Lorebook Token Budget** like any other entry.
+Recursion does not bypass budgets. Entries found by a recursive pass count against the **Token Budget**, the **Entry Limit** and the chat's **Lorebook Token Budget**.
 
 ## Related guides
 

@@ -1312,10 +1312,13 @@
   padding: 0;
 }
 
-/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm. */
+/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
+   !important on purpose: theme and accent-mode rules kept outranking this and the
+   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
-  background: transparent;
-  border-color: transparent;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* One-of-N choice card: title, description and optional preview stacked on the left.
@@ -1368,6 +1371,17 @@
   box-shadow:
     0 0 0 2px var(--marinara-chat-chrome-accent),
     0 0 0 4px var(--marinara-chat-chrome-focus-ring);
+}
+
+/* Selecting messages to delete tints the selection in the danger colour (export keeps the accent). */
+[data-message-delete-select] {
+  --message-selection-color: var(--destructive);
+  --message-selection-bg: color-mix(in srgb, var(--destructive) 10%, transparent);
+}
+
+[data-marinara-accent-animation][data-message-delete-select] {
+  --message-selection-color: var(--marinara-app-accent-static);
+  --message-selection-bg: color-mix(in srgb, var(--marinara-app-accent-static) 10%, transparent);
 }
 
 /* Accent Pulse animates --primary, and --destructive defaults to it. Delete buttons hold the
@@ -2559,8 +2573,11 @@
   background: var(--marinara-chat-chrome-accent);
 }
 
+/* Quiet buttons keep their no-fill rest state; hover below still applies. */
 [data-marinara-chat-chrome-accent-mode="gradient"]
-  .mari-chrome-control:not(.mari-chrome-control--danger):not(.mari-chat-mode-action):not(.mari-panel-gradient-button) {
+  .mari-chrome-control:not(.mari-chrome-control--danger):not(.mari-chat-mode-action):not(
+    .mari-panel-gradient-button
+  ):not(.mari-chrome-control--quiet) {
   border-color: var(--marinara-chat-chrome-button-border);
   background: var(--marinara-chat-chrome-button-bg);
 }
@@ -2679,16 +2696,16 @@
     transform 180ms linear;
 }
 
-/* Touch accents should repaint at their tick cadence, not start color, border
-   and shadow transitions across every mounted control between ticks.
+/* Animated accents should repaint at their tick cadence, not start color, border
+   and shadow transitions across every mounted control between ticks. Desktop
+   gets Accent Pulse by default, so this applies to every pointer type.
    ponytail: root colors still update at 2 Hz; isolated accent layers are the
    upgrade path if device profiles need a smaller rendering budget. */
-@media (pointer: coarse) {
-  html[data-marinara-accent-animation] *,
-  html[data-marinara-accent-animation] *::before,
-  html[data-marinara-accent-animation] *::after {
-    transition-property: opacity, transform, translate, scale, rotate !important;
-  }
+html[data-marinara-accent-animation] *,
+html[data-marinara-accent-animation] *::before,
+html[data-marinara-accent-animation] *::after {
+  transition-property:
+    opacity, transform, translate, scale, rotate, width, height, max-width, max-height, grid-template-rows !important;
 }
 
 /* ─────────────────────────────────────────────
@@ -3124,6 +3141,17 @@ html[data-mari-ios-webkit] .mari-modal {
 }
 
 html[data-mari-ios-webkit] .mari-modal .mari-modal-panel {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+}
+
+/* Cut corners move a chat-styled panel's fill onto ::after (chat-widget-surfaces.css), which would drop
+   the opaque backing above. Without Colors that fill is the same translucent chrome, so it is backed too. */
+html[data-mari-ios-webkit]:not(
+    [data-chat-widget-apply-colors="true"]
+  )[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
+  .mari-modal
+  .mari-modal-panel.mari-chat-style-surface::after {
   background-color: var(--mari-modal-opaque-bg);
   background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
 }
@@ -3747,12 +3775,19 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     padding-inline: 0.5rem;
   }
 
-  .mari-editor-header--dense .mari-editor-navigation {
+  .mari-editor-header--dense .mari-editor-actions {
+    gap: 0.25rem;
+  }
+
+  /* Character and persona cards: their 2.75rem-wide actions do not fit beside the section menu. A character's
+     seven need about 425px and a persona's six about 370px, where a 390px phone has about 365px. The menu gives
+     way first, and the tap height stays 2.75rem, only the width is narrower. */
+  .mari-editor-header--card .mari-editor-navigation {
     flex-basis: 4rem;
   }
 
-  .mari-editor-header--dense .mari-editor-actions {
-    gap: 0.25rem;
+  .mari-editor-header--card .mari-editor-actions .mari-editor-action {
+    min-width: 2.25rem;
   }
 }
 
@@ -4886,7 +4921,9 @@ strong {
 .mari-message-content .mari-md-codeblock-lang {
   position: absolute;
   top: 0;
-  inset-inline-end: 0;
+  /* Physical: code blocks are left-to-right (dir="ltr", markdown.tsx), so the end corner is the right one in
+     every locale, as for the Copy button. inset-inline-end compiles to :lang() lists Chromium drops (#8709). */
+  right: 0;
   font-size: 0.7em;
   color: rgba(255, 255, 255, 0.3);
   padding: 0.25em 0.6em;
@@ -7375,9 +7412,11 @@ strong {
     max-height: none !important;
   }
 
-  /* Chat Settings' rows above its sections (Tracker Panel, Reset View, the drag-and-drop hint) step
-     aside while you type, so a phone turned sideways still shows the field. */
-  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-settings-top-row] {
+  /* Chat Settings' rows above its sections (Tracker Panel, Reset View, the drag-and-drop hint, and the
+     wide-screen Chat button layout row) step aside while you type, so a phone turned sideways still
+     shows the field. */
+  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-settings-top-row],
+  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-button-layout] {
     display: none;
   }
 

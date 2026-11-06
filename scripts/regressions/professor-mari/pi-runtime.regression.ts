@@ -2,7 +2,7 @@
 // Covers the tool-call round trip through WorkspaceCommands, the Permissions Mode floors, abort, the classic
 // default and fallback, the closed tool set, replay metadata, the per-turn review and the real prompt builder.
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -180,6 +180,108 @@ try {
         typeof event.data === "string" ? event.data : String((event.data as { content?: string }).content),
       );
 
+  // #8806: the OpenAI-compatible wire response goes through the provider, Pi review and saved chat.
+  {
+    const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
+    const entries =
+      '<use_tool name="app data"><parameter name="action">lorebook entries</parameter><parameter name="lorebookId">sample-book</parameter></use_tool>';
+    const search =
+      '<tool_calls><invoke name="app data"><parameter name="action">lorebook search</parameter><parameter name="query">sample query</parameter></invoke></tool_calls>';
+    for (const streaming of [false, true]) {
+      for (const [kind, block] of [
+        ["nanogpt", entries.replace("app data", "app_data").replace("lorebook entries", "lorebook.entries")],
+        ["nanogpt", entries],
+        ["custom", search.replace("app data", "app_data").replace("lorebook search", "lorebook.search")],
+        ["custom", search],
+      ] as const) {
+        provider = kind;
+        const adapter = new OpenAIProvider("http://127.0.0.1:1/v1", "", 32768, null, null, kind);
+        const wire = async (options: ChatOptions) => {
+          const original = globalThis.fetch;
+          globalThis.fetch = async (_url, init) => {
+            const body = JSON.parse(String(init?.body));
+            assert.equal(body.stream, streaming);
+            assert.ok(body.tools.some((tool: { function: { name: string } }) => tool.function.name === "app_data"));
+            if (!streaming) return Response.json({ choices: [{ message: { content: block }, finish_reason: "stop" }] });
+            const frames = [block.slice(0, 3), block.slice(3, 20), block.slice(20)].map(
+              (content) => "data: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\n",
+            );
+            return new Response(frames.join("") + "data: [DONE]\n\n", {
+              headers: { "content-type": "text/event-stream" },
+            });
+          };
+          try {
+            return await adapter.chatComplete(requests.at(-1)!.messages, {
+              ...options,
+              stream: streaming,
+              onToken: streaming ? options.onToken : undefined,
+            });
+          } finally {
+            globalThis.fetch = original;
+          }
+        };
+        const repeated = await start(
+          "printed lookup",
+          [wire, wire],
+          "pi",
+          service,
+          undefined,
+          "Help me create a chat.",
+        );
+        await repeated.done;
+        assert.equal(requests.length, 2);
+        assert.ok(requests[1]!.messages.some((m) => m.content === "Help me create a chat."));
+        assert.match(requests[1]!.messages.at(-1)!.content, /provided tool interface/u);
+        assert.equal(toolMessages(requests[1]!.messages).length, 0);
+        assert.match((await lastAssistant(repeated.chat.id))!.content, /lookup did not run/u);
+        assert.doesNotMatch(JSON.stringify(repeated.events), /<use_tool|<tool_calls>|<parameter/u);
+      }
+    }
+    provider = "claude_subscription";
+    const repaired = await start("printed lookup textual retry", [
+      reply(entries),
+      reply('<tool_call>{"name":"read","arguments":{"path":"hello.txt"}}</tool_call>'),
+      reply("Finished."),
+    ]);
+    await repaired.done;
+    assert.equal(requests.length, 3);
+    assert.match(requests[1]!.messages.at(-1)!.content, /<tool_call> format/u);
+    assert.match(requests[2]!.messages.at(-1)!.content, /hi from the workspace file/u);
+    provider = "custom";
+    mode = "plan";
+    const denied = await start("printed lookup retry permissions", [
+      reply(search),
+      reply("", [{ id: "retry-write", name: "write", args: { path: "retry.txt", content: "x", reason: "fixture" } }]),
+      reply("The file was not written."),
+    ]);
+    await denied.done;
+    assert.match(toolMessages(requests[2]!.messages)[0]!.content, /Plan mode is active/u);
+    assert.equal(existsSync(join(workspaceDir, "retry.txt")), false);
+    mode = "auto";
+    for (const example of [
+      JSON.stringify(search),
+      "Example: " + entries,
+      search + " is an example.",
+      "```xml\n" + entries + "\n```",
+      entries.slice(0, -3),
+      search.replace("</invoke>", "</wrong>"),
+      entries.replace("app data", "unknown"),
+      entries.replace("lorebook entries", "lorebook delete"),
+    ]) {
+      const run = await start("printed lookup negative", [reply(example)]);
+      await run.done;
+      assert.equal(requests.length, 1);
+      assert.equal((await lastAssistant(run.chat.id))!.content, example);
+    }
+    const mixed = await start("printed and native", [
+      reply(search, [{ id: "native-read", name: "read", args: { path: "hello.txt" } }]),
+      reply("Finished."),
+    ]);
+    await mixed.done;
+    assert.equal(requests.length, 2);
+    assert.equal(toolMessages(requests[1]!.messages).length, 1);
+    assert.match(toolMessages(requests[1]!.messages)[0]!.content, /hi from the workspace file/u);
+  }
   // (a) + (f): a read tool call runs through WorkspaceCommands and its result reaches the next model request,
   // and the model is offered only Marinara's tools (their descriptions, never pi's built-ins).
   {
@@ -324,7 +426,8 @@ try {
       /No changes: every row already has these values/,
     );
     assert.deepEqual((await lorebooks.getEntry(duke.id))?.keys, keys);
-    // A read that still shows Duke cannot prove the model's claim that it deleted him.
+    // A read that still shows Duke cannot prove the model's claim that it deleted him. The run tried no change, so the
+    // words stay, with no hidden repair, and the reply carries the notice flag (#8711).
     const falseDeletion = await start(
       "unsupported deletion claim",
       [
@@ -339,7 +442,6 @@ try {
           },
         ]),
         reply("I deleted Duke Gunterlie."),
-        reply("Duke Gunterlie is still present. No deletion was made."),
       ],
       "pi",
       service,
@@ -347,10 +449,10 @@ try {
       "Delete Duke Gunterlie.",
     );
     await falseDeletion.done;
-    assert.equal(
-      (await lastAssistant(created.chat.id))?.content,
-      "Duke Gunterlie is still present. No deletion was made.",
-    );
+    assert.equal(requests.length, 2, "no repair request");
+    const deletionReply = await lastAssistant(created.chat.id);
+    assert.equal(deletionReply?.content, "I deleted Duke Gunterlie.");
+    assert.equal(deletionReply?.extra.mariNothingChanged, true);
     assert.ok(await lorebooks.getEntry(duke.id), "a read-only run never deleted the entry");
     const deleted = await start(
       "delete Duke and keys",
@@ -552,24 +654,25 @@ try {
     const savedAgain = await lastAssistant(held.chat.id);
     assert.equal(savedAgain?.extra.mariDeferredMutations, true);
     assert.match(JSON.stringify(savedAgain?.extra.mariHeldChanges), /armed-b\.txt/u);
-    // An armed run that only CLAIMS it is done, with no call, is sent back instead of being accepted.
+    // An armed run that only CLAIMS it is done, with no call, tried no change: its words stay and the reply carries the
+    // notice flag (#8711).
     const claim = await start(
       "pi armed claim",
-      [reply("I have updated armed2.txt for you."), reply("I have not changed anything yet.")],
+      [reply("I have updated armed2.txt for you."), reply("This must never be requested.")],
       "pi",
       service,
       held.chat.id,
     );
     await claim.done;
     armed = false;
-    assert.equal(requests.length, 2);
-    assert.match(
-      requests[1]!.messages.filter((m) => m.role === "user").pop()?.content ?? "",
-      /no mutating command succeeded/u,
-    );
+    assert.equal(requests.length, 1);
+    const armedReply = await lastAssistant(held.chat.id);
+    assert.equal(armedReply?.content, "I have updated armed2.txt for you.");
+    assert.equal(armedReply?.extra.mariNothingChanged, true);
   }
 
-  // A held-change claim on a run that held nothing is sent back once, then replaced by an honest line.
+  // A held-change claim on a run that tried a change but held nothing is sent back once, then replaced by an honest
+  // line. In a run that tried no change the words stay, with the notice flag (#8711).
   {
     mode = "auto";
     for (const text of [
@@ -584,30 +687,51 @@ try {
       "I read the card and the lorebook; here is what they say.",
       "Want me to make that change?",
       "I'm waiting for your approval to continue.",
+      // #8711: code, a blockquote or a quoted phrase is never her claim.
+      'The check looks for phrases like "held for your review" and `the change card is ready`.',
+      "> Held for your review — the change card is ready.",
+      "```\nThe change is staged and waiting for your approval.\n```",
     ])
       assert.equal(workspaceTextClaimsHeldChange(text), false, text);
     const readCall = (id: string) => ({ id, name: "read", args: { path: "hello.txt" } });
+    const failedEdit = (id: string) => ({
+      id,
+      name: "edit",
+      args: { path: "hello.txt", edits: [{ oldText: "not in the file", newText: "x" }], reason: "t" },
+    });
     const { chat, done } = await start("pi held claim", [
-      reply("", [readCall("held-r1")]),
+      reply("", [failedEdit("held-e1")]),
       reply("Held for your review — the change card is ready."),
-      reply("I read the file; no change was made."),
+      reply("The edit failed; no change was made."),
     ]);
     await done;
     assert.equal(requests.length, 3, "exactly one repair request");
     assert.match(requests[2]!.messages.filter((m) => m.role === "user").pop()?.content ?? "", /Nothing is held/u);
     const stored = await lastAssistant(chat.id);
-    assert.equal(stored?.content, "I read the file; no change was made.");
+    assert.equal(stored?.content, "The edit failed; no change was made.");
     assert.doesNotMatch(stored?.content ?? "", /Held for your review/u);
 
     // The model repeats the claim after the repair: the honest line replaces it, with no further request.
     const repeated = await start("pi held claim repeated", [
-      reply("", [readCall("held-r2")]),
+      reply("", [failedEdit("held-e2")]),
       reply("Held for your review — the change card is ready."),
       reply("Held for your review — the change card is ready."),
     ]);
     await repeated.done;
     assert.equal(requests.length, 3);
     assert.match((await lastAssistant(repeated.chat.id))?.content ?? "", /did not make or hold any change/u);
+
+    // After only a read nothing was tried: no repair, no canned line.
+    const readOnly = await start("pi held claim read only", [
+      reply("", [readCall("held-r1")]),
+      reply("Held for your review — the change card is ready."),
+      reply("This must never be requested."),
+    ]);
+    await readOnly.done;
+    assert.equal(requests.length, 2, "no repair request");
+    const readOnlyReply = await lastAssistant(readOnly.chat.id);
+    assert.equal(readOnlyReply?.content, "Held for your review — the change card is ready.");
+    assert.equal(readOnlyReply?.extra.mariNothingChanged, true);
   }
 
   // (d) Abort stops the run immediately: no tool starts, no further request.
@@ -632,18 +756,178 @@ try {
     assert.equal((await service.status(null, null)).active, false);
   }
 
-  // (g) A completion claim with no mutation is sent back to the model as a repair message.
+  // (g) #8711: a closing answer of a run that tried no change keeps her words exactly, with no hidden repair. When a
+  // claim check flags them, the reply carries the nothingChanged flag the client shows as its localized note, which is
+  // never her text or her history. Narration beside a command, and a run that tried a change (a shell command, a failed
+  // or a held change), are repaired as before. Both runtimes.
   {
+    const enLocale = new URL("../../../packages/client/src/localization/locales/en.json", import.meta.url);
+    const notice = (JSON.parse(readFileSync(enLocale, "utf8")) as Record<string, string>)["mari.reply.nothingChanged"];
+    assert.ok(notice, "the client has the note's English line");
+    const draftList = [
+      "Here are 12 short item descriptions you can paste into another screen:",
+      ...Array.from({ length: 11 }, (_, index) =>
+        index % 2 === 0
+          ? `${index + 1}. Starlit lantern ${index + 1}: a brass lantern that is created from a fallen star.`
+          : `${index + 1}. Rainy-day ledger ${index + 1}: old letters that are saved for a quiet evening.`,
+      ),
+      "12. Fortune card: Your fate has been written in starlight.",
+    ].join("\n");
+    // The issue's step 5: asked whether her reply format could confuse the review system, she explains the flow.
+    const step5 =
+      "Possibly. If a reply that made no change says a change is held for your review, or that a change card is ready, the check replaces it. In Manual mode, every edit is held for your approval until you press Accept.";
+    const closing: Array<[text: string, flagged: boolean]> = [
+      [draftList, true],
+      ['A reply like "The entry is created and the card was updated." reads as a finished change.', false],
+      ["```text\nstatus: it is saved\nThe change is held for your review.\n```\nThat block is only an example.", false],
+      ["> Your changes are saved.\n\nThat line is a quote.", false],
+      ["In Accept edits mode, each change is applied right away and a change card is added under my reply.", true],
+      [step5, true],
+      ["Done! Your greeting has been updated.", true],
+      ["Yes, it's saved.", true],
+      ["Sure, I've staged the rename for your review.", true],
+    ];
+    const answer = (runtime: "pi" | "classic", text: string, calls: Call[] = []) =>
+      runtime === "pi"
+        ? reply(text, calls)
+        : reply(
+            JSON.stringify({
+              say: text,
+              commands: calls.map((call) => ({ name: call.name, arguments: call.args })),
+              stop: calls.length === 0,
+            }),
+          );
+    const lastUserText = (index: number) =>
+      requests[index]!.messages.filter((message) => message.role === "user").pop()?.content ?? "";
+    const flagEvents = (events: Array<{ type: string; data?: unknown }>) =>
+      events.filter((event) => event.type === "metadata" && (event.data as { nothingChanged?: boolean }).nothingChanged)
+        .length;
+    const historyService = makeService(false);
+    for (const runtime of ["pi", "classic"] as const) {
+      mode = "auto";
+      for (const [text, flagged] of closing) {
+        const label = `${runtime}: ${text.slice(0, 40)}`;
+        const run = await start(
+          `closing ${label}`,
+          [answer(runtime, text), answer(runtime, "Never requested.")],
+          runtime,
+        );
+        await run.done;
+        assert.equal(requests.length, 1, `${label}: no hidden repair`);
+        const saved = await lastAssistant(run.chat.id);
+        assert.equal(saved?.content, text, `${label}: her words, exactly`);
+        assert.equal(saved?.extra.mariNothingChanged, flagged || undefined, label);
+        assert.equal(flagEvents(run.events), flagged ? 1 : 0, `${label}: the stream carries the flag too`);
+      }
+      // The next run reads her words as she wrote them, with no notice in them.
+      const flagged = await start(`flagged history ${runtime}`, [answer(runtime, "Yes, it's saved.")], runtime);
+      await flagged.done;
+      const next = await start(
+        "unused",
+        [answer(runtime, "Noted.")],
+        runtime,
+        historyService,
+        flagged.chat.id,
+        "Thanks.",
+      );
+      await next.done;
+      const history = JSON.stringify(requests[0]!.messages);
+      assert.ok(history.includes("Yes, it's saved."), `${runtime}: her words are in her history`);
+      assert.ok(!history.includes(notice), `${runtime}: the notice is not`);
+
+      // Narration beside a real command is still repaired as a step claim.
+      const midRun = await start(
+        `mid-run claim ${runtime}`,
+        [
+          answer(runtime, "I've created entry A. Now let me check entry B.", [
+            { id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } },
+          ]),
+          answer(runtime, "Entry A is not there yet."),
+        ],
+        runtime,
+      );
+      await midRun.done;
+      assert.equal(requests.length, 2, `${runtime}: the step claim is repaired`);
+      assert.match(lastUserText(1), /You claimed a step was completed/u);
+      assert.equal((await lastAssistant(midRun.chat.id))?.content, "Entry A is not there yet.");
+
+      // A shell command or a failed change was tried: a false closing claim is repaired, with no flag.
+      for (const call of [
+        { id: `claim-bash-${runtime}`, name: "bash", args: { command: "ls" } },
+        {
+          id: `claim-edit-${runtime}`,
+          name: "edit",
+          args: { path: "hello.txt", edits: [{ oldText: "not in the file", newText: "x" }], reason: "t" },
+        },
+      ]) {
+        const tried = await start(
+          `${call.name} then claim ${runtime}`,
+          [
+            answer(runtime, "", [call]),
+            answer(runtime, "Done! Your greeting has been updated."),
+            answer(runtime, "Nothing changed yet."),
+          ],
+          runtime,
+        );
+        await tried.done;
+        assert.equal(requests.length, 3, `${runtime} ${call.name}: the claim is repaired`);
+        assert.match(lastUserText(2), /no mutating command succeeded/u);
+        const saved = await lastAssistant(tried.chat.id);
+        assert.equal(saved?.content, "Nothing changed yet.");
+        assert.equal(saved?.extra.mariNothingChanged, undefined);
+      }
+
+      // Manual holds the change: classic repairs the claim beside it, pi replaces the words with the held line.
+      mode = "manual";
+      const heldWrite: Call = {
+        id: `claim-held-${runtime}`,
+        name: "write",
+        args: { path: `held-claim-${runtime}.txt`, content: "x", reason: "t" },
+      };
+      const held = await start(
+        `held change claim ${runtime}`,
+        [answer(runtime, "Done! I updated the file.", [heldWrite]), answer(runtime, "I have not changed anything.")],
+        runtime,
+      );
+      await held.done;
+      assert.equal(existsSync(join(workspaceDir, `held-claim-${runtime}.txt`)), false);
+      if (runtime === "classic") {
+        assert.equal(requests.length, 2, "classic: a claim beside a held change is repaired");
+        assert.match(lastUserText(1), /no mutating command succeeded/u);
+      } else {
+        assert.equal(requests.length, 1);
+        assert.match((await lastAssistant(held.chat.id))?.content ?? "", /^I have changes ready\./u);
+      }
+      assert.equal((await lastAssistant(held.chat.id))?.extra.mariNothingChanged, undefined);
+    }
     mode = "auto";
-    const { chat, done } = await start("pi claim", [
-      reply("I have updated the character card and saved it."),
-      reply("I did not change anything yet.."),
-    ]);
-    await done;
-    assert.equal(requests.length, 2);
-    const repair = requests[1]!.messages.filter((message) => message.role === "user").pop();
-    assert.match(repair?.content ?? "", /no mutating command succeeded/u);
-    assert.match((await lastAssistant(chat.id))?.content ?? "", /did not change anything/u);
+
+    // pi: flagged words beside a rejected `ask` card count as a closing answer, but the run goes on, and words a later
+    // round sets (a held change's line, a wordless card's question) carry no flag of theirs.
+    const rejectedAsk = (id: string): Call => ({ id, name: "ask", args: {} });
+    const tone = { question: "Which tone?", options: [{ label: "Dark" }, { label: "Light" }] };
+    const replaced: Array<[label: string, then: ReturnType<typeof reply>, words: RegExp, manual?: boolean]> = [
+      ["a wordless card", reply("", [{ id: "flag-card", name: "ask", args: { questions: [tone] } }]), /Which tone\?/u],
+      [
+        "a held change",
+        reply("", [{ id: "flag-held", name: "write", args: { path: "flag-held.txt", content: "x", reason: "t" } }]),
+        /^I have changes ready\./u,
+        true,
+      ],
+    ];
+    for (const [label, then, words, manual] of replaced) {
+      mode = manual ? "manual" : "auto";
+      const run = await start(
+        `flag then ${label}`,
+        [reply("Done! Your greeting has been updated.", [rejectedAsk(`flag-ask-${label}`)]), then],
+        "pi",
+      );
+      await run.done;
+      const saved = await lastAssistant(run.chat.id);
+      assert.match(saved?.content ?? "", words, label);
+      assert.equal(saved?.extra.mariNothingChanged, undefined, `${label}: the flag left with the flagged words`);
+    }
+    mode = "auto";
   }
 
   // A model that repeats one invalid tool call is stopped by the repeated-failure rule (pi answers such calls itself).
@@ -728,6 +1012,67 @@ try {
     assert.ok(events.some((event) => event.type === "suggestions"));
   }
 
+  // #8803: Gemma's double wrapper still carries useful, passive chips. One request, including on reload.
+  {
+    const answer = "The opening is ready.";
+    const labels = ["Play from here", "Check other fields", "Start a clean chat"];
+    const suffix = [
+      "<suggestions>",
+      "<chips>",
+      "<chips>",
+      ...labels.map((label) => `<chip label="${label}" prompt="${label}, please." entity="chat" />`),
+      "</chips>",
+      "</suggestions>",
+    ].join("\n");
+    const raw = answer + "\n" + suffix;
+    for (const runtime of ["pi", "classic"] as const) {
+      const { chat, events, done } = await start(
+        "recovered chips",
+        [
+          async (options, onToken) => {
+            const stream = options.onToken ?? onToken;
+            stream?.(answer + "\n");
+            for (const char of suffix) stream?.(char);
+            return reply(raw);
+          },
+        ],
+        runtime,
+      );
+      await done;
+      assert.equal(requests.length, 1, runtime);
+      const saved = await lastAssistant(chat.id);
+      assert.equal(saved?.content, answer, runtime);
+      assert.deepEqual(
+        (saved?.extra.mariSuggestions as Array<{ label: string }>).map((chip) => chip.label),
+        labels,
+      );
+      assert.ok(events.some((event) => event.type === "suggestions"));
+      assert.doesNotMatch(
+        JSON.stringify(events.filter((event) => ["draft", "token"].includes(event.type))),
+        /<su|<chip/,
+      );
+    }
+    const real = { label: "Real", prompt: "Use this." };
+    const actual = await start("native suggestions win", [
+      reply(raw, [{ id: "real", name: "suggestions", args: { chips: [real] } }]),
+    ]);
+    await actual.done;
+    const actualRow = await lastAssistant(actual.chat.id);
+    assert.equal(actualRow?.content, answer);
+    assert.deepEqual(
+      (actualRow?.extra.mariSuggestions as Array<{ label: string }>).map((chip) => chip.label),
+      [real.label],
+    );
+    const fenced = "```xml\n" + suffix + "\n```";
+    const malformed = suffix.replace('label="Play from here"', 'action="open"');
+    for (const example of [fenced, malformed, suffix + "\nFurther explanation."]) {
+      const { chat, done } = await start("keep example", [reply(example)]);
+      await done;
+      assert.equal((await lastAssistant(chat.id))?.content, example);
+      assert.equal((await lastAssistant(chat.id))?.extra.mariSuggestions, undefined);
+    }
+  }
+
   // Chips with no words are not the answer yet: the run goes on, keeps the chips and stores the next text.
   {
     mode = "auto";
@@ -794,7 +1139,11 @@ try {
     assert.equal(requests[0]!.options.toolChoice, undefined);
     const system = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
     assert.match(system, /<text_tool_calls>/u);
-    assert.match(system, /"name":"ls"/u);
+    assert.ok(
+      system.includes(
+        '<tool_call>{"name":"suggestions","arguments":{"chips":[{"label":"Play from here","prompt":"Continue from the opening."}]}}</tool_call>',
+      ),
+    );
     assert.match(system, /- suggestions:/u);
     for (const request of requests) {
       assert.ok(!request.messages.some((message) => message.role === "tool" || message.tool_calls));
@@ -1234,9 +1583,15 @@ try {
     assert.match(lastPrompt(2), /^\[Engine note, not from the user\]/u);
     assert.doesNotMatch(lastPrompt(2), /dry run/u, "a cut claim is not sent the dry-run repair");
 
-    // A failed stream is not a limit cut: its words still face the claim audit, and it keeps the old stop.
+    // A failed stream is not a limit cut: its words still face the claim audit, and it keeps the old stop. The change
+    // it dropped was still tried, so the claim is repaired (#8711).
     const failed = await start("pi failed stream claim", [
-      { ...reply("I've added the onboarding to Elara, it is saved."), finishReason: "error" },
+      {
+        ...reply("I've added the onboarding to Elara, it is saved.", [
+          { id: "fs-claim", name: "write", args: { path: "elara.txt", content: "x", reason: "t" } },
+        ]),
+        finishReason: "error",
+      },
       reply("I have not changed anything yet."),
     ]);
     await failed.done;
@@ -1439,6 +1794,8 @@ try {
     const system = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
     assert.match(system, /<workspace_tools>/u);
     assert.match(system, /There is no JSON frame/u);
+    assert.match(system, /write “The opening is ready.” and call suggestions/u);
+    assert.doesNotMatch(system, /<suggestions>|<tool_call>/u);
     assert.match(system, /a turn with no tool call ends the run/u);
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);

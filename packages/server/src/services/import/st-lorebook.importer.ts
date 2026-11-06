@@ -254,6 +254,48 @@ export function resolvePosition(value: unknown): number {
   return 0;
 }
 
+// SillyTavern's character_book export keeps an entry's settings under `extensions` (snake_case) and
+// writes no top-level copy, so fill the fields this importer reads from there.
+const ST_ENTRY_EXTENSION_FIELDS = {
+  depth: "depth",
+  role: "role",
+  probability: "probability",
+  useProbability: "useProbability",
+  selectiveLogic: "selectiveLogic",
+  group: "group",
+  groupWeight: "group_weight",
+  sticky: "sticky",
+  cooldown: "cooldown",
+  delay: "delay",
+  scanDepth: "scan_depth",
+  caseSensitive: "case_sensitive",
+  matchWholeWords: "match_whole_words",
+  preventRecursion: "prevent_recursion",
+  excludeRecursion: "exclude_recursion",
+  delayUntilRecursion: "delay_until_recursion",
+  vectorized: "vectorized",
+  outletName: "outlet_name",
+} as const;
+
+function withSillyTavernEntryExtensions(entry: STWorldInfoEntry): STWorldInfoEntry {
+  const ext = entry.extensions;
+  if (!ext || typeof ext !== "object") return entry;
+  const filled: Record<string, unknown> = { ...entry };
+  for (const [field, stKey] of Object.entries(ST_ENTRY_EXTENSION_FIELDS)) {
+    if (filled[field] === undefined && ext[stKey] !== undefined) filled[field] = ext[stKey];
+  }
+  // The top-level position is only ST's lossy before_char/after_char; extensions.position is the real
+  // slot (4 = @D). A top-level value that disagrees with it was set later and wins.
+  const stPosition = ext.position;
+  if (
+    typeof stPosition === "number" &&
+    (entry.position === undefined || entry.position === (stPosition === 0 ? "before_char" : "after_char"))
+  ) {
+    filled.position = stPosition;
+  }
+  return filled as STWorldInfoEntry;
+}
+
 function escapeRegexLiteral(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -396,7 +438,7 @@ export async function importSTLorebook(
 ): Promise<LorebookImportResult> {
   const wi = raw as unknown as STWorldInfo;
 
-  const entryList = asEntryList(wi.entries);
+  const entryList = asEntryList(wi.entries).map(withSillyTavernEntryExtensions);
   const decodedImages = new Map<(typeof entryList)[number], Awaited<ReturnType<typeof decodeLorebookImages>>>();
   for (const entry of entryList)
     decodedImages.set(
@@ -418,14 +460,23 @@ export async function importSTLorebook(
         ? `${options.namePrefix} — ${wi.name ?? "Lorebook"}`
         : (wi.name ?? options?.fallbackName ?? "Imported Lorebook");
 
+      // Only the settings the book carries; a reimport keeps the linked lorebook's own value for the rest.
+      const recursiveScanning = wi.recursive_scanning ?? wi.recursiveScanning;
+      const bookSettings = {
+        description: nonEmptyString(wi.description) ?? undefined,
+        scanDepth: asNullableNumber(wi.scan_depth ?? wi.scanDepth) ?? undefined,
+        tokenBudget: asNullableNumber(wi.token_budget ?? wi.tokenBudget) ?? undefined,
+        recursiveScanning: recursiveScanning == null ? undefined : Boolean(recursiveScanning),
+        maxRecursionDepth: asNullableNumber(wi.max_recursion_depth ?? wi.maxRecursionDepth) ?? undefined,
+      };
       const lorebookInput = {
         name: lbName,
-        description: nonEmptyString(wi.description) ?? "Imported from SillyTavern",
+        description: bookSettings.description ?? "Imported from SillyTavern",
         category: detectedCategory,
-        scanDepth: asNumber(wi.scan_depth ?? wi.scanDepth, 2),
-        tokenBudget: asNumber(wi.token_budget ?? wi.tokenBudget, 2048),
-        recursiveScanning: Boolean(wi.recursive_scanning ?? wi.recursiveScanning ?? false),
-        maxRecursionDepth: asNumber(wi.max_recursion_depth ?? wi.maxRecursionDepth, 3),
+        scanDepth: bookSettings.scanDepth ?? 2,
+        tokenBudget: bookSettings.tokenBudget ?? 2048,
+        recursiveScanning: bookSettings.recursiveScanning ?? false,
+        maxRecursionDepth: bookSettings.maxRecursionDepth ?? 3,
         generatedBy: "import" as const,
         ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
       };
@@ -450,7 +501,7 @@ export async function importSTLorebook(
       }
 
       const lorebookId = lorebook.id as string;
-      const lorebookName = lbName;
+      const lorebookName = typeof lorebook.name === "string" ? lorebook.name : lbName;
       let imported = 0;
 
       for (const entry of entryList) {
@@ -535,8 +586,10 @@ export async function importSTLorebook(
       if (existingLorebookId && !createdLorebook) {
         const current = await storage.getById(existingLorebookId);
         if (!current) throw new Error("Failed to update lorebook");
+        // Keep the user's name and category: a reimport replaces the entries, not the lorebook.
         const updated = await storage.update(existingLorebookId, {
-          ...lorebookInput,
+          ...bookSettings,
+          generatedBy: lorebookInput.generatedBy,
           characterIds: lorebookInput.characterIds
             ? [...current.characterIds, ...lorebookInput.characterIds]
             : undefined,

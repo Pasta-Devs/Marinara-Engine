@@ -10,13 +10,15 @@ import {
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
-import { useCachedCatalogFacts, useConnections, useTestConnection } from "../../hooks/use-connections";
+import { useAccessCheck, useCachedCatalogFacts, useConnections, useTestConnection } from "../../hooks/use-connections";
+import { accessCheckFields, CheckIcon, CheckLine, checkBorderClass, type FieldCheck } from "./AccessCheck";
 import {
   useConnectionAccounts,
   useDeleteConnectionAccount,
   useUpdateConnectionAccount,
 } from "../../hooks/use-connection-accounts";
 import { ApiError } from "../../lib/api-client";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { openAddModels } from "../../lib/add-connection";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { groupModelsByAccount, sortByModelId } from "../../lib/connection-groups";
@@ -27,12 +29,18 @@ import { ToggleSetting } from "../panels/settings/SettingControls";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { confirmAccountDelete, deleteAccountModels, modelSubtitle, type ConnectionRowData } from "./ConnectionRow";
+import {
+  confirmAccountDelete,
+  deleteAccountModels,
+  loadAccountDeletionRows,
+  modelSubtitle,
+  type ConnectionRowData,
+} from "./ConnectionRow";
 import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
-import { ConnectionUsageSection } from "./ConnectionBalance";
+import { ConnectionUsageSection, SECTION_HEADING_CLASS } from "./ConnectionBalance";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
@@ -48,7 +56,7 @@ type Draft = {
 const capValue = (value: string) => (value.trim() ? Number(value) : null);
 const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
 const labelClass = "mb-1 block text-xs font-semibold text-[var(--foreground)]";
-const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
+const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9";
 
 function SecretField({
   label,
@@ -59,7 +67,11 @@ function SecretField({
   help,
   autoFocus,
   inputRef,
+  check,
+  onRecheck,
 }: {
+  check: FieldCheck;
+  onRecheck: () => void;
   label: string;
   saved: boolean;
   last4?: string;
@@ -79,10 +91,16 @@ function SecretField({
       <Wrapper className="block">
         <span className={labelClass}>{label}</span>
         {masked ? (
-          <span className="mari-chrome-field flex h-11 items-center gap-2 pl-3 pr-1 md:h-9">
+          <span
+            className={cn(
+              "mari-chrome-field flex h-11 items-center gap-2 pl-3 pr-1 md:h-9",
+              checkBorderClass(check.state),
+            )}
+          >
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-[var(--muted-foreground)]">
               {last4 ? t("connections.accounts.editor.keyEnding", { last4 }) : "••••••••"}
             </span>
+            <CheckIcon state={check.state} inline />
             <button
               type="button"
               onClick={() => onChange("")}
@@ -92,19 +110,29 @@ function SecretField({
             </button>
           </span>
         ) : (
-          <input
-            ref={inputRef}
-            type="password"
-            autoComplete="off"
-            autoFocus={autoFocus}
-            value={value ?? ""}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={t("connections.accounts.editor.keyPlaceholder")}
-            className={cn(fieldClass, "font-mono")}
-          />
+          <span className="relative block">
+            <input
+              ref={inputRef}
+              type="password"
+              autoComplete="off"
+              autoFocus={autoFocus}
+              value={value ?? ""}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={t("connections.accounts.editor.keyPlaceholder")}
+              aria-describedby="account-key-check"
+              className={cn(fieldClass, "font-mono pr-10", checkBorderClass(check.state))}
+            />
+            <CheckIcon state={check.state} />
+          </span>
         )}
       </Wrapper>
-      {help && <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">{help}</p>}
+      {check.state === "idle" ? (
+        help && <p className="mt-1 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{help}</p>
+      ) : (
+        <div className="mt-1">
+          <CheckLine id="account-key-check" check={check} onRecheck={onRecheck} />
+        </div>
+      )}
     </div>
   );
 }
@@ -148,6 +176,28 @@ export function ConnectionAccountEditor({
   const [apiKey, setApiKey] = useState<string | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement>(null);
   const [more, setMore] = useState(false);
+  // Without a new key typed, the server checks the saved one.
+  const accessCheck = useAccessCheck({
+    provider: account?.provider ?? null,
+    baseUrl: draft?.baseUrl ?? account?.baseUrl ?? "",
+    apiKey: apiKey ?? "",
+    accountId,
+  });
+  const check = accessCheckFields(
+    accessCheck,
+    {
+      hasAddress: !!(draft?.baseUrl ?? account?.baseUrl)?.trim(),
+      hasKey: apiKey === null ? !!account?.hasApiKey : !!apiKey.trim(),
+    },
+    t,
+  );
+  const recheck = () => void accessCheck.recheck();
+  // A server you run is reached by its address, so it comes first; a cloud address sits in More options.
+  const addressFirst = account?.provider === "custom";
+  const addressWarn = !addressFirst && check.address.state === "warn";
+  useEffect(() => {
+    if (addressWarn) setMore(true);
+  }, [addressWarn]);
   const [pictureAt, setPictureAt] = useState<MenuAt | null>(null);
   const closePicture = useCallback(() => setPictureAt(null), []);
   const [blockedBy, setBlockedBy] = useState<Array<{ id: string; name: string; model?: string }>>([]);
@@ -239,9 +289,10 @@ export function ConnectionAccountEditor({
 
   const deleteAccount = async () => {
     if (!account) return;
-    if (!(await confirmAccountDelete(account.name, models, t))) return;
     try {
-      await deleteAccountModels(models);
+      const deletionRows = await loadAccountDeletionRows(account.id);
+      if (!(await confirmAccountDelete(account.name, deletionRows, t))) return;
+      await deleteAccountModels(deletionRows);
       await remove.mutateAsync(account.id);
       onClose();
     } catch (error) {
@@ -313,24 +364,16 @@ export function ConnectionAccountEditor({
       closeDisabled={update.isPending || remove.isPending || test.isPending || !!pictureAt}
       focusScopePortalSelector={PICTURE_MENU_SELECTOR}
       title={t("connections.accounts.editor.editTitle")}
-      opaque
-      width="max-w-lg"
-      panelClassName="mari-connection-scope"
-    >
-      {!account || !draft ? (
-        <p className="text-xs text-[var(--muted-foreground)]">
-          {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
+      titleSlot={
+        account && draft ? (
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               type="button"
               data-account-picture
               onClick={(event) => setPictureAt(menuAt(event))}
               aria-label={t("connections.picture.change", { name: account.name })}
               title={t("connections.picture.change", { name: account.name })}
-              className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+              className="relative shrink-0 rounded-xl max-sm:min-h-11 max-sm:min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
             >
               {tile}
               <span
@@ -356,9 +399,9 @@ export function ConnectionAccountEditor({
                 onChange={(event) => set("name", event.target.value)}
                 aria-label={t("connections.accounts.editor.name")}
                 data-account-name
-                className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] font-semibold"
+                className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] max-sm:text-base font-semibold"
               />
-              <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                 <span className="min-w-0 truncate">
                   {serviceName(getConnectionIdentity(account, models).service, account.provider)} ·{" "}
                   {t("connections.list.models", { count: models.length })}
@@ -368,25 +411,88 @@ export function ConnectionAccountEditor({
                 )}
               </p>
             </div>
+            <div className="shrink-0">
+              <ToggleSetting
+                label={<span className="sr-only">{t("connections.accounts.editor.enabled")}</span>}
+                checked={draft.enabled}
+                onChange={(checked) => set("enabled", checked)}
+              />
+            </div>
           </div>
-
-          <label className="block">
-            <span className={labelClass}>{t("connections.accounts.editor.address")}</span>
-            <input
-              value={draft.baseUrl}
-              onChange={(event) => {
-                set("baseUrl", event.target.value);
-                test.reset();
-              }}
-              placeholder={t("connections.accounts.editor.endpointPlaceholder")}
-              inputMode="url"
-              spellCheck={false}
-              autoCapitalize="off"
-              data-account-address
-              className={fieldClass}
-            />
-          </label>
-
+        ) : undefined
+      }
+      opaque
+      footer={
+        account && draft ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={!dirty || update.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {t("connections.accounts.editor.save")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void leaveFor(() => {})}
+              disabled={update.isPending || remove.isPending || test.isPending}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {t("connections.accounts.editor.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void deleteAccount()}
+              disabled={remove.isPending}
+              className={`${SHEET_BUTTON_QUIET} text-[var(--destructive)]`}
+            >
+              <Trash2 size="0.875rem" aria-hidden />
+              {t("connections.accounts.editor.delete")}
+            </button>
+          </>
+        ) : undefined
+      }
+      closeButtonClassName={account && draft ? "max-sm:hidden" : undefined}
+      width="max-w-lg"
+      panelClassName="mari-connection-scope"
+    >
+      {!account || !draft ? (
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <h3 className={`${SECTION_HEADING_CLASS} max-sm:text-[13px]`}>{t("connections.accounts.editor.access")}</h3>
+          {addressFirst && (
+            <div className="block">
+              <label htmlFor="account-address" className={labelClass}>
+                {t("connections.accounts.editor.address")}
+              </label>
+              <span className="relative block">
+                <input
+                  value={draft.baseUrl}
+                  onChange={(event) => {
+                    set("baseUrl", event.target.value);
+                    test.reset();
+                  }}
+                  placeholder={t("connections.accounts.editor.endpointPlaceholder")}
+                  inputMode="url"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  id="account-address"
+                  data-account-address
+                  aria-describedby="account-address-check"
+                  className={cn(fieldClass, "pr-10", checkBorderClass(check.address.state))}
+                />
+                <CheckIcon state={check.address.state} />
+              </span>
+              <span className="mt-1 block">
+                <CheckLine id="account-address-check" check={check.address} onRecheck={recheck} />
+              </span>
+            </div>
+          )}
           <SecretField
             label={t("connections.accounts.editor.apiKey")}
             saved={account.hasApiKey}
@@ -399,55 +505,44 @@ export function ConnectionAccountEditor({
             help={t("connections.accounts.editor.keySaved")}
             autoFocus={account.state === "needs_key" || replaceKey}
             inputRef={apiKeyInputRef}
+            check={check.key}
+            onRecheck={recheck}
           />
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <button
-              type="button"
-              // Tests the key and address as typed, so a wrong key is caught before it is saved.
-              onClick={() =>
-                testRow && test.mutate({ id: testRow.id, apiKey: changes.apiKey, baseUrl: changes.baseUrl })
-              }
-              disabled={!testRow || test.isPending}
-              className="mari-chrome-control px-3"
-            >
-              {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
-              {t("connections.accounts.editor.test")}
-            </button>
-            <p
-              role="status"
-              data-account-test-result
-              className={cn(
-                "min-w-0 flex-1 break-words text-[0.6875rem]",
-                testFailed
-                  ? "text-[var(--marinara-app-accent-static)]"
-                  : test.data?.success
-                    ? "text-emerald-500"
-                    : "text-[var(--muted-foreground)]",
-              )}
-            >
-              {testText}
-            </p>
-          </div>
-
-          <div className="-mx-1.5 border-y border-[var(--border)]/60 py-1">
-            <ToggleSetting
-              label={t("connections.accounts.editor.enabled")}
-              checked={draft.enabled}
-              onChange={(checked) => set("enabled", checked)}
-            />
-          </div>
-
-          <ConnectionUsageSection
-            account={account}
-            models={models}
-            usageAnchorId={usageAnchor?.id ?? null}
-            showOnCard={draft.showUsageWidget}
-            onShowOnCard={(checked) => set("showUsageWidget", checked)}
-          />
+          {/* The live checks cover the rest; only sign-in and media providers still need a manual test. */}
+          {accessCheck.supported === false && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <button
+                type="button"
+                // Tests the key and address as typed, so a wrong key is caught before it is saved.
+                onClick={() =>
+                  testRow && test.mutate({ id: testRow.id, apiKey: changes.apiKey, baseUrl: changes.baseUrl })
+                }
+                disabled={!testRow || test.isPending}
+                className="mari-chrome-control px-3"
+              >
+                {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
+                {t("connections.accounts.editor.test")}
+              </button>
+              <p
+                role="status"
+                data-account-test-result
+                className={cn(
+                  "min-w-0 flex-1 break-words text-[0.6875rem] max-sm:text-[13px]",
+                  testFailed
+                    ? "text-[var(--marinara-app-accent-static)]"
+                    : test.data?.success
+                      ? "text-emerald-500"
+                      : "text-[var(--muted-foreground)]",
+                )}
+              >
+                {testText}
+              </p>
+            </div>
+          )}
 
           <section>
-            <h3 className="mb-2 flex items-baseline gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+            <h3 className={cn("mb-2 flex items-baseline gap-1.5", SECTION_HEADING_CLASS, "max-sm:!text-[13px]")}>
               {t("connections.accounts.editor.modelsHeading")}
               <span className="font-normal text-[var(--muted-foreground)]">{models.length}</span>
             </h3>
@@ -456,7 +551,7 @@ export function ConnectionAccountEditor({
               rows={models}
               getKey={(row) => row.id}
               empty={
-                <p className="px-3 py-3 text-[0.6875rem] text-[var(--muted-foreground)]">
+                <p className="px-3 py-3 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {t("connections.accounts.noModels")}
                 </p>
               }
@@ -484,6 +579,14 @@ export function ConnectionAccountEditor({
             />
           </section>
 
+          <ConnectionUsageSection
+            account={account}
+            models={models}
+            usageAnchorId={usageAnchor?.id ?? null}
+            showOnCard={draft.showUsageWidget}
+            onShowOnCard={(checked) => set("showUsageWidget", checked)}
+          />
+
           <div>
             <button
               type="button"
@@ -505,6 +608,34 @@ export function ConnectionAccountEditor({
             </button>
             <SmoothFolderContent open={more}>
               <section id="connection-account-more" data-account-advanced className="flex flex-col gap-3 pb-1 pt-2">
+                {!addressFirst && (
+                  <div className="block">
+                    <label htmlFor="account-address" className={labelClass}>
+                      {t("connections.accounts.editor.address")}
+                    </label>
+                    <span className="relative block">
+                      <input
+                        value={draft.baseUrl}
+                        onChange={(event) => {
+                          set("baseUrl", event.target.value);
+                          test.reset();
+                        }}
+                        placeholder={t("connections.accounts.editor.endpointPlaceholder")}
+                        inputMode="url"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        id="account-address"
+                        data-account-address
+                        aria-describedby="account-address-check"
+                        className={cn(fieldClass, "pr-10", checkBorderClass(check.address.state))}
+                      />
+                      <CheckIcon state={check.address.state} />
+                    </span>
+                    <span className="mt-1 block">
+                      <CheckLine id="account-address-check" check={check.address} onRecheck={recheck} />
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
                   {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
@@ -514,17 +645,8 @@ export function ConnectionAccountEditor({
           </div>
 
           <div>
-            <button
-              type="button"
-              onClick={() => void deleteAccount()}
-              disabled={remove.isPending}
-              className="flex min-h-11 items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)] hover:underline disabled:opacity-50 md:min-h-9"
-            >
-              <Trash2 size="0.875rem" aria-hidden />
-              {t("connections.accounts.editor.delete")}
-            </button>
             {blockedBy.length > 0 && (
-              <div role="status" className="mt-1 text-[0.6875rem]">
+              <div role="status" className="mt-1 text-[0.6875rem] max-sm:text-[13px]">
                 <p className="text-[var(--marinara-app-accent-static)]">
                   {t("connections.accounts.editor.deleteBlocked")}
                 </p>
@@ -539,26 +661,6 @@ export function ConnectionAccountEditor({
                 </ul>
               </div>
             )}
-          </div>
-
-          <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-5 max-md:-mb-4 max-md:bg-[var(--sidebar)] max-md:px-5 max-md:pb-4">
-            <button
-              type="button"
-              onClick={() => void leaveFor(() => {})}
-              disabled={update.isPending || remove.isPending || test.isPending}
-              className="mari-chrome-control px-3"
-            >
-              {t("connections.accounts.editor.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={!dirty || update.isPending}
-              className="mari-chrome-control mari-chrome-control--primary"
-            >
-              {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
-              {t("connections.accounts.editor.save")}
-            </button>
           </div>
         </div>
       )}
