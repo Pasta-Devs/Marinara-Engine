@@ -6,6 +6,7 @@ import {
   useQueries,
   useQuery,
   useMutation,
+  useMutationState,
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import { useMemo } from "react";
 import { api } from "../lib/api-client";
 import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
+import { applyGroupEdits, type CachedGroup, type GroupEdit } from "../lib/character-group-cache";
 import {
   spriteCatalogSchema,
   normalizeSpriteExpressionLabel,
@@ -1590,13 +1592,28 @@ export function useRemovePersonaAvatar() {
 // ── Character Groups ──
 
 export function useCharacterGroups() {
+  const pendingEdits = useMutationState({
+    filters: { mutationKey: characterGroupEditKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as GroupEdit,
+  });
   return useQuery({
     queryKey: characterKeys.groups,
     queryFn: () => api.get<unknown[]>("/characters/groups/list"),
+    // Pending folder edits show at once on top of the server list; a failed one just stops showing.
+    select: (groups) => (pendingEdits.length ? applyGroupEdits(groups as CachedGroup[], pendingEdits) : groups),
   });
 }
 
 // The root list hides folder members and pages carry folder counts, so folder edits refresh both.
+
+/** Mutation key shared by folder updates and deletes, so useCharacterGroups can show them while pending. */
+const characterGroupEditKey = ["character-group-edit"] as const;
+
+/** The server accepted the edit: write it into the cache so the folder does not flash back before the refetch. */
+function commitGroupEdit(qc: ReturnType<typeof useQueryClient>, edit: GroupEdit) {
+  qc.setQueryData<CachedGroup[]>(characterKeys.groups, (old) => (old ? applyGroupEdits(old, [edit]) : old));
+}
+
 function invalidateGroupsAndCatalog(qc: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     qc.invalidateQueries({ queryKey: characterKeys.groups }),
@@ -1618,7 +1635,13 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
       api.patch(`/characters/groups/${id}`, data),
-    onSuccess: () => invalidateGroupsAndCatalog(qc),
+    mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
+    onSuccess: (_data, edit) => {
+      commitGroupEdit(qc, edit);
+      return invalidateGroupsAndCatalog(qc);
+    },
   });
 }
 
@@ -1626,7 +1649,13 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
-    onSuccess: () => invalidateGroupsAndCatalog(qc),
+    mutationKey: characterGroupEditKey,
+    // A refused edit just stops showing; refetch so the list matches the server.
+    onError: () => invalidateGroupsAndCatalog(qc),
+    onSuccess: (_data, id) => {
+      commitGroupEdit(qc, id);
+      return invalidateGroupsAndCatalog(qc);
+    },
   });
 }
 
