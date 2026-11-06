@@ -822,7 +822,6 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 }}
               />
             </div>
-
           </>
         )}
 

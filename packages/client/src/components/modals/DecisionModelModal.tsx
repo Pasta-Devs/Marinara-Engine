@@ -520,11 +520,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
       )}
 
       {nothingRuns && (
-        <button
-          type="button"
-          onClick={openDecisionConnection}
-          className="mari-chrome-control px-3 max-sm:!min-h-11"
-        >
+        <button type="button" onClick={openDecisionConnection} className="mari-chrome-control px-3 max-sm:!min-h-11">
           <Link2 size="0.75rem" />
           {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
         </button>
